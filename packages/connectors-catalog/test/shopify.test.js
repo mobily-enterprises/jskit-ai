@@ -7,6 +7,8 @@ import { createConnectionService } from "../../connectors-core/src/server/index.
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { parseIntegrationConfiguration } from "../../connectors-core/src/shared/configuration.js";
 import { shopifyProvider } from "../src/server/shopify.js";
+import { catalogMessage } from "../../kernel/shared/i18n/index.js";
+import en from "../locales/en.json" with { type: "json" };
 
 const context = { applicationId: "app-one", subjectId: "store-one" };
 const args = { context, integrationId: "shopify" };
@@ -130,7 +132,7 @@ test("Shopify packaged guide uses the actual portable schema and all captured as
   const config = JSON.parse([...guide.matchAll(/```json\n([\s\S]*?)\n```/gu)][0][1]);
   assert.deepEqual(parseIntegrationConfiguration(JSON.stringify(config), { providers: [shopifyProvider] }), config);
   assert.equal(shopifyProvider.assistantActions.length, 16);
-  const labels = shopifyProvider.assistantActions.map((action) => action.label);
+  const labels = shopifyProvider.assistantActions.map((action) => catalogMessage(en, action.label));
   for (const label of ["Enable Shopify", "Connect your Shopify store", "Claim your store", "Create product", "Update product", "Delete product",
     "Add product variant", "Update product variant", "Delete product variant", "Create discount code", "Update discount code", "Delete discount code",
     "Create price rule", "Update price rule", "Delete price rule"]) assert.ok(labels.includes(label));

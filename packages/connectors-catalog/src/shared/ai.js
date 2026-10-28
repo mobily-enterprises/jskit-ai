@@ -1,11 +1,18 @@
 import { createSchema } from "json-rest-schema";
 import snapshot from "./ai-models.json" with { type: "json" };
 
+// Message keys; render them with the app's text helper (useJskitText().text).
 const aiAccessLabels = Object.freeze({
-  "free-no-setup": "Free · no account or key",
-  "free-with-connection": "Free · connection required",
-  paid: "Paid · connection required",
-  unknown: "Pricing unknown · check provider"
+  "free-no-setup": "jskit.connectors.ai.access.freeNoSetup",
+  "free-with-connection": "jskit.connectors.ai.access.freeWithConnection",
+  paid: "jskit.connectors.ai.access.paid",
+  unknown: "jskit.connectors.ai.access.unknown"
+});
+const selectedModelHints = Object.freeze({
+  "free-no-setup": "jskit.connectors.ai.fields.model.selectedHint.freeNoSetup",
+  "free-with-connection": "jskit.connectors.ai.fields.model.selectedHint.freeWithConnection",
+  paid: "jskit.connectors.ai.fields.model.selectedHint.paid",
+  unknown: "jskit.connectors.ai.fields.model.selectedHint.unknown"
 });
 // These direct API-key routes need no coding subscription or cloud identity
 // exchange. Other upstream entries remain available as framework metadata.
@@ -15,8 +22,7 @@ const aiCatalogue = Object.freeze({ ...snapshot, providers: Object.freeze(snapsh
   ...provider, connection: directProviders.has(provider.id) ? "api-key" : "framework",
   models: Object.freeze(provider.models.map((model) => Object.freeze({ ...model, key: `${provider.id}/${model.id}`, providerId: provider.id })))
 }))) });
-const catalogueDate = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })
-  .format(new Date(snapshot.extractedAt));
+const catalogueDateFormat = Object.freeze({ day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 const models = new Map(aiCatalogue.providers.flatMap((provider) => provider.models.map((model) => [model.key, model])));
 
 function getAiModel(key) { return models.get(key); }
@@ -34,21 +40,25 @@ const modelItems = Object.freeze(listAiModels({ configurableOnly: true }).map((m
   value: model.key, title: `${model.name} (${model.providerId})`, props: { subtitle: aiAccessLabels[model.access] }
 })));
 const aiDefinition = Object.freeze({
-  id: "ai", name: "AI", description: "Choose an app AI provider, model and whose account pays. No model is preselected.",
+  id: "ai", name: "AI", description: "jskit.connectors.ai.description",
   accountModes: ["shared", "per-user"], authenticationMethods: ["api-key", "none"], scopes: [],
   authenticationMethodsForSettings: (settings = {}) => getAiModel(settings.model)?.access === "free-no-setup"
     ? ["none", "api-key"] : ["api-key"],
-  authenticationLabels: { none: "Free access · no account or key", "api-key": "Use a provider API key" },
-  authenticationHint: "Your app calls the provider directly. A shared account belongs to the app administrator; individual accounts belong to each signed-in app user.",
+  authenticationLabels: { none: "jskit.connectors.ai.authenticationLabels.none", "api-key": "jskit.connectors.ai.authenticationLabels.apiKey" },
+  authenticationHint: "jskit.connectors.ai.authenticationHint",
   settingsSchema: createSchema({ model: { type: "string", required: true,
     enum: modelItems.map((item) => item.value) } }),
-  settingsFields: [{ name: "model", label: "AI model", searchable: true, items: modelItems,
+  settingsFields: [{ name: "model", label: "jskit.connectors.ai.fields.model.label", searchable: true, items: modelItems,
     credentialScope: (key) => getAiModel(key)?.providerId,
-    hint: (settings = {}) => {
+    // The catalogue date is display text: formatDate (useJskitText's) uses the app's active locale.
+    hint: (settings = {}, { formatDate } = {}) => {
       const model = getAiModel(settings.model);
-      return `${model ? `${model.name}: ${aiAccessLabels[model.access]}. ` : "Choose a provider and model. "}Search by provider or model. Catalogue dated ${catalogueDate}; availability can change. No automatic paid fallback.`;
+      const date = formatDate ? formatDate(snapshot.extractedAt, catalogueDateFormat)
+        : new Date(snapshot.extractedAt).toLocaleDateString(undefined, catalogueDateFormat);
+      return model ? { key: selectedModelHints[model.access], params: { model: model.name, date } }
+        : { key: "jskit.connectors.ai.fields.model.hint", params: { date } };
     } }],
-  apiKeyReferenceHint: "Use an environment reference for an administrator key. For individual accounts, use a private reference your app resolves for the authenticated user. Never put a key in this file.",
+  apiKeyReferenceHint: "jskit.connectors.ai.apiKeyReferenceHint",
   setup: {
     url: "https://opencode.ai/docs/zen/",
     steps: [

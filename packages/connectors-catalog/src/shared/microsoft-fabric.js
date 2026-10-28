@@ -6,18 +6,18 @@ const guid = "[a-fA-F0-9]{8}-(?:[a-fA-F0-9]{4}-){3}[a-fA-F0-9]{12}";
 const guidPattern = new RegExp(`^${guid}$`, "u");
 const endpointPattern = new RegExp(`^https://api\\.fabric\\.microsoft\\.com/v1/workspaces/${guid}/(?:graphqlapis|graphQLApis|GraphQLApis)/${guid}/graphql$`, "u");
 const scopes = [
-  { value: delegatedScope, label: "Execute GraphQL queries and mutations as the user", recommended: true },
-  { value: "offline_access", label: "Keep user access between visits", recommended: true },
-  { value: serviceScope, label: "Use the service account's Fabric permissions", recommended: true }
+  { value: delegatedScope, label: "jskit.connectors.microsoftFabric.scopes.delegatedScope.label", recommended: true },
+  { value: "offline_access", label: "jskit.connectors.microsoftFabric.scopes.offlineAccess.label", recommended: true },
+  { value: serviceScope, label: "jskit.connectors.microsoftFabric.scopes.serviceScope.label", recommended: true }
 ];
 
 const microsoftFabricDefinition = Object.freeze({
   id: "microsoft-fabric", name: "Microsoft Fabric",
-  description: "Access one Fabric GraphQL API using user consent or a service principal.",
+  description: "jskit.connectors.microsoftFabric.description",
   accountModes: ["shared", "per-user", "assistant"], authenticationMethods: ["oauth2"],
   oauthGrantTypes: ["authorization_code", "client_credentials"], oauthClientAuthenticationMethods: ["client_secret_post"],
   validateClientId: (value) => guidPattern.test(value) || "Enter the Application (client) ID as a GUID.",
-  oauthGrantHint: "User consent needs a Web callback and delegated GraphQL permission. Service account needs a service principal with Fabric access, without a callback.",
+  oauthGrantHint: "jskit.connectors.microsoftFabric.oauthGrantHint",
   settingsSchema: createSchema({
     tenantId: { type: "string", required: true, maxLength: 36,
       validator: (value) => guidPattern.test(value) || "Enter the Directory (tenant) ID as a GUID, not common or a client ID." },
@@ -25,12 +25,12 @@ const microsoftFabricDefinition = Object.freeze({
       validator: (value) => endpointPattern.test(value) || "Copy the Fabric GraphQL API endpoint with workspace and API IDs, without a query string or fragment." }
   }),
   settingsFields: [
-    { name: "tenantId", label: "Microsoft Entra Tenant ID", placeholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", hint: "The directory containing the Fabric resource and permitted users or service principal." },
-    { name: "graphqlEndpoint", label: "Fabric GraphQL Endpoint", placeholder: "https://api.fabric.microsoft.com/v1/workspaces/<workspace-id>/graphqlapis/<api-id>/graphql",
-      hint: "Open your API for GraphQL in Fabric and select Copy endpoint. Custom proxies and sovereign-cloud addresses are not supported by this fragment." }
+    { name: "tenantId", label: "jskit.connectors.microsoftFabric.fields.tenantId.label", placeholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", hint: "jskit.connectors.microsoftFabric.fields.tenantId.hint" },
+    { name: "graphqlEndpoint", label: "jskit.connectors.microsoftFabric.fields.graphqlEndpoint.label", placeholder: "https://api.fabric.microsoft.com/v1/workspaces/<workspace-id>/graphqlapis/<api-id>/graphql",
+      hint: "jskit.connectors.microsoftFabric.fields.graphqlEndpoint.hint" }
   ],
   scopes, scopesForGrantType: (grantType) => scopes.filter((scope) => grantType === "client_credentials" ? scope.value === serviceScope : scope.value !== serviceScope),
-  permissionsHint: "Fabric Execute access permits queries and mutations. Your application must authorize the documents it executes. Data-source access is separate; this does not sign users into your application.",
+  permissionsHint: "jskit.connectors.microsoftFabric.permissionsHint",
   setup: { url: "https://learn.microsoft.com/en-us/fabric/data-engineering/connect-apps-api-graphql", steps: [
     "You need an existing Fabric API for GraphQL and permission to register an application in its Microsoft Entra directory. In Entra admin center → Entra ID → App registrations → New registration, name the app, choose the intended directory audience and Register. Copy Application (client) ID and Directory (tenant) ID from Overview into their separate fields; use the tenant GUID, not common.",
     "Open Certificates & secrets → Client secrets → New client secret. Add a description and expiry, then Add. Copy Value immediately, not Secret ID. Keep env:MICROSOFT_FABRIC_CLIENT_SECRET as the secret reference; store the secret value in Env after saving.",

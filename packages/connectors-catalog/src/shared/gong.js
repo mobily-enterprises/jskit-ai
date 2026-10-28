@@ -1,9 +1,9 @@
 import { createSchema } from "json-rest-schema";
 
 const gongDefinition = Object.freeze({
-  id: "gong", name: "Gong", description: "Read company calls, transcripts, conversation statistics and linked CRM context.",
+  id: "gong", name: "Gong", description: "jskit.connectors.gong.description",
   accountModes: ["shared", "assistant"], authenticationMethods: ["api-key"], scopes: [],
-  apiKeyReferenceLabel: "Access key secret reference",
+  apiKeyReferenceLabel: "jskit.connectors.gong.apiKeyReferenceLabel",
   settingsSchema: createSchema({
     accessKey: { type: "string", required: true, minLength: 1, maxLength: 512,
       validator: (value) => !/[:\s\p{Cc}]/u.test(value) || "Enter the access key without spaces, control characters or colons." },
@@ -12,9 +12,9 @@ const gongDefinition = Object.freeze({
         "Use https://api.gong.io or your company's https://<company>.api.gong.io address, without a path or query." }
   }),
   settingsFields: [
-    { name: "accessKey", label: "Access key", hint: "Copy the access key identifier from Gong's API settings. Store its secret separately." },
-    { name: "apiBaseUrl", label: "API base URL (optional)", placeholder: "https://api.gong.io",
-      hint: "Copy the API base URL from Gong's API settings. Leave empty to use https://api.gong.io." }
+    { name: "accessKey", label: "jskit.connectors.gong.fields.accessKey.label", hint: "jskit.connectors.gong.fields.accessKey.hint" },
+    { name: "apiBaseUrl", label: "jskit.connectors.gong.fields.apiBaseUrl.label", placeholder: "https://api.gong.io",
+      hint: "jskit.connectors.gong.fields.apiBaseUrl.hint" }
   ],
   setup: {
     url: "https://help.gong.io/docs/receive-access-to-the-api",

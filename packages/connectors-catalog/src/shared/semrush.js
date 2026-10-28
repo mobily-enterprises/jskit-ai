@@ -2,14 +2,14 @@ import { createSchema } from "json-rest-schema";
 import { secretReference } from "@jskit-ai/connectors-core/shared/configuration";
 
 const semrushDefinition = Object.freeze({
-  id: "semrush", name: "Semrush", description: "Read keyword and backlink reports and manage Semrush projects using a V4 API key.",
+  id: "semrush", name: "Semrush", description: "jskit.connectors.semrush.description",
   accountModes: ["shared", "assistant"], authenticationMethods: ["api-key"], scopes: [],
   settingsSchema: createSchema({ v3ApiKeyRef: { ...secretReference, required: false } }),
-  settingsFields: [{ name: "v3ApiKeyRef", label: "V3 API key reference (optional)", placeholder: "env:SEMRUSH_V3_KEY",
-    environmentCredential: { label: "Semrush V3 API key", public: false },
-    hint: "For domain overview and domain/URL/subfolder keyword reports and position tracking: My profile > API Keys > copy your Version 3 key into this project's Env. Leave empty if only using V4 reports/projects." }],
-  apiKeyReferenceLabel: "V4 API key reference",
-  apiKeyReferenceHint: "Use a new Semrush V4 key: Read-only for reports and project reads, Read and write for creating, renaming or deleting projects. V3 keys and OAuth tokens are different credentials.",
+  settingsFields: [{ name: "v3ApiKeyRef", label: "jskit.connectors.semrush.fields.v3ApiKeyRef.label", placeholder: "env:SEMRUSH_V3_KEY",
+    environmentCredential: { label: "jskit.connectors.semrush.fields.v3ApiKeyRef.environmentCredential.label", public: false },
+    hint: "jskit.connectors.semrush.fields.v3ApiKeyRef.hint" }],
+  apiKeyReferenceLabel: "jskit.connectors.semrush.apiKeyReferenceLabel",
+  apiKeyReferenceHint: "jskit.connectors.semrush.apiKeyReferenceHint",
   setup: { url: "https://developer.semrush.com/api/v4/get-started/quick-start/", steps: [
     "Open the profile icon in Semrush, then My profile > API Keys > + Create API key.",
     "Create a V4 key for this application. Select Read-only for reports and project reads, or Read and write if the app creates, renames or deletes projects; choose an expiry. Projects access requires SEO Business and available API units.",

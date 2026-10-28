@@ -1,23 +1,23 @@
 import { createSchema } from "json-rest-schema";
 
 const posthogDefinition = Object.freeze({
-  id: "posthog", name: "PostHog", description: "Capture events and evaluate flags with a public project token.",
+  id: "posthog", name: "PostHog", description: "jskit.connectors.posthog.description",
   accountModes: ["shared", "assistant"], authenticationMethods: ["api-key"], scopes: [],
-  apiKeyReferenceLabel: "Project token reference",
-  verificationFields: [{ name: "distinct_id", required: true, label: "Verification user ID",
-    hint: "Enter the identity whose feature flags should be evaluated. This check does not submit an analytics event." }],
-  apiKeyReferenceHint: "Use an environment reference for the project's public token (phc_). Your app may expose that token in its frontend. It cannot read private analytics.",
+  apiKeyReferenceLabel: "jskit.connectors.posthog.apiKeyReferenceLabel",
+  verificationFields: [{ name: "distinct_id", required: true, label: "jskit.connectors.posthog.verificationFields.distinctId.label",
+    hint: "jskit.connectors.posthog.verificationFields.distinctId.hint" }],
+  apiKeyReferenceHint: "jskit.connectors.posthog.apiKeyReferenceHint",
   settingsSchema: createSchema({
     region: { type: "string", enum: ["eu", "us"], defaultTo: "eu" },
     projectId: { type: "string", required: true, minLength: 1, maxLength: 20,
       validator: (value) => /^[1-9][0-9]*$/u.test(value) || "Enter the numeric project ID from PostHog project settings." }
   }),
   settingsFields: [
-    { name: "region", label: "Region", hint: "Choose the PostHog Cloud region containing this project.", items: [
-      { value: "eu", title: "Europe (eu.i.posthog.com)" }, { value: "us", title: "United States (us.i.posthog.com)" }
+    { name: "region", label: "jskit.connectors.posthog.fields.region.label", hint: "jskit.connectors.posthog.fields.region.hint", items: [
+      { value: "eu", title: "jskit.connectors.posthog.fields.region.items.eu.title" }, { value: "us", title: "jskit.connectors.posthog.fields.region.items.us.title" }
     ] },
-    { name: "projectId", label: "Project ID", placeholder: "12345",
-      hint: "Public numeric ID from project settings. Public API requests use the token to select the project; verification does not match this ID to the token." }
+    { name: "projectId", label: "jskit.connectors.posthog.fields.projectId.label", placeholder: "12345",
+      hint: "jskit.connectors.posthog.fields.projectId.hint" }
   ],
   setup: {
     url: "https://posthog.com/docs/settings/projects",

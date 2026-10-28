@@ -1,13 +1,13 @@
 const linkedinDefinition = Object.freeze({
-  id: "linkedin", name: "LinkedIn", description: "Connect a member's LinkedIn account to read their permitted profile information and publish approved text posts.",
+  id: "linkedin", name: "LinkedIn", description: "jskit.connectors.linkedin.description",
   accountModes: ["shared", "per-user", "assistant"], authenticationMethods: ["oauth2"],
   scopes: [
-    { value: "openid", label: "OpenID (required)", required: true, recommended: true },
-    { value: "profile", label: "Read basic profile (required)", required: true, recommended: true },
-    { value: "email", label: "Read primary email address" },
-    { value: "w_member_social", label: "Publish posts" }
+    { value: "openid", label: "jskit.connectors.linkedin.scopes.openid.label", required: true, recommended: true },
+    { value: "profile", label: "jskit.connectors.linkedin.scopes.profile.label", required: true, recommended: true },
+    { value: "email", label: "jskit.connectors.linkedin.scopes.email.label" },
+    { value: "w_member_social", label: "jskit.connectors.linkedin.scopes.wMemberSocial.label" }
   ],
-  permissionsHint: "OpenID and profile are required for profile verification. Email is optional. Publish posts needs LinkedIn's Share on LinkedIn product; select it and reconnect before publishing text posts.",
+  permissionsHint: "jskit.connectors.linkedin.permissionsHint",
   setup: {
     url: "https://learn.microsoft.com/en-us/linkedin/consumer/integrations/self-serve/sign-in-with-linkedin-v2",
     steps: [

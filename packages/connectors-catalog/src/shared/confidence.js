@@ -1,8 +1,8 @@
 const confidenceScopes = [
-  { value: "openid", label: "Identify the connected Confidence account", recommended: true },
-  { value: "profile", label: "Read account profile", recommended: true },
-  { value: "email", label: "Read account email", recommended: true },
-  { value: "offline_access", label: "Refresh access without repeating sign-in", recommended: true }
+  { value: "openid", label: "jskit.connectors.confidence.scopes.openid.label", recommended: true },
+  { value: "profile", label: "jskit.connectors.confidence.scopes.profile.label", recommended: true },
+  { value: "email", label: "jskit.connectors.confidence.scopes.email.label", recommended: true },
+  { value: "offline_access", label: "jskit.connectors.confidence.scopes.offlineAccess.label", recommended: true }
 ];
 
 function definition(id, name, description) {
@@ -22,7 +22,7 @@ function definition(id, name, description) {
   });
 }
 
-const confidenceFlagsDefinition = definition("confidence-flags", "Confidence Flags", "Manage Confidence flags through the assistant owner's MCP connection.");
-const confidenceExpDefinition = definition("confidence-exp", "Confidence Exp", "Read Confidence experiments and results through the assistant owner's MCP connection.");
+const confidenceFlagsDefinition = definition("confidence-flags", "Confidence Flags", "jskit.connectors.confidenceFlags.description");
+const confidenceExpDefinition = definition("confidence-exp", "Confidence Exp", "jskit.connectors.confidenceExp.description");
 
 export { confidenceFlagsDefinition, confidenceExpDefinition };

@@ -1,5 +1,5 @@
 const firecrawlDefinition = Object.freeze({
-  id: "firecrawl", name: "Firecrawl", description: "Search, map, scrape and extract web content; run bounded site crawls.",
+  id: "firecrawl", name: "Firecrawl", description: "jskit.connectors.firecrawl.description",
   accountModes: ["shared", "assistant"], authenticationMethods: ["api-key"], scopes: [],
   setup: {
     url: "https://docs.firecrawl.dev/introduction",

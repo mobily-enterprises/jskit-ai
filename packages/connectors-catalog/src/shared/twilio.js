@@ -2,9 +2,9 @@ import { createSchema } from "json-rest-schema";
 import { secretReference } from "@jskit-ai/connectors-core/shared/configuration";
 
 const twilioDefinition = Object.freeze({
-  id: "twilio", name: "Twilio", description: "Send SMS, initiate calls and read delivery/call status for the selected account and region.",
+  id: "twilio", name: "Twilio", description: "jskit.connectors.twilio.description",
   accountModes: ["shared", "assistant"], authenticationMethods: ["api-key"], scopes: [],
-  apiKeyReferenceLabel: "API key secret reference",
+  apiKeyReferenceLabel: "jskit.connectors.twilio.apiKeyReferenceLabel",
   settingsSchema: createSchema({
     authTokenRef: { ...secretReference, required: false },
     region: { type: "string", enum: ["us1", "ie1", "au1"], defaultTo: "us1" },
@@ -14,12 +14,12 @@ const twilioDefinition = Object.freeze({
       validator: (value) => /^SK[0-9a-fA-F]{32}$/u.test(value) || "Enter an API Key SID starting with SK followed by 32 hexadecimal characters." }
   }),
   settingsFields: [
-    { name: "authTokenRef", label: "Callback Auth Token reference (optional)", placeholder: "env:TWILIO_AUTH_TOKEN", hint: "For inbound messages, voice and delivery callbacks. Copy the account Auth Token from Twilio Console into private Env; this is NOT the API key secret." },
-    { name: "region", label: "Region", hint: "Choose the region where this API key was created.", items: [
-      { value: "us1", title: "United States (US1)" }, { value: "ie1", title: "Ireland (IE1)" }, { value: "au1", title: "Australia (AU1)" }
+    { name: "authTokenRef", label: "jskit.connectors.twilio.fields.authTokenRef.label", placeholder: "env:TWILIO_AUTH_TOKEN", hint: "jskit.connectors.twilio.fields.authTokenRef.hint" },
+    { name: "region", label: "jskit.connectors.twilio.fields.region.label", hint: "jskit.connectors.twilio.fields.region.hint", items: [
+      { value: "us1", title: "jskit.connectors.twilio.fields.region.items.us1.title" }, { value: "ie1", title: "jskit.connectors.twilio.fields.region.items.ie1.title" }, { value: "au1", title: "jskit.connectors.twilio.fields.region.items.au1.title" }
     ] },
-    { name: "accountSid", label: "Account SID", placeholder: "AC followed by 32 hexadecimal characters", hint: "Copy the SID of the account or subaccount whose calls this app may read." },
-    { name: "apiKeySid", label: "Standard API Key SID", placeholder: "SK followed by 32 hexadecimal characters", hint: "Copy the API Key SID for this account and region. Store its secret separately." }
+    { name: "accountSid", label: "jskit.connectors.twilio.fields.accountSid.label", placeholder: "jskit.connectors.twilio.fields.accountSid.placeholder", hint: "jskit.connectors.twilio.fields.accountSid.hint" },
+    { name: "apiKeySid", label: "jskit.connectors.twilio.fields.apiKeySid.label", placeholder: "jskit.connectors.twilio.fields.apiKeySid.placeholder", hint: "jskit.connectors.twilio.fields.apiKeySid.hint" }
   ],
   setup: {
     url: "https://www.twilio.com/docs/iam/api-keys/keys-in-console",

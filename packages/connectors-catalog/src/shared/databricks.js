@@ -5,22 +5,22 @@ function validWorkspaceUrl(value) {
   return /^https:\/\/(?:dbc-[a-z0-9]+(?:-[a-z0-9]+)*\.cloud\.databricks\.com|adb-[0-9]+\.[0-9]+\.azuredatabricks\.net|[0-9]+\.[0-9]+\.gcp\.databricks\.com)\/?$/u.test(value);
 }
 const scopes = [
-  { value: "all-apis", label: "APIs allowed by the connected account", recommended: true },
-  { value: "offline_access", label: "Keep user access between visits", recommended: true },
-  { value: "jobs", label: "Jobs API access for the service account" }
+  { value: "all-apis", label: "jskit.connectors.databricks.scopes.allApis.label", recommended: true },
+  { value: "offline_access", label: "jskit.connectors.databricks.scopes.offlineAccess.label", recommended: true },
+  { value: "jobs", label: "jskit.connectors.databricks.scopes.jobs.label" }
 ];
 const databricksDefinition = Object.freeze({
-  id: "databricks", name: "Databricks", description: "Read workspace jobs through user consent or a service principal.",
+  id: "databricks", name: "Databricks", description: "jskit.connectors.databricks.description",
   accountModes: ["shared", "per-user", "assistant"], authenticationMethods: ["oauth2"],
   oauthGrantTypes: ["authorization_code", "client_credentials"],
   oauthClientAuthenticationMethods: (grantType) => grantType === "client_credentials" ? ["client_secret_basic"] : ["client_secret_post"],
-  oauthGrantHint: "User consent needs a custom OAuth application. Service account needs a service principal's client ID and OAuth secret, without a callback.",
+  oauthGrantHint: "jskit.connectors.databricks.oauthGrantHint",
   settingsSchema: createSchema({ workspaceUrl: { type: "string", required: true, maxLength: 253,
     validator: (value) => validWorkspaceUrl(value) || "Enter the HTTPS per-workspace URL for Databricks on AWS, Azure or Google Cloud, without a path or query." } }),
-  settingsFields: [{ name: "workspaceUrl", label: "Workspace URL", placeholder: "https://dbc-abc123.cloud.databricks.com",
-    hint: "Use the workspace's own address. Omit browser paths, query strings and account-console URLs." }],
+  settingsFields: [{ name: "workspaceUrl", label: "jskit.connectors.databricks.fields.workspaceUrl.label", placeholder: "https://dbc-abc123.cloud.databricks.com",
+    hint: "jskit.connectors.databricks.fields.workspaceUrl.hint" }],
   scopes, scopesForGrantType: (grantType) => scopes.filter((scope) => grantType === "client_credentials" ? scope.value !== "offline_access" : scope.value !== "jobs"),
-  permissionsHint: "Permissions also depend on workspace membership and resource access. The jobs fragment only reads metadata; these OAuth scopes can permit more in other clients.",
+  permissionsHint: "jskit.connectors.databricks.permissionsHint",
   setup: { url: "https://docs.databricks.com/aws/en/integrations/enable-disable-oauth", steps: [
     "Enter the intended workspace's HTTPS origin in Workspace URL. Choose User consent for a custom OAuth application, or Service account for a service principal; these require different credentials.",
     "For User consent, an account admin opens account console > Settings > App connections > Add connection. Enter the app name and exact suggested callback, choose All APIs, generate a confidential client secret, set token lifetimes and add the connection. Copy the client ID and one-time secret. Activation can take 30 minutes.",

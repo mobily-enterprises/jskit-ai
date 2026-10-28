@@ -1,11 +1,11 @@
 const ouraDefinition = Object.freeze({
-  id: "oura", name: "Oura", description: "Connect an individual's Oura account to read sleep, readiness, activity, heart-rate and permitted profile data.",
+  id: "oura", name: "Oura", description: "jskit.connectors.oura.description",
   accountModes: ["per-user"], authenticationMethods: ["oauth2"],
   scopes: [
-    { value: "daily", label: "Read daily sleep, activity and readiness summaries", required: true },
-    { value: "heartrate", label: "Read heart-rate samples" },
-    { value: "personal", label: "Read personal profile information" },
-    { value: "email", label: "Read the account email address" }
+    { value: "daily", label: "jskit.connectors.oura.scopes.daily.label", required: true },
+    { value: "heartrate", label: "jskit.connectors.oura.scopes.heartrate.label" },
+    { value: "personal", label: "jskit.connectors.oura.scopes.personal.label" },
+    { value: "email", label: "jskit.connectors.oura.scopes.email.label" }
   ],
   setup: {
     url: "https://support.ouraring.com/hc/en-us/articles/4415266939155-The-Oura-API",

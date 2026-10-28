@@ -2,40 +2,267 @@
   "jskit": {
     "connectors": {
       "ai": {
+        "access": {
+          "freeNoSetup": "Free · no account or key",
+          "freeWithConnection": "Free · connection required",
+          "paid": "Paid · connection required",
+          "unknown": "Pricing unknown · check provider"
+        },
         "accessConnectionDenied": "Access to this AI connection was denied.",
+        "apiKeyReferenceHint": "Use an environment reference for an administrator key. For individual accounts, use a private reference your app resolves for the authenticated user. Never put a key in this file.",
+        "authenticationHint": "Your app calls the provider directly. A shared account belongs to the app administrator; individual accounts belong to each signed-in app user.",
+        "authenticationLabels": {
+          "apiKey": "Use a provider API key",
+          "none": "Free access · no account or key"
+        },
         "authorizedAccountApiKeyUnavailable": "The authorized AI account's API key is unavailable.",
         "connectionNotConfigured": "This AI connection is not configured.",
+        "description": "Choose an app AI provider, model and whose account pays. No model is preselected.",
+        "fields": {
+          "model": {
+            "hint": "Choose a provider and model. Search by provider or model. Catalogue dated {date}; availability can change. No automatic paid fallback.",
+            "label": "AI model",
+            "selectedHint": {
+              "freeNoSetup": "{model}: Free · no account or key. Search by provider or model. Catalogue dated {date}; availability can change. No automatic paid fallback.",
+              "freeWithConnection": "{model}: Free · connection required. Search by provider or model. Catalogue dated {date}; availability can change. No automatic paid fallback.",
+              "paid": "{model}: Paid · connection required. Search by provider or model. Catalogue dated {date}; availability can change. No automatic paid fallback.",
+              "unknown": "{model}: Pricing unknown · check provider. Search by provider or model. Catalogue dated {date}; availability can change. No automatic paid fallback."
+            }
+          }
+        },
         "individualAccountsRequireUserOwned": "Individual AI accounts require a user-owned reference, not a shared environment variable."
       },
+      "airtable": {
+        "description": "Discover bases, read and edit records, and manage tables and fields."
+      },
+      "algolia": {
+        "description": "Search and maintain index records, and check indexing completion.",
+        "fields": {
+          "applicationId": {
+            "hint": "Copy the ID from your Algolia application's API Keys page. This ID can be public.",
+            "label": "Application ID"
+          },
+          "publicApiKeyRef": {
+            "environmentCredential": {
+              "label": "Public frontend API key"
+            },
+            "hint": "Optional search-only key for your frontend. Enter its reference; your app decides whether to expose its value.",
+            "label": "Public API key reference (optional)"
+          }
+        }
+      },
       "amazonRedshift": {
+        "description": "Inspect tables and run queries in a serverless workgroup or provisioned cluster.",
         "didNotReturnStatementIdentifier": "Redshift did not return a statement identifier.",
+        "fields": {
+          "clusterIdentifier": {
+            "label": "Cluster identifier"
+          },
+          "database": {
+            "label": "Database"
+          },
+          "databaseUser": {
+            "hint": "Leave blank to use the database identity derived from IAM.",
+            "label": "Database user (optional)"
+          },
+          "deploymentType": {
+            "items": {
+              "provisioned": {
+                "title": "Provisioned cluster"
+              },
+              "serverless": {
+                "title": "Serverless"
+              }
+            },
+            "label": "Deployment type"
+          },
+          "region": {
+            "hint": "Use the warehouse's region. Availability depends on your AWS account and deployment type.",
+            "label": "AWS Region"
+          },
+          "workgroup": {
+            "hint": "The serverless workgroup name, without an ARN or URL.",
+            "label": "Workgroup name"
+          }
+        },
         "returnedUnexpectedStatement": "Redshift returned an unexpected statement.",
         "statementBelongsDifferentTarget": "This statement belongs to a different Redshift target.",
         "statementNoFinishedResultSet": "This statement has no finished result set.",
         "useSqlParameterNameOnce": "Use each SQL parameter name only once."
       },
+      "amplitude": {
+        "description": "Query and manage Amplitude content through an authorized assistant MCP connection.",
+        "fields": {
+          "region": {
+            "hint": "Choose the region containing your Amplitude account and register the client there.",
+            "items": {
+              "eu": {
+                "title": "European Union"
+              },
+              "us": {
+                "title": "United States"
+              }
+            },
+            "label": "Region"
+          }
+        },
+        "scopes": {
+          "mcpRead": {
+            "label": "Read Amplitude content (required for verification)"
+          },
+          "mcpWrite": {
+            "label": "Create and edit Amplitude content"
+          },
+          "offlineAccess": {
+            "label": "Refresh access without repeating sign-in"
+          }
+        }
+      },
       "apify": {
+        "description": "Run Actors with explicit limits and retrieve their results.",
         "useFrameworkNativeClientStream": "Use the framework's native Apify client to stream records larger than 8 MiB."
       },
       "apolloIo": {
+        "description": "Find prospects, enrich selected records and manage your sales contacts, accounts and deals.",
         "enterRecordRequiredIdentifyingFields": "Enter the record's required identifying fields or changes."
       },
       "asana": {
+        "description": "Discover projects and create, assign and track tasks in your Asana workspace.",
         "includeDueSettingClearingStart": "Include due_on when setting or clearing start_on.",
         "startDateMustPrecedeProject": "The start date must precede the project due date, or be no later than the task due date."
       },
       "ashby": {
         "couldNotCompleteOperation": "Ashby could not complete the operation.",
+        "description": "Read hiring data, maintain candidate profiles and advance sourced applications.",
         "supplyLeastCandidateProfileChange": "Supply at least one candidate profile change."
       },
+      "atlassian": {
+        "description": "Use Jira, Confluence and other Atlassian tools through the assistant owner's Rovo MCP connection.",
+        "scopes": {
+          "deleteJiraAgentInterface": {
+            "label": "Delete Jira content"
+          },
+          "email": {
+            "label": "Read your email address"
+          },
+          "manageJiraAgentInterface": {
+            "label": "Manage Jira"
+          },
+          "offlineAccess": {
+            "label": "Refresh access without repeating sign-in"
+          },
+          "readAccount": {
+            "label": "Read your account"
+          },
+          "readAllTwg": {
+            "label": "Read Teamwork Graph content"
+          },
+          "readConfluenceAgentInterface": {
+            "label": "Read Confluence content"
+          },
+          "readJiraAgentInterface": {
+            "label": "Read Jira content"
+          },
+          "readMe": {
+            "label": "Read your profile"
+          },
+          "readProduct": {
+            "label": "Read {product} content"
+          },
+          "searchCodeAgentInterface": {
+            "label": "Search code"
+          },
+          "searchConfluenceAgentInterface": {
+            "label": "Search Confluence"
+          },
+          "searchJiraAgentInterface": {
+            "label": "Search Jira"
+          },
+          "searchRovoAgentInterface": {
+            "label": "Search with Rovo"
+          },
+          "writeAllTwg": {
+            "label": "Write Teamwork Graph content"
+          },
+          "writeConfluenceAgentInterface": {
+            "label": "Create and edit Confluence content"
+          },
+          "writeJiraAgentInterface": {
+            "label": "Create and edit Jira content"
+          },
+          "writeProduct": {
+            "label": "Create and edit {product} content"
+          }
+        }
+      },
       "attention": {
+        "description": "Read conversations and coaching results; manage call metadata, snippets, users and teams.",
         "endTimeMustFollowStart": "End time must follow start time."
       },
       "aws": {
         "checkRegionResourceOperationSettings": "Check the AWS region, resource and operation settings.",
+        "credentials": {
+          "apiKeyReferenceHint": "Use a reference such as env:AWS_SECRET_ACCESS_KEY. Credentials belong to the configured AWS account; host defaults are never used.",
+          "apiKeyReferenceLabel": "Secret access key reference"
+        },
         "deniedOperationCheckIamResource": "AWS denied this operation. Check IAM, resource and database permissions.",
+        "fields": {
+          "accessKeyIdRef": {
+            "environmentCredential": {
+              "label": "AWS access key ID"
+            },
+            "hint": "Store the access key ID in Env and enter its reference.",
+            "label": "Access key ID reference"
+          },
+          "region": {
+            "label": "AWS Region"
+          },
+          "sessionTokenRef": {
+            "environmentCredential": {
+              "label": "AWS session token"
+            },
+            "hint": "Required with temporary STS credentials. The host must renew all three credential bindings before they expire.",
+            "label": "Session token reference (optional)"
+          }
+        },
         "provideAccessKeyIdSecret": "Provide the AWS access key ID, secret access key and any required session token bindings.",
         "regionDoesNotMatchOperation": "The AWS region does not match the operation destination.",
+        "regions": {
+          "afSouth1": "Cape Town ({region})",
+          "apEast1": "Hong Kong ({region})",
+          "apEast2": "Taipei ({region})",
+          "apNortheast1": "Tokyo ({region})",
+          "apNortheast2": "Seoul ({region})",
+          "apNortheast3": "Osaka ({region})",
+          "apSouth1": "Mumbai ({region})",
+          "apSouth2": "Hyderabad ({region})",
+          "apSoutheast1": "Singapore ({region})",
+          "apSoutheast2": "Sydney ({region})",
+          "apSoutheast3": "Jakarta ({region})",
+          "apSoutheast4": "Melbourne ({region})",
+          "apSoutheast5": "Malaysia ({region})",
+          "apSoutheast6": "New Zealand ({region})",
+          "apSoutheast7": "Thailand ({region})",
+          "caCentral1": "Canada Central ({region})",
+          "caWest1": "Calgary ({region})",
+          "euCentral1": "Frankfurt ({region})",
+          "euCentral2": "Zurich ({region})",
+          "euNorth1": "Stockholm ({region})",
+          "euSouth1": "Milan ({region})",
+          "euSouth2": "Spain ({region})",
+          "euWest1": "Ireland ({region})",
+          "euWest2": "London ({region})",
+          "euWest3": "Paris ({region})",
+          "ilCentral1": "Tel Aviv ({region})",
+          "meCentral1": "UAE ({region})",
+          "meSouth1": "Bahrain ({region})",
+          "mxCentral1": "Mexico Central ({region})",
+          "saEast1": "São Paulo ({region})",
+          "usEast1": "N. Virginia ({region})",
+          "usEast2": "Ohio ({region})",
+          "usWest1": "N. California ({region})",
+          "usWest2": "Oregon ({region})"
+        },
         "renewCredentialBindingsConnectAgain": "Renew the AWS credential bindings and connect again.",
         "requestFailedReturnedUnreadableResponse": "The AWS request failed or returned an unreadable response.",
         "requestLimitReached": "The AWS request limit was reached.",
@@ -43,27 +270,311 @@
         "sdkSelectedUnexpectedDestination": "The AWS SDK selected an unexpected destination."
       },
       "awsAthena": {
+        "description": "Browse data catalogs and schemas; start, inspect, page through and cancel queries in a configured workgroup.",
+        "fields": {
+          "resultLocation": {
+            "hint": "Leave blank when the workgroup supplies its own result storage. Enforced workgroup settings take precedence.",
+            "label": "Query result location (optional)"
+          },
+          "workgroup": {
+            "hint": "Defaults to primary. Query access is restricted to this workgroup.",
+            "label": "Workgroup (optional)"
+          }
+        },
         "queryBelongsDifferentWorkgroup": "This query belongs to a different workgroup.",
         "returnedDifferentWorkgroup": "Athena returned a different workgroup.",
         "returnedUnexpectedQuery": "Athena returned an unexpected query."
       },
       "awsS3": {
-        "returnedUnexpectedBucketPageSize": "S3 returned an unexpected bucket or page size."
+        "description": "List bucket objects and create short-lived download or upload URLs.",
+        "fields": {
+          "bucket": {
+            "label": "Bucket name"
+          }
+        },
+        "permissionsHint": "These choices limit the application's operations. AWS IAM and bucket policies decide actual access; selecting a permission does not grant it in AWS.",
+        "returnedUnexpectedBucketPageSize": "S3 returned an unexpected bucket or page size.",
+        "scopes": {
+          "read": {
+            "label": "List and download objects from bucket"
+          },
+          "write": {
+            "label": "Also upload objects via pre-signed URLs"
+          }
+        }
+      },
+      "bigquery": {
+        "description": "Configure the query project, run queries and retrieve results.",
+        "fields": {
+          "projectId": {
+            "hint": "The project that runs and is billed for queries. It can differ from the project containing your datasets. The initial connection check only lists accessible projects.",
+            "label": "Google Cloud project ID"
+          }
+        },
+        "scopes": {
+          "bigquery": {
+            "label": "Manage BigQuery data"
+          },
+          "bigqueryReadonly": {
+            "label": "Read BigQuery data and metadata"
+          },
+          "cloudPlatform": {
+            "label": "Manage Google Cloud resources"
+          },
+          "cloudPlatformReadOnly": {
+            "label": "Read Google Cloud resources"
+          }
+        }
       },
       "brevo": {
         "chooseTemplateProvideSubjectEmail": "Choose a template or provide a subject and email content.",
+        "description": "Send email and SMS, manage contacts and campaigns, and track delivery and automation events.",
         "smsContentOrTemplate": "Choose SMS content or a template, not both."
       },
       "calendly": {
         "chooseEventOwner": "Choose the user, organization or group whose events to read.",
-        "choosePositiveRangeMost31": "Choose a positive range of at most 31 days."
+        "choosePositiveRangeMost31": "Choose a positive range of at most 31 days.",
+        "description": "Read meetings and invitees, check availability, create booking links and manage appointments.",
+        "scopes": {
+          "activityLogRead": {
+            "label": "activity log — read"
+          },
+          "availabilityRead": {
+            "label": "availability — read"
+          },
+          "availabilityWrite": {
+            "label": "availability — write"
+          },
+          "contactsRead": {
+            "label": "contacts — read"
+          },
+          "contactsWrite": {
+            "label": "contacts — write"
+          },
+          "dataComplianceWrite": {
+            "label": "data compliance — write"
+          },
+          "eventTypesRead": {
+            "label": "event types — read"
+          },
+          "eventTypesWrite": {
+            "label": "event types — write"
+          },
+          "groupsRead": {
+            "label": "groups — read"
+          },
+          "locationsRead": {
+            "label": "locations — read"
+          },
+          "organizationsRead": {
+            "label": "organizations — read"
+          },
+          "organizationsWrite": {
+            "label": "organizations — write"
+          },
+          "outgoingCommunicationsRead": {
+            "label": "outgoing communications — read"
+          },
+          "routingFormsRead": {
+            "label": "routing forms — read"
+          },
+          "scheduledEventsRead": {
+            "label": "scheduled events — read"
+          },
+          "scheduledEventsWrite": {
+            "label": "scheduled events — write"
+          },
+          "schedulingLinksWrite": {
+            "label": "scheduling links — write"
+          },
+          "sharesWrite": {
+            "label": "shares — write"
+          },
+          "usersRead": {
+            "label": "users — read"
+          },
+          "webhooksRead": {
+            "label": "webhooks — read"
+          },
+          "webhooksWrite": {
+            "label": "webhooks — write"
+          }
+        }
+      },
+      "canva": {
+        "clientIdHint": "Serve your client metadata JSON at this HTTPS URL. Canva must approve the callback; this setup uses no client secret.",
+        "clientIdLabel": "Client metadata URL",
+        "description": "Discover and use Canva design tools through each assistant owner's account.",
+        "scopes": {
+          "assetRead": {
+            "label": "Read assets"
+          },
+          "assetWrite": {
+            "label": "Upload and edit assets"
+          },
+          "brandkitRead": {
+            "label": "Read brand kits"
+          },
+          "brandtemplateContentRead": {
+            "label": "Read brand template content"
+          },
+          "brandtemplateContentWrite": {
+            "label": "Create and edit brand templates"
+          },
+          "brandtemplateMetaRead": {
+            "label": "Read brand template information"
+          },
+          "commentRead": {
+            "label": "Read comments"
+          },
+          "commentWrite": {
+            "label": "Write comments"
+          },
+          "designContentRead": {
+            "label": "Read design content"
+          },
+          "designContentWrite": {
+            "label": "Create and edit designs"
+          },
+          "designMetaRead": {
+            "label": "Read design information"
+          },
+          "folderRead": {
+            "label": "Read folders"
+          },
+          "folderWrite": {
+            "label": "Create and edit folders"
+          },
+          "helpAnswersRead": {
+            "label": "Read help answers"
+          },
+          "helpAnswersWrite": {
+            "label": "Write help answers"
+          },
+          "profileRead": {
+            "label": "Read your profile"
+          }
+        }
+      },
+      "chargebee": {
+        "description": "Manage customers and subscriptions, read invoices and launch hosted checkout for a Chargebee site.",
+        "fields": {
+          "siteName": {
+            "hint": "Your Chargebee site name, without .chargebee.com. Test and live sites use different keys.",
+            "label": "Site name"
+          }
+        }
+      },
+      "clay": {
+        "apiKeyReferenceLabel": "Public API key reference",
+        "description": "Search people and companies, run enrichment routines and query Enterprise tables with your Clay Public API key."
+      },
+      "clickhouse": {
+        "apiKeyReferenceHint": "Use a reference such as env:CLICKHOUSE_PASSWORD. Leave blank only if this database user has an empty password.",
+        "apiKeyReferenceLabel": "Password reference (optional)",
+        "authenticationHint": "No credentials uses the server's default user. Choose it only for a server configured to allow that access.",
+        "authenticationLabels": {
+          "apiKey": "Username and password",
+          "none": "No credentials"
+        },
+        "description": "Explore tables and run bounded, parameterized analytical reads on your ClickHouse database.",
+        "fields": {
+          "httpUrl": {
+            "hint": "Use the HTTPS query endpoint, including its port and any proxy path. Native TCP addresses do not work here.",
+            "label": "HTTP Interface URL"
+          },
+          "username": {
+            "hint": "The database user, not your Cloud console login. Leave blank to use default.",
+            "label": "Username (optional)"
+          }
+        }
+      },
+      "confidence": {
+        "scopes": {
+          "email": {
+            "label": "Read account email"
+          },
+          "offlineAccess": {
+            "label": "Refresh access without repeating sign-in"
+          },
+          "openid": {
+            "label": "Identify the connected Confidence account"
+          },
+          "profile": {
+            "label": "Read account profile"
+          }
+        }
+      },
+      "confidenceExp": {
+        "description": "Read Confidence experiments and results through the assistant owner's MCP connection."
+      },
+      "confidenceFlags": {
+        "description": "Manage Confidence flags through the assistant owner's MCP connection."
+      },
+      "contentful": {
+        "apiKeyReferenceLabel": "Content Delivery API token reference",
+        "description": "Read published entries, linked assets, content models and locales from a Contentful space.",
+        "fields": {
+          "environmentId": {
+            "hint": "The key must have access to this environment. Defaults to master.",
+            "label": "Environment ID"
+          },
+          "region": {
+            "items": {
+              "eu": {
+                "title": "Europe"
+              },
+              "us": {
+                "title": "United States"
+              }
+            },
+            "label": "Region"
+          },
+          "spaceId": {
+            "hint": "Copy the Space ID from the selected space's API keys page.",
+            "label": "Space ID"
+          }
+        }
       },
       "databricks": {
-        "returnedUnexpectedJobResponse": "Databricks returned an unexpected job response."
+        "description": "Read workspace jobs through user consent or a service principal.",
+        "fields": {
+          "workspaceUrl": {
+            "hint": "Use the workspace's own address. Omit browser paths, query strings and account-console URLs.",
+            "label": "Workspace URL"
+          }
+        },
+        "oauthGrantHint": "User consent needs a custom OAuth application. Service account needs a service principal's client ID and OAuth secret, without a callback.",
+        "permissionsHint": "Permissions also depend on workspace membership and resource access. The jobs fragment only reads metadata; these OAuth scopes can permit more in other clients.",
+        "returnedUnexpectedJobResponse": "Databricks returned an unexpected job response.",
+        "scopes": {
+          "allApis": {
+            "label": "APIs allowed by the connected account"
+          },
+          "jobs": {
+            "label": "Jobs API access for the service account"
+          },
+          "offlineAccess": {
+            "label": "Keep user access between visits"
+          }
+        }
       },
       "dbtSemanticLayer": {
+        "apiKeyReferenceHint": "Store the dbt service token in Env. It needs Semantic Layer Only and Metadata Only permissions and a linked warehouse credential.",
+        "apiKeyReferenceLabel": "Service token reference",
         "completedWithoutJsonResultTable": "dbt completed without a JSON result table.",
         "couldNotCompleteRequestedOperation": "dbt could not complete the requested operation. Check the environment and service token permissions.",
+        "description": "Discover metrics and query their values in a dbt Semantic Layer environment.",
+        "fields": {
+          "environmentId": {
+            "hint": "The deployment environment containing your metrics. Keep the full ID as text to avoid rounding.",
+            "label": "Environment ID"
+          },
+          "host": {
+            "hint": "Copy the GraphQL hostname from dbt's Semantic Layer settings. Regional, single-tenant and multi-cell dbt hosts are supported.",
+            "label": "Semantic Layer host"
+          }
+        },
         "queryFailedInspectStatusDo": "dbt query failed. Inspect its status in dbt; do not automatically submit it again.",
         "returnedInvalidJsonResultPage": "dbt returned an invalid JSON result page.",
         "returnedInvalidJsonTable": "dbt returned an invalid JSON table.",
@@ -73,42 +584,284 @@
       },
       "elevenlabs": {
         "audioSamplesMustTotalMost": "Audio samples must total at most 16 MiB.",
+        "description": "Generate speech, discover voices/models and create instant voice clones.",
         "didNotReturnAudio": "ElevenLabs did not return audio.",
         "returnedEmptyAudio": "ElevenLabs returned empty audio.",
         "useNativeStreamingAudioAbove": "Use native streaming for audio above 16 MiB."
       },
+      "figma": {
+        "description": "Discover and call Figma's remote design tools through the assistant owner's account.",
+        "scopes": {
+          "mcpConnect": {
+            "label": "Use Figma MCP tools"
+          }
+        }
+      },
       "firebaseCloudMessaging": {
         "couldNotAuthorizeServiceAccount": "Google could not authorize the service account. Check the credential and project permissions.",
+        "description": "Send notifications to mobile and browser installations, tokens or topics.",
+        "fields": {
+          "apiKey": {
+            "hint": "Public API key from the Firebase web app configuration. This value is visible in your deployed app.",
+            "label": "Firebase API key"
+          },
+          "appId": {
+            "hint": "Public appId from the same Firebase project and web app.",
+            "label": "Firebase App ID"
+          },
+          "clientMode": {
+            "hint": "Existing mobile/browser targets need server credentials. Include web push to configure browser registration too.",
+            "items": {
+              "server": {
+                "title": "Server or native only"
+              },
+              "web": {
+                "title": "Include web push"
+              }
+            },
+            "label": "Client setup"
+          },
+          "projectId": {
+            "hint": "The project receiving messages. Usually project_id in your JSON; cross-project access requires an IAM grant on this target project.",
+            "label": "Firebase project ID"
+          },
+          "vapidKey": {
+            "hint": "Public key from Project settings > Cloud Messaging > Web Push certificates. Never paste the private VAPID key.",
+            "label": "Web Push VAPID key"
+          }
+        },
+        "permissionsHint": "Firebase IAM controls which projects this service account can send to. Sending to an audience also requires your application's authorization.",
         "recipientNoLongerRegisteredRemove": "This Firebase recipient is no longer registered. Remove its association and wait for client registration again.",
         "rejectedMessageTargetDoNot": "Firebase rejected the message or target. Do not delete a registration unless the payload is known to be valid.",
         "returnedInvalidMessageJson": "Firebase returned invalid message JSON.",
         "returnedUnexpectedMessageReceipt": "Firebase returned an unexpected message receipt.",
         "returnedUnexpectedTokenRedirect": "Google returned an unexpected token redirect.",
+        "scopes": {
+          "firebaseMessagingScope": {
+            "label": "Validate and send Firebase messages"
+          }
+        },
+        "serviceAccountReferenceHint": "Store the complete service-account JSON in Env, then enter its reference. It stays on the server and is never included in the browser configuration.",
+        "serviceAccountReferenceLabel": "Service-account JSON reference",
         "useValidServiceAccountJson": "Use a valid Firebase service-account JSON credential for the default Google API domain."
       },
       "firecrawl": {
+        "description": "Search, map, scrape and extract web content; run bounded site crawls.",
         "useReturnedNextPageUrl": "Use the returned next-page URL for this crawl."
+      },
+      "fireflies": {
+        "description": "Read and search Fireflies meetings, speaker-attributed transcripts and summaries."
+      },
+      "fireworksAi": {
+        "description": "List accounts accessible to your Fireworks API key."
+      },
+      "gatewayApi": {
+        "description": "Send SMS/RCS messages and read account credit on the Global or EU platform.",
+        "fields": {
+          "region": {
+            "hint": "Select the platform that issued this token.",
+            "items": {
+              "eu": {
+                "title": "EU (gatewayapi.eu)"
+              },
+              "global": {
+                "title": "Global (gatewayapi.com)"
+              }
+            },
+            "label": "API domain"
+          }
+        }
       },
       "gatewayapi": {
         "invalidWebhookEvent": "Invalid GatewayAPI webhook event."
       },
+      "geminiEnterprise": {
+        "description": "Search documents in a configured Gemini Enterprise engine.",
+        "fields": {
+          "engineId": {
+            "hint": "The existing search app identifier in default_collection, not its display name or full resource path.",
+            "label": "Engine ID"
+          },
+          "location": {
+            "hint": "Match the engine's location. The runtime uses the corresponding Google API endpoint.",
+            "items": {
+              "eu": {
+                "title": "European Union"
+              },
+              "global": {
+                "title": "Global"
+              },
+              "us": {
+                "title": "United States"
+              }
+            },
+            "label": "Location"
+          },
+          "projectId": {
+            "hint": "The Google Cloud project where the Gemini Enterprise app lives.",
+            "label": "GCP project ID"
+          }
+        },
+        "permissionsHint": "Google IAM and source permissions apply to the connected Google account. Shared access uses that same account for every authorized caller; it does not provide each app user's own search identity.",
+        "scopes": {
+          "geminiEnterpriseScope": {
+            "label": "Cloud Platform (full access)"
+          }
+        }
+      },
+      "githubApi": {
+        "description": "Read repository content and activity; create and update issues and pull requests.",
+        "scopes": {
+          "gist": {
+            "label": "Gists"
+          },
+          "notifications": {
+            "label": "Notifications"
+          },
+          "offlineAccess": {
+            "label": "Expiring tokens with refresh access"
+          },
+          "project": {
+            "label": "Projects"
+          },
+          "publicRepo": {
+            "label": "Public repositories"
+          },
+          "readOrg": {
+            "label": "Read organizations"
+          },
+          "readUser": {
+            "label": "Read user profile"
+          },
+          "repo": {
+            "label": "Repositories"
+          },
+          "userEmail": {
+            "label": "Email"
+          },
+          "workflow": {
+            "label": "Workflows"
+          }
+        }
+      },
+      "gitlabApi": {
+        "description": "Read project content and activity; create and update issues and merge requests.",
+        "fields": {
+          "instanceUrl": {
+            "hint": "The trusted GitLab instance that receives this connection's credentials. Defaults to GitLab.com.",
+            "label": "Instance URL"
+          }
+        },
+        "scopes": {
+          "api": {
+            "label": "Full API access"
+          },
+          "readApi": {
+            "label": "Read API"
+          },
+          "readUser": {
+            "label": "Read user profile"
+          }
+        }
+      },
       "gmail": {
+        "description": "Read and search mail, manage drafts and labels, and explicitly send messages.",
+        "scopes": {
+          "gmailAddonsCurrentActionCompose": {
+            "label": "Compose from an add-on"
+          },
+          "gmailAddonsCurrentMessageAction": {
+            "label": "Act on the current add-on message"
+          },
+          "gmailAddonsCurrentMessageMetadata": {
+            "label": "Read the current add-on message headers"
+          },
+          "gmailAddonsCurrentMessageReadonly": {
+            "label": "Read the current add-on message"
+          },
+          "gmailCompose": {
+            "label": "Manage drafts and send messages"
+          },
+          "gmailInsert": {
+            "label": "Insert messages"
+          },
+          "gmailLabels": {
+            "label": "Manage labels"
+          },
+          "gmailMetadata": {
+            "label": "Read message headers and labels"
+          },
+          "gmailModify": {
+            "label": "Read and modify messages"
+          },
+          "gmailReadonly": {
+            "label": "Read messages"
+          },
+          "gmailSend": {
+            "label": "Send messages"
+          },
+          "gmailSettingsBasic": {
+            "label": "Manage basic mail settings"
+          },
+          "gmailSettingsSharing": {
+            "label": "Manage sharing settings"
+          },
+          "httpsMailGoogleCom": {
+            "label": "Full mailbox access including permanent deletion"
+          }
+        },
         "supplyLabelsAddRemove": "Supply labels to add or remove."
       },
       "gong": {
+        "apiKeyReferenceLabel": "Access key secret reference",
+        "description": "Read company calls, transcripts, conversation statistics and linked CRM context.",
         "endDateMustFollowStart": "The end date must follow the start date.",
+        "fields": {
+          "accessKey": {
+            "hint": "Copy the access key identifier from Gong's API settings. Store its secret separately.",
+            "label": "Access key"
+          },
+          "apiBaseUrl": {
+            "hint": "Copy the API base URL from Gong's API settings. Leave empty to use https://api.gong.io.",
+            "label": "API base URL (optional)"
+          }
+        },
         "supplyCallIdsOrderedTimestamp": "Supply call IDs or an ordered timestamp range.",
         "supplyIdsStringsPreserveAll": "Supply Gong IDs as strings to preserve all digits."
       },
       "google": {
-        "batchRequestsInvalid": "Supply 1–100 native {product} request objects, one operation per object, within 1 MiB."
+        "batchRequestsInvalid": "Supply 1–100 native {product} request objects, one operation per object, within 1 MiB.",
+        "scopes": {
+          "drive": {
+            "label": "Manage Drive files"
+          },
+          "driveFile": {
+            "label": "Access files selected for this application"
+          },
+          "driveReadonly": {
+            "label": "Read Drive files"
+          }
+        }
       },
       "googleAds": {
         "apiCapacityExhaustedCheckCloud": "Google Ads API capacity is exhausted. Check the Cloud project and account quotas.",
         "checkApiAccessApprovalCloud": "Check Google Ads API access approval for the Cloud project that owns this OAuth client.",
         "connectAgainRequiredPermission": "Connect Google Ads again with its required permission.",
+        "description": "Discover advertising accounts, prepare reviewed Search campaigns and read Google Ads reports.",
+        "fields": {
+          "loginCustomerId": {
+            "hint": "Use the manager through which this app accesses client accounts, without hyphens. Direct account access can leave this blank.",
+            "label": "Manager customer ID (optional)"
+          }
+        },
+        "permissionsHint": "This Google permission can authorize campaign changes. Search management uses separate reviewed operations; your application must authorize each account and spending decision. This is not application login.",
         "rejectedOperationCheckCampaignFields": "Google Ads rejected the operation. Check campaign fields, policy requirements and account permissions.",
-        "resourceUnavailable": "This Google Ads resource is unavailable."
+        "resourceUnavailable": "This Google Ads resource is unavailable.",
+        "scopes": {
+          "httpsWwwGoogleapisComAuthAdwords": {
+            "label": "Access Google Ads accounts"
+          }
+        }
       },
       "googleAdsSearch": {
         "campaignChangedInspectApproveAgain": "The campaign changed. Inspect and approve it again.",
@@ -127,59 +880,554 @@
         "searchPlanChangedReviewAgain": "The Search plan changed. Review it again before creation.",
         "selectAccessibleSearchCampaign": "Select an accessible Search campaign."
       },
+      "googleAnalytics": {
+        "authenticationHint": "Your application loads the Google tag. This does not grant access to Analytics reports.",
+        "authenticationLabels": {
+          "none": "Public configuration · no credentials"
+        },
+        "description": "Configure website tracking with your public GA4 Measurement ID.",
+        "fields": {
+          "measurementId": {
+            "hint": "Public: this value will be visible in your deployed application. Copy it from your GA4 web stream.",
+            "label": "Measurement ID"
+          }
+        }
+      },
+      "googleDocs": {
+        "description": "Create documents, read tabs and edit content with native batch requests.",
+        "scopes": {
+          "documents": {
+            "label": "Manage documents"
+          },
+          "documentsReadonly": {
+            "label": "Read documents"
+          }
+        },
+        "verificationFields": {
+          "documentId": {
+            "hint": "Leave blank for create-first access with drive.file and Drive API enabled. To verify an existing document, copy its ID between /document/d/ and /edit; the account and this app must have access.",
+            "label": "Document ID (optional)"
+          }
+        }
+      },
       "googleDrive": {
         "base64Invalid": "Use standard padded base64 file data.",
+        "description": "Find files, upload and download content, and manage basic file metadata.",
         "metadataChangeRequired": "Supply a name, description or trashed value.",
         "mimeTypeInvalid": "Use a MIME type without header parameters.",
         "parentIdNewFilesOnly": "parentId applies to new files; moving files requires native addParents/removeParents wiring.",
+        "scopes": {
+          "drive": {
+            "label": "Manage all Drive files"
+          },
+          "driveActivity": {
+            "label": "Read and add file activity"
+          },
+          "driveActivityReadonly": {
+            "label": "Read file activity"
+          },
+          "driveAppdata": {
+            "label": "Manage application data"
+          },
+          "driveAppfolder": {
+            "label": "Manage this application’s Drive folder data"
+          },
+          "driveAppsReadonly": {
+            "label": "Read installed Drive apps"
+          },
+          "driveFile": {
+            "label": "Manage files selected for this application"
+          },
+          "driveMeetReadonly": {
+            "label": "Read Meet-created files"
+          },
+          "driveMetadata": {
+            "label": "Manage file metadata"
+          },
+          "driveMetadataReadonly": {
+            "label": "Read file metadata"
+          },
+          "drivePhotosReadonly": {
+            "label": "Read photos"
+          },
+          "driveReadonly": {
+            "label": "Read and download files"
+          },
+          "driveScripts": {
+            "label": "Manage Apps Script files"
+          }
+        },
         "uploadTooLarge": "Uploads above 5 MB require the framework's native resumable client.",
         "useFrameworkNativeDriveClient": "Use the framework's native Drive client for downloads or exports above 8 MiB."
       },
       "googleMapsPlatform": {
+        "apiKeyReferenceHint": "Reference a server key authorized for Geocoding API. Verification performs one geocoding request using an address you supply and can incur provider usage charges.",
+        "apiKeyReferenceLabel": "Server API key reference",
         "checkServerKeyBillingUsage": "Check the Google Maps server key, billing and usage cap.",
         "couldNotAcceptGeocodingRequest": "Google Maps could not accept this geocoding request.",
         "couldNotProcessRequestTry": "Google Maps could not process the request. Try again.",
         "deniedAccessCheckEnabledApi": "Google Maps denied access. Check the enabled API and key restrictions.",
-        "requestQuotaReached": "The Google Maps request quota was reached."
+        "description": "Geocode addresses, find places, compute routes and configure browser maps.",
+        "fields": {
+          "browserKeyRef": {
+            "hint": "A separate key for browser maps. Restrict it to the actual application websites and APIs. Backend verification does not verify this key.",
+            "label": "Browser API key reference (optional)"
+          },
+          "mapId": {
+            "hint": "Public JavaScript map ID for advanced markers. Create it in Google Maps Platform > Map management. DEMO_MAP_ID is only for development.",
+            "label": "Map ID (optional)"
+          }
+        },
+        "requestQuotaReached": "The Google Maps request quota was reached.",
+        "verificationFields": {
+          "address": {
+            "hint": "Enter an address or plus code. Connecting performs one geocoding request and can incur provider usage charges.",
+            "label": "Verification address"
+          }
+        }
       },
       "googleSearchConsole": {
-        "datesOrder": "startDate must not follow endDate."
+        "datesOrder": "startDate must not follow endDate.",
+        "description": "Query search performance, inspect indexed URLs and manage sitemaps.",
+        "scopes": {
+          "siteverification": {
+            "label": "Manage website ownership through Site Verification"
+          },
+          "siteverificationVerifyOnly": {
+            "label": "Verify new website ownership through Site Verification"
+          },
+          "webmasters": {
+            "label": "Manage Search Console properties"
+          },
+          "webmastersReadonly": {
+            "label": "Read Search Console properties"
+          }
+        }
       },
       "googleSheets": {
+        "description": "Create spreadsheets, read and write ranges, and apply native batch updates.",
         "rangesInvalid": "Supply 1–100 ranges within 1 MiB.",
-        "valuesMatrixInvalid": "Supply a matrix of at most 10,000 cells and 1 MiB, containing strings, finite numbers, booleans or null."
+        "scopes": {
+          "driveMetadataReadonly": {
+            "label": "Read Drive file metadata (does not grant spreadsheet content access)"
+          },
+          "spreadsheets": {
+            "label": "Manage spreadsheets"
+          },
+          "spreadsheetsReadonly": {
+            "label": "Read spreadsheets"
+          }
+        },
+        "valuesMatrixInvalid": "Supply a matrix of at most 10,000 cells and 1 MiB, containing strings, finite numbers, booleans or null.",
+        "verificationFields": {
+          "spreadsheetId": {
+            "hint": "Leave blank for create-first access with drive.file and Drive API enabled. Otherwise copy the ID between /spreadsheets/d/ and /edit, not the gid tab number; the account and app must have access.",
+            "label": "Spreadsheet ID (optional)"
+          }
+        }
+      },
+      "googleSlides": {
+        "description": "Create and edit presentations, read pages and obtain preview thumbnails.",
+        "scopes": {
+          "presentations": {
+            "label": "Manage presentations"
+          },
+          "presentationsReadonly": {
+            "label": "Read presentations"
+          },
+          "spreadsheets": {
+            "label": "Manage linked spreadsheets"
+          },
+          "spreadsheetsReadonly": {
+            "label": "Read linked spreadsheets"
+          }
+        },
+        "verificationFields": {
+          "presentationId": {
+            "hint": "Leave blank for create-first access with drive.file and Drive API enabled. Otherwise copy the ID between /presentation/d/ and /edit; this is not a slide object ID. The account and app must have access.",
+            "label": "Presentation ID (optional)"
+          }
+        }
       },
       "granola": {
+        "description": "Read meeting notes with an API key or connect the assistant owner through Granola MCP OAuth.",
         "noteUnavailable": "The Granola note is unavailable, inaccessible or still being processed.",
         "readTranscriptPagesTranscriptsList": "Read the transcript in pages with transcripts.list.",
         "returnedDataDoesNotMatch": "Granola returned data that does not match this request.",
+        "scopes": {
+          "email": {
+            "label": "Read account email"
+          },
+          "offlineAccess": {
+            "label": "Refresh access without repeating sign-in"
+          },
+          "openid": {
+            "label": "Identify the connected Granola account"
+          },
+          "profile": {
+            "label": "Read account profile"
+          }
+        },
         "useGrnApiKeyWithout": "Use the Granola grn_ API key without whitespace or control characters."
+      },
+      "hex": {
+        "description": "Search projects and use Hex Threads through the assistant owner's MCP connection.",
+        "fields": {
+          "endpoint": {
+            "hint": "Use the endpoint where your Hex workspace lives; register the OAuth client at that endpoint.",
+            "items": {
+              "eu": {
+                "title": "Europe (eu.hex.tech)"
+              },
+              "hipaa": {
+                "title": "HIPAA (hc.hex.tech)"
+              },
+              "standard": {
+                "title": "Standard (app.hex.tech)"
+              }
+            },
+            "label": "Hex workspace endpoint"
+          }
+        },
+        "scopes": {
+          "email": {
+            "label": "Read account email"
+          },
+          "offlineAccess": {
+            "label": "Refresh access without repeating sign-in"
+          },
+          "openid": {
+            "label": "Identify the connected Hex account"
+          },
+          "profile": {
+            "label": "Read account profile"
+          }
+        }
+      },
+      "heygen": {
+        "description": "Read API profile and voices with a key, or connect HeyGen MCP tools through browser OAuth.",
+        "scopes": {
+          "email": {
+            "label": "Read account email"
+          },
+          "openid": {
+            "label": "Identify the connected HeyGen account"
+          },
+          "profile": {
+            "label": "Read account profile"
+          }
+        }
+      },
+      "heygenKey": {
+        "description": "Read your API account profile and browse voice metadata."
       },
       "hubspot": {
         "contactIdentityRequired": "Supply email, firstname or lastname.",
-        "dealNameStageRequired": "Supply dealname and the internal dealstage ID."
+        "dealNameStageRequired": "Supply dealname and the internal dealstage ID.",
+        "scopes": {
+          "crmObjectsContactsRead": {
+            "label": "Read CRM contacts"
+          },
+          "crmObjectsContactsWrite": {
+            "label": "Create and update CRM contacts"
+          },
+          "crmObjectsDealsRead": {
+            "label": "Read deals and pipelines"
+          },
+          "crmObjectsDealsWrite": {
+            "label": "Create and update CRM deals"
+          },
+          "oauth": {
+            "label": "Authorize the HubSpot app"
+          }
+        }
+      },
+      "hubspotKey": {
+        "description": "Manage contacts, deals and their relationships in the connected HubSpot account."
+      },
+      "incidentIo": {
+        "description": "Manage incidents and follow-ups, resolve alerts, read on-call schedules and maintain catalogue entries."
       },
       "inngest": {
+        "apiKeyReferenceHint": "Reference the Signing Key for the intended Inngest environment. Verification reads app metadata; it does not verify the Event Key or run a workflow.",
+        "apiKeyReferenceLabel": "Signing Key reference",
         "configureValidEventKeyReconnect": "Configure a valid Inngest Event Key and reconnect.",
         "deniedEvent": "Inngest denied this event.",
+        "description": "Send events to background workflows and inspect registered apps.",
         "eventKeyBindingMissingInvalid": "The Inngest Event Key binding is missing or invalid.",
-        "eventLimitReached": "Inngest's event limit was reached."
+        "eventLimitReached": "Inngest's event limit was reached.",
+        "fields": {
+          "branchEnvironment": {
+            "hint": "Routes event delivery to this branch. App metadata reads follow the Signing Key's environment.",
+            "label": "Branch environment (optional)"
+          },
+          "eventKeyRef": {
+            "environmentCredential": {
+              "label": "Inngest Event Key"
+            },
+            "hint": "The Event Key sends events. Keep it separate from the Signing Key, and use keys from the same intended environment.",
+            "label": "Event Key reference"
+          }
+        }
       },
       "klipy": {
+        "description": "Browse clips, GIFs, stickers and existing AI emojis using your own KLIPY app key.",
         "rejectedOperation": "KLIPY rejected the operation."
       },
+      "lexware": {
+        "description": "Read accounting contacts, articles and vouchers, and create net-EUR draft invoices."
+      },
       "lightspeed": {
+        "description": "Read products, inventory, sales, customers and outlets from a Lightspeed Retail X-Series store.",
+        "fields": {
+          "domainPrefix": {
+            "hint": "The store prefix from https://your-store.retail.lightspeed.app. Use the store you intend to authorize.",
+            "label": "Domain prefix"
+          }
+        },
         "lowerVersionMustBelowUpper": "The lower version must be below the upper version.",
         "returnedInvalidTokenGrantDifferent": "Lightspeed returned an invalid token grant or a different store.",
+        "scopes": {
+          "auditRead": {
+            "label": "Read audit events"
+          },
+          "businessRulesRead": {
+            "label": "Read business rules"
+          },
+          "businessRulesWrite": {
+            "label": "Edit business rules"
+          },
+          "channelsRead": {
+            "label": "Read channels"
+          },
+          "consignmentsRead": {
+            "label": "Read consignments"
+          },
+          "consignmentsWriteInventoryCount": {
+            "label": "Perform inventory counts"
+          },
+          "consignmentsWriteStockOrder": {
+            "label": "Process stock orders"
+          },
+          "consignmentsWriteStockTransfer": {
+            "label": "Transfer stock"
+          },
+          "customFieldsRead": {
+            "label": "Read custom fields"
+          },
+          "customFieldsWrite": {
+            "label": "Edit custom fields"
+          },
+          "customersRead": {
+            "label": "Read customers"
+          },
+          "customersWrite": {
+            "label": "Edit customers"
+          },
+          "fulfillmentsRead": {
+            "label": "Read fulfillments"
+          },
+          "fulfillmentsWrite": {
+            "label": "Edit fulfillments"
+          },
+          "giftCardsRead": {
+            "label": "Read gift cards"
+          },
+          "giftCardsWriteIssue": {
+            "label": "Issue gift cards"
+          },
+          "giftCardsWriteRedeem": {
+            "label": "Redeem gift cards"
+          },
+          "inventoryRead": {
+            "label": "Read inventory"
+          },
+          "inventoryWrite": {
+            "label": "Edit inventory"
+          },
+          "outletsRead": {
+            "label": "Read outlets"
+          },
+          "paymentTypesRead": {
+            "label": "Read payment types"
+          },
+          "paymentsRead": {
+            "label": "Read payments"
+          },
+          "productsRead": {
+            "label": "Read products"
+          },
+          "productsReadPriceBooks": {
+            "label": "Read price books"
+          },
+          "productsWrite": {
+            "label": "Edit products"
+          },
+          "productsWritePriceBooks": {
+            "label": "Edit price books"
+          },
+          "promotionsRead": {
+            "label": "Read promotions"
+          },
+          "promotionsWrite": {
+            "label": "Edit promotions"
+          },
+          "registerClose": {
+            "label": "Close registers"
+          },
+          "registerOpen": {
+            "label": "Open registers"
+          },
+          "registersRead": {
+            "label": "Read registers"
+          },
+          "remoteRulesRead": {
+            "label": "Read remote rules"
+          },
+          "remoteRulesWrite": {
+            "label": "Edit remote rules"
+          },
+          "retailerRead": {
+            "label": "Read retailer settings"
+          },
+          "salesRead": {
+            "label": "Read sales"
+          },
+          "salesWrite": {
+            "label": "Edit sales"
+          },
+          "serialNumbersRead": {
+            "label": "Read serial numbers"
+          },
+          "serialNumbersWrite": {
+            "label": "Edit serial numbers"
+          },
+          "servicesRead": {
+            "label": "Read services"
+          },
+          "servicesWrite": {
+            "label": "Edit services"
+          },
+          "storeCreditsRead": {
+            "label": "Read store credits"
+          },
+          "storeCreditsWriteIssue": {
+            "label": "Issue store credits"
+          },
+          "suppliersRead": {
+            "label": "Read suppliers"
+          },
+          "suppliersWrite": {
+            "label": "Edit suppliers"
+          },
+          "taxesRead": {
+            "label": "Read taxes"
+          },
+          "taxesWrite": {
+            "label": "Edit taxes"
+          },
+          "usersRead": {
+            "label": "Read users"
+          },
+          "usersWrite": {
+            "label": "Edit users"
+          },
+          "webhooks": {
+            "label": "Manage application webhooks"
+          }
+        },
         "useOrderedInventoryVersionBounds": "Use ordered inventory version bounds and a product ID when requesting variants."
+      },
+      "linear": {
+        "scopes": {
+          "commentsCreate": {
+            "label": "Create comments"
+          },
+          "issuesCreate": {
+            "label": "Create issues and attachments"
+          },
+          "read": {
+            "label": "Read your account"
+          },
+          "timeScheduleWrite": {
+            "label": "Manage time schedules"
+          },
+          "write": {
+            "label": "Write on your behalf"
+          }
+        }
+      },
+      "linearKey": {
+        "description": "Read profiles and issues, or use Linear MCP tools with the connected account."
       },
       "linkedin": {
         "connectOpenidProfilePermissions": "Connect LinkedIn with OpenID and profile permissions.",
+        "description": "Connect a member's LinkedIn account to read their permitted profile information and publish approved text posts.",
         "didNotConfirmPostCreation": "LinkedIn did not confirm post creation.",
-        "returnedInvalidMemberIdentity": "LinkedIn returned an invalid member identity."
+        "permissionsHint": "OpenID and profile are required for profile verification. Email is optional. Publish posts needs LinkedIn's Share on LinkedIn product; select it and reconnect before publishing text posts.",
+        "returnedInvalidMemberIdentity": "LinkedIn returned an invalid member identity.",
+        "scopes": {
+          "email": {
+            "label": "Read primary email address"
+          },
+          "openid": {
+            "label": "OpenID (required)"
+          },
+          "profile": {
+            "label": "Read basic profile (required)"
+          },
+          "wMemberSocial": {
+            "label": "Publish posts"
+          }
+        }
+      },
+      "logoDev": {
+        "apiKeyReferenceHint": "Reference a pk_ key. Your application exposes its value in image URLs. A private sk_ key cannot be used for this image flow.",
+        "apiKeyReferenceLabel": "Publishable key reference",
+        "description": "Display company logos using a publishable image-service key."
+      },
+      "mailgun": {
+        "description": "Send transactional email, manage sending domains and inspect delivery logs.",
+        "fields": {
+          "region": {
+            "hint": "Select the region containing your sending domains.",
+            "items": {
+              "eu": {
+                "title": "European Union (api.eu.mailgun.net)"
+              },
+              "us": {
+                "title": "United States (api.mailgun.net)"
+              }
+            },
+            "label": "API region"
+          }
+        }
       },
       "mapbox": {
-        "configureValidTokenConnectAgain": "Configure a valid Mapbox token and connect again."
+        "apiKeyReferenceHint": "Use a reference to a token for backend requests. It may be a public (pk.) or secret (sk.) token; browser URL restrictions can block backend geocoding.",
+        "apiKeyReferenceLabel": "Backend access token reference",
+        "configureValidTokenConnectAgain": "Configure a valid Mapbox token and connect again.",
+        "description": "Validate a backend access token and look up places or coordinates.",
+        "fields": {
+          "publicTokenRef": {
+            "environmentCredential": {
+              "label": "Public browser token"
+            },
+            "hint": "Required for browser-only mode; optional with backend geocoding. Separate pk. token for Mapbox in your browser. The application may expose this value; backend verification does not verify its restrictions.",
+            "label": "Public browser token reference"
+          },
+          "usage": {
+            "items": {
+              "backend": {
+                "title": "Backend geocoding and optional browser maps"
+              },
+              "browser": {
+                "title": "Browser maps only"
+              }
+            },
+            "label": "Mapbox usage"
+          }
+        }
       },
       "mcp": {
         "registrationFailed": "{provider} client registration failed. Check the provider before creating another client.",
@@ -188,12 +1436,113 @@
       },
       "microsoft": {
         "chooseDocumentFile": "Choose a {product} file.",
+        "fields": {
+          "tenantId": {
+            "hint": "Use {authority} for the default audience, or the directory GUID for a single-tenant app. This is not the Application (client) ID.",
+            "label": "Directory (tenant) ID"
+          }
+        },
         "returnedInvalidFileList": "Microsoft returned an invalid file list.",
-        "returnedInvalidFileMetadata": "Microsoft returned invalid file metadata."
+        "returnedInvalidFileMetadata": "Microsoft returned invalid file metadata.",
+        "scopes": {
+          "offlineAccess": {
+            "label": "Keep access when you are away"
+          }
+        }
+      },
+      "microsoftExcel": {
+        "description": "Browse workbooks and read or update bounded cell ranges with explicit sessions.",
+        "scopes": {
+          "filesRead": {
+            "label": "Read your files"
+          },
+          "filesReadAll": {
+            "label": "Read all files you can access"
+          },
+          "filesReadWrite": {
+            "label": "Read and write your files (required by Excel worksheets)"
+          },
+          "filesReadWriteAll": {
+            "label": "Read and write all files you can access"
+          },
+          "offlineAccess": {
+            "label": "Keep access when you are away"
+          }
+        }
       },
       "microsoftFabric": {
         "couldNotCompleteGraphqlDocument": "Fabric could not complete the GraphQL document. Check its schema and permissions before retrying.",
-        "requiresNewSignConsent": "Microsoft requires a new sign-in or consent."
+        "description": "Access one Fabric GraphQL API using user consent or a service principal.",
+        "fields": {
+          "graphqlEndpoint": {
+            "hint": "Open your API for GraphQL in Fabric and select Copy endpoint. Custom proxies and sovereign-cloud addresses are not supported by this fragment.",
+            "label": "Fabric GraphQL Endpoint"
+          },
+          "tenantId": {
+            "hint": "The directory containing the Fabric resource and permitted users or service principal.",
+            "label": "Microsoft Entra Tenant ID"
+          }
+        },
+        "oauthGrantHint": "User consent needs a Web callback and delegated GraphQL permission. Service account needs a service principal with Fabric access, without a callback.",
+        "permissionsHint": "Fabric Execute access permits queries and mutations. Your application must authorize the documents it executes. Data-source access is separate; this does not sign users into your application.",
+        "requiresNewSignConsent": "Microsoft requires a new sign-in or consent.",
+        "scopes": {
+          "delegatedScope": {
+            "label": "Execute GraphQL queries and mutations as the user"
+          },
+          "offlineAccess": {
+            "label": "Keep user access between visits"
+          },
+          "serviceScope": {
+            "label": "Use the service account's Fabric permissions"
+          }
+        }
+      },
+      "microsoftOneDrive": {
+        "description": "Browse folders, obtain file downloads and upload small files.",
+        "scopes": {
+          "filesRead": {
+            "label": "Read your files"
+          },
+          "filesReadAll": {
+            "label": "Read all files you can access"
+          },
+          "filesReadWrite": {
+            "label": "Read and write your files"
+          },
+          "filesReadWriteAll": {
+            "label": "Read and write all files you can access"
+          },
+          "filesReadWriteAppFolder": {
+            "label": "Read and write files in the application's folder"
+          },
+          "offlineAccess": {
+            "label": "Keep access when you are away"
+          }
+        }
+      },
+      "microsoftOneNote": {
+        "description": "Browse notebooks and pages, read content, and create or append text notes.",
+        "scopes": {
+          "notesCreate": {
+            "label": "Create pages in OneNote notebooks"
+          },
+          "notesRead": {
+            "label": "Read your notebooks"
+          },
+          "notesReadAll": {
+            "label": "Read notebooks you can access in your organization"
+          },
+          "notesReadWrite": {
+            "label": "Read and modify your notebooks"
+          },
+          "notesReadWriteAll": {
+            "label": "Read and modify notebooks you can access in your organization"
+          },
+          "offlineAccess": {
+            "label": "Keep access when you are away"
+          }
+        }
       },
       "microsoftOnedrive": {
         "useStandardPaddedBase64Up": "Use standard padded base64 up to 5 MB; larger files need a native upload session."
@@ -202,41 +1551,367 @@
         "useNativeOnenoteClientPages": "Use the native OneNote client for pages above 1 MiB."
       },
       "microsoftOutlook": {
-        "endMustFollowStart": "End must follow start."
+        "description": "Read messages and files, send text mail, manage read/folder state and calendar appointments.",
+        "endMustFollowStart": "End must follow start.",
+        "scopes": {
+          "calendarsRead": {
+            "label": "Read your calendars"
+          },
+          "calendarsReadWrite": {
+            "label": "Read and write your calendars"
+          },
+          "mailRead": {
+            "label": "Read your mail"
+          },
+          "mailReadBasic": {
+            "label": "Read basic mail properties"
+          },
+          "mailReadWrite": {
+            "label": "Read and write your mail"
+          },
+          "mailSend": {
+            "label": "Send mail as you"
+          },
+          "offlineAccess": {
+            "label": "Keep access when you are away"
+          }
+        }
+      },
+      "microsoftPowerPoint": {
+        "description": "Browse PowerPoint files and folders in your drive and read presentation metadata.",
+        "scopes": {
+          "filesRead": {
+            "label": "Read your files"
+          }
+        }
+      },
+      "microsoftSharePoint": {
+        "description": "Browse sites/libraries, transfer small files and edit list items.",
+        "scopes": {
+          "filesReadAll": {
+            "label": "Read all files that user can access"
+          },
+          "filesReadWriteAll": {
+            "label": "Read and write all files that user can access"
+          },
+          "offlineAccess": {
+            "label": "Keep access when you are away"
+          },
+          "sitesFullControlAll": {
+            "label": "Have full control of all site collections"
+          },
+          "sitesManageAll": {
+            "label": "Create, edit, and delete items and lists in all site collections"
+          },
+          "sitesReadAll": {
+            "label": "Read items in all site collections"
+          },
+          "sitesReadWriteAll": {
+            "label": "Edit or delete items in all site collections"
+          },
+          "userRead": {
+            "label": "Read user profile"
+          }
+        },
+        "verificationFields": {
+          "search": {
+            "hint": "Enter a search term for accessible SharePoint sites. Verification performs this search without changing a site.",
+            "label": "Site search"
+          }
+        }
+      },
+      "microsoftTeams": {
+        "description": "Browse teams/channels and read or send channel and existing-chat messages.",
+        "scopes": {
+          "channelMessageReadAll": {
+            "label": "Read channel messages"
+          },
+          "channelMessageSend": {
+            "label": "Send messages to channels"
+          },
+          "channelReadBasicAll": {
+            "label": "List channels in teams"
+          },
+          "chatReadWrite": {
+            "label": "Read and send chat messages"
+          },
+          "offlineAccess": {
+            "label": "Keep access when you are away"
+          },
+          "teamReadBasicAll": {
+            "label": "List joined teams"
+          },
+          "userRead": {
+            "label": "Read user profile"
+          },
+          "userReadAll": {
+            "label": "Read all users' full profiles"
+          }
+        }
+      },
+      "microsoftWord": {
+        "description": "Browse Word files and folders in your drive and read document metadata.",
+        "scopes": {
+          "filesRead": {
+            "label": "Read your files"
+          }
+        }
+      },
+      "miro": {
+        "description": "Use Miro board tools through the assistant owner's selected team.",
+        "scopes": {
+          "boardsRead": {
+            "label": "Read boards"
+          },
+          "boardsWrite": {
+            "label": "Create and edit boards"
+          },
+          "email": {
+            "label": "Read your email address"
+          },
+          "openid": {
+            "label": "Include account identity"
+          }
+        }
       },
       "n8n": {
+        "apiKeyReferenceHint": "Use the personal token from Instance-level MCP, not an n8n REST API key. The assistant host must authorize individual tool calls.",
+        "apiKeyReferenceLabel": "MCP access token reference",
+        "description": "Discover and use your n8n instance's MCP tools from an assistant.",
         "discoverOauthSettingsExactMcp": "Discover OAuth settings for this exact n8n MCP URL before connecting.",
+        "fields": {
+          "serverUrl": {
+            "hint": "Copy the full Server URL from n8n's MCP connection details. Keep any reverse-proxy subdirectory.",
+            "label": "Server URL"
+          }
+        },
         "oauthDiscoveryFailedCheckMcp": "n8n OAuth discovery failed. Check the MCP URL, advertised authority and supported server version.",
         "oauthDiscoveryInterrupted": "n8n OAuth discovery was interrupted.",
         "selectPermissionsAdvertisedMcpServer": "Select only permissions advertised by this n8n MCP server."
       },
+      "notion": {
+        "fields": {
+          "connectionType": {
+            "hint": "Hosted MCP needs its own client registration and consent; REST credentials cannot be reused.",
+            "items": {
+              "mcp": {
+                "title": "Hosted assistant tools (MCP)"
+              },
+              "rest": {
+                "title": "Application data (REST)"
+              }
+            },
+            "label": "Connection type"
+          }
+        },
+        "scopes": {
+          "default": {
+            "label": "Notion MCP access"
+          }
+        }
+      },
+      "notionInternal": {
+        "description": "Read, query and update pages and data sources shared with a Notion connection."
+      },
       "oura": {
+        "description": "Connect an individual's Oura account to read sleep, readiness, activity, heart-rate and permitted profile data.",
+        "scopes": {
+          "daily": {
+            "label": "Read daily sleep, activity and readiness summaries"
+          },
+          "email": {
+            "label": "Read the account email address"
+          },
+          "heartrate": {
+            "label": "Read heart-rate samples"
+          },
+          "personal": {
+            "label": "Read personal profile information"
+          }
+        },
         "startNotAfterEnd": "Start must be before or equal to end."
       },
       "paddle": {
-        "chooseLeastNotificationSettingChange": "Choose at least one notification setting to change."
+        "assistantActions": {
+          "apiRead": {
+            "label": "Read Paddle API"
+          },
+          "apiWrite": {
+            "label": "Write Paddle API"
+          },
+          "enable": {
+            "label": "Enable Paddle"
+          },
+          "goLiveCheck": {
+            "label": "Check go-live status"
+          },
+          "pricesCreate": {
+            "label": "Create price"
+          },
+          "productsBatchCreate": {
+            "label": "Batch create products with prices"
+          },
+          "productsCreate": {
+            "label": "Create product with price"
+          },
+          "providerRecommend": {
+            "label": "Recommend payment provider"
+          },
+          "webhooksUpdate": {
+            "label": "Edit webhook"
+          }
+        },
+        "chooseLeastNotificationSettingChange": "Choose at least one notification setting to change.",
+        "description": "Read and create Paddle Billing products and prices in sandbox or live mode.",
+        "fields": {
+          "environment": {
+            "hint": "Use the environment that issued this API key.",
+            "items": {
+              "live": {
+                "title": "Live"
+              },
+              "sandbox": {
+                "title": "Sandbox"
+              }
+            },
+            "label": "Environment"
+          }
+        }
+      },
+      "perplexity": {
+        "description": "Connect your Perplexity key for app-owned cited answers and streaming."
       },
       "pipedrive": {
         "companyAddressChangedConnectAccount": "The Pipedrive company address changed. Connect this account again.",
+        "fields": {
+          "companyDomain": {
+            "hint": "For acme.pipedrive.com enter acme. Required for API-token CRM operations; OAuth uses the company address returned with consent.",
+            "label": "Company domain (API token)"
+          }
+        },
         "returnedInvalidCompanyApiAddress": "Pipedrive returned an invalid company API address.",
         "setCompanyDomainApiToken": "Set the Pipedrive Company domain for API-token CRM operations.",
         "supplyChangedFieldsNewLead": "Supply changed fields; a new lead also needs a person or organization."
       },
+      "pipedriveToken": {
+        "description": "Read the authenticated user and identify their Pipedrive company."
+      },
+      "polar": {
+        "description": "Read your organization's Polar product catalogue.",
+        "fields": {
+          "environment": {
+            "hint": "Use the environment containing this organization and token.",
+            "items": {
+              "production": {
+                "title": "Production"
+              },
+              "sandbox": {
+                "title": "Sandbox"
+              }
+            },
+            "label": "Environment"
+          }
+        }
+      },
       "posthog": {
+        "apiKeyReferenceHint": "Use an environment reference for the project's public token (phc_). Your app may expose that token in its frontend. It cannot read private analytics.",
+        "apiKeyReferenceLabel": "Project token reference",
         "couldNotEvaluateAllRequested": "PostHog could not evaluate all requested flags.",
+        "description": "Capture events and evaluate flags with a public project token.",
         "featureFlagQuotaReached": "PostHog's feature flag quota has been reached.",
-        "usePublicProjectTokenStarting": "Use the public PostHog project token starting with phc_."
+        "fields": {
+          "projectId": {
+            "hint": "Public numeric ID from project settings. Public API requests use the token to select the project; verification does not match this ID to the token.",
+            "label": "Project ID"
+          },
+          "region": {
+            "hint": "Choose the PostHog Cloud region containing this project.",
+            "items": {
+              "eu": {
+                "title": "Europe (eu.i.posthog.com)"
+              },
+              "us": {
+                "title": "United States (us.i.posthog.com)"
+              }
+            },
+            "label": "Region"
+          }
+        },
+        "usePublicProjectTokenStarting": "Use the public PostHog project token starting with phc_.",
+        "verificationFields": {
+          "distinctId": {
+            "hint": "Enter the identity whose feature flags should be evaluated. This check does not submit an analytics event.",
+            "label": "Verification user ID"
+          }
+        }
+      },
+      "prestashop": {
+        "apiKeyReferenceHint": "Store the Webservice key outside source. Grant GET for products, and for orders if the application needs order reads.",
+        "apiKeyReferenceLabel": "Webservice API key reference",
+        "description": "Read products and orders from your PrestaShop store.",
+        "fields": {
+          "siteUrl": {
+            "hint": "Use the HTTPS store address before /api, keeping any installation subdirectory.",
+            "label": "Store URL"
+          }
+        }
+      },
+      "replicate": {
+        "description": "Run asynchronous model predictions with an application-owned Replicate token."
+      },
+      "resend": {
+        "description": "Send transactional email and manage contact segments and draft broadcasts."
       },
       "salesforce": {
         "describedDifferentObject": "Salesforce described a different object.",
+        "description": "Explore Salesforce objects and read records with your organisation's API permissions.",
+        "fields": {
+          "accountUrl": {
+            "hint": "Copy My Domain from Salesforce Setup. The same org receives authorization and API requests.",
+            "label": "Account URL"
+          },
+          "environment": {
+            "hint": "Production includes Developer Edition. Sandbox uses the org's .sandbox.my.salesforce.com domain.",
+            "items": {
+              "production": {
+                "title": "Production"
+              },
+              "sandbox": {
+                "title": "Sandbox"
+              }
+            },
+            "label": "Environment"
+          }
+        },
         "organisationApiRequestLimitReached": "The Salesforce organisation's API request limit was reached.",
+        "permissionsHint": "Salesforce's api permission can allow writes. This runtime exposes reads; your app still authorizes each query. Connecting an account does not sign the person into your application.",
         "rejectedQueryObjectCheckApi": "Salesforce rejected the query or object. Check its API names and the user's permissions.",
         "returnedInvalidGrantDifferentOrganisation": "Salesforce returned an invalid grant or a different organisation.",
+        "scopes": {
+          "api": {
+            "label": "Access Salesforce APIs with this user's permissions"
+          },
+          "refreshToken": {
+            "label": "Keep access when the user is away"
+          }
+        },
         "startQueryAgainResultCursor": "Start the Salesforce query again; its result cursor is no longer valid."
+      },
+      "sanity": {
+        "apiKeyReferenceHint": "Store a Sanity token in Env. Its role controls tool access at https://mcp.sanity.io; the assistant host must authorize individual calls.",
+        "apiKeyReferenceLabel": "MCP API token reference",
+        "description": "Discover and use Sanity's hosted MCP tools from an assistant.",
+        "scopes": {
+          "global": {
+            "label": "Sanity MCP account access"
+          }
+        }
       },
       "semrush": {
         "apiAccessDisabledAccount": "Semrush API access is disabled for this account.",
         "apiCapacityExhaustedCheckAccount": "Semrush API capacity is exhausted. Check the account's subscription and available units.",
+        "apiKeyReferenceHint": "Use a new Semrush V4 key: Read-only for reports and project reads, Read and write for creating, renaming or deleting projects. V3 keys and OAuth tokens are different credentials.",
+        "apiKeyReferenceLabel": "V4 API key reference",
         "checkV3ApiDatabaseReport": "Check Semrush V3 API, database and report entitlement.",
         "checkV3ApiUnitsReport": "Check Semrush V3 API units and report limits.",
         "chooseMonth201201Through": "Choose a month from 2012-01 through the current month.",
@@ -246,6 +1921,16 @@
         "configureV3KeyPositionTracking": "Configure the Semrush V3 key for position tracking.",
         "couldNotCompleteRequest": "Semrush could not complete this request.",
         "couldNotReturnV3Report": "Semrush could not return the V3 report.",
+        "description": "Read keyword and backlink reports and manage Semrush projects using a V4 API key.",
+        "fields": {
+          "v3ApiKeyRef": {
+            "environmentCredential": {
+              "label": "Semrush V3 API key"
+            },
+            "hint": "For domain overview and domain/URL/subfolder keyword reports and position tracking: My profile > API Keys > copy your Version 3 key into this project's Env. Leave empty if only using V4 reports/projects.",
+            "label": "V3 API key reference (optional)"
+          }
+        },
         "projectNotFoundNotAccessible": "The Semrush project was not found or is not accessible.",
         "provideV3ApiKeyThrough": "Provide the Semrush V3 API key through its private Env reference.",
         "provideValidV3ApiKey": "Provide a valid Semrush V3 API key.",
@@ -260,6 +1945,37 @@
         "returnedUnexpectedV3ReportColumns": "Semrush returned unexpected V3 report columns or rows.",
         "trackingStartDateMustNot": "The tracking start date must not follow its end date.",
         "useV4ApiKeyWithout": "Use the Semrush V4 API key without spaces or control characters."
+      },
+      "sentry": {
+        "description": "Inspect and triage Sentry issues through scoped MCP tools.",
+        "fields": {
+          "organizationSlug": {
+            "hint": "Copy the organization slug from Sentry's URL. This connection is restricted to that organization.",
+            "label": "Sentry organization slug"
+          },
+          "projectSlug": {
+            "hint": "Copy the slug from Project Settings to restrict access to one project. Leave empty for the selected organization.",
+            "label": "Sentry project slug (optional)"
+          }
+        },
+        "scopes": {
+          "eventWrite": {
+            "label": "Write event data"
+          },
+          "orgRead": {
+            "label": "Read organization data"
+          },
+          "projectWrite": {
+            "label": "Write project data"
+          },
+          "teamWrite": {
+            "label": "Write team data"
+          }
+        }
+      },
+      "sevdesk": {
+        "apiKeyReferenceLabel": "API token reference",
+        "description": "Read sevdesk contact organizations and people with offset pagination."
       },
       "shared": {
         "apiKeyFormat": "Use the {provider} API key without spaces, control characters or colons.",
@@ -281,49 +1997,507 @@
         "unexpectedResponse": "{provider} returned an unexpected response."
       },
       "shopify": {
+        "apiKeyReferenceHint": "Use env:SHOPIFY_ADMIN_TOKEN. A Storefront token, client secret or App Automation Token cannot be used here.",
+        "apiKeyReferenceLabel": "Admin API access token reference",
+        "assistantActions": {
+          "claim": {
+            "label": "Claim your store"
+          },
+          "connect": {
+            "label": "Connect your Shopify store"
+          },
+          "discountCodesCreate": {
+            "label": "Create discount code"
+          },
+          "discountCodesDelete": {
+            "label": "Delete discount code"
+          },
+          "discountCodesUpdate": {
+            "label": "Update discount code"
+          },
+          "enable": {
+            "label": "Enable Shopify"
+          },
+          "priceRulesCreate": {
+            "label": "Create price rule"
+          },
+          "priceRulesDelete": {
+            "label": "Delete price rule"
+          },
+          "priceRulesUpdate": {
+            "label": "Update price rule"
+          },
+          "productsCreate": {
+            "label": "Create product"
+          },
+          "productsDelete": {
+            "label": "Delete product"
+          },
+          "productsList": {
+            "label": "Read products"
+          },
+          "productsUpdate": {
+            "label": "Update product"
+          },
+          "variantsCreate": {
+            "label": "Add product variant"
+          },
+          "variantsDelete": {
+            "label": "Delete product variant"
+          },
+          "variantsUpdate": {
+            "label": "Update product variant"
+          }
+        },
+        "authenticationHint": "Client credentials require the app and store in the same Shopify organization. Connecting another merchant requires a separate Shopify installation flow.",
+        "authenticationLabels": {
+          "apiKey": "Existing Admin API access token",
+          "oauth2": "App in your Shopify organization"
+        },
+        "description": "Connect a Shopify store and control what the assistant may change.",
+        "fields": {
+          "shopDomain": {
+            "hint": "Use the permanent myshopify.com address, including when your storefront uses a custom domain.",
+            "label": "Shopify store domain"
+          }
+        },
+        "permissionsHint": "Match the scopes approved for the installed Shopify app. Write access includes reads. Assistant permission choices do not grant Shopify scopes or staff permissions.",
         "rejectedProductChangeCheckProduct": "Shopify rejected the product change. Check the product values and permissions before retrying.",
         "returnedMoreProductsRequested": "Shopify returned more products than requested.",
+        "scopes": {
+          "readProducts": {
+            "label": "Read products"
+          },
+          "writeProducts": {
+            "label": "Create, update and delete products"
+          }
+        },
         "selectLeastProductDetailUpdate": "Select at least one product detail to update."
       },
       "slack": {
         "checkClientRegistrationCallback": "Check the Slack client registration and callback.",
         "couldNotAuthorizeRequest": "Slack could not authorize this request.",
+        "description": "Connect as a Slack user or install a bot to read conversations and send messages.",
+        "fields": {
+          "actor": {
+            "hint": "User access acts as the person who connects. Bot access acts as the app in its installed workspace. Changing this choice removes permissions unavailable to that identity and requires reconnecting.",
+            "items": {
+              "bot": {
+                "title": "Installed bot"
+              },
+              "user": {
+                "title": "Connected user"
+              }
+            },
+            "label": "Act in Slack as"
+          },
+          "signingSecretRef": {
+            "hint": "For incoming events and interactions: Basic Information → App Credentials → Signing Secret. Keep the value in application Env, separate from Client Secret.",
+            "label": "Signing secret reference (optional)"
+          }
+        },
         "requestFailedTryAgain": "The Slack request failed. Try again.",
-        "returnedTokenWrongIdentityInvalid": "Slack returned a token for the wrong identity or an invalid permission grant."
+        "returnedTokenWrongIdentityInvalid": "Slack returned a token for the wrong identity or an invalid permission grant.",
+        "scopes": {
+          "bookmarksRead": {
+            "label": "List bookmarks"
+          },
+          "bookmarksWrite": {
+            "label": "Create, edit, and remove bookmarks"
+          },
+          "callsRead": {
+            "label": "View information about ongoing and past calls"
+          },
+          "callsWrite": {
+            "label": "Start and manage calls in a workspace"
+          },
+          "canvasesRead": {
+            "label": "Access contents of canvases created inside Slack."
+          },
+          "canvasesWrite": {
+            "label": "Create, edit and remove canvases"
+          },
+          "channelsHistory": {
+            "label": "View messages and other content in public channels you are in"
+          },
+          "channelsJoin": {
+            "label": "Join public channels in a workspace"
+          },
+          "channelsManage": {
+            "label": "Manage public channels that your Slack app has been added to and create new ones"
+          },
+          "channelsRead": {
+            "label": "View basic information about public channels in a workspace"
+          },
+          "channelsWrite": {
+            "label": "Manage a user's public channels and create new ones on a user's behalf"
+          },
+          "channelsWriteInvites": {
+            "label": "Invite members to public channels"
+          },
+          "channelsWriteTopic": {
+            "label": "Set the description of public channels"
+          },
+          "chatWrite": {
+            "label": "Send messages"
+          },
+          "chatWriteCustomize": {
+            "label": "Customize the content of messages sent by your Slack app"
+          },
+          "chatWritePublic": {
+            "label": "Send messages to channels your Slack app isn't a member of"
+          },
+          "dndRead": {
+            "label": "View Do Not Disturb settings for people in a workspace"
+          },
+          "dndWrite": {
+            "label": "Edit a user's Do Not Disturb settings"
+          },
+          "emojiRead": {
+            "label": "View custom emoji in a workspace"
+          },
+          "filesRead": {
+            "label": "View files shared in channels and conversations that your Slack app has been added to"
+          },
+          "filesWrite": {
+            "label": "Upload, edit, and delete files as your Slack app"
+          },
+          "groupsHistory": {
+            "label": "View messages and other content in private channels that your Slack app has been added to"
+          },
+          "groupsRead": {
+            "label": "View basic information about private channels that your Slack app has been added to"
+          },
+          "groupsWrite": {
+            "label": "Manage private channels that your Slack app has been added to and create new ones"
+          },
+          "groupsWriteInvites": {
+            "label": "Invite members to private channels"
+          },
+          "groupsWriteTopic": {
+            "label": "Set the description of private channels"
+          },
+          "imHistory": {
+            "label": "View messages and other content in direct messages you are in"
+          },
+          "imRead": {
+            "label": "View basic information about direct messages you are in"
+          },
+          "imWrite": {
+            "label": "Start direct messages with people"
+          },
+          "imWriteTopic": {
+            "label": "Set the description in direct messages"
+          },
+          "listsRead": {
+            "label": "View Slack Lists"
+          },
+          "listsWrite": {
+            "label": "Create, edit, and delete Slack Lists"
+          },
+          "metadataMessageRead": {
+            "label": "Allows your Slack app to read message metadata in channels that your Slack app has been added to"
+          },
+          "mpimHistory": {
+            "label": "View messages and other content in group direct messages that your Slack app has been added to"
+          },
+          "mpimRead": {
+            "label": "View basic information about group direct messages that your Slack app has been added to"
+          },
+          "mpimWrite": {
+            "label": "Start group direct messages with people"
+          },
+          "mpimWriteTopic": {
+            "label": "Set the description in group direct messages"
+          },
+          "pinsRead": {
+            "label": "View pinned content in channels and conversations that your Slack app has been added to"
+          },
+          "pinsWrite": {
+            "label": "Add and remove pinned messages and files"
+          },
+          "reactionsRead": {
+            "label": "View emoji reactions"
+          },
+          "reactionsWrite": {
+            "label": "Add and edit emoji reactions"
+          },
+          "remindersRead": {
+            "label": "View reminders created by your Slack app"
+          },
+          "remindersWrite": {
+            "label": "Add, remove, or mark reminders as complete"
+          },
+          "searchReadFiles": {
+            "label": "Search a workspace's content in files"
+          },
+          "searchReadIm": {
+            "label": "Search a workspace's content in direct messages"
+          },
+          "searchReadMpim": {
+            "label": "Search a workspace's content in group direct messages"
+          },
+          "searchReadPrivate": {
+            "label": "Search a workspace's content in private channels"
+          },
+          "searchReadPublic": {
+            "label": "Search a workspace's content in public channels"
+          },
+          "searchReadUsers": {
+            "label": "Search a workspace's users"
+          },
+          "teamRead": {
+            "label": "View the name, email domain, and icon for workspaces your Slack app is connected to"
+          },
+          "usergroupsRead": {
+            "label": "View user groups in a workspace"
+          },
+          "usergroupsWrite": {
+            "label": "Create and manage user groups"
+          },
+          "usersProfileRead": {
+            "label": "View profile details about people in a workspace"
+          },
+          "usersProfileWrite": {
+            "label": "Edit a user's profile information and status"
+          },
+          "usersRead": {
+            "label": "View people in a workspace"
+          },
+          "usersReadEmail": {
+            "label": "View email addresses of people in a workspace"
+          },
+          "usersWrite": {
+            "label": "Set presence for your Slack app"
+          }
+        }
       },
       "snowflake": {
+        "description": "Query data and manage warehouses with a connected Snowflake role.",
+        "fields": {
+          "accountUrl": {
+            "hint": "Copy the account URL from Snowflake. Snowsight browser paths and organization-console URLs are not API addresses.",
+            "label": "Account URL"
+          },
+          "database": {
+            "hint": "Exact case-sensitive database name for SQL execution; blank uses the user's default namespace. This is a default, not an access boundary: Snowflake role grants control access.",
+            "label": "Database (optional)"
+          },
+          "role": {
+            "hint": "Use the exact name from SHOW ROLES, normally uppercase. Leave blank to use each connected user's default role. Shared accounts should use a dedicated role.",
+            "label": "Role"
+          },
+          "schema": {
+            "hint": "Exact case-sensitive schema name for SQL execution; blank uses the user's default namespace.",
+            "label": "Schema (optional)"
+          },
+          "warehouse": {
+            "hint": "Exact case-sensitive warehouse name for SQL execution. Blank uses the connected user's default. Queries may resume compute and incur Snowflake charges.",
+            "label": "Warehouse (optional)"
+          }
+        },
+        "permissionsHint": "The role's Snowflake grants control access. SQL and warehouse actions use those grants and may incur compute charges. Connecting Snowflake does not sign users into your application.",
         "rejectedStatementInspectQueryHistory": "Snowflake rejected the statement. Inspect query history with the authorized role.",
         "responseExceeds16MibReduce": "Snowflake response exceeds 16 MiB. Reduce the query result or use a native streaming client.",
         "returnedInvalidStatementResponse": "Snowflake returned an invalid statement response.",
-        "returnedUnexpectedDatabasePage": "Snowflake returned an unexpected database page."
+        "returnedUnexpectedDatabasePage": "Snowflake returned an unexpected database page.",
+        "scopes": {
+          "refreshToken": {
+            "label": "Keep access between visits (required)"
+          },
+          "refreshTokenOptional": {
+            "label": "Keep access between visits"
+          },
+          "role": {
+            "label": "Use role {role} (required)"
+          }
+        }
+      },
+      "storyblok": {
+        "description": "Read space metadata and published or draft content in the space's region.",
+        "fields": {
+          "region": {
+            "hint": "Match the region selected when the Storyblok space was created.",
+            "items": {
+              "ap": {
+                "title": "Australia / APAC (AP)"
+              },
+              "ca": {
+                "title": "Canada (CA)"
+              },
+              "cn": {
+                "title": "China (CN)"
+              },
+              "eu": {
+                "title": "European Union (EU)"
+              },
+              "us": {
+                "title": "United States (US)"
+              }
+            },
+            "label": "Space region"
+          }
+        }
+      },
+      "stripe": {
+        "description": "Read the Stripe account's available and pending balances."
+      },
+      "supabase": {
+        "description": "List projects through the Supabase Management API."
       },
       "tally": {
-        "chooseNameStatusBlockChange": "Choose a name, status or block change."
+        "chooseNameStatusBlockChange": "Choose a name, status or block change.",
+        "description": "Create forms and retrieve submissions using your Tally account."
       },
       "telegram": {
-        "configureBotTokenReferencedEnvironment": "Configure a Telegram bot token in the referenced environment variable."
+        "apiKeyReferenceLabel": "Bot token reference",
+        "configureBotTokenReferencedEnvironment": "Configure a Telegram bot token in the referenced environment variable.",
+        "description": "Send bot messages and receive updates through application-owned polling."
       },
       "tiktok": {
+        "clientIdHint": "Use the Client key from TikTok's app credentials, not its App ID.",
+        "clientIdLabel": "Client key",
         "connectBasicProfilePermission": "Connect TikTok with basic profile permission.",
         "connectPermissionRequiredOperation": "Connect TikTok with the permission required for this operation.",
         "couldNotAuthorizeConnection": "TikTok could not authorize this connection.",
         "couldNotCompleteRequest": "TikTok could not complete the request.",
+        "description": "Read a connected creator's profile and public video metadata.",
+        "permissionsHint": "Basic profile access is required for verification. Users can decline the other permissions during consent; the corresponding operations then stay unavailable.",
         "returnedDuplicatePermissions": "TikTok returned duplicate permissions.",
-        "returnedTooManyVideos": "TikTok returned too many videos."
+        "returnedTooManyVideos": "TikTok returned too many videos.",
+        "scopes": {
+          "userInfoBasic": {
+            "label": "Read basic profile information (required)"
+          },
+          "userInfoProfile": {
+            "label": "Read extended profile information"
+          },
+          "userInfoStats": {
+            "label": "Read user statistics"
+          },
+          "videoList": {
+            "label": "Read published video metadata"
+          }
+        }
       },
       "twilio": {
+        "apiKeyReferenceLabel": "API key secret reference",
         "chooseSenderNumberMessagingService": "Choose one sender number or Messaging Service SID.",
+        "description": "Send SMS, initiate calls and read delivery/call status for the selected account and region.",
+        "fields": {
+          "accountSid": {
+            "hint": "Copy the SID of the account or subaccount whose calls this app may read.",
+            "label": "Account SID",
+            "placeholder": "AC followed by 32 hexadecimal characters"
+          },
+          "apiKeySid": {
+            "hint": "Copy the API Key SID for this account and region. Store its secret separately.",
+            "label": "Standard API Key SID",
+            "placeholder": "SK followed by 32 hexadecimal characters"
+          },
+          "authTokenRef": {
+            "hint": "For inbound messages, voice and delivery callbacks. Copy the account Auth Token from Twilio Console into private Env; this is NOT the API key secret.",
+            "label": "Callback Auth Token reference (optional)"
+          },
+          "region": {
+            "hint": "Choose the region where this API key was created.",
+            "items": {
+              "au1": {
+                "title": "Australia (AU1)"
+              },
+              "ie1": {
+                "title": "Ireland (IE1)"
+              },
+              "us1": {
+                "title": "United States (US1)"
+              }
+            },
+            "label": "Region"
+          }
+        },
         "supplyEitherCallControlUrl": "Supply either a call-control URL or inline TwiML."
       },
       "twitch": {
         "connectAgainPermissionEvent": "Connect Twitch again with permission for this event.",
         "connectAgainPermissionNeededOperation": "Connect Twitch again with the permission needed for this operation.",
+        "description": "Connect Twitch accounts for stream discovery, chat, channel management, rewards, schedules and analytics.",
         "enablingVacationRequiresTimezoneEnd": "Enabling vacation requires a timezone and an end after the start.",
         "operationInvalidDestination": "This Twitch operation has an invalid destination.",
         "returnedInvalidUnexpectedEventsubMessage": "Twitch returned an invalid or unexpected EventSub message.",
         "returnedInvalidUserTokenValidation": "Twitch returned an invalid user-token validation.",
         "returnedProfileDifferentUser": "Twitch returned a profile for a different user.",
         "rewardLimitAmountRequired": "Supply {field} when enabling this reward limit.",
+        "scopes": {
+          "analyticsReadExtensions": {
+            "label": "Read extension analytics"
+          },
+          "analyticsReadGames": {
+            "label": "Read game analytics"
+          },
+          "bitsRead": {
+            "label": "Read Bits information"
+          },
+          "channelManageBroadcast": {
+            "label": "Manage channel broadcast settings"
+          },
+          "channelManagePolls": {
+            "label": "Create and manage channel polls"
+          },
+          "channelManagePredictions": {
+            "label": "Create and manage channel predictions"
+          },
+          "channelManageRedemptions": {
+            "label": "Manage channel point rewards and redemptions"
+          },
+          "channelManageSchedule": {
+            "label": "Manage channel schedule"
+          },
+          "channelReadEditors": {
+            "label": "Read channel editors"
+          },
+          "channelReadHypeTrain": {
+            "label": "Read current hype train status"
+          },
+          "channelReadPolls": {
+            "label": "Read channel polls"
+          },
+          "channelReadPredictions": {
+            "label": "Read channel predictions"
+          },
+          "channelReadRedemptions": {
+            "label": "Read channel point rewards and redemptions"
+          },
+          "channelReadSubscriptions": {
+            "label": "Read your channel subscriptions"
+          },
+          "channelReadVips": {
+            "label": "Read VIPs for your channels"
+          },
+          "clipsEdit": {
+            "label": "Create clips"
+          },
+          "moderationRead": {
+            "label": "Read moderation data"
+          },
+          "moderatorReadChatters": {
+            "label": "Read chatters in a channel"
+          },
+          "moderatorReadFollowers": {
+            "label": "Read followers for your channels"
+          },
+          "userReadEmail": {
+            "label": "Read your email address"
+          },
+          "userReadFollows": {
+            "label": "Read the channels you follow"
+          },
+          "userReadSubscriptions": {
+            "label": "Check your subscription status"
+          },
+          "userWriteChat": {
+            "label": "Send chat messages"
+          }
+        },
         "supplyBothReportDatesEnd": "Supply both report dates, with the end on or after the start.",
         "supplyLeastBroadcastChange": "Supply at least one broadcast change.",
         "supplyLeastRewardChange": "Supply at least one reward change.",
@@ -344,6 +2518,7 @@
         "customerNotAvailable": "This customer is not available in the selected business.",
         "customerNotAvailableCheckAccess": "This customer is not available in the selected business. Check read access.",
         "deniedTokenAccessCheckBusiness": "Wave denied token access. Check the business subscription and permissions.",
+        "description": "Connect project-owned Wave accounts for customers, products, invoices, estimates and accounting workflows.",
         "documentNotAvailableSelectedBusiness": "This document is not available in the selected business. Check read access.",
         "productAccountTaxNotAvailable": "This product, account or tax is not available in the selected business. Check read access.",
         "rejectedAccountingChangeCheckValues": "Wave rejected the accounting change. Check the values and current record.",
@@ -361,6 +2536,104 @@
         "returnedUnexpectedEstimate": "Wave returned an unexpected estimate.",
         "returnedUnexpectedInvoice": "Wave returned an unexpected invoice.",
         "returnedUnexpectedProductCheckOutcome": "Wave returned an unexpected product. Check the outcome before retrying.",
+        "scopes": {
+          "account": {
+            "label": "Full accounting account access"
+          },
+          "accountRead": {
+            "label": "Read accounting accounts"
+          },
+          "accountWrite": {
+            "label": "Edit accounting accounts"
+          },
+          "business": {
+            "label": "Full business access"
+          },
+          "businessRead": {
+            "label": "Read businesses"
+          },
+          "businessWrite": {
+            "label": "Edit businesses"
+          },
+          "checkout": {
+            "label": "Full checkout access"
+          },
+          "checkoutRead": {
+            "label": "Read checkouts"
+          },
+          "customer": {
+            "label": "Full customer access"
+          },
+          "customerRead": {
+            "label": "Read customers"
+          },
+          "customerWrite": {
+            "label": "Edit customers"
+          },
+          "estimate": {
+            "label": "Full estimate access"
+          },
+          "estimateRead": {
+            "label": "Read estimates"
+          },
+          "estimateSend": {
+            "label": "Send estimates"
+          },
+          "estimateWrite": {
+            "label": "Edit estimates"
+          },
+          "invoice": {
+            "label": "Full invoice access"
+          },
+          "invoiceRead": {
+            "label": "Read invoices"
+          },
+          "invoiceSend": {
+            "label": "Send invoices"
+          },
+          "invoiceWrite": {
+            "label": "Edit invoices"
+          },
+          "product": {
+            "label": "Full product and service access"
+          },
+          "productRead": {
+            "label": "Read products and services"
+          },
+          "productWrite": {
+            "label": "Edit products and services"
+          },
+          "salesTax": {
+            "label": "Full sales tax access"
+          },
+          "salesTaxRead": {
+            "label": "Read sales taxes"
+          },
+          "salesTaxWrite": {
+            "label": "Edit sales taxes"
+          },
+          "transaction": {
+            "label": "Full transaction access"
+          },
+          "transactionWrite": {
+            "label": "Create money transactions"
+          },
+          "user": {
+            "label": "Full user access"
+          },
+          "userRead": {
+            "label": "Read the connected user's profile"
+          },
+          "vendor": {
+            "label": "Full vendor access"
+          },
+          "vendorRead": {
+            "label": "Read vendors"
+          },
+          "vendorWrite": {
+            "label": "Edit vendors"
+          }
+        },
         "transactionAccountCustomerTaxNot": "A transaction account, customer or tax is not available in the selected business. Check read access.",
         "useMost100DistinctRelated": "Use at most 100 distinct related records per transaction."
       },
@@ -376,10 +2649,26 @@
         "configureSiteIdFirst": "Configure the Wix Site ID first.",
         "depositRequiresAmountOnlinePayment": "A deposit requires its amount, online payment and no in-person payment.",
         "describeCustomPaymentUp50": "Describe the custom payment in up to 50 characters.",
+        "description": "Use project-owned Wix account and site API access.",
         "didNotReturnUpdatedFulfillment": "Wix did not return the updated fulfillment. Inspect the order before retrying.",
         "doNotSendGeneratedService": "Do not send generated service identity fields or existing add-on groups when creating a service.",
         "enableParticipantNotificationSendCancellation": "Enable participant notification to send a cancellation message.",
         "enableParticipantNotificationSupplyingMessage": "Enable participant notification before supplying a message.",
+        "fields": {
+          "accountId": {
+            "hint": "Copy your account's ID from the API Keys Manager. A site ID is a different setting.",
+            "label": "Account ID"
+          },
+          "selectableSiteIds": {
+            "hint": "Optional. Comma-separated sites the app may explicitly select. The app must still authorize each user's site access. Leave empty for a fixed-site connection.",
+            "label": "Selectable Site IDs",
+            "placeholder": "Site ID, Site ID"
+          },
+          "siteId": {
+            "hint": "Required for site operations. Copy the ID after /dashboard/ in the intended Wix site dashboard URL.",
+            "label": "Site ID"
+          }
+        },
         "manualApprovalCannotUsePricing": "Manual approval cannot use pricing plans; online payment requires online booking.",
         "onlineDepositPaymentsRequireFixed": "Online and deposit payments require fixed or varied pricing.",
         "provideAppointmentSessionDurationsMinutes": "Provide appointment session durations in minutes.",
@@ -426,12 +2715,51 @@
       "wiz": {
         "accessSourceScanDenied": "Access to this source scan was denied.",
         "auth0ScanningRequiresVerifiedCompatible": "Auth0 scanning requires a verified compatible Wiz runner.",
+        "authenticationHint": "A source scanner uses your workspace's service account. It does not sign app users in. The installed Wiz CLI performs authentication when a scan runs.",
+        "authenticationLabels": {
+          "oauth2": "Wiz service account"
+        },
         "authorisedSourceDirectoryUnavailable": "The authorised source directory is unavailable.",
         "cliCouldNotStarted": "The Wiz CLI could not be started.",
         "clientSecretReferenceInvalid": "The Wiz client-secret reference is invalid.",
         "clientSecretReferenceUnavailable": "The Wiz client-secret reference is unavailable.",
         "couldNotCompleteScanCheck": "Wiz could not complete the scan. Check the runner, policies and tenant access.",
+        "description": "Scan project source with your Wiz security policies.",
         "didNotProduceReadableReport": "Wiz did not produce a readable report within the configured size limit.",
+        "fields": {
+          "byPolicyHits": {
+            "hint": "Filtering reported findings does not disable Wiz's policy verdict.",
+            "items": {
+              "aUDIT": {
+                "title": "Blocking or audit policy hits (AUDIT)"
+              },
+              "bLOCK": {
+                "title": "Blocking policy hits (BLOCK)"
+              },
+              "dISABLED": {
+                "title": "All findings (DISABLED)"
+              }
+            },
+            "label": "Filter findings by policy hits"
+          },
+          "policies": {
+            "hint": "Optional comma-separated policy names. Leave blank to use your Wiz tenant's defaults.",
+            "label": "CI/CD scan policies",
+            "placeholder": "Default vulnerabilities policy, Default IaC policy"
+          },
+          "tokenUrl": {
+            "hint": "The current Wiz v1 runner supports Cognito. Auth0 configuration can be saved, but requires a verified compatible runner before scanning.",
+            "items": {
+              "httpsAuthAppWizIoOauthToken": {
+                "title": "Cognito (auth.app.wiz.io)"
+              },
+              "httpsAuthWizIoOauthToken": {
+                "title": "Auth0 (auth.wiz.io)"
+              }
+            },
+            "label": "Token URL"
+          }
+        },
         "hostMustSupplyAbsoluteSource": "The host must supply an absolute source directory and revision.",
         "integrationNotConfigured": "This Wiz integration is not configured.",
         "rejectedServiceAccountCredentials": "Wiz rejected the service-account credentials.",
@@ -440,12 +2768,24 @@
         "scanExceededTimeLimit": "The Wiz scan exceeded its time limit."
       },
       "woocommerce": {
+        "apiKeyReferenceHint": "Store the consumer secret in Env. Use Read for lookups or Read/Write for changes; the key's WordPress user must also have permission for the requested operation.",
+        "apiKeyReferenceLabel": "Consumer secret reference",
         "categoryCannotOwnParent": "A category cannot be its own parent.",
         "categoryDeletionPermanentRequiresForce": "Category deletion is permanent and requires force=true.",
         "chooseDifferentReassignmentUser": "Choose a different reassignment user.",
         "chooseExplicitRefundRestockFlags": "Choose explicit refund/restock flags and decimal-string amounts.",
         "chooseExplicitlyWhetherPermanentlyDelete": "Choose explicitly whether to permanently delete.",
         "choosePeriodCompleteAscendingDate": "Choose a period or a complete ascending date range.",
+        "description": "Manage your WooCommerce catalogue, orders, customers, discounts and refunds, and read store reports.",
+        "fields": {
+          "consumerKey": {
+            "hint": "The key identifier from WooCommerce. Store its matching consumer secret separately.",
+            "label": "Consumer key"
+          },
+          "siteUrl": {
+            "label": "Store URL"
+          }
+        },
         "invalidWebhookSignatureInputs": "Invalid WooCommerce webhook signature inputs.",
         "percentageDiscountsCannotExceed100": "Percentage discounts cannot exceed 100.",
         "productPricesMustDecimalStrings": "Product prices must be decimal strings.",
@@ -462,30 +2802,178 @@
         "supplyVariationChanges": "Supply variation changes.",
         "variationPricesMustDecimalStrings": "Variation prices must be decimal strings."
       },
+      "wordpress": {
+        "fields": {
+          "siteUrl": {
+            "hint": "Use the site address before /wp-json, keeping any installation subdirectory. The runtime sends credentials only to this configured origin."
+          }
+        }
+      },
       "wordpressCom": {
+        "description": "Connect a WordPress.com account to read its profile/sites and manage posts, pages and media.",
+        "scopes": {
+          "batch": {
+            "label": "Batch API requests"
+          },
+          "comments": {
+            "label": "View and manage comments"
+          },
+          "media": {
+            "label": "Manage media assets"
+          },
+          "posts": {
+            "label": "View and manage posts"
+          },
+          "sites": {
+            "label": "View site information and options"
+          },
+          "stats": {
+            "label": "View site statistics"
+          },
+          "taxonomy": {
+            "label": "Manage taxonomy terms"
+          },
+          "users": {
+            "label": "View user information (required for verification)"
+          }
+        },
         "verifiedTokenBelongsDifferentApplication": "The verified token belongs to a different application."
+      },
+      "wordpressSelfHosted": {
+        "apiKeyReferenceHint": "Use a WordPress Application Password for this user, stored in Env. The user's role controls access; this is separate from the user's login password.",
+        "apiKeyReferenceLabel": "Application password reference",
+        "description": "Manage WordPress posts, pages, media and users with a site-owned account.",
+        "fields": {
+          "siteUrl": {
+            "label": "Site URL"
+          },
+          "username": {
+            "hint": "The WordPress login name that owns the Application Password.",
+            "label": "Username"
+          }
+        }
       },
       "workday": {
         "datesOrder": "The start date must not follow the end date.",
+        "description": "Read workers, organizations, time off and custom reports with each connected Workday user's permissions.",
+        "fields": {
+          "authorizationEndpoint": {
+            "hint": "Copy from View API Clients. The sign-in host usually differs from the API host.",
+            "label": "Authorization Endpoint"
+          },
+          "restApiEndpoint": {
+            "hint": "Copy from View API Clients. Worker reads use Staffing v7 on this host and tenant.",
+            "label": "Workday REST API Endpoint"
+          },
+          "tokenEndpoint": {
+            "hint": "Copy the Token Endpoint from the same Workday tenant.",
+            "label": "Token Endpoint"
+          }
+        },
+        "permissionsHint": "Select the required functional areas in Workday: Staffing, Organizations and Roles, or Time Off and Leave. Each user's domain and report permissions still apply. Connecting Workday does not create your app's login.",
         "supplyReportPromptOnceJoin": "Supply each report prompt once; join multi-instance WIDs with !.",
         "useSmallerReportPromptRequest": "Use a smaller report prompt request."
       },
       "xTwitter": {
+        "apiKeyReferenceHint": "Reference the app-only Bearer Token from X Developer Console. This token does not sign in an app user.",
+        "apiKeyReferenceLabel": "App-only bearer token reference",
         "checkApplicationApiCreditsBilling": "Check this X application's API credits and billing access.",
         "couldNotReturnCompleteRequested": "X could not return the complete requested data.",
+        "description": "Read public X profiles, posts and recent search with an application's bearer token.",
         "passUserIdString": "Pass the X user ID as a string.",
         "resourceNotFoundNotAvailable": "The X resource was not found or is not available.",
-        "useAppTokenWithoutSpaces": "Use the X app-only token without spaces, control characters or a Bearer prefix."
+        "useAppTokenWithoutSpaces": "Use the X app-only token without spaces, control characters or a Bearer prefix.",
+        "verificationFields": {
+          "username": {
+            "hint": "Enter a public X username without {'@'}. Connecting looks up this profile and can consume provider credits.",
+            "label": "Verification username"
+          }
+        }
       },
       "xero": {
         "attachmentResponsesLimited3Mib": "Xero attachment responses are limited to 3 MiB.",
         "budgetDatesOrder": "The budget start date must not follow its end date.",
+        "description": "Manage contacts and invoices, record payments and read financial reports in connected organisations.",
         "discountRatesApplySalesInvoices": "Discount rates apply only to sales invoices.",
         "organisationNotConnectedAccount": "This Xero organisation is not connected to this account.",
         "reportDatesOrder": "The report start date must not follow its end date.",
         "returnedDifferentOrganisation": "Xero returned a different organisation.",
         "returnedInvalidAttachmentResponse": "Xero returned an invalid attachment response.",
         "returnedInvalidConnections": "Xero returned invalid connections.",
+        "scopes": {
+          "accountingAttachments": {
+            "label": "Read and manage attachments"
+          },
+          "accountingAttachmentsRead": {
+            "label": "Read attachments"
+          },
+          "accountingBanktransactions": {
+            "label": "Read and manage bank transactions"
+          },
+          "accountingBanktransactionsRead": {
+            "label": "Read bank transactions"
+          },
+          "accountingBudgetsRead": {
+            "label": "Read budgets"
+          },
+          "accountingContacts": {
+            "label": "Read and manage contacts"
+          },
+          "accountingContactsRead": {
+            "label": "Read contacts"
+          },
+          "accountingInvoices": {
+            "label": "Read and manage invoices and bills"
+          },
+          "accountingInvoicesRead": {
+            "label": "Read invoices and bills"
+          },
+          "accountingManualjournals": {
+            "label": "Read and manage manual journals"
+          },
+          "accountingManualjournalsRead": {
+            "label": "Read manual journals"
+          },
+          "accountingPayments": {
+            "label": "Read and manage payments"
+          },
+          "accountingPaymentsRead": {
+            "label": "Read payments"
+          },
+          "accountingReportsAgedRead": {
+            "label": "Read aged receivables and payables reports"
+          },
+          "accountingReportsBalancesheetRead": {
+            "label": "Read balance sheet reports"
+          },
+          "accountingReportsBanksummaryRead": {
+            "label": "Read bank summary reports"
+          },
+          "accountingReportsBudgetsummaryRead": {
+            "label": "Read budget summary reports"
+          },
+          "accountingReportsExecutivesummaryRead": {
+            "label": "Read executive summary reports"
+          },
+          "accountingReportsProfitandlossRead": {
+            "label": "Read profit and loss reports"
+          },
+          "accountingReportsTaxreportsRead": {
+            "label": "Read GST and BAS reports"
+          },
+          "accountingReportsTrialbalanceRead": {
+            "label": "Read trial balance reports"
+          },
+          "accountingSettings": {
+            "label": "Read and manage organisation settings"
+          },
+          "accountingSettingsRead": {
+            "label": "Read organisation settings"
+          },
+          "offlineAccess": {
+            "label": "Keep access when the user is away"
+          }
+        },
         "supplyBankTransactionFieldChange": "Supply a bank transaction field to change.",
         "supplyCanonicalBase64NonemptyAttachment": "Supply canonical base64 for a nonempty attachment of at most 3 MiB.",
         "supplyContactFieldChange": "Supply a contact field to change.",
@@ -493,19 +2981,157 @@
         "supplyJournalFieldChange": "Supply a journal field to change."
       },
       "zoho": {
+        "regions": {
+          "au": {
+            "title": "Australia (.com.au)"
+          },
+          "ca": {
+            "title": "Canada (.ca)"
+          },
+          "cn": {
+            "title": "China (.com.cn)"
+          },
+          "eu": {
+            "title": "Europe (.eu)"
+          },
+          "in": {
+            "title": "India (.in)"
+          },
+          "jp": {
+            "title": "Japan (.jp)"
+          },
+          "sa": {
+            "title": "Saudi Arabia (.sa)"
+          },
+          "us": {
+            "title": "United States (.com)"
+          }
+        },
         "returnedTokenDifferentDataCenter": "Zoho returned a token for a different data center or environment."
       },
       "zohoBooks": {
         "chooseOrganisationIdOrganizationsList": "Choose an organisation ID from organizations.list or configure one for this integration.",
         "configuredOrganisationNotActiveAccessible": "The configured Books organisation is not active and accessible to this account.",
+        "description": "Discover accessible organisations and read pages of contacts and invoices.",
+        "fields": {
+          "organizationId": {
+            "hint": "Set one organisation for this integration, or leave empty and let the app choose from the connected account's organisations.",
+            "label": "Organization ID (optional)"
+          },
+          "region": {
+            "hint": "Choose the data center containing the Books account. Canada uses accounts.zohocloud.ca for OAuth.",
+            "label": "Data center"
+          }
+        },
         "integrationConfiguredDifferentOrganisation": "This integration is configured for a different organisation.",
         "resourceNotAvailable": "This Books resource is not available.",
         "returnedAmbiguousPagination": "Zoho Books returned ambiguous pagination.",
-        "returnedInvalidOrganisations": "Zoho Books returned invalid organisations."
+        "returnedInvalidOrganisations": "Zoho Books returned invalid organisations.",
+        "scopes": {
+          "billsAll": {
+            "label": "Full access to bills"
+          },
+          "contactsAll": {
+            "label": "Full access to contacts"
+          },
+          "creditnotesAll": {
+            "label": "Full access to credit notes"
+          },
+          "customerpaymentsAll": {
+            "label": "Full access to customer payments"
+          },
+          "estimatesAll": {
+            "label": "Full access to estimates"
+          },
+          "expensesAll": {
+            "label": "Full access to expenses"
+          },
+          "invoicesAll": {
+            "label": "Full access to invoices"
+          },
+          "projectsAll": {
+            "label": "Full access to projects"
+          },
+          "purchaseordersAll": {
+            "label": "Full access to purchase orders"
+          },
+          "salesordersAll": {
+            "label": "Full access to sales orders"
+          },
+          "zohoBooksContactsREAD": {
+            "label": "Read contacts"
+          },
+          "zohoBooksInvoicesREAD": {
+            "label": "Read invoices"
+          },
+          "zohoBooksSettingsREAD": {
+            "label": "Read organisations and settings"
+          }
+        }
       },
       "zohoCrm": {
         "connectAgainPermissionsNeededOperation": "Connect again with the CRM permissions needed for this operation.",
+        "description": "Read the connected CRM user and pages of leads, contacts, accounts and deals.",
+        "fields": {
+          "environment": {
+            "hint": "Choose the same environment and organisation during Zoho consent. Tokens cannot be moved between environments.",
+            "items": {
+              "developer": {
+                "title": "Developer"
+              },
+              "production": {
+                "title": "Production"
+              },
+              "sandbox": {
+                "title": "Sandbox"
+              }
+            },
+            "label": "CRM environment"
+          },
+          "region": {
+            "hint": "Choose the data center containing your CRM account. Canada uses accounts.zohocloud.ca for OAuth.",
+            "label": "Data center"
+          }
+        },
         "resourceNotAvailable": "This CRM resource is not available.",
+        "scopes": {
+          "zohoCRMModulesALL": {
+            "label": "Full access to all CRM modules"
+          },
+          "zohoCRMModulesAccountsALL": {
+            "label": "Full account access"
+          },
+          "zohoCRMModulesAccountsREAD": {
+            "label": "Read accounts"
+          },
+          "zohoCRMModulesContactsALL": {
+            "label": "Full contact access"
+          },
+          "zohoCRMModulesContactsREAD": {
+            "label": "Read contacts"
+          },
+          "zohoCRMModulesDealsALL": {
+            "label": "Full deal access"
+          },
+          "zohoCRMModulesDealsREAD": {
+            "label": "Read deals"
+          },
+          "zohoCRMModulesLeadsALL": {
+            "label": "Full lead access"
+          },
+          "zohoCRMModulesLeadsREAD": {
+            "label": "Read leads"
+          },
+          "zohoCRMModulesREAD": {
+            "label": "Read all CRM modules"
+          },
+          "zohoCRMUsersALL": {
+            "label": "Full CRM user access"
+          },
+          "zohoCRMUsersREAD": {
+            "label": "Read the connected CRM user"
+          }
+        },
         "useEitherPageNumberPage": "Use either a page number or a page token."
       }
     }

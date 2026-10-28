@@ -3,7 +3,7 @@ import { createSchema } from "json-rest-schema";
 const geminiEnterpriseScope = "https://www.googleapis.com/auth/cloud-platform";
 const geminiEnterpriseDefinition = Object.freeze({
   id: "gemini-enterprise", name: "Gemini Enterprise",
-  description: "Search documents in a configured Gemini Enterprise engine.",
+  description: "jskit.connectors.geminiEnterprise.description",
   accountModes: ["shared", "assistant"], authenticationMethods: ["oauth2"],
   oauthClientAuthenticationMethods: ["client_secret_post", "client_secret_basic"],
   settingsSchema: createSchema({
@@ -14,13 +14,13 @@ const geminiEnterpriseDefinition = Object.freeze({
       validator: (value) => /^[a-z0-9][a-z0-9_-]*$/u.test(value) || "Enter the engine ID, starting with a lowercase letter or digit and using only lowercase letters, digits, hyphens or underscores." }
   }),
   settingsFields: [
-    { name: "projectId", label: "GCP project ID", placeholder: "my-gcp-project", hint: "The Google Cloud project where the Gemini Enterprise app lives." },
-    { name: "location", label: "Location", items: [{ value: "global", title: "Global" }, { value: "us", title: "United States" }, { value: "eu", title: "European Union" }],
-      hint: "Match the engine's location. The runtime uses the corresponding Google API endpoint." },
-    { name: "engineId", label: "Engine ID", placeholder: "my-search-engine", hint: "The existing search app identifier in default_collection, not its display name or full resource path." }
+    { name: "projectId", label: "jskit.connectors.geminiEnterprise.fields.projectId.label", placeholder: "my-gcp-project", hint: "jskit.connectors.geminiEnterprise.fields.projectId.hint" },
+    { name: "location", label: "jskit.connectors.geminiEnterprise.fields.location.label", items: [{ value: "global", title: "jskit.connectors.geminiEnterprise.fields.location.items.global.title" }, { value: "us", title: "jskit.connectors.geminiEnterprise.fields.location.items.us.title" }, { value: "eu", title: "jskit.connectors.geminiEnterprise.fields.location.items.eu.title" }],
+      hint: "jskit.connectors.geminiEnterprise.fields.location.hint" },
+    { name: "engineId", label: "jskit.connectors.geminiEnterprise.fields.engineId.label", placeholder: "my-search-engine", hint: "jskit.connectors.geminiEnterprise.fields.engineId.hint" }
   ],
-  scopes: [{ value: geminiEnterpriseScope, label: "Cloud Platform (full access)", recommended: true }],
-  permissionsHint: "Google IAM and source permissions apply to the connected Google account. Shared access uses that same account for every authorized caller; it does not provide each app user's own search identity.",
+  scopes: [{ value: geminiEnterpriseScope, label: "jskit.connectors.geminiEnterprise.scopes.geminiEnterpriseScope.label", recommended: true }],
+  permissionsHint: "jskit.connectors.geminiEnterprise.permissionsHint",
   setup: { url: "https://docs.cloud.google.com/gemini/enterprise/docs/authentication", steps: [
     "In Google Cloud, select the project, enable the Discovery Engine API and create or select a Gemini Enterprise search app. Copy its project ID, location and engine ID.",
     "Grant the connecting Google account discoveryengine.engines.get and discoveryengine.servingConfigs.search on the target resources. Configure source access and any required Gemini Enterprise license separately.",

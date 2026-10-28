@@ -1,11 +1,11 @@
 const miroDefinition = Object.freeze({
-  id: "miro", name: "Miro", description: "Use Miro board tools through the assistant owner's selected team.",
+  id: "miro", name: "Miro", description: "jskit.connectors.miro.description",
   accountModes: ["assistant"], authenticationMethods: ["oauth2"],
   scopes: [
-    { value: "boards:read", label: "Read boards", recommended: true },
-    { value: "boards:write", label: "Create and edit boards" },
-    { value: "openid", label: "Include account identity" },
-    { value: "email", label: "Read your email address" }
+    { value: "boards:read", label: "jskit.connectors.miro.scopes.boardsRead.label", recommended: true },
+    { value: "boards:write", label: "jskit.connectors.miro.scopes.boardsWrite.label" },
+    { value: "openid", label: "jskit.connectors.miro.scopes.openid.label" },
+    { value: "email", label: "jskit.connectors.miro.scopes.email.label" }
   ],
   setup: {
     url: "https://developers.miro.com/docs/connecting-to-miro-mcp",

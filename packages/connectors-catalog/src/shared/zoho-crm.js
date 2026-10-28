@@ -4,31 +4,31 @@ import { zohoRegions } from "./zoho-regions.js";
 const zohoCrmRegions = Object.freeze(zohoRegions.filter(({ value }) => value !== "sa"));
 
 const zohoCrmDefinition = Object.freeze({
-  id: "zoho-crm", name: "Zoho CRM", description: "Read the connected CRM user and pages of leads, contacts, accounts and deals.",
+  id: "zoho-crm", name: "Zoho CRM", description: "jskit.connectors.zohoCrm.description",
   accountModes: ["shared", "per-user", "assistant"], authenticationMethods: ["oauth2"],
   oauthClientAuthenticationMethods: ["client_secret_post"],
   scopes: [
-    { value: "ZohoCRM.users.READ", label: "Read the connected CRM user", recommended: true },
-    { value: "ZohoCRM.modules.leads.READ", label: "Read leads", recommended: true },
-    { value: "ZohoCRM.modules.contacts.READ", label: "Read contacts", recommended: true },
-    { value: "ZohoCRM.modules.accounts.READ", label: "Read accounts", recommended: true },
-    { value: "ZohoCRM.modules.deals.READ", label: "Read deals", recommended: true },
-    { value: "ZohoCRM.modules.READ", label: "Read all CRM modules" },
-    { value: "ZohoCRM.users.ALL", label: "Full CRM user access" },
-    { value: "ZohoCRM.modules.leads.ALL", label: "Full lead access" },
-    { value: "ZohoCRM.modules.contacts.ALL", label: "Full contact access" },
-    { value: "ZohoCRM.modules.accounts.ALL", label: "Full account access" },
-    { value: "ZohoCRM.modules.deals.ALL", label: "Full deal access" },
-    { value: "ZohoCRM.modules.ALL", label: "Full access to all CRM modules" }
+    { value: "ZohoCRM.users.READ", label: "jskit.connectors.zohoCrm.scopes.zohoCRMUsersREAD.label", recommended: true },
+    { value: "ZohoCRM.modules.leads.READ", label: "jskit.connectors.zohoCrm.scopes.zohoCRMModulesLeadsREAD.label", recommended: true },
+    { value: "ZohoCRM.modules.contacts.READ", label: "jskit.connectors.zohoCrm.scopes.zohoCRMModulesContactsREAD.label", recommended: true },
+    { value: "ZohoCRM.modules.accounts.READ", label: "jskit.connectors.zohoCrm.scopes.zohoCRMModulesAccountsREAD.label", recommended: true },
+    { value: "ZohoCRM.modules.deals.READ", label: "jskit.connectors.zohoCrm.scopes.zohoCRMModulesDealsREAD.label", recommended: true },
+    { value: "ZohoCRM.modules.READ", label: "jskit.connectors.zohoCrm.scopes.zohoCRMModulesREAD.label" },
+    { value: "ZohoCRM.users.ALL", label: "jskit.connectors.zohoCrm.scopes.zohoCRMUsersALL.label" },
+    { value: "ZohoCRM.modules.leads.ALL", label: "jskit.connectors.zohoCrm.scopes.zohoCRMModulesLeadsALL.label" },
+    { value: "ZohoCRM.modules.contacts.ALL", label: "jskit.connectors.zohoCrm.scopes.zohoCRMModulesContactsALL.label" },
+    { value: "ZohoCRM.modules.accounts.ALL", label: "jskit.connectors.zohoCrm.scopes.zohoCRMModulesAccountsALL.label" },
+    { value: "ZohoCRM.modules.deals.ALL", label: "jskit.connectors.zohoCrm.scopes.zohoCRMModulesDealsALL.label" },
+    { value: "ZohoCRM.modules.ALL", label: "jskit.connectors.zohoCrm.scopes.zohoCRMModulesALL.label" }
   ],
   settingsSchema: createSchema({
     region: { type: "string", enum: zohoCrmRegions.map(({ value }) => value), defaultTo: "us" },
     environment: { type: "string", enum: ["production", "sandbox", "developer"], defaultTo: "production" }
   }),
   settingsFields: [
-    { name: "region", label: "Data center", hint: "Choose the data center containing your CRM account. Canada uses accounts.zohocloud.ca for OAuth.", items: zohoCrmRegions.map(({ value, title }) => ({ value, title })) },
-    { name: "environment", label: "CRM environment", hint: "Choose the same environment and organisation during Zoho consent. Tokens cannot be moved between environments.", items: [
-      { value: "production", title: "Production" }, { value: "sandbox", title: "Sandbox" }, { value: "developer", title: "Developer" }
+    { name: "region", label: "jskit.connectors.zohoCrm.fields.region.label", hint: "jskit.connectors.zohoCrm.fields.region.hint", items: zohoCrmRegions.map(({ value, title }) => ({ value, title })) },
+    { name: "environment", label: "jskit.connectors.zohoCrm.fields.environment.label", hint: "jskit.connectors.zohoCrm.fields.environment.hint", items: [
+      { value: "production", title: "jskit.connectors.zohoCrm.fields.environment.items.production.title" }, { value: "sandbox", title: "jskit.connectors.zohoCrm.fields.environment.items.sandbox.title" }, { value: "developer", title: "jskit.connectors.zohoCrm.fields.environment.items.developer.title" }
     ] }
   ],
   setup: { url: "https://www.zoho.com/crm/developer/docs/api/v8/register-client.html", steps: [

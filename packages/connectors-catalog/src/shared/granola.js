@@ -1,10 +1,10 @@
 const granolaDefinition = Object.freeze({
-  id: "granola", name: "Granola", description: "Read meeting notes with an API key or connect the assistant owner through Granola MCP OAuth.",
+  id: "granola", name: "Granola", description: "jskit.connectors.granola.description",
   accountModes: ["shared", "assistant"], authenticationMethods: ["api-key", "oauth2"], scopes: [
-    { value: "openid", label: "Identify the connected Granola account", recommended: true, authenticationMethods: ["oauth2"] },
-    { value: "profile", label: "Read account profile", recommended: true, authenticationMethods: ["oauth2"] },
-    { value: "email", label: "Read account email", recommended: true, authenticationMethods: ["oauth2"] },
-    { value: "offline_access", label: "Refresh access without repeating sign-in", recommended: true, authenticationMethods: ["oauth2"] }
+    { value: "openid", label: "jskit.connectors.granola.scopes.openid.label", recommended: true, authenticationMethods: ["oauth2"] },
+    { value: "profile", label: "jskit.connectors.granola.scopes.profile.label", recommended: true, authenticationMethods: ["oauth2"] },
+    { value: "email", label: "jskit.connectors.granola.scopes.email.label", recommended: true, authenticationMethods: ["oauth2"] },
+    { value: "offline_access", label: "jskit.connectors.granola.scopes.offlineAccess.label", recommended: true, authenticationMethods: ["oauth2"] }
   ],
   setup: { urlByAuthentication: { oauth2: "https://docs.granola.ai/help-center/sharing/integrations/mcp" }, clientRegistrationEndpoint: "https://mcp-auth.granola.ai/oauth2/register", url: "https://docs.granola.ai/help-center/sharing/integrations/granola-api", steps: [
 "API key: In the Granola desktop app, open Settings, Connectors, API keys, then Create new key. Choose the note access scopes and Generate API Key.",

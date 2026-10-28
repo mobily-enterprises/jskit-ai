@@ -24,19 +24,19 @@ function validN8nOAuthDiscovery(value) {
 }
 
 const n8nDefinition = Object.freeze({
-  id: "n8n", name: "n8n", description: "Discover and use your n8n instance's MCP tools from an assistant.",
+  id: "n8n", name: "n8n", description: "jskit.connectors.n8n.description",
   accountModes: ["assistant"], authenticationMethods: ["api-key"], scopes: [],
   authenticationMethodsForSettings: (settings) => settings.oauthDiscovery ? ["oauth2", "api-key"] : ["api-key"],
   scopesForSettings: (settings) => (settings.oauthDiscovery?.scopes || []).map((value) => ({ value, label: value })),
-  apiKeyReferenceLabel: "MCP access token reference",
-  apiKeyReferenceHint: "Use the personal token from Instance-level MCP, not an n8n REST API key. The assistant host must authorize individual tool calls.",
+  apiKeyReferenceLabel: "jskit.connectors.n8n.apiKeyReferenceLabel",
+  apiKeyReferenceHint: "jskit.connectors.n8n.apiKeyReferenceHint",
   settingsSchema: createSchema({ serverUrl: { type: "string", required: true, minLength: 1, maxLength: 2048,
     validator: (value) => validN8nServerUrl(value) || "Use the HTTPS MCP server URL ending /mcp-server/http, without credentials, query or fragment." },
     oauthDiscovery: { type: "object", additionalProperties: true,
       validator: (value) => validN8nOAuthDiscovery(value) || "Discover a supported n8n OAuth authority and permissions before connecting." }
   }),
-  settingsFields: [{ name: "serverUrl", label: "Server URL", placeholder: "https://automation.example.com/mcp-server/http",
-    hint: "Copy the full Server URL from n8n's MCP connection details. Keep any reverse-proxy subdirectory." }],
+  settingsFields: [{ name: "serverUrl", label: "jskit.connectors.n8n.fields.serverUrl.label", placeholder: "https://automation.example.com/mcp-server/http",
+    hint: "jskit.connectors.n8n.fields.serverUrl.hint" }],
   setup: {
     url: "https://docs.n8n.io/connect/connect-to-n8n-mcp-server",
     clientRegistrationEndpoint: (settings) => settings.oauthDiscovery?.resource === settings.serverUrl
@@ -65,11 +65,11 @@ const n8nDefinition = Object.freeze({
 });
 
 const sanityDefinition = Object.freeze({
-  id: "sanity", name: "Sanity", description: "Discover and use Sanity's hosted MCP tools from an assistant.",
+  id: "sanity", name: "Sanity", description: "jskit.connectors.sanity.description",
   accountModes: ["assistant"], authenticationMethods: ["oauth2", "api-key"],
-  scopes: [{ value: "global", label: "Sanity MCP account access", recommended: true }],
-  apiKeyReferenceLabel: "MCP API token reference",
-  apiKeyReferenceHint: "Store a Sanity token in Env. Its role controls tool access at https://mcp.sanity.io; the assistant host must authorize individual calls.",
+  scopes: [{ value: "global", label: "jskit.connectors.sanity.scopes.global.label", recommended: true }],
+  apiKeyReferenceLabel: "jskit.connectors.sanity.apiKeyReferenceLabel",
+  apiKeyReferenceHint: "jskit.connectors.sanity.apiKeyReferenceHint",
   setup: {
     url: "https://www.sanity.io/docs/ai/mcp-server",
     clientRegistrationEndpoint: "https://mcp.sanity.io/register",

@@ -1,14 +1,14 @@
 import { createSchema } from "json-rest-schema";
 
 const chargebeeDefinition = Object.freeze({
-  id: "chargebee", name: "Chargebee", description: "Manage customers and subscriptions, read invoices and launch hosted checkout for a Chargebee site.",
+  id: "chargebee", name: "Chargebee", description: "jskit.connectors.chargebee.description",
   accountModes: ["shared", "assistant"], authenticationMethods: ["api-key"], scopes: [],
   settingsSchema: createSchema({
     siteName: { type: "string", required: true, minLength: 1, maxLength: 63,
       validator: (value) => /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/iu.test(value) || "Enter the site name without .chargebee.com, a URL or spaces." }
   }),
-  settingsFields: [{ name: "siteName", label: "Site name", placeholder: "acme-test",
-    hint: "Your Chargebee site name, without .chargebee.com. Test and live sites use different keys." }],
+  settingsFields: [{ name: "siteName", label: "jskit.connectors.chargebee.fields.siteName.label", placeholder: "acme-test",
+    hint: "jskit.connectors.chargebee.fields.siteName.hint" }],
   setup: {
     url: "https://www.chargebee.com/docs/billing/2.0/site-configuration/api_keys",
     steps: [

@@ -2,21 +2,21 @@ import { createSchema } from "json-rest-schema";
 import { secretReference } from "@jskit-ai/connectors-core/shared/configuration";
 
 const inngestDefinition = Object.freeze({
-  id: "inngest", name: "Inngest", description: "Send events to background workflows and inspect registered apps.",
+  id: "inngest", name: "Inngest", description: "jskit.connectors.inngest.description",
   accountModes: ["shared", "assistant"], authenticationMethods: ["api-key"], scopes: [],
-  apiKeyReferenceLabel: "Signing Key reference",
-  apiKeyReferenceHint: "Reference the Signing Key for the intended Inngest environment. Verification reads app metadata; it does not verify the Event Key or run a workflow.",
+  apiKeyReferenceLabel: "jskit.connectors.inngest.apiKeyReferenceLabel",
+  apiKeyReferenceHint: "jskit.connectors.inngest.apiKeyReferenceHint",
   settingsSchema: createSchema({
     eventKeyRef: { ...secretReference, required: true },
     branchEnvironment: { type: "string", minLength: 1, maxLength: 255,
       validator: (value) => /^[\x21-\x7e]+$/u.test(value) || "Use an ASCII branch environment without spaces or control characters." }
   }),
   settingsFields: [
-    { name: "eventKeyRef", label: "Event Key reference", placeholder: "env:INNGEST_EVENT_KEY",
-      environmentCredential: { label: "Inngest Event Key", public: false },
-      hint: "The Event Key sends events. Keep it separate from the Signing Key, and use keys from the same intended environment." },
-    { name: "branchEnvironment", label: "Branch environment (optional)", placeholder: "feature/my-branch",
-      hint: "Routes event delivery to this branch. App metadata reads follow the Signing Key's environment." }
+    { name: "eventKeyRef", label: "jskit.connectors.inngest.fields.eventKeyRef.label", placeholder: "env:INNGEST_EVENT_KEY",
+      environmentCredential: { label: "jskit.connectors.inngest.fields.eventKeyRef.environmentCredential.label", public: false },
+      hint: "jskit.connectors.inngest.fields.eventKeyRef.hint" },
+    { name: "branchEnvironment", label: "jskit.connectors.inngest.fields.branchEnvironment.label", placeholder: "feature/my-branch",
+      hint: "jskit.connectors.inngest.fields.branchEnvironment.hint" }
   ],
   setup: {
     url: "https://www.inngest.com/docs/events/creating-an-event-key",

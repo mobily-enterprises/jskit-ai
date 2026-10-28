@@ -1,5 +1,5 @@
 const resendDefinition = Object.freeze({
-  id: "resend", name: "Resend", description: "Send transactional email and manage contact segments and draft broadcasts.",
+  id: "resend", name: "Resend", description: "jskit.connectors.resend.description",
   accountModes: ["shared", "assistant"], authenticationMethods: ["api-key"], scopes: [],
   setup: {
     url: "https://resend.com/docs/create-an-api-key",

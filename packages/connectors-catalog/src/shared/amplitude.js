@@ -1,16 +1,16 @@
 import { createSchema } from "json-rest-schema";
 
 const amplitudeDefinition = Object.freeze({
-  id: "amplitude", name: "Amplitude", description: "Query and manage Amplitude content through an authorized assistant MCP connection.",
+  id: "amplitude", name: "Amplitude", description: "jskit.connectors.amplitude.description",
   accountModes: ["assistant"], authenticationMethods: ["oauth2"],
   scopes: [
-    { value: "mcp:read", label: "Read Amplitude content (required for verification)", recommended: true },
-    { value: "mcp:write", label: "Create and edit Amplitude content" },
-    { value: "offline_access", label: "Refresh access without repeating sign-in", recommended: true }
+    { value: "mcp:read", label: "jskit.connectors.amplitude.scopes.mcpRead.label", recommended: true },
+    { value: "mcp:write", label: "jskit.connectors.amplitude.scopes.mcpWrite.label" },
+    { value: "offline_access", label: "jskit.connectors.amplitude.scopes.offlineAccess.label", recommended: true }
   ],
   settingsSchema: createSchema({ region: { type: "string", enum: ["us", "eu"], defaultTo: "us" } }),
-  settingsFields: [{ name: "region", label: "Region", hint: "Choose the region containing your Amplitude account and register the client there.",
-    items: [{ value: "us", title: "United States" }, { value: "eu", title: "European Union" }] }],
+  settingsFields: [{ name: "region", label: "jskit.connectors.amplitude.fields.region.label", hint: "jskit.connectors.amplitude.fields.region.hint",
+    items: [{ value: "us", title: "jskit.connectors.amplitude.fields.region.items.us.title" }, { value: "eu", title: "jskit.connectors.amplitude.fields.region.items.eu.title" }] }],
   setup: {
     clientRegistrationEndpoint: (settings = {}) => settings.region === "eu"
       ? "https://mcp.eu.amplitude.com/register" : "https://mcp.amplitude.com/register",

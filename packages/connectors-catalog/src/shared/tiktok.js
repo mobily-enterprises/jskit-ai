@@ -1,14 +1,14 @@
 const tiktokDefinition = Object.freeze({
-  id: "tiktok", name: "TikTok", description: "Read a connected creator's profile and public video metadata.",
+  id: "tiktok", name: "TikTok", description: "jskit.connectors.tiktok.description",
   accountModes: ["shared", "per-user", "assistant"], authenticationMethods: ["oauth2"],
-  clientIdLabel: "Client key", clientIdHint: "Use the Client key from TikTok's app credentials, not its App ID.",
+  clientIdLabel: "jskit.connectors.tiktok.clientIdLabel", clientIdHint: "jskit.connectors.tiktok.clientIdHint",
   scopes: [
-    { value: "user.info.basic", label: "Read basic profile information (required)", required: true, recommended: true },
-    { value: "user.info.stats", label: "Read user statistics", recommended: true },
-    { value: "user.info.profile", label: "Read extended profile information", recommended: true },
-    { value: "video.list", label: "Read published video metadata", recommended: true }
+    { value: "user.info.basic", label: "jskit.connectors.tiktok.scopes.userInfoBasic.label", required: true, recommended: true },
+    { value: "user.info.stats", label: "jskit.connectors.tiktok.scopes.userInfoStats.label", recommended: true },
+    { value: "user.info.profile", label: "jskit.connectors.tiktok.scopes.userInfoProfile.label", recommended: true },
+    { value: "video.list", label: "jskit.connectors.tiktok.scopes.videoList.label", recommended: true }
   ],
-  permissionsHint: "Basic profile access is required for verification. Users can decline the other permissions during consent; the corresponding operations then stay unavailable.",
+  permissionsHint: "jskit.connectors.tiktok.permissionsHint",
   setup: { url: "https://developers.tiktok.com/docs/en/getting-started-create-an-app", steps: [
     "Sign into TikTok for Developers. Open your profile menu, choose Manage apps, then Connect an app and select its owner.",
     "Complete the app's basic information and Web platform settings. Add Login Kit and Display API in Products, then add the required permissions under Scopes.",

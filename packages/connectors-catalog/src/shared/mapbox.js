@@ -2,19 +2,19 @@ import { createSchema } from "json-rest-schema";
 import { secretReference } from "@jskit-ai/connectors-core/shared/configuration";
 
 const mapboxDefinition = Object.freeze({
-  id: "mapbox", name: "Mapbox", description: "Validate a backend access token and look up places or coordinates.",
+  id: "mapbox", name: "Mapbox", description: "jskit.connectors.mapbox.description",
   accountModes: ["shared", "assistant"], authenticationMethods: ["api-key", "none"], scopes: [],
   authenticationMethodsForSettings: settings => settings?.usage === "browser" ? ["none"] : ["api-key"],
   configurationOnlyForSettings: settings => settings?.usage === "browser",
-  apiKeyReferenceLabel: "Backend access token reference",
-  apiKeyReferenceHint: "Use a reference to a token for backend requests. It may be a public (pk.) or secret (sk.) token; browser URL restrictions can block backend geocoding.",
+  apiKeyReferenceLabel: "jskit.connectors.mapbox.apiKeyReferenceLabel",
+  apiKeyReferenceHint: "jskit.connectors.mapbox.apiKeyReferenceHint",
   settingsSchema: settings => createSchema({
     usage: { type: "string", enum: ["backend", "browser"], defaultTo: "backend" },
     publicTokenRef: { ...secretReference, required: settings?.usage === "browser" }
   }),
-  settingsFields: [{ name: "usage", label: "Mapbox usage", credentialScope: value => value,
-    items: [{ title: "Backend geocoding and optional browser maps", value: "backend" }, { title: "Browser maps only", value: "browser" }] }, { name: "publicTokenRef", environmentCredential: { label: "Public browser token", public: true }, label: "Public browser token reference", placeholder: "env:MAPBOX_PUBLIC_TOKEN",
-    hint: "Required for browser-only mode; optional with backend geocoding. Separate pk. token for Mapbox in your browser. The application may expose this value; backend verification does not verify its restrictions." }],
+  settingsFields: [{ name: "usage", label: "jskit.connectors.mapbox.fields.usage.label", credentialScope: value => value,
+    items: [{ title: "jskit.connectors.mapbox.fields.usage.items.backend.title", value: "backend" }, { title: "jskit.connectors.mapbox.fields.usage.items.browser.title", value: "browser" }] }, { name: "publicTokenRef", environmentCredential: { label: "jskit.connectors.mapbox.fields.publicTokenRef.environmentCredential.label", public: true }, label: "jskit.connectors.mapbox.fields.publicTokenRef.label", placeholder: "env:MAPBOX_PUBLIC_TOKEN",
+    hint: "jskit.connectors.mapbox.fields.publicTokenRef.hint" }],
   setup: {
     url: "https://docs.mapbox.com/accounts/guides/tokens/",
     stepsForSettings: settings => settings?.usage === "browser" ? [

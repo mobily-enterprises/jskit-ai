@@ -1,12 +1,12 @@
 import { createSchema } from "json-rest-schema";
 
 const wizDefinition = Object.freeze({
-  id: "wiz", name: "Wiz", description: "Scan project source with your Wiz security policies.",
+  id: "wiz", name: "Wiz", description: "jskit.connectors.wiz.description",
   accountModes: ["shared"], authenticationMethods: ["oauth2"], scopes: [],
   oauthGrantTypes: ["client_credentials"], oauthClientAuthenticationMethods: ["client_secret_post"],
   validateClientId: (value) => !/[\s\p{Cc}]/u.test(value) || "Use the Wiz service-account Client ID without whitespace or control characters.",
-  authenticationLabels: { oauth2: "Wiz service account" },
-  authenticationHint: "A source scanner uses your workspace's service account. It does not sign app users in. The installed Wiz CLI performs authentication when a scan runs.",
+  authenticationLabels: { oauth2: "jskit.connectors.wiz.authenticationLabels.oauth2" },
+  authenticationHint: "jskit.connectors.wiz.authenticationHint",
   settingsSchema: createSchema({
     tokenUrl: { type: "string", enum: ["https://auth.app.wiz.io/oauth/token", "https://auth.wiz.io/oauth/token"],
       defaultTo: "https://auth.app.wiz.io/oauth/token" },
@@ -16,17 +16,17 @@ const wizDefinition = Object.freeze({
     byPolicyHits: { type: "string", enum: ["BLOCK", "AUDIT", "DISABLED"], defaultTo: "BLOCK" }
   }),
   settingsFields: [
-    { name: "tokenUrl", label: "Token URL", items: [
-      { value: "https://auth.app.wiz.io/oauth/token", title: "Cognito (auth.app.wiz.io)" },
-      { value: "https://auth.wiz.io/oauth/token", title: "Auth0 (auth.wiz.io)" }
-    ], hint: "The current Wiz v1 runner supports Cognito. Auth0 configuration can be saved, but requires a verified compatible runner before scanning." },
-    { name: "policies", label: "CI/CD scan policies", placeholder: "Default vulnerabilities policy, Default IaC policy",
-      hint: "Optional comma-separated policy names. Leave blank to use your Wiz tenant's defaults." },
-    { name: "byPolicyHits", label: "Filter findings by policy hits", items: [
-      { value: "BLOCK", title: "Blocking policy hits (BLOCK)" },
-      { value: "AUDIT", title: "Blocking or audit policy hits (AUDIT)" },
-      { value: "DISABLED", title: "All findings (DISABLED)" }
-    ], hint: "Filtering reported findings does not disable Wiz's policy verdict." }
+    { name: "tokenUrl", label: "jskit.connectors.wiz.fields.tokenUrl.label", items: [
+      { value: "https://auth.app.wiz.io/oauth/token", title: "jskit.connectors.wiz.fields.tokenUrl.items.httpsAuthAppWizIoOauthToken.title" },
+      { value: "https://auth.wiz.io/oauth/token", title: "jskit.connectors.wiz.fields.tokenUrl.items.httpsAuthWizIoOauthToken.title" }
+    ], hint: "jskit.connectors.wiz.fields.tokenUrl.hint" },
+    { name: "policies", label: "jskit.connectors.wiz.fields.policies.label", placeholder: "jskit.connectors.wiz.fields.policies.placeholder",
+      hint: "jskit.connectors.wiz.fields.policies.hint" },
+    { name: "byPolicyHits", label: "jskit.connectors.wiz.fields.byPolicyHits.label", items: [
+      { value: "BLOCK", title: "jskit.connectors.wiz.fields.byPolicyHits.items.bLOCK.title" },
+      { value: "AUDIT", title: "jskit.connectors.wiz.fields.byPolicyHits.items.aUDIT.title" },
+      { value: "DISABLED", title: "jskit.connectors.wiz.fields.byPolicyHits.items.dISABLED.title" }
+    ], hint: "jskit.connectors.wiz.fields.byPolicyHits.hint" }
   ],
   setup: { url: "https://marketplace.visualstudio.com/items?itemName=WizCloud.wiz-task", steps: [
     "Ask your Wiz administrator for a service account or deployment scoped to the projects you intend to scan, with create:security_scans permission.",

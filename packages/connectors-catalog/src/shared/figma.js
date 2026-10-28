@@ -1,7 +1,7 @@
 const figmaDefinition = Object.freeze({
-  id: "figma", name: "Figma", description: "Discover and call Figma's remote design tools through the assistant owner's account.",
+  id: "figma", name: "Figma", description: "jskit.connectors.figma.description",
   accountModes: ["assistant"], authenticationMethods: ["oauth2"],
-  scopes: [{ value: "mcp:connect", label: "Use Figma MCP tools", recommended: true }],
+  scopes: [{ value: "mcp:connect", label: "jskit.connectors.figma.scopes.mcpConnect.label", recommended: true }],
   setup: {
     url: "https://developers.figma.com/docs/figma-mcp-server/",
     clientRegistrationEndpoint: "https://api.figma.com/v1/oauth/mcp/register",

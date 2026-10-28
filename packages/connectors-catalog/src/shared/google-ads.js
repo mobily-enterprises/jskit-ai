@@ -5,15 +5,15 @@ const common = {
     validator: (value) => /^[0-9]{10}$/u.test(value) || "Enter the manager's 10-digit customer ID without hyphens." }
 };
 const googleAdsDefinition = Object.freeze({
-  id: "google-ads", name: "Google Ads", description: "Discover advertising accounts, prepare reviewed Search campaigns and read Google Ads reports.",
+  id: "google-ads", name: "Google Ads", description: "jskit.connectors.googleAds.description",
   accountModes: ["shared", "per-user", "assistant"], authenticationMethods: ["oauth2"],
   settingsSchema: createSchema(common),
   settingsFields: [
-    { name: "loginCustomerId", label: "Manager customer ID (optional)", placeholder: "1234567890",
-      hint: "Use the manager through which this app accesses client accounts, without hyphens. Direct account access can leave this blank." }
+    { name: "loginCustomerId", label: "jskit.connectors.googleAds.fields.loginCustomerId.label", placeholder: "1234567890",
+      hint: "jskit.connectors.googleAds.fields.loginCustomerId.hint" }
   ],
-  scopes: [{ value: "https://www.googleapis.com/auth/adwords", label: "Access Google Ads accounts", recommended: true }],
-  permissionsHint: "This Google permission can authorize campaign changes. Search management uses separate reviewed operations; your application must authorize each account and spending decision. This is not application login.",
+  scopes: [{ value: "https://www.googleapis.com/auth/adwords", label: "jskit.connectors.googleAds.scopes.httpsWwwGoogleapisComAuthAdwords.label", recommended: true }],
+  permissionsHint: "jskit.connectors.googleAds.permissionsHint",
   setup: { url: "https://developers.google.com/google-ads/api/docs/get-started/make-first-call", steps: [
     "Select your Google Cloud project, open APIs & Services > Library and enable Google Ads API. Open its Overview page and review API access level. Test access only permits test accounts; use Upgrade access level to apply for production access.",
     "In Google Auth Platform, configure Branding and Audience, adding test users while testing. In Data Access add https://www.googleapis.com/auth/adwords. Complete the applicable consent publishing and verification requirements.",

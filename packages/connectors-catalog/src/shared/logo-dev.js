@@ -1,9 +1,9 @@
 const logoDevDefinition = Object.freeze({
-  id: "logo-dev", name: "Logo.dev", description: "Display company logos using a publishable image-service key.",
+  id: "logo-dev", name: "Logo.dev", description: "jskit.connectors.logoDev.description",
   accountModes: ["shared", "assistant"], authenticationMethods: ["api-key"], scopes: [],
   configurationOnly: true,
-  apiKeyReferenceLabel: "Publishable key reference",
-  apiKeyReferenceHint: "Reference a pk_ key. Your application exposes its value in image URLs. A private sk_ key cannot be used for this image flow.",
+  apiKeyReferenceLabel: "jskit.connectors.logoDev.apiKeyReferenceLabel",
+  apiKeyReferenceHint: "jskit.connectors.logoDev.apiKeyReferenceHint",
   setup: {
     url: "https://www.logo.dev/docs/platform/api-keys",
     steps: [

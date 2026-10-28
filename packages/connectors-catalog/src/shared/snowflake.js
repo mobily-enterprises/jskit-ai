@@ -7,7 +7,7 @@ function snowflakeRoleScope(role) {
     : `session:role-encoded:${encodeURIComponent(role).replace(/[!'()*]/gu, (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`)}`;
 }
 const snowflakeDefinition = Object.freeze({
-  id: "snowflake", name: "Snowflake", description: "Query data and manage warehouses with a connected Snowflake role.",
+  id: "snowflake", name: "Snowflake", description: "jskit.connectors.snowflake.description",
   accountModes: ["shared", "per-user", "assistant"], authenticationMethods: ["oauth2"],
   oauthClientAuthenticationMethods: ["client_secret_post", "client_secret_basic"],
   settingsSchema: createSchema({
@@ -22,23 +22,23 @@ const snowflakeDefinition = Object.freeze({
         "Use a non-administrator role name in ASCII, with exact case and without quotes or backslashes." }
   }),
   settingsFields: [
-    { name: "warehouse", label: "Warehouse (optional)", placeholder: "APP_WAREHOUSE",
-      hint: "Exact case-sensitive warehouse name for SQL execution. Blank uses the connected user's default. Queries may resume compute and incur Snowflake charges." },
-    { name: "database", label: "Database (optional)", placeholder: "APP_DATABASE",
-      hint: "Exact case-sensitive database name for SQL execution; blank uses the user's default namespace. This is a default, not an access boundary: Snowflake role grants control access." },
-    { name: "schema", label: "Schema (optional)", placeholder: "PUBLIC",
-      hint: "Exact case-sensitive schema name for SQL execution; blank uses the user's default namespace." },
-    { name: "accountUrl", label: "Account URL", placeholder: "https://myorg-myaccount.snowflakecomputing.com",
-      hint: "Copy the account URL from Snowflake. Snowsight browser paths and organization-console URLs are not API addresses." },
-    { name: "role", label: "Role", placeholder: "APP_READER",
-      hint: "Use the exact name from SHOW ROLES, normally uppercase. Leave blank to use each connected user's default role. Shared accounts should use a dedicated role." }
+    { name: "warehouse", label: "jskit.connectors.snowflake.fields.warehouse.label", placeholder: "APP_WAREHOUSE",
+      hint: "jskit.connectors.snowflake.fields.warehouse.hint" },
+    { name: "database", label: "jskit.connectors.snowflake.fields.database.label", placeholder: "APP_DATABASE",
+      hint: "jskit.connectors.snowflake.fields.database.hint" },
+    { name: "schema", label: "jskit.connectors.snowflake.fields.schema.label", placeholder: "PUBLIC",
+      hint: "jskit.connectors.snowflake.fields.schema.hint" },
+    { name: "accountUrl", label: "jskit.connectors.snowflake.fields.accountUrl.label", placeholder: "https://myorg-myaccount.snowflakecomputing.com",
+      hint: "jskit.connectors.snowflake.fields.accountUrl.hint" },
+    { name: "role", label: "jskit.connectors.snowflake.fields.role.label", placeholder: "APP_READER",
+      hint: "jskit.connectors.snowflake.fields.role.hint" }
   ],
-  scopes: [{ value: "refresh_token", label: "Keep access between visits (required)", recommended: true, required: true }],
+  scopes: [{ value: "refresh_token", label: "jskit.connectors.snowflake.scopes.refreshToken.label", recommended: true, required: true }],
   scopesForSettings: ({ role } = {}) => [
-    { value: "refresh_token", label: snowflakeRoleScope(role) ? "Keep access between visits" : "Keep access between visits (required)", recommended: true, required: !snowflakeRoleScope(role) },
-    ...(snowflakeRoleScope(role) ? [{ value: snowflakeRoleScope(role), label: `Use role ${role} (required)`, recommended: true, required: true }] : [])
+    { value: "refresh_token", label: snowflakeRoleScope(role) ? "jskit.connectors.snowflake.scopes.refreshTokenOptional.label" : "jskit.connectors.snowflake.scopes.refreshToken.label", recommended: true, required: !snowflakeRoleScope(role) },
+    ...(snowflakeRoleScope(role) ? [{ value: snowflakeRoleScope(role), label: { key: "jskit.connectors.snowflake.scopes.role.label", params: { role } }, recommended: true, required: true }] : [])
   ],
-  permissionsHint: "The role's Snowflake grants control access. SQL and warehouse actions use those grants and may incur compute charges. Connecting Snowflake does not sign users into your application.",
+  permissionsHint: "jskit.connectors.snowflake.permissionsHint",
   setup: { url: "https://docs.snowflake.com/en/user-guide/oauth-custom", steps: [
     "Sign into the target account in Snowsight. Open account details and copy Account URL into this form. Do not use the browser's app.snowflake.com address. Each Snowflake account needs its own registration.",
     "Ask an administrator with CREATE INTEGRATION to open Projects → Worksheets → + → SQL Worksheet (or a SQL file in Workspaces). Use a new integration name; do not replace an existing production registration.",

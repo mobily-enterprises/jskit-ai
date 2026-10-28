@@ -2,23 +2,23 @@ import { createSchema } from "json-rest-schema";
 import { httpsSiteUrlField } from "./siteUrl.js";
 
 const clickhouseDefinition = Object.freeze({
-  id: "clickhouse", name: "ClickHouse", description: "Explore tables and run bounded, parameterized analytical reads on your ClickHouse database.",
+  id: "clickhouse", name: "ClickHouse", description: "jskit.connectors.clickhouse.description",
   accountModes: ["shared", "assistant"], authenticationMethods: ["api-key", "none"], scopes: [],
-  authenticationLabels: { "api-key": "Username and password", none: "No credentials" },
-  authenticationHint: "No credentials uses the server's default user. Choose it only for a server configured to allow that access.",
+  authenticationLabels: { "api-key": "jskit.connectors.clickhouse.authenticationLabels.apiKey", none: "jskit.connectors.clickhouse.authenticationLabels.none" },
+  authenticationHint: "jskit.connectors.clickhouse.authenticationHint",
   apiKeySecretOptional: true,
-  apiKeyReferenceLabel: "Password reference (optional)",
-  apiKeyReferenceHint: "Use a reference such as env:CLICKHOUSE_PASSWORD. Leave blank only if this database user has an empty password.",
+  apiKeyReferenceLabel: "jskit.connectors.clickhouse.apiKeyReferenceLabel",
+  apiKeyReferenceHint: "jskit.connectors.clickhouse.apiKeyReferenceHint",
   settingsSchema: createSchema({
     httpUrl: httpsSiteUrlField,
     username: { type: "string", minLength: 1, maxLength: 256,
       validator: (value) => !/[:\p{Cc}]/u.test(value) || "Enter a username without colons or control characters." }
   }),
   settingsFields: [
-    { name: "httpUrl", label: "HTTP Interface URL", placeholder: "https://service.example.clickhouse.cloud:8443",
-      hint: "Use the HTTPS query endpoint, including its port and any proxy path. Native TCP addresses do not work here." },
-    { name: "username", label: "Username (optional)", placeholder: "default", authenticationMethods: ["api-key"],
-      hint: "The database user, not your Cloud console login. Leave blank to use default." }
+    { name: "httpUrl", label: "jskit.connectors.clickhouse.fields.httpUrl.label", placeholder: "https://service.example.clickhouse.cloud:8443",
+      hint: "jskit.connectors.clickhouse.fields.httpUrl.hint" },
+    { name: "username", label: "jskit.connectors.clickhouse.fields.username.label", placeholder: "default", authenticationMethods: ["api-key"],
+      hint: "jskit.connectors.clickhouse.fields.username.hint" }
   ],
   setup: {
     url: "https://clickhouse.com/docs/products/cloud/guides/sql-console/connection-details",

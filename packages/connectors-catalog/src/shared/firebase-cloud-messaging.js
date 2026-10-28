@@ -15,20 +15,20 @@ const webSettings = createSchema({ ...common,
     validator: (value) => /^B[A-Za-z0-9_-]{85}[AEIMQUYcgkosw048]$/u.test(value) || "Enter the public Web Push certificate key from Firebase, not a private key." }
 });
 const firebaseCloudMessagingDefinition = Object.freeze({
-  id: "firebase-cloud-messaging", name: "Firebase Cloud Messaging", description: "Send notifications to mobile and browser installations, tokens or topics.",
+  id: "firebase-cloud-messaging", name: "Firebase Cloud Messaging", description: "jskit.connectors.firebaseCloudMessaging.description",
   accountModes: ["shared", "assistant"], authenticationMethods: ["service-account"],
-  serviceAccountReferenceLabel: "Service-account JSON reference",
-  serviceAccountReferenceHint: "Store the complete service-account JSON in Env, then enter its reference. It stays on the server and is never included in the browser configuration.",
-  scopes: [{ value: firebaseMessagingScope, label: "Validate and send Firebase messages", recommended: true }],
-  permissionsHint: "Firebase IAM controls which projects this service account can send to. Sending to an audience also requires your application's authorization.",
+  serviceAccountReferenceLabel: "jskit.connectors.firebaseCloudMessaging.serviceAccountReferenceLabel",
+  serviceAccountReferenceHint: "jskit.connectors.firebaseCloudMessaging.serviceAccountReferenceHint",
+  scopes: [{ value: firebaseMessagingScope, label: "jskit.connectors.firebaseCloudMessaging.scopes.firebaseMessagingScope.label", recommended: true }],
+  permissionsHint: "jskit.connectors.firebaseCloudMessaging.permissionsHint",
   settingsSchema: (settings = {}) => settings.clientMode === "web" ? webSettings : serverSettings,
   settingsFields: [
-    { name: "projectId", label: "Firebase project ID", placeholder: "my-notifications-app", hint: "The project receiving messages. Usually project_id in your JSON; cross-project access requires an IAM grant on this target project." },
-    { name: "clientMode", label: "Client setup", items: [{ value: "server", title: "Server or native only" }, { value: "web", title: "Include web push" }],
-      hint: "Existing mobile/browser targets need server credentials. Include web push to configure browser registration too." },
-    { name: "apiKey", label: "Firebase API key", placeholder: "AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", hint: "Public API key from the Firebase web app configuration. This value is visible in your deployed app." },
-    { name: "appId", label: "Firebase App ID", placeholder: "1:123456789012:web:abcdef1234567890", hint: "Public appId from the same Firebase project and web app." },
-    { name: "vapidKey", label: "Web Push VAPID key", placeholder: "BEl62...", hint: "Public key from Project settings > Cloud Messaging > Web Push certificates. Never paste the private VAPID key." }
+    { name: "projectId", label: "jskit.connectors.firebaseCloudMessaging.fields.projectId.label", placeholder: "my-notifications-app", hint: "jskit.connectors.firebaseCloudMessaging.fields.projectId.hint" },
+    { name: "clientMode", label: "jskit.connectors.firebaseCloudMessaging.fields.clientMode.label", items: [{ value: "server", title: "jskit.connectors.firebaseCloudMessaging.fields.clientMode.items.server.title" }, { value: "web", title: "jskit.connectors.firebaseCloudMessaging.fields.clientMode.items.web.title" }],
+      hint: "jskit.connectors.firebaseCloudMessaging.fields.clientMode.hint" },
+    { name: "apiKey", label: "jskit.connectors.firebaseCloudMessaging.fields.apiKey.label", placeholder: "AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", hint: "jskit.connectors.firebaseCloudMessaging.fields.apiKey.hint" },
+    { name: "appId", label: "jskit.connectors.firebaseCloudMessaging.fields.appId.label", placeholder: "1:123456789012:web:abcdef1234567890", hint: "jskit.connectors.firebaseCloudMessaging.fields.appId.hint" },
+    { name: "vapidKey", label: "jskit.connectors.firebaseCloudMessaging.fields.vapidKey.label", placeholder: "BEl62...", hint: "jskit.connectors.firebaseCloudMessaging.fields.vapidKey.hint" }
   ],
   setup: { url: "https://firebase.google.com/docs/cloud-messaging/send/v1-api", steps: [
     "Open the target Firebase project. In Project settings > General, copy its project ID. Enable Firebase Cloud Messaging API (HTTP v1) if disabled.",

@@ -7,12 +7,75 @@
         "chooseAllDayDateTimed": "Choose an all-day date or a timed dateTime.",
         "chooseSendUpdates": "Choose sendUpdates explicitly: all, externalOnly or none.",
         "datetimeRequiresExplicitTimezoneOffset": "dateTime requires an explicit timezone offset.",
+        "description": "Read calendars and create, edit or cancel events.",
         "eventMustObject": "event must be an object.",
         "invalidAllDayDate": "Invalid all-day date.",
         "invalidEventEtag": "Invalid event ETag.",
         "invalidTransparency": "Invalid transparency.",
         "invalidVisibility": "Invalid visibility.",
         "recurrenceMustArrayRfc5545Recurrence": "recurrence must be an array of RFC5545 recurrence lines.",
+        "scopes": {
+          "calendar": {
+            "label": "Manage calendars and events"
+          },
+          "calendarAcls": {
+            "label": "Manage calendar sharing permissions"
+          },
+          "calendarAclsReadonly": {
+            "label": "Read calendar sharing permissions"
+          },
+          "calendarAddonsCurrentEventRead": {
+            "label": "Read the event open in a Calendar add-on"
+          },
+          "calendarAddonsCurrentEventWrite": {
+            "label": "Edit the event open in a Calendar add-on"
+          },
+          "calendarAddonsExecute": {
+            "label": "Run a Calendar add-on"
+          },
+          "calendarAppCreated": {
+            "label": "Create and manage app-created calendars"
+          },
+          "calendarCalendarlist": {
+            "label": "Manage calendar subscriptions"
+          },
+          "calendarCalendarlistReadonly": {
+            "label": "List calendars"
+          },
+          "calendarCalendars": {
+            "label": "Manage calendar properties"
+          },
+          "calendarCalendarsReadonly": {
+            "label": "Read calendar properties"
+          },
+          "calendarEvents": {
+            "label": "Manage events"
+          },
+          "calendarEventsFreebusy": {
+            "label": "Read availability in accessible calendars"
+          },
+          "calendarEventsOwned": {
+            "label": "Manage events in calendars you own"
+          },
+          "calendarEventsOwnedReadonly": {
+            "label": "Read events in calendars you own"
+          },
+          "calendarEventsPublicReadonly": {
+            "label": "Read public calendar events"
+          },
+          "calendarEventsReadonly": {
+            "label": "Read events"
+          },
+          "calendarFreebusy": {
+            "label": "Read your availability"
+          },
+          "calendarReadonly": {
+            "label": "Read all calendar data"
+          },
+          "calendarSettingsReadonly": {
+            "label": "Read calendar settings"
+          }
+        },
         "startEndRequired": "start and end are required.",
         "supplyStartEndSettingRecurrence": "Supply start and end when setting recurrence.",
         "supplyStartEndTogetherChanging": "Supply start and end together when changing event times.",

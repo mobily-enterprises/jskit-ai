@@ -2,15 +2,15 @@ import { createSchema } from "json-rest-schema";
 import { secretReference } from "@jskit-ai/connectors-core/shared/configuration";
 
 const googleMapsPlatformDefinition = Object.freeze({
-  id: "google-maps-platform", name: "Google Maps Platform", description: "Geocode addresses, find places, compute routes and configure browser maps.",
+  id: "google-maps-platform", name: "Google Maps Platform", description: "jskit.connectors.googleMapsPlatform.description",
   accountModes: ["shared", "assistant"], authenticationMethods: ["api-key"], scopes: [],
-  apiKeyReferenceLabel: "Server API key reference",
-  verificationFields: [{ name: "address", required: true, label: "Verification address",
-    hint: "Enter an address or plus code. Connecting performs one geocoding request and can incur provider usage charges." }],
-  apiKeyReferenceHint: "Reference a server key authorized for Geocoding API. Verification performs one geocoding request using an address you supply and can incur provider usage charges.",
+  apiKeyReferenceLabel: "jskit.connectors.googleMapsPlatform.apiKeyReferenceLabel",
+  verificationFields: [{ name: "address", required: true, label: "jskit.connectors.googleMapsPlatform.verificationFields.address.label",
+    hint: "jskit.connectors.googleMapsPlatform.verificationFields.address.hint" }],
+  apiKeyReferenceHint: "jskit.connectors.googleMapsPlatform.apiKeyReferenceHint",
   settingsSchema: createSchema({ browserKeyRef: { ...secretReference, required: false }, mapId: { type: "string", maxLength: 100, validator: value => /^[A-Za-z0-9_-]+$/.test(value) || "Use the map ID from Google Cloud." } }),
-  settingsFields: [{ name: "mapId", label: "Map ID (optional)", hint: "Public JavaScript map ID for advanced markers. Create it in Google Maps Platform > Map management. DEMO_MAP_ID is only for development." }, { name: "browserKeyRef", label: "Browser API key reference (optional)", placeholder: "env:GOOGLE_MAPS_BROWSER_KEY",
-    hint: "A separate key for browser maps. Restrict it to the actual application websites and APIs. Backend verification does not verify this key." }],
+  settingsFields: [{ name: "mapId", label: "jskit.connectors.googleMapsPlatform.fields.mapId.label", hint: "jskit.connectors.googleMapsPlatform.fields.mapId.hint" }, { name: "browserKeyRef", label: "jskit.connectors.googleMapsPlatform.fields.browserKeyRef.label", placeholder: "env:GOOGLE_MAPS_BROWSER_KEY",
+    hint: "jskit.connectors.googleMapsPlatform.fields.browserKeyRef.hint" }],
   setup: {
     url: "https://developers.google.com/maps/documentation/geocoding/guides-v3/get-api-key",
     steps: [

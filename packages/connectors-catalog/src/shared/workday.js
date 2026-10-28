@@ -7,7 +7,7 @@ const workdayRestEndpoint = (value) => typeof value === "string" ? restPattern.e
 const endpointField = { type: "string", required: true, noTrim: true, maxLength: 512 };
 
 const workdayDefinition = Object.freeze({
-  id: "workday", name: "Workday", description: "Read workers, organizations, time off and custom reports with each connected Workday user's permissions.",
+  id: "workday", name: "Workday", description: "jskit.connectors.workday.description",
   accountModes: ["per-user"], authenticationMethods: ["oauth2"],
   oauthClientAuthenticationMethods: ["client_secret_post", "client_secret_basic"],
   settingsSchema: createSchema({
@@ -25,15 +25,15 @@ const workdayDefinition = Object.freeze({
     } }
   }),
   settingsFields: [
-    { name: "restApiEndpoint", label: "Workday REST API Endpoint", placeholder: "https://wd5-services1.myworkday.com/ccx/api/v1/acme_corp",
-      hint: "Copy from View API Clients. Worker reads use Staffing v7 on this host and tenant." },
-    { name: "tokenEndpoint", label: "Token Endpoint", placeholder: "https://wd5-services1.myworkday.com/ccx/oauth2/acme_corp/token",
-      hint: "Copy the Token Endpoint from the same Workday tenant." },
-    { name: "authorizationEndpoint", label: "Authorization Endpoint", placeholder: "https://acme.wd5.myworkday.com/acme_corp/authorize",
-      hint: "Copy from View API Clients. The sign-in host usually differs from the API host." }
+    { name: "restApiEndpoint", label: "jskit.connectors.workday.fields.restApiEndpoint.label", placeholder: "https://wd5-services1.myworkday.com/ccx/api/v1/acme_corp",
+      hint: "jskit.connectors.workday.fields.restApiEndpoint.hint" },
+    { name: "tokenEndpoint", label: "jskit.connectors.workday.fields.tokenEndpoint.label", placeholder: "https://wd5-services1.myworkday.com/ccx/oauth2/acme_corp/token",
+      hint: "jskit.connectors.workday.fields.tokenEndpoint.hint" },
+    { name: "authorizationEndpoint", label: "jskit.connectors.workday.fields.authorizationEndpoint.label", placeholder: "https://acme.wd5.myworkday.com/acme_corp/authorize",
+      hint: "jskit.connectors.workday.fields.authorizationEndpoint.hint" }
   ],
   scopes: [],
-  permissionsHint: "Select the required functional areas in Workday: Staffing, Organizations and Roles, or Time Off and Leave. Each user's domain and report permissions still apply. Connecting Workday does not create your app's login.",
+  permissionsHint: "jskit.connectors.workday.permissionsHint",
   setup: { url: "https://doc.workday.com/peakon/en-us/workday-peakon-employee-voice/integrations/workday-integration/nfa1667304944189.html", steps: [
     "In your Workday tenant, an administrator opens Register API Client and chooses Authorization Code Grant and Bearer access tokens.",
     "Register this confidential client without PKCE so Workday issues a Client Secret. Enter your application's exact backend callback URL.",

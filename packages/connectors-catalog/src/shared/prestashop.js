@@ -2,13 +2,13 @@ import { createSchema } from "json-rest-schema";
 import { httpsSiteUrlField } from "./siteUrl.js";
 
 const prestashopDefinition = Object.freeze({
-  id: "prestashop", name: "PrestaShop", description: "Read products and orders from your PrestaShop store.",
+  id: "prestashop", name: "PrestaShop", description: "jskit.connectors.prestashop.description",
   accountModes: ["shared", "assistant"], authenticationMethods: ["api-key"], scopes: [],
-  apiKeyReferenceLabel: "Webservice API key reference",
-  apiKeyReferenceHint: "Store the Webservice key outside source. Grant GET for products, and for orders if the application needs order reads.",
+  apiKeyReferenceLabel: "jskit.connectors.prestashop.apiKeyReferenceLabel",
+  apiKeyReferenceHint: "jskit.connectors.prestashop.apiKeyReferenceHint",
   settingsSchema: createSchema({ siteUrl: httpsSiteUrlField }),
-  settingsFields: [{ name: "siteUrl", label: "Store URL", placeholder: "https://shop.example.com",
-    hint: "Use the HTTPS store address before /api, keeping any installation subdirectory." }],
+  settingsFields: [{ name: "siteUrl", label: "jskit.connectors.prestashop.fields.siteUrl.label", placeholder: "https://shop.example.com",
+    hint: "jskit.connectors.prestashop.fields.siteUrl.hint" }],
   setup: {
     url: "https://devdocs.prestashop-project.org/9/webservice/tutorials/creating-access/",
     steps: [

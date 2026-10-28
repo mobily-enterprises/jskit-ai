@@ -1,20 +1,20 @@
 import { createSchema } from "json-rest-schema";
 import { httpsSiteUrlField as siteUrl } from "./siteUrl.js";
-const siteHint = "Use the site address before /wp-json, keeping any installation subdirectory. The runtime sends credentials only to this configured origin.";
+const siteHint = "jskit.connectors.wordpress.fields.siteUrl.hint";
 
 const woocommerceDefinition = Object.freeze({
-  id: "woocommerce", name: "WooCommerce", description: "Manage your WooCommerce catalogue, orders, customers, discounts and refunds, and read store reports.",
+  id: "woocommerce", name: "WooCommerce", description: "jskit.connectors.woocommerce.description",
   accountModes: ["shared", "assistant"], authenticationMethods: ["api-key"], scopes: [],
-  apiKeyReferenceLabel: "Consumer secret reference",
-  apiKeyReferenceHint: "Store the consumer secret in Env. Use Read for lookups or Read/Write for changes; the key's WordPress user must also have permission for the requested operation.",
+  apiKeyReferenceLabel: "jskit.connectors.woocommerce.apiKeyReferenceLabel",
+  apiKeyReferenceHint: "jskit.connectors.woocommerce.apiKeyReferenceHint",
   settingsSchema: createSchema({
     siteUrl,
     consumerKey: { type: "string", required: true, minLength: 4, maxLength: 256,
       validator: (value) => /^ck_[a-z0-9]+$/iu.test(value) || "Enter the WooCommerce consumer key beginning ck_." }
   }),
   settingsFields: [
-    { name: "siteUrl", label: "Store URL", placeholder: "https://shop.example.com", hint: siteHint },
-    { name: "consumerKey", label: "Consumer key", placeholder: "ck_...", hint: "The key identifier from WooCommerce. Store its matching consumer secret separately." }
+    { name: "siteUrl", label: "jskit.connectors.woocommerce.fields.siteUrl.label", placeholder: "https://shop.example.com", hint: siteHint },
+    { name: "consumerKey", label: "jskit.connectors.woocommerce.fields.consumerKey.label", placeholder: "ck_...", hint: "jskit.connectors.woocommerce.fields.consumerKey.hint" }
   ],
   setup: {
     url: "https://developer.woocommerce.com/docs/apis/rest-api/authentication/",
@@ -37,18 +37,18 @@ const woocommerceDefinition = Object.freeze({
 });
 
 const wordpressSelfHostedDefinition = Object.freeze({
-  id: "wordpress-self-hosted", name: "WordPress (self-hosted)", description: "Manage WordPress posts, pages, media and users with a site-owned account.",
+  id: "wordpress-self-hosted", name: "WordPress (self-hosted)", description: "jskit.connectors.wordpressSelfHosted.description",
   accountModes: ["shared", "assistant"], authenticationMethods: ["api-key"], scopes: [],
-  apiKeyReferenceLabel: "Application password reference",
-  apiKeyReferenceHint: "Use a WordPress Application Password for this user, stored in Env. The user's role controls access; this is separate from the user's login password.",
+  apiKeyReferenceLabel: "jskit.connectors.wordpressSelfHosted.apiKeyReferenceLabel",
+  apiKeyReferenceHint: "jskit.connectors.wordpressSelfHosted.apiKeyReferenceHint",
   settingsSchema: createSchema({
     siteUrl,
     username: { type: "string", required: true, minLength: 1, maxLength: 60,
       validator: (value) => !/[:\p{Cc}]/u.test(value) || "Enter a username without colons or control characters." }
   }),
   settingsFields: [
-    { name: "siteUrl", label: "Site URL", placeholder: "https://example.com", hint: siteHint },
-    { name: "username", label: "Username", placeholder: "editor", hint: "The WordPress login name that owns the Application Password." }
+    { name: "siteUrl", label: "jskit.connectors.wordpressSelfHosted.fields.siteUrl.label", placeholder: "https://example.com", hint: siteHint },
+    { name: "username", label: "jskit.connectors.wordpressSelfHosted.fields.username.label", placeholder: "editor", hint: "jskit.connectors.wordpressSelfHosted.fields.username.hint" }
   ],
   setup: {
     url: "https://developer.wordpress.org/rest-api/using-the-rest-api/authentication/",

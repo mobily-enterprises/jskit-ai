@@ -3,20 +3,20 @@ import { createSchema } from "json-rest-schema";
 const label = "[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?";
 const hostPattern = new RegExp(`^(?:semantic-layer\\.${label}\\.(?:getdbt|dbt)\\.com|${label}\\.semantic-layer\\.${label}\\.dbt\\.com)$`, "u");
 const dbtSemanticLayerDefinition = Object.freeze({
-  id: "dbt-semantic-layer", name: "dbt Semantic Layer", description: "Discover metrics and query their values in a dbt Semantic Layer environment.",
+  id: "dbt-semantic-layer", name: "dbt Semantic Layer", description: "jskit.connectors.dbtSemanticLayer.description",
   accountModes: ["shared", "assistant"], authenticationMethods: ["api-key"], scopes: [],
-  apiKeyReferenceLabel: "Service token reference",
-  apiKeyReferenceHint: "Store the dbt service token in Env. It needs Semantic Layer Only and Metadata Only permissions and a linked warehouse credential.",
+  apiKeyReferenceLabel: "jskit.connectors.dbtSemanticLayer.apiKeyReferenceLabel",
+  apiKeyReferenceHint: "jskit.connectors.dbtSemanticLayer.apiKeyReferenceHint",
   settingsSchema: createSchema({
     host: { type: "string", required: true, maxLength: 253, validator: (value) => hostPattern.test(value) || "Enter the lowercase dbt Semantic Layer hostname without a URL, path or port." },
     environmentId: { type: "string", required: true, noTrim: true, maxLength: 38,
       validator: (value, object, context) => (typeof context.valueBeforeCast === "string" && /^[1-9][0-9]*$/u.test(value)) || "Enter a positive decimal Environment ID as text, without spaces or leading zeros." }
   }),
   settingsFields: [
-    { name: "host", label: "Semantic Layer host", placeholder: "semantic-layer.cloud.getdbt.com",
-      hint: "Copy the GraphQL hostname from dbt's Semantic Layer settings. Regional, single-tenant and multi-cell dbt hosts are supported." },
-    { name: "environmentId", label: "Environment ID", placeholder: "70506183142324",
-      hint: "The deployment environment containing your metrics. Keep the full ID as text to avoid rounding." }
+    { name: "host", label: "jskit.connectors.dbtSemanticLayer.fields.host.label", placeholder: "semantic-layer.cloud.getdbt.com",
+      hint: "jskit.connectors.dbtSemanticLayer.fields.host.hint" },
+    { name: "environmentId", label: "jskit.connectors.dbtSemanticLayer.fields.environmentId.label", placeholder: "70506183142324",
+      hint: "jskit.connectors.dbtSemanticLayer.fields.environmentId.hint" }
   ],
   setup: { url: "https://docs.getdbt.com/docs/use-dbt-semantic-layer/setup-sl", steps: [
     "Open Account settings > Settings > Projects and select the project. In Project details, choose Semantic Layer > Configure Semantic Layer, select the deployment environment and Save. Metrics, a successful deployment run and a supported data platform must already exist.",

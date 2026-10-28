@@ -2,11 +2,11 @@ import { createSchema } from "json-rest-schema";
 import { secretReference } from "@jskit-ai/connectors-core/shared/configuration";
 
 const regions = [
-  ["us-east-1", "N. Virginia"], ["us-east-2", "Ohio"], ["us-west-1", "N. California"], ["us-west-2", "Oregon"],
-  ["eu-west-1", "Ireland"], ["eu-west-2", "London"], ["eu-west-3", "Paris"], ["eu-central-1", "Frankfurt"],
-  ["eu-north-1", "Stockholm"], ["ap-southeast-1", "Singapore"], ["ap-southeast-2", "Sydney"],
-  ["ap-northeast-1", "Tokyo"], ["ap-northeast-2", "Seoul"], ["ap-south-1", "Mumbai"],
-  ["sa-east-1", "São Paulo"], ["ca-central-1", "Canada Central"], ["me-south-1", "Bahrain"], ["af-south-1", "Cape Town"]
+  ["us-east-1", "jskit.connectors.aws.regions.usEast1"], ["us-east-2", "jskit.connectors.aws.regions.usEast2"], ["us-west-1", "jskit.connectors.aws.regions.usWest1"], ["us-west-2", "jskit.connectors.aws.regions.usWest2"],
+  ["eu-west-1", "jskit.connectors.aws.regions.euWest1"], ["eu-west-2", "jskit.connectors.aws.regions.euWest2"], ["eu-west-3", "jskit.connectors.aws.regions.euWest3"], ["eu-central-1", "jskit.connectors.aws.regions.euCentral1"],
+  ["eu-north-1", "jskit.connectors.aws.regions.euNorth1"], ["ap-southeast-1", "jskit.connectors.aws.regions.apSoutheast1"], ["ap-southeast-2", "jskit.connectors.aws.regions.apSoutheast2"],
+  ["ap-northeast-1", "jskit.connectors.aws.regions.apNortheast1"], ["ap-northeast-2", "jskit.connectors.aws.regions.apNortheast2"], ["ap-south-1", "jskit.connectors.aws.regions.apSouth1"],
+  ["sa-east-1", "jskit.connectors.aws.regions.saEast1"], ["ca-central-1", "jskit.connectors.aws.regions.caCentral1"], ["me-south-1", "jskit.connectors.aws.regions.meSouth1"], ["af-south-1", "jskit.connectors.aws.regions.afSouth1"]
 ];
 const awsSettings = {
   region: { type: "string", enum: regions.map(([value]) => value), defaultTo: "us-east-1" },
@@ -14,14 +14,14 @@ const awsSettings = {
   sessionTokenRef: { ...secretReference, required: false }
 };
 const awsFields = [
-  { name: "region", label: "AWS Region", items: regions.map(([value, title]) => ({ value, title: `${title} (${value})` })) },
-  { name: "accessKeyIdRef", environmentCredential: { label: "AWS access key ID", public: false }, label: "Access key ID reference", placeholder: "env:AWS_ACCESS_KEY_ID", hint: "Store the access key ID in Env and enter its reference." },
-  { name: "sessionTokenRef", environmentCredential: { label: "AWS session token", public: false }, label: "Session token reference (optional)", placeholder: "env:AWS_SESSION_TOKEN", hint: "Required with temporary STS credentials. The host must renew all three credential bindings before they expire." }
+  { name: "region", label: "jskit.connectors.aws.fields.region.label", items: regions.map(([value, key]) => ({ value, title: { key, params: { region: value } } })) },
+  { name: "accessKeyIdRef", environmentCredential: { label: "jskit.connectors.aws.fields.accessKeyIdRef.environmentCredential.label", public: false }, label: "jskit.connectors.aws.fields.accessKeyIdRef.label", placeholder: "env:AWS_ACCESS_KEY_ID", hint: "jskit.connectors.aws.fields.accessKeyIdRef.hint" },
+  { name: "sessionTokenRef", environmentCredential: { label: "jskit.connectors.aws.fields.sessionTokenRef.environmentCredential.label", public: false }, label: "jskit.connectors.aws.fields.sessionTokenRef.label", placeholder: "env:AWS_SESSION_TOKEN", hint: "jskit.connectors.aws.fields.sessionTokenRef.hint" }
 ];
 const awsCredentials = {
   accountModes: ["shared", "assistant"], authenticationMethods: ["api-key"],
-  apiKeyReferenceLabel: "Secret access key reference",
-  apiKeyReferenceHint: "Use a reference such as env:AWS_SECRET_ACCESS_KEY. Credentials belong to the configured AWS account; host defaults are never used."
+  apiKeyReferenceLabel: "jskit.connectors.aws.credentials.apiKeyReferenceLabel",
+  apiKeyReferenceHint: "jskit.connectors.aws.credentials.apiKeyReferenceHint"
 };
 const bucketName = {
   type: "string", required: true, minLength: 3, maxLength: 63,
@@ -30,15 +30,15 @@ const bucketName = {
     !/(-s3alias|--ol-s3|\.mrap|--x-s3|--table-s3|-an)$/u.test(value)) || "Enter a general purpose S3 bucket name, not an ARN, URL or directory bucket."
 };
 const awsS3Definition = Object.freeze({
-  id: "aws-s3", name: "AWS S3", description: "List bucket objects and create short-lived download or upload URLs.",
+  id: "aws-s3", name: "AWS S3", description: "jskit.connectors.awsS3.description",
   ...awsCredentials,
-  permissionsHint: "These choices limit the application's operations. AWS IAM and bucket policies decide actual access; selecting a permission does not grant it in AWS.",
+  permissionsHint: "jskit.connectors.awsS3.permissionsHint",
   scopes: [
-    { value: "read", label: "List and download objects from bucket", required: true, recommended: true },
-    { value: "write", label: "Also upload objects via pre-signed URLs", recommended: true }
+    { value: "read", label: "jskit.connectors.awsS3.scopes.read.label", required: true, recommended: true },
+    { value: "write", label: "jskit.connectors.awsS3.scopes.write.label", recommended: true }
   ],
   settingsSchema: createSchema({ ...awsSettings, bucket: bucketName }),
-  settingsFields: [{ name: "bucket", label: "Bucket name", placeholder: "my-app-files" }, ...awsFields],
+  settingsFields: [{ name: "bucket", label: "jskit.connectors.awsS3.fields.bucket.label", placeholder: "my-app-files" }, ...awsFields],
   setup: { url: "https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-presigned-url.html", steps: [
     "In Amazon S3, select a general purpose bucket and copy its name and region. Keep public access blocked.",
     "Use an IAM identity limited to this bucket: ListBucket and GetObject, plus PutObject only for uploads. Additional encryption permissions may be required.",
@@ -49,7 +49,7 @@ const awsS3Definition = Object.freeze({
   ] }
 });
 const awsAthenaDefinition = Object.freeze({
-  id: "aws-athena", name: "AWS Athena", description: "Browse data catalogs and schemas; start, inspect, page through and cancel queries in a configured workgroup.",
+  id: "aws-athena", name: "AWS Athena", description: "jskit.connectors.awsAthena.description",
   ...awsCredentials, scopes: [],
   settingsSchema: createSchema({ ...awsSettings,
     workgroup: { type: "string", minLength: 1, maxLength: 128, defaultTo: "primary", pattern: "^[a-zA-Z0-9._-]+$" },
@@ -57,8 +57,8 @@ const awsAthenaDefinition = Object.freeze({
       /^s3:\/\/[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]\/(?:[^\s?#\\]*)$/u.test(value) || "Enter an s3://bucket/prefix/ location without query parameters or fragments." }
   }),
   settingsFields: [...awsFields,
-    { name: "workgroup", label: "Workgroup (optional)", placeholder: "primary", hint: "Defaults to primary. Query access is restricted to this workgroup." },
-    { name: "resultLocation", label: "Query result location (optional)", placeholder: "s3://my-query-results/athena/", hint: "Leave blank when the workgroup supplies its own result storage. Enforced workgroup settings take precedence." }
+    { name: "workgroup", label: "jskit.connectors.awsAthena.fields.workgroup.label", placeholder: "primary", hint: "jskit.connectors.awsAthena.fields.workgroup.hint" },
+    { name: "resultLocation", label: "jskit.connectors.awsAthena.fields.resultLocation.label", placeholder: "s3://my-query-results/athena/", hint: "jskit.connectors.awsAthena.fields.resultLocation.hint" }
   ],
   setup: { url: "https://docs.aws.amazon.com/athena/latest/ug/creating-workgroups.html", steps: [
     "In the Athena console, select the region and open Workgroups in the navigation pane. Select an existing SQL workgroup, or choose Create workgroup, enter its name, choose Athena SQL and AWS Identity and Access Management (IAM) authentication. This connector does not use Spark or IAM Identity Center workgroups.",

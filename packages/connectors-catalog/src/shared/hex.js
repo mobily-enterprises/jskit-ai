@@ -3,17 +3,17 @@ import { createSchema } from "json-rest-schema";
 const hexHosts = Object.freeze({ standard: "app.hex.tech", eu: "eu.hex.tech", hipaa: "hc.hex.tech" });
 const hexEndpointField = { type: "string", enum: Object.keys(hexHosts), defaultTo: "standard" };
 const hexDefinition = Object.freeze({
-  id: "hex", name: "Hex", description: "Search projects and use Hex Threads through the assistant owner's MCP connection.",
+  id: "hex", name: "Hex", description: "jskit.connectors.hex.description",
   accountModes: ["assistant"], authenticationMethods: ["oauth2"],
   scopes: [
-    { value: "openid", label: "Identify the connected Hex account", recommended: true },
-    { value: "profile", label: "Read account profile", recommended: true },
-    { value: "email", label: "Read account email", recommended: true },
-    { value: "offline_access", label: "Refresh access without repeating sign-in", recommended: true }
+    { value: "openid", label: "jskit.connectors.hex.scopes.openid.label", recommended: true },
+    { value: "profile", label: "jskit.connectors.hex.scopes.profile.label", recommended: true },
+    { value: "email", label: "jskit.connectors.hex.scopes.email.label", recommended: true },
+    { value: "offline_access", label: "jskit.connectors.hex.scopes.offlineAccess.label", recommended: true }
   ],
   settingsSchema: createSchema({ endpoint: hexEndpointField }),
-  settingsFields: [{ name: "endpoint", label: "Hex workspace endpoint", hint: "Use the endpoint where your Hex workspace lives; register the OAuth client at that endpoint.",
-    items: [{ value: "standard", title: "Standard (app.hex.tech)" }, { value: "eu", title: "Europe (eu.hex.tech)" }, { value: "hipaa", title: "HIPAA (hc.hex.tech)" }] }],
+  settingsFields: [{ name: "endpoint", label: "jskit.connectors.hex.fields.endpoint.label", hint: "jskit.connectors.hex.fields.endpoint.hint",
+    items: [{ value: "standard", title: "jskit.connectors.hex.fields.endpoint.items.standard.title" }, { value: "eu", title: "jskit.connectors.hex.fields.endpoint.items.eu.title" }, { value: "hipaa", title: "jskit.connectors.hex.fields.endpoint.items.hipaa.title" }] }],
   setup: { clientRegistrationEndpoint: (settings) => `https://auth.${hexHosts[settings.endpoint || "standard"]}/oauth2/register`, url: "https://learn.hex.tech/docs/api-integrations/mcp-server", steps: [
     "Confirm your Hex workspace has MCP access and your role is Explorer or higher. Hex currently requires a Team or Enterprise plan.",
     "Choose Standard, Europe or HIPAA in Hex workspace endpoint to match where you sign into Hex. Confirm the Suggested callback URL is the exact route your assistant host will serve. Keep the identity, profile, email and refresh permissions selected.",

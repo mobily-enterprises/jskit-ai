@@ -10,28 +10,28 @@ function definition(id, name, description, permission, label, organizationOnly =
     accountModes: ["shared", "per-user", "assistant"], authenticationMethods: ["oauth2"],
     scopes: [
       { value: permission, label, recommended: true },
-      { value: "offline_access", label: "Keep access when you are away", recommended: true }
+      { value: "offline_access", label: "jskit.connectors.microsoft.scopes.offlineAccess.label", recommended: true }
     ],
     settingsSchema: createSchema({
       tenantId: { type: "string", maxLength: 36, defaultTo: authority,
         validator: (value) => audiences.includes(value) || /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/iu.test(value) ||
           `Use ${audiences.join(", ")} or your Directory (tenant) ID as a GUID.` }
     }),
-    settingsFields: [{ name: "tenantId", label: "Directory (tenant) ID", placeholder: authority,
-      hint: `Use ${authority} for the default audience, or the directory GUID for a single-tenant app. This is not the Application (client) ID.` }]
+    settingsFields: [{ name: "tenantId", label: "jskit.connectors.microsoft.fields.tenantId.label", placeholder: authority,
+      hint: { key: "jskit.connectors.microsoft.fields.tenantId.hint", params: { authority } } }]
   });
 }
 
 const microsoftOutlookDefinition = Object.freeze({
-  ...definition("microsoft-outlook", "Microsoft Outlook", "Read messages and files, send text mail, manage read/folder state and calendar appointments.", "Mail.Read", "Read your mail"),
+  ...definition("microsoft-outlook", "Microsoft Outlook", "jskit.connectors.microsoftOutlook.description", "Mail.Read", "jskit.connectors.microsoftOutlook.scopes.mailRead.label"),
   scopes: [
-    { value: "Mail.Read", label: "Read your mail", required: true, recommended: true },
-    { value: "Mail.ReadWrite", label: "Read and write your mail", recommended: true },
-    { value: "Mail.Send", label: "Send mail as you", recommended: true },
-    { value: "Mail.ReadBasic", label: "Read basic mail properties" },
-    { value: "Calendars.Read", label: "Read your calendars" },
-    { value: "Calendars.ReadWrite", label: "Read and write your calendars", recommended: true },
-    { value: "offline_access", label: "Keep access when you are away", recommended: true }
+    { value: "Mail.Read", label: "jskit.connectors.microsoftOutlook.scopes.mailRead.label", required: true, recommended: true },
+    { value: "Mail.ReadWrite", label: "jskit.connectors.microsoftOutlook.scopes.mailReadWrite.label", recommended: true },
+    { value: "Mail.Send", label: "jskit.connectors.microsoftOutlook.scopes.mailSend.label", recommended: true },
+    { value: "Mail.ReadBasic", label: "jskit.connectors.microsoftOutlook.scopes.mailReadBasic.label" },
+    { value: "Calendars.Read", label: "jskit.connectors.microsoftOutlook.scopes.calendarsRead.label" },
+    { value: "Calendars.ReadWrite", label: "jskit.connectors.microsoftOutlook.scopes.calendarsReadWrite.label", recommended: true },
+    { value: "offline_access", label: "jskit.connectors.microsoftOutlook.scopes.offlineAccess.label", recommended: true }
   ],
   setup: {
     url: registrationUrl,
@@ -50,14 +50,14 @@ const microsoftOutlookDefinition = Object.freeze({
   }
 });
 const microsoftOneDriveDefinition = Object.freeze({
-  ...definition("microsoft-onedrive", "Microsoft OneDrive", "Browse folders, obtain file downloads and upload small files.", "Files.Read", "Read your files"),
+  ...definition("microsoft-onedrive", "Microsoft OneDrive", "jskit.connectors.microsoftOneDrive.description", "Files.Read", "jskit.connectors.microsoftOneDrive.scopes.filesRead.label"),
   scopes: [
-    { value: "Files.Read", label: "Read your files", required: true, recommended: true },
-    { value: "Files.Read.All", label: "Read all files you can access", recommended: true },
-    { value: "Files.ReadWrite", label: "Read and write your files", recommended: true },
-    { value: "Files.ReadWrite.All", label: "Read and write all files you can access" },
-    { value: "Files.ReadWrite.AppFolder", label: "Read and write files in the application's folder" },
-    { value: "offline_access", label: "Keep access when you are away", recommended: true }
+    { value: "Files.Read", label: "jskit.connectors.microsoftOneDrive.scopes.filesRead.label", required: true, recommended: true },
+    { value: "Files.Read.All", label: "jskit.connectors.microsoftOneDrive.scopes.filesReadAll.label", recommended: true },
+    { value: "Files.ReadWrite", label: "jskit.connectors.microsoftOneDrive.scopes.filesReadWrite.label", recommended: true },
+    { value: "Files.ReadWrite.All", label: "jskit.connectors.microsoftOneDrive.scopes.filesReadWriteAll.label" },
+    { value: "Files.ReadWrite.AppFolder", label: "jskit.connectors.microsoftOneDrive.scopes.filesReadWriteAppFolder.label" },
+    { value: "offline_access", label: "jskit.connectors.microsoftOneDrive.scopes.offlineAccess.label", recommended: true }
   ],
   setup: {
     url: registrationUrl,
@@ -75,13 +75,13 @@ const microsoftOneDriveDefinition = Object.freeze({
   }
 });
 const microsoftExcelDefinition = Object.freeze({
-  ...definition("microsoft-excel", "Microsoft Excel", "Browse workbooks and read or update bounded cell ranges with explicit sessions.", "Files.Read", "Read your files"),
+  ...definition("microsoft-excel", "Microsoft Excel", "jskit.connectors.microsoftExcel.description", "Files.Read", "jskit.connectors.microsoftExcel.scopes.filesRead.label"),
   scopes: [
-    { value: "Files.Read", label: "Read your files", required: true, recommended: true },
-    { value: "Files.ReadWrite", label: "Read and write your files (required by Excel worksheets)", recommended: true },
-    { value: "Files.Read.All", label: "Read all files you can access" },
-    { value: "Files.ReadWrite.All", label: "Read and write all files you can access" },
-    { value: "offline_access", label: "Keep access when you are away", recommended: true }
+    { value: "Files.Read", label: "jskit.connectors.microsoftExcel.scopes.filesRead.label", required: true, recommended: true },
+    { value: "Files.ReadWrite", label: "jskit.connectors.microsoftExcel.scopes.filesReadWrite.label", recommended: true },
+    { value: "Files.Read.All", label: "jskit.connectors.microsoftExcel.scopes.filesReadAll.label" },
+    { value: "Files.ReadWrite.All", label: "jskit.connectors.microsoftExcel.scopes.filesReadWriteAll.label" },
+    { value: "offline_access", label: "jskit.connectors.microsoftExcel.scopes.offlineAccess.label", recommended: true }
   ],
   setup: {
     url: registrationUrl,
@@ -100,16 +100,16 @@ const microsoftExcelDefinition = Object.freeze({
   }
 });
 const microsoftTeamsDefinition = Object.freeze({
-  ...definition("microsoft-teams", "Microsoft Teams", "Browse teams/channels and read or send channel and existing-chat messages.", "Team.ReadBasic.All", "List joined teams", true),
+  ...definition("microsoft-teams", "Microsoft Teams", "jskit.connectors.microsoftTeams.description", "Team.ReadBasic.All", "jskit.connectors.microsoftTeams.scopes.teamReadBasicAll.label", true),
   scopes: [
-    { value: "Team.ReadBasic.All", label: "List joined teams", required: true, recommended: true },
-    { value: "Channel.ReadBasic.All", label: "List channels in teams", required: true, recommended: true },
-    { value: "User.Read", label: "Read user profile", required: true, recommended: true },
-    { value: "ChannelMessage.Send", label: "Send messages to channels", recommended: true },
-    { value: "ChannelMessage.Read.All", label: "Read channel messages" },
-    { value: "Chat.ReadWrite", label: "Read and send chat messages" },
-    { value: "User.Read.All", label: "Read all users' full profiles", recommended: true },
-    { value: "offline_access", label: "Keep access when you are away", recommended: true }
+    { value: "Team.ReadBasic.All", label: "jskit.connectors.microsoftTeams.scopes.teamReadBasicAll.label", required: true, recommended: true },
+    { value: "Channel.ReadBasic.All", label: "jskit.connectors.microsoftTeams.scopes.channelReadBasicAll.label", required: true, recommended: true },
+    { value: "User.Read", label: "jskit.connectors.microsoftTeams.scopes.userRead.label", required: true, recommended: true },
+    { value: "ChannelMessage.Send", label: "jskit.connectors.microsoftTeams.scopes.channelMessageSend.label", recommended: true },
+    { value: "ChannelMessage.Read.All", label: "jskit.connectors.microsoftTeams.scopes.channelMessageReadAll.label" },
+    { value: "Chat.ReadWrite", label: "jskit.connectors.microsoftTeams.scopes.chatReadWrite.label" },
+    { value: "User.Read.All", label: "jskit.connectors.microsoftTeams.scopes.userReadAll.label", recommended: true },
+    { value: "offline_access", label: "jskit.connectors.microsoftTeams.scopes.offlineAccess.label", recommended: true }
   ],
   setup: {
     url: registrationUrl,
@@ -127,14 +127,14 @@ const microsoftTeamsDefinition = Object.freeze({
   }
 });
 const microsoftOneNoteDefinition = Object.freeze({
-  ...definition("microsoft-onenote", "Microsoft OneNote", "Browse notebooks and pages, read content, and create or append text notes.", "Notes.Read", "Read your notebooks"),
+  ...definition("microsoft-onenote", "Microsoft OneNote", "jskit.connectors.microsoftOneNote.description", "Notes.Read", "jskit.connectors.microsoftOneNote.scopes.notesRead.label"),
   scopes: [
-    { value: "Notes.Read", label: "Read your notebooks", required: true, recommended: true },
-    { value: "Notes.Read.All", label: "Read notebooks you can access in your organization", recommended: true },
-    { value: "Notes.ReadWrite.All", label: "Read and modify notebooks you can access in your organization", recommended: true },
-    { value: "Notes.Create", label: "Create pages in OneNote notebooks", recommended: true },
-    { value: "Notes.ReadWrite", label: "Read and modify your notebooks", recommended: true },
-    { value: "offline_access", label: "Keep access when you are away", recommended: true }
+    { value: "Notes.Read", label: "jskit.connectors.microsoftOneNote.scopes.notesRead.label", required: true, recommended: true },
+    { value: "Notes.Read.All", label: "jskit.connectors.microsoftOneNote.scopes.notesReadAll.label", recommended: true },
+    { value: "Notes.ReadWrite.All", label: "jskit.connectors.microsoftOneNote.scopes.notesReadWriteAll.label", recommended: true },
+    { value: "Notes.Create", label: "jskit.connectors.microsoftOneNote.scopes.notesCreate.label", recommended: true },
+    { value: "Notes.ReadWrite", label: "jskit.connectors.microsoftOneNote.scopes.notesReadWrite.label", recommended: true },
+    { value: "offline_access", label: "jskit.connectors.microsoftOneNote.scopes.offlineAccess.label", recommended: true }
   ],
   setup: {
     url: registrationUrl,
@@ -152,18 +152,18 @@ const microsoftOneNoteDefinition = Object.freeze({
   }
 });
 const microsoftSharePointDefinition = Object.freeze({
-  ...definition("microsoft-sharepoint", "Microsoft SharePoint", "Browse sites/libraries, transfer small files and edit list items.", "Sites.Read.All", "Read items in all site collections", true, [
-    { name: "search", required: true, label: "Site search", hint: "Enter a search term for accessible SharePoint sites. Verification performs this search without changing a site." }
+  ...definition("microsoft-sharepoint", "Microsoft SharePoint", "jskit.connectors.microsoftSharePoint.description", "Sites.Read.All", "jskit.connectors.microsoftSharePoint.scopes.sitesReadAll.label", true, [
+    { name: "search", required: true, label: "jskit.connectors.microsoftSharePoint.verificationFields.search.label", hint: "jskit.connectors.microsoftSharePoint.verificationFields.search.hint" }
   ]),
   scopes: [
-    { value: "Sites.Read.All", label: "Read items in all site collections", required: true, recommended: true },
-    { value: "User.Read", label: "Read user profile", required: true, recommended: true },
-    { value: "Sites.ReadWrite.All", label: "Edit or delete items in all site collections", recommended: true },
-    { value: "Sites.Manage.All", label: "Create, edit, and delete items and lists in all site collections" },
-    { value: "Sites.FullControl.All", label: "Have full control of all site collections" },
-    { value: "Files.Read.All", label: "Read all files that user can access", recommended: true },
-    { value: "Files.ReadWrite.All", label: "Read and write all files that user can access" },
-    { value: "offline_access", label: "Keep access when you are away", recommended: true }
+    { value: "Sites.Read.All", label: "jskit.connectors.microsoftSharePoint.scopes.sitesReadAll.label", required: true, recommended: true },
+    { value: "User.Read", label: "jskit.connectors.microsoftSharePoint.scopes.userRead.label", required: true, recommended: true },
+    { value: "Sites.ReadWrite.All", label: "jskit.connectors.microsoftSharePoint.scopes.sitesReadWriteAll.label", recommended: true },
+    { value: "Sites.Manage.All", label: "jskit.connectors.microsoftSharePoint.scopes.sitesManageAll.label" },
+    { value: "Sites.FullControl.All", label: "jskit.connectors.microsoftSharePoint.scopes.sitesFullControlAll.label" },
+    { value: "Files.Read.All", label: "jskit.connectors.microsoftSharePoint.scopes.filesReadAll.label", recommended: true },
+    { value: "Files.ReadWrite.All", label: "jskit.connectors.microsoftSharePoint.scopes.filesReadWriteAll.label" },
+    { value: "offline_access", label: "jskit.connectors.microsoftSharePoint.scopes.offlineAccess.label", recommended: true }
   ],
   setup: {
     url: registrationUrl,
@@ -182,7 +182,7 @@ const microsoftSharePointDefinition = Object.freeze({
   }
 });
 const microsoftWordDefinition = Object.freeze({
-  ...definition("microsoft-word", "Microsoft Word", "Browse Word files and folders in your drive and read document metadata.", "Files.Read", "Read your files"),
+  ...definition("microsoft-word", "Microsoft Word", "jskit.connectors.microsoftWord.description", "Files.Read", "jskit.connectors.microsoftWord.scopes.filesRead.label"),
   setup: {
     url: registrationUrl,
     steps: [
@@ -197,7 +197,7 @@ const microsoftWordDefinition = Object.freeze({
   }
 });
 const microsoftPowerPointDefinition = Object.freeze({
-  ...definition("microsoft-powerpoint", "Microsoft PowerPoint", "Browse PowerPoint files and folders in your drive and read presentation metadata.", "Files.Read", "Read your files"),
+  ...definition("microsoft-powerpoint", "Microsoft PowerPoint", "jskit.connectors.microsoftPowerPoint.description", "Files.Read", "jskit.connectors.microsoftPowerPoint.scopes.filesRead.label"),
   setup: {
     url: registrationUrl,
     steps: [

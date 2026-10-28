@@ -1,15 +1,15 @@
 const wordpressComDefinition = Object.freeze({
-  id: "wordpress-com", name: "WordPress.com", description: "Connect a WordPress.com account to read its profile/sites and manage posts, pages and media.",
+  id: "wordpress-com", name: "WordPress.com", description: "jskit.connectors.wordpressCom.description",
   accountModes: ["shared", "per-user", "assistant"], authenticationMethods: ["oauth2"],
   scopes: [
-    { value: "users", label: "View user information (required for verification)", recommended: true },
-    { value: "sites", label: "View site information and options", recommended: true },
-    { value: "posts", label: "View and manage posts", recommended: true },
-    { value: "media", label: "Manage media assets" },
-    { value: "comments", label: "View and manage comments" },
-    { value: "stats", label: "View site statistics" },
-    { value: "taxonomy", label: "Manage taxonomy terms" },
-    { value: "batch", label: "Batch API requests" }
+    { value: "users", label: "jskit.connectors.wordpressCom.scopes.users.label", recommended: true },
+    { value: "sites", label: "jskit.connectors.wordpressCom.scopes.sites.label", recommended: true },
+    { value: "posts", label: "jskit.connectors.wordpressCom.scopes.posts.label", recommended: true },
+    { value: "media", label: "jskit.connectors.wordpressCom.scopes.media.label" },
+    { value: "comments", label: "jskit.connectors.wordpressCom.scopes.comments.label" },
+    { value: "stats", label: "jskit.connectors.wordpressCom.scopes.stats.label" },
+    { value: "taxonomy", label: "jskit.connectors.wordpressCom.scopes.taxonomy.label" },
+    { value: "batch", label: "jskit.connectors.wordpressCom.scopes.batch.label" }
   ],
   setup: {
     url: "https://developer.wordpress.com/docs/api/oauth2/",

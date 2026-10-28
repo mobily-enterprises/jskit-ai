@@ -7,7 +7,7 @@ function definition(id, name, description, url, steps) {
   });
 }
 
-const airtableDefinition = definition("airtable", "Airtable", "Discover bases, read and edit records, and manage tables and fields.",
+const airtableDefinition = definition("airtable", "Airtable", "jskit.connectors.airtable.description",
   "https://support.airtable.com/docs/creating-personal-access-tokens", [
     "Open Airtable Developer hub, then Personal access tokens and Create token.",
     "Name the token. Choose + Add a scope and add schema.bases:read for discovery, data.records:read for records, data.records:write for record changes, and schema.bases:write only for table/field changes or base creation. Record writes need Editor base access; schema writes need Creator access. Creating a base needs Workspace Creator access and a token resource grant covering that workspace. Otherwise choose + Add a base to select the bases this application needs. Your Airtable account must already have access to them.",
@@ -16,7 +16,7 @@ const airtableDefinition = definition("airtable", "Airtable", "Discover bases, r
     "Verification lists accessible bases. If expected bases are missing, check the token's resources, schema.bases:read permission and your own base access. Organization API restrictions may require your Airtable administrator to allow access.",
     "To rotate access, create a replacement PAT with the required scopes and resources, update AIRTABLE_TOKEN in Env, and choose Verify again. Revoke the old token in Airtable after checking other applications that use it. Disconnect here removes this application’s saved connection; it does not revoke the PAT or erase Env."
   ]);
-const notionInternalDefinition = definition("notion", "Notion", "Read, query and update pages and data sources shared with a Notion connection.",
+const notionInternalDefinition = definition("notion", "Notion", "jskit.connectors.notionInternal.description",
   "https://developers.notion.com/guides/get-started/internal-connections", [
     "Application data mode reads pages/blocks, queries data sources, creates pages, updates properties and appends blocks. Retrieve the database and its data_sources IDs/schema first. LIMITATIONS: no embedded editor, schema editing, file upload or automatic coding-chat attachment. For example, append meeting notes; your app owns its rendering and write approvals.",
     "As a Notion workspace owner, open the Developer portal at https://www.notion.so/profile/integrations. In Build → Internal connections, choose Create a new connection, name it for this application and select its workspace.",
@@ -34,11 +34,11 @@ const notionDefinition = Object.freeze({
   oauthClientAuthenticationMethods: (_grant, settings) => settings?.connectionType === "mcp" ? ["client_secret_post"] : ["client_secret_basic"],
   accountModesForSettings: (settings) => settings.connectionType === "mcp" ? ["assistant"] : ["shared", "per-user", "assistant"],
   authenticationMethodsForSettings: (settings) => settings.connectionType === "mcp" ? ["oauth2"] : ["api-key", "oauth2"],
-  scopesForSettings: (settings) => settings.connectionType === "mcp" ? [{ value: "default", label: "Notion MCP access", required: true }] : [],
+  scopesForSettings: (settings) => settings.connectionType === "mcp" ? [{ value: "default", label: "jskit.connectors.notion.scopes.default.label", required: true }] : [],
   settingsSchema: createSchema({ connectionType: { type: "string", enum: ["rest", "mcp"], defaultTo: "rest" } }),
-  settingsFields: [{ name: "connectionType", label: "Connection type", credentialScope: (value) => value || "rest",
-    hint: "Hosted MCP needs its own client registration and consent; REST credentials cannot be reused.",
-    items: [{ value: "rest", title: "Application data (REST)" }, { value: "mcp", title: "Hosted assistant tools (MCP)" }] }],
+  settingsFields: [{ name: "connectionType", label: "jskit.connectors.notion.fields.connectionType.label", credentialScope: (value) => value || "rest",
+    hint: "jskit.connectors.notion.fields.connectionType.hint",
+    items: [{ value: "rest", title: "jskit.connectors.notion.fields.connectionType.items.rest.title" }, { value: "mcp", title: "jskit.connectors.notion.fields.connectionType.items.mcp.title" }] }],
   setup: { ...notionInternalDefinition.setup,
     urlForSettings: (settings) => settings.connectionType === "mcp" ? "https://developers.notion.com/guides/mcp/build-mcp-client" : undefined,
     urlByAuthentication: { oauth2: "https://developers.notion.com/guides/get-started/public-connections" },
@@ -61,7 +61,7 @@ const notionDefinition = Object.freeze({
     "Verification searches accessible titles without writing. Missing results can mean pages were not selected or Read content is unavailable. Reconnect for new consent; Disconnect removes the local grant, and provider access must be managed in Notion separately. Your application owns token storage and refresh across hosting changes."
   ] } }
 });
-const brevoDefinition = definition("brevo", "Brevo", "Send email and SMS, manage contacts and campaigns, and track delivery and automation events.",
+const brevoDefinition = definition("brevo", "Brevo", "jskit.connectors.brevo.description",
   "https://help.brevo.com/hc/en-us/articles/209467485-Create-and-manage-your-API-keys", [
     "In Brevo, open the account menu, Settings, SMTP & API, then API Keys & MCP.",
     "Your Brevo user needs API keys permission. Choose Generate a new API key, name it for this application, select its expiration and choose Generate.",
@@ -72,7 +72,7 @@ const brevoDefinition = definition("brevo", "Brevo", "Send email and SMS, manage
     "Marketing requires an appropriate recipient list and opt-out handling. Create a campaign draft and send a test before explicitly sending to its lists. A returned message ID is acceptance, not delivery; inspect delivery events for bounces or rejection. Automation events only trigger workflows configured and active in Brevo.",
     "No OAuth registration or callback URL is needed. Verification reads contacts without sending messages. Replace an expired or lost key in Env and reconnect. Disconnect removes local state only; delete the old key in Brevo to revoke it."
   ]);
-const elevenlabsDefinition = definition("elevenlabs", "ElevenLabs", "Generate speech, discover voices/models and create instant voice clones.",
+const elevenlabsDefinition = definition("elevenlabs", "ElevenLabs", "jskit.connectors.elevenlabs.description",
   "https://elevenlabs.io/docs/help-center/technical/how-do-i-authorize-myself-using-an-api-key", [
     "Select the intended ElevenLabs workspace and open Developers > API Keys > Create API Key. Name it for this app and keep Restrict Key enabled.",
     "Under Endpoints, enable User read for verification, Voices read for discovery, Models read for model selection and Text to Speech for generation. Enable Voices write only if the app will create voice clones. Set a credit limit, create the key and copy it immediately; only its last four characters are shown later.",
@@ -82,7 +82,7 @@ const elevenlabsDefinition = definition("elevenlabs", "ElevenLabs", "Generate sp
     "This connector returns bounded audio files, not live streaming. Professional Voice Cloning and realtime speech use native provider tools. Your application must explicitly expose approved ElevenLabs operations to its assistant. Rotate keys in Env and verify again; Disconnect removes app state, while Developers > API Keys > key menu revokes provider access. No OAuth application or callback URL is required."
   ]);
 const githubApiDefinition = Object.freeze({
-  ...definition("github-api", "GitHub API", "Read repository content and activity; create and update issues and pull requests.",
+  ...definition("github-api", "GitHub API", "jskit.connectors.githubApi.description",
     "https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app", [
       "For OAuth, open GitHub Settings > Developer settings > OAuth Apps > New OAuth App. Enter the application name and its hosting URL. Copy Suggested callback URL here into Authorization callback URL, then register the application.",
       "Copy Client ID here. Generate a client secret and keep it private. Save configuration, then follow the Env links to store the secret and exact callback under their referenced names. Your application backend must implement the callback.",
@@ -96,19 +96,19 @@ const githubApiDefinition = Object.freeze({
   authenticationMethods: ["oauth2", "api-key"],
   oauthClientAuthenticationMethods: ["client_secret_post"],
   scopes: [
-    { value: "read:user", label: "Read user profile", recommended: true },
-    { value: "repo", label: "Repositories", recommended: true },
-    { value: "public_repo", label: "Public repositories" },
-    { value: "workflow", label: "Workflows" },
-    { value: "gist", label: "Gists" },
-    { value: "notifications", label: "Notifications" },
-    { value: "user:email", label: "Email" },
-    { value: "read:org", label: "Read organizations" },
-    { value: "project", label: "Projects" },
-    { value: "offline_access", label: "Expiring tokens with refresh access" }
+    { value: "read:user", label: "jskit.connectors.githubApi.scopes.readUser.label", recommended: true },
+    { value: "repo", label: "jskit.connectors.githubApi.scopes.repo.label", recommended: true },
+    { value: "public_repo", label: "jskit.connectors.githubApi.scopes.publicRepo.label" },
+    { value: "workflow", label: "jskit.connectors.githubApi.scopes.workflow.label" },
+    { value: "gist", label: "jskit.connectors.githubApi.scopes.gist.label" },
+    { value: "notifications", label: "jskit.connectors.githubApi.scopes.notifications.label" },
+    { value: "user:email", label: "jskit.connectors.githubApi.scopes.userEmail.label" },
+    { value: "read:org", label: "jskit.connectors.githubApi.scopes.readOrg.label" },
+    { value: "project", label: "jskit.connectors.githubApi.scopes.project.label" },
+    { value: "offline_access", label: "jskit.connectors.githubApi.scopes.offlineAccess.label" }
   ]
 });
-const apifyDefinition = definition("apify", "Apify", "Run Actors with explicit limits and retrieve their results.",
+const apifyDefinition = definition("apify", "Apify", "jskit.connectors.apify.description",
   "https://docs.apify.com/integrations/api", [
     "Select the intended account or organization in Apify Console.",
     "Open Settings, API & Integrations, then create an API token for this application.",
@@ -121,7 +121,7 @@ const apifyDefinition = definition("apify", "Apify", "Run Actors with explicit l
 const calendlyDefinition = Object.freeze({
   "id": "calendly",
   "name": "Calendly",
-  "description": "Read meetings and invitees, check availability, create booking links and manage appointments.",
+  "description": "jskit.connectors.calendly.description",
   "accountModes": [
     "shared",
     "assistant"
@@ -136,89 +136,89 @@ const calendlyDefinition = Object.freeze({
   "scopes": [
     {
       "value": "users:read",
-      "label": "users — read",
+      "label": "jskit.connectors.calendly.scopes.usersRead.label",
       "recommended": true
     },
     {
       "value": "organizations:read",
-      "label": "organizations — read"
+      "label": "jskit.connectors.calendly.scopes.organizationsRead.label"
     },
     {
       "value": "event_types:read",
-      "label": "event types — read",
+      "label": "jskit.connectors.calendly.scopes.eventTypesRead.label",
       "recommended": true
     },
     {
       "value": "scheduled_events:read",
-      "label": "scheduled events — read"
+      "label": "jskit.connectors.calendly.scopes.scheduledEventsRead.label"
     },
     {
       "value": "availability:read",
-      "label": "availability — read"
+      "label": "jskit.connectors.calendly.scopes.availabilityRead.label"
     },
     {
       "value": "scheduling_links:write",
-      "label": "scheduling links — write"
+      "label": "jskit.connectors.calendly.scopes.schedulingLinksWrite.label"
     },
     {
       "value": "shares:write",
-      "label": "shares — write"
+      "label": "jskit.connectors.calendly.scopes.sharesWrite.label"
     },
     {
       "value": "scheduled_events:write",
-      "label": "scheduled events — write"
+      "label": "jskit.connectors.calendly.scopes.scheduledEventsWrite.label"
     },
     {
       "value": "event_types:write",
-      "label": "event types — write"
+      "label": "jskit.connectors.calendly.scopes.eventTypesWrite.label"
     },
     {
       "value": "availability:write",
-      "label": "availability — write"
+      "label": "jskit.connectors.calendly.scopes.availabilityWrite.label"
     },
     {
       "value": "locations:read",
-      "label": "locations — read"
+      "label": "jskit.connectors.calendly.scopes.locationsRead.label"
     },
     {
       "value": "routing_forms:read",
-      "label": "routing forms — read"
+      "label": "jskit.connectors.calendly.scopes.routingFormsRead.label"
     },
     {
       "value": "groups:read",
-      "label": "groups — read"
+      "label": "jskit.connectors.calendly.scopes.groupsRead.label"
     },
     {
       "value": "organizations:write",
-      "label": "organizations — write"
+      "label": "jskit.connectors.calendly.scopes.organizationsWrite.label"
     },
     {
       "value": "webhooks:read",
-      "label": "webhooks — read"
+      "label": "jskit.connectors.calendly.scopes.webhooksRead.label"
     },
     {
       "value": "webhooks:write",
-      "label": "webhooks — write"
+      "label": "jskit.connectors.calendly.scopes.webhooksWrite.label"
     },
     {
       "value": "activity_log:read",
-      "label": "activity log — read"
+      "label": "jskit.connectors.calendly.scopes.activityLogRead.label"
     },
     {
       "value": "data_compliance:write",
-      "label": "data compliance — write"
+      "label": "jskit.connectors.calendly.scopes.dataComplianceWrite.label"
     },
     {
       "value": "outgoing_communications:read",
-      "label": "outgoing communications — read"
+      "label": "jskit.connectors.calendly.scopes.outgoingCommunicationsRead.label"
     },
     {
       "value": "contacts:read",
-      "label": "contacts — read"
+      "label": "jskit.connectors.calendly.scopes.contactsRead.label"
     },
     {
       "value": "contacts:write",
-      "label": "contacts — write"
+      "label": "jskit.connectors.calendly.scopes.contactsWrite.label"
     }
   ],
   "setup": {
@@ -236,7 +236,7 @@ const calendlyDefinition = Object.freeze({
   }
 });
 
-const hubspotKeyDefinition = definition("hubspot", "HubSpot", "Manage contacts, deals and their relationships in the connected HubSpot account.",
+const hubspotKeyDefinition = definition("hubspot", "HubSpot", "jskit.connectors.hubspotKey.description",
   "https://developers.hubspot.com/docs/apps/legacy-apps/private-apps/overview", [
     "As a HubSpot super admin, select the account that owns the CRM data. Open Development > Legacy apps > Create legacy app > Private.",
     "Name the app. In Scopes > Add new scope, select crm.objects.contacts.read for verification. Add crm.objects.contacts.write to manage contacts, crm.objects.deals.read for deals/pipeline IDs, and crm.objects.deals.write to create/update deals and link contacts. Choose Update. Create the app and confirm. In Auth, use Show token > Copy. Use an app access token, not a CLI personal access key or developer API key.",
@@ -249,11 +249,11 @@ const hubspotDefinition = Object.freeze({
   accountModes: ["shared", "per-user", "assistant"],
   authenticationMethods: ["api-key", "oauth2"],
   oauthClientAuthenticationMethods: ["client_secret_post"],
-  scopes: [{ value: "oauth", label: "Authorize the HubSpot app", recommended: true },
-    { value: "crm.objects.contacts.read", label: "Read CRM contacts", recommended: true },
-    { value: "crm.objects.contacts.write", label: "Create and update CRM contacts" },
-    { value: "crm.objects.deals.read", label: "Read deals and pipelines" },
-    { value: "crm.objects.deals.write", label: "Create and update CRM deals" }],
+  scopes: [{ value: "oauth", label: "jskit.connectors.hubspot.scopes.oauth.label", recommended: true },
+    { value: "crm.objects.contacts.read", label: "jskit.connectors.hubspot.scopes.crmObjectsContactsRead.label", recommended: true },
+    { value: "crm.objects.contacts.write", label: "jskit.connectors.hubspot.scopes.crmObjectsContactsWrite.label" },
+    { value: "crm.objects.deals.read", label: "jskit.connectors.hubspot.scopes.crmObjectsDealsRead.label" },
+    { value: "crm.objects.deals.write", label: "jskit.connectors.hubspot.scopes.crmObjectsDealsWrite.label" }],
   setup: {
     ...hubspotKeyDefinition.setup,
     urlByAuthentication: { oauth2: "https://developers.hubspot.com/docs/apps/developer-platform/build-apps/create-an-app" },
@@ -267,7 +267,7 @@ const hubspotDefinition = Object.freeze({
     ] }
   }
 });
-const linearKeyDefinition = definition("linear", "Linear", "Read profiles and issues, or use Linear MCP tools with the connected account.",
+const linearKeyDefinition = definition("linear", "Linear", "jskit.connectors.linearKey.description",
   "https://linear.app/docs/api-and-webhooks", [
     "In the intended Linear workspace, open Settings > Account > Security & Access > Personal API keys. Create a named key, select Read and restrict it to the teams this application needs. Add the required write permissions only if your application will create or update issues/projects. Copy the key before leaving.",
     "If key creation is unavailable, ask a workspace administrator to check Settings > Administration > API > Member API keys. Administrators can create keys even when member key creation is disabled.",
@@ -280,11 +280,11 @@ const linearDefinition = Object.freeze({
   ...linearKeyDefinition,
   accountModes: ["shared", "per-user", "assistant"], authenticationMethods: ["api-key", "oauth2"],
   scopes: [
-    { value: "read", label: "Read your account", recommended: true },
-    { value: "write", label: "Write on your behalf" },
-    { value: "issues:create", label: "Create issues and attachments" },
-    { value: "comments:create", label: "Create comments" },
-    { value: "timeSchedule:write", label: "Manage time schedules" }
+    { value: "read", label: "jskit.connectors.linear.scopes.read.label", recommended: true },
+    { value: "write", label: "jskit.connectors.linear.scopes.write.label" },
+    { value: "issues:create", label: "jskit.connectors.linear.scopes.issuesCreate.label" },
+    { value: "comments:create", label: "jskit.connectors.linear.scopes.commentsCreate.label" },
+    { value: "timeSchedule:write", label: "jskit.connectors.linear.scopes.timeScheduleWrite.label" }
   ],
   setup: { ...linearKeyDefinition.setup,
     urlByAuthentication: { oauth2: "https://linear.app/developers/oauth-2-0-authentication" },
@@ -299,7 +299,7 @@ const linearDefinition = Object.freeze({
     ] }
   }
 });
-const pipedriveTokenDefinition = definition("pipedrive", "Pipedrive", "Read the authenticated user and identify their Pipedrive company.",
+const pipedriveTokenDefinition = definition("pipedrive", "Pipedrive", "jskit.connectors.pipedriveToken.description",
   "https://pipedrive.readme.io/docs/how-to-find-the-api-token", [
     "The adapter lists/reads deals, people, organizations, activities, leads and pipelines, and creates/updates basic records except pipelines. The app must authorize each record and write. LIMITATIONS: no full CRM UI, pipeline administration, bulk import, custom-field editor, attachments, webhooks or automatic coding-chat attachment. For example, create a contact and follow-up deal; the app supplies its sales dashboard.",
     "Sign into Pipedrive and switch to the company this application should access. The same user has a different API token in each company; a direct settings link may open the company you used most recently.",
@@ -316,7 +316,7 @@ const pipedriveDefinition = Object.freeze({
   authenticationMethods: ["api-key", "oauth2"],
   oauthClientAuthenticationMethods: ["client_secret_basic"],
   settingsSchema: createSchema({ companyDomain: { type: "string", minLength: 1, maxLength: 63, pattern: "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$" } }),
-  settingsFields: [{ name: "companyDomain", label: "Company domain (API token)", hint: "For acme.pipedrive.com enter acme. Required for API-token CRM operations; OAuth uses the company address returned with consent." }],
+  settingsFields: [{ name: "companyDomain", label: "jskit.connectors.pipedrive.fields.companyDomain.label", hint: "jskit.connectors.pipedrive.fields.companyDomain.hint" }],
   scopes: [],
   setup: { ...pipedriveTokenDefinition.setup,
     urlByAuthentication: { oauth2: "https://pipedrive.readme.io/docs/marketplace-registering-a-private-app" },
@@ -332,7 +332,7 @@ const pipedriveDefinition = Object.freeze({
   }
 });
 const gitlabApiDefinition = Object.freeze({
-  ...definition("gitlab-api", "GitLab API", "Read project content and activity; create and update issues and merge requests.",
+  ...definition("gitlab-api", "GitLab API", "jskit.connectors.gitlabApi.description",
     "https://docs.gitlab.com/integration/oauth_provider/", [
       "Select your GitLab instance URL; use https://gitlab.com for GitLab.com. For OAuth, open your instance's /user_settings/applications page, add an application and enable Confidential. Enter the exact Suggested callback URL here as its redirect URI and select read_user and read_api.",
       "Copy Application ID into Client ID here. Save configuration and use the Env links to store the Secret and the same callback under their referenced names. Your application backend must implement the callback. Each user's connection starts in the application's account screen.",
@@ -344,9 +344,9 @@ const gitlabApiDefinition = Object.freeze({
   accountModes: ["shared", "per-user", "assistant"],
   authenticationMethods: ["api-key", "oauth2"],
   oauthClientAuthenticationMethods: ["client_secret_post"],
-  scopes: [{ value: "read_user", label: "Read user profile", recommended: true },
-    { value: "read_api", label: "Read API", recommended: true },
-    { value: "api", label: "Full API access" }],
+  scopes: [{ value: "read_user", label: "jskit.connectors.gitlabApi.scopes.readUser.label", recommended: true },
+    { value: "read_api", label: "jskit.connectors.gitlabApi.scopes.readApi.label", recommended: true },
+    { value: "api", label: "jskit.connectors.gitlabApi.scopes.api.label" }],
   settingsSchema: createSchema({ instanceUrl: { type: "string", defaultTo: "https://gitlab.com", noTrim: true,
     validator: (value) => {
       try {
@@ -355,10 +355,10 @@ const gitlabApiDefinition = Object.freeze({
       } catch { return "Enter the HTTPS GitLab instance URL."; }
     }
   } }),
-  settingsFields: [{ name: "instanceUrl", label: "Instance URL", placeholder: "https://gitlab.com",
-    hint: "The trusted GitLab instance that receives this connection's credentials. Defaults to GitLab.com." }]
+  settingsFields: [{ name: "instanceUrl", label: "jskit.connectors.gitlabApi.fields.instanceUrl.label", placeholder: "https://gitlab.com",
+    hint: "jskit.connectors.gitlabApi.fields.instanceUrl.hint" }]
 });
-const tallyDefinition = definition("tally", "Tally", "Create forms and retrieve submissions using your Tally account.",
+const tallyDefinition = definition("tally", "Tally", "jskit.connectors.tally.description",
   "https://developers.tally.so/api-reference/api-keys", [
     "Open Tally Settings, then API keys and Create API key.",
     "Create the key for the intended user. It inherits that user's resource access; this flow does not offer per-form scopes.",
@@ -369,7 +369,7 @@ const tallyDefinition = definition("tally", "Tally", "Create forms and retrieve 
     "A lost key needs a replacement. Keys stop working when their user leaves the organization; use the account intended to maintain this application's access."
   ]);
 const contentfulDefinition = Object.freeze({
-  ...definition("contentful", "Contentful", "Read published entries, linked assets, content models and locales from a Contentful space.",
+  ...definition("contentful", "Contentful", "jskit.connectors.contentful.description",
     "https://www.contentful.com/developers/docs/references/authentication/", [
     "Select the intended Contentful space. Open Settings > API keys, Content delivery / preview tokens, then Add API key. Name this application's key.",
     "Copy its Space ID into Space ID here. Copy the Content Delivery API access token; the Preview token and Content Management token are different credentials.",
@@ -379,7 +379,7 @@ const contentfulDefinition = Object.freeze({
     "To rotate access, create a replacement delivery token with the same required environment access, update Env and verify before retiring the old key. Disconnect only removes local state, not the Contentful API key. The app renders rich text and images and chooses its own cache policy.",
     "No OAuth registration or callback URL is needed. Verification reads published entries. A 404 can mean the key lacks access to the chosen environment; check the space, region and environment as well as the token."
     ]),
-  apiKeyReferenceLabel: "Content Delivery API token reference",
+  apiKeyReferenceLabel: "jskit.connectors.contentful.apiKeyReferenceLabel",
   settingsSchema: createSchema({
     spaceId: { type: "string", required: true, minLength: 1, maxLength: 64,
       validator: (value) => /^[a-zA-Z0-9_-]+$/u.test(value) || "Enter the Space ID from Contentful API keys." },
@@ -388,14 +388,14 @@ const contentfulDefinition = Object.freeze({
     region: { type: "string", enum: ["us", "eu"], defaultTo: "us" }
   }),
   settingsFields: [
-    { name: "spaceId", label: "Space ID", hint: "Copy the Space ID from the selected space's API keys page." },
-    { name: "environmentId", label: "Environment ID", hint: "The key must have access to this environment. Defaults to master." },
-    { name: "region", label: "Region", items: [
-      { value: "us", title: "United States" }, { value: "eu", title: "Europe" }
+    { name: "spaceId", label: "jskit.connectors.contentful.fields.spaceId.label", hint: "jskit.connectors.contentful.fields.spaceId.hint" },
+    { name: "environmentId", label: "jskit.connectors.contentful.fields.environmentId.label", hint: "jskit.connectors.contentful.fields.environmentId.hint" },
+    { name: "region", label: "jskit.connectors.contentful.fields.region.label", items: [
+      { value: "us", title: "jskit.connectors.contentful.fields.region.items.us.title" }, { value: "eu", title: "jskit.connectors.contentful.fields.region.items.eu.title" }
     ] }
   ]
 });
-const asanaDefinition = definition("asana", "Asana", "Discover projects and create, assign and track tasks in your Asana workspace.",
+const asanaDefinition = definition("asana", "Asana", "jskit.connectors.asana.description",
   "https://developers.asana.com/docs/personal-access-token", [
     "Open the Asana developer console using My apps in the provider setup guide.",
     "Under Personal access tokens, choose Create new token and give it a description identifying this application.",
@@ -405,7 +405,7 @@ const asanaDefinition = definition("asana", "Asana", "Discover projects and crea
   ]);
 
 const stripeDefinition = Object.freeze({
-  ...definition("stripe", "Stripe", "Read the Stripe account's available and pending balances.",
+  ...definition("stripe", "Stripe", "jskit.connectors.stripe.description",
   "https://docs.stripe.com/keys/restricted-api-keys", [
     "Select the intended Stripe account and sandbox or live mode, then open the API keys page.",
     "Choose Create restricted key, start from zero permissions, name it and allow Balance read access.",
@@ -424,7 +424,7 @@ const stripeDefinition = Object.freeze({
   ]
 }
 });
-const replicateDefinition = definition("replicate", "Replicate", "Run asynchronous model predictions with an application-owned Replicate token.",
+const replicateDefinition = definition("replicate", "Replicate", "jskit.connectors.replicate.description",
   "https://replicate.com/docs/topics/security/api-tokens", [
     "Select the Replicate user or organization that owns the intended usage, then open account/api-tokens.",
     "Create a token with a name identifying this application and copy its value.",
@@ -435,13 +435,13 @@ const replicateDefinition = definition("replicate", "Replicate", "Run asynchrono
     "If the token is disabled, create a replacement on the same API tokens page, update Env and reconnect. Disabling a shared token also stops other applications using it."
   ]);
 const sentryDefinition = Object.freeze({
-  id: "sentry", name: "Sentry", description: "Inspect and triage Sentry issues through scoped MCP tools.",
+  id: "sentry", name: "Sentry", description: "jskit.connectors.sentry.description",
   accountModes: ["assistant"], authenticationMethods: ["oauth2"],
   scopes: [
-    { value: "org:read", label: "Read organization data", recommended: true },
-    { value: "project:write", label: "Write project data" },
-    { value: "team:write", label: "Write team data" },
-    { value: "event:write", label: "Write event data" }
+    { value: "org:read", label: "jskit.connectors.sentry.scopes.orgRead.label", recommended: true },
+    { value: "project:write", label: "jskit.connectors.sentry.scopes.projectWrite.label" },
+    { value: "team:write", label: "jskit.connectors.sentry.scopes.teamWrite.label" },
+    { value: "event:write", label: "jskit.connectors.sentry.scopes.eventWrite.label" }
   ],
   settingsSchema: createSchema({
     organizationSlug: { type: "string", required: true, minLength: 1, maxLength: 200,
@@ -450,8 +450,8 @@ const sentryDefinition = Object.freeze({
       validator: (value) => /^[a-z0-9][a-z0-9_-]*$/u.test(value) || "Enter the project slug, not its numeric ID or URL." }
   }),
   settingsFields: [
-    { name: "organizationSlug", label: "Sentry organization slug", hint: "Copy the organization slug from Sentry's URL. This connection is restricted to that organization." },
-    { name: "projectSlug", label: "Sentry project slug (optional)", hint: "Copy the slug from Project Settings to restrict access to one project. Leave empty for the selected organization." }
+    { name: "organizationSlug", label: "jskit.connectors.sentry.fields.organizationSlug.label", hint: "jskit.connectors.sentry.fields.organizationSlug.hint" },
+    { name: "projectSlug", label: "jskit.connectors.sentry.fields.projectSlug.label", hint: "jskit.connectors.sentry.fields.projectSlug.hint" }
   ],
   setup: { url: "https://mcp.sentry.dev/", clientRegistrationEndpoint: "https://mcp.sentry.dev/oauth/register", steps: [
     "This is assistant context, not application login or SDK error-reporting setup. The assistant host must explicitly authorize access to errors; saving the connection alone does not grant it.",
@@ -462,7 +462,7 @@ const sentryDefinition = Object.freeze({
     "Reconnect when the grant expires or Sentry access changes. Disconnect removes the application's local grant; manage provider-side permissions separately. An application's error-reporting DSN is separate from this management connection."
   ] }
 });
-const incidentIoDefinition = definition("incident-io", "incident.io", "Manage incidents and follow-ups, resolve alerts, read on-call schedules and maintain catalogue entries.",
+const incidentIoDefinition = definition("incident-io", "incident.io", "jskit.connectors.incidentIo.description",
   "https://docs.incident.io/admin/api-keys", [
     "In the intended incident.io organization, open Settings > API keys and choose Add API key. Name it for this application. The token is displayed once; copy it privately before leaving.",
     "Choose View data (viewer) for incident verification. Add Create incidents / Edit incidents for writes, View on-call resources for alerts, Read schedules for schedules, and View catalog / Manage catalog for catalogue reads/writes. For follow-ups inspect the permission scopes badge for follow_ups.create and follow_ups.update; for alert resolution it must include alerts.resolve. Grant only the required actions. Restrict team-scoped access to intended teams; you cannot delegate permissions you do not hold.",
@@ -471,7 +471,7 @@ const incidentIoDefinition = definition("incident-io", "incident.io", "Manage in
     "Schedule reads use pages of at most 25 so next shifts are included. This is not a rota editor or paging service. Alert sources such as Datadog can require external resolution; a 422 does not mean retry blindly. Private resources require provider permission, even when this form is valid.",
     "This key remains valid if its creator is deactivated. Rotate or revoke it in Settings > API keys, update Env and verify again. Disconnect only removes local state; it does not revoke the key, close incidents or cancel provider workflows."
   ]);
-const firefliesDefinition = definition("fireflies", "Fireflies", "Read and search Fireflies meetings, speaker-attributed transcripts and summaries.",
+const firefliesDefinition = definition("fireflies", "Fireflies", "jskit.connectors.fireflies.description",
   "https://docs.fireflies.ai/fundamentals/authorization", [
     "Sign into Fireflies and open Integrations, then Fireflies API.",
     "Copy the API key privately. It follows this user's account permissions; a team administrator key can include team data. Choose the account appropriate for the application.",
@@ -480,7 +480,7 @@ const firefliesDefinition = definition("fireflies", "Fireflies", "Read and searc
     "Transcript listing defaults to meetings this account organized. The application must authorize broader team access. If verification fails, check the key and account permissions. Replace keys in Env and verify again. Disconnect removes local state; revoke the provider key separately in Fireflies. This API-key setup needs no OAuth callback or app registration."
   ]);
 
-const heygenKeyDefinition = definition("heygen", "HeyGen", "Read your API account profile and browse voice metadata.",
+const heygenKeyDefinition = definition("heygen", "HeyGen", "jskit.connectors.heygenKey.description",
   "https://developers.heygen.com/docs/api-key", [
     "Sign into the intended HeyGen account. Open the API dashboard linked from Provider setup guide and choose the control to generate an API key.",
     "For a restricted key, allow account:read for verification and voices:read for voice listing. Set those permissions in HeyGen; editing this application's configuration cannot grant them. API-key usage and subscription OAuth use different billing arrangements.",
@@ -490,12 +490,12 @@ const heygenKeyDefinition = definition("heygen", "HeyGen", "Read your API accoun
   ]);
 const heygenDefinition = Object.freeze({
   ...heygenKeyDefinition,
-  description: "Read API profile and voices with a key, or connect HeyGen MCP tools through browser OAuth.",
+  description: "jskit.connectors.heygen.description",
   authenticationMethods: ["api-key", "oauth2"],
   scopes: [
-    { value: "openid", label: "Identify the connected HeyGen account", recommended: true, authenticationMethods: ["oauth2"] },
-    { value: "profile", label: "Read account profile", recommended: true, authenticationMethods: ["oauth2"] },
-    { value: "email", label: "Read account email", recommended: true, authenticationMethods: ["oauth2"] }
+    { value: "openid", label: "jskit.connectors.heygen.scopes.openid.label", recommended: true, authenticationMethods: ["oauth2"] },
+    { value: "profile", label: "jskit.connectors.heygen.scopes.profile.label", recommended: true, authenticationMethods: ["oauth2"] },
+    { value: "email", label: "jskit.connectors.heygen.scopes.email.label", recommended: true, authenticationMethods: ["oauth2"] }
   ],
   setup: { ...heygenKeyDefinition.setup,
     urlByAuthentication: { oauth2: "https://developers.heygen.com/mcp/overview" },
@@ -509,7 +509,7 @@ const heygenDefinition = Object.freeze({
     ] }
   }
 });
-const perplexityDefinition = definition("perplexity", "Perplexity", "Connect your Perplexity key for app-owned cited answers and streaming.",
+const perplexityDefinition = definition("perplexity", "Perplexity", "jskit.connectors.perplexity.description",
   "https://docs.perplexity.ai/docs/admin/api-key-management", [
     "Open the Perplexity API console, then Projects. Create or select the project that will own this application's API usage; a project must exist before you can create its first key.",
     "Open API Keys and generate a named key for that project. Copy its full value immediately; it is only shown at creation.",
@@ -518,7 +518,7 @@ const perplexityDefinition = definition("perplexity", "Perplexity", "Connect you
     "Use the supplied AI-connections perplexity-answer example with this exact saved slot. Your application installs its native client, authorizes the caller and resolves this Env reference before requesting a cited answer or stream. Requests go directly to Perplexity and use the application’s provider account. The app renders citations and controls spending. LIMITATIONS: no premade research/chat screen, persistent conversation or automatic coding-chat attachment; async history lists only its initial page. For example, fetch a cited answer in your backend, then display it in your app. Never send the key to the browser.",
     "For replacement, create another key and update Env before revoking the old key. A revoked key cannot be recovered."
   ]);
-const supabaseDefinition = definition("supabase", "Supabase", "List projects through the Supabase Management API.",
+const supabaseDefinition = definition("supabase", "Supabase", "jskit.connectors.supabase.description",
   "https://supabase.com/docs/guides/platform/personal-access-tokens", [
     "Open Supabase account settings, Access Tokens, and generate a personal access token.",
     "Where scoped tokens are available, select the intended resources and project read permission. Classic tokens carry your full account access.",
@@ -527,7 +527,7 @@ const supabaseDefinition = definition("supabase", "Supabase", "List projects thr
   ]);
 
 const paddleDefinition = Object.freeze({
-  ...definition("paddle", "Paddle", "Read and create Paddle Billing products and prices in sandbox or live mode.",
+  ...definition("paddle", "Paddle", "jskit.connectors.paddle.description",
     "https://developer.paddle.com/api-reference/about/authentication", [
       "Sign into the Paddle Billing account that owns this application's catalogue. Use its sandbox account for testing and live account for production. Open Developer tools → Authentication → API keys → New API key.",
       "Enter a name and description identifying this application. Grant product.read for connection verification and catalogue reads. Also grant product.write to create products and price.write to create prices when your application needs those operations. Editing webhook destinations also needs notification_setting.write; reading domain approval needs checkout_domain.read. Set an expiry. Enable Rotatable only if you plan to configure key rotation; that choice cannot be changed later. Click Save and copy the key immediately because it is shown only once.",
@@ -548,22 +548,22 @@ const paddleDefinition = Object.freeze({
   ]
 },
   assistantActions: [
-    { value: "enable", label: "Enable Paddle" },
-    { value: "provider.recommend", label: "Recommend payment provider" },
-    { value: "products.create", label: "Create product with price" },
-    { value: "products.batchCreate", label: "Batch create products with prices" },
-    { value: "prices.create", label: "Create price" },
-    { value: "goLive.check", label: "Check go-live status" },
-    { value: "api.read", label: "Read Paddle API" },
-    { value: "api.write", label: "Write Paddle API" },
-    { value: "webhooks.update", label: "Edit webhook" }
+    { value: "enable", label: "jskit.connectors.paddle.assistantActions.enable.label" },
+    { value: "provider.recommend", label: "jskit.connectors.paddle.assistantActions.providerRecommend.label" },
+    { value: "products.create", label: "jskit.connectors.paddle.assistantActions.productsCreate.label" },
+    { value: "products.batchCreate", label: "jskit.connectors.paddle.assistantActions.productsBatchCreate.label" },
+    { value: "prices.create", label: "jskit.connectors.paddle.assistantActions.pricesCreate.label" },
+    { value: "goLive.check", label: "jskit.connectors.paddle.assistantActions.goLiveCheck.label" },
+    { value: "api.read", label: "jskit.connectors.paddle.assistantActions.apiRead.label" },
+    { value: "api.write", label: "jskit.connectors.paddle.assistantActions.apiWrite.label" },
+    { value: "webhooks.update", label: "jskit.connectors.paddle.assistantActions.webhooksUpdate.label" }
   ],
   settingsSchema: createSchema({ environment: { type: "string", enum: ["sandbox", "live"], defaultTo: "sandbox" } }),
-  settingsFields: [{ name: "environment", label: "Environment", hint: "Use the environment that issued this API key.",
-    items: [{ title: "Sandbox", value: "sandbox" }, { title: "Live", value: "live" }] }]
+  settingsFields: [{ name: "environment", label: "jskit.connectors.paddle.fields.environment.label", hint: "jskit.connectors.paddle.fields.environment.hint",
+    items: [{ title: "jskit.connectors.paddle.fields.environment.items.sandbox.title", value: "sandbox" }, { title: "jskit.connectors.paddle.fields.environment.items.live.title", value: "live" }] }]
 });
 const mailgunDefinition = Object.freeze({
-  ...definition("mailgun", "Mailgun", "Send transactional email, manage sending domains and inspect delivery logs.",
+  ...definition("mailgun", "Mailgun", "jskit.connectors.mailgun.description",
     "https://help.mailgun.com/hc/en-us/articles/26016288026907-API-Key-Roles", [
       "Sign into the intended Mailgun account as an administrator. In the top-right profile menu, choose API Security. Under Mailgun API Keys, choose Add new key; do not select the public verification key or webhook signing key.",
       "Enter a description for this application and choose Developer for sending and domain management, or Analyst only for read-only access, then Create Key. Free/Basic accounts may offer only Admin. Copy the secret from the creation dialog now: it is shown only once. If lost, create a replacement key.",
@@ -576,11 +576,11 @@ const mailgunDefinition = Object.freeze({
       "To change a key's role, create a new key, replace MAILGUN_API_KEY in Env and verify again; roles on existing keys cannot be edited. Disconnect removes the local connection. Delete an obsolete key in Mailgun separately to revoke its provider access."
     ]),
   settingsSchema: createSchema({ region: { type: "string", enum: ["us", "eu"], defaultTo: "us" } }),
-  settingsFields: [{ name: "region", label: "API region", hint: "Select the region containing your sending domains.",
-    items: [{ title: "United States (api.mailgun.net)", value: "us" }, { title: "European Union (api.eu.mailgun.net)", value: "eu" }] }]
+  settingsFields: [{ name: "region", label: "jskit.connectors.mailgun.fields.region.label", hint: "jskit.connectors.mailgun.fields.region.hint",
+    items: [{ title: "jskit.connectors.mailgun.fields.region.items.us.title", value: "us" }, { title: "jskit.connectors.mailgun.fields.region.items.eu.title", value: "eu" }] }]
 });
 
-const fireworksAiDefinition = definition("fireworks-ai", "Fireworks AI", "List accounts accessible to your Fireworks API key.",
+const fireworksAiDefinition = definition("fireworks-ai", "Fireworks AI", "jskit.connectors.fireworksAi.description",
   "https://docs.fireworks.ai/getting-started/quickstart", [
     "Sign into Fireworks. Open the Provider setup guide and follow its Fireworks dashboard link to API Keys; you can also open your profile icon > User Settings > API Keys.",
     "Choose Create API key, then copy the generated key for this application and keep it private. The Provider setup guide links to the account's API Keys page.",
@@ -589,7 +589,7 @@ const fireworksAiDefinition = definition("fireworks-ai", "Fireworks AI", "List a
     "If you revoke or replace the key in Fireworks, update its Env value and check the connection again."
   ]);
 const gatewayApiDefinition = Object.freeze({
-  ...definition("gatewayapi", "GatewayAPI", "Send SMS/RCS messages and read account credit on the Global or EU platform.",
+  ...definition("gatewayapi", "GatewayAPI", "jskit.connectors.gatewayApi.description",
     "https://gatewayapi.com/help-center/webhooks-and-api-keys/", [
       "Sign into the intended GatewayAPI Global or EU account and open API, then API Keys in the left menu.",
       "Choose ADD API KEY, name the credential, and copy its API token into Env.",
@@ -600,11 +600,11 @@ const gatewayApiDefinition = Object.freeze({
       "If verification fails, check that the token matches the selected Global or EU account and any configured IP restrictions permit the application server. Replace a rotated token in Env and verify again before revoking the old token in API Keys. Disconnect removes local connection state only. No OAuth callback or webhook is needed for this balance check."
     ]),
   settingsSchema: createSchema({ region: { type: "string", enum: ["global", "eu"], defaultTo: "global" } }),
-  settingsFields: [{ name: "region", label: "API domain", hint: "Select the platform that issued this token.",
-    items: [{ title: "Global (gatewayapi.com)", value: "global" }, { title: "EU (gatewayapi.eu)", value: "eu" }] }]
+  settingsFields: [{ name: "region", label: "jskit.connectors.gatewayApi.fields.region.label", hint: "jskit.connectors.gatewayApi.fields.region.hint",
+    items: [{ title: "jskit.connectors.gatewayApi.fields.region.items.global.title", value: "global" }, { title: "jskit.connectors.gatewayApi.fields.region.items.eu.title", value: "eu" }] }]
 });
 const polarDefinition = Object.freeze({
-  ...definition("polar", "Polar", "Read your organization's Polar product catalogue.",
+  ...definition("polar", "Polar", "jskit.connectors.polar.description",
     "https://polar.sh/docs/integrate/oat", [
       "Open Settings for the intended Polar organization, scroll to Developers and choose New Token.",
       "Give the token a name and expiry, select products:read, and copy its value into Env.",
@@ -612,12 +612,12 @@ const polarDefinition = Object.freeze({
       "Save the reference. The runtime verifies product reads; it does not create a checkout or enable merchant payments."
     ]),
   settingsSchema: createSchema({ environment: { type: "string", enum: ["sandbox", "production"], defaultTo: "sandbox" } }),
-  settingsFields: [{ name: "environment", label: "Environment", hint: "Use the environment containing this organization and token.",
-    items: [{ title: "Sandbox", value: "sandbox" }, { title: "Production", value: "production" }] }]
+  settingsFields: [{ name: "environment", label: "jskit.connectors.polar.fields.environment.label", hint: "jskit.connectors.polar.fields.environment.hint",
+    items: [{ title: "jskit.connectors.polar.fields.environment.items.sandbox.title", value: "sandbox" }, { title: "jskit.connectors.polar.fields.environment.items.production.title", value: "production" }] }]
 });
 
 const storyblokDefinition = Object.freeze({
-  ...definition("storyblok", "Storyblok", "Read space metadata and published or draft content in the space's region.",
+  ...definition("storyblok", "Storyblok", "jskit.connectors.storyblok.description",
     "https://www.storyblok.com/docs/concepts/access-tokens", [
       "Select the intended Storyblok space and open Settings, then Access Tokens.",
       "Create a named Public token for published content, or a Preview token when this application needs draft content.",
@@ -628,15 +628,15 @@ const storyblokDefinition = Object.freeze({
       "If verification fails, check the token type and space region, then reconnect after correcting Env. Disconnect removes the app connection; delete a token in Storyblok Settings → Access Tokens when it must stop working everywhere."
     ]),
   settingsSchema: createSchema({ region: { type: "string", enum: ["eu", "us", "ca", "ap", "cn"], defaultTo: "eu" } }),
-  settingsFields: [{ name: "region", label: "Space region", hint: "Match the region selected when the Storyblok space was created.",
+  settingsFields: [{ name: "region", label: "jskit.connectors.storyblok.fields.region.label", hint: "jskit.connectors.storyblok.fields.region.hint",
     items: [
-      { title: "European Union (EU)", value: "eu" }, { title: "United States (US)", value: "us" },
-      { title: "Canada (CA)", value: "ca" }, { title: "Australia / APAC (AP)", value: "ap" },
-      { title: "China (CN)", value: "cn" }
+      { title: "jskit.connectors.storyblok.fields.region.items.eu.title", value: "eu" }, { title: "jskit.connectors.storyblok.fields.region.items.us.title", value: "us" },
+      { title: "jskit.connectors.storyblok.fields.region.items.ca.title", value: "ca" }, { title: "jskit.connectors.storyblok.fields.region.items.ap.title", value: "ap" },
+      { title: "jskit.connectors.storyblok.fields.region.items.cn.title", value: "cn" }
     ] }]
 });
 
-const ashbyDefinition = definition("ashby", "Ashby", "Read hiring data, maintain candidate profiles and advance sourced applications.",
+const ashbyDefinition = definition("ashby", "Ashby", "jskit.connectors.ashby.description",
   "https://docs.ashbyhq.com/how-do-i-generate-an-api-key", [
     "As an Ashby Organization Admin, open Admin > Integrations > API Keys and choose + New.",
     "Name the key for this application, leave the optional integration partner unset, and choose Create API Key. Keys initially have no endpoint permissions: select Jobs read (jobsRead) for verification. Add Candidates read (candidatesRead) for candidates/applications and Candidates write (candidatesWrite) for profile edits, sourcing and stage changes. Add Interviews read (interviewsRead) for interview-plan/stage lookup and Hiring Process read (hiringProcessMetadataRead) for archive reasons.",
@@ -644,7 +644,7 @@ const ashbyDefinition = definition("ashby", "Ashby", "Read hiring data, maintain
     "Enter env:ASHBY_API_KEY in API key reference here and save. Choose Set credential in Env, paste the key as the ASHBY_API_KEY value and save it there. Return here and choose Connect account or Verify again. Check connection only reads current status.",
     "No OAuth registration or callback URL is needed. Verification lists jobs without creating candidates or changing hiring stages. This organization key serves an administrator-approved hiring workflow; it is not an applicant login or public careers form. For missing_endpoint_permission, reopen the key, correct Jobs read and Save. A key that was not copied must be replaced. To rotate, create a replacement and update Env before verifying. To revoke, open the old key by name and click Disable; Disconnect only removes the application connection."
   ]);
-const lexwareDefinition = definition("lexware", "Lexware", "Read accounting contacts, articles and vouchers, and create net-EUR draft invoices.",
+const lexwareDefinition = definition("lexware", "Lexware", "jskit.connectors.lexware.description",
   "https://help.lexware.de/de-form/articles/548863-alles-rund-um-public-api", [
     "You need Lexware Office XL for Public API access. In the intended account, open Erweiterungen > Weitere Apps > Public API, or app.lexware.de/addons/public-api.",
     "Choose API-Schlüssel erstellen and the individual-permissions option. Enable reading contacts for verification. Add article and accounting-document read permissions for those operations; allow invoice creation only if the app will create drafts.",
@@ -656,7 +656,7 @@ const lexwareDefinition = definition("lexware", "Lexware", "Read accounting cont
     "No OAuth registration or callback URL is needed. Verification reads contacts. Keys expire after at most 24 months: create a replacement and update Env before expiry. Public API does not mean the key is safe to expose."
   ]);
 const sevdeskDefinition = Object.freeze({
-  ...definition("sevdesk", "Sevdesk", "Read sevdesk contact organizations and people with offset pagination.",
+  ...definition("sevdesk", "Sevdesk", "jskit.connectors.sevdesk.description",
     "https://hilfe.sevdesk.de/de/articles/9374740-wo-finde-ich-meinen-api-token-in-sevdesk", [
     "In the intended sevdesk account, open Erweiterungen > Integrationen and locate API-Token für Integrationen.",
     "Choose Einblenden and enter your sevdesk account password. Copy the displayed API token. Depending on your plan, Erweiterungen > API also offers Einblenden.",
@@ -664,10 +664,10 @@ const sevdeskDefinition = Object.freeze({
     "No OAuth registration or callback URL is needed. Paste only the token, without adding Bearer. Verification reads contacts without modifying accounting data.",
     "This token belongs to its sevdesk user. Naming another configuration does not create a separate provider account or change the token's access."
     ]),
-  apiKeyReferenceLabel: "API token reference"
+  apiKeyReferenceLabel: "jskit.connectors.sevdesk.apiKeyReferenceLabel"
 });
 
-const apolloIoDefinition = definition("apollo-io", "Apollo.io", "Find prospects, enrich selected records and manage your sales contacts, accounts and deals.",
+const apolloIoDefinition = definition("apollo-io", "Apollo.io", "jskit.connectors.apolloIo.description",
   "https://docs.apollo.io/docs/create-api-key", [
     "API access depends on your Apollo plan. In the intended workspace, open Settings > Integrations > API Keys, then API Keys > Create new key.",
     "Enter a name and description. Keep api/v1/accounts/search enabled for verification. Add only the permitted endpoints needed by your app: api/v1/mixed_people/api_search for prospect people, api/v1/mixed_companies/search for companies, api/v1/people/match and api/v1/organizations/enrich for enrichment. Keep Set as master key off when endpoint permissions suffice.",
@@ -676,7 +676,7 @@ const apolloIoDefinition = definition("apollo-io", "Apollo.io", "Find prospects,
     "Verification reads saved accounts; it does not enrich, write CRM records or spend enrichment credits. Company prospect searches and enrichment can consume credits when your app invokes them. Review current Apollo pricing and require explicit approval or an administrator-authorized usage policy in your app.",
     "No OAuth registration or callback URL is needed. This key acts for the Apollo workspace, not an individual end user's account. Keys in that workspace share its limits. To replace access, regenerate the key and update Env before verifying again. Disconnect removes the local connection; delete the key on Apollo's API keys page to revoke provider access."
   ]);
-const attentionDefinition = definition("attention", "Attention", "Read conversations and coaching results; manage call metadata, snippets, users and teams.",
+const attentionDefinition = definition("attention", "Attention", "jskit.connectors.attention.description",
   "https://docs.attention.com/api-authentication", [
     "Sign into app.attention.tech as an organization administrator. Open your profile avatar at the top left, Settings, then Organization > API Keys.",
     "Choose + Create API Key at the top right and give it a name identifying this application. Copy the value in API Key Created before closing; it is shown once.",
@@ -687,7 +687,7 @@ const attentionDefinition = definition("attention", "Attention", "Read conversat
   ]);
 
 const telegramDefinition = Object.freeze({
-  ...definition("telegram", "Telegram", "Send bot messages and receive updates through application-owned polling.",
+  ...definition("telegram", "Telegram", "jskit.connectors.telegram.description",
     "https://core.telegram.org/bots/tutorial", [
       "In Telegram, open the verified BotFather account and send /newbot. Choose a display name and an available username ending in bot.",
       "Copy the token returned by BotFather. Enter env:TELEGRAM_BOT_TOKEN in Bot token reference here and save. Choose Set credential in Env, paste the token as the TELEGRAM_BOT_TOKEN value and save it there.",
@@ -696,9 +696,9 @@ const telegramDefinition = Object.freeze({
       "For polling, first check that no webhook is configured. Use one app worker and save update offsets after successful processing. Verification never polls; disconnect does not revoke the bot token or discard updates.",
       "Use separate bots for independent public and paid application identities. Replacing a token for the same bot does not create another bot."
     ]),
-  apiKeyReferenceLabel: "Bot token reference"
+  apiKeyReferenceLabel: "jskit.connectors.telegram.apiKeyReferenceLabel"
 });
-const klipyDefinition = definition("klipy", "KLIPY", "Browse clips, GIFs, stickers and existing AI emojis using your own KLIPY app key.",
+const klipyDefinition = definition("klipy", "KLIPY", "jskit.connectors.klipy.description",
   "https://klipy.com/blog/klipy-partner-panel", [
     "Sign into KLIPY Partner Panel and choose Add Platform. Enter the platform name, contact email, company website and product description, then accept the API terms and submit.",
     "Follow the key-creation flow, give the key an application-specific name and enter App URL when available. Copy the resulting test key. The application owner chooses any optional advertising settings in KLIPY separately.",
@@ -712,7 +712,7 @@ const klipyDefinition = definition("klipy", "KLIPY", "Browse clips, GIFs, sticke
   ]);
 
 const clayDefinition = Object.freeze({
-  ...definition("clay", "Clay", "Search people and companies, run enrichment routines and query Enterprise tables with your Clay Public API key.",
+  ...definition("clay", "Clay", "jskit.connectors.clay.description",
     "https://developers.clay.com/public-api/authentication", [
     "Open Clay Settings > Account > API keys (beta). Create a Public API key for the intended user and workspace. The older Clay workspace API key is a different credential.",
     "Copy the new key. Enter env:CLAY_PUBLIC_API_KEY in Public API key reference here and save. Choose Set credential in Env, paste the key as CLAY_PUBLIC_API_KEY and save it there. Return here and choose Connect account or Verify again. Check connection only refreshes local status.",
@@ -723,7 +723,7 @@ const clayDefinition = Object.freeze({
     "Search filters use the current query-mode reference. The legacy filters-mode API is deprecated. The application saves this connection configuration; assistant tool attachment requires explicit host integration.",
     "To replace the key, create another Public API key, update Env and verify before retiring the previous key. Disconnect removes local state, not the key in Clay."
     ]),
-  apiKeyReferenceLabel: "Public API key reference"
+  apiKeyReferenceLabel: "jskit.connectors.clay.apiKeyReferenceLabel"
 });
 
 const tokenDefinitions = Object.freeze([

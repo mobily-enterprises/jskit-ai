@@ -2,7 +2,7 @@ import { createSchema } from "json-rest-schema";
 import { secretReference } from "@jskit-ai/connectors-core/shared/configuration";
 
 const algoliaDefinition = Object.freeze({
-  id: "algolia", name: "Algolia", description: "Search and maintain index records, and check indexing completion.",
+  id: "algolia", name: "Algolia", description: "jskit.connectors.algolia.description",
   accountModes: ["shared", "assistant"], authenticationMethods: ["api-key"], scopes: [],
   settingsSchema: createSchema({
     applicationId: { type: "string", required: true, minLength: 1, maxLength: 63,
@@ -10,9 +10,9 @@ const algoliaDefinition = Object.freeze({
     publicApiKeyRef: { ...secretReference, required: false }
   }),
   settingsFields: [
-    { name: "applicationId", label: "Application ID", hint: "Copy the ID from your Algolia application's API Keys page. This ID can be public." },
-    { name: "publicApiKeyRef", environmentCredential: { label: "Public frontend API key", public: true }, label: "Public API key reference (optional)", placeholder: "env:ALGOLIA_SEARCH_KEY",
-      hint: "Optional search-only key for your frontend. Enter its reference; your app decides whether to expose its value." }
+    { name: "applicationId", label: "jskit.connectors.algolia.fields.applicationId.label", hint: "jskit.connectors.algolia.fields.applicationId.hint" },
+    { name: "publicApiKeyRef", environmentCredential: { label: "jskit.connectors.algolia.fields.publicApiKeyRef.environmentCredential.label", public: true }, label: "jskit.connectors.algolia.fields.publicApiKeyRef.label", placeholder: "env:ALGOLIA_SEARCH_KEY",
+      hint: "jskit.connectors.algolia.fields.publicApiKeyRef.hint" }
   ],
   setup: {
     url: "https://www.algolia.com/doc/guides/security/api-keys",

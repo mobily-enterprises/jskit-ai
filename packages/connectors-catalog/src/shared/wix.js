@@ -1,7 +1,7 @@
 import { createSchema } from "json-rest-schema";
 
 const wixDefinition = Object.freeze({
-  id: "wix", name: "Wix", description: "Use project-owned Wix account and site API access.",
+  id: "wix", name: "Wix", description: "jskit.connectors.wix.description",
   accountModes: ["shared", "assistant"], authenticationMethods: ["api-key"], scopes: [],
   settingsSchema: createSchema({ accountId: { type: "string", required: true, minLength: 36, maxLength: 36,
     validator: (value) => /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/iu.test(value) || "Enter the Account ID from Wix's API Keys Manager." },
@@ -10,10 +10,10 @@ const wixDefinition = Object.freeze({
       return ids.length <= 100 && ids.every(id => /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/iu.test(id)) && new Set(ids.map(id => id.toLowerCase())).size === ids.length || "Enter up to 100 distinct Site IDs separated by commas.";
     } },
     siteId: { type: "string", minLength: 36, maxLength: 36, validator: value => /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/iu.test(value) || "Copy the Site ID from the Wix site dashboard URL." } }),
-  settingsFields: [{ name: "accountId", label: "Account ID", placeholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-    hint: "Copy your account's ID from the API Keys Manager. A site ID is a different setting." },
-    { name: "selectableSiteIds", label: "Selectable Site IDs", placeholder: "Site ID, Site ID", hint: "Optional. Comma-separated sites the app may explicitly select. The app must still authorize each user's site access. Leave empty for a fixed-site connection." },
-    { name: "siteId", label: "Site ID", placeholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", hint: "Required for site operations. Copy the ID after /dashboard/ in the intended Wix site dashboard URL." }],
+  settingsFields: [{ name: "accountId", label: "jskit.connectors.wix.fields.accountId.label", placeholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    hint: "jskit.connectors.wix.fields.accountId.hint" },
+    { name: "selectableSiteIds", label: "jskit.connectors.wix.fields.selectableSiteIds.label", placeholder: "jskit.connectors.wix.fields.selectableSiteIds.placeholder", hint: "jskit.connectors.wix.fields.selectableSiteIds.hint" },
+    { name: "siteId", label: "jskit.connectors.wix.fields.siteId.label", placeholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", hint: "jskit.connectors.wix.fields.siteId.hint" }],
   setup: {
     url: "https://dev.wix.com/docs/go-headless/authentication/admin/generate-an-api-key",
     steps: [

@@ -1,28 +1,28 @@
 const atlassianDefinition = Object.freeze({
-  id: "atlassian", name: "Atlassian", description: "Use Jira, Confluence and other Atlassian tools through the assistant owner's Rovo MCP connection.",
+  id: "atlassian", name: "Atlassian", description: "jskit.connectors.atlassian.description",
   accountModes: ["assistant"], authenticationMethods: ["oauth2"],
   scopes: [
-    { value: "read:me", label: "Read your profile", recommended: true },
-    { value: "read:account", label: "Read your account", recommended: true },
-    { value: "offline_access", label: "Refresh access without repeating sign-in", recommended: true },
-    { value: "email", label: "Read your email address" },
-    { value: "read:jira:agent-interface", label: "Read Jira content", recommended: true },
-    { value: "write:jira:agent-interface", label: "Create and edit Jira content" },
-    { value: "search:jira:agent-interface", label: "Search Jira", recommended: true },
-    { value: "delete:jira:agent-interface", label: "Delete Jira content" },
-    { value: "manage:jira:agent-interface", label: "Manage Jira" },
-    { value: "read:confluence:agent-interface", label: "Read Confluence content", recommended: true },
-    { value: "write:confluence:agent-interface", label: "Create and edit Confluence content" },
-    { value: "search:confluence:agent-interface", label: "Search Confluence", recommended: true },
-    { value: "search:rovo:agent-interface", label: "Search with Rovo" },
-    { value: "search:code:agent-interface", label: "Search code" },
-    { value: "read:all:twg", label: "Read Teamwork Graph content" },
-    { value: "write:all:twg", label: "Write Teamwork Graph content" },
+    { value: "read:me", label: "jskit.connectors.atlassian.scopes.readMe.label", recommended: true },
+    { value: "read:account", label: "jskit.connectors.atlassian.scopes.readAccount.label", recommended: true },
+    { value: "offline_access", label: "jskit.connectors.atlassian.scopes.offlineAccess.label", recommended: true },
+    { value: "email", label: "jskit.connectors.atlassian.scopes.email.label" },
+    { value: "read:jira:agent-interface", label: "jskit.connectors.atlassian.scopes.readJiraAgentInterface.label", recommended: true },
+    { value: "write:jira:agent-interface", label: "jskit.connectors.atlassian.scopes.writeJiraAgentInterface.label" },
+    { value: "search:jira:agent-interface", label: "jskit.connectors.atlassian.scopes.searchJiraAgentInterface.label", recommended: true },
+    { value: "delete:jira:agent-interface", label: "jskit.connectors.atlassian.scopes.deleteJiraAgentInterface.label" },
+    { value: "manage:jira:agent-interface", label: "jskit.connectors.atlassian.scopes.manageJiraAgentInterface.label" },
+    { value: "read:confluence:agent-interface", label: "jskit.connectors.atlassian.scopes.readConfluenceAgentInterface.label", recommended: true },
+    { value: "write:confluence:agent-interface", label: "jskit.connectors.atlassian.scopes.writeConfluenceAgentInterface.label" },
+    { value: "search:confluence:agent-interface", label: "jskit.connectors.atlassian.scopes.searchConfluenceAgentInterface.label", recommended: true },
+    { value: "search:rovo:agent-interface", label: "jskit.connectors.atlassian.scopes.searchRovoAgentInterface.label" },
+    { value: "search:code:agent-interface", label: "jskit.connectors.atlassian.scopes.searchCodeAgentInterface.label" },
+    { value: "read:all:twg", label: "jskit.connectors.atlassian.scopes.readAllTwg.label" },
+    { value: "write:all:twg", label: "jskit.connectors.atlassian.scopes.writeAllTwg.label" },
     ...["goals", "projects", "bitbucket", "loom", "talent", "teams", "artifacts", "focus"].flatMap((product) => {
       const name = product[0].toUpperCase() + product.slice(1);
       return [
-        { value: `read:${product}:agent-interface`, label: `Read ${name} content` },
-        { value: `write:${product}:agent-interface`, label: `Create and edit ${name} content` }
+        { value: `read:${product}:agent-interface`, label: { key: "jskit.connectors.atlassian.scopes.readProduct.label", params: { product: name } } },
+        { value: `write:${product}:agent-interface`, label: { key: "jskit.connectors.atlassian.scopes.writeProduct.label", params: { product: name } } }
       ];
     })
   ],
