@@ -29,6 +29,7 @@
     "./server/actions/actionContributorHelpers": "./server/actions/actionContributorHelpers.js",
     "./server/features": "./server/features/index.js",
     "./server/http": "./server/http/index.js",
+    "./server/i18n": "./server/i18n.js",
     "./server/platform": "./server/platform/index.js",
     "./server/runtime": "./server/runtime/index.js",
     "./server/runtime/errors": "./server/runtime/errors.js",
