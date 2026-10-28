@@ -252,6 +252,7 @@ function onSnackbarAfterLeave() {
           border="start"
           class="shell-error-host__banner"
           closable
+          :close-label="t('jskit.shell.actions.close')"
           @click:close="dismiss(entry)"
         >
           <div class="d-flex align-center ga-3 flex-wrap">

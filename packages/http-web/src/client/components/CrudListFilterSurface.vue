@@ -68,6 +68,7 @@ function clearFilters() {
           v-for="chip in activeChips"
           :key="chip.id"
           closable
+          :close-label="t('jskit.http.actions.close')"
           size="small"
           variant="tonal"
           @click:close="clearChip(chip)"
