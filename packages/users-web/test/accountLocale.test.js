@@ -48,11 +48,13 @@ test("the language select offers the app's configured languages as canonical cod
   ]);
 });
 
-test("a saved locale missing from the list stays selectable under its language name", () => {
-  const options = resolveLocaleOptions("en", {});
-  assert.equal(options.length, 5);
-  assert.equal(options.at(-1).value, "en");
-  assert.notEqual(options.at(-1).title, "");
+test("a saved locale missing from the configured languages stays selectable under its language name", () => {
+  const options = resolveLocaleOptions("en", { languages: [{ code: "it-IT", name: "Italiano" }] });
+  assert.deepEqual(options, [{ title: "Italiano", value: "it-IT" }, { title: "English", value: "en" }]);
+});
+
+test("without configured languages the default list stays as it was, whatever is saved", () => {
+  assert.equal(resolveLocaleOptions("en", {}).length, 4);
 });
 
 test("preference option labels follow the app's vue-i18n locale", () => {

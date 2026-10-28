@@ -1,5 +1,6 @@
 import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
+import { catalogMessage, formatMessage } from "@jskit-ai/kernel/shared/i18n";
 
 const name = { type: "string", required: true, minLength: 1, maxLength: 200 };
 const secretReference = {
@@ -112,6 +113,47 @@ const DEFAULT_TOKEN_ENDPOINT_AUTH_METHOD = "client_secret_post";
 // A provider definition whose texts were rendered to English keeps its message-key
 // original under this symbol, so a translating UI can render the keys instead.
 const MESSAGE_KEY_SOURCE = Symbol.for("@jskit-ai/connectors-core.messageKeySource");
+
+// Provider definitions carry message keys, which connectors-web translates. Code that
+// shows a definition's texts itself gets the same definitions with every key (and every
+// { key, params } a function returns) rendered to the catalog's English, exactly as
+// before keys. Each English object keeps its keyed original under MESSAGE_KEY_SOURCE.
+function createEnglishProviderTexts(catalog) {
+  const rendered = new WeakMap();
+  const englishMessage = (key, params) => {
+    const message = typeof key === "string" ? catalogMessage(catalog, key) : undefined;
+    return message === undefined ? undefined : formatMessage(message, params);
+  };
+  return function englishTexts(value) {
+    if (typeof value === "string") {
+      return englishMessage(value) ?? value;
+    }
+    if (!value || (typeof value !== "object" && typeof value !== "function")) {
+      return value;
+    }
+    if (rendered.has(value)) {
+      return rendered.get(value);
+    }
+    let english = value;
+    if (typeof value === "function") {
+      english = function (...args) { return englishTexts(value.apply(this, args)); };
+    } else if (Array.isArray(value)) {
+      english = value.map((item) => englishTexts(item));
+    } else if (Object.getPrototypeOf(value) === Object.prototype) {
+      const message = englishMessage(value.key, value.params);
+      if (message !== undefined) {
+        return message;
+      }
+      english = Object.fromEntries(Object.entries(value).map(([name, inner]) => [name, englishTexts(inner)]));
+      Object.defineProperty(english, MESSAGE_KEY_SOURCE, { value });
+    }
+    if (english !== value && Object.isFrozen(value)) {
+      Object.freeze(english);
+    }
+    rendered.set(value, english);
+    return english;
+  };
+}
 
 function registrationGrantType(record) {
   return record?.grantType || DEFAULT_GRANT_TYPE;
@@ -310,6 +352,7 @@ export {
   DEFAULT_GRANT_TYPE,
   DEFAULT_TOKEN_ENDPOINT_AUTH_METHOD,
   MESSAGE_KEY_SOURCE,
+  createEnglishProviderTexts,
   registrationGrantType,
   registrationClientAuthentication,
   providerGrantTypes,

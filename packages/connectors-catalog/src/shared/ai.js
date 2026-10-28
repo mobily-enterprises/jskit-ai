@@ -50,11 +50,12 @@ const aiDefinition = Object.freeze({
     enum: modelItems.map((item) => item.value) } }),
   settingsFields: [{ name: "model", label: "jskit.connectors.ai.fields.model.label", searchable: true, items: modelItems,
     credentialScope: (key) => getAiModel(key)?.providerId,
-    // The catalogue date is display text: formatDate (useJskitText's) uses the app's active locale.
+    // The catalogue date is display text: formatDate (useJskitText's) uses the app's active
+    // locale; without an app language it keeps its fixed English form.
     hint: (settings = {}, { formatDate } = {}) => {
       const model = getAiModel(settings.model);
       const date = formatDate ? formatDate(snapshot.extractedAt, catalogueDateFormat)
-        : new Date(snapshot.extractedAt).toLocaleDateString(undefined, catalogueDateFormat);
+        : new Date(snapshot.extractedAt).toLocaleDateString("en-GB", catalogueDateFormat);
       return model ? { key: selectedModelHints[model.access], params: { model: model.name, date } }
         : { key: "jskit.connectors.ai.fields.model.hint", params: { date } };
     } }],

@@ -16,7 +16,8 @@ const props = defineProps({
 const emit = defineEmits(["update:modelValue"]);
 // Provider texts may be message keys (the JSKIT catalog) or plain text (other catalogs); text() renders both.
 // The catalog's public definitions are English; each keeps its keyed original under MESSAGE_KEY_SOURCE.
-const { t, text, formatDate, fieldErrorMessages } = useJskitText();
+const jskitText = useJskitText();
+const { t, text, formatDate, fieldErrorMessages } = jskitText;
 const definition = computed(() => props.provider[MESSAGE_KEY_SOURCE] || props.provider);
 const errors = computed(() => fieldErrorMessages({ fieldErrors: props.fieldErrors, fieldErrorCodes: props.fieldErrorCodes }));
 const panels = ref(["details", "credentials"]);
@@ -77,9 +78,9 @@ function settingValue(field) {
   return integration.value.settings?.[field.name] ?? settingProperties.value[field.name]?.defaultTo;
 }
 
-// A hint function receives formatDate so dates it shows follow the active locale.
+// A hint function receives formatDate so dates it shows follow the app's language (none: its own English).
 function settingHint(field) {
-  return text(typeof field.hint === "function" ? field.hint(integration.value.settings, { formatDate }) : field.hint);
+  return text(typeof field.hint === "function" ? field.hint(integration.value.settings, jskitText.locale ? { formatDate } : {}) : field.hint);
 }
 
 function settingItems(field) {

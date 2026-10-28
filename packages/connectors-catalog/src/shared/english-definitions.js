@@ -1,5 +1,5 @@
 // The browser-safe catalog ("@jskit-ai/connectors-catalog/shared") in English; the
-// keyed definitions are in definitions.js (see english-texts.js).
+// keyed definitions are in definitions.js (see connectors-core createEnglishProviderTexts).
 import * as keyedDefinitions from "./definitions.js";
 import { englishTexts } from "./english-texts.js";
 

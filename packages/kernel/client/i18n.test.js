@@ -69,6 +69,9 @@ test("an app's vue-i18n translates JSKIT texts and server codes in the active lo
   assert.equal(errorMessage({ code: "not_found", message: "Contact not found." }), "Contact not found.",
     "an app's own sentence under a shared code is shown as sent");
   assert.equal(errorMessage({ code: "APP_ERROR", message: "Custom." }), "Custom.");
+  assert.equal(errorMessage({ code: "not_found" }, "Could not open it."), "Could not open it.",
+    "without a message the caller's fallback wins, as before codes");
+  assert.equal(errorMessage({ code: "not_found" }), "Non trovato.");
   assert.deepEqual(fieldErrorMessages({
     fieldErrors: { password: "Use at least 8 characters." },
     fieldErrorCodes: { password: { code: "auth.password.tooShort", params: { min: 8 } } }

@@ -1,11 +1,17 @@
+import { attachmentSizeLabel } from "../../shared/conversation/attachments.js";
 import { useJskitText } from "../i18n.js";
 
-const { formatNumber, t } = useJskitText();
+const jskitText = useJskitText();
+const { formatNumber, t } = jskitText;
 const WHOLE = Object.freeze({ useGrouping: false });
 const ONE_DECIMAL = Object.freeze({ maximumFractionDigits: 1, minimumFractionDigits: 1, useGrouping: false });
 
 /** A file size in the active language: bytes, then KB and MB with one decimal. */
 function attachmentSizeText(size) {
+  // Without an app language, sizes keep their fixed English digits.
+  if (!jskitText.locale) {
+    return attachmentSizeLabel(size);
+  }
   const bytes = Number(size);
   if (!Number.isFinite(bytes) || bytes < 0) {
     return "";
@@ -21,6 +27,9 @@ function attachmentSizeText(size) {
 
 /** An upload limit: whole mebibytes when exact, otherwise decimal megabytes. */
 function attachmentLimitText(maxBytes) {
+  if (!jskitText.locale) {
+    return maxBytes % (1024 * 1024) === 0 ? `${maxBytes / (1024 * 1024)} MiB` : `${maxBytes / 1_000_000} MB`;
+  }
   return maxBytes % (1024 * 1024) === 0
     ? t("jskit.assistant.attachments.sizeMebibytes", { size: formatNumber(maxBytes / (1024 * 1024), WHOLE) })
     : t("jskit.assistant.attachments.sizeMegabytes", { size: formatNumber(maxBytes / 1_000_000, { useGrouping: false }) });

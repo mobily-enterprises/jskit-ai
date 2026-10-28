@@ -107,8 +107,12 @@ function codedMessage(code, params = {}, sentEnglish = "") {
 
 // An error or a success payload: its server code, or a messageCode for texts that
 // have no error code (client-made errors, success statuses), then its English.
+// Without a message the caller's fallback wins, as it did before codes.
 function serverMessage(source, fallback = "") {
   const sent = String(source?.message || "");
+  if (!sent && fallback) {
+    return fallback;
+  }
   return codedMessage(source?.code, source?.params, sent) ||
     codedMessage(source?.messageCode, source?.messageParams, sent) ||
     sent ||
