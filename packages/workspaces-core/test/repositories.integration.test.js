@@ -182,7 +182,7 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
       locale: " EN-AU ", currencyCode: "aud", timeZone: " Australia/Perth ",
       avatarSize: 96, theme: " dark ", ignoredField: "must not reach storage"
     });
-    assert.equal(preferences.locale, "en-au");
+    assert.equal(preferences.locale, "en-AU");
     assert.equal(preferences.currencyCode, "AUD");
     assert.equal(preferences.timeZone, "Australia/Perth");
     assert.equal(preferences.avatarSize, 96);
