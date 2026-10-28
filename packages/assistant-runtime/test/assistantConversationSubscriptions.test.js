@@ -343,7 +343,7 @@ test("the real ten-second subscription deadline releases its late observer and R
   while (!view.errors.length || f.active() !== 0) {
     await once(f.changes, "change", { signal: AbortSignal.timeout(12_000) });
   }
-  assert.equal(view.errors[0].message, "Chat updates could not reconnect. Reload chat to try again.");
+  assert.equal(view.errors[0].message, "Chat updates could not reconnect. Retrying automatically; Reload chat to try now.");
   assert.equal(view.errors[0].cause.message, "operation has timed out");
   assert.equal(socket.id, socketId);
   assert.equal(socket.connected, true);
@@ -1010,6 +1010,52 @@ test("host subscription policy retains authenticated actor metadata and per-even
   assert.deepEqual(packets.map(packet => packet.event.phase), ["working"]);
   assert.ok(cookies.length >= 5);
   assert.ok(cookies.every(value => value === "host-session"));
+});
+
+test("a transient subscription failure retries by itself while connected; denials never retry", t => {
+  // Production: after a laptop woke, the resubscribe acknowledgement missed its
+  // deadline while the socket stayed connected, and the chat stayed stuck.
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const socket = new EventEmitter();
+  socket.connected = true;
+  const requests = [], states = [], errors = [];
+  socket.timeout = () => ({ emit(name, input, acknowledge) { requests.push({ input, acknowledge }); } });
+  const dispose = subscribeAssistantConversation({ socket, conversationId: "chat", targetSurfaceId: "home", hostSurfaceId: "home",
+    read() {}, onState: state => states.push(state), onError: error => errors.push(error) });
+  const state = { id: "chat", conversationLog: [], streaming: { revision: 0, messages: [] } };
+  requests[0].acknowledge(new Error("operation has timed out"));
+  assert.match(errors[0].message, /Retrying automatically/u);
+  t.mock.timers.tick(999);
+  assert.equal(requests.length, 1);
+  t.mock.timers.tick(1);
+  assert.equal(requests.length, 2);
+  assert.deepEqual(requests[1].input, requests[0].input);
+  requests[1].acknowledge(null, { ok: false, error: "Retry shortly.", status: 503 });
+  t.mock.timers.tick(1_999);
+  assert.equal(requests.length, 2, "Each retry waits twice as long");
+  t.mock.timers.tick(1);
+  assert.equal(requests.length, 3);
+  requests[2].acknowledge(null, { ok: true, streamEpoch: "recovered", state });
+  assert.equal(states.length, 1);
+  // A reconnect replaces a pending retry, and success restarts the backoff.
+  socket.emit("disconnect");
+  socket.emit("connect");
+  requests[3].acknowledge(new Error("operation has timed out"));
+  socket.connected = false;
+  socket.emit("disconnect");
+  t.mock.timers.tick(60_000);
+  assert.equal(requests.length, 4, "A disconnected socket waits for its own reconnect");
+  socket.connected = true;
+  socket.emit("connect");
+  requests[4].acknowledge(null, { ok: false, error: "Access denied.", status: 403 });
+  t.mock.timers.tick(60_000);
+  assert.equal(requests.length, 5, "A denial never retries");
+  dispose.reload();
+  requests[5].acknowledge(new Error("operation has timed out"));
+  t.mock.timers.tick(999);
+  dispose();
+  t.mock.timers.tick(60_000);
+  assert.equal(requests.length, 6, "Disposal cancels the pending retry");
 });
 
 for (const status of [401, 403, 503]) {

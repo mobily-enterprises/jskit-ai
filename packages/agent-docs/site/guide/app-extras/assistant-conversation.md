@@ -723,8 +723,11 @@ actor may recover that conversation. The supplied runtime binding derives this
 from its existing access-denial state; a 401/403 still clears private history and
 drafts and offers no error-only Reload. Restore access or sign in through the
 application before reopening. A subscription transport failure says **Chat
-updates could not reconnect. Reload chat to try again.** and retains its original
-error as `cause`; provider errors keep their own wording.
+updates could not reconnect. Retrying automatically; Reload chat to try now.** and
+retains its original error as `cause`; provider errors keep their own wording.
+After a transport failure or a 5xx subscription response, the subscription retries
+by itself after 1 s, doubling up to 30 s, while the socket stays connected; Reload,
+a reconnect or disposal replaces that pending retry. Denials (4xx) never retry.
 
 When `runtime.logger` is supplied, subscriptions emit structured
 `assistant.conversation.subscription` records containing `stage`, `previousStage`,

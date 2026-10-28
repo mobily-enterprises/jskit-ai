@@ -40,6 +40,10 @@ function subscribeAssistantConversation({
   let streaming = null;
   let reloadInFlight = null;
   let reloadQueued = false;
+  // A transient subscription failure retries while the socket stays connected;
+  // otherwise only the next connect would recover the chat.
+  let retryTimer = null;
+  let retryDelay = 1_000;
   const completed = new Map();
   const settledTurns = new Set();
   const pendingReads = new Set();
@@ -183,7 +187,12 @@ function subscribeAssistantConversation({
     if (epoch === null) pending.push(payload);
     else deliver(payload);
   }
+  function clearRetry() {
+    clearTimeout(retryTimer);
+    retryTimer = null;
+  }
   function subscribe({ preserveHistory = false } = {}) {
+    clearRetry();
     if (disposed || !socket.connected) return;
     const attempt = ++generation;
     epoch = null;
@@ -202,13 +211,18 @@ function subscribeAssistantConversation({
         listening = false;
         pending = [];
         if (socket.connected) socket.emit(ASSISTANT_CONVERSATION_UNSUBSCRIBE, { subscriptionId });
-        onError(error ? Object.assign(new Error("Chat updates could not reconnect. Reload chat to try again.", { cause: error }), {
+        if (error || response?.status >= 500) {
+          retryTimer = setTimeout(subscribe, retryDelay);
+          retryDelay = Math.min(retryDelay * 2, 30_000);
+        }
+        onError(error ? Object.assign(new Error("Chat updates could not reconnect. Retrying automatically; Reload chat to try now.", { cause: error }), {
           code: "assistant_subscription_transport_failed"
         }) : Object.assign(new Error(response?.error || "Conversation subscription failed."), {
           code: response?.code, statusCode: response?.status
         }));
         return;
       }
+      retryDelay = 1_000;
       epoch = response.streamEpoch;
       receiveState(response.state, { initial: !preserveHistory, canonical: !preserveHistory });
       for (const payload of pending.sort((left, right) => left.streamRevision - right.streamRevision)) deliver(payload);
@@ -216,6 +230,7 @@ function subscribeAssistantConversation({
     });
   }
   function disconnected() {
+    clearRetry();
     generation += 1;
     epoch = null;
     pending = [];
@@ -231,6 +246,7 @@ function subscribeAssistantConversation({
   function release() {
     if (disposed) return;
     disposed = true;
+    clearRetry();
     generation += 1;
     pending = [];
     completed.clear();
