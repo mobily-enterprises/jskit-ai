@@ -916,6 +916,23 @@ test("Claude active status still rejects account replacement", async t => {
   assert.equal(f.entry.process, null);
 });
 
+test("Claude account change stops running processes without reopening saved conversations", async t => {
+  const f = await publishedClaudeFixture(t);
+  f.context.sessionId = "session-a";
+  await f.send();
+  const closedTerminals = [];
+  // A saved conversation can belong to an archived session whose context no longer resolves.
+  const application = {
+    readContext: async () => { throw new Error("A saved conversation was reopened"); },
+    terminals: { close: async sessionId => { closedTerminals.push(sessionId); return { ok: true, closed: 0 }; } }
+  };
+  const result = await f.owner.invalidateRuntimes({ provider: "claude", reason: "claude-auth-change" }, application,
+    { queries: { invalidate: async () => {} }, failure: error => { throw error; } });
+  assert.equal(result.ok, true);
+  assert.equal(f.entry.process, null, "the running process stopped");
+  assert.deepEqual(closedTerminals, ["session-a"], "the session's Claude terminals closed");
+});
+
 test("Claude continuation supersedes an older completion checkpoint", { timeout: 10_000 }, async t => {
   const f = await publishedClaudeFixture(t);
   await f.send();

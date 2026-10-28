@@ -3212,8 +3212,10 @@ operation `"invalidateRuntimes"` and supplies the existing native owner
 synchronously. The runtime returns the native operation directly: shutdown
 fences and synchronous errors are not deferred behind another await. The host
 retains account policy and result presentation; the native owner retains its
-original cleanup sequence and retryable failures. No conversation is opened,
-and failed cleanup can be retried after runtime closure. This is not a browser
+original cleanup sequence and retryable failures. No conversation is opened:
+each native owner stops the processes this server runs, since none outlives the
+server that started it, and saved conversations are not reopened to be stopped.
+Failed cleanup can be retried after runtime closure. This is not a browser
 operation or a way to submit a caller-selected native owner.
 
 `runtime.reconcileNativeSessions({ context, sessions, options })` restores an

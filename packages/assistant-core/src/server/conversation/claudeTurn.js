@@ -829,10 +829,26 @@ export function createClaudeConversationOwner({
     closing = true;
     try {
       await account.queries.invalidate().catch(account.failure);
-      return await closeProject(undefined, application);
+      return await stopRetained(application);
     } finally {
       closing = input.reason === "server-shutdown";
     }
+  }
+
+  // Account changes and shutdown stop only what this server runs: a Claude
+  // process cannot outlive the server that started it, so retained entries
+  // hold every one. Saved conversations are not reopened just to be stopped.
+  async function stopRetained(application) {
+    const sessions = new Map([...entries.values()].map(entry => [entry.context.key, entry.context.sessionId]));
+    let closed = 0;
+    let ok = true;
+    for (const [key, sessionId] of sessions) {
+      closed += (await drain(key)).length;
+      const terminal = await application.terminals.close(sessionId);
+      closed += Number(terminal?.closed || 0);
+      ok &&= terminal?.ok !== false;
+    }
+    return { ok, closed };
   }
 
   async function drain(key) {
