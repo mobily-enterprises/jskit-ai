@@ -60,7 +60,9 @@ function syntaxProblems(key, message) {
   return problems;
 }
 
-function evaluateI18nCatalogContract({ repoRoot, packageDir, externalCodes = [] }) {
+// nonMessageLiterals: jskit.* strings in the source that are not message keys, such
+// as injection keys or Symbol.for names.
+function evaluateI18nCatalogContract({ repoRoot, packageDir, externalCodes = [], nonMessageLiterals = [] }) {
   const problems = [];
   const keys = flattenCatalog(readCatalog(packageDir));
   const namespaces = new Set(Object.keys(keys).map((key) => key.split(".")[1]));
@@ -74,7 +76,7 @@ function evaluateI18nCatalogContract({ repoRoot, packageDir, externalCodes = [] 
   const usedPrefixes = [];
   const sources = sourceFiles(packageDir).map((file) => fs.readFileSync(file, "utf8")).join("\n");
   for (const [, literal] of sources.matchAll(KEY_LITERAL_PATTERN)) {
-    if (!namespaces.has(literal.split(".")[1])) continue;
+    if (!namespaces.has(literal.split(".")[1]) || nonMessageLiterals.includes(literal)) continue;
     if (literal.endsWith(".")) {
       usedPrefixes.push(literal);
     } else {

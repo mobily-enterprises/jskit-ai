@@ -6,13 +6,13 @@ import { evaluateI18nCatalogContract } from "../../../tooling/test-support/i18nC
 
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(TEST_DIRECTORY, "..", "..", "..");
-// The client socket's injection key shares the jskit.realtime prefix but is not a message key.
-const NON_MESSAGE_LITERAL = "jskit.realtime.runtime.client.socket";
 
 test("realtime English catalog matches its source", () => {
   const { problems } = evaluateI18nCatalogContract({
     repoRoot: REPO_ROOT,
-    packageDir: path.join(REPO_ROOT, "packages", "realtime")
+    packageDir: path.join(REPO_ROOT, "packages", "realtime"),
+    // The client socket's injection key shares the jskit.realtime prefix but is not a message key.
+    nonMessageLiterals: ["jskit.realtime.runtime.client.socket"]
   });
-  assert.deepEqual(problems.filter((problem) => !problem.startsWith(`${NON_MESSAGE_LITERAL} is used`)), []);
+  assert.deepEqual(problems, []);
 });

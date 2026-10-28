@@ -6,13 +6,13 @@ import { evaluateI18nCatalogContract } from "../../../tooling/test-support/i18nC
 
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(TEST_DIRECTORY, "..", "..", "..");
-// The fetch-restore symbol shares the jskit.mobile prefix but is not a message key.
-const NON_MESSAGE_LITERAL = "jskit.mobile.capacitor.restoreFetch";
 
 test("mobile-capacitor English catalog matches its source", () => {
   const { problems } = evaluateI18nCatalogContract({
     repoRoot: REPO_ROOT,
-    packageDir: path.join(REPO_ROOT, "packages", "mobile-capacitor")
+    packageDir: path.join(REPO_ROOT, "packages", "mobile-capacitor"),
+    // The fetch-restore symbol shares the jskit.mobile prefix but is not a message key.
+    nonMessageLiterals: ["jskit.mobile.capacitor.restoreFetch"]
   });
-  assert.deepEqual(problems.filter((problem) => !problem.startsWith(`${NON_MESSAGE_LITERAL} is used`)), []);
+  assert.deepEqual(problems, []);
 });
