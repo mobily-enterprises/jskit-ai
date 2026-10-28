@@ -192,3 +192,22 @@ test("isGenericHttpErrorMessage recognises only the transport's own wording", ()
   assert.equal(isGenericHttpErrorMessage({ message: "Request failed with status 500." }), false);
   assert.equal(isGenericHttpErrorMessage(null), false);
 });
+
+test("createValidationFailure carries field codes like the server's validation response", () => {
+  const fieldErrorCodes = { name: { code: "kernel.validation.field.required", params: {} } };
+  assert.deepEqual(createValidationFailure({ fieldErrors: { name: "Field is required" }, fieldErrorCodes }), {
+    error: "Validation failed.",
+    code: "validation_failed",
+    fieldErrors: { name: "Field is required" },
+    details: { fieldErrors: { name: "Field is required" }, fieldErrorCodes }
+  });
+  assert.deepEqual(createValidationFailure({ fieldErrors: { name: "Bad." } }).details, { fieldErrors: { name: "Bad." } });
+});
+
+test("createHttpError gives a JSON:API error without any text the request_failed sentence", () => {
+  const error = createHttpError({ status: 400 }, { errors: [{ status: "400", code: "bad_request" }] });
+  assert.equal(error.message, "Request failed.");
+  assert.equal(error.code, "bad_request");
+  assert.equal(error.messageCode, "request_failed");
+  assert.deepEqual(error.messageParams, {});
+});

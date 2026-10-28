@@ -25,10 +25,19 @@ const apiValidationErrorDetailsSchema = createSchema({
   }
 });
 
+// The code's params and a per-sentence messageCode, so a client can show the error
+// in the user's language (error stays the English text).
+const errorMessageCodeFieldDefinitions = deepFreeze({
+  params: { type: "object", required: false, additionalProperties: true },
+  messageCode: { type: "string", required: false, minLength: 1 },
+  messageParams: { type: "object", required: false, additionalProperties: true }
+});
+
 const apiErrorOutputValidator = deepFreeze({
   schema: createSchema({
     error: { type: "string", required: true, minLength: 1 },
     code: { type: "string", required: false, minLength: 1 },
+    ...errorMessageCodeFieldDefinitions,
     transactionOutcome: { type: "string", required: false, enum: TRANSACTION_OUTCOMES },
     details: {
       type: "object",
@@ -48,6 +57,7 @@ const apiValidationErrorOutputValidator = deepFreeze({
   schema: createSchema({
     error: { type: "string", required: true, minLength: 1 },
     code: { type: "string", required: false, minLength: 1 },
+    ...errorMessageCodeFieldDefinitions,
     transactionOutcome: { type: "string", required: false, enum: TRANSACTION_OUTCOMES },
     fieldErrors: {
       ...fieldErrorsFieldDefinition,

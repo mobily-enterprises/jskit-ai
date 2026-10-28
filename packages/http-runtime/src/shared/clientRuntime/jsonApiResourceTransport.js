@@ -3,6 +3,7 @@ import {
   JSON_API_CONTENT_TYPE,
   createJsonApiDocument,
   createJsonApiResourceObject,
+  normalizeCodedEntry,
   normalizeJsonApiDocument,
   resolveJsonApiTransportTypes
 } from "../validators/jsonApiTransport.js";
@@ -279,38 +280,43 @@ function decodeJsonApiResourceResponse(payload, transport = null) {
   return document.data == null ? null : simplifyResourceObject(document.data, simplifyOptions);
 }
 
-function decodeJsonApiErrorFieldErrors(payload = {}) {
+// Each field's English detail and, from the entry's meta, the code that renders it.
+function decodeJsonApiErrorFields(payload = {}) {
   const document = normalizeJsonApiDocument(payload);
+  const fieldErrors = {};
+  const fieldErrorCodes = {};
   if (document.kind !== "errors") {
-    return {};
+    return { fieldErrors, fieldErrorCodes };
   }
 
-  const fieldErrors = {};
   for (const error of normalizeArray(document.errors)) {
     const pointer = normalizeText(error?.source?.pointer);
     const parameter = normalizeText(error?.source?.parameter);
-    const detail = normalizeText(error?.detail || error?.title, {
-      fallback: "Invalid value."
-    });
-
-    if (parameter && !Object.hasOwn(fieldErrors, parameter)) {
-      fieldErrors[parameter] = detail;
+    const fieldName = parameter || (pointer.startsWith("/data/attributes/")
+      ? normalizeText(pointer.slice("/data/attributes/".length).split("/")[0])
+      : "");
+    if (!fieldName || Object.hasOwn(fieldErrors, fieldName)) {
       continue;
     }
 
-    if (!pointer.startsWith("/data/attributes/")) {
-      continue;
-    }
-
-    const fieldName = normalizeText(pointer.slice("/data/attributes/".length).split("/")[0]);
-    if (fieldName && !Object.hasOwn(fieldErrors, fieldName)) {
-      fieldErrors[fieldName] = detail;
+    const detail = normalizeText(error?.detail || error?.title);
+    fieldErrors[fieldName] = detail || "Invalid value.";
+    const coded = detail ? normalizeCodedEntry(error?.meta?.fieldErrorCode) : { code: "kernel.validation.invalid", params: {} };
+    if (coded) {
+      fieldErrorCodes[fieldName] = coded;
     }
   }
 
-  return fieldErrors;
+  return { fieldErrors, fieldErrorCodes };
 }
 
+function decodeJsonApiErrorFieldErrors(payload = {}) {
+  return decodeJsonApiErrorFields(payload).fieldErrors;
+}
+
+// The plain-JSON error payload a JSON:API errors document stands for: the first
+// entry's code and params, every field's English and code, and a messageCode for
+// the sentence shown (the first entry's detail, else its title).
 function createJsonApiClientErrorPayload(payload = {}) {
   const document = normalizeJsonApiDocument(payload);
   if (document.kind !== "errors") {
@@ -318,20 +324,31 @@ function createJsonApiClientErrorPayload(payload = {}) {
   }
 
   const firstError = normalizeArray(document.errors)[0] || {};
-  const fieldErrors = decodeJsonApiErrorFieldErrors(payload);
-  const transactionOutcome = normalizeTransactionOutcome(firstError.meta?.transactionOutcome);
+  const meta = isRecord(firstError.meta) ? firstError.meta : {};
+  const { fieldErrors, fieldErrorCodes } = decodeJsonApiErrorFields(payload);
+  const transactionOutcome = normalizeTransactionOutcome(meta.transactionOutcome);
+  const detail = normalizeText(firstError.detail);
+  const message = detail || normalizeText(firstError.title);
+  const sentence = detail
+    ? normalizeCodedEntry(meta.fieldErrorCode)
+    : message
+      ? normalizeCodedEntry({ code: meta.messageCode, params: meta.messageParams })
+      : { code: "request_failed", params: {} };
+  const hasFieldErrors = Object.keys(fieldErrors).length > 0;
+  const hasFieldErrorCodes = Object.keys(fieldErrorCodes).length > 0;
 
   return {
-    error: normalizeText(firstError.detail || firstError.title, {
-      fallback: "Request failed."
-    }),
+    error: message || "Request failed.",
     code: normalizeText(firstError.code) || null,
+    params: isRecord(meta.params) ? meta.params : {},
+    ...(sentence ? { messageCode: sentence.code, messageParams: sentence.params } : {}),
     ...(transactionOutcome ? { transactionOutcome } : {}),
-    ...(Object.keys(fieldErrors).length > 0
+    ...(hasFieldErrors
       ? {
           fieldErrors,
           details: {
-            fieldErrors
+            fieldErrors,
+            ...(hasFieldErrorCodes ? { fieldErrorCodes } : {})
           }
         }
       : {})

@@ -12,6 +12,8 @@ function isFieldValidationError(error) {
   return Boolean(error?.fieldErrors && typeof error.fieldErrors === "object");
 }
 
+// fieldErrors are the English sentences; fieldErrorCodes ({ field: { code, params } })
+// render the coded ones in the user's language.
 function validateOperationSection({
   operation = {},
   section = "body",
@@ -19,7 +21,7 @@ function validateOperationSection({
 } = {}) {
   const sectionDefinition = resolveOperationSection(operation, section);
   if (!sectionDefinition) {
-    return { ok: true, value, fieldErrors: {} };
+    return { ok: true, value, fieldErrors: {}, fieldErrorCodes: {} };
   }
 
   try {
@@ -28,13 +30,13 @@ function validateOperationSection({
       context: `operation section "${section}"`
     });
 
-    return { ok: true, value: normalized, fieldErrors: {} };
+    return { ok: true, value: normalized, fieldErrors: {}, fieldErrorCodes: {} };
   } catch (error) {
     if (!isFieldValidationError(error)) {
       throw error;
     }
 
-    return { ok: false, value: null, fieldErrors: error.fieldErrors };
+    return { ok: false, value: null, fieldErrors: error.fieldErrors, fieldErrorCodes: error.fieldErrorCodes || {} };
   }
 }
 

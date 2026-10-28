@@ -380,54 +380,101 @@ function resolveJsonApiValidationSource(issue = {}, validationContext = "") {
   });
 }
 
+const INVALID_VALUE_CODE = Object.freeze({ code: "kernel.validation.invalid", params: {} });
+
+function normalizeCodedEntry(entry) {
+  return isRecord(entry) && normalizeText(entry.code)
+    ? { code: normalizeText(entry.code), params: isRecord(entry.params) ? entry.params : {} }
+    : null;
+}
+
+// Each entry's meta carries what a client needs to show it in the user's language:
+// params and messageCode for the code and title, fieldErrorCode for the detail.
+function createJsonApiErrorMeta({ transactionOutcome, params, messageCode, messageParams, fieldErrorCode }) {
+  const meta = {};
+  if (transactionOutcome) {
+    meta.transactionOutcome = transactionOutcome;
+  }
+  if (isRecord(params) && Object.keys(params).length > 0) {
+    meta.params = params;
+  }
+  if (normalizeText(messageCode)) {
+    meta.messageCode = normalizeText(messageCode);
+    meta.messageParams = isRecord(messageParams) ? messageParams : {};
+  }
+  if (fieldErrorCode) {
+    meta.fieldErrorCode = fieldErrorCode;
+  }
+  return Object.keys(meta).length > 0 ? meta : undefined;
+}
+
 function createJsonApiErrorDocumentFromFailure({
   statusCode = 500,
   code = "",
   message = "",
+  params = {},
+  messageCode = "",
+  messageParams = {},
   transactionOutcome,
   fieldErrors = {},
+  fieldErrorCodes = {},
   validationIssues = [],
+  validationIssueCodes = [],
   validationContext = "",
   pointerPrefix = "/data/attributes"
 } = {}) {
-  const outcome = normalizeTransactionOutcome(transactionOutcome);
-  const meta = outcome ? { transactionOutcome: outcome } : undefined;
+  const errorMeta = {
+    transactionOutcome: normalizeTransactionOutcome(transactionOutcome),
+    params,
+    messageCode,
+    messageParams
+  };
   const normalizedStatus = String(Number(statusCode) || 500);
   const normalizedCode = String(code || "").trim();
   const normalizedMessage = String(message || "").trim() || "Request failed.";
   const normalizedFieldErrors = isRecord(fieldErrors) ? normalizeObject(fieldErrors) : {};
+  const normalizedFieldErrorCodes = isRecord(fieldErrorCodes) ? fieldErrorCodes : {};
   const issues = Array.isArray(validationIssues) ? validationIssues : [];
+  const issueCodes = Array.isArray(validationIssueCodes) ? validationIssueCodes : [];
 
   if (issues.length > 0) {
     return createJsonApiDocument({
-      errors: issues.map((issue) =>
-        createJsonApiErrorObject({
+      errors: issues.map((issue, index) => {
+        const detail = String(issue?.message || "").trim();
+        return createJsonApiErrorObject({
           status: normalizedStatus,
-          meta,
+          meta: createJsonApiErrorMeta({
+            ...errorMeta,
+            fieldErrorCode: detail ? normalizeCodedEntry(issueCodes[index]) : INVALID_VALUE_CODE
+          }),
           code: normalizedCode,
           title: normalizedMessage,
-          detail: String(issue?.message || "Invalid value.").trim() || "Invalid value.",
+          detail: detail || "Invalid value.",
           source: resolveJsonApiValidationSource(issue, validationContext)
-        })
-      )
+        });
+      })
     });
   }
 
   const fieldEntries = Object.entries(normalizedFieldErrors).filter(([field]) => String(field || "").trim());
   if (fieldEntries.length > 0) {
     return createJsonApiDocument({
-      errors: fieldEntries.map(([field, detail]) =>
-        createJsonApiErrorObject({
+      errors: fieldEntries.map(([field, fieldDetail]) => {
+        const detail = String(fieldDetail || "").trim();
+        return createJsonApiErrorObject({
           status: normalizedStatus,
-          meta,
+          meta: createJsonApiErrorMeta({
+            ...errorMeta,
+            fieldErrorCode: detail ? normalizeCodedEntry(normalizedFieldErrorCodes[field]) : INVALID_VALUE_CODE
+          }),
           code: normalizedCode,
           title: normalizedMessage,
-          detail: String(detail || "Invalid value.").trim() || "Invalid value.",
+          detail: detail || "Invalid value.",
           source: {
             pointer: `${pointerPrefix}/${escapeJsonPointerSegment(field)}`
           }
-        })
-      )
+        });
+      })
     });
   }
 
@@ -435,7 +482,7 @@ function createJsonApiErrorDocumentFromFailure({
     errors: [
       createJsonApiErrorObject({
         status: normalizedStatus,
-        meta,
+        meta: createJsonApiErrorMeta(errorMeta),
         code: normalizedCode,
         title: normalizedMessage
       })
@@ -477,6 +524,7 @@ export {
   isJsonApiErrorDocument,
   isJsonApiResourceDocument,
   isJsonContentType,
+  normalizeCodedEntry,
   normalizeJsonApiDocument,
   normalizeJsonApiResourceObject,
   simplifyJsonApiDocument

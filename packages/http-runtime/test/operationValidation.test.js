@@ -64,6 +64,10 @@ test("validateOperationSection returns shared field errors", () => {
   assert.equal(parsed.fieldErrors.name, "Workspace name is required.");
   assert.equal(parsed.fieldErrors.color, "Workspace color must be a hex value.");
   assert.equal(typeof parsed.fieldErrors.rogueField, "string");
+  // Uncoded message overrides stay English only; the library's own sentence is coded.
+  assert.deepEqual(parsed.fieldErrorCodes, {
+    rogueField: { code: "kernel.validation.field.notAllowed", params: {} }
+  });
 });
 
 test("validateOperationSection honors json-rest-schema field message overrides", () => {
@@ -191,10 +195,11 @@ test("validateOperationSection surfaces custom validator failures as field error
 
   assert.equal(parsed.ok, false);
   assert.equal(parsed.fieldErrors.adenovirusValidTo, "Adenovirus valid-to date is required when vaccinated.");
-  assert.deepEqual(Object.keys(parsed).sort(), ["fieldErrors", "ok", "value"]);
+  assert.deepEqual(Object.keys(parsed).sort(), ["fieldErrorCodes", "fieldErrors", "ok", "value"]);
+  assert.deepEqual(parsed.fieldErrorCodes, {});
 });
 
-test("validateOperationSection returns only ok, value and fieldErrors", () => {
+test("validateOperationSection returns only ok, value, fieldErrors and fieldErrorCodes", () => {
   const valid = validateOperationSection({
     operation: patchOperation,
     section: "body",
@@ -206,6 +211,6 @@ test("validateOperationSection returns only ok, value and fieldErrors", () => {
     value: { page: "1" }
   });
 
-  assert.deepEqual(valid, { ok: true, value: { name: "Acme" }, fieldErrors: {} });
-  assert.deepEqual(missingSection, { ok: true, value: { page: "1" }, fieldErrors: {} });
+  assert.deepEqual(valid, { ok: true, value: { name: "Acme" }, fieldErrors: {}, fieldErrorCodes: {} });
+  assert.deepEqual(missingSection, { ok: true, value: { page: "1" }, fieldErrors: {}, fieldErrorCodes: {} });
 });

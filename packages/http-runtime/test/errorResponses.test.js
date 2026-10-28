@@ -115,3 +115,53 @@ test("standard error schemas preserve optional transaction outcomes during seria
     assert.equal(schema.required.includes("transactionOutcome"), false);
   }
 });
+
+test("standard error response schemas keep the params, messageCode and field codes of real errors", async (t) => {
+  const { default: Fastify } = await import("fastify");
+  const { registerApiErrorHandler } = await import("../../kernel/server/http/errorHandling.js");
+  const { AppError, isAppError } = await import("../../kernel/server/runtime/errors.js");
+  const app = Fastify();
+  t.after(() => app.close());
+  registerApiErrorHandler(app, { isAppError });
+  const response = Object.fromEntries(
+    Object.entries(withStandardErrorResponses({ 200: createTransportResponseSchema({ type: "object" }) }, {
+      includeValidation400: true
+    })).map(([status, entry]) => [status, entry.transportSchema])
+  );
+  app.post("/books", {
+    schema: {
+      body: { type: "object", required: ["title"], properties: { title: { type: "string" } } },
+      response
+    }
+  }, async () => {
+    throw new AppError(409, "Pick a calendar first.", {
+      code: "connector_input_invalid",
+      params: { field: "calendar" },
+      messageCode: "connectors.calendar.pickFirst",
+      messageParams: { count: 1 }
+    });
+  });
+
+  const conflict = await app.inject({ method: "POST", url: "/books", payload: { title: "Dune" } });
+  assert.equal(conflict.statusCode, 409);
+  assert.deepEqual(conflict.json(), {
+    error: "Pick a calendar first.",
+    code: "connector_input_invalid",
+    params: { field: "calendar" },
+    messageCode: "connectors.calendar.pickFirst",
+    messageParams: { count: 1 }
+  });
+
+  const invalid = await app.inject({ method: "POST", url: "/books", payload: {} });
+  assert.equal(invalid.statusCode, 400);
+  assert.deepEqual(invalid.json(), {
+    error: "Validation failed.",
+    code: "FST_ERR_VALIDATION",
+    params: {},
+    fieldErrors: { title: "must have required property 'title'" },
+    details: {
+      fieldErrors: { title: "must have required property 'title'" },
+      fieldErrorCodes: { title: { code: "kernel.validation.required", params: { missingProperty: "title" } } }
+    }
+  });
+});

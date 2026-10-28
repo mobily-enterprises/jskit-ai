@@ -263,3 +263,55 @@ test("createJsonApiErrorDocumentFromFailure maps field errors and validation iss
     }
   );
 });
+
+test("createJsonApiErrorDocumentFromFailure puts params, messageCode and each field's code in meta", () => {
+  assert.deepEqual(createJsonApiErrorDocumentFromFailure({
+    statusCode: 400,
+    code: "validation_failed",
+    message: "Schema validation failed.",
+    params: { limit: 3 },
+    messageCode: "kernel.validation.schemaFailed",
+    fieldErrors: { title: "Field is required", slug: "Use ok.", empty: "" },
+    fieldErrorCodes: { title: { code: "kernel.validation.field.required", params: {} } }
+  }), {
+    errors: [
+      {
+        status: "400",
+        code: "validation_failed",
+        title: "Schema validation failed.",
+        detail: "Field is required",
+        source: { pointer: "/data/attributes/title" },
+        meta: {
+          params: { limit: 3 },
+          messageCode: "kernel.validation.schemaFailed",
+          messageParams: {},
+          fieldErrorCode: { code: "kernel.validation.field.required", params: {} }
+        }
+      },
+      {
+        status: "400",
+        code: "validation_failed",
+        title: "Schema validation failed.",
+        detail: "Use ok.",
+        source: { pointer: "/data/attributes/slug" },
+        meta: { params: { limit: 3 }, messageCode: "kernel.validation.schemaFailed", messageParams: {} }
+      },
+      {
+        status: "400",
+        code: "validation_failed",
+        title: "Schema validation failed.",
+        detail: "Invalid value.",
+        source: { pointer: "/data/attributes/empty" },
+        meta: {
+          params: { limit: 3 },
+          messageCode: "kernel.validation.schemaFailed",
+          messageParams: {},
+          fieldErrorCode: { code: "kernel.validation.invalid", params: {} }
+        }
+      }
+    ]
+  });
+
+  const plain = createJsonApiErrorDocumentFromFailure({ statusCode: 404, code: "not_found", message: "Not found." });
+  assert.deepEqual(plain, { errors: [{ status: "404", code: "not_found", title: "Not found." }] });
+});

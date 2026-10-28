@@ -1,6 +1,7 @@
 import { isRecord, normalizeArray, normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
-  resolveSchemaTransportSchemaDefinition
+  resolveSchemaTransportSchemaDefinition,
+  resolveValidationIssueCode
 } from "@jskit-ai/kernel/shared/validators";
 import {
   JSON_API_CONTENT_TYPE,
@@ -133,11 +134,13 @@ const JSON_API_ERROR_DOCUMENT_SCHEMA = Object.freeze({
   }
 });
 
-function createJsonApiTransportError(statusCode, message, code) {
+// params are the values the code's sentence needs, as for AppError.
+function createJsonApiTransportError(statusCode, message, code, params = {}) {
   const error = new Error(String(message || "JSON:API transport error."));
   error.status = Number(statusCode) || 500;
   error.statusCode = error.status;
   error.code = String(code || "jsonapi_transport_error").trim() || "jsonapi_transport_error";
+  error.params = params;
   return error;
 }
 
@@ -719,7 +722,9 @@ function createJsonApiResourceRouteTransport({
         }
 
         if (String(document.data.type || "").trim() !== normalizedRequestType) {
-          throw createJsonApiTransportError(409, `JSON:API resource type must be ${normalizedRequestType}.`, "jsonapi_request_type_mismatch");
+          throw createJsonApiTransportError(409, `JSON:API resource type must be ${normalizedRequestType}.`, "jsonapi_request_type_mismatch", {
+            type: normalizedRequestType
+          });
         }
 
         const nextBody = {
@@ -851,25 +856,41 @@ function createJsonApiResourceRouteTransport({
 
       return createJsonApiDocument(documentOptions);
     },
+    // The kernel error handler decides what is exposed; params and messageCode come
+    // from it, and each field or Ajv issue carries its own code.
     error(error, {
       statusCode = 500,
       code = "",
       message = error?.message,
-      exposeDetails = true
+      exposeDetails = true,
+      params = {},
+      messageCode = "",
+      messageParams = {}
     } = {}) {
       const fieldErrors = !exposeDetails ? {} : isRecord(error?.fieldErrors)
         ? error.fieldErrors
         : isRecord(error?.details?.fieldErrors)
           ? error.details.fieldErrors
           : {};
+      const fieldErrorCodes = !exposeDetails ? {} : isRecord(error?.fieldErrorCodes)
+        ? error.fieldErrorCodes
+        : isRecord(error?.details?.fieldErrorCodes)
+          ? error.details.fieldErrorCodes
+          : {};
+      const validationIssues = exposeDetails && Array.isArray(error?.validation) ? error.validation : [];
 
       return createJsonApiErrorDocumentFromFailure({
         statusCode,
         code,
         message,
+        params,
+        messageCode,
+        messageParams,
         transactionOutcome: error?.transactionOutcome,
         fieldErrors,
-        validationIssues: exposeDetails && Array.isArray(error?.validation) ? error.validation : [],
+        fieldErrorCodes,
+        validationIssues,
+        validationIssueCodes: validationIssues.map((issue) => resolveValidationIssueCode(issue)),
         validationContext: String(error?.validationContext || "").trim(),
         pointerPrefix
       });

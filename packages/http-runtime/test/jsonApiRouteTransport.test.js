@@ -30,7 +30,7 @@ import {
 import { createSchema } from "../../kernel/shared/validators/index.js";
 import { resolveRouteValidatorOptions } from "../../kernel/server/http/lib/routeValidator.js";
 import { registerApiErrorHandler } from "../../kernel/server/http/errorHandling.js";
-import { AppError, isAppError } from "../../kernel/server/runtime/errors.js";
+import { AppError, createValidationError, isAppError } from "../../kernel/server/runtime/errors.js";
 import { createHttpError } from "../src/shared/clientRuntime/errors.js";
 import { createJsonRestApiHost } from "../../json-rest-api-core/src/server/jsonRestApiHost.js";
 
@@ -401,6 +401,129 @@ test("JSON:API field errors retain outcomes and permission details remain privat
   assert.deepEqual(reply.payload, {
     errors: [{ status: "403", code: "ACTION_PERMISSION_DENIED", title: "Forbidden." }]
   });
+});
+
+test("JSON:API errors carry params, message codes and field codes the client renders like plain JSON", async (t) => {
+  const { createI18n } = await import("vue-i18n");
+  const { registerJskitMessages, setJskitI18n, useJskitText } = await import("../../kernel/client/i18n.js");
+  registerJskitMessages({ jskit: { testConnectors: { calendar: { pickFirst: "Pick a {kind} first." } } } });
+  setJskitI18n(createI18n({
+    legacy: false,
+    locale: "xx",
+    messages: {
+      xx: {
+        jskit: {
+          errors: { validation_failed: "XX validation", FST_ERR_VALIDATION: "XX validation", internal_server_error: "XX internal" },
+          testConnectors: { calendar: { pickFirst: "XX pick a {kind}" } },
+          kernel: { validation: { type: "XX must be {type}", field: { required: "XX required" } } }
+        }
+      }
+    }
+  }));
+  t.after(() => setJskitI18n(null));
+  const { serverMessage, fieldErrorMessages } = useJskitText();
+
+  const app = Fastify();
+  t.after(() => app.close());
+  registerApiErrorHandler(app, { isAppError });
+  const transport = createJsonApiResourceRouteTransport({ type: "books" });
+  for (const jsonapi of [false, true]) {
+    const prefix = `/${jsonapi ? "jsonapi" : "plain"}`;
+    const options = { config: jsonapi ? { transport } : {} };
+    app.get(`${prefix}/coded`, options, async () => {
+      throw new AppError(409, "Pick a calendar first.", {
+        code: "connector_input_invalid",
+        params: { field: "calendar" },
+        messageCode: "testConnectors.calendar.pickFirst",
+        messageParams: { kind: "calendar" }
+      });
+    });
+    app.get(`${prefix}/fields`, options, async () => {
+      throw createValidationError({
+        title: { code: "kernel.validation.field.required", params: {}, message: "Field is required" },
+        slug: "Use ok."
+      });
+    });
+    app.get(`${prefix}/ajv`, {
+      ...options,
+      schema: { querystring: { type: "object", properties: { page: { type: "integer" } } } }
+    }, async () => ({}));
+    app.get(`${prefix}/hidden`, options, async () => {
+      throw Object.assign(new Error("private"), { code: "ECONNRESET" });
+    });
+  }
+
+  const expectations = {
+    coded: {
+      code: "connector_input_invalid",
+      params: { field: "calendar" },
+      plainMessage: "XX pick a calendar",
+      jsonapiMessage: "XX pick a calendar",
+      fields: null
+    },
+    fields: {
+      code: "validation_failed",
+      params: {},
+      plainMessage: "XX validation",
+      jsonapiMessage: "XX required",
+      fields: { title: "XX required", slug: "Use ok." },
+      fieldErrorCodes: { title: { code: "kernel.validation.field.required", params: {} } }
+    },
+    ajv: {
+      code: "FST_ERR_VALIDATION",
+      params: {},
+      plainMessage: "XX validation",
+      jsonapiMessage: "XX must be integer",
+      fields: { page: "XX must be integer" },
+      fieldErrorCodes: { page: { code: "kernel.validation.type", params: { type: "integer" } } }
+    },
+    hidden: {
+      code: "ECONNRESET",
+      params: {},
+      plainMessage: "XX internal",
+      jsonapiMessage: "XX internal",
+      fields: null
+    }
+  };
+
+  for (const [name, expected] of Object.entries(expectations)) {
+    for (const jsonapi of [false, true]) {
+      const url = `/${jsonapi ? "jsonapi" : "plain"}/${name}${name === "ajv" ? "?page=x" : ""}`;
+      const response = await app.inject({ method: "GET", url });
+      assert.doesNotMatch(response.body, /private/u);
+      const clientError = createHttpError({ status: response.statusCode }, response.json());
+      const label = `${name} ${jsonapi ? "JSON:API" : "plain"}`;
+      assert.equal(clientError.code, expected.code, label);
+      assert.deepEqual(clientError.params, expected.params, label);
+      assert.equal(serverMessage(clientError), jsonapi ? expected.jsonapiMessage : expected.plainMessage, label);
+      if (expected.fields) {
+        assert.deepEqual(fieldErrorMessages(clientError), expected.fields, label);
+        assert.deepEqual(clientError.fieldErrorCodes, expected.fieldErrorCodes, label);
+      } else {
+        assert.equal(clientError.fieldErrors, null, label);
+      }
+    }
+  }
+});
+
+test("JSON:API transport errors render their English from the http-runtime catalog", async () => {
+  const english = (await import("../locales/en.json", { with: { type: "json" } })).default;
+  const { catalogMessage, formatMessage, messageKeyForCode } = await import("../../kernel/shared/i18n/index.js");
+  const transport = createJsonApiResourceRouteTransport({ type: "books" });
+  const failures = [
+    () => transport.request.body({ data: null }),
+    () => transport.request.body({ data: { type: "authors", attributes: {} } })
+  ];
+  for (const fail of failures) {
+    let error = null;
+    try {
+      fail();
+    } catch (caught) {
+      error = caught;
+    }
+    assert.ok(error?.code?.startsWith("jsonapi_"));
+    assert.equal(formatMessage(catalogMessage(english, messageKeyForCode(error.code)), error.params), error.message);
+  }
 });
 
 test("createJsonApiResourceQueryTransportSchema and route transport map list query params to JSON:API", () => {

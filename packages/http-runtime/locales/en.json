@@ -5,6 +5,10 @@
         "failedWithStatus": "Request failed with status {status}.",
         "networkFailed": "Network request failed."
       }
+    },
+    "errors": {
+      "jsonapi_request_body_invalid": "JSON:API request body must contain a resource document.",
+      "jsonapi_request_type_mismatch": "JSON:API resource type must be {type}."
     }
   }
 }
