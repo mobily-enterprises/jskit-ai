@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/crud-core",
-  "version": "0.1.259",
+  "version": "0.2.0",
   "type": "module",
   "engines": {
     "node": ">=24.0.0"
@@ -28,7 +28,7 @@
   },
   "dependencies": {
     "@jskit-ai/database-runtime": "0.1.248",
-    "@jskit-ai/json-rest-api-core": "0.1.192",
+    "@jskit-ai/json-rest-api-core": "0.2.0",
     "@jskit-ai/resource-crud-core": "0.1.190",
     "json-rest-schema": "^1.0.17",
     "json-rest-api": "2.1.0"
@@ -50,7 +50,7 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/http-runtime": "0.1.246",
-    "@jskit-ai/kernel": "0.1.248"
+    "@jskit-ai/http-runtime": "0.2.0",
+    "@jskit-ai/kernel": "0.2.0"
   }
 }

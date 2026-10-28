@@ -56,6 +56,6 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/kernel": "0.1.248"
+    "@jskit-ai/kernel": "0.2.0"
   }
 }

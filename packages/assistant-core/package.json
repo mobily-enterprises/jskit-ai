@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/assistant-core",
-  "version": "0.1.244",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "test": "node --test --test-concurrency=1"
@@ -58,8 +58,8 @@
     "ws": "^8.20.1"
   },
   "peerDependencies": {
-    "@jskit-ai/http-runtime": "0.1.246",
-    "@jskit-ai/kernel": "0.1.248",
+    "@jskit-ai/http-runtime": "0.2.0",
+    "@jskit-ai/kernel": "0.2.0",
     "vue": "^3.5.13",
     "vuetify": "^4.0.0"
   },

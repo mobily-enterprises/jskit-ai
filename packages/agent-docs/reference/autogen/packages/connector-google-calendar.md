@@ -32,6 +32,11 @@ Exports
 - `googleCalendarDefinition`
 - `googleScope(name)`
 
+### `src/shared/english-definition.js`
+Exports
+- `googleCalendarDefinition`
+- `googleScope`
+
 ### patterns
 
 ### `patterns/calendar-cli/example/knexfile.js`

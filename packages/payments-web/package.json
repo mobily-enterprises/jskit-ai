@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/payments-web",
-  "version": "0.1.61",
+  "version": "0.2.0",
   "type": "module",
   "description": "Application-owned billing views for JSKIT Vue applications.",
   "exports": {
@@ -8,7 +8,7 @@
     "./locales/en.json": "./locales/en.json"
   },
   "peerDependencies": {
-    "@jskit-ai/kernel": "0.1.247",
+    "@jskit-ai/kernel": "0.2.0",
     "vue": "^3.5.13",
     "vuetify": "^4.0.0"
   },

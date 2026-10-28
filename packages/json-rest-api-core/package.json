@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/json-rest-api-core",
-  "version": "0.1.192",
+  "version": "0.2.0",
   "type": "module",
   "engines": {
     "node": ">=24.0.0"
@@ -53,6 +53,6 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/kernel": "0.1.248"
+    "@jskit-ai/kernel": "0.2.0"
   }
 }

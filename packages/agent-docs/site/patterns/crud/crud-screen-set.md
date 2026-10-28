@@ -129,6 +129,6 @@ when the wire contract genuinely is not CRUD.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/http-web@0.1.96`
+- Owner: `@jskit-ai/http-web@0.2.0`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/http-web/patterns/crud-screen-set/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/http-web/patterns/crud-screen-set/example)

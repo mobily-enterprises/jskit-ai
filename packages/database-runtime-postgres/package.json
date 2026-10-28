@@ -16,7 +16,7 @@
     "pg": "^8.13.1"
   },
   "peerDependencies": {
-    "@jskit-ai/kernel": "0.1.248"
+    "@jskit-ai/kernel": "0.2.0"
   },
   "jskit": {
     "kind": "runtime",

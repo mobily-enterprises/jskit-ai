@@ -74,6 +74,7 @@ Exports
 - `DEFAULT_GRANT_TYPE`
 - `DEFAULT_TOKEN_ENDPOINT_AUTH_METHOD`
 - `MESSAGE_KEY_SOURCE`
+- `createEnglishProviderTexts(catalog)`
 - `registrationGrantType(record)`
 - `registrationClientAuthentication(record)`
 - `providerGrantTypes(provider)`

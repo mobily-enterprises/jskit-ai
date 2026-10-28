@@ -1042,9 +1042,7 @@ Exports
 
 ### `src/shared/english-texts.js`
 Exports
-- `englishTexts(value)`
-Local functions
-- `englishMessage(key, params)`
+- `englishTexts`
 
 ### `src/shared/figma.js`
 Exports

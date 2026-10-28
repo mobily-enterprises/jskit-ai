@@ -59,6 +59,7 @@ Exports
 - `translateOptions(options = [])`
 Local functions
 - `languageName(code)`
+- `configuredLanguageOptions(appConfig)`
 
 ### `src/client/composables/account-settings/accountSettingsRuntimeConstants.js`
 Exports

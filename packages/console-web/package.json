@@ -6,7 +6,7 @@
     "test": "node --test --test-concurrency=1"
   },
   "dependencies": {
-    "@jskit-ai/console-core": "0.1.211"
+    "@jskit-ai/console-core": "0.2.0"
   },
   "description": "Authenticated console surface scaffold and surface policy wiring.",
   "jskit": {
@@ -108,7 +108,7 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/auth-web": "0.1.251",
-    "@jskit-ai/shell-web": "0.1.255"
+    "@jskit-ai/auth-web": "0.2.0",
+    "@jskit-ai/shell-web": "0.2.0"
   }
 }

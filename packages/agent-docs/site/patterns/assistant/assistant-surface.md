@@ -115,6 +115,6 @@ conversations guides for exact callback shapes.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/assistant-runtime@0.1.238`
+- Owner: `@jskit-ai/assistant-runtime@0.2.0`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/assistant-runtime/patterns/assistant-surface/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/assistant-runtime/patterns/assistant-surface/example)

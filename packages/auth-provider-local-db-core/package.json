@@ -10,11 +10,11 @@
     "./server/lib/index": "./src/server/lib/index.js"
   },
   "dependencies": {
-    "@jskit-ai/auth-provider-local-core": "0.1.149",
+    "@jskit-ai/auth-provider-local-core": "0.2.0",
     "@jskit-ai/database-runtime": "0.1.248"
   },
   "peerDependencies": {
-    "@jskit-ai/kernel": "0.1.248"
+    "@jskit-ai/kernel": "0.2.0"
   },
   "description": "Database-backed local auth storage backend for JSKIT local auth.",
   "jskit": {

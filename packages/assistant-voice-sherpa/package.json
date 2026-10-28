@@ -19,7 +19,7 @@
     "tooling"
   ],
   "dependencies": {
-    "@jskit-ai/assistant-voice": "0.1.45",
+    "@jskit-ai/assistant-voice": "0.2.0",
     "sherpa-onnx-node": "1.13.6"
   },
   "jskit": {
