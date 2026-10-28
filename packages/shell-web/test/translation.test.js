@@ -98,3 +98,13 @@ test("presented client errors keep their messageCode from the cause", () => {
     assert.equal(useJskitText().serverMessage(entry), "[xx] Unexpected UI error.");
   });
 });
+
+test("a module that fails to load is reported with the kernel's sentence code", async () => {
+  const { createShellAsyncModuleRecoveryRuntime } = await import("../src/client/asyncModuleRecovery/runtime.js");
+  const reports = [];
+  const runtime = createShellAsyncModuleRecoveryRuntime({ errorRuntime: { report: (entry) => reports.push(entry) } });
+  runtime.notify(new TypeError("Failed to fetch dynamically imported module: /src/x.js"));
+  assert.equal(reports.length, 1);
+  assert.equal(reports[0].message, "App module did not download. The app may have been updated, or the network request failed.");
+  assert.equal(reports[0].messageCode, "kernel.moduleLoad.appModuleNotDownloaded");
+});

@@ -35,6 +35,10 @@ function createShellAsyncModuleRecoveryRuntime({
       return errorRuntime.report({
         source: "shell-web.async-module-recovery",
         message: String(nextState?.message || t("jskit.shell.recovery.moduleFailed")),
+        // The kernel's sentence for this failure, so the whole message is translated.
+        ...(nextState?.message && nextState?.messageCode
+          ? { messageCode: nextState.messageCode, messageParams: nextState.messageParams }
+          : {}),
         cause: nextState?.error || null,
         intent: "app-recoverable",
         severity: "warning",
