@@ -109,6 +109,9 @@ function schemaFieldErrors(error, fallback, prefix = "") {
 // Registrations, attempts and stored connections omit these when they use the defaults.
 const DEFAULT_GRANT_TYPE = "authorization_code";
 const DEFAULT_TOKEN_ENDPOINT_AUTH_METHOD = "client_secret_post";
+// A provider definition whose texts were rendered to English keeps its message-key
+// original under this symbol, so a translating UI can render the keys instead.
+const MESSAGE_KEY_SOURCE = Symbol.for("@jskit-ai/connectors-core.messageKeySource");
 
 function registrationGrantType(record) {
   return record?.grantType || DEFAULT_GRANT_TYPE;
@@ -306,6 +309,7 @@ function parseIntegrationConfiguration(text, options) {
 export {
   DEFAULT_GRANT_TYPE,
   DEFAULT_TOKEN_ENDPOINT_AUTH_METHOD,
+  MESSAGE_KEY_SOURCE,
   registrationGrantType,
   registrationClientAuthentication,
   providerGrantTypes,

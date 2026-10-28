@@ -4,9 +4,9 @@
   "description": "Provider definitions and focused API operations for JSKIT connectors.",
   "type": "module",
   "exports": {
-    "./shared/ai": "./src/shared/ai.js",
+    "./shared/ai": "./src/shared/english-ai.js",
     "./server/ai": "./src/server/ai.js",
-    "./shared": "./src/shared/definitions.js",
+    "./shared": "./src/shared/english-definitions.js",
     "./server/resend": "./src/server/resend.js",
     "./server/firecrawl": "./src/server/firecrawl.js",
     "./server/gmail": "./src/server/gmail.js",

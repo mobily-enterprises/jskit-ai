@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref } from "vue";
-import { DEFAULT_GRANT_TYPE, DEFAULT_TOKEN_ENDPOINT_AUTH_METHOD, getProviderAccountModes, getProviderAuthenticationMethods, getProviderClientAuthenticationMethods, getProviderScopes, getProviderSettingsSchema, providerGrantTypes, registrationClientAuthentication, registrationGrantType } from "@jskit-ai/connectors-core/shared/configuration";
+import { DEFAULT_GRANT_TYPE, DEFAULT_TOKEN_ENDPOINT_AUTH_METHOD, MESSAGE_KEY_SOURCE, getProviderAccountModes, getProviderAuthenticationMethods, getProviderClientAuthenticationMethods, getProviderScopes, getProviderSettingsSchema, providerGrantTypes, registrationClientAuthentication, registrationGrantType } from "@jskit-ai/connectors-core/shared/configuration";
 import { useJskitText } from "./i18n.js";
 
 const props = defineProps({
@@ -15,7 +15,9 @@ const props = defineProps({
 });
 const emit = defineEmits(["update:modelValue"]);
 // Provider texts may be message keys (the JSKIT catalog) or plain text (other catalogs); text() renders both.
+// The catalog's public definitions are English; each keeps its keyed original under MESSAGE_KEY_SOURCE.
 const { t, text, formatDate, fieldErrorMessages } = useJskitText();
+const definition = computed(() => props.provider[MESSAGE_KEY_SOURCE] || props.provider);
 const errors = computed(() => fieldErrorMessages({ fieldErrors: props.fieldErrors, fieldErrorCodes: props.fieldErrorCodes }));
 const panels = ref(["details", "credentials"]);
 const integration = computed(() => props.modelValue.integrations[props.integrationId]);
@@ -23,11 +25,11 @@ const registrationId = computed(() => integration.value?.authentication.registra
 const registration = computed(() => props.modelValue.registrations[registrationId.value]);
 const grantType = computed(() => registrationGrantType(registration.value));
 const grantTitles = { authorization_code: "jskit.connectors.configurationFields.grantTypes.authorizationCode", client_credentials: "jskit.connectors.configurationFields.grantTypes.clientCredentials" };
-const grantOptions = computed(() => providerGrantTypes(props.provider).map((value) => ({
+const grantOptions = computed(() => providerGrantTypes(definition.value).map((value) => ({
   value, title: grantTitles[value] ? t(grantTitles[value]) : value
 })));
 const modeTitles = { shared: "jskit.connectors.configurationFields.accountModes.shared", "per-user": "jskit.connectors.configurationFields.accountModes.perUser", assistant: "jskit.connectors.configurationFields.accountModes.assistant" };
-const modes = computed(() => getProviderAccountModes(props.provider, integration.value.settings || {}).filter((mode) =>
+const modes = computed(() => getProviderAccountModes(definition.value, integration.value.settings || {}).filter((mode) =>
   integration.value?.authentication.method !== "oauth2" || grantType.value !== "client_credentials" || mode !== "per-user"
 ).map((value) => ({
   value,
@@ -36,17 +38,17 @@ const modes = computed(() => getProviderAccountModes(props.provider, integration
 const registrationOptions = computed(() => Object.keys(props.modelValue.registrations));
 const integrationPath = computed(() => `integrations.${props.integrationId}`);
 const registrationPath = computed(() => `registrations.${registrationId.value}`);
-const settingProperties = computed(() => getProviderSettingsSchema(props.provider, integration.value?.settings)?.getFieldDefinitions() || {});
+const settingProperties = computed(() => getProviderSettingsSchema(definition.value, integration.value?.settings)?.getFieldDefinitions() || {});
 const methodTitles = { "api-key": "jskit.connectors.configurationFields.authenticationMethods.apiKey", "service-account": "jskit.connectors.configurationFields.authenticationMethods.serviceAccount",
   oauth2: "jskit.connectors.configurationFields.authenticationMethods.oauth2", none: "jskit.connectors.configurationFields.authenticationMethods.none" };
-const authenticationOptions = computed(() => getProviderAuthenticationMethods(props.provider, integration.value.settings).map((value) => ({
-  value, title: text(props.provider.authenticationLabels?.[value]) || (methodTitles[value] ? t(methodTitles[value]) : value)
+const authenticationOptions = computed(() => getProviderAuthenticationMethods(definition.value, integration.value.settings).map((value) => ({
+  value, title: text(definition.value.authenticationLabels?.[value]) || (methodTitles[value] ? t(methodTitles[value]) : value)
 })));
-const visibleSettings = computed(() => (props.provider.settingsFields || []).filter((field) =>
+const visibleSettings = computed(() => (definition.value.settingsFields || []).filter((field) =>
   Object.hasOwn(settingProperties.value, field.name) &&
   (!field.authenticationMethods || field.authenticationMethods.includes(integration.value.authentication.method))
 ));
-const visibleScopes = computed(() => getProviderScopes(props.provider, integration.value.settings || {}, grantType.value, integration.value.authentication.method));
+const visibleScopes = computed(() => getProviderScopes(definition.value, integration.value.settings || {}, grantType.value, integration.value.authentication.method));
 const clientSecretHint = computed(() =>
   t("jskit.connectors.configurationFields.clientSecretReference.hint", { prefix: environmentPrefix(registrationId.value || props.integrationId) }));
 const assistantPermissions = computed(() => [
@@ -55,10 +57,10 @@ const assistantPermissions = computed(() => [
   { value: "never", title: t("jskit.connectors.configurationFields.assistantPermissions.never") }
 ]);
 const credentialReference = computed(() => integration.value?.authentication.method === "service-account"
-  ? { label: text(props.provider.serviceAccountReferenceLabel) || t("jskit.connectors.configurationFields.serviceAccountReference.label"),
-    hint: text(props.provider.serviceAccountReferenceHint) || t("jskit.connectors.configurationFields.serviceAccountReference.hint") }
-  : { label: text(props.provider.apiKeyReferenceLabel) || t("jskit.connectors.configurationFields.apiKeyReference.label"),
-    hint: text(props.provider.apiKeyReferenceHint) || t("jskit.connectors.configurationFields.apiKeyReference.hint") });
+  ? { label: text(definition.value.serviceAccountReferenceLabel) || t("jskit.connectors.configurationFields.serviceAccountReference.label"),
+    hint: text(definition.value.serviceAccountReferenceHint) || t("jskit.connectors.configurationFields.serviceAccountReference.hint") }
+  : { label: text(definition.value.apiKeyReferenceLabel) || t("jskit.connectors.configurationFields.apiKeyReference.label"),
+    hint: text(definition.value.apiKeyReferenceHint) || t("jskit.connectors.configurationFields.apiKeyReference.hint") });
 
 // The environment-variable prefix editAuthentication uses for a new registration's references.
 function environmentPrefix(id) {
@@ -68,7 +70,7 @@ function environmentPrefix(id) {
 // A service account cannot connect as each app user; fall back to a mode these settings allow.
 function accountModeForGrant(grant, settings, accountMode) {
   return grant === "client_credentials" && accountMode === "per-user"
-    ? getProviderAccountModes(props.provider, settings || {}).find((mode) => mode !== "per-user") : accountMode;
+    ? getProviderAccountModes(definition.value, settings || {}).find((mode) => mode !== "per-user") : accountMode;
 }
 
 function settingValue(field) {
@@ -118,19 +120,19 @@ function editSetting(field, value) {
   const settings = { ...integration.value.settings };
   if (value === undefined || value === "") delete settings[field];
   else settings[field] = value;
-  if (typeof props.provider.settingsSchema === "function") {
-    const fields = getProviderSettingsSchema(props.provider, settings).getFieldDefinitions();
+  if (typeof definition.value.settingsSchema === "function") {
+    const fields = getProviderSettingsSchema(definition.value, settings).getFieldDefinitions();
     for (const key of Object.keys(settings)) if (!Object.hasOwn(fields, key)) delete settings[key];
   }
-  const available = getProviderScopes(props.provider, settings, grantType.value, integration.value.authentication.method);
+  const available = getProviderScopes(definition.value, settings, grantType.value, integration.value.authentication.method);
   const scopes = integration.value.scopes.filter((value) => available.some((scope) => scope.value === value));
   for (const scope of available) if (scope.required && !scopes.includes(scope.value)) scopes.push(scope.value);
-  const methods = getProviderAuthenticationMethods(props.provider, settings);
-  const credentialScope = props.provider.settingsFields?.find((item) => item.name === field)?.credentialScope;
+  const methods = getProviderAuthenticationMethods(definition.value, settings);
+  const credentialScope = definition.value.settingsFields?.find((item) => item.name === field)?.credentialScope;
   const changedProvider = credentialScope && credentialScope(value) !== credentialScope(integration.value.settings?.[field] ?? settingProperties.value[field]?.defaultTo);
   const authentication = changedProvider || !methods.includes(integration.value.authentication.method)
     ? { method: methods[0] } : integration.value.authentication;
-  const accountModes = getProviderAccountModes(props.provider, settings);
+  const accountModes = getProviderAccountModes(definition.value, settings);
   const accountMode = accountModes.includes(integration.value.accountMode) ? integration.value.accountMode : accountModes[0];
   if (authentication.method === "oauth2" && !authentication.registrationRef) {
     editAuthentication("oauth2", { ...integration.value, settings, scopes, authentication, accountMode });
@@ -139,18 +141,18 @@ function editSetting(field, value) {
 
 function editAuthentication(method, current = integration.value) {
   const settings = { ...current.settings };
-  for (const field of props.provider.settingsFields || []) {
+  for (const field of definition.value.settingsFields || []) {
     if (field.authenticationMethods && !field.authenticationMethods.includes(method)) delete settings[field.name];
   }
-  const grant = method === "oauth2" ? props.provider.oauthGrantTypes?.[0] || DEFAULT_GRANT_TYPE : DEFAULT_GRANT_TYPE;
-  const availableScopes = getProviderScopes(props.provider, settings, grant, method);
+  const grant = method === "oauth2" ? definition.value.oauthGrantTypes?.[0] || DEFAULT_GRANT_TYPE : DEFAULT_GRANT_TYPE;
+  const availableScopes = getProviderScopes(definition.value, settings, grant, method);
   const scopes = availableScopes.filter(scope => current.scopes.includes(scope.value) || scope.required || (scope.authenticationMethods && scope.recommended)).map(scope => scope.value);
   if (method === "oauth2") {
     let id = props.integrationId;
     let suffix = 2;
     while (Object.hasOwn(props.modelValue.registrations, id)) id = `${props.integrationId}-${suffix++}`;
     const prefix = environmentPrefix(id);
-    const clientAuthentication = getProviderClientAuthenticationMethods(props.provider, grant, settings)[0];
+    const clientAuthentication = getProviderClientAuthenticationMethods(definition.value, grant, settings)[0];
     emit("update:modelValue", {
       ...props.modelValue,
       integrations: { ...props.modelValue.integrations, [props.integrationId]: {
@@ -172,7 +174,7 @@ function editAuthentication(method, current = integration.value) {
 
 function editSecretReference(value) {
   const authentication = { ...integration.value.authentication, secretRef: value };
-  if (!value && props.provider.apiKeySecretOptional) delete authentication.secretRef;
+  if (!value && definition.value.apiKeySecretOptional) delete authentication.secretRef;
   editIntegration({ authentication });
 }
 
@@ -188,11 +190,11 @@ function editRegistration(field, value) {
 
 function editGrantType(value) {
   const nextRegistration = { ...registration.value, grantType: value };
-  const methods = getProviderClientAuthenticationMethods(props.provider, value, integration.value.settings || {});
+  const methods = getProviderClientAuthenticationMethods(definition.value, value, integration.value.settings || {});
   if (!methods.includes(registrationClientAuthentication(nextRegistration))) nextRegistration.tokenEndpointAuthMethod = methods[0];
   if (nextRegistration.tokenEndpointAuthMethod === "none") delete nextRegistration.clientSecretRef;
   if (value === "client_credentials") delete nextRegistration.callbackUrlRef;
-  const allowed = getProviderScopes(props.provider, integration.value.settings || {}, value, integration.value.authentication.method).map((scope) => scope.value);
+  const allowed = getProviderScopes(definition.value, integration.value.settings || {}, value, integration.value.authentication.method).map((scope) => scope.value);
   emit("update:modelValue", {
     ...props.modelValue,
     registrations: { ...props.modelValue.registrations, [registrationId.value]: nextRegistration },
@@ -206,13 +208,13 @@ function editGrantType(value) {
 </script>
 
 <template>
-  <v-sheet v-if="integration" class="integration-fields" :aria-label="t('jskit.connectors.configurationFields.ariaLabel', { provider: provider.name })">
+  <v-sheet v-if="integration" class="integration-fields" :aria-label="t('jskit.connectors.configurationFields.ariaLabel', { provider: definition.name })">
     <v-expansion-panels v-model="panels" multiple variant="accordion" :disabled="disabled">
       <v-expansion-panel value="details" :title="t('jskit.connectors.configurationFields.panels.details')">
         <v-expansion-panel-text>
           <v-text-field
             :label="t('jskit.connectors.configurationFields.displayName.label')" :model-value="integration.displayName || ''" :disabled="disabled"
-            :placeholder="provider.name" :error-messages="errors[`${integrationPath}.displayName`]"
+            :placeholder="definition.name" :error-messages="errors[`${integrationPath}.displayName`]"
             @update:model-value="editIntegration({ displayName: $event || undefined })"
           />
           <v-select
@@ -228,7 +230,7 @@ function editGrantType(value) {
           <v-select
             v-if="authenticationOptions.length > 1"
             :label="t('jskit.connectors.configurationFields.authentication.label')" :items="authenticationOptions" :model-value="integration.authentication.method" :disabled="disabled"
-            :hint="text(provider.authenticationHint)" :persistent-hint="Boolean(provider.authenticationHint)"
+            :hint="text(definition.authenticationHint)" :persistent-hint="Boolean(definition.authenticationHint)"
             :error-messages="errors[`${integrationPath}.authentication.method`]"
             @update:model-value="editAuthentication"
           />
@@ -275,12 +277,12 @@ function editGrantType(value) {
               <v-select
                 v-if="grantOptions.length > 1"
                 :label="t('jskit.connectors.configurationFields.grantType.label')" :items="grantOptions" :model-value="grantType" :disabled="disabled"
-                :hint="text(provider.oauthGrantHint)" :persistent-hint="Boolean(provider.oauthGrantHint)"
+                :hint="text(definition.oauthGrantHint)" :persistent-hint="Boolean(definition.oauthGrantHint)"
                 :error-messages="errors[`${registrationPath}.grantType`]"
                 @update:model-value="editGrantType"
               />
               <v-text-field
-                :label="text(provider.clientIdLabel) || t('jskit.connectors.configurationFields.clientId.label')" :hint="text(provider.clientIdHint)" :persistent-hint="Boolean(provider.clientIdHint)" :model-value="registration.clientId" autocomplete="off" :disabled="disabled"
+                :label="text(definition.clientIdLabel) || t('jskit.connectors.configurationFields.clientId.label')" :hint="text(definition.clientIdHint)" :persistent-hint="Boolean(definition.clientIdHint)" :model-value="registration.clientId" autocomplete="off" :disabled="disabled"
                 :error-messages="errors[`${registrationPath}.clientId`]"
                 @update:model-value="editRegistration('clientId', $event)"
               />
@@ -305,9 +307,9 @@ function editGrantType(value) {
         </v-expansion-panel-text>
       </v-expansion-panel>
 
-      <v-expansion-panel v-if="visibleScopes.length && (provider.scopes.length || provider.permissionsHint || ['oauth2', 'service-account'].includes(integration.authentication.method))" value="permissions" :title="t('jskit.connectors.configurationFields.panels.permissions')">
+      <v-expansion-panel v-if="visibleScopes.length && (definition.scopes.length || definition.permissionsHint || ['oauth2', 'service-account'].includes(integration.authentication.method))" value="permissions" :title="t('jskit.connectors.configurationFields.panels.permissions')">
         <v-expansion-panel-text>
-          <p class="text-body-medium mb-3">{{ text(provider.permissionsHint) || t('jskit.connectors.configurationFields.permissions.hint') }}</p>
+          <p class="text-body-medium mb-3">{{ text(definition.permissionsHint) || t('jskit.connectors.configurationFields.permissions.hint') }}</p>
           <v-checkbox
             v-for="permission in visibleScopes" :key="permission.value"
             :label="text(permission.label)" :value="permission.value" :model-value="integration.scopes" :disabled="disabled || permission.required"
@@ -318,7 +320,7 @@ function editGrantType(value) {
           </p>
         </v-expansion-panel-text>
       </v-expansion-panel>
-      <v-expansion-panel v-if="provider.assistantActions?.length" value="assistant" :title="t('jskit.connectors.configurationFields.panels.assistant')">
+      <v-expansion-panel v-if="definition.assistantActions?.length" value="assistant" :title="t('jskit.connectors.configurationFields.panels.assistant')">
         <v-expansion-panel-text>
           <p class="text-body-medium mb-3">{{ t('jskit.connectors.configurationFields.assistant.hint') }}</p>
           <v-switch
@@ -334,7 +336,7 @@ function editGrantType(value) {
             @update:model-value="editAssistantPolicy({ defaultPermission: $event, actions: {} })"
           />
           <v-select
-            v-for="action in provider.assistantActions" :key="action.value" :label="text(action.label)" :items="assistantPermissions"
+            v-for="action in definition.assistantActions" :key="action.value" :label="text(action.label)" :items="assistantPermissions"
             :model-value="integration.assistantPolicy?.actions?.[action.value] || integration.assistantPolicy?.defaultPermission || 'ask'"
             :disabled="disabled || integration.assistantPolicy?.enabled === false"
             :error-messages="errors[`${integrationPath}.assistantPolicy.actions.${action.value}`]"
