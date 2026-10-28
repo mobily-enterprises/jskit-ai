@@ -56,6 +56,7 @@ Local functions
 
 ### `src/shared/dateUtils.js`
 Exports
+- `normalizeDateInput(value)`
 - `toIsoString(value)`
 - `toInsertDateTime(dateLike, fallback = new Date())`
 - `toDatabaseDateTimeUtc(value)`
@@ -63,7 +64,6 @@ Exports
 - `toJsonTime(value, { temporalPrecision } = {})`
 - `toJsonDateTime(value, { temporalPrecision } = {})`
 Local functions
-- `normalizeDateInput(value)`
 - `toDateOrThrow(value)`
 - `pad(value, size = 2)`
 - `requireValidDateParts(year, month, day)`
@@ -88,6 +88,7 @@ Local functions
 
 ### `src/shared/index.js`
 Exports
+- `normalizeDateInput`
 - `toIsoString`
 - `toInsertDateTime`
 - `toDatabaseDateTimeUtc`
@@ -111,9 +112,11 @@ Exports
 - `normalizeNullableString`
 - `normalizeDbRecordId`
 - `resolveInsertedRecordId`
+- `parseJsonValue`
 - `toDbJson`
 - `runInTransaction`
 - `createWithTransaction`
+- `lockScopedRecordId`
 
 ### `src/shared/repositoryOptions.js`
 Exports
@@ -125,9 +128,13 @@ Exports
 - `normalizeNullableString(value, { trim = true } = {})`
 - `normalizeDbRecordId(value, { fallback = null } = {})`
 - `resolveInsertedRecordId(insertResult, { fallback = null } = {})`
+- `parseJsonValue(value, fallback = null, options = {})`
 - `toDbJson(value)`
 - `runInTransaction(knex, callback)`
 - `createWithTransaction(knex)`
+- `lockScopedRecordId({ trx, tableName, recordId, scopeId, idColumn = "id", scopeColumn = "workspace_id" } = {})`
+Local functions
+- `requireSqlIdentifier(value, label)`
 
 ### `src/shared/transactionManager.js`
 Exports

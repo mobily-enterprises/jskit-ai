@@ -4,6 +4,10 @@ import {
   resolveCrudJsonApiTransport
 } from "../crud/crudJsonApiTransportSupport.js";
 import { resolveCrudHttpClient } from "../crud/crudHttpClientSupport.js";
+import {
+  resolveLookupFieldDisplayValue,
+  resolveRecordTitle
+} from "../crud/crudLookupFieldLabelSupport.js";
 import { resolveCrudBoundValues } from "../crud/crudBindingSupport.js";
 import { asPlainObject } from "../support/scopeHelpers.js";
 import { useView } from "./useView.js";
@@ -35,6 +39,8 @@ function useCrudView({
     }),
     routeParams: boundRouteParams
   });
+  view.resolveFieldDisplay = resolveLookupFieldDisplayValue;
+  view.resolveRecordTitle = resolveRecordTitle;
   return view;
 }
 

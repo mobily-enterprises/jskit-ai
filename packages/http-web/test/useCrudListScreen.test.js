@@ -40,6 +40,8 @@ test("list screen link availability is the list runtime's single answer", async 
   assert.equal(linked.hasViewUrl, true);
   assert.equal(linked.hasEditUrl, true);
   assert.equal(Object.hasOwn(linked.records, "actionColumnCount"), false);
-  assert.equal(Object.hasOwn(linked.records, "resolveFieldDisplay"), false);
+  // Application templates read field and title display from the list runtime.
+  assert.equal(linked.records.resolveFieldDisplay({ title: "Dune" }, "title"), "Dune");
+  assert.equal(linked.records.resolveRecordTitle({}, { fallbackKey: "title", defaultValue: "Book" }), "Book");
   assert.equal(linked.resolveRecordTitle({ name: "Dune" }), "Dune");
 });

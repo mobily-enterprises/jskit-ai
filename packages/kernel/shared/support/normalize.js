@@ -134,6 +134,20 @@ function normalizeIfInSource(source, normalized, fieldName, normalizer = (value)
   return normalized;
 }
 
+function normalizeIfPresent(value, normalizer = (entry) => entry) {
+  if (typeof normalizer !== "function") {
+    throw new TypeError("normalizeIfPresent requires normalizer function.");
+  }
+  return value == null ? value : normalizer(value);
+}
+
+function normalizeOrNull(value, normalizer = (entry) => entry) {
+  if (typeof normalizer !== "function") {
+    throw new TypeError("normalizeOrNull requires normalizer function.");
+  }
+  return value == null ? null : normalizer(value);
+}
+
 function isRecord(value) {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
@@ -266,6 +280,8 @@ export {
   normalizeQueryToken,
   normalizeObject,
   normalizeIfInSource,
+  normalizeIfPresent,
+  normalizeOrNull,
   isRecord,
   normalizeArray,
   normalizeUniqueTextList,

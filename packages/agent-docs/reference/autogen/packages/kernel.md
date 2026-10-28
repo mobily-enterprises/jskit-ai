@@ -108,6 +108,8 @@ Exports
 - `normalizeQueryToken(value, { fallback = "__none__" } = {})`
 - `normalizeObject(value, { fallback = {} } = {})`
 - `normalizeIfInSource(source, normalized, fieldName, normalizer = (value) => value)`
+- `normalizeIfPresent(value, normalizer = (entry) => entry)`
+- `normalizeOrNull(value, normalizer = (entry) => entry)`
 - `isRecord(value)`
 - `normalizeArray(value)`
 - `normalizeUniqueTextList(value, { acceptSingle = false } = {})`

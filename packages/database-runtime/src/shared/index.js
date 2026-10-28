@@ -1,4 +1,5 @@
 export {
+  normalizeDateInput,
   toIsoString,
   toInsertDateTime,
   toDatabaseDateTimeUtc,
@@ -19,7 +20,9 @@ export {
   normalizeNullableString,
   normalizeDbRecordId,
   resolveInsertedRecordId,
+  parseJsonValue,
   toDbJson,
   runInTransaction,
-  createWithTransaction
+  createWithTransaction,
+  lockScopedRecordId
 } from "./repositoryOptions.js";

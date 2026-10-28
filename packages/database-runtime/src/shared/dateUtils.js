@@ -228,6 +228,7 @@ function toDatabaseDateTimeUtc(value) {
 }
 
 export {
+  normalizeDateInput,
   toIsoString,
   toInsertDateTime,
   toDatabaseDateTimeUtc,
