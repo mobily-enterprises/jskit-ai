@@ -1,4 +1,5 @@
 import { normalizeEmailAddress, maskEmail } from "./identityHelpers.js";
+import { useJskitText } from "../../i18n.js";
 
 function resolveLocalStorage() {
   if (typeof window === "undefined" || !window.localStorage) {
@@ -21,7 +22,8 @@ function createRememberedAccountHint({ email: accountEmail, displayName, maskedE
     return null;
   }
 
-  const normalizedDisplayName = String(displayName || "").trim() || normalizedEmail.split("@")[0] || "User";
+  const normalizedDisplayName = String(displayName || "").trim() || normalizedEmail.split("@")[0] ||
+    useJskitText().t("jskit.auth.login.rememberedAccount.defaultName");
   const normalizedMaskedEmail =
     normalizedEmail.includes("@") && !maskedEmail ? maskEmail(normalizedEmail) : String(maskedEmail || "").trim();
 

@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createI18n } from "vue-i18n";
+import { registerJskitMessages, setJskitI18n } from "@jskit-ai/kernel/client";
 import {
   completeOAuthCallbackFromCurrentLocation,
   completeOAuthCallbackFromUrl,
@@ -22,6 +24,8 @@ test("readOAuthCallbackParamsFromUrl reads query and hash callback params", () =
       hasSessionPair: false,
       errorCode: "",
       errorDescription: "",
+      errorDescriptionCode: "",
+      errorDescriptionParams: {},
       provider: "google",
       returnTo: "/w/acme"
     }
@@ -38,6 +42,8 @@ test("readOAuthCallbackParamsFromUrl reads query and hash callback params", () =
       hasSessionPair: true,
       errorCode: "",
       errorDescription: "",
+      errorDescriptionCode: "",
+      errorDescriptionParams: {},
       provider: "",
       returnTo: "/home"
     }
@@ -111,6 +117,30 @@ test("completeOAuthCallbackFromUrl reports callback errors without issuing a req
   assert.equal(result.handled, true);
   assert.equal(result.completed, false);
   assert.equal(result.errorMessage, "Provider denied access");
+});
+
+test("a sign-in error the server explained by redirect shows in the user's language", async (t) => {
+  registerJskitMessages({ jskit: { auth: { example: { unavailable: "Sign-in with {provider} is unavailable." } } } });
+  setJskitI18n(createI18n({
+    legacy: false,
+    locale: "it",
+    messages: { it: { jskit: { auth: { example: { unavailable: "Accesso con {provider} non disponibile." } } } } }
+  }));
+  t.after(() => setJskitI18n(null));
+  const explained = new URLSearchParams({
+    error: "sign_in_unavailable",
+    error_description: "Sign-in with Acme is unavailable.",
+    error_code: "auth.example.unavailable",
+    error_params: JSON.stringify({ provider: "Acme" })
+  });
+
+  const translated = await completeOAuthCallbackFromUrl({ url: `/auth/login?${explained}` });
+  assert.equal(translated.errorMessage, "Accesso con Acme non disponibile.");
+
+  // An app's own sentence under that code stays as the server sent it.
+  explained.set("error_description", "Ask your administrator to enable Acme.");
+  const asSent = await completeOAuthCallbackFromUrl({ url: `/auth/login?${explained}` });
+  assert.equal(asSent.errorMessage, "Ask your administrator to enable Acme.");
 });
 
 test("completeOAuthCallbackFromUrl reports missing providers for code callbacks", async () => {

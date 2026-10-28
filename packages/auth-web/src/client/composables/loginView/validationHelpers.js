@@ -1,4 +1,5 @@
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
+import { useJskitText } from "../../i18n.js";
 
 function validateCommandSection(commandResource, section, payload) {
   if (!commandResource || !commandResource.operation) {
@@ -16,31 +17,27 @@ function validateCommandSection(commandResource, section, payload) {
   });
 }
 
-function resolveValidationMessage(validationResult, fallbackMessage = "Validation failed.") {
+// Field messages in the user's language when the validator sent their codes.
+function validationFieldMessages(validationResult) {
+  return validationResult && !validationResult.ok ? useJskitText().fieldErrorMessages(validationResult) : {};
+}
+
+function resolveValidationMessage(validationResult, fallbackMessage = "") {
   if (!validationResult || validationResult.ok) {
     return "";
   }
 
-  const fieldErrors = validationResult.fieldErrors && typeof validationResult.fieldErrors === "object"
-    ? validationResult.fieldErrors
-    : {};
-  const firstFieldError = Object.values(fieldErrors).find((entry) => String(entry || "").trim().length > 0);
+  const firstFieldError = Object.values(validationFieldMessages(validationResult))
+    .find((entry) => String(entry || "").trim().length > 0);
   if (firstFieldError) {
     return String(firstFieldError);
   }
 
-  return String(fallbackMessage || "Validation failed.");
+  return String(fallbackMessage || useJskitText().t("jskit.errors.validation_failed"));
 }
 
 function resolveFieldValidationMessage(validationResult, fieldName = "") {
-  if (!validationResult || validationResult.ok) {
-    return "";
-  }
-
-  const fieldErrors = validationResult.fieldErrors && typeof validationResult.fieldErrors === "object"
-    ? validationResult.fieldErrors
-    : {};
-  return String(fieldErrors[fieldName] || "").trim();
+  return String(validationFieldMessages(validationResult)[fieldName] || "").trim();
 }
 
 function ensureCommandSectionValid(commandResource, section, payload, fallbackMessage) {

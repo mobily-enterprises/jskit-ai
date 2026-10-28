@@ -7,7 +7,6 @@ import { authLoginOtpVerifyCommand } from "@jskit-ai/auth-core/shared/commands/a
 import { authLoginOAuthStartCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOAuthStartCommand";
 import { authPasswordResetRequestCommand } from "@jskit-ai/auth-core/shared/commands/authPasswordResetRequestCommand";
 import { AUTH_PATHS, buildAuthOauthStartPath } from "@jskit-ai/auth-core/shared/authPaths";
-import { resolveAuthDeniedLoginMessage } from "@jskit-ai/auth-core/shared/authDenied";
 import { authHttpRequest } from "../../runtime/authHttpClient.js";
 import { completeOAuthCallbackFromCurrentLocation } from "../../runtime/oauthCallbackRuntime.js";
 import { normalizeAuthReturnToPath } from "../../lib/returnToPath.js";
@@ -17,6 +16,8 @@ import { stripOAuthParamsFromLocation } from "./oauthCallbackUrl.js";
 import { completeOAuthPopupSignIn } from "../../runtime/popupOAuthLaunchClient.js";
 import { ensureCommandSectionValid } from "./validationHelpers.js";
 import { resolveRegisterCompletionState } from "./registerCompletion.js";
+import { inactiveSessionMessage } from "../../runtime/inactiveSessionMessage.js";
+import { useJskitText } from "../../i18n.js";
 
 const SESSION_QUERY_KEY = Object.freeze(["auth-web", "session"]);
 
@@ -27,6 +28,8 @@ export function useLoginViewActions({
   errorRuntime,
   oauthLaunchClient = null
 } = {}) {
+  const { serverMessage, t } = useJskitText();
+
   function reportAuthFeedback({
     message,
     severity = "error",
@@ -145,11 +148,7 @@ export function useLoginViewActions({
   async function completeLogin() {
     const session = await refreshSession();
     if (!session?.authenticated) {
-      const authDeniedMessage = resolveAuthDeniedLoginMessage(session?.authDenied);
-      if (authDeniedMessage) {
-        throw new Error(authDeniedMessage);
-      }
-      throw new Error("Login succeeded but the session is not active yet. Please retry.");
+      throw new Error(inactiveSessionMessage(session));
     }
     if (typeof window === "object" && window.location) {
       window.location.replace(state.requestedReturnTo.value);
@@ -168,7 +167,7 @@ export function useLoginViewActions({
         source: "workspace-invite"
       };
     }
-    ensureCommandSectionValid(authRegisterCommand, "body", registerPayload, "Unable to register.");
+    ensureCommandSectionValid(authRegisterCommand, "body", registerPayload, t("jskit.auth.login.error.registerFailed"));
 
     const registerResult = await request(AUTH_PATHS.REGISTER, {
       method: "POST",
@@ -198,14 +197,14 @@ export function useLoginViewActions({
       authPasswordResetRequestCommand,
       "body",
       forgotPayload,
-      "Unable to request password reset."
+      t("jskit.auth.login.error.resetRequestFailed")
     );
 
     await request(AUTH_PATHS.PASSWORD_FORGOT, {
       method: "POST",
       body: forgotPayload
     });
-    setInfoMessage("Password reset instructions sent.", "auth-web.default-login-view:password-reset-sent");
+    setInfoMessage(t("jskit.auth.login.resetSent"), "auth-web.default-login-view:password-reset-sent");
   }
 
   async function submitOtp({ normalizedEmail, shouldRememberAccount }) {
@@ -214,7 +213,12 @@ export function useLoginViewActions({
       token: String(state.otpCode.value || "").trim(),
       type: "email"
     };
-    ensureCommandSectionValid(authLoginOtpVerifyCommand, "body", otpPayload, "Unable to verify one-time code.");
+    ensureCommandSectionValid(
+      authLoginOtpVerifyCommand,
+      "body",
+      otpPayload,
+      t("jskit.auth.login.error.otpVerifyFailed")
+    );
 
     const otpResult = await request(AUTH_PATHS.LOGIN_OTP_VERIFY, {
       method: "POST",
@@ -233,7 +237,7 @@ export function useLoginViewActions({
       email: normalizedEmail,
       password: String(state.password.value || "")
     };
-    ensureCommandSectionValid(authLoginPasswordCommand, "body", loginPayload, "Unable to sign in.");
+    ensureCommandSectionValid(authLoginPasswordCommand, "body", loginPayload, t("jskit.auth.login.error.signInFailed"));
 
     const loginResult = await request(AUTH_PATHS.LOGIN, {
       method: "POST",
@@ -273,7 +277,7 @@ export function useLoginViewActions({
 
     try {
       if (callbackResult.completed !== true) {
-        throw new Error(callbackResult.errorMessage || "Unable to complete OAuth sign-in.");
+        throw new Error(callbackResult.errorMessage || t("jskit.auth.login.error.oauthCompleteFailed"));
       }
 
       state.applyRememberedAccountPreference({
@@ -291,7 +295,7 @@ export function useLoginViewActions({
         window.location.replace(state.requestedReturnTo.value);
       }
     } catch (error) {
-      setErrorMessage(String(error?.message || "Unable to complete OAuth sign-in."));
+      setErrorMessage(serverMessage(error, t("jskit.auth.login.error.oauthCompleteFailed")));
       stripOAuthParamsFromLocation();
     } finally {
       state.loading.value = false;
@@ -330,7 +334,7 @@ export function useLoginViewActions({
 
       await submitLogin({ normalizedEmail, shouldRememberAccount });
     } catch (error) {
-      setErrorMessage(String(error?.message || "Authentication failed."));
+      setErrorMessage(serverMessage(error, t("jskit.auth.login.error.authFailed")));
     } finally {
       state.loading.value = false;
     }
@@ -349,15 +353,15 @@ export function useLoginViewActions({
         authLoginOtpRequestCommand,
         "body",
         otpRequestPayload,
-        "Unable to request one-time code."
+        t("jskit.auth.login.error.otpRequestFailed")
       );
       await request(AUTH_PATHS.LOGIN_OTP_REQUEST, {
         method: "POST",
         body: otpRequestPayload
       });
-      setInfoMessage("One-time code sent. Check your inbox.", "auth-web.default-login-view:otp-code-sent");
+      setInfoMessage(t("jskit.auth.login.otpSent"), "auth-web.default-login-view:otp-code-sent");
     } catch (error) {
-      setErrorMessage(String(error?.message || "Unable to request one-time code."));
+      setErrorMessage(serverMessage(error, t("jskit.auth.login.error.otpRequestFailed")));
     } finally {
       state.otpRequestPending.value = false;
     }
@@ -366,7 +370,7 @@ export function useLoginViewActions({
   async function resendRegisterConfirmationEmail() {
     const normalizedEmail = normalizeEmailAddress(state.pendingEmailConfirmationAddress.value || state.email.value);
     if (!normalizedEmail) {
-      setErrorMessage("Enter an email address before requesting confirmation.");
+      setErrorMessage(t("jskit.auth.login.error.emailRequiredForConfirmation"));
       return;
     }
 
@@ -380,32 +384,33 @@ export function useLoginViewActions({
         authRegisterConfirmationResendCommand,
         "body",
         resendPayload,
-        "Unable to resend confirmation email."
+        t("jskit.auth.login.error.resendConfirmationFailed")
       );
       const resendResult = await request(AUTH_PATHS.REGISTER_CONFIRMATION_RESEND, {
         method: "POST",
         body: resendPayload
       });
-      const info =
-        String(resendResult?.message || "").trim() ||
-        "If an account exists for that email, a confirmation email has been sent.";
+      const info = serverMessage(resendResult).trim() || t("jskit.auth.login.confirmEmail.resent");
       setInfoMessage(info, "auth-web.default-login-view:register-confirmation-resend");
     } catch (error) {
-      setErrorMessage(String(error?.message || "Unable to resend confirmation email."));
+      setErrorMessage(serverMessage(error, t("jskit.auth.login.error.resendConfirmationFailed")));
     } finally {
       state.registerConfirmationResendPending.value = false;
     }
   }
 
   function oauthProviderButtonLabel(provider) {
-    const providerLabel = String(provider?.label || provider?.id || "OAuth provider");
+    const providerLabel = String(provider?.label || provider?.id || t("jskit.auth.login.oauth.providerFallback"));
     if (state.isRegister.value) {
-      return `Register with ${providerLabel}`;
+      return t("jskit.auth.login.oauth.register", { provider: providerLabel });
     }
     if (state.showRememberedAccount.value) {
-      return `Continue with ${providerLabel} as ${state.rememberedAccountDisplayName.value}`;
+      return t("jskit.auth.login.oauth.continueAs", {
+        provider: providerLabel,
+        name: state.rememberedAccountDisplayName.value
+      });
     }
-    return `Continue with ${providerLabel}`;
+    return t("jskit.auth.login.oauth.continue", { provider: providerLabel });
   }
 
   function oauthProviderIcon(provider) {
@@ -432,16 +437,16 @@ export function useLoginViewActions({
         authLoginOAuthStartCommand,
         "params",
         paramsPayload,
-        "OAuth provider id is invalid."
+        t("jskit.auth.login.error.oauthProviderInvalid")
       );
       ensureCommandSectionValid(
         authLoginOAuthStartCommand,
         "query",
         queryPayload,
-        "OAuth return path is invalid."
+        t("jskit.auth.login.error.oauthReturnToInvalid")
       );
     } catch (error) {
-      setErrorMessage(String(error?.message || "Unable to start OAuth sign-in."));
+      setErrorMessage(serverMessage(error, t("jskit.auth.login.error.oauthStartFailed")));
       return;
     }
 
@@ -449,13 +454,13 @@ export function useLoginViewActions({
     const oauthStartPath = buildAuthOauthStartPath(provider);
     try {
       if (!oauthLaunchClient || typeof oauthLaunchClient.open !== "function") {
-        throw new Error("OAuth launch client is unavailable.");
+        throw new Error(t("jskit.auth.login.error.oauthLaunchUnavailable"));
       }
       await oauthLaunchClient.open({
         url: `${oauthStartPath}?${params.toString()}`
       });
     } catch (error) {
-      setErrorMessage(String(error?.message || "Unable to start OAuth sign-in."));
+      setErrorMessage(serverMessage(error, t("jskit.auth.login.error.oauthStartFailed")));
     }
   }
 
@@ -469,7 +474,7 @@ export function useLoginViewActions({
         window.location.replace(state.requestedReturnTo.value);
       }
     } catch (error) {
-      setErrorMessage(String(error?.message || "Unable to initialize sign in."));
+      setErrorMessage(serverMessage(error, t("jskit.auth.login.error.initializeFailed")));
     } finally {
       state.loading.value = false;
     }

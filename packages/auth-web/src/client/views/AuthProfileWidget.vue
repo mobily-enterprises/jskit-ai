@@ -3,8 +3,10 @@ import { computed } from "vue";
 import ShellOutlet from "@jskit-ai/shell-web/client/components/ShellOutlet";
 import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
 import { useAuthStore } from "../stores/useAuthStore.js";
+import { useJskitText } from "../i18n.js";
 
 const auth = useAuthStore();
+const { t } = useJskitText();
 const { context: shellPlacementContext } = useWebPlacementContext();
 
 const shellUser = computed(() => {
@@ -26,7 +28,7 @@ const displayName = computed(() => {
     return username;
   }
 
-  return "Guest";
+  return t("jskit.auth.profile.guest");
 });
 
 const avatarUrl = computed(() => {

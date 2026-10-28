@@ -8,8 +8,11 @@ import {
   validateCommandSection,
   resolveFieldValidationMessage
 } from "./validationHelpers.js";
+import { useJskitText } from "../../i18n.js";
 
 export function useLoginViewValidation({ state } = {}) {
+  const { t } = useJskitText();
+
   function resolveFieldErrorMessages({
     shouldValidate,
     commandResource,
@@ -78,7 +81,7 @@ export function useLoginViewValidation({ state } = {}) {
       return [];
     }
     if (String(state.confirmPassword.value || "").trim() !== String(state.password.value || "").trim()) {
-      return ["Passwords do not match."];
+      return [t("jskit.auth.login.passwordsMismatch")];
     }
     return [];
   });

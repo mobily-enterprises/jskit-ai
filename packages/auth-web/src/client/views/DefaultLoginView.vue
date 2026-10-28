@@ -32,7 +32,7 @@
               :color="isLogin ? 'primary' : undefined"
               @click="switchMode('login')"
             >
-              Sign in
+              {{ t("jskit.auth.login.mode.signIn") }}
             </v-btn>
             <v-btn
               v-if="!showRememberedAccount && canRegister"
@@ -42,7 +42,7 @@
               :color="isRegister ? 'primary' : undefined"
               @click="switchMode('register')"
             >
-              Register
+              {{ t("jskit.auth.login.mode.register") }}
             </v-btn>
           </div>
 
@@ -56,7 +56,7 @@
 
               <div class="switch-row d-flex align-center justify-space-between ga-3">
                 <v-btn class="text-none" variant="tonal" color="primary" @click="goToMainScreen">
-                  Go to main screen
+                  {{ t("jskit.auth.login.confirmEmail.goToMainScreen") }}
                 </v-btn>
                 <v-btn
                   v-if="canResendEmailConfirmation"
@@ -66,9 +66,11 @@
                   :loading="registerConfirmationResendPending"
                   @click="resendRegisterConfirmationEmail"
                 >
-                  Resend confirmation email
+                  {{ t("jskit.auth.login.confirmEmail.resend") }}
                 </v-btn>
-                <v-btn variant="text" color="secondary" @click="switchMode('login')">Back to sign in</v-btn>
+                <v-btn variant="text" color="secondary" @click="switchMode('login')">
+                  {{ t("jskit.auth.login.backToSignIn") }}
+                </v-btn>
               </div>
             </template>
 
@@ -78,7 +80,9 @@
                 class="remembered-account d-flex align-center justify-space-between ga-3 mb-4"
               >
                 <div class="remembered-copy flex-grow-1">
-                  <p class="remembered-title">Welcome back, {{ rememberedAccountDisplayName }}</p>
+                  <p class="remembered-title">
+                    {{ t("jskit.auth.login.rememberedAccount.welcomeBack", { name: rememberedAccountDisplayName }) }}
+                  </p>
                   <p class="remembered-email">{{ rememberedAccountMaskedEmail }}</p>
                 </div>
                 <v-btn variant="text" color="secondary" class="text-none" @click="switchAccount">
@@ -89,7 +93,7 @@
               <v-text-field
                 v-if="!isLogin || canUsePasswordLogin"
                 v-model="email"
-                label="Email"
+                :label="t('jskit.auth.login.field.email')"
                 variant="outlined"
                 density="comfortable"
                 type="email"
@@ -102,7 +106,7 @@
               <v-text-field
                 v-if="(isLogin && canUsePasswordLogin) || isRegister"
                 v-model="password"
-                label="Password"
+                :label="t('jskit.auth.login.field.password')"
                 :type="showPassword ? 'text' : 'password'"
                 variant="outlined"
                 density="comfortable"
@@ -117,7 +121,7 @@
               <v-text-field
                 v-if="isRegister"
                 v-model="confirmPassword"
-                label="Confirm password"
+                :label="t('jskit.auth.login.field.confirmPassword')"
                 :type="showConfirmPassword ? 'text' : 'password'"
                 variant="outlined"
                 density="comfortable"
@@ -132,7 +136,7 @@
               <v-text-field
                 v-if="isOtp"
                 v-model="otpCode"
-                label="One-time code"
+                :label="t('jskit.auth.login.field.otpCode')"
                 variant="outlined"
                 density="comfortable"
                 autocomplete="one-time-code"
@@ -148,17 +152,17 @@
                   color="secondary"
                   @click="switchMode('forgot')"
                 >
-                  Forgot password?
+                  {{ t("jskit.auth.login.forgotPassword") }}
                 </v-btn>
                 <v-btn v-if="canUseOtp" variant="text" color="secondary" @click="switchMode('otp')">
-                  Use one-time code
+                  {{ t("jskit.auth.login.useOtp") }}
                 </v-btn>
               </div>
 
               <v-checkbox
                 v-if="(isLogin && canUsePasswordLogin) || isOtp"
                 v-model="rememberAccountOnDevice"
-                label="Remember this account on this device"
+                :label="t('jskit.auth.login.rememberedAccount.rememberDevice')"
                 density="compact"
                 hide-details
                 class="mb-4"
@@ -172,7 +176,7 @@
                   :loading="otpRequestPending"
                   @click="requestOtpCode"
                 >
-                  Send one-time code
+                  {{ t("jskit.auth.login.sendOtp") }}
                 </v-btn>
               </div>
 
@@ -205,18 +209,24 @@
               </v-btn>
 
               <div v-if="isRegister" class="switch-row mt-4 d-flex align-center justify-space-between ga-3">
-                <span class="text-medium-emphasis">Already have an account?</span>
-                <v-btn variant="text" color="secondary" @click="switchMode('login')">Back to sign in</v-btn>
+                <span class="text-medium-emphasis">{{ t("jskit.auth.login.hasAccount") }}</span>
+                <v-btn variant="text" color="secondary" @click="switchMode('login')">
+                  {{ t("jskit.auth.login.backToSignIn") }}
+                </v-btn>
               </div>
 
               <div v-else-if="isForgot" class="switch-row mt-4 d-flex align-center justify-space-between ga-3">
-                <span class="text-medium-emphasis">Remembered your password?</span>
-                <v-btn variant="text" color="secondary" @click="switchMode('login')">Back to sign in</v-btn>
+                <span class="text-medium-emphasis">{{ t("jskit.auth.login.rememberedPassword") }}</span>
+                <v-btn variant="text" color="secondary" @click="switchMode('login')">
+                  {{ t("jskit.auth.login.backToSignIn") }}
+                </v-btn>
               </div>
 
               <div v-else-if="isOtp" class="switch-row mt-4 d-flex align-center justify-space-between ga-3">
-                <span class="text-medium-emphasis">Want to use another method?</span>
-                <v-btn variant="text" color="secondary" @click="switchMode('login')">Back to sign in</v-btn>
+                <span class="text-medium-emphasis">{{ t("jskit.auth.login.otherMethod") }}</span>
+                <v-btn variant="text" color="secondary" @click="switchMode('login')">
+                  {{ t("jskit.auth.login.backToSignIn") }}
+                </v-btn>
               </div>
             </template>
           </v-form>
@@ -237,6 +247,7 @@ import { useAuthOAuthLaunchClient } from "../runtime/inject.js";
 import { useLoginViewState } from "../composables/loginView/useLoginViewState.js";
 import { useLoginViewValidation } from "../composables/loginView/useLoginViewValidation.js";
 import { useLoginViewActions } from "../composables/loginView/useLoginViewActions.js";
+import { useJskitText } from "../i18n.js";
 
 const {
   context: placementContext
@@ -244,6 +255,7 @@ const {
 const queryClient = useQueryClient();
 const errorRuntime = useShellWebErrorRuntime();
 const { mobile: isMobileViewport } = useDisplay({ mobileBreakpoint: 960 });
+const { t } = useJskitText();
 
 const state = useLoginViewState({ placementContext });
 const validation = useLoginViewValidation({ state });

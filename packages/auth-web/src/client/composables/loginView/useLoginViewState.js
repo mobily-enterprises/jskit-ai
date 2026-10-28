@@ -17,6 +17,7 @@ import {
   SUBMIT_LABEL_BY_MODE
 } from "./constants.js";
 import { normalizeEmailAddress, maskEmail } from "./identityHelpers.js";
+import { useJskitText } from "../../i18n.js";
 import {
   createRememberedAccountHint,
   writeRememberedAccountHint,
@@ -39,6 +40,7 @@ function resolveInitialMode() {
 }
 
 export function useLoginViewState({ placementContext } = {}) {
+  const { t } = useJskitText();
   const mode = ref(resolveInitialMode());
   const email = ref(normalizeEmailAddress(readWindowSearchParam("email")));
   const password = ref("");
@@ -82,21 +84,28 @@ export function useLoginViewState({ placementContext } = {}) {
   const showRememberedAccount = computed(
     () => (isLogin.value || isOtp.value) && useRememberedAccount.value && Boolean(rememberedAccount.value)
   );
-  const rememberedAccountDisplayName = computed(() => String(rememberedAccount.value?.displayName || "your account"));
+  const rememberedAccountDisplayName = computed(
+    () => String(rememberedAccount.value?.displayName || t("jskit.auth.login.rememberedAccount.fallbackName"))
+  );
   const rememberedAccountMaskedEmail = computed(() => String(rememberedAccount.value?.maskedEmail || ""));
-  const rememberedAccountSwitchLabel = "Use another account";
-  const authTitle = computed(() => AUTH_TITLE_BY_MODE[mode.value] || AUTH_TITLE_BY_MODE[LOGIN_MODE]);
+  const rememberedAccountSwitchLabel = computed(() => t("jskit.auth.login.rememberedAccount.switch"));
+  // An empty key (the plain login mode) shows nothing.
+  function modeText(keysByMode) {
+    const key = keysByMode[mode.value] || keysByMode[LOGIN_MODE];
+    return key ? t(key) : "";
+  }
+  const authTitle = computed(() => modeText(AUTH_TITLE_BY_MODE));
   const authSubtitle = computed(() => {
     if (isEmailConfirmationPending.value) {
       const maskedEmail = maskEmail(pendingEmailConfirmationAddress.value);
       if (maskedEmail) {
-        return `Open the confirmation link sent to ${maskedEmail} to finish signing in.`;
+        return t("jskit.auth.login.subtitle.confirmEmailSentTo", { email: maskedEmail });
       }
-      return "Open the confirmation link from your inbox to finish signing in.";
+      return t("jskit.auth.login.subtitle.confirmEmailInbox");
     }
-    return AUTH_SUBTITLE_BY_MODE[mode.value] || AUTH_SUBTITLE_BY_MODE[LOGIN_MODE];
+    return modeText(AUTH_SUBTITLE_BY_MODE);
   });
-  const submitLabel = computed(() => SUBMIT_LABEL_BY_MODE[mode.value] || SUBMIT_LABEL_BY_MODE[LOGIN_MODE]);
+  const submitLabel = computed(() => modeText(SUBMIT_LABEL_BY_MODE));
   const allowedReturnToOrigins = computed(() =>
     resolveAllowedOriginsFromPlacementContext(placementContext?.value)
   );
@@ -122,7 +131,7 @@ export function useLoginViewState({ placementContext } = {}) {
   const emailConfirmationMessage = computed(
     () =>
       String(pendingEmailConfirmationMessage.value || "").trim() ||
-      "Please confirm your email address. After confirmation, you can sign in."
+      t("jskit.auth.login.confirmEmail.message")
   );
 
   function clearTransientMessages() {

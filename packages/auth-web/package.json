@@ -19,7 +19,8 @@
     "./client/runtime/authHttpClient": "./src/client/runtime/authHttpClient.js",
     "./client/runtime/oauthCallbackRuntime": "./src/client/runtime/oauthCallbackRuntime.js",
     "./client/runtime/useSignOut": "./src/client/runtime/useSignOut.js",
-    "./test/playwright": "./src/test/playwright.js"
+    "./test/playwright": "./src/test/playwright.js",
+    "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
     "@mdi/js": "^7.4.47"

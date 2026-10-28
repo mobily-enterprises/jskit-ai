@@ -4,6 +4,7 @@ import { isAuthGuardRuntime } from "./authGuardRuntime.js";
 import { authHttpRequest, clearAuthCsrfTokenCache } from "./authHttpClient.js";
 import { useAuthGuardRuntime } from "./inject.js";
 import { normalizeAuthReturnToPath } from "../lib/returnToPath.js";
+import { useJskitText } from "../i18n.js";
 
 const SIGN_OUT_ENDPOINT = AUTH_PATHS.LOGOUT;
 const SESSION_ENDPOINT = AUTH_PATHS.SESSION;
@@ -48,7 +49,7 @@ function createHttpLogoutApi() {
         return;
       }
 
-      throw new Error("Logout did not terminate the server session.");
+      throw new Error(useJskitText().t("jskit.auth.signOut.serverSessionActive"));
     }
   };
 }
@@ -65,7 +66,7 @@ async function performSignOutRequest({ authGuardRuntime } = {}) {
 
   const guardState = await authGuardRuntime.refresh();
   if (guardState?.authenticated) {
-    throw new Error("Sign out did not complete because the session is still authenticated.");
+    throw new Error(useJskitText().t("jskit.auth.signOut.sessionStillActive"));
   }
 
   return guardState;

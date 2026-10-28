@@ -158,6 +158,8 @@ test("a sign-in that cannot start is explained on the login page", async (t) => 
   const explained = new URL(reply.redirectedTo, "http://localhost:5173");
   assert.equal(explained.pathname, "/auth/login");
   assert.equal(explained.searchParams.get("error_description"), "Sign-in is not set up yet: AUTH_OIDC_ISSUER is missing.");
+  assert.equal(explained.searchParams.get("error_code"), "auth.oidc.setup.issuerMissing");
+  assert.equal(explained.searchParams.get("error_params"), null);
   assert.equal(reply.cookies.jskit_oidc_attempt, undefined);
 });
 

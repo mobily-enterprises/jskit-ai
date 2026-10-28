@@ -3,14 +3,14 @@
     <v-container class="fill-height d-flex align-center justify-center py-8">
       <v-card class="signout-card" rounded="lg" elevation="1" border>
         <v-card-text class="pa-7">
-          <h1 class="text-h5 mb-3">Signing you out</h1>
+          <h1 class="text-h5 mb-3">{{ t("jskit.auth.signOut.title") }}</h1>
 
           <p v-if="status === 'pending'" class="text-medium-emphasis mb-4">
-            Please wait while we end your session.
+            {{ t("jskit.auth.signOut.pending") }}
           </p>
 
           <p v-if="status === 'error'" class="text-body-1 text-medium-emphasis mb-4">
-            {{ errorMessage || "Sign out failed. Please try again." }}
+            {{ errorMessage || t("jskit.auth.signOut.failedTryAgain") }}
           </p>
 
           <div class="d-flex ga-3">
@@ -21,7 +21,7 @@
               class="text-none"
               @click="retrySignOut"
             >
-              Retry sign out
+              {{ t("jskit.auth.signOut.retry") }}
             </v-btn>
             <v-btn
               v-if="status === 'error'"
@@ -30,7 +30,7 @@
               class="text-none"
               @click="goToLogin"
             >
-              Go to login
+              {{ t("jskit.auth.signOut.goToLogin") }}
             </v-btn>
             <v-progress-circular v-if="status === 'pending'" indeterminate color="primary" size="22" />
           </div>
@@ -42,7 +42,9 @@
 
 <script setup>
 import { useDefaultSignOutView } from "../composables/useDefaultSignOutView.js";
+import { useJskitText } from "../i18n.js";
 
+const { t } = useJskitText();
 const { status, errorMessage, retrySignOut, goToLogin } = useDefaultSignOutView();
 </script>
 

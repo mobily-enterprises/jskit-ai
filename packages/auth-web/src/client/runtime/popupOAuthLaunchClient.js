@@ -1,4 +1,5 @@
 import { createBrowserOAuthLaunchClient } from "./oauthLaunchClient.js";
+import { useJskitText } from "../i18n.js";
 
 // A sign-in page refuses to be framed, so a framed app (an editor Preview, an
 // embedded dashboard) signs in through a window of its own. The window
@@ -7,6 +8,7 @@ const OAUTH_POPUP_WINDOW_NAME = "jskit-oauth-sign-in";
 const OAUTH_POPUP_MESSAGE_TYPE = "jskit.auth-web.oauth-popup.complete";
 const OAUTH_POPUP_MARKER_KEY = "jskit.auth-web.oauth-popup.started-at";
 const OAUTH_POPUP_LIFETIME_MS = 10 * 60 * 1000;
+// The English of jskit.auth.oauth.popupBlocked; the error itself is in the user's language.
 const OAUTH_POPUP_BLOCKED_MESSAGE =
   "Your browser blocked the sign-in window. Allow pop-ups for this page, then try again.";
 
@@ -57,7 +59,7 @@ function createPopupOAuthLaunchClient({
       }
       const popup = win.open(normalizedUrl, OAUTH_POPUP_WINDOW_NAME, popupFeatures(win));
       if (!popup) {
-        throw new Error(OAUTH_POPUP_BLOCKED_MESSAGE);
+        throw new Error(useJskitText().t("jskit.auth.oauth.popupBlocked"));
       }
       storageOf(win)?.setItem(OAUTH_POPUP_MARKER_KEY, String(Date.now()));
       popup.focus?.();

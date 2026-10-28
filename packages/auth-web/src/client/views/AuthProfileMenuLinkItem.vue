@@ -4,10 +4,12 @@ import { useRoute } from "vue-router";
 import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
 import ShellMenuLinkItem from "@jskit-ai/shell-web/client/components/ShellMenuLinkItem";
 import { appendAccountReturnToIfNeeded } from "../lib/profileMenuLinkTarget.js";
+import { useJskitText } from "../i18n.js";
 
 const props = defineProps({
+  // Plain text, a message key or { key, fallback, params }.
   label: {
-    type: String,
+    type: [String, Object],
     default: ""
   },
   to: {
@@ -24,6 +26,7 @@ const props = defineProps({
   }
 });
 const route = useRoute();
+const { text } = useJskitText();
 const { context: placementContext } = useWebPlacementContext();
 
 function resolveWindowHref() {
@@ -45,7 +48,7 @@ const resolvedTo = computed(() =>
 
 <template>
   <ShellMenuLinkItem
-    :label="props.label"
+    :label="text(props.label)"
     :to="resolvedTo"
     :icon="props.icon"
     :disabled="props.disabled"

@@ -281,3 +281,17 @@ test("useLoginViewActions includes invitation context when registering from an i
     }
   ]);
 });
+
+test("OAuth buttons name their provider in the sign-in sentence", () => {
+  const state = createMinimalLoginViewState();
+  const actions = useLoginViewActions({ state, validation: {}, queryClient: {}, errorRuntime: { report() {} } });
+  const github = { id: "github", label: "GitHub" };
+
+  assert.equal(actions.oauthProviderButtonLabel(github), "Continue with GitHub");
+  assert.equal(actions.oauthProviderButtonLabel({}), "Continue with OAuth provider");
+  state.showRememberedAccount.value = true;
+  state.rememberedAccountDisplayName.value = "Ada";
+  assert.equal(actions.oauthProviderButtonLabel(github), "Continue with GitHub as Ada");
+  state.isRegister.value = true;
+  assert.equal(actions.oauthProviderButtonLabel(github), "Register with GitHub");
+});

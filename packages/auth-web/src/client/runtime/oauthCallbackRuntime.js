@@ -1,5 +1,4 @@
 import { authLoginOAuthCompleteCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOAuthCompleteCommand";
-import { resolveAuthDeniedLoginMessage } from "@jskit-ai/auth-core/shared/authDenied";
 import {
   OAUTH_QUERY_PARAM_PROVIDER,
   OAUTH_QUERY_PARAM_RETURN_TO
@@ -12,6 +11,18 @@ import {
   readAuthCallbackUrlParams
 } from "./authCallbackUrlParams.js";
 import { ensureCommandSectionValid } from "../composables/loginView/validationHelpers.js";
+import { inactiveSessionMessage } from "./inactiveSessionMessage.js";
+import { useJskitText } from "../i18n.js";
+
+// The params of a sign-in error the server explained by redirect (error_params).
+function readErrorParams(value = "") {
+  try {
+    const params = JSON.parse(value || "{}");
+    return params && typeof params === "object" && !Array.isArray(params) ? params : {};
+  } catch {
+    return {};
+  }
+}
 
 function readOAuthCallbackParamsFromUrl(url = "") {
   const callbackUrlParams = readAuthCallbackUrlParams(url);
@@ -33,6 +44,10 @@ function readOAuthCallbackParamsFromUrl(url = "") {
     readAuthCallbackParam(callbackUrlParams, "error_description") ||
       readAuthCallbackParam(callbackUrlParams, "errorDescription")
   ).trim();
+  // The description's code and params, sent when the app's server explained the
+  // error. A provider's own error_code is translated only if its English matches.
+  const errorDescriptionCode = String(readAuthCallbackParam(callbackUrlParams, "error_code")).trim();
+  const errorDescriptionParams = readErrorParams(readAuthCallbackParam(callbackUrlParams, "error_params"));
   const hasSessionPair = Boolean(accessToken && refreshToken);
 
   if (!code && !hasSessionPair && !errorCode) {
@@ -48,6 +63,8 @@ function readOAuthCallbackParamsFromUrl(url = "") {
     hasSessionPair,
     errorCode,
     errorDescription,
+    errorDescriptionCode,
+    errorDescriptionParams,
     provider: String(searchParams.get(OAUTH_QUERY_PARAM_PROVIDER) || "").trim().toLowerCase(),
     returnTo: String(searchParams.get(OAUTH_QUERY_PARAM_RETURN_TO) || "").trim()
   });
@@ -100,15 +117,19 @@ async function completeOAuthCallbackFromUrl({
     .trim()
     .toLowerCase();
   const oauthError = callbackParams.errorCode;
-  const oauthErrorDescription = callbackParams.errorDescription;
   const hasSessionPair = callbackParams.hasSessionPair === true;
+  const { serverMessage, t } = useJskitText();
 
   if (oauthError) {
     return Object.freeze({
       handled: true,
       completed: false,
       returnTo,
-      errorMessage: oauthErrorDescription || oauthError,
+      errorMessage: serverMessage({
+        code: callbackParams.errorDescriptionCode,
+        params: callbackParams.errorDescriptionParams,
+        message: callbackParams.errorDescription
+      }, oauthError),
       callbackParams
     });
   }
@@ -118,7 +139,7 @@ async function completeOAuthCallbackFromUrl({
       handled: true,
       completed: false,
       returnTo,
-      errorMessage: "OAuth provider is missing from callback.",
+      errorMessage: t("jskit.auth.oauth.providerMissing"),
       callbackParams
     });
   }
@@ -133,7 +154,7 @@ async function completeOAuthCallbackFromUrl({
       authLoginOAuthCompleteCommand,
       "body",
       payload,
-      "Invalid OAuth callback payload."
+      t("jskit.auth.oauth.invalidCallback")
     );
 
     const oauthResult = await request(AUTH_PATHS.OAUTH_COMPLETE, {
@@ -142,11 +163,7 @@ async function completeOAuthCallbackFromUrl({
     });
     const session = await refreshSession();
     if (!session?.authenticated) {
-      const authDeniedMessage = resolveAuthDeniedLoginMessage(session?.authDenied);
-      if (authDeniedMessage) {
-        throw new Error(authDeniedMessage);
-      }
-      throw new Error("Login succeeded but the session is not active yet. Please retry.");
+      throw new Error(inactiveSessionMessage(session));
     }
 
     return Object.freeze({
@@ -166,7 +183,7 @@ async function completeOAuthCallbackFromUrl({
       completed: false,
       returnTo,
       callbackParams,
-      errorMessage: String(error?.message || "Unable to complete OAuth sign-in.")
+      errorMessage: serverMessage(error, t("jskit.auth.login.error.oauthCompleteFailed"))
     });
   }
 }

@@ -24,6 +24,8 @@ function stripOAuthParamsFromLocation() {
     "type",
     "error",
     "error_description",
+    "error_code",
+    "error_params",
     "errorCode",
     "errorDescription",
     OAUTH_QUERY_PARAM_PROVIDER,

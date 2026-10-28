@@ -18,7 +18,7 @@
       >
         <v-card-text class="reset-content" :class="{ 'reset-content--mobile': isMobileViewport }">
           <div class="reset-header mb-5">
-            <h1 class="reset-title">Reset password</h1>
+            <h1 class="reset-title">{{ t("jskit.auth.resetPassword.title") }}</h1>
           </div>
 
           <v-alert v-if="errorMessage" type="error" variant="tonal" class="mb-4">
@@ -26,7 +26,7 @@
           </v-alert>
 
           <v-alert v-if="status === 'done'" type="success" variant="tonal" class="mb-4">
-            Password updated. Sign in with your new password.
+            {{ t("jskit.auth.resetPassword.done") }}
           </v-alert>
 
           <v-progress-linear v-if="status === 'checking'" indeterminate color="primary" class="mb-4" />
@@ -34,7 +34,7 @@
           <v-form v-if="status === 'ready'" @submit.prevent="submitReset" novalidate>
             <v-text-field
               v-model="password"
-              label="New password"
+              :label="t('jskit.auth.resetPassword.newPassword')"
               :type="showPassword ? 'text' : 'password'"
               variant="outlined"
               density="comfortable"
@@ -46,7 +46,7 @@
             />
             <v-text-field
               v-model="confirmPassword"
-              label="Confirm password"
+              :label="t('jskit.auth.resetPassword.confirmPassword')"
               :type="showConfirmPassword ? 'text' : 'password'"
               variant="outlined"
               density="comfortable"
@@ -57,12 +57,14 @@
               @click:append-inner="showConfirmPassword = !showConfirmPassword"
             />
             <v-btn block color="primary" size="large" type="submit" :loading="loading" :disabled="!canSubmit">
-              Update password
+              {{ t("jskit.auth.resetPassword.submit") }}
             </v-btn>
           </v-form>
 
           <div v-if="status === 'done' || status === 'error'" class="mt-4 d-flex justify-end">
-            <v-btn variant="text" color="secondary" href="/auth/login">Back to sign in</v-btn>
+            <v-btn variant="text" color="secondary" href="/auth/login">
+              {{ t("jskit.auth.resetPassword.backToSignIn") }}
+            </v-btn>
           </div>
         </v-card-text>
       </v-card>
@@ -85,8 +87,10 @@ import {
   validateCommandSection,
   resolveFieldValidationMessage
 } from "../composables/loginView/validationHelpers.js";
+import { useJskitText } from "../i18n.js";
 
 const { mobile: isMobileViewport } = useDisplay({ mobileBreakpoint: 960 });
+const { serverMessage, t } = useJskitText();
 const status = ref("checking");
 const loading = ref(false);
 const errorMessage = ref("");
@@ -112,7 +116,7 @@ const confirmPasswordError = computed(() => {
   if (!confirmPassword.value) {
     return [];
   }
-  return password.value === confirmPassword.value ? [] : ["Passwords must match."];
+  return password.value === confirmPassword.value ? [] : [t("jskit.auth.resetPassword.passwordsMustMatch")];
 });
 const canSubmit = computed(() =>
   Boolean(password.value) &&
@@ -143,7 +147,7 @@ async function exchangeRecoveryToken() {
     status.value = "ready";
   } catch (error) {
     status.value = "error";
-    errorMessage.value = String(error?.message || "Recovery link is invalid or expired.");
+    errorMessage.value = serverMessage(error, t("jskit.auth.resetPassword.recoveryInvalid"));
   }
 }
 
@@ -164,7 +168,7 @@ async function submitReset() {
     password.value = "";
     confirmPassword.value = "";
   } catch (error) {
-    errorMessage.value = String(error?.message || "Unable to update password.");
+    errorMessage.value = serverMessage(error, t("jskit.auth.resetPassword.updateFailed"));
   } finally {
     loading.value = false;
   }

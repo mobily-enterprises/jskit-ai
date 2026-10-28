@@ -1,5 +1,6 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { normalizeAuthDenied } from "@jskit-ai/auth-core/shared/authDenied";
+import { AUTH_TEXTS, authMessageFields, authText } from "@jskit-ai/auth-core/server/authTexts";
 import { AUTH_ACTION_IDS } from "../constants/authActionIds.js";
 import { AuthWebService } from "../services/AuthWebService.js";
 
@@ -25,7 +26,9 @@ class AuthController {
       reply.code(201).send({
         ok: true,
         requiresEmailConfirmation: true,
-        message: "Check your email to confirm the account before logging in."
+        message: "Check your email to confirm the account before logging in.",
+        messageCode: "auth.register.confirmEmail",
+        messageParams: {}
       });
       return;
     }
@@ -83,8 +86,15 @@ class AuthController {
       if (!(error instanceof AppError) || error.statusCode === 500) {
         throw error;
       }
-      // The browser navigated here, so the login page explains instead of a JSON body.
+      // The browser navigated here, so the login page explains instead of a JSON body,
+      // with the error's code and params so it can show the explanation translated.
       const explained = new URLSearchParams({ error: "sign_in_unavailable", error_description: error.message });
+      if (error.code) {
+        explained.set("error_code", String(error.code));
+      }
+      if (error.params && Object.keys(error.params).length > 0) {
+        explained.set("error_params", JSON.stringify(error.params));
+      }
       reply.redirect(`/auth/login?${explained}`);
       return;
     }
@@ -154,7 +164,9 @@ class AuthController {
 
     if (authResult.transientFailure) {
       reply.code(503).send({
-        error: "Authentication service temporarily unavailable. Please retry.",
+        error: authText(AUTH_TEXTS.sessionUnavailable),
+        code: AUTH_TEXTS.sessionUnavailable.code,
+        params: {},
         csrfToken,
         ...oauthCatalogPayload
       });
@@ -203,7 +215,7 @@ class AuthController {
     this.service.clearSessionCookies(reply);
     reply.code(200).send({
       ok: true,
-      message: "Password updated. Sign in with your new password."
+      ...authMessageFields(AUTH_TEXTS.passwordUpdatedSignIn)
     });
   }
 }

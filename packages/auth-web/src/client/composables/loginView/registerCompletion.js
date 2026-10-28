@@ -1,8 +1,9 @@
-import { DEFAULT_REGISTER_CONFIRMATION_MESSAGE } from "./constants.js";
+import { useJskitText } from "../../i18n.js";
 
 function resolveRegisterCompletionState(registerResult) {
   if (registerResult?.requiresEmailConfirmation === true) {
-    const message = String(registerResult?.message || "").trim() || DEFAULT_REGISTER_CONFIRMATION_MESSAGE;
+    const { serverMessage, t } = useJskitText();
+    const message = serverMessage(registerResult).trim() || t("jskit.auth.register.confirmEmail");
     return {
       shouldCompleteLogin: false,
       message

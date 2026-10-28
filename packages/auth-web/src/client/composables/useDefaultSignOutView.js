@@ -8,6 +8,7 @@ import {
 import { performSignOutRequest } from "../runtime/useSignOut.js";
 import { useAuthGuardRuntime } from "../runtime/inject.js";
 import { normalizeAuthReturnToPath } from "../lib/returnToPath.js";
+import { useJskitText } from "../i18n.js";
 
 function readReturnToPathFromLocation({ allowedOrigins = [] } = {}) {
   if (typeof window !== "object" || !window.location) {
@@ -31,6 +32,7 @@ function navigateToPath(path, { replace = true } = {}) {
 }
 
 export function useDefaultSignOutView() {
+  const { serverMessage, t } = useJskitText();
   const authGuardRuntime = useAuthGuardRuntime({
     required: true
   });
@@ -87,7 +89,7 @@ export function useDefaultSignOutView() {
       navigateToPath(loginRoute.value, { replace: true });
     } catch (error) {
       status.value = "error";
-      setErrorMessage(String(error?.message || "Sign out failed."));
+      setErrorMessage(serverMessage(error, t("jskit.auth.signOut.failed")));
     }
   }
 

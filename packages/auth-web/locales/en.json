@@ -1,0 +1,116 @@
+{
+  "jskit": {
+    "auth": {
+      "register": {
+        "confirmEmail": "Check your email to confirm the account before logging in."
+      },
+      "login": {
+        "title": {
+          "register": "Create your account",
+          "forgot": "Reset your password",
+          "otp": "Use one-time code",
+          "confirmEmail": "Confirm your email"
+        },
+        "subtitle": {
+          "register": "Register to access your workspace.",
+          "forgot": "We will send password reset instructions to your email.",
+          "otp": "Request a one-time login code and verify it below.",
+          "confirmEmailSentTo": "Open the confirmation link sent to {email} to finish signing in.",
+          "confirmEmailInbox": "Open the confirmation link from your inbox to finish signing in."
+        },
+        "submit": {
+          "login": "Sign in",
+          "register": "Register",
+          "forgot": "Send reset instructions",
+          "otp": "Verify code",
+          "confirmEmail": "Continue"
+        },
+        "mode": {
+          "signIn": "Sign in",
+          "register": "Register"
+        },
+        "field": {
+          "email": "Email",
+          "password": "Password",
+          "confirmPassword": "Confirm password",
+          "otpCode": "One-time code"
+        },
+        "confirmEmail": {
+          "message": "Please confirm your email address. After confirmation, you can sign in.",
+          "goToMainScreen": "Go to main screen",
+          "resend": "Resend confirmation email",
+          "resent": "If an account exists for that email, a confirmation email has been sent."
+        },
+        "rememberedAccount": {
+          "welcomeBack": "Welcome back, {name}",
+          "fallbackName": "your account",
+          "defaultName": "User",
+          "switch": "Use another account",
+          "rememberDevice": "Remember this account on this device"
+        },
+        "oauth": {
+          "register": "Register with {provider}",
+          "continue": "Continue with {provider}",
+          "continueAs": "Continue with {provider} as {name}",
+          "providerFallback": "OAuth provider"
+        },
+        "forgotPassword": "Forgot password?",
+        "useOtp": "Use one-time code",
+        "sendOtp": "Send one-time code",
+        "backToSignIn": "Back to sign in",
+        "hasAccount": "Already have an account?",
+        "rememberedPassword": "Remembered your password?",
+        "otherMethod": "Want to use another method?",
+        "passwordsMismatch": "Passwords do not match.",
+        "resetSent": "Password reset instructions sent.",
+        "otpSent": "One-time code sent. Check your inbox.",
+        "error": {
+          "sessionNotActive": "Login succeeded but the session is not active yet. Please retry.",
+          "authFailed": "Authentication failed.",
+          "registerFailed": "Unable to register.",
+          "resetRequestFailed": "Unable to request password reset.",
+          "otpVerifyFailed": "Unable to verify one-time code.",
+          "signInFailed": "Unable to sign in.",
+          "otpRequestFailed": "Unable to request one-time code.",
+          "emailRequiredForConfirmation": "Enter an email address before requesting confirmation.",
+          "resendConfirmationFailed": "Unable to resend confirmation email.",
+          "oauthCompleteFailed": "Unable to complete OAuth sign-in.",
+          "oauthProviderInvalid": "OAuth provider id is invalid.",
+          "oauthReturnToInvalid": "OAuth return path is invalid.",
+          "oauthStartFailed": "Unable to start OAuth sign-in.",
+          "oauthLaunchUnavailable": "OAuth launch client is unavailable.",
+          "initializeFailed": "Unable to initialize sign in."
+        }
+      },
+      "oauth": {
+        "providerMissing": "OAuth provider is missing from callback.",
+        "invalidCallback": "Invalid OAuth callback payload.",
+        "popupBlocked": "Your browser blocked the sign-in window. Allow pop-ups for this page, then try again."
+      },
+      "resetPassword": {
+        "title": "Reset password",
+        "done": "Password updated. Sign in with your new password.",
+        "newPassword": "New password",
+        "confirmPassword": "Confirm password",
+        "submit": "Update password",
+        "backToSignIn": "Back to sign in",
+        "passwordsMustMatch": "Passwords must match.",
+        "recoveryInvalid": "Recovery link is invalid or expired.",
+        "updateFailed": "Unable to update password."
+      },
+      "signOut": {
+        "title": "Signing you out",
+        "pending": "Please wait while we end your session.",
+        "failedTryAgain": "Sign out failed. Please try again.",
+        "failed": "Sign out failed.",
+        "retry": "Retry sign out",
+        "goToLogin": "Go to login",
+        "sessionStillActive": "Sign out did not complete because the session is still authenticated.",
+        "serverSessionActive": "Logout did not terminate the server session."
+      },
+      "profile": {
+        "guest": "Guest"
+      }
+    }
+  }
+}

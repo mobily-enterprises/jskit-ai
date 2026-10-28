@@ -4,30 +4,29 @@ const FORGOT_MODE = "forgot";
 const OTP_MODE = "otp";
 const EMAIL_CONFIRMATION_MODE = "confirm-email";
 
+// Message keys per mode; an empty entry shows nothing.
 const AUTH_TITLE_BY_MODE = Object.freeze({
   [LOGIN_MODE]: "",
-  [REGISTER_MODE]: "Create your account",
-  [FORGOT_MODE]: "Reset your password",
-  [OTP_MODE]: "Use one-time code",
-  [EMAIL_CONFIRMATION_MODE]: "Confirm your email"
+  [REGISTER_MODE]: "jskit.auth.login.title.register",
+  [FORGOT_MODE]: "jskit.auth.login.title.forgot",
+  [OTP_MODE]: "jskit.auth.login.title.otp",
+  [EMAIL_CONFIRMATION_MODE]: "jskit.auth.login.title.confirmEmail"
 });
 
 const AUTH_SUBTITLE_BY_MODE = Object.freeze({
   [LOGIN_MODE]: "",
-  [REGISTER_MODE]: "Register to access your workspace.",
-  [FORGOT_MODE]: "We will send password reset instructions to your email.",
-  [OTP_MODE]: "Request a one-time login code and verify it below."
+  [REGISTER_MODE]: "jskit.auth.login.subtitle.register",
+  [FORGOT_MODE]: "jskit.auth.login.subtitle.forgot",
+  [OTP_MODE]: "jskit.auth.login.subtitle.otp"
 });
 
 const SUBMIT_LABEL_BY_MODE = Object.freeze({
-  [LOGIN_MODE]: "Sign in",
-  [REGISTER_MODE]: "Register",
-  [FORGOT_MODE]: "Send reset instructions",
-  [OTP_MODE]: "Verify code",
-  [EMAIL_CONFIRMATION_MODE]: "Continue"
+  [LOGIN_MODE]: "jskit.auth.login.submit.login",
+  [REGISTER_MODE]: "jskit.auth.login.submit.register",
+  [FORGOT_MODE]: "jskit.auth.login.submit.forgot",
+  [OTP_MODE]: "jskit.auth.login.submit.otp",
+  [EMAIL_CONFIRMATION_MODE]: "jskit.auth.login.submit.confirmEmail"
 });
-
-const DEFAULT_REGISTER_CONFIRMATION_MESSAGE = "Check your email to confirm the account before logging in.";
 
 export {
   LOGIN_MODE,
@@ -37,6 +36,5 @@ export {
   EMAIL_CONFIRMATION_MODE,
   AUTH_TITLE_BY_MODE,
   AUTH_SUBTITLE_BY_MODE,
-  SUBMIT_LABEL_BY_MODE,
-  DEFAULT_REGISTER_CONFIRMATION_MESSAGE
+  SUBMIT_LABEL_BY_MODE
 };
