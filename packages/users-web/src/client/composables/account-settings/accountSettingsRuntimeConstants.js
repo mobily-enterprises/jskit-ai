@@ -1,30 +1,32 @@
 const AVATAR_DEFAULT_SIZE = 64;
 
+// Option titles are message keys; the runtime translates them.
 const THEME_OPTIONS = Object.freeze([
-  { title: "System", value: "system" },
-  { title: "Light", value: "light" },
-  { title: "Dark", value: "dark" }
+  { titleKey: "jskit.users.accountSettings.preferences.theme.system", value: "system" },
+  { titleKey: "jskit.users.accountSettings.preferences.theme.light", value: "light" },
+  { titleKey: "jskit.users.accountSettings.preferences.theme.dark", value: "dark" }
 ]);
 
+// The languages offered when the app configures none (config.languages).
 const LOCALE_OPTIONS = Object.freeze([
-  { title: "English (US)", value: "en-US" },
-  { title: "English (UK)", value: "en-GB" },
-  { title: "Italian", value: "it-IT" },
-  { title: "Spanish", value: "es-ES" }
+  { titleKey: "jskit.users.accountSettings.preferences.locale.enUS", value: "en-US" },
+  { titleKey: "jskit.users.accountSettings.preferences.locale.enGB", value: "en-GB" },
+  { titleKey: "jskit.users.accountSettings.preferences.locale.itIT", value: "it-IT" },
+  { titleKey: "jskit.users.accountSettings.preferences.locale.esES", value: "es-ES" }
 ]);
 
 const DATE_FORMAT_OPTIONS = Object.freeze([
-  { title: "System", value: "system" },
-  { title: "MM/DD/YYYY", value: "mdy" },
-  { title: "DD/MM/YYYY", value: "dmy" },
-  { title: "YYYY-MM-DD", value: "ymd" }
+  { titleKey: "jskit.users.accountSettings.preferences.dateFormat.system", value: "system" },
+  { titleKey: "jskit.users.accountSettings.preferences.dateFormat.mdy", value: "mdy" },
+  { titleKey: "jskit.users.accountSettings.preferences.dateFormat.dmy", value: "dmy" },
+  { titleKey: "jskit.users.accountSettings.preferences.dateFormat.ymd", value: "ymd" }
 ]);
 
 const NUMBER_FORMAT_OPTIONS = Object.freeze([
-  { title: "System", value: "system" },
-  { title: "1,234.56", value: "comma-dot" },
-  { title: "1.234,56", value: "dot-comma" },
-  { title: "1 234,56", value: "space-comma" }
+  { titleKey: "jskit.users.accountSettings.preferences.numberFormat.system", value: "system" },
+  { titleKey: "jskit.users.accountSettings.preferences.numberFormat.commaDot", value: "comma-dot" },
+  { titleKey: "jskit.users.accountSettings.preferences.numberFormat.dotComma", value: "dot-comma" },
+  { titleKey: "jskit.users.accountSettings.preferences.numberFormat.spaceComma", value: "space-comma" }
 ]);
 
 const CURRENCY_OPTIONS = Object.freeze(["USD", "EUR", "GBP", "AUD", "JPY"]);

@@ -63,8 +63,9 @@ test("account settings pattern keeps the app-owned route and sections as adaptab
 });
 
 test("profile copy remains authentication-provider neutral", async () => {
+  // The package's profile form takes its copy from the English catalog.
   for (const sourcePath of [
-    path.join("src", "client", "components", "ProfileClientElement.vue"),
+    path.join("locales", "en.json"),
     path.join(
       "patterns",
       "account-settings",

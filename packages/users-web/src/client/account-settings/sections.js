@@ -13,6 +13,15 @@ import {
 const ACCOUNT_SETTINGS_SECTION_TARGET = "account-settings:sections";
 const EMPTY_ACCOUNT_SETTINGS_SECTIONS = Object.freeze([]);
 
+// A section title is plain text, a message key or { key, fallback, params };
+// the settings host renders it with useJskitText().text().
+function normalizeSectionTitle(value) {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value.key || value.fallback ? Object.freeze({ ...value }) : "";
+  }
+  return String(value || "").trim();
+}
+
 function normalizeAccountSettingsSectionEntry(entry = null) {
   if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
     return null;
@@ -22,7 +31,7 @@ function normalizeAccountSettingsSectionEntry(entry = null) {
     ? entry.props
     : {};
   const value = String(props.value || entry.value || "").trim().toLowerCase();
-  const title = String(props.title || entry.title || "").trim();
+  const title = normalizeSectionTitle(props.title || entry.title);
   const component = entry.component;
   if (!value || !title || !component) {
     return null;

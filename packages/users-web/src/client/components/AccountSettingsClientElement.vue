@@ -4,7 +4,9 @@ import { useRoute, useRouter } from "vue-router";
 import { normalizeOneOf } from "@jskit-ai/kernel/shared/support/normalize";
 import { useAccountSettingsRuntime } from "../composables/useAccountSettingsRuntime.js";
 import { useAccountSettingsSections } from "../account-settings/sections.js";
+import { useJskitText } from "../i18n.js";
 
+const { t, text } = useJskitText();
 const runtime = useAccountSettingsRuntime();
 const route = useRoute();
 const router = useRouter();
@@ -59,9 +61,9 @@ const activeTab = computed({
     <v-sheet class="settings-panel" rounded="lg" border>
       <header class="settings-panel__header">
         <div>
-          <h1 class="settings-panel__title">Account settings</h1>
+          <h1 class="settings-panel__title">{{ t("jskit.users.accountSettings.title") }}</h1>
           <p class="text-body-2 text-medium-emphasis mb-0">
-            Global profile, preferences, notifications, and account controls.
+            {{ t("jskit.users.accountSettings.subtitle") }}
           </p>
         </div>
         <v-btn
@@ -70,7 +72,7 @@ const activeTab = computed({
           :to="runtime.backNavigationTarget.value.sameOrigin ? runtime.backNavigationTarget.value.href : undefined"
           :href="runtime.backNavigationTarget.value.sameOrigin ? undefined : runtime.backNavigationTarget.value.href"
         >
-          Back
+          {{ t("jskit.users.accountSettings.back") }}
         </v-btn>
       </header>
 
@@ -80,7 +82,7 @@ const activeTab = computed({
           <v-skeleton-loader type="text@2, paragraph, button" />
         </template>
         <div v-else-if="runtime.settingsLoadError.value" class="settings-panel__state">
-          <h2 class="text-h6 mb-2">Unable to load account settings</h2>
+          <h2 class="text-h6 mb-2">{{ t("jskit.users.accountSettings.loadFailedTitle") }}</h2>
           <p class="text-body-2 text-medium-emphasis mb-4">{{ runtime.settingsLoadError.value }}</p>
           <v-btn
             color="primary"
@@ -88,11 +90,11 @@ const activeTab = computed({
             :loading="runtime.refreshingSettings.value"
             @click="runtime.refreshSettings"
           >
-            Retry
+            {{ t("jskit.users.accountSettings.retry") }}
           </v-btn>
         </div>
         <template v-else-if="sections.length < 1">
-          <p class="text-body-2 text-medium-emphasis mb-0">No account settings sections are registered.</p>
+          <p class="text-body-2 text-medium-emphasis mb-0">{{ t("jskit.users.accountSettings.noSections") }}</p>
         </template>
         <template v-else>
           <v-progress-linear v-if="runtime.refreshingSettings.value" indeterminate class="mb-4" />
@@ -102,7 +104,7 @@ const activeTab = computed({
                 <v-list-item
                   v-for="section in sections"
                   :key="section.value"
-                  :title="section.title"
+                  :title="text(section.title)"
                   :active="activeTab === section.value"
                   rounded="lg"
                   @click="activeTab = section.value"

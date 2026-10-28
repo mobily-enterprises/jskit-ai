@@ -101,3 +101,18 @@ test("normalizeAccountSettingsSectionEntry rejects malformed placement entries",
     null
   );
 });
+
+test("normalizeAccountSettingsSectionEntry keeps a message-key title for the host to translate", () => {
+  const entry = normalizeAccountSettingsSectionEntry({
+    component: {},
+    props: {
+      value: "billing",
+      title: { key: "app.settings.billing", fallback: "Billing" }
+    }
+  });
+  assert.deepEqual(entry.title, { key: "app.settings.billing", fallback: "Billing" });
+  assert.equal(
+    normalizeAccountSettingsSectionEntry({ component: {}, props: { value: "billing", title: {} } }),
+    null
+  );
+});

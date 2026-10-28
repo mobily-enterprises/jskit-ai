@@ -12,6 +12,7 @@ import {
 } from "../../shared/imageUploadDefaults.js";
 import { parseUploadResponse } from "../support/parseUploadResponse.js";
 import { stopImageEditor } from "../support/stopImageEditor.js";
+import { useJskitText } from "../i18n.js";
 
 function normalizeObject(value) {
   return value && typeof value === "object" ? value : {};
@@ -57,7 +58,10 @@ function createImageUploadRuntime({
   const normalizedMethod = String(method || "POST").trim().toUpperCase() || "POST";
   const dashboardNote =
     String(note || "").trim() ||
-    `Accepted: ${normalizedAllowedMimeTypes.join(", ")}, max ${Math.floor(normalizedMaxUploadBytes / (1024 * 1024))}MB`;
+    useJskitText().t("jskit.uploads.imageUpload.note", {
+      types: normalizedAllowedMimeTypes.join(", "),
+      maxMb: Math.floor(normalizedMaxUploadBytes / (1024 * 1024))
+    });
 
   function emitSelectedFileName(fileName) {
     if (typeof onSelectedFileNameChanged === "function") {

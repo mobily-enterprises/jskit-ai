@@ -9,7 +9,8 @@
     "./client": "./src/client/index.js",
     "./client/providers/UsersWebClientProvider": "./src/client/providers/UsersWebClientProvider.js",
     "./client/components/AccountSettingsClientElement": "./src/client/components/AccountSettingsClientElement.vue",
-    "./client/account-settings/sections": "./src/client/account-settings/sections.js"
+    "./client/account-settings/sections": "./src/client/account-settings/sections.js",
+    "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
     "@jskit-ai/uploads-image-web": "0.1.223",

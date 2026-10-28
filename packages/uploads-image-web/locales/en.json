@@ -1,0 +1,22 @@
+{
+  "jskit": {
+    "uploads": {
+      "imageUpload": {
+        "note": "Accepted: {types}, max {maxMb}MB"
+      },
+      "imageAsset": {
+        "endpointUnavailable": "Image endpoint is unavailable.",
+        "uploadSuccess": "Image uploaded.",
+        "uploadInvalidResponse": "Image uploaded, but the response payload was invalid.",
+        "uploadError": "Unable to upload image.",
+        "uploadRestriction": "Selected image does not meet upload restrictions.",
+        "editorUnavailable": "Image editor is unavailable in this environment.",
+        "deleteSuccess": "Image removed.",
+        "deleteError": "Unable to remove image.",
+        "deleteUnavailable": "Image removal is unavailable.",
+        "deleteRequestFailed": "Image delete request failed.",
+        "changeError": "Image updated, but the page could not refresh."
+      }
+    }
+  }
+}

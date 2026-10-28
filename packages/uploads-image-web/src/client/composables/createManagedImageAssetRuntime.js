@@ -1,17 +1,20 @@
 import { computed, ref, unref } from "vue";
 import { createImageUploadRuntime } from "./createImageUploadRuntime.js";
+import { useJskitText } from "../i18n.js";
 
+// Message keys; a caller's messages may be keys or plain text, rendered with
+// useJskitText().text() when shown.
 const DEFAULT_MANAGED_IMAGE_ASSET_MESSAGES = Object.freeze({
-  endpointUnavailable: "Image endpoint is unavailable.",
-  uploadSuccess: "Image uploaded.",
-  uploadInvalidResponse: "Image uploaded, but the response payload was invalid.",
-  uploadError: "Unable to upload image.",
-  uploadRestriction: "Selected image does not meet upload restrictions.",
-  editorUnavailable: "Image editor is unavailable in this environment.",
-  deleteSuccess: "Image removed.",
-  deleteError: "Unable to remove image.",
-  deleteUnavailable: "Image removal is unavailable.",
-  changeError: "Image updated, but the page could not refresh."
+  endpointUnavailable: "jskit.uploads.imageAsset.endpointUnavailable",
+  uploadSuccess: "jskit.uploads.imageAsset.uploadSuccess",
+  uploadInvalidResponse: "jskit.uploads.imageAsset.uploadInvalidResponse",
+  uploadError: "jskit.uploads.imageAsset.uploadError",
+  uploadRestriction: "jskit.uploads.imageAsset.uploadRestriction",
+  editorUnavailable: "jskit.uploads.imageAsset.editorUnavailable",
+  deleteSuccess: "jskit.uploads.imageAsset.deleteSuccess",
+  deleteError: "jskit.uploads.imageAsset.deleteError",
+  deleteUnavailable: "jskit.uploads.imageAsset.deleteUnavailable",
+  changeError: "jskit.uploads.imageAsset.changeError"
 });
 
 function normalizeText(value) {
@@ -57,14 +60,18 @@ function resolveMessage(value, fallback) {
   return normalizedValue || fallback;
 }
 
+// The server's error in the user's language when JSKIT knows its code.
+function resolveBodyErrorMessage(body) {
+  const source = body && typeof body === "object" ? body : {};
+  return source.error ? useJskitText().serverMessage({ ...source, message: source.error }) : "";
+}
+
 function resolveUploadErrorFallback({ error, response, fallbackMessage }) {
-  const body = response?.body && typeof response.body === "object" ? response.body : {};
-  return resolveMessage(body?.error || error?.message, fallbackMessage);
+  return resolveMessage(resolveBodyErrorMessage(response?.body) || error?.message, fallbackMessage);
 }
 
 function resolveDeleteErrorFallback({ error, body, fallbackMessage }) {
-  const normalizedBody = body && typeof body === "object" ? body : {};
-  return resolveMessage(normalizedBody?.error || error?.message, fallbackMessage);
+  return resolveMessage(resolveBodyErrorMessage(body) || error?.message, fallbackMessage);
 }
 
 function normalizeDeleteResult(result) {
@@ -102,12 +109,14 @@ function createManagedImageAssetRuntime({
   source = "uploads-image-web.managed-image-asset",
   dependencies = {}
 } = {}) {
+  const { t, text } = useJskitText();
   const createImageUploadRuntimeFactory = dependencies.createImageUploadRuntimeFactory || createImageUploadRuntime;
   const fetchImpl = dependencies.fetchImpl || globalThis.fetch?.bind(globalThis);
   const normalizedMessages = {
     ...DEFAULT_MANAGED_IMAGE_ASSET_MESSAGES,
     ...normalizeObject(messages)
   };
+  const messageText = (name) => text(normalizedMessages[name]);
   const selectedFileNameRef = normalizeWritableRef(selectedFileName);
   const isDeleting = ref(false);
   const normalizedFieldName = normalizeText(fieldName || "file") || "file";
@@ -192,7 +201,7 @@ function createManagedImageAssetRuntime({
       await Promise.resolve(handler(payload));
     } catch (error) {
       report({
-        message: resolveMessage(error?.message, normalizedMessages.changeError),
+        message: resolveMessage(error?.message, messageText("changeError")),
         severity: "error",
         channel: "banner",
         dedupeKey: `${source}:change-error`
@@ -204,7 +213,7 @@ function createManagedImageAssetRuntime({
     const fallbackMessage = resolveUploadErrorFallback({
       error,
       response,
-      fallbackMessage: normalizedMessages.uploadError
+      fallbackMessage: messageText("uploadError")
     });
     if (typeof resolveUploadErrorMessage !== "function") {
       return fallbackMessage;
@@ -225,7 +234,7 @@ function createManagedImageAssetRuntime({
     const fallbackMessage = resolveDeleteErrorFallback({
       error,
       body,
-      fallbackMessage: normalizedMessages.deleteError
+      fallbackMessage: messageText("deleteError")
     });
     if (typeof resolveDeleteErrorMessage !== "function") {
       return fallbackMessage;
@@ -276,7 +285,7 @@ function createManagedImageAssetRuntime({
         closeDashboard(payload?.uppy);
         updateSelectedFileName("");
         report({
-          message: normalizedMessages.uploadSuccess,
+          message: messageText("uploadSuccess"),
           severity: "success",
           channel: "snackbar",
           dedupeKey: `${source}:upload-success`
@@ -285,7 +294,7 @@ function createManagedImageAssetRuntime({
       },
       onInvalidResponse: () => {
         report({
-          message: normalizedMessages.uploadInvalidResponse,
+          message: messageText("uploadInvalidResponse"),
           severity: "error",
           channel: "banner",
           dedupeKey: `${source}:upload-invalid-response`
@@ -301,7 +310,7 @@ function createManagedImageAssetRuntime({
       },
       onRestrictionFailed: ({ error }) => {
         report({
-          message: resolveMessage(error?.message, normalizedMessages.uploadRestriction),
+          message: resolveMessage(error?.message, messageText("uploadRestriction")),
           severity: "error",
           channel: "banner",
           dedupeKey: `${source}:upload-restriction`
@@ -309,7 +318,7 @@ function createManagedImageAssetRuntime({
       },
       onUnavailable: () => {
         report({
-          message: normalizedMessages.editorUnavailable,
+          message: messageText("editorUnavailable"),
           severity: "error",
           channel: "banner",
           dedupeKey: `${source}:editor-unavailable`
@@ -330,7 +339,7 @@ function createManagedImageAssetRuntime({
     const runtime = ensureUploadRuntime();
     if (!runtime) {
       report({
-        message: normalizedMessages.endpointUnavailable,
+        message: messageText("endpointUnavailable"),
         severity: "error",
         channel: "banner",
         dedupeKey: `${source}:endpoint-unavailable`
@@ -349,7 +358,7 @@ function createManagedImageAssetRuntime({
     const endpoint = normalizedDeleteEndpoint.value;
     if (!endpoint) {
       report({
-        message: normalizedMessages.deleteUnavailable,
+        message: messageText("deleteUnavailable"),
         severity: "error",
         channel: "banner",
         dedupeKey: `${source}:delete-unavailable`
@@ -359,7 +368,7 @@ function createManagedImageAssetRuntime({
 
     if (typeof deleteRequest !== "function" && typeof fetchImpl !== "function") {
       report({
-        message: normalizedMessages.deleteUnavailable,
+        message: messageText("deleteUnavailable"),
         severity: "error",
         channel: "banner",
         dedupeKey: `${source}:delete-unavailable`
@@ -389,7 +398,7 @@ function createManagedImageAssetRuntime({
         response = deleteResult.response;
         body = deleteResult.body;
         if (response && response.ok === false) {
-          const requestError = new Error("Image delete request failed.");
+          const requestError = new Error(t("jskit.uploads.imageAsset.deleteRequestFailed"));
           requestError.response = response;
           requestError.body = body;
           throw requestError;
@@ -403,13 +412,13 @@ function createManagedImageAssetRuntime({
         body = await readJsonResponse(response);
 
         if (!response.ok) {
-          throw new Error("Image delete request failed.");
+          throw new Error(t("jskit.uploads.imageAsset.deleteRequestFailed"));
         }
       }
 
       updateSelectedFileName("");
       report({
-        message: normalizedMessages.deleteSuccess,
+        message: messageText("deleteSuccess"),
         severity: "success",
         channel: "snackbar",
         dedupeKey: `${source}:delete-success`

@@ -10,7 +10,8 @@
     "./client/composables/createImageUploadRuntime": "./src/client/composables/createImageUploadRuntime.js",
     "./client/composables/createManagedImageAssetRuntime": "./src/client/composables/createManagedImageAssetRuntime.js",
     "./client/styles": "./src/client/styles/index.js",
-    "./shared": "./src/shared/index.js"
+    "./shared": "./src/shared/index.js",
+    "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
     "@jskit-ai/uploads-runtime": "0.1.223",

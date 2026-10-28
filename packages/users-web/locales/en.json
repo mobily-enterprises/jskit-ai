@@ -1,0 +1,75 @@
+{
+  "jskit": {
+    "users": {
+      "accountSettings": {
+        "title": "Account settings",
+        "subtitle": "Global profile, preferences, notifications, and account controls.",
+        "back": "Back",
+        "loadFailedTitle": "Unable to load account settings",
+        "loadFailed": "Unable to load settings.",
+        "retry": "Retry",
+        "noSections": "No account settings sections are registered.",
+        "profile": {
+          "title": "Profile",
+          "previewSizePrefix": "Preview size:",
+          "previewSizeSuffix": "px",
+          "replaceAvatar": "Replace avatar",
+          "removeAvatar": "Remove avatar",
+          "selectedFilePrefix": "Selected file:",
+          "displayName": "Display name",
+          "email": "Email",
+          "emailHint": "Managed by your sign-in account",
+          "save": "Save profile",
+          "saved": "Profile updated.",
+          "saveFailed": "Unable to update profile.",
+          "initialsFallback": "U"
+        },
+        "avatar": {
+          "removed": "Avatar removed.",
+          "removeFailed": "Unable to remove avatar.",
+          "uploaded": "Avatar uploaded.",
+          "uploadInvalidResponse": "Avatar uploaded, but the response payload was invalid.",
+          "uploadFailed": "Unable to upload avatar.",
+          "uploadRestriction": "Selected avatar file does not meet upload restrictions.",
+          "editorUnavailable": "Avatar editor is unavailable in this environment.",
+          "refreshFailed": "Avatar uploaded, but the settings view could not refresh.",
+          "secureRequestFailed": "Unable to prepare secure avatar upload request."
+        },
+        "preferences": {
+          "saved": "Preferences updated.",
+          "saveFailed": "Unable to update preferences.",
+          "theme": {
+            "system": "System",
+            "light": "Light",
+            "dark": "Dark"
+          },
+          "locale": {
+            "enUS": "English (US)",
+            "enGB": "English (UK)",
+            "itIT": "Italian",
+            "esES": "Spanish"
+          },
+          "dateFormat": {
+            "system": "System",
+            "mdy": "MM/DD/YYYY",
+            "dmy": "DD/MM/YYYY",
+            "ymd": "YYYY-MM-DD"
+          },
+          "numberFormat": {
+            "system": "System",
+            "commaDot": "1,234.56",
+            "dotComma": "1.234,56",
+            "spaceComma": "1 234,56"
+          }
+        },
+        "notifications": {
+          "saved": "Notification settings updated.",
+          "saveFailed": "Unable to update notifications."
+        }
+      },
+      "homeTools": {
+        "label": "Home cog"
+      }
+    }
+  }
+}

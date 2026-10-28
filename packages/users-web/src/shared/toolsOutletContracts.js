@@ -1,6 +1,7 @@
 const HOME_COG_OUTLET = Object.freeze({
   target: "home-cog:primary-menu",
-  ariaLabel: "Home cog"
+  // A message key; render it with useJskitText().text().
+  ariaLabel: "jskit.users.homeTools.label"
 });
 
 export {

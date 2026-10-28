@@ -2,6 +2,7 @@ import "@jskit-ai/uploads-image-web/client/styles";
 import { createManagedImageAssetRuntime } from "@jskit-ai/uploads-image-web/client/composables/createManagedImageAssetRuntime";
 import { resolveFieldErrors } from "@jskit-ai/http-runtime/client";
 import { httpWebClient } from "@jskit-ai/http-web/client/lib/httpClient";
+import { useJskitText } from "../../i18n.js";
 
 function createAccountSettingsAvatarUploadRuntime({
   queryClient,
@@ -11,6 +12,8 @@ function createAccountSettingsAvatarUploadRuntime({
   applySettingsData,
   reportAccountFeedback
 } = {}) {
+  const { t, fieldErrorMessages, serverMessage } = useJskitText();
+
   async function resolveCsrfToken() {
     const sessionPayload = await queryClient.fetchQuery({
       queryKey: sessionQueryKey,
@@ -23,7 +26,7 @@ function createAccountSettingsAvatarUploadRuntime({
 
     const csrfToken = String(sessionPayload?.csrfToken || "");
     if (!csrfToken) {
-      throw new Error("Unable to prepare secure avatar upload request.");
+      throw new Error(t("jskit.users.accountSettings.avatar.secureRequestFailed"));
     }
 
     return csrfToken;
@@ -43,16 +46,18 @@ function createAccountSettingsAvatarUploadRuntime({
     reportFeedback: reportAccountFeedback,
     resolveUploadErrorMessage: ({ error, response, defaultMessage }) => {
       const body = response?.body && typeof response.body === "object" ? response.body : {};
-      const fieldErrors = resolveFieldErrors(body);
-      return String(fieldErrors.avatar || body?.error || error?.message || defaultMessage);
+      const fieldError = fieldErrorMessages({ ...body, fieldErrors: resolveFieldErrors(body) }).avatar;
+      const bodyError = body.error ? serverMessage({ ...body, message: body.error }) : "";
+      return String(fieldError || bodyError || error?.message || defaultMessage);
     },
+    // Message keys, translated when shown.
     messages: {
-      uploadSuccess: "Avatar uploaded.",
-      uploadInvalidResponse: "Avatar uploaded, but the response payload was invalid.",
-      uploadError: "Unable to upload avatar.",
-      uploadRestriction: "Selected avatar file does not meet upload restrictions.",
-      editorUnavailable: "Avatar editor is unavailable in this environment.",
-      changeError: "Avatar uploaded, but the settings view could not refresh."
+      uploadSuccess: "jskit.users.accountSettings.avatar.uploaded",
+      uploadInvalidResponse: "jskit.users.accountSettings.avatar.uploadInvalidResponse",
+      uploadError: "jskit.users.accountSettings.avatar.uploadFailed",
+      uploadRestriction: "jskit.users.accountSettings.avatar.uploadRestriction",
+      editorUnavailable: "jskit.users.accountSettings.avatar.editorUnavailable",
+      changeError: "jskit.users.accountSettings.avatar.refreshFailed"
     },
     source: "users-web.account-settings-runtime:avatar"
   });

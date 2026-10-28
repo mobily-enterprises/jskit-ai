@@ -11,6 +11,7 @@
     "./server/usersExtensions": "./src/server/usersExtensions.js",
     "./shared/resources/userProfileResource": "./src/shared/resources/userProfileResource.js",
     "./shared/resources/userSettingsResource": "./src/shared/resources/userSettingsResource.js",
+    "./shared/settings": "./src/shared/settings.js",
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {

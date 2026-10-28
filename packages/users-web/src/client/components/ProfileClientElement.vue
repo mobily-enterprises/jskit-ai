@@ -92,18 +92,22 @@ import {
   normalizeObject,
   normalizeOneOf
 } from "@jskit-ai/kernel/shared/support/normalize";
+import { useJskitText } from "../i18n.js";
 
-const DEFAULT_COPY = Object.freeze({
-  title: "Profile",
-  previewSizePrefix: "Preview size:",
-  previewSizeSuffix: "px",
-  replaceAvatar: "Replace avatar",
-  removeAvatar: "Remove avatar",
-  selectedFilePrefix: "Selected file:",
-  displayName: "Display name",
-  email: "Email",
-  emailHint: "Managed by your sign-in account",
-  saveProfile: "Save profile"
+const { t } = useJskitText();
+
+// Default copy, by copy prop key; the copy prop overrides it.
+const DEFAULT_COPY_KEYS = Object.freeze({
+  title: "jskit.users.accountSettings.profile.title",
+  previewSizePrefix: "jskit.users.accountSettings.profile.previewSizePrefix",
+  previewSizeSuffix: "jskit.users.accountSettings.profile.previewSizeSuffix",
+  replaceAvatar: "jskit.users.accountSettings.profile.replaceAvatar",
+  removeAvatar: "jskit.users.accountSettings.profile.removeAvatar",
+  selectedFilePrefix: "jskit.users.accountSettings.profile.selectedFilePrefix",
+  displayName: "jskit.users.accountSettings.profile.displayName",
+  email: "jskit.users.accountSettings.profile.email",
+  emailHint: "jskit.users.accountSettings.profile.emailHint",
+  saveProfile: "jskit.users.accountSettings.profile.save"
 });
 
 const props = defineProps({
@@ -143,7 +147,7 @@ const {
 } = createComponentInteractionEmitter(emit);
 
 const copyText = computed(() => ({
-  ...DEFAULT_COPY,
+  ...Object.fromEntries(Object.entries(DEFAULT_COPY_KEYS).map(([name, key]) => [name, t(key)])),
   ...normalizeObject(props.copy)
 }));
 

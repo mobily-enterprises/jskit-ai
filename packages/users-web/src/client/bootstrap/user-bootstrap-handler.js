@@ -1,11 +1,13 @@
 import { resolveBootstrapErrorStatusCode } from "@jskit-ai/shell-web/client/bootstrap";
 import { resolvePlacementUserFromBootstrapPayload } from "../lib/bootstrap.js";
+import { resolveBootstrapAccountLocale, setAccountLocale } from "../lib/accountLocale.js";
 
 function createUsersBootstrapUserHandler() {
   return Object.freeze({
     handlerId: "users.web.bootstrap.user",
     order: 50,
     applyBootstrapPayload({ payload = {}, placementRuntime, source } = {}) {
+      setAccountLocale(resolveBootstrapAccountLocale(payload));
       if (!placementRuntime || typeof placementRuntime.setContext !== "function") {
         return;
       }
@@ -21,10 +23,11 @@ function createUsersBootstrapUserHandler() {
       );
     },
     handleBootstrapError({ error, placementRuntime, source } = {}) {
-      if (!placementRuntime || typeof placementRuntime.setContext !== "function") {
+      if (resolveBootstrapErrorStatusCode(error) !== 401) {
         return;
       }
-      if (resolveBootstrapErrorStatusCode(error) !== 401) {
+      setAccountLocale("");
+      if (!placementRuntime || typeof placementRuntime.setContext !== "function") {
         return;
       }
 

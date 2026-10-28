@@ -17,7 +17,9 @@ test("users-web exports only user-owned client surfaces", () => {
       "./client",
       "./client/providers/UsersWebClientProvider",
       "./client/components/AccountSettingsClientElement",
-      "./client/account-settings/sections"
+      "./client/account-settings/sections",
+      // The generated client bootstrap registers the package's English catalog.
+      "./locales/en.json"
     ]
   });
 

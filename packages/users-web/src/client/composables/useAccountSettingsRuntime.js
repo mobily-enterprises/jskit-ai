@@ -26,7 +26,6 @@ import {
   AVATAR_SIZE_OPTIONS,
   CURRENCY_OPTIONS,
   DATE_FORMAT_OPTIONS,
-  LOCALE_OPTIONS,
   NUMBER_FORMAT_OPTIONS,
   THEME_OPTIONS,
   TIME_ZONE_OPTIONS
@@ -37,6 +36,9 @@ import {
   normalizeSettingsPayload
 } from "./account-settings/accountSettingsRuntimeHelpers.js";
 import { createAccountSettingsAvatarUploadRuntime } from "./account-settings/accountSettingsAvatarUploadRuntime.js";
+import { resolveLocaleOptions, translateOptions } from "./account-settings/accountSettingsPreferenceOptions.js";
+import { setAccountLocale } from "../lib/accountLocale.js";
+import { useJskitText } from "../i18n.js";
 
 function useAccountSettingsRuntime() {
   const route = useRoute();
@@ -44,6 +46,7 @@ function useAccountSettingsRuntime() {
   const queryClient = useQueryClient();
   const errorRuntime = useShellWebErrorRuntime();
   const vuetifyTheme = useTheme();
+  const { t } = useJskitText();
 
   const accountSettingsQueryKey = ["users-web", "settings", "account"];
   const accountProfileWriteQueryKey = ["users-web", "settings", "account-profile-write"];
@@ -118,11 +121,18 @@ function useAccountSettingsRuntime() {
   });
 
   const selectedAvatarFileName = ref("");
+  const savedLocale = ref("");
 
   const profileInitials = computed(() => {
-    const source = String(profileForm.displayName || profileForm.email || "U").trim();
-    return source.slice(0, 2).toUpperCase() || "U";
+    const fallback = t("jskit.users.accountSettings.profile.initialsFallback");
+    const source = String(profileForm.displayName || profileForm.email || fallback).trim();
+    return source.slice(0, 2).toUpperCase() || fallback;
   });
+
+  const themeOptions = computed(() => translateOptions(THEME_OPTIONS));
+  const localeOptions = computed(() => resolveLocaleOptions(savedLocale.value));
+  const dateFormatOptions = computed(() => translateOptions(DATE_FORMAT_OPTIONS));
+  const numberFormatOptions = computed(() => translateOptions(NUMBER_FORMAT_OPTIONS));
 
   function reportAccountFeedback({
     message,
@@ -183,6 +193,10 @@ function useAccountSettingsRuntime() {
     notificationsForm.securityAlerts = ACCOUNT_SETTINGS_DEFAULTS.notifications.securityAlerts;
 
     applyThemePreference(preferencesForm.theme);
+    if (data.preferences?.locale) {
+      savedLocale.value = preferencesForm.locale;
+      setAccountLocale(preferencesForm.locale);
+    }
   }
 
   const avatarUploadRuntime = createAccountSettingsAvatarUploadRuntime({
@@ -206,7 +220,7 @@ function useAccountSettingsRuntime() {
     realtime: {
       event: "account.settings.changed"
     },
-    fallbackLoadError: "Unable to load settings.",
+    fallbackLoadError: t("jskit.users.accountSettings.loadFailed"),
     mapLoadedToModel: mapAccountSettingsPayload
   });
 
@@ -218,7 +232,7 @@ function useAccountSettingsRuntime() {
     readEnabled: false,
     writeMethod: "PATCH",
     transport: USER_PROFILE_UPDATE_TRANSPORT,
-    fallbackSaveError: "Unable to update profile.",
+    fallbackSaveError: t("jskit.users.accountSettings.profile.saveFailed"),
     fieldErrorKeys: ["displayName"],
     model: profileForm,
     mapLoadedToModel: mapAccountSettingsPayload,
@@ -227,8 +241,8 @@ function useAccountSettingsRuntime() {
       displayName: String(model.displayName || "").trim()
     }),
     messages: {
-      saveSuccess: "Profile updated.",
-      saveError: "Unable to update profile."
+      saveSuccess: t("jskit.users.accountSettings.profile.saved"),
+      saveError: t("jskit.users.accountSettings.profile.saveFailed")
     }
   });
 
@@ -237,15 +251,15 @@ function useAccountSettingsRuntime() {
     apiSuffix: "/settings/profile/avatar",
     writeMethod: "DELETE",
     transport: USER_PROFILE_AVATAR_DELETE_TRANSPORT,
-    fallbackRunError: "Unable to remove avatar.",
+    fallbackRunError: t("jskit.users.accountSettings.avatar.removeFailed"),
     model: profileForm,
     onRunSuccess: (payload, { queryClient: commandQueryClient }) => {
       applySettingsData(payload);
       commandQueryClient.setQueryData(accountSettingsQueryKey, payload);
     },
     messages: {
-      success: "Avatar removed.",
-      error: "Unable to remove avatar."
+      success: t("jskit.users.accountSettings.avatar.removed"),
+      error: t("jskit.users.accountSettings.avatar.removeFailed")
     }
   });
 
@@ -257,7 +271,7 @@ function useAccountSettingsRuntime() {
     readEnabled: false,
     writeMethod: "PATCH",
     transport: USER_PREFERENCES_UPDATE_TRANSPORT,
-    fallbackSaveError: "Unable to update preferences.",
+    fallbackSaveError: t("jskit.users.accountSettings.preferences.saveFailed"),
     fieldErrorKeys: ["theme", "locale", "timeZone", "dateFormat", "numberFormat", "currencyCode", "avatarSize"],
     model: preferencesForm,
     mapLoadedToModel: mapAccountSettingsPayload,
@@ -272,8 +286,8 @@ function useAccountSettingsRuntime() {
       avatarSize: Number(model.avatarSize)
     }),
     messages: {
-      saveSuccess: "Preferences updated.",
-      saveError: "Unable to update preferences."
+      saveSuccess: t("jskit.users.accountSettings.preferences.saved"),
+      saveError: t("jskit.users.accountSettings.preferences.saveFailed")
     }
   });
 
@@ -285,7 +299,7 @@ function useAccountSettingsRuntime() {
     readEnabled: false,
     writeMethod: "PATCH",
     transport: USER_NOTIFICATION_SETTINGS_UPDATE_TRANSPORT,
-    fallbackSaveError: "Unable to update notifications.",
+    fallbackSaveError: t("jskit.users.accountSettings.notifications.saveFailed"),
     model: notificationsForm,
     mapLoadedToModel: mapAccountSettingsPayload,
     input: userSettingsResource.operations.notificationsUpdate.body,
@@ -295,8 +309,8 @@ function useAccountSettingsRuntime() {
       securityAlerts: true
     }),
     messages: {
-      saveSuccess: "Notification settings updated.",
-      saveError: "Unable to update notifications."
+      saveSuccess: t("jskit.users.accountSettings.notifications.saved"),
+      saveError: t("jskit.users.accountSettings.notifications.saveFailed")
     }
   });
 
@@ -367,12 +381,21 @@ function useAccountSettingsRuntime() {
     fieldErrors: preferencesAddEdit.fieldErrors,
     isSaving: preferencesAddEdit.isSaving,
     isRefreshing: refreshingSettings,
+    // Plain arrays for v-select items; the getters follow the active language.
     options: Object.freeze({
-      theme: THEME_OPTIONS,
-      locale: LOCALE_OPTIONS,
+      get theme() {
+        return themeOptions.value;
+      },
+      get locale() {
+        return localeOptions.value;
+      },
       timeZone: TIME_ZONE_OPTIONS,
-      dateFormat: DATE_FORMAT_OPTIONS,
-      numberFormat: NUMBER_FORMAT_OPTIONS,
+      get dateFormat() {
+        return dateFormatOptions.value;
+      },
+      get numberFormat() {
+        return numberFormatOptions.value;
+      },
       currency: CURRENCY_OPTIONS,
       avatarSize: AVATAR_SIZE_OPTIONS
     }),
