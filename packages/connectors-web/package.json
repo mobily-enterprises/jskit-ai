@@ -4,10 +4,12 @@
   "description": "Shared Vue fields for portable application integration configuration.",
   "type": "module",
   "files": [
-    "src"
+    "src",
+    "locales"
   ],
   "exports": {
-    "./client": "./src/client/index.js"
+    "./client": "./src/client/index.js",
+    "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
     "@jskit-ai/connectors-core": "0.1.65"

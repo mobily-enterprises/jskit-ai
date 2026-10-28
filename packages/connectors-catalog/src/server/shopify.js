@@ -29,7 +29,7 @@ function productMutation(name, fields) {
   return { ...operation, scopes: ["write_products"], request(input, settings) {
     const request = operation.request(input, settings);
     if (name === "Update" && Object.keys(request.body.variables.product).length === 1) {
-      throw new ConnectorError("connector_input_invalid", "Select at least one product detail to update.", { statusCode: 422 });
+      throw new ConnectorError("connector_input_invalid", "Select at least one product detail to update.", { statusCode: 422, messageCode: "connectors.shopify.selectLeastProductDetailUpdate" });
     }
     return request;
   } };
@@ -48,7 +48,7 @@ const shopifyProvider = Object.freeze({
     if (typeof token?.access_token !== "string" || !token.access_token.trim() ||
       !Number.isSafeInteger(token.expires_in) || token.expires_in <= 0 ||
       typeof token.scope !== "string" || !/^[a-z_]+(?:,[a-z_]+)*$/u.test(token.scope)) {
-      throw new ConnectorError("connector_response_invalid", "Shopify returned an invalid token grant.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "Shopify returned an invalid token grant.", { statusCode: 502, messageCode: "connectors.shared.invalidTokenGrant", messageParams: { provider: "Shopify" } });
     }
     // Shopify's documented client-credentials response omits the standard token_type.
     return Response.json({ ...token, token_type: token.token_type ?? "Bearer" });
@@ -80,17 +80,17 @@ const shopifyProvider = Object.freeze({
     const result = await request(address, { ...options, headers });
     if (Array.isArray(result?.errors) && result.errors.length) {
       const codes = result.errors.map((error) => error?.extensions?.code);
-      if (codes.includes("THROTTLED")) throw new ConnectorError("connector_rate_limited", "Shopify's request limit was reached.", { statusCode: 429 });
-      if (codes.includes("ACCESS_DENIED")) throw new ConnectorError("connector_permission_denied", "Shopify denied this operation.", { statusCode: 403 });
+      if (codes.includes("THROTTLED")) throw new ConnectorError("connector_rate_limited", "Shopify's request limit was reached.", { statusCode: 429, messageCode: "connectors.shared.requestLimitReached", messageParams: { provider: "Shopify" } });
+      if (codes.includes("ACCESS_DENIED")) throw new ConnectorError("connector_permission_denied", "Shopify denied this operation.", { statusCode: 403, messageCode: "connectors.shared.operationDenied", messageParams: { provider: "Shopify" } });
     }
     for (const name of ["productCreate", "productUpdate", "productDelete"]) {
       const payload = result?.data?.[name];
       if (Array.isArray(payload?.userErrors) && payload.userErrors.length) {
-        throw new ConnectorError("connector_operation_rejected", "Shopify rejected the product change. Check the product values and permissions before retrying.", { statusCode: 422 });
+        throw new ConnectorError("connector_operation_rejected", "Shopify rejected the product change. Check the product values and permissions before retrying.", { statusCode: 422, messageCode: "connectors.shopify.rejectedProductChangeCheckProduct" });
       }
     }
     if (result?.data?.products?.nodes?.length > options.body.variables.first) {
-      throw new ConnectorError("connector_response_invalid", "Shopify returned more products than requested.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "Shopify returned more products than requested.", { statusCode: 502, messageCode: "connectors.shopify.returnedMoreProductsRequested" });
     }
     return result;
   }

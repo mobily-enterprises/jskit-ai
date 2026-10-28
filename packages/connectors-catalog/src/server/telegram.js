@@ -19,7 +19,7 @@ const telegramProvider = Object.freeze({
   apiOrigins: ["https://api.telegram.org"],
   apiKey: { pathPrefix(key) {
     if (!/^\d+:[A-Za-z0-9_-]+$/.test(key)) {
-      throw new ConnectorError("connector_binding_invalid", "Configure a Telegram bot token in the referenced environment variable.");
+      throw new ConnectorError("connector_binding_invalid", "Configure a Telegram bot token in the referenced environment variable.", { messageCode: "connectors.telegram.configureBotTokenReferencedEnvironment" });
     }
     return `/bot${key}`;
   } },

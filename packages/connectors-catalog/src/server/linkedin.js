@@ -6,21 +6,21 @@ async function normalizeTokenResponse(response, { grantType }) {
   let value;
   try { value = await response.clone().json(); } catch {
     if (!response.ok) return response;
-    throw new ConnectorError("connector_response_invalid", "LinkedIn returned an invalid token response.", { statusCode: 502 });
+    throw new ConnectorError("connector_response_invalid", "LinkedIn returned an invalid token response.", { statusCode: 502, messageCode: "connectors.shared.invalidTokenResponse", messageParams: { provider: "LinkedIn" } });
   }
   if (!response.ok) {
     if (grantType === "refresh_token" && response.status === 400 && value?.error === "invalid_request") {
-      throw new ConnectorError("connector_reconnect_required", "Connect this LinkedIn account again.", { statusCode: 401 });
+      throw new ConnectorError("connector_reconnect_required", "Connect this LinkedIn account again.", { statusCode: 401, messageCode: "connectors.shared.reconnectAccount", messageParams: { provider: "LinkedIn" } });
     }
     return response;
   }
   if (!value || typeof value !== "object" || Array.isArray(value) ||
     !Number.isSafeInteger(value.expires_in) || value.expires_in <= 0 ||
     (value.scope !== undefined && (typeof value.scope !== "string" || !/^[^\s]+(?: [^\s]+)*$/u.test(value.scope)))) {
-    throw new ConnectorError("connector_response_invalid", "LinkedIn returned an invalid permission grant.", { statusCode: 502 });
+    throw new ConnectorError("connector_response_invalid", "LinkedIn returned an invalid permission grant.", { statusCode: 502, messageCode: "connectors.shared.invalidPermissionGrant", messageParams: { provider: "LinkedIn" } });
   }
   if (value.scope !== undefined && !["openid", "profile"].every((scope) => value.scope.split(" ").includes(scope))) {
-    throw new ConnectorError("connector_reconnect_required", "Connect LinkedIn with OpenID and profile permissions.", { statusCode: 401 });
+    throw new ConnectorError("connector_reconnect_required", "Connect LinkedIn with OpenID and profile permissions.", { statusCode: 401, messageCode: "connectors.linkedin.connectOpenidProfilePermissions" });
   }
   // LinkedIn documents bearer responses without token_type. Identity tokens are
   // unused: this adapter reads userinfo with the access token, never logs users in.
@@ -47,7 +47,7 @@ const linkedinProvider = Object.freeze({
     if (address !== "https://api.linkedin.com/v2/ugcPosts") return request(address, options);
     const member = await request("https://api.linkedin.com/v2/userinfo", { ...options, method: "GET", body: undefined });
     if (typeof member?.sub !== "string" || !/^[a-zA-Z0-9_-]{1,1024}$/u.test(member.sub))
-      throw new ConnectorError("connector_response_invalid", "LinkedIn returned an invalid member identity.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "LinkedIn returned an invalid member identity.", { statusCode: 502, messageCode: "connectors.linkedin.returnedInvalidMemberIdentity" });
     const response = await fetchImpl(address, { ...options, credentials: "omit", redirect: "error",
       headers: { ...options.headers, "Content-Type": "application/json", "X-Restli-Protocol-Version": "2.0.0" },
       body: JSON.stringify({ author: `urn:li:person:${member.sub}`, lifecycleState: "PUBLISHED",
@@ -55,7 +55,7 @@ const linkedinProvider = Object.freeze({
         visibility: { "com.linkedin.ugc.MemberNetworkVisibility": options.body.visibility } }) });
     await response.body?.cancel();
     if (!response.ok) throw Object.assign(new Error("LinkedIn publishing failed."), { status: response.status });
-    if (response.status !== 201) throw new ConnectorError("connector_response_invalid", "LinkedIn did not confirm post creation.", { statusCode: 502 });
+    if (response.status !== 201) throw new ConnectorError("connector_response_invalid", "LinkedIn did not confirm post creation.", { statusCode: 502, messageCode: "connectors.linkedin.didNotConfirmPostCreation" });
     return { id: response.headers.get("x-restli-id") };
   },
   operations: {

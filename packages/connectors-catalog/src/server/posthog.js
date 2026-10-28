@@ -9,7 +9,7 @@ const posthogProvider = Object.freeze({
   apiOrigins: (settings) => [origin(settings)],
   apiKey: { bodyParameter: "api_key", headers: (token) => {
     if (!/^phc_[a-zA-Z0-9_-]+$/u.test(token)) {
-      throw new ConnectorError("connector_binding_missing", "Use the public PostHog project token starting with phc_.");
+      throw new ConnectorError("connector_binding_missing", "Use the public PostHog project token starting with phc_.", { messageCode: "connectors.posthog.usePublicProjectTokenStarting" });
     }
     return { "User-Agent": "jskit-connectors/0.1.0 (posthog-node/compatible)" };
   } },
@@ -24,10 +24,10 @@ const posthogProvider = Object.freeze({
         typeof result.errorsWhileComputingFlags !== "boolean" ||
         (result.quotaLimited !== undefined && (!Array.isArray(result.quotaLimited) || !result.quotaLimited.every((item) => typeof item === "string")))) return false;
       if (result.quotaLimited?.includes("feature_flags")) {
-        throw new ConnectorError("connector_quota_limited", "PostHog's feature flag quota has been reached.", { statusCode: 429 });
+        throw new ConnectorError("connector_quota_limited", "PostHog's feature flag quota has been reached.", { statusCode: 429, messageCode: "connectors.posthog.featureFlagQuotaReached" });
       }
       if (result.errorsWhileComputingFlags) {
-        throw new ConnectorError("connector_provider_failed", "PostHog could not evaluate all requested flags.", { statusCode: 502 });
+        throw new ConnectorError("connector_provider_failed", "PostHog could not evaluate all requested flags.", { statusCode: 502, messageCode: "connectors.posthog.couldNotEvaluateAllRequested" });
       }
       return Object.values(result.flags).every((flag) => flag && typeof flag.enabled === "boolean" &&
         (flag.variant === undefined || typeof flag.variant === "string"));

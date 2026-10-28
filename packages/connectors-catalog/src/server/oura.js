@@ -19,7 +19,7 @@ function collection(endpoint, scope = "daily", timed = false) {
     const request = operation.request(input, settings);
     const query = new URL(request.url).searchParams;
     if (query.has(start) && query.has(end) && Date.parse(query.get(start)) > Date.parse(query.get(end)))
-      throw new ConnectorError("connector_input_invalid", "Start must be before or equal to end.", { statusCode: 422 });
+      throw new ConnectorError("connector_input_invalid", "Start must be before or equal to end.", { statusCode: 422, messageCode: "connectors.oura.startNotAfterEnd" });
     return request;
   } };
 }

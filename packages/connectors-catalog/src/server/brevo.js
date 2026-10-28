@@ -24,12 +24,12 @@ function operation(method, endpoint, fields, validateResult, prepare = value => 
   }, validateResult);
 }
 function changed(value) {
-  if (Object.keys(value).every(key => key === "resource")) throw new ConnectorError("connector_input_invalid", "Supply at least one change.", { statusCode: 422 });
+  if (Object.keys(value).every(key => key === "resource")) throw new ConnectorError("connector_input_invalid", "Supply at least one change.", { statusCode: 422, messageCode: "connectors.shared.supplyLeastChange" });
   return value;
 }
 const content = value => {
   if (value.templateId === undefined && !(value.subject && (value.htmlContent || value.textContent))) {
-    throw new ConnectorError("connector_input_invalid", "Choose a template or provide a subject and email content.", { statusCode: 422 });
+    throw new ConnectorError("connector_input_invalid", "Choose a template or provide a subject and email content.", { statusCode: 422, messageCode: "connectors.brevo.chooseTemplateProvideSubjectEmail" });
   }
   return value;
 };
@@ -49,7 +49,7 @@ const brevoProvider = Object.freeze({
       recipient: { type: "string", required: true, pattern: "^\\+?[0-9]{6,15}$" }, type: { type: "string", required: true, enum: ["transactional", "marketing"] },
       content: { ...text, maxLength: 10000 }, templateId: { ...id, required: false }, params: bag, unicodeEnabled: bool, organisationPrefix: text, tag: text
     }, result => Number.isInteger(result?.messageId) && typeof result.reference === "string", value => {
-      if ((value.content === undefined) === (value.templateId === undefined)) throw new ConnectorError("connector_input_invalid", "Choose SMS content or a template, not both.", { statusCode: 422 }); return value;
+      if ((value.content === undefined) === (value.templateId === undefined)) throw new ConnectorError("connector_input_invalid", "Choose SMS content or a template, not both.", { statusCode: 422, messageCode: "connectors.brevo.smsContentOrTemplate" }); return value;
     }),
     "contacts.get": operation("GET", "contacts/{resource}", { resource: { ...email, required: true } }, record),
     "contacts.create": operation("POST", "contacts", { email: { ...email, required: true }, ...contact,

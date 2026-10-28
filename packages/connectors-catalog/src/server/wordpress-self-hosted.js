@@ -24,7 +24,7 @@ function wordpressOperation(resource, fields, method, validateResult, { write = 
     const { id: resourceId, ...values } = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
     const url = new URL(`${baseUrl(settings)}/${resource}${resourceId ? `/${resourceId}` : ""}`);
     if (write) {
-      if (!Object.keys(values).length) throw new ConnectorError("connector_input_invalid", "Supply at least one change.", { statusCode: 422 });
+      if (!Object.keys(values).length) throw new ConnectorError("connector_input_invalid", "Supply at least one change.", { statusCode: 422, messageCode: "connectors.shared.supplyLeastChange" });
       return { method, url: url.href, body: values };
     }
     for (const [key, value] of Object.entries(values)) url.searchParams.set(key, String(value));
@@ -96,7 +96,7 @@ const wordpressSelfHostedProvider = Object.freeze({
       const { filename, mimeType, contentBase64, ...metadata } = validateSchemaPayload({ schema: uploadSchema, mode: "replace" }, input, { statusCode: 422 });
       const bytes = Buffer.from(contentBase64, "base64");
       if (!bytes.length || bytes.length > 5 * 1024 * 1024 || bytes.toString("base64") !== contentBase64) {
-        throw new ConnectorError("connector_input_invalid", "Supply canonical base64 for a nonempty file of at most 5 MiB.", { statusCode: 422 });
+        throw new ConnectorError("connector_input_invalid", "Supply canonical base64 for a nonempty file of at most 5 MiB.", { statusCode: 422, messageCode: "connectors.shared.supplyCanonicalBase64NonemptyFile" });
       }
       const body = new FormData();
       body.append("file", new Blob([bytes], { type: mimeType }), filename);

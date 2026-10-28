@@ -6,41 +6,41 @@ import { jsonOperation } from "./jsonOperation.js";
 function checkReply(value) {
   if (value?.ok === true) return value;
   if (value?.ok !== false || typeof value.error !== "string") {
-    throw new ConnectorError("connector_response_invalid", "Slack returned an invalid response.", { statusCode: 502 });
+    throw new ConnectorError("connector_response_invalid", "Slack returned an invalid response.", { statusCode: 502, messageCode: "connectors.shared.invalidResponse", messageParams: { provider: "Slack" } });
   }
   if (["invalid_auth", "not_authed", "token_revoked", "token_expired", "account_inactive", "invalid_refresh_token", "invalid_grant"].includes(value.error)) {
-    throw new ConnectorError("connector_reconnect_required", "Connect this Slack account again.", { statusCode: 401 });
+    throw new ConnectorError("connector_reconnect_required", "Connect this Slack account again.", { statusCode: 401, messageCode: "connectors.shared.reconnectAccount", messageParams: { provider: "Slack" } });
   }
   if (["missing_scope", "not_allowed_token_type", "access_denied", "no_permission", "not_in_channel", "restricted_action"].includes(value.error)) {
-    throw new ConnectorError("connector_permission_denied", "Slack denied this operation.", { statusCode: 403 });
+    throw new ConnectorError("connector_permission_denied", "Slack denied this operation.", { statusCode: 403, messageCode: "connectors.shared.operationDenied", messageParams: { provider: "Slack" } });
   }
   if (["ratelimited", "rate_limited"].includes(value.error)) {
-    throw new ConnectorError("connector_rate_limited", "Slack's request limit was reached.", { statusCode: 429 });
+    throw new ConnectorError("connector_rate_limited", "Slack's request limit was reached.", { statusCode: 429, messageCode: "connectors.shared.requestLimitReached", messageParams: { provider: "Slack" } });
   }
   if (["invalid_client_id", "bad_client_secret", "bad_redirect_uri"].includes(value.error)) {
-    throw new ConnectorError("connector_registration_invalid", "Check the Slack client registration and callback.", { statusCode: 422 });
+    throw new ConnectorError("connector_registration_invalid", "Check the Slack client registration and callback.", { statusCode: 422, messageCode: "connectors.slack.checkClientRegistrationCallback" });
   }
-  throw new ConnectorError("connector_provider_failed", "The Slack request failed. Try again.", { statusCode: 502 });
+  throw new ConnectorError("connector_provider_failed", "The Slack request failed. Try again.", { statusCode: 502, messageCode: "connectors.slack.requestFailedTryAgain" });
 }
 
 async function normalizeTokenResponse(response, { settings, grantType }) {
   if ([401, 403, 429].includes(response.status)) {
     throw new ConnectorError(
       { 401: "connector_reconnect_required", 403: "connector_permission_denied", 429: "connector_rate_limited" }[response.status],
-      "Slack could not authorize this request.", { statusCode: response.status }
+      "Slack could not authorize this request.", { statusCode: response.status, messageCode: "connectors.slack.couldNotAuthorizeRequest" }
     );
   }
   let value;
   try { value = await response.clone().json(); } catch {
     if (!response.ok) return response;
-    throw new ConnectorError("connector_response_invalid", "Slack returned an invalid token response.", { statusCode: 502 });
+    throw new ConnectorError("connector_response_invalid", "Slack returned an invalid token response.", { statusCode: 502, messageCode: "connectors.shared.invalidTokenResponse", messageParams: { provider: "Slack" } });
   }
   checkReply(value);
   if (!response.ok) return response;
   const actor = settings.actor || "user";
   const token = grantType === "authorization_code" && actor === "user" ? value.authed_user : value;
   if (token?.token_type !== actor || typeof token.scope !== "string" || !/^[^\s,]+(?:,[^\s,]+)*$/u.test(token.scope)) {
-    throw new ConnectorError("connector_response_invalid", "Slack returned a token for the wrong identity or an invalid permission grant.", { statusCode: 502 });
+    throw new ConnectorError("connector_response_invalid", "Slack returned a token for the wrong identity or an invalid permission grant.", { statusCode: 502, messageCode: "connectors.slack.returnedTokenWrongIdentityInvalid" });
   }
   // Retain exactly one identity; a response may contain both user and bot tokens.
   return Response.json({ access_token: token.access_token, token_type: "Bearer", scope: token.scope,
@@ -109,7 +109,7 @@ const slackProvider = Object.freeze({
 });
 // The app supplies raw bytes before body parsing and binds the expected installation.
 function verifySlackRequest({ rawBody, signature, timestamp, secret, contentType, appId, teamId, now = Date.now() }) {
-  const reject = () => { throw new ConnectorError("connector_webhook_invalid", "Invalid Slack callback.", { statusCode: 401 }); };
+  const reject = () => { throw new ConnectorError("connector_webhook_invalid", "Invalid Slack callback.", { statusCode: 401, messageCode: "connectors.shared.invalidCallback", messageParams: { provider: "Slack" } }); };
   if (!(rawBody instanceof Uint8Array) || rawBody.byteLength > 1048576 ||
     typeof secret !== "string" || !secret || typeof signature !== "string" || !/^v0=[a-f0-9]{64}$/u.test(signature) ||
     typeof timestamp !== "string" || !/^[0-9]{1,12}$/u.test(timestamp) || !Number.isFinite(now) ||

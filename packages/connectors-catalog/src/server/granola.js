@@ -42,7 +42,7 @@ const granolaApiProvider = Object.freeze({
   ...granolaDefinition, apiOrigins: [apiOrigin], checkOperation: "notes.list",
   apiKey: { headers: (key) => {
     if (!key.startsWith("grn_") || key.length <= 4 || /[\s\p{Cc}]/u.test(key)) {
-      throw new ConnectorError("connector_binding_missing", "Use the Granola grn_ API key without whitespace or control characters.");
+      throw new ConnectorError("connector_binding_missing", "Use the Granola grn_ API key without whitespace or control characters.", { messageCode: "connectors.granola.useGrnApiKeyWithout" });
     }
     return { Authorization: `Bearer ${key}` };
   } },
@@ -66,18 +66,18 @@ const granolaApiProvider = Object.freeze({
   },
   async exchange(address, options, { fetchImpl }) {
     const response = await fetchImpl(address, { ...options, credentials: "omit" });
-    if (response.status === 404) throw new ConnectorError("connector_resource_not_found", "The Granola note is unavailable, inaccessible or still being processed.", { statusCode: 404 });
-    if (response.status === 413) throw new ConnectorError("connector_response_too_large", "Read the transcript in pages with transcripts.list.", { statusCode: 413 });
+    if (response.status === 404) throw new ConnectorError("connector_resource_not_found", "The Granola note is unavailable, inaccessible or still being processed.", { statusCode: 404, messageCode: "connectors.granola.noteUnavailable" });
+    if (response.status === 413) throw new ConnectorError("connector_response_too_large", "Read the transcript in pages with transcripts.list.", { statusCode: 413, messageCode: "connectors.granola.readTranscriptPagesTranscriptsList" });
     if (!response.ok) throw Object.assign(new Error("Granola request failed."), { status: response.status });
     let value;
     try { value = await response.json(); } catch { /* checked below */ }
     if (response.status !== 200 || !value || typeof value !== "object" || value.error) {
-      throw new ConnectorError("connector_response_invalid", "Granola returned an unexpected response.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "Granola returned an unexpected response.", { statusCode: 502, messageCode: "connectors.shared.unexpectedResponse", messageParams: { provider: "Granola" } });
     }
     const url = new URL(address);
     const list = url.pathname === "/v1/notes" ? "notes" : url.pathname === "/v1/folders" ? "folders" : url.pathname.endsWith("/transcript") ? "transcript" : null;
     if (list ? value[list]?.length > Number(url.searchParams.get("page_size")) : value.id !== url.pathname.split("/").at(-1)) {
-      throw new ConnectorError("connector_response_invalid", "Granola returned data that does not match this request.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "Granola returned data that does not match this request.", { statusCode: 502, messageCode: "connectors.granola.returnedDataDoesNotMatch" });
     }
     return value;
   }

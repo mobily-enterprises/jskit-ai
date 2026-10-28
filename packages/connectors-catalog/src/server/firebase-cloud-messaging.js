@@ -8,7 +8,7 @@ import { jsonOperation } from "./jsonOperation.js";
 const tokenUrl = "https://oauth2.googleapis.com/token";
 const endpoint = ({ projectId }) => `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
 const credentialSchema = createSchema({ project_id: firebaseProjectId });
-const invalidCredential = () => new ConnectorError("connector_binding_missing", "Use a valid Firebase service-account JSON credential for the default Google API domain.");
+const invalidCredential = () => new ConnectorError("connector_binding_missing", "Use a valid Firebase service-account JSON credential for the default Google API domain.", { messageCode: "connectors.firebaseCloudMessaging.useValidServiceAccountJson" });
 
 async function serviceAccountGrant({ credential, scopes, fetchImpl, signal, now }) {
   let account, key;
@@ -33,16 +33,16 @@ async function serviceAccountGrant({ credential, scopes, fetchImpl, signal, now 
     body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion }).toString()
   });
   if (response.redirected || (response.status >= 300 && response.status < 400)) {
-    throw new ConnectorError("connector_response_invalid", "Google returned an unexpected token redirect.", { statusCode: 502 });
+    throw new ConnectorError("connector_response_invalid", "Google returned an unexpected token redirect.", { statusCode: 502, messageCode: "connectors.firebaseCloudMessaging.returnedUnexpectedTokenRedirect" });
   }
   let value;
   try { value = await response.json(); } catch {
-    throw new ConnectorError("connector_response_invalid", "Google returned an invalid token response.", { statusCode: 502 });
+    throw new ConnectorError("connector_response_invalid", "Google returned an invalid token response.", { statusCode: 502, messageCode: "connectors.shared.invalidTokenResponse", messageParams: { provider: "Google" } });
   }
   if (!response.ok) {
     const denied = response.status === 401 || ["invalid_grant", "invalid_client"].includes(value?.error);
     throw new ConnectorError(denied ? "connector_reconnect_required" : response.status === 403 ? "connector_permission_denied" : response.status === 429 ? "connector_rate_limited" : "connector_provider_failed",
-      "Google could not authorize the service account. Check the credential and project permissions.", { statusCode: denied ? 401 : [403, 429].includes(response.status) ? response.status : 502 });
+      "Google could not authorize the service account. Check the credential and project permissions.", { statusCode: denied ? 401 : [403, 429].includes(response.status) ? response.status : 502, messageCode: "connectors.firebaseCloudMessaging.couldNotAuthorizeServiceAccount" });
   }
   return value;
 }
@@ -89,20 +89,20 @@ const firebaseCloudMessagingProvider = Object.freeze({
       headers: { ...options.headers, "Content-Type": "application/json" } });
     let result;
     try { result = await response.json(); }
-    catch { throw new ConnectorError("connector_response_invalid", "Firebase returned invalid message JSON.", { statusCode: 502 }); }
+    catch { throw new ConnectorError("connector_response_invalid", "Firebase returned invalid message JSON.", { statusCode: 502, messageCode: "connectors.firebaseCloudMessaging.returnedInvalidMessageJson" }); }
     if (!response.ok) {
       const details = result?.error?.details;
       const fcmError = Array.isArray(details) ? details.find(detail => detail?.["@type"] === "type.googleapis.com/google.firebase.fcm.v1.FcmError")?.errorCode : undefined;
       if (response.status === 404 && fcmError === "UNREGISTERED" && (options.body.message.token || options.body.message.fid)) {
-        throw new ConnectorError("connector_recipient_unregistered", "This Firebase recipient is no longer registered. Remove its association and wait for client registration again.", { statusCode: 410 });
+        throw new ConnectorError("connector_recipient_unregistered", "This Firebase recipient is no longer registered. Remove its association and wait for client registration again.", { statusCode: 410, messageCode: "connectors.firebaseCloudMessaging.recipientNoLongerRegisteredRemove" });
       }
       if (response.status === 400) {
-        throw new ConnectorError("connector_message_invalid", "Firebase rejected the message or target. Do not delete a registration unless the payload is known to be valid.", { statusCode: 422 });
+        throw new ConnectorError("connector_message_invalid", "Firebase rejected the message or target. Do not delete a registration unless the payload is known to be valid.", { statusCode: 422, messageCode: "connectors.firebaseCloudMessaging.rejectedMessageTargetDoNot" });
       }
       throw Object.assign(new Error("Firebase message request failed."), { status: response.status });
     }
     if (!receipt(result) || !result.name.startsWith(`projects/${settings.projectId}/messages/`)) {
-      throw new ConnectorError("connector_response_invalid", "Firebase returned an unexpected message receipt.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "Firebase returned an unexpected message receipt.", { statusCode: 502, messageCode: "connectors.firebaseCloudMessaging.returnedUnexpectedMessageReceipt" });
     }
     return result;
   }

@@ -44,11 +44,11 @@ function semrushKeywordReport(target, kind) {
   return {
     scopes: [],
     request(input, settings) {
-      if (!settings.v3ApiKeyRef) throw new ConnectorError("connector_binding_missing", "Configure the separate Semrush V3 API key reference for keyword reports.");
+      if (!settings.v3ApiKeyRef) throw new ConnectorError("connector_binding_missing", "Configure the separate Semrush V3 API key reference for keyword reports.", { messageCode: "connectors.semrush.configureSeparateV3ApiKey" });
       const result = operation.request(input);
       const url = new URL(result.url);
       const limit = Number(url.searchParams.get("limit")), offset = Number(url.searchParams.get("offset"));
-      if (limit + offset > 4_000_000) throw new ConnectorError("connector_input_invalid", "The requested Semrush page exceeds the provider's result window.", { statusCode: 422 });
+      if (limit + offset > 4_000_000) throw new ConnectorError("connector_input_invalid", "The requested Semrush page exceeds the provider's result window.", { statusCode: 422, messageCode: "connectors.semrush.requestedPageExceedsProviderResult" });
       url.searchParams.delete("limit"); url.searchParams.delete("offset");
       url.searchParams.set("display_limit", String(limit + offset));
       url.searchParams.set("display_offset", String(offset));
@@ -82,13 +82,13 @@ function semrushTrackingReport(type, positions = false) {
         Object.values(value.data).length <= Number(url.searchParams.get("display_limit")) &&
         Object.values(value.data).every((entry) => typeof entry?.Ph === "string" && typeof entry.Pi === "string" && entry.Dt !== null && typeof entry.Dt === "object"));
   }, request(input, settings) {
-    if (!settings.v3ApiKeyRef) throw new ConnectorError("connector_binding_missing", "Configure the Semrush V3 key for position tracking.");
+    if (!settings.v3ApiKeyRef) throw new ConnectorError("connector_binding_missing", "Configure the Semrush V3 key for position tracking.", { messageCode: "connectors.semrush.configureV3KeyPositionTracking" });
     const result = operation.request(input);
     const url = new URL(result.url);
     url.pathname = `/reports/v1/projects/${url.searchParams.get("campaignId")}/tracking/`;
     url.searchParams.delete("campaignId");
     if (url.searchParams.has("date_begin") && url.searchParams.has("date_end") && url.searchParams.get("date_begin") > url.searchParams.get("date_end")) {
-      throw new ConnectorError("connector_input_invalid", "The tracking start date must not follow its end date.", { statusCode: 422 });
+      throw new ConnectorError("connector_input_invalid", "The tracking start date must not follow its end date.", { statusCode: 422, messageCode: "connectors.semrush.trackingStartDateMustNot" });
     }
     url.searchParams.set("action", "report"); url.searchParams.set("type", type);
     return { ...result, url: url.href };
@@ -109,11 +109,11 @@ function parseSemrushCsv(text) {
       row.push(field); field = ""; closed = false;
       if (char !== ";") { rows.push(row); row = []; if (char === "\r" && text[i + 1] === "\n") i++; }
     } else {
-      if (closed || char === '"') throw new ConnectorError("connector_response_invalid", "Semrush returned malformed CSV.", { statusCode: 502 });
+      if (closed || char === '"') throw new ConnectorError("connector_response_invalid", "Semrush returned malformed CSV.", { statusCode: 502, messageCode: "connectors.semrush.returnedMalformedCsv" });
       field += char;
     }
   }
-  if (quoted) throw new ConnectorError("connector_response_invalid", "Semrush returned incomplete CSV.", { statusCode: 502 });
+  if (quoted) throw new ConnectorError("connector_response_invalid", "Semrush returned incomplete CSV.", { statusCode: 502, messageCode: "connectors.semrush.returnedIncompleteCsv" });
   if (field !== "" || closed || row.length) { row.push(field); rows.push(row); }
   return rows;
 }
@@ -157,7 +157,7 @@ const semrushProvider = Object.freeze({
   ...semrushDefinition, apiOrigins: ["https://api.semrush.com"],
   apiKey: { headers: (key) => {
     if (/[\s\p{Cc}]/u.test(key)) {
-      throw new ConnectorError("connector_binding_missing", "Use the Semrush V4 API key without spaces or control characters.");
+      throw new ConnectorError("connector_binding_missing", "Use the Semrush V4 API key without spaces or control characters.", { messageCode: "connectors.semrush.useV4ApiKeyWithout" });
     }
     return { Authorization: `Apikey ${key}` };
   } },
@@ -169,7 +169,7 @@ const semrushProvider = Object.freeze({
         typeof campaign.url === "string" && typeof campaign.device === "string" && typeof campaign.isGathering === "boolean"),
     request(input, settings) {
       const { projectId } = validateSchemaPayload({ schema: projectSchema, mode: "replace" }, input, { statusCode: 422 });
-      if (!settings.v3ApiKeyRef) throw new ConnectorError("connector_binding_missing", "Configure the Semrush V3 key for campaign discovery.");
+      if (!settings.v3ApiKeyRef) throw new ConnectorError("connector_binding_missing", "Configure the Semrush V3 key for campaign discovery.", { messageCode: "connectors.semrush.configureV3KeyCampaignDiscovery" });
       return { method: "GET", url: `https://api.semrush.com/management/v1/projects/${projectId}/tracking/campaigns` };
     } },
     "tracking.dates": semrushTrackingReport("tracking_campaign_dates"),
@@ -184,7 +184,7 @@ const semrushProvider = Object.freeze({
     "domains.overview": {
       scopes: [],
       request(input, settings) {
-        if (!settings.v3ApiKeyRef) throw new ConnectorError("connector_binding_missing", "Configure the separate Semrush V3 API key reference for domain reports.");
+        if (!settings.v3ApiKeyRef) throw new ConnectorError("connector_binding_missing", "Configure the separate Semrush V3 API key reference for domain reports.", { messageCode: "connectors.semrush.configureSeparateV3ApiKeyReferenceDomainReports" });
         const operation = jsonOperation("https://api.semrush.com/", {
           domain: { type: "string", required: true, minLength: 1, maxLength: 253, pattern: /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/iu },
           database: { type: "string", required: true, pattern: /^[a-z]{2}$/u }
@@ -214,7 +214,7 @@ const semrushProvider = Object.freeze({
         const url = new URL(result.url);
         const month = url.searchParams.get("month");
         if (month && (month < "2012-01" || month > new Date().toISOString().slice(0, 7))) {
-          throw new ConnectorError("connector_input_invalid", "Choose a month from 2012-01 through the current month.", { statusCode: 422 });
+          throw new ConnectorError("connector_input_invalid", "Choose a month from 2012-01 through the current month.", { statusCode: 422, messageCode: "connectors.semrush.chooseMonth201201Through" });
         }
         url.searchParams.set("format", "json");
         return { ...result, url: url.href };
@@ -274,10 +274,10 @@ const semrushProvider = Object.freeze({
     if (path === "/" || path.startsWith("/management/v1/projects/") || path.startsWith("/reports/v1/projects/")) {
       let key;
       try { key = await resolveReference(settings.v3ApiKeyRef); } catch {
-        throw new ConnectorError("connector_binding_missing", "Provide the Semrush V3 API key through its private Env reference.");
+        throw new ConnectorError("connector_binding_missing", "Provide the Semrush V3 API key through its private Env reference.", { messageCode: "connectors.semrush.provideV3ApiKeyThrough" });
       }
       if (typeof key !== "string" || !key || key === "MISSING" || /[\s\p{Cc}]/u.test(key)) {
-        throw new ConnectorError("connector_binding_missing", "Provide a valid Semrush V3 API key.");
+        throw new ConnectorError("connector_binding_missing", "Provide a valid Semrush V3 API key.", { messageCode: "connectors.semrush.provideValidV3ApiKey" });
       }
       const url = new URL(address);
       url.searchParams.set("key", key);
@@ -291,12 +291,12 @@ const semrushProvider = Object.freeze({
         options.signal.throwIfAborted();
         const status = response?.status;
         throw new ConnectorError(status === 429 ? "connector_rate_limited" : status === 403 ? "connector_permission_denied" : "connector_provider_failed",
-          "Semrush could not return the V3 report.", { statusCode: status === 429 ? 429 : status === 403 ? 403 : 502 });
+          "Semrush could not return the V3 report.", { statusCode: status === 429 ? 429 : status === 403 ? 403 : 502, messageCode: "connectors.semrush.couldNotReturnV3Report" });
       }
-      if (text.length > 2_000_000) throw new ConnectorError("connector_response_invalid", "Semrush returned an oversized V3 report.", { statusCode: 502 });
+      if (text.length > 2_000_000) throw new ConnectorError("connector_response_invalid", "Semrush returned an oversized V3 report.", { statusCode: 502, messageCode: "connectors.semrush.returnedOversizedV3Report" });
       if (path !== "/") {
         try { return JSON.parse(text); } catch {
-          throw new ConnectorError("connector_response_invalid", "Semrush returned invalid tracking JSON.", { statusCode: 502 });
+          throw new ConnectorError("connector_response_invalid", "Semrush returned invalid tracking JSON.", { statusCode: 502, messageCode: "connectors.semrush.returnedInvalidTrackingJson" });
         }
       }
       const columns = url.searchParams.get("type") === "domain_rank" ? domainColumns : keywordColumns;
@@ -305,15 +305,15 @@ const semrushProvider = Object.freeze({
       if (error) {
         if (error[1] === "50") return { columns, rows: [] };
         const code = Number(error[1]);
-        if ([110, 120].includes(code)) throw new ConnectorError("connector_binding_missing", "Replace the separate Semrush V3 key in Env.");
-        if ([130, 133, 135].includes(code)) throw new ConnectorError("connector_permission_denied", "Check Semrush V3 API, database and report entitlement.", { statusCode: 403 });
-        if ([131, 132, 134].includes(code)) throw new ConnectorError("connector_quota_limited", "Check Semrush V3 API units and report limits.", { statusCode: 429 });
-        throw new ConnectorError("connector_provider_failed", "Semrush rejected the V3 report. Check its inputs and account access.", { statusCode: 502 });
+        if ([110, 120].includes(code)) throw new ConnectorError("connector_binding_missing", "Replace the separate Semrush V3 key in Env.", { messageCode: "connectors.semrush.replaceSeparateV3KeyEnv" });
+        if ([130, 133, 135].includes(code)) throw new ConnectorError("connector_permission_denied", "Check Semrush V3 API, database and report entitlement.", { statusCode: 403, messageCode: "connectors.semrush.checkV3ApiDatabaseReport" });
+        if ([131, 132, 134].includes(code)) throw new ConnectorError("connector_quota_limited", "Check Semrush V3 API units and report limits.", { statusCode: 429, messageCode: "connectors.semrush.checkV3ApiUnitsReport" });
+        throw new ConnectorError("connector_provider_failed", "Semrush rejected the V3 report. Check its inputs and account access.", { statusCode: 502, messageCode: "connectors.semrush.rejectedV3ReportCheckInputs" });
       }
       const rows = parseSemrushCsv(text);
       if (JSON.stringify(rows.shift()) !== JSON.stringify(columns) || rows.length > rowLimit ||
         rows.some((row) => row.length !== columns.length)) {
-        throw new ConnectorError("connector_response_invalid", "Semrush returned unexpected V3 report columns or rows.", { statusCode: 502 });
+        throw new ConnectorError("connector_response_invalid", "Semrush returned unexpected V3 report columns or rows.", { statusCode: 502, messageCode: "connectors.semrush.returnedUnexpectedV3ReportColumns" });
       }
       return { columns, rows };
     }
@@ -321,18 +321,18 @@ const semrushProvider = Object.freeze({
     if (result?.meta?.success === false) {
       const code = result.error?.code;
       if ([70, 120, 121, 122].includes(code)) {
-        throw new ConnectorError("connector_reconnect_required", "Replace the Semrush V4 key and connect again.", { statusCode: 401 });
+        throw new ConnectorError("connector_reconnect_required", "Replace the Semrush V4 key and connect again.", { statusCode: 401, messageCode: "connectors.semrush.replaceV4KeyConnectAgain" });
       }
       if (code === 130) {
-        throw new ConnectorError("connector_permission_denied", "Semrush API access is disabled for this account.", { statusCode: 403 });
+        throw new ConnectorError("connector_permission_denied", "Semrush API access is disabled for this account.", { statusCode: 403, messageCode: "connectors.semrush.apiAccessDisabledAccount" });
       }
       if ([131, 132, 134].includes(code)) {
-        throw new ConnectorError("connector_quota_limited", "Semrush API capacity is exhausted. Check the account's subscription and available units.", { statusCode: 429 });
+        throw new ConnectorError("connector_quota_limited", "Semrush API capacity is exhausted. Check the account's subscription and available units.", { statusCode: 429, messageCode: "connectors.semrush.apiCapacityExhaustedCheckAccount" });
       }
       if (code === 512) {
-        throw new ConnectorError("connector_resource_not_found", "The Semrush project was not found or is not accessible.", { statusCode: 404 });
+        throw new ConnectorError("connector_resource_not_found", "The Semrush project was not found or is not accessible.", { statusCode: 404, messageCode: "connectors.semrush.projectNotFoundNotAccessible" });
       }
-      throw new ConnectorError("connector_provider_failed", "Semrush could not complete this request.", { statusCode: 502 });
+      throw new ConnectorError("connector_provider_failed", "Semrush could not complete this request.", { statusCode: 502, messageCode: "connectors.semrush.couldNotCompleteRequest" });
     }
     return result;
   }

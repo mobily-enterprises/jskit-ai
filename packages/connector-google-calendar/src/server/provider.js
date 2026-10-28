@@ -31,27 +31,27 @@ const targetSchema = createSchema({
   calendarId: calendarIdField,
   eventId: { type: "string", minLength: 1, maxLength: 1024, required: true }
 });
-function invalid(message) { throw new ConnectorError("connector_input_invalid", message, { statusCode: 422 }); }
+function invalid(message, codes) { throw new ConnectorError("connector_input_invalid", message, { statusCode: 422, ...codes }); }
 function validateEventTime(point) {
-  if (typeof point !== "object" || Array.isArray(point) || Object.keys(point).some(key => !["date", "dateTime", "timeZone"].includes(key))) invalid("Use date or dateTime and optional timeZone.");
-  if (Boolean(point.date) === Boolean(point.dateTime)) invalid("Choose an all-day date or a timed dateTime.");
+  if (typeof point !== "object" || Array.isArray(point) || Object.keys(point).some(key => !["date", "dateTime", "timeZone"].includes(key))) invalid("Use date or dateTime and optional timeZone.", { messageCode: "connectors.googleCalendar.useDateDatetimeOptionalTimezone" });
+  if (Boolean(point.date) === Boolean(point.dateTime)) invalid("Choose an all-day date or a timed dateTime.", { messageCode: "connectors.googleCalendar.chooseAllDayDateTimed" });
   if (point.date && (typeof point.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(point.date) ||
-    !Number.isFinite(Date.parse(point.date)) || new Date(point.date).toISOString().slice(0, 10) !== point.date)) invalid("Invalid all-day date.");
+    !Number.isFinite(Date.parse(point.date)) || new Date(point.date).toISOString().slice(0, 10) !== point.date)) invalid("Invalid all-day date.", { messageCode: "connectors.googleCalendar.invalidAllDayDate" });
   if (point.dateTime && (typeof point.dateTime !== "string" || !/T.*(?:Z|[+-]\d{2}:\d{2})$/.test(point.dateTime) ||
-    !Number.isFinite(Date.parse(point.dateTime)))) invalid("dateTime requires an explicit timezone offset.");
+    !Number.isFinite(Date.parse(point.dateTime)))) invalid("dateTime requires an explicit timezone offset.", { messageCode: "connectors.googleCalendar.datetimeRequiresExplicitTimezoneOffset" });
   if (point.timeZone !== undefined) {
     try {
       if (typeof point.timeZone !== "string") throw new Error();
       new Intl.DateTimeFormat("en", { timeZone: point.timeZone });
-    } catch { invalid("Use an IANA timeZone."); }
+    } catch { invalid("Use an IANA timeZone.", { messageCode: "connectors.googleCalendar.useIanaTimezone" }); }
   }
 }
 function validateRecurrence(body) {
   const { recurrence } = body;
   if (!Array.isArray(recurrence) || recurrence.length > 100 || recurrence.some(line => typeof line !== "string" ||
-    line.length > 2048 || !/^(RRULE|RDATE|EXRULE|EXDATE)[:;]/.test(line) || /[\r\n]/.test(line))) invalid("recurrence must be an array of RFC5545 recurrence lines.");
-  if (recurrence.length && body.start?.dateTime && (!body.start.timeZone || !body.end.timeZone)) invalid("Timed recurrence requires start/end timeZone.");
-  if (recurrence.length && !body.start) invalid("Supply start and end when setting recurrence.");
+    line.length > 2048 || !/^(RRULE|RDATE|EXRULE|EXDATE)[:;]/.test(line) || /[\r\n]/.test(line))) invalid("recurrence must be an array of RFC5545 recurrence lines.", { messageCode: "connectors.googleCalendar.recurrenceMustArrayRfc5545Recurrence" });
+  if (recurrence.length && body.start?.dateTime && (!body.start.timeZone || !body.end.timeZone)) invalid("Timed recurrence requires start/end timeZone.", { messageCode: "connectors.googleCalendar.timedRecurrenceRequiresStartEnd" });
+  if (recurrence.length && !body.start) invalid("Supply start and end when setting recurrence.", { messageCode: "connectors.googleCalendar.supplyStartEndSettingRecurrence" });
 }
 function validAttendee(person) {
   return person && typeof person.email === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(person.email) &&
@@ -61,22 +61,22 @@ function validAttendee(person) {
 }
 function validateAttendees(attendees) {
   if (!Array.isArray(attendees) || attendees.length > 200 || !attendees.every(validAttendee)) {
-    invalid("attendees requires up to 200 email entries with optional displayName/optional.");
+    invalid("attendees requires up to 200 email entries with optional displayName/optional.", { messageCode: "connectors.googleCalendar.attendeesRequiresUp200Email" });
   }
 }
 function eventBody(body, creating) {
-  if (!body || typeof body !== "object" || Array.isArray(body)) invalid("event must be an object.");
+  if (!body || typeof body !== "object" || Array.isArray(body)) invalid("event must be an object.", { messageCode: "connectors.googleCalendar.eventMustObject" });
   const allowed = ["summary", "description", "location", "start", "end", "recurrence", "attendees", "transparency", "visibility"];
-  if (!Object.keys(body).length || Object.keys(body).some(key => !allowed.includes(key))) invalid("Use supported event fields only.");
-  for (const key of ["summary", "description", "location"]) if (body[key] !== undefined && (typeof body[key] !== "string" || body[key].length > 16384)) invalid(`${key} must be text of at most 16384 characters.`);
-  if (creating && (!body.start || !body.end)) invalid("start and end are required.");
-  if (Boolean(body.start) !== Boolean(body.end)) invalid("Supply start and end together when changing event times.");
+  if (!Object.keys(body).length || Object.keys(body).some(key => !allowed.includes(key))) invalid("Use supported event fields only.", { messageCode: "connectors.googleCalendar.useSupportedEventFields" });
+  for (const key of ["summary", "description", "location"]) if (body[key] !== undefined && (typeof body[key] !== "string" || body[key].length > 16384)) invalid(`${key} must be text of at most 16384 characters.`, { messageCode: "connectors.googleCalendar.textTooLong", messageParams: { field: key } });
+  if (creating && (!body.start || !body.end)) invalid("start and end are required.", { messageCode: "connectors.googleCalendar.startEndRequired" });
+  if (Boolean(body.start) !== Boolean(body.end)) invalid("Supply start and end together when changing event times.", { messageCode: "connectors.googleCalendar.supplyStartEndTogetherChanging" });
   for (const point of [body.start, body.end].filter(Boolean)) validateEventTime(point);
-  if (body.start && (Boolean(body.start.date) !== Boolean(body.end.date) || Date.parse(body.end.date || body.end.dateTime) <= Date.parse(body.start.date || body.start.dateTime))) invalid("Use matching date types with end after start; all-day end is exclusive.");
+  if (body.start && (Boolean(body.start.date) !== Boolean(body.end.date) || Date.parse(body.end.date || body.end.dateTime) <= Date.parse(body.start.date || body.start.dateTime))) invalid("Use matching date types with end after start; all-day end is exclusive.", { messageCode: "connectors.googleCalendar.useMatchingDateTypesEnd" });
   if (body.recurrence !== undefined) validateRecurrence(body);
   if (body.attendees !== undefined) validateAttendees(body.attendees);
-  if (body.transparency !== undefined && !["opaque", "transparent"].includes(body.transparency)) invalid("Invalid transparency.");
-  if (body.visibility !== undefined && !["default", "public", "private", "confidential"].includes(body.visibility)) invalid("Invalid visibility.");
+  if (body.transparency !== undefined && !["opaque", "transparent"].includes(body.transparency)) invalid("Invalid transparency.", { messageCode: "connectors.googleCalendar.invalidTransparency" });
+  if (body.visibility !== undefined && !["default", "public", "private", "confidential"].includes(body.visibility)) invalid("Invalid visibility.", { messageCode: "connectors.googleCalendar.invalidVisibility" });
   return body;
 }
 function writeEvent(method) {
@@ -85,9 +85,9 @@ function writeEvent(method) {
     validateResult: result => method === "DELETE" ? result === null : result?.kind === "calendar#event" && typeof result.id === "string",
     request(input = {}) {
       const { event, sendUpdates, ifMatch, ...target } = input;
-      if (!["all", "externalOnly", "none"].includes(sendUpdates)) invalid("Choose sendUpdates explicitly: all, externalOnly or none.");
-      if (ifMatch !== undefined && (typeof ifMatch !== "string" || !ifMatch || ifMatch.length > 1024 || /[\r\n]/.test(ifMatch))) invalid("Invalid event ETag.");
-      if (method === "DELETE" && event !== undefined) invalid("Cancellation has no event body.");
+      if (!["all", "externalOnly", "none"].includes(sendUpdates)) invalid("Choose sendUpdates explicitly: all, externalOnly or none.", { messageCode: "connectors.googleCalendar.chooseSendUpdates" });
+      if (ifMatch !== undefined && (typeof ifMatch !== "string" || !ifMatch || ifMatch.length > 1024 || /[\r\n]/.test(ifMatch))) invalid("Invalid event ETag.", { messageCode: "connectors.googleCalendar.invalidEventEtag" });
+      if (method === "DELETE" && event !== undefined) invalid("Cancellation has no event body.", { messageCode: "connectors.googleCalendar.cancellationNoEventBody" });
       const { calendarId, eventId } = validateSchemaPayload({ schema: method === "POST" ? calendarSchema : targetSchema, mode: "replace" }, target, { statusCode: 422 });
       const request = queryUrl(`calendars/${encodeURIComponent(calendarId)}/events${eventId ? `/${encodeURIComponent(eventId)}` : ""}`, { sendUpdates });
       return { ...request, method, ...(ifMatch ? { headers: { "If-Match": ifMatch } } : {}), ...(method !== "DELETE" ? { body: eventBody(event, method === "POST") } : {}) };

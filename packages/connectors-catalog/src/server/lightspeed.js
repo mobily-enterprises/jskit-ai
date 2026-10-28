@@ -26,7 +26,7 @@ function collection(resource) {
       const request = operation.request(input, settings);
       const query = new URL(request.url).searchParams;
       if (query.has("after") && query.has("before") && Number(query.get("after")) >= Number(query.get("before"))) {
-        throw new ConnectorError("connector_input_invalid", "The lower version must be below the upper version.", { statusCode: 422 });
+        throw new ConnectorError("connector_input_invalid", "The lower version must be below the upper version.", { statusCode: 422, messageCode: "connectors.lightspeed.lowerVersionMustBelowUpper" });
       }
       return request;
     }
@@ -55,7 +55,7 @@ const lightspeedProvider = Object.freeze({
       if (value?.domain_prefix !== settings.domainPrefix || typeof value.refresh_token !== "string" || !value.refresh_token.trim() ||
         !Number.isSafeInteger(value.expires_in) || value.expires_in <= 0 ||
         typeof value.scope !== "string" || !/^[^\s]+(?: [^\s]+)*$/u.test(value.scope)) {
-        throw new ConnectorError("connector_response_invalid", "Lightspeed returned an invalid token grant or a different store.", { statusCode: 502 });
+        throw new ConnectorError("connector_response_invalid", "Lightspeed returned an invalid token grant or a different store.", { statusCode: 502, messageCode: "connectors.lightspeed.returnedInvalidTokenGrantDifferent" });
       }
     }
     return response;
@@ -65,7 +65,7 @@ const lightspeedProvider = Object.freeze({
       const request = inventoryRead.request(input, settings);
       const { after, before, variants, product_id } = request.body;
       if (after !== undefined && before !== undefined && after >= before || variants && !product_id)
-        throw new ConnectorError("connector_input_invalid", "Use ordered inventory version bounds and a product ID when requesting variants.", { statusCode: 422 });
+        throw new ConnectorError("connector_input_invalid", "Use ordered inventory version bounds and a product ID when requesting variants.", { statusCode: 422, messageCode: "connectors.lightspeed.useOrderedInventoryVersionBounds" });
       return request;
     } }
   },
@@ -74,7 +74,7 @@ const lightspeedProvider = Object.freeze({
     const inventory = new URL(address).pathname.endsWith("/inventory");
     const limit = inventory ? options.body.size : Number(new URL(address).searchParams.get("page_size"));
     if ((inventory ? result?.length : result?.data?.length) > limit) {
-      throw new ConnectorError("connector_response_invalid", "Lightspeed returned more records than requested.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "Lightspeed returned more records than requested.", { statusCode: 502, messageCode: "connectors.shared.tooManyRecords", messageParams: { provider: "Lightspeed" } });
     }
     return result;
   }

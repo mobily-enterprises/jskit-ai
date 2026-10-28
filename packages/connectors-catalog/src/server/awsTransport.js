@@ -28,16 +28,16 @@ function awsExchange(service, Client, execute) {
         (accessKeyId.startsWith("ASIA") && !sessionToken)) throw new Error("Invalid credentials");
       credentials = { accessKeyId, secretAccessKey: apiKey, ...(sessionToken ? { sessionToken } : {}) };
     } catch {
-      throw new ConnectorError("connector_binding_missing", "Provide the AWS access key ID, secret access key and any required session token bindings.");
+      throw new ConnectorError("connector_binding_missing", "Provide the AWS access key ID, secret access key and any required session token bindings.", { messageCode: "connectors.aws.provideAccessKeyIdSecret" });
     }
     const origin = awsOrigin(service, settings);
-    if (new URL(endpoint).origin !== origin) throw new ConnectorError("connector_destination_invalid", "The AWS region does not match the operation destination.");
+    if (new URL(endpoint).origin !== origin) throw new ConnectorError("connector_destination_invalid", "The AWS region does not match the operation destination.", { messageCode: "connectors.aws.regionDoesNotMatchOperation" });
     const client = new Client({ region: settings.region, endpoint: origin, credentials, maxAttempts: 1,
       ...(service === "s3" ? { forcePathStyle: true, followRegionRedirects: false, requestChecksumCalculation: "WHEN_REQUIRED" } : {}),
       requestHandler: new FetchHttpHandler({
         requestInit: () => ({ credentials: "omit", redirect: "error" }),
         customFetch: async (request) => {
-          if (new URL(request.url).origin !== origin) throw new ConnectorError("connector_destination_invalid", "The AWS SDK selected an unexpected destination.");
+          if (new URL(request.url).origin !== origin) throw new ConnectorError("connector_destination_invalid", "The AWS SDK selected an unexpected destination.", { messageCode: "connectors.aws.sdkSelectedUnexpectedDestination" });
           options.signal.throwIfAborted();
           return fetchImpl(request.url, { method: request.method, headers: request.headers,
             ...(request.body ? { body: await request.text() } : {}), signal: options.signal, credentials: "omit", redirect: "error" });
@@ -55,17 +55,17 @@ function awsExchange(service, Client, execute) {
       if (error instanceof ConnectorError || ["AbortError", "TimeoutError"].includes(error.name)) throw error;
       const status = error.$metadata?.httpStatusCode;
       if (["ExpiredToken", "ExpiredTokenException", "InvalidAccessKeyId", "InvalidClientTokenId", "UnrecognizedClientException", "InvalidToken", "SignatureDoesNotMatch"].includes(error.name) || status === 401) {
-        throw new ConnectorError("connector_reconnect_required", "Renew the AWS credential bindings and connect again.", { statusCode: 401 });
+        throw new ConnectorError("connector_reconnect_required", "Renew the AWS credential bindings and connect again.", { statusCode: 401, messageCode: "connectors.aws.renewCredentialBindingsConnectAgain" });
       }
       if (["TooManyRequestsException", "ThrottlingException", "SlowDown", "RequestLimitExceeded", "ActiveStatementsExceededException", "ActiveSessionsExceededException", "ActiveWaitingRequestsExceededException"].includes(error.name) || status === 429) {
-        throw new ConnectorError("connector_rate_limited", "The AWS request limit was reached.", { statusCode: 429 });
+        throw new ConnectorError("connector_rate_limited", "The AWS request limit was reached.", { statusCode: 429, messageCode: "connectors.aws.requestLimitReached" });
       }
-      if (status === 403) throw new ConnectorError("connector_permission_denied", "AWS denied this operation. Check IAM, resource and database permissions.", { statusCode: 403 });
-      if (status === 404 || error.name === "ResourceNotFoundException") throw new ConnectorError("connector_not_found", "The AWS resource was not found.", { statusCode: 404 });
+      if (status === 403) throw new ConnectorError("connector_permission_denied", "AWS denied this operation. Check IAM, resource and database permissions.", { statusCode: 403, messageCode: "connectors.aws.deniedOperationCheckIamResource" });
+      if (status === 404 || error.name === "ResourceNotFoundException") throw new ConnectorError("connector_not_found", "The AWS resource was not found.", { statusCode: 404, messageCode: "connectors.aws.resourceNotFound" });
       if (status === 301 || status === 307 || ["AuthorizationHeaderMalformed", "PermanentRedirect", "InvalidRequestException", "ValidationException"].includes(error.name)) {
-        throw new ConnectorError("connector_configuration_invalid", "Check the AWS region, resource and operation settings.", { statusCode: 422 });
+        throw new ConnectorError("connector_configuration_invalid", "Check the AWS region, resource and operation settings.", { statusCode: 422, messageCode: "connectors.aws.checkRegionResourceOperationSettings" });
       }
-      throw new ConnectorError("connector_provider_failed", "The AWS request failed or returned an unreadable response.", { statusCode: 502 });
+      throw new ConnectorError("connector_provider_failed", "The AWS request failed or returned an unreadable response.", { statusCode: 502, messageCode: "connectors.aws.requestFailedReturnedUnreadableResponse" });
     } finally {
       client.destroy();
     }

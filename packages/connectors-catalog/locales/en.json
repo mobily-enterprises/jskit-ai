@@ -1,0 +1,513 @@
+{
+  "jskit": {
+    "connectors": {
+      "ai": {
+        "accessConnectionDenied": "Access to this AI connection was denied.",
+        "authorizedAccountApiKeyUnavailable": "The authorized AI account's API key is unavailable.",
+        "connectionNotConfigured": "This AI connection is not configured.",
+        "individualAccountsRequireUserOwned": "Individual AI accounts require a user-owned reference, not a shared environment variable."
+      },
+      "amazonRedshift": {
+        "didNotReturnStatementIdentifier": "Redshift did not return a statement identifier.",
+        "returnedUnexpectedStatement": "Redshift returned an unexpected statement.",
+        "statementBelongsDifferentTarget": "This statement belongs to a different Redshift target.",
+        "statementNoFinishedResultSet": "This statement has no finished result set.",
+        "useSqlParameterNameOnce": "Use each SQL parameter name only once."
+      },
+      "apify": {
+        "useFrameworkNativeClientStream": "Use the framework's native Apify client to stream records larger than 8 MiB."
+      },
+      "apolloIo": {
+        "enterRecordRequiredIdentifyingFields": "Enter the record's required identifying fields or changes."
+      },
+      "asana": {
+        "includeDueSettingClearingStart": "Include due_on when setting or clearing start_on.",
+        "startDateMustPrecedeProject": "The start date must precede the project due date, or be no later than the task due date."
+      },
+      "ashby": {
+        "couldNotCompleteOperation": "Ashby could not complete the operation.",
+        "supplyLeastCandidateProfileChange": "Supply at least one candidate profile change."
+      },
+      "attention": {
+        "endTimeMustFollowStart": "End time must follow start time."
+      },
+      "aws": {
+        "checkRegionResourceOperationSettings": "Check the AWS region, resource and operation settings.",
+        "deniedOperationCheckIamResource": "AWS denied this operation. Check IAM, resource and database permissions.",
+        "provideAccessKeyIdSecret": "Provide the AWS access key ID, secret access key and any required session token bindings.",
+        "regionDoesNotMatchOperation": "The AWS region does not match the operation destination.",
+        "renewCredentialBindingsConnectAgain": "Renew the AWS credential bindings and connect again.",
+        "requestFailedReturnedUnreadableResponse": "The AWS request failed or returned an unreadable response.",
+        "requestLimitReached": "The AWS request limit was reached.",
+        "resourceNotFound": "The AWS resource was not found.",
+        "sdkSelectedUnexpectedDestination": "The AWS SDK selected an unexpected destination."
+      },
+      "awsAthena": {
+        "queryBelongsDifferentWorkgroup": "This query belongs to a different workgroup.",
+        "returnedDifferentWorkgroup": "Athena returned a different workgroup.",
+        "returnedUnexpectedQuery": "Athena returned an unexpected query."
+      },
+      "awsS3": {
+        "returnedUnexpectedBucketPageSize": "S3 returned an unexpected bucket or page size."
+      },
+      "brevo": {
+        "chooseTemplateProvideSubjectEmail": "Choose a template or provide a subject and email content.",
+        "smsContentOrTemplate": "Choose SMS content or a template, not both."
+      },
+      "calendly": {
+        "chooseEventOwner": "Choose the user, organization or group whose events to read.",
+        "choosePositiveRangeMost31": "Choose a positive range of at most 31 days."
+      },
+      "databricks": {
+        "returnedUnexpectedJobResponse": "Databricks returned an unexpected job response."
+      },
+      "dbtSemanticLayer": {
+        "completedWithoutJsonResultTable": "dbt completed without a JSON result table.",
+        "couldNotCompleteRequestedOperation": "dbt could not complete the requested operation. Check the environment and service token permissions.",
+        "queryFailedInspectStatusDo": "dbt query failed. Inspect its status in dbt; do not automatically submit it again.",
+        "returnedInvalidJsonResultPage": "dbt returned an invalid JSON result page.",
+        "returnedInvalidJsonTable": "dbt returned an invalid JSON table.",
+        "returnedInvalidOversizedJsonResult": "dbt returned an invalid or oversized JSON result page.",
+        "returnedUnexpectedMetadataPage": "dbt returned an unexpected metadata page.",
+        "useServiceTokenWithoutSpaces": "Use a dbt service token without spaces or control characters."
+      },
+      "elevenlabs": {
+        "audioSamplesMustTotalMost": "Audio samples must total at most 16 MiB.",
+        "didNotReturnAudio": "ElevenLabs did not return audio.",
+        "returnedEmptyAudio": "ElevenLabs returned empty audio.",
+        "useNativeStreamingAudioAbove": "Use native streaming for audio above 16 MiB."
+      },
+      "firebaseCloudMessaging": {
+        "couldNotAuthorizeServiceAccount": "Google could not authorize the service account. Check the credential and project permissions.",
+        "recipientNoLongerRegisteredRemove": "This Firebase recipient is no longer registered. Remove its association and wait for client registration again.",
+        "rejectedMessageTargetDoNot": "Firebase rejected the message or target. Do not delete a registration unless the payload is known to be valid.",
+        "returnedInvalidMessageJson": "Firebase returned invalid message JSON.",
+        "returnedUnexpectedMessageReceipt": "Firebase returned an unexpected message receipt.",
+        "returnedUnexpectedTokenRedirect": "Google returned an unexpected token redirect.",
+        "useValidServiceAccountJson": "Use a valid Firebase service-account JSON credential for the default Google API domain."
+      },
+      "firecrawl": {
+        "useReturnedNextPageUrl": "Use the returned next-page URL for this crawl."
+      },
+      "gatewayapi": {
+        "invalidWebhookEvent": "Invalid GatewayAPI webhook event."
+      },
+      "gmail": {
+        "supplyLabelsAddRemove": "Supply labels to add or remove."
+      },
+      "gong": {
+        "endDateMustFollowStart": "The end date must follow the start date.",
+        "supplyCallIdsOrderedTimestamp": "Supply call IDs or an ordered timestamp range.",
+        "supplyIdsStringsPreserveAll": "Supply Gong IDs as strings to preserve all digits."
+      },
+      "google": {
+        "batchRequestsInvalid": "Supply 1–100 native {product} request objects, one operation per object, within 1 MiB."
+      },
+      "googleAds": {
+        "apiCapacityExhaustedCheckCloud": "Google Ads API capacity is exhausted. Check the Cloud project and account quotas.",
+        "checkApiAccessApprovalCloud": "Check Google Ads API access approval for the Cloud project that owns this OAuth client.",
+        "connectAgainRequiredPermission": "Connect Google Ads again with its required permission.",
+        "rejectedOperationCheckCampaignFields": "Google Ads rejected the operation. Check campaign fields, policy requirements and account permissions.",
+        "resourceUnavailable": "This Google Ads resource is unavailable."
+      },
+      "googleAdsSearch": {
+        "campaignChangedInspectApproveAgain": "The campaign changed. Inspect and approve it again.",
+        "campaignExceedsBoundedSearchReview": "This campaign exceeds the bounded Search review. Manage it in Google Ads.",
+        "chooseActiveClientAccount": "Choose an active client account.",
+        "chooseActiveClientAccountMatch": "Choose an active client account and match its currency.",
+        "chooseEnabledWebsiteConversionAction": "Choose an enabled website conversion action.",
+        "chooseIntegration": "Choose a Google Ads integration.",
+        "confirmInstalledConversionTrackingBilling": "Confirm installed conversion tracking and billing/advertiser readiness before launch.",
+        "didNotReturnSelectedAccount": "Google did not return the selected account.",
+        "enterLocationNameUsingLetters": "Enter a location name using letters, numbers, spaces, dots or hyphens.",
+        "pausedCampaignCanLaunchedHere": "Only a paused campaign can be launched here.",
+        "returnedInvalidCampaignGoal": "Google returned an invalid campaign goal.",
+        "reviewNonPoliticalSearchCampaign": "Review a non-political Search campaign with an enabled custom conversion goal.",
+        "screenLaunchesSearchCampaignsManual": "This screen launches only Search campaigns with manual CPC, ads and keywords. Manage other campaigns in Google Ads.",
+        "searchPlanChangedReviewAgain": "The Search plan changed. Review it again before creation.",
+        "selectAccessibleSearchCampaign": "Select an accessible Search campaign."
+      },
+      "googleDrive": {
+        "base64Invalid": "Use standard padded base64 file data.",
+        "metadataChangeRequired": "Supply a name, description or trashed value.",
+        "mimeTypeInvalid": "Use a MIME type without header parameters.",
+        "parentIdNewFilesOnly": "parentId applies to new files; moving files requires native addParents/removeParents wiring.",
+        "uploadTooLarge": "Uploads above 5 MB require the framework's native resumable client.",
+        "useFrameworkNativeDriveClient": "Use the framework's native Drive client for downloads or exports above 8 MiB."
+      },
+      "googleMapsPlatform": {
+        "checkServerKeyBillingUsage": "Check the Google Maps server key, billing and usage cap.",
+        "couldNotAcceptGeocodingRequest": "Google Maps could not accept this geocoding request.",
+        "couldNotProcessRequestTry": "Google Maps could not process the request. Try again.",
+        "deniedAccessCheckEnabledApi": "Google Maps denied access. Check the enabled API and key restrictions.",
+        "requestQuotaReached": "The Google Maps request quota was reached."
+      },
+      "googleSearchConsole": {
+        "datesOrder": "startDate must not follow endDate."
+      },
+      "googleSheets": {
+        "rangesInvalid": "Supply 1–100 ranges within 1 MiB.",
+        "valuesMatrixInvalid": "Supply a matrix of at most 10,000 cells and 1 MiB, containing strings, finite numbers, booleans or null."
+      },
+      "granola": {
+        "noteUnavailable": "The Granola note is unavailable, inaccessible or still being processed.",
+        "readTranscriptPagesTranscriptsList": "Read the transcript in pages with transcripts.list.",
+        "returnedDataDoesNotMatch": "Granola returned data that does not match this request.",
+        "useGrnApiKeyWithout": "Use the Granola grn_ API key without whitespace or control characters."
+      },
+      "hubspot": {
+        "contactIdentityRequired": "Supply email, firstname or lastname.",
+        "dealNameStageRequired": "Supply dealname and the internal dealstage ID."
+      },
+      "inngest": {
+        "configureValidEventKeyReconnect": "Configure a valid Inngest Event Key and reconnect.",
+        "deniedEvent": "Inngest denied this event.",
+        "eventKeyBindingMissingInvalid": "The Inngest Event Key binding is missing or invalid.",
+        "eventLimitReached": "Inngest's event limit was reached."
+      },
+      "klipy": {
+        "rejectedOperation": "KLIPY rejected the operation."
+      },
+      "lightspeed": {
+        "lowerVersionMustBelowUpper": "The lower version must be below the upper version.",
+        "returnedInvalidTokenGrantDifferent": "Lightspeed returned an invalid token grant or a different store.",
+        "useOrderedInventoryVersionBounds": "Use ordered inventory version bounds and a product ID when requesting variants."
+      },
+      "linkedin": {
+        "connectOpenidProfilePermissions": "Connect LinkedIn with OpenID and profile permissions.",
+        "didNotConfirmPostCreation": "LinkedIn did not confirm post creation.",
+        "returnedInvalidMemberIdentity": "LinkedIn returned an invalid member identity."
+      },
+      "mapbox": {
+        "configureValidTokenConnectAgain": "Configure a valid Mapbox token and connect again."
+      },
+      "mcp": {
+        "registrationFailed": "{provider} client registration failed. Check the provider before creating another client.",
+        "registrationInterrupted": "Registration was interrupted. Check the provider before creating another client.",
+        "transportRequestedUnexpectedDestination": "The MCP transport requested an unexpected destination."
+      },
+      "microsoft": {
+        "chooseDocumentFile": "Choose a {product} file.",
+        "returnedInvalidFileList": "Microsoft returned an invalid file list.",
+        "returnedInvalidFileMetadata": "Microsoft returned invalid file metadata."
+      },
+      "microsoftFabric": {
+        "couldNotCompleteGraphqlDocument": "Fabric could not complete the GraphQL document. Check its schema and permissions before retrying.",
+        "requiresNewSignConsent": "Microsoft requires a new sign-in or consent."
+      },
+      "microsoftOnedrive": {
+        "useStandardPaddedBase64Up": "Use standard padded base64 up to 5 MB; larger files need a native upload session."
+      },
+      "microsoftOnenote": {
+        "useNativeOnenoteClientPages": "Use the native OneNote client for pages above 1 MiB."
+      },
+      "microsoftOutlook": {
+        "endMustFollowStart": "End must follow start."
+      },
+      "n8n": {
+        "discoverOauthSettingsExactMcp": "Discover OAuth settings for this exact n8n MCP URL before connecting.",
+        "oauthDiscoveryFailedCheckMcp": "n8n OAuth discovery failed. Check the MCP URL, advertised authority and supported server version.",
+        "oauthDiscoveryInterrupted": "n8n OAuth discovery was interrupted.",
+        "selectPermissionsAdvertisedMcpServer": "Select only permissions advertised by this n8n MCP server."
+      },
+      "oura": {
+        "startNotAfterEnd": "Start must be before or equal to end."
+      },
+      "paddle": {
+        "chooseLeastNotificationSettingChange": "Choose at least one notification setting to change."
+      },
+      "pipedrive": {
+        "companyAddressChangedConnectAccount": "The Pipedrive company address changed. Connect this account again.",
+        "returnedInvalidCompanyApiAddress": "Pipedrive returned an invalid company API address.",
+        "setCompanyDomainApiToken": "Set the Pipedrive Company domain for API-token CRM operations.",
+        "supplyChangedFieldsNewLead": "Supply changed fields; a new lead also needs a person or organization."
+      },
+      "posthog": {
+        "couldNotEvaluateAllRequested": "PostHog could not evaluate all requested flags.",
+        "featureFlagQuotaReached": "PostHog's feature flag quota has been reached.",
+        "usePublicProjectTokenStarting": "Use the public PostHog project token starting with phc_."
+      },
+      "salesforce": {
+        "describedDifferentObject": "Salesforce described a different object.",
+        "organisationApiRequestLimitReached": "The Salesforce organisation's API request limit was reached.",
+        "rejectedQueryObjectCheckApi": "Salesforce rejected the query or object. Check its API names and the user's permissions.",
+        "returnedInvalidGrantDifferentOrganisation": "Salesforce returned an invalid grant or a different organisation.",
+        "startQueryAgainResultCursor": "Start the Salesforce query again; its result cursor is no longer valid."
+      },
+      "semrush": {
+        "apiAccessDisabledAccount": "Semrush API access is disabled for this account.",
+        "apiCapacityExhaustedCheckAccount": "Semrush API capacity is exhausted. Check the account's subscription and available units.",
+        "checkV3ApiDatabaseReport": "Check Semrush V3 API, database and report entitlement.",
+        "checkV3ApiUnitsReport": "Check Semrush V3 API units and report limits.",
+        "chooseMonth201201Through": "Choose a month from 2012-01 through the current month.",
+        "configureSeparateV3ApiKey": "Configure the separate Semrush V3 API key reference for keyword reports.",
+        "configureSeparateV3ApiKeyReferenceDomainReports": "Configure the separate Semrush V3 API key reference for domain reports.",
+        "configureV3KeyCampaignDiscovery": "Configure the Semrush V3 key for campaign discovery.",
+        "configureV3KeyPositionTracking": "Configure the Semrush V3 key for position tracking.",
+        "couldNotCompleteRequest": "Semrush could not complete this request.",
+        "couldNotReturnV3Report": "Semrush could not return the V3 report.",
+        "projectNotFoundNotAccessible": "The Semrush project was not found or is not accessible.",
+        "provideV3ApiKeyThrough": "Provide the Semrush V3 API key through its private Env reference.",
+        "provideValidV3ApiKey": "Provide a valid Semrush V3 API key.",
+        "rejectedV3ReportCheckInputs": "Semrush rejected the V3 report. Check its inputs and account access.",
+        "replaceSeparateV3KeyEnv": "Replace the separate Semrush V3 key in Env.",
+        "replaceV4KeyConnectAgain": "Replace the Semrush V4 key and connect again.",
+        "requestedPageExceedsProviderResult": "The requested Semrush page exceeds the provider's result window.",
+        "returnedIncompleteCsv": "Semrush returned incomplete CSV.",
+        "returnedInvalidTrackingJson": "Semrush returned invalid tracking JSON.",
+        "returnedMalformedCsv": "Semrush returned malformed CSV.",
+        "returnedOversizedV3Report": "Semrush returned an oversized V3 report.",
+        "returnedUnexpectedV3ReportColumns": "Semrush returned unexpected V3 report columns or rows.",
+        "trackingStartDateMustNot": "The tracking start date must not follow its end date.",
+        "useV4ApiKeyWithout": "Use the Semrush V4 API key without spaces or control characters."
+      },
+      "shared": {
+        "apiKeyFormat": "Use the {provider} API key without spaces, control characters or colons.",
+        "differentRecord": "{provider} returned a different record.",
+        "invalidCallback": "Invalid {provider} callback.",
+        "invalidPermissionGrant": "{provider} returned an invalid permission grant.",
+        "invalidResponse": "{provider} returned an invalid response.",
+        "invalidTokenGrant": "{provider} returned an invalid token grant.",
+        "invalidTokenResponse": "{provider} returned an invalid token response.",
+        "invalidWebhookSignature": "Invalid {provider} webhook signature.",
+        "operationDenied": "{provider} denied this operation.",
+        "reconnectAccount": "Connect this {provider} account again.",
+        "requestLimitReached": "{provider}'s request limit was reached.",
+        "resourceUnavailable": "This {provider} resource is not available.",
+        "supplyCanonicalBase64NonemptyFile": "Supply canonical base64 for a nonempty file of at most 5 MiB.",
+        "supplyLeastChange": "Supply at least one change.",
+        "tooManyRecords": "{provider} returned more records than requested.",
+        "unexpectedPage": "{provider} returned an unexpected page.",
+        "unexpectedResponse": "{provider} returned an unexpected response."
+      },
+      "shopify": {
+        "rejectedProductChangeCheckProduct": "Shopify rejected the product change. Check the product values and permissions before retrying.",
+        "returnedMoreProductsRequested": "Shopify returned more products than requested.",
+        "selectLeastProductDetailUpdate": "Select at least one product detail to update."
+      },
+      "slack": {
+        "checkClientRegistrationCallback": "Check the Slack client registration and callback.",
+        "couldNotAuthorizeRequest": "Slack could not authorize this request.",
+        "requestFailedTryAgain": "The Slack request failed. Try again.",
+        "returnedTokenWrongIdentityInvalid": "Slack returned a token for the wrong identity or an invalid permission grant."
+      },
+      "snowflake": {
+        "rejectedStatementInspectQueryHistory": "Snowflake rejected the statement. Inspect query history with the authorized role.",
+        "responseExceeds16MibReduce": "Snowflake response exceeds 16 MiB. Reduce the query result or use a native streaming client.",
+        "returnedInvalidStatementResponse": "Snowflake returned an invalid statement response.",
+        "returnedUnexpectedDatabasePage": "Snowflake returned an unexpected database page."
+      },
+      "tally": {
+        "chooseNameStatusBlockChange": "Choose a name, status or block change."
+      },
+      "telegram": {
+        "configureBotTokenReferencedEnvironment": "Configure a Telegram bot token in the referenced environment variable."
+      },
+      "tiktok": {
+        "connectBasicProfilePermission": "Connect TikTok with basic profile permission.",
+        "connectPermissionRequiredOperation": "Connect TikTok with the permission required for this operation.",
+        "couldNotAuthorizeConnection": "TikTok could not authorize this connection.",
+        "couldNotCompleteRequest": "TikTok could not complete the request.",
+        "returnedDuplicatePermissions": "TikTok returned duplicate permissions.",
+        "returnedTooManyVideos": "TikTok returned too many videos."
+      },
+      "twilio": {
+        "chooseSenderNumberMessagingService": "Choose one sender number or Messaging Service SID.",
+        "supplyEitherCallControlUrl": "Supply either a call-control URL or inline TwiML."
+      },
+      "twitch": {
+        "connectAgainPermissionEvent": "Connect Twitch again with permission for this event.",
+        "connectAgainPermissionNeededOperation": "Connect Twitch again with the permission needed for this operation.",
+        "enablingVacationRequiresTimezoneEnd": "Enabling vacation requires a timezone and an end after the start.",
+        "operationInvalidDestination": "This Twitch operation has an invalid destination.",
+        "returnedInvalidUnexpectedEventsubMessage": "Twitch returned an invalid or unexpected EventSub message.",
+        "returnedInvalidUserTokenValidation": "Twitch returned an invalid user-token validation.",
+        "returnedProfileDifferentUser": "Twitch returned a profile for a different user.",
+        "rewardLimitAmountRequired": "Supply {field} when enabling this reward limit.",
+        "supplyBothReportDatesEnd": "Supply both report dates, with the end on or after the start.",
+        "supplyLeastBroadcastChange": "Supply at least one broadcast change.",
+        "supplyLeastRewardChange": "Supply at least one reward change.",
+        "supplyLeastScheduleChange": "Supply at least one schedule change.",
+        "supplyWinningOutcomeResolvingPrediction": "Supply a winning outcome only when resolving the prediction.",
+        "tokenBelongsDifferentApplication": "The Twitch token belongs to a different application.",
+        "tokenRequestDenied": "Twitch denied the token request."
+      },
+      "wave": {
+        "accountChangedReloadApplyingEdit": "The account changed. Reload it before applying your edit.",
+        "accountingRecordNotAvailableSelected": "This accounting record is not available in the selected business. Check read access.",
+        "approveDocumentCheckEmailEligibility": "Approve the document and check Wave email eligibility before sending.",
+        "chooseAccountingFieldsUpdate": "Choose accounting fields to update.",
+        "chooseLeastCustomerFieldUpdate": "Choose at least one customer field to update.",
+        "chooseLeastDocumentFieldUpdate": "Choose at least one document field to update.",
+        "chooseLeastProductFieldUpdate": "Choose at least one product field to update.",
+        "couldNotCompleteQuery": "Wave could not complete this query.",
+        "customerNotAvailable": "This customer is not available in the selected business.",
+        "customerNotAvailableCheckAccess": "This customer is not available in the selected business. Check read access.",
+        "deniedTokenAccessCheckBusiness": "Wave denied token access. Check the business subscription and permissions.",
+        "documentNotAvailableSelectedBusiness": "This document is not available in the selected business. Check read access.",
+        "productAccountTaxNotAvailable": "This product, account or tax is not available in the selected business. Check read access.",
+        "rejectedAccountingChangeCheckValues": "Wave rejected the accounting change. Check the values and current record.",
+        "rejectedCustomerDetailsCheckSelected": "Wave rejected the customer details. Check the selected business and customer fields.",
+        "rejectedDocumentOperationCheckDetails": "Wave rejected the document operation. Check its details and current state.",
+        "rejectedProductDetailsCheckAccounts": "Wave rejected the product details. Check accounts, taxes and price.",
+        "rejectedTransactionReviewBalanceAccounts": "Wave rejected the transaction. Review its balance, accounts and details before submitting again.",
+        "returnedCustomerUnexpectedBusinessCheck": "Wave returned a customer from an unexpected business. Check the outcome before retrying.",
+        "returnedEstimateAnotherBusiness": "Wave returned an estimate from another business.",
+        "returnedUnexpectedAccountingRecord": "Wave returned an unexpected accounting record.",
+        "returnedUnexpectedAccountingRecordCheck": "Wave returned an unexpected accounting record. Check the outcome before retrying.",
+        "returnedUnexpectedBusiness": "Wave returned an unexpected business.",
+        "returnedUnexpectedCustomerCheckOutcome": "Wave returned an unexpected customer. Check the outcome before retrying.",
+        "returnedUnexpectedDocumentCheckOutcome": "Wave returned an unexpected document. Check the outcome before retrying.",
+        "returnedUnexpectedEstimate": "Wave returned an unexpected estimate.",
+        "returnedUnexpectedInvoice": "Wave returned an unexpected invoice.",
+        "returnedUnexpectedProductCheckOutcome": "Wave returned an unexpected product. Check the outcome before retrying.",
+        "transactionAccountCustomerTaxNot": "A transaction account, customer or tax is not available in the selected business. Check read access.",
+        "useMost100DistinctRelated": "Use at most 100 distinct related records per transaction."
+      },
+      "wix": {
+        "appointmentSupplyServiceScheduleIds": "For an appointment, supply its service/schedule IDs, increasing local slot dates and IANA timezone. Courses cannot be rescheduled.",
+        "businessScheduleLimits": "Use native businessSchedule periods and specialHourPeriod arrays with at most 100 entries each.",
+        "chooseBusinessLocationId": "Choose the business location ID.",
+        "chooseServiceFieldUpdate": "Choose a service field to update.",
+        "chooseServiceTimeZoneIncreasing": "Choose the service, time zone and an increasing local date range.",
+        "chooseValidSiteId": "Choose a valid Wix Site ID.",
+        "classCourseSessionDurationsBelong": "Class/course session durations belong to their sessions, not service availability constraints.",
+        "classSupplySelectedEventidSlot": "For a class, supply only the selected eventId in slot.",
+        "configureSiteIdFirst": "Configure the Wix Site ID first.",
+        "depositRequiresAmountOnlinePayment": "A deposit requires its amount, online payment and no in-person payment.",
+        "describeCustomPaymentUp50": "Describe the custom payment in up to 50 characters.",
+        "didNotReturnUpdatedFulfillment": "Wix did not return the updated fulfillment. Inspect the order before retrying.",
+        "doNotSendGeneratedService": "Do not send generated service identity fields or existing add-on groups when creating a service.",
+        "enableParticipantNotificationSendCancellation": "Enable participant notification to send a cancellation message.",
+        "enableParticipantNotificationSupplyingMessage": "Enable participant notification before supplying a message.",
+        "manualApprovalCannotUsePricing": "Manual approval cannot use pricing plans; online payment requires online booking.",
+        "onlineDepositPaymentsRequireFixed": "Online and deposit payments require fixed or varied pricing.",
+        "provideAppointmentSessionDurationsMinutes": "Provide appointment session durations in minutes.",
+        "provideContactDetailsCreationRequires": "Provide contact details; creation requires a name, email or phone.",
+        "provideDestinationMovingFutureSessions": "Provide a destination only when moving future sessions.",
+        "provideExplicitOnlineBookingSettings": "Provide explicit online-booking settings.",
+        "provideLocationAddress": "Provide the location address.",
+        "providePositiveDecimalPriceString": "Provide a positive decimal price string and three-letter currency code.",
+        "provideProductNameVisibilityBase": "Provide a product name, visibility or base-price change.",
+        "provideProductNameVisibilityChange": "Provide a product name or visibility change.",
+        "provideSelectedServiceSettingsInstead": "Provide the selected service settings instead of an empty object.",
+        "provideServiceTypeNameUp": "Provide a service type and name of up to 400 characters.",
+        "returnedAvailabilityDifferentServiceTime": "Wix returned availability for a different service, time or time zone.",
+        "returnedClassSlotDifferentService": "Wix returned a class slot for a different service.",
+        "returnedDifferentBookingCheckOperation": "Wix returned a different booking. Check the operation outcome before retrying.",
+        "returnedDifferentBookingServiceCheck": "Wix returned a different booking service. Check the outcome before retrying.",
+        "returnedDifferentBusinessLocation": "Wix returned a different business location.",
+        "returnedDifferentCmsCollection": "Wix returned a different CMS collection.",
+        "returnedDifferentCmsItemCollection": "Wix returned a different CMS item or collection. Check write outcomes before retrying.",
+        "returnedDifferentContactCheckOperation": "Wix returned a different contact. Check the operation outcome before retrying.",
+        "returnedDifferentEventSlotTime": "Wix returned a different event slot or time zone.",
+        "returnedDifferentFormSummary": "Wix returned a different form summary.",
+        "returnedDifferentOrder": "Wix returned a different order.",
+        "returnedDifferentProduct": "Wix returned a different product.",
+        "returnedFulfillmentsDifferentOrder": "Wix returned fulfillments for a different order.",
+        "returnedItemsDifferentCmsCollection": "Wix returned items from a different CMS collection.",
+        "returnedUnexpectedBookingRequestedId": "Wix returned an unexpected booking for the requested ID.",
+        "returnedVariantsDifferentService": "Wix returned variants for a different service.",
+        "selectDurationAddOnsSupplying": "Select a duration or add-ons before supplying customer choices.",
+        "selectLeastStaffResourceId": "Select at least one staff resource ID for the appointment service.",
+        "selectPersonOnlinePaymentIncluding": "Select in-person or online payment, including for a free service.",
+        "setAppointmentCapacity1Class": "Set appointment capacity to 1, or class/course capacity from 1 to 1000.",
+        "siteNotEnabledProjectSelectable": "This site is not enabled in the project's Selectable Site IDs.",
+        "supplyDetailsMatchingServiceLocation": "Supply the details matching each service location type.",
+        "supplyFulfillmentPropertiesWrite": "Supply the fulfillment properties to write.",
+        "supplyTrackingNumberProviderCustom": "Supply tracking number and provider; custom carriers also require a tracking URL.",
+        "useAppointmentDatesResourceLocation": "Use appointment dates/resource/location, a class event ID, or a course schedule ID, matching the selected service type.",
+        "useCursorLimitNextAvailability": "Use only cursor and limit for the next availability page.",
+        "useCursorLimitNextOrder": "Use only cursor and limit for the next order page.",
+        "useFixedVariedCustomNo": "Use FIXED, VARIED, CUSTOM or NO_FEE service payment settings.",
+        "useMost1000ParticipantsDistinct": "Use at most 1000 participants, distinct options per group and exactly one custom or duration value per choice.",
+        "useParticipantChoicesFixedParticipant": "Use participant choices or a fixed participant total, not both."
+      },
+      "wiz": {
+        "accessSourceScanDenied": "Access to this source scan was denied.",
+        "auth0ScanningRequiresVerifiedCompatible": "Auth0 scanning requires a verified compatible Wiz runner.",
+        "authorisedSourceDirectoryUnavailable": "The authorised source directory is unavailable.",
+        "cliCouldNotStarted": "The Wiz CLI could not be started.",
+        "clientSecretReferenceInvalid": "The Wiz client-secret reference is invalid.",
+        "clientSecretReferenceUnavailable": "The Wiz client-secret reference is unavailable.",
+        "couldNotCompleteScanCheck": "Wiz could not complete the scan. Check the runner, policies and tenant access.",
+        "didNotProduceReadableReport": "Wiz did not produce a readable report within the configured size limit.",
+        "hostMustSupplyAbsoluteSource": "The host must supply an absolute source directory and revision.",
+        "integrationNotConfigured": "This Wiz integration is not configured.",
+        "rejectedServiceAccountCredentials": "Wiz rejected the service-account credentials.",
+        "returnedUnsupportedInconsistentScanReport": "Wiz returned an unsupported or inconsistent scan report.",
+        "scanCancelled": "The Wiz scan was cancelled.",
+        "scanExceededTimeLimit": "The Wiz scan exceeded its time limit."
+      },
+      "woocommerce": {
+        "categoryCannotOwnParent": "A category cannot be its own parent.",
+        "categoryDeletionPermanentRequiresForce": "Category deletion is permanent and requires force=true.",
+        "chooseDifferentReassignmentUser": "Choose a different reassignment user.",
+        "chooseExplicitRefundRestockFlags": "Choose explicit refund/restock flags and decimal-string amounts.",
+        "chooseExplicitlyWhetherPermanentlyDelete": "Choose explicitly whether to permanently delete.",
+        "choosePeriodCompleteAscendingDate": "Choose a period or a complete ascending date range.",
+        "invalidWebhookSignatureInputs": "Invalid WooCommerce webhook signature inputs.",
+        "percentageDiscountsCannotExceed100": "Percentage discounts cannot exceed 100.",
+        "productPricesMustDecimalStrings": "Product prices must be decimal strings.",
+        "resourceDoesNotSupportTrash": "This resource does not support trash; permanent deletion requires force=true.",
+        "restockingRequiresSelectedOrderLines": "Restocking requires selected order lines and positive quantities.",
+        "returnedDifferentCategory": "WooCommerce returned a different category.",
+        "returnedDifferentRefund": "WooCommerce returned a different refund.",
+        "returnedDifferentVariation": "WooCommerce returned a different variation.",
+        "supplyCategoryChanges": "Supply category changes.",
+        "supplyCouponChanges": "Supply coupon changes.",
+        "supplyCustomerChangesNonEmpty": "Supply customer changes and non-empty address objects.",
+        "supplyOrderChanges": "Supply order changes.",
+        "supplyProductChanges": "Supply product changes.",
+        "supplyVariationChanges": "Supply variation changes.",
+        "variationPricesMustDecimalStrings": "Variation prices must be decimal strings."
+      },
+      "wordpressCom": {
+        "verifiedTokenBelongsDifferentApplication": "The verified token belongs to a different application."
+      },
+      "workday": {
+        "datesOrder": "The start date must not follow the end date.",
+        "supplyReportPromptOnceJoin": "Supply each report prompt once; join multi-instance WIDs with !.",
+        "useSmallerReportPromptRequest": "Use a smaller report prompt request."
+      },
+      "xTwitter": {
+        "checkApplicationApiCreditsBilling": "Check this X application's API credits and billing access.",
+        "couldNotReturnCompleteRequested": "X could not return the complete requested data.",
+        "passUserIdString": "Pass the X user ID as a string.",
+        "resourceNotFoundNotAvailable": "The X resource was not found or is not available.",
+        "useAppTokenWithoutSpaces": "Use the X app-only token without spaces, control characters or a Bearer prefix."
+      },
+      "xero": {
+        "attachmentResponsesLimited3Mib": "Xero attachment responses are limited to 3 MiB.",
+        "budgetDatesOrder": "The budget start date must not follow its end date.",
+        "discountRatesApplySalesInvoices": "Discount rates apply only to sales invoices.",
+        "organisationNotConnectedAccount": "This Xero organisation is not connected to this account.",
+        "reportDatesOrder": "The report start date must not follow its end date.",
+        "returnedDifferentOrganisation": "Xero returned a different organisation.",
+        "returnedInvalidAttachmentResponse": "Xero returned an invalid attachment response.",
+        "returnedInvalidConnections": "Xero returned invalid connections.",
+        "supplyBankTransactionFieldChange": "Supply a bank transaction field to change.",
+        "supplyCanonicalBase64NonemptyAttachment": "Supply canonical base64 for a nonempty attachment of at most 3 MiB.",
+        "supplyContactFieldChange": "Supply a contact field to change.",
+        "supplyInvoiceFieldChange": "Supply an invoice field to change.",
+        "supplyJournalFieldChange": "Supply a journal field to change."
+      },
+      "zoho": {
+        "returnedTokenDifferentDataCenter": "Zoho returned a token for a different data center or environment."
+      },
+      "zohoBooks": {
+        "chooseOrganisationIdOrganizationsList": "Choose an organisation ID from organizations.list or configure one for this integration.",
+        "configuredOrganisationNotActiveAccessible": "The configured Books organisation is not active and accessible to this account.",
+        "integrationConfiguredDifferentOrganisation": "This integration is configured for a different organisation.",
+        "resourceNotAvailable": "This Books resource is not available.",
+        "returnedAmbiguousPagination": "Zoho Books returned ambiguous pagination.",
+        "returnedInvalidOrganisations": "Zoho Books returned invalid organisations."
+      },
+      "zohoCrm": {
+        "connectAgainPermissionsNeededOperation": "Connect again with the CRM permissions needed for this operation.",
+        "resourceNotAvailable": "This CRM resource is not available.",
+        "useEitherPageNumberPage": "Use either a page number or a page token."
+      }
+    }
+  }
+}

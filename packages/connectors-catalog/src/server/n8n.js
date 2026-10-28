@@ -12,7 +12,7 @@ const n8nProvider = Object.freeze({
   oauth: (settings) => {
     const discovery = settings.oauthDiscovery;
     if (!validN8nOAuthDiscovery(discovery) || discovery.resource !== new URL(settings.serverUrl).href) {
-      throw new ConnectorError("connector_discovery_required", "Discover OAuth settings for this exact n8n MCP URL before connecting.");
+      throw new ConnectorError("connector_discovery_required", "Discover OAuth settings for this exact n8n MCP URL before connecting.", { messageCode: "connectors.n8n.discoverOauthSettingsExactMcp" });
     }
     return discovery.oauth;
   },
@@ -51,8 +51,8 @@ async function discoverN8nOAuth({ serverUrl }, { fetchImpl = globalThis.fetch, s
     }
     return discovery;
   } catch {
-    if (requestSignal.aborted) throw new ConnectorError("connector_discovery_interrupted", "n8n OAuth discovery was interrupted.");
-    throw new ConnectorError("connector_discovery_failed", "n8n OAuth discovery failed. Check the MCP URL, advertised authority and supported server version.", { statusCode: 502 });
+    if (requestSignal.aborted) throw new ConnectorError("connector_discovery_interrupted", "n8n OAuth discovery was interrupted.", { messageCode: "connectors.n8n.oauthDiscoveryInterrupted" });
+    throw new ConnectorError("connector_discovery_failed", "n8n OAuth discovery failed. Check the MCP URL, advertised authority and supported server version.", { statusCode: 502, messageCode: "connectors.n8n.oauthDiscoveryFailedCheckMcp" });
   }
 }
 
@@ -69,7 +69,7 @@ async function registerN8nClient(input, options) {
   const values = validateSchemaPayload({ schema: registrationSchema, mode: "replace" }, input, { statusCode: 422 });
   const discovery = await discoverN8nOAuth({ serverUrl: values.serverUrl }, options);
   if (values.scopes.some((scope) => !discovery.scopes.includes(scope))) {
-    throw new ConnectorError("connector_scope_unavailable", "Select only permissions advertised by this n8n MCP server.", { statusCode: 422 });
+    throw new ConnectorError("connector_scope_unavailable", "Select only permissions advertised by this n8n MCP server.", { statusCode: 422, messageCode: "connectors.n8n.selectPermissionsAdvertisedMcpServer" });
   }
   const client = await registerMcpClient("n8n", discovery.oauth, values, options);
   return { ...client, ...discovery, requestedScopes: [...values.scopes] };

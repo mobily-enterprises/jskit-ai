@@ -23,7 +23,7 @@ function assertTarget(result, settings) {
   const matches = result.Database === settings.database && (settings.deploymentType === "provisioned"
     ? result.ClusterIdentifier === settings.clusterIdentifier && !result.WorkgroupName && (!settings.databaseUser || result.DbUser === settings.databaseUser)
     : result.WorkgroupName === settings.workgroup && !result.ClusterIdentifier);
-  if (!matches) throw new ConnectorError("connector_access_denied", "This statement belongs to a different Redshift target.", { statusCode: 403 });
+  if (!matches) throw new ConnectorError("connector_access_denied", "This statement belongs to a different Redshift target.", { statusCode: 403, messageCode: "connectors.amazonRedshift.statementBelongsDifferentTarget" });
 }
 
 function validCell(cell) {
@@ -48,16 +48,16 @@ const amazonRedshiftProvider = Object.freeze({
     if (body.command === "DescribeTable") return send(new DescribeTableCommand(body.input));
     if (body.command === "ExecuteStatement") {
       const result = await send(new ExecuteStatementCommand(body.input));
-      if (!validId(result)) throw new ConnectorError("connector_response_invalid", "Redshift did not return a statement identifier.", { statusCode: 502 });
+      if (!validId(result)) throw new ConnectorError("connector_response_invalid", "Redshift did not return a statement identifier.", { statusCode: 502, messageCode: "connectors.amazonRedshift.didNotReturnStatementIdentifier" });
       assertTarget(result, settings);
       return result;
     }
     const statement = await send(new DescribeStatementCommand({ Id: body.input.Id }));
-    if (!validStatement(statement) || statement.Id !== body.input.Id) throw new ConnectorError("connector_response_invalid", "Redshift returned an unexpected statement.", { statusCode: 502 });
+    if (!validStatement(statement) || statement.Id !== body.input.Id) throw new ConnectorError("connector_response_invalid", "Redshift returned an unexpected statement.", { statusCode: 502, messageCode: "connectors.amazonRedshift.returnedUnexpectedStatement" });
     assertTarget(statement, settings);
     if (body.command === "DescribeStatement") return statement;
     if (body.command === "CancelStatement") return send(new CancelStatementCommand(body.input));
-    if (statement.Status !== "FINISHED" || !statement.HasResultSet) throw new ConnectorError("connector_result_unavailable", "This statement has no finished result set.", { statusCode: 409 });
+    if (statement.Status !== "FINISHED" || !statement.HasResultSet) throw new ConnectorError("connector_result_unavailable", "This statement has no finished result set.", { statusCode: 409, messageCode: "connectors.amazonRedshift.statementNoFinishedResultSet" });
     return send(new GetStatementResultCommand(body.input));
   }),
   operations: {
@@ -81,7 +81,7 @@ const amazonRedshiftProvider = Object.freeze({
         name: { type: "string", required: true, pattern: "^[a-zA-Z0-9_]+$" }, value: { ...text, required: true, maxLength: 65536 }
       }) } }
     }, (v, s) => {
-      if (v.parameters && new Set(v.parameters.map((p) => p.name)).size !== v.parameters.length) throw new ConnectorError("connector_input_invalid", "Use each SQL parameter name only once.", { statusCode: 422 });
+      if (v.parameters && new Set(v.parameters.map((p) => p.name)).size !== v.parameters.length) throw new ConnectorError("connector_input_invalid", "Use each SQL parameter name only once.", { statusCode: 422, messageCode: "connectors.amazonRedshift.useSqlParameterNameOnce" });
       return { input: { ...target(s), Sql: v.sql, ClientToken: v.clientToken, ResultFormat: "JSON", ...(v.parameters ? { Parameters: v.parameters } : {}) } };
     }, validId),
     "query.status": awsOperation("redshift-data", "DescribeStatement", { statementId }, (v) => ({ input: { Id: v.statementId } }), validStatement),

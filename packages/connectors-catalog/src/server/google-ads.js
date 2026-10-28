@@ -57,22 +57,22 @@ const googleAdsProvider = Object.freeze({
       const errors = details.flatMap((detail) => Array.isArray(detail?.errors) ? detail.errors : []);
       const codes = errors.flatMap((error) => record(error?.errorCode) ? Object.values(error.errorCode) : []);
       if (response.status === 429 || value?.error?.status === "RESOURCE_EXHAUSTED" || errors.some((error) => error?.errorCode?.quotaError)) {
-        throw new ConnectorError("connector_rate_limited", "Google Ads API capacity is exhausted. Check the Cloud project and account quotas.", { statusCode: 429 });
+        throw new ConnectorError("connector_rate_limited", "Google Ads API capacity is exhausted. Check the Cloud project and account quotas.", { statusCode: 429, messageCode: "connectors.googleAds.apiCapacityExhaustedCheckCloud" });
       }
       if (details.some((detail) => detail?.reason === "ACCESS_TOKEN_SCOPE_INSUFFICIENT")) {
-        throw new ConnectorError("connector_scope_missing", "Connect Google Ads again with its required permission.", { statusCode: 403 });
+        throw new ConnectorError("connector_scope_missing", "Connect Google Ads again with its required permission.", { statusCode: 403, messageCode: "connectors.googleAds.connectAgainRequiredPermission" });
       }
       if (codes.some((code) => ["CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION"].includes(code))) {
-        throw new ConnectorError("connector_api_access_invalid", "Check Google Ads API access approval for the Cloud project that owns this OAuth client.", { statusCode: 403 });
+        throw new ConnectorError("connector_api_access_invalid", "Check Google Ads API access approval for the Cloud project that owns this OAuth client.", { statusCode: 403, messageCode: "connectors.googleAds.checkApiAccessApprovalCloud" });
       }
       if (codes.some((code) => ["OAUTH_TOKEN_INVALID", "OAUTH_TOKEN_EXPIRED", "OAUTH_TOKEN_REVOKED"].includes(code))) {
-        throw new ConnectorError("connector_reconnect_required", "Connect this Google Ads account again.", { statusCode: 401 });
+        throw new ConnectorError("connector_reconnect_required", "Connect this Google Ads account again.", { statusCode: 401, messageCode: "connectors.shared.reconnectAccount", messageParams: { provider: "Google Ads" } });
       }
-      if (response.status === 400) throw new ConnectorError("connector_input_invalid", "Google Ads rejected the operation. Check campaign fields, policy requirements and account permissions.", { statusCode: 422 });
-      if (response.status === 404) throw new ConnectorError("connector_resource_not_found", "This Google Ads resource is unavailable.", { statusCode: 404 });
+      if (response.status === 400) throw new ConnectorError("connector_input_invalid", "Google Ads rejected the operation. Check campaign fields, policy requirements and account permissions.", { statusCode: 422, messageCode: "connectors.googleAds.rejectedOperationCheckCampaignFields" });
+      if (response.status === 404) throw new ConnectorError("connector_resource_not_found", "This Google Ads resource is unavailable.", { statusCode: 404, messageCode: "connectors.googleAds.resourceUnavailable" });
       throw Object.assign(new Error("Google Ads request failed."), { status: response.ok ? 502 : response.status });
     }
-    if (response.status !== 200 || !record(value)) throw new ConnectorError("connector_response_invalid", "Google Ads returned an unexpected response.", { statusCode: 502 });
+    if (response.status !== 200 || !record(value)) throw new ConnectorError("connector_response_invalid", "Google Ads returned an unexpected response.", { statusCode: 502, messageCode: "connectors.shared.unexpectedResponse", messageParams: { provider: "Google Ads" } });
     return value;
   }
 });

@@ -9,7 +9,7 @@ const api = "https://googleads.googleapis.com/v25";
 const scope = "https://www.googleapis.com/auth/adwords";
 const customerId = { type: "string", required: true, validator: value => /^[0-9]{10}$/.test(value) || "Use a ten-digit customer ID." };
 const id = { type: "string", required: true, validator: value => /^[0-9]{1,20}$/.test(value) || "Use a numeric campaign ID." };
-const error = message => { throw new ConnectorError("connector_input_invalid", message, { statusCode: 422 }); };
+const error = (message, codes) => { throw new ConnectorError("connector_input_invalid", message, { statusCode: 422, ...codes }); };
 const hash = value => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 function requestOperation(fields, build, validateResult) {
   return validatedOperation(fields, (values, settings) => (
@@ -50,7 +50,7 @@ const googleAdsSearchOperations = {
 // Application composition: this service has no editor protocol, command runner or storage.
 function createGoogleAdsSearchService({ connections, configuration, context, integrationId }) {
   const slot = configuration.integrations?.[integrationId];
-  if (slot?.provider !== "google-ads") error("Choose a Google Ads integration.");
+  if (slot?.provider !== "google-ads") error("Choose a Google Ads integration.", { messageCode: "connectors.googleAdsSearch.chooseIntegration" });
   const invoke = (operation, input) => connections.invoke({ context, integrationId, operation, input });
   const query = async (customer, query) => (await invoke("reports.search", { customerId: customer, query })).results || [];
   const customer = value => validateSchemaPayload({ schema: createSchema({ customerId }), mode: "replace" }, { customerId: value }, { statusCode: 422 }).customerId;
@@ -59,14 +59,14 @@ function createGoogleAdsSearchService({ connections, configuration, context, int
   const review = data => hash([context.applicationId, context.subjectId, integrationId, slot, plan(), data]);
   async function account(id) {
     const rows = await query(customer(id), "SELECT customer.id, customer.descriptive_name, customer.currency_code, customer.time_zone, customer.status, customer.manager FROM customer LIMIT 1");
-    if (rows.length !== 1) error("Google did not return the selected account.");
+    if (rows.length !== 1) error("Google did not return the selected account.", { messageCode: "connectors.googleAdsSearch.didNotReturnSelectedAccount" });
     return rows[0].customer;
   }
   async function preview() {
     const p = plan(), selected = await account(p.customerId);
-    if (selected.manager || selected.status !== "ENABLED" || selected.currencyCode !== p.currency) error("Choose an active client account and match its currency.");
+    if (selected.manager || selected.status !== "ENABLED" || selected.currencyCode !== p.currency) error("Choose an active client account and match its currency.", { messageCode: "connectors.googleAdsSearch.chooseActiveClientAccountMatch" });
     const goals = await query(p.customerId, `SELECT conversion_action.id, conversion_action.name, conversion_action.status, conversion_action.type FROM conversion_action WHERE conversion_action.id = ${p.conversionActionId} LIMIT 1`);
-    if (goals[0]?.conversionAction?.status !== "ENABLED" || goals[0]?.conversionAction?.type !== "WEBPAGE") error("Choose an enabled website conversion action.");
+    if (goals[0]?.conversionAction?.status !== "ENABLED" || goals[0]?.conversionAction?.type !== "WEBPAGE") error("Choose an enabled website conversion action.", { messageCode: "connectors.googleAdsSearch.chooseEnabledWebsiteConversionAction" });
     await invoke("search.validate", p);
     const data = { plan: p, account: selected, conversion: goals[0].conversionAction };
     return { ...data, reviewId: review(data) };
@@ -74,7 +74,7 @@ function createGoogleAdsSearchService({ connections, configuration, context, int
   async function campaign(id) {
     const p = plan(), selected = campaignId(id);
     const rows = await query(p.customerId, `SELECT campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type, campaign.bidding_strategy_type, campaign.network_settings.target_google_search, campaign.network_settings.target_search_network, campaign.network_settings.target_content_network, campaign.network_settings.target_partner_search_network, campaign.geo_target_type_setting.positive_geo_target_type, campaign.geo_target_type_setting.negative_geo_target_type, campaign.contains_eu_political_advertising, campaign_budget.amount_micros, campaign_budget.id FROM campaign WHERE campaign.id = ${selected} LIMIT 1`);
-    if (rows.length !== 1 || rows[0].campaign?.advertisingChannelType !== "SEARCH") error("Select an accessible Search campaign.");
+    if (rows.length !== 1 || rows[0].campaign?.advertisingChannelType !== "SEARCH") error("Select an accessible Search campaign.", { messageCode: "connectors.googleAdsSearch.selectAccessibleSearchCampaign" });
     const details = {
       customerId: p.customerId, account: await account(p.customerId), ...rows[0],
       ads: await query(p.customerId, `SELECT ad_group_ad.ad.id, ad_group_ad.ad.final_urls, ad_group_ad.ad.responsive_search_ad.headlines, ad_group_ad.ad.responsive_search_ad.descriptions, ad_group_ad.status, ad_group_ad.policy_summary.approval_status, ad_group.id, ad_group.status, ad_group.cpc_bid_micros FROM ad_group_ad WHERE campaign.id = ${selected} LIMIT 21`),
@@ -84,10 +84,10 @@ function createGoogleAdsSearchService({ connections, configuration, context, int
     };
     const goalResource = details.goals[0]?.conversionGoalCampaignConfig?.customConversionGoal;
     if (goalResource) {
-      if (!new RegExp(`^customers/${p.customerId}/customConversionGoals/[0-9]+$`).test(goalResource)) error("Google returned an invalid campaign goal.");
+      if (!new RegExp(`^customers/${p.customerId}/customConversionGoals/[0-9]+$`).test(goalResource)) error("Google returned an invalid campaign goal.", { messageCode: "connectors.googleAdsSearch.returnedInvalidCampaignGoal" });
       details.customGoals = await query(p.customerId, `SELECT custom_conversion_goal.name, custom_conversion_goal.status, custom_conversion_goal.conversion_actions FROM custom_conversion_goal WHERE custom_conversion_goal.resource_name = '${goalResource}' LIMIT 1`);
     }
-    if (details.ads.length > 20 || details.targets.length > 30 || details.keywords.length > 30) error("This campaign exceeds the bounded Search review. Manage it in Google Ads.");
+    if (details.ads.length > 20 || details.targets.length > 30 || details.keywords.length > 30) error("This campaign exceeds the bounded Search review. Manage it in Google Ads.", { messageCode: "connectors.googleAdsSearch.campaignExceedsBoundedSearchReview" });
     return { ...details, reviewId: review(details) };
   }
   return {
@@ -101,14 +101,14 @@ function createGoogleAdsSearchService({ connections, configuration, context, int
     },
     async targets(id, name) {
       customer(id);
-      if (typeof name !== "string" || !/^[\p{L}\p{N} .-]{2,80}$/u.test(name)) error("Enter a location name using letters, numbers, spaces, dots or hyphens.");
+      if (typeof name !== "string" || !/^[\p{L}\p{N} .-]{2,80}$/u.test(name)) error("Enter a location name using letters, numbers, spaces, dots or hyphens.", { messageCode: "connectors.googleAdsSearch.enterLocationNameUsingLetters" });
       return { locations: await query(id, `SELECT geo_target_constant.id, geo_target_constant.canonical_name, geo_target_constant.status FROM geo_target_constant WHERE geo_target_constant.name LIKE '%${name}%' AND geo_target_constant.status = 'ENABLED' LIMIT 20`),
         languages: await query(id, "SELECT language_constant.id, language_constant.name FROM language_constant WHERE language_constant.targetable = TRUE LIMIT 100") };
     },
     preview,
     async create(reviewId) {
       const checked = await preview();
-      if (reviewId !== checked.reviewId) error("The Search plan changed. Review it again before creation.");
+      if (reviewId !== checked.reviewId) error("The Search plan changed. Review it again before creation.", { messageCode: "connectors.googleAdsSearch.searchPlanChangedReviewAgain" });
       const response = await invoke("search.createPaused", checked.plan);
       const resource = response.mutateOperationResponses.find(item => item.campaignResult)?.campaignResult.resourceName;
       return { campaignId: resource.split("/").at(-1), status: "PAUSED" };
@@ -117,13 +117,13 @@ function createGoogleAdsSearchService({ connections, configuration, context, int
     campaign,
     async launch({ campaignId, reviewId, trackingConfirmed, billingConfirmed }) {
       const current = await campaign(campaignId);
-      if (current.reviewId !== reviewId) error("The campaign changed. Inspect and approve it again.");
-      if (trackingConfirmed !== true || billingConfirmed !== true) error("Confirm installed conversion tracking and billing/advertiser readiness before launch.");
-      if (current.account.manager || current.account.status !== "ENABLED") error("Choose an active client account.");
+      if (current.reviewId !== reviewId) error("The campaign changed. Inspect and approve it again.", { messageCode: "connectors.googleAdsSearch.campaignChangedInspectApproveAgain" });
+      if (trackingConfirmed !== true || billingConfirmed !== true) error("Confirm installed conversion tracking and billing/advertiser readiness before launch.", { messageCode: "connectors.googleAdsSearch.confirmInstalledConversionTrackingBilling" });
+      if (current.account.manager || current.account.status !== "ENABLED") error("Choose an active client account.", { messageCode: "connectors.googleAdsSearch.chooseActiveClientAccount" });
       if (current.campaign.containsEuPoliticalAdvertising !== "DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING" ||
-          !current.customGoals?.length || current.customGoals[0].customConversionGoal?.status !== "ENABLED") error("Review a non-political Search campaign with an enabled custom conversion goal.");
-      if (!current.ads.length || !current.keywords.length || current.campaign.biddingStrategyType !== "MANUAL_CPC") error("This screen launches only Search campaigns with manual CPC, ads and keywords. Manage other campaigns in Google Ads.");
-      if (current.campaign.status !== "PAUSED") error("Only a paused campaign can be launched here.");
+          !current.customGoals?.length || current.customGoals[0].customConversionGoal?.status !== "ENABLED") error("Review a non-political Search campaign with an enabled custom conversion goal.", { messageCode: "connectors.googleAdsSearch.reviewNonPoliticalSearchCampaign" });
+      if (!current.ads.length || !current.keywords.length || current.campaign.biddingStrategyType !== "MANUAL_CPC") error("This screen launches only Search campaigns with manual CPC, ads and keywords. Manage other campaigns in Google Ads.", { messageCode: "connectors.googleAdsSearch.screenLaunchesSearchCampaignsManual" });
+      if (current.campaign.status !== "PAUSED") error("Only a paused campaign can be launched here.", { messageCode: "connectors.googleAdsSearch.pausedCampaignCanLaunchedHere" });
       return invoke("campaigns.setStatus", { customerId: current.customerId, campaignId, status: "ENABLED" });
     },
     pause: id => invoke("campaigns.setStatus", { customerId: plan().customerId, campaignId: campaignId(id), status: "PAUSED" }),

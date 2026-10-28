@@ -44,7 +44,7 @@ const inngestProvider = Object.freeze({
       key = await resolveReference(eventKeyRef);
       if (typeof key !== "string" || !key.trim() || /[\p{Cc}]/u.test(key)) throw new Error("Invalid Event Key.");
     } catch {
-      throw new ConnectorError("connector_binding_missing", "The Inngest Event Key binding is missing or invalid.");
+      throw new ConnectorError("connector_binding_missing", "The Inngest Event Key binding is missing or invalid.", { messageCode: "connectors.inngest.eventKeyBindingMissingInvalid" });
     }
     options.signal.throwIfAborted();
     // The Event API uses only the Event Key in its path. Never forward the Signing Key.
@@ -73,9 +73,9 @@ const inngestProvider = Object.freeze({
           body: { event, eventKeyRef: settings.eventKeyRef, branchEnvironment: settings.branchEnvironment } };
       },
       validateResult(result) {
-        if (result?.status === 401) throw new ConnectorError("connector_reconnect_required", "Configure a valid Inngest Event Key and reconnect.", { statusCode: 401 });
-        if (result?.status === 403) throw new ConnectorError("connector_permission_denied", "Inngest denied this event.", { statusCode: 403 });
-        if (result?.status === 429) throw new ConnectorError("connector_rate_limited", "Inngest's event limit was reached.", { statusCode: 429 });
+        if (result?.status === 401) throw new ConnectorError("connector_reconnect_required", "Configure a valid Inngest Event Key and reconnect.", { statusCode: 401, messageCode: "connectors.inngest.configureValidEventKeyReconnect" });
+        if (result?.status === 403) throw new ConnectorError("connector_permission_denied", "Inngest denied this event.", { statusCode: 403, messageCode: "connectors.inngest.deniedEvent" });
+        if (result?.status === 429) throw new ConnectorError("connector_rate_limited", "Inngest's event limit was reached.", { statusCode: 429, messageCode: "connectors.inngest.eventLimitReached" });
         return result?.status === 200 && !result.error && Array.isArray(result.ids) && result.ids.length === 1 &&
           result.ids.every((id) => typeof id === "string" && id.length > 0);
       }

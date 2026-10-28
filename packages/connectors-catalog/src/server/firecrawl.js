@@ -43,8 +43,8 @@ const firecrawlProvider = Object.freeze({
     } }), result => result?.success === true && typeof result.id === "string"),
     "crawls.get": validatedOperation({ id: jobId, next: { type: "string", maxLength: 8192 } }, ({ id, next }) => {
       const expected = `https://api.firecrawl.dev/v2/crawl/${id}`;
-      let url; try { url = new URL(next || expected); } catch { throw new ConnectorError("connector_input_invalid", "Use the returned next-page URL for this crawl.", { statusCode: 422 }); }
-      if (url.origin + url.pathname !== expected || url.username || url.password || url.hash) throw new ConnectorError("connector_input_invalid", "Use the returned next-page URL for this crawl.", { statusCode: 422 });
+      let url; try { url = new URL(next || expected); } catch { throw new ConnectorError("connector_input_invalid", "Use the returned next-page URL for this crawl.", { statusCode: 422, messageCode: "connectors.firecrawl.useReturnedNextPageUrl" }); }
+      if (url.origin + url.pathname !== expected || url.username || url.password || url.hash) throw new ConnectorError("connector_input_invalid", "Use the returned next-page URL for this crawl.", { statusCode: 422, messageCode: "connectors.firecrawl.useReturnedNextPageUrl" });
       return { method: "GET", url: url.href };
     }, result => typeof result?.status === "string" && Array.isArray(result.data) && Number.isInteger(result.total) && result.total >= 0 && Number.isInteger(result.completed) && result.completed >= 0),
     "crawls.errors": validatedOperation({ id: jobId }, ({ id }) => ({ method: "GET", url: `https://api.firecrawl.dev/v2/crawl/${id}/errors` }), result => Array.isArray(result?.errors)),

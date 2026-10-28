@@ -1,0 +1,28 @@
+{
+  "jskit": {
+    "connectors": {
+      "googleCalendar": {
+        "attendeesRequiresUp200Email": "attendees requires up to 200 email entries with optional displayName/optional.",
+        "cancellationNoEventBody": "Cancellation has no event body.",
+        "chooseAllDayDateTimed": "Choose an all-day date or a timed dateTime.",
+        "chooseSendUpdates": "Choose sendUpdates explicitly: all, externalOnly or none.",
+        "datetimeRequiresExplicitTimezoneOffset": "dateTime requires an explicit timezone offset.",
+        "eventMustObject": "event must be an object.",
+        "invalidAllDayDate": "Invalid all-day date.",
+        "invalidEventEtag": "Invalid event ETag.",
+        "invalidTransparency": "Invalid transparency.",
+        "invalidVisibility": "Invalid visibility.",
+        "recurrenceMustArrayRfc5545Recurrence": "recurrence must be an array of RFC5545 recurrence lines.",
+        "startEndRequired": "start and end are required.",
+        "supplyStartEndSettingRecurrence": "Supply start and end when setting recurrence.",
+        "supplyStartEndTogetherChanging": "Supply start and end together when changing event times.",
+        "textTooLong": "{field} must be text of at most 16384 characters.",
+        "timedRecurrenceRequiresStartEnd": "Timed recurrence requires start/end timeZone.",
+        "useDateDatetimeOptionalTimezone": "Use date or dateTime and optional timeZone.",
+        "useIanaTimezone": "Use an IANA timeZone.",
+        "useMatchingDateTypesEnd": "Use matching date types with end after start; all-day end is exclusive.",
+        "useSupportedEventFields": "Use supported event fields only."
+      }
+    }
+  }
+}

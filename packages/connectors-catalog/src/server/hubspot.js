@@ -39,7 +39,9 @@ function objectOperations(object) {
       const body = validateSchemaPayload({ schema: create, mode: "replace" }, input, { statusCode: 422 });
       if (object === "contacts" ? !["email", "firstname", "lastname"].some(key => body.properties[key]?.trim()) :
         !body.properties.dealname?.trim() || !body.properties.dealstage?.trim()) {
-        throw new ConnectorError("connector_input_invalid", object === "contacts" ? "Supply email, firstname or lastname." : "Supply dealname and the internal dealstage ID.", { statusCode: 422 });
+        throw object === "contacts"
+          ? new ConnectorError("connector_input_invalid", "Supply email, firstname or lastname.", { statusCode: 422, messageCode: "connectors.hubspot.contactIdentityRequired" })
+          : new ConnectorError("connector_input_invalid", "Supply dealname and the internal dealstage ID.", { statusCode: 422, messageCode: "connectors.hubspot.dealNameStageRequired" });
       }
       return { method: "POST", url: `${base}/${object}`, body };
     }, validateResult: validRecord },
@@ -65,10 +67,10 @@ const hubspotProvider = Object.freeze({
     if (!response.ok) return response;
     let value;
     try { value = await response.clone().json(); } catch {
-      throw new ConnectorError("connector_response_invalid", "HubSpot returned an invalid token response.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "HubSpot returned an invalid token response.", { statusCode: 502, messageCode: "connectors.shared.invalidTokenResponse", messageParams: { provider: "HubSpot" } });
     }
     if (!Array.isArray(value?.scopes) || !value.scopes.every((scope) => typeof scope === "string" && /^[^\s]+$/u.test(scope))) {
-      throw new ConnectorError("connector_response_invalid", "HubSpot returned an invalid permission grant.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "HubSpot returned an invalid permission grant.", { statusCode: 502, messageCode: "connectors.shared.invalidPermissionGrant", messageParams: { provider: "HubSpot" } });
     }
     return Response.json({ ...value, scope: value.scopes.join(" ") }, { status: response.status });
   },

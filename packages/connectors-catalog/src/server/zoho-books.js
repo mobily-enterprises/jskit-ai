@@ -22,11 +22,11 @@ function booksList(resource, identifier) {
     request(input, settings = {}) {
       const values = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
       if (settings.organizationId && values.organization_id && values.organization_id !== settings.organizationId) {
-        throw new ConnectorError("connector_input_invalid", "This integration is configured for a different organisation.", { statusCode: 422 });
+        throw new ConnectorError("connector_input_invalid", "This integration is configured for a different organisation.", { statusCode: 422, messageCode: "connectors.zohoBooks.integrationConfiguredDifferentOrganisation" });
       }
       values.organization_id = settings.organizationId || values.organization_id;
       if (!values.organization_id) {
-        throw new ConnectorError("connector_input_invalid", "Choose an organisation ID from organizations.list or configure one for this integration.", { statusCode: 422 });
+        throw new ConnectorError("connector_input_invalid", "Choose an organisation ID from organizations.list or configure one for this integration.", { statusCode: 422, messageCode: "connectors.zohoBooks.chooseOrganisationIdOrganizationsList" });
       }
       const url = new URL(`${apiOrigin(settings)}/books/v3/${resource}`);
       for (const [name, value] of Object.entries(values)) url.searchParams.set(name, String(value));
@@ -56,31 +56,31 @@ const zohoBooksProvider = Object.freeze({
     headers.set("Authorization", headers.get("Authorization").replace(/^Bearer /u, "Zoho-oauthtoken "));
     const response = await fetchImpl(address, { ...options, headers, credentials: "omit" });
     if (!response.ok) {
-      if (response.status === 404) throw new ConnectorError("connector_resource_not_found", "This Books resource is not available.", { statusCode: 404 });
+      if (response.status === 404) throw new ConnectorError("connector_resource_not_found", "This Books resource is not available.", { statusCode: 404, messageCode: "connectors.zohoBooks.resourceNotAvailable" });
       throw Object.assign(new Error("Zoho Books request failed."), { status: response.status });
     }
     let value;
     try { value = await response.json(); } catch { /* validated below */ }
     if (response.status !== 200 || value?.code !== 0) {
-      throw new ConnectorError("connector_response_invalid", "Zoho Books returned an unexpected response.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "Zoho Books returned an unexpected response.", { statusCode: 502, messageCode: "connectors.shared.unexpectedResponse", messageParams: { provider: "Zoho Books" } });
     }
     const url = new URL(address);
     if (url.pathname.endsWith("/organizations")) {
-      if (!validOrganizations(value)) throw new ConnectorError("connector_response_invalid", "Zoho Books returned invalid organisations.", { statusCode: 502 });
+      if (!validOrganizations(value)) throw new ConnectorError("connector_response_invalid", "Zoho Books returned invalid organisations.", { statusCode: 502, messageCode: "connectors.zohoBooks.returnedInvalidOrganisations" });
       if (settings.organizationId && !value.organizations.some((org) => org.organization_id === settings.organizationId && org.is_org_active)) {
-        throw new ConnectorError("connector_permission_denied", "The configured Books organisation is not active and accessible to this account.", { statusCode: 403 });
+        throw new ConnectorError("connector_permission_denied", "The configured Books organisation is not active and accessible to this account.", { statusCode: 403, messageCode: "connectors.zohoBooks.configuredOrganisationNotActiveAccessible" });
       }
     } else {
       const resource = url.pathname.split("/").at(-1);
       // Books documents invoice page_context as a singleton array; other lists use an object.
       if (resource === "invoices" && Array.isArray(value.page_context)) {
-        if (value.page_context.length !== 1) throw new ConnectorError("connector_response_invalid", "Zoho Books returned ambiguous pagination.", { statusCode: 502 });
+        if (value.page_context.length !== 1) throw new ConnectorError("connector_response_invalid", "Zoho Books returned ambiguous pagination.", { statusCode: 502, messageCode: "connectors.zohoBooks.returnedAmbiguousPagination" });
         value.page_context = value.page_context[0];
       }
       if (value[resource]?.length > Number(url.searchParams.get("per_page")) ||
         value.page_context?.per_page !== Number(url.searchParams.get("per_page")) ||
         value.page_context?.page !== Number(url.searchParams.get("page"))) {
-        throw new ConnectorError("connector_response_invalid", "Zoho Books returned an unexpected page.", { statusCode: 502 });
+        throw new ConnectorError("connector_response_invalid", "Zoho Books returned an unexpected page.", { statusCode: 502, messageCode: "connectors.shared.unexpectedPage", messageParams: { provider: "Zoho Books" } });
       }
     }
     return value;

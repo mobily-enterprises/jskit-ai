@@ -76,12 +76,13 @@ function microsoftDocumentProvider(definition, extensions) {
     const result = await request(address, options);
     if (new URL(address).pathname.endsWith("/children")) {
       if (!provider.operations["items.list"].validateResult(result)) {
-        throw new ConnectorError("connector_response_invalid", "Microsoft returned an invalid file list.", { statusCode: 502 });
+        throw new ConnectorError("connector_response_invalid", "Microsoft returned an invalid file list.", { statusCode: 502, messageCode: "connectors.microsoft.returnedInvalidFileList" });
       }
       return { ...result, value: result.value.filter((item) => item.folder || matches(item)) };
     }
-    if (!metadata(result)) throw new ConnectorError("connector_response_invalid", "Microsoft returned invalid file metadata.", { statusCode: 502 });
-    if (!matches(result)) throw new ConnectorError("connector_document_type_invalid", `Choose a ${definition.name} file.`);
+    if (!metadata(result)) throw new ConnectorError("connector_response_invalid", "Microsoft returned invalid file metadata.", { statusCode: 502, messageCode: "connectors.microsoft.returnedInvalidFileMetadata" });
+    if (!matches(result)) throw new ConnectorError("connector_document_type_invalid", `Choose a ${definition.name} file.`,
+      { messageCode: "connectors.microsoft.chooseDocumentFile", messageParams: { product: definition.name } });
     return result;
   } });
 }

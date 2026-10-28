@@ -6,7 +6,7 @@ import { ConnectorError } from "@jskit-ai/connectors-core/server";
 
 function companyApiDomain(value) {
   if (typeof value !== "string" || !/^https:\/\/[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.pipedrive\.com$/.test(value)) {
-    throw new ConnectorError("connector_response_invalid", "Pipedrive returned an invalid company API address.", { statusCode: 502 });
+    throw new ConnectorError("connector_response_invalid", "Pipedrive returned an invalid company API address.", { statusCode: 502, messageCode: "connectors.pipedrive.returnedInvalidCompanyApiAddress" });
   }
   return value;
 }
@@ -34,8 +34,8 @@ function crmOperation(collection, action) {
   return { scopes: [], request(input, settings = {}, data) {
     const { id, ...values } = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
     if (action === "update" && !Object.keys(values).length || lead && action === "create" && !values.person_id && !values.organization_id)
-      throw new ConnectorError("connector_input_invalid", "Supply changed fields; a new lead also needs a person or organization.", { statusCode: 422 });
-    if (!data && !settings.companyDomain) throw new ConnectorError("connector_binding_missing", "Set the Pipedrive Company domain for API-token CRM operations.", { statusCode: 422 });
+      throw new ConnectorError("connector_input_invalid", "Supply changed fields; a new lead also needs a person or organization.", { statusCode: 422, messageCode: "connectors.pipedrive.supplyChangedFieldsNewLead" });
+    if (!data && !settings.companyDomain) throw new ConnectorError("connector_binding_missing", "Set the Pipedrive Company domain for API-token CRM operations.", { statusCode: 422, messageCode: "connectors.pipedrive.setCompanyDomainApiToken" });
     const origin = data ? companyApiDomain(data.apiDomain) : companyApiDomain(`https://${settings.companyDomain}.pipedrive.com`);
     const url = new URL(`${origin}/api/${lead ? "v1" : "v2"}/${collection}${id === undefined ? "" : `/${id}`}`);
     if (!write) for (const [name, value] of Object.entries(values)) url.searchParams.set(name, String(value));
@@ -56,7 +56,7 @@ const pipedriveProvider = Object.freeze({
   dataFromTokenResponse(response, previous) {
     const apiDomain = companyApiDomain(response.api_domain);
     if (previous && apiDomain !== previous.apiDomain) {
-      throw new ConnectorError("connector_reconnect_required", "The Pipedrive company address changed. Connect this account again.", { statusCode: 401 });
+      throw new ConnectorError("connector_reconnect_required", "The Pipedrive company address changed. Connect this account again.", { statusCode: 401, messageCode: "connectors.pipedrive.companyAddressChangedConnectAccount" });
     }
     return { apiDomain };
   },

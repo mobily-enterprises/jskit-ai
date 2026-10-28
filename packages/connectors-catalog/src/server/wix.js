@@ -15,8 +15,8 @@ function serializeNativeJson(value) {
 const guid = (value) => typeof value === "string" && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/iu.test(value);
 // Results are checked against the operation's own request; a different record is reported with what Wix got wrong.
 const requestPath = (request, index) => decodeURIComponent(new URL(request.url).pathname.split("/").at(index));
-function sameRecord(matches, message) {
-  if (!matches) throw new ConnectorError("connector_response_invalid", message, { statusCode: 502 });
+function sameRecord(matches, message, codes) {
+  if (!matches) throw new ConnectorError("connector_response_invalid", message, { statusCode: 502, ...codes });
   return true;
 }
 const cursor = (value) => typeof value === "string" && value.length > 0 && value.length <= 16000 && !/[\p{Cc}]/u.test(value);
@@ -77,14 +77,14 @@ function contactOperation(action) {
       const { contactId, ...body } = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
       if (action !== "get" && (!Object.keys(body.info).length || (action === "create" &&
           !(body.info.name?.first || body.info.name?.last || body.info.emails?.items?.length || body.info.phones?.items?.length)))) {
-        throw new ConnectorError("connector_input_invalid", "Provide contact details; creation requires a name, email or phone.", { statusCode: 422 });
+        throw new ConnectorError("connector_input_invalid", "Provide contact details; creation requires a name, email or phone.", { statusCode: 422, messageCode: "connectors.wix.provideContactDetailsCreationRequires" });
       }
       return { method: action === "get" ? "GET" : action === "create" ? "POST" : "PATCH",
         url: `https://www.wixapis.com/contacts/v4/contacts${contactId ? `/${contactId}` : ""}`,
         ...(action === "get" ? {} : { body }) };
     },
     validateResult: (value, request) => validContact(value?.contact) && (action === "create" ||
-      sameRecord(value.contact.id === requestPath(request, -1), "Wix returned a different contact. Check the operation outcome before retrying."))
+      sameRecord(value.contact.id === requestPath(request, -1), "Wix returned a different contact. Check the operation outcome before retrying.", { messageCode: "connectors.wix.returnedDifferentContactCheckOperation" }))
   };
 }
 const servicePagingSchema = createSchema({ limit: { type: "integer", min: 1, max: 100, defaultTo: 20 }, offset: { type: "integer", min: 0, max: 100000, defaultTo: 0 } });
@@ -125,8 +125,8 @@ function requestedAvailability(value, requested, events) {
   const slots = value.timeSlots ?? [value.timeSlot];
   sameRecord(!(requested.timeZone && value.timeZone !== requested.timeZone || slots.some(slot => requested.serviceId && slot.serviceId !== requested.serviceId ||
     requested.localStartDate && (slot.localStartDate !== requested.localStartDate || slot.localEndDate !== requested.localEndDate))),
-  "Wix returned availability for a different service, time or time zone.");
-  return !events || !requested.serviceIds || sameRecord(slots.every(slot => requested.serviceIds.includes(slot.serviceId)), "Wix returned a class slot for a different service.");
+  "Wix returned availability for a different service, time or time zone.", { messageCode: "connectors.wix.returnedAvailabilityDifferentServiceTime" });
+  return !events || !requested.serviceIds || sameRecord(slots.every(slot => requested.serviceIds.includes(slot.serviceId)), "Wix returned a class slot for a different service.", { messageCode: "connectors.wix.returnedClassSlotDifferentService" });
 }
 function availabilityOperation(action, events = false) {
   const schema = createSchema({
@@ -164,13 +164,13 @@ function availabilityOperation(action, events = false) {
     scopes: [],
     request(input) {
       const { limit, cursor: next, ...body } = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
-      if (next && Object.keys(body).length) throw new ConnectorError("connector_input_invalid", "Use only cursor and limit for the next availability page.", { statusCode: 422 });
-      if (body.customerChoices && !Object.keys(body.customerChoices).length) throw new ConnectorError("connector_input_invalid", "Select a duration or add-ons before supplying customer choices.", { statusCode: 422 });
+      if (next && Object.keys(body).length) throw new ConnectorError("connector_input_invalid", "Use only cursor and limit for the next availability page.", { statusCode: 422, messageCode: "connectors.wix.useCursorLimitNextAvailability" });
+      if (body.customerChoices && !Object.keys(body.customerChoices).length) throw new ConnectorError("connector_input_invalid", "Select a duration or add-ons before supplying customer choices.", { statusCode: 422, messageCode: "connectors.wix.selectDurationAddOnsSupplying" });
       if (!next && (!body.serviceId || !body.timeZone || (action === "list" ? !body.fromLocalDate || !body.toLocalDate || body.fromLocalDate >= body.toLocalDate : body.localStartDate >= body.localEndDate))) {
-        throw new ConnectorError("connector_input_invalid", "Choose the service, time zone and an increasing local date range.", { statusCode: 422 });
+        throw new ConnectorError("connector_input_invalid", "Choose the service, time zone and an increasing local date range.", { statusCode: 422, messageCode: "connectors.wix.chooseServiceTimeZoneIncreasing" });
       }
       const locations = body.locations ?? (body.location ? [body.location] : []);
-      if (locations.some(location => location.locationType === "BUSINESS" && !location.id)) throw new ConnectorError("connector_input_invalid", "Choose the business location ID.", { statusCode: 422 });
+      if (locations.some(location => location.locationType === "BUSINESS" && !location.id)) throw new ConnectorError("connector_input_invalid", "Choose the business location ID.", { statusCode: 422, messageCode: "connectors.wix.chooseBusinessLocationId" });
       const { serviceId, ...eventBody } = body;
       return { method: "POST", url: `https://www.wixapis.com/_api/service-availability/v2/time-slots${events ? "/event" : action === "get" ? "/get" : ""}`,
         body: action === "get" ? body : next ? { cursorPaging: { limit, cursor: next } } : { ...(events ? { ...eventBody, serviceIds: [serviceId], includeNonBookable: false } : { ...body, bookable: true }), cursorPaging: { limit } } };
@@ -208,7 +208,7 @@ function productReadOperation(version, action) {
       return { method: "POST", url: `${base}/query`,
         body: version === 1 ? { query: { paging }, includeVariants } : { query: { cursorPaging: paging } } };
     },
-    validateResult: (value, request) => action === "get" ? validProduct(value?.product) && sameRecord(value.product.id === requestPath(request, -1), "Wix returned a different product.") : Array.isArray(value?.products) && value.products.length <= 100 && value.products.every(validProduct) &&
+    validateResult: (value, request) => action === "get" ? validProduct(value?.product) && sameRecord(value.product.id === requestPath(request, -1), "Wix returned a different product.", { messageCode: "connectors.wix.returnedDifferentProduct" }) : Array.isArray(value?.products) && value.products.length <= 100 && value.products.every(validProduct) &&
       (version === 1 ? (value.totalResults === undefined || Number.isSafeInteger(value.totalResults) && value.totalResults >= 0) &&
         (value.metadata === undefined || value.metadata && typeof value.metadata === "object" && !Array.isArray(value.metadata) &&
           ["items", "offset"].every(key => value.metadata[key] === undefined || Number.isSafeInteger(value.metadata[key]) && value.metadata[key] >= 0)) :
@@ -321,17 +321,17 @@ function locationWriteOperation(action) {
     scopes: [],
     request(input) {
       const { locationId, ...location } = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
-      if (!Object.keys(location.address).length) throw new ConnectorError("connector_input_invalid", "Provide the location address.", { statusCode: 422 });
+      if (!Object.keys(location.address).length) throw new ConnectorError("connector_input_invalid", "Provide the location address.", { statusCode: 422, messageCode: "connectors.wix.provideLocationAddress" });
       if (location.businessSchedule && (["periods", "specialHourPeriod"].some(key => location.businessSchedule[key] !== undefined &&
           (!Array.isArray(location.businessSchedule[key]) || location.businessSchedule[key].length > 100)) ||
           Object.keys(location.businessSchedule).some(key => !["periods", "specialHourPeriod"].includes(key)))) {
-        throw new ConnectorError("connector_input_invalid", "Use native businessSchedule periods and specialHourPeriod arrays with at most 100 entries each.", { statusCode: 422 });
+        throw new ConnectorError("connector_input_invalid", "Use native businessSchedule periods and specialHourPeriod arrays with at most 100 entries each.", { statusCode: 422, messageCode: "connectors.wix.businessScheduleLimits" });
       }
       return { method: action === "create" ? "POST" : "PUT", url: `https://www.wixapis.com/locations/v1/locations${locationId ? `/${locationId}` : ""}`,
         body: { location: { ...(locationId ? { id: locationId } : {}), ...location } } };
     },
     validateResult: (value, request) => validLocation(value?.location) && typeof value.location.revision === "string" && /^\d{1,19}$/u.test(value.location.revision) &&
-      (action === "create" || sameRecord(value.location.id === requestPath(request, -1), "Wix returned a different business location."))
+      (action === "create" || sameRecord(value.location.id === requestPath(request, -1), "Wix returned a different business location.", { messageCode: "connectors.wix.returnedDifferentBusinessLocation" }))
   };
 }
 function locationActionOperation(action) {
@@ -343,7 +343,7 @@ function locationActionOperation(action) {
       return { method: "POST", url: `https://www.wixapis.com/locations/v1/locations/${locationId}/${action}`,
         body: {} };
     },
-    validateResult: (value, request) => validLocation(value?.location) && sameRecord(value.location.id === requestPath(request, -2), "Wix returned a different business location.") &&
+    validateResult: (value, request) => validLocation(value?.location) && sameRecord(value.location.id === requestPath(request, -2), "Wix returned a different business location.", { messageCode: "connectors.wix.returnedDifferentBusinessLocation" }) &&
       (action === "archive" ? value.location.archived === true : value.location.default === true)
   };
 }
@@ -467,13 +467,13 @@ function bookingConfirmationOperation(action) {
     scopes: [],
     request(input) {
       const { bookingId, paymentStatus, revision, notifyParticipants, message } = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
-      if (message !== undefined && !notifyParticipants) throw new ConnectorError("connector_input_invalid", "Enable participant notification before supplying a message.", { statusCode: 422 });
+      if (message !== undefined && !notifyParticipants) throw new ConnectorError("connector_input_invalid", "Enable participant notification before supplying a message.", { statusCode: 422, messageCode: "connectors.wix.enableParticipantNotificationSupplyingMessage" });
       return { method: "POST", url: automatic ? `https://www.wixapis.com/bookings/v2/confirmation/${bookingId}:confirmOrDecline` :
         `https://www.wixapis.com/_api/bookings-service/v2/bookings/${bookingId}/${action}`,
         body: automatic ? { paymentStatus } : { revision, participantNotification: { notifyParticipants, ...(message === undefined ? {} : { message }) } } };
     },
     validateResult: (value, request) => guid(value?.booking?.id) &&
-      sameRecord(value.booking.id === (automatic ? requestPath(request, -1).split(":")[0] : requestPath(request, -2)), "Wix returned a different booking. Check the operation outcome before retrying.") &&
+      sameRecord(value.booking.id === (automatic ? requestPath(request, -1).split(":")[0] : requestPath(request, -2)), "Wix returned a different booking. Check the operation outcome before retrying.", { messageCode: "connectors.wix.returnedDifferentBookingCheckOperation" }) &&
       typeof value.booking.revision === "string" && /^\d{1,19}$/u.test(value.booking.revision) &&
       BigInt(value.booking.revision) <= 9223372036854775807n && (automatic ? ["CONFIRMED", "PENDING", "DECLINED"].includes(value.booking.status) : value.booking.status === (action === "confirm" ? "CONFIRMED" : "DECLINED"))
   };
@@ -501,12 +501,12 @@ function fulfillmentWriteOperation(update) {
     request(input) {
       const { orderId, fulfillmentId, ...fulfillment } = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
       if (!Object.keys(fulfillment).length || fulfillment.trackingInfo && !Object.keys(fulfillment.trackingInfo).length) {
-        throw new ConnectorError("connector_input_invalid", "Supply the fulfillment properties to write.", { statusCode: 422 });
+        throw new ConnectorError("connector_input_invalid", "Supply the fulfillment properties to write.", { statusCode: 422, messageCode: "connectors.wix.supplyFulfillmentPropertiesWrite" });
       }
       const tracking = fulfillment.trackingInfo;
       if (!update && tracking && (!tracking.trackingNumber || !tracking.shippingProvider ||
           !["fedex", "ups", "usps", "dhl", "canadaPost"].includes(tracking.shippingProvider) && !tracking.trackingLink)) {
-        throw new ConnectorError("connector_input_invalid", "Supply tracking number and provider; custom carriers also require a tracking URL.", { statusCode: 422 });
+        throw new ConnectorError("connector_input_invalid", "Supply tracking number and provider; custom carriers also require a tracking URL.", { statusCode: 422, messageCode: "connectors.wix.supplyTrackingNumberProviderCustom" });
       }
       return { method: update ? "PATCH" : "POST", url: update
         ? `https://www.wixapis.com/ecom/v1/fulfillments/${fulfillmentId}/orders/${encodeURIComponent(orderId)}`
@@ -514,12 +514,12 @@ function fulfillmentWriteOperation(update) {
         body: { fulfillment } };
     },
     validateResult: (value, request) => typeof value?.orderWithFulfillments?.orderId === "string" &&
-      sameRecord(value.orderWithFulfillments.orderId === requestPath(request, update ? -1 : -2), "Wix returned fulfillments for a different order.") &&
+      sameRecord(value.orderWithFulfillments.orderId === requestPath(request, update ? -1 : -2), "Wix returned fulfillments for a different order.", { messageCode: "connectors.wix.returnedFulfillmentsDifferentOrder" }) &&
       Array.isArray(value.orderWithFulfillments.fulfillments) &&
       value.orderWithFulfillments.fulfillments.every(item => guid(item?.id) && Array.isArray(item.lineItems) && item.lineItems.length <= 300 &&
         item.lineItems.every(line => guid(line?.id) && Number.isInteger(line.quantity) && line.quantity >= 1 && line.quantity <= 100000)) &&
       (update ? sameRecord(value.orderWithFulfillments.fulfillments.some(item => item.id === requestPath(request, -3)),
-        "Wix did not return the updated fulfillment. Inspect the order before retrying.") :
+        "Wix did not return the updated fulfillment. Inspect the order before retrying.", { messageCode: "connectors.wix.didNotReturnUpdatedFulfillment" }) :
         guid(value.fulfillmentId) && value.orderWithFulfillments.fulfillments.some(item => item.id === value.fulfillmentId))
   };
 }
@@ -559,22 +559,22 @@ const wixRuntime = {
       scopes: [],
       request(input) {
         const { bookingId, revision, slot, notifyParticipants, message } = validateSchemaPayload({ schema: bookingRescheduleSchema, mode: "replace" }, input, { statusCode: 422 });
-        if (message !== undefined && !notifyParticipants) throw new ConnectorError("connector_input_invalid", "Enable participant notification before supplying a message.", { statusCode: 422 });
+        if (message !== undefined && !notifyParticipants) throw new ConnectorError("connector_input_invalid", "Enable participant notification before supplying a message.", { statusCode: 422, messageCode: "connectors.wix.enableParticipantNotificationSupplyingMessage" });
         if (slot.eventId !== undefined) {
           if (Object.keys(slot).length !== 1 || typeof slot.eventId !== "string" || slot.eventId.length < 36 || slot.eventId.length > 250 || /[\p{Cc}]/u.test(slot.eventId)) {
-            throw new ConnectorError("connector_input_invalid", "For a class, supply only the selected eventId in slot.", { statusCode: 422 });
+            throw new ConnectorError("connector_input_invalid", "For a class, supply only the selected eventId in slot.", { statusCode: 422, messageCode: "connectors.wix.classSupplySelectedEventidSlot" });
           }
         } else {
           let validTimeZone = false;
           try { validTimeZone = typeof slot.timezone === "string" && !!new Intl.DateTimeFormat("en", { timeZone: slot.timezone }); } catch {}
           if (!guid(slot.serviceId) || !guid(slot.scheduleId) || !localDate(slot.startDate) || !localDate(slot.endDate) || slot.startDate >= slot.endDate || !validTimeZone) {
-            throw new ConnectorError("connector_input_invalid", "For an appointment, supply its service/schedule IDs, increasing local slot dates and IANA timezone. Courses cannot be rescheduled.", { statusCode: 422 });
+            throw new ConnectorError("connector_input_invalid", "For an appointment, supply its service/schedule IDs, increasing local slot dates and IANA timezone. Courses cannot be rescheduled.", { statusCode: 422, messageCode: "connectors.wix.appointmentSupplyServiceScheduleIds" });
           }
         }
         return { method: "POST", url: `https://www.wixapis.com/_api/bookings-service/v2/bookings/${bookingId}/reschedule`,
           body: { revision, slot, participantNotification: { notifyParticipants, ...(message === undefined ? {} : { message }) } } };
       },
-      validateResult: (value, request) => guid(value?.booking?.id) && sameRecord(value.booking.id === requestPath(request, -2), "Wix returned a different booking. Check the operation outcome before retrying.") && typeof value.booking.revision === "string" && /^\d{1,19}$/u.test(value.booking.revision) &&
+      validateResult: (value, request) => guid(value?.booking?.id) && sameRecord(value.booking.id === requestPath(request, -2), "Wix returned a different booking. Check the operation outcome before retrying.", { messageCode: "connectors.wix.returnedDifferentBookingCheckOperation" }) && typeof value.booking.revision === "string" && /^\d{1,19}$/u.test(value.booking.revision) &&
         BigInt(value.booking.revision) <= 9223372036854775807n && typeof value.booking.status === "string" && value.booking.status.length > 0
     },
     "bookings.confirm": bookingConfirmationOperation("confirm"),
@@ -600,7 +600,7 @@ const wixRuntime = {
       },
       validateResult(value, request) {
         const variants = value?.serviceVariants;
-        return guid(variants?.id) && guid(variants.serviceId) && sameRecord(variants.serviceId === requestPath(request, -1), "Wix returned variants for a different service.") &&
+        return guid(variants?.id) && guid(variants.serviceId) && sameRecord(variants.serviceId === requestPath(request, -1), "Wix returned variants for a different service.", { messageCode: "connectors.wix.returnedVariantsDifferentService" }) &&
           Array.isArray(variants.options?.values) && variants.options.values.every(option => guid(option?.id) && typeof option.type === "string") &&
           Array.isArray(variants.variants?.values) && variants.variants.values.every(variant =>
             Array.isArray(variant?.choices) && variant.choices.every(choice => guid(choice?.optionId)));
@@ -612,13 +612,13 @@ const wixRuntime = {
       scopes: [],
       request(input) {
         const { serviceId, locations, removedLocationAction: action, moveToLocation, notifyParticipants, notificationMessage } = validateSchemaPayload({ schema: setServiceLocationsSchema, mode: "replace" }, input, { statusCode: 422 });
-        if ((action === "MOVE_TO_LOCATION") !== (moveToLocation !== undefined)) throw new ConnectorError("connector_input_invalid", "Provide a destination only when moving future sessions.", { statusCode: 422 });
-        if (notificationMessage !== undefined && !notifyParticipants) throw new ConnectorError("connector_input_invalid", "Enable participant notification before supplying a message.", { statusCode: 422 });
+        if ((action === "MOVE_TO_LOCATION") !== (moveToLocation !== undefined)) throw new ConnectorError("connector_input_invalid", "Provide a destination only when moving future sessions.", { statusCode: 422, messageCode: "connectors.wix.provideDestinationMovingFutureSessions" });
+        if (notificationMessage !== undefined && !notifyParticipants) throw new ConnectorError("connector_input_invalid", "Enable participant notification before supplying a message.", { statusCode: 422, messageCode: "connectors.wix.enableParticipantNotificationSupplyingMessage" });
         for (const location of [...locations, ...(moveToLocation ? [moveToLocation] : [])]) {
           if (location.type === "BUSINESS" && (!location.business || location.custom) ||
               location.type === "CUSTOM" && (!location.custom || location.business || !Object.keys(location.custom.address).length) ||
               location.type === "CUSTOMER" && (location.business || location.custom)) {
-            throw new ConnectorError("connector_input_invalid", "Supply the details matching each service location type.", { statusCode: 422 });
+            throw new ConnectorError("connector_input_invalid", "Supply the details matching each service location type.", { statusCode: 422, messageCode: "connectors.wix.supplyDetailsMatchingServiceLocation" });
           }
         }
         return { method: "POST", url: `https://www.wixapis.com/_api/bookings/v2/services/${serviceId}/locations`, body: {
@@ -626,35 +626,35 @@ const wixRuntime = {
           participantNotification: { notifyParticipants, ...(notificationMessage !== undefined ? { message: notificationMessage } : {}) }
         } };
       },
-      validateResult: (value, request) => validService(value?.service) && sameRecord(value.service.id === requestPath(request, -2), "Wix returned a different booking service. Check the outcome before retrying.")
+      validateResult: (value, request) => validService(value?.service) && sameRecord(value.service.id === requestPath(request, -2), "Wix returned a different booking service. Check the outcome before retrying.", { messageCode: "connectors.wix.returnedDifferentBookingServiceCheck" })
     },
     "bookingServices.create": {
       scopes: [],
       request(input) {
         const { service } = validateSchemaPayload({ schema: serviceCreateSchema, mode: "replace" }, input, { statusCode: 422 });
-        const invalid = message => { throw new ConnectorError("connector_input_invalid", message, { statusCode: 422 }); };
-        if (!["APPOINTMENT", "CLASS", "COURSE"].includes(service.type) || typeof service.name !== "string" || !service.name.trim() || service.name.length > 400) invalid("Provide a service type and name of up to 400 characters.");
-        if (["id", "revision", "createdByAppId", "createdDate", "updatedDate", "addOnGroups"].some(key => Object.hasOwn(service, key))) invalid("Do not send generated service identity fields or existing add-on groups when creating a service.");
-        if (!Number.isInteger(service.defaultCapacity) || service.defaultCapacity < 1 || service.defaultCapacity > 1000 || service.type === "APPOINTMENT" && service.defaultCapacity !== 1) invalid("Set appointment capacity to 1, or class/course capacity from 1 to 1000.");
+        const invalid = (message, codes) => { throw new ConnectorError("connector_input_invalid", message, { statusCode: 422, ...codes }); };
+        if (!["APPOINTMENT", "CLASS", "COURSE"].includes(service.type) || typeof service.name !== "string" || !service.name.trim() || service.name.length > 400) invalid("Provide a service type and name of up to 400 characters.", { messageCode: "connectors.wix.provideServiceTypeNameUp" });
+        if (["id", "revision", "createdByAppId", "createdDate", "updatedDate", "addOnGroups"].some(key => Object.hasOwn(service, key))) invalid("Do not send generated service identity fields or existing add-on groups when creating a service.", { messageCode: "connectors.wix.doNotSendGeneratedService" });
+        if (!Number.isInteger(service.defaultCapacity) || service.defaultCapacity < 1 || service.defaultCapacity > 1000 || service.type === "APPOINTMENT" && service.defaultCapacity !== 1) invalid("Set appointment capacity to 1, or class/course capacity from 1 to 1000.", { messageCode: "connectors.wix.setAppointmentCapacity1Class" });
         const online = service.onlineBooking;
-        if (!online || typeof online.enabled !== "boolean" || ["requireManualApproval", "allowMultipleRequests"].some(key => online[key] !== undefined && typeof online[key] !== "boolean")) invalid("Provide explicit online-booking settings.");
+        if (!online || typeof online.enabled !== "boolean" || ["requireManualApproval", "allowMultipleRequests"].some(key => online[key] !== undefined && typeof online[key] !== "boolean")) invalid("Provide explicit online-booking settings.", { messageCode: "connectors.wix.provideExplicitOnlineBookingSettings" });
         const payment = service.payment;
-        if (!payment || !["FIXED", "VARIED", "CUSTOM", "NO_FEE"].includes(payment.rateType)) invalid("Use FIXED, VARIED, CUSTOM or NO_FEE service payment settings.");
+        if (!payment || !["FIXED", "VARIED", "CUSTOM", "NO_FEE"].includes(payment.rateType)) invalid("Use FIXED, VARIED, CUSTOM or NO_FEE service payment settings.", { messageCode: "connectors.wix.useFixedVariedCustomNo" });
         const options = payment.options;
-        if (!options || typeof options !== "object" || ["online", "inPerson", "deposit", "pricingPlan"].some(key => options[key] !== undefined && typeof options[key] !== "boolean") || !(options.online === true || options.inPerson === true)) invalid("Select in-person or online payment, including for a free service.");
-        if (online.requireManualApproval && options.pricingPlan || !online.enabled && options.online) invalid("Manual approval cannot use pricing plans; online payment requires online booking.");
+        if (!options || typeof options !== "object" || ["online", "inPerson", "deposit", "pricingPlan"].some(key => options[key] !== undefined && typeof options[key] !== "boolean") || !(options.online === true || options.inPerson === true)) invalid("Select in-person or online payment, including for a free service.", { messageCode: "connectors.wix.selectPersonOnlinePaymentIncluding" });
+        if (online.requireManualApproval && options.pricingPlan || !online.enabled && options.online) invalid("Manual approval cannot use pricing plans; online payment requires online booking.", { messageCode: "connectors.wix.manualApprovalCannotUsePricing" });
         const priced = ["FIXED", "VARIED"].includes(payment.rateType);
-        if ((options.online || options.deposit) && !priced) invalid("Online and deposit payments require fixed or varied pricing.");
+        if ((options.online || options.deposit) && !priced) invalid("Online and deposit payments require fixed or varied pricing.", { messageCode: "connectors.wix.onlineDepositPaymentsRequireFixed" });
         const rate = payment.rateType === "FIXED" ? payment.fixed : payment.varied;
         const money = value => value && typeof value.value === "string" && value.value.length <= 30 && /^\d+(?:\.\d{1,2})?$/u.test(value.value) && /[1-9]/u.test(value.value) && /^[A-Z]{3}$/u.test(value.currency);
-        if (priced && !money(payment.rateType === "FIXED" ? rate?.price : rate?.defaultPrice)) invalid("Provide a positive decimal price string and three-letter currency code.");
-        if (payment.rateType === "CUSTOM" && (typeof payment.custom?.description !== "string" || !payment.custom.description.length || payment.custom.description.length > 50)) invalid("Describe the custom payment in up to 50 characters.");
-        if (options.deposit && (!options.online || options.inPerson || !money(rate?.deposit))) invalid("A deposit requires its amount, online payment and no in-person payment.");
+        if (priced && !money(payment.rateType === "FIXED" ? rate?.price : rate?.defaultPrice)) invalid("Provide a positive decimal price string and three-letter currency code.", { messageCode: "connectors.wix.providePositiveDecimalPriceString" });
+        if (payment.rateType === "CUSTOM" && (typeof payment.custom?.description !== "string" || !payment.custom.description.length || payment.custom.description.length > 50)) invalid("Describe the custom payment in up to 50 characters.", { messageCode: "connectors.wix.describeCustomPaymentUp50" });
+        if (options.deposit && (!options.online || options.inPerson || !money(rate?.deposit))) invalid("A deposit requires its amount, online payment and no in-person payment.", { messageCode: "connectors.wix.depositRequiresAmountOnlinePayment" });
         const durations = service.schedule?.availabilityConstraints?.sessionDurations;
         if (service.type === "APPOINTMENT") {
-          if (!Array.isArray(service.staffMemberIds) || !service.staffMemberIds.length || !service.staffMemberIds.every(guid)) invalid("Select at least one staff resource ID for the appointment service.");
-          if (!Array.isArray(durations) || !durations.length || !durations.every(value => Number.isInteger(value) && value > 0)) invalid("Provide appointment session durations in minutes.");
-        } else if (durations !== undefined) invalid("Class/course session durations belong to their sessions, not service availability constraints.");
+          if (!Array.isArray(service.staffMemberIds) || !service.staffMemberIds.length || !service.staffMemberIds.every(guid)) invalid("Select at least one staff resource ID for the appointment service.", { messageCode: "connectors.wix.selectLeastStaffResourceId" });
+          if (!Array.isArray(durations) || !durations.length || !durations.every(value => Number.isInteger(value) && value > 0)) invalid("Provide appointment session durations in minutes.", { messageCode: "connectors.wix.provideAppointmentSessionDurationsMinutes" });
+        } else if (durations !== undefined) invalid("Class/course session durations belong to their sessions, not service availability constraints.", { messageCode: "connectors.wix.classCourseSessionDurationsBelong" });
         return { method: "POST", url: "https://www.wixapis.com/_api/bookings/v2/services", body: { service } };
       },
       validateResult: value => validService(value?.service)
@@ -668,7 +668,7 @@ const wixRuntime = {
         return { method: "GET", url: url.href };
       },
       validateResult: (value, request) => value?.dataItem?.data && typeof value.dataItem.data === "object" && !Array.isArray(value.dataItem.data) &&
-        sameRecord(value.dataItem.id === requestPath(request, -1) && value.dataItem.dataCollectionId === new URL(request.url).searchParams.get("dataCollectionId"), "Wix returned a different CMS item or collection. Check write outcomes before retrying.")
+        sameRecord(value.dataItem.id === requestPath(request, -1) && value.dataItem.dataCollectionId === new URL(request.url).searchParams.get("dataCollectionId"), "Wix returned a different CMS item or collection. Check write outcomes before retrying.", { messageCode: "connectors.wix.returnedDifferentCmsItemCollection" })
     },
     "cmsItems.patch": {
       scopes: [],
@@ -678,7 +678,7 @@ const wixRuntime = {
           body: { dataCollectionId, patch: { dataItemId: itemId, fieldModifications }, ...(conditionFilter !== undefined ? { condition: { filter: conditionFilter } } : {}) } };
       },
       validateResult: (value, request) => value?.dataItem?.data && typeof value.dataItem.data === "object" && !Array.isArray(value.dataItem.data) &&
-        sameRecord(value.dataItem.id === requestPath(request, -1) && value.dataItem.dataCollectionId === request.body.dataCollectionId, "Wix returned a different CMS item or collection. Check write outcomes before retrying.")
+        sameRecord(value.dataItem.id === requestPath(request, -1) && value.dataItem.dataCollectionId === request.body.dataCollectionId, "Wix returned a different CMS item or collection. Check write outcomes before retrying.", { messageCode: "connectors.wix.returnedDifferentCmsItemCollection" })
     },
     "cmsItems.list": {
       scopes: [],
@@ -692,7 +692,7 @@ const wixRuntime = {
       validateResult: (value, request) => Array.isArray(value?.dataItems) && value.dataItems.length <= 100 && value.dataItems.every(item =>
         typeof item?.id === "string" && item.id.length > 0 && collectionId(item.dataCollectionId) && item.data && typeof item.data === "object" && !Array.isArray(item.data)) &&
         (value.pagingMetadata === undefined || value.pagingMetadata && typeof value.pagingMetadata === "object" && !Array.isArray(value.pagingMetadata)) &&
-        sameRecord(value.dataItems.every(item => item.dataCollectionId === request.body.dataCollectionId), "Wix returned items from a different CMS collection.")
+        sameRecord(value.dataItems.every(item => item.dataCollectionId === request.body.dataCollectionId), "Wix returned items from a different CMS collection.", { messageCode: "connectors.wix.returnedItemsDifferentCmsCollection" })
     },
     "cmsCollections.list": {
       scopes: [],
@@ -714,7 +714,7 @@ const wixRuntime = {
         return { method: "GET", url: `https://www.wixapis.com/wix-data/v2/collections/${id}?consistentRead=${value.consistentRead}` };
       },
       validateResult: (value, request) => validCollection(value?.collection) &&
-        sameRecord(value.collection.id === new URL(request.url).pathname.split("/").slice(4).map(decodeURIComponent).join("/"), "Wix returned a different CMS collection.")
+        sameRecord(value.collection.id === new URL(request.url).pathname.split("/").slice(4).map(decodeURIComponent).join("/"), "Wix returned a different CMS collection.", { messageCode: "connectors.wix.returnedDifferentCmsCollection" })
     },
     "locations.archive": locationActionOperation("archive"),
     "locations.setDefault": locationActionOperation("set-default"),
@@ -737,7 +737,7 @@ const wixRuntime = {
         const { locationId } = validateSchemaPayload({ schema: locationGetSchema, mode: "replace" }, input, { statusCode: 422 });
         return { method: "GET", url: `https://www.wixapis.com/locations/v1/locations/${locationId}` };
       },
-      validateResult: (value, request) => validLocation(value?.location) && sameRecord(value.location.id === requestPath(request, -1), "Wix returned a different business location.")
+      validateResult: (value, request) => validLocation(value?.location) && sameRecord(value.location.id === requestPath(request, -1), "Wix returned a different business location.", { messageCode: "connectors.wix.returnedDifferentBusinessLocation" })
     },
     "productsV1.list": productReadOperation(1, "list"),
     "productsV1.get": productReadOperation(1, "get"),
@@ -745,12 +745,12 @@ const wixRuntime = {
       scopes: [],
       request(input) {
         const { productId, price, ...changes } = validateSchemaPayload({ schema: productV1UpdateSchema, mode: "replace" }, input, { statusCode: 422 });
-        if (!Object.keys(changes).length && price === undefined) throw new ConnectorError("connector_input_invalid", "Provide a product name, visibility or base-price change.", { statusCode: 422 });
+        if (!Object.keys(changes).length && price === undefined) throw new ConnectorError("connector_input_invalid", "Provide a product name, visibility or base-price change.", { statusCode: 422, messageCode: "connectors.wix.provideProductNameVisibilityBase" });
         return { method: "PATCH", url: `https://www.wixapis.com/stores/v1/products/${productId}`,
           body: { product: { ...changes, ...(price === undefined ? {} : { priceData: { price } }) } } };
       },
       validateResult: (value, request) => guid(value?.product?.id) && typeof value.product.name === "string" && value.product.name.length > 0 &&
-        sameRecord(value.product.id === requestPath(request, -1), "Wix returned a different product.")
+        sameRecord(value.product.id === requestPath(request, -1), "Wix returned a different product.", { messageCode: "connectors.wix.returnedDifferentProduct" })
     },
     "productsV3.list": productReadOperation(3, "list"),
     "productsV3.get": productReadOperation(3, "get"),
@@ -758,12 +758,12 @@ const wixRuntime = {
       scopes: [],
       request(input) {
         const { productId, revision, ...changes } = validateSchemaPayload({ schema: productV3UpdateSchema, mode: "replace" }, input, { statusCode: 422 });
-        if (!Object.keys(changes).length) throw new ConnectorError("connector_input_invalid", "Provide a product name or visibility change.", { statusCode: 422 });
+        if (!Object.keys(changes).length) throw new ConnectorError("connector_input_invalid", "Provide a product name or visibility change.", { statusCode: 422, messageCode: "connectors.wix.provideProductNameVisibilityChange" });
         return { method: "PATCH", url: `https://www.wixapis.com/stores/v3/products/${productId}`,
           body: { product: { id: productId, revision, ...changes } } };
       },
       validateResult: (value, request) => guid(value?.product?.id) && typeof value.product.name === "string" && value.product.name.length > 0 &&
-        sameRecord(value.product.id === requestPath(request, -1), "Wix returned a different product.") &&
+        sameRecord(value.product.id === requestPath(request, -1), "Wix returned a different product.", { messageCode: "connectors.wix.returnedDifferentProduct" }) &&
         typeof value.product.revision === "string" && /^\d{1,19}$/u.test(value.product.revision) && BigInt(value.product.revision) <= 9223372036854775807n
     },
     "catalog.version": {
@@ -777,7 +777,7 @@ const wixRuntime = {
       scopes: [],
       request(input) {
         const { status, contactId, ...cursorPaging } = validateSchemaPayload({ schema: orderSearchSchema, mode: "replace" }, input, { statusCode: 422 });
-        if (cursorPaging.cursor && (status || contactId)) throw new ConnectorError("connector_input_invalid", "Use only cursor and limit for the next order page.", { statusCode: 422 });
+        if (cursorPaging.cursor && (status || contactId)) throw new ConnectorError("connector_input_invalid", "Use only cursor and limit for the next order page.", { statusCode: 422, messageCode: "connectors.wix.useCursorLimitNextOrder" });
         const filter = { ...(status ? { status } : {}), ...(contactId ? { "buyerInfo.contactId": contactId } : {}) };
         return { method: "POST", url: "https://www.wixapis.com/ecom/v1/orders/search",
           body: { search: { cursorPaging, ...(Object.keys(filter).length ? { filter } : {}) } } };
@@ -794,7 +794,7 @@ const wixRuntime = {
       request(input) {
         const { orderId } = validateSchemaPayload({ schema: orderIdSchema, mode: "replace" }, input, { statusCode: 422 });
         return { method: "GET", url: `https://www.wixapis.com/ecom/v1/orders/${encodeURIComponent(orderId)}` };
-      }, validateResult: (value, request) => validOrder(value?.order) && sameRecord(value.order.id === requestPath(request, -1), "Wix returned a different order.")
+      }, validateResult: (value, request) => validOrder(value?.order) && sameRecord(value.order.id === requestPath(request, -1), "Wix returned a different order.", { messageCode: "connectors.wix.returnedDifferentOrder" })
     },
     "orderFulfillments.create": fulfillmentWriteOperation(false),
     "orderFulfillments.update": fulfillmentWriteOperation(true),
@@ -805,7 +805,7 @@ const wixRuntime = {
         return { method: "GET", url: `https://www.wixapis.com/ecom/v1/fulfillments/orders/${encodeURIComponent(orderId)}` };
       },
       validateResult: (value, request) => guid(value?.orderWithFulfillments?.orderId) &&
-        sameRecord(value.orderWithFulfillments.orderId === requestPath(request, -1), "Wix returned fulfillments for a different order.") &&
+        sameRecord(value.orderWithFulfillments.orderId === requestPath(request, -1), "Wix returned fulfillments for a different order.", { messageCode: "connectors.wix.returnedFulfillmentsDifferentOrder" }) &&
         Array.isArray(value.orderWithFulfillments.fulfillments) &&
         value.orderWithFulfillments.fulfillments.every(item => guid(item?.id) && Array.isArray(item.lineItems) && item.lineItems.length <= 300 &&
           item.lineItems.every(line => guid(line?.id) && Number.isInteger(line.quantity) && line.quantity >= 1 && line.quantity <= 100000))
@@ -819,7 +819,7 @@ const wixRuntime = {
         url.searchParams.set("timeZone", timeZone);
         return { method: "GET", url: url.href };
       }, validateResult: (value, request) => validSlot(value?.timeSlot) && typeof value.timeSlot.eventInfo?.eventId === "string" && typeof value.timeZone === "string" &&
-        sameRecord(value.timeSlot.eventInfo.eventId === requestPath(request, -1) && value.timeZone === new URL(request.url).searchParams.get("timeZone"), "Wix returned a different event slot or time zone.")
+        sameRecord(value.timeSlot.eventInfo.eventId === requestPath(request, -1) && value.timeZone === new URL(request.url).searchParams.get("timeZone"), "Wix returned a different event slot or time zone.", { messageCode: "connectors.wix.returnedDifferentEventSlotTime" })
     },
     "forms.summary": {
       scopes: [],
@@ -827,7 +827,7 @@ const wixRuntime = {
         const { formId } = validateSchemaPayload({ schema: formSummarySchema, mode: "replace" }, input, { statusCode: 422 });
         return { method: "GET", url: `https://www.wixapis.com/form-schema-service/v4/forms/${formId}/summary` };
       },
-      validateResult: (value, request) => guid(value?.formSummary?.id) && sameRecord(value.formSummary.id === requestPath(request, -2), "Wix returned a different form summary.") &&
+      validateResult: (value, request) => guid(value?.formSummary?.id) && sameRecord(value.formSummary.id === requestPath(request, -2), "Wix returned a different form summary.", { messageCode: "connectors.wix.returnedDifferentFormSummary" }) &&
         Array.isArray(value.formSummary.fields) && value.formSummary.fields.length <= 500 &&
         value.formSummary.fields.every(field => guid(field?.id) && typeof field.target === "string" && field.target.length > 0 && field.target.length <= 200 &&
           typeof field.type === "string" && field.type.length > 0 && (field.label === undefined || typeof field.label === "string" && field.label.length <= 350) &&
@@ -839,18 +839,18 @@ const wixRuntime = {
         const value = validateSchemaPayload({ schema: bookingCreateSchema, mode: "replace" }, input, { statusCode: 422 });
         const { kind, serviceId, timeZone, startDate, endDate, eventId, scheduleId, resourceId, location, totalParticipants, participantsChoices, bookedAddOns, formSubmission, notifyParticipants, sendSmsReminder } = value;
         if (participantsChoices) {
-          if (totalParticipants !== undefined) throw new ConnectorError("connector_input_invalid", "Use participant choices or a fixed participant total, not both.", { statusCode: 422 });
+          if (totalParticipants !== undefined) throw new ConnectorError("connector_input_invalid", "Use participant choices or a fixed participant total, not both.", { statusCode: 422, messageCode: "connectors.wix.useParticipantChoicesFixedParticipant" });
           if (participantsChoices.serviceChoices.reduce((total, group) => total + group.numberOfParticipants, 0) > 1000 ||
               participantsChoices.serviceChoices.some(group => new Set(group.choices.map(choice => choice.optionId)).size !== group.choices.length ||
                 group.choices.some(choice => (choice.custom !== undefined) === (choice.duration !== undefined)))) {
-            throw new ConnectorError("connector_input_invalid", "Use at most 1000 participants, distinct options per group and exactly one custom or duration value per choice.", { statusCode: 422 });
+            throw new ConnectorError("connector_input_invalid", "Use at most 1000 participants, distinct options per group and exactly one custom or duration value per choice.", { statusCode: 422, messageCode: "connectors.wix.useMost1000ParticipantsDistinct" });
           }
         }
         if (kind === "APPOINTMENT" ? !startDate || !endDate || startDate >= endDate || !resourceId || !location || eventId || scheduleId :
             kind === "CLASS" ? !eventId || startDate || endDate || resourceId || location || scheduleId : !scheduleId || startDate || endDate || resourceId || location || eventId) {
-          throw new ConnectorError("connector_input_invalid", "Use appointment dates/resource/location, a class event ID, or a course schedule ID, matching the selected service type.", { statusCode: 422 });
+          throw new ConnectorError("connector_input_invalid", "Use appointment dates/resource/location, a class event ID, or a course schedule ID, matching the selected service type.", { statusCode: 422, messageCode: "connectors.wix.useAppointmentDatesResourceLocation" });
         }
-        if (location?.locationType === "OWNER_BUSINESS" && !location.id) throw new ConnectorError("connector_input_invalid", "Choose the business location ID.", { statusCode: 422 });
+        if (location?.locationType === "OWNER_BUSINESS" && !location.id) throw new ConnectorError("connector_input_invalid", "Choose the business location ID.", { statusCode: 422, messageCode: "connectors.wix.chooseBusinessLocationId" });
         const bookedEntity = kind === "COURSE" ? { schedule: { scheduleId, serviceId, timezone: timeZone } } :
           { slot: { serviceId, timezone: timeZone, ...(kind === "CLASS" ? { eventId } : { startDate, endDate, resource: { id: resourceId }, location }) } };
         return { method: "POST", url: "https://www.wixapis.com/_api/bookings-service/v2/bookings",
@@ -878,18 +878,18 @@ const wixRuntime = {
           ["count", "offset", "total"].every(key => value.pagingMetadata[key] === undefined || Number.isSafeInteger(value.pagingMetadata[key]) && value.pagingMetadata[key] >= 0) &&
           (value.pagingMetadata.count === undefined || value.pagingMetadata.count === value.extendedBookings.length)) &&
         (!request.body.query.filter?.id || sameRecord(value.extendedBookings.length <= 1 && value.extendedBookings.every(record => record.booking.id === request.body.query.filter.id),
-          "Wix returned an unexpected booking for the requested ID."))
+          "Wix returned an unexpected booking for the requested ID.", { messageCode: "connectors.wix.returnedUnexpectedBookingRequestedId" }))
     },
     "bookings.cancel": {
       scopes: [],
       request(input) {
         const { bookingId, revision, notifyParticipants, message, waiveCharges } = validateSchemaPayload({ schema: bookingCancelSchema, mode: "replace" }, input, { statusCode: 422 });
-        if (message && !notifyParticipants) throw new ConnectorError("connector_input_invalid", "Enable participant notification to send a cancellation message.", { statusCode: 422 });
+        if (message && !notifyParticipants) throw new ConnectorError("connector_input_invalid", "Enable participant notification to send a cancellation message.", { statusCode: 422, messageCode: "connectors.wix.enableParticipantNotificationSendCancellation" });
         return { method: "POST", url: `https://www.wixapis.com/_api/bookings-service/v2/bookings/${bookingId}/cancel`,
           body: { revision, waiveCharges,
             participantNotification: { notifyParticipants, ...(message === undefined ? {} : { message }) } } };
       },
-      validateResult: (value, request) => guid(value?.booking?.id) && sameRecord(value.booking.id === requestPath(request, -2), "Wix returned a different booking. Check the operation outcome before retrying.") && value.booking.status === "CANCELED" &&
+      validateResult: (value, request) => guid(value?.booking?.id) && sameRecord(value.booking.id === requestPath(request, -2), "Wix returned a different booking. Check the operation outcome before retrying.", { messageCode: "connectors.wix.returnedDifferentBookingCheckOperation" }) && value.booking.status === "CANCELED" &&
         typeof value.booking.revision === "string" && /^\d{1,19}$/u.test(value.booking.revision) && BigInt(value.booking.revision) <= 9223372036854775807n
     },
     "bookingServices.list": {
@@ -908,19 +908,19 @@ const wixRuntime = {
       request(input) {
         const { serviceId } = validateSchemaPayload({ schema: serviceIdSchema, mode: "replace" }, input, { statusCode: 422 });
         return { method: "GET", url: `https://www.wixapis.com/_api/bookings/v2/services/${serviceId}` };
-      }, validateResult: (value, request) => validService(value?.service) && sameRecord(value.service.id === requestPath(request, -1), "Wix returned a different booking service. Check the outcome before retrying.")
+      }, validateResult: (value, request) => validService(value?.service) && sameRecord(value.service.id === requestPath(request, -1), "Wix returned a different booking service. Check the outcome before retrying.", { messageCode: "connectors.wix.returnedDifferentBookingServiceCheck" })
     },
     "bookingServices.update": {
       scopes: [],
       request(input) {
         const { serviceId, ...service } = validateSchemaPayload({ schema: serviceUpdateSchema, mode: "replace" }, input, { statusCode: 422 });
-        if (Object.keys(service).length < 2) throw new ConnectorError("connector_input_invalid", "Choose a service field to update.", { statusCode: 422 });
+        if (Object.keys(service).length < 2) throw new ConnectorError("connector_input_invalid", "Choose a service field to update.", { statusCode: 422, messageCode: "connectors.wix.chooseServiceFieldUpdate" });
         if (["payment", "onlineBooking"].some(key => service[key] !== undefined && !Object.keys(service[key]).length) ||
             service.schedule && !Object.keys(service.schedule.availabilityConstraints).length) {
-          throw new ConnectorError("connector_input_invalid", "Provide the selected service settings instead of an empty object.", { statusCode: 422 });
+          throw new ConnectorError("connector_input_invalid", "Provide the selected service settings instead of an empty object.", { statusCode: 422, messageCode: "connectors.wix.provideSelectedServiceSettingsInstead" });
         }
         return { method: "PATCH", url: `https://www.wixapis.com/_api/bookings/v2/services/${serviceId}`, body: { service: { id: serviceId, ...service } } };
-      }, validateResult: (value, request) => validService(value?.service) && sameRecord(value.service.id === requestPath(request, -1), "Wix returned a different booking service. Check the outcome before retrying.")
+      }, validateResult: (value, request) => validService(value?.service) && sameRecord(value.service.id === requestPath(request, -1), "Wix returned a different booking service. Check the outcome before retrying.", { messageCode: "connectors.wix.returnedDifferentBookingServiceCheck" })
     },
     "contacts.get": contactOperation("get"),
     "contacts.create": contactOperation("create"),
@@ -962,10 +962,10 @@ function wixSiteOperation(operation) {
       let siteId = settings.siteId, values = input;
       if (input && Object.hasOwn(input, "siteId")) {
         ({ siteId, ...values } = input);
-        if (!guid(siteId)) throw new ConnectorError("connector_input_invalid", "Choose a valid Wix Site ID.", { statusCode: 422 });
+        if (!guid(siteId)) throw new ConnectorError("connector_input_invalid", "Choose a valid Wix Site ID.", { statusCode: 422, messageCode: "connectors.wix.chooseValidSiteId" });
         const allowed = (settings.selectableSiteIds || "").split(",").map(id => id.trim().toLowerCase());
-        if (!allowed.includes(siteId.toLowerCase())) throw new ConnectorError("connector_input_invalid", "This site is not enabled in the project's Selectable Site IDs.", { statusCode: 422 });
-      } else if (!guid(siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
+        if (!allowed.includes(siteId.toLowerCase())) throw new ConnectorError("connector_input_invalid", "This site is not enabled in the project's Selectable Site IDs.", { statusCode: 422, messageCode: "connectors.wix.siteNotEnabledProjectSelectable" });
+      } else if (!guid(siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422, messageCode: "connectors.wix.configureSiteIdFirst" });
       const request = operation.request(values, { ...settings, siteId });
       return { ...request, headers: { ...request.headers, "wix-site-id": siteId } };
     }

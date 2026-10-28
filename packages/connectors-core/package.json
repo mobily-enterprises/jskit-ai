@@ -10,7 +10,8 @@
     "./shared/configuration": "./src/shared/configuration.js",
     "./server": "./src/server/index.js",
     "./server/storage": "./src/server/storage.js",
-    "./server/file-storage": "./src/server/fileStorage.js"
+    "./server/file-storage": "./src/server/fileStorage.js",
+    "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
     "jose": "^6.1.3",

@@ -41,10 +41,10 @@ function deleteRecord(resource) {
   return {
     scopes: [],
     request(input, settings) {
-      if (typeof input?.force !== "boolean") throw new ConnectorError("connector_input_invalid", "Choose explicitly whether to permanently delete.", { statusCode: 422 });
+      if (typeof input?.force !== "boolean") throw new ConnectorError("connector_input_invalid", "Choose explicitly whether to permanently delete.", { statusCode: 422, messageCode: "connectors.woocommerce.chooseExplicitlyWhetherPermanentlyDelete" });
       const { id, force, product_id, reassign } = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
-      if (permanentOnly && !force) throw new ConnectorError("connector_input_invalid", "This resource does not support trash; permanent deletion requires force=true.", { statusCode: 422 });
-      if (reassign === id) throw new ConnectorError("connector_input_invalid", "Choose a different reassignment user.", { statusCode: 422 });
+      if (permanentOnly && !force) throw new ConnectorError("connector_input_invalid", "This resource does not support trash; permanent deletion requires force=true.", { statusCode: 422, messageCode: "connectors.woocommerce.resourceDoesNotSupportTrash" });
+      if (reassign === id) throw new ConnectorError("connector_input_invalid", "Choose a different reassignment user.", { statusCode: 422, messageCode: "connectors.woocommerce.chooseDifferentReassignmentUser" });
       const path = resource === "variations" ? `products/${product_id}/variations` : resource;
       const url = new URL(`${baseUrl(settings)}/${path}/${id}`);
       url.searchParams.set("force", String(force));
@@ -75,11 +75,11 @@ function categoryOperation(action) {
     scopes: [],
     request(input, settings) {
       const { id, ...fields } = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
-      if (action === "delete" && input.force !== true) throw new ConnectorError("connector_input_invalid", "Category deletion is permanent and requires force=true.", { statusCode: 422 });
-      if (id && fields.parent === id) throw new ConnectorError("connector_input_invalid", "A category cannot be its own parent.", { statusCode: 422 });
+      if (action === "delete" && input.force !== true) throw new ConnectorError("connector_input_invalid", "Category deletion is permanent and requires force=true.", { statusCode: 422, messageCode: "connectors.woocommerce.categoryDeletionPermanentRequiresForce" });
+      if (id && fields.parent === id) throw new ConnectorError("connector_input_invalid", "A category cannot be its own parent.", { statusCode: 422, messageCode: "connectors.woocommerce.categoryCannotOwnParent" });
       const url = new URL(`${baseUrl(settings)}/products/categories${id ? `/${id}` : ""}`);
       if (writing) {
-        if (!Object.keys(fields).length) throw new ConnectorError("connector_input_invalid", "Supply category changes.", { statusCode: 422 });
+        if (!Object.keys(fields).length) throw new ConnectorError("connector_input_invalid", "Supply category changes.", { statusCode: 422, messageCode: "connectors.woocommerce.supplyCategoryChanges" });
         return { method: action === "create" ? "POST" : "PUT", url: url.href, body: fields };
       }
       for (const [key, value] of Object.entries(fields)) url.searchParams.set(key, String(value));
@@ -109,9 +109,9 @@ function couponWrite(update) {
     scopes: [],
     request(input, settings) {
       const { id, ...body } = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
-      if (!Object.keys(body).length) throw new ConnectorError("connector_input_invalid", "Supply coupon changes.", { statusCode: 422 });
+      if (!Object.keys(body).length) throw new ConnectorError("connector_input_invalid", "Supply coupon changes.", { statusCode: 422, messageCode: "connectors.woocommerce.supplyCouponChanges" });
       if (body.discount_type === "percent" && body.amount !== undefined && Number(body.amount) > 100) {
-        throw new ConnectorError("connector_input_invalid", "Percentage discounts cannot exceed 100.", { statusCode: 422 });
+        throw new ConnectorError("connector_input_invalid", "Percentage discounts cannot exceed 100.", { statusCode: 422, messageCode: "connectors.woocommerce.percentageDiscountsCannotExceed100" });
       }
       return { method: update ? "PUT" : "POST", url: `${baseUrl(settings)}/coupons${update ? `/${id}` : ""}`, body };
     }, validateResult: validRecord.coupons
@@ -147,11 +147,11 @@ function productWrite(update) {
     request(input, settings) {
       for (const field of ["regular_price", "sale_price"]) {
         if (input?.[field] !== undefined && typeof input[field] !== "string") {
-          throw new ConnectorError("connector_input_invalid", "Product prices must be decimal strings.", { statusCode: 422 });
+          throw new ConnectorError("connector_input_invalid", "Product prices must be decimal strings.", { statusCode: 422, messageCode: "connectors.woocommerce.productPricesMustDecimalStrings" });
         }
       }
       const { id, ...body } = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
-      if (!Object.keys(body).length) throw new ConnectorError("connector_input_invalid", "Supply product changes.", { statusCode: 422 });
+      if (!Object.keys(body).length) throw new ConnectorError("connector_input_invalid", "Supply product changes.", { statusCode: 422, messageCode: "connectors.woocommerce.supplyProductChanges" });
       return { method: update ? "PUT" : "POST", url: `${baseUrl(settings)}/products${update ? `/${id}` : ""}`, body };
     }, validateResult: validRecord.products
   };
@@ -177,7 +177,7 @@ function customerWrite(update) {
     request(input, settings) {
       const { id, ...body } = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
       if (!Object.keys(body).length || [body.billing, body.shipping].some(value => value && !Object.keys(value).length)) {
-        throw new ConnectorError("connector_input_invalid", "Supply customer changes and non-empty address objects.", { statusCode: 422 });
+        throw new ConnectorError("connector_input_invalid", "Supply customer changes and non-empty address objects.", { statusCode: 422, messageCode: "connectors.woocommerce.supplyCustomerChangesNonEmpty" });
       }
       return { method: update ? "PUT" : "POST", url: `${baseUrl(settings)}/customers${update ? `/${id}` : ""}`, body };
     }, validateResult: validRecord.customers
@@ -207,12 +207,12 @@ function variationOperation(action) {
     scopes: [],
     request(input, settings) {
       for (const field of ["regular_price", "sale_price"]) {
-        if (input?.[field] !== undefined && typeof input[field] !== "string") throw new ConnectorError("connector_input_invalid", "Variation prices must be decimal strings.", { statusCode: 422 });
+        if (input?.[field] !== undefined && typeof input[field] !== "string") throw new ConnectorError("connector_input_invalid", "Variation prices must be decimal strings.", { statusCode: 422, messageCode: "connectors.woocommerce.variationPricesMustDecimalStrings" });
       }
       const { product_id, id, ...fields } = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
       const url = new URL(`${baseUrl(settings)}/products/${product_id}/variations${id ? `/${id}` : ""}`);
       if (writing) {
-        if (!Object.keys(fields).length) throw new ConnectorError("connector_input_invalid", "Supply variation changes.", { statusCode: 422 });
+        if (!Object.keys(fields).length) throw new ConnectorError("connector_input_invalid", "Supply variation changes.", { statusCode: 422, messageCode: "connectors.woocommerce.supplyVariationChanges" });
         return { method: action === "create" ? "POST" : "PUT", url: url.href, body: fields };
       }
       for (const [key, value] of Object.entries(fields)) url.searchParams.set(key, String(value));
@@ -243,11 +243,11 @@ function refundOperation(action) {
     request(input, settings) {
       if (action === "create" && (typeof input?.amount !== "string" || typeof input.api_refund !== "boolean" || typeof input.api_restock !== "boolean" ||
           input.line_items?.some?.(line => typeof line?.refund_total !== "string"))) {
-        throw new ConnectorError("connector_input_invalid", "Choose explicit refund/restock flags and decimal-string amounts.", { statusCode: 422 });
+        throw new ConnectorError("connector_input_invalid", "Choose explicit refund/restock flags and decimal-string amounts.", { statusCode: 422, messageCode: "connectors.woocommerce.chooseExplicitRefundRestockFlags" });
       }
       const { order_id, id, ...fields } = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
       if (action === "create" && fields.api_restock && !fields.line_items?.some(line => line.quantity > 0)) {
-        throw new ConnectorError("connector_input_invalid", "Restocking requires selected order lines and positive quantities.", { statusCode: 422 });
+        throw new ConnectorError("connector_input_invalid", "Restocking requires selected order lines and positive quantities.", { statusCode: 422, messageCode: "connectors.woocommerce.restockingRequiresSelectedOrderLines" });
       }
       const url = new URL(`${baseUrl(settings)}/orders/${order_id}/refunds${id ? `/${id}` : ""}`);
       if (action === "create") return { method: "POST", url: url.href, body: fields };
@@ -268,7 +268,7 @@ function reportOperation(report) {
       const fields = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
       if ((fields.date_min === undefined) !== (fields.date_max === undefined) ||
           (fields.period && fields.date_min) || (fields.date_min && fields.date_min > fields.date_max)) {
-        throw new ConnectorError("connector_input_invalid", "Choose a period or a complete ascending date range.", { statusCode: 422 });
+        throw new ConnectorError("connector_input_invalid", "Choose a period or a complete ascending date range.", { statusCode: 422, messageCode: "connectors.woocommerce.choosePeriodCompleteAscendingDate" });
       }
       const url = new URL(`${baseUrl(settings)}/reports/${report}`);
       for (const [key, value] of Object.entries(fields)) url.searchParams.set(key, value);
@@ -316,13 +316,13 @@ const woocommerceProvider = Object.freeze({
   async exchange(address, options, { request }) {
     const result = await request(address, options);
     const match = /\/wp-json\/wc\/v3\/(?:products|orders|customers|coupons)\/(\d+)$/u.exec(new URL(address).pathname);
-    if (match && result?.id !== Number(match[1])) throw new ConnectorError("connector_response_invalid", "WooCommerce returned a different record.", { statusCode: 502 });
+    if (match && result?.id !== Number(match[1])) throw new ConnectorError("connector_response_invalid", "WooCommerce returned a different record.", { statusCode: 502, messageCode: "connectors.shared.differentRecord", messageParams: { provider: "WooCommerce" } });
     const variation = /\/wp-json\/wc\/v3\/products\/\d+\/variations\/(\d+)$/u.exec(new URL(address).pathname);
-    if (variation && result?.id !== Number(variation[1])) throw new ConnectorError("connector_response_invalid", "WooCommerce returned a different variation.", { statusCode: 502 });
+    if (variation && result?.id !== Number(variation[1])) throw new ConnectorError("connector_response_invalid", "WooCommerce returned a different variation.", { statusCode: 502, messageCode: "connectors.woocommerce.returnedDifferentVariation" });
     const category = /\/wp-json\/wc\/v3\/products\/categories\/(\d+)$/u.exec(new URL(address).pathname);
-    if (category && result?.id !== Number(category[1])) throw new ConnectorError("connector_response_invalid", "WooCommerce returned a different category.", { statusCode: 502 });
+    if (category && result?.id !== Number(category[1])) throw new ConnectorError("connector_response_invalid", "WooCommerce returned a different category.", { statusCode: 502, messageCode: "connectors.woocommerce.returnedDifferentCategory" });
     const refund = /\/wp-json\/wc\/v3\/orders\/\d+\/refunds\/(\d+)$/u.exec(new URL(address).pathname);
-    if (refund && result?.id !== Number(refund[1])) throw new ConnectorError("connector_response_invalid", "WooCommerce returned a different refund.", { statusCode: 502 });
+    if (refund && result?.id !== Number(refund[1])) throw new ConnectorError("connector_response_invalid", "WooCommerce returned a different refund.", { statusCode: 502, messageCode: "connectors.woocommerce.returnedDifferentRefund" });
     return result;
   },
   operations: {
@@ -362,7 +362,7 @@ const woocommerceProvider = Object.freeze({
       scopes: [],
       request(input, settings) {
         const { id, ...body } = validateSchemaPayload({ schema: orderUpdateSchema, mode: "replace" }, input, { statusCode: 422 });
-        if (!Object.keys(body).length) throw new ConnectorError("connector_input_invalid", "Supply order changes.", { statusCode: 422 });
+        if (!Object.keys(body).length) throw new ConnectorError("connector_input_invalid", "Supply order changes.", { statusCode: 422, messageCode: "connectors.woocommerce.supplyOrderChanges" });
         return { method: "PUT", url: `${baseUrl(settings)}/orders/${id}`, body };
       }, validateResult: validRecord.orders
     },
@@ -399,12 +399,12 @@ function verifyWooCommerceWebhook({ rawBody, signature, secret } = {}) {
   if (!(rawBody instanceof Uint8Array) || rawBody.byteLength > 2 * 1024 * 1024 ||
       typeof secret !== "string" || !secret || typeof signature !== "string" ||
       !/^[A-Za-z0-9+/]{43}=$/u.test(signature)) {
-    throw new ConnectorError("connector_webhook_invalid", "Invalid WooCommerce webhook signature inputs.", { statusCode: 401 });
+    throw new ConnectorError("connector_webhook_invalid", "Invalid WooCommerce webhook signature inputs.", { statusCode: 401, messageCode: "connectors.woocommerce.invalidWebhookSignatureInputs" });
   }
   const supplied = Buffer.from(signature, "base64");
   const expected = createHmac("sha256", secret).update(rawBody).digest();
   if (supplied.toString("base64") !== signature || !timingSafeEqual(expected, supplied)) {
-    throw new ConnectorError("connector_webhook_invalid", "Invalid WooCommerce webhook signature.", { statusCode: 401 });
+    throw new ConnectorError("connector_webhook_invalid", "Invalid WooCommerce webhook signature.", { statusCode: 401, messageCode: "connectors.shared.invalidWebhookSignature", messageParams: { provider: "WooCommerce" } });
   }
   return true;
 }

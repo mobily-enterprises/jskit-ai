@@ -49,7 +49,7 @@ const tallyProvider = Object.freeze({
       scopes: [],
       request(input) {
         const { formId, ...body } = validateSchemaPayload({ schema: formUpdateSchema, mode: "replace" }, input, { statusCode: 422 });
-        if (!Object.keys(body).length) throw new ConnectorError("connector_input_invalid", "Choose a name, status or block change.", { statusCode: 422 });
+        if (!Object.keys(body).length) throw new ConnectorError("connector_input_invalid", "Choose a name, status or block change.", { statusCode: 422, messageCode: "connectors.tally.chooseNameStatusBlockChange" });
         return { method: "PATCH", url: `https://api.tally.so/forms/${formId}`, body };
       },
       validateResult: formResult

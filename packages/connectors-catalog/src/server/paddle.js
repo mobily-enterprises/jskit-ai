@@ -49,7 +49,7 @@ const paddleProvider = Object.freeze({
       request(input, settings) {
         const { notification_setting_id, ...body } = validateSchemaPayload(
           { schema: webhookUpdateSchema, mode: "replace" }, input, { statusCode: 422 });
-        if (!Object.keys(body).length) throw new ConnectorError("connector_input_invalid", "Choose at least one notification setting to change.", { statusCode: 422 });
+        if (!Object.keys(body).length) throw new ConnectorError("connector_input_invalid", "Choose at least one notification setting to change.", { statusCode: 422, messageCode: "connectors.paddle.chooseLeastNotificationSettingChange" });
         return { method: "PATCH", url: `${origins[settings.environment]}/notification-settings/${notification_setting_id}`, body };
       },
       validateResult: (result) => /^ntfset_[a-z0-9]{26}$/.test(result?.data?.id || "") && typeof result.data.active === "boolean"

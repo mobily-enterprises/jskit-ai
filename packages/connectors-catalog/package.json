@@ -116,7 +116,8 @@
     "./server/gemini-enterprise": "./src/server/gemini-enterprise.js",
     "./server/workday": "./src/server/workday.js",
     "./server/shopify": "./src/server/shopify.js",
-    "./server/wiz": "./src/server/wiz.js"
+    "./server/wiz": "./src/server/wiz.js",
+    "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
     "@aws-sdk/client-athena": "3.1128.0",

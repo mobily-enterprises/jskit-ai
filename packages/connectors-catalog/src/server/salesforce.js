@@ -28,7 +28,7 @@ const salesforceProvider = Object.freeze({
     let value;
     try { value = await response.clone().json(); } catch { /* reported below */ }
     if (!record(value) || ![origin(settings), origin(settings) + "/"].includes(value.instance_url) || typeof value.scope !== "string" || !value.scope.trim()) {
-      throw new ConnectorError("connector_response_invalid", "Salesforce returned an invalid grant or a different organisation.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "Salesforce returned an invalid grant or a different organisation.", { statusCode: 502, messageCode: "connectors.salesforce.returnedInvalidGrantDifferentOrganisation" });
     }
     // Salesforce can omit expiry. Renew after five minutes of use as a local
     // policy; this is not a claim about the org's actual session lifetime.
@@ -65,17 +65,17 @@ const salesforceProvider = Object.freeze({
     try { value = await response.json(); } catch { /* checked after status */ }
     const code = Array.isArray(value) ? value[0]?.errorCode : null;
     if (!response.ok) {
-      if (code === "REQUEST_LIMIT_EXCEEDED") throw new ConnectorError("connector_rate_limited", "The Salesforce organisation's API request limit was reached.", { statusCode: 429 });
-      if (code === "INVALID_SESSION_ID") throw new ConnectorError("connector_reconnect_required", "Connect this Salesforce account again.", { statusCode: 401 });
-      if (code === "INVALID_QUERY_LOCATOR") throw new ConnectorError("connector_cursor_expired", "Start the Salesforce query again; its result cursor is no longer valid.", { statusCode: 410 });
-      if (response.status === 404) throw new ConnectorError("connector_resource_not_found", "This Salesforce resource is not available.", { statusCode: 404 });
-      if (response.status === 400) throw new ConnectorError("connector_query_invalid", "Salesforce rejected the query or object. Check its API names and the user's permissions.", { statusCode: 422 });
+      if (code === "REQUEST_LIMIT_EXCEEDED") throw new ConnectorError("connector_rate_limited", "The Salesforce organisation's API request limit was reached.", { statusCode: 429, messageCode: "connectors.salesforce.organisationApiRequestLimitReached" });
+      if (code === "INVALID_SESSION_ID") throw new ConnectorError("connector_reconnect_required", "Connect this Salesforce account again.", { statusCode: 401, messageCode: "connectors.shared.reconnectAccount", messageParams: { provider: "Salesforce" } });
+      if (code === "INVALID_QUERY_LOCATOR") throw new ConnectorError("connector_cursor_expired", "Start the Salesforce query again; its result cursor is no longer valid.", { statusCode: 410, messageCode: "connectors.salesforce.startQueryAgainResultCursor" });
+      if (response.status === 404) throw new ConnectorError("connector_resource_not_found", "This Salesforce resource is not available.", { statusCode: 404, messageCode: "connectors.shared.resourceUnavailable", messageParams: { provider: "Salesforce" } });
+      if (response.status === 400) throw new ConnectorError("connector_query_invalid", "Salesforce rejected the query or object. Check its API names and the user's permissions.", { statusCode: 422, messageCode: "connectors.salesforce.rejectedQueryObjectCheckApi" });
       throw Object.assign(new Error("Salesforce request failed."), { status: response.status });
     }
-    if (response.status !== 200 || !record(value)) throw new ConnectorError("connector_response_invalid", "Salesforce returned an unexpected response.", { statusCode: 502 });
+    if (response.status !== 200 || !record(value)) throw new ConnectorError("connector_response_invalid", "Salesforce returned an unexpected response.", { statusCode: 502, messageCode: "connectors.shared.unexpectedResponse", messageParams: { provider: "Salesforce" } });
     const url = new URL(address);
     if (url.pathname.endsWith("/describe") && value.name !== url.pathname.split("/").at(-2)) {
-      throw new ConnectorError("connector_response_invalid", "Salesforce described a different object.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "Salesforce described a different object.", { statusCode: 502, messageCode: "connectors.salesforce.describedDifferentObject" });
     }
     return value;
   }

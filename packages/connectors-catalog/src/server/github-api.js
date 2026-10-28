@@ -8,11 +8,11 @@ async function normalizeTokenResponse(response) {
   if (!response.ok) return response;
   let value;
   try { value = await response.clone().json(); } catch {
-    throw new ConnectorError("connector_response_invalid", "GitHub returned an invalid token response.", { statusCode: 502 });
+    throw new ConnectorError("connector_response_invalid", "GitHub returned an invalid token response.", { statusCode: 502, messageCode: "connectors.shared.invalidTokenResponse", messageParams: { provider: "GitHub" } });
   }
   if (value.error || value.scope === undefined) return response;
   if (typeof value.scope !== "string" || !/^[a-zA-Z0-9_:.-]*(?:,[a-zA-Z0-9_:.-]+)*$/u.test(value.scope)) {
-    throw new ConnectorError("connector_response_invalid", "GitHub returned an invalid permission grant.", { statusCode: 502 });
+    throw new ConnectorError("connector_response_invalid", "GitHub returned an invalid permission grant.", { statusCode: 502, messageCode: "connectors.shared.invalidPermissionGrant", messageParams: { provider: "GitHub" } });
   }
   return Response.json({ ...value, scope: value.scope.replaceAll(",", " ") }, { status: response.status });
 }
@@ -34,7 +34,7 @@ function repositoryOperation(suffix, fields, validateResult, method = "GET") {
       for (const [key, value] of Object.entries(values)) url.searchParams.set(key, String(value));
       return { method, url: url.href };
     }
-    if (!Object.keys(values).length) throw new ConnectorError("connector_input_invalid", "Supply at least one change.", { statusCode: 422 });
+    if (!Object.keys(values).length) throw new ConnectorError("connector_input_invalid", "Supply at least one change.", { statusCode: 422, messageCode: "connectors.shared.supplyLeastChange" });
     return { method, url: url.href, body: values };
   }, validateResult };
 }

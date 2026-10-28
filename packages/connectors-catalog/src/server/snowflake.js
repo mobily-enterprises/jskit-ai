@@ -78,7 +78,7 @@ const snowflakeProvider = Object.freeze({
       if (!Number.isSafeInteger(value?.expires_in) || value.expires_in <= 0 ||
         (value.scope !== undefined && (typeof value.scope !== "string" || !/^[^\s]+(?: [^\s]+)*$/u.test(value.scope))) ||
         (value.refresh_token !== undefined && (typeof value.refresh_token !== "string" || !value.refresh_token.trim()))) {
-        throw new ConnectorError("connector_response_invalid", "Snowflake returned an invalid token grant.", { statusCode: 502 });
+        throw new ConnectorError("connector_response_invalid", "Snowflake returned an invalid token grant.", { statusCode: 502, messageCode: "connectors.shared.invalidTokenGrant", messageParams: { provider: "Snowflake" } });
       }
     }
     return response;
@@ -89,7 +89,7 @@ const snowflakeProvider = Object.freeze({
       ...(options.body !== undefined ? { body: JSON.stringify(options.body), headers: { ...options.headers, "Content-Type": "application/json" } } : {}) });
     const url = new URL(address);
     const sql = url.pathname.startsWith("/api/v2/statements");
-    if (sql && response.status === 422) throw new ConnectorError("connector_operation_rejected", "Snowflake rejected the statement. Inspect query history with the authorized role.", { statusCode: 422 });
+    if (sql && response.status === 422) throw new ConnectorError("connector_operation_rejected", "Snowflake rejected the statement. Inspect query history with the authorized role.", { statusCode: 422, messageCode: "connectors.snowflake.rejectedStatementInspectQueryHistory" });
     if (!response.ok) throw Object.assign(new Error("Snowflake request failed."), { status: response.status });
     const reader = response.body?.getReader();
     const chunks = [];
@@ -101,7 +101,7 @@ const snowflakeProvider = Object.freeze({
         size += value.byteLength;
         if (size > 16 * 1024 * 1024) {
           await reader.cancel();
-          throw new ConnectorError("connector_response_too_large", "Snowflake response exceeds 16 MiB. Reduce the query result or use a native streaming client.", { statusCode: 413 });
+          throw new ConnectorError("connector_response_too_large", "Snowflake response exceeds 16 MiB. Reduce the query result or use a native streaming client.", { statusCode: 413, messageCode: "connectors.snowflake.responseExceeds16MibReduce" });
         }
         chunks.push(value);
       }
@@ -109,7 +109,7 @@ const snowflakeProvider = Object.freeze({
     let result;
     try { result = JSON.parse(Buffer.concat(chunks).toString("utf8")); } catch { /* rejected below */ }
     if (sql) {
-      const reject = () => { throw new ConnectorError("connector_response_invalid", "Snowflake returned an invalid statement response.", { statusCode: 502 }); };
+      const reject = () => { throw new ConnectorError("connector_response_invalid", "Snowflake returned an invalid statement response.", { statusCode: 502, messageCode: "connectors.snowflake.returnedInvalidStatementResponse" }); };
       if (!object(result)) reject();
       const requestedHandle = url.pathname.split("/")[4];
       const handle = result.statementHandle ?? requestedHandle;
@@ -131,7 +131,7 @@ const snowflakeProvider = Object.freeze({
         ...(url.searchParams.has("partition") ? { partition: Number(url.searchParams.get("partition")) } : {}) };
     }
     if (response.status !== 200 || !Array.isArray(result) || result.length > Number(url.searchParams.get("showLimit"))) {
-      throw new ConnectorError("connector_response_invalid", "Snowflake returned an unexpected database page.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "Snowflake returned an unexpected database page.", { statusCode: 502, messageCode: "connectors.snowflake.returnedUnexpectedDatabasePage" });
     }
     return result;
   }

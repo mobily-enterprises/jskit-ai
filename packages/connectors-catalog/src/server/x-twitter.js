@@ -39,7 +39,7 @@ const xTwitterProvider = Object.freeze({
   ...xTwitterDefinition, apiOrigins: ["https://api.x.com"],
   apiKey: { headers: (key) => {
     if (!/^[\x21-\x7e]+$/u.test(key) || key.length > 8192) {
-      throw new ConnectorError("connector_binding_missing", "Use the X app-only token without spaces, control characters or a Bearer prefix.");
+      throw new ConnectorError("connector_binding_missing", "Use the X app-only token without spaces, control characters or a Bearer prefix.", { messageCode: "connectors.xTwitter.useAppTokenWithoutSpaces" });
     }
     return { Authorization: `Bearer ${key}` };
   } },
@@ -76,7 +76,7 @@ const xTwitterProvider = Object.freeze({
       request(input) {
         // Snowflake IDs exceed JS's safe integer range; reject numbers before the schema can coerce them.
         if (typeof input?.userId !== "string") {
-          const error = new ConnectorError("connector_input_invalid", "Pass the X user ID as a string.", { statusCode: 422 });
+          const error = new ConnectorError("connector_input_invalid", "Pass the X user ID as a string.", { statusCode: 422, messageCode: "connectors.xTwitter.passUserIdString" });
           error.fieldErrors = { userId: "Pass the X user ID as a string." };
           throw error;
         }
@@ -94,17 +94,17 @@ const xTwitterProvider = Object.freeze({
     let result;
     try { result = await request(address, options); } catch (error) {
       const status = Number(error?.status || error?.statusCode);
-      if (status === 402) throw new ConnectorError("connector_billing_required", "Check this X application's API credits and billing access.", { statusCode: 402 });
-      if (status === 404) throw new ConnectorError("connector_resource_not_found", "The X resource was not found or is not available.", { statusCode: 404 });
+      if (status === 402) throw new ConnectorError("connector_billing_required", "Check this X application's API credits and billing access.", { statusCode: 402, messageCode: "connectors.xTwitter.checkApplicationApiCreditsBilling" });
+      if (status === 404) throw new ConnectorError("connector_resource_not_found", "The X resource was not found or is not available.", { statusCode: 404, messageCode: "connectors.xTwitter.resourceNotFoundNotAvailable" });
       throw error;
     }
     if (Array.isArray(result?.errors) && result.errors.length) {
       if (!result.data && result.errors.every((error) => [
         "https://api.x.com/2/problems/resource-not-found", "https://api.twitter.com/2/problems/resource-not-found"
       ].includes(error?.type))) {
-        throw new ConnectorError("connector_resource_not_found", "The X resource was not found or is not available.", { statusCode: 404 });
+        throw new ConnectorError("connector_resource_not_found", "The X resource was not found or is not available.", { statusCode: 404, messageCode: "connectors.xTwitter.resourceNotFoundNotAvailable" });
       }
-      throw new ConnectorError("connector_response_incomplete", "X could not return the complete requested data.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_incomplete", "X could not return the complete requested data.", { statusCode: 502, messageCode: "connectors.xTwitter.couldNotReturnCompleteRequested" });
     }
     return result;
   }

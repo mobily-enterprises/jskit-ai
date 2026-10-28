@@ -39,18 +39,18 @@ const elevenlabsProvider = Object.freeze({
     if (!response.ok) { await response.body?.cancel(); throw Object.assign(new Error("ElevenLabs speech request failed."), { status: response.status }); }
     const contentType = response.headers.get("content-type")?.split(";")[0] || "application/octet-stream";
     if (!contentType.startsWith("audio/") && contentType !== "application/octet-stream") {
-      await response.body?.cancel(); throw new ConnectorError("connector_response_invalid", "ElevenLabs did not return audio.", { statusCode: 502 });
+      await response.body?.cancel(); throw new ConnectorError("connector_response_invalid", "ElevenLabs did not return audio.", { statusCode: 502, messageCode: "connectors.elevenlabs.didNotReturnAudio" });
     }
     const reader = response.body?.getReader(); const chunks = []; let size = 0;
     if (reader) try {
       while (true) {
         const { done, value } = await reader.read(); if (done) break;
         size += value.byteLength;
-        if (size > 16 * 1024 * 1024) { await reader.cancel(); throw new ConnectorError("connector_response_too_large", "Use native streaming for audio above 16 MiB.", { statusCode: 413 }); }
+        if (size > 16 * 1024 * 1024) { await reader.cancel(); throw new ConnectorError("connector_response_too_large", "Use native streaming for audio above 16 MiB.", { statusCode: 413, messageCode: "connectors.elevenlabs.useNativeStreamingAudioAbove" }); }
         chunks.push(value);
       }
     } finally { reader.releaseLock(); }
-    if (!size) throw new ConnectorError("connector_response_invalid", "ElevenLabs returned empty audio.", { statusCode: 502 });
+    if (!size) throw new ConnectorError("connector_response_invalid", "ElevenLabs returned empty audio.", { statusCode: 502, messageCode: "connectors.elevenlabs.returnedEmptyAudio" });
     return { bodyBase64: Buffer.concat(chunks).toString("base64"), contentType, size };
   },
   operations: {
@@ -63,7 +63,7 @@ const elevenlabsProvider = Object.freeze({
       const body = new FormData(); let total = 0;
       for (const file of files) {
         const bytes = Buffer.from(file.base64, "base64"); total += bytes.byteLength;
-        if (total > 16 * 1024 * 1024) throw new ConnectorError("connector_input_invalid", "Audio samples must total at most 16 MiB.", { statusCode: 422 });
+        if (total > 16 * 1024 * 1024) throw new ConnectorError("connector_input_invalid", "Audio samples must total at most 16 MiB.", { statusCode: 422, messageCode: "connectors.elevenlabs.audioSamplesMustTotalMost" });
         body.append("files", new Blob([bytes], { type: file.contentType }), file.name);
       }
       for (const [key, value] of Object.entries(values)) body.append(key, String(value));

@@ -13,7 +13,7 @@ async function normalizeZohoTokenResponse(response, expectedApiOrigin) {
     return Response.json({ error: value.error === "invalid_code" ? "invalid_grant" : value.error }, { status: 400 });
   }
   if (response.ok && value?.api_domain !== expectedApiOrigin) {
-    throw new ConnectorError("connector_response_invalid", "Zoho returned a token for a different data center or environment.", { statusCode: 502 });
+    throw new ConnectorError("connector_response_invalid", "Zoho returned a token for a different data center or environment.", { statusCode: 502, messageCode: "connectors.zoho.returnedTokenDifferentDataCenter" });
   }
   return response;
 }

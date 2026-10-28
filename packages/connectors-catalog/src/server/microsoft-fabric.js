@@ -31,7 +31,7 @@ const microsoftFabricProvider = Object.freeze({
       let error;
       try { error = (await response.clone().json())?.error; } catch { /* OAuth handles the response */ }
       if (["interaction_required", "login_required", "consent_required"].includes(error)) {
-        throw new ConnectorError("connector_reconnect_required", "Microsoft requires a new sign-in or consent.", { statusCode: 401 });
+        throw new ConnectorError("connector_reconnect_required", "Microsoft requires a new sign-in or consent.", { statusCode: 401, messageCode: "connectors.microsoftFabric.requiresNewSignConsent" });
       }
       return response;
     }
@@ -39,7 +39,7 @@ const microsoftFabricProvider = Object.freeze({
     try { value = await response.clone().json(); } catch { /* rejected below */ }
     if (!Number.isSafeInteger(value?.expires_in) || value.expires_in <= 30 ||
       (value.scope !== undefined && (typeof value.scope !== "string" || !/^[^\s]+(?: [^\s]+)*$/u.test(value.scope)))) {
-      throw new ConnectorError("connector_response_invalid", "Microsoft returned an invalid token grant.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "Microsoft returned an invalid token grant.", { statusCode: 502, messageCode: "connectors.shared.invalidTokenGrant", messageParams: { provider: "Microsoft" } });
     }
     // Entra may return the permission name without the resource URI requested in consent.
     if (value.scope?.split(" ").includes("GraphQLApi.Execute.All")) {
@@ -72,7 +72,7 @@ const microsoftFabricProvider = Object.freeze({
     const result = await request(address, options);
     if (Array.isArray(result?.errors) && result.errors.length > 0) {
       // A mutation can have taken effect before partial errors arrive. Do not replay or expose provider text.
-      throw new ConnectorError("connector_provider_failed", "Fabric could not complete the GraphQL document. Check its schema and permissions before retrying.", { statusCode: 502 });
+      throw new ConnectorError("connector_provider_failed", "Fabric could not complete the GraphQL document. Check its schema and permissions before retrying.", { statusCode: 502, messageCode: "connectors.microsoftFabric.couldNotCompleteGraphqlDocument" });
     }
     return result;
   }

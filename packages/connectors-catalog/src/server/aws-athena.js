@@ -25,7 +25,7 @@ const awsAthenaProvider = Object.freeze({
     const send = (command) => client.send(command, { abortSignal: signal });
     if (body.command === "GetWorkGroup") {
       const result = await send(new GetWorkGroupCommand(body.input));
-      if (result.WorkGroup?.Name !== settings.workgroup) throw new ConnectorError("connector_response_invalid", "Athena returned a different workgroup.", { statusCode: 502 });
+      if (result.WorkGroup?.Name !== settings.workgroup) throw new ConnectorError("connector_response_invalid", "Athena returned a different workgroup.", { statusCode: 502, messageCode: "connectors.awsAthena.returnedDifferentWorkgroup" });
       return result;
     }
     if (body.command === "ListDataCatalogs") return send(new ListDataCatalogsCommand(body.input));
@@ -34,10 +34,10 @@ const awsAthenaProvider = Object.freeze({
     if (body.command === "StartQueryExecution") return send(new StartQueryExecutionCommand(body.input));
     const query = await send(new GetQueryExecutionCommand({ QueryExecutionId: body.input.QueryExecutionId }));
     if (!validQuery(query) || query.QueryExecution.QueryExecutionId !== body.input.QueryExecutionId) {
-      throw new ConnectorError("connector_response_invalid", "Athena returned an unexpected query.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "Athena returned an unexpected query.", { statusCode: 502, messageCode: "connectors.awsAthena.returnedUnexpectedQuery" });
     }
     if (query.QueryExecution.WorkGroup !== settings.workgroup) {
-      throw new ConnectorError("connector_access_denied", "This query belongs to a different workgroup.", { statusCode: 403 });
+      throw new ConnectorError("connector_access_denied", "This query belongs to a different workgroup.", { statusCode: 403, messageCode: "connectors.awsAthena.queryBelongsDifferentWorkgroup" });
     }
     if (body.command === "GetQueryExecution") return query;
     if (body.command === "GetQueryResults") return send(new GetQueryResultsCommand(body.input));

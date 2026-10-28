@@ -35,12 +35,12 @@ const calendlyProvider = Object.freeze({
       start_time: { ...date, required: true }, end_time: { ...date, required: true }
     }, "availability:read", result => Array.isArray(result?.collection), value => {
       const span = Date.parse(value.end_time) - Date.parse(value.start_time);
-      if (span <= 0 || span > 31 * 86400000) throw new ConnectorError("connector_input_invalid", "Choose a positive range of at most 31 days.", { statusCode: 422 }); return value;
+      if (span <= 0 || span > 31 * 86400000) throw new ConnectorError("connector_input_invalid", "Choose a positive range of at most 31 days.", { statusCode: 422, messageCode: "connectors.calendly.choosePositiveRangeMost31" }); return value;
     }),
     "events.list": operation("GET", "scheduled_events", { user: uri("users"), organization: uri("organizations"), group: uri("groups"),
       invitee_email: email, status, ...page, sort: { type: "string", enum: ["start_time:asc", "start_time:desc"] }, min_start_time: date, max_start_time: date
     }, "scheduled_events:read", collection, value => {
-      if (!(value.user || value.organization || value.group)) throw new ConnectorError("connector_input_invalid", "Choose the user, organization or group whose events to read.", { statusCode: 422 }); return value;
+      if (!(value.user || value.organization || value.group)) throw new ConnectorError("connector_input_invalid", "Choose the user, organization or group whose events to read.", { statusCode: 422, messageCode: "connectors.calendly.chooseEventOwner" }); return value;
     }),
     "events.get": operation("GET", "scheduled_events/{uuid}", { uuid: id }, "scheduled_events:read", record),
     "events.cancel": operation("POST", "scheduled_events/{uuid}/cancellation", { uuid: id, reason: { ...text, maxLength: 10000 } },

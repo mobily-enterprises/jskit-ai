@@ -31,7 +31,7 @@ const base = microsoftProvider(microsoftOutlookDefinition, "common", "folders.li
   "calendars.list": { ...graphRead("Calendars.Read", {}, () => ({ pathname: "/me/calendars" })), scopes: ["Calendars.Read", "Calendars.ReadWrite"] },
   "events.list": { ...graphRead("Calendars.Read", { calendarId: id, pageSize }, ({ calendarId, pageSize }) => ({ pathname: `/me/calendars/${encodeURIComponent(calendarId)}/events`, query: { $top: pageSize } })), scopes: ["Calendars.Read", "Calendars.ReadWrite"] },
   "events.create": operation(["Calendars.ReadWrite"], { calendarId: id, subject: { ...text, maxLength: 255 }, start: instant, end: instant }, ({ calendarId, subject, start, end }) => {
-    if (Date.parse(end) <= Date.parse(start)) throw new ConnectorError("connector_input_invalid", "End must follow start.", { statusCode: 422 });
+    if (Date.parse(end) <= Date.parse(start)) throw new ConnectorError("connector_input_invalid", "End must follow start.", { statusCode: 422, messageCode: "connectors.microsoftOutlook.endMustFollowStart" });
     return { method: "POST", url: url(`/calendars/${encodeURIComponent(calendarId)}/events`), body: { subject, start: { dateTime: start.slice(0, -1), timeZone: "UTC" }, end: { dateTime: end.slice(0, -1), timeZone: "UTC" } } };
   }),
   "folders.list": graphRead("Mail.Read", {

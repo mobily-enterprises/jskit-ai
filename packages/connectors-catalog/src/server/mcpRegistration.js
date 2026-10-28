@@ -33,8 +33,9 @@ async function registerMcpClient(providerName, metadata, { clientName, callbackU
     return { clientId: client.client_id, clientSecret: client.client_secret,
       ...(client.client_secret_expires_at === undefined ? {} : { clientSecretExpiresAt: client.client_secret_expires_at }) };
   } catch {
-    if (requestSignal.aborted) throw new ConnectorError("connector_registration_interrupted", "Registration was interrupted. Check the provider before creating another client.");
-    throw new ConnectorError("connector_registration_failed", `${providerName} client registration failed. Check the provider before creating another client.`, { statusCode: 502 });
+    if (requestSignal.aborted) throw new ConnectorError("connector_registration_interrupted", "Registration was interrupted. Check the provider before creating another client.", { messageCode: "connectors.mcp.registrationInterrupted" });
+    throw new ConnectorError("connector_registration_failed", `${providerName} client registration failed. Check the provider before creating another client.`,
+      { statusCode: 502, messageCode: "connectors.mcp.registrationFailed", messageParams: { provider: providerName } });
   }
 }
 

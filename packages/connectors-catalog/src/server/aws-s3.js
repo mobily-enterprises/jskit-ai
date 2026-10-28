@@ -17,7 +17,7 @@ const awsS3Provider = Object.freeze({
     if (body.command === "ListObjectsV2") {
       const result = await client.send(new ListObjectsV2Command(body.input), { abortSignal: signal });
       if (result.Name !== settings.bucket || (result.Contents?.length || 0) > body.input.MaxKeys) {
-        throw new ConnectorError("connector_response_invalid", "S3 returned an unexpected bucket or page size.", { statusCode: 502 });
+        throw new ConnectorError("connector_response_invalid", "S3 returned an unexpected bucket or page size.", { statusCode: 502, messageCode: "connectors.awsS3.returnedUnexpectedBucketPageSize" });
       }
       return result;
     }

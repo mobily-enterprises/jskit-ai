@@ -43,7 +43,7 @@ const microsoftOneNoteProvider = Object.freeze({ ...base,
     if (reader) try { while (true) {
       const { done, value } = await reader.read(); if (done) break;
       size += value.byteLength;
-      if (size > 1048576) { await reader.cancel(); throw new ConnectorError("connector_response_too_large", "Use the native OneNote client for pages above 1 MiB.", { statusCode: 413 }); }
+      if (size > 1048576) { await reader.cancel(); throw new ConnectorError("connector_response_too_large", "Use the native OneNote client for pages above 1 MiB.", { statusCode: 413, messageCode: "connectors.microsoftOnenote.useNativeOnenoteClientPages" }); }
       chunks.push(value);
     } } finally { reader.releaseLock(); }
     return { html: Buffer.concat(chunks).toString("utf8") };

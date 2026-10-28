@@ -19,7 +19,7 @@ function operation(method, endpoint, fields, validateResult, prepare = value => 
     const url = `https://api.attention.tech/v2/${endpoint.replace("{id}", resource || "")}`;
     if (method === "GET") return { method, url: withQuery(url, body) };
     if (method === "DELETE") return { method, url: new URL(url).href };
-    if (!Object.keys(body).length) throw new ConnectorError("connector_input_invalid", "Supply at least one change.", { statusCode: 422 });
+    if (!Object.keys(body).length) throw new ConnectorError("connector_input_invalid", "Supply at least one change.", { statusCode: 422, messageCode: "connectors.shared.supplyLeastChange" });
     return { method, url: new URL(url).href, body };
   }, validateResult);
 }
@@ -54,7 +54,7 @@ const attentionProvider = Object.freeze({
     "scorecardItems.list": operation("GET", "scorecards/{id}/items", { id: requiredId, ...page }, list),
     "scorecards.summary": operation("POST", "scorecards/summary", { fromDateTime: { ...dateTime, required: true }, toDateTime: { ...dateTime, required: true },
       scorecardUUID: requiredId, scorecardsItemsUUIDs: { ...ids, required: true }, teamUUIDs: { ...ids, required: true }, userUUIDs: { ...ids, required: true }
-    }, list, value => { if (Date.parse(value.fromDateTime) >= Date.parse(value.toDateTime)) throw new ConnectorError("connector_input_invalid", "End time must follow start time.", { statusCode: 422 }); return value; }),
+    }, list, value => { if (Date.parse(value.fromDateTime) >= Date.parse(value.toDateTime)) throw new ConnectorError("connector_input_invalid", "End time must follow start time.", { statusCode: 422, messageCode: "connectors.attention.endTimeMustFollowStart" }); return value; }),
     "scorecardResults.create": operation("POST", "createScorecardResult", { scorecard_uuid: requiredId, conversation_uuid: requiredId,
       summary: { ...text, required: true, maxLength: 20000 }, items: { type: "array", required: true,
         items: { type: "object", schema: createSchema({ scorecard_item_uuid: requiredId, numeric_result: { type: "integer" }, description: { ...text, required: true } }) },

@@ -34,7 +34,7 @@ function write(method, endpoint, fields, key, requiredNames = []) {
   return validatedOperation({ ...(method === "PATCH" ? { id: { ...id, required: true } } : {}), ...fields },
     ({ id: recordId, ...body }) => {
       if (!Object.keys(body).length || (requiredNames.length && !requiredNames.some(name => body[name]))) {
-        throw new ConnectorError("connector_input_invalid", "Enter the record's required identifying fields or changes.", { statusCode: 422 });
+        throw new ConnectorError("connector_input_invalid", "Enter the record's required identifying fields or changes.", { statusCode: 422, messageCode: "connectors.apolloIo.enterRecordRequiredIdentifyingFields" });
       }
       return { method, url: `https://api.apollo.io/api/v1/${endpoint}${recordId ? `/${recordId}` : ""}`, body };
     }, record(key));

@@ -13,7 +13,8 @@ const sheetUrl = id => `${origin}/v4/spreadsheets/${encodeURIComponent(id)}`;
 const get = googleRead(scopes, { spreadsheetId: documentId }, ({ spreadsheetId }) => ({ url: sheetUrl(spreadsheetId), query: { includeGridData: false } }), validSheet);
 function checkValues(rows) {
   if (!rows.length || rows.length > 10000 || rows.some(row => !Array.isArray(row) || row.some(cell => cell !== null && typeof cell !== "string" && typeof cell !== "boolean" && !(typeof cell === "number" && Number.isFinite(cell)))) || rows.reduce((count, row) => count + row.length, 0) > 10000 || Buffer.byteLength(JSON.stringify(rows)) > 1048576) {
-    throw inputInvalid("Supply a matrix of at most 10,000 cells and 1 MiB, containing strings, finite numbers, booleans or null.");
+    throw inputInvalid("Supply a matrix of at most 10,000 cells and 1 MiB, containing strings, finite numbers, booleans or null.",
+      { messageCode: "connectors.googleSheets.valuesMatrixInvalid" });
   }
   return rows;
 }
@@ -38,7 +39,7 @@ const base = googleProvider(googleSheetsDefinition, origin, "connection.verify",
   "values.clear": googleOperation(writable, { spreadsheetId: documentId, range }, ({ spreadsheetId, range }) => ({ method: "POST", url: `${sheetUrl(spreadsheetId)}/values/${encodeURIComponent(range)}:clear`, body: {} }), value => typeof value?.spreadsheetId === "string" && typeof value.clearedRange === "string"),
   "values.batchUpdate": googleOperation(writable, { spreadsheetId: documentId, data: { type: "array", required: true }, valueInputOption: inputOption }, ({ spreadsheetId, data, valueInputOption }) => {
     const schema = createSchema({ range, values });
-    if (!data.length || data.length > 100 || Buffer.byteLength(JSON.stringify(data)) > 1048576) throw inputInvalid("Supply 1–100 ranges within 1 MiB.");
+    if (!data.length || data.length > 100 || Buffer.byteLength(JSON.stringify(data)) > 1048576) throw inputInvalid("Supply 1–100 ranges within 1 MiB.", { messageCode: "connectors.googleSheets.rangesInvalid" });
     const ranges = data.map(value => {
       const parsed = validateSchemaPayload({ schema, mode: "replace" }, value, { statusCode: 422 });
       return { ...parsed, majorDimension: "ROWS", values: checkValues(parsed.values) };

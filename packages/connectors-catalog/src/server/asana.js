@@ -26,10 +26,10 @@ function read(endpoint, input = {}, fields) {
 }
 function write(method, endpoint, fields, resultFields) {
   return validatedOperation({ ...(method === "PUT" ? { gid: requiredGid } : {}), ...fields }, ({ gid: resource, ...data }) => {
-    if (!Object.keys(data).length) throw new ConnectorError("connector_input_invalid", "Supply at least one change.", { statusCode: 422 });
-    if (Object.hasOwn(data, "start_on") && !Object.hasOwn(data, "due_on")) throw new ConnectorError("connector_input_invalid", "Include due_on when setting or clearing start_on.", { statusCode: 422 });
+    if (!Object.keys(data).length) throw new ConnectorError("connector_input_invalid", "Supply at least one change.", { statusCode: 422, messageCode: "connectors.shared.supplyLeastChange" });
+    if (Object.hasOwn(data, "start_on") && !Object.hasOwn(data, "due_on")) throw new ConnectorError("connector_input_invalid", "Include due_on when setting or clearing start_on.", { statusCode: 422, messageCode: "connectors.asana.includeDueSettingClearingStart" });
     if (data.start_on && data.due_on && (data.start_on > data.due_on || endpoint === "projects" && data.start_on === data.due_on)) {
-      throw new ConnectorError("connector_input_invalid", "The start date must precede the project due date, or be no later than the task due date.", { statusCode: 422 });
+      throw new ConnectorError("connector_input_invalid", "The start date must precede the project due date, or be no later than the task due date.", { statusCode: 422, messageCode: "connectors.asana.startDateMustPrecedeProject" });
     }
     const request = read(`${endpoint}${resource ? `/${resource}` : ""}`, {}, resultFields);
     return { ...request, method, body: { data } };

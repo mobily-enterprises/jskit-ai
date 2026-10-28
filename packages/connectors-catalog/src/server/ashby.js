@@ -10,7 +10,7 @@ const page = { limit: { type: "integer", min: 1, max: 100, defaultTo: 25 },
 const candidate = { name: text, email: { ...text, pattern: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$" }, phoneNumber: text };
 function response(check) {
   return result => {
-    if (result?.success === false) throw new ConnectorError("connector_provider_failed", "Ashby could not complete the operation.", { statusCode: 502 });
+    if (result?.success === false) throw new ConnectorError("connector_provider_failed", "Ashby could not complete the operation.", { statusCode: 502, messageCode: "connectors.ashby.couldNotCompleteOperation" });
     return result?.success === true && check(result);
   };
 }
@@ -26,7 +26,7 @@ const ashbyProvider = Object.freeze({
   ...ashbyDefinition,
   apiOrigins: ["https://api.ashbyhq.com"],
   apiKey: { headers: (key) => {
-    if (/[:\s\p{Cc}]/u.test(key)) throw new ConnectorError("connector_binding_missing", "Use the Ashby API key without spaces, control characters or colons.");
+    if (/[:\s\p{Cc}]/u.test(key)) throw new ConnectorError("connector_binding_missing", "Use the Ashby API key without spaces, control characters or colons.", { messageCode: "connectors.shared.apiKeyFormat", messageParams: { provider: "Ashby" } });
     return { Authorization: `Basic ${Buffer.from(`${key}:`).toString("base64")}`, Accept: "application/json; version=1" };
   } },
   checkOperation: "jobs.list",
@@ -39,7 +39,7 @@ const ashbyProvider = Object.freeze({
     "candidates.update": { ...candidateUpdate, request(input) {
       const request = candidateUpdate.request(input);
       if (!["name", "email", "phoneNumber"].some(key => Object.hasOwn(request.body, key))) {
-        throw new ConnectorError("connector_input_invalid", "Supply at least one candidate profile change.", { statusCode: 422 });
+        throw new ConnectorError("connector_input_invalid", "Supply at least one candidate profile change.", { statusCode: 422, messageCode: "connectors.ashby.supplyLeastCandidateProfileChange" });
       }
       return request;
     } },

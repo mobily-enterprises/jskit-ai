@@ -30,7 +30,7 @@ const dbtSemanticLayerProvider = Object.freeze({
   ...dbtSemanticLayerDefinition,
   apiOrigins: (settings) => [origin(settings)],
   apiKey: { headers: (key) => {
-    if (/[\s\p{Cc}]/u.test(key)) throw new ConnectorError("connector_binding_missing", "Use a dbt service token without spaces or control characters.");
+    if (/[\s\p{Cc}]/u.test(key)) throw new ConnectorError("connector_binding_missing", "Use a dbt service token without spaces or control characters.", { messageCode: "connectors.dbtSemanticLayer.useServiceTokenWithoutSpaces" });
     return { Authorization: `Bearer ${key}` };
   } },
   checkOperation: "environment.read",
@@ -64,29 +64,29 @@ const dbtSemanticLayerProvider = Object.freeze({
   async exchange(address, options, { request }) {
     const result = await request(address, options);
     if (Array.isArray(result?.errors) && result.errors.length > 0) {
-      throw new ConnectorError("connector_provider_failed", "dbt could not complete the requested operation. Check the environment and service token permissions.", { statusCode: 502 });
+      throw new ConnectorError("connector_provider_failed", "dbt could not complete the requested operation. Check the environment and service token permissions.", { statusCode: 502, messageCode: "connectors.dbtSemanticLayer.couldNotCompleteRequestedOperation" });
     }
     const queryResult = result?.data?.query;
     if (queryResult) {
       if (queryResult.status === "FAILED") {
-        throw new ConnectorError("connector_provider_failed", "dbt query failed. Inspect its status in dbt; do not automatically submit it again.", { statusCode: 502 });
+        throw new ConnectorError("connector_provider_failed", "dbt query failed. Inspect its status in dbt; do not automatically submit it again.", { statusCode: 502, messageCode: "connectors.dbtSemanticLayer.queryFailedInspectStatusDo" });
       }
       if (queryResult.jsonResult !== null && queryResult.jsonResult !== undefined) {
         if (typeof queryResult.jsonResult !== "string" || Buffer.byteLength(queryResult.jsonResult) > 5 * 1024 * 1024) {
-          throw new ConnectorError("connector_response_invalid", "dbt returned an invalid or oversized JSON result page.", { statusCode: 502 });
+          throw new ConnectorError("connector_response_invalid", "dbt returned an invalid or oversized JSON result page.", { statusCode: 502, messageCode: "connectors.dbtSemanticLayer.returnedInvalidOversizedJsonResult" });
         }
         try { queryResult.jsonResult = JSON.parse(queryResult.jsonResult); }
-        catch { throw new ConnectorError("connector_response_invalid", "dbt returned an invalid JSON result page.", { statusCode: 502 }); }
+        catch { throw new ConnectorError("connector_response_invalid", "dbt returned an invalid JSON result page.", { statusCode: 502, messageCode: "connectors.dbtSemanticLayer.returnedInvalidJsonResultPage" }); }
         if (!Array.isArray(queryResult.jsonResult?.data) || queryResult.jsonResult.data.length > 1024 || !Array.isArray(queryResult.jsonResult?.schema?.fields)) {
-          throw new ConnectorError("connector_response_invalid", "dbt returned an invalid JSON table.", { statusCode: 502 });
+          throw new ConnectorError("connector_response_invalid", "dbt returned an invalid JSON table.", { statusCode: 502, messageCode: "connectors.dbtSemanticLayer.returnedInvalidJsonTable" });
         }
       } else if (queryResult.status === "SUCCESSFUL") {
-        throw new ConnectorError("connector_response_invalid", "dbt completed without a JSON result table.", { statusCode: 502 });
+        throw new ConnectorError("connector_response_invalid", "dbt completed without a JSON result table.", { statusCode: 502, messageCode: "connectors.dbtSemanticLayer.completedWithoutJsonResultTable" });
       }
     }
     const page = result?.data?.metricsPaginated || result?.data?.dimensionsPaginated || result?.data?.savedQueriesPaginated;
     if (page && (page.pageNum !== options.body.variables.pageNum || page.pageSize !== options.body.variables.pageSize || page.items?.length > options.body.variables.pageSize)) {
-      throw new ConnectorError("connector_response_invalid", "dbt returned an unexpected metadata page.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "dbt returned an unexpected metadata page.", { statusCode: 502, messageCode: "connectors.dbtSemanticLayer.returnedUnexpectedMetadataPage" });
     }
     return result;
   }

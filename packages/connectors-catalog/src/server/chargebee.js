@@ -36,7 +36,7 @@ const chargebeeProvider = Object.freeze({
   apiOrigins: (settings) => [origin(settings)],
   apiKey: { headers: (key) => {
     if (/[:\s\p{Cc}]/u.test(key)) {
-      throw new ConnectorError("connector_binding_missing", "Use the Chargebee API key without spaces, control characters or colons.");
+      throw new ConnectorError("connector_binding_missing", "Use the Chargebee API key without spaces, control characters or colons.", { messageCode: "connectors.shared.apiKeyFormat", messageParams: { provider: "Chargebee" } });
     }
     return { Authorization: `Basic ${Buffer.from(`${key}:`).toString("base64")}` };
   } },

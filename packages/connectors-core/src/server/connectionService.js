@@ -19,12 +19,14 @@ function publicConnection(connection) {
 }
 
 const ENV_SEEDED_MESSAGE = "This connection comes from an Env value; unlink or replace that value instead.";
+const ENV_SEEDED_CODE = { messageCode: "connectors.connection.envSeeded" };
 const VERIFICATION_SCOPE_MESSAGE = "Connection verification requires a permission absent from the application's configuration.";
+const VERIFICATION_SCOPE_CODE = { messageCode: "connectors.connection.verificationScopeAbsent" };
 
 // An operation without scopes always runs; otherwise one of its scopes must be present.
-function requireOperationScope(operation, scopes, message) {
+function requireOperationScope(operation, scopes, message, { messageCode }) {
   if (operation.scopes.length && !operation.scopes.some((scope) => scopes.includes(scope))) {
-    throw new ConnectorError("connector_scope_missing", message, { statusCode: 403 });
+    throw new ConnectorError("connector_scope_missing", message, { statusCode: 403, messageCode });
   }
 }
 
@@ -32,8 +34,9 @@ function requireOperationScope(operation, scopes, message) {
 function operationRequest(operation, input, settings, providerData) {
   try { return operation.request(input, settings || {}, providerData); } catch (error) {
     if (!error.fieldErrors) throw error;
-    const failure = new ConnectorError("connector_input_invalid", "Check the operation's input values.", { statusCode: 422 });
+    const failure = new ConnectorError("connector_input_invalid", "Check the operation's input values.", { statusCode: 422, messageCode: "connectors.connection.checkOperationInputValues" });
     failure.fieldErrors = error.fieldErrors;
+    if (error.fieldErrorCodes) failure.fieldErrorCodes = error.fieldErrorCodes;
     throw failure;
   }
 }
@@ -43,7 +46,7 @@ function validateCallbackUrl(value) {
   try { url = new URL(value); } catch { /* reported below */ }
   const localHttp = url?.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
   if (!url || (!localHttp && url.protocol !== "https:") || url.username || url.password || url.hash || url.search) {
-    throw new ConnectorError("connector_callback_invalid", "Configure an HTTPS callback URL, or a local development callback.");
+    throw new ConnectorError("connector_callback_invalid", "Configure an HTTPS callback URL, or a local development callback.", { messageCode: "connectors.connection.configureHttpsCallbackUrlLocal" });
   }
   return url.href;
 }
@@ -94,7 +97,7 @@ function createConnectionService({
   async function access(context, integrationId, operation, input, checkAssistantPermission = true) {
     const integration = config.integrations[integrationId];
     if (!Object.hasOwn(config.integrations, integrationId)) {
-      throw new ConnectorError("connector_not_found", "This integration is not configured.", { statusCode: 404 });
+      throw new ConnectorError("connector_not_found", "This integration is not configured.", { statusCode: 404, messageCode: "connectors.connection.integrationNotConfigured" });
     }
     const baseDefinition = definitions.get(integration.provider);
     const definition = baseDefinition.runtimeForSettings
@@ -108,7 +111,7 @@ function createConnectionService({
       const policy = integration.assistantPolicy;
       const decision = policy?.enabled === false ? "never" : policy?.actions?.[action] || policy?.defaultPermission || "ask";
       if (decision === "never") {
-        throw new ConnectorError("connector_access_denied", "This assistant action is disabled.", { statusCode: 403 });
+        throw new ConnectorError("connector_access_denied", "This assistant action is disabled.", { statusCode: 403, messageCode: "connectors.connection.assistantActionDisabled" });
       }
       assistantPermission = { action, decision };
     }
@@ -117,14 +120,14 @@ function createConnectionService({
       ...(input === undefined ? {} : { input: structuredClone(input) }) });
     if (!owner || typeof owner.applicationId !== "string" || !owner.applicationId ||
       typeof owner.subjectId !== "string" || !owner.subjectId) {
-      throw new ConnectorError("connector_access_denied", "You cannot use this connection.", { statusCode: 403 });
+      throw new ConnectorError("connector_access_denied", "You cannot use this connection.", { statusCode: 403, messageCode: "connectors.connection.connectionNotAllowed" });
     }
     if (assistantPermission?.decision === "ask" && owner.approved !== true) {
       throw new ConnectorError("connector_approval_required", "Approve this assistant action before continuing.", { statusCode: 409 });
     }
     const methods = provider.operations?.[operation]?.authenticationMethods;
     if (methods && !methods.includes(integration.authentication.method)) {
-      throw new ConnectorError("connector_mode_unavailable", "This operation requires a different connection method.");
+      throw new ConnectorError("connector_mode_unavailable", "This operation requires a different connection method.", { messageCode: "connectors.connection.operationRequiresDifferentMethod" });
     }
     return { owner: { applicationId: owner.applicationId, subjectId: owner.subjectId }, integration, provider };
   }
@@ -132,7 +135,7 @@ function createConnectionService({
   async function authorizeAssistantAction({ context, integrationId, action, input = {} }) {
     const provider = definitions.get(config.integrations[integrationId]?.provider);
     if (executionMode !== "assistant" || !provider?.assistantActions?.some((item) => item.value === action)) {
-      throw new ConnectorError("connector_operation_unknown", "This provider does not declare this assistant action.");
+      throw new ConnectorError("connector_operation_unknown", "This provider does not declare this assistant action.", { messageCode: "connectors.connection.providerDoesNotDeclareAssistant" });
     }
     await access(context, integrationId, action, structuredClone(input));
     // The host performs its own lifecycle operation after authorization; no provider action is executed here.
@@ -141,15 +144,15 @@ function createConnectionService({
   async function registrationFor(integration, provider) {
     const registration = config.registrations[integration.authentication.registrationRef];
     if (registration?.source !== "own" || integration.authentication.method !== "oauth2" || !provider.oauth) {
-      throw new ConnectorError("connector_mode_unavailable", "This runtime does not yet support the selected credential mode.");
+      throw new ConnectorError("connector_mode_unavailable", "This runtime does not yet support the selected credential mode.", { messageCode: "connectors.connection.runtimeDoesNotYetSupport" });
     }
     if (registration.clientId.trim() === "MISSING") {
-      throw new ConnectorError("connector_binding_missing", "The provider client ID is not configured.");
+      throw new ConnectorError("connector_binding_missing", "The provider client ID is not configured.", { messageCode: "connectors.connection.providerClientIdNotConfigured" });
     }
     const grantType = registrationGrantType(registration);
     const tokenEndpointAuthMethod = registrationClientAuthentication(registration);
     if (provider.oauthPkce === false && tokenEndpointAuthMethod === "none") {
-      throw new ConnectorError("connector_mode_unavailable", "This provider's non-PKCE flow requires a confidential client.");
+      throw new ConnectorError("connector_mode_unavailable", "This provider's non-PKCE flow requires a confidential client.", { messageCode: "connectors.connection.providerNonPkceFlowRequires" });
     }
     let clientSecret;
     let callback;
@@ -160,11 +163,11 @@ function createConnectionService({
       }
       if (grantType === "authorization_code") callback = await resolveReference(registration.callbackUrlRef);
     } catch {
-      throw new ConnectorError("connector_binding_missing", "A required registration binding is missing.");
+      throw new ConnectorError("connector_binding_missing", "A required registration binding is missing.", { messageCode: "connectors.connection.requiredRegistrationBindingMissing" });
     }
     const callbackUrl = grantType === "authorization_code" ? validateCallbackUrl(callback) : undefined;
     if (callbackUrl && provider.validateCallbackUrl && provider.validateCallbackUrl(callbackUrl) !== true) {
-      throw new ConnectorError("connector_callback_invalid", "The callback URL does not meet this provider's requirements.");
+      throw new ConnectorError("connector_callback_invalid", "The callback URL does not meet this provider's requirements.", { messageCode: "connectors.connection.callbackUrlDoesNotMeet" });
     }
     let clientAuth = tokenEndpointAuthMethod === "none" ? oauth.None()
       : tokenEndpointAuthMethod === "client_secret_basic" ? oauth.ClientSecretBasic(clientSecret) : oauth.ClientSecretPost(clientSecret);
@@ -196,7 +199,7 @@ function createConnectionService({
       if (typeof value !== "string" || (!provider.apiKeySecretOptional && !value.trim()) || value.trim() === "MISSING" || /[\r\n]/u.test(value)) throw new Error("Invalid key.");
       return value;
     } catch {
-      throw new ConnectorError("connector_binding_missing", "The API key binding is missing or invalid.");
+      throw new ConnectorError("connector_binding_missing", "The API key binding is missing or invalid.", { messageCode: "connectors.connection.apiKeyBindingMissingInvalid" });
     }
   }
 
@@ -206,7 +209,7 @@ function createConnectionService({
       if (typeof credential !== "string" || !credential.trim() || credential.trim() === "MISSING" || credential.length > 65_536 || credential.includes("\0")) throw new Error("Invalid credential.");
       return { credential, fingerprint: createHash("sha256").update(credential).digest("hex") };
     } catch {
-      throw new ConnectorError("connector_binding_missing", "The service-account credential binding is missing or invalid.");
+      throw new ConnectorError("connector_binding_missing", "The service-account credential binding is missing or invalid.", { messageCode: "connectors.connection.serviceAccountCredentialBindingMissing" });
     }
   }
 
@@ -220,7 +223,7 @@ function createConnectionService({
       if (!refreshToken || refreshToken === "MISSING" || /\s/u.test(refreshToken)) throw new Error("Invalid token.");
       return { refreshToken, fingerprint: createHash("sha256").update(refreshToken).digest("hex") };
     } catch {
-      throw new ConnectorError("connector_binding_missing", "The refresh token binding is missing or invalid.");
+      throw new ConnectorError("connector_binding_missing", "The refresh token binding is missing or invalid.", { messageCode: "connectors.connection.refreshTokenBindingMissingInvalid" });
     }
   }
 
@@ -244,7 +247,7 @@ function createConnectionService({
 
   async function serviceAccountGrant(integration, provider, binding, signal) {
     if (typeof provider.serviceAccountGrant !== "function") {
-      throw new ConnectorError("connector_mode_unavailable", "This provider does not implement service-account authorization.");
+      throw new ConnectorError("connector_mode_unavailable", "This provider does not implement service-account authorization.", { messageCode: "connectors.connection.providerDoesNotImplementService" });
     }
     const options = requestOptions(signal, provider.requestTimeoutMs);
     options.signal.throwIfAborted();
@@ -263,7 +266,7 @@ function createConnectionService({
         response.token_type?.toLowerCase?.() !== "bearer" ||
         !Number.isFinite(response.expires_in) || response.expires_in <= 0 || response.expires_in > 86_400 ||
         response.refresh_token !== undefined || (response.scope !== undefined && typeof response.scope !== "string")) {
-      throw new ConnectorError("connector_response_invalid", "The provider returned an invalid service-account token.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "The provider returned an invalid service-account token.", { statusCode: 502, messageCode: "connectors.connection.providerReturnedInvalidServiceAccount" });
     }
     const grant = tokensFrom(response, null, integration.scopes, provider.scopeSeparator, provider);
     grant.grantedScopes = grant.grantedScopes.filter((scope) => integration.scopes.includes(scope));
@@ -274,10 +277,10 @@ function createConnectionService({
     verificationInput = structuredClone(verificationInput);
     const { owner, integration, provider } = await access(context, integrationId, "connect");
     if (integration.authentication.method !== "service-account" || typeof provider.serviceAccountGrant !== "function") {
-      throw new ConnectorError("connector_mode_unavailable", "Select service-account credentials to verify this connection.");
+      throw new ConnectorError("connector_mode_unavailable", "Select service-account credentials to verify this connection.", { messageCode: "connectors.connection.selectServiceAccountCredentialsVerify" });
     }
     operationRequest(provider.operations[provider.checkOperation], verificationInput, integration.settings);
-    requireOperationScope(provider.operations[provider.checkOperation], integration.scopes, VERIFICATION_SCOPE_MESSAGE);
+    requireOperationScope(provider.operations[provider.checkOperation], integration.scopes, VERIFICATION_SCOPE_MESSAGE, VERIFICATION_SCOPE_CODE);
     return store.withConnection({ owner, integrationId }, async ({ save }) => {
       try {
         const binding = await serviceAccountCredentialFor(integration);
@@ -309,22 +312,22 @@ function createConnectionService({
   async function request(provider, operationId, input, connection, signal) {
     const operation = provider.operations[operationId];
     if (!operation || !Object.hasOwn(provider.operations, operationId)) {
-      throw new ConnectorError("connector_operation_unknown", "This provider operation is not available.");
+      throw new ConnectorError("connector_operation_unknown", "This provider operation is not available.", { messageCode: "connectors.connection.providerOperationNotAvailable" });
     }
     if (["oauth2", "service-account"].includes(connection.method || "oauth2")) {
-      requireOperationScope(operation, connection.grantedScopes, "Connect again with the permission required for this operation.");
+      requireOperationScope(operation, connection.grantedScopes, "Connect again with the permission required for this operation.", { messageCode: "connectors.connection.connectAgainPermissionRequiredOperation" });
     }
     const descriptor = operationRequest(operation, input, connection.settings, connection.providerData);
     const url = new URL(descriptor.url);
     const origins = typeof provider.apiOrigins === "function" ? provider.apiOrigins(connection.settings || {}, connection.providerData) : provider.apiOrigins;
     if (url.protocol !== "https:" || url.username || url.password || !origins.includes(url.origin)) {
-      throw new ConnectorError("connector_destination_invalid", "The provider operation has an invalid destination.");
+      throw new ConnectorError("connector_destination_invalid", "The provider operation has an invalid destination.", { messageCode: "connectors.connection.providerOperationInvalidDestination" });
     }
     if (connection.method === "api-key" && provider.apiKey.pathPrefix) {
       const prefix = provider.apiKey.pathPrefix(connection.apiKey);
       if (typeof prefix !== "string" || !prefix.startsWith("/") || prefix.startsWith("//") ||
         /[?#\\]/.test(prefix) || prefix.split("/").some((part) => /^(?:\.|%2e){1,2}$/i.test(part))) {
-        throw new ConnectorError("connector_request_invalid", "This provider has an invalid credential path.");
+        throw new ConnectorError("connector_request_invalid", "This provider has an invalid credential path.", { messageCode: "connectors.connection.providerInvalidCredentialPath" });
       }
       // A pathname assignment cannot replace the already checked origin.
       url.pathname = prefix + url.pathname;
@@ -335,7 +338,7 @@ function createConnectionService({
     let body = descriptor.body;
     if (connection.method === "api-key" && provider.apiKey.bodyParameter) {
       if (!body || typeof body !== "object" || Array.isArray(body) || ["GET", "HEAD"].includes(descriptor.method)) {
-        throw new ConnectorError("connector_request_invalid", "This provider requires a JSON request body.");
+        throw new ConnectorError("connector_request_invalid", "This provider requires a JSON request body.", { messageCode: "connectors.connection.providerRequiresJsonRequestBody" });
       }
       body = { ...body, [provider.apiKey.bodyParameter]: connection.apiKey };
     }
@@ -363,7 +366,7 @@ function createConnectionService({
     }
     // The validator also receives the operation's own request, so it can check the provider answered what was asked.
     if (typeof operation.validateResult === "function" && !operation.validateResult(result, descriptor)) {
-      throw new ConnectorError("connector_response_invalid", "The provider returned an unexpected response.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "The provider returned an unexpected response.", { statusCode: 502, messageCode: "connectors.connection.providerReturnedUnexpectedResponse" });
     }
     return result;
   }
@@ -387,17 +390,17 @@ function createConnectionService({
     if (provider.accountLabelFromVerification) {
       const label = provider.accountLabelFromVerification(verification);
       if (typeof label !== "string" || !label.trim() || label.length > 256 || /[\p{Cc}\p{Cf}]/u.test(label)) {
-        throw new ConnectorError("connector_response_invalid", "The provider returned an invalid account label.", { statusCode: 502 });
+        throw new ConnectorError("connector_response_invalid", "The provider returned an invalid account label.", { statusCode: 502, messageCode: "connectors.connection.providerReturnedInvalidAccountLabel" });
       }
       connection.accountLabel = label;
     }
     if (!provider.grantedScopesFromVerification) return;
     const scopes = provider.grantedScopesFromVerification(verification, { clientId: connection.clientId });
     if (!Array.isArray(scopes) || scopes.some((scope) => typeof scope !== "string" || !scope)) {
-      throw new ConnectorError("connector_response_invalid", "The provider returned an invalid permission grant.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "The provider returned an invalid permission grant.", { statusCode: 502, messageCode: "connectors.connection.providerReturnedInvalidPermissionGrant" });
     }
     connection.grantedScopes = connection.grantedScopes.filter((scope) => requestedScopes.includes(scope) && scopes.includes(scope));
-    requireOperationScope(provider.operations[provider.checkOperation], connection.grantedScopes, "Connect again with the permission required for verification.");
+    requireOperationScope(provider.operations[provider.checkOperation], connection.grantedScopes, "Connect again with the permission required for verification.", { messageCode: "connectors.connection.connectAgainPermissionRequiredVerification" });
   }
 
   async function clientCredentialsGrant(registration, provider, settings, scopes, signal) {
@@ -420,10 +423,10 @@ function createConnectionService({
     const { owner, integration, provider } = await access(context, integrationId, "connect");
     const registration = await registrationFor(integration, provider);
     if (registration.grantType !== "client_credentials") {
-      throw new ConnectorError("connector_mode_unavailable", "Select client credentials to connect a service account.");
+      throw new ConnectorError("connector_mode_unavailable", "Select client credentials to connect a service account.", { messageCode: "connectors.connection.selectClientCredentialsConnectService" });
     }
     operationRequest(provider.operations[provider.checkOperation], verificationInput, integration.settings);
-    requireOperationScope(provider.operations[provider.checkOperation], integration.scopes, VERIFICATION_SCOPE_MESSAGE);
+    requireOperationScope(provider.operations[provider.checkOperation], integration.scopes, VERIFICATION_SCOPE_MESSAGE, VERIFICATION_SCOPE_CODE);
     return store.withConnection({ owner, integrationId }, async ({ save }) => {
       try {
         const connection = {
@@ -443,13 +446,13 @@ function createConnectionService({
   async function beginAuthorization({ context, integrationId, verificationInput = {}, signal }) {
     const { owner, integration, provider } = await access(context, integrationId, "connect");
     if (integration.authentication.refreshTokenRef) {
-      throw new ConnectorError("connector_env_managed", ENV_SEEDED_MESSAGE, { statusCode: 409 });
+      throw new ConnectorError("connector_env_managed", ENV_SEEDED_MESSAGE, { statusCode: 409, ...ENV_SEEDED_CODE });
     }
     // Resource-specific providers validate the first document ID before opening consent.
     operationRequest(provider.operations[provider.checkOperation], verificationInput, integration.settings);
     const registration = await registrationFor(integration, provider);
     if (registration.grantType !== "authorization_code") {
-      throw new ConnectorError("connector_mode_unavailable", "Service accounts connect without browser consent.");
+      throw new ConnectorError("connector_mode_unavailable", "Service accounts connect without browser consent.", { messageCode: "connectors.connection.serviceAccountsConnectWithoutBrowser" });
     }
     signal?.throwIfAborted();
     const state = oauth.generateRandomState();
@@ -502,18 +505,18 @@ function createConnectionService({
     const { owner, integration, provider } = await access(context, integrationId, "connect");
     const registration = await registrationFor(integration, provider);
     if (registration.grantType !== "authorization_code") {
-      throw new ConnectorError("connector_mode_unavailable", "Service accounts do not use an authorization callback.");
+      throw new ConnectorError("connector_mode_unavailable", "Service accounts do not use an authorization callback.", { messageCode: "connectors.connection.serviceAccountsDoNotUse" });
     }
     let url;
     try { url = new URL(callbackUrl); } catch {
-      throw new ConnectorError("connector_callback_invalid", "The authorization callback is invalid.");
+      throw new ConnectorError("connector_callback_invalid", "The authorization callback is invalid.", { messageCode: "connectors.connection.authorizationCallbackInvalid" });
     }
     if (`${url.origin}${url.pathname}` !== registration.callbackUrl || url.hash || url.username || url.password) {
-      throw new ConnectorError("connector_callback_invalid", "The callback does not match this registration.");
+      throw new ConnectorError("connector_callback_invalid", "The callback does not match this registration.", { messageCode: "connectors.connection.callbackDoesNotMatchRegistration" });
     }
     const state = url.searchParams.get("state");
     if (!state || url.searchParams.getAll("state").length !== 1) {
-      throw new ConnectorError("connector_attempt_invalid", "The authorization attempt is invalid or has expired.");
+      throw new ConnectorError("connector_attempt_invalid", "The authorization attempt is invalid or has expired.", { messageCode: "connectors.connection.authorizationAttemptInvalidExpired" });
     }
     const outcome = await store.withConnection({ owner, integrationId }, async ({ consumeAttempt, save }) => {
       const attempt = await consumeAttempt(state);
@@ -525,14 +528,14 @@ function createConnectionService({
           registrationClientAuthentication(attempt) !== registration.tokenEndpointAuthMethod ||
           attempt.callbackUrl !== registration.callbackUrl || JSON.stringify(attempt.scopes) !== JSON.stringify(integration.scopes) ||
           !isDeepStrictEqual(attempt.settings || {}, integration.settings || {})) {
-          throw new ConnectorError("connector_attempt_invalid", "The authorization attempt is invalid or has expired.");
+          throw new ConnectorError("connector_attempt_invalid", "The authorization attempt is invalid or has expired.", { messageCode: "connectors.connection.authorizationAttemptInvalidExpired" });
         }
         const parameters = oauth.validateAuthResponse(registration.oauth, registration.client, url, state);
         let fallbackScopes = attempt.scopes;
         if (provider.scopesInAuthorizationResponse) {
           const values = parameters.getAll("scope");
           if (values.length !== 1) {
-            throw new ConnectorError("connector_response_invalid", "The provider did not return an unambiguous permission grant.", { statusCode: 502 });
+            throw new ConnectorError("connector_response_invalid", "The provider did not return an unambiguous permission grant.", { statusCode: 502, messageCode: "connectors.connection.ambiguousPermissionGrant" });
           }
           const granted = new Set(values[0].split(provider.scopeSeparator || " ").map((scope) => scope.trim()).filter(Boolean));
           fallbackScopes = attempt.scopes.filter((scope) => granted.has(scope));
@@ -570,9 +573,9 @@ function createConnectionService({
     if (integration.authentication.method !== method || (method === "api-key" &&
       (typeof provider.apiKey?.headers !== "function" && !provider.apiKey?.queryParameter &&
         !provider.apiKey?.bodyParameter && typeof provider.apiKey?.pathPrefix !== "function"))) {
-      throw new ConnectorError("connector_mode_unavailable", "Select the matching credential mode to verify this connection.");
+      throw new ConnectorError("connector_mode_unavailable", "Select the matching credential mode to verify this connection.", { messageCode: "connectors.connection.selectMatchingCredentialModeVerify" });
     }
-    requireOperationScope(provider.operations[provider.checkOperation], integration.scopes, VERIFICATION_SCOPE_MESSAGE);
+    requireOperationScope(provider.operations[provider.checkOperation], integration.scopes, VERIFICATION_SCOPE_MESSAGE, VERIFICATION_SCOPE_CODE);
     return store.withConnection({ owner, integrationId }, async ({ save }) => {
       const connection = {
         integrationId, provider: provider.id, method,
@@ -597,9 +600,9 @@ function createConnectionService({
     input = structuredClone(input);
     const { owner, integration, provider } = await access(context, integrationId, operation, input);
     if (!Object.hasOwn(provider.operations, operation)) {
-      throw new ConnectorError("connector_operation_unknown", "This provider operation is not available.");
+      throw new ConnectorError("connector_operation_unknown", "This provider operation is not available.", { messageCode: "connectors.connection.providerOperationNotAvailable" });
     }
-    requireOperationScope(provider.operations[operation], integration.scopes, "This operation requires a permission absent from the application's configuration.");
+    requireOperationScope(provider.operations[operation], integration.scopes, "This operation requires a permission absent from the application's configuration.", { messageCode: "connectors.connection.operationRequiresPermissionAbsentApplication" });
     const usesApiKey = integration.authentication.method === "api-key";
     const usesServiceAccount = integration.authentication.method === "service-account";
     const usesOAuth = integration.authentication.method === "oauth2";
@@ -613,7 +616,7 @@ function createConnectionService({
       if (!connection || connection.status !== "connected" ||
         !connectionMatches(connection, integration, provider.id, usesOAuth ? { ...registration, clientId: registration.client.client_id } : null) ||
         (usesOAuth && !callbackMatches(connection, provider, registration))) {
-        throw new ConnectorError("connector_reconnect_required", "Connect this account again.", { statusCode: 401 });
+        throw new ConnectorError("connector_reconnect_required", "Connect this account again.", { statusCode: 401, messageCode: "connectors.connection.connectAccountAgain" });
       }
       try {
         if (usesServiceAccount) {
@@ -629,7 +632,7 @@ function createConnectionService({
             grant = await clientCredentialsGrant(registration, provider, integration.settings || {}, connection.grantedScopes, signal);
           } else {
             if (!connection.tokens.refreshToken) {
-              throw new ConnectorError("connector_reconnect_required", "Connect this account again.", { statusCode: 401 });
+              throw new ConnectorError("connector_reconnect_required", "Connect this account again.", { statusCode: 401, messageCode: "connectors.connection.connectAccountAgain" });
             }
             const response = await oauth.refreshTokenGrantRequest(
               registration.oauth, registration.client, registration.clientAuth,
@@ -658,7 +661,7 @@ function createConnectionService({
         let failure = providerError(error);
         if (failure.code === "connector_reconnect_required") {
           await save({ ...connection, status: "reconnect-required" });
-          if (seed) failure = new ConnectorError(failure.code, "The refresh token in Env no longer works; replace that Env value.", { statusCode: 401 });
+          if (seed) failure = new ConnectorError(failure.code, "The refresh token in Env no longer works; replace that Env value.", { statusCode: 401, messageCode: "connectors.connection.envRefreshTokenRejected" });
         }
         // Commit rotated tokens and reconnect state even when the API request fails.
         return { failure };
@@ -713,7 +716,7 @@ function createConnectionService({
   async function disconnect({ context, integrationId }) {
     const { owner, integration } = await access(context, integrationId, "disconnect");
     if (integration.authentication.refreshTokenRef) {
-      throw new ConnectorError("connector_env_managed", ENV_SEEDED_MESSAGE, { statusCode: 409 });
+      throw new ConnectorError("connector_env_managed", ENV_SEEDED_MESSAGE, { statusCode: 409, ...ENV_SEEDED_CODE });
     }
     await store.withConnection({ owner, integrationId }, async ({ remove }) => remove());
     return { status: "disconnected" };

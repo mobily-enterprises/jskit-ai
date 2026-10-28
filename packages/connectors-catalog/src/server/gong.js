@@ -14,9 +14,9 @@ const recordsValid = value => ["totalRecords", "currentPageSize", "currentPageNu
 function callOperation(path, field, extensive = false) {
   const schema = createSchema({ ...callFields, ...(extensive ? { includeMedia: { type: "boolean", defaultTo: false } } : {}) });
   return { scopes: [], request(input, settings) {
-    if (Array.isArray(input.callIds) && input.callIds.some(id => typeof id !== "string") || input.workspaceId !== undefined && typeof input.workspaceId !== "string") throw new ConnectorError("connector_input_invalid", "Supply Gong IDs as strings to preserve all digits.", { statusCode: 422 });
+    if (Array.isArray(input.callIds) && input.callIds.some(id => typeof id !== "string") || input.workspaceId !== undefined && typeof input.workspaceId !== "string") throw new ConnectorError("connector_input_invalid", "Supply Gong IDs as strings to preserve all digits.", { statusCode: 422, messageCode: "connectors.gong.supplyIdsStringsPreserveAll" });
     const { cursor, includeMedia, ...filter } = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
-    if ((!filter.fromDateTime !== !filter.toDateTime) || (filter.fromDateTime && Date.parse(filter.fromDateTime) >= Date.parse(filter.toDateTime)) || (!filter.callIds && !filter.fromDateTime)) throw new ConnectorError("connector_input_invalid", "Supply call IDs or an ordered timestamp range.", { statusCode: 422 });
+    if ((!filter.fromDateTime !== !filter.toDateTime) || (filter.fromDateTime && Date.parse(filter.fromDateTime) >= Date.parse(filter.toDateTime)) || (!filter.callIds && !filter.fromDateTime)) throw new ConnectorError("connector_input_invalid", "Supply call IDs or an ordered timestamp range.", { statusCode: 422, messageCode: "connectors.gong.supplyCallIdsOrderedTimestamp" });
     const body = { filter, ...(cursor ? { cursor } : {}) };
     if (extensive) body.contentSelector = { context: "Extended", contextTiming: ["Now", "TimeOfCall"], exposedFields: {
       parties: true, content: { brief: true, outline: true, topics: true, keyPoints: true, callOutcome: true },
@@ -36,9 +36,9 @@ const gongProvider = Object.freeze({
     "calls.extensive": callOperation("/v2/calls/extensive", "calls", true),
     "calls.transcripts": callOperation("/v2/calls/transcript", "callTranscripts"),
     "stats.interaction": { scopes: [], request(input, settings) {
-      if (Array.isArray(input.userIds) && input.userIds.some(id => typeof id !== "string")) throw new ConnectorError("connector_input_invalid", "Supply Gong IDs as strings to preserve all digits.", { statusCode: 422 });
+      if (Array.isArray(input.userIds) && input.userIds.some(id => typeof id !== "string")) throw new ConnectorError("connector_input_invalid", "Supply Gong IDs as strings to preserve all digits.", { statusCode: 422, messageCode: "connectors.gong.supplyIdsStringsPreserveAll" });
       const { cursor, ...filter } = validateSchemaPayload({ schema: statsSchema, mode: "replace" }, input, { statusCode: 422 });
-      if (filter.fromDate >= filter.toDate) throw new ConnectorError("connector_input_invalid", "The end date must follow the start date.", { statusCode: 422 });
+      if (filter.fromDate >= filter.toDate) throw new ConnectorError("connector_input_invalid", "The end date must follow the start date.", { statusCode: 422, messageCode: "connectors.gong.endDateMustFollowStart" });
       return { method: "POST", url: `${origin(settings)}/v2/stats/interaction`, body: { filter, ...(cursor ? { cursor } : {}) } };
     }, validateResult: value => Array.isArray(value?.peopleInteractionStats) && recordsValid(value) },
     "users.list": jsonOperation((settings) => `${origin(settings)}/v2/users`, {

@@ -25,7 +25,7 @@ const apifyProvider = Object.freeze({
         size += value.byteLength;
         if (size > 8 * 1024 * 1024) {
           await reader.cancel();
-          throw new ConnectorError("connector_response_too_large", "Use the framework's native Apify client to stream records larger than 8 MiB.", { statusCode: 413 });
+          throw new ConnectorError("connector_response_too_large", "Use the framework's native Apify client to stream records larger than 8 MiB.", { statusCode: 413, messageCode: "connectors.apify.useFrameworkNativeClientStream" });
         }
         chunks.push(value);
       }

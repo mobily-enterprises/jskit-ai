@@ -56,7 +56,7 @@ function absenceRead(kind) {
     request(input, settings) {
       const { worker: workerId, ...query } = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
       if (query.fromDate && query.toDate && query.fromDate > query.toDate) {
-        throw new ConnectorError("connector_input_invalid", "The start date must not follow the end date.", { statusCode: 422 });
+        throw new ConnectorError("connector_input_invalid", "The start date must not follow the end date.", { statusCode: 422, messageCode: "connectors.workday.datesOrder" });
       }
       const { host, prefix = "", tenant } = workdayRestEndpoint(settings.restApiEndpoint);
       const path = kind === "statuses" ? "values/timeOff/status/" : kind === "balances" ? "balances" : `workers/${workerId}/timeOffDetails`;
@@ -105,11 +105,11 @@ const workdayProvider = Object.freeze({
         const url = new URL(`https://${host}/ccx/service/customreport2/${tenant}/${encodeURIComponent(owner)}/${encodeURIComponent(report)}`);
         const names = new Set();
         for (const { name, value } of prompts) {
-          if (names.has(name)) throw new ConnectorError("connector_input_invalid", "Supply each report prompt once; join multi-instance WIDs with !.", { statusCode: 422 });
+          if (names.has(name)) throw new ConnectorError("connector_input_invalid", "Supply each report prompt once; join multi-instance WIDs with !.", { statusCode: 422, messageCode: "connectors.workday.supplyReportPromptOnceJoin" });
           names.add(name); url.searchParams.set(name, value);
         }
         url.searchParams.set("format", "json");
-        if (url.href.length > 16384) throw new ConnectorError("connector_input_invalid", "Use a smaller report prompt request.", { statusCode: 422 });
+        if (url.href.length > 16384) throw new ConnectorError("connector_input_invalid", "Use a smaller report prompt request.", { statusCode: 422, messageCode: "connectors.workday.useSmallerReportPromptRequest" });
         return { method: "GET", url: url.href };
       },
       validateResult: result => object(result) && !result.error && !result.errors && Array.isArray(result.Report_Entry) && result.Report_Entry.every(object)

@@ -25,7 +25,7 @@ function recordsList(module, defaults) {
     request(input, settings) {
       const values = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
       if (values.page !== undefined && values.page_token !== undefined) {
-        throw new ConnectorError("connector_input_invalid", "Use either a page number or a page token.", { statusCode: 422 });
+        throw new ConnectorError("connector_input_invalid", "Use either a page number or a page token.", { statusCode: 422, messageCode: "connectors.zohoCrm.useEitherPageNumberPage" });
       }
       if (!values.page_token && values.page === undefined) values.page = 1;
       const url = new URL(`${apiOrigin(settings)}/crm/v8/${module}`);
@@ -69,18 +69,18 @@ const zohoCrmProvider = Object.freeze({
     if (response.status === 204 && list) return { data: [], info: { count: 0, per_page: perPage, more_records: false } };
     let value;
     try { value = await response.json(); } catch { /* checked after status mapping */ }
-    if (value?.code === "OAUTH_SCOPE_MISMATCH") throw new ConnectorError("connector_scope_missing", "Connect again with the CRM permissions needed for this operation.", { statusCode: 403 });
+    if (value?.code === "OAUTH_SCOPE_MISMATCH") throw new ConnectorError("connector_scope_missing", "Connect again with the CRM permissions needed for this operation.", { statusCode: 403, messageCode: "connectors.zohoCrm.connectAgainPermissionsNeededOperation" });
     if (!response.ok) {
-      if (response.status === 404) throw new ConnectorError("connector_resource_not_found", "This CRM resource is not available.", { statusCode: 404 });
+      if (response.status === 404) throw new ConnectorError("connector_resource_not_found", "This CRM resource is not available.", { statusCode: 404, messageCode: "connectors.zohoCrm.resourceNotAvailable" });
       // The shared runtime maps HTTP status without exposing provider response text.
       throw Object.assign(new Error("Zoho CRM request failed."), { status: response.status });
     }
     if (response.status !== 200 || !value || value.status === "error" || value.code) {
-      throw new ConnectorError("connector_response_invalid", "Zoho CRM returned an unexpected response.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "Zoho CRM returned an unexpected response.", { statusCode: 502, messageCode: "connectors.shared.unexpectedResponse", messageParams: { provider: "Zoho CRM" } });
     }
     if (list && (value.data?.length > perPage || value.info?.per_page !== perPage ||
       url.searchParams.has("page") && value.info?.page !== Number(url.searchParams.get("page")))) {
-      throw new ConnectorError("connector_response_invalid", "Zoho CRM returned an unexpected page.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "Zoho CRM returned an unexpected page.", { statusCode: 502, messageCode: "connectors.shared.unexpectedPage", messageParams: { provider: "Zoho CRM" } });
     }
     return value;
   }

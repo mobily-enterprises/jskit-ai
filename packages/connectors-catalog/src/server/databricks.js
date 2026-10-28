@@ -31,7 +31,7 @@ const databricksProvider = Object.freeze({
       if (!Number.isSafeInteger(value?.expires_in) || value.expires_in <= 40 ||
         (value.scope !== undefined && (typeof value.scope !== "string" || !/^[^\s]+(?: [^\s]+)*$/u.test(value.scope))) ||
         (value.refresh_token !== undefined && (typeof value.refresh_token !== "string" || !value.refresh_token.trim()))) {
-        throw new ConnectorError("connector_response_invalid", "Databricks returned an invalid token grant.", { statusCode: 502 });
+        throw new ConnectorError("connector_response_invalid", "Databricks returned an invalid token grant.", { statusCode: 502, messageCode: "connectors.shared.invalidTokenGrant", messageParams: { provider: "Databricks" } });
       }
     }
     return response;
@@ -47,7 +47,7 @@ const databricksProvider = Object.freeze({
     if (response.status !== 200 || !object(result) || result.error_code || result.error ||
       (url.pathname.endsWith("/list") && result?.jobs?.length > Number(url.searchParams.get("limit"))) ||
       (url.pathname.endsWith("/get") && result?.job_id !== Number(url.searchParams.get("job_id")))) {
-      throw new ConnectorError("connector_response_invalid", "Databricks returned an unexpected job response.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "Databricks returned an unexpected job response.", { statusCode: 502, messageCode: "connectors.databricks.returnedUnexpectedJobResponse" });
     }
     return result;
   }

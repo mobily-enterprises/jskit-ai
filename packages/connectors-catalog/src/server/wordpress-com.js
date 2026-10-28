@@ -44,7 +44,7 @@ function siteOperation(action, fields, { resource = "posts", scope = resource, r
       const { siteId, postId, mediaId, commentId, termSlug, context, ...values } = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
       delete values.confirmDeletion;
       if (changesRequired && !Object.keys(values).length) {
-        throw new ConnectorError("connector_input_invalid", "Supply at least one change.", { statusCode: 422 });
+        throw new ConnectorError("connector_input_invalid", "Supply at least one change.", { statusCode: 422, messageCode: "connectors.shared.supplyLeastChange" });
       }
       const target = termSlug === undefined ? postId ?? mediaId ?? commentId ?? (collection ? "" : "new") : `slug:${encodeURIComponent(termSlug)}`;
       const url = new URL(`https://public-api.wordpress.com/rest/v1.1/sites/${siteId}/${resource}/${target}${action ? `/${action}` : ""}`);
@@ -115,7 +115,7 @@ const wordpressComProvider = Object.freeze({
   apiOrigins: ["https://public-api.wordpress.com"], checkOperation: "profile.read",
   grantedScopesFromVerification(profile, { clientId }) {
     if (String(profile.token_client_id) !== clientId) {
-      throw new ConnectorError("connector_response_invalid", "The verified token belongs to a different application.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "The verified token belongs to a different application.", { statusCode: 502, messageCode: "connectors.wordpressCom.verifiedTokenBelongsDifferentApplication" });
     }
     return profile.token_scope;
   },
@@ -194,7 +194,7 @@ const wordpressComProvider = Object.freeze({
         const { siteId, filename, mimeType, contentBase64, ...metadata } = validateSchemaPayload({ schema: mediaUploadSchema, mode: "replace" }, input, { statusCode: 422 });
         const bytes = Buffer.from(contentBase64, "base64");
         if (!bytes.length || bytes.length > 5 * 1024 * 1024 || bytes.toString("base64") !== contentBase64) {
-          throw new ConnectorError("connector_input_invalid", "Supply canonical base64 for a nonempty file of at most 5 MiB.", { statusCode: 422 });
+          throw new ConnectorError("connector_input_invalid", "Supply canonical base64 for a nonempty file of at most 5 MiB.", { statusCode: 422, messageCode: "connectors.shared.supplyCanonicalBase64NonemptyFile" });
         }
         const body = new FormData();
         body.append("media[0]", new Blob([bytes], { type: mimeType }), filename);

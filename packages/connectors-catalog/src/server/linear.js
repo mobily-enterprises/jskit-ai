@@ -20,12 +20,12 @@ const linearProvider = Object.freeze({
     if (!response.ok) return response;
     let value;
     try { value = await response.clone().json(); } catch {
-      throw new ConnectorError("connector_response_invalid", "Linear returned an invalid token response.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "Linear returned an invalid token response.", { statusCode: 502, messageCode: "connectors.shared.invalidTokenResponse", messageParams: { provider: "Linear" } });
     }
     // Linear accepts commas at authorization but returns space-separated grants.
     const scopes = typeof value?.scope === "string" ? value.scope.split(" ").filter(Boolean) : value?.scope;
     if (!Array.isArray(scopes) || !scopes.every(scope => typeof scope === "string" && /^[^\s,]+$/u.test(scope))) {
-      throw new ConnectorError("connector_response_invalid", "Linear returned an invalid permission grant.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "Linear returned an invalid permission grant.", { statusCode: 502, messageCode: "connectors.shared.invalidPermissionGrant", messageParams: { provider: "Linear" } });
     }
     return Response.json({ ...value, scope: scopes.join(",") }, { status: response.status });
   },

@@ -25,7 +25,7 @@ const gmailProvider = Object.freeze({ ...googleProvider(gmailDefinition, origin,
   "attachments.get": googleRead(contentScopes, { messageId: documentId, id: documentId }, ({ messageId, id }) => ({ url: `${origin}/gmail/v1/users/me/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(id)}` }), value => Number.isInteger(value?.size) && typeof value.data === "string"),
   "messages.send": gmailWrite(["gmail.send", ...composeScopes], { raw: rawField, threadId: { ...documentId, required: false } }, body => ({ path: "/messages/send", body }), messageResult),
   "messages.modify": gmailWrite(modifyScopes, { id: documentId, addLabelIds: labelIds, removeLabelIds: labelIds }, ({ id, ...body }) => {
-    if (!body.addLabelIds?.length && !body.removeLabelIds?.length) throw new ConnectorError("connector_input_invalid", "Supply labels to add or remove.", { statusCode: 422 });
+    if (!body.addLabelIds?.length && !body.removeLabelIds?.length) throw new ConnectorError("connector_input_invalid", "Supply labels to add or remove.", { statusCode: 422, messageCode: "connectors.gmail.supplyLabelsAddRemove" });
     return { path: `/messages/${encodeURIComponent(id)}/modify`, body };
   }, messageResult),
   "messages.trash": gmailWrite(modifyScopes, { id: documentId }, ({ id }) => ({ path: `/messages/${encodeURIComponent(id)}/trash` }), messageResult),

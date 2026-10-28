@@ -12,7 +12,7 @@ const mediaFields = {
 
 function mediaResult(response) {
   if (response?.result === false) {
-    throw new ConnectorError("connector_provider_failed", "KLIPY rejected the operation.", { statusCode: 502 });
+    throw new ConnectorError("connector_provider_failed", "KLIPY rejected the operation.", { statusCode: 502, messageCode: "connectors.klipy.rejectedOperation" });
   }
   return response?.result === true && Array.isArray(response.data?.data);
 }

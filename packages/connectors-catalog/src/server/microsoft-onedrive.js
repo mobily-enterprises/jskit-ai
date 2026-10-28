@@ -37,7 +37,7 @@ const base = microsoftProvider(microsoftOneDriveDefinition, "common", "items.lis
     const { parentId, name, bodyBase64, conflictBehavior } = validateSchemaPayload({ schema: uploadSchema, mode: "replace" }, input, { statusCode: 422 });
     const body = Buffer.from(bodyBase64, "base64");
     if (body.toString("base64") !== bodyBase64 || body.length > 5_000_000) {
-      throw new ConnectorError("connector_input_invalid", "Use standard padded base64 up to 5 MB; larger files need a native upload session.", { statusCode: 422 });
+      throw new ConnectorError("connector_input_invalid", "Use standard padded base64 up to 5 MB; larger files need a native upload session.", { statusCode: 422, messageCode: "connectors.microsoftOnedrive.useStandardPaddedBase64Up" });
     }
     const url = new URL(`https://graph.microsoft.com/v1.0/me/drive/items/${encodeURIComponent(parentId)}:/${encodeURIComponent(name)}:/content`);
     url.searchParams.set("@microsoft.graph.conflictBehavior", conflictBehavior);

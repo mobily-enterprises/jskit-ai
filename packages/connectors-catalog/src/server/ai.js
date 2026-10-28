@@ -10,10 +10,10 @@ function createAiConnectionResolver({ configuration, authorize, resolveReference
 
   async function resolve({ context, integrationId }) {
     const integration = Object.hasOwn(config.integrations, integrationId) ? config.integrations[integrationId] : null;
-    if (integration?.provider !== "ai") throw new ConnectorError("connector_not_found", "This AI connection is not configured.", { statusCode: 404 });
+    if (integration?.provider !== "ai") throw new ConnectorError("connector_not_found", "This AI connection is not configured.", { statusCode: 404, messageCode: "connectors.ai.connectionNotConfigured" });
     const owner = await authorize(context, { integrationId, operation: "ai.resolve", accountMode: integration.accountMode });
     if (!owner?.applicationId || !owner?.subjectId) {
-      throw new ConnectorError("connector_access_denied", "Access to this AI connection was denied.", { statusCode: 403 });
+      throw new ConnectorError("connector_access_denied", "Access to this AI connection was denied.", { statusCode: 403, messageCode: "connectors.ai.accessConnectionDenied" });
     }
     const model = getAiModel(integration.settings.model);
     const provider = aiCatalogue.providers.find((item) => item.id === model.providerId);
@@ -24,7 +24,7 @@ function createAiConnectionResolver({ configuration, authorize, resolveReference
       apiKey = "public";
     } else {
       if (integration.accountMode === "per-user" && integration.authentication.secretRef.startsWith("env:")) {
-        throw new ConnectorError("connector_binding_invalid", "Individual AI accounts require a user-owned reference, not a shared environment variable.", { statusCode: 422 });
+        throw new ConnectorError("connector_binding_invalid", "Individual AI accounts require a user-owned reference, not a shared environment variable.", { statusCode: 422, messageCode: "connectors.ai.individualAccountsRequireUserOwned" });
       }
       try {
         apiKey = await resolveReference(integration.authentication.secretRef, { ...owner }, {
@@ -32,7 +32,7 @@ function createAiConnectionResolver({ configuration, authorize, resolveReference
         });
         if (typeof apiKey !== "string" || !apiKey.trim() || /[\r\n\0]/u.test(apiKey) || apiKey.length > 16384) throw new Error();
       } catch {
-        throw new ConnectorError("connector_binding_missing", "The authorized AI account's API key is unavailable.", { statusCode: 422 });
+        throw new ConnectorError("connector_binding_missing", "The authorized AI account's API key is unavailable.", { statusCode: 422, messageCode: "connectors.ai.authorizedAccountApiKeyUnavailable" });
       }
     }
     // Never expose this result through a browser API or include it in logs.

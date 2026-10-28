@@ -39,7 +39,7 @@ const twilioProvider = Object.freeze({
       To: phone, From: { ...phone, required: false }, MessagingServiceSid: { ...sid("MG"), required: false },
       Body: { type: "string", required: true, noTrim: true, minLength: 1, maxLength: 1600 }, StatusCallback: callbackUrl
     }, values => {
-      if (Boolean(values.From) === Boolean(values.MessagingServiceSid)) throw new ConnectorError("connector_input_invalid", "Choose one sender number or Messaging Service SID.", { statusCode: 422 });
+      if (Boolean(values.From) === Boolean(values.MessagingServiceSid)) throw new ConnectorError("connector_input_invalid", "Choose one sender number or Messaging Service SID.", { statusCode: 422, messageCode: "connectors.twilio.chooseSenderNumberMessagingService" });
     }),
     "messages.get": resourceOperation("Messages", "GET", { resourceSid: sid("SM") }),
     "calls.create": resourceOperation("Calls", "POST", {
@@ -47,7 +47,7 @@ const twilioProvider = Object.freeze({
       Twiml: { type: "string", noTrim: true, minLength: 1, maxLength: 4000 },
       StatusCallback: callbackUrl, Timeout: { type: "integer", min: 5, max: 600, defaultTo: 60 }
     }, values => {
-      if (Boolean(values.Url) === Boolean(values.Twiml)) throw new ConnectorError("connector_input_invalid", "Supply either a call-control URL or inline TwiML.", { statusCode: 422 });
+      if (Boolean(values.Url) === Boolean(values.Twiml)) throw new ConnectorError("connector_input_invalid", "Supply either a call-control URL or inline TwiML.", { statusCode: 422, messageCode: "connectors.twilio.supplyEitherCallControlUrl" });
     }),
     "calls.get": resourceOperation("Calls", "GET", { resourceSid: sid("CA") }),
     "calls.list": jsonOperation((settings) => `${origins[settings.region]}/2010-04-01/Accounts/${settings.accountSid}/Calls.json`, {
@@ -65,7 +65,7 @@ const twilioProvider = Object.freeze({
 // POST form callbacks only. The caller supplies the exact public URL configured
 // at Twilio, never a URL reconstructed from untrusted forwarded headers.
 function verifyTwilioRequest({ rawBody, signature, authToken, url, accountSid, contentType }) {
-  const reject = () => { throw new ConnectorError("connector_webhook_invalid", "Invalid Twilio callback.", { statusCode: 401 }); };
+  const reject = () => { throw new ConnectorError("connector_webhook_invalid", "Invalid Twilio callback.", { statusCode: 401, messageCode: "connectors.shared.invalidCallback", messageParams: { provider: "Twilio" } }); };
   if (!(rawBody instanceof Uint8Array) || rawBody.byteLength > 1048576 ||
     typeof signature !== "string" || !/^[A-Za-z0-9+/]{27}=$/u.test(signature) ||
     typeof authToken !== "string" || !authToken ||

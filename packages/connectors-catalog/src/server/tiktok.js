@@ -8,13 +8,13 @@ const count = (value) => Number.isSafeInteger(value) && value >= 0;
 function checkReply(value) {
   const code = value?.error?.code ?? value?.code;
   if (code === "ok") return value;
-  if (typeof code !== "string" || !code) throw new ConnectorError("connector_response_invalid", "TikTok returned an invalid response.", { statusCode: 502 });
-  if (code === "access_token_invalid") throw new ConnectorError("connector_reconnect_required", "Connect this TikTok account again.", { statusCode: 401 });
+  if (typeof code !== "string" || !code) throw new ConnectorError("connector_response_invalid", "TikTok returned an invalid response.", { statusCode: 502, messageCode: "connectors.shared.invalidResponse", messageParams: { provider: "TikTok" } });
+  if (code === "access_token_invalid") throw new ConnectorError("connector_reconnect_required", "Connect this TikTok account again.", { statusCode: 401, messageCode: "connectors.shared.reconnectAccount", messageParams: { provider: "TikTok" } });
   if (["scope_not_authorized", "scope_permission_missed"].includes(code)) {
-    throw new ConnectorError("connector_scope_missing", "Connect TikTok with the permission required for this operation.", { statusCode: 403 });
+    throw new ConnectorError("connector_scope_missing", "Connect TikTok with the permission required for this operation.", { statusCode: 403, messageCode: "connectors.tiktok.connectPermissionRequiredOperation" });
   }
-  if (code === "rate_limit_exceeded") throw new ConnectorError("connector_rate_limited", "TikTok's request limit was reached.", { statusCode: 429 });
-  throw new ConnectorError("connector_provider_failed", "TikTok could not complete the request.", { statusCode: 502 });
+  if (code === "rate_limit_exceeded") throw new ConnectorError("connector_rate_limited", "TikTok's request limit was reached.", { statusCode: 429, messageCode: "connectors.shared.requestLimitReached", messageParams: { provider: "TikTok" } });
+  throw new ConnectorError("connector_provider_failed", "TikTok could not complete the request.", { statusCode: 502, messageCode: "connectors.tiktok.couldNotCompleteRequest" });
 }
 
 function profileOperation(fields, scope, validateUser) {
@@ -31,21 +31,21 @@ const tiktokProvider = Object.freeze({
     let value;
     try { value = await response.clone().json(); } catch {
       if (!response.ok) return response;
-      throw new ConnectorError("connector_response_invalid", "TikTok returned an invalid token response.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "TikTok returned an invalid token response.", { statusCode: 502, messageCode: "connectors.shared.invalidTokenResponse", messageParams: { provider: "TikTok" } });
     }
     if (!response.ok) return response;
     if (value?.error) {
-      if (value.error === "invalid_grant") throw new ConnectorError("connector_reconnect_required", "Connect this TikTok account again.", { statusCode: 401 });
-      throw new ConnectorError("connector_provider_failed", "TikTok could not authorize this connection.", { statusCode: 502 });
+      if (value.error === "invalid_grant") throw new ConnectorError("connector_reconnect_required", "Connect this TikTok account again.", { statusCode: 401, messageCode: "connectors.shared.reconnectAccount", messageParams: { provider: "TikTok" } });
+      throw new ConnectorError("connector_provider_failed", "TikTok could not authorize this connection.", { statusCode: 502, messageCode: "connectors.tiktok.couldNotAuthorizeConnection" });
     }
     if (!textId(value?.open_id) || !Number.isSafeInteger(value.expires_in) || value.expires_in <= 0 ||
       !Number.isSafeInteger(value.refresh_expires_in) || value.refresh_expires_in <= 0 || !textId(value.refresh_token) ||
       typeof value.scope !== "string" || !/^[^\s,]+(?:,[^\s,]+)*$/u.test(value.scope)) {
-      throw new ConnectorError("connector_response_invalid", "TikTok returned an invalid permission grant.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "TikTok returned an invalid permission grant.", { statusCode: 502, messageCode: "connectors.shared.invalidPermissionGrant", messageParams: { provider: "TikTok" } });
     }
     const scopes = value.scope.split(",");
-    if (new Set(scopes).size !== scopes.length) throw new ConnectorError("connector_response_invalid", "TikTok returned duplicate permissions.", { statusCode: 502 });
-    if (!scopes.includes("user.info.basic")) throw new ConnectorError("connector_scope_missing", "Connect TikTok with basic profile permission.", { statusCode: 403 });
+    if (new Set(scopes).size !== scopes.length) throw new ConnectorError("connector_response_invalid", "TikTok returned duplicate permissions.", { statusCode: 502, messageCode: "connectors.tiktok.returnedDuplicatePermissions" });
+    if (!scopes.includes("user.info.basic")) throw new ConnectorError("connector_scope_missing", "Connect TikTok with basic profile permission.", { statusCode: 403, messageCode: "connectors.tiktok.connectBasicProfilePermission" });
     return response;
   },
   apiOrigins: ["https://open.tiktokapis.com"], checkOperation: "profile.read",
@@ -72,12 +72,12 @@ const tiktokProvider = Object.freeze({
       ...(options.body ? { body: JSON.stringify(options.body) } : {}) });
     let value;
     try { value = await response.json(); } catch {
-      throw new ConnectorError("connector_response_invalid", "TikTok returned an invalid response.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "TikTok returned an invalid response.", { statusCode: 502, messageCode: "connectors.shared.invalidResponse", messageParams: { provider: "TikTok" } });
     }
     checkReply(value);
-    if (!response.ok) throw new ConnectorError("connector_provider_failed", "TikTok could not complete the request.", { statusCode: 502 });
+    if (!response.ok) throw new ConnectorError("connector_provider_failed", "TikTok could not complete the request.", { statusCode: 502, messageCode: "connectors.tiktok.couldNotCompleteRequest" });
     if (options.body?.max_count !== undefined && value.data?.videos?.length > options.body.max_count) {
-      throw new ConnectorError("connector_response_invalid", "TikTok returned too many videos.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "TikTok returned too many videos.", { statusCode: 502, messageCode: "connectors.tiktok.returnedTooManyVideos" });
     }
     return value;
   }

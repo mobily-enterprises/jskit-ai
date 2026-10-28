@@ -25,7 +25,7 @@ const mapboxProvider = Object.freeze({
       Number.isFinite(route.distance) && route.distance >= 0 && Number.isFinite(route.duration) && route.duration >= 0 && route.geometry?.type === "LineString" && Array.isArray(route.geometry.coordinates)) },
     "token.read": jsonOperation("https://api.mapbox.com/tokens/v2", {}, (result) => {
       if (["TokenMalformed", "TokenInvalid", "TokenExpired", "TokenRevoked"].includes(result?.code)) {
-        throw new ConnectorError("connector_reconnect_required", "Configure a valid Mapbox token and connect again.", { statusCode: 401 });
+        throw new ConnectorError("connector_reconnect_required", "Configure a valid Mapbox token and connect again.", { statusCode: 401, messageCode: "connectors.mapbox.configureValidTokenConnectAgain" });
       }
       return result?.code === "TokenValid" && ["pk", "sk", "tk"].includes(result.token?.usage) && typeof result.token.user === "string";
     }),

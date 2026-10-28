@@ -44,14 +44,66 @@ const integrationsSchema = createSchema({
   extensions: { type: "object", additionalProperties: true, required: false }
 });
 
+// A field error is English text or { code, params, message }, as for the kernel's
+// createValidationError: fieldErrors keeps the English, fieldErrorCodes the codes.
 class IntegrationConfigurationError extends Error {
-  constructor(fieldErrors) {
+  constructor(fieldErrors, fieldErrorCodes = {}) {
     super("Integration configuration is invalid.");
     this.name = "IntegrationConfigurationError";
     this.code = "integration_configuration_invalid";
     this.statusCode = 422;
-    this.fieldErrors = fieldErrors;
+    this.fieldErrors = {};
+    this.fieldErrorCodes = { ...fieldErrorCodes };
+    for (const [field, entry] of Object.entries(fieldErrors)) {
+      this.fieldErrors[field] = typeof entry === "string" ? entry : entry.message;
+      if (entry?.code) this.fieldErrorCodes[field] = { code: entry.code, params: { ...entry.params } };
+    }
   }
+}
+
+// Each configuration field error's English, rendered from "jskit.<code>".
+const FIELD_ERRORS = Object.freeze({
+  schemaVersion: { code: "connectors.configuration.schemaVersionUnsupported", message: "Use numeric schemaVersion 1; other versions require an explicit migration." },
+  invalid: { code: "connectors.configuration.invalid", message: "Invalid configuration." },
+  invalidJson: { code: "connectors.configuration.invalidJson", message: "Enter valid JSON." },
+  required: { code: "connectors.configuration.valueRequired", message: "This value is required." },
+  stableName: { code: "connectors.configuration.stableName", message: "Use a stable lowercase name containing letters, digits and hyphens." },
+  otherCredentialMode: { code: "connectors.configuration.otherCredentialModeField", message: "This field belongs to another credential mode." },
+  confidentialClient: { code: "connectors.configuration.confidentialClientRequired", message: "Client credentials require a confidential client." },
+  refreshTokenOAuthOnly: { code: "connectors.configuration.refreshTokenOAuthOnly", message: "Only an OAuth connection can start from a refresh token." },
+  registrationUndefined: { code: "connectors.configuration.registrationUndefined", message: "Select a registration defined in this file." },
+  registrationSecret: { code: "connectors.configuration.registrationSecret", message: "Use the registration's secret reference." },
+  refreshTokenSharedOnly: { code: "connectors.configuration.refreshTokenSharedOnly", message: "Only a shared connection can start from a refresh token in Env." },
+  refreshTokenClientCredentials: { code: "connectors.configuration.refreshTokenClientCredentials", message: "Client credentials do not use a refresh token." },
+  serviceAccountPerUser: { code: "connectors.configuration.serviceAccountPerUser", message: "A service account cannot connect as each app user." },
+  apiKeyRegistration: { code: "connectors.configuration.apiKeyRegistration", message: "API keys do not use an OAuth registration." },
+  serviceAccountRegistration: { code: "connectors.configuration.serviceAccountRegistration", message: "Service-account credentials do not use a browser OAuth registration." },
+  noCredentials: { code: "connectors.configuration.noCredentials", message: "This mode does not use credentials." },
+  duplicateScope: { code: "connectors.configuration.duplicateScope", message: "Select each permission only once." },
+  providerUnregistered: { code: "connectors.configuration.providerUnregistered", message: "Install and register this provider before using it." },
+  assistantActionUndeclared: { code: "connectors.configuration.assistantActionUndeclared", message: "This provider does not declare this assistant action." },
+  providerSettings: { code: "connectors.configuration.providerSettings", message: "Check this provider's settings." },
+  otherCredentialModeSetting: { code: "connectors.configuration.otherCredentialModeSetting", message: "This setting belongs to another credential mode." },
+  accountModeUnsupported: { code: "connectors.configuration.accountModeUnsupported", message: "This provider does not support this account mode." },
+  credentialModeUnsupported: { code: "connectors.configuration.credentialModeUnsupported", message: "This provider configuration does not support this credential mode." },
+  oauthFlowUnsupported: { code: "connectors.configuration.oauthFlowUnsupported", message: "This provider does not support this OAuth flow." },
+  clientAuthenticationUnsupported: { code: "connectors.configuration.clientAuthenticationUnsupported", message: "This provider does not support this client authentication method." },
+  clientId: { code: "connectors.configuration.clientId", message: "Check this provider's client identifier." },
+  requiredScopes: { code: "connectors.configuration.requiredScopes", message: "Include this provider's required permissions." },
+  scopeUnsupported: { code: "connectors.configuration.scopeUnsupported", message: "A selected permission is not supported by this provider configuration." },
+  scopeRequired: { code: "connectors.configuration.scopeRequired", message: "Select at least one permission." }
+});
+
+// A schema validation error's field errors with the codes the validator gave them.
+function schemaFieldErrors(error, fallback, prefix = "") {
+  const messages = {};
+  const codes = {};
+  for (const [field, message] of Object.entries(error.fieldErrors || fallback)) {
+    messages[`${prefix}${field}`] = message;
+    const coded = error.fieldErrorCodes?.[field];
+    if (coded) codes[`${prefix}${field}`] = coded;
+  }
+  return { messages, codes };
 }
 
 // Registrations, attempts and stored connections omit these when they use the defaults.
@@ -108,23 +160,25 @@ function isProviderConfigurationOnly(provider, settings = {}) {
 
 function validateIntegrationConfiguration(input, { providers = [], allowUnknownProviders = false } = {}) {
   if (input?.schemaVersion !== 1) {
-    throw new IntegrationConfigurationError({ schemaVersion: "Use numeric schemaVersion 1; other versions require an explicit migration." });
+    throw new IntegrationConfigurationError({ schemaVersion: FIELD_ERRORS.schemaVersion });
   }
   let config;
   try {
     config = validateSchemaPayload({ schema: integrationsSchema, mode: "replace" }, input);
   } catch (error) {
-    throw new IntegrationConfigurationError(error.fieldErrors || { configuration: "Invalid configuration." });
+    const { messages, codes } = schemaFieldErrors(error, { configuration: FIELD_ERRORS.invalid });
+    throw new IntegrationConfigurationError(messages, codes);
   }
   const fieldErrors = {};
+  const fieldErrorCodes = {};
   const definitions = new Map(providers.map((provider) => [provider.id, provider]));
   const requireValue = (record, key, path) => {
-    if (!record[key]) fieldErrors[`${path}.${key}`] = "This value is required.";
+    if (!record[key]) fieldErrors[`${path}.${key}`] = FIELD_ERRORS.required;
   };
   for (const field of ["integrations", "registrations"]) {
     for (const id of Object.keys(config[field])) {
       if (!/^[a-z][a-z0-9-]*$/u.test(id) || ["constructor", "prototype"].includes(id)) {
-        fieldErrors[`${field}.${id}`] = "Use a stable lowercase name containing letters, digits and hyphens.";
+        fieldErrors[`${field}.${id}`] = FIELD_ERRORS.stableName;
       }
     }
   }
@@ -135,10 +189,10 @@ function validateIntegrationConfiguration(input, { providers = [], allowUnknownP
     for (const key of required) requireValue(registration, key, path);
     const forbidden = [...(clientCredentials ? ["callbackUrlRef"] : []), ...(registration.tokenEndpointAuthMethod === "none" ? ["clientSecretRef"] : [])];
     for (const key of forbidden) {
-      if (Object.hasOwn(registration, key)) fieldErrors[`${path}.${key}`] = "This field belongs to another credential mode.";
+      if (Object.hasOwn(registration, key)) fieldErrors[`${path}.${key}`] = FIELD_ERRORS.otherCredentialMode;
     }
     if (clientCredentials && registration.tokenEndpointAuthMethod === "none") {
-      fieldErrors[`${path}.tokenEndpointAuthMethod`] = "Client credentials require a confidential client.";
+      fieldErrors[`${path}.tokenEndpointAuthMethod`] = FIELD_ERRORS.confidentialClient;
     }
   }
   for (const [id, integration] of Object.entries(config.integrations)) {
@@ -148,94 +202,94 @@ function validateIntegrationConfiguration(input, { providers = [], allowUnknownP
     const registration = config.registrations[auth.registrationRef];
     const grantType = registrationGrantType(registration);
     if (auth.refreshTokenRef && auth.method !== "oauth2") {
-      fieldErrors[`${path}.authentication.refreshTokenRef`] = "Only an OAuth connection can start from a refresh token.";
+      fieldErrors[`${path}.authentication.refreshTokenRef`] = FIELD_ERRORS.refreshTokenOAuthOnly;
     }
     if (auth.method === "oauth2") {
       if (!auth.registrationRef || !Object.hasOwn(config.registrations, auth.registrationRef)) {
-        fieldErrors[`${path}.authentication.registrationRef`] = "Select a registration defined in this file.";
+        fieldErrors[`${path}.authentication.registrationRef`] = FIELD_ERRORS.registrationUndefined;
       }
-      if (auth.secretRef) fieldErrors[`${path}.authentication.secretRef`] = "Use the registration's secret reference.";
+      if (auth.secretRef) fieldErrors[`${path}.authentication.secretRef`] = FIELD_ERRORS.registrationSecret;
       if (auth.refreshTokenRef && integration.accountMode !== "shared") {
-        fieldErrors[`${path}.authentication.refreshTokenRef`] = "Only a shared connection can start from a refresh token in Env.";
+        fieldErrors[`${path}.authentication.refreshTokenRef`] = FIELD_ERRORS.refreshTokenSharedOnly;
       } else if (auth.refreshTokenRef && grantType !== "authorization_code") {
-        fieldErrors[`${path}.authentication.refreshTokenRef`] = "Client credentials do not use a refresh token.";
+        fieldErrors[`${path}.authentication.refreshTokenRef`] = FIELD_ERRORS.refreshTokenClientCredentials;
       }
       if (grantType === "client_credentials" && integration.accountMode === "per-user") {
-        fieldErrors[`${path}.accountMode`] = "A service account cannot connect as each app user.";
+        fieldErrors[`${path}.accountMode`] = FIELD_ERRORS.serviceAccountPerUser;
       }
     } else if (auth.method === "api-key") {
       if (!provider?.apiKeySecretOptional) requireValue(auth, "secretRef", `${path}.authentication`);
-      if (auth.registrationRef) fieldErrors[`${path}.authentication.registrationRef`] = "API keys do not use an OAuth registration.";
+      if (auth.registrationRef) fieldErrors[`${path}.authentication.registrationRef`] = FIELD_ERRORS.apiKeyRegistration;
     } else if (auth.method === "service-account") {
       requireValue(auth, "secretRef", `${path}.authentication`);
-      if (auth.registrationRef) fieldErrors[`${path}.authentication.registrationRef`] = "Service-account credentials do not use a browser OAuth registration.";
-      if (integration.accountMode === "per-user") fieldErrors[`${path}.accountMode`] = "A service account cannot connect as each app user.";
+      if (auth.registrationRef) fieldErrors[`${path}.authentication.registrationRef`] = FIELD_ERRORS.serviceAccountRegistration;
+      if (integration.accountMode === "per-user") fieldErrors[`${path}.accountMode`] = FIELD_ERRORS.serviceAccountPerUser;
     } else {
       for (const field of ["secretRef", "registrationRef"]) {
-        if (Object.hasOwn(auth, field)) fieldErrors[`${path}.authentication.${field}`] = "This mode does not use credentials.";
+        if (Object.hasOwn(auth, field)) fieldErrors[`${path}.authentication.${field}`] = FIELD_ERRORS.noCredentials;
       }
     }
     if (new Set(integration.scopes).size !== integration.scopes.length) {
-      fieldErrors[`${path}.scopes`] = "Select each permission only once.";
+      fieldErrors[`${path}.scopes`] = FIELD_ERRORS.duplicateScope;
     }
     if (providers.length) {
       if (!provider) {
-        if (!allowUnknownProviders) fieldErrors[`${path}.provider`] = "Install and register this provider before using it.";
+        if (!allowUnknownProviders) fieldErrors[`${path}.provider`] = FIELD_ERRORS.providerUnregistered;
         continue;
       }
       for (const action of Object.keys(integration.assistantPolicy?.actions || {})) {
         if (!provider.assistantActions?.some((item) => item.value === action)) {
-          fieldErrors[`${path}.assistantPolicy.actions.${action}`] = "This provider does not declare this assistant action.";
+          fieldErrors[`${path}.assistantPolicy.actions.${action}`] = FIELD_ERRORS.assistantActionUndeclared;
         }
       }
       if (provider.settingsSchema) {
         try {
           integration.settings = validateSchemaPayload({ schema: getProviderSettingsSchema(provider, integration.settings), mode: "replace" }, integration.settings || {});
         } catch (error) {
-          for (const [field, message] of Object.entries(error.fieldErrors || { settings: "Check this provider's settings." })) {
-            fieldErrors[`${path}.settings.${field}`] = message;
-          }
+          const { messages, codes } = schemaFieldErrors(error, { settings: FIELD_ERRORS.providerSettings }, `${path}.settings.`);
+          Object.assign(fieldErrors, messages);
+          Object.assign(fieldErrorCodes, codes);
         }
       }
       for (const field of provider.settingsFields || []) {
         if (field.authenticationMethods && !field.authenticationMethods.includes(auth.method) && Object.hasOwn(integration.settings || {}, field.name)) {
-          fieldErrors[`${path}.settings.${field.name}`] = "This setting belongs to another credential mode.";
+          fieldErrors[`${path}.settings.${field.name}`] = FIELD_ERRORS.otherCredentialModeSetting;
         }
       }
       if (!getProviderAccountModes(provider, integration.settings || {}).includes(integration.accountMode)) {
-        fieldErrors[`${path}.accountMode`] = "This provider does not support this account mode.";
+        fieldErrors[`${path}.accountMode`] = FIELD_ERRORS.accountModeUnsupported;
       }
       if (!getProviderAuthenticationMethods(provider, integration.settings).includes(auth.method)) {
-        fieldErrors[`${path}.authentication.method`] = "This provider configuration does not support this credential mode.";
+        fieldErrors[`${path}.authentication.method`] = FIELD_ERRORS.credentialModeUnsupported;
       }
       if (auth.method === "oauth2" && registration?.source === "own") {
         const registrationPath = `registrations.${auth.registrationRef}`;
         if (!providerGrantTypes(provider).includes(grantType)) {
-          fieldErrors[`${registrationPath}.grantType`] = "This provider does not support this OAuth flow.";
+          fieldErrors[`${registrationPath}.grantType`] = FIELD_ERRORS.oauthFlowUnsupported;
         }
         const methods = getProviderClientAuthenticationMethods(provider, grantType, integration.settings || {});
         if (!methods.includes(registrationClientAuthentication(registration))) {
-          fieldErrors[`${registrationPath}.tokenEndpointAuthMethod`] = "This provider does not support this client authentication method.";
+          fieldErrors[`${registrationPath}.tokenEndpointAuthMethod`] = FIELD_ERRORS.clientAuthenticationUnsupported;
         }
         if (registration.clientId && provider.validateClientId) {
           const result = provider.validateClientId(registration.clientId);
-          if (result !== true) fieldErrors[`${registrationPath}.clientId`] = result || "Check this provider's client identifier.";
+          if (result !== true) fieldErrors[`${registrationPath}.clientId`] = result || FIELD_ERRORS.clientId;
         }
       }
       const scopes = getProviderScopes(provider, integration.settings || {}, grantType, auth.method);
       const allowedScopes = new Set(scopes.map((scope) => scope.value));
       if (scopes.some((scope) => scope.required && !integration.scopes.includes(scope.value))) {
-        fieldErrors[`${path}.scopes`] = "Include this provider's required permissions.";
+        fieldErrors[`${path}.scopes`] = FIELD_ERRORS.requiredScopes;
       }
       if (integration.scopes.some((scope) => !allowedScopes.has(scope))) {
-        fieldErrors[`${path}.scopes`] = "A selected permission is not supported by this provider configuration.";
+        fieldErrors[`${path}.scopes`] = FIELD_ERRORS.scopeUnsupported;
       }
       if (["oauth2", "service-account"].includes(auth.method) && scopes.length && !integration.scopes.length) {
-        fieldErrors[`${path}.scopes`] = "Select at least one permission.";
+        fieldErrors[`${path}.scopes`] = FIELD_ERRORS.scopeRequired;
       }
     }
   }
-  if (Object.keys(fieldErrors).length) throw new IntegrationConfigurationError(fieldErrors);
+  if (Object.keys(fieldErrors).length) throw new IntegrationConfigurationError(fieldErrors, fieldErrorCodes);
   return config;
 }
 
@@ -244,7 +298,7 @@ function parseIntegrationConfiguration(text, options) {
   try {
     value = JSON.parse(text);
   } catch {
-    throw new IntegrationConfigurationError({ configuration: "Enter valid JSON." });
+    throw new IntegrationConfigurationError({ configuration: FIELD_ERRORS.invalidJson });
   }
   return validateIntegrationConfiguration(value, options);
 }

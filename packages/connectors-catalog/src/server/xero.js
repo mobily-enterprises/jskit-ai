@@ -38,7 +38,7 @@ function accountingRead(resource, fields, scopes, validateResult) {
       const { tenantId, ...values } = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
       if (values.fromDate && values.toDate && values.fromDate > values.toDate ||
           values.DateFrom && values.DateTo && values.DateFrom > values.DateTo) {
-        throw new ConnectorError("connector_input_invalid", "The report start date must not follow its end date.", { statusCode: 422 });
+        throw new ConnectorError("connector_input_invalid", "The report start date must not follow its end date.", { statusCode: 422, messageCode: "connectors.xero.reportDatesOrder" });
       }
       const url = new URL(`https://api.xero.com/api.xro/2.0/${resource}`);
       for (const [name, value] of Object.entries(values)) url.searchParams.set(name, String(value));
@@ -55,7 +55,7 @@ function accountingRecord(resource, idName, scopes, fields = {}) {
     request(input) {
       const { tenantId: tenant, id, ...values } = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
       if (values.DateFrom && values.DateTo && values.DateFrom > values.DateTo) {
-        throw new ConnectorError("connector_input_invalid", "The budget start date must not follow its end date.", { statusCode: 422 });
+        throw new ConnectorError("connector_input_invalid", "The budget start date must not follow its end date.", { statusCode: 422, messageCode: "connectors.xero.budgetDatesOrder" });
       }
       const url = new URL(`https://api.xero.com/api.xro/2.0/${resource}/${id.toLowerCase()}`);
       for (const [name, value] of Object.entries(values)) url.searchParams.set(name, String(value));
@@ -79,7 +79,7 @@ function contactWrite(update) {
     scopes: ["accounting.contacts"],
     request(input) {
       const { tenantId: tenant, idempotencyKey, id, ...contact } = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
-      if (Object.keys(contact).length === 0) throw new ConnectorError("connector_input_invalid", "Supply a contact field to change.", { statusCode: 422 });
+      if (Object.keys(contact).length === 0) throw new ConnectorError("connector_input_invalid", "Supply a contact field to change.", { statusCode: 422, messageCode: "connectors.xero.supplyContactFieldChange" });
       return { method: update ? "POST" : "PUT", url: `https://api.xero.com/api.xro/2.0/Contacts${update ? `/${id.toLowerCase()}` : ""}`,
         headers: { "Xero-tenant-id": tenant.toLowerCase(), "Idempotency-Key": idempotencyKey }, body: { Contacts: [contact] } };
     },
@@ -123,9 +123,9 @@ function invoiceWrite(update) {
     scopes: ["accounting.invoices"],
     request(input) {
       const { tenantId: tenant, idempotencyKey, id, contactId, ...invoice } = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
-      if (!contactId && !Object.keys(invoice).length) throw new ConnectorError("connector_input_invalid", "Supply an invoice field to change.", { statusCode: 422 });
+      if (!contactId && !Object.keys(invoice).length) throw new ConnectorError("connector_input_invalid", "Supply an invoice field to change.", { statusCode: 422, messageCode: "connectors.xero.supplyInvoiceFieldChange" });
       if (invoice.Type === "ACCPAY" && invoice.LineItems?.some(line => line.DiscountRate !== undefined)) {
-        throw new ConnectorError("connector_input_invalid", "Discount rates apply only to sales invoices.", { statusCode: 422 });
+        throw new ConnectorError("connector_input_invalid", "Discount rates apply only to sales invoices.", { statusCode: 422, messageCode: "connectors.xero.discountRatesApplySalesInvoices" });
       }
       if (contactId) invoice.Contact = { ContactID: contactId };
       return { method: update ? "POST" : "PUT", url: `https://api.xero.com/api.xro/2.0/Invoices${update ? `/${id.toLowerCase()}` : ""}?unitdp=4`,
@@ -161,7 +161,7 @@ function attachmentOperation(action) {
       if (writing) {
         body = Buffer.from(contentBase64, "base64");
         if (!body.length || body.length > 3 * 1024 * 1024 || body.toString("base64") !== contentBase64) {
-          throw new ConnectorError("connector_input_invalid", "Supply canonical base64 for a nonempty attachment of at most 3 MiB.", { statusCode: 422 });
+          throw new ConnectorError("connector_input_invalid", "Supply canonical base64 for a nonempty attachment of at most 3 MiB.", { statusCode: 422, messageCode: "connectors.xero.supplyCanonicalBase64NonemptyAttachment" });
         }
         headers["Content-Type"] = "application/octet-stream";
         headers["Idempotency-Key"] = idempotencyKey;
@@ -200,7 +200,7 @@ function bankTransactionWrite(update) {
     scopes: ["accounting.banktransactions"],
     request(input) {
       const { tenantId: tenant, idempotencyKey, id, contactId, bankAccountId, ...transaction } = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
-      if (!contactId && !bankAccountId && !Object.keys(transaction).length) throw new ConnectorError("connector_input_invalid", "Supply a bank transaction field to change.", { statusCode: 422 });
+      if (!contactId && !bankAccountId && !Object.keys(transaction).length) throw new ConnectorError("connector_input_invalid", "Supply a bank transaction field to change.", { statusCode: 422, messageCode: "connectors.xero.supplyBankTransactionFieldChange" });
       if (contactId) transaction.Contact = { ContactID: contactId };
       if (bankAccountId) transaction.BankAccount = { AccountID: bankAccountId };
       if (update) transaction.BankTransactionID = id.toLowerCase();
@@ -239,7 +239,7 @@ function manualJournalWrite(update) {
     scopes: ["accounting.manualjournals"],
     request(input) {
       const { tenantId: tenant, idempotencyKey, id, ...journal } = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
-      if (!Object.keys(journal).length) throw new ConnectorError("connector_input_invalid", "Supply a journal field to change.", { statusCode: 422 });
+      if (!Object.keys(journal).length) throw new ConnectorError("connector_input_invalid", "Supply a journal field to change.", { statusCode: 422, messageCode: "connectors.xero.supplyJournalFieldChange" });
       if (update) journal.ManualJournalID = id.toLowerCase();
       return { method: update ? "POST" : "PUT", url: `https://api.xero.com/api.xro/2.0/ManualJournals${update ? `/${id.toLowerCase()}` : ""}`,
         headers: { "Xero-tenant-id": tenant.toLowerCase(), "Idempotency-Key": idempotencyKey }, body: { ManualJournals: [journal] } };
@@ -342,9 +342,9 @@ const xeroProvider = Object.freeze({
       const tenant = options.headers["Xero-tenant-id"];
       const headers = Object.fromEntries(Object.entries(options.headers).filter(([key]) => ["authorization", "accept"].includes(key.toLowerCase())));
       const connections = await request(connectionsUrl, { ...options, method: "GET", body: undefined, headers });
-      if (!validConnections(connections)) throw new ConnectorError("connector_response_invalid", "Xero returned invalid connections.", { statusCode: 502 });
+      if (!validConnections(connections)) throw new ConnectorError("connector_response_invalid", "Xero returned invalid connections.", { statusCode: 502, messageCode: "connectors.xero.returnedInvalidConnections" });
       if (!connections.some((entry) => entry.tenantType === "ORGANISATION" && entry.tenantId.toLowerCase() === tenant)) {
-        throw new ConnectorError("connector_permission_denied", "This Xero organisation is not connected to this account.", { statusCode: 403 });
+        throw new ConnectorError("connector_permission_denied", "This Xero organisation is not connected to this account.", { statusCode: 403, messageCode: "connectors.xero.organisationNotConnectedAccount" });
       }
     }
     const attachmentFile = /\/Attachments\/[^/]+$/u.test(new URL(address).pathname);
@@ -363,7 +363,7 @@ const xeroProvider = Object.freeze({
           size += value.byteLength;
           if (size > 3 * 1024 * 1024) {
             await reader.cancel();
-            throw new ConnectorError("connector_response_too_large", "Xero attachment responses are limited to 3 MiB.", { statusCode: 413 });
+            throw new ConnectorError("connector_response_too_large", "Xero attachment responses are limited to 3 MiB.", { statusCode: 413, messageCode: "connectors.xero.attachmentResponsesLimited3Mib" });
           }
           chunks.push(value);
         }
@@ -372,7 +372,7 @@ const xeroProvider = Object.freeze({
       if (downloading) return { contentBase64: bytes.toString("base64"), size,
         contentType: response.headers.get("content-type")?.split(";")[0] || "application/octet-stream" };
       try { return JSON.parse(bytes.toString("utf8")); }
-      catch { throw new ConnectorError("connector_response_invalid", "Xero returned an invalid attachment response.", { statusCode: 502 }); }
+      catch { throw new ConnectorError("connector_response_invalid", "Xero returned an invalid attachment response.", { statusCode: 502, messageCode: "connectors.xero.returnedInvalidAttachmentResponse" }); }
     }
     const result = await request(address, options);
     const url = new URL(address);
@@ -381,15 +381,15 @@ const xeroProvider = Object.freeze({
       const idName = { Contacts: "ContactID", Invoices: "InvoiceID", Budgets: "BudgetID", BankTransactions: "BankTransactionID", ManualJournals: "ManualJournalID" }[record[1]];
       const returnedId = result?.[record[1]]?.[0]?.[idName];
       if (!uuid(returnedId) || returnedId.toLowerCase() !== record[2].toLowerCase()) {
-        throw new ConnectorError("connector_response_invalid", "Xero returned a different record.", { statusCode: 502 });
+        throw new ConnectorError("connector_response_invalid", "Xero returned a different record.", { statusCode: 502, messageCode: "connectors.shared.differentRecord", messageParams: { provider: "Xero" } });
       }
     }
     if (url.pathname.endsWith("/Organisation") && result?.Organisations?.[0]?.OrganisationID?.toLowerCase() !== options.headers["Xero-tenant-id"]) {
-      throw new ConnectorError("connector_response_invalid", "Xero returned a different organisation.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "Xero returned a different organisation.", { statusCode: 502, messageCode: "connectors.xero.returnedDifferentOrganisation" });
     }
     const records = url.pathname.endsWith("/Contacts") ? result?.Contacts : url.pathname.endsWith("/Invoices") ? result?.Invoices : url.pathname.endsWith("/Payments") ? result?.Payments : null;
     if (url.searchParams.has("pageSize") && Array.isArray(records) && records.length > Number(url.searchParams.get("pageSize"))) {
-      throw new ConnectorError("connector_response_invalid", "Xero returned more records than requested.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "Xero returned more records than requested.", { statusCode: 502, messageCode: "connectors.shared.tooManyRecords", messageParams: { provider: "Xero" } });
     }
     return result;
   }

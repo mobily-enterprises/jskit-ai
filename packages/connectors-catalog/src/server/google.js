@@ -13,14 +13,15 @@ const documentId = { type: "string", required: true, minLength: 1, maxLength: 10
 const pageToken = { type: "string", minLength: 1, maxLength: 4096 };
 
 // Request builders report rejected input as the caller's mistake, not a provider outage.
-const inputInvalid = (message, statusCode = 422) => new ConnectorError("connector_input_invalid", message, { statusCode });
+const inputInvalid = (message, { statusCode = 422, ...codes } = {}) => new ConnectorError("connector_input_invalid", message, { statusCode, ...codes });
 const nativeRequest = request => request && typeof request === "object" && !Array.isArray(request) && Object.keys(request).length === 1 &&
   /^[a-zA-Z][a-zA-Z0-9]+$/.test(Object.keys(request)[0]) && Boolean(Object.values(request)[0]) &&
   typeof Object.values(request)[0] === "object" && !Array.isArray(Object.values(request)[0]);
 // Docs, Slides and Sheets batchUpdate share one limit: 1-100 single-operation request objects within 1 MiB.
 function googleBatchRequests(requests, product) {
   if (!requests.length || requests.length > 100 || Buffer.byteLength(JSON.stringify(requests)) > 1048576 || !requests.every(nativeRequest)) {
-    throw inputInvalid(`Supply 1–100 native ${product} request objects, one operation per object, within 1 MiB.`);
+    throw inputInvalid(`Supply 1–100 native ${product} request objects, one operation per object, within 1 MiB.`,
+      { messageCode: "connectors.google.batchRequestsInvalid", messageParams: { product } });
   }
   return requests;
 }

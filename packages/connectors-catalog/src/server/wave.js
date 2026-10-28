@@ -164,13 +164,13 @@ const waveProvider = Object.freeze({
   apiOrigins: ["https://gql.waveapps.com"], checkOperation: "user.read",
   async normalizeTokenResponse(response) {
     if (response.status === 403) {
-      throw new ConnectorError("connector_permission_denied", "Wave denied token access. Check the business subscription and permissions.", { statusCode: 403 });
+      throw new ConnectorError("connector_permission_denied", "Wave denied token access. Check the business subscription and permissions.", { statusCode: 403, messageCode: "connectors.wave.deniedTokenAccessCheckBusiness" });
     }
     if (response.ok) {
       let value;
       try { value = await response.clone().json(); } catch { /* reported below */ }
       if (typeof value?.scope !== "string" || !/^[^\s]+(?: [^\s]+)*$/u.test(value.scope)) {
-        throw new ConnectorError("connector_response_invalid", "Wave returned an invalid permission grant.", { statusCode: 502 });
+        throw new ConnectorError("connector_response_invalid", "Wave returned an invalid permission grant.", { statusCode: 502, messageCode: "connectors.shared.invalidPermissionGrant", messageParams: { provider: "Wave" } });
       }
     }
     return response;
@@ -311,9 +311,9 @@ const waveProvider = Object.freeze({
       const result = await transport(url, init);
       if (Array.isArray(result?.errors) && result.errors.length) {
         const codes = result.errors.map((error) => error?.extensions?.code);
-        if (codes.includes("UNAUTHENTICATED")) throw new ConnectorError("connector_reconnect_required", "Connect this Wave account again.", { statusCode: 401 });
-        if (codes.includes("NOT_FOUND")) throw new ConnectorError("connector_resource_not_found", "This Wave resource is not available.", { statusCode: 404 });
-        throw new ConnectorError("connector_provider_failed", "Wave could not complete this query.", { statusCode: 502 });
+        if (codes.includes("UNAUTHENTICATED")) throw new ConnectorError("connector_reconnect_required", "Connect this Wave account again.", { statusCode: 401, messageCode: "connectors.shared.reconnectAccount", messageParams: { provider: "Wave" } });
+        if (codes.includes("NOT_FOUND")) throw new ConnectorError("connector_resource_not_found", "This Wave resource is not available.", { statusCode: 404, messageCode: "connectors.shared.resourceUnavailable", messageParams: { provider: "Wave" } });
+        throw new ConnectorError("connector_provider_failed", "Wave could not complete this query.", { statusCode: 502, messageCode: "connectors.wave.couldNotCompleteQuery" });
       }
       return result;
     };
@@ -333,7 +333,7 @@ const waveProvider = Object.freeze({
         if (line.customerId) related.set(`customer:${line.customerId}`, { field: "customer", id: line.customerId });
         for (const tax of line.taxes || []) related.set(`salesTax:${tax.salesTaxId}`, { field: "salesTax", id: tax.salesTaxId });
       }
-      if (related.size > 100) throw new ConnectorError("connector_input_invalid", "Use at most 100 distinct related records per transaction.", { statusCode: 422 });
+      if (related.size > 100) throw new ConnectorError("connector_input_invalid", "Use at most 100 distinct related records per transaction.", { statusCode: 422, messageCode: "connectors.wave.useMost100DistinctRelated" });
       for (const target of related.values()) {
         const owner = await request(address, { ...options, body: {
           query: `query ConnectorWaveTransactionOwner($businessId: ID!, $id: ID!) { business(id: $businessId) { id record: ${target.field}(id: $id) { id business { id } } } }`,
@@ -341,7 +341,7 @@ const waveProvider = Object.freeze({
         } });
         if (owner?.data?.business?.id !== variables.businessId || owner.data.business.record?.id !== target.id ||
             owner.data.business.record.business?.id !== variables.businessId) {
-          throw new ConnectorError("connector_resource_not_found", "A transaction account, customer or tax is not available in the selected business. Check read access.", { statusCode: 404 });
+          throw new ConnectorError("connector_resource_not_found", "A transaction account, customer or tax is not available in the selected business. Check read access.", { statusCode: 404, messageCode: "connectors.wave.transactionAccountCustomerTaxNot" });
         }
       }
       options = { ...options, body: { ...options.body, variables: { input: { ...values, businessId: variables.businessId } } } };
@@ -352,17 +352,17 @@ const waveProvider = Object.freeze({
       const values = variables.input;
       if (accountingMatch[2] !== "Create") {
         const changedFields = Object.keys(values).filter(key => key !== "id" && key !== "sequence");
-        if (accountingMatch[2] === "Patch" && !changedFields.length) throw new ConnectorError("connector_input_invalid", "Choose accounting fields to update.", { statusCode: 422 });
+        if (accountingMatch[2] === "Patch" && !changedFields.length) throw new ConnectorError("connector_input_invalid", "Choose accounting fields to update.", { statusCode: 422, messageCode: "connectors.wave.chooseAccountingFieldsUpdate" });
         const existing = await request(address, { ...options, body: {
           query: `query ConnectorWaveAccountingOwner($businessId: ID!, $id: ID!) { business(id: $businessId) { id record: ${accountingResource}(id: $id) { id business { id } ${accountingResource === "account" ? "sequence" : ""} } } }`,
           variables: { businessId: variables.businessId, id: values.id }
         } });
         if (existing?.data?.business?.id !== variables.businessId || existing.data.business.record?.id !== values.id ||
             existing.data.business.record.business?.id !== variables.businessId) {
-          throw new ConnectorError("connector_resource_not_found", "This accounting record is not available in the selected business. Check read access.", { statusCode: 404 });
+          throw new ConnectorError("connector_resource_not_found", "This accounting record is not available in the selected business. Check read access.", { statusCode: 404, messageCode: "connectors.wave.accountingRecordNotAvailableSelected" });
         }
         if (accountingMatch[2] === "Patch" && accountingResource === "account" && existing.data.business.record.sequence !== values.sequence) {
-          throw new ConnectorError("connector_conflict", "The account changed. Reload it before applying your edit.", { statusCode: 409 });
+          throw new ConnectorError("connector_conflict", "The account changed. Reload it before applying your edit.", { statusCode: 409, messageCode: "connectors.wave.accountChangedReloadApplyingEdit" });
         }
       }
       options = { ...options, body: { ...options.body, variables: { input: accountingMatch[2] === "Create" ? { ...values, businessId: variables.businessId } : values } } };
@@ -371,7 +371,7 @@ const waveProvider = Object.freeze({
     if (productAction) {
       const values = variables.input;
       if (productAction === "Patch" && Object.keys(values).length < 2) {
-        throw new ConnectorError("connector_input_invalid", "Choose at least one product field to update.", { statusCode: 422 });
+        throw new ConnectorError("connector_input_invalid", "Choose at least one product field to update.", { statusCode: 422, messageCode: "connectors.wave.chooseLeastProductFieldUpdate" });
       }
       const related = [];
       if (productAction === "Patch") related.push({ field: "product", id: values.id });
@@ -386,7 +386,7 @@ const waveProvider = Object.freeze({
         } });
         if (owner?.data?.business?.id !== variables.businessId ||
             owner.data.business.record?.id !== target.id || owner.data.business.record.business?.id !== variables.businessId) {
-          throw new ConnectorError("connector_resource_not_found", "This product, account or tax is not available in the selected business. Check read access.", { statusCode: 404 });
+          throw new ConnectorError("connector_resource_not_found", "This product, account or tax is not available in the selected business. Check read access.", { statusCode: 404, messageCode: "connectors.wave.productAccountTaxNotAvailable" });
         }
       }
       options = { ...options, body: { ...options.body, variables: { input: productAction === "Create" ? { ...values, businessId: variables.businessId } : values } } };
@@ -394,7 +394,7 @@ const waveProvider = Object.freeze({
     if (documentAction) {
       const values = variables.input;
       if (documentAction === "Patch" && Object.keys(values).length < 2) {
-        throw new ConnectorError("connector_input_invalid", "Choose at least one document field to update.", { statusCode: 422 });
+        throw new ConnectorError("connector_input_invalid", "Choose at least one document field to update.", { statusCode: 422, messageCode: "connectors.wave.chooseLeastDocumentFieldUpdate" });
       }
       const targetId = values.id || values[`${resource}Id`];
       if (targetId) {
@@ -404,13 +404,13 @@ const waveProvider = Object.freeze({
         } });
         if (existing?.data?.business?.id !== variables.businessId ||
             existing.data.business[resource]?.id !== targetId || (resource === "invoice" ? existing.data.business[resource].business?.id : existing.data.business[resource].customer?.business?.id) !== variables.businessId) {
-          throw new ConnectorError("connector_resource_not_found", "This document is not available in the selected business. Check read access.", { statusCode: 404 });
+          throw new ConnectorError("connector_resource_not_found", "This document is not available in the selected business. Check read access.", { statusCode: 404, messageCode: "connectors.wave.documentNotAvailableSelectedBusiness" });
         }
         const status = existing.data.business[resource].status;
         if (documentAction === "Send" && ((resource === "invoice" && existing.data.business.emailSendEnabled !== true) ||
             typeof status !== "string" || !status || status === "DRAFT" ||
             (resource === "estimate" && !["APPROVED", "SENT", "VIEWED", "ACCEPTED"].includes(status)))) {
-          throw new ConnectorError("connector_input_invalid", "Approve the document and check Wave email eligibility before sending.", { statusCode: 422 });
+          throw new ConnectorError("connector_input_invalid", "Approve the document and check Wave email eligibility before sending.", { statusCode: 422, messageCode: "connectors.wave.approveDocumentCheckEmailEligibility" });
         }
       }
       if (values.customerId) {
@@ -420,14 +420,14 @@ const waveProvider = Object.freeze({
         } });
         if (owner?.data?.business?.id !== variables.businessId || owner.data.business.customer?.id !== values.customerId ||
             owner.data.business.customer.business?.id !== variables.businessId) {
-          throw new ConnectorError("connector_resource_not_found", "This customer is not available in the selected business. Check read access.", { statusCode: 404 });
+          throw new ConnectorError("connector_resource_not_found", "This customer is not available in the selected business. Check read access.", { statusCode: 404, messageCode: "connectors.wave.customerNotAvailableCheckAccess" });
         }
       }
       options = { ...options, body: { ...options.body, variables: { input: documentAction === "Create" ? { ...values, businessId: variables.businessId } : values } } };
     }
     if (patchCustomer) {
       if (Object.keys(variables.input).length < 2) {
-        throw new ConnectorError("connector_input_invalid", "Choose at least one customer field to update.", { statusCode: 422 });
+        throw new ConnectorError("connector_input_invalid", "Choose at least one customer field to update.", { statusCode: 422, messageCode: "connectors.wave.chooseLeastCustomerFieldUpdate" });
       }
       const existing = await request(address, { ...options, body: {
         query: "query ConnectorWaveCustomerOwner($businessId: ID!, $id: ID!) { business(id: $businessId) { id customer(id: $id) { id business { id } } } }",
@@ -435,7 +435,7 @@ const waveProvider = Object.freeze({
       } });
       if (existing?.data?.business?.id !== variables.businessId || existing.data.business.customer?.id !== variables.input.id ||
           existing.data.business.customer.business?.id !== variables.businessId) {
-        throw new ConnectorError("connector_resource_not_found", "This customer is not available in the selected business.", { statusCode: 404 });
+        throw new ConnectorError("connector_resource_not_found", "This customer is not available in the selected business.", { statusCode: 404, messageCode: "connectors.wave.customerNotAvailable" });
       }
       // Business selection is a local authorization input; CustomerPatchInput only takes its customer ID.
       options = { ...options, body: { ...options.body, variables: { input: variables.input } } };
@@ -443,76 +443,76 @@ const waveProvider = Object.freeze({
     const result = await request(address, options);
     if (transactionCreate) {
       if (result?.data?.moneyTransactionCreate?.didSucceed === false) {
-        throw new ConnectorError("connector_input_invalid", "Wave rejected the transaction. Review its balance, accounts and details before submitting again.", { statusCode: 422 });
+        throw new ConnectorError("connector_input_invalid", "Wave rejected the transaction. Review its balance, accounts and details before submitting again.", { statusCode: 422, messageCode: "connectors.wave.rejectedTransactionReviewBalanceAccounts" });
       }
       return result;
     }
     if (accountingMatch) {
       const outcome = result?.data?.[`${accountingResource}${accountingMatch[2]}`];
-      if (outcome?.didSucceed === false) throw new ConnectorError("connector_input_invalid", "Wave rejected the accounting change. Check the values and current record.", { statusCode: 422 });
+      if (outcome?.didSucceed === false) throw new ConnectorError("connector_input_invalid", "Wave rejected the accounting change. Check the values and current record.", { statusCode: 422, messageCode: "connectors.wave.rejectedAccountingChangeCheckValues" });
       if (outcome?.didSucceed === true && accountingMatch[2] !== "Archive" && (outcome[accountingResource]?.business?.id !== variables.businessId ||
           (variables.input.id && outcome[accountingResource]?.id !== variables.input.id))) {
-        throw new ConnectorError("connector_response_invalid", "Wave returned an unexpected accounting record. Check the outcome before retrying.", { statusCode: 502 });
+        throw new ConnectorError("connector_response_invalid", "Wave returned an unexpected accounting record. Check the outcome before retrying.", { statusCode: 502, messageCode: "connectors.wave.returnedUnexpectedAccountingRecordCheck" });
       }
       return result;
     }
     if (productAction) {
       const value = result?.data?.[`product${productAction}`];
       if (value?.didSucceed === false) {
-        throw new ConnectorError("connector_input_invalid", "Wave rejected the product details. Check accounts, taxes and price.", { statusCode: 422 });
+        throw new ConnectorError("connector_input_invalid", "Wave rejected the product details. Check accounts, taxes and price.", { statusCode: 422, messageCode: "connectors.wave.rejectedProductDetailsCheckAccounts" });
       }
       if (value?.didSucceed === true && (value.product?.business?.id !== variables.businessId ||
           (productAction === "Patch" && value.product?.id !== variables.input.id))) {
-        throw new ConnectorError("connector_response_invalid", "Wave returned an unexpected product. Check the outcome before retrying.", { statusCode: 502 });
+        throw new ConnectorError("connector_response_invalid", "Wave returned an unexpected product. Check the outcome before retrying.", { statusCode: 502, messageCode: "connectors.wave.returnedUnexpectedProductCheckOutcome" });
       }
       return result;
     }
     if (documentAction) {
       const outcome = result?.data?.[`${resource}${documentAction}`];
       if (outcome?.didSucceed === false) {
-        throw new ConnectorError("connector_input_invalid", "Wave rejected the document operation. Check its details and current state.", { statusCode: 422 });
+        throw new ConnectorError("connector_input_invalid", "Wave rejected the document operation. Check its details and current state.", { statusCode: 422, messageCode: "connectors.wave.rejectedDocumentOperationCheckDetails" });
       }
       if (outcome?.didSucceed === true && documentAction !== "Send" &&
           ((resource === "invoice" ? outcome[resource]?.business?.id : outcome[resource]?.customer?.business?.id) !== variables.businessId ||
            ((variables.input.id || variables.input[`${resource}Id`]) && outcome[resource]?.id !== (variables.input.id || variables.input[`${resource}Id`])) ||
            (variables.input.customerId && outcome[resource]?.customer?.id !== variables.input.customerId))) {
-        throw new ConnectorError("connector_response_invalid", "Wave returned an unexpected document. Check the outcome before retrying.", { statusCode: 502 });
+        throw new ConnectorError("connector_response_invalid", "Wave returned an unexpected document. Check the outcome before retrying.", { statusCode: 502, messageCode: "connectors.wave.returnedUnexpectedDocumentCheckOutcome" });
       }
       return result;
     }
     const mutation = patchCustomer ? result?.data?.customerPatch : result?.data?.customerCreate;
     if (mutation?.didSucceed === false) {
-      throw new ConnectorError("connector_input_invalid", "Wave rejected the customer details. Check the selected business and customer fields.", { statusCode: 422 });
+      throw new ConnectorError("connector_input_invalid", "Wave rejected the customer details. Check the selected business and customer fields.", { statusCode: 422, messageCode: "connectors.wave.rejectedCustomerDetailsCheckSelected" });
     }
     if (mutation?.didSucceed === true && mutation.customer?.business?.id !== (patchCustomer ? variables.businessId : variables.input?.businessId)) {
-      throw new ConnectorError("connector_response_invalid", "Wave returned a customer from an unexpected business. Check the outcome before retrying.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "Wave returned a customer from an unexpected business. Check the outcome before retrying.", { statusCode: 502, messageCode: "connectors.wave.returnedCustomerUnexpectedBusinessCheck" });
     }
     if (!patchCustomer && variables.businessId && result?.data?.business?.id !== variables.businessId) {
-      throw new ConnectorError("connector_response_invalid", "Wave returned an unexpected business.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "Wave returned an unexpected business.", { statusCode: 502, messageCode: "connectors.wave.returnedUnexpectedBusiness" });
     }
     if (patchCustomer && mutation?.customer?.id !== variables.input.id) {
-      throw new ConnectorError("connector_response_invalid", "Wave returned an unexpected customer. Check the outcome before retrying.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "Wave returned an unexpected customer. Check the outcome before retrying.", { statusCode: 502, messageCode: "connectors.wave.returnedUnexpectedCustomerCheckOutcome" });
     }
     if (variables.invoiceId && (result?.data?.business?.invoice?.id !== variables.invoiceId ||
         result?.data?.business?.invoice?.business?.id !== variables.businessId)) {
-      throw new ConnectorError("connector_response_invalid", "Wave returned an unexpected invoice.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "Wave returned an unexpected invoice.", { statusCode: 502, messageCode: "connectors.wave.returnedUnexpectedInvoice" });
     }
     if (variables.estimateId && (result?.data?.business?.estimate?.id !== variables.estimateId ||
         result?.data?.business?.estimate?.customer?.business?.id !== variables.businessId)) {
-      throw new ConnectorError("connector_response_invalid", "Wave returned an unexpected estimate.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "Wave returned an unexpected estimate.", { statusCode: 502, messageCode: "connectors.wave.returnedUnexpectedEstimate" });
     }
     if (result?.data?.business?.estimates?.edges?.some(edge => edge?.node?.customer?.business?.id !== variables.businessId)) {
-      throw new ConnectorError("connector_response_invalid", "Wave returned an estimate from another business.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "Wave returned an estimate from another business.", { statusCode: 502, messageCode: "connectors.wave.returnedEstimateAnotherBusiness" });
     }
     for (const field of ["account", "salesTax"]) {
       if (variables[`${field}Id`] && (result?.data?.business?.[field]?.id !== variables[`${field}Id`] ||
           result?.data?.business?.[field]?.business?.id !== variables.businessId)) {
-        throw new ConnectorError("connector_response_invalid", "Wave returned an unexpected accounting record.", { statusCode: 502 });
+        throw new ConnectorError("connector_response_invalid", "Wave returned an unexpected accounting record.", { statusCode: 502, messageCode: "connectors.wave.returnedUnexpectedAccountingRecord" });
       }
     }
     const page = result?.data?.businesses || Object.values(result?.data?.business || {}).find(value => value && typeof value === "object" && Object.hasOwn(value, "pageInfo"));
     if (page && (page.pageInfo?.currentPage !== variables.page || page.edges?.length > variables.pageSize)) {
-      throw new ConnectorError("connector_response_invalid", "Wave returned an unexpected page.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "Wave returned an unexpected page.", { statusCode: 502, messageCode: "connectors.shared.unexpectedPage", messageParams: { provider: "Wave" } });
     }
     return result;
   }

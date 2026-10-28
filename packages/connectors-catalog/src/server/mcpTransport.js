@@ -28,7 +28,7 @@ async function exchangeMcp(endpoint, { headers, signal, body }, { fetchImpl }) {
     reconnectionOptions: { initialReconnectionDelay: 1000, maxReconnectionDelay: 1000, reconnectionDelayGrowFactor: 1, maxRetries: 0 },
     fetch: async (address, init = {}) => {
       if (new URL(String(address)).href !== endpoint) {
-        throw new ConnectorError("connector_destination_invalid", "The MCP transport requested an unexpected destination.");
+        throw new ConnectorError("connector_destination_invalid", "The MCP transport requested an unexpected destination.", { messageCode: "connectors.mcp.transportRequestedUnexpectedDestination" });
       }
       const requestHeaders = new Headers(init.headers);
       // Keep MCP's Accept/protocol/session headers, and bind credentials to this endpoint only.

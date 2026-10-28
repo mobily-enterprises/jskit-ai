@@ -16,15 +16,15 @@ const reverseSchema = createSchema({
 function validateGeocoding(result) {
   switch (result?.status) {
     case "OVER_QUERY_LIMIT":
-      throw new ConnectorError("connector_rate_limited", "The Google Maps request quota was reached.", { statusCode: 429 });
+      throw new ConnectorError("connector_rate_limited", "The Google Maps request quota was reached.", { statusCode: 429, messageCode: "connectors.googleMapsPlatform.requestQuotaReached" });
     case "OVER_DAILY_LIMIT":
-      throw new ConnectorError("connector_configuration_invalid", "Check the Google Maps server key, billing and usage cap.");
+      throw new ConnectorError("connector_configuration_invalid", "Check the Google Maps server key, billing and usage cap.", { messageCode: "connectors.googleMapsPlatform.checkServerKeyBillingUsage" });
     case "REQUEST_DENIED":
-      throw new ConnectorError("connector_permission_denied", "Google Maps denied access. Check the enabled API and key restrictions.", { statusCode: 403 });
+      throw new ConnectorError("connector_permission_denied", "Google Maps denied access. Check the enabled API and key restrictions.", { statusCode: 403, messageCode: "connectors.googleMapsPlatform.deniedAccessCheckEnabledApi" });
     case "INVALID_REQUEST":
-      throw new ConnectorError("connector_input_invalid", "Google Maps could not accept this geocoding request.", { statusCode: 422 });
+      throw new ConnectorError("connector_input_invalid", "Google Maps could not accept this geocoding request.", { statusCode: 422, messageCode: "connectors.googleMapsPlatform.couldNotAcceptGeocodingRequest" });
     case "UNKNOWN_ERROR":
-      throw new ConnectorError("connector_provider_failed", "Google Maps could not process the request. Try again.", { statusCode: 502 });
+      throw new ConnectorError("connector_provider_failed", "Google Maps could not process the request. Try again.", { statusCode: 502, messageCode: "connectors.googleMapsPlatform.couldNotProcessRequestTry" });
     case "ZERO_RESULTS":
       return Array.isArray(result.results) && result.results.length === 0;
     case "OK":

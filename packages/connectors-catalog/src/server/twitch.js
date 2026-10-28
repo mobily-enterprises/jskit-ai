@@ -55,7 +55,7 @@ function analyticsOperation(kind, identity) {
     const query = new URL(request.url).searchParams;
     const start = query.get("started_at"), end = query.get("ended_at");
     if (Boolean(start) !== Boolean(end) || (start && start > end)) {
-      throw new ConnectorError("connector_input_invalid", "Supply both report dates, with the end on or after the start.", { statusCode: 422 });
+      throw new ConnectorError("connector_input_invalid", "Supply both report dates, with the end on or after the start.", { statusCode: 422, messageCode: "connectors.twitch.supplyBothReportDatesEnd" });
     }
     return request;
   } };
@@ -105,7 +105,7 @@ function scheduleWrite(fields, method) {
     const request = operation.request(input);
     const url = new URL(request.url);
     if (request.body.id) { url.searchParams.set("id", request.body.id); delete request.body.id; }
-    if (method === "PATCH" && !Object.keys(request.body).length) throw new ConnectorError("connector_input_invalid", "Supply at least one schedule change.", { statusCode: 422 });
+    if (method === "PATCH" && !Object.keys(request.body).length) throw new ConnectorError("connector_input_invalid", "Supply at least one schedule change.", { statusCode: 422, messageCode: "connectors.twitch.supplyLeastScheduleChange" });
     if (request.body.duration !== undefined) request.body.duration = String(request.body.duration);
     return { ...request, url: url.href, body: method === "DELETE" ? undefined : request.body };
   } };
@@ -118,36 +118,37 @@ function rewardWrite(path, fields, method, queryNames, validateResult) {
     for (const [enabled, amount] of [["is_max_per_stream_enabled", "max_per_stream"],
       ["is_max_per_user_per_stream_enabled", "max_per_user_per_stream"], ["is_global_cooldown_enabled", "global_cooldown_seconds"]]) {
       if (request.body[enabled] === true && request.body[amount] === undefined) {
-        throw new ConnectorError("connector_input_invalid", `Supply ${amount} when enabling this reward limit.`, { statusCode: 422 });
+        throw new ConnectorError("connector_input_invalid", `Supply ${amount} when enabling this reward limit.`,
+          { statusCode: 422, messageCode: "connectors.twitch.rewardLimitAmountRequired", messageParams: { field: amount } });
       }
     }
     for (const name of queryNames) { url.searchParams.set(name, request.body[name]); delete request.body[name]; }
-    if (method === "PATCH" && Object.keys(request.body).length === 0) throw new ConnectorError("connector_input_invalid", "Supply at least one reward change.", { statusCode: 422 });
+    if (method === "PATCH" && Object.keys(request.body).length === 0) throw new ConnectorError("connector_input_invalid", "Supply at least one reward change.", { statusCode: 422, messageCode: "connectors.twitch.supplyLeastRewardChange" });
     return { ...request, url: url.href, body: method === "DELETE" ? undefined : request.body };
   } };
 }
 
 async function normalizeTokenResponse(response) {
   const failure = {
-    401: ["connector_reconnect_required", "Connect this Twitch account again."],
-    403: ["connector_permission_denied", "Twitch denied the token request."],
-    429: ["connector_rate_limited", "Twitch's request limit was reached."]
+    401: ["connector_reconnect_required", "Connect this Twitch account again.", { messageCode: "connectors.shared.reconnectAccount", messageParams: { provider: "Twitch" } }],
+    403: ["connector_permission_denied", "Twitch denied the token request.", { messageCode: "connectors.twitch.tokenRequestDenied" }],
+    429: ["connector_rate_limited", "Twitch's request limit was reached.", { messageCode: "connectors.shared.requestLimitReached", messageParams: { provider: "Twitch" } }]
   }[response.status];
-  if (failure) throw new ConnectorError(...failure, { statusCode: response.status });
+  if (failure) throw new ConnectorError(failure[0], failure[1], { statusCode: response.status, ...failure[2] });
   let value;
   try { value = await response.clone().json(); } catch {
     if (!response.ok) return response;
-    throw new ConnectorError("connector_response_invalid", "Twitch returned an invalid token response.", { statusCode: 502 });
+    throw new ConnectorError("connector_response_invalid", "Twitch returned an invalid token response.", { statusCode: 502, messageCode: "connectors.shared.invalidTokenResponse", messageParams: { provider: "Twitch" } });
   }
   if (!response.ok) {
     if (response.status === 400 && value?.message === "Invalid refresh token") {
-      throw new ConnectorError("connector_reconnect_required", "Connect this Twitch account again.", { statusCode: 401 });
+      throw new ConnectorError("connector_reconnect_required", "Connect this Twitch account again.", { statusCode: 401, messageCode: "connectors.shared.reconnectAccount", messageParams: { provider: "Twitch" } });
     }
     return response;
   }
   if (typeof value?.scope === "string" && (value.scope === "" || /^[^\s]+(?: [^\s]+)*$/u.test(value.scope))) return response;
   if (!scopeList(value?.scope)) {
-    throw new ConnectorError("connector_response_invalid", "Twitch returned an invalid permission grant.", { statusCode: 502 });
+    throw new ConnectorError("connector_response_invalid", "Twitch returned an invalid permission grant.", { statusCode: 502, messageCode: "connectors.shared.invalidPermissionGrant", messageParams: { provider: "Twitch" } });
   }
   return Response.json({ ...value, scope: value.scope.join(" ") }, { status: response.status });
 }
@@ -200,24 +201,24 @@ const twitchProvider = Object.freeze({
     const operation = `${options.method} ${url.pathname}`;
     if (!(url.href === validationUrl && options.method === "GET") &&
       (url.origin !== "https://api.twitch.tv" || !Object.hasOwn(permissions, operation))) {
-      throw new ConnectorError("connector_destination_invalid", "This Twitch operation has an invalid destination.");
+      throw new ConnectorError("connector_destination_invalid", "This Twitch operation has an invalid destination.", { messageCode: "connectors.twitch.operationInvalidDestination" });
     }
     const validation = await request(validationUrl, { ...options, method: "GET", body: undefined });
     if (!validToken(validation)) {
-      throw new ConnectorError("connector_response_invalid", "Twitch returned an invalid user-token validation.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "Twitch returned an invalid user-token validation.", { statusCode: 502, messageCode: "connectors.twitch.returnedInvalidUserTokenValidation" });
     }
     if (validation.client_id !== new Headers(options.headers).get("Client-Id")) {
-      throw new ConnectorError("connector_reconnect_required", "The Twitch token belongs to a different application.", { statusCode: 401 });
+      throw new ConnectorError("connector_reconnect_required", "The Twitch token belongs to a different application.", { statusCode: 401, messageCode: "connectors.twitch.tokenBelongsDifferentApplication" });
     }
     if (url.href === validationUrl) return validation;
     const requiredScope = permissions[operation];
     if (requiredScope && ![requiredScope].flat().some(scope => validation.scopes.includes(scope))) {
-      throw new ConnectorError("connector_reconnect_required", "Connect Twitch again with the permission needed for this operation.", { statusCode: 401 });
+      throw new ConnectorError("connector_reconnect_required", "Connect Twitch again with the permission needed for this operation.", { statusCode: 401, messageCode: "connectors.twitch.connectAgainPermissionNeededOperation" });
     }
     if (operation === "POST /helix/eventsub/subscriptions") {
       const [version, scopes] = eventTypes[options.body.type];
       if (scopes.length && !scopes.some(scope => validation.scopes.includes(scope))) {
-        throw new ConnectorError("connector_reconnect_required", "Connect Twitch again with permission for this event.", { statusCode: 401 });
+        throw new ConnectorError("connector_reconnect_required", "Connect Twitch again with permission for this event.", { statusCode: 401, messageCode: "connectors.twitch.connectAgainPermissionEvent" });
       }
       options = { ...options, body: { type: options.body.type, version,
         condition: { broadcaster_user_id: validation.user_id },
@@ -238,7 +239,7 @@ const twitchProvider = Object.freeze({
     if (url.pathname === "/helix/channels/followers" && !url.searchParams.has("broadcaster_id")) url.searchParams.set("broadcaster_id", validation.user_id);
     const result = await request(url.href, options);
     if (url.pathname === "/helix/users" && result?.data?.[0]?.id !== validation.user_id) {
-      throw new ConnectorError("connector_response_invalid", "Twitch returned a profile for a different user.", { statusCode: 502 });
+      throw new ConnectorError("connector_response_invalid", "Twitch returned a profile for a different user.", { statusCode: 502, messageCode: "connectors.twitch.returnedProfileDifferentUser" });
     }
     return result;
   },
@@ -258,7 +259,7 @@ const twitchProvider = Object.freeze({
       const query = new URL(request.url).searchParams;
       if (query.get("is_vacation_enabled") === "true" && (!query.has("timezone") || !query.has("vacation_start_time") || !query.has("vacation_end_time") ||
         Date.parse(query.get("vacation_end_time")) <= Date.parse(query.get("vacation_start_time")))) {
-        throw new ConnectorError("connector_input_invalid", "Enabling vacation requires a timezone and an end after the start.", { statusCode: 422 });
+        throw new ConnectorError("connector_input_invalid", "Enabling vacation requires a timezone and an end after the start.", { statusCode: 422, messageCode: "connectors.twitch.enablingVacationRequiresTimezoneEnd" });
       }
       return { ...request, method: "PATCH" };
     } },
@@ -325,7 +326,7 @@ const twitchProvider = Object.freeze({
     "predictions.end": helixOperation("predictions", { id: opaqueId,
       status: { type: "string", required: true, enum: ["LOCKED", "CANCELED", "RESOLVED"] }, winning_outcome_id: { ...opaqueId, required: false }
     }, ["channel:manage:predictions"], interactionResult, "PATCH", values => {
-      if ((values.status === "RESOLVED") !== Boolean(values.winning_outcome_id)) throw new ConnectorError("connector_input_invalid", "Supply a winning outcome only when resolving the prediction.", { statusCode: 422 });
+      if ((values.status === "RESOLVED") !== Boolean(values.winning_outcome_id)) throw new ConnectorError("connector_input_invalid", "Supply a winning outcome only when resolving the prediction.", { statusCode: 422, messageCode: "connectors.twitch.supplyWinningOutcomeResolvingPrediction" });
     }),
     "chat.send": helixOperation("chat/messages", { broadcaster_id: { ...idField, required: true },
       message: { type: "string", required: true, noTrim: true, minLength: 1, maxLength: 500 }, reply_parent_message_id: { ...opaqueId, required: false }
@@ -346,7 +347,7 @@ const twitchProvider = Object.freeze({
       scopes: ["channel:manage:broadcast"], validateResult: broadcastUpdate.validateResult,
       request(input) {
         const request = broadcastUpdate.request(input);
-        if (!Object.keys(request.body).length) throw new ConnectorError("connector_input_invalid", "Supply at least one broadcast change.", { statusCode: 422 });
+        if (!Object.keys(request.body).length) throw new ConnectorError("connector_input_invalid", "Supply at least one broadcast change.", { statusCode: 422, messageCode: "connectors.twitch.supplyLeastBroadcastChange" });
         return { ...request, method: "PATCH" };
       }
     },
@@ -371,7 +372,7 @@ const twitchProvider = Object.freeze({
 });
 
 function parseTwitchEventSubMessage(raw, { broadcasterId, sessionId, subscriptionIds = [] } = {}) {
-  const invalid = () => new ConnectorError("connector_event_invalid", "Twitch returned an invalid or unexpected EventSub message.", { statusCode: 422 });
+  const invalid = () => new ConnectorError("connector_event_invalid", "Twitch returned an invalid or unexpected EventSub message.", { statusCode: 422, messageCode: "connectors.twitch.returnedInvalidUnexpectedEventsubMessage" });
   if (typeof raw !== "string" || Buffer.byteLength(raw, "utf8") > 1048576 || !userId(broadcasterId)) throw invalid();
   let message;
   try { message = JSON.parse(raw); } catch { throw invalid(); }
