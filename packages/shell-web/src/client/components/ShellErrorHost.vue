@@ -6,8 +6,12 @@ import {
   useShellWebErrorRuntime
 } from "../error/inject.js";
 import { useShellErrorPresentationStore } from "../stores/useShellErrorPresentationStore.js";
+import { useJskitText } from "../i18n.js";
 
 const runtime = useShellWebErrorRuntime();
+// Entries keep the server's code and params, so an API error shows in the
+// user's language; anything else shows as reported.
+const { t, text, serverMessage } = useJskitText();
 const store = useShellErrorPresentationStore();
 
 const snackbarEntries = computed(() => store.channels.snackbar || []);
@@ -188,7 +192,7 @@ async function runAction(entry, action) {
   } catch (error) {
     runtime.report({
       source: "shell-web.error-host.action",
-      message: "Error action failed.",
+      message: t("jskit.shell.error.actionFailed"),
       cause: error,
       intent: "blocking",
       severity: "error"
@@ -251,7 +255,7 @@ function onSnackbarAfterLeave() {
           @click:close="dismiss(entry)"
         >
           <div class="d-flex align-center ga-3 flex-wrap">
-            <span>{{ entry.message }}</span>
+            <span>{{ serverMessage(entry) }}</span>
             <v-spacer />
             <v-btn
               v-for="(action, index) in actionsFor(entry)"
@@ -261,7 +265,7 @@ function onSnackbarAfterLeave() {
               class="text-none"
               @click="runAction(entry, action)"
             >
-              {{ action.label }}
+              {{ text(action.label) }}
             </v-btn>
           </div>
         </v-alert>
@@ -277,7 +281,7 @@ function onSnackbarAfterLeave() {
       @update:model-value="onSnackbarModelValue"
       @after-leave="onSnackbarAfterLeave"
     >
-      <span v-if="displayedSnackbarEntry">{{ displayedSnackbarEntry.message }}</span>
+      <span v-if="displayedSnackbarEntry">{{ serverMessage(displayedSnackbarEntry) }}</span>
 
       <template #actions>
         <v-btn
@@ -287,7 +291,7 @@ function onSnackbarAfterLeave() {
           min-height="48"
           @click="runAction(displayedSnackbarEntry, action)"
         >
-          {{ action.label }}
+          {{ text(action.label) }}
         </v-btn>
         <v-btn
           v-if="displayedSnackbarEntry"
@@ -295,7 +299,7 @@ function onSnackbarAfterLeave() {
           size="small"
           @click="dismiss(displayedSnackbarEntry)"
         >
-          Dismiss
+          {{ t("jskit.shell.actions.dismiss") }}
         </v-btn>
       </template>
     </v-snackbar>
@@ -307,8 +311,8 @@ function onSnackbarAfterLeave() {
       @update:model-value="onDialogModelValue"
     >
       <v-card v-if="dialogEntry">
-        <v-card-title class="text-subtitle-1">Attention required</v-card-title>
-        <v-card-text>{{ dialogEntry.message }}</v-card-text>
+        <v-card-title class="text-subtitle-1">{{ t("jskit.shell.error.attentionRequired") }}</v-card-title>
+        <v-card-text>{{ serverMessage(dialogEntry) }}</v-card-text>
         <v-card-actions>
           <v-spacer />
           <v-btn
@@ -317,14 +321,14 @@ function onSnackbarAfterLeave() {
             variant="text"
             @click="runAction(dialogEntry, action)"
           >
-            {{ action.label }}
+            {{ text(action.label) }}
           </v-btn>
           <v-btn
             color="primary"
             variant="tonal"
             @click="dismiss(dialogEntry)"
           >
-            Close
+            {{ t("jskit.shell.actions.close") }}
           </v-btn>
         </v-card-actions>
       </v-card>

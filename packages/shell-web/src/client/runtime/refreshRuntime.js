@@ -1,5 +1,8 @@
 import { isRecord } from "@jskit-ai/kernel/shared/support";
 import { createProviderLogger as createSharedProviderLogger } from "@jskit-ai/kernel/shared/support/providerLogger";
+import { useJskitText } from "../i18n.js";
+
+const { t } = useJskitText();
 
 const SHELL_WEB_REFRESH_RUNTIME_KEY = "jskit.shell-web.runtime.web-refresh.client";
 
@@ -65,13 +68,13 @@ function createShellRefreshRuntime({
 
     errorRuntime.report({
       source: "shell-web.refresh",
-      message: "Unable to refresh. Check the connection and try again.",
+      message: t("jskit.shell.recovery.refreshFailed"),
       intent: "app-recoverable",
       severity: "error",
       dedupeKey: "shell-web.refresh.failed",
       dedupeWindowMs: 2000,
       action: {
-        label: "Retry",
+        label: t("jskit.shell.actions.retry"),
         dismissOnRun: true,
         handler() {
           void refresh("retry");

@@ -46,6 +46,9 @@ import {
 } from "../runtime/refreshRuntime.js";
 import { createBootstrapPayloadHandlerRegistry } from "../bootstrap/bootstrapPayloadHandlerRegistry.js";
 import { resolveBootstrapErrorStatusCode } from "../bootstrap/bootstrapErrorStatus.js";
+import { useJskitText } from "../i18n.js";
+
+const { t } = useJskitText();
 
 // Keep these constants for diagnostics, but keep each import() below as a literal string so Vite can statically analyze it.
 const APP_PLACEMENT_MODULE_SPECIFIER = "/src/placement.js";
@@ -102,7 +105,7 @@ function loadAppPlacementDefinitions(logger, asyncModuleRecoveryRuntime = null) 
   return loadAppModule({
     importModule: () => import("/src/placement.js"),
     specifier: APP_PLACEMENT_MODULE_SPECIFIER,
-    label: "Placement config",
+    label: t("jskit.shell.recovery.placementConfigLabel"),
     resolve(exported) {
       const resolved = typeof exported === "function" ? exported() : exported;
       return Array.isArray(resolved) ? resolved : undefined;
@@ -119,7 +122,7 @@ function loadAppPlacementTopology(logger, asyncModuleRecoveryRuntime = null) {
   return loadAppModule({
     importModule: () => import("/src/placementTopology.js"),
     specifier: APP_PLACEMENT_TOPOLOGY_MODULE_SPECIFIER,
-    label: "Placement topology",
+    label: t("jskit.shell.recovery.placementTopologyLabel"),
     resolve: (exported) => resolveAppPlacementTopologyExport(exported, logger),
     loadFailureMessage: "Failed to load app placement topology module; using empty topology.",
     fallback: [],
@@ -164,7 +167,7 @@ function loadAppErrorConfig(logger, errorRuntime, asyncModuleRecoveryRuntime = n
   return loadAppModule({
     importModule: () => import("/src/error.js"),
     specifier: APP_ERROR_MODULE_SPECIFIER,
-    label: "Error config",
+    label: t("jskit.shell.recovery.errorConfigLabel"),
     async resolve(exported) {
       const toolkit = createErrorConfigToolkit(errorRuntime);
       const resolved = typeof exported === "function" ? await exported(toolkit) : exported;
@@ -189,7 +192,7 @@ function installVueErrorBridge(vueApp, errorRuntime, logger) {
     try {
       errorRuntime.report({
         source: "shell-web.vue.error-handler",
-        message: String(error?.message || "Unexpected UI error."),
+        message: String(error?.message || t("jskit.shell.error.unexpectedUi")),
         cause: error,
         intent: "blocking",
         severity: "error",
@@ -226,7 +229,7 @@ function installRouterErrorBridge(router, errorRuntime, logger) {
     try {
       errorRuntime.report({
         source: "shell-web.router.on-error",
-        message: String(error?.message || "Navigation failed."),
+        message: String(error?.message || t("jskit.shell.error.navigationFailed")),
         cause: error,
         intent: "app-recoverable",
         severity: "error",

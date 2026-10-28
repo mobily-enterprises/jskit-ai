@@ -5,10 +5,12 @@ import { resolveMenuLinkIcon } from "../lib/menuIcons.js";
 import { resolveMenuLinkHref } from "../support/menuLinkTarget.js";
 import { activateShellNavigationLinkOnSpace } from "../support/navigationLinkKeyboard.js";
 import ShellNavigationTooltip from "./ShellNavigationTooltip.vue";
+import { useJskitText } from "../i18n.js";
 
+// The label may be a message key, { key, fallback } or plain text.
 const props = defineProps({
   label: {
-    type: String,
+    type: [String, Object],
     default: ""
   },
   to: {
@@ -30,31 +32,33 @@ const props = defineProps({
 });
 
 const { context: placementContext } = useWebPlacementContext();
+const { text } = useJskitText();
+const resolvedLabel = computed(() => text(props.label));
 
 const resolvedTarget = computed(() => resolveMenuLinkHref(placementContext.value, props.to));
 
 const resolvedIcon = computed(() =>
   resolveMenuLinkIcon({
     icon: props.icon,
-    label: props.label,
+    label: resolvedLabel.value,
     to: resolvedTarget.value.href || props.to
   })
 );
 </script>
 
 <template>
-  <ShellNavigationTooltip v-if="resolvedTarget.href" :label="props.label">
+  <ShellNavigationTooltip v-if="resolvedTarget.href" :label="resolvedLabel">
     <template #default="{ activatorProps }">
       <v-list-item
         v-bind="activatorProps"
         class="shell-menu-link-item"
-        :title="props.label"
+        :title="resolvedLabel"
         :to="resolvedTarget.sameOrigin ? resolvedTarget.href : undefined"
         :href="resolvedTarget.sameOrigin ? undefined : resolvedTarget.href"
         :prepend-icon="resolvedIcon || undefined"
         :disabled="props.disabled"
         :exact="props.exact"
-        :aria-label="props.label"
+        :aria-label="resolvedLabel"
         @keydown.space="activateShellNavigationLinkOnSpace"
       />
     </template>

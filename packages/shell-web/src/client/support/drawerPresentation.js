@@ -1,3 +1,6 @@
+import { useJskitText } from "../i18n.js";
+
+const { t } = useJskitText();
 const DESKTOP_DRAWER_CLOSED_MODES = Object.freeze(["rail", "hidden"]);
 
 function normalizeDesktopDrawerClosedMode(value = "rail") {
@@ -45,9 +48,9 @@ function resolveShellDrawerPresentation({
 
 function resolveShellDrawerToggleLabel({ compact = false, open = false } = {}) {
   if (compact) {
-    return open ? "Close navigation menu" : "Open navigation menu";
+    return open ? t("jskit.shell.layout.closeNavigationMenu") : t("jskit.shell.layout.openNavigationMenu");
   }
-  return open ? "Collapse navigation drawer" : "Expand navigation drawer";
+  return open ? t("jskit.shell.layout.collapseNavigationDrawer") : t("jskit.shell.layout.expandNavigationDrawer");
 }
 
 export {

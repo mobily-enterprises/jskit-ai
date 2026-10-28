@@ -1,6 +1,9 @@
 <script setup>
 import { mdiCogOutline } from "@mdi/js";
 import ShellOutlet from "./ShellOutlet.vue";
+import { useJskitText } from "../i18n.js";
+
+const { t, text } = useJskitText();
 
 const props = defineProps({
   target: {
@@ -11,9 +14,10 @@ const props = defineProps({
     type: String,
     default: mdiCogOutline
   },
+  // Defaults to the translated "Tools"; a passed label may be a message key.
   ariaLabel: {
     type: String,
-    default: "Tools"
+    default: undefined
   },
   location: {
     type: String,
@@ -37,7 +41,7 @@ const props = defineProps({
         v-bind="activatorProps"
         icon
         variant="text"
-        :aria-label="props.ariaLabel"
+        :aria-label="props.ariaLabel === undefined ? t('jskit.shell.layout.tools') : text(props.ariaLabel)"
       >
         <v-icon :icon="props.icon" />
       </v-btn>

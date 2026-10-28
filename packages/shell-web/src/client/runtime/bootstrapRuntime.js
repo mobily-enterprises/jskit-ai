@@ -1,4 +1,7 @@
 import { createProviderLogger } from "@jskit-ai/kernel/shared/support/providerLogger";
+import { useJskitText } from "../i18n.js";
+
+const { t } = useJskitText();
 
 const DEFAULT_BOOTSTRAP_PATH = "/api/bootstrap";
 
@@ -161,7 +164,7 @@ function createShellBootstrapRuntime({
     } catch (error) {
       await applyBootstrapError(error, reason, request);
       requestRecoveryRuntime?.report?.(error, {
-        label: "App data",
+        label: t("jskit.shell.recovery.appDataLabel"),
         retry: () => refresh(reason),
         source: "shell-web.bootstrap",
         dedupeKey: `shell-web.bootstrap.${String(reason || "manual").trim() || "manual"}.request-failed`

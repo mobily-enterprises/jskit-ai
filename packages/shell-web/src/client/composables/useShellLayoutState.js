@@ -9,11 +9,14 @@ import {
   resolveSurfaceDefinitionFromPlacementContext,
   resolveSurfaceIdFromPlacementPathname
 } from "../placement/surfaceContext.js";
+import { useJskitText } from "../i18n.js";
+
+const { t, text } = useJskitText();
 
 function toSurfaceLabel(surfaceId = "") {
   const normalizedSurfaceId = String(surfaceId || "").trim().toLowerCase();
   if (!normalizedSurfaceId) {
-    return "Surface";
+    return t("jskit.shell.layout.surface");
   }
 
   return normalizedSurfaceId
@@ -68,7 +71,8 @@ function useShellLayoutState(props = {}) {
   });
 
   const resolvedSurfaceLabel = computed(() => {
-    const explicitLabel = String(props?.surfaceLabel || "").trim();
+    // A surface label may be a message key; plain text shows as written.
+    const explicitLabel = String(text(props?.surfaceLabel) || "").trim();
     if (explicitLabel) {
       return explicitLabel;
     }
@@ -77,7 +81,7 @@ function useShellLayoutState(props = {}) {
       placementContext?.value || null,
       resolvedSurface.value
     );
-    const configuredLabel = String(surfaceDefinition?.label || "").trim();
+    const configuredLabel = String(text(surfaceDefinition?.label) || "").trim();
     if (configuredLabel) {
       return configuredLabel;
     }

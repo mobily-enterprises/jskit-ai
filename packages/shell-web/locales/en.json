@@ -1,0 +1,47 @@
+{
+  "jskit": {
+    "shell": {
+      "actions": {
+        "close": "Close",
+        "dismiss": "Dismiss",
+        "reload": "Reload",
+        "retry": "Retry"
+      },
+      "error": {
+        "actionFailed": "Error action failed.",
+        "attentionRequired": "Attention required",
+        "navigationFailed": "Navigation failed.",
+        "requestFailed": "Request failed.",
+        "unexpectedUi": "Unexpected UI error."
+      },
+      "layout": {
+        "closeNavigationMenu": "Close navigation menu",
+        "collapseNavigationDrawer": "Collapse navigation drawer",
+        "details": "Details",
+        "expandNavigationDrawer": "Expand navigation drawer",
+        "openNavigationMenu": "Open navigation menu",
+        "surface": "Surface",
+        "tab": "Tab",
+        "tools": "Tools"
+      },
+      "pullToRefresh": {
+        "pull": "Pull to refresh",
+        "refreshing": "Refreshing",
+        "release": "Release to refresh"
+      },
+      "recovery": {
+        "appDataLabel": "App data",
+        "appLabel": "App",
+        "appModuleLabel": "App module",
+        "appUnreachable": "The app could not reach the server or network. Check the connection and try again.",
+        "errorConfigLabel": "Error config",
+        "moduleFailed": "A required app module could not load.",
+        "placementConfigLabel": "Placement config",
+        "placementTopologyLabel": "Placement topology",
+        "refreshFailed": "Unable to refresh. Check the connection and try again.",
+        "reloadFailed": "The app cannot reload because the app server is not reachable. Restart the server, then click Reload.",
+        "unreachable": "{label} could not reach the server or network. Check the connection and try again."
+      }
+    }
+  }
+}

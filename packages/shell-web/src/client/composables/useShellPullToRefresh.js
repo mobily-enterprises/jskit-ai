@@ -1,5 +1,6 @@
 import { computed, onBeforeUnmount, onMounted, ref, unref } from "vue";
 import { isPrimaryTouchPointer, isShellGestureIgnoredTarget } from "../support/gestureTargets.js";
+import { useJskitText } from "../i18n.js";
 
 const PULL_REFRESH_TRIGGER_DISTANCE = 72;
 const PULL_REFRESH_MAX_DISTANCE = 112;
@@ -19,6 +20,7 @@ function isAtPageTop() {
 // browser supports them; touch events carry it on after the browser cancels the
 // pointer to scroll, and start it where pointer events are missing.
 function useShellPullToRefresh({ enabled, refreshRuntime = null } = {}) {
+  const { t } = useJskitText();
   const pullDistance = ref(0);
   const pullRefreshing = ref(false);
   let activePull = null;
@@ -31,9 +33,9 @@ function useShellPullToRefresh({ enabled, refreshRuntime = null } = {}) {
   );
   const pullRefreshLabel = computed(() => {
     if (pullRefreshing.value) {
-      return "Refreshing";
+      return t("jskit.shell.pullToRefresh.refreshing");
     }
-    return pullProgress.value >= 100 ? "Release to refresh" : "Pull to refresh";
+    return pullProgress.value >= 100 ? t("jskit.shell.pullToRefresh.release") : t("jskit.shell.pullToRefresh.pull");
   });
   const pullRefreshStyle = computed(() => ({
     "--shell-pull-refresh-distance": `${Math.round(Math.min(pullDistance.value, PULL_REFRESH_MAX_DISTANCE))}px`

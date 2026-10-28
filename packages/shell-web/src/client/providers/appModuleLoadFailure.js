@@ -1,6 +1,9 @@
 import {
   isDynamicImportError
 } from "@jskit-ai/kernel/client/asyncModuleRecovery";
+import { useJskitText } from "../i18n.js";
+
+const { t } = useJskitText();
 
 function isMissingDynamicModule(error, moduleSpecifier) {
   const message = String(error?.message || error || "");
@@ -12,7 +15,7 @@ function isMissingDynamicModule(error, moduleSpecifier) {
 }
 
 function notifyDynamicImportFailure(asyncModuleRecoveryRuntime, error, {
-  label = "App module"
+  label = t("jskit.shell.recovery.appModuleLabel")
 } = {}) {
   if (!isDynamicImportError(error) || typeof asyncModuleRecoveryRuntime?.notify !== "function") {
     return;

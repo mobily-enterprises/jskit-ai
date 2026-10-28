@@ -1,9 +1,15 @@
 import { guardedReloadApp } from "@jskit-ai/kernel/client/asyncModuleRecovery";
 import { isRecord, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { createProviderLogger as createSharedProviderLogger } from "@jskit-ai/kernel/shared/support/providerLogger";
+import { useJskitText } from "../i18n.js";
 
-const APP_RELOAD_FAILURE_MESSAGE =
-  "The app cannot reload because the app server is not reachable. Restart the server, then click Reload.";
+const { t, text } = useJskitText();
+// The label callers passed before labels were translated; it still means "no label".
+const GENERIC_REQUEST_LABEL = "Request";
+
+function appReloadFailureMessage() {
+  return t("jskit.shell.recovery.reloadFailed");
+}
 
 const RECOVERABLE_REQUEST_ERROR_MESSAGES = Object.freeze([
   /Failed to fetch/iu,
@@ -92,8 +98,9 @@ function isRecoverableRequestError(error = null) {
   );
 }
 
+// The label may be a message key; without one the sentence names the app.
 function requestRecoveryMessage(error = null, {
-  label = "Request",
+  label = "",
   message = ""
 } = {}) {
   const explicitMessage = normalizeText(message);
@@ -101,11 +108,11 @@ function requestRecoveryMessage(error = null, {
     return explicitMessage;
   }
 
-  const requestLabel = normalizeText(label, { fallback: "Request" });
-  if (requestLabel === "Request") {
-    return "The app could not reach the server or network. Check the connection and try again.";
+  const requestLabel = normalizeText(text(label));
+  if (!requestLabel || requestLabel === GENERIC_REQUEST_LABEL) {
+    return t("jskit.shell.recovery.appUnreachable");
   }
-  return `${requestLabel} could not reach the server or network. Check the connection and try again.`;
+  return t("jskit.shell.recovery.unreachable", { label: requestLabel });
 }
 
 function resolveQueryMeta(query = null) {
@@ -125,7 +132,7 @@ function readQueryRecoveryMeta(query = null) {
 
   return Object.freeze({
     disabled: jskitMeta.requestRecovery === false,
-    label: normalizeText(jskitMeta.requestRecoveryLabel, { fallback: "Request" }),
+    label: normalizeText(jskitMeta.requestRecoveryLabel),
     source: normalizeText(jskitMeta.requestRecoverySource, { fallback: "shell-web.request-recovery.query" }),
     dedupeKey: normalizeText(jskitMeta.requestRecoveryDedupeKey),
     dedupeWindowMs: Number.isFinite(Number(dedupeWindowMs)) ? Math.max(0, Number(dedupeWindowMs)) : null,
@@ -326,8 +333,8 @@ function createShellRequestRecoveryRuntime({
   let reloadAttempt = 0;
 
   async function reload({
-    label = "App",
-    message = APP_RELOAD_FAILURE_MESSAGE
+    label = t("jskit.shell.recovery.appLabel"),
+    message = appReloadFailureMessage()
   } = {}) {
     const reloaded = await guardedReloadApp({
       label,
@@ -349,7 +356,7 @@ function createShellRequestRecoveryRuntime({
 
   function retryAction(options, retry) {
     return {
-      label: normalizeText(options.actionLabel, { fallback: "Retry" }),
+      label: normalizeText(text(options.actionLabel), { fallback: t("jskit.shell.actions.retry") }),
       dismissOnRun: true,
       async handler() {
         try {
@@ -366,12 +373,12 @@ function createShellRequestRecoveryRuntime({
 
   function reloadAction(options) {
     return {
-      label: normalizeText(options.actionLabel, { fallback: "Reload" }),
+      label: normalizeText(text(options.actionLabel), { fallback: t("jskit.shell.actions.reload") }),
       dismissOnRun: true,
       handler() {
         return reload({
           label: options.label,
-          message: options.reloadFailureMessage || APP_RELOAD_FAILURE_MESSAGE
+          message: options.reloadFailureMessage || appReloadFailureMessage()
         });
       }
     };
@@ -464,7 +471,7 @@ function createShellRequestRecoveryRuntime({
 }
 
 export {
-  APP_RELOAD_FAILURE_MESSAGE,
+  appReloadFailureMessage,
   createShellRequestRecoveryRuntime,
   isRecoverableRequestError,
   requestRecoveryMessage

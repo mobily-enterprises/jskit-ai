@@ -26,7 +26,8 @@
     "./client/composables/useShellLayoutState": "./src/client/composables/useShellLayoutState.js",
     "./client/providers/ShellWebClientProvider": "./src/client/providers/ShellWebClientProvider.js",
     "./test/adaptiveShellSmoke": "./src/test/adaptiveShellSmoke.js",
-    "./architecture": "./src/architecture/inspectVueArchitecture.js"
+    "./architecture": "./src/architecture/inspectVueArchitecture.js",
+    "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
     "@jskit-ai/architecture-inspector": "0.1.0",

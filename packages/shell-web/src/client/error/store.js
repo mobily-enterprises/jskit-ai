@@ -5,6 +5,9 @@ import {
   normalizeText
 } from "./normalize.js";
 import { createListenerSubscription } from "@jskit-ai/kernel/shared/support/listenerSet";
+import { useJskitText } from "../i18n.js";
+
+const { t } = useJskitText();
 
 const PRESENTATION_CHANNELS = Object.freeze(["snackbar", "banner", "dialog"]);
 const SINGLETON_CHANNELS = new Set(["banner"]);
@@ -17,11 +20,19 @@ function createEmptyChannelState() {
   };
 }
 
+function freezeParams(params) {
+  return Object.freeze(params && typeof params === "object" && !Array.isArray(params) ? { ...params } : {});
+}
+
 function cloneEntry(entry = {}) {
   return Object.freeze({
     id: String(entry.id || "").trim(),
     channel: String(entry.channel || "").trim(),
     message: String(entry.message || "").trim(),
+    code: String(entry.code || "").trim(),
+    params: freezeParams(entry.params),
+    messageCode: String(entry.messageCode || "").trim(),
+    messageParams: freezeParams(entry.messageParams),
     severity: String(entry.severity || "error").trim(),
     persist: Boolean(entry.persist),
     action: entry.action || null,
@@ -78,7 +89,12 @@ function createErrorPresentationStore({
     const entry = Object.freeze({
       id: normalizeText(payload.id, `${normalizedChannel}-${sequence}`),
       channel: normalizedChannel,
-      message: normalizeText(payload.message, "Request failed."),
+      message: normalizeText(payload.message, t("jskit.shell.error.requestFailed")),
+      // The error host renders the message through these codes when they match it.
+      code: normalizeText(payload.code),
+      params: freezeParams(payload.params),
+      messageCode: normalizeText(payload.messageCode),
+      messageParams: freezeParams(payload.messageParams),
       severity: normalizeSeverity(payload.severity, "error"),
       persist: payload.persist === true,
       action: normalizeAction(payload.action),

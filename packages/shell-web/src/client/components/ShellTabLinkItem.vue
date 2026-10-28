@@ -3,9 +3,11 @@ import {
   shellNavigationLinkProps,
   useShellNavigationLink
 } from "../composables/useShellNavigationLink.js";
+import { useJskitText } from "../i18n.js";
 
 const props = defineProps(shellNavigationLinkProps);
-const { resolvedTarget, resolvedIcon } = useShellNavigationLink(props);
+const { t } = useJskitText();
+const { resolvedLabel, resolvedTarget, resolvedIcon } = useShellNavigationLink(props);
 </script>
 
 <template>
@@ -20,7 +22,7 @@ const { resolvedTarget, resolvedIcon } = useShellNavigationLink(props);
     stacked
   >
     <v-icon v-if="resolvedIcon" :icon="resolvedIcon" />
-    <span class="tab-link-item__label">{{ props.label || "Tab" }}</span>
+    <span class="tab-link-item__label">{{ resolvedLabel || t("jskit.shell.layout.tab") }}</span>
   </v-btn>
 </template>
 

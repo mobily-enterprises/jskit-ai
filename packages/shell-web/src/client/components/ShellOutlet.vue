@@ -14,6 +14,7 @@ import {
   resolveSurfaceIdFromPlacementPathname
 } from "../placement/surfaceContext.js";
 import { readViewportWidth, resolveShellLayoutClass } from "../support/shellLayoutClass.js";
+import { useJskitText } from "../i18n.js";
 
 const props = defineProps({
   target: {
@@ -42,6 +43,29 @@ try {
   display = useDisplay();
 } catch {
   display = null;
+}
+
+const { text } = useJskitText();
+const TRANSLATED_PLACEMENT_PROPS = Object.freeze(["label", "title"]);
+
+function isPlacementText(value) {
+  return typeof value === "string" || (Boolean(value) && typeof value === "object" && typeof value.key === "string");
+}
+
+// A placement's label and title may be message keys or { key, fallback }; they
+// reach the component in the active language. Plain text passes unchanged.
+function placementProps(entry) {
+  const source = entry?.props;
+  if (!source || typeof source !== "object") {
+    return source;
+  }
+  const translated = { ...source };
+  for (const name of TRANSLATED_PLACEMENT_PROPS) {
+    if (isPlacementText(source[name])) {
+      translated[name] = text(source[name]);
+    }
+  }
+  return translated;
 }
 
 const placementRuntime = useWebPlacementRuntime();
@@ -105,6 +129,6 @@ const placements = computed(() => {
     :is="entry.component"
     v-for="entry in placements"
     :key="entry.id"
-    v-bind="entry.props"
+    v-bind="placementProps(entry)"
   />
 </template>

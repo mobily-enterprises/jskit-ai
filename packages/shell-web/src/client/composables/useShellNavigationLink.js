@@ -6,10 +6,12 @@ import {
 } from "../placement/index.js";
 import { resolveMenuLinkIcon } from "../lib/menuIcons.js";
 import { resolveMenuLinkHref, resolveMenuLinkTarget } from "../support/menuLinkTarget.js";
+import { useJskitText } from "../i18n.js";
 
 const shellNavigationLinkProps = Object.freeze({
+  // A message key, { key, fallback } or plain text.
   label: {
-    type: String,
+    type: [String, Object],
     default: ""
   },
   to: {
@@ -46,6 +48,8 @@ const shellNavigationLinkProps = Object.freeze({
 function useShellNavigationLink(props) {
   const route = useRoute();
   const { context: placementContext } = useWebPlacementContext();
+  const { text } = useJskitText();
+  const resolvedLabel = computed(() => text(props.label));
 
   const resolvedTo = computed(() => {
     const currentSurfaceId = resolveSurfaceIdFromPlacementPathname(
@@ -68,12 +72,13 @@ function useShellNavigationLink(props) {
   const resolvedIcon = computed(() =>
     resolveMenuLinkIcon({
       icon: props.icon,
-      label: props.label,
+      label: resolvedLabel.value,
       to: resolvedTarget.value.href || resolvedTo.value
     })
   );
 
   return {
+    resolvedLabel,
     resolvedTarget,
     resolvedIcon
   };

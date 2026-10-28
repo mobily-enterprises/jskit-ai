@@ -6,7 +6,10 @@ import {
   notifyAsyncModuleLoadError
 } from "@jskit-ai/kernel/client/asyncModuleRecovery";
 import { createProviderLogger as createSharedProviderLogger } from "@jskit-ai/kernel/shared/support/providerLogger";
-import { APP_RELOAD_FAILURE_MESSAGE } from "../requestRecovery/runtime.js";
+import { appReloadFailureMessage } from "../requestRecovery/runtime.js";
+import { useJskitText } from "../i18n.js";
+
+const { t } = useJskitText();
 
 function createShellAsyncModuleRecoveryRuntime({
   router = null,
@@ -31,13 +34,13 @@ function createShellAsyncModuleRecoveryRuntime({
     try {
       return errorRuntime.report({
         source: "shell-web.async-module-recovery",
-        message: String(nextState?.message || "A required app module could not load."),
+        message: String(nextState?.message || t("jskit.shell.recovery.moduleFailed")),
         cause: nextState?.error || null,
         intent: "app-recoverable",
         severity: "warning",
         dedupeKey: `shell-web.async-module-recovery.${Number(nextState?.attempt || 0)}`,
         action: {
-          label: "Reload",
+          label: t("jskit.shell.actions.reload"),
           dismissOnRun: true,
           handler() {
             return reload();
@@ -59,8 +62,8 @@ function createShellAsyncModuleRecoveryRuntime({
   async function reload() {
     const reloaded = await guardedReloadApp({
       state,
-      label: "App",
-      message: APP_RELOAD_FAILURE_MESSAGE
+      label: t("jskit.shell.recovery.appLabel"),
+      message: appReloadFailureMessage()
     });
     if (!reloaded) {
       report(state);
@@ -69,7 +72,7 @@ function createShellAsyncModuleRecoveryRuntime({
   }
 
   function notify(error = null, {
-    label = "App module",
+    label = t("jskit.shell.recovery.appModuleLabel"),
     message = "",
     stale = isDynamicImportError(error)
   } = {}) {
@@ -89,7 +92,7 @@ function createShellAsyncModuleRecoveryRuntime({
 
     installedRecovery = installAsyncModuleRecoveryHandlers({
       state,
-      label: "App module",
+      label: t("jskit.shell.recovery.appModuleLabel"),
       router,
       onNotify: report
     });

@@ -1,19 +1,21 @@
 <script setup>
 import { useTheme } from "vuetify";
+import { useJskitText } from "../i18n.js";
 
 const props = defineProps({
   label: {
-    type: String,
+    type: [String, Object],
     default: ""
   }
 });
 
 const theme = useTheme();
+const { text } = useJskitText();
 </script>
 
 <template>
   <v-tooltip
-    :text="props.label"
+    :text="text(props.label)"
     :theme="theme.name.value"
     location="end"
     content-class="shell-navigation-tooltip"

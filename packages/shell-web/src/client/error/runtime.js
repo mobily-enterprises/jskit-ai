@@ -10,6 +10,9 @@ import {
 } from "./normalize.js";
 import { createListenerSubscription } from "@jskit-ai/kernel/shared/support/listenerSet";
 import { createDefaultErrorPolicy } from "./policy.js";
+import { useJskitText } from "../i18n.js";
+
+const { t } = useJskitText();
 
 function createRuntimeLogger(logger = null) {
   const source = isRecord(logger) ? logger : null;
@@ -17,6 +20,24 @@ function createRuntimeLogger(logger = null) {
     warn: typeof source?.warn === "function" ? source.warn.bind(source) : () => {},
     error: typeof source?.error === "function" ? source.error.bind(source) : () => {}
   });
+}
+
+function freezeParams(params) {
+  return Object.freeze(isRecord(params) ? { ...params } : {});
+}
+
+// The server code and the client messageCode travel with the message, each
+// from the event when it names one and otherwise from its cause, so the error
+// host can show the message in the user's language.
+function messageCodeFields(source = {}, fallback = {}) {
+  const codeSource = source.code ? source : fallback;
+  const messageCodeSource = source.messageCode ? source : fallback;
+  return {
+    code: normalizeText(codeSource?.code),
+    params: freezeParams(codeSource?.params),
+    messageCode: normalizeText(messageCodeSource?.messageCode),
+    messageParams: freezeParams(messageCodeSource?.messageParams)
+  };
 }
 
 function normalizeErrorEvent(rawEvent = {}) {
@@ -40,10 +61,10 @@ function normalizeErrorEvent(rawEvent = {}) {
   const runtimeMessage = normalizeText(source.message || cause?.message);
 
   return Object.freeze({
-    code: normalizeText(source.code || cause?.code),
+    ...messageCodeFields(source, isRecord(cause) ? cause : {}),
     status,
     source: normalizeText(source.source, "app"),
-    message: normalizeText(userMessage || runtimeMessage, "Request failed."),
+    message: normalizeText(userMessage || runtimeMessage, t("jskit.shell.error.requestFailed")),
     userMessage,
     intent: normalizeErrorIntent(source.intent || source.kind),
     severity: normalizeSeverity(source.severity, "error"),
@@ -70,7 +91,8 @@ function normalizePolicyDecision(policyDecision = {}, event = {}) {
   return Object.freeze({
     channel,
     presenterId: normalizeText(source.presenterId || event.presenterId),
-    message: normalizeText(source.message || event.userMessage || event.message, "Request failed."),
+    message: normalizeText(source.message || event.userMessage || event.message, t("jskit.shell.error.requestFailed")),
+    ...messageCodeFields(source, event),
     severity: normalizeSeverity(source.severity || event.severity, "error"),
     action: normalizeAction(source.action || event.action),
     additionalActions: normalizeAdditionalActions(source.additionalActions ?? event.additionalActions),

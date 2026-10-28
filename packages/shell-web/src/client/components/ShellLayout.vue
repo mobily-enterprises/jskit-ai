@@ -28,6 +28,9 @@ import { readViewportWidth, resolveShellLayoutClass } from "../support/shellLayo
 import { SHELL_WEB_REFRESH_RUNTIME_KEY } from "../runtime/refreshRuntime.js";
 import ShellOutlet from "./ShellOutlet.vue";
 import ShellRouteTransition from "./ShellRouteTransition.vue";
+import { useJskitText } from "../i18n.js";
+
+const { t, text } = useJskitText();
 
 const props = defineProps({
   surface: {
@@ -386,8 +389,8 @@ function handleDrawerVisibilityChange(open) {
 
   <v-main class="bg-background">
     <v-container fluid class="shell-layout__content">
-      <h1 v-if="title" class="shell-layout__title text-h5">{{ title }}</h1>
-      <p v-if="subtitle" class="shell-layout__subtitle text-body-2 text-medium-emphasis">{{ subtitle }}</p>
+      <h1 v-if="title" class="shell-layout__title text-h5">{{ text(title) }}</h1>
+      <p v-if="subtitle" class="shell-layout__subtitle text-body-2 text-medium-emphasis">{{ text(subtitle) }}</p>
       <ShellRouteTransition>
         <slot />
       </ShellRouteTransition>
@@ -413,8 +416,8 @@ function handleDrawerVisibilityChange(open) {
   >
     <v-card rounded="t-xl" class="shell-layout__supporting-sheet" data-testid="jskit-shell-supporting-bottom-sheet">
       <v-card-title class="shell-layout__supporting-title">
-        <span>{{ supportingContentTitle || 'Details' }}</span>
-        <v-btn variant="text" @click="closeSupportingContent">Close</v-btn>
+        <span>{{ text(supportingContentTitle) || t("jskit.shell.layout.details") }}</span>
+        <v-btn variant="text" @click="closeSupportingContent">{{ t("jskit.shell.actions.close") }}</v-btn>
       </v-card-title>
       <v-card-text>
         <ShellOutlet target="shell-layout:supporting-bottom-sheet" />
@@ -434,8 +437,8 @@ function handleDrawerVisibilityChange(open) {
   >
     <div class="shell-layout__supporting-side-panel">
       <div class="shell-layout__supporting-title">
-        <strong>{{ supportingContentTitle || 'Details' }}</strong>
-        <v-btn variant="text" @click="closeSupportingContent">Close</v-btn>
+        <strong>{{ text(supportingContentTitle) || t("jskit.shell.layout.details") }}</strong>
+        <v-btn variant="text" @click="closeSupportingContent">{{ t("jskit.shell.actions.close") }}</v-btn>
       </div>
       <ShellOutlet target="shell-layout:supporting-side-panel" />
     </div>
