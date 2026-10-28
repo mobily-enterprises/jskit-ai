@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { resolveWorkspaceThemePalette } from "@jskit-ai/workspaces-core/shared/settings";
 import { ThemeSymbol } from "vuetify/lib/composables/theme.js";
+import { createVuetifyThemeController } from "./support/vuetifyThemeController.js";
 import {
   WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN,
   WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND,
@@ -199,40 +200,6 @@ function createTestRuntime({
   });
 }
 
-function createVuetifyThemeController(initial = "light") {
-  return {
-    global: {
-      name: {
-        value: initial
-      }
-    },
-    themes: {
-      value: {
-        light: {
-          dark: false,
-          colors: {
-            primary: "#0f6b54",
-            secondary: "#3f5150",
-            background: "#eef3ee",
-            surface: "#f7fbf6",
-            "surface-variant": "#dfe8df"
-          }
-        },
-        dark: {
-          dark: true,
-          colors: {
-            primary: "#6fd0b5",
-            secondary: "#9db2af",
-            background: "#0f1715",
-            surface: "#16211e",
-            "surface-variant": "#253430"
-          }
-        }
-      }
-    }
-  };
-}
-
 function createVueAppWithThemeController(themeController) {
   return {
     _context: {
@@ -317,6 +284,37 @@ test("bootstrap placement runtime contributes workspace slug to shared bootstrap
   assert.equal(context.workspaceBootstrapStatuses?.acme, WORKSPACE_BOOTSTRAP_STATUS_RESOLVED);
   assert.equal(context.workspaceInvitesEnabled, true);
   assert.equal(context.pendingInvitesCount, 2);
+});
+
+test("bootstrap placement runtime remembers the last workspace each user opened in this browser", async (context) => {
+  const stored = new Map();
+  globalThis.window = {
+    localStorage: {
+      getItem: (key) => stored.get(key) ?? null,
+      setItem: (key, value) => stored.set(key, String(value))
+    }
+  };
+  context.after(() => {
+    delete globalThis.window;
+  });
+  const placementRuntime = createPlacementRuntimeStub();
+  const router = createRouterStub("/w/acme");
+  const runtime = createTestRuntime({ placementRuntime, router });
+  const session = { authenticated: true, userId: "7" };
+  const workspaces = [{ id: "1", slug: "acme", name: "Acme Workspace" }];
+
+  await runtime.initialize();
+  await runtime.applyBootstrapPayload({
+    request: createBootstrapRequest("/w/acme", "acme"),
+    payload: { session, workspaces, requestedWorkspace: { slug: "acme", status: "resolved" }, permissions: [] }
+  });
+  await router.push("/w/missing");
+  await runtime.applyBootstrapPayload({
+    request: createBootstrapRequest("/w/missing", "missing"),
+    payload: { session, workspaces, requestedWorkspace: { slug: "missing", status: "not_found" }, permissions: [] }
+  });
+
+  assert.equal(stored.get("jskit.workspaces-web.last-workspace.7"), "acme");
 });
 
 test("bootstrap placement runtime resolves workspace slug from pathname when surface config is missing", async () => {
@@ -596,7 +594,7 @@ test("bootstrap placement runtime tracks status per workspace slug across route 
   assert.deepEqual(bootstrapRuntime.calls, ["route"]);
 
   await runtime.handleBootstrapError({
-    request: createBootstrapRequest("/w/zen", "zen"),
+    request: createBootstrapRequest("/w/zen/dashboard", "zen"),
     error: createErrorWithStatus(404, "Workspace not found.")
   });
 
@@ -681,6 +679,41 @@ test("bootstrap placement runtime uses requestedWorkspace=not_found without forc
   assert.equal(Array.isArray(context.workspaces), true);
   assert.equal(context.workspaces.length, 1);
   assert.equal(context.workspaces[0]?.slug, "acme");
+});
+
+test("bootstrap placement runtime stays on an unknown workspace URL until the server reports its status", async () => {
+  for (const status of [WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND, WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN]) {
+    const placementRuntime = createPlacementRuntimeStub();
+    placementRuntime.setContext({
+      surfaceConfig: {
+        ...placementRuntime.getContext().surfaceConfig,
+        defaultSurfaceId: "home"
+      }
+    });
+    const router = createRouterStub("/w/acme");
+    const runtime = createTestRuntime({ placementRuntime, router });
+    const session = { authenticated: true, userId: "1" };
+    const workspaces = [{ id: "1", slug: "acme", name: "Acme Workspace" }];
+
+    await runtime.initialize();
+    await runtime.applyBootstrapPayload({
+      request: createBootstrapRequest("/w/acme", "acme"),
+      payload: { session, workspaces, permissions: [] }
+    });
+    await router.push("/w/missing");
+    await runtime.applyBootstrapPayload({
+      request: createBootstrapRequest("/w/missing", "missing"),
+      payload: {
+        session,
+        workspaces,
+        requestedWorkspace: { slug: "missing", status },
+        permissions: []
+      }
+    });
+
+    assert.equal(runtime.getWorkspaceBootstrapStatus("missing"), status);
+    assert.deepEqual(router.replaceCalls, ["/w/missing"]);
+  }
 });
 
 test("bootstrap placement runtime guard wrapper preserves delegated deny outcomes", async () => {

@@ -9,6 +9,7 @@
     "./client": "./src/client/index.js",
     "./client/components/AccountSettingsInvitesSection": "./src/client/components/AccountSettingsInvitesSection.vue",
     "./client/components/WorkspaceInviteLanding": "./src/client/components/WorkspaceInviteLanding.vue",
+    "./client/components/WorkspacesClientElement": "./src/client/components/WorkspacesClientElement.vue",
     "./client/providers/WorkspacesWebClientProvider": "./src/client/providers/WorkspacesWebClientProvider.js",
     "./client/components/WorkspaceMembersClientElement": "./src/client/components/WorkspaceMembersClientElement.vue",
     "./client/composables/useWorkspaceRouteContext": "./src/client/composables/useWorkspaceRouteContext.js"
@@ -69,6 +70,10 @@
           {
             "subpath": "./client/components/WorkspaceInviteLanding",
             "summary": "Exports the default public workspace invite landing component."
+          },
+          {
+            "subpath": "./client/components/WorkspacesClientElement",
+            "summary": "Exports the Your workspaces landing page component: last-used or only workspace, otherwise the list, invitations and first-workspace creation."
           },
           {
             "subpath": "./client/providers/WorkspacesWebClientProvider",

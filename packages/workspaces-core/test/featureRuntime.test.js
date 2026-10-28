@@ -5,7 +5,7 @@ import { createActionProvider } from "@jskit-ai/kernel/server/actions";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { createBootstrapRuntime } from "@jskit-ai/kernel/server/runtime";
 import { createUsersExtensions } from "@jskit-ai/users-core/server/usersExtensions";
-import { WorkspacesFeature } from "../src/server/WorkspacesFeature.js";
+import { WorkspacesFeature, createWorkspacesRuntime } from "../src/server/WorkspacesFeature.js";
 import { WorkspacesIntegrationsProvider } from "../src/server/WorkspacesIntegrationsProvider.js";
 
 function createJsonRestApiFixture() {
@@ -156,4 +156,16 @@ test("workspace realtime audiences are the actor's active memberships", async ()
     { kind: "workspace", id: "12" },
     { kind: "workspace_user", workspaceId: "12", userId: "9" }
   ]);
+});
+
+test("workspace settings color defaults must be hex colors", () => {
+  const config = runtimeConfig();
+  config.workspaceSettings.defaults.lightPrimaryColor = "charcoal";
+  const jsonRestApi = createJsonRestApiFixture();
+  jsonRestApi.resources.workspaceSettings = {};
+
+  assert.throws(
+    () => createWorkspacesRuntime({ config, env: {}, jsonRestApi }),
+    /runtime\.config\.workspaceSettings\.defaults\.lightPrimaryColor must be a hex color/
+  );
 });

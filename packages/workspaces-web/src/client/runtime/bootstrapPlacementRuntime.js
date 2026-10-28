@@ -2,6 +2,7 @@ import {
   findWorkspaceBySlug,
   normalizeWorkspaceList
 } from "../lib/bootstrap.js";
+import { writeLastWorkspaceSlug } from "../lib/lastWorkspace.js";
 import { normalizePermissionList } from "@jskit-ai/http-web/client/lib/permissions";
 import {
   persistBootstrapThemePreference,
@@ -316,19 +317,15 @@ function createBootstrapPlacementRuntime({
       return payload;
     }
 
-    const requestedWorkspaceStatus = resolveRequestedWorkspaceBootstrapStatus(payload, stateAtApply.workspaceSlug);
-    if (requestedWorkspaceStatus) {
-      setWorkspaceBootstrapStatus(stateAtApply.workspaceSlug, requestedWorkspaceStatus, normalizedSource);
-      return payload;
+    const workspaceStatus =
+      resolveRequestedWorkspaceBootstrapStatus(payload, stateAtApply.workspaceSlug) ||
+      (findWorkspaceBySlug(payload?.workspaces, stateAtApply.workspaceSlug)
+        ? WORKSPACE_BOOTSTRAP_STATUS_RESOLVED
+        : WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN);
+    setWorkspaceBootstrapStatus(stateAtApply.workspaceSlug, workspaceStatus, normalizedSource);
+    if (workspaceStatus === WORKSPACE_BOOTSTRAP_STATUS_RESOLVED) {
+      writeLastWorkspaceSlug(payload?.session?.userId, stateAtApply.workspaceSlug);
     }
-
-    const availableWorkspaces = normalizeWorkspaceList(payload?.workspaces);
-    const currentWorkspace = findWorkspaceBySlug(availableWorkspaces, stateAtApply.workspaceSlug);
-    setWorkspaceBootstrapStatus(
-      stateAtApply.workspaceSlug,
-      currentWorkspace ? WORKSPACE_BOOTSTRAP_STATUS_RESOLVED : WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN,
-      normalizedSource
-    );
     return payload;
   }
 

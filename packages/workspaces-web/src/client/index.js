@@ -1,3 +1,4 @@
 export { WorkspacesWebClientProvider } from "./providers/WorkspacesWebClientProvider.js";
 export { default as WorkspaceMembersClientElement } from "./components/WorkspaceMembersClientElement.vue";
 export { default as WorkspaceInviteLanding } from "./components/WorkspaceInviteLanding.vue";
+export { default as WorkspacesClientElement } from "./components/WorkspacesClientElement.vue";

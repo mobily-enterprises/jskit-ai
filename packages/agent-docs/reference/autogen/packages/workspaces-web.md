@@ -97,8 +97,10 @@ Local functions
 - `normalizePendingInvite(entry)`
 - `reportFeedback({ message, severity = "error", channel = "", dedupeKey = "" } = {})`
 - `workspaceInitials(workspace)`
-- `workspaceAvatarStyle(workspace)`
 - `workspaceHomePath(workspaceSlug)`
+- `resolveLandingSlug()`
+- `workspaceOpenLabel(workspace)`
+- `isRespondingToInvite(invite, decision)`
 - `openWorkspace(workspaceSlug)`
 - `respondToInvite(invite, decision)`
 - `acceptInvite(invite)`
@@ -112,7 +114,6 @@ Exports
 Local functions
 - `resolveBrowserPath()`
 - `navigateToWorkspace(slug)`
-- `workspaceAvatarStyle(workspace)`
 
 ### `src/client/components/WorkspaceSettingsMenuItem.vue`
 Exports
@@ -137,6 +138,7 @@ Exports
 - `WorkspacesWebClientProvider`
 - `WorkspaceMembersClientElement`
 - `WorkspaceInviteLanding`
+- `WorkspacesClientElement`
 
 ### `src/client/lib/bootstrap.js`
 Exports
@@ -146,6 +148,15 @@ Exports
 - `normalizeWorkspaceList(entries = [])`
 Local functions
 - `normalizeWorkspaceSlug(value = "")`
+
+### `src/client/lib/lastWorkspace.js`
+Exports
+- `readLastWorkspaceSlug(userId, { storage } = {})`
+- `resolveWorkspaceLandingSlug({ workspaces = [], pendingInvites = [], lastWorkspaceSlug = "" } = {})`
+- `writeLastWorkspaceSlug(userId, workspaceSlug, { storage } = {})`
+Local functions
+- `resolveStorage(storage)`
+- `lastWorkspaceStorageKey(userId)`
 
 ### `src/client/lib/profileSurfaceMenuLinks.js`
 Exports
@@ -310,6 +321,14 @@ Exports
 Exports
 - None
 
+### `fixtures/workspaces-landing/main.js`
+Exports
+- None
+
+### `fixtures/workspaces-landing/vite.config.mjs`
+Exports
+- None
+
 ### patterns
 
 ### `patterns/workspace-surfaces/example/packages/main/src/client/components/AccountPendingInvitesCue.vue`
@@ -341,6 +360,10 @@ Exports
 - None
 
 ### `patterns/workspace-surfaces/example/src/pages/admin/workspace/settings/index.vue`
+Exports
+- None
+
+### `patterns/workspace-surfaces/example/src/pages/home/workspaces/index.vue`
 Exports
 - None
 

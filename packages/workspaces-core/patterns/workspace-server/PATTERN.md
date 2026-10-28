@@ -23,6 +23,12 @@ substitute for a simpler domain ownership column.
 Choose workspace creation policy, roles, invitation policy, expiry, email copy,
 member permissions, personal-workspace behavior, and surface access rules.
 
+In `workspaces` mode, `tenancyPolicy.workspace.autoProvision: true` gives every
+user a personal workspace in addition to shared ones; the server config function
+`personalWorkspaceName(user)` names it. `workspaceSettings.defaults` sets
+`invitesEnabled` and the colours (`lightPrimaryColor`, `darkPrimaryColor` and
+the other palette fields) that new workspaces start with.
+
 ## Framework APIs
 
 Use workspace routes, resources, scope helpers, tenancy profiles, and settings

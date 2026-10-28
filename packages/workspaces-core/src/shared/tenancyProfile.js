@@ -15,7 +15,8 @@ function resolveWorkspacePolicyOverrides(appConfig = {}) {
   const workspacePolicy = isRecord(tenancyPolicy.workspace) ? tenancyPolicy.workspace : {};
 
   return Object.freeze({
-    allowSelfCreate: typeof workspacePolicy.allowSelfCreate === "boolean" ? workspacePolicy.allowSelfCreate : null
+    allowSelfCreate: typeof workspacePolicy.allowSelfCreate === "boolean" ? workspacePolicy.allowSelfCreate : null,
+    autoProvision: typeof workspacePolicy.autoProvision === "boolean" ? workspacePolicy.autoProvision : null
   });
 }
 
@@ -40,7 +41,7 @@ function resolveWorkspacePolicy(mode, overrides = {}) {
 
   return Object.freeze({
     enabled: true,
-    autoProvision: false,
+    autoProvision: overrides.autoProvision === true,
     allowSelfCreate: overrides.allowSelfCreate === true,
     slugPolicy: WORKSPACE_SLUG_POLICY_USER_SELECTED
   });

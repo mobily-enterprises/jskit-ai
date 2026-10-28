@@ -181,6 +181,25 @@ test("workspaceSettingsRepository.ensureForWorkspaceId delegates defaults to the
   assert.equal(record.id, "5");
 });
 
+test("workspaceSettingsRepository.ensureForWorkspaceId starts new workspaces from the app's default colors", async () => {
+  const { api, state, DEFAULT_WORKSPACE_THEME } = createWorkspaceSettingsApiStub();
+  state.row = null;
+  const repository = createRepository({
+    api,
+    defaultColorSettings: {
+      lightPrimaryColor: "#1C1C1C",
+      darkPrimaryColor: "#F5F5F5"
+    }
+  });
+
+  await repository.ensureForWorkspaceId("5");
+
+  assert.equal(state.postPayload.data.lightPrimaryColor, "#1C1C1C");
+  assert.equal(state.postPayload.data.darkPrimaryColor, "#F5F5F5");
+  assert.equal(state.postPayload.data.lightSecondaryColor, DEFAULT_WORKSPACE_THEME.light.secondaryColor);
+  assert.equal(state.postPayload.data.darkSurfaceColor, DEFAULT_WORKSPACE_THEME.dark.surfaceColor);
+});
+
 test("workspaceSettingsRepository.updateSettingsByWorkspaceId updates workspace settings fields", async () => {
   const { api, state } = createWorkspaceSettingsApiStub();
   const repository = createRepository({

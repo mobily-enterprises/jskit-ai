@@ -186,17 +186,6 @@ const activeWorkspaceLabel = computed(() => {
   return "Workspace";
 });
 
-function workspaceAvatarStyle(workspace) {
-  const color = String(workspace?.color || "").trim();
-  if (!/^#[0-9a-fA-F]{6}$/.test(color)) {
-    return {};
-  }
-
-  return {
-    backgroundColor: color
-  };
-}
-
 </script>
 
 <template>
@@ -224,7 +213,7 @@ function workspaceAvatarStyle(workspace) {
         @click="navigateToWorkspace(workspace.slug)"
       >
         <template #prepend>
-          <v-avatar size="24" color="primary" variant="tonal" :style="workspaceAvatarStyle(workspace)">
+          <v-avatar size="24" color="primary" variant="tonal">
             <span class="text-caption">{{ String(workspace.name || "W").slice(0, 1).toUpperCase() }}</span>
           </v-avatar>
         </template>

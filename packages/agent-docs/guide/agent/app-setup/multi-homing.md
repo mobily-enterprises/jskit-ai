@@ -26,6 +26,70 @@ Choose whether the product is:
 Do not add workspace machinery to a product that only needs an owner id on one
 domain record.
 
+Set the model with `tenancyMode` and `tenancyPolicy` in `config/public.js`:
+
+| `tenancyMode` | Workspaces | First workspace | Creating more |
+| --- | --- | --- | --- |
+| `none` | None | None | No |
+| `personal` | One personal workspace per user | Always provisioned | No |
+| `workspaces` | Named workspaces with membership, invitations and switching | Only with `tenancyPolicy.workspace.autoProvision: true` | With `tenancyPolicy.workspace.allowSelfCreate: true` |
+
+In `workspaces` mode the product chooses one of two styles:
+
+- **Team-first** (the default, `autoProvision` unset or `false`): a new account
+  has no workspace until it creates one or accepts an invitation. Mount the
+  **Your workspaces** page (see [Browser composition](#browser-composition)) so
+  these people can do either.
+- **Personal workspace plus shared workspaces** (`autoProvision: true`): every
+  user, including people who signed up through an invitation, owns one personal
+  workspace and can also join or create others.
+
+```js
+// config/public.js
+config.tenancyMode = "workspaces";
+config.tenancyPolicy = {
+  workspace: {
+    allowSelfCreate: true,
+    autoProvision: true
+  }
+};
+```
+
+Provisioning runs in the users profile-sync lifecycle after registration and
+sign-in. The first run creates the personal workspace, its owner membership and
+its settings; later runs reuse it. The default name is the user's display name,
+or email, followed by "'s Workspace". Set `personalWorkspaceName` in
+`config/server.js` to choose another; it receives the synchronized profile
+(`id`, `displayName`, `email`, `username`), and an empty result keeps the default:
+
+```js
+// config/server.js
+config.personalWorkspaceName = (user) => `${user.displayName || user.email}'s home`;
+```
+
+### Development sign-in
+
+Development sign-in (`POST /api/dev-auth/login-as`, used by the Playwright
+`loginAsExistingUser()` helper and managed previews) signs in as an existing
+user without changing data. It does not run the profile-sync lifecycle, so
+workspace provisioning and other lifecycle contributors do not run. Create the
+workspaces that seeded users need in seed data, or sign in normally once.
+
+## Data model
+
+The package migrations create and own these tables:
+
+| Table | Columns that applications use |
+| --- | --- |
+| `workspaces` | `id`, `slug` (unique), `name`, `owner_user_id`, `is_personal`, `avatar_url`, `deleted_at` |
+| `workspace_memberships` | `workspace_id`, `user_id`, `role_sid`, `status`; one row per workspace and user |
+| `workspace_settings` | One row per workspace keyed by `workspace_id`: the eight palette colours and `invites_enabled` |
+| `workspace_invites` | `workspace_id`, `email`, `role_sid`, `status`, `token_hash`, `invited_by_user_id`, `expires_at`, `accepted_at`, `revoked_at` |
+
+Application records that belong to a workspace use a non-null `workspace_id`
+foreign key to `workspaces.id`. Read and change these tables through the
+`workspaces.core` repositories and services, not directly.
+
 ## Server composition
 
 Use `workspaces/workspace-server` for role vocabulary, creation policy,
@@ -34,6 +98,103 @@ invitations, settings, and app-owned invitation email rendering.
 Workspace scope must reach repository queries. Parsing a workspace slug or
 hiding an admin link is not authorization. Membership and role checks happen
 before an operation discloses records or record existence.
+
+### Workspace-scoped features and routes
+
+For a standard CRUD resource owned by a workspace, give its table the
+`workspace_id` column, set the resource's `autofilter: "workspace"`, and bind
+`defineCrudJsonApiFeature()` with `ownershipFilter: "workspace"` on a workspace
+surface. JSKIT then filters `workspaceId` by the workspace in the route.
+`workspace_user` also filters by the signed-in user. See the CRUD operations
+guide.
+
+A hand-written route registers under `/api/w/:workspaceSlug/...` with
+`contextPolicy: "required"`:
+
+```js
+router.register(
+  "GET",
+  "/api/w/:workspaceSlug/projects",
+  {
+    auth: "required",
+    surface: "app",
+    contextPolicy: "required",
+    permission: "projects.view" // optional
+  },
+  async function (request, reply) {
+    const projects = await projectsService.listForWorkspace(request.workspace.id);
+    // ...
+  }
+);
+```
+
+Before the handler runs, the auth plugin resolves the slug for the signed-in
+user and sets `request.workspace`, `request.membership` (including `roleSid`
+and `status`) and `request.permissions`. An unknown slug returns 404 and a
+non-member receives 403, unless the route's `surface` uses an access policy with
+`requireWorkspaceMembership: false`. A route with `permission` returns 403 when
+the membership lacks it. Scope queries with `request.workspace.id`; never take a
+workspace id from request input.
+
+### Workspace services from another feature
+
+Declare `workspaces: "workspaces.core"` in the feature's `requires`. The
+capability provides:
+
+| Member | Use |
+| --- | --- |
+| `workspaces.services.directory` | Workspace lists, context by slug, creation and provisioning |
+| `workspaces.services.members` | Members, roles and invitations |
+| `workspaces.services.pendingInvitations` | Invitation resolution, redemption and acceptance participants |
+| `workspaces.services.settings` | Workspace settings |
+| `workspaces.repositories.workspaces`, `.workspaceMemberships`, `.workspaceSettings`, `.workspaceInvites` | Repository access inside the application's own transactions |
+| `workspaces.tenancyProfile` | The resolved tenancy mode and workspace policy |
+
+### Invitation email
+
+To send invitation email, set a mailer in `config/server.js`. Without one,
+invitations are still created and delivery reports `mailer_unconfigured`.
+`workspaceInviteMailer` is an object whose `sendWorkspaceInvite(message,
+options)` receives `{ email, inviteUrl, workspace, inviter, roleSid, expiresAt,
+message }`, where the inner `message` is the rendered `{ subject, text, html }`.
+`workspaceInviteEmailTemplate` is an optional function that renders that inner
+message; it receives `{ email, inviteUrl, workspace, inviter, roleSid,
+roleLabel, expiresAt }` (`roleLabel` only when configured). Invitation links use `/invite/:token` unless
+`workspaceInvitations.invitePath` names another path. The
+`workspaces/workspace-server` pattern includes an example renderer.
+
+### Workspace colours
+
+Each workspace stores a light and a dark palette in `workspace_settings`. On
+workspace routes, `workspaces-web` switches Vuetify to the `workspace-light` or
+`workspace-dark` theme, built from the application's own theme with `primary`,
+`secondary`, `surface` and `surface-variant` replaced by the workspace's
+colours. Other routes use the application's themes.
+
+New workspaces start from JSKIT's blue palette unless `config/server.js` sets
+the application's own. Missing fields keep JSKIT's values; an invalid colour
+stops the server at startup:
+
+```js
+// config/server.js
+config.workspaceSettings = {
+  defaults: {
+    invitesEnabled: true,
+    lightPrimaryColor: "#1C1C1C",
+    lightSecondaryColor: "#5C5C5C",
+    lightSurfaceColor: "#FFFFFF",
+    lightSurfaceVariantColor: "#424242",
+    darkPrimaryColor: "#F5F5F5",
+    darkSecondaryColor: "#BDBDBD",
+    darkSurfaceColor: "#121212",
+    darkSurfaceVariantColor: "#C8C8C8"
+  }
+};
+```
+
+Defaults apply when a workspace is created. Existing workspaces keep their
+stored colours; change them with `PATCH /api/w/:workspaceSlug/settings` or
+`workspaces.services.settings.updateWorkspaceSettings(workspace, patch)`.
 
 `workspace_authenticated` and similar policies must implement their documented
 membership semantics exactly; do not synthesize memberships to compensate for
@@ -265,7 +426,34 @@ placements.
 
 The route slug, selected workspace, query keys, and server scope stay aligned.
 Invalid workspace URLs show a deliberate not-found/forbidden state instead of
-silently selecting another workspace.
+silently selecting another workspace. The browser waits for the server's answer
+about an unknown slug before deciding, so the surface can show that state.
+
+### Surfaces and where `/` lands
+
+Workspace surfaces put the slug in their pages root, such as
+`pagesRoot: "w/[workspaceSlug]"` with `requiresWorkspace: true`, and
+`w/[workspaceSlug]/admin` for administration. Keep the default surface
+(`surfaceDefaultId`, usually `home`) free of a workspace requirement: `/`,
+invitation links and other unscoped pages belong to it. With
+`webRootAllowed: "no"`, `/` opens that surface's root.
+
+`workspaces-web` remembers the last workspace each person opened in this
+browser. The **Your workspaces** page, `WorkspacesClientElement` from
+`@jskit-ai/workspaces-web/client/components/WorkspacesClientElement`, uses it:
+
+1. With pending invitations, it shows them so the person can join or refuse.
+2. Otherwise it opens the last workspace used in this browser, if the person is
+   still a member, or their only workspace.
+3. Otherwise it lists their workspaces and, when they have none and
+   `allowSelfCreate` is on, offers to create the first one.
+
+The page sends signed-out visitors to sign in. The
+`workspaces/workspace-surfaces` pattern mounts it at `/home/workspaces`. The
+product decides where people land: keep a public landing page at `/home` that
+links signed-in people there, or mount the page at `/home` itself so everyone
+goes straight to sign-in or into their workspace. Applications may replace it
+with their own page.
 
 Loading uses skeletons; mutation errors use toasts. Warm-cache and browser
 back/forward navigation must restore the correct workspace context.

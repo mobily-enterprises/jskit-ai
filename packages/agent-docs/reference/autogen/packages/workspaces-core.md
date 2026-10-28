@@ -222,10 +222,9 @@ Exports
 
 ### `src/server/workspaceSettings/workspaceSettingsRepository.js`
 Exports
-- `createRepository({ api, defaultInvitesEnabled = true } = {})`
+- `createRepository({ api, defaultInvitesEnabled = true, defaultColorSettings = {} } = {})`
 Local functions
-- `pickPatchFields(source = {})`
-- `createDefaultWorkspaceSettingsCreatePayload(workspaceId, defaultInvitesEnabled)`
+- `createDefaultWorkspaceSettingsCreatePayload(workspaceId, defaultInvitesEnabled, defaultColorSettings = {})`
 
 ### `src/server/workspaceSettings/workspaceSettingsService.js`
 Exports
@@ -239,6 +238,7 @@ Exports
 Local functions
 - `requirePositiveInteger(value, label)`
 - `requireBoolean(value, label)`
+- `requireWorkspaceColorDefaults(defaults)`
 - `resolveInviteEmailTemplate(config)`
 
 ### `src/server/WorkspacesIntegrationsProvider.js`
@@ -339,6 +339,7 @@ Exports
 - `normalizeWorkspaceThemeMode(value = "")`
 - `resolveWorkspaceThemeDefaultPalette(mode = WORKSPACE_THEME_MODE_LIGHT)`
 - `resolveWorkspaceThemePalettes(input = {})`
+- `WORKSPACE_SETTINGS_COLOR_FIELDS`
 - `WORKSPACE_THEME_MODE_DARK`
 - `WORKSPACE_THEME_MODE_LIGHT`
 - `resolveWorkspaceThemePalette(input = {}, { mode = WORKSPACE_THEME_MODE_LIGHT } = {})`

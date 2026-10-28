@@ -18,6 +18,17 @@ const DEFAULT_WORKSPACE_DARK_PALETTE = Object.freeze({
 
 const DEFAULT_WORKSPACE_COLOR = DEFAULT_WORKSPACE_LIGHT_PALETTE.color;
 
+const WORKSPACE_SETTINGS_COLOR_FIELDS = Object.freeze([
+  "lightPrimaryColor",
+  "lightSecondaryColor",
+  "lightSurfaceColor",
+  "lightSurfaceVariantColor",
+  "darkPrimaryColor",
+  "darkSecondaryColor",
+  "darkSurfaceColor",
+  "darkSurfaceVariantColor"
+]);
+
 function normalizeWorkspaceHexColor(value) {
   const normalized = String(value || "").trim();
   if (!HEX_COLOR_PATTERN.test(normalized)) {
@@ -113,6 +124,7 @@ export {
   normalizeWorkspaceThemeMode,
   resolveWorkspaceThemeDefaultPalette,
   resolveWorkspaceThemePalettes,
+  WORKSPACE_SETTINGS_COLOR_FIELDS,
   WORKSPACE_THEME_MODE_DARK,
   WORKSPACE_THEME_MODE_LIGHT,
   resolveWorkspaceThemePalette

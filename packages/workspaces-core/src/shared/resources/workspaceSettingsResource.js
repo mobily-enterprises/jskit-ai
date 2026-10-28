@@ -3,19 +3,14 @@ import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
 import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
 import { workspaceRoleCatalogSchema } from "./workspaceRoleCatalogSchema.js";
-import { normalizeWorkspaceHexColor, DEFAULT_WORKSPACE_DARK_PALETTE, DEFAULT_WORKSPACE_LIGHT_PALETTE } from "../settings.js";
+import {
+  normalizeWorkspaceHexColor,
+  DEFAULT_WORKSPACE_DARK_PALETTE,
+  DEFAULT_WORKSPACE_LIGHT_PALETTE,
+  WORKSPACE_SETTINGS_COLOR_FIELDS
+} from "../settings.js";
 
-const WORKSPACE_SETTINGS_FIELD_KEYS = deepFreeze([
-  "lightPrimaryColor",
-  "lightSecondaryColor",
-  "lightSurfaceColor",
-  "lightSurfaceVariantColor",
-  "darkPrimaryColor",
-  "darkSecondaryColor",
-  "darkSurfaceColor",
-  "darkSurfaceVariantColor",
-  "invitesEnabled"
-]);
+const WORKSPACE_SETTINGS_FIELD_KEYS = deepFreeze([...WORKSPACE_SETTINGS_COLOR_FIELDS, "invitesEnabled"]);
 
 const workspaceSettingsBodySchema = createSchema({
   lightPrimaryColor: {

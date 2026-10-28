@@ -26,6 +26,10 @@ test("workspace surfaces pattern includes settings, invitations, and app-owned i
     path.join(exampleRoot, "src", "pages", "invite", "[token].vue"),
     "utf8"
   );
+  const workspacesPage = await readFile(
+    path.join(exampleRoot, "src", "pages", "home", "workspaces", "index.vue"),
+    "utf8"
+  );
 
   assert.match(settings, /target="admin-settings:primary-menu"/);
   assert.match(settings, /<RouterView \/>/);
@@ -34,6 +38,8 @@ test("workspace surfaces pattern includes settings, invitations, and app-owned i
   assert.match(invitationPage, /@jskit-ai\/workspaces-web\/client\/components\/WorkspaceInviteLanding/);
   assert.match(invitationPage, /<WorkspaceInviteLanding \/>/);
   assert.doesNotMatch(invitationPage, /\bfetch\s*\(/);
+  assert.match(workspacesPage, /@jskit-ai\/workspaces-web\/client\/components\/WorkspacesClientElement/);
+  assert.match(workspacesPage, /<WorkspacesClientElement \/>/);
 });
 
 test("workspace settings and not-found examples use direct panels", async () => {

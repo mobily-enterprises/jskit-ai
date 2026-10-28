@@ -3548,6 +3548,10 @@
                 "summary": "Exports the default public workspace invite landing component."
               },
               {
+                "subpath": "./client/components/WorkspacesClientElement",
+                "summary": "Exports the Your workspaces landing page component: last-used or only workspace, otherwise the list, invitations and first-workspace creation."
+              },
+              {
                 "subpath": "./client/providers/WorkspacesWebClientProvider",
                 "summary": "Exports workspaces-web client provider class."
               },
@@ -4790,6 +4794,7 @@
         "src/pages/admin/members/index.vue",
         "src/pages/admin/workspace/settings/index.vue",
         "src/pages/admin/workspace/settings.vue",
+        "src/pages/home/workspaces/index.vue",
         "src/pages/invite/[token].vue",
         "src/surfaces/admin/index.vue",
         "src/surfaces/admin/root.vue",

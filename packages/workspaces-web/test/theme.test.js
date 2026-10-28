@@ -1,51 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ThemeSymbol } from "vuetify/lib/composables/theme.js";
 import { resolveWorkspaceThemePalette } from "@jskit-ai/workspaces-core/shared/settings";
 import {
   hexColorToRgb,
   setVuetifyPrimaryColorOverride,
   setVuetifyThemeName
 } from "../src/client/lib/theme.js";
-
-function createVuetifyThemeController(initialTheme = "light") {
-  return {
-    global: {
-      name: {
-        value: initialTheme
-      }
-    },
-    themes: {
-      value: {
-        light: {
-          dark: false,
-          colors: {
-            primary: "#0f6b54",
-            secondary: "#3f5150",
-            background: "#eef3ee",
-            surface: "#f7fbf6",
-            "surface-variant": "#dfe8df"
-          }
-        },
-        dark: {
-          dark: true,
-          colors: {
-            primary: "#6fd0b5",
-            secondary: "#9db2af",
-            background: "#0f1715",
-            surface: "#16211e",
-            "surface-variant": "#253430"
-          }
-        }
-      }
-    },
-    _context: {
-      provides: {
-        [ThemeSymbol]: null
-      }
-    }
-  };
-}
+import { createVuetifyThemeController } from "./support/vuetifyThemeController.js";
 
 test("hexColorToRgb returns Vuetify rgb tuple and rejects invalid values", () => {
   assert.equal(hexColorToRgb("#0f6b54"), "15,107,84");

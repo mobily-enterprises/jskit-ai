@@ -169,7 +169,7 @@ function createBootstrapPlacementRouteGuards({
     return null;
   }
 
-  function resolveSurfaceAccessGuardDecision(pathname = "/", search = "", { allowOnUnknown = true } = {}) {
+  function resolveSurfaceAccessGuardDecision(pathname = "/", search = "") {
     const surfaceState = resolveSurfaceRouteState(pathname, search);
     if (!surfaceState) {
       return null;
@@ -186,7 +186,9 @@ function createBootstrapPlacementRouteGuards({
       context: placementRuntime.getContext(),
       surfaceId: surfaceState.surfaceId,
       workspaceSlug: surfaceState.workspaceSlug,
-      allowOnUnknown
+      // A workspace the person isn't listed in stays pending until the server says
+      // not_found or forbidden, so the surface can show that state.
+      allowOnUnknown: true
     });
     if (accessDecision.allowed || accessDecision.pending) {
       return null;
@@ -262,9 +264,7 @@ function createBootstrapPlacementRouteGuards({
     const currentRoute = router.currentRoute?.value || {};
     const currentPath = resolveRuntimePathname(currentRoute.path || "/");
     const currentSearch = resolveSearchFromFullPath(currentRoute.fullPath || "");
-    const surfaceDecision = resolveSurfaceAccessGuardDecision(currentPath, currentSearch, {
-      allowOnUnknown: false
-    });
+    const surfaceDecision = resolveSurfaceAccessGuardDecision(currentPath, currentSearch);
     if (!surfaceDecision || !surfaceDecision.redirectTo) {
       return;
     }
@@ -306,9 +306,7 @@ function createBootstrapPlacementRouteGuards({
         return workspaceDecision;
       }
 
-      const surfaceDecision = resolveSurfaceAccessGuardDecision(pathname, search, {
-        allowOnUnknown: true
-      });
+      const surfaceDecision = resolveSurfaceAccessGuardDecision(pathname, search);
       if (surfaceDecision) {
         return surfaceDecision;
       }

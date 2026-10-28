@@ -17,6 +17,7 @@ test("workspaces-web exports are explicit and aligned with production usage", ()
       "./client",
       "./client/components/AccountSettingsInvitesSection",
       "./client/components/WorkspaceInviteLanding",
+      "./client/components/WorkspacesClientElement",
       "./client/providers/WorkspacesWebClientProvider",
       "./client/composables/useWorkspaceRouteContext"
     ]

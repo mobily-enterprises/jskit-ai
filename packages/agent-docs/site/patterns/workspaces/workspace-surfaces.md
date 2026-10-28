@@ -23,6 +23,13 @@ Choose public invitation routes, application/admin surface ids, workspace
 selector behavior, member-management permissions, settings sections, and the
 empty or not-found experience.
 
+Choose where signed-in people land. The default surface does not require a
+workspace, so `/`, invitation links and the **Your workspaces** page work
+without one. Keep a landing page there, or mount `WorkspacesClientElement` on
+it to open the last workspace used in this browser, or the only one, and
+otherwise show the person's workspaces, pending invitations and first-workspace
+creation.
+
 ## Framework APIs
 
 Use the workspace client provider, components, and composables exported by
@@ -42,8 +49,9 @@ Use the workspace client provider, components, and composables exported by
 ## Example files
 
 `example/` contains workspace app/admin roots, starter pages, invitation route,
-member and settings routes, not-found state, app-owned invitation widgets, and
-the components that an application's client provider registers.
+the **Your workspaces** page at `src/pages/home/workspaces/index.vue`, member
+and settings routes, not-found state, app-owned invitation widgets, and the
+components that an application's client provider registers.
 
 ## Variation points
 

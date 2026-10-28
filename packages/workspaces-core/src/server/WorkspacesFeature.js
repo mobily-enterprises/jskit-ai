@@ -9,6 +9,7 @@ import { workspaceMembershipsResource } from "../shared/resources/workspaceMembe
 import { workspaceResource } from "../shared/resources/workspaceResource.js";
 import { workspaceSettingsResource } from "../shared/resources/workspaceSettingsResource.js";
 import { createWorkspaceRoleCatalog } from "../shared/roles.js";
+import { WORKSPACE_SETTINGS_COLOR_FIELDS, normalizeWorkspaceHexColor } from "../shared/settings.js";
 import { resolveTenancyProfile } from "../shared/tenancyProfile.js";
 import { createRepository as createWorkspaceInvitesRepository } from "./common/repositories/workspaceInvitesRepository.js";
 import { createRepository as createWorkspaceMembershipsRepository } from "./common/repositories/workspaceMembershipsRepository.js";
@@ -47,6 +48,21 @@ function requireBoolean(value, label) {
     throw new TypeError(`${label} must be boolean.`);
   }
   return value;
+}
+
+function requireWorkspaceColorDefaults(defaults) {
+  const colors = {};
+  for (const fieldName of WORKSPACE_SETTINGS_COLOR_FIELDS) {
+    if (defaults?.[fieldName] === undefined) {
+      continue;
+    }
+    const color = normalizeWorkspaceHexColor(defaults[fieldName]);
+    if (!color) {
+      throw new TypeError(`runtime.config.workspaceSettings.defaults.${fieldName} must be a hex color like #1867C0.`);
+    }
+    colors[fieldName] = color;
+  }
+  return colors;
 }
 
 function resolveInviteEmailTemplate(config) {
@@ -92,7 +108,8 @@ function createWorkspacesRuntime({ config, env, jsonRestApi } = {}) {
     defaultInvitesEnabled: requireBoolean(
       config?.workspaceSettings?.defaults?.invitesEnabled,
       "runtime.config.workspaceSettings.defaults.invitesEnabled"
-    )
+    ),
+    defaultColorSettings: requireWorkspaceColorDefaults(config?.workspaceSettings?.defaults)
   });
   const workspacesRepository = createWorkspacesRepository({ api: jsonRestApi });
   const workspaceMembershipsRepository = createWorkspaceMembershipsRepository({ api: jsonRestApi });

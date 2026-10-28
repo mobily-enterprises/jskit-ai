@@ -7,6 +7,7 @@ import {
 } from "@jskit-ai/shell-web/client/placement";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { normalizeWorkspaceList } from "../lib/bootstrap.js";
+import { readLastWorkspaceSlug, resolveWorkspaceLandingSlug } from "../lib/lastWorkspace.js";
 import { ROUTE_VISIBILITY_PUBLIC } from "@jskit-ai/kernel/shared/support/visibility";
 import {
   WORKSPACES_TRANSPORT,
@@ -59,6 +60,7 @@ const errorRuntime = useShellWebErrorRuntime();
 const selectingWorkspaceSlug = ref("");
 const bootstrapModel = reactive({
   sessionAuthenticated: false,
+  userId: "",
   tenancyMode: "none",
   workspaceAllowSelfCreate: false,
   workspaceInvitesEnabled: false,
@@ -91,6 +93,7 @@ const bootstrapView = useView({
   model: bootstrapModel,
   mapLoadedToModel: (model, payload = {}) => {
     model.sessionAuthenticated = Boolean(payload?.session?.authenticated);
+    model.userId = String(payload?.session?.userId || "");
     model.tenancyMode = String(payload?.tenancy?.mode || "").trim().toLowerCase() || "none";
     model.workspaceAllowSelfCreate = payload?.tenancy?.workspace?.allowSelfCreate === true;
     model.workspaceInvitesEnabled = payload?.app?.features?.workspaceInvites === true;
@@ -200,17 +203,6 @@ function workspaceInitials(workspace) {
   return source.slice(0, 2).toUpperCase();
 }
 
-function workspaceAvatarStyle(workspace) {
-  const color = String(workspace?.color || "").trim();
-  if (!/^#[0-9a-fA-F]{6}$/.test(color)) {
-    return {};
-  }
-
-  return {
-    backgroundColor: color
-  };
-}
-
 function workspaceHomePath(workspaceSlug) {
   const normalizedSlug = String(workspaceSlug || "").trim();
   if (!normalizedSlug || !workspaceSurfaceId.value) {
@@ -223,6 +215,25 @@ function workspaceHomePath(workspaceSlug) {
       workspaceSlug: normalizedSlug
     }
   });
+}
+
+function resolveLandingSlug() {
+  return resolveWorkspaceLandingSlug({
+    workspaces: workspaceItems.value,
+    pendingInvites: pendingInvites.value,
+    lastWorkspaceSlug: readLastWorkspaceSlug(bootstrapModel.userId)
+  });
+}
+
+function workspaceOpenLabel(workspace) {
+  if (!workspace.isAccessible) {
+    return "Unavailable";
+  }
+  return selectingWorkspaceSlug.value === workspace.slug ? "Opening…" : "Open";
+}
+
+function isRespondingToInvite(invite, decision) {
+  return inviteAction.value.token === invite.token && inviteAction.value.decision === decision;
 }
 
 async function openWorkspace(workspaceSlug) {
@@ -349,7 +360,7 @@ async function createWorkspace() {
     const createdWorkspace = await createWorkspaceCommand.run();
     await bootstrapView.refresh();
     const createdSlug = String(createdWorkspace?.slug || "").trim();
-    const autoOpenHandledByWatcher = workspaceItems.value.length === 1 && pendingInvites.value.length < 1;
+    const autoOpenHandledByWatcher = Boolean(resolveLandingSlug());
     if (createdSlug && !autoOpenHandledByWatcher) {
       await openWorkspace(createdSlug);
     }
@@ -388,8 +399,9 @@ watch(
       return;
     }
 
-    if (workspaceItems.value.length === 1 && pendingInvites.value.length < 1) {
-      await openWorkspace(workspaceItems.value[0].slug);
+    const landingSlug = resolveLandingSlug();
+    if (landingSlug) {
+      await openWorkspace(landingSlug);
     }
   },
   {
@@ -404,12 +416,11 @@ watch(
     <v-container class="mx-auto" max-width="860">
       <v-sheet rounded="lg" border class="workspaces-view__panel">
         <header class="workspaces-view__header">
-          <h1 class="workspaces-view__title">You are logged in</h1>
+          <h1 class="workspaces-view__title">Your workspaces</h1>
           <p class="text-body-2 text-medium-emphasis mb-0">Select a workspace or respond to invitations.</p>
         </header>
 
         <div class="workspaces-view__body">
-          <v-progress-linear v-if="!isBootstrapping && isRefreshingBootstrap" indeterminate class="mb-4" />
           <v-row>
             <v-col cols="12" :md="workspaceInvitesEnabled ? 6 : 12">
               <template v-if="isBootstrapping">
@@ -421,14 +432,14 @@ watch(
                 <v-btn
                   color="primary"
                   variant="tonal"
-                  :loading="isRefreshingBootstrap"
+                  :disabled="isRefreshingBootstrap"
                   @click="refreshBootstrap"
                 >
-                  Retry
+                  {{ isRefreshingBootstrap ? "Retrying…" : "Retry" }}
                 </v-btn>
               </div>
               <template v-else>
-                <div class="text-subtitle-2 mb-2">Your workspaces</div>
+                <div class="text-subtitle-2 mb-2">Workspaces</div>
                 <template v-if="workspaceItems.length === 0">
                   <p class="text-body-1 mb-2">You do not have a workspace yet.</p>
                   <template v-if="canCreateWorkspace">
@@ -451,10 +462,10 @@ watch(
                     <v-btn
                       color="primary"
                       variant="tonal"
-                      :loading="isCreatingWorkspace"
+                      :disabled="isCreatingWorkspace"
                       @click="createWorkspace"
                     >
-                      Create Workspace
+                      {{ isCreatingWorkspace ? "Creating…" : "Create Workspace" }}
                     </v-btn>
                   </template>
                   <p v-else class="text-body-2 text-medium-emphasis mb-0">
@@ -476,7 +487,7 @@ watch(
                       class="px-0"
                     >
                       <template #prepend>
-                        <v-avatar :style="workspaceAvatarStyle(workspace)" size="28">
+                        <v-avatar color="primary" variant="tonal" size="28">
                           <v-img v-if="workspace.avatarUrl" :src="workspace.avatarUrl" cover />
                           <span v-else class="text-caption">{{ workspaceInitials(workspace) }}</span>
                         </v-avatar>
@@ -486,11 +497,10 @@ watch(
                           color="primary"
                           size="small"
                           variant="tonal"
-                          :disabled="!workspace.isAccessible"
-                          :loading="selectingWorkspaceSlug === workspace.slug"
+                          :disabled="!workspace.isAccessible || selectingWorkspaceSlug === workspace.slug"
                           @click="openWorkspace(workspace.slug)"
                         >
-                          {{ workspace.isAccessible ? "Open" : "Unavailable" }}
+                          {{ workspaceOpenLabel(workspace) }}
                         </v-btn>
                       </template>
                     </v-list-item>
@@ -529,19 +539,19 @@ watch(
                             size="small"
                             variant="text"
                             color="error"
-                            :loading="inviteAction.token === invite.token && inviteAction.decision === 'refuse'"
+                            :disabled="isRespondingToInvite(invite, 'refuse')"
                             @click="refuseInvite(invite)"
                           >
-                            Refuse
+                            {{ isRespondingToInvite(invite, "refuse") ? "Refusing…" : "Refuse" }}
                           </v-btn>
                           <v-btn
                             size="small"
                             variant="tonal"
                             color="primary"
-                            :loading="inviteAction.token === invite.token && inviteAction.decision === 'accept'"
+                            :disabled="isRespondingToInvite(invite, 'accept')"
                             @click="acceptInvite(invite)"
                           >
-                            Join
+                            {{ isRespondingToInvite(invite, "accept") ? "Joining…" : "Join" }}
                           </v-btn>
                         </div>
                       </template>
@@ -585,13 +595,13 @@ watch(
   text-align: center;
 }
 
+.workspaces-view__body :deep(.v-btn) {
+  min-height: 48px;
+}
+
 @media (max-width: 640px) {
   .workspaces-view {
     padding-block: 0.75rem !important;
-  }
-
-  .workspaces-view__body :deep(.v-btn) {
-    min-height: 48px;
   }
 }
 </style>

@@ -84,6 +84,8 @@ function createService({
   const resolvedTenancyProfile = resolveTenancyProfile(appConfig);
   const resolvedTenancyMode = resolvedTenancyProfile.mode;
   const workspacePolicy = resolvedTenancyProfile.workspace;
+  const personalWorkspaceName =
+    typeof appConfig.personalWorkspaceName === "function" ? appConfig.personalWorkspaceName : null;
   async function ensureUniqueWorkspaceSlug(baseSlug, options = {}) {
     let suffix = 0;
     while (suffix < 1000) {
@@ -121,7 +123,7 @@ function createService({
     const inserted = await workspacesRepository.insert(
       {
         slug,
-        name: buildWorkspaceName(user),
+        name: normalizeText(personalWorkspaceName?.(user)) || buildWorkspaceName(user),
         ownerUserId: normalizedUserId,
         isPersonal: true,
         avatarUrl: ""

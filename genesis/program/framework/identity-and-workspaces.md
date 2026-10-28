@@ -15,6 +15,10 @@ providers, account profiles, authenticated web routes, and workspace tenancy.
 
 Applications choose and configure an authentication provider, associate its
 verified identity with existing application users, and authorize account and
-workspace operations through explicit features and routes. Managed Preview can
+workspace operations through explicit features and routes. Personal tenancy
+always provisions each user's workspace on profile synchronization; multi-workspace
+tenancy does so only when the application opts in with `autoProvision`. New
+workspaces start from the application's configured colours. Managed Preview can
 exchange a host-authorized selector for an existing development user's normal
-application session; it neither creates users nor grants roles.
+application session; it neither creates users nor grants roles, and does not run
+profile synchronization.

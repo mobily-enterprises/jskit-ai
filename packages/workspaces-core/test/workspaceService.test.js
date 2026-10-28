@@ -27,6 +27,7 @@ function createWorkspaceServiceFixture({
   additionalWorkspaces = [],
   userWorkspaceRows = null,
   membershipResolver = null,
+  personalWorkspaceName = undefined,
   personalWorkspace = {
     id: "1",
     slug: "tonymobily3",
@@ -72,6 +73,7 @@ function createWorkspaceServiceFixture({
     appConfig: {
       tenancyMode,
       tenancyPolicy,
+      personalWorkspaceName,
       roleCatalog: roleCatalog && typeof roleCatalog === "object" ? { ...roleCatalog } : roleCatalog
     },
     workspacesRepository: {
@@ -278,6 +280,32 @@ test("workspaceService.ensureProvisionedWorkspaceForAuthenticatedUser provisions
   assert.equal(calls.ensureOwnerMembership, 1);
   assert.equal(calls.ensureWorkspaceSettings, 1);
   assert.equal(insertedPayloads[0].isPersonal, true);
+  assert.equal(insertedPayloads[0].name, "Chiara's Workspace");
+});
+
+test("workspaceService.ensureProvisionedWorkspaceForAuthenticatedUser provisions a named personal workspace when workspace tenancy opts in", async () => {
+  const { service, calls, insertedPayloads } = createWorkspaceServiceFixture({
+    tenancyMode: "workspaces",
+    tenancyPolicy: {
+      workspace: {
+        autoProvision: true
+      }
+    },
+    personalWorkspaceName: (user) => `${user.displayName}'s home`,
+    personalWorkspace: null
+  });
+
+  const workspace = await service.ensureProvisionedWorkspaceForAuthenticatedUser({
+    id: "7",
+    email: "chiaramobily@gmail.com",
+    displayName: "Chiara"
+  });
+
+  assert.equal(Number(workspace.ownerUserId), 7);
+  assert.equal(calls.insert, 1);
+  assert.equal(calls.ensureOwnerMembership, 1);
+  assert.equal(insertedPayloads[0].isPersonal, true);
+  assert.equal(insertedPayloads[0].name, "Chiara's home");
 });
 
 test("workspaceService.ensureProvisionedWorkspaceForAuthenticatedUser reuses the existing personal workspace in personal tenancy", async () => {

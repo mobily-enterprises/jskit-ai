@@ -65,3 +65,19 @@ test("resolveTenancyProfile allows explicit workspace self-create policy overrid
   assert.equal(workspaceProfile.mode, TENANCY_MODE_WORKSPACES);
   assert.equal(workspaceProfile.workspace.allowSelfCreate, true);
 });
+
+test("resolveTenancyProfile lets workspace mode opt into a personal workspace for every user", () => {
+  const tenancyPolicy = { workspace: { autoProvision: true } };
+  assert.equal(
+    resolveTenancyProfile({ tenancyMode: TENANCY_MODE_WORKSPACES, tenancyPolicy }).workspace.autoProvision,
+    true
+  );
+  assert.equal(resolveTenancyProfile({ tenancyMode: TENANCY_MODE_NONE, tenancyPolicy }).workspace.autoProvision, false);
+  assert.equal(
+    resolveTenancyProfile({
+      tenancyMode: TENANCY_MODE_PERSONAL,
+      tenancyPolicy: { workspace: { autoProvision: false } }
+    }).workspace.autoProvision,
+    true
+  );
+});

@@ -154,7 +154,7 @@ function setVuetifyThemeName(themeController, themeName) {
   if (themeController.global.name.value === normalizedThemeName) {
     return false;
   }
-  themeController.global.name.value = normalizedThemeName;
+  themeController.change(normalizedThemeName);
   return true;
 }
 
@@ -283,7 +283,7 @@ function setVuetifyPrimaryColorOverride(themeController, themeInput = null) {
     if (currentThemeName === normalizedThemeName) {
       return false;
     }
-    themeController.global.name.value = normalizedThemeName;
+    themeController.change(normalizedThemeName);
     return true;
   }
 
@@ -310,7 +310,7 @@ function setVuetifyPrimaryColorOverride(themeController, themeInput = null) {
   changed = upsertThemeDefinition(themeDefinitions, WORKSPACE_THEME_NAME_LIGHT, nextLightTheme) || changed;
   changed = upsertThemeDefinition(themeDefinitions, WORKSPACE_THEME_NAME_DARK, nextDarkTheme) || changed;
   if (themeController.global.name.value !== nextThemeName) {
-    themeController.global.name.value = nextThemeName;
+    themeController.change(nextThemeName);
     changed = true;
   }
 

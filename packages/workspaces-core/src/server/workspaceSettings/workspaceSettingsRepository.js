@@ -6,34 +6,12 @@ import {
   createJsonRestContext,
   extractJsonRestCollectionRows
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
+import { pickOwnProperties } from "@jskit-ai/kernel/shared/support";
+import { WORKSPACE_SETTINGS_FIELD_KEYS } from "../../shared/resources/workspaceSettingsResource.js";
 import { resolveWorkspaceThemePalettes } from "../../shared/settings.js";
 
-const WORKSPACE_SETTINGS_PATCH_FIELDS = Object.freeze([
-  "lightPrimaryColor",
-  "lightSecondaryColor",
-  "lightSurfaceColor",
-  "lightSurfaceVariantColor",
-  "darkPrimaryColor",
-  "darkSecondaryColor",
-  "darkSurfaceColor",
-  "darkSurfaceVariantColor",
-  "invitesEnabled"
-]);
-
-function pickPatchFields(source = {}) {
-  const patch = {};
-
-  for (const fieldName of WORKSPACE_SETTINGS_PATCH_FIELDS) {
-    if (Object.hasOwn(source, fieldName)) {
-      patch[fieldName] = source[fieldName];
-    }
-  }
-
-  return patch;
-}
-
-function createDefaultWorkspaceSettingsCreatePayload(workspaceId, defaultInvitesEnabled) {
-  const palettes = resolveWorkspaceThemePalettes({});
+function createDefaultWorkspaceSettingsCreatePayload(workspaceId, defaultInvitesEnabled, defaultColorSettings = {}) {
+  const palettes = resolveWorkspaceThemePalettes(defaultColorSettings);
 
   return {
     id: workspaceId,
@@ -49,7 +27,7 @@ function createDefaultWorkspaceSettingsCreatePayload(workspaceId, defaultInvites
   };
 }
 
-function createRepository({ api, defaultInvitesEnabled = true } = {}) {
+function createRepository({ api, defaultInvitesEnabled = true, defaultColorSettings = {} } = {}) {
   if (!api?.resources?.workspaceSettings) {
     throw new TypeError("workspaceSettingsRepository requires json-rest-api workspaceSettings resource.");
   }
@@ -95,7 +73,11 @@ function createRepository({ api, defaultInvitesEnabled = true } = {}) {
     try {
       await api.resources.workspaceSettings.post(
         {
-          data: createDefaultWorkspaceSettingsCreatePayload(normalizedWorkspaceId, defaultInvitesEnabled === true),
+          data: createDefaultWorkspaceSettingsCreatePayload(
+            normalizedWorkspaceId,
+            defaultInvitesEnabled === true,
+            defaultColorSettings
+          ),
           format: "plain",
           returning: "full",
           transaction: options?.trx || null
@@ -119,7 +101,7 @@ function createRepository({ api, defaultInvitesEnabled = true } = {}) {
 
     await ensureForWorkspaceId(normalizedWorkspaceId, options);
     const source = patch && typeof patch === "object" && !Array.isArray(patch) ? patch : {};
-    const updatePayload = pickPatchFields(source);
+    const updatePayload = pickOwnProperties(source, WORKSPACE_SETTINGS_FIELD_KEYS);
 
     if (Object.keys(updatePayload).length < 1) {
       return findByWorkspaceId(normalizedWorkspaceId, options);
