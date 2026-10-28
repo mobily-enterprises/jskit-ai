@@ -9,7 +9,8 @@
     "./client": "./src/client/index.js",
     "./shared": "./src/shared/index.js",
     "./server/actionIds": "./src/server/actionIds.js",
-    "./server": "./src/server/index.js"
+    "./server": "./src/server/index.js",
+    "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
     "@jskit-ai/assistant-core": "0.1.244",

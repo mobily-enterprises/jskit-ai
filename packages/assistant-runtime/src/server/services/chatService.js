@@ -1,10 +1,10 @@
 import { isDeepStrictEqual } from "node:util";
-import { AppError } from "@jskit-ai/kernel/server/runtime";
+import { AppError, createValidationError } from "@jskit-ai/kernel/server/runtime";
 import { normalizeObject, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveWorkspaceSlug } from "@jskit-ai/assistant-core/server";
 import { conversationAttachmentIds } from "@jskit-ai/assistant-core/server/conversation";
 import { ASSISTANT_STREAM_EVENT_TYPES, MAX_HISTORY_MESSAGES, MAX_INPUT_CHARS, isAssistantProgressOnlyText } from "@jskit-ai/assistant-core/shared";
-import { exposedAppErrorDetails, errorStatus } from "../support/assistantErrors.js";
+import { errorMessageFields, exposedAppErrorDetails, errorStatus } from "../support/assistantErrors.js";
 import { requireAssistantSurface } from "../support/assistantSurface.js";
 import { ASSISTANT_STREAM_WRITER_METHODS } from "../support/assistantStreamWriter.js";
 
@@ -44,21 +44,13 @@ function normalizeStreamInput(payload = {}) {
   const messageId = normalizeText(source.messageId);
   const input = normalizeText(source.input).slice(0, MAX_INPUT_CHARS);
   if (!messageId || messageId.length > 128) {
-    throw new AppError(400, "Validation failed.", {
-      details: {
-        fieldErrors: {
-          messageId: "messageId is required and must be at most 128 characters."
-        }
-      }
+    throw createValidationError({
+      messageId: { code: "assistant.runtime.request.messageIdInvalid", message: "messageId is required and must be at most 128 characters." }
     });
   }
   if (!input) {
-    throw new AppError(400, "Validation failed.", {
-      details: {
-        fieldErrors: {
-          input: "input is required."
-        }
-      }
+    throw createValidationError({
+      input: { code: "assistant.runtime.request.inputRequired", message: "input is required." }
     });
   }
 
@@ -73,6 +65,19 @@ function normalizeStreamInput(payload = {}) {
 
 function hasStreamWriter(streamWriter) {
   return ASSISTANT_STREAM_WRITER_METHODS.every(name => typeof streamWriter?.[name] === "function");
+}
+
+// A saved failure keeps its translation fields, except where the kernel would
+// withhold them, so a replay shows the same message in the user's language.
+function savedMessageFields(error) {
+  if (!error?.message) return { messageCode: "assistant.runtime.request.failed", messageParams: {} };
+  const { params, ...fields } = errorMessageFields(error, { expose: error.code !== "ACTION_PERMISSION_DENIED" });
+  return { ...(Object.keys(params).length ? { params } : {}), ...fields };
+}
+
+function streamErrorMessageFields(error, aborted) {
+  if (aborted) return { params: {}, messageCode: "assistant.runtime.request.cancelled", messageParams: {} };
+  return error?.message ? errorMessageFields(error) : { params: {}, messageCode: "assistant.runtime.request.failed", messageParams: {} };
 }
 
 function isAbortError(error) {
@@ -187,18 +192,20 @@ function createChatService({
 
   function replayRequest(record, request, writer) {
     if (!isDeepStrictEqual(record.request, JSON.parse(JSON.stringify(request)))) {
-      throw new AppError(409, "This message ID belongs to a different request.");
+      throw new AppError(409, "This message ID belongs to a different request.", { code: "assistant.runtime.request.messageIdConflict" });
     }
     const response = record.response || {};
     if (record.status === "running") {
       if (response.meta) writer.sendMeta(response.meta);
       writer.sendError({ type: ASSISTANT_STREAM_EVENT_TYPES.ERROR, code: "assistant_request_unconfirmed",
-        message: "This message was already submitted. Its completion is not confirmed; check conversation history before sending new work." });
+        message: "This message was already submitted. Its completion is not confirmed; check conversation history before sending new work.",
+        messageCode: "assistant.runtime.request.unconfirmed", messageParams: {} });
       writer.sendDone({ type: ASSISTANT_STREAM_EVENT_TYPES.DONE, messageId: request.messageId, status: "unconfirmed" });
       return { conversationId: response.meta?.conversationId, messageId: request.messageId, status: "unconfirmed" };
     }
     if (response.failure && !response.meta) throw new AppError(response.failure.status, response.failure.message, {
-      code: response.failure.code, details: response.failure.details
+      code: response.failure.code, params: response.failure.params, details: response.failure.details,
+      messageCode: response.failure.messageCode, messageParams: response.failure.messageParams
     });
     if (response.meta) writer.sendMeta(response.meta);
     if (response.answer) writer.sendAssistantMessage(response.answer);
@@ -216,7 +223,7 @@ function createChatService({
     const source = normalizeStreamInput(payload);
     const actor = context.actor;
     const actorUserId = normalizeRecordId(actor?.id, { fallback: null });
-    if (!actorUserId) throw new AppError(401, "Authentication required.");
+    if (!actorUserId) throw new AppError(401, "Authentication required.", { code: "assistant.runtime.authenticationRequired" });
     if (!hasStreamWriter(options.streamWriter)) throw new Error("assistant.chat.stream requires streamWriter methods.");
     const scope = { actorUserId, surfaceId: assistantSurface.targetSurfaceId,
       workspaceId: normalizeRecordId(workspace?.id || workspace, { fallback: null }) };
@@ -226,7 +233,7 @@ function createChatService({
     const aiClient = await aiClientFactory.resolveClient(assistantSurface.targetSurfaceId, {
       context: assistantContext, integrationId: payload.integrationId
     });
-    if (!aiClient.enabled) throw new AppError(503, "Assistant provider is not configured.");
+    if (!aiClient.enabled) throw new AppError(503, "Assistant provider is not configured.", { code: "assistant.runtime.provider.notConfigured" });
     const claim = await turnRequests.claim(scope, request);
     if (!claim.acquired) return replayRequest(claim, request, options.streamWriter);
     const response = {};
@@ -251,7 +258,8 @@ function createChatService({
       response.failure = { message: String(error?.message || "Assistant request failed."),
         status: errorStatus(error),
         ...(error instanceof AppError ? { code: error.code,
-          ...(exposedAppErrorDetails(error) ? { details: error.details } : {}) } : {}) };
+          ...(exposedAppErrorDetails(error) ? { details: error.details } : {}) } : {}),
+        ...savedMessageFields(error) };
       await turnRequests.update(claim, response, "failed");
       throw error;
     }
@@ -280,16 +288,18 @@ function createChatService({
       const conversation = conversationResult.conversation;
       const conversationId = conversation?.id;
       if (!conversationId) {
-        throw new AppError(500, "Assistant failed to create conversation.");
+        throw new AppError(500, "Assistant failed to create conversation.", { code: "assistant.runtime.conversation.createFailed" });
       }
 
       const resolvedAttachments = [];
       async function prepareAttachments(attachmentIds) {
         if (attachmentIds === undefined || (Array.isArray(attachmentIds) && !attachmentIds.length)) return;
         try { conversationAttachmentIds(attachmentIds); }
-        catch { throw new AppError(400, "Invalid attachment identifiers."); }
+        catch { throw new AppError(400, "Invalid attachment identifiers.", { code: "assistant.runtime.attachments.invalidIds" }); }
         if (!attachments?.resolve || !aiClient.supportsAttachments) {
-          throw new AppError(400, "File attachments are not configured for this assistant.");
+          throw new AppError(400, "File attachments are not configured for this assistant.", {
+            code: "assistant.runtime.attachments.notConfigured"
+          });
         }
         // Preserve the facade's existing pre-admission authorization order.
         // Only these server-resolved materials reach the common file reader.
@@ -360,12 +370,14 @@ function createChatService({
         const turn = snapshot.conversationLog.find(entry => entry.turnId === turnId);
         const status = turn?.metadata?.runtime?.status;
         if (status !== "complete") {
-          const error = new Error(turn?.metadata?.runtime?.error || snapshot.error || "Assistant request failed.");
+          const reason = turn?.metadata?.runtime?.error || snapshot.error;
+          const error = reason ? new Error(reason) : Object.assign(new Error("Assistant request failed."), {
+            messageCode: "assistant.runtime.request.failed", messageParams: {} });
           if (status === "cancelled") error.name = "AbortError";
           throw error;
         }
         const text = normalizeText(turn.assistant?.text);
-        if (!text) throw new AppError(502, "Assistant returned no output.");
+        if (!text) throw new AppError(502, "Assistant returned no output.", { code: "assistant.runtime.request.noOutput" });
         await transcriptService.completeConversation(assistantSurface, conversationId,
           { status: "completed", metadata: turn.metadata?.completion || {} }, { context: assistantContext, workspace });
         streamWriter.sendAssistantMessage({ type: ASSISTANT_STREAM_EVENT_TYPES.ASSISTANT_MESSAGE, text });
@@ -379,6 +391,7 @@ function createChatService({
         streamWriter.sendError({ type: ASSISTANT_STREAM_EVENT_TYPES.ERROR, messageId: source.messageId,
           code: aborted ? "assistant_stream_aborted" : String(error?.code || "assistant_stream_failed"),
           message: aborted ? "Assistant request was cancelled." : String(error?.message || "Assistant request failed."),
+          ...streamErrorMessageFields(error, aborted),
           status: aborted ? 499 : errorStatus(error) });
         streamWriter.sendDone({ type: ASSISTANT_STREAM_EVENT_TYPES.DONE, messageId: source.messageId, status });
         return { conversationId, messageId: source.messageId, status };

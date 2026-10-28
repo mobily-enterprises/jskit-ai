@@ -317,7 +317,7 @@ test("registerRoutes returns clear AppError payload for pre-stream assistant fai
       },
       executeAction: async ({ input }) => {
         capturedInput = input;
-        throw new AppError(503, "Assistant provider is not configured.");
+        throw new AppError(503, "Assistant provider is not configured.", { code: "assistant.runtime.provider.notConfigured" });
       }
     },
     reply
@@ -326,7 +326,8 @@ test("registerRoutes returns clear AppError payload for pre-stream assistant fai
   assert.equal(reply.statusCode, 503);
   assert.deepEqual(reply.payload, {
     error: "Assistant provider is not configured.",
-    code: "APP_ERROR"
+    code: "assistant.runtime.provider.notConfigured",
+    params: {}
   });
   assert.deepEqual(capturedInput, {
     targetSurfaceId: "admin",
@@ -335,6 +336,27 @@ test("registerRoutes returns clear AppError payload for pre-stream assistant fai
     input: "hello",
     history: []
   });
+
+  // Coded conversation failures keep their per-sentence messageCode, like the kernel payload.
+  const busy = Object.assign(new Error("Wait for the current turn."), {
+    code: "conversation_busy", statusCode: 409, messageCode: "assistant.conversation.waitForTurn", messageParams: {}
+  });
+  const hidden = Object.assign(new Error("Private storage detail."), {
+    code: "conversation_storage_unavailable", statusCode: 503, messageCode: "assistant.conversation.private", messageParams: {}
+  });
+  for (const [failure, status, payload] of [
+    [busy, 409, { error: busy.message, code: "conversation_busy", params: {}, messageCode: busy.messageCode, messageParams: {} }],
+    [hidden, 503, { error: "Internal server error.", code: "conversation_storage_unavailable", params: {} }]
+  ]) {
+    await route.handler({
+      raw: { on() {}, off() {} },
+      headers: { "x-jskit-surface": "admin" },
+      input: { params: { workspaceSlug: "dogandgroom", surfaceId: "admin" }, body: { messageId: "msg_2", input: "hello", history: [] } },
+      executeAction: async () => { throw failure; }
+    }, reply);
+    assert.equal(reply.statusCode, status);
+    assert.deepEqual(reply.payload, payload);
+  }
 });
 
 test("chat service uses explicit app config when conversations are listed", async () => {

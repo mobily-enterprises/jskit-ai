@@ -26,13 +26,15 @@ function createAssistantAiClientFactory(config = {}) {
       if (surfaceConfig.aiIntegrationId) {
         const selected = integrationId || surfaceConfig.aiIntegrationId;
         if (![surfaceConfig.aiIntegrationId, ...surfaceConfig.aiIntegrationIds].includes(selected)) {
-          throw new AppError(403, "This AI connection is not available in this assistant.");
+          throw new AppError(403, "This AI connection is not available in this assistant.", { code: "assistant.runtime.connection.unavailable" });
         }
         if (!config.aiConnections?.resolve) throw new Error("The assistant requires an authorized AI connection resolver.");
         const connection = await config.aiConnections.resolve({ context, integrationId: selected });
         return createAiConnectionClient(connection, { timeoutMs: surfaceConfig.timeoutMs });
       }
-      if (integrationId) throw new AppError(403, "This assistant does not allow selecting an AI connection.");
+      if (integrationId) throw new AppError(403, "This assistant does not allow selecting an AI connection.", {
+        code: "assistant.runtime.connection.selectionNotAllowed"
+      });
 
       if (cache.has(normalizedTargetSurfaceId)) {
         return cache.get(normalizedTargetSurfaceId);

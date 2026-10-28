@@ -39,7 +39,9 @@ function requireHostSurfaceId(request) {
     return hostSurfaceId;
   }
 
-  throw new AppError(400, "Assistant surface header x-jskit-surface is required.");
+  throw new AppError(400, "Assistant surface header x-jskit-surface is required.", {
+    code: "assistant.runtime.route.surfaceHeaderRequired"
+  });
 }
 
 function resolveRouteRequestState(
@@ -63,10 +65,10 @@ function resolveRouteRequestState(
     : assistantSurface.targetSurfaceId;
 
   if (expectsWorkspace !== (requiresWorkspace === true)) {
-    throw new AppError(404, "Assistant route not found.");
+    throw new AppError(404, "Assistant route not found.", { code: "assistant.runtime.route.notFound" });
   }
   if (hostSurfaceId !== expectedHostSurfaceId) {
-    throw new AppError(403, "Assistant route is not available on this surface.");
+    throw new AppError(403, "Assistant route is not available on this surface.", { code: "assistant.runtime.route.surfaceForbidden" });
   }
 
   return Object.freeze({

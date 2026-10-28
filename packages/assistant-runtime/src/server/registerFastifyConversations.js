@@ -24,7 +24,7 @@ async function registerFastifyConversations(app, {
   async function requestContext(request) {
     const context = await authenticate(request);
     if (!context || typeof context !== "object" || Array.isArray(context)) {
-      throw new AppError(401, "Authentication required.");
+      throw new AppError(401, "Authentication required.", { code: "assistant.runtime.authenticationRequired" });
     }
     return context;
   }

@@ -1,0 +1,136 @@
+{
+  "jskit": {
+    "assistant": {
+      "runtime": {
+        "authenticationRequired": "Authentication required.",
+        "workspace": {
+          "selectionRequired": "Workspace selection required."
+        },
+        "route": {
+          "surfaceHeaderRequired": "Assistant surface header x-jskit-surface is required.",
+          "notFound": "Assistant route not found.",
+          "surfaceForbidden": "Assistant route is not available on this surface.",
+          "assistantNotFound": "Assistant not found."
+        },
+        "connection": {
+          "unavailable": "This AI connection is not available in this assistant.",
+          "selectionNotAllowed": "This assistant does not allow selecting an AI connection.",
+          "applicationAi": "Application AI",
+          "applicationDefault": "Application default"
+        },
+        "provider": {
+          "notConfigured": "Assistant provider is not configured."
+        },
+        "conversation": {
+          "notFound": "Conversation not found.",
+          "idInvalid": "conversationId must be a valid record id.",
+          "createFailed": "Assistant failed to create conversation.",
+          "assistantLabel": "Assistant",
+          "welcomeMessage": "What would you like to do?",
+          "placeholder": "Message the assistant…",
+          "startedAtUnknown": "unknown",
+          "status": {
+            "active": "active",
+            "completed": "completed",
+            "failed": "failed",
+            "aborted": "aborted",
+            "unknown": "unknown"
+          }
+        },
+        "request": {
+          "messageIdInvalid": "messageId is required and must be at most 128 characters.",
+          "inputRequired": "input is required.",
+          "messageIdConflict": "This message ID belongs to a different request.",
+          "unconfirmed": "This message was already submitted. Its completion is not confirmed; check conversation history before sending new work.",
+          "failed": "Assistant request failed.",
+          "cancelled": "Assistant request was cancelled.",
+          "noOutput": "Assistant returned no output.",
+          "notConfirmed": "Assistant did not confirm this message."
+        },
+        "attachments": {
+          "invalidIds": "Invalid attachment identifiers.",
+          "notConfigured": "File attachments are not configured for this assistant.",
+          "noLongerAccepted": "This conversation no longer accepts attachments.",
+          "clearFailed": "Accepted attachments could not be cleared from the composer."
+        },
+        "subscription": {
+          "idRequired": "A conversation subscription id is required.",
+          "failed": "Conversation subscription failed."
+        },
+        "history": {
+          "refreshFailed": "Older conversation history could not be refreshed. Reload chat to try again.",
+          "loadFailed": "Older conversation history could not be loaded.",
+          "listFailed": "Unable to load conversation history.",
+          "conversationLoadFailed": "Unable to load conversation."
+        },
+        "accessDenied": "Access denied.",
+        "delivery": {
+          "waitingForStep": "Waiting for the assistant to finish this step",
+          "unconfirmedBeforeClose": "Delivery was not confirmed before this page closed. Check the conversation before retrying.",
+          "stillUnknown": "Delivery is still unknown. Retry to check again.",
+          "checkFailed": "Delivery could not be checked.",
+          "notConfirmed": "Message delivery is not confirmed."
+        },
+        "goal": {
+          "budgetsUnsupported": "This conversation does not support goal token budgets.",
+          "changeFailed": "Could not change the goal.",
+          "unavailable": "Goal status is unavailable.",
+          "resumeMessage": "Resume the goal.",
+          "cancelMessage": "Cancel the goal."
+        },
+        "composer": {
+          "questionsPlaceholder": "Optional additional context…",
+          "choicesPlaceholder": "Choose an answer above, or type another answer…",
+          "questionsHint": "Answer the assistant, then send one combined reply."
+        },
+        "tool": {
+          "progress": "{name} — {status}",
+          "status": {
+            "pending": "pending",
+            "done": "done",
+            "failed": "failed",
+            "interrupted": "interrupted"
+          }
+        },
+        "surface": {
+          "newConversation": "New conversation",
+          "conversations": "Conversations",
+          "activity": "Activity",
+          "toolActivity": "Tool activity",
+          "conversation": "Conversation",
+          "responseCanceled": "Response canceled. A tool already running may still finish.",
+          "startNewConversation": "Start new conversation",
+          "refresh": "Refresh",
+          "close": "Close",
+          "loadingConversationsLabel": "Loading conversations",
+          "loadingConversations": "Loading conversations…",
+          "savedConversations": "Saved conversations",
+          "noSavedConversations": "No saved conversations",
+          "untitledConversation": "Untitled conversation",
+          "loadOlderConversations": "Load older conversations",
+          "messageCount": "{count} messages"
+        },
+        "viewer": {
+          "you": "You"
+        },
+        "settings": {
+          "title": "Assistant settings",
+          "noPermission": "You do not have permission to view assistant settings.",
+          "save": "Save assistant settings",
+          "systemPrompt": "System prompt",
+          "subtitle": "Configure assistant settings.",
+          "subtitleWorkspace": "Configure the prompt used on the {surface} surface for this workspace.",
+          "subtitleSurface": "Configure the prompt used on the {surface} surface.",
+          "notConfigured": "Assistant settings are not configured for this surface.",
+          "workspaceUnavailable": "Workspace support is not available for this assistant surface.",
+          "selectWorkspace": "Select a workspace to configure assistant settings.",
+          "updateFailed": "Unable to update assistant settings."
+        }
+      }
+    },
+    "errors": {
+      "assistant_history_inspection_required": "This conversation has ambiguous historical SQL rows. Inspect the reported rows offline before using the common runtime; no history was changed.",
+      "assistant_subscription_transport_failed": "Chat updates could not reconnect. Retrying automatically; Reload chat to try now."
+    }
+  }
+}

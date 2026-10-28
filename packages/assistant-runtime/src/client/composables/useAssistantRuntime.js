@@ -33,6 +33,7 @@ import {
   resolveConversationRestorePolicy
 } from "../support/conversationRestoreSupport.js";
 import { useWorkspaceWebScopeSupport } from "../support/workspaceScopeSupport.js";
+import { useJskitText } from "../i18n.js";
 
 const DEFAULT_STREAM_TIMEOUT_MS = 120_000;
 const DEFAULT_HISTORY_PAGE_SIZE = 20;
@@ -92,17 +93,15 @@ function normalizeConversationStatus(value) {
 }
 
 function formatConversationStartedAt(value) {
+  const { formatDateTime, t } = useJskitText();
   const source = normalizeText(value);
-  if (!source) {
-    return "unknown";
-  }
+  return (source && formatDateTime(source)) || t("jskit.assistant.runtime.conversation.startedAtUnknown");
+}
 
-  const date = new Date(source);
-  if (Number.isNaN(date.getTime())) {
-    return "unknown";
-  }
-
-  return date.toLocaleString();
+// A failure or stream error event in the active language when its code is JSKIT's;
+// otherwise its message as sent.
+function failureText(failure) {
+  return failure?.message ? normalizeText(useJskitText().serverMessage(failure)) : "";
 }
 
 function resolveRuntimePolicy() {
@@ -143,6 +142,7 @@ function useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } 
   const workspaceScopeSupport = useWorkspaceWebScopeSupport();
   const { placementContext, currentSurfaceId } = routeContext;
   const appConfig = getClientAppConfig();
+  const { t } = useJskitText();
 
   const messages = ref([]);
   const input = ref("");
@@ -226,7 +226,7 @@ function useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } 
       refetchOnMount: false,
       refetchOnWindowFocus: false
     },
-    fallbackLoadError: "Unable to load conversation history."
+    fallbackLoadError: t("jskit.assistant.runtime.history.listFailed")
   });
 
   const conversationHistory = conversationHistoryCollection.items;
@@ -376,7 +376,7 @@ function useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } 
         writeStoredActiveConversationId(scope, "");
       }
       if (!input.value) input.value = previousDraft;
-      setRuntimeError(normalizeText(loadError?.message) || "Unable to load conversation.");
+      setRuntimeError(failureText(loadError) || t("jskit.assistant.runtime.history.conversationLoadFailed"));
     } finally {
       if (version === restoreVersion) isRestoringConversation.value = false;
     }
@@ -441,7 +441,7 @@ function useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } 
         deliver(submission) {
           const admission = Promise.withResolvers();
           runStream(submission, { onAccepted, admission }).then(
-            () => admission.reject(new Error("Assistant did not confirm this message.")),
+            () => admission.reject(new Error(t("jskit.assistant.runtime.request.notConfirmed"))),
             admission.reject
           );
           return admission.promise;
@@ -554,11 +554,11 @@ function useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } 
 
             if (eventType === ASSISTANT_STREAM_EVENT_TYPES.ERROR) {
               if (!accepted) {
-                admissionError = normalizeText(event?.message) || "Assistant request failed.";
+                admissionError = failureText(event) || t("jskit.assistant.runtime.request.failed");
                 return;
               }
               setRuntimeError(
-                normalizeText(event?.message) || "Assistant request failed.",
+                failureText(event) || t("jskit.assistant.runtime.request.failed"),
                 "assistant.runtime:stream-event-error"
               );
               updateMessage(assistantMessageId, {
@@ -575,13 +575,13 @@ function useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } 
       );
 
       if (!ownsStream()) return;
-      if (!accepted) throw new Error(admissionError || "Assistant did not confirm this message.");
+      if (!accepted) throw new Error(admissionError || t("jskit.assistant.runtime.request.notConfirmed"));
       if (streamAbortController.signal.aborted) streamDoneStatus = "aborted";
       const assistantMessage = findMessage(assistantMessageId);
       const assistantMessageText = normalizeText(assistantMessage?.text);
       if (!assistantMessageText && streamDoneStatus !== "aborted") {
         if (!error.value) {
-          setRuntimeError("Assistant returned no output.", "assistant.runtime:empty-output");
+          setRuntimeError(t("jskit.assistant.runtime.request.noOutput"), "assistant.runtime:empty-output");
         }
         updateMessage(assistantMessageId, {
           status: "error"
@@ -603,7 +603,7 @@ function useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } 
           status: "canceled"
         });
       } else {
-        setRuntimeError(normalizeText(streamError?.message) || "Assistant request failed.");
+        setRuntimeError(failureText(streamError) || t("jskit.assistant.runtime.request.failed"));
         updateMessage(assistantMessageId, {
           status: "error"
         });
@@ -631,7 +631,7 @@ function useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } 
     const user = normalizeObject(placementSnapshot.value.user);
 
     return {
-      displayName: normalizeText(user.displayName || user.name) || "You",
+      displayName: normalizeText(user.displayName || user.name) || t("jskit.assistant.runtime.viewer.you"),
       avatarUrl: normalizeText(user.avatarUrl)
     };
   });

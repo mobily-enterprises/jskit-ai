@@ -27,7 +27,7 @@ import {
   assistantSurfaceRouteParamsValidator
 } from "./inputSchemas.js";
 import { registerSettingsRoutes } from "./registerSettingsRoutes.js";
-import { errorStatus, exposedAppErrorDetails } from "./support/assistantErrors.js";
+import { errorMessageFields, errorStatus, exposedAppErrorDetails } from "./support/assistantErrors.js";
 import { ASSISTANT_STREAM_WRITER_METHODS } from "./support/assistantStreamWriter.js";
 import { requireWorkspaceAssistantRouteParams, resolveRouteRequestState } from "./support/assistantRouteContext.js";
 
@@ -35,11 +35,13 @@ function sendPreStreamErrorResponse(reply, error) {
   const statusCode = errorStatus(error);
   const safeStatusCode = Number.isInteger(statusCode) && statusCode >= 400 && statusCode <= 599 ? statusCode : 500;
 
+  // The kernel API error payload, so clients read one shape before and after streaming.
   if (error instanceof AppError) {
     const appErrorCode = String(error?.code || "app_error").trim() || "app_error";
     const payload = {
       error: error.message,
-      code: appErrorCode
+      code: appErrorCode,
+      ...errorMessageFields(error, { expose: appErrorCode !== "ACTION_PERMISSION_DENIED" })
     };
 
     const details = exposedAppErrorDetails(error);
@@ -60,8 +62,11 @@ function sendPreStreamErrorResponse(reply, error) {
     return;
   }
 
+  const exposed = safeStatusCode < 500;
   reply.code(safeStatusCode).send({
-    error: safeStatusCode >= 500 ? "Internal server error." : String(error?.message || "Request failed.")
+    error: exposed ? String(error?.message || "Request failed.") : "Internal server error.",
+    code: String(error?.code || "").trim() || (exposed ? "request_failed" : "internal_server_error"),
+    ...errorMessageFields(exposed ? error : null)
   });
 }
 

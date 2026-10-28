@@ -179,3 +179,19 @@ test("restored tool calls retain their association with the reply they preceded"
   assert.equal(turn.messages[1].text, "Search — done");
   assert.doesNotMatch(JSON.stringify(turn), /secret|private/);
 });
+
+test("tool activity follows the application's active language and keeps unknown statuses as sent", async (t) => {
+  const { createI18n } = await import("vue-i18n");
+  const { setJskitI18n } = await import("@jskit-ai/kernel/client");
+  const { mapAssistantConversationTurns, toolStatusText } = await import("../src/client/support/assistantRuntimeState.js");
+  const i18n = createI18n({ legacy: false, locale: "fr", missingWarn: false, fallbackWarn: false, messages: {
+    fr: { jskit: { assistant: { runtime: { tool: { progress: "{status} : {name}", status: { pending: "en attente" } } } } } }
+  } });
+  setJskitI18n(i18n);
+  t.after(() => setJskitI18n(null));
+  const messages = [{ id: "answer-1", role: "assistant", status: "streaming", text: "" }];
+  const tools = [{ id: "tool-1", messageId: "answer-1", name: "Search records", status: "pending" }];
+  assert.equal(mapAssistantConversationTurns(messages, tools)[0].messages.at(-1).text, "en attente : Search records");
+  assert.equal(toolStatusText("done"), "done");
+  assert.equal(toolStatusText("paused"), "paused");
+});

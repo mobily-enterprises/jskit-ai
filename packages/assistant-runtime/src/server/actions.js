@@ -117,7 +117,7 @@ function createConversationActions({ conversationRuntime, conversationDataSchema
         throw new Error("Assistant conversation actions require workspace server scope support.");
       }
       const workspace = workspaceScopeSupport.resolveWorkspace(context, { workspaceSlug: input.workspaceSlug });
-      if (!workspace?.id) throw new AppError(409, "Workspace selection required.");
+      if (!workspace?.id) throw new AppError(409, "Workspace selection required.", { code: "assistant.runtime.workspace.selectionRequired" });
       conversationContext = { ...context, workspace };
     }
     return conversationRuntime.open({ id: input.conversationId, context: conversationContext });

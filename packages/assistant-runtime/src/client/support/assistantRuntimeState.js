@@ -6,6 +6,7 @@ import {
   parseJsonObject
 } from "@jskit-ai/assistant-core/shared";
 import { conversationTurnsFromMessages } from "@jskit-ai/assistant-core/shared/conversation";
+import { useJskitText } from "../i18n.js";
 
 const CONVERSATION_MESSAGE_STATUS = Object.freeze({
   streaming: "inProgress",
@@ -14,14 +15,25 @@ const CONVERSATION_MESSAGE_STATUS = Object.freeze({
   canceled: "interrupted"
 });
 
+const TOOL_STATUS_KEY = "jskit.assistant.runtime.tool.status.";
+
+/** A tool event's status in the active language; an unknown status is shown as given. */
+function toolStatusText(status) {
+  const { hasMessage, t } = useJskitText();
+  const key = `${TOOL_STATUS_KEY}${status}`;
+  return hasMessage(key) ? t(key) : String(status ?? "");
+}
+
 function mapAssistantConversationTurns(messages, toolEvents = [], { showToolActivity = true } = {}) {
+  const { t } = useJskitText();
   return conversationTurnsFromMessages(messages.map((message) => ({
     ...message,
     messageId: String(message.id),
     status: CONVERSATION_MESSAGE_STATUS[message.status],
     progressUpdates: showToolActivity ? toolEvents
       .filter((event) => event.messageId === message.id)
-      .map((event) => ({ id: event.id, text: `${event.name} — ${event.status}` })) : []
+      .map((event) => ({ id: event.id,
+        text: t("jskit.assistant.runtime.tool.progress", { name: event.name, status: toolStatusText(event.status) }) })) : []
   })));
 }
 
@@ -172,5 +184,6 @@ export {
   interruptPendingToolEvents,
   mapTranscriptEntriesToAssistantState,
   mapAssistantConversationTurns,
-  normalizeToolName
+  normalizeToolName,
+  toolStatusText
 };

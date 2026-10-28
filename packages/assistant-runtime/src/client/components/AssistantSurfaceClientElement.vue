@@ -2,14 +2,17 @@
 import { computed, onMounted, onScopeDispose, reactive, ref, toRef, watch, watchPostEffect } from "vue";
 import { AssistantConversationElement } from "@jskit-ai/assistant-core/client/conversation";
 import { useAssistantRuntime } from "../composables/useAssistantRuntime.js";
-import { mapAssistantConversationTurns } from "../support/assistantRuntimeState.js";
+import { mapAssistantConversationTurns, toolStatusText } from "../support/assistantRuntimeState.js";
+import { DEFAULT_CONVERSATION_TITLE } from "../../shared/assistantRuntimeConfig.js";
+import { useJskitText } from "../i18n.js";
 
 const props = defineProps({
   surfaceId: { type: String, required: true },
   layout: { type: String, default: "page", validator: (value) => ["page", "compact"].includes(value) },
-  assistantLabel: { type: String, default: "Assistant" },
-  welcomeMessage: { type: String, default: "What would you like to do?" },
-  placeholder: { type: String, default: "Message the assistant…" },
+  // Unset texts follow the active language; an application's own text is shown as given.
+  assistantLabel: { type: String, default: undefined },
+  welcomeMessage: { type: String, default: undefined },
+  placeholder: { type: String, default: undefined },
   showToolActivity: { type: Boolean, default: true },
   connections: { type: Array, default: () => [] },
   attachments: { type: Object, default: null },
@@ -19,6 +22,8 @@ const props = defineProps({
   configurationMode: { type: String, default: "editable", validator: value => ["hidden", "readonly", "editable"].includes(value) }
 });
 const integrationId = defineModel("integrationId", { type: String, default: "" });
+const { t } = useJskitText();
+const assistantLabelText = computed(() => props.assistantLabel ?? t("jskit.assistant.runtime.conversation.assistantLabel"));
 const draftIntegrationId = ref(integrationId.value);
 watch(integrationId, value => { draftIntegrationId.value = value; });
 const runtime = useAssistantRuntime({ surfaceId: toRef(props, "surfaceId"), integrationId });
@@ -49,9 +54,10 @@ const adapter = computed(() => ({
   goal: props.goal,
   activity: props.activity,
   models: props.connections.length && props.configurationMode !== "hidden" ? {
-    providerRows: [{ id: "application", label: "Application AI" }],
+    providerRows: [{ id: "application", label: t("jskit.assistant.runtime.connection.applicationAi") }],
     modelProviderId: "application", modelRows: props.connections, modelId: draftIntegrationId.value,
-    selectionSummary: props.connections.find(connection => connection.id === integrationId.value)?.label || "Application default",
+    selectionSummary: props.connections.find(connection => connection.id === integrationId.value)?.label ||
+      t("jskit.assistant.runtime.connection.applicationDefault"),
     changesDisabled: props.configurationMode !== "editable" || state.isStreaming,
     canSave: props.configurationMode === "editable" && !state.isStreaming && draftIntegrationId.value !== integrationId.value &&
       props.connections.some(connection => connection.id === draftIntegrationId.value),
@@ -63,8 +69,9 @@ const adapter = computed(() => ({
     scrollKey: `${state.scopeKey}:${state.activeConversationId || "new"}`,
     loading: state.isRestoringConversation,
     working: state.isStreaming && !runtime.delivery.state.sending,
-    assistantLabel: props.assistantLabel,
-    welcomeMessage: state.messages.length || state.isRestoringConversation ? "" : props.welcomeMessage
+    assistantLabel: assistantLabelText.value,
+    welcomeMessage: state.messages.length || state.isRestoringConversation ? ""
+      : props.welcomeMessage ?? t("jskit.assistant.runtime.conversation.welcomeMessage")
   },
   composer: {
     draft: state.input,
@@ -73,7 +80,7 @@ const adapter = computed(() => ({
     disabled: !state.hasRuntimeScope,
     canStop: state.isStreaming,
     stopPending: state.isCanceling,
-    placeholder: props.placeholder,
+    placeholder: props.placeholder ?? t("jskit.assistant.runtime.conversation.placeholder"),
     rows: 2,
     density: props.layout === "compact" ? "compact" : "default",
     submitOnEnter: true,
@@ -97,9 +104,18 @@ function submitMessage({ attachments = [], retryMessageId = "" }) {
   });
 }
 
+const CONVERSATION_STATUS_KEY = "jskit.assistant.runtime.conversation.status.";
+
+// The saved default title is stored in English; show it in the active language.
+function conversationTitle(entry, fallbackKey) {
+  if (entry?.title === DEFAULT_CONVERSATION_TITLE) return t("jskit.assistant.runtime.surface.newConversation");
+  return entry?.title || t(fallbackKey);
+}
+
 function conversationSubtitle(entry) {
-  return [runtime.meta.normalizeConversationStatus(entry.status), runtime.meta.formatConversationStartedAt(entry.startedAt),
-    `${Number(entry.messageCount || 0)} messages`].join(" · ");
+  return [t(CONVERSATION_STATUS_KEY + runtime.meta.normalizeConversationStatus(entry.status)),
+    runtime.meta.formatConversationStartedAt(entry.startedAt),
+    t("jskit.assistant.runtime.surface.messageCount", { count: Number(entry.messageCount || 0) })].join(" · ");
 }
 
 async function selectConversation(entry) {
@@ -116,25 +132,25 @@ defineExpose({ focus: () => conversation.value?.focus() });
 </script>
 
 <template>
-  <section ref="root" class="assistant-surface" :class="`assistant-surface--${layout}`" :aria-label="assistantLabel">
+  <section ref="root" class="assistant-surface" :class="`assistant-surface--${layout}`" :aria-label="assistantLabelText">
     <div class="assistant-surface__toolbar">
-      <span class="assistant-surface__title">{{ selectedConversation?.title || 'New conversation' }}</span>
-      <v-btn variant="text" @click="historyOpen = true">Conversations</v-btn>
+      <span class="assistant-surface__title">{{ conversationTitle(selectedConversation, "jskit.assistant.runtime.surface.newConversation") }}</span>
+      <v-btn variant="text" @click="historyOpen = true">{{ t("jskit.assistant.runtime.surface.conversations") }}</v-btn>
       <v-menu v-if="showToolActivity && state.pendingToolEvents.length" location="bottom end">
         <template #activator="{ props: menuProps }">
-          <v-btn v-bind="menuProps" variant="text">Activity</v-btn>
+          <v-btn v-bind="menuProps" variant="text">{{ t("jskit.assistant.runtime.surface.activity") }}</v-btn>
         </template>
-        <v-list aria-label="Tool activity" max-height="320" max-width="360" class="assistant-surface__activity">
-          <v-list-item v-for="event in state.pendingToolEvents" :key="event.id" :title="event.name" :subtitle="event.status" />
+        <v-list :aria-label="t('jskit.assistant.runtime.surface.toolActivity')" max-height="320" max-width="360" class="assistant-surface__activity">
+          <v-list-item v-for="event in state.pendingToolEvents" :key="event.id" :title="event.name" :subtitle="toolStatusText(event.status)" />
         </v-list>
       </v-menu>
     </div>
-    <AssistantConversationElement ref="conversation" :adapter="adapter" label="Conversation" class="assistant-surface__conversation">
+    <AssistantConversationElement ref="conversation" :adapter="adapter" :label="t('jskit.assistant.runtime.surface.conversation')" class="assistant-surface__conversation">
       <template v-if="$slots.activity" #activity="scope"><slot name="activity" v-bind="scope" /></template>
       <template v-if="$slots.attachments" #attachments="scope"><slot name="attachments" v-bind="scope" /></template>
       <template #message-actions="{ message }">
         <p v-if="message.status === 'failed' && message.error" class="assistant-surface__message-error" role="status">{{ message.error }}</p>
-        <p v-if="message.status === 'interrupted'" class="assistant-surface__notice" role="status">Response canceled. A tool already running may still finish.</p>
+        <p v-if="message.status === 'interrupted'" class="assistant-surface__notice" role="status">{{ t("jskit.assistant.runtime.surface.responseCanceled") }}</p>
       </template>
       <template #composer-feedback>
         <p v-if="state.error && !state.messages.some((message) => message.error === state.error)" class="assistant-surface__message-error" role="status">{{ state.error }}</p>
@@ -142,28 +158,35 @@ defineExpose({ focus: () => conversation.value?.focus() });
       <template #composer-tools><slot name="composer-tools" :runtime="runtime" /></template>
     </AssistantConversationElement>
 
-    <v-dialog v-model="historyOpen" max-width="640" scrollable aria-label="Conversations">
+    <v-dialog v-model="historyOpen" max-width="640" scrollable :aria-label="t('jskit.assistant.runtime.surface.conversations')">
       <v-card class="assistant-surface__history">
-        <v-card-title>Conversations</v-card-title>
+        <v-card-title>{{ t("jskit.assistant.runtime.surface.conversations") }}</v-card-title>
         <v-card-actions class="assistant-surface__history-actions">
-          <v-btn color="primary" :disabled="!state.canStartNewConversation" @click="startNewConversation">Start new conversation</v-btn>
-          <v-btn :disabled="state.conversationHistoryLoading" @click="runtime.actions.refreshConversationHistory">Refresh</v-btn>
-          <v-btn @click="historyOpen = false">Close</v-btn>
+          <v-btn color="primary" :disabled="!state.canStartNewConversation" @click="startNewConversation">
+            {{ t("jskit.assistant.runtime.surface.startNewConversation") }}
+          </v-btn>
+          <v-btn :disabled="state.conversationHistoryLoading" @click="runtime.actions.refreshConversationHistory">
+            {{ t("jskit.assistant.runtime.surface.refresh") }}
+          </v-btn>
+          <v-btn @click="historyOpen = false">{{ t("jskit.assistant.runtime.surface.close") }}</v-btn>
         </v-card-actions>
         <v-card-text>
           <p v-if="state.conversationHistoryError" role="alert">{{ state.conversationHistoryError }}</p>
-          <v-skeleton-loader v-if="state.conversationHistoryLoading && !state.conversationHistory.length" type="list-item-two-line@3" aria-label="Loading conversations" />
-          <v-list v-else aria-label="Saved conversations">
-            <v-list-item v-if="!state.conversationHistory.length" title="No saved conversations" />
+          <v-skeleton-loader
+            v-if="state.conversationHistoryLoading && !state.conversationHistory.length" type="list-item-two-line@3"
+            :aria-label="t('jskit.assistant.runtime.surface.loadingConversationsLabel')"
+          />
+          <v-list v-else :aria-label="t('jskit.assistant.runtime.surface.savedConversations')">
+            <v-list-item v-if="!state.conversationHistory.length" :title="t('jskit.assistant.runtime.surface.noSavedConversations')" />
             <v-list-item
               v-for="entry in state.conversationHistory" :key="entry.id"
               :active="String(entry.id) === state.activeConversationId"
-              :title="entry.title || 'Untitled conversation'" :subtitle="conversationSubtitle(entry)"
+              :title="conversationTitle(entry, 'jskit.assistant.runtime.surface.untitledConversation')" :subtitle="conversationSubtitle(entry)"
               :disabled="state.isStreaming || state.isRestoringConversation" @click="selectConversation(entry)"
             />
           </v-list>
           <v-btn v-if="state.conversationHistoryHasMore" :disabled="state.conversationHistoryLoadingMore" variant="text" @click="runtime.actions.loadMoreConversationHistory">
-            {{ state.conversationHistoryLoadingMore ? 'Loading conversations…' : 'Load older conversations' }}
+            {{ t(state.conversationHistoryLoadingMore ? "jskit.assistant.runtime.surface.loadingConversations" : "jskit.assistant.runtime.surface.loadOlderConversations") }}
           </v-btn>
         </v-card-text>
       </v-card>

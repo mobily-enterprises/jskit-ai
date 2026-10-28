@@ -117,7 +117,9 @@ test("an interrupted claim is never stolen after restart, and provider failures 
   await repository.claim(scope, { ...request, conversationId: null, integrationId: "" });
   let calls = 0;
   const chat = service(createRepository(connect()), { provider: () => { calls++; throw new Error("Provider failed."); } });
-  assert.equal((await run(chat)).status, "unconfirmed");
+  const unconfirmed = [];
+  assert.equal((await run(chat, request, { events: unconfirmed })).status, "unconfirmed");
+  assert.equal(unconfirmed.find(item => item.method === "sendError").event.messageCode, "assistant.runtime.request.unconfirmed");
   assert.equal(calls, 0);
   const failure = { ...request, messageId: "failing-message" };
   assert.equal((await run(chat, failure)).status, "failed");
@@ -125,6 +127,14 @@ test("an interrupted claim is never stolen after restart, and provider failures 
   assert.equal((await run(chat, failure, { events: replay })).status, "failed");
   assert.equal(calls, 1);
   assert.match(replay.find(item => item.method === "sendError").event.message, /Provider failed/);
-  await assert.rejects(run(chat, { ...request, messageId: "x".repeat(129) }), /Validation failed/);
+  await assert.rejects(run(chat, { ...request, messageId: "x".repeat(129) }), error => {
+    assert.equal(error.message, "Validation failed.");
+    assert.equal(error.code, "validation_failed");
+    assert.deepEqual(error.details, {
+      fieldErrors: { messageId: "messageId is required and must be at most 128 characters." },
+      fieldErrorCodes: { messageId: { code: "assistant.runtime.request.messageIdInvalid", params: {} } }
+    });
+    return true;
+  });
   assert.equal(calls, 1);
 });

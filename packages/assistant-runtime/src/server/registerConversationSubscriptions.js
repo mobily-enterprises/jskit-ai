@@ -3,7 +3,7 @@ import { attachDirectRequestActionExecutor } from "@jskit-ai/kernel/server/http"
 import { AppError } from "@jskit-ai/kernel/server/runtime";
 import { actionIds } from "./actionIds.js";
 import { resolveRouteRequestState } from "./support/assistantRouteContext.js";
-import { errorStatus } from "./support/assistantErrors.js";
+import { errorMessageFields, errorStatus } from "./support/assistantErrors.js";
 import { requireAssistantSurface } from "./support/assistantSurface.js";
 import {
   ASSISTANT_CONVERSATION_EVENT,
@@ -13,17 +13,21 @@ import {
 
 function requireSubscriptionId(input) {
   if (typeof input?.subscriptionId !== "string" || !input.subscriptionId.trim() || input.subscriptionId.length > 128) {
-    throw new AppError(400, "A conversation subscription id is required.");
+    throw new AppError(400, "A conversation subscription id is required.", { code: "assistant.runtime.subscription.idRequired" });
   }
   return input.subscriptionId;
 }
 
 function subscriptionError(error) {
   const status = errorStatus(error);
+  const exposed = status < 500 && Boolean(error.message);
+  const code = String(error?.code || "assistant_subscription_failed");
   return {
     ok: false,
-    error: status < 500 ? String(error.message || "Conversation subscription failed.") : "Conversation subscription failed.",
-    code: String(error?.code || "assistant_subscription_failed"),
+    error: exposed ? String(error.message) : "Conversation subscription failed.",
+    code,
+    ...(exposed ? errorMessageFields(error, { expose: code !== "ACTION_PERMISSION_DENIED" })
+      : { params: {}, messageCode: "assistant.runtime.subscription.failed", messageParams: {} }),
     status
   };
 }

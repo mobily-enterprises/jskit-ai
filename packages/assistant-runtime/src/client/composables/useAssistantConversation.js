@@ -15,8 +15,17 @@ import { resolveAssistantRuntimeRoute, resolveAssistantSurfaceConfig } from "../
 import { useWorkspaceWebScopeSupport } from "../support/workspaceScopeSupport.js";
 import { isAccessDenied } from "../support/accessDenied.js";
 import { subscribeAssistantConversation, refreshedHistoryPages, patchLoadedHistoryPages } from "../support/subscribeAssistantConversation.js";
+import { useJskitText } from "../i18n.js";
 
 const text = value => String(toValue(value) ?? "").trim();
+const { serverMessage, t } = useJskitText();
+// A failure in the active language when its code or messageCode is JSKIT's English;
+// otherwise its message as sent. A result's error text is read the same way.
+const failureMessage = (failure, fallback = "") => failure?.message ? serverMessage(failure) : fallback;
+const resultError = result => failureMessage({ ...result, message: result?.error });
+// A conversation snapshot's error names its runtime sentence with errorMessageCode.
+const stateError = state => failureMessage({ message: state?.error,
+  messageCode: state?.errorMessageCode, messageParams: state?.errorMessageParams });
 // Keep the injection key stable across optimized package and raw Vue imports.
 const conversationDefaultsKey = Symbol.for("jskit.assistant-runtime.conversation.defaults");
 const compareTurnIds = (left, right) => String(left).localeCompare(String(right), undefined, { numeric: true });
@@ -150,7 +159,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     const restoredMessages = messages.filter(message => !delivery.find(message.id)).map(message => {
       const status = ["failed", "accepted"].includes(message.status) ? message.status : "uncertain";
       return { ...message, status, checking: false, error: message.error || (status === "accepted" ? "" :
-        "Delivery was not confirmed before this page closed. Check the conversation before retrying.") };
+        t("jskit.assistant.runtime.delivery.unconfirmedBeforeClose")) };
     });
     delivery.state.messages = unmatchedOptimisticMessages(turns.value, [...delivery.state.messages, ...restoredMessages], { receiptsOnly: true });
   } catch {
@@ -243,7 +252,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
   function receiveError(failure) {
     if (!current.value) return;
     loading.value = false;
-    error.value = failure.message;
+    error.value = failureMessage(failure);
     accessDenied.value = isAccessDenied(failure);
     if (accessDenied.value) {
       deniedHistoryRevision += 1;
@@ -286,7 +295,9 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
   async function readLoadedHistory({ current: subscriptionCurrent }) {
     const denial = deniedHistoryRevision;
     const valid = () => {
-      if (denial !== deniedHistoryRevision) throw Object.assign(new Error("Access denied."), { status: 403 });
+      if (denial !== deniedHistoryRevision) {
+        throw Object.assign(new Error("Access denied."), { status: 403, messageCode: "assistant.runtime.accessDenied" });
+      }
       return current.value && active.value && subscriptionCurrent();
     };
     // A concurrent Load older operation extends the desired span. Retry one
@@ -306,7 +317,11 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
         const reachedFullOldestTurn = page.pagination.oldestTurnId === oldest && !page.conversationLog[0]?.paginationPartial;
         const passedOldestTurn = compareTurnIds(page.pagination.oldestTurnId, oldest) < 0;
         if (cursor && (cursor === oldestCursor || passedOldestTurn || reachedFullOldestTurn)) break;
-        if (!cursor || cursors.has(cursor)) throw new Error("Older conversation history could not be refreshed. Reload chat to try again.");
+        if (!cursor || cursors.has(cursor)) {
+          throw Object.assign(new Error("Older conversation history could not be refreshed. Reload chat to try again."), {
+            messageCode: "assistant.runtime.history.refreshFailed"
+          });
+        }
         cursors.add(cursor);
         page = normalizeConversationLogPage(await api.readConversation(identity.conversationId, {
           beforeTurnId: cursor, limit: latest.pagination.limit
@@ -469,14 +484,14 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
               await subscription?.reload();
               if (error.value) return false;
               if (snapshot.value.status === "working" && !steerable.value) {
-                delivery.wait(messageId, "Waiting for the assistant to finish this step");
+                delivery.wait(messageId, t("jskit.assistant.runtime.delivery.waitingForStep"));
               }
               admission = await waitForAdmission(pending);
               delivery.wait(messageId, "");
               if (!admission || controller.signal.aborted || !available.value ||
                   snapshot.value.status !== (admission === "steer" ? "working" : "ready")) return false;
               if (submission.displayAttachments?.length && snapshot.value.capabilities?.attachments !== true) {
-                return { ok: false, error: "This conversation no longer accepts attachments." };
+                return { ok: false, error: t("jskit.assistant.runtime.attachments.noLongerAccepted") };
               }
             }
             let request = prepare ? await prepare(submission, { signal: controller.signal }) : submission.request;
@@ -520,14 +535,14 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
           }
           catch (failure) {
             if (controller.signal.aborted) return false;
-            if (prepare && !pending.dispatched) return { ok: false, error: failure.message,
+            if (prepare && !pending.dispatched) return { ok: false, error: failureMessage(failure),
               ...(failure.code ? { code: failure.code } : {}) };
             const rejection = failure.details?.delivery;
             const notSent = Number.isInteger(failure.status) && failure.status >= 400 && failure.status < 500 &&
               rejection && !Array.isArray(rejection) && rejection.status === "not-sent" && rejection.messageId === messageId;
             // A definite rejection keeps its code so the application can offer
             // the matching recovery, such as freeing assistant context.
-            if (notSent || SEND_REJECTIONS.has(failure.code) || failure.code === "conversation_steer_turn_finished" && failure.status === 409 && !failure.details?.delivery) return { ok: false, error: failure.message,
+            if (notSent || SEND_REJECTIONS.has(failure.code) || failure.code === "conversation_steer_turn_finished" && failure.status === 409 && !failure.details?.delivery) return { ok: false, error: failureMessage(failure),
               ...(failure.code ? { code: failure.code } : {}) };
             throw failure;
           } finally {
@@ -538,7 +553,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       return result;
     } catch (failure) {
       // Delivery keeps its exact authored payload until an explicit receipt check.
-      if (prepare) return { ok: false, status: "uncertain", error: failure.message,
+      if (prepare) return { ok: false, status: "uncertain", error: failureMessage(failure),
         ...(failure.code ? { code: failure.code } : {}) };
       return false;
     } finally {
@@ -588,7 +603,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       return true;
     } catch (failure) {
       if (current.value) {
-        loadMoreError.value = String(failure?.message || failure || "Older conversation history could not be loaded.");
+        loadMoreError.value = String(failureMessage(failure) || failure || t("jskit.assistant.runtime.history.loadFailed"));
         if (isAccessDenied(failure)) receiveError(failure);
       }
       finish({ changed: false, loaded: false });
@@ -619,7 +634,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       return true;
     }).catch(failure => {
       if (current.value && !controller.signal.aborted && snapshot.value?.segmentId === segment) {
-        goalLoadError.value = failure.message || "Goal status is unavailable.";
+        goalLoadError.value = failureMessage(failure, t("jskit.assistant.runtime.goal.unavailable"));
       }
       return false;
     }).finally(() => {
@@ -642,7 +657,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
         !["message", "control"].includes(command?.delivery) ||
         delivery.state.messages.some(message => message.status === "uncertain")) return false;
     if (input.tokenBudget != null && !target.capabilities.goalBudgets) {
-      goalError.value = "This conversation does not support goal token budgets.";
+      goalError.value = t("jskit.assistant.runtime.goal.budgetsUnsupported");
       return false;
     }
     const retry = delivery.find(messageId);
@@ -656,21 +671,24 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     try {
       if (retry || command.delivery === "message") {
         const result = await submitRequest(retry?.payload || {
-          message: action === "set" ? request.objective : action === "resume" ? "Resume the goal." : "Cancel the goal.",
+          message: action === "set" ? request.objective
+            : t(action === "resume" ? "jskit.assistant.runtime.goal.resumeMessage" : "jskit.assistant.runtime.goal.cancelMessage"),
           goalRequest: request
         }, { messageId });
         if (result === false || result?.ok === false) {
-          if (current.value) goalError.value = result?.error || delivery.find(messageId)?.error || "Could not change the goal.";
+          if (current.value) {
+            goalError.value = result?.error || delivery.find(messageId)?.error || t("jskit.assistant.runtime.goal.changeFailed");
+          }
           return false;
         }
         return result;
       }
       const result = await api.updateConversationGoal(identity.conversationId, request);
-      if (result?.ok === false) throw new Error(result.error || "Could not change the goal.");
+      if (result?.ok === false) throw new Error(resultError(result) || t("jskit.assistant.runtime.goal.changeFailed"));
       return result;
     } catch (failure) {
       if (current.value) {
-        goalError.value = failure.message;
+        goalError.value = failureMessage(failure);
         if (isAccessDenied(failure)) receiveError(failure);
       }
       return false;
@@ -730,14 +748,14 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
         delivery.accept(messageId);
         if (receipt.messageId === messageId && message?.payload.goalRequest) goalError.value = "";
       }
-      else if (receipt.status === "not-sent" && receipt.messageId === messageId) delivery.rejectUnsent(messageId, receipt.error);
+      else if (receipt.status === "not-sent" && receipt.messageId === messageId) delivery.rejectUnsent(messageId, resultError(receipt));
       else if (receipt.status === "unknown" && message?.status === "uncertain") {
-        message.error = "Delivery is still unknown. Retry to check again.";
+        message.error = t("jskit.assistant.runtime.delivery.stillUnknown");
       }
       subscription?.reload();
       return receipt;
     } catch (failure) {
-      if (current.value && message?.status === "uncertain") message.error = failure.message || "Delivery could not be checked.";
+      if (current.value && message?.status === "uncertain") message.error = failureMessage(failure, t("jskit.assistant.runtime.delivery.checkFailed"));
       receiveError(failure);
       return false;
     }
@@ -790,7 +808,7 @@ function useBoundedTask({ command, endpoint, scope, input, result, onResult }, {
     return {
       conversation: {
         turns: conversationTurnsFromMessages(messages.value.map(message => ({ ...message, text: message.content }))),
-        assistantLabel: display.assistantLabel || "Assistant", welcomeMessage: display.welcomeMessage,
+        assistantLabel: display.assistantLabel || t("jskit.assistant.runtime.conversation.assistantLabel"), welcomeMessage: display.welcomeMessage,
         visible: display.visible, retainWhenHidden: display.retainWhenHidden, variant: display.variant, scrollKey: toValue(scope)
       },
       composer: {
@@ -979,7 +997,7 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
         current.draftAttachments.value = current.draftAttachments.value.filter(file => !attachmentIds.includes(file.attachmentId));
         if (runtime.value === current) {
           try { attachments?.clearAttachments({ accepted: true, attachmentIds }); }
-          catch (failure) { current.error.value = failure?.message || "Accepted attachments could not be cleared from the composer."; }
+          catch (failure) { current.error.value = failureMessage(failure, t("jskit.assistant.runtime.attachments.clearFailed")); }
         }
       }
       onAccepted?.();
@@ -996,7 +1014,7 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
     if (retry?.status === "uncertain") return current.inspectDelivery(messageId).then(receipt => {
       if (!current.current.value || !isCurrent()) return false;
       if (receipt?.status !== "accepted") {
-        const error = current.error.value || "Message delivery is not confirmed.";
+        const error = current.error.value || t("jskit.assistant.runtime.delivery.notConfirmed");
         const pending = current.delivery.find(messageId);
         if (pending) pending.error = error;
         return { ok: false, status: "uncertain", error };
@@ -1027,12 +1045,13 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
       models: current?.available.value ? modelOwner.value : null, questions: prompts,
       goal: (toValue(goal) === true ? null : toValue(goal)) || current?.goalState.value || null,
       conversation: { turns: current?.turns.value || [], interimReply: state?.interimReply || null,
-        error: current?.error.value || state?.error || "", errorReloadable: Boolean(current) && !current.accessDenied.value,
+        error: current?.error.value || stateError(state), errorReloadable: Boolean(current) && !current.accessDenied.value,
         scrollKey: JSON.stringify(identity.value),
         hasMoreBefore: current?.hasMoreBefore.value || false,
         loadingMore: current?.loadingMore.value || false, loadMoreError: current?.loadMoreError.value || "",
         loading: current?.loading.value || false, working: !current?.error.value && state?.status === "working" && !current.delivery.state.sending,
-        assistantLabel: display.assistantLabel || "Assistant", welcomeMessage: display.welcomeMessage ?? "What would you like to do?",
+        assistantLabel: display.assistantLabel || t("jskit.assistant.runtime.conversation.assistantLabel"),
+        welcomeMessage: display.welcomeMessage ?? t("jskit.assistant.runtime.conversation.welcomeMessage"),
         systemLabel: display.systemLabel, variant: display.variant, visible: display.visible, retainWhenHidden: display.retainWhenHidden,
         userMessageFormat: display.userMessageFormat, progressPreviewLimit: display.progressPreviewLimit,
         previewMessage: current?.available.value ? display.previewMessage : null },
@@ -1042,10 +1061,10 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
         canStop: state?.status === "working" || state?.status === "unavailable", stopPending: current?.stopping.value || false,
         queueWhileSending: current?.queueWhileSending.value || false,
         ariaLabel: display.ariaLabel, submitAriaLabel: display.submitAriaLabel, submitLabel: display.submitLabel,
-        placeholder: formatsQuestions && prompts.questions?.length ? "Optional additional context…"
-          : formatsQuestions && prompts.choices?.length ? "Choose an answer above, or type another answer…"
-            : display.placeholder || "Message the assistant…",
-        hint: formatsQuestions && prompts.active ? "Answer the assistant, then send one combined reply." : "",
+        placeholder: formatsQuestions && prompts.questions?.length ? t("jskit.assistant.runtime.composer.questionsPlaceholder")
+          : formatsQuestions && prompts.choices?.length ? t("jskit.assistant.runtime.composer.choicesPlaceholder")
+            : display.placeholder || t("jskit.assistant.runtime.conversation.placeholder"),
+        hint: formatsQuestions && prompts.active ? t("jskit.assistant.runtime.composer.questionsHint") : "",
         rows: display.rows ?? 2, density: display.layout === "compact" ? "compact" : "default", submitOnEnter: true, submitOnModifierEnter: true },
       actions: { setDraft(value) {
         if (current) current.draft.value = value;
@@ -1055,7 +1074,7 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
         checkDelivery: messageId => current?.inspectDelivery(messageId), loadMore: input => current?.loadMore(input), reload: () => current?.reload() }
     };
   });
-  return { runtime, adapter, submitPrepared, error: computed(() => runtime.value?.error.value || runtime.value?.snapshot.value?.error || "") };
+  return { runtime, adapter, submitPrepared, error: computed(() => runtime.value?.error.value || stateError(runtime.value?.snapshot.value)) };
 }
 
 /** The standard element and custom text/voice presentation share the supplied binding. */

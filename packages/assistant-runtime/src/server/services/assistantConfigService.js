@@ -62,7 +62,7 @@ function createService({
     const resolvedWorkspace = workspace || workspaceScopeSupport.resolveWorkspace(context, input);
     const workspaceId = normalizeRecordId(resolvedWorkspace?.id, { fallback: null });
     if (!workspaceId) {
-      throw new AppError(409, "Workspace selection required.");
+      throw new AppError(409, "Workspace selection required.", { code: "assistant.runtime.workspace.selectionRequired" });
     }
 
     return workspaceId;

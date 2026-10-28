@@ -1,4 +1,4 @@
-import { AppError, parsePositiveInteger } from "@jskit-ai/kernel/server/runtime";
+import { AppError, createValidationError, parsePositiveInteger } from "@jskit-ai/kernel/server/runtime";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { normalizeObject, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeConversationStatus } from "@jskit-ai/assistant-core/shared";
@@ -13,7 +13,7 @@ const MAX_CONVERSATION_TITLE_LENGTH = 80;
 function resolveWorkspaceId(workspace, { required = false } = {}) {
   const workspaceId = normalizeRecordId(workspace?.id || workspace, { fallback: null });
   if (!workspaceId && required) {
-    throw new AppError(409, "Workspace selection required.");
+    throw new AppError(409, "Workspace selection required.", { code: "assistant.runtime.workspace.selectionRequired" });
   }
 
   return workspaceId;
@@ -22,7 +22,7 @@ function resolveWorkspaceId(workspace, { required = false } = {}) {
 function resolveActorUserId(user, { required = false } = {}) {
   const actorUserId = normalizeRecordId(user?.id, { fallback: null });
   if (!actorUserId && required) {
-    throw new AppError(401, "Authentication required.");
+    throw new AppError(401, "Authentication required.", { code: "assistant.runtime.authenticationRequired" });
   }
 
   return actorUserId;
@@ -101,7 +101,7 @@ function createTranscriptService({ conversationsRepository, messagesRepository }
         surfaceId: resolvedAssistantSurface.targetSurfaceId
       });
       if (!existing) {
-        throw new AppError(404, "Conversation not found.");
+        throw new AppError(404, "Conversation not found.", { code: "assistant.runtime.conversation.notFound" });
       }
 
       if (existing.status !== "active") {
@@ -161,7 +161,7 @@ function createTranscriptService({ conversationsRepository, messagesRepository }
         surfaceId: resolvedAssistantSurface.targetSurfaceId
       }, { trx, forUpdate: true });
       if (!existing) {
-        throw new AppError(404, "Conversation not found.");
+        throw new AppError(404, "Conversation not found.", { code: "assistant.runtime.conversation.notFound" });
       }
 
       return conversationsRepository.updateById(normalizedConversationId, {
@@ -215,12 +215,8 @@ function createTranscriptService({ conversationsRepository, messagesRepository }
     });
     const normalizedConversationId = normalizeRecordId(conversationId, { fallback: null });
     if (!normalizedConversationId) {
-      throw new AppError(400, "Validation failed.", {
-        details: {
-          fieldErrors: {
-            conversationId: "conversationId must be a valid record id."
-          }
-        }
+      throw createValidationError({
+        conversationId: { code: "assistant.runtime.conversation.idInvalid", message: "conversationId must be a valid record id." }
       });
     }
 
@@ -233,7 +229,7 @@ function createTranscriptService({ conversationsRepository, messagesRepository }
       }
     );
     if (!conversation) {
-      throw new AppError(404, "Conversation not found.");
+      throw new AppError(404, "Conversation not found.", { code: "assistant.runtime.conversation.notFound" });
     }
 
     const pagination = normalizePagination(query, {

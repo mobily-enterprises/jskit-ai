@@ -1,16 +1,16 @@
 <template>
   <AssistantSettingsFormCard
     root-class="assistant-settings-client-element"
-    title="Assistant settings"
+    :title="t('jskit.assistant.runtime.settings.title')"
     :subtitle="subtitle"
-    no-permission-message="You do not have permission to view assistant settings."
-    save-label="Save assistant settings"
+    :no-permission-message="t('jskit.assistant.runtime.settings.noPermission')"
+    :save-label="t('jskit.assistant.runtime.settings.save')"
     :add-edit="addEdit"
     :show-form-skeleton="showFormSkeleton"
   >
     <v-textarea
       v-model="form.systemPrompt"
-      label="System prompt"
+      :label="t('jskit.assistant.runtime.settings.systemPrompt')"
       variant="outlined"
       density="comfortable"
       rows="8"
@@ -33,6 +33,7 @@ import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { useSurfaceRouteContext } from "@jskit-ai/shell-web/client/navigation/useSurfaceRouteContext";
 import { resolveAssistantSurfaceConfig } from "../../shared/assistantSurfaces.js";
 import { useWorkspaceWebScopeSupport } from "../support/workspaceScopeSupport.js";
+import { useJskitText } from "../i18n.js";
 
 const props = defineProps({
   targetSurfaceId: {
@@ -49,6 +50,7 @@ const fieldErrors = reactive({
   systemPrompt: ""
 });
 
+const { fieldErrorMessages, serverMessage, t } = useJskitText();
 const errorRuntime = useShellWebErrorRuntime();
 const queryClient = useQueryClient();
 const appConfig = getClientAppConfig();
@@ -93,14 +95,15 @@ const settingsApi = createAssistantApi({
 
 const subtitle = computed(() => {
   if (!assistantSurface.value) {
-    return "Configure assistant settings.";
+    return t("jskit.assistant.runtime.settings.subtitle");
   }
 
+  const surface = assistantSurface.value.targetSurfaceId;
   if (assistantSurface.value.configScope === "workspace") {
-    return `Configure the prompt used on the ${assistantSurface.value.targetSurfaceId} surface for this workspace.`;
+    return t("jskit.assistant.runtime.settings.subtitleWorkspace", { surface });
   }
 
-  return `Configure the prompt used on the ${assistantSurface.value.targetSurfaceId} surface.`;
+  return t("jskit.assistant.runtime.settings.subtitleSurface", { surface });
 });
 
 function clearFieldErrors() {
@@ -151,18 +154,19 @@ const settingsMutation = useMutation({
 
 const loadError = computed(() => {
   if (!assistantSurface.value) {
-    return "Assistant settings are not configured for this surface.";
+    return t("jskit.assistant.runtime.settings.notConfigured");
   }
   if (hasScope.value) {
-    return normalizeText(settingsQuery.error.value?.message);
+    const failure = settingsQuery.error.value;
+    return failure?.message ? normalizeText(serverMessage(failure)) : "";
   }
 
   if (assistantSurface.value?.settingsSurfaceRequiresWorkspace) {
     if (workspaceScopeSupport.available !== true) {
-      return "Workspace support is not available for this assistant surface.";
+      return t("jskit.assistant.runtime.settings.workspaceUnavailable");
     }
 
-    return "Select a workspace to configure assistant settings.";
+    return t("jskit.assistant.runtime.settings.selectWorkspace");
   }
 
   return "";
@@ -179,17 +183,18 @@ async function submit() {
     }
   });
   if (!validation.ok) {
-    fieldErrors.systemPrompt = String(validation.fieldErrors.systemPrompt || "");
+    fieldErrors.systemPrompt = String(fieldErrorMessages(validation).systemPrompt || "");
     return;
   }
 
   try {
     await settingsMutation.mutateAsync(validation.value);
   } catch (error) {
-    const nextFieldErrors = normalizeObject(error?.details?.fieldErrors);
+    const nextFieldErrors = fieldErrorMessages({ fieldErrors: normalizeObject(error?.details?.fieldErrors),
+      fieldErrorCodes: error?.fieldErrorCodes || error?.details?.fieldErrorCodes });
     fieldErrors.systemPrompt = String(nextFieldErrors.systemPrompt || "");
     reportAssistantSettingsError(
-      normalizeText(error?.message) || "Unable to update assistant settings.",
+      (error?.message && normalizeText(serverMessage(error))) || t("jskit.assistant.runtime.settings.updateFailed"),
       "assistant.settings:save"
     );
   }

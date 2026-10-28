@@ -7,7 +7,7 @@ function requireAssistantSurface(appConfig = {}, targetSurfaceId = "") {
     return assistantSurface;
   }
 
-  throw new AppError(404, "Assistant not found.");
+  throw new AppError(404, "Assistant not found.", { code: "assistant.runtime.route.assistantNotFound" });
 }
 
 export { requireAssistantSurface };

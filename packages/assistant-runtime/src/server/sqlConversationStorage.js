@@ -93,7 +93,7 @@ function requireUnambiguous(projection) {
 function createSqlConversationStorage({ conversationsRepository, messagesRepository }) {
   async function load(id, trx, write = false) {
     const conversation = await conversationsRepository.findById(id, { trx, forUpdate: write });
-    if (!conversation) throw new AppError(404, "Conversation not found.");
+    if (!conversation) throw new AppError(404, "Conversation not found.", { code: "assistant.runtime.conversation.notFound" });
     const rows = [];
     for (let page = 1; ; page += 1) {
       const batch = await messagesRepository.listByConversationScope(id, { workspaceId: conversation.workspaceId }, { page, pageSize: 500 }, { trx });
