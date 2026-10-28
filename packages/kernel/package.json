@@ -22,6 +22,7 @@
       "types": "./client/pageRedirects.d.ts",
       "default": "./client/pageRedirects.js"
     },
+    "./client/i18n": "./client/i18n.js",
     "./client/moduleBootstrap": "./client/moduleBootstrap.js",
     "./client/vite": "./client/vite/index.js",
     "./server/actions": "./server/actions/index.js",
@@ -50,8 +51,18 @@
     "./shared/support/visibility": "./shared/support/visibility.js",
     "./shared/support/linkPath": "./shared/support/linkPath.js",
     "./shared/surface": "./shared/surface/index.js",
+    "./shared/i18n": "./shared/i18n/index.js",
     "./shared/surface/paths": "./shared/surface/paths.js",
     "./shared/surface/runtime": "./shared/surface/runtime.js",
-    "./shared/surface/registry": "./shared/surface/registry.js"
+    "./shared/surface/registry": "./shared/surface/registry.js",
+    "./locales/en.json": "./locales/en.json"
+  },
+  "peerDependencies": {
+    "vue-i18n": "^11.4.16"
+  },
+  "peerDependenciesMeta": {
+    "vue-i18n": {
+      "optional": true
+    }
   }
 }

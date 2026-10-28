@@ -11,7 +11,8 @@
     "./shared/validators/errorResponses": "./src/shared/validators/errorResponses.js",
     "./shared/validators/jsonApiResult": "./src/shared/validators/jsonApiResult.js",
     "./shared/validators/jsonApiRouteTransport": "./src/shared/validators/jsonApiRouteTransport.js",
-    "./shared/validators/operationValidation": "./src/shared/validators/operationValidation.js"
+    "./shared/validators/operationValidation": "./src/shared/validators/operationValidation.js",
+    "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
     "json-rest-schema": "^1.0.17"

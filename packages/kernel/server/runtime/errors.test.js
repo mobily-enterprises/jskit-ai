@@ -71,3 +71,29 @@ test("createValidationError creates a 400 response with field errors", () => {
     }
   });
 });
+
+test("AppError carries the params its code's sentence needs", () => {
+  assert.deepEqual(new AppError(400, "Use at least 8 characters.", {
+    code: "auth.password.tooShort",
+    params: { min: 8 }
+  }).params, { min: 8 });
+  assert.deepEqual(new AppError(400, "Bad.").params, {});
+  assert.deepEqual(new AppError(400, "Bad.", { params: ["not", "a", "record"] }).params, {});
+});
+
+test("createValidationError keeps English field errors and adds coded ones", () => {
+  const error = createValidationError({
+    email: "Invalid.",
+    password: { code: "auth.password.tooShort", params: { min: 8 }, message: "Use at least 8 characters." }
+  });
+
+  assert.deepEqual(error.details, {
+    fieldErrors: {
+      email: "Invalid.",
+      password: "Use at least 8 characters."
+    },
+    fieldErrorCodes: {
+      password: { code: "auth.password.tooShort", params: { min: 8 } }
+    }
+  });
+});

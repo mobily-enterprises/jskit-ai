@@ -26,6 +26,11 @@ const EXPORTED_UNUSED_ALLOWLIST = new Set([
   "./_testable",
   // Used by generated app bootstrap code emitted from kernel client vite plugin.
   "./client/moduleBootstrap",
+  // The generated bootstrap module registers every package's English catalog through these.
+  "./client/i18n",
+  "./locales/en.json",
+  // Catalog helpers for packages that render JSKIT English on the server, such as emails.
+  "./shared/i18n",
   // Public composition-root API. Feature packages normally consume it through
   // defineFeature(), while infrastructure providers use it directly.
   "./shared/capabilities",

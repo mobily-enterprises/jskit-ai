@@ -171,7 +171,8 @@ test("registerApiErrorHandler hides internal permission details for action permi
   assert.equal(reply.statusCode, 403);
   assert.deepEqual(reply.payload, {
     error: "Forbidden.",
-    code: "ACTION_PERMISSION_DENIED"
+    code: "ACTION_PERMISSION_DENIED",
+    params: {}
   });
 });
 
@@ -204,6 +205,7 @@ test("registerApiErrorHandler exposes only allowlisted transaction outcomes", ()
     assert.deepEqual(reply.payload, {
       error: "Internal server error.",
       code: "internal_server_error",
+      params: {},
       transactionOutcome
     });
   }
@@ -367,4 +369,51 @@ test("registerBodylessContentTypeNormalizer installs the request hook once", asy
   assert.deepEqual(request.headers, {
     "content-length": "0"
   });
+});
+
+test("registerApiErrorHandler returns the params and coded field errors of an AppError", () => {
+  const fastify = createFastifyStub();
+  registerApiErrorHandler(fastify, { isAppError });
+
+  const reply = createReplyStub();
+  fastify.errorHandler(new AppError(400, "Use at least 8 characters.", {
+    code: "auth.password.tooShort",
+    params: { min: 8 },
+    details: {
+      fieldErrors: { password: "Use at least 8 characters." },
+      fieldErrorCodes: { password: { code: "auth.password.tooShort", params: { min: 8 } } }
+    }
+  }), {}, reply);
+
+  assert.equal(reply.payload.code, "auth.password.tooShort");
+  assert.deepEqual(reply.payload.params, { min: 8 });
+  assert.deepEqual(reply.payload.fieldErrors, { password: "Use at least 8 characters." });
+  assert.deepEqual(reply.payload.details.fieldErrorCodes, {
+    password: { code: "auth.password.tooShort", params: { min: 8 } }
+  });
+});
+
+test("registerApiErrorHandler passes a per-sentence messageCode next to a shared code", () => {
+  const fastify = createFastifyStub();
+  registerApiErrorHandler(fastify, { isAppError });
+
+  const appReply = createReplyStub();
+  fastify.errorHandler(new AppError(400, "Pick a calendar first.", {
+    code: "connector_input_invalid",
+    messageCode: "connectors.calendar.pickFirst"
+  }), {}, appReply);
+  assert.equal(appReply.payload.code, "connector_input_invalid");
+  assert.equal(appReply.payload.messageCode, "connectors.calendar.pickFirst");
+  assert.deepEqual(appReply.payload.messageParams, {});
+
+  const plainReply = createReplyStub();
+  fastify.errorHandler(Object.assign(new Error("Card declined."), {
+    statusCode: 422, code: "payment_declined", messageCode: "payments.card.declined", messageParams: { last4: "4242" }
+  }), {}, plainReply);
+  assert.equal(plainReply.payload.messageCode, "payments.card.declined");
+  assert.deepEqual(plainReply.payload.messageParams, { last4: "4242" });
+
+  const hiddenReply = createReplyStub();
+  fastify.errorHandler(Object.assign(new Error("private"), { messageCode: "x.y" }), {}, hiddenReply);
+  assert.equal(Object.hasOwn(hiddenReply.payload, "messageCode"), false);
 });

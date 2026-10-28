@@ -1,0 +1,25 @@
+{
+  "jskit": {
+    "errors": {
+      "internal_server_error": "Internal server error.",
+      "request_failed": "Request failed.",
+      "validation_failed": "Validation failed.",
+      "FST_ERR_VALIDATION": "Validation failed.",
+      "not_found": "Not found.",
+      "conflict": "Conflict.",
+      "domain_validation_failed": "Domain validation failed.",
+      "AUTHENTICATION_REQUIRED": "Authentication required.",
+      "PERMISSION_DENIED": "Forbidden.",
+      "ACTION_AUTHENTICATION_REQUIRED": "Authentication required.",
+      "ACTION_CHANNEL_FORBIDDEN": "Forbidden.",
+      "ACTION_PERMISSION_DENIED": "Forbidden.",
+      "ACTION_SURFACE_FORBIDDEN": "Forbidden.",
+      "ACTION_NOT_FOUND": "Not found.",
+      "ACTION_VALIDATION_FAILED": "Validation failed.",
+      "ACTION_IDEMPOTENCY_KEY_REQUIRED": "Validation failed.",
+      "ACTION_ID_REQUIRED": "Validation failed.",
+      "ACTION_STREAM_KIND_REQUIRED": "Validation failed.",
+      "ACTION_VERSION_INVALID": "Validation failed."
+    }
+  }
+}

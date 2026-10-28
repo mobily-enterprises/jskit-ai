@@ -1,4 +1,5 @@
 export { getClientAppConfig, resolveMobileConfig, resolveClientAssetMode } from "./appConfig.js";
+export { registerJskitMessages, setJskitI18n, useJskitText } from "./i18n.js";
 export {
   createAsyncModuleRecoveryState,
   dismissAsyncModuleRecovery,

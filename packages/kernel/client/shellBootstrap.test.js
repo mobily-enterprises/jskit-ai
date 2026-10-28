@@ -272,3 +272,26 @@ test("bootstrapClientShellApp boots modules, reinstalls fallback route, and moun
   assert.equal(calls.includes("after:3"), true);
   assert.equal(calls.includes("router-ready:3"), true);
 });
+
+test("bootstrapClientShellApp installs the app's vue-i18n once and translates JSKIT through it", async () => {
+  const { createI18n } = await import("vue-i18n");
+  const { registerJskitMessages, useJskitText } = await import("./i18n.js");
+  registerJskitMessages({ jskit: { shell: { back: "Back" } } });
+  const i18n = createI18n({ legacy: false, locale: "it", messages: { it: { jskit: { shell: { back: "Indietro" } } } } });
+  for (const appPlugins of [[], [i18n]]) {
+    const used = [];
+    await bootstrapClientShellApp({
+      createApp: () => ({ use(plugin) { used.push(plugin); }, mount() {} }),
+      router: { addRoute() {}, getRoutes: () => [], async isReady() {} },
+      surfaceRuntime: createSurfaceRuntimeFixture(),
+      logger: { info() {}, warn() {}, error() {} },
+      appPlugins,
+      i18n,
+      bootClientModules: async () => ({})
+    });
+    assert.equal(used.filter((plugin) => plugin === i18n).length, 1);
+  }
+  assert.equal(useJskitText().t("jskit.shell.back"), "Indietro");
+  assert.equal(i18n.global.getLocaleMessage("en").jskit.shell.back, "Back");
+  delete globalThis.__JSKIT_CLIENT_I18N__;
+});

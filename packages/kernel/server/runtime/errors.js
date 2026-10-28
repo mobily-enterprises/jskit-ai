@@ -1,3 +1,9 @@
+// The values a code's sentence needs ({ min: 8 }), so a client can show the code
+// in the user's language; message stays the English text.
+function normalizeErrorParams(params) {
+  return params && typeof params === "object" && !Array.isArray(params) ? { ...params } : {};
+}
+
 export class AppError extends Error {
   constructor(status, message, options = {}) {
     super(message);
@@ -5,6 +11,12 @@ export class AppError extends Error {
     this.status = Number(status) || 500;
     this.statusCode = this.status;
     this.code = options.code || "APP_ERROR";
+    this.params = normalizeErrorParams(options.params);
+    // A per-sentence code for errors that must keep a shared code callers branch on.
+    if (options.messageCode) {
+      this.messageCode = String(options.messageCode);
+      this.messageParams = normalizeErrorParams(options.messageParams);
+    }
     this.details = options.details;
     this.headers = options.headers || {};
   }
@@ -59,10 +71,26 @@ export function isDomainError(error) {
   return error instanceof DomainError;
 }
 
+// A field error is an English string or { code, params, message }. fieldErrors
+// keeps the English strings; fieldErrorCodes carries the coded entries.
 export function createValidationError(fieldErrors) {
+  const messages = {};
+  const fieldErrorCodes = {};
+  for (const [field, entry] of Object.entries(fieldErrors || {})) {
+    if (!entry || typeof entry !== "object") {
+      messages[field] = entry;
+      continue;
+    }
+    messages[field] = String(entry.message || "");
+    if (entry.code) {
+      fieldErrorCodes[field] = { code: String(entry.code), params: normalizeErrorParams(entry.params) };
+    }
+  }
   return new AppError(400, "Validation failed.", {
+    code: "validation_failed",
     details: {
-      fieldErrors
+      fieldErrors: messages,
+      ...(Object.keys(fieldErrorCodes).length ? { fieldErrorCodes } : {})
     }
   });
 }

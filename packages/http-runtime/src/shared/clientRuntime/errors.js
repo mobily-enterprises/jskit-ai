@@ -57,11 +57,20 @@ function createHttpError(response, data = {}) {
   const normalizedFieldErrors = resolveFieldErrors(payload);
   error.status = Number(response?.status || 0);
   error.code = String(payload.code || "").trim() || null;
+  error.params = isRecord(payload.params) ? payload.params : {};
+  if (payload.messageCode) {
+    error.messageCode = String(payload.messageCode);
+    error.messageParams = isRecord(payload.messageParams) ? payload.messageParams : {};
+  } else if (!message) {
+    error.messageCode = "http.request.failedWithStatus";
+    error.messageParams = { status: error.status };
+  }
   const transactionOutcome = normalizeTransactionOutcome(payload.transactionOutcome);
   if (transactionOutcome) {
     error.transactionOutcome = transactionOutcome;
   }
   error.fieldErrors = Object.keys(normalizedFieldErrors).length > 0 ? normalizedFieldErrors : null;
+  error.fieldErrorCodes = isRecord(payload.details?.fieldErrorCodes) ? payload.details.fieldErrorCodes : null;
   if (isRecord(payload.details)) {
     error.details = payload.details;
   } else if (error.fieldErrors) {
@@ -77,7 +86,10 @@ function createHttpError(response, data = {}) {
 function createNetworkError(cause) {
   const error = new Error("Network request failed.");
   error.status = 0;
+  // Request recovery reads the cause's own code, so the text has a messageCode.
   error.code = null;
+  error.messageCode = "http.request.networkFailed";
+  error.messageParams = {};
   error.fieldErrors = null;
   error.details = null;
   error.cause = cause;

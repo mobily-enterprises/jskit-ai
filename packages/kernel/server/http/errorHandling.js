@@ -104,6 +104,12 @@ function resolveValidationFieldErrors(error) {
   return fieldErrors;
 }
 
+function messageCodeFields(error, expose = true) {
+  return expose && error?.messageCode
+    ? { messageCode: String(error.messageCode), messageParams: isRecord(error.messageParams) ? error.messageParams : {} }
+    : {};
+}
+
 function resolveRequestRouteTransport(request) {
   const transport = request?.routeOptions?.config?.transport;
   return isRecord(transport) ? transport : null;
@@ -211,6 +217,7 @@ function registerApiErrorHandler(app, { isAppError } = {}) {
       reply.code(400).send({
         error: "Validation failed.",
         code: validationErrorCode,
+        params: {},
         ...outcomeFields,
         fieldErrors,
         details: {
@@ -239,6 +246,8 @@ function registerApiErrorHandler(app, { isAppError } = {}) {
       const payload = {
         error: error.message,
         code: appErrorCode,
+        params: exposeDetails ? error.params || {} : {},
+        ...messageCodeFields(error, exposeDetails),
         ...outcomeFields
       };
       if (error.details && exposeDetails) {
@@ -272,6 +281,8 @@ function registerApiErrorHandler(app, { isAppError } = {}) {
     const payload = {
       error: message,
       code: fallbackErrorCode,
+      params: {},
+      ...messageCodeFields(error, statusCode < 500),
       ...outcomeFields
     };
     if (isCsrfErrorCode) {

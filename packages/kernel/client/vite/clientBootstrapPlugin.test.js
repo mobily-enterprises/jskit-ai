@@ -8,6 +8,7 @@ import {
   CLIENT_BOOTSTRAP_VIRTUAL_ID,
   createJskitClientBootstrapPlugin,
   createVirtualModuleSource,
+  resolveLocalePackageIds,
   resolveCanonicalLocalPackageId,
   resolveLocalPackageForSpecifier,
   resolveLocalPackageSources,
@@ -955,4 +956,21 @@ test("createJskitClientBootstrapPlugin rejects a later preserveSymlinks override
   } finally {
     process.chdir(previousCwd);
   }
+});
+
+test("the generated module registers every installed package's English catalog", () => {
+  const installedPackages = [
+    { packageId: "@z/server-only", packageJson: { exports: { "./locales/en.json": "./locales/en.json" } } },
+    { packageId: "@a/web", packageJson: { exports: { "./client": "./src/client/index.js", "./locales/en.json": "./locales/en.json" } } },
+    { packageId: "@m/no-texts", packageJson: { exports: { "./client": "./src/client/index.js" } } }
+  ];
+  const localePackageIds = resolveLocalePackageIds(installedPackages);
+  assert.deepEqual(localePackageIds, ["@a/web", "@z/server-only"]);
+
+  const source = createVirtualModuleSource([], localePackageIds);
+  assert.match(source, /import localeCatalog0 from "@a\/web\/locales\/en\.json" with \{ type: "json" \};/);
+  assert.match(source, /import localeCatalog1 from "@z\/server-only\/locales\/en\.json" with \{ type: "json" \};/);
+  assert.match(source, /import \{ registerJskitMessages \} from "@jskit-ai\/kernel\/client\/i18n";/);
+  assert.match(source, /\[localeCatalog0, localeCatalog1\]\.forEach\(registerJskitMessages\);/);
+  assert.doesNotMatch(createVirtualModuleSource([], []), /registerJskitMessages/);
 });

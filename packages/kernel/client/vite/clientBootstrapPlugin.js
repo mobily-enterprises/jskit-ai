@@ -16,6 +16,8 @@ import {
 const CLIENT_BOOTSTRAP_VIRTUAL_ID = "virtual:jskit-client-bootstrap";
 const CLIENT_BOOTSTRAP_RESOLVED_ID = `\0${CLIENT_BOOTSTRAP_VIRTUAL_ID}`;
 const CLIENT_BOOTSTRAP_MODULE_SPECIFIER = "@jskit-ai/kernel/client/moduleBootstrap";
+const CLIENT_I18N_MODULE_SPECIFIER = "@jskit-ai/kernel/client/i18n";
+const LOCALE_CATALOG_EXPORT = "./locales/en.json";
 const CLIENT_RUNTIME_DEDUPE_SPECIFIERS = Object.freeze([
   "@tanstack/vue-query",
   "pinia",
@@ -41,6 +43,14 @@ async function readJsonFile(filePath, fallback) {
 function hasClientExport(packageJson) {
   const exportsMap = normalizeObject(packageJson?.exports);
   return Boolean(exportsMap["./client"]);
+}
+
+// Every installed package's English catalog, including server-only packages, so
+// the client can render the codes their errors carry.
+function resolveLocalePackageIds(installedPackages = []) {
+  return sortStrings(installedPackages
+    .filter((installedPackage) => normalizeObject(installedPackage.packageJson?.exports)[LOCALE_CATALOG_EXPORT])
+    .map((installedPackage) => installedPackage.packageId));
 }
 
 function isPathInsideRoot(rootPath, candidatePath) {
@@ -275,11 +285,20 @@ function normalizeClientModulePackageMetadataEntries(value) {
   );
 }
 
-function createVirtualModuleSource(clientModules = []) {
+function createVirtualModuleSource(clientModules = [], localePackageIds = []) {
   const modulePackageMetadataEntries = normalizeClientModulePackageMetadataEntries(clientModules);
   const importLines = modulePackageMetadataEntries.map(
     (entry, index) => `import * as clientModule${index} from ${JSON.stringify(`${entry.packageId}/client`)};`
   );
+  if (localePackageIds.length > 0) {
+    importLines.push(
+      ...localePackageIds.map((packageId, index) =>
+        `import localeCatalog${index} from ${JSON.stringify(`${packageId}/locales/en.json`)} with { type: "json" };`),
+      `import { registerJskitMessages } from ${JSON.stringify(CLIENT_I18N_MODULE_SPECIFIER)};`,
+      "",
+      `[${localePackageIds.map((_, index) => `localeCatalog${index}`).join(", ")}].forEach(registerJskitMessages);`
+    );
+  }
   const moduleEntries = modulePackageMetadataEntries.map(
     (entry, index) =>
       `  { packageId: ${JSON.stringify(entry.packageId)}, module: clientModule${index}, packageMetadataUiRoutes: ${JSON.stringify(entry.packageMetadataUiRoutes)}, packageMetadataClientProviders: ${JSON.stringify(entry.packageMetadataClientProviders)} }`
@@ -464,11 +483,11 @@ function createJskitClientBootstrapPlugin({ proxyTarget = "" } = {}) {
         return null;
       }
 
-      const clientModules = await resolveInstalledClientModules({
-        appRoot
-      });
-
-      return createVirtualModuleSource(clientModules);
+      const installedPackages = await discoverInstalledPackages({ appRoot });
+      return createVirtualModuleSource(
+        resolveClientModulesFromInstalledPackages(installedPackages),
+        resolveLocalePackageIds(installedPackages)
+      );
     }
   };
 }
@@ -477,6 +496,7 @@ export {
   CLIENT_BOOTSTRAP_VIRTUAL_ID,
   CLIENT_BOOTSTRAP_RESOLVED_ID,
   createVirtualModuleSource,
+  resolveLocalePackageIds,
   resolveClientOptimizeIncludeSpecifiers,
   resolveClientOptimizeExcludeSpecifiers,
   resolveCanonicalLocalPackageId,

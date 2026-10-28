@@ -112,9 +112,12 @@ const BARREL_EXPECTATIONS = Object.freeze([
       "installAsyncModuleRecoveryHandlers",
       "isDynamicImportError",
       "notifyAsyncModuleLoadError",
+      "registerJskitMessages",
       "resolveMobileConfig",
       "resolveClientBootstrapDebugEnabled",
-      "shellScrollBehavior"
+      "setJskitI18n",
+      "shellScrollBehavior",
+      "useJskitText"
     ])
   }),
   Object.freeze({

@@ -18,6 +18,7 @@ class ActionRuntimeError extends Error {
     this.status = Number(status) || 500;
     this.statusCode = this.status;
     this.code = String(options.code || "ACTION_RUNTIME_ERROR");
+    this.params = options.params && typeof options.params === "object" ? { ...options.params } : {};
     this.details = options.details;
     this.headers = options.headers || {};
     this.cause = options.cause;

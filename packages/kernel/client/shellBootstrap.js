@@ -1,6 +1,7 @@
 import { buildSurfaceAwareRoutes, createFallbackNotFoundRoute, createShellBeforeEachGuard } from "./shellRouting.js";
 import { isRecord } from "../shared/support/normalize.js";
 import { setClientAppConfig } from "./appConfig.js";
+import { setJskitI18n } from "./i18n.js";
 import { createStructuredLogger, summarizeRouterRoutes } from "./logging.js";
 
 function resolveClientBootstrapDebugEnabled({
@@ -142,6 +143,7 @@ async function bootstrapClientShellApp({
   rootComponent,
   appConfig = {},
   appPlugins = [],
+  i18n = null,
   pinia = null,
   queryClient = null,
   router,
@@ -175,6 +177,14 @@ async function bootstrapClientShellApp({
   }
 
   installAppPlugins(app, appPlugins);
+  // The app's vue-i18n instance: JSKIT merges its English into it and translates
+  // through it; switching the language stays the app's job.
+  if (i18n) {
+    if (!appPlugins.includes(i18n)) {
+      app.use(i18n);
+    }
+    setJskitI18n(i18n);
+  }
   setClientAppConfig(appConfig);
 
   const resolvedLogger =

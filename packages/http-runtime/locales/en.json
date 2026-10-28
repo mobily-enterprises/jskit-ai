@@ -1,0 +1,10 @@
+{
+  "jskit": {
+    "http": {
+      "request": {
+        "failedWithStatus": "Request failed with status {status}.",
+        "networkFailed": "Network request failed."
+      }
+    }
+  }
+}

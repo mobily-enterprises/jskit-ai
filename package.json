@@ -43,9 +43,13 @@
     "tooling/*"
   ],
   "devDependencies": {
+    "@fastify/fast-json-stringify-compiler": "^5.1.0",
+    "@intlify/eslint-plugin-vue-i18n": "^4.5.1",
+    "@intlify/message-compiler": "^11.4.16",
     "@playwright/test": "1.61.1",
     "@tanstack/vue-query": "^5.90.5",
     "@vitejs/plugin-vue": "^6.0.7",
+    "@vue/devtools-api": "^8.2.1",
     "better-sqlite3": "13.0.3",
     "cloc": "^2.6.0-cloc",
     "fastify": "5.12.7",
@@ -56,9 +60,8 @@
     "vite": "^8.2.4",
     "vitepress": "^1.6.4",
     "vue": "^3.5.44",
-    "vue-router": "^5.3.1",
-    "@fastify/fast-json-stringify-compiler": "^5.1.0",
-    "@vue/devtools-api": "^8.2.1"
+    "vue-i18n": "^11.4.16",
+    "vue-router": "^5.3.1"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",
