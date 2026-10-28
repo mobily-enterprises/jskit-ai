@@ -9,10 +9,22 @@ import {
   normalizeAssistantStreamEventType
 } from "../../shared/index.js";
 
+const isRecord = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+// A stream error event keeps its code and English message, plus the params and
+// messageCode useJskitText().serverMessage(error) needs to show it in the active language.
 function buildStreamEventError(event) {
-  const message = String(event?.message || "Assistant request failed.");
-  const error = new Error(message);
+  const sent = String(event?.message || "");
+  const error = new Error(sent || "Assistant request failed.");
   error.code = String(event?.code || "assistant_stream_error");
+  error.params = isRecord(event?.params) ? event.params : {};
+  if (event?.messageCode) {
+    error.messageCode = String(event.messageCode);
+    error.messageParams = isRecord(event.messageParams) ? event.messageParams : {};
+  } else if (!sent) {
+    error.messageCode = "assistant.api.requestFailed";
+    error.messageParams = {};
+  }
   error.status = Number(event?.status || 500);
   error.event = event && typeof event === "object" ? { ...event } : null;
   return error;

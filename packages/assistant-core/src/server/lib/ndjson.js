@@ -27,6 +27,23 @@ function endNdjson(reply) {
   reply.raw.end();
 }
 
+function isRecord(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+// The client renders code, params or messageCode in the user's language and
+// falls back to message, like an HTTP error response.
+function streamMessageFields(error, hidden) {
+  if (hidden) {
+    return { params: {}, messageCode: "assistant.stream.failed", messageParams: {} };
+  }
+  const params = isRecord(error?.params) ? error.params : {};
+  if (error?.messageCode) {
+    return { params, messageCode: String(error.messageCode), messageParams: isRecord(error.messageParams) ? error.messageParams : {} };
+  }
+  return error?.message ? { params } : { params, messageCode: "assistant.stream.requestFailed", messageParams: {} };
+}
+
 function mapStreamError(error) {
   const status = Number(error?.status || error?.statusCode || 500);
   const safeStatus = Number.isInteger(status) && status >= 400 && status <= 599 ? status : 500;
@@ -34,7 +51,8 @@ function mapStreamError(error) {
   return Object.freeze({
     code: String(error?.code || "assistant_stream_failed").trim() || "assistant_stream_failed",
     message: safeStatus >= 500 ? "Assistant stream failed." : String(error?.message || "Request failed."),
-    status: safeStatus
+    status: safeStatus,
+    ...streamMessageFields(error, safeStatus >= 500)
   });
 }
 

@@ -1,8 +1,8 @@
 <template>
-  <section ref="container" class="assistant-conversation" :class="{ 'assistant-conversation--error': conversation.error }" :aria-label="label">
+  <section ref="container" class="assistant-conversation" :class="{ 'assistant-conversation--error': conversation.error }" :aria-label="label ?? t('jskit.assistant.chat.label')">
     <section
       v-if="$slots.avatar" class="assistant-conversation__avatar"
-      :class="{ 'assistant-conversation__avatar--hidden': avatarSize === 'hidden' }" aria-label="Conversation avatar"
+      :class="{ 'assistant-conversation__avatar--hidden': avatarSize === 'hidden' }" :aria-label="t('jskit.assistant.chat.avatar')"
     >
       <div v-show="avatarSize === 'hidden'" ref="avatarControls" class="assistant-conversation__avatar-controls">
         <slot name="avatar-control" :size="avatarSize" :height="avatarHeight" />
@@ -10,7 +10,7 @@
           :icon="mdiAccountCircleOutline" size="small"
           variant="text" :width="44" :min-width="44" :min-height="44"
           class="assistant-conversation__avatar-size"
-          aria-label="Show avatar" title="Show avatar"
+          :aria-label="t('jskit.assistant.chat.showAvatar')" :title="t('jskit.assistant.chat.showAvatar')"
           :aria-expanded="avatarSize !== 'hidden'" @click="toggleAvatar"
         >
           <span class="assistant-conversation__avatar-size-disc">
@@ -27,7 +27,7 @@
           <v-btn
             :icon="mdiMinus" size="small" variant="text" color="primary"
             :width="40" :min-width="40" :min-height="44" class="assistant-conversation__avatar-size"
-            aria-label="Minimise avatar" title="Minimise avatar" :aria-expanded="true"
+            :aria-label="t('jskit.assistant.chat.minimiseAvatar')" :title="t('jskit.assistant.chat.minimiseAvatar')" :aria-expanded="true"
             @click="toggleAvatar"
           >
             <span class="assistant-conversation__avatar-size-disc assistant-conversation__avatar-size-disc--minimise">
@@ -49,13 +49,13 @@
         <div v-if="scope.turn.preview && scope.turn.previewMessage?.actions" class="assistant-conversation__preview-actions">
           <v-btn
             v-if="scope.turn.previewMessage.actions.discard" :icon="mdiClose" size="small" variant="text"
-            aria-label="Discard unsent message" title="Discard unsent message"
+            :aria-label="t('jskit.assistant.chat.discardUnsent')" :title="t('jskit.assistant.chat.discardUnsent')"
             :disabled="!scope.turn.previewMessage.actions.canDiscard"
             @click="scope.turn.previewMessage.actions.discard(scope.turn.turnId)"
           />
           <v-btn
             v-if="scope.turn.previewMessage.actions.edit" :icon="mdiPencil" size="small" variant="text"
-            aria-label="Edit unsent message" title="Edit unsent message"
+            :aria-label="t('jskit.assistant.chat.editUnsent')" :title="t('jskit.assistant.chat.editUnsent')"
             :disabled="!scope.turn.previewMessage.actions.canEdit"
             @click="scope.turn.previewMessage.actions.edit(scope.turn.turnId)"
           />
@@ -64,7 +64,7 @@
             :disabled="!scope.turn.previewMessage.actions.canSend"
             @click="scope.turn.previewMessage.actions.send(scope.turn.turnId)"
           >
-            {{ scope.turn.previewMessage.actions.sending ? 'Sending…' : 'Send' }}
+            {{ scope.turn.previewMessage.actions.sending ? t('jskit.assistant.composer.sending') : t('jskit.assistant.composer.send') }}
           </v-btn>
         </div>
         <slot name="user-message-actions" v-bind="scope" />
@@ -88,7 +88,7 @@
       <AssistantPromptInput
         v-if="adapter.composer" ref="input" v-bind="adapter.composer" class="assistant-conversation__composer"
         :model-value="adapter.composer.draft || ''" :submit-enabled="canSend"
-        :aria-label="adapter.composer.ariaLabel || 'Message AI assistant'" :rows="adapter.composer.rows || 2"
+        :aria-label="adapter.composer.ariaLabel || t('jskit.assistant.chat.messageAssistant')" :rows="adapter.composer.rows || 2"
         :described-by="activity.label || adapter.suggestions?.visible ? statusId : adapter.composer.describedBy"
         :placeholder="suggestionPreview || adapter.composer.placeholder" :placeholder-affects-height="!suggestionPreview"
         :attachment-state="attachmentState" :dragging="attachmentsEnabled && adapter.attachments.dragActive"
@@ -125,7 +125,7 @@
               @select-variant="adapter.models.selectVariant?.($event)" @apply="applyModel" @reload="adapter.models.reload?.()"
             />
             <v-btn
-              v-if="attachmentsEnabled" aria-label="Attach files" title="Attach files" size="small" variant="text" :icon="mdiPaperclip"
+              v-if="attachmentsEnabled" :aria-label="t('jskit.assistant.chat.attachFiles')" :title="t('jskit.assistant.chat.attachFiles')" size="small" variant="text" :icon="mdiPaperclip"
               :disabled="!adapter.attachments.canAddFiles" @click="fileInput?.click()"
             />
             <slot
@@ -163,10 +163,13 @@ import AssistantGoalControl from "./AssistantGoalControl.vue";
 import AssistantAttachmentQueue from "./AssistantAttachmentQueue.vue";
 import AssistantQuestionInputs from "./AssistantQuestionInputs.vue";
 import AssistantModelControl from "./AssistantModelControl.vue";
+import { useJskitText } from "../i18n.js";
+
+const { t } = useJskitText();
 const props = defineProps({
   adapter: { type: Object, required: true },
   avatarSize: { type: String, default: "compact", validator: (value) => ["hidden", "compact", "standard", "large"].includes(value) },
-  label: { type: String, default: "Assistant conversation" },
+  label: { type: String, default: undefined },
   configuration: { type: Object, default: () => ({}) },
   configurationFields: { type: Array, default: () => [] },
   configurationMode: { type: String, default: "hidden", validator: (value) => ["hidden", "readonly", "editable"].includes(value) }
@@ -298,8 +301,8 @@ const working = computed(() => conversation.value.working ?? (!pending.value && 
   props.adapter.composer?.canStop || conversation.value.turns?.some(turn => turn.pending)
 )));
 const activity = computed(() => props.adapter.activity ?? {
-  label: props.adapter.composer?.stopPending ? "Stopping…"
-    : pending.value ? "Sending to assistant…" : working.value ? "Assistant is working…" : ""
+  label: props.adapter.composer?.stopPending ? t("jskit.assistant.composer.stopping")
+    : pending.value ? t("jskit.assistant.chat.sendingToAssistant") : working.value ? t("jskit.assistant.chat.working") : ""
 });
 const suggestionPreview = computed(() => !props.adapter.composer?.draft && props.adapter.suggestions?.visible
   ? props.adapter.suggestions.preview : "");
@@ -364,7 +367,7 @@ async function submit() {
   const controller = props.adapter.delivery;
   if (!controller || !props.adapter.actions?.setDraft) return;
   const message = String(props.adapter.composer.draft || "").trim() ||
-    (files.length ? props.adapter.composer.attachmentMessage || "Please review the attached files." : "");
+    (files.length ? props.adapter.composer.attachmentMessage || t("jskit.assistant.chat.reviewAttachedFiles") : "");
   if (!message) return;
   const payload = {
     ...props.adapter.composer.payload,

@@ -1,5 +1,12 @@
 <script setup>
 import { computed, onMounted, onScopeDispose, ref, watch } from "vue";
+import { useJskitText } from "../i18n.js";
+
+const { t } = useJskitText();
+const STATUS_KEYS = Object.freeze({
+  active: "jskit.assistant.goal.running", paused: "jskit.assistant.goal.paused", blocked: "jskit.assistant.goal.blocked",
+  usageLimited: "jskit.assistant.goal.usageLimited", budgetLimited: "jskit.assistant.goal.budgetLimited", complete: "jskit.assistant.goal.complete"
+});
 
 const props = defineProps({ state: { type: Object, default: null } });
 const open = ref(false);
@@ -9,13 +16,12 @@ const now = ref(Date.now());
 const goal = computed(() => props.state?.loading || props.state?.available === false ? null : props.state?.goal);
 const running = computed(() => goal.value?.status === "active");
 const working = computed(() => running.value && props.state?.working === true);
-const label = computed(() => props.state?.loading ? "Loading goal…" : props.state?.available === false ? "Goal unavailable" : ({
-  active: "Goal running", paused: "Goal paused", blocked: "Goal blocked",
-  usageLimited: "Goal waiting for allowance", budgetLimited: "Goal budget reached", complete: "Goal complete"
-})[goal.value?.status] || "Set goal");
+const label = computed(() => props.state?.loading ? t("jskit.assistant.goal.loading") : props.state?.available === false ? t("jskit.assistant.goal.unavailable")
+  : t(Object.hasOwn(STATUS_KEYS, goal.value?.status ?? "") ? STATUS_KEYS[goal.value.status] : "jskit.assistant.goal.set"));
 const nativeElapsed = computed(() => Number.isFinite(goal.value?.elapsedSeconds));
 const createdAt = computed(() => typeof goal.value?.createdAt === "string" ? Date.parse(goal.value.createdAt) : NaN);
-const elapsedLabel = computed(() => nativeElapsed.value ? "Running time" : "Elapsed since goal started (including pauses)");
+const elapsedLabel = computed(() => nativeElapsed.value ? t("jskit.assistant.goal.runningTime") : t("jskit.assistant.goal.elapsedSinceStart"));
+const elapsedText = computed(() => elapsed.value ? t("jskit.assistant.goal.elapsed", { label: elapsedLabel.value, elapsed: elapsed.value }) : "");
 const clockRunning = computed(() => nativeElapsed.value ? running.value && Number.isFinite(goal.value?.sampledAt)
   : Boolean(goal.value && goal.value.status !== "complete" && Number.isFinite(createdAt.value)));
 const elapsed = computed(() => {
@@ -56,26 +62,26 @@ async function setGoal() {
 <template>
   <v-menu v-if="state && state.enabled !== false" v-model="open" location="top" :close-on-content-click="false">
     <template #activator="{ props: menuProps }">
-      <v-btn v-bind="menuProps" class="assistant-goal" size="small" variant="text" :aria-label="label" :title="[label, elapsed && `${elapsedLabel}: ${elapsed}`, goal?.objective].filter(Boolean).join('\n')">
+      <v-btn v-bind="menuProps" class="assistant-goal" size="small" variant="text" :aria-label="label" :title="[label, elapsedText, goal?.objective].filter(Boolean).join('\n')">
         <span v-if="goal" class="assistant-goal__light" :class="{ 'assistant-goal__light--running': running, 'assistant-goal__light--working': working, 'assistant-goal__light--paused': goal.status === 'paused' }" aria-hidden="true" />
-        <span class="assistant-goal__label">{{ state.loading ? 'Loading goal…' : state.available === false ? 'Goal unavailable' : goal ? 'Goal' : 'Set goal' }}</span>
+        <span class="assistant-goal__label">{{ state.loading ? t('jskit.assistant.goal.loading') : state.available === false ? t('jskit.assistant.goal.unavailable') : goal ? t('jskit.assistant.goal.goal') : t('jskit.assistant.goal.set') }}</span>
         <span v-if="elapsed" class="assistant-goal__elapsed" aria-hidden="true">{{ elapsed }}</span>
       </v-btn>
     </template>
     <v-card class="assistant-goal__details pa-3" max-width="360">
       <strong role="status">{{ label }}</strong>
-      <v-btn v-if="(running || (state.pauseBlocked && goal?.status === 'blocked')) && state.pause" size="small" :disabled="state.pending" @click="state.pause()">{{ state.action === 'pause' ? 'Pausing…' : 'Pause goal' }}</v-btn>
-      <v-btn v-if="['paused', 'blocked', 'usageLimited'].includes(goal?.status) && state.resume" size="small" :disabled="state.pending" @click="state.resume()">{{ state.action === 'resume' ? 'Resuming…' : 'Resume goal' }}</v-btn>
-      <v-btn v-if="goal && goal.status !== 'complete' && state.cancel" color="error" size="small" variant="text" :disabled="state.pending" @click="state.cancel()">{{ state.action === 'cancel' ? 'Cancelling…' : 'Cancel goal' }}</v-btn>
+      <v-btn v-if="(running || (state.pauseBlocked && goal?.status === 'blocked')) && state.pause" size="small" :disabled="state.pending" @click="state.pause()">{{ state.action === 'pause' ? t('jskit.assistant.goal.pausing') : t('jskit.assistant.goal.pause') }}</v-btn>
+      <v-btn v-if="['paused', 'blocked', 'usageLimited'].includes(goal?.status) && state.resume" size="small" :disabled="state.pending" @click="state.resume()">{{ state.action === 'resume' ? t('jskit.assistant.goal.resuming') : t('jskit.assistant.goal.resume') }}</v-btn>
+      <v-btn v-if="goal && goal.status !== 'complete' && state.cancel" color="error" size="small" variant="text" :disabled="state.pending" @click="state.cancel()">{{ state.action === 'cancel' ? t('jskit.assistant.goal.cancelling') : t('jskit.assistant.goal.cancel') }}</v-btn>
       <p v-if="goal" class="my-2">{{ goal.objective }}</p>
       <p v-if="goal?.reason" class="text-body-small my-2">{{ goal.reason }}</p>
-      <p v-if="elapsed" class="text-body-small my-2">{{ elapsedLabel }}: {{ elapsed }}</p>
-      <p v-if="running || goal?.status === 'paused'" class="text-body-small mt-2">{{ state.pauseInterruptsTurn ? 'Pause stops the current turn and keeps the goal for later.' : 'Pausing prevents further automatic turns. Use Stop to interrupt the current turn.' }}</p>
-      <p v-if="goal && goal.status !== 'complete' && state.cancel" class="text-body-small mt-2">{{ state.cancelInterruptsTurn ? 'Cancel stops the current turn and clears the goal.' : 'Cancel removes this goal. Use Stop to interrupt a turn already running.' }}</p>
+      <p v-if="elapsed" class="text-body-small my-2">{{ elapsedText }}</p>
+      <p v-if="running || goal?.status === 'paused'" class="text-body-small mt-2">{{ state.pauseInterruptsTurn ? t('jskit.assistant.goal.pauseInterruptsTurn') : t('jskit.assistant.goal.pausePreventsTurns') }}</p>
+      <p v-if="goal && goal.status !== 'complete' && state.cancel" class="text-body-small mt-2">{{ state.cancelInterruptsTurn ? t('jskit.assistant.goal.cancelInterruptsTurn') : t('jskit.assistant.goal.cancelRemovesGoal') }}</p>
       <form v-if="canSet" class="assistant-goal__form mt-2" @submit.prevent="setGoal">
-        <v-textarea v-model="objective" label="Goal objective" rows="2" max-rows="4" maxlength="4000" auto-grow :disabled="state.pending" hide-details />
-        <v-text-field v-if="state.tokenBudgetSupported !== false" v-model="tokenBudget" label="Token budget (optional)" type="number" min="1" step="1" :disabled="state.pending" :error="!validBudget" hide-details />
-        <v-btn type="submit" size="small" :disabled="state.pending || !objective.trim() || !validBudget">{{ state.action === 'set' ? 'Starting…' : 'Start goal' }}</v-btn>
+        <v-textarea v-model="objective" :label="t('jskit.assistant.goal.objective')" rows="2" max-rows="4" maxlength="4000" auto-grow :disabled="state.pending" hide-details />
+        <v-text-field v-if="state.tokenBudgetSupported !== false" v-model="tokenBudget" :label="t('jskit.assistant.goal.tokenBudget')" type="number" min="1" step="1" :disabled="state.pending" :error="!validBudget" hide-details />
+        <v-btn type="submit" size="small" :disabled="state.pending || !objective.trim() || !validBudget">{{ state.action === 'set' ? t('jskit.assistant.goal.starting') : t('jskit.assistant.goal.start') }}</v-btn>
       </form>
       <p v-if="state.error" role="alert" class="text-error text-body-small mt-2">{{ state.error }}</p>
       <slot :goal="goal" />

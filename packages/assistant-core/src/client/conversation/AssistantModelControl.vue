@@ -8,20 +8,20 @@
     <template #activator="{ props: menuProps }">
       <v-btn
         v-bind="menuProps"
-        aria-label="Choose AI"
+        :aria-label="t('jskit.assistant.model.chooseAi')"
         class="assistant-model-control__button"
         density="comfortable"
         :icon="mdiCogOutline"
         rounded="lg"
         size="small"
-        :title="buttonTitle"
+        :title="buttonTitle ?? t('jskit.assistant.model.chooseAi')"
         type="button"
         variant="tonal"
       />
     </template>
 
     <v-sheet
-      aria-label="AI session selector"
+      :aria-label="t('jskit.assistant.model.selector')"
       border
       class="assistant-model-control"
       :elevation="3"
@@ -32,7 +32,7 @@
           <v-icon :icon="mdiBrain" size="20" />
         </v-avatar>
         <div>
-          <strong class="text-title-small">AI controls</strong>
+          <strong class="text-title-small">{{ t("jskit.assistant.model.controls") }}</strong>
           <span class="text-body-small">{{ selectionSummary }}</span>
         </div>
       </header>
@@ -44,12 +44,12 @@
         role="status"
       >
         <v-icon :icon="mdiClockOutline" size="18" />
-        <span>AI choices are view-only while the assistant is working.</span>
+        <span>{{ t("jskit.assistant.model.viewOnly") }}</span>
       </v-sheet>
 
       <div
         v-if="catalogLoading"
-        aria-label="Loading available AIs"
+        :aria-label="t('jskit.assistant.model.loading')"
         class="assistant-model-control__loading"
       >
         <v-skeleton-loader type="text, chip@4, text, chip@4" />
@@ -61,7 +61,7 @@
         role="alert"
       >
         <span>{{ catalogError }}</span>
-        <v-btn size="small" variant="text" @click="emit('reload')">Try again</v-btn>
+        <v-btn size="small" variant="text" @click="emit('reload')">{{ t("jskit.assistant.model.tryAgain") }}</v-btn>
       </div>
 
       <div
@@ -69,17 +69,17 @@
         class="assistant-model-control__state"
         role="status"
       >
-        No configured AIs are available for this session.
+        {{ t("jskit.assistant.model.noneConfigured") }}
       </div>
 
       <div v-else class="assistant-model-control__choices">
         <slot name="before-choices" />
         <section
           v-if="providerRows.length > 1"
-          aria-label="Provider"
+          :aria-label="t('jskit.assistant.model.provider')"
           class="assistant-model-control__section"
         >
-          <div class="assistant-model-control__label">Provider</div>
+          <div class="assistant-model-control__label">{{ t("jskit.assistant.model.provider") }}</div>
           <div class="assistant-model-control__options">
             <v-btn
               v-for="provider in providerRows"
@@ -101,8 +101,8 @@
           </div>
         </section>
 
-        <section aria-label="Model" class="assistant-model-control__section">
-          <div class="assistant-model-control__label">Model</div>
+        <section :aria-label="t('jskit.assistant.model.model')" class="assistant-model-control__section">
+          <div class="assistant-model-control__label">{{ t("jskit.assistant.model.model") }}</div>
           <v-autocomplete
             v-if="modelRows.length > 6"
             auto-select-first="exact"
@@ -111,9 +111,9 @@
             :items="modelRows"
             item-title="label"
             item-value="id"
-            label="Choose model"
+            :label="t('jskit.assistant.model.chooseModel')"
             :model-value="modelId"
-            no-data-text="No matching models"
+            :no-data-text="t('jskit.assistant.model.noMatchingModels')"
             variant="outlined"
             @update:model-value="selectModel"
           />
@@ -129,7 +129,7 @@
               :disabled="changesDisabled || saving"
               rounded="lg"
               size="small"
-              :title="changesDisabled ? 'Wait for the active turn to finish before changing models.' : model.label"
+              :title="changesDisabled ? t('jskit.assistant.model.waitBeforeChanging') : model.label"
               type="button"
               :variant="modelId === model.id ? 'tonal' : 'outlined'"
               @click="selectModel(model.id)"
@@ -138,17 +138,17 @@
               <v-icon v-if="modelId === model.id" :icon="mdiCheck" size="15" />
             </v-btn>
           </div>
-          <span v-else class="assistant-model-control__empty">No available models.</span>
+          <span v-else class="assistant-model-control__empty">{{ t("jskit.assistant.model.noModels") }}</span>
           <slot name="model-note" />
         </section>
 
         <slot name="provider-controls" />
         <section
           v-if="variantRows.length > 1"
-          aria-label="Thinking"
+          :aria-label="t('jskit.assistant.model.thinking')"
           class="assistant-model-control__section"
         >
-          <div class="assistant-model-control__label">Thinking</div>
+          <div class="assistant-model-control__label">{{ t("jskit.assistant.model.thinking") }}</div>
           <div class="assistant-model-control__options">
             <v-btn
               v-for="variant in variantRows"
@@ -181,7 +181,7 @@
           variant="flat"
           @click="emit('apply')"
         >
-          {{ saving ? "Applying…" : "Apply" }}
+          {{ saving ? t("jskit.assistant.model.applying") : t("jskit.assistant.model.apply") }}
         </v-btn>
       </footer>
     </v-sheet>
@@ -190,6 +190,9 @@
 
 <script setup>
 import { mdiBrain, mdiCheck, mdiClockOutline, mdiCogOutline } from "@mdi/js";
+import { useJskitText } from "../i18n.js";
+
+const { t } = useJskitText();
 const menuOpen = defineModel({ type: Boolean, default: false });
 const props = defineProps({
   providerRows: { type: Array, default: () => [] },
@@ -199,7 +202,7 @@ const props = defineProps({
   modelId: { type: String, default: "" },
   variantId: { type: String, default: "" },
   selectionSummary: { type: String, default: "" },
-  buttonTitle: { type: String, default: "Choose AI" },
+  buttonTitle: { type: String, default: undefined },
   changesDisabled: Boolean,
   saving: Boolean,
   canSave: Boolean,

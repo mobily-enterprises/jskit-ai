@@ -1,5 +1,8 @@
 <script setup>
 import { mdiPencilOutline } from "@mdi/js";
+import { useJskitText } from "../i18n.js";
+
+const { t } = useJskitText();
 defineProps({
   questions: { type: Array, default: () => [] },
   selectItems: { type: Object, default: () => ({}) },
@@ -13,11 +16,11 @@ const emit = defineEmits(["dismiss"]);
   <div
     v-if="questions.length"
     class="assistant-questions__question-fields"
-    aria-label="Assistant questions"
+    :aria-label="t('jskit.assistant.questions.label')"
   >
     <div class="assistant-questions__question-fields-header">
       <v-btn
-        aria-label="Answer normally instead"
+        :aria-label="t('jskit.assistant.questions.answerNormally')"
         class="ml-auto"
         color="primary"
         :prepend-icon="mdiPencilOutline"
@@ -25,7 +28,7 @@ const emit = defineEmits(["dismiss"]);
         variant="tonal"
         @click="emit('dismiss')"
       >
-        Answer normally instead
+        {{ t("jskit.assistant.questions.answerNormally") }}
       </v-btn>
     </div>
     <div
@@ -43,7 +46,7 @@ const emit = defineEmits(["dismiss"]);
         item-title="selectLabel"
         item-value="value"
         :items="selectItems[question.name] || question.choices"
-        :label="`[${question.number}] ${question.label}`"
+        :label="t('jskit.assistant.questions.fieldLabel', { number: question.number, label: question.label })"
         :title="question.label"
         variant="outlined"
       />
@@ -54,7 +57,7 @@ const emit = defineEmits(["dismiss"]);
         autocomplete="off"
         density="compact"
         hide-details="auto"
-        :label="`[${question.number}] ${question.label}`"
+        :label="t('jskit.assistant.questions.fieldLabel', { number: question.number, label: question.label })"
         :title="question.label"
         variant="outlined"
       />
@@ -63,7 +66,7 @@ const emit = defineEmits(["dismiss"]);
   <div
     v-else-if="choices.length"
     class="assistant-questions__answer-choices"
-    aria-label="Suggested answers"
+    :aria-label="t('jskit.assistant.questions.suggestedAnswers')"
   >
     <v-chip-group
       v-model="choice"

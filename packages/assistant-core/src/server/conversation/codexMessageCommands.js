@@ -184,6 +184,8 @@ export function createCodexMessageCommands({
         code: steerFailedCode,
         delivered: false,
         error: "The active assistant turn is not ready to accept this message yet.",
+        messageCode: "assistant.codex.turnNotReady",
+        messageParams: {},
         ok: false,
         operationOutcome: "active_turn_not_ready",
         refreshRecommended: true,
@@ -266,7 +268,9 @@ export function createCodexMessageCommands({
     if (!userRequest && options.preparedInput === undefined) {
       return { value: {
         ok: false,
-        error: "Codex message is empty."
+        error: "Codex message is empty.",
+        messageCode: "assistant.codex.messageEmpty",
+        messageParams: {}
       } };
     }
 
@@ -363,6 +367,8 @@ export function createCodexMessageCommands({
       return { value: {
         code: steerFailedCode,
         error: "Codex message input is empty.",
+        messageCode: "assistant.codex.messageInputEmpty",
+        messageParams: {},
         ok: false,
         operationOutcome: "message_empty",
         refreshRecommended: false

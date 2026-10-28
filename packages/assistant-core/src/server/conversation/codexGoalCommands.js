@@ -27,11 +27,11 @@ export function createCodexGoalCommands({
 
   function validateCodexAppServerGoalInput(input = {}) {
     if (!["set", "pause", "resume", "cancel"].includes(input.action)) {
-      return { ok: false, error: "Choose set, pause, resume, or cancel." };
+      return { ok: false, error: "Choose set, pause, resume, or cancel.", messageCode: "assistant.codex.goalActionInvalid", messageParams: {} };
     }
     if (input.action === "set" && (typeof input.objective !== "string" || !input.objective.trim() ||
         (input.tokenBudget !== undefined && (!Number.isSafeInteger(input.tokenBudget) || input.tokenBudget <= 0)))) {
-      return { ok: false, error: "Enter a goal objective and an optional positive whole-number token budget." };
+      return { ok: false, error: "Enter a goal objective and an optional positive whole-number token budget.", messageCode: "assistant.codex.goalObjectiveInvalid", messageParams: {} };
     }
     return null;
   }
@@ -46,11 +46,11 @@ export function createCodexGoalCommands({
     if (context.ok === false) return context;
     let threadId = context.threadId;
     if (threadId !== input.threadId || (!threadId && input.action !== "set")) {
-      return { ok: false, error: "The Codex conversation changed. Refresh the goal before trying again." };
+      return { ok: false, error: "The Codex conversation changed. Refresh the goal before trying again.", messageCode: "assistant.codex.goalConversationChanged", messageParams: {} };
     }
     if (input.action === "set") {
       if (turnState(context.session).status === "observation_lost") {
-        return { ok: false, error: "Resume or send a message to restore the stopped conversation before setting a goal." };
+        return { ok: false, error: "Resume or send a message to restore the stopped conversation before setting a goal.", messageCode: "assistant.codex.goalConversationStopped", messageParams: {} };
       }
       if (!threadId) {
         context = await prepareConversation();
@@ -59,7 +59,7 @@ export function createCodexGoalCommands({
       }
       const { goal: previousGoal } = await context.provider.readGoal(threadId);
       if (previousGoal && (previousGoal.status !== "complete" || previousGoal.createdAt !== input.createdAt)) {
-        return { ok: false, error: "The Codex goal changed. Refresh it before setting a new goal." };
+        return { ok: false, error: "The Codex goal changed. Refresh it before setting a new goal.", messageCode: "assistant.codex.goalChangedBeforeSet", messageParams: {} };
       }
       signal?.throwIfAborted();
       subscribeCodexAppServerEvents(sessionId, context.provider, threadId, context);
@@ -74,7 +74,7 @@ export function createCodexGoalCommands({
     }
     const { goal } = await context.provider.readGoal(threadId);
     if (!goal || goal.status === "complete" || goal.createdAt !== input.createdAt || goal.objective !== input.objective) {
-      return { ok: false, error: "The Codex goal changed. Refresh it before trying again." };
+      return { ok: false, error: "The Codex goal changed. Refresh it before trying again.", messageCode: "assistant.codex.goalChanged", messageParams: {} };
     }
     if (input.action === "cancel") {
       subscribeCodexAppServerEvents(sessionId, context.provider, threadId, context);
@@ -87,14 +87,14 @@ export function createCodexGoalCommands({
       return { ok: true, status: "available", threadId, goal: null };
     }
     if (input.action === "pause" && !["active", "paused"].includes(goal.status)) {
-      return { ok: false, error: "This goal is already stopped. Refresh its details." };
+      return { ok: false, error: "This goal is already stopped. Refresh its details.", messageCode: "assistant.codex.goalAlreadyStopped", messageParams: {} };
     }
     const observationLost = turnState(context.session).status === "observation_lost";
     if (observationLost && turnState(context.session).active) {
-      return { ok: false, error: "Codex has not yet confirmed a stop. Retry after the service has stopped." };
+      return { ok: false, error: "Codex has not yet confirmed a stop. Retry after the service has stopped.", messageCode: "assistant.codex.goalStopUnconfirmed", messageParams: {} };
     }
     if (input.action === "resume" && !["paused", "blocked", "usageLimited", ...(observationLost ? ["active"] : [])].includes(goal.status)) {
-      return { ok: false, error: "This goal cannot be resumed from its current status. Refresh its details." };
+      return { ok: false, error: "This goal cannot be resumed from its current status. Refresh its details.", messageCode: "assistant.codex.goalNotResumable", messageParams: {} };
     }
     subscribeCodexAppServerEvents(sessionId, context.provider, threadId, context);
     if (observationLost && input.action === "resume") {

@@ -9,6 +9,13 @@ export function conversationTurnMessages(turn) {
   ].filter(Boolean);
 }
 
+// A finished turn without text shows its status. The English stays in text; textCode
+// lets a client show it in the user's language.
+const STATUS_TEXTS = Object.freeze({
+  interrupted: Object.freeze({ text: "Stopped.", messageCode: "assistant.turn.stopped" }),
+  failed: Object.freeze({ text: "Assistant stopped with an error.", messageCode: "assistant.turn.failed" })
+});
+
 /** Adapt ordered messages to the transcript's turn model without changing their metadata. */
 export function conversationTurnsFromMessages(messages = []) {
   const turns = [];
@@ -30,8 +37,9 @@ export function conversationTurnsFromMessages(messages = []) {
       for (const [progressIndex, progress] of (message.progressUpdates || []).entries()) {
         current.messages.push({ ...progress, role: progress.role || "thinking", messageId: `${message.messageId}:progress:${progress.id || progressIndex}` });
       }
-      if (!message.text && ["failed", "interrupted"].includes(message.status)) {
-        message.text = message.status === "interrupted" ? "Stopped." : "Assistant stopped with an error.";
+      if (!message.text && Object.hasOwn(STATUS_TEXTS, message.status)) {
+        message.text = STATUS_TEXTS[message.status].text;
+        message.textCode = STATUS_TEXTS[message.status].messageCode;
       }
       current.assistant = message;
     }

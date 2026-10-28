@@ -1,4 +1,7 @@
 import { computed, onScopeDispose, ref, toValue, unref, watch } from "vue";
+import { useJskitText } from "../i18n.js";
+
+const { serverMessage } = useJskitText();
 
 /** Suggestion requests use an application-supplied agent; credentials stay on its server. */
 export function useAssistantSuggestions({
@@ -53,7 +56,7 @@ export function useAssistantSuggestions({
         }
         items.value = result.map(({ label, prompt }) => ({ label: label.trim(), prompt: prompt.trim() }));
       } catch (failure) {
-        if (request === controller && !controller.signal.aborted) error.value = String(failure.message || failure);
+        if (request === controller && !controller.signal.aborted) error.value = String(serverMessage(failure) || failure);
       } finally {
         if (request === controller) {
           request = null;

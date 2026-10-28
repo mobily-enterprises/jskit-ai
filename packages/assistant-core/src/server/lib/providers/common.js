@@ -58,7 +58,7 @@ function normalizeOptionalHttpUrl(value, { context = "assistant baseUrl" } = {})
 
 function createDisabledClient({ provider = DEFAULT_AI_PROVIDER, model = "" } = {}) {
   const disabledError = () => {
-    throw new AppError(503, "Assistant provider is not configured.");
+    throw new AppError(503, "Assistant provider is not configured.", { code: "assistant.provider.notConfigured" });
   };
 
   return Object.freeze({
@@ -80,9 +80,14 @@ function createProviderRequestError({ status = 500, code = "assistant_provider_f
   const normalizedCode = normalizeText(code) || "assistant_provider_failed";
   const normalizedMessage =
     normalizeText(message) || (safeStatus >= 500 ? "Assistant provider request failed." : "Request failed.");
+  // A provider's own message is shown as sent; JSKIT's fallback sentences are named.
+  const fallbackMessage = normalizeText(message) ? {} : safeStatus >= 500
+    ? { messageCode: "assistant.provider.requestFailed" }
+    : { messageCode: "assistant.provider.requestRejected" };
 
   return new AppError(safeStatus, normalizedMessage, {
-    code: normalizedCode
+    code: normalizedCode,
+    ...fallbackMessage
   });
 }
 

@@ -47,7 +47,7 @@
         v-else-if="block.type === 'table'"
         class="studio-long-text-review__table-wrap"
         role="region"
-        aria-label="Table"
+        :aria-label="t('jskit.assistant.longText.table')"
         tabindex="0"
       >
         <table class="studio-long-text-review__table">
@@ -91,7 +91,7 @@
       >
         <summary class="studio-long-text-review__details-summary">
           <LongTextInlineParts
-            :text="block.summary || 'Details'"
+            :text="detailsSummary(block)"
             @link-click="emit('link-click', $event)"
           />
         </summary>
@@ -117,6 +117,9 @@
 
 <script setup>
 import LongTextInlineParts from "./LongTextInlineParts.vue";
+import { useJskitText } from "../i18n.js";
+
+const { serverMessage, t } = useJskitText();
 
 defineProps({
   blocks: {
@@ -129,6 +132,11 @@ defineProps({
   }
 });
 const emit = defineEmits(["link-click"]);
+
+// The parser's default summary is JSKIT's English; an authored summary stays as written.
+function detailsSummary(block) {
+  return serverMessage({ message: block.summary, messageCode: "assistant.longText.details" });
+}
 
 function isListBlock(block) {
   return block.type === "ul" || block.type === "ol";

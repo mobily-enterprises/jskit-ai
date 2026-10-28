@@ -475,6 +475,8 @@ function codexAppServerMessageDeferred({
     code: steerFailedCode,
     delivered: false,
     error: "The active assistant operation cannot accept messages yet.",
+    messageCode: "assistant.codex.operationNotSteerable",
+    messageParams: {},
     ok: false,
     operationOutcome: "active_turn_not_steerable",
     refreshRecommended: true,

@@ -10,6 +10,10 @@ export function createCodexHelperOwnershipError({ applicationName = "Application
     );
     error.code = `${errorPrefix}codex_helper_ownership_blocked`;
     error.statusCode = 409;
+    if (!normalizeText(message)) {
+      error.messageCode = "assistant.codex.helperOwnershipBlocked";
+      error.messageParams = { applicationName };
+    }
     error.retryable = details.retryable !== false;
     error.details = {
       ...details,

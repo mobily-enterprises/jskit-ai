@@ -38,20 +38,20 @@
         aria-hidden="true"
         class="assistant-composer-support__loading"
       >
-        <span>Thinking of a few ideas</span>
+        <span>{{ t("jskit.assistant.composer.thinkingOfIdeas") }}</span>
       </div>
 
       <div
         v-else
         class="assistant-composer-support__options"
-        aria-label="Suggested prompts"
+        :aria-label="t('jskit.assistant.composer.suggestedPrompts')"
         aria-orientation="horizontal"
         role="group"
       >
         <v-btn
           v-for="suggestion in suggestions"
           :key="suggestion.prompt"
-          :aria-label="`Use suggestion: ${suggestion.prompt}`"
+          :aria-label="t('jskit.assistant.composer.useSuggestion', { prompt: suggestion.prompt })"
           class="assistant-composer-support__option"
           rounded="xl"
           size="small"
@@ -74,6 +74,9 @@
 <script setup>
 import { computed } from "vue";
 import { mdiLightbulbOnOutline } from "@mdi/js";
+import { useJskitText } from "../i18n.js";
+
+const { t } = useJskitText();
 
 defineEmits(["dismiss", "focusout", "preview", "select"]);
 const props = defineProps({
@@ -106,10 +109,10 @@ const statusAnnouncement = computed(() => {
     return String(props.activity.label || "").trim();
   }
   if (mode.value === "loading") {
-    return "Thinking of a few ideas.";
+    return t("jskit.assistant.composer.thinkingOfIdeasStatus");
   }
   if (mode.value === "ready") {
-    return `${props.suggestions.length} suggested prompts are available before the message controls.`;
+    return t("jskit.assistant.composer.suggestionsAvailable", { count: props.suggestions.length });
   }
   return "";
 });

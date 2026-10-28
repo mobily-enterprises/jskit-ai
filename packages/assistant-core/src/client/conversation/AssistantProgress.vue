@@ -21,6 +21,9 @@
 
 <script setup>
 import { computed, ref } from "vue";
+import { useJskitText } from "../i18n.js";
+
+const { t } = useJskitText();
 
 const props = defineProps({
   messages: { type: Array, default: () => [] },
@@ -42,10 +45,10 @@ const visibleMessages = computed(() => {
 const toggleLabel = computed(() => {
   if (expanded.value) {
     return previewMessages.value.length > 0
-      ? `Show latest ${previewMessages.value.length} progress ${previewMessages.value.length === 1 ? "update" : "updates"}`
-      : "Hide progress updates";
+      ? t("jskit.assistant.progress.showLatest", { count: previewMessages.value.length })
+      : t("jskit.assistant.progress.hide");
   }
-  return `Show all ${props.messages.length} progress ${props.messages.length === 1 ? "update" : "updates"}`;
+  return t("jskit.assistant.progress.showAll", { count: props.messages.length });
 });
 </script>
 

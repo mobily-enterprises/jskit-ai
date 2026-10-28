@@ -73,6 +73,8 @@ export function createCodexHelperThreadLifecycle({
     );
     error.code = `${errorPrefix}codex_helper_thread_unavailable`;
     error.statusCode = 409;
+    error.messageCode = "assistant.codex.helperThreadUnavailable";
+    error.messageParams = {};
     error.threadId = normalizeText(threadId);
     return error;
   }

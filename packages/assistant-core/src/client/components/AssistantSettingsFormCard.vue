@@ -33,7 +33,7 @@
               >
                 {{ props.saveLabel }}
               </v-btn>
-              <v-chip v-else color="secondary" label>Read-only</v-chip>
+              <v-chip v-else color="secondary" label>{{ t("jskit.assistant.settings.readOnly") }}</v-chip>
             </div>
           </v-form>
         </template>
@@ -43,6 +43,9 @@
 </template>
 
 <script setup>
+import { useJskitText } from "../i18n.js";
+
+const { t } = useJskitText();
 const props = defineProps({
   rootClass: {
     type: String,

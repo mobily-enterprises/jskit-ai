@@ -10,12 +10,12 @@
           :src="previewUrl"
           @error="imageFailed = true"
         >
-        <p v-else>Preview is unavailable for this file. You can download it below.</p>
+        <p v-else>{{ t("jskit.assistant.attachments.previewUnavailable") }}</p>
       </v-card-text>
       <v-card-actions>
-        <v-btn :href="downloadUrl" :download="attachment.fileName" :prepend-icon="mdiDownload" variant="tonal">Download</v-btn>
+        <v-btn :href="downloadUrl" :download="attachment.fileName" :prepend-icon="mdiDownload" variant="tonal">{{ t("jskit.assistant.attachments.download") }}</v-btn>
         <v-spacer />
-        <v-btn @click="emit('close')">Close</v-btn>
+        <v-btn @click="emit('close')">{{ t("jskit.assistant.attachments.close") }}</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
@@ -24,6 +24,9 @@
 <script setup>
 import { ref, watch } from "vue";
 import { mdiDownload } from "@mdi/js";
+import { useJskitText } from "../i18n.js";
+
+const { t } = useJskitText();
 const props = defineProps({
   attachment: { type: Object, default: null },
   previewUrl: { type: String, default: "" },

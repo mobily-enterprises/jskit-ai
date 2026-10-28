@@ -71,22 +71,30 @@ export function createConversationChangeover({ state, transcript, agent, identit
   }
 
   async function replace({ engineId, messages, operationId, expectedId, handover }) {
-    const fail = message => { throw Object.assign(new Error(message), { code: replacementUnavailableCode, statusCode: 409 }); };
+    const fail = (message, translation = {}) => {
+      throw Object.assign(new Error(message), { code: replacementUnavailableCode, statusCode: 409 }, translation);
+    };
     const value = await readState({ engineId, messages });
     let replacement = value.replacement;
     if (replacement?.operationId === operationId) {
       if (replacement.previous.conversationId !== expectedId || replacement.engineId !== engineId ||
           replacement.status === "preparing" && replacement.handover !== handover) {
-        fail("Replacement retry does not match the saved operation.");
+        fail("Replacement retry does not match the saved operation.", { messageCode: "assistant.conversation.replacementRetryMismatch", messageParams: {} });
       }
       if (replacement.status !== "preparing") return { ok: true, replacement };
     } else {
-      if (replacement && replacement.status !== "accepted") fail("Finish the previous native conversation replacement first.");
+      if (replacement && replacement.status !== "accepted") fail("Finish the previous native conversation replacement first.", {
+        messageCode: "assistant.conversation.previousReplacementUnfinished", messageParams: {}
+      });
       if (value.rewind && !value.rewind.completed) {
-        fail("An unfinished conversation Undo from a previous release blocks assistant work. Complete it using the previous release before upgrading.");
+        fail("An unfinished conversation Undo from a previous release blocks assistant work. Complete it using the previous release before upgrading.", {
+          messageCode: "assistant.conversation.previousReleaseUndoUnfinished", messageParams: {}
+        });
       }
       if (Object.values(value.engines).some(binding => binding.pending)) {
-        fail("Finish pending delivery before replacing native context.");
+        fail("Finish pending delivery before replacing native context.", {
+          messageCode: "assistant.conversation.pendingDeliveryBeforeContextReplace", messageParams: {}
+        });
       }
       const { bindingNames, previous } = await identity.inspect(expectedId);
       replacement = value.replacement = {
@@ -96,7 +104,9 @@ export function createConversationChangeover({ state, transcript, agent, identit
       await state.write(value);
     }
     const closed = await agent.closeSession();
-    if (closed?.ok !== true) fail(closed?.error || "Native conversation shutdown was not confirmed.");
+    if (closed?.ok !== true) fail(closed?.error || "Native conversation shutdown was not confirmed.", closed?.error ? {} : {
+      messageCode: "assistant.conversation.shutdownUnconfirmed", messageParams: {}
+    });
     await state.transaction(async transaction => {
       await transaction.releaseBinding(replacement);
       value.engines[engineId] = { seen: {} };

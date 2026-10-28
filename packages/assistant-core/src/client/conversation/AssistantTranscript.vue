@@ -4,16 +4,16 @@
     v-show="visible"
     class="assistant-transcript"
     :class="[`assistant-transcript--${variant}`, { 'assistant-transcript--retained': retainWhenHidden, 'assistant-transcript--error': error }]"
-    aria-label="Conversation history"
+    :aria-label="t('jskit.assistant.transcript.history')"
   >
     <v-btn
       v-if="reloadable"
-      :aria-label="reloading ? 'Reloading chat' : 'Reload chat'"
+      :aria-label="reloadLabel"
       class="assistant-transcript__reload"
       :disabled="reloading"
       :icon="mdiRefresh"
       size="x-small"
-      :title="reloading ? 'Reloading chat' : 'Reload chat'"
+      :title="reloadLabel"
       type="button"
       variant="text"
       @click="emit('reload')"
@@ -21,7 +21,7 @@
 
     <v-skeleton-loader
       v-if="loadingIndicatorVisible && !reloadable"
-      aria-label="Loading conversation"
+      :aria-label="t('jskit.assistant.transcript.loading')"
       class="assistant-transcript__loading-skeleton"
       type="list-item-avatar-two-line@3"
     />
@@ -32,7 +32,7 @@
       aria-hidden="true"
     >
       <v-skeleton-loader
-        aria-label="Preparing conversation"
+        :aria-label="t('jskit.assistant.transcript.preparing')"
         class="assistant-transcript__settling-skeleton"
         type="list-item-avatar-two-line@3"
       />
@@ -49,10 +49,10 @@
       <div class="assistant-transcript__error-content">
         <v-btn
           v-if="errorReloadable && !reloadable" :disabled="reloading" :min-height="32" size="small"
-          :aria-label="reloading ? 'Reloading chat' : 'Reload chat'"
+          :aria-label="reloadLabel"
           type="button" variant="text" @click="emit('reload')"
         >
-          {{ reloading ? 'Reloading…' : 'Reload chat' }}
+          {{ reloading ? t('jskit.assistant.transcript.reloadingShort') : t('jskit.assistant.transcript.reload') }}
         </v-btn>
         <span>{{ error }}</span>
       </div>
@@ -60,7 +60,7 @@
 
     <div
       ref="bodyElement"
-      aria-label="Conversation messages"
+      :aria-label="t('jskit.assistant.transcript.messages')"
       class="assistant-transcript__body"
       :class="{ 'assistant-transcript__body--settling': initialScrollPending }"
       tabindex="0"
@@ -80,7 +80,7 @@
             <v-icon :icon="mdiRobotOutline" size="16" />
           </span>
           <div class="assistant-transcript__message-header">
-            <span>{{ assistantLabel }}</span>
+            <span>{{ assistantName }}</span>
           </div>
         </div>
         <slot name="welcome"><p>{{ welcomeMessage }}</p></slot>
@@ -98,7 +98,7 @@
           variant="tonal"
           @click="requestLoadMore"
         >
-          {{ loadingMore ? "Loading older messages…" : "Load older messages" }}
+          {{ loadingMore ? t("jskit.assistant.transcript.loadingOlder") : t("jskit.assistant.transcript.loadOlder") }}
         </v-btn>
         <div
           v-if="loadMoreError"
@@ -124,7 +124,7 @@
           />
           <div class="assistant-transcript__system-body">
             <div class="assistant-transcript__system-meta">
-              <span>{{ systemLabel }}</span>
+              <span>{{ systemName }}</span>
               <time v-if="entry.message.displayAt">{{ entry.message.displayAt }}</time>
             </div>
             <slot name="system-message" :message="entry.message">
@@ -149,7 +149,7 @@
             >
               <v-textarea
                 v-if="entry.turn.preview && previewForTurn(entry.turn)?.actions?.editing"
-                class="assistant-transcript__preview-editor" :model-value="previewForTurn(entry.turn).text" label="Review your message"
+                class="assistant-transcript__preview-editor" :model-value="previewForTurn(entry.turn).text" :label="t('jskit.assistant.transcript.reviewMessage')"
                 :disabled="!previewForTurn(entry.turn).actions.canEdit" density="compact" :rows="1" :max-rows="2"
                 auto-grow hide-details @update:model-value="previewForTurn(entry.turn).actions.update(entry.turn.turnId, $event)"
               />
@@ -167,7 +167,7 @@
               type="button"
               @click="toggleUserMessage(entry.turn)"
             >
-              {{ userMessageExpanded(entry.turn) ? "Show less" : "Read more" }}
+              {{ userMessageExpanded(entry.turn) ? t("jskit.assistant.transcript.showLess") : t("jskit.assistant.transcript.readMore") }}
             </button>
             <slot name="attachments" :items="entry.message.attachments" :message="entry.message"><AssistantMessageAttachments :attachments="entry.message.attachments || []" /></slot>
             <div
@@ -175,14 +175,14 @@
               class="assistant-transcript__message-footer assistant-transcript__message-footer--user"
             >
               <time v-if="entry.message.displayAt">{{ entry.message.displayAt }}</time>
-              <span v-if="entry.turn.optimistic?.status === 'pending'" role="status">{{ entry.turn.optimistic.waiting ? `Pending: ${entry.turn.optimistic.waiting}` : "Pending" }}</span>
+              <span v-if="entry.turn.optimistic?.status === 'pending'" role="status">{{ entry.turn.optimistic.waiting ? t("jskit.assistant.transcript.pendingReason", { reason: entry.turn.optimistic.waiting }) : t("jskit.assistant.transcript.pending") }}</span>
             </div>
             <slot name="user-message-actions" :message="entry.message" :turn="entry.turn" />
             <div
               v-if="entry.delivery || entry.turn.optimistic?.status === 'failed'"
               class="assistant-transcript__optimistic-failure"
             >
-              <span role="status">{{ entry.delivery ? entry.delivery.delivery.error || 'Delivery unconfirmed.' : `Failed: ${entry.turn.optimistic.error || 'Message could not be sent.'}` }}</span>
+              <span role="status">{{ entry.delivery ? entry.delivery.delivery.error || t('jskit.assistant.delivery.unconfirmedShort') : t('jskit.assistant.transcript.failed', { error: entry.turn.optimistic.error || t('jskit.assistant.delivery.notSent') }) }}</span>
               <div v-if="!entry.turn.preview" class="assistant-transcript__optimistic-actions">
                 <v-btn
                   class="assistant-transcript__delivery-action"
@@ -191,11 +191,11 @@
                   type="button"
                   variant="text"
                   :disabled="entry.delivery?.delivery.checking"
-                  :aria-label="entry.delivery ? 'Retry delivery check' : undefined"
-                  :title="entry.delivery ? entry.delivery.delivery.error || 'Check delivery before resending.' : undefined"
+                  :aria-label="entry.delivery ? t('jskit.assistant.delivery.retryCheck') : undefined"
+                  :title="entry.delivery ? entry.delivery.delivery.error || t('jskit.assistant.delivery.checkBeforeResend') : undefined"
                   @click="entry.delivery ? emit('check-delivery', entry.delivery.delivery.messageId) : emit('resend-turn', entry.turn.optimistic.id)"
                 >
-                  {{ entry.delivery?.delivery.checking ? 'Checking…' : 'Retry' }}
+                  {{ entry.delivery?.delivery.checking ? t('jskit.assistant.delivery.checking') : t('jskit.assistant.delivery.retry') }}
                 </v-btn>
                 <v-btn
                   v-if="!entry.delivery || cancellableDelivery"
@@ -205,7 +205,7 @@
                   variant="text"
                   @click="emit('cancel-turn', entry.delivery?.delivery.messageId || entry.turn.optimistic.id)"
                 >
-                  Cancel
+                  {{ t("jskit.assistant.transcript.cancel") }}
                 </v-btn>
                 <v-btn
                   v-if="!entry.delivery"
@@ -215,7 +215,7 @@
                   variant="text"
                   @click="emit('edit-turn', entry.turn.optimistic.id)"
                 >
-                  Edit
+                  {{ t("jskit.assistant.transcript.edit") }}
                 </v-btn>
               </div>
             </div>
@@ -232,7 +232,7 @@
           :messages="entry.messages"
           :pending="isWorking && entry === displayEntries.at(-1)"
           :preview-limit="progressPreviewLimit"
-          :aria-label="`${entry.turn.assistantLabel || assistantLabel} progress`"
+          :aria-label="t('jskit.assistant.transcript.progress', { name: entry.turn.assistantLabel || assistantName })"
         />
         <div
           v-else
@@ -245,7 +245,7 @@
             </span>
             <div class="assistant-transcript__message-header">
               <span :title="entry.message.assistantDetails || entry.turn.assistantDetails || undefined">
-                {{ entry.message.assistantLabel || entry.turn.assistantLabel || assistantLabel }}
+                {{ entry.message.assistantLabel || entry.turn.assistantLabel || assistantName }}
               </span>
             </div>
           </div>
@@ -280,7 +280,7 @@
                       <LongTextInlineParts
                         :text="choice.label"
                         @link-click="handleLongTextLinkClick"
-                      /><span v-if="choice.recommended"> · Recommended</span>
+                      /><span v-if="choice.recommended">{{ t("jskit.assistant.transcript.recommended") }}</span>
                     </li>
                   </ul>
                 </div>
@@ -333,6 +333,10 @@ import {
 import {
   normalizeThinkingMessageText
 } from "../../shared/conversation/thinkingText.js";
+import { useJskitText } from "../i18n.js";
+
+const jskitText = useJskitText();
+const { formatDateTime, serverMessage, t } = jskitText;
 
 function previewForTurn(turn) {
   const preview = turn.previewMessage || props.previewMessage;
@@ -341,13 +345,13 @@ function previewForTurn(turn) {
 
 const props = defineProps({
   cancellableDelivery: { type: Boolean, default: false },
-  systemLabel: { type: String, default: "Status" },
+  systemLabel: { type: String, default: undefined },
   previewMessage: { type: Object, default: null },
   working: { type: Boolean, default: undefined },
   progressPreviewLimit: { type: Number, default: 2 },
   userMessageFormat: { type: String, default: "formatted", validator: (value) => ["plain", "formatted"].includes(value) },
   assistantLabel: {
-    default: "Assistant",
+    default: undefined,
     type: String
   },
   error: {
@@ -414,6 +418,9 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["cancel-turn", "check-delivery", "edit-turn", "load-more", "link-click", "reload", "resend-turn"]);
+const systemName = computed(() => props.systemLabel ?? t("jskit.assistant.transcript.status"));
+const assistantName = computed(() => props.assistantLabel ?? t("jskit.assistant.transcript.assistant"));
+const reloadLabel = computed(() => props.reloading ? t("jskit.assistant.transcript.reloading") : t("jskit.assistant.transcript.reload"));
 
 const USER_MESSAGE_COLLAPSE_MIN_CHARACTERS = 360;
 const USER_MESSAGE_PREVIEW_MAX_CHARACTERS = 280;
@@ -447,7 +454,7 @@ const KEYBOARD_SCROLL_KEYS = new Set([
   "PageUp",
   "Spacebar"
 ]);
-const timeFormatter = new Intl.DateTimeFormat(undefined, {
+const TIME_FORMAT = Object.freeze({
   year: "numeric",
   month: "short",
   day: "2-digit",
@@ -460,7 +467,7 @@ function displayTime(value = "") {
   if (Number.isNaN(date.getTime())) {
     return "";
   }
-  return timeFormatter.format(date);
+  return formatDateTime(date, TIME_FORMAT);
 }
 
 function userMessagePreviewText(value = "") {
@@ -491,8 +498,11 @@ function displayMessage(message = null, {
   }
   const normalizedCacheKey = String(cacheKey || "").trim();
   const cached = normalizedCacheKey ? displayMessageCache.get(normalizedCacheKey) : null;
+  // Times and status texts follow the active locale, so a locale change re-renders them.
+  const activeLocale = jskitText.locale;
   if (
     cached &&
+    cached.locale === activeLocale &&
     cached.allowNumberedQuestions === allowNumberedQuestions &&
     cached.attachments === message.attachments &&
     cached.at === message.at &&
@@ -504,7 +514,7 @@ function displayMessage(message = null, {
   ) {
     return { ...message, ...cached.value };
   }
-  const messageText = message.text;
+  const messageText = message.textCode ? serverMessage({ message: message.text, messageCode: message.textCode }) : message.text;
   const questionInput = allowNumberedQuestions
     ? parseNumberedQuestionPrompt(messageText)
     : {
@@ -538,6 +548,7 @@ function displayMessage(message = null, {
       allowNumberedQuestions,
       attachments: message.attachments,
       at: message.at,
+      locale: activeLocale,
       messageId: message.messageId,
       preserveParagraphLineBreaks,
       previewUserMessage,

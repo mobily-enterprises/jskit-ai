@@ -1,7 +1,7 @@
 <template>
   <ul
     v-if="attachments.length"
-    aria-label="Attached files"
+    :aria-label="t('jskit.assistant.attachments.attached')"
     class="assistant-conversation-attachments"
   >
     <li
@@ -29,10 +29,10 @@
             {{ attachment.reference }} {{ attachment.fileName }}
           </span>
           <span
-            v-if="attachmentSizeLabel(attachment.size)"
+            v-if="attachmentSizeText(attachment.size)"
             class="assistant-conversation-attachments__size text-label-small"
           >
-            {{ attachmentSizeLabel(attachment.size) }}
+            {{ attachmentSizeText(attachment.size) }}
           </span>
         </span>
       </component>
@@ -42,7 +42,10 @@
 
 <script setup>
 import { mdiFileOutline, mdiImageOutline } from "@mdi/js";
-import { attachmentSizeLabel } from "../../shared/conversation/attachments.js";
+import { useJskitText } from "../i18n.js";
+import { attachmentSizeText } from "./attachmentSize.js";
+
+const { t } = useJskitText();
 
 defineProps({
   attachments: { type: Array, default: () => [] },

@@ -108,8 +108,8 @@ export async function runClaudeRenewalTurn(conversation, {
 export function createClaudeConversationGoals({ conversationId, readHistory, readState, interrupt, send, readRetainedGoal, saveRetainedGoal }) {
   // These checks run before interrupt/send. Native execution and receipt
   // failures keep their own codes and must not be treated as safe rejections.
-  const goalError = message => Object.assign(failure(message, "conversation_invalid_goal"), {
-    statusCode: 400, delivery: "not-sent"
+  const goalError = (message, { messageCode }) => Object.assign(failure(message, "conversation_invalid_goal"), {
+    statusCode: 400, delivery: "not-sent", messageCode, messageParams: {}
   });
 
   async function read(history = null) {
@@ -127,13 +127,14 @@ export function createClaudeConversationGoals({ conversationId, readHistory, rea
     const action = input.action;
     if (action !== "set" && (!goal || input.threadId !== conversationId ||
         input.createdAt !== goal.createdAt || input.objective !== goal.objective)) {
-      throw goalError("The Claude goal changed. Refresh before trying again.");
+      throw goalError("The Claude goal changed. Refresh before trying again.", { messageCode: "assistant.claude.goalChanged" });
     }
-    if (input.tokenBudget != null) throw goalError("Claude goals do not support a token budget.");
+    if (input.tokenBudget != null) throw goalError("Claude goals do not support a token budget.", { messageCode: "assistant.claude.goalTokenBudgetUnsupported" });
     if (action === "pause" || action === "block") {
       const reason = typeof input.reason === "string" ? input.reason.trim() : "";
       if (action === "block" && (!reason || reason.length > 1000 || goal.status !== "active")) {
-        throw goalError("An active Claude goal needs a blocker reason of up to 1,000 characters.");
+        throw goalError("An active Claude goal needs a blocker reason of up to 1,000 characters.",
+          { messageCode: "assistant.claude.goalBlockerReasonRequired" });
       }
       if (goal.status !== "complete") await saveRetainedGoal({ ...goal,
         status: action === "block" ? "blocked" : "paused", ...(action === "block" ? { reason } : {}) });
@@ -144,13 +145,13 @@ export function createClaudeConversationGoals({ conversationId, readHistory, rea
     } else if (action === "set" || action === "resume") {
       const objective = String((action === "set" ? input.objective : goal.objective) ?? "").trim();
       if (!objective || objective.length > 4000 || /^(clear|stop|off|reset|none|cancel)$/iu.test(objective)) {
-        throw goalError("Enter a goal condition of up to 4,000 characters.");
+        throw goalError("Enter a goal condition of up to 4,000 characters.", { messageCode: "assistant.claude.goalConditionRequired" });
       }
       if (action === "set" && goal && goal.status !== "complete") {
-        throw goalError("Cancel the existing goal before setting another.");
+        throw goalError("Cancel the existing goal before setting another.", { messageCode: "assistant.claude.goalAlreadySet" });
       }
       await sendGoal({ message: `/goal ${objective}`, signal });
-    } else throw goalError("Unknown Claude goal action.");
+    } else throw goalError("Unknown Claude goal action.", { messageCode: "assistant.claude.goalActionUnknown" });
   }
 
   return Object.freeze({ read, update });
@@ -552,7 +553,8 @@ export function createClaudeConversationOwner({
   async function compactContext(entry, input = {}) {
     input.signal?.throwIfAborted();
     if (entry.turn?.active || entry.nativeTurn.read().active) {
-      throw Object.assign(createError("Claude is still working. Wait for it to finish before freeing its context."), { statusCode: 409 });
+      throw Object.assign(createError("Claude is still working. Wait for it to finish before freeing its context."), { statusCode: 409,
+        messageCode: "assistant.claude.compactWhileWorking", messageParams: {} });
     }
     await ensureProcess(entry, input);
     input.signal?.throwIfAborted();
@@ -1684,7 +1686,8 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
       if (!active || stopped || cancelling) throw Object.assign(
         failure("Claude has no active turn for this message.", !active && !stopped && !cancelling
           ? "conversation_steer_turn_finished" : "assistant_claude_turn_failed"),
-        { delivery: "not-sent", ...(!active && !stopped && !cancelling ? { statusCode: 409 } : {}) }
+        { delivery: "not-sent", messageCode: "assistant.claude.noActiveTurn", messageParams: {},
+          ...(!active && !stopped && !cancelling ? { statusCode: 409 } : {}) }
       );
       if (!uuid || typeof accept !== "function" || admissions.has(uuid)) throw new TypeError("A distinct message id and admission writer are required.");
       clearFinalAssistantResult();
@@ -1714,7 +1717,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
         const completed = !active && !stopped && !cancelling && outcome?.status === "completed";
         throw Object.assign(failure("This Claude turn cannot accept steering now.", completed
           ? "conversation_steer_turn_finished" : "assistant_claude_turn_failed"),
-        { delivery: "not-sent", ...(completed ? { statusCode: 409 } : {}) });
+        { delivery: "not-sent", messageCode: "assistant.claude.steeringUnavailable", messageParams: {}, ...(completed ? { statusCode: 409 } : {}) });
       }
       // Claude Code acknowledges streamed input as queued and folds it into the
       // running turn after the current tool call, or starts it once the main

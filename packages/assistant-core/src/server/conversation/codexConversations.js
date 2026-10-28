@@ -655,6 +655,8 @@ export function createCodexConversationCommands({
           return {
             code: `${errorPrefix}codex_detached_thread_delete_unavailable`,
             error: "Codex app-server thread deletion is not available.",
+            messageCode: "assistant.codex.threadDeleteUnavailable",
+            messageParams: {},
             ok: false,
             statusCode: 409,
             threadId
@@ -869,6 +871,8 @@ export function createCodexConversationCommands({
       return {
         code: `${errorPrefix}temporary_conversation_turn_active`,
         error: "Temporary AI is already working on this conversation.",
+        messageCode: "assistant.codex.temporaryConversationBusy",
+        messageParams: {},
         ok: false
       };
     }

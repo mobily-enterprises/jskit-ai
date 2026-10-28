@@ -1,4 +1,7 @@
 import { reactive, toRaw, toValue, watch } from "vue";
+import { useJskitText } from "../i18n.js";
+
+const { serverMessage, t } = useJskitText();
 
 const messageText = value => String(value || "").trim();
 
@@ -92,7 +95,7 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
       text: message.text
     };
     const status = message.status === "uncertain" ? {
-      role: "system", text: "Message delivery is not confirmed.",
+      role: "system", text: t("jskit.assistant.delivery.notConfirmed"),
       delivery: { messageId: message.id, error: message.error, checking: message.checking === true }
     } : null;
     return {
@@ -145,7 +148,7 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
       if (predecessor) await predecessor;
       if (!current()) return false;
       if (uncertainOnError && state.messages.some(entry => entry.id !== messageId && entry.status === "uncertain" && !knownUncertain.has(entry.id))) {
-        fail(messageId, "Check the previous message's delivery before sending again.");
+        fail(messageId, t("jskit.assistant.delivery.checkPrevious"));
         return false;
       }
       let receipt;
@@ -161,7 +164,7 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
       const response = await (receipt ? Promise.race([submitted, receipt.promise]) : submitted);
       if (!current()) return false;
       if (response === false || response?.ok === false) {
-        fail(messageId, response?.error || "Message could not be sent.", response?.status === "uncertain" ? "uncertain" : "failed");
+        fail(messageId, response?.error || t("jskit.assistant.delivery.notSent"), response?.status === "uncertain" ? "uncertain" : "failed");
       } else {
         accept(messageId);
       }
@@ -185,7 +188,9 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
   function fail(messageId, error, status = "failed") {
     const message = find(messageId);
     if (message && message.status !== "accepted") {
-      message.error = String(error?.message || error || "Message could not be sent.").trim();
+      // A server or client error renders in the active language; its English is the fallback.
+      const text = error && typeof error === "object" ? serverMessage(error) : "";
+      message.error = String(text || error?.message || error || t("jskit.assistant.delivery.notSent")).trim();
       message.status = status;
     }
   }
@@ -226,7 +231,11 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
         attachments: payload.displayAttachments, createdAt, createdAtMs: Date.parse(createdAt),
         status: "uncertain", error: "" }];
     }
-    fail(messageId, request.error || "Delivery could not be confirmed.", "uncertain");
+    // The server's English stays the fallback when its sentence has no translation.
+    const error = request.error
+      ? serverMessage({ message: request.error, messageCode: request.errorMessageCode, messageParams: request.errorMessageParams })
+      : "";
+    fail(messageId, error || t("jskit.assistant.delivery.unconfirmed"), "uncertain");
     pendingSends.get(messageId)?.receipt?.resolve({ ok: false, status: "uncertain", error: request.error });
     return true;
   }

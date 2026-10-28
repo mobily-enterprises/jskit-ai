@@ -67,7 +67,8 @@ async function readNativeClaudeCodeAuthStatus({ env, credentialHome, command, co
     credentialHome, cwd: credentialHome.home, mode: "capture",
     timeout: 30_000, maxBuffer: 64 * 1024, ...(signal ? { signal } : {})
   });
-  const failure = { loggedIn: false, error: result.error || "Claude Code is not connected." };
+  const failure = result.error ? { loggedIn: false, error: result.error }
+    : { loggedIn: false, error: "Claude Code is not connected.", messageCode: "assistant.claude.notConnected", messageParams: {} };
   if (!result.ok && (result.exitCode !== 1 || result.timedOut || result.signal)) return failure;
   try {
     const status = JSON.parse(result.stdout || result.output);
@@ -77,7 +78,8 @@ async function readNativeClaudeCodeAuthStatus({ env, credentialHome, command, co
     return { loggedIn: status.loggedIn === true, email: String(status.email || ""),
       authMethod: String(status.authMethod || ""), subscriptionType: String(status.subscriptionType || "") };
   } catch {
-    return result.ok ? { loggedIn: false, error: "Claude Code returned an invalid account status." } : failure;
+    return result.ok ? { loggedIn: false, error: "Claude Code returned an invalid account status.",
+      messageCode: "assistant.claude.accountStatusInvalid", messageParams: {} } : failure;
   }
 }
 

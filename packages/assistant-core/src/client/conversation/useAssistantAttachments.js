@@ -8,6 +8,16 @@ import {
   watch
 } from "vue";
 import { ASSISTANT_ATTACHMENT_MAX_ITEMS } from "../../shared/conversation/attachments.js";
+import { useJskitText } from "../i18n.js";
+import { attachmentLimitText } from "./attachmentSize.js";
+
+const { serverMessage, t } = useJskitText();
+
+// An upload or preparation failure in the active language; a thrown error keeps
+// its own English when it has no translation.
+function attachmentErrorText(error, fallback) {
+  return String((error && typeof error === "object" && serverMessage(error)) || error?.message || error || fallback);
+}
 
 function assistantAttachmentSessionId(sessionId) {
   return String(toValue(sessionId) || "").trim();
@@ -217,9 +227,6 @@ function useAssistantAttachments({
   if (![maxBytes, maxItems, uploadConcurrency].every(value => Number.isSafeInteger(value) && value > 0)) {
     throw new TypeError("Attachment limits must be positive integers.");
   }
-  const maxSizeLabel = maxBytes % (1024 * 1024) === 0
-    ? `${maxBytes / (1024 * 1024)} MiB`
-    : `${maxBytes / 1_000_000} MB`;
   const attachments = ref([]);
   const queueItems = ref([]);
   const dragDepth = ref(0);
@@ -266,10 +273,13 @@ function useAssistantAttachments({
     };
   });
 
-  function reportAttachmentError(error, fallbackMessage = "Attachment upload failed.", {
+  const tooLarge = (row) => t("jskit.assistant.attachments.error.tooLarge", { fileName: row.fileName, limit: attachmentLimitText(maxBytes) });
+  const tooMany = () => t("jskit.assistant.attachments.error.tooMany", { count: maxItems });
+
+  function reportAttachmentError(error, fallbackMessage = t("jskit.assistant.attachments.error.uploadFailed"), {
     notify = true
   } = {}) {
-    const message = String(error?.message || error || fallbackMessage);
+    const message = attachmentErrorText(error, fallbackMessage);
     status.value = message;
     if (notify && typeof onError === "function") {
       try {
@@ -319,7 +329,7 @@ function useAssistantAttachments({
 
   function trackCleanup(task) {
     const cleanup = Promise.resolve(task).catch((error) => {
-      reportAttachmentError(error, "Attachment cleanup failed.");
+      reportAttachmentError(error, t("jskit.assistant.attachments.error.cleanupFailed"));
       return false;
     });
     cleanupTasks.add(cleanup);
@@ -334,7 +344,7 @@ function useAssistantAttachments({
     }
     const response = await deleteAttachment(currentSessionId, attachmentId);
     if (response?.ok === false) {
-      throw new Error(attachmentUploadError(response) || "Attachment cleanup failed.");
+      throw new Error(attachmentUploadError(response) || t("jskit.assistant.attachments.error.cleanupFailed"));
     }
     return true;
   }
@@ -424,11 +434,11 @@ function useAssistantAttachments({
       }
       row.activeHandoffToken = null;
       removeReadyReceipt(row);
-      row.error = String(error?.message || error || "Uploaded attachment could not be used.");
+      row.error = attachmentErrorText(error, t("jskit.assistant.attachments.error.unusable"));
       row.failureStage = "handoff";
       row.phase = "failed";
       settleWaiter(row, null, waiter);
-      reportAttachmentError(error, "Uploaded attachment could not be used.", { notify: false });
+      reportAttachmentError(error, t("jskit.assistant.attachments.error.unusable"), { notify: false });
       return null;
     }
   }
@@ -468,13 +478,13 @@ function useAssistantAttachments({
       await handOffUploadedAttachment(row, receipt, attempt.waiter);
     } else {
       const error = uploadError || new Error(
-        attachmentUploadError(uploaded) || "Attachment upload failed."
+        attachmentUploadError(uploaded) || t("jskit.assistant.attachments.error.uploadFailed")
       );
-      row.error = String(error?.message || error || "Attachment upload failed.");
+      row.error = attachmentErrorText(error, t("jskit.assistant.attachments.error.uploadFailed"));
       row.failureStage = "upload";
       row.phase = "failed";
       settleWaiter(row, null, attempt.waiter);
-      reportAttachmentError(error, "Attachment upload failed.", { notify: false });
+      reportAttachmentError(error, t("jskit.assistant.attachments.error.uploadFailed"), { notify: false });
     }
     pumpQueue();
   }
@@ -572,7 +582,7 @@ function useAssistantAttachments({
       return Promise.resolve(null);
     }
     if (row.phase === "cancelled" && retainedItemCount.value >= maxItems) {
-      reportAttachmentError(`A message can keep at most ${maxItems} attachments.`);
+      reportAttachmentError(tooMany());
       return Promise.resolve(null);
     }
     if (row.failureStage === "handoff" && row.receipt) {
@@ -588,10 +598,10 @@ function useAssistantAttachments({
       return waiter.promise;
     }
     if (row.size > maxBytes) {
-      row.error = `${row.fileName} is larger than the ${maxSizeLabel} attachment limit.`;
+      row.error = tooLarge(row);
       row.failureStage = "validation";
       row.phase = "failed";
-      reportAttachmentError(row.error, "Attachment upload failed.", { notify: false });
+      reportAttachmentError(row.error, t("jskit.assistant.attachments.error.uploadFailed"), { notify: false });
       return Promise.resolve(null);
     }
     row.bytesSent = 0;
@@ -763,18 +773,20 @@ function useAssistantAttachments({
   function queuePreparedFile(row, file, waiter = row.waiter) {
     const preparedFile = assistantAttachmentFiles([file])[0];
     if (!preparedFile) {
-      throw new Error("The prepared attachment did not produce a file.");
+      throw Object.assign(new Error("The prepared attachment did not produce a file."), {
+        messageCode: "assistant.attachments.error.noFile", messageParams: {}
+      });
     }
     row.file = preparedFile;
     row.fileName = attachmentFileName(preparedFile);
     row.size = Number(preparedFile.size) || 0;
     row.totalBytes = row.size;
     if (row.size > maxBytes) {
-      row.error = `${row.fileName} is larger than the ${maxSizeLabel} attachment limit.`;
+      row.error = tooLarge(row);
       row.failureStage = "validation";
       row.phase = "failed";
       settleWaiter(row, null, waiter);
-      reportAttachmentError(row.error, "Attachment upload failed.", { notify: false });
+      reportAttachmentError(row.error, t("jskit.assistant.attachments.error.uploadFailed"), { notify: false });
       return false;
     }
     row.phase = "queued";
@@ -807,11 +819,11 @@ function useAssistantAttachments({
       try {
         queuePreparedFile(row, file, waiter);
       } catch (error) {
-        row.error = String(error?.message || error || "Attachment preparation failed.");
+        row.error = attachmentErrorText(error, t("jskit.assistant.attachments.error.preparationFailed"));
         row.failureStage = "preparing";
         row.phase = "failed";
         settleWaiter(row, null, waiter);
-        reportAttachmentError(error, "Attachment preparation failed.", { notify: false });
+        reportAttachmentError(error, t("jskit.assistant.attachments.error.preparationFailed"), { notify: false });
       }
       return file;
     }, (error) => {
@@ -825,10 +837,10 @@ function useAssistantAttachments({
         row.phase = "cancelled";
         row.error = "";
       } else {
-        row.error = String(error?.message || error || "Attachment preparation failed.");
+        row.error = attachmentErrorText(error, t("jskit.assistant.attachments.error.preparationFailed"));
         row.failureStage = "preparing";
         row.phase = "failed";
-        reportAttachmentError(error, "Attachment preparation failed.", { notify: false });
+        reportAttachmentError(error, t("jskit.assistant.attachments.error.preparationFailed"), { notify: false });
       }
       settleWaiter(row, null, waiter);
       return null;
@@ -836,13 +848,13 @@ function useAssistantAttachments({
   }
 
   function uploadFileProducer({
-    fileName = "Preparing attachment…",
+    fileName = t("jskit.assistant.attachments.preparingName"),
     produce
   } = {}) {
     const currentSessionId = assistantAttachmentSessionId(sessionId);
     if (!canAddFiles.value || typeof produce !== "function") {
       if (atCapacity.value) {
-        reportAttachmentError(`A message can keep at most ${maxItems} attachments.`);
+        reportAttachmentError(tooMany());
       }
       return Promise.resolve(null);
     }
@@ -875,7 +887,7 @@ function useAssistantAttachments({
     const availableSlots = Math.max(0, maxItems - retainedItemCount.value);
     const acceptedFiles = uploadableFiles.slice(0, availableSlots);
     if (acceptedFiles.length < uploadableFiles.length) {
-      reportAttachmentError(`A message can keep at most ${maxItems} attachments.`);
+      reportAttachmentError(tooMany());
     }
 
     const waiters = [];
@@ -884,11 +896,11 @@ function useAssistantAttachments({
       const waiter = row.waiter;
       waiters.push(waiter.promise);
       if (row.size > maxBytes) {
-        row.error = `${row.fileName} is larger than the ${maxSizeLabel} attachment limit.`;
+        row.error = tooLarge(row);
         row.failureStage = "validation";
         row.phase = "failed";
         settleWaiter(row, null);
-        reportAttachmentError(row.error, "Attachment upload failed.", { notify: false });
+        reportAttachmentError(row.error, t("jskit.assistant.attachments.error.uploadFailed"), { notify: false });
       } else {
         uploadQueue.push(row);
       }
@@ -910,9 +922,7 @@ function useAssistantAttachments({
     const files = assistantAttachmentFilesFromPasteEvent(event);
     if (files.length < 1) {
       if (assistantAttachmentClipboardLocalFileReference(event)) {
-        reportAttachmentError(
-          "Copied local files cannot be pasted from this browser. Drop the file or use Attach files."
-        );
+        reportAttachmentError(t("jskit.assistant.attachments.error.localFilePaste"));
       }
       return [];
     }

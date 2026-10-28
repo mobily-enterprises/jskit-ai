@@ -7,15 +7,15 @@
         :aria-busy="state.stopPending ? 'true' : undefined" :prepend-icon="mdiStopCircleOutline"
         size="small" variant="tonal" @click="emit('stop')"
       >
-        {{ state.stopPending ? 'Stopping…' : 'Stop' }}
+        {{ state.stopPending ? t('jskit.assistant.composer.stopping') : t('jskit.assistant.composer.stop') }}
       </v-btn>
       <v-btn
         ref="sendButton" class="assistant-composer-actions__send" color="primary" :disabled="!state.canSend"
-        :aria-busy="state.pending && !state.canSend ? 'true' : undefined" :aria-label="state.submitAriaLabel || state.submitLabel || 'Send message'"
+        :aria-busy="state.pending && !state.canSend ? 'true' : undefined" :aria-label="state.submitAriaLabel || state.submitLabel || t('jskit.assistant.composer.sendMessage')"
         :title="state.submitTitle" :prepend-icon="state.submitIcon || mdiSend" size="small" variant="flat"
         @click="emit('submit')"
       >
-        {{ state.submitLabel || (state.pending && !state.canSend ? 'Sending…' : 'Send') }}
+        {{ state.submitLabel || (state.pending && !state.canSend ? t('jskit.assistant.composer.sending') : t('jskit.assistant.composer.send')) }}
       </v-btn>
     </div>
     <slot name="feedback" />
@@ -24,6 +24,9 @@
 <script setup>
 import { ref } from "vue";
 import { mdiSend, mdiStopCircleOutline } from "@mdi/js";
+import { useJskitText } from "../i18n.js";
+
+const { t } = useJskitText();
 defineProps({ state: { type: Object, required: true } });
 const emit = defineEmits(["submit", "stop"]);
 const sendButton = ref(null);

@@ -34,7 +34,8 @@
     "./testing/native-codex": "./src/testing/nativeCodex.js",
     "./testing/native-opencode": "./src/testing/nativeOpenCode.js",
     "./server/codex-client": "./src/server/conversation/codexClient.js",
-    "./client/conversation-submit": "./src/client/conversation/submitText.js"
+    "./client/conversation-submit": "./src/client/conversation/submitText.js",
+    "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.53",

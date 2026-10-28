@@ -5,11 +5,11 @@
     class="assistant-attachment-queue"
     :class="{ 'assistant-attachment-queue--standalone': !joined }"
     :aria-busy="hasUnresolved ? 'true' : undefined"
-    aria-label="Message attachments"
+    :aria-label="t('jskit.assistant.attachments.queue')"
   >
     <header class="assistant-attachment-queue__summary">
       <span>{{ aggregateLabel }}</span>
-      <span class="assistant-attachment-queue__limit">{{ retainedItems.length }} / {{ maximumFiles }}</span>
+      <span class="assistant-attachment-queue__limit">{{ t("jskit.assistant.attachments.limit", { count: retainedItems.length, max: maximumFiles }) }}</span>
     </header>
 
     <ol class="assistant-attachment-queue__items">
@@ -38,7 +38,7 @@
             >
               {{ item.receipt?.reference }} {{ itemName(item) }}
             </component>
-            <span class="assistant-attachment-queue__size">{{ attachmentSizeLabel(item.size) }}</span>
+            <span class="assistant-attachment-queue__size">{{ attachmentSizeText(item.size) }}</span>
           </div>
           <div class="assistant-attachment-queue__secondary">
             <span>{{ itemStatusLabel(item) }}</span>
@@ -51,7 +51,7 @@
           />
           <v-progress-linear
             v-else-if="itemProgressVisible(item)"
-            :aria-label="`Upload progress for ${itemName(item)}`"
+            :aria-label="t('jskit.assistant.attachments.uploadProgress', { name: itemName(item) })"
             class="assistant-attachment-queue__progress"
             color="primary"
             height="3"
@@ -72,11 +72,11 @@
           <v-btn
             v-if="itemCancelable(item)"
             :ref="(element) => setActionElement(item, 'cancel', element)"
-            :aria-label="`Cancel ${itemName(item)}`"
+            :aria-label="t('jskit.assistant.attachments.cancelItem', { name: itemName(item) })"
             class="assistant-attachment-queue__action"
             :icon="mdiCloseCircleOutline"
             size="small"
-            :title="`Cancel ${itemName(item)}`"
+            :title="t('jskit.assistant.attachments.cancelItem', { name: itemName(item) })"
             type="button"
             variant="text"
             @click="handleAction('cancel', item, index)"
@@ -84,11 +84,11 @@
           <v-btn
             v-if="itemPhase(item) === 'failed' || itemPhase(item) === 'cancelled'"
             :ref="(element) => setActionElement(item, 'retry', element)"
-            :aria-label="`Retry ${itemName(item)}`"
+            :aria-label="t('jskit.assistant.attachments.retryItem', { name: itemName(item) })"
             class="assistant-attachment-queue__action"
             :icon="mdiRefresh"
             size="small"
-            :title="`Retry ${itemName(item)}`"
+            :title="t('jskit.assistant.attachments.retryItem', { name: itemName(item) })"
             type="button"
             variant="text"
             @click="handleAction('retry', item, index)"
@@ -96,11 +96,11 @@
           <v-btn
             v-if="itemPhase(item) === 'ready' || itemPhase(item) === 'failed' || itemPhase(item) === 'cancelled'"
             :ref="(element) => setActionElement(item, 'remove', element)"
-            :aria-label="`Remove ${itemName(item)}`"
+            :aria-label="t('jskit.assistant.attachments.removeItem', { name: itemName(item) })"
             class="assistant-attachment-queue__action"
             :icon="mdiClose"
             size="small"
-            :title="`Remove ${itemName(item)}`"
+            :title="t('jskit.assistant.attachments.removeItem', { name: itemName(item) })"
             type="button"
             variant="text"
             @click="handleAction('remove', item, index)"
@@ -131,7 +131,10 @@ import {
   mdiRefresh
 } from "@mdi/js";
 
-import { attachmentSizeLabel } from "../../shared/conversation/attachments.js";
+import { useJskitText } from "../i18n.js";
+import { attachmentSizeText } from "./attachmentSize.js";
+
+const { t } = useJskitText();
 
 const emit = defineEmits(["cancel", "remove", "retry", "preview", "focus-input"]);
 
@@ -187,47 +190,43 @@ const aggregateLabel = computed(() => {
   const cancelled = props.items.filter((item) => itemPhase(item) === "cancelled").length;
   if (active) {
     return aggregatePercent.value === null
-      ? `${completedCount.value} of ${total} ready · in progress`
-      : `${completedCount.value} of ${total} ready · ${aggregatePercent.value}%`;
+      ? t("jskit.assistant.attachments.summary.inProgress", { completed: completedCount.value, total })
+      : t("jskit.assistant.attachments.summary.percent", { completed: completedCount.value, total, percent: aggregatePercent.value });
   }
   if (failed) {
-    return `${completedCount.value} of ${total} ready · ${failed} ${failed === 1 ? "needs" : "need"} attention`;
+    return t("jskit.assistant.attachments.summary.needAttention", { completed: completedCount.value, total, count: failed });
   }
   if (cancelled) {
-    return `${completedCount.value} ready · ${cancelled} cancelled`;
+    return t("jskit.assistant.attachments.summary.cancelled", { completed: completedCount.value, cancelled });
   }
-  return `${completedCount.value} of ${total} ready`;
+  return t("jskit.assistant.attachments.summary.ready", { completed: completedCount.value, total });
 });
 const announcement = computed(() => {
   const messages = [];
   const failed = props.items.filter((item) => itemPhase(item) === "failed").length;
   if (failed) {
-    messages.push(`${attachmentCountLabel(failed)} ${failed === 1 ? "needs" : "need"} attention.`);
+    messages.push(t("jskit.assistant.attachments.announcement.needAttention", { count: failed }));
   }
   const active = props.items.filter((item) => activePhases.has(itemPhase(item))).length;
   if (active) {
-    messages.push(`${attachmentCountLabel(active)} ${active === 1 ? "is" : "are"} in progress.`);
+    messages.push(t("jskit.assistant.attachments.announcement.inProgress", { count: active }));
   }
   const cancelled = props.items.filter((item) => itemPhase(item) === "cancelled").length;
   if (cancelled) {
-    messages.push(`${attachmentCountLabel(cancelled)} cancelled.`);
+    messages.push(t("jskit.assistant.attachments.announcement.cancelled", { count: cancelled }));
   }
   if (completedCount.value) {
-    messages.push(`${attachmentCountLabel(completedCount.value)} ready.`);
+    messages.push(t("jskit.assistant.attachments.announcement.ready", { count: completedCount.value }));
   }
   return messages.join(" ");
 });
-
-function attachmentCountLabel(count = 0) {
-  return `${count} attachment${count === 1 ? "" : "s"}`;
-}
 
 function itemKey(item = {}) {
   return String(item.clientId || item.id || item.attachmentId || item.fileName || "attachment");
 }
 
 function itemName(item = {}) {
-  return String(item.fileName || item.file?.name || "attachment");
+  return String(item.fileName || item.file?.name || t("jskit.assistant.attachments.unnamed"));
 }
 
 function itemPhase(item = {}) {
@@ -278,25 +277,25 @@ function itemBytesLabel(item = {}) {
   const sent = Math.min(Math.max(0, Number(item.bytesSent) || 0), size);
   const percent = itemPercent(item);
   return percent === null
-    ? `${attachmentSizeLabel(sent)} / ${attachmentSizeLabel(size)}`
-    : `${attachmentSizeLabel(sent)} / ${attachmentSizeLabel(size)} · ${percent}%`;
+    ? t("jskit.assistant.attachments.bytes", { sent: attachmentSizeText(sent), size: attachmentSizeText(size) })
+    : t("jskit.assistant.attachments.bytesPercent", { sent: attachmentSizeText(sent), size: attachmentSizeText(size), percent });
 }
 
 function itemStatusLabel(item = {}) {
   const labels = {
-    cancelled: "Cancelled",
-    delivering: "Sending to Codex",
+    cancelled: "jskit.assistant.attachments.status.cancelled",
+    delivering: "jskit.assistant.attachments.status.delivering",
     failed: item.failureStage === "preparing"
-      ? "Preparation failed"
+      ? "jskit.assistant.attachments.status.preparationFailed"
       : item.failureStage === "handoff"
-        ? "Sending failed"
-        : "Upload failed",
-    preparing: "Preparing",
-    queued: "Queued",
-    ready: "Ready",
-    uploading: "Uploading"
+        ? "jskit.assistant.attachments.status.sendingFailed"
+        : "jskit.assistant.attachments.status.uploadFailed",
+    preparing: "jskit.assistant.attachments.status.preparing",
+    queued: "jskit.assistant.attachments.status.queued",
+    ready: "jskit.assistant.attachments.status.ready",
+    uploading: "jskit.assistant.attachments.status.uploading"
   };
-  return labels[itemPhase(item)] || "Queued";
+  return t(Object.hasOwn(labels, itemPhase(item)) ? labels[itemPhase(item)] : "jskit.assistant.attachments.status.queued");
 }
 
 function itemCancelable(item = {}) {

@@ -5,11 +5,11 @@
       variant="text"
       color="error"
       size="x-small"
-      aria-label="Retry delivery check"
+      :aria-label="t('jskit.assistant.delivery.retryCheck')"
       :disabled="message.delivery.checking"
       @click="$emit('check-delivery', message.delivery.messageId)"
     >
-      {{ message.delivery.checking ? 'Checking…' : 'Retry' }}
+      {{ message.delivery.checking ? t('jskit.assistant.delivery.checking') : t('jskit.assistant.delivery.retry') }}
     </v-btn>
   </div>
   <slot v-else>
@@ -19,6 +19,9 @@
 
 <script setup>
 import LongTextPreviewBlocks from "./LongTextPreviewBlocks.vue";
+import { useJskitText } from "../i18n.js";
+
+const { t } = useJskitText();
 
 defineProps({ message: { type: Object, required: true } });
 defineEmits(["check-delivery", "link-click"]);

@@ -1,15 +1,18 @@
 import path from "node:path";
 import { ASSISTANT_ATTACHMENT_ID_MAX_LENGTH, ASSISTANT_ATTACHMENT_MAX_ITEMS, conversationAttachmentManifest } from "../../shared/conversation/attachments.js";
 
-function invalid(message) {
-  return Object.assign(new Error(message), { code: "conversation_invalid_attachments", statusCode: 400 });
+// messageCode names the sentence; the shared code stays for callers.
+function invalid(message, { messageCode, messageParams = {} }) {
+  return Object.assign(new Error(message), { code: "conversation_invalid_attachments", statusCode: 400, messageCode, messageParams });
 }
 
 export function conversationAttachmentIds(value = []) {
   if (!Array.isArray(value) || value.length > ASSISTANT_ATTACHMENT_MAX_ITEMS ||
       value.some(id => typeof id !== "string" || !id.trim() || id.length > ASSISTANT_ATTACHMENT_ID_MAX_LENGTH) ||
       new Set(value).size !== value.length) {
-    throw invalid(`Attachments require at most ${ASSISTANT_ATTACHMENT_MAX_ITEMS} distinct, nonempty attachment IDs.`);
+    throw invalid(`Attachments require at most ${ASSISTANT_ATTACHMENT_MAX_ITEMS} distinct, nonempty attachment IDs.`, {
+      messageCode: "assistant.conversation.attachmentIdsInvalid", messageParams: { max: ASSISTANT_ATTACHMENT_MAX_ITEMS }
+    });
   }
   return [...value];
 }
@@ -20,7 +23,8 @@ export function createConversationAttachmentReader({ attachments, context, conve
   return async references => {
     if (!references?.length) return { attachments: [], content: [], localFiles: [], attachmentManifest: "" };
     if (typeof attachments?.resolve !== "function") {
-      throw Object.assign(new Error("File attachments are not configured for this conversation."), { code: "conversation_unsupported", statusCode: 400 });
+      throw Object.assign(new Error("File attachments are not configured for this conversation."), { code: "conversation_unsupported", statusCode: 400,
+        messageCode: "assistant.conversation.attachmentsNotConfigured", messageParams: {} });
     }
     const receipts = [];
     const content = [];
@@ -38,16 +42,19 @@ export function createConversationAttachmentReader({ attachments, context, conve
           (local ? !Array.isArray(resolved.localFiles) || resolved.localFiles.length !== attachmentIds.length ||
             resolved.content !== undefined && (!Array.isArray(resolved.content) || resolved.content.length)
             : !Array.isArray(resolved.content) || !resolved.content.length || resolved.content.length > 100)) {
-        throw invalid("The attachment resolver must return a receipt for every requested file and bounded model content.");
+        throw invalid("The attachment resolver must return a receipt for every requested file and bounded model content.",
+          { messageCode: "assistant.conversation.attachmentResolverIncomplete" });
       }
       if (local && !types.includes("localFile")) {
-        throw invalid("This engine cannot accept local attachment files. Supply extracted text or supported image bytes.");
+        throw invalid("This engine cannot accept local attachment files. Supply extracted text or supported image bytes.",
+          { messageCode: "assistant.conversation.attachmentLocalFilesUnsupported" });
       }
       for (const [index, receipt] of resolved.attachments.entries()) {
         if (receipt?.attachmentId !== attachmentIds[index] || typeof receipt.fileName !== "string" || !receipt.fileName.trim() ||
             receipt.fileName.length > 256 || !Number.isSafeInteger(receipt.size) || receipt.size < 0 ||
             receipt.reference !== undefined && (typeof receipt.reference !== "string" || receipt.reference.length > 256)) {
-          throw invalid("Attachment receipts require the requested ID, a bounded fileName and a nonnegative size.");
+          throw invalid("Attachment receipts require the requested ID, a bounded fileName and a nonnegative size.",
+            { messageCode: "assistant.conversation.attachmentReceiptInvalid" });
         }
         receipts.push({ attachmentId: receipt.attachmentId, fileName: receipt.fileName, size: receipt.size,
           ...(receipt.reference ? { reference: receipt.reference } : {}) });
@@ -57,16 +64,18 @@ export function createConversationAttachmentReader({ attachments, context, conve
               typeof receipt.reference !== "string" || !receipt.reference.trim() || file.reference !== receipt.reference ||
               typeof file.path !== "string" || !path.isAbsolute(file.path) || file.path.includes("\0") ||
               typeof file.contentType !== "string" || !/^[\w.+-]+\/[\w.+-]+$/u.test(file.contentType)) {
-            throw invalid("Local attachment files require their exact requested receipt and an authorized absolute native path.");
+            throw invalid("Local attachment files require their exact requested receipt and an authorized absolute native path.",
+              { messageCode: "assistant.conversation.attachmentLocalFileInvalid" });
           }
           localFiles.push({ attachmentId: file.attachmentId, fileName: file.fileName, size: file.size,
             reference: file.reference, contentType: file.contentType, path: file.path });
         }
       }
       for (const part of resolved.content || []) {
-        if (!types.includes(part?.type)) throw invalid("This engine cannot accept that attachment format. Supply extracted text or a supported image.");
+        if (!types.includes(part?.type)) throw invalid("This engine cannot accept that attachment format. Supply extracted text or a supported image.",
+          { messageCode: "assistant.conversation.attachmentFormatUnsupported" });
         if (part.type === "text") {
-          if (typeof part.text !== "string" || !part.text.trim()) throw invalid("Attachment text must be nonempty.");
+          if (typeof part.text !== "string" || !part.text.trim()) throw invalid("Attachment text must be nonempty.", { messageCode: "assistant.conversation.attachmentTextEmpty" });
           bytes += Buffer.byteLength(part.text);
           content.push({ type: "text", text: part.text });
         } else {
@@ -75,19 +84,20 @@ export function createConversationAttachmentReader({ attachments, context, conve
               !/^[\w.+-]+\/[\w.+-]+$/u.test(part.mediaType) ||
               part.type === "image" && !["image/png", "image/jpeg", "image/webp", "image/gif"].includes(part.mediaType) ||
               part.filename !== undefined && (typeof part.filename !== "string" || part.filename.length > 256)) {
-            throw invalid("Attachments require authorized bytes and a supported media type; remote URLs and paths are not accepted.");
+            throw invalid("Attachments require authorized bytes and a supported media type; remote URLs and paths are not accepted.",
+              { messageCode: "assistant.conversation.attachmentBytesRequired" });
           }
           bytes += data.byteLength;
-          if (bytes > maximumBytes) throw invalid("Attachment content exceeds the configured byte limit for this request.");
+          if (bytes > maximumBytes) throw invalid("Attachment content exceeds the configured byte limit for this request.", { messageCode: "assistant.conversation.attachmentBytesExceeded" });
           content.push(part.type === "image" ? { type: "image", image: Buffer.from(data), mediaType: part.mediaType }
             : { type: "file", data: Buffer.from(data), mediaType: part.mediaType, ...(part.filename ? { filename: part.filename } : {}) });
         }
-        if (bytes > maximumBytes) throw invalid("Attachment content exceeds the configured byte limit for this request.");
+        if (bytes > maximumBytes) throw invalid("Attachment content exceeds the configured byte limit for this request.", { messageCode: "assistant.conversation.attachmentBytesExceeded" });
       }
     }
     const attachmentManifest = conversationAttachmentManifest(localFiles);
     bytes += Buffer.byteLength(attachmentManifest);
-    if (bytes > maximumBytes) throw invalid("Attachment content exceeds the configured byte limit for this request.");
+    if (bytes > maximumBytes) throw invalid("Attachment content exceeds the configured byte limit for this request.", { messageCode: "assistant.conversation.attachmentBytesExceeded" });
     await authorize();
     return { attachments: receipts, content, localFiles, attachmentManifest };
   };

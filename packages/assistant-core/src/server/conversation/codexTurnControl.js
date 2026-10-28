@@ -58,7 +58,8 @@ export function createCodexTurnControl({
         await owner.failObservation(owner.observationFailure);
         return { value: { ok: true, interrupted: true }, session: await runtime.getSession(sessionId) };
       }
-      return { value: { ok: false, error: "Codex's stop could not be verified. Its runtime owner is unavailable." }, session: currentSession };
+      return { value: { ok: false, error: "Codex's stop could not be verified. Its runtime owner is unavailable.",
+        messageCode: "assistant.codex.stopUnverified", messageParams: {} }, session: currentSession };
     }
     if (currentTurn.active && threadId) {
       provider = await context.acquireProvider(currentSession);

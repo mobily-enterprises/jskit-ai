@@ -264,6 +264,10 @@ function numberedQuestionSugarForMessageInput({
   return parseNumberedQuestionPrompt(message);
 }
 
+// requiredMessage stays English; a client shows it in the active language with
+// serverMessage({ message: requiredMessage, messageCode: requiredMessageCode, messageParams: requiredMessageParams }).
+const ANSWER_REQUIRED = Object.freeze({ messageCode: "assistant.questions.answerRequired" });
+
 function numberedQuestionInputFields(questions = [], options = {}) {
   const autocomplete = String(options?.autocomplete || "").trim();
   const density = String(options?.density || "").trim();
@@ -274,7 +278,9 @@ function numberedQuestionInputFields(questions = [], options = {}) {
     label: question.label,
     name: question.name,
     required: true,
-    requiredMessage: `Answer question ${question.number}.`
+    requiredMessage: `Answer question ${question.number}.`,
+    requiredMessageCode: ANSWER_REQUIRED.messageCode,
+    requiredMessageParams: { number: question.number }
   }));
 }
 
