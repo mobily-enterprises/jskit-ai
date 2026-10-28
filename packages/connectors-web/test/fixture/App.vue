@@ -74,6 +74,7 @@ const configuration = ref({
 });
 const visible = ref(true);
 const errors = ref({});
+const errorCodes = ref({});
 const exported = ref("");
 const source = ref("");
 const locked = ref(false);
@@ -84,14 +85,16 @@ function save() {
   try {
     const validated = validateIntegrationConfiguration(configuration.value, { providers });
     errors.value = {};
+    errorCodes.value = {};
     exported.value = JSON.stringify(validated, null, 2);
-  } catch (error) { errors.value = error.fieldErrors; }
+  } catch (error) { errors.value = error.fieldErrors; errorCodes.value = error.fieldErrorCodes; }
 }
 function importSource() {
   try {
     configuration.value = parseIntegrationConfiguration(source.value, { providers });
     errors.value = {};
-  } catch (error) { errors.value = error.fieldErrors; }
+    errorCodes.value = {};
+  } catch (error) { errors.value = error.fieldErrors; errorCodes.value = error.fieldErrorCodes; }
 }
 </script>
 
@@ -116,7 +119,7 @@ function importSource() {
         <v-btn class="mb-4" min-height="48" @click="activeId = 'probe'">Edit Probe</v-btn>
         <IntegrationConfigurationFields
           v-if="visible" v-model="configuration" :integration-id="activeId"
-          :provider="provider" :field-errors="errors" :disabled="locked"
+          :provider="provider" :field-errors="errors" :field-error-codes="errorCodes" :disabled="locked"
         />
         <v-btn class="my-4" min-height="48" color="primary" @click="save">Export configuration</v-btn>
         <v-textarea v-model="source" label="Import configuration JSON" />

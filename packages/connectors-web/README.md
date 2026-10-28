@@ -10,6 +10,7 @@ by `@jskit-ai/connectors-core/shared/configuration`.
   integration-id="calendar"
   :provider="googleCalendarDefinition"
   :field-errors="fieldErrors"
+  :field-error-codes="fieldErrorCodes"
   :disabled="saving"
   :callback-url="resolvedCallbackUrl"
 />
@@ -22,7 +23,21 @@ preserve other integration slots, registrations and extension values.
 
 Provider `settingsFields` metadata supplies labelled select controls when `items`
 are provided and text controls otherwise, with optional hints and placeholders.
-A hint may be text or a function of the current settings.
+A hint may be text or a function of the current settings; the function also
+receives `{ formatDate }`, so a date it shows follows the active locale.
+
+The component's own texts come from `locales/en.json`
+(`jskit.connectors.configurationFields.*`) through `useJskitText()`. Provider
+texts (labels, hints, placeholders, item titles and subtitles, permission and
+assistant action labels, authentication labels and hints) are rendered with
+`text()`: a message key such as the JSKIT catalog's
+`jskit.connectors.<integration>.fields.<field>.label` or `{ key, params }` is
+translated, and plain text from another catalog renders as written. The app
+must register the catalog's English; the generated JSKIT bootstrap does that for
+every installed package's `locales/en.json`, and the browser fixture registers
+the catalog's English itself. Pass `fieldErrorCodes` with `fieldErrors`, from an
+`IntegrationConfigurationError`, so coded field errors can be translated through
+`fieldErrorMessages()`.
 Defaults and applicable fields come from
 `getProviderSettingsSchema(provider, settings).getFieldDefinitions()`, which also
 supports schemas containing custom validators. A provider may select a schema

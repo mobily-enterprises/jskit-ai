@@ -1,0 +1,85 @@
+{
+  "jskit": {
+    "connectors": {
+      "configurationFields": {
+        "accountMode": {
+          "label": "Account used by the application"
+        },
+        "accountModes": {
+          "assistant": "Assistant access",
+          "perUser": "Each app user's own account",
+          "shared": "One shared account"
+        },
+        "apiKeyReference": {
+          "hint": "Store the API key in your environment or secret store. Enter its reference here, such as env:SERVICE_API_KEY.",
+          "label": "API key reference"
+        },
+        "ariaLabel": "{provider} configuration",
+        "assistant": {
+          "defaultPermission": {
+            "hint": "Changing this sets every assistant action below to the same choice.",
+            "label": "Manage all permissions"
+          },
+          "enabled": {
+            "label": "Allow assistant access"
+          },
+          "hint": "These choices control assistant actions for this integration. They do not grant access to the provider or replace your application's permissions."
+        },
+        "assistantPermissions": {
+          "always": "Always allow",
+          "ask": "Ask each time",
+          "never": "Never allow"
+        },
+        "authentication": {
+          "label": "Authentication"
+        },
+        "authenticationMethods": {
+          "apiKey": "API key",
+          "none": "No credentials",
+          "oauth2": "OAuth",
+          "serviceAccount": "Service account"
+        },
+        "callbackUrl": {
+          "label": "Callback URL"
+        },
+        "callbackUrlReference": {
+          "hint": "Reference the callback route implemented by your application and registered with the provider.",
+          "label": "Callback URL reference"
+        },
+        "clientId": {
+          "label": "Client ID"
+        },
+        "clientSecretReference": {
+          "hint": "Use an environment reference such as env:{prefix}_CLIENT_SECRET. Keep the value outside this file.",
+          "label": "Client secret reference"
+        },
+        "displayName": {
+          "label": "Display name"
+        },
+        "grantType": {
+          "label": "OAuth flow"
+        },
+        "grantTypes": {
+          "authorizationCode": "User consent",
+          "clientCredentials": "Service account"
+        },
+        "panels": {
+          "assistant": "Assistant permissions",
+          "credentials": "Credentials",
+          "details": "Details",
+          "permissions": "Permissions"
+        },
+        "permissions": {
+          "hint": "Choose what the application needs. The account owner approves these permissions when connecting."
+        },
+        "registration": {
+          "label": "App registration"
+        },
+        "serviceAccountReference": {
+          "hint": "Store the service credential in your environment or secret store and enter its reference here.",
+          "label": "Service-account credential reference"
+        }
+      }
+    }
+  }
+}

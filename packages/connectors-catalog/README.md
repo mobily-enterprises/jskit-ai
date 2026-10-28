@@ -48,6 +48,17 @@ charges before the explicit check. A UI passes entered values through
 These are check parameters, separate from source configuration and credentials.
 Provider request validation remains authoritative.
 
+Definition texts shown to people (`description`, field and verification-field
+labels, hints and placeholders, item titles, scope and assistant action labels,
+authentication labels and provider hints) are message keys such as
+`jskit.connectors.<integration>.fields.<field>.label`, or `{ key, params }` where
+part of the text is data. Their English is in `locales/en.json`. Render them with
+`useJskitText().text()` from `@jskit-ai/kernel/client`, which also renders plain
+text from other catalogues as written; a hint function receives
+`(settings, { formatDate })` and returns such a value. Errors thrown by providers
+keep their `connector_*` code and add a `messageCode` (`connectors.<integration>.<name>`)
+and `messageParams` for each sentence, with the English under the same key.
+
 | Provider | Export | Initial operations | Authentication |
 |---|---|---|---|
 | [AI](docs/ai.md) | `createAiConnectionResolver` | Static catalogue and authorized SDK parameters; app-owned inference | Explicit model choice; free no-setup models, administrator Env key or private individual grant |

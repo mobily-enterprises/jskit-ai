@@ -15,6 +15,7 @@
     "@jskit-ai/connectors-core": "0.1.65"
   },
   "peerDependencies": {
+    "@jskit-ai/kernel": "0.1.247",
     "vue": "^3.5.13",
     "vuetify": "^4.0.0"
   },
