@@ -1,6 +1,7 @@
 import {
   resolveSurfaceIdFromPlacementPathname
 } from "@jskit-ai/shell-web/client/placement";
+import { useJskitText } from "../i18n.js";
 import { resolveWorkspaceShellLinkPath } from "./workspaceLinkResolver.js";
 import { resolveSurfaceSwitchTargetsFromPlacementContext } from "./workspaceSurfaceContext.js";
 import { evaluateSurfaceAccess, hasWorkspaceMembership } from "./surfaceAccessPolicy.js";
@@ -71,12 +72,13 @@ function shouldIncludeSurfaceSwitchTarget(surfaceDefinition = null) {
 
 function resolveSurfaceSwitchLinkLabel(surfaceDefinition = null, surfaceId = "") {
   const normalizedSurfaceId = String(surfaceId || "").trim();
-  const configuredLabel = String(surfaceDefinition?.label || "").trim();
+  const { t, text } = useJskitText();
+  const configuredLabel = text(surfaceDefinition?.label).trim();
   const label = configuredLabel || normalizedSurfaceId;
   if (!label) {
-    return "Go to surface";
+    return t("jskit.workspaces.menu.goToAnySurface");
   }
-  return `Go to ${label.toLowerCase()}`;
+  return t("jskit.workspaces.menu.goToSurface", { surface: label.toLowerCase() });
 }
 
 function resolveSurfaceSwitchLinks({ context, surface } = {}) {

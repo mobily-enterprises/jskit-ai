@@ -19,6 +19,7 @@ import { usePaths } from "@jskit-ai/shell-web/client/navigation/usePaths";
 import { useRealtimeQueryInvalidation } from "@jskit-ai/http-web/client/composables/useRealtimeQueryInvalidation";
 import { useWorkspaceSurfaceId } from "../composables/useWorkspaceSurfaceId.js";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
+import { useJskitText } from "../i18n.js";
 
 function normalizePendingInvite(entry) {
   if (!entry || typeof entry !== "object") {
@@ -51,6 +52,7 @@ function normalizePendingInvite(entry) {
   };
 }
 
+const { t, errorMessage } = useJskitText();
 const route = useRoute();
 const router = useRouter();
 const { context: placementContext } = useWebPlacementContext();
@@ -89,7 +91,7 @@ const bootstrapView = useView({
   realtime: {
     event: "workspace.settings.changed"
   },
-  fallbackLoadError: "Unable to load workspaces.",
+  fallbackLoadError: t("jskit.workspaces.workspacesView.loadFailed"),
   model: bootstrapModel,
   mapLoadedToModel: (model, payload = {}) => {
     model.sessionAuthenticated = Boolean(payload?.session?.authenticated);
@@ -111,7 +113,7 @@ const redeemInviteCommand = useCommand({
   apiSuffix: "/workspace/invitations/redeem",
   writeMethod: "POST",
   transport: WORKSPACE_INVITE_REDEEM_TRANSPORT,
-  fallbackRunError: "Unable to respond to invitation.",
+  fallbackRunError: t("jskit.workspaces.common.respondToInvitationFailed"),
   suppressSuccessMessage: true,
   model: redeemInviteModel,
   buildRawPayload: (model) => ({
@@ -119,7 +121,7 @@ const redeemInviteCommand = useCommand({
     decision: String(model.decision || "").trim().toLowerCase()
   }),
   messages: {
-    error: "Unable to respond to invitation."
+    error: t("jskit.workspaces.common.respondToInvitationFailed")
   }
 });
 
@@ -128,7 +130,7 @@ const createWorkspaceCommand = useCommand({
   apiSuffix: "/workspaces",
   writeMethod: "POST",
   transport: WORKSPACES_TRANSPORT,
-  fallbackRunError: "Unable to create workspace.",
+  fallbackRunError: t("jskit.workspaces.workspacesView.createFailed"),
   suppressSuccessMessage: true,
   model: createWorkspaceModel,
   buildRawPayload: (model) => {
@@ -142,7 +144,7 @@ const createWorkspaceCommand = useCommand({
     return payload;
   },
   messages: {
-    error: "Unable to create workspace."
+    error: t("jskit.workspaces.workspacesView.createFailed")
   }
 });
 
@@ -227,9 +229,9 @@ function resolveLandingSlug() {
 
 function workspaceOpenLabel(workspace) {
   if (!workspace.isAccessible) {
-    return "Unavailable";
+    return t("jskit.workspaces.workspacesView.unavailable");
   }
-  return selectingWorkspaceSlug.value === workspace.slug ? "Opening…" : "Open";
+  return t(selectingWorkspaceSlug.value === workspace.slug ? "jskit.workspaces.workspacesView.opening" : "jskit.workspaces.workspacesView.open");
 }
 
 function isRespondingToInvite(invite, decision) {
@@ -245,7 +247,7 @@ async function openWorkspace(workspaceSlug) {
   const targetPath = workspaceHomePath(normalizedSlug);
   if (!targetPath) {
     reportFeedback({
-      message: "Workspace surface is not configured.",
+      message: t("jskit.workspaces.common.surfaceNotConfigured"),
       severity: "error",
       dedupeKey: "workspaces-web.workspaces-view:workspace-surface-missing"
     });
@@ -265,11 +267,11 @@ async function openWorkspace(workspaceSlug) {
       window.location.assign(navigationTarget.href);
       return;
     } else {
-      throw new Error("Workspace navigation is unavailable.");
+      throw new Error(t("jskit.workspaces.workspacesView.navigationUnavailable"));
     }
   } catch (error) {
     reportFeedback({
-      message: String(error?.message || "Unable to open workspace."),
+      message: errorMessage(error, t("jskit.workspaces.common.openWorkspaceFailed")),
       severity: "error",
       dedupeKey: `workspaces-web.workspaces-view:open-workspace:${normalizedSlug}`
     });
@@ -311,15 +313,13 @@ async function respondToInvite(invite, decision) {
     }
 
     reportFeedback({
-      message: "Invitation refused.",
+      message: t("jskit.workspaces.common.invitationRefused"),
       severity: "success",
       dedupeKey: `workspaces-web.workspaces-view:invite-refused:${token}`
     });
   } catch (error) {
     reportFeedback({
-      message: String(
-        error?.message || (normalizedDecision === "accept" ? "Unable to accept invite." : "Unable to refuse invite.")
-      ),
+      message: errorMessage(error, t(normalizedDecision === "accept" ? "jskit.workspaces.workspacesView.acceptFailed" : "jskit.workspaces.workspacesView.refuseFailed")),
       severity: "error",
       dedupeKey: `workspaces-web.workspaces-view:invite-${normalizedDecision}:${token}`
     });
@@ -349,7 +349,7 @@ async function createWorkspace() {
   const name = String(createWorkspaceModel.name || "").trim();
   if (!name) {
     reportFeedback({
-      message: "Workspace name is required.",
+      message: t("jskit.workspaces.workspacesView.nameRequired"),
       severity: "error",
       dedupeKey: "workspaces-web.workspaces-view:create-workspace-name-required"
     });
@@ -368,7 +368,7 @@ async function createWorkspace() {
     createWorkspaceModel.slug = "";
   } catch (error) {
     reportFeedback({
-      message: String(error?.message || "Unable to create workspace."),
+      message: errorMessage(error, t("jskit.workspaces.workspacesView.createFailed")),
       severity: "error",
       dedupeKey: "workspaces-web.workspaces-view:create-workspace-error"
     });
@@ -416,8 +416,8 @@ watch(
     <v-container class="mx-auto" max-width="860">
       <v-sheet rounded="lg" border class="workspaces-view__panel">
         <header class="workspaces-view__header">
-          <h1 class="workspaces-view__title">Your workspaces</h1>
-          <p class="text-body-2 text-medium-emphasis mb-0">Select a workspace or respond to invitations.</p>
+          <h1 class="workspaces-view__title">{{ t("jskit.workspaces.workspacesView.title") }}</h1>
+          <p class="text-body-2 text-medium-emphasis mb-0">{{ t("jskit.workspaces.workspacesView.subtitle") }}</p>
         </header>
 
         <div class="workspaces-view__body">
@@ -427,7 +427,7 @@ watch(
                 <v-skeleton-loader type="text, list-item-avatar-two-line@3" />
               </template>
               <div v-else-if="bootstrapLoadError" class="workspaces-view__state">
-                <h2 class="text-h6 mb-2">Unable to load workspaces</h2>
+                <h2 class="text-h6 mb-2">{{ t("jskit.workspaces.workspacesView.loadFailedTitle") }}</h2>
                 <p class="text-body-2 text-medium-emphasis mb-4">{{ bootstrapLoadError }}</p>
                 <v-btn
                   color="primary"
@@ -435,18 +435,18 @@ watch(
                   :disabled="isRefreshingBootstrap"
                   @click="refreshBootstrap"
                 >
-                  {{ isRefreshingBootstrap ? "Retrying…" : "Retry" }}
+                  {{ t(isRefreshingBootstrap ? "jskit.workspaces.common.retrying" : "jskit.workspaces.common.retry") }}
                 </v-btn>
               </div>
               <template v-else>
-                <div class="text-subtitle-2 mb-2">Workspaces</div>
+                <div class="text-subtitle-2 mb-2">{{ t("jskit.workspaces.common.workspaces") }}</div>
                 <template v-if="workspaceItems.length === 0">
-                  <p class="text-body-1 mb-2">You do not have a workspace yet.</p>
+                  <p class="text-body-1 mb-2">{{ t("jskit.workspaces.workspacesView.noWorkspace") }}</p>
                   <template v-if="canCreateWorkspace">
                     <v-text-field
                       v-model="createWorkspaceModel.name"
                       density="comfortable"
-                      label="Workspace name"
+                      :label="t('jskit.workspaces.workspacesView.nameLabel')"
                       variant="outlined"
                       hide-details
                       class="mb-2"
@@ -454,7 +454,7 @@ watch(
                     <v-text-field
                       v-model="createWorkspaceModel.slug"
                       density="comfortable"
-                      label="Slug (optional)"
+                      :label="t('jskit.workspaces.workspacesView.slugLabel')"
                       variant="outlined"
                       hide-details
                       class="mb-3"
@@ -465,11 +465,11 @@ watch(
                       :disabled="isCreatingWorkspace"
                       @click="createWorkspace"
                     >
-                      {{ isCreatingWorkspace ? "Creating…" : "Create Workspace" }}
+                      {{ t(isCreatingWorkspace ? "jskit.workspaces.workspacesView.creating" : "jskit.workspaces.workspacesView.create") }}
                     </v-btn>
                   </template>
                   <p v-else class="text-body-2 text-medium-emphasis mb-0">
-                    Ask an administrator for an invite, or create one after policy is enabled.
+                    {{ t("jskit.workspaces.workspacesView.askAdministrator") }}
                   </p>
                 </template>
 
@@ -481,8 +481,8 @@ watch(
                       :title="workspace.name"
                       :subtitle="
                         workspace.isAccessible
-                          ? `/${workspace.slug} • role: ${workspace.roleLabel || workspace.roleSid || 'member'}`
-                          : `/${workspace.slug} • unavailable on this surface`
+                          ? t('jskit.workspaces.common.slugAndRole', { slug: workspace.slug, role: workspace.roleLabel || workspace.roleSid || 'member' })
+                          : t('jskit.workspaces.workspacesView.unavailableOnSurface', { slug: workspace.slug })
                       "
                       class="px-0"
                     >
@@ -514,9 +514,9 @@ watch(
                 <v-skeleton-loader type="text, list-item-two-line@3" />
               </template>
               <template v-else>
-                <div class="text-subtitle-2 mb-2">Invitations</div>
+                <div class="text-subtitle-2 mb-2">{{ t("jskit.workspaces.common.invitations") }}</div>
                 <template v-if="pendingInvites.length === 0">
-                  <p class="text-body-2 text-medium-emphasis mb-0">No pending invitations.</p>
+                  <p class="text-body-2 text-medium-emphasis mb-0">{{ t("jskit.workspaces.common.noPendingInvitations") }}</p>
                 </template>
 
                 <template v-else>
@@ -525,12 +525,12 @@ watch(
                       v-for="invite in pendingInvites"
                       :key="invite.id"
                       :title="invite.workspaceName"
-                      :subtitle="`Role: ${invite.roleLabel || invite.roleSid}`"
+                      :subtitle="t('jskit.workspaces.common.role', { role: invite.roleLabel || invite.roleSid })"
                       class="px-0"
                     >
                       <template #prepend>
                         <v-avatar color="warning" size="28">
-                          <span class="text-caption font-weight-bold">?</span>
+                          <span class="text-caption font-weight-bold">{{ t("jskit.workspaces.common.pendingInviteMark") }}</span>
                         </v-avatar>
                       </template>
                       <template #append>
@@ -542,7 +542,7 @@ watch(
                             :disabled="isRespondingToInvite(invite, 'refuse')"
                             @click="refuseInvite(invite)"
                           >
-                            {{ isRespondingToInvite(invite, "refuse") ? "Refusing…" : "Refuse" }}
+                            {{ t(isRespondingToInvite(invite, "refuse") ? "jskit.workspaces.common.refusing" : "jskit.workspaces.common.refuse") }}
                           </v-btn>
                           <v-btn
                             size="small"
@@ -551,7 +551,7 @@ watch(
                             :disabled="isRespondingToInvite(invite, 'accept')"
                             @click="acceptInvite(invite)"
                           >
-                            {{ isRespondingToInvite(invite, "accept") ? "Joining…" : "Join" }}
+                            {{ t(isRespondingToInvite(invite, "accept") ? "jskit.workspaces.common.joining" : "jskit.workspaces.common.join") }}
                           </v-btn>
                         </div>
                       </template>

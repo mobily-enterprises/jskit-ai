@@ -12,6 +12,7 @@ import { findWorkspaceBySlug, normalizeWorkspaceEntry, normalizeWorkspaceList } 
 import { usePaths } from "@jskit-ai/shell-web/client/navigation/usePaths";
 import { resolveSurfaceSwitchTargetsFromPlacementContext, surfaceRequiresWorkspaceFromPlacementContext } from "../lib/workspaceSurfaceContext.js";
 import { resolveWorkspaceSurfaceIdFromPlacementPathname, extractWorkspaceSlugFromSurfacePathname } from "../lib/workspaceSurfacePaths.js";
+import { useJskitText } from "../i18n.js";
 
 const props = defineProps({
   surface: {
@@ -28,6 +29,7 @@ const props = defineProps({
   }
 });
 
+const { t } = useJskitText();
 const navigatingToWorkspace = ref("");
 const errorMessage = ref("");
 const route = useRoute();
@@ -107,11 +109,11 @@ async function navigateToWorkspace(slug) {
     return;
   }
   if (!workspaceSwitchSurfaceId.value) {
-    errorMessage.value = "Workspace selector target surface is not configured.";
+    errorMessage.value = t("jskit.workspaces.selector.targetNotConfigured");
     return;
   }
   if (!workspaceSwitchSurfaceRequiresWorkspace.value) {
-    errorMessage.value = "Workspace selector target surface must require a workspace.";
+    errorMessage.value = t("jskit.workspaces.selector.targetNeedsWorkspace");
     return;
   }
 
@@ -122,7 +124,7 @@ async function navigateToWorkspace(slug) {
     }
   });
   if (!targetPath) {
-    errorMessage.value = "Workspace selector target surface is not configured.";
+    errorMessage.value = t("jskit.workspaces.selector.targetNotConfigured");
     return;
   }
   const navigationTarget = resolveSurfaceNavigationTargetFromPlacementContext(placementContext.value, {
@@ -141,11 +143,11 @@ async function navigateToWorkspace(slug) {
         window.location.assign(navigationTarget.href);
         return;
       } else {
-        throw new Error("Router is unavailable.");
+        throw new Error(t("jskit.workspaces.selector.routerUnavailable"));
       }
     }
   } catch (error) {
-    const message = String(error?.message || "Unable to switch workspace.").trim();
+    const message = String(error?.message || t("jskit.workspaces.selector.switchFailed")).trim();
     errorMessage.value = message;
   } finally {
     navigatingToWorkspace.value = "";
@@ -183,7 +185,7 @@ const activeWorkspaceLabel = computed(() => {
   if (active?.name) {
     return active.name;
   }
-  return "Workspace";
+  return t("jskit.workspaces.selector.workspaceFallback");
 });
 
 </script>
@@ -202,7 +204,7 @@ const activeWorkspaceLabel = computed(() => {
     </template>
 
     <v-list density="comfortable" min-width="280">
-      <v-list-subheader>Workspaces</v-list-subheader>
+      <v-list-subheader>{{ t("jskit.workspaces.common.workspaces") }}</v-list-subheader>
       <v-list-item
         v-for="workspace in workspaces"
         :key="workspace.id"

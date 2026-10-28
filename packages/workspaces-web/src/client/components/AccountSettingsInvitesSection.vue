@@ -1,5 +1,8 @@
 <script setup>
 import { useAccountSettingsInvitesSectionRuntime } from "../account-settings/useAccountSettingsInvitesSectionRuntime.js";
+import { useJskitText } from "../i18n.js";
+
+const { t } = useJskitText();
 
 const invites = useAccountSettingsInvitesSectionRuntime();
 </script>
@@ -7,8 +10,8 @@ const invites = useAccountSettingsInvitesSectionRuntime();
 <template>
   <v-sheet rounded="lg" border class="account-invites-section">
     <header class="account-invites-section__header">
-      <h2 class="account-invites-section__title">Invitations</h2>
-      <p class="text-body-2 text-medium-emphasis mb-0">Accept or refuse workspace invitations.</p>
+      <h2 class="account-invites-section__title">{{ t("jskit.workspaces.common.invitations") }}</h2>
+      <p class="text-body-2 text-medium-emphasis mb-0">{{ t("jskit.workspaces.accountInvites.subtitle") }}</p>
     </header>
 
     <div class="account-invites-section__body">
@@ -18,7 +21,7 @@ const invites = useAccountSettingsInvitesSectionRuntime();
 
       <template v-else-if="invites.items.value.length < 1">
         <v-progress-linear v-if="invites.isRefetching.value" indeterminate class="mb-4" />
-        <p class="text-body-2 text-medium-emphasis mb-0">No pending invitations.</p>
+        <p class="text-body-2 text-medium-emphasis mb-0">{{ t("jskit.workspaces.common.noPendingInvitations") }}</p>
       </template>
 
       <template v-else>
@@ -28,12 +31,12 @@ const invites = useAccountSettingsInvitesSectionRuntime();
             v-for="invite in invites.items.value"
             :key="invite.id"
             :title="invite.workspaceName"
-            :subtitle="`/${invite.workspaceSlug} • role: ${invite.roleLabel || invite.roleSid}`"
+            :subtitle="t('jskit.workspaces.common.slugAndRole', { slug: invite.workspaceSlug, role: invite.roleLabel || invite.roleSid })"
             class="px-0"
           >
             <template #prepend>
               <v-avatar color="warning" size="28">
-                <span class="text-caption font-weight-bold">?</span>
+                <span class="text-caption font-weight-bold">{{ t("jskit.workspaces.common.pendingInviteMark") }}</span>
               </v-avatar>
             </template>
             <template #append>
@@ -48,7 +51,7 @@ const invites = useAccountSettingsInvitesSectionRuntime();
                   "
                   @click="invites.refuse(invite)"
                 >
-                  Refuse
+                  {{ t("jskit.workspaces.common.refuse") }}
                 </v-btn>
                 <v-btn
                   size="small"
@@ -60,7 +63,7 @@ const invites = useAccountSettingsInvitesSectionRuntime();
                   "
                   @click="invites.accept(invite)"
                 >
-                  Join
+                  {{ t("jskit.workspaces.common.join") }}
                 </v-btn>
               </div>
             </template>

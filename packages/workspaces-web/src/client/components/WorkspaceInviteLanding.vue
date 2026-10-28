@@ -7,9 +7,9 @@
         </div>
 
         <div v-else-if="loadError" class="workspace-invite-landing__state">
-          <h1 class="workspace-invite-landing__title">Invitation unavailable</h1>
+          <h1 class="workspace-invite-landing__title">{{ t("jskit.workspaces.inviteLanding.unavailableTitle") }}</h1>
           <p class="text-body-2 text-medium-emphasis mb-5">{{ loadError }}</p>
-          <v-btn color="primary" variant="tonal" :loading="isRefreshing" @click="refreshInvite">Retry</v-btn>
+          <v-btn color="primary" variant="tonal" :loading="isRefreshing" @click="refreshInvite">{{ t("jskit.workspaces.common.retry") }}</v-btn>
         </div>
 
         <div v-else-if="isTerminal" class="workspace-invite-landing__state">
@@ -26,18 +26,18 @@
             <div>
               <h1 class="workspace-invite-landing__title">{{ workspaceName }}</h1>
               <p class="text-body-2 text-medium-emphasis mb-0">
-                Invitation for {{ inviteEmailLabel }}
+                {{ t("jskit.workspaces.inviteLanding.invitationFor", { email: inviteEmailLabel }) }}
               </p>
             </div>
           </div>
 
           <v-alert v-if="emailMismatch" type="warning" variant="tonal" class="mb-5">
-            Sign in with {{ inviteEmailLabel }} to accept this invitation.
+            {{ t("jskit.workspaces.inviteLanding.signInToAccept", { email: inviteEmailLabel }) }}
           </v-alert>
 
           <div v-if="!isAuthenticated" class="workspace-invite-landing__actions">
-            <v-btn color="primary" :href="registerUrl">Create account</v-btn>
-            <v-btn variant="outlined" color="secondary" :href="loginUrl">Sign in</v-btn>
+            <v-btn color="primary" :href="registerUrl">{{ t("jskit.workspaces.inviteLanding.createAccount") }}</v-btn>
+            <v-btn variant="outlined" color="secondary" :href="loginUrl">{{ t("jskit.workspaces.inviteLanding.signIn") }}</v-btn>
           </div>
 
           <div v-else class="workspace-invite-landing__actions">
@@ -47,7 +47,7 @@
               :loading="isRedeeming"
               @click="acceptInvite"
             >
-              Accept invitation
+              {{ t("jskit.workspaces.inviteLanding.accept") }}
             </v-btn>
           </div>
 
@@ -68,6 +68,9 @@ import {
   WORKSPACE_INVITE_REDEEM_TRANSPORT
 } from "@jskit-ai/workspaces-core/shared/jsonApiTransports";
 import { httpWebClient } from "@jskit-ai/http-web/client/lib/httpClient";
+import { useJskitText } from "../i18n.js";
+
+const { t } = useJskitText();
 
 const route = useRoute();
 const router = useRouter();
@@ -87,7 +90,7 @@ const inviteResource = useEndpointResource({
   client: httpWebClient,
   readQuery: inviteQuery,
   transport: WORKSPACE_INVITATION_RESOLVE_TRANSPORT,
-  fallbackLoadError: "Unable to load invitation."
+  fallbackLoadError: t("jskit.workspaces.inviteLanding.loadFailed")
 });
 
 const redeemResource = useEndpointResource({
@@ -97,7 +100,7 @@ const redeemResource = useEndpointResource({
   client: httpWebClient,
   writeMethod: "POST",
   transport: WORKSPACE_INVITE_REDEEM_TRANSPORT,
-  fallbackSaveError: "Unable to accept invitation."
+  fallbackSaveError: t("jskit.workspaces.common.acceptInvitationFailed")
 });
 
 const invite = computed(() => inviteResource.data.value || {});
@@ -106,8 +109,8 @@ const status = computed(() => String(invite.value.status || "").trim().toLowerCa
 const isAuthenticated = computed(() => authStore.authenticated === true);
 const authEmail = computed(() => String(authStore.authState?.email || "").trim().toLowerCase());
 const inviteEmail = computed(() => String(invite.value.email || "").trim().toLowerCase());
-const inviteEmailLabel = computed(() => invite.value.maskedEmail || inviteEmail.value || "the invited email");
-const workspaceName = computed(() => String(workspace.value.name || "Workspace invitation").trim());
+const inviteEmailLabel = computed(() => invite.value.maskedEmail || inviteEmail.value || t("jskit.workspaces.inviteLanding.invitedEmailFallback"));
+const workspaceName = computed(() => String(workspace.value.name || t("jskit.workspaces.inviteLanding.workspaceFallback")).trim());
 const workspaceAvatarUrl = computed(() => String(workspace.value.avatarUrl || "").trim());
 const workspaceInitial = computed(() => workspaceName.value.slice(0, 1).toUpperCase() || "W");
 const isLoading = computed(() => Boolean(inviteResource.isLoading.value));
@@ -121,27 +124,27 @@ const emailMismatch = computed(() =>
 );
 const terminalTitle = computed(() => {
   if (status.value === "expired") {
-    return "Invitation expired";
+    return t("jskit.workspaces.inviteLanding.expiredTitle");
   }
   if (status.value === "accepted") {
-    return "Invitation already accepted";
+    return t("jskit.workspaces.inviteLanding.acceptedTitle");
   }
   if (status.value === "revoked") {
-    return "Invitation revoked";
+    return t("jskit.workspaces.inviteLanding.revokedTitle");
   }
-  return "Invitation unavailable";
+  return t("jskit.workspaces.inviteLanding.unavailableTitle");
 });
 const terminalMessage = computed(() => {
   if (status.value === "expired") {
-    return "Ask a workspace admin to send a new invitation.";
+    return t("jskit.workspaces.inviteLanding.expiredMessage");
   }
   if (status.value === "accepted") {
-    return "This invitation has already been used.";
+    return t("jskit.workspaces.inviteLanding.acceptedMessage");
   }
   if (status.value === "revoked") {
-    return "This invitation is no longer active.";
+    return t("jskit.workspaces.inviteLanding.revokedMessage");
   }
-  return "The invitation link is invalid or no longer exists.";
+  return t("jskit.workspaces.inviteLanding.unavailableMessage");
 });
 const loginUrl = computed(() => buildAuthUrl("login"));
 const registerUrl = computed(() => buildAuthUrl("register"));

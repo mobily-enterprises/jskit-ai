@@ -19,7 +19,9 @@ test("workspaces-web exports are explicit and aligned with production usage", ()
       "./client/components/WorkspaceInviteLanding",
       "./client/components/WorkspacesClientElement",
       "./client/providers/WorkspacesWebClientProvider",
-      "./client/composables/useWorkspaceRouteContext"
+      "./client/composables/useWorkspaceRouteContext",
+      // The generated client bootstrap registers it.
+      "./locales/en.json"
     ]
   });
 

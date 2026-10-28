@@ -12,7 +12,8 @@
     "./client/components/WorkspacesClientElement": "./src/client/components/WorkspacesClientElement.vue",
     "./client/providers/WorkspacesWebClientProvider": "./src/client/providers/WorkspacesWebClientProvider.js",
     "./client/components/WorkspaceMembersClientElement": "./src/client/components/WorkspaceMembersClientElement.vue",
-    "./client/composables/useWorkspaceRouteContext": "./src/client/composables/useWorkspaceRouteContext.js"
+    "./client/composables/useWorkspaceRouteContext": "./src/client/composables/useWorkspaceRouteContext.js",
+    "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
     "@jskit-ai/users-core": "0.1.261",

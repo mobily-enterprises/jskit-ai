@@ -9,7 +9,7 @@
         :loading="isRetryingLoad"
         @click="refreshLoad"
       >
-        Retry
+        {{ t("jskit.workspaces.common.retry") }}
       </v-btn>
     </div>
 
@@ -29,7 +29,6 @@
 
 <script setup>
 import { computed, reactive, ref, watch } from "vue";
-import { formatDateTime } from "@jskit-ai/kernel/shared/support";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/kernel/shared/support/visibility";
 import {
@@ -50,6 +49,9 @@ import { useUiFeedback } from "@jskit-ai/http-web/client/composables/useUiFeedba
 import { useWorkspaceRouteContext } from "../composables/useWorkspaceRouteContext.js";
 import { createWorkspaceRealtimeMatcher } from "../support/realtimeWorkspace.js";
 import { buildWorkspaceQueryKey } from "../support/workspaceQueryKeys.js";
+import { useJskitText } from "../i18n.js";
+
+const { t, formatDateTime } = useJskitText();
 
 const forms = reactive({
   invite: {
@@ -70,7 +72,7 @@ const options = reactive({
     return options.roleLabels[roleSid] || fallback;
   },
   formatDateTime(value) {
-    return formatDateTime(value);
+    return formatDateTime(value) || t("jskit.workspaces.common.unknownDate");
   }
 });
 
@@ -310,7 +312,7 @@ const workspaceSettingsView = useView({
     matches: matchesWorkspaceRealtime
   },
   transport: WORKSPACE_SETTINGS_TRANSPORT,
-  fallbackLoadError: "Unable to load workspace settings."
+  fallbackLoadError: t("jskit.workspaces.members.loadSettingsFailed")
 });
 
 const workspaceRolesView = useView({
@@ -319,7 +321,7 @@ const workspaceRolesView = useView({
   queryKeyFactory: (surfaceId = "", workspaceSlug = "") => buildWorkspaceQueryKey("roles", surfaceId, workspaceSlug),
   viewPermissions: ["workspace.members.view", "workspace.members.invite", "workspace.members.manage"],
   transport: WORKSPACE_ROLE_CATALOG_TRANSPORT,
-  fallbackLoadError: "Unable to load workspace roles."
+  fallbackLoadError: t("jskit.workspaces.members.loadRolesFailed")
 });
 
 const workspaceMembersList = useList({
@@ -334,7 +336,7 @@ const workspaceMembersList = useList({
   },
   transport: WORKSPACE_MEMBERS_TRANSPORT,
   selectItems: (payload) => normalizeMembers(payload?.members),
-  fallbackLoadError: "Unable to load workspace members."
+  fallbackLoadError: t("jskit.workspaces.members.loadMembersFailed")
 });
 
 const workspaceInvitesList = useList({
@@ -349,7 +351,7 @@ const workspaceInvitesList = useList({
   },
   transport: WORKSPACE_INVITES_TRANSPORT,
   selectItems: (payload) => normalizeInvites(payload?.invites),
-  fallbackLoadError: "Unable to load workspace invites."
+  fallbackLoadError: t("jskit.workspaces.members.loadInvitesFailed")
 });
 
 const inviteCreateCommand = useCommand({
@@ -358,14 +360,14 @@ const inviteCreateCommand = useCommand({
   runPermissions: ["workspace.members.invite"],
   writeMethod: "POST",
   transport: WORKSPACE_INVITE_CREATE_TRANSPORT,
-  fallbackRunError: "Unable to create invite.",
+  fallbackRunError: t("jskit.workspaces.members.createInviteFailed"),
   suppressSuccessMessage: true,
   buildRawPayload: () => ({
     email: forms.invite.email,
     roleSid: forms.invite.roleSid
   }),
   messages: {
-    error: "Unable to create invite."
+    error: t("jskit.workspaces.members.createInviteFailed")
   }
 });
 
@@ -375,7 +377,7 @@ const revokeInviteCommand = useCommand({
   runPermissions: ["workspace.invites.revoke"],
   writeMethod: "DELETE",
   transport: WORKSPACE_INVITES_TRANSPORT,
-  fallbackRunError: "Unable to revoke invite.",
+  fallbackRunError: t("jskit.workspaces.members.revokeInviteFailed"),
   buildCommandOptions: (_parsed, { context }) => {
     return {
       method: "DELETE",
@@ -383,8 +385,8 @@ const revokeInviteCommand = useCommand({
     };
   },
   messages: {
-    success: "Invite revoked.",
-    error: "Unable to revoke invite."
+    success: t("jskit.workspaces.members.inviteRevoked"),
+    error: t("jskit.workspaces.members.revokeInviteFailed")
   }
 });
 
@@ -394,7 +396,7 @@ const memberRoleCommand = useCommand({
   runPermissions: ["workspace.members.manage"],
   writeMethod: "PATCH",
   transport: WORKSPACE_MEMBER_ROLE_UPDATE_TRANSPORT,
-  fallbackRunError: "Unable to update member role.",
+  fallbackRunError: t("jskit.workspaces.members.updateRoleFailed"),
   buildRawPayload: (_model, { context }) => ({
     roleSid: String(context?.roleSid || "").trim().toLowerCase()
   }),
@@ -405,8 +407,8 @@ const memberRoleCommand = useCommand({
     };
   },
   messages: {
-    success: "Member role updated.",
-    error: "Unable to update member role."
+    success: t("jskit.workspaces.members.roleUpdated"),
+    error: t("jskit.workspaces.members.updateRoleFailed")
   }
 });
 
@@ -416,7 +418,7 @@ const memberRemoveCommand = useCommand({
   runPermissions: ["workspace.members.manage"],
   writeMethod: "DELETE",
   transport: WORKSPACE_MEMBERS_TRANSPORT,
-  fallbackRunError: "Unable to remove member.",
+  fallbackRunError: t("jskit.workspaces.members.removeFailed"),
   buildCommandOptions: (_parsed, { context }) => {
     return {
       method: "DELETE",
@@ -424,8 +426,8 @@ const memberRemoveCommand = useCommand({
     };
   },
   messages: {
-    success: "Member removed.",
-    error: "Unable to remove member."
+    success: t("jskit.workspaces.members.removed"),
+    error: t("jskit.workspaces.members.removeFailed")
   }
 });
 
@@ -448,7 +450,7 @@ const status = computed(() => {
 
 const loadError = computed(() => {
   if (!hasRouteWorkspaceSlug.value) {
-    return "Workspace slug is required in the URL.";
+    return t("jskit.workspaces.members.slugRequired");
   }
 
   return (
@@ -617,14 +619,14 @@ async function submitInvite() {
       workspaceRolesView.refresh()
     ]);
     if (createdInviteDeliveryStatus.value === "sent") {
-      inviteFeedback.success("Invite sent.");
+      inviteFeedback.success(t("jskit.workspaces.members.inviteSent"));
     } else if (createdInviteDeliveryStatus.value === "failed") {
-      inviteFeedback.success("Invite created, but email delivery failed. Copy the invite link to share it.");
+      inviteFeedback.success(t("jskit.workspaces.members.inviteCreatedDeliveryFailed"));
     } else {
-      inviteFeedback.success("Invite created. Copy the invite link to share it.");
+      inviteFeedback.success(t("jskit.workspaces.members.inviteCreated"));
     }
   } catch (error) {
-    inviteFeedback.error(error, "Unable to create invite.");
+    inviteFeedback.error(error, t("jskit.workspaces.members.createInviteFailed"));
   }
 }
 
@@ -638,14 +640,14 @@ async function copyCreatedInviteLink() {
   try {
     const clipboard = globalThis?.navigator?.clipboard;
     if (!clipboard || typeof clipboard.writeText !== "function") {
-      inviteFeedback.success("Invite link ready to copy.");
+      inviteFeedback.success(t("jskit.workspaces.members.linkReady"));
       return;
     }
 
     await clipboard.writeText(inviteUrl);
-    inviteFeedback.success("Invite link copied.");
+    inviteFeedback.success(t("jskit.workspaces.members.linkCopied"));
   } catch (error) {
-    inviteFeedback.error(error, "Unable to copy invite link.");
+    inviteFeedback.error(error, t("jskit.workspaces.members.copyLinkFailed"));
   } finally {
     isCopyingInviteLink.value = false;
   }
@@ -667,9 +669,9 @@ async function submitRevokeInvite(inviteId) {
       workspaceInvitesList.reload(),
       workspaceRolesView.refresh()
     ]);
-    teamFeedback.success("Invite revoked.");
+    teamFeedback.success(t("jskit.workspaces.members.inviteRevoked"));
   } catch (error) {
-    teamFeedback.error(error, "Unable to revoke invite.");
+    teamFeedback.error(error, t("jskit.workspaces.members.revokeInviteFailed"));
   } finally {
     revokeInviteId.value = "";
   }
@@ -685,7 +687,7 @@ async function submitMemberRoleUpdate(member, roleSid) {
   try {
     const memberUserId = normalizeRecordId(member?.userId, { fallback: null });
     if (!memberUserId) {
-      throw new Error("Member user id is invalid.");
+      throw new Error(t("jskit.workspaces.members.memberIdInvalid"));
     }
 
     await memberRoleCommand.run({
@@ -696,9 +698,9 @@ async function submitMemberRoleUpdate(member, roleSid) {
       workspaceMembersList.reload(),
       workspaceRolesView.refresh()
     ]);
-    membersFeedback.success("Member role updated.");
+    membersFeedback.success(t("jskit.workspaces.members.roleUpdated"));
   } catch (error) {
-    membersFeedback.error(error, "Unable to update member role.");
+    membersFeedback.error(error, t("jskit.workspaces.members.updateRoleFailed"));
   }
 }
 
@@ -712,7 +714,7 @@ async function submitRemoveMember(member) {
   try {
     const memberUserId = normalizeRecordId(member?.userId, { fallback: null });
     if (!memberUserId) {
-      throw new Error("Member user id is invalid.");
+      throw new Error(t("jskit.workspaces.members.memberIdInvalid"));
     }
 
     removeMemberUserId.value = normalizeRecordId(memberUserId, { fallback: "" });
@@ -723,9 +725,9 @@ async function submitRemoveMember(member) {
       workspaceMembersList.reload(),
       workspaceRolesView.refresh()
     ]);
-    membersFeedback.success("Member removed.");
+    membersFeedback.success(t("jskit.workspaces.members.removed"));
   } catch (error) {
-    membersFeedback.error(error, "Unable to remove member.");
+    membersFeedback.error(error, t("jskit.workspaces.members.removeFailed"));
   } finally {
     removeMemberUserId.value = "";
   }

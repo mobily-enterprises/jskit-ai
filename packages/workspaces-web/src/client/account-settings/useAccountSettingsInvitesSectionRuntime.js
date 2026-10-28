@@ -12,6 +12,7 @@ import { useView } from "@jskit-ai/http-web/client/composables/useView";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { WORKSPACE_INVITE_REDEEM_TRANSPORT } from "@jskit-ai/workspaces-core/shared/jsonApiTransports";
 import { useWorkspaceSurfaceId } from "../composables/useWorkspaceSurfaceId.js";
+import { useJskitText } from "../i18n.js";
 import { createAccountSettingsInvitesRuntime } from "./accountSettingsInvitesRuntime.js";
 
 function normalizePendingInvite(entry) {
@@ -50,6 +51,7 @@ function normalizePendingInvite(entry) {
 }
 
 function useAccountSettingsInvitesSectionRuntime() {
+  const { t, errorMessage } = useJskitText();
   const route = useRoute();
   const router = useRouter();
   const { context: placementContext } = useWebPlacementContext();
@@ -98,7 +100,7 @@ function useAccountSettingsInvitesSectionRuntime() {
     realtime: {
       event: "workspace.invitations.pending.changed"
     },
-    fallbackLoadError: "Unable to load invitations.",
+    fallbackLoadError: t("jskit.workspaces.accountInvites.loadFailed"),
     model: pendingInvitesModel,
     mapLoadedToModel: (model, payload = {}) => {
       model.workspaceInvitesEnabled = payload?.app?.features?.workspaceInvites === true;
@@ -115,7 +117,7 @@ function useAccountSettingsInvitesSectionRuntime() {
     apiSuffix: "/workspace/invitations/redeem",
     writeMethod: "POST",
     transport: WORKSPACE_INVITE_REDEEM_TRANSPORT,
-    fallbackRunError: "Unable to respond to invitation.",
+    fallbackRunError: t("jskit.workspaces.common.respondToInvitationFailed"),
     suppressSuccessMessage: true,
     model: redeemInviteModel,
     buildRawPayload: (model) => ({
@@ -123,7 +125,7 @@ function useAccountSettingsInvitesSectionRuntime() {
       decision: String(model.decision || "").trim().toLowerCase()
     }),
     messages: {
-      error: "Unable to respond to invitation."
+      error: t("jskit.workspaces.common.respondToInvitationFailed")
     }
   });
 
@@ -158,7 +160,7 @@ function useAccountSettingsInvitesSectionRuntime() {
     const targetPath = workspaceHomePath(workspaceSlug);
     if (!targetPath) {
       reportAccountFeedback({
-        message: "Workspace surface is not configured.",
+        message: t("jskit.workspaces.common.surfaceNotConfigured"),
         severity: "error",
         channel: "banner",
         dedupeKey: "workspaces-web.account-settings-invites:workspace-surface-missing"
@@ -176,11 +178,11 @@ function useAccountSettingsInvitesSectionRuntime() {
       } else if (typeof window === "object" && window?.location && typeof window.location.assign === "function") {
         window.location.assign(navigationTarget.href);
       } else {
-        throw new Error("Cross-origin navigation is unavailable in this environment.");
+        throw new Error(t("jskit.workspaces.accountInvites.crossOriginUnavailable"));
       }
     } catch (error) {
       reportAccountFeedback({
-        message: String(error?.message || "Unable to open workspace."),
+        message: errorMessage(error, t("jskit.workspaces.common.openWorkspaceFailed")),
         severity: "error",
         channel: "banner",
         dedupeKey: `workspaces-web.account-settings-invites:open-workspace:${String(workspaceSlug || "").trim()}`

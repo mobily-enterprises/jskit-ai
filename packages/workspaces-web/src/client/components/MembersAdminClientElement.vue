@@ -4,8 +4,8 @@
       <v-col cols="12" lg="5">
         <v-card rounded="lg" elevation="1" border data-testid="members-admin-invite-card">
           <v-card-item>
-            <v-card-title class="text-subtitle-1">Invite people</v-card-title>
-            <v-card-subtitle>Send workspace invites with a role.</v-card-subtitle>
+            <v-card-title class="text-subtitle-1">{{ t("jskit.workspaces.membersAdmin.inviteTitle") }}</v-card-title>
+            <v-card-subtitle>{{ t("jskit.workspaces.membersAdmin.inviteSubtitle") }}</v-card-subtitle>
           </v-card-item>
           <v-divider />
           <v-card-text>
@@ -18,24 +18,24 @@
                 v-if="workspaceInvitePolicyLoaded && !workspaceInvitesAvailable"
                 class="text-body-2 text-medium-emphasis mb-3"
               >
-                Invites are disabled by app policy or role manifest.
+                {{ t("jskit.workspaces.membersAdmin.invitesUnavailable") }}
               </p>
               <p
                 v-else-if="workspaceInvitePolicyLoaded && !workspaceInvitesEnabled"
                 class="text-body-2 text-medium-emphasis mb-3"
               >
-                Invites are currently off for this workspace.
+                {{ t("jskit.workspaces.membersAdmin.invitesOff") }}
               </p>
 
               <p v-if="!canInviteMembers" class="text-body-2 text-medium-emphasis mb-3">
-                You do not have permission to send invites.
+                {{ t("jskit.workspaces.membersAdmin.noInvitePermission") }}
               </p>
 
               <template v-else-if="canShowInviteForm">
                 <v-form @submit.prevent="onSubmitInvite" novalidate>
                   <v-text-field
                     v-model="inviteForm.email"
-                    label="Email"
+                    :label="t('jskit.workspaces.membersAdmin.email')"
                     variant="outlined"
                     density="comfortable"
                     type="email"
@@ -45,7 +45,7 @@
                   />
                   <v-select
                     v-model="inviteForm.roleSid"
-                    label="Role"
+                    :label="t('jskit.workspaces.membersAdmin.role')"
                     :items="inviteRoleOptions"
                     item-title="title"
                     item-value="value"
@@ -60,7 +60,7 @@
                     :loading="isCreatingInvite"
                     :disabled="showWorkspaceInviteRefreshingIndicator"
                   >
-                    Send invite
+                    {{ t("jskit.workspaces.membersAdmin.sendInvite") }}
                   </v-btn>
                 </v-form>
 
@@ -70,7 +70,7 @@
                   <div class="invite-link-row">
                     <v-text-field
                       :model-value="createdInviteUrl"
-                      label="Invite link"
+                      :label="t('jskit.workspaces.membersAdmin.inviteLink')"
                       variant="outlined"
                       density="compact"
                       readonly
@@ -84,7 +84,7 @@
                       :loading="isCopyingInviteLink"
                       @click="onCopyInviteLink"
                     >
-                      Copy
+                      {{ t("jskit.workspaces.membersAdmin.copy") }}
                     </v-btn>
                   </div>
                 </div>
@@ -97,8 +97,8 @@
       <v-col cols="12" lg="7">
         <v-card rounded="lg" elevation="1" border data-testid="members-admin-members-card">
           <v-card-item>
-            <v-card-title class="text-subtitle-1">Team</v-card-title>
-            <v-card-subtitle>Members and pending invites.</v-card-subtitle>
+            <v-card-title class="text-subtitle-1">{{ t("jskit.workspaces.membersAdmin.teamTitle") }}</v-card-title>
+            <v-card-subtitle>{{ t("jskit.workspaces.membersAdmin.teamSubtitle") }}</v-card-subtitle>
           </v-card-item>
           <v-divider />
           <v-card-text>
@@ -110,17 +110,17 @@
             <template v-else>
               <v-progress-linear v-if="showMembersRefreshingIndicator" indeterminate class="mb-3" />
               <p v-if="!canViewMembers" class="text-body-2 text-medium-emphasis mb-0">
-                You do not have permission to view members.
+                {{ t("jskit.workspaces.membersAdmin.noViewPermission") }}
               </p>
 
               <template v-else>
-                <div class="text-caption text-medium-emphasis mb-2">Members</div>
+                <div class="text-caption text-medium-emphasis mb-2">{{ t("jskit.workspaces.membersAdmin.members") }}</div>
                 <v-list density="comfortable" class="pa-0 mb-3">
                   <v-list-item v-for="member in memberRows" :key="member.userId" class="px-0">
                     <template #title>
                       <div class="d-flex align-center ga-2">
                         <span>{{ member.displayName || member.email }}</span>
-                        <v-chip v-if="showOwnerChip(member)" size="x-small" label color="secondary">Owner</v-chip>
+                        <v-chip v-if="showOwnerChip(member)" size="x-small" label color="secondary">{{ t("jskit.workspaces.membersAdmin.owner") }}</v-chip>
                       </div>
                     </template>
                     <template #subtitle>
@@ -150,7 +150,7 @@
                           :loading="isRemoveMemberLoading(member.userId)"
                           @click="onRemoveMember(member)"
                         >
-                          Remove
+                          {{ t("jskit.workspaces.membersAdmin.remove") }}
                         </v-btn>
                       </div>
                     </template>
@@ -159,14 +159,14 @@
 
                 <v-divider class="mb-3" />
 
-                <div class="text-caption text-medium-emphasis mb-2">Pending invites</div>
+                <div class="text-caption text-medium-emphasis mb-2">{{ t("jskit.workspaces.membersAdmin.pendingInvites") }}</div>
                 <v-list density="comfortable" class="pa-0">
                   <v-list-item v-for="invite in inviteRows" :key="invite.id" class="px-0">
                     <template #title>
                       {{ invite.email }}
                     </template>
                     <template #subtitle>
-                      Role: {{ formatRole(invite.roleSid) }} • expires {{ formatDateTime(invite.expiresAt) }}
+                      {{ t("jskit.workspaces.membersAdmin.inviteCaption", { role: formatRole(invite.roleSid), expires: formatDateTime(invite.expiresAt) }) }}
                     </template>
                     <template #append>
                       <v-btn
@@ -177,11 +177,11 @@
                         :loading="isRevokeInviteLoading(invite.id)"
                         @click="onRevokeInvite(invite.id)"
                       >
-                        Revoke
+                        {{ t("jskit.workspaces.membersAdmin.revoke") }}
                       </v-btn>
                     </template>
                   </v-list-item>
-                  <p v-if="inviteRows.length < 1" class="text-body-2 text-medium-emphasis mb-0">No pending invites.</p>
+                  <p v-if="inviteRows.length < 1" class="text-body-2 text-medium-emphasis mb-0">{{ t("jskit.workspaces.membersAdmin.noPendingInvites") }}</p>
                 </v-list>
               </template>
             </template>
@@ -195,9 +195,11 @@
 <script setup>
 import { computed, toRefs, unref } from "vue";
 import { mdiContentCopy } from "@mdi/js";
-import { formatDateTime as formatKernelDateTime } from "@jskit-ai/kernel/shared/support";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { requireBoolean, requireFunction, requireRecord } from "@jskit-ai/http-web/client/support/contractGuards";
+import { useJskitText } from "../i18n.js";
+
+const { t, formatDateTime: formatLocaleDateTime } = useJskitText();
 
 const props = defineProps({
   forms: {
@@ -365,14 +367,14 @@ const canShowInviteForm = computed(
 const hasCreatedInviteUrl = computed(() => Boolean(createdInviteUrl.value));
 const inviteLinkStatusText = computed(() => {
   if (createdInviteDeliveryStatus.value === "sent") {
-    return "Invite sent. The link remains available here.";
+    return t("jskit.workspaces.membersAdmin.linkSent");
   }
 
   if (createdInviteDeliveryStatus.value === "failed") {
-    return "Email delivery failed. Copy this link to share the invite.";
+    return t("jskit.workspaces.membersAdmin.linkDeliveryFailed");
   }
 
-  return "Copy this link to share the invite.";
+  return t("jskit.workspaces.membersAdmin.linkReady");
 });
 
 function formatRole(roleSid, fallback = roleSid) {
@@ -383,7 +385,7 @@ function formatDateTime(value) {
   if (typeof options.value.formatDateTime === "function") {
     return options.value.formatDateTime(value);
   }
-  return formatKernelDateTime(value);
+  return formatLocaleDateTime(value) || t("jskit.workspaces.common.unknownDate");
 }
 
 function showOwnerChip(member) {

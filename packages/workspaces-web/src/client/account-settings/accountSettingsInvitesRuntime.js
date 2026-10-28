@@ -1,3 +1,4 @@
+import { useJskitText } from "../i18n.js";
 import { resolveErrorStatusCode } from "../support/runtimeNormalization.js";
 
 function createAccountSettingsInvitesRuntime({
@@ -12,6 +13,8 @@ function createAccountSettingsInvitesRuntime({
   openWorkspace,
   reportAccountFeedback
 } = {}) {
+  const { t, errorMessage } = useJskitText();
+
   async function respondToInvite(invite, decision) {
     if (!invitesAvailable.value) {
       return;
@@ -47,20 +50,16 @@ function createAccountSettingsInvitesRuntime({
       }
 
       reportAccountFeedback({
-        message: normalizedDecision === "accept" ? "Invitation accepted." : "Invitation refused.",
+        message: t(normalizedDecision === "accept" ? "jskit.workspaces.accountInvites.accepted" : "jskit.workspaces.common.invitationRefused"),
         severity: "success",
         channel: "snackbar",
         dedupeKey: `workspaces-web.account-settings-runtime:invite-${normalizedDecision}:${token}`
       });
     } catch (error) {
       const statusCode = resolveErrorStatusCode(error);
-      const fallbackMessage = normalizedDecision === "accept"
-        ? "Unable to accept invitation."
-        : "Unable to refuse invitation.";
+      const fallbackMessage = t(normalizedDecision === "accept" ? "jskit.workspaces.common.acceptInvitationFailed" : "jskit.workspaces.accountInvites.refuseFailed");
       reportAccountFeedback({
-        message: statusCode === 404
-          ? "Invitation no longer exists."
-          : String(error?.message || fallbackMessage),
+        message: statusCode === 404 ? t("jskit.workspaces.accountInvites.noLongerExists") : errorMessage(error, fallbackMessage),
         severity: "error",
         channel: "banner",
         dedupeKey: `workspaces-web.account-settings-runtime:invite-${normalizedDecision}-error:${token}`

@@ -1,11 +1,12 @@
 <script setup>
 import { mdiCogOutline } from "@mdi/js";
 import WorkspacePermissionMenuItem from "./WorkspacePermissionMenuItem.vue";
+import { useJskitText } from "../i18n.js";
 
 const props = defineProps({
   label: {
     type: String,
-    default: "Workspace settings"
+    default: "jskit.workspaces.menu.workspaceSettings"
   },
   to: {
     type: String,
@@ -21,6 +22,7 @@ const props = defineProps({
   }
 });
 
+const { text } = useJskitText();
 const WORKSPACE_SETTINGS_MENU_PERMISSIONS = Object.freeze([
   "workspace.settings.view",
   "workspace.settings.update"
@@ -29,7 +31,7 @@ const WORKSPACE_SETTINGS_MENU_PERMISSIONS = Object.freeze([
 
 <template>
   <WorkspacePermissionMenuItem
-    :label="props.label"
+    :label="text(props.label)"
     :to="props.to"
     :icon="props.icon"
     :surface="props.surface"
