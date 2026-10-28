@@ -212,7 +212,7 @@ function subscribeAssistantConversation({
         pending = [];
         if (socket.connected) socket.emit(ASSISTANT_CONVERSATION_UNSUBSCRIBE, { subscriptionId });
         if (error || response?.status >= 500) {
-          retryTimer = setTimeout(subscribe, retryDelay);
+          retryTimer = setTimeout(() => subscribe({ preserveHistory }), retryDelay);
           retryDelay = Math.min(retryDelay * 2, 30_000);
         }
         onError(error ? Object.assign(new Error("Chat updates could not reconnect. Retrying automatically; Reload chat to try now.", { cause: error }), {

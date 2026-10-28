@@ -1058,6 +1058,24 @@ test("a transient subscription failure retries by itself while connected; denial
   assert.equal(requests.length, 6, "Disposal cancels the pending retry");
 });
 
+test("a retried resubscribe keeps the loaded history its caller preserved", t => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const socket = new EventEmitter();
+  socket.connected = true;
+  const requests = [], publications = [];
+  socket.timeout = () => ({ emit(name, input, acknowledge) { requests.push(acknowledge); } });
+  const subscription = subscribeAssistantConversation({ socket, conversationId: "chat", targetSurfaceId: "home", hostSurfaceId: "home",
+    read() {}, onState: (state, options) => publications.push(options) });
+  const state = { id: "chat", conversationLog: [], streaming: { revision: 0, messages: [] } };
+  requests[0](null, { ok: true, streamEpoch: "first", state });
+  subscription.reload({ resubscribe: true });
+  requests[1](new Error("operation has timed out"));
+  t.mock.timers.tick(1_000);
+  requests[2](null, { ok: true, streamEpoch: "second", state });
+  assert.deepEqual(publications, [{ initial: true, canonical: true }, { initial: false, canonical: false }]);
+  subscription();
+});
+
 for (const status of [401, 403, 503]) {
   test(`subscription read failure ${status} fences denied updates but retains transient history`, async t => {
     const changes = new EventEmitter();
