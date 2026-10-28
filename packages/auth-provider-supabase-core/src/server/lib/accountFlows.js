@@ -1,4 +1,5 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+import { AUTH_TEXTS, authFieldError, createAuthError } from "@jskit-ai/auth-core/server/authTexts";
 import { authRegisterBodyValidator } from "@jskit-ai/auth-core/shared/commands/authRegisterCommand";
 import { authRegisterConfirmationResendBodyValidator } from "@jskit-ai/auth-core/shared/commands/authRegisterConfirmationResendCommand";
 import { authLoginPasswordBodyValidator } from "@jskit-ai/auth-core/shared/commands/authLoginPasswordCommand";
@@ -8,6 +9,21 @@ import {
   requireAuthUser,
   requireAuthUserSession
 } from "./flowGuards.js";
+
+// The answer is the same whether or not an account exists for the email.
+const CONFIRMATION_SENT_RESULT = Object.freeze({
+  ok: true,
+  message: "If an account exists for that email, a confirmation email has been sent.",
+  messageCode: "auth.supabase.register.confirmationSent",
+  messageParams: Object.freeze({})
+});
+
+const OTP_SENT_RESULT = Object.freeze({
+  ok: true,
+  message: "If an account exists for that email, a one-time code has been sent.",
+  messageCode: "auth.supabase.otp.sent",
+  messageParams: Object.freeze({})
+});
 
 function normalizeLocalReturnToPath(value, { fallback = "" } = {}) {
   const normalized = String(value || "").trim();
@@ -107,7 +123,7 @@ function createAccountFlows(deps) {
     }
 
     if (!response.data?.user) {
-      throw new AppError(500, "Supabase sign-up did not return a user.");
+      throw new AppError(500, "Supabase sign-up did not return a user.", { code: "auth.supabase.register.noUser" });
     }
 
     const profile = await syncProfileFromSupabaseUser(response.data.user, parsed.email);
@@ -153,10 +169,7 @@ function createAccountFlows(deps) {
         throw mapAuthError(error, 503);
       }
 
-      return {
-        ok: true,
-        message: "If an account exists for that email, a confirmation email has been sent."
-      };
+      return { ...CONFIRMATION_SENT_RESULT };
     }
 
     if (response.error) {
@@ -165,19 +178,13 @@ function createAccountFlows(deps) {
       }
 
       if (isUserNotFoundLikeAuthError(response.error)) {
-        return {
-          ok: true,
-          message: "If an account exists for that email, a confirmation email has been sent."
-        };
+        return { ...CONFIRMATION_SENT_RESULT };
       }
 
       throw mapAuthError(response.error, Number(response.error?.status || 400));
     }
 
-    return {
-      ok: true,
-      message: "If an account exists for that email, a confirmation email has been sent."
-    };
+    return { ...CONFIRMATION_SENT_RESULT };
   }
 
   async function login(payload) {
@@ -200,7 +207,7 @@ function createAccountFlows(deps) {
     const profile = await syncProfileFromSupabaseUser(user, parsed.email);
     const passwordSignInPolicy = await resolvePasswordSignInPolicyForUserId(profile.id);
     if (!passwordSignInPolicy.passwordSignInEnabled) {
-      throw new AppError(401, "Invalid email or password.");
+      throw createAuthError(AUTH_TEXTS.invalidCredentials);
     }
 
     return {
@@ -234,10 +241,7 @@ function createAccountFlows(deps) {
         throw mapAuthError(error, 503);
       }
 
-      return {
-        ok: true,
-        message: "If an account exists for that email, a one-time code has been sent."
-      };
+      return { ...OTP_SENT_RESULT };
     }
 
     if (response.error) {
@@ -246,19 +250,13 @@ function createAccountFlows(deps) {
       }
 
       if (isUserNotFoundLikeAuthError(response.error)) {
-        return {
-          ok: true,
-          message: "If an account exists for that email, a one-time code has been sent."
-        };
+        return { ...OTP_SENT_RESULT };
       }
 
       throw mapAuthError(response.error, Number(response.error?.status || 400));
     }
 
-    return {
-      ok: true,
-      message: "If an account exists for that email, a one-time code has been sent."
-    };
+    return { ...OTP_SENT_RESULT };
   }
 
   async function verifyOtpLogin(payload) {
@@ -275,11 +273,11 @@ function createAccountFlows(deps) {
     const type = String(parsed.type || "email").trim().toLowerCase();
 
     if (!token && !tokenHash) {
-      fieldErrors.token = "One-time code is required.";
+      fieldErrors.token = { code: "auth.supabase.otp.codeRequired", message: "One-time code is required." };
     }
 
     if (!tokenHash && !parsed.email) {
-      fieldErrors.email = "Email is required.";
+      fieldErrors.email = authFieldError(AUTH_TEXTS.emailRequired);
     }
 
     if (Object.keys(fieldErrors).length > 0) {
@@ -325,7 +323,7 @@ function createAccountFlows(deps) {
     ).trim();
     if (!normalizedDisplayName) {
       throw validationError({
-        displayName: "Display name is required."
+        displayName: authFieldError(AUTH_TEXTS.displayNameRequired)
       });
     }
 

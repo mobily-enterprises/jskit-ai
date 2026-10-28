@@ -6,6 +6,7 @@ import {
   resolveDevAuthPolicy
 } from "@jskit-ai/auth-core/server/devAuth";
 import { normalizeEmail } from "@jskit-ai/auth-core/server/utils";
+import { AUTH_TEXTS, authFieldError } from "@jskit-ai/auth-core/server/authTexts";
 import { loadJose, isExpiredJwtError } from "./authJwt.js";
 
 const DEV_AUTH_TOKEN_PREFIX = "jskit-dev.";
@@ -109,7 +110,7 @@ async function resolveProfileFromTokenClaims(payload, { userProfilesRepository =
     return profile;
   }
 
-  throw new AppError(401, "Dev session is invalid.");
+  throw new AppError(401, "Dev session is invalid.", { code: "auth.supabase.dev.sessionInvalid" });
 }
 
 async function signDevAuthToken(kind, profile, config) {
@@ -191,15 +192,17 @@ async function createDevAuthSession(profile, config) {
 
 async function resolveDevAuthProfile(input = {}, { userProfilesRepository = null, validationError } = {}) {
   if (!userProfilesRepository || typeof userProfilesRepository.findById !== "function") {
-    throw new AppError(500, "Dev auth bootstrap requires internal.repository.user-profiles.findById().");
+    throw new AppError(500, "Dev auth bootstrap requires internal.repository.user-profiles.findById().", {
+      code: "auth.supabase.dev.findByIdMissing"
+    });
   }
 
   const normalizedUserId = normalizeRecordId(input?.userId, { fallback: null });
   const normalizedEmail = normalizeEmail(input?.email || "");
   if (!normalizedUserId && !normalizedEmail) {
     throw validationError({
-      userId: "Provide a user id or email.",
-      email: "Provide a user id or email."
+      userId: authFieldError(AUTH_TEXTS.devUserRequired),
+      email: authFieldError(AUTH_TEXTS.devUserRequired)
     });
   }
 
@@ -210,19 +213,21 @@ async function resolveDevAuthProfile(input = {}, { userProfilesRepository = null
     if (byId?.id) {
       return byId;
     }
-    fieldErrors.userId = "User not found.";
+    fieldErrors.userId = authFieldError(AUTH_TEXTS.devUserNotFound);
   }
 
   if (normalizedEmail) {
     if (typeof userProfilesRepository.findByEmail !== "function") {
-      throw new AppError(500, "Dev auth bootstrap requires internal.repository.user-profiles.findByEmail() for email lookup.");
+      throw new AppError(500, "Dev auth bootstrap requires internal.repository.user-profiles.findByEmail() for email lookup.", {
+        code: "auth.supabase.dev.findByEmailMissing"
+      });
     }
 
     const byEmail = await userProfilesRepository.findByEmail(normalizedEmail);
     if (byEmail?.id) {
       return byEmail;
     }
-    fieldErrors.email = "User not found.";
+    fieldErrors.email = authFieldError(AUTH_TEXTS.devUserNotFound);
   }
 
   throw validationError(fieldErrors);

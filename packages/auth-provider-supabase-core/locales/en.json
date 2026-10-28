@@ -1,0 +1,89 @@
+{
+  "jskit": {
+    "auth": {
+      "supabase": {
+        "config": {
+          "missing": "Auth provider is not configured.",
+          "passwordSettingsMissing": "Password sign-in settings repository is not configured."
+        },
+        "request": {
+          "failed": "Authentication request could not be processed."
+        },
+        "register": {
+          "emailTaken": "Email is already registered.",
+          "noUser": "Supabase sign-up did not return a user.",
+          "confirmationSent": "If an account exists for that email, a confirmation email has been sent."
+        },
+        "login": {
+          "rateLimited": "Too many authentication attempts. Please wait and try again.",
+          "emailUnconfirmed": "Account exists but email confirmation is required before login."
+        },
+        "otp": {
+          "sent": "If an account exists for that email, a one-time code has been sent.",
+          "codeRequired": "One-time code is required.",
+          "invalid": "One-time code is invalid or expired."
+        },
+        "oauth": {
+          "disabled": "OAuth sign-in is not enabled.",
+          "providerInvalid": "OAuth provider must be one of: {providers}.",
+          "cancelled": "OAuth sign-in was cancelled.",
+          "failed": "OAuth sign-in failed.",
+          "codeRequired": "OAuth code is required when access/refresh tokens are not provided."
+        },
+        "tokens": {
+          "accessTokenRequired": "Access token is required when a refresh token is provided.",
+          "refreshTokenRequired": "Refresh token is required when an access token is provided."
+        },
+        "token": {
+          "subjectMissing": "Token is missing subject claim.",
+          "emailMissing": "Token is missing email claim."
+        },
+        "recovery": {
+          "requested": "If an account exists for that email, a password reset link has been sent.",
+          "rateLimited": "Too many recovery attempts. Please wait and try again.",
+          "linkInvalid": "Recovery link is invalid or has expired."
+        },
+        "password": {
+          "sameAsCurrent": "New password must be different from the current password.",
+          "updateFailed": "Unable to update password with the provided value.",
+          "currentIncorrect": "Current password is incorrect.",
+          "currentUnverified": "Unable to verify current password.",
+          "signInDisabled": "Password sign-in is disabled for this account."
+        },
+        "session": {
+          "emailUnresolved": "Authenticated user email could not be resolved."
+        },
+        "methods": {
+          "lastEnabled": "At least one sign-in method must remain enabled.",
+          "enabledNotBoolean": "Enabled must be a boolean.",
+          "passwordUnresolved": "Password method configuration could not be resolved.",
+          "passwordNotSet": "Set a password before enabling password sign-in."
+        },
+        "link": {
+          "alreadyLinked": "This sign-in method is already linked.",
+          "manualLinkingDisabled": "Provider linking is disabled in Supabase. Enable Manual Linking in Supabase Auth settings to link or unlink providers.",
+          "lastIdentity": "At least one linked sign-in method must remain available.",
+          "notLinked": "This sign-in method is not currently linked.",
+          "unsupported": "Supabase client does not support identity linking in this environment."
+        },
+        "unlink": {
+          "unsupported": "Supabase client does not support identity unlinking in this environment.",
+          "notLinked": "{provider} is not linked to this account.",
+          "identityUnresolved": "Linked identity details could not be resolved for this provider."
+        },
+        "profile": {
+          "invalid": "{context} is invalid.",
+          "updateFailed": "Unable to update profile details.",
+          "syncFailed": "Authentication profile synchronization failed. Please retry.",
+          "emailConflict": "This email is already registered with another sign-in method. Sign in with that method, then link this provider in Settings > Security.",
+          "payloadIncomplete": "Auth provider user payload is missing required fields."
+        },
+        "dev": {
+          "sessionInvalid": "Dev session is invalid.",
+          "findByIdMissing": "Dev auth bootstrap requires internal.repository.user-profiles.findById().",
+          "findByEmailMissing": "Dev auth bootstrap requires internal.repository.user-profiles.findByEmail() for email lookup."
+        }
+      }
+    }
+  }
+}

@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+import { AUTH_TEXTS, createAuthError } from "@jskit-ai/auth-core/server/authTexts";
 import { normalizeAuthCapabilities } from "@jskit-ai/auth-core/shared/authCapabilities";
 import { ensureDevAuthExchangeAvailable } from "@jskit-ai/auth-core/server/devAuth";
 import { normalizeAuthActor, normalizeAuthResult } from "@jskit-ai/auth-core/server/authActor";
@@ -262,7 +263,7 @@ function createService(options) {
 
   function ensureConfigured() {
     if (!supabaseUrl || !supabasePublishableKey) {
-      throw new AppError(500, "Auth provider is not configured.");
+      throw new AppError(500, "Auth provider is not configured.", { code: "auth.supabase.config.missing" });
     }
   }
 
@@ -363,7 +364,7 @@ function createService(options) {
     const normalizedRefreshToken = String(refreshToken || "").trim();
 
     if (!normalizedAccessToken || !normalizedRefreshToken) {
-      throw new AppError(401, "Authentication required.");
+      throw createAuthError(AUTH_TEXTS.sessionRequired);
     }
 
     const supabase = options.supabaseClient || getSupabaseClient();
@@ -443,7 +444,7 @@ function createService(options) {
     }
 
     if (!user) {
-      throw new AppError(401, "Authentication required.");
+      throw createAuthError(AUTH_TEXTS.sessionRequired);
     }
 
     return {
@@ -562,7 +563,9 @@ function createService(options) {
       });
     } catch (error) {
       if (error instanceof AppError) {
-        throw new AppError(500, "Authentication profile synchronization failed. Please retry.");
+        throw new AppError(500, "Authentication profile synchronization failed. Please retry.", {
+          code: "auth.supabase.profile.syncFailed"
+        });
       }
       throw error;
     }
@@ -630,7 +633,8 @@ function createService(options) {
       if (String(error?.code || "") === USER_PROFILE_EMAIL_CONFLICT_CODE) {
         throw new AppError(
           409,
-          "This email is already registered with another sign-in method. Sign in with that method, then link this provider in Settings > Security."
+          "This email is already registered with another sign-in method. Sign in with that method, then link this provider in Settings > Security.",
+          { code: "auth.supabase.profile.emailConflict" }
         );
       }
 
@@ -643,7 +647,7 @@ function createService(options) {
     const email = normalizeEmail(supabaseUser?.email || fallbackEmail);
 
     if (!supabaseUserId || !email) {
-      throw new AppError(500, "Auth provider user payload is missing required fields.");
+      throw new AppError(500, "Auth provider user payload is missing required fields.", { code: "auth.supabase.profile.payloadIncomplete" });
     }
 
     return syncProfileMirror({
@@ -696,7 +700,7 @@ function createService(options) {
   async function syncProfileFromJwtClaims(claims) {
     const supabaseUserId = normalizeProviderUserId(claims?.sub);
     if (!supabaseUserId) {
-      throw new AppError(401, "Token is missing subject claim.");
+      throw new AppError(401, "Token is missing subject claim.", { code: "auth.supabase.token.subjectMissing" });
     }
 
     const existing = await findProfileByIdentity({
@@ -709,7 +713,7 @@ function createService(options) {
       if (existing) {
         return existing;
       }
-      throw new AppError(401, "Token is missing email claim.");
+      throw new AppError(401, "Token is missing email claim.", { code: "auth.supabase.token.emailMissing" });
     }
 
     return syncProfileMirror({
@@ -737,7 +741,9 @@ function createService(options) {
 
   async function setPasswordSignInEnabledForUserId(userId, enabled, options = {}) {
     if (!userSettingsRepository || typeof userSettingsRepository.updatePasswordSignInEnabled !== "function") {
-      throw new AppError(500, "Password sign-in settings repository is not configured.");
+      throw new AppError(500, "Password sign-in settings repository is not configured.", {
+        code: "auth.supabase.config.passwordSettingsMissing"
+      });
     }
 
     const updated = await userSettingsRepository.updatePasswordSignInEnabled(userId, enabled, options);
@@ -780,7 +786,7 @@ function createService(options) {
     }
 
     if (devAuthResult.authenticated !== true) {
-      throw new AppError(401, "Authentication required.");
+      throw createAuthError(AUTH_TEXTS.sessionRequired);
     }
 
     const passwordSignInPolicy = await resolvePasswordSignInPolicyForUserId(devAuthResult.actor.id);

@@ -1,4 +1,5 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+import { AUTH_TEXTS, authFieldError } from "@jskit-ai/auth-core/server/authTexts";
 import { authPasswordResetRequestBodyValidator } from "@jskit-ai/auth-core/shared/commands/authPasswordResetRequestCommand";
 import { authPasswordRecoveryCompleteBodyValidator } from "@jskit-ai/auth-core/shared/commands/authPasswordRecoveryCompleteCommand";
 import { authPasswordResetBodyValidator } from "@jskit-ai/auth-core/shared/commands/authPasswordResetCommand";
@@ -63,7 +64,9 @@ function createPasswordSecurityFlows(deps) {
 
     return {
       ok: true,
-      message: "If an account exists for that email, a password reset link has been sent."
+      message: "If an account exists for that email, a password reset link has been sent.",
+      messageCode: "auth.supabase.recovery.requested",
+      messageParams: {}
     };
   }
 
@@ -86,15 +89,21 @@ function createPasswordSecurityFlows(deps) {
 
     if ((accessToken && !refreshToken) || (!accessToken && refreshToken)) {
       if (!accessToken) {
-        fieldErrors.accessToken = "Access token is required when a refresh token is provided.";
+        fieldErrors.accessToken = {
+          code: "auth.supabase.tokens.accessTokenRequired",
+          message: "Access token is required when a refresh token is provided."
+        };
       }
       if (!refreshToken) {
-        fieldErrors.refreshToken = "Refresh token is required when an access token is provided.";
+        fieldErrors.refreshToken = {
+          code: "auth.supabase.tokens.refreshTokenRequired",
+          message: "Refresh token is required when an access token is provided."
+        };
       }
     }
 
     if (!hasCode && !hasTokenHash && !hasSessionPair) {
-      fieldErrors.recovery = "Recovery token is required.";
+      fieldErrors.recovery = authFieldError(AUTH_TEXTS.recoveryTokenRequired);
     }
 
     if (Object.keys(fieldErrors).length > 0) {
@@ -126,7 +135,8 @@ function createPasswordSecurityFlows(deps) {
       throw mapRecoveryError(response.error);
     }
 
-    const { user, session } = requireAuthUserSession(response, () => new AppError(401, "Recovery link is invalid or has expired."));
+    const { user, session } = requireAuthUserSession(response, () =>
+      new AppError(401, "Recovery link is invalid or has expired.", { code: "auth.supabase.recovery.linkInvalid" }));
     const profile = await syncProfileFromSupabaseUser(user, user.email);
 
     return {
@@ -157,7 +167,7 @@ function createPasswordSecurityFlows(deps) {
     );
     const passwordSignInPolicy = await resolvePasswordSignInPolicyForUserId(profile.id);
     if (!passwordSignInPolicy.passwordSignInEnabled) {
-      throw new AppError(409, "Password sign-in is disabled for this account.");
+      throw new AppError(409, "Password sign-in is disabled for this account.", { code: "auth.supabase.password.signInDisabled" });
     }
 
     let updateResponse;
@@ -196,7 +206,7 @@ function createPasswordSecurityFlows(deps) {
 
     const email = normalizeEmail(sessionResponse.data.user?.email || "");
     if (!email) {
-      throw new AppError(500, "Authenticated user email could not be resolved.");
+      throw new AppError(500, "Authenticated user email could not be resolved.", { code: "auth.supabase.session.emailUnresolved" });
     }
 
     if (requireCurrentPassword) {
@@ -239,7 +249,7 @@ function createPasswordSecurityFlows(deps) {
 
     if (typeof payload?.enabled !== "boolean") {
       throw validationError({
-        enabled: "Enabled must be a boolean."
+        enabled: { code: "auth.supabase.methods.enabledNotBoolean", message: "Enabled must be a boolean." }
       });
     }
 
@@ -253,17 +263,19 @@ function createPasswordSecurityFlows(deps) {
     const passwordMethod = findAuthMethodById(current.authMethodsStatus, authMethodPasswordId);
 
     if (!passwordMethod) {
-      throw new AppError(500, "Password method configuration could not be resolved.");
+      throw new AppError(500, "Password method configuration could not be resolved.", {
+        code: "auth.supabase.methods.passwordUnresolved"
+      });
     }
 
     if (payload.enabled && !passwordMethod.configured) {
       throw validationError({
-        enabled: "Set a password before enabling password sign-in."
+        enabled: { code: "auth.supabase.methods.passwordNotSet", message: "Set a password before enabling password sign-in." }
       });
     }
 
     if (!payload.enabled && !passwordMethod.canDisable) {
-      throw new AppError(409, "At least one sign-in method must remain enabled.");
+      throw new AppError(409, "At least one sign-in method must remain enabled.", { code: "auth.supabase.methods.lastEnabled" });
     }
 
     if (!payload.enabled && passwordMethod.configured) {

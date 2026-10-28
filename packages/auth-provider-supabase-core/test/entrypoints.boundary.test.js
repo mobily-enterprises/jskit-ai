@@ -5,7 +5,8 @@ import test from "node:test";
 const EXPECTED_EXPORTS = Object.freeze({
   "./server/providers/AuthSupabaseProvider": "./src/server/providers/AuthSupabaseProvider.js",
   "./server/lib/index": "./src/server/lib/index.js",
-  "./client": "./src/client/index.js"
+  "./client": "./src/client/index.js",
+  "./locales/en.json": "./locales/en.json"
 });
 
 test("auth-provider-supabase-core exports only curated entrypoints", async () => {

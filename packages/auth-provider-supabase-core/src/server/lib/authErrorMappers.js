@@ -1,4 +1,5 @@
 import { AppError, createValidationError } from "@jskit-ai/kernel/server/runtime/errors";
+import { AUTH_TEXTS, createAuthError } from "@jskit-ai/auth-core/server/authTexts";
 
 const TRANSIENT_AUTH_MESSAGE_PARTS = [
   "network",
@@ -44,7 +45,7 @@ function sanitizeAuthMessage(message, fallback = "Authentication request could n
 
 function mapAuthError(error, fallbackStatus) {
   if (isTransientSupabaseError(error)) {
-    return new AppError(503, "Authentication service temporarily unavailable. Please retry.");
+    return createAuthError(AUTH_TEXTS.sessionUnavailable);
   }
 
   const statusFromError = Number(error?.status || error?.statusCode);
@@ -52,19 +53,23 @@ function mapAuthError(error, fallbackStatus) {
   const lower = message.toLowerCase();
 
   if (statusFromError === 429 || lower.includes("rate limit")) {
-    return new AppError(429, "Too many authentication attempts. Please wait and try again.");
+    return new AppError(429, "Too many authentication attempts. Please wait and try again.", {
+      code: "auth.supabase.login.rateLimited"
+    });
   }
 
   if (lower.includes("already registered") || lower.includes("already been registered")) {
-    return new AppError(409, "Email is already registered.");
+    return new AppError(409, "Email is already registered.", { code: "auth.supabase.register.emailTaken" });
   }
 
   if (lower.includes("email not confirmed") || lower.includes("confirm your email")) {
-    return new AppError(403, "Account exists but email confirmation is required before login.");
+    return new AppError(403, "Account exists but email confirmation is required before login.", {
+      code: "auth.supabase.login.emailUnconfirmed"
+    });
   }
 
   if (lower.includes("invalid login credentials") || lower.includes("invalid credentials")) {
-    return new AppError(401, "Invalid email or password.");
+    return createAuthError(AUTH_TEXTS.invalidCredentials);
   }
 
   if (
@@ -72,13 +77,14 @@ function mapAuthError(error, fallbackStatus) {
     lower.includes("identity is already linked") ||
     (lower.includes("identity") && lower.includes("already exists"))
   ) {
-    return new AppError(409, "This sign-in method is already linked.");
+    return new AppError(409, "This sign-in method is already linked.", { code: "auth.supabase.link.alreadyLinked" });
   }
 
   if (lower.includes("manual linking is disabled")) {
     return new AppError(
       409,
-      "Provider linking is disabled in Supabase. Enable Manual Linking in Supabase Auth settings to link or unlink providers."
+      "Provider linking is disabled in Supabase. Enable Manual Linking in Supabase Auth settings to link or unlink providers.",
+      { code: "auth.supabase.link.manualLinkingDisabled" }
     );
   }
 
@@ -87,11 +93,13 @@ function mapAuthError(error, fallbackStatus) {
     lower.includes("only identity") ||
     (lower.includes("at least one") && lower.includes("identity"))
   ) {
-    return new AppError(409, "At least one linked sign-in method must remain available.");
+    return new AppError(409, "At least one linked sign-in method must remain available.", {
+      code: "auth.supabase.link.lastIdentity"
+    });
   }
 
   if (lower.includes("identity") && lower.includes("not found")) {
-    return new AppError(409, "This sign-in method is not currently linked.");
+    return new AppError(409, "This sign-in method is not currently linked.", { code: "auth.supabase.link.notLinked" });
   }
 
   const status = Number.isInteger(statusFromError)
@@ -100,16 +108,12 @@ function mapAuthError(error, fallbackStatus) {
       ? Number(fallbackStatus)
       : 400;
   if (status >= 500) {
-    return new AppError(503, "Authentication service temporarily unavailable. Please retry.");
+    return createAuthError(AUTH_TEXTS.sessionUnavailable);
   }
   if (status === 401) {
-    return new AppError(401, "Invalid email or password.");
+    return createAuthError(AUTH_TEXTS.invalidCredentials);
   }
-  if (status >= 400 && status < 500) {
-    return new AppError(status, "Authentication request could not be processed.");
-  }
-
-  return new AppError(status, "Authentication request could not be processed.");
+  return new AppError(status, "Authentication request could not be processed.", { code: "auth.supabase.request.failed" });
 }
 
 function isUserNotFoundLikeAuthError(error) {
@@ -125,66 +129,71 @@ function isUserNotFoundLikeAuthError(error) {
 
 function mapRecoveryError(error) {
   if (isTransientSupabaseError(error)) {
-    return new AppError(503, "Authentication service temporarily unavailable. Please retry.");
+    return createAuthError(AUTH_TEXTS.sessionUnavailable);
   }
 
   const status = Number(error?.status || error?.statusCode);
   if (status === 429) {
-    return new AppError(429, "Too many recovery attempts. Please wait and try again.");
+    return new AppError(429, "Too many recovery attempts. Please wait and try again.", {
+      code: "auth.supabase.recovery.rateLimited"
+    });
   }
 
-  return new AppError(401, "Recovery link is invalid or has expired.");
+  return new AppError(401, "Recovery link is invalid or has expired.", { code: "auth.supabase.recovery.linkInvalid" });
 }
 
 function mapPasswordUpdateError(error) {
   if (isTransientSupabaseError(error)) {
-    return new AppError(503, "Authentication service temporarily unavailable. Please retry.");
+    return createAuthError(AUTH_TEXTS.sessionUnavailable);
   }
 
   const message = String(error?.message || "").toLowerCase();
   if (message.includes("same") && message.includes("password")) {
     return createValidationError({
-      password: "New password must be different from the current password."
+      password: {
+        code: "auth.supabase.password.sameAsCurrent",
+        message: "New password must be different from the current password."
+      }
     });
   }
 
   return createValidationError({
-    password: "Unable to update password with the provided value."
+    password: { code: "auth.supabase.password.updateFailed", message: "Unable to update password with the provided value." }
   });
 }
 
 function mapOtpVerifyError(error) {
   if (isTransientSupabaseError(error)) {
-    return new AppError(503, "Authentication service temporarily unavailable. Please retry.");
+    return createAuthError(AUTH_TEXTS.sessionUnavailable);
   }
 
-  return new AppError(401, "One-time code is invalid or expired.");
+  return new AppError(401, "One-time code is invalid or expired.", { code: "auth.supabase.otp.invalid" });
 }
 
 function mapProfileUpdateError(error) {
   if (isTransientSupabaseError(error)) {
-    return new AppError(503, "Authentication service temporarily unavailable. Please retry.");
+    return createAuthError(AUTH_TEXTS.sessionUnavailable);
   }
 
   return validationError({
-    displayName: "Unable to update profile details."
+    displayName: { code: "auth.supabase.profile.updateFailed", message: "Unable to update profile details." }
   });
 }
 
 function mapCurrentPasswordError(error) {
   if (isTransientSupabaseError(error)) {
-    return new AppError(503, "Authentication service temporarily unavailable. Please retry.");
+    return createAuthError(AUTH_TEXTS.sessionUnavailable);
   }
 
   const status = Number(error?.status || error?.statusCode);
   if (status === 400 || status === 401 || status === 403) {
     return validationError({
-      currentPassword: "Current password is incorrect."
+      currentPassword: { code: "auth.supabase.password.currentIncorrect", message: "Current password is incorrect." }
     });
   }
 
   return validationError({
-    currentPassword: "Unable to verify current password."
+    currentPassword: { code: "auth.supabase.password.currentUnverified", message: "Unable to verify current password." }
   });
 }
 

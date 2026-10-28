@@ -109,7 +109,9 @@ function createOauthFlows(deps) {
     });
 
     if (typeof supabase.auth.linkIdentity !== "function") {
-      throw new AppError(500, "Supabase client does not support identity linking in this environment.");
+      throw new AppError(500, "Supabase client does not support identity linking in this environment.", {
+        code: "auth.supabase.link.unsupported"
+      });
     }
 
     const redirectTo = buildOAuthLinkRedirectUrl({
@@ -146,15 +148,24 @@ function createOauthFlows(deps) {
 
     if ((accessToken && !refreshToken) || (!accessToken && refreshToken)) {
       if (!accessToken) {
-        fieldErrors.accessToken = "Access token is required when a refresh token is provided.";
+        fieldErrors.accessToken = {
+          code: "auth.supabase.tokens.accessTokenRequired",
+          message: "Access token is required when a refresh token is provided."
+        };
       }
       if (!refreshToken) {
-        fieldErrors.refreshToken = "Refresh token is required when an access token is provided.";
+        fieldErrors.refreshToken = {
+          code: "auth.supabase.tokens.refreshTokenRequired",
+          message: "Refresh token is required when an access token is provided."
+        };
       }
     }
 
     if (!code && !errorCode && !hasSessionPair) {
-      fieldErrors.code = "OAuth code is required when access/refresh tokens are not provided.";
+      fieldErrors.code = {
+        code: "auth.supabase.oauth.codeRequired",
+        message: "OAuth code is required when access/refresh tokens are not provided."
+      };
     }
 
     if (Object.keys(fieldErrors).length > 0) {
@@ -204,7 +215,9 @@ function createOauthFlows(deps) {
     const provider = normalizeOAuthProviderInput(payload.provider);
     const supabase = getSupabaseClient();
     if (typeof supabase.auth.unlinkIdentity !== "function") {
-      throw new AppError(500, "Supabase client does not support identity unlinking in this environment.");
+      throw new AppError(500, "Supabase client does not support identity unlinking in this environment.", {
+        code: "auth.supabase.unlink.unsupported"
+      });
     }
 
     await setSessionFromRequestCookies(request, {
@@ -217,17 +230,19 @@ function createOauthFlows(deps) {
     const providerMethod = findAuthMethodById(current.authMethodsStatus, methodId);
     if (!providerMethod || !providerMethod.configured) {
       throw validationError({
-        provider: `${provider} is not linked to this account.`
+        provider: { code: "auth.supabase.unlink.notLinked", params: { provider }, message: `${provider} is not linked to this account.` }
       });
     }
 
     if (!providerMethod.canDisable) {
-      throw new AppError(409, "At least one sign-in method must remain enabled.");
+      throw new AppError(409, "At least one sign-in method must remain enabled.", { code: "auth.supabase.methods.lastEnabled" });
     }
 
     const identity = findLinkedIdentityByProvider(current.user, provider);
     if (!identity) {
-      throw new AppError(409, "Linked identity details could not be resolved for this provider.");
+      throw new AppError(409, "Linked identity details could not be resolved for this provider.", {
+        code: "auth.supabase.unlink.identityUnresolved"
+      });
     }
 
     let response;

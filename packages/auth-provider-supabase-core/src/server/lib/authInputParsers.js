@@ -11,7 +11,7 @@ function normalizeOAuthProviderInput(value, options = {}) {
   const providerIds = resolveConfiguredOAuthProviders(options);
   if (providerIds.length < 1) {
     throw validationError({
-      provider: "OAuth sign-in is not enabled."
+      provider: { code: "auth.supabase.oauth.disabled", message: "OAuth sign-in is not enabled." }
     });
   }
 
@@ -23,8 +23,13 @@ function normalizeOAuthProviderInput(value, options = {}) {
     return provider;
   }
 
+  const providers = providerIds.join(", ");
   throw validationError({
-    provider: `OAuth provider must be one of: ${providerIds.join(", ")}.`
+    provider: {
+      code: "auth.supabase.oauth.providerInvalid",
+      params: { providers },
+      message: `OAuth provider must be one of: ${providers}.`
+    }
   });
 }
 
@@ -34,10 +39,10 @@ function mapOAuthCallbackError(errorCode) {
     .toLowerCase();
 
   if (normalizedCode === "access_denied") {
-    return new AppError(401, "OAuth sign-in was cancelled.");
+    return new AppError(401, "OAuth sign-in was cancelled.", { code: "auth.supabase.oauth.cancelled" });
   }
 
-  return new AppError(401, "OAuth sign-in failed.");
+  return new AppError(401, "OAuth sign-in failed.", { code: "auth.supabase.oauth.failed" });
 }
 
 export {

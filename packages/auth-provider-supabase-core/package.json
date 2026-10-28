@@ -8,7 +8,8 @@
   "exports": {
     "./server/providers/AuthSupabaseProvider": "./src/server/providers/AuthSupabaseProvider.js",
     "./server/lib/index": "./src/server/lib/index.js",
-    "./client": "./src/client/index.js"
+    "./client": "./src/client/index.js",
+    "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",

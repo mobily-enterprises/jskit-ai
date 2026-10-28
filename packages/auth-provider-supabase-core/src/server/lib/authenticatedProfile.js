@@ -69,7 +69,7 @@ function requireAuthenticatedProfile(profileLike, { context = "authenticated pro
 
   const { validatedObject, errors } = authenticatedProfileSchema.create(candidate);
   if (Object.keys(errors).length > 0) {
-    throw new AppError(500, `${context} is invalid.`);
+    throw new AppError(500, `${context} is invalid.`, { code: "auth.supabase.profile.invalid", params: { context } });
   }
 
   return validatedObject;
