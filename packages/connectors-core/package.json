@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/connectors-core",
-  "version": "0.1.63",
+  "version": "0.1.64",
   "description": "Portable integration configuration and server-side account connection runtime.",
   "type": "module",
   "scripts": {
@@ -53,7 +53,7 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/http-runtime": "0.1.244",
-    "@jskit-ai/kernel": "0.1.246"
+    "@jskit-ai/http-runtime": "0.1.245",
+    "@jskit-ai/kernel": "0.1.247"
   }
 }

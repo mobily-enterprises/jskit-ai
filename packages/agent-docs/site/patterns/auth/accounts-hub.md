@@ -97,6 +97,6 @@ security headers and token rules are not variation points.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/oidc-issuer-core@0.1.2`
+- Owner: `@jskit-ai/oidc-issuer-core@0.1.3`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/oidc-issuer-core/patterns/accounts-hub/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/oidc-issuer-core/patterns/accounts-hub/example)

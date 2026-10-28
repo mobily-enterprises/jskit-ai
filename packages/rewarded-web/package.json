@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/rewarded-web",
-  "version": "0.1.185",
+  "version": "0.1.186",
   "type": "module",
   "scripts": {
     "test": "node --test --test-concurrency=1"
@@ -54,12 +54,12 @@
     }
   },
   "dependencies": {
-    "@jskit-ai/rewarded-core": "0.1.182"
+    "@jskit-ai/rewarded-core": "0.1.183"
   },
   "peerDependencies": {
-    "@jskit-ai/http-runtime": "0.1.244",
-    "@jskit-ai/kernel": "0.1.246",
-    "@jskit-ai/shell-web": "0.1.253",
+    "@jskit-ai/http-runtime": "0.1.245",
+    "@jskit-ai/kernel": "0.1.247",
+    "@jskit-ai/shell-web": "0.1.254",
     "vue": "^3.5.13"
   }
 }

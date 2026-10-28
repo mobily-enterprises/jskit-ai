@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/shell-web",
-  "version": "0.1.253",
+  "version": "0.1.254",
   "type": "module",
   "scripts": {
     "test": "node --test --test-concurrency=1"
@@ -36,7 +36,7 @@
     "@vue/compiler-sfc": "3.5.44"
   },
   "peerDependencies": {
-    "@jskit-ai/kernel": "0.1.246",
+    "@jskit-ai/kernel": "0.1.247",
     "pinia": "^4.0.3",
     "vue": "^3.5.44",
     "vue-router": "^5.3.1",
