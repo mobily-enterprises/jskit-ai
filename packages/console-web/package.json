@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/console-web",
-  "version": "0.1.219",
+  "version": "0.1.220",
   "type": "module",
   "scripts": {
     "test": "node --test --test-concurrency=1"

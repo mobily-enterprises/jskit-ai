@@ -15,7 +15,7 @@ A concrete Fastify, Vue, and JSKIT application foundation for products that do n
 
 - Id: `app/minimal-foundation`
 - Keywords: `app`, `fastify`, `foundation`, `minimal`, `server`, `vite`, `vue`
-- Owner: `@jskit-ai/agent-docs@0.1.247`
+- Owner: `@jskit-ai/agent-docs@0.1.248`
 - Read: [PATTERN.md](patterns/app/minimal-foundation/PATTERN.md)
 - Examples: [example/](patterns/app/minimal-foundation/example/)
 - Requires: `@jskit-ai/http-runtime`, `@jskit-ai/kernel`
@@ -26,7 +26,7 @@ A concrete JSKIT web application foundation with responsive shell navigation, se
 
 - Id: `app/shell-foundation`
 - Keywords: `app`, `foundation`, `material`, `navigation`, `placements`, `shell`, `vite`, `vue`
-- Owner: `@jskit-ai/agent-docs@0.1.247`
+- Owner: `@jskit-ai/agent-docs@0.1.248`
 - Read: [PATTERN.md](patterns/app/shell-foundation/PATTERN.md)
 - Examples: [example/](patterns/app/shell-foundation/example/)
 - Requires: `@jskit-ai/http-runtime`, `@jskit-ai/kernel`, `@jskit-ai/shell-web`
@@ -48,7 +48,7 @@ Run one OpenID Connect sign-in for all of an owner's apps as its own JSKIT proje
 
 - Id: `auth/accounts-hub`
 - Keywords: `accounts hub`, `auth`, `authentication`, `issuer`, `master login`, `oidc`, `openid connect`, `single sign-on`, `sso`
-- Owner: `@jskit-ai/oidc-issuer-core@0.1.4`
+- Owner: `@jskit-ai/oidc-issuer-core@0.1.5`
 - Read: [PATTERN.md](patterns/auth/accounts-hub/PATTERN.md)
 - Examples: [example/](patterns/auth/accounts-hub/example/)
 - Requires: `@jskit-ai/oidc-issuer-core`
@@ -246,7 +246,7 @@ Add a protected administration surface, settings shell, and semantic navigation 
 
 - Id: `console/console-surface`
 - Keywords: `admin`, `console`, `navigation`, `owner`, `placement`, `settings`, `surface`
-- Owner: `@jskit-ai/console-web@0.1.219`
+- Owner: `@jskit-ai/console-web@0.1.220`
 - Read: [PATTERN.md](patterns/console/console-surface/PATTERN.md)
 - Examples: [example/](patterns/console/console-surface/example/)
 - Requires: `@jskit-ai/console-core`, `@jskit-ai/console-web`, `@jskit-ai/shell-web`
@@ -279,7 +279,7 @@ Define an authenticated application resource whose records belong to the current
 
 - Id: `crud/resource-contract`
 - Keywords: `authenticated`, `crud`, `database`, `owner-scoped`, `resource`, `user`
-- Owner: `@jskit-ai/resource-crud-core@0.1.190`
+- Owner: `@jskit-ai/resource-crud-core@0.1.191`
 - Read: [PATTERN.md](patterns/crud/resource-contract/PATTERN.md)
 - Examples: [example/](patterns/crud/resource-contract/example/)
 - Requires: `@jskit-ai/resource-crud-core`
@@ -290,7 +290,7 @@ Configure a JSKIT application for MySQL with a fixed driver, ordinary environmen
 
 - Id: `database/mysql-application`
 - Keywords: `database`, `knex`, `mariadb`, `migrations`, `mysql`, `mysql2`
-- Owner: `@jskit-ai/database-runtime-mysql@0.1.246`
+- Owner: `@jskit-ai/database-runtime-mysql@0.1.247`
 - Read: [PATTERN.md](patterns/database/mysql-application/PATTERN.md)
 - Examples: [example/](patterns/database/mysql-application/example/)
 - Requires: `@jskit-ai/database-runtime-mysql`
@@ -301,7 +301,7 @@ Configure a JSKIT application for PostgreSQL with a fixed driver, ordinary envir
 
 - Id: `database/postgres-application`
 - Keywords: `database`, `knex`, `migrations`, `pg`, `postgres`, `postgresql`
-- Owner: `@jskit-ai/database-runtime-postgres@0.1.245`
+- Owner: `@jskit-ai/database-runtime-postgres@0.1.246`
 - Read: [PATTERN.md](patterns/database/postgres-application/PATTERN.md)
 - Examples: [example/](patterns/database/postgres-application/example/)
 - Requires: `@jskit-ai/database-runtime-postgres`
@@ -345,7 +345,7 @@ Define a server feature through explicit capabilities and first-class actions, a
 
 - Id: `server/feature-package`
 - Keywords: `actions`, `feature`, `json-rest`, `knex`, `orchestration`, `package`, `provider`, `repository`, `routes`, `server`
-- Owner: `@jskit-ai/agent-docs@0.1.247`
+- Owner: `@jskit-ai/agent-docs@0.1.248`
 - Read: [PATTERN.md](patterns/server/feature-package/PATTERN.md)
 - Examples: [example/](patterns/server/feature-package/example/)
 - Requires: `@jskit-ai/kernel`

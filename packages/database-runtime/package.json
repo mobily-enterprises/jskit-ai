@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/database-runtime",
-  "version": "0.1.248",
+  "version": "0.1.249",
   "type": "module",
   "scripts": {
     "test": "node --test --test-concurrency=1"

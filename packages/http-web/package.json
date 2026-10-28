@@ -45,7 +45,7 @@
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
-    "@jskit-ai/resource-crud-core": "0.1.190",
+    "@jskit-ai/resource-crud-core": "0.1.191",
     "@mdi/js": "^7.4.47"
   },
   "peerDependencies": {

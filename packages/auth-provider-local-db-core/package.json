@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/auth-provider-local-db-core",
-  "version": "0.1.140",
+  "version": "0.1.141",
   "type": "module",
   "scripts": {
     "test": "node --test --test-concurrency=1"
@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@jskit-ai/auth-provider-local-core": "0.2.0",
-    "@jskit-ai/database-runtime": "0.1.248"
+    "@jskit-ai/database-runtime": "0.1.249"
   },
   "peerDependencies": {
     "@jskit-ai/kernel": "0.2.0"

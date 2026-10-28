@@ -5,15 +5,15 @@
   },
   "release": {
     "packages": {
-      "@jskit-ai/agent-docs": "0.1.247",
+      "@jskit-ai/agent-docs": "0.1.248",
       "@jskit-ai/architecture-inspector": "0.1.0",
       "@jskit-ai/assistant-core": "0.2.0",
       "@jskit-ai/assistant-runtime": "0.2.0",
       "@jskit-ai/assistant-voice": "0.2.0",
-      "@jskit-ai/assistant-voice-sherpa": "0.1.46",
+      "@jskit-ai/assistant-voice-sherpa": "0.1.47",
       "@jskit-ai/auth-core": "0.2.0",
       "@jskit-ai/auth-provider-local-core": "0.2.0",
-      "@jskit-ai/auth-provider-local-db-core": "0.1.140",
+      "@jskit-ai/auth-provider-local-db-core": "0.1.141",
       "@jskit-ai/auth-provider-oidc-core": "0.2.0",
       "@jskit-ai/auth-provider-supabase-core": "0.2.0",
       "@jskit-ai/auth-web": "0.2.0",
@@ -23,28 +23,28 @@
       "@jskit-ai/connectors-core": "0.2.0",
       "@jskit-ai/connectors-web": "0.2.0",
       "@jskit-ai/console-core": "0.2.0",
-      "@jskit-ai/console-web": "0.1.219",
+      "@jskit-ai/console-web": "0.1.220",
       "@jskit-ai/crud-core": "0.2.0",
-      "@jskit-ai/database-runtime": "0.1.248",
-      "@jskit-ai/database-runtime-mysql": "0.1.246",
-      "@jskit-ai/database-runtime-postgres": "0.1.245",
+      "@jskit-ai/database-runtime": "0.1.249",
+      "@jskit-ai/database-runtime-mysql": "0.1.247",
+      "@jskit-ai/database-runtime-postgres": "0.1.246",
       "@jskit-ai/http-runtime": "0.2.0",
       "@jskit-ai/http-web": "0.2.0",
       "@jskit-ai/jskit-catalog": "0.2.0",
       "@jskit-ai/json-rest-api-core": "0.2.0",
       "@jskit-ai/kernel": "0.2.0",
       "@jskit-ai/mobile-capacitor": "0.2.0",
-      "@jskit-ai/oidc-issuer-core": "0.1.4",
+      "@jskit-ai/oidc-issuer-core": "0.1.5",
       "@jskit-ai/payments-core": "0.2.0",
       "@jskit-ai/payments-web": "0.2.0",
       "@jskit-ai/realtime": "0.2.0",
       "@jskit-ai/release": "0.1.6",
-      "@jskit-ai/resource-core": "0.1.190",
-      "@jskit-ai/resource-crud-core": "0.1.190",
+      "@jskit-ai/resource-core": "0.1.191",
+      "@jskit-ai/resource-crud-core": "0.1.191",
       "@jskit-ai/rewarded-core": "0.2.0",
       "@jskit-ai/rewarded-web": "0.2.0",
       "@jskit-ai/shell-web": "0.2.0",
-      "@jskit-ai/storage-runtime": "0.1.245",
+      "@jskit-ai/storage-runtime": "0.1.246",
       "@jskit-ai/uploads-image-web": "0.2.0",
       "@jskit-ai/uploads-runtime": "0.2.0",
       "@jskit-ai/users-core": "0.2.0",
@@ -224,8 +224,8 @@
           "@ai-sdk/perplexity": "^4.0.43",
           "@ai-sdk/togetherai": "^3.0.49",
           "@ai-sdk/xai": "^4.0.58",
-          "@jskit-ai/resource-core": "0.1.190",
-          "@jskit-ai/resource-crud-core": "0.1.190",
+          "@jskit-ai/resource-core": "0.1.191",
+          "@jskit-ai/resource-crud-core": "0.1.191",
           "@mdi/js": "^7.4.47",
           "@openrouter/ai-sdk-provider": "^3.0.0",
           "ai": "^7.0.101",
@@ -343,7 +343,7 @@
           "@tanstack/vue-query": "^5.90.5",
           "vue": "^3.5.13",
           "vuetify": "^4.0.0",
-          "@jskit-ai/database-runtime": "0.1.248"
+          "@jskit-ai/database-runtime": "0.1.249"
         }
       }
     },
@@ -404,7 +404,7 @@
     },
     {
       "packageId": "@jskit-ai/assistant-voice-sherpa",
-      "version": "0.1.46",
+      "version": "0.1.47",
       "description": "Optional native Sherpa speech engine and explicit model preparation for assistant voice.",
       "jskit": {
         "kind": "runtime",
@@ -592,7 +592,7 @@
     },
     {
       "packageId": "@jskit-ai/auth-provider-local-db-core",
-      "version": "0.1.140",
+      "version": "0.1.141",
       "description": "Database-backed local auth storage backend for JSKIT local auth.",
       "jskit": {
         "kind": "runtime",
@@ -656,7 +656,7 @@
       "packageJson": {
         "dependencies": {
           "@jskit-ai/auth-provider-local-core": "0.2.0",
-          "@jskit-ai/database-runtime": "0.1.248"
+          "@jskit-ai/database-runtime": "0.1.249"
         },
         "peerDependencies": {
           "@jskit-ai/kernel": "0.2.0"
@@ -1312,8 +1312,8 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/database-runtime": "0.1.248",
-          "@jskit-ai/resource-crud-core": "0.1.190",
+          "@jskit-ai/database-runtime": "0.1.249",
+          "@jskit-ai/resource-crud-core": "0.1.191",
           "@jskit-ai/users-core": "0.2.0",
           "json-rest-schema": "^1.0.17"
         },
@@ -1326,7 +1326,7 @@
     },
     {
       "packageId": "@jskit-ai/console-web",
-      "version": "0.1.219",
+      "version": "0.1.220",
       "description": "Authenticated console surface scaffold and surface policy wiring.",
       "jskit": {
         "kind": "runtime",
@@ -1457,9 +1457,9 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/database-runtime": "0.1.248",
+          "@jskit-ai/database-runtime": "0.1.249",
           "@jskit-ai/json-rest-api-core": "0.2.0",
-          "@jskit-ai/resource-crud-core": "0.1.190",
+          "@jskit-ai/resource-crud-core": "0.1.191",
           "json-rest-schema": "^1.0.17",
           "json-rest-api": "2.1.0"
         },
@@ -1471,7 +1471,7 @@
     },
     {
       "packageId": "@jskit-ai/database-runtime",
-      "version": "0.1.248",
+      "version": "0.1.249",
       "jskit": {
         "kind": "runtime",
         "capabilities": {
@@ -1529,7 +1529,7 @@
     },
     {
       "packageId": "@jskit-ai/database-runtime-mysql",
-      "version": "0.1.246",
+      "version": "0.1.247",
       "jskit": {
         "kind": "runtime",
         "capabilities": {
@@ -1572,7 +1572,7 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/database-runtime": "0.1.248",
+          "@jskit-ai/database-runtime": "0.1.249",
           "mysql2": "^3.11.2"
         },
         "peerDependencies": {
@@ -1582,7 +1582,7 @@
     },
     {
       "packageId": "@jskit-ai/database-runtime-postgres",
-      "version": "0.1.245",
+      "version": "0.1.246",
       "jskit": {
         "kind": "runtime",
         "capabilities": {
@@ -1625,7 +1625,7 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/database-runtime": "0.1.248",
+          "@jskit-ai/database-runtime": "0.1.249",
           "pg": "^8.13.1"
         },
         "peerDependencies": {
@@ -1749,7 +1749,7 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/resource-crud-core": "0.1.190",
+          "@jskit-ai/resource-crud-core": "0.1.191",
           "@mdi/js": "^7.4.47"
         },
         "peerDependencies": {
@@ -1804,8 +1804,8 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/database-runtime": "0.1.248",
-          "@jskit-ai/resource-crud-core": "0.1.190",
+          "@jskit-ai/database-runtime": "0.1.249",
+          "@jskit-ai/resource-crud-core": "0.1.191",
           "json-rest-api": "2.1.0"
         },
         "peerDependencies": {
@@ -1873,7 +1873,7 @@
     },
     {
       "packageId": "@jskit-ai/oidc-issuer-core",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "description": "OpenID Connect accounts hub: one sign-in for all of an owner's apps, with approval of every production app.",
       "jskit": {
         "kind": "runtime",
@@ -1962,7 +1962,7 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/database-runtime": "0.1.248",
+          "@jskit-ai/database-runtime": "0.1.249",
           "jose": "6.2.12",
           "knex": "^3.1.0",
           "nodemailer": "10.2.1",
@@ -2181,7 +2181,7 @@
     },
     {
       "packageId": "@jskit-ai/resource-core",
-      "version": "0.1.190",
+      "version": "0.1.191",
       "description": "Generic resource-definition helpers and schema-definition normalization.",
       "jskit": {
         "kind": "runtime",
@@ -2208,7 +2208,7 @@
     },
     {
       "packageId": "@jskit-ai/resource-crud-core",
-      "version": "0.1.190",
+      "version": "0.1.191",
       "description": "Shared CRUD resource, field, lookup, filter, and namespace contracts.",
       "jskit": {
         "kind": "runtime",
@@ -2229,7 +2229,7 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/resource-core": "0.1.190"
+          "@jskit-ai/resource-core": "0.1.191"
         },
         "peerDependencies": {
           "@jskit-ai/kernel": "0.2.0"
@@ -2350,9 +2350,9 @@
       "packageJson": {
         "dependencies": {
           "@jskit-ai/crud-core": "0.2.0",
-          "@jskit-ai/database-runtime": "0.1.248",
+          "@jskit-ai/database-runtime": "0.1.249",
           "@jskit-ai/json-rest-api-core": "0.2.0",
-          "@jskit-ai/resource-crud-core": "0.1.190",
+          "@jskit-ai/resource-crud-core": "0.1.191",
           "@jskit-ai/workspaces-core": "0.2.0",
           "json-rest-schema": "^1.0.17"
         },
@@ -2782,7 +2782,7 @@
     },
     {
       "packageId": "@jskit-ai/storage-runtime",
-      "version": "0.1.245",
+      "version": "0.1.246",
       "jskit": {
         "kind": "runtime",
         "capabilities": {
@@ -3123,11 +3123,11 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/database-runtime": "0.1.248",
+          "@jskit-ai/database-runtime": "0.1.249",
           "@jskit-ai/json-rest-api-core": "0.2.0",
-          "@jskit-ai/resource-core": "0.1.190",
-          "@jskit-ai/resource-crud-core": "0.1.190",
-          "@jskit-ai/storage-runtime": "0.1.245",
+          "@jskit-ai/resource-core": "0.1.191",
+          "@jskit-ai/resource-crud-core": "0.1.191",
+          "@jskit-ai/storage-runtime": "0.1.246",
           "@jskit-ai/uploads-runtime": "0.2.0",
           "json-rest-schema": "^1.0.17"
         },
@@ -3498,10 +3498,10 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/database-runtime": "0.1.248",
+          "@jskit-ai/database-runtime": "0.1.249",
           "@jskit-ai/json-rest-api-core": "0.2.0",
-          "@jskit-ai/resource-core": "0.1.190",
-          "@jskit-ai/resource-crud-core": "0.1.190",
+          "@jskit-ai/resource-core": "0.1.191",
+          "@jskit-ai/resource-crud-core": "0.1.191",
           "@jskit-ai/users-core": "0.2.0",
           "json-rest-schema": "^1.0.17"
         },
@@ -3835,7 +3835,7 @@
         "@jskit-ai/oidc-issuer-core"
       ],
       "packageId": "@jskit-ai/oidc-issuer-core",
-      "packageVersion": "0.1.4",
+      "packageVersion": "0.1.5",
       "documentPath": "patterns/accounts-hub/PATTERN.md",
       "examplePath": "patterns/accounts-hub/example",
       "files": [
@@ -4374,7 +4374,7 @@
         "@jskit-ai/shell-web"
       ],
       "packageId": "@jskit-ai/console-web",
-      "packageVersion": "0.1.219",
+      "packageVersion": "0.1.220",
       "documentPath": "patterns/console-surface/PATTERN.md",
       "examplePath": "patterns/console-surface/example",
       "files": [
@@ -4467,7 +4467,7 @@
         "@jskit-ai/resource-crud-core"
       ],
       "packageId": "@jskit-ai/resource-crud-core",
-      "packageVersion": "0.1.190",
+      "packageVersion": "0.1.191",
       "documentPath": "patterns/resource-contract/PATTERN.md",
       "examplePath": "patterns/resource-contract/example",
       "files": [
@@ -4490,7 +4490,7 @@
         "@jskit-ai/database-runtime-mysql"
       ],
       "packageId": "@jskit-ai/database-runtime-mysql",
-      "packageVersion": "0.1.246",
+      "packageVersion": "0.1.247",
       "documentPath": "patterns/mysql-application/PATTERN.md",
       "examplePath": "patterns/mysql-application/example",
       "files": [
@@ -4518,7 +4518,7 @@
         "@jskit-ai/database-runtime-postgres"
       ],
       "packageId": "@jskit-ai/database-runtime-postgres",
-      "packageVersion": "0.1.245",
+      "packageVersion": "0.1.246",
       "documentPath": "patterns/postgres-application/PATTERN.md",
       "examplePath": "patterns/postgres-application/example",
       "files": [
