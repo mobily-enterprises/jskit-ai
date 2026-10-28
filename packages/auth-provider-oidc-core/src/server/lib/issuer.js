@@ -7,8 +7,6 @@ import {
 import { isLoopbackHostname } from "./config.js";
 
 const DISCOVERY_TTL_MS = 60 * 60 * 1000;
-const BLOCKED_MESSAGE = "Your accounts hub has blocked this app's address.";
-const UNREACHABLE_MESSAGE = "Your accounts hub can't be reached right now. Try again in a moment.";
 
 function registrationMetadata(origin, appName) {
   return {
@@ -25,7 +23,9 @@ function registrationMetadata(origin, appName) {
 function unreachable(error, logger) {
   if (error instanceof AppError) return error;
   logger?.warn?.({ err: error }, "OIDC issuer request failed.");
-  return new AppError(503, UNREACHABLE_MESSAGE);
+  return new AppError(503, "Your accounts hub can't be reached right now. Try again in a moment.", {
+    code: "auth.oidc.issuer.unreachable"
+  });
 }
 
 /**
@@ -77,9 +77,13 @@ function createIssuerClient({ config, store, logger = null, fetchImpl = null, no
       });
     } catch (error) {
       // An accounts hub refuses an address its owner blocked with 403.
-      if (error?.status === 403) throw new AppError(403, BLOCKED_MESSAGE);
+      if (error?.status === 403) {
+        throw new AppError(403, "Your accounts hub has blocked this app's address.", { code: "auth.oidc.issuer.blocked" });
+      }
       if (error?.status === 401 || String(error?.error || "") === "invalid_token") {
-        throw new AppError(503, "Your accounts hub refused this app's registration token. Check AUTH_OIDC_REGISTRATION_TOKEN.");
+        throw new AppError(503, "Your accounts hub refused this app's registration token. Check AUTH_OIDC_REGISTRATION_TOKEN.", {
+          code: "auth.oidc.issuer.tokenRefused"
+        });
       }
       throw unreachable(error, logger);
     }
@@ -99,7 +103,7 @@ function createIssuerClient({ config, store, logger = null, fetchImpl = null, no
    * still waiting for approval signs in to the hub's own waiting page.
    */
   async function clientFor(origin, { appName = "App" } = {}) {
-    if (config.setupProblem) throw new AppError(503, config.setupProblem);
+    if (config.setupProblem) throw new AppError(503, config.setupProblem, { code: config.setupProblemCode });
     if (config.staticClient) return { clientId: config.staticClient.clientId, clientSecret: config.staticClient.clientSecret };
     return (await store.findClient(config.issuer, origin)) || register(origin, appName);
   }

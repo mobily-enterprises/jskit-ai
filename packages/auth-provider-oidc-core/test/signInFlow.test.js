@@ -78,7 +78,7 @@ test("an address the hub blocked is explained", async (t) => {
   });
   await assert.rejects(
     rp.service.oauthStart({ provider: "oidc" }, requestAt()),
-    { statusCode: 403, message: "Your accounts hub has blocked this app's address." }
+    { statusCode: 403, message: "Your accounts hub has blocked this app's address.", code: "auth.oidc.issuer.blocked" }
   );
   assert.equal((await rp.knex("auth_oidc_clients").count({ count: "*" }))[0].count, 0);
 });
@@ -92,7 +92,8 @@ test("a wrong registration token is explained", async (t) => {
   });
   await assert.rejects(rp.service.oauthStart({ provider: "oidc" }, requestAt()), {
     statusCode: 503,
-    message: "Your accounts hub refused this app's registration token. Check AUTH_OIDC_REGISTRATION_TOKEN."
+    message: "Your accounts hub refused this app's registration token. Check AUTH_OIDC_REGISTRATION_TOKEN.",
+    code: "auth.oidc.issuer.tokenRefused"
   });
 });
 
@@ -152,7 +153,8 @@ test("a missing issuer leaves the app running and explains what to set", async (
   });
   await assert.rejects(rp.service.oauthStart({ provider: "oidc" }, requestAt()), {
     statusCode: 503,
-    message: "Sign-in is not set up yet: AUTH_OIDC_ISSUER is missing."
+    message: "Sign-in is not set up yet: AUTH_OIDC_ISSUER is missing.",
+    code: "auth.oidc.setup.issuerMissing"
   });
 });
 
@@ -167,7 +169,14 @@ test("preview identity signs in as an existing oidc users row only", async (t) =
     await issuer.close();
   });
   const previewRequest = { ...requestAt(), headers: { host: "localhost:5173", "x-jskit-dev-auth-secret": "preview-secret-0123456789abcdef" } };
-  await assert.rejects(rp.service.devLoginAs(previewRequest, { email: issuer.account.email }), { message: "User not found." });
+  await assert.rejects(rp.service.devLoginAs(previewRequest, { email: issuer.account.email }), {
+    message: "User not found.",
+    code: "auth.dev.userNotFound",
+    details: {
+      fieldErrors: { email: "User not found." },
+      fieldErrorCodes: { email: { code: "auth.dev.userNotFound", params: {} } }
+    }
+  });
 
   const { input, request } = await signInAtIssuer(rp);
   await rp.service.oauthComplete(input, request);

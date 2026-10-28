@@ -6,8 +6,12 @@ import { BACKCHANNEL_LOGOUT_EVENT } from "../src/server/lib/backchannelLogout.js
 import { startMockIssuer } from "../test-support/mockIssuer.js";
 import { APP_ORIGIN, createRelyingParty, requestAt, signInAtIssuer } from "../test-support/harness.js";
 
-const VERIFY_FAILED = { statusCode: 401, message: "Your sign-in could not be verified. Start again." };
-const ATTEMPT_MISMATCH = { statusCode: 400, message: "This sign-in took too long or started in another browser. Start again." };
+const VERIFY_FAILED = { statusCode: 401, message: "Your sign-in could not be verified. Start again.", code: "auth.oidc.signIn.unverified" };
+const ATTEMPT_MISMATCH = {
+  statusCode: 400,
+  message: "This sign-in took too long or started in another browser. Start again.",
+  code: "auth.oidc.signIn.expired"
+};
 
 // Re-signs the issuer's ID token with changed claims, as a hostile token endpoint would.
 function tamperingFetch(issuer, change) {

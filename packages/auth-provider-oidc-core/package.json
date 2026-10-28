@@ -8,7 +8,8 @@
   "exports": {
     "./server/providers/AuthOidcProvider": "./src/server/providers/AuthOidcProvider.js",
     "./server/lib/index": "./src/server/lib/index.js",
-    "./shared": "./src/shared/index.js"
+    "./shared": "./src/shared/index.js",
+    "./locales/en.json": "./locales/en.json"
   },
   "bin": {
     "jskit-oidc-sign-in": "./bin/jskit-oidc-sign-in.js"

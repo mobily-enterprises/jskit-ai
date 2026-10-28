@@ -93,10 +93,14 @@ function resolveOidcConfig({ env = {}, appRoot = process.cwd() } = {}) {
   const devAuth = resolveDevAuthPolicyFromEnv(env);
   assertDevAuthPolicy(devAuth);
 
-  let setupProblem = "";
-  if (!issuer) setupProblem = "Sign-in is not set up yet: AUTH_OIDC_ISSUER is missing.";
-  else if (!registrationToken && !clientId) {
-    setupProblem = "Sign-in is not set up yet: set AUTH_OIDC_REGISTRATION_TOKEN, or AUTH_OIDC_CLIENT_ID and AUTH_OIDC_CLIENT_SECRET.";
+  let setupProblem = null;
+  if (!issuer) {
+    setupProblem = { code: "auth.oidc.setup.issuerMissing", message: "Sign-in is not set up yet: AUTH_OIDC_ISSUER is missing." };
+  } else if (!registrationToken && !clientId) {
+    setupProblem = {
+      code: "auth.oidc.setup.clientMissing",
+      message: "Sign-in is not set up yet: set AUTH_OIDC_REGISTRATION_TOKEN, or AUTH_OIDC_CLIENT_ID and AUTH_OIDC_CLIENT_SECRET."
+    };
   }
 
   return Object.freeze({
@@ -109,7 +113,8 @@ function resolveOidcConfig({ env = {}, appRoot = process.cwd() } = {}) {
     appPublicOrigin,
     sessionSecret: resolveSessionSecret(env, { appRoot, isProduction }),
     devAuth,
-    setupProblem
+    setupProblem: setupProblem?.message || "",
+    setupProblemCode: setupProblem?.code || ""
   });
 }
 

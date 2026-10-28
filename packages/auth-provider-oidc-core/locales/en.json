@@ -1,0 +1,31 @@
+{
+  "jskit": {
+    "auth": {
+      "oidc": {
+        "setup": {
+          "issuerMissing": "Sign-in is not set up yet: AUTH_OIDC_ISSUER is missing.",
+          "clientMissing": "Sign-in is not set up yet: set AUTH_OIDC_REGISTRATION_TOKEN, or AUTH_OIDC_CLIENT_ID and AUTH_OIDC_CLIENT_SECRET."
+        },
+        "issuer": {
+          "unreachable": "Your accounts hub can't be reached right now. Try again in a moment.",
+          "blocked": "Your accounts hub has blocked this app's address.",
+          "tokenRefused": "Your accounts hub refused this app's registration token. Check AUTH_OIDC_REGISTRATION_TOKEN."
+        },
+        "request": {
+          "noAddress": "This request has no usable address.",
+          "publicUrlRequired": "Set APP_PUBLIC_URL so sign-in returns to this app's https address."
+        },
+        "signIn": {
+          "providerInvalid": "OAuth provider must be {provider}.",
+          "emailMissing": "Your account provider did not share an email address.",
+          "emailUnconfirmed": "Your account provider has not confirmed your email address yet. Confirm it there, then sign in again.",
+          "cancelled": "Sign-in was cancelled.",
+          "incomplete": "Sign-in was not completed. Start again.",
+          "expired": "This sign-in took too long or started in another browser. Start again.",
+          "codeRequired": "OAuth code is required.",
+          "unverified": "Your sign-in could not be verified. Start again."
+        }
+      }
+    }
+  }
+}

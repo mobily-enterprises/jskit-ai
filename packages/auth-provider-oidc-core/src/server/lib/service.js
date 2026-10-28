@@ -9,6 +9,7 @@ import {
 } from "@jskit-ai/auth-core/server/devAuth";
 import { hostOnlyCookieName, normalizeEmail, normalizeReturnToPath } from "@jskit-ai/auth-core/server/utils";
 import { throwUnsupportedAuthOperation } from "@jskit-ai/auth-core/server/unsupportedOperation";
+import { AUTH_TEXTS, authFieldErrorDetails, createAuthError } from "@jskit-ai/auth-core/server/authTexts";
 import { AUTH_OIDC_PROVIDER_ID, AUTH_OIDC_REDIRECT_PATH } from "../../shared/index.js";
 import { isLoopbackHostname } from "./config.js";
 import {
@@ -21,10 +22,6 @@ const SESSION_COOKIE = "jskit_oidc_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 const DEV_AUTH_SESSION_PURPOSE = "dev-auth";
 const SIGN_IN_SCOPE = "openid email profile";
-const EXPIRED_ATTEMPT_MESSAGE = "This sign-in took too long or started in another browser. Start again.";
-const UNVERIFIED_MESSAGE = "Your sign-in could not be verified. Start again.";
-const UNCONFIRMED_EMAIL_MESSAGE =
-  "Your account provider has not confirmed your email address yet. Confirm it there, then sign in again.";
 
 function sha256(value) {
   return createHash("sha256").update(value).digest("base64url");
@@ -159,10 +156,12 @@ function createOidcAuthService({ config, store, issuer, profileProjector = null,
     try {
       origin = new URL(`${https ? "https" : "http"}://${host}`);
     } catch {
-      throw new AppError(400, "This request has no usable address.");
+      throw new AppError(400, "This request has no usable address.", { code: "auth.oidc.request.noAddress" });
     }
     if (origin.protocol === "http:" && !isLoopbackHostname(origin.hostname) && config.isProduction) {
-      throw new AppError(400, "Set APP_PUBLIC_URL so sign-in returns to this app's https address.");
+      throw new AppError(400, "Set APP_PUBLIC_URL so sign-in returns to this app's https address.", {
+        code: "auth.oidc.request.publicUrlRequired"
+      });
     }
     return origin.origin;
   }
@@ -170,7 +169,10 @@ function createOidcAuthService({ config, store, issuer, profileProjector = null,
   async function oauthStart(input = {}, request = null) {
     const provider = String(input.provider || AUTH_OIDC_PROVIDER_ID).trim().toLowerCase();
     if (provider !== AUTH_OIDC_PROVIDER_ID) {
-      throw new AppError(400, `OAuth provider must be ${AUTH_OIDC_PROVIDER_ID}.`);
+      throw new AppError(400, `OAuth provider must be ${AUTH_OIDC_PROVIDER_ID}.`, {
+        code: "auth.oidc.signIn.providerInvalid",
+        params: { provider: AUTH_OIDC_PROVIDER_ID }
+      });
     }
     const returnTo = normalizeReturnToPath(input.returnTo, { fallback: "/" });
     const origin = requestOrigin(request);
@@ -210,23 +212,35 @@ function createOidcAuthService({ config, store, issuer, profileProjector = null,
       source = await client.fetchUserInfo(configuration, tokens.access_token, claims.sub);
       email = normalizeEmail(source.email);
     }
-    if (!email) throw new AppError(401, "Your account provider did not share an email address.");
+    if (!email) {
+      throw new AppError(401, "Your account provider did not share an email address.", { code: "auth.oidc.signIn.emailMissing" });
+    }
     // Apps trust this address (invitations match it), so an issuer's explicit
     // "not confirmed" stops the sign-in. Issuers that never send the claim pass.
-    if (source.email_verified === false) throw new AppError(401, UNCONFIRMED_EMAIL_MESSAGE);
+    if (source.email_verified === false) {
+      throw new AppError(401, "Your account provider has not confirmed your email address yet. Confirm it there, then sign in again.", {
+        code: "auth.oidc.signIn.emailUnconfirmed"
+      });
+    }
     return { sub: String(claims.sub), email, displayName: displayNameFrom(source, email), sid: String(claims.sid || "") };
   }
 
   async function oauthComplete(input = {}, request = null) {
     const errorCode = String(input.error || input.error_code || "").trim();
     if (errorCode) {
-      throw new AppError(401, errorCode === "access_denied" ? "Sign-in was cancelled." : "Sign-in was not completed. Start again.");
+      throw errorCode === "access_denied"
+        ? new AppError(401, "Sign-in was cancelled.", { code: "auth.oidc.signIn.cancelled" })
+        : new AppError(401, "Sign-in was not completed. Start again.", { code: "auth.oidc.signIn.incomplete" });
     }
     const attempt = sealer.open(cookiesOf(request)[TRANSACTION_COOKIE]);
     const state = String(input.state || "");
-    if (!attempt || !state || state !== attempt.state) throw new AppError(400, EXPIRED_ATTEMPT_MESSAGE);
+    if (!attempt || !state || state !== attempt.state) {
+      throw new AppError(400, "This sign-in took too long or started in another browser. Start again.", {
+        code: "auth.oidc.signIn.expired"
+      });
+    }
     const code = String(input.code || "").trim();
-    if (!code) throw new AppError(400, "OAuth code is required.");
+    if (!code) throw new AppError(400, "OAuth code is required.", { code: "auth.oidc.signIn.codeRequired" });
 
     const configuration = await issuer.configurationForOrigin(attempt.origin, { appName: config.appName });
     const callback = new URL(`${attempt.origin}${AUTH_OIDC_REDIRECT_PATH}`);
@@ -243,7 +257,7 @@ function createOidcAuthService({ config, store, issuer, profileProjector = null,
       });
     } catch (error) {
       logger?.warn?.({ err: { name: error?.name, code: error?.code, message: error?.message } }, "OIDC sign-in was rejected.");
-      throw new AppError(401, UNVERIFIED_MESSAGE);
+      throw new AppError(401, "Your sign-in could not be verified. Start again.", { code: "auth.oidc.signIn.unverified" });
     }
     const identity = await identityFromTokens(configuration, tokens);
     const session = await createSession(identity, {
@@ -291,16 +305,19 @@ function createOidcAuthService({ config, store, issuer, profileProjector = null,
     const userId = String(input?.userId || "").trim();
     const email = normalizeEmail(input?.email);
     if (!userId && !email) {
-      throw new AppError(400, "Provide a user id or email.", {
-        details: { fieldErrors: { userId: "Provide a user id or email.", email: "Provide a user id or email." } }
+      throw createAuthError(AUTH_TEXTS.devUserRequired, {
+        details: authFieldErrorDetails({ userId: AUTH_TEXTS.devUserRequired, email: AUTH_TEXTS.devUserRequired })
       });
     }
     const known = await store.findKnownUser(AUTH_OIDC_PROVIDER_ID, { userId, email });
     const identity = known ? { sub: known.sub, email: known.email, displayName: known.displayName } : null;
     const appProfile = identity ? await existingProfile(identity) : null;
     if (!identity || (profileProjector && !appProfile)) {
-      throw new AppError(400, "User not found.", {
-        details: { fieldErrors: { ...(userId ? { userId: "User not found." } : {}), ...(email ? { email: "User not found." } : {}) } }
+      throw createAuthError(AUTH_TEXTS.devUserNotFound, {
+        details: authFieldErrorDetails({
+          ...(userId ? { userId: AUTH_TEXTS.devUserNotFound } : {}),
+          ...(email ? { email: AUTH_TEXTS.devUserNotFound } : {})
+        })
       });
     }
     const session = await createSession(identity, { purpose: DEV_AUTH_SESSION_PURPOSE });
