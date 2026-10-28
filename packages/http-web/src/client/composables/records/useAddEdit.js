@@ -90,9 +90,10 @@ function useAddEdit({
   const routeContext = operationScope.routeContext;
   const resolvedMessages = {
     ...resolveResourceMessages(resource, {
-      validation: t("jskit.http.feedback.fixInvalidValues"),
-      saveSuccess: t("jskit.http.feedback.saved"),
-      saveError: t("jskit.http.feedback.saveFailed")
+      // Keys, rendered when shown so they follow a language switch.
+      validation: "jskit.http.feedback.fixInvalidValues",
+      saveSuccess: "jskit.http.feedback.saved",
+      saveError: "jskit.http.feedback.saveFailed"
     }),
     ...(messages && typeof messages === "object" ? messages : {})
   };
@@ -102,7 +103,7 @@ function useAddEdit({
     ...resolvedMessages,
     saveError: String(fallbackSaveError || "").trim() ||
       String(resolvedMessages.saveError || "").trim() ||
-      t("jskit.http.feedback.saveFailed")
+      "jskit.http.feedback.saveFailed"
   };
 
   const canView = operationScope.permissionGate("view");

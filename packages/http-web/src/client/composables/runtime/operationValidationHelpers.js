@@ -3,7 +3,7 @@ import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { toUiFieldErrors } from "../support/errorMessageHelpers.js";
 import { useJskitText } from "../../i18n.js";
 
-const { t } = useJskitText();
+const { t, text } = useJskitText();
 
 function validateOperationInput({
   input,
@@ -37,7 +37,7 @@ function validateOperationInput({
     const fieldErrorCodes = error.fieldErrorCodes || error.details?.fieldErrorCodes;
     const failure = {
       ...createValidationFailure({
-        error: String(validationMessage || t("jskit.http.feedback.validationFailed")),
+        error: text(validationMessage) || t("jskit.http.feedback.validationFailed"),
         code: "validation_failed",
         fieldErrors: error?.fieldErrors
       }),

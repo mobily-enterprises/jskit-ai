@@ -5,7 +5,7 @@ import { watchResourceModelState } from "./modelStateHelpers.js";
 import { toUiFieldErrors } from "../support/errorMessageHelpers.js";
 import { useJskitText } from "../../i18n.js";
 
-const { t } = useJskitText();
+const { t, text } = useJskitText();
 
 function useAddEditCore({
   model,
@@ -79,7 +79,7 @@ function useAddEditCore({
       rawPayload,
       fieldBag,
       feedback: validationFeedback === false ? null : feedback,
-      validationMessage: String(messages.validation || t("jskit.http.feedback.validationFailed"))
+      validationMessage: text(messages.validation) || t("jskit.http.feedback.validationFailed")
     });
     if (!validationResult.ok) {
       return;
@@ -120,10 +120,10 @@ function useAddEditCore({
         });
       }
 
-      feedback?.success?.(String(messages.saveSuccess || t("jskit.http.feedback.saved")));
+      feedback?.success?.(text(messages.saveSuccess) || t("jskit.http.feedback.saved"));
     } catch (error) {
       fieldBag?.apply?.(toUiFieldErrors(error));
-      feedback?.error?.(error, String(messages.saveError || t("jskit.http.feedback.saveFailed")));
+      feedback?.error?.(error, text(messages.saveError) || t("jskit.http.feedback.saveFailed"));
     } finally {
       submitting.value = false;
     }

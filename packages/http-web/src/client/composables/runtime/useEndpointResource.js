@@ -10,9 +10,7 @@ import {
   mergeQueryMeta,
   mergeRequestRecoveryQueryMeta
 } from "../support/resourceLoadStateHelpers.js";
-import { useJskitText } from "../../i18n.js";
 
-const { t } = useJskitText();
 
 function buildEndpointReadRequestOptions({
   method = "GET",
@@ -82,8 +80,8 @@ function useEndpointResource({
   requestRecovery = null,
   // No label: shell-web's request recovery names the app.
   requestRecoveryLabel = "",
-  fallbackLoadError = t("jskit.http.resource.loadFailed"),
-  fallbackSaveError = t("jskit.http.resource.saveFailed")
+  fallbackLoadError = "jskit.http.resource.loadFailed",
+  fallbackSaveError = "jskit.http.resource.saveFailed"
 } = {}) {
   const activeClient = client || getHttpWebClient();
   if (!activeClient || typeof activeClient.request !== "function") {

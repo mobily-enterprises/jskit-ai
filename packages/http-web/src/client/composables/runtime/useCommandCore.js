@@ -3,7 +3,7 @@ import { validateOperationInput } from "./operationValidationHelpers.js";
 import { toUiFieldErrors } from "../support/errorMessageHelpers.js";
 import { useJskitText } from "../../i18n.js";
 
-const { t } = useJskitText();
+const { t, text } = useJskitText();
 
 function useCommandCore({
   model,
@@ -50,7 +50,7 @@ function useCommandCore({
       rawPayload,
       fieldBag,
       feedback,
-      validationMessage: String(messages.validation || t("jskit.http.feedback.validationFailed"))
+      validationMessage: text(messages.validation) || t("jskit.http.feedback.validationFailed")
     });
     if (!validationResult.ok) {
       return null;
@@ -91,7 +91,7 @@ function useCommandCore({
       }
 
       if (!suppressSuccessMessage) {
-        feedback?.success?.(String(messages.success || t("jskit.http.feedback.completed")));
+        feedback?.success?.(text(messages.success) || t("jskit.http.feedback.completed"));
       }
       return response;
     } catch (error) {
@@ -109,7 +109,7 @@ function useCommandCore({
         });
       }
 
-      feedback?.error?.(error, String(messages.error || t("jskit.http.feedback.actionFailed")));
+      feedback?.error?.(error, text(messages.error) || t("jskit.http.feedback.actionFailed"));
       throw error;
     }
   }
