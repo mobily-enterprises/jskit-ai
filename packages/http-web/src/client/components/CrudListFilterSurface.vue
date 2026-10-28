@@ -2,6 +2,7 @@
 import { computed, ref } from "vue";
 import { useDisplay } from "vuetify";
 import CrudListFilterControls from "./CrudListFilterControls.vue";
+import { useJskitText } from "../i18n.js";
 
 const props = defineProps({
   filters: {
@@ -14,9 +15,14 @@ const props = defineProps({
   },
   title: {
     type: String,
-    default: "Filters"
+    default: undefined
   }
 });
+
+const { t, text } = useJskitText();
+const resolvedTitle = computed(() =>
+  props.title === undefined ? t("jskit.http.crud.filters.title") : text(props.title)
+);
 
 const { smAndDown: isCompactLayout } = useDisplay();
 
@@ -51,7 +57,7 @@ function clearFilters() {
         class="crud-list-filter-surface__open"
         @click="sheetOpen = true"
       >
-        {{ title }}
+        {{ resolvedTitle }}
         <v-chip v-if="activeChips.length > 0" class="ml-2" size="x-small" color="primary" variant="flat">
           {{ activeChips.length }}
         </v-chip>
@@ -68,7 +74,7 @@ function clearFilters() {
         >
           {{ chip.label }}
         </v-chip>
-        <v-btn size="small" variant="text" @click="clearFilters">Clear all</v-btn>
+        <v-btn size="small" variant="text" @click="clearFilters">{{ t("jskit.http.actions.clearAll") }}</v-btn>
       </div>
     </div>
 
@@ -79,15 +85,15 @@ function clearFilters() {
     <v-dialog v-model="sheetOpen" max-width="640" location="bottom">
       <v-card rounded="lg" class="crud-list-filter-surface__sheet">
         <v-card-title class="d-flex align-center justify-space-between">
-          <span>{{ title }}</span>
-          <v-btn variant="text" @click="sheetOpen = false">Close</v-btn>
+          <span>{{ resolvedTitle }}</span>
+          <v-btn variant="text" @click="sheetOpen = false">{{ t("jskit.http.actions.close") }}</v-btn>
         </v-card-title>
         <v-card-text>
           <CrudListFilterControls :filters="filterEntries" :runtime="runtime" stacked />
         </v-card-text>
         <v-card-actions class="justify-space-between">
-          <v-btn variant="text" @click="clearFilters">Clear all</v-btn>
-          <v-btn color="primary" variant="flat" @click="sheetOpen = false">Apply</v-btn>
+          <v-btn variant="text" @click="clearFilters">{{ t("jskit.http.actions.clearAll") }}</v-btn>
+          <v-btn color="primary" variant="flat" @click="sheetOpen = false">{{ t("jskit.http.actions.apply") }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>

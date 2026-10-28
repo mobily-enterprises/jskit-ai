@@ -95,7 +95,7 @@ test("CRUD screen components own list/view/form chrome centrally", async () => {
     listSource,
     /@media \(min-width: 960px\)[\s\S]*\.crud-list-cards\s*\{\s*display:\s*none;[\s\S]*\.crud-list-table\s*\{\s*display:\s*block;[\s\S]*\.crud-list-fab\s*\{\s*display:\s*none;/
   );
-  assert.match(listSource, /button-label="More"/);
+  assert.match(listSource, /:button-label="t\('jskit\.http\.actions\.more'\)"/);
   assert.match(listSource, /selectableRows/);
   assert.match(
     listSource,

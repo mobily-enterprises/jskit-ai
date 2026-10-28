@@ -71,8 +71,8 @@ test("CrudListDateFilterControl composes stable Vuetify picker components access
   assert.match(source, /v-bind="\{ \.\.\.attrs, \.\.\.activatorProps \}"/);
   assert.match(source, /\["Enter", " ", "ArrowDown"\]/);
   assert.match(source, /role="dialog"/);
-  assert.match(source, />\s*Clear\s*</u);
-  assert.match(source, />\s*Close\s*</u);
+  assert.match(source, />\s*\{\{ t\("jskit\.http\.actions\.clear"\) \}\}\s*</u);
+  assert.match(source, />\s*\{\{ t\("jskit\.http\.actions\.close"\) \}\}\s*</u);
   assert.doesNotMatch(source, /VDateInput|vuetify\/labs|type="date"/);
 
   const { descriptor, errors: parseErrors } = parse(source, { filename: componentPath });

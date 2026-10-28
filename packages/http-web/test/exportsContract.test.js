@@ -49,7 +49,9 @@ test("http-web exports are explicit and aligned with production and generated us
       "./client/crudHttpClient",
       "./client/lib/httpClient",
       "./client/lib/permissions",
-      "./client/support/contractGuards"
+      "./client/support/contractGuards",
+      // The generated client bootstrap registers every package's English catalog.
+      "./locales/en.json"
     ]
   });
 

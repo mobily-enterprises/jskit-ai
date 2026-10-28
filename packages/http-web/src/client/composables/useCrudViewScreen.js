@@ -2,6 +2,9 @@ import { computed, unref } from "vue";
 import { useRoute } from "vue-router";
 import { useCrudView } from "./records/useCrudView.js";
 import { resolveRecordTitle } from "./crud/crudLookupFieldLabelSupport.js";
+import { useJskitText } from "../i18n.js";
+
+const { t } = useJskitText();
 
 function useCrudViewScreen({
   resource = null,
@@ -16,9 +19,9 @@ function useCrudViewScreen({
   requestFieldsets = null,
   readEnabled = true,
   queryKeyFactory = null,
-  requestRecoveryLabel = "Record",
-  fallbackLoadError = "Unable to load record.",
-  notFoundMessage = "Record not found."
+  requestRecoveryLabel = t("jskit.http.crud.record"),
+  fallbackLoadError = t("jskit.http.crud.view.loadFailed"),
+  notFoundMessage = t("jskit.http.crud.recordNotFound")
 } = {}) {
   const route = useRoute();
   const normalizedResourceNamespace = String(resourceNamespace || "resource").trim() || "resource";
@@ -53,7 +56,7 @@ function useCrudViewScreen({
   const recordTitle = computed(() =>
     resolveRecordTitle(view.record, {
       fallbackKey: titleFallbackFieldKey,
-      defaultValue: "Record"
+      defaultValue: t("jskit.http.crud.record")
     })
   );
 

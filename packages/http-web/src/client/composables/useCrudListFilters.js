@@ -17,6 +17,9 @@ import {
   CRUD_LIST_FILTER_TYPE_FLAG
 } from "@jskit-ai/resource-crud-core/shared/crudListFilters";
 import { formatCrudListDateFilterChipLabel } from "../support/crudListDateFilterSupport.js";
+import { useJskitText } from "../i18n.js";
+
+const { text } = useJskitText();
 
 function normalizeFunctionMap(value = {}) {
   const source = value && typeof value === "object" && !Array.isArray(value)
@@ -173,9 +176,10 @@ function resolveAtomicValueLabel(filter = {}, value = "", labelResolvers = {}) {
   });
 }
 
+// A filter label may be a message key; dates use the active language.
 function formatDefaultChipLabel(filter = {}, chipValue, labelResolvers = {}) {
   return formatCrudListDateFilterChipLabel(filter, chipValue)
-    || formatCrudListFilterDefaultChipLabel(filter, chipValue, {
+    || formatCrudListFilterDefaultChipLabel({ ...filter, label: text(filter.label) }, chipValue, {
       resolveAtomicValue(value) {
         return resolveAtomicValueLabel(filter, value, labelResolvers);
       }

@@ -16,6 +16,9 @@ import {
 } from "../support/scopeHelpers.js";
 import { createRequestQueryRuntime } from "../support/requestQueryRuntimeSupport.js";
 import { resolveRouteParamNamesInOrder } from "../support/routeTemplateHelpers.js";
+import { useJskitText } from "../../i18n.js";
+
+const { t } = useJskitText();
 
 function useAddEdit({
   ownershipFilter = ROUTE_VISIBILITY_WORKSPACE,
@@ -32,9 +35,9 @@ function useAddEdit({
   client = null,
   transport = null,
   requestRecovery = null,
-  requestRecoveryLabel = "Resource",
+  requestRecoveryLabel = t("jskit.http.resource.label"),
   placementSource = "http-web.add-edit",
-  fallbackLoadError = "Unable to load resource.",
+  fallbackLoadError = t("jskit.http.resource.loadFailed"),
   fallbackSaveError = "",
   fieldErrorKeys = [],
   clearOnRouteChange = true,
@@ -87,9 +90,9 @@ function useAddEdit({
   const routeContext = operationScope.routeContext;
   const resolvedMessages = {
     ...resolveResourceMessages(resource, {
-      validation: "Fix invalid values and try again.",
-      saveSuccess: "Saved.",
-      saveError: "Unable to save."
+      validation: t("jskit.http.feedback.fixInvalidValues"),
+      saveSuccess: t("jskit.http.feedback.saved"),
+      saveError: t("jskit.http.feedback.saveFailed")
     }),
     ...(messages && typeof messages === "object" ? messages : {})
   };
@@ -97,7 +100,9 @@ function useAddEdit({
   // fallbackSaveError, otherwise the resolved resource/messages saveError.
   const effectiveMessages = {
     ...resolvedMessages,
-    saveError: String(fallbackSaveError || "").trim() || String(resolvedMessages.saveError || "").trim() || "Unable to save."
+    saveError: String(fallbackSaveError || "").trim() ||
+      String(resolvedMessages.saveError || "").trim() ||
+      t("jskit.http.feedback.saveFailed")
   };
 
   const canView = operationScope.permissionGate("view");
@@ -188,7 +193,7 @@ function useAddEdit({
     dedupeWindowMs: 0,
     loadActionFactory: () => canRetryLoad.value
       ? {
-        label: "Retry",
+        label: t("jskit.http.actions.retry"),
         dismissOnRun: true,
         handler() {
           void refresh();

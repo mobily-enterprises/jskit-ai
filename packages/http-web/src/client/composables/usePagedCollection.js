@@ -4,6 +4,9 @@ import { asPlainObject } from "./support/scopeHelpers.js";
 import { resolveEnabledRef } from "./support/refValueHelpers.js";
 import { toQueryErrorMessage } from "./support/errorMessageHelpers.js";
 import { mergeQueryMeta } from "./support/resourceLoadStateHelpers.js";
+import { useJskitText } from "../i18n.js";
+
+const { t } = useJskitText();
 
 function defaultSelectItems(page) {
   return Array.isArray(page?.items) ? page.items : [];
@@ -58,7 +61,7 @@ function usePagedCollection({
   selectItems = defaultSelectItems,
   dedupeBy = null,
   queryOptions = null,
-  fallbackLoadError = "Unable to load list."
+  fallbackLoadError = t("jskit.http.list.loadFailed")
 } = {}) {
   if (typeof queryFn !== "function") {
     throw new TypeError("usePagedCollection requires queryFn().");
@@ -135,7 +138,7 @@ function usePagedCollection({
   const isLoading = computed(() => Boolean(isInitialLoading.value || isFetching.value));
   const isLoadingMore = computed(() => Boolean(query.isFetchingNextPage.value));
   const hasMore = computed(() => Boolean(query.hasNextPage.value));
-  const loadError = computed(() => toQueryErrorMessage(query.error.value, fallbackLoadError, "Unable to load list."));
+  const loadError = computed(() => toQueryErrorMessage(query.error.value, fallbackLoadError, t("jskit.http.list.loadFailed")));
 
   async function reload() {
     return query.refetch();

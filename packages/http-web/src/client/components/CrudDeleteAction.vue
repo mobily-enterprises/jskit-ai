@@ -1,6 +1,7 @@
 <script setup>
 import { computed, useId } from "vue";
 import { mdiDeleteOutline } from "@mdi/js";
+import { useJskitText } from "../i18n.js";
 
 const props = defineProps({
   action: {
@@ -9,12 +10,14 @@ const props = defineProps({
   },
   resourceSingularTitle: {
     type: String,
-    default: "Record"
+    default: ""
   }
 });
 
+const { t, text } = useJskitText();
+
 const resourceLabel = computed(() =>
-  String(props.resourceSingularTitle || "Record").trim() || "Record"
+  String(text(props.resourceSingularTitle) || "").trim() || t("jskit.http.crud.record")
 );
 const componentId = useId();
 const titleId = `${componentId}-delete-title`;
@@ -40,7 +43,7 @@ function handleDialogModelUpdate(isOpen) {
     :disabled="!action.canDelete"
     @click="action.request"
   >
-    Delete {{ resourceLabel }}
+    {{ t("jskit.http.crud.delete.button", { resource: resourceLabel }) }}
   </v-btn>
 
   <v-dialog
@@ -54,10 +57,10 @@ function handleDialogModelUpdate(isOpen) {
     @update:model-value="handleDialogModelUpdate"
   >
     <v-card>
-      <v-card-title :id="titleId">Delete {{ resourceLabel }}?</v-card-title>
+      <v-card-title :id="titleId">{{ t("jskit.http.crud.delete.title", { resource: resourceLabel }) }}</v-card-title>
       <v-card-text>
         <p :id="descriptionId" class="mb-0">
-          This permanently deletes this {{ resourceLabel.toLowerCase() }}. This action cannot be undone.
+          {{ t("jskit.http.crud.delete.description", { resource: resourceLabel.toLowerCase() }) }}
         </p>
         <v-alert
           v-if="action.error"
@@ -76,7 +79,7 @@ function handleDialogModelUpdate(isOpen) {
           :disabled="action.isDeleting"
           @click="closeDialog"
         >
-          Cancel
+          {{ t("jskit.http.actions.cancel") }}
         </v-btn>
         <v-btn
           color="error"
@@ -84,7 +87,7 @@ function handleDialogModelUpdate(isOpen) {
           :disabled="!action.canDelete"
           @click="action.confirm"
         >
-          {{ action.isDeleting ? "Deleting…" : "Delete" }}
+          {{ action.isDeleting ? t("jskit.http.actions.deleting") : t("jskit.http.actions.delete") }}
         </v-btn>
       </v-card-actions>
     </v-card>

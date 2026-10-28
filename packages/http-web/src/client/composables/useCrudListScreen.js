@@ -5,6 +5,9 @@ import { useCrudListFilters } from "./useCrudListFilters.js";
 import { useCrudListRowActions } from "./useCrudListRowActions.js";
 import { resolveCrudHttpClient } from "./crud/crudHttpClientSupport.js";
 import { resolveRecordTitle as resolveCrudRecordTitle } from "./crud/crudLookupFieldLabelSupport.js";
+import { useJskitText } from "../i18n.js";
+
+const { t } = useJskitText();
 
 function buildCrudListActionContext(records, client) {
   return Object.freeze({
@@ -19,10 +22,10 @@ function formatCrudListCardValue(value) {
     return "-";
   }
   if (value === true) {
-    return "Yes";
+    return t("jskit.http.crud.yes");
   }
   if (value === false) {
-    return "No";
+    return t("jskit.http.crud.no");
   }
   return value;
 }
@@ -130,8 +133,8 @@ function useCrudListScreen({
   requestQueryParams = null,
   requestFieldsets = null,
   readEnabled = true,
-  requestRecoveryLabel = "Records",
-  fallbackLoadError = "Unable to load records."
+  requestRecoveryLabel = t("jskit.http.crud.records"),
+  fallbackLoadError = t("jskit.http.crud.list.loadFailed")
 } = {}) {
   const crudHttpClient = resolveCrudHttpClient(resource, { client });
   const filterRuntime = useCrudListFilters(listFilters);
@@ -208,7 +211,7 @@ function useCrudListScreen({
   function resolveRecordTitle(record) {
     return resolveCrudRecordTitle(record, {
       fallbackKey: titleFallbackFieldKey,
-      defaultValue: "Record"
+      defaultValue: t("jskit.http.crud.record")
     });
   }
 

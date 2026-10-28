@@ -1,6 +1,9 @@
 import { computed, unref } from "vue";
 import { useRoute } from "vue-router";
 import { useCrudAddEdit } from "./records/useCrudAddEdit.js";
+import { useJskitText } from "../i18n.js";
+
+const { t, text } = useJskitText();
 
 function normalizeProvidedScreen(screen = null) {
   return screen && typeof screen === "object" && !Array.isArray(screen)
@@ -13,7 +16,7 @@ function useCrudAddEditScreen({
   mode = "new",
   title = "",
   subtitle = "",
-  saveLabel = "Save",
+  saveLabel = "",
   cancelTo = "",
   resource = null,
   operationName = "",
@@ -48,7 +51,7 @@ function useCrudAddEditScreen({
   const resolvedMode = computed(() => String(unref(mode) || "new").trim() || "new");
   const resolvedTitle = computed(() => String(unref(title) || "").trim());
   const resolvedSubtitle = computed(() => String(unref(subtitle) || "").trim());
-  const resolvedSaveLabel = computed(() => String(unref(saveLabel) || "Save").trim() || "Save");
+  const resolvedSaveLabel = computed(() => String(text(unref(saveLabel)) || "").trim() || t("jskit.http.actions.save"));
   const resolvedCancelTo = computed(() => unref(cancelTo));
 
   function resolveCancelTo(target = resolvedCancelTo.value) {

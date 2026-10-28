@@ -1,5 +1,8 @@
 import { computed } from "vue";
 import { watchResourceModelState } from "./modelStateHelpers.js";
+import { useJskitText } from "../../i18n.js";
+
+const { t } = useJskitText();
 
 function normalizeStatusList(value) {
   if (Array.isArray(value)) {
@@ -15,7 +18,7 @@ function useViewCore({
   canView,
   mapLoadedToModel,
   notFoundStatuses = [404],
-  notFoundMessage = "Record not found."
+  notFoundMessage = ""
 } = {}) {
   const statusList = normalizeStatusList(notFoundStatuses);
   watchResourceModelState({
@@ -55,7 +58,7 @@ function useViewCore({
       return "";
     }
 
-    return String(notFoundMessage || "Record not found.");
+    return String(notFoundMessage || t("jskit.http.crud.recordNotFound"));
   });
 
   const loadError = computed(() => {

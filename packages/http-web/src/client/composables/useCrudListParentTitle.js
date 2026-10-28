@@ -12,6 +12,9 @@ import {
   resolveCrudListParentRecordTitle,
   resolveCrudListParentTitleFromItems
 } from "./internal/crudListParentTitleSupport.js";
+import { useJskitText } from "../i18n.js";
+
+const { t } = useJskitText();
 
 function normalizeQueryKeyPrefix(value = []) {
   if (Array.isArray(value)) {
@@ -30,8 +33,8 @@ function useCrudListParentTitle({
   recordIdParam = "recordId",
   queryKeyPrefix = ["http-web", "crud-list-parent-title"],
   placementSource = "http-web.crud-list-parent-title",
-  fallbackLoadError = "Unable to load parent record.",
-  notFoundMessage = "Parent record not found.",
+  fallbackLoadError = t("jskit.http.crud.parent.loadFailed"),
+  notFoundMessage = t("jskit.http.crud.parent.notFound"),
   route = null,
   viewRuntimeFactory = useView
 } = {}) {

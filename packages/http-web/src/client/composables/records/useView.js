@@ -9,6 +9,9 @@ import { createViewUiRuntime } from "../runtime/viewUiRuntime.js";
 import { createRequestQueryRuntime } from "../support/requestQueryRuntimeSupport.js";
 import { resolveRouteParamNamesInOrder } from "../support/routeTemplateHelpers.js";
 import { resolveOperationRealtimeOptions } from "../useRealtimeQueryInvalidation.js";
+import { useJskitText } from "../../i18n.js";
+
+const { t } = useJskitText();
 
 function useView({
   resource = null,
@@ -23,11 +26,11 @@ function useView({
   client = null,
   transport = null,
   requestRecovery = null,
-  requestRecoveryLabel = "Resource",
+  requestRecoveryLabel = t("jskit.http.resource.label"),
   placementSource = "http-web.view",
-  fallbackLoadError = "Unable to load resource.",
+  fallbackLoadError = t("jskit.http.resource.loadFailed"),
   notFoundStatuses = [404],
-  notFoundMessage = "Record not found.",
+  notFoundMessage = t("jskit.http.crud.recordNotFound"),
   model,
   mapLoadedToModel,
   requestQueryParams = null,
@@ -130,7 +133,7 @@ function useView({
     notFoundError: view.notFoundError,
     dedupeWindowMs: 0,
     loadActionFactory: () => ({
-      label: "Retry",
+      label: t("jskit.http.actions.retry"),
       dismissOnRun: true,
       handler() {
         void view.refresh();

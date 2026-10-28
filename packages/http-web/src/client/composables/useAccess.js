@@ -6,6 +6,9 @@ import {
   resolveAccessModeEnabled
 } from "./support/scopeHelpers.js";
 import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
+import { useJskitText } from "../i18n.js";
+
+const { t } = useJskitText();
 
 function asPermissionList(value) {
   if (Array.isArray(value)) {
@@ -51,7 +54,7 @@ function useAccess({
     if (!queryEnabled.value || hasPlacementPermissions.value) {
       return "";
     }
-    return "Permissions are unavailable in placement context.";
+    return t("jskit.http.access.permissionsUnavailable");
   });
   const awaitingPlacementPermissions = computed(() => queryEnabled.value && !hasPlacementPermissions.value);
 

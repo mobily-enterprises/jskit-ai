@@ -10,6 +10,9 @@ import {
   mergeQueryMeta,
   mergeRequestRecoveryQueryMeta
 } from "../support/resourceLoadStateHelpers.js";
+import { useJskitText } from "../../i18n.js";
+
+const { t } = useJskitText();
 
 function buildEndpointReadRequestOptions({
   method = "GET",
@@ -77,9 +80,10 @@ function useEndpointResource({
   queryOptions = null,
   mutationOptions = null,
   requestRecovery = null,
-  requestRecoveryLabel = "Request",
-  fallbackLoadError = "Unable to load resource.",
-  fallbackSaveError = "Unable to save resource."
+  // No label: shell-web's request recovery names the app.
+  requestRecoveryLabel = "",
+  fallbackLoadError = t("jskit.http.resource.loadFailed"),
+  fallbackSaveError = t("jskit.http.resource.saveFailed")
 } = {}) {
   const activeClient = client || getHttpWebClient();
   if (!activeClient || typeof activeClient.request !== "function") {
@@ -162,8 +166,8 @@ function useEndpointResource({
   const isRefetching = computed(() => Boolean(isFetching.value && !isInitialLoading.value));
   const isLoading = computed(() => Boolean(isInitialLoading.value || isFetching.value));
   const isSaving = computed(() => Boolean(mutation.isPending.value));
-  const loadError = computed(() => toQueryErrorMessage(query.error.value, fallbackLoadError, "Request failed."));
-  const saveError = computed(() => toQueryErrorMessage(mutation.error.value, fallbackSaveError, "Request failed."));
+  const loadError = computed(() => toQueryErrorMessage(query.error.value, fallbackLoadError));
+  const saveError = computed(() => toQueryErrorMessage(mutation.error.value, fallbackSaveError));
 
   async function reload() {
     return query.refetch();

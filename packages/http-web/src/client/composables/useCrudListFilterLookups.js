@@ -16,6 +16,9 @@ import {
   resolveLookupOptionLabel
 } from "./internal/crudListFilterLookupSupport.js";
 import { inferCrudLookupJsonApiTransport } from "./crud/crudJsonApiTransportSupport.js";
+import { useJskitText } from "../i18n.js";
+
+const { t, text } = useJskitText();
 
 function useCrudListFilterLookups(
   definitions = {},
@@ -69,7 +72,7 @@ function useCrudListFilterLookups(
       placementSource: normalizedPlacementSourcePrefix
         ? `${normalizedPlacementSourcePrefix}.${filter.key}`
         : `crud.list-filter.lookup.${filter.key}`,
-      fallbackLoadError: `Unable to load filter options (${filter.lookup.apiSuffix}).`,
+      fallbackLoadError: t("jskit.http.crud.filters.optionsLoadFailed", { path: filter.lookup.apiSuffix }),
       recordIdParam,
       recordIdSelector: (item = {}) => item[filter.lookup.valueKey || "id"],
       viewUrlTemplate: "",
@@ -106,7 +109,7 @@ function useCrudListFilterLookups(
       isLoading: computed(() => {
         return Boolean(runtime.isInitialLoading || runtime.isFetching || runtime.isSearchDebouncing);
       }),
-      resolveLabel(value, fallback = filter.label || "Option") {
+      resolveLabel(value, fallback = text(filter.label) || t("jskit.http.crud.filters.option")) {
         return resolveLookupOptionLabel(options.value, cachedOptions.value, value, fallback);
       },
       setSearch(value = "") {
@@ -134,7 +137,7 @@ function useCrudListFilterLookups(
     setLookupSearch(filterKey = "", value = "") {
       resolveLookup(filterKey)?.setSearch(value);
     },
-    resolveLookupLabel(filterKey = "", value = "", fallback = "Option") {
+    resolveLookupLabel(filterKey = "", value = "", fallback = t("jskit.http.crud.filters.option")) {
       return resolveLookup(filterKey)?.resolveLabel(value, fallback)
         || resolveLookupOptionLabel([], new Map(), value, fallback);
     }

@@ -4,6 +4,9 @@ import {
   normalizeUniqueTextList
 } from "@jskit-ai/kernel/shared/support/normalize";
 import { asPlainObject } from "./scopeHelpers.js";
+import { useJskitText } from "../../i18n.js";
+
+const { t, text } = useJskitText();
 
 const DEFAULT_LIST_SEARCH_DEBOUNCE_MS = 250;
 const DEFAULT_LIST_SEARCH_MIN_LENGTH = 1;
@@ -21,7 +24,7 @@ function normalizeListSearchConfig(value = {}) {
     enabled: source.enabled === true,
     mode,
     queryParam: normalizeText(source.queryParam) || "q",
-    label: normalizeText(source.label) || "Search",
+    label: normalizeText(text(source.label)) || t("jskit.http.list.search"),
     placeholder: normalizeText(source.placeholder),
     initialQuery: normalizeText(source.initialQuery),
     debounceMs: normalizeInteger(source.debounceMs, {

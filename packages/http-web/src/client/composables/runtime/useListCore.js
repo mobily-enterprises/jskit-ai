@@ -4,6 +4,9 @@ import { asPlainObject } from "../support/scopeHelpers.js";
 import { resolveEnabledRef, resolveTextRef } from "../support/refValueHelpers.js";
 import { usePagedCollection } from "../usePagedCollection.js";
 import { mergeRequestRecoveryQueryMeta } from "../support/resourceLoadStateHelpers.js";
+import { useJskitText } from "../../i18n.js";
+
+const { t } = useJskitText();
 
 const DEFAULT_LIST_LIMIT = 20;
 
@@ -64,8 +67,8 @@ function useListCore({
   requestOptions = null,
   queryOptions = null,
   requestRecovery = null,
-  requestRecoveryLabel = "List",
-  fallbackLoadError = "Unable to load list."
+  requestRecoveryLabel = t("jskit.http.list.label"),
+  fallbackLoadError = t("jskit.http.list.loadFailed")
 } = {}) {
   const activeClient = client || getHttpWebClient();
   if (!activeClient || typeof activeClient.request !== "function") {

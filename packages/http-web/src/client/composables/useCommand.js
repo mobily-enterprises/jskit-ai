@@ -10,6 +10,9 @@ import {
   setupOperationErrorReporting
 } from "./runtime/operationUiHelpers.js";
 import { resolveCrudHttpClient } from "./crud/crudHttpClientSupport.js";
+import { useJskitText } from "../i18n.js";
+
+const { t } = useJskitText();
 
 function useCommand({
   ownershipFilter = ROUTE_VISIBILITY_WORKSPACE,
@@ -22,7 +25,7 @@ function useCommand({
   resource: commandResource = null,
   transport = null,
   placementSource = "http-web.command",
-  fallbackRunError = "Unable to complete action.",
+  fallbackRunError = t("jskit.http.feedback.actionFailed"),
   fieldErrorKeys = [],
   clearOnRouteChange = true,
   model,
@@ -80,9 +83,9 @@ function useCommand({
     onRunError,
     suppressSuccessMessage: Boolean(suppressSuccessMessage),
     messages: {
-      validation: "Fix invalid values and try again.",
-      success: "Completed.",
-      error: String(fallbackRunError || "Unable to complete action."),
+      validation: t("jskit.http.feedback.fixInvalidValues"),
+      success: t("jskit.http.feedback.completed"),
+      error: String(fallbackRunError || t("jskit.http.feedback.actionFailed")),
       ...(messages && typeof messages === "object" ? messages : {})
     }
   });

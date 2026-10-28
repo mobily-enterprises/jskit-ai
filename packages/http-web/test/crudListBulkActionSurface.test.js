@@ -20,7 +20,7 @@ test("CrudListBulkActionSurface stays adaptive and runtime-owned", async () => {
   assert.match(source, /hasActions/);
   assert.match(source, /hasSelection/);
   assert.match(source, /v-menu/);
-  assert.match(source, /Bulk actions/);
+  assert.match(source, /jskit\.http\.crud\.bulk\.actions/);
   assert.match(source, /min-height:\s*48px/);
   assert.doesNotMatch(source, /useCrudList\(/);
   assert.doesNotMatch(source, /apiSuffix|repository|server/);

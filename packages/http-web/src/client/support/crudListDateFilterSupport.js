@@ -1,4 +1,12 @@
+import { useJskitText } from "../i18n.js";
+
+const { t, text, formatDate } = useJskitText();
 const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/u;
+const DATE_DISPLAY_OPTIONS = Object.freeze({
+  year: "numeric",
+  month: "short",
+  day: "numeric"
+});
 
 function parseDateOnlyValue(value = "") {
   const match = DATE_ONLY_PATTERN.exec(String(value || "").trim());
@@ -51,21 +59,22 @@ function formatDateOnlyDisplay(value = "", { locale = undefined } = {}) {
     return "";
   }
 
+  // An explicit locale (the date picker's) wins; otherwise the app's active
+  // language, or the browser default when the app has no vue-i18n.
   try {
-    return new Intl.DateTimeFormat(locale || undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric"
-    }).format(date);
+    return locale
+      ? new Intl.DateTimeFormat(locale, DATE_DISPLAY_OPTIONS).format(date)
+      : formatDate(date, DATE_DISPLAY_OPTIONS);
   } catch {
     return formatDateOnlyValue(date);
   }
 }
 
 function formatCrudListDateFilterChipLabel(filter = {}, rawValue, { locale = undefined } = {}) {
+  const label = text(filter.label);
   if (filter.type === "date") {
     const dateLabel = formatDateOnlyDisplay(rawValue, { locale }) || String(rawValue || "");
-    return dateLabel ? `${filter.label}: ${dateLabel}` : "";
+    return dateLabel ? t("jskit.http.crud.filters.chipDate", { label, date: dateLabel }) : "";
   }
 
   if (filter.type !== "dateRange") {
@@ -75,12 +84,12 @@ function formatCrudListDateFilterChipLabel(filter = {}, rawValue, { locale = und
   const from = formatDateOnlyDisplay(rawValue?.from, { locale }) || String(rawValue?.from || "");
   const to = formatDateOnlyDisplay(rawValue?.to, { locale }) || String(rawValue?.to || "");
   if (from && to) {
-    return `${filter.label}: ${from} to ${to}`;
+    return t("jskit.http.crud.filters.chipRange", { label, from, to });
   }
   if (from) {
-    return `${filter.label}: from ${from}`;
+    return t("jskit.http.crud.filters.chipFrom", { label, from });
   }
-  return to ? `${filter.label}: to ${to}` : "";
+  return to ? t("jskit.http.crud.filters.chipTo", { label, to }) : "";
 }
 
 export {

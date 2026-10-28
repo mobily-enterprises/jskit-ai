@@ -41,7 +41,8 @@
     "./client/crudHttpClient": "./src/client/composables/crud/crudHttpClientSupport.js",
     "./client/lib/httpClient": "./src/client/lib/httpClient.js",
     "./client/lib/permissions": "./src/client/lib/permissions.js",
-    "./client/support/contractGuards": "./src/client/support/contractGuards.js"
+    "./client/support/contractGuards": "./src/client/support/contractGuards.js",
+    "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
     "@jskit-ai/resource-crud-core": "0.1.190",

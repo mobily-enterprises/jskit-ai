@@ -7,6 +7,9 @@ import { buildCrudFieldContractMap } from "@jskit-ai/resource-crud-core/shared/c
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveLookupFieldDisplayValue, resolveRecordTitle } from "../crud/crudLookupFieldLabelSupport.js";
 import { resolveRouteParamNamesInOrder, toRouteParamValue } from "../support/routeTemplateHelpers.js";
+import { useJskitText } from "../../i18n.js";
+
+const { t } = useJskitText();
 
 function singularizeLabel(value = "") {
   const normalizedValue = normalizeText(value);
@@ -50,7 +53,7 @@ function resolveEntityLabel(routeParamKey = "", relationNamespace = "") {
     return namespaceLabel;
   }
 
-  return "Record";
+  return t("jskit.http.crud.record");
 }
 
 function resolveLookupFieldMeta(resource = {}, fieldKey = "") {
@@ -155,10 +158,10 @@ function resolveCrudListParentRecordTitle(record = {}, descriptor = null) {
     return resolvedTitle;
   }
 
-  const entityLabel = normalizeText(descriptor?.entityLabel) || "Record";
+  const entityLabel = normalizeText(descriptor?.entityLabel) || t("jskit.http.crud.record");
   const recordId = toRouteParamValue(record?.id);
   if (recordId) {
-    return `${entityLabel} #${recordId}`;
+    return t("jskit.http.crud.parent.recordWithId", { label: entityLabel, id: recordId });
   }
 
   return "";

@@ -1,6 +1,8 @@
 <script setup>
 import { computed, unref } from "vue";
+import { useJskitText } from "../i18n.js";
 
+// Unset titles come from the catalog; passed titles may be message keys.
 const props = defineProps({
   screen: {
     type: Object,
@@ -8,13 +10,21 @@ const props = defineProps({
   },
   resourceSingularTitle: {
     type: String,
-    default: "Record"
+    default: undefined
   },
   resourcePluralTitle: {
     type: String,
-    default: "Records"
+    default: undefined
   }
 });
+
+const { t, text } = useJskitText();
+const singularTitle = computed(() =>
+  props.resourceSingularTitle === undefined ? t("jskit.http.crud.record") : text(props.resourceSingularTitle)
+);
+const pluralTitle = computed(() =>
+  props.resourcePluralTitle === undefined ? t("jskit.http.crud.records") : text(props.resourcePluralTitle)
+);
 
 const view = computed(() => props.screen?.view || {});
 const listLocation = computed(() => unref(props.screen?.listLocation) || null);
@@ -30,7 +40,7 @@ const editLocation = computed(() => unref(props.screen?.editLocation) || null);
         variant="outlined"
         :to="listLocation"
       >
-        Back to {{ resourcePluralTitle }}
+        {{ t("jskit.http.crud.view.backTo", { resources: pluralTitle }) }}
       </v-btn>
       <slot name="actions" :screen="screen" :view="view" />
       <v-btn
@@ -39,14 +49,14 @@ const editLocation = computed(() => unref(props.screen?.editLocation) || null);
         variant="flat"
         :to="editLocation"
       >
-        Edit
+        {{ t("jskit.http.actions.edit") }}
       </v-btn>
     </div>
 
     <v-sheet rounded="lg" border class="crud-view-panel">
       <div v-if="view.loadError || view.isNotFound" class="crud-view-state">
         <p class="text-body-2 text-medium-emphasis mb-4">
-          {{ view.loadError || `This ${resourceSingularTitle} could not be found.` }}
+          {{ view.loadError || t("jskit.http.crud.view.notFound", { resource: singularTitle }) }}
         </p>
         <div class="crud-view-state__actions">
           <v-btn
@@ -56,7 +66,7 @@ const editLocation = computed(() => unref(props.screen?.editLocation) || null);
             :disabled="view.isFetching"
             @click="view.refresh"
           >
-            {{ view.isFetching ? "Retrying…" : "Retry" }}
+            {{ view.isFetching ? t("jskit.http.actions.retrying") : t("jskit.http.actions.retry") }}
           </v-btn>
           <v-btn
             v-else-if="listLocation"
@@ -64,7 +74,7 @@ const editLocation = computed(() => unref(props.screen?.editLocation) || null);
             variant="tonal"
             :to="listLocation"
           >
-            Back to {{ resourcePluralTitle }}
+            {{ t("jskit.http.crud.view.backTo", { resources: pluralTitle }) }}
           </v-btn>
         </div>
       </div>

@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from "vue";
+import { useJskitText } from "../i18n.js";
 
 const props = defineProps({
   record: {
@@ -32,7 +33,7 @@ const props = defineProps({
   },
   buttonLabel: {
     type: String,
-    default: "Actions"
+    default: undefined
   },
   buttonVariant: {
     type: String,
@@ -43,6 +44,11 @@ const props = defineProps({
     default: "small"
   }
 });
+
+const { t, text } = useJskitText();
+const resolvedButtonLabel = computed(() =>
+  props.buttonLabel === undefined ? t("jskit.http.actions.actions") : text(props.buttonLabel)
+);
 
 const visibleRowActions = computed(() => {
   if (typeof props.rowActions?.visibleActionsFor !== "function") {
@@ -59,6 +65,12 @@ const hasActions = computed(() =>
 function isRowActionLoading(action = {}) {
   return typeof props.rowActions?.isActionLoading === "function" &&
     props.rowActions.isActionLoading(action, props.record, props.index);
+}
+
+// Action labels may be message keys.
+function rowActionLabel(action = {}) {
+  const label = text(action.label);
+  return isRowActionLoading(action) ? t("jskit.http.actions.running", { label }) : label;
 }
 
 function isRowActionDisabled(action = {}) {
@@ -82,25 +94,25 @@ function runRowAction(action = {}) {
         :variant="buttonVariant"
         :size="buttonSize"
       >
-        {{ buttonLabel }}
+        {{ resolvedButtonLabel }}
       </v-btn>
     </template>
     <v-list density="compact" min-width="150">
       <v-list-item
         v-if="hasViewAction"
-        title="Open"
+        :title="t('jskit.http.actions.open')"
         :to="viewLocation"
       />
       <v-list-item
         v-if="hasEditAction"
-        title="Edit"
+        :title="t('jskit.http.actions.edit')"
         :to="editLocation"
       />
       <v-divider v-if="(hasViewAction || hasEditAction) && visibleRowActions.length > 0" />
       <v-list-item
         v-for="action in visibleRowActions"
         :key="action.key"
-        :title="isRowActionLoading(action) ? `${action.label}…` : action.label"
+        :title="rowActionLabel(action)"
         :base-color="action.color"
         :disabled="isRowActionDisabled(action)"
         @click="runRowAction(action)"

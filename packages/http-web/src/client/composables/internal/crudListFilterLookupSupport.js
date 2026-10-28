@@ -2,6 +2,9 @@ import { normalizeText, normalizeUniqueTextList } from "@jskit-ai/kernel/shared/
 import { CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY } from "@jskit-ai/resource-crud-core/shared/crudListFilters";
 import { resolveLookupItemLabel } from "../crud/crudLookupFieldLabelSupport.js";
 import { asPlainObject } from "../support/scopeHelpers.js";
+import { useJskitText } from "../../i18n.js";
+
+const { t } = useJskitText();
 
 function normalizeLookupQueryKeyPrefix(value = []) {
   const source = Array.isArray(value) ? value : [];
@@ -129,10 +132,10 @@ function mergeSelectedLookupOptions(options = [], selectedValues = [], cachedOpt
   );
 }
 
-function resolveLookupOptionLabel(options = [], cachedOptions = new Map(), value = "", fallback = "Option") {
+function resolveLookupOptionLabel(options = [], cachedOptions = new Map(), value = "", fallback = "") {
   const normalizedValue = normalizeText(value);
   if (!normalizedValue) {
-    return normalizeText(fallback) || "Option";
+    return normalizeText(fallback) || t("jskit.http.crud.filters.option");
   }
 
   const matchingOption = (Array.isArray(options) ? options : [])
@@ -147,8 +150,8 @@ function resolveLookupOptionLabel(options = [], cachedOptions = new Map(), value
     return String(cachedOption.label);
   }
 
-  const normalizedFallback = normalizeText(fallback) || "Option";
-  return `${normalizedFallback} ${normalizedValue}`;
+  const normalizedFallback = normalizeText(fallback) || t("jskit.http.crud.filters.option");
+  return t("jskit.http.crud.filters.optionValue", { label: normalizedFallback, value: normalizedValue });
 }
 
 export {

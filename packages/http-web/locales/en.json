@@ -1,0 +1,112 @@
+{
+  "jskit": {
+    "http": {
+      "access": {
+        "permissionsUnavailable": "Permissions are unavailable in placement context.",
+        "routeParamsRequired": "Route parameters {params} are required for surface \"{surface}\"."
+      },
+      "actions": {
+        "actions": "Actions",
+        "apply": "Apply",
+        "cancel": "Cancel",
+        "clear": "Clear",
+        "clearAll": "Clear all",
+        "close": "Close",
+        "delete": "Delete",
+        "deleting": "Deleting…",
+        "edit": "Edit",
+        "loadMore": "Load more",
+        "loadingMore": "Loading more…",
+        "more": "More",
+        "open": "Open",
+        "refresh": "Refresh",
+        "refreshing": "Refreshing…",
+        "retry": "Retry",
+        "retrying": "Retrying…",
+        "running": "{label}…",
+        "save": "Save",
+        "saving": "Saving…"
+      },
+      "crud": {
+        "bulk": {
+          "actions": "Bulk actions",
+          "selected": "{count} selected",
+          "selection": "Selection"
+        },
+        "delete": {
+          "button": "Delete {resource}",
+          "description": "This permanently deletes this {resource}. This action cannot be undone.",
+          "failed": "Unable to delete record.",
+          "listRouteUnavailable": "Deleted the record, but the generated list route is unavailable.",
+          "title": "Delete {resource}?"
+        },
+        "filters": {
+          "calendar": "{label} calendar",
+          "chipDate": "{label}: {date}",
+          "chipFrom": "{label}: from {from}",
+          "chipRange": "{label}: {from} to {to}",
+          "chipTo": "{label}: to {to}",
+          "dateRange": "{label} date range",
+          "enterId": "Enter id",
+          "enterIds": "Enter ids",
+          "option": "Option",
+          "optionValue": "{label} {value}",
+          "optionsLoadFailed": "Unable to load filter options ({path}).",
+          "rangeFrom": "{label} from",
+          "rangeMax": "{label} max",
+          "rangeMin": "{label} min",
+          "rangeTo": "{label} to",
+          "selectDate": "Select date",
+          "selectEndDate": "Select end date",
+          "selectStartDate": "Select start date",
+          "title": "Filters"
+        },
+        "list": {
+          "emptyBody": "Create the first record to start using this workflow.",
+          "loadErrorBody": "Check the connection and try again.",
+          "loadFailed": "Unable to load records.",
+          "newRecord": "New record",
+          "selectRecord": "Select {title}",
+          "selectVisibleRows": "Select visible rows"
+        },
+        "lookup": {
+          "optionsLoadFailed": "Unable to load lookup options ({path})."
+        },
+        "no": "No",
+        "parent": {
+          "loadFailed": "Unable to load parent record.",
+          "notFound": "Parent record not found.",
+          "recordWithId": "{label} #{id}"
+        },
+        "record": "Record",
+        "recordNotFound": "Record not found.",
+        "records": "Records",
+        "view": {
+          "backTo": "Back to {resources}",
+          "loadFailed": "Unable to load record.",
+          "notFound": "This {resource} could not be found."
+        },
+        "yes": "Yes"
+      },
+      "feedback": {
+        "actionFailed": "Unable to complete action.",
+        "completed": "Completed.",
+        "fixInvalidValues": "Fix invalid values and try again.",
+        "requestFailed": "Request failed.",
+        "saveFailed": "Unable to save.",
+        "saved": "Saved.",
+        "validationFailed": "Validation failed."
+      },
+      "list": {
+        "label": "List",
+        "loadFailed": "Unable to load list.",
+        "search": "Search"
+      },
+      "resource": {
+        "label": "Resource",
+        "loadFailed": "Unable to load resource.",
+        "saveFailed": "Unable to save resource."
+      }
+    }
+  }
+}

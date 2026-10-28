@@ -1,5 +1,6 @@
 <script setup>
 import { computed, unref } from "vue";
+import { useJskitText } from "../i18n.js";
 
 const props = defineProps({
   screen: {
@@ -24,11 +25,14 @@ const props = defineProps({
   }
 });
 
+const { t, text } = useJskitText();
 const formRuntime = computed(() => props.screen?.formRuntime || {});
 const addEdit = computed(() => props.screen?.addEdit || formRuntime.value?.addEdit || {});
 const formState = computed(() => props.screen?.formState || formRuntime.value?.form || {});
 const mode = computed(() => String(unref(props.screen?.mode) || "new").trim() || "new");
-const saveLabel = computed(() => String(unref(props.screen?.saveLabel) || "Save").trim() || "Save");
+const saveLabel = computed(() =>
+  String(text(unref(props.screen?.saveLabel)) || "").trim() || t("jskit.http.actions.save")
+);
 const cancelTo = computed(() => unref(props.screen?.cancelTo) || "");
 
 function resolveFieldErrors(fieldKey) {
@@ -63,14 +67,16 @@ function resolveCancelTo(target = cancelTo.value) {
         :cancel-to="resolveCancelTo()"
         :submit="addEdit.submit"
       >
-        <v-btn v-if="cancelTo" color="primary" variant="outlined" :to="resolveCancelTo(cancelTo)">Cancel</v-btn>
+        <v-btn v-if="cancelTo" color="primary" variant="outlined" :to="resolveCancelTo(cancelTo)">
+          {{ t("jskit.http.actions.cancel") }}
+        </v-btn>
         <v-btn
           color="primary"
           variant="flat"
           :disabled="addEdit.isSubmitDisabled"
           @click="addEdit.submit"
         >
-          {{ addEdit.isSaving ? "Saving…" : saveLabel }}
+          {{ addEdit.isSaving ? t("jskit.http.actions.saving") : saveLabel }}
         </v-btn>
       </slot>
     </div>
@@ -87,7 +93,7 @@ function resolveCancelTo(target = cancelTo.value) {
           :disabled="addEdit.isFetching"
           @click="addEdit.refresh"
         >
-          {{ addEdit.isFetching ? "Retrying…" : "Retry" }}
+          {{ addEdit.isFetching ? t("jskit.http.actions.retrying") : t("jskit.http.actions.retry") }}
         </v-btn>
       </div>
       <template v-else-if="formRuntime.showFormSkeleton">

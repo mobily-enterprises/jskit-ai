@@ -5,6 +5,9 @@ import { resolveCrudJsonApiTransport } from "./crud/crudJsonApiTransportSupport.
 import { resolveCrudHttpClient } from "./crud/crudHttpClientSupport.js";
 import { toQueryErrorMessage } from "./support/errorMessageHelpers.js";
 import { useCommand } from "./useCommand.js";
+import { createTextError, useJskitText } from "../i18n.js";
+
+const { t } = useJskitText();
 
 function requireCrudDeleteOperation(resource = null) {
   const operation = resource?.operations?.delete;
@@ -41,7 +44,7 @@ function useCrudDeleteAction({
   access = "auto",
   client = null,
   router: routerOverride = null,
-  fallbackDeleteError = "Unable to delete record."
+  fallbackDeleteError = t("jskit.http.crud.delete.failed")
 } = {}) {
   const resolvedScreen = requireCrudViewScreen(screen);
   const deleteOperation = requireCrudDeleteOperation(resource);
@@ -64,7 +67,7 @@ function useCrudDeleteAction({
   async function handleDeleteSuccess(_response, context = {}) {
     const listLocation = resolveListLocation(resolvedScreen);
     if (!listLocation) {
-      throw new Error("Deleted the record, but the generated list route is unavailable.");
+      throw createTextError("jskit.http.crud.delete.listRouteUnavailable");
     }
 
     isOpen.value = false;
@@ -81,7 +84,7 @@ function useCrudDeleteAction({
     error.value = toQueryErrorMessage(
       cause,
       fallbackDeleteError,
-      "Unable to delete record."
+      t("jskit.http.crud.delete.failed")
     );
   }
 

@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from "vue";
 import { useDisplay } from "vuetify";
+import { useJskitText } from "../i18n.js";
 
 const props = defineProps({
   runtime: {
@@ -9,9 +10,14 @@ const props = defineProps({
   },
   title: {
     type: String,
-    default: "Selection"
+    default: undefined
   }
 });
+
+const { t, text } = useJskitText();
+const resolvedTitle = computed(() =>
+  props.title === undefined ? t("jskit.http.crud.bulk.selection") : text(props.title)
+);
 
 const { smAndDown: isCompactLayout } = useDisplay();
 
@@ -38,16 +44,22 @@ function isActionDisabled(action = {}) {
 function isActionExecuting(action = {}) {
   return Boolean(props.runtime?.isActionExecuting?.(action));
 }
+
+// Action labels may be message keys.
+function actionLabel(action = {}) {
+  const label = text(action.label);
+  return isActionExecuting(action) ? t("jskit.http.actions.running", { label }) : label;
+}
 </script>
 
 <template>
   <section v-if="shouldRender" class="crud-list-bulk-action-surface">
     <div class="crud-list-bulk-action-surface__summary">
       <div class="crud-list-bulk-action-surface__copy">
-        <span class="text-overline text-medium-emphasis">{{ title }}</span>
-        <strong>{{ selectedCount }} selected</strong>
+        <span class="text-overline text-medium-emphasis">{{ resolvedTitle }}</span>
+        <strong>{{ t("jskit.http.crud.bulk.selected", { count: selectedCount }) }}</strong>
       </div>
-      <v-btn size="small" variant="text" @click="clearSelection">Clear</v-btn>
+      <v-btn size="small" variant="text" @click="clearSelection">{{ t("jskit.http.actions.clear") }}</v-btn>
     </div>
 
     <div v-if="!isCompactLayout" class="crud-list-bulk-action-surface__actions">
@@ -60,19 +72,19 @@ function isActionExecuting(action = {}) {
         :disabled="isActionDisabled(action)"
         @click="execute(action)"
       >
-        {{ isActionExecuting(action) ? `${action.label}…` : action.label }}
+        {{ actionLabel(action) }}
       </v-btn>
     </div>
 
     <v-menu v-else location="bottom end">
       <template #activator="{ props: menuProps }">
-        <v-btn v-bind="menuProps" color="primary" variant="tonal">Bulk actions</v-btn>
+        <v-btn v-bind="menuProps" color="primary" variant="tonal">{{ t("jskit.http.crud.bulk.actions") }}</v-btn>
       </template>
       <v-list density="compact" min-width="180">
         <v-list-item
           v-for="action in actions"
           :key="action.key"
-          :title="isActionExecuting(action) ? `${action.label}…` : action.label"
+          :title="actionLabel(action)"
           :prepend-icon="action.icon || undefined"
           :disabled="isActionDisabled(action)"
           @click="execute(action)"

@@ -15,6 +15,9 @@ import {
   resolveApiSuffix
 } from "./support/scopeHelpers.js";
 import { extractRouteParamNames, toRouteParamValue } from "./support/routeTemplateHelpers.js";
+import { useJskitText } from "../i18n.js";
+
+const { t } = useJskitText();
 
 function resolveScopedRouteParamNames(placementContext = null, surfaceId = "") {
   const routeBase = resolveSurfaceDefinitionFromPlacementContext(placementContext, surfaceId)?.routeBase || "/";
@@ -78,7 +81,10 @@ function useScopeRuntime({
     }
 
     const missingParams = missingScopedRouteParamNames.value.join(", ");
-    return `Route parameters ${missingParams} are required for surface "${resolvedSurfaceId.value || "<unknown>"}".`;
+    return t("jskit.http.access.routeParamsRequired", {
+      params: missingParams,
+      surface: resolvedSurfaceId.value || "<unknown>"
+    });
   });
 
   const accessRuntime = useAccess({

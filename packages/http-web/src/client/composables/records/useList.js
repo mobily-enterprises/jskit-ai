@@ -30,6 +30,9 @@ import {
 import {
   resolveRouteParamNamesInOrder,
 } from "../support/routeTemplateHelpers.js";
+import { useJskitText } from "../../i18n.js";
+
+const { t } = useJskitText();
 
 const EMPTY_ROUTE_SYNC_QUERY_PARAM_BLACKLIST = Object.freeze([]);
 
@@ -42,7 +45,7 @@ function useList({
   viewPermissions = [],
   readEnabled = true,
   placementSource = "http-web.list",
-  fallbackLoadError = "Unable to load list.",
+  fallbackLoadError = t("jskit.http.list.loadFailed"),
   initialPageParam = null,
   getNextPageParam,
   selectItems,
@@ -51,7 +54,7 @@ function useList({
   requestOptions,
   queryOptions,
   requestRecovery,
-  requestRecoveryLabel = "List",
+  requestRecoveryLabel = t("jskit.http.list.label"),
   realtime = null,
   recordIdParam = "recordId",
   recordIdSelector = null,
@@ -453,7 +456,7 @@ function useList({
     loadError,
     dedupeWindowMs: 0,
     loadActionFactory: () => ({
-      label: "Retry",
+      label: t("jskit.http.actions.retry"),
       dismissOnRun: true,
       handler() {
         void list.reload();

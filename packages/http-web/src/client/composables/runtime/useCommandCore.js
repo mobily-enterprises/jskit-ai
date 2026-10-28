@@ -1,6 +1,9 @@
 import { useQueryClient } from "@tanstack/vue-query";
-import { resolveFieldErrors } from "@jskit-ai/http-runtime/client";
 import { validateOperationInput } from "./operationValidationHelpers.js";
+import { toUiFieldErrors } from "../support/errorMessageHelpers.js";
+import { useJskitText } from "../../i18n.js";
+
+const { t } = useJskitText();
 
 function useCommandCore({
   model,
@@ -47,7 +50,7 @@ function useCommandCore({
       rawPayload,
       fieldBag,
       feedback,
-      validationMessage: String(messages.validation || "Validation failed.")
+      validationMessage: String(messages.validation || t("jskit.http.feedback.validationFailed"))
     });
     if (!validationResult.ok) {
       return null;
@@ -88,11 +91,11 @@ function useCommandCore({
       }
 
       if (!suppressSuccessMessage) {
-        feedback?.success?.(String(messages.success || "Completed."));
+        feedback?.success?.(String(messages.success || t("jskit.http.feedback.completed")));
       }
       return response;
     } catch (error) {
-      fieldBag?.apply?.(resolveFieldErrors(error));
+      fieldBag?.apply?.(toUiFieldErrors(error));
 
       if (typeof onRunError === "function") {
         await onRunError(error, {
@@ -106,7 +109,7 @@ function useCommandCore({
         });
       }
 
-      feedback?.error?.(error, String(messages.error || "Unable to complete action."));
+      feedback?.error?.(error, String(messages.error || t("jskit.http.feedback.actionFailed")));
       throw error;
     }
   }

@@ -4,7 +4,9 @@ import { useRoute } from "vue-router";
 import CrudListBulkActionSurface from "./CrudListBulkActionSurface.vue";
 import CrudListFilterSurface from "./CrudListFilterSurface.vue";
 import CrudListRecordActionMenu from "./CrudListRecordActionMenu.vue";
+import { useJskitText } from "../i18n.js";
 
+// Unset copy comes from the catalog; passed copy may be a message key.
 const props = defineProps({
   screen: {
     type: Object,
@@ -12,17 +14,28 @@ const props = defineProps({
   },
   createLabel: {
     type: String,
-    default: "New record"
+    default: undefined
   },
   loadErrorBody: {
     type: String,
-    default: "Check the connection and try again."
+    default: undefined
   },
   emptyBody: {
     type: String,
-    default: "Create the first record to start using this workflow."
+    default: undefined
   }
 });
+
+const { t, text } = useJskitText();
+const resolvedCreateLabel = computed(() =>
+  props.createLabel === undefined ? t("jskit.http.crud.list.newRecord") : text(props.createLabel)
+);
+const resolvedLoadErrorBody = computed(() =>
+  props.loadErrorBody === undefined ? t("jskit.http.crud.list.loadErrorBody") : text(props.loadErrorBody)
+);
+const resolvedEmptyBody = computed(() =>
+  props.emptyBody === undefined ? t("jskit.http.crud.list.emptyBody") : text(props.emptyBody)
+);
 
 const route = useRoute();
 const records = computed(() => props.screen?.records || {});
@@ -42,7 +55,7 @@ function resolveListRecordTitle(record) {
   if (typeof props.screen?.resolveRecordTitle === "function") {
     return props.screen.resolveRecordTitle(record);
   }
-  return "Record";
+  return t("jskit.http.crud.record");
 }
 
 function formatListCardValue(value) {
@@ -110,7 +123,7 @@ function setSelectableRowsSelected(selected = true) {
         :disabled="records.isFetching"
         @click="records.reload"
       >
-        {{ records.isFetching ? "Refreshing…" : "Refresh" }}
+        {{ records.isFetching ? t("jskit.http.actions.refreshing") : t("jskit.http.actions.refresh") }}
       </v-btn>
       <v-btn
         v-if="listPrimaryAction"
@@ -119,7 +132,7 @@ function setSelectableRowsSelected(selected = true) {
         variant="flat"
         :to="listPrimaryAction"
       >
-        {{ createLabel }}
+        {{ resolvedCreateLabel }}
       </v-btn>
     </div>
 
@@ -151,21 +164,21 @@ function setSelectableRowsSelected(selected = true) {
       </template>
       <template v-else>
         <div v-if="records.loadError" class="crud-list-state">
-          <p class="text-body-2 text-medium-emphasis mb-4">{{ loadErrorBody }}</p>
+          <p class="text-body-2 text-medium-emphasis mb-4">{{ resolvedLoadErrorBody }}</p>
           <v-btn
             color="primary"
             variant="tonal"
             :disabled="records.isFetching"
             @click="records.reload"
           >
-            {{ records.isFetching ? "Retrying…" : "Retry" }}
+            {{ records.isFetching ? t("jskit.http.actions.retrying") : t("jskit.http.actions.retry") }}
           </v-btn>
         </div>
 
         <div v-else-if="displayRows.length < 1" class="crud-list-state">
-          <p class="text-body-2 text-medium-emphasis mb-4">{{ emptyBody }}</p>
+          <p class="text-body-2 text-medium-emphasis mb-4">{{ resolvedEmptyBody }}</p>
           <v-btn v-if="listPrimaryAction" color="primary" variant="flat" :to="listPrimaryAction">
-            {{ createLabel }}
+            {{ resolvedCreateLabel }}
           </v-btn>
         </div>
 
@@ -182,7 +195,7 @@ function setSelectableRowsSelected(selected = true) {
                 <v-checkbox-btn
                   v-if="hasBulkActions && row.selectable !== false"
                   :model-value="isBulkRowSelected(row)"
-                  :aria-label="`Select ${resolveListRecordTitle(row.record)}`"
+                  :aria-label="t('jskit.http.crud.list.selectRecord', { title: resolveListRecordTitle(row.record) })"
                   class="crud-list-card__select"
                   @update:model-value="setBulkRowSelected(row, $event)"
                 />
@@ -227,7 +240,7 @@ function setSelectableRowsSelected(selected = true) {
                         someSelectableRowsSelected() &&
                           !allSelectableRowsSelected()
                       "
-                      aria-label="Select visible rows"
+                      :aria-label="t('jskit.http.crud.list.selectVisibleRows')"
                       @update:model-value="setSelectableRowsSelected($event)"
                     />
                   </th>
@@ -243,7 +256,7 @@ function setSelectableRowsSelected(selected = true) {
                     <v-checkbox-btn
                       v-if="row.selectable !== false"
                       :model-value="isBulkRowSelected(row)"
-                      :aria-label="`Select ${resolveListRecordTitle(row.record)}`"
+                      :aria-label="t('jskit.http.crud.list.selectRecord', { title: resolveListRecordTitle(row.record) })"
                       @update:model-value="setBulkRowSelected(row, $event)"
                     />
                   </td>
@@ -263,7 +276,7 @@ function setSelectableRowsSelected(selected = true) {
                       :to="resolveViewLocation(row.record)"
                       :disabled="!resolveViewLocation(row.record)"
                     >
-                      Open
+                      {{ t("jskit.http.actions.open") }}
                     </v-btn>
                   </td>
                   <td v-if="hasEditUrl" class="text-right">
@@ -275,7 +288,7 @@ function setSelectableRowsSelected(selected = true) {
                       :to="resolveEditLocation(row.record)"
                       :disabled="!resolveEditLocation(row.record)"
                     >
-                      Edit
+                      {{ t("jskit.http.actions.edit") }}
                     </v-btn>
                   </td>
                   <td v-if="hasRowActions" class="text-right">
@@ -284,7 +297,7 @@ function setSelectableRowsSelected(selected = true) {
                       :record="row.record"
                       :index="row.index"
                       :row-actions="rowActions"
-                      button-label="More"
+                      :button-label="t('jskit.http.actions.more')"
                       button-variant="outlined"
                     />
                   </td>
@@ -301,7 +314,7 @@ function setSelectableRowsSelected(selected = true) {
             :disabled="records.isLoadingMore"
             @click="records.loadMore"
           >
-            {{ records.isLoadingMore ? "Loading more…" : "Load more" }}
+            {{ records.isLoadingMore ? t("jskit.http.actions.loadingMore") : t("jskit.http.actions.loadMore") }}
           </v-btn>
         </div>
       </template>
@@ -314,7 +327,7 @@ function setSelectableRowsSelected(selected = true) {
       variant="flat"
       :to="listPrimaryAction"
     >
-      {{ createLabel }}
+      {{ resolvedCreateLabel }}
     </v-btn>
   </section>
 </template>

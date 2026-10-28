@@ -6,6 +6,7 @@ import {
   formatDateOnlyValue,
   formatDateOnlyDisplay
 } from "../support/crudListDateFilterSupport.js";
+import { useJskitText } from "../i18n.js";
 
 defineOptions({
   inheritAttrs: false
@@ -26,7 +27,7 @@ const props = defineProps({
   },
   placeholder: {
     type: String,
-    default: "Select date"
+    default: undefined
   },
   disabled: {
     type: Boolean,
@@ -39,6 +40,10 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["update:modelValue"]);
+const { t } = useJskitText();
+const resolvedPlaceholder = computed(() =>
+  props.placeholder === undefined ? t("jskit.http.crud.filters.selectDate") : props.placeholder
+);
 const attrs = useAttrs();
 const { current: currentLocale } = useLocale();
 const generatedId = useId();
@@ -51,7 +56,7 @@ const pickerValue = computed(() => parseDateOnlyValue(props.modelValue));
 const displayValue = computed(() => formatDateOnlyDisplay(props.modelValue, {
   locale: currentLocale?.value
 }));
-const pickerTitle = computed(() => `${props.label} calendar`);
+const pickerTitle = computed(() => t("jskit.http.crud.filters.calendar", { label: props.label }));
 
 function restoreFocus() {
   void nextTick(() => {
@@ -113,7 +118,7 @@ function handleActivatorKeydown(event) {
         ref="textFieldRef"
         :model-value="displayValue"
         :label="label"
-        :placeholder="placeholder"
+        :placeholder="resolvedPlaceholder"
         :aria-label="label"
         :aria-controls="pickerId"
         :aria-expanded="String(menuOpen)"
@@ -161,10 +166,10 @@ function handleActivatorKeydown(event) {
           :disabled="disabled || readonly || !modelValue"
           @click="clearDate"
         >
-          Clear
+          {{ t("jskit.http.actions.clear") }}
         </v-btn>
         <v-spacer />
-        <v-btn color="primary" variant="text" @click="closeMenu">Close</v-btn>
+        <v-btn color="primary" variant="text" @click="closeMenu">{{ t("jskit.http.actions.close") }}</v-btn>
       </v-card-actions>
     </v-card>
   </v-menu>

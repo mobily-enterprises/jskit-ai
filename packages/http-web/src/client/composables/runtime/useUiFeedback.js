@@ -65,7 +65,7 @@ function useUiFeedback({
 
   function error(errorValue, fallbackMessage = "") {
     messageType.value = "error";
-    message.value = toUiErrorMessage(errorValue, fallbackMessage, "Request failed.");
+    message.value = toUiErrorMessage(errorValue, fallbackMessage);
     if (!message.value) {
       return;
     }

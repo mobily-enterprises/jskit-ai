@@ -1,8 +1,11 @@
 import { useQueryClient } from "@tanstack/vue-query";
 import { computed, ref } from "vue";
-import { resolveFieldErrors } from "@jskit-ai/http-runtime/client";
 import { validateOperationInput } from "./operationValidationHelpers.js";
 import { watchResourceModelState } from "./modelStateHelpers.js";
+import { toUiFieldErrors } from "../support/errorMessageHelpers.js";
+import { useJskitText } from "../../i18n.js";
+
+const { t } = useJskitText();
 
 function useAddEditCore({
   model,
@@ -45,7 +48,7 @@ function useAddEditCore({
 
     // Revalidate without changing server field errors or reporting feedback.
     const result = validateOperationInput({ input, rawPayload: resolveRawPayload() });
-    return result.ok ? {} : resolveFieldErrors(result.failure);
+    return result.ok ? {} : toUiFieldErrors(result.failure);
   });
 
   function resolveRawPayload() {
@@ -76,7 +79,7 @@ function useAddEditCore({
       rawPayload,
       fieldBag,
       feedback: validationFeedback === false ? null : feedback,
-      validationMessage: String(messages.validation || "Validation failed.")
+      validationMessage: String(messages.validation || t("jskit.http.feedback.validationFailed"))
     });
     if (!validationResult.ok) {
       return;
@@ -117,10 +120,10 @@ function useAddEditCore({
         });
       }
 
-      feedback?.success?.(String(messages.saveSuccess || "Saved."));
+      feedback?.success?.(String(messages.saveSuccess || t("jskit.http.feedback.saved")));
     } catch (error) {
-      fieldBag?.apply?.(resolveFieldErrors(error));
-      feedback?.error?.(error, String(messages.saveError || "Unable to save."));
+      fieldBag?.apply?.(toUiFieldErrors(error));
+      feedback?.error?.(error, String(messages.saveError || t("jskit.http.feedback.saveFailed")));
     } finally {
       submitting.value = false;
     }

@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from "vue";
 import CrudListDateFilterControl from "./CrudListDateFilterControl.vue";
+import { useJskitText } from "../i18n.js";
 
 const props = defineProps({
   filters: {
@@ -17,14 +18,21 @@ const props = defineProps({
   }
 });
 
+const { t, text } = useJskitText();
 const runtimeValues = computed(() => props.runtime?.values || {});
 
 function optionItems(filter = {}) {
   return Array.isArray(filter.options) ? filter.options : [];
 }
 
-function placeholder(filter = {}, fallback = "") {
-  return String(filter?.ui?.placeholder || fallback || "").trim();
+// Filter labels and placeholders may be message keys.
+function filterLabel(filter = {}, key = "", params = {}) {
+  const label = text(filter.label);
+  return key ? t(key, { ...params, label }) : label;
+}
+
+function placeholder(filter = {}, fallbackKey = "") {
+  return String(text(filter?.ui?.placeholder) || (fallbackKey ? t(fallbackKey) : "")).trim();
 }
 </script>
 
@@ -37,7 +45,7 @@ function placeholder(filter = {}, fallback = "") {
       <v-switch
         v-if="filter.type === 'flag'"
         v-model="runtimeValues[filter.key]"
-        :label="filter.label"
+        :label="filterLabel(filter)"
         color="primary"
         density="comfortable"
         hide-details
@@ -47,7 +55,7 @@ function placeholder(filter = {}, fallback = "") {
         v-else-if="filter.type === 'enum' || filter.type === 'enumMany' || filter.type === 'presence'"
         v-model="runtimeValues[filter.key]"
         :items="optionItems(filter)"
-        :label="filter.label"
+        :label="filterLabel(filter)"
         :placeholder="placeholder(filter)"
         :multiple="filter.type === 'enumMany'"
         :chips="filter.type === 'enumMany'"
@@ -63,8 +71,8 @@ function placeholder(filter = {}, fallback = "") {
       <v-combobox
         v-else-if="filter.type === 'recordIdMany'"
         v-model="runtimeValues[filter.key]"
-        :label="filter.label"
-        :placeholder="placeholder(filter, 'Enter ids')"
+        :label="filterLabel(filter)"
+        :placeholder="placeholder(filter, 'jskit.http.crud.filters.enterIds')"
         multiple
         chips
         closable-chips
@@ -77,8 +85,8 @@ function placeholder(filter = {}, fallback = "") {
       <v-text-field
         v-else-if="filter.type === 'recordId'"
         v-model="runtimeValues[filter.key]"
-        :label="filter.label"
-        :placeholder="placeholder(filter, 'Enter id')"
+        :label="filterLabel(filter)"
+        :placeholder="placeholder(filter, 'jskit.http.crud.filters.enterId')"
         clearable
         variant="outlined"
         density="comfortable"
@@ -89,27 +97,27 @@ function placeholder(filter = {}, fallback = "") {
         v-else-if="filter.type === 'dateRange'"
         class="crud-list-filter-surface__range crud-list-filter-surface__range--date"
         role="group"
-        :aria-label="`${filter.label} date range`"
+        :aria-label="filterLabel(filter, 'jskit.http.crud.filters.dateRange')"
         :data-filter-key="filter.key"
         data-filter-type="date-range"
       >
         <CrudListDateFilterControl
           v-model="runtimeValues[filter.key].from"
-          :label="`${filter.label} from`"
+          :label="filterLabel(filter, 'jskit.http.crud.filters.rangeFrom')"
           :control-id="`${filter.key}-from`"
-          :placeholder="placeholder(filter, 'Select start date')"
+          :placeholder="placeholder(filter, 'jskit.http.crud.filters.selectStartDate')"
         />
         <CrudListDateFilterControl
           v-model="runtimeValues[filter.key].to"
-          :label="`${filter.label} to`"
+          :label="filterLabel(filter, 'jskit.http.crud.filters.rangeTo')"
           :control-id="`${filter.key}-to`"
-          :placeholder="placeholder(filter, 'Select end date')"
+          :placeholder="placeholder(filter, 'jskit.http.crud.filters.selectEndDate')"
         />
       </div>
       <div v-else-if="filter.type === 'numberRange'" class="crud-list-filter-surface__range">
         <v-text-field
           v-model="runtimeValues[filter.key].min"
-          :label="`${filter.label} min`"
+          :label="filterLabel(filter, 'jskit.http.crud.filters.rangeMin')"
           type="number"
           variant="outlined"
           density="comfortable"
@@ -117,7 +125,7 @@ function placeholder(filter = {}, fallback = "") {
         />
         <v-text-field
           v-model="runtimeValues[filter.key].max"
-          :label="`${filter.label} max`"
+          :label="filterLabel(filter, 'jskit.http.crud.filters.rangeMax')"
           type="number"
           variant="outlined"
           density="comfortable"
@@ -127,9 +135,9 @@ function placeholder(filter = {}, fallback = "") {
       <CrudListDateFilterControl
         v-else-if="filter.type === 'date'"
         v-model="runtimeValues[filter.key]"
-        :label="filter.label"
+        :label="filterLabel(filter)"
         :control-id="filter.key"
-        :placeholder="placeholder(filter, 'Select date')"
+        :placeholder="placeholder(filter, 'jskit.http.crud.filters.selectDate')"
         class="crud-list-filter-surface__control"
       />
     </template>

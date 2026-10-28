@@ -13,6 +13,9 @@ import {
 } from "./crudLookupFieldLabelSupport.js";
 import { inferCrudLookupJsonApiTransport } from "./crudJsonApiTransportSupport.js";
 import { asPlainObject } from "../support/scopeHelpers.js";
+import { useJskitText } from "../../i18n.js";
+
+const { t } = useJskitText();
 
 function normalizeQueryKeyPrefix(value) {
   const source = Array.isArray(value) ? value : [];
@@ -129,7 +132,7 @@ function createCrudLookupFieldRuntime({
       placementSource: normalizedPlacementSourcePrefix
         ? `${normalizedPlacementSourcePrefix}.${key}`
         : `lookup.${key}`,
-      fallbackLoadError: `Unable to load lookup options (${apiPath}).`,
+      fallbackLoadError: t("jskit.http.crud.lookup.optionsLoadFailed", { path: apiPath }),
       recordIdParam: normalizedRecordIdParam,
       recordIdSelector: (item = {}) => item[valueKey],
       viewUrlTemplate: "",
