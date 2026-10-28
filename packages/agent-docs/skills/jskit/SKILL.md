@@ -44,6 +44,8 @@ manifests, migrations, tests, and runtime behaviour are the evidence.
    - [port guide](references/existing-application-migration.md) for existing apps.
    - [heuristics index](references/heuristics/INDEX.md) for recurring traps.
    - [multi-homing](references/multi-homing.md) for workspaces or invitations.
+   - [translation](references/translation.md) for languages, translated texts
+     or error codes.
    - For creation, foundation patterns, or package selection, read
      [application operations](references/app-operations.md).
    - Before database, schema, CRUD, repository, or persistence work, read
@@ -77,9 +79,7 @@ example. Before inspecting an unfamiliar package, use `rg --files` on its
 observed directory and select the relevant files from that inventory; do not
 try guessed source directories. Import subpaths are `exports` aliases, not
 physical paths: resolve them through installed `package.json#exports` or
-`import.meta.resolve()` when following an import. Use the documented option
-when the guide or pattern already explains the behaviour instead of inspecting
-internals.
+`import.meta.resolve()` when following an import.
 
 ## Implement a change
 
