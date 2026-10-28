@@ -7,7 +7,8 @@
   },
   "exports": {
     "./server/ConsoleFeature": "./src/server/ConsoleFeature.js",
-    "./shared/resources/consoleSettingsResource": "./src/shared/resources/consoleSettingsResource.js"
+    "./shared/resources/consoleSettingsResource": "./src/shared/resources/consoleSettingsResource.js",
+    "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
     "@jskit-ai/database-runtime": "0.1.248",

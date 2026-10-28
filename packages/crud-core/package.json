@@ -23,7 +23,8 @@
     "./server/crudModuleConfig": "./src/server/crudModuleConfig.js",
     "./server/listQueryValidators": "./src/server/listQueryValidators.js",
     "./server/listFilters": "./src/server/listFilters.js",
-    "./server/routeContracts": "./src/server/routeContracts.js"
+    "./server/routeContracts": "./src/server/routeContracts.js",
+    "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
     "@jskit-ai/database-runtime": "0.1.248",

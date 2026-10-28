@@ -235,7 +235,11 @@ function createCrudFieldAccessRuntime(resource = {}, { context = "crudFieldAcces
     }
 
     if (forbiddenFields.length > 0 && writeMode === "throw") {
-      throw new AppError(403, `Write access denied for fields: ${forbiddenFields.join(", ")}.`);
+      const fields = forbiddenFields.join(", ");
+      throw new AppError(403, `Write access denied for fields: ${fields}.`, {
+        code: "crud.fieldAccess.writeDenied",
+        params: { fields }
+      });
     }
 
     return filteredPayload;

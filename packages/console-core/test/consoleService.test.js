@@ -67,3 +67,23 @@ test("consoleService.requireConsoleOwner requires authentication", async () => {
     (error) => error?.status === 401
   );
 });
+
+test("consoleService errors carry console codes rendering their English", async () => {
+  const { catalogMessage, formatMessage, messageKeyForCode } = await import("@jskit-ai/kernel/shared/i18n");
+  const english = (await import("../locales/en.json", { with: { type: "json" } })).default;
+  const { service } = createFixture("1");
+  const failures = [
+    [() => service.ensureInitialConsoleMember("not-an-id"), 400, "console.owner.invalidUser"],
+    [() => service.requireConsoleOwner({}), 401, "console.owner.authenticationRequired"],
+    [() => service.requireConsoleOwner({ actor: { id: "2" } }), 403, "console.owner.forbidden"]
+  ];
+  for (const [run, status, code] of failures) {
+    await assert.rejects(run, (error) => {
+      assert.equal(error.status, status);
+      assert.equal(error.code, code);
+      assert.deepEqual(error.params, {});
+      assert.equal(formatMessage(catalogMessage(english, messageKeyForCode(code)), error.params), error.message);
+      return true;
+    });
+  }
+});

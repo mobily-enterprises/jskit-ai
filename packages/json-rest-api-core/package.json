@@ -9,7 +9,8 @@
     "test": "node --test --test-concurrency=1"
   },
   "exports": {
-    "./server/jsonRestApiHost": "./src/server/jsonRestApiHost.js"
+    "./server/jsonRestApiHost": "./src/server/jsonRestApiHost.js",
+    "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
     "@jskit-ai/database-runtime": "0.1.248",

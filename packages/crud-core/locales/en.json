@@ -1,0 +1,25 @@
+{
+  "jskit": {
+    "errors": {
+      "INVALID_CURSOR": "Invalid cursor."
+    },
+    "crud": {
+      "record": {
+        "notFound": "Record not found."
+      },
+      "document": {
+        "notFound": "Document not found."
+      },
+      "fieldAccess": {
+        "writeDenied": "Write access denied for fields: {fields}."
+      },
+      "query": {
+        "includeInvalid": "include expects a comma-separated string such as \"{example}\".",
+        "fieldsInvalid": "fields expects an object such as {example}.",
+        "fieldsByTypeInvalid": "fields expects an object keyed by JSON:API resource type, such as {example}.",
+        "fieldsKeysInvalid": "fields keys must be JSON:API resource types. Allowed keys: {allowedTypes}.",
+        "fieldsKeysInvalidWithAliases": "fields keys must be JSON:API resource types. Allowed keys: {allowedTypes}. Relationship aliases are invalid keys; {aliasGuidance}."
+      }
+    }
+  }
+}

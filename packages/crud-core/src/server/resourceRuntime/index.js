@@ -20,6 +20,7 @@ import {
   resolveCrudIdColumn
 } from "../repositorySupport.js";
 import {
+  codedFieldErrors,
   resolveSchemaTransportSchemaDefinition,
   validateSchemaPayload
 } from "@jskit-ai/kernel/shared/validators";
@@ -360,9 +361,9 @@ async function normalizeRepositoryInputPayload(
     });
     return normalizeCrudRepositoryObjectInput(nextPayload);
   } catch (error) {
-    const explicitFieldErrors = extractExplicitFieldErrors(error);
-    if (explicitFieldErrors) {
-      throw createValidationError(explicitFieldErrors);
+    const fieldErrors = codedFieldErrors(error);
+    if (fieldErrors) {
+      throw createValidationError(fieldErrors);
     }
     throw error;
   }

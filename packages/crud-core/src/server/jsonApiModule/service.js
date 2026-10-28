@@ -3,7 +3,7 @@ import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 
 function requireDocument(document = null) {
   if (!document) {
-    throw new AppError(404, "Document not found.");
+    throw new AppError(404, "Document not found.", { code: "crud.document.notFound" });
   }
   return document;
 }

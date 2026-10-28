@@ -15,7 +15,9 @@ test("console-core exports are explicit and aligned with production/template usa
     packageId: "@jskit-ai/console-core",
     requiredExports: [
       "./server/ConsoleFeature",
-      "./shared/resources/consoleSettingsResource"
+      "./shared/resources/consoleSettingsResource",
+      // The generated client bootstrap registers it, so clients render console's codes.
+      "./locales/en.json"
     ]
   });
 

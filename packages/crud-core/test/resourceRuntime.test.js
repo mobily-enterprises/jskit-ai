@@ -998,7 +998,9 @@ test("resourceRuntime maps schema field errors for create and update", async () 
     () => repository.create({ firstName: "   " }),
     (error) => (
       error?.status === 400 &&
-      typeof error?.details?.fieldErrors?.firstName === "string"
+      error?.code === "validation_failed" &&
+      typeof error?.details?.fieldErrors?.firstName === "string" &&
+      error.details.fieldErrorCodes?.firstName?.code?.startsWith("kernel.validation.field.")
     )
   );
 

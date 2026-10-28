@@ -61,7 +61,7 @@ async function crudServiceGetRecord(runtime, repository, fieldAccess = {}, recor
   const resolvedRepository = requireCrudServiceRepository(runtime, repository);
   const record = await resolvedRepository.findById(recordId, options);
   if (!record) {
-    throw new AppError(404, "Record not found.");
+    throw new AppError(404, "Record not found.", { code: "crud.record.notFound" });
   }
 
   return runtime.fieldAccessRuntime.filterReadableRecord(record, fieldAccess, {
@@ -95,7 +95,7 @@ async function crudServiceUpdateRecord(runtime, repository, fieldAccess = {}, re
   const resolvedRepository = requireCrudServiceRepository(runtime, repository);
   const existingRecord = await resolvedRepository.findById(recordId, options);
   if (!existingRecord) {
-    throw new AppError(404, "Record not found.");
+    throw new AppError(404, "Record not found.", { code: "crud.record.notFound" });
   }
 
   const writablePayload = await runtime.fieldAccessRuntime.enforceWritablePayload(payload, fieldAccess, {
@@ -112,7 +112,7 @@ async function crudServiceUpdateRecord(runtime, repository, fieldAccess = {}, re
     existingRecord
   });
   if (!record) {
-    throw new AppError(404, "Record not found.");
+    throw new AppError(404, "Record not found.", { code: "crud.record.notFound" });
   }
   return runtime.fieldAccessRuntime.filterReadableRecord(record, fieldAccess, {
     action: "update",
@@ -126,7 +126,7 @@ async function crudServiceDeleteRecord(runtime, repository, fieldAccess = {}, re
   const resolvedRepository = requireCrudServiceRepository(runtime, repository);
   const deleted = await resolvedRepository.deleteById(recordId, options);
   if (!deleted) {
-    throw new AppError(404, "Record not found.");
+    throw new AppError(404, "Record not found.", { code: "crud.record.notFound" });
   }
   return deleted;
 }

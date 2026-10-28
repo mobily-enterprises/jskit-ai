@@ -22,7 +22,11 @@ const lookupIncludeQueryValidator = Object.freeze({
       type: "string",
       required: false,
       messages: {
-        default: "include expects a comma-separated string such as \"pet,service\"."
+        default: {
+          code: "crud.query.includeInvalid",
+          message: "include expects a comma-separated string such as \"pet,service\".",
+          params: { example: "pet,service" }
+        }
       }
     }
   }),
@@ -57,7 +61,11 @@ const jsonApiFieldsetsQueryValidator = Object.freeze({
       type: "object",
       required: false,
       messages: {
-        default: "fields expects an object such as {\"bookings\":[\"petId\"],\"pets\":[\"name\"]}."
+        default: {
+          code: "crud.query.fieldsInvalid",
+          message: "fields expects an object such as {\"bookings\":[\"petId\"],\"pets\":[\"name\"]}.",
+          params: { example: "{\"bookings\":[\"petId\"],\"pets\":[\"name\"]}" }
+        }
       },
       values: jsonApiFieldsetValueDefinition
     }
@@ -80,9 +88,18 @@ function createJsonApiFieldsetsQueryValidator({ resource = {} } = {}) {
   const aliasGuidance = contract.aliasMappings
     .map((entry) => `use "${entry.resourceType}" instead of "${entry.alias}"`)
     .join("; ");
-  const additionalPropertiesMessage =
-    `fields keys must be JSON:API resource types. Allowed keys: ${allowedTypes}.` +
-    (aliasGuidance ? ` Relationship aliases are invalid keys; ${aliasGuidance}.` : "");
+  const additionalPropertiesMessage = aliasGuidance
+    ? {
+        code: "crud.query.fieldsKeysInvalidWithAliases",
+        message: `fields keys must be JSON:API resource types. Allowed keys: ${allowedTypes}.` +
+          ` Relationship aliases are invalid keys; ${aliasGuidance}.`,
+        params: { allowedTypes, aliasGuidance }
+      }
+    : {
+        code: "crud.query.fieldsKeysInvalid",
+        message: `fields keys must be JSON:API resource types. Allowed keys: ${allowedTypes}.`,
+        params: { allowedTypes }
+      };
   const fieldsetSchema = createSchema(
     Object.fromEntries(
       contract.resourceTypes.map((resourceType) => [
@@ -101,7 +118,11 @@ function createJsonApiFieldsetsQueryValidator({ resource = {} } = {}) {
         required: false,
         schema: fieldsetSchema,
         messages: {
-          default: `fields expects an object keyed by JSON:API resource type, such as ${example}.`,
+          default: {
+            code: "crud.query.fieldsByTypeInvalid",
+            message: `fields expects an object keyed by JSON:API resource type, such as ${example}.`,
+            params: { example }
+          },
           additionalProperties: additionalPropertiesMessage
         }
       }

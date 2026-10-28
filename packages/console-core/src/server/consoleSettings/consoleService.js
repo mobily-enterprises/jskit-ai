@@ -12,7 +12,7 @@ function createService({ consoleSettingsRepository } = {}) {
   async function ensureInitialConsoleMember(userId, options = {}) {
     const normalizedUserId = normalizeRecordId(userId, { fallback: null });
     if (!normalizedUserId) {
-      throw new AppError(400, "Invalid console user.");
+      throw new AppError(400, "Invalid console user.", { code: "console.owner.invalidUser" });
     }
 
     return consoleSettingsRepository.ensureOwnerUserId(normalizedUserId, options);
@@ -32,12 +32,12 @@ function createService({ consoleSettingsRepository } = {}) {
   async function requireConsoleOwner(context = {}, options = {}) {
     const actorUserId = normalizeRecordId(context?.actor?.id, { fallback: null });
     if (!actorUserId) {
-      throw new AppError(401, "Authentication required.");
+      throw new AppError(401, "Authentication required.", { code: "console.owner.authenticationRequired" });
     }
 
     const ownerUserId = await ensureInitialConsoleMember(actorUserId, options);
     if (actorUserId !== ownerUserId) {
-      throw new AppError(403, "Forbidden.");
+      throw new AppError(403, "Forbidden.", { code: "console.owner.forbidden" });
     }
   }
 

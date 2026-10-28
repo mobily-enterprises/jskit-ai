@@ -848,3 +848,12 @@ test("scope resolvers understand explicit scopeValues and JSKIT visibilityContex
   }), null);
   assert.equal(resolveUserScopeValue(null), null);
 });
+
+test("json-rest-api's fixed-English errors render from the json-rest-api-core catalog", async () => {
+  const { RestApiPreconditionFailedError, RestApiVersionConflictError } = await import("json-rest-api");
+  const { catalogMessage, formatMessage, messageKeyForCode } = await import("@jskit-ai/kernel/shared/i18n");
+  const english = JSON.parse(await readFile(new URL("../locales/en.json", import.meta.url), "utf8"));
+  for (const error of [new RestApiVersionConflictError(), new RestApiPreconditionFailedError()]) {
+    assert.equal(formatMessage(catalogMessage(english, messageKeyForCode(error.code)), {}), error.message, error.code);
+  }
+});
