@@ -18,11 +18,19 @@ Use this on demand; do not load the full index at startup.
 Exports
 - None
 Local functions
+- `historyTitle(item)`
+- `historyTotal(item)`
+- `statusLabel(status)`
+- `locale()`
 - `number(value)`
 - `date(value)`
 - `planName(id)`
 - `checkout(plan)`
 - `loadHistory(collection, after = null)`
+
+### `src/client/i18n.js`
+Exports
+- `useJskitText`
 
 ### fixtures
 

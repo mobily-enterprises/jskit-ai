@@ -34,6 +34,10 @@ Local functions
 Exports
 - `attachSocketConnectionRecovery(socket)`
 
+### `src/client/i18n.js`
+Exports
+- `useJskitText`
+
 ### `src/client/RealtimeClientProvider.js`
 Exports
 - `RealtimeClientProvider`
@@ -85,6 +89,7 @@ Exports
 Local functions
 - `parseDebugFlag(value, fallback = null)`
 - `debugEnabled(config, env)`
+- `authenticationRequiredError()`
 - `createRealtimeCapability({ io })`
 
 ### `src/server/runtime.js`

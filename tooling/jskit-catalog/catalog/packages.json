@@ -396,6 +396,7 @@
           "ws": "^8.20.1"
         },
         "peerDependencies": {
+          "@jskit-ai/kernel": "0.1.247",
           "vue": "^3.5.13",
           "vuetify": "^4.0.0"
         }
@@ -1222,6 +1223,7 @@
           "@jskit-ai/connectors-core": "0.1.65"
         },
         "peerDependencies": {
+          "@jskit-ai/kernel": "0.1.247",
           "vue": "^3.5.13",
           "vuetify": "^4.0.0"
         }
@@ -2044,6 +2046,7 @@
       },
       "packageJson": {
         "peerDependencies": {
+          "@jskit-ai/kernel": "0.1.247",
           "vue": "^3.5.13",
           "vuetify": "^4.0.0"
         }
@@ -2120,6 +2123,10 @@
               {
                 "subpath": "./client/runtime",
                 "summary": "Exports createSocketIoClient, disconnectSocketIoClient and reconnectSocketIoClient."
+              },
+              {
+                "subpath": "./locales/en.json",
+                "summary": "English catalog for the realtime connection indicator, registered by the generated client bootstrap."
               }
             ],
             "capabilities": {
@@ -3354,6 +3361,7 @@
           "requires": [
             "auth.extensions",
             "runtime.actions",
+            "runtime.app-root",
             "runtime.bootstrap",
             "runtime.config",
             "runtime.database",

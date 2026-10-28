@@ -41,6 +41,20 @@ Local functions
 - `resolveProviderDependencies(provider, capabilities)`
 - `normalizeProviderOutputs(provider, value)`
 
+### `shared/i18n/index.js`
+Exports
+- `catalogMessage(catalog, key = "")`
+- `flattenCatalog(catalog, prefix = "")`
+- `formatMessage(template = "", params = {})`
+- `mergeCatalogs(...catalogs)`
+- `messageKeyForCode(code = "")`
+- `messageParams(template = "")`
+Local functions
+- `isRecord(value)`
+- `placeholderEnd(template, start)`
+- `parseMessage(template = "")`
+- `pluralChoice(count, choices)`
+
 ### `shared/index.js`
 Exports
 - `resolveLinkPath`
@@ -301,7 +315,9 @@ Exports
 - `resolveSchemaTransportSchemaDefinition`
 - `executeJsonRestSchemaDefinition`
 - `buildSchemaValidationError`
+- `codedFieldErrors`
 - `validateSchemaPayload`
+- `resolveValidationIssueCode`
 - `RECORD_ID_PATTERN`
 - `recordIdSchema`
 - `nullableRecordIdSchema`
@@ -324,7 +340,8 @@ Local functions
 - `requireJsonRestSchemaInstance(schemaDefinition = null, { context = "schema definition.schema" } = {})`
 - `resolveJsonRestSchemaFieldMessages(schemaDefinition = null, fieldName = "")`
 - `resolveJsonRestSchemaParentFieldMessages(schemaDefinition = null, fieldName = "")`
-- `resolveJsonRestSchemaFieldErrorMessage(fieldName, entry, schemaDefinition = null)`
+- `resolveFieldMessageOverride(messages, key)`
+- `resolveJsonRestSchemaFieldError(fieldName, entry, schemaDefinition = null)`
 
 ### `shared/validators/mergeObjectSchemas.js`
 Exports
@@ -358,8 +375,14 @@ Local functions
 
 ### `shared/validators/schemaPayloadValidation.js`
 Exports
-- `buildSchemaValidationError({ message = "Schema validation failed.", fieldErrors = null, errors = null, cause, statusCode = null } = {})`
+- `buildSchemaValidationError({ message = SCHEMA_VALIDATION_FAILED_MESSAGE, fieldErrors = null, fieldErrorCodes = null, errors = null, cause, statusCode = null } = {})`
+- `codedFieldErrors(error)`
+- `errorFieldErrors(error)`
 - `validateSchemaPayload(schemaDefinition, payload, { phase = "input", context = "schema definition", statusCode = null } = {})`
+
+### `shared/validators/validationIssueCodes.js`
+Exports
+- `resolveValidationIssueCode(issue = {})`
 
 ### client
 
@@ -378,12 +401,13 @@ Exports
 - `createAsyncModuleRecoveryState({ label = "App module", message = "", retry = null } = {})`
 - `dismissAsyncModuleRecovery(state)`
 - `dynamicImportErrorMessage(error = null, { label = "App module", stale = isDynamicImportError(error) } = {})`
-- `guardedReloadApp({ browserWindow = typeof window !== "undefined" ? window : null, fetchFn = typeof fetch === "function" ? fetch : null, state = null, label = "App", message = "The app cannot reload because the app server is not reachable. Restart the server, then click Retry or Reload." } = {})`
+- `guardedReloadApp({ browserWindow = typeof window !== "undefined" ? window : null, fetchFn = typeof fetch === "function" ? fetch : null, state = null, label = "App", message = RELOAD_UNAVAILABLE.message, messageCode = message === RELOAD_UNAVAILABLE.message ? RELOAD_UNAVAILABLE.messageCode : "", messageParams = {} } = {})`
 - `installAsyncModuleRecoveryHandlers({ router = null, state, label = "App module", onNotify = null, windowObject = typeof window !== "undefined" ? window : null } = {})`
 - `isDynamicImportError(error = null)`
-- `notifyAsyncModuleLoadError(state, error = null, { label = "App module", message = "", retry = null, stale = isDynamicImportError(error) } = {})`
+- `notifyAsyncModuleLoadError(state, error = null, { label = "App module", message = "", messageCode = "", messageParams = {}, retry = null, stale = isDynamicImportError(error) } = {})`
 Local functions
 - `errorText(error = null)`
+- `dynamicImportErrorMessageCode(label, stale)`
 
 ### `client/componentInteraction.js`
 Exports
@@ -395,11 +419,39 @@ Exports
 Local functions
 - `normalizeComponentId(value)`
 
+### `client/i18n.js`
+Exports
+- `createTextError(keyOrMessage = "", params = {})`
+- `registerJskitMessages(catalog = {})`
+- `setJskitI18n(i18n = null)`
+- `useJskitText()`
+Local functions
+- `registry()`
+- `mergeEnglishIntoI18n()`
+- `activeLocale()`
+- `pluralOptions(params)`
+- `t(key = "", params = {}, { locale } = {})`
+- `hasMessage(key = "")`
+- `text(value, options)`
+- `codedMessage(code, params = {}, sentEnglish = "")`
+- `serverMessage(source, fallback = "")`
+- `fieldErrorMessages(error)`
+- `validDate(value)`
+- `formatDate(value, options)`
+- `formatTime(value, options)`
+- `formatDateTime(value, options)`
+- `formatNumber(value, options)`
+- `formatRelativeTime(value, { now = Date.now(), ...options } = {})`
+
 ### `client/index.js`
 Exports
 - `getClientAppConfig`
 - `resolveMobileConfig`
 - `resolveClientAssetMode`
+- `createTextError`
+- `registerJskitMessages`
+- `setJskitI18n`
+- `useJskitText`
 - `createAsyncModuleRecoveryState`
 - `dismissAsyncModuleRecovery`
 - `dynamicImportErrorMessage`
@@ -457,7 +509,7 @@ Exports
 - `resolveClientBootstrapDebugEnabled({ env = {}, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG" } = {})`
 - `createClientBootstrapLogger({ env = {}, logger = console, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG" } = {})`
 - `createSurfaceShellRouter({ createRouter, history, routes = [], surfaceRuntime, surfaceMode, fallbackRoute = null, notFoundComponent = null, guard = false, scrollBehavior = shellScrollBehavior } = {})`
-- `bootstrapClientShellApp({ createApp, rootComponent, appConfig = {}, appPlugins = [], pinia = null, queryClient = null, router, bootClientModules, surfaceRuntime, surfaceMode, env = {}, fallbackRoute = null, logger = console, createBootstrapLogger = null, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG", debugMessage = "Client modules bootstrapped before router install.", onAfterModulesBootstrapped = null, onAfterRouterReady = null, mountSelector = "#app" } = {})`
+- `bootstrapClientShellApp({ createApp, rootComponent, appConfig = {}, appPlugins = [], i18n = null, pinia = null, queryClient = null, router, bootClientModules, surfaceRuntime, surfaceMode, env = {}, fallbackRoute = null, logger = console, createBootstrapLogger = null, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG", debugMessage = "Client modules bootstrapped before router install.", onAfterModulesBootstrapped = null, onAfterRouterReady = null, mountSelector = "#app" } = {})`
 Local functions
 - `installAppPlugins(app, appPlugins = [])`
 - `isSurfaceRootRecord(record)`
@@ -490,7 +542,8 @@ Exports
 - `bootInstalledClientModules(context = {})`
 - `CLIENT_BOOTSTRAP_VIRTUAL_ID`
 - `CLIENT_BOOTSTRAP_RESOLVED_ID`
-- `createVirtualModuleSource(clientModules = [])`
+- `createVirtualModuleSource(clientModules = [], localePackageIds = [])`
+- `resolveLocalePackageIds(installedPackages = [])`
 - `resolveClientOptimizeIncludeSpecifiers(clientModules = [], excludeSpecifiers = [])`
 - `resolveClientOptimizeExcludeSpecifiers(clientModules = [])`
 - `resolveCanonicalLocalPackageId(resolvedId, localPackage)`
@@ -592,6 +645,7 @@ Exports
 - `normalizeActionInput(definition, input)`
 - `normalizeActionOutput(definition, output)`
 Local functions
+- `schemaFieldErrorDetails(error)`
 - `createActionValidationError({ status = 400, message = "Validation failed.", code = "ACTION_VALIDATION_FAILED", details, cause } = {})`
 
 ### `server/actions/registry.js`
@@ -647,8 +701,11 @@ Local functions
 - `hasHeaderValue(headers = {}, key = "")`
 - `hasRequestBody(headers = {})`
 - `resolveValidationFieldErrors(error)`
+- `fieldErrorPayloadFields({ fieldErrors, fieldErrorCodes } = {})`
+- `messageCodeFields(error, expose = true)`
+- `hiddenServerErrorFields(code = "")`
 - `resolveRequestRouteTransport(request)`
-- `applyRouteTransportErrorResponse(reply, request, error, { statusCode = 500, normalizedErrorCode = "", message = error?.message, exposeDetails = true } = {})`
+- `applyRouteTransportErrorResponse(reply, request, error, { statusCode = 500, normalizedErrorCode = "", message = error?.message, exposeDetails = true, messageFields = {} } = {})`
 - `resolveApiErrorStatus(error, code)`
 - `applyErrorHeaders(reply, error)`
 
@@ -740,6 +797,14 @@ Local functions
 - `isJsonValue(value, ancestors = new Set())`
 - `schemaCacheKey(schema)`
 
+### `server/i18n.js`
+Exports
+- `createServerI18n({ appRoot = "", catalogs = [] } = {})`
+Local functions
+- `loadAppTranslations(appRoot)`
+- `appTranslations(appRoot)`
+- `localeCandidates(locale = "")`
+
 ### `server/platform/index.js`
 Exports
 - `registerSurfaceRequestConstraint`
@@ -800,6 +865,8 @@ Exports
 - `DomainValidationError`
 - `ConflictError`
 - `NotFoundError`
+Local functions
+- `normalizeErrorParams(params)`
 
 ### `server/runtime/EventProvider.js`
 Exports

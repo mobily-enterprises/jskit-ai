@@ -316,7 +316,7 @@ Exports
 - `googleAdsSearchOperations`
 - `createGoogleAdsSearchService({ connections, configuration, context, integrationId })`
 Local functions
-- `error(message)`
+- `error(message, codes)`
 - `hash(value)`
 - `requestOperation(fields, build, validateResult)`
 - `mutated(result)`
@@ -378,7 +378,7 @@ Exports
 - `googleScope(name)`
 - `googleOperation(scopes, fields, request, validateResult)`
 - `googleBatchRequests(requests, product)`
-- `inputInvalid(message, statusCode = 422)`
+- `inputInvalid(message, { statusCode = 422, ...codes } = {})`
 - `googleRead(scopes, fields, destination, validateResult)`
 - `googleProvider(definition, origin, checkOperation, operations)`
 - `googleFileVerification(get, field)`
@@ -802,7 +802,7 @@ Local functions
 - `serializeNativeJson(value)`
 - `guid(value)`
 - `requestPath(request, index)`
-- `sameRecord(matches, message)`
+- `sameRecord(matches, message, codes)`
 - `cursor(value)`
 - `bookingDirectoryOperation(kind)`
 - `validContact(value)`
@@ -828,7 +828,7 @@ Exports
 - `createWizScanner({ configuration, authorize, resolveReference, resolveScanTarget, executable, environment = { PATH: process.env.PATH || "/usr/bin:/bin" }, timeoutMs = 600_000, maxReportBytes = 16 * 1024 * 1024 })`
 Local functions
 - `object(value)`
-- `failure(code, message, statusCode = 502)`
+- `failure(code, message, statusCode = 502, codes = {})`
 - `runCli(executable, args, options, signal, timeoutMs)`
 
 ### `src/server/woocommerce.js`
@@ -1028,6 +1028,23 @@ Exports
 - `connectorDefinitions`
 - `resendDefinition`
 - `firecrawlDefinition`
+
+### `src/shared/english-ai.js`
+Exports
+- `aiCatalogue`
+- `getAiModel`
+- `listAiModels`
+
+### `src/shared/english-definitions.js`
+Exports
+- `createCanvaClientMetadata`
+- `validN8nOAuthDiscovery`
+
+### `src/shared/english-texts.js`
+Exports
+- `englishTexts(value)`
+Local functions
+- `englishMessage(key, params)`
 
 ### `src/shared/figma.js`
 Exports

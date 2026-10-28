@@ -14,6 +14,10 @@ Use this on demand; do not load the full index at startup.
 
 ### src
 
+### `src/client/i18n.js`
+Exports
+- `useJskitText`
+
 ### `src/client/index.js`
 Exports
 - `IntegrationConfigurationFields`
@@ -26,6 +30,7 @@ Local functions
 - `accountModeForGrant(grant, settings, accountMode)`
 - `settingValue(field)`
 - `settingHint(field)`
+- `settingItems(field)`
 - `settingErrors(field)`
 - `editAssistantPolicy(changes)`
 - `editIntegration(changes)`

@@ -30,6 +30,32 @@ Exports
 Local functions
 - `fileExists(filePath)`
 
+### `scripts/i18n.mjs`
+Exports
+- `canonicalLocale(code = "")`
+- `checkTranslations({ projectRoot = process.cwd(), locale } = {})`
+- `collectInstalledCatalogs(projectRoot)`
+- `exportTranslations({ projectRoot = process.cwd(), locale } = {})`
+- `formatCheckReport(result, projectRoot = process.cwd())`
+- `formatExportSummary(result, projectRoot = process.cwd())`
+- `messageParams(template = "")`
+- `parseMessage(template = "")`
+Local functions
+- `isRecord(value)`
+- `translationFile(projectRoot, locale)`
+- `mergeCatalogs(...catalogs)`
+- `flattenCatalog(catalog, prefix = "")`
+- `placeholderEnd(template, start)`
+- `localeCatalogTarget(manifest)`
+- `readJsonFile(file)`
+- `readInstalledEnglish(projectRoot)`
+- `readTranslationFile(file)`
+- `nestCatalog(flat, file)`
+- `relativeFile(projectRoot, file)`
+- `describeParams(names)`
+- `placeholderProblem(englishText, translation)`
+- `hasWords(englishText)`
+
 ### `scripts/jskit.mjs`
 Exports
 - `isCliEntrypoint(argvPath = process.argv[1])`
@@ -37,6 +63,8 @@ Exports
 - `parseArgs(argv = [])`
 - `usage()`
 Local functions
+- `parseI18nArgs(options, positionals)`
+- `runI18n({ subcommand, locale, projectRoot })`
 - `readCatalog()`
 
 ### `scripts/pattern-assets.mjs`

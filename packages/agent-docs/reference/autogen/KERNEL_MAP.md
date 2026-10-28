@@ -278,7 +278,9 @@ Exports
 - `resolveSchemaTransportSchemaDefinition`
 - `executeJsonRestSchemaDefinition`
 - `buildSchemaValidationError`
+- `codedFieldErrors`
 - `validateSchemaPayload`
+- `resolveValidationIssueCode`
 - `RECORD_ID_PATTERN`
 - `recordIdSchema`
 - `nullableRecordIdSchema`
@@ -301,7 +303,8 @@ Local functions
 - `requireJsonRestSchemaInstance(schemaDefinition = null, { context = "schema definition.schema" } = {})`
 - `resolveJsonRestSchemaFieldMessages(schemaDefinition = null, fieldName = "")`
 - `resolveJsonRestSchemaParentFieldMessages(schemaDefinition = null, fieldName = "")`
-- `resolveJsonRestSchemaFieldErrorMessage(fieldName, entry, schemaDefinition = null)`
+- `resolveFieldMessageOverride(messages, key)`
+- `resolveJsonRestSchemaFieldError(fieldName, entry, schemaDefinition = null)`
 
 ### `validators/mergeObjectSchemas.js`
 Exports
@@ -335,8 +338,14 @@ Local functions
 
 ### `validators/schemaPayloadValidation.js`
 Exports
-- `buildSchemaValidationError({ message = "Schema validation failed.", fieldErrors = null, errors = null, cause, statusCode = null } = {})`
+- `buildSchemaValidationError({ message = SCHEMA_VALIDATION_FAILED_MESSAGE, fieldErrors = null, fieldErrorCodes = null, errors = null, cause, statusCode = null } = {})`
+- `codedFieldErrors(error)`
+- `errorFieldErrors(error)`
 - `validateSchemaPayload(schemaDefinition, payload, { phase = "input", context = "schema definition", statusCode = null } = {})`
+
+### `validators/validationIssueCodes.js`
+Exports
+- `resolveValidationIssueCode(issue = {})`
 
 ### root
 
@@ -373,3 +382,19 @@ Local functions
 - `buildProviderOrder(providers, inputCapabilities)`
 - `resolveProviderDependencies(provider, capabilities)`
 - `normalizeProviderOutputs(provider, value)`
+
+### i18n
+
+### `i18n/index.js`
+Exports
+- `catalogMessage(catalog, key = "")`
+- `flattenCatalog(catalog, prefix = "")`
+- `formatMessage(template = "", params = {})`
+- `mergeCatalogs(...catalogs)`
+- `messageKeyForCode(code = "")`
+- `messageParams(template = "")`
+Local functions
+- `isRecord(value)`
+- `placeholderEnd(template, start)`
+- `parseMessage(template = "")`
+- `pluralChoice(count, choices)`

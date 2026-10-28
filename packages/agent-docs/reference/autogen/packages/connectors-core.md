@@ -19,7 +19,7 @@ Exports
 - `createConnectionService({ configuration, providers, resolveReference, store, authorize, executionMode = "application", fetchImpl = globalThis.fetch, now = Date.now })`
 Local functions
 - `publicConnection(connection)`
-- `requireOperationScope(operation, scopes, message)`
+- `requireOperationScope(operation, scopes, message, { messageCode })`
 - `operationRequest(operation, input, settings, providerData)`
 - `validateCallbackUrl(value)`
 - `connectionMatches(connection, integration, providerId, registration)`
@@ -73,6 +73,7 @@ Exports
 Exports
 - `DEFAULT_GRANT_TYPE`
 - `DEFAULT_TOKEN_ENDPOINT_AUTH_METHOD`
+- `MESSAGE_KEY_SOURCE`
 - `registrationGrantType(record)`
 - `registrationClientAuthentication(record)`
 - `providerGrantTypes(provider)`
@@ -88,6 +89,8 @@ Exports
 - `IntegrationConfigurationError`
 - `parseIntegrationConfiguration(text, options)`
 - `validateIntegrationConfiguration(input, { providers = [], allowUnknownProviders = false } = {})`
+Local functions
+- `schemaFieldErrors(error, fallback, prefix = "")`
 
 ### migrations
 

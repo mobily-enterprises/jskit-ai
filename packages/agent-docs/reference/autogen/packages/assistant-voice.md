@@ -35,6 +35,14 @@ Exports
 Exports
 - `projectConversationVoiceState({ turns = [], status = "ready", interimReply = null } = {})`
 
+### `src/client/i18n.js`
+Exports
+- `useJskitText`
+- `voiceError(key, params = {})`
+- `voiceErrorText(cause)`
+- `voiceEventError(event, fallbackKey)`
+- `voiceSpeechWording()`
+
 ### `src/client/index.js`
 Exports
 - `projectConversationVoiceState`
@@ -140,7 +148,7 @@ Exports
 - `createBoundedSerialQueue({ maximumQueued = 4 } = {})`
 - `createVoiceDaemon({ accessKey, authorize = token => verifyVoiceAccessToken(token, { key: accessKey }), handleRequest = null, engine, host = "127.0.0.1", idleTimeoutMs = 90_000, logger = console, maximumConnections = 8, maximumConnectionsPerTenant = 2, maximumQueuedSpeech = 4, port = 3092 } = {})`
 - `sendJson(socket, type, fields = {})`
-- `voiceDaemonError(error, fallback = "Voice operation failed.")`
+- `voiceDaemonError(error, fallback = { message: "Voice operation failed.", messageCode: "assistant.voice.daemon.operationFailed" })`
 Local functions
 - `sendPcm(socket, audio = Buffer.alloc(0))`
 - `requestPathname(request = {})`
@@ -155,7 +163,7 @@ Local functions
 - `proxyCloseCode(code)`
 - `proxyCloseReason(reason)`
 - `normalizeVoiceCloseMetadata(code, reason)`
-- `sendSocketError(socket, code, message)`
+- `sendSocketError(socket, code, message, { params, messageCode, messageParams = {} } = {})`
 
 ### `src/server/voiceProxyConfig.js`
 Exports
@@ -184,10 +192,10 @@ Exports
 - `pcm16LeToFloat32(frame = Buffer.alloc(0))`
 - `speechPauseDurationMs(value = "")`
 - `speechPhrases(value = "")`
-- `speechTextFromAssistant(value = "", maximumCharacters = VOICE_MAX_SPEECH_TEXT_CHARACTERS)`
+- `speechTextFromAssistant(value = "", maximumCharacters = VOICE_MAX_SPEECH_TEXT_CHARACTERS, wording = VOICE_SPEECH_WORDING)`
 - `splitSpeechText(value = "", maximumCharacters = VOICE_MAX_SPEECH_CHUNK_CHARACTERS)`
-- `takeStreamingSpeech(text = "", final = false, maximumCharacters = 140)`
-- `voiceProtocolError(code, message)`
+- `takeStreamingSpeech(text = "", final = false, maximumCharacters = 140, wording = VOICE_SPEECH_WORDING)`
+- `voiceProtocolError(code, message, params)`
 - `voiceServerMessage(type = "", fields = {})`
 - `voiceTurnId(value = "")`
 

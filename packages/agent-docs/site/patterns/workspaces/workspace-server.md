@@ -48,6 +48,13 @@ responses expose optional `roleLabel` alongside the unchanged `roleSid`.
 Applications with their own invitation renderer may use its optional
 `roleLabel` input; `roleSid` remains the stored role id.
 
+Invitation emails use the recipient's language: `locale` is the saved
+`user_settings.locale` of an existing account with the invited email, else `en`.
+Renderers receive `locale` and `t(key, params)`, which renders a
+`jskit.workspaces.inviteEmail.*` message from the app's
+`src/locales/<code>/jskit.json` (exact locale, then language, then English); the
+mailer's `sendWorkspaceInvite` receives `locale` too.
+
 Keep existing permissions, inheritance, assignability and
 `workspace.defaultInviteRole` when adding a label. `owner` remains
 nonassignable. Custom roles, including specialised Training roles, are ordinary

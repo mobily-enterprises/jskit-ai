@@ -113,6 +113,10 @@ Exports
 - `routeParamsValidator`
 - `workspaceSlugParamsValidator`
 
+### `src/server/i18n.js`
+Exports
+- `createWorkspacesServerI18n({ appRoot = "" } = {})`
+
 ### `src/server/support/resolveWorkspace.js`
 Exports
 - `resolveWorkspace(context = {}, input = {})`
@@ -172,8 +176,9 @@ Local functions
 
 ### `src/server/workspaceMembers/defaultWorkspaceInviteEmail.js`
 Exports
-- `renderDefaultWorkspaceInviteEmail({ inviteUrl = "", workspace = {}, inviter = null, roleSid = "member", roleLabel = "", expiresAt = "" } = {})`
+- `renderDefaultWorkspaceInviteEmail({ inviteUrl = "", workspace = {}, inviter = null, roleSid = "member", roleLabel = "", expiresAt = "", t = english } = {})`
 Local functions
+- `english(key, params)`
 - `escapeHtml(value = "")`
 
 ### `src/server/workspaceMembers/workspaceInviteUrls.js`
@@ -191,7 +196,9 @@ Exports
 
 ### `src/server/workspaceMembers/workspaceMembersService.js`
 Exports
-- `createService({ workspaceMembershipsRepository, workspaceInvitesRepository, inviteExpiresInMs, roleCatalog = null, workspaceInvitationsEnabled = true, inviteUrlBuilder = null, workspaceInviteMailer = null, workspaceInviteEmailTemplate = renderDefaultWorkspaceInviteEmail } = {})`
+- `createService({ workspaceMembershipsRepository, workspaceInvitesRepository, inviteExpiresInMs, roleCatalog = null, workspaceInvitationsEnabled = true, inviteUrlBuilder = null, workspaceInviteMailer = null, workspaceInviteEmailTemplate = renderDefaultWorkspaceInviteEmail, i18n = createWorkspacesServerI18n(), userProfilesRepository = null, userSettingsRepository = null } = {})`
+Local functions
+- `roleNotAssignableError()`
 
 ### `src/server/workspacePendingInvitations/bootWorkspacePendingInvitations.js`
 Exports
@@ -233,7 +240,7 @@ Exports
 ### `src/server/WorkspacesFeature.js`
 Exports
 - `WorkspacesFeature`
-- `createWorkspacesRuntime({ config, env, jsonRestApi } = {})`
+- `createWorkspacesRuntime({ appRoot = "", config, env, jsonRestApi, users = null } = {})`
 - `installWorkspaceResources(jsonRestApi)`
 Local functions
 - `requirePositiveInteger(value, label)`

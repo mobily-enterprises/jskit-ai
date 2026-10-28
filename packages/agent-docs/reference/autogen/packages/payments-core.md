@@ -58,7 +58,7 @@ Exports
 - `createPaymentService({ store, configuration, clock = Date.now })`
 - `PaymentError`
 Local functions
-- `fail(code, message, status)`
+- `fail(code, message, status, options)`
 - `reference(value)`
 - `units(value)`
 - `timestamp(value)`
@@ -78,7 +78,7 @@ Local functions
 Exports
 - `validatePaymentConfiguration(document)`
 Local functions
-- `configurationError(message, fieldErrors)`
+- `configurationError(message, fieldErrors, { messageCode, messageParams = {} })`
 
 ### migrations
 

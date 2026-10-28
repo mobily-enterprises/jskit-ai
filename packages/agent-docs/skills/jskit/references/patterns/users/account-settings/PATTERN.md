@@ -28,6 +28,16 @@ section order, and which account operations require reauthentication.
 Use account settings elements and composables from `@jskit-ai/users-web`,
 ordinary `useCommand()` mutation behavior, and JSKIT shell placements.
 
+The runtime's `preferences.options.locale` lists the app's `config.languages`
+(`[{ code, name }]` in the public app config), or a built-in list when the app
+configures none; theme, date and number format options arrive translated. The
+saved locale is a canonical BCP 47 code. `useAccountLocale()` from
+`@jskit-ai/users-web/client` returns it as a read-only ref (`""` when signed
+out), updated at bootstrap and after preferences save. JSKIT does not switch the
+app's language; the app does, for example
+`watch(useAccountLocale(), (code) => { if (code) i18n.global.locale.value = code; }, { immediate: true })`.
+Section titles may be plain text, a message key or `{ key, fallback }`.
+
 ## Invariants
 
 - Sections use JSKIT account settings APIs rather than direct HTTP helpers.

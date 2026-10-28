@@ -99,7 +99,7 @@ Local functions
 - `buildSessionPayload({ user, session, refreshToken, secret })`
 - `validatePasswordInput(password)`
 - `validateEmailInput(email)`
-- `devLoginAsValidationError(fieldErrors = {})`
+- `devLoginAsValidationError(fields = {})`
 - `devLoginAsUserNotFound({ email = "", userId = "" } = {})`
 - `normalizeInvitationInput(value = null)`
 

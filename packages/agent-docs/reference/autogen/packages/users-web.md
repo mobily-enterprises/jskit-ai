@@ -22,6 +22,8 @@ Exports
 - `resolveAccountSettingsSections(entries = [])`
 - `sortAccountSettingsSections(entries = [])`
 - `useAccountSettingsSections()`
+Local functions
+- `normalizeSectionTitle(value)`
 
 ### `src/client/bootstrap/user-bootstrap-handler.js`
 Exports
@@ -50,6 +52,14 @@ Exports
 Exports
 - `createAccountSettingsAvatarUploadRuntime({ queryClient, sessionQueryKey, accountSettingsQueryKey, selectedAvatarFileName, applySettingsData, reportAccountFeedback } = {})`
 
+### `src/client/composables/account-settings/accountSettingsPreferenceOptions.js`
+Exports
+- `resolveLanguageOptions(appConfig = getClientAppConfig())`
+- `resolveLocaleOptions(savedLocale = "", appConfig = getClientAppConfig())`
+- `translateOptions(options = [])`
+Local functions
+- `languageName(code)`
+
 ### `src/client/composables/account-settings/accountSettingsRuntimeConstants.js`
 Exports
 - `ACCOUNT_SETTINGS_DEFAULTS`
@@ -72,10 +82,21 @@ Exports
 Exports
 - `useAccountSettingsRuntime()`
 
+### `src/client/i18n.js`
+Exports
+- `useJskitText`
+
 ### `src/client/index.js`
 Exports
 - `UsersWebClientProvider`
 - `AccountSettingsClientElement`
+- `useAccountLocale`
+
+### `src/client/lib/accountLocale.js`
+Exports
+- `resolveBootstrapAccountLocale(payload = {})`
+- `setAccountLocale(value)`
+- `useAccountLocale()`
 
 ### `src/client/lib/bootstrap.js`
 Exports

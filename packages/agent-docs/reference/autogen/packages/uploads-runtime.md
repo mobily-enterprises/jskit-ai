@@ -34,7 +34,7 @@ Exports
 
 ### `src/server/policy/uploadPolicy.js`
 Exports
-- `createUploadFieldError(fieldName, message)`
+- `createUploadFieldError(fieldName, message, { code = "", params = {} } = {})`
 - `normalizeUploadPolicy`
 - `readUploadBuffer(stream, { maxBytes = DEFAULT_IMAGE_UPLOAD_POLICY.maxUploadBytes, fieldName = "file", label = "File" } = {})`
 - `validateUploadMimeType(mimeType, policy = DEFAULT_IMAGE_UPLOAD_POLICY, { fieldName = "file", label = "File" } = {})`

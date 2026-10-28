@@ -26,6 +26,10 @@ Local functions
 Exports
 - `useRewardedRuntime()`
 
+### `src/client/i18n.js`
+Exports
+- `useJskitText`
+
 ### `src/client/index.js`
 Exports
 - `RewardedClientProvider`
@@ -44,6 +48,7 @@ Exports
 - `createRewardedRuntime({ launchReward } = {})`
 Local functions
 - `createInitialState()`
+- `rewardedClientError(message, { messageCode })`
 - `applyState(target, source)`
 - `normalizeWorkspaceSlug(value = "")`
 - `isWellFormedGateState(gateState = null)`

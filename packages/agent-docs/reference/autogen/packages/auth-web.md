@@ -24,7 +24,6 @@ Exports
 - `AUTH_TITLE_BY_MODE`
 - `AUTH_SUBTITLE_BY_MODE`
 - `SUBMIT_LABEL_BY_MODE`
-- `DEFAULT_REGISTER_CONFIRMATION_MESSAGE`
 
 ### `src/client/composables/loginView/identityHelpers.js`
 Exports
@@ -67,9 +66,11 @@ Exports
 ### `src/client/composables/loginView/validationHelpers.js`
 Exports
 - `validateCommandSection(commandResource, section, payload)`
-- `resolveValidationMessage(validationResult, fallbackMessage = "Validation failed.")`
+- `resolveValidationMessage(validationResult, fallbackMessage = "")`
 - `resolveFieldValidationMessage(validationResult, fieldName = "")`
 - `ensureCommandSectionValid(commandResource, section, payload, fallbackMessage)`
+Local functions
+- `validationFieldMessages(validationResult)`
 
 ### `src/client/composables/useDefaultSignOutView.js`
 Exports
@@ -77,6 +78,10 @@ Exports
 Local functions
 - `readReturnToPathFromLocation({ allowedOrigins = [] } = {})`
 - `navigateToPath(path, { replace = true } = {})`
+
+### `src/client/i18n.js`
+Exports
+- `useJskitText`
 
 ### `src/client/index.js`
 Exports
@@ -163,6 +168,10 @@ Exports
 - `authHttpRequest(url, options = {}, state = undefined)`
 - `clearAuthCsrfTokenCache()`
 
+### `src/client/runtime/inactiveSessionMessage.js`
+Exports
+- `inactiveSessionMessage(session)`
+
 ### `src/client/runtime/inject.js`
 Exports
 - `AUTH_GUARD_RUNTIME_INJECTION_KEY`
@@ -178,6 +187,7 @@ Exports
 - `completeOAuthCallbackFromUrl({ url = "", fallbackReturnTo = "/", allowedReturnToOrigins = [], defaultProvider = "", request = authHttpRequest, refreshSession = async () => null } = {})`
 - `readOAuthCallbackParamsFromUrl(url = "")`
 Local functions
+- `readErrorParams(value = "")`
 - `buildOAuthCompletePayload({ callbackParams = null, provider = "", hasSessionPair = false } = {})`
 
 ### `src/client/runtime/oauthLaunchClient.js`

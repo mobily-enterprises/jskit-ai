@@ -28,6 +28,7 @@ apply or adapt. It does not prescribe an agent host or project orchestrator.
 - [Record form actions](/guide/framework/crud-form-actions)
 - [UI operations](/guide/framework/ui-operations)
 - [Material 3](/guide/framework/material-3)
+- [Translating a JSKIT app](/guide/framework/translation)
 - [Complete source pattern library](/patterns/)
 
 ## Optional capabilities

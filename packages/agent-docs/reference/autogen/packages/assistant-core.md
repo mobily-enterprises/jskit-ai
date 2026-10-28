@@ -26,7 +26,6 @@ Exports
 Exports
 - None
 Local functions
-- `attachmentCountLabel(count = 0)`
 - `itemKey(item = {})`
 - `itemName(item = {})`
 - `itemPhase(item = {})`
@@ -155,6 +154,11 @@ Local functions
 - `clearLoadMoreScrollSnapshot()`
 - `completeLoadMoreRequest(version, changed)`
 
+### `src/client/conversation/attachmentSize.js`
+Exports
+- `attachmentLimitText(maxBytes)`
+- `attachmentSizeText(size)`
+
 ### `src/client/conversation/index.js`
 Exports
 - `AssistantConversationElement`
@@ -190,6 +194,7 @@ Local functions
 Exports
 - None
 Local functions
+- `detailsSummary(block)`
 - `isListBlock(block)`
 - `blockKey(block, blockIndex)`
 - `headingTag(level)`
@@ -212,6 +217,8 @@ Exports
 ### `src/client/conversation/submitText.js`
 Exports
 - `createAssistantTextSubmission({ getState, setDraft, submit, afterDraftChange = async () => {} })`
+Local functions
+- `submissionError(message, { messageCode })`
 
 ### `src/client/conversation/useAssistantAttachments.js`
 Exports
@@ -225,6 +232,7 @@ Exports
 - `assistantAttachmentFilesFromTransferItems(items = [])`
 - `useAssistantAttachments({ canUpload = () => true, deleteAttachment = null, onError = null, onUploaded = async () => null, sessionId, uploadAttachment, maxBytes = ASSISTANT_ATTACHMENT_MAX_BYTES, maxItems = ASSISTANT_ATTACHMENT_MAX_ITEMS, uploadConcurrency = ASSISTANT_ATTACHMENT_UPLOAD_CONCURRENCY } = {})`
 Local functions
+- `attachmentErrorText(error, fallback)`
 - `assistantAttachmentSessionId(sessionId)`
 - `assistantAttachmentUploadAllowed(canUpload)`
 - `assistantAttachmentClipboardText(event)`
@@ -255,6 +263,10 @@ Local functions
 - `normalizedScrollBehavior(value = "")`
 - `scrollElementToBottom(targetElement, behavior = "auto")`
 
+### `src/client/i18n.js`
+Exports
+- `useJskitText`
+
 ### `src/client/index.js`
 Exports
 - `AssistantSettingsFormCard`
@@ -267,6 +279,7 @@ Exports
 - `createAssistantApi({ request, requestStream, resolveBasePath, resolveSurfaceId = null } = {})`
 - `buildStreamEventError(event)`
 Local functions
+- `isRecord(value)`
 - `appendQueryParam(params, key, value)`
 - `createAssistantQueryParams(query = {}, transport = null)`
 - `normalizeSurfaceHeaderValue(value)`
@@ -292,7 +305,7 @@ Exports
 - `conversationAttachmentIds(value = [])`
 - `createConversationAttachmentReader({ attachments, context, conversationId, signal, authorize, types, maximumBytes })`
 Local functions
-- `invalid(message)`
+- `invalid(message, { messageCode, messageParams = {} })`
 
 ### `src/server/conversation/boundedToolLoop.js`
 Exports
@@ -1105,7 +1118,9 @@ Local functions
 Exports
 - `createConversationRuntime({ engine: defaultEngine = "api", defaultIntegrationId, storage, authorize, connections, apiClientFactory, apiHistory, actions, toolPolicy, toolCatalog, attachments, fetch, host: defaultHost, onDeliveryTiming, hostDeliveryStages, persistCommentary = true, completedEnvelope = false, limits = {} } = {})`
 Local functions
-- `failure(message, code, statusCode = 409)`
+- `failure(message, code, statusCode = 409, { messageCode, messageParams } = {})`
+- `deliveryFailure(delivered)`
+- `stateErrorFields(error)`
 - `submittedMessage(turn)`
 - `retainedSegments(state)`
 - `pendingSuccessor(state)`
@@ -1418,6 +1433,9 @@ Exports
 - `writeNdjson(reply, payload = {})`
 - `endNdjson(reply)`
 - `mapStreamError(error)`
+Local functions
+- `isRecord(value)`
+- `streamMessageFields(error, hidden)`
 
 ### `src/server/lib/providers/anthropicClient.js`
 Exports

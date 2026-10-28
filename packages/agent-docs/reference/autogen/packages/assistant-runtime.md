@@ -31,6 +31,7 @@ Exports
 - None
 Local functions
 - `submitMessage({ attachments = [], retryMessageId = "" })`
+- `conversationTitle(entry, fallbackKey)`
 - `conversationSubtitle(entry)`
 - `selectConversation(entry)`
 - `startNewConversation()`
@@ -42,6 +43,9 @@ Exports
 - `useAssistantConversationFactory(options = {})`
 Local functions
 - `text(value)`
+- `failureMessage(failure, fallback = "")`
+- `resultError(result)`
+- `stateError(state)`
 - `compareTurnIds(left, right)`
 - `isQuestionConfiguration(value)`
 - `questionsAnswered(prompts)`
@@ -63,8 +67,13 @@ Local functions
 - `writeStoredActiveConversationId(scope = {}, conversationId)`
 - `normalizeConversationStatus(value)`
 - `formatConversationStartedAt(value)`
+- `failureText(failure)`
 - `resolveRuntimePolicy()`
 - `createRuntimeApi({ overrideApi = null, resolveBasePath, resolveSurfaceId = null } = {})`
+
+### `src/client/i18n.js`
+Exports
+- `useJskitText`
 
 ### `src/client/index.js`
 Exports
@@ -93,6 +102,7 @@ Exports
 - `mapTranscriptEntriesToAssistantState(entries)`
 - `mapAssistantConversationTurns(messages, toolEvents = [], { showToolActivity = true } = {})`
 - `normalizeToolName(value)`
+- `toolStatusText(status)`
 
 ### `src/client/support/conversationRestoreSupport.js`
 Exports
@@ -245,6 +255,8 @@ Local functions
 - `normalizeHistory(history = [])`
 - `normalizeStreamInput(payload = {})`
 - `hasStreamWriter(streamWriter)`
+- `savedMessageFields(error)`
+- `streamErrorMessageFields(error, aborted)`
 - `isAbortError(error)`
 - `toCompactJson(value, fallback = "{}")`
 - `buildToolContractLine(toolDescriptor = {})`
@@ -277,6 +289,9 @@ Local functions
 Exports
 - `errorStatus(error)`
 - `exposedAppErrorDetails(error)`
+- `errorMessageFields(error, { expose = true } = {})`
+Local functions
+- `isRecord(value)`
 
 ### `src/server/support/assistantRouteContext.js`
 Exports

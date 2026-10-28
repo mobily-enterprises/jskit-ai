@@ -19,7 +19,7 @@ Exports
 - `googleCalendarProvider`
 Local functions
 - `queryUrl(path, input)`
-- `invalid(message)`
+- `invalid(message, codes)`
 - `validateEventTime(point)`
 - `validateRecurrence(body)`
 - `validAttendee(person)`

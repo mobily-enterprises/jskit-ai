@@ -31,9 +31,14 @@ Local functions
 - `closeDashboard(uppy)`
 - `readJsonResponse(response)`
 - `resolveMessage(value, fallback)`
+- `resolveBodyErrorMessage(body)`
 - `resolveUploadErrorFallback({ error, response, fallbackMessage })`
 - `resolveDeleteErrorFallback({ error, body, fallbackMessage })`
 - `normalizeDeleteResult(result)`
+
+### `src/client/i18n.js`
+Exports
+- `useJskitText`
 
 ### `src/client/index.js`
 Exports

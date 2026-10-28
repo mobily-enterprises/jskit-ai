@@ -100,6 +100,9 @@ Exports
 ### `src/client/components/ShellOutlet.vue`
 Exports
 - None
+Local functions
+- `isPlacementText(value)`
+- `placementProps(entry)`
 
 ### `src/client/components/ShellOutletMenuWidget.vue`
 Exports
@@ -198,6 +201,8 @@ Exports
 - `normalizeErrorEvent(rawEvent = {})`
 Local functions
 - `createRuntimeLogger(logger = null)`
+- `freezeParams(params)`
+- `messageCodeFields(source = {}, fallback = {})`
 - `normalizePolicyDecision(policyDecision = {}, event = {})`
 - `normalizePresenter(candidate = {})`
 
@@ -207,7 +212,12 @@ Exports
 - `createErrorPresentationStore({ now = () => Date.now() } = {})`
 Local functions
 - `createEmptyChannelState()`
+- `freezeParams(params)`
 - `cloneEntry(entry = {})`
+
+### `src/client/i18n.js`
+Exports
+- `useJskitText`
 
 ### `src/client/index.js`
 Exports
@@ -357,7 +367,7 @@ Local functions
 ### `src/client/providers/appModuleLoadFailure.js`
 Exports
 - `isMissingDynamicModule(error, moduleSpecifier)`
-- `notifyDynamicImportFailure(asyncModuleRecoveryRuntime, error, { label = "App module" } = {})`
+- `notifyDynamicImportFailure(asyncModuleRecoveryRuntime, error, { label = t("jskit.shell.recovery.appModuleLabel") } = {})`
 
 ### `src/client/providers/ShellWebClientProvider.js`
 Exports
@@ -387,10 +397,10 @@ Exports
 
 ### `src/client/requestRecovery/runtime.js`
 Exports
-- `APP_RELOAD_FAILURE_MESSAGE`
+- `appReloadFailureMessage()`
 - `createShellRequestRecoveryRuntime({ queryClient = null, errorRuntime = null, logger = null } = {})`
 - `isRecoverableRequestError(error = null)`
-- `requestRecoveryMessage(error = null, { label = "Request", message = "" } = {})`
+- `requestRecoveryMessage(error = null, { label = "", message = "" } = {})`
 Local functions
 - `errorMessage(error = null)`
 - `errorCode(error = null)`

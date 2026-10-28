@@ -240,6 +240,7 @@ Local functions
 ### `src/shared/settings.js`
 Exports
 - `DEFAULT_USER_SETTINGS`
+- `normalizeLocaleCode(value)`
 
 ### migrations
 

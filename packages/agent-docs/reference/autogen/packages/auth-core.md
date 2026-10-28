@@ -64,6 +64,15 @@ Exports
 - `applyAuthServiceDecorators(extensions, authService)`
 - `registerAuthServiceDecorator(extensions, decorator)`
 
+### `src/server/authTexts.js`
+Exports
+- `AUTH_TEXTS`
+- `authFieldError(entry, params = {})`
+- `authFieldErrorDetails(fields = {})`
+- `authMessageFields(entry, params = {})`
+- `authText({ code } = {}, params = {})`
+- `createAuthError(entry, { params = {}, ...options } = {})`
+
 ### `src/server/booleanFlag.js`
 Exports
 - `parseBooleanFlag(value, fallback = false)`
@@ -115,7 +124,7 @@ Local functions
 ### `src/server/lib/errors.js`
 Exports
 - `AUTH_POLICY_DENY_REASONS`
-- `createAuthPolicyError(status, message, { code = "AUTH_POLICY_ERROR" } = {})`
+- `createAuthPolicyError(status, message, { code, params = {} } = {})`
 
 ### `src/server/lib/index.js`
 Exports
@@ -214,7 +223,9 @@ Exports
 - `resetPassword(rawPassword)`
 - `resetPasswordInput(payload = {})`
 Local functions
+- `failure({ code, params = {}, message })`
 - `validateEmail(rawEmail)`
+- `checkConfirmPassword(rawPassword, rawConfirmPassword)`
 - `buildFieldErrors(entries = [])`
 - `buildEmailPasswordInput(payload = {}, { passwordValidator } = {})`
 
@@ -256,10 +267,12 @@ Exports
 - `AUTH_DENIED_CODES`
 - `AUTH_DENIED_DEFAULT_MESSAGES`
 - `AUTH_DENIED_LOGIN_MESSAGES`
+- `AUTH_DENIED_LOGIN_TEXTS`
 - `AUTH_DENIED_MESSAGE_MAX_LENGTH`
 - `normalizeAuthDenied(input = null)`
 - `normalizeAuthDeniedCode(value = "")`
 - `resolveAuthDeniedLoginMessage(input = null)`
+- `resolveAuthDeniedLoginText(input = null)`
 
 ### `src/shared/authMethods.js`
 Exports

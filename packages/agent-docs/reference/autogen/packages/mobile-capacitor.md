@@ -14,6 +14,11 @@ Use this on demand; do not load the full index at startup.
 
 ### src
 
+### `src/client/i18n.js`
+Exports
+- `createTextError`
+- `useJskitText`
+
 ### `src/client/index.js`
 Exports
 - `MobileCapacitorClientProvider`
@@ -35,7 +40,7 @@ Exports
 - `isCapacitorApiRequestTarget(url = "")`
 - `resolveCapacitorAbsoluteHttpUrl(url = "", apiBaseUrl = "", messages = {})`
 Local functions
-- `parseAbsoluteHttpUrl(url = "", { apiBaseUrl = "", emptyUrlMessage = "URL is required.", missingApiBaseUrlMessage = "config.mobile.apiBaseUrl is required.", invalidApiBaseUrlMessage = "config.mobile.apiBaseUrl must be a valid absolute URL.", invalidApiBaseUrlProtocolMessage = "config.mobile.apiBaseUrl must use http or https.", invalidUrlProtocolMessage = "URL must use http or https." } = {})`
+- `parseAbsoluteHttpUrl(url = "", { apiBaseUrl = "", emptyUrlMessage = "jskit.mobile.apiRequest.urlRequired", missingApiBaseUrlMessage = "jskit.mobile.apiRequest.apiBaseUrlRequired", invalidApiBaseUrlMessage = "jskit.mobile.apiRequest.apiBaseUrlInvalid", invalidApiBaseUrlProtocolMessage = "jskit.mobile.apiRequest.apiBaseUrlProtocol", invalidUrlProtocolMessage = "jskit.mobile.apiRequest.urlProtocol" } = {})`
 - `normalizeFetchInput(input = "")`
 
 ### `src/client/runtime/globalCapacitorAppAdapter.js`

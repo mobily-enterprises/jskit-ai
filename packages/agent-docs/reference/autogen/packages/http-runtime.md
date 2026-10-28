@@ -42,7 +42,7 @@ Local functions
 Exports
 - `normalizeFieldErrors`
 - `resolveFieldErrors`
-- `createValidationFailure({ error = "Validation failed.", code = "validation_failed", fieldErrors = {} } = {})`
+- `createValidationFailure({ error = "Validation failed.", code = "validation_failed", fieldErrors = {}, fieldErrorCodes = null } = {})`
 
 ### `src/shared/clientRuntime/client.js`
 Exports
@@ -94,6 +94,7 @@ Local functions
 - `simplifyResourceObject(resource = {}, options = {})`
 - `assertPrimaryDataType(resource = {}, expectedType = "")`
 - `resolveCollectionPageMeta(document = {})`
+- `decodeJsonApiErrorFields(payload = {})`
 
 ### `src/shared/clientRuntime/retry.js`
 Exports
@@ -226,7 +227,7 @@ Exports
 - `createJsonApiResourceRouteTransport({ type = "", requestType = "", responseType = "", query = null, allowBodyId = false, successKind = "record", pointerPrefix = "/data/attributes", mapRequestRelationships = null, getRecordType = null, getRecordId = null, getRecordAttributes = null, getRecordRelationships = null, getRecordLinks = null, getRecordMeta = null, getIncluded = null, getDocumentLinks = null, getDocumentMeta = null, getCollectionItems = null } = {})`
 - `createJsonApiResourceRouteContract({ type = "", requestType = "", responseType = "", body = null, query = null, output = null, outputKind = "record", successStatus = 200, includeValidation400 = false, allowSparseFields = false, allowBodyId = false, pointerPrefix = "/data/attributes", bodyAttributeExcludeKeys = [], outputAttributeExcludeKeys = [], bodyRelationshipEntries = [], outputRelationshipEntries = [], getRecordType = null, getRecordId = null, getRecordAttributes = null, getRecordRelationships = null, getRecordLinks = null, getRecordMeta = null, getIncluded = null, getDocumentLinks = null, getDocumentMeta = null, getCollectionItems = null, mapRequestRelationships = null } = {})`
 Local functions
-- `createJsonApiTransportError(statusCode, message, code)`
+- `createJsonApiTransportError(statusCode, message, code, params = {})`
 - `resolveRouteType(type = "")`
 - `resolveRouteTypes(value = {})`
 - `resolveEmbeddedAttributesTransportSchema(definition, { context = "JSON:API resource", defaultMode = "replace", removeId = false, removeKeys = [], allowSparseFields = false } = {})`
@@ -246,7 +247,7 @@ Exports
 - `JSON_API_CONTENT_TYPE`
 - `resolveJsonApiTransportTypes({ type = "", requestType = "", responseType = "" } = {}, { context = "JSON:API transport" } = {})`
 - `createJsonApiDocument({ data = undefined, included = undefined, links = undefined, meta = undefined, errors = undefined } = {})`
-- `createJsonApiErrorDocumentFromFailure({ statusCode = 500, code = "", message = "", transactionOutcome, fieldErrors = {}, validationIssues = [], validationContext = "", pointerPrefix = "/data/attributes" } = {})`
+- `createJsonApiErrorDocumentFromFailure({ statusCode = 500, code = "", message = "", params = {}, messageCode = "", messageParams = {}, transactionOutcome, fieldErrors = {}, fieldErrorCodes = {}, validationIssues = [], validationIssueCodes = [], validationContext = "", pointerPrefix = "/data/attributes" } = {})`
 - `createJsonApiErrorObject({ status = "", code = "", title = "", detail = "", source = undefined, links = undefined, meta = undefined } = {})`
 - `createJsonApiResourceObject({ type = "", id = null, attributes = undefined, relationships = undefined, links = undefined, meta = undefined } = {})`
 - `isJsonApiCollectionDocument(payload = {})`
@@ -254,6 +255,7 @@ Exports
 - `isJsonApiErrorDocument(payload = {})`
 - `isJsonApiResourceDocument(payload = {})`
 - `isJsonContentType(contentType = "")`
+- `normalizeCodedEntry(entry)`
 - `normalizeJsonApiDocument(payload = {})`
 - `normalizeJsonApiResourceObject(resource = {})`
 - `simplifyJsonApiDocument(payload = {})`
@@ -266,6 +268,7 @@ Local functions
 - `escapeJsonPointerSegment(value = "")`
 - `resolveValidationFieldName(issue = {})`
 - `resolveJsonApiValidationSource(issue = {}, validationContext = "")`
+- `createJsonApiErrorMeta({ transactionOutcome, params, messageCode, messageParams, fieldErrorCode })`
 - `simplifyJsonApiResourceObject(resource = {})`
 
 ### `src/shared/validators/operationValidation.js`

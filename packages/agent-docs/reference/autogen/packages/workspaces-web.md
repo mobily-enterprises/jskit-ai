@@ -133,6 +133,10 @@ Exports
 Local functions
 - `resolveCurrentPathname(route = null)`
 
+### `src/client/i18n.js`
+Exports
+- `useJskitText`
+
 ### `src/client/index.js`
 Exports
 - `WorkspacesWebClientProvider`
