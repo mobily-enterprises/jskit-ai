@@ -3,7 +3,7 @@ import { access, mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { createOpenCodeServerProcess } from "../src/server/conversation/openCodeProcess.js";
+import { createOpenCodeServerProcess, openCodeProcessEnvironment } from "../src/server/conversation/openCodeProcess.js";
 
 async function fixture(t, options = {}) {
   const workdir = await mkdtemp(path.join(os.tmpdir(), "jskit-opencode-process-"));
@@ -174,4 +174,18 @@ test("production stop retains failure for retry and keeps the complete confirmed
   assert.equal(await native.stop(), proof);
   assert.equal(attempt, 3);
   await assert.rejects(access(f.config.privateRoot), { code: "ENOENT" });
+});
+
+test("a server that needs no packages makes OpenCode's plugin install fail at once", () => {
+  const installing = openCodeProcessEnvironment({}, { cacheRoot: "/cache" });
+  assert.equal(installing.npm_config_cache, "/cache/npm");
+  assert.equal(installing.npm_config_prefer_offline, "true");
+  assert.equal(installing.npm_config_offline, undefined);
+  // A real OpenCode 1.18.31 catalogue server stopped mid-install ignored SIGTERM
+  // for the whole systemd stop timeout; offline from an empty cache it stopped in
+  // under 50 ms and returned the same providers and agents.
+  const offline = openCodeProcessEnvironment({}, { cacheRoot: "/cache", packageInstalls: false });
+  assert.equal(offline.npm_config_offline, "true");
+  assert.equal(offline.npm_config_cache, "/cache/npm-offline");
+  assert.equal(offline.npm_config_prefer_offline, undefined);
 });

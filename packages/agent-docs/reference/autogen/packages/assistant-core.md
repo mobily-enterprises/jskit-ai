@@ -954,7 +954,7 @@ Exports
 
 ### `src/server/conversation/openCodeProcess.js`
 Exports
-- `openCodeProcessEnvironment(baseEnv = {}, { cacheRoot = "", dbPath = "", inlineConfig = "", outputTokenMax = 0, password = "" } = {})`
+- `openCodeProcessEnvironment(baseEnv = {}, { cacheRoot = "", dbPath = "", inlineConfig = "", outputTokenMax = 0, packageInstalls = true, password = "" } = {})`
 - `openCodeConversationAgent({ nativeTools = false, tools = false } = {})`
 - `openCodeConversationAgents({ sessionEnvironmentRegistry = "" } = {})`
 - `createOpenCodeConversationServer({ command = "opencode", execution = createLocalConversationExecution(), env = process.env, workdir, stateDirectory, databasePath, sessionEnvironmentRegistry, connection, maxOutputTokens, onStarted, onFailure, executionLimits, signal } = {})`

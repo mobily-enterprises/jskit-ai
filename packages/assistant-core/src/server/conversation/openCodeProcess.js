@@ -29,12 +29,21 @@ const OPENCODE_ZEN_PUBLIC_API_KEY = "public";
 const text = normalizeNullableText;
 
 export function openCodeProcessEnvironment(baseEnv = {}, {
-  cacheRoot = "", dbPath = "", inlineConfig = "", outputTokenMax = 0, password = ""
+  cacheRoot = "", dbPath = "", inlineConfig = "", outputTokenMax = 0, packageInstalls = true, password = ""
 } = {}) {
   return {
     // OpenCode installs plugin dependencies through npm, which ignores XDG_CACHE_HOME.
-    npm_config_cache: path.join(cacheRoot, "npm"),
-    npm_config_prefer_offline: "true",
+    ...(packageInstalls ? {
+      npm_config_cache: path.join(cacheRoot, "npm"),
+      npm_config_prefer_offline: "true"
+    } : {
+      // Each server that loads a fresh configuration directory starts installing
+      // OpenCode's plugin package, and while that install runs the first SIGTERM
+      // only aborts it, leaving the server alive. A short-lived server that needs
+      // no packages fails the install at once from a cache nothing populates.
+      npm_config_cache: path.join(cacheRoot, "npm-offline"),
+      npm_config_offline: "true"
+    }),
     NO_PROXY: [text(baseEnv.NO_PROXY), OPENCODE_HOST, "localhost", "::1"]
       .filter(Boolean)
       .join(","),

@@ -4124,8 +4124,11 @@ model keeps calling native tools that the conversation was not granted stops wit
 a visible failure and keeps the authored message instead of running without an answer. The common driver's internal configuration
 uses that same server startup, authentication, version, observation and cleanup
 implementation. `openCodeProcessEnvironment(baseEnv, { cacheRoot, dbPath,
-inlineConfig, outputTokenMax, password })` assembles native flags, cache,
-loopback proxy bypass and supplied inline configuration. A managed host supplies
+inlineConfig, outputTokenMax, packageInstalls, password })` assembles native
+flags, cache, loopback proxy bypass and supplied inline configuration.
+`packageInstalls: false` is for short-lived servers that need no packages, such
+as a catalogue read: OpenCode's background plugin install then fails at once, so
+it cannot hold the server alive after its first SIGTERM. A managed host supplies
 its isolated environment, credential roots, approved plugin configuration and
 application command hooks around those native values. That boundary preserves
 the host's existing permission and process policies while using the same native
