@@ -2,7 +2,8 @@
 
 `@jskit-ai/payments-web` supplies a Vue/Vuetify account component for generated or
 hand-written JavaScript applications. It has no Vibe64, Online, Genesis, provider
-SDK, credential, file-discovery or HTTP dependency. The application mounts it in
+SDK, credential, file-discovery or HTTP dependency; its only JSKIT peer is
+`@jskit-ai/kernel`, for the client text helper. The application mounts it in
 its existing billing page or semantic placement. It does not register routes or
 change shell navigation automatically. This worktree package is not yet published.
 
@@ -23,7 +24,12 @@ Import `PaymentAccount` from
 | `history` | One authorized `{collection, items, nextCursor}` provider page, or null |
 | `historyLoading` | History request pending; displays skeletons and disables page/collection requests |
 | `historyError` | Safe history read failure; hides stale rows and offers Retry |
-| `locale` | Optional locale for integer credit and UTC date formatting |
+| `locale` | Optional locale for integer credit and UTC date formatting; defaults to the app's active language |
+
+Every text the component renders is a `jskit.payments.account.*` message in
+`locales/en.json`. With the app's vue-i18n registered through JSKIT, it shows the
+user's language; without it, the English is shown as before. Plan names, price
+labels, feature names and the `loadError`/`historyError` texts are the app's own.
 
 Subscription records contain `id`, `planId`, `status`, and `periodEnd` in UTC
 milliseconds. `payments-core`'s authorized `checkout.account({actor, subjectId})`
@@ -126,8 +132,9 @@ insert a second error banner or duplicate that request state. Re-read on the
 return route; a success query parameter must never grant paid access.
 
 Laravel owns its native server and UI implementation. An Inertia/Vue application
-can choose this presentational component, but no JSKIT runtime is required for
-Laravel to implement the documented JSON account/plan display shape and actions.
+can choose this presentational component (installing its `@jskit-ai/kernel` peer
+for the text helper), but no JSKIT runtime is required for Laravel to implement
+the documented JSON account/plan display shape and actions.
 
 ## Evidence
 

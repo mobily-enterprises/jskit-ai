@@ -14,7 +14,9 @@ test('billing component preserves read state and guards checkout while leaving a
   let app;
   try {
     const modulePath = `${directory}/component.mjs`;
-    await writeFile(modulePath, compiled.content);
+    // The compiled module lives in a temporary directory, so point its catalog import at the package.
+    const i18nModule = new URL('../src/client/i18n.js', import.meta.url).href;
+    await writeFile(modulePath, compiled.content.replace('"../i18n.js"', JSON.stringify(i18nModule)));
     const { default: PaymentAccount } = await import(pathToFileURL(modulePath));
     const node = (type, text = '') => ({ type, text, props: {}, children: [], parent: null });
     const renderer = createRenderer({

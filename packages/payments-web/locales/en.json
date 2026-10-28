@@ -1,0 +1,55 @@
+{
+  "jskit": {
+    "payments": {
+      "account": {
+        "region": "Subscription and billing",
+        "retryDetails": "Retry billing details",
+        "availableCredits": "Available credits",
+        "includedFeatures": "Included features",
+        "noPaidFeatures": "No paid features active",
+        "subscriptions": "Subscriptions",
+        "periodEnd": "Period end: {date} (UTC)",
+        "noSubscription": "No subscription yet.",
+        "manageBilling": "Manage billing",
+        "refreshDetails": "Refresh billing details",
+        "adminManages": "A billing administrator can manage this account.",
+        "useManageBilling": "Use Manage billing to update your subscription or payment details.",
+        "confirmationNote": "Access and credits update after payment confirmation. Returning from checkout alone does not activate a plan.",
+        "availablePlans": "Available plans",
+        "renewalCredits": "{credits} credits per paid renewal; unused renewal credits expire at period end.",
+        "choosePlan": "Choose plan",
+        "choosePlanNamed": "Choose {plan}",
+        "notAvailableForCheckout": "Not available for checkout yet.",
+        "noPlans": "No plans are available yet.",
+        "unavailable": "Billing details are not available yet.",
+        "status": {
+          "active": "Active",
+          "trialing": "Trial",
+          "pastDue": "Payment overdue",
+          "paused": "Paused",
+          "canceled": "Canceled",
+          "unpaid": "Unpaid",
+          "incomplete": "Payment incomplete",
+          "incompleteExpired": "Payment expired"
+        },
+        "history": {
+          "region": "Billing history",
+          "viewTransactions": "View invoices and transactions",
+          "viewSubscriptions": "View subscription history",
+          "retry": "Retry billing history",
+          "unpaidNote": "Invoices and transactions include unpaid records. Their totals do not confirm payment.",
+          "records": "Provider billing records",
+          "invoice": "Invoice {id}",
+          "transaction": "Transaction {id}",
+          "subscription": "Subscription {id}",
+          "statusAndDate": "{status} · {date} (UTC)",
+          "total": "Total: {total}",
+          "totalPending": "Not available yet",
+          "totalAndPaid": "Total: {total} · Paid: {paid}",
+          "empty": "No billing records found.",
+          "nextPage": "Next billing page"
+        }
+      }
+    }
+  }
+}

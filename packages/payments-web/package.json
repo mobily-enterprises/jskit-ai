@@ -4,9 +4,11 @@
   "type": "module",
   "description": "Application-owned billing views for JSKIT Vue applications.",
   "exports": {
-    "./client/components/PaymentAccount": "./src/client/components/PaymentAccount.vue"
+    "./client/components/PaymentAccount": "./src/client/components/PaymentAccount.vue",
+    "./locales/en.json": "./locales/en.json"
   },
   "peerDependencies": {
+    "@jskit-ai/kernel": "0.1.247",
     "vue": "^3.5.13",
     "vuetify": "^4.0.0"
   },
