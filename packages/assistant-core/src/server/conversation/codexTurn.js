@@ -108,6 +108,10 @@ export function createCodexAppServerRunOwner({
   onNotificationSignal = async () => null,
   captureContext = () => null,
   runInContext = (_context, operation) => operation(),
+  // Resumes a goal an account change paused, once the previous account's
+  // runtime has stopped: `(sessionId, { threadId })`. Without it the goal stays
+  // paused for the person to resume.
+  continueGoalAfterAccountChange = null,
   notificationQueue = null,
   activeReconcileMs = 2000,
   finalizingGraceMs = 10000,
@@ -416,7 +420,9 @@ export function createCodexAppServerRunOwner({
     const connection = prepared.connection;
     const { workdir, threadId } = connection;
     if (threadId && connection.available && turnState(session).state !== "starting") {
-      const providerKey = codexProviderSelection.managedProviderKeyForThread(sessionId, workdir, threadId);
+      const providerKey = codexProviderSelection.managedProviderKeyForThread(sessionId, workdir, threadId, {
+        turnActive: turnState(session).active
+      });
       if (providerKey !== null) {
         const observed = await codexThreadReadiness.checkManagedConnection(providerKey, { reconnect: false });
         if (!observed.requiresPreparation) {
@@ -547,6 +553,7 @@ export function createCodexAppServerRunOwner({
       helperLifecycle,
       captureContext,
       runInContext,
+      continueGoalAfterAccountChange,
       debugLog,
       debugError,
       closingError: serverClosingError

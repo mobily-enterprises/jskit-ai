@@ -41,14 +41,18 @@ export function createCodexProviderSelection({
     });
   }
 
-  function managedProviderKeyForThread(sessionId, workdir, threadId) {
+  // A provider left on the previous account (stale) serves only the turn it
+  // is still running: its output, steer and interrupt. Anything else goes to
+  // the session's provider for the current account.
+  function managedProviderKeyForThread(sessionId, workdir, threadId, { turnActive = false } = {}) {
     for (const [providerKey, managed] of providerSessions.managed) {
       const provider = providerSessions.owner.providers.get(providerKey);
       if (
         managed.sessionId !== sessionId ||
         managed.workdir !== workdir ||
         managed.threadId !== threadId ||
-        provider?.isAvailable?.() !== true
+        provider?.isAvailable?.() !== true ||
+        provider.stale && !turnActive
       ) {
         continue;
       }
@@ -77,7 +81,7 @@ export function createCodexProviderSelection({
         continue;
       }
       const provider = providerSessions.owner.providers.get(providerKey);
-      if (provider) {
+      if (provider && !(provider.stale && !turn.active)) {
         return {
           provider: await ensureSessionProvider(normalizedSessionId, managed.providerOptions),
           providerKey,

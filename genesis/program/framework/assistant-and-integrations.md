@@ -207,6 +207,11 @@ the same way. Reading their history or status, creating, stopping or deleting
 them and changing a thread's settings keep no app-server running; a running turn,
 or an active goal between its turns, holds it, and about a minute after that
 work ends it stops unless a Main conversation, terminal or helper claimed it.
+A Codex account change never stops or waits for a running turn: idle Codex
+runtimes stop at once, while one running a turn pauses its active goals, is kept
+only for that turn and stops through the same verified stop when it completes.
+The run owner's `continueGoalAfterAccountChange` hook then resumes a goal it
+paused, on the session's runtime for the current account.
 
 Claude's conversation owner cleans up from the entries it retains, because a
 Claude process cannot outlive the server that started it. Shutdown,

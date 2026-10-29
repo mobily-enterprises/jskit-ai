@@ -12,6 +12,7 @@ export function createCodexRuntimeLifecycle({
   helperLifecycle,
   captureContext,
   runInContext,
+  continueGoalAfterAccountChange = null,
   debugLog,
   debugError,
   closingError = null
@@ -19,6 +20,7 @@ export function createCodexRuntimeLifecycle({
   const codexAppServerSessionClosures = new Map();
   const codexAppServerWellbeingTimers = new Map();
   const codexAppServerReconcileTasks = new Set();
+  const staleWatches = new Set();
   let codexAppServerThreadReconcileGeneration = 0;
   let codexAppServerServerClosing = false;
   let codexAppServerShutdownPromise = null;
@@ -78,9 +80,58 @@ export function createCodexRuntimeLifecycle({
     };
   }
 
+  // A runtime the account change left running a turn stops after that turn
+  // ends, once its output is recorded. A goal it paused then resumes, on the
+  // session's runtime for the current account.
+  function retireWhenIdle(stale) {
+    if (staleWatches.has(stale.runtimeKey)) return;
+    staleWatches.add(stale.runtimeKey);
+    const goals = new Map();
+    for (const providerKey of stale.providerKeys) {
+      const managed = providerSessions.managed.get(providerKey);
+      if (managed && stale.pausedGoals.includes(managed.threadId)) goals.set(managed.threadId, managed);
+    }
+    const unsubscribes = [];
+    let done = false;
+    const attempt = async () => {
+      if (done || codexAppServerServerClosing) return;
+      await Promise.allSettled([...pendingWork.notificationTasks.values(), ...pendingWork.resultFinalizations.values()]);
+      const retired = await providerSessions.owner.retireStaleRuntime(stale.runtimeKey);
+      if (retired?.busy || done) return;
+      done = true;
+      staleWatches.delete(stale.runtimeKey);
+      for (const unsubscribe of unsubscribes) unsubscribe();
+      debugLog("appServerRuntime.stale.retired", { runtimeKey: stale.runtimeKey, stopped: retired?.stopped === true });
+      if (!continueGoalAfterAccountChange || codexAppServerServerClosing) return;
+      for (const [threadId, managed] of goals) {
+        try {
+          await runInContext(managed.projectContext, () => continueGoalAfterAccountChange(managed.sessionId, { threadId }));
+        } catch (error) {
+          debugLog("appServerRuntime.stale.goalContinue.error", { error: debugError(error), sessionId: managed.sessionId, threadId });
+        }
+      }
+    };
+    const retire = () => attempt().catch(error => debugLog("appServerRuntime.stale.retire.error", {
+      error: debugError(error), runtimeKey: stale.runtimeKey
+    }));
+    for (const providerKey of stale.providerKeys) {
+      const provider = providerSessions.owner.providers.get(providerKey);
+      if (!provider?.subscribe) continue;
+      // Subscribed after the session observer, so its completion work for
+      // this notification is already queued when the retirement drains it.
+      unsubscribes.push(provider.subscribe(notification => {
+        if (notification?.method === "turn/completed") void retire();
+      }));
+    }
+    // The turn may have ended while the account change looked at it.
+    void retire();
+  }
+
   async function invalidateCodexAppServerRuntimes(input = {}) {
     const result = await providerSessions.owner.invalidateRuntimes(input);
+    for (const stale of result.deferred || []) retireWhenIdle(stale);
     debugLog("appServerRuntime.invalidate.done", {
+      deferredCount: (result.deferred || []).length,
       failedCount: result.failed.length,
       providerCount: result.providerCount,
       reason: normalizeText(input.reason),
@@ -257,8 +308,11 @@ export function createCodexRuntimeLifecycle({
         return shutdownCodexAppServerRuntimes(input);
       }
       if (input.includeOwned === true) {
+        // An account change stops idle runtimes now and busy ones when their
+        // turn ends; it never stops or waits for a running turn.
         return invalidateCodexAppServerRuntimes({
           ...input,
+          deferBusy: true,
           includeOwned: true,
           requireVerifiedExit: true,
           stopOwnedRuntimes: true

@@ -2987,6 +2987,21 @@ process retirement only after every loaded/cached thread is proved to belong to
 that provider; mixed-provider homes refuse retirement. Genuine account/socket
 changes retain the original whole-runtime invalidation and recovery.
 
+A Codex account change (the runtime lifecycle's `includeOwned` invalidation)
+never stops or waits for a running turn. A Codex process reads its credentials
+once, so runtimes whose loaded threads are idle stop at once through the
+verified stop, while a runtime with a running native turn is marked stale: its
+active goals are paused so it starts no further turn, its provider still serves
+that turn's output, steer and interrupt, never restarts its runtime and never
+marks the current account after a rejection. The owner result lists it under
+`deferred`; it stops through the same verified stop once its turn completes
+and its output is recorded, or before the session's next runtime starts. The
+application gives each sign-in its own runtime directory and provider key, so
+the next message starts at once on the current account. The run owner's
+`continueGoalAfterAccountChange(sessionId, { threadId })` option resumes a goal
+the change paused once the previous runtime stopped; without it the goal stays
+paused. A runtime that cannot be inspected stops as before.
+
 The application owns independently saved orchestrator/provider records and
 validation before publication. This native lifecycle facility copies no keys
 and validates no other provider. Changed account fingerprints still require an

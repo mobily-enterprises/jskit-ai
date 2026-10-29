@@ -725,6 +725,7 @@ export class CodexAppServerAgentProvider {
     this.planUsagePending = null;
     this.planUsageAuthGeneration = 0;
     this.availabilityPromise = null;
+    this.stale = false;
     this.options = options;
     this.client = null;
     this.connectPromise = null;
@@ -946,7 +947,22 @@ export class CodexAppServerAgentProvider {
     }
   }
 
+  // An account change leaves a runtime that is still working on the
+  // credentials it started with. Codex reads them once, so this provider
+  // finishes its running turn on them and then stops; it never re-checks,
+  // replaces or restarts its runtime, and never marks the new account invalid.
+  markStale() {
+    this.stale = true;
+  }
+
+  staleRuntimeError() {
+    return Object.assign(new Error("Codex (OpenAI) changed account. Send your message again."), {
+      code: `${this.errorPrefix}codex_account_changed`, retryable: true
+    });
+  }
+
   async prepareRuntime() {
+    if (this.stale) throw this.staleRuntimeError();
     const previousRuntime = this.runtime;
     const nextRuntime = await this.host.runtime.ensure(this.host.parameters);
     if (this.options.modelProviderId) nextRuntime.modelProviderId = this.options.modelProviderId;
@@ -988,7 +1004,7 @@ export class CodexAppServerAgentProvider {
   }
 
   async assertRuntimeAuthReady(reason = "codex-app-server") {
-    if (this.isHelperProvider()) {
+    if (this.isHelperProvider() || this.stale) {
       return;
     }
     const runtime = this.runtime || {};
@@ -1038,7 +1054,7 @@ export class CodexAppServerAgentProvider {
         error?.observed || "",
         await tailTextFile(this.runtime?.logPath || "")
       ].filter(Boolean).join("\n");
-      if (codexAuthOutputRequiresReconnect(observed)) {
+      if (!this.stale && codexAuthOutputRequiresReconnect(observed)) {
         const runtime = this.runtime || {};
         if (runtime.runtimeDir) {
           await this.stopRuntimeAndRequireDrain(reason);
@@ -1346,6 +1362,7 @@ export class CodexAppServerAgentProvider {
 
   async ensureAvailable({ modelProviderId = "" } = {}) {
     if (this.observationFailure) throw this.observationFailure;
+    if (this.stale && !this.isAvailable()) throw this.staleRuntimeError();
     if (this.isAvailable()) {
       return {
         client: this.client,

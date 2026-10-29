@@ -10,6 +10,8 @@ import { normalizeCodexRunText as normalizeText } from "./codexTurnState.js";
 const codexAppServerProviders = new Map();
 const codexAppServerOwnedRuntimes = new Map();
 const codexAppServerRuntimeLifecycles = new Map();
+// Runtimes an account change left running a turn, by native runtime identity.
+const codexAppServerStaleRuntimes = new Map();
 
 export function codexAppServerOwnedRuntimeKey(providerKey = "", providerOptions = {}) {
   const runtimeDir = normalizeText(providerOptions?.runtimeDir);
@@ -49,6 +51,31 @@ export async function directoryExists(filePath = "") {
 
 function* providerRecords() {
   for (const records of codexAppServerProviders.values()) yield* records.values();
+}
+
+function nativeRequest(client, method, params) {
+  return client.request(method, params, { signal: AbortSignal.timeout(5_000) });
+}
+
+// The loaded threads of one native runtime that have a running turn, read from
+// the runtime itself so Temporary, Main and native terminal turns all count.
+async function runningNativeThreads(peers) {
+  const client = peers.find(record => record.provider.client?.isOpen?.())?.provider.client;
+  if (!client) return [];
+  const running = [];
+  const seen = new Set();
+  let cursor;
+  do {
+    const page = await nativeRequest(client, "thread/loaded/list", { limit: 100, ...(cursor ? { cursor } : {}) });
+    for (const threadId of Array.isArray(page?.data) ? page.data : []) {
+      const { thread } = await nativeRequest(client, "thread/read", { threadId, includeTurns: false });
+      if ((typeof thread?.status === "string" ? thread.status : thread?.status?.type) === "active") running.push(threadId);
+    }
+    cursor = page?.nextCursor;
+    if (cursor && seen.has(cursor)) throw new Error("Codex's loaded-thread inventory did not finish.");
+    if (cursor) seen.add(cursor);
+  } while (cursor);
+  return running;
 }
 
 /** Internal consumer view of the one native provider owner, not a server per view. */
@@ -217,7 +244,14 @@ export function createCodexAppServerProviderOwner({
           current.executionRoot === identity.executionRoot &&
           current.runtimeInstanceId === identity.runtimeInstanceId &&
           current.workdir === identity.workdir) {
-        await retireAndCloseProvider(currentKey);
+        const record = records.get(currentKey);
+        if (!record?.provider.stale) {
+          await retireAndCloseProvider(currentKey);
+          continue;
+        }
+        // A stale runtime whose turn has ended stops before the session's next
+        // runtime starts, so its threads are never loaded in two runtimes at once.
+        await retireStaleRuntime(codexAppServerOwnedRuntimeKey(currentKey, record.providerOptions)).catch(() => null);
       }
     }
     context.assertAdmission();
@@ -414,6 +448,15 @@ export function createCodexAppServerProviderOwner({
     if (closeProvider) record.provider.close?.();
     records.delete(providerKey);
     if (!records.size) codexAppServerProviders.delete(api);
+    if (record.provider.stale) {
+      // Another stop (a session close or idle release) ended a stale runtime.
+      const runtimeKey = codexAppServerOwnedRuntimeKey(providerKey, record.providerOptions);
+      const stale = codexAppServerStaleRuntimes.get(runtimeKey);
+      if (stale && !stale.retiring && ![...providerRecords()].some(peer =>
+        codexAppServerOwnedRuntimeKey(peer.providerKey, peer.providerOptions) === runtimeKey)) {
+        codexAppServerStaleRuntimes.delete(runtimeKey);
+      }
+    }
   }
 
   async function stopOwnedRuntime(record = {}, {
@@ -749,7 +792,77 @@ export function createCodexAppServerProviderOwner({
     return { ok: failed.length === 0, failed, results, providerCount: results.length, stopped: results.reduce((sum, result) => sum + result.threadIds.length, 0) };
   }
 
+  // A runtime with a running turn keeps the credentials it started with until
+  // that turn ends. Its active goals are paused so it starts no further turn;
+  // retireStaleRuntime stops it once it is idle.
+  async function deferBusyRuntime(runtimeKey, peers) {
+    let running;
+    try {
+      running = await runningNativeThreads(peers);
+    } catch (error) {
+      // An unreadable runtime cannot show a running turn: it stops as before.
+      debugLog("appServerRuntime.staleInspection.error", { error: debugError(error), runtimeKey });
+      return null;
+    }
+    if (!running.length) return null;
+    const client = peers.find(record => record.provider.client?.isOpen?.()).provider.client;
+    const pausedGoals = [];
+    for (const threadId of running) {
+      try {
+        const { goal } = await nativeRequest(client, "thread/goal/get", { threadId });
+        if (goal?.status !== "active") continue;
+        const result = await nativeRequest(client, "thread/goal/set", { threadId, status: "paused" });
+        if (result?.goal?.status !== "paused") throw new Error("Codex did not confirm that the goal was paused.");
+        pausedGoals.push(threadId);
+      } catch (error) {
+        debugLog("appServerRuntime.staleGoalPause.error", { error: debugError(error), runtimeKey, threadId });
+      }
+    }
+    for (const peer of peers) peer.provider.markStale?.();
+    const stale = {
+      runtimeKey, threadIds: running, pausedGoals, retiring: null,
+      providerKeys: peers.map(peer => peer.providerKey)
+    };
+    codexAppServerStaleRuntimes.set(runtimeKey, stale);
+    return stale;
+  }
+
+  // Stops a stale runtime once no loaded thread is running, through the same
+  // verified stop an idle runtime gets at the account change.
+  function retireStaleRuntime(runtimeKey = "") {
+    const stale = codexAppServerStaleRuntimes.get(runtimeKey);
+    if (!stale) return Promise.resolve(null);
+    if (stale.retiring) return stale.retiring;
+    const retiring = withRuntimeLifecycle(runtimeKey, async () => {
+      const peers = [...providerRecords()].filter(record =>
+        codexAppServerOwnedRuntimeKey(record.providerKey, record.providerOptions) === runtimeKey);
+      const running = await runningNativeThreads(peers).catch(() => []);
+      // A Temporary turn or goal holding a borrowed provider also keeps it.
+      if (running.length || peers.some(peer => peer.scope.isHeld?.(peer.providerKey))) {
+        return { ...stale, busy: true, stopped: false };
+      }
+      const owned = codexAppServerOwnedRuntimes.get(runtimeKey);
+      const target = owned || peers[0];
+      let result = { stopped: false };
+      if (target) {
+        result = await (target.scope || api).stopOwnedRuntime({ ...target }, {
+          cached: true,
+          preserveProcessExitProof: target.preserveProcessExitProof === true,
+          requireVerifiedExit: true
+        });
+      }
+      for (const peer of peers) peer.scope.closeProvider(peer.providerKey);
+      codexAppServerStaleRuntimes.delete(runtimeKey);
+      return { ...stale, ...result, busy: false };
+    }).finally(() => {
+      if (stale.retiring === retiring) stale.retiring = null;
+    });
+    stale.retiring = retiring;
+    return retiring;
+  }
+
   async function invalidateRuntimes({
+    deferBusy = false,
     includeOwned = false,
     requireVerifiedExit = false,
     stopOwnedRuntimes = false,
@@ -798,6 +911,28 @@ export function createCodexAppServerProviderOwner({
     targets.sort((left, right) => Number(Boolean(left.record)) - Number(Boolean(right.record)));
     const failed = [];
     const results = [];
+    const deferred = [];
+    if (deferBusy) {
+      const groups = new Map();
+      for (const target of targets) {
+        const runtimeKey = codexAppServerOwnedRuntimeKey(target.providerKey, target.providerOptions);
+        if (!groups.has(runtimeKey)) groups.set(runtimeKey, []);
+        groups.get(runtimeKey).push(target);
+      }
+      for (const [runtimeKey, peers] of groups) {
+        if (codexAppServerStaleRuntimes.has(runtimeKey)) {
+          deferred.push(codexAppServerStaleRuntimes.get(runtimeKey));
+        } else {
+          const stale = await withRuntimeLifecycle(runtimeKey, () => deferBusyRuntime(runtimeKey, peers));
+          if (!stale) continue;
+          deferred.push(stale);
+        }
+        for (const peer of peers) {
+          targets.splice(targets.indexOf(peer), 1);
+          results.push({ providerKey: peer.providerKey, deferred: true, stopped: false });
+        }
+      }
+    }
     for (const target of targets) {
       if (!target.resources?.invalidation) continue;
       const error = Object.assign(new Error("Codex's native runtime was invalidated."), {
@@ -879,9 +1014,11 @@ export function createCodexAppServerProviderOwner({
     }
     const stopped = results.filter((result) => result.stopped).length;
     return {
+      deferred: deferred.map(({ runtimeKey, providerKeys, threadIds, pausedGoals }) =>
+        ({ runtimeKey, providerKeys: [...providerKeys], threadIds: [...threadIds], pausedGoals: [...pausedGoals] })),
       failed,
       ok: failed.length === 0,
-      providerCount: targets.length,
+      providerCount: targets.length + deferred.reduce((sum, stale) => sum + stale.providerKeys.length, 0),
       results,
       stopped
     };
@@ -1266,13 +1403,14 @@ export function createCodexAppServerProviderOwner({
 
   const api = Object.freeze({
     providers, providerOwners, ownedRuntimes, lifecycleTasks, runtimeAcquisitions,
+    isHeld: providerKey => (transientReleases.get(normalizeText(providerKey))?.users || 0) > 0,
     withLifecycle, runtimeIsShared, rememberOwnedRuntime, forgetOwnedRuntime, attachRuntimeLifecycle,
     acquireRuntime: options => { claimTransient(options?.providerKey); return acquireRuntime(options); },
     createProvider: options => { claimTransient(options?.providerKey); return createProvider(options); },
     providerForSession: context => { claimTransient(context.providerKey); return providerForSession(context); },
     createNativeProvider, ensureSession, borrowSession, withTransientSession, holdProvider, retireAndCloseProvider, closeProvider, stopOwnedRuntime, stopCachedProvider, stopProvider, stopThreadBeforeRelease, readModelCatalog, invalidateRuntimes, recover,
     reportRecoveryEvent, pendingRecovery, readSessionGoal, readPlanUsage, stopCachedProvidersForSession, stopProvidersForProject, drainThreadEnvironmentTasks, stopPersistedRuntime, sessionExitProof,
-    unsubscribeSessionThread, releasePersistedRuntimeProof, releasePreparedRuntimeProof, releaseSession,
+    unsubscribeSessionThread, releasePersistedRuntimeProof, releasePreparedRuntimeProof, releaseSession, retireStaleRuntime,
     beginShutdown() {
       closing = true;
       for (const release of transientReleases.values()) clearTimeout(release.timer);
