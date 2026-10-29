@@ -1738,6 +1738,28 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     return { stopped: true };
   }
 
+  // Cancel of one message in a runtime-owned conversation: its own submission
+  // stops, ending any turn it started, and its unconfirmed request or pending
+  // native attempt is discarded. A message already accepted stays history.
+  async function cancelDelivery(entry, context, messageId, representation) {
+    const interrupted = Boolean(entry.active?.requests.has(messageId));
+    if (interrupted) await stop(entry, context, undefined, representation);
+    await serial(entry, async () => {
+      await access(context, entry.id, "cancel", entry);
+      if (entry.conversation) {
+        await nativeChangeover(entry, context, null, () => { throw new Error("Cancel never sends a message."); }).discard({ messageId });
+        return;
+      }
+      await storage.write(entry.id, async transaction => {
+        const metadata = await transaction.readMetadata();
+        if (metadata.runtime.request?.messageId !== messageId) return;
+        delete metadata.runtime.request;
+        await transaction.writeMetadata(metadata);
+      });
+    });
+    return { ok: true, cancelled: true, messageId, interrupted };
+  }
+
   async function readGoal(entry, context, representation) {
     await access(context, entry.id, "readGoal", entry);
     if (!capabilities(entry).goals) return null;
@@ -2625,6 +2647,20 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
           await entry.active?.done;
           await access(context, id, "read", entry);
           return read(entry);
+        },
+        // Cancel of one unsent or unconfirmed message always records it; an
+        // application conversation supplies its own operation for that.
+        async cancelDelivery({ messageId } = {}) {
+          if (typeof messageId !== "string" || !messageId) throw new TypeError("A message id is required.");
+          await access(context, id, "cancel", entry);
+          if (entry.conversation?.commands) {
+            if (typeof entry.conversation.commands.cancelDelivery !== "function") {
+              throw failure("This conversation cannot cancel one message.", "conversation_unsupported", 400,
+                { messageCode: "assistant.conversation.messageCancelUnsupported" });
+            }
+            return entry.conversation.commands.cancelDelivery({ messageId }, context);
+          }
+          return cancelDelivery(entry, context, messageId, representation);
         },
         async cancel(input) {
           await access(context, id, "cancel", entry);

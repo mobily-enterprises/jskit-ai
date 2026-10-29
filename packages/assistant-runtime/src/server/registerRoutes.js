@@ -385,6 +385,25 @@ function registerConversationRoutes(
     reply.code(200).send(response);
   });
 
+  router.register("POST", `${routeBase}/deliveries/:messageId/cancel`, {
+    auth: "required", visibility,
+    params: composeSchemaDefinitions([params, assistantConversationMessageIdInputValidator], {
+      mode: "patch", context: "assistant-runtime conversation delivery cancel route params"
+    }),
+    meta: { tags: ["assistant"], summary: "Cancel one unsent or unconfirmed assistant message." }
+  }, async function assistantConversationCancelDeliveryRoute(request, reply) {
+    const routeState = resolveRouteRequestState(request, {
+      resolveCurrentAppConfig, requiresWorkspace, workspaceScopeSupport
+    });
+    const response = await request.executeAction({
+      actionId: actionIds.conversationCancelDelivery,
+      surface: routeState.hostSurfaceId,
+      input: { ...routeState.actionInput, conversationId: request.input.params.conversationId,
+        messageId: request.input.params.messageId }
+    });
+    reply.code(200).send(response);
+  });
+
   for (const method of ["GET", "POST"]) {
     router.register(method, `${routeBase}/goal`, {
       auth: "required", visibility, params,

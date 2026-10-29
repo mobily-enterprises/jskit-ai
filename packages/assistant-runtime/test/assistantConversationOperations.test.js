@@ -215,9 +215,9 @@ test("file-backed conversation routes return admission receipts and cancel one c
   const f = await fixture(t);
   assert.deepEqual(f.catalogue.listDefinitions().map(({ id }) => id), [
     actionIds.conversationRead, actionIds.conversationSend, actionIds.conversationCancel, actionIds.conversationSubscribe,
-    actionIds.conversationInspectDelivery, actionIds.conversationGoalRead, actionIds.conversationGoalUpdate
+    actionIds.conversationInspectDelivery, actionIds.conversationCancelDelivery, actionIds.conversationGoalRead, actionIds.conversationGoalUpdate
   ]);
-  assert.equal(f.routes.length, 6, "A supplied runtime does not register the old chat or optional settings routes");
+  assert.equal(f.routes.length, 7, "A supplied runtime does not register the old chat or optional settings routes");
   const initial = await f.invoke("GET");
   assert.equal(initial.status, 200);
   assert.equal(initial.payload.id, "chat:one");
@@ -255,11 +255,26 @@ test("file-backed conversation routes return admission receipts and cancel one c
   assert.equal((await readdir(f.directory)).length, 2, "Only the host's two conversation records are persisted");
 });
 
+test("Cancel of one message stops its own submission and always answers", async t => {
+  const f = await fixture(t);
+  const first = await f.invoke("POST", "/messages", { body: { messageId: "first", text: "First question" } });
+  assert.equal(first.payload.status, "accepted");
+  await f.dispatched[0].promise;
+  const cancelled = await f.invoke("POST", "/deliveries/:messageId/cancel", { messageId: "first" });
+  assert.equal(cancelled.status, 200);
+  assert.deepEqual(cancelled.payload, { ok: true, cancelled: true, messageId: "first", interrupted: true });
+  assert.equal(f.requests[0].signal.aborted, true, "the turn this message started stops");
+  const never = await f.invoke("POST", "/deliveries/:messageId/cancel", { messageId: "never-sent" });
+  assert.deepEqual(never.payload, { ok: true, cancelled: true, messageId: "never-sent", interrupted: false });
+  assert.equal((await f.invoke("GET")).payload.status, "ready");
+  assert.equal(f.requests.length, 1, "Cancel never submits a model request");
+});
+
 test("conversation routes keep authenticated ownership and reject unknown identities", async t => {
   const f = await fixture(t);
   const other = { ...f.context, actor: { id: "other-user" } };
   for (const [method, suffix] of [["GET", ""], ["POST", "/messages"], ["POST", "/cancel"],
-    ["POST", "/deliveries/:messageId/inspect"], ["GET", "/goal"], ["POST", "/goal"]]) {
+    ["POST", "/deliveries/:messageId/inspect"], ["POST", "/deliveries/:messageId/cancel"], ["GET", "/goal"], ["POST", "/goal"]]) {
     await assert.rejects(f.invoke(method, suffix, { actor: other, body: {
       action: "set", expectedSegmentId: "segment", objective: "A goal", messageId: "forged", text: "A forged request", actor: f.context.actor, context: f.context,
       host: { nativeTools: true }, configuration: { systemPrompt: "Override" }, engine: "codex"
@@ -296,7 +311,7 @@ test("workspace conversation actions use the host's resolved workspace and optio
   const options = { ...f.options, assistantConfigService: { getSettings() {}, updateSettings() {} } };
   assert.deepEqual(createAssistantActions(options).map(({ id }) => id), [
     actionIds.conversationRead, actionIds.conversationSend, actionIds.conversationCancel, actionIds.conversationSubscribe,
-    actionIds.conversationInspectDelivery, actionIds.conversationGoalRead, actionIds.conversationGoalUpdate,
+    actionIds.conversationInspectDelivery, actionIds.conversationCancelDelivery, actionIds.conversationGoalRead, actionIds.conversationGoalUpdate,
     actionIds.settingsRead, actionIds.settingsUpdate
   ]);
   const router = createRouter();
@@ -414,10 +429,10 @@ test("the supplied runtime route/action path imports without SQL or the old chat
     const { registerRoutes } = await import(${JSON.stringify(new URL("../src/server/registerRoutes.js", import.meta.url).href)});
     const conversationRuntime = { async open() { throw new Error("Registration cannot open conversations."); } };
     const options = { config: ${JSON.stringify(config)}, conversationRuntime };
-    assert.equal(createAssistantActions(options).length, 7);
+    assert.equal(createAssistantActions(options).length, 8);
     const routes = [];
     registerRoutes({ register(...args) { routes.push(args); } }, options);
-    assert.equal(routes.length, 6);
+    assert.equal(routes.length, 7);
   `], { encoding: "utf8" });
   assert.equal(result.status, 0, result.stderr);
 });

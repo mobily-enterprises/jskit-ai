@@ -226,6 +226,21 @@ function createConversationActions({ conversationRuntime, conversationDataSchema
       }
     },
     {
+      id: actionIds.conversationCancelDelivery,
+      version: 1,
+      kind: "command",
+      channels: ["api", "internal"],
+      surfaces: runtimeSurfaces,
+      permission: { require: "authenticated" },
+      input: conversationInspectInputValidator,
+      output: null,
+      idempotency: "none",
+      async execute(input, context) {
+        const conversation = await openConversation(input, context);
+        return conversation.cancelDelivery({ messageId: input.messageId });
+      }
+    },
+    {
       id: actionIds.conversationGoalRead,
       version: 1,
       kind: "query",

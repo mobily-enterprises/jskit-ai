@@ -316,7 +316,19 @@ export function createConversationChangeover({ state, transcript, agent, identit
     return delivered;
   }
 
-  return { readState, remember, replace, send };
+  // Cancel drops the message's pending native attempt in every engine, so no
+  // later send replays it or waits on its unknown receipt. Native history an
+  // engine already admitted stays; the transcript remains authoritative.
+  async function discard({ messageId }) {
+    const value = await state.read();
+    const bindings = Object.values(value?.engines || {}).filter(binding => binding.pending?.messageId === messageId);
+    if (!bindings.length) return false;
+    for (const binding of bindings) delete binding.pending;
+    await state.write(value);
+    return true;
+  }
+
+  return { readState, remember, replace, send, discard };
 }
 
 function writtenMessages(history, native = false) {

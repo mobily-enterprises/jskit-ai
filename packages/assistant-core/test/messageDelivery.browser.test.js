@@ -107,7 +107,7 @@ test("the shared element renders delayed sends and supplies retry, edit and canc
 });
 
 
-test("chronological messages and application Cancel work on phone and desktop", {
+test("chronological messages and Cancel during a delivery check work on phone and desktop", {
   skip: process.env.JSKIT_ASSISTANT_CORE_BROWSER_INTEGRATION !== "1", timeout: 90_000
 }, async () => {
   const vite = await startViteFixture({ fixtureRoot: fileURLToPath(new URL("../fixtures/responsive-assistant", import.meta.url)) });
@@ -125,7 +125,23 @@ test("chronological messages and application Cancel work on phone and desktop", 
       }
       await expect(page.getByRole("button", { name: "Retry delivery check" })).toBeVisible();
       await page.screenshot({ path: `/tmp/sas-chat-recovery-${width}.png` });
-      await page.getByRole("button", { name: "Cancel", exact: true }).click();
+      // Cancel stays enabled while Checking… runs. The message stays, shown as
+      // Cancelling…, until the server agrees, and stays when it is unreachable.
+      await page.getByRole("button", { name: "Start delivery check" }).click();
+      await expect(page.getByRole("button", { name: "Retry delivery check" })).toHaveText("Checking…");
+      await expect(page.getByRole("button", { name: "Retry delivery check" })).toBeDisabled();
+      const cancel = page.getByRole("button", { name: "Cancel", exact: true });
+      await expect(cancel).toBeEnabled();
+      await cancel.click();
+      await expect(page.getByRole("status").filter({ hasText: "Cancelling…" })).toBeVisible();
+      await expect(rows).toHaveCount(5);
+      await page.getByRole("button", { name: "Server unreachable" }).click();
+      await expect(page.getByText("Couldn't reach the server — Cancel again", { exact: true })).toBeVisible();
+      await expect(page.getByText("Discard failed attempt", { exact: true })).toBeVisible();
+      await expect(cancel).toBeEnabled();
+      await cancel.click();
+      await expect(page.getByRole("status").filter({ hasText: "Cancelling…" })).toBeVisible();
+      await page.getByRole("button", { name: "Server agrees to cancel" }).click();
       await expect(rows).toHaveCount(4);
       await expect(page.getByText("Discard failed attempt", { exact: true })).toHaveCount(0);
       assert.deepEqual(errors, []);

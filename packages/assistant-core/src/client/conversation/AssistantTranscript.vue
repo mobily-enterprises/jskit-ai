@@ -179,12 +179,15 @@
             </div>
             <slot name="user-message-actions" :message="entry.message" :turn="entry.turn" />
             <div
-              v-if="entry.delivery || entry.turn.optimistic?.status === 'failed'"
+              v-if="entry.delivery || entry.turn.optimistic?.status === 'failed' || entry.turn.optimistic?.cancelling || entry.turn.optimistic?.cancelError"
               class="assistant-transcript__optimistic-failure"
             >
-              <span role="status">{{ entry.delivery ? entry.delivery.delivery.error || t('jskit.assistant.delivery.unconfirmedShort') : t('jskit.assistant.transcript.failed', { error: entry.turn.optimistic.error || t('jskit.assistant.delivery.notSent') }) }}</span>
+              <span role="status">{{ entry.turn.optimistic?.cancelling ? t('jskit.assistant.delivery.cancelling')
+                : entry.turn.optimistic?.cancelError ? entry.turn.optimistic.cancelError
+                  : entry.delivery ? entry.delivery.delivery.error || t('jskit.assistant.delivery.unconfirmedShort') : t('jskit.assistant.transcript.failed', { error: entry.turn.optimistic.error || t('jskit.assistant.delivery.notSent') }) }}</span>
               <div v-if="!entry.turn.preview" class="assistant-transcript__optimistic-actions">
                 <v-btn
+                  v-if="!entry.turn.optimistic?.cancelling && !entry.turn.optimistic?.cancelError && (entry.delivery || entry.turn.optimistic?.status === 'failed')"
                   class="assistant-transcript__delivery-action"
                   color="error"
                   size="x-small"
@@ -198,7 +201,7 @@
                   {{ entry.delivery?.delivery.checking ? t('jskit.assistant.delivery.checking') : t('jskit.assistant.delivery.retry') }}
                 </v-btn>
                 <v-btn
-                  v-if="!entry.delivery || cancellableDelivery"
+                  v-if="!entry.delivery || cancellableDelivery || entry.turn.optimistic?.cancelling || entry.turn.optimistic?.cancelError"
                   class="assistant-transcript__delivery-action"
                   size="x-small"
                   type="button"
@@ -208,7 +211,7 @@
                   {{ t("jskit.assistant.transcript.cancel") }}
                 </v-btn>
                 <v-btn
-                  v-if="!entry.delivery"
+                  v-if="!entry.delivery && entry.turn.optimistic?.status === 'failed' && !entry.turn.optimistic.cancelling && !entry.turn.optimistic.cancelError"
                   class="assistant-transcript__delivery-action"
                   size="x-small"
                   type="button"

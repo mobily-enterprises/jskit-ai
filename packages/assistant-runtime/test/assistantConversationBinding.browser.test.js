@@ -180,6 +180,142 @@ test("optional goal controls follow declared command semantics and budgets witho
   assert.equal((await f.sent()).length, 0, "Goal commands use the existing goal operation, not ordinary send");
 });
 
+test("a paused goal stays cancellable while a message is sending or its delivery is unknown", options, async t => {
+  const f = await fixture(t);
+  await f.command("goals", { id: "chat:1", budgets: false, commands: {
+    set: { delivery: "message", interruptsTurn: false }, resume: { delivery: "message", interruptsTurn: false },
+    pause: { delivery: "control", interruptsTurn: true }, cancel: { delivery: "message", interruptsTurn: true }
+  } });
+  await f.notify("chat:1");
+  const goals = async () => (await f.state()).requests.filter(request => request.suffix === "/goal" && request.method === "POST").map(request => request.input);
+  const pausedGoal = async objective => {
+    await f.primary.getByRole("button", { name: "Set goal", exact: true }).click();
+    await f.page.getByRole("textbox", { name: "Goal objective" }).fill(objective);
+    await f.page.getByRole("button", { name: "Start goal", exact: true }).click();
+    await f.primary.getByRole("button", { name: "Goal running", exact: true }).click();
+    await f.page.getByRole("button", { name: "Pause goal", exact: true }).click();
+    await expect(f.primary.getByRole("button", { name: "Goal paused", exact: true })).toBeVisible();
+    await f.page.keyboard.press("Escape");
+    await expect(f.page.getByRole("button", { name: "Resume goal", exact: true })).toHaveCount(0);
+  };
+  const cancelPausedGoal = async () => {
+    await f.primary.getByRole("button", { name: "Goal paused", exact: true }).click();
+    await expect(f.page.getByRole("button", { name: "Resume goal", exact: true })).toBeDisabled();
+    const cancel = f.page.getByRole("button", { name: "Cancel goal", exact: true });
+    await expect(cancel).toBeEnabled();
+    await cancel.click();
+    await expect(f.primary.getByRole("button", { name: "Set goal", exact: true })).toBeVisible();
+    await f.page.keyboard.press("Escape");
+    await expect(f.page.getByRole("textbox", { name: "Goal objective" })).toHaveCount(0);
+    const sent = await goals();
+    assert.equal(sent.at(-1).action, "cancel");
+    assert.ok(sent.at(-1).messageId, "A message-delivered Cancel keeps its receipt identity");
+    assert.equal(sent.at(-1).expectedGoalId, sent.at(-2).expectedGoalId);
+  };
+
+  await pausedGoal("Finish while a message is sending");
+  await f.command("mode", { mode: "hold" });
+  await f.input.fill("Still sending");
+  await f.input.press("Enter");
+  await expect.poll(async () => (await f.state()).held).toBe(1);
+  await f.command("mode", { mode: "accepted" });
+  await cancelPausedGoal();
+  assert.equal((await f.state()).held, 1, "Cancel did not wait for the message still sending");
+  await f.command("accept");
+  await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().delivery.state.sending)).toBe(false);
+
+  await pausedGoal("Finish while a delivery is unknown");
+  await f.command("mode", { mode: "uncertain" });
+  await f.input.fill("Deslop");
+  await f.input.press("Enter");
+  await expect(f.primary.getByRole("button", { name: "Retry delivery check", exact: true })).toBeVisible();
+  await f.command("mode", { mode: "accepted" });
+  await cancelPausedGoal();
+  assert.deepEqual((await goals()).map(command => command.action), ["set", "pause", "cancel", "set", "pause", "cancel"]);
+});
+
+test("Cancel ends a running delivery check, keeps the message until the server agrees and retries after the server was unreachable", options, async t => {
+  const f = await fixture(t);
+  await f.command("mode", { mode: "uncertain" });
+  await f.input.fill("Say OK and just that");
+  await f.input.press("Enter");
+  const check = f.primary.getByRole("button", { name: "Retry delivery check", exact: true });
+  await expect(check).toBeVisible();
+  const [original] = await f.sent();
+  const message = f.primary.getByText("Say OK and just that", { exact: true });
+  const cancelling = f.primary.getByRole("status").filter({ hasText: "Cancelling…" });
+  const cancel = f.primary.getByRole("button", { name: "Cancel", exact: true });
+  const cancels = async () => (await f.state()).requests.filter(request => request.suffix.endsWith("/cancel")).length;
+
+  // The server cannot be reached: the message stays, with Cancel again.
+  await f.page.route("**/deliveries/*/cancel", route => route.abort("internetdisconnected"));
+  const result = await f.page.evaluate(async messageId => {
+    const runtime = window.conversationFixture.current();
+    const checking = runtime.inspectDelivery(messageId);
+    const wasChecking = runtime.delivery.find(messageId)?.checking === true;
+    const cancelled = runtime.cancelMessage(messageId);
+    const whileWaiting = runtime.delivery.find(messageId)?.cancelling === true;
+    return { wasChecking, whileWaiting, receipt: await checking, cancelled: await cancelled };
+  }, original.input.messageId);
+  assert.deepEqual(result, { wasChecking: true, whileWaiting: true, receipt: false, cancelled: false });
+  await expect(f.primary.getByText("Couldn't reach the server — Cancel again", { exact: true })).toBeVisible();
+  await expect(message).toBeVisible();
+  await expect(cancel).toBeEnabled();
+  await f.page.unroute("**/deliveries/*/cancel");
+
+  // Reconnecting retries the cancel; the message stays, cancelling, until the
+  // server answers, and an unconfirmed snapshot meanwhile does not change that.
+  await f.command("hold-cancels", { hold: true });
+  await f.notify("chat:1");
+  await expect(cancelling).toBeVisible();
+  await expect.poll(cancels).toBe(1);
+  await expect(message).toBeVisible();
+  assert.equal((await f.state()).states["chat:1"].pendingRequest.messageId, original.input.messageId);
+  await f.command("answer-cancels");
+  await expect(message).toHaveCount(0);
+  await expect(check).toHaveCount(0);
+
+  // The server dropped the request, so neither a snapshot nor a reload brings it back.
+  assert.equal((await f.state()).states["chat:1"].pendingRequest, null);
+  await f.notify("chat:1");
+  await f.page.reload();
+  await expect(f.input).toBeEnabled();
+  await expect(message).toHaveCount(0);
+  assert.equal(await cancels(), 1);
+});
+
+test("a Cancel the server never received is retried after a page reload", options, async t => {
+  const f = await fixture(t);
+  const attach = async () => {
+    await f.page.evaluate(() => {
+      window.savedBinding = window.conversationFixture.acquireConversation({
+        conversationId: "chat:2", draftStorage: { storage: sessionStorage, key: "unfinished-cancel" }
+      });
+      window.conversationFixture.target("chat:2");
+    });
+    await expect.poll(() => f.page.evaluate(() => window.savedBinding.runtime.value?.available.value)).toBe(true);
+  };
+  await attach();
+  await f.command("mode", { mode: "uncertain" });
+  await f.input.fill("Cancel me across a reload");
+  await f.input.press("Enter");
+  await expect(f.primary.getByRole("button", { name: "Retry delivery check", exact: true })).toBeVisible();
+  await f.page.route("**/deliveries/*/cancel", route => route.abort("internetdisconnected"));
+  await f.primary.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(f.primary.getByText("Couldn't reach the server — Cancel again", { exact: true })).toBeVisible();
+  await f.page.unroute("**/deliveries/*/cancel");
+  await f.command("hold-cancels", { hold: true });
+  await f.page.reload();
+  await attach();
+  const message = f.primary.getByText("Cancel me across a reload", { exact: true });
+  await expect(f.primary.getByRole("status").filter({ hasText: "Cancelling…" })).toBeVisible();
+  await expect(message).toBeVisible();
+  await f.command("answer-cancels");
+  await expect(message).toHaveCount(0);
+  const cancels = (await f.state()).requests.filter(request => request.suffix.endsWith("/cancel"));
+  assert.deepEqual(cancels.map(request => request.id), ["chat:2"]);
+});
+
 test("the first native goal preserves absent identity and later controls capture its actual thread", options, async t => {
   const f = await fixture(t);
   await f.input.fill("Keep this ordinary draft");
@@ -639,7 +775,9 @@ test("canonical receipts settle a held response and uncertain delivery stays ins
   const check = f.primary.getByRole("button", { name: "Retry delivery check", exact: true });
   await expect(check).toBeVisible();
   await expect(f.primary.getByText("Keep this exact uncertain request", { exact: true })).toHaveCount(1);
-  await expect(f.primary.getByRole("button", { name: /^(Retry|Edit|Cancel)$/u })).toHaveCount(0);
+  // Never resent or edited while unknown; only the server's Cancel is offered.
+  await expect(f.primary.getByRole("button", { name: /^(Retry|Edit)$/u })).toHaveCount(0);
+  await expect(f.primary.getByRole("button", { name: "Cancel", exact: true })).toBeEnabled();
   const checkBox = await check.boundingBox();
   assert.ok(checkBox.width >= 48 && checkBox.height >= 48);
   await f.input.fill("Preserve the newer draft");
@@ -887,7 +1025,8 @@ test(`an explicit pre-admission rejection retains original retry identity and th
       await f.input.fill("Keep my newer draft");
       await f.primary.getByRole("button", { name: action, exact: true }).click();
       await expect(f.primary.getByText("Failed: The message was rejected before admission.", { exact: true })).toHaveCount(0);
-      assert.equal(await f.page.evaluate(id => window.conversationFixture.current().delivery.find(id), request.input.messageId), null);
+      // Cancel removes the message once the server agrees.
+      await expect.poll(() => f.page.evaluate(id => window.conversationFixture.current().delivery.find(id), request.input.messageId)).toBe(null);
       await expect(f.input).toHaveValue(action === "Edit" ? `${text}\n\nKeep my newer draft` : "Keep my newer draft");
     }
     assert.equal((await f.sent()).length, 4, "Cancel and Edit do not dispatch another prompt");

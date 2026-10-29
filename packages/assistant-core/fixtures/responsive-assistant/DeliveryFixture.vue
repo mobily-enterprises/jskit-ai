@@ -25,6 +25,16 @@ const delivery = createAssistantMessageDelivery({ deliver(payload) {
   pendingRequest = Promise.withResolvers();
   return pendingRequest.promise;
 } });
+// A stand-in for the application's server cancel: the recovery fixture answers
+// from its buttons, the others agree at once.
+let cancelAnswer;
+function cancelMessage(id) {
+  if (!delivery.cancel(id)) return false;
+  cancelAnswer = Promise.withResolvers();
+  cancelAnswer.promise.then(agreed => agreed ? delivery.remove(id) : delivery.cancelFailed(id));
+  if (!recoveryFixture) cancelAnswer.resolve(true);
+  return true;
+}
 function accept() {
   const payload = requests.value.at(-1);
   const at = new Date().toISOString();
@@ -56,8 +66,8 @@ const adapter = reactive({
   conversation: { cancellableDelivery: recoveryFixture, turns, visible: true, scrollKey: "delivery", welcomeMessage: "Start a conversation." },
   composer: { draft, canSend: true, submitOnEnter: true, queueWhileSending },
   actions: {
-    ...(recoveryFixture ? { cancel: id => delivery.remove(id) } : {}),
-    setDraft(value) { draft.value = value; }
+    setDraft(value) { draft.value = value; },
+    cancel: cancelMessage
   }
 });
 </script>
@@ -66,6 +76,9 @@ const adapter = reactive({
     <main class="fixture">
       <nav>
         <button v-if="acceptedFixture" @click="turns.unshift({ turnId: 'earlier', user: { messageId: 'accepted-old', text: 'Earlier accepted message', at: '2026-10-16T11:05:00.000Z' } })">Load accepted history</button>
+        <button v-if="recoveryFixture" @click="delivery.find('uncertain').checking = true">Start delivery check</button>
+        <button v-if="recoveryFixture" @click="cancelAnswer?.resolve(false)">Server unreachable</button>
+        <button v-if="recoveryFixture" @click="cancelAnswer?.resolve(true)">Server agrees to cancel</button>
         <button @click="pendingRequest.reject(new Error('Delivery unavailable.'))">Fail request</button>
         <button @click="accept">Accept request</button>
         <button @click="attachments.attachments.push({ attachmentId: 'new-file', fileName: 'next.txt' }); configuration = { tone: 'detailed' }">Prepare newer input</button>

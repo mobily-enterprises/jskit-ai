@@ -116,6 +116,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
   const accessDenied = ref(false);
   const delivery = createAssistantMessageDelivery();
   const pendingMessages = new Map();
+  const deliveryChecks = new Map();
   const olderPages = ref([]);
   let historyRevision = 0;
   let deniedHistoryRevision = 0;
@@ -158,10 +159,14 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       typeof message.payload?.message === "string") : [];
     const restoredMessages = messages.filter(message => !delivery.find(message.id)).map(message => {
       const status = ["failed", "accepted"].includes(message.status) ? message.status : "uncertain";
-      return { ...message, status, checking: false, error: message.error || (status === "accepted" ? "" :
+      return { ...message, status, checking: false, cancelling: false, error: message.error || (status === "accepted" ? "" :
         t("jskit.assistant.runtime.delivery.unconfirmedBeforeClose")) };
     });
     delivery.state.messages = unmatchedOptimisticMessages(turns.value, [...delivery.state.messages, ...restoredMessages], { receiptsOnly: true });
+    // A cancel the server had not agreed to before this page closed is retried.
+    for (const message of messages) {
+      if (message.cancelling || message.cancelError) delivery.cancelFailed(message.id, message.cancelError);
+    }
   } catch {
     draft.value = "";
     draftAttachments.value = [];
@@ -239,6 +244,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     accessDenied.value = false;
     delivery.reconcile(state.turns);
     if (state.status === "unconfirmed" && state.pendingRequest) delivery.restoreUncertain(state.pendingRequest, state.turns);
+    retryCancels();
     if (state.segmentId !== goalSegment) {
       // Keep the open goal menu while its first native identity arrives. The
       // pending read disables commands until it supplies the new exact target.
@@ -374,6 +380,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     stopPlacement();
     for (const pending of pendingMessages.values()) pending.controller.abort();
     pendingMessages.clear();
+    for (const check of deliveryChecks.values()) check.abort();
     goalReadController?.abort();
     delivery.reset();
   });
@@ -561,11 +568,32 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       if (current.value) subscription?.reload();
     }
   }
-  function cancelMessage(messageId) {
-    const pending = pendingMessages.get(messageId);
-    if (!pending) return false;
-    pending.controller.abort();
-    return true;
+  // Cancel means cancel, and the server decides. Cancel ends the message's
+  // unsent request and running delivery check, then asks the server, which
+  // always records the cancel. The message stays, shown as cancelling, until
+  // the server agrees; when the server cannot be reached it stays with Cancel
+  // again, and the next snapshot after reconnecting retries it.
+  async function cancelMessage(messageId) {
+    pendingMessages.get(messageId)?.controller.abort();
+    deliveryChecks.get(messageId)?.abort();
+    if (!available.value || !delivery.cancel(messageId)) return false;
+    try {
+      const result = await api.cancelConversationDelivery(identity.conversationId, messageId);
+      if (result?.ok === false) throw Object.assign(new Error(resultError(result)), { status: 409 });
+      if (!current.value) return false;
+      delivery.remove(messageId);
+      subscription?.reload();
+      return true;
+    } catch (failure) {
+      // The server's own refusal names itself; anything else did not reach it.
+      if (current.value) delivery.cancelFailed(messageId, Number.isInteger(failure?.status) && failure.status > 0 ? failureMessage(failure) : "");
+      return false;
+    }
+  }
+  function retryCancels() {
+    for (const message of delivery.state.messages) {
+      if (message.cancelError && !message.cancelling) void cancelMessage(message.id);
+    }
   }
 
   // The original history control keeps older pages separate from the live page.
@@ -653,14 +681,18 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     const view = goalView.value;
     const target = view?.target;
     const command = target?.capabilities?.goalCommands?.[action];
+    // Pause and Cancel never depend on chat delivery: each is pinned to the goal
+    // it stops and goes straight to the goal operation, even while a message is
+    // sending or its receipt is unknown. Set and Resume wait for those.
+    const stopping = action === "pause" || action === "cancel";
     if (!available.value || view?.status !== "available" || goalLoadError.value || goalAction.value || !goalTargetCurrent.value ||
         !["message", "control"].includes(command?.delivery) ||
-        delivery.state.messages.some(message => message.status === "uncertain")) return false;
+        !stopping && delivery.state.messages.some(message => message.status === "uncertain")) return false;
     if (input.tokenBudget != null && !target.capabilities.goalBudgets) {
       goalError.value = t("jskit.assistant.runtime.goal.budgetsUnsupported");
       return false;
     }
-    const retry = delivery.find(messageId);
+    const retry = stopping ? null : delivery.find(messageId);
     if (retry && retry.status !== "failed") return false;
     const request = retry?.payload.goalRequest || { action, expectedSegmentId: target.segmentId,
       expectedGoalId: view.goal?.id || null,
@@ -669,7 +701,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     goalAction.value = action;
     goalError.value = "";
     try {
-      if (retry || command.delivery === "message") {
+      if (retry || !stopping && command.delivery === "message") {
         const result = await submitRequest(retry?.payload || {
           message: action === "set" ? request.objective
             : t(action === "resume" ? "jskit.assistant.runtime.goal.resumeMessage" : "jskit.assistant.runtime.goal.cancelMessage"),
@@ -683,7 +715,8 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
         }
         return result;
       }
-      const result = await api.updateConversationGoal(identity.conversationId, request);
+      const result = await api.updateConversationGoal(identity.conversationId,
+        command.delivery === "message" ? { ...request, messageId } : request);
       if (result?.ok === false) throw new Error(resultError(result) || t("jskit.assistant.runtime.goal.changeFailed"));
       return result;
     } catch (failure) {
@@ -719,6 +752,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
         sampledAt: Date.parse(view.goal.updatedAt) } : null,
       pending: Boolean(goalAction.value) || !goalAvailable || !available.value || delivery.state.sending ||
         delivery.state.messages.some(message => message.status === "uncertain"),
+      stopPending: Boolean(goalAction.value) || !goalAvailable || !available.value,
       error: goalError.value || goalLoadError.value || view?.error || "",
       pauseInterruptsTurn: commands.pause?.interruptsTurn === true,
       cancelInterruptsTurn: commands.cancel?.interruptsTurn === true,
@@ -740,14 +774,18 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     if (!available.value) return false;
     const message = delivery.find(messageId);
     if (message?.checking) return false;
+    const check = new AbortController();
+    deliveryChecks.set(messageId, check);
     if (message) message.checking = true;
     try {
-      const receipt = await api.inspectConversationDelivery(identity.conversationId, messageId);
-      if (!current.value) return false;
+      const receipt = await api.inspectConversationDelivery(identity.conversationId, messageId, { signal: check.signal });
+      if (!current.value || check.signal.aborted) return false;
       if (receipt.status === "accepted") {
         delivery.accept(messageId);
         if (receipt.messageId === messageId && message?.payload.goalRequest) goalError.value = "";
       }
+      // The server recorded this message as cancelled, perhaps from another tab.
+      else if (receipt.status === "cancelled" && receipt.messageId === messageId) delivery.remove(messageId);
       else if (receipt.status === "not-sent" && receipt.messageId === messageId) delivery.rejectUnsent(messageId, resultError(receipt));
       else if (receipt.status === "unknown" && message?.status === "uncertain") {
         message.error = t("jskit.assistant.runtime.delivery.stillUnknown");
@@ -755,11 +793,15 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       subscription?.reload();
       return receipt;
     } catch (failure) {
+      if (check.signal.aborted) return false;
       if (current.value && message?.status === "uncertain") message.error = failureMessage(failure, t("jskit.assistant.runtime.delivery.checkFailed"));
       receiveError(failure);
       return false;
     }
-    finally { if (message) message.checking = false; }
+    finally {
+      if (deliveryChecks.get(messageId) === check) deliveryChecks.delete(messageId);
+      if (message) message.checking = false;
+    }
   }
 
   const runtime = { identity, current, active, editable, available, canSubmit, steerable, queueWhileSending: queueing,
@@ -1054,6 +1096,8 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
         hasMoreBefore: current?.hasMoreBefore.value || false,
         loadingMore: current?.loadingMore.value || false, loadMoreError: current?.loadMoreError.value || "",
         loading: current?.loading.value || false, working: !current?.error.value && state?.status === "working" && !current.delivery.state.sending,
+        // The server cancels any unconfirmed message, so its Cancel is offered.
+        cancellableDelivery: true,
         assistantLabel: display.assistantLabel || t("jskit.assistant.runtime.conversation.assistantLabel"),
         welcomeMessage: display.welcomeMessage ?? t("jskit.assistant.runtime.conversation.welcomeMessage"),
         systemLabel: display.systemLabel, variant: display.variant, visible: display.visible, retainWhenHidden: display.retainWhenHidden,
@@ -1075,6 +1119,7 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
         else if (canDraftWhileLoading.value) initialDraft.value = value;
       }, submit,
         resend: messageId => submit({ retryMessageId: messageId }), stop: () => current?.cancel(),
+        cancel: messageId => current?.cancelMessage(messageId),
         checkDelivery: messageId => current?.inspectDelivery(messageId), loadMore: input => current?.loadMore(input), reload: () => current?.reload() }
     };
   });

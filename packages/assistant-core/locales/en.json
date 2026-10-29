@@ -87,6 +87,8 @@
         "useSuggestion": "Use suggestion: {prompt}"
       },
       "delivery": {
+        "cancelling": "Cancelling…",
+        "cancelUnreachable": "Couldn't reach the server — Cancel again",
         "checkBeforeResend": "Check delivery before resending.",
         "checkPrevious": "Check the previous message's delivery before sending again.",
         "checking": "Checking…",
@@ -213,6 +215,7 @@
         "liveSettingsUnsupported": "This provider does not support live native settings.",
         "completedEnvelopesNeedStorage": "Completed envelopes require runtime-owned canonical storage.",
         "originalReadOnly": "This conversation uses its original read and subscription operations.",
+        "messageCancelUnsupported": "This conversation cannot cancel one message.",
         "authorizedSelectionRequired": "Use the conversation's authorized selection operation.",
         "eventDeliveryRetained": "This scoped conversation retains its original event delivery.",
         "engineChanged": "The selected native engine changed.",

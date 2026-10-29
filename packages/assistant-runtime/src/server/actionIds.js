@@ -5,6 +5,7 @@ const actionIds = Object.freeze({
   conversationCancel: "assistant.conversation.cancel",
   conversationSubscribe: "assistant.conversation.subscribe",
   conversationInspectDelivery: "assistant.conversation.delivery.inspect",
+  conversationCancelDelivery: "assistant.conversation.delivery.cancel",
   conversationGoalRead: "assistant.conversation.goal.read",
   conversationGoalUpdate: "assistant.conversation.goal.update",
   conversationConfigure: "assistant.conversation.configure",

@@ -3232,6 +3232,26 @@ test("native changeover treats a proven not-admitted attempt as not sent", async
   }
 });
 
+test("Cancel discards an unconfirmed native attempt so the next message is neither blocked nor replayed", async () => {
+  const { createConversationChangeover } = await import("../src/server/conversation/continuity.js");
+  let value = { lastEngine: "codex", engines: { codex: { seen: {}, pending: { messageId: "cancelled-request", message: "Prepared prompt",
+    displayMessage: "Original words.", displayAttachments: [], attachmentIds: [], seen: {}, attempted: true, threadId: "thread" } } } };
+  const sent = [];
+  const changeover = createConversationChangeover({
+    state: { async read() { return structuredClone(value); }, async write(next) { value = structuredClone(next); } },
+    transcript: { async hasMessage() { return false; } },
+    agent: { async inspectMessageAdmission() { return { admission: "unknown" }; },
+      async sendMessage(input) { sent.push(input.messageId); return { ok: true, delivered: true }; } }
+  });
+  assert.equal((await changeover.send({ engineId: "codex", messages: [], input: { messageId: "next", message: "Next." } })).code,
+    "conversation_changeover_delivery_unconfirmed", "An unknown attempt blocks the next message until it is resolved");
+  assert.equal(await changeover.discard({ messageId: "other-request" }), false);
+  assert.equal(await changeover.discard({ messageId: "cancelled-request" }), true);
+  assert.equal(value.engines.codex.pending, undefined);
+  assert.equal((await changeover.send({ engineId: "codex", messages: [], input: { messageId: "next", message: "Next." } })).delivered, true);
+  assert.deepEqual(sent, ["next"], "The cancelled attempt is never replayed");
+});
+
 test("initial native seed limits preserve generic history, full returning corrections and delivery ownership", async () => {
   const { createConversationChangeover } = await import("../src/server/conversation/continuity.js");
   const attachment = { attachmentId: "retained-file", name: "retained.txt" };

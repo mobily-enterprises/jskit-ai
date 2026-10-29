@@ -133,6 +133,11 @@ function createAssistantApi({ request, requestStream, resolveBasePath, resolveSu
       return requestConversation(conversationId, `/deliveries/${encodedMessageId}/inspect`, { method: "POST", signal });
     },
 
+    cancelConversationDelivery(conversationId, messageId, { signal } = {}) {
+      const encodedMessageId = encodeURIComponent(String(messageId || "").trim());
+      return requestConversation(conversationId, `/deliveries/${encodedMessageId}/cancel`, { method: "POST", signal });
+    },
+
     readConversationGoal(conversationId, { signal } = {}) {
       return requestConversation(conversationId, "/goal", { method: "GET", signal });
     },

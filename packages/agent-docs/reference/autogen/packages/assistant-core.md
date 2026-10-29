@@ -1855,6 +1855,7 @@ Local functions
 Exports
 - None
 Local functions
+- `cancelMessage(id)`
 - `accept()`
 
 ### `fixtures/responsive-assistant/main.js`

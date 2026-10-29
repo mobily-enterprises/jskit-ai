@@ -82,7 +82,13 @@ Its authorized operations use the existing action catalogue and HTTP router.
 Read, send, cancel and delivery inspection use the existing `createAssistantApi`
 request client, including its surface header and workspace path. Inspection is
 an authenticated POST operation because it may recover and save native receipts;
-it never dispatches another model request. Browser inputs cannot set the actor,
+it never dispatches another model request. Cancelling one message is
+`POST …/deliveries/:messageId/cancel` (`cancelConversationDelivery`), which
+always answers success for an unsent, unconfirmed or failed message: the
+runtime stops a submission that holds it and discards its unconfirmed request
+or pending native attempt. A message already accepted stays history. An
+application conversation provides this as `cancelDelivery({ messageId })`;
+without it the operation answers `conversation_unsupported`. Browser inputs cannot set the actor,
 native host or engine context.
 `readConversation(id, { beforeTurnId, limit, signal })` optionally requests an
 earlier or bounded page through the same authenticated GET. Its query contains
@@ -875,7 +881,18 @@ message with attachments while an earlier delivery is pending.
 
 Retry keeps the same payload and message ID; the backend must deduplicate that
 ID. Edit moves failed text into the composer while preserving a newer draft;
-Cancel removes only the failed local entry. Neither action stops native work.
+Cancel never removes a message on the browser's own authority. `cancel(id)`
+marks a pending, uncertain or failed entry `cancelling` (shown as
+Cancelling…, with Retry and Edit hidden), and a queued entry cancelled while
+it waits is never delivered. The caller removes it with `remove(id)` once its
+server agrees, or calls `cancelFailed(id, error)` to keep it with Cancel again
+(by default "Couldn't reach the server — Cancel again"). The runtime's
+`cancelMessage(id)` does all of this: it aborts that message's unsent request
+and running delivery check, calls the server's delivery cancel, removes the
+message on agreement and reloads. A cancel that could not reach the server is
+retried on the next snapshot after reconnecting, including after a page reload
+with `draftStorage`. Without an application `cancel` action, the element
+removes only a failed message.
 Retry leaves the current draft untouched. Attachment bytes and removal on
 acceptance remain with the application's attachment owner.
 
@@ -894,7 +911,10 @@ streaming and provider execution remain separately observable application work.
 
 For canonical receipt observation, supply reactive `receiptTurns` and
 `uncertainOnError: true`. Unknown transport failures then retain an uncertain
-entry for inspection; they do not expose Retry, Edit or Cancel. Explicit
+entry for inspection; they expose Retry (the delivery check) and, with
+`cancellableDelivery`, Cancel, which stays enabled while the check runs. The
+runtime binding sets `cancellableDelivery`, because its server always accepts
+a delivery cancel. Explicit
 pre-admission rejection can still return `{ ok: false, error }`. Use `accept(id)`
 only after the backend confirms admission. `restoreUncertain(request, savedTurns)`
 restores the public pending request without sending it again.
@@ -1201,7 +1221,7 @@ fields; disable or omit `models` independently when supplying fixed agent settin
 
 ```js
 {
-  enabled: true, pending: false, error: "",
+  enabled: true, pending: false, stopPending: false, error: "",
   goal: { objective: "Finish the report", status: "active",
     elapsedSeconds: 120, sampledAt: Date.now() },
   set({ objective, tokenBudget }), pause(), resume()
@@ -1214,7 +1234,9 @@ surface failures in `error`; return `false` on unsuccessful creation. The shared
 `AssistantGoalControl` owns the form and presentation, not a scheduler or goal
 storage. Supported statuses are `active`, `paused`, `blocked`, `usageLimited`,
 `budgetLimited`, and `complete`. The UI offers creation only without an unfinished
-goal and offers Pause/Resume only for their applicable statuses.
+goal and offers Pause/Resume only for their applicable statuses. `pending`
+disables Set and Resume; `stopPending` disables Pause and Cancel, which the
+supplied binding never blocks on message sending or unknown delivery.
 
 An active goal flashes red; a paused goal stays orange. `elapsedSeconds` is the
 accumulated **active running time**, and `sampledAt` is its sample time in epoch

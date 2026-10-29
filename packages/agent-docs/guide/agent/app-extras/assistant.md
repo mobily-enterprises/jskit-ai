@@ -545,7 +545,9 @@ it, the UI shows sending status. A delivery failure offers Resend, Edit and Canc
 beside the message. Resend retains the original message ID, text, selected
 integration, history and attachment IDs; newer typing and newly attached files
 remain untouched. Edit moves failed text into the composer and preserves newer
-text. Cancel removes only that local failed entry.
+text. Cancel asks the server to cancel that message; it shows Cancelling… and
+leaves only once the server agrees, or stays with Cancel again when the server
+cannot be reached.
 
 After acceptance, the runtime displays provider progress and streamed answers.
 An execution failure before an answer restores the request as a draft only if the

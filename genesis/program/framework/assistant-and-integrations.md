@@ -280,6 +280,19 @@ stale actions and report unavailability. Starting, pausing, resuming and cancell
 labels describe the actual command, not a background read or message admission.
 An available host goal view can also carry a recovery error. The shared goal
 state displays it without disabling the same-read target or Resume controls.
+Pause and Cancel never depend on chat delivery: they go straight to the goal
+operation, pinned to the goal they stop, while a message is sending or its
+receipt is unknown (a message-delivered Cancel keeps its receipt identity).
+`stopPending` disables only them, for another goal command or an unavailable
+goal or conversation; Set and Resume still wait for sending and uncertainty.
+Cancel on a pending, uncertain or failed message is decided by the server.
+The runtime aborts its unsent request and running delivery check, shows the
+message as Cancelling… and calls `POST …/deliveries/:messageId/cancel`. It
+removes the message only when the server agrees; when the server cannot be
+reached the message stays with Cancel again and is retried on the next snapshot.
+The runtime's own `cancelDelivery` stops a submission holding that message and
+discards its unconfirmed request or pending changeover attempt (`continuity`
+`discard`). An application conversation supplies its own `cancelDelivery`.
 Codex Pause combines native scheduling pause with the existing verified turn
 interrupt, preserving the goal identity and budget for Resume. Cleanup failure
 is reported rather than treating paused scheduling as proof that work stopped.

@@ -9,7 +9,7 @@ export default defineConfig({
   plugins: [vue(), {
     name: "controlled-canonical-assistant-api",
     configureServer(server) {
-      let states, requests, held, mode, denied;
+      let states, requests, held, mode, denied, holdCancels, heldCancels;
       const pageLimits = new Map();
       // Exercise the existing page reader over this fixture's controlled rows.
       const transcript = createConversationTranscript({ storage: {
@@ -27,6 +27,7 @@ export default defineConfig({
             streaming: { revision: 0, messages: [] }, capabilities: { steering: false, goals: false, attachments: true } }];
         }));
         requests = []; held = []; mode = "accepted"; denied = false; pageLimits.clear();
+        holdCancels = false; heldCancels = [];
       }
       reset();
       function accept(state, input) {
@@ -60,6 +61,8 @@ export default defineConfig({
         if (url.pathname === "/fixture/reset") { reset(); return json({ ok: true }); }
         if (url.pathname === "/fixture/state") return json({ requests, states: Object.fromEntries(states), held: held.length });
         if (url.pathname === "/fixture/mode") { mode = input.mode; return json({ ok: true }); }
+        if (url.pathname === "/fixture/hold-cancels") { holdCancels = input.hold; return json({ ok: true }); }
+        if (url.pathname === "/fixture/answer-cancels") { for (const agree of heldCancels.splice(0)) agree(); return json({ ok: true }); }
         if (url.pathname === "/fixture/deny") { denied = input.denied; return json({ ok: true }); }
         if (url.pathname === "/fixture/error") { states.get(input.id).error = input.error; return json({ ok: true }); }
         if (url.pathname === "/fixture/interim-reply") { states.get(input.id).interimReply = input.reply; return json({ ok: true }); }
@@ -168,8 +171,21 @@ export default defineConfig({
           return json(accept(state, input), 202);
         }
         if (match[2] === "/cancel") { state.status = "ready"; return json({ stopped: true }); }
+        // The server always records a cancel and drops the unconfirmed request.
+        if (match[2].startsWith("/deliveries/") && match[2].endsWith("/cancel")) {
+          const messageId = decodeURIComponent(match[2].split("/")[2]);
+          const agree = () => {
+            state.cancelled = [...state.cancelled || [], messageId];
+            if (state.pendingRequest?.messageId === messageId) { state.pendingRequest = null; state.status = "ready"; }
+            json({ ok: true, cancelled: true, messageId });
+          };
+          if (holdCancels) heldCancels.push(agree);
+          else agree();
+          return;
+        }
         if (match[2].startsWith("/deliveries/") && match[2].endsWith("/inspect")) {
           const messageId = decodeURIComponent(match[2].split("/")[2]);
+          if (state.cancelled?.includes(messageId)) return json({ status: "cancelled", messageId });
           const receipt = state.conversationLog.find(turn => turn.user?.messageId === messageId);
           if (!receipt && mode === "not-sent") return json({ status: "not-sent", messageId, error: "This message was not sent. Review it before sending a new message." });
           return json(receipt ? { status: "accepted", messageId, turnId: receipt.turnId } : { status: "unknown", messageId });

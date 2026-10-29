@@ -327,8 +327,15 @@ async function resend(id) {
   }
   catch { /* The delivery controller retains the error beside the failed message. */ }
 }
+// The application's cancel asks its server and removes the message only once
+// the server agrees. Without one, only a message the server already refused
+// (failed) is removed.
 function cancel(id) {
-  return props.adapter.actions?.cancel ? props.adapter.actions.cancel(id) : props.adapter.delivery?.cancel(id);
+  if (props.adapter.actions?.cancel) return props.adapter.actions.cancel(id);
+  const message = props.adapter.delivery?.find(id);
+  if (message?.status !== "failed") return false;
+  props.adapter.delivery.remove(id);
+  return true;
 }
 function edit(id) {
   if (props.adapter.actions?.edit) return props.adapter.actions.edit(id);

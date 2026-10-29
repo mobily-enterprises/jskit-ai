@@ -72,6 +72,8 @@ test("cancel and edit affect failed messages and preserve a newer draft", async 
   assert.equal(delivery.edit("one", "New draft"), null);
   await delivery.send({ message: "Second" }, { messageId: "two" });
   assert.equal(delivery.cancel("two"), true);
+  assert.equal(delivery.find("two").cancelling, true, "Cancel waits for the server before removing it");
+  delivery.remove("two");
   assert.deepEqual(delivery.state.messages, []);
 });
 
@@ -343,7 +345,6 @@ test("unconfirmed delivery preserves its authored payload for inspection without
   assert.equal(turn.optimistic.status, "uncertain");
   assert.equal(turn.user.attachments[0].name, "Original");
   assert.deepEqual(turn.system.delivery, { messageId: "one", error: "Connection closed.", checking: false });
-  assert.equal(delivery.cancel("one"), false);
   assert.equal(delivery.edit("one", "New draft"), null);
   assert.equal(delivery.resend("one"), false);
   assert.equal(await delivery.send({ message: "Hello" }, { messageId: "one" }), false);
@@ -353,6 +354,38 @@ test("unconfirmed delivery preserves its authored payload for inspection without
   assert.equal(delivery.find("one").error, "");
   assert.equal(delivery.restoreUncertain({ messageId: "one", text: "Hello", error: "Stale error" }), false);
   assert.equal(delivery.turns()[0].system, undefined);
+});
+
+test("Cancel keeps a pending, uncertain or failed message, shown as cancelling, until the server agrees", async () => {
+  const delivery = createAssistantMessageDelivery();
+  await delivery.send({ message: "Refused" }, { messageId: "failed", deliver: async () => ({ ok: false, error: "Refused." }) });
+  await assert.rejects(delivery.send({ message: "Lost" }, { messageId: "uncertain", uncertainOnError: true,
+    deliver: async () => { throw new Error("Internal server error."); } }), /Internal server error/);
+  const held = Promise.withResolvers();
+  const inFlight = delivery.send({ message: "In flight" }, { messageId: "pending", deliver: () => held.promise });
+  assert.deepEqual(delivery.state.messages.map(message => message.status), ["failed", "uncertain", "pending"]);
+  for (const messageId of ["failed", "uncertain", "pending"]) assert.equal(delivery.cancel(messageId), true);
+  assert.deepEqual(delivery.turns().map(turn => [turn.optimistic.id, turn.optimistic.cancelling]),
+    [["failed", true], ["uncertain", true], ["pending", true]], "Nothing leaves on the client's own authority");
+  assert.equal(delivery.cancel("uncertain"), false, "A second press waits for the same answer");
+  assert.equal(delivery.edit("failed", ""), null, "A cancelling message is not edited");
+  assert.equal(await delivery.send({ message: "Refused" }, { messageId: "failed" }), false, "nor sent again");
+  let queuedDeliveries = 0;
+  const queued = delivery.send({ message: "Queued" }, { messageId: "queued", queue: true, deliver: async () => { queuedDeliveries += 1; } });
+  assert.equal(delivery.cancel("queued"), true);
+  held.resolve({ ok: false, error: "Late failure." });
+  await inFlight;
+  assert.equal(await queued, false);
+  assert.equal(queuedDeliveries, 0, "A message cancelled while queued is never delivered");
+  assert.equal(delivery.find("pending").cancelling, true, "A late answer leaves the cancel in progress");
+  // The server could not be reached: the message stays, with Cancel again.
+  delivery.cancelFailed("uncertain");
+  assert.deepEqual(delivery.turns().find(turn => turn.optimistic.id === "uncertain").optimistic,
+    { error: "Internal server error.", id: "uncertain", status: "uncertain", cancelError: "Couldn't reach the server — Cancel again" });
+  assert.equal(delivery.cancel("uncertain"), true, "Cancel again");
+  // The server agreed: only then does the caller remove each message.
+  for (const messageId of ["failed", "uncertain", "pending", "queued"]) delivery.remove(messageId);
+  assert.deepEqual(delivery.turns(), []);
 });
 
 test("reconnect restores one uncertain request and ends its HTTP wait without dispatching again", async () => {

@@ -100,7 +100,8 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
     } : null;
     return {
       optimistic: { error: message.error, id: message.id, status: message.status,
-        ...(message.status === "pending" && message.waiting ? { waiting: message.waiting } : {}) },
+        ...(message.status === "pending" && message.waiting ? { waiting: message.waiting } : {}),
+        ...(message.cancelling ? { cancelling: true } : {}), ...(message.cancelError ? { cancelError: message.cancelError } : {}) },
       turnId: message.id,
       [role]: authored,
       ...(status ? { system: role === "system" ? { ...authored, ...status, text: `${authored.text}\n\n${status.text}` } : status } : {})
@@ -117,7 +118,7 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
     queue = false
   } = {}) {
     if ((state.sending && !queue) || pendingSends.has(messageId) || find(messageId)?.status === "uncertain" ||
-        (!messageText(payload?.message) && !payload?.displayAttachments?.length)) return false;
+        find(messageId)?.cancelling || (!messageText(payload?.message) && !payload?.displayAttachments?.length)) return false;
     if (typeof deliver !== "function") throw new TypeError("Message delivery requires a deliver function.");
     const snapshot = JSON.parse(JSON.stringify(payload));
     const previous = find(messageId);
@@ -147,6 +148,8 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
     try {
       if (predecessor) await predecessor;
       if (!current()) return false;
+      // A queued message cancelled while it waited is never delivered.
+      if (find(messageId)?.cancelling) return false;
       if (uncertainOnError && state.messages.some(entry => entry.id !== messageId && entry.status === "uncertain" && !knownUncertain.has(entry.id))) {
         fail(messageId, t("jskit.assistant.delivery.checkPrevious"));
         return false;
@@ -240,15 +243,29 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
     return true;
   }
 
+  // Cancel of a pending, uncertain or failed message waits for the server: the
+  // message stays, shown as cancelling, until the caller removes it on the
+  // server's agreement or reports that the server could not be reached.
   function cancel(messageId) {
-    if (find(messageId)?.status !== "failed") return false;
-    remove(messageId);
+    const message = find(messageId);
+    if (!message || message.status === "accepted" || message.cancelling) return false;
+    message.cancelling = true;
+    message.cancelError = "";
     return true;
   }
 
+  function cancelFailed(messageId, error = "") {
+    const message = find(messageId);
+    if (!message) return;
+    message.cancelling = false;
+    message.cancelError = String(error || t("jskit.assistant.delivery.cancelUnreachable")).trim();
+  }
+
+  // Only a message that never reached the conversation returns to the draft.
   function edit(messageId, draft = "") {
     const message = find(messageId);
-    if (!message || !cancel(messageId)) return null;
+    if (message?.status !== "failed" || message.cancelling) return null;
+    remove(messageId);
     return draftWithRestoredMessage(message.text, draft);
   }
 
@@ -269,7 +286,7 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
     state.sending = false;
   }
 
-  return { accept, cancel, edit, find, reconcile, remove, resend, reset, restoreUncertain, rejectUnsent, send, state, turns, wait };
+  return { accept, cancel, cancelFailed, edit, find, reconcile, remove, resend, reset, restoreUncertain, rejectUnsent, send, state, turns, wait };
 }
 
 // The composer text after a failed or cancelled message returns to it: the
