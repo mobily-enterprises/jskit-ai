@@ -157,6 +157,20 @@ test("a Claude provider connection change stops the matching live work past a st
   assert.equal(b.process, null);
 });
 
+test("a Claude provider connection change reports a conversation whose stop fails while the others still stop", async t => {
+  const f = await lifecycleFixture(t);
+  const a = await f.running("a");
+  a.process.proof = { exited: false, scopeEmpty: false };
+  const b = await f.running("b");
+  const result = await f.owner.invalidateRuntimes({ provider: "claude", modelProviderId: "anthropic", reason: "provider-key-change" },
+    f.application, f.account);
+  assert.equal(result.ok, false);
+  assert.equal(result.closed, 1);
+  assert.deepEqual(result.failed.map(({ sessionId, conversationId }) => [sessionId, conversationId]), [["a", MAIN_IDS.a]]);
+  assert.equal(b.process, null, "the healthy conversation's process stopped");
+  a.process.proof = { exited: true, scopeEmpty: true };
+});
+
 test("a failed Claude account query cleanup still stops the sessions' processes", async t => {
   const f = await lifecycleFixture(t);
   const b = await f.running("b");
