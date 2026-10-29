@@ -32,11 +32,12 @@ function sharedWithinPass(load, keyOf = (value) => value) {
 // The checks of one publish or 30-second pass. Identical socket requests share
 // one authentication (the auth service sees only the request), and sockets of
 // one actor share its contributed rooms. Revalidation asks only who is signed
-// in, so the provider reads the app profile instead of synchronizing it.
+// in, so the provider reads the app profile instead of synchronizing it, and
+// never refreshes a session the socket could not store.
 function createPassChecks(authService, audiences) {
   return {
     authenticateRequest: sharedWithinPass(
-      (request) => authService.authenticateRequest(request, { syncProfile: false }),
+      (request) => authService.authenticateRequest(request, { syncProfile: false, refreshSession: false }),
       JSON.stringify
     ),
     audiences: audiences && { resolveActorRooms: sharedWithinPass((actorId) => audiences.resolveActorRooms(actorId)) }

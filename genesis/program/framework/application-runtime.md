@@ -39,7 +39,9 @@ target rooms' members otherwise, and every socket when a registered audience
 contributor could add a target user or workspace room. Identical socket
 requests share one check, and one actor's sockets one room lookup, within that
 publish; no result outlives it. These checks read the existing app profile
-without synchronizing it. A revoked login or removed membership therefore stops
+without synchronizing it, and no socket check refreshes a session: a login that
+needs one is refused at the handshake or disconnected, and the client refreshes
+the session over HTTP before reconnecting. A revoked login or removed membership therefore stops
 the very next publish that would reach it, and a 30-second pass rechecks every
 socket.
 

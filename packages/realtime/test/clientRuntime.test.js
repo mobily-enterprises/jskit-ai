@@ -117,6 +117,27 @@ test("server disconnect recovery backs off middleware rejection and resets after
   assert.equal(socket.connect.mock.callCount(), 8);
 });
 
+test("recovery runs its prepare step, such as a session refresh, before reconnecting", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const socket = Object.assign(new EventEmitter(), {
+    active: false,
+    connected: false,
+    connect: t.mock.fn(),
+    io: { reconnection: () => true }
+  });
+  let finishPreparing;
+  const prepareReconnect = t.mock.fn(() => new Promise((resolve) => { finishPreparing = resolve; }));
+  t.after(attachSocketConnectionRecovery(socket, { prepareReconnect }));
+
+  socket.emit("connect_error", new Error("Session refresh required."));
+  t.mock.timers.tick(1_000);
+  assert.equal(prepareReconnect.mock.callCount(), 1);
+  assert.equal(socket.connect.mock.callCount(), 0, "The handshake waits for the refreshed session");
+  finishPreparing();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(socket.connect.mock.callCount(), 1);
+});
+
 test("recovery leaves transport retries and intentional disconnects to Socket.IO", (t) => {
   const { socket, detach } = recoverySocket(t);
   socket.active = true;

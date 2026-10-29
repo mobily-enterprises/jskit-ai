@@ -238,13 +238,16 @@ function createSocketRequest(socket) {
   return request;
 }
 
-async function resolveSocketActor(authService, socket, request = createSocketRequest(socket),
-  authenticateRequest = (value) => authService.authenticateRequest(value)) {
-  if (typeof authService?.authenticateRequest !== "function") return null;
+// A socket cannot store a refreshed session, so its checks never refresh one.
+// A provider that would have to (its access token expired) answers
+// `refreshRequired`, and the client refreshes over HTTP before reconnecting.
+async function resolveSocketAuthentication(authService, socket, request = createSocketRequest(socket),
+  authenticateRequest = (value) => authService.authenticateRequest(value, { refreshSession: false })) {
+  if (typeof authService?.authenticateRequest !== "function") return { actor: null, refreshRequired: false };
   const result = await authenticateRequest(request);
   const id = result?.authenticated === true
     ? normalizeRecordId(result?.actor?.id, { fallback: null }) : null;
-  return id ? { ...result.actor, id } : null;
+  return { actor: id ? { ...result.actor, id } : null, refreshRequired: result?.refreshRequired === true };
 }
 
 function realtimeAuthenticationRequired(authService = null) {
@@ -257,28 +260,42 @@ function authenticationRequiredError() {
   return error;
 }
 
+function sessionRefreshRequiredError() {
+  const error = new Error("Session refresh required.");
+  error.data = Object.freeze({ code: "SESSION_REFRESH_REQUIRED" });
+  return error;
+}
+
 function rememberSocketActorId(socket, actorId) {
   socket.data = socket.data && typeof socket.data === "object" ? socket.data : {};
   socket.data.actorId = actorId;
 }
 
-function registerRequiredSocketAuthentication({ io, logger, authService }) {
-  if (!realtimeAuthenticationRequired(authService)) return;
+// Every handshake is authenticated here. A login that needs a session refresh
+// is refused even when sign-in is optional, so the client refreshes and
+// reconnects instead of silently connecting without its user's rooms.
+function registerSocketAuthentication({ io, logger, authService }) {
+  const required = realtimeAuthenticationRequired(authService);
+  if (!required && typeof authService?.authenticateRequest !== "function") return;
   if (typeof io?.use !== "function") {
-    throw new TypeError("Realtime authenticated-client mode requires Socket.IO middleware support.");
+    throw new TypeError("Realtime socket authentication requires Socket.IO middleware support.");
   }
   io.use(async (socket, next) => {
     try {
-      const actorId = (await resolveSocketActor(authService, socket))?.id;
-      if (!actorId) {
+      const { actor, refreshRequired } = await resolveSocketAuthentication(authService, socket);
+      if (refreshRequired) {
+        next(sessionRefreshRequiredError());
+        return;
+      }
+      if (!actor && required) {
         next(authenticationRequiredError());
         return;
       }
-      rememberSocketActorId(socket, actorId);
+      if (actor) rememberSocketActorId(socket, actor.id);
       next();
     } catch (error) {
       logger.warn({ error: String(error?.message || error) }, "Realtime socket authentication failed.");
-      next(authenticationRequiredError());
+      next(required ? authenticationRequiredError() : undefined);
     }
   });
 }
@@ -294,14 +311,12 @@ async function joinContributedRooms(socket, actorId, audiences) {
 
 function registerSocketAudienceBootstrap({ io, logger, authService = null, audiences = null }) {
   if (typeof io?.on !== "function") return;
-  registerRequiredSocketAuthentication({ io, logger, authService });
+  registerSocketAuthentication({ io, logger, authService });
   io.on("connection", async (socket) => {
     try {
       socket.join(ALL_CLIENTS_ROOM);
-      const actorId = normalizeRecordId(socket?.data?.actorId, { fallback: null })
-        || (await resolveSocketActor(authService, socket))?.id;
+      const actorId = normalizeRecordId(socket?.data?.actorId, { fallback: null });
       if (!actorId) return;
-      rememberSocketActorId(socket, actorId);
       socket.join(ALL_USERS_ROOM);
       socket.join(roomForUser(actorId));
       await joinContributedRooms(socket, actorId, audiences);
@@ -312,9 +327,9 @@ function registerSocketAudienceBootstrap({ io, logger, authService = null, audie
 }
 
 async function revalidateSocket({ socket, authService, audiences = null, request, authenticateRequest }) {
-  const actor = await resolveSocketActor(authService, socket, request, authenticateRequest);
+  const { actor, refreshRequired } = await resolveSocketAuthentication(authService, socket, request, authenticateRequest);
   const previousActorId = socket.data?.actorId;
-  if ((!actor && realtimeAuthenticationRequired(authService)) ||
+  if (refreshRequired || (!actor && realtimeAuthenticationRequired(authService)) ||
       (previousActorId && previousActorId !== actor?.id)) {
     socket.disconnect(true);
     return null;

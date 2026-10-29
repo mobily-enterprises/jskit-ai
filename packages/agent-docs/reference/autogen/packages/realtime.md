@@ -32,7 +32,7 @@ Local functions
 
 ### `src/client/connectionRecovery.js`
 Exports
-- `attachSocketConnectionRecovery(socket)`
+- `attachSocketConnectionRecovery(socket, { prepareReconnect = null } = {})`
 
 ### `src/client/i18n.js`
 Exports
@@ -73,10 +73,11 @@ Local functions
 - `addAudienceRooms(selection, state)`
 - `collectUserIds(rows)`
 - `parseCookieHeader(value = "")`
-- `resolveSocketActor(authService, socket, request = createSocketRequest(socket), authenticateRequest = (value) => authService.authenticateRequest(value))`
+- `resolveSocketAuthentication(authService, socket, request = createSocketRequest(socket), authenticateRequest = (value) => authService.authenticateRequest(value, { refreshSession: false }))`
 - `authenticationRequiredError()`
+- `sessionRefreshRequiredError()`
 - `rememberSocketActorId(socket, actorId)`
-- `registerRequiredSocketAuthentication({ io, logger, authService })`
+- `registerSocketAuthentication({ io, logger, authService })`
 - `joinContributedRooms(socket, actorId, audiences)`
 
 ### `src/server/realtimeDelivery.js`

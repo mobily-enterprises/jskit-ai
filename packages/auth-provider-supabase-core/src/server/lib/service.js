@@ -892,7 +892,7 @@ function createService(options) {
     resolveDevAuthSecurityStatus
   });
 
-  async function authenticateRequest(request, { syncProfile = true } = {}) {
+  async function authenticateRequest(request, { syncProfile = true, refreshSession = true } = {}) {
     const { accessToken, refreshToken } = resolveRequestSessionTokens(request);
     // Without sync, a login whose app profile does not exist yet is not signed in.
     const signedIn = (profile, session = null) => (profile
@@ -952,6 +952,18 @@ function createService(options) {
       return {
         authenticated: false,
         clearSession: true,
+        session: null,
+        transientFailure: false
+      };
+    }
+
+    // A caller that cannot store a refreshed session, such as a realtime socket,
+    // must not spend the single-use refresh token; it is told to refresh first.
+    if (!refreshSession) {
+      return {
+        authenticated: false,
+        refreshRequired: true,
+        clearSession: false,
         session: null,
         transientFailure: false
       };

@@ -347,9 +347,13 @@ test("socket audience bootstrap authenticates explicitly and joins contributed s
     }
   });
   let connectionHandler = null;
+  let authenticationMiddleware = null;
   const io = {
     on(eventName, handler) {
       if (eventName === "connection") connectionHandler = handler;
+    },
+    use(handler) {
+      authenticationMiddleware = handler;
     }
   };
   const authenticateCalls = [];
@@ -374,6 +378,9 @@ test("socket audience bootstrap authenticates explicitly and joins contributed s
     data: {},
     join(room) { joinedRooms.push(room); }
   };
+  const handshakeErrors = [];
+  await authenticationMiddleware(socket, (error) => handshakeErrors.push(error));
+  assert.deepEqual(handshakeErrors, [undefined]);
   await connectionHandler(socket);
   assert.deepEqual(authenticateCalls, [{
     cookies: { session: "abc123", theme: "dark" },
@@ -516,7 +523,9 @@ async function startRealtimeClient({ mobile = null } = {}) {
 
 test("RealtimeClientProvider publishes one explicit client capability", async () => {
   const fixture = await startRealtimeClient();
-  assert.deepEqual(Object.keys(fixture.realtime).sort(), ["config", "dispose", "initialize", "onServedClientBuild", "socket"]);
+  assert.deepEqual(Object.keys(fixture.realtime).sort(), [
+    "config", "dispose", "initialize", "onServedClientBuild", "setBeforeReconnect", "socket"
+  ]);
   assert.equal(fixture.realtime.config.url, "");
   assert.equal(fixture.registrations.has("realtime.web.connection.indicator"), true);
   assert.equal(

@@ -48,6 +48,7 @@ function createAuthClient({ mobile = null, pinia, realtime = null, shell, vueApp
   const mobileCallback = createMobileCallbackCompleter();
   const oauthLaunch = mobile?.oauthLaunch || createPopupOAuthLaunchClient();
   let stopAuthRefresh = null;
+  let releaseBeforeReconnect = null;
 
   async function initialize() {
     if (!pinia) {
@@ -59,6 +60,9 @@ function createAuthClient({ mobile = null, pinia, realtime = null, shell, vueApp
     stopAuthRefresh = authStore.subscribe(() => {
       void shell.bootstrap.refresh("auth.state");
     });
+    // A socket refused for an expired session reconnects with the cookies this
+    // session read stores.
+    releaseBeforeReconnect = realtime?.setBeforeReconnect(() => guard.refresh()) || null;
     vueApp?.provide?.(AUTH_GUARD_RUNTIME_INJECTION_KEY, guard);
     vueApp?.provide?.(AUTH_OAUTH_LAUNCH_CLIENT_INJECTION_KEY, oauthLaunch);
   }
@@ -66,6 +70,8 @@ function createAuthClient({ mobile = null, pinia, realtime = null, shell, vueApp
   function dispose() {
     stopAuthRefresh?.();
     stopAuthRefresh = null;
+    releaseBeforeReconnect?.();
+    releaseBeforeReconnect = null;
     guard.dispose?.();
   }
 

@@ -49,6 +49,7 @@ function createRealtimeClient({ config, loggerInput } = {}) {
   const servedClientBuild = trackServedClientBuild(socket, logger);
   const detach = [];
   let initialized = false;
+  let beforeReconnect = null;
 
   function initialize(vueApp = null) {
     if (initialized) {
@@ -57,7 +58,7 @@ function createRealtimeClient({ config, loggerInput } = {}) {
     initialized = true;
 
     if (typeof socket.on === "function") {
-      detach.push(attachSocketConnectionRecovery(socket));
+      detach.push(attachSocketConnectionRecovery(socket, { prepareReconnect: () => beforeReconnect?.() }));
       const onConnect = () => logger.debug({ socketConnected: true }, "Realtime client socket connected.");
       const onDisconnect = (reason) =>
         logger.debug(
@@ -108,11 +109,24 @@ function createRealtimeClient({ config, loggerInput } = {}) {
     initialized = false;
   }
 
+  // The step to run before recovery reconnects after the server refused or
+  // dropped the socket, such as auth refreshing the session.
+  function setBeforeReconnect(prepare) {
+    if (typeof prepare !== "function") {
+      throw new TypeError("setBeforeReconnect requires a function.");
+    }
+    beforeReconnect = prepare;
+    return () => {
+      if (beforeReconnect === prepare) beforeReconnect = null;
+    };
+  }
+
   return Object.freeze({
     config,
     dispose,
     initialize,
     onServedClientBuild: servedClientBuild.subscribe,
+    setBeforeReconnect,
     socket
   });
 }

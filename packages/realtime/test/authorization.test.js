@@ -14,18 +14,24 @@ const arrival = (emitter, name) => once(emitter, name, { signal: AbortSignal.tim
 
 // Real sockets whose session cookies name their actors. `checks` lists each
 // authentication's session cookie, so a test sees which sockets were checked,
-// and `profileSyncs` those that asked the provider to sync the profile.
-async function signedInSockets(t, { audiences = null } = {}) {
+// `profileSyncs` those that asked the provider to sync the profile, and
+// `sessionRefreshes` those that let it refresh the session. Sessions in
+// `expired` answer that they need a refresh.
+async function signedInSockets(t, { audiences = null, requireAuthentication = true } = {}) {
   const httpServer = createServer();
   const io = createSocketIoServer({ httpServer });
   const sessions = new Map();
+  const expired = new Set();
   const checks = [];
   const profileSyncs = [];
+  const sessionRefreshes = [];
   const authService = {
-    realtime: { requireAuthentication: true },
-    async authenticateRequest(request, { syncProfile = true } = {}) {
+    realtime: { requireAuthentication },
+    async authenticateRequest(request, { syncProfile = true, refreshSession = true } = {}) {
       checks.push(request.cookies.session);
       if (syncProfile) profileSyncs.push(request.cookies.session);
+      if (refreshSession) sessionRefreshes.push(request.cookies.session);
+      if (expired.has(request.cookies.session)) return { authenticated: false, refreshRequired: true };
       const id = sessions.get(request.cookies.session);
       return { authenticated: Boolean(id), actor: id ? { id } : null };
     }
@@ -44,9 +50,12 @@ async function signedInSockets(t, { audiences = null } = {}) {
   const url = `http://127.0.0.1:${httpServer.address().port}`;
   return {
     checks,
+    expired,
     profileSyncs,
+    sessionRefreshes,
     sessions,
     io,
+    url,
     publish: (audience, name = "item.changed") => delivery.handle({
       type: "entity.changed", realtime: { audience, event: name, payload: { name } }
     }),
@@ -244,6 +253,30 @@ test("revalidation never syncs profiles, and one actor's logins share a room loo
   assert.equal(roomLookups, 1, "Both logins are Alice, so one publish looks up her rooms once");
 });
 
+test("a login whose session needs refreshing is dropped and refused until the client refreshes", async (t) => {
+  const f = await signedInSockets(t, { requireAuthentication: false });
+  f.sessions.set("alice", "1");
+  const alice = await f.connect("alice");
+
+  f.expired.add("alice");
+  const disconnected = arrival(alice.client, "disconnect");
+  await f.publish({ userId: 1 });
+  assert.equal((await disconnected)[0], "io server disconnect");
+  assert.equal(alice.received.length, 0);
+
+  // Even with sign-in optional, the handshake refuses instead of connecting
+  // without Alice's rooms, so the client refreshes and reconnects.
+  const again = connect(f.url, { transports: ["websocket"], extraHeaders: { Cookie: "session=alice" }, reconnection: false });
+  t.after(() => again.disconnect());
+  const [refused] = await arrival(again, "connect_error");
+  assert.equal(refused.data.code, "SESSION_REFRESH_REQUIRED");
+
+  f.expired.delete("alice");
+  again.connect();
+  await arrival(again, "connect");
+  assert.deepEqual(f.sessionRefreshes, [], "A socket never lets the provider refresh a session it cannot store");
+});
+
 test("idle socket sessions are revalidated without an application event, once per login", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const tab = () => ({ data: { actorId: "1" }, handshake: {}, disconnect() { this.connected = false; }, connected: true });
@@ -265,7 +298,7 @@ test("idle socket sessions are revalidated without an application event, once pe
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(sockets.map((socket) => socket.connected), [false, false]);
   assert.equal(checks, 1, "Identical handshakes share one check per pass");
-  assert.deepEqual(options, { syncProfile: false });
+  assert.deepEqual(options, { syncProfile: false, refreshSession: false });
 });
 
 test("delivery failures never reject a committed mutation and room unions emit once", async () => {

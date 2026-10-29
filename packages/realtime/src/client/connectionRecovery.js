@@ -1,6 +1,8 @@
 import { reconnectSocketIoClient } from "./runtime.js";
 
-function attachSocketConnectionRecovery(socket) {
+// `prepareReconnect` runs before each recovery reconnect; auth uses it to
+// refresh an expired session over HTTP so the handshake carries fresh cookies.
+function attachSocketConnectionRecovery(socket, { prepareReconnect = null } = {}) {
   let timer = null;
   let delay = 1_000;
   let recovering = false;
@@ -18,11 +20,22 @@ function attachSocketConnectionRecovery(socket) {
       !document?.hidden && window?.navigator?.onLine !== false;
   }
 
+  async function retry() {
+    if (prepareReconnect) {
+      try {
+        await prepareReconnect();
+      } catch {
+        // The handshake then decides; a refusal schedules the next retry.
+      }
+    }
+    if (canRetry()) socket.connect();
+  }
+
   function scheduleRetry() {
     if (timer !== null || !canRetry()) return;
     timer = setTimeout(() => {
       timer = null;
-      if (canRetry()) socket.connect();
+      if (canRetry()) void retry();
     }, delay);
     delay = Math.min(delay * 2, 30_000);
   }

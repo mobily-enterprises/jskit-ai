@@ -65,13 +65,23 @@ expired, or changed actors are disconnected by the first publish that could
 reach them or the next 30-second check. Authentication lookup errors fail
 closed.
 
-Revalidation calls `authenticateRequest(request, { syncProfile: false })`: it
-asks only who is signed in, so the local, OIDC and Supabase providers read the
-existing app profile with `findByIdentity()` instead of synchronizing it and
+Revalidation calls
+`authenticateRequest(request, { syncProfile: false, refreshSession: false })`:
+it asks only who is signed in, so the local, OIDC and Supabase providers read
+the existing app profile with `findByIdentity()` instead of synchronizing it and
 running the profile lifecycle, such as workspace provisioning. A login whose app
 profile does not exist is not signed in for that check. The connection
-handshake still authenticates normally. A custom auth service may ignore the
-option and answer as it would for any request.
+handshake synchronizes the profile as usual. A custom auth service may ignore
+`syncProfile` and answer as it would for any request.
+
+A socket keeps the cookies it connected with and cannot store a refreshed
+session, so every socket check, handshake included, passes
+`refreshSession: false`. A provider whose session check would spend a
+single-use refresh token (Supabase, once its access token has expired) answers
+`refreshRequired: true` instead. The handshake is then refused with the
+`SESSION_REFRESH_REQUIRED` connection error, even when sign-in is optional, and
+a connected socket is disconnected. The local and OIDC providers never need
+this: their checks do not rotate tokens.
 
 Packages that know which scopes an actor belongs to contribute them through
 `runtime.realtime.registerAudienceContributor({ id, resolveActorScopes })` during
@@ -169,6 +179,12 @@ is hidden or offline. When it becomes visible or online again, a disconnected
 socket reconnects immediately instead of finishing a delay scheduled before the
 device slept. Socket.IO continues to own ordinary transport reconnection.
 Explicit client disconnection and `reconnection: false` remain respected.
+
+Before each of those retries the client runs the step registered with
+`realtime.setBeforeReconnect(prepare)`, which returns a function that removes
+it. `@jskit-ai/auth-web` registers its session read, which refreshes an expired
+session over HTTP and stores the new cookies, so the next handshake carries
+them.
 
 Every attempt goes through normal authentication. Reconnection does not restore
 revoked access; an expired login still requires signing in. Applications should

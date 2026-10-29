@@ -40,6 +40,32 @@ test("auth client groups guard, OAuth, and mobile callback behavior without a co
     }
   });
 
+test("auth client refreshes the session over HTTP before realtime reconnects", async (t) => {
+  const sessionReads = [];
+  t.mock.method(globalThis, "fetch", async (path) => {
+    sessionReads.push(path);
+    return { ok: true, status: 200, async json() { return { authenticated: false }; } };
+  });
+  let beforeReconnect = null;
+  let released = false;
+  const realtime = {
+    socket: null,
+    setBeforeReconnect(prepare) {
+      beforeReconnect = prepare;
+      return () => { released = true; };
+    }
+  };
+  const auth = createAuthClient({ pinia: createPinia(), realtime, shell: createShell(), vueApp: { provide() {} } });
+  await auth.initialize();
+  const readsAtStartup = sessionReads.length;
+
+  await beforeReconnect();
+  assert.equal(sessionReads.length, readsAtStartup + 1);
+  assert.equal(sessionReads.at(-1), "/api/session");
+  auth.dispose();
+  assert.equal(released, true);
+});
+
   assert.equal(typeof auth.guard.initialize, "function");
   assert.equal(typeof auth.oauthLaunch.open, "function");
   assert.equal(typeof auth.mobileCallback.completeFromUrl, "function");

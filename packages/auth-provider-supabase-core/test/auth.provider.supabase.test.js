@@ -248,6 +248,36 @@ test("authentication without profile sync reads the existing profile", async (t)
   assert.equal(syncCalls, 1);
 });
 
+test("a caller that cannot store a refreshed session is told to refresh instead of spending the token", async (t) => {
+  const tokenRequests = [];
+  const supabase = createServer((request, response) => {
+    tokenRequests.push(request.url);
+    response.statusCode = 400;
+    response.setHeader("content-type", "application/json");
+    response.end(JSON.stringify({ error: "invalid_grant", error_description: "Invalid Refresh Token" }));
+  });
+  supabase.listen(0, "127.0.0.1");
+  await once(supabase, "listening");
+  t.after(() => new Promise((resolve) => supabase.close(resolve)));
+  const authService = createServiceFixture({
+    authProvider: { id: "supabase", supabaseUrl: `http://127.0.0.1:${supabase.address().port}`, supabasePublishableKey: "publishable-key" }
+  });
+  // The access cookie is gone once its token expires; the refresh cookie remains.
+  const request = { cookies: { sb_refresh_token: "R1" } };
+
+  assert.deepEqual(await authService.authenticateRequest(request, { refreshSession: false }), {
+    authenticated: false,
+    refreshRequired: true,
+    clearSession: false,
+    session: null,
+    transientFailure: false
+  });
+  assert.deepEqual(tokenRequests, []);
+
+  await authService.authenticateRequest(request);
+  assert.deepEqual(tokenRequests, ["/auth/v1/token?grant_type=refresh_token"]);
+});
+
 test("logout is local-only when no session cookies are present", async () => {
   const authService = createServiceFixture();
 
