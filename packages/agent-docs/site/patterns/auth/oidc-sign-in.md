@@ -87,6 +87,6 @@ has deliberately chosen Supabase (`auth/supabase-auth`). Install exactly one
 
 ## Packaged source
 
-- Owner: `@jskit-ai/auth-provider-oidc-core@0.2.1`
+- Owner: `@jskit-ai/auth-provider-oidc-core@0.2.2`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/auth-provider-oidc-core/patterns/oidc-sign-in/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/auth-provider-oidc-core/patterns/oidc-sign-in/example)

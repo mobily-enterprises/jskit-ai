@@ -11,7 +11,7 @@
   "dependencies": {
     "@jskit-ai/crud-core": "0.2.1",
     "@jskit-ai/resource-crud-core": "0.1.192",
-    "@jskit-ai/workspaces-core": "0.2.1"
+    "@jskit-ai/workspaces-core": "0.2.2"
   },
   "jskit": {
     "kind": "runtime",

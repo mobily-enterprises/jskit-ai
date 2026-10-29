@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/rewarded-core",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "type": "module",
   "scripts": {
     "test": "node --test --test-concurrency=1"
@@ -124,7 +124,7 @@
     "@jskit-ai/database-runtime": "0.1.250",
     "@jskit-ai/json-rest-api-core": "0.2.1",
     "@jskit-ai/resource-crud-core": "0.1.192",
-    "@jskit-ai/workspaces-core": "0.2.1",
+    "@jskit-ai/workspaces-core": "0.2.2",
     "json-rest-schema": "^1.0.17"
   },
   "peerDependencies": {
