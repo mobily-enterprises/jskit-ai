@@ -452,13 +452,12 @@ test("upward scrolling loads older history once and preserves retry and selectio
       await expect(requests).toHaveText("History requests: 1");
 
       // Keyboard navigation also requests older history.
-      await body.focus();
-      await body.press("Home");
+      await pressScrollKey(body, "Home", "top");
       await expect(requests).toHaveText("History requests: 2");
       await external("Fail history load");
       await expect(page.getByText("History unavailable", { exact: true })).toBeVisible();
-      await body.press("ArrowDown");
-      await body.press("Home");
+      await pressScrollKey(body, "ArrowDown", 40);
+      await pressScrollKey(body, "Home", "top");
       await expect(requests).toHaveText("History requests: 2");
       await page.getByRole("button", { name: "Load older messages", exact: true }).click();
       await expect(requests).toHaveText("History requests: 3");
@@ -469,16 +468,12 @@ test("upward scrolling loads older history once and preserves retry and selectio
       await expect(page.getByText("Conversation line 70:", { exact: false })).toBeVisible();
       await expect(requests).toHaveText("History requests: 3");
       await external("Exhaust history");
-      // Removing the history control re-anchors the scroller, which would
-      // cancel a keyboard scroll already in flight; press Home once it settles.
+      // Removing the history control re-anchors the scroller; press Home once
+      // it settles.
       await expect(page.getByRole("button", { name: "Load older messages", exact: true })).toHaveCount(0);
       await settleLayout(body);
-      await expect.poll(async () => {
-        await body.focus();
-        return body.evaluate(element => document.activeElement === element);
-      }).toBe(true);
-      await body.press("Home");
-      await expect.poll(() => body.evaluate(element => element.scrollTop)).toBe(0);
+      await pressScrollKey(body, "Home", "top");
+      expect(await body.evaluate(element => element.scrollTop)).toBe(0);
       await expect(requests).toHaveText("History requests: 3");
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       assert.deepEqual(errors, []);
