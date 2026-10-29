@@ -161,7 +161,10 @@ Account queries deduplicate by account identity, and invalidation cancels held
 startup and reads before awaiting their owned cleanup. Borrowed conversations
 remain owned by their original lifecycle. Requests also retain the invalidation
 revision across account lookup and retained cleanup: an older request cannot
-launch a successor process or refill the cache after reconnection.
+launch a successor process or refill the cache after reconnection. Native
+storage inventory and retirement borrow the shared Codex or OpenCode process
+without becoming a user: it stops about a minute after the last storage read
+unless a conversation, terminal or helper uses it.
 
 Claude goal creation and resumption use ordinary native message admission,
 including steering while a turn is active. A new goal cannot replace an

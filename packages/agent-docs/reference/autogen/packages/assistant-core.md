@@ -679,7 +679,7 @@ Exports
 - `codexAppServerOwnedRuntimeKey(providerKey = "", providerOptions = {})`
 - `codexAppServerRuntimeStopWasVerified(result = {})`
 - `directoryExists(filePath = "")`
-- `createCodexAppServerProviderOwner({ runtimeRoot = "", assertOpen: assertApplicationOpen = () => {}, onRecoveryEvent = () => {}, debugLog = () => {}, debugError = error => error, providerFactory = null, prepareNativeHost = () => ({}), runtimeBusyCode = "codex_app_server_runtime_busy", exitUnverifiedCode = "codex_runtime_exit_unverified", requiredStopCode = "codex_runtime_exit_unverified", runtimeCloseError = "Codex app-server runtime close failed." } = {})`
+- `createCodexAppServerProviderOwner({ runtimeRoot = "", assertOpen: assertApplicationOpen = () => {}, onRecoveryEvent = () => {}, debugLog = () => {}, debugError = error => error, providerFactory = null, prepareNativeHost = () => ({}), runtimeBusyCode = "codex_app_server_runtime_busy", exitUnverifiedCode = "codex_runtime_exit_unverified", requiredStopCode = "codex_runtime_exit_unverified", runtimeCloseError = "Codex app-server runtime close failed.", transientIdleMs = 60_000 } = {})`
 Local functions
 - `withRuntimeLifecycle(runtimeKey, operation)`
 
@@ -1011,7 +1011,7 @@ Exports
 - `openCodeModel(selection = {}, executionProfile = null)`
 - `sameOpenCodeSelection(left = {}, right = {})`
 - `ensureOpenCodeSession(target, { selection, model, workdir = target.workdir, identity = {}, signal, invalidIdentity = () => new Error("OpenCode did not return a native conversation ID.") })`
-- `createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {})`
+- `createOpenCodeSharedRuntime({ onStop = () => {}, scope, storageIdleMs = 60_000 } = {})`
 Local functions
 - `openCodeTurnSnapshot(turn = null, threadId = "")`
 - `openCodeCredentialFailure(value = "")`

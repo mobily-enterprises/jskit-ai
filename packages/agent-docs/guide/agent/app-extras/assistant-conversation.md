@@ -3206,6 +3206,11 @@ retirement preservation effect. The configured host receives operations
 same saved `binding.engineId`; current conversation selection is not consulted.
 The existing native owners enumerate, export and delete history. These calls add
 no inference authorization or runtime-closure rule to the original storage policy.
+Storage work borrows the shared native process; it is not a user that keeps it
+running. Codex and OpenCode stop a process a storage read started about one
+minute after the last such read (so one maintenance pass shares it), unless a
+conversation, terminal or helper uses it by then. Any real Codex use of that
+provider claims it, and goal and plan-usage reads ignore a borrowed provider.
 All four operations are server-only, accept no caller-supplied native owner or
 host, and have no HTTP, socket or client route. Ordinary applications continue
 using their conversation handles.
