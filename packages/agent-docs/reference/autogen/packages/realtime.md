@@ -57,7 +57,7 @@ Exports
 - `createAudienceContributors()`
 - `createSocketRequest(socket)`
 - `realtimeAuthenticationRequired(authService = null)`
-- `revalidateSocket({ socket, authService, audiences = null, request })`
+- `revalidateSocket({ socket, authService, audiences = null, request, authenticateRequest })`
 - `registerSocketAudienceBootstrap({ io, logger, authService = null, audiences = null })`
 - `resolveAudienceTargets(audience, event, { database = null, logger })`
 Local functions
@@ -68,11 +68,12 @@ Local functions
 - `resolveScopeWorkspaceId(scope = {})`
 - `resolveScopeUserId(scope = {})`
 - `roomForScope(scope = {})`
+- `isScopeRoom(room)`
 - `applyAudiencePreset(preset, { event, rooms, flags, logger })`
 - `addAudienceRooms(selection, state)`
 - `collectUserIds(rows)`
 - `parseCookieHeader(value = "")`
-- `resolveSocketActor(authService, socket, request = createSocketRequest(socket))`
+- `resolveSocketActor(authService, socket, request = createSocketRequest(socket), authenticateRequest = (value) => authService.authenticateRequest(value))`
 - `authenticationRequiredError()`
 - `rememberSocketActorId(socket, actorId)`
 - `registerRequiredSocketAuthentication({ io, logger, authService })`
@@ -83,6 +84,7 @@ Exports
 - `createRealtimeDelivery({ io, database = null, logger, authService = null, audiences = null })`
 Local functions
 - `publicRealtimePayload(event)`
+- `createSharedAuthentication(authService)`
 
 ### `src/server/RealtimeProvider.js`
 Exports

@@ -53,6 +53,11 @@ function roomForScope(scope = {}) {
   return null;
 }
 
+// Every room roomForScope() names has one of these prefixes.
+function isScopeRoom(room) {
+  return /^(?:user|workspace):/u.test(String(room));
+}
+
 // Packages that know which scopes an actor belongs to (for example workspace
 // memberships) contribute them here; realtime only turns scopes into rooms.
 function createAudienceContributors() {
@@ -68,6 +73,10 @@ function createAudienceContributors() {
         throw new Error(`Realtime audience contributor "${contributorId}" is already registered.`);
       }
       contributors.set(contributorId, resolveActorScopes);
+    },
+    // Whether revalidation could make a socket join this room.
+    mayContribute(room) {
+      return contributors.size > 0 && isScopeRoom(room);
     },
     async resolveActorRooms(actorId) {
       const rooms = new Set();
@@ -229,9 +238,10 @@ function createSocketRequest(socket) {
   return request;
 }
 
-async function resolveSocketActor(authService, socket, request = createSocketRequest(socket)) {
+async function resolveSocketActor(authService, socket, request = createSocketRequest(socket),
+  authenticateRequest = (value) => authService.authenticateRequest(value)) {
   if (typeof authService?.authenticateRequest !== "function") return null;
-  const result = await authService.authenticateRequest(request);
+  const result = await authenticateRequest(request);
   const id = result?.authenticated === true
     ? normalizeRecordId(result?.actor?.id, { fallback: null }) : null;
   return id ? { ...result.actor, id } : null;
@@ -301,8 +311,8 @@ function registerSocketAudienceBootstrap({ io, logger, authService = null, audie
   });
 }
 
-async function revalidateSocket({ socket, authService, audiences = null, request }) {
-  const actor = await resolveSocketActor(authService, socket, request);
+async function revalidateSocket({ socket, authService, audiences = null, request, authenticateRequest }) {
+  const actor = await resolveSocketActor(authService, socket, request, authenticateRequest);
   const previousActorId = socket.data?.actorId;
   if ((!actor && realtimeAuthenticationRequired(authService)) ||
       (previousActorId && previousActorId !== actor?.id)) {

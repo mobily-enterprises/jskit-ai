@@ -46,9 +46,17 @@ rejects unauthenticated handshakes before a socket joins any broadcast room.
 Clients must disconnect and reconnect after their login identity changes so a
 new handshake establishes the current actor.
 
-When `auth.service.authenticateRequest()` is present, delivery reauthenticates
-each socket before sending and rechecks idle sockets every 30 seconds. Revoked,
-expired, or changed actors are disconnected. Authentication lookup errors fail
+When `auth.service.authenticateRequest()` is present, each publish reauthenticates
+every socket that could receive it before sending, and every socket is rechecked
+every 30 seconds. A socket could receive a publish when the audience is
+`all_clients` or `broadcast`, when it is already in a target room, or, when an
+audience contributor is registered, when a target room is a user or workspace
+room it could join on revalidation. Other sockets are not checked for that
+publish. Sockets whose authentication requests are identical, such as tabs of
+one browser, share one `authenticateRequest()` call within a publish or a
+30-second pass; nothing is reused from one publish or pass to the next. Revoked,
+expired, or changed actors are disconnected by the first publish that could
+reach them or the next 30-second check. Authentication lookup errors fail
 closed.
 
 Packages that know which scopes an actor belongs to contribute them through

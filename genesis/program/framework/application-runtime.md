@@ -31,3 +31,11 @@ Realtime action events reach only the rooms their audience names. The default
 workspace-user room and to nobody when the event has no such scope. Every
 signed-in user is reached only through the explicit `all_users` audience, which
 a CRUD feature selects with its `realtimeAudience` option.
+
+With an authenticating `auth.service`, each publish reauthenticates, before
+sending, every socket that could receive it: all sockets for a broadcast, the
+target rooms' members otherwise, and every socket when a registered audience
+contributor could add a target user or workspace room. Identical socket
+requests share one check within that publish; no result outlives it. A revoked
+login or removed membership therefore stops the very next publish that would
+reach it, and a 30-second pass rechecks every socket.

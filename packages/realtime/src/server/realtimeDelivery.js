@@ -19,6 +19,17 @@ function publicRealtimePayload(event) {
   return Object.freeze({ ...(payload || {}), ...canonical });
 }
 
+// One check for all identical socket requests within one pass: the auth service
+// sees only the request, so they would get the same answer.
+function createSharedAuthentication(authService) {
+  const checks = new Map();
+  return (request) => {
+    const key = JSON.stringify(request);
+    if (!checks.has(key)) checks.set(key, (async () => authService.authenticateRequest(request))());
+    return checks.get(key);
+  };
+}
+
 function createRealtimeDelivery({ io, database = null, logger, authService = null, audiences = null }) {
   if (!io || typeof io.emit !== "function" || typeof io.to !== "function") {
     throw new TypeError("Realtime delivery requires a Socket.IO server.");
@@ -38,9 +49,9 @@ function createRealtimeDelivery({ io, database = null, logger, authService = nul
   let revalidationTimer = null;
   let stopped = false;
 
-  async function revalidate(socket) {
+  async function revalidate(socket, authenticateRequest) {
     try {
-      return await revalidateSocket({ socket, authService, audiences });
+      return await revalidateSocket({ socket, authService, audiences, authenticateRequest });
     } catch (error) {
       socket.disconnect(true);
       logger.warn({ error: String(error?.message || error) }, "Realtime socket revalidation failed.");
@@ -48,10 +59,19 @@ function createRealtimeDelivery({ io, database = null, logger, authService = nul
     }
   }
 
+  // A socket outside every target room can enter one only by revalidation
+  // joining a contributed room; otherwise checking it cannot change delivery.
+  function candidateSockets(targets) {
+    const sockets = [...io.sockets.sockets.values()];
+    if (targets.broadcastAllClients || targets.rooms.some((room) => audiences?.mayContribute(room))) return sockets;
+    return sockets.filter((socket) => targets.rooms.some((room) => socket.rooms.has(room)));
+  }
+
   async function deliverLocal({ eventName, payload, targets }) {
-    await Promise.all([...io.sockets.sockets.values()].map(async (socket) => {
+    const authenticateRequest = createSharedAuthentication(authService);
+    await Promise.all(candidateSockets(targets).map(async (socket) => {
       try {
-        const actor = await revalidate(socket);
+        const actor = await revalidate(socket, authenticateRequest);
         if (!socket.connected) return;
         if (!targets.broadcastAllClients && !targets.rooms.some((room) => socket.rooms.has(room))) return;
         if (typeof authService.realtime?.authorizeEvent === "function") {
@@ -79,7 +99,8 @@ function createRealtimeDelivery({ io, database = null, logger, authService = nul
   function scheduleRevalidation() {
     if (stopped) return;
     revalidationTimer = setTimeout(async () => {
-      await Promise.all([...io.sockets.sockets.values()].map(revalidate));
+      const authenticateRequest = createSharedAuthentication(authService);
+      await Promise.all([...io.sockets.sockets.values()].map((socket) => revalidate(socket, authenticateRequest)));
       scheduleRevalidation();
     }, 30_000);
     revalidationTimer.unref();
