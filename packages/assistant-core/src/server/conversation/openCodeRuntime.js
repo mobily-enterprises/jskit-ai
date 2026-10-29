@@ -401,6 +401,9 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope, storageI
         connectionsCurrent: true, directories: new Map(), generation: 0, server
       };
       sharedProcess = started;
+      // An unexpected exit retires the server's leftovers at once.
+      void server.unexpectedExit?.then(() => sharedProcess === started ? stop("opencode-server-exited") : null)
+        .catch(() => {});
       for (const target of processes.values()) {
         target.server = openCodeServerForDirectory(server, target.workdir);
         target.upstream = null;

@@ -2988,6 +2988,13 @@ refuses the change before publication through the application's
 `assertConnectionChange`; no second process owner or credential refresh proxy is
 involved.
 
+When the shared OpenCode server exits without being stopped, the owner stops
+what remains of it at once (reason `opencode-server-exited`) through the same
+stop as a failed health check, rather than leaving its execution and leftover
+processes until the next health check, connection change or close.
+`createOpenCodeServerProcess()` exposes that exit as `unexpectedExit`; hosts
+wire nothing for it.
+
 An application's selected provider credential change uses the existing owner's
 `invalidateRuntimes({ modelProviderId, includeOwned, toolHomeSource })` branch.
 It inventories loaded native thread identities and exact provider assignments,

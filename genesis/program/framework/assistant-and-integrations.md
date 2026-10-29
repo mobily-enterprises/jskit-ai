@@ -368,8 +368,10 @@ in the process that created it, so the delete stops only this server's live
 providers for the scope and any runtime whose earlier stop could not prove exit.
 Codex thread inventories bound the thread IDs they keep, not the preview text
 they discard, and a refused inventory names its check and thread. An OpenCode
-server that exits before readiness names its last stderr line, and a deleted
-scoped OpenCode conversation keeps no exit proof.
+server that exits before readiness names its last stderr line; one that exits
+later without being stopped is stopped at once, so its execution and leftover
+processes do not wait for the next health check. A deleted scoped OpenCode
+conversation keeps no exit proof.
 OpenCode turn reads (completion, admission, application tool ownership) find
 their input through native history pages: `readOpenCodeMessagesUntil` follows
 the native older-page cursor until the input is seen, so a turn with more model

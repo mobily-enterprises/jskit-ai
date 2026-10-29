@@ -3,7 +3,9 @@ import { access, mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 import { createOpenCodeServerProcess, openCodeProcessEnvironment } from "../src/server/conversation/openCodeProcess.js";
+import { createOpenCodeSharedRuntime } from "../src/server/conversation/openCodeRuntime.js";
 
 async function fixture(t, options = {}) {
   const workdir = await mkdtemp(path.join(os.tmpdir(), "jskit-opencode-process-"));
@@ -50,6 +52,22 @@ test("the shared OpenCode server authenticates selected accounts and drains its 
   assert.equal((await native.stop()).scopeEmpty, true);
   await native.stop();
   assert.deepEqual(f.stops, ["owned-process"]);
+  await assert.rejects(access(f.config.privateRoot), { code: "ENOENT" });
+});
+
+test("the shared owner stops a server that exits without being stopped at once", async t => {
+  const f = await fixture(t);
+  const reasons = [];
+  const runtime = createOpenCodeSharedRuntime({ onStop: ({ reason }) => reasons.push(reason) });
+  // The host wires no failure callback: the owner watches the exit itself.
+  const shared = await runtime.ensure(null, async () => ({ server: await createOpenCodeServerProcess(f.config), connections: [] }));
+  assert.equal(runtime.current, shared);
+  f.exited.resolve({ code: 1 });
+  for (let attempt = 0; attempt < 50 && f.stops.length === 0; attempt += 1) await delay(10);
+  await delay(20);
+  assert.deepEqual(f.stops, ["owned-process"]);
+  assert.deepEqual(reasons, ["opencode-server-exited"]);
+  assert.equal(runtime.current, null);
   await assert.rejects(access(f.config.privateRoot), { code: "ENOENT" });
 });
 

@@ -246,6 +246,7 @@ export async function createOpenCodeServerProcess({
   let closing = false;
   let stopped = false;
   let stopPromise = null;
+  const unexpectedExit = Promise.withResolvers();
   const logPath = path.join(privateRoot, "opencode-server.log");
   const processHandle = {
     get exited() { return stopped || native?.running === false; },
@@ -293,7 +294,11 @@ export async function createOpenCodeServerProcess({
       logPath, args: ["serve", "--hostname", OPENCODE_HOST, "--port", String(selectedPort), "--mdns=false"] });
     executionId = native.id;
     await onStarted?.(native.id);
-    const fail = error => { if (!closing) Promise.resolve().then(() => onFailure?.(error)).catch(() => {}); };
+    const fail = error => {
+      if (closing) return;
+      unexpectedExit.resolve(error);
+      Promise.resolve().then(() => onFailure?.(error)).catch(() => {});
+    };
     native.exited.then(() => fail(new Error("The owned OpenCode process exited."))).catch(fail);
     const health = await waitForOpenCodeReady({ client, expectedVersion, processHandle, timeoutMs: readinessTimeoutMs, signal });
     const authenticated = new Set();
@@ -309,6 +314,8 @@ export async function createOpenCodeServerProcess({
     return Object.freeze({ client, executionId: native.id, privateRoot, pid: native.pid, port: selectedPort,
       environment, health: Object.freeze({ ...health }), modelProviderIds: Object.freeze([...authenticated]),
       readLogs: processHandle.readLogs, stop,
+      // Resolves when the process exits without being stopped.
+      unexpectedExit: unexpectedExit.promise,
       attachArguments({ conversationId, directory }) {
         if (!conversationId || !path.isAbsolute(directory || "")) throw new TypeError("An OpenCode terminal requires a conversation and absolute directory.");
         return ["attach", baseUrl, "--dir", directory, "--session", conversationId, "--pure"];
