@@ -96,6 +96,13 @@ surface further; do not register unused mutation actions and routes. Use
 `routes: false` only for an internal
 capability/action surface that deliberately has no HTTP API.
 
+Create, update, and delete publish `<namespace>.record.changed` to the
+`event_scope` realtime audience, which reaches only the room of the action's
+user, workspace, or workspace-user scope. Set `realtimeAudience` to another
+realtime audience when the product needs one, for example `"all_users"` so
+every signed-in user's view of a public resource refreshes. It also accepts a
+function of the action execution.
+
 When otherwise-standard CRUD earns product behavior, name the exact
 capabilities in `requires` and provide `decorateService({ service, repository,
 resource, ...dependencies })`. Retain the standard methods, override only the

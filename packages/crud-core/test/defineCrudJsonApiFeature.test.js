@@ -150,6 +150,45 @@ test("defineCrudJsonApiFeature composes one resource without ceremonial token la
   await runtime.shutdown();
 });
 
+test("defineCrudJsonApiFeature sends record.changed to its realtime audience", async () => {
+  const execution = { input: { recordId: "5" }, result: { data: { id: "5" } }, context: {} };
+  for (const [options, audience] of [[{}, "event_scope"], [{ realtimeAudience: "all_users" }, "all_users"]]) {
+    let actions;
+    const observer = defineProvider({
+      id: "test.observer",
+      requires: { actions: "runtime.actions", books: "crud.books" },
+      setup(dependencies) {
+        actions = dependencies.actions;
+        return {};
+      }
+    });
+    const runtime = createCapabilityRuntime({
+      providers: [
+        createActionProvider(),
+        ...createFeatureDependencies([]),
+        defineCrudJsonApiFeature({
+          resource: createBookResource({ apiAccess: "public", autofilter: "public" }),
+          surface: "home",
+          ...options
+        }),
+        observer
+      ]
+    });
+    await runtime.start();
+
+    assert.deepEqual(
+      actions.listDefinitions()
+        .filter((entry) => entry.events.length > 0)
+        .map((entry) => [entry.id, entry.events[0](execution).realtime]),
+      ["create", "update", "delete"].map((operation) => [
+        `crud.books.${operation}`,
+        { event: "books.record.changed", audience }
+      ])
+    );
+    await runtime.shutdown();
+  }
+});
+
 test("defineCrudJsonApiFeature makes workspace scope and permissions explicit", async () => {
   const routes = [];
   const feature = defineCrudJsonApiFeature({

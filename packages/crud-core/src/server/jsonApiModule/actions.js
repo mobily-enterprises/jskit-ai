@@ -558,7 +558,8 @@ function createCrudJsonApiActions({
   operationLifecycle = {},
   operationInputs = {},
   actions: additionalActionDefinitions = {},
-  dependencies = {}
+  dependencies = {},
+  realtimeAudience = "event_scope"
 } = {}) {
   const actionId = (operation) => `crud.${namespace}.${operation}`;
   if (!service || typeof service !== "object") {
@@ -580,7 +581,7 @@ function createCrudJsonApiActions({
     entityId,
     realtime: {
       event: recordChangedEvent,
-      audience: "event_scope"
+      audience: realtimeAudience
     }
   });
   const lifecycle = normalizeCrudOperationLifecycle(operationLifecycle);

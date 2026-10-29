@@ -21,6 +21,14 @@ when an event has an explicit realtime name and audience. The event name,
 scope, payload, and reconnect behavior are public product contracts—not a
 generic “something changed” escape hatch.
 
+The `event_scope` audience, the default for action entity-change and CRUD
+`record.changed` events, delivers to the room of the event's `user`,
+`workspace`, or `workspace_user` scope. An event without such a scope, for
+example one written from a public route or by a job, reaches nobody and logs a
+warning; `event_scope` never widens to all users. Broadcast to every signed-in
+user only through the explicit `all_users` audience; a CRUD feature selects it
+with `defineCrudJsonApiFeature({ realtimeAudience: "all_users" })`.
+
 Client features register listeners through `@jskit-ai/realtime`. Keep query
 invalidation close to the resource that owns the query keys.
 

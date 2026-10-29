@@ -105,7 +105,10 @@ function applyAudiencePreset(preset, { event, rooms, flags, logger }) {
     return;
   }
   if (normalized === "event_scope") {
-    rooms.add(roomForScope(event?.scope) || ALL_USERS_ROOM);
+    // An event without a deliverable scope reaches nobody; broadcasting needs all_users.
+    const room = roomForScope(event?.scope);
+    if (room) rooms.add(room);
+    else logger.warn({ audience: normalized, scope: event?.scope || null }, "Realtime event_scope audience has no deliverable scope.");
     return;
   }
   logger.warn({ audience: normalized }, "Realtime ignored an unknown audience preset.");

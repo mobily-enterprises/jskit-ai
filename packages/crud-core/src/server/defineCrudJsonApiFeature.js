@@ -163,7 +163,8 @@ function defineCrudJsonApiFeature({
   operationLifecycle = {},
   operationInputs = {},
   actions = {},
-  operations = undefined
+  operations = undefined,
+  realtimeAudience = "event_scope"
 } = {}) {
   if (!resource || typeof resource !== "object" || Array.isArray(resource)) {
     throw new TypeError("defineCrudJsonApiFeature requires resource.");
@@ -301,7 +302,8 @@ function defineCrudJsonApiFeature({
           permissions: permissionOptions
         }),
         scopeInputValidator: normalizedScope.actionInputValidator,
-        scopeInputKeys: normalizedScope.inputKeys
+        scopeInputKeys: normalizedScope.inputKeys,
+        realtimeAudience
       });
     }
   });

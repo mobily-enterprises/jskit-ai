@@ -45,7 +45,7 @@ Local functions
 
 ### `src/server/defineCrudJsonApiFeature.js`
 Exports
-- `defineCrudJsonApiFeature({ resource, id = "", capability = "", surface, ownershipFilter = "", relativePath = "", internal = false, routes = true, listFilterQueryValidator = null, searchSchema = null, permissions = null, scope = {}, requires = {}, decorateRepository = null, decorateService = null, operationLifecycle = {}, operationInputs = {}, actions = {}, operations = undefined } = {})`
+- `defineCrudJsonApiFeature({ resource, id = "", capability = "", surface, ownershipFilter = "", relativePath = "", internal = false, routes = true, listFilterQueryValidator = null, searchSchema = null, permissions = null, scope = {}, requires = {}, decorateRepository = null, decorateService = null, operationLifecycle = {}, operationInputs = {}, actions = {}, operations = undefined, realtimeAudience = "event_scope" } = {})`
 Local functions
 - `normalizeAccess(resource = {})`
 - `normalizeScope(scope = {})`
@@ -74,7 +74,7 @@ Local functions
 ### `src/server/jsonApiModule/actions.js`
 Exports
 - `assertCrudOperationName(operation = "")`
-- `createCrudJsonApiActions({ namespace, resource, repository = null, service, surface, permissionForOperation, permissionForAction = permissionForOperation, operations = CRUD_OPERATION_NAMES, scopeInputValidator = null, scopeInputKeys = [], listFilterQueryValidator = null, operationLifecycle = {}, operationInputs = {}, actions: additionalActionDefinitions = {}, dependencies = {} } = {})`
+- `createCrudJsonApiActions({ namespace, resource, repository = null, service, surface, permissionForOperation, permissionForAction = permissionForOperation, operations = CRUD_OPERATION_NAMES, scopeInputValidator = null, scopeInputKeys = [], listFilterQueryValidator = null, operationLifecycle = {}, operationInputs = {}, actions: additionalActionDefinitions = {}, dependencies = {}, realtimeAudience = "event_scope" } = {})`
 - `normalizeCrudOperationLifecycle(value = {})`
 Local functions
 - `isRecord(value)`

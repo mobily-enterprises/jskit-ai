@@ -25,3 +25,9 @@ style names. On every connection, including the reconnection to a restarted
 server, realtime sends the build of the page the app serves now
 (`dist/index.html`), and its client capability passes it to
 `onServedClientBuild` listeners. No polling or extra request is involved.
+
+Realtime action events reach only the rooms their audience names. The default
+`event_scope` audience delivers to the event's user, workspace, or
+workspace-user room and to nobody when the event has no such scope. Every
+signed-in user is reached only through the explicit `all_users` audience, which
+a CRUD feature selects with its `realtimeAudience` option.

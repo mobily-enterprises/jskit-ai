@@ -281,6 +281,27 @@ test("realtime delivery sends explicit action events to their selected rooms", a
   assert.equal(Object.hasOwn(io.emitted[0].payload, "realtime"), false);
 });
 
+test("realtime event_scope delivery never widens an undeliverable scope to every user", async () => {
+  const io = createIoDouble();
+  const warnings = [];
+  const delivery = createRealtimeDelivery({ io, logger: { ...logger, warn: (details) => warnings.push(details) } });
+  const scopes = [undefined, { kind: "scope", id: "11" }, { kind: "public" }, { kind: "user" }];
+  for (const scope of scopes) {
+    await delivery.handle({
+      type: "entity.changed",
+      source: "crud",
+      entity: "record",
+      operation: "updated",
+      entityId: "5",
+      ...(scope ? { scope } : {}),
+      realtime: { event: "things.record.changed", audience: "event_scope" }
+    });
+  }
+
+  assert.deepEqual(io.emitted, []);
+  assert.deepEqual(warnings, scopes.map((scope) => ({ audience: "event_scope", scope: scope || null })));
+});
+
 test("realtime delivery resolves an explicit database-backed audience without exposing query controls", async () => {
   const io = createIoDouble();
   const delivery = createRealtimeDelivery({
