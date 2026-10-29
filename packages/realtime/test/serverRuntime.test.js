@@ -111,6 +111,7 @@ test("realtime leaves slow application upgrades and access denials to their rout
     for (const timer of timers) clearTimeout(timer);
     for (const socket of sockets) socket.destroy();
     await closeSocketIoServer(realtime);
+    await new Promise((resolve) => server.close(resolve));
   });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -160,20 +161,25 @@ test("createSocketIoServer throws when no server target is provided", () => {
   );
 });
 
-test("closeSocketIoServer resolves when io closes", async () => {
-  let closed = false;
+test("closeSocketIoServer closes Socket.IO's own part and never the HTTP server", async () => {
+  const calls = [];
   const io = {
-    close(done) {
-      closed = true;
-      done();
-    }
+    close() { calls.push("server.close"); },
+    engine: {
+      use(middleware) {
+        middleware({}, {}, (error) => calls.push(`refuse:${error.message}`));
+      },
+      close() { calls.push("engine.close"); }
+    },
+    local: { disconnectSockets(close) { calls.push(`disconnect:${close}`); } },
+    sockets: { adapter: { async close() { calls.push("adapter.close"); } } }
   };
 
   await closeSocketIoServer(io);
-  assert.equal(closed, true);
+  assert.deepEqual(calls, ["refuse:Realtime has shut down.", "disconnect:true", "engine.close", "adapter.close"]);
 });
 
-test("closeSocketIoServer is a no-op without close method", async () => {
+test("closeSocketIoServer is a no-op without a Socket.IO engine", async () => {
   await closeSocketIoServer(null);
   await closeSocketIoServer({});
   assert.equal(true, true);

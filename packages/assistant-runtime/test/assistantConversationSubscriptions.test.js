@@ -162,6 +162,9 @@ async function fixture(t, { diagnostics = false, onSetup } = {}) {
     stopSubscriptions();
     stopProbe();
     await transport.shutdown();
+    // Realtime closes only Socket.IO; the fixture owns its HTTP server.
+    http.closeAllConnections();
+    await new Promise((resolve) => http.close(resolve));
     await runtime.close();
     await rm(directory, { recursive: true, force: true });
   });
@@ -908,6 +911,8 @@ async function hostSubscriptionFixture(t, authService = null, conversationRuntim
     for (const client of clients) client.disconnect();
     release();
     await transport.shutdown();
+    http.closeAllConnections();
+    await new Promise((resolve) => http.close(resolve));
   });
   http.listen(0, "127.0.0.1");
   await once(http, "listening");

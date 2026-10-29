@@ -63,23 +63,19 @@ function createSocketIoServer({
   return new ServerCtor(server, normalizedOptions);
 }
 
+// Socket.IO runs on an HTTP server its caller owns (Fastify's, for the
+// provider), which also carries other routes' WebSockets and streams.
+// Server#close() would close that server and wait for every one of them, so
+// close only Socket.IO's part: refuse its new requests, disconnect its sockets
+// and close its engine and adapter. The server's owner closes the server.
 async function closeSocketIoServer(io) {
-  if (!io || typeof io.close !== "function") {
+  if (!io?.engine) {
     return;
   }
-  await new Promise((resolve, reject) => {
-    io.close((error) => {
-      if (error) {
-        if (error.code === "ERR_SERVER_NOT_RUNNING") {
-          resolve();
-          return;
-        }
-        reject(error);
-        return;
-      }
-      resolve();
-    });
-  });
+  io.engine.use((_request, _response, next) => next(new Error("Realtime has shut down.")));
+  io.local.disconnectSockets(true);
+  io.engine.close();
+  await io.sockets.adapter.close();
 }
 
 function resolveRealtimeRedisUrl(env = {}) {

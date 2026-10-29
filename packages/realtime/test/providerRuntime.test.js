@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createServer } from "node:http";
+import { createServer, get } from "node:http";
 import { once } from "node:events";
 import test from "node:test";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
@@ -39,6 +39,9 @@ async function connectionRequestFixture(t, authService = null, audienceContribut
     for (const client of clients) client.disconnect();
     release();
     await runtime.shutdown();
+    // The HTTP server belongs to this fixture, as Fastify's belongs to Fastify.
+    http.closeAllConnections();
+    await new Promise((resolve) => http.close(resolve));
   });
   http.listen(0, "127.0.0.1");
   await once(http, "listening");
@@ -145,6 +148,58 @@ test("RealtimeProvider waits for authentication boot before accessing the auth s
   } finally {
     await runtime.shutdown();
   }
+});
+
+test("RealtimeProvider shutdown closes only Socket.IO and leaves the shared HTTP server to its owner", async (t) => {
+  const http = createServer();
+  const held = new Set();
+  // Another route's open WebSocket on the same server (a terminal or Preview).
+  http.on("upgrade", (request, socket) => {
+    if (request.url.startsWith("/socket.io/")) return;
+    held.add(socket);
+    socket.write("HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n");
+  });
+  const runtime = createCapabilityRuntime({ providers: [EventProvider, RealtimeProvider], inputs: {
+    "runtime.config": {}, "runtime.env": {}, "runtime.fastify": { server: http }, "runtime.logger": logger
+  } });
+  await runtime.start();
+  http.listen(0, "127.0.0.1");
+  await once(http, "listening");
+  const clients = [];
+  let stopping = null;
+  t.after(async () => {
+    for (const client of clients) client.disconnect();
+    for (const socket of held) socket.destroy();
+    await stopping;
+    http.closeAllConnections();
+    await new Promise((resolve) => http.close(resolve));
+  });
+  const url = `http://127.0.0.1:${http.address().port}`;
+  const other = await new Promise((resolve, reject) => {
+    const request = get(`${url}/terminal`, { headers: { Connection: "Upgrade", Upgrade: "websocket" } });
+    request.on("error", reject);
+    request.on("upgrade", (_response, socket) => resolve(socket));
+  });
+  const client = createSocketIoClient({ url, options: { transports: ["websocket"], reconnection: false } });
+  clients.push(client);
+  await once(client, "connect", { signal: AbortSignal.timeout(5_000) });
+  const disconnected = once(client, "disconnect", { signal: AbortSignal.timeout(5_000) });
+
+  stopping = runtime.shutdown();
+  const outcome = await Promise.race([
+    stopping.then(() => "stopped"),
+    new Promise((resolve) => setTimeout(() => resolve("waiting for the HTTP server"), 1_000))
+  ]);
+  assert.equal(outcome, "stopped", "another route's open connection must not hold realtime shutdown");
+  await disconnected;
+  assert.equal(http.listening, true, "the HTTP server's owner closes it");
+  assert.equal(other.destroyed, false, "realtime leaves other routes' connections to their owners");
+
+  // Socket.IO refuses new connections until the owner closes the server.
+  const late = createSocketIoClient({ url, options: { reconnection: false } });
+  clients.push(late);
+  await once(late, "connect_error", { signal: AbortSignal.timeout(5_000) });
+  assert.equal(late.connected, false);
 });
 
 function createIoDouble() {

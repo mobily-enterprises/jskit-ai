@@ -83,6 +83,15 @@ The in-process adapter is correct for one server process. Set
 `REALTIME_REDIS_URL` only when multiple processes need a shared backplane.
 Credentials stay outside Git and never enter public client config.
 
+## Shutdown
+
+Realtime shutdown refuses new Socket.IO requests, disconnects its sockets and
+closes its engine, adapter and Redis connections. It never closes the HTTP
+server: that belongs to its owner (Fastify closes its own after feature
+shutdown), so another route's open WebSocket or stream does not hold realtime
+shutdown. Code that passes its own `httpServer` to `createSocketIoServer` closes
+that server itself after `closeSocketIoServer`.
+
 ## Visible connection state
 
 A status indicator is optional product UI. When wanted, register it through the

@@ -45,7 +45,12 @@ test("real sockets authorize each conversation delivery and disconnect a revoked
   registerSocketAudienceBootstrap({ io, authService, logger });
   const delivery = createRealtimeDelivery({ io, authService, logger });
   delivery.start();
-  t.after(async () => { delivery.stop(); await closeSocketIoServer(io); });
+  t.after(async () => {
+    delivery.stop();
+    await closeSocketIoServer(io);
+    httpServer.closeAllConnections();
+    await new Promise((resolve) => httpServer.close(resolve));
+  });
   httpServer.listen(0, "127.0.0.1");
   await once(httpServer, "listening");
   const url = `http://127.0.0.1:${httpServer.address().port}`;
