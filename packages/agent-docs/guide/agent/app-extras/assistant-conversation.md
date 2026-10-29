@@ -3192,6 +3192,18 @@ existing early-retirement fence before falling back to the configured owner.
 These server-only operations accept no caller-selected owner or engine and add
 no browser endpoints. Ordinary applications still use their conversation handle.
 
+A host can bind a logical conversation through its own `commands`, `read` and
+`readStream`, for example an application's temporary chat. `open()` keeps one
+entry for each such namespace, and browser handles opened per request share it.
+When the application deletes or archives that logical conversation, call
+`runtime.retireOpenConversation({ namespace, sessionId })` from the same trusted
+server transaction. It retires the open entry, closes its handles and listeners,
+and returns `{ retired: true }`. A namespace with no open entry returns
+`{ retired: false }`: nothing is opened to retire it. Native and storage-owned
+conversations are refused; they keep `dispose()` and `runtime.disposeNative()`.
+The application has already stopped and removed the logical conversation's work
+through its own commands; this operation stops nothing and has no browser endpoint.
+
 Historical native records can predate an application's retained scope identity.
 An advanced host can clean up those exact records through
 `runtime.interruptNativeDetachedConversation({ id, context, input })` or

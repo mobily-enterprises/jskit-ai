@@ -2847,6 +2847,23 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       });
       return retained || cleanupUnopened();
     },
+    // Trusted server lifecycle: the application deleted or archived a logical
+    // conversation that it binds through its own commands. Its open entry, if
+    // any, leaves memory and its handles close. Nothing is opened; native and
+    // storage-owned conversations keep their own disposal.
+    async retireOpenConversation({ namespace, sessionId }) {
+      const entry = entries.get(namespace);
+      if (!entry || entry.id !== sessionId) return { retired: false };
+      if (!entry.conversation?.commands) {
+        throw new TypeError("Only a logical conversation bound through its commands retires without disposal.");
+      }
+      await entry.initializing.catch(() => {});
+      return serial(entry, async () => {
+        if (entry.disposed || entries.get(namespace) !== entry) return { retired: false };
+        retireEntry(entry);
+        return { retired: true };
+      });
+    },
     // Host publication from the same native owner, through the existing entry.
     // This does not subscribe to a provider or retain another observer registry.
     async publishNative({ namespace, sessionId, event }) {

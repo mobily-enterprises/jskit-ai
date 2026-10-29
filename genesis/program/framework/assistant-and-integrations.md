@@ -72,6 +72,12 @@ history unless the host retains an explicit initial message window. The original
 Claude owner reads model-specific context usage through its existing native
 process without sending an inference request; host policy reserves working space.
 
+The runtime keeps one open entry for each bound namespace. A logical conversation
+that a host binds through its own commands leaves memory when that host deletes
+or archives it and calls `retireOpenConversation`: its handles and listeners
+close, a missing entry is not opened, and native or storage-owned conversations
+keep their own disposal.
+
 Transcript readers accept server-owned `pageUnit: "messages"` to count individual
 user, assistant and system messages, excluding reasoning and commentary. The
 default remains whole stored turns for internal consumers. The shared browser

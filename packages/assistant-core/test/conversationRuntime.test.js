@@ -707,3 +707,31 @@ test("a user Pause during the final goal read prevents automatic settings recove
   assert.equal(f.requests.some(r => r.method === "thread/goal/set" && r.input.status === "active"), false);
   f.runtime.close();
 });
+
+test("a deleted logical conversation retires its open entry without opening another", async () => {
+  const opened = [];
+  const binding = namespace => ({
+    sessionId: "session", namespace, engine: "claude",
+    read: async () => ({ engine: "claude", conversationLog: [], status: "ready" }),
+    readStream: async () => ({ messages: [] }),
+    commands: { send: async () => ({ status: "accepted" }), cancel: async () => ({ ok: true }),
+      select: async () => ({ ok: true }), inspectDelivery: async () => ({ status: "unknown" }) }
+  });
+  const runtime = createConversationRuntime({ authorize: () => true,
+    host: { conversation: ({ context }) => { opened.push(context.chat); return binding(`temporary-${context.chat}`); } } });
+  try {
+    const handle = await runtime.open({ id: "session", context: { chat: "one" } });
+    await handle.subscribe(() => {});
+    assert.deepEqual(await runtime.retireOpenConversation({ namespace: "temporary-one", sessionId: "session" }), { retired: true });
+    await assert.rejects(handle.read(), { code: "conversation_closed" });
+    await assert.rejects(handle.subscribe(() => {}), { code: "conversation_closed" });
+    assert.deepEqual(await runtime.retireOpenConversation({ namespace: "temporary-one", sessionId: "session" }), { retired: false },
+      "an absent entry is already retired; nothing is opened to retire it");
+    assert.deepEqual(await runtime.retireOpenConversation({ namespace: "temporary-two", sessionId: "session" }), { retired: false });
+    assert.deepEqual(opened, ["one"]);
+    const reopened = await runtime.open({ id: "session", context: { chat: "one" } });
+    assert.equal((await reopened.read()).status, "ready", "a later open starts a fresh entry");
+  } finally {
+    await runtime.close();
+  }
+});
