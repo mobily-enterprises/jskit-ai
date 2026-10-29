@@ -377,6 +377,7 @@ Local functions
 - `failure(message, code = "assistant_claude_turn_failed")`
 - `now()`
 - `hasPendingClaudeStartup(entry)`
+- `nativeWorkSettled(entry)`
 
 ### `src/server/conversation/codexAuthPreflight.js`
 Exports

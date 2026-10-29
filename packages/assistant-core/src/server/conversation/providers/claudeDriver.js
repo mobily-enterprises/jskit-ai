@@ -432,7 +432,8 @@ export function createClaudeConversationDriver({ connections, host = {}, limits 
           if (supplied) {
             await acquire(context);
             const result = await owner.inspectAdmission(await acquire(context), input);
-            return representation === "native" ? result : { accepted: result.admission === "accepted" };
+            return representation === "native" ? result
+              : { accepted: result.admission === "accepted", notAdmitted: result.admission === "not-admitted" };
           }
           if (verifyAccount === true) {
             const binding = input.receiptBinding;
@@ -446,7 +447,8 @@ export function createClaudeConversationDriver({ connections, host = {}, limits 
           }
           const history = await owner.readHistory(entry);
           const nativeId = claudeNativeMessageId(input.messageId);
-          return { accepted: history.userIds.includes(nativeId),
+          const accepted = history.userIds.includes(nativeId);
+          return { accepted, notAdmitted: !accepted && owner.nativeWorkSettled(entry),
             messages: history.messages.filter(message => message.userId === nativeId) };
         },
         steer: command => owner.steer(control, command, commandOptions),

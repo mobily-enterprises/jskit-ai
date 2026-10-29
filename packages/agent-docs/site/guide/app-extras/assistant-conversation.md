@@ -324,11 +324,16 @@ uncertain ID and matching draft text cannot be resent. Active or unconfirmed
 server work still blocks this continuation. Unknown inspection displays its
 current result without retaining a stale HTTP error.
 The same inspection operation may return `{ status: "not-sent", messageId, error }`
-when a settled native request has explicit durable no-admission proof. The client
-marks only that exact uncertain message failed, preserving its payload, the draft
-and other uncertain messages. Inspection never submits or accepts it. Missing
-markers, attempted requests, incomplete cleanup and API-model requests remain
-conservative. A retired native request cannot be retried against its successor
+when a settled native request has explicit durable no-admission proof. Claude
+also proves it when its history lacks the attempted prompt and no send,
+process or execution of that conversation remains: an admitted prompt is always
+recorded, and nothing is left to record it later. That proof is saved as an
+unattempted request, so a reload no longer restores the message as unconfirmed.
+The client marks only that exact uncertain message failed, preserving its
+payload, the draft and other uncertain messages. Inspection never submits or
+accepts it. Missing markers, a live process, incomplete cleanup and API-model
+requests remain conservative; Codex and OpenCode still report only accepted or
+unknown. A retired native request cannot be retried against its successor
 with the old ID; edit its words into a new authored message instead.
 
 Incoming saved-state updates refresh the history already loaded with **Load older
@@ -392,9 +397,10 @@ composer; acceptance removes only the submitted files, preserving later uploads.
 Pass `retryMessageId` for an existing failed or uncertain message. An application
 may supply its authoritative `retry` receipt projection when routing persists it
 outside the current local delivery list. Failed delivery reuses the captured
-payload; uncertain delivery only inspects the original receipt, never running
-preparation or sending again. An accepted restored receipt applies idempotent
-composer cleanup. Ordinary `runtime.submitPrepared` remains available to hosts
+payload; uncertain delivery first inspects the original receipt. Unknown never
+runs preparation or sends again. When inspection proves `not-sent`, the message
+is failed and the same Retry sends its original payload with the same ID. An
+accepted restored receipt applies idempotent composer cleanup. Ordinary `runtime.submitPrepared` remains available to hosts
 that already own their composer; it requires an authored `payload.request`.
 
 Both paths use the existing API, abort and receipt owner. It rechecks the actor,

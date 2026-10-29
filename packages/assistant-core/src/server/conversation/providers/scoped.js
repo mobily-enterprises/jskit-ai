@@ -320,7 +320,7 @@ export async function inspectPersistentConversationAdmission(options) {
   if (!record.providerConversationId) return { admission: "unknown", turnId: "" };
   const state = requireSuccess(await operations.readConversation(sessionId,
     inputFor(record, { messageId: input.messageId }), options.context));
-  return { admission: state.admitted ? "accepted" : "unknown", turnId: state.runId };
+  return { admission: state.admitted ? "accepted" : state.notAdmitted ? "not-admitted" : "unknown", turnId: state.runId };
 }
 
 export async function preparePersistentConversationChangeover(options) {

@@ -2311,6 +2311,34 @@ test("prepared binding preserves retry identity, newer composer input and inspec
   assert.deepEqual(await f.page.evaluate(() => window.taskClearedFiles), [["original-file"]]);
 });
 
+test("prepared Retry sends an uncertain message again only after the server proves it was never sent", options, async t => {
+  const f = await fixture(t);
+  await f.page.evaluate(() => {
+    window.provenBinding = window.conversationFixture.acquireConversation({ conversationId: "chat:3", active: false });
+    window.provenReader = window.conversationFixture.acquireConversation({ conversationId: "chat:3" });
+  });
+  await expect.poll(() => f.page.evaluate(() => window.provenReader.runtime.value.available.value)).toBe(true);
+  await f.command("mode", { mode: "uncertain" });
+  const uncertain = await f.page.evaluate(() => window.provenBinding.submitPrepared({ message: "Send me once." },
+    { messageId: "proven-retry", prepare: captured => captured.request }));
+  assert.equal(uncertain.status, "uncertain");
+  assert.equal((await f.sent()).length, 1);
+  // An unknown receipt still never resends.
+  const unknown = await f.page.evaluate(() => window.provenBinding.submitPrepared({ message: "Do not recapture." },
+    { retryMessageId: "proven-retry", prepare: captured => captured.request }));
+  assert.equal(unknown.status, "uncertain");
+  assert.equal((await f.sent()).length, 1);
+  await f.command("mode", { mode: "not-sent" });
+  const retried = await f.page.evaluate(() => window.provenBinding.submitPrepared({ message: "Do not recapture." },
+    { retryMessageId: "proven-retry", prepare: captured => captured.request }));
+  assert.equal(retried.ok, true);
+  const sent = await f.sent();
+  assert.equal(sent.length, 2);
+  assert.equal(sent[1].input.messageId, "proven-retry");
+  assert.equal(sent[1].input.text, "Send me once.");
+  assert.equal(await f.page.evaluate(() => window.provenBinding.runtime.value.delivery.find("proven-retry")?.status ?? "accepted"), "accepted");
+});
+
 test("acceptance settles a voice-retained conversation after its text view retargets without clearing the next composer", options, async t => {
   const f = await fixture(t, 1280, { acceptedDraft: true });
   await f.page.evaluate(() => window.conversationFixture.attachments(true));

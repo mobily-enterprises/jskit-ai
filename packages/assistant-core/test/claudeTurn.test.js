@@ -894,6 +894,24 @@ async function publishedClaudeFixture(t, { publication = true, providerId = "ant
     async reopen() { entry = await owner.open(context, { mainId: conversationId }); return entry; } };
 }
 
+test("Claude proves a prompt was not admitted only once no process can still record it", async t => {
+  const f = await publishedClaudeFixture(t);
+  const { inspectPersistentConversationAdmission } = await import("../src/server/conversation/providers/scoped.js");
+  // Temporary chats inspect the same proof through their native read.
+  const persistent = () => inspectPersistentConversationAdmission({ sessionId: "session", context: {},
+    record: { providerConversationId: f.conversationId }, input: { messageId: "held" }, inputFor: (_record, input) => input,
+    operations: { readConversation: (_sessionId, input) => f.owner.read(f.entry, input) } });
+  await f.send("held");
+  // The live process received the prompt but has not recorded it yet.
+  assert.equal((await f.owner.inspectAdmission(f.entry, { messageId: "held" })).admission, "unknown");
+  assert.equal((await f.owner.read(f.entry, { messageId: "held" })).notAdmitted, false);
+  assert.equal((await persistent()).admission, "unknown");
+  await f.owner.stopConversation(f.entry, "Stopped.");
+  assert.equal((await f.owner.inspectAdmission(f.entry, { messageId: "held" })).admission, "not-admitted");
+  assert.equal((await f.owner.read(f.entry, { messageId: "held" })).notAdmitted, true);
+  assert.equal((await persistent()).admission, "not-admitted");
+});
+
 test("Claude status retains active instructions and applies changed guidance once idle", async t => {
   const f = await publishedClaudeFixture(t);
   await f.send();

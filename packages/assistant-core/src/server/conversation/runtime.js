@@ -1892,6 +1892,11 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     return { saved: true };
   }
 
+  function notSentReceipt(messageId) {
+    return { status: "not-sent", messageId, error: "This message was not sent. Review it before sending a new message.",
+      messageCode: "assistant.conversation.messageNotSent", messageParams: {} };
+  }
+
   async function recoverDelivery(entry, context, messageId, { observation: suppliedObservation, allowActive = false } = {}) {
     await access(context, entry.id, "inspectDelivery", entry);
     if (entry.active && !allowActive) throw failure("Wait for the current submission before checking delivery.", "conversation_busy", 409, { messageCode: "assistant.conversation.waitForSubmission" });
@@ -1920,8 +1925,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       ["codex", "claude", "opencode"].includes(segment.engine) && segment.request.attempted === false && !segment.request.inspectionOnly &&
       isDeepStrictEqual(segment.request, savedRequests[0].request))) {
       await access(context, entry.id, "inspectDelivery", entry);
-      return { status: "not-sent", messageId, error: "This message was not sent. Review it before sending a new message.",
-        messageCode: "assistant.conversation.messageNotSent", messageParams: {} };
+      return notSentReceipt(messageId);
     }
     const request = existing ? submittedMessage(existing) : metadata.runtime.request;
     if (!request || request.messageId !== messageId || !entry.provider.inspectAdmission) return receipt || { status: "unknown", messageId };
@@ -1930,6 +1934,17 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     const observation = suppliedObservation || await entry.provider.inspectAdmission({ ...request, nativeTurnId: existing?.metadata?.runtime?.nativeTurnId,
       context, configuration: metadata.runtime.configuration });
     await access(context, entry.id, "inspectDelivery", entry);
+    // The engine proved it never admitted this saved request. Record that it
+    // was not sent, as a definite rejection would, so Retry may send it.
+    if (!existing && observation.notAdmitted && pending && !pending.inspectionOnly && !entry.active) {
+      await storage.write(entry.id, async transaction => {
+        const current = await transaction.readMetadata();
+        if (current.runtime.request?.messageId !== messageId) return;
+        current.runtime.request.attempted = false;
+        await transaction.writeMetadata(current);
+      });
+      return notSentReceipt(messageId);
+    }
     if (!observation.accepted) return { ...(receipt || { status: "unknown", messageId }),
       ...(observation.recoveryLimitation ? { recoveryLimitation: observation.recoveryLimitation } : {}) };
     if (entry.driver.canonicalTranscript) {
@@ -2057,7 +2072,8 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       await access(context, entry.id, "inspectDelivery", entry);
       // Native-only acceptance is evidence of delivery, not permission to
       // manufacture an authored row or use a native turn ID as its receipt.
-      return observation.accepted ? { status: "accepted", messageId, duplicate: true } : { status: "unknown", messageId };
+      if (observation.accepted) return { status: "accepted", messageId, duplicate: true };
+      return observation.notAdmitted && !entry.active ? notSentReceipt(messageId) : { status: "unknown", messageId };
     }
     const result = await recoverDelivery(entry, context, messageId);
     if (result.status !== "accepted" || entry.engine === "api") return result;

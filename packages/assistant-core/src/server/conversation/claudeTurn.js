@@ -19,6 +19,14 @@ function hasPendingClaudeStartup(entry) {
   return entry.startupCleanup?.pending === true && entry.startupCleanup.executionId === entry.executionId;
 }
 
+// Claude records an admitted prompt in its history, and only a send in
+// progress writes prompts to a live process. With neither left, a prompt
+// missing from history can never arrive. A turn left marked active by a
+// lost process does not change that.
+function nativeWorkSettled(entry) {
+  return !entry.sending && !entry.process && !entry.executionId && !entry.command && !entry.stopPending;
+}
+
 export function claudeNativeMessageId(id) {
   const value = createHash("sha256").update(String(id)).digest("hex");
   return `${value.slice(0, 8)}-${value.slice(8, 12)}-4${value.slice(13, 16)}-8${value.slice(17, 20)}-${value.slice(20, 32)}`;
@@ -563,7 +571,13 @@ export function createClaudeConversationOwner({
       timeoutMessage: "Claude timed out summarising its context." });
   }
 
-  async function send(entry, input = {}, { renewal = false, command, applicationCommand } = {}) {
+  async function send(entry, ...args) {
+    entry.sending = (entry.sending || 0) + 1;
+    try { return await dispatchPrompt(entry, ...args); }
+    finally { entry.sending -= 1; }
+  }
+
+  async function dispatchPrompt(entry, input = {}, { renewal = false, command, applicationCommand } = {}) {
     const message = command ? input.text : text(input.message || input.prompt);
     if (!command && !message) throw createError("Enter a message for Claude.");
     const context = entry.context;
@@ -732,10 +746,11 @@ export function createClaudeConversationOwner({
     }
     const requestIds = new Map((input.requestMessageIds || [input.messageId]).filter(id => typeof id === "string" && id)
       .map(id => [claudeNativeMessageId(id), id]));
+    const admitted = history.userIds.includes(claudeNativeMessageId(input.messageId || ""));
     return { ...entry.nativeTurn.readResult(), ok: true,
       messages: [...messages.values()].map(message => ({ ...message,
         ...(message.userId ? { requestMessageId: requestIds.get(message.userId) || "" } : {}) })), text: current.text || history.text,
-      admitted: history.userIds.includes(claudeNativeMessageId(input.messageId || "")) };
+      admitted, notAdmitted: !admitted && Boolean(input.messageId) && nativeWorkSettled(entry) };
   }
 
   async function inspectAdmission(entry, input) {
@@ -743,7 +758,8 @@ export function createClaudeConversationOwner({
     const history = await readHistory(entry);
     const turnId = claudeNativeMessageId(input.messageId);
     const accepted = history.userIds.includes(turnId);
-    return { ok: true, admission: accepted ? "accepted" : "unknown", messageId: input.messageId,
+    const admission = accepted ? "accepted" : nativeWorkSettled(entry) ? "not-admitted" : "unknown";
+    return { ok: true, admission, messageId: input.messageId,
       threadId: entry.id, turnId: accepted ? turnId : "" };
   }
 
@@ -1155,7 +1171,7 @@ export function createClaudeConversationOwner({
     if (!bound) return { value: delivered.value };
   }
 
-  return Object.freeze({ applicationToolsSupported: true, entries, closingSessions, get closing() { return closing; }, createAccountQueries, open, acquire, createConversation, snapshot, readRetainedTurn, readFinalAssistantResult, readHistory, ensureReady, ensureProcess, readContextUsage, compactContext, releaseRetainedGoal, stopForTerminal, prepareTerminal, send, startTurn,
+  return Object.freeze({ applicationToolsSupported: true, entries, closingSessions, get closing() { return closing; }, createAccountQueries, open, acquire, createConversation, snapshot, readRetainedTurn, readFinalAssistantResult, readHistory, nativeWorkSettled, ensureReady, ensureProcess, readContextUsage, compactContext, releaseRetainedGoal, stopForTerminal, prepareTerminal, send, startTurn,
     interrupt, read, inspectAdmission, hasActiveTemporaryConversation, hasActiveConversation, retireConversationHistory, reconcileSessions, restoreSessionEntries, closeSession, closeProject, invalidateRuntimes, drain, forget, close, deleteConversation, recover, stopSelected, wait, stopConversation,
     readGoal, updateGoal, renewal, run, steer, cancel });
 }

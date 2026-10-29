@@ -265,7 +265,7 @@ async function fixture(t, options = {}) {
   await writeFile(account, "owner@example.test");
   await writeFile(command, `#!${process.execPath}
     import { createInterface } from "node:readline";
-    import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
+    import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
     import path from "node:path";
     const args = process.argv.slice(2);
     const structuredResponse = ${JSON.stringify(options.structuredResponse || null)};
@@ -307,6 +307,12 @@ async function fixture(t, options = {}) {
           subtype: reject ? "error" : "success", error: reject ? "Settings rejected" : undefined, response: {} } });
         if (frame.request.subtype === "interrupt") emit({ type: "result", subtype: "success", terminal_reason: "aborted_streaming", result: "" });
         return;
+      }
+      // A crash after reading the prompt but before recording it in history.
+      const dropped = path.join(process.env.CLAUDE_CONFIG_DIR, "dropped-once");
+      if (JSON.stringify(frame.message.content).includes("drop once") && !existsSync(dropped)) {
+        writeFileSync(dropped, "");
+        process.exit(1);
       }
       record(frame);
       const text = typeof frame.message.content === "string" ? frame.message.content
@@ -781,6 +787,25 @@ test("uncertain native delivery is reconciled from history without a second infe
   assert.equal(snapshot.conversationLog[0].metadata.runtime.status, "interrupted");
   assert.equal(snapshot.status, "ready");
   assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
+});
+
+test("a Claude prompt missing from history after its process ended is not sent, and Retry sends it", async t => {
+  const f = await fixture(t);
+  const dropped = { messageId: "dropped-before-history", text: "drop once" };
+  await assert.rejects(f.conversation.send(dropped), error => error.delivery === "uncertain");
+  assert.equal((await f.conversation.wait()).status, "unconfirmed");
+  const receipt = await f.conversation.inspectDelivery({ messageId: dropped.messageId });
+  assert.equal(receipt.status, "not-sent");
+  assert.equal(receipt.messageCode, "assistant.conversation.messageNotSent");
+  // The proof is saved: a reload no longer restores an unconfirmed message.
+  assert.equal((await f.conversation.read()).status, "ready");
+  assert.equal((await f.conversation.inspectDelivery({ messageId: dropped.messageId })).status, "not-sent");
+  const sent = await f.conversation.send(dropped);
+  assert.equal(sent.messageId, dropped.messageId);
+  const finished = await f.conversation.wait();
+  assert.equal(finished.conversationLog.length, 1);
+  assert.equal(finished.conversationLog[0].assistant.text, "Answer: drop once");
+  assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 2);
 });
 
 test("inspecting an older accepted Claude message leaves a different pending receipt untouched", async t => {

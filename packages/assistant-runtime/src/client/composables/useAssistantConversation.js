@@ -1009,10 +1009,15 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
       } else current.draft.value = "";
     }
     onSubmit?.();
+    const dispatch = () => prepare ? current.submitPrepared(captured, { messageId, onAccepted: acknowledge, prepare })
+      : current.send(captured, { messageId, onAccepted: acknowledge });
     // A restored uncertain receipt may have no retained acceptance callback.
-    // Inspection can acknowledge it, but must never run preparation or Send.
+    // Inspection can acknowledge it. Only the server's proof that the message
+    // never reached the AI (which marks it failed) lets Retry send it again.
     if (retry?.status === "uncertain") return current.inspectDelivery(messageId).then(receipt => {
       if (!current.current.value || !isCurrent()) return false;
+      if (receipt?.status === "not-sent" && receipt.messageId === messageId &&
+          current.delivery.find(messageId)?.status === "failed") return dispatch();
       if (receipt?.status !== "accepted") {
         const error = current.error.value || t("jskit.assistant.runtime.delivery.notConfirmed");
         const pending = current.delivery.find(messageId);
@@ -1022,8 +1027,7 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
       acknowledge();
       return { ...receipt, ok: true };
     });
-    return prepare ? current.submitPrepared(captured, { messageId, onAccepted: acknowledge, prepare })
-      : current.send(captured, { messageId, onAccepted: acknowledge });
+    return dispatch();
   }
   const adapter = computed(() => {
     const current = runtime.value;
