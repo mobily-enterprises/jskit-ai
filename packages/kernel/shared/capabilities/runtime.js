@@ -139,31 +139,57 @@ function createCapabilityRuntime({ providers = [], inputs = {}, profile = "" } =
   const providerStates = new Map();
   const normalizedProfile = String(profile || "").trim();
   let lifecycleState = "created";
+  // One entry per provider shutdown hook, in the order they ran, so a host can
+  // say which provider is still stopping and how long each one took.
+  const providerShutdowns = [];
 
   async function stopInitializedProviders() {
     const stopped = [];
-    let firstError = null;
+    const failures = [];
     for (const provider of [...providerOrder].reverse()) {
       if (!providerStates.has(provider.id)) {
         continue;
       }
       if (provider.shutdown) {
         const state = providerStates.get(provider.id);
+        const record = { id: provider.id, status: "stopping", startedAt: Date.now(), durationMs: 0 };
+        providerShutdowns.push(record);
         try {
           await provider.shutdown(state.dependencies, Object.freeze({
             outputs: state.outputs,
             profile: normalizedProfile
           }));
+          record.status = "stopped";
         } catch (error) {
-          firstError ||= error;
+          record.status = "failed";
+          const message = error instanceof Error ? error.message : String(error);
+          failures.push(Object.assign(
+            new Error(`Provider "${provider.id}" shutdown failed: ${message}`, { cause: error }),
+            { providerId: provider.id }
+          ));
+        } finally {
+          record.durationMs = Date.now() - record.startedAt;
         }
       }
       stopped.push(provider.id);
     }
-    if (firstError) {
-      throw firstError;
+    // Every provider still stops after one fails; each failure names its provider.
+    if (failures.length > 0) {
+      throw new AggregateError(
+        failures,
+        `Capability runtime shutdown failed: ${failures.map(({ providerId }) => providerId).join(", ")}.`
+      );
     }
     return Object.freeze(stopped);
+  }
+
+  function providerShutdownDiagnostics() {
+    const now = Date.now();
+    return Object.freeze(providerShutdowns.map(({ id, status, startedAt, durationMs }) => Object.freeze({
+      id,
+      status,
+      durationMs: status === "stopping" ? now - startedAt : durationMs
+    })));
   }
 
   async function start() {
@@ -232,7 +258,8 @@ function createCapabilityRuntime({ providers = [], inputs = {}, profile = "" } =
       profile: normalizedProfile,
       lifecycleState,
       providerOrder: Object.freeze(providerOrder.map((provider) => provider.id)),
-      capabilityIds: Object.freeze([...capabilities.keys()].sort())
+      capabilityIds: Object.freeze([...capabilities.keys()].sort()),
+      providerShutdowns: providerShutdownDiagnostics()
     });
   }
 
