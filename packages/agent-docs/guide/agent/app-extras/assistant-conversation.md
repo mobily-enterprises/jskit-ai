@@ -2861,7 +2861,11 @@ The existing native connection/thread owner has also moved into
 `CodexAppServerAgentProvider` under `/server/codex-provider`. It consumes that shared
 runtime with execution and credential-state facilities. Its native behavior includes
 helper token activation/refresh, bounded inventories, control recovery, goals,
-hook trust, exact command interruption and history export. The existing
+hook trust, exact command interruption and history export. Inventories bound
+the thread IDs they keep (1,000 threads, 512-character IDs), not the preview
+text Codex sends and the inventory discards; an existence check stops at the
+page that holds its thread. A refused inventory names the check and thread that
+failed. The existing
 native consumer now supplies only its host policy and application callbacks. The common
 driver uses this backend. Ordinary applications use the common conversation API
 with its supplied execution and credential defaults.
@@ -3259,6 +3263,12 @@ Claude closes each of the project's sessions from its retained entries alone,
 independently and together, and then forgets them. A session that cannot close
 is reported by ID in `failed` (with a combined `error`) while every other session
 still stops.
+Codex stops each scoped conversation through the provider that observes it,
+then retires saved Helper records through the providers it stops. A conversation
+that cannot be stopped is reported in `failed` while the others still stop. A
+saved Helper record that cannot be restored (for example, one whose account was
+removed) stays on disk for a later connection; the result reports it under
+`helperRestore.failed` with its session and thread instead of failing the stop.
 
 `runtime.invalidateNativeRuntimes({ context, input })` uses the same trusted
 server boundary for account changes and shutdown. Its configured host receives
@@ -3483,8 +3493,9 @@ reuses the host's existing terminal snapshot before attaching, records the
 returned terminal ID on that target, and clears matching IDs after the host's
 existing PTY close resolves. The host supplies only its original read, close
 and namespace functions; a thrown close keeps the native attachment retryable.
-Project cleanup restores the same Helper records, closes the scoped native
-conversations and selects their providers through these existing owners.
+Project cleanup closes the scoped native conversations, then restores the same
+Helper records and selects their providers through these existing owners; a
+record it cannot restore is reported rather than keeping providers running.
 Conversation preparation also applies Helper restoration or ordinary-thread
 ledger exclusion before admission. Native activity and plan-usage queries read
 the same owned maps; hosts retain authorization and result presentation.
@@ -3993,8 +4004,14 @@ call the same Helper owner directly for thread lookup and retirement, without a
 host inspection callback. A returned retirement promise retains the original
 admission-release order; native dispatch remains awaited.
 It also rejects ordinary access to a retained Helper thread and aggregates
-restoration failures without changing their retryability. The host decides when
-successful restoration is required and supplies its authorized storage root.
+restoration failures without changing their retryability. An unreadable ledger
+or a host notice the host refuses is reported as a restoration failure, not a
+rejection. The host decides when successful restoration is required and supplies
+its authorized storage root; the required-restoration error names the first
+failing session, thread and cause. Closing a session or project reports
+unrestorable records and still stops its live work. Reconciliation continues
+for every session and retires each stale provider independently. Account-change
+invalidation does not restore saved records.
 Stable-account capture and completion validation also belong to the shared run
 owner, independently of the optional retained Helper ledger. They preserve the
 account check after native resume, and the exact current-turn guard before
@@ -4244,7 +4261,8 @@ unconfirmed or rejected stop remains retryable. The execution facility receives
 the native stop reason and three-second termination grace period.
 The application still owns its database path and retention. Startup errors retain
 the execution ID and cleanup proof; optional host `readLogs()` supplies bounded
-diagnostics. If cleanup is unconfirmed, the error also retains `retryCleanup`,
+diagnostics. A server that exits before readiness names why in its message: its
+last stderr line as plain text, at most 300 characters. If cleanup is unconfirmed, the error also retains `retryCleanup`,
 the same native stop operation. The shared owner holds that operation until exit
 is verified and blocks replacement startup while cleanup remains unconfirmed.
 Its `cleanupPending` flag lets a managed host retry cleanup during project close
@@ -4388,7 +4406,14 @@ For an existing scoped binding, explicit deletion calls
 its scope/persistence policy from that current context. Read, wait and Stop use
 the same preparation without the deletion descriptor; closing the handle still
 uses its supplied close operation. The driver does not interpret application
-scope fields to choose deletion policy.
+scope fields to choose deletion policy. A Codex ephemeral thread lives only in
+the process that created it, so deleting one this server no longer holds needs
+no native delete. Deleting a scoped conversation stops only what this server
+runs for the scope: its live providers, and a runtime whose earlier stop could
+not prove its exit (a runtime other providers share stays theirs). It never
+starts a provider to stop it, so it needs no account, tool home or workdir. Closing a session stops each
+persistent temporary conversation through the provider that observes it and
+reports those it could not stop, which stay retryable.
 A host supplies authorized startup and its application removal notification.
 `openCodeServerForDirectory` keeps each consumer's native client scoped to its
 working directory. `openCodeEnvironmentForDirectory` and

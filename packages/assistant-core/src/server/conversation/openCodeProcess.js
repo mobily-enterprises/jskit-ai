@@ -80,6 +80,21 @@ async function availableLoopbackPort() {
   });
 }
 
+const OPENCODE_EXIT_REASON_MAX_CHARACTERS = 300;
+
+// OpenCode's last stderr line, as one bounded line of plain text.
+function openCodeExitReason(logs) {
+  const line = String(logs?.stderr || "")
+    .replace(/\u001b\[[0-9;?]*[ -/]*[@-~]/gu, "")
+    .split(/\r?\n/u)
+    .map((candidate) => candidate.replace(/[\u0000-\u001f\u007f]/gu, " ").trim())
+    .filter(Boolean)
+    .at(-1) || "";
+  return line.length > OPENCODE_EXIT_REASON_MAX_CHARACTERS
+    ? `${line.slice(0, OPENCODE_EXIT_REASON_MAX_CHARACTERS - 1)}…`
+    : line;
+}
+
 async function waitForOpenCodeReady({
   client,
   expectedVersion = OPENCODE_EXPECTED_VERSION,
@@ -92,7 +107,13 @@ async function waitForOpenCodeReady({
   while (Date.now() < deadline) {
     signal?.throwIfAborted();
     if (processHandle.exited) {
-      throw new Error("OpenCode exited before its server became ready.");
+      let logs = null;
+      // The exit is the failure; output that cannot be read only loses its reason.
+      try { logs = processHandle.readLogs(); } catch { logs = null; }
+      const reason = openCodeExitReason(logs);
+      throw new Error(reason
+        ? `OpenCode exited before its server became ready: ${reason}`
+        : "OpenCode exited before its server became ready.");
     }
     try {
       const probe = AbortSignal.timeout(Math.max(100, Math.min(2_000, deadline - Date.now())));
@@ -225,6 +246,7 @@ export async function createOpenCodeServerProcess({
   const logPath = path.join(privateRoot, "opencode-server.log");
   const processHandle = {
     get exited() { return stopped || native?.running === false; },
+    readLogs: () => native?.readLogs?.() || { stderr: "", stdout: "" },
     async stop() {
       const proof = await execution.stop(executionId, {
         allowMissingRecordScopeRecovery: true,
@@ -283,7 +305,7 @@ export async function createOpenCodeServerProcess({
     }
     return Object.freeze({ client, executionId: native.id, privateRoot, pid: native.pid, port: selectedPort,
       environment, health: Object.freeze({ ...health }), modelProviderIds: Object.freeze([...authenticated]),
-      readLogs: () => native.readLogs?.() || { stderr: "", stdout: "" }, stop,
+      readLogs: processHandle.readLogs, stop,
       attachArguments({ conversationId, directory }) {
         if (!conversationId || !path.isAbsolute(directory || "")) throw new TypeError("An OpenCode terminal requires a conversation and absolute directory.");
         return ["attach", baseUrl, "--dir", directory, "--session", conversationId, "--pure"];
@@ -297,7 +319,7 @@ export async function createOpenCodeServerProcess({
       try { await onStarted?.(executionId); }
       catch (bindingError) { error.bindingError = bindingError; }
     }
-    try { error.details = native?.readLogs?.() || { stderr: "", stdout: "" }; }
+    try { error.details = processHandle.readLogs(); }
     catch (logError) { error.logError = logError; }
     try { error.stopProof = await stop(); }
     catch (cleanupError) { error.cleanupError = cleanupError; error.stopProof = { scopeEmpty: false }; }

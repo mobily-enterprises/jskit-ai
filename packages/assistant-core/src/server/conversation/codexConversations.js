@@ -19,7 +19,6 @@ export function createCodexConversationCommands({
   interruptFailedCode,
   namespace,
   providerSessions,
-  sessionConnection,
   ensureSessionProvider,
   steerFailedCode,
   turnOutcomes
@@ -557,12 +556,45 @@ export function createCodexConversationCommands({
     };
   }
 
+  // A scope's delete stops only what this server runs for it: its live providers,
+  // and a runtime whose earlier stop could not prove its exit. It never acquires
+  // a provider, which would start a Codex app-server only to stop it, so it needs
+  // no account, tool home or workdir. A runtime other providers share stays theirs.
+  async function stopCodexScopeRuntimes(sessionKey) {
+    const owner = providerSessions.owner;
+    const attempted = new Set([...owner.providers]
+      .filter(([providerKey]) => owner.providerOwners.get(providerKey)?.sessionKey === sessionKey)
+      .map(([, provider]) => provider));
+    const stopped = await owner.stopCachedProvidersForSession(sessionKey, { requireStopped: true });
+    const failed = [...stopped.failed];
+    const results = [...stopped.results];
+    for (const record of [...owner.ownedRuntimes.values()]) {
+      if (record.sessionKey !== sessionKey || attempted.has(record.provider) ||
+          owner.runtimeIsShared(record.providerKey, record.providerOptions)) continue;
+      try {
+        results.push(await owner.withLifecycle(() => owner.stopOwnedRuntime(record), record.providerKey));
+      } catch (error) {
+        failed.push({ code: normalizeCodexRunText(error?.code), error: codexAppServerErrorMessage(error),
+          providerKey: record.providerKey, retryable: error?.retryable === true });
+      }
+    }
+    if (failed.length) {
+      const error = new Error(failed.map((failure) => failure.error).join(" "));
+      error.code = failed[0].code;
+      error.retryable = failed.every((failure) => failure.retryable);
+      error.details = { failed };
+      throw error;
+    }
+    return { ok: true, results, stopped: results.some((result) => result?.stopped === true) };
+  }
+
   async function deleteScopedCodexAppServerConversation(sessionId, input = {}, options = {}) {
     const conversationId = normalizeCodexRunText(input.conversationId);
     const sessionKey = namespace(sessionId);
     const conversations = codexAppServerConversations.get(sessionKey);
-    const conversationExpired = input.ephemeral === true && !conversations?.has(conversationId) &&
-      !(options.assistantScope && input.executionProfile);
+    // An ephemeral native thread lives only in the process that created it, so
+    // one this server no longer tracks has nothing left to delete.
+    const conversationExpired = input.ephemeral === true && !conversations?.has(conversationId);
     let result;
     if (conversationExpired) {
       result = {
@@ -577,23 +609,7 @@ export function createCodexConversationCommands({
         return { ...result, conversationId };
       }
     }
-    let providerExit = null;
-    if (options.assistantScope) {
-      const context = await codexAppServerEphemeralScopeContext(
-        sessionId,
-        input,
-        options.assistantScope
-      );
-      if (context.ok === false) {
-        return context;
-      }
-      const connection = sessionConnection(sessionId, context.providerOptions);
-      providerExit = await providerSessions.owner.stopProvider(connection.providerKey, context.providerOptions, {
-        preserveProcessExitProof: false,
-        requireStopped: true,
-        get runtimeHost() { return connection.runtimeHost; }
-      });
-    }
+    const providerExit = options.assistantScope ? await stopCodexScopeRuntimes(sessionKey) : null;
     return {
       ...result,
       conversationId,
@@ -602,19 +618,59 @@ export function createCodexConversationCommands({
     };
   }
 
+  // Close stops each persistent conversation through the provider that observes
+  // it. A closing session refuses a rebuilt context, and a new connection could
+  // not see the running turn anyway. One conversation's failure does not skip
+  // the others; it stays registered so that a retried close stops it.
+  async function stopObservedCodexConversation(state) {
+    const { provider } = state;
+    if (provider.observationFailure) {
+      await provider.failObservation(provider.observationFailure);
+      if (codexAppServerConversationTurnIsActive(state.status)) {
+        throw new Error("Codex's stop is not yet confirmed.");
+      }
+      return;
+    }
+    // A provider its owner has since closed observes nothing left to stop here:
+    // the owner stopped or detached its process, and reconnecting it would
+    // start a process nothing owns.
+    if (![...providerSessions.owner.providers].some(([, owned]) => owned === provider)) return;
+    // Closing is not the person stopping the turn; its status alone decides the outcome.
+    await stopPersistentCodexConversation({
+      conversationId: state.conversationId, conversationState: state, provider, turnOutcome: ""
+    });
+  }
+
   async function closeCodexAppServerConversations(sessionId) {
     const key = namespace(sessionId);
-    for (const state of codexAppServerConversations.get(key)?.values() || []) {
-      if (state.persistent) {
-        // Closing is not the person stopping the turn; its status alone decides the outcome.
-        await stopCodexAppServerConversation(sessionId, { conversationId: state.conversationId, persistent: true },
-          {}, { turnOutcome: "" });
-        state.unsubscribe?.();
-      } else {
+    const conversations = codexAppServerConversations.get(key);
+    const failed = [];
+    for (const state of [...(conversations?.values() || [])]) {
+      if (!state.persistent) {
         await deleteScopedCodexAppServerConversation(sessionId, { conversationId: state.conversationId }).catch(() => null);
+        conversations.delete(state.conversationId);
+        continue;
       }
+      try {
+        await stopObservedCodexConversation(state);
+      } catch (error) {
+        failed.push({ conversationId: state.conversationId, error: codexAppServerErrorMessage(error) });
+        continue;
+      }
+      state.unsubscribe?.();
+      conversations.delete(state.conversationId);
     }
-    codexAppServerConversations.delete(key);
+    if (conversations && codexAppServerConversations.get(key) === conversations && !conversations.size) {
+      codexAppServerConversations.delete(key);
+    }
+    if (failed.length) {
+      const error = new Error(`Codex could not confirm that ${failed.length === 1 ? "a conversation" : `${failed.length} conversations`} stopped: ${
+        failed.map(({ conversationId, error: reason }) => `${conversationId} (${reason})`).join("; ")}. Retry closing the session.`);
+      error.code = `${errorPrefix}codex_conversation_close_failed`;
+      error.retryable = true;
+      error.details = { failed, sessionId: normalizeCodexRunText(sessionId) };
+      throw error;
+    }
   }
 
   async function codexAppServerConversationControl(sessionId, input, {

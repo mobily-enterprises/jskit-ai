@@ -491,7 +491,7 @@ test("session cleanup owns its single-flight closures and restricted record with
         return { exitFailure: null };
       }
     } },
-    helperLifecycle: { assertRestored() {}, async restoreThreads() {}, assertRetired() {}, async retireAll() {} },
+    helperLifecycle: { async restoreThreads() { return { failed: [], ok: true }; }, assertRetired() {}, async retireAll() {} },
     journal: { clearSessionRecoveryTimers() {} },
     conversations: { async closeCodexAppServerConversations() {} },
     debugLog() {}, debugError: error => error

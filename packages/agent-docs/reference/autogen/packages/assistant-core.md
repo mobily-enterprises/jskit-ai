@@ -436,7 +436,7 @@ Local functions
 
 ### `src/server/conversation/codexConversations.js`
 Exports
-- `createCodexConversationCommands({ checkpoint, codexAppServerConversationMessageId, codexAppServerStreamMessage, conversationPreparation, ensureCodexAppServerProviderForActiveTurn, errorPrefix, helperLifecycle, helperOwnershipError, interruptFailedCode, namespace, providerSessions, sessionConnection, ensureSessionProvider, steerFailedCode, turnOutcomes })`
+- `createCodexConversationCommands({ checkpoint, codexAppServerConversationMessageId, codexAppServerStreamMessage, conversationPreparation, ensureCodexAppServerProviderForActiveTurn, errorPrefix, helperLifecycle, helperOwnershipError, interruptFailedCode, namespace, providerSessions, ensureSessionProvider, steerFailedCode, turnOutcomes })`
 
 ### `src/server/conversation/codexConversationStore.js`
 Exports
@@ -679,7 +679,7 @@ Local functions
 - `codexAppServerThreadRequestParams(params = {}, threadEnv = {})`
 - `codexControlProbeCommand(keys, marker)`
 - `codexAppServerThreadInventoryError(errorCode, label, detail)`
-- `listBoundedCodexAppServerThreadIds({ ancestorThreadId = "", archived = false, client, cwd = "", errorCode = "", label = "", requestLabel = "", runRequest, signal = null, sourceKinds = ["appServer"], state, verifyCwd = false } = {})`
+- `listBoundedCodexAppServerThreadIds({ ancestorThreadId = "", archived = false, client, cwd = "", errorCode = "", findThreadId = "", label = "", requestLabel = "", runRequest, signal = null, sourceKinds = ["appServer"], state, verifyCwd = false } = {})`
 - `codexPlanUsage(limits = {})`
 - `normalizeAgentThread(value = {})`
 - `normalizeAgentTurn(value = {})`
@@ -1005,6 +1005,7 @@ Exports
 - `createOpenCodeConversationPlugin`
 Local functions
 - `availableLoopbackPort()`
+- `openCodeExitReason(logs)`
 - `waitForOpenCodeReady({ client, expectedVersion = OPENCODE_EXPECTED_VERSION, processHandle, timeoutMs = OPENCODE_READY_TIMEOUT_MS, signal } = {})`
 - `actionPermission(action)`
 - `agentPermission(ask, nativeTools, tools)`

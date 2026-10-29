@@ -9,6 +9,27 @@ export function createCodexSessionCleanup({ namespace, runOwner, providerSession
   const providerOwner = providerSessions?.owner;
   const restrictedClosures = new WeakSet();
 
+  // Saved Helper records are retired through the providers a close is about to
+  // stop. A record that cannot be restored (a removed account, a malformed or
+  // unreadable ledger) stays on disk for a later connection; the host publishes
+  // its failure, and the close still stops everything this server runs.
+  async function restoreSavedHelpers(readRestoration, event, identity = {}) {
+    let restored;
+    try {
+      const restoration = await readRestoration();
+      restored = await helperLifecycle.restoreThreads(restoration.projectRuntimeRoot, restoration.context);
+    } catch (error) {
+      restored = { failed: [helperLifecycle.failure(identity, error)], ok: false };
+    }
+    if (restored.ok === false) {
+      debugLog(event, {
+        ...identity,
+        failed: restored.failed.map(({ code, error, sessionId, threadId }) => ({ code, error, sessionId, threadId }))
+      });
+    }
+    return restored;
+  }
+
   async function closeSession(sessionId, cleanup) {
     const normalizedSessionId = normalizeCodexRunText(sessionId);
     const sessionKey = cleanup.sessionKey;
@@ -28,27 +49,35 @@ export function createCodexSessionCleanup({ namespace, runOwner, providerSession
     const closing = (async () => {
       await providerOwner.drainThreadEnvironmentTasks(sessionKey);
       journal.clearSessionRecoveryTimers(normalizedSessionId);
-      let prepared = null;
-      let session = null;
-      try {
-        prepared = await cleanup.read();
-        const restoration = await prepared.helpers;
-        helperLifecycle.assertRestored(await helperLifecycle.restoreThreads(
-          restoration.projectRuntimeRoot, restoration.context
-        ));
-        helperLifecycle.assertRetired(await helperLifecycle.retireAll({
-          projectRuntimeRoot: prepared.projectRuntimeRoot,
-          sessionId: normalizedSessionId
-        }));
-        session = prepared.session;
-      } catch (error) {
+      const prepareFailed = (error) => {
         debugLog("appServerRuntime.closeSession.prepare.error", {
           error: debugError(error),
           sessionId: normalizedSessionId
         });
-        throw error;
+        return error;
+      };
+      let prepared = null;
+      let session = null;
+      try {
+        prepared = await cleanup.read();
+        session = prepared.session;
+      } catch (error) {
+        throw prepareFailed(error);
       }
+      // Live work stops first, through the connections that observe it.
       await conversations.closeCodexAppServerConversations(normalizedSessionId);
+      await restoreSavedHelpers(() => prepared.helpers, "appServerRuntime.closeSession.helperRestore.failed", {
+        sessionId: normalizedSessionId
+      });
+      try {
+        // Helper threads attached to a live provider must be gone before it stops.
+        helperLifecycle.assertRetired(await helperLifecycle.retireAll({
+          projectRuntimeRoot: prepared.projectRuntimeRoot,
+          sessionId: normalizedSessionId
+        }));
+      } catch (error) {
+        throw prepareFailed(error);
+      }
       const { exitFailure } = await providerOwner.releaseSession(sessionKey, {
         sessionId: normalizedSessionId,
         runOwner,
@@ -73,24 +102,39 @@ export function createCodexSessionCleanup({ namespace, runOwner, providerSession
   }
 
   async function closeProject(input = {}, preparation) {
-    const restoration = await preparation.helpers;
-    helperLifecycle.assertRestored(await helperLifecycle.restoreThreads(
-      restoration.projectRuntimeRoot, restoration.context
-    ));
     const sessionNamespacePrefix = namespace("");
+    const conversationFailures = [];
     for (const sessionKey of [...conversations.codexAppServerConversations.keys()]) {
       if (!sessionKey.startsWith(sessionNamespacePrefix)) {
         continue;
       }
-      await conversations.closeCodexAppServerConversations(
-        sessionKey.slice(sessionNamespacePrefix.length)
-      );
+      const sessionId = sessionKey.slice(sessionNamespacePrefix.length);
+      try {
+        await conversations.closeCodexAppServerConversations(sessionId);
+      } catch (error) {
+        conversationFailures.push({
+          code: normalizeCodexRunText(error?.code),
+          error: normalizeCodexRunText(error?.message || error),
+          retryable: error?.retryable !== false,
+          sessionId
+        });
+      }
     }
-    return providerOwner.stopProvidersForProject(input, {
+    const helperRestore = await restoreSavedHelpers(() => preparation.helpers,
+      "appServerRuntime.closeProject.helperRestore.failed",
+      { projectContextRoot: normalizeCodexRunText(input.projectContextRoot) });
+    const stopped = await providerOwner.stopProvidersForProject(input, {
       managed: providerSessions.managed,
       keyFields: providerSessions.keyFields,
       helperThreads: helperLifecycle
     });
+    const failed = [...conversationFailures, ...stopped.failed];
+    return {
+      ...stopped,
+      failed,
+      helperRestore: { failed: helperRestore.failed, ok: helperRestore.ok !== false },
+      ok: failed.length === 0
+    };
   }
 
   return { closeSession, closeProject };

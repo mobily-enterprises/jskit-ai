@@ -264,10 +264,8 @@ export function createCodexRuntimeLifecycle({
           stopOwnedRuntimes: true
         });
       }
-      const helpers = await preparation.helpers;
-      helperLifecycle.assertRestored(
-        await helperLifecycle.restoreThreads(helpers.projectRuntimeRoot, helpers.context)
-      );
+      // Saved Helper threads are not reopened to be stopped: their records stay
+      // for the next connection, which retires them against the new account.
       return invalidateCodexAppServerRuntimes({
         ...input,
         includeOwned: false,

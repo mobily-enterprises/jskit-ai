@@ -578,8 +578,17 @@ export function createCodexHelperThreadLifecycle({
     if (result.ok !== false) {
       return result;
     }
+    // Name the first failing record and its cause; details keep every failure.
+    const [first, ...others] = Array.isArray(result.failed) ? result.failed : [];
+    const sessionId = normalizeText(first?.sessionId);
+    const threadId = normalizeText(first?.threadId);
+    const subject = sessionId
+      ? `session ${sessionId}${threadId ? `, thread ${threadId}` : ""}`
+      : "the project's saved records";
+    const cause = first ? ` For ${subject}: ${normalizeText(first.error) || "restoration failed."}` : "";
+    const more = others.length ? ` (${others.length} more)` : "";
     throw codexAppServerHelperOwnershipError(
-      `${applicationName} could not reconcile persisted low-cost assistant thread ownership.`,
+      `${applicationName} could not reconcile persisted low-cost assistant thread ownership.${cause}${more}`,
       {
         failed: result.failed,
         retryable: result.failed?.some((failure) => failure.retryable !== false) !== false,

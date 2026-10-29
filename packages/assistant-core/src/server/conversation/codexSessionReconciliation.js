@@ -12,8 +12,9 @@ export function createCodexSessionReconciliation({
     projectContextRoot = ""
   } = {}) {
     const normalizedProjectContextRoot = normalizeText(projectContextRoot);
+    const failed = [];
     if (!normalizedProjectContextRoot) {
-      return;
+      return failed;
     }
     for (const [providerKey, managed] of [...providerSessions.managed.entries()]) {
       if (keepProviderKeys.has(providerKey)) {
@@ -21,9 +22,22 @@ export function createCodexSessionReconciliation({
       }
       if (providerSessions.owner.providers.get(providerKey)?.observationFailure) continue;
       if (normalizeText(managed.projectContext?.targetRoot) === normalizedProjectContextRoot) {
-        await lifecycle.retireProvider(providerKey);
+        // One provider that cannot retire does not keep the others running.
+        try {
+          await lifecycle.retireProvider(providerKey);
+        } catch (error) {
+          failed.push({
+            code: normalizeText(error?.code),
+            error: errorMessage(error),
+            providerKey,
+            retryable: error?.retryable === true,
+            sessionId: normalizeText(managed.sessionId)
+          });
+          debugLog("appServerThread.reconcile.prune.error", { error: debugError(error), providerKey });
+        }
       }
     }
+    return failed;
   }
 
   async function retireAndCloseCodexAppServerProviderForSession(sessionId = "", options = null) {
@@ -233,10 +247,10 @@ export function createCodexSessionReconciliation({
       });
     }
     if (reconcileGeneration === lifecycle.reconcileGeneration) {
-      await pruneCodexAppServerManagedSessions({
+      failed.push(...await pruneCodexAppServerManagedSessions({
         keepProviderKeys,
         projectContextRoot
-      });
+      }));
     } else {
       debugLog("appServerThread.reconcile.pruneSkipped", {
         reason: "stale_reconcile",

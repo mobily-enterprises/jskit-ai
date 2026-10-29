@@ -43,8 +43,6 @@ const CODEX_APP_SERVER_THREAD_INVENTORY_PAGE_LIMIT = 100;
 const CODEX_APP_SERVER_THREAD_INVENTORY_MAX_PAGES = 100;
 export const CODEX_APP_SERVER_THREAD_INVENTORY_MAX_COUNT = 1000;
 export const CODEX_APP_SERVER_THREAD_INVENTORY_ID_MAX_LENGTH = 512;
-const CODEX_APP_SERVER_THREAD_INVENTORY_MAX_ENTRY_BYTES = 64 * 1024;
-const CODEX_APP_SERVER_THREAD_INVENTORY_MAX_TOTAL_BYTES = 2 * 1024 * 1024;
 const CODEX_APP_SERVER_HELPER_MAX_MESSAGE_BYTES = 4 * 1024 * 1024;
 const CODEX_APP_SERVER_SERVER_INFO_USER_AGENT_MAX_LENGTH = 512;
 const CODEX_APP_SERVER_CHATGPT_REFRESH_METHOD = "account/chatgptAuthTokens/refresh";
@@ -570,6 +568,7 @@ async function listBoundedCodexAppServerThreadIds({
   client,
   cwd = "",
   errorCode = "",
+  findThreadId = "",
   label = "",
   requestLabel = "",
   runRequest,
@@ -603,43 +602,35 @@ async function listBoundedCodexAppServerThreadIds({
       }, { signal }),
       requestLabel
     );
-    if (
-      !Array.isArray(response?.data) ||
-      response.data.length > CODEX_APP_SERVER_THREAD_INVENTORY_PAGE_LIMIT ||
-      state.entryCount + response.data.length > CODEX_APP_SERVER_THREAD_INVENTORY_MAX_COUNT
-    ) {
-      throw codexAppServerThreadInventoryError(
-        errorCode,
-        label,
-        "exceeded its entry limit"
-      );
+    if (!Array.isArray(response?.data) || response.data.length > CODEX_APP_SERVER_THREAD_INVENTORY_PAGE_LIMIT) {
+      throw codexAppServerThreadInventoryError(errorCode, label, "returned a malformed page");
+    }
+    // Only thread ids are retained, so only they are bounded. A search for one
+    // thread retains none and is bounded by the page limit alone.
+    if (!findThreadId && state.entryCount + response.data.length > CODEX_APP_SERVER_THREAD_INVENTORY_MAX_COUNT) {
+      throw codexAppServerThreadInventoryError(errorCode, label,
+        `exceeded its ${CODEX_APP_SERVER_THREAD_INVENTORY_MAX_COUNT}-thread limit`);
     }
     for (const entry of response.data) {
-      const threadId = normalizeAgentText(entry?.id);
-      const threadCwd = normalizeAgentText(entry?.cwd);
-      let entryBytes = 0;
-      try {
-        entryBytes = Buffer.byteLength(JSON.stringify(entry), "utf8");
-      } catch {
-        entryBytes = CODEX_APP_SERVER_THREAD_INVENTORY_MAX_ENTRY_BYTES + 1;
+      const threadId = isRecord(entry) ? normalizeAgentText(entry.id) : "";
+      const refusal = !isRecord(entry) ? "listed an entry that is not a thread"
+        : !threadId ? "listed a thread without an id"
+          : threadId.length > CODEX_APP_SERVER_THREAD_INVENTORY_ID_MAX_LENGTH
+            ? `listed a thread id longer than ${CODEX_APP_SERVER_THREAD_INVENTORY_ID_MAX_LENGTH} characters`
+            : codexAppServerTextHasControlCharacters(threadId) ? "listed a thread id with control characters"
+              : verifyCwd && normalizeAgentText(entry.cwd) !== cwd
+                ? `listed thread ${threadId} outside the requested directory` : "";
+      if (refusal) {
+        throw codexAppServerThreadInventoryError(errorCode, label, refusal);
       }
-      if (
-        !isRecord(entry) ||
-        !threadId ||
-        threadId.length > CODEX_APP_SERVER_THREAD_INVENTORY_ID_MAX_LENGTH ||
-        codexAppServerTextHasControlCharacters(threadId) ||
-        (verifyCwd && threadCwd !== cwd) ||
-        entryBytes > CODEX_APP_SERVER_THREAD_INVENTORY_MAX_ENTRY_BYTES ||
-        state.totalBytes + entryBytes > CODEX_APP_SERVER_THREAD_INVENTORY_MAX_TOTAL_BYTES
-      ) {
-        throw codexAppServerThreadInventoryError(
-          errorCode,
-          label,
-          "contained an invalid entry"
-        );
+      if (findThreadId) {
+        if (threadId === findThreadId) {
+          state.found = true;
+          return state;
+        }
+        continue;
       }
       state.entryCount += 1;
-      state.totalBytes += entryBytes;
       state.threadIds.add(threadId);
     }
     const nextCursor = response.nextCursor === undefined || response.nextCursor === null || response.nextCursor === ""
@@ -1843,8 +1834,7 @@ export class CodexAppServerAgentProvider {
       signal,
       state: {
         entryCount: 0,
-        threadIds: new Set(),
-        totalBytes: 0
+        threadIds: new Set()
       },
       verifyCwd: true
     });
@@ -1863,7 +1853,7 @@ export class CodexAppServerAgentProvider {
       throw new TypeError("Codex descendant inventory requires an exact thread id.");
     }
     const client = await this.activeClient();
-    const state = { entryCount: 0, threadIds: new Set(), totalBytes: 0 };
+    const state = { entryCount: 0, threadIds: new Set() };
     for (const archived of [false, true]) {
       await listBoundedCodexAppServerThreadIds({
         ancestorThreadId, archived, client, state,
@@ -1878,7 +1868,7 @@ export class CodexAppServerAgentProvider {
   async listNativeThreadsForCwd(cwd) {
     if (!path.isAbsolute(cwd || "") || codexAppServerTextHasControlCharacters(cwd)) throw new TypeError("Native inventory requires an exact absolute directory.");
     const client = await this.activeClient();
-    const state = { entryCount: 0, threadIds: new Set(), totalBytes: 0 };
+    const state = { entryCount: 0, threadIds: new Set() };
     for (const archived of [false, true]) {
       await listBoundedCodexAppServerThreadIds({ archived, client, cwd, state, verifyCwd: true,
         sourceKinds: CODEX_NATIVE_STORAGE_SOURCE_KINDS,
@@ -1894,13 +1884,13 @@ export class CodexAppServerAgentProvider {
       throw new TypeError("Native existence checks require an exact thread id.");
     }
     const client = await this.activeClient();
-    const state = { entryCount: 0, threadIds: new Set(), totalBytes: 0 };
+    const state = { entryCount: 0, found: false, threadIds: new Set() };
     for (const archived of [false, true]) {
-      await listBoundedCodexAppServerThreadIds({ archived, client, state, signal,
+      await listBoundedCodexAppServerThreadIds({ archived, client, findThreadId: id, state, signal,
         sourceKinds: CODEX_NATIVE_STORAGE_SOURCE_KINDS,
         errorCode: `${this.errorPrefix}codex_retirement_inventory_invalid`, label: "native storage",
         requestLabel: "codex-app-server-native-existence", runRequest: this.runRequest.bind(this) });
-      if (state.threadIds.has(id)) return true;
+      if (state.found) return true;
     }
     return false;
   }
@@ -1912,8 +1902,7 @@ export class CodexAppServerAgentProvider {
     const execution = await this.currentHelperExecutionContext();
     const state = {
       entryCount: 0,
-      threadIds: new Set(),
-      totalBytes: 0
+      threadIds: new Set()
     };
     for (const archived of [false, true]) {
       await listBoundedCodexAppServerThreadIds({

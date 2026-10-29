@@ -211,13 +211,22 @@ export function createCodexHelperThreadRecovery(lifecycle, {
 
   async function restoreCodexAppServerHelperThreads(projectRuntimeRoot = "", context = {}) {
     const previous = codexAppServerHelperThreadRestores.get(projectRuntimeRoot) || Promise.resolve();
+    // Every failure, including an unreadable ledger or a refused host notice,
+    // is reported in the result. Callers that require restoration assert it;
+    // cleanup and reconciliation continue with the records that did restore.
     const restore = previous.catch(() => null).then(async () => {
       const ledger = codexAppServerHelperThreadLedger(projectRuntimeRoot);
-      const listed = await ledger.readAll();
-      const failed = listed.failures.map((failure) => ({
+      const failed = [];
+      let listed = { failures: [], records: [] };
+      try {
+        listed = await ledger.readAll();
+      } catch (error) {
+        failed.push(codexAppServerHelperFailure({ projectRuntimeRoot }, error));
+      }
+      failed.push(...listed.failures.map((failure) => ({
         ...failure,
         projectRuntimeRoot
-      }));
+      })));
       const normalizedSessionId = normalizeText(context.sessionId);
       const records = listed.records.filter((record) => {
         return !normalizedSessionId || record.sessionId === normalizedSessionId;
@@ -238,7 +247,11 @@ export function createCodexHelperThreadRecovery(lifecycle, {
           failed.push(codexAppServerHelperFailure(record, error));
         }
       }
-      await context.publish({ records, failed, retiredBySession, normalizedSessionId });
+      try {
+        await context.publish({ records, failed, retiredBySession, normalizedSessionId });
+      } catch (error) {
+        failed.push(codexAppServerHelperFailure({ projectRuntimeRoot }, error));
+      }
       return {
         failed,
         ok: failed.length === 0,

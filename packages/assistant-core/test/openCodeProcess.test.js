@@ -97,6 +97,22 @@ test("an unexpected native exit reports failure after readiness", async t => {
   await native.stop();
 });
 
+test("an OpenCode server that exits before readiness says why", async t => {
+  const f = await fixture(t);
+  f.config.execution.start = async request => {
+    f.starts.push(request);
+    return { id: "owned-process", pid: 123, running: false, exited: Promise.resolve({ code: 1 }),
+      readLogs: () => ({ stdout: "", stderr: `INFO starting\n\u001b[31mError: Unexpected token in ${"x".repeat(600)}\u001b[0m\n\n` }) };
+  };
+  await assert.rejects(createOpenCodeServerProcess(f.config), error => {
+    assert.equal(error.code, "assistant_opencode_start_failed");
+    assert.match(error.message, /^OpenCode exited before its server became ready: Error: Unexpected token in x+…$/u);
+    assert.ok(error.message.length < 400, "the reason is one bounded line");
+    assert.match(error.details.stderr, /INFO starting/u);
+    return true;
+  });
+});
+
 test("failed host startup retains its execution identity until cleanup is proven", async t => {
   const f = await fixture(t, { stop: () => ({ scopeEmpty: false }) });
   const bindings = [];
