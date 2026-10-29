@@ -2,6 +2,11 @@ import path from "node:path";
 import { stat } from "node:fs/promises";
 import { CodexAppServerAgentProvider } from "./codexProvider.js";
 import { codexAppServerProjectHookTrustConfig } from "./codexConfiguration.js";
+import {
+  CODEX_APP_SERVER_PROCESS_STATE,
+  readCodexAppServerMetadata,
+  removeCodexAppServerRuntimeDir
+} from "./codexProcess.js";
 import { normalizeCodexRunText as normalizeText } from "./codexTurnState.js";
 
 // Moved from Vibe64's codexTerminal provider owner. Caller-local provider keys
@@ -30,6 +35,31 @@ function withRuntimeLifecycle(runtimeKey, operation) {
   });
   codexAppServerRuntimeLifecycles.set(runtimeKey, tail);
   return run;
+}
+
+// A session recorded a new runtime directory (a new sign-in gets its own), so
+// its previous one is no longer used. It goes once its runtime has verifiably
+// stopped; a stale runtime still finishing its turn drops it when it stops.
+// Helper cleanup treats an absent directory as retired, which is also what it
+// does with a previous sign-in's runtime it finds stopped.
+export function releaseSupersededCodexRuntime(runtimeDir = "") {
+  const runtimeKey = codexAppServerOwnedRuntimeKey("", { runtimeDir });
+  return withRuntimeLifecycle(runtimeKey, async () => {
+    const stale = codexAppServerStaleRuntimes.get(runtimeKey);
+    if (stale) {
+      stale.superseded = true;
+      return { deferred: true, removed: false };
+    }
+    if (codexAppServerOwnedRuntimes.has(runtimeKey) || [...providerRecords()].some(record =>
+      codexAppServerOwnedRuntimeKey(record.providerKey, record.providerOptions) === runtimeKey)) {
+      return { removed: false };
+    }
+    const metadata = await readCodexAppServerMetadata(runtimeDir);
+    if (metadata?.processState !== CODEX_APP_SERVER_PROCESS_STATE.STOPPED || !metadata.processExitVerifiedAt) {
+      return { removed: false };
+    }
+    return { removed: await removeCodexAppServerRuntimeDir(runtimeDir) };
+  });
 }
 
 export function codexAppServerRuntimeStopWasVerified(result = {}) {
@@ -847,7 +877,8 @@ export function createCodexAppServerProviderOwner({
       if (target) {
         result = await (target.scope || api).stopOwnedRuntime({ ...target }, {
           cached: true,
-          preserveProcessExitProof: target.preserveProcessExitProof === true,
+          // A runtime its session no longer records keeps no exit proof.
+          preserveProcessExitProof: target.preserveProcessExitProof === true && !stale.superseded,
           requireVerifiedExit: true
         });
       }

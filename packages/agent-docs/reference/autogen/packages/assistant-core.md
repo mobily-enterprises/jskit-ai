@@ -605,6 +605,7 @@ Exports
 - `codexAppServerHelperHomeDir(runtimeDir = "")`
 - `codexAppServerHelperWorkspaceDir(runtimeDir = "")`
 - `codexAppServerProcessCwd({ executionRoot = "", runtimeDir = "", workdir = "" } = {})`
+- `removeCodexAppServerRuntimeDir(runtimeDir = "")`
 - `codexAppServerRuntimeIdentity(runtime = {})`
 - `normalizeCodexAppServerTerminalEnv(terminalEnv = {})`
 - `codexAppServerCommandBaseEnv({ env = process.env, terminalEnv = {} } = {})`
@@ -632,7 +633,6 @@ Local functions
 - `codexAppServerUnixEndpoint(socketPath = "")`
 - `codexAppServerProjectTrustOverride(workdir = "")`
 - `codexAppServerRuntimeDirIsManaged(runtimeDir = "")`
-- `removeCodexAppServerRuntimeDir(runtimeDir = "")`
 - `removeCodexAppServerMetadataTemps(runtimeDir = "")`
 - `codexAppServerRuntimeCleanupCanSkip(error)`
 - `codexHistoryAdapterUrlIsValid(baseUrl, token)`
@@ -690,6 +690,7 @@ Local functions
 ### `src/server/conversation/codexProviderOwner.js`
 Exports
 - `codexAppServerOwnedRuntimeKey(providerKey = "", providerOptions = {})`
+- `releaseSupersededCodexRuntime(runtimeDir = "")`
 - `codexAppServerRuntimeStopWasVerified(result = {})`
 - `directoryExists(filePath = "")`
 - `createCodexAppServerProviderOwner({ runtimeRoot = "", assertOpen: assertApplicationOpen = () => {}, onRecoveryEvent = () => {}, debugLog = () => {}, debugError = error => error, providerFactory = null, prepareNativeHost = () => ({}), runtimeBusyCode = "codex_app_server_runtime_busy", exitUnverifiedCode = "codex_runtime_exit_unverified", requiredStopCode = "codex_runtime_exit_unverified", runtimeCloseError = "Codex app-server runtime close failed.", transientIdleMs = 60_000 } = {})`

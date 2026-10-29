@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { lstat, realpath } from "node:fs/promises";
 import path from "node:path";
 import { CodexAppServerJsonRpcClient } from "./codexClient.js";
+import { releaseSupersededCodexRuntime } from "./codexProviderOwner.js";
 import {
   createCodexAccountReader, codexAuthOutputRequiresReconnect, codexAppServerProjectHookTrustConfig,
   codexAppServerTextHasControlCharacters, CODEX_APP_SERVER_ACCOUNT_ID_MAX_LENGTH
@@ -335,8 +336,12 @@ async function ensureCodexAppServerThread({
     throw new Error("Codex app-server did not return a thread id.");
   }
   stageStartedAt = Date.now();
-  await identity.write({ appServerRuntime, threadId, workdir: normalizedWorkdir,
+  const recorded = await identity.write({ appServerRuntime, threadId, workdir: normalizedWorkdir,
     ...(toolConfiguration ? { toolSchemaIdentity: toolConfiguration.toolSchemaIdentity } : {}) });
+  // The session no longer uses the runtime directory it recorded before (an
+  // earlier sign-in's). Releasing it is cleanup: a failure keeps the directory.
+  const superseded = normalizeAgentText(recorded?.supersededRuntimeDir);
+  if (superseded) await releaseSupersededCodexRuntime(superseded).catch(() => null);
   if (providerReady) await providerReady({ provider, threadId });
   onStage({ durationMs: Date.now() - stageStartedAt, stage: "identity-metadata" });
   return {

@@ -410,7 +410,7 @@ function codexAppServerRuntimeDirIsManaged(runtimeDir = "") {
     basename.startsWith(`${CODEX_APP_SERVER_RUNTIME_DIR_NAME}-`);
 }
 
-async function removeCodexAppServerRuntimeDir(runtimeDir = "") {
+export async function removeCodexAppServerRuntimeDir(runtimeDir = "") {
   const normalizedRuntimeDir = normalizeNullableText(runtimeDir);
   if (!codexAppServerRuntimeDirIsManaged(normalizedRuntimeDir)) {
     return false;

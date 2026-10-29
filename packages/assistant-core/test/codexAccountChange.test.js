@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { mkdir, mkdtemp, rm, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { CodexAppServerAgentProvider } from "../src/server/conversation/codexProvider.js";
-import { createCodexAppServerProviderOwner, codexAppServerOwnedRuntimeKey } from "../src/server/conversation/codexProviderOwner.js";
+import { CodexAppServerAgentProvider, ensureCodexAppServerThread } from "../src/server/conversation/codexProvider.js";
+import { writeCodexAppServerMetadata } from "../src/server/conversation/codexProcess.js";
+import { createCodexAppServerProviderOwner, codexAppServerOwnedRuntimeKey, releaseSupersededCodexRuntime } from "../src/server/conversation/codexProviderOwner.js";
 import { createCodexProviderSelection } from "../src/server/conversation/codexProviderSelection.js";
 import { createCodexRuntimeLifecycle } from "../src/server/conversation/codexRuntimeLifecycle.js";
 
@@ -31,7 +33,8 @@ function nativeRuntime({ threads, goals = {} }) {
       }
     },
     markStale() { this.stale = true; },
-    async stopRuntime() { this.stopped += 1; return { stopped: true, processExitVerified: true }; },
+    stopOptions: [],
+    async stopRuntime(options) { this.stopped += 1; this.stopOptions.push(options); return { stopped: true, processExitVerified: true }; },
     close() { this.closed += 1; }
   };
   return { provider, requests, threads, goals };
@@ -43,7 +46,7 @@ function ownerWith(t, runtimes, options = {}) {
   const keys = {};
   for (const [name, runtime] of Object.entries(runtimes)) {
     const providerOptions = { runtimeDir: path.join(root, name) };
-    owner.createProvider({ providerKey: name, providerOptions, create: () => runtime.provider });
+    owner.createProvider({ providerKey: name, providerOptions, preserveProcessExitProof: true, create: () => runtime.provider });
     owner.rememberOwnedRuntime({ provider: runtime.provider, providerKey: name, providerOptions });
     keys[name] = codexAppServerOwnedRuntimeKey(name, providerOptions);
   }
@@ -212,4 +215,47 @@ test("a stale Codex provider serves its running turn and not the session's next 
   assert.equal((await context.acquireProvider(session)).reused, false, "A new message goes to the current account's provider");
   assert.deepEqual(ensured.at(-1), { current: true });
   assert.equal(selection.managedProviderKeyForThread("s1", "/work", "thread-1"), null);
+});
+
+async function runtimeDirectory(root, name, processState) {
+  const runtimeDir = path.join(root, `codex-app-server-${name}`);
+  await mkdir(runtimeDir, { recursive: true });
+  await writeCodexAppServerMetadata(runtimeDir, {
+    runtimeDir, processState, pid: 4242,
+    ...(processState === "stopped" ? { processExitVerifiedAt: new Date().toISOString() } : {})
+  });
+  return runtimeDir;
+}
+const exists = target => stat(target).then(() => true, () => false);
+
+test("recording a session's runtime for a new sign-in removes the previous sign-in's stopped runtime directory", async t => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jskit-codex-superseded-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const stopped = await runtimeDirectory(root, "stopped", "stopped");
+  const running = await runtimeDirectory(root, "running", "running");
+  const bind = superseded => ensureCodexAppServerThread({
+    observeThread: async () => {},
+    provider: { ensureRuntime: async () => ({ runtimeDir: path.join(root, "codex-app-server-current") }),
+      startThread: async () => ({ id: "thread-1" }) },
+    settings: async () => ({ threadSettings: {}, threadStartSettings: {} }),
+    identity: { read: () => "", write: async () => ({ supersededRuntimeDir: superseded }) },
+    workdir: "/work"
+  });
+
+  await bind(running);
+  assert.equal(await exists(running), true, "A runtime that has not verifiably stopped keeps its directory");
+  await bind(stopped);
+  assert.equal(await exists(stopped), false, "The previous sign-in's stopped runtime directory goes");
+});
+
+test("a stale Codex runtime its session no longer records keeps no exit proof when it stops", async t => {
+  const busy = nativeRuntime({ threads: { "thread-1": "active" } });
+  const { owner, keys, root } = ownerWith(t, { busy });
+  await owner.invalidateRuntimes({ deferBusy: true, includeOwned: true, requireVerifiedExit: true, stopOwnedRuntimes: true });
+
+  assert.deepEqual(await releaseSupersededCodexRuntime(path.join(root, "busy")), { deferred: true, removed: false });
+  busy.threads["thread-1"] = "idle";
+  assert.equal((await owner.retireStaleRuntime(keys.busy)).stopped, true);
+  assert.deepEqual(busy.provider.stopOptions, [{ preserveProcessExitProof: false }],
+    "Its verified stop removes the directory instead of keeping the proof");
 });

@@ -2998,7 +2998,12 @@ application gives each sign-in its own runtime directory and provider key, so
 the next message starts at once on the current account. The run owner's
 `continueGoalAfterAccountChange(sessionId, { threadId })` option resumes a goal
 the change paused once the previous runtime stopped; without it the goal stays
-paused. A runtime that cannot be inspected stops as before.
+paused. A runtime that cannot be inspected stops as before. When the
+application's `identity.write` returns `supersededRuntimeDir` (the runtime
+directory the session recorded before), the owner removes that directory once
+its runtime has verifiably stopped; a stale runtime still finishing its turn
+keeps no exit proof when it stops. Helper cleanup treats an absent directory as
+retired.
 
 The application owns independently saved orchestrator/provider records and
 validation before publication. This native lifecycle facility copies no keys
