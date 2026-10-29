@@ -3651,12 +3651,19 @@ The turn owner preserves the production receiver's block lifecycle: deltas are
 temporary, block-stop removes them, and completed snapshots use their native
 UUIDs. It does not group distinct history snapshots into a synthetic reply.
 The retained owner's `createAccountQueries({ accountIdentity, createProcess })`
-composes the existing native model/usage query owner with its own process inventory
-and closing state. A managed host supplies its authorized identity reader and
+composes the existing native model/usage query owner with its own process inventory,
+configuration root and closing state. A managed host supplies its authorized identity reader and
 account-process factory. The original query caches, pending-query sharing and
 retryable cleanup remain unchanged; account queries share already-owned processes
 and the same conversation shutdown boundary. Matching owned processes
-are reused; temporary query processes must prove cleanup. Failed stops remain
+are reused for plan usage; temporary query processes must prove cleanup. The
+model list is read through a temporary query process (a live conversation's list
+dates from its start) and kept for its account until the account's
+`.credentials.json` or the answering process's `command` changes by file
+metadata: sign-in, sign-out, a token refresh or plan change, or a Claude Code
+update. Rereading it otherwise starts nothing. A bare command name has no
+metadata, so only the credentials refresh its list. A started process exposes
+the `command` it ran. Failed stops remain
 owned and are retried before another native query. `invalidate()` drains pending
 queries, clears both caches and retries retained cleanup while new work is
 blocked. For managed bindings, the existing retained conversation owner also

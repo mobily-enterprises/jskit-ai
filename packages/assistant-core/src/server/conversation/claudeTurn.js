@@ -198,7 +198,7 @@ export function createClaudeConversationOwner({
   const holdsNativeWork = entry => runsNativeWork(entry) || Boolean(entry.executionId) || isTurnActive(entry);
 
   function createAccountQueries({ accountIdentity, createProcess }) {
-    return createClaudeAccountQueries({ accountIdentity,
+    return createClaudeAccountQueries({ accountIdentity, configRoot,
       processes: () => entries.values(), isClosing: () => closing, createProcess });
   }
 

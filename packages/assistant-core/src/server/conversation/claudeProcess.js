@@ -27,6 +27,17 @@ export function claudeUnexpectedExitMessage(processExit = {}) {
   return `Claude stopped unexpectedly. ${resume}`;
 }
 
+// A file's metadata, following links, or null when it is absent.
+async function fileRevision(file) {
+  try {
+    const value = await stat(file, { bigint: true });
+    return [value.dev, value.ino, value.size, value.mtimeNs].join(":");
+  } catch (error) {
+    if (error.code === "ENOENT") return null;
+    throw error;
+  }
+}
+
 export async function readClaudeCodeAuthStatus({
   env = process.env, credentialHome = { home: env.HOME || homedir() }, command = "claude", commandRunner, signal
 } = {}) {
@@ -37,13 +48,7 @@ export async function readClaudeCodeAuthStatus({
   // Sign-in writes .credentials.json and sign-out removes it. Claude Code also
   // rewrites .claude.json during turns and after every status read, so that
   // file is not watched.
-  let revision = null;
-  try {
-    const value = await stat(path.join(configRoot, ".credentials.json"), { bigint: true });
-    revision = [value.dev, value.ino, value.size, value.mtimeNs].join(":");
-  } catch (error) {
-    if (error.code !== "ENOENT") throw error;
-  }
+  const revision = await fileRevision(path.join(configRoot, ".credentials.json"));
   // One entry per account, whichever command path or host runner reads it: only
   // the account's location and its identity variables count.
   const key = jsonHash([configRoot, credentialHome.home, Object.entries(env).filter(([name, value]) =>
@@ -280,9 +285,10 @@ export function claudeCatalogueModels(initialization) {
 /**
  * Native account queries share process reuse, caches and retryable cleanup. Plan
  * usage is shared by `accountIdentity` with every other owner in the process, so
- * that identity names exactly one Claude account.
+ * that identity names exactly one Claude account. `configRoot` is the account's
+ * Claude configuration directory, whose credentials the model list follows.
  */
-export function createClaudeAccountQueries({ createProcess, accountIdentity, processes = () => [], isClosing = () => false }) {
+export function createClaudeAccountQueries({ createProcess, accountIdentity, configRoot, processes = () => [], isClosing = () => false }) {
   const error = message => Object.assign(new Error(message), { code: "claude_account_query_failed" });
   const accountProcessStops = new Set();
   const accountReads = new Set();
@@ -309,7 +315,7 @@ export function createClaudeAccountQueries({ createProcess, accountIdentity, pro
       entry.process && !entry.stopping && entry.accountIdentity === identity);
   }
 
-  async function readAccountProcess(identity, expectedRevision, purpose, read, { borrow = true } = {}) {
+  async function readAccountProcess(identity, expectedRevision, purpose, read, { borrow = false } = {}) {
     assertCurrent(expectedRevision);
     for (const native of accountProcessStops) await stopAccountProcess(native);
     assertCurrent(expectedRevision);
@@ -334,23 +340,40 @@ export function createClaudeAccountQueries({ createProcess, accountIdentity, pro
     }
   }
 
+  // The model list belongs to the account and the Claude Code version that gave
+  // it: the account's credentials file changes with sign-in, sign-out and each
+  // token refresh (which carries a plan change), and the executable with each
+  // Claude Code update. An executable given as a bare name has no metadata.
+  async function catalogueRevision(command) {
+    return JSON.stringify(await Promise.all([fileRevision(path.join(configRoot, ".credentials.json")),
+      fileRevision(command)]));
+  }
+
   return Object.freeze({
     async readCatalogue(context) {
       const expectedRevision = revision;
       assertCurrent(expectedRevision);
       const identity = await accountIdentity(context);
       assertCurrent(expectedRevision);
-      if (!catalog || catalog.identity !== identity || Date.now() - catalog.at > 600_000) {
-        if (!catalogStarts.has(identity)) catalogStarts.set(identity, (async () => {
-          const value = await readAccountProcess(identity, expectedRevision, "catalogue", (native) => native.initialization);
-          if (identity !== await accountIdentity(context)) throw error("The signed-in Claude account changed. Refresh the model list.");
-          assertCurrent(expectedRevision);
-          catalog = { at: Date.now(), identity, value };
-          return value;
-        })().finally(() => { catalogStarts.delete(identity); }));
-        return catalogStarts.get(identity);
+      // An answer is kept until its account, credentials or executable change, so
+      // reading it again starts no Claude.
+      const kept = catalog?.identity === identity ? catalog : null;
+      if (kept && kept.revision === await catalogueRevision(kept.command)) {
+        assertCurrent(expectedRevision);
+        return kept.value;
       }
-      return catalog.value;
+      if (!catalogStarts.has(identity)) catalogStarts.set(identity, (async () => {
+        // A conversation's process answers with what it knew when it started, so
+        // the list comes from a Claude started for this read.
+        const { value, command } = await readAccountProcess(identity, expectedRevision, "catalogue",
+          async (native) => ({ value: await native.initialization, command: native.command }));
+        const answered = await catalogueRevision(command);
+        if (identity !== await accountIdentity(context)) throw error("The signed-in Claude account changed. Refresh the model list.");
+        assertCurrent(expectedRevision);
+        catalog = { identity, command, revision: answered, value };
+        return value;
+      })().finally(() => { catalogStarts.delete(identity); }));
+      return catalogStarts.get(identity);
     },
     async readPlanUsage(context) {
       const expectedRevision = revision;
@@ -414,9 +437,10 @@ export function createClaudeAccountQueries({ createProcess, accountIdentity, pro
     },
     async invalidate() {
       revision++;
+      // Dropped at once: a read started before this cannot store its answer.
+      catalog = null;
       for (const controller of accountReads) controller.abort(error("Claude account query was cancelled for reconnection."));
       await Promise.allSettled([...catalogStarts.values(), ...usageReads]);
-      catalog = null;
       // The account changed: the next request for an account this owner used reads again.
       for (const identity of usageAccounts) planUsageReads.delete(identity);
       usageAccounts.clear();
@@ -501,7 +525,7 @@ export async function createClaudeCodeProcess({
     }, error => {
       if (!stopped && !stopping) stream.destroy(error);
     });
-    return { client, initialization, executionId: native.id, stop };
+    return { client, initialization, executionId: native.id, command, stop };
   } catch (error) {
     // A rejected start may already own an execution and its cleanup proof.
     // Only a returned native handle transfers that cleanup to this owner.

@@ -207,6 +207,17 @@ once with Claude Code's "Not logged in" result, reported as "Claude isn't
 connected. Sign in to Claude, then send your message again." Each conversation
 applies its account guard at its next idle admission.
 
+The Claude model list is kept per owner for the account that gave it, until
+that account's `.credentials.json` or the Claude Code executable that answered
+changes (file metadata, following links): sign-in, sign-out and each token
+refresh, which also carries a plan change, rewrite the credentials, and an
+update replaces the executable. Reading it again therefore starts no Claude
+however often pages reconnect or return. When it must be read, a temporary
+query process answers, never a live conversation's process, whose list dates
+from its own start. An executable given as a bare name has no metadata, so
+only an account or credentials change refreshes its list; macOS keeps
+credentials in the Keychain, so there an account change or update does.
+
 Claude plan usage keeps one verified reading per account in the server process,
 shared by every account-query owner, page and session that asks for that
 account; a request that arrives during a read shares it. A live conversation

@@ -355,9 +355,10 @@ Exports
 - `bindClaudeConversationAccount(entry, { identity, providerId, allowAccountChange = false, stop, save })`
 - `claudePlanUsage(value)`
 - `claudeCatalogueModels(initialization)`
-- `createClaudeAccountQueries({ createProcess, accountIdentity, processes = () => [], isClosing = () => false })`
+- `createClaudeAccountQueries({ createProcess, accountIdentity, configRoot, processes = () => [], isClosing = () => false })`
 - `createClaudeCodeProcess({ command = "claude", execution = createLocalConversationExecution(), env = process.env, workdir, onEvent, onControlRequest, onFailure, onStarted, executionLimits, signal, commandWrapper, initializationTimeoutMs = 30_000, onInitializationProgress, ...options } = {})`
 Local functions
+- `fileRevision(file)`
 - `readNativeClaudeCodeAuthStatus({ env, credentialHome, command, commandRunner, signal })`
 - `claudeCodeAuthStatus(result)`
 - `claudePlanUsageVerified(value)`

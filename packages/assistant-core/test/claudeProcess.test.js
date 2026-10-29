@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rename, rm, writeFile } from "node:fs/promises";
 import os, { tmpdir } from "node:os";
 import path, { join } from "node:path";
 import { test } from "node:test";
@@ -28,6 +28,9 @@ test("native command construction preserves tool-free constraints without granti
   assert.equal(coding.includes("--safe-mode"), true);
   assert.deepEqual(JSON.parse(coding[coding.indexOf("--mcp-config") + 1]), { mcpServers: { application: { type: "sdk", name: "application" } } });
 });
+
+// Account queries whose credentials are not the subject read them from nowhere.
+const ABSENT_CLAUDE_CONFIG = join(tmpdir(), "jskit-absent-claude-config");
 
 async function fixture(t, body) {
   const directory = await mkdtemp(join(tmpdir(), "jskit-claude-process-"));
@@ -554,13 +557,18 @@ test("Claude account queries isolate concurrent identities and deduplicate each 
   for (const method of ["readCatalogue", "readPlanUsage"]) {
     const pending = new Map(["first", "second"].map(id => [id, Promise.withResolvers()]));
     const calls = [];
+    const native = id => ({ command: process.execPath, async stop() { return { scopeEmpty: true }; },
+      get initialization() { calls.push(id); return pending.get(id).promise; },
+      client: { request() { calls.push(id); return pending.get(id).promise; } } });
+    // Plan usage borrows each account's conversation; the model list starts its own Claude.
+    const starting = ["first", "second"];
     const queries = createClaudeAccountQueries({
-      accountIdentity: async context => context.id,
-      processes: () => [...pending].map(([id, held]) => ({ accountIdentity: id, process: {
-        get initialization() { calls.push(id); return held.promise; },
-        client: { request() { calls.push(id); return held.promise; } }
-      } })),
-      createProcess() { throw new Error("An owned account process should be reused."); }
+      accountIdentity: async context => context.id, configRoot: ABSENT_CLAUDE_CONFIG,
+      processes: () => method === "readPlanUsage" ? starting.map(id => ({ accountIdentity: id, process: native(id) })) : [],
+      createProcess() {
+        if (method === "readPlanUsage") throw new Error("An owned account process should be reused.");
+        return native(starting.shift());
+      }
     });
     const first = queries[method]({ id: "first" });
     const duplicate = queries[method]({ id: "first" });
@@ -772,15 +780,61 @@ test("Claude plan usage reuses another owner's live reading instead of starting 
   assert.deepEqual(starts, ["usage"]);
 });
 
+test("Claude model list starts a Claude only after its account, credentials or Claude Code changed", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "jskit-claude-catalogue-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const configRoot = join(root, ".claude");
+  await mkdir(configRoot);
+  // Sign-in, a token refresh and an update each replace the file at a stable path.
+  const replace = async (file, contents) => {
+    await writeFile(`${file}.next`, contents);
+    await rename(`${file}.next`, file);
+  };
+  const credentials = join(configRoot, ".credentials.json");
+  const command = join(root, "claude");
+  await replace(credentials, "signed in");
+  await replace(command, "2.1.1");
+  const realNow = Date.now;
+  let now = realNow();
+  Date.now = () => now;
+  t.after(() => { Date.now = realNow; });
+  let account = "account";
+  const starts = [];
+  const queries = createClaudeAccountQueries({ accountIdentity: async () => account, configRoot,
+    // A conversation that started before every change below.
+    processes: () => [{ accountIdentity: account, process: { command, initialization: { models: [{ value: "live" }] } } }],
+    createProcess({ purpose }) {
+      starts.push(purpose);
+      return { command, initialization: { models: [{ value: `read-${starts.length}` }] },
+        async stop() { return { scopeEmpty: true }; } };
+    } });
+  const model = async () => (await queries.readCatalogue({})).models[0].value;
+  // Reconnects, tab returns and closed sessions ask about four times an hour.
+  const askForADay = async (expected) => {
+    for (let read = 0; read < 96; read++, now += 15 * 60_000) assert.equal(await model(), expected);
+  };
+  await askForADay("read-1");
+  assert.deepEqual(starts, ["catalogue"]);
+  await replace(credentials, "refreshed");
+  await askForADay("read-2");
+  await replace(command, "2.1.2");
+  await askForADay("read-3");
+  account = "other account";
+  await askForADay("read-4");
+  assert.deepEqual(starts, ["catalogue", "catalogue", "catalogue", "catalogue"]);
+  await queries.invalidate();
+  assert.equal(await model(), "read-5");
+});
+
 test("Claude account queries label temporary startup and reuse each account's recent reading", async () => {
   const starts = [];
   let stops = 0;
   const queries = createClaudeAccountQueries({
-    accountIdentity: async () => "private-account-identity",
+    accountIdentity: async () => "private-account-identity", configRoot: ABSENT_CLAUDE_CONFIG,
     createProcess(input) {
       starts.push(input);
       return {
-        initialization: { models: [] },
+        initialization: { models: [] }, command: process.execPath,
         client: { request: async () => ({ rate_limits_available: false }) },
         async stop() { stops++; return { scopeEmpty: true }; }
       };
@@ -842,10 +896,11 @@ for (const method of ["readCatalogue", "readPlanUsage"]) {
         // Usage reads count as native reads of the borrowed conversation process.
         processes: () => method === "readPlanUsage" ? [{ accountIdentity: "account", process: { client: {
           request: async () => { starts++; return { rate_limits_available: true, rate_limits: { limits: [] } }; } } } }] : [],
+        configRoot: ABSENT_CLAUDE_CONFIG,
         createProcess() {
           starts++;
           return {
-            initialization: { models: [{ value: `model-${starts}` }] },
+            initialization: { models: [{ value: `model-${starts}` }] }, command: process.execPath,
             client: { request: async () => ({ rate_limits_available: true, rate_limits: {} }) },
             async stop() {
               stops++;
