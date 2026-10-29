@@ -3183,6 +3183,8 @@ session's own close already recovered saved custody); OpenCode predecessor
 cleanup awaits close before consuming proof, while successor cleanup only consumes
 proof. OpenCode retains its original distinction between a resolved failed close
 (which still consumes proof) and rejected close (which leaves proof retryable).
+Deleting a scoped OpenCode conversation returns its scope's exit proof as
+`providerExit` and keeps none, because no renewal ever releases a scope's proof.
 Applications retain result projection and successful binding retirement.
 
 Closing a session stops what this server runs for it and then reopens only the

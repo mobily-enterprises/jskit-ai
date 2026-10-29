@@ -640,7 +640,13 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope, storageI
     });
     if (!result.deleted) return result;
     const cleanup = prepared.cleanupAfterDelete;
-    const providerExit = cleanup ? await closeSession(cleanup.sessionId, cleanup.options, cleanup.application) : null;
+    let providerExit = null;
+    if (cleanup) {
+      providerExit = await closeSession(cleanup.sessionId, cleanup.options, cleanup.application);
+      // The result carries the deleted scope's exit proof. Only renewal releases
+      // a kept proof, and a scope is never renewed, so none is kept.
+      processExitProofs.delete(cleanup.sessionId);
+    }
     return { conversationId, deleted: true, ok: providerExit?.ok !== false,
       ...(providerExit ? { providerExit } : {}) };
   }

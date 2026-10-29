@@ -224,6 +224,31 @@ test("an acquired OpenCode process without a main conversation can close without
   assert.equal(f.stops.length, 1);
 });
 
+test("deleting a scoped OpenCode conversation returns its scope's exit proof and keeps none", async () => {
+  const f = fixture();
+  const target = await f.acquire("ephemeral\0reasoning_1");
+  target.sessionId = "reasoning_1";
+  const deleted = [];
+  target.server = { ...target.server, client: { ...target.server.client, async deleteSession(id) { deleted.push(id); } } };
+  const application = {
+    closeTerminals: async () => ({ ok: true, closed: 0 }),
+    beforeRelease: async () => {},
+    onRemoved: async () => {},
+    afterRelease: async () => {},
+    failure: error => { throw error; }
+  };
+  const result = await f.runtime.deletePreparedConversation({
+    key: "ephemeral\0reasoning_1", conversationId: "native-1", persistent: false, scoped: true,
+    process: () => assert.fail("deleting must not start OpenCode"), onRemoved: async () => {},
+    cleanupAfterDelete: { sessionId: "reasoning_1", options: {}, application }
+  }, { persistent: false });
+  assert.deepEqual(deleted, ["native-1"]);
+  assert.equal(result.deleted, true);
+  assert.equal(result.providerExit.processExitProof.exited, true);
+  // A scope is never renewed, so nothing would ever release a kept proof.
+  assert.equal(f.runtime.releaseProcessExitProof("reasoning_1").processExitProof, null);
+});
+
 test("an active OpenCode turn with missing native identity still fails instead of claiming Stop", async () => {
   const runtime = createOpenCodeSharedRuntime();
   const client = createOpenCodeServerClient({ baseUrl: "http://127.0.0.1:1",
