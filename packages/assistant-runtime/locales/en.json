@@ -130,7 +130,8 @@
     },
     "errors": {
       "assistant_history_inspection_required": "This conversation has ambiguous historical SQL rows. Inspect the reported rows offline before using the common runtime; no history was changed.",
-      "assistant_subscription_transport_failed": "Chat updates could not reconnect. Retrying automatically; Reload chat to try now."
+      "assistant_subscription_transport_failed": "Chat updates could not reconnect. Retrying automatically; Reload chat to try now.",
+      "assistant_subscription_waiting": "Chat is still loading. Waiting for the server; Reload chat to try now."
     }
   }
 }

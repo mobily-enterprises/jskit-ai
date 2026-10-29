@@ -329,45 +329,42 @@ test("slow successful subscriptions warn once with the blocked stage and no conv
   assert.equal(f.fetches.length, 0);
 });
 
-test("the real ten-second subscription deadline releases its late observer and Reload never repeats work", { timeout: 25_000 }, async t => {
+test("a real subscription slower than ten seconds keeps its observer, says it is still loading and delivers the late snapshot", { timeout: 25_000 }, async t => {
   const f = await fixture(t);
   const socket = await f.connect();
   const socketId = socket.id;
   const id = f.ids[0];
-  await f.conversations.get(id).send({ messageId: "survives-timeout", text: "Keep working through a slow snapshot" });
+  await f.conversations.get(id).send({ messageId: "survives-wait", text: "Keep working through a slow snapshot" });
   await until(f.changes, () => f.fetches.length === 1);
   const barrier = f.holdNextRead(id);
   const view = f.view(socket, id);
   await until(f.changes, () => barrier.started);
-  const firstSubscriptionEpoch = f.subscriptionTimings.at(-1).subscriptionEpoch;
-  while (!view.errors.length || f.active() !== 0) {
-    await once(f.changes, "change", { signal: AbortSignal.timeout(12_000) });
-  }
-  assert.equal(view.errors[0].message, "Chat updates could not reconnect. Retrying automatically; Reload chat to try now.");
-  assert.equal(view.errors[0].cause.message, "operation has timed out");
+  const subscriptionEpoch = f.subscriptionTimings.at(-1).subscriptionEpoch;
+  while (!view.errors.length) await once(f.changes, "change", { signal: AbortSignal.timeout(12_000) });
+  assert.equal(view.errors[0].message, "Chat is still loading. Waiting for the server; Reload chat to try now.");
+  assert.equal(view.errors[0].code, "assistant_subscription_waiting");
+  assert.equal(f.active(), 1, "The slow observer stays attached while its snapshot is read");
   assert.equal(socket.id, socketId);
   assert.equal(socket.connected, true);
   assert.equal(view.states.length, 0);
-  assert.equal(f.fetches[0].signal.aborted, false);
-  view.dispose.reload();
-  await until(f.changes, () => view.states.length === 1 && f.active() === 1);
-  assert.equal(view.states[0].conversationLog[0].user.messageId, "survives-timeout");
-  const statesBeforeLateRead = view.states.length;
   barrier.resolve();
-  await until(f.changes, () => f.subscriptionTimings.some(record =>
-    record.subscriptionEpoch === firstSubscriptionEpoch && record.stage === "abandoned"));
-  const abandoned = f.subscriptionTimings.find(record =>
-    record.subscriptionEpoch === firstSubscriptionEpoch && record.stage === "abandoned");
-  assert.equal(abandoned.level, "warn", "A timed-out snapshot remains visible at the production warning level");
-  assert.equal(abandoned.previousStage, "snapshot-read");
-  assert.ok(abandoned.durationMs >= 5_000);
-  assert.equal(view.states.length, statesBeforeLateRead, "The obsolete server read never acknowledges into the recovered view");
-  assert.equal(f.active(), 1, "The late read cannot release the recovered observer");
+  await until(f.changes, () => view.states.length === 1);
+  assert.equal(view.states[0].conversationLog[0].user.messageId, "survives-wait");
+  const records = f.subscriptionTimings.filter(record => record.subscriptionEpoch === subscriptionEpoch);
+  assert.equal(records.some(record => record.stage === "abandoned"), false, "Slow work is never abandoned");
+  const acknowledged = records.find(record => record.stage === "acknowledgement");
+  assert.equal(acknowledged.level, "warn", "A slow snapshot remains visible at the production warning level");
+  assert.equal(acknowledged.previousStage, "snapshot-read");
+  assert.ok(acknowledged.elapsedMs >= 10_000);
+  assert.equal(f.subscriptionTimings.filter(record => record.stage === "authentication").length, 1,
+    "Waiting never sends another subscription");
+  assert.equal(view.errors.length, 1);
+  assert.equal(f.active(), 1);
   assert.equal(f.fetches.length, 1);
   assert.equal(f.fetches[0].signal.aborted, false);
   assert.equal(socket.listeners(ASSISTANT_CONVERSATION_EVENT).length, 1);
-  f.fetches[0].text("Still running after the timed-out observation.");
-  await until(f.changes, () => view.received.some(event => event.text?.includes("timed-out observation")));
+  f.fetches[0].text("Still running after the slow snapshot.");
+  await until(f.changes, () => view.received.some(event => event.text?.includes("slow snapshot")));
   view.dispose();
   await until(f.changes, () => f.active() === 0);
 });
@@ -474,7 +471,7 @@ for (const failure of ["rejection", "timeout"]) {
     const requests = [], states = [], errors = [];
     let reads = 0;
     socket.timeout = timeout => ({ emit(name, input, acknowledge) {
-      assert.equal(timeout, 10_000);
+      assert.equal(timeout, 120_000, "Only a much longer silence counts as a lost answer");
       assert.equal(name, ASSISTANT_CONVERSATION_SUBSCRIBE);
       requests.push({ input, acknowledge });
     } });
@@ -1073,6 +1070,134 @@ test("a retried resubscribe keeps the loaded history its caller preserved", t =>
   t.mock.timers.tick(1_000);
   requests[2](null, { ok: true, streamEpoch: "second", state });
   assert.deepEqual(publications, [{ initial: true, canonical: true }, { initial: false, canonical: false }]);
+  subscription();
+});
+
+// Socket.IO's acknowledgement deadline and disconnect handling, on mocked timers.
+function slowServerSocket(t) {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const socket = new EventEmitter();
+  socket.connected = true;
+  const subscribes = [], unsubscribes = [];
+  socket.on(ASSISTANT_CONVERSATION_UNSUBSCRIBE, input => unsubscribes.push(input));
+  socket.timeout = milliseconds => ({ emit(name, input, acknowledge) {
+    let settled = false;
+    const settle = (...args) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      acknowledge(...args);
+    };
+    const timer = setTimeout(() => settle(new Error("operation has timed out")), milliseconds);
+    subscribes.push({ name, input, answer: response => settle(null, response),
+      drop: () => settle(new Error("socket has been disconnected")) });
+  } });
+  function disconnect() {
+    socket.connected = false;
+    socket.emit("disconnect");
+    for (const request of subscribes) request.drop();
+  }
+  return { socket, subscribes, unsubscribes, disconnect };
+}
+const slowState = { id: "chat", conversationLog: [], streaming: { revision: 0, messages: [] } };
+function slowView(socket) {
+  const states = [], errors = [];
+  const subscription = subscribeAssistantConversation({ socket, conversationId: "chat", targetSurfaceId: "home", hostSurfaceId: "home",
+    read: () => slowState, onState: state => states.push(state), onError: error => errors.push(error) });
+  return { states, errors, subscription };
+}
+
+test("a connected subscription keeps waiting for a slow server instead of abandoning its work at ten seconds", t => {
+  // Production: an overloaded daemon answered after 14-15 s; the client gave
+  // up at 10 s, unsubscribed and retried with 10 s again, so the chat never loaded.
+  const { socket, subscribes, unsubscribes } = slowServerSocket(t);
+  const { states, errors, subscription } = slowView(socket);
+  t.mock.timers.tick(9_999);
+  assert.equal(errors.length, 0);
+  t.mock.timers.tick(1);
+  assert.equal(errors.length, 1, "Past the normal budget the user is told the chat is still loading");
+  assert.equal(errors[0].code, "assistant_subscription_waiting");
+  assert.equal(errors[0].message, "Chat is still loading. Waiting for the server; Reload chat to try now.");
+  t.mock.timers.tick(5_000);
+  subscribes[0].answer({ ok: true, streamEpoch: "slow", state: slowState });
+  assert.equal(states.length, 1, "The fifteen-second answer is delivered");
+  assert.equal(subscribes.length, 1, "Waiting never starts another subscription");
+  assert.deepEqual(unsubscribes, [], "Waiting never abandons the server's work");
+  t.mock.timers.tick(300_000);
+  assert.equal(subscribes.length, 1);
+  assert.equal(errors.length, 1);
+  subscription();
+  assert.equal(unsubscribes.length, 1, "Disposal still releases the observer");
+});
+
+test("a subscription answer lost past the two-minute cap still unsubscribes and retries with backoff", t => {
+  const { socket, subscribes, unsubscribes } = slowServerSocket(t);
+  const { states, errors, subscription } = slowView(socket);
+  t.mock.timers.tick(119_999);
+  assert.deepEqual(errors.map(error => error.code), ["assistant_subscription_waiting"]);
+  assert.deepEqual(unsubscribes, []);
+  t.mock.timers.tick(1);
+  assert.deepEqual(unsubscribes, [{ subscriptionId: subscribes[0].input.subscriptionId }]);
+  assert.equal(errors[1].code, "assistant_subscription_transport_failed");
+  assert.equal(errors[1].cause.message, "operation has timed out");
+  t.mock.timers.tick(999);
+  assert.equal(subscribes.length, 1);
+  t.mock.timers.tick(1);
+  assert.equal(subscribes.length, 2, "The lost answer retries after the existing backoff");
+  assert.deepEqual(subscribes[1].input, subscribes[0].input);
+  t.mock.timers.tick(10_000);
+  assert.equal(errors[2].code, "assistant_subscription_waiting", "Each slow attempt says it is still loading");
+  subscribes[1].answer({ ok: true, streamEpoch: "recovered", state: slowState });
+  assert.equal(states.length, 1);
+  assert.equal(unsubscribes.length, 1);
+  subscription();
+});
+
+test("a disconnect while a slow subscription waits resets it and the next connect subscribes again", t => {
+  const { socket, subscribes, unsubscribes, disconnect } = slowServerSocket(t);
+  const { states, errors, subscription } = slowView(socket);
+  t.mock.timers.tick(10_000);
+  assert.equal(errors.length, 1);
+  disconnect();
+  t.mock.timers.tick(300_000);
+  assert.equal(subscribes.length, 1, "A disconnected socket waits for its own reconnect");
+  assert.deepEqual(unsubscribes, [], "There is no connection to unsubscribe on");
+  assert.equal(errors.length, 1, "A disconnect reports no lost answer and no further notice");
+  socket.connected = true;
+  socket.emit("connect");
+  assert.equal(subscribes.length, 2);
+  assert.deepEqual(subscribes[1].input, subscribes[0].input);
+  subscribes[1].answer({ ok: true, streamEpoch: "reconnected", state: slowState });
+  assert.equal(states.length, 1);
+  t.mock.timers.tick(300_000);
+  assert.equal(errors.length, 1);
+  subscription();
+});
+
+test("Reload chat while a slow subscription waits reads history or resubscribes, ignoring the earlier late answer", async t => {
+  const { socket, subscribes, unsubscribes } = slowServerSocket(t);
+  const { states, errors, subscription } = slowView(socket);
+  t.mock.timers.tick(10_000);
+  assert.equal(errors.length, 1);
+  await subscription.reload();
+  assert.equal(states.length, 1, "Reload reads canonical history while the subscription keeps waiting");
+  assert.equal(subscribes.length, 1);
+  subscription.reload({ resubscribe: true });
+  assert.equal(subscribes.length, 2, "A manual resubscribe replaces the waiting attempt by its identity");
+  assert.deepEqual(subscribes[1].input, subscribes[0].input);
+  assert.deepEqual(unsubscribes, []);
+  t.mock.timers.tick(5_000);
+  subscribes[0].answer({ ok: true, streamEpoch: "replaced", state: slowState });
+  assert.equal(states.length, 1, "The replaced attempt's late answer is ignored");
+  assert.equal(errors.length, 1);
+  t.mock.timers.tick(5_000);
+  assert.equal(errors.length, 2, "The replacement attempt has its own loading notice");
+  subscribes[1].answer({ ok: true, streamEpoch: "current", state: slowState });
+  assert.equal(states.length, 2);
+  t.mock.timers.tick(300_000);
+  assert.equal(errors.length, 2);
+  assert.equal(subscribes.length, 2);
+  assert.deepEqual(unsubscribes, []);
   subscription();
 });
 

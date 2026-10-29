@@ -16,6 +16,12 @@ function patchLoadedHistoryPages(pages = [], patch) {
 }
 
 const SNAPSHOT_EVENTS = new Set(["accepted", "settled", "configuration", "phase", "error", "replaced", "goal"]);
+// A connected server may need longer than the normal budget to answer (an
+// overloaded host took 15 s). Abandoning it then discards the server's work and
+// repeats it, so a slow answer only shows a loading notice; it is treated as
+// lost, unsubscribed and retried only after the much longer cap.
+const SUBSCRIPTION_NOTICE_MS = 10_000;
+const SUBSCRIPTION_LOST_MS = 120_000;
 
 function subscribeAssistantConversation({
   socket, conversationId, targetSurfaceId, hostSurfaceId, workspaceSlug,
@@ -44,6 +50,7 @@ function subscribeAssistantConversation({
   // otherwise only the next connect would recover the chat.
   let retryTimer = null;
   let retryDelay = 1_000;
+  let waitingTimer = null;
   const completed = new Map();
   const settledTurns = new Set();
   const pendingReads = new Set();
@@ -187,12 +194,14 @@ function subscribeAssistantConversation({
     if (epoch === null) pending.push(payload);
     else deliver(payload);
   }
-  function clearRetry() {
+  function clearTimers() {
     clearTimeout(retryTimer);
     retryTimer = null;
+    clearTimeout(waitingTimer);
+    waitingTimer = null;
   }
   function subscribe({ preserveHistory = false } = {}) {
-    clearRetry();
+    clearTimers();
     if (disposed || !socket.connected) return;
     const attempt = ++generation;
     epoch = null;
@@ -205,8 +214,12 @@ function subscribeAssistantConversation({
     settledTurns.clear();
     reloadInFlight = null;
     reloadQueued = false;
-    socket.timeout(10_000).emit(ASSISTANT_CONVERSATION_SUBSCRIBE, input, (error, response) => {
+    waitingTimer = setTimeout(() => onError(Object.assign(
+      new Error("Chat is still loading. Waiting for the server; Reload chat to try now."),
+      { code: "assistant_subscription_waiting" })), SUBSCRIPTION_NOTICE_MS);
+    socket.timeout(SUBSCRIPTION_LOST_MS).emit(ASSISTANT_CONVERSATION_SUBSCRIBE, input, (error, response) => {
       if (disposed || attempt !== generation) return;
+      clearTimers();
       if (error || response?.ok !== true) {
         listening = false;
         pending = [];
@@ -232,7 +245,7 @@ function subscribeAssistantConversation({
     });
   }
   function disconnected() {
-    clearRetry();
+    clearTimers();
     generation += 1;
     epoch = null;
     pending = [];
@@ -248,7 +261,7 @@ function subscribeAssistantConversation({
   function release() {
     if (disposed) return;
     disposed = true;
-    clearRetry();
+    clearTimers();
     generation += 1;
     pending = [];
     completed.clear();

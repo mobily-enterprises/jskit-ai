@@ -729,12 +729,18 @@ same `reload` action and respects `reloading`. Enable it only when the current
 actor may recover that conversation. The supplied runtime binding derives this
 from its existing access-denial state; a 401/403 still clears private history and
 drafts and offers no error-only Reload. Restore access or sign in through the
-application before reopening. A subscription transport failure says **Chat
-updates could not reconnect. Retrying automatically; Reload chat to try now.** and
-retains its original error as `cause`; provider errors keep their own wording.
-After a transport failure or a 5xx subscription response, the subscription retries
-by itself after 1 s, doubling up to 30 s, while the socket stays connected; Reload,
-a reconnect or disposal replaces that pending retry. Denials (4xx) never retry.
+application before reopening. A subscription that is still unanswered after
+10 s says **Chat is still loading. Waiting for the server; Reload chat to try now.**
+(`assistant_subscription_waiting`) through the same error channel, and keeps
+waiting: while the socket stays connected it does not unsubscribe or subscribe
+again, so the server's work is not abandoned or repeated. The answer replaces the
+notice. Only an answer missing after 120 s counts as a transport failure, which
+says **Chat updates could not reconnect. Retrying automatically; Reload chat to try
+now.** and retains its original error as `cause`; provider errors keep their own
+wording. After a transport failure or a 5xx subscription response, the subscription
+retries by itself after 1 s, doubling up to 30 s, while the socket stays connected;
+Reload, a reconnect or disposal replaces that pending retry. A disconnect ends the
+wait without a notice and the next connect subscribes again. Denials (4xx) never retry.
 
 When `runtime.logger` is supplied, subscriptions emit structured
 `assistant.conversation.subscription` records containing `stage`, `previousStage`,
@@ -745,8 +751,8 @@ authentication, action admission, conversation opening, observer attachment,
 snapshot reading and acknowledgement. The acknowledgement stage includes
 `snapshotTurns` and `snapshotLimit` when available, without message content.
 `acknowledgement-sent` records server dispatch, not client receipt. Diagnose the
-measured slow stage before changing the existing ten-second acknowledgement
-deadline.
+measured slow stage before changing the existing ten-second loading notice or the
+120-second lost-answer deadline.
 
 `reloadable`, `reloading`, `welcomeMessage`, and `variant: "main" | "task"`
 control the corresponding transcript presentation. `userMessageFormat` is

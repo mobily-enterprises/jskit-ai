@@ -34,7 +34,8 @@ modes) and `packages/agent-docs/site/guide/app-extras/assistant-conversation.md`
 With the existing realtime diagnostic option (`JSKIT_REALTIME_DEBUG=1`, or
 `config.realtime.debug=true`), conversation subscriptions emit one `pending`
 warning if admission/snapshot reading has not returned within the client's
-10-second acknowledgement budget. The warning names the current stage and the
+10-second budget, after which the client shows a loading notice and keeps waiting
+(it gives up only after 120 seconds). The warning names the current stage and the
 server-generated epoch; a conversation identity is included only after its
 successful authorized open. Observer release also records the current stage and
 reason. While diagnostics are enabled, every stage transition is recorded at
