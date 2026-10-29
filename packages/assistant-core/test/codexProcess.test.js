@@ -3,6 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
+import { assertCodexAuthPreflightReady } from "../src/server/conversation/codexAuthPreflight.js";
 import { createCodexAppServerRuntime } from "../src/server/conversation/codexProcess.js";
 
 /** Starts a runtime whose execution host records the launch and reports failure. */
@@ -59,4 +60,13 @@ test("a non-octal umask is refused before it reaches the startup script", () => 
     credentials: {},
     execution: {}
   }), /umask must be octal/);
+});
+
+test("the Codex sign-in check names itself to the execution host", async () => {
+  let request;
+  const execution = { async run(value) { request = value; return { ok: true, exitCode: 0, output: "{}" }; } };
+  await assertCodexAuthPreflightReady({ codexCommand: process.execPath }, { execution });
+  assert.equal(request.mode, "capture");
+  assert.deepEqual(request.args.slice(-2), ["debug", "models"]);
+  assert.deepEqual(request.execution, { label: "Checking the Codex sign-in", operationId: "codex-auth-preflight" });
 });

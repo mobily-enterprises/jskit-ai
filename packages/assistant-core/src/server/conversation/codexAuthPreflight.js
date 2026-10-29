@@ -11,6 +11,8 @@ import { normalizeNullableText as normalizeAgentText } from "./normalize.js";
 // reconnect-required output marks the stored credentials invalid.
 const CODEX_AUTH_PREFLIGHT_TIMEOUT_MS = 15000;
 const CODEX_AUTH_PREFLIGHT_OUTPUT_TAIL_BYTES = 4096;
+// The host names this run where it lists running work.
+const CODEX_AUTH_PREFLIGHT_EXECUTION = Object.freeze({ label: "Checking the Codex sign-in", operationId: "codex-auth-preflight" });
 
 function tailAppend(text = "", chunk = "", maxBytes = CODEX_AUTH_PREFLIGHT_OUTPUT_TAIL_BYTES) {
   const next = `${String(text || "")}${String(chunk || "")}`;
@@ -60,6 +62,7 @@ async function runCodexAuthPreflight({
       command: codexCommand,
       credentialHome: codexAppServerCredentialHome(normalizedToolHomeSource, baseEnv),
       cwd: processCwd,
+      execution: CODEX_AUTH_PREFLIGHT_EXECUTION,
       inheritProcessEnv: false,
       mode: "capture",
       timeout: normalizePositiveInteger(timeoutMs, { fallback: CODEX_AUTH_PREFLIGHT_TIMEOUT_MS })
