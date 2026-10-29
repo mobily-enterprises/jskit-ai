@@ -190,6 +190,72 @@ test("Claude status failures do not poison later reads or share across credentia
   assert.equal(calls, 3);
 });
 
+test("a Claude status read that cannot finish keeps Claude's recent answer for unchanged account files", {
+  skip: process.platform === "darwin"
+}, async (t) => {
+  const home = await mkdtemp(path.join(os.tmpdir(), "claude-auth-status-"));
+  t.after(() => rm(home, { recursive: true, force: true }));
+  const realNow = Date.now;
+  let now = realNow();
+  Date.now = () => now;
+  t.after(() => { Date.now = realNow; });
+  const signedIn = { ok: true, stdout: JSON.stringify({ loggedIn: true, email: "owner@example.test", authMethod: "claude.ai" }) };
+  const signedInStatus = { loggedIn: true, email: "owner@example.test", authMethod: "claude.ai", subscriptionType: "" };
+  const timedOut = { ok: false, exitCode: 1, timedOut: true, error: "Command timed out." };
+  let calls = 0;
+  let result = signedIn;
+  const input = { env: { CLAUDE_CONFIG_DIR: path.join(home, ".claude") }, credentialHome: { home },
+    commandRunner: async () => { calls += 1; return result; } };
+  assert.equal((await readClaudeCodeAuthStatus(input)).email, "owner@example.test");
+  // An overloaded host times the next read out, or refuses to start it for now.
+  for (const unfinished of [timedOut, { ok: false, exitCode: 1, retryable: true, error: "Memory-pressure spike." }]) {
+    now += 31_000;
+    result = unfinished;
+    assert.deepEqual(await readClaudeCodeAuthStatus(input), signedInStatus);
+  }
+  // That answer is reused for the normal window, so the busy host is not probed again at once.
+  const probes = calls;
+  now += 29_000;
+  assert.deepEqual(await readClaudeCodeAuthStatus(input), signedInStatus);
+  assert.equal(calls, probes);
+  // A read that ran and failed is still reported.
+  now += 2_000;
+  result = { ok: false, exitCode: 2, error: "Claude Code crashed." };
+  assert.equal((await readClaudeCodeAuthStatus(input)).error, "Claude Code crashed.");
+  // Changed account files need Claude's own new answer.
+  await mkdir(path.join(home, ".claude"));
+  await writeFile(path.join(home, ".claude", ".credentials.json"), "native-account-changed");
+  result = timedOut;
+  assert.equal((await readClaudeCodeAuthStatus(input)).error, "Command timed out.");
+  // The recent answer expires: an old one is not kept forever.
+  now += 31_000;
+  result = signedIn;
+  assert.equal((await readClaudeCodeAuthStatus(input)).loggedIn, true);
+  now += 5 * 60_000 + 1;
+  result = timedOut;
+  assert.equal((await readClaudeCodeAuthStatus(input)).error, "Command timed out.");
+});
+
+test("an unfinished Claude status read with no recent answer is reported without probing again at once", {
+  skip: process.platform === "darwin"
+}, async (t) => {
+  const realNow = Date.now;
+  let now = realNow();
+  Date.now = () => now;
+  t.after(() => { Date.now = realNow; });
+  let calls = 0;
+  let result = { ok: false, exitCode: 1, retryable: true, error: "Memory-pressure spike." };
+  const input = { env: {}, credentialHome: { home: "/home/fixture-busy" }, commandRunner: async () => { calls += 1; return result; } };
+  assert.equal((await readClaudeCodeAuthStatus(input)).error, "Memory-pressure spike.");
+  now += 29_000;
+  assert.equal((await readClaudeCodeAuthStatus(input)).error, "Memory-pressure spike.");
+  assert.equal(calls, 1);
+  now += 2_000;
+  result = { ok: true, stdout: JSON.stringify({ loggedIn: true, email: "owner@example.test" }) };
+  assert.equal((await readClaudeCodeAuthStatus(input)).loggedIn, true);
+  assert.equal(calls, 2);
+});
+
 test("Claude plan usage retains real windows and never invents an allowance after reset", () => {
   assert.deepEqual(claudePlanUsage({ rate_limits_available: false }).windows, []);
   const usage = claudePlanUsage({ rate_limits_available: true, rate_limits: {

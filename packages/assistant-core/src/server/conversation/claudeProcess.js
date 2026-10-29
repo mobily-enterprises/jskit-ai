@@ -10,6 +10,8 @@ import { CLAUDE_APPLICATION_TOOL_SERVER } from "./claudeTools.js";
 import { nativeCommandHook, validateCommandWrapper } from "./commandWrapper.js";
 
 const statusReads = new WeakMap();
+const STATUS_REUSE_MS = 30_000;
+const STATUS_UNFINISHED_GRACE_MS = 5 * 60_000;
 const CLAUDE_EXIT_WAIT_MS = 5_000;
 
 /** Person-facing cause for a Claude process that ended without being stopped. */
@@ -51,12 +53,21 @@ export async function readClaudeCodeAuthStatus({
   const revision = JSON.stringify(revisions);
   const previous = reads.get(key);
   if (previous?.revision === revision && (previous.pending || previous.expiresAt > Date.now())) return previous.value;
-  const entry = { revision, pending: true, expiresAt: 0 };
+  // Claude's last answer for these exact account files.
+  const answered = previous?.revision === revision ? previous.answered : null;
+  const entry = { revision, pending: true, expiresAt: 0, answered };
   reads.set(key, entry);
-  entry.value = readNativeClaudeCodeAuthStatus({ env, credentialHome, command, commandRunner, signal }).then((status) => {
+  entry.value = readNativeClaudeCodeAuthStatus({ env, credentialHome, command, commandRunner, signal }).then(({ status, unfinished }) => {
+    // A read the host timed out or refused for now says nothing about the account.
+    const value = unfinished && answered && Date.now() - answered.at < STATUS_UNFINISHED_GRACE_MS
+      ? answered.status : Object.freeze(status);
     // Keychain changes cannot be observed with file metadata on macOS.
-    if (!status.error && process.platform !== "darwin") entry.expiresAt = Date.now() + 30_000;
-    return Object.freeze(status);
+    if (process.platform !== "darwin") {
+      // Unfinished reads back off too, so a busy host is not probed again by every caller.
+      if (!status.error || unfinished) entry.expiresAt = Date.now() + STATUS_REUSE_MS;
+      if (!status.error) entry.answered = { status: value, at: Date.now() };
+    }
+    return value;
   }).finally(() => { entry.pending = false; });
   return entry.value;
 }
@@ -67,6 +78,12 @@ async function readNativeClaudeCodeAuthStatus({ env, credentialHome, command, co
     credentialHome, cwd: credentialHome.home, mode: "capture",
     timeout: 30_000, maxBuffer: 64 * 1024, ...(signal ? { signal } : {})
   });
+  const status = claudeCodeAuthStatus(result);
+  return { status, unfinished: Boolean(status.error) && result.ok !== true &&
+    (result.timedOut === true || result.retryable === true) };
+}
+
+function claudeCodeAuthStatus(result) {
   const failure = result.error ? { loggedIn: false, error: result.error }
     : { loggedIn: false, error: "Claude Code is not connected.", messageCode: "assistant.claude.notConnected", messageParams: {} };
   if (!result.ok && (result.exitCode !== 1 || result.timedOut || result.signal)) return failure;

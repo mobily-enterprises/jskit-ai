@@ -3690,7 +3690,12 @@ neither operation is a conversation or an account store.
 `readClaudeCodeAuthStatus` uses a supplied capture runner for native account
 inspection. Hosts select the executable and credential home and retain their
 execution policy; the reader returns only public account fields. The ordinary
-runtime supplies this integration automatically.
+runtime supplies this integration automatically. When the runner reports that a
+read timed out (`timedOut`) or was refused for now (`retryable`), the reader
+returns Claude's last answer if the account files are unchanged and that answer
+is under five minutes old, instead of reporting the account as signed out.
+Such a read, with or without that answer, is reused for 30 seconds so a busy
+host is not asked again by every caller.
 The retained owner stops its native process or recovers its durable execution
 identity through the supplied host. Its internal stop operation preserves the
 original stop-proof contract and throws `claude_stop_unconfirmed` when cleanup

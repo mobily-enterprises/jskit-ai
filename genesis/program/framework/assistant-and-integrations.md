@@ -345,6 +345,17 @@ The existing Claude account-query factory receives the bounded `purpose` value
 conversation processes, account caches, cancellation and cleanup remain owned
 by the same query facility; the label does not change their lifecycle.
 
+`readClaudeCodeAuthStatus` shares concurrent reads per host runner, Claude
+command, environment and credential home, and reuses Claude's answer for 30
+seconds while the account files' metadata is unchanged. A read that ran and
+failed is reported and never reused. A read the host timed out or refused for
+now (`timedOut` or `retryable`) returns Claude's last answer for the same
+unchanged files when that answer is under five minutes old; otherwise it
+reports its failure. Either result is reused for the same 30 seconds, so a busy
+host is not probed again by every caller; the five minutes still count from
+Claude's own answer. macOS reuses nothing because file metadata cannot show
+Keychain changes.
+
 The existing voice queue preserves arrival order for selected progress/thinking
 narration and canonical answers. An arriving answer retires only optional murmur
 filler, not message playback. Explicit Stop, mute, capture-related narration

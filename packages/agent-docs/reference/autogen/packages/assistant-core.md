@@ -359,6 +359,7 @@ Exports
 - `createClaudeCodeProcess({ command = "claude", execution = createLocalConversationExecution(), env = process.env, workdir, onEvent, onControlRequest, onFailure, onStarted, executionLimits, signal, commandWrapper, initializationTimeoutMs = 30_000, onInitializationProgress, ...options } = {})`
 Local functions
 - `readNativeClaudeCodeAuthStatus({ env, credentialHome, command, commandRunner, signal })`
+- `claudeCodeAuthStatus(result)`
 
 ### `src/server/conversation/claudeTools.js`
 Exports
