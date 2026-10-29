@@ -15,7 +15,7 @@ A concrete Fastify, Vue, and JSKIT application foundation for products that do n
 
 - Id: `app/minimal-foundation`
 - Keywords: `app`, `fastify`, `foundation`, `minimal`, `server`, `vite`, `vue`
-- Owner: `@jskit-ai/agent-docs@0.1.249`
+- Owner: `@jskit-ai/agent-docs@0.1.250`
 - Requires: `@jskit-ai/http-runtime`, `@jskit-ai/kernel`
 
 ## [Adaptive-shell JSKIT application foundation](/patterns/app/shell-foundation)
@@ -24,7 +24,7 @@ A concrete JSKIT web application foundation with responsive shell navigation, se
 
 - Id: `app/shell-foundation`
 - Keywords: `app`, `foundation`, `material`, `navigation`, `placements`, `shell`, `vite`, `vue`
-- Owner: `@jskit-ai/agent-docs@0.1.249`
+- Owner: `@jskit-ai/agent-docs@0.1.250`
 - Requires: `@jskit-ai/http-runtime`, `@jskit-ai/kernel`, `@jskit-ai/shell-web`
 
 ## [Assistant surface and settings](/patterns/assistant/assistant-surface)
@@ -33,7 +33,7 @@ Configure an assistant runtime for one application surface and expose its chat a
 
 - Id: `assistant/assistant-surface`
 - Keywords: `ai`, `assistant`, `chat`, `config`, `environment`, `page`, `placement`, `settings`, `surface`
-- Owner: `@jskit-ai/assistant-runtime@0.2.1`
+- Owner: `@jskit-ai/assistant-runtime@0.2.2`
 - Requires: `@jskit-ai/assistant-runtime`, `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`, `@jskit-ai/shell-web`
 
 ## [Accounts hub](/patterns/auth/accounts-hub)
@@ -213,7 +213,7 @@ Build a routed CRUD user interface as thin application pages over JSKIT's shared
 
 - Id: `crud/crud-screen-set`
 - Keywords: `actions`, `add`, `crud`, `delete`, `edit`, `filters`, `list`, `material`, `routes`, `view`, `vue`
-- Owner: `@jskit-ai/http-web@0.2.0`
+- Owner: `@jskit-ai/http-web@0.2.1`
 - Requires: `@jskit-ai/http-web`, `@jskit-ai/resource-crud-core`
 
 ## [JSON API CRUD resource package](/patterns/crud/json-api-resource-package)
@@ -285,7 +285,7 @@ Define a server feature through explicit capabilities and first-class actions, a
 
 - Id: `server/feature-package`
 - Keywords: `actions`, `feature`, `json-rest`, `knex`, `orchestration`, `package`, `provider`, `repository`, `routes`, `server`
-- Owner: `@jskit-ai/agent-docs@0.1.249`
+- Owner: `@jskit-ai/agent-docs@0.1.250`
 - Requires: `@jskit-ai/kernel`
 
 ## [Responsive application shell](/patterns/shell/application-shell)
@@ -312,7 +312,7 @@ Compose an account settings route and profile, preference, and notification sect
 
 - Id: `users/account-settings`
 - Keywords: `account`, `notifications`, `preferences`, `profile`, `settings`, `user`, `vue`
-- Owner: `@jskit-ai/users-web@0.2.0`
+- Owner: `@jskit-ai/users-web@0.2.1`
 - Requires: `@jskit-ai/shell-web`, `@jskit-ai/users-core`, `@jskit-ai/users-web`
 
 ## [User administration server package](/patterns/users/user-administration-server)
@@ -339,5 +339,5 @@ Compose workspace selection, invitation, member administration, settings, and re
 
 - Id: `workspaces/workspace-surfaces`
 - Keywords: `admin`, `invite`, `member`, `navigation`, `settings`, `surface`, `switcher`, `workspace`
-- Owner: `@jskit-ai/workspaces-web@0.2.0`
+- Owner: `@jskit-ai/workspaces-web@0.2.1`
 - Requires: `@jskit-ai/shell-web`, `@jskit-ai/workspaces-core`, `@jskit-ai/workspaces-web`
