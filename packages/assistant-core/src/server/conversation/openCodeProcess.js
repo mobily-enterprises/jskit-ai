@@ -85,8 +85,10 @@ const OPENCODE_EXIT_REASON_MAX_CHARACTERS = 300;
 // OpenCode's last stderr line, as one bounded line of plain text.
 function openCodeExitReason(logs) {
   const line = String(logs?.stderr || "")
+    // eslint-disable-next-line no-control-regex -- Strip terminal escape sequences from captured stderr.
     .replace(/\u001b\[[0-9;?]*[ -/]*[@-~]/gu, "")
     .split(/\r?\n/u)
+    // eslint-disable-next-line no-control-regex -- The reason becomes one line of plain text.
     .map((candidate) => candidate.replace(/[\u0000-\u001f\u007f]/gu, " ").trim())
     .filter(Boolean)
     .at(-1) || "";
