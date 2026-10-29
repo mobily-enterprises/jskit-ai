@@ -269,6 +269,21 @@ has a native ID. Stopping its idle main turn is a no-op; session closure still
 drains owned helpers and releases the process without interrupting peer sessions.
 An active turn with a missing native identity remains an error, never a
 successful Stop.
+
+Closing a Codex session or project stops its live conversations first, each
+through the provider that observes it; one that cannot stop stays registered for
+a retried close while the others still stop. Saved Helper records are restored
+only to be retired through the providers that close stops. A record that cannot
+be restored (a removed account, an unreadable ledger, a notice its host refuses)
+stays on disk for a later connection and is reported, and never keeps providers
+running. Account-change invalidation does not reopen saved records. Deleting a
+scoped Helper never starts a Codex app-server: its ephemeral thread lived only
+in the process that created it, so the delete stops only this server's live
+providers for the scope and any runtime whose earlier stop could not prove exit.
+Codex thread inventories bound the thread IDs they keep, not the preview text
+they discard, and a refused inventory names its check and thread. An OpenCode
+server that exits before readiness names its last stderr line, and a deleted
+scoped OpenCode conversation keeps no exit proof.
 OpenCode turn reads (completion, admission, application tool ownership) find
 their input through native history pages: `readOpenCodeMessagesUntil` follows
 the native older-page cursor until the input is seen, so a turn with more model
