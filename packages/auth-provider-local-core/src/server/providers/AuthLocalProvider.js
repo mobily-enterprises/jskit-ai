@@ -9,6 +9,7 @@ import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { createLocalFileBackend } from "../lib/fileBackend.js";
+import { resolveOAuthProviders } from "../lib/oauth.js";
 import { createLocalAuthService } from "../lib/service.js";
 
 const DEFAULT_STORE_DIR = ".jskit/auth";
@@ -35,20 +36,22 @@ function resolveSessionSecret(env, { storeDir, isProduction }) {
   return generated;
 }
 
-function resolveAppPublicUrl(env, { recoverySender }) {
+// Recovery links and OAuth redirect addresses are built from APP_PUBLIC_URL.
+function resolveAppPublicUrl(env, { recoverySender, oauthProviders }) {
   const configured = String(env.APP_PUBLIC_URL || "").trim();
   if (!configured) {
     if (recoverySender) throw new Error("APP_PUBLIC_URL is required when local auth email recovery is configured.");
+    if (oauthProviders.length > 0) throw new Error("APP_PUBLIC_URL is required when local auth OAuth sign-in is configured.");
     return "http://localhost:5173";
   }
   let parsed;
   try {
     parsed = new URL(configured);
   } catch {
-    throw new Error("APP_PUBLIC_URL must be a valid URL when local auth email recovery is configured.");
+    throw new Error("APP_PUBLIC_URL must be a valid URL.");
   }
   if (!["http:", "https:"].includes(parsed.protocol)) {
-    throw new Error("APP_PUBLIC_URL must use http or https when local auth email recovery is configured.");
+    throw new Error("APP_PUBLIC_URL must use http or https.");
   }
   return parsed.toString().replace(/\/$/u, "");
 }
@@ -62,11 +65,13 @@ function resolveConfig({ appRoot, backend, env, logger, recoverySender = null })
   }
   const devAuth = resolveDevAuthPolicyFromEnv(env);
   assertDevAuthPolicy(devAuth);
+  const oauthProviders = resolveOAuthProviders(env);
   return {
     storeDir,
     nodeEnv,
     logger,
-    appPublicUrl: resolveAppPublicUrl(env, { recoverySender }),
+    appPublicUrl: resolveAppPublicUrl(env, { recoverySender, oauthProviders }),
+    oauthProviders,
     sessionSecret: resolveSessionSecret(env, { storeDir, isProduction }),
     recoveryDevOutput: String(env.AUTH_LOCAL_RECOVERY_DEV_OUTPUT || "log").trim().toLowerCase() || "log",
     devAuth

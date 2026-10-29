@@ -28,6 +28,10 @@ Local functions
 - `serializeSessions(sessions)`
 - `parseRecovery(content)`
 - `serializeRecovery(records)`
+- `parseIdentities(content)`
+- `serializeIdentities(identities)`
+- `parseOAuthAttempts(content)`
+- `serializeOAuthAttempts(attempts)`
 - `readText(filePath)`
 - `writeAtomic(filePath, content)`
 - `encodeJournalContent(content)`
@@ -52,6 +56,15 @@ Exports
 - `hashPassword`
 - `normalizePasswordStrategy`
 - `verifyPassword`
+
+### `src/server/lib/oauth.js`
+Exports
+- `createOAuthClients({ logger = null } = {})`
+- `resolveOAuthProviders(env = {})`
+Local functions
+- `signInError(statusCode, message, { code, provider = null })`
+- `unverifiedSignIn()`
+- `displayNameFrom(source = {})`
 
 ### `src/server/lib/passwords.js`
 Exports
@@ -83,6 +96,7 @@ Local functions
 - `isDevAuthSession(session)`
 - `isAuthenticatingSession(session)`
 - `normalizeDisplayName(value, email)`
+- `hasPassword(user)`
 - `createId(prefix)`
 - `safeRequestCookies(request)`
 - `unauthenticatedAuthResult(clearSession = false)`
@@ -120,4 +134,19 @@ Exports
 Local functions
 - `resolveStoreDir(env, appRoot)`
 - `resolveSessionSecret(env, { storeDir, isProduction })`
-- `resolveAppPublicUrl(env, { recoverySender })`
+- `resolveAppPublicUrl(env, { recoverySender, oauthProviders })`
+
+### test-support
+
+### `test-support/oauthHarness.js`
+Exports
+- `APP_URL`
+- `ATTEMPT_COOKIE`
+- `approveAtProvider(service, { provider = "google", returnTo = "/home", cookies = {}, link = false } = {})`
+- `createService({ backend, oauthProviders, profileProjector = null })`
+- `oidcProviderEntry(issuer, { id = "google", label = "Google" } = {})`
+- `sessionCookies(session)`
+- `startFakeGitHub({ user = { id: 4242, login: "ada", name: "Ada Lovelace" }, emails } = {})`
+- `startOidcProvider({ account } = {})`
+Local functions
+- `readBody(req)`

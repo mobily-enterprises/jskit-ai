@@ -8,6 +8,7 @@ import {
 import {
   accountSettingsResponseFormatter
 } from "../common/formatters/accountSettingsResponseFormatter.js";
+import { accountSecurityStatusFormatter } from "../common/formatters/accountSecurityStatusFormatter.js";
 
 function createService({
   userSettingsRepository,
@@ -99,9 +100,12 @@ function createService({
       });
     }
 
-    return returnJsonApiData(await authService.unlinkProvider(request, {
+    const result = await authService.unlinkProvider(request, {
       provider: payload.provider
-    }));
+    });
+    return returnJsonApiData({
+      securityStatus: accountSecurityStatusFormatter(result?.securityStatus)
+    });
   }
 
   async function logoutOtherSessions(request, _user, options = {}) {

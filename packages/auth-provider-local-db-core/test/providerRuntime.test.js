@@ -477,7 +477,9 @@ test("package metadata declares portable local auth DB migrations without instal
     [
       LOCAL_AUTH_DB_TABLES.users,
       LOCAL_AUTH_DB_TABLES.sessions,
-      LOCAL_AUTH_DB_TABLES.recovery
+      LOCAL_AUTH_DB_TABLES.recovery,
+      LOCAL_AUTH_DB_TABLES.identities,
+      LOCAL_AUTH_DB_TABLES.oauthAttempts
     ]
   );
 });

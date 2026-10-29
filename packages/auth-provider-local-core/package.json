@@ -10,7 +10,10 @@
     "./server/lib/index": "./src/server/lib/index.js",
     "./locales/en.json": "./locales/en.json"
   },
-  "description": "Local auth provider with a file backend default and no database requirement.",
+  "dependencies": {
+    "openid-client": "6.8.8"
+  },
+  "description": "Local auth provider with a file backend default, no database requirement, and optional Google, Microsoft and GitHub sign-in.",
   "jskit": {
     "kind": "runtime",
     "capabilities": {
@@ -44,7 +47,7 @@
           },
           {
             "subpath": "./server/lib/index",
-            "summary": "Exports local auth service, file backend helpers, password strategy helpers, and local auth register hook decorators."
+            "summary": "Exports local auth service, file backend helpers, password strategy helpers, and local auth register hook decorators. Google, Microsoft and GitHub sign-in turn on from AUTH_GOOGLE_*, AUTH_MICROSOFT_* and AUTH_GITHUB_* client id and secret pairs."
           }
         ],
         "extensionCapabilities": [

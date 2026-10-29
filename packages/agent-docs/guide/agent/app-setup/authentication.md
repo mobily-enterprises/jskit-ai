@@ -131,6 +131,64 @@ or compatibility adapter.
    the completed password-reset flow before releasing the updated application.
    This change does not alter identity, session or recovery-token storage.
 
+## Google, Microsoft and GitHub sign-in with local auth
+
+Local auth signs people in through Google, Microsoft and GitHub when the
+application sets each provider's client id and secret in private Env:
+
+| Provider | Env pair | Protocol and scopes |
+| --- | --- | --- |
+| Google | `AUTH_GOOGLE_CLIENT_ID`, `AUTH_GOOGLE_CLIENT_SECRET` | OpenID Connect discovery, `openid email profile` |
+| Microsoft | `AUTH_MICROSOFT_CLIENT_ID`, `AUTH_MICROSOFT_CLIENT_SECRET` | OpenID Connect discovery through the `common` endpoint, `openid email profile` |
+| GitHub | `AUTH_GITHUB_CLIENT_ID`, `AUTH_GITHUB_CLIENT_SECRET` | OAuth 2.0, `read:user user:email`, email from `GET /user/emails` |
+
+A provider appears in `oauthLogin.providers` only when both values of its pair
+are set; setting one without the other stops startup. `APP_PUBLIC_URL` is then
+required, and every provider's app registration must allow exactly
+`${APP_PUBLIC_URL}/auth/login` as its redirect address. The login page posts the
+callback to `/api/oauth/complete`, which completes the provider the attempt
+started with.
+
+Register the Microsoft app for accounts in any organizational directory and
+personal Microsoft accounts, and add the optional ID token claim `xms_edov`.
+
+Security behavior:
+
+- The authorization-code flow uses PKCE (`S256`) and `state`, plus `nonce` for
+  OpenID Connect. The attempt is stored server-side, in the file store or the
+  `auth_local_oauth_attempts` table, under the hash of a random httpOnly
+  `jskit_local_oauth_attempt` cookie (`__Host-` in production), so it completes
+  only in the starting browser and works across several servers. It is deleted
+  when used and expires after ten minutes.
+- ID tokens are verified against the provider's JWKS: signature, issuer,
+  audience, expiry and nonce.
+- Only a verified email signs in: Google's `email_verified`, GitHub's primary
+  verified address, and for Microsoft a personal account or a work or school
+  account whose token carries `xms_edov: true`. A Microsoft token without an
+  email claim is refused.
+- `returnTo` must be on the application's own origin; anything else returns to
+  `/`.
+
+A sign-in matches the provider subject first. Otherwise a verified email that
+matches an existing user signs that user in and links the provider identity,
+and a new email creates the user the way `register` does: the
+`auth.local.user.registered` hook runs and profile synchronization provisions
+the personal workspace. An account created this way has no password until
+password recovery sets one. Sessions are ordinary local sessions; provider
+tokens are discarded after sign-in.
+
+With providers configured, the `providerLinking` capability is on. The security
+status lists each provider as an `oauth:<provider>` method, where `canEnable`
+means it can be linked and `canDisable` that it can be unlinked.
+`GET /api/settings/security/oauth/:provider/start` links a provider to the
+signed-in account and `DELETE /api/settings/security/oauth/:provider` unlinks
+it. Unlinking the last sign-in method is refused, and so is linking an identity
+that already belongs to another account. The `users/account-settings` pattern's
+sign-in methods section offers both.
+
+With `@jskit-ai/auth-provider-local-db-core`, run `npm run db:migrate` to create
+the `auth_local_identities` and `auth_local_oauth_attempts` tables.
+
 ## Browser boundary
 
 `@jskit-ai/auth-web` owns the normal auth views, guard runtime, sign-out flow,

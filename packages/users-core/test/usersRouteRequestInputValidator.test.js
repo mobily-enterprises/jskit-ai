@@ -204,6 +204,28 @@ test("account route handlers build action input from request.input", async () =>
   assert.equal(calls[7].actionId, "settings.security.sessions.logout_others");
 });
 
+test("starting a provider link lets the auth service bind the attempt to the browser", async () => {
+  const written = [];
+  const routes = await registerRoutes({
+    authService: {
+      writeOAuthStartCookies(reply, result) {
+        written.push({ reply, result });
+      }
+    }
+  });
+  const reply = createReplyDouble();
+  const result = { url: "https://github.test/authorize", attempt: "browser-key" };
+  await findRoute(routes, { method: "GET", path: "/api/settings/security/oauth/:provider/start" }).handler(
+    createActionRequest({
+      input: { params: { provider: "github" }, query: {} },
+      executeAction: async () => result
+    }),
+    reply
+  );
+  assert.deepEqual(written, [{ reply, result }]);
+  assert.equal(reply.redirectedTo, "https://github.test/authorize");
+});
+
 test("account route handlers preserve omitted optional action fields", async () => {
   const routes = await registerRoutes();
   const calls = [];

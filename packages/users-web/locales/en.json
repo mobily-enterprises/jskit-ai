@@ -65,6 +65,10 @@
         "notifications": {
           "saved": "Notification settings updated.",
           "saveFailed": "Unable to update notifications."
+        },
+        "signInMethods": {
+          "unlinked": "Sign-in method removed.",
+          "unlinkFailed": "Unable to remove the sign-in method."
         }
       },
       "homeTools": {

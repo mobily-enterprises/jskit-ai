@@ -72,6 +72,10 @@ function useAccountSettingsRuntime() {
     requestType: "user-notification-settings"
   });
   const USER_PROFILE_AVATAR_DELETE_TRANSPORT = USER_SETTINGS_TRANSPORT;
+  const USER_SECURITY_SETTINGS_TRANSPORT = Object.freeze({
+    ...USER_SETTINGS_TRANSPORT,
+    responseType: "user-security-settings"
+  });
 
   const accountSettingsPath = computed(() =>
     resolveSurfacePathFromPlacementContext(placementContext.value, "account", "/")
@@ -121,6 +125,11 @@ function useAccountSettingsRuntime() {
   });
 
   const selectedAvatarFileName = ref("");
+  // The account's OAuth sign-in methods; canEnable links one and canDisable unlinks it.
+  const signInMethodList = ref([]);
+  const signInMethodsState = reactive({
+    unlinkingProvider: ""
+  });
   const savedLocale = ref("");
 
   const profileInitials = computed(() => {
@@ -173,6 +182,19 @@ function useAccountSettingsRuntime() {
     profileAvatar.version = nextAvatar.version == null ? null : String(nextAvatar.version);
   }
 
+  function applySignInMethods(securityStatus) {
+    const authMethods = Array.isArray(securityStatus?.authMethods) ? securityStatus.authMethods : [];
+    signInMethodList.value = authMethods
+      .filter((method) => method?.kind === "oauth" && method.provider)
+      .map((method) => Object.freeze({
+        provider: String(method.provider),
+        label: String(method.label || method.provider),
+        linked: method.configured === true,
+        canLink: method.canEnable === true,
+        canUnlink: method.canDisable === true
+      }));
+  }
+
   function applySettingsData(payload) {
     const data = normalizeSettingsPayload(payload);
 
@@ -191,6 +213,8 @@ function useAccountSettingsRuntime() {
     notificationsForm.productUpdates = Boolean(data.notifications?.productUpdates);
     notificationsForm.accountActivity = Boolean(data.notifications?.accountActivity);
     notificationsForm.securityAlerts = ACCOUNT_SETTINGS_DEFAULTS.notifications.securityAlerts;
+
+    applySignInMethods(data.security);
 
     applyThemePreference(preferencesForm.theme);
     if (data.preferences?.locale) {
@@ -314,6 +338,25 @@ function useAccountSettingsRuntime() {
     }
   });
 
+  const signInMethodUnlinkCommand = useCommand({
+    ownershipFilter: OWNERSHIP_PUBLIC,
+    apiSuffix: () => `/settings/security/oauth/${encodeURIComponent(signInMethodsState.unlinkingProvider)}`,
+    writeMethod: "DELETE",
+    transport: USER_SECURITY_SETTINGS_TRANSPORT,
+    fallbackRunError: t("jskit.users.accountSettings.signInMethods.unlinkFailed"),
+    model: signInMethodsState,
+    onRunSuccess: (payload, { queryClient: commandQueryClient }) => {
+      applySignInMethods(payload?.securityStatus);
+      commandQueryClient.setQueryData(accountSettingsQueryKey, (current) =>
+        current ? { ...current, security: payload?.securityStatus } : current
+      );
+    },
+    messages: {
+      success: t("jskit.users.accountSettings.signInMethods.unlinked"),
+      error: t("jskit.users.accountSettings.signInMethods.unlinkFailed")
+    }
+  });
+
   const loadingSettings = computed(() => Boolean(settingsView.isLoading));
   const refreshingSettings = computed(() => Boolean(settingsView.isRefetching));
   const settingsLoadError = computed(() => String(settingsView.loadError || "").trim());
@@ -344,6 +387,23 @@ function useAccountSettingsRuntime() {
 
   async function submitNotifications() {
     await notificationsAddEdit.submit();
+  }
+
+  // Linking leaves the app for the provider and returns to this page.
+  function linkSignInMethod(provider) {
+    const params = new URLSearchParams({ returnTo: route?.fullPath || accountSettingsPath.value });
+    window.location.assign(`/api/settings/security/oauth/${encodeURIComponent(provider)}/start?${params}`);
+  }
+
+  async function unlinkSignInMethod(provider) {
+    signInMethodsState.unlinkingProvider = String(provider || "");
+    try {
+      await signInMethodUnlinkCommand.run();
+    } catch {
+      // Error feedback is already handled in useCommand.
+    } finally {
+      signInMethodsState.unlinkingProvider = "";
+    }
   }
 
   watch(
@@ -409,6 +469,14 @@ function useAccountSettingsRuntime() {
     submit: submitNotifications
   });
 
+  const signInMethods = Object.freeze({
+    methods: signInMethodList,
+    unlinkingProvider: computed(() => signInMethodsState.unlinkingProvider),
+    isRefreshing: refreshingSettings,
+    link: linkSignInMethod,
+    unlink: unlinkSignInMethod
+  });
+
   return Object.freeze({
     backTarget,
     backNavigationTarget,
@@ -418,7 +486,8 @@ function useAccountSettingsRuntime() {
     refreshSettings,
     profile,
     preferences,
-    notifications
+    notifications,
+    signInMethods
   });
 }
 

@@ -76,12 +76,25 @@ function createLocalAuthRegisterHookDecorator({
       }
 
       return Object.freeze(
-        Object.defineProperty(Object.create(authService), "register", {
-          enumerable: true,
-          value: async function register(input = {}) {
-            const result = await authService.register(input);
-            await runRegisterHook({ hook: registerHook, result, logger });
-            return result;
+        Object.defineProperties(Object.create(authService), {
+          register: {
+            enumerable: true,
+            value: async function register(input = {}) {
+              const result = await authService.register(input);
+              await runRegisterHook({ hook: registerHook, result, logger });
+              return result;
+            }
+          },
+          // A first sign-in through a provider creates the user the way register does.
+          oauthComplete: {
+            enumerable: true,
+            value: async function oauthComplete(input = {}, request = null) {
+              const result = await authService.oauthComplete(input, request);
+              if (result?.registered === true) {
+                await runRegisterHook({ hook: registerHook, result, logger });
+              }
+              return result;
+            }
           }
         })
       );

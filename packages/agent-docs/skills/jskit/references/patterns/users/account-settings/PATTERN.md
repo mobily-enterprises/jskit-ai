@@ -1,8 +1,8 @@
 ---
 id: users/account-settings
 title: Account settings surface
-summary: Compose an account settings route and profile, preference, and notification sections from JSKIT user web components.
-keywords: account, notifications, preferences, profile, settings, user, vue
+summary: Compose an account settings route and profile, preference, notification, and sign-in method sections from JSKIT user web components.
+keywords: account, notifications, preferences, profile, settings, sign-in methods, oauth, link provider, user, vue
 requires: @jskit-ai/users-core, @jskit-ai/users-web, @jskit-ai/shell-web
 ---
 
@@ -38,6 +38,15 @@ app's language; the app does, for example
 `watch(useAccountLocale(), (code) => { if (code) i18n.global.locale.value = code; }, { immediate: true })`.
 Section titles may be plain text, a message key or `{ key, fallback }`.
 
+`runtime.signInMethods.methods` lists the auth provider's OAuth sign-in
+methods as `{ provider, label, linked, canLink, canUnlink }`, read from the
+settings security status. `link(provider)` leaves for the provider through
+`GET /api/settings/security/oauth/:provider/start` and comes back to the current
+page; `unlink(provider)` sends `DELETE /api/settings/security/oauth/:provider`
+and reports the result with the standard toast. `canUnlink` is false for the
+account's only sign-in method. Add this section only when the selected auth
+provider offers provider linking (`providerLinking` in its capabilities).
+
 ## Invariants
 
 - Sections use JSKIT account settings APIs rather than direct HTTP helpers.
@@ -51,7 +60,7 @@ Section titles may be plain text, a message key or `{ key, fallback }`.
 
 ## Example files
 
-`example/` contains an account route and three concrete settings sections.
+`example/` contains an account route and four concrete settings sections.
 Adapt their fields and copy while retaining the shared account runtime.
 
 ## Variation points

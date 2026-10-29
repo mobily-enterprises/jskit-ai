@@ -29,6 +29,8 @@ Local functions
 - `mapUser(row)`
 - `mapSession(row)`
 - `mapRecovery(row)`
+- `mapIdentity(row)`
+- `mapOAuthAttempt(row)`
 - `userInsert(input = {})`
 - `sessionInsert(input = {})`
 - `recoveryInsert(input = {})`
@@ -46,5 +48,9 @@ Exports
 ### migrations
 
 ### `migrations/auth_local_db_initial.cjs`
+Exports
+- None
+
+### `migrations/auth_local_db_oauth.cjs`
 Exports
 - None

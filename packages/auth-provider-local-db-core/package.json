@@ -52,6 +52,12 @@
             },
             {
               "tableName": "auth_local_recovery"
+            },
+            {
+              "tableName": "auth_local_identities"
+            },
+            {
+              "tableName": "auth_local_oauth_attempts"
             }
           ]
         }

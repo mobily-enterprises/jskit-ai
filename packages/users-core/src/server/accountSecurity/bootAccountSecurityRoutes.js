@@ -132,6 +132,10 @@ function registerAccountSecurityRoutes(router, { authService } = {}) {
         }
       });
 
+      // As at sign-in, a provider that binds the attempt to this browser sets its cookie.
+      if (typeof authService?.writeOAuthStartCookies === "function") {
+        authService.writeOAuthStartCookies(reply, result);
+      }
       reply.redirect(result.url);
     }
   );

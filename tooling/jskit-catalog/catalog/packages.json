@@ -536,7 +536,7 @@
     {
       "packageId": "@jskit-ai/auth-provider-local-core",
       "version": "0.2.1",
-      "description": "Local auth provider with a file backend default and no database requirement.",
+      "description": "Local auth provider with a file backend default, no database requirement, and optional Google, Microsoft and GitHub sign-in.",
       "jskit": {
         "kind": "runtime",
         "capabilities": {
@@ -570,7 +570,7 @@
               },
               {
                 "subpath": "./server/lib/index",
-                "summary": "Exports local auth service, file backend helpers, password strategy helpers, and local auth register hook decorators."
+                "summary": "Exports local auth service, file backend helpers, password strategy helpers, and local auth register hook decorators. Google, Microsoft and GitHub sign-in turn on from AUTH_GOOGLE_*, AUTH_MICROSOFT_* and AUTH_GITHUB_* client id and secret pairs."
               }
             ],
             "extensionCapabilities": [
@@ -584,6 +584,9 @@
         }
       },
       "packageJson": {
+        "dependencies": {
+          "openid-client": "6.8.8"
+        },
         "peerDependencies": {
           "@jskit-ai/auth-core": "0.2.1",
           "@jskit-ai/kernel": "0.2.1"
@@ -629,6 +632,12 @@
                 },
                 {
                   "tableName": "auth_local_recovery"
+                },
+                {
+                  "tableName": "auth_local_identities"
+                },
+                {
+                  "tableName": "auth_local_oauth_attempts"
                 }
               ]
             }
@@ -3326,6 +3335,18 @@
                   "order": 300,
                   "componentToken": "local.main.account-settings.section.notifications",
                   "source": "patterns/account-settings/example/src/components/account/settings/AccountSettingsNotificationsSection.vue"
+                },
+                {
+                  "id": "users.account.settings.sign-in-methods",
+                  "target": "settings.sections",
+                  "owner": "account-settings",
+                  "kind": "component",
+                  "surfaces": [
+                    "account"
+                  ],
+                  "order": 400,
+                  "componentToken": "local.main.account-settings.section.sign-in-methods",
+                  "source": "patterns/account-settings/example/src/components/account/settings/AccountSettingsSignInMethodsSection.vue"
                 }
               ]
             }
@@ -4689,13 +4710,16 @@
     {
       "id": "users/account-settings",
       "title": "Account settings surface",
-      "summary": "Compose an account settings route and profile, preference, and notification sections from JSKIT user web components.",
+      "summary": "Compose an account settings route and profile, preference, notification, and sign-in method sections from JSKIT user web components.",
       "keywords": [
         "account",
+        "link provider",
         "notifications",
+        "oauth",
         "preferences",
         "profile",
         "settings",
+        "sign-in methods",
         "user",
         "vue"
       ],
@@ -4712,6 +4736,7 @@
         "src/components/account/settings/AccountSettingsNotificationsSection.vue",
         "src/components/account/settings/AccountSettingsPreferencesSection.vue",
         "src/components/account/settings/AccountSettingsProfileSection.vue",
+        "src/components/account/settings/AccountSettingsSignInMethodsSection.vue",
         "src/pages/account/index.vue"
       ]
     },

@@ -4,6 +4,8 @@ import path from "node:path";
 const USER_FILE = "users.passwd";
 const SESSION_FILE = "sessions.passwd";
 const RECOVERY_FILE = "recovery.passwd";
+const IDENTITY_FILE = "identities.passwd";
+const OAUTH_ATTEMPT_FILE = "oauth-attempts.passwd";
 const LOCK_FILE = "store.lock";
 const JOURNAL_FILE = "transaction.journal";
 const LOCK_STALE_MS = 30_000;
@@ -151,6 +153,87 @@ function serializeRecovery(records) {
     .join("\n") + (records.length > 0 ? "\n" : "");
 }
 
+function parseIdentities(content) {
+  const identities = [];
+  for (const line of String(content || "").split("\n").filter(Boolean)) {
+    const parts = splitLine(line, "identity");
+    if (parts.length !== 7) {
+      throw new Error("Invalid identity record field count.");
+    }
+    identities.push({
+      userId: parts[2],
+      provider: parts[3],
+      providerSubject: decodeField(parts[4]),
+      email: decodeField(parts[5]),
+      createdAt: decodeField(parts[6])
+    });
+  }
+  return identities;
+}
+
+function serializeIdentities(identities) {
+  return [...identities]
+    .sort((left, right) =>
+      `${left.provider}:${left.providerSubject}`.localeCompare(`${right.provider}:${right.providerSubject}`))
+    .map((identity) =>
+      [
+        "identity",
+        "v1",
+        identity.userId,
+        identity.provider,
+        encodeField(identity.providerSubject),
+        encodeField(identity.email),
+        encodeField(identity.createdAt)
+      ].join(":")
+    )
+    .join("\n") + (identities.length > 0 ? "\n" : "");
+}
+
+function parseOAuthAttempts(content) {
+  const attempts = [];
+  for (const line of String(content || "").split("\n").filter(Boolean)) {
+    const parts = splitLine(line, "oauth_attempt");
+    if (parts.length !== 12) {
+      throw new Error("Invalid OAuth attempt record field count.");
+    }
+    attempts.push({
+      browserKeyHash: parts[2],
+      provider: parts[3],
+      intent: parts[4],
+      userId: parts[5],
+      state: parts[6],
+      nonce: parts[7],
+      codeVerifier: parts[8],
+      returnTo: decodeField(parts[9]),
+      createdAt: decodeField(parts[10]),
+      expiresAt: decodeField(parts[11])
+    });
+  }
+  return attempts;
+}
+
+function serializeOAuthAttempts(attempts) {
+  return [...attempts]
+    .sort((left, right) => String(left.browserKeyHash).localeCompare(String(right.browserKeyHash)))
+    .map((attempt) =>
+      [
+        "oauth_attempt",
+        "v1",
+        attempt.browserKeyHash,
+        attempt.provider,
+        attempt.intent,
+        attempt.userId,
+        attempt.state,
+        attempt.nonce,
+        attempt.codeVerifier,
+        encodeField(attempt.returnTo),
+        encodeField(attempt.createdAt),
+        encodeField(attempt.expiresAt)
+      ].join(":")
+    )
+    .join("\n") + (attempts.length > 0 ? "\n" : "");
+}
+
 async function readText(filePath) {
   try {
     return await fs.readFile(filePath, "utf8");
@@ -199,7 +282,7 @@ function parseJournal(content) {
   }
   return parsed.files.map((entry) => {
     const name = String(entry?.name || "").trim();
-    if (![USER_FILE, SESSION_FILE, RECOVERY_FILE].includes(name)) {
+    if (![USER_FILE, SESSION_FILE, RECOVERY_FILE, IDENTITY_FILE, OAUTH_ATTEMPT_FILE].includes(name)) {
       throw new Error("Invalid local auth transaction journal file.");
     }
     return {
@@ -436,6 +519,67 @@ function createTx(state, touched) {
         }
         return count;
       }
+    }),
+    identities: Object.freeze({
+      async create(input) {
+        if (state.identities.some((entry) =>
+          entry.provider === input.provider && entry.providerSubject === input.providerSubject)) {
+          throw new Error("Local auth identity already exists.");
+        }
+        const identity = {
+          ...clone(input),
+          createdAt: input.createdAt || nowIso()
+        };
+        state.identities.push(identity);
+        mark("identities");
+        return clone(identity);
+      },
+      async findByProviderSubject(provider, providerSubject) {
+        return clone(state.identities.find((entry) =>
+          entry.provider === provider && entry.providerSubject === providerSubject) || null);
+      },
+      async listForUser(userId) {
+        return clone(state.identities.filter((entry) => entry.userId === userId));
+      },
+      async deleteForUser(userId, provider) {
+        const before = state.identities.length;
+        state.identities = state.identities.filter((entry) => !(entry.userId === userId && entry.provider === provider));
+        const count = before - state.identities.length;
+        if (count > 0) {
+          mark("identities");
+        }
+        return count;
+      }
+    }),
+    oauthAttempts: Object.freeze({
+      async create(input) {
+        const attempt = {
+          ...clone(input),
+          createdAt: input.createdAt || nowIso()
+        };
+        state.oauthAttempts.push(attempt);
+        mark("oauthAttempts");
+        return clone(attempt);
+      },
+      // Removes and returns the attempt; the store lock makes this single-use.
+      async take(browserKeyHash) {
+        const attempt = state.oauthAttempts.find((entry) => entry.browserKeyHash === browserKeyHash);
+        if (!attempt) {
+          return null;
+        }
+        state.oauthAttempts = state.oauthAttempts.filter((entry) => entry !== attempt);
+        mark("oauthAttempts");
+        return clone(attempt);
+      },
+      async deleteExpired(now) {
+        const before = state.oauthAttempts.length;
+        state.oauthAttempts = state.oauthAttempts.filter((entry) => Date.parse(entry.expiresAt) > Date.parse(now));
+        const count = before - state.oauthAttempts.length;
+        if (count > 0) {
+          mark("oauthAttempts");
+        }
+        return count;
+      }
     })
   });
 }
@@ -451,7 +595,9 @@ function createLocalFileBackend({ storeDir }) {
       const state = {
         users: parseUsers(await readText(path.join(resolvedStoreDir, USER_FILE))),
         sessions: parseSessions(await readText(path.join(resolvedStoreDir, SESSION_FILE))),
-        recovery: parseRecovery(await readText(path.join(resolvedStoreDir, RECOVERY_FILE)))
+        recovery: parseRecovery(await readText(path.join(resolvedStoreDir, RECOVERY_FILE))),
+        identities: parseIdentities(await readText(path.join(resolvedStoreDir, IDENTITY_FILE))),
+        oauthAttempts: parseOAuthAttempts(await readText(path.join(resolvedStoreDir, OAUTH_ATTEMPT_FILE)))
       };
       const touched = new Set();
       const result = await callback(createTx(state, touched));
@@ -472,6 +618,18 @@ function createLocalFileBackend({ storeDir }) {
         commitEntries.push({
           name: RECOVERY_FILE,
           content: serializeRecovery(state.recovery)
+        });
+      }
+      if (touched.has("identities")) {
+        commitEntries.push({
+          name: IDENTITY_FILE,
+          content: serializeIdentities(state.identities)
+        });
+      }
+      if (touched.has("oauthAttempts")) {
+        commitEntries.push({
+          name: OAUTH_ATTEMPT_FILE,
+          content: serializeOAuthAttempts(state.oauthAttempts)
         });
       }
       if (commitEntries.length > 0) {

@@ -208,6 +208,18 @@
               "order": 300,
               "componentToken": "local.main.account-settings.section.notifications",
               "source": "patterns/account-settings/example/src/components/account/settings/AccountSettingsNotificationsSection.vue"
+            },
+            {
+              "id": "users.account.settings.sign-in-methods",
+              "target": "settings.sections",
+              "owner": "account-settings",
+              "kind": "component",
+              "surfaces": [
+                "account"
+              ],
+              "order": 400,
+              "componentToken": "local.main.account-settings.section.sign-in-methods",
+              "source": "patterns/account-settings/example/src/components/account/settings/AccountSettingsSignInMethodsSection.vue"
             }
           ]
         }

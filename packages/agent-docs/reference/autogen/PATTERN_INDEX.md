@@ -374,10 +374,10 @@ Add product routes and shell extensions through file routing, semantic placement
 
 ## Account settings surface
 
-Compose an account settings route and profile, preference, and notification sections from JSKIT user web components.
+Compose an account settings route and profile, preference, notification, and sign-in method sections from JSKIT user web components.
 
 - Id: `users/account-settings`
-- Keywords: `account`, `notifications`, `preferences`, `profile`, `settings`, `user`, `vue`
+- Keywords: `account`, `link provider`, `notifications`, `oauth`, `preferences`, `profile`, `settings`, `sign-in methods`, `user`, `vue`
 - Owner: `@jskit-ai/users-web@0.2.2`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/users/account-settings/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/users/account-settings/example/)

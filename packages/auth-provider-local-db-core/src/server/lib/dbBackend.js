@@ -3,7 +3,9 @@ import { isDuplicateEntryError } from "@jskit-ai/database-runtime/shared/duplica
 const TABLES = Object.freeze({
   users: "auth_local_users",
   sessions: "auth_local_sessions",
-  recovery: "auth_local_recovery"
+  recovery: "auth_local_recovery",
+  identities: "auth_local_identities",
+  oauthAttempts: "auth_local_oauth_attempts"
 });
 
 function nowIso() {
@@ -92,6 +94,37 @@ function mapRecovery(row) {
     createdAt: readDateTime(row.created_at),
     expiresAt: readDateTime(row.expires_at),
     usedAt: readDateTime(row.used_at)
+  };
+}
+
+function mapIdentity(row) {
+  if (!row) {
+    return null;
+  }
+  return {
+    userId: String(row.user_id || ""),
+    provider: String(row.provider || ""),
+    providerSubject: String(row.provider_subject || ""),
+    email: String(row.email || ""),
+    createdAt: readDateTime(row.created_at)
+  };
+}
+
+function mapOAuthAttempt(row) {
+  if (!row) {
+    return null;
+  }
+  return {
+    browserKeyHash: String(row.browser_key_hash || ""),
+    provider: String(row.provider || ""),
+    intent: String(row.intent || ""),
+    userId: String(row.user_id || ""),
+    state: String(row.state || ""),
+    nonce: String(row.nonce || ""),
+    codeVerifier: String(row.code_verifier || ""),
+    returnTo: String(row.return_to || ""),
+    createdAt: readDateTime(row.created_at),
+    expiresAt: readDateTime(row.expires_at)
   };
 }
 
@@ -267,6 +300,69 @@ function createLocalDbBackend({ knex, transactionManager } = {}) {
               used_at: updatedAt,
               updated_at: updatedAt
             });
+          return Number(count || 0);
+        }
+      }),
+      identities: Object.freeze({
+        async create(input) {
+          const row = {
+            user_id: String(input.userId || ""),
+            provider: String(input.provider || ""),
+            provider_subject: String(input.providerSubject || ""),
+            email: String(input.email || ""),
+            created_at: requiredDateTime(input.createdAt)
+          };
+          await table(client, TABLES.identities).insert(row);
+          return mapIdentity(row);
+        },
+        async findByProviderSubject(provider, providerSubject) {
+          return mapIdentity(await table(client, TABLES.identities)
+            .where({ provider: String(provider || ""), provider_subject: String(providerSubject || "") })
+            .first());
+        },
+        async listForUser(userId) {
+          const rows = await table(client, TABLES.identities).where({ user_id: String(userId || "") });
+          return rows.map(mapIdentity);
+        },
+        async deleteForUser(userId, provider) {
+          const count = await table(client, TABLES.identities)
+            .where({ user_id: String(userId || ""), provider: String(provider || "") })
+            .delete();
+          return Number(count || 0);
+        }
+      }),
+      oauthAttempts: Object.freeze({
+        async create(input) {
+          const row = {
+            browser_key_hash: String(input.browserKeyHash || ""),
+            provider: String(input.provider || ""),
+            intent: String(input.intent || ""),
+            user_id: input.userId ? String(input.userId) : null,
+            state: String(input.state || ""),
+            nonce: String(input.nonce || ""),
+            code_verifier: String(input.codeVerifier || ""),
+            return_to: String(input.returnTo || ""),
+            expires_at: requiredDateTime(input.expiresAt),
+            created_at: requiredDateTime(input.createdAt)
+          };
+          await table(client, TABLES.oauthAttempts).insert(row);
+          return mapOAuthAttempt(row);
+        },
+        // Only the request whose delete removes the row gets the attempt, so
+        // concurrent callbacks on several servers cannot both use it.
+        async take(browserKeyHash) {
+          const where = { browser_key_hash: String(browserKeyHash || "") };
+          const row = await table(client, TABLES.oauthAttempts).where(where).first();
+          if (!row) {
+            return null;
+          }
+          const count = await table(client, TABLES.oauthAttempts).where(where).delete();
+          return Number(count || 0) === 1 ? mapOAuthAttempt(row) : null;
+        },
+        async deleteExpired(now) {
+          const count = await table(client, TABLES.oauthAttempts)
+            .where("expires_at", "<=", requiredDateTime(now))
+            .delete();
           return Number(count || 0);
         }
       })

@@ -142,5 +142,9 @@ test("semantic contributions identify live package source or reusable pattern so
     contribution("users.account.settings.notifications")?.source,
     "patterns/account-settings/example/src/components/account/settings/AccountSettingsNotificationsSection.vue"
   );
+  assert.equal(
+    contribution("users.account.settings.sign-in-methods")?.source,
+    "patterns/account-settings/example/src/components/account/settings/AccountSettingsSignInMethodsSection.vue"
+  );
   assert.equal(contribution("users.home.settings.general"), null);
 });

@@ -18,6 +18,21 @@
           "requested": "If an account exists for that email, password reset instructions have been sent.",
           "tokenInvalid": "Recovery token is invalid or expired.",
           "sessionRequired": "Recovery session required."
+        },
+        "oauth": {
+          "providerInvalid": "This sign-in provider is not available.",
+          "providerUnreachable": "{provider} can't be reached right now. Try again in a moment.",
+          "expired": "This sign-in took too long or started in another browser. Start again.",
+          "codeRequired": "OAuth code is required.",
+          "cancelled": "Sign-in was cancelled.",
+          "incomplete": "Sign-in was not completed. Start again.",
+          "unverified": "Your sign-in could not be verified. Start again.",
+          "emailMissing": "{provider} did not share an email address.",
+          "emailUnverified": "{provider} has not confirmed your email address, so this account can't sign in here.",
+          "accountUnavailable": "This account can't sign in.",
+          "identityTaken": "This {provider} account is already linked to another account.",
+          "notLinked": "{provider} is not linked to this account.",
+          "lastMethod": "Add a password or link another sign-in method before removing this one."
         }
       }
     }
