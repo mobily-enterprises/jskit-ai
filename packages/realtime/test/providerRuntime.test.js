@@ -495,7 +495,7 @@ async function startRealtimeClient({ mobile = null } = {}) {
 
 test("RealtimeClientProvider publishes one explicit client capability", async () => {
   const fixture = await startRealtimeClient();
-  assert.deepEqual(Object.keys(fixture.realtime).sort(), ["config", "dispose", "initialize", "socket"]);
+  assert.deepEqual(Object.keys(fixture.realtime).sort(), ["config", "dispose", "initialize", "onServedClientBuild", "socket"]);
   assert.equal(fixture.realtime.config.url, "");
   assert.equal(fixture.registrations.has("realtime.web.connection.indicator"), true);
   assert.equal(

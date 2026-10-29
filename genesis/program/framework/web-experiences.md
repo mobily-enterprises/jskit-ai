@@ -24,6 +24,12 @@ value stays hidden while options load and reads as unavailable afterwards. The
 application remains responsible for route policy, product vocabulary, and the
 server authorization behind every visible action.
 
+When realtime is installed, the shell compares the build its page loaded with
+the build the server announces on each connection. A page running an older
+build shows an `app-recoverable` notice, "*Title* was updated. Reload to get the
+latest version.", with **Reload**, once per served build. It never reloads by
+itself; **Reload** returns to the same address once the server answers.
+
 `@jskit-ai/architecture-inspector`, a plain tool package outside the framework
 runtime, ships `jskit-inspect-vue`, an optional static inspector for the
 portable architecture-inspection command contract. It reads

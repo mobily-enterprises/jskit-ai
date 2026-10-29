@@ -10,3 +10,4 @@ export {
 } from "../../internal/node/installedPackages.js";
 export { resolveRequiredAppRoot, toPosixPath } from "./path.js";
 export { tryAcquireExclusiveFileLock } from "./fileLock.js";
+export { readServedClientBuildId } from "./clientBuild.js";

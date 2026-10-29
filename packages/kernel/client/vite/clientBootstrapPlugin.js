@@ -1,9 +1,11 @@
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import {
   collectRootDependencySpecifiers,
   discoverInstalledPackages
 } from "../../internal/node/installedPackages.js";
+import { CLIENT_BUILD_META_NAME } from "../../shared/support/clientBuild.js";
 import { isRecord, normalizeObject } from "../../shared/support/normalize.js";
 import { sortStrings } from "../../shared/support/sorting.js";
 import {
@@ -488,6 +490,19 @@ function createJskitClientBootstrapPlugin({ proxyTarget = "" } = {}) {
         resolveClientModulesFromInstalledPackages(installedPackages),
         resolveLocalePackageIds(installedPackages)
       );
+    },
+    transformIndexHtml: {
+      // After Vite adds the page's script and style tags. Their content-hashed
+      // names change whenever any built code or style does, so the page's
+      // build id is a digest of the page itself.
+      order: "post",
+      handler(html, { bundle } = {}) {
+        if (!bundle) {
+          return undefined;
+        }
+        const buildId = createHash("sha256").update(html).digest("hex").slice(0, 16);
+        return [{ tag: "meta", attrs: { name: CLIENT_BUILD_META_NAME, content: buildId }, injectTo: "head-prepend" }];
+      }
     }
   };
 }

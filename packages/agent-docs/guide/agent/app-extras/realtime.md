@@ -94,6 +94,35 @@ shutdown), so another route's open WebSocket or stream does not hold realtime
 shutdown. Code that passes its own `httpServer` to `createSocketIoServer` closes
 that server itself after `closeSocketIoServer`.
 
+## Client updates
+
+An open page keeps running the client code it loaded until it reloads, so after
+an update it can run old code indefinitely. JSKIT's Vite plugin
+(`createJskitClientBootstrapPlugin`) names each production-built HTML page's
+build in `<meta name="jskit-client-build" content="...">`: a digest of the page,
+whose content-hashed script and style names change whenever any built code or
+style does. The same source builds the same id. Vite's development pages have
+none.
+
+On every connection, including the reconnection to a restarted server, the
+realtime server sends `realtime.served-client-build` with `{ buildId }`: the
+build of the page the app serves now, read from `dist/index.html` under
+`runtime.app-root`. It is read for each connection, so a page rebuilt while the
+server runs counts at once. With no built page, nothing is sent. The client
+capability's `onServedClientBuild(listener)` calls the listener with each
+announced id, and at once with the latest one; it returns the unsubscribe
+function. There is no polling and no extra request.
+
+When `@jskit-ai/shell-web` is installed, a page whose own build differs from the
+served one reports an `app-recoverable` notice, a banner under the default
+policy: "*Title* was updated. Reload to get the latest version.", where *Title*
+is the page's `<title>` as it loaded ("This app" without one), with a **Reload**
+action. The page never reloads by itself, because the person may be in the
+middle of something. **Reload** checks that the server answers, then reloads
+the same address. The notice appears once per served build: a reconnection to
+the same build does not repeat it, closing it keeps it closed until a newer
+build, and a server back on the page's own build withdraws it.
+
 ## Visible connection state
 
 A status indicator is optional product UI. When wanted, register it through the

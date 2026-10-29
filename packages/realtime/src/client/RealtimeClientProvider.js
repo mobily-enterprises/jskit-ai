@@ -5,6 +5,7 @@ import { getClientAppConfig, resolveClientBootstrapDebugEnabled, resolveMobileCo
 import RealtimeConnectionIndicator from "./components/RealtimeConnectionIndicator.js";
 import { createSocketIoClient, disconnectSocketIoClient } from "./runtime.js";
 import { attachSocketConnectionRecovery } from "./connectionRecovery.js";
+import { SERVED_CLIENT_BUILD_EVENT } from "../shared/servedClientBuild.js";
 
 function resolveRealtimeClientConfig({ env = {}, mobile = null } = {}) {
   const appConfig = normalizeObject(getClientAppConfig());
@@ -45,6 +46,7 @@ function createRealtimeClient({ config, loggerInput } = {}) {
     url: config.url,
     options: config.options
   });
+  const servedClientBuild = trackServedClientBuild(socket, logger);
   const detach = [];
   let initialized = false;
 
@@ -101,6 +103,7 @@ function createRealtimeClient({ config, loggerInput } = {}) {
         release();
       } catch {}
     }
+    servedClientBuild.dispose();
     disconnectSocketIoClient(socket);
     initialized = false;
   }
@@ -109,7 +112,47 @@ function createRealtimeClient({ config, loggerInput } = {}) {
     config,
     dispose,
     initialize,
+    onServedClientBuild: servedClientBuild.subscribe,
     socket
+  });
+}
+
+// The server names the client build it serves on every connection. Listening
+// from the socket's creation keeps the first announcement even when it arrives
+// before anything subscribes; a subscriber receives the latest one at once.
+function trackServedClientBuild(socket, logger) {
+  const listeners = new Set();
+  let buildId = "";
+
+  function notify(listener) {
+    try {
+      listener(buildId);
+    } catch (error) {
+      logger.warn({ error: String(error?.message || error) }, "Served client build listener failed.");
+    }
+  }
+
+  function onServedClientBuild(payload) {
+    buildId = normalizeText(payload?.buildId);
+    if (buildId) {
+      for (const listener of [...listeners]) notify(listener);
+    }
+  }
+
+  socket.on?.(SERVED_CLIENT_BUILD_EVENT, onServedClientBuild);
+  return Object.freeze({
+    subscribe(listener) {
+      if (typeof listener !== "function") {
+        throw new TypeError("onServedClientBuild requires a listener function.");
+      }
+      listeners.add(listener);
+      if (buildId) notify(listener);
+      return () => listeners.delete(listener);
+    },
+    dispose() {
+      socket.off?.(SERVED_CLIENT_BUILD_EVENT, onServedClientBuild);
+      listeners.clear();
+    }
   });
 }
 

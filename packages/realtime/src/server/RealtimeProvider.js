@@ -2,6 +2,7 @@ import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { createProviderLogger } from "@jskit-ai/kernel/shared/support/providerLogger";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { createRealtimeDelivery } from "./realtimeDelivery.js";
+import { announceServedClientBuild } from "./servedClientBuild.js";
 import {
   createAudienceContributors,
   createSocketRequest,
@@ -130,6 +131,7 @@ const RealtimeProvider = defineProvider({
     logger: "runtime.logger"
   },
   optional: {
+    appRoot: "runtime.app-root",
     authService: "auth.service",
     database: "runtime.database"
   },
@@ -152,7 +154,7 @@ const RealtimeProvider = defineProvider({
     });
     return { realtime };
   },
-  async boot({ authService, database, env, events }, { outputs }) {
+  async boot({ appRoot, authService, database, env, events }, { outputs }) {
     const state = stateByCapability.get(outputs.realtime);
     if (!state) throw new Error("Realtime runtime state is unavailable.");
     state.authService = authService;
@@ -166,6 +168,7 @@ const RealtimeProvider = defineProvider({
       authService,
       audiences: state.audiences
     });
+    announceServedClientBuild({ io: state.io, appRoot, logger: state.providerLogger });
     state.redisConnection = await configureSocketIoRedisAdapter(state.io, {
       logger: state.providerLogger,
       redisUrl: resolveRealtimeRedisUrl(env),

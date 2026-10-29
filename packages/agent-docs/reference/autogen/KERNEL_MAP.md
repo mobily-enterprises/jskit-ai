@@ -19,6 +19,12 @@ For the full repo inventory, read `reference/autogen/README.md` and the package 
 
 ### support
 
+### `support/clientBuild.js`
+Exports
+- `CLIENT_BUILD_META_NAME`
+- `clientBuildIdFromHtml(html = "")`
+- `pageClientBuildId(documentObject = globalThis.document)`
+
 ### `support/deepFreeze.js`
 Exports
 - `deepFreeze(value, seen = new WeakSet())`

@@ -9,6 +9,7 @@ import {
   SHELL_ASYNC_MODULE_RECOVERY_RUNTIME_KEY
 } from "../asyncModuleRecovery/inject.js";
 import { createShellAsyncModuleRecoveryRuntime } from "../asyncModuleRecovery/runtime.js";
+import { createShellClientUpdateRuntime } from "../clientUpdate/runtime.js";
 import {
   SHELL_REQUEST_RECOVERY_RUNTIME_KEY
 } from "../requestRecovery/inject.js";
@@ -259,6 +260,9 @@ const ShellWebClientProvider = defineProvider({
     surfaceRuntime: "client.surface",
     vueApp: "client.vue"
   },
+  optional: {
+    realtime: "client.realtime"
+  },
   provides: {
     shell: "client.shell"
   },
@@ -305,6 +309,10 @@ const ShellWebClientProvider = defineProvider({
       errorRuntime,
       logger
     });
+    const clientUpdateRuntime = createShellClientUpdateRuntime({
+      errorRuntime,
+      reload: () => asyncModuleRecoveryRuntime.reload()
+    });
     const bootstrapRuntime = createShellBootstrapRuntime({
       handlers: bootstrapHandlers,
       placementRuntime,
@@ -324,6 +332,7 @@ const ShellWebClientProvider = defineProvider({
         asyncModuleRecovery: asyncModuleRecoveryRuntime,
         bootstrap: bootstrapRuntime,
         bootstrapHandlers,
+        clientUpdate: clientUpdateRuntime,
         error: errorRuntime,
         errorPresentationStore,
         placement: placementRuntime,
@@ -332,11 +341,12 @@ const ShellWebClientProvider = defineProvider({
       })
     };
   },
-  async boot({ loggerInput, pinia, router, surfaceRuntime, vueApp }, { outputs }) {
+  async boot({ loggerInput, pinia, realtime, router, surfaceRuntime, vueApp }, { outputs }) {
     const logger = createSharedProviderLogger(loggerInput);
     const {
       asyncModuleRecovery: asyncModuleRecoveryRuntime,
       bootstrap: bootstrapRuntime,
+      clientUpdate: clientUpdateRuntime,
       error: errorRuntime,
       errorPresentationStore,
       placement: placementRuntime,
@@ -370,6 +380,8 @@ const ShellWebClientProvider = defineProvider({
     const errorConfig = await loadAppErrorConfig(logger, errorRuntime, asyncModuleRecoveryRuntime);
     errorRuntime.configure(errorConfig);
     requestRecoveryRuntime.install();
+    // After the app's error configuration, so the offer follows its policy.
+    clientUpdateRuntime.watch(realtime);
 
     await bootstrapRuntime.initialize();
 
@@ -391,6 +403,7 @@ const ShellWebClientProvider = defineProvider({
     installRouterErrorBridge(router, errorRuntime, logger);
   },
   shutdown(_dependencies, { outputs }) {
+    outputs.shell.clientUpdate.dispose();
     outputs.shell.requestRecovery.dispose();
     outputs.shell.asyncModuleRecovery.dispose();
   }

@@ -18,3 +18,10 @@ providers, actions, and runtime adapters. Long-running work and application
 policy remain owned by the consuming application. Missing requirements fail at
 composition or at the relevant operation boundary rather than being resolved
 through a global service locator.
+
+JSKIT's Vite plugin names each built HTML page's build in a
+`jskit-client-build` meta tag, a digest of the page's content-hashed script and
+style names. On every connection, including the reconnection to a restarted
+server, realtime sends the build of the page the app serves now
+(`dist/index.html`), and its client capability passes it to
+`onServedClientBuild` listeners. No polling or extra request is involved.

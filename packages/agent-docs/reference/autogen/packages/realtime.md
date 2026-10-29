@@ -44,6 +44,7 @@ Exports
 - `resolveRealtimeClientConfig({ env = {}, mobile = null } = {})`
 Local functions
 - `createRealtimeClient({ config, loggerInput } = {})`
+- `trackServedClientBuild(socket, logger)`
 
 ### `src/client/runtime.js`
 Exports
@@ -107,6 +108,14 @@ Local functions
 - `registerSocketIoUpgradeHandoff(fastify)`
 - `resolveHttpServer({ httpServer = null, fastify = null } = {})`
 - `buildSocketIoRedisAdapterKey(redisNamespace = "")`
+
+### `src/server/servedClientBuild.js`
+Exports
+- `announceServedClientBuild({ io, appRoot, logger })`
+
+### `src/shared/servedClientBuild.js`
+Exports
+- `SERVED_CLIENT_BUILD_EVENT`
 
 ### patterns
 

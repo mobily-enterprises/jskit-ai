@@ -127,6 +127,7 @@ test("shell capability owns placement, bootstrap, refresh, errors, and recovery 
     "asyncModuleRecovery",
     "bootstrap",
     "bootstrapHandlers",
+    "clientUpdate",
     "error",
     "errorPresentationStore",
     "placement",

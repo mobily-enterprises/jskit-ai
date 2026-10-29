@@ -52,6 +52,12 @@ Exports
 - `normalizeBootstrapPayloadHandler`
 - `resolveBootstrapErrorStatusCode`
 
+### `src/client/clientUpdate/runtime.js`
+Exports
+- `createShellClientUpdateRuntime({ errorRuntime, reload, pageBuildId = pageClientBuildId(), appName = loadedAppName() } = {})`
+Local functions
+- `loadedAppName(documentObject = globalThis.document)`
+
 ### `src/client/components/ShellErrorHost.vue`
 Exports
 - None

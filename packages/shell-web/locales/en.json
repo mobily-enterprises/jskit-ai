@@ -34,12 +34,14 @@
         "appLabel": "App",
         "appModuleLabel": "App module",
         "appUnreachable": "The app could not reach the server or network. Check the connection and try again.",
+        "appUpdated": "{app} was updated. Reload to get the latest version.",
         "errorConfigLabel": "Error config",
         "moduleFailed": "A required app module could not load.",
         "placementConfigLabel": "Placement config",
         "placementTopologyLabel": "Placement topology",
         "refreshFailed": "Unable to refresh. Check the connection and try again.",
         "reloadFailed": "The app cannot reload because the app server is not reachable. Restart the server, then click Reload.",
+        "thisAppUpdated": "This app was updated. Reload to get the latest version.",
         "unreachable": "{label} could not reach the server or network. Check the connection and try again."
       }
     }

@@ -60,6 +60,12 @@ Exports
 - `resolveLinkPath`
 - `normalizePathname`
 
+### `shared/support/clientBuild.js`
+Exports
+- `CLIENT_BUILD_META_NAME`
+- `clientBuildIdFromHtml(html = "")`
+- `pageClientBuildId(documentObject = globalThis.document)`
+
 ### `shared/support/deepFreeze.js`
 Exports
 - `deepFreeze(value, seen = new WeakSet())`
@@ -926,6 +932,10 @@ Local functions
 - `normalizeConfigObject(value)`
 - `loadConfigModuleAtPath(absolutePath)`
 
+### `server/support/clientBuild.js`
+Exports
+- `readServedClientBuildId({ appRoot } = {})`
+
 ### `server/support/defaultMissingHandler.js`
 Exports
 - `defaultMissingHandler(_request, reply)`
@@ -960,6 +970,7 @@ Exports
 - `resolveRequiredAppRoot`
 - `toPosixPath`
 - `tryAcquireExclusiveFileLock`
+- `readServedClientBuildId`
 
 ### `server/support/path.js`
 Exports
