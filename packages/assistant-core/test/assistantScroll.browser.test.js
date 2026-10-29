@@ -51,6 +51,30 @@ async function scrollGesture(body, lastEventType, perform) {
   await body.evaluate(element => element.gestureScrollEnded);
 }
 
+// Chromium animates a keyboard scroll towards a target fixed at the key press
+// while content-visibility rows keep changing the transcript's height, so the
+// animation can stop short of the end or not move at all. Keep the real key
+// event for the transcript's own handling, replace only the browser's scroll
+// with a move to `target` ("end", "top" or a pixel offset), and wait until the
+// transcript has handled that scroll.
+async function pressScrollKey(body, key, target) {
+  await body.evaluate((element, [scrollKey, scrollTarget]) => {
+    element.keyScrolled = new Promise(resolve => {
+      element.addEventListener("keydown", function move(event) {
+        if (event.key !== scrollKey) return;
+        element.removeEventListener("keydown", move);
+        event.preventDefault();
+        element.addEventListener("scroll", () => resolve(), { once: true });
+        element.scrollTop = scrollTarget === "end"
+          ? element.scrollHeight
+          : scrollTarget === "top" ? 0 : element.scrollTop + scrollTarget;
+      });
+    });
+  }, [key, target]);
+  await body.press(key);
+  await body.evaluate(element => element.keyScrolled);
+}
+
 const VIEWPORTS = Object.freeze([
   Object.freeze({ name: "phone", width: 390, height: 844 }),
   Object.freeze({ name: "compact", width: 800, height: 900 }),
@@ -519,24 +543,21 @@ test("a reader's own upward scrolling leaves the latest message from its first f
       expect(await fromBottom()).toBeGreaterThan(1);
 
       // Returning to the end resumes following new replies.
-      await body.press("End");
-      await expect.poll(fromBottom).toBeLessThanOrEqual(1);
+      await pressScrollKey(body, "End", "end");
       await appendReply();
       expect(await fromBottom()).toBeLessThanOrEqual(1);
 
-      // The first frame of an upward scroll lands inside the follow threshold;
-      // the rest of it (a fling or smooth scroll) moves the reader into history
-      // without further input events.
-      await body.press("ArrowUp");
-      await expect.poll(fromBottom).toBeGreaterThan(1);
-      await settleLayout(body);
-      expect(await fromBottom()).toBeLessThanOrEqual(48);
+      // The first frame of an upward keyboard scroll lands inside the follow
+      // threshold; the rest of it (a fling or smooth scroll) moves the reader
+      // into history without further input events.
+      await pressScrollKey(body, "ArrowUp", -10);
+      const firstFrame = await fromBottom();
+      assert.ok(firstFrame > 1 && firstFrame <= 48, `first frame ${firstFrame}px from the end`);
       await body.evaluate(element => { element.scrollTop = Math.round(element.scrollTop / 2); });
       await settleLayout(body);
       await appendReply();
       expect(await fromBottom()).toBeGreaterThan(1_000);
-      await body.press("End");
-      await expect.poll(fromBottom).toBeLessThanOrEqual(1);
+      await pressScrollKey(body, "End", "end");
       await appendReply();
       expect(await fromBottom()).toBeLessThanOrEqual(1);
 
@@ -546,8 +567,7 @@ test("a reader's own upward scrolling leaves the latest message from its first f
       await body.evaluate(element => {
         element.addEventListener("keydown", () => element.dispatchEvent(new Event("scroll")), { once: true });
       });
-      await body.press("Home");
-      await expect.poll(() => body.evaluate(element => element.scrollTop)).toBe(0);
+      await pressScrollKey(body, "Home", "top");
       await appendReply();
       expect(await body.evaluate(element => element.scrollTop)).toBe(0);
       assert.deepEqual(errors, []);
