@@ -229,11 +229,11 @@ test("one AssistantFeature composes host access and declared data while settings
   await host.start();
   try {
     assert.equal(registrations, 1);
-    assert.equal(wrapped.length, 10);
+    assert.equal(wrapped.length, 11);
     assert.ok(wrapped.includes(access.subscribeActionId));
     assert.ok(!wrapped.includes(actionIds.conversationSubscribe));
-    assert.equal(actions.listDefinitions().length, 12);
-    assert.equal(routes.length, 11);
+    assert.equal(actions.listDefinitions().length, 13);
+    assert.equal(routes.length, 12);
     assert.ok(routes.filter(route => route.path.endsWith("/settings")).every(route => route.contract.auth === "required"));
     assert.ok(routes.filter(route => !route.path.endsWith("/settings")).every(route => route.contract.auth === "public"));
     assert.equal(actions.getDefinition(actionIds.settingsRead).permission.require, "authenticated");

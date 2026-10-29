@@ -117,7 +117,8 @@ test("host access wraps only canonical conversation definitions and receives the
   });
   assert.deepEqual(wrapped.map(({ id }) => id), [
     actionIds.conversationRead, actionIds.conversationSend, actionIds.conversationCancel, subscribeActionId,
-    actionIds.conversationInspectDelivery, actionIds.conversationGoalRead, actionIds.conversationGoalUpdate
+    actionIds.conversationInspectDelivery, actionIds.conversationCancelDelivery, actionIds.conversationGoalRead,
+    actionIds.conversationGoalUpdate
   ]);
   assert.equal(findDefinition(definitions, actionIds.conversationSubscribe), undefined);
   for (const definition of wrapped) {

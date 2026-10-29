@@ -111,12 +111,12 @@ const adapter = reactive({
         discard(id) {
           if (id !== "temporary" || !previewCanTake.value) return;
           temporaryPresent.value = false;
-          if (previewDelivery.find(id)?.status === "failed") previewDelivery.cancel(id);
+          if (previewDelivery.find(id)?.status === "failed") previewDelivery.remove(id);
         },
         edit(id) {
           if (id !== "temporary" || !previewCanTake.value) return;
           temporaryEditing.value = true;
-          if (previewDelivery.find(id)?.status === "failed") previewDelivery.cancel(id);
+          if (previewDelivery.find(id)?.status === "failed") previewDelivery.remove(id);
         },
         update(id, text) {
           if (id === "temporary" && previewCanTake.value) temporaryWords.value = text;
