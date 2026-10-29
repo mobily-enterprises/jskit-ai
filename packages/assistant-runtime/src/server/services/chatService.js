@@ -215,6 +215,34 @@ function createChatService({
     return { conversationId: response.meta?.conversationId, messageId: request.messageId, status: record.status };
   }
 
+  // Turns on one conversation share its runtime entry. The last of them to
+  // settle disposes it, so a finished chat keeps no runtime state; a turn that
+  // starts while that disposal runs waits for it and opens the entry again.
+  const conversationTurns = new Map();
+  async function openConversationTurn(conversationId, open) {
+    while (conversationTurns.get(conversationId)?.releasing) await conversationTurns.get(conversationId).releasing;
+    const turns = conversationTurns.get(conversationId) || { count: 0, handle: null, releasing: null };
+    conversationTurns.set(conversationId, turns);
+    turns.count += 1;
+    try {
+      turns.handle = await open();
+      return turns.handle;
+    } catch (error) {
+      await releaseConversationTurn(conversationId);
+      throw error;
+    }
+  }
+  async function releaseConversationTurn(conversationId) {
+    const turns = conversationTurns.get(conversationId);
+    turns.count -= 1;
+    if (turns.count > 0) return;
+    // A failed disposal keeps the entry, as before: the next turn reuses it and
+    // runtime close retries its save.
+    turns.releasing = Promise.resolve(turns.handle?.dispose()).catch(() => {})
+      .finally(() => conversationTurns.delete(conversationId));
+    await turns.releasing;
+  }
+
   async function streamChat(payload = {}, options = {}) {
     const assistantSurface = requireAssistantSurface(appConfig, payload?.targetSurfaceId);
     const context = normalizeObject(options.context);
@@ -320,85 +348,91 @@ function createChatService({
       const runtimeContext = { ...assistantContext, assistantRequest: {
         conversation, workspace, history: source.history, resolvedAttachments
       } };
-      let handle;
-      try { handle = await conversationRuntime.open({ id: conversationId, context: runtimeContext, configuration }); }
-      catch (error) {
-        if (error.code !== "conversation_configuration_mismatch") throw error;
-        handle = await conversationRuntime.open({ id: conversationId, context: runtimeContext });
-        await handle.configure(configuration);
-      }
-      let turnId = null;
-      let displayedId = null;
-      let displayedText = "";
-      const release = await handle.subscribe(event => {
-        if (event.type === "accepted" && event.messageId === source.messageId) turnId = event.turnId;
-        if (!turnId || event.turnId !== turnId) return;
-        if (event.type === "message" && ["assistant", "commentary"].includes(event.role)) {
-          if (displayedId !== event.messageId) {
-            if (displayedText) streamWriter.sendAssistantMessage({ type: ASSISTANT_STREAM_EVENT_TYPES.ASSISTANT_MESSAGE, text: "", status: "streaming" });
-            displayedId = event.messageId;
-            displayedText = "";
-          }
-          if (event.text === displayedText) return;
-          if (event.text.startsWith(displayedText)) streamWriter.sendAssistantDelta({ type: ASSISTANT_STREAM_EVENT_TYPES.ASSISTANT_DELTA, delta: event.text.slice(displayedText.length) });
-          else streamWriter.sendAssistantMessage({ type: ASSISTANT_STREAM_EVENT_TYPES.ASSISTANT_MESSAGE, text: event.text, status: "streaming" });
-          displayedText = event.text;
-        } else if (event.type === "tool") {
-          const call = event.call;
-          if (call.status === "running") streamWriter.sendToolCall({ type: ASSISTANT_STREAM_EVENT_TYPES.TOOL_CALL,
-            toolCallId: call.id, name: call.name, arguments: call.arguments });
-          else if (call.result) streamWriter.sendToolResult({ type: ASSISTANT_STREAM_EVENT_TYPES.TOOL_RESULT,
-            toolCallId: call.id, name: call.name, ok: call.result.ok === true,
-            ...(call.result.ok ? { result: call.result.result } : { error: call.result.error }) });
+      const handle = await openConversationTurn(conversationId, async () => {
+        try { return await conversationRuntime.open({ id: conversationId, context: runtimeContext, configuration }); }
+        catch (error) {
+          if (error.code !== "conversation_configuration_mismatch") throw error;
+          const opened = await conversationRuntime.open({ id: conversationId, context: runtimeContext });
+          await opened.configure(configuration);
+          return opened;
         }
       });
-      let cancellation;
-      const cancel = () => { cancellation ||= handle.cancel(); cancellation.catch(() => {}); };
-      let streamed = false;
       try {
-        const meta = { type: ASSISTANT_STREAM_EVENT_TYPES.META, messageId: source.messageId, conversationId,
-          provider: aiClient.provider, model: aiClient.defaultModel };
-        await turnRequests.update(claim, { meta });
-        streamWriter.sendMeta(meta);
-        streamed = true;
-        options.abortSignal?.addEventListener("abort", cancel, { once: true });
-        options.abortSignal?.throwIfAborted();
-        const receipt = await handle.send({ messageId: source.messageId, text: source.input,
-          ...(source.attachmentIds !== undefined ? { attachmentIds: source.attachmentIds } : {}) });
-        turnId = receipt.turnId;
-        const snapshot = await handle.wait();
-        const turn = snapshot.conversationLog.find(entry => entry.turnId === turnId);
-        const status = turn?.metadata?.runtime?.status;
-        if (status !== "complete") {
-          const reason = turn?.metadata?.runtime?.error || snapshot.error;
-          const error = reason ? new Error(reason) : Object.assign(new Error("Assistant request failed."), {
-            messageCode: "assistant.runtime.request.failed", messageParams: {} });
-          if (status === "cancelled") error.name = "AbortError";
-          throw error;
+        let turnId = null;
+        let displayedId = null;
+        let displayedText = "";
+        const release = await handle.subscribe(event => {
+          if (event.type === "accepted" && event.messageId === source.messageId) turnId = event.turnId;
+          if (!turnId || event.turnId !== turnId) return;
+          if (event.type === "message" && ["assistant", "commentary"].includes(event.role)) {
+            if (displayedId !== event.messageId) {
+              if (displayedText) streamWriter.sendAssistantMessage({ type: ASSISTANT_STREAM_EVENT_TYPES.ASSISTANT_MESSAGE, text: "", status: "streaming" });
+              displayedId = event.messageId;
+              displayedText = "";
+            }
+            if (event.text === displayedText) return;
+            if (event.text.startsWith(displayedText)) streamWriter.sendAssistantDelta({ type: ASSISTANT_STREAM_EVENT_TYPES.ASSISTANT_DELTA, delta: event.text.slice(displayedText.length) });
+            else streamWriter.sendAssistantMessage({ type: ASSISTANT_STREAM_EVENT_TYPES.ASSISTANT_MESSAGE, text: event.text, status: "streaming" });
+            displayedText = event.text;
+          } else if (event.type === "tool") {
+            const call = event.call;
+            if (call.status === "running") streamWriter.sendToolCall({ type: ASSISTANT_STREAM_EVENT_TYPES.TOOL_CALL,
+              toolCallId: call.id, name: call.name, arguments: call.arguments });
+            else if (call.result) streamWriter.sendToolResult({ type: ASSISTANT_STREAM_EVENT_TYPES.TOOL_RESULT,
+              toolCallId: call.id, name: call.name, ok: call.result.ok === true,
+              ...(call.result.ok ? { result: call.result.result } : { error: call.result.error }) });
+          }
+        });
+        let cancellation;
+        const cancel = () => { cancellation ||= handle.cancel(); cancellation.catch(() => {}); };
+        let streamed = false;
+        try {
+          const meta = { type: ASSISTANT_STREAM_EVENT_TYPES.META, messageId: source.messageId, conversationId,
+            provider: aiClient.provider, model: aiClient.defaultModel };
+          await turnRequests.update(claim, { meta });
+          streamWriter.sendMeta(meta);
+          streamed = true;
+          options.abortSignal?.addEventListener("abort", cancel, { once: true });
+          options.abortSignal?.throwIfAborted();
+          const receipt = await handle.send({ messageId: source.messageId, text: source.input,
+            ...(source.attachmentIds !== undefined ? { attachmentIds: source.attachmentIds } : {}) });
+          turnId = receipt.turnId;
+          const snapshot = await handle.wait();
+          const turn = snapshot.conversationLog.find(entry => entry.turnId === turnId);
+          const status = turn?.metadata?.runtime?.status;
+          if (status !== "complete") {
+            const reason = turn?.metadata?.runtime?.error || snapshot.error;
+            const error = reason ? new Error(reason) : Object.assign(new Error("Assistant request failed."), {
+              messageCode: "assistant.runtime.request.failed", messageParams: {} });
+            if (status === "cancelled") error.name = "AbortError";
+            throw error;
+          }
+          const text = normalizeText(turn.assistant?.text);
+          if (!text) throw new AppError(502, "Assistant returned no output.", { code: "assistant.runtime.request.noOutput" });
+          await transcriptService.completeConversation(assistantSurface, conversationId,
+            { status: "completed", metadata: turn.metadata?.completion || {} }, { context: assistantContext, workspace });
+          streamWriter.sendAssistantMessage({ type: ASSISTANT_STREAM_EVENT_TYPES.ASSISTANT_MESSAGE, text });
+          streamWriter.sendDone({ type: ASSISTANT_STREAM_EVENT_TYPES.DONE, messageId: source.messageId, status: "completed" });
+          return { conversationId, messageId: source.messageId, status: "completed" };
+        } catch (error) {
+          const aborted = isAbortError(error) || options.abortSignal?.aborted;
+          const status = aborted ? "aborted" : "failed";
+          if (!streamed) throw error;
+          await transcriptService.completeConversation(assistantSurface, conversationId, { status }, { context: assistantContext, workspace });
+          streamWriter.sendError({ type: ASSISTANT_STREAM_EVENT_TYPES.ERROR, messageId: source.messageId,
+            code: aborted ? "assistant_stream_aborted" : String(error?.code || "assistant_stream_failed"),
+            message: aborted ? "Assistant request was cancelled." : String(error?.message || "Assistant request failed."),
+            ...streamErrorMessageFields(error, aborted),
+            status: aborted ? 499 : errorStatus(error) });
+          streamWriter.sendDone({ type: ASSISTANT_STREAM_EVENT_TYPES.DONE, messageId: source.messageId, status });
+          return { conversationId, messageId: source.messageId, status };
+        } finally {
+          options.abortSignal?.removeEventListener("abort", cancel);
+          release();
+          await cancellation;
         }
-        const text = normalizeText(turn.assistant?.text);
-        if (!text) throw new AppError(502, "Assistant returned no output.", { code: "assistant.runtime.request.noOutput" });
-        await transcriptService.completeConversation(assistantSurface, conversationId,
-          { status: "completed", metadata: turn.metadata?.completion || {} }, { context: assistantContext, workspace });
-        streamWriter.sendAssistantMessage({ type: ASSISTANT_STREAM_EVENT_TYPES.ASSISTANT_MESSAGE, text });
-        streamWriter.sendDone({ type: ASSISTANT_STREAM_EVENT_TYPES.DONE, messageId: source.messageId, status: "completed" });
-        return { conversationId, messageId: source.messageId, status: "completed" };
-      } catch (error) {
-        const aborted = isAbortError(error) || options.abortSignal?.aborted;
-        const status = aborted ? "aborted" : "failed";
-        if (!streamed) throw error;
-        await transcriptService.completeConversation(assistantSurface, conversationId, { status }, { context: assistantContext, workspace });
-        streamWriter.sendError({ type: ASSISTANT_STREAM_EVENT_TYPES.ERROR, messageId: source.messageId,
-          code: aborted ? "assistant_stream_aborted" : String(error?.code || "assistant_stream_failed"),
-          message: aborted ? "Assistant request was cancelled." : String(error?.message || "Assistant request failed."),
-          ...streamErrorMessageFields(error, aborted),
-          status: aborted ? 499 : errorStatus(error) });
-        streamWriter.sendDone({ type: ASSISTANT_STREAM_EVENT_TYPES.DONE, messageId: source.messageId, status });
-        return { conversationId, messageId: source.messageId, status };
       } finally {
-        options.abortSignal?.removeEventListener("abort", cancel);
-        release();
-        await cancellation;
+        await releaseConversationTurn(conversationId);
       }
     }
   }

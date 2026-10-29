@@ -170,6 +170,9 @@ NDJSON routes, conversation IDs, message rows and request-claim table remain the
 integration boundary. A tool reservation is committed to its original
 `tool_call` row before execution; the matching `tool_result` row retains the
 verified result. No second transcript is stored in conversation metadata.
+Each chat turn opens its conversation in the runtime and the last of a
+conversation's overlapping turns releases it when it settles, so a finished
+conversation keeps no server memory; the next turn opens it again.
 
 The surface's bounded, client-selected history remains request context. It is
 authorized for attachments and sent to the API model without being inserted into

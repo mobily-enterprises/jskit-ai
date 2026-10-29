@@ -73,7 +73,7 @@ async function* completionStream(completion = {}) {
   yield { choices: [{ delta: {}, finish_reason: completion.toolCall ? "tool_calls" : "stop" }] };
 }
 
-function createHarness(completions, { executeToolCall = null, tools: configuredTools = null, attachments, supportsAttachments = true } = {}) {
+function createHarness(completions, { executeToolCall = null, tools: configuredTools = null, attachments, supportsAttachments = true, wrapRuntime = (runtime) => runtime } = {}) {
   const pendingCompletions = [...completions];
   const completionRequests = [];
   const transcriptMessages = [];
@@ -165,7 +165,7 @@ function createHarness(completions, { executeToolCall = null, tools: configuredT
     ...createMemoryAssistantRows({ messages: transcriptMessages }),
     aiClientFactory: dependencies.aiClientFactory, toolCatalog: dependencies.serviceToolCatalog, attachments
   });
-  const chatService = createChatService({ ...dependencies, conversationRuntime });
+  const chatService = createChatService({ ...dependencies, conversationRuntime: wrapRuntime(conversationRuntime) });
 
   const streamWriter = {};
   for (const method of [
@@ -554,4 +554,50 @@ test("attachment identifiers use the conversation runtime's shape before any fil
     assert.deepEqual(harness.completionRequests, []);
   }
   assert.deepEqual(calls, []);
+});
+
+function countDisposals(runtime) {
+  const counts = { opened: 0, disposed: 0 };
+  return { counts, runtime: { ...runtime, async open(input) {
+    const handle = await runtime.open(input);
+    counts.opened += 1;
+    return { ...handle, async dispose(options) { counts.disposed += 1; return handle.dispose(options); } };
+  } } };
+}
+
+test("each settled turn releases its conversation, and a later turn opens it again", async () => {
+  const counted = {};
+  const harness = createHarness([textCompletion("First answer."), textCompletion("Second answer.")], {
+    wrapRuntime(runtime) { Object.assign(counted, countDisposals(runtime)); return counted.runtime; }
+  });
+
+  assert.equal((await harness.run("First question", { messageId: "message_1" })).status, "completed");
+  assert.deepEqual(counted.counts, { opened: 1, disposed: 1 }, "a finished turn keeps no runtime conversation open");
+  assert.equal((await harness.run("Second question", { messageId: "message_2" })).status, "completed");
+  assert.deepEqual(counted.counts, { opened: 2, disposed: 2 });
+  assert.deepEqual(assistantMessages(harness.streamEvents), ["First answer.", "Second answer."]);
+});
+
+test("a conversation stays open until the last of its overlapping turns settles", async () => {
+  const counted = {};
+  const firstChunk = Promise.withResolvers();
+  const continueResponse = Promise.withResolvers();
+  async function* held() {
+    yield { choices: [{ delta: { content: "Held answer." } }] };
+    firstChunk.resolve();
+    await continueResponse.promise;
+    yield { choices: [{ delta: {}, finish_reason: "stop" }] };
+  }
+  const harness = createHarness([held()], {
+    wrapRuntime(runtime) { Object.assign(counted, countDisposals(runtime)); return counted.runtime; }
+  });
+
+  const first = harness.run("First question", { messageId: "message_1" });
+  await firstChunk.promise;
+  // A second tab sends while the first answer is still running; the runtime refuses it.
+  assert.equal((await harness.run("Second question", { messageId: "message_2" })).status, "failed");
+  assert.equal(counted.counts.disposed, 0, "the refused turn must not close the conversation the first turn still uses");
+  continueResponse.resolve();
+  assert.equal((await first).status, "completed");
+  assert.deepEqual(counted.counts, { opened: 2, disposed: 1 });
 });
