@@ -126,10 +126,11 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
       runtime: createCodexAppServerRuntime({ credentials, execution: processExecution, configuration }) };
   }
 
-  async function nativeStorageProvider({ sessionId, native, binding, context }) {
+  // Storage work borrows the shared process; it is not a user that keeps it running.
+  async function withNativeStorageProvider({ sessionId, native, binding, context }, operation) {
     const prepared = await native.preparation.storage(sessionId, binding, context);
-    return { provider: await native.providerOwner.ensureSession(prepared.providerContext),
-      toolHomeSource: prepared.toolHomeSource };
+    return native.providerOwner.withTransientSession(prepared.providerContext,
+      provider => operation(provider, prepared.toolHomeSource));
   }
 
   async function disposeNative({ sessionId, namespace, native, options }) {
@@ -160,17 +161,17 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
     deleteDetachedConversation({ sessionId, native, input, context }) {
       return native.runOwner.deleteDetachedThread(sessionId, input, context);
     },
-    async listConversationStorage(prepared) {
-      const { provider } = await nativeStorageProvider(prepared);
+    listConversationStorage(prepared) {
       const { binding } = prepared;
-      return (await provider.listNativeThreadsForCwd(binding.workdir)).map((conversationId) => ({ ...binding, conversationId }));
+      return withNativeStorageProvider(prepared, async provider =>
+        (await provider.listNativeThreadsForCwd(binding.workdir)).map((conversationId) => ({ ...binding, conversationId })));
     },
-    async retireConversationHistory(prepared) {
-      const { provider, toolHomeSource } = await nativeStorageProvider(prepared);
-      return retireCodexConversationHistory(provider, prepared.binding, {
-        toolHomeSource, beforeDelete: prepared.context.beforeDelete, signal: prepared.context.signal,
-        errorPrefix: prepared.native.errorPrefix
-      });
+    retireConversationHistory(prepared) {
+      return withNativeStorageProvider(prepared, (provider, toolHomeSource) =>
+        retireCodexConversationHistory(provider, prepared.binding, {
+          toolHomeSource, beforeDelete: prepared.context.beforeDelete, signal: prepared.context.signal,
+          errorPrefix: prepared.native.errorPrefix
+        }));
     },
     invalidateRuntimes({ native, input }) {
       return native.runOwner.invalidateRuntimes(input, native.preparation);

@@ -63,7 +63,8 @@ export function createCodexAppServerProviderOwner({
   runtimeBusyCode = "codex_app_server_runtime_busy",
   exitUnverifiedCode = "codex_runtime_exit_unverified",
   requiredStopCode = "codex_runtime_exit_unverified",
-  runtimeCloseError = "Codex app-server runtime close failed."
+  runtimeCloseError = "Codex app-server runtime close failed.",
+  transientIdleMs = 60_000
 } = {}) {
   const scopeRoot = normalizeText(runtimeRoot) ? path.resolve(runtimeRoot) : "";
   const records = new Map();
@@ -73,6 +74,8 @@ export function createCodexAppServerProviderOwner({
   let closing = false;
   let runtimeLifecycle = null;
   let codexAppServerChatModelCatalog = null;
+  // Providers borrowed by work that is not a conversation, terminal or helper.
+  const transientReleases = new Map();
 
   const providers = {
     get: key => records.get(key)?.provider,
@@ -275,6 +278,44 @@ export function createCodexAppServerProviderOwner({
   }
 
   async function ensureSession(context, mainThreadId = "") {
+    // A conversation, terminal or helper keeps a provider a transient read created.
+    const release = transientReleases.get(context.providerKey);
+    if (release) {
+      clearTimeout(release.timer);
+      transientReleases.delete(context.providerKey);
+    }
+    return acquireSession(context, mainThreadId);
+  }
+
+  // Native storage inventory and retirement borrow a session provider. A short
+  // idle after the last such use lets consecutive reads share one process; the
+  // release then stops it unless another provider still uses it.
+  async function withTransientSession(context, operation) {
+    const providerKey = context.providerKey;
+    let release = transientReleases.get(providerKey);
+    if (!release && records.has(providerKey)) return operation(await acquireSession(context));
+    if (!release) transientReleases.set(providerKey, release = { users: 0, timer: null });
+    clearTimeout(release.timer);
+    release.users += 1;
+    try {
+      return await operation(await acquireSession(context));
+    } finally {
+      release.users -= 1;
+      if (release.users === 0 && transientReleases.get(providerKey) === release && !closing) {
+        release.timer = setTimeout(() => {
+          if (transientReleases.get(providerKey) !== release) return;
+          transientReleases.delete(providerKey);
+          if (closing) return;
+          stopCachedProvider(providerKey).catch(error => debugLog("appServerRuntime.transientRelease.error", {
+            error: debugError(error), providerKey
+          }));
+        }, transientIdleMs);
+        release.timer.unref?.();
+      }
+    }
+  }
+
+  async function acquireSession(context, mainThreadId = "") {
     const sessionId = context.sessionId;
     const providerOptions = context.providerOptions;
     const providerKey = context.providerKey;
@@ -1181,10 +1222,14 @@ export function createCodexAppServerProviderOwner({
   const api = Object.freeze({
     providers, providerOwners, ownedRuntimes, lifecycleTasks, runtimeAcquisitions,
     withLifecycle, runtimeIsShared, rememberOwnedRuntime, forgetOwnedRuntime, attachRuntimeLifecycle,
-    acquireRuntime, createProvider, createNativeProvider, providerForSession, ensureSession, retireAndCloseProvider, closeProvider, stopOwnedRuntime, stopCachedProvider, stopProvider, stopThreadBeforeRelease, readModelCatalog, invalidateRuntimes, recover,
+    acquireRuntime, createProvider, createNativeProvider, providerForSession, ensureSession, withTransientSession, retireAndCloseProvider, closeProvider, stopOwnedRuntime, stopCachedProvider, stopProvider, stopThreadBeforeRelease, readModelCatalog, invalidateRuntimes, recover,
     reportRecoveryEvent, pendingRecovery, readSessionGoal, readPlanUsage, stopCachedProvidersForSession, stopProvidersForProject, drainThreadEnvironmentTasks, stopPersistedRuntime, sessionExitProof,
     unsubscribeSessionThread, releasePersistedRuntimeProof, releasePreparedRuntimeProof, releaseSession,
-    beginShutdown() { closing = true; }
+    beginShutdown() {
+      closing = true;
+      for (const release of transientReleases.values()) clearTimeout(release.timer);
+      transientReleases.clear();
+    }
   });
   return api;
 }
