@@ -28,6 +28,9 @@ function failure(message, code, statusCode = 409, { messageCode, messageParams }
   return Object.assign(new Error(message), { code, statusCode }, messageCode ? { messageCode, messageParams: messageParams || {} } : {});
 }
 
+// The newest messages cancelled in one open conversation, refused if sent again.
+const MAX_CANCELLED_MESSAGES = 100;
+
 // A native delivery result keeps its own sentence and messageCode when it has one.
 function deliveryFailure(delivered) {
   const code = delivered?.code || "conversation_delivery_uncertain";
@@ -1558,6 +1561,10 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     deliveryTiming?.("preparation-started");
     const operation = goal ? "goal" : input?.steer === true ? "steer" : origin === "application" ? "wake" : "send";
     await access(context, entry.id, operation, entry, grant);
+    if (entry.cancelledMessages.has(input?.messageId)) {
+      throw Object.assign(failure("This message was cancelled. Send it again as a new message.", "conversation_message_cancelled", 409,
+        { messageCode: "assistant.conversation.messageCancelled" }), { delivery: "not-sent" });
+    }
     await entry.conversation?.admission(context, operation);
     deliveryTiming?.("authorized");
     if (goal) context?.signal?.throwIfAborted();
@@ -1738,13 +1745,19 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     return { stopped: true };
   }
 
-  // Cancel of one message in a runtime-owned conversation: its own submission
-  // stops, ending any turn it started, and its unconfirmed request or pending
-  // native attempt is discarded. A message already accepted stays history.
+  // Cancel of one message in a runtime-owned conversation never waits for the
+  // conversation queue. The message is recorded as cancelled at once, so a send
+  // of it still queued, or arriving later, is refused as not sent; its own
+  // submission stops, ending any turn it started. Its unconfirmed request or
+  // pending native attempt is discarded afterwards, in queue order. A message
+  // already accepted stays history.
   async function cancelDelivery(entry, context, messageId, representation) {
+    entry.cancelledMessages.delete(messageId);
+    entry.cancelledMessages.add(messageId);
+    if (entry.cancelledMessages.size > MAX_CANCELLED_MESSAGES) entry.cancelledMessages.delete(entry.cancelledMessages.values().next().value);
     const interrupted = Boolean(entry.active?.requests.has(messageId));
     if (interrupted) await stop(entry, context, undefined, representation);
-    await serial(entry, async () => {
+    void serial(entry, async () => {
       await access(context, entry.id, "cancel", entry);
       if (entry.conversation) {
         await nativeChangeover(entry, context, null, () => { throw new Error("Cancel never sends a message."); }).discard({ messageId });
@@ -1756,7 +1769,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         delete metadata.runtime.request;
         await transaction.writeMetadata(metadata);
       });
-    });
+    }).catch(() => {});
     return { ok: true, cancelled: true, messageId, interrupted };
   }
 
@@ -2595,7 +2608,8 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       const key = conversation?.namespace || id;
       let entry = entries.get(key);
       if (!entry) {
-        entry = { id, key, conversation, host: selectedHost, pending: Promise.resolve(), active: null, listeners: new Set(), error: "" };
+        entry = { id, key, conversation, host: selectedHost, pending: Promise.resolve(), active: null, listeners: new Set(), error: "",
+          cancelledMessages: new Set() };
         entries.set(key, entry);
         entry.initializing = initialize(entry, configuration, engine).catch(error => {
           if (entries.get(key) === entry) entries.delete(key);

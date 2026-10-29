@@ -290,9 +290,14 @@ The runtime aborts its unsent request and running delivery check, shows the
 message as Cancelling… and calls `POST …/deliveries/:messageId/cancel`. It
 removes the message only when the server agrees; when the server cannot be
 reached the message stays with Cancel again and is retried on the next snapshot.
-The runtime's own `cancelDelivery` stops a submission holding that message and
-discards its unconfirmed request or pending changeover attempt (`continuity`
-`discard`). An application conversation supplies its own `cancelDelivery`.
+The runtime's own `cancelDelivery` never waits for the conversation queue. It
+records the message in the open conversation's bounded cancelled set at once,
+stops a submission holding that message, and answers. A send of that message
+still queued, or arriving later, is refused in `admitSend` as
+`conversation_message_cancelled` (not sent; the client treats it as a definite
+rejection). Discarding its unconfirmed request or pending changeover attempt
+(`continuity` `discard`) runs afterwards in queue order. An application
+conversation supplies its own `cancelDelivery`.
 Codex Pause combines native scheduling pause with the existing verified turn
 interrupt, preserving the goal identity and budget for Resume. Cleanup failure
 is reported rather than treating paused scheduling as proof that work stopped.

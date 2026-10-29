@@ -971,7 +971,7 @@ test("a finished-turn error without a definite rejection status remains uncertai
   assert.equal((await f.sent()).length, 1);
 });
 
-for (const code of ["ACTION_VALIDATION_FAILED", "conversation_not_steerable"]) {
+for (const code of ["ACTION_VALIDATION_FAILED", "conversation_not_steerable", "conversation_message_cancelled"]) {
 test(`an explicit pre-admission rejection retains original retry identity and the newer draft: ${code}`, options, async t => {
   const f = await fixture(t);
   await f.command("mode", { mode: "rejected" });
@@ -980,6 +980,8 @@ test(`an explicit pre-admission rejection retains original retry identity and th
     await f.command("question", { id: "chat:1", text: "An earlier answer is still finishing.", pending: true });
     await f.notify("chat:1");
     await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().steerable.value)).toBe(true);
+  }
+  if (code !== "ACTION_VALIDATION_FAILED") {
     await f.page.route("**/messages", async route => {
       const response = await route.fetch();
       await route.fulfill(response.status() === 400

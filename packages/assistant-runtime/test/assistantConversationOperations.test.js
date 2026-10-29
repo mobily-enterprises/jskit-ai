@@ -36,12 +36,18 @@ async function fixture(t, { workspace = false, conversationDataSchema = null, ap
   const dispatched = [Promise.withResolvers(), Promise.withResolvers()];
   const scopeInputs = [];
   const knownIds = new Set(["chat:one", "chat:two"]);
-  const access = { allowed: true };
+  const access = { allowed: true, authorized: [], hold: null };
   const storage = createFileConversationStorage({ directory });
   const runtime = createConversationRuntime({
     storage,
-    authorize: ({ context: actor, conversationId }) => access.allowed && actor?.actor?.id === "owner" && knownIds.has(conversationId) &&
-      (!workspace || actor.workspace?.id === trustedWorkspace.id),
+    async authorize({ context: actor, conversationId, operation }) {
+      access.authorized.push(operation);
+      // A test can hold one operation's authorization, and with it the conversation queue.
+      const hold = access.hold?.operation === operation && access.hold;
+      if (hold) { access.hold = null; hold.entered.resolve(); await hold.release; }
+      return access.allowed && actor?.actor?.id === "owner" && knownIds.has(conversationId) &&
+        (!workspace || actor.workspace?.id === trustedWorkspace.id);
+    },
     connections: {
       async resolve({ context: actor }) {
         assert.equal(actor.actor.id, "owner");
@@ -268,6 +274,42 @@ test("Cancel of one message stops its own submission and always answers", async 
   assert.deepEqual(never.payload, { ok: true, cancelled: true, messageId: "never-sent", interrupted: false });
   assert.equal((await f.invoke("GET")).payload.status, "ready");
   assert.equal(f.requests.length, 1, "Cancel never submits a model request");
+});
+
+test("Cancel answers while earlier work holds the conversation queue and the queued send is refused as not sent", async t => {
+  const f = await fixture(t);
+  const entered = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  f.access.hold = { operation: "inspectDelivery", entered, release: release.promise };
+  const inspecting = f.invoke("POST", "/deliveries/:messageId/inspect", { messageId: "earlier" });
+  inspecting.catch(() => {});
+  let sending;
+  let cancelling;
+  let timer;
+  try {
+    await entered.promise;
+    sending = f.invoke("POST", "/messages", { body: { messageId: "queued", text: "Queued question" } });
+    sending.catch(() => {});
+    // The send is authorized and waits in the queue behind the held inspection.
+    while (!f.access.authorized.includes("send")) await new Promise(resolve => setImmediate(resolve));
+    await new Promise(resolve => setImmediate(resolve));
+    cancelling = f.invoke("POST", "/deliveries/:messageId/cancel", { messageId: "queued" });
+    const answer = await Promise.race([cancelling,
+      new Promise(resolve => { timer = setTimeout(() => resolve(null), 2_000); })]);
+    assert.notEqual(answer, null, "Cancel answered while earlier work held the conversation queue");
+    assert.deepEqual(answer.payload, { ok: true, cancelled: true, messageId: "queued", interrupted: false });
+  } finally {
+    clearTimeout(timer);
+    release.resolve();
+  }
+  await inspecting.catch(() => {});
+  await cancelling;
+  await assert.rejects(sending, { code: "conversation_message_cancelled", statusCode: 409 });
+  await assert.rejects(f.invoke("POST", "/messages", { body: { messageId: "queued", text: "Queued question" } }),
+    { code: "conversation_message_cancelled" }, "a later send of the cancelled message is refused too");
+  assert.equal(f.requests.length, 0, "the cancelled message never reaches the model");
+  const next = await f.invoke("POST", "/messages", { body: { messageId: "next", text: "Next question" } });
+  assert.equal(next.payload.status, "accepted", "the conversation stays usable");
 });
 
 test("conversation routes keep authenticated ownership and reject unknown identities", async t => {

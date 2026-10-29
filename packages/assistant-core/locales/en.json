@@ -216,6 +216,7 @@
         "completedEnvelopesNeedStorage": "Completed envelopes require runtime-owned canonical storage.",
         "originalReadOnly": "This conversation uses its original read and subscription operations.",
         "messageCancelUnsupported": "This conversation cannot cancel one message.",
+        "messageCancelled": "This message was cancelled. Send it again as a new message.",
         "authorizedSelectionRequired": "Use the conversation's authorized selection operation.",
         "eventDeliveryRetained": "This scoped conversation retains its original event delivery.",
         "engineChanged": "The selected native engine changed.",

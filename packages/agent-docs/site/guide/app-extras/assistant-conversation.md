@@ -84,9 +84,12 @@ request client, including its surface header and workspace path. Inspection is
 an authenticated POST operation because it may recover and save native receipts;
 it never dispatches another model request. Cancelling one message is
 `POST …/deliveries/:messageId/cancel` (`cancelConversationDelivery`), which
-always answers success for an unsent, unconfirmed or failed message: the
-runtime stops a submission that holds it and discards its unconfirmed request
-or pending native attempt. A message already accepted stays history. An
+always answers success for an unsent, unconfirmed or failed message, without
+waiting for work queued in that conversation. The runtime records the message
+as cancelled, so a send of it that is still queued, or arrives later, is refused
+as not sent with `conversation_message_cancelled`. It also stops a submission
+that holds the message, and afterwards discards its unconfirmed request or
+pending native attempt. A message already accepted stays history. An
 application conversation provides this as `cancelDelivery({ messageId })`;
 without it the operation answers `conversation_unsupported`. Browser inputs cannot set the actor,
 native host or engine context.

@@ -42,7 +42,8 @@ function configureAssistantConversations(app, { actorKey, api = null, request, c
 // occur after dispatch and must retain an uncertain receipt.
 const SEND_REJECTIONS = new Set([
   "ACTION_VALIDATION_FAILED", "ACTION_PERMISSION_DENIED", "ACTION_SURFACE_FORBIDDEN",
-  "conversation_invalid_message", "conversation_busy", "conversation_not_steerable", "conversation_invalid_goal", "conversation_goal_changed"
+  "conversation_invalid_message", "conversation_busy", "conversation_not_steerable", "conversation_invalid_goal", "conversation_goal_changed",
+  "conversation_message_cancelled"
 ]);
 
 function isQuestionConfiguration(value) {
