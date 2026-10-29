@@ -2752,9 +2752,10 @@ The native identity, working directory and credential-home binding remain in
 server-side runtime metadata. Prompt changes replace the process while preserving
 native history; compatible model/effort changes use native controls. Account changes
 are rejected by default. An application that owns its conversations and authorizes
-the current workspace account may opt into `host.allowAccountChange: true`. The
-existing account guard confirms the old process has stopped before saving the new
-identity and resuming the same native history. Failed cleanup blocks adoption
+the current workspace account may opt into `host.allowAccountChange: true`. At
+the conversation's next idle admission, the existing account guard confirms the
+old process has stopped before saving the new identity and resuming the same
+native history; it never stops a running turn. Failed cleanup blocks adoption
 until the existing Stop recovery succeeds. Completed response receipts still
 require their original saved account; this option cannot rebind past effects. Application access
 is checked again after native preparation and before dispatch. Built-in tools are
@@ -3277,15 +3278,26 @@ synchronously. The runtime returns the native operation directly: shutdown
 fences and synchronous errors are not deferred behind another await. The host
 retains account policy and result presentation; the native owner retains its
 original cleanup sequence and retryable failures. No conversation is opened:
-each native owner stops the processes this server runs, since none outlives the
-server that started it, and saved conversations are not reopened to be stopped.
-Claude stops its sessions together, leaves an idle chat untouched (nothing to
-stop, nothing written) and reports a session that cannot stop by ID in `failed`
-while the others still stop. It stops them even when its account-query cleanup
-fails; that failure is still the call's result. Once shutdown has invalidated
-the owner, a later session close only releases retained work.
-Failed cleanup can be retried after runtime closure. This is not a browser
+at shutdown each native owner stops the processes this server runs, since none
+outlives the server that started it, and saved conversations are not reopened to
+be stopped. Claude stops its sessions together, leaves an idle chat untouched
+(nothing to stop, nothing written) and reports a session that cannot stop by ID
+in `failed` while the others still stop. It stops them even when its
+account-query cleanup fails; that failure is still the call's result. Once
+shutdown has invalidated the owner, a later session close only releases retained
+work. Failed cleanup can be retried after runtime closure. This is not a browser
 operation or a way to submit a caller-selected native owner.
+
+A Claude account change (sign-in, sign-out or switching accounts) stops and
+waits on nothing. Claude Code reads its credentials for every request, so a
+running turn continues on the newly connected account, and a conversation whose
+account signed out ends its next request at once with "Claude isn't connected.
+Sign in to Claude, then send your message again." The Claude owner only drops
+the account's cached model and usage reads, without waiting for cancelled reads
+to finish. Each conversation applies the account guard below at its next idle
+admission; a status read during a running turn keeps that turn. A provider-key
+change (`modelProviderId`) still stops the conversations using that provider,
+because their key is fixed when the process starts.
 
 `runtime.reconcileNativeSessions({ context, sessions, options })` restores an
 application's saved session collection through those same configured native

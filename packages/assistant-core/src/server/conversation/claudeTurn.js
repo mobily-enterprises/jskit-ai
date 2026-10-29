@@ -14,6 +14,7 @@ function failure(message, code = "assistant_claude_turn_failed") {
 
 const text = normalizeNullableText;
 const now = () => new Date().toISOString();
+const CLAUDE_SIGNED_OUT_MESSAGE = "Claude isn't connected. Sign in to Claude, then send your message again.";
 
 function hasPendingClaudeStartup(entry) {
   return entry.startupCleanup?.pending === true && entry.startupCleanup.executionId === entry.executionId;
@@ -346,9 +347,9 @@ export function createClaudeConversationOwner({
 
   async function ensureReady(entry) {
     if (entry.process) {
-      // Status reads retain active instructions; apply changes at idle admission.
-      if (isTurnActive(entry)) await bindAccount(entry);
-      else await ensureProcess(entry);
+      // Status reads retain an active turn's instructions and account: an
+      // account change never stops running work. Both apply at idle admission.
+      if (!isTurnActive(entry)) await ensureProcess(entry);
     } else {
       await bindAccount(entry);
       if (entry.executionId && !hasPendingClaudeStartup(entry)) await entry.nativeTurn.stopProcess("Claude's previous process exit could not be confirmed.");
@@ -884,22 +885,28 @@ export function createClaudeConversationOwner({
       return stopSelected(entry => store.modelProviderId(entry) === input.modelProviderId,
         "The provider connection changed.");
     }
-    closing = true;
-    try {
-      // Neither waits for the other: a failed account query cleanup must not
-      // leave the sessions' processes running on the previous account.
-      const [queries, retained] = await Promise.allSettled([account.queries.invalidate(), stopRetained(application)]);
-      if (queries.status === "rejected") await account.failure(queries.reason);
-      if (retained.status === "rejected") throw retained.reason;
-      return retained.value;
-    } finally {
-      closing = input.reason === "server-shutdown";
+    if (input.reason !== "server-shutdown") {
+      // An account change stops and waits on nothing. Claude Code reads its
+      // credentials for every request, so running work continues on the newly
+      // connected account or ends at once as signed out; each conversation
+      // rebinds its account at its next idle admission. Only the account's
+      // cached reads are dropped. A cancelled query's process stop that fails
+      // stays owned and is retried before the next query.
+      account.queries.invalidate().catch(() => {});
+      return { ok: true, closed: 0 };
     }
+    closing = true;
+    // Neither waits for the other: a failed account query cleanup must not
+    // leave the sessions' processes running.
+    const [queries, retained] = await Promise.allSettled([account.queries.invalidate(), stopRetained(application)]);
+    if (queries.status === "rejected") await account.failure(queries.reason);
+    if (retained.status === "rejected") throw retained.reason;
+    return retained.value;
   }
 
-  // Account changes and shutdown stop only what this server runs: a Claude
-  // process cannot outlive the server that started it, so retained entries
-  // hold every one. Saved conversations are not reopened just to be stopped.
+  // Shutdown stops only what this server runs: a Claude process cannot outlive
+  // the server that started it, so retained entries hold every one. Saved
+  // conversations are not reopened just to be stopped.
   function stopRetained(application) {
     return eachSession(() => true, ctx => closeRetained(ctx, application, { recover: false, forget: false }));
   }
@@ -1676,7 +1683,10 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
       for (const id of pendingAssistantMessages.keys()) await flushAssistantMessages(id, role);
       const output = typeof frame.structured_output === "object" ? JSON.stringify(frame.structured_output) : String(frame.result || "");
       checkOutput(output);
-      const message = failed ? (frame.errors || []).join("; ") || output || frame.subtype : "";
+      // A conversation whose account signed out under it ends its next request
+      // at once with Claude Code's own "Not logged in" answer.
+      const message = !failed ? "" : /^Not logged in\b/u.test(output) ? CLAUDE_SIGNED_OUT_MESSAGE
+        : (frame.errors || []).join("; ") || output || frame.subtype;
       result = failed ? "" : output;
       if (result && ![...messages.values()].some((block) => block.complete && block.role === "assistant" && block.text === result)) {
         await publishMessage({ id: `claude_${frame.uuid || turnId}_result`, role: "assistant", text: result, complete: true,

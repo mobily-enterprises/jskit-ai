@@ -117,14 +117,14 @@ async function lifecycleFixture(t) {
     get owner() { return owner; }, restart() { owner = create(); return owner; } };
 }
 
-test("a Claude account change stops every session's work although a stale archived session refuses writes", async t => {
+test("Claude shutdown stops every session's work although a stale archived session refuses writes", async t => {
   const f = await lifecycleFixture(t);
   await f.idle("a");
   f.archive("a");
   const b = await f.running("b");
   const c = await f.running("c");
   const before = f.calls.saves.length;
-  const result = await f.owner.invalidateRuntimes({ provider: "claude", reason: "claude-auth-change" }, f.application, f.account);
+  const result = await f.owner.invalidateRuntimes({ provider: "claude", reason: "server-shutdown" }, f.application, f.account);
   assert.equal(result.ok, true, JSON.stringify(result));
   assert.equal(b.process, null);
   assert.equal(c.process, null);
@@ -138,7 +138,7 @@ test("a Claude session whose stop fails is reported by ID while every other sess
   const a = await f.running("a");
   a.process.proof = { exited: false, scopeEmpty: false };
   const b = await f.running("b");
-  const result = await f.owner.invalidateRuntimes({ provider: "claude", reason: "claude-auth-change" }, f.application, f.account);
+  const result = await f.owner.invalidateRuntimes({ provider: "claude", reason: "server-shutdown" }, f.application, f.account);
   assert.equal(result.ok, false);
   assert.deepEqual(result.failed.map(failure => failure.sessionId), ["a"]);
   assert.match(result.error, /Claude session a:/);
@@ -171,13 +171,13 @@ test("a Claude provider connection change reports a conversation whose stop fail
   a.process.proof = { exited: true, scopeEmpty: true };
 });
 
-test("a failed Claude account query cleanup still stops the sessions' processes", async t => {
+test("a failed Claude account query cleanup at shutdown still stops the sessions' processes", async t => {
   const f = await lifecycleFixture(t);
   const b = await f.running("b");
   const queries = { invalidate: async () => { throw Object.assign(new Error("Account query cleanup failed."), { code: "claude_account_query_failed" }); } };
-  await assert.rejects(f.owner.invalidateRuntimes({ provider: "claude", reason: "claude-auth-change" }, f.application,
+  await assert.rejects(f.owner.invalidateRuntimes({ provider: "claude", reason: "server-shutdown" }, f.application,
     { ...f.account, queries }), /Account query cleanup failed/);
-  assert.equal(b.process, null, "the session's process stopped on the previous account anyway");
+  assert.equal(b.process, null, "the session's process stopped anyway");
 });
 
 test("Claude shutdown stops sessions together and never rewrites an idle chat", { timeout: 5_000 }, async t => {

@@ -110,7 +110,8 @@ conversation data.
 
 Claude status reads and ordinary Main steering retain the active process's instruction installation;
 changed host guidance is applied at the next idle admission. Account identity is
-still checked during status reads and before delivery; explicit settings changes retain their guards.
+checked before delivery and by idle status reads; a status read during a running
+turn keeps that turn on its account. Explicit settings changes retain their guards.
 
 When a Claude process ends without being stopped, its stream failure waits up to
 five seconds for the execution host's exit report. The person-facing failure then
@@ -188,15 +189,23 @@ without becoming a user: it stops about a minute after the last storage read
 unless a conversation, terminal or helper uses it.
 
 Claude's conversation owner cleans up from the entries it retains, because a
-Claude process cannot outlive the server that started it. Account changes,
-shutdown, provider-connection changes, project close, renewal proof release and
-the temporary-activity check reopen no saved conversation. They stop only
+Claude process cannot outlive the server that started it. Shutdown,
+provider-connection changes, project close, renewal proof release and the
+temporary-activity check reopen no saved conversation. They stop only
 entries holding native work, write nothing for idle ones and handle sessions
 concurrently; a failing session is reported by ID while the others still stop.
 Project close and proof release also forget the session's entries. A session
 close additionally reopens only saved custody an earlier server left (an
 unproven execution or a turn saved as active) so a verified stop can retire
-it; once an account change or shutdown is closing the owner, it reopens nothing.
+it; once shutdown is closing the owner, it reopens nothing.
+
+A Claude account change (sign-in, sign-out or switching accounts) stops and
+waits on nothing: it only drops the account's cached model and usage reads.
+Claude Code reads its credentials for every request, so a running turn continues
+on the newly connected account, and after a sign-out its next request ends at
+once with Claude Code's "Not logged in" result, reported as "Claude isn't
+connected. Sign in to Claude, then send your message again." Each conversation
+applies its account guard at its next idle admission.
 
 Claude plan usage keeps one verified reading per account. A live conversation
 process of that account answers at most once a minute; without one, or when its

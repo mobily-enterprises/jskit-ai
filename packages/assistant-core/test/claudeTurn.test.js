@@ -579,6 +579,16 @@ test("a native error result is failure information rather than an assistant answ
   assert.equal(events.some(event => event.type === "message"), false);
 });
 
+test("a turn whose account signed out ends at once with the not-connected message", async () => {
+  const { turn, send } = fixture();
+  await send();
+  // Claude Code's own answer when its credentials were removed under it.
+  await turn.receive({ type: "result", subtype: "success", is_error: true, result: "Not logged in · Please run /login" });
+  assert.equal(turn.read().active, false);
+  assert.equal(turn.read().status, "failed");
+  assert.equal(turn.read().error, "Claude isn't connected. Sign in to Claude, then send your message again.");
+});
+
 function renewalFixture() {
   const input = { clientMessageId: "renewal-operation", prompt: "Approved prompt", timeoutMs: 100 };
   const uuid = claudeNativeMessageId(input.clientMessageId);
@@ -926,15 +936,50 @@ test("Claude status retains active instructions and applies changed guidance onc
   assert.equal(f.processes.length, 2, "Idle readiness installs the changed instructions");
 });
 
-test("Claude active status still rejects account replacement", async t => {
+test("Claude active status keeps a running turn across an account change; idle admission applies it", async t => {
   const f = await publishedClaudeFixture(t);
   await f.send();
+  const running = f.entry.process;
   f.behavior.account = "account-b";
+  const state = await f.owner.ensureReady(f.entry);
+  assert.equal(state.turn.active, true);
+  assert.equal(f.entry.process, running, "the running turn keeps its process");
+  await f.frame({ type: "result", subtype: "success", result: "Done" });
+  // Once idle, the existing account guard applies.
   await assert.rejects(f.owner.ensureReady(f.entry), { code: "claude_account_changed" });
   assert.equal(f.entry.process, null);
 });
 
-test("Claude account change stops running processes without reopening saved conversations", async t => {
+test("Claude account change stops and waits on nothing; a running turn keeps its process", async t => {
+  const f = await publishedClaudeFixture(t);
+  f.context.sessionId = "session-a";
+  await f.send();
+  const running = f.entry.process;
+  const touched = [];
+  const application = {
+    readContext: async () => { touched.push("read-context"); throw new Error("A saved conversation was reopened"); },
+    terminals: { close: async sessionId => { touched.push(`close-terminals:${sessionId}`); return { ok: true, closed: 0 }; } }
+  };
+  // Cancelled account reads are still settling; the change must not wait for them.
+  const reads = Promise.withResolvers();
+  let invalidated = 0;
+  let returned = false;
+  const change = f.owner.invalidateRuntimes({ provider: "claude", reason: "claude-auth-change" }, application,
+    { queries: { invalidate: () => { invalidated++; return reads.promise; } }, failure: error => { throw error; } });
+  void change.then(() => { returned = true; });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(returned, true, "the change returned without waiting for the cancelled account reads");
+  reads.resolve();
+  assert.deepEqual(await change, { ok: true, closed: 0 });
+  assert.equal(invalidated, 1, "the account's cached reads were dropped");
+  assert.deepEqual(touched, [], "no terminal closed and no saved conversation reopened");
+  assert.equal(f.entry.process, running, "the running process was not stopped");
+  assert.equal(f.entry.turn.active, true, "the running turn continues");
+  await f.frame({ type: "result", subtype: "success", result: "Done" });
+  assert.equal(f.entry.turn.state, "completed", "the turn finishes normally");
+});
+
+test("Claude server shutdown stops running processes without reopening saved conversations", async t => {
   const f = await publishedClaudeFixture(t);
   f.context.sessionId = "session-a";
   await f.send();
@@ -944,7 +989,7 @@ test("Claude account change stops running processes without reopening saved conv
     readContext: async () => { throw new Error("A saved conversation was reopened"); },
     terminals: { close: async sessionId => { closedTerminals.push(sessionId); return { ok: true, closed: 0 }; } }
   };
-  const result = await f.owner.invalidateRuntimes({ provider: "claude", reason: "claude-auth-change" }, application,
+  const result = await f.owner.invalidateRuntimes({ reason: "server-shutdown" }, application,
     { queries: { invalidate: async () => {} }, failure: error => { throw error; } });
   assert.equal(result.ok, true);
   assert.equal(f.entry.process, null, "the running process stopped");
