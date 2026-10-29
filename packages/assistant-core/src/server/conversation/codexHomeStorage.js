@@ -5,8 +5,11 @@ import path from "node:path";
 // and downloads plugin, app and connector catalogues into `cache/`, roughly
 // 100-250 MB per home, refreshed and never pruned. No JSKIT conversation uses
 // plugins or apps (helper and tool-free threads also disable them per thread),
-// so every Codex process JSKIT launches turns both off.
-const CODEX_DISABLED_PROCESS_FEATURES = Object.freeze(["plugins", "apps"]);
+// so every Codex process JSKIT launches turns both off. Codex's terminal also
+// starts a shared app-server daemon by default (`daemon_auto_start`, 0.163),
+// with a detached updater that keeps it running after the terminal closes; a
+// JSKIT terminal runs its own process or its host's app-server instead.
+const CODEX_DISABLED_PROCESS_FEATURES = Object.freeze(["plugins", "apps", "daemon_auto_start"]);
 
 export function codexDisabledProcessFeatureArguments() {
   return CODEX_DISABLED_PROCESS_FEATURES.flatMap((feature) => ["-c", `features.${feature}=false`]);

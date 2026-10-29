@@ -27,8 +27,9 @@ const pluginAndApp = [".tmp/plugins/", ".tmp/plugins.sha", ".tmp/plugins.sync.lo
   ".tmp/plugins-backup-b2/", ".tmp/git-c3/", ".tmp/bundled-marketplaces/", "cache/remote_plugin_catalog/",
   "cache/codex_apps_tools/", "cache/codex_apps_server_info/", "cache/codex_app_directory/", "cache/bundled_plugin_exclusions/"];
 
-test("Codex processes are launched with plugin and app background work off", () => {
-  assert.deepEqual(codexDisabledProcessFeatureArguments(), ["-c", "features.plugins=false", "-c", "features.apps=false"]);
+test("Codex processes are launched with plugin and app background work and the shared background server off", () => {
+  assert.deepEqual(codexDisabledProcessFeatureArguments(), ["-c", "features.plugins=false", "-c", "features.apps=false",
+    "-c", "features.daemon_auto_start=false"]);
 });
 
 test("a used home loses only plugin and app caches; a retired home also loses its runtime-only data", async (t) => {

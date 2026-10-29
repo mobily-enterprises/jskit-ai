@@ -2874,7 +2874,10 @@ Helper mode, and a local `codexInteractiveArguments()` terminal) starts with
 openai/plugins repository into `<CODEX_HOME>/.tmp/plugins` and downloads plugin,
 app and connector catalogues into `<CODEX_HOME>/cache` at start, roughly 100-250 MB
 per home that is refreshed and never pruned; no conversation uses either. A
-terminal started with `--remote` uses its app-server's setting.
+terminal started with `--remote` uses its app-server's setting. The same
+processes pass `-c features.daemon_auto_start=false`, because Codex's terminal
+(on by default in 0.163) otherwise starts a shared app-server daemon whose detached
+updater keeps it running after the terminal closes.
 
 The existing owner preserves per-directory startup serialization, waiter
 revalidation, compatibility and liveness checks, verified retirement, helper

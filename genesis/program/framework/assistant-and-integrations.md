@@ -65,7 +65,10 @@ work and a local interactive terminal, starts with `features.plugins=false` and
 `features.apps=false`. Codex would otherwise sync the openai/plugins repository
 and plugin, app and connector catalogues into its home at start (about
 100-250 MB per home, never pruned) that no JSKIT conversation uses; a remote
-terminal inherits its app-server's setting. `codexHomeDisposablePaths(codexHome)`
+terminal inherits its app-server's setting. They also pass
+`features.daemon_auto_start=false`: Codex's terminal (on by default in 0.163)
+otherwise starts a shared app-server daemon with a detached updater that keeps
+running after the terminal closes. `codexHomeDisposablePaths(codexHome)`
 lists what those features left in a home, and with `{ retired: true }` the
 runtime-only data (diagnostic log database, `.tmp`, `cache`, `tmp`) of a home
 that will not launch again. It never follows links, reads no content and keeps
