@@ -375,8 +375,6 @@
       "conversation_receipt_unavailable": "The native receipt has no stored authored message.",
       "conversation_goal_unavailable": "The native goal is unavailable. Try reading its status again.",
       "assistant_provider_invalid_response": "Assistant provider returned an invalid response payload.",
-      "assistant_opencode_connection_changing": "OpenCode is changing a connection. Retry after the connection change finishes.",
-      "assistant_opencode_connection_in_use": "Close the other OpenCode conversations that use this connection, then retry this connection change. The saved connection has not changed.",
       "assistant_opencode_conversation_busy": "This conversation is still working.",
       "assistant_opencode_key_verification_failed": "OpenCode rejected the API-key verification request.",
       "assistant_opencode_turn_thread_mismatch": "The OpenCode predecessor history changed before handover generation.",
