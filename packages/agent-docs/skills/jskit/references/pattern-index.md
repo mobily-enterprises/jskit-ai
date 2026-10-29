@@ -15,7 +15,7 @@ A concrete Fastify, Vue, and JSKIT application foundation for products that do n
 
 - Id: `app/minimal-foundation`
 - Keywords: `app`, `fastify`, `foundation`, `minimal`, `server`, `vite`, `vue`
-- Owner: `@jskit-ai/agent-docs@0.1.252`
+- Owner: `@jskit-ai/agent-docs@0.1.253`
 - Read: [PATTERN.md](patterns/app/minimal-foundation/PATTERN.md)
 - Examples: [example/](patterns/app/minimal-foundation/example/)
 - Requires: `@jskit-ai/http-runtime`, `@jskit-ai/kernel`
@@ -26,7 +26,7 @@ A concrete JSKIT web application foundation with responsive shell navigation, se
 
 - Id: `app/shell-foundation`
 - Keywords: `app`, `foundation`, `material`, `navigation`, `placements`, `shell`, `vite`, `vue`
-- Owner: `@jskit-ai/agent-docs@0.1.252`
+- Owner: `@jskit-ai/agent-docs@0.1.253`
 - Read: [PATTERN.md](patterns/app/shell-foundation/PATTERN.md)
 - Examples: [example/](patterns/app/shell-foundation/example/)
 - Requires: `@jskit-ai/http-runtime`, `@jskit-ai/kernel`, `@jskit-ai/shell-web`
@@ -37,7 +37,7 @@ Configure an assistant runtime for one application surface and expose its chat a
 
 - Id: `assistant/assistant-surface`
 - Keywords: `ai`, `assistant`, `chat`, `config`, `environment`, `page`, `placement`, `settings`, `surface`
-- Owner: `@jskit-ai/assistant-runtime@0.2.4`
+- Owner: `@jskit-ai/assistant-runtime@0.2.5`
 - Read: [PATTERN.md](patterns/assistant/assistant-surface/PATTERN.md)
 - Examples: [example/](patterns/assistant/assistant-surface/example/)
 - Requires: `@jskit-ai/assistant-runtime`, `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`, `@jskit-ai/shell-web`
@@ -48,7 +48,7 @@ Run one OpenID Connect sign-in for all of an owner's apps as its own JSKIT proje
 
 - Id: `auth/accounts-hub`
 - Keywords: `accounts hub`, `auth`, `authentication`, `issuer`, `master login`, `oidc`, `openid connect`, `single sign-on`, `sso`
-- Owner: `@jskit-ai/oidc-issuer-core@0.1.7`
+- Owner: `@jskit-ai/oidc-issuer-core@0.1.8`
 - Read: [PATTERN.md](patterns/auth/accounts-hub/PATTERN.md)
 - Examples: [example/](patterns/auth/accounts-hub/example/)
 - Requires: `@jskit-ai/oidc-issuer-core`
@@ -70,7 +70,7 @@ Let people sign in with the accounts they already have in an accounts hub or ano
 
 - Id: `auth/oidc-sign-in`
 - Keywords: `accounts hub`, `auth`, `authentication`, `back-channel logout`, `dynamic client registration`, `issuer`, `master login`, `oidc`, `openid connect`, `single sign-on`, `sso`
-- Owner: `@jskit-ai/auth-provider-oidc-core@0.2.2`
+- Owner: `@jskit-ai/auth-provider-oidc-core@0.2.3`
 - Read: [PATTERN.md](patterns/auth/oidc-sign-in/PATTERN.md)
 - Examples: [example/](patterns/auth/oidc-sign-in/example/)
 - Requires: `@jskit-ai/auth-provider-oidc-core`, `@jskit-ai/auth-web`
@@ -81,7 +81,7 @@ Add Supabase authentication through normal npm composition, explicit environment
 
 - Id: `auth/supabase-auth`
 - Keywords: `auth`, `authentication`, `oauth`, `sessions`, `supabase`
-- Owner: `@jskit-ai/auth-provider-supabase-core@0.2.1`
+- Owner: `@jskit-ai/auth-provider-supabase-core@0.2.2`
 - Read: [PATTERN.md](patterns/auth/supabase-auth/PATTERN.md)
 - Examples: [example/](patterns/auth/supabase-auth/example/)
 - Requires: `@jskit-ai/auth-provider-supabase-core`
@@ -257,7 +257,7 @@ Build a routed CRUD user interface as thin application pages over JSKIT's shared
 
 - Id: `crud/crud-screen-set`
 - Keywords: `actions`, `add`, `crud`, `delete`, `edit`, `filters`, `list`, `material`, `routes`, `view`, `vue`
-- Owner: `@jskit-ai/http-web@0.2.3`
+- Owner: `@jskit-ai/http-web@0.2.4`
 - Read: [PATTERN.md](patterns/crud/crud-screen-set/PATTERN.md)
 - Examples: [example/](patterns/crud/crud-screen-set/example/)
 - Requires: `@jskit-ai/http-web`, `@jskit-ai/resource-crud-core`
@@ -323,7 +323,7 @@ Add JSKIT realtime events with an optional Redis backplane and an explicit shell
 
 - Id: `realtime/realtime-application`
 - Keywords: `realtime`, `redis`, `socket.io`, `sockets`, `status`, `websocket`
-- Owner: `@jskit-ai/realtime@0.2.2`
+- Owner: `@jskit-ai/realtime@0.2.3`
 - Read: [PATTERN.md](patterns/realtime/realtime-application/PATTERN.md)
 - Examples: [example/](patterns/realtime/realtime-application/example/)
 - Requires: `@jskit-ai/realtime`, `@jskit-ai/shell-web`
@@ -345,7 +345,7 @@ Define a server feature through explicit capabilities and first-class actions, a
 
 - Id: `server/feature-package`
 - Keywords: `actions`, `feature`, `json-rest`, `knex`, `orchestration`, `package`, `provider`, `repository`, `routes`, `server`
-- Owner: `@jskit-ai/agent-docs@0.1.252`
+- Owner: `@jskit-ai/agent-docs@0.1.253`
 - Read: [PATTERN.md](patterns/server/feature-package/PATTERN.md)
 - Examples: [example/](patterns/server/feature-package/example/)
 - Requires: `@jskit-ai/kernel`
@@ -378,7 +378,7 @@ Compose an account settings route and profile, preference, notification, and sig
 
 - Id: `users/account-settings`
 - Keywords: `account`, `link provider`, `notifications`, `oauth`, `preferences`, `profile`, `settings`, `sign-in methods`, `user`, `vue`
-- Owner: `@jskit-ai/users-web@0.2.3`
+- Owner: `@jskit-ai/users-web@0.2.4`
 - Read: [PATTERN.md](patterns/users/account-settings/PATTERN.md)
 - Examples: [example/](patterns/users/account-settings/example/)
 - Requires: `@jskit-ai/shell-web`, `@jskit-ai/users-core`, `@jskit-ai/users-web`
@@ -411,7 +411,7 @@ Compose workspace selection, invitation, member administration, settings, and re
 
 - Id: `workspaces/workspace-surfaces`
 - Keywords: `admin`, `invite`, `member`, `navigation`, `settings`, `surface`, `switcher`, `workspace`
-- Owner: `@jskit-ai/workspaces-web@0.2.3`
+- Owner: `@jskit-ai/workspaces-web@0.2.4`
 - Read: [PATTERN.md](patterns/workspaces/workspace-surfaces/PATTERN.md)
 - Examples: [example/](patterns/workspaces/workspace-surfaces/example/)
 - Requires: `@jskit-ai/shell-web`, `@jskit-ai/workspaces-core`, `@jskit-ai/workspaces-web`

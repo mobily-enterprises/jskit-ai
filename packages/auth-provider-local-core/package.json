@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/auth-provider-local-core",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "type": "module",
   "scripts": {
     "test": "node --test --test-concurrency=1"
