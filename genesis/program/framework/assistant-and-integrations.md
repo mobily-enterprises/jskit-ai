@@ -76,7 +76,9 @@ The runtime keeps one open entry for each bound namespace. A logical conversatio
 that a host binds through its own commands leaves memory when that host deletes
 or archives it and calls `retireOpenConversation`: its handles and listeners
 close, a missing entry is not opened, and native or storage-owned conversations
-keep their own disposal.
+keep their own disposal. The runtime's live streams are kept per conversation id;
+a logical conversation streams through its own owner, so retiring it never
+clears the live stream of another entry with the same id.
 
 Transcript readers accept server-owned `pageUnit: "messages"` to count individual
 user, assistant and system messages, excluding reasoning and commentary. The

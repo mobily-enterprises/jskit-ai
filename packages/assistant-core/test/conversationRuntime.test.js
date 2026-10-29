@@ -9,6 +9,7 @@ import { createCodexConversationAdapter } from "../src/server/conversation/provi
 import { createOpenCodeConversationAdapter } from "../src/server/conversation/providers/opencode.js";
 import { readPersistentConversation } from "../src/server/conversation/providers/scoped.js";
 import { createConversationTranscript, createMemoryConversationStorage } from "../src/server/conversation/index.js";
+import { createAiConnectionResolver } from "../../connectors-catalog/src/server/ai.js";
 
 test("scoped reads retain each request's output when an accepted steer interrupts the earlier reply", async () => {
   const transcript = createConversationTranscript({ storage: createMemoryConversationStorage() });
@@ -708,17 +709,18 @@ test("a user Pause during the final goal read prevents automatic settings recove
   f.runtime.close();
 });
 
+const logicalConversation = namespace => ({
+  sessionId: "session", namespace, engine: "claude",
+  read: async () => ({ engine: "claude", conversationLog: [], status: "ready" }),
+  readStream: async () => ({ messages: [] }),
+  commands: { send: async () => ({ status: "accepted" }), cancel: async () => ({ ok: true }),
+    select: async () => ({ ok: true }), inspectDelivery: async () => ({ status: "unknown" }) }
+});
+
 test("a deleted logical conversation retires its open entry without opening another", async () => {
   const opened = [];
-  const binding = namespace => ({
-    sessionId: "session", namespace, engine: "claude",
-    read: async () => ({ engine: "claude", conversationLog: [], status: "ready" }),
-    readStream: async () => ({ messages: [] }),
-    commands: { send: async () => ({ status: "accepted" }), cancel: async () => ({ ok: true }),
-      select: async () => ({ ok: true }), inspectDelivery: async () => ({ status: "unknown" }) }
-  });
   const runtime = createConversationRuntime({ authorize: () => true,
-    host: { conversation: ({ context }) => { opened.push(context.chat); return binding(`temporary-${context.chat}`); } } });
+    host: { conversation: ({ context }) => { opened.push(context.chat); return logicalConversation(`temporary-${context.chat}`); } } });
   try {
     const handle = await runtime.open({ id: "session", context: { chat: "one" } });
     await handle.subscribe(() => {});
@@ -732,6 +734,42 @@ test("a deleted logical conversation retires its open entry without opening anot
     const reopened = await runtime.open({ id: "session", context: { chat: "one" } });
     assert.equal((await reopened.read()).status, "ready", "a later open starts a fresh entry");
   } finally {
+    await runtime.close();
+  }
+});
+
+test("retiring a logical conversation keeps the live stream of the conversation that shares its id", { timeout: 15_000 }, async () => {
+  const source = new TransformStream();
+  const writer = source.writable.getWriter();
+  const frame = (content, finish = false) => new TextEncoder().encode(`data: ${JSON.stringify({ choices: [{ index: 0,
+    delta: content ? { content } : {}, ...(finish ? { finish_reason: "stop" } : {}) }] })}\n\n`);
+  const streamed = Promise.withResolvers();
+  const context = { applicationId: "test-app", subjectId: "owner" };
+  const connections = createAiConnectionResolver({ authorize: actor => actor, configuration: { schemaVersion: 1, registrations: {}, integrations: {
+    assistant: { provider: "ai", accountMode: "shared", scopes: [], authentication: { method: "none" }, settings: { model: "opencode/mimo-v2.5-free" } }
+  } } });
+  const runtime = createConversationRuntime({ storage: createMemoryConversationStorage(), connections, authorize: () => true,
+    fetch: () => new Response(source.readable, { headers: { "content-type": "text/event-stream" } }),
+    host: { conversation: ({ context }) => context.chat ? logicalConversation(`temporary-${context.chat}`) : null } });
+  let finished = false;
+  try {
+    const main = await runtime.open({ id: "session", context, configuration: { systemPrompt: "Give concise answers.", integrationId: "assistant" } });
+    const chat = await runtime.open({ id: "session", context: { ...context, chat: "one" } });
+    await chat.subscribe(() => {});
+    await main.subscribe(event => { if (event.type === "message") streamed.resolve(); });
+    assert.equal((await main.send({ messageId: "main-message", text: "Hello" })).status, "accepted");
+    await writer.write(frame("Main words"));
+    await streamed.promise;
+    assert.deepEqual(await runtime.retireOpenConversation({ namespace: "temporary-one", sessionId: "session" }), { retired: true });
+    assert.deepEqual((await main.read()).streaming.messages.map(({ text }) => text), ["Main words"],
+      "a logical conversation owns no runtime stream, so retiring it leaves the same-id conversation's live reply");
+    await writer.write(frame(" and more"));
+    await writer.write(frame("", true));
+    await writer.close();
+    finished = true;
+    assert.equal((await main.wait()).conversationLog[0].assistant.text, "Main words and more");
+  } finally {
+    if (!finished) await writer.abort(new Error("The test ended before the reply.")).catch(() => {});
     await runtime.close();
   }
 });

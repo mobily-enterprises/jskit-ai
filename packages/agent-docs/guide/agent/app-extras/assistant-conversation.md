@@ -3203,6 +3203,9 @@ and returns `{ retired: true }`. A namespace with no open entry returns
 conversations are refused; they keep `dispose()` and `runtime.disposeNative()`.
 The application has already stopped and removed the logical conversation's work
 through its own commands; this operation stops nothing and has no browser endpoint.
+A logical conversation streams through its own `readStream`, so retiring or
+disposing it leaves the live reply of another conversation that shares its id,
+such as the session's Main conversation, unchanged.
 
 Historical native records can predate an application's retained scope identity.
 An advanced host can clean up those exact records through

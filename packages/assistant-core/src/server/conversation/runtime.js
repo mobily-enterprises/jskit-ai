@@ -2316,7 +2316,10 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
   function retireEntry(entry) {
     entry.disposed = true;
     entry.listeners.clear();
-    streams.clear(entry.id);
+    // Live streams are kept per conversation id. A logical conversation streams
+    // through its own owner, so the stream under its id belongs to another entry
+    // with the same id, such as its session's Main conversation.
+    if (!entry.conversation?.commands) streams.clear(entry.id);
     if (entries.get(entry.key) === entry) entries.delete(entry.key);
   }
 
