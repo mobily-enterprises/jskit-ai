@@ -26,6 +26,31 @@ async function settleReaderAt(body, scrollTop) {
   }, scrollTop)).toBe(true);
 }
 
+// Prepended history starts at those estimates and materializes on a later frame,
+// when scroll anchoring moves scrollTop. Read positions only once that settles.
+async function settleLayout(body) {
+  await expect.poll(() => body.evaluate(async element => {
+    const [top, height] = [element.scrollTop, element.scrollHeight];
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    return element.scrollTop === top && element.scrollHeight === height;
+  })).toBe(true);
+}
+
+// A gesture's scroll ends after its last input event; a touch drag ends with
+// its fling. A scrollend still queued from earlier scrolling must not count, or
+// the reader is measured while the fling keeps moving it.
+async function scrollGesture(body, lastEventType, perform) {
+  await body.evaluate((element, type) => {
+    element.gestureScrollEnded = new Promise(resolve => {
+      element.addEventListener(type, () => {
+        element.addEventListener("scrollend", () => resolve(), { once: true });
+      }, { once: true, passive: true });
+    });
+  }, lastEventType);
+  await perform();
+  await body.evaluate(element => element.gestureScrollEnded);
+}
+
 const VIEWPORTS = Object.freeze([
   Object.freeze({ name: "phone", width: 390, height: 844 }),
   Object.freeze({ name: "compact", width: 800, height: 900 }),
@@ -266,10 +291,12 @@ test("conversation scrolling preserves history anchors and resets expansion on s
     await page.getByRole("button", { name: "Read more", exact: true }).click();
     await expect(page.getByRole("button", { name: "Show less", exact: true })).toBeVisible();
     const original = page.getByText("Conversation line 1:", { exact: false }).first();
+    await settleLayout(body);
     const originalTop = (await original.boundingBox()).y;
     // Measure history anchoring without Playwright first scrolling to the button.
     await page.getByRole("button", { name: "Load older messages", exact: true }).evaluate(element => element.click());
-    await expect.poll(async () => Math.abs((await original.boundingBox()).y - originalTop)).toBeLessThan(2);
+    await settleLayout(body);
+    expect(Math.abs((await original.boundingBox()).y - originalTop)).toBeLessThan(2);
     const before = await body.evaluate((element) => element.scrollTop);
     await page.getByRole("button", { name: "Append reply", exact: true }).click();
     await expect(page.getByText("New reply.", { exact: false })).toBeAttached();
@@ -370,20 +397,18 @@ test("upward scrolling loads older history once and preserves retry and selectio
         const cdp = await page.context().newCDPSession(page);
         const x = bounds.x + bounds.width / 2;
         const y = bounds.y + 40;
-        const stopped = body.evaluate(element => new Promise(resolve => {
-          element.addEventListener("scrollend", () => resolve(), { once: true });
-        }));
-        await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
-        for (let offset = 20; offset <= 380; offset += 20) {
-          await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y: y + offset }] });
-          await page.evaluate(() => new Promise(requestAnimationFrame));
-        }
-        await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-        await stopped;
+        await scrollGesture(body, "touchend", async () => {
+          await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+          for (let offset = 20; offset <= 380; offset += 20) {
+            await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y: y + offset }] });
+            await page.evaluate(() => new Promise(requestAnimationFrame));
+          }
+          await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+        });
         await cdp.detach();
       } else {
         await body.hover();
-        await page.mouse.wheel(0, -380);
+        await scrollGesture(body, "wheel", () => page.mouse.wheel(0, -380));
       }
       const pending = page.getByRole("button", { name: "Loading older messages…", exact: true });
       await expect(pending).toBeDisabled();
@@ -394,10 +419,12 @@ test("upward scrolling loads older history once and preserves retry and selectio
         element.dispatchEvent(new Event("scroll"));
       });
       const original = page.getByText("Conversation line 1:", { exact: false }).first();
+      await settleLayout(body);
       const originalTop = (await original.boundingBox()).y;
       await external("Complete history load");
       await expect(pending).toHaveCount(0);
-      await expect.poll(async () => Math.abs((await original.boundingBox()).y - originalTop)).toBeLessThan(2);
+      await settleLayout(body);
+      expect(Math.abs((await original.boundingBox()).y - originalTop)).toBeLessThan(2);
       await expect(requests).toHaveText("History requests: 1");
 
       // Keyboard navigation also requests older history.
@@ -421,11 +448,7 @@ test("upward scrolling loads older history once and preserves retry and selectio
       // Removing the history control re-anchors the scroller, which would
       // cancel a keyboard scroll already in flight; press Home once it settles.
       await expect(page.getByRole("button", { name: "Load older messages", exact: true })).toHaveCount(0);
-      await expect.poll(() => body.evaluate(async element => {
-        const height = element.scrollHeight;
-        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-        return element.scrollHeight === height;
-      })).toBe(true);
+      await settleLayout(body);
       await expect.poll(async () => {
         await body.focus();
         return body.evaluate(element => document.activeElement === element);
