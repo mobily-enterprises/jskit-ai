@@ -828,18 +828,20 @@ export function createCodexAppServerProviderOwner({
 
   // A runtime with a running turn keeps the credentials it started with until
   // that turn ends. Its active goals are paused so it starts no further turn;
-  // retireStaleRuntime stops it once it is idle.
+  // retireStaleRuntime stops it once it is idle. Any other runtime returns
+  // null and stops at once, like an idle one.
   async function deferBusyRuntime(runtimeKey, peers) {
     let running;
     try {
       running = await runningNativeThreads(peers);
     } catch (error) {
-      // An unreadable runtime cannot show a running turn: it stops as before.
+      // An unreadable runtime cannot show a running turn.
       debugLog("appServerRuntime.staleInspection.error", { error: debugError(error), runtimeKey });
       return null;
     }
-    if (!running.length) return null;
-    const client = peers.find(record => record.provider.client?.isOpen?.()).provider.client;
+    // Nor can one whose control connection closed while it was read.
+    const client = peers.find(record => record.provider.client?.isOpen?.())?.provider.client;
+    if (!running.length || !client) return null;
     const pausedGoals = [];
     for (const threadId of running) {
       try {

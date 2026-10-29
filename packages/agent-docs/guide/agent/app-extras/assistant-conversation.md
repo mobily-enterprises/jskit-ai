@@ -3029,7 +3029,9 @@ application gives each sign-in its own runtime directory and provider key, so
 the next message starts at once on the current account. The run owner's
 `continueGoalAfterAccountChange(sessionId, { threadId })` option resumes a goal
 the change paused once the previous runtime stopped; without it the goal stays
-paused. A runtime that cannot be inspected stops as before. When the
+paused. A runtime that cannot be inspected, or whose control connection closes
+while it is inspected, shows no running turn and stops at once like an idle
+one. When the
 application's `identity.write` returns `supersededRuntimeDir` (the runtime
 directory the session recorded before), the owner removes that directory once
 its runtime has verifiably stopped; a stale runtime still finishing its turn

@@ -84,6 +84,31 @@ test("an account change stops an idle Codex runtime at once and leaves a running
   assert.equal(await owner.retireStaleRuntime(keys.busy), null);
 });
 
+test("an account change stops a Codex runtime whose control connection closed while its turns were read", async t => {
+  const closing = nativeRuntime({ threads: { "busy-thread": "active" }, goals: { "busy-thread": { status: "active" } } });
+  let open = true;
+  const read = closing.provider.client.request;
+  closing.provider.client = {
+    isOpen: () => open,
+    async request(method, params) {
+      const response = await read(method, params);
+      if (method === "thread/read") open = false;
+      return response;
+    }
+  };
+  const idle = nativeRuntime({ threads: { "idle-thread": "idle" } });
+  const { owner } = ownerWith(t, { closing, idle });
+
+  const result = await owner.invalidateRuntimes(ACCOUNT_CHANGE);
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.deferred, [], "A closed connection leaves no running turn to keep");
+  assert.equal(closing.provider.stale, false);
+  assert.equal(closing.requests.some(request => request.startsWith("thread/goal/")), false);
+  assert.equal(closing.provider.stopped, 1, "It takes the verified stop of a runtime with no running turn");
+  assert.equal(idle.provider.stopped, 1, "The other runtimes still change account");
+});
+
 test("a session's next Codex runtime starts only after its finished stale runtime stopped", async t => {
   const old = nativeRuntime({ threads: { "thread-1": "active" } });
   const current = { client: null, close() {} };
