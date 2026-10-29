@@ -702,6 +702,76 @@ test("Claude plan usage starts one temporary Claude per idle interval and marks 
   await queries.invalidate();
 });
 
+test("Claude plan usage starts one temporary Claude per account for every owner polling it", async (t) => {
+  const realNow = Date.now;
+  let now = Date.parse("2026-10-29T03:00:00Z");
+  Date.now = () => now;
+  t.after(() => { Date.now = realNow; });
+  const starts = [];
+  let stops = 0;
+  // Three account-query owners in one server process, none with a live conversation.
+  const owners = ["first", "second", "third"].map(owner => createClaudeAccountQueries({
+    accountIdentity: async context => context.account,
+    createProcess(input) {
+      starts.push([owner, input.purpose]);
+      return { client: { request: async () => ({ rate_limits_available: true, rate_limits: {
+        seven_day: { utilization: 23, resets_at: "2026-11-04T05:00:00Z" }, limits: [] } }) },
+      async stop() { stops++; return { scopeEmpty: true }; } };
+    }
+  }));
+  t.after(() => Promise.all(owners.map(queries => queries.invalidate())));
+  const account = { account: "plan-usage-shared-across-owners" };
+  // Requests that arrive while the account is read share that one read.
+  const concurrent = await Promise.all(owners.map(queries => queries.readPlanUsage(account)));
+  assert.deepEqual(starts, [["first", "usage"]]);
+  for (const reading of concurrent) assert.deepEqual(reading, concurrent[0]);
+  assert.equal(concurrent[0].windows[0].remainingPercent, 77);
+  // An hour of every owner polling once a minute.
+  for (let minute = 1; minute < 60; minute++) {
+    now += 60_000;
+    for (const queries of owners) assert.equal((await queries.readPlanUsage(account)).status, "available");
+  }
+  assert.equal(starts.length, 12, "the account started more than one temporary Claude per idle interval");
+  assert.equal(stops, starts.length, "a temporary usage process outlived its read");
+  // Another account is read on its own.
+  await owners[1].readPlanUsage({ account: "plan-usage-another-account" });
+  assert.equal(starts.length, 13);
+});
+
+test("Claude plan usage reuses another owner's live reading instead of starting a temporary Claude", async (t) => {
+  const realNow = Date.now;
+  let now = Date.parse("2026-10-29T03:00:00Z");
+  Date.now = () => now;
+  t.after(() => { Date.now = realNow; });
+  const account = "plan-usage-live-in-another-owner";
+  const answer = { rate_limits_available: true, rate_limits: {
+    seven_day: { utilization: 23, resets_at: "2026-11-04T05:00:00Z" }, limits: [] } };
+  let liveReads = 0;
+  const starts = [];
+  const createProcess = () => {
+    starts.push("usage");
+    return { client: { request: async () => answer }, async stop() { return { scopeEmpty: true }; } };
+  };
+  const withConversation = createClaudeAccountQueries({ accountIdentity: async () => account, createProcess,
+    processes: () => [{ accountIdentity: account, process: { client: { request: async () => { liveReads++; return answer; } } } }] });
+  const idle = createClaudeAccountQueries({ accountIdentity: async () => account, createProcess });
+  t.after(() => Promise.all([withConversation.invalidate(), idle.invalidate()]));
+  const live = await withConversation.readPlanUsage({});
+  assert.equal(liveReads, 1);
+  // Only the idle owner's page stays open: the account's verified reading serves it
+  // until that reading is an idle interval old.
+  for (let minute = 1; minute <= 4; minute++) {
+    now += 60_000;
+    const reading = await idle.readPlanUsage({});
+    assert.equal(reading.checkedAt, live.checkedAt);
+    assert.equal(reading.status, "available");
+  }
+  assert.deepEqual(starts, [], "a temporary Claude started while the account had a recent verified reading");
+  now += 60_000;
+  await idle.readPlanUsage({});
+  assert.deepEqual(starts, ["usage"]);
+});
+
 test("Claude account queries label temporary startup and reuse each account's recent reading", async () => {
   const starts = [];
   let stops = 0;

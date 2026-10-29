@@ -244,6 +244,11 @@ const PLAN_USAGE_IDLE_READ_MS = 300_000;
 // A verified reading stays current until the next idle read, one client poll and
 // its read deadline could have replaced it.
 const PLAN_USAGE_CURRENT_MS = 420_000;
+// One plan-usage reading per Claude account in this server process, with its read
+// times and the read in flight. Every account-query owner, page and session asking
+// for the account shares it, so however many ask, the account's one-shot Claude
+// starts at most once per idle interval.
+const planUsageReads = new Map();
 
 /**
  * Claude Code answers `get_usage` from the usage endpoint, or from its saved copy
@@ -272,15 +277,20 @@ export function claudeCatalogueModels(initialization) {
   }));
 }
 
-/** Native account queries share process reuse, caches and retryable cleanup. */
+/**
+ * Native account queries share process reuse, caches and retryable cleanup. Plan
+ * usage is shared by `accountIdentity` with every other owner in the process, so
+ * that identity names exactly one Claude account.
+ */
 export function createClaudeAccountQueries({ createProcess, accountIdentity, processes = () => [], isClosing = () => false }) {
   const error = message => Object.assign(new Error(message), { code: "claude_account_query_failed" });
   const accountProcessStops = new Set();
   const accountReads = new Set();
   let catalog;
   const catalogStarts = new Map();
-  const planUsage = new Map();
-  const planUsagePending = new Map();
+  // Accounts whose shared plan-usage reading this owner used, and the reads it started.
+  const usageAccounts = new Set();
+  const usageReads = new Set();
   let revision = 0;
 
   function assertCurrent(expectedRevision) {
@@ -347,13 +357,20 @@ export function createClaudeAccountQueries({ createProcess, accountIdentity, pro
       assertCurrent(expectedRevision);
       const identity = await accountIdentity(context);
       assertCurrent(expectedRevision);
-      if (planUsagePending.has(identity)) return planUsagePending.get(identity);
-      // One reading per account; a started process is stopped after its read.
-      const usage = planUsage.get(identity) || { liveReadAt: -Infinity, temporaryReadAt: -Infinity, reading: null };
-      planUsage.set(identity, usage);
+      // One reading per account, whichever owner asks; a started process is stopped after its read.
+      let usage = planUsageReads.get(identity);
+      if (!usage) {
+        usage = { liveReadAt: -Infinity, temporaryReadAt: -Infinity, reading: null, pending: null };
+        planUsageReads.set(identity, usage);
+      }
+      usageAccounts.add(identity);
+      if (usage.pending) return usage.pending;
       const live = Boolean(ownedProcess(identity));
       const liveDue = live && Date.now() - usage.liveReadAt >= PLAN_USAGE_LIVE_READ_MS;
-      const temporaryDue = () => Date.now() - usage.temporaryReadAt >= PLAN_USAGE_IDLE_READ_MS;
+      // A one-shot Claude starts only when neither a verified reading nor a one-shot
+      // read is from the last idle interval.
+      const temporaryDue = () => Date.now() - Math.max(usage.temporaryReadAt, usage.reading?.checkedAt ?? -Infinity) >=
+        PLAN_USAGE_IDLE_READ_MS;
       if (!liveDue && (live || !temporaryDue())) return presentPlanUsage(usage.reading);
       const pending = (async () => {
         // A live process's held endpoint read is its own, so a fresh one-shot Claude
@@ -379,18 +396,30 @@ export function createClaudeAccountQueries({ createProcess, accountIdentity, pro
           }
         }
         return presentPlanUsage(usage.reading);
-      })().finally(() => { planUsagePending.delete(identity); });
-      planUsagePending.set(identity, pending);
+      })().finally(() => {
+        usageReads.delete(pending);
+        if (usage.pending === pending) usage.pending = null;
+      });
+      // Requests that arrive while the account is read share that read.
+      usage.pending = pending;
+      usageReads.add(pending);
       return pending;
     },
     // A native usage change lets the next request read again without hiding the last reading.
-    invalidateUsage() { for (const usage of planUsage.values()) usage.liveReadAt = -Infinity; },
+    invalidateUsage() {
+      for (const identity of usageAccounts) {
+        const usage = planUsageReads.get(identity);
+        if (usage) usage.liveReadAt = -Infinity;
+      }
+    },
     async invalidate() {
       revision++;
       for (const controller of accountReads) controller.abort(error("Claude account query was cancelled for reconnection."));
-      await Promise.allSettled([...catalogStarts.values(), ...planUsagePending.values()]);
+      await Promise.allSettled([...catalogStarts.values(), ...usageReads]);
       catalog = null;
-      planUsage.clear();
+      // The account changed: the next request for an account this owner used reads again.
+      for (const identity of usageAccounts) planUsageReads.delete(identity);
+      usageAccounts.clear();
       for (const native of accountProcessStops) await stopAccountProcess(native);
     }
   });

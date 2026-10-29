@@ -3667,10 +3667,17 @@ terminal cleanup and product error conversion. These trusted server lifecycle
 operations use the configured common runtime and are not browser actions.
 The account owner's usage normalization retains only native windows whose values and reset times
 are valid; it does not invent refreshed allowance. Plan usage keeps one reading
-per account. It reads through a matching live conversation process at most once
-a minute; with none, or when that answer cannot prove it is current, it starts
-one temporary query process at most every five minutes and stops it when the
-read finishes. A refused fallback keeps the last reading. Only an answer carrying the usage
+per account in the server process, shared by every account-query owner, page and
+session that asks with the same `accountIdentity`, so that identity must name one
+account. A request that arrives during the account's read shares it. It reads
+through the asking owner's matching live conversation process at most once a
+minute per account; with none, or when that answer cannot prove it is current,
+it starts one temporary query process only when neither a verified reading nor a
+temporary read is from the last five minutes, and stops it when the read
+finishes. An account therefore starts at most one temporary Claude every five
+minutes however many pages poll, and none while nothing asks; clients should
+poll only while the page is visible. A refused fallback keeps the last reading.
+`invalidate()` forgets the readings that owner used. Only an answer carrying the usage
 endpoint's `limits` list replaces the reading: Claude Code's fallback answer,
 taken from the answering process's last response headers while its endpoint read
 fails or is held, can be hours old and has no age. A reading is returned as

@@ -207,11 +207,17 @@ once with Claude Code's "Not logged in" result, reported as "Claude isn't
 connected. Sign in to Claude, then send your message again." Each conversation
 applies its account guard at its next idle admission.
 
-Claude plan usage keeps one verified reading per account. A live conversation
-process of that account answers at most once a minute; without one, or when its
-answer is unverified, a temporary query process answers at most every five
-minutes and is stopped after its read. Claude Code holds a refused endpoint read
-per process, so the fresh process can still reach the endpoint.
+Claude plan usage keeps one verified reading per account in the server process,
+shared by every account-query owner, page and session that asks for that
+account; a request that arrives during a read shares it. A live conversation
+process of the asking owner answers at most once a minute per account; without
+one, or when its answer is unverified, a temporary query process answers only
+when neither a verified reading nor a temporary read is from the last five
+minutes, and is stopped after its read. However many pages poll, an account
+therefore starts at most one temporary Claude every five minutes, and none while
+no page asks. Claude Code holds a refused endpoint read per process, so the fresh
+process can still reach the endpoint. An account change forgets the readings the
+owner used, so the next request reads again.
 Claude Code answers from the usage endpoint with its `limits` list, or, while
 that read fails or is held, from the answering process's last response headers
 without `limits` or any age. Only the first kind replaces the reading. It is
