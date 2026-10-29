@@ -75,6 +75,11 @@ jobs:
           JSKIT_HTTP_WEB_DATE_FILTER_VISUAL_INTEGRATION: "1"
         run: node --test packages/http-web/test/crudListDateFilterSurface.browser.test.js
 
+      - name: Verify select fields never show stored ids
+        env:
+          JSKIT_HTTP_WEB_SELECT_FIELD_BROWSER: "1"
+        run: node --test packages/http-web/test/selectField.browser.test.js
+
       - name: Verify shared assistant conversation UI
         env:
           JSKIT_ASSISTANT_CORE_BROWSER_INTEGRATION: "1"

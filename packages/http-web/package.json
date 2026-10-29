@@ -13,6 +13,7 @@
     "./client/components/CrudListFilterSurface": "./src/client/components/CrudListFilterSurface.vue",
     "./client/components/CrudListScreen": "./src/client/components/CrudListScreen.vue",
     "./client/components/CrudViewScreen": "./src/client/components/CrudViewScreen.vue",
+    "./client/components/SelectField": "./src/client/components/SelectField.vue",
     "./client/bulkActions": "./src/client/bulkActions.js",
     "./client/filters": "./src/client/filters.js",
     "./client/rowActions": "./src/client/rowActions.js",
@@ -117,6 +118,10 @@
           {
             "subpath": "./client/components/CrudAddEditScreen",
             "summary": "Exports the shared CRUD add/edit screen."
+          },
+          {
+            "subpath": "./client/components/SelectField",
+            "summary": "Exports the select/autocomplete field that never shows a stored id as its title."
           }
         ]
       },

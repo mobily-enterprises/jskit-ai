@@ -7,10 +7,7 @@ import {
 } from "@jskit-ai/resource-crud-core/shared/crudLookup";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { useList } from "../records/useList.js";
-import {
-  resolveLookupItemLabel,
-  resolveLookupFieldDisplayValue
-} from "./crudLookupFieldLabelSupport.js";
+import { resolveLookupItemLabel } from "./crudLookupFieldLabelSupport.js";
 import { inferCrudLookupJsonApiTransport } from "./crudJsonApiTransportSupport.js";
 import { asPlainObject } from "../support/scopeHelpers.js";
 import { useJskitText } from "../../i18n.js";
@@ -48,22 +45,16 @@ function createSelectedLookupItem(selectedValue, selectedRecord = {}, entry = {}
     return null;
   }
 
-  const displayValue = resolveLookupFieldDisplayValue(
-    {
-      [entry.fieldKey]: value,
-      [entry.lookupContainerKey]: {
-        [entry.fieldKey]: hydratedLookup
-      }
-    },
-    {
-      key: entry.fieldKey,
-      relation: entry.relation
-    }
-  );
-  const label = displayValue == null || displayValue === "" ? value : displayValue;
+  // Without a hydrated label the only title would be the raw id; leave the
+  // selected value unlisted so the field shows its loading or unavailable state.
+  const label = resolveLookupItemLabel(hydratedLookup, entry.labelKey);
+  if (!label) {
+    return null;
+  }
+
   return {
     value,
-    label: String(label ?? ""),
+    label,
     record: hydratedLookup
   };
 }
@@ -144,16 +135,7 @@ function createCrudLookupFieldRuntime({
       fieldKey: key,
       lookupContainerKey: relationLookupContainerKey,
       valueKey,
-      labelKey,
-      relation: Object.freeze({
-        kind: "lookup",
-        namespace,
-        ...(explicitApiPath ? { apiPath: explicitApiPath } : {}),
-        ...(relationSurfaceId ? { surfaceId: relationSurfaceId } : {}),
-        containerKey: relationLookupContainerKey,
-        valueKey,
-        ...(labelKey ? { labelKey } : {})
-      })
+      labelKey
     }));
   }
 

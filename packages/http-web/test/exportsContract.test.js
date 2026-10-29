@@ -21,6 +21,7 @@ test("http-web exports are explicit and aligned with production and generated us
       "./client/components/CrudListFilterSurface",
       "./client/components/CrudListScreen",
       "./client/components/CrudViewScreen",
+      "./client/components/SelectField",
       "./client/bulkActions",
       "./client/filters",
       "./client/rowActions",

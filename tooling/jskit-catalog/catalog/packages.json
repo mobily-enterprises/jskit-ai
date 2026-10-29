@@ -1739,6 +1739,10 @@
               {
                 "subpath": "./client/components/CrudAddEditScreen",
                 "summary": "Exports the shared CRUD add/edit screen."
+              },
+              {
+                "subpath": "./client/components/SelectField",
+                "summary": "Exports the select/autocomplete field that never shows a stored id as its title."
               }
             ]
           },

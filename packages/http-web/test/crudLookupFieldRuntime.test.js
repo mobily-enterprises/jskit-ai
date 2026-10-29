@@ -1,10 +1,31 @@
 import assert from "node:assert/strict";
+import { registerHooks } from "node:module";
 import test from "node:test";
 import {
   resolveLookupItemLabel,
   resolveLookupFieldDisplayValue,
   resolveRecordTitle
 } from "../src/client/composables/crud/crudLookupFieldLabelSupport.js";
+
+// The lookup list is the first page of services, which does not contain the selected service 53.
+const useListUrl = new URL("../src/client/composables/records/useList.js", import.meta.url).href;
+const hooks = registerHooks({
+  load(url, context, nextLoad) {
+    if (url !== useListUrl) return nextLoad(url, context);
+    return {
+      format: "module",
+      shortCircuit: true,
+      source: "export const useList = () => ({ items: [{ id: 7, name: 'Bath' }] });"
+    };
+  }
+});
+const { createCrudLookupFieldRuntime } = await import("../src/client/composables/crud/crudLookupFieldRuntime.js");
+hooks.deregister();
+
+const serviceFormFields = [{
+  key: "serviceId",
+  relation: { kind: "lookup", namespace: "services", valueKey: "id", labelKey: "name" }
+}];
 
 test("resolveLookupItemLabel composes name + surname", () => {
   assert.equal(
@@ -260,5 +281,26 @@ test("resolveLookupFieldDisplayValue supports scalar lookup descriptor arguments
       "name"
     ),
     "Harbor Vet"
+  );
+});
+
+test("lookup items never title the selected value with its raw id", () => {
+  const { resolveLookupItems } = createCrudLookupFieldRuntime({ formFields: serviceFormFields });
+  const listed = [{ value: "7", label: "Bath", record: { id: 7, name: "Bath" } }];
+
+  assert.deepEqual(resolveLookupItems("serviceId", { selectedValue: 53, selectedRecord: { serviceId: 53 } }), listed);
+  assert.deepEqual(
+    resolveLookupItems("serviceId", {
+      selectedValue: 53,
+      selectedRecord: { serviceId: 53, lookups: { serviceId: { id: 53 } } }
+    }),
+    listed
+  );
+  assert.deepEqual(
+    resolveLookupItems("serviceId", {
+      selectedValue: 53,
+      selectedRecord: { serviceId: 53, lookups: { serviceId: { id: 53, name: "Daycare - One Day" } } }
+    }),
+    [{ value: "53", label: "Daycare - One Day", record: { id: 53, name: "Daycare - One Day" } }, ...listed]
   );
 });

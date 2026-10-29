@@ -107,12 +107,58 @@ realtime events, delete availability, and action definitions. Use the screen
 slots for domain-specific content. Use a lower-level request composable only
 when the wire contract genuinely is not CRUD.
 
+### Lookup and selection fields
+
+A form field whose `relation` is a `lookup` takes its options from
+`createCrudLookupFieldRuntime({ formFields })` in
+`@jskit-ai/http-web/client/composables/crudLookupFieldRuntime`.
+`resolveLookupItems(fieldKey, { selectedValue, selectedRecord })` returns
+`{ value, label, record }` options. When the loaded record carries a hydrated
+lookup label for a selected value missing from the current options, that option
+is listed first; a selected value without a label is not listed.
+
+Render selection fields whose options load from the server, or whose value is a
+record id, with `SelectField` from
+`@jskit-ai/http-web/client/components/SelectField`, not a raw `v-select`,
+`v-autocomplete` or `v-combobox`. Vuetify titles a value missing from `items`
+with the value itself, so a stored id such as `53` shows until the options
+arrive. `SelectField` hides an unresolved value while `loading` is true, shows
+"Unavailable option" once the options settle, and remembers titles it has seen
+so a narrowing search does not blank a chosen value. Display never changes the
+stored value. `searchable` renders an autocomplete; other props and slots pass
+through to Vuetify.
+
+```vue
+<CrudAddEditScreen :screen="screen" v-bind="lookups">
+  <template #fields="{ formState, addEdit, resolveLookupItems, resolveLookupLoading, resolveLookupSearch, setLookupSearch }">
+    <v-col cols="12" md="6">
+      <SelectField
+        v-model="formState.serviceId"
+        searchable
+        no-filter
+        label="Service"
+        item-title="label"
+        item-value="value"
+        :items="resolveLookupItems('serviceId', { selectedValue: formState.serviceId, selectedRecord: addEdit.resource.data.value })"
+        :loading="resolveLookupLoading('serviceId')"
+        :search="resolveLookupSearch('serviceId')"
+        @update:search="setLookupSearch('serviceId', $event)"
+      />
+    </v-col>
+  </template>
+</CrudAddEditScreen>
+```
+
+Here `lookups` is the page's `createCrudLookupFieldRuntime()` result for the
+same form fields.
+
 ## Verification
 
 - Mount each route with a representative resource response.
 - Verify skeleton, empty, success, local load-error, and retry states.
 - Verify create, edit, validation failure, delete confirmation, and navigation.
 - Verify filters and actions when declared.
+- Delay lookup options and confirm a selection field never shows a stored id.
 - Exercise compact, medium, and expanded widths with Playwright.
 - Confirm keyboard access, 48 CSS-pixel compact targets, no horizontal overflow,
   and toast-based mutation feedback.

@@ -96,6 +96,14 @@ Local functions
 Exports
 - None
 
+### `src/client/components/SelectField.vue`
+Exports
+- None
+Local functions
+- `titleOf(item)`
+- `valueOf(item)`
+- `update(value)`
+
 ### `src/client/composables/crud/crudBindingSupport.js`
 Exports
 - `CRUD_BINDING_MODE_ROUTE`
@@ -598,6 +606,15 @@ Exports
 - `formatDateOnlyDisplay(value = "", { locale = undefined } = {})`
 - `formatCrudListDateFilterChipLabel(filter = {}, rawValue, { locale = undefined } = {})`
 
+### `src/client/support/selectFieldSupport.js`
+Exports
+- `optionTitle(item, itemTitle)`
+- `optionValue(item, itemTitle, itemValue)`
+- `selectionFieldState(field, seen)`
+Local functions
+- `readOption(item, key, fallback)`
+- `selectedValues(modelValue, multiple)`
+
 ### fixtures
 
 ### `fixtures/crud-list-date-filters/App.vue`
@@ -609,6 +626,18 @@ Exports
 - None
 
 ### `fixtures/crud-list-date-filters/vite.config.mjs`
+Exports
+- None
+
+### `fixtures/select-field/App.vue`
+Exports
+- None
+
+### `fixtures/select-field/main.js`
+Exports
+- None
+
+### `fixtures/select-field/vite.config.mjs`
 Exports
 - None
 

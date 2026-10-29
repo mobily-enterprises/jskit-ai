@@ -19,6 +19,8 @@ shared action feedback.
 Applications compose public exports and placements into their own routes and
 themes. Standard resource screens expose loading, empty, error, permission,
 filtering, navigation, and mutation states through shared composables. The
+shared selection field never titles a value with its stored id: an unresolved
+value stays hidden while options load and reads as unavailable afterwards. The
 application remains responsible for route policy, product vocabulary, and the
 server authorization behind every visible action.
 

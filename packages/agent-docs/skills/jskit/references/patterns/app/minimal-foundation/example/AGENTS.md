@@ -35,6 +35,12 @@ Pages never start with a page header, title block, welcome heading, or other
 standalone heading copy. Start with the useful content and actions. If the user
 wants a heading, they will ask for or add one.
 
+Selection fields never show a stored id as text. A select, autocomplete or
+combobox whose options load from the server, or whose value is a record id,
+uses `SelectField` from `@jskit-ai/http-web/client/components/SelectField` with
+`loading` while the options load, not a raw `v-select`, `v-autocomplete` or
+`v-combobox`.
+
 Copied pattern source is ordinary application source. Do not add generator
 provenance, receipts, completion ledgers, or tooling-operation history. Keep
 changes scoped to the user request and verify runtime behavior directly.
