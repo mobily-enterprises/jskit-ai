@@ -539,6 +539,13 @@ Local functions
 - `restoreCompactedHistory(body, { destination, historyPath, codexHome, signal, maxRequestBytes })`
 - `forwardedHeaders(input)`
 
+### `src/server/conversation/codexHomeStorage.js`
+Exports
+- `codexDisabledProcessFeatureArguments()`
+- `codexHomeDisposablePaths(codexHome, { retired = false } = {})`
+Local functions
+- `directoryNames(directory)`
+
 ### `src/server/conversation/codexMessageCommands.js`
 Exports
 - `createCodexMessageCommands({ output, journal, recovery, threadStatus, selection, observer, delivery, promptDeliveries: codexAppServerPromptDeliveries, createRuntime, debugError, debugLog, errorPrefix, messageIdPrefix, messageMetadata, namespace, providerSessions, recoverAdmission, steerFailedCode, turnAlreadyRunningError, turnState })`
@@ -1235,6 +1242,8 @@ Exports
 - `createCodexAccountReader`
 - `createCodexAppServerIsolation`
 - `readCodexToolFreeConfiguration`
+- `codexDisabledProcessFeatureArguments`
+- `codexHomeDisposablePaths`
 
 ### `src/server/hosts/codexEvents.js`
 Exports

@@ -5,6 +5,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeNullableText } from "./normalize.js";
+import { codexDisabledProcessFeatureArguments } from "./codexHomeStorage.js";
 
 const execute = promisify(execFile);
 const CODEX_THREAD_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
@@ -101,7 +102,8 @@ export function codexInteractiveArguments({
   return [
     command,
     ...(disableStartupUpdates ? ["-c", "check_for_update_on_startup=false"] : []),
-    ...(remoteEndpoint ? ["--remote", remoteEndpoint] : []),
+    // A remote terminal uses its app-server's features; a local one starts its own.
+    ...(remoteEndpoint ? ["--remote", remoteEndpoint] : codexDisabledProcessFeatureArguments()),
     "--model",
     model,
     "-c",

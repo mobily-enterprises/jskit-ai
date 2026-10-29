@@ -42,6 +42,17 @@ test("an empty umask inherits the host's own and emits no umask line", async (t)
   assert.match((await launchRequest(t, { umask: "0022" })).args[1], /^umask 0022\n/);
 });
 
+test("main and helper app-servers start with plugin and app background work off", async (t) => {
+  for (const executionMode of ["interactive", "helper"]) {
+    const request = await launchRequest(t, {}, executionMode);
+    const codexArgs = request.args.slice(request.args.indexOf("app-server"));
+    for (const feature of ["plugins", "apps"]) {
+      const index = codexArgs.indexOf(`features.${feature}=false`);
+      assert.ok(index > 0 && codexArgs[index - 1] === "-c", `${executionMode} app-server disables ${feature}`);
+    }
+  }
+});
+
 test("a non-octal umask is refused before it reaches the startup script", () => {
   assert.throws(() => createCodexAppServerRuntime({
     configuration: { umask: "0007; touch /tmp/x" },

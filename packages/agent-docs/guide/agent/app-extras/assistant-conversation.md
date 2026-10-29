@@ -2840,6 +2840,14 @@ observer connections on a shared server per account/runtime scope. Stopping or
 closing one conversation leaves other consumers' work and shared server intact. The
 former process-per-conversation launcher has been removed.
 
+Every Codex process this owner launches (the shared app-server in interactive and
+Helper mode, and a local `codexInteractiveArguments()` terminal) starts with
+`-c features.plugins=false -c features.apps=false`. Codex otherwise syncs the
+openai/plugins repository into `<CODEX_HOME>/.tmp/plugins` and downloads plugin,
+app and connector catalogues into `<CODEX_HOME>/cache` at start, roughly 100-250 MB
+per home that is refreshed and never pruned; no conversation uses either. A
+terminal started with `--remote` uses its app-server's setting.
+
 The existing owner preserves per-directory startup serialization, waiter
 revalidation, compatibility and liveness checks, verified retirement, helper
 preparation and startup/publication cleanup. Execution and credential facilities
@@ -4025,6 +4033,17 @@ and `codexCatalogReasoningEfforts` retain native IDs, display-name fallbacks and
 reasoning-option order. Hosts choose offerings, defaults, connection visibility
 and product labels; they may use the original row fields `model`, `hidden`,
 `isDefault` and `defaultReasoningEffort` for that policy.
+`codexHomeDisposablePaths(codexHome, { retired = false })` returns the sorted
+absolute paths of Codex-owned entries no JSKIT-launched Codex uses: the plugin
+and app leftovers in `.tmp` (`plugins*`, `git-*`, `bundled-marketplaces`) and
+`cache` (`remote_plugin_catalog`, `codex_apps_tools`, `codex_apps_server_info`,
+`codex_app_directory`, `bundled_plugin_exclusions`). With `retired: true`, for a
+home that will not launch again, it returns `logs_<n>.sqlite` with its `-wal` and
+`-shm` files, `.tmp`, `cache` and `tmp`, and keeps auth, config, the catalogue,
+sessions and the state, goal, memory, queue and thread-history databases that
+retained conversations may still read. It never follows a linked home or
+subdirectory, returns a link as itself and reads no file content. The host
+removes the paths, and only while no Codex process uses that home.
 `codexProviderFileConfiguration(provider, key, codexHome)` formats the original
 private `config.toml` text from the host's authorized provider record and key.
 The record supplies `id`, `label`, `baseUrl`, `webSearch` and the selected first

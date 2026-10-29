@@ -11,6 +11,7 @@ import { createConversationProcessIdentity } from "./localExecution.js";
 import { isRecord, normalizePositiveInteger } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeNullableText } from "./normalize.js";
 import { copyCodexProviderHome, prepareCodexModelCatalog } from "./codexConfiguration.js";
+import { codexDisabledProcessFeatureArguments } from "./codexHomeStorage.js";
 import { startCodexHistoryAdapter } from "./codexHistoryAdapter.js";
 
 const CODEX_APP_SERVER_METADATA_FILE = "runtime.json";
@@ -1231,6 +1232,8 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
       ]),
       "-c",
       "check_for_update_on_startup=false",
+      // Plugin and app startup syncs fill the home with unused catalogues.
+      ...codexDisabledProcessFeatureArguments(),
       ...(projectTrustOverride
         ? [
             "-c",

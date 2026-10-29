@@ -20,3 +20,7 @@ export {
   createCodexAppServerIsolation,
   readCodexToolFreeConfiguration
 } from "../conversation/codexConfiguration.js";
+export {
+  codexDisabledProcessFeatureArguments,
+  codexHomeDisposablePaths
+} from "../conversation/codexHomeStorage.js";

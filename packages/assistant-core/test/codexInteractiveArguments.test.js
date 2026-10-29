@@ -18,6 +18,14 @@ test("remote Codex resume keeps server-owned permissions and the selected native
   ]);
 });
 
+test("a local Codex terminal starts with plugin and app background work off; a remote one uses its server's", () => {
+  const local = codexInteractiveArguments({ ...options, threadId: "local-thread" });
+  assert.deepEqual(local.slice(0, 7), ["codex", "-c", "check_for_update_on_startup=false",
+    "-c", "features.plugins=false", "-c", "features.apps=false"]);
+  const remote = codexInteractiveArguments({ ...options, remoteEndpoint: "unix:///runtime/codex.sock" });
+  assert.equal(remote.some((value) => value.startsWith("features.")), false);
+});
+
 test("local Codex and new remote threads retain their explicit permission selection", () => {
   for (const input of [{}, { threadId: "local-thread" }, { remoteEndpoint: "unix:///runtime/codex.sock" }]) {
     const args = codexInteractiveArguments({ ...options, ...input });

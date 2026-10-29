@@ -10,6 +10,7 @@ connector account management, and focused third-party operations.
 - `packages/assistant-core/src/server/conversation/runtimeStateUpgrade.js`
 - `packages/assistant-core/src/server/conversation/agentRun.js`
 - `packages/assistant-core/src/server/conversation/codexConversationStore.js`
+- `packages/assistant-core/src/server/conversation/codexHomeStorage.js`
 - `packages/assistant-core/src/server/conversation/continuity.js`
 - `packages/assistant-runtime/src/server/AssistantProvider.js`
 - `packages/assistant-runtime/src/shared/assistantSurfaces.js`
@@ -52,6 +53,18 @@ The Codex configuration owner reads the exact runtime catalogue's normal model
 window and effective percentage. Extended maximum windows are not used as
 transfer limits. Missing or ambiguous model facts fail without leaking private
 catalogue contents; existing thread usage remains a separate input.
+
+Every Codex process JSKIT launches, the shared app-server for main and Helper
+work and a local interactive terminal, starts with `features.plugins=false` and
+`features.apps=false`. Codex would otherwise sync the openai/plugins repository
+and plugin, app and connector catalogues into its home at start (about
+100-250 MB per home, never pruned) that no JSKIT conversation uses; a remote
+terminal inherits its app-server's setting. `codexHomeDisposablePaths(codexHome)`
+lists what those features left in a home, and with `{ retired: true }` the
+runtime-only data (diagnostic log database, `.tmp`, `cache`, `tmp`) of a home
+that will not launch again. It never follows links, reads no content and keeps
+auth, config, catalogue, sessions and state databases; hosts remove the listed
+paths only while no Codex process uses the home.
 
 A bound native conversation may supply that budget resolver directly. The
 common runtime adds fresh authorization and cancellation checks and selects all
