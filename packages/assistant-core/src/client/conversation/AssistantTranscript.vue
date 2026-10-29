@@ -447,6 +447,7 @@ let retainedReaderScrollSnapshot = null;
 let loadMoreRequestVersion = 0;
 let pendingTailFollow = false;
 let previousScrollTop = 0;
+let previousScrollHeight = 0;
 let userScrollIntentUpward = false;
 let lastTouchY = null;
 const USER_SCROLL_INTENT_RESET_MS = 600;
@@ -881,11 +882,17 @@ function updateLatestFollowFromScroll(event = {}) {
   const target = event?.currentTarget || bodyElement.value;
   if (retainedReaderScrollSnapshot?.restoring) {
     previousScrollTop = target?.scrollTop || 0;
+    previousScrollHeight = target?.scrollHeight || 0;
     return;
   }
   const scrollTop = target?.scrollTop || 0;
+  const scrollHeight = target?.scrollHeight || 0;
   const scrolledUp = scrollTop < previousScrollTop;
+  // Layout changes such as scroll anchoring move scrollTop together with the
+  // content height; moving up over unchanged content is the reader's own.
+  const readerMovedUp = scrolledUp && scrollHeight === previousScrollHeight;
   previousScrollTop = scrollTop;
+  previousScrollHeight = scrollHeight;
   // Keep following the reader while the request is pending, before rows prepend.
   if (loadMoreScrollSnapshot && !loadMoreScrollSnapshot.completed) {
     loadMoreScrollSnapshot.scrollTop = scrollTop;
@@ -897,7 +904,7 @@ function updateLatestFollowFromScroll(event = {}) {
   const userScrollsUp = userScrollIntent.value && userScrollIntentUpward;
   const shouldFollow = scrollElementNearBottom(target) &&
     !(userScrollsUp && scrollDistanceFromBottom(target) > 1);
-  if (!shouldFollow && !userScrollIntent.value && followingLatest.value) {
+  if (!shouldFollow && !userScrollIntent.value && !readerMovedUp && followingLatest.value) {
     return;
   }
   followingLatest.value = shouldFollow;

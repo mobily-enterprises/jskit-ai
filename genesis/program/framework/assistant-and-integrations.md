@@ -112,7 +112,10 @@ that receives its native timestamp later; receipts restore normal history orderi
 The shared transcript follows new replies only while the reader follows the latest
 message. The reader's own upward touch, wheel or keyboard scrolling leaves it from
 its first frame, even within the 48 px follow distance, and a scroll event still
-queued from the transcript's own follow scroll cannot cancel that; scrolling back
+queued from the transcript's own follow scroll cannot cancel that. Any other upward reader
+movement over unchanged content, such as a scrollbar drag or frames arriving
+after the input, leaves it beyond that distance; layout changes such as scroll
+anchoring move scrollTop with the content height and do not. Scrolling back
 down to the end resumes following.
 
 Native conversations optionally report content-free delivery timings through

@@ -574,6 +574,57 @@ test("a reader's own upward scrolling leaves the latest message from its first f
   }
 });
 
+test("a reader moved away from the end without a scroll direction stays there", {
+  skip: !RUN_BROWSER_TEST,
+  timeout: 60_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  const browser = await chromium.launch(createChromiumLaunchOptions());
+  try {
+    const page = await browser.newPage({ viewport: { width: 1365, height: 900 } });
+    const errors = [];
+    page.on("pageerror", error => errors.push(error.message));
+    await page.goto(`${vite.baseURL}/?controls=1&history=1`);
+    const body = page.locator(".assistant-transcript__body");
+    const fromBottom = () => body.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop);
+    // Move the reader and wait until the transcript has handled the scroll.
+    const moveReader = target => body.evaluate((element, by) => new Promise(resolve => {
+      element.addEventListener("scroll", () => resolve(), { once: true });
+      element.scrollTop = by === "end" ? element.scrollHeight : element.scrollTop + by;
+    }), target);
+    const appendReply = async () => {
+      const replies = page.getByText("New reply.", { exact: false });
+      const count = await replies.count();
+      await page.getByRole("button", { name: "Append reply", exact: true }).evaluate(element => element.click());
+      await expect(replies).toHaveCount(count + 1);
+      await settleLayout(body);
+    };
+    await expect(page.getByText("Conversation line 70:", { exact: false })).toBeVisible();
+    await page.getByRole("button", { name: "Exhaust history", exact: true }).evaluate(element => element.click());
+    await settleLayout(body);
+    expect(await fromBottom()).toBeLessThanOrEqual(1);
+
+    // A scrollbar drag starts on the scroller itself and carries no scroll
+    // direction; its frames, the first inside the follow threshold, then move
+    // the reader without further input. Headless Chromium hides scrollbars, so
+    // the drag's pointerdown is dispatched directly.
+    await body.evaluate(element => element.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true })));
+    await moveReader(-10);
+    await moveReader(-300);
+    await appendReply();
+    expect(await fromBottom()).toBeGreaterThan(300);
+
+    // Returning to the end resumes following new replies.
+    await moveReader("end");
+    await appendReply();
+    expect(await fromBottom()).toBeLessThanOrEqual(1);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    await stopProcess(vite);
+  }
+});
+
 test("retained hidden transcripts preserve readers and follow only at the latest message", {
   skip: !RUN_BROWSER_TEST,
   timeout: 90_000

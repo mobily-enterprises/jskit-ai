@@ -728,7 +728,9 @@ history through `loadMore`, including touch, wheel and keyboard scrolling.
 New replies are followed while the reader is within 48 CSS pixels of the end.
 The reader's own upward touch, wheel or keyboard scrolling (Home, Page Up, Arrow
 Up, Shift+Space) stops following from its first frame, even within that
-distance; scrolling back down to the end resumes it.
+distance. Any other movement of the reader away from the end, such as a
+scrollbar drag, stops following once the reader is farther than that distance,
+so new replies never pull them back. Scrolling back down to the end resumes it.
 Only one request runs at a time, and prepending preserves the reading position.
 Initial positioning and conversation selection do not fetch older pages.
 `loadMoreError` pauses automatic loading; the older-messages button remains
