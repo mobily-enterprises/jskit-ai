@@ -567,7 +567,30 @@ test("Claude account queries isolate concurrent identities and deduplicate each 
   }
 });
 
-test("Claude account queries label temporary startup without changing cached process reuse", async () => {
+test("Claude plan usage never starts a Claude process without a conversation using one", async () => {
+  let starts = 0;
+  let live = [];
+  const queries = createClaudeAccountQueries({
+    accountIdentity: async () => "account",
+    processes: () => live,
+    createProcess() {
+      starts++;
+      return { client: { request: async () => ({ rate_limits_available: true, rate_limits: { five_hour: { utilization: 10 } } }) },
+        async stop() { return { scopeEmpty: true }; } };
+    }
+  });
+  assert.deepEqual(await queries.readPlanUsage({}), { status: "unavailable", windows: [] });
+  assert.equal(starts, 0, "a plan-usage poll started a temporary Claude process");
+  live = [{ accountIdentity: "account", process: { client: { request: async () => ({
+    rate_limits_available: true, rate_limits: { five_hour: { utilization: 30 } } }) } } }];
+  const reading = await queries.readPlanUsage({});
+  assert.equal(reading.status, "available");
+  assert.equal(reading.windows[0].remainingPercent, 70);
+  assert.equal(starts, 0);
+  await queries.invalidate();
+});
+
+test("Claude account queries label temporary catalogue startup and never start one for usage", async () => {
   const starts = [];
   let stops = 0;
   const queries = createClaudeAccountQueries({
@@ -585,38 +608,40 @@ test("Claude account queries label temporary startup without changing cached pro
     await queries[method]({});
     await queries[method]({});
   }
-  assert.deepEqual(starts.map(input => input.purpose), ["catalogue", "usage"]);
+  assert.deepEqual(starts.map(input => input.purpose), ["catalogue"]);
   assert.ok(starts.every(input => input.signal instanceof AbortSignal));
   assert.ok(starts.every(input => Object.keys(input).sort().join() === "purpose,signal"));
-  assert.equal(stops, 2);
+  assert.equal(stops, 1);
   await queries.invalidate();
 });
 
-test("account invalidation cancels held startup and usage without stopping a borrowed conversation", async () => {
-  for (const phase of ["startup", "owned usage", "borrowed usage"]) {
+test("account invalidation cancels held startup and reads without stopping a borrowed conversation", async () => {
+  for (const phase of ["catalogue startup", "owned catalogue", "borrowed usage"]) {
     const started = Promise.withResolvers();
     let stops = 0;
     const native = { client: { request() { started.resolve(); return new Promise(() => {}); } },
+      get initialization() { started.resolve(); return new Promise(() => {}); },
       async stop() { stops++; return { scopeEmpty: true }; } };
     const queries = createClaudeAccountQueries({ accountIdentity: async () => "account",
       processes: () => phase === "borrowed usage" ? [{ accountIdentity: "account", process: native }] : [],
       createProcess({ signal }) {
-        if (phase !== "startup") return native;
+        if (phase !== "catalogue startup") return native;
         started.resolve();
         return new Promise((_resolve, reject) => signal.addEventListener("abort", () => reject(signal.reason), { once: true }));
       }
     });
-    const pending = queries.readPlanUsage({});
+    const pending = phase === "borrowed usage" ? queries.readPlanUsage({}) : queries.readCatalogue({});
     const rejected = assert.rejects(pending, /cancelled for reconnection/);
     await started.promise;
     await queries.invalidate();
     await rejected;
-    assert.equal(stops, phase === "owned usage" ? 1 : 0, phase);
+    assert.equal(stops, phase === "owned catalogue" ? 1 : 0, phase);
   }
 });
 
 for (const method of ["readCatalogue", "readPlanUsage"]) {
-  for (const phase of ["initial identity", "final identity", "retained cleanup"]) {
+  // Plan usage borrows a conversation's process, so it has no cleanup to retain.
+  for (const phase of method === "readPlanUsage" ? ["initial identity", "final identity"] : ["initial identity", "final identity", "retained cleanup"]) {
     test(`${method} invalidation fences ${phase} before launching or caching a stale query`, { timeout: 2_000 }, async () => {
       const entered = Promise.withResolvers();
       const release = Promise.withResolvers();
@@ -632,6 +657,9 @@ for (const method of ["readCatalogue", "readPlanUsage"]) {
           }
           return "account";
         },
+        // Usage reads count as native reads of the borrowed conversation process.
+        processes: () => method === "readPlanUsage" ? [{ accountIdentity: "account", process: { client: {
+          request: async () => { starts++; return { rate_limits_available: true, rate_limits: {} }; } } } }] : [],
         createProcess() {
           starts++;
           return {

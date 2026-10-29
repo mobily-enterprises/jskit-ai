@@ -274,12 +274,16 @@ export function createClaudeAccountQueries({ createProcess, accountIdentity, pro
     accountProcessStops.delete(native);
   }
 
+  function ownedProcess(identity) {
+    return [...processes()].find((entry) =>
+      entry.process && !entry.stopping && entry.accountIdentity === identity);
+  }
+
   async function readAccountProcess(identity, expectedRevision, purpose, read) {
     assertCurrent(expectedRevision);
     for (const native of accountProcessStops) await stopAccountProcess(native);
     assertCurrent(expectedRevision);
-    const owned = [...processes()].find((entry) =>
-      entry.process && !entry.stopping && entry.accountIdentity === identity);
+    const owned = ownedProcess(identity);
     const controller = new AbortController();
     accountReads.add(controller);
     const cancelled = Promise.withResolvers();
@@ -325,6 +329,9 @@ export function createClaudeAccountQueries({ createProcess, accountIdentity, pro
       assertCurrent(expectedRevision);
       if (planUsage?.identity === identity && Date.now() - planUsage.checkedAt < 60_000) return planUsage;
       if (planUsagePending.has(identity)) return planUsagePending.get(identity);
+      // Plan usage is read from a conversation's live process; a poll never
+      // starts Claude on its own.
+      if (!ownedProcess(identity)) return { status: "unavailable", windows: [] };
       const pending = (async () => {
         const value = await readAccountProcess(identity, expectedRevision, "usage", (native) => native.client.request(
           { subtype: "get_usage", skip_behaviors: true }));
