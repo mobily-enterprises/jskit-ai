@@ -33,7 +33,14 @@ async function fixture(t, width = 1280, { acceptedDraft = false, draftWhileLoadi
   const state = async () => (await page.request.get(`${vite.baseURL}/fixture/state`)).json();
   const sent = async () => (await state()).requests.filter(request => request.suffix === "/messages");
   const notify = id => page.evaluate(id => window.conversationFixture.socket.notify(id), id);
-  return { page, primary, input, command, state, sent, notify };
+  // An unknown delivery check rereads the conversation. A receipt confirmed
+  // before the server serves that read would settle it from canonical history.
+  const inspectionReread = id => expect.poll(async () => {
+    const { requests } = await state();
+    const inspection = requests.findLastIndex(request => request.id === id && request.suffix.endsWith("/inspect"));
+    return inspection >= 0 && requests.slice(inspection + 1).some(request => request.method === "GET" && request.id === id && !request.suffix);
+  }).toBe(true);
+  return { page, primary, input, command, state, sent, notify, inspectionReread };
 }
 
 test("inspecting a restored no-admission request releases Send while preserving newer draft and uploads", options, async t => {
@@ -549,6 +556,7 @@ test("explicit delivery inspection acknowledges uncertain attachments without cl
   await check.click();
   await expect(check).toBeVisible();
   assert.deepEqual((await attachments()).acknowledged, [], "An unknown receipt does not accept the upload");
+  await f.inspectionReread("chat:1");
   await f.command("confirm", { id: "chat:1" });
   await check.click();
   await expect(check).toHaveCount(0);
@@ -1719,6 +1727,7 @@ test("a voice preview cannot acknowledge sending or uncertain delivery and dedup
   await expect(check).toBeEnabled();
   assert.deepEqual((await delivery()).messages, [{ id: second, status: "uncertain" }]);
   await expect(f.input).toHaveValue("Keep this uncertain request.");
+  await f.inspectionReread("chat:1");
   await f.command("confirm", { id: "chat:1" });
   await check.click();
   await expect(check).toHaveCount(0);
@@ -2484,9 +2493,25 @@ test("prepared Retry sends an uncertain message again only after the server prov
   assert.equal(unknown.status, "uncertain");
   assert.equal((await f.sent()).length, 1);
   await f.command("mode", { mode: "not-sent" });
-  const retried = await f.page.evaluate(() => window.provenBinding.submitPrepared({ message: "Do not recapture." },
+  // Hold the resend until a read after the not-sent proof has arrived: the
+  // proven request is saved as unattempted, so it no longer reads as unconfirmed.
+  const sendGate = Promise.withResolvers();
+  t.after(() => sendGate.resolve());
+  let sendHeld = false;
+  await f.page.route("**/messages", async route => {
+    sendHeld = true;
+    await sendGate.promise;
+    await route.continue().catch(() => {});
+  });
+  const retrying = f.page.evaluate(() => window.provenBinding.submitPrepared({ message: "Do not recapture." },
     { retryMessageId: "proven-retry", prepare: captured => captured.request }));
-  assert.equal(retried.ok, true);
+  await expect.poll(() => sendHeld).toBe(true);
+  await f.page.evaluate(() => window.provenBinding.runtime.value.reload());
+  sendGate.resolve();
+  const retried = await retrying;
+  await f.page.unroute("**/messages");
+  // Acceptance is the HTTP receipt or the canonical row, whichever arrives first.
+  assert.ok(retried && retried.ok !== false, JSON.stringify(retried));
   const sent = await f.sent();
   assert.equal(sent.length, 2);
   assert.equal(sent[1].input.messageId, "proven-retry");

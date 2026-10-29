@@ -187,7 +187,11 @@ export default defineConfig({
           const messageId = decodeURIComponent(match[2].split("/")[2]);
           if (state.cancelled?.includes(messageId)) return json({ status: "cancelled", messageId });
           const receipt = state.conversationLog.find(turn => turn.user?.messageId === messageId);
-          if (!receipt && mode === "not-sent") return json({ status: "not-sent", messageId, error: "This message was not sent. Review it before sending a new message." });
+          if (!receipt && mode === "not-sent") {
+            // Like the runtime, record the proven request as unattempted: reads stop reporting it unconfirmed.
+            if (state.pendingRequest?.messageId === messageId) Object.assign(state, { status: "ready", pendingRequest: null });
+            return json({ status: "not-sent", messageId, error: "This message was not sent. Review it before sending a new message." });
+          }
           return json(receipt ? { status: "accepted", messageId, turnId: receipt.turnId } : { status: "unknown", messageId });
         }
         return json({ error: "Unknown fixture operation" }, 404);
