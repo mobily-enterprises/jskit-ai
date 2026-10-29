@@ -902,9 +902,9 @@ for (const status of ["uncertain", "pending", "accepted", "failed", "unrecognise
         await f.page.screenshot({ path: `/tmp/jskit-saved-delivery-reload-${status}-20261006.png` });
         throw failure;
       }
-      for (const action of ["Retry", "Cancel", "Edit"]) {
-        await expect(f.primary.getByRole("button", { name: action, exact: true })).toHaveCount(0);
-      }
+      // Never resent or edited while unknown; only the server's Cancel is offered.
+      await expect(f.primary.getByRole("button", { name: /^(Retry|Edit)$/u })).toHaveCount(0);
+      await expect(f.primary.getByRole("button", { name: "Cancel", exact: true })).toBeEnabled();
       // The fixture's original inspector matches any same-ID row. Keep the
       // nonreceipt projection proof above, then inspect genuine absence.
       await f.command("history", { id: "chat:2", turns: [], limit: 20 });
