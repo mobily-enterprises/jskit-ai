@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { codexAppServerProviderThreadAssistantSegments } from "../src/server/conversation/codexEvents.js";
+import { codexAppServerNotificationError, codexAppServerProviderThreadAssistantSegments, codexAppServerProviderTurnError } from "../src/server/conversation/codexEvents.js";
 
 test("phase-less Codex progress before tools does not become a final answer", () => {
   const items = [
@@ -37,4 +37,26 @@ test("explicit Codex finals remain independent across goal continuation and hook
     { itemId: "answer-1", text: "First result." },
     { itemId: "answer-2", text: "Second result." }
   ]);
+});
+
+// A running app-server keeps the credentials it started with (Codex 0.163,
+// local mock): once they are rejected after a sign-out or account switch, its
+// turns end with these native errors, which say nothing about reconnecting.
+test("a Codex turn whose OpenAI sign-in is gone asks the person to sign in again", () => {
+  const signedOut = "Codex (OpenAI) isn't connected. Sign in to Codex, then send your message again.";
+  for (const message of [
+    "Your access token could not be refreshed because you have since logged out or signed in to another account. Please sign in again.",
+    "unexpected status 401 Unauthorized: Incorrect API key provided, url: https://api.openai.com/v1/responses",
+    "unexpected status 401 Unauthorized: unauthorized, url: https://chatgpt.com/backend-api/codex/responses"
+  ]) {
+    assert.equal(codexAppServerNotificationError({ method: "error", params: { error: { message } } }), signedOut);
+    assert.equal(codexAppServerNotificationError({ method: "turn/completed",
+      params: { turn: { status: "failed", error: { message } } } }), signedOut);
+    assert.equal(codexAppServerProviderTurnError({ status: "failed", error: { message } }), signedOut);
+  }
+  // Another provider's rejected key and other failures keep their own text.
+  for (const message of ["unexpected status 401 Unauthorized: invalid key, url: https://api.deepseek.com/v1/responses",
+    "stream disconnected before completion: stream closed before response.completed"]) {
+    assert.equal(codexAppServerNotificationError({ method: "error", params: { error: { message } } }), message);
+  }
 });

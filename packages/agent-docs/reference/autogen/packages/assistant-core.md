@@ -492,6 +492,7 @@ Exports
 - `codexAppServerUserMessageText(item = {})`
 Local functions
 - `nonNegativeInteger(value)`
+- `codexAppServerSignedOutText(text = "")`
 - `codexAppServerTextInputText(input = {})`
 - `codexAppServerHookPromptText(item = {})`
 - `codexAppServerFinalEventText(notification = {}, event = null, payload = {})`

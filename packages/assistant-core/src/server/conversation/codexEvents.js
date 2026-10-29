@@ -241,18 +241,31 @@ function codexAppServerErrorText(value = null, seen = new Set()) {
   return [...new Set(messages)].join(" ");
 }
 
+// A running app-server keeps the credentials it started with. After a sign-out
+// or account switch, OpenAI's rejection ends its turns with ChatGPT's refresh
+// failure or an API key's raw 401; another provider's 401 keeps its own text.
+const CODEX_SIGNED_OUT_MESSAGE = "Codex (OpenAI) isn't connected. Sign in to Codex, then send your message again.";
+const CODEX_SIGNED_OUT_ERRORS = [
+  /\bcould not be refreshed because you have since logged out or signed in to another account\b/u,
+  /^unexpected status 401 Unauthorized\b.*\burl: https:\/\/(?:api\.openai\.com|chatgpt\.com)\//su
+];
+
+function codexAppServerSignedOutText(text = "") {
+  return CODEX_SIGNED_OUT_ERRORS.some((pattern) => pattern.test(text)) ? CODEX_SIGNED_OUT_MESSAGE : text;
+}
+
 function codexAppServerNotificationError(notification = {}) {
   const params = codexAppServerNotificationParams(notification);
   const status = isRecord(params.status) ? params.status : {};
   const turn = isRecord(params.turn) ? params.turn : {};
-  return normalizeNullableText(
+  return codexAppServerSignedOutText(normalizeNullableText(
     codexAppServerErrorText(params.error) ||
     params.message ||
     codexAppServerErrorText(status.error) ||
     status.message ||
     codexAppServerErrorText(turn.error) ||
     turn.message
-  );
+  ));
 }
 
 function codexAppServerNotificationUsageLimitExceeded(notification = {}) {
@@ -795,7 +808,7 @@ function codexAppServerProviderTurnText(thread = null, turnId = "") {
 }
 
 function codexAppServerProviderTurnError(turn = {}) {
-  return codexAppServerErrorText(turn.error || turn.status?.error || turn.state?.error);
+  return codexAppServerSignedOutText(codexAppServerErrorText(turn.error || turn.status?.error || turn.state?.error));
 }
 
 export {

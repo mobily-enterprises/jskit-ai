@@ -3324,6 +3324,11 @@ account-query cleanup fails; that failure is still the call's result. Once
 shutdown has invalidated the owner, a later session close only releases retained
 work. Failed cleanup can be retried after runtime closure. This is not a browser
 operation or a way to submit a caller-selected native owner.
+A running Codex app-server keeps the credentials it started with. A Codex turn
+whose OpenAI credentials were rejected after a sign-out or account switch
+(ChatGPT's token-refresh failure, or a 401 from OpenAI) ends with "Codex (OpenAI)
+isn't connected. Sign in to Codex, then send your message again."; another
+provider's rejected key keeps its own error.
 
 A Claude account change (sign-in, sign-out or switching accounts) stops and
 waits on nothing. Claude Code reads its credentials for every request, so a
