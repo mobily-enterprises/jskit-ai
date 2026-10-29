@@ -315,6 +315,7 @@ export function createCodexAppServerRunOwner({
     namespace,
     providerSessions,
     ensureSessionProvider: codexProviderSelection.ensureSessionProvider,
+    borrowSessionProvider: codexProviderSelection.borrowSessionProvider,
     steerFailedCode,
     turnOutcomes
   });

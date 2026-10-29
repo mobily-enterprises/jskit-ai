@@ -193,7 +193,11 @@ revision across account lookup and retained cleanup: an older request cannot
 launch a successor process or refill the cache after reconnection. Native
 storage inventory and retirement borrow the shared Codex or OpenCode process
 without becoming a user: it stops about a minute after the last storage read
-unless a conversation, terminal or helper uses it.
+unless a conversation, terminal or helper uses it. Codex Temporary chats borrow
+the same way. Reading their history or status, creating, stopping or deleting
+them and changing a thread's settings keep no app-server running; a running turn,
+or an active goal between its turns, holds it, and about a minute after that
+work ends it stops unless a Main conversation, terminal or helper claimed it.
 
 Claude's conversation owner cleans up from the entries it retains, because a
 Claude process cannot outlive the server that started it. Shutdown,
@@ -327,7 +331,9 @@ a retried close while the others still stop. Saved Helper records are restored
 only to be retired through the providers that close stops. A record that cannot
 be restored (a removed account, an unreadable ledger, a notice its host refuses)
 stays on disk for a later connection and is reported, and never keeps providers
-running. Account-change invalidation does not reopen saved records. Deleting a
+running. Project close then stops every provider of the project's sessions,
+including one only a Temporary chat or a read used. Account-change invalidation
+does not reopen saved records. Deleting a
 scoped Helper never starts a Codex app-server: its ephemeral thread lived only
 in the process that created it, so the delete stops only this server's live
 providers for the scope and any runtime whose earlier stop could not prove exit.

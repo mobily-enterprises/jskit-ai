@@ -277,7 +277,7 @@ export function createCodexAppServerProviderOwner({
     return provider;
   }
 
-  // A conversation, terminal or helper keeps a provider a storage read created.
+  // A Main conversation, terminal or helper keeps a provider a borrower created.
   // Every exported way to reach a provider for real use claims it here.
   function claimTransient(providerKey = "") {
     const key = normalizeText(providerKey);
@@ -292,35 +292,67 @@ export function createCodexAppServerProviderOwner({
     return acquireSession(context, mainThreadId);
   }
 
-  // Native storage inventory and retirement borrow a session provider. A short
-  // idle after the last such use lets consecutive reads share one process; the
-  // release then stops it unless another provider still uses it.
-  async function withTransientSession(context, operation) {
-    const providerKey = context.providerKey;
-    let release = transientReleases.get(providerKey);
-    // An existing provider or a managed main thread already has a real user.
-    if (!release && (records.has(providerKey) || context.runOwner?.runtimeLifecycle?.managedThreadId?.(providerKey))) {
-      return operation(await acquireSession(context));
-    }
-    if (!release) transientReleases.set(providerKey, release = { users: 0, timer: null });
+  // The last borrower's return starts a short idle, so consecutive borrowers
+  // share one process; the release then stops it unless it was claimed.
+  function useBorrowed(providerKey, release) {
     clearTimeout(release.timer);
     release.users += 1;
-    try {
-      return await operation(await acquireSession(context));
-    } finally {
+    let returned = false;
+    return () => {
+      if (returned) return;
+      returned = true;
       release.users -= 1;
-      if (release.users === 0 && transientReleases.get(providerKey) === release && !closing) {
-        release.timer = setTimeout(() => {
-          if (transientReleases.get(providerKey) !== release) return;
-          transientReleases.delete(providerKey);
-          if (closing) return;
-          stopCachedProvider(providerKey).catch(error => debugLog("appServerRuntime.transientRelease.error", {
-            error: debugError(error), providerKey
-          }));
-        }, transientIdleMs);
-        release.timer.unref?.();
-      }
+      if (release.users > 0 || transientReleases.get(providerKey) !== release || closing) return;
+      release.timer = setTimeout(() => {
+        if (transientReleases.get(providerKey) !== release || release.users > 0) return;
+        transientReleases.delete(providerKey);
+        if (closing) return;
+        stopCachedProvider(providerKey).catch(error => debugLog("appServerRuntime.transientRelease.error", {
+          error: debugError(error), providerKey
+        }));
+      }, transientIdleMs);
+      release.timer.unref?.();
+    };
+  }
+
+  // Reads, storage work and Temporary chats borrow a session provider instead
+  // of claiming it. `release()` returns the borrow. A provider a real user
+  // already holds (it exists unborrowed, or a managed Main thread uses it) is
+  // simply used and stays that user's.
+  async function borrowSession(context) {
+    const providerKey = context.providerKey;
+    let release = transientReleases.get(providerKey);
+    if (!release && (records.has(providerKey) || context.runOwner?.runtimeLifecycle?.managedThreadId?.(providerKey))) {
+      return { provider: await acquireSession(context), release() {} };
     }
+    if (!release) transientReleases.set(providerKey, release = { users: 0, timer: null });
+    const returnBorrow = useBorrowed(providerKey, release);
+    try {
+      return { provider: await acquireSession(context), release: returnBorrow };
+    } catch (error) {
+      returnBorrow();
+      throw error;
+    }
+  }
+
+  async function withTransientSession(context, operation) {
+    const borrowed = await borrowSession(context);
+    try {
+      return await operation(borrowed.provider);
+    } finally {
+      borrowed.release();
+    }
+  }
+
+  // Native work running on a borrowed provider (a Temporary turn or goal)
+  // holds it until that work ends. A claimed or closed provider needs no hold.
+  function holdProvider(provider) {
+    for (const [providerKey, record] of records) {
+      if (record.provider !== provider) continue;
+      const release = transientReleases.get(providerKey);
+      return release ? useBorrowed(providerKey, release) : () => {};
+    }
+    return () => {};
   }
 
   async function acquireSession(context, mainThreadId = "") {
@@ -924,7 +956,7 @@ export function createCodexAppServerProviderOwner({
     preserveProcessExitProof = false,
     projectContextRoot = "",
     reason = "",
-  } = {}, { managed, keyFields, helperThreads }) {
+  } = {}, { managed, keyFields, helperThreads, sessionKeyPrefix = "" }) {
     const normalizedProjectContextRoot = normalizeText(projectContextRoot);
     if (!normalizedProjectContextRoot) {
       return {
@@ -942,11 +974,14 @@ export function createCodexAppServerProviderOwner({
         projectContextRoot: normalizedProjectContextRoot
       }).map((record) => record.provider)
     );
+    // Main threads name their project; every other provider of the project's
+    // sessions (Temporary chats, reads) is found by its session key.
     const providerKeys = [...providers.keys()]
       .filter((providerKey) => {
         const current = managed.get(providerKey);
         return normalizeText(current?.projectContext?.targetRoot) === normalizedProjectContextRoot ||
-          helperProviders.has(providers.get(providerKey));
+          helperProviders.has(providers.get(providerKey)) ||
+          Boolean(sessionKeyPrefix && normalizeText(providerOwners.get(providerKey)?.sessionKey).startsWith(sessionKeyPrefix));
       });
     const failed = [];
     const results = [];
@@ -1205,7 +1240,8 @@ export function createCodexAppServerProviderOwner({
     return { exitFailure };
   }
 
-  // A provider a storage read borrowed is not the session's conversation.
+  // A borrowed provider (a read, storage work or a Temporary chat) is not the
+  // session's conversation.
   async function readPlanUsage(sessionKey) {
     for (const [key, provider] of providers) {
       if (providerOwners.get(key)?.sessionKey === sessionKey && !transientReleases.has(key) &&
@@ -1234,7 +1270,7 @@ export function createCodexAppServerProviderOwner({
     acquireRuntime: options => { claimTransient(options?.providerKey); return acquireRuntime(options); },
     createProvider: options => { claimTransient(options?.providerKey); return createProvider(options); },
     providerForSession: context => { claimTransient(context.providerKey); return providerForSession(context); },
-    createNativeProvider, ensureSession, withTransientSession, retireAndCloseProvider, closeProvider, stopOwnedRuntime, stopCachedProvider, stopProvider, stopThreadBeforeRelease, readModelCatalog, invalidateRuntimes, recover,
+    createNativeProvider, ensureSession, borrowSession, withTransientSession, holdProvider, retireAndCloseProvider, closeProvider, stopOwnedRuntime, stopCachedProvider, stopProvider, stopThreadBeforeRelease, readModelCatalog, invalidateRuntimes, recover,
     reportRecoveryEvent, pendingRecovery, readSessionGoal, readPlanUsage, stopCachedProvidersForSession, stopProvidersForProject, drainThreadEnvironmentTasks, stopPersistedRuntime, sessionExitProof,
     unsubscribeSessionThread, releasePersistedRuntimeProof, releasePreparedRuntimeProof, releaseSession,
     beginShutdown() {

@@ -218,10 +218,16 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
       return native.runOwner.ensureSessionReadiness(sessionId, await native.preparation.readiness());
     },
     async updateConversationSettings({ sessionId, native, context, input }) {
-      const acquired = await native.runOwner.conversationContext(sessionId, { conversationId: input.threadId }, context);
-      if (acquired.ok === false) return acquired;
-      await acquired.provider.updateThreadSettings(input.threadId, { model: input.model, effort: input.effort });
-      return { ok: true };
+      // Changing a thread's settings is not a use that keeps Codex running.
+      const borrow = { release() {} };
+      try {
+        const acquired = await native.runOwner.conversationContext(sessionId, { conversationId: input.threadId }, context, borrow);
+        if (acquired.ok === false) return acquired;
+        await acquired.provider.updateThreadSettings(input.threadId, { model: input.model, effort: input.effort });
+        return { ok: true };
+      } finally {
+        borrow.release();
+      }
     },
     async createConversation({ sessionId, native, input, context }) {
       return native.runOwner.createConversation(sessionId, input, context);

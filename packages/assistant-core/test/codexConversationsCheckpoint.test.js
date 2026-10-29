@@ -22,8 +22,9 @@ function persistentConversationFixture() {
     async checkpoint(_sessionId, input) { checkpoints.push(input); },
     conversationPreparation: { async context() { return { result: { provider } }; } },
     namespace: (sessionId) => sessionId,
-    // The provider owner still holds the provider observing the conversation.
-    providerSessions: { owner: { providers: new Map([["provider", provider]]) } },
+    // The provider owner still holds the provider observing the conversation;
+    // a running turn holds it through the owner.
+    providerSessions: { owner: { providers: new Map([["provider", provider]]), holdProvider: () => () => {} } },
     turnOutcomes
   });
   const state = commands.observeCodexConversation("session", "thread", provider);

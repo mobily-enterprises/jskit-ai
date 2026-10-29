@@ -20,11 +20,39 @@ export function createCodexConversationCommands({
   namespace,
   providerSessions,
   ensureSessionProvider,
+  borrowSessionProvider,
   steerFailedCode,
   turnOutcomes
 }) {
   const codexAppServerConversations = new Map();
   const codexAppServerConversationTurnStarts = new Map();
+
+  // Reads and Temporary chat commands borrow their provider instead of claiming
+  // it: the operation returns its borrow when it finishes, and an unused
+  // provider stops a short idle later.
+  function providerBorrow() {
+    return { release() {} };
+  }
+
+  // A persistent conversation holds its borrowed provider only while it
+  // observes native work running there: a turn, or an active goal.
+  function holdWhileActive(state) {
+    const active = state.persistent === true && Boolean(state.unsubscribe) &&
+      (codexAppServerConversationTurnIsActive(state.status) || state.goal?.status === "active");
+    if (active && !state.releaseProvider) {
+      state.releaseProvider = providerSessions.owner.holdProvider(state.provider);
+    } else if (!active && state.releaseProvider) {
+      const release = state.releaseProvider;
+      state.releaseProvider = null;
+      release();
+    }
+  }
+
+  function forgetObservation(state) {
+    state.unsubscribe?.();
+    state.unsubscribe = null;
+    holdWhileActive(state);
+  }
 
   function codexAppServerConversation(sessionId = "", conversationId = "") {
     return codexAppServerConversations.get(
@@ -69,7 +97,7 @@ export function createCodexConversationCommands({
     const conversations = codexAppServerConversations.get(key) || new Map();
     let state = conversations.get(conversationId);
     if (state?.provider === provider && state.unsubscribe) return state;
-    state?.unsubscribe?.();
+    if (state) forgetObservation(state);
     state = { conversationId, provider, persistent: true, status: "ready", runId: "", error: "", turnOutcome: "" };
     state.unsubscribe = provider.subscribe((notification) => {
       if (codexAppServerNotificationThreadId(notification) !== conversationId) return;
@@ -104,6 +132,7 @@ export function createCodexConversationCommands({
           turnOutcome: completedOutcome
         }).catch(() => {});
       }
+      holdWhileActive(state);
     });
     conversations.set(conversationId, state);
     codexAppServerConversations.set(key, conversations);
@@ -138,6 +167,7 @@ export function createCodexConversationCommands({
     // Stop it once; browser reloads reuse the existing backend observer.
     if (previous?.provider !== context.provider && (codexAppServerConversationTurnIsActive(status) || goal?.status === "active")) {
       Object.assign(state, { runId, status: "inProgress", goal });
+      holdWhileActive(state);
       try {
         await context.provider.stopThreadForObservationLoss(conversationId, "");
       } catch (error) {
@@ -149,6 +179,7 @@ export function createCodexConversationCommands({
     }
     if (goal?.status === "active") status = "inProgress";
     Object.assign(state, { runId, status, goal });
+    holdWhileActive(state);
     const messages = [];
     for (const turn of turns) {
       const turnId = codexAppServerProviderTurnId(turn);
@@ -230,7 +261,7 @@ export function createCodexConversationCommands({
     return preparation.settings(config);
   }
 
-  async function acquireCodexAppServerConversationContext(sessionId, prepared, input = {}) {
+  async function acquireCodexAppServerConversationContext(sessionId, prepared, input = {}, borrow = null) {
     if (prepared.result) return prepared.result;
     const { context } = prepared;
     if (context.assistantScope) {
@@ -266,14 +297,21 @@ export function createCodexConversationCommands({
     assertAdmitted();
     const providerOptions = activeProvider ? null : await prepared.providerOptions;
     assertAdmitted();
-    const provider = activeProvider?.provider || await ensureSessionProvider(sessionId, providerOptions);
+    let provider = activeProvider?.provider;
+    // A Helper's provider keeps its own retained lifecycle.
+    if (!provider && borrow && !prepared.helperTurn) {
+      const borrowed = await borrowSessionProvider(sessionId, providerOptions);
+      borrow.release = borrowed.release;
+      provider = borrowed.provider;
+    }
+    provider ||= await ensureSessionProvider(sessionId, providerOptions);
     assertAdmitted();
     return prepared.project(provider, activeProvider?.providerOptions || providerOptions, helperRestore);
   }
 
-  async function codexAppServerConversationContext(sessionId, input, options) {
+  async function codexAppServerConversationContext(sessionId, input, options, borrow = null) {
     return acquireCodexAppServerConversationContext(sessionId,
-      await conversationPreparation.context(sessionId, input, options), input);
+      await conversationPreparation.context(sessionId, input, options), input, borrow);
   }
 
   async function codexAppServerEphemeralScopeContext(sessionId, input, scope) {
@@ -288,15 +326,20 @@ export function createCodexConversationCommands({
 
   async function createCodexAppServerConversation(sessionId, input = {}, options = {}) {
     return codexAppServerConversationResult(async () => {
-      const context = await codexAppServerConversationContext(sessionId, input, options);
-      if (context.ok === false) return context;
-      const execution = conversationPreparation.execution(sessionId, input, options, context, null, "create");
-      return createPreparedCodexAppServerConversation(sessionId, input, {
-        provider: context.provider,
-        executionProfile: execution.executionProfile,
-        helperIsolation: conversationPreparation.isolation,
-        threadPreparation: () => execution.threadPreparation
-      });
+      const borrow = input.persistent === true ? providerBorrow() : null;
+      try {
+        const context = await codexAppServerConversationContext(sessionId, input, options, borrow);
+        if (context.ok === false) return context;
+        const execution = conversationPreparation.execution(sessionId, input, options, context, null, "create");
+        return await createPreparedCodexAppServerConversation(sessionId, input, {
+          provider: context.provider,
+          executionProfile: execution.executionProfile,
+          helperIsolation: conversationPreparation.isolation,
+          threadPreparation: () => execution.threadPreparation
+        });
+      } finally {
+        borrow?.release();
+      }
     });
   }
 
@@ -400,35 +443,44 @@ export function createCodexConversationCommands({
           ok: false
         };
       }
-      const context = await codexAppServerConversationContext(sessionId, input, options);
-      if (context.ok === false) return context;
-      const conversationState = codexAppServerConversation(sessionId, conversationId);
-      const execution = conversationPreparation.execution(sessionId, input, options, context, conversationState, "start", { conversationId, prompt });
-      if (input.ephemeral === true && !conversationState) {
-        return {
-          ...conversationPreparation.expired(conversationId, input),
-          code: `${errorPrefix}temporary_conversation_expired`,
-          ok: false,
-        };
+      const borrow = input.persistent === true ? providerBorrow() : null;
+      try {
+        const context = await codexAppServerConversationContext(sessionId, input, options, borrow);
+        if (context.ok === false) return context;
+        // A persistent turn is observed on the provider it runs on, which its
+        // conversation then holds until the turn ends.
+        const conversationState = input.persistent === true
+          ? observeCodexConversation(sessionId, conversationId, context.provider)
+          : codexAppServerConversation(sessionId, conversationId);
+        const execution = conversationPreparation.execution(sessionId, input, options, context, conversationState, "start", { conversationId, prompt });
+        if (input.ephemeral === true && !conversationState) {
+          return {
+            ...conversationPreparation.expired(conversationId, input),
+            code: `${errorPrefix}temporary_conversation_expired`,
+            ok: false,
+          };
+        }
+        // Do not evaluate native preparation until the original duplicate/active
+        // checks and Helper isolation capability checks have run.
+        return await startPreparedCodexAppServerConversationTurn(sessionId, input, {
+          executionProfile: execution.executionProfile,
+          helperIsolation: conversationPreparation.isolation,
+          prepareTurn: execution.prepareTurn,
+          authorized: execution.authorized,
+          readOnly: execution.readOnly,
+          actorMetadata: execution.actorMetadata,
+          onEvent: execution.onEvent,
+          projectResult: execution.projectResult,
+          conversationId,
+          messageId,
+          prompt,
+          provider: context.provider,
+          conversationState,
+          threadPreparation: () => execution.threadPreparation
+        });
+      } finally {
+        borrow?.release();
       }
-      // Do not evaluate native preparation until the original duplicate/active
-      // checks and Helper isolation capability checks have run.
-      return startPreparedCodexAppServerConversationTurn(sessionId, input, {
-        executionProfile: execution.executionProfile,
-        helperIsolation: conversationPreparation.isolation,
-        prepareTurn: execution.prepareTurn,
-        authorized: execution.authorized,
-        readOnly: execution.readOnly,
-        actorMetadata: execution.actorMetadata,
-        onEvent: execution.onEvent,
-        projectResult: execution.projectResult,
-        conversationId,
-        messageId,
-        prompt,
-        provider: context.provider,
-        conversationState,
-        threadPreparation: () => execution.threadPreparation
-      });
     }));
   }
 
@@ -452,30 +504,42 @@ export function createCodexConversationCommands({
       if (input.persistent && conversationState?.persistent && conversationState.provider.isAvailable?.() &&
           !conversationState.provider.observationFailure && !conversationPreparation.admissionError(sessionId)) {
         // Poll the already observed native thread. Execution environment setup
-        // belongs to Send and reconnection, not every history read.
-        return readPreparedPersistentCodexConversation(sessionId, input, { provider: conversationState.provider });
+        // belongs to Send and reconnection, not every history read. The read
+        // holds that provider so its idle release cannot stop it mid-read.
+        const release = providerSessions.owner.holdProvider(conversationState.provider);
+        try {
+          return await readPreparedPersistentCodexConversation(sessionId, input, { provider: conversationState.provider });
+        } finally {
+          release();
+        }
       }
-      const context = await codexAppServerConversationContext(sessionId, input, options);
-      if (context.ok === false) {
-        return context;
+      // Reading history or status is not a use that keeps Codex running.
+      const borrow = providerBorrow();
+      try {
+        const context = await codexAppServerConversationContext(sessionId, input, options, borrow);
+        if (context.ok === false) {
+          return context;
+        }
+        if (input.persistent) return await readPreparedPersistentCodexConversation(sessionId, input, context);
+        const thread = await context.provider.readThread(conversationId);
+        const runId = normalizeCodexRunText(input.runId) || codexAppServerThreadTurnId(thread);
+        const status = codexAppServerThreadStatus(thread);
+        const text = runId
+          ? codexAppServerProviderThreadAssistantSegments(thread, runId)
+            .map((segment) => segment.text)
+            .join("\n\n")
+          : "";
+        return {
+          conversationId,
+          error: codexAppServerThreadError(thread),
+          ok: true,
+          runId,
+          status,
+          ...conversationPreparation.response(text)
+        };
+      } finally {
+        borrow.release();
       }
-      if (input.persistent) return readPreparedPersistentCodexConversation(sessionId, input, context);
-      const thread = await context.provider.readThread(conversationId);
-      const runId = normalizeCodexRunText(input.runId) || codexAppServerThreadTurnId(thread);
-      const status = codexAppServerThreadStatus(thread);
-      const text = runId
-        ? codexAppServerProviderThreadAssistantSegments(thread, runId)
-          .map((segment) => segment.text)
-          .join("\n\n")
-        : "";
-      return {
-        conversationId,
-        error: codexAppServerThreadError(thread),
-        ok: true,
-        runId,
-        status,
-        ...conversationPreparation.response(text)
-      };
     });
   }
 
@@ -499,17 +563,22 @@ export function createCodexConversationCommands({
         const result = await scoped.completion;
         return { ...result, conversationId, ok: true, runId };
       }
-      const context = await codexAppServerConversationContext(sessionId, input, {
-        assistantScope
-      });
-      if (context.ok === false) {
-        return context;
+      const borrow = input.persistent === true ? providerBorrow() : null;
+      try {
+        const context = await codexAppServerConversationContext(sessionId, input, {
+          assistantScope
+        }, borrow);
+        if (context.ok === false) {
+          return context;
+        }
+        const result = await waitForPreparedCodexAppServerConversationTurn(sessionId, input, {
+          provider: context.provider,
+          onEvent
+        });
+        return { ...result, ...conversationPreparation.response(result.rawText) };
+      } finally {
+        borrow?.release();
       }
-      const result = await waitForPreparedCodexAppServerConversationTurn(sessionId, input, {
-        provider: context.provider,
-        onEvent
-      });
-      return { ...result, ...conversationPreparation.response(result.rawText) };
     });
   }
 
@@ -535,14 +604,19 @@ export function createCodexConversationCommands({
       };
     }
     if (input.persistent) {
-      const context = await codexAppServerConversationContext(sessionId, input, options);
-      if (context.ok === false) return context;
-      return stopPersistentCodexConversation({
-        conversationId,
-        conversationState,
-        provider: context.provider,
-        turnOutcome
-      });
+      const borrow = providerBorrow();
+      try {
+        const context = await codexAppServerConversationContext(sessionId, input, options, borrow);
+        if (context.ok === false) return context;
+        return await stopPersistentCodexConversation({
+          conversationId,
+          conversationState,
+          provider: context.provider,
+          turnOutcome
+        });
+      } finally {
+        borrow.release();
+      }
     }
     const result = await interruptDetachedCodexAppServerConversationTurn(sessionId, {
       agentSettings: input.agentSettings,
@@ -659,7 +733,7 @@ export function createCodexConversationCommands({
         failed.push({ conversationId: state.conversationId, error: codexAppServerErrorMessage(error) });
         continue;
       }
-      state.unsubscribe?.();
+      forgetObservation(state);
       conversations.delete(state.conversationId);
     }
     if (conversations && codexAppServerConversations.get(key) === conversations && !conversations.size) {
@@ -684,10 +758,12 @@ export function createCodexConversationCommands({
       const prepared = conversationPreparation.control(sessionId, input, operation);
       if (prepared.result) return prepared.result;
       const { admission, threadId, turnId } = prepared;
+      // Stopping or deleting a thread is cleanup, not a use that keeps Codex running.
+      const borrow = providerBorrow();
       try {
         let context = null;
         try {
-          context = await codexAppServerConversationContext(sessionId, input, { assistantScope, runtime, session });
+          context = await codexAppServerConversationContext(sessionId, input, { assistantScope, runtime, session }, borrow);
         } catch (error) {
           const unavailable = prepared.unavailable();
           if (unavailable) return unavailable;
@@ -722,6 +798,7 @@ export function createCodexConversationCommands({
         }
         return await dispatch({ provider: context.provider, threadId, turnId });
       } finally {
+        borrow.release();
         admission.release();
       }
     });
@@ -1000,6 +1077,7 @@ export function createCodexConversationCommands({
           status: "failed",
           watcher: null
         });
+        holdWhileActive(conversationState);
       }
       throw error;
     }
@@ -1069,7 +1147,10 @@ export function createCodexConversationCommands({
       });
       void conversationState.completion.catch(() => null);
     }
-    if (input.persistent && conversationState) Object.assign(conversationState, { runId, status, messageId });
+    if (input.persistent && conversationState) {
+      Object.assign(conversationState, { runId, status, messageId });
+      holdWhileActive(conversationState);
+    }
     return { conversationId, messageId, ok: true, runId, status };
   }
 
@@ -1097,6 +1178,7 @@ export function createCodexConversationCommands({
       conversationState.status = "interrupted";
       conversationState.watcher?.failNow(new Error("Temporary AI turn was stopped."));
       conversationState.watcher = null;
+      holdWhileActive(conversationState);
     }
     return result;
   }
@@ -1127,8 +1209,9 @@ export function createCodexConversationCommands({
     });
     if (result.ok !== false && conversation) {
       const { conversationId, sessionKey, conversations } = conversation;
-      conversations?.get(conversationId)?.watcher?.failNow(new Error("Temporary AI conversation was closed."));
-      conversations?.get(conversationId)?.unsubscribe?.();
+      const state = conversations?.get(conversationId);
+      state?.watcher?.failNow(new Error("Temporary AI conversation was closed."));
+      if (state) forgetObservation(state);
       conversations?.delete(conversationId);
       if (conversations?.size === 0) {
         codexAppServerConversations.delete(sessionKey);
@@ -1161,6 +1244,7 @@ export function createCodexConversationCommands({
       if (conversationState.goal?.status === "active") conversationState.goal = { ...conversationState.goal, status: "paused" };
       conversationState.watcher?.failNow(new Error("Temporary AI turn was stopped."));
       conversationState.watcher = null;
+      holdWhileActive(conversationState);
     }
     return { ok: true, conversationId, status: "interrupted" };
   }

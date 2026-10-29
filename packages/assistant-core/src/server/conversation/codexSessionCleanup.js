@@ -123,10 +123,13 @@ export function createCodexSessionCleanup({ namespace, runOwner, providerSession
     const helperRestore = await restoreSavedHelpers(() => preparation.helpers,
       "appServerRuntime.closeProject.helperRestore.failed",
       { projectContextRoot: normalizeCodexRunText(input.projectContextRoot) });
+    // Every provider of the project's sessions stops, including one a
+    // Temporary chat or a read borrowed and no Main thread names.
     const stopped = await providerOwner.stopProvidersForProject(input, {
       managed: providerSessions.managed,
       keyFields: providerSessions.keyFields,
-      helperThreads: helperLifecycle
+      helperThreads: helperLifecycle,
+      sessionKeyPrefix: sessionNamespacePrefix
     });
     const failed = [...conversationFailures, ...stopped.failed];
     return {

@@ -25,6 +25,11 @@ export function createCodexProviderSelection({
     return providerSessions.owner.ensureSession(sessionConnection(sessionId, providerOptions), threadId);
   }
 
+  // `{ provider, release }`: a use that does not keep the provider running.
+  function borrowSessionProvider(sessionId, providerOptions) {
+    return providerSessions.owner.borrowSession(sessionConnection(sessionId, providerOptions));
+  }
+
   function rememberManagedSession(sessionId, providerOptions, { executionRoot, workdir, threadId } = {}) {
     const connection = sessionConnection(sessionId, providerOptions);
     connection.runOwner.runtimeLifecycle.rememberManagedSession(connection.providerKey, {
@@ -214,6 +219,7 @@ export function createCodexProviderSelection({
     codexAppServerSessionObserverOptions,
     sessionConnection,
     ensureSessionProvider,
+    borrowSessionProvider,
     rememberManagedSession
   };
 }

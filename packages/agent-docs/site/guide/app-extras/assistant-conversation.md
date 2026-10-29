@@ -3273,8 +3273,13 @@ no inference authorization or runtime-closure rule to the original storage polic
 Storage work borrows the shared native process; it is not a user that keeps it
 running. Codex and OpenCode stop a process a storage read started about one
 minute after the last such read (so one maintenance pass shares it), unless a
-conversation, terminal or helper uses it by then. Any real Codex use of that
-provider claims it, and goal and plan-usage reads ignore a borrowed provider.
+conversation, terminal or helper uses it by then. Persistent (Temporary chat)
+conversations borrow it the same way: creating them, reading their history or
+status, stopping idle work, deleting them and changing their settings borrow the
+provider; a running persistent turn or an active goal holds it until it ends,
+and it then stops after the same idle minute unless something else uses it. Any
+other real Codex use of that provider claims it, and goal and plan-usage reads
+ignore a borrowed provider.
 All four operations are server-only, accept no caller-supplied native owner or
 host, and have no HTTP, socket or client route. Ordinary applications continue
 using their conversation handles.
@@ -3292,7 +3297,9 @@ independently and together, and then forgets them. A session that cannot close
 is reported by ID in `failed` (with a combined `error`) while every other session
 still stops.
 Codex stops each scoped conversation through the provider that observes it,
-then retires saved Helper records through the providers it stops. A conversation
+then retires saved Helper records through the providers it stops, and stops every
+provider of the project's sessions, including one that a Temporary chat or a
+read borrowed and no Main thread names. A conversation
 that cannot be stopped is reported in `failed` while the others still stop. A
 saved Helper record that cannot be restored (for example, one whose account was
 removed) stays on disk for a later connection; the result reports it under
