@@ -191,7 +191,10 @@ test("RealtimeProvider shutdown closes only Socket.IO and leaves the shared HTTP
     new Promise((resolve) => setTimeout(() => resolve("waiting for the HTTP server"), 1_000))
   ]);
   assert.equal(outcome, "stopped", "another route's open connection must not hold realtime shutdown");
-  await disconnected;
+  // A stopping server ends the transport, as Server#close() does, so the
+  // browser's own Socket.IO reconnection reaches the next server. A server
+  // disconnect ("io server disconnect") would switch that reconnection off.
+  assert.equal((await disconnected)[0], "transport close");
   assert.equal(http.listening, true, "the HTTP server's owner closes it");
   assert.equal(other.destroyed, false, "realtime leaves other routes' connections to their owners");
 

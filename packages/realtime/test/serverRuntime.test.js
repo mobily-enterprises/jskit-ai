@@ -171,12 +171,12 @@ test("closeSocketIoServer closes Socket.IO's own part and never the HTTP server"
       },
       close() { calls.push("engine.close"); }
     },
-    local: { disconnectSockets(close) { calls.push(`disconnect:${close}`); } },
+    local: { disconnectSockets() { calls.push("disconnectSockets"); } },
     sockets: { adapter: { async close() { calls.push("adapter.close"); } } }
   };
 
   await closeSocketIoServer(io);
-  assert.deepEqual(calls, ["refuse:Realtime has shut down.", "disconnect:true", "engine.close", "adapter.close"]);
+  assert.deepEqual(calls, ["refuse:Realtime has shut down.", "engine.close", "adapter.close"]);
 });
 
 test("closeSocketIoServer is a no-op without a Socket.IO engine", async () => {

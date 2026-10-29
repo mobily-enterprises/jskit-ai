@@ -66,14 +66,15 @@ function createSocketIoServer({
 // Socket.IO runs on an HTTP server its caller owns (Fastify's, for the
 // provider), which also carries other routes' WebSockets and streams.
 // Server#close() would close that server and wait for every one of them, so
-// close only Socket.IO's part: refuse its new requests, disconnect its sockets
-// and close its engine and adapter. The server's owner closes the server.
+// close only Socket.IO's part: refuse its new requests, then close its engine
+// and adapter. The server's owner closes the server. Closing the engine ends
+// each client's transport, as Server#close() does, so browsers reconnect to
+// the next server through Socket.IO's own reconnection.
 async function closeSocketIoServer(io) {
   if (!io?.engine) {
     return;
   }
   io.engine.use((_request, _response, next) => next(new Error("Realtime has shut down.")));
-  io.local.disconnectSockets(true);
   io.engine.close();
   await io.sockets.adapter.close();
 }

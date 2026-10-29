@@ -83,8 +83,10 @@ Credentials stay outside Git and never enter public client config.
 
 ## Shutdown
 
-Realtime shutdown refuses new Socket.IO requests, disconnects its sockets and
-closes its engine, adapter and Redis connections. It never closes the HTTP
+Realtime shutdown refuses new Socket.IO requests and closes its engine, adapter
+and Redis connections. Clients see their transport close, as with
+`Server#close()`, so Socket.IO's own reconnection reaches the next server; the
+server never sends a disconnect that would stop it. It never closes the HTTP
 server: that belongs to its owner (Fastify closes its own after feature
 shutdown), so another route's open WebSocket or stream does not hold realtime
 shutdown. Code that passes its own `httpServer` to `createSocketIoServer` closes
