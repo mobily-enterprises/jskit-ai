@@ -173,7 +173,7 @@ function createCapabilityRuntime({ providers = [], inputs = {}, profile = "" } =
       }
       stopped.push(provider.id);
     }
-    // Every provider still stops after one fails; each failure names its provider.
+    // Every provider has stopped, even after one failed; each failure names its provider.
     if (failures.length > 0) {
       throw new AggregateError(
         failures,

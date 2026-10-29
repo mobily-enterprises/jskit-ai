@@ -16,10 +16,10 @@ function patchLoadedHistoryPages(pages = [], patch) {
 }
 
 const SNAPSHOT_EVENTS = new Set(["accepted", "settled", "configuration", "phase", "error", "replaced", "goal"]);
-// A connected server may need longer than the normal budget to answer (an
-// overloaded host took 15 s). Abandoning it then discards the server's work and
-// repeats it, so a slow answer only shows a loading notice; it is treated as
-// lost, unsubscribed and retried only after the much longer cap.
+// A connected but busy server may need longer than the notice budget to answer.
+// Abandoning it then would discard the server's work and repeat it, so a slow
+// answer only shows a loading notice; it is treated as lost, unsubscribed and
+// retried only after the much longer cap.
 const SUBSCRIPTION_NOTICE_MS = 10_000;
 const SUBSCRIPTION_LOST_MS = 120_000;
 

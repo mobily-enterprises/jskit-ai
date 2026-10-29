@@ -1113,8 +1113,6 @@ function slowView(socket) {
 }
 
 test("a connected subscription keeps waiting for a slow server instead of abandoning its work at ten seconds", t => {
-  // Production: an overloaded daemon answered after 14-15 s; the client gave
-  // up at 10 s, unsubscribed and retried with 10 s again, so the chat never loaded.
   const { socket, subscribes, unsubscribes } = slowServerSocket(t);
   const { states, errors, subscription } = slowView(socket);
   t.mock.timers.tick(9_999);

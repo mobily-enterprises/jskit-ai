@@ -170,13 +170,17 @@ test("failed startup shuts down initialized providers and normal shutdown is ide
   assert.deepEqual(await healthyRuntime.shutdown(), []);
 });
 
+// A provider with no outputs and the given shutdown hook, if any.
+function shutdownProvider(id, shutdown) {
+  return defineProvider({ id, setup() { return {}; }, shutdown });
+}
+
 test("shutdown stops every provider and reports each failing provider by id", async () => {
   const stopped = [];
-  const provider = (id, shutdown) => defineProvider({ id, setup() { return {}; }, shutdown });
   const runtime = createCapabilityRuntime({ providers: [
-    provider("feature.alpha", () => { stopped.push("alpha"); throw new Error("alpha close failed"); }),
-    provider("feature.beta", () => { stopped.push("beta"); throw Object.assign(new Error("socket close failed"), { code: "E_SOCKET" }); }),
-    provider("feature.gamma", () => { stopped.push("gamma"); })
+    shutdownProvider("feature.alpha", () => { stopped.push("alpha"); throw new Error("alpha close failed"); }),
+    shutdownProvider("feature.beta", () => { stopped.push("beta"); throw Object.assign(new Error("socket close failed"), { code: "E_SOCKET" }); }),
+    shutdownProvider("feature.gamma", () => { stopped.push("gamma"); })
   ] });
   await runtime.start();
 
@@ -197,12 +201,11 @@ test("shutdown stops every provider and reports each failing provider by id", as
 });
 
 test("diagnostics name the provider whose shutdown is still running and how long each took", async () => {
-  let release;
-  const held = new Promise((resolve) => { release = resolve; });
+  const held = Promise.withResolvers();
   const runtime = createCapabilityRuntime({ providers: [
-    defineProvider({ id: "feature.a-slow", setup() { return {}; }, shutdown: () => held }),
-    defineProvider({ id: "feature.b-quick", setup() { return {}; }, shutdown() {} }),
-    defineProvider({ id: "feature.c-plain", setup() { return {}; } })
+    shutdownProvider("feature.a-slow", () => held.promise),
+    shutdownProvider("feature.b-quick", () => {}),
+    shutdownProvider("feature.c-plain")
   ] });
   await runtime.start();
   assert.deepEqual(runtime.diagnostics().providerShutdowns, []);
@@ -217,7 +220,7 @@ test("diagnostics name the provider whose shutdown is still running and how long
   assert.ok(pending.every(({ durationMs }) => Number.isInteger(durationMs) && durationMs >= 0));
   assert.ok(pending[1].durationMs >= 20, "the pending provider reports its elapsed time");
 
-  release();
+  held.resolve();
   assert.deepEqual(await stopping, ["feature.c-plain", "feature.b-quick", "feature.a-slow"]);
   assert.equal(runtime.diagnostics().providerShutdowns.at(-1).status, "stopped");
 });

@@ -53,11 +53,6 @@ function roomForScope(scope = {}) {
   return null;
 }
 
-// Every room roomForScope() names has one of these prefixes.
-function isScopeRoom(room) {
-  return /^(?:user|workspace):/u.test(String(room));
-}
-
 // Packages that know which scopes an actor belongs to (for example workspace
 // memberships) contribute them here; realtime only turns scopes into rooms.
 function createAudienceContributors() {
@@ -74,9 +69,10 @@ function createAudienceContributors() {
       }
       contributors.set(contributorId, resolveActorScopes);
     },
-    // Whether revalidation could make a socket join this room.
+    // Whether revalidation could make a socket join this room: every room
+    // roomForScope() names starts with user: or workspace:.
     mayContribute(room) {
-      return contributors.size > 0 && isScopeRoom(room);
+      return contributors.size > 0 && /^(?:user|workspace):/u.test(String(room));
     },
     async resolveActorRooms(actorId) {
       const rooms = new Set();

@@ -93,7 +93,7 @@ const conversationInputValidator = composeSchemaDefinitions(
   { mode: "patch", context: "assistant-runtime conversation action input" }
 );
 
-const conversationInspectInputValidator = composeSchemaDefinitions(
+const conversationDeliveryInputValidator = composeSchemaDefinitions(
   [conversationInputValidator, assistantConversationMessageIdInputValidator],
   { mode: "patch", context: "assistant-runtime conversation delivery inspection input" }
 );
@@ -217,7 +217,7 @@ function createConversationActions({ conversationRuntime, conversationDataSchema
       channels: ["api", "internal"],
       surfaces: runtimeSurfaces,
       permission: { require: "authenticated" },
-      input: conversationInspectInputValidator,
+      input: conversationDeliveryInputValidator,
       output: null,
       idempotency: "none",
       async execute(input, context) {
@@ -232,7 +232,7 @@ function createConversationActions({ conversationRuntime, conversationDataSchema
       channels: ["api", "internal"],
       surfaces: runtimeSurfaces,
       permission: { require: "authenticated" },
-      input: conversationInspectInputValidator,
+      input: conversationDeliveryInputValidator,
       output: null,
       idempotency: "none",
       async execute(input, context) {

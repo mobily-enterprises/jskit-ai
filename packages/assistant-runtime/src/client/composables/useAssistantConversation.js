@@ -742,6 +742,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     const commands = capabilities.goalCommands || {};
     const loading = !goalTargetCurrent.value && !goalLoadError.value;
     const goalAvailable = goalTargetCurrent.value && view?.status === "available" && !goalLoadError.value;
+    const stopPending = Boolean(goalAction.value) || !goalAvailable || !available.value;
     return {
       enabled: active.value && Boolean(loading || (view?.status === "available" && !goalLoadError.value) || goalError.value || goalLoadError.value),
       loading,
@@ -751,9 +752,8 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       tokenBudgetSupported: capabilities.goalBudgets === true,
       goal: goalAvailable && view?.goal ? { ...view.goal, elapsedSeconds: view.goal.timeUsedSeconds,
         sampledAt: Date.parse(view.goal.updatedAt) } : null,
-      pending: Boolean(goalAction.value) || !goalAvailable || !available.value || delivery.state.sending ||
-        delivery.state.messages.some(message => message.status === "uncertain"),
-      stopPending: Boolean(goalAction.value) || !goalAvailable || !available.value,
+      pending: stopPending || delivery.state.sending || delivery.state.messages.some(message => message.status === "uncertain"),
+      stopPending,
       error: goalError.value || goalLoadError.value || view?.error || "",
       pauseInterruptsTurn: commands.pause?.interruptsTurn === true,
       cancelInterruptsTurn: commands.cancel?.interruptsTurn === true,

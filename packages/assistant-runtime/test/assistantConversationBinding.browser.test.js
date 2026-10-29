@@ -887,8 +887,6 @@ for (const status of ["uncertain", "pending", "accepted", "failed", "unrecognise
         return runtime.canSubmit.value;
       }), false, "the uncertain request's own words cannot be sent again");
       await f.page.evaluate(draft => { window.savedBinding.runtime.value.draft.value = draft; }, saved.draft);
-    }
-    if (unconfirmed) {
       const check = f.primary.getByRole("button", { name: "Retry delivery check", exact: true });
       try { await expect(check).toBeEnabled(); }
       catch (failure) {

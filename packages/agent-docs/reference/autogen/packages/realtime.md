@@ -68,7 +68,6 @@ Local functions
 - `resolveScopeWorkspaceId(scope = {})`
 - `resolveScopeUserId(scope = {})`
 - `roomForScope(scope = {})`
-- `isScopeRoom(room)`
 - `applyAudiencePreset(preset, { event, rooms, flags, logger })`
 - `addAudienceRooms(selection, state)`
 - `collectUserIds(rows)`
