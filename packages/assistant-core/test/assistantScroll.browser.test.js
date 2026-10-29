@@ -466,6 +466,99 @@ test("upward scrolling loads older history once and preserves retry and selectio
   }
 });
 
+test("a reader's own upward scrolling leaves the latest message from its first frame", {
+  skip: !RUN_BROWSER_TEST,
+  timeout: 60_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  const browser = await chromium.launch(createChromiumLaunchOptions());
+  try {
+    for (const width of [390, 1365]) {
+      const touch = width < 1000;
+      const page = await browser.newPage({ viewport: { width, height: 900 }, hasTouch: touch, isMobile: touch });
+      const errors = [];
+      page.on("pageerror", error => errors.push(error.message));
+      await page.goto(`${vite.baseURL}/?controls=1&history=1`);
+      const body = page.locator(".assistant-transcript__body");
+      const fromBottom = () => body.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop);
+      const appendReply = async () => {
+        const replies = page.getByText("New reply.", { exact: false });
+        const count = await replies.count();
+        await page.getByRole("button", { name: "Append reply", exact: true }).evaluate(element => element.click());
+        await expect(replies).toHaveCount(count + 1);
+        await settleLayout(body);
+      };
+      await expect(page.getByText("Conversation line 70:", { exact: false })).toBeVisible();
+      await page.getByRole("button", { name: "Exhaust history", exact: true }).evaluate(element => element.click());
+      await settleLayout(body);
+      expect(await fromBottom()).toBeLessThanOrEqual(1);
+      await expect.poll(async () => {
+        await body.focus();
+        return body.evaluate(element => document.activeElement === element);
+      }).toBe(true);
+
+      // A short upward wheel or touch scroll stays within the 48px follow
+      // threshold, and a touch fling ends without further input events.
+      if (touch) {
+        const bounds = await body.boundingBox();
+        const cdp = await page.context().newCDPSession(page);
+        const [x, y] = [bounds.x + bounds.width / 2, bounds.y + 100];
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+        for (const offset of [10, 20, 30]) {
+          await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y: y + offset }] });
+        }
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+        await cdp.detach();
+      } else {
+        await body.hover();
+        await page.mouse.wheel(0, -20);
+      }
+      await expect.poll(fromBottom).toBeGreaterThan(1);
+      await settleLayout(body);
+      await appendReply();
+      expect(await fromBottom()).toBeGreaterThan(1);
+
+      // Returning to the end resumes following new replies.
+      await body.press("End");
+      await expect.poll(fromBottom).toBeLessThanOrEqual(1);
+      await appendReply();
+      expect(await fromBottom()).toBeLessThanOrEqual(1);
+
+      // The first frame of an upward scroll lands inside the follow threshold;
+      // the rest of it (a fling or smooth scroll) moves the reader into history
+      // without further input events.
+      await body.press("ArrowUp");
+      await expect.poll(fromBottom).toBeGreaterThan(1);
+      await settleLayout(body);
+      expect(await fromBottom()).toBeLessThanOrEqual(48);
+      await body.evaluate(element => { element.scrollTop = Math.round(element.scrollTop / 2); });
+      await settleLayout(body);
+      await appendReply();
+      expect(await fromBottom()).toBeGreaterThan(1_000);
+      await body.press("End");
+      await expect.poll(fromBottom).toBeLessThanOrEqual(1);
+      await appendReply();
+      expect(await fromBottom()).toBeLessThanOrEqual(1);
+
+      // The scroll event of the transcript's own follow scroll can arrive after
+      // the key press, before the reader has moved; it must not cancel the
+      // reader's scroll.
+      await body.evaluate(element => {
+        element.addEventListener("keydown", () => element.dispatchEvent(new Event("scroll")), { once: true });
+      });
+      await body.press("Home");
+      await expect.poll(() => body.evaluate(element => element.scrollTop)).toBe(0);
+      await appendReply();
+      expect(await body.evaluate(element => element.scrollTop)).toBe(0);
+      assert.deepEqual(errors, []);
+      await page.close();
+    }
+  } finally {
+    await browser.close();
+    await stopProcess(vite);
+  }
+});
+
 test("retained hidden transcripts preserve readers and follow only at the latest message", {
   skip: !RUN_BROWSER_TEST,
   timeout: 90_000

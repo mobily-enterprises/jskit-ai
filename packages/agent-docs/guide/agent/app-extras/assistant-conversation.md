@@ -725,6 +725,10 @@ uses more layout work for long histories. The default is false and retains the
 existing remove-and-follow behavior and offscreen layout optimization.
 Scrolling upward within 160 CSS pixels of the transcript's top requests older
 history through `loadMore`, including touch, wheel and keyboard scrolling.
+New replies are followed while the reader is within 48 CSS pixels of the end.
+The reader's own upward touch, wheel or keyboard scrolling (Home, Page Up, Arrow
+Up, Shift+Space) stops following from its first frame, even within that
+distance; scrolling back down to the end resumes it.
 Only one request runs at a time, and prepending preserves the reading position.
 Initial positioning and conversation selection do not fetch older pages.
 `loadMoreError` pauses automatic loading; the older-messages button remains

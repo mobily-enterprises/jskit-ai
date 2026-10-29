@@ -65,10 +65,11 @@
       :class="{ 'assistant-transcript__body--settling': initialScrollPending }"
       tabindex="0"
       @keydown.capture="markKeyboardScrollIntent"
-      @pointerdown.self="markUserScrollIntent"
+      @pointerdown.self="markUserScrollIntent()"
       @scroll.passive="updateLatestFollowFromScroll"
-      @touchmove.passive="markUserScrollIntent"
-      @wheel.passive="markUserScrollIntent"
+      @touchstart.passive="rememberTouch"
+      @touchmove.passive="markTouchScrollIntent"
+      @wheel.passive="markUserScrollIntent({ upward: $event.deltaY < 0 })"
     >
       <div
         v-if="welcomeMessage"
@@ -331,6 +332,7 @@ import AssistantProgress from "./AssistantProgress.vue";
 import { parseNumberedQuestionPrompt } from "../../shared/conversation/numberedQuestionSugar.js";
 import { parseLongTextReviewBlocks } from "../../shared/conversation/longTextBlocks.js";
 import {
+  scrollDistanceFromBottom,
   scrollElementNearBottom
 } from "../../shared/conversation/scrollFollowState.js";
 import {
@@ -445,6 +447,8 @@ let retainedReaderScrollSnapshot = null;
 let loadMoreRequestVersion = 0;
 let pendingTailFollow = false;
 let previousScrollTop = 0;
+let userScrollIntentUpward = false;
+let lastTouchY = null;
 const USER_SCROLL_INTENT_RESET_MS = 600;
 const LOAD_MORE_THRESHOLD_PX = 160;
 const KEYBOARD_SCROLL_KEYS = new Set([
@@ -457,6 +461,7 @@ const KEYBOARD_SCROLL_KEYS = new Set([
   "PageUp",
   "Spacebar"
 ]);
+const UPWARD_SCROLL_KEYS = new Set(["ArrowUp", "Home", "PageUp"]);
 const TIME_FORMAT = Object.freeze({
   year: "numeric",
   month: "short",
@@ -750,9 +755,10 @@ function resumePendingTailFollow() {
   }
 }
 
-function markUserScrollIntent() {
+function markUserScrollIntent({ upward = false } = {}) {
   retainedReaderScrollSnapshot = null;
   userScrollIntent.value = true;
+  userScrollIntentUpward = upward;
   clearLiveBottomScroll();
   clearScheduledScrolls();
   if (userScrollIntentTimer && typeof window !== "undefined" && typeof window.clearTimeout === "function") {
@@ -781,7 +787,20 @@ function markKeyboardScrollIntent(event = {}) {
   ) {
     return;
   }
-  markUserScrollIntent();
+  markUserScrollIntent({
+    upward: UPWARD_SCROLL_KEYS.has(event.key) || (event.shiftKey && [" ", "Spacebar"].includes(event.key))
+  });
+}
+
+function rememberTouch(event = {}) {
+  lastTouchY = event.touches?.[0]?.clientY ?? null;
+}
+
+function markTouchScrollIntent(event = {}) {
+  const touchY = event.touches?.[0]?.clientY ?? null;
+  // A finger moving down the screen scrolls the transcript up.
+  markUserScrollIntent({ upward: touchY !== null && lastTouchY !== null && touchY > lastTouchY });
+  lastTouchY = touchY;
 }
 
 function scrollToLatestMessageAfterLayout({
@@ -873,13 +892,21 @@ function updateLatestFollowFromScroll(event = {}) {
     loadMoreScrollSnapshot.anchor = visibleHistoryAnchor(target);
     loadMoreScrollSnapshot.scrollHeight = target.scrollHeight;
   }
-  const shouldFollow = scrollElementNearBottom(target);
+  // The reader's own upward scrolling leaves the latest message from its first
+  // frame, even within the follow threshold.
+  const userScrollsUp = userScrollIntent.value && userScrollIntentUpward;
+  const shouldFollow = scrollElementNearBottom(target) &&
+    !(userScrollsUp && scrollDistanceFromBottom(target) > 1);
   if (!shouldFollow && !userScrollIntent.value && followingLatest.value) {
     return;
   }
   followingLatest.value = shouldFollow;
   if (shouldFollow) {
-    clearUserScrollIntent();
+    // A scroll event still at the end, queued before upward input, must not
+    // end that input's intent.
+    if (!userScrollsUp) {
+      clearUserScrollIntent();
+    }
     resumePendingTailFollow();
     return;
   }

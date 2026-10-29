@@ -109,6 +109,12 @@ keeping unconfirmed authored messages in their supplied positions. A queued
 message's earlier local timestamp cannot move it ahead of a preceding message
 that receives its native timestamp later; receipts restore normal history ordering.
 
+The shared transcript follows new replies only while the reader follows the latest
+message. The reader's own upward touch, wheel or keyboard scrolling leaves it from
+its first frame, even within the 48 px follow distance, and a scroll event still
+queued from the transcript's own follow scroll cannot cancel that; scrolling back
+down to the end resumes following.
+
 Native conversations optionally report content-free delivery timings through
 `onDeliveryTiming`. One shared observer supplies milestone names, monotonic
 durations and message attribution for Codex, Claude and OpenCode; their original

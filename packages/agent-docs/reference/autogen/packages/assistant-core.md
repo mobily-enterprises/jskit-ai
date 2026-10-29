@@ -139,8 +139,10 @@ Local functions
 - `messageScrollKey(message = null)`
 - `clearUserScrollIntent()`
 - `resumePendingTailFollow()`
-- `markUserScrollIntent()`
+- `markUserScrollIntent({ upward = false } = {})`
 - `markKeyboardScrollIntent(event = {})`
+- `rememberTouch(event = {})`
+- `markTouchScrollIntent(event = {})`
 - `scrollToLatestMessageAfterLayout({ behavior = "auto", force = false } = {})`
 - `queueInitialBottomScroll()`
 - `queueLiveBottomScroll({ force = false } = {})`
