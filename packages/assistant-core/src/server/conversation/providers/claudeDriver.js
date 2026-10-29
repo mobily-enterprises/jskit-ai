@@ -258,13 +258,13 @@ export function createClaudeConversationDriver({ connections, host = {}, limits 
       return conversation.read(context, representation, nativeResult);
     },
     inspectTemporaryActivity({ native, context }) {
-      return native.owner.hasActiveTemporaryConversation(context, { acquire: native.owner.acquire });
+      return native.owner.hasActiveTemporaryConversation(context);
     },
     releaseRenewalPredecessorProcessExitProof({ native, context }) {
-      return native.owner.closeSession(context, native.application);
+      return native.owner.releaseSession(context, native.application);
     },
     releaseRenewalSuccessorProcessExitProof({ native, context }) {
-      return native.owner.closeSession(context, native.application);
+      return native.owner.releaseSession(context, native.application);
     },
     async generateRenewalHandover({ native, input, context }) {
       const prepared = native.preparation.handover(input, context);

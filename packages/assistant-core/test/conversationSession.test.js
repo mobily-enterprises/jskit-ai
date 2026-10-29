@@ -735,7 +735,7 @@ test("renewal proof cleanup preserves OpenCode failure, consumption and retry th
   assert.deepEqual(calls, ["proof-id"]);
 });
 
-test("Claude renewal proof routes use the original close owner and preserve retry after shutdown", async t => {
+test("Claude renewal proof routes release only retained work and preserve retry after shutdown", async t => {
   const nativeContext = { sessionId: "renewal-one", key: "renewal-scope" };
   const calls = [];
   const failure = new Error("Terminal cleanup is unconfirmed.");
@@ -744,11 +744,7 @@ test("Claude renewal proof routes use the original close owner and preserve retr
     configRoot: "/unused-native-config",
     preparation: { context() { assert.fail("No saved native conversations exist."); } },
     process: { create() { assert.fail("Proof release must not start a process."); } },
-    store: { readSessionConversations(current) {
-      assert.equal(current, nativeContext);
-      calls.push("restore");
-      return { context: current, ids: [] };
-    } }
+    store: { readSessionConversations() { assert.fail("Proof release must not reopen saved conversations."); } }
   });
   const application = {
     readContext(current) { assert.equal(current, nativeContext); calls.push("context"); return current; },
@@ -777,7 +773,7 @@ test("Claude renewal proof routes use the original close owner and preserve retr
       ok: true, closed: 1, processExitProof: { exited: true, scopeEmpty: true }, processExitProofs: []
     });
   }
-  assert.deepEqual(calls, Array(3).fill(["context", "restore", "terminal"]).flat());
+  assert.deepEqual(calls, Array(3).fill(["context", "terminal"]).flat());
   assert.equal(owner.closingSessions.size, 0);
   assert.equal(owner.entries.size, 0);
 });
@@ -929,7 +925,7 @@ test("native activity uses the configured inventory without opening Main, includ
     const acquire = () => assert.fail("The native activity owner controls receipt restoration.");
     const inspect = (...args) => {
       calls.push("inspect");
-      if (engine === "claude") assert.deepEqual(args, [preparedContext, { acquire }]);
+      if (engine === "claude") assert.deepEqual(args, [preparedContext]);
       else assert.deepEqual(args, [id]);
       return true;
     };

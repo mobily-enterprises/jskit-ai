@@ -187,6 +187,17 @@ storage inventory and retirement borrow the shared Codex or OpenCode process
 without becoming a user: it stops about a minute after the last storage read
 unless a conversation, terminal or helper uses it.
 
+Claude's conversation owner cleans up from the entries it retains, because a
+Claude process cannot outlive the server that started it. Account changes,
+shutdown, provider-connection changes, project close, renewal proof release and
+the temporary-activity check reopen no saved conversation. They stop only
+entries holding native work, write nothing for idle ones and handle sessions
+concurrently; a failing session is reported by ID while the others still stop.
+Project close and proof release also forget the session's entries. A session
+close additionally reopens only saved custody an earlier server left (an
+unproven execution or a turn saved as active) so a verified stop can retire
+it; once an account change or shutdown is closing the owner, it reopens nothing.
+
 Claude plan usage keeps one verified reading per account. A live conversation
 process of that account answers at most once a minute; without one, or when its
 answer is unverified, a temporary query process answers at most every five

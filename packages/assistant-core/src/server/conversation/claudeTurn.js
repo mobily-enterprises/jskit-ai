@@ -27,6 +27,16 @@ function nativeWorkSettled(entry) {
   return !entry.sending && !entry.process && !entry.executionId && !entry.command && !entry.stopPending;
 }
 
+// Work this server is running: a send, command or stop in progress, a live
+// process, or a startup still lending cleanup. A restored execution with none
+// of these belongs to an earlier server; no Claude process outlives the
+// server that started it.
+function runsNativeWork(entry) {
+  return Boolean(entry.sending || entry.process || entry.command || entry.stopPending || hasPendingClaudeStartup(entry));
+}
+
+const ACTIVE_TURN_STATES = ["starting", "active", "finalizing"];
+
 export function claudeNativeMessageId(id) {
   const value = createHash("sha256").update(String(id)).digest("hex");
   return `${value.slice(0, 8)}-${value.slice(8, 12)}-4${value.slice(13, 16)}-8${value.slice(17, 20)}-${value.slice(20, 32)}`;
@@ -181,6 +191,10 @@ export function createClaudeConversationOwner({
   // Otherwise the host retains entries and their original checkpoint order.
   const bound = Boolean(store.releaseExecution);
   const isTurnActive = entry => bound ? entry.nativeTurn.read().active : Boolean(entry.turn?.active);
+  // What cleanup must stop: running work, or custody (an execution or an
+  // active turn) that only a verified stop retires. An idle entry has nothing
+  // to stop, and stopping it would only rewrite its saved record.
+  const holdsNativeWork = entry => runsNativeWork(entry) || Boolean(entry.executionId) || isTurnActive(entry);
 
   function createAccountQueries({ accountIdentity, createProcess }) {
     return createClaudeAccountQueries({ accountIdentity,
@@ -227,6 +241,12 @@ export function createClaudeConversationOwner({
     return readClaudeHistory({ configRoot, workdir: entry.nativeWorkdir, conversationId: entry.id });
   }
 
+  function savedState(saved, conversationId) {
+    if (!saved) return {};
+    try { return JSON.parse(saved); }
+    catch { throw createError(`The saved Claude conversation ${conversationId} is unreadable. Restore its saved conversation state.`); }
+  }
+
   async function open(context, { conversationId = "", mainId, create = false,
     cleanupExecutionId, recoveringCleanup = false, nativeWorkdir = context.workdir } = {}) {
     const main = !conversationId || conversationId === mainId;
@@ -246,7 +266,7 @@ export function createClaudeConversationOwner({
     let saved = store.read(context, id);
     if (saved && typeof saved.then === "function") saved = await saved;
     if (!main && !saved && !create && !recoveringCleanup) throw createError("This Claude conversation is unavailable.");
-    const state = saved ? JSON.parse(saved) : {};
+    const state = savedState(saved, id);
     const entry = { id, key, main, persistent: state.persistent === true, context, process: null, startupCleanup: null,
       executionId: state.executionId || (recoveringCleanup ? cleanupExecutionId : ""), preparationRevision: 0,
       accountIdentities: state.accountIdentities || (state.accountIdentity ? { anthropic: state.accountIdentity } : {}),
@@ -763,9 +783,11 @@ export function createClaudeConversationOwner({
       threadId: entry.id, turnId: accepted ? turnId : "" };
   }
 
-  async function hasActiveTemporaryConversation(context, { acquire }) {
-    await restoreSessionEntries(context, { acquire });
-    return [...entries.values()].some((entry) => entry.context.key === context.key && !entry.main && entry.turn?.active);
+  // Temporary work this server runs. Saved conversations are not reopened to
+  // answer: a turn an earlier server saved as active ended with that server.
+  function hasActiveTemporaryConversation(context) {
+    return [...entries.values()].some((entry) => entry.context.key === context.key && !entry.main &&
+      isTurnActive(entry) && runsNativeWork(entry));
   }
 
   function hasActiveConversation(binding) {
@@ -804,16 +826,28 @@ export function createClaudeConversationOwner({
     return [...entries.values()].filter((entry) => entry.context.key === context.key);
   }
 
+  // A session's close stops what this server runs for it, then reopens only
+  // saved custody an earlier server left. Once the owner is closing for an
+  // account change or shutdown it reopens nothing.
   async function closeSession(context, application) {
-    const ctx = await application.readContext(context);
+    return closeRetained(await application.readContext(context), application,
+      { recover: !closing, forget: context.forgetConversationBinding === true });
+  }
+
+  // Renewal proof release ends a session this server no longer uses. Its own
+  // close already recovered saved custody while its record could be written.
+  async function releaseSession(context, application) {
+    return closeRetained(await application.readContext(context), application, { recover: false, forget: true });
+  }
+
+  async function closeRetained(ctx, application, { recover, forget: forgetEntries }) {
     closingSessions.add(ctx.key);
     try {
-      await restoreSessionEntries(ctx, { acquire });
+      if (recover) await recoverSavedCustody(ctx);
       const proofs = await drain(ctx.key);
       const terminal = await application.terminals.close(ctx.sessionId);
-      if (terminal?.ok !== false && context.forgetConversationBinding === true) {
-        forget(ctx.key);
-      }
+      // A forgotten entry is drained: everything it held is in its saved record.
+      if (terminal?.ok !== false && forgetEntries) forget(ctx.key);
       return { ok: terminal?.ok !== false, closed: proofs.length + Number(terminal?.closed || 0),
         processExitProof: proofs.at(-1) || { exited: true, scopeEmpty: true }, processExitProofs: proofs };
     } finally {
@@ -821,19 +855,27 @@ export function createClaudeConversationOwner({
     }
   }
 
-  async function closeProject(input = {}, application) {
-    const root = text(input.projectContextRoot);
-    const contexts = new Map([...entries.values()]
-      .filter((entry) => !root || path.resolve(store.projectContextRoot(entry)) === path.resolve(root))
-      .map((entry) => [entry.context.key, entry.context]));
-    let closed = 0;
-    let ok = true;
-    for (const ctx of contexts.values()) {
-      const result = await closeSession(ctx, application);
-      closed += result.closed;
-      ok &&= result.ok;
+  // Saved custody an earlier server left: an execution whose exit is still
+  // unproven, or a turn saved as active. Only those conversations are reopened,
+  // so a verified stop can retire them; idle saved conversations stay closed.
+  async function recoverSavedCustody(ctx) {
+    let saved = store.readSessionConversations(ctx);
+    if (saved && typeof saved.then === "function") saved = await saved;
+    for (const conversationId of saved.ids) {
+      if (entries.has(`${ctx.key}\0${conversationId}`)) continue;
+      let record = store.read(saved.context, conversationId);
+      if (record && typeof record.then === "function") record = await record;
+      const state = savedState(record, conversationId);
+      if (state.executionId || ACTIVE_TURN_STATES.includes(state.state)) await acquire(saved.context, conversationId);
     }
-    return { ok, closed };
+  }
+
+  // Project close releases what this server runs for the project's sessions,
+  // from their retained entries alone, and forgets them: nothing uses them.
+  function closeProject(input = {}, application) {
+    const root = text(input.projectContextRoot);
+    return eachSession(entry => !root || path.resolve(store.projectContextRoot(entry)) === path.resolve(root),
+      ctx => closeRetained(ctx, application, { recover: false, forget: true }));
   }
 
   async function invalidateRuntimes(input = {}, application, account) {
@@ -844,8 +886,12 @@ export function createClaudeConversationOwner({
     }
     closing = true;
     try {
-      await account.queries.invalidate().catch(account.failure);
-      return await stopRetained(application);
+      // Neither waits for the other: a failed account query cleanup must not
+      // leave the sessions' processes running on the previous account.
+      const [queries, retained] = await Promise.allSettled([account.queries.invalidate(), stopRetained(application)]);
+      if (queries.status === "rejected") await account.failure(queries.reason);
+      if (retained.status === "rejected") throw retained.reason;
+      return retained.value;
     } finally {
       closing = input.reason === "server-shutdown";
     }
@@ -854,32 +900,56 @@ export function createClaudeConversationOwner({
   // Account changes and shutdown stop only what this server runs: a Claude
   // process cannot outlive the server that started it, so retained entries
   // hold every one. Saved conversations are not reopened just to be stopped.
-  async function stopRetained(application) {
-    const sessions = new Map([...entries.values()].map(entry => [entry.context.key, entry.context.sessionId]));
+  function stopRetained(application) {
+    return eachSession(() => true, ctx => closeRetained(ctx, application, { recover: false, forget: false }));
+  }
+
+  // Sessions close independently and together: one that fails is reported by
+  // its ID while every other session still stops.
+  async function eachSession(select, close) {
+    const contexts = new Map([...entries.values()].filter(select).map(entry => [entry.context.key, entry.context]));
+    const settled = await Promise.allSettled([...contexts.values()].map(ctx => close(ctx)));
     let closed = 0;
-    let ok = true;
-    for (const [key, sessionId] of sessions) {
-      closed += (await drain(key)).length;
-      const terminal = await application.terminals.close(sessionId);
-      closed += Number(terminal?.closed || 0);
-      ok &&= terminal?.ok !== false;
-    }
-    return { ok, closed };
+    const failed = [];
+    [...contexts.values()].forEach((ctx, index) => {
+      const result = settled[index];
+      if (result.status === "fulfilled") closed += result.value.closed;
+      const error = result.status === "rejected" ? result.reason?.message || String(result.reason)
+        : result.value.ok === false ? "Its Claude Code terminal could not be closed." : "";
+      if (error) failed.push({ sessionId: ctx.sessionId, error });
+    });
+    return { ok: failed.length === 0, closed, failed,
+      ...(failed.length ? { error: failed.map(({ sessionId, error }) => `Claude session ${sessionId}: ${error}`).join(" ") } : {}) };
   }
 
   async function drain(key) {
     const selected = [...entries.values()].filter(entry => entry.context.key === key);
+    // Fence configuration still in progress: it must not start a process later.
+    for (const entry of selected) entry.preparationRevision++;
+    const proofs = [];
+    let failure;
+    async function stop() {
+      for (const entry of selected) if (holdsNativeWork(entry)) {
+        try { proofs.push(await entry.nativeTurn.stopProcess()); }
+        catch (error) { failure ||= error; }
+      }
+    }
     // Startup already lends cleanup before initialization completes. Stop it
     // first; waiting for the preparation queue first can exhaust host shutdown.
-    for (const entry of selected) await entry.nativeTurn.stopProcess();
+    await stop();
     await Promise.allSettled(selected.map(entry => entry.nativeTurn.whenIdle()));
-    const proofs = [];
-    for (const entry of selected) proofs.push(await entry.nativeTurn.stopProcess());
+    await stop();
+    // Every other entry still stopped; the first failure keeps the close retryable.
+    if (failure) throw failure;
     return proofs;
   }
 
   function forget(contextKey) {
-    for (const [key, entry] of entries) if (entry.context.key === contextKey) entries.delete(key);
+    for (const [key, entry] of entries) if (entry.context.key === contextKey) {
+      // Nothing would ever stop a process a forgotten entry started.
+      entry.disposed = true;
+      entries.delete(key);
+    }
   }
 
   async function close(entry) {
@@ -904,12 +974,22 @@ export function createClaudeConversationOwner({
     }
   }
 
+  // A provider connection change stops the matching work this server runs.
+  // Each entry stops on its own, so one failure is reported by ID.
   async function stopSelected(select, reason) {
     let closed = 0;
-    for (const entry of entries.values()) if (select(entry)) {
-      await entry.nativeTurn.stopProcess(reason); closed++;
+    const failed = [];
+    for (const entry of [...entries.values()].filter(select)) {
+      entry.preparationRevision++;
+      if (!holdsNativeWork(entry)) continue;
+      try {
+        await entry.nativeTurn.stopProcess(reason);
+        closed++;
+      } catch (error) {
+        failed.push({ sessionId: entry.context.sessionId, conversationId: entry.id, error: error.message });
+      }
     }
-    return { ok: true, closed };
+    return { ok: failed.length === 0, closed, failed };
   }
 
   async function wait(entry, input, { context, acquire }) {
@@ -1172,7 +1252,7 @@ export function createClaudeConversationOwner({
   }
 
   return Object.freeze({ applicationToolsSupported: true, entries, closingSessions, get closing() { return closing; }, createAccountQueries, open, acquire, createConversation, snapshot, readRetainedTurn, readFinalAssistantResult, readHistory, nativeWorkSettled, ensureReady, ensureProcess, readContextUsage, compactContext, releaseRetainedGoal, stopForTerminal, prepareTerminal, send, startTurn,
-    interrupt, read, inspectAdmission, hasActiveTemporaryConversation, hasActiveConversation, retireConversationHistory, reconcileSessions, restoreSessionEntries, closeSession, closeProject, invalidateRuntimes, drain, forget, close, deleteConversation, recover, stopSelected, wait, stopConversation,
+    interrupt, read, inspectAdmission, hasActiveTemporaryConversation, hasActiveConversation, retireConversationHistory, reconcileSessions, restoreSessionEntries, closeSession, releaseSession, closeProject, invalidateRuntimes, drain, forget, close, deleteConversation, recover, stopSelected, wait, stopConversation,
     readGoal, updateGoal, renewal, run, steer, cancel });
 }
 

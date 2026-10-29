@@ -3143,9 +3143,11 @@ retained runtime handle. Closure during host preparation prevents acquisition.
 `inspectTemporaryActivity` and reads the selected owner's existing temporary-work
 inventory. Its configured host supplies `{ sessionId: id, engine, native, context }`.
 It opens no Main conversation and remains available during cleanup after runtime
-closure. Native restoration and activity exclusions are those of the same owner;
-there is no additional cache. This advanced server operation has no browser route
-or caller-supplied owner/engine override.
+closure. Activity exclusions are those of the same owner; there is no additional
+cache. Claude answers from the temporary work this server runs and reopens no
+saved conversation: a turn an earlier server saved as active ended with that
+server. This advanced server operation has no browser route or caller-supplied
+owner/engine override.
 
 An existing application's renewal transaction can invoke
 `runtime.generateNativeRenewalHandover({ id, context, input })` and
@@ -3171,11 +3173,18 @@ its existing renewal authorization before native cleanup.
 The same native owners preserve their original contracts: Codex validates
 application renewal authority before its lifecycle queue, then reads saved runtime
 facts inside that queue and releases persisted proof only after shared-peer checks;
-Claude closes through its existing entry/terminal cleanup; OpenCode predecessor
+Claude stops the session's retained work, closes its terminals and forgets the
+session, reopening no saved conversation and writing nothing for an idle one (the
+session's own close already recovered saved custody); OpenCode predecessor
 cleanup awaits close before consuming proof, while successor cleanup only consumes
 proof. OpenCode retains its original distinction between a resolved failed close
 (which still consumes proof) and rejected close (which leaves proof retryable).
 Applications retain result projection and successful binding retirement.
+
+Closing a session stops what this server runs for it and then reopens only the
+saved custody an earlier server left (an execution whose exit is unproven, or a
+turn saved as active), so a verified stop can retire it. Claude leaves idle saved
+conversations closed and names an unreadable saved conversation by ID.
 
 `runtime.disposeNative({ namespace, sessionId, context, options })` also supports
 cleanup when no ready retained handle exists. It authorizes operation `dispose`
@@ -3244,6 +3253,10 @@ and synchronously returns `{ engine, native, context, input }` with its existing
 native owner and application preparation. Codex, Claude and OpenCode support this
 advanced operation. It opens no conversation or retained handle and remains
 retryable after runtime closure, including when credentials have been revoked.
+Claude closes each of the project's sessions from its retained entries alone,
+independently and together, and then forgets them. A session that cannot close
+is reported by ID in `failed` (with a combined `error`) while every other session
+still stops.
 
 `runtime.invalidateNativeRuntimes({ context, input })` uses the same trusted
 server boundary for account changes and shutdown. Its configured host receives
@@ -3254,6 +3267,11 @@ retains account policy and result presentation; the native owner retains its
 original cleanup sequence and retryable failures. No conversation is opened:
 each native owner stops the processes this server runs, since none outlives the
 server that started it, and saved conversations are not reopened to be stopped.
+Claude stops its sessions together, leaves an idle chat untouched (nothing to
+stop, nothing written) and reports a session that cannot stop by ID in `failed`
+while the others still stop. It stops them even when its account-query cleanup
+fails; that failure is still the call's result. Once shutdown has invalidated
+the owner, a later session close only releases retained work.
 Failed cleanup can be retried after runtime closure. This is not a browser
 operation or a way to submit a caller-selected native owner.
 

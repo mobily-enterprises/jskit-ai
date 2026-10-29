@@ -381,6 +381,7 @@ Local functions
 - `now()`
 - `hasPendingClaudeStartup(entry)`
 - `nativeWorkSettled(entry)`
+- `runsNativeWork(entry)`
 
 ### `src/server/conversation/codexAuthPreflight.js`
 Exports
