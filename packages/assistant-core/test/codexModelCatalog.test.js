@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { chmod, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -14,7 +14,8 @@ async function fixture(t, source) {
   const command = path.join(runtimeDir, "codex");
   await writeFile(command, `#!${process.execPath}\n${source}\n`);
   await chmod(command, 0o700);
-  return { runtimeDir, command };
+  // Catalogue reuse reads the Codex home's file metadata; never the person's own.
+  return { runtimeDir, command, codexHome: runtimeDir };
 }
 
 for (const [name, source] of [
@@ -44,6 +45,51 @@ test("stopping startup cancels the exporter and publishes no catalogue", async (
   controller.abort();
   await assert.rejects(pending, /could not load its model catalogue/);
   await assert.rejects(stat(path.join(f.runtimeDir, "models.json")), { code: "ENOENT" });
+});
+
+test("startup exports the catalogue again only when the Codex binary, account, configuration or added models change", async (t) => {
+  const exporter = source => `
+    const fs = require("node:fs");
+    fs.appendFileSync(require("node:path").join(__dirname, "exports.log"), "${source}\\n");
+    process.stdout.write(JSON.stringify({ models: [{ slug: "gpt-native", priority: 1 }] }));
+  `;
+  const f = await fixture(t, exporter("first"));
+  const codexHome = path.join(f.runtimeDir, "home");
+  await mkdir(codexHome);
+  const options = { ...f, codexHome, additionalModels: [{ slug: "glm-5" }] };
+  const exports = async () => (await readFile(path.join(f.runtimeDir, "exports.log"), "utf8")).trim().split("\n");
+  const catalogPath = await prepareCodexModelCatalog(options);
+  const catalogue = await readFile(catalogPath, "utf8");
+  // Reconnects and restarts with nothing changed reuse the exported catalogue.
+  assert.equal(await prepareCodexModelCatalog(options), catalogPath);
+  assert.equal(await prepareCodexModelCatalog(options), catalogPath);
+  assert.equal(await readFile(catalogPath, "utf8"), catalogue);
+  assert.deepEqual(await exports(), ["first"]);
+
+  const changes = [
+    ["signing in", () => writeFile(path.join(codexHome, "auth.json"), "{\"tokens\":{}}")],
+    ["changing the account", () => writeFile(path.join(codexHome, "auth.json"), "{\"tokens\":{\"account_id\":\"other\"}}")],
+    ["changing configuration", () => writeFile(path.join(codexHome, "config.toml"), "model = \"gpt-native\"\n")],
+    ["updating Codex", async () => {
+      await rm(f.command);
+      await writeFile(f.command, `#!${process.execPath}\n${exporter("updated")}\n`);
+      await chmod(f.command, 0o700);
+    }],
+    ["adding a model", () => { options.additionalModels = [...options.additionalModels, { slug: "kimi-k3" }]; }],
+    ["switching to the bundled catalogue", () => { options.bundled = true; }],
+    ["losing the exported file", () => rm(catalogPath)]
+  ];
+  let expected = 1;
+  for (const [change, apply] of changes) {
+    await apply();
+    await prepareCodexModelCatalog(options);
+    await prepareCodexModelCatalog(options);
+    expected += 1;
+    assert.equal((await exports()).length, expected, `${change} must export once more`);
+  }
+  assert.deepEqual(JSON.parse(await readFile(catalogPath, "utf8")).models.map(model => model.slug),
+    ["gpt-native", "glm-5", "kimi-k3"]);
+  assert.equal((await stat(catalogPath)).mode & 0o777, 0o600);
 });
 
 function liveCatalogFixture() {

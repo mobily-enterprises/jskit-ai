@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
-import { open, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { open, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
@@ -157,10 +158,42 @@ export async function codexAppServerProjectHookTrustConfig(provider, cwd = "", {
   return { "hooks.state": state };
 }
 
+// What an exported catalogue was made from: the Codex binary, the catalogue
+// source and added models, and the metadata (never the contents) of the home's
+// account and configuration files. A bare command name has no binary identity,
+// so its catalogue is exported on every start.
+async function codexModelCatalogRevision({ command, codexHome, bundled, additionalModels }) {
+  if (!path.isAbsolute(command)) return null;
+  const identity = async (file) => {
+    const found = await stat(file).catch(() => null);
+    return found && [found.dev, found.ino, found.size, found.mtimeMs, found.ctimeMs];
+  };
+  const binary = await identity(command);
+  if (!binary) return null;
+  return createHash("sha256").update(JSON.stringify({
+    command, binary, bundled, additionalModels,
+    auth: await identity(path.join(codexHome, "auth.json")),
+    config: await identity(path.join(codexHome, "config.toml"))
+  })).digest("hex");
+}
+
 // Codex's model manager reads model_catalog_json once, before any threads
 // exist. A thread override changes routing, but cannot supply model metadata.
 // Export from the installed CLI so native model definitions stay CLI-owned.
-export async function prepareCodexModelCatalog({ command, runtimeDir, bundled = false, signal, additionalModels = [] }) {
+// An app-server start reuses the runtime's exported catalogue until its
+// revision changes, so reconnects and idle restarts run no exporter.
+export async function prepareCodexModelCatalog({
+  command, runtimeDir, bundled = false, signal, additionalModels = [],
+  codexHome = process.env.CODEX_HOME || path.join(os.homedir(), ".codex")
+}) {
+  const catalogPath = path.join(runtimeDir, "models.json");
+  const revisionPath = path.join(runtimeDir, "models.revision");
+  const revisionInput = { command, codexHome, bundled, additionalModels };
+  const revision = await codexModelCatalogRevision(revisionInput);
+  if (revision && await stat(catalogPath).then(() => true, () => false) &&
+      await readFile(revisionPath, "utf8").catch(() => "") === revision) {
+    return catalogPath;
+  }
   let catalog;
   const models = new Map();
   try {
@@ -187,15 +220,18 @@ export async function prepareCodexModelCatalog({ command, runtimeDir, bundled = 
   for (const model of additionalModels) {
     models.set(model.slug, { ...model, priority: ++priority });
   }
-  const catalogPath = path.join(runtimeDir, "models.json");
   const temporary = `${catalogPath}.tmp`;
   try {
     signal?.throwIfAborted();
+    await rm(revisionPath, { force: true });
     await writeFile(temporary, JSON.stringify({ ...catalog, models: [...models.values()] }), { mode: 0o600 });
     await rename(temporary, catalogPath);
   } finally {
     await rm(temporary, { force: true });
   }
+  // The exporter can refresh the account's tokens; record what it left behind.
+  const exported = await codexModelCatalogRevision(revisionInput);
+  if (exported) await writeFile(revisionPath, exported, { mode: 0o600 });
   return catalogPath;
 }
 

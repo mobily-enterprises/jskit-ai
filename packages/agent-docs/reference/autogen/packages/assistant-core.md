@@ -410,7 +410,7 @@ Exports
 - `codexAppServerTurnSettings({ effectiveSettings, cwd = "", effort = "", model = "", approvalPolicy, reasoningSummary, sandboxPolicy, externalSandbox = false } = {})`
 - `codexInteractiveArguments({ command, threadId = "", remoteEndpoint = "", model, effort, disableStartupUpdates = false, bypassApprovalsAndSandbox = false, bypassHookTrust = false } = {})`
 - `codexAppServerProjectHookTrustConfig(provider, cwd = "", { persist = false } = {})`
-- `prepareCodexModelCatalog({ command, runtimeDir, bundled = false, signal, additionalModels = [] })`
+- `prepareCodexModelCatalog({ command, runtimeDir, bundled = false, signal, additionalModels = [], codexHome = process.env.CODEX_HOME || path.join(os.homedir(), ".codex") })`
 - `readCodexModelContextWindow({ runtimeDir, model } = {})`
 - `codexAppServerTextHasControlCharacters(value = "")`
 - `createCodexAppServerIsolation({ clientName = "jskit", minimumVersion = "0.151.0", disabledFeatures = DISABLED_FEATURES, limits: { userAgentMaxLength = 512, mcpServerMaxCount = 128, mcpServerNameMaxLength = 256, configResponseMaxBytes = 256 * 1024, hookMaxCount = 256, hookErrorMaxCount = 256, hookFieldMaxLength = 2048, hookFingerprintMaxLength = 256 * 1024, hookResponseMaxBytes = 512 * 1024 } = {}, createError = codexAppServerIsolationPolicyError } = {})`
@@ -430,6 +430,7 @@ Exports
 - `codexAuthOutputRequiresReconnect(output = "")`
 - `CODEX_APP_SERVER_ACCOUNT_ID_MAX_LENGTH`
 Local functions
+- `codexModelCatalogRevision({ command, codexHome, bundled, additionalModels })`
 - `isPlainRecord(value)`
 - `deepFreezeCodexAppServerHelperConfig(value)`
 - `codexAppServerIsolationPolicyError(message = "", details = {})`

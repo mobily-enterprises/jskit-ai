@@ -53,6 +53,12 @@ The Codex configuration owner reads the exact runtime catalogue's normal model
 window and effective percentage. Extended maximum windows are not used as
 transfer limits. Missing or ambiguous model facts fail without leaking private
 catalogue contents; existing thread usage remains a separate input.
+Each managed app-server start exports that runtime catalogue with the CLI's
+`debug models` only when its revision changed: the absolute Codex binary's file
+identity, the catalogue source, the added models, or the metadata of the home's
+`auth.json` and `config.toml`. Otherwise the runtime's saved `models.json` is
+reused, so reconnects and idle restarts run no exporter; a bare command name has
+no binary identity and still exports on every start.
 
 Every Codex process JSKIT launches, the shared app-server for main and Helper
 work and a local interactive terminal, starts with `features.plugins=false` and

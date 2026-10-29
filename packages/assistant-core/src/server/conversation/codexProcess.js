@@ -30,14 +30,16 @@ export async function runCodexAppServerProcess({
   const abortStartup = () => startup.abort();
   process.once("SIGTERM", abortStartup);
   process.once("SIGINT", abortStartup);
+  const codexHome = process.env.CODEX_HOME || path.join(os.homedir(), ".codex");
   const catalogPath = await prepareCodexModelCatalog({
     command,
     runtimeDir,
     bundled,
     additionalModels,
+    codexHome,
     signal: startup.signal
   });
-  const adapter = await startCodexHistoryAdapter({ token, codexHome: process.env.CODEX_HOME || path.join(os.homedir(), ".codex") });
+  const adapter = await startCodexHistoryAdapter({ token, codexHome });
   await writeFile(`${descriptor}.tmp`, JSON.stringify({ baseUrl: adapter.baseUrl, runtimeToken: token }), { mode: 0o600 });
   await rename(`${descriptor}.tmp`, descriptor);
   const child = spawn(command, [...args, "-c", `model_catalog_json=${JSON.stringify(catalogPath)}`], { stdio: "inherit" });

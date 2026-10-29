@@ -3941,6 +3941,14 @@ Set transport limits appropriate to the host; the default payload limit is
 unbounded. A request abort retires the local request; interrupt a running native
 turn with `turn/interrupt` when cancellation must stop provider work.
 
+`prepareCodexModelCatalog({ command, runtimeDir, bundled, additionalModels,
+codexHome, signal })` from the same entry point exports a runtime's
+`models.json` with the CLI's `debug models` and reuses it until its revision
+changes: the absolute command's file identity, `bundled`, `additionalModels`, or
+the metadata of `auth.json` and `config.toml` in `codexHome` (default
+`CODEX_HOME`, then `~/.codex`). A bare command name exports every time. Isolated
+tests pass their own `codexHome`.
+
 The original public import contracts remain available alongside these host and
 testing surfaces. `/server/codex-client` exports `CodexAppServerJsonRpcClient`
 and `socketPathFromCodexAppServerEndpoint`; `/server/codex-events` retains its
