@@ -110,10 +110,10 @@ test("Claude model configuration maps background calls and resets external setti
 });
 
 test("Claude status reads native JSON and returns only public account details", async () => {
-  const status = await readClaudeCodeAuthStatus({ credentialHome: { home: "/home/fixture" }, commandRunner: async (input) => {
+  const status = await readClaudeCodeAuthStatus({ credentialHome: { home: "/home/fixture-json" }, commandRunner: async (input) => {
     assert.deepEqual(input.args, ["auth", "status", "--json"]);
     assert.equal(input.timeout, 30_000);
-    assert.equal(input.credentialHome.home, "/home/fixture");
+    assert.equal(input.credentialHome.home, "/home/fixture-json");
     return { ok: true, stdout: JSON.stringify({ loggedIn: true, email: "owner@example.test", authMethod: "claude.ai", subscriptionType: "max", accessToken: "not-public" }) };
   } });
   assert.equal(status.loggedIn, true);
@@ -122,8 +122,10 @@ test("Claude status reads native JSON and returns only public account details", 
 });
 
 test("Claude signed-out JSON is normal while failed and malformed status responses stay errors", async () => {
+  // Reads of one account share an entry, so each response gets its own account.
+  let account = 0;
   const readStatus = (result) => readClaudeCodeAuthStatus({
-    credentialHome: { home: "/home/fixture" }, commandRunner: async () => result
+    credentialHome: { home: `/home/fixture-signed-out-${account += 1}` }, commandRunner: async () => result
   });
   const signedOut = { ok: false, exitCode: 1, stdout: JSON.stringify({ loggedIn: false, authMethod: "none" }) };
   assert.deepEqual(await readStatus(signedOut), {
@@ -144,7 +146,7 @@ test("Claude signed-out JSON is normal while failed and malformed status respons
   }
 });
 
-test("Claude status shares concurrent reads and invalidates when native account files change", async (t) => {
+test("Claude status shares one read per account and invalidates only when its credentials change", async (t) => {
   const home = await mkdtemp(path.join(os.tmpdir(), "claude-auth-status-"));
   t.after(() => rm(home, { recursive: true, force: true }));
   const configRoot = path.join(home, ".claude");
@@ -163,16 +165,32 @@ test("Claude status shares concurrent reads and invalidates when native account 
     await readClaudeCodeAuthStatus(input);
     assert.equal(calls, 1);
   }
-  for (const file of [path.join(configRoot, ".credentials.json"), path.join(home, ".claude.json"), path.join(configRoot, ".claude.json")]) {
-    email = `${calls}@example.test`;
-    // Deliberately not JSON: the wrapper must never parse native credentials.
-    await writeFile(file, "native-account-changed");
-    assert.equal((await readClaudeCodeAuthStatus(input)).email, email);
-    await rm(file);
-    const before = calls;
+  // macOS reuses nothing: file metadata cannot show Keychain changes.
+  if (process.platform === "darwin") return;
+  // Claude Code rewrites .claude.json during ordinary turns: the account is unchanged.
+  for (const file of [path.join(home, ".claude.json"), path.join(configRoot, ".claude.json")]) {
+    await writeFile(file, "rewritten-during-a-turn");
     await readClaudeCodeAuthStatus(input);
-    assert.equal(calls, before + 1);
+    assert.equal(calls, 1, `${path.basename(path.dirname(file))}/.claude.json does not bust the read`);
   }
+  // Another command path and host runner reading the same account share its entry.
+  const otherRunner = async () => assert.fail("The same account is read once.");
+  await readClaudeCodeAuthStatus({ ...input, command: "/opt/other/bin/claude", commandRunner: otherRunner,
+    env: { ...input.env, PATH: "/opt/other/bin", HOME: home } });
+  assert.equal(calls, 1);
+  // Sign-in writes the credentials and sign-out removes them.
+  const credentials = path.join(configRoot, ".credentials.json");
+  email = "second@example.test";
+  // Deliberately not JSON: the wrapper must never parse native credentials.
+  await writeFile(credentials, "native-account-changed");
+  assert.equal((await readClaudeCodeAuthStatus(input)).email, email);
+  assert.equal(calls, 2);
+  await rm(credentials);
+  await readClaudeCodeAuthStatus(input);
+  assert.equal(calls, 3);
+  // A different identity variable is a different account.
+  await readClaudeCodeAuthStatus({ ...input, env: { ...input.env, CLAUDE_CODE_OAUTH_TOKEN: "fixture-token" } });
+  assert.equal(calls, 4);
 });
 
 test("Claude status failures do not poison later reads or share across credential homes", async () => {
@@ -182,15 +200,15 @@ test("Claude status failures do not poison later reads or share across credentia
     return calls === 1 ? { ok: false, error: "Temporary failure" }
       : { ok: true, stdout: JSON.stringify({ loggedIn: false }) };
   };
-  const input = { env: {}, credentialHome: { home: "/home/fixture" }, commandRunner };
+  const input = { env: {}, credentialHome: { home: "/home/fixture-failure" }, commandRunner };
   assert.equal((await readClaudeCodeAuthStatus(input)).error, "Temporary failure");
   assert.equal((await readClaudeCodeAuthStatus(input)).error, undefined);
   assert.equal(calls, 2);
-  await readClaudeCodeAuthStatus({ ...input, credentialHome: { home: "/home/another" } });
+  await readClaudeCodeAuthStatus({ ...input, credentialHome: { home: "/home/fixture-failure-another" } });
   assert.equal(calls, 3);
 });
 
-test("a Claude status read that cannot finish keeps Claude's recent answer for unchanged account files", {
+test("a Claude status answer holds until the credentials change, even across its own .claude.json rewrite", {
   skip: process.platform === "darwin"
 }, async (t) => {
   const home = await mkdtemp(path.join(os.tmpdir(), "claude-auth-status-"));
@@ -199,44 +217,45 @@ test("a Claude status read that cannot finish keeps Claude's recent answer for u
   let now = realNow();
   Date.now = () => now;
   t.after(() => { Date.now = realNow; });
+  const configRoot = path.join(home, ".claude");
+  await mkdir(configRoot);
+  const credentials = path.join(configRoot, ".credentials.json");
+  await writeFile(credentials, "signed-in");
   const signedIn = { ok: true, stdout: JSON.stringify({ loggedIn: true, email: "owner@example.test", authMethod: "claude.ai" }) };
-  const signedInStatus = { loggedIn: true, email: "owner@example.test", authMethod: "claude.ai", subscriptionType: "" };
-  const timedOut = { ok: false, exitCode: 1, timedOut: true, error: "Command timed out." };
   let calls = 0;
   let result = signedIn;
-  const input = { env: { CLAUDE_CONFIG_DIR: path.join(home, ".claude") }, credentialHome: { home },
-    commandRunner: async () => { calls += 1; return result; } };
+  const input = { env: { CLAUDE_CONFIG_DIR: configRoot }, credentialHome: { home }, commandRunner: async () => {
+    calls += 1;
+    // Each native status run rewrites ~/.claude.json a few seconds later.
+    await writeFile(path.join(home, ".claude.json"), `status-run-${calls}`);
+    return result;
+  } };
   assert.equal((await readClaudeCodeAuthStatus(input)).email, "owner@example.test");
-  // An overloaded host times the next read out, or refuses to start it for now.
-  for (const unfinished of [timedOut, { ok: false, exitCode: 1, retryable: true, error: "Memory-pressure spike." }]) {
-    now += 31_000;
-    result = unfinished;
-    assert.deepEqual(await readClaudeCodeAuthStatus(input), signedInStatus);
-  }
-  // That answer is reused for the normal window, so the busy host is not probed again at once.
-  const probes = calls;
+  now += 10 * 60_000;
+  assert.equal((await readClaudeCodeAuthStatus(input)).email, "owner@example.test");
+  assert.equal(calls, 1, "the answer is not read again on a timer or after the run's own rewrite");
+  // Sign-out removes the credentials: Claude is asked again at once.
+  await rm(credentials);
+  result = { ok: false, exitCode: 1, stdout: JSON.stringify({ loggedIn: false }) };
+  assert.equal((await readClaudeCodeAuthStatus(input)).loggedIn, false);
+  assert.equal(calls, 2);
+  // A read the host timed out is reported and not asked again at once.
+  await writeFile(credentials, "signed-in-again");
+  result = { ok: false, exitCode: 1, timedOut: true, error: "Command timed out." };
+  assert.equal((await readClaudeCodeAuthStatus(input)).error, "Command timed out.");
   now += 29_000;
-  assert.deepEqual(await readClaudeCodeAuthStatus(input), signedInStatus);
-  assert.equal(calls, probes);
-  // A read that ran and failed is still reported.
+  assert.equal((await readClaudeCodeAuthStatus(input)).error, "Command timed out.");
+  assert.equal(calls, 3);
+  // A read that ran and failed is reported, and asked again next time.
   now += 2_000;
   result = { ok: false, exitCode: 2, error: "Claude Code crashed." };
   assert.equal((await readClaudeCodeAuthStatus(input)).error, "Claude Code crashed.");
-  // Changed account files need Claude's own new answer.
-  await mkdir(path.join(home, ".claude"));
-  await writeFile(path.join(home, ".claude", ".credentials.json"), "native-account-changed");
-  result = timedOut;
-  assert.equal((await readClaudeCodeAuthStatus(input)).error, "Command timed out.");
-  // The recent answer expires: an old one is not kept forever.
-  now += 31_000;
   result = signedIn;
   assert.equal((await readClaudeCodeAuthStatus(input)).loggedIn, true);
-  now += 5 * 60_000 + 1;
-  result = timedOut;
-  assert.equal((await readClaudeCodeAuthStatus(input)).error, "Command timed out.");
+  assert.equal(calls, 5);
 });
 
-test("an unfinished Claude status read with no recent answer is reported without probing again at once", {
+test("an unfinished Claude status read is reported without probing again at once", {
   skip: process.platform === "darwin"
 }, async (t) => {
   const realNow = Date.now;

@@ -9,9 +9,8 @@ import { createLocalConversationExecution } from "./localExecution.js";
 import { CLAUDE_APPLICATION_TOOL_SERVER } from "./claudeTools.js";
 import { nativeCommandHook, validateCommandWrapper } from "./commandWrapper.js";
 
-const statusReads = new WeakMap();
-const STATUS_REUSE_MS = 30_000;
-const STATUS_UNFINISHED_GRACE_MS = 5 * 60_000;
+const statusReads = new Map();
+const STATUS_RETRY_MS = 30_000;
 const CLAUDE_EXIT_WAIT_MS = 5_000;
 
 /** Person-facing cause for a Claude process that ended without being stopped. */
@@ -35,39 +34,34 @@ export async function readClaudeCodeAuthStatus({
   if (typeof commandRunner !== "function") throw new TypeError("Claude account status requires its host capture runner.");
   const configRoot = env.CLAUDE_CONFIG_DIR || path.join(credentialHome.home, ".claude");
   // Inspect file metadata only. Claude still owns reading and validating credentials.
-  const revisions = await Promise.all([
-    path.join(configRoot, ".credentials.json"), path.join(configRoot, ".claude.json"),
-    path.join(credentialHome.home, ".claude.json")
-  ].map(async (file) => {
-    try {
-      const value = await stat(file, { bigint: true });
-      return [value.dev, value.ino, value.size, value.mtimeNs, value.ctimeNs].map(String);
-    } catch (error) {
-      if (error.code === "ENOENT") return null;
-      throw error;
-    }
-  }));
-  let reads = statusReads.get(commandRunner);
-  if (!reads) statusReads.set(commandRunner, reads = new Map());
-  const key = JSON.stringify([command, env, credentialHome]);
-  const revision = JSON.stringify(revisions);
-  const previous = reads.get(key);
+  // Sign-in writes .credentials.json and sign-out removes it. Claude Code also
+  // rewrites .claude.json during turns and after every status read, so that
+  // file is not watched.
+  let revision = null;
+  try {
+    const value = await stat(path.join(configRoot, ".credentials.json"), { bigint: true });
+    revision = [value.dev, value.ino, value.size, value.mtimeNs].join(":");
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
+  // One entry per account, whichever command path or host runner reads it: only
+  // the account's location and its identity variables count.
+  const key = jsonHash([configRoot, credentialHome.home, Object.entries(env).filter(([name, value]) =>
+    value && (name === "CLAUDE_CODE_OAUTH_TOKEN" || name.startsWith("ANTHROPIC_"))).sort()]);
+  const previous = statusReads.get(key);
   if (previous?.revision === revision && (previous.pending || previous.expiresAt > Date.now())) return previous.value;
-  // Claude's last answer for these exact account files.
-  const answered = previous?.revision === revision ? previous.answered : null;
-  const entry = { revision, pending: true, expiresAt: 0, answered };
-  reads.set(key, entry);
+  const entry = { revision, pending: true, expiresAt: 0 };
+  statusReads.set(key, entry);
   entry.value = readNativeClaudeCodeAuthStatus({ env, credentialHome, command, commandRunner, signal }).then(({ status, unfinished }) => {
-    // A read the host timed out or refused for now says nothing about the account.
-    const value = unfinished && answered && Date.now() - answered.at < STATUS_UNFINISHED_GRACE_MS
-      ? answered.status : Object.freeze(status);
     // Keychain changes cannot be observed with file metadata on macOS.
     if (process.platform !== "darwin") {
-      // Unfinished reads back off too, so a busy host is not probed again by every caller.
-      if (!status.error || unfinished) entry.expiresAt = Date.now() + STATUS_REUSE_MS;
-      if (!status.error) entry.answered = { status: value, at: Date.now() };
+      // Claude's answer holds until its credentials change. A read the host timed
+      // out or refused for now backs off, so a busy host is not probed again by
+      // every caller; a read that ran and failed is asked again next time.
+      if (!status.error) entry.expiresAt = Infinity;
+      else if (unfinished) entry.expiresAt = Date.now() + STATUS_RETRY_MS;
     }
-    return value;
+    return Object.freeze(status);
   }).finally(() => { entry.pending = false; });
   return entry.value;
 }
