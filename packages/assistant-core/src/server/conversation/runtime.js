@@ -2061,7 +2061,8 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
           throw new Error("Receipt inspection cannot submit another native prompt.");
         });
         const delivered = await sender.send({ engineId: entry.engine,
-          messages: await entry.conversation.transcript.history(), input: { messageId } });
+          messages: await entry.conversation.transcript.history(), input: { messageId }, inspectOnly: true });
+        if (delivered?.notSent) return notSentReceipt(messageId);
         if (!delivered?.delivered) throw deliveryFailure(delivered);
       }
       const row = (await readTranscript(entry)).find(turn => submittedMessage(turn)?.messageId === messageId);

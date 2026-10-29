@@ -122,7 +122,7 @@ export function createConversationChangeover({ state, transcript, agent, identit
       code: unconfirmedCode, messageId, threadId, error: unconfirmedMessage };
   }
 
-  async function send({ engineId, messages, input, turnMetadata, completedEnvelope = false, excludedMessageIds = [] }) {
+  async function send({ engineId, messages, input, turnMetadata, completedEnvelope = false, excludedMessageIds = [], inspectOnly = false }) {
     if (typeof completedEnvelope !== "boolean" || !Array.isArray(excludedMessageIds) ||
         excludedMessageIds.some(id => typeof id !== "string" || !id.trim() || id.length > 128) ||
         new Set(excludedMessageIds).size !== excludedMessageIds.length || excludedMessageIds.length && !completedEnvelope) {
@@ -163,20 +163,28 @@ export function createConversationChangeover({ state, transcript, agent, identit
       const receipt = savedReceipt ? { admission: "accepted" } : await agent.inspectMessageAdmission({
         messageId: pending.messageId, threadId: pending.threadId
       }).catch(() => null);
-      if (receipt?.admission !== "accepted") {
+      if (receipt?.admission === "not-admitted") {
+        // The engine proved this attempt never arrived. It was not sent, so
+        // a send may dispatch it (or a newer message) without duplicating it.
+        pending.attempted = false;
+        await persist();
+        log({ event: "not-sent", engineId, messageId: pending.messageId, threadId: pending.threadId });
+        if (inspectOnly) return { ok: false, delivered: false, notSent: true, messageId: pending.messageId, threadId: pending.threadId };
+      } else if (receipt?.admission !== "accepted") {
         log({ event: "unconfirmed", engineId, messageId: pending.messageId, threadId: pending.threadId });
         return unconfirmed(pending.messageId, pending.threadId);
-      }
-      await transcript.writeUserMessage({
-        text: pending.displayMessage, messageId: pending.messageId,
-        attachments: pending.displayAttachments,
-        ...(pending.data !== undefined ? { data: pending.data } : {}),
-        turnMetadata: { ...pending.turnMetadata, ...turnMetadata }
-      });
-      await markDelivered(pending.seen);
-      log({ event: "accepted", engineId, messageId: pending.messageId, threadId: pending.threadId, recovered: true });
-      if (pending.messageId === input.messageId) {
-        return { ok: true, delivered: true, messageId: input.messageId, threadId: pending.threadId };
+      } else {
+        await transcript.writeUserMessage({
+          text: pending.displayMessage, messageId: pending.messageId,
+          attachments: pending.displayAttachments,
+          ...(pending.data !== undefined ? { data: pending.data } : {}),
+          turnMetadata: { ...pending.turnMetadata, ...turnMetadata }
+        });
+        await markDelivered(pending.seen);
+        log({ event: "accepted", engineId, messageId: pending.messageId, threadId: pending.threadId, recovered: true });
+        if (pending.messageId === input.messageId) {
+          return { ok: true, delivered: true, messageId: input.messageId, threadId: pending.threadId };
+        }
       }
     }
 

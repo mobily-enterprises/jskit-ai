@@ -3201,6 +3201,37 @@ test("native changeover retries retain original application data including its a
   }
 });
 
+test("native changeover treats a proven not-admitted attempt as not sent", async () => {
+  const { createConversationChangeover } = await import("../src/server/conversation/continuity.js");
+  const original = { messageId: "lost-request", message: "Prepared prompt", displayMessage: "Original words.",
+    displayAttachments: [], attachmentIds: [], seen: {}, attempted: true, threadId: "thread" };
+  for (const inspectFirst of [true, false]) {
+    let value = { lastEngine: "codex", engines: { codex: { seen: {}, pending: structuredClone(original) } } };
+    let admission = "unknown";
+    const sent = [];
+    const changeover = () => createConversationChangeover({
+      state: { async read() { return structuredClone(value); }, async write(next) { value = structuredClone(next); } },
+      transcript: { async hasMessage() { return false; } },
+      agent: { async inspectMessageAdmission() { return { admission }; },
+        async sendMessage(input) { sent.push(input.message); return { ok: true, delivered: true }; } }
+    });
+    const inspect = () => changeover().send({ engineId: "codex", messages: [], input: { messageId: original.messageId }, inspectOnly: true });
+    assert.equal((await inspect()).code, "conversation_changeover_delivery_unconfirmed", "An unknown receipt is never resent");
+    admission = "not-admitted";
+    if (inspectFirst) {
+      const receipt = await inspect();
+      assert.equal(receipt.notSent, true);
+      assert.equal(receipt.messageId, original.messageId);
+      assert.equal(value.engines.codex.pending.attempted, false);
+      assert.deepEqual(sent, [], "Inspection never sends");
+    }
+    const delivered = await changeover().send({ engineId: "codex", messages: [],
+      input: { messageId: original.messageId, message: "Original words." } });
+    assert.equal(delivered.delivered, true);
+    assert.deepEqual(sent, ["Prepared prompt"], "The proven unsent attempt is sent once, with its original prompt");
+  }
+});
+
 test("initial native seed limits preserve generic history, full returning corrections and delivery ownership", async () => {
   const { createConversationChangeover } = await import("../src/server/conversation/continuity.js");
   const attachment = { attachmentId: "retained-file", name: "retained.txt" };

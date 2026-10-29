@@ -353,7 +353,10 @@ export async function inspectPersistentConversationDelivery(options) {
     const result = await createConversationChangeover({ ...continuity, agent: {
       inspectMessageAdmission: request => inspectMessageAdmission(sessionId, request, context),
       sendMessage() { throw new Error("Receipt inspection cannot submit another native prompt."); }
-    } }).send({ engineId, messages, input: { messageId: input.messageId }, turnMetadata });
+    } }).send({ engineId, messages, input: { messageId: input.messageId }, turnMetadata, inspectOnly: true });
+    if (result?.notSent) return { status: "not-sent", messageId: input.messageId,
+      error: "This message was not sent. Review it before sending a new message.",
+      messageCode: "assistant.conversation.messageNotSent", messageParams: {} };
     accepted = result?.delivered === true;
   } else if (!accepted) {
     if (row && row.user?.receipt !== false) return { status: "accepted", messageId: input.messageId, turnId: row.turnId, duplicate: true };

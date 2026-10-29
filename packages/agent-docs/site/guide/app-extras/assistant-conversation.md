@@ -328,7 +328,8 @@ when a settled native request has explicit durable no-admission proof. Claude
 also proves it when its history lacks the attempted prompt and no send,
 process or execution of that conversation remains: an admitted prompt is always
 recorded, and nothing is left to record it later. That proof is saved as an
-unattempted request, so a reload no longer restores the message as unconfirmed.
+unattempted request (including a native changeover's saved attempt), so a reload
+no longer restores the message as unconfirmed and a later send may dispatch it.
 The client marks only that exact uncertain message failed, preserving its
 payload, the draft and other uncertain messages. Inspection never submits or
 accepts it. Missing markers, a live process, incomplete cleanup and API-model
