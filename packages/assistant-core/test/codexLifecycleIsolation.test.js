@@ -308,7 +308,8 @@ test("deleting an expired ephemeral helper receipt starts no Codex app-server an
   let failRetainedStop = false;
   const sessionKey = "codex:explanation_job";
   // A runtime whose earlier stop could not prove exit, one another provider shares, and another session's.
-  const retained = { provider: { name: "retained" }, providerKey: "codex-helper:retained", providerOptions: {}, sessionKey };
+  const retained = { provider: { name: "retained" }, providerKey: "codex-helper:retained",
+    providerOptions: { runtimeDir: "/runtime/retained" }, sessionKey };
   const shared = { provider: { name: "shared" }, providerKey: "codex-helper:shared", providerOptions: {}, sessionKey };
   const elsewhere = { provider: { name: "elsewhere" }, providerKey: "codex-helper:other", providerOptions: {}, sessionKey: "codex:other" };
   const commands = conversationCommands({
@@ -323,7 +324,11 @@ test("deleting an expired ephemeral helper receipt starts no Codex app-server an
         return { failed: [], ok: true, providerCount: 0, results: [], stopped: 0 };
       },
       runtimeIsShared: (providerKey) => providerKey === shared.providerKey,
-      withLifecycle: (operation) => operation(),
+      withLifecycle(operation, providerKey, providerOptions) {
+        // The owner locks a runtime by its options' runtime directory when it has them.
+        calls.push(`lock:${providerKey}:${providerOptions?.runtimeDir || "provider"}`);
+        return operation();
+      },
       async stopOwnedRuntime(record) {
         calls.push(`retained:${record.provider.name}`);
         if (failRetainedStop) {
@@ -348,8 +353,8 @@ test("deleting an expired ephemeral helper receipt starts no Codex app-server an
   assert.equal(result.ok, true, JSON.stringify(result));
   assert.equal(result.conversationExpired, true);
   assert.equal(result.providerExit.stopped, true);
-  assert.deepEqual(calls, [`live:${sessionKey}:true`, "retained:retained"],
-    "only this session's unshared retained runtime is stopped, and nothing is started");
+  assert.deepEqual(calls, [`live:${sessionKey}:true`, "lock:codex-helper:retained:/runtime/retained", "retained:retained"],
+    "only this session's unshared retained runtime is stopped, under its own runtime lock, and nothing is started");
 });
 
 test("an account-change invalidation stops runtimes without reopening saved Helper threads", async () => {

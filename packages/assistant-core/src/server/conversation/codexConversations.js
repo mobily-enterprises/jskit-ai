@@ -572,7 +572,9 @@ export function createCodexConversationCommands({
       if (record.sessionKey !== sessionKey || attempted.has(record.provider) ||
           owner.runtimeIsShared(record.providerKey, record.providerOptions)) continue;
       try {
-        results.push(await owner.withLifecycle(() => owner.stopOwnedRuntime(record), record.providerKey));
+        // Its provider is no longer cached, so the runtime's own options name its lock.
+        results.push(await owner.withLifecycle(() => owner.stopOwnedRuntime(record),
+          record.providerKey, record.providerOptions));
       } catch (error) {
         failed.push({ code: normalizeCodexRunText(error?.code), error: codexAppServerErrorMessage(error),
           providerKey: record.providerKey, retryable: error?.retryable === true });
