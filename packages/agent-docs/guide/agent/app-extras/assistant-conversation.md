@@ -2544,8 +2544,10 @@ message returns its receipt without resending.
 
 Codex uses its active-turn steering operation. Claude writes the instruction as a
 plain user message on the same process; Claude Code acknowledges it as queued and
-reads it after the running tool call, so steering never interrupts a running
-command. OpenCode admits the instruction in the same session
+reads it when the running tool call returns. Steering never interrupts a running
+command: Claude's Ctrl+B control moves a long foreground command to the background,
+where it keeps running, so Claude reads the instruction at its next step. OpenCode
+admits the instruction in the same session
 and follows the new input through completion. No adapter recreates the native
 conversation to imitate steering.
 
@@ -4612,9 +4614,18 @@ keep using the shared owner for steering and goal admission.
 
 Claude steering and active-turn goal Set/Resume never interrupt the running turn.
 The new input is written as a plain stream-json user message. Claude Code 2.1.307
-acknowledges it with a `queued` command lifecycle event, finishes the running
-foreground tool, then reads the input in the same loop (or in its next loop when
-it arrives after the final model request). The ordinary receipt owner admits it
+acknowledges it with a `queued` command lifecycle event and reads the input when
+the running foreground tool call returns, in the same loop (or in its next loop when
+it arrives after the final model request). So that a long foreground command or a
+wait loop cannot hold the input for minutes, each steer sends the
+`background_tasks` control request (Claude's Ctrl+B equivalent) after its write,
+and again on each `task_started` event until Claude reads it. Foreground Bash
+commands and subagents keep running in the background and report completion with
+a task notification; the blocked tool call returns at once.
+Claude Code 2.1.308 supports the control. A refused control (an older CLI) only
+leaves the input waiting for the tool call and publishes the
+`steering_background_failed` diagnostic; `steering_backgrounded` reports success.
+The ordinary receipt owner admits it
 on that acknowledgement or replay. One native result can then finish the original
 and the queued input; inputs not yet started stay in flight until their own result.
 Interrupting for a steer would kill a running foreground tool such as a deploy.

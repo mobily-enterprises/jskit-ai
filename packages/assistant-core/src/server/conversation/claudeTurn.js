@@ -728,7 +728,7 @@ export function createClaudeConversationOwner({
       else await input.onPromptSending?.({ threadId: entry.id, displayAttachments: input.displayAttachments, turnMetadata: actorMetadata });
       if (input.signal?.aborted) throw Object.assign(createError("The goal command was stopped before delivery."), { delivery: "not-sent" });
       await entry.nativeTurn.send(command ? entry.process.client : native.client, command ? preparation.message(entry, input) : prompt,
-        { messageId: uuid, accept, ...(command ? { timeoutMs: command.timeoutMs } : {}) });
+        { messageId: uuid, accept, steer: steering, ...(command ? { timeoutMs: command.timeoutMs } : {}) });
     } catch (error) {
       if (!command) await entry.nativeTurn.stopProcess(error.message);
       throw error;
@@ -1276,6 +1276,10 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
   // Inputs Claude has begun reading. A queued steer joins the running loop, so
   // one result can finish several of them; queued-only input stays in flight.
   const startedInputs = new Set();
+  // Steers written into a running loop that Claude has not begun reading. Claude
+  // Code reads queued input only when the running tool call returns.
+  const waitingSteers = new Set();
+  let steeringClient = null;
   const tasks = new Set();
   let turnId = "";
   let messageId = "";
@@ -1307,6 +1311,20 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
     inputOwner = null;
     acceptedInput = null;
     clearFinalAssistantResult();
+  }
+
+  // A waiting steer would otherwise sit behind a long foreground command (or a
+  // wait loop) until it returns. Claude's Ctrl+B control moves foreground Bash
+  // and subagents to the background: they keep running and report completion,
+  // and the blocked tool call returns so Claude reads the steer now.
+  function backgroundForegroundWork() {
+    const client = steeringClient;
+    if (!waitingSteers.size || !client?.request || stopped || cancelling) return;
+    void client.request({ subtype: "background_tasks" }).then(
+      () => publish({ type: "diagnostic", stage: "steering_backgrounded", pendingCommands: inFlight.size, backgroundTasks: tasks.size }),
+      // An older CLI still reads the steer when its tool call returns.
+      error => publish({ type: "diagnostic", stage: "steering_background_failed", error: error.message })
+    ).catch(() => {});
   }
 
   function currentReceiptOwner(owner) {
@@ -1553,6 +1571,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
         currentCommandId = uuid;
         startedInputs.add(uuid);
       }
+      if (frame.state !== "queued") waitingSteers.delete(uuid);
       if (frame.state === "completed") {
         inFlight.delete(uuid);
         startedInputs.delete(uuid);
@@ -1596,6 +1615,8 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
         for (const task of frame.tasks || []) if (task.task_id && !task.ambient) tasks.add(task.task_id);
       }
       if (frame.subtype === "task_started" && frame.task_id && !frame.ambient) tasks.add(frame.task_id);
+      // A command Claude started before reading a waiting steer would hold it too.
+      if (frame.subtype === "task_started") backgroundForegroundWork();
       if (["task_notification", "task_updated"].includes(frame.subtype) &&
           ["completed", "failed", "stopped", "killed"].includes(frame.status || frame.patch?.status)) {
         tasks.delete(frame.task_id);
@@ -1736,6 +1757,8 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
     admissions.clear();
     inFlight.clear();
     startedInputs.clear();
+    waitingSteers.clear();
+    steeringClient = null;
     tasks.clear();
     // Verified process cleanup can precede Claude's terminal generation frame.
     // Retain already displayed text for the existing transcript reader, with
@@ -1804,7 +1827,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
       acceptedInput = null;
       clearFinalAssistantResult();
     },
-    async send(client, message, { messageId: uuid, accept, timeoutMs = 30_000 } = {}) {
+    async send(client, message, { messageId: uuid, accept, timeoutMs = 30_000, steer = false } = {}) {
       if (!active || stopped || cancelling) throw Object.assign(
         failure("Claude has no active turn for this message.", !active && !stopped && !cancelling
           ? "conversation_steer_turn_finished" : "assistant_claude_turn_failed"),
@@ -1820,14 +1843,20 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
       const admitted = Promise.withResolvers();
       void admitted.promise.catch(() => {});
       inFlight.add(uuid);
+      if (steer) {
+        waitingSteers.add(uuid);
+        steeringClient = client;
+      }
       const timer = setTimeout(() => admitted.reject(Object.assign(
         failure("Claude has not acknowledged this prompt. Its delivery is uncertain.", "assistant_claude_admission_unknown"),
         { delivery: "uncertain" }
       )), timeoutMs);
       admissions.set(uuid, { ...admitted, accept, timer, receiptOwner });
       try {
-        await Promise.all([client.send(message, { messageId: uuid, sessionId: conversationId }), admitted.promise]);
+        await Promise.all([client.send(message, { messageId: uuid, sessionId: conversationId })
+          .then(() => { if (steer) backgroundForegroundWork(); }), admitted.promise]);
       } catch (error) {
+        waitingSteers.delete(uuid);
         if (inputOwner === receiptOwner) invalidateFinalAssistantResult();
         throw error;
       } finally {
@@ -1843,7 +1872,8 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
       }
       // Claude Code acknowledges streamed input as queued and folds it into the
       // running turn after the current tool call, or starts it once the main
-      // loop is idle. Interrupting instead would kill a running foreground tool.
+      // loop is idle. Interrupting instead would kill a running foreground tool;
+      // send() moves such a tool to the background so the steer is read now.
       // The next input owns completion now: a result or task finishing before
       // it starts must not settle this turn with the previous answer.
       outcome = null;

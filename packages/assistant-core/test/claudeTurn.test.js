@@ -1916,6 +1916,97 @@ test("consecutive steers queue together without waiting for or sending an interr
   assert.deepEqual(events.filter(event => event.type === "diagnostic" && event.stage === "steering_queued").length, 2);
 });
 
+// Claude Code reads a queued message only when the running tool call returns. A
+// foreground wait (`until …; do sleep 20; done`) held a person's question for ten
+// minutes, so a waiting steer moves foreground work to the background instead.
+function steeringFixture() {
+  const f = fixture();
+  const requests = [];
+  f.client.interrupt = async () => assert.fail("Steering never interrupts");
+  f.client.request = async request => { requests.push(request); return {}; };
+  // Claude Code acknowledges streamed input as queued; the replay comes when it reads it.
+  f.client.send = async (_message, { messageId }) => {
+    await f.turn.receive({ type: "command_lifecycle", command_uuid: messageId, state: "queued" });
+  };
+  async function read(id) {
+    const uuid = claudeNativeMessageId(id);
+    await f.turn.receive({ type: "command_lifecycle", command_uuid: uuid, state: "started" });
+    await f.turn.receive({ type: "user", uuid });
+  }
+  return { ...f, requests, read };
+}
+
+test("a steer queued behind a running command asks Claude to background it, never to interrupt it", async () => {
+  const { turn, send, read, requests, events } = steeringFixture();
+  await send();
+  await read("first");
+  await turn.receive({ type: "assistant", uuid: "wait-call", message: { id: "wait-api", stop_reason: "tool_use",
+    content: [{ type: "tool_use", id: "wait", name: "Bash", input: { command: "until grep -q done out; do sleep 20; done" } }] } });
+  await turn.receive({ type: "system", subtype: "task_started", task_id: "wait-task" });
+  assert.deepEqual(requests, [], "A first message and its commands stay in the foreground");
+  await turn.prepareSteering();
+  await send("question", { steer: true });
+  await delay(0);
+  assert.deepEqual(requests, [{ subtype: "background_tasks" }]);
+  assert.equal(events.filter(event => event.type === "diagnostic" && event.stage === "steering_backgrounded").length, 1);
+  await turn.receive({ type: "user", uuid: "wait-result", message: { content: [{ type: "tool_result", tool_use_id: "wait",
+    content: "Command was manually backgrounded by user with ID: wait-task." }] } });
+  await read("question");
+  await turn.receive({ type: "system", subtype: "task_started", task_id: "later-task" });
+  await delay(0);
+  assert.equal(requests.length, 1, "A message Claude has read no longer moves work");
+  turn.stop();
+});
+
+test("a steer still waiting when Claude starts another command backgrounds that command too", async () => {
+  const { turn, send, read, requests } = steeringFixture();
+  await send();
+  await read("first");
+  // The person writes while Claude is choosing its next tool: nothing runs yet.
+  await turn.prepareSteering();
+  await send("question", { steer: true });
+  await turn.receive({ type: "system", subtype: "task_started", task_id: "new-wait" });
+  await delay(0);
+  assert.deepEqual(requests, [{ subtype: "background_tasks" }, { subtype: "background_tasks" }]);
+  await read("question");
+  turn.stop();
+});
+
+test("a steer during Claude's follow-up to a finished background task moves that follow-up's command", async () => {
+  const { turn, send, read, requests } = steeringFixture();
+  await send();
+  await read("first");
+  await turn.receive({ type: "system", subtype: "task_started", task_id: "verify" });
+  await turn.receive({ type: "result", subtype: "success", result: "Verification runs in the background." });
+  await turn.receive({ type: "command_lifecycle", command_uuid: claudeNativeMessageId("first"), state: "completed" });
+  assert.deepEqual([turn.read().phase, turn.read().pendingCommands], ["background", 0]);
+  // Claude reads the task notification and starts waiting in the foreground.
+  await turn.receive({ type: "system", subtype: "task_notification", task_id: "verify", status: "completed" });
+  await turn.receive({ type: "system", subtype: "task_started", task_id: "follow-up-wait" });
+  assert.deepEqual(requests, []);
+  await turn.prepareSteering();
+  await send("question", { steer: true });
+  await delay(0);
+  assert.deepEqual(requests, [{ subtype: "background_tasks" }]);
+  await read("question");
+  turn.stop();
+});
+
+test("a refused background request leaves the steer delivered and reports it", async () => {
+  const { turn, send, read, requests, client, events } = steeringFixture();
+  await send();
+  await read("first");
+  client.request = async request => { requests.push(request); throw new Error("Unsupported control request: background_tasks"); };
+  await turn.prepareSteering();
+  await send("question", { steer: true });
+  await delay(0);
+  assert.deepEqual(requests, [{ subtype: "background_tasks" }]);
+  assert.equal(turn.read().pendingCommands, 2, "The steer stays delivered and queued for Claude");
+  const failed = events.find(event => event.type === "diagnostic" && event.stage === "steering_background_failed");
+  assert.equal(failed?.error, "Unsupported control request: background_tasks");
+  turn.stop();
+});
+
 test("folded internal command preserves the original published answer owner", async t => {
   const f = await publishedClaudeFixture(t);
   await f.send();
@@ -2348,6 +2439,41 @@ for (const action of ["steer", "set", "resume"]) test(`Claude ${action} queues a
   assert.equal(f.entry.nativeTurn.read().active, true, "The main model still needs to consume the worker result");
   await f.frame({ type: "result", subtype: "success", result: "Worker result checked" });
   assert.equal(f.entry.nativeTurn.read().active, false, "The main response settles the completed worker's turn");
+});
+
+for (const action of ["steer", "set", "resume"]) test(`Claude ${action} moves a running command to the background so Claude reads it at once`, async t => {
+  const f = await publishedClaudeFixture(t);
+  if (action === "resume") await f.owner.updateGoal(f.entry, { action: "set", objective: "Finish checks", messageId: "first" });
+  else await f.send("first");
+  await f.frame({ type: "assistant", uuid: "wait-call", message: { id: "wait-api", stop_reason: "tool_use",
+    content: [{ type: "tool_use", id: "wait", name: "Bash", input: { command: "until grep -q done out; do sleep 20; done" } }] } });
+  const native = f.entry.process;
+  const requests = [];
+  native.client.request = async request => { requests.push(request); return {}; };
+  native.client.interrupt = async () => assert.fail("A steer must not send Stop");
+  const send = native.client.send;
+  const queued = Promise.withResolvers();
+  // Claude Code 2.1.308 acknowledges the input as queued while the wait loop runs.
+  native.client.send = async (message, input) => {
+    await f.frame({ type: "command_lifecycle", command_uuid: input.messageId, state: "queued" });
+    queued.resolve({ message, input });
+  };
+  const goal = action === "steer" ? null : (await f.owner.readGoal(f.entry)).goal;
+  const delivering = action === "steer" ? f.send("next") : f.owner.updateGoal(f.entry, { action, objective: "Finish checks",
+    messageId: "next", ...(action === "resume" ? { threadId: f.conversationId, createdAt: goal.createdAt } : {}) });
+  const { message, input } = await queued.promise;
+  await delay(0);
+  assert.deepEqual(requests, [{ subtype: "background_tasks" }]);
+  assert.equal(f.processes.length, 1, "The running process and its command are kept");
+  // The wait loop returns as backgrounded; Claude then reads the queued input.
+  await f.frame({ type: "user", uuid: "wait-result", message: { content: [{ type: "tool_result", tool_use_id: "wait",
+    content: "Command was manually backgrounded by user with ID: wait-task." }] } });
+  await f.frame({ type: "command_lifecycle", command_uuid: input.messageId, state: "started" });
+  await send(message, input);
+  await delivering;
+  await f.frame({ type: "system", subtype: "task_started", task_id: "wait-task" });
+  await delay(0);
+  assert.equal(requests.length, 1, "Once Claude reads the input, later commands stay in the foreground");
 });
 
 test("Claude context inspection reuses the native owner and reports the selected model's current usage", async t => {

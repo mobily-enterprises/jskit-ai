@@ -124,9 +124,16 @@ conversation active, including Bash and remote tasks; repeated status events do
 not complete the same activity twice. Steering after the main loop has finished
 does not wait for another interrupt result from that finished loop. Active-turn
 steering and goal Set/Resume write the new input as a plain user message and
-never interrupt: Claude Code queues it and reads it after the running tool call,
-so running foreground tools and background workers continue. One native result
-can finish every input Claude has started reading. Explicit Stop is the only
+never interrupt: Claude Code queues it and reads it only when the running tool
+call returns. So that a long foreground command or wait loop cannot hold the
+person's message for minutes, each steer sends Claude's `background_tasks`
+control (the Ctrl+B equivalent) after its write, and again whenever a task
+starts before Claude reads it. Foreground Bash commands and subagents then keep
+running in the background and report completion, the blocked tool call returns,
+and Claude reads the steer at its next step. Background workers continue. A
+refused control leaves the steer waiting for the tool call and is reported as the
+`steering_background_failed` diagnostic. One native result can finish every
+input Claude has started reading. Explicit Stop is the only
 interrupt and retains its cancellation behavior. The retained
 host receives normalized continuation and diagnostic events without prompt or
 response contents, and continues to own persistence and operator logging.
