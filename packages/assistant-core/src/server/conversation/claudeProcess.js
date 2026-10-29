@@ -243,6 +243,32 @@ export function claudePlanUsage(value) {
     windows, checkedAt: Date.now() };
 }
 
+// Plan usage is read through a conversation's live process at most this often,
+// and otherwise through a one-shot Claude started only for the read.
+const PLAN_USAGE_LIVE_READ_MS = 60_000;
+const PLAN_USAGE_IDLE_READ_MS = 300_000;
+// A verified reading stays current until the next idle read, one client poll and
+// its read deadline could have replaced it.
+const PLAN_USAGE_CURRENT_MS = 420_000;
+
+/**
+ * Claude Code answers `get_usage` from the usage endpoint, or from its saved copy
+ * of that answer while under a minute old, including the endpoint's `limits` list.
+ * While that read fails or is held after a 429, it answers from the rate-limit
+ * headers of the answering process's last API response, which can be hours old,
+ * and omits `limits`. The answer has no age, so only one with `limits` is current.
+ */
+function claudePlanUsageVerified(value) {
+  return !value.rate_limits_available || Array.isArray(value.rate_limits?.limits);
+}
+
+function presentPlanUsage(reading) {
+  if (!reading) return { status: "unavailable", windows: [] };
+  if (reading.status !== "available") return reading;
+  const currentForMs = PLAN_USAGE_CURRENT_MS - (Date.now() - reading.checkedAt);
+  return currentForMs > 0 ? { ...reading, currentForMs } : { ...reading, status: "stale" };
+}
+
 export function claudeCatalogueModels(initialization) {
   return (initialization.models || []).map((model) => ({
     id: model.value, label: model.displayName || model.value, description: model.description || "",
@@ -259,7 +285,7 @@ export function createClaudeAccountQueries({ createProcess, accountIdentity, pro
   const accountReads = new Set();
   let catalog;
   const catalogStarts = new Map();
-  let planUsage;
+  const planUsage = new Map();
   const planUsagePending = new Map();
   let revision = 0;
 
@@ -279,11 +305,11 @@ export function createClaudeAccountQueries({ createProcess, accountIdentity, pro
       entry.process && !entry.stopping && entry.accountIdentity === identity);
   }
 
-  async function readAccountProcess(identity, expectedRevision, purpose, read) {
+  async function readAccountProcess(identity, expectedRevision, purpose, read, { borrow = true } = {}) {
     assertCurrent(expectedRevision);
     for (const native of accountProcessStops) await stopAccountProcess(native);
     assertCurrent(expectedRevision);
-    const owned = ownedProcess(identity);
+    const owned = borrow ? ownedProcess(identity) : null;
     const controller = new AbortController();
     accountReads.add(controller);
     const cancelled = Promise.withResolvers();
@@ -327,29 +353,50 @@ export function createClaudeAccountQueries({ createProcess, accountIdentity, pro
       assertCurrent(expectedRevision);
       const identity = await accountIdentity(context);
       assertCurrent(expectedRevision);
-      if (planUsage?.identity === identity && Date.now() - planUsage.checkedAt < 60_000) return planUsage;
       if (planUsagePending.has(identity)) return planUsagePending.get(identity);
-      // Plan usage is read from a conversation's live process; a poll never
-      // starts Claude on its own.
-      if (!ownedProcess(identity)) return { status: "unavailable", windows: [] };
+      // One reading per account; a started process is stopped after its read.
+      const usage = planUsage.get(identity) || { liveReadAt: -Infinity, temporaryReadAt: -Infinity, reading: null };
+      planUsage.set(identity, usage);
+      const live = Boolean(ownedProcess(identity));
+      const liveDue = live && Date.now() - usage.liveReadAt >= PLAN_USAGE_LIVE_READ_MS;
+      const temporaryDue = () => Date.now() - usage.temporaryReadAt >= PLAN_USAGE_IDLE_READ_MS;
+      if (!liveDue && (live || !temporaryDue())) return presentPlanUsage(usage.reading);
       const pending = (async () => {
-        const value = await readAccountProcess(identity, expectedRevision, "usage", (native) => native.client.request(
-          { subtype: "get_usage", skip_behaviors: true }));
-        if (identity !== await accountIdentity(context)) return { status: "unavailable", windows: [] };
-        assertCurrent(expectedRevision);
-        planUsage = { ...claudePlanUsage(value), identity };
-        return planUsage;
+        // A live process's held endpoint read is its own, so a fresh one-shot Claude
+        // may still reach the endpoint when the live answer cannot prove it is current.
+        for (const borrow of liveDue ? [true, false] : [false]) {
+          if (!borrow && !temporaryDue()) break;
+          usage[borrow ? "liveReadAt" : "temporaryReadAt"] = Date.now();
+          let value;
+          try {
+            value = await readAccountProcess(identity, expectedRevision, "usage", (native) => native.client.request(
+              { subtype: "get_usage", skip_behaviors: true }), { borrow });
+          } catch (cause) {
+            if (borrow || !liveDue) throw cause;
+            assertCurrent(expectedRevision);
+            break;
+          }
+          if (identity !== await accountIdentity(context)) return { status: "unavailable", windows: [] };
+          assertCurrent(expectedRevision);
+          // An answer that cannot prove it is current keeps the last verified reading.
+          if (claudePlanUsageVerified(value)) {
+            usage.reading = { ...claudePlanUsage(value), identity };
+            break;
+          }
+        }
+        return presentPlanUsage(usage.reading);
       })().finally(() => { planUsagePending.delete(identity); });
       planUsagePending.set(identity, pending);
       return pending;
     },
-    invalidateUsage() { planUsage = null; },
+    // A native usage change lets the next request read again without hiding the last reading.
+    invalidateUsage() { for (const usage of planUsage.values()) usage.liveReadAt = -Infinity; },
     async invalidate() {
       revision++;
       for (const controller of accountReads) controller.abort(error("Claude account query was cancelled for reconnection."));
       await Promise.allSettled([...catalogStarts.values(), ...planUsagePending.values()]);
       catalog = null;
-      planUsage = null;
+      planUsage.clear();
       for (const native of accountProcessStops) await stopAccountProcess(native);
     }
   });

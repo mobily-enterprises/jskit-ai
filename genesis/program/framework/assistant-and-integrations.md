@@ -166,6 +166,17 @@ storage inventory and retirement borrow the shared Codex or OpenCode process
 without becoming a user: it stops about a minute after the last storage read
 unless a conversation, terminal or helper uses it.
 
+Claude plan usage keeps one verified reading per account. A live conversation
+process of that account answers at most once a minute; without one, or when its
+answer is unverified, a temporary query process answers at most every five
+minutes and is stopped after its read. Claude Code holds a refused endpoint read
+per process, so the fresh process can still reach the endpoint.
+Claude Code answers from the usage endpoint with its `limits` list, or, while
+that read fails or is held, from the answering process's last response headers
+without `limits` or any age. Only the first kind replaces the reading. It is
+`available` with `currentForMs` for seven minutes after `checkedAt`, then
+`stale`; with no verified reading it is `unavailable`.
+
 Claude goal creation and resumption use ordinary native message admission,
 including steering while a turn is active. A new goal cannot replace an
 unfinished goal; turn activity alone does not require cancellation.

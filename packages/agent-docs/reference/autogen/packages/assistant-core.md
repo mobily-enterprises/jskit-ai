@@ -360,6 +360,8 @@ Exports
 Local functions
 - `readNativeClaudeCodeAuthStatus({ env, credentialHome, command, commandRunner, signal })`
 - `claudeCodeAuthStatus(result)`
+- `claudePlanUsageVerified(value)`
+- `presentPlanUsage(reading)`
 
 ### `src/server/conversation/claudeTools.js`
 Exports

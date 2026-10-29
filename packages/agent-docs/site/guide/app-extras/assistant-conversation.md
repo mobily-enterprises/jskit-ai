@@ -3600,7 +3600,18 @@ closing fence. The host supplies current storage facts, authorized context,
 terminal cleanup and product error conversion. These trusted server lifecycle
 operations use the configured common runtime and are not browser actions.
 The account owner's usage normalization retains only native windows whose values and reset times
-are valid; it does not invent refreshed allowance. Product model offerings and
+are valid; it does not invent refreshed allowance. Plan usage keeps one reading
+per account. It reads through a matching live conversation process at most once
+a minute; with none, or when that answer cannot prove it is current, it starts
+one temporary query process at most every five minutes and stops it when the
+read finishes. A refused fallback keeps the last reading. Only an answer carrying the usage
+endpoint's `limits` list replaces the reading: Claude Code's fallback answer,
+taken from the answering process's last response headers while its endpoint read
+fails or is held, can be hours old and has no age. A reading is returned as
+`available` with `currentForMs` for seven minutes after `checkedAt`, and then as
+`stale` with its windows and `checkedAt`; with no verified reading the result is
+`{ status: "unavailable", windows: [] }`. A native usage change lets the next
+request read again without hiding the last reading. Product model offerings and
 account visibility remain application configuration. The same subpath supplies
 `claudeCatalogueModels(initialization)` for the original native model and effort
 projection, retaining native IDs, display-name fallbacks and effort labels.

@@ -548,9 +548,9 @@ test("Claude account queries isolate concurrent identities and deduplicate each 
     const second = queries[method]({ id: "second" });
     // Finish in reverse order to expose cross-account sharing and cache races.
     pending.get("second").resolve({ models: [{ value: "second" }], rate_limits_available: true,
-      rate_limits: { five_hour: { utilization: 20 } } });
+      rate_limits: { five_hour: { utilization: 20 }, limits: [] } });
     pending.get("first").resolve({ models: [{ value: "first" }], rate_limits_available: true,
-      rate_limits: { five_hour: { utilization: 80 } } });
+      rate_limits: { five_hour: { utilization: 80 }, limits: [] } });
     const [a, same, b] = await Promise.all([first, duplicate, second]);
     assert.deepEqual(calls, ["first", "second"], method);
     assert.deepEqual(same, a);
@@ -567,30 +567,123 @@ test("Claude account queries isolate concurrent identities and deduplicate each 
   }
 });
 
-test("Claude plan usage never starts a Claude process without a conversation using one", async () => {
-  let starts = 0;
-  let live = [];
+test("Claude plan usage shows only an answer from the usage endpoint as current", async () => {
+  let answer;
   const queries = createClaudeAccountQueries({
     accountIdentity: async () => "account",
-    processes: () => live,
-    createProcess() {
-      starts++;
-      return { client: { request: async () => ({ rate_limits_available: true, rate_limits: { five_hour: { utilization: 10 } } }) },
-        async stop() { return { scopeEmpty: true }; } };
-    }
+    processes: () => [{ accountIdentity: "account", process: { client: { request: async () => answer } } }],
+    createProcess() { throw new Error("No temporary Claude can start here."); }
   });
+  const resets_at = new Date(Date.now() + 86_400_000).toISOString();
+  // Shape of Claude Code's answer while its endpoint read fails or is held: the
+  // window readings of its own last API response, which can be hours old, without
+  // the endpoint's `limits` list and without any age.
+  const seeded = { rate_limits_available: true, rate_limits: { seven_day: { utilization: 7, resets_at } } };
+  answer = seeded;
   assert.deepEqual(await queries.readPlanUsage({}), { status: "unavailable", windows: [] });
-  assert.equal(starts, 0, "a plan-usage poll started a temporary Claude process");
-  live = [{ accountIdentity: "account", process: { client: { request: async () => ({
-    rate_limits_available: true, rate_limits: { five_hour: { utilization: 30 } } }) } } }];
-  const reading = await queries.readPlanUsage({});
-  assert.equal(reading.status, "available");
-  assert.equal(reading.windows[0].remainingPercent, 70);
-  assert.equal(starts, 0);
+  queries.invalidateUsage();
+  answer = { rate_limits_available: true, rate_limits: { seven_day: { utilization: 23, resets_at }, limits: [] } };
+  const verified = await queries.readPlanUsage({});
+  assert.equal(verified.status, "available");
+  assert.equal(verified.windows[0].remainingPercent, 77);
+  assert.ok(verified.currentForMs > 0 && verified.currentForMs <= 420_000);
+  queries.invalidateUsage();
+  answer = seeded;
+  const kept = await queries.readPlanUsage({});
+  assert.equal(kept.windows[0].remainingPercent, 77, "an unverified answer replaced the endpoint reading");
+  assert.equal(kept.checkedAt, verified.checkedAt);
   await queries.invalidate();
 });
 
-test("Claude account queries label temporary catalogue startup and never start one for usage", async () => {
+test("Claude plan usage asks a temporary Claude when a live process cannot prove its answer", async (t) => {
+  const realNow = Date.now;
+  let now = Date.parse("2026-10-29T03:00:00Z");
+  Date.now = () => now;
+  t.after(() => { Date.now = realNow; });
+  const resets_at = "2026-11-04T05:00:00Z";
+  const starts = [];
+  let stops = 0;
+  let liveReads = 0;
+  let startRefused = false;
+  const queries = createClaudeAccountQueries({
+    accountIdentity: async () => "account",
+    // An idle conversation whose own endpoint read is held answers from old headers.
+    processes: () => [{ accountIdentity: "account", process: { client: { request: async () => {
+      liveReads++;
+      return { rate_limits_available: true, rate_limits: { seven_day: { utilization: 7, resets_at } } };
+    } } } }],
+    createProcess(input) {
+      if (startRefused) throw new Error("Memory is low.");
+      starts.push(input.purpose);
+      return { client: { request: async () => ({ rate_limits_available: true,
+        rate_limits: { seven_day: { utilization: 23, resets_at }, limits: [] } }) },
+      async stop() { stops++; return { scopeEmpty: true }; } };
+    }
+  });
+  const first = await queries.readPlanUsage({});
+  assert.equal(first.status, "available");
+  assert.equal(first.windows[0].remainingPercent, 77);
+  assert.deepEqual(starts, ["usage"]);
+  for (let poll = 1; poll <= 4; poll++) {
+    now += 60_000;
+    assert.equal((await queries.readPlanUsage({})).windows[0].remainingPercent, 77);
+  }
+  assert.equal(liveReads, 5);
+  assert.deepEqual(starts, ["usage"], "a fallback started Claude inside the idle interval");
+  now += 61_000;
+  await queries.readPlanUsage({});
+  assert.deepEqual(starts, ["usage", "usage"]);
+  assert.equal(stops, starts.length, "a temporary usage process outlived its read");
+  // A refused fallback keeps the last verified reading rather than failing the read.
+  now += 301_000;
+  startRefused = true;
+  const kept = await queries.readPlanUsage({});
+  assert.equal(kept.windows[0].remainingPercent, 77);
+  await queries.invalidate();
+});
+
+test("Claude plan usage starts one temporary Claude per idle interval and marks an old reading stale", async (t) => {
+  const realNow = Date.now;
+  let now = Date.parse("2026-10-29T03:00:00Z");
+  Date.now = () => now;
+  t.after(() => { Date.now = realNow; });
+  const starts = [];
+  let stops = 0;
+  let answer = { rate_limits_available: true, rate_limits: {
+    seven_day: { utilization: 23, resets_at: "2026-11-04T05:00:00Z" }, limits: [] } };
+  const queries = createClaudeAccountQueries({
+    accountIdentity: async () => "account",
+    createProcess(input) {
+      starts.push(input.purpose);
+      return { client: { request: async () => answer }, async stop() { stops++; return { scopeEmpty: true }; } };
+    }
+  });
+  const first = await queries.readPlanUsage({});
+  assert.equal(first.status, "available");
+  assert.equal(first.windows[0].remainingPercent, 77);
+  // Pages polling every minute share the account's reading.
+  for (let poll = 1; poll <= 4; poll++) {
+    now += 60_000;
+    assert.equal((await queries.readPlanUsage({})).status, "available");
+  }
+  assert.deepEqual(starts, ["usage"]);
+  now += 61_000;
+  answer = { rate_limits_available: true, rate_limits: { seven_day: { utilization: 7, resets_at: "2026-11-04T05:00:00Z" } } };
+  const unverified = await queries.readPlanUsage({});
+  assert.deepEqual(starts, ["usage", "usage"]);
+  assert.equal(unverified.windows[0].remainingPercent, 77);
+  now += 120_000;
+  const stale = await queries.readPlanUsage({});
+  assert.equal(stale.status, "stale");
+  assert.equal(stale.windows[0].remainingPercent, 77);
+  assert.equal(stale.checkedAt, first.checkedAt);
+  assert.equal("currentForMs" in stale, false);
+  assert.deepEqual(starts, ["usage", "usage"], "a poll inside the idle interval started Claude");
+  assert.equal(stops, starts.length, "a temporary usage process outlived its read");
+  await queries.invalidate();
+});
+
+test("Claude account queries label temporary startup and reuse each account's recent reading", async () => {
   const starts = [];
   let stops = 0;
   const queries = createClaudeAccountQueries({
@@ -608,10 +701,10 @@ test("Claude account queries label temporary catalogue startup and never start o
     await queries[method]({});
     await queries[method]({});
   }
-  assert.deepEqual(starts.map(input => input.purpose), ["catalogue"]);
+  assert.deepEqual(starts.map(input => input.purpose), ["catalogue", "usage"]);
   assert.ok(starts.every(input => input.signal instanceof AbortSignal));
   assert.ok(starts.every(input => Object.keys(input).sort().join() === "purpose,signal"));
-  assert.equal(stops, 1);
+  assert.equal(stops, 2);
   await queries.invalidate();
 });
 
@@ -659,7 +752,7 @@ for (const method of ["readCatalogue", "readPlanUsage"]) {
         },
         // Usage reads count as native reads of the borrowed conversation process.
         processes: () => method === "readPlanUsage" ? [{ accountIdentity: "account", process: { client: {
-          request: async () => { starts++; return { rate_limits_available: true, rate_limits: {} }; } } } }] : [],
+          request: async () => { starts++; return { rate_limits_available: true, rate_limits: { limits: [] } }; } } } }] : [],
         createProcess() {
           starts++;
           return {
