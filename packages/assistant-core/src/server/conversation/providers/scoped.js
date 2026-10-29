@@ -341,6 +341,12 @@ export async function preparePersistentConversationChangeover(options) {
   await createConversationChangeover(continuity).remember({ engineId, messages });
 }
 
+// The receipt of a message proven never to have reached its conversation.
+export function notSentDeliveryReceipt(messageId) {
+  return { status: "not-sent", messageId, error: "This message was not sent. Review it before sending a new message.",
+    messageCode: "assistant.conversation.messageNotSent", messageParams: {} };
+}
+
 export async function inspectPersistentConversationDelivery(options) {
   const { sessionId, input, context, store, operations, prepare, receipts } = options;
   let turns = await store.readConversationLog(sessionId);
@@ -354,9 +360,7 @@ export async function inspectPersistentConversationDelivery(options) {
       inspectMessageAdmission: request => inspectMessageAdmission(sessionId, request, context),
       sendMessage() { throw new Error("Receipt inspection cannot submit another native prompt."); }
     } }).send({ engineId, messages, input: { messageId: input.messageId }, turnMetadata, inspectOnly: true });
-    if (result?.notSent) return { status: "not-sent", messageId: input.messageId,
-      error: "This message was not sent. Review it before sending a new message.",
-      messageCode: "assistant.conversation.messageNotSent", messageParams: {} };
+    if (result?.notSent) return notSentDeliveryReceipt(input.messageId);
     accepted = result?.delivered === true;
   } else if (!accepted) {
     if (row && row.user?.receipt !== false) return { status: "accepted", messageId: input.messageId, turnId: row.turnId, duplicate: true };

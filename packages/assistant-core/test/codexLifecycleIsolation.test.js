@@ -21,7 +21,8 @@ import {
 // account was removed, or a project ledger that cannot be read, must not keep
 // a closing session or project running, and close never reopens to stop.
 
-function savedHelperRecord(root, overrides = {}) {
+// Restoration retires a record whose `runtimeDir` is gone.
+function savedHelperRecord(root, { runtimeDir = path.join(root, "codex-runtime"), ...overrides } = {}) {
   const now = new Date().toISOString();
   return defineCodexHelperThreadRecord({
     createdAt: now,
@@ -36,7 +37,7 @@ function savedHelperRecord(root, overrides = {}) {
         executionMode: "interactive",
         executionContextHash: "c".repeat(12),
         provider: "codex_app_server",
-        runtimeDir: path.join(root, "codex-runtime"),
+        runtimeDir,
         runtimesHash: "d".repeat(12),
         terminalEnvHash: "e".repeat(12),
         toolHomeSource: "",
@@ -146,8 +147,7 @@ test("closing a Codex project stops providers past an unrestorable record and re
   await mkdir(path.join(root, "codex-runtime"), { recursive: true });
   await ledger.write(savedHelperRecord(root));
   await ledger.write(savedHelperRecord(root, { ownershipId: "ownership-2", sessionId: "session-2", threadId: "thread-2",
-    identity: { ...savedHelperRecord(root).identity, runtime: { ...savedHelperRecord(root).identity.runtime,
-      runtimeDir: path.join(root, "removed-runtime") } },
+    runtimeDir: path.join(root, "removed-runtime"),
     workdir: path.join(root, "sessions", "active", "session-2", "source") }));
   const events = [];
   const cleanup = createCodexSessionCleanup({
@@ -195,8 +195,7 @@ test("Helper restoration reports an unreadable ledger and a refused notice inste
   await rm(ledger.root, { force: true });
 
   await mkdir(path.join(root, "codex-runtime"), { recursive: true });
-  await ledger.write(savedHelperRecord(root, { identity: { ...savedHelperRecord(root).identity,
-    runtime: { ...savedHelperRecord(root).identity.runtime, runtimeDir: path.join(root, "removed-runtime") } } }));
+  await ledger.write(savedHelperRecord(root, { runtimeDir: path.join(root, "removed-runtime") }));
   const refused = await helperLifecycle.restoreThreads(root, {
     async prepareRecord(record, recordLedger) { return { ledger: recordLedger, retiring: true }; },
     async publish() {
@@ -245,7 +244,6 @@ function conversationCommands({ context = async () => ({ result: { ok: false, co
     helperLifecycle: { inspectControl: () => undefined },
     namespace: (sessionId) => `codex:${String(sessionId || "").trim()}`,
     providerSessions,
-    sessionConnection: (sessionId) => ({ providerKey: `codex-helper:${sessionId}`, runtimeHost: { stop: "prepared" } }),
     ensureSessionProvider,
     turnOutcomes: { USER_CANCELLED: "cancelled" }
   });
@@ -386,8 +384,7 @@ test("an account-change invalidation stops runtimes without reopening saved Help
 
 test("reconciliation keeps every session and prune retires past one failed provider", async (t) => {
   const { root, helperLifecycle, ledger } = await withProjectLedger(t);
-  await ledger.write(savedHelperRecord(root, { identity: { ...savedHelperRecord(root).identity,
-    runtime: { ...savedHelperRecord(root).identity.runtime, runtimeDir: path.join(root, "removed-runtime") } } }));
+  await ledger.write(savedHelperRecord(root, { runtimeDir: path.join(root, "removed-runtime") }));
   const retired = [];
   const managed = new Map([
     ["provider-a", { sessionId: "stale-a", projectContext: { targetRoot: "/project" } }],

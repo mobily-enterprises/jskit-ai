@@ -567,6 +567,18 @@ function codexAppServerThreadInventoryError(errorCode, label, detail) {
   return error;
 }
 
+// Why a listed inventory entry is refused, or "" for a valid thread.
+function codexAppServerThreadInventoryRefusal(entry, threadId, { cwd, verifyCwd }) {
+  if (!isRecord(entry)) return "listed an entry that is not a thread";
+  if (!threadId) return "listed a thread without an id";
+  if (threadId.length > CODEX_APP_SERVER_THREAD_INVENTORY_ID_MAX_LENGTH) {
+    return `listed a thread id longer than ${CODEX_APP_SERVER_THREAD_INVENTORY_ID_MAX_LENGTH} characters`;
+  }
+  if (codexAppServerTextHasControlCharacters(threadId)) return "listed a thread id with control characters";
+  if (verifyCwd && normalizeAgentText(entry.cwd) !== cwd) return `listed thread ${threadId} outside the requested directory`;
+  return "";
+}
+
 async function listBoundedCodexAppServerThreadIds({
   ancestorThreadId = "",
   archived = false,
@@ -618,13 +630,7 @@ async function listBoundedCodexAppServerThreadIds({
     }
     for (const entry of response.data) {
       const threadId = isRecord(entry) ? normalizeAgentText(entry.id) : "";
-      const refusal = !isRecord(entry) ? "listed an entry that is not a thread"
-        : !threadId ? "listed a thread without an id"
-          : threadId.length > CODEX_APP_SERVER_THREAD_INVENTORY_ID_MAX_LENGTH
-            ? `listed a thread id longer than ${CODEX_APP_SERVER_THREAD_INVENTORY_ID_MAX_LENGTH} characters`
-            : codexAppServerTextHasControlCharacters(threadId) ? "listed a thread id with control characters"
-              : verifyCwd && normalizeAgentText(entry.cwd) !== cwd
-                ? `listed thread ${threadId} outside the requested directory` : "";
+      const refusal = codexAppServerThreadInventoryRefusal(entry, threadId, { cwd, verifyCwd });
       if (refusal) {
         throw codexAppServerThreadInventoryError(errorCode, label, refusal);
       }

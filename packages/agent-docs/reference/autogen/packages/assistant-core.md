@@ -132,6 +132,7 @@ Local functions
 - `conversationAgentMessages(turn = {})`
 - `conversationMessageKey(message = {}, index = 0)`
 - `handleLongTextLinkClick(payload)`
+- `cancelRequested(turn = {})`
 - `userMessageCollapsible(message = null)`
 - `userMessageExpanded(turn = {})`
 - `toggleExpandedKey(expandedKeys, key)`
@@ -684,6 +685,7 @@ Local functions
 - `codexAppServerThreadRequestParams(params = {}, threadEnv = {})`
 - `codexControlProbeCommand(keys, marker)`
 - `codexAppServerThreadInventoryError(errorCode, label, detail)`
+- `codexAppServerThreadInventoryRefusal(entry, threadId, { cwd, verifyCwd })`
 - `listBoundedCodexAppServerThreadIds({ ancestorThreadId = "", archived = false, client, cwd = "", errorCode = "", findThreadId = "", label = "", requestLabel = "", runRequest, signal = null, sourceKinds = ["appServer"], state, verifyCwd = false } = {})`
 - `codexPlanUsage(limits = {})`
 - `normalizeAgentThread(value = {})`
@@ -698,6 +700,7 @@ Exports
 - `createCodexAppServerProviderOwner({ runtimeRoot = "", assertOpen: assertApplicationOpen = () => {}, onRecoveryEvent = () => {}, debugLog = () => {}, debugError = error => error, providerFactory = null, prepareNativeHost = () => ({}), runtimeBusyCode = "codex_app_server_runtime_busy", exitUnverifiedCode = "codex_runtime_exit_unverified", requiredStopCode = "codex_runtime_exit_unverified", runtimeCloseError = "Codex app-server runtime close failed.", transientIdleMs = 60_000 } = {})`
 Local functions
 - `withRuntimeLifecycle(runtimeKey, operation)`
+- `runtimePeers(runtimeKey)`
 - `nativeRequest(client, method, params)`
 - `runningNativeThreads(peers)`
 
@@ -1124,6 +1127,7 @@ Exports
 - `startPersistentConversationTurn(options)`
 - `inspectPersistentConversationAdmission(options)`
 - `preparePersistentConversationChangeover(options)`
+- `notSentDeliveryReceipt(messageId)`
 - `inspectPersistentConversationDelivery(options)`
 - `stopPersistentConversation({ sessionId, record, context, operations, records, projection })`
 - `deletePersistentConversation({ sessionId, record, context, operations, records, projection })`

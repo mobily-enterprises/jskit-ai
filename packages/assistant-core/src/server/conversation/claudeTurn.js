@@ -841,10 +841,10 @@ export function createClaudeConversationOwner({
     return closeRetained(await application.readContext(context), application, { recover: false, forget: true });
   }
 
-  async function closeRetained(ctx, application, { recover, forget: forgetEntries }) {
+  async function closeRetained(ctx, application, { recover: recoverCustody, forget: forgetEntries }) {
     closingSessions.add(ctx.key);
     try {
-      if (recover) await recoverSavedCustody(ctx);
+      if (recoverCustody) await recoverSavedCustody(ctx);
       const proofs = await drain(ctx.key);
       const terminal = await application.terminals.close(ctx.sessionId);
       // A forgotten entry is drained: everything it held is in its saved record.

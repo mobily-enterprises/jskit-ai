@@ -1,24 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 import { createCodexAppServerProviderOwner } from "../src/server/conversation/codexProviderOwner.js";
 import { createCodexConversationCommands } from "../src/server/conversation/codexConversations.js";
 import { createCodexSessionCleanup } from "../src/server/conversation/codexSessionCleanup.js";
+import { eventually } from "./fixtures/eventually.js";
 
 // A Codex app-server runs only while it is used: reading a conversation's
 // history or status, or stopping it, borrows the process; a running Temporary
 // turn or goal holds it; and closing a project stops every one of its own.
-
-async function eventually(check, message) {
-  const deadline = Date.now() + 2_000;
-  while (!check()) {
-    if (Date.now() > deadline) assert.fail(message);
-    await new Promise(resolve => setTimeout(resolve, 5));
-  }
-}
-
-function settle(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
 
 // One native process per runtime directory, as the real app-server has per
 // account and runtime scope. Each provider connection reports its own thread.
@@ -130,7 +120,7 @@ test("a running Temporary turn keeps Codex; it stops a short idle after the turn
   // A history read while the turn runs must not release its process either.
   await f.commands.readCodexAppServerConversation("session-1", { conversationId: "chat-1", persistent: true });
   f.emit({ method: "turn/started", params: { threadId: "chat-1", turn: { id: "turn-2", status: "inProgress" } } });
-  await settle(80);
+  await delay(80);
   assert.equal(f.runtime.running, true, "the running turn's process was stopped");
   assert.equal(f.runtime.stops, 0);
   f.emit({ method: "turn/completed", params: { threadId: "chat-1", turn: { id: "turn-2", status: "completed" } } });
@@ -145,7 +135,7 @@ test("an active Temporary goal keeps Codex between its turns until the goal ends
   });
   f.emit({ method: "thread/goal/updated", params: { threadId: "chat-1", goal: { status: "active" } } });
   f.emit({ method: "turn/completed", params: { threadId: "chat-1", turn: { id: "turn-2", status: "completed" } } });
-  await settle(80);
+  await delay(80);
   assert.equal(f.runtime.running, true, "the goal's process was stopped between its turns");
   f.emit({ method: "thread/goal/updated", params: { threadId: "chat-1", goal: { status: "complete" } } });
   await eventually(() => !f.runtime.running, "the finished goal kept Codex running");

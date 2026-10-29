@@ -29,9 +29,14 @@ export function createCodexConversationCommands({
 
   // Reads and Temporary chat commands borrow their provider instead of claiming
   // it: the operation returns its borrow when it finishes, and an unused
-  // provider stops a short idle later.
-  function providerBorrow() {
-    return { release() {} };
+  // provider stops a short idle later. Without `borrowing`, it claims one.
+  async function withProviderBorrow(borrowing, operation) {
+    const borrow = borrowing ? { release() {} } : null;
+    try {
+      return await operation(borrow);
+    } finally {
+      borrow?.release();
+    }
   }
 
   // A persistent conversation holds its borrowed provider only while it
@@ -325,22 +330,17 @@ export function createCodexConversationCommands({
   }
 
   async function createCodexAppServerConversation(sessionId, input = {}, options = {}) {
-    return codexAppServerConversationResult(async () => {
-      const borrow = input.persistent === true ? providerBorrow() : null;
-      try {
-        const context = await codexAppServerConversationContext(sessionId, input, options, borrow);
-        if (context.ok === false) return context;
-        const execution = conversationPreparation.execution(sessionId, input, options, context, null, "create");
-        return await createPreparedCodexAppServerConversation(sessionId, input, {
-          provider: context.provider,
-          executionProfile: execution.executionProfile,
-          helperIsolation: conversationPreparation.isolation,
-          threadPreparation: () => execution.threadPreparation
-        });
-      } finally {
-        borrow?.release();
-      }
-    });
+    return codexAppServerConversationResult(() => withProviderBorrow(input.persistent === true, async (borrow) => {
+      const context = await codexAppServerConversationContext(sessionId, input, options, borrow);
+      if (context.ok === false) return context;
+      const execution = conversationPreparation.execution(sessionId, input, options, context, null, "create");
+      return createPreparedCodexAppServerConversation(sessionId, input, {
+        provider: context.provider,
+        executionProfile: execution.executionProfile,
+        helperIsolation: conversationPreparation.isolation,
+        threadPreparation: () => execution.threadPreparation
+      });
+    }));
   }
 
   async function runDetachedCodexAppServerConversation(sessionId, input = {}, options = {}) {
@@ -443,8 +443,7 @@ export function createCodexConversationCommands({
           ok: false
         };
       }
-      const borrow = input.persistent === true ? providerBorrow() : null;
-      try {
+      return withProviderBorrow(input.persistent === true, async (borrow) => {
         const context = await codexAppServerConversationContext(sessionId, input, options, borrow);
         if (context.ok === false) return context;
         // A persistent turn is observed on the provider it runs on, which its
@@ -462,7 +461,7 @@ export function createCodexConversationCommands({
         }
         // Do not evaluate native preparation until the original duplicate/active
         // checks and Helper isolation capability checks have run.
-        return await startPreparedCodexAppServerConversationTurn(sessionId, input, {
+        return startPreparedCodexAppServerConversationTurn(sessionId, input, {
           executionProfile: execution.executionProfile,
           helperIsolation: conversationPreparation.isolation,
           prepareTurn: execution.prepareTurn,
@@ -478,9 +477,7 @@ export function createCodexConversationCommands({
           conversationState,
           threadPreparation: () => execution.threadPreparation
         });
-      } finally {
-        borrow?.release();
-      }
+      });
     }));
   }
 
@@ -514,13 +511,12 @@ export function createCodexConversationCommands({
         }
       }
       // Reading history or status is not a use that keeps Codex running.
-      const borrow = providerBorrow();
-      try {
+      return withProviderBorrow(true, async (borrow) => {
         const context = await codexAppServerConversationContext(sessionId, input, options, borrow);
         if (context.ok === false) {
           return context;
         }
-        if (input.persistent) return await readPreparedPersistentCodexConversation(sessionId, input, context);
+        if (input.persistent) return readPreparedPersistentCodexConversation(sessionId, input, context);
         const thread = await context.provider.readThread(conversationId);
         const runId = normalizeCodexRunText(input.runId) || codexAppServerThreadTurnId(thread);
         const status = codexAppServerThreadStatus(thread);
@@ -537,9 +533,7 @@ export function createCodexConversationCommands({
           status,
           ...conversationPreparation.response(text)
         };
-      } finally {
-        borrow.release();
-      }
+      });
     });
   }
 
@@ -563,8 +557,7 @@ export function createCodexConversationCommands({
         const result = await scoped.completion;
         return { ...result, conversationId, ok: true, runId };
       }
-      const borrow = input.persistent === true ? providerBorrow() : null;
-      try {
+      return withProviderBorrow(input.persistent === true, async (borrow) => {
         const context = await codexAppServerConversationContext(sessionId, input, {
           assistantScope
         }, borrow);
@@ -576,10 +569,16 @@ export function createCodexConversationCommands({
           onEvent
         });
         return { ...result, ...conversationPreparation.response(result.rawText) };
-      } finally {
-        borrow?.release();
-      }
+      });
     });
+  }
+
+  // A conversation whose provider lost its observation stops through that failure.
+  async function stopThroughObservationFailure(state) {
+    await state.provider.failObservation(state.provider.observationFailure);
+    if (codexAppServerConversationTurnIsActive(state.status)) {
+      throw new Error("Codex's stop is not yet confirmed.");
+    }
   }
 
   async function stopCodexAppServerConversation(sessionId, input = {}, options = {}, {
@@ -588,10 +587,7 @@ export function createCodexConversationCommands({
     const conversationId = normalizeCodexRunText(input.conversationId);
     const conversationState = codexAppServerConversation(sessionId, conversationId);
     if (conversationState?.provider.observationFailure) {
-      await conversationState.provider.failObservation(conversationState.provider.observationFailure);
-      if (codexAppServerConversationTurnIsActive(conversationState.status)) {
-        throw new Error("Codex's stop is not yet confirmed.");
-      }
+      await stopThroughObservationFailure(conversationState);
       return { conversationId, ok: true, runId: conversationState.runId, status: "interrupted" };
     }
     if (input.ephemeral === true && !conversationState) {
@@ -604,19 +600,16 @@ export function createCodexConversationCommands({
       };
     }
     if (input.persistent) {
-      const borrow = providerBorrow();
-      try {
+      return withProviderBorrow(true, async (borrow) => {
         const context = await codexAppServerConversationContext(sessionId, input, options, borrow);
         if (context.ok === false) return context;
-        return await stopPersistentCodexConversation({
+        return stopPersistentCodexConversation({
           conversationId,
           conversationState,
           provider: context.provider,
           turnOutcome
         });
-      } finally {
-        borrow.release();
-      }
+      });
     }
     const result = await interruptDetachedCodexAppServerConversationTurn(sessionId, {
       agentSettings: input.agentSettings,
@@ -701,10 +694,7 @@ export function createCodexConversationCommands({
   async function stopObservedCodexConversation(state) {
     const { provider } = state;
     if (provider.observationFailure) {
-      await provider.failObservation(provider.observationFailure);
-      if (codexAppServerConversationTurnIsActive(state.status)) {
-        throw new Error("Codex's stop is not yet confirmed.");
-      }
+      await stopThroughObservationFailure(state);
       return;
     }
     // A provider its owner has since closed observes nothing left to stop here:
@@ -759,7 +749,7 @@ export function createCodexConversationCommands({
       if (prepared.result) return prepared.result;
       const { admission, threadId, turnId } = prepared;
       // Stopping or deleting a thread is cleanup, not a use that keeps Codex running.
-      const borrow = providerBorrow();
+      const borrow = { release() {} };
       try {
         let context = null;
         try {

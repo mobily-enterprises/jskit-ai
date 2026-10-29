@@ -50,8 +50,7 @@ export function releaseSupersededCodexRuntime(runtimeDir = "") {
       stale.superseded = true;
       return { deferred: true, removed: false };
     }
-    if (codexAppServerOwnedRuntimes.has(runtimeKey) || [...providerRecords()].some(record =>
-      codexAppServerOwnedRuntimeKey(record.providerKey, record.providerOptions) === runtimeKey)) {
+    if (codexAppServerOwnedRuntimes.has(runtimeKey) || runtimePeers(runtimeKey).length) {
       return { removed: false };
     }
     const metadata = await readCodexAppServerMetadata(runtimeDir);
@@ -81,6 +80,12 @@ export async function directoryExists(filePath = "") {
 
 function* providerRecords() {
   for (const records of codexAppServerProviders.values()) yield* records.values();
+}
+
+// Every owner's provider records on one native runtime.
+function runtimePeers(runtimeKey) {
+  return [...providerRecords()].filter(record =>
+    codexAppServerOwnedRuntimeKey(record.providerKey, record.providerOptions) === runtimeKey);
 }
 
 function nativeRequest(client, method, params) {
@@ -482,8 +487,7 @@ export function createCodexAppServerProviderOwner({
       // Another stop (a session close or idle release) ended a stale runtime.
       const runtimeKey = codexAppServerOwnedRuntimeKey(providerKey, record.providerOptions);
       const stale = codexAppServerStaleRuntimes.get(runtimeKey);
-      if (stale && !stale.retiring && ![...providerRecords()].some(peer =>
-        codexAppServerOwnedRuntimeKey(peer.providerKey, peer.providerOptions) === runtimeKey)) {
+      if (stale && !stale.retiring && !runtimePeers(runtimeKey).length) {
         codexAppServerStaleRuntimes.delete(runtimeKey);
       }
     }
@@ -864,8 +868,7 @@ export function createCodexAppServerProviderOwner({
     if (!stale) return Promise.resolve(null);
     if (stale.retiring) return stale.retiring;
     const retiring = withRuntimeLifecycle(runtimeKey, async () => {
-      const peers = [...providerRecords()].filter(record =>
-        codexAppServerOwnedRuntimeKey(record.providerKey, record.providerOptions) === runtimeKey);
+      const peers = runtimePeers(runtimeKey);
       const running = await runningNativeThreads(peers).catch(() => []);
       // A Temporary turn or goal holding a borrowed provider also keeps it.
       if (running.length || peers.some(peer => peer.scope.isHeld?.(peer.providerKey))) {

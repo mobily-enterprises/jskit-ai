@@ -1537,11 +1537,14 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope, storageI
     return monitor;
   }
 
-  // A removed connection's models are gone from its reloaded directory.
-  function disconnectedProviderFailure(failure) {
+  // A turn's failure and whether it is a credential failure. A removed
+  // connection's models are gone from its reloaded directory.
+  function turnFailure(failure) {
     const providerId = /\bModel not found: ([^/\s]+)\//u.exec(failure)?.[1];
-    return providerId && sharedProcess && !sharedProcess.connections.has(providerId)
-      ? `${providerId} isn't connected. Connect it again, then send your message again.` : "";
+    if (providerId && sharedProcess && !sharedProcess.connections.has(providerId)) {
+      return { failure: `${providerId} isn't connected. Connect it again, then send your message again.`, credentialFailure: true };
+    }
+    return { failure, credentialFailure: openCodeCredentialFailure(failure) };
   }
 
   function beginMonitor(key, target, turn, {
@@ -1626,9 +1629,7 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope, storageI
             failure = "OpenCode finished without a user-facing final response. Please send your message again.";
             finalState = "failed";
           } else if (failure) {
-            const disconnected = disconnectedProviderFailure(failure);
-            failure = disconnected || failure;
-            credentialFailure = Boolean(disconnected) || openCodeCredentialFailure(failure);
+            ({ failure, credentialFailure } = turnFailure(failure));
             finalState = "failed";
           } else if (turn.interruptRequested) {
             finalState = "interrupted";
@@ -1647,10 +1648,7 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope, storageI
           finalState = "interrupted";
         } else {
           const cause = signal.aborted ? signal.reason : error;
-          failure = text(cause?.message) || "OpenCode turn failed.";
-          const disconnected = disconnectedProviderFailure(failure);
-          failure = disconnected || failure;
-          credentialFailure = Boolean(disconnected) || openCodeCredentialFailure(failure);
+          ({ failure, credentialFailure } = turnFailure(text(cause?.message) || "OpenCode turn failed."));
           providerApiFailure = openCodeProviderApiFailure(cause);
           finalState = target.abortController.signal.aborted
             ? "cancelled"

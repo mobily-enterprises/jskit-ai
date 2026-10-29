@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { nativeConversationStoragePolicy } from "../src/server/conversation/nativeStorage.js";
@@ -7,6 +8,7 @@ import { createCodexAppServerProviderOwner } from "../src/server/conversation/co
 import { createCodexConversationDriver } from "../src/server/conversation/providers/codexDriver.js";
 import { createOpenCodeSharedRuntime, openCodeServerForDirectory } from "../src/server/conversation/openCodeRuntime.js";
 import { createOpenCodeConversationDriver } from "../src/server/conversation/providers/opencodeDriver.js";
+import { eventually } from "./fixtures/eventually.js";
 
 test("native storage policy distinguishes locked deletion from host writer exclusion", () => {
   assert.equal(nativeConversationStoragePolicy("codex").requiresWriterExclusion, false);
@@ -30,14 +32,6 @@ test("native writer recognition handles executables and node entry points withou
   assert.equal(opencode.matchesProcess({ executable: "/tools/opencode-helper", commandLine: "node\0/notes/opencode.txt\0" }), false);
 });
 
-async function eventually(check, message) {
-  const deadline = Date.now() + 2_000;
-  while (!check()) {
-    if (Date.now() > deadline) assert.fail(message);
-    await new Promise(resolve => setTimeout(resolve, 5));
-  }
-}
-
 // One shared native process with independent provider connections, as the
 // real Codex app-server has per account and runtime scope.
 function codexStorageFixture(t, { idleMs = 20, listModelsMs = 0 } = {}) {
@@ -50,7 +44,7 @@ function codexStorageFixture(t, { idleMs = 20, listModelsMs = 0 } = {}) {
     async currentRuntimeInfo() { return { runtimeDir }; },
     async listModels() {
       runtime.reads.push("catalogue");
-      await new Promise(resolve => setTimeout(resolve, listModelsMs));
+      await delay(listModelsMs);
       return { running: runtime.running, data: [{ id: "gpt" }] };
     },
     async readGoal() { runtime.reads.push("goal"); return { goal: null }; },
@@ -113,7 +107,7 @@ test("native storage reads never stop a Codex process a conversation still uses"
   await list("claimed-session");
   await owner.ensureSession(context("claimed-session"));
   await eventually(() => owner.providers.get("provider:archived-1") === undefined, "the storage provider was not released");
-  await new Promise(resolve => setTimeout(resolve, 60));
+  await delay(60);
   assert.equal(runtime.running, true);
   assert.equal(runtime.stops, 0);
   assert.equal(owner.providers.get("provider:open-session"), conversation);
@@ -177,7 +171,7 @@ test("OpenCode storage reads never stop a server a conversation still uses", asy
   const { owner, server, list, conversation } = openCodeStorageFixture();
   const open = await conversation("open-session");
   await list("archived-1");
-  await new Promise(resolve => setTimeout(resolve, 60));
+  await delay(60);
   assert.equal(server.running, true);
   assert.equal(server.stops, 0);
   await owner.release(open);
@@ -220,7 +214,7 @@ test("real use that reaches a storage-created provider directly keeps it", async
     await list(id);
     const provider = owner.providers.get(`provider:${id}`);
     await use(id);
-    await new Promise(resolve => setTimeout(resolve, 60));
+    await delay(60);
     assert.equal(owner.providers.get(`provider:${id}`), provider);
   }
   assert.equal(runtime.running, true);
@@ -232,7 +226,7 @@ test("a storage read on a managed main thread's key leaves it to that thread", a
   const managed = context("archived-1");
   managed.runOwner.runtimeLifecycle.managedThreadId = () => "main-thread";
   await owner.withTransientSession(managed, async () => {});
-  await new Promise(resolve => setTimeout(resolve, 60));
+  await delay(60);
   assert.ok(owner.providers.get("provider:archived-1"));
   assert.equal(runtime.stops, 0);
   await list("archived-2");
@@ -244,7 +238,7 @@ test("a conversation that starts after an OpenCode storage read keeps the server
   const { owner, server, list, conversation } = openCodeStorageFixture({ idleMs: 40 });
   await list("archived-1");
   const open = await conversation("open-session");
-  await new Promise(resolve => setTimeout(resolve, 80));
+  await delay(80);
   assert.equal(server.running, true, "the storage release stopped a server a conversation uses");
   assert.equal(server.starts, 1);
   await owner.release(open);

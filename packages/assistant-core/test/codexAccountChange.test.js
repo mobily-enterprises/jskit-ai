@@ -40,6 +40,9 @@ function nativeRuntime({ threads, goals = {} }) {
   return { provider, requests, threads, goals };
 }
 
+// The invalidation the runtime lifecycle requests for an account change.
+const ACCOUNT_CHANGE = Object.freeze({ deferBusy: true, includeOwned: true, requireVerifiedExit: true, stopOwnedRuntimes: true });
+
 function ownerWith(t, runtimes, options = {}) {
   const root = path.join(os.tmpdir(), `jskit-codex-account-change-${randomUUID()}`);
   const owner = createCodexAppServerProviderOwner({ runtimeRoot: root, ...options });
@@ -59,9 +62,7 @@ test("an account change stops an idle Codex runtime at once and leaves a running
   const busy = nativeRuntime({ threads: { "busy-thread": "active" }, goals: { "busy-thread": { status: "active" } } });
   const { owner, keys } = ownerWith(t, { idle, busy });
 
-  const result = await owner.invalidateRuntimes({
-    deferBusy: true, includeOwned: true, requireVerifiedExit: true, stopOwnedRuntimes: true
-  });
+  const result = await owner.invalidateRuntimes(ACCOUNT_CHANGE);
 
   assert.equal(result.ok, true);
   assert.equal(idle.provider.stopped, 1, "An idle runtime stops at once");
@@ -87,7 +88,7 @@ test("a session's next Codex runtime starts only after its finished stale runtim
   const old = nativeRuntime({ threads: { "thread-1": "active" } });
   const current = { client: null, close() {} };
   const { owner, root } = ownerWith(t, { old }, { providerFactory: () => current });
-  await owner.invalidateRuntimes({ deferBusy: true, includeOwned: true, requireVerifiedExit: true, stopOwnedRuntimes: true });
+  await owner.invalidateRuntimes(ACCOUNT_CHANGE);
   assert.equal(old.provider.stale, true);
   old.threads["thread-1"] = "idle";
 
@@ -251,7 +252,7 @@ test("recording a session's runtime for a new sign-in removes the previous sign-
 test("a stale Codex runtime its session no longer records keeps no exit proof when it stops", async t => {
   const busy = nativeRuntime({ threads: { "thread-1": "active" } });
   const { owner, keys, root } = ownerWith(t, { busy });
-  await owner.invalidateRuntimes({ deferBusy: true, includeOwned: true, requireVerifiedExit: true, stopOwnedRuntimes: true });
+  await owner.invalidateRuntimes(ACCOUNT_CHANGE);
 
   assert.deepEqual(await releaseSupersededCodexRuntime(path.join(root, "busy")), { deferred: true, removed: false });
   busy.threads["thread-1"] = "idle";

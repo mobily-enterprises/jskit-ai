@@ -32,6 +32,15 @@ test("native command construction preserves tool-free constraints without granti
 // Account queries whose credentials are not the subject read them from nowhere.
 const ABSENT_CLAUDE_CONFIG = join(tmpdir(), "jskit-absent-claude-config");
 
+// Date.now reads `clock.now` until the test ends.
+function fakeClock(t, now = Date.now()) {
+  const realNow = Date.now;
+  const clock = { now };
+  Date.now = () => clock.now;
+  t.after(() => { Date.now = realNow; });
+  return clock;
+}
+
 async function fixture(t, body) {
   const directory = await mkdtemp(join(tmpdir(), "jskit-claude-process-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
@@ -216,10 +225,7 @@ test("a Claude status answer holds until the credentials change, even across its
 }, async (t) => {
   const home = await mkdtemp(path.join(os.tmpdir(), "claude-auth-status-"));
   t.after(() => rm(home, { recursive: true, force: true }));
-  const realNow = Date.now;
-  let now = realNow();
-  Date.now = () => now;
-  t.after(() => { Date.now = realNow; });
+  const clock = fakeClock(t);
   const configRoot = path.join(home, ".claude");
   await mkdir(configRoot);
   const credentials = path.join(configRoot, ".credentials.json");
@@ -234,7 +240,7 @@ test("a Claude status answer holds until the credentials change, even across its
     return result;
   } };
   assert.equal((await readClaudeCodeAuthStatus(input)).email, "owner@example.test");
-  now += 10 * 60_000;
+  clock.now += 10 * 60_000;
   assert.equal((await readClaudeCodeAuthStatus(input)).email, "owner@example.test");
   assert.equal(calls, 1, "the answer is not read again on a timer or after the run's own rewrite");
   // Sign-out removes the credentials: Claude is asked again at once.
@@ -246,11 +252,11 @@ test("a Claude status answer holds until the credentials change, even across its
   await writeFile(credentials, "signed-in-again");
   result = { ok: false, exitCode: 1, timedOut: true, error: "Command timed out." };
   assert.equal((await readClaudeCodeAuthStatus(input)).error, "Command timed out.");
-  now += 29_000;
+  clock.now += 29_000;
   assert.equal((await readClaudeCodeAuthStatus(input)).error, "Command timed out.");
   assert.equal(calls, 3);
   // A read that ran and failed is reported, and asked again next time.
-  now += 2_000;
+  clock.now += 2_000;
   result = { ok: false, exitCode: 2, error: "Claude Code crashed." };
   assert.equal((await readClaudeCodeAuthStatus(input)).error, "Claude Code crashed.");
   result = signedIn;
@@ -261,18 +267,15 @@ test("a Claude status answer holds until the credentials change, even across its
 test("an unfinished Claude status read is reported without probing again at once", {
   skip: process.platform === "darwin"
 }, async (t) => {
-  const realNow = Date.now;
-  let now = realNow();
-  Date.now = () => now;
-  t.after(() => { Date.now = realNow; });
+  const clock = fakeClock(t);
   let calls = 0;
   let result = { ok: false, exitCode: 1, retryable: true, error: "Memory-pressure spike." };
   const input = { env: {}, credentialHome: { home: "/home/fixture-busy" }, commandRunner: async () => { calls += 1; return result; } };
   assert.equal((await readClaudeCodeAuthStatus(input)).error, "Memory-pressure spike.");
-  now += 29_000;
+  clock.now += 29_000;
   assert.equal((await readClaudeCodeAuthStatus(input)).error, "Memory-pressure spike.");
   assert.equal(calls, 1);
-  now += 2_000;
+  clock.now += 2_000;
   result = { ok: true, stdout: JSON.stringify({ loggedIn: true, email: "owner@example.test" }) };
   assert.equal((await readClaudeCodeAuthStatus(input)).loggedIn, true);
   assert.equal(calls, 2);
@@ -623,10 +626,7 @@ test("Claude plan usage shows only an answer from the usage endpoint as current"
 });
 
 test("Claude plan usage asks a temporary Claude when a live process cannot prove its answer", async (t) => {
-  const realNow = Date.now;
-  let now = Date.parse("2026-10-29T03:00:00Z");
-  Date.now = () => now;
-  t.after(() => { Date.now = realNow; });
+  const clock = fakeClock(t, Date.parse("2026-10-29T03:00:00Z"));
   const resets_at = "2026-11-04T05:00:00Z";
   const starts = [];
   let stops = 0;
@@ -652,17 +652,17 @@ test("Claude plan usage asks a temporary Claude when a live process cannot prove
   assert.equal(first.windows[0].remainingPercent, 77);
   assert.deepEqual(starts, ["usage"]);
   for (let poll = 1; poll <= 4; poll++) {
-    now += 60_000;
+    clock.now += 60_000;
     assert.equal((await queries.readPlanUsage({})).windows[0].remainingPercent, 77);
   }
   assert.equal(liveReads, 5);
   assert.deepEqual(starts, ["usage"], "a fallback started Claude inside the idle interval");
-  now += 61_000;
+  clock.now += 61_000;
   await queries.readPlanUsage({});
   assert.deepEqual(starts, ["usage", "usage"]);
   assert.equal(stops, starts.length, "a temporary usage process outlived its read");
   // A refused fallback keeps the last verified reading rather than failing the read.
-  now += 301_000;
+  clock.now += 301_000;
   startRefused = true;
   const kept = await queries.readPlanUsage({});
   assert.equal(kept.windows[0].remainingPercent, 77);
@@ -670,10 +670,7 @@ test("Claude plan usage asks a temporary Claude when a live process cannot prove
 });
 
 test("Claude plan usage starts one temporary Claude per idle interval and marks an old reading stale", async (t) => {
-  const realNow = Date.now;
-  let now = Date.parse("2026-10-29T03:00:00Z");
-  Date.now = () => now;
-  t.after(() => { Date.now = realNow; });
+  const clock = fakeClock(t, Date.parse("2026-10-29T03:00:00Z"));
   const starts = [];
   let stops = 0;
   let answer = { rate_limits_available: true, rate_limits: {
@@ -690,16 +687,16 @@ test("Claude plan usage starts one temporary Claude per idle interval and marks 
   assert.equal(first.windows[0].remainingPercent, 77);
   // Pages polling every minute share the account's reading.
   for (let poll = 1; poll <= 4; poll++) {
-    now += 60_000;
+    clock.now += 60_000;
     assert.equal((await queries.readPlanUsage({})).status, "available");
   }
   assert.deepEqual(starts, ["usage"]);
-  now += 61_000;
+  clock.now += 61_000;
   answer = { rate_limits_available: true, rate_limits: { seven_day: { utilization: 7, resets_at: "2026-11-04T05:00:00Z" } } };
   const unverified = await queries.readPlanUsage({});
   assert.deepEqual(starts, ["usage", "usage"]);
   assert.equal(unverified.windows[0].remainingPercent, 77);
-  now += 120_000;
+  clock.now += 120_000;
   const stale = await queries.readPlanUsage({});
   assert.equal(stale.status, "stale");
   assert.equal(stale.windows[0].remainingPercent, 77);
@@ -711,10 +708,7 @@ test("Claude plan usage starts one temporary Claude per idle interval and marks 
 });
 
 test("Claude plan usage starts one temporary Claude per account for every owner polling it", async (t) => {
-  const realNow = Date.now;
-  let now = Date.parse("2026-10-29T03:00:00Z");
-  Date.now = () => now;
-  t.after(() => { Date.now = realNow; });
+  const clock = fakeClock(t, Date.parse("2026-10-29T03:00:00Z"));
   const starts = [];
   let stops = 0;
   // Three account-query owners in one server process, none with a live conversation.
@@ -736,7 +730,7 @@ test("Claude plan usage starts one temporary Claude per account for every owner 
   assert.equal(concurrent[0].windows[0].remainingPercent, 77);
   // An hour of every owner polling once a minute.
   for (let minute = 1; minute < 60; minute++) {
-    now += 60_000;
+    clock.now += 60_000;
     for (const queries of owners) assert.equal((await queries.readPlanUsage(account)).status, "available");
   }
   assert.equal(starts.length, 12, "the account started more than one temporary Claude per idle interval");
@@ -747,10 +741,7 @@ test("Claude plan usage starts one temporary Claude per account for every owner 
 });
 
 test("Claude plan usage reuses another owner's live reading instead of starting a temporary Claude", async (t) => {
-  const realNow = Date.now;
-  let now = Date.parse("2026-10-29T03:00:00Z");
-  Date.now = () => now;
-  t.after(() => { Date.now = realNow; });
+  const clock = fakeClock(t, Date.parse("2026-10-29T03:00:00Z"));
   const account = "plan-usage-live-in-another-owner";
   const answer = { rate_limits_available: true, rate_limits: {
     seven_day: { utilization: 23, resets_at: "2026-11-04T05:00:00Z" }, limits: [] } };
@@ -769,13 +760,13 @@ test("Claude plan usage reuses another owner's live reading instead of starting 
   // Only the idle owner's page stays open: the account's verified reading serves it
   // until that reading is an idle interval old.
   for (let minute = 1; minute <= 4; minute++) {
-    now += 60_000;
+    clock.now += 60_000;
     const reading = await idle.readPlanUsage({});
     assert.equal(reading.checkedAt, live.checkedAt);
     assert.equal(reading.status, "available");
   }
   assert.deepEqual(starts, [], "a temporary Claude started while the account had a recent verified reading");
-  now += 60_000;
+  clock.now += 60_000;
   await idle.readPlanUsage({});
   assert.deepEqual(starts, ["usage"]);
 });
@@ -794,10 +785,7 @@ test("Claude model list starts a Claude only after its account, credentials or C
   const command = join(root, "claude");
   await replace(credentials, "signed in");
   await replace(command, "2.1.1");
-  const realNow = Date.now;
-  let now = realNow();
-  Date.now = () => now;
-  t.after(() => { Date.now = realNow; });
+  const clock = fakeClock(t);
   let account = "account";
   const starts = [];
   const queries = createClaudeAccountQueries({ accountIdentity: async () => account, configRoot,
@@ -811,7 +799,7 @@ test("Claude model list starts a Claude only after its account, credentials or C
   const model = async () => (await queries.readCatalogue({})).models[0].value;
   // Reconnects, tab returns and closed sessions ask about four times an hour.
   const askForADay = async (expected) => {
-    for (let read = 0; read < 96; read++, now += 15 * 60_000) assert.equal(await model(), expected);
+    for (let read = 0; read < 96; read++, clock.now += 15 * 60_000) assert.equal(await model(), expected);
   };
   await askForADay("read-1");
   assert.deepEqual(starts, ["catalogue"]);

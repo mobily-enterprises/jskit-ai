@@ -75,6 +75,29 @@ async function pressScrollKey(body, key, target) {
   await body.evaluate(element => element.keyScrolled);
 }
 
+function fromBottom(body) {
+  return body.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop);
+}
+
+async function appendReply(page, body) {
+  const replies = page.getByText("New reply.", { exact: false });
+  const count = await replies.count();
+  await page.getByRole("button", { name: "Append reply", exact: true }).evaluate(element => element.click());
+  await expect(replies).toHaveCount(count + 1);
+  await settleLayout(body);
+}
+
+// Opens the whole conversation history with the reader at the latest message.
+async function openAtLatest(page, baseURL) {
+  await page.goto(`${baseURL}/?controls=1&history=1`);
+  const body = page.locator(".assistant-transcript__body");
+  await expect(page.getByText("Conversation line 70:", { exact: false })).toBeVisible();
+  await page.getByRole("button", { name: "Exhaust history", exact: true }).evaluate(element => element.click());
+  await settleLayout(body);
+  expect(await fromBottom(body)).toBeLessThanOrEqual(1);
+  return body;
+}
+
 const VIEWPORTS = Object.freeze([
   Object.freeze({ name: "phone", width: 390, height: 844 }),
   Object.freeze({ name: "compact", width: 800, height: 900 }),
@@ -497,20 +520,7 @@ test("a reader's own upward scrolling leaves the latest message from its first f
       const page = await browser.newPage({ viewport: { width, height: 900 }, hasTouch: touch, isMobile: touch });
       const errors = [];
       page.on("pageerror", error => errors.push(error.message));
-      await page.goto(`${vite.baseURL}/?controls=1&history=1`);
-      const body = page.locator(".assistant-transcript__body");
-      const fromBottom = () => body.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop);
-      const appendReply = async () => {
-        const replies = page.getByText("New reply.", { exact: false });
-        const count = await replies.count();
-        await page.getByRole("button", { name: "Append reply", exact: true }).evaluate(element => element.click());
-        await expect(replies).toHaveCount(count + 1);
-        await settleLayout(body);
-      };
-      await expect(page.getByText("Conversation line 70:", { exact: false })).toBeVisible();
-      await page.getByRole("button", { name: "Exhaust history", exact: true }).evaluate(element => element.click());
-      await settleLayout(body);
-      expect(await fromBottom()).toBeLessThanOrEqual(1);
+      const body = await openAtLatest(page, vite.baseURL);
       await expect.poll(async () => {
         await body.focus();
         return body.evaluate(element => document.activeElement === element);
@@ -532,29 +542,29 @@ test("a reader's own upward scrolling leaves the latest message from its first f
         await body.hover();
         await page.mouse.wheel(0, -20);
       }
-      await expect.poll(fromBottom).toBeGreaterThan(1);
+      await expect.poll(() => fromBottom(body)).toBeGreaterThan(1);
       await settleLayout(body);
-      await appendReply();
-      expect(await fromBottom()).toBeGreaterThan(1);
+      await appendReply(page, body);
+      expect(await fromBottom(body)).toBeGreaterThan(1);
 
       // Returning to the end resumes following new replies.
       await pressScrollKey(body, "End", "end");
-      await appendReply();
-      expect(await fromBottom()).toBeLessThanOrEqual(1);
+      await appendReply(page, body);
+      expect(await fromBottom(body)).toBeLessThanOrEqual(1);
 
       // The first frame of an upward keyboard scroll lands inside the follow
       // threshold; the rest of it (a fling or smooth scroll) moves the reader
       // into history without further input events.
       await pressScrollKey(body, "ArrowUp", -10);
-      const firstFrame = await fromBottom();
+      const firstFrame = await fromBottom(body);
       assert.ok(firstFrame > 1 && firstFrame <= 48, `first frame ${firstFrame}px from the end`);
       await body.evaluate(element => { element.scrollTop = Math.round(element.scrollTop / 2); });
       await settleLayout(body);
-      await appendReply();
-      expect(await fromBottom()).toBeGreaterThan(1_000);
+      await appendReply(page, body);
+      expect(await fromBottom(body)).toBeGreaterThan(1_000);
       await pressScrollKey(body, "End", "end");
-      await appendReply();
-      expect(await fromBottom()).toBeLessThanOrEqual(1);
+      await appendReply(page, body);
+      expect(await fromBottom(body)).toBeLessThanOrEqual(1);
 
       // The scroll event of the transcript's own follow scroll can arrive after
       // the key press, before the reader has moved; it must not cancel the
@@ -563,7 +573,7 @@ test("a reader's own upward scrolling leaves the latest message from its first f
         element.addEventListener("keydown", () => element.dispatchEvent(new Event("scroll")), { once: true });
       });
       await pressScrollKey(body, "Home", "top");
-      await appendReply();
+      await appendReply(page, body);
       expect(await body.evaluate(element => element.scrollTop)).toBe(0);
       assert.deepEqual(errors, []);
       await page.close();
@@ -584,25 +594,12 @@ test("a reader moved away from the end without a scroll direction stays there", 
     const page = await browser.newPage({ viewport: { width: 1365, height: 900 } });
     const errors = [];
     page.on("pageerror", error => errors.push(error.message));
-    await page.goto(`${vite.baseURL}/?controls=1&history=1`);
-    const body = page.locator(".assistant-transcript__body");
-    const fromBottom = () => body.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop);
+    const body = await openAtLatest(page, vite.baseURL);
     // Move the reader and wait until the transcript has handled the scroll.
     const moveReader = target => body.evaluate((element, by) => new Promise(resolve => {
       element.addEventListener("scroll", () => resolve(), { once: true });
       element.scrollTop = by === "end" ? element.scrollHeight : element.scrollTop + by;
     }), target);
-    const appendReply = async () => {
-      const replies = page.getByText("New reply.", { exact: false });
-      const count = await replies.count();
-      await page.getByRole("button", { name: "Append reply", exact: true }).evaluate(element => element.click());
-      await expect(replies).toHaveCount(count + 1);
-      await settleLayout(body);
-    };
-    await expect(page.getByText("Conversation line 70:", { exact: false })).toBeVisible();
-    await page.getByRole("button", { name: "Exhaust history", exact: true }).evaluate(element => element.click());
-    await settleLayout(body);
-    expect(await fromBottom()).toBeLessThanOrEqual(1);
 
     // A scrollbar drag starts on the scroller itself and carries no scroll
     // direction; its frames, the first inside the follow threshold, then move
@@ -611,13 +608,13 @@ test("a reader moved away from the end without a scroll direction stays there", 
     await body.evaluate(element => element.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true })));
     await moveReader(-10);
     await moveReader(-300);
-    await appendReply();
-    expect(await fromBottom()).toBeGreaterThan(300);
+    await appendReply(page, body);
+    expect(await fromBottom(body)).toBeGreaterThan(300);
 
     // Returning to the end resumes following new replies.
     await moveReader("end");
-    await appendReply();
-    expect(await fromBottom()).toBeLessThanOrEqual(1);
+    await appendReply(page, body);
+    expect(await fromBottom(body)).toBeLessThanOrEqual(1);
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();

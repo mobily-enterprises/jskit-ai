@@ -3,7 +3,7 @@ import { createConversationDeliveryTiming, normalizeConversationDeliveryHostStag
 import { normalizeConversationConfiguration } from "./configuration.js";
 import { runScopedConversationTurn, readPersistentConversation, projectStoredPersistentConversation, startPersistentConversationTurn,
   inspectPersistentConversationAdmission, preparePersistentConversationChangeover,
-  inspectPersistentConversationDelivery, stopPersistentConversation, deletePersistentConversation } from "./providers/scoped.js";
+  inspectPersistentConversationDelivery, notSentDeliveryReceipt, stopPersistentConversation, deletePersistentConversation } from "./providers/scoped.js";
 import { isDeepStrictEqual } from "node:util";
 import { randomUUID } from "node:crypto";
 import { createConversationTranscript, isCompletedEnvelopeTurn } from "./transcript.js";
@@ -1927,11 +1927,6 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     return { saved: true };
   }
 
-  function notSentReceipt(messageId) {
-    return { status: "not-sent", messageId, error: "This message was not sent. Review it before sending a new message.",
-      messageCode: "assistant.conversation.messageNotSent", messageParams: {} };
-  }
-
   async function recoverDelivery(entry, context, messageId, { observation: suppliedObservation, allowActive = false } = {}) {
     await access(context, entry.id, "inspectDelivery", entry);
     if (entry.active && !allowActive) throw failure("Wait for the current submission before checking delivery.", "conversation_busy", 409, { messageCode: "assistant.conversation.waitForSubmission" });
@@ -1960,7 +1955,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       ["codex", "claude", "opencode"].includes(segment.engine) && segment.request.attempted === false && !segment.request.inspectionOnly &&
       isDeepStrictEqual(segment.request, savedRequests[0].request))) {
       await access(context, entry.id, "inspectDelivery", entry);
-      return notSentReceipt(messageId);
+      return notSentDeliveryReceipt(messageId);
     }
     const request = existing ? submittedMessage(existing) : metadata.runtime.request;
     if (!request || request.messageId !== messageId || !entry.provider.inspectAdmission) return receipt || { status: "unknown", messageId };
@@ -1978,7 +1973,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         current.runtime.request.attempted = false;
         await transaction.writeMetadata(current);
       });
-      return notSentReceipt(messageId);
+      return notSentDeliveryReceipt(messageId);
     }
     if (!observation.accepted) return { ...(receipt || { status: "unknown", messageId }),
       ...(observation.recoveryLimitation ? { recoveryLimitation: observation.recoveryLimitation } : {}) };
@@ -2097,7 +2092,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         });
         const delivered = await sender.send({ engineId: entry.engine,
           messages: await entry.conversation.transcript.history(), input: { messageId }, inspectOnly: true });
-        if (delivered?.notSent) return notSentReceipt(messageId);
+        if (delivered?.notSent) return notSentDeliveryReceipt(messageId);
         if (!delivered?.delivered) throw deliveryFailure(delivered);
       }
       const row = (await readTranscript(entry)).find(turn => submittedMessage(turn)?.messageId === messageId);
@@ -2109,7 +2104,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       // Native-only acceptance is evidence of delivery, not permission to
       // manufacture an authored row or use a native turn ID as its receipt.
       if (observation.accepted) return { status: "accepted", messageId, duplicate: true };
-      return observation.notAdmitted && !entry.active ? notSentReceipt(messageId) : { status: "unknown", messageId };
+      return observation.notAdmitted && !entry.active ? notSentDeliveryReceipt(messageId) : { status: "unknown", messageId };
     }
     const result = await recoverDelivery(entry, context, messageId);
     if (result.status !== "accepted" || entry.engine === "api") return result;
