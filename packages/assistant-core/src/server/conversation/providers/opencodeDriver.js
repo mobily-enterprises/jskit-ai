@@ -76,10 +76,10 @@ export function createOpenCodeConversationDriver({ connections, host = {}, limit
     return { text: prepared, content: input.content };
   }
 
-  async function nativeStorageTarget({ native, context }) {
+  function withNativeStorageTarget({ native, context }, operation) {
     const prepared = native.preparation.storage(context);
-    return native.owner.ensure(null, async () =>
-      native.owner.startPreparedProcess(await prepared.process())).catch(prepared.failure);
+    return native.owner.withStorageProcess(async () =>
+      native.owner.startPreparedProcess(await prepared.process()), operation, prepared.failure);
   }
 
   async function disposeNative({ native, options }) {
@@ -127,17 +127,18 @@ export function createOpenCodeConversationDriver({ connections, host = {}, limit
       const prepared = await native.preparation.existing(input, context, { operation: "delete" });
       return native.owner.deletePreparedConversation(prepared, input);
     },
-    async listConversationStorage(prepared) {
-      const target = await nativeStorageTarget(prepared);
+    listConversationStorage(prepared) {
       const { binding, context } = prepared;
-      return (await target.server.client.listConversationsForDirectory(binding.workdir, { signal: context.signal }))
-        .map((row) => ({ ...binding, conversationId: row.id }));
+      return withNativeStorageTarget(prepared, async target =>
+        (await target.server.client.listConversationsForDirectory(binding.workdir, { signal: context.signal }))
+          .map((row) => ({ ...binding, conversationId: row.id })));
     },
-    async retireConversationHistory(prepared) {
-      const target = await nativeStorageTarget(prepared);
-      // Native status is scoped to the saved project instance, not the control server.
-      const client = openCodeServerForDirectory(target.server, prepared.binding.workdir).client;
-      return retireOpenCodeConversationHistory(target.server.client, client, prepared.binding, prepared.context);
+    retireConversationHistory(prepared) {
+      return withNativeStorageTarget(prepared, target => {
+        // Native status is scoped to the saved project instance, not the control server.
+        const client = openCodeServerForDirectory(target.server, prepared.binding.workdir).client;
+        return retireOpenCodeConversationHistory(target.server.client, client, prepared.binding, prepared.context);
+      });
     },
     closeProject({ native, input }) {
       return native.owner.closeProject(input, native.preparation.projectCleanup());

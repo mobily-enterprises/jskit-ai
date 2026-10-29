@@ -4,6 +4,8 @@ import path from "node:path";
 import { nativeConversationStoragePolicy } from "../src/server/conversation/nativeStorage.js";
 import { createCodexAppServerProviderOwner } from "../src/server/conversation/codexProviderOwner.js";
 import { createCodexConversationDriver } from "../src/server/conversation/providers/codexDriver.js";
+import { createOpenCodeSharedRuntime, openCodeServerForDirectory } from "../src/server/conversation/openCodeRuntime.js";
+import { createOpenCodeConversationDriver } from "../src/server/conversation/providers/opencodeDriver.js";
 
 test("native storage policy distinguishes locked deletion from host writer exclusion", () => {
   assert.equal(nativeConversationStoragePolicy("codex").requiresWriterExclusion, false);
@@ -106,4 +108,69 @@ test("native storage reads never stop a Codex process a conversation still uses"
   assert.equal(runtime.stops, 0);
   assert.equal(owner.providers.get("provider:open-session"), conversation);
   assert.ok(owner.providers.get("provider:claimed-session"));
+});
+
+// One shared `opencode serve`, as OpenCode runs per runtime scope.
+function openCodeStorageFixture({ idleMs = 20 } = {}) {
+  const owner = createOpenCodeSharedRuntime({ storageIdleMs: idleMs });
+  const server = { running: false, starts: 0, stops: 0 };
+  const connection = { modelProviderId: "provider", canonicalUrl: "https://provider.invalid", fingerprint: "account", endpointCode: "api" };
+  const create = async () => {
+    server.running = true;
+    server.starts += 1;
+    return {
+      client: {
+        async health() { return { healthy: true }; },
+        async listConversationsForDirectory(directory) { return [{ id: `conversation-in-${path.basename(directory)}` }]; },
+        forDirectory(directory) { return { ...this, directory }; }
+      },
+      async stop() {
+        server.running = false;
+        server.stops += 1;
+        return { exited: true };
+      }
+    };
+  };
+  const native = { owner, preparation: { storage: () => ({
+    process: async () => ({ create, options: {}, connections: [connection] }),
+    failure: error => { throw error; }
+  }) } };
+  const driver = createOpenCodeConversationDriver({ connections: { resolve() {} }, host: { workdir: "/tmp" } });
+  const list = archived => driver.listConversationStorage({ native, context: {},
+    binding: { engineId: "opencode", modelProviderId: "provider", workdir: `/work/${archived}` } });
+  const conversation = key => owner.acquire(key, async () => {
+    const shared = await owner.ensure(connection, async () => ({ server: await create(), connections: [connection] }));
+    return { key, workdir: `/work/${key}`, abortController: new AbortController(),
+      server: openCodeServerForDirectory(shared.server, `/work/${key}`) };
+  });
+  return { owner, server, list, conversation };
+}
+
+test("an OpenCode storage listing leaves no OpenCode server running", async () => {
+  const { server, list } = openCodeStorageFixture();
+  assert.deepEqual((await list("archived-1")).map(row => row.conversationId), ["conversation-in-archived-1"]);
+  assert.equal(server.running, true, "the listing itself uses the shared server");
+  await eventually(() => !server.running, "an unused storage listing kept opencode serve running");
+  assert.equal(server.stops, 1);
+});
+
+test("consecutive OpenCode storage reads share one server and stop it after the last", async () => {
+  const { server, list } = openCodeStorageFixture({ idleMs: 40 });
+  await list("archived-1");
+  await list("archived-2");
+  assert.equal(server.starts, 1);
+  await eventually(() => server.stops === 1, "the last storage read did not stop opencode serve");
+  assert.equal(server.running, false);
+});
+
+test("OpenCode storage reads never stop a server a conversation still uses", async () => {
+  const { owner, server, list, conversation } = openCodeStorageFixture();
+  const open = await conversation("open-session");
+  await list("archived-1");
+  await new Promise(resolve => setTimeout(resolve, 60));
+  assert.equal(server.running, true);
+  assert.equal(server.stops, 0);
+  await owner.release(open);
+  assert.equal(server.running, false);
+  assert.equal(server.starts, 1);
 });

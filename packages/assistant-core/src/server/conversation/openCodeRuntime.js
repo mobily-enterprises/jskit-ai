@@ -169,7 +169,7 @@ export async function ensureOpenCodeSession(target, { selection, model, workdir 
 
 // The production provider's users and pending acquisitions share this owner.
 // Hosts supply authorized startup inputs and their own publication/cleanup work.
-export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
+export function createOpenCodeSharedRuntime({ onStop = () => {}, scope, storageIdleMs = 60_000 } = {}) {
   if (scope !== undefined && !path.isAbsolute(scope)) throw new TypeError("OpenCode runtime scopes require an absolute directory.");
   if (scope && sharedRuntimes.has(scope)) return sharedRuntimes.get(scope);
   const processes = new Map();
@@ -184,6 +184,8 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
   let failedStartup = null;
   let closed = false;
   let connectionChanging = false;
+  let storageReads = 0;
+  let storageIdle = null;
 
   function requireConnectionAvailable() {
     if (connectionChanging) throw Object.assign(new Error("OpenCode is changing a connection. Retry after the connection change finishes."), {
@@ -291,6 +293,29 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
     }
   }
 
+  // Native storage inventory and retirement borrow the shared server; they are
+  // not users that keep it running. A short idle after the last read lets one
+  // maintenance pass share it, then it stops unless a conversation uses it.
+  async function withStorageProcess(start, operation, failure = error => { throw error; }) {
+    clearTimeout(storageIdle);
+    storageIdle = null;
+    storageReads += 1;
+    try {
+      return await operation(await ensure(null, start).catch(failure));
+    } finally {
+      storageReads -= 1;
+      if (storageReads === 0 && !closed) {
+        storageIdle = setTimeout(() => {
+          storageIdle = null;
+          if (storageReads === 0 && processes.size === 0 && processStarts.size === 0) {
+            stop("opencode-storage-read-finished").catch(() => null);
+          }
+        }, storageIdleMs);
+        storageIdle.unref?.();
+      }
+    }
+  }
+
   function targetFor(key, prepared) {
     const current = processes.get(key);
     const nativeId = prepared.upstreamSessionId;
@@ -346,7 +371,7 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
       if (processStarts.get(key) === start) processStarts.delete(key);
       if (!processes.has(key)) {
         await onFailure();
-        if (processes.size === 0 && processStarts.size === 0 && !failedStartup) {
+        if (processes.size === 0 && processStarts.size === 0 && storageReads === 0 && !failedStartup) {
           await stop("opencode-session-start-failed").catch(() => null);
         }
       }
@@ -365,7 +390,7 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
       processes.delete(target.key);
       await onRemoved?.();
     }
-    return !retainSharedProcess && processes.size === 0 && processStarts.size === 0
+    return !retainSharedProcess && processes.size === 0 && processStarts.size === 0 && storageReads === 0
       ? stop()
       : { exited: true, sharedProcessRetained: true };
   }
@@ -444,7 +469,7 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
       application.ownsTarget(target) && (!projectContextRoot || target.projectContextRoot === path.resolve(projectContextRoot))
     ));
     const results = await Promise.all(targets.map((target) => releaseProcessTarget(target, {}, application)));
-    if (processes.size === 0 && (sharedProcess || failedStartup)) {
+    if (processes.size === 0 && storageReads === 0 && (sharedProcess || failedStartup)) {
       results.push(await stop(text(input.reason) || "opencode-project-close").catch(application.failure));
     }
     return {
@@ -456,6 +481,8 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
   async function invalidateRuntimes(input = {}, preparation) {
     if (text(input.reason) === "server-shutdown") {
       closed = true;
+      clearTimeout(storageIdle);
+      storageIdle = null;
     }
     const application = preparation.release;
     if (typeof input.publish === "function") {
@@ -1767,7 +1794,7 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
     get current() { return sharedProcess; },
     get closed() { return closed; },
     get cleanupPending() { return Boolean(failedStartup); },
-    acquire, targetFor, ensure, release, releaseTarget, releaseProcessTarget, closeSession, closeProject,
+    acquire, targetFor, ensure, withStorageProcess, release, releaseTarget, releaseProcessTarget, closeSession, closeProject,
     startPreparedProcess, acquirePrepared, createPreparedConversation, runPreparedRenewalTurn, selectPreparedConversation, existingPreparedConversation,
     runPreparedConversationTurn, readPreparedConversation, waitPreparedConversationTurn, stopPreparedConversation, deletePreparedConversation,
     sendPreparedMessage, inspectPreparedMessage, interruptPreparedTurn,
