@@ -599,3 +599,28 @@ test("a conversation stays open until the last of its overlapping turns settles"
   assert.equal((await first).status, "completed");
   assert.deepEqual(counts, { opened: 2, disposed: 1 });
 });
+
+for (const failure of ["rejects", "throws"]) {
+  test(`a conversation whose disposal ${failure} is released like any failed disposal`, async () => {
+    const counts = { opened: 0, disposed: 0 };
+    let openError = null;
+    const wrapRuntime = (runtime) => ({ ...runtime, async open(input) {
+      if (openError) throw openError;
+      const handle = await runtime.open(input);
+      counts.opened += 1;
+      return { ...handle, dispose() {
+        counts.disposed += 1;
+        const error = new Error("The conversation could not be saved.");
+        if (failure === "throws") throw error;
+        return Promise.reject(error);
+      } };
+    } });
+    const harness = createHarness([textCompletion("First answer.")], { wrapRuntime });
+
+    assert.equal((await harness.run("First question", { messageId: "message_1" })).status, "completed",
+      "a failed disposal does not change the settled turn's outcome");
+    openError = new Error("The conversation runtime is closing.");
+    await assert.rejects(harness.run("Second question", { messageId: "message_2" }), /runtime is closing/u);
+    assert.deepEqual(counts, { opened: 1, disposed: 1 }, "a later turn never reuses or disposes the released turn's handle");
+  });
+}

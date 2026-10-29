@@ -236,9 +236,9 @@ function createChatService({
     const turns = conversationTurns.get(conversationId);
     turns.count -= 1;
     if (turns.count > 0) return;
-    // A failed disposal leaves the runtime entry open: the next turn reuses it
-    // and runtime close retries its save.
-    turns.releasing = Promise.resolve(turns.handle?.dispose()).catch(() => {})
+    // A failed disposal, thrown or rejected, leaves the runtime entry open: the
+    // next turn reuses it and runtime close retries its save.
+    turns.releasing = Promise.try(() => turns.handle?.dispose()).catch(() => {})
       .finally(() => conversationTurns.delete(conversationId));
     await turns.releasing;
   }
