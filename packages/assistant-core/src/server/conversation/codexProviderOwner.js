@@ -277,13 +277,18 @@ export function createCodexAppServerProviderOwner({
     return provider;
   }
 
+  // A conversation, terminal or helper keeps a provider a storage read created.
+  // Every exported way to reach a provider for real use claims it here.
+  function claimTransient(providerKey = "") {
+    const key = normalizeText(providerKey);
+    const release = transientReleases.get(key);
+    if (!release) return;
+    clearTimeout(release.timer);
+    transientReleases.delete(key);
+  }
+
   async function ensureSession(context, mainThreadId = "") {
-    // A conversation, terminal or helper keeps a provider a transient read created.
-    const release = transientReleases.get(context.providerKey);
-    if (release) {
-      clearTimeout(release.timer);
-      transientReleases.delete(context.providerKey);
-    }
+    claimTransient(context.providerKey);
     return acquireSession(context, mainThreadId);
   }
 
@@ -293,7 +298,10 @@ export function createCodexAppServerProviderOwner({
   async function withTransientSession(context, operation) {
     const providerKey = context.providerKey;
     let release = transientReleases.get(providerKey);
-    if (!release && records.has(providerKey)) return operation(await acquireSession(context));
+    // An existing provider or a managed main thread already has a real user.
+    if (!release && (records.has(providerKey) || context.runOwner?.runtimeLifecycle?.managedThreadId?.(providerKey))) {
+      return operation(await acquireSession(context));
+    }
     if (!release) transientReleases.set(providerKey, release = { users: 0, timer: null });
     clearTimeout(release.timer);
     release.users += 1;
@@ -1197,9 +1205,10 @@ export function createCodexAppServerProviderOwner({
     return { exitFailure };
   }
 
+  // A provider a storage read borrowed is not the session's conversation.
   async function readPlanUsage(sessionKey) {
     for (const [key, provider] of providers) {
-      if (providerOwners.get(key)?.sessionKey === sessionKey &&
+      if (providerOwners.get(key)?.sessionKey === sessionKey && !transientReleases.has(key) &&
           !provider.isHelperProvider() && provider.isAvailable()) {
         return provider.readPlanUsage();
       }
@@ -1210,7 +1219,7 @@ export function createCodexAppServerProviderOwner({
   async function readSessionGoal(sessionKey, threadId) {
     if (!threadId) return { status: "available", threadId: "", goal: null };
     for (const [key, provider] of providers) {
-      if (providerOwners.get(key)?.sessionKey === sessionKey &&
+      if (providerOwners.get(key)?.sessionKey === sessionKey && !transientReleases.has(key) &&
           !provider.isHelperProvider() && provider.isAvailable()) {
         const result = await provider.readGoal(threadId);
         return { status: "available", threadId, goal: result.goal || null };
@@ -1222,7 +1231,10 @@ export function createCodexAppServerProviderOwner({
   const api = Object.freeze({
     providers, providerOwners, ownedRuntimes, lifecycleTasks, runtimeAcquisitions,
     withLifecycle, runtimeIsShared, rememberOwnedRuntime, forgetOwnedRuntime, attachRuntimeLifecycle,
-    acquireRuntime, createProvider, createNativeProvider, providerForSession, ensureSession, withTransientSession, retireAndCloseProvider, closeProvider, stopOwnedRuntime, stopCachedProvider, stopProvider, stopThreadBeforeRelease, readModelCatalog, invalidateRuntimes, recover,
+    acquireRuntime: options => { claimTransient(options?.providerKey); return acquireRuntime(options); },
+    createProvider: options => { claimTransient(options?.providerKey); return createProvider(options); },
+    providerForSession: context => { claimTransient(context.providerKey); return providerForSession(context); },
+    createNativeProvider, ensureSession, withTransientSession, retireAndCloseProvider, closeProvider, stopOwnedRuntime, stopCachedProvider, stopProvider, stopThreadBeforeRelease, readModelCatalog, invalidateRuntimes, recover,
     reportRecoveryEvent, pendingRecovery, readSessionGoal, readPlanUsage, stopCachedProvidersForSession, stopProvidersForProject, drainThreadEnvironmentTasks, stopPersistedRuntime, sessionExitProof,
     unsubscribeSessionThread, releasePersistedRuntimeProof, releasePreparedRuntimeProof, releaseSession,
     beginShutdown() {

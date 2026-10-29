@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { nativeConversationStoragePolicy } from "../src/server/conversation/nativeStorage.js";
 import { createCodexAppServerProviderOwner } from "../src/server/conversation/codexProviderOwner.js";
 import { createCodexConversationDriver } from "../src/server/conversation/providers/codexDriver.js";
@@ -39,12 +40,21 @@ async function eventually(check, message) {
 
 // One shared native process with independent provider connections, as the
 // real Codex app-server has per account and runtime scope.
-function codexStorageFixture(t, { idleMs = 20 } = {}) {
-  const runtimeDir = "/tmp/jskit-codex-storage-runtime";
-  const runtime = { running: false, starts: 0, stops: 0 };
+function codexStorageFixture(t, { idleMs = 20, listModelsMs = 0 } = {}) {
+  // Owned runtimes and sharing are process-wide, so each fixture has its own.
+  const runtimeDir = `/tmp/jskit-codex-storage-runtime-${randomUUID()}`;
+  const runtime = { running: false, starts: 0, stops: 0, reads: [] };
   const owner = createCodexAppServerProviderOwner({ transientIdleMs: idleMs, providerFactory: () => ({
     isHelperProvider: () => false,
     isAvailable: () => runtime.running,
+    async currentRuntimeInfo() { return { runtimeDir }; },
+    async listModels() {
+      runtime.reads.push("catalogue");
+      await new Promise(resolve => setTimeout(resolve, listModelsMs));
+      return { running: runtime.running, data: [{ id: "gpt" }] };
+    },
+    async readGoal() { runtime.reads.push("goal"); return { goal: null }; },
+    async readPlanUsage() { runtime.reads.push("usage"); return { status: "available", windows: [] }; },
     async ensureAvailable() {
       if (!runtime.running) { runtime.running = true; runtime.starts += 1; }
       return { ok: true, runtime: { runtimeDir } };
@@ -173,4 +183,70 @@ test("OpenCode storage reads never stop a server a conversation still uses", asy
   await owner.release(open);
   assert.equal(server.running, false);
   assert.equal(server.starts, 1);
+});
+
+test("a catalogue read on a storage-started Codex process finishes before its release stops it", async t => {
+  const { owner, runtime, list } = codexStorageFixture(t, { listModelsMs: 60 });
+  await list("archived-1");
+  // The release timer fires during this read; the shared lifecycle holds it back.
+  const catalogue = await owner.readModelCatalog({
+    prepareProviderOptions: async () => ({ runtimeDir: owner.ownedRuntimes.values().next().value.runtimeDir }),
+    providerFactory: () => assert.fail("The running storage process should serve the catalogue.")
+  });
+  assert.equal(catalogue.running, true, "the release stopped Codex during the catalogue read");
+  await eventually(() => !runtime.running, "the storage process was not released after the catalogue read");
+  assert.equal(runtime.starts, 1);
+  assert.equal(runtime.stops, 1);
+});
+
+test("goal and plan-usage reads never use a provider a storage read borrowed", async t => {
+  const { owner, runtime, list } = codexStorageFixture(t, { idleMs: 200 });
+  await list("archived-1");
+  assert.deepEqual(await owner.readSessionGoal("archived-1", "thread-1"), { status: "unavailable", goal: null });
+  assert.deepEqual(await owner.readPlanUsage("archived-1"), { status: "unavailable", windows: [] });
+  assert.deepEqual(runtime.reads, []);
+});
+
+test("real use that reaches a storage-created provider directly keeps it", async t => {
+  const { owner, runtime, context, list } = codexStorageFixture(t);
+  for (const use of [
+    // Helper account checks read the provider without ensureSession.
+    id => owner.withLifecycle(() => owner.providerForSession(context(id))),
+    id => owner.acquireRuntime({ providerKey: `provider:${id}`, provider: owner.providers.get(`provider:${id}`),
+      providerOptions: context(id).providerOptions, operation: async () => {} }),
+    id => owner.createProvider({ providerKey: `provider:${id}`, providerOptions: context(id).providerOptions })
+  ]) {
+    const id = `archived-${randomUUID()}`;
+    await list(id);
+    const provider = owner.providers.get(`provider:${id}`);
+    await use(id);
+    await new Promise(resolve => setTimeout(resolve, 60));
+    assert.equal(owner.providers.get(`provider:${id}`), provider);
+  }
+  assert.equal(runtime.running, true);
+  assert.equal(runtime.stops, 0);
+});
+
+test("a storage read on a managed main thread's key leaves it to that thread", async t => {
+  const { owner, runtime, context, list } = codexStorageFixture(t);
+  const managed = context("archived-1");
+  managed.runOwner.runtimeLifecycle.managedThreadId = () => "main-thread";
+  await owner.withTransientSession(managed, async () => {});
+  await new Promise(resolve => setTimeout(resolve, 60));
+  assert.ok(owner.providers.get("provider:archived-1"));
+  assert.equal(runtime.stops, 0);
+  await list("archived-2");
+  await eventually(() => owner.providers.get("provider:archived-2") === undefined, "the borrowed provider was not released");
+  assert.equal(runtime.running, true, "a managed main thread still shares the process");
+});
+
+test("a conversation that starts after an OpenCode storage read keeps the server", async () => {
+  const { owner, server, list, conversation } = openCodeStorageFixture({ idleMs: 40 });
+  await list("archived-1");
+  const open = await conversation("open-session");
+  await new Promise(resolve => setTimeout(resolve, 80));
+  assert.equal(server.running, true, "the storage release stopped a server a conversation uses");
+  assert.equal(server.starts, 1);
+  await owner.release(open);
+  assert.equal(server.running, false);
 });
