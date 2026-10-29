@@ -41,6 +41,8 @@ test("the shared OpenCode server authenticates selected accounts and drains its 
   ] });
   assert.deepEqual(native.modelProviderIds, ["first", "second"]);
   assert.deepEqual(f.requests.map(({ url }) => url.pathname), ["/global/health", "/auth/first", "/auth/second"]);
+  // Requests without a directory reach the server's working directory, which a credential change reloads.
+  assert.deepEqual(native.client.instanceDirectories(), [f.config.workdir]);
   assert.notEqual(native.environment.OPENCODE_SERVER_PASSWORD, "obsolete-password");
   assert.equal(native.executionId, "owned-process");
   assert.deepEqual(native.attachArguments({ conversationId: "ses_one", directory: f.config.workdir }),

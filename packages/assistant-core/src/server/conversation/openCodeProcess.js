@@ -239,7 +239,8 @@ export async function createOpenCodeServerProcess({
   const baseUrl = `http://${OPENCODE_HOST}:${selectedPort}`;
   const password = randomBytes(32).toString("base64url");
   const environment = { ...env, OPENCODE_SERVER_USERNAME: "opencode", OPENCODE_SERVER_PASSWORD: password };
-  const client = createOpenCodeServerClient({ baseUrl, password, directory, fetchImpl, allowAttachmentDirectories });
+  const client = createOpenCodeServerClient({ baseUrl, password, directory, defaultDirectory: workdir, fetchImpl,
+    allowAttachmentDirectories });
   let native;
   let executionId;
   let closing = false;

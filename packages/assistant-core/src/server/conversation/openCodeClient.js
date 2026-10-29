@@ -298,11 +298,17 @@ function decodeOpenCodeEventData(value = "") {
   return parsedJson(first) ?? first;
 }
 
+// OpenCode loads one instance per directory and keeps it, with the credentials it
+// read, until that directory is disposed. Every client derived from one server
+// shares the record of the directories it has addressed; `defaultDirectory` is
+// the server's working directory, which requests without a directory reach.
 function createOpenCodeServerClient({
   allowAttachmentDirectories = false,
   baseUrl = "",
+  defaultDirectory = "",
   directory = "",
   fetchImpl = globalThis.fetch,
+  instances = { addressed: new Map(), sequence: 0 },
   password = "",
   username = "opencode"
 } = {}) {
@@ -315,6 +321,17 @@ function createOpenCodeServerClient({
   }
   const authorization = `Basic ${Buffer.from(`${text(username) || "opencode"}:${String(password)}`).toString("base64")}`;
   const scopedDirectory = text(directory);
+
+  function instanceDirectory(requestDirectory = scopedDirectory) {
+    const value = text(requestDirectory) || text(defaultDirectory);
+    return value ? path.resolve(value) : "";
+  }
+
+  function addressInstance(requestPath, requestDirectory) {
+    // Global routes and disposal itself load no directory instance.
+    const instance = /^\/(?:global|instance)\//u.test(requestPath) ? "" : instanceDirectory(requestDirectory);
+    if (instance) instances.addressed.set(instance, ++instances.sequence);
+  }
 
   function requestHeaders(accept = "application/json", body = undefined, directory = scopedDirectory) {
     return {
@@ -331,6 +348,7 @@ function createOpenCodeServerClient({
     limitBytes = OPENCODE_RESPONSE_LIMIT_BYTES,
     signal
   } = {}) {
+    addressInstance(requestPath, directory);
     const response = await fetchImpl(new URL(requestPath, origin), {
       body: body === undefined ? undefined : JSON.stringify(body),
       headers: requestHeaders("application/json", body, directory),
@@ -381,6 +399,7 @@ function createOpenCodeServerClient({
 
   async function *events(sessionId = "", { onReady = null, signal } = {}) {
     const requestPath = "/event";
+    addressInstance(requestPath, scopedDirectory);
     const response = await fetchImpl(new URL(requestPath, origin), {
       headers: requestHeaders("text/event-stream"),
       method: "GET",
@@ -550,6 +569,15 @@ function createOpenCodeServerClient({
       if (!text(messageId)) throw new TypeError("OpenCode message deletion requires a message id.");
       return request("DELETE", stableSessionPath(sessionId, `/message/${encodeURIComponent(text(messageId))}`), { signal });
     },
+    // The next request to this client's directory loads a new instance, which
+    // reads the server's current credentials. A turn in flight there is aborted.
+    async disposeInstance({ signal } = {}) {
+      const instance = instanceDirectory();
+      const sequence = instances.sequence;
+      await request("POST", "/instance/dispose", { signal });
+      // A request that reached the directory during disposal may have loaded it again.
+      if (instance && (instances.addressed.get(instance) ?? 0) <= sequence) instances.addressed.delete(instance);
+    },
     events,
     forDirectory(nextDirectory = "") {
       const normalizedDirectory = text(nextDirectory);
@@ -559,11 +587,17 @@ function createOpenCodeServerClient({
       return createOpenCodeServerClient({
         allowAttachmentDirectories,
         baseUrl: origin.toString(),
+        defaultDirectory,
         directory: normalizedDirectory,
         fetchImpl,
+        instances,
         password,
         username
       });
+    },
+    // Absolute directories whose loaded instances may hold older credentials.
+    instanceDirectories() {
+      return [...instances.addressed.keys()];
     },
     async health({ signal } = {}) {
       return request("GET", "/global/health", { signal });

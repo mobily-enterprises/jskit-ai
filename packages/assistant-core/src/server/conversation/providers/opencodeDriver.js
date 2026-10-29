@@ -490,13 +490,15 @@ export function createOpenCodeConversationDriver({ connections, host = {}, limit
           const start = host.opencode
             ? async () => facilities.runtime.startPreparedProcess(await facilities.prepareServer())
             : () => facilities.start({ signal, connection });
+          // A managed host's saved connections reach its running server in place.
+          const savedConnections = host.opencode ? async () => (await facilities.prepareServer()).connections : null;
           if (!native) {
             native = await facilities.runtime.acquire(binding.directory, async () => {
-              const shared = await facilities.runtime.ensure(facilities.selected, start);
+              const shared = await facilities.runtime.ensure(facilities.selected, start, savedConnections);
               return { key: binding.directory, workdir: binding.workdir, upstreamSessionId: binding.sessionId,
                 abortController: new AbortController(), server: openCodeServerForDirectory(shared.server, binding.workdir) };
             });
-          } else await facilities.runtime.ensure(facilities.selected, start);
+          } else await facilities.runtime.ensure(facilities.selected, start, savedConnections);
           signal.throwIfAborted();
           await updateBinding({ executionId: native.server.executionId, processDirectory: native.server.privateRoot || "" });
           const catalogue = await native.server.client.providers({ signal });

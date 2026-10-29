@@ -333,6 +333,21 @@ restoration. Failed deferred changes expose the native paused goal and emit a
 settings failure diagnostic. Neither operation sends another user message or
 clears a goal.
 
+An OpenCode connection change (connecting, replacing or removing a key) stops
+and waits on nothing either, and keeps the one shared server. OpenCode reads
+credentials into each directory's native instance and keeps them until the
+instance is disposed, so after the host saves the change the owner writes the
+saved keys to the running server, removes removed ones, and reloads every
+directory the server has loaded once it has no turn in flight: an idle directory
+at once, a busy one when its last turn ends, which therefore finishes on the
+credentials it started with. New work in a directory awaiting its reload waits
+for it instead of starting on the previous credentials; a steer joins the
+running turn. An acquisition that finds a changed key applies the same update
+from the host's saved connections, never from its own possibly older copy. A
+turn whose provider was removed ends as a credential failure, "`<provider>`
+isn't connected. Connect it again, then send your message again." An open native
+terminal still refuses the change before it is saved.
+
 An OpenCode process acquired for helpers can exist before the main conversation
 has a native ID. Stopping its idle main turn is a no-op; session closure still
 drains owned helpers and releases the process without interrupting peer sessions.

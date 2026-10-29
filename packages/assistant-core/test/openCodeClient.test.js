@@ -32,6 +32,37 @@ test("OpenCode directory readiness uses the same authenticated directory as nati
   assert.equal(requests[1].signal, stopSignal);
 });
 
+test("OpenCode clients record the directories the server has loaded and reload one directory at a time", async () => {
+  const requests = [];
+  let duringDispose = null;
+  const root = createOpenCodeServerClient({ baseUrl: "http://127.0.0.1:4096", defaultDirectory: "/work/server",
+    fetchImpl: async (url, init) => {
+      const pathname = new URL(url).pathname;
+      requests.push([init.method, pathname, init.headers["x-opencode-directory"] || ""]);
+      if (pathname === "/instance/dispose") await duringDispose?.();
+      return jsonResponse(pathname === "/path" ? { directory: "/work/selected" } : true);
+    } });
+  const selected = root.forDirectory("/work/selected/");
+  const other = root.forDirectory("/work/other");
+  await root.health();
+  assert.deepEqual(root.instanceDirectories(), [], "Global routes load no directory.");
+  await selected.prepareDirectory();
+  await root.sessionStatus("ses_one");
+  await other.prepareDirectory();
+  assert.deepEqual(root.instanceDirectories(), ["/work/selected", "/work/server", "/work/other"]);
+  await selected.disposeInstance();
+  assert.deepEqual(requests.at(-1), ["POST", "/instance/dispose", "/work/selected/"]);
+  assert.deepEqual(other.instanceDirectories(), ["/work/server", "/work/other"]);
+  // A request that reaches the directory during disposal keeps it recorded.
+  duringDispose = () => other.prepareDirectory();
+  await other.disposeInstance();
+  assert.deepEqual(root.instanceDirectories(), ["/work/server", "/work/other"]);
+  duringDispose = null;
+  await root.disposeInstance();
+  assert.deepEqual(requests.at(-1), ["POST", "/instance/dispose", ""]);
+  assert.deepEqual(root.instanceDirectories(), ["/work/other"]);
+});
+
 test("OpenCode directory readiness rejects cancellation and missing native confirmation", async () => {
   const client = createOpenCodeServerClient({ baseUrl: "http://127.0.0.1:4096",
     fetchImpl: async () => jsonResponse({ healthy: true }) });

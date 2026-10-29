@@ -183,15 +183,9 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope, storageI
   let sharedProcessStop = null;
   let failedStartup = null;
   let closed = false;
-  let connectionChanging = false;
+  let connectionUpdate = Promise.resolve();
   let storageReads = 0;
   let storageIdle = null;
-
-  function requireConnectionAvailable() {
-    if (connectionChanging) throw Object.assign(new Error("OpenCode is changing a connection. Retry after the connection change finishes."), {
-      code: "assistant_opencode_connection_changing", statusCode: 409
-    });
-  }
   const bindingScopes = new Map();
   let registryPath = "";
   let bindingWrite = Promise.resolve();
@@ -240,27 +234,160 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope, storageI
     }
   }
 
-  async function ensure(selected, start) {
-    requireConnectionAvailable();
+  // A credential change reaches a native directory when OpenCode reloads that
+  // directory's instance. An idle directory reloads at once; one with a turn in
+  // flight reloads when its last turn there ends. New work in a directory waits
+  // for its reload, so it never starts on credentials the server no longer holds.
+  function directoryState(shared, workdir) {
+    const directory = path.resolve(workdir);
+    let state = shared.directories.get(directory);
+    if (!state) {
+      state = { directory, generation: shared.generation, turns: 0, reload: null, idle: null };
+      shared.directories.set(directory, state);
+    }
+    return state;
+  }
+
+  function directoryCurrent(workdir) {
+    const state = sharedProcess && text(workdir) ? sharedProcess.directories.get(path.resolve(workdir)) : null;
+    return !state || (!state.reload && state.generation === sharedProcess.generation);
+  }
+
+  function reloadDirectory(shared, state) {
+    if (state.reload || state.generation === shared.generation) return state.reload;
+    state.reload = (async () => {
+      try {
+        while (state.generation < shared.generation) {
+          const generation = shared.generation;
+          await shared.server.client.forDirectory(state.directory).disposeInstance();
+          state.generation = generation;
+        }
+      } finally {
+        state.reload = null;
+      }
+    })();
+    return state.reload;
+  }
+
+  async function waitForDirectory(workdir) {
+    const shared = sharedProcess;
+    const state = directoryState(shared, workdir);
+    try {
+      if (state.reload || !state.turns) await reloadDirectory(shared, state);
+      else await (state.idle ||= Promise.withResolvers()).promise;
+    } catch (error) {
+      if (sharedProcess !== shared) return;
+      throw Object.assign(new Error("OpenCode could not load the changed AI connection for this work. Send your message again."), {
+        cause: error, code: "assistant_opencode_connection_reload_failed", details: {}, statusCode: 503
+      });
+    }
+  }
+
+  async function currentDirectory(workdir) {
+    while (!directoryCurrent(workdir)) await waitForDirectory(workdir);
+  }
+
+  // Holds a directory's credentials for a turn in flight there.
+  function holdDirectory(workdir) {
+    const shared = sharedProcess;
+    if (!shared || !text(workdir)) return () => {};
+    const state = directoryState(shared, workdir);
+    state.turns += 1;
+    let held = true;
+    return () => {
+      if (!held) return;
+      held = false;
+      state.turns -= 1;
+      if (state.turns) return;
+      state.idle?.resolve();
+      state.idle = null;
+      if (sharedProcess === shared) reloadDirectory(shared, state)?.catch(() => {});
+    };
+  }
+
+  async function admitDirectory(workdir) {
+    while (!directoryCurrent(workdir)) await waitForDirectory(workdir);
+    return holdDirectory(workdir);
+  }
+
+  function reloadChangedCredentials(shared) {
+    for (const directory of shared.server.client.instanceDirectories?.() || []) directoryState(shared, directory);
+    shared.generation += 1;
+    for (const state of shared.directories.values()) {
+      if (!state.turns) reloadDirectory(shared, state)?.catch(() => {});
+    }
+  }
+
+  function connectionRecord(connection) {
+    return { canonicalUrl: connection.canonicalUrl, endpointCode: connection.endpointCode, fingerprint: connection.fingerprint };
+  }
+
+  function sameConnection(recorded, connection) {
+    return recorded?.canonicalUrl === connection.canonicalUrl && recorded.fingerprint === connection.fingerprint &&
+      recorded.endpointCode === connection.endpointCode;
+  }
+
+  // A key changes in place; a provider route belongs to the server's configuration.
+  function inPlaceConnection(recorded, connection) {
+    return Boolean(connection?.apiKey) && (recorded
+      ? recorded.canonicalUrl === connection.canonicalUrl && recorded.endpointCode === connection.endpointCode
+      : !text(connection.canonicalUrl));
+  }
+
+  // The running server takes the host's saved connections without stopping its
+  // turns. Reading them inside this queue applies the newest saved state last.
+  function updateConnections(readConnections) {
+    const update = connectionUpdate.then(async () => {
+      const shared = sharedProcess;
+      if (!shared) return;
+      shared.connectionsCurrent = false;
+      let changed = false;
+      try {
+        const saved = new Map((await readConnections()).map(connection => [connection.modelProviderId, connection]));
+        for (const [providerId, connection] of saved) {
+          const recorded = shared.connections.get(providerId);
+          if (sameConnection(recorded, connection) || !inPlaceConnection(recorded, connection)) continue;
+          await shared.server.client.authenticateApiKey(providerId, connection.apiKey);
+          shared.connections.set(providerId, connectionRecord(connection));
+          changed = true;
+        }
+        for (const providerId of [...shared.connections.keys()]) {
+          if (saved.has(providerId)) continue;
+          await shared.server.client.removeAuthentication(providerId);
+          shared.connections.delete(providerId);
+          changed = true;
+        }
+        shared.connectionsCurrent = true;
+      } finally {
+        if (changed) reloadChangedCredentials(shared);
+      }
+    });
+    connectionUpdate = update.catch(() => {});
+    return update;
+  }
+
+  // `readConnections` returns the host's saved connections. Without it, a changed
+  // account needs a new server.
+  async function ensure(selected, start, readConnections = null) {
     await sharedProcessStop;
-    requireConnectionAvailable();
     if (failedStartup) await stop("opencode-startup-cleanup");
     if (sharedProcess) {
-      const currentConnection = sharedProcess.connections.get(selected?.modelProviderId);
-      if (!selected || (
-        currentConnection?.canonicalUrl === selected.canonicalUrl &&
-        currentConnection?.fingerprint === selected.fingerprint &&
-        currentConnection?.endpointCode === selected.endpointCode
-      )) {
+      const recorded = sharedProcess.connections.get(selected?.modelProviderId);
+      const current = !selected || sameConnection(recorded, selected);
+      if (current || (readConnections && inPlaceConnection(recorded, selected))) {
         const probe = AbortSignal.timeout(1_000);
+        let healthy = false;
         try {
           await sharedProcess.server.client.health({ signal: probe });
-          return sharedProcess;
+          healthy = true;
         } catch (error) {
           // A slow probe is not proof that the shared server stopped working.
           if (probe.aborted) throw error;
-          requireConnectionAvailable();
           await stop("opencode-health-check-failed");
+        }
+        if (healthy && sharedProcess) {
+          if (readConnections && (!current || !sharedProcess.connectionsCurrent)) await updateConnections(readConnections);
+          return sharedProcess;
         }
       } else {
         await stop("opencode-connection-changed");
@@ -269,13 +396,11 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope, storageI
     if (sharedProcessStart) return sharedProcessStart;
     sharedProcessStart = Promise.resolve().then(async () => {
       const { connections, server } = await start();
-      sharedProcess = {
-        connections: new Map(connections.map(connection => [
-          connection.modelProviderId,
-          { canonicalUrl: connection.canonicalUrl, endpointCode: connection.endpointCode, fingerprint: connection.fingerprint }
-        ])),
-        server
+      const started = {
+        connections: new Map(connections.map(connection => [connection.modelProviderId, connectionRecord(connection)])),
+        connectionsCurrent: true, directories: new Map(), generation: 0, server
       };
+      sharedProcess = started;
       for (const target of processes.values()) {
         target.server = openCodeServerForDirectory(server, target.workdir);
         target.upstream = null;
@@ -360,7 +485,6 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope, storageI
   }
 
   async function acquire(key, prepare, onFailure = async () => {}) {
-    requireConnectionAvailable();
     const pending = processStarts.get(key);
     if (pending) return pending;
     const start = Promise.resolve().then(async () => {
@@ -486,31 +610,18 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope, storageI
     }
     const application = preparation.release;
     if (typeof input.publish === "function") {
-      requireConnectionAvailable();
-      connectionChanging = true;
-      try {
-        await Promise.all([...processStarts.values()].map(start => start.catch(() => null)));
-        await sharedProcessStart?.catch(() => null);
-        await application.assertConnectionChange?.();
-        const targets = [...processes.values()];
-        const providerId = text(input.modelProviderId);
-        if (!providerId || targets.some(target => text(target.modelProviderId) !== providerId || !application.ownsTarget(target))) {
-          throw Object.assign(new Error("Close the other OpenCode conversations that use this connection, then retry this connection change. The saved connection has not changed."), {
-            code: "assistant_opencode_connection_in_use", statusCode: 409
-          });
-        }
-        const results = [];
-        for (const target of targets) {
-          const proof = await releaseProcessTarget(target, { retainSharedProcess: true }, application);
-          if (proof?.exited === false || proof?.ok === false) throw new Error("OpenCode could not stop the selected conversation. Retry the connection change.");
-          results.push(proof);
-        }
-        if (sharedProcess || failedStartup) results.push(await stop("opencode-connection-changed"));
-        await input.publish();
-        return { closed: results.length, ok: true };
-      } finally {
-        connectionChanging = false;
+      if (typeof preparation.connections !== "function") {
+        throw new TypeError("OpenCode connection changes require the host's saved connections.");
       }
+      // Running turns, retained conversations and the shared server continue.
+      // The server takes the saved connections at once, and each directory
+      // reloads them as soon as it has no turn in flight.
+      await application.assertConnectionChange?.();
+      await input.publish();
+      const update = () => updateConnections(preparation.connections).catch(() => null);
+      void sharedProcessStart?.then(update, () => null);
+      await update();
+      return { closed: 0, ok: true };
     }
     await Promise.all([...processStarts.entries()]
       .filter(([key]) => key.includes("\0"))
@@ -559,7 +670,8 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope, storageI
     return acquire(prepared.key, async () => {
       const configured = await prepared.configure();
       const shared = await ensure(prepared.connection,
-        async () => startPreparedProcess(await configured.prepareServer())).catch(prepared.failure);
+        async () => startPreparedProcess(await configured.prepareServer()),
+        async () => (await configured.prepareServer()).connections).catch(prepared.failure);
       configured.target.server = shared.server;
       return targetFor(prepared.key, configured.target);
     }, prepared.onFailure).catch(prepared.failure);
@@ -572,13 +684,18 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope, storageI
 
   async function runPreparedRenewalTurn(preparation) {
     const acquired = await acquirePrepared(await preparation.process());
-    const target = await ensureOpenCodeSession(acquired, preparation.session());
-    const turn = preparation.turn(target);
-    const result = await runOpenCodeConversationTurn(target.server.client, target.upstreamSessionId, turn.input, {
-      ...turn.options,
-      ...(turn.release ? { close: () => releaseProcessTarget(target, {}, turn.release) } : {})
-    });
-    return turn.completeResult(result);
+    const releaseDirectory = await admitDirectory(acquired.workdir);
+    try {
+      const target = await ensureOpenCodeSession(acquired, preparation.session());
+      const turn = preparation.turn(target);
+      const result = await runOpenCodeConversationTurn(target.server.client, target.upstreamSessionId, turn.input, {
+        ...turn.options,
+        ...(turn.release ? { close: () => releaseProcessTarget(target, {}, turn.release) } : {})
+      });
+      return turn.completeResult(result);
+    } finally {
+      releaseDirectory();
+    }
   }
 
   async function createPreparedConversation(prepared) {
@@ -596,6 +713,7 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope, storageI
       throw selection.profileChanged();
     }
     if (!conversationId && !selection.createIfMissing) throw selection.identityRequired();
+    if (!previous?.active) await currentDirectory(target.workdir);
     const selected = await selectConversation(prepared.key, target, conversationId, selection.input, selection.registration);
     return { ...selected, executionProfile: prepared.executionProfile, target };
   }
@@ -843,12 +961,15 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope, storageI
         deliveryMode: "steer"
       };
     }
+    // A new native turn starts only on its directory's current credentials.
+    while (!tracked.active && !directoryCurrent(target.workdir)) await waitForDirectory(target.workdir);
     if (tracked.active) {
       throw Object.assign(new Error("This conversation is still working."), {
         code: "assistant_opencode_conversation_busy", details: {}, statusCode: 409
       });
     }
     tracked.active = true;
+    const releaseDirectory = holdDirectory(target.workdir);
     tracked.error = null;
     tracked.interrupted = false;
     const turnAbort = new AbortController();
@@ -875,10 +996,14 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope, storageI
         beforeDispatch: options.beforeDispatch
       });
     } catch (error) {
-      await events.close();
-      tracked.error = error;
-      if (tracked.promptAttempted) await stopUnobservedSession(observedTarget, conversationId);
-      tracked.active = false;
+      try {
+        await events.close();
+        tracked.error = error;
+        if (tracked.promptAttempted) await stopUnobservedSession(observedTarget, conversationId);
+        tracked.active = false;
+      } finally {
+        releaseDirectory();
+      }
       throw error;
     }
     tracked.inputMessageId = text(admitted.id);
@@ -905,6 +1030,7 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope, storageI
       }
       return result;
     })();
+    void tracked.completion.then(releaseDirectory, releaseDirectory);
     // Keep a failed admitted turn observable to the client's conversation reads.
     void tracked.completion.catch((error) => {
       if (tracked.abortController === turnAbort) tracked.error = error;
@@ -1141,6 +1267,7 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope, storageI
     try {
       const preparation = await application.prepare({ overwrite: !currentMonitor, threadId: currentThreadId });
       const preparedTarget = preparation.process ? await acquirePrepared(preparation.process) : preparation.target;
+      if (!monitors.get(key)) await currentDirectory(preparedTarget.workdir);
       target = await ensureOpenCodeSession(preparedTarget, preparation.session);
       currentThreadId = target.upstreamSessionId;
       if (startingTurn) {
@@ -1170,6 +1297,16 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope, storageI
           // This is R's failure, not a rejected or attempted native B input.
           return { failure: { error, attempted: false, threadId: currentThreadId,
             turn: openCodeTurnSnapshot(turns.get(key), currentThreadId) } };
+        }
+      }
+      // A new native turn starts only on its directory's current credentials;
+      // the wait, if any, is for that directory's own running turns.
+      while (!currentMonitor && !directoryCurrent(target.workdir)) {
+        await waitForDirectory(target.workdir);
+        currentMonitor = monitors.get(key);
+        if (currentMonitor && !turns.get(key)?.active) {
+          await currentMonitor;
+          currentMonitor = monitors.get(key);
         }
       }
       admission = Promise.withResolvers();
@@ -1397,6 +1534,13 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope, storageI
     return monitor;
   }
 
+  // A removed connection's models are gone from its reloaded directory.
+  function disconnectedProviderFailure(failure) {
+    const providerId = /\bModel not found: ([^/\s]+)\//u.exec(failure)?.[1];
+    return providerId && sharedProcess && !sharedProcess.connections.has(providerId)
+      ? `${providerId} isn't connected. Connect it again, then send your message again.` : "";
+  }
+
   function beginMonitor(key, target, turn, {
     observe, observation, eventReady, readiness, finalResponse,
     writeRun, projectMessages, completeResult, onRetired
@@ -1411,6 +1555,7 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope, storageI
       registeredTarget.upstreamSessionId === target.upstreamSessionId ? registeredTarget : null;
     const finalAssistantResultProcess = finalAssistantResultTarget ? sharedProcess : null;
     turns.set(key, turn);
+    const releaseDirectory = holdDirectory(target.workdir);
     const signal = AbortSignal.any([target.abortController.signal, turn.abortController.signal]);
     const monitor = Promise.resolve().then(async () => {
       const events = observation
@@ -1478,7 +1623,9 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope, storageI
             failure = "OpenCode finished without a user-facing final response. Please send your message again.";
             finalState = "failed";
           } else if (failure) {
-            credentialFailure = openCodeCredentialFailure(failure);
+            const disconnected = disconnectedProviderFailure(failure);
+            failure = disconnected || failure;
+            credentialFailure = Boolean(disconnected) || openCodeCredentialFailure(failure);
             finalState = "failed";
           } else if (turn.interruptRequested) {
             finalState = "interrupted";
@@ -1498,7 +1645,9 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope, storageI
         } else {
           const cause = signal.aborted ? signal.reason : error;
           failure = text(cause?.message) || "OpenCode turn failed.";
-          credentialFailure = openCodeCredentialFailure(failure);
+          const disconnected = disconnectedProviderFailure(failure);
+          failure = disconnected || failure;
+          credentialFailure = Boolean(disconnected) || openCodeCredentialFailure(failure);
           providerApiFailure = openCodeProviderApiFailure(cause);
           finalState = target.abortController.signal.aborted
             ? "cancelled"
@@ -1539,6 +1688,7 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope, storageI
       if (monitors.get(key) === monitor) {
         monitors.delete(key);
       }
+      releaseDirectory();
       onRetired();
     });
     monitors.set(key, monitor);
@@ -1746,6 +1896,8 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope, storageI
 
   async function ensurePreparedTerminal(preparation) {
     const target = await acquirePreparedTerminal(preparation);
+    // The native terminal starts its own turns there.
+    await currentDirectory(target.workdir);
     return ensureOpenCodeSession(target, preparation.session());
   }
 

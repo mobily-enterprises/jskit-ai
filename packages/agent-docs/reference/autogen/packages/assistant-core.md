@@ -958,7 +958,7 @@ Exports
 - `retireOpenCodeConversationHistory(storageClient, controlClient, binding, options = {})`
 - `openCodeAssistantMessageText(message = {})`
 - `OPENCODE_RESPONSE_LIMIT_BYTES`
-- `createOpenCodeServerClient({ allowAttachmentDirectories = false, baseUrl = "", directory = "", fetchImpl = globalThis.fetch, password = "", username = "opencode" } = {})`
+- `createOpenCodeServerClient({ allowAttachmentDirectories = false, baseUrl = "", defaultDirectory = "", directory = "", fetchImpl = globalThis.fetch, instances = { addressed: new Map(), sequence: 0 }, password = "", username = "opencode" } = {})`
 - `readBoundedResponse(response, limitBytes = OPENCODE_RESPONSE_LIMIT_BYTES)`
 Local functions
 - `record(value)`

@@ -2963,16 +2963,32 @@ native work running; failed stop or final persistence remains retryable. Recover
 uses the recorded native owner after reopening and never replays the request.
 Applications using the common runtime do not supply Codex recovery callbacks.
 
-OpenCode provider credentials are cached for a shared server lifetime. The
-application's private `publish` operation enters that same owner's acquisition
-fence after validating the selected provider. Pending starts drain before the
-owner checks all consumers. Another provider, an unowned driver target or an
-unconfirmed native terminal refuses publication before stopping work; the
-previous saved credential stays available. When only owned selected users remain,
-the original cleanup and verified server exit retire the native cache before
-publishing. New acquisitions refuse during this interval and can retry afterwards.
-The application supplies terminal inventory from its existing PTY owner; no
-second process owner or credential refresh proxy is involved.
+OpenCode reads provider credentials into each directory's native instance and
+keeps them until that instance is disposed. An OpenCode connection change
+(connecting, replacing or removing a key) never stops, kills or waits for running
+turns, retained conversations or the shared server. After the application's
+private `publish` operation saves the change, the owner reads the host's saved
+connections from the invalidation preparation's `connections()`, writes each
+changed key to the running server (`PUT /auth/{provider}`), removes each removed
+one, and returns `{ closed: 0, ok: true }`. Directories with no turn in flight
+reload at once (`POST /instance/dispose`). A directory with a turn in flight
+reloads when its last turn there ends, so that turn finishes on the credentials
+it started with. New work in a directory still awaiting its reload (a new main,
+temporary or renewal turn, or a native terminal) waits for that reload and so
+never starts on credentials the server no longer holds; the only wait is that
+directory's own running turn, and a steer joins it. The server client records
+every directory it has loaded (`instanceDirectories()`), so a directory that
+only served storage reads reloads too, and `disposeInstance()` reloads one
+directory. `ensure(selected, start, readConnections)` applies the same update
+when an acquisition finds a changed key. It reads the saved connections instead
+of trusting the caller's, so a preparation resolved before the change cannot
+restore an older key. Without `readConnections`, or when a provider's route
+changes, the shared server is replaced as before. A turn whose provider was
+removed ends as a credential failure with "`<provider>` isn't connected. Connect
+it again, then send your message again." An unconfirmed native terminal still
+refuses the change before publication through the application's
+`assertConnectionChange`; no second process owner or credential refresh proxy is
+involved.
 
 An application's selected provider credential change uses the existing owner's
 `invalidateRuntimes({ modelProviderId, includeOwned, toolHomeSource })` branch.
