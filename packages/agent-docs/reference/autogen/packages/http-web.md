@@ -511,6 +511,8 @@ Local functions
 - `normalizeRealtimeOptions(value = {})`
 - `hasRealtimeEventConfig(value = {})`
 - `toQueryKeyList(value)`
+- `refetchAfterCurrentRead(queryClient, query)`
+- `refreshQueriesWithoutCancelling(queryClient, queryKey)`
 
 ### `src/client/composables/useScopeRuntime.js`
 Exports

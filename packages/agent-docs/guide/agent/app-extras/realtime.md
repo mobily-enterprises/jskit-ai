@@ -34,6 +34,13 @@ with `defineCrudJsonApiFeature({ realtimeAudience: "all_users" })`.
 Client features register listeners through `@jskit-ai/realtime`. Keep query
 invalidation close to the resource that owns the query keys.
 
+Realtime invalidation from `useRealtimeQueryInvalidation()`, or a read
+composable's `realtime` option, marks matching queries stale and reads again
+only the active ones. It never cancels a read in flight, because the server
+still runs a cancelled request in full. A query that is reading is read once
+more after that read settles, and further events join that read, so a burst of
+events costs at most two reads per query.
+
 `useRealtimeEvent()` follows its Vue effect scope. Ordinary component listeners
 detach when that component unmounts. A listener created inside an application-owned
 detached scope remains active after its original screen unmounts and detaches when
@@ -54,10 +61,19 @@ audience contributor is registered, when a target room is a user or workspace
 room it could join on revalidation. Other sockets are not checked for that
 publish. Sockets whose authentication requests are identical, such as tabs of
 one browser, share one `authenticateRequest()` call within a publish or a
-30-second pass; nothing is reused from one publish or pass to the next. Revoked,
+30-second pass, and sockets of one actor share one lookup of their contributed
+rooms; nothing is reused from one publish or pass to the next. Revoked,
 expired, or changed actors are disconnected by the first publish that could
 reach them or the next 30-second check. Authentication lookup errors fail
 closed.
+
+Revalidation calls `authenticateRequest(request, { syncProfile: false })`: it
+asks only who is signed in, so the local, OIDC and Supabase providers read the
+existing app profile with `findByIdentity()` instead of synchronizing it and
+running the profile lifecycle, such as workspace provisioning. A login whose app
+profile does not exist is not signed in for that check. The connection
+handshake still authenticates normally. A custom auth service may ignore the
+option and answer as it would for any request.
 
 Packages that know which scopes an actor belongs to contribute them through
 `runtime.realtime.registerAudienceContributor({ id, resolveActorScopes })` during

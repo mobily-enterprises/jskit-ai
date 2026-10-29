@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { QueryClient, VueQueryPlugin } from "@tanstack/vue-query";
+import { QueryClient, QueryObserver, VueQueryPlugin } from "@tanstack/vue-query";
 import { createSSRApp, h } from "vue";
 import { renderToString } from "vue/server-renderer";
 
@@ -16,7 +16,8 @@ import {
 } from "../src/client/lib/httpClient.js";
 import { buildListRequestOptions, useListCore } from "../src/client/composables/runtime/useListCore.js";
 import {
-  resolveOperationRealtimeOptions
+  resolveOperationRealtimeOptions,
+  useRealtimeQueryInvalidation
 } from "../src/client/composables/useRealtimeQueryInvalidation.js";
 
 test("endpoint read request options include transport only when provided", () => {
@@ -250,9 +251,61 @@ test("endpoint resources invalidate their query key from configured realtime eve
 
   assert.deepEqual(invalidations, [
     {
-      queryKey: ["today-workout-detail", "/api/today/workouts/2026-05-06"]
+      queryKey: ["today-workout-detail", "/api/today/workouts/2026-05-06"],
+      refetchType: "none"
     }
   ]);
+});
+
+test("realtime bursts never cancel a read in flight and read once more after it", async (t) => {
+  const queryClient = new QueryClient();
+  const queryKey = ["records"];
+  // Each read stays open until the test answers it.
+  const reads = [];
+  const read = ({ signal }) => new Promise((resolve) => reads.push({ signal, resolve }));
+  const settle = () => new Promise((resolve) => setImmediate(resolve));
+  const socketHandlers = new Map();
+  const socket = {
+    on(eventName, handler) {
+      socketHandlers.set(eventName, handler);
+    },
+    off() {}
+  };
+  const app = createSSRApp({
+    setup() {
+      useRealtimeQueryInvalidation({ event: "records.changed", queryKey });
+      return () => h("div");
+    }
+  });
+  app.use(VueQueryPlugin, { queryClient });
+  app.provide("jskit.realtime.runtime.client.socket", socket);
+  await renderToString(app);
+  // A screen showing the records keeps the query active.
+  const screen = new QueryObserver(queryClient, { queryKey, queryFn: read });
+  t.after(screen.subscribe(() => {}));
+  reads[0].resolve("first");
+  await settle();
+
+  const changed = socketHandlers.get("records.changed");
+  changed({});
+  await settle();
+  assert.equal(reads.length, 2);
+
+  changed({});
+  changed({});
+  changed({});
+  await settle();
+  assert.equal(reads.length, 2, "Events during a read join it instead of cancelling it");
+
+  reads[1].resolve("second");
+  await settle();
+  assert.equal(reads.length, 3, "One more read picks up changes made during the first");
+  reads[2].resolve("third");
+  await settle();
+
+  assert.equal(reads.length, 3);
+  assert.equal(reads.some((entry) => entry.signal.aborted), false);
+  assert.equal(queryClient.getQueryData(queryKey), "third");
 });
 
 test("endpoint resource reads attach request recovery metadata to query options", async () => {

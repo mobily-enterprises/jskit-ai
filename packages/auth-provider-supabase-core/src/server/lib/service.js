@@ -312,7 +312,7 @@ function createService(options) {
     }
   }
 
-  async function verifyAccessTokenViaSupabase(accessToken) {
+  async function verifyAccessTokenViaSupabase(accessToken, profileOptions = {}) {
     const supabase = getSupabaseClient();
 
     try {
@@ -329,7 +329,7 @@ function createService(options) {
         return { status: "invalid" };
       }
 
-      const profile = await syncProfileFromSupabaseUser(response.data.user, response.data.user.email);
+      const profile = await syncProfileFromSupabaseUser(response.data.user, response.data.user.email, profileOptions);
       return {
         status: "valid",
         profile
@@ -624,7 +624,12 @@ function createService(options) {
     };
   }
 
-  async function syncProfileMirror(nextProfile) {
+  // With syncProfile: false the caller asks only who is signed in, so the
+  // existing profile is read instead of synchronized.
+  async function syncProfileMirror(nextProfile, { syncProfile = true } = {}) {
+    if (!syncProfile) {
+      return findProfileByIdentity(nextProfile);
+    }
     try {
       const normalized = buildNormalizedIdentityProfile(nextProfile);
       const synchronizedProfile = await userProfileSyncService.syncIdentityProfile(normalized);
@@ -642,7 +647,7 @@ function createService(options) {
     }
   }
 
-  async function syncProfileFromSupabaseUser(supabaseUser, fallbackEmail) {
+  async function syncProfileFromSupabaseUser(supabaseUser, fallbackEmail, profileOptions = {}) {
     const supabaseUserId = normalizeProviderUserId(supabaseUser?.id);
     const email = normalizeEmail(supabaseUser?.email || fallbackEmail);
 
@@ -655,7 +660,7 @@ function createService(options) {
       authProviderUserSid: supabaseUserId,
       email,
       displayName: resolveDisplayName(supabaseUser, email)
-    });
+    }, profileOptions);
   }
 
   function buildActorFromProfile(profile) {
@@ -697,7 +702,7 @@ function createService(options) {
     return async (...args) => withActor(await operation(...args));
   }
 
-  async function syncProfileFromJwtClaims(claims) {
+  async function syncProfileFromJwtClaims(claims, { syncProfile = true } = {}) {
     const supabaseUserId = normalizeProviderUserId(claims?.sub);
     if (!supabaseUserId) {
       throw new AppError(401, "Token is missing subject claim.", { code: "auth.supabase.token.subjectMissing" });
@@ -707,6 +712,9 @@ function createService(options) {
       authProvider: authProviderId,
       authProviderUserSid: supabaseUserId
     });
+    if (!syncProfile) {
+      return existing;
+    }
     const emailFromToken = normalizeEmail(claims?.email || "");
 
     if (!emailFromToken) {
@@ -884,8 +892,12 @@ function createService(options) {
     resolveDevAuthSecurityStatus
   });
 
-  async function authenticateRequest(request) {
+  async function authenticateRequest(request, { syncProfile = true } = {}) {
     const { accessToken, refreshToken } = resolveRequestSessionTokens(request);
+    // Without sync, a login whose app profile does not exist yet is not signed in.
+    const signedIn = (profile, session = null) => (profile
+      ? withActor({ authenticated: true, profile, clearSession: false, session, transientFailure: false })
+      : { authenticated: false, clearSession: false, session: null, transientFailure: false });
 
     const devAuthResult = await authenticateDevAuthRequestFromCookies(request, { accessToken, refreshToken });
     if (devAuthResult) {
@@ -907,14 +919,7 @@ function createService(options) {
       const verification = await verifyAccessToken(accessToken);
 
       if (verification.status === "valid") {
-        const profile = await syncProfileFromJwtClaims(verification.payload);
-        return withActor({
-          authenticated: true,
-          profile,
-          clearSession: false,
-          session: null,
-          transientFailure: false
-        });
+        return signedIn(await syncProfileFromJwtClaims(verification.payload, { syncProfile }));
       }
 
       if (verification.status === "transient") {
@@ -927,15 +932,9 @@ function createService(options) {
       }
 
       if (verification.status === "invalid") {
-        const supabaseVerification = await verifyAccessTokenViaSupabase(accessToken);
+        const supabaseVerification = await verifyAccessTokenViaSupabase(accessToken, { syncProfile });
         if (supabaseVerification.status === "valid") {
-          return withActor({
-            authenticated: true,
-            profile: supabaseVerification.profile,
-            clearSession: false,
-            session: null,
-            transientFailure: false
-          });
+          return signedIn(supabaseVerification.profile);
         }
 
         if (supabaseVerification.status === "transient") {
@@ -1008,15 +1007,8 @@ function createService(options) {
       };
     }
 
-    const profile = await syncProfileFromSupabaseUser(refreshResponse.data.user, refreshResponse.data.user.email);
-
-    return withActor({
-      authenticated: true,
-      profile,
-      clearSession: false,
-      session: refreshResponse.data.session,
-      transientFailure: false
-    });
+    const profile = await syncProfileFromSupabaseUser(refreshResponse.data.user, refreshResponse.data.user.email, { syncProfile });
+    return signedIn(profile, refreshResponse.data.session);
   }
 
   function hasAccessTokenCookie(request) {

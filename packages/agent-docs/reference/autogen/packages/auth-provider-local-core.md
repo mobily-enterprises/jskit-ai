@@ -108,7 +108,7 @@ Local functions
 - `requireProfileResult(profile, methodName)`
 - `buildAuthPayload({ user, session, profileProjector, profileOptions = {} })`
 - `findExistingAppProfile(user, profileProjector)`
-- `buildSessionAuthPayload({ devAuth, profileProjector, request, session, user })`
+- `buildSessionAuthPayload({ devAuth, profileProjector, request, session, user, syncProfile = true })`
 - `buildAccessToken({ user, session, secret, ttlSeconds = ACCESS_TTL_SECONDS })`
 - `buildSessionPayload({ user, session, refreshToken, secret })`
 - `validatePasswordInput(password)`

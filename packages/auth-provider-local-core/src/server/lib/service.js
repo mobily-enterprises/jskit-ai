@@ -167,21 +167,26 @@ async function findExistingAppProfile(user, profileProjector) {
   }
   if (typeof profileProjector.findByIdentity !== "function") {
     throw new Error(
-      "auth.profile.projector.findByIdentity() is required for dev auth impersonation."
+      "auth.profile.projector.findByIdentity() is required for dev auth impersonation and profile lookups without sync."
     );
   }
   const profile = await profileProjector.findByIdentity(buildProfile(user));
   return profile ? requireProfileResult(profile, "findByIdentity") : null;
 }
 
-async function buildSessionAuthPayload({ devAuth, profileProjector, request, session, user }) {
-  if (!isDevAuthSession(session)) {
+// A dev session, or a caller that asks only who is signed in (syncProfile:
+// false), reads the existing app profile instead of synchronizing it.
+async function buildSessionAuthPayload({ devAuth, profileProjector, request, session, user, syncProfile = true }) {
+  const devSession = isDevAuthSession(session);
+  if (!devSession && syncProfile) {
     return buildAuthPayload({ user, session: null, profileProjector });
   }
-  try {
-    ensureDevAuthRuntimeAvailable(devAuth, request);
-  } catch {
-    return null;
+  if (devSession) {
+    try {
+      ensureDevAuthRuntimeAvailable(devAuth, request);
+    } catch {
+      return null;
+    }
   }
   const appProfile = await findExistingAppProfile(user, profileProjector);
   return profileProjector && !appProfile
@@ -507,7 +512,7 @@ function createLocalAuthService({
     });
   }
 
-  async function authenticateRequest(request) {
+  async function authenticateRequest(request, { syncProfile = true } = {}) {
     const cookies = safeRequestCookies(request);
     const accessToken = String(cookies[ACCESS_TOKEN_COOKIE] || "").trim();
     const refreshToken = String(cookies[REFRESH_TOKEN_COOKIE] || "").trim();
@@ -532,7 +537,8 @@ function createLocalAuthService({
             profileProjector,
             request,
             session: resolved.session,
-            user: resolved.user
+            user: resolved.user,
+            syncProfile
           });
           if (!authPayload) {
             return unauthenticatedAuthResult(true);
@@ -567,7 +573,8 @@ function createLocalAuthService({
       profileProjector,
       request,
       session: resolved.session,
-      user: resolved.user
+      user: resolved.user,
+      syncProfile
     });
     if (!authPayload) {
       return unauthenticatedAuthResult(true);

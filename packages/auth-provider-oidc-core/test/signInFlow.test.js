@@ -41,6 +41,29 @@ test("an app signs in through a self-registered client and keeps its own session
   assert.equal(signedOut.clearSession, true);
 });
 
+test("authentication without profile sync reads the users row and never writes it", async (t) => {
+  const issuer = await startMockIssuer();
+  const rp = await createRelyingParty({ issuer });
+  t.after(async () => {
+    await rp.close();
+    await issuer.close();
+  });
+  const { input, request } = await signInAtIssuer(rp);
+  const result = await rp.service.oauthComplete(input, request);
+  const signedIn = requestAt(APP_ORIGIN, { jskit_oidc_session: result.session.token });
+
+  await rp.knex("users").update({ display_name: "Renamed in the app" });
+  const checked = await rp.service.authenticateRequest(signedIn, { syncProfile: false });
+  assert.equal(checked.authenticated, true);
+  assert.equal(checked.actor.appUserId, "1");
+  assert.equal((await rp.knex("users").first("display_name")).display_name, "Renamed in the app");
+
+  await rp.knex("users").delete();
+  assert.equal((await rp.service.authenticateRequest(signedIn, { syncProfile: false })).authenticated, false);
+  assert.equal((await rp.knex("users").count({ count: "*" }))[0].count, 0);
+  assert.equal((await rp.service.authenticateRequest(signedIn)).authenticated, true, "Signing in syncs the row back");
+});
+
 test("a second sign-in reuses the origin's client and the same users row", async (t) => {
   const issuer = await startMockIssuer();
   const rp = await createRelyingParty({ issuer });

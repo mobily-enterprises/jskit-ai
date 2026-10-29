@@ -84,7 +84,8 @@ Exports
 - `createRealtimeDelivery({ io, database = null, logger, authService = null, audiences = null })`
 Local functions
 - `publicRealtimePayload(event)`
-- `createSharedAuthentication(authService)`
+- `sharedWithinPass(load, keyOf = (value) => value)`
+- `createPassChecks(authService, audiences)`
 
 ### `src/server/RealtimeProvider.js`
 Exports

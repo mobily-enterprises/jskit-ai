@@ -281,6 +281,54 @@ test("local login-as never invokes the mutating profile projector", async () => 
   assert.equal(syncCalls, 0);
 });
 
+test("local authentication without profile sync reads the existing profile", async () => {
+  const projectedProfile = {
+    id: "app-user-ada",
+    authProvider: "local",
+    authProviderUserSid: "",
+    displayName: "Ada",
+    email: "ada@example.com"
+  };
+  let existingProfile = projectedProfile;
+  let syncCalls = 0;
+  const { authService } = await createStartedApp({
+    profileProjector: {
+      async findByIdentity() {
+        return existingProfile;
+      },
+      async syncIdentityProfile(profile) {
+        syncCalls += 1;
+        return { ...projectedProfile, authProviderUserSid: profile.authProviderUserSid };
+      }
+    }
+  });
+  const registered = await authService.register({
+    displayName: "Ada",
+    email: "ada@example.com",
+    password: "correct horse battery staple"
+  });
+  const reply = createReplyFixture();
+  authService.writeSessionCookies(reply, registered.session);
+  const signedIn = createLocalAuthRequest({ cookies: reply.cookies });
+  const refreshOnly = createLocalAuthRequest({
+    cookies: { jskit_local_refresh_token: reply.cookies.jskit_local_refresh_token }
+  });
+  syncCalls = 0;
+
+  for (const request of [signedIn, refreshOnly]) {
+    const checked = await authService.authenticateRequest(request, { syncProfile: false });
+    assert.equal(checked.authenticated, true);
+    assert.equal(checked.actor.id, "app-user-ada");
+  }
+  assert.equal(syncCalls, 0);
+
+  existingProfile = null;
+  const unprojected = await authService.authenticateRequest(signedIn, { syncProfile: false });
+  assert.equal(unprojected.authenticated, false, "A login without an app profile is not signed in without sync");
+  assert.equal((await authService.authenticateRequest(signedIn)).actor.id, "app-user-ada");
+  assert.equal(syncCalls, 1);
+});
+
 test("local login-as rejects missing, disabled, and unprojected users", async () => {
   const { authService, backend } = await createStartedApp({
     env: devAuthEnv(),

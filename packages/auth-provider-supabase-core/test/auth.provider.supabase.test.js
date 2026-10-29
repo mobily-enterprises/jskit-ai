@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
+import { createServer } from "node:http";
+import { once } from "node:events";
 import test from "node:test";
+import * as jose from "jose";
 import * as authProviderSupabase from "../src/server/lib/index.js";
 import { createAccountFlows } from "../src/server/lib/accountFlows.js";
 import { createPasswordSecurityFlows } from "../src/server/lib/passwordSecurityFlows.js";
@@ -195,6 +198,54 @@ test("recovery sessions use recovery cookies and do not authenticate the app", a
     session: null,
     transientFailure: false
   });
+});
+
+test("authentication without profile sync reads the existing profile", async (t) => {
+  const { publicKey, privateKey } = await jose.generateKeyPair("ES256");
+  const jwk = { ...(await jose.exportJWK(publicKey)), kid: "test-key", alg: "ES256" };
+  const jwks = createServer((_request, response) => {
+    response.setHeader("content-type", "application/json");
+    response.end(JSON.stringify({ keys: [jwk] }));
+  });
+  jwks.listen(0, "127.0.0.1");
+  await once(jwks, "listening");
+  t.after(() => new Promise((resolve) => jwks.close(resolve)));
+  const supabaseUrl = `http://127.0.0.1:${jwks.address().port}`;
+  const accessToken = await new jose.SignJWT({ email: "ada@example.com" })
+    .setProtectedHeader({ alg: "ES256", kid: "test-key" })
+    .setIssuer(`${supabaseUrl}/auth/v1`)
+    .setAudience("authenticated")
+    .setSubject("supabase-user-1")
+    .setIssuedAt()
+    .setExpirationTime("5m")
+    .sign(privateKey);
+  const profile = { id: "7", email: "ada@example.com", displayName: "Ada", authProvider: "supabase", authProviderUserSid: "supabase-user-1" };
+  let existingProfile = profile;
+  let syncCalls = 0;
+  const authService = createServiceFixture({
+    authProvider: { id: "supabase", supabaseUrl, supabasePublishableKey: "publishable-key" },
+    userProfileSyncService: {
+      async findByIdentity() {
+        return existingProfile;
+      },
+      async syncIdentityProfile() {
+        syncCalls += 1;
+        return profile;
+      }
+    }
+  });
+  const request = { cookies: { sb_access_token: accessToken } };
+
+  const checked = await authService.authenticateRequest(request, { syncProfile: false });
+  assert.equal(checked.authenticated, true);
+  assert.equal(checked.actor.providerUserId, "supabase-user-1");
+  assert.equal(syncCalls, 0);
+
+  existingProfile = null;
+  const unprojected = await authService.authenticateRequest(request, { syncProfile: false });
+  assert.equal(unprojected.authenticated, false, "A login without an app profile is not signed in without sync");
+  assert.equal((await authService.authenticateRequest(request)).authenticated, true);
+  assert.equal(syncCalls, 1);
 });
 
 test("logout is local-only when no session cookies are present", async () => {

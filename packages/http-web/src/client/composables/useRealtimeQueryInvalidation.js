@@ -1,4 +1,4 @@
-import { computed, unref } from "vue";
+import { computed, nextTick, unref } from "vue";
 import { useQueryClient } from "@tanstack/vue-query";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { useRealtimeEvent } from "@jskit-ai/realtime/client/composables/useRealtimeEvent";
@@ -55,6 +55,41 @@ function toQueryKeyList(value) {
   return [Object.freeze([...resolved])];
 }
 
+// Realtime never cancels a read in flight: the browser would only drop its
+// response while the server still runs the request in full. A query that is
+// reading is read once more after that read settles, so a change made meanwhile
+// is still read, and events arriving before that read starts join it. A burst
+// of events therefore costs at most two reads per query.
+const followUpReads = new WeakMap();
+
+function refetchAfterCurrentRead(queryClient, query) {
+  if (followUpReads.has(query)) {
+    return followUpReads.get(query);
+  }
+  // Joins a read in flight; failures surface in the query's own state.
+  const read = () => queryClient.refetchQueries({ queryKey: query.queryKey, exact: true }, { cancelRefetch: false });
+  if (query.state.fetchStatus !== "fetching") {
+    return read();
+  }
+
+  const followUp = read().then(() => {
+    followUpReads.delete(query);
+    return read();
+  });
+  followUpReads.set(query, followUp);
+  return followUp;
+}
+
+// Marks every matching query stale, then reads again the ones on screen; the
+// others read when they are next used.
+async function refreshQueriesWithoutCancelling(queryClient, queryKey) {
+  await queryClient.invalidateQueries({ queryKey, refetchType: "none" });
+  // As TanStack's own invalidation does, read after reactive values settle.
+  await nextTick();
+  await Promise.all(queryClient.getQueryCache().findAll({ queryKey, type: "active" })
+    .map((query) => refetchAfterCurrentRead(queryClient, query)));
+}
+
 function useRealtimeQueryInvalidation({
   event = "",
   enabled = true,
@@ -77,9 +112,7 @@ function useRealtimeQueryInvalidation({
 
       const keys = toQueryKeyList(queryKey);
       for (const key of keys) {
-        await queryClient.invalidateQueries({
-          queryKey: key
-        });
+        await refreshQueriesWithoutCancelling(queryClient, key);
       }
     }
   });

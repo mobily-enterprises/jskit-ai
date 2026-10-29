@@ -13,16 +13,19 @@ const logger = { debug() {}, warn() {} };
 const arrival = (emitter, name) => once(emitter, name, { signal: AbortSignal.timeout(5_000) });
 
 // Real sockets whose session cookies name their actors. `checks` lists each
-// authentication's session cookie, so a test sees which sockets were checked.
+// authentication's session cookie, so a test sees which sockets were checked,
+// and `profileSyncs` those that asked the provider to sync the profile.
 async function signedInSockets(t, { audiences = null } = {}) {
   const httpServer = createServer();
   const io = createSocketIoServer({ httpServer });
   const sessions = new Map();
   const checks = [];
+  const profileSyncs = [];
   const authService = {
     realtime: { requireAuthentication: true },
-    async authenticateRequest(request) {
+    async authenticateRequest(request, { syncProfile = true } = {}) {
       checks.push(request.cookies.session);
+      if (syncProfile) profileSyncs.push(request.cookies.session);
       const id = sessions.get(request.cookies.session);
       return { authenticated: Boolean(id), actor: id ? { id } : null };
     }
@@ -41,6 +44,7 @@ async function signedInSockets(t, { audiences = null } = {}) {
   const url = `http://127.0.0.1:${httpServer.address().port}`;
   return {
     checks,
+    profileSyncs,
     sessions,
     io,
     publish: (audience, name = "item.changed") => delivery.handle({
@@ -215,15 +219,45 @@ test("membership changes and revoked logins take effect on the very next publish
   assert.equal(bob.received.length, received);
 });
 
+test("revalidation never syncs profiles, and one actor's logins share a room lookup", async (t) => {
+  let roomLookups = 0;
+  const audiences = createAudienceContributors();
+  audiences.register({
+    id: "test.memberships",
+    resolveActorScopes() {
+      roomLookups += 1;
+      return [{ kind: "workspace", id: 7 }];
+    }
+  });
+  const f = await signedInSockets(t, { audiences });
+  f.sessions.set("alice-laptop", "1").set("alice-phone", "1");
+  const laptop = await f.connect("alice-laptop");
+  const phone = await f.connect("alice-phone");
+  assert.deepEqual(f.profileSyncs.sort(), ["alice-laptop", "alice-phone"], "Connecting signs in as usual");
+
+  f.profileSyncs.length = 0;
+  roomLookups = 0;
+  const reached = [arrival(laptop.client, "item.changed"), arrival(phone.client, "item.changed")];
+  await f.publish({ workspaceId: 7 });
+  await Promise.all(reached);
+  assert.deepEqual(f.profileSyncs, []);
+  assert.equal(roomLookups, 1, "Both logins are Alice, so one publish looks up her rooms once");
+});
+
 test("idle socket sessions are revalidated without an application event, once per login", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const tab = () => ({ data: { actorId: "1" }, handshake: {}, disconnect() { this.connected = false; }, connected: true });
   const sockets = [tab(), tab()];
   const io = { emit() {}, to() {}, on() {}, off() {}, sockets: { sockets: new Map(sockets.map((socket, index) => [`s${index}`, socket])) } };
   let checks = 0;
+  let options = null;
   const delivery = createRealtimeDelivery({ io, logger, authService: {
     realtime: { requireAuthentication: true },
-    async authenticateRequest() { checks += 1; return { authenticated: false }; }
+    async authenticateRequest(_request, passOptions) {
+      checks += 1;
+      options = passOptions;
+      return { authenticated: false };
+    }
   } });
   t.after(() => delivery.stop());
   delivery.start();
@@ -231,6 +265,7 @@ test("idle socket sessions are revalidated without an application event, once pe
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(sockets.map((socket) => socket.connected), [false, false]);
   assert.equal(checks, 1, "Identical handshakes share one check per pass");
+  assert.deepEqual(options, { syncProfile: false });
 });
 
 test("delivery failures never reject a committed mutation and room unions emit once", async () => {

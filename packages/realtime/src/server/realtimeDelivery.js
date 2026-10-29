@@ -19,14 +19,27 @@ function publicRealtimePayload(event) {
   return Object.freeze({ ...(payload || {}), ...canonical });
 }
 
-// One check for all identical socket requests within one pass: the auth service
-// sees only the request, so they would get the same answer.
-function createSharedAuthentication(authService) {
-  const checks = new Map();
-  return (request) => {
-    const key = JSON.stringify(request);
-    if (!checks.has(key)) checks.set(key, (async () => authService.authenticateRequest(request))());
-    return checks.get(key);
+// One answer per question within one pass.
+function sharedWithinPass(load, keyOf = (value) => value) {
+  const answers = new Map();
+  return (value) => {
+    const key = keyOf(value);
+    if (!answers.has(key)) answers.set(key, (async () => load(value))());
+    return answers.get(key);
+  };
+}
+
+// The checks of one publish or 30-second pass. Identical socket requests share
+// one authentication (the auth service sees only the request), and sockets of
+// one actor share its contributed rooms. Revalidation asks only who is signed
+// in, so the provider reads the app profile instead of synchronizing it.
+function createPassChecks(authService, audiences) {
+  return {
+    authenticateRequest: sharedWithinPass(
+      (request) => authService.authenticateRequest(request, { syncProfile: false }),
+      JSON.stringify
+    ),
+    audiences: audiences && { resolveActorRooms: sharedWithinPass((actorId) => audiences.resolveActorRooms(actorId)) }
   };
 }
 
@@ -49,9 +62,14 @@ function createRealtimeDelivery({ io, database = null, logger, authService = nul
   let revalidationTimer = null;
   let stopped = false;
 
-  async function revalidate(socket, authenticateRequest) {
+  async function revalidate(socket, checks) {
     try {
-      return await revalidateSocket({ socket, authService, audiences, authenticateRequest });
+      return await revalidateSocket({
+        socket,
+        authService,
+        audiences: checks.audiences,
+        authenticateRequest: checks.authenticateRequest
+      });
     } catch (error) {
       socket.disconnect(true);
       logger.warn({ error: String(error?.message || error) }, "Realtime socket revalidation failed.");
@@ -68,10 +86,10 @@ function createRealtimeDelivery({ io, database = null, logger, authService = nul
   }
 
   async function deliverLocal({ eventName, payload, targets }) {
-    const authenticateRequest = createSharedAuthentication(authService);
+    const checks = createPassChecks(authService, audiences);
     await Promise.all(candidateSockets(targets).map(async (socket) => {
       try {
-        const actor = await revalidate(socket, authenticateRequest);
+        const actor = await revalidate(socket, checks);
         if (!socket.connected) return;
         if (!targets.broadcastAllClients && !targets.rooms.some((room) => socket.rooms.has(room))) return;
         if (typeof authService.realtime?.authorizeEvent === "function") {
@@ -99,8 +117,8 @@ function createRealtimeDelivery({ io, database = null, logger, authService = nul
   function scheduleRevalidation() {
     if (stopped) return;
     revalidationTimer = setTimeout(async () => {
-      const authenticateRequest = createSharedAuthentication(authService);
-      await Promise.all([...io.sockets.sockets.values()].map((socket) => revalidate(socket, authenticateRequest)));
+      const checks = createPassChecks(authService, audiences);
+      await Promise.all([...io.sockets.sockets.values()].map((socket) => revalidate(socket, checks)));
       scheduleRevalidation();
     }, 30_000);
     revalidationTimer.unref();

@@ -119,7 +119,7 @@ function createOidcAuthService({ config, store, issuer, profileProjector = null,
   async function existingProfile(identity) {
     if (!profileProjector) return null;
     if (typeof profileProjector.findByIdentity !== "function") {
-      throw new Error("auth.profile.projector.findByIdentity() is required for preview identity.");
+      throw new Error("auth.profile.projector.findByIdentity() is required for preview identity and profile lookups without sync.");
     }
     return profileProjector.findByIdentity(buildProfile(identity));
   }
@@ -273,17 +273,22 @@ function createOidcAuthService({ config, store, issuer, profileProjector = null,
     return token ? store.findActiveSessionByTokenHash(sha256(token)) : null;
   }
 
-  async function authenticateRequest(request) {
+  // A dev session, or a caller that asks only who is signed in (syncProfile:
+  // false), reads the existing app profile instead of synchronizing it.
+  async function authenticateRequest(request, { syncProfile = true } = {}) {
     const session = await sessionFromRequest(request);
     if (!session) return unauthenticated(hasSessionCookie(request));
     const identity = { sub: session.sub, email: session.email, displayName: session.displayName };
-    let result;
-    if (session.purpose === DEV_AUTH_SESSION_PURPOSE) {
+    const devSession = session.purpose === DEV_AUTH_SESSION_PURPOSE;
+    if (devSession) {
       try {
         ensureDevAuthRuntimeAvailable(config.devAuth, request);
       } catch {
         return unauthenticated(true);
       }
+    }
+    let result;
+    if (devSession || !syncProfile) {
       const appProfile = await existingProfile(identity);
       if (profileProjector && !appProfile) return unauthenticated(true);
       result = buildResult(identity, { appProfile });

@@ -9,6 +9,7 @@ runtime primitives from which applications assemble their own behavior.
 - `packages/http-runtime/src/client/index.js`
 - `packages/storage-runtime/src/server/providers/StorageProvider.js`
 - `packages/realtime/src/server/runtime.js`
+- `packages/http-web/src/client/composables/useRealtimeQueryInvalidation.js`
 - `packages/mobile-capacitor/src/client/runtime/mobileCapacitorRuntime.js`
 
 ## Public contract
@@ -36,6 +37,12 @@ With an authenticating `auth.service`, each publish reauthenticates, before
 sending, every socket that could receive it: all sockets for a broadcast, the
 target rooms' members otherwise, and every socket when a registered audience
 contributor could add a target user or workspace room. Identical socket
-requests share one check within that publish; no result outlives it. A revoked
-login or removed membership therefore stops the very next publish that would
-reach it, and a 30-second pass rechecks every socket.
+requests share one check, and one actor's sockets one room lookup, within that
+publish; no result outlives it. These checks read the existing app profile
+without synchronizing it. A revoked login or removed membership therefore stops
+the very next publish that would reach it, and a 30-second pass rechecks every
+socket.
+
+On the client, realtime invalidation never cancels a read in flight; a query
+that is reading is read once more after it settles, so a burst of events costs
+at most two reads per query.
