@@ -869,7 +869,17 @@ for (const status of ["uncertain", "pending", "accepted", "failed", "unrecognise
     assert.equal(restored.id, saved.messages[0].id);
     assert.deepEqual(restored.payload, saved.messages[0].payload);
     assert.equal((await f.sent()).length, 1, "restoration never dispatches a saved request");
-    assert.equal(await f.page.evaluate(() => window.savedBinding.runtime.value.canSubmit.value), !unconfirmed);
+    // The server is ready, so a different authored draft may proceed; only the
+    // restored uncertain words themselves stay blocked until inspection settles them.
+    assert.equal(await f.page.evaluate(() => window.savedBinding.runtime.value.canSubmit.value), true);
+    if (unconfirmed) {
+      assert.equal(await f.page.evaluate(() => {
+        const runtime = window.savedBinding.runtime.value;
+        runtime.draft.value = "Exact original saved words";
+        return runtime.canSubmit.value;
+      }), false, "the uncertain request's own words cannot be sent again");
+      await f.page.evaluate(draft => { window.savedBinding.runtime.value.draft.value = draft; }, saved.draft);
+    }
     if (unconfirmed) {
       const check = f.primary.getByRole("button", { name: "Retry delivery check", exact: true });
       try { await expect(check).toBeEnabled(); }
@@ -1698,7 +1708,11 @@ test("a voice preview cannot acknowledge sending or uncertain delivery and dedup
   const second = (await f.sent())[1].input.messageId;
   await preview(second, "An uncertain preview is not an acknowledgement.");
   await expect(f.primary.getByText("An uncertain preview is not an acknowledgement.", { exact: true })).toHaveCount(0);
-  await expect(f.primary.getByText("Vibe64", { exact: true })).toBeVisible();
+  // The uncertain notice stays attached to the user's own bubble, not a system row.
+  const uncertainBubble = f.primary.locator(".assistant-transcript__message--user").filter({ hasText: "Keep this uncertain request." });
+  await expect(uncertainBubble.locator(".assistant-transcript__optimistic-failure")).toBeVisible();
+  await expect(uncertainBubble.getByRole("button", { name: "Retry delivery check", exact: true })).toBeVisible();
+  await expect(f.primary.locator(".assistant-transcript__system")).toHaveCount(0);
   assert.deepEqual((await delivery()).messages, [{ id: second, status: "uncertain" }]);
   assert.equal((await delivery()).history.length, 1);
   await check.click();
@@ -2535,7 +2549,8 @@ test("transient subscription errors keep loaded history and recover through the 
     user: { messageId: `question-${index}`, role: "user", text: `Private saved question ${index}. ` + "Keep the original discussion. ".repeat(8) },
     assistant: { messageId: `answer-${index}`, role: "assistant", text: `Private saved answer ${index}. ` + "Read the saved answer without losing your place. ".repeat(8) }
   }));
-  await f.command("history", { id: "chat:1", turns, limit: 30 });
+  // History pages count real messages: load all 30 turns' questions and answers.
+  await f.command("history", { id: "chat:1", turns, limit: turns.length * 2 });
   await f.notify("chat:1");
   const body = f.primary.locator(".assistant-transcript__body");
   await expect(body.locator(".assistant-transcript__turn")).toHaveCount(turns.length * 2);
@@ -2641,7 +2656,25 @@ for (const width of [390, 768, 1280]) {
     await body.hover();
     await f.page.mouse.wheel(0, -300);
     await expect.poll(() => body.evaluate(element => element.scrollTop)).toBeLessThan(previousScroll);
-    await body.evaluate(element => { window.atomicHistoryBody = element; element.scrollTop = 420; });
+    // The reader looks at question 13. The refresh removes saved turns 7 and 10
+    // and shortens answer 11 above it, so the reader's rows must stay where they
+    // are on screen, whatever scrollTop that takes at this width.
+    const reader = body.locator(".assistant-transcript__turn").filter({ hasText: "Atomic saved question 13." });
+    await reader.evaluate(row => {
+      const scroller = row.closest(".assistant-transcript__body");
+      window.atomicHistoryBody = scroller;
+      scroller.scrollTop += row.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+    });
+    // Rows near the new position replace their size estimates on later frames.
+    const readerTop = () => reader.evaluate(async row => {
+      const scroller = row.closest(".assistant-transcript__body");
+      const top = () => row.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+      const before = [top(), scroller.scrollTop];
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      return before[0] === top() && before[1] === scroller.scrollTop ? Math.round(top()) : NaN;
+    });
+    await expect.poll(readerTop).not.toBeNaN();
+    const readerOffset = await readerTop();
     await f.input.fill("Unsent while history refreshes");
     await f.input.evaluate(element => { element.focus({ preventScroll: true }); element.setSelectionRange(3, 8); });
     const previousIds = turns.slice(6).map(turn => turn.turnId);
@@ -2663,7 +2696,7 @@ for (const width of [390, 768, 1280]) {
     await expect.poll(() => Boolean(release)).toBe(true);
     assert.deepEqual(await f.page.evaluate(() => window.conversationFixture.current().turns.value.map(turn => turn.turnId)), previousIds);
     assert.equal(await body.evaluate(element => element === window.atomicHistoryBody), true);
-    await expect.poll(() => body.evaluate(element => element.scrollTop)).toBe(420);
+    await expect.poll(async () => Math.abs(await readerTop() - readerOffset)).toBeLessThanOrEqual(1);
     await expect(f.input).toHaveValue("Unsent while history refreshes");
     await expect(f.input).toBeFocused();
     assert.deepEqual(await f.input.evaluate(element => [element.selectionStart, element.selectionEnd]), [3, 8]);
@@ -2674,7 +2707,7 @@ for (const width of [390, 768, 1280]) {
     await expect(f.primary.getByText("Authoritatively replaced saved answer", { exact: true })).toHaveCount(1);
     await expect(f.primary.getByText(/Atomic saved question (7|10)\./)).toHaveCount(0);
     assert.equal(await body.evaluate(element => element === window.atomicHistoryBody), true);
-    await expect.poll(() => body.evaluate(element => element.scrollTop)).toBe(420);
+    await expect.poll(async () => Math.abs(await readerTop() - readerOffset)).toBeLessThanOrEqual(1);
     await expect(f.input).toHaveValue("Unsent while history refreshes");
     await expect(f.input).toBeFocused();
     assert.deepEqual(await f.input.evaluate(element => [element.selectionStart, element.selectionEnd]), [3, 8]);
