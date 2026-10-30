@@ -66,6 +66,47 @@ function libraryMemberNames(program) {
   return names;
 }
 
+// A function that runs while the code around it runs: one passed straight to
+// a call, or called in place.
+function isCalledInPlace(fn) {
+  let child = fn;
+  let parent = fn.parent;
+  while (parent && ts.isParenthesizedExpression(parent)) {
+    child = parent;
+    parent = parent.parent;
+  }
+  return Boolean(parent) && (ts.isCallExpression(parent) || ts.isNewExpression(parent)) &&
+    (parent.expression === child || Boolean(parent.arguments?.includes(child)));
+}
+
+// Whether code at `node` runs while `fn` runs: no function between them is
+// stored, returned or declared to run later.
+function runsDuring(node, fn) {
+  for (let current = node.parent; current; current = current.parent) {
+    if (current === fn) {
+      return true;
+    }
+    if (isFunctionLike(current) && !isCalledInPlace(current)) {
+      return false;
+    }
+  }
+  return false;
+}
+
+// The names a function's parameters bind, destructured ones included.
+function parameterNames(fn) {
+  const names = new Set();
+  const visit = (name) => {
+    if (ts.isIdentifier(name)) {
+      names.add(name.text);
+    } else if (ts.isObjectBindingPattern(name) || ts.isArrayBindingPattern(name)) {
+      name.elements.forEach((element) => ts.isBindingElement(element) && visit(element.name));
+    }
+  };
+  fn.parameters.forEach((parameter) => visit(parameter.name));
+  return names;
+}
+
 function constructorOf(implementation) {
   if (!isClassLike(implementation)) {
     return implementation;
@@ -168,30 +209,28 @@ function createResolver({ program, checker, symbols, evaluator, bindings, action
     return { fn: current.parent, index: current.parent.parameters.indexOf(current), path: pathParts };
   }
 
+  // The value one call gives a parameter: the argument, or the property of an
+  // object literal argument a destructured parameter takes, with the rest of
+  // its property path.
+  function argumentValue(call, owner) {
+    let value = call.arguments?.[owner.index];
+    if (!value || ts.isSpreadElement(value)) {
+      return null;
+    }
+    const remaining = [...owner.path];
+    while (remaining.length && ts.isObjectLiteralExpression(unwrapExpression(value))) {
+      value = evaluator.propertyInitializer(unwrapExpression(value), remaining[0]);
+      remaining.shift();
+      if (!value) {
+        return null;
+      }
+    }
+    return { expression: value, path: remaining };
+  }
+
   function argumentValues(declaration) {
     const owner = owningParameter(declaration);
-    if (!owner) {
-      return [];
-    }
-    const values = [];
-    for (const call of callSites.get(owner.fn) || []) {
-      let value = call.arguments?.[owner.index];
-      if (!value || ts.isSpreadElement(value)) {
-        continue;
-      }
-      const remaining = [...owner.path];
-      while (remaining.length && ts.isObjectLiteralExpression(unwrapExpression(value))) {
-        value = evaluator.propertyInitializer(unwrapExpression(value), remaining[0]);
-        remaining.shift();
-        if (!value) {
-          break;
-        }
-      }
-      if (value) {
-        values.push({ expression: value, path: remaining });
-      }
-    }
-    return values;
+    return owner ? (callSites.get(owner.fn) || []).map((call) => argumentValue(call, owner)).filter(Boolean) : [];
   }
 
   function propertyValueExpressions(property) {
@@ -337,8 +376,20 @@ function createResolver({ program, checker, symbols, evaluator, bindings, action
     return { resolution: "unresolved", certainty: "unresolved", method: "none", targets: [] };
   }
 
-  // Values of an injected or passed-in function, called directly.
-  function boundFunctionTargets(declaration) {
+  // The functions a passed value can be, added to `targets`.
+  function addValueTargets(value, targets) {
+    const found = value.path.length
+      ? [...targetsFromTypes(valueTypes({ expression: value.expression, path: value.path.slice(0, -1) }, 0, new Set()), [value.path.at(-1)]).targets.keys()]
+      : symbols.expressionImplementations(value.expression, 0).map(constructorOf).filter(Boolean);
+    for (const target of found) {
+      targets.set(target, { exact: false, via: "argument-flow" });
+    }
+  }
+
+  // Values of an injected or passed-in function, called directly. A parameter
+  // called while its function runs is left to each caller (passedCall), so
+  // one caller's callback is never reached through another caller.
+  function boundFunctionTargets(declaration, call) {
     const targets = new Map();
     const binding = bindings.get(declaration);
     if (binding) {
@@ -349,19 +400,88 @@ function createResolver({ program, checker, symbols, evaluator, bindings, action
       }
       return targets;
     }
+    const owner = owningParameter(declaration);
+    if (owner && ts.isCallExpression(call) && runsDuring(call, owner.fn)) {
+      return targets;
+    }
     for (const value of argumentValues(declaration)) {
-      if (value.path.length) {
-        const found = targetsFromTypes(valueTypes({ expression: value.expression, path: value.path.slice(0, -1) }, 0, new Set()), [value.path.at(-1)]);
-        for (const target of found.targets.keys()) {
-          targets.set(target, { exact: false, via: "argument-flow" });
-        }
-        continue;
-      }
-      for (const target of symbols.expressionImplementations(value.expression, 0).map(constructorOf).filter(Boolean)) {
-        targets.set(target, { exact: false, via: "argument-flow" });
-      }
+      addValueTargets(value, targets);
     }
     return targets;
+  }
+
+  function checkerTargets(call) {
+    if (!direct.has(call)) {
+      direct.set(call, directResolution(call));
+    }
+    return direct.get(call).targets || [];
+  }
+
+  // The parameters ({ index, path }) a function calls while it runs: in its
+  // own body, in callbacks it passes on, or by forwarding them to a function
+  // that does. A cycle adds nothing.
+  const invoked = new Map();
+  function invokedParameters(fn) {
+    if (invoked.has(fn)) {
+      return [...invoked.get(fn).values()];
+    }
+    const found = new Map();
+    invoked.set(fn, found);
+    const names = parameterNames(fn);
+    const own = (expression) => {
+      const value = unwrapExpression(expression);
+      if (!value || !ts.isIdentifier(value) || !names.has(value.text)) {
+        return null;
+      }
+      const owner = owningParameter(symbols.declarationOf(value));
+      return owner?.fn === fn ? owner : null;
+    };
+    const add = (index, path) => found.set(`${index}:${path.join(".")}`, { index, path });
+    const visit = (node) => {
+      if (isFunctionLike(node) && !isCalledInPlace(node)) {
+        return;
+      }
+      if (ts.isCallExpression(node)) {
+        const called = own(node.expression);
+        if (called) {
+          add(called.index, called.path);
+        }
+        node.arguments.forEach((argument, position) => {
+          const forwarded = own(argument);
+          for (const target of forwarded ? checkerTargets(node) : []) {
+            for (const inner of invokedParameters(target)) {
+              if (inner.index === position) {
+                add(forwarded.index, [...forwarded.path, ...inner.path]);
+              }
+            }
+          }
+        });
+      }
+      ts.forEachChild(node, visit);
+    };
+    if (names.size) {
+      visit(fn.body);
+    }
+    return [...found.values()];
+  }
+
+  // What a call reaches through the functions it passes: each value it gives
+  // a parameter its callee calls while it runs. Null when there is none.
+  function passedCall(call) {
+    if (!call.arguments?.length) {
+      return null;
+    }
+    const targets = new Map();
+    for (const callee of checkerTargets(call)) {
+      for (const parameter of invokedParameters(callee)) {
+        const value = argumentValue(call, parameter);
+        if (value) {
+          addValueTargets(value, targets);
+        }
+      }
+    }
+    const result = fromTargets(targets, {});
+    return result?.resolution === "unresolved" ? null : result;
   }
 
   // Whether a value is provably produced by a package or builtin.
@@ -564,7 +684,7 @@ function createResolver({ program, checker, symbols, evaluator, bindings, action
       case "value": {
         const declaration = resolution.declaration;
         const bound = declaration && (ts.isParameter(declaration) || ts.isBindingElement(declaration))
-          ? fromTargets(boundFunctionTargets(declaration), {})
+          ? fromTargets(boundFunctionTargets(declaration, call), {})
           : null;
         if (bound) {
           return bound;
@@ -580,7 +700,7 @@ function createResolver({ program, checker, symbols, evaluator, bindings, action
     }
   }
 
-  return { indexCalls, indexSite, resolve, builtinMembers };
+  return { indexCalls, indexSite, resolve, passedCall, builtinMembers };
 }
 
 export { codeSide, createResolver };

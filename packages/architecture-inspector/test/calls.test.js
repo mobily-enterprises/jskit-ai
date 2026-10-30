@@ -165,7 +165,76 @@ test("receiver names and argument flow are probable, never exact", async (t) => 
   };
   assert.deepEqual(facts("store.list"), ["resolved", "probable", "receiver-name", ["fn:src/server/catalog.js#1:26"]]);
   assert.deepEqual(facts("items.filter"), ["ambiguous", "probable", "receiver-name", ["fn:src/server/catalog.js#1:49", "fn:src/server/catalog.js#2:24"]]);
-  assert.deepEqual(facts("task"), ["resolved", "probable", "argument-flow", ["fn:src/server/catalog.js#3:8"]]);
+  // `run` calls `task` while it runs, so the caller that passes `work` reaches it.
+  assert.deepEqual(facts("task"), ["unresolved", "unresolved", "none", []]);
+  assert.deepEqual(callsFrom(result, "run").map((call) => [call.resolution, call.certainty, call.method, call.targets]), [
+    ["resolved", "exact", "checker", ["fn:src/server/use.js#2:1"]],
+    ["resolved", "probable", "argument-flow", ["fn:src/server/catalog.js#3:8"]]
+  ]);
+});
+
+test("a callback a shared helper calls is reached from the caller that passes it, not from the helper", async (t) => {
+  const { result } = await inspectCallsOf(t, {
+    "src/server/result.js": [
+      "export async function withResult(operation) {",
+      "  try { return await operation(); } catch { return null; }",
+      "}",
+      "export function sessionResult(operation) { return withResult(operation); }",
+      ""
+    ].join("\n"),
+    "src/server/routes.js": [
+      "import { sessionResult, withResult } from \"./result.js\";",
+      "function readSessions() { return []; }",
+      "function readUsage() { return 1; }",
+      "export function listSessions() { return withResult(readSessions); }",
+      "export function usage() { return withResult(() => readUsage()); }",
+      "export function forwarded() { return sessionResult(readSessions); }",
+      ""
+    ].join("\n"),
+    "src/server/actions.js": [
+      "export function createActions({ readStatus }) {",
+      "  return { execute: () => readStatus() };",
+      "}",
+      ""
+    ].join("\n"),
+    "src/server/provider.js": [
+      "import { createActions } from \"./actions.js\";",
+      "function status() { return \"ok\"; }",
+      "export function setup() { return createActions({ readStatus: status }); }",
+      ""
+    ].join("\n")
+  });
+  const id = (file, line) => result.functions.find((fn) => fn.file === file && fn.start.line === line && fn.kind !== "module").id;
+  const reach = (start) => {
+    const found = new Set([start]);
+    for (const queue = [start]; queue.length;) {
+      const from = queue.shift();
+      for (const call of result.calls.filter((entry) => entry.fromFunctionId === from)) {
+        for (const target of call.targets.filter((entry) => !found.has(entry))) {
+          found.add(target);
+          queue.push(target);
+        }
+      }
+    }
+    return [...found].sort();
+  };
+  const routes = (line) => id("src/server/routes.js", line);
+  const withResult = id("src/server/result.js", 1);
+  const sessionResult = id("src/server/result.js", 4);
+  const usageCallback = result.functions.find((fn) => fn.file === "src/server/routes.js" && fn.kind === "arrow").id;
+  assert.deepEqual(reach(routes(4)), [routes(2), routes(4), withResult].sort());
+  assert.deepEqual(reach(routes(5)), [routes(3), routes(5), usageCallback, withResult].sort());
+  // Forwarding a parameter to a helper that calls it counts as calling it.
+  assert.deepEqual(reach(routes(6)), [routes(2), routes(6), sessionResult, withResult].sort());
+  assert.deepEqual(reach(withResult), [withResult]);
+  const passed = callsFrom(result, "withResult").find((call) => call.fromFunctionId === routes(4) && call.method === "argument-flow");
+  assert.deepEqual([passed.resolution, passed.certainty, passed.targets], ["resolved", "probable", [routes(2)]]);
+  assert.deepEqual(callsFrom(result, "operation").map((call) => [call.fromFunctionId, call.certainty, call.targets]),
+    [[withResult, "unresolved", []]]);
+  // A closure the helper returns may run later, so it keeps the passed values.
+  const [later] = callsFrom(result, "readStatus");
+  assert.deepEqual([later.certainty, later.method, later.targets], ["probable", "argument-flow", [id("src/server/provider.js", 2)]]);
+  assert.deepEqual(callsFrom(result, "createActions").map((call) => call.method), ["checker"]);
 });
 
 const FEATURE = "import { defineFeature } from \"@jskit-ai/kernel/server/features\";";

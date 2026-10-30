@@ -3,7 +3,8 @@ import { readFileSync } from "node:fs";
 import { readFile, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-const CACHE_SCHEMA = "jskit.architecture-calls-cache.v1";
+// v2: calls a function makes through the callbacks it passes are its own records.
+const CACHE_SCHEMA = "jskit.architecture-calls-cache.v2";
 const CACHE_FILE = "jskit-calls.json";
 // Manifests, lockfiles and compiler configurations change how every file
 // resolves, so any change to them rebuilds everything.

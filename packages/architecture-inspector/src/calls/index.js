@@ -127,7 +127,8 @@ function inspectCalls({
   const reused = new Set([...reuse].filter(([file, cached]) => callsByFile.has(file) &&
     cached.calls.every((record) => record.targets.every((target) => functionIds.has(target)))).map(([file]) => file));
   // Each file's checker targets per call position, in call order, so argument
-  // flow sees the same call sites whether a file is reused or resolved.
+  // flow into closures that run later sees the same call sites whether a file
+  // is reused or resolved.
   const sitesByFile = new Map();
   for (const [file, calls] of callsByFile) {
     if (reused.has(file)) {
@@ -176,33 +177,33 @@ function inspectCalls({
     let count = 0;
     for (const call of calls) {
       const from = enclosingFunction(call);
-      const result = from ? resolver.resolve(call, file) : null;
-      if (!result) {
-        continue;
-      }
-      if (count >= MAX_CALLS_PER_FILE) {
+      // The call itself, then what it reaches through the functions it passes.
+      const results = from ? [resolver.resolve(call, file), resolver.passedCall(call)].filter(Boolean) : [];
+      if (count + results.length > MAX_CALLS_PER_FILE) {
         fileTruncated = true;
         truncated = true;
         diagnose("CALLS_TRUNCATED", `Only the first ${MAX_CALLS_PER_FILE} calls of this file are recorded.`, file);
         break;
       }
-      count += 1;
       const position = point(sourceFile, callIdentityPosition(call));
-      let id = `call:jskit:${file}#${position.line}:${position.column}`;
-      for (let suffix = 2; identities.has(id); suffix += 1) {
-        id = `call:jskit:${file}#${position.line}:${position.column}~${suffix}`;
+      for (const result of results) {
+        count += 1;
+        let id = `call:jskit:${file}#${position.line}:${position.column}`;
+        for (let suffix = 2; identities.has(id); suffix += 1) {
+          id = `call:jskit:${file}#${position.line}:${position.column}~${suffix}`;
+        }
+        identities.add(id);
+        records.push({
+          id,
+          resolution: result.resolution,
+          certainty: result.certainty,
+          method: result.method,
+          fromFunctionId: from.id,
+          targets: result.targets.map(functionId),
+          callee: calleeText(call),
+          evidence: [{ path: file, hash: hashes.get(file), ...rangeOf(sourceFile, call) }]
+        });
       }
-      identities.add(id);
-      records.push({
-        id,
-        resolution: result.resolution,
-        certainty: result.certainty,
-        method: result.method,
-        fromFunctionId: from.id,
-        targets: result.targets.map(functionId),
-        callee: calleeText(call),
-        evidence: [{ path: file, hash: hashes.get(file), ...rangeOf(sourceFile, call) }]
-      });
     }
     fileRecords.set(file, { functions: functionsByFile.get(file), calls: records, sites: sitesByFile.get(file), truncated: fileTruncated });
   }

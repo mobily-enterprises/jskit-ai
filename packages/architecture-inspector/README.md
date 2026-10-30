@@ -96,6 +96,13 @@ Each discovery supplies `id`, `adapter`, `surface`, `mode`, `registrations`,
   candidates) or `unresolved`.
   - `defineFeature` injection binds `requires` tokens to the `setup` outputs
     that `provides` them: one provider is exact, several are ambiguous.
+  - Argument flow follows the caller. A function passed to a parameter that
+    the callee calls while it runs (in its own body, in callbacks it passes
+    on, or by forwarding it to a function that does) is an `argument-flow`
+    call of the function that passes it, recorded at that call. The callee's
+    own call of the parameter is `unresolved`, so one caller's callback is
+    never reached through another caller. A parameter called only from a
+    closure the callee stores or returns keeps every value its callers pass.
   - Action definitions (`{ id, execute }` in a feature's `actions`, also through
     pass-through wrappers and literal-array `.map`) become `action` entry
     points; `request.executeAction({ actionId: "..." })` reaches their execute

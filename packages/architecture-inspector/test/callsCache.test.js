@@ -118,5 +118,5 @@ test("an absent, relative, in-project or corrupt cache gives a cold run", async 
   assert.equal((await readdir(path.join(root, "src"))).includes(CACHE_FILE), false);
   await writeFile(path.join(directory, CACHE_FILE), "{not json");
   assert.deepEqual(await inspect(root, { ...input, cacheDirectory: directory }), cold);
-  assert.equal(JSON.parse(await readFile(path.join(directory, CACHE_FILE), "utf8")).schema, "jskit.architecture-calls-cache.v1");
+  assert.equal(JSON.parse(await readFile(path.join(directory, CACHE_FILE), "utf8")).schema, "jskit.architecture-calls-cache.v2");
 });

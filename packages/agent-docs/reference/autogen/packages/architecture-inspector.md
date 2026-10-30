@@ -83,6 +83,9 @@ Local functions
 - `isNullish(expression)`
 - `compatibleSides(left, right)`
 - `libraryMemberNames(program)`
+- `isCalledInPlace(fn)`
+- `runsDuring(node, fn)`
+- `parameterNames(fn)`
 - `constructorOf(implementation)`
 
 ### `src/calls/symbols.js`
