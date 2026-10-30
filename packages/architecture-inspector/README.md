@@ -137,9 +137,10 @@ Each discovery supplies `id`, `adapter`, `surface`, `mode`, `registrations`,
   the command keeps `jskit-calls.json` there. An unchanged rerun reuses the
   whole result. Otherwise a file keeps its calls when its own and its directly
   imported sources are unchanged and every target still exists. Any change to a
-  manifest, lockfile, `tsconfig`/`jsconfig`, the inspector version, packages,
-  UI discovery, options or `stackHash` rebuilds everything. An absent, unusable
-  or corrupt cache means a cold run.
+  manifest, lockfile, `tsconfig`/`jsconfig`, the inspector's own manifest or
+  source (even without a version bump), packages, UI discovery, options or
+  `stackHash` rebuilds everything. An absent, unusable or corrupt cache means a
+  cold run.
 
 ### Preview locator
 

@@ -22,6 +22,7 @@ Exports
 - `writeCallCache(location, cache)`
 Local functions
 - `digest(value)`
+- `inspectorSourceHash()`
 
 ### `src/calls/evaluate.js`
 Exports

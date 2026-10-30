@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { readFile, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 // v2: calls a function makes through the callbacks it passes are its own records.
 const CACHE_SCHEMA = "jskit.architecture-calls-cache.v2";
@@ -9,10 +10,26 @@ const CACHE_FILE = "jskit-calls.json";
 // Manifests, lockfiles and compiler configurations change how every file
 // resolves, so any change to them rebuilds everything.
 const PROJECT_FILE_PATTERN = /(?:^|\/)(?:package\.json|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|pnpm-lock\.yaml|[jt]sconfig(?:\.[\w.-]+)?\.json)$/u;
-const INSPECTOR_VERSION = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")).version;
+const INSPECTOR_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 
 function digest(value) {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+}
+
+// The inspector's manifest (its version and dependency pins) and every source
+// file, read once per run. A changed resolver changes the key even without a
+// version bump, as in source development or a linked checkout.
+let inspectorIdentity = null;
+function inspectorSourceHash() {
+  if (!inspectorIdentity) {
+    const hash = createHash("sha256").update(readFileSync(path.join(INSPECTOR_ROOT, "package.json")));
+    const sourceRoot = path.join(INSPECTOR_ROOT, "src");
+    for (const file of readdirSync(sourceRoot, { recursive: true }).filter((name) => name.endsWith(".js")).sort()) {
+      hash.update(`\0${file}\0`).update(readFileSync(path.join(sourceRoot, file)));
+    }
+    inspectorIdentity = hash.digest("hex");
+  }
+  return inspectorIdentity;
 }
 
 // The cache file inside the caller's cache directory, or null when the
@@ -58,7 +75,7 @@ function cacheKeys({ input, files, imports, scripts, options }) {
     .map((file) => [file.path, file.hash])
     .sort();
   const key = digest({
-    version: INSPECTOR_VERSION,
+    inspector: inspectorSourceHash(),
     stackHash: input.stackHash ?? null,
     packages: input.packages ?? null,
     uiDiscovery: input.uiDiscovery ?? null,

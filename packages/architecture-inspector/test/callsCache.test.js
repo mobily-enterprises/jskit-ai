@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { appendFile, cp, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { inspectVueArchitecture } from "../src/inspectVueArchitecture.js";
 import { hashText, project } from "./support.js";
 
@@ -119,4 +120,22 @@ test("an absent, relative, in-project or corrupt cache gives a cold run", async 
   await writeFile(path.join(directory, CACHE_FILE), "{not json");
   assert.deepEqual(await inspect(root, { ...input, cacheDirectory: directory }), cold);
   assert.equal(JSON.parse(await readFile(path.join(directory, CACHE_FILE), "utf8")).schema, "jskit.architecture-calls-cache.v2");
+});
+
+test("a changed inspector source changes the cache key without a version bump", async (t) => {
+  // A copy of this package, as a linked checkout would change it.
+  const copy = await mkdtemp(path.join(os.tmpdir(), "jskit-inspector-copy-"));
+  t.after(() => rm(copy, { recursive: true, force: true }));
+  const packageRoot = fileURLToPath(new URL("../", import.meta.url));
+  await cp(path.join(packageRoot, "src"), path.join(copy, "src"), { recursive: true });
+  await cp(path.join(packageRoot, "package.json"), path.join(copy, "package.json"));
+  // Each query loads a fresh module, as a new inspection run does.
+  const keyOf = async (run) => {
+    const { cacheKeys } = await import(`${pathToFileURL(path.join(copy, "src/calls/cache.js")).href}?${run}`);
+    return cacheKeys({ input: {}, files: new Map(), imports: [], scripts: [], options: {} }).key;
+  };
+  const before = await keyOf("before");
+  assert.equal(await keyOf("unchanged"), before);
+  await appendFile(path.join(copy, "src/calls/resolve.js"), "\n// A changed resolver.\n");
+  assert.notEqual(await keyOf("changed"), before);
 });
