@@ -1136,9 +1136,10 @@ test("a deferred follow-up explains its wait and steers once the working turn ac
 });
 
 // An application keeps a retained view mounted but inactive while another
-// conversation is shown. A message waiting for admission there was never sent;
-// hiding its view must not fail it as "Message could not be sent."
-test("a deferred message keeps waiting while its view is hidden and sends once shown again", options, async t => {
+// conversation is shown. A message waiting for admission there was never sent:
+// hiding its view must not fail it as "Message could not be sent.", and the
+// person who moved on must not have to return before it is sent.
+test("a deferred message sends while its view is hidden once the session admits it", options, async t => {
   const f = await fixture(t);
   await f.page.evaluate(() => {
     window.readerActive = window.conversationFixture.activity(true);
@@ -1149,25 +1150,68 @@ test("a deferred message keeps waiting while its view is hidden and sends once s
   const deferred = () => f.page.evaluate(() => {
     const runtime = window.deferredBinding.runtime.value;
     const { id, status, error, waiting } = runtime.delivery.state.messages.find(message => message.text === "Queued while working") || {};
-    return { available: runtime.available.value, status: runtime.snapshot.value?.status, message: { id, status, error, waiting } };
+    return { available: runtime.available.value, status: runtime.snapshot.value?.status, message: { id, status, error, waiting },
+      subscriptions: window.conversationFixture.socket.inspect().active };
   });
   await expect.poll(async () => (await deferred()).available).toBe(true);
+  const { subscriptions } = await deferred();
   await f.page.evaluate(() => { window.original = window.deferredBinding.runtime.value.send({ message: "Original nonsteerable request" }); });
   await expect.poll(async () => (await deferred()).status).toBe("working");
   await f.page.evaluate(() => { window.queued = window.deferredBinding.runtime.value.send({ message: "Queued while working" }); });
   await expect.poll(async () => (await deferred()).message.waiting).toBe("Waiting for the assistant to finish this step");
   await f.page.evaluate(() => { window.readerActive.value = false; });
   await expect.poll(async () => (await deferred()).available).toBe(false);
+  const hidden = await deferred();
+  assert.equal(hidden.message.status, "pending", `hiding the view is not a failed delivery: ${hidden.message.error}`);
+  assert.equal(hidden.subscriptions, subscriptions, "the waiting message keeps its live state");
+  assert.equal((await f.sent()).length, 1, "the working turn still cannot take the message");
   await f.command("finish", { id: "chat:2" });
-  const { message } = await deferred();
-  assert.equal(message.status, "pending", `hiding the view is not a failed delivery: ${message.error}`);
-  assert.equal((await f.sent()).length, 1, "a hidden view has no current state to admit the message against");
-  await f.page.evaluate(() => { window.readerActive.value = true; });
+  await f.notify("chat:2");
   await expect.poll(async () => (await f.sent()).length).toBe(2);
   const [, followUp] = await f.sent();
-  assert.deepEqual([followUp.input.messageId, followUp.input.text], [message.id, "Queued while working"]);
+  assert.deepEqual([followUp.input.messageId, followUp.input.text], [hidden.message.id, "Queued while working"]);
   assert.equal((await f.page.evaluate(() => window.queued)).status, "accepted");
+  const sent = await deferred();
+  assert.equal(sent.available, false, "the message was sent while its view stayed hidden");
+  await expect.poll(async () => (await deferred()).subscriptions, { message: "an empty queue releases the hidden view's subscription" }).toBe(subscriptions - 1);
+  await f.page.evaluate(() => { window.readerActive.value = true; });
+  await expect.poll(async () => (await deferred()).available).toBe(true);
   assert.equal((await f.sent()).length, 2, "the queued message is sent once");
+});
+
+// A lost subscription leaves the last snapshot shown with its error while it
+// retries. Its refresh then reads nothing, so that stale error says nothing
+// about the unsent message: it waits for the recovered state and sends once.
+test("a deferred message waits through a failing resubscription instead of failing", options, async t => {
+  const f = await fixture(t);
+  await f.page.evaluate(() => {
+    window.deferredBinding = window.conversationFixture.acquireConversation({
+      conversationId: "chat:2", deferWhileWorking: true, queueWhileSending: true
+    });
+  });
+  const deferred = () => f.page.evaluate(() => {
+    const runtime = window.deferredBinding.runtime.value;
+    const { id, status, error } = runtime.delivery.state.messages.find(message => message.text === "Sent while reconnecting") || {};
+    return { available: runtime.available.value, error: runtime.error.value, message: { id, status, error } };
+  });
+  await expect.poll(async () => (await deferred()).available).toBe(true);
+  let failing = true;
+  await f.page.route(url => url.pathname.endsWith("/conversations/chat%3A2"), route => failing && route.request().method() === "GET"
+    ? route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "Conversation temporarily unavailable." }) })
+    : route.continue());
+  await f.page.evaluate(() => window.conversationFixture.socket.reconnect());
+  await expect.poll(async () => (await deferred()).error).toBe("Conversation temporarily unavailable.");
+  assert.equal((await deferred()).available, true, "the last snapshot stays shown");
+  await f.page.evaluate(() => { window.queued = window.deferredBinding.runtime.value.send({ message: "Sent while reconnecting" }); });
+  await expect.poll(async () => (await deferred()).message.status).toBe("pending");
+  const waiting = await deferred();
+  assert.equal((await f.sent()).length, 0, "nothing is admitted against the stale snapshot");
+  failing = false;
+  // The subscription's own retry, not the message, recovers the state.
+  await expect.poll(async () => (await f.sent()).length, { timeout: 15_000 }).toBe(1);
+  const [sent] = await f.sent();
+  assert.deepEqual([sent.input.messageId, sent.input.text], [waiting.message.id, "Sent while reconnecting"]);
+  assert.equal((await f.page.evaluate(() => window.queued)).status, "accepted");
 });
 
 for (const steer of [false, true]) {

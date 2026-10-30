@@ -511,10 +511,13 @@ Normal server permissions still apply at dispatch. Show **Send** and the
 pending status, not **Steer**, when the runtime cannot steer.
 Native steering and explicit retries keep their captured intent. Stop aborts
 these local pre-dispatch followers before stopping the original turn; actor
-retirement and lost access cannot dispatch them later. A follower whose readers
-all become inactive, such as a retained view the application hides, was never
-sent: it stays pending, never fails for that reason, and is judged again
-against the next snapshot once a reader is active. This option defaults to
+retirement and lost access cannot dispatch them later. While a follower waits,
+the conversation keeps its subscription even when all readers become inactive,
+such as a retained view the application hides, so the follower is sent once,
+with its own ID, as soon as live state admits it; the subscription is released
+when the queue no longer holds one. A refresh error or lost subscription leaves
+the snapshot stale, so the follower keeps waiting for the next good state
+instead of failing. This option defaults to
 false and belongs to the initial retained conversation composition. It adds no
 server queue or persisted queue recovery. A predecessor that becomes uncertain
 leaves queued followers unsent; a new, different message may proceed once the

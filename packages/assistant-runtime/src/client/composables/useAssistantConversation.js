@@ -136,6 +136,11 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
   const hasMoreBefore = computed(() => normalizeConversationLogPagination(oldestLoadedPage.value?.pagination).hasMoreBefore);
   const editable = computed(() => active.value && !accessDenied.value);
   const available = computed(() => active.value && !loading.value && !accessDenied.value && Boolean(snapshot.value));
+  // A deferred message keeps the subscription while its view is hidden, so it
+  // is admitted against live state. A failed read leaves that state stale.
+  const deferredWaits = ref(0);
+  const listening = computed(() => active.value || current.value && deferredWaits.value > 0);
+  const admissible = computed(() => listening.value && !loading.value && !accessDenied.value && !error.value && Boolean(snapshot.value));
   const steerable = computed(() => snapshot.value?.status === "working" && snapshot.value?.capabilities?.steering === true);
   const workingPolicy = computed(() => resolveWorkingPolicy(snapshot.value, { deferWhileWorking, admitWhileWorking }));
   const queueing = computed(() => queueWhileSending !== false && (steerable.value || workingPolicy.value.deferWhileWorking || workingPolicy.value.admitWhileWorking));
@@ -305,7 +310,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       if (denial !== deniedHistoryRevision) {
         throw Object.assign(new Error("Access denied."), { status: 403, messageCode: "assistant.runtime.accessDenied" });
       }
-      return current.value && active.value && subscriptionCurrent();
+      return current.value && listening.value && subscriptionCurrent();
     };
     // A concurrent Load older operation extends the desired span. Retry one
     // refresh in this same read, rather than dropping that newly loaded page.
@@ -354,7 +359,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     }
     return null;
   }
-  watch(active, enabled => {
+  watch(listening, enabled => {
     subscription?.();
     subscription = null;
     historyRevision += 1;
@@ -450,9 +455,9 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
   }
   // A deferred message waits only while the working turn cannot take it. It
   // steers as soon as that turn accepts steering, or sends once it is ready.
-  // A hidden or reloading view has no current state to admit it against, so
-  // the unsent message keeps waiting; only Stop, Cancel, retirement or lost
-  // access end it.
+  // Its view may be hidden. While loading or after a failed read there is no
+  // current state to admit it against, so the unsent message keeps waiting;
+  // only Stop, Cancel, retirement or lost access end it.
   function waitForAdmission({ controller }) {
     return new Promise(resolve => {
       let stop;
@@ -463,12 +468,12 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       };
       const check = () => {
         if (controller.signal.aborted || accessDenied.value) finish(false);
-        else if (!available.value) return;
+        else if (!admissible.value) return;
         else if (snapshot.value.status === "ready") finish("send");
         else if (steerable.value) finish("steer");
         else if (snapshot.value.status !== "working") finish(false);
       };
-      stop = watch([available, snapshot, steerable], check, { flush: "sync" });
+      stop = watch([admissible, snapshot, steerable], check, { flush: "sync" });
       controller.signal.addEventListener("abort", check, { once: true });
       check();
     });
@@ -481,6 +486,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     const pending = { controller: new AbortController(), started: false, dispatched: false };
     const { controller } = pending;
     pendingMessages.set(messageId, pending);
+    if (deferred) deferredWaits.value += 1;
     try {
       const result = await delivery.send(payload, {
         messageId, queue, isCurrent: () => current.value, onAccepted,
@@ -494,13 +500,12 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
               // Refresh through the same subscription after a queued predecessor;
               // its receipt may have arrived before the working snapshot.
               await subscription?.reload();
-              if (error.value) return false;
-              if (snapshot.value.status === "working" && !steerable.value) {
+              if (snapshot.value?.status === "working" && !steerable.value) {
                 delivery.wait(messageId, t("jskit.assistant.runtime.delivery.waitingForStep"));
               }
               admission = await waitForAdmission(pending);
               delivery.wait(messageId, "");
-              if (!admission || controller.signal.aborted || !available.value ||
+              if (!admission || controller.signal.aborted || !admissible.value ||
                   snapshot.value.status !== (admission === "steer" ? "working" : "ready")) return false;
               if (submission.displayAttachments?.length && snapshot.value.capabilities?.attachments !== true) {
                 return { ok: false, error: t("jskit.assistant.runtime.attachments.noLongerAccepted") };
@@ -570,6 +575,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       return false;
     } finally {
       if (!pending.started && pendingMessages.get(messageId) === pending) pendingMessages.delete(messageId);
+      if (deferred) deferredWaits.value -= 1;
       if (current.value) subscription?.reload();
     }
   }
