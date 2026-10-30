@@ -246,7 +246,7 @@ authorization and role checks. Do not pass arbitrary HTTP input as options.
 
 | Capability method | Contract |
 | --- | --- |
-| `workspaces.repositories.workspaceInvites.withTransaction(work)` | Delegates to the same JSON REST API's managed `transaction(work)`; awaits commit and completion hooks before resolving. Runs `work` again when the database aborts it as a deadlock victim (see [Database layer](./database-layer.md#deadlock-retries)). |
+| `workspaces.repositories.workspaceInvites.withTransaction(work)` | Delegates to the same JSON REST API's managed `transaction(work)`; awaits commit and completion hooks before resolving. Runs `work` again when the database aborts it as a deadlock victim (see [Database layer](https://mobily-enterprises.github.io/jskit-ai/guide/app-setup/database-layer#deadlock-retries)). |
 | `workspaces.repositories.workspaceInvites.lockWorkspaceForInvitations(workspaceId, { trx })` | Locks the workspace before application receipt/draft rows when composing preparation. Requires an active transaction. |
 | `workspaces.services.members.prepareInvite(workspace, actor, payload, options)` | Requires a managed `options.trx`. Validates the invitation role, replaces pending invitations for that workspace/email, and returns `{ createdInviteId, inviteTokenPreview }`. Never sends. |
 | `workspaces.services.members.sendInvite(workspace, actor, prepared, options)` | Requires no `options.trx`. Reloads the committed pending invitation and workspace display data, validates expiry and token correspondence, and sends that invitation without replacement. |
