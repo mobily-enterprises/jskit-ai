@@ -725,6 +725,13 @@ Exports
 - `HttpProvider`
 - `attachDirectRequestActionExecutor`
 - `createCachedResponseSerializerFactory`
+- `createActionRouteScope`
+
+### `server/http/lib/actionRouteScope.js`
+Exports
+- `createActionRouteScope(http, { routeBase = "/", relativePath = "", surface = "", strictParams = false, wrapHandler = null } = {})`
+Local functions
+- `emptyInput()`
 
 ### `server/http/lib/errors.js`
 Exports
