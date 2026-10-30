@@ -5,7 +5,8 @@ import {
   normalizeDbRecordId,
   normalizeText,
   isDuplicateEntryError,
-  toIsoString
+  toIsoString,
+  retryDeadlocks
 } from "./repositoryUtils.js";
 import {
   createJsonRestContext,
@@ -81,7 +82,7 @@ function createRepository({ api } = {}) {
     throw new TypeError("workspaceInvitesRepository requires json-rest-api workspaceInvites resource.");
   }
 
-  const withTransaction = (work) => api.transaction(work);
+  const withTransaction = (work) => retryDeadlocks(() => api.transaction(work));
 
   async function queryInvites(filters = {}, options = {}, { includeWorkspace = false } = {}) {
     if (options.lock === true) {

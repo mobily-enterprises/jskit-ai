@@ -10,6 +10,13 @@ import { createCrudJsonApiActions } from "../src/server/jsonApiModule/actions.js
 import { createCrudJsonApiRepository } from "../src/server/jsonApiModule/repository.js";
 import { createCrudJsonApiService } from "../src/server/jsonApiModule/service.js";
 
+function deadlockVictim() {
+  return Object.assign(new Error("Deadlock found when trying to get lock; try restarting transaction"), {
+    code: "ER_LOCK_DEADLOCK",
+    errno: 1213
+  });
+}
+
 function createRepositoryRecorder() {
   const calls = [];
   const response = { data: { type: "books", id: "7", attributes: { title: "Dune" } } };
@@ -112,6 +119,46 @@ test("repository transactions commit resource writes and raw SQL before completi
   assert.deepEqual(await knex("books").orderBy("id").pluck("title"), ["Dune", "Kindred"]);
   assert.deepEqual(await knex("audit_entries").pluck("message"), ["Created books"]);
   assert.deepEqual(committed, ["post", "post"]);
+});
+
+test("a deadlock victim's repository transaction runs again and commits its writes once", async (t) => {
+  const { knex, repository } = await createDatabaseRepository(t);
+  let attempts = 0;
+  const document = await repository.withTransaction(async (trx) => {
+    attempts += 1;
+    const created = await repository.createDocument({ title: "Dune" }, { trx });
+    await trx("audit_entries").insert({ message: `Attempt ${attempts}` });
+    if (attempts === 1) {
+      throw deadlockVictim();
+    }
+    return created;
+  });
+  assert.equal(attempts, 2);
+  assert.equal(document.data.attributes.title, "Dune");
+  assert.deepEqual(await knex("books").pluck("title"), ["Dune"]);
+  assert.deepEqual(await knex("audit_entries").pluck("message"), ["Attempt 2"]);
+});
+
+test("a write that owns its transaction runs again after a deadlock; one in a caller's transaction does not", async () => {
+  let posts = 0;
+  const api = {
+    resources: {
+      books: {
+        async post() {
+          posts += 1;
+          if (posts === 1) {
+            throw deadlockVictim();
+          }
+          return { data: { type: "books", id: String(posts) } };
+        }
+      }
+    }
+  };
+  const repository = createCrudJsonApiRepository({ api, resource: { schema: {} }, resourceScopeName: "books" });
+  assert.equal((await repository.createDocument({ title: "Dune" })).data.id, "2");
+  posts = 0;
+  await assert.rejects(repository.createDocument({ title: "Dune" }, { trx: "managed" }), { code: "ER_LOCK_DEADLOCK" });
+  assert.equal(posts, 1);
 });
 
 test("repository transactions roll back resource writes and raw SQL after a rejected participant", async (t) => {

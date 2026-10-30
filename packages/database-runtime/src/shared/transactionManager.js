@@ -1,4 +1,5 @@
 import { normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
+import { retryDeadlocks } from "./repositoryOptions.js";
 
 class TransactionManager {
   constructor({ knex } = {}) {
@@ -18,9 +19,9 @@ class TransactionManager {
       return work(trx);
     }
 
-    return this.knex.transaction(async (nextTrx) => {
+    return retryDeadlocks(() => this.knex.transaction(async (nextTrx) => {
       return work(nextTrx);
-    });
+    }));
   }
 }
 

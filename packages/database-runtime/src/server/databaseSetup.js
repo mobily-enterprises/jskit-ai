@@ -1,6 +1,7 @@
 import path from "node:path";
 import { createKnexMigrationConfigFromApp } from "./knexMigrationConfig.js";
 import { loadKnexFactory } from "./knexFactory.js";
+import { runInTransaction } from "../shared/repositoryOptions.js";
 
 function normalizeMigrationResult(result) {
   const [batchValue, migrationValues] = Array.isArray(result) ? result : [];
@@ -27,7 +28,7 @@ async function runDatabaseSetup({ knex, seed, appRoot = process.cwd(), environme
     throw new TypeError("runDatabaseSetup requires Knex transaction support for seeding.");
   }
 
-  await knex.transaction(async (transaction) => {
+  await runInTransaction(knex, async (transaction) => {
     await seed(Object.freeze({
       knex: transaction,
       appRoot: path.resolve(appRoot),

@@ -228,8 +228,8 @@ function createRepository(knex) {
     };
   }
 
-  async function transaction(callback) {
-    return runInTransaction(knex, callback);
+  async function transaction(callback, options) {
+    return runInTransaction(knex, callback, options);
   }
 
   return Object.freeze({

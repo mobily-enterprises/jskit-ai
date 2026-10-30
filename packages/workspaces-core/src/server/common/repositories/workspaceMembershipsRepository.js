@@ -4,7 +4,8 @@ import {
   normalizeDbRecordId,
   normalizeText,
   isDuplicateEntryError,
-  toIsoString
+  toIsoString,
+  retryDeadlocks
 } from "./repositoryUtils.js";
 import {
   createJsonRestContext,
@@ -61,7 +62,7 @@ function createRepository({ api } = {}) {
     throw new TypeError("workspaceMembershipsRepository requires json-rest-api workspaceMemberships resource.");
   }
 
-  const withTransaction = (work) => api.transaction(work);
+  const withTransaction = (work) => retryDeadlocks(() => api.transaction(work));
 
   async function queryMemberships(filters = {}, options = {}, { include = [] } = {}) {
     const normalizedInclude = Array.from(

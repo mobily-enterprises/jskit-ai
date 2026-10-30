@@ -167,10 +167,11 @@ function createSqlConversationStorage({ conversationsRepository, messagesReposit
           });
           entered = true;
           return storage[write ? "write" : "read"](id, operation);
-        });
+        }, { retries: 0 });
       } catch (error) {
         // SQLite cannot wait asynchronously for another connection's writer.
-        // Retry acquiring the snapshot/lock only; never replay a caller or save.
+        // Retry acquiring the snapshot/lock only; never replay a caller or save,
+        // so a deadlock victim is not run again either.
         if (entered || error.code !== "SQLITE_BUSY" || attempt >= 5) throw error;
         await delay(10 * 2 ** attempt);
       }

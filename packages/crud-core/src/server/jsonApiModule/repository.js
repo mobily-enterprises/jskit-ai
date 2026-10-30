@@ -4,6 +4,7 @@ import {
   returnBadRequestWhenJsonRestFieldsetInvalid,
   returnNullWhenJsonRestResourceMissing
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
+import { retryDeadlocks } from "@jskit-ai/database-runtime/shared";
 
 function createCrudJsonApiRepository({ api, resource, resourceScopeName } = {}) {
   if (!api) {
@@ -18,7 +19,12 @@ function createCrudJsonApiRepository({ api, resource, resourceScopeName } = {}) 
   }
 
   function withTransaction(work) {
-    return api.transaction(work);
+    return retryDeadlocks(() => api.transaction(work));
+  }
+
+  // A write given no transaction owns one, so it is outermost and may re-run.
+  function write(options, run) {
+    return options.trx ? run() : retryDeadlocks(run);
   }
 
   function inputData(payload) {
@@ -80,7 +86,7 @@ function createCrudJsonApiRepository({ api, resource, resourceScopeName } = {}) 
   }
 
   async function createDocument(payload = {}, options = {}) {
-    return requireApiResource().post(
+    return write(options, () => requireApiResource().post(
       {
         data: inputData(payload),
         returning: "full",
@@ -88,7 +94,7 @@ function createCrudJsonApiRepository({ api, resource, resourceScopeName } = {}) 
         format: "jsonapi"
       },
       createJsonRestContext(options.context || null)
-    );
+    ));
   }
 
   async function patchDocumentById(recordId, patch = {}, options = {}) {
@@ -97,7 +103,7 @@ function createCrudJsonApiRepository({ api, resource, resourceScopeName } = {}) 
       return getDocumentById(recordId, {}, options);
     }
 
-    return returnNullWhenJsonRestResourceMissing(() =>
+    return returnNullWhenJsonRestResourceMissing(() => write(options, () =>
       requireApiResource().patch(
         {
           id: recordId,
@@ -108,12 +114,12 @@ function createCrudJsonApiRepository({ api, resource, resourceScopeName } = {}) 
         },
         createJsonRestContext(options.context || null)
       )
-    );
+    ));
   }
 
   async function deleteDocumentById(recordId, options = {}) {
     return returnNullWhenJsonRestResourceMissing(async () => {
-      await requireApiResource().delete(
+      await write(options, () => requireApiResource().delete(
         {
           id: recordId,
           returning: "none",
@@ -121,7 +127,7 @@ function createCrudJsonApiRepository({ api, resource, resourceScopeName } = {}) 
           format: "jsonapi"
         },
         createJsonRestContext(options.context || null)
-      );
+      ));
       return null;
     });
   }

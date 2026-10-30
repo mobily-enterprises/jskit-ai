@@ -1,6 +1,7 @@
 import {
   normalizeRecordId,
-  isDuplicateEntryError
+  isDuplicateEntryError,
+  retryDeadlocks
 } from "../common/repositories/repositoryUtils.js";
 import {
   createJsonRestContext,
@@ -31,7 +32,7 @@ function createRepository({ api, defaultInvitesEnabled = true, defaultColorSetti
   if (!api?.resources?.workspaceSettings) {
     throw new TypeError("workspaceSettingsRepository requires json-rest-api workspaceSettings resource.");
   }
-  const withTransaction = (work) => api.transaction(work);
+  const withTransaction = (work) => retryDeadlocks(() => api.transaction(work));
 
   async function queryFirst(filters = {}, options = {}) {
     const rows = extractJsonRestCollectionRows(

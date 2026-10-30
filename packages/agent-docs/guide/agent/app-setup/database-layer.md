@@ -208,6 +208,37 @@ write an outbox record inside the transaction and deliver it separately.
 A separate Feature is warranted when an operation belongs to another domain,
 not merely because a useful resource has behavior beyond list and save.
 
+## Deadlock retries
+
+When the database aborts a transaction as a deadlock victim (MySQL and MariaDB
+`ER_LOCK_DEADLOCK`, errno 1213; PostgreSQL `40P01`), it rolls the whole
+transaction back, so JSKIT runs the whole transaction callback again, up to
+three more times with a short random pause. The person sees one successful
+request instead of a 500. This applies to `runInTransaction()` and
+`createWithTransaction()` from `@jskit-ai/database-runtime/shared`, to
+`transactionManager.inTransaction()`, to the seed transaction, to every JSON
+REST repository's `withTransaction()` (CRUD, users and workspaces), and to a
+CRUD `createDocument`, `patchDocumentById` or `deleteDocumentById` given no
+`trx`, which owns its own transaction. A lock wait timeout (errno 1205) is not
+retried.
+
+Only the outermost transaction retries. A call given an existing `trx`, or a
+`runInTransaction()` on a transaction, which opens a savepoint, fails at once
+and leaves the retry to the transaction that owns it.
+
+A retried callback must be safe to run again: keep HTTP calls, email, file
+uploads and other external effects out of it, before or after the transaction
+or in an outbox, as above. CRUD lifecycle `before`, `execute` and `after`
+phases are inside the transaction; `afterCommit` is not. A transaction whose
+callback cannot be repeated passes `{ retries: 0 }`:
+`runInTransaction(knex, work, { retries: 0 })`.
+
+Application code that opens transactions directly uses the same behavior through
+`runInTransaction(knex, work)` instead of `knex.transaction(work)`, or wraps any
+other transaction opener in `retryDeadlocks(() => open(work))`. `isDeadlockError(error)`
+follows `error.cause` and is false for an error that reports
+`transactionOutcome: "committed"`, because that transaction must not run again.
+
 ## Verification
 
 - For every schema change, run the normal preparation entrypoint against a

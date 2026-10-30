@@ -105,6 +105,7 @@ Local functions
 ### `src/server/common/repositories/repositoryUtils.js`
 Exports
 - `toIsoString`
+- `retryDeadlocks`
 - `isDuplicateEntryError`
 - `findDuplicateEntryError`
 - `normalizeText`

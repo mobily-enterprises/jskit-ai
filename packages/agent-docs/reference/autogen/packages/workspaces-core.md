@@ -39,6 +39,7 @@ Exports
 ### `src/server/common/repositories/repositoryUtils.js`
 Exports
 - `toIsoString`
+- `retryDeadlocks`
 - `isDuplicateEntryError`
 - `normalizeText`
 - `normalizeLowerText`

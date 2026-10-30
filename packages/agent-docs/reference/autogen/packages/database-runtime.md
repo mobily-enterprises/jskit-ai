@@ -114,6 +114,8 @@ Exports
 - `resolveInsertedRecordId`
 - `parseJsonValue`
 - `toDbJson`
+- `isDeadlockError`
+- `retryDeadlocks`
 - `runInTransaction`
 - `createWithTransaction`
 - `lockScopedRecordId`
@@ -130,7 +132,9 @@ Exports
 - `resolveInsertedRecordId(insertResult, { fallback = null } = {})`
 - `parseJsonValue(value, fallback = null, options = {})`
 - `toDbJson(value)`
-- `runInTransaction(knex, callback)`
+- `isDeadlockError(error)`
+- `retryDeadlocks(run, { retries = 3 } = {})`
+- `runInTransaction(knex, callback, options = {})`
 - `createWithTransaction(knex)`
 - `lockScopedRecordId({ trx, tableName, recordId, scopeId, idColumn = "id", scopeColumn = "workspace_id" } = {})`
 Local functions

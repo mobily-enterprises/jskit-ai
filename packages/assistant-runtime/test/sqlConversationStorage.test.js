@@ -81,6 +81,12 @@ test("the existing runtime storage contract uses the original SQL rows and rolls
     throw Object.assign(new Error("Caller failure"), { code: "SQLITE_BUSY" });
   }), /Caller failure/);
   assert.equal(invocations, 1, "Lock acquisition retry must never replay a storage callback");
+  invocations = 0;
+  await assert.rejects(f.storage.write(first.id, async () => {
+    invocations += 1;
+    throw Object.assign(new Error("Deadlock victim"), { code: "ER_LOCK_DEADLOCK", errno: 1213 });
+  }), /Deadlock victim/);
+  assert.equal(invocations, 1, "Deadlock retry must never replay a storage callback either");
 });
 
 test("independent SQL connections serialize authored receipt and sequence allocation", async t => {

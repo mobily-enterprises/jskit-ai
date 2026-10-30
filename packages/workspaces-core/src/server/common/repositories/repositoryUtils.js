@@ -1,5 +1,6 @@
 import {
   normalizeDbRecordId,
+  retryDeadlocks,
   toIsoString
 } from "@jskit-ai/database-runtime/shared";
 import { isDuplicateEntryError } from "@jskit-ai/database-runtime/shared/duplicateEntry";
@@ -30,6 +31,7 @@ function toDbJson(value, fallback = {}) {
 
 export {
   toIsoString,
+  retryDeadlocks,
   isDuplicateEntryError,
   normalizeText,
   normalizeLowerText,

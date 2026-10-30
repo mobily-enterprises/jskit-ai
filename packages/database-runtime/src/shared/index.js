@@ -22,6 +22,8 @@ export {
   resolveInsertedRecordId,
   parseJsonValue,
   toDbJson,
+  isDeadlockError,
+  retryDeadlocks,
   runInTransaction,
   createWithTransaction,
   lockScopedRecordId

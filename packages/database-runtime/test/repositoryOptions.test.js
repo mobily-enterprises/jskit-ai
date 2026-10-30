@@ -1,11 +1,24 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  isDeadlockError,
   lockScopedRecordId,
   normalizeDbRecordId,
   parseJsonValue,
-  resolveInsertedRecordId
+  resolveInsertedRecordId,
+  runInTransaction
 } from "../src/shared/repositoryOptions.js";
+
+function deadlock() {
+  return Object.assign(new Error("Deadlock found when trying to get lock; try restarting transaction"), {
+    code: "ER_LOCK_DEADLOCK",
+    errno: 1213
+  });
+}
+
+function fakeKnex({ isTransaction = false } = {}) {
+  return Object.assign(() => {}, { isTransaction, transaction: async (callback) => callback("trx") });
+}
 
 function fakeLockTransaction(row = null) {
   const calls = [];
@@ -76,4 +89,49 @@ test("lockScopedRecordId rejects missing transactions and unsafe identifiers", a
     () => lockScopedRecordId({ trx, tableName: "records; drop table", recordId: 1, scopeId: 1 }),
     /safe SQL identifier/u
   );
+});
+
+test("isDeadlockError recognizes deadlock victims through causes, never a committed write", () => {
+  assert.equal(isDeadlockError(deadlock()), true);
+  assert.equal(isDeadlockError({ errno: 1213 }), true);
+  assert.equal(isDeadlockError({ code: "40P01" }), true);
+  assert.equal(isDeadlockError(new Error("Write failed", { cause: deadlock() })), true);
+  assert.equal(isDeadlockError({ code: "ER_LOCK_WAIT_TIMEOUT", errno: 1205 }), false);
+  assert.equal(isDeadlockError({ code: "ER_DUP_ENTRY", errno: 1062 }), false);
+  assert.equal(isDeadlockError({ transactionOutcome: "committed", cause: deadlock() }), false);
+  const cyclic = new Error("cyclic");
+  cyclic.cause = cyclic;
+  for (const error of [null, undefined, "deadlock", cyclic]) {
+    assert.equal(isDeadlockError(error), false);
+  }
+});
+
+test("runInTransaction runs a deadlock victim again and returns the clean run", async () => {
+  let attempts = 0;
+  const result = await runInTransaction(fakeKnex(), async (trx) => {
+    attempts += 1;
+    if (attempts < 3) {
+      throw deadlock();
+    }
+    return trx;
+  });
+  assert.equal(result, "trx");
+  assert.equal(attempts, 3);
+});
+
+test("runInTransaction retries only deadlocks of the outermost transaction, a few times", async () => {
+  async function attemptsUntilRejected(knex, error, options) {
+    let attempts = 0;
+    await assert.rejects(runInTransaction(knex, async () => {
+      attempts += 1;
+      throw error;
+    }, options), error);
+    return attempts;
+  }
+  const failure = new Error("Validation failed");
+  assert.equal(await attemptsUntilRejected(fakeKnex(), failure), 1);
+  const victim = deadlock();
+  assert.equal(await attemptsUntilRejected(fakeKnex(), victim), 4);
+  assert.equal(await attemptsUntilRejected(fakeKnex(), victim, { retries: 0 }), 1);
+  assert.equal(await attemptsUntilRejected(fakeKnex({ isTransaction: true }), victim), 1, "A savepoint leaves the retry to its outermost transaction");
 });

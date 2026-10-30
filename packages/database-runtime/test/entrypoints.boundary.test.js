@@ -28,6 +28,8 @@ test("server provider module exports one declarative provider", () => {
 test("shared entrypoint exports shared database utilities only", () => {
   assert.equal(typeof sharedApi.createWithTransaction, "function");
   assert.equal(typeof sharedApi.isDuplicateEntryError, "function");
+  assert.equal(typeof sharedApi.isDeadlockError, "function");
+  assert.equal(typeof sharedApi.retryDeadlocks, "function");
   assert.equal(typeof sharedApi.toDatabaseDateTimeUtc, "function");
   assert.equal(typeof sharedApi.DatabaseProvider, "undefined");
   for (const removed of ["normalizeText", "retentionTestables", "createTransactionManager", "createRepositoryScope", "BaseRepository"]) {

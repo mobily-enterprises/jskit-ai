@@ -5,7 +5,8 @@ import {
   normalizeLowerText,
   normalizeRecordId,
   normalizeText,
-  toIsoString
+  toIsoString,
+  retryDeadlocks
 } from "./repositoryUtils.js";
 import {
   createJsonRestContext,
@@ -169,7 +170,7 @@ function createRepository({ api } = {}) {
     throw new TypeError("internal.repository.user-profiles requires json-rest-api userProfiles resource.");
   }
 
-  const withTransaction = (work) => api.transaction(work);
+  const withTransaction = (work) => retryDeadlocks(() => api.transaction(work));
 
   async function queryFirst(filters = {}, options = {}) {
     const rows = extractJsonRestCollectionRows(

@@ -19,6 +19,28 @@ test("transaction manager wraps callback in knex transaction", async () => {
   assert.equal(result.trx.trxId, "trx-1");
 });
 
+test("transaction manager runs a deadlocked transaction again but never a borrowed one", async () => {
+  const manager = createTransactionManager({ knex: createKnexStub() });
+  const deadlock = Object.assign(new Error("Deadlock found when trying to get lock"), { code: "ER_LOCK_DEADLOCK" });
+  let attempts = 0;
+  const result = await manager.inTransaction(async (trx) => {
+    attempts += 1;
+    if (attempts === 1) {
+      throw deadlock;
+    }
+    return trx.trxId;
+  });
+  assert.equal(result, "trx-1");
+  assert.equal(attempts, 2);
+
+  attempts = 0;
+  await assert.rejects(manager.inTransaction(async () => {
+    attempts += 1;
+    throw deadlock;
+  }, { trx: { trxId: "outer" } }), deadlock);
+  assert.equal(attempts, 1);
+});
+
 test("createWithTransaction creates a reusable withTransaction function", async () => {
   const knex = Object.assign(() => {
     throw new Error("query execution not expected");

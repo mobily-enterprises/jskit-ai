@@ -151,7 +151,41 @@ function toDbJson(value) {
   return JSON.stringify(value);
 }
 
-async function runInTransaction(knex, callback) {
+// True when the error reports a transaction the database aborted, and rolled
+// back in full, as a deadlock victim. A wrapper that reports its transaction
+// committed (json-rest-api's transactionOutcome) never is one.
+function isDeadlockError(error) {
+  const seen = new Set();
+  while (error && typeof error === "object" && !seen.has(error)) {
+    seen.add(error);
+    if (error.transactionOutcome === "committed") {
+      return false;
+    }
+    const code = String(error.code || "").toUpperCase();
+    if (code === "ER_LOCK_DEADLOCK" || code === "40P01" || Number(error.errno) === 1213) {
+      return true;
+    }
+    error = error.cause;
+  }
+  return false;
+}
+
+// Runs a whole transaction again when the database chose it as a deadlock
+// victim, so `run` must be safe to repeat: no external effects inside it.
+async function retryDeadlocks(run, { retries = 3 } = {}) {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await run();
+    } catch (error) {
+      if (attempt > retries || !isDeadlockError(error)) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, Math.random() * 20 * 2 ** attempt));
+    }
+  }
+}
+
+async function runInTransaction(knex, callback, options = {}) {
   if (typeof callback !== "function") {
     throw new TypeError("runInTransaction requires callback.");
   }
@@ -162,7 +196,12 @@ async function runInTransaction(knex, callback) {
   if (typeof knex.transaction !== "function") {
     return callback(knex);
   }
-  return knex.transaction(callback);
+  // Inside a transaction this opens a savepoint; a deadlock aborts the
+  // outermost transaction, and only that one retries.
+  if (knex.isTransaction) {
+    return knex.transaction(callback);
+  }
+  return retryDeadlocks(() => knex.transaction(callback), options);
 }
 
 function createWithTransaction(knex) {
@@ -218,6 +257,8 @@ export {
   resolveInsertedRecordId,
   parseJsonValue,
   toDbJson,
+  isDeadlockError,
+  retryDeadlocks,
   runInTransaction,
   createWithTransaction,
   lockScopedRecordId
