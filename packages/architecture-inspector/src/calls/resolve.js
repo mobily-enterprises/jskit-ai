@@ -1,3 +1,6 @@
+import { EventEmitter } from "node:events";
+import { Stats } from "node:fs";
+import { Duplex } from "node:stream";
 import ts from "typescript";
 import { isFunctionLike, unwrapExpression } from "./functions.js";
 import { isClassLike } from "./symbols.js";
@@ -12,6 +15,9 @@ const NODE_GLOBALS = new Set(["process", "Buffer", "require", "module", "exports
 // emit functions and model refs they return are Vue's own values.
 const VUE_MACROS = new Set(["defineProps", "defineEmits", "defineExpose", "defineOptions", "defineSlots", "defineModel", "withDefaults"]);
 const VUE_EXTERNAL_VALUES = new Set(["defineEmits", "defineModel"]);
+// Node objects untyped receivers most often hold; TypeScript's libraries do
+// not declare their members, so the names are read from Node itself.
+const NODE_MEMBER_SOURCES = Object.freeze([EventEmitter.prototype, Stats.prototype, Duplex.prototype]);
 const VIA_ORDER = Object.freeze(["checker", "self", "di-binding", "argument-flow"]);
 
 function weakerVia(left, right) {
@@ -48,8 +54,14 @@ function compatibleSides(left, right) {
   return left === "shared" || right === "shared" || left === right;
 }
 
+// Member names of TypeScript's libraries and of common Node objects.
 function libraryMemberNames(program) {
   const names = new Set();
+  for (const source of NODE_MEMBER_SOURCES) {
+    for (let prototype = source; prototype && prototype !== Object.prototype; prototype = Object.getPrototypeOf(prototype)) {
+      Object.getOwnPropertyNames(prototype).forEach((name) => names.add(name));
+    }
+  }
   for (const sourceFile of program.getSourceFiles()) {
     if (!program.isSourceFileDefaultLibrary(sourceFile)) {
       continue;
@@ -584,6 +596,10 @@ function createResolver({ program, checker, symbols, evaluator, bindings, action
       .some((token) => token === text || token === singular));
   }
 
+  // A member call on an untyped receiver reaches a project function only
+  // when the name is that function's alone: no builtin member has it, and
+  // exactly one function on this side declares it (or exactly one in a file
+  // the receiver names). A shared name is a guess, so it stays unresolved.
   function byName(name, receiver, file) {
     const side = codeSide(file);
     const candidates = (functionNames.get(name) || []).filter((candidate) => compatibleSides(side, codeSide(fileOf(candidate))));
@@ -592,15 +608,10 @@ function createResolver({ program, checker, symbols, evaluator, bindings, action
     }
     const hinted = candidates.length > 1 ? receiverHint(receiver, candidates) : [];
     const chosen = hinted.length === 1 ? hinted : candidates;
-    if (chosen.length > MAX_TARGETS) {
+    if (chosen.length !== 1 || builtinMembers.has(name)) {
       return unresolved();
     }
-    return {
-      resolution: chosen.length === 1 ? "resolved" : "ambiguous",
-      certainty: "probable",
-      method: "receiver-name",
-      targets: chosen
-    };
+    return { resolution: "resolved", certainty: "probable", method: "receiver-name", targets: chosen };
   }
 
   function enclosingClass(node) {

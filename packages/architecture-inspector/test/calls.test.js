@@ -143,7 +143,7 @@ test("provably external calls are dropped and other unresolvable calls are kept"
 test("receiver names and argument flow are probable, never exact", async (t) => {
   const { result } = await inspectCallsOf(t, {
     "src/server/catalog.js": [
-      "export const catalog = { list() { return []; }, filter(value) { return value; } };",
+      "export const catalog = { listEntries() { return []; }, filter(value) { return value; } };",
       "export const other = { filter(value) { return value; } };",
       "export function work() { return 1; }",
       ""
@@ -152,7 +152,7 @@ test("receiver names and argument flow are probable, never exact", async (t) => 
       "import { work } from \"./catalog.js\";",
       "function run(task) { return task(); }",
       "export function use(store, items) {",
-      "  store.list();",
+      "  store.listEntries();",
       "  items.filter(Boolean);",
       "  return run(work);",
       "}",
@@ -163,14 +163,44 @@ test("receiver names and argument flow are probable, never exact", async (t) => 
     const [call] = callsFrom(result, callee);
     return [call.resolution, call.certainty, call.method, call.targets];
   };
-  assert.deepEqual(facts("store.list"), ["resolved", "probable", "receiver-name", ["fn:src/server/catalog.js#1:26"]]);
-  assert.deepEqual(facts("items.filter"), ["ambiguous", "probable", "receiver-name", ["fn:src/server/catalog.js#1:49", "fn:src/server/catalog.js#2:24"]]);
+  assert.deepEqual(facts("store.listEntries"), ["resolved", "probable", "receiver-name", ["fn:src/server/catalog.js#1:26"]]);
+  // `filter` is shared by two project functions and is an Array member.
+  assert.deepEqual(facts("items.filter"), ["unresolved", "unresolved", "none", []]);
   // `run` calls `task` while it runs, so the caller that passes `work` reaches it.
   assert.deepEqual(facts("task"), ["unresolved", "unresolved", "none", []]);
   assert.deepEqual(callsFrom(result, "run").map((call) => [call.resolution, call.certainty, call.method, call.targets]), [
     ["resolved", "exact", "checker", ["fn:src/server/use.js#2:1"]],
     ["resolved", "probable", "argument-flow", ["fn:src/server/catalog.js#3:8"]]
   ]);
+});
+
+test("a member name reaches a project function only when no other function or builtin shares it", async (t) => {
+  const { result } = await inspectCallsOf(t, {
+    "src/server/records.js": [
+      "export const sessions = { readSessionRecord() { return 1; }, readSummary() { return []; } };",
+      "export const projects = { readSummary() { return []; } };",
+      "export const archive = { isDirectory() { return true; }, find() { return null; } };",
+      ""
+    ].join("\n"),
+    "src/server/use.js": [
+      "export function use(source, entry, values, bus) {",
+      "  source.readSessionRecord();",
+      "  source.readSummary();",
+      "  entry.isDirectory();",
+      "  values.find();",
+      "  bus.emit(\"changed\");",
+      "}",
+      ""
+    ].join("\n")
+  });
+  const facts = (callee) => callsFrom(result, callee).map((call) => [call.resolution, call.method, call.targets]);
+  assert.deepEqual(facts("source.readSessionRecord"), [["resolved", "receiver-name", ["fn:src/server/records.js#1:27"]]]);
+  // Shared by two project functions, or also a Node or JavaScript builtin member.
+  for (const callee of ["source.readSummary", "entry.isDirectory", "values.find"]) {
+    assert.deepEqual(facts(callee), [["unresolved", "none", []]], callee);
+  }
+  // A builtin member no project function declares is external.
+  assert.deepEqual(facts("bus.emit"), []);
 });
 
 test("a callback a shared helper calls is reached from the caller that passes it, not from the helper", async (t) => {

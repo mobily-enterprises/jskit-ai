@@ -110,7 +110,13 @@ Each discovery supplies `id`, `adapter`, `surface`, `mode`, `registrations`,
   - Calls that are provably external are left out: package imports, builtins,
     values produced by them (including `let` assignments, `for...of`,
     destructuring and callbacks they call), Vue's `<script setup>` macros and
-    `emit`. A name that is also a builtin member is never exact.
+    `emit`.
+  - A method call on an untyped receiver (`receiver-name`) reaches a project
+    function only when exactly one function on that side declares the name
+    (or exactly one in a file the receiver names) and no builtin member has
+    it: the members of TypeScript's libraries and of Node's `EventEmitter`,
+    `fs.Stats` and streams. Otherwise it is `unresolved`, and a builtin name
+    no project function declares is left out.
   - At most 2,000 call records per file; beyond that `CALLS_TRUNCATED` and a
     `partial` calls capability.
 - **Transports.** With an HTTP scope, `useEndpointResource`, `useCommand`,
