@@ -1135,6 +1135,41 @@ test("a deferred follow-up explains its wait and steers once the working turn ac
   await expect(f.primary.getByText(/^Pending/)).toHaveCount(0);
 });
 
+// An application keeps a retained view mounted but inactive while another
+// conversation is shown. A message waiting for admission there was never sent;
+// hiding its view must not fail it as "Message could not be sent."
+test("a deferred message keeps waiting while its view is hidden and sends once shown again", options, async t => {
+  const f = await fixture(t);
+  await f.page.evaluate(() => {
+    window.readerActive = window.conversationFixture.activity(true);
+    window.deferredBinding = window.conversationFixture.acquireConversation({
+      conversationId: "chat:2", deferWhileWorking: true, queueWhileSending: true, active: window.readerActive
+    });
+  });
+  const deferred = () => f.page.evaluate(() => {
+    const runtime = window.deferredBinding.runtime.value;
+    const { id, status, error, waiting } = runtime.delivery.state.messages.find(message => message.text === "Queued while working") || {};
+    return { available: runtime.available.value, status: runtime.snapshot.value?.status, message: { id, status, error, waiting } };
+  });
+  await expect.poll(async () => (await deferred()).available).toBe(true);
+  await f.page.evaluate(() => { window.original = window.deferredBinding.runtime.value.send({ message: "Original nonsteerable request" }); });
+  await expect.poll(async () => (await deferred()).status).toBe("working");
+  await f.page.evaluate(() => { window.queued = window.deferredBinding.runtime.value.send({ message: "Queued while working" }); });
+  await expect.poll(async () => (await deferred()).message.waiting).toBe("Waiting for the assistant to finish this step");
+  await f.page.evaluate(() => { window.readerActive.value = false; });
+  await expect.poll(async () => (await deferred()).available).toBe(false);
+  await f.command("finish", { id: "chat:2" });
+  const { message } = await deferred();
+  assert.equal(message.status, "pending", `hiding the view is not a failed delivery: ${message.error}`);
+  assert.equal((await f.sent()).length, 1, "a hidden view has no current state to admit the message against");
+  await f.page.evaluate(() => { window.readerActive.value = true; });
+  await expect.poll(async () => (await f.sent()).length).toBe(2);
+  const [, followUp] = await f.sent();
+  assert.deepEqual([followUp.input.messageId, followUp.input.text], [message.id, "Queued while working"]);
+  assert.equal((await f.page.evaluate(() => window.queued)).status, "accepted");
+  assert.equal((await f.sent()).length, 2, "the queued message is sent once");
+});
+
 for (const steer of [false, true]) {
   test(`Stop cancels locally queued native ${steer ? "steering" : "startup"} follow-ups`, options, async t => {
     const f = await fixture(t);

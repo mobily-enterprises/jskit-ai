@@ -450,6 +450,9 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
   }
   // A deferred message waits only while the working turn cannot take it. It
   // steers as soon as that turn accepts steering, or sends once it is ready.
+  // A hidden or reloading view has no current state to admit it against, so
+  // the unsent message keeps waiting; only Stop, Cancel, retirement or lost
+  // access end it.
   function waitForAdmission({ controller }) {
     return new Promise(resolve => {
       let stop;
@@ -459,7 +462,8 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
         resolve(admission);
       };
       const check = () => {
-        if (controller.signal.aborted || !available.value) finish(false);
+        if (controller.signal.aborted || accessDenied.value) finish(false);
+        else if (!available.value) return;
         else if (snapshot.value.status === "ready") finish("send");
         else if (steerable.value) finish("steer");
         else if (snapshot.value.status !== "working") finish(false);

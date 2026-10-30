@@ -121,6 +121,8 @@ onMounted(() => {
   window.conversationFixture = {
     socket,
     acquireConversation,
+    // A reader's own visibility, as when an application hides a retained view.
+    activity(value) { return ref(value); },
     releaseFactory() { factoryScope.stop(); },
     target(id) { conversationId.value = id; },
     show(value) { visible.value = value; },
