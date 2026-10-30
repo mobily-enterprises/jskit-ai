@@ -53,8 +53,9 @@ Routes registered through `createActionRouteScope` become entry operations with
 their path and `actionId` when their options are written in the recognised
 literal forms. With `--calls` the document also lists every function (module
 code as `fn:<path>#module`), each call with its certainty (exact from the
-TypeScript checker, `defineFeature` injection, `executeAction` or `this`;
-probable from argument flow or receiver names), action entry points, and
+TypeScript checker, `defineFeature` injection, `executeAction`, `this` or
+argument flow with a single value; probable from other argument flow or
+receiver names), action entry points, and
 operation uses from `useEndpointResource`, `useCommand`,
 `getHttpWebClient().request` and `fetch` with the function that makes them.
 Only declared project scripts and TypeScript's own libraries are analysed, and

@@ -91,9 +91,9 @@ Each discovery supplies `id`, `adapter`, `surface`, `mode`, `registrations`,
   top-level functions; `container` names an enclosing class or object.
 - **Calls.** One TypeScript program over the declared scripts and Vue script
   blocks only, plus TypeScript's own libraries; nothing under `node_modules` is
-  loaded. Each call is `exact` (`checker`, `di-binding`, `self` or
-  `route-action`), `probable` (`argument-flow`, `receiver-name`, or several
-  candidates) or `unresolved`.
+  loaded. Each call is `exact` (`checker`, `di-binding`, `self`,
+  `route-action` or single-valued `argument-flow`), `probable` (other
+  `argument-flow`, `receiver-name`, or several candidates) or `unresolved`.
   - `defineFeature` injection binds `requires` tokens to the `setup` outputs
     that `provides` them: one provider is exact, several are ambiguous.
   - Argument flow follows the caller. A function passed to a parameter that
@@ -103,6 +103,11 @@ Each discovery supplies `id`, `adapter`, `surface`, `mode`, `registrations`,
     own call of the parameter is `unresolved`, so one caller's callback is
     never reached through another caller. A parameter called only from a
     closure the callee stores or returns keeps every value its callers pass.
+    Argument flow is exact when it names one function for certain: a passed
+    inline function or a name bound to one function, or a parameter (also a
+    destructured factory parameter such as `createActions({ sessions })`)
+    that receives one value across all the project's calls, when that value
+    resolves exactly. Several values stay probable.
   - Action definitions (`{ id, execute }` in a feature's `actions`, also through
     pass-through wrappers and literal-array `.map`) become `action` entry
     points; `request.executeAction({ actionId: "..." })` reaches their execute

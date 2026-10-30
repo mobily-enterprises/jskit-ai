@@ -319,9 +319,10 @@ function createResolver({ program, checker, symbols, evaluator, bindings, action
             via: weakerVia(entry.via, "di-binding")
           })));
         }
-        return argumentValues(declaration).flatMap((bound) => valueTypes(bound, depth, seen).map((entry) => ({
+        const values = argumentValues(declaration);
+        return values.flatMap((bound) => valueTypes(bound, depth, seen).map((entry) => ({
           type: entry.type,
-          exact: false,
+          exact: entry.exact && values.length === 1,
           via: "argument-flow"
         })));
       }
@@ -378,7 +379,7 @@ function createResolver({ program, checker, symbols, evaluator, bindings, action
     const facts = [...targets.values()];
     const via = method || facts.map((entry) => entry.via).reduce(weakerVia);
     if (list.length === 1) {
-      const exact = exactAllowed && facts[0].exact && via !== "argument-flow";
+      const exact = exactAllowed && facts[0].exact;
       return { resolution: "resolved", certainty: exact ? "exact" : "probable", method: via, targets: list };
     }
     return { resolution: "ambiguous", certainty: "probable", method: via, targets: list };
@@ -389,12 +390,12 @@ function createResolver({ program, checker, symbols, evaluator, bindings, action
   }
 
   // The functions a passed value can be, added to `targets`.
-  function addValueTargets(value, targets) {
+  function addValueTargets(value, targets, exact = false) {
     const found = value.path.length
       ? [...targetsFromTypes(valueTypes({ expression: value.expression, path: value.path.slice(0, -1) }, 0, new Set()), [value.path.at(-1)]).targets.keys()]
       : symbols.expressionImplementations(value.expression, 0).map(constructorOf).filter(Boolean);
     for (const target of found) {
-      targets.set(target, { exact: false, via: "argument-flow" });
+      targets.set(target, { exact: exact && found.length === 1 && !value.path.length, via: "argument-flow" });
     }
   }
 
@@ -416,8 +417,9 @@ function createResolver({ program, checker, symbols, evaluator, bindings, action
     if (owner && ts.isCallExpression(call) && runsDuring(call, owner.fn)) {
       return targets;
     }
-    for (const value of argumentValues(declaration)) {
-      addValueTargets(value, targets);
+    const values = argumentValues(declaration);
+    for (const value of values) {
+      addValueTargets(value, targets, values.length === 1);
     }
     return targets;
   }
@@ -488,7 +490,7 @@ function createResolver({ program, checker, symbols, evaluator, bindings, action
       for (const parameter of invokedParameters(callee)) {
         const value = argumentValue(call, parameter);
         if (value) {
-          addValueTargets(value, targets);
+          addValueTargets(value, targets, true);
         }
       }
     }

@@ -140,7 +140,7 @@ test("provably external calls are dropped and other unresolvable calls are kept"
   }
 });
 
-test("receiver names and argument flow are probable, never exact", async (t) => {
+test("receiver names are probable, never exact, and a passed function is reached exactly", async (t) => {
   const { result } = await inspectCallsOf(t, {
     "src/server/catalog.js": [
       "export const catalog = { listEntries() { return []; }, filter(value) { return value; } };",
@@ -166,11 +166,12 @@ test("receiver names and argument flow are probable, never exact", async (t) => 
   assert.deepEqual(facts("store.listEntries"), ["resolved", "probable", "receiver-name", ["fn:src/server/catalog.js#1:26"]]);
   // `filter` is shared by two project functions and is an Array member.
   assert.deepEqual(facts("items.filter"), ["unresolved", "unresolved", "none", []]);
-  // `run` calls `task` while it runs, so the caller that passes `work` reaches it.
+  // `run` calls `task` while it runs, so the caller that passes `work`, a
+  // name bound to one function, reaches it exactly.
   assert.deepEqual(facts("task"), ["unresolved", "unresolved", "none", []]);
   assert.deepEqual(callsFrom(result, "run").map((call) => [call.resolution, call.certainty, call.method, call.targets]), [
     ["resolved", "exact", "checker", ["fn:src/server/use.js#2:1"]],
-    ["resolved", "probable", "argument-flow", ["fn:src/server/catalog.js#3:8"]]
+    ["resolved", "exact", "argument-flow", ["fn:src/server/catalog.js#3:8"]]
   ]);
 });
 
@@ -258,13 +259,52 @@ test("a callback a shared helper calls is reached from the caller that passes it
   assert.deepEqual(reach(routes(6)), [routes(2), routes(6), sessionResult, withResult].sort());
   assert.deepEqual(reach(withResult), [withResult]);
   const passed = callsFrom(result, "withResult").find((call) => call.fromFunctionId === routes(4) && call.method === "argument-flow");
-  assert.deepEqual([passed.resolution, passed.certainty, passed.targets], ["resolved", "probable", [routes(2)]]);
+  assert.deepEqual([passed.resolution, passed.certainty, passed.targets], ["resolved", "exact", [routes(2)]]);
   assert.deepEqual(callsFrom(result, "operation").map((call) => [call.fromFunctionId, call.certainty, call.targets]),
     [[withResult, "unresolved", []]]);
-  // A closure the helper returns may run later, so it keeps the passed values.
+  // A closure the helper returns may run later, so it keeps the passed values;
+  // its only caller passes one function, so the closure reaches it exactly.
   const [later] = callsFrom(result, "readStatus");
-  assert.deepEqual([later.certainty, later.method, later.targets], ["probable", "argument-flow", [id("src/server/provider.js", 2)]]);
+  assert.deepEqual([later.certainty, later.method, later.targets], ["exact", "argument-flow", [id("src/server/provider.js", 2)]]);
   assert.deepEqual(callsFrom(result, "createActions").map((call) => call.method), ["checker"]);
+});
+
+test("argument flow is exact when a parameter has one value across the project, probable with several", async (t) => {
+  const { result } = await inspectCallsOf(t, {
+    "src/server/service.js": [
+      "export function createService() {",
+      "  return { listRecords() { return []; } };",
+      "}",
+      ""
+    ].join("\n"),
+    "src/server/actions.js": [
+      "export function createActions({ records }) {",
+      "  return { execute: () => records.listRecords() };",
+      "}",
+      "export function createReader(read) {",
+      "  return { execute: () => read() };",
+      "}",
+      ""
+    ].join("\n"),
+    "src/server/provider.js": [
+      "import { createService } from \"./service.js\";",
+      "import { createActions, createReader } from \"./actions.js\";",
+      "function first() { return 1; }",
+      "function second() { return 2; }",
+      "export function setup() {",
+      "  const records = createService();",
+      "  createReader(first);",
+      "  createReader(second);",
+      "  return createActions({ records });",
+      "}",
+      ""
+    ].join("\n")
+  });
+  const facts = (callee) => callsFrom(result, callee).map((call) => [call.resolution, call.certainty, call.method, call.targets]);
+  // One caller injects the service, so the factory's closure reaches it exactly.
+  assert.deepEqual(facts("records.listRecords"), [["resolved", "exact", "argument-flow", ["fn:src/server/service.js#2:12"]]]);
+  // Two callers pass different functions, so either may run.
+  assert.deepEqual(facts("read"), [["ambiguous", "probable", "argument-flow", ["fn:src/server/provider.js#3:1", "fn:src/server/provider.js#4:1"]]]);
 });
 
 const FEATURE = "import { defineFeature } from \"@jskit-ai/kernel/server/features\";";
