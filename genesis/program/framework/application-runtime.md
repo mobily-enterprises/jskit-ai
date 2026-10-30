@@ -6,6 +6,7 @@ runtime primitives from which applications assemble their own behavior.
 ## Sources
 
 - Main: `packages/kernel/server/features/index.js`
+- `packages/kernel/server/http/lib/actionRouteScope.js`
 - `packages/http-runtime/src/client/index.js`
 - `packages/storage-runtime/src/server/providers/StorageProvider.js`
 - `packages/realtime/src/server/runtime.js`
@@ -19,6 +20,19 @@ providers, actions, and runtime adapters. Long-running work and application
 policy remain owned by the consuming application. Missing requirements fail at
 composition or at the relevant operation boundary rather than being resolved
 through a global service locator.
+
+`createActionRouteScope(http, { routeBase, relativePath, surface,
+strictParams, wrapHandler })` groups an application's HTTP routes under one
+base path, the same path `resolveScopedApiBasePath` returns for those options.
+Its `actionRoute(method, suffix, { actionId, buildInput, ...options })`
+registers a route that runs `request.executeAction({ actionId, input })` with
+`buildInput(request)` (default `{}`) as the input; `serviceRoute(method, suffix,
+options, handler)` registers an ordinary handler. Every route record keeps its
+`actionId` (empty for routes that run no action), so `router.list()` and static
+inspection can tell which action a route runs. An optional `wrapHandler(handler,
+{ method, path, options })` wraps both kinds with the application's own request
+behavior. Route options written as literals or imported constants keep the
+routes statically recognisable.
 
 JSKIT's Vite plugin names each built HTML page's build in a
 `jskit-client-build` meta tag, a digest of the page's content-hashed script and

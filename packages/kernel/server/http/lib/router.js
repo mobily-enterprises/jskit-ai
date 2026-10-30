@@ -94,6 +94,7 @@ class HttpRouter {
 
     const route = Object.freeze({
       id: normalizeText(resolvedOptions.id),
+      actionId: normalizeText(resolvedOptions.actionId),
       method: input.method,
       path: input.path,
       schema: resolvedOptions.schema,

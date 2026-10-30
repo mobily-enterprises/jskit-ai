@@ -34,7 +34,8 @@ const EXPORTED_UNUSED_ALLOWLIST = new Set([
   // Public composition-root API. Feature packages normally consume it through
   // defineFeature(), while infrastructure providers use it directly.
   "./shared/capabilities",
-  // Public HTTP composition provider used when assembling a server runtime.
+  // Public HTTP composition provider used when assembling a server runtime,
+  // and createActionRouteScope for applications' action route groups.
   "./server/http"
 ]);
 
