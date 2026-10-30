@@ -18,7 +18,9 @@
   },
   "dependencies": {
     "@babel/parser": "7.29.9",
-    "@vue/compiler-sfc": "3.5.44"
+    "@jskit-ai/kernel": "0.2.2",
+    "@vue/compiler-sfc": "3.5.44",
+    "typescript": "6.0.3"
   },
   "peerDependencies": {
     "vue-router": "^5.3.1"

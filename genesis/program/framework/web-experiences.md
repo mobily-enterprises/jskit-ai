@@ -13,6 +13,8 @@ shared action feedback.
 - `packages/workspaces-web/src/client/index.js`
 - `packages/uploads-image-web/src/client/index.js`
 - `packages/architecture-inspector/src/inspectVueArchitecture.js`
+- `packages/architecture-inspector/src/calls/index.js`
+- `packages/architecture-inspector/src/previewLocator.js`
 
 ## Public contract
 
@@ -42,4 +44,21 @@ application code or Genesis or Vibe64, and reports dynamic declarations as
 diagnostics instead of guessing. Filesystem-routed siblings are visited in
 route path order, so registration ids are stable between runs.
 `@jskit-ai/shell-web/architecture` and its `src/architecture/cli.js` re-export
-the package for existing consumers.
+the package for existing consumers; the re-exported command takes the same
+flags.
+
+Routes registered through `createActionRouteScope` become entry operations with
+their path and `actionId` when their options are written in the recognised
+literal forms. With `--calls` the document also lists every function (module
+code as `fn:<path>#module`), each call with its certainty (exact from the
+TypeScript checker, `defineFeature` injection, `executeAction` or `this`;
+probable from argument flow or receiver names), action entry points, and
+operation uses from `useEndpointResource`, `useCommand`,
+`getHttpWebClient().request` and `fetch` with the function that makes them.
+Only declared project scripts and TypeScript's own libraries are analysed, and
+provably external calls are left out. `--api-prefix-alias` rewrites client path
+prefixes before they are matched to routes. A cache directory in the input lets
+an unchanged rerun reuse its result and a changed file re-resolve only itself
+and its direct importers. The package also ships a Vue Preview locator that
+names the project component that rendered an element without reading its
+content.

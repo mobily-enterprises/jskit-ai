@@ -4,6 +4,9 @@ import path from "node:path";
 import { parse as parseJavaScript } from "@babel/parser";
 import { parse as parseSfc } from "@vue/compiler-sfc";
 import { createRoutesContext, resolveOptions } from "vue-router/unplugin";
+import { resolveScopedApiBasePath } from "@jskit-ai/kernel/shared/surface";
+import { cacheKeys, cacheLocation, readCallCache, writeCallCache } from "./calls/cache.js";
+import { inspectCalls } from "./calls/index.js";
 
 const INPUT_SCHEMA = "vibe64.architecture-inspection-input.v1";
 const OUTPUT_SCHEMA = "genesis.architecture-observations.v1";
@@ -21,12 +24,14 @@ const CRUD_RESOURCE_OPERATIONS = Object.freeze(["list", "view", "create", "patch
 const CRUD_CONTROLLER_OPERATIONS = Object.freeze(["list", "view", "create", "update", "delete"]);
 const CRUD_SCREEN_TRANSPORT_KEYS = Object.freeze(["screen", "client", "surfaceId", "transport"]);
 const CRUD_SCREEN_CLIENT_KEYS = Object.freeze(["client", "surfaceId", "transport", "resource"]);
+const MAX_UNROLLED_ELEMENTS = 64;
 
 // Framework sources whose declarations this inspector reads statically.
 const SOURCES = Object.freeze({
   crudResource: "@jskit-ai/resource-crud-core/shared/crudResource",
   crudJsonApiFeature: "@jskit-ai/crud-core/server/defineCrudJsonApiFeature",
   kernelFeatures: "@jskit-ai/kernel/server/features",
+  kernelHttp: "@jskit-ai/kernel/server/http",
   crudListScreen: "@jskit-ai/http-web/client/components/CrudListScreen",
   crudAddEditScreen: "@jskit-ai/http-web/client/components/CrudAddEditScreen",
   crudComposables: "@jskit-ai/http-web/client/composables",
@@ -77,12 +82,28 @@ function directoryPrefixes(filePath) {
 }
 
 // Every AST node with its ancestor chain, depth first.
+// Node records link to their parent record. `ancestors` (outermost first) is
+// built on demand, so a module's records stay linear in its size.
+const NODE_RECORD = Object.freeze({
+  get ancestors() {
+    const chain = [];
+    for (let current = this.parent; current; current = current.parent) {
+      chain.push(current.node);
+    }
+    return chain.reverse();
+  }
+});
+
+function nodeRecord(node, parent) {
+  return Object.assign(Object.create(NODE_RECORD), { node, parent });
+}
+
 function collectNodes(root) {
   const result = [];
-  const pending = [{ node: root, ancestors: [] }];
+  const pending = [nodeRecord(root, null)];
   while (pending.length) {
     const current = pending.pop();
-    const { node, ancestors } = current;
+    const { node } = current;
     if (!node || typeof node.type !== "string") {
       continue;
     }
@@ -91,7 +112,7 @@ function collectNodes(root) {
       const children = Array.isArray(value) ? value : value?.type ? [value] : [];
       for (const child of children) {
         if (child?.type) {
-          pending.push({ node: child, ancestors: [...ancestors, node] });
+          pending.push(nodeRecord(child, current));
         }
       }
     }
@@ -101,9 +122,12 @@ function collectNodes(root) {
 
 // The literal value of an expression, following local bindings; undefined when
 // any part is dynamic.
-function staticValue(node, bindings, seen = new Set()) {
+function staticValue(node, bindings, seen = new Set(), environment = null) {
   if (!node) {
     return undefined;
+  }
+  if (node.type === "Identifier" && environment?.has(node.name)) {
+    return environment.get(node.name);
   }
   if (["StringLiteral", "BooleanLiteral", "NumericLiteral"].includes(node.type)) {
     return node.value;
@@ -115,34 +139,34 @@ function staticValue(node, bindings, seen = new Set()) {
     return staticValue(bindings.get(node.name), bindings, new Set([...seen, node.name]));
   }
   if (node.type === "ArrayExpression") {
-    const values = node.elements.map((entry) => staticValue(entry, bindings, seen));
+    const values = node.elements.map((entry) => staticValue(entry, bindings, seen, environment));
     return values.every((value) => value !== undefined) ? values : undefined;
   }
   if (node.type === "ObjectExpression") {
-    return staticObjectValue(node, bindings, seen);
+    return staticObjectValue(node, bindings, seen, environment);
   }
   if (node.type === "TemplateLiteral") {
-    const values = node.expressions.map((entry) => staticValue(entry, bindings, seen));
+    const values = node.expressions.map((entry) => staticValue(entry, bindings, seen, environment));
     if (values.some((value) => typeof value !== "string")) {
       return undefined;
     }
     return node.quasis.map((entry, index) => entry.value.cooked + (values[index] || "")).join("");
   }
   if (node.type === "BinaryExpression" && node.operator === "+") {
-    const left = staticValue(node.left, bindings, seen);
-    const right = staticValue(node.right, bindings, seen);
+    const left = staticValue(node.left, bindings, seen, environment);
+    const right = staticValue(node.right, bindings, seen, environment);
     return typeof left === "string" && typeof right === "string" ? left + right : undefined;
   }
   return undefined;
 }
 
-function staticObjectValue(node, bindings, seen) {
+function staticObjectValue(node, bindings, seen, environment) {
   const result = {};
   for (const entry of node.properties) {
     if (!isStaticObjectProperty(entry)) {
       return undefined;
     }
-    const value = staticValue(entry.value, bindings, seen);
+    const value = staticValue(entry.value, bindings, seen, environment);
     if (value === undefined) {
       return undefined;
     }
@@ -215,7 +239,7 @@ function pageTitle(file) {
   return name === "index" ? path.posix.basename(path.posix.dirname(file)) : name;
 }
 
-function validateInput({ projectRoot, input, aliases }) {
+function validateInput({ projectRoot, input, aliases, apiPrefixAliases }) {
   if (!path.isAbsolute(projectRoot || "") || input?.schema !== INPUT_SCHEMA || !Array.isArray(input.files)) {
     throw new TypeError("An absolute project root and architecture inspection input are required.");
   }
@@ -231,6 +255,11 @@ function validateInput({ projectRoot, input, aliases }) {
       throw new TypeError("Aliases must resolve within the project.");
     }
   }
+  for (const { client, route } of apiPrefixAliases) {
+    if (!/^\/[^\s?#]*[^/\s?#]$/u.test(client) || !/^\/[^\s?#]*[^/\s?#]$/u.test(route)) {
+      throw new TypeError("API prefix aliases map one absolute path prefix to another, without a trailing slash.");
+    }
+  }
   const packages = input.packages || [];
   const validPackage = (entry) =>
     typeof entry.id === "string" &&
@@ -243,7 +272,7 @@ function validateInput({ projectRoot, input, aliases }) {
   return { files, packages };
 }
 
-function createOutput({ input, httpScope }) {
+function createOutput({ input, httpScope, calls }) {
   const httpCapability = httpScope ? "partial" : "unconfigured";
   const output = {
     schema: OUTPUT_SCHEMA,
@@ -265,6 +294,9 @@ function createOutput({ input, httpScope }) {
     imports: [],
     diagnostics: []
   };
+  if (calls) {
+    Object.assign(output, { functions: [], calls: [], entryPoints: [] });
+  }
   if (input.packageIdentity) {
     output.packageIdentity = input.packageIdentity;
   }
@@ -275,46 +307,66 @@ function warn(inspection, code, message, source) {
   inspection.output.diagnostics.push({ code, message, ...(source ? { path: source } : {}) });
 }
 
-// Reads one indexed, hash-matching source file once and parses its scripts.
-// Non-script files are recorded as inputs without parsing.
+// Reads one indexed, hash-matching source file once and records it as an
+// input. Symbolic links, changed sources and oversized files are refused.
+async function readDeclaredSource(inspection, filePath) {
+  const { files, output, projectRoot, sources } = inspection;
+  if (sources.has(filePath)) {
+    return sources.get(filePath);
+  }
+  for (const directory of directoryPrefixes(filePath)) {
+    if (inspection.checkedDirectories.has(directory)) {
+      continue;
+    }
+    if ((await lstat(path.join(projectRoot, directory))).isSymbolicLink()) {
+      throw new Error("Architecture inspection cannot follow symbolic links.");
+    }
+    inspection.checkedDirectories.add(directory);
+  }
+  const bytes = await readFile(path.join(projectRoot, filePath));
+  if (bytes.length > MAX_SOURCE_BYTES || hashBytes(bytes) !== files.get(filePath).hash) {
+    throw new Error(`Source changed or exceeded inspection bounds: ${filePath}`);
+  }
+  output.inputs.push({ path: filePath, hash: files.get(filePath).hash });
+  sources.set(filePath, bytes);
+  return bytes;
+}
+
+function utf8Source(bytes, filePath) {
+  const source = bytes.toString("utf8");
+  if (!Buffer.from(source).equals(bytes)) {
+    throw new Error(`Source is not UTF-8: ${filePath}`);
+  }
+  return source;
+}
+
+// Reads one indexed source file once and parses its scripts. Non-script files
+// are recorded as inputs without parsing.
 async function loadModule(inspection, filePath) {
-  const { files, modules, output, projectRoot } = inspection;
+  const { files, modules } = inspection;
   if (modules.has(filePath)) {
     return modules.get(filePath);
   }
   if (!files.has(filePath)) {
     return null;
   }
-  for (const directory of directoryPrefixes(filePath)) {
-    if ((await lstat(path.join(projectRoot, directory))).isSymbolicLink()) {
-      throw new Error("Architecture inspection cannot follow symbolic links.");
-    }
-  }
-  const bytes = await readFile(path.join(projectRoot, filePath));
-  if (bytes.length > MAX_SOURCE_BYTES || hashBytes(bytes) !== files.get(filePath).hash) {
-    throw new Error(`Source changed or exceeded inspection bounds: ${filePath}`);
-  }
+  const bytes = await readDeclaredSource(inspection, filePath);
   if (!SCRIPT_FILE_PATTERN.test(filePath)) {
     modules.set(filePath, null);
-    output.inputs.push({ path: filePath, hash: hashBytes(bytes) });
     return null;
-  }
-  const source = bytes.toString("utf8");
-  if (!Buffer.from(source).equals(bytes)) {
-    throw new Error(`Source is not UTF-8: ${filePath}`);
   }
   const module = {
     path: filePath,
-    source,
-    hash: hashBytes(bytes),
+    source: utf8Source(bytes, filePath),
+    hash: files.get(filePath).hash,
     bindings: new Map(),
+    constants: new Set(),
     imports: new Map(),
     nodes: [],
     exports: new Map(),
     descriptor: null
   };
   modules.set(filePath, module);
-  output.inputs.push({ path: filePath, hash: module.hash });
   for (const unit of scriptUnits(inspection, module)) {
     indexScriptUnit(inspection, module, unit);
   }
@@ -325,7 +377,7 @@ function scriptUnits(inspection, module) {
   if (!module.path.endsWith(".vue")) {
     return [{ source: module.source, offset: 0, setup: false }];
   }
-  const parsed = parseSfc(module.source, { filename: module.path });
+  const parsed = parseSfc(module.source, { filename: module.path, sourceMap: false });
   if (parsed.errors.length) {
     warn(inspection, "VUE_PARSE_FAILED", "The component could not be parsed completely.", module.path);
     return [];
@@ -351,19 +403,23 @@ function indexScriptUnit(inspection, module, unit) {
       createImportExpressions: true
     });
     const records = collectNodes(ast);
-    module.nodes.push(...records.map((record) => ({ ...record, offset: unit.offset, setup: unit.setup })));
-    for (const { node } of records) {
-      indexDeclaration(module, node);
+    for (const record of records) {
+      Object.assign(record, { offset: unit.offset, setup: unit.setup });
+      module.nodes.push(record);
+      indexDeclaration(module, record.node, record.parent?.node);
     }
   } catch {
     warn(inspection, "JAVASCRIPT_PARSE_FAILED", "A script needs unsupported syntax or could not be parsed.", module.path);
   }
 }
 
-function indexDeclaration(module, node) {
+function indexDeclaration(module, node, parent) {
   if (node.type === "VariableDeclarator" && node.id.type === "Identifier") {
     // A name bound twice in one module is ambiguous, so it resolves to nothing.
     module.bindings.set(node.id.name, module.bindings.has(node.id.name) ? undefined : node.init);
+    if (parent?.kind === "const") {
+      module.constants.add(node.id.name);
+    }
   }
   if (node.type === "ExportNamedDeclaration") {
     for (const specifier of node.specifiers) {
@@ -772,7 +828,9 @@ async function discoverComponents(inspection) {
         await recordCrudScreenUse(inspection, { module, file, parentId, tag });
       }
     }
-    recordFetchUses(inspection, { module, parentId, eventHandlers });
+    if (!inspection.calls) {
+      recordFetchUses(inspection, { module, parentId, eventHandlers });
+    }
   }
 }
 
@@ -982,6 +1040,7 @@ async function discoverEntryOperations(inspection) {
     for (const record of module.nodes) {
       await recordCrudController(inspection, { module, file, record });
     }
+    await recordActionRouteScopes(inspection, { module, file });
     const featureFactories = importedNames(module, SOURCES.kernelFeatures, "defineFeature");
     if (!featureFactories.size) {
       continue;
@@ -1075,12 +1134,231 @@ function recordFeatureRoute(inspection, { module, file, record, featureFactories
     warn(inspection, "CONTROLLER_UNRESOLVED", "A route's application handler or identity is dynamic.", file);
     return;
   }
-  inspection.output.entryOperations.push({
+  const entry = {
     id: `entry:${inspection.httpScope}:${file}:${node.start}`,
     key: { protocol: "http", scope: inspection.httpScope, method: method.toUpperCase(), operation: `${inspection.apiBasePath}${operation}` },
     controllerFile: file,
     resolution: "resolved",
     evidence: sourceEvidence(module, node, offset)
+  };
+  inspection.output.entryOperations.push(entry);
+  inspection.handlerRanges.set(entry, { file, start: offset + handler.start, end: offset + handler.end });
+}
+
+// The literal value of a scope option: a string literal, or a local or
+// imported const string literal. Undefined otherwise.
+async function scopeOption(inspection, module, node, fallback) {
+  if (!node) {
+    return fallback;
+  }
+  if (node.type === "StringLiteral" || (node.type === "TemplateLiteral" && !node.expressions.length)) {
+    return staticValue(node, module.bindings);
+  }
+  if (node.type !== "Identifier") {
+    return undefined;
+  }
+  if (module.imports.has(node.name)) {
+    return importedConstant(inspection, module, node.name, new Set());
+  }
+  const value = module.constants.has(node.name) ? staticValue(module.bindings.get(node.name), module.bindings) : undefined;
+  return typeof value === "string" ? value : undefined;
+}
+
+async function importedConstant(inspection, module, name, seen) {
+  const imported = module.imports.get(name);
+  const target = imported && resolveImport(inspection, module.path, imported.source);
+  const owner = target && await loadModule(inspection, target);
+  return owner ? exportedConstant(inspection, owner, imported.imported, seen) : undefined;
+}
+
+async function exportedConstant(inspection, module, name, seen) {
+  const identity = `${module.path}:${name}`;
+  const entry = module.exports.get(name);
+  if (!entry || seen.has(identity) || seen.size >= MAX_RESOURCE_HOPS) {
+    return undefined;
+  }
+  const next = new Set([...seen, identity]);
+  if (entry.source) {
+    const target = resolveImport(inspection, module.path, entry.source);
+    const owner = target && await loadModule(inspection, target);
+    return owner ? exportedConstant(inspection, owner, entry.local, next) : undefined;
+  }
+  if (module.imports.has(entry.local)) {
+    return importedConstant(inspection, module, entry.local, next);
+  }
+  const value = module.constants.has(entry.local) ? staticValue(module.bindings.get(entry.local), module.bindings) : undefined;
+  return typeof value === "string" ? value : undefined;
+}
+
+// The scope's API base path, computed exactly as createActionRouteScope does;
+// null when an option is not a literal.
+async function actionRouteScopeBase(inspection, module, node) {
+  const options = bindingNode(node.arguments[1], module.bindings);
+  if (options && (options.type !== "ObjectExpression" || options.properties.some((entry) => entry.type === "SpreadElement"))) {
+    return null;
+  }
+  const routeBase = await scopeOption(inspection, module, objectProperty(options, "routeBase"), "/");
+  const relativePath = await scopeOption(inspection, module, objectProperty(options, "relativePath"), "");
+  const surface = await scopeOption(inspection, module, objectProperty(options, "surface"), "");
+  const strictParams = staticValue(objectProperty(options, "strictParams"), module.bindings) ?? false;
+  if (typeof routeBase !== "string" || typeof relativePath !== "string" || typeof surface !== "string" || typeof strictParams !== "boolean") {
+    return null;
+  }
+  try {
+    return resolveScopedApiBasePath({ routeBase, relativePath, strictParams });
+  } catch {
+    return null;
+  }
+}
+
+// The names a scope's route registrations are called through: the variable
+// holding the scope, or destructured actionRoute / serviceRoute functions.
+function scopeReceivers(record) {
+  const declarator = record.ancestors.at(-1);
+  if (declarator?.type !== "VariableDeclarator" || declarator.init !== record.node) {
+    return null;
+  }
+  const owner = record.ancestors.slice().reverse().find((node) => isFunctionNode(node) || node.type === "Program");
+  if (declarator.id.type === "Identifier") {
+    return { owner, object: declarator.id.name, functions: new Map() };
+  }
+  if (declarator.id.type !== "ObjectPattern") {
+    return null;
+  }
+  const functions = new Map();
+  for (const entry of declarator.id.properties) {
+    if (entry.type === "ObjectProperty" && entry.value.type === "Identifier" && ["actionRoute", "serviceRoute"].includes(propertyKey(entry))) {
+      functions.set(entry.value.name, propertyKey(entry));
+    }
+  }
+  return { owner, object: null, functions };
+}
+
+function routeRegistrationKind({ node, ancestors }, receivers) {
+  if (node.type !== "CallExpression" || !ancestors.includes(receivers.owner)) {
+    return "";
+  }
+  const callee = node.callee;
+  if (callee.type === "Identifier") {
+    return receivers.functions.get(callee.name) || "";
+  }
+  const named = callee.type === "MemberExpression" && !callee.computed && callee.object.type === "Identifier" &&
+    callee.object.name === receivers.object;
+  return named && ["actionRoute", "serviceRoute"].includes(callee.property.name) ? callee.property.name : "";
+}
+
+function bindPattern(pattern, value, environment) {
+  if (!pattern) {
+    return;
+  }
+  if (pattern.type === "Identifier") {
+    environment.set(pattern.name, value);
+  } else if (pattern.type === "ArrayPattern") {
+    pattern.elements.forEach((element, index) => bindPattern(element, Array.isArray(value) ? value[index] : undefined, environment));
+  } else if (pattern.type === "ObjectPattern") {
+    for (const entry of pattern.properties) {
+      if (entry.type === "ObjectProperty" && !entry.computed) {
+        bindPattern(entry.value, value && typeof value === "object" ? value[propertyKey(entry)] : undefined, environment);
+      }
+    }
+  } else if (pattern.type === "AssignmentPattern") {
+    bindPattern(pattern.left, value, environment);
+  }
+}
+
+// One environment per element of each enclosing `for...of` or `.map` over a
+// literal array of at most 64 elements; null beyond that bound.
+function unrolledEnvironments(module, { node, ancestors }) {
+  let environments = [new Map()];
+  const chain = [...ancestors, node];
+  chain.forEach((current, index) => {
+    let pattern;
+    let source;
+    if (current.type === "ForOfStatement" && chain.includes(current.body) && current.left.type === "VariableDeclaration") {
+      pattern = current.left.declarations[0]?.id;
+      source = current.right;
+    }
+    const call = chain[index - 1];
+    if (isFunctionNode(current) && call?.type === "CallExpression" && call.arguments[0] === current &&
+      call.callee.type === "MemberExpression" && !call.callee.computed && call.callee.property.name === "map") {
+      pattern = current.params[0];
+      source = call.callee.object;
+    }
+    const elements = source && staticValue(source, module.bindings);
+    if (!pattern || !Array.isArray(elements) || elements.length > MAX_UNROLLED_ELEMENTS) {
+      return;
+    }
+    environments = environments.flatMap((environment) => elements.map((element) => {
+      const next = new Map(environment);
+      bindPattern(pattern, element, next);
+      return next;
+    }));
+  });
+  return environments.length <= MAX_UNROLLED_ELEMENTS ? environments : null;
+}
+
+// Routes registered through the kernel's createActionRouteScope. Scope
+// options must be literals or const string literals; each route's method,
+// suffix and actionId literals, templates or literal-array elements.
+async function recordActionRouteScopes(inspection, { module, file }) {
+  const factories = importedNames(module, SOURCES.kernelHttp, "createActionRouteScope");
+  if (!factories.size) {
+    return;
+  }
+  for (const record of module.nodes.filter((entry) => isLocalCall(entry, factories))) {
+    const receivers = scopeReceivers(record);
+    if (!receivers) {
+      warn(inspection, "ACTION_ROUTE_SCOPE_UNBOUND", "An action route scope must be held in a local variable or destructured.", file);
+      continue;
+    }
+    const routeBase = await actionRouteScopeBase(inspection, module, record.node);
+    for (const registration of module.nodes) {
+      const kind = routeRegistrationKind(registration, receivers);
+      if (!kind) {
+        continue;
+      }
+      if (routeBase === null) {
+        warn(inspection, "ACTION_ROUTE_UNRESOLVED", "An action route scope needs literal routeBase, relativePath and surface options.", file);
+        continue;
+      }
+      recordScopedRoute(inspection, { module, file, routeBase, registration, kind });
+    }
+  }
+}
+
+function recordScopedRoute(inspection, { module, file, routeBase, registration, kind }) {
+  const { node, offset } = registration;
+  const environments = unrolledEnvironments(module, registration);
+  const [methodNode, suffixNode, optionsNode, handler] = node.arguments;
+  const options = bindingNode(optionsNode, module.bindings);
+  (environments || [null]).forEach((environment, index) => {
+    const method = environment && staticValue(methodNode, module.bindings, new Set(), environment);
+    const suffix = environment && staticValue(suffixNode, module.bindings, new Set(), environment);
+    const actionId = kind === "actionRoute" && environment
+      ? staticValue(objectProperty(options, "actionId"), module.bindings, new Set(), environment)
+      : "";
+    const literalAction = kind !== "actionRoute" || (typeof actionId === "string" && Boolean(actionId.trim()));
+    if (typeof method !== "string" || !/^[A-Za-z]+$/u.test(method) || typeof suffix !== "string" || !literalAction) {
+      warn(inspection, "ACTION_ROUTE_UNRESOLVED", "A route's method, path suffix or actionId is not a literal or literal-array element.", file);
+      return;
+    }
+    const entry = {
+      id: `entry:${inspection.httpScope}:${file}:${offset + node.start}${environments.length > 1 ? `:${index}` : ""}`,
+      key: {
+        protocol: "http",
+        scope: inspection.httpScope,
+        method: method.toUpperCase(),
+        operation: `${routeBase}${suffix}`.replace(/\/+/gu, "/").replace(/(.)\/$/u, "$1")
+      },
+      controllerFile: file,
+      ...(kind === "actionRoute" ? { actionId: actionId.trim() } : {}),
+      resolution: "resolved",
+      evidence: sourceEvidence(module, node, offset)
+    };
+    inspection.output.entryOperations.push(entry);
+    if (handler && isFunctionNode(handler)) {
+      inspection.handlerRanges.set(entry, { file, start: offset + handler.start, end: offset + handler.end });
+    }
   });
 }
 
@@ -1133,10 +1411,116 @@ async function collectImports(inspection) {
   }
 }
 
+// The page or component record a file defines, for operation uses found in it.
+function parentIdForFile(inspection, file) {
+  const { output } = inspection;
+  return output.pages.find((page) => page.file === file)?.id ||
+    output.components.find((component) => component.file === file)?.id ||
+    null;
+}
+
+// Functions, calls, transport operation uses and action entry points from the
+// TypeScript checker over every declared script. With a usable cache
+// directory, an unchanged run reuses its earlier result, and otherwise each
+// file whose own and directly imported sources are unchanged keeps its calls.
+async function discoverCalls(inspection) {
+  const { files, output, projectRoot } = inspection;
+  const scripts = [...files.keys()].filter((file) => SCRIPT_FILE_PATTERN.test(file));
+  const keys = cacheKeys({
+    input: inspection.input,
+    files,
+    imports: output.imports,
+    scripts,
+    options: {
+      aliases: inspection.aliases,
+      httpScope: inspection.httpScope,
+      apiBasePath: inspection.apiBasePath,
+      apiPrefixAliases: inspection.apiPrefixAliases
+    }
+  });
+  const location = await cacheLocation(projectRoot, inspection.input.cacheDirectory);
+  const cache = location && await readCallCache(location, keys.key);
+  const sources = new Map();
+  const hashes = new Map();
+  for (const file of scripts) {
+    sources.set(file, utf8Source(await readDeclaredSource(inspection, file), file));
+    hashes.set(file, files.get(file).hash);
+  }
+  const run = cache?.run?.key === keys.runKey ? cache.run : await inspectCallsAndCache(inspection, {
+    sources,
+    hashes,
+    keys,
+    location,
+    reuse: new Map(scripts.filter((file) => cache?.files[file]?.key === keys.fileKeys.get(file)).map((file) => [file, cache.files[file]]))
+  });
+  for (const [code, message, file] of run.diagnostics) {
+    warn(inspection, code, message, file);
+  }
+  const controllers = new Map(run.controllers);
+  for (const entry of output.entryOperations) {
+    if (controllers.has(entry.id)) {
+      entry.controllerFunctionId = controllers.get(entry.id);
+    }
+  }
+  const filesInOrder = run.order.map((file) => run.files?.[file] || cache.files[file]);
+  output.functions.push(...filesInOrder.flatMap((entry) => entry.functions));
+  output.calls.push(...filesInOrder.flatMap((entry) => entry.calls));
+  output.entryPoints.push(...run.entryPoints);
+  output.operationUses.push(...run.operationUses);
+  output.capabilities.functions = run.complete ? "complete" : "partial";
+  output.capabilities.calls = run.complete && !run.truncated ? "complete" : "partial";
+  output.capabilities.entryPoints = "partial";
+  if (inspection.httpScope) {
+    output.capabilities.operationUses = "partial";
+  }
+}
+
+// One call pass, written to the cache when one is usable. The run's
+// diagnostics are kept so an unchanged rerun reports them again.
+async function inspectCallsAndCache(inspection, { sources, hashes, keys, location, reuse }) {
+  const diagnostics = [];
+  const result = inspectCalls({
+    projectRoot: inspection.projectRoot,
+    sources,
+    hashes,
+    resolveImport: (from, specifier) => resolveImport(inspection, from, specifier),
+    entryOperations: inspection.output.entryOperations,
+    handlerRanges: inspection.handlerRanges,
+    transports: Boolean(inspection.httpScope),
+    parentIdForFile: (file) => parentIdForFile(inspection, file),
+    prefixAliases: inspection.apiPrefixAliases,
+    diagnose: (code, message, file) => diagnostics.push([code, message, file]),
+    reuse
+  });
+  const run = {
+    key: keys.runKey,
+    order: [...result.fileRecords.keys()],
+    controllers: [...result.controllers].map(([entry, functionId]) => [entry.id, functionId]),
+    entryPoints: result.entryPoints,
+    operationUses: result.operationUses,
+    complete: result.complete,
+    truncated: result.truncated,
+    diagnostics
+  };
+  const files = Object.fromEntries([...result.fileRecords].map(([file, records]) => [file, { key: keys.fileKeys.get(file), ...records }]));
+  if (location) {
+    await writeCallCache(location, { key: keys.key, run, files });
+  }
+  return { ...run, files };
+}
+
 // Standalone, finite static inspection. No application import, watcher, server,
 // Genesis dependency or runtime interpretation is needed to emit neutral JSON.
-async function inspectVueArchitecture({ projectRoot, input, aliases = {}, httpScope = "", apiBasePath = "" }) {
-  const { files, packages } = validateInput({ projectRoot, input, aliases });
+async function inspectVueArchitecture({
+  projectRoot,
+  input,
+  aliases = {},
+  httpScope = "",
+  apiBasePath = "",
+  calls = false,
+  apiPrefixAliases = []
+}) {
+  const { files, packages } = validateInput({ projectRoot, input, aliases, apiPrefixAliases });
   const inspection = {
     projectRoot,
     input,
@@ -1145,8 +1529,13 @@ async function inspectVueArchitecture({ projectRoot, input, aliases = {}, httpSc
     aliases,
     httpScope,
     apiBasePath,
-    output: createOutput({ input, httpScope }),
+    calls,
+    apiPrefixAliases,
+    output: createOutput({ input, httpScope, calls }),
     modules: new Map(),
+    sources: new Map(),
+    checkedDirectories: new Set(),
+    handlerRanges: new Map(),
     components: new Map(),
     pages: new Map()
   };
@@ -1156,6 +1545,12 @@ async function inspectVueArchitecture({ projectRoot, input, aliases = {}, httpSc
     await discoverEntryOperations(inspection);
   }
   await collectImports(inspection);
+  if (calls) {
+    // The call pass has its own TypeScript syntax trees; the parsed modules
+    // are released first so both never stay in memory together.
+    inspection.modules.clear();
+    await discoverCalls(inspection);
+  }
   return inspection.output;
 }
 

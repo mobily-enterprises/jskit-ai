@@ -14,13 +14,111 @@ Use this on demand; do not load the full index at startup.
 
 ### src
 
+### `src/calls/cache.js`
+Exports
+- `cacheKeys({ input, files, imports, scripts, options })`
+- `cacheLocation(projectRoot, directory)`
+- `readCallCache(location, key)`
+- `writeCallCache(location, cache)`
+Local functions
+- `digest(value)`
+
+### `src/calls/evaluate.js`
+Exports
+- `ANY`
+- `SEGMENT`
+- `createEvaluator({ symbols, fileOf })`
+- `isLiteralPattern(value)`
+Local functions
+- `concat(left, right)`
+- `union(...lists)`
+- `emptyEnvironment()`
+- `normalizedSegment(value)`
+
+### `src/calls/features.js`
+Exports
+- `bindFeatures({ calls, symbols, evaluator })`
+Local functions
+- `memberNamed(objectLiteral, name)`
+- `isActionObject(node)`
+- `collectFeatureActions(features, { symbols, evaluator })`
+
+### `src/calls/functions.js`
+Exports
+- `collectFileFunctions({ file, hash, sourceFile, checker })`
+- `isFunctionLike(node)`
+- `point(sourceFile, position)`
+- `safeAliased(checker, symbol)`
+- `unwrapExpression(node)`
+Local functions
+- `canonicalStart(node)`
+- `functionKind(node)`
+- `propertyNameText(name, sourceFile)`
+- `functionName(node)`
+- `functionContainer(node)`
+- `isTopLevelDeclaration(node)`
+
+### `src/calls/index.js`
+Exports
+- `inspectCalls({ projectRoot, sources, hashes, resolveImport, entryOperations, handlerRanges, transports, parentIdForFile, prefixAliases, diagnose, reuse = new Map() })`
+Local functions
+- `calleeText(call)`
+- `callIdentityPosition(call)`
+- `rangeOf(sourceFile, node)`
+
+### `src/calls/program.js`
+Exports
+- `loadCallProgram({ projectRoot, sources, resolveImport })`
+Local functions
+- `vueScriptText(source, filePath)`
+
+### `src/calls/resolve.js`
+Exports
+- `codeSide(file)`
+- `createResolver({ program, checker, symbols, evaluator, bindings, actionsById, fileOf, functionNames })`
+Local functions
+- `weakerVia(left, right)`
+- `isAnyType(type)`
+- `isComponentFile(file)`
+- `isNullish(expression)`
+- `compatibleSides(left, right)`
+- `libraryMemberNames(program)`
+- `constructorOf(implementation)`
+
+### `src/calls/symbols.js`
+Exports
+- `createSymbols(context)`
+- `isClassLike(node)`
+Local functions
+- `isBareSpecifier(specifier)`
+
+### `src/calls/transports.js`
+Exports
+- `collectTransportSites({ calls, symbols, evaluator, fileOf })`
+- `matchSite({ patterns, methods }, routes, prefixAliases)`
+- `routeTable(entryOperations)`
+- `sitePatterns(site, evaluator)`
+Local functions
+- `literalMethods(evaluator, node)`
+- `isFalse(node)`
+- `clientSegments(pattern, prefixAliases)`
+- `matchSegments(client, route, clientIndex = 0, routeIndex = 0, score = { literal: 0, wildcard: 0 })`
+- `routeLiterals(route)`
+
 ### `src/cli.js`
 Exports
 - None
+Local functions
+- `pairs(entries, usage)`
+- `readOptions()`
+- `readInput()`
+- `heapLimitMb(projectRoot, input)`
+- `launch(inputText)`
+- `inspect(inputText)`
 
 ### `src/inspectVueArchitecture.js`
 Exports
-- `inspectVueArchitecture({ projectRoot, input, aliases = {}, httpScope = "", apiBasePath = "" })`
+- `inspectVueArchitecture({ projectRoot, input, aliases = {}, httpScope = "", apiBasePath = "", calls = false, apiPrefixAliases = [] })`
 Local functions
 - `hashBytes(source)`
 - `isCanonicalPath(value)`
@@ -30,9 +128,10 @@ Local functions
 - `hasOnlyStaticProperties(node)`
 - `isFunctionNode(node)`
 - `directoryPrefixes(filePath)`
+- `nodeRecord(node, parent)`
 - `collectNodes(root)`
-- `staticValue(node, bindings, seen = new Set())`
-- `staticObjectValue(node, bindings, seen)`
+- `staticValue(node, bindings, seen = new Set(), environment = null)`
+- `staticObjectValue(node, bindings, seen, environment)`
 - `bindingNode(node, bindings, seen = new Set())`
 - `isShadowed({ ancestors }, name)`
 - `isLocalCall(record, names)`
@@ -43,13 +142,15 @@ Local functions
 - `sourcePoint(module, index)`
 - `sourceEvidence(module, node, offset = 0)`
 - `pageTitle(file)`
-- `validateInput({ projectRoot, input, aliases })`
-- `createOutput({ input, httpScope })`
+- `validateInput({ projectRoot, input, aliases, apiPrefixAliases })`
+- `createOutput({ input, httpScope, calls })`
 - `warn(inspection, code, message, source)`
+- `readDeclaredSource(inspection, filePath)`
+- `utf8Source(bytes, filePath)`
 - `loadModule(inspection, filePath)`
 - `scriptUnits(inspection, module)`
 - `indexScriptUnit(inspection, module, unit)`
-- `indexDeclaration(module, node)`
+- `indexDeclaration(module, node, parent)`
 - `resolveImport(inspection, from, specifier)`
 - `resolvePackageEntryFile(inspection, from, specifier)`
 - `resolvePackageImport(inspection, from, specifier)`
@@ -80,6 +181,23 @@ Local functions
 - `crudControllerOperations(module, config, resource)`
 - `recordCrudController(inspection, { module, file, record })`
 - `recordFeatureRoute(inspection, { module, file, record, featureFactories })`
+- `scopeOption(inspection, module, node, fallback)`
+- `importedConstant(inspection, module, name, seen)`
+- `exportedConstant(inspection, module, name, seen)`
+- `actionRouteScopeBase(inspection, module, node)`
+- `scopeReceivers(record)`
+- `routeRegistrationKind({ node, ancestors }, receivers)`
+- `bindPattern(pattern, value, environment)`
+- `unrolledEnvironments(module, { node, ancestors })`
+- `recordActionRouteScopes(inspection, { module, file })`
+- `recordScopedRoute(inspection, { module, file, routeBase, registration, kind })`
 - `importSpecifierName(specifier)`
 - `isTypeOnlyImport(node)`
 - `collectImports(inspection)`
+- `parentIdForFile(inspection, file)`
+- `discoverCalls(inspection)`
+- `inspectCallsAndCache(inspection, { sources, hashes, keys, location, reuse })`
+
+### `src/previewLocator.js`
+Exports
+- None
