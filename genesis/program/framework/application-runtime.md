@@ -31,8 +31,10 @@ options, handler)` registers an ordinary handler. Every route record keeps its
 `actionId` (empty for routes that run no action), so `router.list()` and static
 inspection can tell which action a route runs. An optional `wrapHandler(handler,
 { method, path, options })` wraps both kinds with the application's own request
-behavior. Route options written as literals or imported constants keep the
-routes statically recognisable.
+behavior. Static inspection recognises the routes when the scope options are
+string literals or imported constant strings, and each `actionRoute`'s method,
+suffix and `actionId` are literals, template literals or elements of an
+enclosing literal array's `.map` or `for...of`.
 
 JSKIT's Vite plugin names each built HTML page's build in a
 `jskit-client-build` meta tag, a digest of the page's content-hashed script and
