@@ -272,8 +272,7 @@ function validateInput({ projectRoot, input, aliases, apiPrefixAliases }) {
   return { files, packages };
 }
 
-function createOutput({ input, httpScope, calls }) {
-  const httpCapability = httpScope ? "partial" : "unconfigured";
+function createOutput({ input, calls }) {
   const output = {
     schema: OUTPUT_SCHEMA,
     adapter: ADAPTER_ID,
@@ -282,8 +281,8 @@ function createOutput({ input, httpScope, calls }) {
       pages: "unconfigured",
       components: "partial",
       imports: "partial",
-      entryOperations: httpCapability,
-      operationUses: httpCapability
+      entryOperations: "unconfigured",
+      operationUses: "unconfigured"
     },
     pages: [],
     registrations: [],
@@ -330,6 +329,22 @@ async function readDeclaredSource(inspection, filePath) {
   output.inputs.push({ path: filePath, hash: files.get(filePath).hash });
   sources.set(filePath, bytes);
   return bytes;
+}
+
+// A JSKIT application serves its own HTTP operations, so without an explicit
+// scope the root manifest's package name identifies them. A manifest that is
+// absent, unnamed or not JSON leaves HTTP observations unconfigured.
+async function projectHttpScope(inspection) {
+  if (!inspection.files.has("package.json")) {
+    return "";
+  }
+  const bytes = await readDeclaredSource(inspection, "package.json");
+  try {
+    const { name } = JSON.parse(bytes.toString("utf8"));
+    return typeof name === "string" ? name.trim() : "";
+  } catch {
+    return "";
+  }
 }
 
 function utf8Source(bytes, filePath) {
@@ -1531,7 +1546,7 @@ async function inspectVueArchitecture({
     apiBasePath,
     calls,
     apiPrefixAliases,
-    output: createOutput({ input, httpScope, calls }),
+    output: createOutput({ input, calls }),
     modules: new Map(),
     sources: new Map(),
     checkedDirectories: new Set(),
@@ -1539,9 +1554,13 @@ async function inspectVueArchitecture({
     components: new Map(),
     pages: new Map()
   };
+  inspection.httpScope ||= await projectHttpScope(inspection);
+  if (inspection.httpScope) {
+    Object.assign(inspection.output.capabilities, { entryOperations: "partial", operationUses: "partial" });
+  }
   await discoverPages(inspection, input.uiDiscovery?.discoveries || []);
   await discoverComponents(inspection);
-  if (httpScope) {
+  if (inspection.httpScope) {
     await discoverEntryOperations(inspection);
   }
   await collectImports(inspection);

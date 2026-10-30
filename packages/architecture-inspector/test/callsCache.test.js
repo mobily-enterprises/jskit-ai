@@ -95,7 +95,7 @@ test("a changed manifest, Stack hash or option rebuilds every file", async (t) =
   for (const variant of [
     async () => ({ input: await change(root, input, "package.json", "{\"name\":\"demo\",\"version\":\"2.0.0\"}\n") }),
     async () => ({ input: { ...input, stackHash: "sha256:other" } }),
-    async () => ({ input, options: { httpScope: "demo" } })
+    async () => ({ input, options: { httpScope: "shop" } })
   ]) {
     await inspect(root, { ...input, cacheDirectory: directory });
     await mark(directory, ["src/a.js", "src/c.js"]);

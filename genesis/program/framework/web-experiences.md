@@ -42,7 +42,9 @@ their templates use, literal `fetch` and JSKIT CRUD screen operation uses,
 imports. It parses only indexed, hash-matching project files, never imports
 application code or Genesis or Vibe64, and reports dynamic declarations as
 diagnostics instead of guessing. Filesystem-routed siblings are visited in
-route path order, so registration ids are stable between runs.
+route path order, so registration ids are stable between runs. HTTP operations
+carry the root `package.json` name as their scope unless `--http-scope` names
+another; a project without a named root manifest gets no HTTP observations.
 `@jskit-ai/shell-web/architecture` and its `src/architecture/cli.js` re-export
 the package for existing consumers; the re-exported command takes the same
 flags.

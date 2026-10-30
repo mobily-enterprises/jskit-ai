@@ -143,9 +143,10 @@ Local functions
 - `sourceEvidence(module, node, offset = 0)`
 - `pageTitle(file)`
 - `validateInput({ projectRoot, input, aliases, apiPrefixAliases })`
-- `createOutput({ input, httpScope, calls })`
+- `createOutput({ input, calls })`
 - `warn(inspection, code, message, source)`
 - `readDeclaredSource(inspection, filePath)`
+- `projectHttpScope(inspection)`
 - `utf8Source(bytes, filePath)`
 - `loadModule(inspection, filePath)`
 - `scriptUnits(inspection, module)`

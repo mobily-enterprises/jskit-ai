@@ -55,9 +55,12 @@ Each discovery supplies `id`, `adapter`, `surface`, `mode`, `registrations`,
   `default`, namespace `*` and type-only classification. These are import facts,
   not evidence of runtime calls. Coverage remains partial; namespace use does
   not establish which individual exports are consumed.
-- An explicit `--http-scope shop --api-base-path /api` enables scoped literal
+- An HTTP scope names the application's operations and enables scoped literal
   `fetch` uses and receivers registered through JSKIT's `defineFeature` setup
-  `http.router.register`. Use `--alias @=src` for declared project aliases.
+  `http.router.register`. It is the root `package.json` `name`, or
+  `--http-scope shop` when the operations should carry another name; without
+  either, HTTP observations stay unconfigured. `--api-base-path /api` prefixes
+  `http.router.register` paths. Use `--alias @=src` for declared project aliases.
 - Actual `CrudListScreen` / `CrudAddEditScreen` uses whose bound screen comes from
   the matching JSKIT composable can connect to exported `defineCrudJsonApiFeature`
   controller declarations. The resource must resolve through indexed imports and
@@ -103,7 +106,7 @@ Each discovery supplies `id`, `adapter`, `surface`, `mode`, `registrations`,
     `emit`. A name that is also a builtin member is never exact.
   - At most 2,000 call records per file; beyond that `CALLS_TRUNCATED` and a
     `partial` calls capability.
-- **Transports.** With `--http-scope`, `useEndpointResource`, `useCommand`,
+- **Transports.** With an HTTP scope, `useEndpointResource`, `useCommand`,
   `getHttpWebClient().request` and client `fetch` become operation uses that
   carry `fromFunctionId`; `parentId` is set only in page and component files.
   Paths are partially evaluated (template literals, constants, imports,
