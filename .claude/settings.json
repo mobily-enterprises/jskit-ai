@@ -38,10 +38,5 @@
         ]
       }
     ]
-  },
-  "permissions": {
-    "allow": [
-      "npm run npm-publish"
-    ]
   }
 }
