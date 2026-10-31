@@ -20,9 +20,7 @@ Exports
 
 ### `src/server/lib/accountFlows.js`
 Exports
-- `createAccountFlows(deps)`
-Local functions
-- `normalizeLocalReturnToPath(value, { fallback = "" } = {})`
+- `createAccountFlows({ appPublicUrl, ensureConfigured, getSupabaseClient, normalizeReturnToPath, otpLoginRedirectUrl, resolvePasswordSignInPolicyForUserId, setSessionFromRequestCookies, syncProfileFromSupabaseUser })`
 
 ### `src/server/lib/authCookies.js`
 Exports
@@ -127,7 +125,7 @@ Exports
 
 ### `src/server/lib/oauthFlows.js`
 Exports
-- `createOauthFlows(deps)`
+- `createSupabaseOAuthFlows({ appPublicUrl, authOAuthDefaultProvider, buildOAuthLinkRedirectUrl, buildOAuthLoginRedirectUrl, buildProviderSecurityStatus, ensureConfigured, getSupabaseClient, normalizeOAuthProviderInput, normalizeReturnToPath, resolveCurrentAuthContext, resolveOAuthProviderQueryParams, setSessionFromRequestCookies, syncProfileFromSupabaseUser })`
 
 ### `src/server/lib/oauthProviderCatalog.js`
 Exports
@@ -147,7 +145,7 @@ Local functions
 
 ### `src/server/lib/passwordSecurityFlows.js`
 Exports
-- `createPasswordSecurityFlows(deps)`
+- `createPasswordSecurityFlows({ authOAuthProviders, buildProviderSecurityStatus, createStatelessSupabaseClient, ensureConfigured, getSupabaseClient, passwordResetRedirectUrl, resolveCurrentAuthContext, resolveDevAuthSecurityStatus, resolvePasswordSignInPolicyForUserId, setPasswordSignInEnabledForUserId, setPasswordSetupRequiredForUserId, setRecoverySessionFromRequestCookies, setSessionFromRequestCookies, syncProfileFromSupabaseUser })`
 
 ### `src/server/lib/profileMirror.js`
 Exports
@@ -186,7 +184,7 @@ Local functions
 ### `src/server/lib/test-utils.js`
 Exports
 - `createAccountFlows`
-- `createOauthFlows`
+- `createSupabaseOAuthFlows`
 - `createPasswordSecurityFlows`
 - `mapAuthError`
 - `validationError`

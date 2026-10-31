@@ -149,6 +149,8 @@ Exports
 ### `src/server/types.js`
 Exports
 - `type WorkspacesCore`
+- `type WorkspaceInviteMailer`
+- `type WorkspaceInviteEmailTemplate`
 
 ### `src/server/workspaceBootstrapContributor.js`
 Exports
@@ -186,6 +188,10 @@ Local functions
 - `english(key, params)`
 - `escapeHtml(value = "")`
 
+### `src/server/workspaceMembers/unconfiguredWorkspaceInviteMailer.js`
+Exports
+- `unconfiguredWorkspaceInviteMailer`
+
 ### `src/server/workspaceMembers/workspaceInviteUrls.js`
 Exports
 - `buildInvitePath(token, pathTemplate = "/invite/:token")`
@@ -200,7 +206,7 @@ Exports
 
 ### `src/server/workspaceMembers/workspaceMembersService.js`
 Exports
-- `createService({ workspaceMembershipsRepository, workspaceInvitesRepository, inviteExpiresInMs, roleCatalog = null, workspaceInvitationsEnabled = true, inviteUrlBuilder = null, workspaceInviteMailer = null, workspaceInviteEmailTemplate = renderDefaultWorkspaceInviteEmail, i18n = createWorkspacesServerI18n(), userProfilesRepository, userSettingsRepository })`
+- `createService({ workspaceMembershipsRepository, workspaceInvitesRepository, inviteExpiresInMs, roleCatalog, workspaceInvitationsEnabled = true, inviteUrlBuilder, workspaceInviteMailer, workspaceInviteEmailTemplate, i18n = createWorkspacesServerI18n(), userProfilesRepository, userSettingsRepository })`
 - `type WorkspaceMembersService`
 Local functions
 - `roleNotAssignableError()`
@@ -218,7 +224,7 @@ Exports
 
 ### `src/server/workspacePendingInvitations/workspacePendingInvitationsService.js`
 Exports
-- `createService({ workspaceInvitesRepository, workspaceMembershipsRepository, roleCatalog = null })`
+- `createService({ workspaceInvitesRepository, workspaceMembershipsRepository, roleCatalog })`
 - `type WorkspacePendingInvitationsService`
 
 ### `src/server/workspaceSettings/bootWorkspaceSettings.js`
@@ -239,25 +245,30 @@ Local functions
 
 ### `src/server/workspaceSettings/workspaceSettingsService.js`
 Exports
-- `createService({ workspaceSettingsRepository, workspaceInvitationsEnabled = true, roleCatalog = null })`
+- `createService({ workspaceSettingsRepository, workspaceInvitationsEnabled = true, roleCatalog })`
 - `type WorkspaceSettingsService`
 
 ### `src/server/WorkspacesFeature.js`
 Exports
 - `WorkspacesFeature`
-- `createWorkspacesRuntime({ appRoot, config, env, jsonRestApi, users })`
-- `installWorkspaceResources(jsonRestApi)`
-Local functions
-- `requirePositiveInteger(value, label)`
-- `requireBoolean(value, label)`
-- `requireWorkspaceColorDefaults(defaults)`
-- `resolveInviteEmailTemplate(config)`
+- `createWorkspacesRuntime`
+- `installWorkspaceResources`
 
 ### `src/server/WorkspacesIntegrationsProvider.js`
 Exports
 - `WorkspacesIntegrationsProvider`
 Local functions
 - `resolveWorkspaceRealtimeScopes(workspaceMemberships, actorId)`
+
+### `src/server/workspacesRuntime.js`
+Exports
+- `createWorkspacesRuntime({ appRoot, config, env, inviteMailer, jsonRestApi, users })`
+- `installWorkspaceResources(jsonRestApi)`
+Local functions
+- `requirePositiveInteger(value, label)`
+- `requireBoolean(value, label)`
+- `requireWorkspaceColorDefaults(defaults)`
+- `resolveInviteEmailTemplate(config)`
 
 ### `src/shared/jsonApiTransports.js`
 Exports

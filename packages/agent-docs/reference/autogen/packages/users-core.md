@@ -21,8 +21,6 @@ Exports
 ### `src/server/accountNotifications/accountNotificationsService.js`
 Exports
 - `createService({ userSettingsRepository, userProfilesRepository, authService })`
-- `type UserProfilesRepository`
-- `type UserSettingsRepository`
 - `type AccountNotificationsService`
 
 ### `src/server/accountNotifications/bootAccountNotificationsRoutes.js`
@@ -36,8 +34,6 @@ Exports
 ### `src/server/accountPreferences/accountPreferencesService.js`
 Exports
 - `createService({ userSettingsRepository, userProfilesRepository, authService })`
-- `type UserProfilesRepository`
-- `type UserSettingsRepository`
 - `type AccountPreferencesService`
 
 ### `src/server/accountPreferences/bootAccountPreferencesRoutes.js`
@@ -51,8 +47,6 @@ Exports
 ### `src/server/accountProfile/accountProfileService.js`
 Exports
 - `createService({ userSettingsRepository, userProfilesRepository, authService, avatarService })`
-- `type UserProfilesRepository`
-- `type UserSettingsRepository`
 - `type AccountProfileService`
 
 ### `src/server/accountProfile/avatarService.js`
@@ -82,8 +76,6 @@ Exports
 ### `src/server/accountSecurity/accountSecurityService.js`
 Exports
 - `createService({ userSettingsRepository, userProfilesRepository, authService })`
-- `type UserProfilesRepository`
-- `type UserSettingsRepository`
 - `type AccountSecurityService`
 
 ### `src/server/accountSecurity/bootAccountSecurityRoutes.js`
@@ -152,7 +144,6 @@ Local functions
 Exports
 - `resolveUserProfile(userProfilesRepository, user)`
 - `resolveSecurityStatus(authService, request)`
-- `type UserProfilesRepository`
 
 ### `src/server/common/services/authProfileSyncService.js`
 Exports
@@ -190,6 +181,8 @@ Exports
 - `type UsersCore`
 - `type UsersExtensions`
 - `type UsersIdentity`
+- `type UserProfilesRepository`
+- `type UserSettingsRepository`
 
 ### `src/server/usersBootstrapContributor.js`
 Exports
@@ -212,7 +205,6 @@ Exports
 ### `src/server/UsersFeature.js`
 Exports
 - `UsersFeature`
-- `createUsersRuntime({ authService, identity, storage })`
 
 ### `src/server/usersIdentity.js`
 Exports
@@ -221,6 +213,10 @@ Exports
 ### `src/server/UsersIdentityProvider.js`
 Exports
 - `UsersIdentityProvider`
+
+### `src/server/usersRuntime.js`
+Exports
+- `createUsersRuntime({ authService, identity, storage })`
 
 ### `src/shared/index.js`
 Exports

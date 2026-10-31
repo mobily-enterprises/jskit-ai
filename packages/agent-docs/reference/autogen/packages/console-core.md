@@ -27,6 +27,9 @@ Exports
 ### `src/server/ConsoleFeature.js`
 Exports
 - `ConsoleFeature`
+
+### `src/server/consoleRuntime.js`
+Exports
 - `createConsoleRuntime({ database })`
 
 ### `src/server/consoleSettings/bootConsoleSettingsRoutes.js`
