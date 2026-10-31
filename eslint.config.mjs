@@ -27,7 +27,8 @@ export default [
   ]),
   ...typedFeaturesConfig([
     "packages/auth-core/src/server/**",
-    "packages/auth-provider-local-core/src/server/**"
+    "packages/auth-provider-local-core/src/server/**",
+    "packages/auth-provider-local-db-core/src/server/**"
   ]),
   {
     // Over 750 lines until their split runs bring them under it.

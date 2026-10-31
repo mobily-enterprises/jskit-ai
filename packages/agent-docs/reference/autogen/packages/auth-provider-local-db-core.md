@@ -17,7 +17,7 @@ Use this on demand; do not load the full index at startup.
 ### `src/server/lib/dbBackend.js`
 Exports
 - `LOCAL_AUTH_DB_TABLES`
-- `createLocalDbBackend({ knex, transactionManager } = {})`
+- `createLocalDbBackend({ knex, transactionManager })`
 Local functions
 - `nowIso()`
 - `toDate(value)`
@@ -34,7 +34,6 @@ Local functions
 - `userInsert(input = {})`
 - `sessionInsert(input = {})`
 - `recoveryInsert(input = {})`
-- `assertBackendDependencies({ knex, transactionManager } = {})`
 
 ### `src/server/lib/index.js`
 Exports
