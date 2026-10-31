@@ -37,6 +37,20 @@ test('source import evidence resolves configured aliases and project-root paths 
   assert.equal(result.inputs.some(file => file.path.startsWith('node_modules/')), false);
 });
 
+test('imports through a package subpath pattern resolve to the file the pattern serves', async t => {
+  const { root, input } = await fixture(t, {
+    'package.json': '{}',
+    'packages/runtime/src/server/store.js': 'export function readStore() {}',
+    'src/use.js': 'import { readStore } from "@local/runtime/server/store"; import { missing } from "@local/runtime/server/absent"; readStore();',
+  }, { id: 'unused', adapter: 'native', surface: 'app', mode: 'registered', registrations: [], pageRoots: [] });
+  input.packages = [{ id: 'package:runtime', name: '@local/runtime', root: 'packages/runtime', manifest: 'package.json', opaque: false,
+    entryPoints: [{ importPath: './server/*', file: 'packages/runtime/src/server/*.js' }] }];
+  const result = await inspectVueArchitecture({ projectRoot: root, input, aliases: { '@': 'src' } });
+  const uses = result.imports.filter(use => use.evidence[0].path === 'src/use.js');
+  // The pattern serves only files that exist; an absent subpath stays unresolved.
+  assert.deepEqual(uses.map(use => [use.resolution, use.targetFile, use.names]), [['resolved', 'packages/runtime/src/server/store.js', ['readStore']]]);
+});
+
 test('binary asset imports do not prevent route and cross-file import inspection', async t => {
   const { root, input } = await fixture(t, {
     'routes.js': 'import { createRouter } from "vue-router"; import Screen from "./Screen.vue"; createRouter({ routes: [{ path: "/", component: Screen }] });',

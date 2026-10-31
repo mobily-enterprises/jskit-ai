@@ -502,10 +502,29 @@ function resolvePackageEntryFile(inspection, from, specifier) {
     return null;
   }
   const entryFiles = dependency.record.entryPoints
-    .filter((entry) => entry.importPath === dependency.importPath && inspection.files.has(entry.file))
-    .map((entry) => entry.file);
+    .map((entry) => packageEntryTarget(entry, dependency.importPath))
+    .filter((file) => file && inspection.files.has(file));
   const candidates = [...new Set(entryFiles)];
   return candidates.length === 1 ? candidates[0] : null;
+}
+
+// The file an entry point serves for an import path: its own file for an
+// exact subpath, or a "./name/*" pattern's file with the matched part put in
+// place of its "*", as Node resolves subpath patterns.
+function packageEntryTarget(entry, importPath) {
+  if (entry.importPath === importPath) {
+    return entry.file;
+  }
+  const star = entry.importPath.indexOf("*");
+  if (star < 0 || entry.importPath.indexOf("*", star + 1) >= 0 || !entry.file.includes("*")) {
+    return null;
+  }
+  const prefix = entry.importPath.slice(0, star);
+  const suffix = entry.importPath.slice(star + 1);
+  if (importPath.length <= prefix.length + suffix.length || !importPath.startsWith(prefix) || !importPath.endsWith(suffix)) {
+    return null;
+  }
+  return entry.file.replace("*", importPath.slice(prefix.length, importPath.length - suffix.length));
 }
 
 // The declared package an import names, chosen by the nearest manifest that
