@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createActionProvider } from "@jskit-ai/kernel/server/actions";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
-import { buildAuthActions } from "../src/server/actions/auth.contributor.js";
+import { createAuthActions } from "../src/server/actions/auth.contributor.js";
 import { AuthFeature } from "../src/server/providers/AuthFeature.js";
 
 test("auth logout action delegates directly to the selected auth service", async () => {
@@ -13,7 +13,7 @@ test("auth logout action delegates directly to the selected auth service", async
       return { ok: true, clearSession: true };
     }
   };
-  const action = buildAuthActions({ authService }).find((definition) => definition.id === "auth.logout");
+  const action = createAuthActions({ authService }).find((definition) => definition.id === "auth.logout");
   const request = { id: "request-1" };
   assert.deepEqual(await action.execute({}, { requestMeta: { request } }), {
     ok: true,
@@ -26,7 +26,7 @@ test("shared dev login-as action passes the trusted request to auth.service", as
   const input = { email: "ada@example.com" };
   const request = { headers: { "x-jskit-dev-auth-secret": "secret" } };
   let received = null;
-  const action = buildAuthActions({
+  const action = createAuthActions({
     authService: {
       async devLoginAs(receivedRequest, receivedInput) {
         received = { input: receivedInput, request: receivedRequest };

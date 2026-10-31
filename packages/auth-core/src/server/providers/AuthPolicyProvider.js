@@ -19,6 +19,14 @@ const AuthPolicyProvider = defineProvider({
   provides: {
     policy: "auth.policy"
   },
+  /**
+   * @param {object} capabilities
+   * @param {import("@jskit-ai/kernel/server/types").ActionCatalogue} capabilities.actions
+   * @param {import("../types.js").AuthService | null} capabilities.authService The installed provider's `auth.service`, when there is one.
+   * @param {import("../types.js").AuthExtensions} capabilities.extensions
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeHttp} capabilities.http
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} capabilities.env
+   */
   setup({ actions, authService, extensions, http, env }) {
     const actionContext = createAuthActionContextContributor();
     actions.registerContextContributor({

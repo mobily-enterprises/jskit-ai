@@ -32,9 +32,10 @@ Exports
 
 ### `src/server/actions/auth.contributor.js`
 Exports
-- `authActionSpecifications`
-- `buildAuthActions({ authService } = {})`
+- `createAuthActions({ authService })`
 - `requireRequestContext(context, actionId)`
+Local functions
+- `logoutOutcome(result)`
 
 ### `src/server/authAccess.js`
 Exports

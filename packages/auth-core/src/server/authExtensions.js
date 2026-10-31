@@ -1,6 +1,7 @@
 import { normalizePermissionList } from "@jskit-ai/kernel/shared/support/permissions";
 
 function normalizeOrderedExtension(value, { idField, method, label } = {}) {
+  // readable-check: allow method-probe - validates an extension an application registers
   if (!value || typeof value !== "object" || Array.isArray(value) || typeof value[method] !== "function") {
     throw new TypeError(`${label} requires ${method}().`);
   }

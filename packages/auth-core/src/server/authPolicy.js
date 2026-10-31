@@ -19,7 +19,7 @@ function createAuthPolicy({ authService, extensions, env }) {
   const unsafeMethods = parseList(env.AUTH_CSRF_UNSAFE_METHODS);
   return Object.freeze({
     async resolveActor(request) {
-      if (authService && typeof authService.authenticateRequest === "function") {
+      if (authService) {
         return authService.authenticateRequest(request);
       }
       return { authenticated: false, actor: null, transientFailure: false };

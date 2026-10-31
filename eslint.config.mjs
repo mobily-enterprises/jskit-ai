@@ -24,6 +24,7 @@ export default [
     "packages/database-runtime-postgres/src/server/**",
     "packages/json-rest-api-core/src/server/**"
   ]),
+  ...typedFeaturesConfig(["packages/auth-core/src/server/**"]),
   ...webConfig,
   ...nodeConfig,
   ...vueConfig,

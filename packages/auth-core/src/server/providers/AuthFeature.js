@@ -1,5 +1,5 @@
 import { defineFeature } from "@jskit-ai/kernel/server/features";
-import { buildAuthActions } from "../actions/auth.contributor.js";
+import { createAuthActions } from "../actions/auth.contributor.js";
 
 const AuthFeature = defineFeature({
   id: "auth.actions",
@@ -8,7 +8,7 @@ const AuthFeature = defineFeature({
     authService: "auth.service"
   },
   actions({ authService }) {
-    return authService ? buildAuthActions({ authService }) : [];
+    return authService ? createAuthActions({ authService }) : [];
   }
 });
 

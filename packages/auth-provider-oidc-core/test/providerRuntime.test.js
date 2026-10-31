@@ -9,7 +9,7 @@ import fastifyCookie from "@fastify/cookie";
 import createKnex from "knex";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { createAuthExtensions } from "@jskit-ai/auth-core/server/authExtensions";
-import { buildAuthActions } from "@jskit-ai/auth-core/server/actions/auth.contributor";
+import { createAuthActions } from "@jskit-ai/auth-core/server/actions/auth.contributor";
 import { AuthController } from "@jskit-ai/auth-web/server/controllers/AuthController";
 import { AuthWebService } from "@jskit-ai/auth-web/server/services/AuthWebService";
 import packageJson from "../package.json" with { type: "json" };
@@ -89,7 +89,7 @@ function replyFixture() {
 
 // The auth-web controller, its actions and this provider, without the HTTP runtime.
 function authWeb(authService) {
-  const actions = new Map(buildAuthActions({ authService }).map((action) => [action.id, action]));
+  const actions = new Map(createAuthActions({ authService }).map((action) => [action.id, action]));
   const request = (extra = {}) => ({
     headers: { host: "localhost:5173" },
     protocol: "http",
