@@ -408,8 +408,10 @@ Exports
 ### `migrations/constraints/assistant_users_foreign_keys.cjs`
 Exports
 - None
-Local functions
-- `hasUsersForeignKey(knex, { tableName, columnName })`
+
+### `migrations/constraints/assistant_workspaces_foreign_keys.cjs`
+Exports
+- None
 
 ### patterns
 

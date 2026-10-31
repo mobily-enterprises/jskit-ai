@@ -18,7 +18,7 @@ test("console_settings is created before users exists and gets its users key in 
   await initialMigration.up(db);
   assert.deepEqual(await usersKeys(db), []);
 
-  await assert.rejects(usersForeignKeyMigration.up(db), /needs the users table/u);
+  await assert.rejects(usersForeignKeyMigration.up(db), /the users table does not exist/u);
   await db.schema.createTable("users", (table) => table.bigInteger("id").primary());
   await usersForeignKeyMigration.up(db);
   const key = [{ from: "owner_user_id", to: "id", onDelete: "SET NULL" }];

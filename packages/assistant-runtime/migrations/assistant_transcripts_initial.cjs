@@ -1,14 +1,10 @@
+// constraints/ adds the users keys, and the workspaces keys when that table exists.
 exports.up = async function up(knex) {
-  const hasWorkspacesTable = await knex.schema.hasTable("workspaces");
   const hasConversationsTable = await knex.schema.hasTable("assistant_conversations");
   if (!hasConversationsTable) {
     await knex.schema.createTable("assistant_conversations", (table) => {
       table.bigIncrements("id").primary();
       table.bigInteger("workspace_id").unsigned().nullable();
-      if (hasWorkspacesTable) {
-        table.foreign("workspace_id").references("id").inTable("workspaces").onDelete("CASCADE");
-      }
-      // constraints/assistant_users_foreign_keys.cjs adds the users key once the users table exists.
       table.bigInteger("created_by_user_id").unsigned().nullable().index();
       table.string("title", 160).notNullable().defaultTo("New conversation");
       table.string("status", 32).notNullable().defaultTo("active");
@@ -34,9 +30,6 @@ exports.up = async function up(knex) {
       table.bigIncrements("id").primary();
       table.bigInteger("conversation_id").unsigned().notNullable().references("id").inTable("assistant_conversations").onDelete("CASCADE");
       table.bigInteger("workspace_id").unsigned().nullable();
-      if (hasWorkspacesTable) {
-        table.foreign("workspace_id").references("id").inTable("workspaces").onDelete("CASCADE");
-      }
       table.integer("seq").unsigned().notNullable();
       table.string("role", 32).notNullable();
       table.string("kind", 32).notNullable().defaultTo("chat");

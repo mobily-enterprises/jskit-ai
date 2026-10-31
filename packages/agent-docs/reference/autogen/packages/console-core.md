@@ -81,5 +81,3 @@ Exports
 ### `migrations/constraints/console_core_users_foreign_key.cjs`
 Exports
 - None
-Local functions
-- `hasUsersForeignKey(knex)`

@@ -6,6 +6,7 @@ exports.up = async function up(knex) {
     return;
   }
 
+  // constraints/rewarded_foreign_keys.cjs adds the workspaces key.
   await knex.schema.createTable(TABLE_NAME, (table) => {
     table.bigIncrements("id").unsigned().primary();
     table.bigInteger("workspace_id").unsigned().notNullable();
@@ -21,7 +22,6 @@ exports.up = async function up(knex) {
     table.timestamp("updated_at").notNullable().defaultTo(knex.raw("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"));
     table.index(["workspace_id"], "idx_rewarded_rules_workspace");
     table.unique(["workspace_id","gate_key"], "uq_rewarded_rules_workspace_gate");
-    table.foreign(["workspace_id"], "fk_rewarded_rules_workspace").references(["id"]).inTable("workspaces").onUpdate("RESTRICT").onDelete("CASCADE");
   });
 
 };

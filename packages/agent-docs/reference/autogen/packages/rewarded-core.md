@@ -124,6 +124,10 @@ Exports
 
 ### migrations
 
+### `migrations/constraints/rewarded_foreign_keys.cjs`
+Exports
+- None
+
 ### `migrations/rewarded_provider_configs_initial.cjs`
 Exports
 - None

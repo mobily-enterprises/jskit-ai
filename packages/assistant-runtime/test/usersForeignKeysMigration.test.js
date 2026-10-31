@@ -32,7 +32,7 @@ test("the assistant tables are created before users exists and get their users k
   await turnRequestsMigration.up(db);
   assert.deepEqual(await usersKeys(db), []);
 
-  await assert.rejects(usersForeignKeysMigration.up(db), /needs the users table/u);
+  await assert.rejects(usersForeignKeysMigration.up(db), /the users table does not exist/u);
   await db.schema.createTable("users", (table) => table.bigInteger("id").primary());
   await usersForeignKeysMigration.up(db);
   assert.deepEqual(await usersKeys(db), USER_KEYS);

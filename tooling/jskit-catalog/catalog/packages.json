@@ -1536,6 +1536,10 @@
                 "summary": "Builds fixed-dialect Knex migration configuration and discovers immutable migrations directly from installed JSKIT packages."
               },
               {
+                "subpath": "./server/foreignKeyMigrations",
+                "summary": "Adds a single-column foreign key only when it is missing, refusing rows without a parent, for constraints migrations on fresh and already-migrated databases."
+              },
+              {
                 "subpath": "./shared",
                 "summary": "Exports shared repository helpers (transactions, record ids, JSON columns, visibility, duplicate-entry detection and date/time serialization)."
               },

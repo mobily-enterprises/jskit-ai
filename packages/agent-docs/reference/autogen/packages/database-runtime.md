@@ -27,6 +27,13 @@ Exports
 Local functions
 - `normalizeMigrationResult(result)`
 
+### `src/server/foreignKeyMigrations.js`
+Exports
+- `addMissingForeignKey(knex, key)`
+- `dropForeignKeyIfPresent(knex, key)`
+- `hasForeignKey(knex, { tableName, columnName, parentTable, parentColumn = "id" })`
+- `type ForeignKey`
+
 ### `src/server/knexFactory.js`
 Exports
 - `loadKnexFactory()`

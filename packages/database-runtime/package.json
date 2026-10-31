@@ -9,6 +9,7 @@
     "./server/providers/DatabaseProvider": "./src/server/providers/DatabaseProvider.js",
     "./server/databaseSetup": "./src/server/databaseSetup.js",
     "./server/knexMigrationConfig": "./src/server/knexMigrationConfig.js",
+    "./server/foreignKeyMigrations": "./src/server/foreignKeyMigrations.js",
     "./server/types": "./src/server/types.js",
     "./shared": "./src/shared/index.js",
     "./shared/dateUtils": "./src/shared/dateUtils.js",
@@ -58,6 +59,10 @@
           {
             "subpath": "./server/knexMigrationConfig",
             "summary": "Builds fixed-dialect Knex migration configuration and discovers immutable migrations directly from installed JSKIT packages."
+          },
+          {
+            "subpath": "./server/foreignKeyMigrations",
+            "summary": "Adds a single-column foreign key only when it is missing, refusing rows without a parent, for constraints migrations on fresh and already-migrated databases."
           },
           {
             "subpath": "./shared",

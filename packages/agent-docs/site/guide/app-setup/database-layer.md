@@ -151,8 +151,8 @@ constraints phase: the referencing package's own `constraints/` subdirectory
 when it ships the key, or application `migrations/constraints/`. A package
 constraints migration runs after the application's `migrations/`, so it can also
 reference a table that may belong to the application, such as `users`; for
-example, `@jskit-ai/assistant-runtime` adds its `users` keys from
-`migrations/constraints/`. Similarly, a `pet_notes.product_id` column can be
+example, `@jskit-ai/assistant-runtime` adds its `users` and `workspaces` keys
+from `migrations/constraints/`. Similarly, a `pet_notes.product_id` column can be
 added by the pet-notes package, but its foreign key to the products package's
 `products.id` belongs in a constraints phase. Do not rely on today's
 package-directory order to make a cross-package reference work.
@@ -163,11 +163,20 @@ that referenced a package table. Applied migrations stay in the Knex ledger;
 only pending ones follow the new order. An application migration that still
 creates a package-owned table belongs in that package.
 
-The assistant-runtime and console-core table migrations used to add their
-`users` keys inline, which failed on a fresh MySQL or MariaDB database whose
-`users` table had not been created yet (errno 150). They now add them from
-`migrations/constraints/`. A database migrated earlier already has those keys,
-and the constraints migrations leave them as they are.
+The assistant-runtime, console-core and rewarded-core table migrations used to
+add their keys to `users`, `workspaces` and later tables inline. A fresh MySQL
+or MariaDB database failed when the parent table did not exist yet (errno 150),
+and the assistant tables silently skipped their `workspaces` keys. They now add
+them from `migrations/constraints/`. A database migrated earlier keeps the keys
+it already has, and gains any that are missing.
+
+`@jskit-ai/database-runtime/server/foreignKeyMigrations` serves constraints
+migrations that must run on fresh and already-migrated databases alike.
+`addMissingForeignKey(knex, key)` adds a single-column key only when no key
+already links that column to the parent column. It fails, naming the table,
+column and count, when rows have no parent, and it deletes nothing; repair
+those rows and migrate again. `dropForeignKeyIfPresent(knex, key)` serves
+`down()`.
 
 Before adding the key, check that both tables and columns exist, the referenced
 key is indexed appropriately, column types match (including integer signedness),

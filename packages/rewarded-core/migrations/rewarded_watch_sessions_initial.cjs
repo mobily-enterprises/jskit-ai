@@ -6,6 +6,7 @@ exports.up = async function up(knex) {
     return;
   }
 
+  // constraints/rewarded_foreign_keys.cjs adds the users and workspaces keys.
   await knex.schema.createTable(TABLE_NAME, (table) => {
     table.bigIncrements("id").unsigned().primary();
     table.bigInteger("workspace_id").unsigned().notNullable();
@@ -25,8 +26,6 @@ exports.up = async function up(knex) {
     table.index(["status"], "idx_rewarded_watch_sessions_status");
     table.index(["workspace_id","user_id"], "idx_rewarded_watch_sessions_workspace_user");
     table.foreign(["provider_config_id"], "fk_rewarded_watch_sessions_provider_config").references(["id"]).inTable("rewarded_provider_configs").onUpdate("RESTRICT").onDelete("SET NULL");
-    table.foreign(["user_id"], "fk_rewarded_watch_sessions_user").references(["id"]).inTable("users").onUpdate("RESTRICT").onDelete("CASCADE");
-    table.foreign(["workspace_id"], "fk_rewarded_watch_sessions_workspace").references(["id"]).inTable("workspaces").onUpdate("RESTRICT").onDelete("CASCADE");
   });
 
 };
