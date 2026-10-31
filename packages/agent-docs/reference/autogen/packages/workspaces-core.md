@@ -253,6 +253,7 @@ Exports
 - `WorkspacesFeature`
 - `createWorkspacesRuntime`
 - `installWorkspaceResources`
+- `unconfiguredWorkspaceInviteMailer`
 
 ### `src/server/WorkspacesIntegrationsProvider.js`
 Exports
