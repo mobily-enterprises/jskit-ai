@@ -18,7 +18,9 @@ new RuleTester().run("jskit/required-collaborators", requiredCollaborators, {
     "store?.read();",
     "callback?.();",
     "// readable-check: allow method-probe - an application slot\nif (typeof router.register !== \"function\") {}",
-    "// readable-check: allow required-collaborators - an application slot\nservice.read?.();"
+    "// readable-check: allow required-collaborators - an application slot\nservice.read?.();",
+    "function createReader(dependencies) {\n  const { store } = dependencies;\n  return () => store.read();\n}",
+    "function createClock(options = {}) {\n  const { now = Date.now, logger = console } = options;\n  logger.info(now());\n}"
   ],
   invalid: [
     {
@@ -52,6 +54,14 @@ new RuleTester().run("jskit/required-collaborators", requiredCollaborators, {
     {
       code: "dependencies?.service?.read?.(input);",
       errors: [{ messageId: "optionalCall", data: { callee: "dependencies?.service?.read" } }]
+    },
+    {
+      code: "function createReader(dependencies = {}) {\n  const { store } = dependencies;\n  return () => store.read();\n}",
+      errors: [{ messageId: "dependenciesDefault", data: { name: "createReader", fallback: "{}" }, line: 1 }]
+    },
+    {
+      code: "function createReader(dependencies) {\n  const { store = null, label = \"\" } = dependencies;\n  return () => store.read(label);\n}",
+      errors: [{ messageId: "collaboratorDefault", data: { name: "store", fallback: "null" }, line: 2 }]
     }
   ]
 });

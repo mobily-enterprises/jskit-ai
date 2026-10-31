@@ -138,16 +138,45 @@ function collaboratorNames(fn, names, visitorKeys) {
   return found;
 }
 
+// The object patterns that destructure a dependencies parameter at the top of
+// the function body: `const { store, clock } = dependencies;`.
+function bodyDestructuring(fn, parameterName) {
+  if (fn.body?.type !== "BlockStatement") {
+    return [];
+  }
+  return fn.body.body.flatMap((statement) => statement.type === "VariableDeclaration"
+    ? statement.declarations.filter((declarator) => declarator.id.type === "ObjectPattern" &&
+      declarator.init?.type === "Identifier" && declarator.init.name === parameterName).map((declarator) => declarator.id)
+    : []);
+}
+
+// The object pattern a factory receives its dependencies through: its first
+// parameter's, or the body's destructuring of that parameter.
+function dependenciesPattern(fn, first) {
+  const parameter = first?.type === "AssignmentPattern" ? first.left : first;
+  if (parameter?.type === "ObjectPattern") {
+    return parameter;
+  }
+  if (parameter?.type !== "Identifier") {
+    return null;
+  }
+  const patterns = bodyDestructuring(fn, parameter.name);
+  if (!patterns.length) {
+    return null;
+  }
+  return { type: "ObjectPattern", properties: patterns.flatMap((pattern) => pattern.properties) };
+}
+
 // A create*/build* factory or class constructor that destructures collaborators
-// from its first parameter, or null.
+// from its first parameter, in its signature or at the top of its body, or null.
 function factoryDependencies(fn, sourceCode) {
   const name = functionName(fn);
   if (!FACTORY_NAME.test(name) && !isConstructor(fn)) {
     return null;
   }
   const first = fn.params[0];
-  const pattern = first?.type === "AssignmentPattern" ? first.left : first;
-  if (pattern?.type !== "ObjectPattern") {
+  const pattern = dependenciesPattern(fn, first);
+  if (!pattern) {
     return null;
   }
   const localName = (property) => (property.value?.type === "AssignmentPattern" ? property.value.left : property.value)?.name;

@@ -120,3 +120,5 @@ Local functions
 - `functionName(fn)`
 - `isConstructor(fn)`
 - `collaboratorNames(fn, names, visitorKeys)`
+- `bodyDestructuring(fn, parameterName)`
+- `dependenciesPattern(fn, first)`

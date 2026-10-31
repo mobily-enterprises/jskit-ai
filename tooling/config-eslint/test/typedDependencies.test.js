@@ -15,7 +15,10 @@ new RuleTester().run("jskit/typed-dependencies", typedDependencies, {
     "function startEngine({ runtime }) { runtime.start(); }",
     "function createReader(store) { return () => store.read(); }",
     "// readable-check: allow untyped-dependencies - typed by its generated caller\nfunction createReader({ store }) { return () => store.read(); }",
-    "// readable-check: allow typed-dependencies - typed by its generated caller\nfunction createReader({ store }) { return () => store.read(); }"
+    "// readable-check: allow typed-dependencies - typed by its generated caller\nfunction createReader({ store }) { return () => store.read(); }",
+    "/** @param {{ store: Store }} dependencies */\nfunction createReader(dependencies) {\n  const { store } = dependencies;\n  return () => store.read();\n}",
+    "function createLabel(options) {\n  const { name, title } = options;\n  return `${title} ${name}`;\n}",
+    "function createReader(dependencies) {\n  const { store } = other;\n  return () => store.read();\n}"
   ],
   invalid: [
     {
@@ -37,6 +40,14 @@ new RuleTester().run("jskit/typed-dependencies", typedDependencies, {
     {
       code: "const factories = {\n  createThing({ store, publish }) { publish(store.read()); }\n};",
       errors: [{ messageId: "untypedDependencies", data: { name: "createThing", collaborators: "publish, store" }, line: 2 }]
+    },
+    {
+      code: "function createReader(dependencies) {\n  const { store, label } = dependencies;\n  return () => store.read(label);\n}",
+      errors: [{ messageId: "untypedDependencies", data: { name: "createReader", collaborators: "store" }, line: 1 }]
+    },
+    {
+      code: "export const createWriter = (deps = {}) => {\n  const { clock } = deps;\n  const { store } = deps;\n  return () => store.write(clock());\n};",
+      errors: [{ messageId: "untypedDependencies", data: { name: "createWriter", collaborators: "store, clock" } }]
     }
   ]
 });
