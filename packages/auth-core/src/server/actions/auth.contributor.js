@@ -66,7 +66,7 @@ function createAuthActions({ authService }) {
       surfaces: ["*"],
       input: authRegisterCommand.operation.body,
       idempotency: "none",
-      execute: async (input) => authService.register(input)
+      execute: (input) => authService.register(input)
     }),
     Object.freeze({
       id: "auth.register.confirmation.resend",
@@ -76,7 +76,7 @@ function createAuthActions({ authService }) {
       surfaces: ["*"],
       input: authRegisterConfirmationResendCommand.operation.body,
       idempotency: "none",
-      execute: async (input) => authService.resendRegisterConfirmation(input)
+      execute: (input) => authService.resendRegisterConfirmation(input)
     }),
     Object.freeze({
       id: "auth.login.password",
@@ -86,7 +86,7 @@ function createAuthActions({ authService }) {
       surfaces: ["*"],
       input: authLoginPasswordCommand.operation.body,
       idempotency: "none",
-      execute: async (input) => authService.login(input)
+      execute: (input) => authService.login(input)
     }),
     Object.freeze({
       id: "auth.login.otp.request",
@@ -96,7 +96,7 @@ function createAuthActions({ authService }) {
       surfaces: ["*"],
       input: authLoginOtpRequestCommand.operation.body,
       idempotency: "none",
-      execute: async (input) => authService.requestOtpLogin(input)
+      execute: (input) => authService.requestOtpLogin(input)
     }),
     Object.freeze({
       id: "auth.login.otp.verify",
@@ -106,7 +106,7 @@ function createAuthActions({ authService }) {
       surfaces: ["*"],
       input: authLoginOtpVerifyCommand.operation.body,
       idempotency: "none",
-      execute: async (input) => authService.verifyOtpLogin(input)
+      execute: (input) => authService.verifyOtpLogin(input)
     }),
     Object.freeze({
       id: "auth.login.oauth.start",
@@ -116,7 +116,7 @@ function createAuthActions({ authService }) {
       surfaces: ["*"],
       input: authLoginOAuthStartInput,
       idempotency: "none",
-      execute: async (input, context) => authService.oauthStart(input, resolveRequest(context))
+      execute: (input, context) => authService.oauthStart(input, resolveRequest(context))
     }),
     Object.freeze({
       id: "auth.login.oauth.complete",
@@ -126,7 +126,7 @@ function createAuthActions({ authService }) {
       surfaces: ["*"],
       input: authLoginOAuthCompleteCommand.operation.body,
       idempotency: "none",
-      execute: async (input, context) => authService.oauthComplete(input, resolveRequest(context))
+      execute: (input, context) => authService.oauthComplete(input, resolveRequest(context))
     }),
     Object.freeze({
       id: "auth.dev.loginAs",
@@ -136,7 +136,7 @@ function createAuthActions({ authService }) {
       surfaces: ["*"],
       input: authDevLoginAsCommand.operation.body,
       idempotency: "none",
-      execute: async (input, context) => authService.devLoginAs(requireRequestContext(context, "auth.dev.loginAs"), input)
+      execute: (input, context) => authService.devLoginAs(requireRequestContext(context, "auth.dev.loginAs"), input)
     }),
     Object.freeze({
       id: "auth.password.reset.request",
@@ -146,7 +146,7 @@ function createAuthActions({ authService }) {
       surfaces: ["*"],
       input: authPasswordResetRequestCommand.operation.body,
       idempotency: "none",
-      execute: async (input) => authService.requestPasswordReset(input)
+      execute: (input) => authService.requestPasswordReset(input)
     }),
     Object.freeze({
       id: "auth.password.recovery.complete",
@@ -156,7 +156,7 @@ function createAuthActions({ authService }) {
       surfaces: ["*"],
       input: authPasswordRecoveryCompleteCommand.operation.body,
       idempotency: "none",
-      execute: async (input) => authService.completePasswordRecovery(input)
+      execute: (input) => authService.completePasswordRecovery(input)
     }),
     Object.freeze({
       id: "auth.password.reset",
@@ -166,7 +166,7 @@ function createAuthActions({ authService }) {
       surfaces: ["*"],
       input: authPasswordResetCommand.operation.body,
       idempotency: "none",
-      execute: async (input, context) => authService.resetPassword(requireRequestContext(context, "auth.password.reset"), input)
+      execute: (input, context) => authService.resetPassword(requireRequestContext(context, "auth.password.reset"), input)
     }),
     Object.freeze({
       id: "auth.logout",
@@ -187,7 +187,7 @@ function createAuthActions({ authService }) {
       surfaces: ["*"],
       input: emptyInputValidator,
       idempotency: "none",
-      execute: async (input, context) => authService.authenticateRequest(requireRequestContext(context, "auth.session.read"))
+      execute: (input, context) => authService.authenticateRequest(requireRequestContext(context, "auth.session.read"))
     })
   ]);
 }
