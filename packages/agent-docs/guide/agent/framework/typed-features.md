@@ -106,7 +106,7 @@ derived from the factory that builds it:
 ```js
 // The types of the users capabilities, for features that require them.
 
-/** @typedef {ReturnType<typeof import("./UsersFeature.js").createUsersRuntime>} UsersCore */
+/** @typedef {ReturnType<typeof import("./usersRuntime.js").createUsersRuntime>} UsersCore */
 /** @typedef {ReturnType<typeof import("./usersExtensions.js").createUsersExtensions>} UsersExtensions */
 /** @typedef {ReturnType<typeof import("./usersIdentity.js").createUsersIdentity>} UsersIdentity */
 
@@ -138,11 +138,13 @@ The generated package inventory lists each typedef of a module as
 ### The feature
 
 The feature declares what it requires and provides. `setup()` builds the
-runtime with a named factory, registers the routes and a bootstrap contributor,
+runtime with the factory in `usersRuntime.js`, registers the routes and a bootstrap contributor,
 and types its parameter because it calls `bootstrap.register()`. `actions()`
 creates the actions from the services `setup()` built:
 
 ```js
+import { createUsersRuntime } from "./usersRuntime.js";
+
 const UsersFeature = defineFeature({
   id: "users.core",
   requires: {

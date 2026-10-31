@@ -1,186 +1,14 @@
-import { toDatabaseDateTimeUtc } from "@jskit-ai/database-runtime/shared";
-import {
-  addResourceIfMissing,
-  createJsonRestResourceScopeOptions
-} from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { defineFeature } from "@jskit-ai/kernel/server/features";
-import { workspaceInvitesResource } from "../shared/resources/workspaceInvitesResource.js";
-import { workspaceMembershipsResource } from "../shared/resources/workspaceMembershipsResource.js";
-import { workspaceResource } from "../shared/resources/workspaceResource.js";
-import { workspaceSettingsResource } from "../shared/resources/workspaceSettingsResource.js";
-import { createWorkspaceRoleCatalog } from "../shared/roles.js";
-import { WORKSPACE_SETTINGS_COLOR_FIELDS, normalizeWorkspaceHexColor } from "../shared/settings.js";
-import { resolveTenancyProfile } from "../shared/tenancyProfile.js";
-import { createRepository as createWorkspaceInvitesRepository } from "./common/repositories/workspaceInvitesRepository.js";
-import { createRepository as createWorkspaceMembershipsRepository } from "./common/repositories/workspaceMembershipsRepository.js";
-import { createRepository as createWorkspacesRepository } from "./common/repositories/workspacesRepository.js";
-import { createService as createWorkspaceService } from "./common/services/workspaceContextService.js";
-import { createWorkspacesServerI18n } from "./i18n.js";
 import { createWorkspaceBootstrapContributor } from "./workspaceBootstrapContributor.js";
 import { registerWorkspaceDirectoryRoutes } from "./workspaceDirectory/bootWorkspaceDirectoryRoutes.js";
 import { createWorkspaceDirectoryActions } from "./workspaceDirectory/workspaceDirectoryActions.js";
-import { renderDefaultWorkspaceInviteEmail } from "./workspaceMembers/defaultWorkspaceInviteEmail.js";
 import { registerWorkspaceMembersRoutes } from "./workspaceMembers/bootWorkspaceMembers.js";
 import { createWorkspaceMembersActions } from "./workspaceMembers/workspaceMembersActions.js";
-import { createWorkspaceInviteUrlBuilder } from "./workspaceMembers/workspaceInviteUrls.js";
-import { createService as createWorkspaceMembersService } from "./workspaceMembers/workspaceMembersService.js";
 import { registerWorkspacePendingInvitationsRoutes } from "./workspacePendingInvitations/bootWorkspacePendingInvitations.js";
 import { createWorkspacePendingInvitationsActions } from "./workspacePendingInvitations/workspacePendingInvitationsActions.js";
-import { createService as createWorkspacePendingInvitationsService } from "./workspacePendingInvitations/workspacePendingInvitationsService.js";
 import { registerWorkspaceSettingsRoutes } from "./workspaceSettings/bootWorkspaceSettings.js";
-import { createRepository as createWorkspaceSettingsRepository } from "./workspaceSettings/workspaceSettingsRepository.js";
 import { createWorkspaceSettingsActions } from "./workspaceSettings/workspaceSettingsActions.js";
-import { createService as createWorkspaceSettingsService } from "./workspaceSettings/workspaceSettingsService.js";
-import { resolveWorkspaceInvitationsPolicy } from "./support/workspaceInvitationsPolicy.js";
-import { workspaceSlugParamsValidator } from "./common/validators/routeParamsValidator.js";
-import { buildWorkspaceInputFromRouteParams } from "./support/workspaceRouteInput.js";
-import { resolveWorkspace } from "./support/resolveWorkspace.js";
-
-function requirePositiveInteger(value, label) {
-  const normalized = Number(value);
-  if (!Number.isInteger(normalized) || normalized < 1) {
-    throw new TypeError(`${label} must be a positive integer.`);
-  }
-  return normalized;
-}
-
-function requireBoolean(value, label) {
-  if (typeof value !== "boolean") {
-    throw new TypeError(`${label} must be boolean.`);
-  }
-  return value;
-}
-
-function requireWorkspaceColorDefaults(defaults) {
-  const colors = {};
-  for (const fieldName of WORKSPACE_SETTINGS_COLOR_FIELDS) {
-    if (defaults?.[fieldName] === undefined) {
-      continue;
-    }
-    const color = normalizeWorkspaceHexColor(defaults[fieldName]);
-    if (!color) {
-      throw new TypeError(`runtime.config.workspaceSettings.defaults.${fieldName} must be a hex color like #1867C0.`);
-    }
-    colors[fieldName] = color;
-  }
-  return colors;
-}
-
-function resolveInviteEmailTemplate(config) {
-  const template =
-    config.workspaceInviteEmailTemplate ||
-    config.workspaceInviteEmailRenderer ||
-    config.workspaceInvitations?.emailTemplate ||
-    config.workspaceInvitations?.emailRenderer;
-  return typeof template === "function" ? template : renderDefaultWorkspaceInviteEmail;
-}
-
-async function installWorkspaceResources(jsonRestApi) {
-  const scopeOptions = { writeSerializers: { "datetime-utc": toDatabaseDateTimeUtc } };
-  await addResourceIfMissing(
-    jsonRestApi,
-    "workspaces",
-    createJsonRestResourceScopeOptions(workspaceResource, scopeOptions)
-  );
-  await addResourceIfMissing(
-    jsonRestApi,
-    "workspaceMemberships",
-    createJsonRestResourceScopeOptions(workspaceMembershipsResource, scopeOptions)
-  );
-  await addResourceIfMissing(
-    jsonRestApi,
-    "workspaceInvites",
-    createJsonRestResourceScopeOptions(workspaceInvitesResource, scopeOptions)
-  );
-  await addResourceIfMissing(
-    jsonRestApi,
-    "workspaceSettings",
-    createJsonRestResourceScopeOptions(workspaceSettingsResource, scopeOptions)
-  );
-}
-
-/**
- * @param {object} dependencies
- * @param {import("@jskit-ai/kernel/server/types").RuntimeAppRoot} dependencies.appRoot
- * @param {import("@jskit-ai/kernel/server/types").RuntimeConfig} dependencies.config
- * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} dependencies.env
- * @param {import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi} dependencies.jsonRestApi
- * @param {import("@jskit-ai/users-core/server/types").UsersCore} dependencies.users
- */
-function createWorkspacesRuntime({ appRoot, config, env, jsonRestApi, users }) {
-  const tenancyProfile = resolveTenancyProfile(config);
-  const invitationsPolicy = resolveWorkspaceInvitationsPolicy({ config, appConfig: config, tenancyProfile });
-  const invitationsEnabled = invitationsPolicy.enabled === true;
-  const roleCatalog = createWorkspaceRoleCatalog(config);
-  const workspaceSettingsRepository = createWorkspaceSettingsRepository({
-    api: jsonRestApi,
-    defaultInvitesEnabled: requireBoolean(
-      config?.workspaceSettings?.defaults?.invitesEnabled,
-      "runtime.config.workspaceSettings.defaults.invitesEnabled"
-    ),
-    defaultColorSettings: requireWorkspaceColorDefaults(config?.workspaceSettings?.defaults)
-  });
-  const workspacesRepository = createWorkspacesRepository({ api: jsonRestApi });
-  const workspaceMembershipsRepository = createWorkspaceMembershipsRepository({ api: jsonRestApi });
-  const workspaceInvitesRepository = createWorkspaceInvitesRepository({ api: jsonRestApi });
-  const workspaceService = createWorkspaceService({
-    appConfig: config,
-    workspacesRepository,
-    workspaceMembershipsRepository,
-    workspaceSettingsRepository
-  });
-  const workspacePendingInvitationsService = createWorkspacePendingInvitationsService({
-    workspaceInvitesRepository,
-    workspaceMembershipsRepository,
-    roleCatalog
-  });
-  const workspaceMembersService = createWorkspaceMembersService({
-    workspaceMembershipsRepository,
-    workspaceInvitesRepository,
-    inviteExpiresInMs: requirePositiveInteger(
-      config?.workspaceMembers?.defaults?.inviteExpiresInMs,
-      "runtime.config.workspaceMembers.defaults.inviteExpiresInMs"
-    ),
-    roleCatalog,
-    workspaceInvitationsEnabled: invitationsEnabled,
-    inviteUrlBuilder: createWorkspaceInviteUrlBuilder({ appConfig: config, env }),
-    workspaceInviteMailer: config?.workspaceInviteMailer || null,
-    workspaceInviteEmailTemplate: resolveInviteEmailTemplate(config),
-    i18n: createWorkspacesServerI18n({ appRoot }),
-    userProfilesRepository: users.repositories.userProfiles,
-    userSettingsRepository: users.repositories.userSettings
-  });
-  const workspaceSettingsService = createWorkspaceSettingsService({
-    workspaceSettingsRepository,
-    workspaceInvitationsEnabled: invitationsEnabled,
-    roleCatalog
-  });
-
-  return Object.freeze({
-    config,
-    enabled: tenancyProfile.workspace.enabled === true,
-    invitationsEnabled,
-    selfCreateEnabled: tenancyProfile.workspace.allowSelfCreate === true,
-    scope: Object.freeze({
-      params: workspaceSlugParamsValidator,
-      buildInputFromRouteParams: buildWorkspaceInputFromRouteParams,
-      resolveWorkspace
-    }),
-    tenancyProfile,
-    repositories: Object.freeze({
-      workspaceInvites: workspaceInvitesRepository,
-      workspaceMemberships: workspaceMembershipsRepository,
-      workspaceSettings: workspaceSettingsRepository,
-      workspaces: workspacesRepository
-    }),
-    services: Object.freeze({
-      directory: workspaceService,
-      members: workspaceMembersService,
-      pendingInvitations: workspacePendingInvitationsService,
-      settings: workspaceSettingsService
-    })
-  });
-}
+import { createWorkspacesRuntime, installWorkspaceResources } from "./workspacesRuntime.js";
 
 const WorkspacesFeature = defineFeature({
   id: "workspaces.core",
@@ -256,4 +84,6 @@ const WorkspacesFeature = defineFeature({
   }
 });
 
+// Applications' tests build the runtime and install its resources directly, from
+// this package's public feature path.
 export { WorkspacesFeature, createWorkspacesRuntime, installWorkspaceResources };

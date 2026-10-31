@@ -3,27 +3,7 @@ import { createConsoleAuthServiceDecorator } from "./consoleAuthServiceDecorator
 import { createConsoleBootstrapContributor } from "./consoleBootstrapContributor.js";
 import { registerConsoleSettingsRoutes } from "./consoleSettings/bootConsoleSettingsRoutes.js";
 import { createConsoleSettingsActions } from "./consoleSettings/consoleSettingsActions.js";
-import { createService as createConsoleService } from "./consoleSettings/consoleService.js";
-import { createRepository as createConsoleSettingsRepository } from "./consoleSettings/consoleSettingsRepository.js";
-import { createService as createConsoleSettingsService } from "./consoleSettings/consoleSettingsService.js";
-
-/** @param {{ database: import("@jskit-ai/database-runtime/server/types").RuntimeDatabase }} dependencies */
-function createConsoleRuntime({ database }) {
-  const consoleSettingsRepository = createConsoleSettingsRepository(database.knex);
-  const consoleService = createConsoleService({ consoleSettingsRepository });
-  const consoleSettingsService = createConsoleSettingsService({
-    consoleService,
-    consoleSettingsRepository
-  });
-
-  return Object.freeze({
-    repositories: Object.freeze({ settings: consoleSettingsRepository }),
-    services: Object.freeze({
-      access: consoleService,
-      settings: consoleSettingsService
-    })
-  });
-}
+import { createConsoleRuntime } from "./consoleRuntime.js";
 
 const ConsoleFeature = defineFeature({
   id: "console.core",
@@ -68,4 +48,4 @@ const ConsoleFeature = defineFeature({
   }
 });
 
-export { ConsoleFeature, createConsoleRuntime };
+export { ConsoleFeature };
