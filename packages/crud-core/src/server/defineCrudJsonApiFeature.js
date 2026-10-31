@@ -145,6 +145,29 @@ function projectEnabledServiceOperations(service, operations) {
   ));
 }
 
+/**
+ * @param {object} feature
+ * @param {object} feature.resource The CRUD resource definition the feature serves.
+ * @param {string} feature.surface The surface whose routes serve it.
+ * @param {string} [feature.id] Defaults to `crud.<namespace>`.
+ * @param {string} [feature.capability] Defaults to the feature id.
+ * @param {string} [feature.ownershipFilter] Defaults to the resource's autofilter, then "public".
+ * @param {string} [feature.relativePath] Defaults to the namespace, with dashes.
+ * @param {boolean} [feature.internal]
+ * @param {boolean} [feature.routes] False registers no HTTP routes.
+ * @param {object | null} [feature.listFilterQueryValidator]
+ * @param {object | null} [feature.searchSchema]
+ * @param {object | null} [feature.permissions]
+ * @param {object} [feature.scope] The route base, validators, input keys and input() of a scoped resource.
+ * @param {Record<string, string>} [feature.requires] More capabilities the feature requires, by name.
+ * @param {((dependencies: any) => any) | null} [feature.decorateRepository]
+ * @param {((dependencies: any) => any) | null} [feature.decorateService]
+ * @param {object} [feature.operationLifecycle]
+ * @param {object} [feature.operationInputs]
+ * @param {object} [feature.actions] Custom actions, by name.
+ * @param {string[]} [feature.operations] Defaults to every operation the resource defines.
+ * @param {string} [feature.realtimeAudience] Defaults to "event_scope".
+ */
 function defineCrudJsonApiFeature({
   resource,
   id = "",
