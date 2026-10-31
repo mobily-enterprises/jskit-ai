@@ -42,7 +42,8 @@ export default [
     "packages/realtime/src/server/**",
     "packages/payments-core/src/server/**",
     "packages/rewarded-core/src/server/**",
-    "packages/rewarded-web/src/server/**"
+    "packages/rewarded-web/src/server/**",
+    "packages/auth-web/src/server/**"
   ]),
   ...typedFeaturesConfig(["packages/connectors-core/src/server/**"]),
   {

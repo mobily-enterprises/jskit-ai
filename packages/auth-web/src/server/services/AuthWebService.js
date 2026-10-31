@@ -1,11 +1,15 @@
 import { normalizeAuthCapabilities } from "@jskit-ai/auth-core/shared/authCapabilities";
 import { AUTH_ACTION_IDS } from "../constants/authActionIds.js";
 
+// The auth routes' service: it runs the auth actions for a request and
+// writes the installed auth service's cookies.
 class AuthWebService {
-  constructor({ authService, devAuthBootstrapEnabled } = {}) {
-    if (!authService || typeof authService !== "object") {
-      throw new Error("authService is required.");
-    }
+  /**
+   * @param {object} dependencies
+   * @param {import("@jskit-ai/auth-core/server/types").AuthService} dependencies.authService
+   * @param {boolean} [dependencies.devAuthBootstrapEnabled] Whether dev login-as is offered; when absent, the auth service says.
+   */
+  constructor({ authService, devAuthBootstrapEnabled }) {
     this.authService = authService;
     this.devAuthBootstrapEnabled =
       typeof devAuthBootstrapEnabled === "boolean" ? devAuthBootstrapEnabled : null;
@@ -79,10 +83,7 @@ class AuthWebService {
     if (this.devAuthBootstrapEnabled != null) {
       return this.devAuthBootstrapEnabled === true;
     }
-    const authService = this.resolveAuthService();
-    return typeof authService?.isDevAuthBootstrapEnabled === "function"
-      ? authService.isDevAuthBootstrapEnabled()
-      : false;
+    return this.resolveAuthService().isDevAuthBootstrapEnabled();
   }
 
   async logout(request) {
@@ -128,6 +129,7 @@ class AuthWebService {
   // keep it in their own short-lived cookie; others need no hook.
   writeOAuthStartCookies(reply, result) {
     const authService = this.resolveAuthService();
+    // readable-check: allow method-probe - writeOAuthStartCookies is an optional auth.service operation
     if (reply && typeof authService.writeOAuthStartCookies === "function") {
       authService.writeOAuthStartCookies(reply, result);
     }
@@ -135,6 +137,7 @@ class AuthWebService {
 
   clearOAuthStartCookies(reply) {
     const authService = this.resolveAuthService();
+    // readable-check: allow method-probe - clearOAuthStartCookies is an optional auth.service operation
     if (reply && typeof authService.clearOAuthStartCookies === "function") {
       authService.clearOAuthStartCookies(reply);
     }
@@ -147,46 +150,12 @@ class AuthWebService {
   }
 
   getOAuthProviderCatalogPayload() {
-    const authService = this.resolveAuthService();
-    if (typeof authService.getCapabilities === "function") {
-      const capabilities = normalizeAuthCapabilities(authService.getCapabilities());
-      const oauth = capabilities.features.oauthLogin;
-      return {
-        authCapabilities: capabilities,
-        oauthProviders: oauth.enabled ? oauth.providers : [],
-        oauthDefaultProvider: oauth.enabled ? oauth.defaultProvider : null
-      };
-    }
-    const catalog =
-      typeof authService.getOAuthProviderCatalog === "function"
-        ? authService.getOAuthProviderCatalog()
-        : null;
-    const providers = Array.isArray(catalog?.providers)
-      ? catalog.providers
-          .map((provider) => ({
-            id: String(provider?.id || "").trim().toLowerCase(),
-            label: String(provider?.label || "").trim()
-          }))
-          .filter((provider) => provider.id && provider.label)
-      : [];
-    const defaultProvider = String(catalog?.defaultProvider || "").trim().toLowerCase();
-    const normalizedDefaultProvider = providers.some((provider) => provider.id === defaultProvider)
-      ? defaultProvider
-      : null;
-    const fallbackCapabilities = normalizeAuthCapabilities({
-      features: {
-        oauthLogin: {
-          enabled: providers.length > 0,
-          providers,
-          defaultProvider: normalizedDefaultProvider
-        }
-      }
-    });
-
+    const capabilities = normalizeAuthCapabilities(this.resolveAuthService().getCapabilities());
+    const oauth = capabilities.features.oauthLogin;
     return {
-      authCapabilities: fallbackCapabilities,
-      oauthProviders: providers,
-      oauthDefaultProvider: normalizedDefaultProvider
+      authCapabilities: capabilities,
+      oauthProviders: oauth.enabled ? oauth.providers : [],
+      oauthDefaultProvider: oauth.enabled ? oauth.defaultProvider : null
     };
   }
 }

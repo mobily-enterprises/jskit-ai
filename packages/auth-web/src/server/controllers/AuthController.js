@@ -4,11 +4,10 @@ import { AUTH_TEXTS, authMessageFields, authText } from "@jskit-ai/auth-core/ser
 import { AUTH_ACTION_IDS } from "../constants/authActionIds.js";
 import { AuthWebService } from "../services/AuthWebService.js";
 
+// The auth routes' handlers over AuthWebService.
 class AuthController {
-  constructor({ service } = {}) {
-    if (!service) {
-      throw new Error("AuthController requires AuthWebService instance.");
-    }
+  /** @param {{ service: AuthWebService }} dependencies */
+  constructor({ service }) {
     this.service = service;
   }
 
@@ -129,15 +128,17 @@ class AuthController {
     });
   }
 
+  /**
+   * @param {import("fastify").FastifyRequest} request
+   * @param {import("fastify").FastifyReply} reply
+   */
   async logout(request, reply) {
     let clearSession = true;
     try {
       const result = await this.service.logout(request);
       clearSession = result?.clearSession !== false;
     } catch (error) {
-      if (request?.log && typeof request.log.warn === "function") {
-        request.log.warn({ err: error }, "Auth logout fallback: clearing local session cookies.");
-      }
+      request.log.warn({ err: error }, "Auth logout fallback: clearing local session cookies.");
       clearSession = true;
     }
 
@@ -220,7 +221,13 @@ class AuthController {
   }
 }
 
-function createController({ service, authService } = {}) {
+// An auth controller over the given AuthWebService, or over one built on authService.
+/**
+ * @param {object} dependencies
+ * @param {AuthWebService} [dependencies.service]
+ * @param {import("@jskit-ai/auth-core/server/types").AuthService} [dependencies.authService]
+ */
+function createController({ service, authService }) {
   if (!service) {
     if (!authService) {
       throw new Error("createController requires either service or authService.");

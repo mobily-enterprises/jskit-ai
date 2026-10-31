@@ -12,6 +12,12 @@ const AuthWebFeature = defineFeature({
   provides: {
     authWeb: "auth.web"
   },
+  /**
+   * @param {object} capabilities
+   * @param {import("@jskit-ai/auth-core/server/types").AuthService} capabilities.authService
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} capabilities.env
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeHttp} capabilities.http
+   */
   setup({ authService, env, http }) {
     const authWeb = createAuthWeb({ authService, env });
     for (const route of authWeb.routes) {

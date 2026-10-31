@@ -23,6 +23,7 @@ function failure(requestId, error) {
     code: String(error?.code || "jskit_managed_preview_identity_failed"),
     error: String(error?.message || error || "Managed preview identity failed."),
     ok: false,
+    // readable-check: allow setter-seam - setCookie is the response's list of Set-Cookie headers, not a slot
     setCookie: Array.isArray(error?.setCookie) ? error.setCookie : [],
     signedOut: error?.signedOut === true,
     statusCode: Number.isInteger(Number(error?.statusCode)) ? Number(error.statusCode) : 400
@@ -132,10 +133,13 @@ function identityFromSubject(subject) {
   );
 }
 
+// The Set-Cookie headers of a response from the application's fetch.
 function responseCookies(fetchResponse) {
+  // readable-check: allow method-probe - platform object: another fetch implementation's Headers may lack getSetCookie()
   if (typeof fetchResponse?.headers?.getSetCookie === "function") {
     return fetchResponse.headers.getSetCookie().map(String).filter(Boolean);
   }
+  // readable-check: allow optional-call - platform object: another fetch implementation's response may lack headers.get()
   const value = String(fetchResponse?.headers?.get?.("set-cookie") || "").trim();
   return value ? [value] : [];
 }
@@ -226,6 +230,7 @@ async function bootstrapSession(fetchImpl, targetOrigin) {
       { setCookie, statusCode: 502 }
     );
   }
+  // readable-check: allow setter-seam - setCookie is the response's list of Set-Cookie headers, not a slot
   return { csrfToken, setCookie };
 }
 
@@ -239,6 +244,7 @@ async function logout(fetchImpl, targetOrigin, session) {
   if (!fetchResponse.ok || payload?.ok !== true) {
     throw rejected(payload, fetchResponse, { setCookie, signedOut: false });
   }
+  // readable-check: allow setter-seam - setCookie is the response's list of Set-Cookie headers, not a slot
   return { csrfToken: session.csrfToken, setCookie };
 }
 
@@ -260,10 +266,17 @@ async function login(fetchImpl, targetOrigin, identity, secret, session) {
       userId: String(payload.userId || identity.userId || "").trim(),
       username: String(payload.username || "").trim()
     },
+    // readable-check: allow setter-seam - setCookie is the response's list of Set-Cookie headers, not a slot
     setCookie
   };
 }
 
+/**
+ * @param {Record<string, any>} value The command's request, which is validated here.
+ * @param {object} [options]
+ * @param {Record<string, string | undefined>} [options.env]
+ * @param {typeof fetch} [options.fetchImpl]
+ */
 async function executeManagedPreviewIdentityRequest(value, {
   env = process.env,
   fetchImpl = globalThis.fetch
@@ -303,6 +316,7 @@ async function executeManagedPreviewIdentityRequest(value, {
       return response(requestId, {
         identity: null,
         ok: true,
+        // readable-check: allow setter-seam - setCookie is the response's list of Set-Cookie headers, not a slot
         setCookie: signedOutSession.setCookie,
         signedOut: true
       });
@@ -311,6 +325,7 @@ async function executeManagedPreviewIdentityRequest(value, {
     return response(requestId, {
       identity: result.identity,
       ok: true,
+      // readable-check: allow setter-seam - setCookie is the response's list of Set-Cookie headers, not a slot
       setCookie: result.setCookie,
       signedOut: false
     });
@@ -319,6 +334,14 @@ async function executeManagedPreviewIdentityRequest(value, {
   }
 }
 
+/**
+ * Reads one request from stdin and writes its response to stdout.
+ * @param {object} [options]
+ * @param {Record<string, string | undefined>} [options.env]
+ * @param {typeof fetch} [options.fetchImpl]
+ * @param {AsyncIterable<string | Buffer>} [options.stdin]
+ * @param {{ write(text: string): unknown }} [options.stdout]
+ */
 async function runManagedPreviewIdentityCommand({
   env = process.env,
   fetchImpl = globalThis.fetch,

@@ -287,7 +287,7 @@ Exports
 Exports
 - `AuthController`
 - `AUTH_ACTION_IDS`
-- `createController({ service, authService } = {})`
+- `createController({ service, authService })`
 
 ### `src/server/managedPreviewIdentity.js`
 Exports

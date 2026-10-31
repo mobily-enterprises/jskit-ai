@@ -16,11 +16,11 @@ import {
 } from "@jskit-ai/auth-core/shared/commands";
 import { AUTH_PATHS } from "@jskit-ai/auth-core/shared/authPaths";
 
+/**
+ * @param {import("../controllers/AuthController.js").AuthController} controller
+ * @param {{ includeDevLoginAs?: boolean }} [options]
+ */
 function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
-  if (!controller) {
-    throw new Error("Auth routes require a controller instance.");
-  }
-
   const handler = (methodName) => controller[methodName].bind(controller);
 
   return [
