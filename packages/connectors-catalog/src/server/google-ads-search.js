@@ -48,6 +48,15 @@ const googleAdsSearchOperations = {
 };
 
 // Application composition: this service has no editor protocol, command runner or storage.
+/**
+ * @param {object} options
+ * @param {import("@jskit-ai/connectors-core/server/types").ConnectorsCore} options.connections
+ *   The connection service whose Google Ads integration it invokes.
+ * @param {Record<string, any>} options.configuration The integration configuration, with the Search plan under `extensions.googleAdsSearch`.
+ * @param {{ applicationId: string, subjectId: string }} options.context The caller's context, which authorize() receives;
+ *   its application and subject also bind each review.
+ * @param {string} options.integrationId
+ */
 function createGoogleAdsSearchService({ connections, configuration, context, integrationId }) {
   const slot = configuration.integrations?.[integrationId];
   if (slot?.provider !== "google-ads") error("Choose a Google Ads integration.", { messageCode: "connectors.googleAdsSearch.chooseIntegration" });
