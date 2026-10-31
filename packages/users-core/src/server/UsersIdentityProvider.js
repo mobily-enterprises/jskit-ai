@@ -6,9 +6,7 @@ import {
 import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { userProfileResource } from "../shared/resources/userProfileResource.js";
 import { userSettingsResource } from "../shared/resources/userSettingsResource.js";
-import { createRepository as createUserProfilesRepository } from "./common/repositories/userProfilesRepository.js";
-import { createRepository as createUserSettingsRepository } from "./common/repositories/userSettingsRepository.js";
-import { createService as createAuthProfileSyncService } from "./common/services/authProfileSyncService.js";
+import { createUsersIdentity } from "./usersIdentity.js";
 
 const UsersIdentityProvider = defineProvider({
   id: "users.identity",
@@ -34,22 +32,12 @@ const UsersIdentityProvider = defineProvider({
       "userSettings",
       createJsonRestResourceScopeOptions(userSettingsResource, scopeOptions)
     );
-    const repositories = Object.freeze({
-      userProfiles: createUserProfilesRepository({ api: jsonRestApi }),
-      userSettings: createUserSettingsRepository({ api: jsonRestApi })
-    });
-    const profileProjector = createAuthProfileSyncService({
-      userProfilesRepository: repositories.userProfiles,
-      userSettingsRepository: repositories.userSettings,
-      resolveLifecycleContributors: extensions.profileSyncLifecycleContributors
-    });
+    const identity = createUsersIdentity({ jsonRestApi, extensions });
     authExtensions.registerProfileProjector({
       projectorId: "users.profile",
-      ...profileProjector
+      ...identity.profileProjector
     });
-    return {
-      identity: Object.freeze({ repositories, profileProjector })
-    };
+    return { identity };
   }
 });
 

@@ -57,6 +57,10 @@ Exports
 Local functions
 - `buildSettingsResponse(record = {})`
 
+### `src/server/types.js`
+Exports
+- None
+
 ### `src/shared/operationMessages.js`
 Exports
 - `createOperationMessages({ validationMessage = "Validation failed.", apiValidationMessage = validationMessage } = {})`

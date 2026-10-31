@@ -349,6 +349,10 @@ Local functions
 - `requireCrudServiceRepository(runtime = {}, repository = null)`
 - `splitCrudListRepositoryCall(query = {}, options = {})`
 
+### `src/server/types.js`
+Exports
+- None
+
 ### patterns
 
 ### `patterns/json-api-resource-package/example/migrations/20260815000000_books.cjs`

@@ -69,6 +69,10 @@ Exports
 - `createCredentialProtection`
 - `createKnexConnectionStore`
 
+### `src/server/types.js`
+Exports
+- None
+
 ### `src/shared/configuration.js`
 Exports
 - `DEFAULT_GRANT_TYPE`

@@ -24,6 +24,7 @@
     "./server/listQueryValidators": "./src/server/listQueryValidators.js",
     "./server/listFilters": "./src/server/listFilters.js",
     "./server/routeContracts": "./src/server/routeContracts.js",
+    "./server/types": "./src/server/types.js",
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {

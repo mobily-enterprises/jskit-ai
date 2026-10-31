@@ -1304,6 +1304,10 @@
               {
                 "subpath": "./client",
                 "summary": "Exports no runtime API today (reserved client entrypoint)."
+              },
+              {
+                "subpath": "./server/types",
+                "summary": "Type of the console.core capability, for features that require it."
               }
             ],
             "capabilities": [
@@ -2371,6 +2375,10 @@
               {
                 "subpath": "./server/requireRewardedUnlock",
                 "summary": "Exports the server helper that enforces a rewarded unlock before a protected feature action continues."
+              },
+              {
+                "subpath": "./server/types",
+                "summary": "Types of the rewarded.core, rewarded.rules, rewarded.provider-configs, rewarded.watch-sessions and rewarded.unlock-receipts capabilities, for features that require them."
               }
             ],
             "capabilities": [
@@ -3091,6 +3099,10 @@
               {
                 "subpath": "./client",
                 "summary": "Exports no runtime API today (reserved client entrypoint)."
+              },
+              {
+                "subpath": "./server/types",
+                "summary": "Types of the users.core, users.identity and users.extensions capabilities, for features that require them."
               }
             ],
             "capabilities": [
@@ -3475,6 +3487,10 @@
               {
                 "subpath": "./server",
                 "summary": "Exports the explicit workspace feature, integrations, services, repositories, actions, and routes."
+              },
+              {
+                "subpath": "./server/types",
+                "summary": "Type of the workspaces.core capability, for features that require it."
               }
             ],
             "capabilities": [

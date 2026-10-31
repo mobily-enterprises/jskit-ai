@@ -17,6 +17,8 @@ test("users-core exports are explicit and aligned with production/template usage
       "./server/UsersFeature",
       "./server/UsersIdentityProvider",
       "./server/usersExtensions",
+      // Features that require this package's capabilities take their types from it.
+      "./server/types",
       // The generated client bootstrap registers the package's English catalog.
       "./locales/en.json"
     ]

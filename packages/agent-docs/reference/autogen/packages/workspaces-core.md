@@ -145,6 +145,10 @@ Exports
 - `readWorkspaceSlugFromRouteParams(params = {})`
 - `buildWorkspaceInputFromRouteParams(params = {})`
 
+### `src/server/types.js`
+Exports
+- None
+
 ### `src/server/workspaceBootstrapContributor.js`
 Exports
 - `createWorkspaceBootstrapContributor({ workspaceService, workspacePendingInvitationsService, userProfilesRepository, workspaceInvitationsEnabled = false, appConfig = {}, tenancyProfile = null } = {})`

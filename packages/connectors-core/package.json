@@ -11,6 +11,7 @@
     "./server": "./src/server/index.js",
     "./server/storage": "./src/server/storage.js",
     "./server/file-storage": "./src/server/fileStorage.js",
+    "./server/types": "./src/server/types.js",
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {

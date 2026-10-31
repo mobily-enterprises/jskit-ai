@@ -16,6 +16,8 @@ test("console-core exports are explicit and aligned with production/template usa
     requiredExports: [
       "./server/ConsoleFeature",
       "./shared/resources/consoleSettingsResource",
+      // Features that require this package's capabilities take their types from it.
+      "./server/types",
       // The generated client bootstrap registers it, so clients render console's codes.
       "./locales/en.json"
     ]

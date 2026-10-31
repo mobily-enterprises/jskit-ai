@@ -176,6 +176,10 @@ Local functions
 Exports
 - `resolveActionUser(context, input)`
 
+### `src/server/types.js`
+Exports
+- None
+
 ### `src/server/usersBootstrapContributor.js`
 Exports
 - `createUsersBootstrapContributor({ userProfilesRepository, userSettingsRepository, authService } = {})`
@@ -198,6 +202,10 @@ Exports
 Exports
 - `UsersFeature`
 - `createUsersRuntime({ authService, identity, storage } = {})`
+
+### `src/server/usersIdentity.js`
+Exports
+- `createUsersIdentity({ jsonRestApi, extensions })`
 
 ### `src/server/UsersIdentityProvider.js`
 Exports

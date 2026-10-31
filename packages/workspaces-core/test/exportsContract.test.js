@@ -20,6 +20,8 @@ test("workspaces-core exports are explicit and aligned with production usage", (
       "./server/support/workspaceRouteInput",
       "./shared/resources/workspaceResource",
       "./shared/resources/workspaceSettingsResource",
+      // Features that require this package's capabilities take their types from it.
+      "./server/types",
       // The generated client bootstrap registers it so clients render these server codes.
       "./locales/en.json"
     ]

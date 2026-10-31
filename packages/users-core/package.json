@@ -9,6 +9,7 @@
     "./server/UsersFeature": "./src/server/UsersFeature.js",
     "./server/UsersIdentityProvider": "./src/server/UsersIdentityProvider.js",
     "./server/usersExtensions": "./src/server/usersExtensions.js",
+    "./server/types": "./src/server/types.js",
     "./shared/resources/userProfileResource": "./src/shared/resources/userProfileResource.js",
     "./shared/resources/userSettingsResource": "./src/shared/resources/userSettingsResource.js",
     "./shared/settings": "./src/shared/settings.js",
@@ -88,6 +89,10 @@
           {
             "subpath": "./client",
             "summary": "Exports no runtime API today (reserved client entrypoint)."
+          },
+          {
+            "subpath": "./server/types",
+            "summary": "Types of the users.core, users.identity and users.extensions capabilities, for features that require them."
           }
         ],
         "capabilities": [

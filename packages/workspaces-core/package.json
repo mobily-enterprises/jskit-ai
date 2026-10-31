@@ -10,6 +10,7 @@
     "./server/WorkspacesIntegrationsProvider": "./src/server/WorkspacesIntegrationsProvider.js",
     "./server/validators/routeParamsValidator": "./src/server/common/validators/routeParamsValidator.js",
     "./server/support/workspaceRouteInput": "./src/server/support/workspaceRouteInput.js",
+    "./server/types": "./src/server/types.js",
     "./shared/jsonApiTransports": "./src/shared/jsonApiTransports.js",
     "./shared/settings": "./src/shared/settings.js",
     "./shared/tenancyProfile": "./src/shared/tenancyProfile.js",
@@ -88,6 +89,10 @@
           {
             "subpath": "./server",
             "summary": "Exports the explicit workspace feature, integrations, services, repositories, actions, and routes."
+          },
+          {
+            "subpath": "./server/types",
+            "summary": "Type of the workspaces.core capability, for features that require it."
           }
         ],
         "capabilities": [

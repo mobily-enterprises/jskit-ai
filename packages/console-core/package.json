@@ -7,6 +7,7 @@
   },
   "exports": {
     "./server/ConsoleFeature": "./src/server/ConsoleFeature.js",
+    "./server/types": "./src/server/types.js",
     "./shared/resources/consoleSettingsResource": "./src/shared/resources/consoleSettingsResource.js",
     "./locales/en.json": "./locales/en.json"
   },
@@ -67,6 +68,10 @@
           {
             "subpath": "./client",
             "summary": "Exports no runtime API today (reserved client entrypoint)."
+          },
+          {
+            "subpath": "./server/types",
+            "summary": "Type of the console.core capability, for features that require it."
           }
         ],
         "capabilities": [

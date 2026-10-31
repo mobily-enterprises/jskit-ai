@@ -89,6 +89,10 @@ Local functions
 - `isConfigurationBypassAllowed(gateState = null, requireConfigured = false)`
 - `createRewardedGateError(gateState = null, { errorCode = "", errorMessage = "" } = {})`
 
+### `src/server/types.js`
+Exports
+- None
+
 ### `src/shared/index.js`
 Exports
 - `rewardedRuleResource`
