@@ -40,7 +40,8 @@ async function registerOidcRoutes(fastify, { authService, backchannelLogout }) {
     scope.post(AUTH_OIDC_BACKCHANNEL_LOGOUT_PATH, { config: SELF_AUTHENTICATED_ROUTE }, async (request, reply) => {
       reply.header("Cache-Control", "no-store");
       try {
-        await backchannelLogout.handle(request.body?.logout_token);
+        const form = /** @type {{ logout_token?: string } | undefined} */ (request.body);
+        await backchannelLogout.handle(form?.logout_token);
       } catch (error) {
         if (!(error instanceof BackchannelLogoutError)) throw error;
         // readable-check: allow optional-call - platform object: request.log is Fastify's per-request logger
@@ -54,7 +55,7 @@ async function registerOidcRoutes(fastify, { authService, backchannelLogout }) {
       reply.header("Cache-Control", "no-store");
       if (isCrossSiteNavigation(request)) return reply.redirect("/");
       const destination = await authService.logoutEverywhere(request, {
-        everywhere: String(request.query?.everywhere || "") === "1"
+        everywhere: String(/** @type {{ everywhere?: string } | undefined} */ (request.query)?.everywhere || "") === "1"
       });
       authService.clearSessionCookies(reply);
       return reply.redirect(destination);
