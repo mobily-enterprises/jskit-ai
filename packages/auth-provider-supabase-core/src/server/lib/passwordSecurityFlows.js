@@ -8,36 +8,57 @@ import {
   requireAuthSession,
   requireAuthUserSession
 } from "./flowGuards.js";
+import { AUTH_METHOD_PASSWORD_ID, AUTH_METHOD_PASSWORD_PROVIDER } from "@jskit-ai/auth-core/shared/authMethods";
+import { normalizeEmail } from "@jskit-ai/auth-core/server/utils";
+import {
+  mapAuthError,
+  mapCurrentPasswordError,
+  mapPasswordUpdateError,
+  mapRecoveryError,
+  validationError
+} from "./authErrorMappers.js";
+import {
+  buildAuthMethodsStatusFromProviderIds,
+  buildAuthMethodsStatusFromSupabaseUser,
+  findAuthMethodById
+} from "./authMethodStatus.js";
+import { buildDisabledPasswordSecret } from "./authSecrets.js";
 
-function createPasswordSecurityFlows(deps) {
-  const {
-    ensureConfigured,
-    validationError,
-    getSupabaseClient,
-    passwordResetRedirectUrl,
-    mapAuthError,
-    mapRecoveryError,
-    syncProfileFromSupabaseUser,
-    setSessionFromRequestCookies,
-    setRecoverySessionFromRequestCookies,
-    resolvePasswordSignInPolicyForUserId,
-    mapPasswordUpdateError,
-    setPasswordSetupRequiredForUserId,
-    normalizeEmail,
-    createStatelessSupabaseClient,
-    mapCurrentPasswordError,
-    resolveCurrentAuthContext,
-    findAuthMethodById,
-    authMethodPasswordId,
-    buildDisabledPasswordSecret,
-    setPasswordSignInEnabledForUserId,
-    buildAuthMethodsStatusFromSupabaseUser,
-    buildSecurityStatusFromAuthMethodsStatus,
-    authMethodPasswordProvider,
-    buildAuthMethodsStatusFromProviderIds,
-    resolveDevAuthSecurityStatus
-  } = deps;
-
+// Password recovery, changing a password, password sign-in, signing out
+// other sessions and the security status, through Supabase.
+/**
+ * @param {object} dependencies
+ * @param {ReturnType<typeof import("./oauthProviderCatalog.js").resolveSupabaseOAuthProviderCatalog>["providers"]} dependencies.authOAuthProviders The configured OAuth providers.
+ * @param {(authMethodsStatus: any) => object} dependencies.buildProviderSecurityStatus The security status, with the actions this app offers.
+ * @param {() => import("@supabase/supabase-js").SupabaseClient} dependencies.createStatelessSupabaseClient A client that keeps no session, to verify a password.
+ * @param {() => void} dependencies.ensureConfigured Throws when Supabase is not configured.
+ * @param {() => import("@supabase/supabase-js").SupabaseClient} dependencies.getSupabaseClient
+ * @param {string} dependencies.passwordResetRedirectUrl Where a password reset link returns.
+ * @param {(request: object, options?: { supabaseClient?: import("@supabase/supabase-js").SupabaseClient }) => Promise<{ user: import("@supabase/supabase-js").User, authMethodsStatus: any }>} dependencies.resolveCurrentAuthContext
+ * @param {(request: object) => Promise<object | null>} dependencies.resolveDevAuthSecurityStatus The security status of a dev auth session, or null for any other.
+ * @param {(userId: string) => Promise<{ passwordSignInEnabled: boolean, passwordSetupRequired: boolean }>} dependencies.resolvePasswordSignInPolicyForUserId
+ * @param {(userId: string, enabled: boolean, options?: object) => Promise<{ passwordSignInEnabled: boolean, passwordSetupRequired: boolean }>} dependencies.setPasswordSignInEnabledForUserId
+ * @param {(userId: string, required: boolean) => Promise<void>} dependencies.setPasswordSetupRequiredForUserId
+ * @param {ReturnType<typeof import("./sessions.js").createSupabaseSessions>["setRecoverySessionFromRequestCookies"]} dependencies.setRecoverySessionFromRequestCookies
+ * @param {ReturnType<typeof import("./sessions.js").createSupabaseSessions>["setSessionFromRequestCookies"]} dependencies.setSessionFromRequestCookies
+ * @param {ReturnType<typeof import("./profileMirror.js").createProfileMirror>["syncProfileFromSupabaseUser"]} dependencies.syncProfileFromSupabaseUser
+ */
+function createPasswordSecurityFlows({
+  authOAuthProviders,
+  buildProviderSecurityStatus,
+  createStatelessSupabaseClient,
+  ensureConfigured,
+  getSupabaseClient,
+  passwordResetRedirectUrl,
+  resolveCurrentAuthContext,
+  resolveDevAuthSecurityStatus,
+  resolvePasswordSignInPolicyForUserId,
+  setPasswordSignInEnabledForUserId,
+  setPasswordSetupRequiredForUserId,
+  setRecoverySessionFromRequestCookies,
+  setSessionFromRequestCookies,
+  syncProfileFromSupabaseUser
+}) {
   async function requestPasswordReset(payload) {
     ensureConfigured();
 
@@ -260,7 +281,7 @@ function createPasswordSecurityFlows(deps) {
     const current = await resolveCurrentAuthContext(request, {
       supabaseClient: supabase
     });
-    const passwordMethod = findAuthMethodById(current.authMethodsStatus, authMethodPasswordId);
+    const passwordMethod = findAuthMethodById(current.authMethodsStatus, AUTH_METHOD_PASSWORD_ID);
 
     if (!passwordMethod) {
       throw new AppError(500, "Password method configuration could not be resolved.", {
@@ -306,10 +327,13 @@ function createPasswordSecurityFlows(deps) {
       payload.enabled,
       passwordSignInOptions
     );
-    const nextAuthMethodsStatus = buildAuthMethodsStatusFromSupabaseUser(current.user, nextPasswordSignInPolicy);
+    const nextAuthMethodsStatus = buildAuthMethodsStatusFromSupabaseUser(current.user, {
+      ...nextPasswordSignInPolicy,
+      oauthProviders: authOAuthProviders
+    });
 
     return {
-      securityStatus: buildSecurityStatusFromAuthMethodsStatus(nextAuthMethodsStatus)
+      securityStatus: buildProviderSecurityStatus(nextAuthMethodsStatus)
     };
   }
 
@@ -334,22 +358,21 @@ function createPasswordSecurityFlows(deps) {
 
   async function getSecurityStatus(request) {
     if (!request) {
-      const authMethodsStatus = buildAuthMethodsStatusFromProviderIds([authMethodPasswordProvider], {
+      const authMethodsStatus = buildAuthMethodsStatusFromProviderIds([AUTH_METHOD_PASSWORD_PROVIDER], {
         passwordSignInEnabled: true,
-        passwordSetupRequired: false
+        passwordSetupRequired: false,
+        oauthProviders: authOAuthProviders
       });
-      return buildSecurityStatusFromAuthMethodsStatus(authMethodsStatus);
+      return buildProviderSecurityStatus(authMethodsStatus);
     }
 
-    if (typeof resolveDevAuthSecurityStatus === "function") {
-      const devAuthSecurityStatus = await resolveDevAuthSecurityStatus(request);
-      if (devAuthSecurityStatus) {
-        return devAuthSecurityStatus;
-      }
+    const devAuthSecurityStatus = await resolveDevAuthSecurityStatus(request);
+    if (devAuthSecurityStatus) {
+      return devAuthSecurityStatus;
     }
 
     const current = await resolveCurrentAuthContext(request);
-    return buildSecurityStatusFromAuthMethodsStatus(current.authMethodsStatus);
+    return buildProviderSecurityStatus(current.authMethodsStatus);
   }
 
   return {

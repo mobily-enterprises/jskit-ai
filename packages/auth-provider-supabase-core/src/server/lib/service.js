@@ -3,12 +3,7 @@ import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { AUTH_TEXTS, createAuthError } from "@jskit-ai/auth-core/server/authTexts";
 import { normalizeAuthCapabilities } from "@jskit-ai/auth-core/shared/authCapabilities";
 import { ensureDevAuthExchangeAvailable } from "@jskit-ai/auth-core/server/devAuth";
-import {
-  AUTH_METHOD_PASSWORD_ID,
-  AUTH_METHOD_PASSWORD_PROVIDER,
-  buildOAuthMethodId
-} from "@jskit-ai/auth-core/shared/authMethods";
-import { normalizeEmail } from "@jskit-ai/auth-core/server/utils";
+import { AUTH_METHOD_PASSWORD_PROVIDER } from "@jskit-ai/auth-core/shared/authMethods";
 import {
   isTransientAuthMessage,
   isTransientSupabaseError,
@@ -47,9 +42,8 @@ import {
 } from "./authMethodStatus.js";
 import { safeRequestCookies, cookieOptions, cookieClearOptions } from "./authCookies.js";
 import { isExpiredJwtError, classifyJwtVerifyError } from "./authJwt.js";
-import { buildDisabledPasswordSecret } from "./authSecrets.js";
 import { createAccountFlows } from "./accountFlows.js";
-import { createOauthFlows } from "./oauthFlows.js";
+import { createSupabaseOAuthFlows } from "./oauthFlows.js";
 import { createPasswordSecurityFlows } from "./passwordSecurityFlows.js";
 import { DEFAULT_AUTH_PROVIDER_ID, createProfileMirror, normalizeAuthProviderId } from "./profileMirror.js";
 import { createSupabaseSessions } from "./sessions.js";
@@ -73,8 +67,8 @@ const DEFAULT_AUDIENCE = "authenticated";
  * The `auth.service` for Supabase Auth.
  * @param {object} options
  * @param {{ id: string, supabaseUrl?: string, supabasePublishableKey?: string, jwtAudience?: string, emailManagedBy?: string, emailChangeFlow?: string, oauthProviderCatalog?: any, oauthProviders?: any, oauthDefaultProvider?: string, oauthProviderLabels?: any, oauthProviderQueryParams?: any }} options.authProvider
- * @param {import("@jskit-ai/users-core/server/types").UsersIdentity["repositories"]["userSettings"] | null} [options.userSettingsRepository] The users' settings, when profiles live in the users table.
- * @param {import("@jskit-ai/users-core/server/types").UsersIdentity["repositories"]["userProfiles"] | null} [options.userProfilesRepository] The users' profiles, when profiles live in the users table.
+ * @param {import("@jskit-ai/users-core/server/types").UsersIdentity["repositories"]["userSettings"] | null} options.userSettingsRepository The users' settings when profiles live in the users table, else null.
+ * @param {import("@jskit-ai/users-core/server/types").UsersIdentity["repositories"]["userProfiles"] | null} options.userProfilesRepository The users' profiles when profiles live in the users table, else null.
  * @param {Required<Pick<import("@jskit-ai/auth-core/server/types").AuthProfileProjector, "syncIdentityProfile" | "findByIdentity">>} options.userProfileSyncService
  * @param {boolean} [options.profileProjectionEnabled]
  * @param {string} [options.nodeEnv]
@@ -104,9 +98,9 @@ function createService(options) {
   const supabaseUrl = String(authProvider.supabaseUrl || "").trim();
   const supabasePublishableKey = String(authProvider.supabasePublishableKey || "").trim();
   const supabaseConfigured = Boolean(supabaseUrl && supabasePublishableKey);
-  const userSettingsRepository = options.userSettingsRepository || null;
+  const userSettingsRepository = options.userSettingsRepository;
   const passwordMethodToggleSupported = Boolean(userSettingsRepository);
-  const userProfilesRepository = options.userProfilesRepository || null;
+  const userProfilesRepository = options.userProfilesRepository;
   const userProfileSyncService = options.userProfileSyncService;
   const profileProjectionEnabled = options.profileProjectionEnabled === true;
   const isProduction = options.nodeEnv === "production";
@@ -346,45 +340,30 @@ function createService(options) {
   }
 
   const { register, resendRegisterConfirmation, login, requestOtpLogin, verifyOtpLogin, updateDisplayName } = createAccountFlows({
-    ensureConfigured,
-    validationError,
-    getSupabaseClient,
-    displayNameFromEmail,
-    mapAuthError,
-    syncProfileFromSupabaseUser: profileMirror.syncProfileFromSupabaseUser,
-    resolvePasswordSignInPolicyForUserId,
-    otpLoginRedirectUrl,
-    buildOtpLoginRedirectUrl,
     appPublicUrl,
-    isTransientSupabaseError,
-    isUserNotFoundLikeAuthError,
-    mapOtpVerifyError,
+    ensureConfigured,
+    getSupabaseClient,
+    normalizeReturnToPath: normalizeAuthReturnToTarget,
+    otpLoginRedirectUrl,
+    resolvePasswordSignInPolicyForUserId,
     setSessionFromRequestCookies: sessions.setSessionFromRequestCookies,
-    mapProfileUpdateError,
-    normalizeReturnToPath: normalizeAuthReturnToTarget
+    syncProfileFromSupabaseUser: profileMirror.syncProfileFromSupabaseUser
   });
 
-  const { oauthStart, startProviderLink, oauthComplete, unlinkProvider } = createOauthFlows({
-    ensureConfigured,
-    normalizeOAuthProviderInput,
-    normalizeReturnToPath: normalizeAuthReturnToTarget,
-    buildOAuthLoginRedirectUrl: buildOAuthLoginRedirectUrlWithCatalog,
+  const { oauthStart, startProviderLink, oauthComplete, unlinkProvider } = createSupabaseOAuthFlows({
     appPublicUrl,
     authOAuthDefaultProvider,
-    resolveOAuthProviderQueryParams: resolveOAuthProviderQueryParamsForProvider,
-    getSupabaseClient,
-    mapAuthError,
-    setSessionFromRequestCookies: sessions.setSessionFromRequestCookies,
     buildOAuthLinkRedirectUrl: buildOAuthLinkRedirectUrlWithCatalog,
-    validationError,
-    mapOAuthCallbackError,
-    mapRecoveryError,
-    syncProfileFromSupabaseUser: profileMirror.syncProfileFromSupabaseUser,
+    buildOAuthLoginRedirectUrl: buildOAuthLoginRedirectUrlWithCatalog,
+    buildProviderSecurityStatus,
+    ensureConfigured,
+    getSupabaseClient,
+    normalizeOAuthProviderInput,
+    normalizeReturnToPath: normalizeAuthReturnToTarget,
     resolveCurrentAuthContext,
-    buildOAuthMethodId,
-    findAuthMethodById,
-    findLinkedIdentityByProvider,
-    buildSecurityStatusFromAuthMethodsStatus: buildProviderSecurityStatus
+    resolveOAuthProviderQueryParams: resolveOAuthProviderQueryParamsForProvider,
+    setSessionFromRequestCookies: sessions.setSessionFromRequestCookies,
+    syncProfileFromSupabaseUser: profileMirror.syncProfileFromSupabaseUser
   });
 
   const {
@@ -396,39 +375,20 @@ function createService(options) {
     signOutOtherSessions,
     getSecurityStatus
   } = createPasswordSecurityFlows({
+    authOAuthProviders,
+    buildProviderSecurityStatus,
+    createStatelessSupabaseClient,
     ensureConfigured,
-    validationError,
     getSupabaseClient,
     passwordResetRedirectUrl,
-    mapAuthError,
-    mapRecoveryError,
-    syncProfileFromSupabaseUser: profileMirror.syncProfileFromSupabaseUser,
-    setSessionFromRequestCookies: sessions.setSessionFromRequestCookies,
-    setRecoverySessionFromRequestCookies: sessions.setRecoverySessionFromRequestCookies,
-    resolvePasswordSignInPolicyForUserId,
-    mapPasswordUpdateError,
-    setPasswordSetupRequiredForUserId,
-    normalizeEmail,
-    createStatelessSupabaseClient,
-    mapCurrentPasswordError,
     resolveCurrentAuthContext,
-    findAuthMethodById,
-    authMethodPasswordId: AUTH_METHOD_PASSWORD_ID,
-    buildDisabledPasswordSecret,
+    resolveDevAuthSecurityStatus,
+    resolvePasswordSignInPolicyForUserId,
     setPasswordSignInEnabledForUserId,
-    buildAuthMethodsStatusFromSupabaseUser: (user, statusOptions = {}) =>
-      buildAuthMethodsStatusFromSupabaseUser(user, {
-        ...statusOptions,
-        oauthProviders: authOAuthProviders
-      }),
-    buildSecurityStatusFromAuthMethodsStatus: buildProviderSecurityStatus,
-    authMethodPasswordProvider: AUTH_METHOD_PASSWORD_PROVIDER,
-    buildAuthMethodsStatusFromProviderIds: (providerIds, statusOptions = {}) =>
-      buildAuthMethodsStatusFromProviderIds(providerIds, {
-        ...statusOptions,
-        oauthProviders: authOAuthProviders
-      }),
-    resolveDevAuthSecurityStatus
+    setPasswordSetupRequiredForUserId,
+    setRecoverySessionFromRequestCookies: sessions.setRecoverySessionFromRequestCookies,
+    setSessionFromRequestCookies: sessions.setSessionFromRequestCookies,
+    syncProfileFromSupabaseUser: profileMirror.syncProfileFromSupabaseUser
   });
 
   function getOAuthProviderCatalog() {

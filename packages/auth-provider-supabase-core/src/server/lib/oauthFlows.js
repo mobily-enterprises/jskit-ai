@@ -1,31 +1,43 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { authLoginOAuthStartParamsValidator, authLoginOAuthStartQueryValidator } from "@jskit-ai/auth-core/shared/commands/authLoginOAuthStartCommand";
 import { authLoginOAuthCompleteBodyValidator } from "@jskit-ai/auth-core/shared/commands/authLoginOAuthCompleteCommand";
+import { buildOAuthMethodId } from "@jskit-ai/auth-core/shared/authMethods";
+import { mapAuthError, mapRecoveryError, validationError } from "./authErrorMappers.js";
+import { mapOAuthCallbackError } from "./authInputParsers.js";
+import { findAuthMethodById, findLinkedIdentityByProvider } from "./authMethodStatus.js";
 
-function createOauthFlows(deps) {
-  const {
-    ensureConfigured,
-    normalizeOAuthProviderInput,
-    normalizeReturnToPath,
-    buildOAuthLoginRedirectUrl,
-    appPublicUrl,
-    authOAuthDefaultProvider,
-    resolveOAuthProviderQueryParams = () => null,
-    getSupabaseClient,
-    mapAuthError,
-    setSessionFromRequestCookies,
-    buildOAuthLinkRedirectUrl,
-    validationError,
-    mapOAuthCallbackError,
-    mapRecoveryError,
-    syncProfileFromSupabaseUser,
-    resolveCurrentAuthContext,
-    buildOAuthMethodId,
-    findAuthMethodById,
-    findLinkedIdentityByProvider,
-    buildSecurityStatusFromAuthMethodsStatus
-  } = deps;
-
+// Signing in with, linking and unlinking an OAuth provider through Supabase.
+/**
+ * @param {object} dependencies
+ * @param {string} dependencies.appPublicUrl
+ * @param {string} dependencies.authOAuthDefaultProvider
+ * @param {(input: { appPublicUrl: string, provider: string, returnTo: string }) => string} dependencies.buildOAuthLinkRedirectUrl The link redirect URL for a configured provider.
+ * @param {(input: { appPublicUrl: string, provider: string, returnTo: string }) => string} dependencies.buildOAuthLoginRedirectUrl The sign-in redirect URL for a configured provider.
+ * @param {(authMethodsStatus: any) => object} dependencies.buildProviderSecurityStatus The security status, with the actions this app offers.
+ * @param {() => void} dependencies.ensureConfigured Throws when Supabase is not configured.
+ * @param {() => import("@supabase/supabase-js").SupabaseClient} dependencies.getSupabaseClient
+ * @param {(value: unknown) => string} dependencies.normalizeOAuthProviderInput A configured provider id.
+ * @param {(value: unknown, options?: { fallback?: string }) => string} dependencies.normalizeReturnToPath A return path on an allowed origin.
+ * @param {(request: object, options?: { supabaseClient?: import("@supabase/supabase-js").SupabaseClient }) => Promise<{ user: import("@supabase/supabase-js").User, authMethodsStatus: any }>} dependencies.resolveCurrentAuthContext
+ * @param {(providerId: string) => Record<string, string> | null} dependencies.resolveOAuthProviderQueryParams The provider's configured query parameters.
+ * @param {ReturnType<typeof import("./sessions.js").createSupabaseSessions>["setSessionFromRequestCookies"]} dependencies.setSessionFromRequestCookies
+ * @param {ReturnType<typeof import("./profileMirror.js").createProfileMirror>["syncProfileFromSupabaseUser"]} dependencies.syncProfileFromSupabaseUser
+ */
+function createSupabaseOAuthFlows({
+  appPublicUrl,
+  authOAuthDefaultProvider,
+  buildOAuthLinkRedirectUrl,
+  buildOAuthLoginRedirectUrl,
+  buildProviderSecurityStatus,
+  ensureConfigured,
+  getSupabaseClient,
+  normalizeOAuthProviderInput,
+  normalizeReturnToPath,
+  resolveCurrentAuthContext,
+  resolveOAuthProviderQueryParams,
+  setSessionFromRequestCookies,
+  syncProfileFromSupabaseUser
+}) {
   async function requestOAuthRedirectUrl(supabase, provider, redirectTo, requestFlow) {
     let response;
     try {
@@ -249,7 +261,7 @@ function createOauthFlows(deps) {
       supabaseClient: supabase
     });
     return {
-      securityStatus: buildSecurityStatusFromAuthMethodsStatus(refreshed.authMethodsStatus)
+      securityStatus: buildProviderSecurityStatus(refreshed.authMethodsStatus)
     };
   }
 
@@ -261,4 +273,4 @@ function createOauthFlows(deps) {
   };
 }
 
-export { createOauthFlows };
+export { createSupabaseOAuthFlows };

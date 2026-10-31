@@ -1,5 +1,5 @@
 export { createAccountFlows } from "./accountFlows.js";
-export { createOauthFlows } from "./oauthFlows.js";
+export { createSupabaseOAuthFlows } from "./oauthFlows.js";
 export { createPasswordSecurityFlows } from "./passwordSecurityFlows.js";
 
 export {

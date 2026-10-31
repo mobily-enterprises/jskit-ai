@@ -9,6 +9,16 @@ import {
   requireAuthUser,
   requireAuthUserSession
 } from "./flowGuards.js";
+import {
+  isTransientSupabaseError,
+  isUserNotFoundLikeAuthError,
+  mapAuthError,
+  mapOtpVerifyError,
+  mapProfileUpdateError,
+  validationError
+} from "./authErrorMappers.js";
+import { displayNameFromEmail } from "./authProfileNames.js";
+import { buildOtpLoginRedirectUrl } from "./authRedirectUrls.js";
 
 // The answer is the same whether or not an account exists for the email.
 const CONFIRMATION_SENT_RESULT = Object.freeze({
@@ -25,54 +35,42 @@ const OTP_SENT_RESULT = Object.freeze({
   messageParams: Object.freeze({})
 });
 
-function normalizeLocalReturnToPath(value, { fallback = "" } = {}) {
-  const normalized = String(value || "").trim();
-  if (!normalized) {
-    return fallback;
-  }
-
-  if (!normalized.startsWith("/") || normalized.startsWith("//")) {
-    return fallback;
-  }
-
-  return normalized;
-}
-
-function createAccountFlows(deps) {
-  const {
-    ensureConfigured,
-    validationError,
-    getSupabaseClient,
-    displayNameFromEmail,
-    mapAuthError,
-    syncProfileFromSupabaseUser,
-    resolvePasswordSignInPolicyForUserId,
-    otpLoginRedirectUrl,
-    buildOtpLoginRedirectUrl,
-    appPublicUrl,
-    isTransientSupabaseError,
-    isUserNotFoundLikeAuthError,
-    mapOtpVerifyError,
-    setSessionFromRequestCookies,
-    mapProfileUpdateError,
-    normalizeReturnToPath = normalizeLocalReturnToPath
-  } = deps;
-
+// Registering, signing in with a password or a one-time code, and renaming
+// an account through Supabase.
+/**
+ * @param {object} dependencies
+ * @param {string} dependencies.appPublicUrl
+ * @param {() => void} dependencies.ensureConfigured Throws when Supabase is not configured.
+ * @param {() => import("@supabase/supabase-js").SupabaseClient} dependencies.getSupabaseClient
+ * @param {(value: unknown, options?: { fallback?: string }) => string} dependencies.normalizeReturnToPath A return path on an allowed origin.
+ * @param {string} dependencies.otpLoginRedirectUrl Where a one-time code link returns.
+ * @param {(userId: string) => Promise<{ passwordSignInEnabled: boolean, passwordSetupRequired: boolean }>} dependencies.resolvePasswordSignInPolicyForUserId
+ * @param {ReturnType<typeof import("./sessions.js").createSupabaseSessions>["setSessionFromRequestCookies"]} dependencies.setSessionFromRequestCookies
+ * @param {ReturnType<typeof import("./profileMirror.js").createProfileMirror>["syncProfileFromSupabaseUser"]} dependencies.syncProfileFromSupabaseUser
+ */
+function createAccountFlows({
+  appPublicUrl,
+  ensureConfigured,
+  getSupabaseClient,
+  normalizeReturnToPath,
+  otpLoginRedirectUrl,
+  resolvePasswordSignInPolicyForUserId,
+  setSessionFromRequestCookies,
+  syncProfileFromSupabaseUser
+}) {
   function resolveOtpEmailRedirectTo(returnToValue) {
     const returnTo = normalizeReturnToPath(returnToValue, { fallback: "" });
     if (!returnTo) {
       return otpLoginRedirectUrl;
     }
 
-    if (typeof buildOtpLoginRedirectUrl === "function") {
-      try {
-        return buildOtpLoginRedirectUrl({
-          appPublicUrl,
-          returnTo
-        });
-      } catch {
-        // Fall through to the pre-built URL fallback below.
-      }
+    try {
+      return buildOtpLoginRedirectUrl({
+        appPublicUrl,
+        returnTo
+      });
+    } catch {
+      // Fall through to the pre-built URL fallback below.
     }
 
     try {
@@ -85,14 +83,12 @@ function createAccountFlows(deps) {
   }
 
   function resolveRegisterEmailRedirectTo() {
-    if (typeof buildOtpLoginRedirectUrl === "function") {
-      try {
-        return buildOtpLoginRedirectUrl({
-          appPublicUrl
-        });
-      } catch {
-        // Fall through to the pre-built URL fallback below.
-      }
+    try {
+      return buildOtpLoginRedirectUrl({
+        appPublicUrl
+      });
+    } catch {
+      // Fall through to the pre-built URL fallback below.
     }
     return otpLoginRedirectUrl;
   }
