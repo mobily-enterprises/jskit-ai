@@ -82,6 +82,6 @@ operation at compact and expanded widths.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/users-web@0.2.6`
+- Owner: `@jskit-ai/users-web@0.2.7`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/users-web/patterns/account-settings/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/users-web/patterns/account-settings/example)

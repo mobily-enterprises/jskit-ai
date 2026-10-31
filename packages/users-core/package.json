@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/users-core",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "type": "module",
   "scripts": {
     "test": "node --test --test-concurrency=1"
@@ -15,12 +15,12 @@
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
-    "@jskit-ai/database-runtime": "0.1.251",
-    "@jskit-ai/json-rest-api-core": "0.2.2",
-    "@jskit-ai/resource-core": "0.1.193",
-    "@jskit-ai/resource-crud-core": "0.1.193",
-    "@jskit-ai/storage-runtime": "0.1.248",
-    "@jskit-ai/uploads-runtime": "0.2.2",
+    "@jskit-ai/database-runtime": "0.1.252",
+    "@jskit-ai/json-rest-api-core": "0.2.3",
+    "@jskit-ai/resource-core": "0.1.194",
+    "@jskit-ai/resource-crud-core": "0.1.194",
+    "@jskit-ai/storage-runtime": "0.1.249",
+    "@jskit-ai/uploads-runtime": "0.2.3",
     "json-rest-schema": "^1.0.17"
   },
   "description": "Users/account runtime plus HTTP routes for account features.",
@@ -168,8 +168,8 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/auth-core": "0.2.2",
-    "@jskit-ai/http-runtime": "0.2.2",
-    "@jskit-ai/kernel": "0.2.2"
+    "@jskit-ai/auth-core": "0.2.3",
+    "@jskit-ai/http-runtime": "0.2.3",
+    "@jskit-ai/kernel": "0.2.3"
   }
 }

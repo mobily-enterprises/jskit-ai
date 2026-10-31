@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/uploads-image-web",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "type": "module",
   "scripts": {
     "test": "node --test --test-concurrency=1"
@@ -14,7 +14,7 @@
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
-    "@jskit-ai/uploads-runtime": "0.2.2",
+    "@jskit-ai/uploads-runtime": "0.2.3",
     "@uppy/compressor": "^3.1.0",
     "@uppy/core": "^5.2.0",
     "@uppy/dashboard": "^5.1.1",
@@ -22,7 +22,7 @@
     "@uppy/xhr-upload": "^5.1.1"
   },
   "peerDependencies": {
-    "@jskit-ai/kernel": "0.2.2",
+    "@jskit-ai/kernel": "0.2.3",
     "vue": "^3.5.13"
   },
   "description": "Reusable client-side image upload runtime with pre-upload image editing.",
