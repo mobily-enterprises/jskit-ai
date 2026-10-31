@@ -358,6 +358,7 @@ Local functions
 ### `src/server/types.js`
 Exports
 - `type CrudResourceApi`
+- `type CrudCustomActionInvocation`
 
 ### patterns
 

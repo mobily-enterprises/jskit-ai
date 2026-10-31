@@ -46,8 +46,9 @@ from a generator questionnaire or treat a live table as the sole contract.
   `actions` call the collaborators they receive directly, with no `typeof`
   probe, optional call, absent default, slot setter or module-level registry.
   Each action's `execute` is one call to one service method with the
-  validated input. Keep one copy of each helper per package, files under 750
-  lines and functions under 600.
+  validated input, and its argument is typed as crud-core's
+  `CrudCustomActionInvocation`. Keep one copy of each helper per package, files
+  under 750 lines and functions under 600.
 
 ## Framework APIs
 
@@ -138,7 +139,11 @@ whether an already-committed request appears successful.
 
 Declare resource-related non-CRUD commands in `actions`. Each named action has
 a normal JSKIT input, permission, audit, events, and `execute({ input, context,
-service, repository, ...dependencies })` contract. Its optional `route`
+service, repository, ...dependencies })` contract. Type that argument with
+`CrudCustomActionInvocation` from `@jskit-ai/crud-core/server/types`. Its first
+type argument is the service the action calls, when `decorateService` adds the
+method; its second holds the types of required capabilities the action uses,
+by local name. Its optional `route`
 declares an HTTP method, path below the resource base, explicit route contract,
 status code, and optional request-to-action input mapper. This is the normal
 home for `confirm`, `publish`, `cancel`, `reorder`, or `sendReminder`. Move to a
@@ -178,6 +183,7 @@ const BookingsFeature = defineCrudJsonApiFeature({
     confirm: {
       input: confirmBookingInput,
       permission: { require: "all", permissions: ["bookings.confirm"] },
+      /** @param {import("@jskit-ai/crud-core/server/types").CrudCustomActionInvocation<import("./types.js").AppBookings["service"]>} action */
       execute({ input, context, service }) {
         return service.confirmBooking(input.recordId, { context });
       },
