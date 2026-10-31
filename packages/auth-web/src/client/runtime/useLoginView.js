@@ -6,6 +6,7 @@ import { useAuthOAuthLaunchClient } from "./inject.js";
 import { useLoginViewState } from "../composables/loginView/useLoginViewState.js";
 import { useLoginViewValidation } from "../composables/loginView/useLoginViewValidation.js";
 import { useLoginViewActions } from "../composables/loginView/useLoginViewActions.js";
+import { useSessionRecheckOnShow } from "../composables/loginView/useSessionRecheckOnShow.js";
 
 function useLoginView() {
   const { context: placementContext } = useWebPlacementContext();
@@ -26,6 +27,7 @@ function useLoginView() {
   });
 
   onMounted(actions.initializeOnMounted);
+  useSessionRecheckOnShow(actions.redirectIfSignedIn);
 
   return {
     authTitle: state.authTitle,

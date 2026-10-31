@@ -480,6 +480,22 @@ export function useLoginViewActions({
     }
   }
 
+  // A session can start while this page stays open: signed in from another tab,
+  // an identity switch, or the page restored from the back-forward cache.
+  async function redirectIfSignedIn() {
+    if (state.loading.value) {
+      return;
+    }
+    try {
+      const session = await refreshSession();
+      if (session?.authenticated && typeof window === "object" && window.location) {
+        window.location.replace(state.requestedReturnTo.value);
+      }
+    } catch {
+      // Still signed out, or offline: the form stays as it is.
+    }
+  }
+
   return {
     submitAuth,
     requestOtpCode,
@@ -487,6 +503,7 @@ export function useLoginViewActions({
     oauthProviderButtonLabel,
     oauthProviderIcon,
     startOAuthSignIn,
-    initializeOnMounted
+    initializeOnMounted,
+    redirectIfSignedIn
   };
 }

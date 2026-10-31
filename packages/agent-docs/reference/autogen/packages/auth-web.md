@@ -63,6 +63,10 @@ Local functions
 Exports
 - `useLoginViewValidation({ state } = {})`
 
+### `src/client/composables/loginView/useSessionRecheckOnShow.js`
+Exports
+- `useSessionRecheckOnShow(recheck)`
+
 ### `src/client/composables/loginView/validationHelpers.js`
 Exports
 - `validateCommandSection(commandResource, section, payload)`

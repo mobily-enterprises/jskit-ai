@@ -247,6 +247,7 @@ import { useAuthOAuthLaunchClient } from "../runtime/inject.js";
 import { useLoginViewState } from "../composables/loginView/useLoginViewState.js";
 import { useLoginViewValidation } from "../composables/loginView/useLoginViewValidation.js";
 import { useLoginViewActions } from "../composables/loginView/useLoginViewActions.js";
+import { useSessionRecheckOnShow } from "../composables/loginView/useSessionRecheckOnShow.js";
 import { useJskitText } from "../i18n.js";
 
 const {
@@ -268,6 +269,7 @@ const actions = useLoginViewActions({
 });
 
 onMounted(actions.initializeOnMounted);
+useSessionRecheckOnShow(actions.redirectIfSignedIn);
 
 const {
   authTitle,

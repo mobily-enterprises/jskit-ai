@@ -93,6 +93,52 @@ for (const authenticated of [true, false]) {
   });
 }
 
+test("an open sign-in page forwards once a session starts elsewhere", async (t) => {
+  const state = createMinimalLoginViewState("/w/acme/bookings?date=2026-09-16");
+  const destinations = [];
+  const originalWindow = globalThis.window;
+  globalThis.window = {
+    location: {
+      href: "https://example.com/auth/login",
+      replace: (path) => destinations.push(path)
+    }
+  };
+  t.after(() => {
+    if (originalWindow === undefined) delete globalThis.window;
+    else globalThis.window = originalWindow;
+    clearAuthCsrfTokenCache();
+  });
+  const sessions = [
+    () => createJsonResponse({ authenticated: false, csrfToken: "csrf-signed-out" }),
+    () => {
+      throw new TypeError("Failed to fetch");
+    },
+    () => createJsonResponse({ authenticated: true, csrfToken: "csrf-signed-in" })
+  ];
+  const fetch = t.mock.method(globalThis, "fetch", async () => sessions.shift()());
+  const actions = useLoginViewActions({
+    state,
+    validation: {},
+    queryClient: {
+      fetchQuery: ({ queryFn }) => queryFn()
+    },
+    errorRuntime: { report: (entry) => assert.fail(entry.message) }
+  });
+
+  await actions.redirectIfSignedIn();
+  await actions.redirectIfSignedIn();
+  assert.deepEqual(destinations, [], "a signed-out or offline check keeps the form");
+
+  state.loading.value = true;
+  await actions.redirectIfSignedIn();
+  assert.equal(fetch.mock.callCount(), 2, "no check runs while a sign-in is in progress");
+
+  state.loading.value = false;
+  await actions.redirectIfSignedIn();
+  assert.deepEqual(destinations, [state.requestedReturnTo.value]);
+  assert.equal(state.errorMessage.value, "");
+});
+
 test("useLoginViewActions preserves the intended destination when starting OAuth sign-in", () => {
   const state = createMinimalLoginViewState("/w/acme/workouts/2026-05-07?tab=chart");
   const assignedTargets = [];
