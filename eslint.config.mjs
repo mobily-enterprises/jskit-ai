@@ -37,17 +37,6 @@ export default [
     "packages/uploads-runtime/src/server/**"
   ]),
   {
-    // Over 750 lines until their split runs bring them under it.
-    files: [
-      "packages/crud-core/src/server/jsonApiModule/actions.js",
-      "packages/crud-core/src/server/listFilters.js",
-      "packages/crud-core/src/server/resourceRuntime/index.js"
-    ],
-    rules: {
-      "max-lines": "off"
-    }
-  },
-  {
     // Over 750 lines, with a factory over 600, until their split runs bring them under.
     files: [
       "packages/auth-provider-local-core/src/server/lib/service.js"
