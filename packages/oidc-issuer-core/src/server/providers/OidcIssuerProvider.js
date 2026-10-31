@@ -14,6 +14,13 @@ const OidcIssuerProvider = defineProvider({
   provides: {
     issuer: "auth.oidc-issuer"
   },
+  /**
+   * @param {object} dependencies
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeAppRoot} dependencies.appRoot
+   * @param {import("@jskit-ai/database-runtime/server/types").RuntimeDatabase} dependencies.database
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} dependencies.env
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
+   */
   async setup({ appRoot, database, env, logger }) {
     return {
       issuer: await createOidcIssuer({ knex: database.knex, env, logger, appRoot })

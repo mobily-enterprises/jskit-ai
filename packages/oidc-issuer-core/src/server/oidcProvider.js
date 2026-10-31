@@ -54,8 +54,16 @@ function interactionsPolicy(hasHubSession) {
  * flow with PKCE only, no refresh tokens, exact redirect URIs and a public
  * `sub`. A grant exists only for clients the registration policy marked
  * active: a pending app always reaches the hub's waiting page.
+ * @param {object} dependencies
+ * @param {ReturnType<typeof import("./config.js").resolveHubConfig>} dependencies.config
+ * @param {{ keys: object[] }} dependencies.jwks The hub's public signing keys.
+ * @param {ReturnType<typeof import("./adapter.js").createKnexAdapterClass>} dependencies.Adapter
+ * @param {ReturnType<typeof import("./accounts.js").createAccountStore>} dependencies.accounts
+ * @param {ReturnType<typeof import("./clients.js").createClientStore>} dependencies.clients
+ * @param {(ctx: any, accountId: string) => Promise<boolean>} dependencies.hasHubSession
+ *   Answers whether the browser still has the hub session of the account.
  */
-function createOidcProvider({ config, jwks, Adapter, accounts, clients, hasHubSession, onEndSession }) {
+function createOidcProvider({ config, jwks, Adapter, accounts, clients, hasHubSession }) {
   const provider = new Provider(config.issuer, {
     adapter: Adapter,
     jwks,
@@ -172,7 +180,6 @@ function createOidcProvider({ config, jwks, Adapter, accounts, clients, hasHubSe
     }
   });
   provider.proxy = true;
-  provider.on("end_session.success", (ctx) => onEndSession?.(ctx));
   return provider;
 }
 

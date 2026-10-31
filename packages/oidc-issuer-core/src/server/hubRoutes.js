@@ -58,7 +58,7 @@ function registerHubRoutes(app, hub) {
     if (error instanceof HubError || error instanceof AccountError) {
       return reply.code(error.status).send({ error: error.code, message: error.message });
     }
-    hub.logger.error?.({ err: error }, "Accounts hub request failed.");
+    hub.logger.error({ err: error }, "Accounts hub request failed.");
     return reply.code(500).send({ error: "hub_failed", message: "Something went wrong. Try again in a moment." });
   });
 
@@ -395,7 +395,7 @@ function registerHubRoutes(app, hub) {
         browserState: cookies(request)[GOOGLE_STATE_COOKIE]
       });
     } catch (error) {
-      hub.logger.warn?.({ err: error }, "Google sign-in could not be verified.");
+      hub.logger.warn({ err: error }, "Google sign-in could not be verified.");
     }
     if (!outcome) return reply.redirect("/auth/sign-in?google=failed", 303);
     const { identity, uid } = outcome;

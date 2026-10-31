@@ -2,6 +2,7 @@ const PROTOCOL = "vibe64.preview-identity.command.v1";
 const MAX_MESSAGE_BYTES = 64 * 1024;
 
 function failure(requestId, code, message, statusCode = 400) {
+  // readable-check: allow setter-seam - setCookie is a field of the preview identity protocol, not a slot
   return { protocol: PROTOCOL, requestId, ok: false, code, error: message, setCookie: [], signedOut: false, statusCode };
 }
 
@@ -25,8 +26,9 @@ function localOrigin(value) {
   return target.origin;
 }
 
+/** @param {Response} response */
 function setCookies(response) {
-  return typeof response.headers.getSetCookie === "function" ? response.headers.getSetCookie() : [];
+  return response.headers.getSetCookie();
 }
 
 /**
@@ -53,6 +55,7 @@ async function executePreviewIdentityRequest(request, { env = process.env, fetch
   try {
     const signOut = await fetchImpl(`${origin}/hub/api/sign-out`, { method: "POST", headers, body: "{}" });
     if (request.operation === "logout") {
+      // readable-check: allow setter-seam - setCookie is a field of the preview identity protocol, not a slot
       return { protocol: PROTOCOL, requestId, ok: true, identity: null, setCookie: setCookies(signOut), signedOut: true };
     }
     const selector = request.subject?.kind === "selector" ? request.subject.selector : null;
@@ -75,6 +78,7 @@ async function executePreviewIdentityRequest(request, { env = process.env, fetch
       requestId,
       ok: true,
       identity: { displayName: payload.displayName, email: payload.email, userId: payload.userId, username: "" },
+      // readable-check: allow setter-seam - setCookie is a field of the preview identity protocol, not a slot
       setCookie: setCookies(response),
       signedOut: false
     };

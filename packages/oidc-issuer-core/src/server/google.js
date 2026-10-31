@@ -15,6 +15,12 @@ const STATE_TTL_SECONDS = 600;
  * "Continue with Google" with the owner's own Google OAuth client. The hub
  * is an ordinary Google relying party: authorization code, PKCE, state bound
  * to the browser, nonce, and a verified ID token.
+ * @param {object} dependencies
+ * @param {NonNullable<ReturnType<typeof import("./config.js").resolveHubConfig>["google"]>} dependencies.google
+ * @param {string} dependencies.issuer The hub's issuer address.
+ * @param {ReturnType<typeof import("./adapter.js").createKnexAdapterClass>} dependencies.Adapter
+ * @param {typeof GOOGLE_ENDPOINTS} [dependencies.endpoints]
+ * @param {typeof fetch} [dependencies.fetchImpl]
  */
 function createGoogleSignIn({ google, issuer, Adapter, endpoints = GOOGLE_ENDPOINTS, fetchImpl = globalThis.fetch }) {
   const states = new Adapter(STATE_KIND);

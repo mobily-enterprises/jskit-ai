@@ -19,6 +19,11 @@ function composeMessage({ heading, body, actionLabel, actionUrl, footer }) {
  * Sends the hub's emails with the owner's own sender: Resend when
  * RESEND_API_KEY is set, otherwise SMTP_URL. Outside production, with neither
  * set, messages are written to the log so the developer can follow the link.
+ * @param {object} dependencies
+ * @param {ReturnType<typeof import("./config.js").resolveHubConfig>["mail"]} dependencies.mail
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
+ * @param {boolean} dependencies.isProduction
+ * @param {typeof fetch} [dependencies.fetchImpl]
  */
 function createMailer({ mail, logger, isProduction, fetchImpl = globalThis.fetch }) {
   let smtpTransport = null;
@@ -48,7 +53,7 @@ function createMailer({ mail, logger, isProduction, fetchImpl = globalThis.fetch
       if (mail.from && mail.resendApiKey) return sendWithResend(message);
       if (mail.from && mail.smtpUrl) return sendWithSmtp(message);
       if (isProduction) throw new Error("The hub has no email sender.");
-      logger?.info?.({ to: message.to, subject: message.subject }, `Accounts hub email (not sent: no sender configured)\n${message.text}`);
+      logger.info({ to: message.to, subject: message.subject }, `Accounts hub email (not sent: no sender configured)\n${message.text}`);
     }
   });
 }

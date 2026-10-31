@@ -134,7 +134,7 @@ Exports
 ### `src/server/issuer.js`
 Exports
 - `HUB_GLOBAL_PATHS`
-- `createOidcIssuer({ knex, env = process.env, logger = console, mailer = null, now = () => new Date(), appRoot = "", googleEndpoints = GOOGLE_ENDPOINTS, fetchImpl = globalThis.fetch })`
+- `createOidcIssuer({ knex, env = process.env, logger, mailer, now = () => new Date(), appRoot = "", googleEndpoints = GOOGLE_ENDPOINTS, fetchImpl = globalThis.fetch })`
 Local functions
 - `isHubPath(url)`
 - `bearerToken(request)`
@@ -151,7 +151,7 @@ Exports
 Exports
 - `ACTIVE_STATUSES`
 - `HUB_SCOPES`
-- `createOidcProvider({ config, jwks, Adapter, accounts, clients, hasHubSession, onEndSession })`
+- `createOidcProvider({ config, jwks, Adapter, accounts, clients, hasHubSession })`
 Local functions
 - `interactionPath(uid)`
 - `interactionsPolicy(hasHubSession)`

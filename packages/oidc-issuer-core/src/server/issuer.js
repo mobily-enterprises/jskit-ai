@@ -53,18 +53,26 @@ function parseJsonBody(buffer) {
  * Creates the accounts hub: an OpenID Connect issuer, its registration
  * policy, the hub's own sign-in and admin API, and Google sign-in.
  * `mount(app)` registers everything on a Fastify instance.
+ * @param {object} dependencies
+ * @param {import("knex").Knex} dependencies.knex
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} [dependencies.env]
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
+ * @param {ReturnType<typeof createMailer>} [dependencies.mailer] Sends the hub's emails instead of the configured sender.
+ * @param {() => Date} [dependencies.now]
+ * @param {string} [dependencies.appRoot]
+ * @param {typeof GOOGLE_ENDPOINTS} [dependencies.googleEndpoints]
+ * @param {typeof fetch} [dependencies.fetchImpl]
  */
 async function createOidcIssuer({
   knex,
   env = process.env,
-  logger = console,
-  mailer = null,
+  logger,
+  mailer,
   now = () => new Date(),
   appRoot = "",
   googleEndpoints = GOOGLE_ENDPOINTS,
   fetchImpl = globalThis.fetch
 }) {
-  if (!knex) throw new TypeError("createOidcIssuer requires knex.");
   const config = resolveHubConfig(env, { appRoot });
   const Adapter = createKnexAdapterClass(knex, { now });
   const accounts = createAccountStore(knex, { now });
@@ -108,8 +116,7 @@ async function createOidcIssuer({
       async hasHubSession(ctx, accountId) {
         const session = await hub.sessions.find(ctx.cookies.get(hubSessionCookieName(config), { signed: false }));
         return session?.accountId === accountId;
-      },
-      onEndSession: (ctx) => hub.onEndSession?.(ctx)
+      }
     });
     callback = hub.provider.callback();
   }
@@ -136,7 +143,7 @@ async function createOidcIssuer({
         await client.backchannelLogout(accountId);
         results.push({ clientId: row.client_id, ok: true });
       } catch (error) {
-        logger.warn?.({ clientId: row.client_id, err: error }, "Back-channel logout was not accepted.");
+        logger.warn({ clientId: row.client_id, err: error }, "Back-channel logout was not accepted.");
         results.push({ clientId: row.client_id, ok: false });
       }
     }
@@ -151,7 +158,7 @@ async function createOidcIssuer({
       await hub.emailTokens.deleteExpired();
       await hub.rateLimiter.deleteExpired();
     } catch (error) {
-      logger.error?.({ err: error }, "Accounts hub maintenance failed.");
+      logger.error({ err: error }, "Accounts hub maintenance failed.");
     }
   }
 
@@ -253,7 +260,7 @@ async function createOidcIssuer({
         done();
       });
       timer = setInterval(maintain, MAINTENANCE_INTERVAL_MS);
-      timer.unref?.();
+      timer.unref();
     },
     maintain,
     rotateSigningKey: hub.rotateSigningKey,
