@@ -49,6 +49,14 @@ Knex discovers package-owned migrations from the installed dependency graph.
 entrypoint for managed sessions and deployments. `example/.env.example` names
 the connection values and separate test databases without a secret.
 
+`example/.github/workflows/verify.yml` is a normal app-owned CI workflow with
+exactly one database service: `mariadb` (`mariadb:11.4`, `MARIADB_*`
+variables, port `3306`, a `healthcheck.sh` health check). Copy it whole from
+this pattern and adapt it as source rather than generating it from package
+metadata. Do not combine it with the PostgreSQL pattern's workflow: a MySQL
+application's workflow has no `postgres` service, `POSTGRES_*` variables, port
+`5432`, or `pg_isready` option.
+
 `example/tests/browser/database.js` is the application-owned browser preparation
 helper. It requires the exact `BROWSER_TEST_DB_NAME`, rejects the ordinary and
 disposable `TEST_DB_NAME` databases,
@@ -92,10 +100,9 @@ it as `seed` to `prepareDatabaseFromApp()`.
   foreign-key checks remain enabled, and the normal database is unchanged.
   Also prove that a new pending migration is applied. Keep this as a regression
   test when adapting the example; reject a harness that recreates the schema.
-
-`example/.github/workflows/verify.yml` is a normal app-owned CI workflow with
-an explicit MariaDB service. Adapt it as source rather than generating it from
-package metadata.
+- Confirm `.github/workflows/verify.yml` parses as YAML and declares only the
+  `mariadb` service. GitHub reports an unparseable workflow only as a failed
+  run with "no jobs were run".
 
 ## Avoid
 
@@ -103,6 +110,7 @@ package metadata.
 - generated `.env` secrets
 - depending on a live schema as the source contract
 - a second driver installed “just in case”
+- any file, service, port, or variable copied from the PostgreSQL pattern
 - migration receipts, provenance, replay logs, or generator ownership
 
 ## Packaged source

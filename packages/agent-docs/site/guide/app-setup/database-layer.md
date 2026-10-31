@@ -60,6 +60,10 @@ Use `client: "pg"` for PostgreSQL. The complete examples are in:
 - `database/mysql-application`
 - `database/postgres-application`
 
+Each example is complete for its own engine. Copy files only from the selected
+driver's pattern and never merge the two; for example, the CI workflow must
+contain only that engine's database service.
+
 The config discovers migrations directly from the current installed package
 graph. Application migrations live in the app's `migrations/` directory;
 package-owned migrations live in directories declared by the installed

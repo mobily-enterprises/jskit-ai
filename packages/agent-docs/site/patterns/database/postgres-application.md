@@ -49,6 +49,14 @@ dialect. `example/scripts/prepare-database.js` is the portable
 migrate-then-seed entrypoint for managed sessions and deployments.
 `example/.env.example` names the five connection values without a secret.
 
+`example/.github/workflows/verify.yml` is a normal app-owned CI workflow with
+exactly one database service: `postgres` (`postgres:17`, `POSTGRES_*`
+variables, port `5432`, a `pg_isready` health check). Copy it whole from this
+pattern and adapt it as source rather than generating it from package metadata.
+Do not combine it with the MySQL pattern's workflow: a PostgreSQL application's
+workflow has no `mariadb` service, `MARIADB_*` variables, port `3306`, or
+`healthcheck.sh` option.
+
 ## Variation points
 
 Change scripts, migration location, connection values, and secret injection to
@@ -65,10 +73,9 @@ it as `seed` to `prepareDatabaseFromApp()`.
 - Run `npm run db:migrate:status` and the application verification command.
 - Exercise one transaction and one negative connection case.
 - When a seed exists, run `db:prepare` twice and require the second run to be safe.
-
-`example/.github/workflows/verify.yml` is a normal app-owned CI workflow with
-an explicit PostgreSQL service. Adapt it as source rather than generating it
-from package metadata.
+- Confirm `.github/workflows/verify.yml` parses as YAML and declares only the
+  `postgres` service. GitHub reports an unparseable workflow only as a failed
+  run with "no jobs were run".
 
 ## Avoid
 
@@ -76,6 +83,7 @@ from package metadata.
 - generated `.env` secrets
 - depending on a live schema as the source contract
 - a second driver installed “just in case”
+- any file, service, port, or variable copied from the MySQL pattern
 - migration receipts, provenance, replay logs, or generator ownership
 
 ## Packaged source
