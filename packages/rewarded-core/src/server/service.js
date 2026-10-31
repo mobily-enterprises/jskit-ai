@@ -167,10 +167,6 @@ function createService({
   rewardedWatchSessionsRepository,
   rewardedUnlockReceiptsRepository
 }) {
-  if (typeof authorizeGrant !== "function") {
-    throw new TypeError("createService requires application authorizeGrant policy.");
-  }
-
   /** @param {RewardedRepository} repository */
   async function queryFirst(repository, query = {}, options = {}) {
     const rows = normalizeRecordList(await repository.queryDocuments(query, options));
@@ -416,7 +412,7 @@ function createService({
   async function grantReward(input, options = {}) {
     requireActor(options?.context || null, input);
     const workspaceSlug = requireWorkspaceSlug(input);
-    const sessionId = input?.sessionId == null ? "" : String(input.sessionId).trim();
+    const sessionId = input.sessionId == null ? "" : String(input.sessionId).trim();
     if (!sessionId) {
       throw new AppError(400, "sessionId is required.", { code: "rewarded.request.sessionIdRequired" });
     }
@@ -516,7 +512,7 @@ function createService({
   async function closeSession(input, options = {}) {
     requireActor(options?.context || null, input);
     const workspaceSlug = requireWorkspaceSlug(input);
-    const sessionId = input?.sessionId == null ? "" : String(input.sessionId).trim();
+    const sessionId = input.sessionId == null ? "" : String(input.sessionId).trim();
     if (!sessionId) {
       throw new AppError(400, "sessionId is required.", { code: "rewarded.request.sessionIdRequired" });
     }

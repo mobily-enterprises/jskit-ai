@@ -32,80 +32,80 @@ function changedEvent({ entity, operation, entityId, event }) {
 /** @param {{ rewarded: import("./types.js").RewardedCore }} dependencies */
 function createRewardedActions({ rewarded }) {
   return Object.freeze([
-  {
-    id: ACTION_CURRENT,
-    version: 1,
-    kind: "query",
-    channels: ["api", "automation", "internal"],
-    surfaces: ["app"],
-    permission: { require: "authenticated" },
-    input: currentQueryInputValidator,
-    output: currentStateOutputValidator,
-    idempotency: "none",
-    execute: (input, context) => rewarded.getCurrentState(input, { context })
-  },
-  {
-    id: ACTION_START,
-    version: 1,
-    kind: "command",
-    channels: ["api", "automation", "internal"],
-    surfaces: ["app"],
-    permission: { require: "authenticated" },
-    input: startCommandInputValidator,
-    output: startGateOutputValidator,
-    idempotency: "optional",
-    events: [changedEvent({
-      entity: "watch-session",
-      operation: "created",
-      entityId: ({ result }) => result?.session?.id,
-      event: watchSessionChanged
-    })],
-    execute: (input, context) => rewarded.startGate(input, { context })
-  },
-  {
-    id: ACTION_GRANT,
-    version: 1,
-    kind: "command",
-    channels: ["api", "automation", "internal"],
-    surfaces: ["app"],
-    permission: { require: "authenticated" },
-    input: grantCommandInputValidator,
-    output: grantRewardOutputValidator,
-    idempotency: "optional",
-    events: [
-      changedEvent({
+    Object.freeze({
+      id: ACTION_CURRENT,
+      version: 1,
+      kind: "query",
+      channels: ["api", "automation", "internal"],
+      surfaces: ["app"],
+      permission: { require: "authenticated" },
+      input: currentQueryInputValidator,
+      output: currentStateOutputValidator,
+      idempotency: "none",
+      execute: (input, context) => rewarded.getCurrentState(input, { context })
+    }),
+    Object.freeze({
+      id: ACTION_START,
+      version: 1,
+      kind: "command",
+      channels: ["api", "automation", "internal"],
+      surfaces: ["app"],
+      permission: { require: "authenticated" },
+      input: startCommandInputValidator,
+      output: startGateOutputValidator,
+      idempotency: "optional",
+      events: [changedEvent({
+        entity: "watch-session",
+        operation: "created",
+        entityId: ({ result }) => result?.session?.id,
+        event: watchSessionChanged
+      })],
+      execute: (input, context) => rewarded.startGate(input, { context })
+    }),
+    Object.freeze({
+      id: ACTION_GRANT,
+      version: 1,
+      kind: "command",
+      channels: ["api", "automation", "internal"],
+      surfaces: ["app"],
+      permission: { require: "authenticated" },
+      input: grantCommandInputValidator,
+      output: grantRewardOutputValidator,
+      idempotency: "optional",
+      events: [
+        changedEvent({
+          entity: "watch-session",
+          operation: "updated",
+          entityId: ({ result }) => result?.session?.id,
+          event: watchSessionChanged
+        }),
+        changedEvent({
+          entity: "unlock-receipt",
+          operation: "created",
+          entityId: ({ result }) => result?.unlock?.id,
+          event: unlockReceiptChanged
+        })
+      ],
+      execute: (input, context) => rewarded.grantReward(input, { context })
+    }),
+    Object.freeze({
+      id: ACTION_CLOSE,
+      version: 1,
+      kind: "command",
+      channels: ["api", "automation", "internal"],
+      surfaces: ["app"],
+      permission: { require: "authenticated" },
+      input: closeCommandInputValidator,
+      output: closeSessionOutputValidator,
+      idempotency: "optional",
+      events: [changedEvent({
         entity: "watch-session",
         operation: "updated",
         entityId: ({ result }) => result?.session?.id,
         event: watchSessionChanged
-      }),
-      changedEvent({
-        entity: "unlock-receipt",
-        operation: "created",
-        entityId: ({ result }) => result?.unlock?.id,
-        event: unlockReceiptChanged
-      })
-    ],
-    execute: (input, context) => rewarded.grantReward(input, { context })
-  },
-  {
-    id: ACTION_CLOSE,
-    version: 1,
-    kind: "command",
-    channels: ["api", "automation", "internal"],
-    surfaces: ["app"],
-    permission: { require: "authenticated" },
-    input: closeCommandInputValidator,
-    output: closeSessionOutputValidator,
-    idempotency: "optional",
-    events: [changedEvent({
-      entity: "watch-session",
-      operation: "updated",
-      entityId: ({ result }) => result?.session?.id,
-      event: watchSessionChanged
-    })],
-    execute: (input, context) => rewarded.closeSession(input, { context })
-  }
+      })],
+      execute: (input, context) => rewarded.closeSession(input, { context })
+    })
   ]);
 }
 

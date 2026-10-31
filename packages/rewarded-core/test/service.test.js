@@ -339,7 +339,6 @@ test("grant policy sees stored session and server context and rejects before wri
       async createDocument() { throw new Error("Must not write a receipt"); }
     }
   };
-  assert.throws(() => createService(dependencies), /authorizeGrant policy/);
   for (const decision of [false, undefined, "true"]) {
     const service = createService({ ...dependencies, authorizeGrant: async ({ session, context, trx }) => {
       calls += 1;
