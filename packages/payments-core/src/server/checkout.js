@@ -3,6 +3,15 @@ import { PaymentError, fingerprint } from "./errors.js";
 
 // Application composition boundary: authorization is mandatory and supplied by
 // the app's framework. Actor and subject must come from its authenticated route.
+/**
+ * @param {object} dependencies
+ * @param {import("./types.js").PaymentProviderAdapter} dependencies.adapter
+ * @param {import("./types.js").PaymentStore} dependencies.store
+ * @param {import("./types.js").PaymentService} dependencies.payments
+ * @param {object} dependencies.merchantScope
+ * @param {string} dependencies.returnUrl
+ * @param {(actor: unknown, request: { subjectId: string, action: string }) => boolean | Promise<boolean>} dependencies.authorize
+ */
 function createPaymentCheckoutService({ adapter, store, payments, merchantScope, returnUrl, authorize }) {
   if (typeof authorize !== "function") throw new TypeError("Supply the application's billable-subject authorization function.");
   const target = new URL(returnUrl);

@@ -9,6 +9,17 @@ const invalid = () => {
   });
 };
 
+/**
+ * @param {object} options
+ * @param {string} [options.apiKey]
+ * @param {string} options.webhookSecret
+ * @param {"sandbox" | "live"} options.environment
+ * @param {string} options.providerAccountId
+ * @param {Record<string, string>} options.priceBindings Each plan's current price id.
+ * @param {Record<string, string>} [options.historicalPriceBindings] The plan of each retired price id.
+ * @param {import("stripe").Stripe} [options.client]
+ */
+// readable-check: allow dependency-default - data: historicalPriceBindings maps retired price ids to plans, not a collaborator
 function createStripePaymentAdapter({ apiKey, webhookSecret, environment, providerAccountId, priceBindings, historicalPriceBindings = {}, client = new Stripe(apiKey, { maxNetworkRetries: 0 }) }) {
   if (!["sandbox", "live"].includes(environment) || typeof webhookSecret !== "string" || !webhookSecret || !providerAccountId) throw new TypeError("Supply Stripe credentials, environment and account identity.");
   const live = environment === "live";
@@ -126,6 +137,7 @@ function createStripePaymentAdapter({ apiKey, webhookSecret, environment, provid
     if (value.recurring?.interval_count !== 1 || value.billing_scheme !== "per_unit") invalid();
     return { id: value.id, productId: id(value.product), amount: value.unit_amount, currency: value.currency.toUpperCase(), interval: value.recurring.interval, active: value.active };
   }
+  /** @param {{ productId: string, amount: number, currency: string, interval: string, requestId: string }} price */
   async function createPrice({ productId, amount, currency, interval, requestId }) {
     await verifyAccount();
     return client.prices.create({ product: productId, unit_amount: amount, currency: currency.toLowerCase(), recurring: { interval } }, { idempotencyKey: requestId });

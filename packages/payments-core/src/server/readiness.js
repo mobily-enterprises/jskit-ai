@@ -16,6 +16,13 @@ const APPLICATION_CHECKS = ["webhook", "checkout", "site", "deployment"];
 
 // App-server inspection, invoked only after the host authorizes management.
 // Missing app evidence stays unknown; provider errors never become display text.
+/**
+ * @param {object} dependencies
+ * @param {import("./types.js").PaymentProviderAdapter} dependencies.adapter
+ * @param {import("./types.js").PaymentCatalogue} dependencies.catalogue
+ * @param {object} dependencies.scope The merchant scope the readiness checks belong to.
+ * @param {() => unknown} [dependencies.inspectApplication] The application's own evidence, by check id.
+ */
 function createPaymentReadiness({ adapter, catalogue, scope, inspectApplication }) {
   const merchant = structuredClone(scope);
   if (!["sandbox", "live"].includes(merchant?.environment) || !merchant.providerAccountId) throw new TypeError("Supply the configured payment merchant scope.");

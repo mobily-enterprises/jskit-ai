@@ -6,6 +6,13 @@ const samePrice = (a, b) => fingerprint(priceFields(a)) === fingerprint(priceFie
 
 // Trusted application service. Hosts must authorize catalogue management before
 // invoking it. No provider mutation happens while merely reading configuration.
+/**
+ * @param {object} dependencies
+ * @param {import("./types.js").PaymentStore} dependencies.store
+ * @param {import("./types.js").PaymentProviderAdapter} dependencies.adapter
+ * @param {object} dependencies.scope The merchant scope the catalogue belongs to.
+ * @param {import("./types.js").PaymentConfiguration} dependencies.configuration
+ */
 function createPaymentCatalogue({ store, adapter, scope, configuration }) {
   const plans = structuredClone(configuration.plans);
   const merchant = structuredClone(scope);

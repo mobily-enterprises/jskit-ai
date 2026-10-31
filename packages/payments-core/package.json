@@ -16,6 +16,7 @@
     "./server/paddle": "./src/server/paddle.js",
     "./server/catalogue": "./src/server/catalogue.js",
     "./server/readiness": "./src/server/readiness.js",
+    "./server/types": "./src/server/types.js",
     "./locales/en.json": "./locales/en.json"
   },
   "scripts": {

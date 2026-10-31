@@ -74,6 +74,16 @@ Local functions
 - `id(value)`
 - `invalid()`
 
+### `src/server/types.js`
+Exports
+- `type PaymentCatalogue`
+- `type PaymentCheckoutService`
+- `type PaymentReadiness`
+- `type PaymentService`
+- `type PaymentStore`
+- `type PaymentConfiguration`
+- `type PaymentProviderAdapter`
+
 ### `src/shared/configuration.js`
 Exports
 - `validatePaymentConfiguration(document)`

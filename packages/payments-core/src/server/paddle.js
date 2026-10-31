@@ -8,6 +8,17 @@ const invalid = () => {
   });
 };
 
+/**
+ * @param {object} options
+ * @param {string} [options.apiKey]
+ * @param {string} options.webhookSecret
+ * @param {"sandbox" | "live"} options.environment
+ * @param {Record<string, string>} options.priceBindings Each plan's current price id.
+ * @param {Record<string, string>} [options.historicalPriceBindings] The plan of each retired price id.
+ * @param {import("@paddle/paddle-node-sdk").TaxCategory} [options.taxCategory] The tax category of the products it publishes.
+ * @param {import("@paddle/paddle-node-sdk").Paddle} [options.client]
+ */
+// readable-check: allow dependency-default - data: historicalPriceBindings maps retired price ids to plans, not a collaborator
 function createPaddlePaymentAdapter({ apiKey, webhookSecret, environment, priceBindings, taxCategory, historicalPriceBindings = {}, client = new Paddle(apiKey, { environment: environment === "live" ? Environment.production : Environment.sandbox }) }) {
   if (!["sandbox", "live"].includes(environment) || typeof webhookSecret !== "string" || !webhookSecret) throw new TypeError("Supply Paddle credentials and environment.");
   const { validatePlan, priceFor, planFor } = createPriceBindings({ priceBindings, historicalPriceBindings, invalid });
