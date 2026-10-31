@@ -609,7 +609,7 @@ Local functions
 
 ### `server/actions/actionEvents.js`
 Exports
-- `createEntityChangedActionEvent({ source, entity, operation, entityId, realtime = null } = {})`
+- `createEntityChangedActionEvent({ source, entity, operation, entityId, realtime = null })`
 Local functions
 - `resolveContextScope(context = {})`
 - `resolveVisibilityScope(visibilityContext = {})`
@@ -887,6 +887,8 @@ Local functions
 Exports
 - `BootstrapProvider`
 - `createBootstrapRuntime()`
+- `type BootstrapContributionContext`
+- `type BootstrapContributor`
 
 ### `server/runtime/errors.js`
 Exports

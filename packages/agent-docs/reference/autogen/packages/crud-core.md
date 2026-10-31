@@ -45,7 +45,7 @@ Local functions
 
 ### `src/server/defineCrudJsonApiFeature.js`
 Exports
-- `defineCrudJsonApiFeature({ resource, id = "", capability = "", surface, ownershipFilter = "", relativePath = "", internal = false, routes = true, listFilterQueryValidator = null, searchSchema = null, permissions = null, scope = {}, requires = {}, decorateRepository = null, decorateService = null, operationLifecycle = {}, operationInputs = {}, actions = {}, operations = undefined, realtimeAudience = "event_scope" } = {})`
+- `defineCrudJsonApiFeature({ resource, id = "", capability = "", surface, ownershipFilter = "", relativePath = "", internal = false, routes = true, listFilterQueryValidator = null, searchSchema = null, permissions = null, scope = {}, requires = {}, decorateRepository = null, decorateService = null, operationLifecycle = {}, operationInputs = {}, actions = {}, operations = undefined, realtimeAudience = "event_scope" })`
 Local functions
 - `normalizeAccess(resource = {})`
 - `normalizeScope(scope = {})`

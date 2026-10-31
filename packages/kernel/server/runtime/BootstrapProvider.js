@@ -2,11 +2,31 @@ import { defineProvider } from "../../shared/capabilities/defineProvider.js";
 import { isRecord, normalizeText } from "../../shared/support/normalize.js";
 import { AUTH_POLICY_PUBLIC } from "../../shared/support/policies.js";
 
+/**
+ * What a bootstrap contributor receives: the request's context and the payload so far.
+ * @typedef {object} BootstrapContributionContext
+ * @property {any} [request] The Fastify request.
+ * @property {any} [reply] The Fastify reply.
+ * @property {Record<string, unknown>} [query] The request's query.
+ * @property {Readonly<Record<string, unknown>>} payload What earlier contributors added.
+ */
+
+/**
+ * A contributor that adds fields to the bootstrap payload, in ascending order.
+ * @typedef {object} BootstrapContributor
+ * @property {string} id
+ * @property {number} [order]
+ * @property {(context: BootstrapContributionContext) => any} contribute Returns, or resolves to, the fields it adds;
+ *   anything but a record adds nothing.
+ */
+
 function createBootstrapRuntime() {
+  /** @type {Array<Required<BootstrapContributor>>} */
   const contributors = [];
   const contributorIds = new Set();
   let sealed = false;
 
+  /** @param {Partial<BootstrapContributor>} contributor Validated here: id and contribute() are required. */
   function register({ id, order = 0, contribute } = {}) {
     if (sealed) throw new Error("Bootstrap registration is closed after the first payload is resolved.");
     const contributorId = normalizeText(id);

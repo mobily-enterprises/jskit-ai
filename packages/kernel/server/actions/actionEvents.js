@@ -137,7 +137,7 @@ function createEntityChangedActionEvent({
   operation,
   entityId,
   realtime = null
-} = {}) {
+}) {
   const normalizedSource = normalizeText(source);
   const normalizedEntity = normalizeText(entity);
   if (!normalizedSource) throw new TypeError("Action entity-change source is required.");

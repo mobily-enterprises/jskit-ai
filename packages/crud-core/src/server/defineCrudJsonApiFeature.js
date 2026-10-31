@@ -189,7 +189,7 @@ function defineCrudJsonApiFeature({
   actions = {},
   operations = undefined,
   realtimeAudience = "event_scope"
-} = {}) {
+}) {
   if (!resource || typeof resource !== "object" || Array.isArray(resource)) {
     throw new TypeError("defineCrudJsonApiFeature requires resource.");
   }

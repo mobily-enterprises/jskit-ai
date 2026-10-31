@@ -51,3 +51,4 @@ Exports
 ### `src/server/types.js`
 Exports
 - `type RuntimeJsonRestApi`
+- `type JsonRestResource`

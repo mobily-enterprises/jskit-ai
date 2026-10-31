@@ -610,6 +610,7 @@ async function createJsonRestApiHost({ knex, logger = JSON_REST_DEFAULT_LOGGER }
     throw new TypeError("createJsonRestApiHost requires knex.");
   }
 
+  /** @type {import("json-rest-api").JsonRestApi<Record<string, import("./types.js").JsonRestResource>>} */
   const api = new JsonRestApi({
     name: "jskit-internal-json-rest-api",
     logger
