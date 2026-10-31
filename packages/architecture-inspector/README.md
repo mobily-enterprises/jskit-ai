@@ -108,6 +108,12 @@ Each discovery supplies `id`, `adapter`, `surface`, `mode`, `registrations`,
     destructured factory parameter such as `createActions({ sessions })`)
     that receives one value across all the project's calls, when that value
     resolves exactly. Several values stay probable.
+  - JSDoc types are declared types: `@param`, `@type`, `@typedef` and
+    `import("...")` types, including a package's `./server/types` reached
+    through its declared entry points. A call through a parameter or binding
+    typed that way is a `checker` call. A member a type declares as `typeof` a
+    function (`{ run: typeof run }`, `@property {typeof run} run`) is that
+    function.
   - Action definitions (`{ id, execute }` in a feature's `actions`, also through
     pass-through wrappers and literal-array `.map`) become `action` entry
     points; `request.executeAction({ actionId: "..." })` reaches their execute

@@ -135,7 +135,22 @@ function createResolver({ program, checker, symbols, evaluator, bindings, action
   const direct = new Map();
 
   function implementationsFor(symbol) {
-    return symbols.symbolImplementations(symbol).map(constructorOf).filter(Boolean);
+    const found = symbols.symbolImplementations(symbol).map(constructorOf).filter(Boolean);
+    return found.length ? found : declaredMemberImplementations(symbol);
+  }
+
+  // A member a type declares without a value (`{ run: typeof run }` or
+  // `@property {typeof run} run`) holds the function or class its type names.
+  function declaredMemberImplementations(symbol) {
+    const declarations = symbol?.declarations || [];
+    if (!declarations.length || !declarations.every((declaration) => ts.isPropertySignature(declaration) || ts.isJSDocPropertyTag(declaration))) {
+      return [];
+    }
+    const type = checker.getTypeOfSymbol(symbol);
+    if (!type.getCallSignatures().length && !type.getConstructSignatures().length) {
+      return [];
+    }
+    return symbols.symbolImplementations(type.getSymbol()).map(constructorOf).filter(Boolean);
   }
 
   // Pass 1: what the checker resolves on its own, and the call-site index

@@ -360,6 +360,73 @@ test("defineFeature injection binds one provider exactly, several ambiguously an
   assert.deepEqual(facts("missing.reconcileNow"), ["unresolved", "unresolved", "none", []]);
 });
 
+// A capability's type as its providing package exports it, from
+// `./server/types`, and the other JSDoc forms a feature receives
+// collaborators through.
+const TYPED = {
+  "package.json": "{}",
+  "packages/booking/src/server/bookingEngine.js": [
+    "export function createBookingEngine() {",
+    "  function readStatus(input) { return input; }",
+    "  return Object.freeze({ readStatus });",
+    "}",
+    ""
+  ].join("\n"),
+  "packages/booking/src/server/types.js": [
+    "// The type of the `feature.booking-engine` capability.",
+    "/** @typedef {ReturnType<typeof import(\"./bookingEngine.js\").createBookingEngine>} BookingEngine */",
+    "export {};",
+    ""
+  ].join("\n"),
+  "packages/booking/src/server/installers.js": [
+    "export class Store { list() { return []; } }",
+    "export function installJdk() { return 1; }",
+    "export function installNode() { return 2; }",
+    "export const defaultInstallers = Object.freeze({ installJdk, installNode });",
+    ""
+  ].join("\n"),
+  "src/server/use.js": [
+    "/** @typedef {import(\"@local/booking/server/types\").BookingEngine} BookingEngine */",
+    "/** @typedef {object} Tools",
+    " * @property {typeof import(\"@local/booking/server/installers\").installNode} install */",
+    "/** @param {BookingEngine} bookingEngine */",
+    "export function viaTypedef(bookingEngine) { return bookingEngine.readStatus({}); }",
+    "/** @param {{ engine: import(\"@local/booking/server/types\").BookingEngine }} capabilities */",
+    "export function viaCapabilities({ engine }) { return engine.readStatus({}); }",
+    "/** @param {import(\"@local/booking/server/installers\").Store} store */",
+    "export function viaClass(store) { return store.list(); }",
+    "/** @param {{ installJdk: typeof import(\"@local/booking/server/installers\").installJdk }} installers */",
+    "export function viaTypeofMember(installers) { return installers.installJdk(); }",
+    "/** @param {typeof import(\"@local/booking/server/installers\").defaultInstallers} installers */",
+    "export function viaNamedDefault(installers) { return installers.installNode(); }",
+    "/** @param {Tools} tools */",
+    "export function viaPropertyTag(tools) { return tools.install(); }",
+    "/** @type {BookingEngine | null} */",
+    "let held = null;",
+    "export function viaTypedBinding() { return held.readStatus({}); }",
+    ""
+  ].join("\n")
+};
+
+test("calls through JSDoc-typed parameters and bindings resolve through the checker", async (t) => {
+  const { result } = await inspectCallsOf(t, TYPED, {
+    packages: [{ id: "package:booking", name: "@local/booking", root: "packages/booking", manifest: "package.json", opaque: false,
+      entryPoints: [{ importPath: "./server/types", file: "packages/booking/src/server/types.js" }, { importPath: "./server/*", file: "packages/booking/src/server/*.js" }] }]
+  });
+  const facts = result.calls.map((call) => [call.fromFunctionId.replace("fn:src/server/use.js#", ""), call.callee, call.certainty, call.method, call.targets]);
+  const READ = "fn:packages/booking/src/server/bookingEngine.js#2:3";
+  assert.deepEqual(facts, [
+    ["5:8", "bookingEngine.readStatus", "exact", "checker", [READ]],
+    ["7:8", "engine.readStatus", "exact", "checker", [READ]],
+    ["9:8", "store.list", "exact", "checker", ["fn:packages/booking/src/server/installers.js#1:22"]],
+    // A member a type declares as `typeof` a function is that function.
+    ["11:8", "installers.installJdk", "exact", "checker", ["fn:packages/booking/src/server/installers.js#2:8"]],
+    ["13:8", "installers.installNode", "exact", "checker", ["fn:packages/booking/src/server/installers.js#3:8"]],
+    ["15:8", "tools.install", "exact", "checker", ["fn:packages/booking/src/server/installers.js#3:8"]],
+    ["18:8", "held.readStatus", "exact", "checker", [READ]]
+  ]);
+});
+
 test("a file's calls beyond the per-file bound are truncated and reported", async (t) => {
   const body = Array.from({ length: 2005 }, () => "  target();").join("\n");
   const { result } = await inspectCallsOf(t, { "src/many.js": `function target() {}\nexport function many() {\n${body}\n}\n` });
