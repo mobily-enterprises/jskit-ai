@@ -74,6 +74,7 @@
         "goal": {
           "budgetsUnsupported": "This conversation does not support goal token budgets.",
           "changeFailed": "Could not change the goal.",
+          "notStarted": "The goal did not start. Check the chat before starting it again.",
           "unavailable": "Goal status is unavailable.",
           "resumeMessage": "Resume the goal.",
           "cancelMessage": "Cancel the goal."

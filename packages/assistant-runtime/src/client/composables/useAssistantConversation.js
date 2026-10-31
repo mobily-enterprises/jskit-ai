@@ -110,6 +110,8 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
   const loading = ref(true);
   const stopping = ref(false);
   const goalAction = ref("");
+  // An accepted Set or Resume waiting for its goal keeps Pause and Cancel usable.
+  const goalSettling = ref(false);
   const goalTargetCurrent = ref(false);
   const goalError = ref("");
   const goalView = shallowRef(null);
@@ -220,6 +222,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
   let goalSegment = null;
   let goalReadController = null;
   let goalReadQueued = false;
+  let goalCommandSequence = 0;
   const readsGoals = computed(() => goalReadEnabled || snapshot.value?.capabilities?.goals === true ||
     [...readers.values()].some(reader => toValue(reader.goal) === true));
   watch(readsGoals, enabled => { if (enabled) void refreshGoal(); });
@@ -377,6 +380,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     for (const pending of pendingMessages.values()) if (!pending.dispatched) pending.controller.abort();
     clearConversationView();
     goalAction.value = "";
+    goalSettling.value = false;
     goalReadQueued = false;
     questions.reset();
   }, { flush: "sync" });
@@ -489,8 +493,10 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     if (deferred) deferredWaits.value += 1;
     try {
       const result = await delivery.send(payload, {
+        // A goal command settles on the server's goal answer, not on its
+        // transcript turn, which can arrive while its goal is still changing.
         messageId, queue, isCurrent: () => current.value, onAccepted,
-        receiptTurns: turns, uncertainOnError: true,
+        receiptTurns: payload.goalRequest ? null : turns, uncertainOnError: true,
         async deliver(submission) {
           pending.started = true;
           let admission = null;
@@ -696,7 +702,8 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     // it stops and goes straight to the goal operation, even while a message is
     // sending or its receipt is unknown. Set and Resume wait for those.
     const stopping = action === "pause" || action === "cancel";
-    if (!available.value || view?.status !== "available" || goalLoadError.value || goalAction.value || !goalTargetCurrent.value ||
+    if (!available.value || view?.status !== "available" || goalLoadError.value ||
+        goalAction.value && !(stopping && goalSettling.value) || !goalTargetCurrent.value ||
         !["message", "control"].includes(command?.delivery) ||
         !stopping && delivery.state.messages.some(message => message.status === "uncertain")) return false;
     if (input.tokenBudget != null && !target.capabilities.goalBudgets) {
@@ -709,11 +716,16 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       expectedGoalId: view.goal?.id || null,
       ...(action === "set" ? { objective: String(input.objective || "").trim(),
         ...(input.tokenBudget == null ? {} : { tokenBudget: input.tokenBudget }) } : {}) };
+    const before = view.goal ? { id: view.goal.id, status: view.goal.status } : null;
+    const sequence = ++goalCommandSequence;
+    let accepted = false;
     goalAction.value = action;
+    goalSettling.value = false;
     goalError.value = "";
     try {
+      let result;
       if (retry || !stopping && command.delivery === "message") {
-        const result = await submitRequest(retry?.payload || {
+        result = await submitRequest(retry?.payload || {
           message: action === "set" ? request.objective
             : t(action === "resume" ? "jskit.assistant.runtime.goal.resumeMessage" : "jskit.assistant.runtime.goal.cancelMessage"),
           goalRequest: request
@@ -724,11 +736,12 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
           }
           return false;
         }
-        return result;
+      } else {
+        result = await api.updateConversationGoal(identity.conversationId,
+          command.delivery === "message" ? { ...request, messageId } : request);
+        if (result?.ok === false) throw new Error(resultError(result) || t("jskit.assistant.runtime.goal.changeFailed"));
       }
-      const result = await api.updateConversationGoal(identity.conversationId,
-        command.delivery === "message" ? { ...request, messageId } : request);
-      if (result?.ok === false) throw new Error(resultError(result) || t("jskit.assistant.runtime.goal.changeFailed"));
+      accepted = true;
       return result;
     } catch (failure) {
       if (current.value) {
@@ -737,13 +750,43 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       }
       return false;
     } finally {
-      if (current.value) {
-        goalAction.value = "";
+      // The command stays Starting, Resuming, Pausing or Cancelling until a goal
+      // read made after the server's answer arrives; until then the control
+      // shows no stale goal or enabled form. An accepted Set or Resume also
+      // waits while its goal waits behind the running turn.
+      if (current.value && goalCommandSequence === sequence) {
         await goalRead;
         await refreshGoal();
+        if (accepted && !stopping) await awaitGoalChange(before, sequence);
         subscription?.reload();
       }
+      if (goalCommandSequence === sequence) {
+        goalAction.value = "";
+        goalSettling.value = false;
+      }
     }
+  }
+  // An accepted Set or Resume changes the server's goal, now or once the turn
+  // it waits behind has ended. When the conversation stops working without
+  // that change, a fresh read decides and the reason is shown. A later Pause
+  // or Cancel ends the wait.
+  const goalChangedFrom = before => {
+    const goal = goalView.value?.goal;
+    return Boolean(goal) && (goal.id !== before?.id || goal.status !== before?.status);
+  };
+  async function awaitGoalChange(before, sequence) {
+    const settled = () => !current.value || goalCommandSequence !== sequence || goalChangedFrom(before);
+    await subscription?.reload();
+    if (!settled()) goalSettling.value = true;
+    while (!settled() && snapshot.value?.status === "working") {
+      await new Promise(resolve => {
+        const stop = watch([goalView, () => snapshot.value?.status, current, goalAction], () => { stop(); resolve(); });
+      });
+    }
+    if (settled()) return;
+    await goalRead;
+    await refreshGoal();
+    if (!settled()) goalError.value = t("jskit.assistant.runtime.goal.notStarted");
   }
   const goalState = computed(() => {
     const view = goalView.value;
@@ -752,7 +795,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     const commands = capabilities.goalCommands || {};
     const loading = !goalTargetCurrent.value && !goalLoadError.value;
     const goalAvailable = goalTargetCurrent.value && view?.status === "available" && !goalLoadError.value;
-    const stopPending = Boolean(goalAction.value) || !goalAvailable || !available.value;
+    const stopPending = Boolean(goalAction.value) && !goalSettling.value || !goalAvailable || !available.value;
     return {
       enabled: active.value && Boolean(loading || (view?.status === "available" && !goalLoadError.value) || goalError.value || goalLoadError.value),
       loading,
@@ -762,7 +805,8 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       tokenBudgetSupported: capabilities.goalBudgets === true,
       goal: goalAvailable && view?.goal ? { ...view.goal, elapsedSeconds: view.goal.timeUsedSeconds,
         sampledAt: Date.parse(view.goal.updatedAt) } : null,
-      pending: stopPending || delivery.state.sending || delivery.state.messages.some(message => message.status === "uncertain"),
+      pending: Boolean(goalAction.value) || stopPending || delivery.state.sending ||
+        delivery.state.messages.some(message => message.status === "uncertain"),
       stopPending,
       error: goalError.value || goalLoadError.value || view?.error || "",
       pauseInterruptsTurn: commands.pause?.interruptsTurn === true,

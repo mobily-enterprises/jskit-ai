@@ -393,6 +393,117 @@ test("a lost goal receipt uses the same inspection-only ledger and never starts 
   assert.equal((await requests()).length, 1, "An undeclared goal command is not exposed or dispatched");
 });
 
+test("Start goal stays Starting… until the goal is read after the server's answer, and no second start is sent", options, async t => {
+  const f = await fixture(t);
+  await f.command("goals", { id: "chat:1", budgets: false, commands: {
+    set: { delivery: "message", interruptsTurn: false }, pause: { delivery: "control", interruptsTurn: true }
+  } });
+  await f.notify("chat:1");
+  const starts = async () => (await f.state()).requests.filter(request => request.suffix === "/goal" && request.method === "POST");
+  await f.primary.getByRole("button", { name: "Set goal", exact: true }).click();
+  const objective = f.page.getByRole("textbox", { name: "Goal objective" });
+  const start = f.page.locator(".assistant-goal__form button[type=submit]");
+  await objective.fill("Finish while the goal read is slow");
+  // Goal reads made after Start wait, as a slow server read does.
+  const reads = Promise.withResolvers();
+  let heldReads = 0;
+  await f.page.route("**/conversations/*/goal", async route => {
+    if (route.request().method() === "GET") {
+      heldReads += 1;
+      await reads.promise;
+    }
+    await route.continue();
+  });
+  await start.click();
+  await expect.poll(async () => (await starts()).length).toBe(1);
+  await expect.poll(() => heldReads).toBeGreaterThan(0);
+  // The server has answered; the control has not yet read the goal it started.
+  await expect(start).toHaveText("Starting…");
+  await expect(start).toBeDisabled();
+  await expect(objective).toHaveValue("Finish while the goal read is slow");
+  assert.equal(await f.page.evaluate(() => window.conversationFixture.current().changeGoal("set", { objective: "A second start" })), false);
+  reads.resolve();
+  await expect(f.primary.getByRole("button", { name: "Goal running", exact: true })).toHaveAttribute("aria-expanded", "false");
+  assert.equal((await starts()).length, 1, "One Start sends one goal command");
+});
+
+test("a Start accepted behind the running turn stays Starting… until its goal runs, and says so when it never starts", options, async t => {
+  const f = await fixture(t);
+  await f.command("goals", { id: "chat:1", budgets: false, commands: {
+    set: { delivery: "message", interruptsTurn: false }, cancel: { delivery: "control", interruptsTurn: false }
+  } });
+  await f.notify("chat:1");
+  const starts = async () => (await f.state()).requests.filter(request =>
+    request.suffix === "/goal" && request.method === "POST" && request.input.action === "set");
+  const control = name => f.primary.getByRole("button", { name, exact: true });
+  const objective = f.page.getByRole("textbox", { name: "Goal objective" });
+  const start = f.page.locator(".assistant-goal__form button[type=submit]");
+  await f.command("mode", { mode: "queue-goal" });
+  await control("Set goal").click();
+  await objective.fill("Start after the current turn");
+  await start.click();
+  await expect.poll(async () => (await starts()).length).toBe(1);
+  await f.notify("chat:1");
+  // Accepted, but its goal waits behind the running turn.
+  await expect(start).toHaveText("Starting…");
+  await expect(start).toBeDisabled();
+  await expect(objective).toHaveValue("Start after the current turn");
+  await f.page.keyboard.press("Escape");
+  await expect(control("Starting…")).toBeVisible();
+  assert.equal(await f.page.evaluate(() => window.conversationFixture.current().changeGoal("set", { objective: "A second start" })), false);
+  await f.command("start-queued-goal", { id: "chat:1" });
+  await f.notify("chat:1");
+  await expect(control("Goal running")).toBeVisible();
+  assert.equal((await starts()).length, 1);
+
+  // A Start the conversation finishes without says so and keeps its objective.
+  await control("Goal running").click();
+  await f.page.getByRole("button", { name: "Cancel goal", exact: true }).click();
+  await expect(control("Set goal")).toBeVisible();
+  await objective.fill("Never takes effect");
+  await start.click();
+  await expect.poll(async () => (await starts()).length).toBe(2);
+  await f.notify("chat:1");
+  await expect(start).toBeDisabled();
+  await f.command("finish", { id: "chat:1" });
+  await f.notify("chat:1");
+  await expect(f.page.getByRole("alert").filter({ hasText: "The goal did not start. Check the chat before starting it again." })).toBeVisible();
+  await expect(objective).toHaveValue("Never takes effect");
+  await expect(start).toBeEnabled();
+  assert.equal((await starts()).length, 2);
+});
+
+test("Cancel stays available while a Resume waits behind the running turn and ends that wait", options, async t => {
+  const f = await fixture(t);
+  await f.command("goals", { id: "chat:1", budgets: false, commands: {
+    set: { delivery: "message", interruptsTurn: false }, resume: { delivery: "message", interruptsTurn: false },
+    pause: { delivery: "control", interruptsTurn: false }, cancel: { delivery: "control", interruptsTurn: false }
+  } });
+  await f.notify("chat:1");
+  const control = name => f.primary.getByRole("button", { name, exact: true });
+  const menu = name => f.page.getByRole("button", { name, exact: true });
+  await control("Set goal").click();
+  await f.page.getByRole("textbox", { name: "Goal objective" }).fill("Resume after the current turn");
+  await f.page.locator(".assistant-goal__form button[type=submit]").click();
+  await expect(control("Goal running")).toHaveAttribute("aria-expanded", "false");
+  await control("Goal running").click();
+  await menu("Pause goal").click();
+  await expect(control("Goal paused")).toBeVisible();
+  await f.command("mode", { mode: "queue-goal" });
+  await menu("Resume goal").click();
+  await expect(menu("Resuming…")).toBeDisabled();
+  await f.notify("chat:1");
+  await expect(menu("Cancel goal")).toBeEnabled();
+  await expect(menu("Resuming…")).toBeDisabled();
+  await menu("Cancel goal").click();
+  await expect(control("Set goal")).toBeVisible();
+  await f.command("finish", { id: "chat:1" });
+  await f.notify("chat:1");
+  await expect(f.page.getByRole("alert")).toHaveCount(0);
+  const commands = (await f.state()).requests.filter(request => request.suffix === "/goal" && request.method === "POST");
+  assert.deepEqual(commands.map(request => request.input.action), ["set", "pause", "resume", "cancel"]);
+});
+
 test("a supplied goal view keeps its pinned target and refreshes through the retained binding without polling", options, async t => {
   const f = await fixture(t);
   const goal = { id: "retained-goal", objective: "The plain product objective", status: "paused",
@@ -3372,10 +3483,13 @@ test("a background goal read keeps current pinned controls available and seriali
     await expect(f.page.getByRole("button", { name: "Cancel goal", exact: true })).toBeDisabled();
     assert.equal(await f.page.evaluate(() => window.conversationFixture.current().changeGoal("cancel")), false);
     releaseCommand();
-    await expect(pause).toBeEnabled();
+    // The answered Pause stays Pausing… until a goal read made after its answer
+    // lands, so the stale goal never offers its controls again.
+    await expect(f.page.getByRole("button", { name: "Pausing…", exact: true })).toBeDisabled();
     assert.equal(commands.length, 1, "Only the actual Pause command was admitted");
     holdRead = false;
     releaseRead();
+    await expect(pause).toBeEnabled();
     await f.page.evaluate(() => window.fixtureBackgroundGoalRead);
     assert.deepEqual(await f.sent(), []);
   } finally {

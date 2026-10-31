@@ -16,8 +16,11 @@ const now = ref(Date.now());
 const goal = computed(() => props.state?.loading || props.state?.available === false ? null : props.state?.goal);
 const running = computed(() => goal.value?.status === "active");
 const working = computed(() => running.value && props.state?.working === true);
+// A Start stays Starting… until the server's goal shows it, even while closed.
+const starting = computed(() => props.state?.action === "set");
 const label = computed(() => props.state?.loading ? t("jskit.assistant.goal.loading") : props.state?.available === false ? t("jskit.assistant.goal.unavailable")
-  : t(Object.hasOwn(STATUS_KEYS, goal.value?.status ?? "") ? STATUS_KEYS[goal.value.status] : "jskit.assistant.goal.set"));
+  : starting.value ? t("jskit.assistant.goal.starting")
+    : t(Object.hasOwn(STATUS_KEYS, goal.value?.status ?? "") ? STATUS_KEYS[goal.value.status] : "jskit.assistant.goal.set"));
 const nativeElapsed = computed(() => Number.isFinite(goal.value?.elapsedSeconds));
 const createdAt = computed(() => typeof goal.value?.createdAt === "string" ? Date.parse(goal.value.createdAt) : NaN);
 const elapsedLabel = computed(() => nativeElapsed.value ? t("jskit.assistant.goal.runningTime") : t("jskit.assistant.goal.elapsedSinceStart"));
@@ -64,7 +67,7 @@ async function setGoal() {
     <template #activator="{ props: menuProps }">
       <v-btn v-bind="menuProps" class="assistant-goal" size="small" variant="text" :aria-label="label" :title="[label, elapsedText, goal?.objective].filter(Boolean).join('\n')">
         <span v-if="goal" class="assistant-goal__light" :class="{ 'assistant-goal__light--running': running, 'assistant-goal__light--working': working, 'assistant-goal__light--paused': goal.status === 'paused' }" aria-hidden="true" />
-        <span class="assistant-goal__label">{{ state.loading ? t('jskit.assistant.goal.loading') : state.available === false ? t('jskit.assistant.goal.unavailable') : goal ? t('jskit.assistant.goal.goal') : t('jskit.assistant.goal.set') }}</span>
+        <span class="assistant-goal__label">{{ state.loading ? t('jskit.assistant.goal.loading') : state.available === false ? t('jskit.assistant.goal.unavailable') : starting ? t('jskit.assistant.goal.starting') : goal ? t('jskit.assistant.goal.goal') : t('jskit.assistant.goal.set') }}</span>
         <span v-if="elapsed" class="assistant-goal__elapsed" aria-hidden="true">{{ elapsed }}</span>
       </v-btn>
     </template>
@@ -81,7 +84,7 @@ async function setGoal() {
       <form v-if="canSet" class="assistant-goal__form mt-2" @submit.prevent="setGoal">
         <v-textarea v-model="objective" :label="t('jskit.assistant.goal.objective')" rows="2" max-rows="4" maxlength="4000" auto-grow :disabled="state.pending" hide-details />
         <v-text-field v-if="state.tokenBudgetSupported !== false" v-model="tokenBudget" :label="t('jskit.assistant.goal.tokenBudget')" type="number" min="1" step="1" :disabled="state.pending" :error="!validBudget" hide-details />
-        <v-btn type="submit" size="small" :disabled="state.pending || !objective.trim() || !validBudget">{{ state.action === 'set' ? t('jskit.assistant.goal.starting') : t('jskit.assistant.goal.start') }}</v-btn>
+        <v-btn type="submit" size="small" :disabled="state.pending || !objective.trim() || !validBudget">{{ starting ? t('jskit.assistant.goal.starting') : t('jskit.assistant.goal.start') }}</v-btn>
       </form>
       <p v-if="state.error" role="alert" class="text-error text-body-small mt-2">{{ state.error }}</p>
       <slot :goal="goal" />

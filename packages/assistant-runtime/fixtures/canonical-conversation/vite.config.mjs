@@ -110,6 +110,12 @@ export default defineConfig({
           for (const pending of held.splice(0)) pending.respond(pending.receipt);
           return json({ ok: true });
         }
+        if (url.pathname === "/fixture/start-queued-goal") {
+          const state = states.get(input.id);
+          changeGoal(state, state.queuedGoal);
+          state.queuedGoal = null;
+          return json({ ok: true });
+        }
         if (url.pathname === "/fixture/finish") {
           const state = states.get(input.id);
           state.status = "ready";
@@ -145,6 +151,11 @@ export default defineConfig({
           }
           const receipt = command.delivery === "message" ? accept(state, { messageId: input.messageId,
             text: input.objective || (input.action === "resume" ? "Resume the goal." : "Cancel the goal.") }) : null;
+          // The command is accepted behind the running turn; its goal changes later.
+          if (receipt && mode === "queue-goal") {
+            state.queuedGoal = input;
+            return json(receipt);
+          }
           changeGoal(state, input);
           const result = receipt || state.goal || null;
           return json(result, result === null ? 204 : 200);
