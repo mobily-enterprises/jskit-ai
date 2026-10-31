@@ -4524,6 +4524,7 @@
         "migrations/20260815000000_books.cjs",
         "packages/books/package.json",
         "packages/books/src/server/BooksFeature.js",
+        "packages/books/src/server/types.js",
         "packages/books/src/shared/bookResource.js",
         "packages/books/src/shared/index.js"
       ]
@@ -4817,10 +4818,12 @@
       "examplePath": "patterns/user-administration-server/example",
       "files": [
         "packages/users/package.json",
+        "packages/users/src/server/types.js",
         "packages/users/src/server/UsersFeature.js",
         "packages/users/src/shared/index.js",
         "packages/users/src/shared/userResource.js",
         "packages/users-workspace/package.json",
+        "packages/users-workspace/src/server/types.js",
         "packages/users-workspace/src/server/UsersWorkspaceFeature.js",
         "packages/users-workspace/src/shared/index.js",
         "packages/users-workspace/src/shared/userResource.js"

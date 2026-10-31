@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     "./server/BooksFeature": "./src/server/BooksFeature.js",
+    "./server/types": "./src/server/types.js",
     "./shared": "./src/shared/index.js"
   },
   "dependencies": {

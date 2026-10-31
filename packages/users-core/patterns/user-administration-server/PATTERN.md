@@ -38,12 +38,24 @@ and the resource contracts from `@jskit-ai/resource-crud-core`.
 - Shared profile persistence remains owned by `@jskit-ai/users-core`.
 - The resource is the field contract; the feature projects its repository,
   service, actions, and routes without app-local ceremony.
+- Each package exports the type of the capability it provides:
+  `src/server/types.js` declares `AppUsers` (for `app.users`) or
+  `AppUsersWorkspace` (for `app.users-workspace`) as crud-core's
+  `CrudResourceApi`, exported as `./server/types`. A feature that requires the
+  capability names that type in a JSDoc `@param`.
+- Code added to a declaration follows [typed features](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/site/guide/framework/typed-features.md):
+  decorators, lifecycle hooks and named actions call the collaborators they
+  receive directly, with no `typeof` probe, optional call, absent default,
+  slot setter or module-level registry, and each action's `execute` is one
+  call to one service method with the validated input. Keep one copy of each
+  helper per package, files under 750 lines and functions under 600.
 
 ## Example files
 
 `example/packages/users/` is a global administration package.
 `example/packages/users-workspace/` demonstrates the workspace route/action
-boundary while reusing the same service contract. Copy only the composition
+boundary while reusing the same service contract. Each package's
+`src/server/types.js` declares the type of the capability it provides. Copy only the composition
 that matches the product and adapt it as ordinary application source.
 
 ## Variation points
@@ -62,3 +74,5 @@ isolation, missing records, null/cleared fields, filtering, and pagination.
 - trusting route scope without repository scope
 - adding app-local mechanics already provided by `defineCrudJsonApiFeature()`
 - generator metadata or field questionnaires
+- probing a collaborator, defaulting one to `null`, `{}` or a no-op, setters
+  that fill a slot after construction, and module-level registries

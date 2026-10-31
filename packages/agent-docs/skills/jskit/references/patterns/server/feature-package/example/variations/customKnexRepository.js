@@ -1,13 +1,11 @@
 import { createWithTransaction } from "@jskit-ai/database-runtime/shared";
 
-function createRepository({ knex } = {}) {
-  if (!knex) {
-    throw new TypeError("createRepository requires knex.");
-  }
-
+// The invoice rollup's persistence: a reviewed custom Knex repository.
+/** @param {{ knex: import("knex").Knex }} dependencies */
+function createRepository({ knex }) {
   return Object.freeze({
     withTransaction: createWithTransaction(knex),
-    async getStatus(input = {}, options = {}) {
+    async getStatus(input, options = {}) {
       return {
         ok: true,
         feature: "invoice-rollup",
@@ -17,7 +15,7 @@ function createRepository({ knex } = {}) {
         input
       };
     },
-    async execute(input = {}, options = {}) {
+    async execute(input, options = {}) {
       return {
         accepted: false,
         feature: "invoice-rollup",

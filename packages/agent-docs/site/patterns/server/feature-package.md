@@ -41,8 +41,33 @@ questionnaire.
   the feature package.
 - `defineFeature()` receives only declared capabilities and returns only
   declared feature APIs.
-- Actions define the public operation contract and close over the feature APIs
-  they need. They never resolve arbitrary dependencies at execution time.
+- Each provided capability exports its type. A named `create<Name>` factory in
+  its own module builds the value `setup()` returns, and `types.js` declares
+  one `@typedef` per provided token, named after the token in PascalCase
+  (`feature.booking-engine` -> `BookingEngine`). A package exports it as
+  `./server/types`.
+- Every factory, action creator and hook that receives a collaborator names its
+  type in a JSDoc `@param`: `import("./types.js").<Name>` or
+  `ReturnType<typeof createX>` inside the package, the owner's `./server/types`
+  across packages, or the library's own type such as `import("knex").Knex`.
+- Collaborators are required. There is no `= null`, `= {}` or no-op default,
+  no `typeof` probe, no optional call and no "requires x" guard: the capability
+  runtime refuses to start without a required token.
+- An extension point is an `optional` token whose default the package names
+  and `setup()` resolves once, never a setter that fills a slot later or a
+  module-level registry.
+- One `create<Name>Actions(dependencies)` per feature creates its actions and
+  closes over the feature APIs they need; an inline `actions()` array becomes
+  an unexported `create<Name>Actions()` in the same file. Each id is a string
+  literal or a module-level constant, and `execute` is one call to one feature
+  method with the validated input. Actions never resolve arbitrary
+  dependencies at execution time.
+- Methods take the validated input as it is: no `input = {}` default and no
+  second normalization of fields the input schema already checked. An options
+  bag whose fields are optional by contract (`options = {}` with `trx` or
+  `context`) keeps its default.
+- One copy of each pure helper per package, imported directly. Files stay under
+  750 lines and functions under 600, one concern per factory.
 - The service orchestrates the feature and does not issue SQL directly.
 - A repository owns persistence and accepts transaction/context options.
 - The normal persistence lane uses a public or documented high-level resource
@@ -67,14 +92,23 @@ The custom persistence variation uses `createWithTransaction()` from
 ## Example files
 
 `example/booking-engine/` is a concrete app-local package showing the preferred
-small-feature boundary. Its status query is deliberately small: product logic
-can grow inside the returned feature API without creating ceremonial layers.
+small-feature boundary. `src/server/BookingEngineProvider.js` declares the
+feature, `src/server/bookingEngine.js` builds the provided engine with
+`createBookingEngine()`, `src/server/actions.js` creates its actions with
+`createBookingEngineActions()`, and `src/server/types.js` declares the
+`BookingEngine` type, exported as `./server/types`. Its status query is
+deliberately small: product logic can grow inside the returned feature API
+without creating ceremonial layers.
 
 `example/variations/AvailabilityEngineProvider.js` and
 `example/variations/orchestratorService.js` show the repository-free lane.
 `example/variations/InvoiceRollupProvider.js` and
 `example/variations/customKnexRepository.js` show the explicit custom
-persistence lane.
+persistence lane. `example/variations/types.js` declares the
+`AvailabilityEngine` and `InvoiceRollup` types.
+
+The [typed features guide](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/site/guide/framework/typed-features.md)
+explains each rule with a complete feature.
 
 ## Variation points
 
@@ -103,6 +137,11 @@ illustrative status query with narrow product language before shipping.
 - a repository for an orchestration-only feature
 - generic `execute(anything)` operations in finished product code
 - `app.make()`, `scope.make()`, container tokens, or service-location helpers
+- probing a collaborator (`typeof x.method === "function"`, `x?.method?.()`)
+  before calling it
+- absent defaults on a collaborator or on the dependencies object (`= null`,
+  `= {}`, a no-op)
+- setters that fill a slot after construction, and module-level registries
 - metadata claiming which authoring tool or pattern created the package
 - field questionnaires, overwrite switches, or durable operation records
 

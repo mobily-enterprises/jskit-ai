@@ -6,6 +6,7 @@
   "type": "module",
   "exports": {
     "./server/UsersFeature": "./src/server/UsersFeature.js",
+    "./server/types": "./src/server/types.js",
     "./shared": "./src/shared/index.js"
   },
   "dependencies": {

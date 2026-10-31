@@ -274,6 +274,10 @@ Local functions
 
 ### patterns
 
+### `patterns/user-administration-server/example/packages/users-workspace/src/server/types.js`
+Exports
+- `type AppUsersWorkspace`
+
 ### `patterns/user-administration-server/example/packages/users-workspace/src/server/UsersWorkspaceFeature.js`
 Exports
 - `UsersWorkspaceFeature`
@@ -285,6 +289,10 @@ Exports
 ### `patterns/user-administration-server/example/packages/users-workspace/src/shared/userResource.js`
 Exports
 - `resource`
+
+### `patterns/user-administration-server/example/packages/users/src/server/types.js`
+Exports
+- `type AppUsers`
 
 ### `patterns/user-administration-server/example/packages/users/src/server/UsersFeature.js`
 Exports

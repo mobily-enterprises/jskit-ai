@@ -363,6 +363,10 @@ Exports
 Exports
 - `BooksFeature`
 
+### `patterns/json-api-resource-package/example/packages/books/src/server/types.js`
+Exports
+- `type AppBooks`
+
 ### `patterns/json-api-resource-package/example/packages/books/src/shared/bookResource.js`
 Exports
 - `bookResource`

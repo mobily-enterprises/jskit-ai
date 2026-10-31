@@ -37,6 +37,17 @@ from a generator questionnaire or treat a live table as the sole contract.
   repository, service, action, route, and provider files.
 - Current migration/resource/source state is authoritative; there is no receipt,
   provenance marker, generator identity, or field-patching lane.
+- The package exports the type of the capability it provides:
+  `src/server/types.js` declares `AppBooks` (for `app.books`) as crud-core's
+  `CrudResourceApi`, exported as `./server/types`. A feature that requires
+  `app.books` names that type in a JSDoc `@param`.
+- Code the declaration adds follows [typed features](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/site/guide/framework/typed-features.md):
+  `decorateService`, `decorateRepository`, `operationLifecycle` hooks and named
+  `actions` call the collaborators they receive directly, with no `typeof`
+  probe, optional call, absent default, slot setter or module-level registry.
+  Each action's `execute` is one call to one service method with the
+  validated input. Keep one copy of each helper per package, files under 750
+  lines and functions under 600.
 
 ## Framework APIs
 
@@ -54,6 +65,7 @@ Paths below are relative to this pattern directory:
 example/migrations/20260815000000_books.cjs
 example/packages/books/package.json
 example/packages/books/src/server/BooksFeature.js
+example/packages/books/src/server/types.js
 example/packages/books/src/shared/bookResource.js
 example/packages/books/src/shared/index.js
 ```
@@ -66,6 +78,8 @@ guide.
 
 `BooksFeature.js` is deliberately tiny: it binds the readable resource contract
 to the framework module and exports the resulting provider.
+`types.js` declares the type of the `app.books` capability, for features that
+require it.
 
 ## List search is part of the initial composition
 
@@ -202,6 +216,9 @@ const BookingsFeature = defineCrudJsonApiFeature({
 - public access combined with user or workspace ownership
 - implicit workspace route parameters or permissions
 - receipt, replay, provenance, ownership-marker, or scaffold-shape files
+- probing a collaborator, defaulting one to `null`, `{}` or a no-op, setters
+  that fill a slot after construction, and module-level registries in
+  decorators, lifecycle hooks or actions
 
 ## Packaged source
 

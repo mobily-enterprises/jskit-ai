@@ -6,6 +6,7 @@
   "type": "module",
   "exports": {
     "./server/UsersWorkspaceFeature": "./src/server/UsersWorkspaceFeature.js",
+    "./server/types": "./src/server/types.js",
     "./shared": "./src/shared/index.js"
   },
   "dependencies": {

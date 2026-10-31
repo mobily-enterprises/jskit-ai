@@ -17,7 +17,11 @@ Use this on demand; do not load the full index at startup.
 ### `patterns/feature-package/example/booking-engine/src/server/actions.js`
 Exports
 - `ACTION_GET_STATUS`
-- `createActions({ bookingEngine } = {})`
+- `createBookingEngineActions({ bookingEngine })`
+
+### `patterns/feature-package/example/booking-engine/src/server/bookingEngine.js`
+Exports
+- `createBookingEngine()`
 
 ### `patterns/feature-package/example/booking-engine/src/server/BookingEngineProvider.js`
 Exports
@@ -27,21 +31,34 @@ Exports
 Exports
 - `statusQueryInputValidator`
 
+### `patterns/feature-package/example/booking-engine/src/server/types.js`
+Exports
+- `type BookingEngine`
+
 ### `patterns/feature-package/example/variations/AvailabilityEngineProvider.js`
 Exports
 - `AvailabilityEngineProvider`
+Local functions
+- `createAvailabilityEngineActions({ availabilityEngine })`
 
 ### `patterns/feature-package/example/variations/customKnexRepository.js`
 Exports
-- `createRepository({ knex } = {})`
+- `createRepository({ knex })`
 
 ### `patterns/feature-package/example/variations/InvoiceRollupProvider.js`
 Exports
 - `InvoiceRollupProvider`
+Local functions
+- `createInvoiceRollupActions({ invoiceRollup })`
 
 ### `patterns/feature-package/example/variations/orchestratorService.js`
 Exports
 - `createService()`
+
+### `patterns/feature-package/example/variations/types.js`
+Exports
+- `type AvailabilityEngine`
+- `type InvoiceRollup`
 
 ### `patterns/minimal-foundation/example/bin/develop.js`
 Exports

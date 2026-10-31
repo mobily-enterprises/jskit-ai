@@ -1,6 +1,7 @@
+// The availability engine: orchestration with no persistence of its own.
 function createService() {
   return Object.freeze({
-    async getStatus(input = {}) {
+    async getStatus(input) {
       return {
         ok: true,
         feature: "availability-engine",
@@ -8,7 +9,7 @@ function createService() {
         input
       };
     },
-    async execute(input = {}) {
+    async execute(input) {
       return {
         accepted: false,
         feature: "availability-engine",

@@ -9,7 +9,8 @@
     "json-rest-schema": "^1.0.17"
   },
   "exports": {
-    "./server/actions": "./src/server/actions.js"
+    "./server/actions": "./src/server/actions.js",
+    "./server/types": "./src/server/types.js"
   },
   "jskit": {
     "kind": "runtime",
@@ -40,6 +41,10 @@
           {
             "subpath": "./server/actions",
             "summary": "Exports booking-engine action definitions."
+          },
+          {
+            "subpath": "./server/types",
+            "summary": "Type of the feature.booking-engine capability, for features that require it."
           }
         ]
       }

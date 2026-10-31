@@ -1,5 +1,6 @@
 import { defineFeature } from "@jskit-ai/kernel/server/features";
-import { createActions } from "./actions.js";
+import { createBookingEngineActions } from "./actions.js";
+import { createBookingEngine } from "./bookingEngine.js";
 
 const BookingEngineProvider = defineFeature({
   id: "feature.booking-engine",
@@ -12,21 +13,10 @@ const BookingEngineProvider = defineFeature({
     surfaces: ["app"]
   },
   setup() {
-    return {
-      bookingEngine: Object.freeze({
-        async readStatus(input = {}) {
-          return {
-            ok: true,
-            feature: "booking-engine",
-            scope: input.scope || "default",
-            verbose: input.verbose === true
-          };
-        }
-      })
-    };
+    return { bookingEngine: createBookingEngine() };
   },
   actions({ bookingEngine }) {
-    return createActions({ bookingEngine });
+    return createBookingEngineActions({ bookingEngine });
   }
 });
 
