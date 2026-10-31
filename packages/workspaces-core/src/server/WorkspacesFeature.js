@@ -36,7 +36,7 @@ const WorkspacesFeature = defineFeature({
    * @param {import("@jskit-ai/kernel/server/types").RuntimeConfig} capabilities.config
    * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} capabilities.env
    * @param {import("@jskit-ai/kernel/server/types").RuntimeHttp} capabilities.http
-   * @param {import("./types.js").WorkspaceInviteMailer | undefined} capabilities.inviteMailer
+   * @param {import("./types.js").WorkspaceInviteMailer | null} capabilities.inviteMailer
    * @param {import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi} capabilities.jsonRestApi
    * @param {import("@jskit-ai/users-core/server/types").UsersCore} capabilities.users
    */

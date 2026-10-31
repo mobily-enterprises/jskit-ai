@@ -56,6 +56,17 @@ function requireWorkspaceColorDefaults(defaults) {
   return colors;
 }
 
+// The invite mailer arrives as the `workspaces.invite-mailer` capability. Config
+// once carried it, so a config mailer is refused rather than silently unused.
+function rejectConfigInviteMailer(config) {
+  if (config.workspaceInviteMailer !== undefined) {
+    throw new TypeError(
+      "runtime.config.workspaceInviteMailer is no longer read: provide the invite mailer as the " +
+        '"workspaces.invite-mailer" capability from an application provider instead.'
+    );
+  }
+}
+
 function resolveInviteEmailTemplate(config) {
   const template =
     config.workspaceInviteEmailTemplate ||
@@ -102,6 +113,7 @@ async function installWorkspaceResources(jsonRestApi) {
  * @param {import("@jskit-ai/users-core/server/types").UsersCore} dependencies.users
  */
 function createWorkspacesRuntime({ appRoot, config, env, inviteMailer, jsonRestApi, users }) {
+  rejectConfigInviteMailer(config);
   const tenancyProfile = resolveTenancyProfile(config);
   const invitationsPolicy = resolveWorkspaceInvitationsPolicy({ config, appConfig: config, tenancyProfile });
   const invitationsEnabled = invitationsPolicy.enabled === true;
