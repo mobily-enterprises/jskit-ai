@@ -15,6 +15,8 @@
  * @property {object | null} [session] The session to write with writeSessionCookies(), or null.
  * @property {boolean} [clearSession] True when the request's session cookies should be cleared.
  * @property {boolean} [transientFailure] True when authentication could not be decided at this time.
+ * @property {boolean} [refreshRequired] True when the session must be refreshed first, which a caller
+ *   that asked for no refresh (`refreshSession: false`), such as a realtime socket, cannot do.
  */
 
 /**
