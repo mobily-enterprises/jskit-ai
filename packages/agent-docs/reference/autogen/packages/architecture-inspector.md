@@ -42,6 +42,11 @@ Exports
 Local functions
 - `memberNamed(objectLiteral, name)`
 - `isActionObject(node)`
+- `objectLiteral(expression, symbols, depth = 0)`
+- `memberValue(member)`
+- `executeFunctions(member, symbols)`
+- `collectCrudActions(declarations, { symbols, evaluator })`
+- `crudNamespace(config, { symbols, evaluator })`
 - `collectFeatureActions(features, { symbols, evaluator })`
 
 ### `src/calls/functions.js`
@@ -158,6 +163,7 @@ Local functions
 - `indexDeclaration(module, node, parent)`
 - `resolveImport(inspection, from, specifier)`
 - `resolvePackageEntryFile(inspection, from, specifier)`
+- `packageEntryTarget(entry, importPath)`
 - `resolvePackageImport(inspection, from, specifier)`
 - `resolveCrudResource(inspection, module, node, seen = new Set())`
 - `resolveExportedCrudResource(inspection, module, name, seen)`
@@ -185,7 +191,21 @@ Local functions
 - `discoverEntryOperations(inspection)`
 - `crudControllerOperations(module, config, resource)`
 - `recordCrudController(inspection, { module, file, record })`
-- `recordFeatureRoute(inspection, { module, file, record, featureFactories })`
+- `recordCrudActionRoutes(inspection, { module, record, config, namespace, apiSuffix })`
+- `objectDeclaration(inspection, module, node, seen = new Set())`
+- `exportedObjectDeclaration(inspection, module, source, name, seen)`
+- `recordFeatureRoutes(inspection, { module, record })`
+- `featureSetup(module, definition)`
+- `isNamedMember(node, name)`
+- `setupRouter(setup)`
+- `parameterRouter(parameter)`
+- `bindsWithin(record, fn, name)`
+- `recordRouterRoutes(inspection, { module, fn, router, depth, seen })`
+- `recordRouterRoute(inspection, module, record)`
+- `routeLiteral(module, node, seen = new Set())`
+- `projectFunction(inspection, module, name, seen = new Set())`
+- `exportedFunction(inspection, module, source, name, seen)`
+- `localFunction(module, name)`
 - `scopeOption(inspection, module, node, fallback)`
 - `importedConstant(inspection, module, name, seen)`
 - `exportedConstant(inspection, module, name, seen)`
