@@ -2,7 +2,10 @@ import ts from "typescript";
 import { isFunctionLike, unwrapExpression } from "./functions.js";
 
 const FEATURE_PACKAGE = "@jskit-ai/kernel";
+const CRUD_PACKAGE = "@jskit-ai/crud-core";
+const CRUD_RESOURCE_PACKAGE = "@jskit-ai/resource-crud-core";
 const MAX_ACTION_DEPTH = 6;
+const MAX_OBJECT_DEPTH = 8;
 
 function memberNamed(objectLiteral, name) {
   return objectLiteral.properties.find((property) =>
@@ -21,8 +24,15 @@ function isActionObject(node) {
 // ambiguous; none leaves the parameter unbound.
 function bindFeatures({ calls, symbols, evaluator }) {
   const features = [];
+  const crudDeclarations = [];
   for (const call of calls) {
     const callee = unwrapExpression(call.expression);
+    if (ts.isIdentifier(callee) && symbols.isImportOf(callee, CRUD_PACKAGE, ["defineCrudJsonApiFeature"])) {
+      const config = objectLiteral(call.arguments[0], symbols);
+      if (config) {
+        crudDeclarations.push(config);
+      }
+    }
     if (!ts.isIdentifier(callee) || !symbols.isImportOf(callee, FEATURE_PACKAGE, ["defineFeature"])) {
       continue;
     }
@@ -141,7 +151,93 @@ function bindFeatures({ calls, symbols, evaluator }) {
     }
   }
 
-  return { features, bindings, actions: collectFeatureActions(features, { symbols, evaluator }) };
+  return {
+    features,
+    bindings,
+    actions: [...collectFeatureActions(features, { symbols, evaluator }), ...collectCrudActions(crudDeclarations, { symbols, evaluator })]
+  };
+}
+
+// The object literal an expression holds, through const bindings, imports and
+// `Object.freeze`, or null.
+function objectLiteral(expression, symbols, depth = 0) {
+  let value = unwrapExpression(expression);
+  if (value && ts.isCallExpression(value) && value.arguments.length === 1 && ts.isPropertyAccessExpression(value.expression) &&
+    value.expression.name.text === "freeze" && ts.isIdentifier(value.expression.expression) && value.expression.expression.text === "Object") {
+    value = unwrapExpression(value.arguments[0]);
+  }
+  if (!value || depth > MAX_OBJECT_DEPTH) {
+    return null;
+  }
+  if (ts.isObjectLiteralExpression(value)) {
+    return value;
+  }
+  const declaration = ts.isIdentifier(value) ? symbols.declarationOf(value) : null;
+  return declaration && ts.isVariableDeclaration(declaration) ? objectLiteral(declaration.initializer, symbols, depth + 1) : null;
+}
+
+function memberValue(member) {
+  if (!member) {
+    return null;
+  }
+  if (ts.isPropertyAssignment(member)) {
+    return member.initializer;
+  }
+  return ts.isShorthandPropertyAssignment(member) ? member.name : null;
+}
+
+function executeFunctions(member, symbols) {
+  if (isFunctionLike(member)) {
+    return [member];
+  }
+  if (ts.isPropertyAssignment(member)) {
+    return symbols.expressionImplementations(member.initializer, 0).filter(isFunctionLike);
+  }
+  if (ts.isShorthandPropertyAssignment(member)) {
+    return symbols.symbolImplementations(symbols.symbolAt(member.name)).filter(isFunctionLike);
+  }
+  return [];
+}
+
+// The custom actions a CRUD declaration adds (`actions: { name: { execute } }`).
+// Each runs its own execute; its id is the declared `id`, or
+// `<resource namespace>.<name>` as crud-core names it.
+function collectCrudActions(declarations, { symbols, evaluator }) {
+  const actions = [];
+  for (const config of declarations) {
+    const definitions = objectLiteral(memberValue(memberNamed(config, "actions")), symbols);
+    for (const property of definitions?.properties || []) {
+      const name = ts.isPropertyAssignment(property) && (ts.isIdentifier(property.name) || ts.isStringLiteralLike(property.name)) ? property.name.text : "";
+      const object = name ? objectLiteral(property.initializer, symbols) : null;
+      const execute = object && memberNamed(object, "execute");
+      if (!execute) {
+        continue;
+      }
+      // A declared id that is not a literal stays unresolved.
+      const idMember = memberNamed(object, "id");
+      const declared = idMember ? evaluator.evaluateLiteral(memberValue(idMember))?.trim() : "";
+      const namespace = declared === "" ? crudNamespace(config, { symbols, evaluator }) : null;
+      const actionId = declared || (namespace ? `${namespace}.${name}` : null);
+      actions.push({ actionId, object, execute: executeFunctions(execute, symbols) });
+    }
+  }
+  return actions;
+}
+
+// The literal namespace of a CRUD declaration's `defineCrudResource` resource.
+function crudNamespace(config, { symbols, evaluator }) {
+  let resource = unwrapExpression(memberValue(memberNamed(config, "resource")));
+  for (let depth = 0; resource && ts.isIdentifier(resource) && depth < MAX_OBJECT_DEPTH; depth += 1) {
+    const declaration = symbols.declarationOf(resource);
+    resource = declaration && ts.isVariableDeclaration(declaration) ? unwrapExpression(declaration.initializer) : null;
+  }
+  const callee = resource && ts.isCallExpression(resource) ? unwrapExpression(resource.expression) : null;
+  if (!callee || !ts.isIdentifier(callee) || !symbols.isImportOf(callee, CRUD_RESOURCE_PACKAGE, ["defineCrudResource"])) {
+    return null;
+  }
+  const definition = objectLiteral(resource.arguments[0], symbols);
+  const namespace = definition && evaluator.evaluateLiteral(memberValue(memberNamed(definition, "namespace")));
+  return namespace?.trim() || null;
 }
 
 // Action definitions inside each feature's actions() result: object literals
@@ -240,18 +336,6 @@ function collectFeatureActions(features, { symbols, evaluator }) {
   }
 
   const actions = [];
-  const executeFunctions = (member) => {
-    if (isFunctionLike(member)) {
-      return [member];
-    }
-    if (ts.isPropertyAssignment(member)) {
-      return symbols.expressionImplementations(member.initializer, 0).filter(isFunctionLike);
-    }
-    if (ts.isShorthandPropertyAssignment(member)) {
-      return symbols.symbolImplementations(symbols.symbolAt(member.name)).filter(isFunctionLike);
-    }
-    return [];
-  };
   for (const feature of features) {
     found.length = 0;
     if (feature.actionFunctions.length) {
@@ -264,7 +348,7 @@ function collectFeatureActions(features, { symbols, evaluator }) {
       const idExpression = ts.isPropertyAssignment(idMember) ? idMember.initializer
         : ts.isShorthandPropertyAssignment(idMember) ? idMember.name : null;
       const actionId = idExpression && evaluator.evaluateLiteral(idExpression, { indexes, values: new Map() });
-      actions.push({ actionId, object, execute: executeFunctions(memberNamed(object, "execute")) });
+      actions.push({ actionId, object, execute: executeFunctions(memberNamed(object, "execute"), symbols) });
     }
   }
   return actions;

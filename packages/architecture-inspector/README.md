@@ -79,6 +79,13 @@ Each discovery supplies `id`, `adapter`, `surface`, `mode`, `registrations`,
   than claiming a fully expanded runtime URL. Custom clients, transport/resource
   overrides, dynamic operations and disabled routes do not create guessed links.
   This shows declared entry points; runtime provider activation is not proven.
+  Each such entry operation carries the `actionId` its route runs,
+  `crud.<namespace>.<operation>`. The declaration's custom `actions` (a literal
+  object, bound locally or imported through named re-exports) that declare a
+  literal `route` become `http` entry operations at the declaration's API base
+  path (`scope.routeBase` and `relativePath`) plus the route's `path`, with the
+  action's `id`, or `<namespace>.<name>` without one. Other forms are reported
+  as `CRUD_ACTION_ROUTE_UNRESOLVED`.
 
 - Routes registered through the kernel's `createActionRouteScope` become entry
   operations with their full path and, for `actionRoute`, their `actionId`.
@@ -124,9 +131,12 @@ Each discovery supplies `id`, `adapter`, `surface`, `mode`, `registrations`,
     function (`{ run: typeof run }`, `@property {typeof run} run`) is that
     function.
   - Action definitions (`{ id, execute }` in a feature's `actions`, also through
-    pass-through wrappers and literal-array `.map`) become `action` entry
-    points; `request.executeAction({ actionId: "..." })` reaches their execute
-    function, and each action route's `controllerFunctionId` names it.
+    `create*Actions` factories, pass-through wrappers and literal-array `.map`,
+    with ids that are literals or module constants) and the custom actions of a
+    CRUD declaration become `action` entry points;
+    `request.executeAction({ actionId: "..." })` reaches their execute
+    function, and the `controllerFunctionId` of each entry operation that names
+    an action is that function.
   - Calls that are provably external are left out: package imports, builtins,
     values produced by them (including `let` assignments, `for...of`,
     destructuring and callbacks they call), Vue's `<script setup>` macros and

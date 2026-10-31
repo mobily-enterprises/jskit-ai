@@ -186,3 +186,97 @@ test("without --calls router flow still gives entry operations, without controll
   assert.equal(result.entryOperations.length, 5);
   assert.ok(result.entryOperations.every((entry) => !("controllerFunctionId" in entry)));
 });
+
+const CRUD = {
+  "packages/receivals/src/shared/receivalResource.js": [
+    "import { defineCrudResource } from \"@jskit-ai/resource-crud-core/shared/crudResource\";",
+    "const resource = defineCrudResource({ namespace: \"receivals\", tableName: \"receivals\", crudOperations: [\"list\", \"view\"] });",
+    "export { resource };",
+    ""
+  ].join("\n"),
+  "packages/receivals/src/server/receivalActions.js": [
+    "const receivalActions = {",
+    "  \"place-in-freezer\": {",
+    "    id: \"crud.receivals.placeInFreezer\",",
+    "    execute({ input, service }) { return service.placeInFreezer(input.recordId); },",
+    "    route: { method: \"post\", path: \"/:recordId/place-in-freezer\" }",
+    "  },",
+    "  reopen: {",
+    "    execute({ input, service }) { return service.reopen(input.recordId); },",
+    "    route: { path: \"/:recordId/reopen\" }",
+    "  },",
+    "  recount: {",
+    "    execute({ service }) { return service.recount(); }",
+    "  }",
+    "};",
+    "export { receivalActions };",
+    ""
+  ].join("\n"),
+  "packages/receivals/src/server/actions.js": "export { receivalActions } from \"./receivalActions.js\";\n",
+  "packages/receivals/src/server/ReceivalsFeature.js": [
+    "import { defineCrudJsonApiFeature } from \"@jskit-ai/crud-core/server/defineCrudJsonApiFeature\";",
+    "import { resource } from \"../shared/receivalResource.js\";",
+    "import { receivalActions } from \"./actions.js\";",
+    "const ReceivalsFeature = defineCrudJsonApiFeature({",
+    "  resource,",
+    "  surface: \"home\",",
+    "  relativePath: \"/receivals\",",
+    "  scope: { routeBase: \"/w/:workspaceSlug\", input: (request) => request.input.params },",
+    "  actions: receivalActions",
+    "});",
+    "export { ReceivalsFeature };",
+    ""
+  ].join("\n"),
+  "packages/receivals/src/server/trigger.js": [
+    "export async function placeAll(request) {",
+    "  await request.executeAction({ actionId: \"crud.receivals.placeInFreezer\" });",
+    "  await request.executeAction({ actionId: \"receivals.recount\" });",
+    "}",
+    ""
+  ].join("\n")
+};
+
+const FREEZE = "fn:packages/receivals/src/server/receivalActions.js#4:5";
+const REOPEN = "fn:packages/receivals/src/server/receivalActions.js#8:5";
+const RECOUNT = "fn:packages/receivals/src/server/receivalActions.js#12:5";
+
+test("CRUD declarations name each route's action, and custom action routes reach their execute", async (t) => {
+  const { result } = await inspectCallsOf(t, CRUD, { httpScope: "demo" });
+  const entries = result.entryOperations.map((entry) => [entry.key.protocol, entry.key.method, entry.key.operation, entry.actionId, entry.controllerFile, entry.controllerFunctionId]);
+  assert.deepEqual(entries, [
+    ["jskit.crud", undefined, "receivals:list", "crud.receivals.list", "packages/receivals/src/server/ReceivalsFeature.js", undefined],
+    ["jskit.crud", undefined, "receivals:view", "crud.receivals.view", "packages/receivals/src/server/ReceivalsFeature.js", undefined],
+    ["http", "POST", "/api/w/:workspaceSlug/receivals/:recordId/place-in-freezer", "crud.receivals.placeInFreezer", "packages/receivals/src/server/receivalActions.js", FREEZE],
+    ["http", "POST", "/api/w/:workspaceSlug/receivals/:recordId/reopen", "receivals.reopen", "packages/receivals/src/server/receivalActions.js", REOPEN]
+  ]);
+  assert.deepEqual(result.entryPoints.map((entry) => [entry.id, entry.file, entry.functionIds]), [
+    ["entry:action:crud.receivals.placeInFreezer", "packages/receivals/src/server/receivalActions.js", [FREEZE]],
+    ["entry:action:receivals.reopen", "packages/receivals/src/server/receivalActions.js", [REOPEN]],
+    ["entry:action:receivals.recount", "packages/receivals/src/server/receivalActions.js", [RECOUNT]]
+  ]);
+  assert.deepEqual(callsFrom(result, "request.executeAction").map((call) => [call.certainty, call.method, call.targets]), [
+    ["exact", "route-action", [FREEZE]],
+    ["exact", "route-action", [RECOUNT]]
+  ]);
+  assert.deepEqual(result.diagnostics.filter((entry) => entry.code.startsWith("CRUD_") || entry.code.startsWith("ACTION_")), []);
+});
+
+test("CRUD custom action routes outside the literal forms are reported, not guessed", async (t) => {
+  const { result } = await inspectCallsOf(t, {
+    ...CRUD,
+    "packages/receivals/src/server/receivalActions.js": [
+      "export const receivalActions = {",
+      "  move: { execute() { return 1; }, route: { method: \"POST\", path: process.env.MOVE_PATH } },",
+      "  copy: { id: process.env.COPY_ID, execute() { return 2; }, route: { path: \"/copy\" } }",
+      "};",
+      ""
+    ].join("\n")
+  }, { httpScope: "demo" });
+  assert.deepEqual(result.entryOperations.map((entry) => entry.key.protocol), ["jskit.crud", "jskit.crud"]);
+  assert.deepEqual(result.entryPoints.map((entry) => entry.id), ["entry:action:receivals.move"]);
+  assert.deepEqual(result.diagnostics.filter((entry) => entry.code.startsWith("CRUD_") || entry.code.startsWith("ACTION_")).map((entry) => [entry.code, entry.path]), [
+    ["CRUD_ACTION_ROUTE_UNRESOLVED", "packages/receivals/src/server/receivalActions.js"],
+    ["CRUD_ACTION_ROUTE_UNRESOLVED", "packages/receivals/src/server/receivalActions.js"],
+    ["ACTION_ID_UNRESOLVED", "packages/receivals/src/server/receivalActions.js"]
+  ]);
+});

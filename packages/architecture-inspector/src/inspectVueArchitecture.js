@@ -1132,15 +1132,88 @@ async function recordCrudController(inspection, { module, file, record }) {
   if (!declaration || !module.exports.has(declaration.id.name)) {
     return;
   }
+  // Each route runs its operation's action, named as crud-core names it.
   for (const operation of new Set(operations)) {
     inspection.output.entryOperations.push({
       id: `entry:crud:${file}:${node.start}:${operation}`,
       key: crudOperationKey(inspection, surface.trim().toLowerCase(), resource.namespace, operation, apiSuffix),
       controllerFile: file,
+      actionId: `crud.${resource.namespace}.${operation}`,
       resolution: "resolved",
       evidence: [...sourceEvidence(module, node, offset), ...resource.evidence]
     });
   }
+  await recordCrudActionRoutes(inspection, { module, record, config, namespace: resource.namespace, apiSuffix });
+}
+
+// The routes of a CRUD declaration's custom actions: each `actions` entry with
+// a `route`, at the declaration's API base path plus the route's path, running
+// the entry's action. The actions object may be bound locally or imported
+// through named re-exports.
+async function recordCrudActionRoutes(inspection, { module, record, config, namespace, apiSuffix }) {
+  const actions = objectProperty(config, "actions");
+  if (!actions) {
+    return;
+  }
+  const scope = bindingNode(objectProperty(config, "scope"), module.bindings);
+  const routeBase = scope ? staticValue(objectProperty(scope, "routeBase"), module.bindings) ?? "/" : "/";
+  const owner = await objectDeclaration(inspection, module, actions);
+  if (!owner || typeof routeBase !== "string") {
+    warn(inspection, "CRUD_ACTION_ROUTE_UNRESOLVED", "A CRUD declaration's actions need a literal object and scope routeBase.", module.path);
+    return;
+  }
+  const basePath = resolveScopedApiBasePath({ routeBase: routeBase.trim() || "/", relativePath: apiSuffix, strictParams: false });
+  const { bindings } = owner.module;
+  for (const property of owner.node.properties) {
+    const definition = isStaticObjectProperty(property) ? bindingNode(property.value, bindings) : null;
+    const route = bindingNode(objectProperty(definition, "route"), bindings);
+    if (definition?.type === "ObjectExpression" && !route) {
+      continue;
+    }
+    const name = definition && propertyKey(property);
+    const method = staticValue(objectProperty(route, "method"), bindings) ?? "POST";
+    const routePath = staticValue(objectProperty(route, "path"), bindings);
+    const declaredId = objectProperty(definition, "id") ? staticValue(objectProperty(definition, "id"), bindings) : "";
+    const id = typeof declaredId === "string" ? declaredId.trim() || `${namespace}.${name}` : null;
+    if (route?.type !== "ObjectExpression" || typeof method !== "string" || !/^\s*[A-Za-z]+\s*$/u.test(method) ||
+      typeof routePath !== "string" || !routePath.trim().startsWith("/") || !id) {
+      warn(inspection, "CRUD_ACTION_ROUTE_UNRESOLVED", "A CRUD custom action route needs a literal method, path and action id.", owner.module.path);
+      continue;
+    }
+    inspection.output.entryOperations.push({
+      id: `entry:crud:${module.path}:${record.node.start}:action:${name}`,
+      key: { protocol: "http", scope: inspection.httpScope, method: method.trim().toUpperCase(), operation: `${basePath}${routePath.trim()}` },
+      controllerFile: owner.module.path,
+      actionId: id,
+      resolution: "resolved",
+      evidence: [...sourceEvidence(module, record.node, record.offset), ...sourceEvidence(owner.module, definition)]
+    });
+  }
+}
+
+// The object literal an expression names, through local bindings, imports and
+// named re-exports: { module, node }, or null.
+async function objectDeclaration(inspection, module, node, seen = new Set()) {
+  const value = bindingNode(node, module.bindings);
+  if (value?.type === "ObjectExpression") {
+    return hasOnlyStaticProperties(value) ? { module, node: value } : null;
+  }
+  const imported = value?.type === "Identifier" && module.imports.get(value.name);
+  return imported ? exportedObjectDeclaration(inspection, module, imported.source, imported.imported, seen) : null;
+}
+
+async function exportedObjectDeclaration(inspection, module, source, name, seen) {
+  const target = resolveImport(inspection, module.path, source);
+  const owner = target && await loadModule(inspection, target);
+  const entry = owner?.exports.get(name);
+  const identity = `${owner?.path}:export:${name}`;
+  if (!entry || seen.has(identity) || seen.size >= MAX_RESOURCE_HOPS) {
+    return null;
+  }
+  const next = new Set([...seen, identity]);
+  return entry.source
+    ? exportedObjectDeclaration(inspection, owner, entry.source, entry.local, next)
+    : objectDeclaration(inspection, owner, { type: "Identifier", name: entry.local }, next);
 }
 
 // Routes registered with `router.register(method, path, options, handler)` on
