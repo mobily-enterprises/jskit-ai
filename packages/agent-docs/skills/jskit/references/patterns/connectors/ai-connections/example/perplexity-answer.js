@@ -7,10 +7,10 @@ import { perplexityProvider } from "@jskit-ai/connectors-catalog/server/perplexi
 /**
  * @param {object} dependencies
  * @param {object} dependencies.configuration The integration configuration.
- * @param {(context: object, request: object) => Promise<object | null>} dependencies.authorize The application's access policy: the owner, or null.
+ * @param {import("@jskit-ai/connectors-core/server/types").ConnectorAuthorize} dependencies.authorize The application's access policy: the owner, or null.
  * @param {(options: object) => { chat: { completions: { create: (body: object, request: object) => Promise<any> } } }} dependencies.createClient
  *   The application's native SDK client factory, such as `options => new OpenAI(options)`.
- * @param {(reference: string, owner: object, slot: object) => Promise<string>} [dependencies.resolveReference]
+ * @param {import("@jskit-ai/connectors-core/server/types").ResolveReference} [dependencies.resolveReference]
  */
 export function createPerplexityAnswers({ configuration, authorize, createClient,
   resolveReference = createEnvironmentReferenceResolver() }) {

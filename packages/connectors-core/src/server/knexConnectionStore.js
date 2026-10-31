@@ -2,10 +2,18 @@ import { createHash } from "node:crypto";
 
 const hash = (value) => createHash("sha256").update(value).digest("hex");
 
+// Connections kept encrypted in the connector tables, each locked in a transaction while it is used.
+/**
+ * @param {object} options
+ * @param {import("knex").Knex} options.knex The application's transactional Knex client.
+ * @param {import("./types.js").CredentialProtection} options.protection
+ */
 function createKnexConnectionStore({ knex, protection }) {
+  // readable-check: allow method-probe - input validation: the application passes its own transactional Knex client
   if (typeof knex !== "function" || typeof knex.transaction !== "function") {
     throw new TypeError("Connector storage requires the application's transactional Knex client.");
   }
+  // readable-check: allow method-probe - input validation: the application passes its credential protection
   if (typeof protection?.seal !== "function" || typeof protection?.open !== "function") {
     throw new TypeError("Connector storage requires credential protection.");
   }

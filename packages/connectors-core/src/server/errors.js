@@ -2,6 +2,15 @@
 // so each sentence also has a messageCode (with messageParams) that renders it from
 // the "jskit.<messageCode>" catalog entry; message stays that English text.
 class ConnectorError extends Error {
+  /**
+   * @param {string} code
+   * @param {string} message
+   * @param {object} [details]
+   * @param {number} [details.statusCode]
+   * @param {number} [details.retryAfterSeconds]
+   * @param {string} [details.messageCode]
+   * @param {Record<string, unknown>} [details.messageParams]
+   */
   constructor(code, message, { statusCode = 400, retryAfterSeconds, messageCode, messageParams } = {}) {
     super(message);
     this.name = "ConnectorError";

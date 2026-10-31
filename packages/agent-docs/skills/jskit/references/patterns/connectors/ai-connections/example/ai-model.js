@@ -5,8 +5,8 @@ import { createAiConnectionResolver } from "@jskit-ai/connectors-catalog/server/
 /**
  * @param {object} dependencies
  * @param {object} dependencies.configuration The integration configuration.
- * @param {(context: object, request: object) => Promise<object | null>} dependencies.authorize The application's access policy: the owner, or null.
- * @param {(reference: string, owner: object, slot: object) => Promise<string>} [dependencies.resolveReference]
+ * @param {import("@jskit-ai/connectors-core/server/types").ConnectorAuthorize} dependencies.authorize The application's access policy: the owner, or null.
+ * @param {import("@jskit-ai/connectors-core/server/types").ResolveReference} [dependencies.resolveReference]
  * @param {(parameters: object) => unknown} dependencies.createModel The application's SDK model factory.
  */
 export function createConfiguredAiModel({ configuration, authorize, resolveReference, createModel }) {

@@ -43,6 +43,7 @@ export default [
     "packages/rewarded-core/src/server/**",
     "packages/rewarded-web/src/server/**"
   ]),
+  ...typedFeaturesConfig(["packages/connectors-core/src/server/**"]),
   {
     // Over 750 lines, with a factory over 600, until their split runs bring them under.
     files: [

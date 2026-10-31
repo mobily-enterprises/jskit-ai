@@ -1,9 +1,10 @@
 import * as oauth from "oauth4webapi";
 import { isDeepStrictEqual } from "node:util";
 import { createHash } from "node:crypto";
-import { createHttpClient } from "@jskit-ai/http-runtime/client";
 import { registrationClientAuthentication, registrationGrantType, validateIntegrationConfiguration } from "../shared/configuration.js";
+import { createConnectionCredentials } from "./connectionCredentials.js";
 import { ConnectorError, providerError } from "./errors.js";
+import { createProviderRequests, operationRequest, requireOperationScope } from "./providerRequests.js";
 
 function publicConnection(connection) {
   if (!connection) return { status: "disconnected" };
@@ -22,34 +23,6 @@ const ENV_SEEDED_MESSAGE = "This connection comes from an Env value; unlink or r
 const ENV_SEEDED_CODE = { messageCode: "connectors.connection.envSeeded" };
 const VERIFICATION_SCOPE_MESSAGE = "Connection verification requires a permission absent from the application's configuration.";
 const VERIFICATION_SCOPE_CODE = { messageCode: "connectors.connection.verificationScopeAbsent" };
-
-// An operation without scopes always runs; otherwise one of its scopes must be present.
-function requireOperationScope(operation, scopes, message, { messageCode }) {
-  if (operation.scopes.length && !operation.scopes.some((scope) => scopes.includes(scope))) {
-    throw new ConnectorError("connector_scope_missing", message, { statusCode: 403, messageCode });
-  }
-}
-
-// Builds the provider request, reporting schema input errors as connector_input_invalid.
-function operationRequest(operation, input, settings, providerData) {
-  try { return operation.request(input, settings || {}, providerData); } catch (error) {
-    if (!error.fieldErrors) throw error;
-    const failure = new ConnectorError("connector_input_invalid", "Check the operation's input values.", { statusCode: 422, messageCode: "connectors.connection.checkOperationInputValues" });
-    failure.fieldErrors = error.fieldErrors;
-    if (error.fieldErrorCodes) failure.fieldErrorCodes = error.fieldErrorCodes;
-    throw failure;
-  }
-}
-
-function validateCallbackUrl(value) {
-  let url;
-  try { url = new URL(value); } catch { /* reported below */ }
-  const localHttp = url?.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
-  if (!url || (!localHttp && url.protocol !== "https:") || url.username || url.password || url.hash || url.search) {
-    throw new ConnectorError("connector_callback_invalid", "Configure an HTTPS callback URL, or a local development callback.", { messageCode: "connectors.connection.configureHttpsCallbackUrlLocal" });
-  }
-  return url.href;
-}
 
 // Whether a stored connection still belongs to the configured integration and
 // OAuth client. `registration` is { registrationRef, clientId, grantType,
@@ -74,6 +47,19 @@ function callbackMatches(connection, provider, registration) {
     connection.callbackUrl === registration.callbackUrl;
 }
 
+// The connections of one application's configured integrations: authorization,
+// connection, provider operations, status and disconnection.
+/**
+ * @param {object} options
+ * @param {Record<string, any>} options.configuration The integration configuration, validated here against the providers.
+ * @param {import("./types.js").ConnectorProvider[]} options.providers
+ * @param {import("./types.js").ResolveReference} options.resolveReference
+ * @param {import("./types.js").ConnectionStore} options.store
+ * @param {import("./types.js").ConnectorAuthorize} options.authorize
+ * @param {"application" | "assistant"} [options.executionMode]
+ * @param {typeof globalThis.fetch} [options.fetchImpl]
+ * @param {() => number} [options.now]
+ */
 function createConnectionService({
   configuration,
   providers,
@@ -91,8 +77,10 @@ function createConnectionService({
   if (typeof authorize !== "function" || typeof resolveReference !== "function") {
     throw new TypeError("Connections require application authorization and reference resolution.");
   }
+  // readable-check: allow method-probe - input validation: the application passes its own connection store
   if (typeof store?.withConnection !== "function") throw new TypeError("Connection storage requires withConnection().");
-  const http = createHttpClient({ fetchImpl, csrf: { enabled: false }, credentials: "omit" });
+  const connectionCredentials = createConnectionCredentials({ config, resolveReference });
+  const providerRequests = createProviderRequests({ fetchImpl, now, resolveReference });
 
   async function access(context, integrationId, operation, input, checkAssistantPermission = true) {
     const integration = config.integrations[integrationId];
@@ -102,6 +90,7 @@ function createConnectionService({
     const baseDefinition = definitions.get(integration.provider);
     const definition = baseDefinition.runtimeForSettings
       ? { ...baseDefinition, ...baseDefinition.runtimeForSettings(integration.settings || {}) } : baseDefinition;
+    // readable-check: allow method-probe - data: a provider definition gives checkOperation as an operation id or as a function of the credential mode
     const provider = typeof definition.checkOperation === "function"
       ? { ...definition, checkOperation: definition.checkOperation(integration.authentication.method) }
       : definition;
@@ -141,92 +130,6 @@ function createConnectionService({
     // The host performs its own lifecycle operation after authorization; no provider action is executed here.
   }
 
-  async function registrationFor(integration, provider) {
-    const registration = config.registrations[integration.authentication.registrationRef];
-    if (registration?.source !== "own" || integration.authentication.method !== "oauth2" || !provider.oauth) {
-      throw new ConnectorError("connector_mode_unavailable", "This runtime does not yet support the selected credential mode.", { messageCode: "connectors.connection.runtimeDoesNotYetSupport" });
-    }
-    if (registration.clientId.trim() === "MISSING") {
-      throw new ConnectorError("connector_binding_missing", "The provider client ID is not configured.", { messageCode: "connectors.connection.providerClientIdNotConfigured" });
-    }
-    const grantType = registrationGrantType(registration);
-    const tokenEndpointAuthMethod = registrationClientAuthentication(registration);
-    if (provider.oauthPkce === false && tokenEndpointAuthMethod === "none") {
-      throw new ConnectorError("connector_mode_unavailable", "This provider's non-PKCE flow requires a confidential client.", { messageCode: "connectors.connection.providerNonPkceFlowRequires" });
-    }
-    let clientSecret;
-    let callback;
-    try {
-      if (tokenEndpointAuthMethod !== "none") {
-        clientSecret = await resolveReference(registration.clientSecretRef);
-        if (typeof clientSecret !== "string" || !clientSecret.trim() || clientSecret.trim() === "MISSING") throw new Error("Invalid client secret.");
-      }
-      if (grantType === "authorization_code") callback = await resolveReference(registration.callbackUrlRef);
-    } catch {
-      throw new ConnectorError("connector_binding_missing", "A required registration binding is missing.", { messageCode: "connectors.connection.requiredRegistrationBindingMissing" });
-    }
-    const callbackUrl = grantType === "authorization_code" ? validateCallbackUrl(callback) : undefined;
-    if (callbackUrl && provider.validateCallbackUrl && provider.validateCallbackUrl(callbackUrl) !== true) {
-      throw new ConnectorError("connector_callback_invalid", "The callback URL does not meet this provider's requirements.", { messageCode: "connectors.connection.callbackUrlDoesNotMeet" });
-    }
-    let clientAuth = tokenEndpointAuthMethod === "none" ? oauth.None()
-      : tokenEndpointAuthMethod === "client_secret_basic" ? oauth.ClientSecretBasic(clientSecret) : oauth.ClientSecretPost(clientSecret);
-    if (tokenEndpointAuthMethod === "client_secret_basic" && provider.oauthBasicEncoding === "raw") {
-      clientAuth = (_as, client, _body, headers) => {
-        headers.set("authorization", `Basic ${Buffer.from(`${client.client_id}:${clientSecret}`).toString("base64")}`);
-      };
-    }
-    return {
-      oauth: typeof provider.oauth === "function" ? provider.oauth(integration.settings || {}) : provider.oauth,
-      resource: typeof provider.oauthResource === "function" ? provider.oauthResource(integration.settings || {}) : provider.oauthResource,
-      client: { client_id: registration.clientId },
-      clientAuth: provider.oauthClientIdParameter ? (as, client, body, headers) => {
-        clientAuth(as, client, body, headers);
-        body.set(provider.oauthClientIdParameter, client.client_id);
-        body.delete("client_id");
-      } : clientAuth,
-      tokenEndpointAuthMethod,
-      grantType,
-      callbackUrl,
-      registrationRef: integration.authentication.registrationRef
-    };
-  }
-
-  async function apiKeyFor(integration, provider) {
-    if (!integration.authentication.secretRef && provider.apiKeySecretOptional) return "";
-    try {
-      const value = await resolveReference(integration.authentication.secretRef);
-      if (typeof value !== "string" || (!provider.apiKeySecretOptional && !value.trim()) || value.trim() === "MISSING" || /[\r\n]/u.test(value)) throw new Error("Invalid key.");
-      return value;
-    } catch {
-      throw new ConnectorError("connector_binding_missing", "The API key binding is missing or invalid.", { messageCode: "connectors.connection.apiKeyBindingMissingInvalid" });
-    }
-  }
-
-  async function serviceAccountCredentialFor(integration) {
-    try {
-      const credential = await resolveReference(integration.authentication.secretRef);
-      if (typeof credential !== "string" || !credential.trim() || credential.trim() === "MISSING" || credential.length > 65_536 || credential.includes("\0")) throw new Error("Invalid credential.");
-      return { credential, fingerprint: createHash("sha256").update(credential).digest("hex") };
-    } catch {
-      throw new ConnectorError("connector_binding_missing", "The service-account credential binding is missing or invalid.", { messageCode: "connectors.connection.serviceAccountCredentialBindingMissing" });
-    }
-  }
-
-  // An Env refresh token seeds the shared connection; the app then refreshes
-  // and stores rotated tokens itself, and reseeds when the value or the OAuth
-  // client changes.
-  async function envRefreshTokenFor(integration) {
-    try {
-      const value = await resolveReference(integration.authentication.refreshTokenRef);
-      const refreshToken = typeof value === "string" ? value.trim() : "";
-      if (!refreshToken || refreshToken === "MISSING" || /\s/u.test(refreshToken)) throw new Error("Invalid token.");
-      return { refreshToken, fingerprint: createHash("sha256").update(refreshToken).digest("hex") };
-    } catch {
-      throw new ConnectorError("connector_binding_missing", "The refresh token binding is missing or invalid.", { messageCode: "connectors.connection.refreshTokenBindingMissingInvalid" });
-    }
-  }
-
   function envSeedIsCurrent(connection, seed, registration) {
     return connection?.seedFingerprint === seed.fingerprint && connection.clientId === registration.client.client_id &&
       connection.registrationRef === registration.registrationRef &&
@@ -245,37 +148,10 @@ function createConnectionService({
     };
   }
 
-  async function serviceAccountGrant(integration, provider, binding, signal) {
-    if (typeof provider.serviceAccountGrant !== "function") {
-      throw new ConnectorError("connector_mode_unavailable", "This provider does not implement service-account authorization.", { messageCode: "connectors.connection.providerDoesNotImplementService" });
-    }
-    const options = requestOptions(signal, provider.requestTimeoutMs);
-    options.signal.throwIfAborted();
-    let response;
-    try {
-      response = await provider.serviceAccountGrant({
-        credential: binding.credential, settings: structuredClone(integration.settings || {}),
-        scopes: [...integration.scopes], fetchImpl, signal: options.signal, now: now()
-      });
-    } catch (error) {
-      options.signal.throwIfAborted();
-      throw error;
-    }
-    options.signal.throwIfAborted();
-    if (typeof response?.access_token !== "string" || !response.access_token || /\s/u.test(response.access_token) ||
-        response.token_type?.toLowerCase?.() !== "bearer" ||
-        !Number.isFinite(response.expires_in) || response.expires_in <= 0 || response.expires_in > 86_400 ||
-        response.refresh_token !== undefined || (response.scope !== undefined && typeof response.scope !== "string")) {
-      throw new ConnectorError("connector_response_invalid", "The provider returned an invalid service-account token.", { statusCode: 502, messageCode: "connectors.connection.providerReturnedInvalidServiceAccount" });
-    }
-    const grant = tokensFrom(response, null, integration.scopes, provider.scopeSeparator, provider);
-    grant.grantedScopes = grant.grantedScopes.filter((scope) => integration.scopes.includes(scope));
-    return { ...grant, credentialFingerprint: binding.fingerprint };
-  }
-
   async function connectServiceAccount({ context, integrationId, verificationInput = {}, signal }) {
     verificationInput = structuredClone(verificationInput);
     const { owner, integration, provider } = await access(context, integrationId, "connect");
+    // readable-check: allow method-probe - input validation: a provider definition may lack serviceAccountGrant()
     if (integration.authentication.method !== "service-account" || typeof provider.serviceAccountGrant !== "function") {
       throw new ConnectorError("connector_mode_unavailable", "Select service-account credentials to verify this connection.", { messageCode: "connectors.connection.selectServiceAccountCredentialsVerify" });
     }
@@ -283,145 +159,23 @@ function createConnectionService({
     requireOperationScope(provider.operations[provider.checkOperation], integration.scopes, VERIFICATION_SCOPE_MESSAGE, VERIFICATION_SCOPE_CODE);
     return store.withConnection({ owner, integrationId }, async ({ save }) => {
       try {
-        const binding = await serviceAccountCredentialFor(integration);
+        const binding = await connectionCredentials.serviceAccountCredentialFor(integration);
         const connection = {
           integrationId, provider: provider.id, method: "service-account", secretRef: integration.authentication.secretRef,
           requestedScopes: [...integration.scopes], settings: structuredClone(integration.settings || {}),
-          status: "connected", verifiedAt: now(), ...await serviceAccountGrant(integration, provider, binding, signal)
+          status: "connected", verifiedAt: now(), ...await providerRequests.serviceAccountGrant(integration, provider, binding, signal)
         };
-        await request(provider, provider.checkOperation, verificationInput, connection, signal);
+        await providerRequests.request(provider, provider.checkOperation, verificationInput, connection, signal);
         await save(connection);
         return publicConnection(connection);
       } catch (error) { throw providerError(error); }
     });
   }
 
-  function requestOptions(signal, timeoutMs = 15_000, tokenRequestEncoding) {
-    const timeout = AbortSignal.timeout(timeoutMs);
-    return {
-      [oauth.customFetch]: tokenRequestEncoding === "json" ? (address, options) => {
-        const headers = new Headers(options.headers);
-        headers.set("Content-Type", "application/json");
-        return fetchImpl(address, { ...options, headers,
-          body: JSON.stringify(Object.fromEntries(new URLSearchParams(options.body))) });
-      } : fetchImpl,
-      signal: signal ? AbortSignal.any([signal, timeout]) : timeout
-    };
-  }
-
-  async function request(provider, operationId, input, connection, signal) {
-    const operation = provider.operations[operationId];
-    if (!operation || !Object.hasOwn(provider.operations, operationId)) {
-      throw new ConnectorError("connector_operation_unknown", "This provider operation is not available.", { messageCode: "connectors.connection.providerOperationNotAvailable" });
-    }
-    if (["oauth2", "service-account"].includes(connection.method || "oauth2")) {
-      requireOperationScope(operation, connection.grantedScopes, "Connect again with the permission required for this operation.", { messageCode: "connectors.connection.connectAgainPermissionRequiredOperation" });
-    }
-    const descriptor = operationRequest(operation, input, connection.settings, connection.providerData);
-    const url = new URL(descriptor.url);
-    const origins = typeof provider.apiOrigins === "function" ? provider.apiOrigins(connection.settings || {}, connection.providerData) : provider.apiOrigins;
-    if (url.protocol !== "https:" || url.username || url.password || !origins.includes(url.origin)) {
-      throw new ConnectorError("connector_destination_invalid", "The provider operation has an invalid destination.", { messageCode: "connectors.connection.providerOperationInvalidDestination" });
-    }
-    if (connection.method === "api-key" && provider.apiKey.pathPrefix) {
-      const prefix = provider.apiKey.pathPrefix(connection.apiKey);
-      if (typeof prefix !== "string" || !prefix.startsWith("/") || prefix.startsWith("//") ||
-        /[?#\\]/.test(prefix) || prefix.split("/").some((part) => /^(?:\.|%2e){1,2}$/i.test(part))) {
-        throw new ConnectorError("connector_request_invalid", "This provider has an invalid credential path.", { messageCode: "connectors.connection.providerInvalidCredentialPath" });
-      }
-      // A pathname assignment cannot replace the already checked origin.
-      url.pathname = prefix + url.pathname;
-    }
-    if (connection.method === "api-key" && provider.apiKey.queryParameter) {
-      url.searchParams.set(provider.apiKey.queryParameter, connection.apiKey);
-    }
-    let body = descriptor.body;
-    if (connection.method === "api-key" && provider.apiKey.bodyParameter) {
-      if (!body || typeof body !== "object" || Array.isArray(body) || ["GET", "HEAD"].includes(descriptor.method)) {
-        throw new ConnectorError("connector_request_invalid", "This provider requires a JSON request body.", { messageCode: "connectors.connection.providerRequiresJsonRequestBody" });
-      }
-      body = { ...body, [provider.apiKey.bodyParameter]: connection.apiKey };
-    }
-    const options = {
-      method: descriptor.method,
-      body,
-      headers: { ...descriptor.headers, Accept: "application/json", ...(connection.method === "api-key"
-        ? provider.apiKey.headers?.(connection.apiKey, connection.settings || {})
-        : connection.method === "none" ? {} : {
-          ...provider.oauthHeaders?.({ clientId: connection.clientId }), Authorization: `Bearer ${connection.tokens.accessToken}`
-        }) },
-      redirect: "error",
-      signal: requestOptions(signal, provider.requestTimeoutMs).signal
-    };
-    let result;
-    try {
-      result = provider.exchange
-        ? await provider.exchange(url.href, options, { fetchImpl, request: http.request, resolveReference,
-          settings: connection.settings || {}, apiKey: connection.method === "api-key" ? connection.apiKey : undefined })
-        : await http.request(url.href, options);
-    } catch (error) {
-      // Transports can wrap cancellation in a network or protocol error.
-      options.signal.throwIfAborted();
-      throw error;
-    }
-    // The validator also receives the operation's own request, so it can check the provider answered what was asked.
-    if (typeof operation.validateResult === "function" && !operation.validateResult(result, descriptor)) {
-      throw new ConnectorError("connector_response_invalid", "The provider returned an unexpected response.", { statusCode: 502, messageCode: "connectors.connection.providerReturnedUnexpectedResponse" });
-    }
-    return result;
-  }
-
-  function tokensFrom(response, previous, requestedScopes, scopeSeparator = " ", provider) {
-    return {
-      ...(provider?.dataFromTokenResponse ? { providerData: provider.dataFromTokenResponse(response, previous?.providerData) } : {}),
-      tokens: {
-        accessToken: response.access_token,
-        refreshToken: response.refresh_token || previous?.tokens.refreshToken || null,
-        expiresAt: response.expires_in === undefined ? null : now() + response.expires_in * 1000
-      },
-      grantedScopes: response.scope === undefined
-        ? [...(previous?.grantedScopes || requestedScopes)]
-        : response.scope.split(scopeSeparator).map((scope) => scope.trim()).filter(Boolean)
-    };
-  }
-
-  async function verifyOAuthConnection(provider, connection, verificationInput, requestedScopes, signal) {
-    const verification = await request(provider, provider.checkOperation, verificationInput, connection, signal);
-    if (provider.accountLabelFromVerification) {
-      const label = provider.accountLabelFromVerification(verification);
-      if (typeof label !== "string" || !label.trim() || label.length > 256 || /[\p{Cc}\p{Cf}]/u.test(label)) {
-        throw new ConnectorError("connector_response_invalid", "The provider returned an invalid account label.", { statusCode: 502, messageCode: "connectors.connection.providerReturnedInvalidAccountLabel" });
-      }
-      connection.accountLabel = label;
-    }
-    if (!provider.grantedScopesFromVerification) return;
-    const scopes = provider.grantedScopesFromVerification(verification, { clientId: connection.clientId });
-    if (!Array.isArray(scopes) || scopes.some((scope) => typeof scope !== "string" || !scope)) {
-      throw new ConnectorError("connector_response_invalid", "The provider returned an invalid permission grant.", { statusCode: 502, messageCode: "connectors.connection.providerReturnedInvalidPermissionGrant" });
-    }
-    connection.grantedScopes = connection.grantedScopes.filter((scope) => requestedScopes.includes(scope) && scopes.includes(scope));
-    requireOperationScope(provider.operations[provider.checkOperation], connection.grantedScopes, "Connect again with the permission required for verification.", { messageCode: "connectors.connection.connectAgainPermissionRequiredVerification" });
-  }
-
-  async function clientCredentialsGrant(registration, provider, settings, scopes, signal) {
-    const response = await oauth.clientCredentialsGrantRequest(
-      registration.oauth, registration.client, registration.clientAuth,
-      { scope: scopes.join(provider.scopeSeparator || " "), ...(registration.resource ? { resource: registration.resource } : {}) },
-      requestOptions(signal)
-    );
-    const result = await oauth.processClientCredentialsResponse(registration.oauth, registration.client,
-      provider.normalizeTokenResponse ? await provider.normalizeTokenResponse(response, { settings, grantType: "client_credentials" }) : response);
-    const grant = tokensFrom(result, null, scopes, provider.scopeSeparator, provider);
-    // Client credentials renew with the application's secret, never a user refresh token.
-    grant.tokens.refreshToken = null;
-    grant.grantedScopes = grant.grantedScopes.filter((scope) => scopes.includes(scope));
-    return grant;
-  }
-
   async function connectClientCredentials({ context, integrationId, verificationInput = {}, signal }) {
     verificationInput = structuredClone(verificationInput);
     const { owner, integration, provider } = await access(context, integrationId, "connect");
-    const registration = await registrationFor(integration, provider);
+    const registration = await connectionCredentials.registrationFor(integration, provider);
     if (registration.grantType !== "client_credentials") {
       throw new ConnectorError("connector_mode_unavailable", "Select client credentials to connect a service account.", { messageCode: "connectors.connection.selectClientCredentialsConnectService" });
     }
@@ -434,9 +188,9 @@ function createConnectionService({
           clientId: registration.client.client_id, tokenEndpointAuthMethod: registration.tokenEndpointAuthMethod,
           grantType: registration.grantType, requestedScopes: [...integration.scopes],
           settings: structuredClone(integration.settings || {}), status: "connected", verifiedAt: now(),
-          ...await clientCredentialsGrant(registration, provider, integration.settings || {}, integration.scopes, signal)
+          ...await providerRequests.clientCredentialsGrant(registration, provider, integration.settings || {}, integration.scopes, signal)
         };
-        await verifyOAuthConnection(provider, connection, verificationInput, integration.scopes, signal);
+        await providerRequests.verifyOAuthConnection(provider, connection, verificationInput, integration.scopes, signal);
         await save(connection);
         return publicConnection(connection);
       } catch (error) { throw providerError(error); }
@@ -450,7 +204,7 @@ function createConnectionService({
     }
     // Resource-specific providers validate the first document ID before opening consent.
     operationRequest(provider.operations[provider.checkOperation], verificationInput, integration.settings);
-    const registration = await registrationFor(integration, provider);
+    const registration = await connectionCredentials.registrationFor(integration, provider);
     if (registration.grantType !== "authorization_code") {
       throw new ConnectorError("connector_mode_unavailable", "Service accounts connect without browser consent.", { messageCode: "connectors.connection.serviceAccountsConnectWithoutBrowser" });
     }
@@ -463,6 +217,7 @@ function createConnectionService({
     url.searchParams.set(provider.oauthClientIdParameter || "client_id", registration.client.client_id);
     url.searchParams.set("redirect_uri", registration.callbackUrl);
     url.searchParams.set("response_type", "code");
+    // readable-check: allow optional-call - input validation: an optional hook of the provider definition
     const scopeParameter = provider.authorizationScopeParameter?.(integration.settings || {}) || "scope";
     if (integration.scopes.length) url.searchParams.set(scopeParameter, integration.scopes.join(provider.scopeSeparator || " "));
     url.searchParams.set("state", state);
@@ -486,7 +241,7 @@ function createConnectionService({
   async function resumeAuthorization({ context, integrationId }) {
     const { owner, integration, provider } = await access(context, integrationId, "connect");
     if (integration.authentication.method !== "oauth2") return null;
-    const registration = await registrationFor(integration, provider);
+    const registration = await connectionCredentials.registrationFor(integration, provider);
     if (registration.grantType !== "authorization_code") return null;
     return store.withConnection({ owner, integrationId }, async ({ latestAttempt }) => {
       const attempt = await latestAttempt({ after: now() });
@@ -503,7 +258,7 @@ function createConnectionService({
 
   async function completeAuthorization({ context, integrationId, callbackUrl, signal }) {
     const { owner, integration, provider } = await access(context, integrationId, "connect");
-    const registration = await registrationFor(integration, provider);
+    const registration = await connectionCredentials.registrationFor(integration, provider);
     if (registration.grantType !== "authorization_code") {
       throw new ConnectorError("connector_mode_unavailable", "Service accounts do not use an authorization callback.", { messageCode: "connectors.connection.serviceAccountsDoNotUse" });
     }
@@ -542,7 +297,7 @@ function createConnectionService({
         }
         const response = await oauth.authorizationCodeGrantRequest(
           registration.oauth, registration.client, registration.clientAuth,
-          parameters, registration.callbackUrl, attempt.codeVerifier === null ? oauth.nopkce : attempt.codeVerifier, { ...requestOptions(signal, undefined, provider.tokenRequestEncoding),
+          parameters, registration.callbackUrl, attempt.codeVerifier === null ? oauth.nopkce : attempt.codeVerifier, { ...providerRequests.requestOptions(signal, undefined, provider.tokenRequestEncoding),
             ...(registration.resource ? { additionalParameters: { resource: registration.resource } } : {}) }
         );
         const result = await oauth.processAuthorizationCodeResponse(registration.oauth, registration.client,
@@ -553,10 +308,10 @@ function createConnectionService({
           clientId: registration.client.client_id, tokenEndpointAuthMethod: registration.tokenEndpointAuthMethod, status: "connected", verifiedAt: now(),
           settings: structuredClone(integration.settings || {}),
           ...(provider.refreshRequiresRedirectUri ? { callbackUrl: registration.callbackUrl } : {}),
-          ...tokensFrom(result, null, fallbackScopes, provider.scopeSeparator, provider)
+          ...providerRequests.tokensFrom(result, null, fallbackScopes, provider.scopeSeparator, provider)
         };
         connection.grantedScopes = connection.grantedScopes.filter((scope) => integration.scopes.includes(scope));
-        await verifyOAuthConnection(provider, connection, attempt.verificationInput || {}, attempt.scopes, signal);
+        await providerRequests.verifyOAuthConnection(provider, connection, attempt.verificationInput || {}, attempt.scopes, signal);
         await save(connection);
         return { result: publicConnection(connection) };
       } catch (error) {
@@ -571,7 +326,9 @@ function createConnectionService({
   async function verifyDirectConnection({ context, integrationId, verificationInput = {}, signal }, method) {
     const { owner, integration, provider } = await access(context, integrationId, "connect");
     if (integration.authentication.method !== method || (method === "api-key" &&
+      // readable-check: allow method-probe - input validation: an API-key provider definition places its key with headers(), a parameter or pathPrefix()
       (typeof provider.apiKey?.headers !== "function" && !provider.apiKey?.queryParameter &&
+        // readable-check: allow method-probe - input validation: an API-key provider definition places its key with headers(), a parameter or pathPrefix()
         !provider.apiKey?.bodyParameter && typeof provider.apiKey?.pathPrefix !== "function"))) {
       throw new ConnectorError("connector_mode_unavailable", "Select the matching credential mode to verify this connection.", { messageCode: "connectors.connection.selectMatchingCredentialModeVerify" });
     }
@@ -583,8 +340,8 @@ function createConnectionService({
         grantedScopes: [], status: "connected", verifiedAt: now(), settings: structuredClone(integration.settings || {})
       };
       try {
-        const credentials = method === "api-key" ? { ...connection, apiKey: await apiKeyFor(integration, provider) } : connection;
-        await request(provider, provider.checkOperation, verificationInput, credentials, signal);
+        const credentials = method === "api-key" ? { ...connection, apiKey: await connectionCredentials.apiKeyFor(integration, provider) } : connection;
+        await providerRequests.request(provider, provider.checkOperation, verificationInput, credentials, signal);
         if (method === "api-key") connection.credentialFingerprint = createHash("sha256").update(credentials.apiKey).digest("hex");
         await save(connection);
         return publicConnection(connection);
@@ -606,8 +363,8 @@ function createConnectionService({
     const usesApiKey = integration.authentication.method === "api-key";
     const usesServiceAccount = integration.authentication.method === "service-account";
     const usesOAuth = integration.authentication.method === "oauth2";
-    const registration = usesOAuth ? await registrationFor(integration, provider) : null;
-    const seed = integration.authentication.refreshTokenRef ? await envRefreshTokenFor(integration) : null;
+    const registration = usesOAuth ? await connectionCredentials.registrationFor(integration, provider) : null;
+    const seed = integration.authentication.refreshTokenRef ? await connectionCredentials.envRefreshTokenFor(integration) : null;
     const outcome = await store.withConnection({ owner, integrationId }, async ({ connection, save }) => {
       if (seed && !envSeedIsCurrent(connection, seed, registration)) {
         connection = envSeededConnection(integrationId, integration, provider, registration, seed);
@@ -620,23 +377,23 @@ function createConnectionService({
       }
       try {
         if (usesServiceAccount) {
-          const binding = await serviceAccountCredentialFor(integration);
+          const binding = await connectionCredentials.serviceAccountCredentialFor(integration);
           if (binding.fingerprint !== connection.credentialFingerprint || connection.tokens.expiresAt <= now() + (provider.tokenRefreshLeewayMs ?? 30_000)) {
-            connection = { ...connection, ...await serviceAccountGrant(integration, provider, binding, signal) };
+            connection = { ...connection, ...await providerRequests.serviceAccountGrant(integration, provider, binding, signal) };
             await save(connection);
           }
         }
         if (usesOAuth && connection.tokens.expiresAt !== null && connection.tokens.expiresAt <= now() + (provider.tokenRefreshLeewayMs ?? 30_000)) {
           let grant;
           if (registration.grantType === "client_credentials") {
-            grant = await clientCredentialsGrant(registration, provider, integration.settings || {}, connection.grantedScopes, signal);
+            grant = await providerRequests.clientCredentialsGrant(registration, provider, integration.settings || {}, connection.grantedScopes, signal);
           } else {
             if (!connection.tokens.refreshToken) {
               throw new ConnectorError("connector_reconnect_required", "Connect this account again.", { statusCode: 401, messageCode: "connectors.connection.connectAccountAgain" });
             }
             const response = await oauth.refreshTokenGrantRequest(
               registration.oauth, registration.client, registration.clientAuth,
-              connection.tokens.refreshToken, { ...requestOptions(signal, undefined, provider.tokenRequestEncoding),
+              connection.tokens.refreshToken, { ...providerRequests.requestOptions(signal, undefined, provider.tokenRequestEncoding),
                 additionalParameters: {
                   ...(registration.resource ? { resource: registration.resource } : {}),
                   ...(provider.refreshRequiresRedirectUri ? { redirect_uri: connection.callbackUrl } : {})
@@ -644,15 +401,15 @@ function createConnectionService({
             );
             const refreshed = await oauth.processRefreshTokenResponse(registration.oauth, registration.client,
               provider.normalizeTokenResponse ? await provider.normalizeTokenResponse(response, { settings: integration.settings || {}, grantType: "refresh_token" }) : response);
-            grant = tokensFrom(refreshed, connection, integration.scopes, provider.scopeSeparator, provider);
+            grant = providerRequests.tokensFrom(refreshed, connection, integration.scopes, provider.scopeSeparator, provider);
           }
           grant.grantedScopes = grant.grantedScopes.filter((scope) =>
             connection.grantedScopes.includes(scope) && integration.scopes.includes(scope));
           connection = { ...connection, ...grant };
           await save(connection);
         }
-        const credentials = usesApiKey ? { ...connection, apiKey: await apiKeyFor(integration, provider) } : connection;
-        const result = await request(provider, operation, input, credentials, signal);
+        const credentials = usesApiKey ? { ...connection, apiKey: await connectionCredentials.apiKeyFor(integration, provider) } : connection;
+        const result = await providerRequests.request(provider, operation, input, credentials, signal);
         await save({ ...connection, verifiedAt: now(),
           ...(usesApiKey ? { credentialFingerprint: createHash("sha256").update(credentials.apiKey).digest("hex") } : {})
         });
@@ -686,10 +443,10 @@ function createConnectionService({
       let callbackUrl;
       try {
         if (integration.authentication.method === "oauth2") {
-          const resolved = await registrationFor(integration, provider);
+          const resolved = await connectionCredentials.registrationFor(integration, provider);
           callbackUrl = resolved.callbackUrl;
           if (integration.authentication.refreshTokenRef) {
-            const seed = await envRefreshTokenFor(integration);
+            const seed = await connectionCredentials.envRefreshTokenFor(integration);
             // A new value is used on the next call; until then it reads as connected from Env.
             if (!envSeedIsCurrent(connection, seed, resolved)) {
               return { status: "connected", source: "env", provider: provider.id, integrationId, grantedScopes: [...integration.scopes], callbackUrl };
@@ -699,11 +456,11 @@ function createConnectionService({
             return publicConnection({ ...connection, status: "reconnect-required" });
           }
         } else if (integration.authentication.method === "api-key") {
-          const key = await apiKeyFor(integration, provider);
+          const key = await connectionCredentials.apiKeyFor(integration, provider);
           if (connection && connection.credentialFingerprint !== createHash("sha256").update(key).digest("hex")) {
             return publicConnection({ ...connection, status: "reconnect-required" });
           }
-        } else if (integration.authentication.method === "service-account") await serviceAccountCredentialFor(integration);
+        } else if (integration.authentication.method === "service-account") await connectionCredentials.serviceAccountCredentialFor(integration);
       } catch (error) {
         if (!["connector_binding_missing", "connector_callback_invalid"].includes(error.code)) throw error;
         if (!connection) return { status: "unconfigured", configurationError: error.code };

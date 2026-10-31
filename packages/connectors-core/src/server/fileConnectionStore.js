@@ -5,8 +5,18 @@ import path from "node:path";
 import lockfile from "proper-lockfile";
 import { ConnectorError } from "./errors.js";
 
+// Connections kept as encrypted JSON files in a private directory, one locked file per connection.
+/**
+ * @param {object} options
+ * @param {string} options.directory An absolute private runtime directory.
+ * @param {import("./types.js").CredentialProtection} options.protection
+ * @param {number} [options.directoryMode]
+ * @param {number} [options.fileMode]
+ * @param {() => number} [options.now]
+ */
 function createFileConnectionStore({ directory, protection, directoryMode = 0o700, fileMode = 0o600, now = Date.now }) {
   if (typeof directory !== "string" || !path.isAbsolute(directory)) throw new TypeError("Use an absolute private runtime directory.");
+  // readable-check: allow method-probe - input validation: the application passes its credential protection
   if (typeof protection?.seal !== "function" || typeof protection?.open !== "function") throw new TypeError("Credential protection is required.");
   const root = path.resolve(directory);
   const storageError = () => new ConnectorError("connector_storage_invalid", "Connection state could not be read safely.", { statusCode: 500 });

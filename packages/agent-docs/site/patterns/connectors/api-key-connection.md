@@ -113,9 +113,10 @@ not require putting credentials into source.
   successful backend verification does not verify that frontend key's restrictions.
 - Each collaborator the composition receives (`authorize`) is a required
   parameter typed in a JSDoc `@param` and called directly, without a `typeof`
-  probe, a "requires x" guard or a no-op default. Only the production
-  `env = process.env` stays as a default. A server feature that uses it follows
-  [typed features](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/site/guide/framework/typed-features.md).
+  probe, a "requires x" guard or a no-op default. `authorize` is typed with
+  `ConnectorAuthorize` from `@jskit-ai/connectors-core/server/types`. Only the
+  production `env = process.env` stays as a default. A server feature that uses
+  it follows [typed features](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/site/guide/framework/typed-features.md).
 
 ## Framework APIs
 

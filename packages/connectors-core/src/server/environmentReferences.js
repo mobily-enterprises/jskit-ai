@@ -1,5 +1,11 @@
 import { ConnectorError } from "./errors.js";
 
+/**
+ * Resolves `env:NAME` references from the environment; an absent, blank or
+ * MISSING value is a missing binding.
+ * @param {Record<string, string | undefined>} [env]
+ * @returns {import("./types.js").ResolveReference}
+ */
 function createEnvironmentReferenceResolver(env = process.env) {
   return async (reference) => {
     const match = /^env:([A-Z_][A-Z0-9_]*)$/u.exec(reference);

@@ -14,20 +14,25 @@ Use this on demand; do not load the full index at startup.
 
 ### src
 
+### `src/server/connectionCredentials.js`
+Exports
+- `createConnectionCredentials({ config, resolveReference })`
+Local functions
+- `validateCallbackUrl(value)`
+
 ### `src/server/connectionService.js`
 Exports
 - `createConnectionService({ configuration, providers, resolveReference, store, authorize, executionMode = "application", fetchImpl = globalThis.fetch, now = Date.now })`
 Local functions
 - `publicConnection(connection)`
-- `requireOperationScope(operation, scopes, message, { messageCode })`
-- `operationRequest(operation, input, settings, providerData)`
-- `validateCallbackUrl(value)`
 - `connectionMatches(connection, integration, providerId, registration)`
 - `callbackMatches(connection, provider, registration)`
 
 ### `src/server/ConnectorsFeature.js`
 Exports
 - `createConnectorsFeature(options)`
+Local functions
+- `createConnectorsActions({ connections })`
 
 ### `src/server/credentialProtection.js`
 Exports
@@ -64,6 +69,13 @@ Exports
 Local functions
 - `hash(value)`
 
+### `src/server/providerRequests.js`
+Exports
+- `createProviderRequests({ fetchImpl, now, resolveReference })`
+- `operationRequest(operation, input, settings, providerData)`
+- `requireOperationScope(operation, scopes, message, { messageCode })`
+- `type ConnectionProvider`
+
 ### `src/server/storage.js`
 Exports
 - `createCredentialProtection`
@@ -72,6 +84,18 @@ Exports
 ### `src/server/types.js`
 Exports
 - `type ConnectorsCore`
+- `type ConnectionServiceOptions`
+- `type CredentialProtection`
+- `type ConnectionOwner`
+- `type ConnectorAuthorizationRequest`
+- `type ConnectorAuthorize`
+- `type ResolveReference`
+- `type ConnectionRecord`
+- `type ConnectionStore`
+- `type ConnectorRequest`
+- `type ConnectorOperation`
+- `type ConnectorExchangeTransport`
+- `type ConnectorProvider`
 
 ### `src/shared/configuration.js`
 Exports

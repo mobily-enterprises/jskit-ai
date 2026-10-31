@@ -136,6 +136,11 @@ retain placeholders while an administrator finishes setup.
 Never trust owner IDs supplied by a browser. Include deployment/environment
 identity in `applicationId` when several environments share storage.
 
+`@jskit-ai/connectors-core/server/types` names these contracts for code that
+composes the service: `ConnectorAuthorize`, `ResolveReference`,
+`ConnectionStore`, `ConnectorProvider`, `ConnectionServiceOptions` and the
+`ConnectorsCore` service itself.
+
 For `invoke`, `input` is a separate copy of the caller's operation input. It is
 omitted for connection-management methods. Check it when permission depends on
 the requested tool, document or action. The service snapshots input before

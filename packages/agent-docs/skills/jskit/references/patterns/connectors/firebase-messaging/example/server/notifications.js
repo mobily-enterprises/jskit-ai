@@ -10,7 +10,7 @@ import { firebaseCloudMessagingProvider } from "@jskit-ai/connectors-catalog/ser
  * @param {string} options.runtimeDirectory
  * @param {Buffer} options.credentialKey
  * @param {Record<string, string | undefined>} options.environment
- * @param {(context: object, request: object) => Promise<object | null>} options.authorizeConnectionOperation The application's access policy.
+ * @param {import("@jskit-ai/connectors-core/server/types").ConnectorAuthorize} options.authorizeConnectionOperation The application's access policy.
  */
 export async function openNotificationConnections({
   configurationPath, runtimeDirectory, credentialKey, environment,

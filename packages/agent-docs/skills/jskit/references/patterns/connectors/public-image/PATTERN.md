@@ -37,8 +37,9 @@ existing access policy applies before exposing its configured resources.
   and custom domains. The editor VM may have a different origin.
 - Each collaborator the composition receives (`resolveReference`) is a required
   parameter typed in a JSDoc `@param` and called directly, without a `typeof`
-  probe, a "requires x" guard or a no-op default. A server feature that uses it
-  follows
+  probe, a "requires x" guard or a no-op default. It is typed with
+  `ResolveReference` from `@jskit-ai/connectors-core/server/types`. A server
+  feature that uses it follows
   [typed features](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/site/guide/framework/typed-features.md).
 
 ## Framework APIs

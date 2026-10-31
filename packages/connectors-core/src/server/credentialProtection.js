@@ -1,6 +1,12 @@
 import { CompactEncrypt, compactDecrypt } from "jose";
 import { ConnectorError } from "./errors.js";
 
+/**
+ * Seals values with the active key and opens them with any named key, each bound to its record.
+ * @param {object} options
+ * @param {Record<string, Uint8Array>} options.keys Named 32-byte keys.
+ * @param {string} options.activeKeyId The key that seals new values.
+ */
 function createCredentialProtection({ keys, activeKeyId }) {
   const keyring = new Map(Object.entries(keys || {}));
   if (!keyring.has(activeKeyId) || [...keyring.values()].some((key) => !(key instanceof Uint8Array) || key.length !== 32)) {
