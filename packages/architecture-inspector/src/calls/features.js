@@ -4,7 +4,10 @@ import { isFunctionLike, unwrapExpression } from "./functions.js";
 const FEATURE_PACKAGE = "@jskit-ai/kernel";
 const CRUD_PACKAGE = "@jskit-ai/crud-core";
 const CRUD_RESOURCE_PACKAGE = "@jskit-ai/resource-crud-core";
-const MAX_ACTION_DEPTH = 6;
+// How many arrays, spreads, conditionals, calls and functions an action
+// definition may sit under in a feature's actions() result: enough for a
+// flagged spread of a create*Actions call whose definitions are each frozen.
+const MAX_ACTION_DEPTH = 10;
 const MAX_OBJECT_DEPTH = 8;
 
 function memberNamed(objectLiteral, name) {

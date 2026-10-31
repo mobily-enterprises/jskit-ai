@@ -89,6 +89,37 @@ test("named actions become action entry points, and executeAction calls reach th
   assert.equal(result.capabilities.entryPoints, "partial");
 });
 
+test("actions a feature adds behind a flag, each frozen on its own, are entry points", async (t) => {
+  const { result } = await inspectCallsOf(t, {
+    "packages/invites/src/server/actions.js": [
+      "export function createInviteActions({ invites }) {",
+      "  return Object.freeze([",
+      "    Object.freeze({ id: \"demo.invite.redeem\", execute: (input) => invites.redeem(input) })",
+      "  ]);",
+      "}",
+      ""
+    ].join("\n"),
+    "packages/invites/src/server/feature.js": [
+      "import { defineFeature } from \"@jskit-ai/kernel/server/features\";",
+      "import { createInviteActions } from \"./actions.js\";",
+      "function createInvites() { return { enabled: true, redeem() { return 1; } }; }",
+      "export default defineFeature({",
+      "  provides: { invites: \"demo.invites\" },",
+      "  setup() { return { invites: createInvites() }; },",
+      "  actions({ invites }) {",
+      "    if (!invites.enabled) return [];",
+      "    return [...(invites.enabled ? createInviteActions({ invites }) : [])];",
+      "  }",
+      "});",
+      ""
+    ].join("\n")
+  });
+  assert.deepEqual(result.entryPoints.map((entry) => [entry.actionId, entry.functionIds]),
+    [["demo.invite.redeem", ["fn:packages/invites/src/server/actions.js#3:56"]]]);
+  const [redeem] = callsFrom(result, "invites.redeem");
+  assert.deepEqual([redeem.certainty, redeem.targets], ["exact", ["fn:packages/invites/src/server/feature.js#3:52"]]);
+});
+
 test("action routes outside the static recognition forms are reported, not guessed", async (t) => {
   const { result } = await inspectCallsOf(t, {
     "src/server/routes.js": [
