@@ -129,7 +129,7 @@ class AuthWebService {
   // keep it in their own short-lived cookie; others need no hook.
   writeOAuthStartCookies(reply, result) {
     const authService = this.resolveAuthService();
-    // readable-check: allow method-probe - writeOAuthStartCookies is an optional auth.service operation
+    // readable-check: allow method-probe - optional operation: writeOAuthStartCookies is an optional auth.service operation
     if (reply && typeof authService.writeOAuthStartCookies === "function") {
       authService.writeOAuthStartCookies(reply, result);
     }
@@ -137,7 +137,7 @@ class AuthWebService {
 
   clearOAuthStartCookies(reply) {
     const authService = this.resolveAuthService();
-    // readable-check: allow method-probe - clearOAuthStartCookies is an optional auth.service operation
+    // readable-check: allow method-probe - optional operation: clearOAuthStartCookies is an optional auth.service operation
     if (reply && typeof authService.clearOAuthStartCookies === "function") {
       authService.clearOAuthStartCookies(reply);
     }

@@ -144,7 +144,7 @@ function applyRouteTransportErrorResponse(reply, request, error, {
   messageFields = {}
 } = {}) {
   const transport = resolveRequestRouteTransport(request);
-  // readable-check: allow method-probe - route transport data: a route's transport may define an error serializer
+  // readable-check: allow method-probe - data: a route's transport may define an error serializer
   const errorSerializer = transport && typeof transport.error === "function" ? transport.error : null;
   if (!errorSerializer) {
     return false;

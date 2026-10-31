@@ -43,7 +43,7 @@ function shouldStripFastifyBodySchema(route = null, schema = null) {
     return false;
   }
 
-  // readable-check: allow method-probe - route definition data: a route may transform its body input
+  // readable-check: allow method-probe - data: a route may transform its body input
   return typeof route?.input?.body === "function";
 }
 
@@ -160,7 +160,7 @@ function wrapReplySend({ reply = null, request = null, route = null, outputTrans
     }
 
     let nextPayload = payload;
-    // readable-check: allow method-probe - route transport data: a route's transport may define a response serializer
+    // readable-check: allow method-probe - data: a route's transport may define a response serializer
     if (typeof transport?.response === "function") {
       const transportedPayload = transport.response(payload, {
         request,
@@ -244,7 +244,7 @@ function registerRoutes(
 
   for (const route of publicRoutes) {
     const routeOptions = policyApplier(toFastifyRouteOptions(route), route);
-    // readable-check: allow method-probe - route definition data: a route without a handler answers with the missing handler
+    // readable-check: allow method-probe - data: a route without a handler answers with the missing handler
     const routeHandler = typeof route.handler === "function" ? route.handler : fallbackHandler;
     const resolvedMiddlewareHandlers = resolveRouteMiddlewareHandlers(route, runtimeMiddlewareConfig);
     const routeTransport = route.transport || null;

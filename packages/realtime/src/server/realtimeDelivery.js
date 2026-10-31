@@ -61,9 +61,9 @@ function createPassChecks(authService, resolveActorRooms) {
  *   With no contributors registered, a socket stays in the rooms it already has.
  */
 function createRealtimeDelivery({ io, database, logger, authService, audiences: { mayContribute, resolveActorRooms } }) {
-  // readable-check: allow method-probe - a test asserts the error an auth.service without authenticateRequest() raises below
+  // readable-check: allow method-probe - test asserts error: realtime authorization refuses an auth.service without authenticateRequest()
   const guarded = typeof authService?.authenticateRequest === "function";
-  // readable-check: allow method-probe - a test asserts this error; input validation: an auth provider's realtime policy may name authorizeEvent()
+  // readable-check: allow method-probe - input validation: an auth provider's realtime policy may name authorizeEvent()
   if (authService?.realtime?.authorizeEvent != null && typeof authService.realtime.authorizeEvent !== "function") {
     throw new TypeError("Realtime authorizeEvent must be a function.");
   }
@@ -104,7 +104,7 @@ function createRealtimeDelivery({ io, database, logger, authService, audiences: 
         const actor = await revalidate(socket, checks);
         if (!socket.connected) return;
         if (!targets.broadcastAllClients && !targets.rooms.some((room) => socket.rooms.has(room))) return;
-        // readable-check: allow method-probe - authorizeEvent is an optional part of the auth.service realtime policy
+        // readable-check: allow method-probe - optional operation: authorizeEvent is an optional part of the auth.service realtime policy
         if (typeof authService.realtime?.authorizeEvent === "function") {
           const authorized = await authService.realtime.authorizeEvent({
             actor,

@@ -1,6 +1,12 @@
 // Shared by the typed-features rules. Each rule reports what readable-check
 // reports under its finding name, and each finding can be excused by a comment
 // on the line before it: "// readable-check: allow <finding or rule> - <reason>".
+// The reason starts with one of these prefixes and says what is true of the
+// code, never the state of a project: "input validation:", "data:",
+// "platform object:", "optional operation:", "test asserts error:",
+// "not a slot:", "cycle: <supplier> requires <owner>",
+// "filled by <repository>; convert with its supplier" or
+// "cross-repository slot <token>".
 
 const FACTORY_NAME = /^(create|build)[A-Z]/u;
 

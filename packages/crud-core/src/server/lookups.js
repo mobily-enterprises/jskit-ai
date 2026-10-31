@@ -25,7 +25,7 @@ function normalizeLookupOwnershipFilter(value, { context = "crudLookup ownership
 }
 
 function createCrudLookup(repository, { context = "crudLookup", ownershipFilter = "" } = {}) {
-  // readable-check: allow method-probe - a test asserts this error; input validation: the application passes its own repository
+  // readable-check: allow method-probe - input validation: the application passes its own repository
   if (!repository || typeof repository.listByIds !== "function") {
     throw new Error(`${context} requires repository.listByIds(ids, options).`);
   }

@@ -8,7 +8,7 @@ import { normalizeSurfaceId } from "../../shared/surface/registry.js";
  * @returns {value is { has(token: string): boolean, make(token: string): unknown }}
  */
 function isContainerScope(value) {
-  // readable-check: allow method-probe - input: a scope may be any value, and only a container supplies appConfig
+  // readable-check: allow method-probe - input validation: a scope may be any value, and only a container supplies appConfig
   return Boolean(value) && typeof value === "object" && typeof value.has === "function" && typeof value.make === "function";
 }
 

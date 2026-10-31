@@ -78,6 +78,24 @@ data (input, record, list, options bag) is not one.
   - Keep one copy of each pure helper per package and import it.
   - Split a factory that has more than one concern.
 
+## Exceptions
+
+A justified exception carries `// readable-check: allow <rule> - <reason>` on
+the line before it. The reason starts with one of these prefixes and says what
+is true of the code, never the state of a project:
+
+| Reason prefix | The exception |
+| --- | --- |
+| `input validation:` | checks a value its caller passes and refuses a wrong one with its own error |
+| `data:` | probes data (a route definition, a transport, a parsed record), not a collaborator |
+| `platform object:` | probes a platform or library object whose implementations differ, such as `Headers` |
+| `optional operation:` | calls an operation the collaborator's type marks optional |
+| `test asserts error:` | keeps a guard whose error a test asserts |
+| `not a slot:` | matched a name that fills no slot |
+| `cycle: <supplier> requires <owner>` | keeps a setter because the slot's supplier requires its owner |
+| `filled by <repository>; convert with its supplier` | keeps a setter that another repository's code calls |
+| `cross-repository slot <token>` | keeps a probe for a token another repository supplies |
+
 Avoid:
 
 - probing a collaborator before calling it

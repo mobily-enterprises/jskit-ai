@@ -395,6 +395,21 @@ makes them errors for the packages an application has converted:
 | `max-lines`, `max-lines-per-function` | files over 750 lines, functions over 600 |
 
 A justified exception carries a `// readable-check: allow <rule> - <reason>`
-comment on the line before it. The [typed features
+comment on the line before it. The reason starts with one of these prefixes
+and says what is true of the code, never the state of a project:
+
+| Reason prefix | The exception |
+| --- | --- |
+| `input validation:` | checks a value its caller passes and refuses a wrong one with its own error |
+| `data:` | probes data (a route definition, a transport, a parsed record), not a collaborator |
+| `platform object:` | probes a platform or library object whose implementations differ, such as `Headers` |
+| `optional operation:` | calls an operation the collaborator's type marks optional |
+| `test asserts error:` | keeps a guard whose error a test asserts |
+| `not a slot:` | matched a name that fills no slot |
+| `cycle: <supplier> requires <owner>` | keeps a setter because the slot's supplier requires its owner |
+| `filled by <repository>; convert with its supplier` | keeps a setter that another repository's code calls |
+| `cross-repository slot <token>` | keeps a probe for a token another repository supplies |
+
+The [typed features
 heuristic](heuristics/typed-features.md)
 lists each finding with its fix.
