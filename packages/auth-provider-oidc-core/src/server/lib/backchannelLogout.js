@@ -13,6 +13,12 @@ class BackchannelLogoutError extends Error {
 /**
  * OpenID Connect Back-Channel Logout 1.0 for this app: the issuer posts a
  * signed logout_token and the matching app sessions end.
+ * @param {object} dependencies
+ * @param {ReturnType<typeof import("./config.js").resolveOidcConfig>} dependencies.config
+ * @param {ReturnType<typeof import("./store.js").createOidcStore>} dependencies.store
+ * @param {ReturnType<typeof import("./issuer.js").createIssuerClient>} dependencies.issuer
+ * @param {typeof fetch | null} [dependencies.fetchImpl] jose's own fetch unless given.
+ * @param {() => number} [dependencies.now]
  */
 function createBackchannelLogout({ config, store, issuer, fetchImpl = null, now = Date.now }) {
   let keySet = null;

@@ -20,9 +20,13 @@ function registrationMetadata(origin, appName) {
   };
 }
 
+/**
+ * @param {unknown} error
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} logger
+ */
 function unreachable(error, logger) {
   if (error instanceof AppError) return error;
-  logger?.warn?.({ err: error }, "OIDC issuer request failed.");
+  logger.warn({ err: error }, "OIDC issuer request failed.");
   return new AppError(503, "Your accounts hub can't be reached right now. Try again in a moment.", {
     code: "auth.oidc.issuer.unreachable"
   });
@@ -32,8 +36,14 @@ function unreachable(error, logger) {
  * The relying party's view of one issuer: discovery, per-origin clients
  * (self-registered with the registration token, or the static client), and
  * the openid-client configuration each sign-in uses.
+ * @param {object} dependencies
+ * @param {ReturnType<typeof import("./config.js").resolveOidcConfig>} dependencies.config
+ * @param {ReturnType<typeof import("./store.js").createOidcStore>} dependencies.store
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
+ * @param {import("openid-client").CustomFetch | null} [dependencies.fetchImpl] openid-client's own fetch unless given.
+ * @param {() => number} [dependencies.now]
  */
-function createIssuerClient({ config, store, logger = null, fetchImpl = null, now = Date.now }) {
+function createIssuerClient({ config, store, logger, fetchImpl = null, now = Date.now }) {
   const issuerUrl = config.issuer ? new URL(config.issuer) : null;
   const insecure = Boolean(issuerUrl && issuerUrl.protocol === "http:" && isLoopbackHostname(issuerUrl.hostname));
   const requestOptions = {

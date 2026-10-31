@@ -51,9 +51,11 @@ function isDuplicateError(error) {
 /**
  * Knex storage for registered clients (one per issuer and app origin), app
  * sessions, and seen back-channel logout token ids.
+ * @param {object} dependencies
+ * @param {import("knex").Knex} dependencies.knex
+ * @param {() => number} [dependencies.now]
  */
 function createOidcStore({ knex, now = Date.now }) {
-  if (typeof knex !== "function") throw new TypeError("OIDC sign-in requires runtime.database knex.");
   const stamp = () => new Date(now());
 
   return Object.freeze({

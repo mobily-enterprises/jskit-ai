@@ -66,12 +66,14 @@ async function createRelyingParty({ issuer, env = {}, fetchImpl = null, now = Da
     }
   });
   const store = createOidcStore({ knex, now });
-  const issuerClient = createIssuerClient({ config, store, fetchImpl, now });
+  const logger = { info() {}, warn() {} };
+  const issuerClient = createIssuerClient({ config, store, logger, fetchImpl, now });
   const service = createOidcAuthService({
     config,
     store,
     issuer: issuerClient,
     profileProjector: createProfileProjector(knex),
+    logger,
     now
   });
   const backchannel = createBackchannelLogout({ config, store, issuer: issuerClient, now });

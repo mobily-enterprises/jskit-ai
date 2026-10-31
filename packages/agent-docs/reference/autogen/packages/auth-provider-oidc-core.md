@@ -43,7 +43,7 @@ Exports
 
 ### `src/server/lib/issuer.js`
 Exports
-- `createIssuerClient({ config, store, logger = null, fetchImpl = null, now = Date.now })`
+- `createIssuerClient({ config, store, logger, fetchImpl = null, now = Date.now })`
 - `registrationMetadata(origin, appName)`
 Local functions
 - `unreachable(error, logger)`
@@ -66,7 +66,7 @@ Local functions
 ### `src/server/lib/service.js`
 Exports
 - `SESSION_COOKIE`
-- `createOidcAuthService({ config, store, issuer, profileProjector = null, logger = null, now = Date.now })`
+- `createOidcAuthService({ config, store, issuer, profileProjector, logger, now = Date.now })`
 Local functions
 - `sha256(value)`
 - `cookiesOf(request)`

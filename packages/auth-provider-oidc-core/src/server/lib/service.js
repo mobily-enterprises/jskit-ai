@@ -78,13 +78,20 @@ function buildResult(identity, { session = null, appProfile = null } = {}) {
  * The auth.service for an OpenID Connect issuer. The issuer verifies who the
  * person is; this app keeps its own session cookie and its own users row,
  * keyed (oidc, sub).
+ * @param {object} dependencies
+ * @param {ReturnType<typeof import("./config.js").resolveOidcConfig>} dependencies.config
+ * @param {ReturnType<typeof import("./store.js").createOidcStore>} dependencies.store
+ * @param {ReturnType<typeof import("./issuer.js").createIssuerClient>} dependencies.issuer
+ * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector | null} [dependencies.profileProjector] The registered projector, when there is one.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
+ * @param {() => number} [dependencies.now]
  */
-function createOidcAuthService({ config, store, issuer, profileProjector = null, logger = null, now = Date.now }) {
+function createOidcAuthService({ config, store, issuer, profileProjector, logger, now = Date.now }) {
   const sealer = createTransactionSealer({ secret: config.sessionSecret, now });
   const secureCookies = config.isProduction;
   // Production sessions use a host-only __Host- cookie, like the other providers.
   const sessionCookie = hostOnlyCookieName(SESSION_COOKIE, secureCookies);
-  const projectorSyncs = typeof profileProjector?.syncIdentityProfile === "function";
+  const projectorSyncs = Boolean(profileProjector);
   const devLoginEnabled = config.devAuth.enabled === true && config.devAuth.isProduction !== true;
   const capabilities = normalizeAuthCapabilities({
     provider: { id: AUTH_OIDC_PROVIDER_ID, label: config.label },
@@ -118,6 +125,7 @@ function createOidcAuthService({ config, store, issuer, profileProjector = null,
 
   async function existingProfile(identity) {
     if (!profileProjector) return null;
+    // readable-check: allow method-probe - findByIdentity is an optional profile projector operation
     if (typeof profileProjector.findByIdentity !== "function") {
       throw new Error("auth.profile.projector.findByIdentity() is required for preview identity and profile lookups without sync.");
     }
@@ -256,7 +264,7 @@ function createOidcAuthService({ config, store, issuer, profileProjector = null,
         idTokenExpected: true
       });
     } catch (error) {
-      logger?.warn?.({ err: { name: error?.name, code: error?.code, message: error?.message } }, "OIDC sign-in was rejected.");
+      logger.warn({ err: { name: error?.name, code: error?.code, message: error?.message } }, "OIDC sign-in was rejected.");
       throw new AppError(401, "Your sign-in could not be verified. Start again.", { code: "auth.oidc.signIn.unverified" });
     }
     const identity = await identityFromTokens(configuration, tokens);
@@ -368,7 +376,7 @@ function createOidcAuthService({ config, store, issuer, profileProjector = null,
         post_logout_redirect_uri: `${requestOrigin(request)}/`
       }).href;
     } catch (error) {
-      logger?.warn?.({ err: error }, "OIDC end-session address is unavailable.");
+      logger.warn({ err: error }, "OIDC end-session address is unavailable.");
       return "/";
     }
   }
@@ -405,6 +413,7 @@ function createOidcAuthService({ config, store, issuer, profileProjector = null,
     changePassword: unsupported("changePassword"),
     updateDisplayName: unsupported("updateDisplayName"),
     getSecurityStatus: unsupported("getSecurityStatus"),
+    // readable-check: allow setter-seam - setPasswordSignInEnabled is an auth.service operation, not a slot
     setPasswordSignInEnabled: unsupported("setPasswordSignInEnabled"),
     startProviderLink: unsupported("startProviderLink"),
     unlinkProvider: unsupported("unlinkProvider"),

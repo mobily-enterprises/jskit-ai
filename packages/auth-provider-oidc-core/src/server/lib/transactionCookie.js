@@ -11,6 +11,7 @@ function transactionKey(secret) {
   return Buffer.from(hkdfSync("sha256", Buffer.from(secret, "utf8"), Buffer.alloc(0), "jskit-oidc-attempt-v1", 32));
 }
 
+/** @param {{ secret: string, now?: () => number }} options */
 function createTransactionSealer({ secret, now = Date.now }) {
   const key = transactionKey(secret);
 
