@@ -17,7 +17,8 @@
   },
   "exports": {
     "./server": "./src/server/index.js",
-    "./server/providers/OidcIssuerProvider": "./src/server/providers/OidcIssuerProvider.js"
+    "./server/providers/OidcIssuerProvider": "./src/server/providers/OidcIssuerProvider.js",
+    "./server/types": "./src/server/types.js"
   },
   "description": "OpenID Connect accounts hub: one sign-in for all of an owner's apps, with approval of every production app.",
   "jskit": {
@@ -81,6 +82,10 @@
           {
             "subpath": "./server/providers/OidcIssuerProvider",
             "summary": "Mounts the accounts hub (OpenID Connect issuer, hub API and Google sign-in) on the application's Fastify server."
+          },
+          {
+            "subpath": "./server/types",
+            "summary": "Type of the auth.oidc-issuer capability, for features that require it."
           }
         ],
         "capability": "auth.oidc-issuer"

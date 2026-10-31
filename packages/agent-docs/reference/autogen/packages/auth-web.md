@@ -269,11 +269,15 @@ Local functions
 Exports
 - None
 
+### `src/server/authWeb.js`
+Exports
+- `createAuthWeb({ authService, env })`
+Local functions
+- `devAuthBootstrapEnabled(env)`
+
 ### `src/server/AuthWebFeature.js`
 Exports
 - `AuthWebFeature`
-Local functions
-- `devAuthBootstrapEnabled(env)`
 
 ### `src/server/constants/authActionIds.js`
 Exports
@@ -316,6 +320,10 @@ Exports
 ### `src/server/services/AuthWebService.js`
 Exports
 - `AuthWebService`
+
+### `src/server/types.js`
+Exports
+- None
 
 ### patterns
 

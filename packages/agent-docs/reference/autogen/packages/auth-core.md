@@ -36,6 +36,10 @@ Exports
 - `buildAuthActions({ authService } = {})`
 - `requireRequestContext(context, actionId)`
 
+### `src/server/authAccess.js`
+Exports
+- `createAuthAccess()`
+
 ### `src/server/authActor.js`
 Exports
 - `createAuthIdentityId(provider, providerUserId)`
@@ -52,6 +56,13 @@ Exports
 Local functions
 - `normalizeOrderedExtension(value, { idField, method, label } = {})`
 - `ordered(values)`
+
+### `src/server/authPolicy.js`
+Exports
+- `createAuthPolicy({ authService, extensions, env })`
+Local functions
+- `parseList(value)`
+- `defaultHasPermission({ permission, permissions = [] } = {})`
 
 ### `src/server/authPolicyContextResolverRegistry.js`
 Exports
@@ -192,10 +203,10 @@ Exports
 ### `src/server/providers/AuthPolicyProvider.js`
 Exports
 - `AuthPolicyProvider`
-Local functions
-- `parseList(value)`
-- `defaultHasPermission({ permission, permissions = [] } = {})`
-- `createPolicy({ authService, extensions, env })`
+
+### `src/server/types.js`
+Exports
+- None
 
 ### `src/server/unsupportedOperation.js`
 Exports

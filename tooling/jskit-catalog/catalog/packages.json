@@ -510,6 +510,10 @@
               {
                 "subpath": "./shared",
                 "summary": "Exports shared auth client helpers (createApi and runAuthSignOutFlow), with structured subpaths at ./shared/authApi and ./shared/signOutFlow."
+              },
+              {
+                "subpath": "./server/types",
+                "summary": "Types of the auth.access, auth.extensions, auth.policy and auth.service capabilities (AuthService is the contract every auth provider implements), for features that require them."
               }
             ],
             "clientCapabilities": [
@@ -571,6 +575,10 @@
               {
                 "subpath": "./server/lib/index",
                 "summary": "Exports local auth service, file backend helpers, password strategy helpers, and local auth register hook decorators. Google, Microsoft and GitHub sign-in turn on from AUTH_GOOGLE_*, AUTH_MICROSOFT_* and AUTH_GITHUB_* client id and secret pairs."
+              },
+              {
+                "subpath": "./server/types",
+                "summary": "Type of the auth.local.backend contract (AuthLocalBackend) that every local auth backend implements."
               }
             ],
             "extensionCapabilities": [
@@ -866,6 +874,10 @@
               {
                 "subpath": "./server/managedPreviewIdentity",
                 "summary": "Runs the app-owned managed-preview identity command against JSKIT's development auth routes."
+              },
+              {
+                "subpath": "./server/types",
+                "summary": "Type of the auth.web capability, for features that require it."
               }
             ],
             "clientCapabilities": [
@@ -1949,6 +1961,10 @@
               {
                 "subpath": "./server/providers/OidcIssuerProvider",
                 "summary": "Mounts the accounts hub (OpenID Connect issuer, hub API and Google sign-in) on the application's Fastify server."
+              },
+              {
+                "subpath": "./server/types",
+                "summary": "Type of the auth.oidc-issuer capability, for features that require it."
               }
             ],
             "capability": "auth.oidc-issuer"

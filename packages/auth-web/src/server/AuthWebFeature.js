@@ -1,13 +1,5 @@
-import { resolveDevAuthPolicyFromEnv } from "@jskit-ai/auth-core/server/devAuth";
 import { defineFeature } from "@jskit-ai/kernel/server/features";
-import { AuthController } from "./controllers/AuthController.js";
-import { buildRoutes } from "./routes/authRoutes.js";
-import { AuthWebService } from "./services/AuthWebService.js";
-
-function devAuthBootstrapEnabled(env) {
-  const policy = resolveDevAuthPolicyFromEnv(env);
-  return policy.enabled && !policy.isProduction;
-}
+import { createAuthWeb } from "./authWeb.js";
 
 const AuthWebFeature = defineFeature({
   id: "auth.web",
@@ -21,20 +13,11 @@ const AuthWebFeature = defineFeature({
     authWeb: "auth.web"
   },
   setup({ authService, env, http }) {
-    const service = new AuthWebService({
-      authService,
-      devAuthBootstrapEnabled: devAuthBootstrapEnabled(env)
-    });
-    const controller = new AuthController({ service });
-    const routes = buildRoutes(controller, {
-      includeDevLoginAs: service.isDevLoginAsAvailable()
-    });
-    for (const route of routes) {
+    const authWeb = createAuthWeb({ authService, env });
+    for (const route of authWeb.routes) {
       http.router.register(route.method, route.path, route, route.handler);
     }
-    return {
-      authWeb: Object.freeze({ controller, routes: Object.freeze(routes), service })
-    };
+    return { authWeb };
   }
 });
 

@@ -136,6 +136,10 @@ Local functions
 - `resolveSessionSecret(env, { storeDir, isProduction })`
 - `resolveAppPublicUrl(env, { recoverySender, oauthProviders })`
 
+### `src/server/types.js`
+Exports
+- None
+
 ### test-support
 
 ### `test-support/oauthHarness.js`

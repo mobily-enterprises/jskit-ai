@@ -8,6 +8,7 @@
   "exports": {
     "./server/providers/AuthLocalProvider": "./src/server/providers/AuthLocalProvider.js",
     "./server/lib/index": "./src/server/lib/index.js",
+    "./server/types": "./src/server/types.js",
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
@@ -48,6 +49,10 @@
           {
             "subpath": "./server/lib/index",
             "summary": "Exports local auth service, file backend helpers, password strategy helpers, and local auth register hook decorators. Google, Microsoft and GitHub sign-in turn on from AUTH_GOOGLE_*, AUTH_MICROSOFT_* and AUTH_GITHUB_* client id and secret pairs."
+          },
+          {
+            "subpath": "./server/types",
+            "summary": "Type of the auth.local.backend contract (AuthLocalBackend) that every local auth backend implements."
           }
         ],
         "extensionCapabilities": [
