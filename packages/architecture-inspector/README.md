@@ -27,7 +27,10 @@ Input supplies `schema: "vibe64.architecture-inspection-input.v1"`, indexed
 `files: [{ path, hash }]` and `uiDiscovery.discoveries`. Optional `packages`
 carry `id`, `name`, `manifest`, `declarations`, `root`, `opaque` and public
 `entryPoints: [{ importPath, file }]`; `packageIdentity` binds observations to
-the same inspected public boundaries. Paths are project-relative
+the same inspected public boundaries. A package resolves for the files under
+each manifest that declares it (`declarations: [{ manifest }]`, or its
+`manifest` when it has none), whatever the dependency kind, so the packages of
+a workspace resolve one another when each workspace manifest is declared. Paths are project-relative
 and hashes use `sha256:<hex>`. Only declared, hash-matching UTF-8 files are read;
 symlinks and files over 4 MiB are rejected. Optional `stackHash` and
 `cacheDirectory` serve the call cache below; other unknown fields are ignored.

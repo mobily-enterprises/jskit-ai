@@ -427,6 +427,43 @@ test("calls through JSDoc-typed parameters and bindings resolve through the chec
   ]);
 });
 
+// A monorepo: packages/app declares @local/booking in its own manifest's
+// dependencies; the root manifest declares nothing.
+const WORKSPACE = {
+  "package.json": "{}",
+  "packages/booking/package.json": "{}",
+  "packages/booking/src/server/bookingEngine.js": TYPED["packages/booking/src/server/bookingEngine.js"],
+  "packages/booking/src/server/types.js": TYPED["packages/booking/src/server/types.js"],
+  "packages/app/package.json": "{}",
+  "packages/app/src/server/use.js": [
+    "/** @param {import(\"@local/booking/server/types\").BookingEngine} engine */",
+    "export function viaWorkspaceDependency(engine) { return engine.readStatus({}); }",
+    ""
+  ].join("\n"),
+  "src/server/use.js": [
+    "/** @param {import(\"@local/booking/server/types\").BookingEngine} engine */",
+    "export function viaUndeclaredPackage(engine) { return engine.readStatus({}); }",
+    ""
+  ].join("\n")
+};
+
+test("a workspace package resolves for the files of each manifest that declares it, whatever the dependency kind", async (t) => {
+  const READ = "fn:packages/booking/src/server/bookingEngine.js#2:3";
+  for (const kind of ["dependencies", "peerDependencies", "optionalDependencies"]) {
+    const { result } = await inspectCallsOf(t, WORKSPACE, {
+      packages: [{ id: "package:booking", name: "@local/booking", root: "packages/booking", manifest: "packages/app/package.json", opaque: false,
+        declarations: [{ manifest: "packages/app/package.json", requested: "0.1.0", dependencyKinds: [kind] }],
+        entryPoints: [{ importPath: "./server/types", file: "packages/booking/src/server/types.js" }] }]
+    });
+    const facts = result.calls.map((call) => [call.fromFunctionId, call.certainty, call.method, call.targets]);
+    assert.deepEqual(facts, [
+      ["fn:packages/app/src/server/use.js#2:8", "exact", "checker", [READ]],
+      // The root manifest does not declare the package, so its type stays unknown.
+      ["fn:src/server/use.js#2:8", "probable", "receiver-name", [READ]]
+    ], kind);
+  }
+});
+
 test("a file's calls beyond the per-file bound are truncated and reported", async (t) => {
   const body = Array.from({ length: 2005 }, () => "  target();").join("\n");
   const { result } = await inspectCallsOf(t, { "src/many.js": `function target() {}\nexport function many() {\n${body}\n}\n` });
