@@ -7,6 +7,8 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
+import { describeSourceFile } from "../../../scripts/build-agent-docs.mjs";
+
 const execFileAsync = promisify(execFile);
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -127,6 +129,36 @@ test("generated reference maps state the exclusions the generator actually appli
   for (const excluded of ["node_modules/", ".jskit/", "skills/jskit/references/patterns/", "*.test.*", "*.vitest.*"]) {
     assert.ok(excludesLine(kernelMap).includes(`\`${excluded}\``), `Excludes line is missing ${excluded}.`);
   }
+});
+
+test("generated reference maps list the types a module declares with @typedef", () => {
+  const typesModule = [
+    "// The types of the booking capabilities, for features that require them.",
+    "",
+    "/** @typedef {ReturnType<typeof import(\"./bookingEngine.js\").createBookingEngine>} BookingEngine */",
+    "/** @typedef {Readonly<Record<string, { id: string }>>} BookingIndex The bookings by id. */",
+    "",
+    "/**",
+    " * The `booking.clock` contract.",
+    " * @typedef {object} BookingClock",
+    " * @property {() => Date} now",
+    " */",
+    "",
+    "function createBookingIndex() {",
+    "  /** @typedef {string} LocalOnly */",
+    "  return {};",
+    "}",
+    "",
+    "export { createBookingIndex };"
+  ].join("\n");
+
+  assert.deepEqual(describeSourceFile("types.js", typesModule), {
+    exportedSymbols: ["createBookingIndex()", "type BookingEngine", "type BookingIndex", "type BookingClock"],
+    localFunctions: []
+  });
+  assert.deepEqual(describeSourceFile("types.js", "/** @typedef {object} Empty */\n\nexport {};\n").exportedSymbols, [
+    "type Empty"
+  ]);
 });
 
 test("JSKIT guidance does not assume a Genesis blueprint", async () => {

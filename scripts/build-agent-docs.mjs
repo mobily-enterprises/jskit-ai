@@ -7,6 +7,7 @@ import {
   writeFile
 } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   AGENT_DOCS_OUTPUT_PATHS,
   AGENT_DOCS_ROOT,
@@ -277,6 +278,38 @@ function parseExportSpecifierBlock(specifierBlock = "") {
   return results;
 }
 
+// The index just past the `}` that closes the JSDoc type opening at `index`.
+function skipJsdocType(commentText, index) {
+  let depth = 0;
+  for (let cursor = index; cursor < commentText.length; cursor += 1) {
+    if (commentText[cursor] === "{") {
+      depth += 1;
+    } else if (commentText[cursor] === "}" && --depth === 0) {
+      return cursor + 1;
+    }
+  }
+  return commentText.length;
+}
+
+// A module exports each type a top-level JSDoc comment declares with `@typedef`,
+// such as the capability types of a `types.js`.
+function collectTypedefNames(sourceText) {
+  const names = [];
+  for (const [commentText] of sourceText.matchAll(/^\/\*\*[\s\S]*?\*\//gmu)) {
+    for (const tag of commentText.matchAll(/@typedef\b[\s*]*/gu)) {
+      let nameIndex = tag.index + tag[0].length;
+      if (commentText[nameIndex] === "{") {
+        nameIndex = skipJsdocType(commentText, nameIndex);
+      }
+      const name = commentText.slice(nameIndex).match(/^[\s*]*([A-Za-z_$][\w$]*)/u)?.[1];
+      if (name) {
+        pushUnique(names, name);
+      }
+    }
+  }
+  return names;
+}
+
 function collectExportedSymbols(sourceText, declarationByName) {
   const exportedSymbols = [];
 
@@ -320,6 +353,10 @@ function collectExportedSymbols(sourceText, declarationByName) {
 
   if (/^export\s+default\s+\{/m.test(sourceText) || /^export\s+default\s+defineComponent\s*\(/m.test(sourceText)) {
     pushUnique(exportedSymbols, "default");
+  }
+
+  for (const typedefName of collectTypedefNames(sourceText)) {
+    pushUnique(exportedSymbols, `type ${typedefName}`);
   }
 
   return exportedSymbols;
@@ -425,23 +462,27 @@ function renderMap({ title, commandName, introLines = [], scopeLines = [], secti
   return `${lines.join("\n").replace(/\n{3,}/g, "\n\n").trim()}\n`;
 }
 
+// What a package map lists for one source file.
+function describeSourceFile(filePath, rawSourceText) {
+  const sourceText = normalizeSourceText(filePath, rawSourceText);
+  const declarationByName = collectTopLevelDeclarations(sourceText);
+  const exportedSymbols = collectExportedSymbols(sourceText, declarationByName);
+  return {
+    exportedSymbols,
+    localFunctions: collectLocalFunctions(declarationByName, exportedSymbols)
+  };
+}
+
 async function buildFileEntries(sourceRoot) {
   const sourceFilePaths = await collectFiles(sourceRoot, isSourceFileName);
   const fileEntries = [];
 
   for (const sourceFilePath of sourceFilePaths) {
     const relativePath = normalizeMarkdownPath(path.relative(sourceRoot, sourceFilePath));
-    const rawSourceText = await readFile(sourceFilePath, "utf8");
-    const sourceText = normalizeSourceText(sourceFilePath, rawSourceText);
-    const declarationByName = collectTopLevelDeclarations(sourceText);
-    const exportedSymbols = collectExportedSymbols(sourceText, declarationByName);
-    const localFunctions = collectLocalFunctions(declarationByName, exportedSymbols);
-
     fileEntries.push({
       relativePath,
       sectionName: resolveSectionName(relativePath),
-      exportedSymbols,
-      localFunctions
+      ...describeSourceFile(sourceFilePath, await readFile(sourceFilePath, "utf8"))
     });
   }
 
@@ -832,4 +873,8 @@ async function main() {
   }
 }
 
-await main();
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  await main();
+}
+
+export { describeSourceFile };
