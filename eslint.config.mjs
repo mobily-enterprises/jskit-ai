@@ -31,6 +31,7 @@ export default [
     "packages/auth-provider-local-core/src/server/**",
     "packages/auth-provider-local-db-core/src/server/**"
   ]),
+  ...typedFeaturesConfig(["packages/storage-runtime/src/server/**"]),
   {
     // Over 750 lines until their split runs bring them under it.
     files: [

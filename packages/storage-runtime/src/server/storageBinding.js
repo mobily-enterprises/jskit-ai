@@ -13,6 +13,11 @@ function normalizeStorageDriver(value) {
   return normalized || DEFAULT_STORAGE_DRIVER;
 }
 
+/**
+ * @param {string | undefined} fsBasePath
+ * @param {object} [options]
+ * @param {string} [options.rootDir]
+ */
 function resolveFsBasePath(fsBasePath, { rootDir } = {}) {
   const normalized = String(fsBasePath || "").trim();
   if (normalized) {
@@ -23,6 +28,12 @@ function resolveFsBasePath(fsBasePath, { rootDir } = {}) {
   return path.resolve(resolvedRootDir, "data", "storage");
 }
 
+/**
+ * The storage `runtime.storage` provides: unstorage over the driver the environment selects.
+ * @param {object} [options]
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} [options.env]
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeAppRoot} [options.rootDir]
+ */
 function createStorageBinding({ env = {}, rootDir = process.cwd() } = {}) {
   const driver = normalizeStorageDriver(env?.[STORAGE_DRIVER_ENV_KEY]);
 
