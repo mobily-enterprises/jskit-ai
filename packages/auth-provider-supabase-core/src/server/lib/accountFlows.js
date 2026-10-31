@@ -266,7 +266,7 @@ function createAccountFlows({
     const fieldErrors = {};
     const token = String(parsed.token || "").trim();
     const tokenHash = String(parsed.tokenHash || "").trim();
-    const type = String(parsed.type || "email").trim().toLowerCase();
+    const type = /** @type {import("@supabase/supabase-js").EmailOtpType} */ (String(parsed.type || "email").trim().toLowerCase());
 
     if (!token && !tokenHash) {
       fieldErrors.token = { code: "auth.supabase.otp.codeRequired", message: "One-time code is required." };

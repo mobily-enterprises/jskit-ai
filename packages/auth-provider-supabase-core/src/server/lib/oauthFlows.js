@@ -18,7 +18,7 @@ import { findAuthMethodById, findLinkedIdentityByProvider } from "./authMethodSt
  * @param {() => import("@supabase/supabase-js").SupabaseClient} dependencies.getSupabaseClient
  * @param {(value: unknown) => string} dependencies.normalizeOAuthProviderInput A configured provider id.
  * @param {(value: unknown, options?: { fallback?: string }) => string} dependencies.normalizeReturnToPath A return path on an allowed origin.
- * @param {(request: object, options?: { supabaseClient?: import("@supabase/supabase-js").SupabaseClient }) => Promise<{ user: import("@supabase/supabase-js").User, authMethodsStatus: any }>} dependencies.resolveCurrentAuthContext
+ * @param {(request: object, options?: { supabaseClient?: import("@supabase/supabase-js").SupabaseClient }) => Promise<{ user: import("@supabase/supabase-js").User, profile: { id: string }, authMethodsStatus: any }>} dependencies.resolveCurrentAuthContext
  * @param {(providerId: string) => Record<string, string> | null} dependencies.resolveOAuthProviderQueryParams The provider's configured query parameters.
  * @param {ReturnType<typeof import("./sessions.js").createSupabaseSessions>["setSessionFromRequestCookies"]} dependencies.setSessionFromRequestCookies
  * @param {ReturnType<typeof import("./profileMirror.js").createProfileMirror>["syncProfileFromSupabaseUser"]} dependencies.syncProfileFromSupabaseUser
@@ -148,7 +148,6 @@ function createSupabaseOAuthFlows({
     const accessToken = String(parsed.accessToken || "").trim();
     const refreshToken = String(parsed.refreshToken || "").trim();
     const errorCode = String(parsed.error || parsed.error_code || "").trim();
-    const errorDescription = String(parsed.errorDescription || parsed.error_description || "").trim();
     const hasSessionPair = Boolean(accessToken && refreshToken);
     const fieldErrors = {};
 
@@ -184,7 +183,7 @@ function createSupabaseOAuthFlows({
         : null;
 
     if (errorCode) {
-      throw mapOAuthCallbackError(errorCode, errorDescription);
+      throw mapOAuthCallbackError(errorCode);
     }
 
     const supabase = getSupabaseClient();

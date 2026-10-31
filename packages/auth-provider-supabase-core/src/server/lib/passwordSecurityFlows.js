@@ -34,7 +34,7 @@ import { buildDisabledPasswordSecret } from "./authSecrets.js";
  * @param {() => void} dependencies.ensureConfigured Throws when Supabase is not configured.
  * @param {() => import("@supabase/supabase-js").SupabaseClient} dependencies.getSupabaseClient
  * @param {string} dependencies.passwordResetRedirectUrl Where a password reset link returns.
- * @param {(request: object, options?: { supabaseClient?: import("@supabase/supabase-js").SupabaseClient }) => Promise<{ user: import("@supabase/supabase-js").User, authMethodsStatus: any }>} dependencies.resolveCurrentAuthContext
+ * @param {(request: object, options?: { supabaseClient?: import("@supabase/supabase-js").SupabaseClient }) => Promise<{ user: import("@supabase/supabase-js").User, profile: { id: string }, authMethodsStatus: any }>} dependencies.resolveCurrentAuthContext
  * @param {(request: object) => Promise<object | null>} dependencies.resolveDevAuthSecurityStatus The security status of a dev auth session, or null for any other.
  * @param {(userId: string) => Promise<{ passwordSignInEnabled: boolean, passwordSetupRequired: boolean }>} dependencies.resolvePasswordSignInPolicyForUserId
  * @param {(userId: string, enabled: boolean, options?: object) => Promise<{ passwordSignInEnabled: boolean, passwordSetupRequired: boolean }>} dependencies.setPasswordSignInEnabledForUserId
