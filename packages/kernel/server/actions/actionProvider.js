@@ -2,7 +2,7 @@ import { defineProvider } from "../../shared/capabilities/defineProvider.js";
 import { createEventRuntime } from "../runtime/EventProvider.js";
 import { createActionCatalogue } from "./actionCatalogue.js";
 
-/** @param {{ logger?: import("../types.js").RuntimeLogger | null }} [options] Without a logger nothing is logged. */
+/** @param {{ logger?: import("../types.js").RuntimeLogger }} [options] Without a logger nothing is logged. */
 function createActionProvider(options = {}) {
   return defineProvider({
     id: "runtime.actions",

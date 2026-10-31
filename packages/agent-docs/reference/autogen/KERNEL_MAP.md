@@ -119,6 +119,7 @@ Exports
 ### `support/providerLogger.js`
 Exports
 - `createProviderLogger(loggerLike = null, { debugEnabled = false, debugMethod = "info" } = {})`
+- `type ProviderLogger`
 Local functions
 - `asLogger(value)`
 - `callLoggerMethod(logger, methodName, fallbackMethodName, args)`

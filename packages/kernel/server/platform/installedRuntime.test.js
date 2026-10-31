@@ -66,7 +66,7 @@ test("installed runtime composes explicit package providers and application inpu
   const runtime = await createInstalledRuntime({
     appRoot,
     env: { APP_NAME: "Books" },
-    logger: { info() {} },
+    logger: { debug() {}, info() {}, warn() {}, error() {} },
     providers: [observer]
   });
 

@@ -3,6 +3,7 @@ import test from "node:test";
 import { createSchema } from "json-rest-schema";
 
 import { createActionRegistry } from "./registry.js";
+import { silentLogger } from "../runtime/logger.js";
 
 function createPassThroughSchema() {
   return createSchema({});
@@ -12,6 +13,7 @@ test("action registry executes latest version by default", async () => {
   const calls = [];
 
   const registry = createActionRegistry({
+    logger: silentLogger,
     contributors: [
       {
         contributorId: "tests.settings",
@@ -72,6 +74,7 @@ test("action registry executes latest version by default", async () => {
 
 test("action registry validates action input with a single schema contract", async () => {
   const registry = createActionRegistry({
+    logger: silentLogger,
     contributors: [
       {
         contributorId: "tests.workspace",
@@ -131,6 +134,7 @@ test("action registry fails startup on duplicate action id + version", () => {
   assert.throws(
     () =>
       createActionRegistry({
+        logger: silentLogger,
         contributors: [
           {
             contributorId: "tests.a",
@@ -182,6 +186,7 @@ test("action registry fails startup on duplicate action id + version", () => {
 
 test("action registry rejects invalid version requests", async () => {
   const registry = createActionRegistry({
+    logger: silentLogger,
     contributors: [
       {
         contributorId: "tests.settings",
@@ -229,6 +234,7 @@ test("action registry rejects invalid version requests", async () => {
 
 test("action registry ignores unknown extra fields", async () => {
   const registry = createActionRegistry({
+    logger: silentLogger,
     contributors: [
       {
         contributorId: "tests.internal",
@@ -265,6 +271,7 @@ test("action registry ignores unknown extra fields", async () => {
 
 test("action registry enforces action-level permissions", async () => {
   const registry = createActionRegistry({
+    logger: silentLogger,
     contributors: [
       {
         contributorId: "tests.permissions",
@@ -324,6 +331,7 @@ test("action registry enforces action-level permissions", async () => {
 
 function createSingleActionRegistry(action, options = {}) {
   return createActionRegistry({
+    logger: silentLogger,
     ...options,
     contributors: [
       {
@@ -351,7 +359,7 @@ test("action registry requires an idempotency key only for required actions", as
     async execute() {
       return { ok: true };
     }
-  }, { logger: null });
+  });
   const context = { channel: "api", surface: "app" };
 
   await assert.rejects(

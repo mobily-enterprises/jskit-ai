@@ -39,4 +39,6 @@ function createProviderLogger(loggerLike = null, { debugEnabled = false, debugMe
   });
 }
 
+/** @typedef {ReturnType<typeof createProviderLogger>} ProviderLogger The logger createProviderLogger() returns. */
+
 export { createProviderLogger };

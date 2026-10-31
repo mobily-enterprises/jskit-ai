@@ -28,13 +28,10 @@ async function publishActionEvents(events, builders, execution) {
 }
 
 /**
- * @param {RuntimeLogger | null} logger null logs nothing.
+ * @param {RuntimeLogger} logger
  * @param {{ definition: any, context: any, outcome: string, startedAt: number, errorCode?: string | null }} execution
  */
 function logActionExecution(logger, { definition, context, outcome, startedAt, errorCode = null }) {
-  if (!logger) {
-    return;
-  }
   logger.debug(
     {
       action: definition?.id,
@@ -57,7 +54,7 @@ function logActionExecution(logger, { definition, context, outcome, startedAt, e
  * @param {unknown} execution.context
  * @param {object} [execution.deps]
  * @param {RuntimeEvents} execution.events
- * @param {RuntimeLogger | null} execution.logger null logs nothing.
+ * @param {RuntimeLogger} execution.logger
  */
 async function executeActionPipeline({
   definition,

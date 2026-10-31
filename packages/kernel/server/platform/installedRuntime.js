@@ -17,6 +17,8 @@ import {
 /** @typedef {import("../types.js").RuntimeFastify} RuntimeFastify */
 /** @typedef {import("../types.js").RuntimeLogger} RuntimeLogger */
 
+const RUNTIME_LOGGER_METHODS = Object.freeze(["debug", "info", "warn", "error"]);
+
 /**
  * @param {object} seeds
  * @param {Record<string, unknown>} seeds.inputs
@@ -33,7 +35,7 @@ function normalizeInputCapabilities({ inputs, config, env, logger, httpServer, a
     "runtime.app-root": appRoot,
     "runtime.config": Object.freeze({ ...(config && typeof config === "object" ? config : {}) }),
     "runtime.env": Object.freeze({ ...(env && typeof env === "object" ? env : {}) }),
-    "runtime.logger": logger || console,
+    "runtime.logger": logger,
     ...(httpServer ? { "runtime.fastify": httpServer } : {})
   };
   return Object.freeze(normalized);
@@ -53,9 +55,9 @@ function builtinCapabilityProviders(inputCapabilities) {
   ]);
 }
 
-// The application's capability runtime: the kernel's providers, then each
-// installed package's, then the application's own. A Fastify instance adds HTTP.
 /**
+ * The application's capability runtime: the kernel's providers, then each
+ * installed package's, then the application's own. A Fastify instance adds HTTP.
  * @param {object} options
  * @param {string} options.appRoot
  * @param {string} [options.profile]
@@ -63,7 +65,7 @@ function builtinCapabilityProviders(inputCapabilities) {
  * @param {Record<string, unknown>} [options.inputs]
  * @param {Record<string, any>} [options.config]
  * @param {Record<string, unknown>} [options.env]
- * @param {RuntimeLogger} [options.logger]
+ * @param {RuntimeLogger} [options.logger] `console` when absent.
  * @param {RuntimeFastify} [options.fastify] Absent when the application serves no HTTP.
  */
 async function createInstalledRuntime({
@@ -78,6 +80,10 @@ async function createInstalledRuntime({
 }) {
   if (!appRoot || typeof appRoot !== "string") {
     throw new TypeError("createInstalledRuntime requires appRoot.");
+  }
+  // readable-check: allow method-probe - input validation: every feature and action logs through the application's logger
+  if (!RUNTIME_LOGGER_METHODS.every((method) => typeof logger?.[method] === "function")) {
+    throw new TypeError("createInstalledRuntime requires a logger with debug(), info(), warn() and error().");
   }
 
   // readable-check: allow method-probe - input validation: only a Fastify instance that can route serves HTTP

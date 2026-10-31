@@ -27,7 +27,7 @@ Exports
 - `returnBadRequestWhenJsonRestFieldsetInvalid(run)`
 - `resolveWorkspaceScopeValue(context = null)`
 - `resolveUserScopeValue(context = null)`
-- `createJsonRestApiHost({ knex, logger = JSON_REST_DEFAULT_LOGGER })`
+- `createJsonRestApiHost({ knex, logger = consoleErrorLogger })`
 Local functions
 - `isPlainJsonRestObject(value)`
 - `cloneJsonRestResourceValue(value, { writeSerializers = {} } = {})`

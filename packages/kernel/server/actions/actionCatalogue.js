@@ -1,5 +1,7 @@
 import { createActionRegistry } from "./registry.js";
 import { isRecord } from "../../shared/support/normalize.js";
+import { createEventRuntime } from "../runtime/EventProvider.js";
+import { silentLogger } from "../runtime/logger.js";
 
 /** @typedef {import("../types.js").RuntimeEvents} RuntimeEvents */
 /** @typedef {import("../types.js").RuntimeLogger} RuntimeLogger */
@@ -12,15 +14,14 @@ function normalizeRegistration(value) {
   return value;
 }
 
-// The runtime.actions capability: the actions features register, run through the
-// action pipeline with the context their contributors add.
 /**
+ * The runtime.actions capability: the actions features register, run through the
+ * action pipeline with the context their contributors add.
  * @param {object} [dependencies]
- * @param {RuntimeEvents} [dependencies.events] Publishes the events an action declares; an action that declares events needs it.
- * @param {RuntimeLogger | null} [dependencies.logger] Logs each execution at debug level; without one nothing is logged.
+ * @param {RuntimeEvents} [dependencies.events] Publishes the events an action declares; without one they reach an event runtime of the catalogue's own, which nothing listens to.
+ * @param {RuntimeLogger} [dependencies.logger] Logs each execution at debug level; without one nothing is logged.
  */
-// readable-check: allow dependency-default - used by assistant packages, which stay unchanged: they build catalogues without dependencies
-function createActionCatalogue({ events, logger = null } = {}) {
+function createActionCatalogue({ events = createEventRuntime(), logger = silentLogger } = {}) {
   const contributors = [];
   const contextContributors = [];
   const contextContributorIds = new Set();

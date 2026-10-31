@@ -115,7 +115,7 @@ Exports
 - `REDIS_NAMESPACE_ENV_KEY`
 - `resolveRealtimeRedisUrl(env = {})`
 - `resolveRealtimeRedisNamespace(env = {})`
-- `configureSocketIoRedisAdapter(io, { redisUrl = "", redisNamespace = "", logger = console, createRedisAdapter = createSocketIoRedisAdapter, createRedisConnection = createRedisClient } = {})`
+- `configureSocketIoRedisAdapter(io, { redisUrl = "", redisNamespace = "", logger, createRedisAdapter = createSocketIoRedisAdapter, createRedisConnection = createRedisClient })`
 - `closeSocketIoRedisConnections({ pubClient = null, subClient = null } = {})`
 Local functions
 - `toRequestPathname(urlValue)`

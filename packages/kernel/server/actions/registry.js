@@ -122,12 +122,12 @@ function resolveActionDefinition(index, actionId, version) {
  * @param {object} dependencies
  * @param {ReadonlyArray<object>} [dependencies.contributors]
  * @param {RuntimeEvents} dependencies.events
- * @param {RuntimeLogger | null} [dependencies.logger] null logs nothing.
+ * @param {RuntimeLogger} dependencies.logger
  */
 function createActionRegistry({
   contributors = [],
   events,
-  logger = console
+  logger
 }) {
   const normalizedContributors = normalizeContributors(contributors);
   const index = buildDefinitionIndex(normalizedContributors);

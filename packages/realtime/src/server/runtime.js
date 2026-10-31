@@ -19,7 +19,7 @@ function toRequestPathname(urlValue) {
 
 /** @param {import("@jskit-ai/kernel/server/types").RuntimeFastify | null} fastify */
 function registerSocketIoUpgradeHandoff(fastify) {
-  // readable-check: allow method-probe - used by assistant packages, which stay unchanged: their tests pass a Fastify stand-in without addHook(); an application may also pass only an HTTP server
+  // readable-check: allow method-probe - platform object: a host that hands over only its HTTP server ({ server }) has no addHook()
   if (typeof fastify?.addHook !== "function") return;
   fastify.addHook("onRequest", async (request, reply) => {
     if (request?.ws !== true) return;
@@ -108,10 +108,10 @@ function buildSocketIoRedisAdapterKey(redisNamespace = "") {
 
 /**
  * @param {import("socket.io").Server} io
- * @param {object} [options]
+ * @param {object} options
  * @param {string} [options.redisUrl]
  * @param {string} [options.redisNamespace]
- * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger | import("./realtimeAudience.js").ProviderLogger} [options.logger]
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger | import("@jskit-ai/kernel/shared/support/providerLogger").ProviderLogger} options.logger Warned when a Redis connection fails.
  * @param {typeof createSocketIoRedisAdapter} [options.createRedisAdapter]
  * @param {typeof createRedisClient} [options.createRedisConnection]
  */
@@ -120,10 +120,10 @@ async function configureSocketIoRedisAdapter(
   {
     redisUrl = "",
     redisNamespace = "",
-    logger = console,
+    logger,
     createRedisAdapter = createSocketIoRedisAdapter,
     createRedisConnection = createRedisClient
-  } = {}
+  }
 ) {
   const normalizedRedisUrl = normalizeText(redisUrl);
   const adapterKey = buildSocketIoRedisAdapterKey(redisNamespace);

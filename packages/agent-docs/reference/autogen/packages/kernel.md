@@ -163,6 +163,7 @@ Exports
 ### `shared/support/providerLogger.js`
 Exports
 - `createProviderLogger(loggerLike = null, { debugEnabled = false, debugMethod = "info" } = {})`
+- `type ProviderLogger`
 Local functions
 - `asLogger(value)`
 - `callLoggerMethod(logger, methodName, fallbackMethodName, args)`
@@ -580,7 +581,7 @@ Exports
 
 ### `server/actions/actionCatalogue.js`
 Exports
-- `createActionCatalogue({ events, logger = null } = {})`
+- `createActionCatalogue({ events = createEventRuntime(), logger = silentLogger } = {})`
 - `type RuntimeEvents`
 - `type RuntimeLogger`
 Local functions
@@ -662,7 +663,7 @@ Local functions
 
 ### `server/actions/registry.js`
 Exports
-- `createActionRegistry({ contributors = [], events, logger = console })`
+- `createActionRegistry({ contributors = [], events, logger })`
 - `type RuntimeEvents`
 - `type RuntimeLogger`
 Local functions
@@ -925,6 +926,10 @@ Exports
 ### `server/runtime/integers.js`
 Exports
 - `parsePositiveInteger(value)`
+
+### `server/runtime/logger.js`
+Exports
+- `silentLogger`
 
 ### `server/runtime/requestUrl.js`
 Exports
