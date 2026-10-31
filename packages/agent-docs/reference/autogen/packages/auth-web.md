@@ -323,7 +323,7 @@ Exports
 
 ### `src/server/types.js`
 Exports
-- None
+- `type AuthWeb`
 
 ### patterns
 

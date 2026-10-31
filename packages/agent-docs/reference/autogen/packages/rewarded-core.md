@@ -91,7 +91,11 @@ Local functions
 
 ### `src/server/types.js`
 Exports
-- None
+- `type RewardedCore`
+- `type RewardedProviderConfigs`
+- `type RewardedRules`
+- `type RewardedUnlockReceipts`
+- `type RewardedWatchSessions`
 
 ### `src/shared/index.js`
 Exports

@@ -206,7 +206,14 @@ Exports
 
 ### `src/server/types.js`
 Exports
-- None
+- `type AuthAccess`
+- `type AuthExtensions`
+- `type AuthPolicy`
+- `type AuthCapabilities`
+- `type AuthActor`
+- `type AuthRequestResult`
+- `type AuthRealtimePolicy`
+- `type AuthService`
 
 ### `src/server/unsupportedOperation.js`
 Exports

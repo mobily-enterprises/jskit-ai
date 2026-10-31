@@ -55,7 +55,7 @@ Exports
 
 ### `src/server/types.js`
 Exports
-- None
+- `type RuntimeUploads`
 
 ### `src/server/uploadsRuntime.js`
 Exports

@@ -180,7 +180,7 @@ Exports
 
 ### `src/server/types.js`
 Exports
-- None
+- `type AuthOidcIssuer`
 
 ### bin
 

@@ -123,7 +123,7 @@ Exports
 
 ### `src/server/types.js`
 Exports
-- None
+- `type RuntimeRealtime`
 
 ### `src/shared/servedClientBuild.js`
 Exports

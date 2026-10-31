@@ -178,7 +178,9 @@ Exports
 
 ### `src/server/types.js`
 Exports
-- None
+- `type UsersCore`
+- `type UsersExtensions`
+- `type UsersIdentity`
 
 ### `src/server/usersBootstrapContributor.js`
 Exports

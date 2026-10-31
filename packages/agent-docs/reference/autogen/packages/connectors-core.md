@@ -71,7 +71,7 @@ Exports
 
 ### `src/server/types.js`
 Exports
-- None
+- `type ConnectorsCore`
 
 ### `src/shared/configuration.js`
 Exports

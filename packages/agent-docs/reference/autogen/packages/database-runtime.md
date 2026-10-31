@@ -45,7 +45,8 @@ Exports
 
 ### `src/server/types.js`
 Exports
-- None
+- `type RuntimeDatabase`
+- `type RuntimeDatabaseDriver`
 
 ### `src/shared/databaseClient.js`
 Exports

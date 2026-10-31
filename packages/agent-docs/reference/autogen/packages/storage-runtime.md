@@ -34,4 +34,4 @@ Local functions
 
 ### `src/server/types.js`
 Exports
-- None
+- `type RuntimeStorage`

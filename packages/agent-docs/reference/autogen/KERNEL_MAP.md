@@ -367,6 +367,9 @@ Exports
 - `ARCHITECTURE_ID_PATTERN`
 - `defineProvider({ id, requires = {}, optional = {}, provides = {}, setup, boot = null, shutdown = null } = {})`
 - `normalizeArchitectureId(value, label)`
+- `type ProviderSetupContext`
+- `type ProviderLifecycleContext`
+- `type ProviderDefinition`
 Local functions
 - `normalizeCapabilityMap(value, label)`
 - `assertDistinctLocalNames(maps)`

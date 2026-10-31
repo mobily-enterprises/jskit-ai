@@ -147,7 +147,7 @@ Exports
 
 ### `src/server/types.js`
 Exports
-- None
+- `type WorkspacesCore`
 
 ### `src/server/workspaceBootstrapContributor.js`
 Exports

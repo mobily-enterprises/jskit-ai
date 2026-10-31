@@ -351,7 +351,7 @@ Local functions
 
 ### `src/server/types.js`
 Exports
-- None
+- `type CrudResourceApi`
 
 ### patterns
 

@@ -59,7 +59,7 @@ Local functions
 
 ### `src/server/types.js`
 Exports
-- None
+- `type ConsoleCore`
 
 ### `src/shared/operationMessages.js`
 Exports

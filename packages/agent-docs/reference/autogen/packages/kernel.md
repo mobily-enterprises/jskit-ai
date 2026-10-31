@@ -19,6 +19,9 @@ Exports
 - `ARCHITECTURE_ID_PATTERN`
 - `defineProvider({ id, requires = {}, optional = {}, provides = {}, setup, boot = null, shutdown = null } = {})`
 - `normalizeArchitectureId(value, label)`
+- `type ProviderSetupContext`
+- `type ProviderLifecycleContext`
+- `type ProviderDefinition`
 Local functions
 - `normalizeCapabilityMap(value, label)`
 - `assertDistinctLocalNames(maps)`
@@ -670,6 +673,8 @@ Exports
 ### `server/features/defineFeature.js`
 Exports
 - `defineFeature({ id, domain = id, requires = {}, optional = {}, provides = {}, setup = () => ({}), actions = [], actionDefaults = {}, boot = null, shutdown = null } = {})`
+- `type FeatureSetupContext`
+- `type FeatureDefinition`
 Local functions
 - `exactOutputNames(value, expectedNames, featureId)`
 - `normalizeActionFactory(value, featureId)`
@@ -1000,7 +1005,15 @@ Local functions
 
 ### `server/types.js`
 Exports
-- None
+- `type ActionCatalogue`
+- `type RuntimeBootstrap`
+- `type RuntimeEvents`
+- `type RuntimeHttp`
+- `type RuntimeAppRoot`
+- `type RuntimeConfig`
+- `type RuntimeEnv`
+- `type RuntimeFastify`
+- `type RuntimeLogger`
 
 ### _testable
 

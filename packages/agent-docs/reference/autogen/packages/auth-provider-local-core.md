@@ -138,7 +138,8 @@ Local functions
 
 ### `src/server/types.js`
 Exports
-- None
+- `type AuthLocalBackendTransaction`
+- `type AuthLocalBackend`
 
 ### test-support
 
