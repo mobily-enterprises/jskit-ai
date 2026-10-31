@@ -119,11 +119,11 @@ function normalizeRealtime(value, execution) {
   });
 }
 
-// An action event builder: once the action has run, it announces that one of
-// the source's entities was created, updated or deleted. operation, entityId
-// and the realtime audience and payload may each be a function of the
-// action's execution ({ definition, input, result, context }).
 /**
+ * An action event builder: once the action has run, it announces that one of
+ * the source's entities was created, updated or deleted. operation, entityId
+ * and the realtime audience and payload may each be a function of the
+ * action's execution ({ definition, input, result, context }).
  * @param {object} change
  * @param {string} change.source The package or domain that announces the change.
  * @param {string} change.entity

@@ -15,7 +15,7 @@ function normalizeMigrationResult(result) {
 /**
  * Migrates the database an application's Knex instance reaches, then runs its seed, if any, in one transaction.
  * @param {object} [options]
- * @param {import("knex").Knex} options.knex
+ * @param {import("./types.js").RuntimeKnex} options.knex
  * @param {(context: { knex: import("knex").Knex.Transaction, appRoot: string, environment: NodeJS.ProcessEnv }) => unknown} [options.seed]
  * @param {string} [options.appRoot]
  * @param {NodeJS.ProcessEnv} [options.environment]

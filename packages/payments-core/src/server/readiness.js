@@ -14,9 +14,9 @@ const DEFAULT_CHECKS = Object.freeze([
 // Only these checks take their result from the application's own evidence.
 const APPLICATION_CHECKS = ["webhook", "checkout", "site", "deployment"];
 
-// App-server inspection, invoked only after the host authorizes management.
-// Missing app evidence stays unknown; provider errors never become display text.
 /**
+ * App-server inspection, invoked only after the host authorizes management.
+ * Missing app evidence stays unknown; provider errors never become display text.
  * @param {object} dependencies
  * @param {import("./types.js").PaymentProviderAdapter} dependencies.adapter
  * @param {import("./types.js").PaymentCatalogue} dependencies.catalogue

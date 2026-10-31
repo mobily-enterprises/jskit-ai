@@ -1,7 +1,9 @@
 import { createWithTransaction } from "@jskit-ai/database-runtime/shared";
 
-// The invoice rollup's persistence: a reviewed custom Knex repository.
-/** @param {{ knex: import("knex").Knex }} dependencies */
+/**
+ * The invoice rollup's persistence: a reviewed custom Knex repository.
+ * @param {{ knex: import("@jskit-ai/database-runtime/server/types").RuntimeKnex }} dependencies
+ */
 function createRepository({ knex }) {
   return Object.freeze({
     withTransaction: createWithTransaction(knex),

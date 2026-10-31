@@ -82,8 +82,10 @@ function withoutActionCatalogue(dependencies) {
  * @property {((dependencies: any, context: import("../../shared/capabilities/defineProvider.js").ProviderLifecycleContext) => any) | null} [shutdown]
  */
 
-// An absent definition reaches the checks below, which name what is missing.
-/** @param {FeatureDefinition} [definition] */
+/**
+ * An absent definition reaches the checks below, which name what is missing.
+ * @param {FeatureDefinition} [definition]
+ */
 function defineFeature({
   id,
   domain = id,

@@ -179,7 +179,7 @@ function collectUserIds(rows) {
  * @param {unknown} audience
  * @param {object} event
  * @param {object} dependencies
- * @param {RuntimeDatabase | null} [dependencies.database] Absent when no runtime.database is installed.
+ * @param {RuntimeDatabase | null} dependencies.database Absent when no runtime.database is installed.
  * @param {ProviderLogger} dependencies.logger
  */
 async function resolveAudienceTargets(audience, event, { database, logger }) {
@@ -249,10 +249,10 @@ function createSocketRequest(socket) {
   return request;
 }
 
-// A socket cannot store a refreshed session, so its checks never refresh one.
-// A provider that would have to (its access token expired) answers
-// `refreshRequired`, and the client refreshes over HTTP before reconnecting.
 /**
+ * A socket cannot store a refreshed session, so its checks never refresh one.
+ * A provider that would have to (its access token expired) answers
+ * `refreshRequired`, and the client refreshes over HTTP before reconnecting.
  * @param {AuthService | null} authService Absent when no auth.service is installed.
  * @param {import("socket.io").Socket} socket
  * @param {object} [request]
@@ -294,10 +294,10 @@ function rememberSocketActorId(socket, actorId) {
   socket.data.actorId = actorId;
 }
 
-// Every handshake is authenticated here. A login that needs a session refresh
-// is refused even when sign-in is optional, so the client refreshes and
-// reconnects instead of silently connecting without its user's rooms.
 /**
+ * Every handshake is authenticated here. A login that needs a session refresh
+ * is refused even when sign-in is optional, so the client refreshes and
+ * reconnects instead of silently connecting without its user's rooms.
  * @param {object} dependencies
  * @param {import("socket.io").Server} dependencies.io
  * @param {ProviderLogger} dependencies.logger

@@ -221,8 +221,8 @@ class AuthController {
   }
 }
 
-// An auth controller over the given AuthWebService, or over one built on authService.
 /**
+ * An auth controller over the given AuthWebService, or over one built on authService.
  * @param {object} dependencies
  * @param {AuthWebService} [dependencies.service]
  * @param {import("@jskit-ai/auth-core/server/types").AuthService} [dependencies.authService]

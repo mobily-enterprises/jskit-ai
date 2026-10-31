@@ -150,9 +150,9 @@ function isFutureDate(value = null, now = new Date()) {
 
 /** @typedef {import("@jskit-ai/crud-core/server/types").CrudResourceApi["repository"]} RewardedRepository */
 
-// The Rewarded gate workflow over its four resources' repositories and the
-// application's grant policy.
 /**
+ * The Rewarded gate workflow over its four resources' repositories and the
+ * application's grant policy.
  * @param {object} dependencies
  * @param {import("./types.js").RewardedGrantPolicy["authorizeGrant"]} dependencies.authorizeGrant
  * @param {RewardedRepository} dependencies.rewardedRulesRepository

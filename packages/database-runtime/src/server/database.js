@@ -12,8 +12,8 @@ function resolveDriverDialectId(driver) {
   return dialectId;
 }
 
-// The database connection every feature shares: the installed driver, its Knex client and a transaction manager.
 /**
+ * The database connection every feature shares: the installed driver, its Knex client and a transaction manager.
  * @param {object} dependencies
  * @param {import("./types.js").RuntimeDatabaseDriver} dependencies.driver
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} dependencies.env
@@ -25,7 +25,7 @@ function createDatabase({ driver, env }) {
     throw new Error(`DB_CLIENT="${configuredClient}" does not match installed database driver "${dialectId}".`);
   }
 
-  /** @type {import("knex").Knex} */
+  /** @type {import("./types.js").RuntimeKnex} */
   const knex = loadKnexFactory()({
     client: toKnexClientId(dialectId),
     connection: resolveKnexConnectionFromEnvironment(env, {

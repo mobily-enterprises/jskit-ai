@@ -2,8 +2,8 @@ import { normalizeObject, normalizeText } from "../../shared/support/normalize.j
 import { normalizeMobileConfig } from "../../shared/support/mobileConfig.js";
 import { normalizeSurfaceId } from "../../shared/surface/registry.js";
 
-// A container scope can make appConfig; any other value supplies none.
 /**
+ * A container scope can make appConfig; any other value supplies none.
  * @param {any} value
  * @returns {value is { has(token: string): boolean, make(token: string): unknown }}
  */

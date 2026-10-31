@@ -26,9 +26,9 @@ function normalizeResolver({ id, resolve } = {}) {
   return Object.freeze({ id: resolverId, resolve });
 }
 
-// The runtime.http capability: the routes features register, served by the
-// application's Fastify instance once the runtime starts.
 /**
+ * The runtime.http capability: the routes features register, served by the
+ * application's Fastify instance once the runtime starts.
  * @param {object} dependencies
  * @param {RuntimeFastify} dependencies.fastify
  * @param {ActionCatalogue} dependencies.actions

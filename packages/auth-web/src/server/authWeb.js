@@ -8,9 +8,9 @@ function devAuthBootstrapEnabled(env) {
   return policy.enabled && !policy.isProduction;
 }
 
-// The auth web routes over the installed auth service: their service,
-// controller and route table.
 /**
+ * The auth web routes over the installed auth service: their service,
+ * controller and route table.
  * @param {object} dependencies
  * @param {import("@jskit-ai/auth-core/server/types").AuthService} dependencies.authService
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} dependencies.env

@@ -5,8 +5,8 @@ import path from "node:path";
 import lockfile from "proper-lockfile";
 import { ConnectorError } from "./errors.js";
 
-// Connections kept as encrypted JSON files in a private directory, one locked file per connection.
 /**
+ * Connections kept as encrypted JSON files in a private directory, one locked file per connection.
  * @param {object} options
  * @param {string} options.directory An absolute private runtime directory.
  * @param {import("./types.js").CredentialProtection} options.protection

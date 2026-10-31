@@ -1032,6 +1032,7 @@ Exports
 - `type RuntimeBootstrap`
 - `type RuntimeEvents`
 - `type RuntimeHttp`
+- `type RuntimeRouter`
 - `type RuntimeAppRoot`
 - `type RuntimeConfig`
 - `type RuntimeEnv`

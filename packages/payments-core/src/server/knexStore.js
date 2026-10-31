@@ -16,7 +16,7 @@ function identifier(value) {
 }
 const accountKey = (scope) => fingerprint([...merchant(scope), identifier(scope.subjectId)]);
 
-/** @param {{ knex: import("knex").Knex }} dependencies */
+/** @param {{ knex: import("@jskit-ai/database-runtime/server/types").RuntimeKnex }} dependencies */
 function createKnexPaymentStore({ knex }) {
   // readable-check: allow method-probe - input validation: the application passes its own Knex instance
   if (typeof knex !== "function" || typeof knex.transaction !== "function") throw new TypeError("Supply the application's transactional Knex client.");

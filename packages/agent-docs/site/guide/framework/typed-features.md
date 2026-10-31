@@ -40,7 +40,8 @@ and spelled:
    `ReturnType<typeof createX>` inside a package, or a class name. Reference
    only subpaths a package exports. A feature's `setup()`, `boot()` or
    `shutdown()` that calls a method on a capability types its parameter; a hook
-   that only passes capabilities on to factories needs no type.
+   that only passes capabilities on to factories needs no type. A function's
+   description goes inside its JSDoc block, before the tags.
 3. **Collaborators are required.** No `= null`, `= {}` or no-op default on a
    collaborator or on the dependencies object, no
    `typeof dependency.method === "function"` probe, no `dependency?.method?.()`
@@ -123,8 +124,10 @@ capability can name its type:
 ```
 
 ```js
-// In an application package whose feature requires `users: "users.core"`.
-/** @param {{ users: import("@jskit-ai/users-core/server/types").UsersCore }} dependencies */
+/**
+ * A service of an application package whose feature requires `users: "users.core"`.
+ * @param {{ users: import("@jskit-ai/users-core/server/types").UsersCore }} dependencies
+ */
 function createWelcomeService({ users }) {
   // `users.services.accountPreferences` has one known type here.
 }
@@ -189,7 +192,7 @@ A route names the action it runs; the transport contract comes from the shared
 resource:
 
 ```js
-/** @param {import("@jskit-ai/kernel/server/types").RuntimeHttp["router"]} router */
+/** @param {import("@jskit-ai/kernel/server/types").RuntimeRouter} router */
 function registerAccountPreferencesRoutes(router) {
   router.register(
     "PATCH",
@@ -262,8 +265,8 @@ validated payload as it is:
 /** @typedef {ReturnType<typeof import("../common/repositories/userProfilesRepository.js").createRepository>} UserProfilesRepository */
 /** @typedef {ReturnType<typeof import("../common/repositories/userSettingsRepository.js").createRepository>} UserSettingsRepository */
 
-// A signed-in user's display and regional preferences.
 /**
+ * A signed-in user's display and regional preferences.
  * @param {object} dependencies
  * @param {UserSettingsRepository} dependencies.userSettingsRepository
  * @param {UserProfilesRepository} dependencies.userProfilesRepository
@@ -350,6 +353,13 @@ After `setup()`, the action catalogue holds exactly one events runtime: the
 one an installed provider supplied for `runtime.events`, or the kernel's
 `createEventRuntime()`. A package fills the slot by providing the token; nothing
 calls the catalogue later to change it.
+
+An optional token that no installed package provides arrives as `null`, so a
+parameter that receives it as it is says so:
+
+```js
+/** @param {import("@jskit-ai/auth-core/server/types").AuthService | null} authService Absent when no auth.service is installed. */
+```
 
 Avoid the shapes that hide the destination:
 

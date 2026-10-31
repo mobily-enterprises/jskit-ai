@@ -4,9 +4,9 @@ import { PaymentError, fingerprint } from "./errors.js";
 const priceFields = (plan) => ({ amount: plan.amount, currency: plan.currency, interval: plan.interval });
 const samePrice = (a, b) => fingerprint(priceFields(a)) === fingerprint(priceFields(b));
 
-// Trusted application service. Hosts must authorize catalogue management before
-// invoking it. No provider mutation happens while merely reading configuration.
 /**
+ * Trusted application service. Hosts must authorize catalogue management before
+ * invoking it. No provider mutation happens while merely reading configuration.
  * @param {object} dependencies
  * @param {import("./types.js").PaymentStore} dependencies.store
  * @param {import("./types.js").PaymentProviderAdapter} dependencies.adapter

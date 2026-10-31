@@ -22,9 +22,9 @@ function operationRequest(operation, input, settings, providerData) {
   }
 }
 
-// The requests a connection sends its provider: operations, and the token
-// grants that keep the connection's access current.
 /**
+ * The requests a connection sends its provider: operations, and the token
+ * grants that keep the connection's access current.
  * @param {object} dependencies
  * @param {typeof globalThis.fetch} dependencies.fetchImpl
  * @param {() => number} dependencies.now

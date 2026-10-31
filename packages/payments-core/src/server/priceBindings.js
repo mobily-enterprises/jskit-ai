@@ -1,8 +1,8 @@
 import { PaymentError } from "./errors.js";
 
-// Plan-to-price bindings shared by the provider adapters. `invalid` throws the
-// adapter's own provider-result error for an unknown or ambiguous price.
 /**
+ * Plan-to-price bindings shared by the provider adapters. `invalid` throws the
+ * adapter's own provider-result error for an unknown or ambiguous price.
  * @param {object} bindings
  * @param {Record<string, string>} bindings.priceBindings Each plan's current price id.
  * @param {Record<string, string>} [bindings.historicalPriceBindings] The plan of each retired price id.

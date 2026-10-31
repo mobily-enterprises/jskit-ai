@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { PaymentError, fingerprint } from "./errors.js";
 
-// Application composition boundary: authorization is mandatory and supplied by
-// the app's framework. Actor and subject must come from its authenticated route.
 /**
+ * Application composition boundary: authorization is mandatory and supplied by
+ * the app's framework. Actor and subject must come from its authenticated route.
  * @param {object} dependencies
  * @param {import("./types.js").PaymentProviderAdapter} dependencies.adapter
  * @param {import("./types.js").PaymentStore} dependencies.store

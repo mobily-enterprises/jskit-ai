@@ -609,7 +609,7 @@ async function returnBadRequestWhenJsonRestFieldsetInvalid(run) {
 
 /**
  * @param {object} dependencies
- * @param {import("@jskit-ai/database-runtime/server/types").RuntimeDatabase["knex"]} dependencies.knex
+ * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} dependencies.knex
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} [dependencies.logger] Without one, only json-rest-api's errors are logged, to the console.
  */
 async function createJsonRestApiHost({ knex, logger = consoleErrorLogger }) {

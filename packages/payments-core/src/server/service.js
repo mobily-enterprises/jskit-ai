@@ -39,9 +39,9 @@ async function grant(tx, { reference: id, units: quantity, expiresAt }, now) {
   });
 }
 
-// Server-side domain API. The application authorizes the billable subject before
-// invoking it; none of these methods is an HTTP endpoint or a browser authority.
 /**
+ * Server-side domain API. The application authorizes the billable subject before
+ * invoking it; none of these methods is an HTTP endpoint or a browser authority.
  * @param {object} dependencies
  * @param {import("./types.js").PaymentStore} dependencies.store
  * @param {import("./types.js").PaymentConfiguration} dependencies.configuration

@@ -47,6 +47,7 @@ Exports
 ### `src/server/types.js`
 Exports
 - `type RuntimeDatabase`
+- `type RuntimeKnex`
 - `type RuntimeDatabaseDriver`
 
 ### `src/shared/databaseClient.js`

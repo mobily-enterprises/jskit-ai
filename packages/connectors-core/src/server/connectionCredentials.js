@@ -13,9 +13,9 @@ function validateCallbackUrl(value) {
   return url.href;
 }
 
-// The credentials an integration's bindings resolve to: its OAuth
-// registration, API key, service-account credential or Env refresh token.
 /**
+ * The credentials an integration's bindings resolve to: its OAuth
+ * registration, API key, service-account credential or Env refresh token.
  * @param {object} dependencies
  * @param {Record<string, any>} dependencies.config The validated integration configuration.
  * @param {import("./types.js").ResolveReference} dependencies.resolveReference

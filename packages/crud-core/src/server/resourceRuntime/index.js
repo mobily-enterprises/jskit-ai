@@ -587,7 +587,7 @@ async function deleteRecordById(runtime, knex, recordId, callOptions = {}) {
 
 /**
  * @param {object} resource
- * @param {import("@jskit-ai/database-runtime/server/types").RuntimeDatabase["knex"]} knex
+ * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} knex
  * @param {object} [repositoryOptions]
  */
 function createCrudResourceRuntime(resource = {}, knex, repositoryOptions = {}) {

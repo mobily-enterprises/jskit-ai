@@ -47,9 +47,9 @@ function callbackMatches(connection, provider, registration) {
     connection.callbackUrl === registration.callbackUrl;
 }
 
-// The connections of one application's configured integrations: authorization,
-// connection, provider operations, status and disconnection.
 /**
+ * The connections of one application's configured integrations: authorization,
+ * connection, provider operations, status and disconnection.
  * @param {object} options
  * @param {Record<string, any>} options.configuration The integration configuration, validated here against the providers.
  * @param {import("./types.js").ConnectorProvider[]} options.providers

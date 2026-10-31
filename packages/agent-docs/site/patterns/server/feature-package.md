@@ -49,7 +49,7 @@ questionnaire.
 - Every factory, action creator and hook that receives a collaborator names its
   type in a JSDoc `@param`: `import("./types.js").<Name>` or
   `ReturnType<typeof createX>` inside the package, the owner's `./server/types`
-  across packages, or the library's own type such as `import("knex").Knex`.
+  across packages; a Knex client is database-runtime's `RuntimeKnex`.
 - Collaborators are required. There is no `= null`, `= {}` or no-op default,
   no `typeof` probe, no optional call and no "requires x" guard: the capability
   runtime refuses to start without a required token.

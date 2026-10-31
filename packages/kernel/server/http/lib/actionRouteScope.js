@@ -5,12 +5,12 @@ import { RouteDefinitionError } from "./errors.js";
 
 const emptyInput = () => ({});
 
-// A group of HTTP routes under one scoped API base. Action routes name the
-// action they run, so the route table and static inspection both see it.
-// Keep the scope options and each actionRoute's method, suffix and actionId
-// literal (or a literal array's .map / for...of element) so inspectors can
-// read them without running the application.
 /**
+ * A group of HTTP routes under one scoped API base. Action routes name the
+ * action they run, so the route table and static inspection both see it.
+ * Keep the scope options and each actionRoute's method, suffix and actionId
+ * literal (or a literal array's .map / for...of element) so inspectors can
+ * read them without running the application.
  * @param {import("../../types.js").RuntimeHttp} http
  * @param {object} [scope]
  * @param {string} [scope.routeBase]

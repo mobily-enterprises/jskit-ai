@@ -2,9 +2,9 @@ import { ConnectorError, createEnvironmentReferenceResolver } from "@jskit-ai/co
 import { validateIntegrationConfiguration } from "@jskit-ai/connectors-core/shared/configuration";
 import { aiCatalogue, aiDefinition, getAiModel } from "../shared/ai.js";
 
-// A server-only credential boundary. The consuming application's SDK owns all
-// inference, transport, streaming, tool execution and error/fallback policy.
 /**
+ * A server-only credential boundary. The consuming application's SDK owns all
+ * inference, transport, streaming, tool execution and error/fallback policy.
  * @param {object} options
  * @param {Record<string, any>} options.configuration The integration configuration.
  * @param {import("@jskit-ai/connectors-core/server/types").ConnectorAuthorize} options.authorize

@@ -1,10 +1,10 @@
 import { readServedClientBuildId } from "@jskit-ai/kernel/server/support";
 import { SERVED_CLIENT_BUILD_EVENT } from "../shared/servedClientBuild.js";
 
-// Each connection, including a reconnection to a restarted server, learns the
-// client build this server serves now. A page running an older build can then
-// offer a reload without polling.
 /**
+ * Each connection, including a reconnection to a restarted server, learns the
+ * client build this server serves now. A page running an older build can then
+ * offer a reload without polling.
  * @param {object} dependencies
  * @param {import("socket.io").Server} dependencies.io
  * @param {import("@jskit-ai/kernel/server/types").RuntimeAppRoot | null} dependencies.appRoot Absent when no runtime.app-root is installed.

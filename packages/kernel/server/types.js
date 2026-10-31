@@ -5,6 +5,7 @@
 /** @typedef {ReturnType<typeof import("./runtime/BootstrapProvider.js").createBootstrapRuntime>} RuntimeBootstrap */
 /** @typedef {ReturnType<typeof import("./runtime/EventProvider.js").createEventRuntime>} RuntimeEvents */
 /** @typedef {ReturnType<typeof import("./http/capabilityHttpRuntime.js").createCapabilityHttpRuntime>} RuntimeHttp */
+/** @typedef {ReturnType<typeof import("./http/lib/router.js").createRouter>} RuntimeRouter The router of `runtime.http`, on which features register their routes. */
 
 /** @typedef {string} RuntimeAppRoot The application's root directory. */
 /** @typedef {Readonly<Record<string, any>>} RuntimeConfig The application's configuration. */

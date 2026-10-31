@@ -47,8 +47,8 @@ const googleAdsSearchOperations = {
     p => ({ url: `${api}/customers/${p.customerId}/conversionActions:mutate`, body: { operations: [{ create: { name: p.name, type: "WEBPAGE", category: "SUBMIT_LEAD_FORM", status: "ENABLED", countingType: "ONE_PER_CLICK", primaryForGoal: true } }] } }), result => mutated(result) && result.results?.length === 1)
 };
 
-// Application composition: this service has no editor protocol, command runner or storage.
 /**
+ * Application composition: this service has no editor protocol, command runner or storage.
  * @param {object} options
  * @param {import("@jskit-ai/connectors-core/server/types").ConnectorsCore} options.connections
  *   The connection service whose Google Ads integration it invokes.
