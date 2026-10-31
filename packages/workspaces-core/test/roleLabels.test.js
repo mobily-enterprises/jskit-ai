@@ -84,7 +84,7 @@ test("Members and Invitations response validation preserves labels and saved rol
   }
   const roles = output(workspaceMembersResource, "rolesList", await service.listRoles());
   assert.deepEqual(roles.roles.map((role) => role.label), expectedLabels);
-  const invites = output(workspaceMembersResource, "invitesList", await service.listInvites(workspace));
+  const invites = output(workspaceMembersResource, "invitesList", (await service.listInvites(workspace)).value);
   assert.deepEqual(invites.roleCatalog.roles.map((role) => role.label), expectedLabels);
   await assert.rejects(service.updateMemberRole(workspace, { memberUserId: "11", roleSid: "Controller" }), /Validation failed/);
   await assert.rejects(service.updateMemberRole(workspace, { memberUserId: "11", roleSid: "owner" }), /Validation failed/);
@@ -99,9 +99,9 @@ test("Workspace Settings response validation preserves configured labels", async
       }
     }
   });
-  const response = output(workspaceSettingsResource, "view", await service.getWorkspaceSettings(workspace, {
+  const response = output(workspaceSettingsResource, "view", (await service.getWorkspaceSettings(workspace, {
     context: { actor: { id: "9" }, permissions: ["workspace.settings.view"] }
-  }));
+  })).value);
   assert.deepEqual(response.roleCatalog.roles.map((role) => role.label), expectedLabels);
 });
 
@@ -123,7 +123,7 @@ test("pending and resolved invitation responses derive labels while acceptance s
   });
   const user = { id: "11", email: invite.email };
   const pending = output(workspacePendingInvitationsResource, "list", { pendingInvites: await service.listPendingInvitesForUser(user) });
-  const resolved = output(workspacePendingInvitationsResource, "resolve", await service.resolveInviteByToken(token));
+  const resolved = output(workspacePendingInvitationsResource, "resolve", (await service.resolveInviteByToken(token)).value);
   assert.equal(pending.pendingInvites[0].roleLabel, "Operator");
   assert.equal(resolved.roleLabel, "Operator");
   assert.equal(resolved.roleSid, "safety_manager");

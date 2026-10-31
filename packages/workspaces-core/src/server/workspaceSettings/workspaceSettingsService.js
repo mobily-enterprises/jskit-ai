@@ -1,6 +1,7 @@
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
 import { pickOwnProperties } from "@jskit-ai/kernel/shared/support";
+import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import {
   WORKSPACE_SETTINGS_FIELD_KEYS
 } from "../../shared/resources/workspaceSettingsResource.js";
@@ -15,7 +16,7 @@ import { cloneWorkspaceRoleCatalog } from "../../shared/roles.js";
 function createService({ workspaceSettingsRepository, workspaceInvitationsEnabled = true, roleCatalog }) {
   const invitesAvailable = workspaceInvitationsEnabled === true;
 
-  async function getWorkspaceSettings(workspace, options = {}) {
+  async function readWorkspaceSettings(workspace, options = {}) {
     const settingsRecord = await workspaceSettingsRepository.ensureForWorkspaceId(workspace.id, {
       ...options,
       workspace
@@ -40,6 +41,10 @@ function createService({ workspaceSettingsRepository, workspaceInvitationsEnable
     };
   }
 
+  async function getWorkspaceSettings(workspace, options = {}) {
+    return returnJsonApiData(await readWorkspaceSettings(workspace, options));
+  }
+
   async function updateWorkspaceSettings(workspace, payload, options = {}) {
     const source = normalizeObjectInput(payload);
     const settingsPatch = pickOwnProperties(source, WORKSPACE_SETTINGS_FIELD_KEYS);
@@ -51,7 +56,7 @@ function createService({ workspaceSettingsRepository, workspaceInvitationsEnable
       });
     }
 
-    return getWorkspaceSettings(workspace, options);
+    return returnJsonApiData(await readWorkspaceSettings(workspace, options));
   }
 
   return Object.freeze({

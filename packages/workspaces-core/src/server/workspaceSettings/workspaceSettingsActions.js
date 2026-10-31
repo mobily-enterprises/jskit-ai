@@ -1,5 +1,4 @@
 import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
-import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import { workspaceSettingsResource } from "../../shared/resources/workspaceSettingsResource.js";
 import { workspaceSlugParamsValidator } from "../common/validators/routeParamsValidator.js";
 import { createWorkspaceEntityAndBootstrapEvents } from "../common/support/realtimeServiceEvents.js";
@@ -42,10 +41,10 @@ function createWorkspaceSettingsActions({ workspaceSettingsService }) {
         }
       },
       idempotency: "none",
-      execute: async (input, context) => returnJsonApiData(await workspaceSettingsService.getWorkspaceSettings(
+      execute: (input, context) => workspaceSettingsService.getWorkspaceSettings(
         resolveWorkspace(context, input),
         { context }
-      ))
+      )
     }),
     Object.freeze({
       id: "workspace.settings.update",
@@ -68,11 +67,11 @@ function createWorkspaceSettingsActions({ workspaceSettingsService }) {
       },
       idempotency: "optional",
       events: WORKSPACE_SETTINGS_CHANGED_EVENTS,
-      execute: async (input, context) => returnJsonApiData(await workspaceSettingsService.updateWorkspaceSettings(
+      execute: (input, context) => workspaceSettingsService.updateWorkspaceSettings(
         resolveWorkspace(context, input),
         input,
         { context }
-      ))
+      )
     })
   ]);
 }

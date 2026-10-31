@@ -2,7 +2,6 @@ import {
   emptyInputValidator,
   resolveRequest
 } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
-import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
 import { workspaceResource } from "../../shared/resources/workspaceResource.js";
 import { workspaceSlugParamsValidator } from "../common/validators/routeParamsValidator.js";
@@ -42,11 +41,11 @@ function createWorkspaceDirectoryActions({ workspaceService }) {
         }
       },
       idempotency: "none",
-      execute: async (input, context) => returnJsonApiData(await workspaceService.createWorkspaceForAuthenticatedUser(
+      execute: (input, context) => workspaceService.createWorkspaceForAuthenticatedUser(
         resolveActionUser(context, input),
         input,
         { request: resolveRequest(context), context }
-      ))
+      )
     }),
     Object.freeze({
       id: "workspace.workspaces.list",
@@ -71,13 +70,10 @@ function createWorkspaceDirectoryActions({ workspaceService }) {
         }
       },
       idempotency: "none",
-      execute: async (input, context) => returnJsonApiData({
-        items: await workspaceService.listWorkspacesForAuthenticatedUser(
-          resolveActionUser(context, input),
-          { request: resolveRequest(context), context }
-        ),
-        nextCursor: null
-      })
+      execute: (input, context) => workspaceService.listWorkspacesForAuthenticatedUser(
+        resolveActionUser(context, input),
+        { request: resolveRequest(context), context }
+      )
     }),
     Object.freeze({
       id: "workspace.workspaces.read",
@@ -99,11 +95,11 @@ function createWorkspaceDirectoryActions({ workspaceService }) {
         }
       },
       idempotency: "none",
-      execute: async (input, context) => returnJsonApiData(await workspaceService.getWorkspaceForAuthenticatedUser(
+      execute: (input, context) => workspaceService.getWorkspaceForAuthenticatedUser(
         resolveActionUser(context, input),
         input.workspaceSlug,
         { request: resolveRequest(context), context }
-      ))
+      )
     }),
     Object.freeze({
       id: "workspace.workspaces.update",
@@ -127,12 +123,12 @@ function createWorkspaceDirectoryActions({ workspaceService }) {
       idempotency: "optional",
       // The repository writes every field of the patch, so the slug that names
       // the workspace stays out of it.
-      execute: async ({ workspaceSlug, ...patch }, context) => returnJsonApiData(await workspaceService.updateWorkspaceForAuthenticatedUser(
+      execute: ({ workspaceSlug, ...patch }, context) => workspaceService.updateWorkspaceForAuthenticatedUser(
         resolveActionUser(context, patch),
         workspaceSlug,
         patch,
         { request: resolveRequest(context), context }
-      ))
+      )
     })
   ]);
 }

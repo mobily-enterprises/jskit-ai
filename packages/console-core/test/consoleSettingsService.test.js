@@ -41,7 +41,7 @@ test("consoleSettingsService.getSettings requires owner access and returns norma
     }
   };
 
-  const response = await service.getSettings({ context });
+  const response = (await service.getSettings({ context })).value;
 
   assert.deepEqual(calls.requireConsoleOwner, [context]);
   assert.deepEqual(response, {
@@ -57,10 +57,10 @@ test("consoleSettingsService.updateSettings requires owner access before writing
     }
   };
 
-  const response = await service.updateSettings(
+  const response = (await service.updateSettings(
     {},
     { context }
-  );
+  )).value;
 
   assert.deepEqual(calls.requireConsoleOwner, [context]);
   assert.deepEqual(calls.updateSingleton, [{}]);

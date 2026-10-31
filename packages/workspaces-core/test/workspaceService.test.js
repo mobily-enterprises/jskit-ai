@@ -351,7 +351,7 @@ test("workspaceService.createWorkspaceForAuthenticatedUser creates non-personal 
     }
   });
 
-  const workspace = await service.createWorkspaceForAuthenticatedUser(
+  const workspace = (await service.createWorkspaceForAuthenticatedUser(
     {
       id: "7",
       email: "chiaramobily@gmail.com",
@@ -361,7 +361,7 @@ test("workspaceService.createWorkspaceForAuthenticatedUser creates non-personal 
       name: "Operations Team",
       slug: "ops-team"
     }
-  );
+  )).value;
 
   assert.equal(workspace.slug, "ops-team");
   assert.equal(calls.insert, 1);
@@ -381,7 +381,7 @@ test("workspaceService.createWorkspaceForAuthenticatedUser generates an omitted 
     }
   });
 
-  const workspace = await service.createWorkspaceForAuthenticatedUser(
+  const workspace = (await service.createWorkspaceForAuthenticatedUser(
     {
       id: "7",
       email: "chiaramobily@gmail.com",
@@ -390,7 +390,7 @@ test("workspaceService.createWorkspaceForAuthenticatedUser generates an omitted 
     {
       name: "Operations Team"
     }
-  );
+  )).value;
 
   assert.equal(workspace.slug, "operations-team");
   assert.equal(calls.insert, 1);
@@ -653,14 +653,14 @@ test("workspaceService.getWorkspaceForAuthenticatedUser resolves workspace from 
     ]
   });
 
-  const workspace = await service.getWorkspaceForAuthenticatedUser(
+  const workspace = (await service.getWorkspaceForAuthenticatedUser(
     {
       id: "7",
       email: "chiaramobily@gmail.com",
       displayName: "Chiara"
     },
     "team-alpha"
-  );
+  )).value;
 
   assert.equal(workspace.slug, "team-alpha");
   assert.equal(workspace.name, "Team Alpha");
@@ -669,7 +669,7 @@ test("workspaceService.getWorkspaceForAuthenticatedUser resolves workspace from 
 test("workspaceService.updateWorkspaceForAuthenticatedUser updates workspace profile fields", async () => {
   const { service, calls } = createWorkspaceServiceFixture();
 
-  const workspace = await service.updateWorkspaceForAuthenticatedUser(
+  const workspace = (await service.updateWorkspaceForAuthenticatedUser(
     {
       id: "7",
       email: "chiaramobily@gmail.com",
@@ -680,7 +680,7 @@ test("workspaceService.updateWorkspaceForAuthenticatedUser updates workspace pro
       name: "Updated Workspace",
       avatarUrl: "https://example.com/acme.png"
     }
-  );
+  )).value;
 
   assert.equal(calls.updateById, 1);
   assert.equal(workspace.name, "Updated Workspace");

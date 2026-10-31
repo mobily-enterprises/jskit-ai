@@ -64,24 +64,24 @@ const fixtures = {
   "settings.security.password_method.toggle": [{ enabled: true }, returnJsonApiData({ securityStatus: settings.security, settings, session: "SECRET" })],
   "settings.security.oauth.unlink": [{ provider: "google" }, returnJsonApiData({ securityStatus: settings.security, providerMessageId: "SECRET" })],
   "settings.security.sessions.logout_others": [{}, null],
-  "workspace.workspaces.create": [{ name: "Acme" }, { ...workspace, isPersonal: false, createdAt: "2026-09-13", updatedAt: "2026-09-13", deletedAt: null }],
-  "workspace.workspaces.list": [{}, [{ ...workspace, roleSid: "owner", isAccessible: true, membershipStatus: "active", createdAt: "2026-09-13" }]],
-  "workspace.workspaces.read": [{ workspaceSlug: "evil" }, { ...workspace, isPersonal: false, createdAt: "2026-09-13" }],
-  "workspace.workspaces.update": [{ workspaceSlug: "evil", name: "Acme" }, workspace],
-  "workspace.settings.read": [{ workspaceSlug: "evil" }, workspaceSettings],
-  "workspace.settings.update": [{ workspaceSlug: "evil", invitesEnabled: false }, workspaceSettings],
-  "workspace.roles.list": [{ workspaceSlug: "evil" }, roleCatalog],
-  "workspace.members.list": [{ workspaceSlug: "evil" }, memberResult],
-  "workspace.member.role.update": [{ workspaceSlug: "evil", memberUserId: "8", roleSid: "member" }, memberResult],
-  "workspace.member.remove": [{ workspaceSlug: "evil", memberUserId: "8" }, memberResult],
-  "workspace.invites.list": [{ workspaceSlug: "evil" }, invitesResult],
-  "workspace.invite.create": [{ workspaceSlug: "evil", email: invite.email, roleSid: "member" }, {
+  "workspace.workspaces.create": [{ name: "Acme" }, returnJsonApiData({ ...workspace, isPersonal: false, createdAt: "2026-09-13", updatedAt: "2026-09-13", deletedAt: null })],
+  "workspace.workspaces.list": [{}, returnJsonApiData({ items: [{ ...workspace, roleSid: "owner", isAccessible: true, membershipStatus: "active", createdAt: "2026-09-13" }], nextCursor: null })],
+  "workspace.workspaces.read": [{ workspaceSlug: "evil" }, returnJsonApiData({ ...workspace, isPersonal: false, createdAt: "2026-09-13" })],
+  "workspace.workspaces.update": [{ workspaceSlug: "evil", name: "Acme" }, returnJsonApiData(workspace)],
+  "workspace.settings.read": [{ workspaceSlug: "evil" }, returnJsonApiData(workspaceSettings)],
+  "workspace.settings.update": [{ workspaceSlug: "evil", invitesEnabled: false }, returnJsonApiData(workspaceSettings)],
+  "workspace.roles.list": [{ workspaceSlug: "evil" }, returnJsonApiData(roleCatalog)],
+  "workspace.members.list": [{ workspaceSlug: "evil" }, returnJsonApiData(memberResult)],
+  "workspace.member.role.update": [{ workspaceSlug: "evil", memberUserId: "8", roleSid: "member" }, returnJsonApiData(memberResult)],
+  "workspace.member.remove": [{ workspaceSlug: "evil", memberUserId: "8" }, returnJsonApiData(memberResult)],
+  "workspace.invites.list": [{ workspaceSlug: "evil" }, returnJsonApiData(invitesResult)],
+  "workspace.invite.create": [{ workspaceSlug: "evil", email: invite.email, roleSid: "member" }, returnJsonApiData({
     ...invitesResult, createdInviteId: "31", inviteTokenPreview: "SECRET", inviteUrl: "https://example.test/invite?token=SECRET",
     inviteDelivery: { status: "sent", message: "SECRET", providerMessageId: "SECRET" }
-  }],
-  "workspace.invite.revoke": [{ workspaceSlug: "evil", inviteId: "31" }, { ...invitesResult, revokedInviteId: "31" }],
-  "workspace.invitations.pending.list": [{}, [{ id: "31", workspaceId: "11", workspaceSlug: "acme", workspaceName: "Acme",
-    workspaceAvatarUrl: "", roleSid: "member", status: "pending", expiresAt: "2026-10-01", token: "SECRET" }]]
+  })],
+  "workspace.invite.revoke": [{ workspaceSlug: "evil", inviteId: "31" }, returnJsonApiData({ ...invitesResult, revokedInviteId: "31" })],
+  "workspace.invitations.pending.list": [{}, returnJsonApiData({ pendingInvites: [{ id: "31", workspaceId: "11", workspaceSlug: "acme", workspaceName: "Acme",
+    workspaceAvatarUrl: "", roleSid: "member", status: "pending", expiresAt: "2026-10-01", token: "SECRET" }] })]
 };
 
 function catalogFor(spec, result, observe = () => {}) {

@@ -66,10 +66,10 @@ function createFixture({ workspaceInvitationsEnabled = true } = {}) {
 test("workspaceSettingsService.getWorkspaceSettings returns the stored invitesEnabled flag", async () => {
   const { service, state } = createFixture();
 
-  const response = await service.getWorkspaceSettings(
+  const response = (await service.getWorkspaceSettings(
     state.workspace,
     authorizedOptions(["workspace.settings.view"])
-  );
+  )).value;
 
   assert.deepEqual(response.settings, {
     lightPrimaryColor: "#0F6B54",
@@ -89,13 +89,13 @@ test("workspaceSettingsService.getWorkspaceSettings returns the stored invitesEn
 test("workspaceSettingsService.updateWorkspaceSettings writes editable fields through workspaceSettingsRepository only", async () => {
   const { service, state } = createFixture();
 
-  const response = await service.updateWorkspaceSettings(
+  const response = (await service.updateWorkspaceSettings(
     state.workspace,
     {
       invitesEnabled: false
     },
     authorizedOptions(["workspace.settings.update"])
-  );
+  )).value;
 
   assert.deepEqual(state.settingsPatch, {
     invitesEnabled: false
@@ -120,10 +120,10 @@ test("workspaceSettingsService disables invite settings in output when app polic
     workspaceInvitationsEnabled: false
   });
 
-  const response = await service.getWorkspaceSettings(
+  const response = (await service.getWorkspaceSettings(
     state.workspace,
     authorizedOptions(["workspace.settings.view"])
-  );
+  )).value;
 
   assert.deepEqual(response.settings, {
     lightPrimaryColor: "#0F6B54",

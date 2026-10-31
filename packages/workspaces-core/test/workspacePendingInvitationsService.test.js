@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { encodeInviteTokenHash } from "@jskit-ai/auth-core/shared/inviteTokens";
+import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import { createService } from "../src/server/workspacePendingInvitations/workspacePendingInvitationsService.js";
 import { createWorkspaceRoleCatalog } from "../src/shared/roles.js";
 
@@ -70,7 +71,7 @@ function createFixture({
   };
 }
 
-test("listPendingInvitesForUser returns raw pending invite rows for the action layer to shape", async () => {
+test("listPendingInvitesForUser returns raw pending invite rows", async () => {
   const tokenHash = "a".repeat(64);
   const { service } = createFixture({
     pendingInvitesByEmail: [
@@ -99,6 +100,30 @@ test("listPendingInvitesForUser returns raw pending invite rows for the action l
   assert.equal(pendingInvites[0].status, "pending");
 });
 
+test("listPendingInvitesResponse answers the pending list action with the rows as JSON:API data", async () => {
+  const { service } = createFixture({
+    pendingInvitesByEmail: [
+      {
+        id: "10",
+        workspaceId: "1",
+        workspaceSlug: "tonymobily3",
+        workspaceName: "TonyMobily3",
+        workspaceAvatarUrl: "",
+        roleSid: "member",
+        status: "pending",
+        expiresAt: "2030-01-01T00:00:00.000Z",
+        tokenHash: "b".repeat(64)
+      }
+    ]
+  });
+  const user = { id: "7", email: "chiaramobily@gmail.com" };
+
+  assert.deepEqual(
+    await service.listPendingInvitesResponse(user),
+    returnJsonApiData({ pendingInvites: await service.listPendingInvitesForUser(user) })
+  );
+});
+
 test("resolveInviteByToken returns safe public invite metadata without mutating the invite", async () => {
   const tokenHash = "d".repeat(64);
   const encodedToken = encodeInviteTokenHash(tokenHash);
@@ -119,7 +144,7 @@ test("resolveInviteByToken returns safe public invite metadata without mutating 
     }
   });
 
-  const resolved = await service.resolveInviteByToken(encodedToken);
+  const resolved = (await service.resolveInviteByToken(encodedToken)).value;
 
   assert.deepEqual(calls.resolveTokenHashCalls, [tokenHash]);
   assert.deepEqual(calls.revokeCalls, []);
@@ -159,8 +184,8 @@ test("resolveInviteByToken reports expired and missing invitations as terminal s
     }
   });
 
-  const expired = await service.resolveInviteByToken(expiredToken);
-  const missing = await service.resolveInviteByToken(missingToken);
+  const expired = (await service.resolveInviteByToken(expiredToken)).value;
+  const missing = (await service.resolveInviteByToken(missingToken)).value;
 
   assert.equal(expired.status, "expired");
   assert.equal(missing.status, "not_found");
@@ -299,7 +324,7 @@ test("redeemInviteByToken accepts on an accept decision and refuses on any other
       }
     });
 
-    const response = await service.redeemInviteByToken(user, { token: encodeInviteTokenHash(tokenHash), decision });
+    const response = (await service.redeemInviteByToken(user, { token: encodeInviteTokenHash(tokenHash), decision })).value;
 
     assert.equal(response.decision, expected);
     assert.deepEqual(calls.acceptCalls, decision === "accept" ? [46] : []);

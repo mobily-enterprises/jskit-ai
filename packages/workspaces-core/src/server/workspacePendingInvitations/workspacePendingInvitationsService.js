@@ -1,5 +1,6 @@
 import { resolveInviteTokenHash } from "@jskit-ai/auth-core/server/inviteTokens";
 import { encodeInviteTokenHash } from "@jskit-ai/auth-core/shared/inviteTokens";
+import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
@@ -196,15 +197,25 @@ function createService({ workspaceInvitesRepository, workspaceMembershipsReposit
     return invites.map((invite) => mapPendingInvite(invite)).filter(Boolean);
   }
 
-  async function resolveInviteByToken(token, options = {}) {
+  // The bootstrap reads the pending invitations as they are; the action answers
+  // with them as JSON:API data.
+  async function listPendingInvitesResponse(user, options = {}) {
+    return returnJsonApiData({ pendingInvites: await listPendingInvitesForUser(user, options) });
+  }
+
+  async function findInviteByToken(token, options = {}) {
     const tokenHash = requireInviteTokenHash(token);
     const invite = await workspaceInvitesRepository.findByTokenHashWithWorkspace(tokenHash, options);
 
     return mapResolvedInvite(invite, token);
   }
 
+  async function resolveInviteByToken(token, options = {}) {
+    return returnJsonApiData(await findInviteByToken(token, options));
+  }
+
   async function resolveInviteContextForAuth({ token, email } = {}, options = {}) {
-    const resolved = await resolveInviteByToken(token, options);
+    const resolved = await findInviteByToken(token, options);
     if (resolved.status !== "pending") {
       throw new AppError(409, "Invitation is not available.", { code: "workspaces.invite.notAvailable" });
     }
@@ -295,9 +306,9 @@ function createService({ workspaceInvitesRepository, workspaceMembershipsReposit
 
   // Accepts the invitation a token names when the user decided "accept", and refuses it otherwise.
   async function redeemInviteByToken(user, { token, decision }, options = {}) {
-    return decision === "accept"
-      ? acceptInviteByToken({ user, token }, options)
-      : refuseInviteByToken({ user, token }, options);
+    return returnJsonApiData(decision === "accept"
+      ? await acceptInviteByToken({ user, token }, options)
+      : await refuseInviteByToken({ user, token }, options));
   }
 
   return Object.freeze({
@@ -305,6 +316,7 @@ function createService({ workspaceInvitesRepository, workspaceMembershipsReposit
     resolveInviteByToken,
     resolveInviteContextForAuth,
     listPendingInvitesForUser,
+    listPendingInvitesResponse,
     acceptInviteByToken,
     refuseInviteByToken,
     redeemInviteByToken

@@ -1,3 +1,5 @@
+import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
+
 function buildSettingsResponse(record = {}) {
   return {
     settings: {
@@ -16,14 +18,14 @@ function createService({ consoleSettingsRepository, consoleService }) {
     await consoleService.requireConsoleOwner(options?.context, options);
     const settings = await consoleSettingsRepository.getSingleton();
 
-    return buildSettingsResponse(settings);
+    return returnJsonApiData(buildSettingsResponse(settings));
   }
 
   async function updateSettings(input, options = {}) {
     await consoleService.requireConsoleOwner(options?.context, options);
     const settings = await consoleSettingsRepository.updateSingleton(input);
 
-    return buildSettingsResponse(settings);
+    return returnJsonApiData(buildSettingsResponse(settings));
   }
 
   return Object.freeze({

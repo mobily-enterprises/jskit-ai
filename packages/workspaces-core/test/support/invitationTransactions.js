@@ -156,7 +156,7 @@ export async function verifyInvitationTransactions(t, db) {
 
   await t.test("ordinary creation commits before controlled delivery and built-in acceptance", async () => {
     const f = await fixture();
-    const created = await f.members.createInvite(f.workspace, f.owner, f.payload, f.options);
+    const created = (await f.members.createInvite(f.workspace, f.owner, f.payload, f.options)).value;
     assert.equal(created.inviteDelivery.status, "sent");
     assert.deepEqual(f.delivered, [created.createdInviteId]);
     await f.redeem(created);
@@ -167,7 +167,7 @@ export async function verifyInvitationTransactions(t, db) {
 
   await t.test("ordinary invitation works with an application participant and no association", async () => {
     const f = await fixture({ mailer: false });
-    const created = await f.members.createInvite(f.workspace, f.owner, f.payload);
+    const created = (await f.members.createInvite(f.workspace, f.owner, f.payload)).value;
     assert.equal(created.inviteDelivery.status, "mailer_unconfigured");
     f.pending.registerAcceptanceParticipant(f.applyAssociation);
     await f.redeem(created);
@@ -177,7 +177,7 @@ export async function verifyInvitationTransactions(t, db) {
 
   await t.test("association rollback restores earlier invitation state and sends nothing", async () => {
     const f = await fixture();
-    const previous = await f.members.createInvite(f.workspace, f.owner, f.payload);
+    const previous = (await f.members.createInvite(f.workspace, f.owner, f.payload)).value;
     await assert.rejects(f.prepareOnce({ fail: true }), (error) => error.transactionOutcome === "rolledBack");
     const rows = await db("workspace_invites").where({ workspace_id: f.workspace.id });
     assert.equal(rows.length, 1);

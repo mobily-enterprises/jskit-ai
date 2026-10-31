@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import {
   TENANCY_MODE_NONE,
@@ -155,7 +156,7 @@ function createService({ appConfig, workspacesRepository, workspaceMembershipsRe
   }
 
   async function listWorkspacesForAuthenticatedUser(user, options = {}) {
-    return listWorkspacesForUser(user, options);
+    return returnJsonApiData({ items: await listWorkspacesForUser(user, options), nextCursor: null });
   }
 
   async function ensureProvisionedWorkspaceForAuthenticatedUser(user, options = {}) {
@@ -206,17 +207,17 @@ function createService({ appConfig, workspacesRepository, workspaceMembershipsRe
 
     await workspaceMembershipsRepository.ensureOwnerMembership(inserted.id, normalizedUserId, options);
     await ensureWorkspaceSettingsForWorkspace(inserted, options);
-    return inserted;
+    return returnJsonApiData(inserted);
   }
 
   async function getWorkspaceForAuthenticatedUser(user, workspaceSlug, options = {}) {
     const workspaceContext = await resolveWorkspaceContextForUserBySlug(user, workspaceSlug, options);
-    return workspaceContext.workspace;
+    return returnJsonApiData(workspaceContext.workspace);
   }
 
   async function updateWorkspaceForAuthenticatedUser(user, workspaceSlug, patch = {}, options = {}) {
     const workspaceContext = await resolveWorkspaceContextForUserBySlug(user, workspaceSlug, options);
-    return workspacesRepository.updateById(workspaceContext.workspace.id, patch, options);
+    return returnJsonApiData(await workspacesRepository.updateById(workspaceContext.workspace.id, patch, options));
   }
 
   async function resolveWorkspaceContextForUserBySlug(user, workspaceSlug, options = {}) {

@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import { createWorkspacesServerI18n } from "../src/server/i18n.js";
 import { createService } from "../src/server/workspaceMembers/workspaceMembersService.js";
 import { createWorkspaceRoleCatalog } from "../src/shared/roles.js";
@@ -145,7 +146,7 @@ test("workspaceMembersService.createInvite uses configured inviteExpiresInMs", a
   });
 
   const before = Date.now();
-  const response = await service.createInvite(
+  const response = (await service.createInvite(
     {
       id: "7",
       ownerUserId: "9"
@@ -156,7 +157,7 @@ test("workspaceMembersService.createInvite uses configured inviteExpiresInMs", a
       roleSid: "member"
     },
     authorizedOptions(["workspace.members.invite"])
-  );
+  )).value;
   const after = Date.now();
 
   assert.equal(expiresAtValues.length, 1);
@@ -233,7 +234,7 @@ test("workspaceMembersService.createInvite sends generated invite URLs through t
     }
   });
 
-  const response = await service.createInvite(
+  const response = (await service.createInvite(
     {
       id: "7",
       slug: "acme",
@@ -247,7 +248,7 @@ test("workspaceMembersService.createInvite sends generated invite URLs through t
       roleSid: "admin"
     },
     authorizedOptions(["workspace.members.invite"])
-  );
+  )).value;
 
   assert.equal(response.createdInviteId, "88");
   assert.match(response.inviteUrl, /^https:\/\/app\.example\.test\/invite\//);
@@ -309,14 +310,14 @@ test("workspaceMembersService.revokeInvite returns the revoked invite id", async
     workspaceInviteEmailTemplate: renderDefaultWorkspaceInviteEmail
   });
 
-  const response = await service.revokeInvite(
+  const response = (await service.revokeInvite(
     {
       id: "7",
       ownerUserId: "9"
     },
     "47",
     authorizedOptions(["workspace.invites.revoke"])
-  );
+  )).value;
 
   assert.equal(revokedInviteId, 47);
   assert.equal(response.revokedInviteId, "47");
@@ -395,6 +396,17 @@ test("workspaceMembersService rejects invite operations when invitations are dis
   );
 });
 
+test("workspaceMembersService answers the role and member list actions with JSON:API data", async () => {
+  const { service, workspace } = createFixture();
+  const options = authorizedOptions(["workspace.members.view"]);
+
+  assert.deepEqual(await service.listRolesResponse(options), returnJsonApiData(await service.listRoles(options)));
+  assert.deepEqual(
+    await service.listMembersResponse(workspace, options),
+    returnJsonApiData(await service.listMembers(workspace, options))
+  );
+});
+
 test("workspaceMembersService.listMembers uses the resolved workspace directly", async () => {
   const { service, workspace } = createFixture();
 
@@ -414,14 +426,14 @@ test("workspaceMembersService.listMembers uses the resolved workspace directly",
 test("workspaceMembersService.updateMemberRole returns the refreshed member list without re-fetching the workspace", async () => {
   const { service, workspace } = createFixture();
 
-  const response = await service.updateMemberRole(
+  const response = (await service.updateMemberRole(
     workspace,
     {
       memberUserId: "11",
       roleSid: "admin"
     },
     authorizedOptions(["workspace.members.manage"])
-  );
+  )).value;
 
   assert.equal(response.members.length, 1);
   assert.equal(response.members[0].roleSid, "member");
@@ -490,13 +502,13 @@ test("workspaceMembersService.removeMember marks membership revoked and returns 
     workspaceInviteEmailTemplate: renderDefaultWorkspaceInviteEmail
   });
 
-  const response = await service.removeMember(
+  const response = (await service.removeMember(
     workspace,
     {
       memberUserId: "11"
     },
     authorizedOptions(["workspace.members.manage"])
-  );
+  )).value;
 
   assert.equal(response.members.length, 0);
 });
@@ -666,12 +678,12 @@ test("workspaceMembersService reports a failed delivery with a message code", as
       }
     }
   });
-  const response = await service.createInvite(
+  const response = (await service.createInvite(
     { id: "7", slug: "acme", name: "Acme", ownerUserId: "9", avatarUrl: "" },
     { id: "9" },
     { email: "invitee@example.com", roleSid: "member" },
     authorizedOptions()
-  );
+  )).value;
   assert.deepEqual(response.inviteDelivery, {
     status: "failed",
     message: "Unable to send workspace invite email.",

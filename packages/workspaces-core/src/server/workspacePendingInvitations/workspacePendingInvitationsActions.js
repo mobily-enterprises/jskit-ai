@@ -2,7 +2,6 @@ import { pendingInvitationsAssistantOutput } from "../../shared/resources/worksp
 import {
   emptyInputValidator
 } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
-import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
 import { workspacePendingInvitationsResource } from "../../shared/resources/workspacePendingInvitationsResource.js";
 import { createInviteDecisionEvents } from "../common/support/realtimeServiceEvents.js";
@@ -30,10 +29,10 @@ function createWorkspacePendingInvitationsActions({ workspacePendingInvitationsS
         }
       },
       idempotency: "none",
-      execute: async (input, context) => returnJsonApiData(await workspacePendingInvitationsService.resolveInviteByToken(
+      execute: (input, context) => workspacePendingInvitationsService.resolveInviteByToken(
         input.token,
         { context }
-      ))
+      )
     }),
     Object.freeze({
       id: "workspace.invitations.pending.list",
@@ -59,12 +58,10 @@ function createWorkspacePendingInvitationsActions({ workspacePendingInvitationsS
         }
       },
       idempotency: "none",
-      execute: async (input, context) => returnJsonApiData({
-        pendingInvites: await workspacePendingInvitationsService.listPendingInvitesForUser(
-          resolveActionUser(context, input),
-          { context }
-        )
-      })
+      execute: (input, context) => workspacePendingInvitationsService.listPendingInvitesResponse(
+        resolveActionUser(context, input),
+        { context }
+      )
     }),
     Object.freeze({
       id: "workspace.invite.redeem",
@@ -85,11 +82,11 @@ function createWorkspacePendingInvitationsActions({ workspacePendingInvitationsS
       idempotency: "optional",
       events: WORKSPACE_INVITE_DECISION_EVENTS,
       // The signed-in actor decides; a user named in the input never stands in for them.
-      execute: async (input, context) => returnJsonApiData(await workspacePendingInvitationsService.redeemInviteByToken(
+      execute: (input, context) => workspacePendingInvitationsService.redeemInviteByToken(
         resolveActionUser(context),
         input,
         { context }
-      ))
+      )
     })
   ]);
 }

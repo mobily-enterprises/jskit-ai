@@ -2,6 +2,7 @@ import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { encodeInviteTokenHash } from "@jskit-ai/auth-core/shared/inviteTokens";
 import { resolveInviteTokenHash, buildInviteToken, hashInviteToken } from "@jskit-ai/auth-core/server/inviteTokens";
+import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import { AppError, createValidationError } from "@jskit-ai/kernel/server/runtime/errors";
 import { OWNER_ROLE_ID, cloneWorkspaceRoleCatalog } from "../../shared/roles.js";
 import { createWorkspacesServerI18n } from "../i18n.js";
@@ -168,11 +169,17 @@ function createService({
     }
   }
 
+  // Applications read the role catalog and member list as they are; their
+  // actions answer with them as JSON:API data.
   async function listRoles(options = {}) {
     return cloneWorkspaceRoleCatalog({
       ...roleCatalog,
       assignableRoleIds
     });
+  }
+
+  async function listRolesResponse(options = {}) {
+    return returnJsonApiData(await listRoles(options));
   }
 
   async function listMembersPayload(workspace, options = {}) {
@@ -186,6 +193,10 @@ function createService({
 
   async function listMembers(workspace, options = {}) {
     return listMembersPayload(workspace, options);
+  }
+
+  async function listMembersResponse(workspace, options = {}) {
+    return returnJsonApiData(await listMembersPayload(workspace, options));
   }
 
   async function updateMemberRole(workspace, payload, options = {}) {
@@ -216,7 +227,7 @@ function createService({
       options
     );
 
-    return listMembersPayload(workspace, options);
+    return returnJsonApiData(await listMembersPayload(workspace, options));
   }
 
   async function removeMember(workspace, payload, options = {}) {
@@ -243,7 +254,7 @@ function createService({
       options
     );
 
-    return listMembersPayload(workspace, options);
+    return returnJsonApiData(await listMembersPayload(workspace, options));
   }
 
   async function listInvitesPayload(workspace, options = {}) {
@@ -257,7 +268,7 @@ function createService({
   }
 
   async function listInvites(workspace, options = {}) {
-    return listInvitesPayload(workspace, options);
+    return returnJsonApiData(await listInvitesPayload(workspace, options));
   }
 
   async function prepareInvite(workspace, user, payload = {}, options = {}) {
@@ -347,7 +358,7 @@ function createService({
     const prepared = await workspaceInvitesRepository.withTransaction((trx) =>
       prepareInvite(workspace, user, payload, { ...options, trx })
     );
-    return sendInvite(workspace, user, prepared, options);
+    return returnJsonApiData(await sendInvite(workspace, user, prepared, options));
   }
 
   async function revokeInvite(workspace, inviteId, options = {}) {
@@ -375,15 +386,17 @@ function createService({
       : await workspaceInvitesRepository.withTransaction(revoke);
 
     const response = await listInvitesPayload(workspace, options);
-    return {
+    return returnJsonApiData({
       ...response,
       revokedInviteId
-    };
+    });
   }
 
   return Object.freeze({
     listRoles,
+    listRolesResponse,
     listMembers,
+    listMembersResponse,
     updateMemberRole,
     removeMember,
     listInvites,

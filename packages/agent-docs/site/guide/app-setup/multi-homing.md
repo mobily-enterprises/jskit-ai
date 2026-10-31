@@ -265,7 +265,7 @@ authorization and role checks. Do not pass arbitrary HTTP input as options.
 | `workspaces.repositories.workspaceInvites.lockWorkspaceForInvitations(workspaceId, { trx })` | Locks the workspace before application receipt/draft rows when composing preparation. Requires an active transaction. |
 | `workspaces.services.members.prepareInvite(workspace, actor, payload, options)` | Requires a managed `options.trx`. Validates the invitation role, replaces pending invitations for that workspace/email, and returns `{ createdInviteId, inviteTokenPreview }`. Never sends. |
 | `workspaces.services.members.sendInvite(workspace, actor, prepared, options)` | Requires no `options.trx`. Reloads the committed pending invitation and workspace display data, validates expiry and token correspondence, and sends that invitation without replacement. |
-| `workspaces.services.members.createInvite(workspace, actor, payload, options)` | Owns preparation and commit, then calls `sendInvite`; retains the ordinary response shape. Rejects `options.trx`. |
+| `workspaces.services.members.createInvite(workspace, actor, payload, options)` | Owns preparation and commit, then calls `sendInvite`, and answers with `sendInvite`'s result as JSON:API data (`returnJsonApiData`, read it from `.value`), as the invite action sends it. Rejects `options.trx`. |
 | `workspaces.services.pendingInvitations.registerAcceptanceParticipant(fn)` | Registers one application callback receiving `({ invite, user }, options)`. Invalid, duplicate and late registration reject. |
 
 `sendInvite` accepts `{ createdInviteId, inviteTokenPreview }` from preparation or

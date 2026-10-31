@@ -1,6 +1,5 @@
 import { workspaceInviteAssistantOutput } from "../../shared/resources/workspaceAssistantOutputs.js";
 import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
-import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import { resolveWorkspace } from "../support/resolveWorkspace.js";
 import { resolveActionUser } from "../common/support/resolveActionUser.js";
 import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
@@ -87,7 +86,7 @@ function createWorkspaceMembersActions({ workspaceMembersService }) {
         }
       },
       idempotency: "none",
-      execute: async (_input, context) => returnJsonApiData(await workspaceMembersService.listRoles({ context }))
+      execute: (_input, context) => workspaceMembersService.listRolesResponse({ context })
     }),
     Object.freeze({
       id: "workspace.members.list",
@@ -109,10 +108,10 @@ function createWorkspaceMembersActions({ workspaceMembersService }) {
         }
       },
       idempotency: "none",
-      execute: async (input, context) => returnJsonApiData(await workspaceMembersService.listMembers(
+      execute: (input, context) => workspaceMembersService.listMembersResponse(
         resolveWorkspace(context, input),
         { context }
-      ))
+      )
     }),
     Object.freeze({
       id: "workspace.member.role.update",
@@ -135,11 +134,11 @@ function createWorkspaceMembersActions({ workspaceMembersService }) {
       },
       idempotency: "optional",
       events: WORKSPACE_MEMBER_CHANGED_EVENTS,
-      execute: async (input, context) => returnJsonApiData(await workspaceMembersService.updateMemberRole(
+      execute: (input, context) => workspaceMembersService.updateMemberRole(
         resolveWorkspace(context, input),
         input,
         { context }
-      ))
+      )
     }),
     Object.freeze({
       id: "workspace.member.remove",
@@ -162,11 +161,11 @@ function createWorkspaceMembersActions({ workspaceMembersService }) {
       },
       idempotency: "optional",
       events: WORKSPACE_MEMBER_CHANGED_EVENTS,
-      execute: async (input, context) => returnJsonApiData(await workspaceMembersService.removeMember(
+      execute: (input, context) => workspaceMembersService.removeMember(
         resolveWorkspace(context, input),
         input,
         { context }
-      ))
+      )
     }),
     Object.freeze({
       id: "workspace.invites.list",
@@ -188,10 +187,10 @@ function createWorkspaceMembersActions({ workspaceMembersService }) {
         }
       },
       idempotency: "none",
-      execute: async (input, context) => returnJsonApiData(await workspaceMembersService.listInvites(
+      execute: (input, context) => workspaceMembersService.listInvites(
         resolveWorkspace(context, input),
         { context }
-      ))
+      )
     }),
     Object.freeze({
       id: "workspace.invite.create",
@@ -219,12 +218,12 @@ function createWorkspaceMembersActions({ workspaceMembersService }) {
       },
       idempotency: "optional",
       events: WORKSPACE_INVITE_CREATED_EVENTS,
-      execute: async (input, context) => returnJsonApiData(await workspaceMembersService.createInvite(
+      execute: (input, context) => workspaceMembersService.createInvite(
         resolveWorkspace(context, input),
         resolveActionUser(context, input),
         input,
         { context }
-      ))
+      )
     }),
     Object.freeze({
       id: "workspace.invite.revoke",
@@ -247,11 +246,11 @@ function createWorkspaceMembersActions({ workspaceMembersService }) {
       },
       idempotency: "optional",
       events: WORKSPACE_INVITE_REVOKED_EVENTS,
-      execute: async (input, context) => returnJsonApiData(await workspaceMembersService.revokeInvite(
+      execute: (input, context) => workspaceMembersService.revokeInvite(
         resolveWorkspace(context, input),
         input.inviteId,
         { context }
-      ))
+      )
     })
   ]);
 }

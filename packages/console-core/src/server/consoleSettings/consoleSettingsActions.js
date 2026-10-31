@@ -1,7 +1,6 @@
 import {
   emptyInputValidator
 } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
-import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import { createEntityChangedActionEvent } from "@jskit-ai/kernel/server/actions";
 import { consoleSettingsResource } from "../../shared/resources/consoleSettingsResource.js";
 
@@ -25,7 +24,7 @@ function createConsoleSettingsActions({ consoleSettingsService }) {
         }
       },
       idempotency: "none",
-      execute: async (_input, context) => returnJsonApiData(await consoleSettingsService.getSettings({ context }))
+      execute: (_input, context) => consoleSettingsService.getSettings({ context })
     }),
     Object.freeze({
       id: "console.settings.update",
@@ -56,7 +55,7 @@ function createConsoleSettingsActions({ consoleSettingsService }) {
           audience: "all_users"
         }
       })],
-      execute: async (input, context) => returnJsonApiData(await consoleSettingsService.updateSettings(input, { context }))
+      execute: (input, context) => consoleSettingsService.updateSettings(input, { context })
     })
   ]);
 }
