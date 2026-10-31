@@ -40,7 +40,7 @@ function createService({ workspaceSettingsRepository, workspaceInvitationsEnable
     };
   }
 
-  async function updateWorkspaceSettings(workspace, payload = {}, options = {}) {
+  async function updateWorkspaceSettings(workspace, payload, options = {}) {
     const source = normalizeObjectInput(payload);
     const settingsPatch = pickOwnProperties(source, WORKSPACE_SETTINGS_FIELD_KEYS);
 

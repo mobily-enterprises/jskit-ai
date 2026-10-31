@@ -20,7 +20,7 @@ import {
  */
 function createService({ userSettingsRepository, userProfilesRepository, authService }) {
 
-  async function updateNotifications(request, user, payload = {}, options = {}) {
+  async function updateNotifications(request, user, payload, options = {}) {
     const profile = await resolveUserProfile(userProfilesRepository, user);
     if (!profile) {
       throw new AppError(404, "User profile was not found.", { code: "users.profile.notFound" });

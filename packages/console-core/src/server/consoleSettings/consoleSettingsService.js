@@ -19,7 +19,7 @@ function createService({ consoleSettingsRepository, consoleService }) {
     return buildSettingsResponse(settings);
   }
 
-  async function updateSettings(input = {}, options = {}) {
+  async function updateSettings(input, options = {}) {
     await consoleService.requireConsoleOwner(options?.context, options);
     const settings = await consoleSettingsRepository.updateSingleton(input);
 

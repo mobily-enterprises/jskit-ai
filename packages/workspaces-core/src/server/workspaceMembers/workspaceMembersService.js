@@ -185,7 +185,7 @@ function createService({
     return listMembersPayload(workspace, options);
   }
 
-  async function updateMemberRole(workspace, payload = {}, options = {}) {
+  async function updateMemberRole(workspace, payload, options = {}) {
     const memberUserId = normalizeRecordId(payload.memberUserId, { fallback: null });
     const roleSid = normalizeLowerText(payload.roleSid || "");
     if (!memberUserId) {
@@ -216,7 +216,7 @@ function createService({
     return listMembersPayload(workspace, options);
   }
 
-  async function removeMember(workspace, payload = {}, options = {}) {
+  async function removeMember(workspace, payload, options = {}) {
     const memberUserId = normalizeRecordId(payload.memberUserId, { fallback: null });
     if (!memberUserId) {
       throw new AppError(400, "Validation failed.", { code: "validation_failed" });
@@ -336,7 +336,7 @@ function createService({
     };
   }
 
-  async function createInvite(workspace, user, payload = {}, options = {}) {
+  async function createInvite(workspace, user, payload, options = {}) {
     ensureWorkspaceInvitationsEnabled();
     if (options.trx) {
       throw new TypeError("Use prepareInvite inside a transaction, then sendInvite after commit.");

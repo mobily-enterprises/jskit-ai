@@ -175,7 +175,7 @@ function createService({ appConfig, workspacesRepository, workspaceMembershipsRe
     }, options);
   }
 
-  async function createWorkspaceForAuthenticatedUser(user, payload = {}, options = {}) {
+  async function createWorkspaceForAuthenticatedUser(user, payload, options = {}) {
     const normalizedUserId = normalizeRecordId(user?.id, { fallback: null });
     if (!normalizedUserId) {
       throw new AppError(401, "Authentication required.", { code: "workspaces.auth.required" });
