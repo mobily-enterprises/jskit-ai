@@ -44,8 +44,9 @@ const roleCatalog = { collaborationEnabled: true, defaultInviteRole: "member", r
 const memberResult = { workspace, members: [], roleCatalog };
 const invite = { id: "31", email: "invite@example.test", roleSid: "member", status: "pending", expiresAt: "2026-10-01" };
 const invitesResult = { workspace, invites: [invite], roleCatalog };
+// An auth service without the optional settings-profile operation: email is managed by auth.
 const settings = accountSettingsResponseFormatter({
-  profile: { id: "7", displayName: "Alice", email: "alice@example.test" }, settings: DEFAULT_USER_SETTINGS
+  authService: {}, profile: { id: "7", displayName: "Alice", email: "alice@example.test" }, settings: DEFAULT_USER_SETTINGS
 });
 const workspaceSettings = {
   workspace: { id: "11", slug: "acme", ownerUserId: "7" }, roleCatalog,

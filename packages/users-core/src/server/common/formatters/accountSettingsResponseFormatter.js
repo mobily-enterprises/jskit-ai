@@ -6,10 +6,10 @@ import {
 import { accountAvatarFormatter } from "./accountAvatarFormatter.js";
 import { accountSecurityStatusFormatter } from "./accountSecurityStatusFormatter.js";
 
-/** @param {import("@jskit-ai/auth-core/server/types").AuthService | undefined} authService */
+/** @param {import("@jskit-ai/auth-core/server/types").AuthService} authService */
 function resolveAuthProfileSettings(authService) {
   // readable-check: allow method-probe - optional operation: getSettingsProfileAuthInfo is an optional auth.service operation
-  if (!authService || typeof authService.getSettingsProfileAuthInfo !== "function") {
+  if (typeof authService.getSettingsProfileAuthInfo !== "function") {
     return {
       emailManagedBy: "auth",
       emailChangeFlow: "auth"
@@ -39,7 +39,7 @@ function formatUserSettingsSection(fieldKeys, settings = {}) {
  * @param {object | null} input.profile
  * @param {object | null} input.settings
  * @param {object | null} input.securityStatus
- * @param {import("@jskit-ai/auth-core/server/types").AuthService} [input.authService] The installed provider's `auth.service`; without one, email is managed by auth.
+ * @param {import("@jskit-ai/auth-core/server/types").AuthService} input.authService The installed provider's `auth.service`.
  */
 function accountSettingsResponseFormatter({ profile, settings, securityStatus, authService }) {
   const authProfileSettings = resolveAuthProfileSettings(authService);
