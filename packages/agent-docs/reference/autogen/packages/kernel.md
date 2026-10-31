@@ -588,7 +588,6 @@ Local functions
 
 ### `server/actions/actionContributorHelpers.js`
 Exports
-- `requireServiceMethod(service, methodName, contributorId, { serviceLabel } = {})`
 - `resolveRequest(context)`
 - `emptyInputValidator`
 
