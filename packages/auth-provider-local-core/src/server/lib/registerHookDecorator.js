@@ -11,6 +11,7 @@ function normalizeRegisterHook(hook = null) {
     return null;
   }
   assertBlockingMode(hook);
+  // readable-check: allow method-probe - validates the hook an application passes
   if (typeof hook.handle !== "function") {
     throw new TypeError("Local auth register hook handle must be a function.");
   }
@@ -21,17 +22,28 @@ function normalizeRegisterHook(hook = null) {
   });
 }
 
-function logNonBlockingHookFailure({ logger, hook, error } = {}) {
+// Without a logger, a failed non-blocking hook is reported on the console.
+const consoleLogger = Object.freeze({
+  warn(payload, message) {
+    console.warn(message, payload);
+  }
+});
+
+/** @typedef {Pick<import("@jskit-ai/kernel/server/types").RuntimeLogger, "warn">} RegisterHookLogger */
+
+/**
+ * @param {object} failure
+ * @param {RegisterHookLogger} failure.logger
+ * @param {{ hookId: string }} failure.hook
+ * @param {unknown} failure.error
+ */
+function logNonBlockingHookFailure({ logger, hook, error }) {
   const payload = {
     err: error,
     hook: hook?.hookId || "anonymous",
     event: LOCAL_AUTH_USER_REGISTERED_EVENT
   };
-  if (logger && typeof logger.warn === "function") {
-    logger.warn(payload, "Non-blocking local auth register hook failed.");
-    return;
-  }
-  console.warn("Non-blocking local auth register hook failed.", payload);
+  logger.warn(payload, "Non-blocking local auth register hook failed.");
 }
 
 async function runRegisterHook({ hook, result, logger }) {
@@ -55,10 +67,17 @@ async function runRegisterHook({ hook, result, logger }) {
     .catch((error) => logNonBlockingHookFailure({ logger, hook, error }));
 }
 
+/**
+ * @param {object} [options]
+ * @param {string} [options.decoratorId]
+ * @param {number} [options.order]
+ * @param {RegisterHookLogger} [options.logger] Reports a failed non-blocking hook; the console by default.
+ * @param {object | null} [options.hook]
+ */
 function createLocalAuthRegisterHookDecorator({
   decoratorId = "auth.local.registerHook",
   order = 0,
-  logger = null,
+  logger = consoleLogger,
   hook = null
 } = {}) {
   const registerHook = normalizeRegisterHook(hook);
@@ -70,8 +89,10 @@ function createLocalAuthRegisterHookDecorator({
   return Object.freeze({
     decoratorId: String(decoratorId || registerHook.hookId || "auth.local.registerHook"),
     order: Number.isFinite(order) ? Number(order) : 0,
+    /** @param {import("@jskit-ai/auth-core/server/types").AuthService} authService */
     decorateAuthService(authService) {
-      if (!authService || typeof authService.register !== "function") {
+      // readable-check: allow method-probe - register is an optional auth.service operation
+      if (typeof authService.register !== "function") {
         return authService;
       }
 

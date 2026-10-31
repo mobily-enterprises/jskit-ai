@@ -56,6 +56,14 @@ function resolveAppPublicUrl(env, { recoverySender, oauthProviders }) {
   return parsed.toString().replace(/\/$/u, "");
 }
 
+/**
+ * @param {object} input
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeAppRoot} input.appRoot
+ * @param {import("../types.js").AuthLocalBackend | object} [input.backend]
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} input.env
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} input.logger
+ * @param {Function | null} [input.recoverySender]
+ */
 function resolveConfig({ appRoot, backend, env, logger, recoverySender = null }) {
   const nodeEnv = String(env.NODE_ENV || "development").trim() || "development";
   const isProduction = nodeEnv === "production";
@@ -97,6 +105,16 @@ const AuthLocalProvider = defineProvider({
   setup() {
     return { authService: createDeferredAuthService() };
   },
+  /**
+   * @param {object} dependencies
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeAppRoot} dependencies.appRoot
+   * @param {import("../types.js").AuthLocalBackend} [dependencies.backend]
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} dependencies.env
+   * @param {import("@jskit-ai/auth-core/server/types").AuthExtensions} dependencies.extensions
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
+   * @param {object} [dependencies.passwordStrategy]
+   * @param {(delivery: { email: string, recoveryUrl: string }) => Promise<void>} [dependencies.recoverySender]
+   */
   boot(dependencies, { outputs }) {
     const { appRoot, backend, env, extensions, logger, passwordStrategy, recoverySender = null } = dependencies;
     const config = resolveConfig({ appRoot, backend, env, logger, recoverySender });

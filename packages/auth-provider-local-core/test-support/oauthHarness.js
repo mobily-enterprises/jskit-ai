@@ -125,7 +125,8 @@ function createService({ backend, oauthProviders, profileProjector = null }) {
       sessionSecret: "oauth-test-session-secret",
       nodeEnv: "test",
       appPublicUrl: APP_URL,
-      oauthProviders
+      oauthProviders,
+      logger: { warn() {} }
     }
   });
 }

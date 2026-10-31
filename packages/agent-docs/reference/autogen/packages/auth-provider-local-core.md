@@ -59,7 +59,7 @@ Exports
 
 ### `src/server/lib/oauth.js`
 Exports
-- `createOAuthClients({ logger = null } = {})`
+- `createOAuthClients({ logger })`
 - `resolveOAuthProviders(env = {})`
 Local functions
 - `signInError(statusCode, message, { code, provider = null })`
@@ -78,16 +78,18 @@ Local functions
 ### `src/server/lib/registerHookDecorator.js`
 Exports
 - `LOCAL_AUTH_USER_REGISTERED_EVENT`
-- `createLocalAuthRegisterHookDecorator({ decoratorId = "auth.local.registerHook", order = 0, logger = null, hook = null } = {})`
+- `createLocalAuthRegisterHookDecorator({ decoratorId = "auth.local.registerHook", order = 0, logger = consoleLogger, hook = null } = {})`
+- `type RegisterHookLogger`
 Local functions
 - `assertBlockingMode(hook)`
 - `normalizeRegisterHook(hook = null)`
-- `logNonBlockingHookFailure({ logger, hook, error } = {})`
+- `logNonBlockingHookFailure({ logger, hook, error })`
 - `runRegisterHook({ hook, result, logger })`
 
 ### `src/server/lib/service.js`
 Exports
-- `createLocalAuthService({ backend, config, profileProjector = null, passwordStrategy = null, invitationContextResolver = null, recoverySender = null })`
+- `createLocalAuthService({ backend, config, profileProjector, passwordStrategy, invitationContextResolver, recoverySender })`
+- `type AuthProfileProjector`
 Local functions
 - `nowSeconds()`
 - `isoFromNow(seconds)`
@@ -104,7 +106,7 @@ Local functions
 - `clearCookieOptions(isProduction)`
 - `buildProfile(user)`
 - `buildActor(user, profile = null)`
-- `buildAuthResult({ user, session, appProfile = null })`
+- `buildAuthResult({ user, session, appProfile })`
 - `requireProfileResult(profile, methodName)`
 - `buildAuthPayload({ user, session, profileProjector, profileOptions = {} })`
 - `findExistingAppProfile(user, profileProjector)`

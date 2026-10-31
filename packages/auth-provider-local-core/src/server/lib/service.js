@@ -41,6 +41,8 @@ const OAUTH_REDIRECT_PATH = "/auth/login";
 // An account created through a provider has no password until recovery sets one.
 const NO_PASSWORD = Object.freeze({ algorithm: "", version: "", salt: "", hash: "" });
 
+/** @typedef {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} AuthProfileProjector */
+
 function nowSeconds() {
   return Math.floor(Date.now() / 1000);
 }
@@ -137,7 +139,8 @@ function buildActor(user, profile = null) {
   });
 }
 
-function buildAuthResult({ user, session, appProfile = null }) {
+/** @param {{ user: object, session: object | null, appProfile: object | null }} result */
+function buildAuthResult({ user, session, appProfile }) {
   return normalizeAuthResult({
     actor: buildActor(user, appProfile),
     session
@@ -151,6 +154,13 @@ function requireProfileResult(profile, methodName) {
   return profile;
 }
 
+/**
+ * @param {object} input
+ * @param {object} input.user
+ * @param {object | null} input.session
+ * @param {AuthProfileProjector | null} input.profileProjector
+ * @param {object} [input.profileOptions]
+ */
 async function buildAuthPayload({ user, session, profileProjector, profileOptions = {} }) {
   const appProfile = profileProjector
     ? requireProfileResult(
@@ -161,10 +171,15 @@ async function buildAuthPayload({ user, session, profileProjector, profileOption
   return buildAuthResult({ user, session, appProfile });
 }
 
+/**
+ * @param {object} user
+ * @param {AuthProfileProjector | null} profileProjector
+ */
 async function findExistingAppProfile(user, profileProjector) {
   if (!profileProjector) {
     return null;
   }
+  // readable-check: allow method-probe - findByIdentity is an optional profile projector operation
   if (typeof profileProjector.findByIdentity !== "function") {
     throw new Error(
       "auth.profile.projector.findByIdentity() is required for dev auth impersonation and profile lookups without sync."
@@ -176,6 +191,15 @@ async function findExistingAppProfile(user, profileProjector) {
 
 // A dev session, or a caller that asks only who is signed in (syncProfile:
 // false), reads the existing app profile instead of synchronizing it.
+/**
+ * @param {object} input
+ * @param {object} input.devAuth
+ * @param {AuthProfileProjector | null} input.profileProjector
+ * @param {object} input.request
+ * @param {object} input.session
+ * @param {object} input.user
+ * @param {boolean} [input.syncProfile]
+ */
 async function buildSessionAuthPayload({ devAuth, profileProjector, request, session, user, syncProfile = true }) {
   const devSession = isDevAuthSession(session);
   if (!devSession && syncProfile) {
@@ -212,6 +236,7 @@ function buildAccessToken({ user, session, secret, ttlSeconds = ACCESS_TTL_SECON
   );
 }
 
+/** @param {{ user: object, session: object, refreshToken: string, secret: string }} input */
 function buildSessionPayload({ user, session, refreshToken, secret }) {
   const accessToken = buildAccessToken({ user, session, secret });
   return {
@@ -292,22 +317,30 @@ function normalizeInvitationInput(value = null) {
   };
 }
 
+// The `auth.service` of local auth. The optional collaborators are the ones
+// the provider resolved once: null (or left out) when none is installed.
+/**
+ * @param {object} dependencies
+ * @param {import("../types.js").AuthLocalBackend} dependencies.backend
+ * @param {ReturnType<typeof import("../providers/AuthLocalProvider.js").resolveConfig>} dependencies.config
+ * @param {AuthProfileProjector | null} [dependencies.profileProjector]
+ * @param {object | null} [dependencies.passwordStrategy] The `auth.local.password-strategy`, when one is installed.
+ * @param {import("@jskit-ai/auth-core/server/types").AuthInvitationContextResolver | null} [dependencies.invitationContextResolver]
+ * @param {((delivery: { email: string, recoveryUrl: string }) => Promise<void>) | null} [dependencies.recoverySender] The `auth.local.recovery-sender`, when one is installed.
+ */
 function createLocalAuthService({
   backend,
   config,
-  profileProjector = null,
-  passwordStrategy = null,
-  invitationContextResolver = null,
-  recoverySender = null
+  profileProjector,
+  passwordStrategy,
+  invitationContextResolver,
+  recoverySender
 }) {
-  if (!backend || typeof backend.withTransaction !== "function") {
-    throw new Error("Local auth requires auth.local.backend with withTransaction().");
-  }
   if (!config?.sessionSecret) {
     throw new Error("Local auth requires a session secret.");
   }
 
-  if (recoverySender !== null && typeof recoverySender !== "function") {
+  if (recoverySender != null && typeof recoverySender !== "function") {
     throw new Error("auth.local.recovery-sender must be a function.");
   }
 
@@ -331,7 +364,7 @@ function createLocalAuthService({
     nodeEnv: config.nodeEnv
   });
   assertDevAuthPolicy(devAuth);
-  const profileProjectionEnabled = typeof profileProjector?.syncIdentityProfile === "function";
+  const profileProjectionEnabled = Boolean(profileProjector);
   const recoveryDelivery = recoverySender
     ? "email"
     : isProduction
@@ -419,7 +452,7 @@ function createLocalAuthService({
     }
 
     let resolvedInvitation = invitation;
-    if (invitationContextResolver && typeof invitationContextResolver.resolveInvitationContext === "function") {
+    if (invitationContextResolver) {
       resolvedInvitation = await invitationContextResolver.resolveInvitationContext({
         ...invitation,
         email
@@ -733,9 +766,7 @@ function createLocalAuthService({
       }
       await tx.users.updatePassword(String(payload.sub), password);
       await tx.sessions.revokeForUser(String(payload.sub));
-      if (typeof tx.recovery.consumeForUser === "function") {
-        await tx.recovery.consumeForUser(String(payload.sub));
-      }
+      await tx.recovery.consumeForUser(String(payload.sub));
     });
     return {
       ok: true,
@@ -1092,6 +1123,7 @@ function createLocalAuthService({
     changePassword,
     updateDisplayName,
     getSecurityStatus,
+    // readable-check: allow setter-seam - setPasswordSignInEnabled is an auth.service operation, not a slot
     setPasswordSignInEnabled() {
       return throwUnsupportedAuthOperation("setPasswordSignInEnabled");
     },

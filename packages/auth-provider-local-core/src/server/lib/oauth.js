@@ -110,8 +110,9 @@ const IDENTITY_READERS = Object.freeze({
 /**
  * The authorization-code (PKCE) client for each configured provider. Provider
  * tokens are used once to learn who signed in and are never kept.
+ * @param {{ logger: import("@jskit-ai/kernel/server/types").RuntimeLogger }} dependencies
  */
-function createOAuthClients({ logger = null } = {}) {
+function createOAuthClients({ logger }) {
   const configurations = new Map();
 
   async function createConfiguration(provider) {
@@ -149,7 +150,7 @@ function createOAuthClients({ logger = null } = {}) {
     if (!configurations.has(provider.id)) {
       configurations.set(provider.id, createConfiguration(provider).catch((error) => {
         configurations.delete(provider.id);
-        logger?.warn?.({ err: error, provider: provider.id }, "OAuth provider discovery failed.");
+        logger.warn({ err: error, provider: provider.id }, "OAuth provider discovery failed.");
         throw signInError(503, `${provider.label} can't be reached right now. Try again in a moment.`,
           { code: "auth.local.oauth.providerUnreachable", provider });
       }));
@@ -184,7 +185,7 @@ function createOAuthClients({ logger = null } = {}) {
         ...(provider.issuer ? { expectedNonce: attempt.nonce, idTokenExpected: true } : {})
       });
     } catch (error) {
-      logger?.warn?.({ err: { name: error?.name, code: error?.code, message: error?.message }, provider: provider.id },
+      logger.warn({ err: { name: error?.name, code: error?.code, message: error?.message }, provider: provider.id },
         "OAuth sign-in was rejected.");
       throw unverifiedSignIn();
     }

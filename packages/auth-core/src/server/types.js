@@ -18,6 +18,27 @@
  */
 
 /**
+ * The profile projector an application registers on `auth.extensions`; an
+ * auth provider reads it once with resolveProfileProjector(), which answers
+ * null when none is registered.
+ * @typedef {object} AuthProfileProjector
+ * @property {string} projectorId
+ * @property {(profile: object, options?: object) => Promise<object>} syncIdentityProfile
+ *   Creates or updates the application's profile of a signed-in identity and answers it.
+ * @property {(identity: object, options?: object) => Promise<object | null>} [findByIdentity]
+ *   Answers the existing profile without synchronizing it; dev auth impersonation needs it.
+ */
+
+/**
+ * The invitation context resolver an application registers on
+ * `auth.extensions`; an auth provider reads it once with
+ * resolveInvitationContextResolver(), which answers null when none is registered.
+ * @typedef {object} AuthInvitationContextResolver
+ * @property {string} resolverId
+ * @property {(invitation: { token: string, source: string, email: string }) => Promise<object>} resolveInvitationContext
+ */
+
+/**
  * What a realtime server asks of the auth service, when it asks anything.
  * @typedef {object} AuthRealtimePolicy
  * @property {boolean} [requireAuthentication] Refuses sockets that are not signed in.

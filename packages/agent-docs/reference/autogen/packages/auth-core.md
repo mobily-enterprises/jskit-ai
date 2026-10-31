@@ -213,6 +213,8 @@ Exports
 - `type AuthCapabilities`
 - `type AuthActor`
 - `type AuthRequestResult`
+- `type AuthProfileProjector`
+- `type AuthInvitationContextResolver`
 - `type AuthRealtimePolicy`
 - `type AuthService`
 

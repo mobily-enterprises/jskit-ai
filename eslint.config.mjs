@@ -25,7 +25,10 @@ export default [
     "packages/json-rest-api-core/src/server/**",
     "packages/crud-core/src/server/**"
   ]),
-  ...typedFeaturesConfig(["packages/auth-core/src/server/**"]),
+  ...typedFeaturesConfig([
+    "packages/auth-core/src/server/**",
+    "packages/auth-provider-local-core/src/server/**"
+  ]),
   {
     // Over 750 lines until their split runs bring them under it.
     files: [
@@ -35,6 +38,16 @@ export default [
     ],
     rules: {
       "max-lines": "off"
+    }
+  },
+  {
+    // Over 750 lines, with a factory over 600, until their split runs bring them under.
+    files: [
+      "packages/auth-provider-local-core/src/server/lib/service.js"
+    ],
+    rules: {
+      "max-lines": "off",
+      "max-lines-per-function": "off"
     }
   },
   ...webConfig,
