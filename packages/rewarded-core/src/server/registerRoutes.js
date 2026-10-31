@@ -36,6 +36,13 @@ function createWorkflowResponses(outputValidator) {
   });
 }
 
+/**
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeHttp["router"]} router
+ * @param {object} [options]
+ * @param {string} [options.routeOwnershipFilter]
+ * @param {string} [options.routeSurface]
+ * @param {string} [options.routeRelativePath]
+ */
 function registerRoutes(
   router,
   {
@@ -44,9 +51,6 @@ function registerRoutes(
     routeRelativePath = "rewarded"
   } = {}
 ) {
-  if (!router || typeof router.register !== "function") {
-    throw new Error("registerRoutes requires an HTTP router.");
-  }
   const normalizedRouteSurface = normalizeSurfaceId(routeSurface);
   const routeBase = resolveScopedApiBasePath({
     routeBase: "/w/:workspaceSlug",

@@ -148,34 +148,36 @@ function isFutureDate(value = null, now = new Date()) {
   return !!date && date.getTime() > now.getTime();
 }
 
+/** @typedef {import("@jskit-ai/crud-core/server/types").CrudResourceApi["repository"]} RewardedRepository */
+
+// The Rewarded gate workflow over its four resources' repositories and the
+// application's grant policy.
+/**
+ * @param {object} dependencies
+ * @param {import("./types.js").RewardedGrantPolicy["authorizeGrant"]} dependencies.authorizeGrant
+ * @param {RewardedRepository} dependencies.rewardedRulesRepository
+ * @param {RewardedRepository} dependencies.rewardedProviderConfigsRepository
+ * @param {RewardedRepository} dependencies.rewardedWatchSessionsRepository
+ * @param {RewardedRepository} dependencies.rewardedUnlockReceiptsRepository
+ */
 function createService({
   authorizeGrant,
   rewardedRulesRepository,
   rewardedProviderConfigsRepository,
   rewardedWatchSessionsRepository,
   rewardedUnlockReceiptsRepository
-} = {}) {
+}) {
   if (typeof authorizeGrant !== "function") {
     throw new TypeError("createService requires application authorizeGrant policy.");
   }
-  if (!rewardedRulesRepository) {
-    throw new TypeError("createService requires rewardedRulesRepository.");
-  }
-  if (!rewardedProviderConfigsRepository) {
-    throw new TypeError("createService requires rewardedProviderConfigsRepository.");
-  }
-  if (!rewardedWatchSessionsRepository) {
-    throw new TypeError("createService requires rewardedWatchSessionsRepository.");
-  }
-  if (!rewardedUnlockReceiptsRepository) {
-    throw new TypeError("createService requires rewardedUnlockReceiptsRepository.");
-  }
 
+  /** @param {RewardedRepository} repository */
   async function queryFirst(repository, query = {}, options = {}) {
     const rows = normalizeRecordList(await repository.queryDocuments(query, options));
     return rows[0] || null;
   }
 
+  /** @param {RewardedRepository} repository */
   async function listRecords(repository, query = {}, options = {}) {
     return normalizeRecordList(await repository.queryDocuments(query, options));
   }
@@ -221,7 +223,7 @@ function createService({
     });
   }
 
-  async function evaluateGate(input = {}, options = {}) {
+  async function evaluateGate(input, options = {}) {
     requireActor(options?.context || null, input);
     const workspaceSlug = requireWorkspaceSlug(input);
     const gateKey = requireGateKey(input);
@@ -379,11 +381,11 @@ function createService({
     };
   }
 
-  async function getCurrentState(input = {}, options = {}) {
+  async function getCurrentState(input, options = {}) {
     return evaluateGate(input, options);
   }
 
-  async function startGate(input = {}, options = {}) {
+  async function startGate(input, options = {}) {
     const state = await evaluateGate(input, options);
     if (!state.enabled || !state.available || !state.blocked) {
       return {
@@ -411,7 +413,7 @@ function createService({
     };
   }
 
-  async function grantReward(input = {}, options = {}) {
+  async function grantReward(input, options = {}) {
     requireActor(options?.context || null, input);
     const workspaceSlug = requireWorkspaceSlug(input);
     const sessionId = input?.sessionId == null ? "" : String(input.sessionId).trim();
@@ -511,7 +513,7 @@ function createService({
     });
   }
 
-  async function closeSession(input = {}, options = {}) {
+  async function closeSession(input, options = {}) {
     requireActor(options?.context || null, input);
     const workspaceSlug = requireWorkspaceSlug(input);
     const sessionId = input?.sessionId == null ? "" : String(input.sessionId).trim();

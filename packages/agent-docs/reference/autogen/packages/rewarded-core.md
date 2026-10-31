@@ -20,7 +20,7 @@ Exports
 - `ACTION_START`
 - `ACTION_GRANT`
 - `ACTION_CLOSE`
-- `createRewardedActions({ rewarded } = {})`
+- `createRewardedActions({ rewarded })`
 Local functions
 - `changedEvent({ entity, operation, entityId, event })`
 
@@ -58,7 +58,8 @@ Local functions
 
 ### `src/server/service.js`
 Exports
-- `createService({ authorizeGrant, rewardedRulesRepository, rewardedProviderConfigsRepository, rewardedWatchSessionsRepository, rewardedUnlockReceiptsRepository } = {})`
+- `createService({ authorizeGrant, rewardedRulesRepository, rewardedProviderConfigsRepository, rewardedWatchSessionsRepository, rewardedUnlockReceiptsRepository })`
+- `type RewardedRepository`
 Local functions
 - `resolveActionUser(context, input)`
 - `normalizeRecordList(document = null)`
@@ -96,6 +97,7 @@ Exports
 - `type RewardedRules`
 - `type RewardedUnlockReceipts`
 - `type RewardedWatchSessions`
+- `type RewardedGrantPolicy`
 
 ### `src/shared/index.js`
 Exports

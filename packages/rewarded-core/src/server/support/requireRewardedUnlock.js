@@ -106,16 +106,23 @@ function createRewardedGateError(gateState = null, {
   });
 }
 
+/**
+ * Answers the gate's current state when it is unlocked (or, unless
+ * requireConfigured, not configured); otherwise throws the gate's error.
+ * @param {import("../types.js").RewardedCore} rewardedService
+ * @param {object} [input] The gate to check: its gateKey and workspaceSlug.
+ * @param {object} [options]
+ * @param {object | null} [options.context]
+ * @param {boolean} [options.requireConfigured]
+ * @param {string} [options.errorCode]
+ * @param {string} [options.errorMessage]
+ */
 async function requireRewardedUnlock(rewardedService, input = {}, {
   context = null,
   requireConfigured = false,
   errorCode = "",
   errorMessage = ""
 } = {}) {
-  if (!rewardedService || typeof rewardedService.getCurrentState !== "function") {
-    throw new TypeError("requireRewardedUnlock requires rewardedService.getCurrentState().");
-  }
-
   const gateState = await rewardedService.getCurrentState(
     {
       ...input,

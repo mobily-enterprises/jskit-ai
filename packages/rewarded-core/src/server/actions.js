@@ -29,10 +29,8 @@ function changedEvent({ entity, operation, entityId, event }) {
   });
 }
 
-function createRewardedActions({ rewarded } = {}) {
-  if (!rewarded) {
-    throw new TypeError("createRewardedActions requires rewarded.");
-  }
+/** @param {{ rewarded: import("./types.js").RewardedCore }} dependencies */
+function createRewardedActions({ rewarded }) {
   return Object.freeze([
   {
     id: ACTION_CURRENT,
@@ -44,11 +42,7 @@ function createRewardedActions({ rewarded } = {}) {
     input: currentQueryInputValidator,
     output: currentStateOutputValidator,
     idempotency: "none",
-    async execute(input, context) {
-      return rewarded.getCurrentState(input, {
-        context
-      });
-    }
+    execute: (input, context) => rewarded.getCurrentState(input, { context })
   },
   {
     id: ACTION_START,
@@ -66,11 +60,7 @@ function createRewardedActions({ rewarded } = {}) {
       entityId: ({ result }) => result?.session?.id,
       event: watchSessionChanged
     })],
-    async execute(input, context) {
-      return rewarded.startGate(input, {
-        context
-      });
-    }
+    execute: (input, context) => rewarded.startGate(input, { context })
   },
   {
     id: ACTION_GRANT,
@@ -96,11 +86,7 @@ function createRewardedActions({ rewarded } = {}) {
         event: unlockReceiptChanged
       })
     ],
-    async execute(input, context) {
-      return rewarded.grantReward(input, {
-        context
-      });
-    }
+    execute: (input, context) => rewarded.grantReward(input, { context })
   },
   {
     id: ACTION_CLOSE,
@@ -118,11 +104,7 @@ function createRewardedActions({ rewarded } = {}) {
       entityId: ({ result }) => result?.session?.id,
       event: watchSessionChanged
     })],
-    async execute(input, context) {
-      return rewarded.closeSession(input, {
-        context
-      });
-    }
+    execute: (input, context) => rewarded.closeSession(input, { context })
   }
   ]);
 }
