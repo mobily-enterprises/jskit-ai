@@ -32,6 +32,7 @@ function isMultipartError(error, code) {
 }
 
 async function readSingleMultipartFile(request, options = {}) {
+  // readable-check: allow method-probe - platform object: a request has file() only where multipart support is registered
   if (!request || typeof request.file !== "function") {
     throw new TypeError("readSingleMultipartFile requires a request with file().");
   }
@@ -84,6 +85,7 @@ async function readSingleMultipartFile(request, options = {}) {
 
   const actualFieldName = normalizeFieldName(filePart.fieldname);
   if (normalizedFieldName && actualFieldName && actualFieldName !== normalizedFieldName) {
+    // readable-check: allow method-probe - platform object: a multipart part's file is drained only when it is a stream
     if (filePart.file && typeof filePart.file.resume === "function") {
       filePart.file.resume();
     }

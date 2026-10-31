@@ -25,6 +25,7 @@ async function readUploadBuffer(
     label = "File"
   } = {}
 ) {
+  // readable-check: allow method-probe - input validation: the application passes its own upload stream
   if (!stream || typeof stream.on !== "function") {
     throw new TypeError("Upload stream is required.");
   }

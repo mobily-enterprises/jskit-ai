@@ -59,11 +59,12 @@ function detectCommonMimeTypeFromBuffer(buffer) {
   return MIME_TYPE_FALLBACK;
 }
 
-function createUploadStorageService({ storage, mimeTypeDetector = detectCommonMimeTypeFromBuffer } = {}) {
-  if (!storage || typeof storage.getItemRaw !== "function" || typeof storage.setItemRaw !== "function") {
-    throw new TypeError("createUploadStorageService requires a storage binding with getItemRaw()/setItemRaw().");
-  }
-
+/**
+ * @param {object} dependencies
+ * @param {import("@jskit-ai/storage-runtime/server/types").RuntimeStorage} dependencies.storage
+ * @param {typeof detectCommonMimeTypeFromBuffer} [dependencies.mimeTypeDetector]
+ */
+function createUploadStorageService({ storage, mimeTypeDetector = detectCommonMimeTypeFromBuffer }) {
   async function saveFile({ storageKey, buffer }) {
     const normalizedStorageKey = normalizeStorageKey(storageKey);
     if (!normalizedStorageKey) {
@@ -100,7 +101,7 @@ function createUploadStorageService({ storage, mimeTypeDetector = detectCommonMi
 
   async function deleteFile(storageKey) {
     const normalizedStorageKey = normalizeStorageKey(storageKey);
-    if (!normalizedStorageKey || typeof storage.removeItem !== "function") {
+    if (!normalizedStorageKey) {
       return;
     }
 

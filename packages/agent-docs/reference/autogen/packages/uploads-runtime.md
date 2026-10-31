@@ -49,7 +49,7 @@ Exports
 - `MIME_TYPE_JPEG`
 - `MIME_TYPE_PNG`
 - `MIME_TYPE_WEBP`
-- `createUploadStorageService({ storage, mimeTypeDetector = detectCommonMimeTypeFromBuffer } = {})`
+- `createUploadStorageService({ storage, mimeTypeDetector = detectCommonMimeTypeFromBuffer })`
 - `detectCommonMimeTypeFromBuffer(buffer)`
 - `normalizeStorageKey(value)`
 
