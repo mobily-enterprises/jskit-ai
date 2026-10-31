@@ -826,6 +826,7 @@ Local functions
 ### `src/server/wiz.js`
 Exports
 - `createWizScanner({ configuration, authorize, resolveReference, resolveScanTarget, executable, environment = { PATH: process.env.PATH || "/usr/bin:/bin" }, timeoutMs = 600_000, maxReportBytes = 16 * 1024 * 1024 })`
+- `type WizScanTargetResolver`
 Local functions
 - `object(value)`
 - `failure(code, message, statusCode = 502, codes = {})`

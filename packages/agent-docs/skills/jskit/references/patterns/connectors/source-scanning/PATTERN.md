@@ -44,8 +44,9 @@ and whether a blocking verdict prevents a later operation.
   and `resolveScanTarget`) is a required parameter typed in a JSDoc `@param` and
   called directly, without a `typeof` probe, a "requires x" guard or a no-op
   default. `authorize` and `resolveReference` are typed with `ConnectorAuthorize`
-  and `ResolveReference` from `@jskit-ai/connectors-core/server/types`. A server
-  feature that uses it follows
+  and `ResolveReference` from `@jskit-ai/connectors-core/server/types`, and
+  `resolveScanTarget` with `WizScanTargetResolver` from
+  `@jskit-ai/connectors-catalog/server/wiz`. A server feature that uses it follows
   [typed features](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/site/guide/framework/typed-features.md).
 
 ## Framework APIs
