@@ -25,9 +25,10 @@ function createKnexMigrationConfig({
       context: "knex migrations"
     }),
     migrations: {
+      // Packages create the tables application migrations build on.
       directory: [
-        resolvedMigrationsDirectory,
         ...packageMigrationDirectories.map((directory) => path.resolve(directory)),
+        resolvedMigrationsDirectory,
         path.join(resolvedMigrationsDirectory, "constraints")
       ],
       extension: "cjs",

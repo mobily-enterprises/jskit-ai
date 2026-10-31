@@ -337,10 +337,11 @@ adoption and diagnosis; inspection is optional.
 
 Read [ordering and recovery](https://mobily-enterprises.github.io/jskit-ai/guide/app-setup/database-layer#directory-order-comes-before-filenames)
 before schema work; check Knex configuration and ledger.
-`createKnexMigrationConfigFromApp()` uses `sortDirsSeparately: true`: root
-`migrations/`, sorted package directories, then `migrations/constraints/`.
-Timestamps order only within directories. Keep tables/columns with their package;
-put cross-package foreign keys in the final phase.
+`createKnexMigrationConfigFromApp()` uses `sortDirsSeparately: true`: sorted
+package directories, root `migrations/`, then `migrations/constraints/`.
+Timestamps order only within directories. Root migrations may reference package
+tables; keep tables/columns with their package and put foreign keys between
+packages in the final phase.
 
 MySQL/MariaDB can leave committed DDL without a ledger entry. Check columns and
 keys separately; `hasColumn()` is insufficient. Validate existing definitions,

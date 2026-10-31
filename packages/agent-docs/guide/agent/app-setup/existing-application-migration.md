@@ -263,8 +263,8 @@ recognize it. Basenames must be unique across the effective graph.
 
 Keep cross-package foreign keys and other dependency-sensitive constraints in
 application `migrations/constraints/`, the final phase of
-`createKnexMigrationConfigFromApp()`. It uses `sortDirsSeparately: true`: root
-`migrations/` runs before the sorted package directories, and filenames only
+`createKnexMigrationConfigFromApp()`. It uses `sortDirsSeparately: true`: the
+sorted package directories run before root `migrations/`, and filenames only
 order work within their own directory. A later timestamp in a package does not
 defer its foreign key until another package has created the parent table.
 Follow the [database ordering and partial-failure recovery rules](https://mobily-enterprises.github.io/jskit-ai/guide/app-setup/database-layer#directory-order-comes-before-filenames),

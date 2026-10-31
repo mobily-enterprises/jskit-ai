@@ -121,9 +121,9 @@ changed schema behavior requires a new migration.
 `createKnexMigrationConfigFromApp()` sets `sortDirsSeparately: true` and runs
 pending migrations in this order, using the default `migrationsDirectory`:
 
-1. Application `migrations/`.
-2. Discovered package migration directories, sorted by their absolute paths
+1. Discovered package migration directories, sorted by their absolute paths
    using `localeCompare`.
+2. Application `migrations/`.
 3. Application `migrations/constraints/`.
 
 Knex sorts filenames within each directory, not across the whole graph; see
@@ -132,13 +132,23 @@ Package discovery does not topologically order tables or foreign keys. A newer
 timestamp in an earlier package still runs before every file in a later package.
 Inspect the effective `knexfile.js` configuration if the app customizes it.
 
-Keep table and column creation with the owning package. Put cross-package
-foreign keys and other constraints that need the complete package schema in
-application `migrations/constraints/`. An ordinary root `migrations/` file runs
-too early for this purpose. For example, a `pet_notes.product_id` column can be
-added by the pet-notes package, but its foreign key to the products package's
-`products.id` belongs in the final constraints phase. Do not rely on today's
-package-directory order to make a cross-package reference work.
+Every package table exists before the application's own migrations run, so a
+root `migrations/` file can reference a package table directly, for example a
+`books.user_id` foreign key to `users.id`. A package migration must never depend
+on an application table.
+
+Keep table and column creation with the owning package. Put foreign keys
+between two packages, and other constraints that need the complete schema, in
+application `migrations/constraints/`. For example, a `pet_notes.product_id`
+column can be added by the pet-notes package, but its foreign key to the
+products package's `products.id` belongs in the final constraints phase. Do not
+rely on today's package-directory order to make a cross-package reference work.
+
+Until `@jskit-ai/database-runtime` 0.1.252, root `migrations/` ran before the
+package directories, so a fresh database failed on any application migration
+that referenced a package table. Applied migrations stay in the Knex ledger;
+only pending ones follow the new order. An application migration that still
+creates a package-owned table belongs in that package.
 
 Before adding the key, check that both tables and columns exist, the referenced
 key is indexed appropriately, column types match (including integer signedness),

@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import knexFactory from "knex";
 import {
   createKnexMigrationConfig,
   createKnexMigrationConfigFromApp,
@@ -73,8 +74,53 @@ test("installed package migrations run from their owning packages without copied
     appRoot
   });
   assert.deepEqual(config.migrations.directory, [
-    path.join(appRoot, "migrations"),
     path.join(packageRoot, "migrations"),
+    path.join(appRoot, "migrations"),
     path.join(appRoot, "migrations", "constraints")
+  ]);
+});
+
+test("a fresh database runs package migrations before the application's, then its constraints", async (context) => {
+  const appRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-migration-order-"));
+  const packageRoot = path.join(appRoot, "node_modules", "@example", "accounts-core");
+  await mkdir(path.join(packageRoot, "migrations"), { recursive: true });
+  await mkdir(path.join(appRoot, "migrations", "constraints"), { recursive: true });
+  await writeFile(path.join(appRoot, "package.json"), JSON.stringify({
+    dependencies: { "@example/accounts-core": "1.0.0" }
+  }));
+  await writeFile(path.join(packageRoot, "package.json"), JSON.stringify({
+    name: "@example/accounts-core",
+    version: "1.0.0",
+    jskit: { kind: "runtime", migrations: { directories: ["migrations"] } }
+  }));
+  await writeFile(path.join(packageRoot, "migrations", "accounts_initial.cjs"),
+    "exports.up = (knex) => knex.schema.createTable(\"users\", (table) => table.increments(\"id\"));\nexports.down = () => {};\n");
+  await writeFile(path.join(appRoot, "migrations", "20260101000000_books.cjs"), [
+    "exports.up = async (knex) => {",
+    "  await knex(\"users\").insert({ id: 1 });",
+    "  await knex.schema.createTable(\"books\", (table) => table.integer(\"user_id\").references(\"id\").inTable(\"users\"));",
+    "};",
+    "exports.down = () => {};",
+    ""
+  ].join("\n"));
+  await writeFile(path.join(appRoot, "migrations", "constraints", "20200101000000_books_index.cjs"),
+    "exports.up = (knex) => knex.schema.alterTable(\"books\", (table) => table.index([\"user_id\"]));\nexports.down = () => {};\n");
+
+  const { migrations } = await createKnexMigrationConfigFromApp({
+    client: "pg",
+    environment: connectionEnvironment,
+    appRoot
+  });
+  const knex = knexFactory({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true, migrations });
+  context.after(async () => {
+    await knex.destroy();
+    await rm(appRoot, { recursive: true, force: true });
+  });
+
+  await knex.migrate.latest();
+  assert.deepEqual(await knex("knex_migrations").orderBy("id").pluck("name"), [
+    "accounts_initial.cjs",
+    "20260101000000_books.cjs",
+    "20200101000000_books_index.cjs"
   ]);
 });
