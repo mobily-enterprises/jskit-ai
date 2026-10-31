@@ -135,6 +135,7 @@ const BARREL_EXPECTATIONS = Object.freeze([
     expectedExports: Object.freeze([
       "HttpProvider",
       "attachDirectRequestActionExecutor",
+      "createActionRouteScope",
       "createCachedResponseSerializerFactory",
       "createCapabilityHttpRuntime"
     ])
