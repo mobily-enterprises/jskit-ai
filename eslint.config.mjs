@@ -21,7 +21,8 @@ export default [
   ...typedFeaturesConfig([
     "packages/database-runtime/src/server/**",
     "packages/database-runtime-mysql/src/server/**",
-    "packages/database-runtime-postgres/src/server/**"
+    "packages/database-runtime-postgres/src/server/**",
+    "packages/json-rest-api-core/src/server/**"
   ]),
   ...webConfig,
   ...nodeConfig,

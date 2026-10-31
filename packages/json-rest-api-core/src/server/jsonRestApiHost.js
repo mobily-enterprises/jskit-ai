@@ -106,8 +106,13 @@ function cloneJsonRestResourceValue(value, { writeSerializers = {} } = {}) {
   return next;
 }
 
+/**
+ * @param {import("./types.js").RuntimeJsonRestApi} api
+ * @param {string} scopeName
+ * @param {object} resourceConfig
+ */
 async function addResourceIfMissing(api, scopeName, resourceConfig) {
-  if (api?.resources?.[scopeName]) {
+  if (api.resources[scopeName]) {
     return api.resources[scopeName];
   }
 
@@ -252,8 +257,10 @@ function normalizeJsonRestQueryField(fieldName = "", fieldDefinition = {}, proje
   }
 
   const sourceFieldDefinition = isPlainJsonRestObject(fieldDefinition) ? fieldDefinition : {};
+  // readable-check: allow method-probe - data: a query projection in a resource names its select() or project()
   const select = typeof sourceProjection.select === "function"
     ? sourceProjection.select
+    // readable-check: allow method-probe - data: a query projection in a resource names its select() or project()
     : typeof sourceProjection.project === "function"
       ? sourceProjection.project
       : null;
@@ -593,6 +600,11 @@ async function returnBadRequestWhenJsonRestFieldsetInvalid(run) {
   }
 }
 
+/**
+ * @param {object} dependencies
+ * @param {import("@jskit-ai/database-runtime/server/types").RuntimeDatabase["knex"]} dependencies.knex
+ * @param {typeof JSON_REST_DEFAULT_LOGGER} [dependencies.logger]
+ */
 async function createJsonRestApiHost({ knex, logger = JSON_REST_DEFAULT_LOGGER }) {
   if (typeof knex !== "function") {
     throw new TypeError("createJsonRestApiHost requires knex.");
