@@ -97,5 +97,5 @@ const WorkspacesFeature = defineFeature({
 });
 
 // Applications' tests build the runtime and install its resources directly, from
-// this package's public feature path.
-export { WorkspacesFeature, createWorkspacesRuntime, installWorkspaceResources };
+// this package's public feature path, with the default invite mailer.
+export { WorkspacesFeature, createWorkspacesRuntime, installWorkspaceResources, unconfiguredWorkspaceInviteMailer };
