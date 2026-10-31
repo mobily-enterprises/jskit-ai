@@ -28,7 +28,8 @@ function localOrigin(value) {
 
 /** @param {Response} response */
 function setCookies(response) {
-  return response.headers.getSetCookie();
+  // readable-check: allow method-probe - platform object: another fetch implementation's Headers may lack getSetCookie()
+  return typeof response.headers.getSetCookie === "function" ? response.headers.getSetCookie() : [];
 }
 
 /**
