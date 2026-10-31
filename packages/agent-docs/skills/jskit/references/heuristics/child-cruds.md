@@ -1,4 +1,4 @@
-<!-- Generated from `packages/agent-docs/heuristics/child-cruds.md` by `npm run agent-docs:build`. -->
+<!-- Generated from `packages/agent-docs/heuristics/child-cruds.md`. -->
 
 # Child CRUD Layout Patterns
 

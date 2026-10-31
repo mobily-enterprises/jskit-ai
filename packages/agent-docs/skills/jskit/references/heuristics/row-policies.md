@@ -1,4 +1,4 @@
-<!-- Generated from `packages/agent-docs/heuristics/row-policies.md` by `npm run agent-docs:build`. -->
+<!-- Generated from `packages/agent-docs/heuristics/row-policies.md`. -->
 
 # Row Policies
 

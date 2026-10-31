@@ -1,4 +1,4 @@
-<!-- Generated from `packages/agent-docs/heuristics/ui-testing.md` by `npm run agent-docs:build`. -->
+<!-- Generated from `packages/agent-docs/heuristics/ui-testing.md`. -->
 
 # UI Testing Pattern
 

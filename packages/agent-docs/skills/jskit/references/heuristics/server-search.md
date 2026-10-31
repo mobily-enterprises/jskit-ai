@@ -1,4 +1,4 @@
-<!-- Generated from `packages/agent-docs/heuristics/server-search.md` by `npm run agent-docs:build`. -->
+<!-- Generated from `packages/agent-docs/heuristics/server-search.md`. -->
 
 # Server Search
 

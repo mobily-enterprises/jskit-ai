@@ -1,4 +1,4 @@
-<!-- Generated from `packages/agent-docs/heuristics/filters.md` by `npm run agent-docs:build`. -->
+<!-- Generated from `packages/agent-docs/heuristics/filters.md`. -->
 
 # Structured Filters
 

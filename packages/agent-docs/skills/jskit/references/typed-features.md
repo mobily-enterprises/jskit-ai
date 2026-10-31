@@ -1,4 +1,4 @@
-<!-- Generated from `packages/agent-docs/site/guide/framework/typed-features.md` by `npm run agent-docs:build`. -->
+<!-- Generated from `packages/agent-docs/site/guide/framework/typed-features.md`. -->
 
 # Typed features
 
@@ -384,5 +384,5 @@ makes them errors for the packages an application has converted:
 
 A justified exception carries a `// readable-check: allow <rule> - <reason>`
 comment on the line before it. The [typed features
-heuristic](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/heuristics/typed-features.md)
+heuristic](heuristics/typed-features.md)
 lists each finding with its fix.

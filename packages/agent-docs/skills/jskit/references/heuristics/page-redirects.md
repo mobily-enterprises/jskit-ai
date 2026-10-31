@@ -1,4 +1,4 @@
-<!-- Generated from `packages/agent-docs/heuristics/page-redirects.md` by `npm run agent-docs:build`. -->
+<!-- Generated from `packages/agent-docs/heuristics/page-redirects.md`. -->
 
 # Page Redirect Patterns
 

@@ -1,4 +1,4 @@
-<!-- Generated from `packages/agent-docs/heuristics/crud-authoring.md` by `npm run agent-docs:build`. -->
+<!-- Generated from `packages/agent-docs/heuristics/crud-authoring.md`. -->
 
 # CRUD authoring
 

@@ -1,4 +1,4 @@
-<!-- Generated from `packages/agent-docs/site/guide/app-setup/existing-application-migration.md` by `npm run agent-docs:build`. -->
+<!-- Generated from `packages/agent-docs/site/guide/app-setup/existing-application-migration.md`. -->
 
 # Migrate an existing application
 

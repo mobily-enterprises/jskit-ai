@@ -1,4 +1,4 @@
-<!-- Generated from `packages/agent-docs/site/guide/framework/crud-form-actions.md` by `npm run agent-docs:build`. -->
+<!-- Generated from `packages/agent-docs/site/guide/framework/crud-form-actions.md`. -->
 
 # Record form actions and validation
 

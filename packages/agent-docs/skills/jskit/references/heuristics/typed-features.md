@@ -1,4 +1,4 @@
-<!-- Generated from `packages/agent-docs/heuristics/typed-features.md` by `npm run agent-docs:build`. -->
+<!-- Generated from `packages/agent-docs/heuristics/typed-features.md`. -->
 
 # Typed Feature Heuristics
 

@@ -1,4 +1,4 @@
-<!-- Generated from `packages/agent-docs/heuristics/crud-repository-mapping.md` by `npm run agent-docs:build`. -->
+<!-- Generated from `packages/agent-docs/heuristics/crud-repository-mapping.md`. -->
 
 # CRUD Repository Mapping
 

@@ -1,4 +1,4 @@
-<!-- Generated from `packages/agent-docs/site/guide/framework/material-3.md` by `npm run agent-docs:build`. -->
+<!-- Generated from `packages/agent-docs/site/guide/framework/material-3.md`. -->
 
 # Material 3
 

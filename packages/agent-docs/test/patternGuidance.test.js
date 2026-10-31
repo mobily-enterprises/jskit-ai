@@ -163,10 +163,11 @@ test("generated reference maps list the types a module declares with @typedef", 
 
 test("the JSKIT skill points at the bundled typed-features guide and heuristic", async () => {
   const skill = await readFile(path.join(packageRoot, "skills/jskit/SKILL.md"), "utf8");
-  for (const reference of ["references/typed-features.md", "references/heuristics/typed-features.md"]) {
-    assert.ok(skill.includes(`(${reference})`), `SKILL.md does not link ${reference}.`);
-    await access(path.join(packageRoot, "skills/jskit", reference));
-  }
+  const guide = await readFile(path.join(packageRoot, "skills/jskit/references/typed-features.md"), "utf8");
+  assert.ok(skill.includes("(references/typed-features.md)"), "SKILL.md does not link references/typed-features.md.");
+  assert.match(skill, /\(references\/typed-features\.md\) and its heuristic/u, "SKILL.md does not point at the heuristic.");
+  assert.ok(guide.includes("](heuristics/typed-features.md)"), "The bundled guide does not link its heuristic.");
+  await access(path.join(packageRoot, "skills/jskit/references/heuristics/typed-features.md"));
   const heuristicsIndex = await readFile(path.join(packageRoot, "heuristics/INDEX.md"), "utf8");
   assert.match(heuristicsIndex, /\(\.\/typed-features\.md\)/u);
 });

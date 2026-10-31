@@ -1,4 +1,4 @@
-<!-- Generated from `packages/agent-docs/heuristics/live-actions.md` by `npm run agent-docs:build`. -->
+<!-- Generated from `packages/agent-docs/heuristics/live-actions.md`. -->
 
 # Live Action Patterns
 

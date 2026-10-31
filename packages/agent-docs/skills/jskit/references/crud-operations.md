@@ -1,4 +1,4 @@
-<!-- Generated from `packages/agent-docs/site/guide/framework/crud-operations.md` by `npm run agent-docs:build`. -->
+<!-- Generated from `packages/agent-docs/site/guide/framework/crud-operations.md`. -->
 
 # CRUD operations
 
@@ -39,8 +39,7 @@ Add resource service methods with `decorateService`; expose commands such as
 `execute`, and `after` share one repository transaction, `execute` receives
 `standard(nextInput)`, and `afterCommit` follows commit. Repositories persist;
 services and hooks orchestrate. Use a transactional outbox for durable
-external work. Custom actions, services and repositories follow
-[typed features](typed-features.md).
+external work.
 
 ## Choose ownership, API access and client access independently
 

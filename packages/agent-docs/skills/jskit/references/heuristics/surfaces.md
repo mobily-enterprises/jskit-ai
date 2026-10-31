@@ -1,4 +1,4 @@
-<!-- Generated from `packages/agent-docs/heuristics/surfaces.md` by `npm run agent-docs:build`. -->
+<!-- Generated from `packages/agent-docs/heuristics/surfaces.md`. -->
 
 # Surface Patterns
 

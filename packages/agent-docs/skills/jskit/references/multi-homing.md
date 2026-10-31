@@ -1,4 +1,4 @@
-<!-- Generated from `packages/agent-docs/site/guide/app-setup/multi-homing.md` by `npm run agent-docs:build`. -->
+<!-- Generated from `packages/agent-docs/site/guide/app-setup/multi-homing.md`. -->
 
 # Workspace tenancy
 

@@ -1,4 +1,4 @@
-<!-- Generated from `packages/agent-docs/site/guide/framework/ui-operations.md` by `npm run agent-docs:build`. -->
+<!-- Generated from `packages/agent-docs/site/guide/framework/ui-operations.md`. -->
 
 # UI operations
 

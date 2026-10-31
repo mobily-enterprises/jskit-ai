@@ -1,4 +1,4 @@
-<!-- Generated from `packages/agent-docs/heuristics/ui-contract.md` by `npm run agent-docs:build`. -->
+<!-- Generated from `packages/agent-docs/heuristics/ui-contract.md`. -->
 
 # JSKIT UI contract
 

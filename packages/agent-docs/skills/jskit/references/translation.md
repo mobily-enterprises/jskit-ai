@@ -1,4 +1,4 @@
-<!-- Generated from `packages/agent-docs/site/guide/framework/translation.md` by `npm run agent-docs:build`. -->
+<!-- Generated from `packages/agent-docs/site/guide/framework/translation.md`. -->
 
 # Translating a JSKIT app
 

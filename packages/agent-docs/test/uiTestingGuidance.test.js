@@ -74,6 +74,7 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
     "multi-homing.md",
     "pattern-index.md",
     "translation.md",
+    "typed-features.md",
     "ui-operations.md",
   ]);
   assert.deepEqual(
