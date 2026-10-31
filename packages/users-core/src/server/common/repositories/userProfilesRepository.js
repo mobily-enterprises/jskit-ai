@@ -139,6 +139,11 @@ function createDuplicateEmailConflictError(cause) {
   return error;
 }
 
+/**
+ * @param {import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi} api
+ * @param {string} baseUsername
+ * @param {{ excludeUserId?: unknown, transaction?: object | null }} [options]
+ */
 async function resolveUniqueUsername(api, baseUsername, { excludeUserId = null, transaction = null } = {}) {
   const normalizedExcludeUserId = normalizeDbRecordId(excludeUserId, { fallback: null });
 

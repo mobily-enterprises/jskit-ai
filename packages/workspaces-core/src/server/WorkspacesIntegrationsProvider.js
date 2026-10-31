@@ -9,6 +9,10 @@ import {
 
 // Every active membership puts the actor in the workspace audience and in its
 // own workspace-user audience.
+/**
+ * @param {import("./types.js").WorkspacesCore["repositories"]["workspaceMemberships"]} workspaceMemberships
+ * @param {string} actorId
+ */
 async function resolveWorkspaceRealtimeScopes(workspaceMemberships, actorId) {
   const workspaceIds = await workspaceMemberships.listActiveWorkspaceIdsByUserId(actorId);
   return workspaceIds.flatMap((workspaceId) => [
@@ -30,6 +34,16 @@ const WorkspacesIntegrationsProvider = defineProvider({
   optional: {
     realtime: "runtime.realtime"
   },
+  /**
+   * @param {object} capabilities
+   * @param {import("@jskit-ai/kernel/server/types").ActionCatalogue} capabilities.actions
+   * @param {import("@jskit-ai/auth-core/server/types").AuthExtensions} capabilities.authExtensions
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeConfig} capabilities.config
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeHttp} capabilities.http
+   * @param {import("@jskit-ai/realtime/server/types").RuntimeRealtime | undefined} capabilities.realtime The installed realtime runtime, when there is one.
+   * @param {import("@jskit-ai/users-core/server/types").UsersExtensions} capabilities.usersExtensions
+   * @param {import("./types.js").WorkspacesCore} capabilities.workspaces
+   */
   setup({ actions, authExtensions, config, http, realtime, usersExtensions, workspaces }) {
     const workspaceService = workspaces.services.directory;
     const membershipOptionalSurfaceIds = resolveWorkspaceMembershipOptionalSurfaceIdsFromAppConfig(config);

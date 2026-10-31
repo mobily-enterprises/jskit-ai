@@ -65,6 +65,7 @@ function resolveInviteEmailTemplate(config) {
   return typeof template === "function" ? template : renderDefaultWorkspaceInviteEmail;
 }
 
+/** @param {import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi} jsonRestApi */
 async function installWorkspaceResources(jsonRestApi) {
   const scopeOptions = { writeSerializers: { "datetime-utc": toDatabaseDateTimeUtc } };
   await addResourceIfMissing(

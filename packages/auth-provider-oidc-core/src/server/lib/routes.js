@@ -28,6 +28,10 @@ function isCrossSiteNavigation(request) {
 /**
  * Registers the two OIDC routes in their own Fastify scope, so the form-body
  * parser the back-channel route needs applies to it alone.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeFastify} fastify
+ * @param {object} dependencies
+ * @param {ReturnType<typeof import("./service.js").createOidcAuthService>} dependencies.authService
+ * @param {ReturnType<typeof import("./backchannelLogout.js").createBackchannelLogout>} dependencies.backchannelLogout
  */
 async function registerOidcRoutes(fastify, { authService, backchannelLogout }) {
   await fastify.register(async (scope) => {
