@@ -20,7 +20,6 @@ const USER_SETTINGS_RESOURCE_TRANSPORT = Object.freeze({
  * @param {import("@jskit-ai/uploads-runtime/server/types").RuntimeUploads} dependencies.uploads
  */
 function registerAccountProfileRoutes(router, { accountProfileService, authService, uploads }) {
-
   router.register(
     "GET",
     "/api/settings",

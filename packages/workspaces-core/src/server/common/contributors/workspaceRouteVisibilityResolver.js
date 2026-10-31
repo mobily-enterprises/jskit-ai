@@ -24,7 +24,6 @@ function buildVisibilityContribution({ visibility, scopeOwnerId = null, userId =
  * @param {string[]} [dependencies.workspaceMembershipOptionalSurfaceIds]
  */
 function createWorkspaceRouteVisibilityResolver({ workspaceService, workspaceMembershipOptionalSurfaceIds = [] }) {
-
   const membershipOptionalSurfaceIds = new Set(
     (Array.isArray(workspaceMembershipOptionalSurfaceIds) ? workspaceMembershipOptionalSurfaceIds : [])
       .map((entry) => normalizeSurfaceId(entry))

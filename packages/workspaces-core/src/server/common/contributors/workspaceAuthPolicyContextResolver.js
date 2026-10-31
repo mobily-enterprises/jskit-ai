@@ -7,7 +7,6 @@ import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
  * @param {string[]} [dependencies.workspaceMembershipOptionalSurfaceIds]
  */
 function createWorkspaceAuthPolicyContextResolver({ workspaceService, workspaceMembershipOptionalSurfaceIds = [] }) {
-
   const membershipOptionalSurfaceIds = new Set(
     (Array.isArray(workspaceMembershipOptionalSurfaceIds) ? workspaceMembershipOptionalSurfaceIds : [])
       .map((entry) => normalizeSurfaceId(entry))

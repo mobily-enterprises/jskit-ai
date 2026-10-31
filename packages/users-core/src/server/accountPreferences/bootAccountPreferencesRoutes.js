@@ -4,7 +4,6 @@ import { resolveAccountSettingsResourceId } from "../common/support/accountSetti
 
 /** @param {import("@jskit-ai/kernel/server/types").RuntimeHttp["router"]} router */
 function registerAccountPreferencesRoutes(router) {
-
   router.register(
     "PATCH",
     "/api/settings/preferences",

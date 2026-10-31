@@ -10,19 +10,15 @@ import {
 } from "../common/formatters/accountSettingsResponseFormatter.js";
 import { accountSecurityStatusFormatter } from "../common/formatters/accountSecurityStatusFormatter.js";
 
-/** @typedef {ReturnType<typeof import("../common/repositories/userProfilesRepository.js").createRepository>} UserProfilesRepository */
-/** @typedef {ReturnType<typeof import("../common/repositories/userSettingsRepository.js").createRepository>} UserSettingsRepository */
-
 // A signed-in user's password, sign-in methods and sessions, as far as the
 // installed auth provider supports them.
 /**
  * @param {object} dependencies
- * @param {UserSettingsRepository} dependencies.userSettingsRepository
- * @param {UserProfilesRepository} dependencies.userProfilesRepository
+ * @param {import("../types.js").UserSettingsRepository} dependencies.userSettingsRepository
+ * @param {import("../types.js").UserProfilesRepository} dependencies.userProfilesRepository
  * @param {import("@jskit-ai/auth-core/server/types").AuthService} dependencies.authService The installed provider's `auth.service`.
  */
 function createService({ userSettingsRepository, userProfilesRepository, authService }) {
-
   async function changePassword(request, user, payload, options = {}) {
     // readable-check: allow method-probe - changePassword is an optional auth.service operation
     if (typeof authService.changePassword !== "function") {

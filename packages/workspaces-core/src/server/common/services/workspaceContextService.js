@@ -75,7 +75,6 @@ function normalizeWorkspaceCreationInput(payload = {}) {
  * @param {ReturnType<typeof import("../../workspaceSettings/workspaceSettingsRepository.js").createRepository>} dependencies.workspaceSettingsRepository
  */
 function createService({ appConfig, workspacesRepository, workspaceMembershipsRepository, workspaceSettingsRepository }) {
-
   const resolvedTenancyProfile = resolveTenancyProfile(appConfig);
   const resolvedTenancyMode = resolvedTenancyProfile.mode;
   const workspacePolicy = resolvedTenancyProfile.workspace;

@@ -110,7 +110,6 @@ function normalizeInvitationInput(value = null) {
  * @param {ReturnType<typeof import("./sessions.js").createLocalSessions>} dependencies.sessions
  */
 function createLocalAccounts({ backend, devAuth, invitationContextResolver, passwords, profileProjector, sessions }) {
-
   async function resolveProfileOptionsForRegistration(input = {}, { email } = {}) {
     const invitation = normalizeInvitationInput(input.invitation);
     if (!invitation) {

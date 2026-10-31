@@ -2,10 +2,8 @@ import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { isAuthOperationSupported } from "@jskit-ai/auth-core/shared/authCapabilities";
 import { normalizeIdentity } from "../support/identity.js";
 
-/** @typedef {ReturnType<typeof import("../repositories/userProfilesRepository.js").createRepository>} UserProfilesRepository */
-
 /**
- * @param {UserProfilesRepository} userProfilesRepository
+ * @param {import("../../types.js").UserProfilesRepository} userProfilesRepository
  * @param {object} user
  */
 async function resolveUserProfile(userProfilesRepository, user) {

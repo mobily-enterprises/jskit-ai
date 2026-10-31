@@ -31,7 +31,6 @@ const passwordChangeMetaOutputValidator = deepFreeze({
  * @param {{ authService: import("@jskit-ai/auth-core/server/types").AuthService }} dependencies
  */
 function registerAccountSecurityRoutes(router, { authService }) {
-
   router.register(
     "POST",
     "/api/settings/security/change-password",

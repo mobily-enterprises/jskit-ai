@@ -63,7 +63,6 @@ function requireSynchronizedProfile(profile) {
  *   Answers the registered contributors that run after each synchronization.
  */
 function createService({ userProfilesRepository, resolveLifecycleContributors, userSettingsRepository }) {
-
   async function findByIdentity(identityLike, options = {}) {
     const normalized = buildNormalizedIdentityKey(identityLike);
     return userProfilesRepository.findByIdentity(

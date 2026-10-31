@@ -28,7 +28,6 @@ async function readAvatarBuffer(stream, { maxBytes = DEFAULT_AVATAR_POLICY.maxUp
  * @param {object} [dependencies.avatarPolicy] Upload limits that replace the default image policy.
  */
 function createService({ userProfilesRepository, avatarStorageService, avatarPolicy }) {
-
   const resolvedAvatarPolicy = resolveAvatarPolicy(avatarPolicy);
 
   async function resolveProfile(user) {

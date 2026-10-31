@@ -8,19 +8,15 @@ import {
   accountSettingsResponseFormatter
 } from "../common/formatters/accountSettingsResponseFormatter.js";
 
-/** @typedef {ReturnType<typeof import("../common/repositories/userProfilesRepository.js").createRepository>} UserProfilesRepository */
-/** @typedef {ReturnType<typeof import("../common/repositories/userSettingsRepository.js").createRepository>} UserSettingsRepository */
-
 // A signed-in user's profile: display name and avatar.
 /**
  * @param {object} dependencies
- * @param {UserSettingsRepository} dependencies.userSettingsRepository
- * @param {UserProfilesRepository} dependencies.userProfilesRepository
+ * @param {import("../types.js").UserSettingsRepository} dependencies.userSettingsRepository
+ * @param {import("../types.js").UserProfilesRepository} dependencies.userProfilesRepository
  * @param {import("@jskit-ai/auth-core/server/types").AuthService} dependencies.authService The installed provider's `auth.service`; it may keep the display name itself.
  * @param {import("./avatarService.js").AvatarService} dependencies.avatarService
  */
 function createService({ userSettingsRepository, userProfilesRepository, authService, avatarService }) {
-
   async function getForUser(request, user, options = {}) {
     const profile = await resolveUserProfile(userProfilesRepository, user);
     if (!profile) {

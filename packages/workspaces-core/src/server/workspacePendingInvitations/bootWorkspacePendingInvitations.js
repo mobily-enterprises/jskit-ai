@@ -26,7 +26,6 @@ function resolveInviteResolutionRecordId(record = {}) {
 
 /** @param {import("@jskit-ai/kernel/server/types").RuntimeHttp["router"]} router */
 function registerWorkspacePendingInvitationsRoutes(router) {
-
   router.register(
     "GET",
     "/api/workspace/invitations/resolve",
