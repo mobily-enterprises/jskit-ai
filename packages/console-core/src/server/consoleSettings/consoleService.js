@@ -1,14 +1,8 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 
-function createService({ consoleSettingsRepository } = {}) {
-  if (!consoleSettingsRepository || typeof consoleSettingsRepository.ensureOwnerUserId !== "function") {
-    throw new Error("consoleService requires consoleSettingsRepository.ensureOwnerUserId().");
-  }
-  if (!consoleSettingsRepository || typeof consoleSettingsRepository.getSingleton !== "function") {
-    throw new Error("consoleService requires consoleSettingsRepository.getSingleton().");
-  }
-
+/** @param {{ consoleSettingsRepository: ReturnType<typeof import("./consoleSettingsRepository.js").createRepository> }} dependencies */
+function createService({ consoleSettingsRepository }) {
   async function ensureInitialConsoleMember(userId, options = {}) {
     const normalizedUserId = normalizeRecordId(userId, { fallback: null });
     if (!normalizedUserId) {

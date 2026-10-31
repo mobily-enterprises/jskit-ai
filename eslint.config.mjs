@@ -34,7 +34,8 @@ export default [
     "packages/auth-provider-supabase-core/src/server/**",
     "packages/oidc-issuer-core/src/server/**",
     "packages/users-core/src/server/**",
-    "packages/workspaces-core/src/server/**"
+    "packages/workspaces-core/src/server/**",
+    "packages/console-core/src/server/**"
   ]),
   ...typedFeaturesConfig([
     "packages/storage-runtime/src/server/**",

@@ -5,10 +5,8 @@ function resolveConsoleSettingsRecordId() {
   return "console-settings";
 }
 
+/** @param {import("@jskit-ai/kernel/server/types").RuntimeHttp["router"]} router */
 function registerConsoleSettingsRoutes(router) {
-  if (!router || typeof router.register !== "function") {
-    throw new TypeError("registerConsoleSettingsRoutes requires router.register().");
-  }
 
   router.register(
     "GET",

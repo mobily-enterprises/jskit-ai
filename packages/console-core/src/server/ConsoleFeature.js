@@ -7,11 +7,8 @@ import { createService as createConsoleService } from "./consoleSettings/console
 import { createRepository as createConsoleSettingsRepository } from "./consoleSettings/consoleSettingsRepository.js";
 import { createService as createConsoleSettingsService } from "./consoleSettings/consoleSettingsService.js";
 
-function createConsoleRuntime({ database } = {}) {
-  if (!database || typeof database.knex !== "function") {
-    throw new TypeError("ConsoleFeature requires runtime.database.knex.");
-  }
-
+/** @param {{ database: import("@jskit-ai/database-runtime/server/types").RuntimeDatabase }} dependencies */
+function createConsoleRuntime({ database }) {
   const consoleSettingsRepository = createConsoleSettingsRepository(database.knex);
   const consoleService = createConsoleService({ consoleSettingsRepository });
   const consoleSettingsService = createConsoleSettingsService({
@@ -40,6 +37,13 @@ const ConsoleFeature = defineFeature({
   provides: {
     console: "console.core"
   },
+  /**
+   * @param {object} capabilities
+   * @param {import("@jskit-ai/auth-core/server/types").AuthExtensions} capabilities.authExtensions
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeBootstrap} capabilities.bootstrap
+   * @param {import("@jskit-ai/database-runtime/server/types").RuntimeDatabase} capabilities.database
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeHttp} capabilities.http
+   */
   setup({ authExtensions, bootstrap, database, http }) {
     const console = createConsoleRuntime({ database });
 

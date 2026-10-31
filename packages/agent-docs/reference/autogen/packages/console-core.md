@@ -16,18 +16,18 @@ Use this on demand; do not load the full index at startup.
 
 ### `src/server/consoleAuthServiceDecorator.js`
 Exports
-- `createConsoleAuthServiceDecorator({ consoleService } = {})`
+- `createConsoleAuthServiceDecorator({ consoleService })`
 Local functions
 - `normalizeRequestPathname(request = null)`
 
 ### `src/server/consoleBootstrapContributor.js`
 Exports
-- `createConsoleBootstrapContributor({ consoleService } = {})`
+- `createConsoleBootstrapContributor({ consoleService })`
 
 ### `src/server/ConsoleFeature.js`
 Exports
 - `ConsoleFeature`
-- `createConsoleRuntime({ database } = {})`
+- `createConsoleRuntime({ database })`
 
 ### `src/server/consoleSettings/bootConsoleSettingsRoutes.js`
 Exports
@@ -37,7 +37,7 @@ Local functions
 
 ### `src/server/consoleSettings/consoleService.js`
 Exports
-- `createService({ consoleSettingsRepository } = {})`
+- `createService({ consoleSettingsRepository })`
 
 ### `src/server/consoleSettings/consoleSettingsActions.js`
 Exports
@@ -52,7 +52,7 @@ Local functions
 
 ### `src/server/consoleSettings/consoleSettingsService.js`
 Exports
-- `createService({ consoleSettingsRepository, consoleService } = {})`
+- `createService({ consoleSettingsRepository, consoleService })`
 - `type ConsoleSettingsService`
 Local functions
 - `buildSettingsResponse(record = {})`

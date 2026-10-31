@@ -25,6 +25,7 @@ function mapSingletonRow(row) {
   };
 }
 
+/** @param {import("knex").Knex} knex */
 function createRepository(knex) {
   if (typeof knex !== "function") {
     throw new TypeError("consoleSettingsRepository requires knex.");

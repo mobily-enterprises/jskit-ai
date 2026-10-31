@@ -1,10 +1,7 @@
 import { normalizeObject, normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 
-function createConsoleBootstrapContributor({ consoleService } = {}) {
-  if (!consoleService || typeof consoleService.isConsoleOwnerUserId !== "function") {
-    throw new Error("createConsoleBootstrapContributor requires consoleService.isConsoleOwnerUserId().");
-  }
-
+/** @param {{ consoleService: ReturnType<typeof import("./consoleSettings/consoleService.js").createService> }} dependencies */
+function createConsoleBootstrapContributor({ consoleService }) {
   return Object.freeze({
     contributorId: "console.bootstrap",
     order: 300,

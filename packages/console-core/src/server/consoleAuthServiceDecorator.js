@@ -24,21 +24,16 @@ function normalizeRequestPathname(request = null) {
   return "";
 }
 
-function createConsoleAuthServiceDecorator({ consoleService } = {}) {
-  if (!consoleService || typeof consoleService.ensureInitialConsoleMember !== "function") {
-    throw new Error("createConsoleAuthServiceDecorator requires consoleService.ensureInitialConsoleMember().");
-  }
-
+// Makes the first user who reads their session the console's owner.
+/** @param {{ consoleService: ReturnType<typeof import("./consoleSettings/consoleService.js").createService> }} dependencies */
+function createConsoleAuthServiceDecorator({ consoleService }) {
   let consoleOwnerInitialized = false;
 
   return Object.freeze({
     decoratorId: "console.core.authServiceDecorator",
     order: 0,
+    /** @param {import("@jskit-ai/auth-core/server/types").AuthService} authService */
     decorateAuthService(authService) {
-      if (!authService || typeof authService.authenticateRequest !== "function") {
-        return authService;
-      }
-
       return Object.freeze(
         Object.defineProperty(Object.create(authService), "authenticateRequest", {
           enumerable: true,

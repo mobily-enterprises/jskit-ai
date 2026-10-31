@@ -6,17 +6,12 @@ function buildSettingsResponse(record = {}) {
   };
 }
 
-function createService({ consoleSettingsRepository, consoleService } = {}) {
-  if (!consoleSettingsRepository || typeof consoleSettingsRepository.getSingleton !== "function") {
-    throw new Error("consoleSettingsService requires consoleSettingsRepository.getSingleton().");
-  }
-  if (!consoleSettingsRepository || typeof consoleSettingsRepository.updateSingleton !== "function") {
-    throw new Error("consoleSettingsService requires consoleSettingsRepository.updateSingleton().");
-  }
-  if (!consoleService || typeof consoleService.requireConsoleOwner !== "function") {
-    throw new Error("consoleSettingsService requires consoleService.requireConsoleOwner().");
-  }
-
+/**
+ * @param {object} dependencies
+ * @param {ReturnType<typeof import("./consoleSettingsRepository.js").createRepository>} dependencies.consoleSettingsRepository
+ * @param {ReturnType<typeof import("./consoleService.js").createService>} dependencies.consoleService
+ */
+function createService({ consoleSettingsRepository, consoleService }) {
   async function getSettings(options = {}) {
     await consoleService.requireConsoleOwner(options?.context, options);
     const settings = await consoleSettingsRepository.getSingleton();
