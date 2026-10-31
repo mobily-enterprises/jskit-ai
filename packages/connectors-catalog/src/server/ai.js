@@ -4,6 +4,13 @@ import { aiCatalogue, aiDefinition, getAiModel } from "../shared/ai.js";
 
 // A server-only credential boundary. The consuming application's SDK owns all
 // inference, transport, streaming, tool execution and error/fallback policy.
+/**
+ * @param {object} options
+ * @param {Record<string, any>} options.configuration The integration configuration.
+ * @param {import("@jskit-ai/connectors-core/server/types").ConnectorAuthorize} options.authorize
+ * @param {import("@jskit-ai/connectors-core/server/types").ResolveReference} [options.resolveReference]
+ *   Reads `env:NAME` references from the environment unless the application resolves its own.
+ */
 function createAiConnectionResolver({ configuration, authorize, resolveReference = createEnvironmentReferenceResolver() }) {
   if (typeof authorize !== "function") throw new TypeError("AI connections require application authorization.");
   const config = validateIntegrationConfiguration(configuration, { providers: [aiDefinition], allowUnknownProviders: true });
