@@ -1,5 +1,9 @@
 import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
+/** @typedef {import("@jskit-ai/auth-core/server/types").AuthService} AuthService */
+/** @typedef {import("@jskit-ai/database-runtime/server/types").RuntimeDatabase} RuntimeDatabase */
+/** @typedef {ReturnType<typeof import("@jskit-ai/kernel/shared/support/providerLogger").createProviderLogger>} ProviderLogger */
+
 const ALL_CLIENTS_ROOM = "clients";
 const ALL_USERS_ROOM = "users";
 
@@ -58,6 +62,7 @@ function roomForScope(scope = {}) {
 function createAudienceContributors() {
   const contributors = new Map();
   return Object.freeze({
+    /** @param {{ id?: string, resolveActorScopes?: (actorId: string) => unknown }} [contributor] */
     register({ id, resolveActorScopes } = {}) {
       const contributorId = normalizeText(id);
       if (!contributorId) throw new TypeError("Realtime audience contributors require an id.");
@@ -168,7 +173,16 @@ function collectUserIds(rows) {
   return [...ids];
 }
 
-async function resolveAudienceTargets(audience, event, { database = null, logger }) {
+/** @typedef {ReturnType<typeof createAudienceContributors>} AudienceContributors */
+
+/**
+ * @param {unknown} audience
+ * @param {object} event
+ * @param {object} dependencies
+ * @param {RuntimeDatabase} [dependencies.database] Absent when no runtime.database is installed.
+ * @param {ProviderLogger} dependencies.logger
+ */
+async function resolveAudienceTargets(audience, event, { database, logger }) {
   const rooms = new Set();
   const flags = { broadcastAllClients: false };
   const state = { event, rooms, flags, logger };
@@ -180,8 +194,9 @@ async function resolveAudienceTargets(audience, event, { database = null, logger
     }
     if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
     addAudienceRooms(entry, state);
+    // readable-check: allow method-probe - data: an event's audience entry may name a userQuery()
     if (typeof entry.userQuery === "function") {
-      if (typeof database?.knex !== "function") {
+      if (!database) {
         logger.warn("Realtime audience userQuery requires runtime.database.");
         continue;
       }
@@ -237,16 +252,23 @@ function createSocketRequest(socket) {
 // A socket cannot store a refreshed session, so its checks never refresh one.
 // A provider that would have to (its access token expired) answers
 // `refreshRequired`, and the client refreshes over HTTP before reconnecting.
+/**
+ * @param {AuthService | undefined} authService Absent when no auth.service is installed.
+ * @param {import("socket.io").Socket} socket
+ * @param {object} [request]
+ * @param {(request: object) => ReturnType<AuthService["authenticateRequest"]>} [authenticateRequest]
+ */
 async function resolveSocketAuthentication(authService, socket, request = createSocketRequest(socket),
   authenticateRequest = (value) => authService.authenticateRequest(value, { refreshSession: false })) {
-  if (typeof authService?.authenticateRequest !== "function") return { actor: null, refreshRequired: false };
+  if (!authService) return { actor: null, refreshRequired: false };
   const result = await authenticateRequest(request);
   const id = result?.authenticated === true
     ? normalizeRecordId(result?.actor?.id, { fallback: null }) : null;
   return { actor: id ? { ...result.actor, id } : null, refreshRequired: result?.refreshRequired === true };
 }
 
-function realtimeAuthenticationRequired(authService = null) {
+/** @param {AuthService} [authService] */
+function realtimeAuthenticationRequired(authService) {
   return authService?.realtime?.requireAuthentication === true;
 }
 
@@ -270,12 +292,15 @@ function rememberSocketActorId(socket, actorId) {
 // Every handshake is authenticated here. A login that needs a session refresh
 // is refused even when sign-in is optional, so the client refreshes and
 // reconnects instead of silently connecting without its user's rooms.
+/**
+ * @param {object} dependencies
+ * @param {import("socket.io").Server} dependencies.io
+ * @param {ProviderLogger} dependencies.logger
+ * @param {AuthService} [dependencies.authService]
+ */
 function registerSocketAuthentication({ io, logger, authService }) {
+  if (!authService) return;
   const required = realtimeAuthenticationRequired(authService);
-  if (!required && typeof authService?.authenticateRequest !== "function") return;
-  if (typeof io?.use !== "function") {
-    throw new TypeError("Realtime socket authentication requires Socket.IO middleware support.");
-  }
   io.use(async (socket, next) => {
     try {
       const { actor, refreshRequired } = await resolveSocketAuthentication(authService, socket);
@@ -296,8 +321,13 @@ function registerSocketAuthentication({ io, logger, authService }) {
   });
 }
 
+/**
+ * @param {import("socket.io").Socket} socket
+ * @param {string} actorId
+ * @param {Pick<AudienceContributors, "resolveActorRooms">} audiences
+ */
 async function joinContributedRooms(socket, actorId, audiences) {
-  const rooms = audiences ? await audiences.resolveActorRooms(actorId) : new Set();
+  const rooms = await audiences.resolveActorRooms(actorId);
   for (const room of normalizeArray(socket.data?.contributedRooms)) {
     if (!rooms.has(room)) await socket.leave(room);
   }
@@ -305,8 +335,14 @@ async function joinContributedRooms(socket, actorId, audiences) {
   socket.data.contributedRooms = [...rooms];
 }
 
-function registerSocketAudienceBootstrap({ io, logger, authService = null, audiences = null }) {
-  if (typeof io?.on !== "function") return;
+/**
+ * @param {object} dependencies
+ * @param {import("socket.io").Server} dependencies.io
+ * @param {ProviderLogger} dependencies.logger
+ * @param {AuthService} [dependencies.authService] Absent when no auth.service is installed.
+ * @param {AudienceContributors} dependencies.audiences
+ */
+function registerSocketAudienceBootstrap({ io, logger, authService, audiences }) {
   registerSocketAuthentication({ io, logger, authService });
   io.on("connection", async (socket) => {
     try {
@@ -322,7 +358,15 @@ function registerSocketAudienceBootstrap({ io, logger, authService = null, audie
   });
 }
 
-async function revalidateSocket({ socket, authService, audiences = null, request, authenticateRequest }) {
+/**
+ * @param {object} options
+ * @param {import("socket.io").Socket} options.socket
+ * @param {AuthService} [options.authService] Absent when no auth.service is installed.
+ * @param {Pick<AudienceContributors, "resolveActorRooms">} options.audiences
+ * @param {object} [options.request]
+ * @param {Parameters<typeof resolveSocketAuthentication>[3]} [options.authenticateRequest]
+ */
+async function revalidateSocket({ socket, authService, audiences, request, authenticateRequest }) {
   const { actor, refreshRequired } = await resolveSocketAuthentication(authService, socket, request, authenticateRequest);
   const previousActorId = socket.data?.actorId;
   if (refreshRequired || (!actor && realtimeAuthenticationRequired(authService)) ||

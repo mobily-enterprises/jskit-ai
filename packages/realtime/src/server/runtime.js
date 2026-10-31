@@ -17,7 +17,9 @@ function toRequestPathname(urlValue) {
   }
 }
 
+/** @param {import("@jskit-ai/kernel/server/types").RuntimeFastify | null} fastify */
 function registerSocketIoUpgradeHandoff(fastify) {
+  // readable-check: allow method-probe - used by assistant packages, which stay unchanged: their tests pass a Fastify stand-in without addHook(); an application may also pass only an HTTP server
   if (typeof fastify?.addHook !== "function") return;
   fastify.addHook("onRequest", async (request, reply) => {
     if (request?.ws !== true) return;
@@ -38,6 +40,13 @@ function resolveHttpServer({ httpServer = null, fastify = null } = {}) {
   throw new Error("createSocketIoServer requires httpServer or fastify.server.");
 }
 
+/**
+ * @param {object} [options]
+ * @param {import("node:http").Server | null} [options.httpServer] The HTTP server to attach to; Fastify's when absent.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeFastify | null} [options.fastify]
+ * @param {Partial<import("socket.io").ServerOptions>} [options.options]
+ * @param {typeof SocketIoServer} [options.ServerCtor]
+ */
 function createSocketIoServer({
   httpServer = null,
   fastify = null,
@@ -97,6 +106,15 @@ function buildSocketIoRedisAdapterKey(redisNamespace = "") {
   return `${normalizedRedisNamespace}:socket.io`;
 }
 
+/**
+ * @param {import("socket.io").Server} io
+ * @param {object} [options]
+ * @param {string} [options.redisUrl]
+ * @param {string} [options.redisNamespace]
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger | import("./realtimeAudience.js").ProviderLogger} [options.logger]
+ * @param {typeof createSocketIoRedisAdapter} [options.createRedisAdapter]
+ * @param {typeof createRedisClient} [options.createRedisConnection]
+ */
 async function configureSocketIoRedisAdapter(
   io,
   {
@@ -119,10 +137,6 @@ async function configureSocketIoRedisAdapter(
       subClient: null
     });
   }
-  if (!io || typeof io.adapter !== "function") {
-    throw new Error("configureSocketIoRedisAdapter requires socket.io server instance with adapter().");
-  }
-
   const pubClient = createRedisConnection({
     url: normalizedRedisUrl
   });
@@ -170,12 +184,14 @@ async function closeSocketIoRedisConnections({ pubClient = null, subClient = nul
     if (!connection) {
       continue;
     }
+    // readable-check: allow method-probe - platform object: a Redis client closes with quit(), or with disconnect() where it has no quit()
     if (typeof connection.quit === "function") {
       try {
         await connection.quit();
       } catch {}
       continue;
     }
+    // readable-check: allow method-probe - platform object: a Redis client closes with quit(), or with disconnect() where it has no quit()
     if (typeof connection.disconnect === "function") {
       try {
         await connection.disconnect();

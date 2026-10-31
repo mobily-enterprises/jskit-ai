@@ -64,6 +64,14 @@ const RealtimeProvider = defineProvider({
     });
     return { realtime };
   },
+  /**
+   * @param {object} capabilities
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeAppRoot} [capabilities.appRoot]
+   * @param {import("./realtimeAudience.js").AuthService} [capabilities.authService]
+   * @param {import("./realtimeAudience.js").RuntimeDatabase} [capabilities.database]
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} capabilities.env
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeEvents} capabilities.events
+   */
   async boot({ appRoot, authService, database, env, events }, { outputs }) {
     const state = stateByCapability.get(outputs.realtime);
     if (!state) throw new Error("Realtime runtime state is unavailable.");

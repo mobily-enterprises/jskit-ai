@@ -56,10 +56,14 @@ Exports
 Exports
 - `createAudienceContributors()`
 - `createSocketRequest(socket)`
-- `realtimeAuthenticationRequired(authService = null)`
-- `revalidateSocket({ socket, authService, audiences = null, request, authenticateRequest })`
-- `registerSocketAudienceBootstrap({ io, logger, authService = null, audiences = null })`
-- `resolveAudienceTargets(audience, event, { database = null, logger })`
+- `realtimeAuthenticationRequired(authService)`
+- `revalidateSocket({ socket, authService, audiences, request, authenticateRequest })`
+- `registerSocketAudienceBootstrap({ io, logger, authService, audiences })`
+- `resolveAudienceTargets(audience, event, { database, logger })`
+- `type AuthService`
+- `type RuntimeDatabase`
+- `type ProviderLogger`
+- `type AudienceContributors`
 Local functions
 - `normalizeArray(value)`
 - `roomForUser(userId)`
@@ -88,7 +92,9 @@ Local functions
 
 ### `src/server/realtimeDelivery.js`
 Exports
-- `createRealtimeDelivery({ io, database = null, logger, authService = null, audiences = null })`
+- `createRealtimeDelivery({ io, database, logger, authService, audiences })`
+- `type AuthService`
+- `type AudienceContributors`
 Local functions
 - `publicRealtimePayload(event)`
 - `sharedWithinPass(load, keyOf = (value) => value)`

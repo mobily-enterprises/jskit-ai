@@ -1,6 +1,9 @@
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveAudienceTargets, revalidateSocket } from "./realtimeAudience.js";
 
+/** @typedef {import("./realtimeAudience.js").AuthService} AuthService */
+/** @typedef {import("./realtimeAudience.js").AudienceContributors} AudienceContributors */
+
 const DELIVERY_EVENT = "jskit:realtime:delivery";
 
 function publicRealtimePayload(event) {
@@ -34,25 +37,32 @@ function sharedWithinPass(load, keyOf = (value) => value) {
 // one actor share its contributed rooms. Revalidation asks only who is signed
 // in, so the provider reads the app profile instead of synchronizing it, and
 // never refreshes a session the socket could not store.
+/**
+ * @param {AuthService} authService
+ * @param {AudienceContributors} audiences
+ */
 function createPassChecks(authService, audiences) {
   return {
     authenticateRequest: sharedWithinPass(
       (request) => authService.authenticateRequest(request, { syncProfile: false, refreshSession: false }),
       JSON.stringify
     ),
-    audiences: audiences && { resolveActorRooms: sharedWithinPass((actorId) => audiences.resolveActorRooms(actorId)) }
+    audiences: { resolveActorRooms: sharedWithinPass((actorId) => audiences.resolveActorRooms(actorId)) }
   };
 }
 
-function createRealtimeDelivery({ io, database = null, logger, authService = null, audiences = null }) {
-  if (!io || typeof io.emit !== "function" || typeof io.to !== "function") {
-    throw new TypeError("Realtime delivery requires a Socket.IO server.");
-  }
-  if (!logger || typeof logger.warn !== "function") {
-    throw new TypeError("Realtime delivery requires a logger.");
-  }
-
+/**
+ * @param {object} dependencies
+ * @param {import("socket.io").Server} dependencies.io
+ * @param {import("./realtimeAudience.js").RuntimeDatabase} [dependencies.database] Absent when no runtime.database is installed.
+ * @param {import("./realtimeAudience.js").ProviderLogger} dependencies.logger
+ * @param {AuthService} [dependencies.authService] Absent when no auth.service is installed.
+ * @param {AudienceContributors} dependencies.audiences
+ */
+function createRealtimeDelivery({ io, database, logger, authService, audiences }) {
+  // readable-check: allow method-probe - a test asserts the error an auth.service without authenticateRequest() raises below
   const guarded = typeof authService?.authenticateRequest === "function";
+  // readable-check: allow method-probe - a test asserts this error; input validation: an auth provider's realtime policy may name authorizeEvent()
   if (authService?.realtime?.authorizeEvent != null && typeof authService.realtime.authorizeEvent !== "function") {
     throw new TypeError("Realtime authorizeEvent must be a function.");
   }
@@ -82,7 +92,7 @@ function createRealtimeDelivery({ io, database = null, logger, authService = nul
   // joining a contributed room; otherwise checking it cannot change delivery.
   function candidateSockets(targets) {
     const sockets = [...io.sockets.sockets.values()];
-    if (targets.broadcastAllClients || targets.rooms.some((room) => audiences?.mayContribute(room))) return sockets;
+    if (targets.broadcastAllClients || targets.rooms.some((room) => audiences.mayContribute(room))) return sockets;
     return sockets.filter((socket) => targets.rooms.some((room) => socket.rooms.has(room)));
   }
 
@@ -93,6 +103,7 @@ function createRealtimeDelivery({ io, database = null, logger, authService = nul
         const actor = await revalidate(socket, checks);
         if (!socket.connected) return;
         if (!targets.broadcastAllClients && !targets.rooms.some((room) => socket.rooms.has(room))) return;
+        // readable-check: allow method-probe - authorizeEvent is an optional part of the auth.service realtime policy
         if (typeof authService.realtime?.authorizeEvent === "function") {
           const authorized = await authService.realtime.authorizeEvent({
             actor,

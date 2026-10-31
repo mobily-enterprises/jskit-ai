@@ -17,7 +17,7 @@ const arrival = (emitter, name) => once(emitter, name, { signal: AbortSignal.tim
 // `profileSyncs` those that asked the provider to sync the profile, and
 // `sessionRefreshes` those that let it refresh the session. Sessions in
 // `expired` answer that they need a refresh.
-async function signedInSockets(t, { audiences = null, requireAuthentication = true } = {}) {
+async function signedInSockets(t, { audiences = createAudienceContributors(), requireAuthentication = true } = {}) {
   const httpServer = createServer();
   const io = createSocketIoServer({ httpServer });
   const sessions = new Map();
@@ -112,8 +112,9 @@ test("real sockets authorize each conversation delivery and disconnect a revoked
       return { authenticated: Boolean(actor), actor };
     }
   };
-  registerSocketAudienceBootstrap({ io, authService, logger });
-  const delivery = createRealtimeDelivery({ io, authService, logger });
+  const audiences = createAudienceContributors();
+  registerSocketAudienceBootstrap({ io, authService, logger, audiences });
+  const delivery = createRealtimeDelivery({ io, authService, logger, audiences });
   delivery.start();
   t.after(async () => {
     delivery.stop();
@@ -323,7 +324,7 @@ test("Redis peer deliveries authorize the receiving server's sockets without reb
     realtime: { requireAuthentication: true, authorizeEvent: () => allowed },
     async authenticateRequest() { return { authenticated: true, actor: { id: "2" } }; }
   };
-  const peer = createRealtimeDelivery({ logger, authService, io: {
+  const peer = createRealtimeDelivery({ logger, authService, audiences: createAudienceContributors(), io: {
     emit() { assert.fail("must authorize individual sockets"); }, to() {},
     sockets: { sockets: new Map([["peer-socket", socket]]) },
     on(name, handler) { peerHandlers.set(name, handler); },
@@ -331,7 +332,7 @@ test("Redis peer deliveries authorize the receiving server's sockets without reb
     serverSideEmit() { assert.fail("must not rebroadcast a received event"); }
   } });
   const pending = [];
-  const origin = createRealtimeDelivery({ logger, authService, io: {
+  const origin = createRealtimeDelivery({ logger, authService, audiences: createAudienceContributors(), io: {
     emit() {}, to() {}, sockets: { sockets: new Map() }, on() {}, off() {},
     serverSideEmit(name, envelope) { pending.push(peerHandlers.get(name)(structuredClone(envelope))); }
   } });

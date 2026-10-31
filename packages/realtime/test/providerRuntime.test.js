@@ -446,6 +446,7 @@ test("socket audience bootstrap rejects unauthenticated handshakes when the auth
   registerSocketAudienceBootstrap({
     io,
     logger,
+    audiences: createAudienceContributors(),
     authService: {
       realtime: { requireAuthentication: true },
       async authenticateRequest(request) {

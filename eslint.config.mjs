@@ -34,7 +34,8 @@ export default [
   ]),
   ...typedFeaturesConfig([
     "packages/storage-runtime/src/server/**",
-    "packages/uploads-runtime/src/server/**"
+    "packages/uploads-runtime/src/server/**",
+    "packages/realtime/src/server/**"
   ]),
   {
     // Over 750 lines, with a factory over 600, until their split runs bring them under.
