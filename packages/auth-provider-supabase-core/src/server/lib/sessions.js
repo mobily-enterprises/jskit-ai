@@ -468,9 +468,9 @@ function createSupabaseSessions({
   }
 
   return Object.freeze({
-    // readable-check: allow setter-seam - sets the Supabase client's session from the request's cookies; it is not a slot
+    // readable-check: allow setter-seam - not a slot: sets the Supabase client's session from the request's cookies
     setSessionFromRequestCookies,
-    // readable-check: allow setter-seam - sets the Supabase client's recovery session from the request's cookies; it is not a slot
+    // readable-check: allow setter-seam - not a slot: sets the Supabase client's recovery session from the request's cookies
     setRecoverySessionFromRequestCookies,
     resolveCurrentSupabaseUser,
     authenticateDevAuthRequestFromCookies,

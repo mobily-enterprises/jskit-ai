@@ -6,7 +6,7 @@ import { USER_SETTINGS_BOOTSTRAP_KEYS } from "../shared/resources/userSettingsRe
 
 /** @param {import("@jskit-ai/auth-core/server/types").AuthService} authService */
 function getOAuthProviderCatalogPayload(authService) {
-  // readable-check: allow method-probe - getOAuthProviderCatalog is an optional auth.service operation
+  // readable-check: allow method-probe - optional operation: getOAuthProviderCatalog is an optional auth.service operation
   if (typeof authService.getOAuthProviderCatalog !== "function") {
     return {
       oauthProviders: [],

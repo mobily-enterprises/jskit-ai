@@ -81,7 +81,7 @@ async function findExistingAppProfile(user, profileProjector) {
   if (!profileProjector) {
     return null;
   }
-  // readable-check: allow method-probe - findByIdentity is an optional profile projector operation
+  // readable-check: allow method-probe - optional operation: findByIdentity is an optional profile projector operation
   if (typeof profileProjector.findByIdentity !== "function") {
     throw new Error(
       "auth.profile.projector.findByIdentity() is required for dev auth impersonation and profile lookups without sync."

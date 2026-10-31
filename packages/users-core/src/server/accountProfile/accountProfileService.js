@@ -42,7 +42,7 @@ function createService({ userSettingsRepository, userProfilesRepository, authSer
 
     let session = null;
     let updatedProfile = null;
-    // readable-check: allow method-probe - updateDisplayName is an optional auth.service operation
+    // readable-check: allow method-probe - optional operation: updateDisplayName is an optional auth.service operation
     if (typeof authService.updateDisplayName === "function") {
       const result = await authService.updateDisplayName(request, { displayName: payload.displayName });
       session = result?.session || null;

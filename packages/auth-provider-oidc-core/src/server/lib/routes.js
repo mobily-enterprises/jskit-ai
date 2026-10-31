@@ -43,7 +43,7 @@ async function registerOidcRoutes(fastify, { authService, backchannelLogout }) {
         await backchannelLogout.handle(request.body?.logout_token);
       } catch (error) {
         if (!(error instanceof BackchannelLogoutError)) throw error;
-        // readable-check: allow optional-call - request.log is the platform's per-request logger
+        // readable-check: allow optional-call - platform object: request.log is Fastify's per-request logger
         request.log?.warn?.({ reason: error.message }, "OIDC back-channel logout was refused.");
         return reply.code(400).send({ error: "invalid_request", error_description: error.message });
       }

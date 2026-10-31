@@ -106,7 +106,7 @@ async function startFakeGitHub({ user = { id: 4242, login: "ada", name: "Ada Lov
       apiUrl: origin
     },
     async close() {
-      server.closeAllConnections?.();
+      server.closeAllConnections();
       server.close();
       await once(server, "close");
     }

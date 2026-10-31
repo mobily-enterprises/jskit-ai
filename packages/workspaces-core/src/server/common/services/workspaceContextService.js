@@ -79,7 +79,7 @@ function createService({ appConfig, workspacesRepository, workspaceMembershipsRe
   const resolvedTenancyMode = resolvedTenancyProfile.mode;
   const workspacePolicy = resolvedTenancyProfile.workspace;
   const personalWorkspaceName =
-    // readable-check: allow method-probe - personalWorkspaceName is an optional hook in the application's config
+    // readable-check: allow method-probe - data: the application's config may name a personalWorkspaceName hook
     typeof appConfig.personalWorkspaceName === "function" ? appConfig.personalWorkspaceName : null;
   async function ensureUniqueWorkspaceSlug(baseSlug, options = {}) {
     let suffix = 0;

@@ -161,7 +161,7 @@ function createLocalAuthService({
     changePassword: passwordFlows.changePassword,
     updateDisplayName: accounts.updateDisplayName,
     getSecurityStatus: securityStatus.getSecurityStatus,
-    // readable-check: allow setter-seam - setPasswordSignInEnabled is an auth.service operation, not a slot
+    // readable-check: allow setter-seam - not a slot: setPasswordSignInEnabled is an auth.service operation
     setPasswordSignInEnabled() {
       return throwUnsupportedAuthOperation("setPasswordSignInEnabled");
     },

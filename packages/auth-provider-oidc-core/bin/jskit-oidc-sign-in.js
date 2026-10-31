@@ -15,7 +15,7 @@ counts unless --apply is given.`;
 
 async function appKnex() {
   try {
-    process.loadEnvFile?.(".env");
+    process.loadEnvFile(".env");
   } catch (error) {
     if (error?.code !== "ENOENT") throw error;
   }

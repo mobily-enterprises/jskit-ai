@@ -8,7 +8,7 @@ import { accountSecurityStatusFormatter } from "./accountSecurityStatusFormatter
 
 /** @param {import("@jskit-ai/auth-core/server/types").AuthService} authService */
 function resolveAuthProfileSettings(authService) {
-  // readable-check: allow method-probe - getSettingsProfileAuthInfo is an optional auth.service operation
+  // readable-check: allow method-probe - optional operation: getSettingsProfileAuthInfo is an optional auth.service operation
   if (typeof authService.getSettingsProfileAuthInfo !== "function") {
     return {
       emailManagedBy: "auth",

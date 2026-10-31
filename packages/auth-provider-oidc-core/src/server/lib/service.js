@@ -125,7 +125,7 @@ function createOidcAuthService({ config, store, issuer, profileProjector, logger
 
   async function existingProfile(identity) {
     if (!profileProjector) return null;
-    // readable-check: allow method-probe - findByIdentity is an optional profile projector operation
+    // readable-check: allow method-probe - optional operation: findByIdentity is an optional profile projector operation
     if (typeof profileProjector.findByIdentity !== "function") {
       throw new Error("auth.profile.projector.findByIdentity() is required for preview identity and profile lookups without sync.");
     }
@@ -413,7 +413,7 @@ function createOidcAuthService({ config, store, issuer, profileProjector, logger
     changePassword: unsupported("changePassword"),
     updateDisplayName: unsupported("updateDisplayName"),
     getSecurityStatus: unsupported("getSecurityStatus"),
-    // readable-check: allow setter-seam - setPasswordSignInEnabled is an auth.service operation, not a slot
+    // readable-check: allow setter-seam - not a slot: setPasswordSignInEnabled is an auth.service operation
     setPasswordSignInEnabled: unsupported("setPasswordSignInEnabled"),
     startProviderLink: unsupported("startProviderLink"),
     unlinkProvider: unsupported("unlinkProvider"),

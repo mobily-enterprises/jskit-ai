@@ -87,7 +87,7 @@ function createRepository({ api }) {
 
   async function queryInvites(filters = {}, options = {}, { includeWorkspace = false } = {}) {
     if (options.lock === true) {
-      // readable-check: allow method-probe - a lock needs the caller's Knex transaction, which options may omit
+      // readable-check: allow method-probe - data: a lock needs the caller's Knex transaction, which options may omit
       if (typeof options.trx !== "function" || includeWorkspace) {
         throw new TypeError("Locking invites requires a transaction and no relationship includes.");
       }
@@ -140,7 +140,7 @@ function createRepository({ api }) {
   }
 
   async function lockWorkspaceForInvitations(workspaceId, options = {}) {
-    // readable-check: allow method-probe - a lock needs the caller's Knex transaction, which options may omit
+    // readable-check: allow method-probe - data: a lock needs the caller's Knex transaction, which options may omit
     if (typeof options.trx !== "function" || options.trx.isCompleted()) {
       throw new TypeError("Invitation locking requires an active transaction.");
     }

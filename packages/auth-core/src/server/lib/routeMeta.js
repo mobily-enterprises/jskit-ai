@@ -32,7 +32,7 @@ function resolveAuthPolicyMeta(input = {}) {
     permission: String(source.permission || "").trim(),
     ownerParam: typeof source.ownerParam === "string" && source.ownerParam ? source.ownerParam : null,
     userField: source.userField || "id",
-    // readable-check: allow method-probe - reads a route's own auth policy config
+    // readable-check: allow method-probe - data: a route's auth policy config may name an owner resolver
     ownerResolver: typeof source.ownerResolver === "function" ? source.ownerResolver : null,
     csrfProtection: source.csrfProtection !== false
   };

@@ -81,7 +81,7 @@ async function startMockIssuer({ blocked = false, account = ACCOUNT, staticClien
       return new SignJWT(claims).setProtectedHeader({ alg: "RS256", kid: "test-key", typ }).sign(privateKey);
     },
     async close() {
-      server.closeAllConnections?.();
+      server.closeAllConnections();
       server.close();
       await once(server, "close");
     }

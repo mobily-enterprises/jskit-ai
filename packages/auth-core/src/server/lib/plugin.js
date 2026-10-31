@@ -64,7 +64,7 @@ function resolveCsrfToken(request) {
 }
 
 function resolveOwnerValue(meta, request) {
-  // readable-check: allow method-probe - reads a route's own auth policy config
+  // readable-check: allow method-probe - data: a route's auth policy config may name an owner resolver
   if (typeof meta.ownerResolver === "function") {
     return meta.ownerResolver({
       req: request,
@@ -97,10 +97,10 @@ function authPolicyPlugin(deps = {}, options = {}) {
   const nodeEnv = String(options.nodeEnv || "").trim();
   const csrfCookieOpts =
     options.csrfCookieOpts && typeof options.csrfCookieOpts === "object" ? options.csrfCookieOpts : {};
-  // readable-check: allow method-probe - authPolicyPlugin validates the options an application passes it
+  // readable-check: allow method-probe - input validation: the options an application passes authPolicyPlugin
   const resolveCsrfTokenFn = typeof options.resolveCsrfToken === "function" ? options.resolveCsrfToken : resolveCsrfToken;
   // createError(status, englishMessage, { code }) builds each refusal.
-  // readable-check: allow method-probe - authPolicyPlugin validates the options an application passes it
+  // readable-check: allow method-probe - input validation: the options an application passes authPolicyPlugin
   const createError = typeof options.createError === "function" ? options.createError : createAuthPolicyError;
 
   // CSRF uses tokens checked against a secret cookie, never SameSite alone. In

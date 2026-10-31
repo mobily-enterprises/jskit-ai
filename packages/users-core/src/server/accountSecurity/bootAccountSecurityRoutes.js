@@ -133,7 +133,7 @@ function registerAccountSecurityRoutes(router, { authService }) {
       });
 
       // As at sign-in, a provider that binds the attempt to this browser sets its cookie.
-      // readable-check: allow method-probe - writeOAuthStartCookies is an optional auth.service operation
+      // readable-check: allow method-probe - optional operation: writeOAuthStartCookies is an optional auth.service operation
       if (typeof authService.writeOAuthStartCookies === "function") {
         authService.writeOAuthStartCookies(reply, result);
       }

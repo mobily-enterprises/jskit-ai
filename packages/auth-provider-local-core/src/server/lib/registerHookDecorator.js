@@ -11,7 +11,7 @@ function normalizeRegisterHook(hook = null) {
     return null;
   }
   assertBlockingMode(hook);
-  // readable-check: allow method-probe - validates the hook an application passes
+  // readable-check: allow method-probe - input validation: the hook an application passes
   if (typeof hook.handle !== "function") {
     throw new TypeError("Local auth register hook handle must be a function.");
   }
@@ -91,7 +91,7 @@ function createLocalAuthRegisterHookDecorator({
     order: Number.isFinite(order) ? Number(order) : 0,
     /** @param {import("@jskit-ai/auth-core/server/types").AuthService} authService */
     decorateAuthService(authService) {
-      // readable-check: allow method-probe - register is an optional auth.service operation
+      // readable-check: allow method-probe - optional operation: register is an optional auth.service operation
       if (typeof authService.register !== "function") {
         return authService;
       }

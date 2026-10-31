@@ -180,7 +180,7 @@ function createService(options) {
   });
   const securityStatusActions = Object.freeze({
     changePassword: true,
-    // readable-check: allow setter-seam - setPasswordEnabled says whether the security screen offers the toggle; it is not a slot
+    // readable-check: allow setter-seam - not a slot: setPasswordEnabled says whether the security screen offers the toggle
     setPasswordEnabled: capabilities.features.password.methodToggle,
     linkProvider: capabilities.features.providerLinking.start,
     unlinkProvider: capabilities.features.providerLinking.unlink,
@@ -433,7 +433,7 @@ function createService(options) {
     resetPassword,
     updateDisplayName: profileMirror.withActorResult(updateDisplayName),
     changePassword: profileMirror.withActorResult(changePassword),
-    // readable-check: allow setter-seam - setPasswordSignInEnabled is an auth.service operation, not a slot
+    // readable-check: allow setter-seam - not a slot: setPasswordSignInEnabled is an auth.service operation
     setPasswordSignInEnabled,
     unlinkProvider,
     signOutOtherSessions,

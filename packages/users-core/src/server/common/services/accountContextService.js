@@ -31,7 +31,7 @@ async function resolveUserProfile(userProfilesRepository, user) {
  * @param {object} request
  */
 async function resolveSecurityStatus(authService, request) {
-  // readable-check: allow method-probe - getSecurityStatus is an optional auth.service operation
+  // readable-check: allow method-probe - optional operation: getSecurityStatus is an optional auth.service operation
   if (typeof authService.getSecurityStatus !== "function") {
     return {};
   }

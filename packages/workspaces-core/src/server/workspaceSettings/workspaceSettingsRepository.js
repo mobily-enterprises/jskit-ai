@@ -34,7 +34,7 @@ function createDefaultWorkspaceSettingsCreatePayload(workspaceId, defaultInvites
  * @param {boolean} [dependencies.defaultInvitesEnabled]
  * @param {object} [dependencies.defaultColorSettings] The configured colors that replace the theme's.
  */
-// readable-check: allow dependency-default - defaultColorSettings is data; none keeps the theme's colors
+// readable-check: allow dependency-default - data: no defaultColorSettings keeps the theme's colors
 function createRepository({ api, defaultInvitesEnabled = true, defaultColorSettings = {} }) {
   if (!api?.resources?.workspaceSettings) {
     throw new TypeError("workspaceSettingsRepository requires json-rest-api workspaceSettings resource.");

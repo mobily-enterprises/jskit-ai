@@ -20,7 +20,7 @@ import { accountSecurityStatusFormatter } from "../common/formatters/accountSecu
  */
 function createService({ userSettingsRepository, userProfilesRepository, authService }) {
   async function changePassword(request, user, payload, options = {}) {
-    // readable-check: allow method-probe - changePassword is an optional auth.service operation
+    // readable-check: allow method-probe - optional operation: changePassword is an optional auth.service operation
     if (typeof authService.changePassword !== "function") {
       throw new AppError(501, "Password change is not available.", {
         code: "users.security.passwordChangeUnavailable"
@@ -53,7 +53,7 @@ function createService({ userSettingsRepository, userProfilesRepository, authSer
   }
 
   async function setPasswordMethodEnabled(request, user, payload, options = {}) {
-    // readable-check: allow method-probe - setPasswordSignInEnabled is an optional auth.service operation
+    // readable-check: allow method-probe - optional operation: setPasswordSignInEnabled is an optional auth.service operation
     if (typeof authService.setPasswordSignInEnabled !== "function") {
       throw new AppError(501, "Password method toggle is not available.", {
         code: "users.security.passwordMethodToggleUnavailable"
@@ -83,7 +83,7 @@ function createService({ userSettingsRepository, userProfilesRepository, authSer
   }
 
   async function startOAuthProviderLink(request, user, payload, options = {}) {
-    // readable-check: allow method-probe - startProviderLink is an optional auth.service operation
+    // readable-check: allow method-probe - optional operation: startProviderLink is an optional auth.service operation
     if (typeof authService.startProviderLink !== "function") {
       throw new AppError(501, "OAuth linking is not available.", {
         code: "users.security.oauthLinkUnavailable"
@@ -97,7 +97,7 @@ function createService({ userSettingsRepository, userProfilesRepository, authSer
   }
 
   async function unlinkOAuthProvider(request, user, payload, options = {}) {
-    // readable-check: allow method-probe - unlinkProvider is an optional auth.service operation
+    // readable-check: allow method-probe - optional operation: unlinkProvider is an optional auth.service operation
     if (typeof authService.unlinkProvider !== "function") {
       throw new AppError(501, "OAuth unlink is not available.", {
         code: "users.security.oauthUnlinkUnavailable"
@@ -113,7 +113,7 @@ function createService({ userSettingsRepository, userProfilesRepository, authSer
   }
 
   async function logoutOtherSessions(request, _user, options = {}) {
-    // readable-check: allow method-probe - signOutOtherSessions is an optional auth.service operation
+    // readable-check: allow method-probe - optional operation: signOutOtherSessions is an optional auth.service operation
     if (typeof authService.signOutOtherSessions !== "function") {
       throw new AppError(501, "Logout other sessions is not available.", {
         code: "users.security.logoutOtherSessionsUnavailable"
@@ -127,7 +127,7 @@ function createService({ userSettingsRepository, userProfilesRepository, authSer
 
   return Object.freeze({
     changePassword,
-    // readable-check: allow setter-seam - setPasswordMethodEnabled is a service operation, not a slot
+    // readable-check: allow setter-seam - not a slot: setPasswordMethodEnabled is a service operation
     setPasswordMethodEnabled,
     startOAuthProviderLink,
     unlinkOAuthProvider,

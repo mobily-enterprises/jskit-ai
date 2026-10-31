@@ -14,10 +14,10 @@ function assertAuthPolicyDeps(deps = {}) {
 
   return {
     resolveActor,
-    // readable-check: allow method-probe - authPolicyPlugin validates the callbacks an application passes it
+    // readable-check: allow method-probe - input validation: the callbacks an application passes authPolicyPlugin
     resolveContext: typeof source.resolveContext === "function" ? source.resolveContext : null,
     hasPermission,
-    // readable-check: allow method-probe - authPolicyPlugin validates the callbacks an application passes it
+    // readable-check: allow method-probe - input validation: the callbacks an application passes authPolicyPlugin
     onPolicyDenied: typeof source.onPolicyDenied === "function" ? source.onPolicyDenied : null
   };
 }
