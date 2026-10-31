@@ -8,7 +8,8 @@ exports.up = async function up(knex) {
       if (hasWorkspacesTable) {
         table.foreign("workspace_id").references("id").inTable("workspaces").onDelete("CASCADE");
       }
-      table.bigInteger("created_by_user_id").unsigned().nullable().references("id").inTable("users").onDelete("SET NULL").index();
+      // constraints/assistant_users_foreign_keys.cjs adds the users key once the users table exists.
+      table.bigInteger("created_by_user_id").unsigned().nullable().index();
       table.string("title", 160).notNullable().defaultTo("New conversation");
       table.string("status", 32).notNullable().defaultTo("active");
       table.string("provider", 64).notNullable().defaultTo("");
@@ -40,7 +41,7 @@ exports.up = async function up(knex) {
       table.string("role", 32).notNullable();
       table.string("kind", 32).notNullable().defaultTo("chat");
       table.string("client_message_sid", 128).notNullable().defaultTo("");
-      table.bigInteger("actor_user_id").unsigned().nullable().references("id").inTable("users").onDelete("SET NULL").index();
+      table.bigInteger("actor_user_id").unsigned().nullable().index();
       table.text("content_text").nullable();
       table.text("metadata_json").nullable();
       table.timestamp("created_at").notNullable().defaultTo(knex.fn.now());

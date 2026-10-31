@@ -2,7 +2,8 @@ exports.up = async function up(knex) {
   if (await knex.schema.hasTable("assistant_turn_requests")) return;
   await knex.schema.createTable("assistant_turn_requests", table => {
     table.bigIncrements("id").primary();
-    table.bigInteger("actor_user_id").unsigned().notNullable().references("id").inTable("users").onDelete("CASCADE");
+    // constraints/assistant_users_foreign_keys.cjs adds the users key once the users table exists.
+    table.bigInteger("actor_user_id").unsigned().notNullable();
     table.string("scope_key", 128).notNullable();
     table.string("message_sid", 128).notNullable();
     table.string("claim_token", 36).notNullable();

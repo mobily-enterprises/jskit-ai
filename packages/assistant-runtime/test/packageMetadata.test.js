@@ -23,7 +23,11 @@ test("assistant-runtime registers providers without install-time authoring machi
   assert.deepEqual((await readdir(path.join(PACKAGE_ROOT, "migrations"))).sort(), [
     "assistant_config_initial.cjs",
     "assistant_transcripts_initial.cjs",
-    "assistant_turn_requests.cjs"
+    "assistant_turn_requests.cjs",
+    "constraints"
+  ]);
+  assert.deepEqual(await readdir(path.join(PACKAGE_ROOT, "migrations", "constraints")), [
+    "assistant_users_foreign_keys.cjs"
   ]);
 
   const publicConfig = await readFile(

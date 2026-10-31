@@ -50,7 +50,7 @@ test("installed package migrations run from their owning packages without copied
   });
 
   const packageRoot = path.join(appRoot, "node_modules", "@example", "accounts-core");
-  await mkdir(path.join(packageRoot, "migrations"), { recursive: true });
+  await mkdir(path.join(packageRoot, "migrations", "constraints"), { recursive: true });
   await writeFile(path.join(appRoot, "package.json"), JSON.stringify({
     dependencies: { "@example/accounts-core": "1.0.0" }
   }));
@@ -76,6 +76,7 @@ test("installed package migrations run from their owning packages without copied
   assert.deepEqual(config.migrations.directory, [
     path.join(packageRoot, "migrations"),
     path.join(appRoot, "migrations"),
+    path.join(packageRoot, "migrations", "constraints"),
     path.join(appRoot, "migrations", "constraints")
   ]);
 });
@@ -122,5 +123,69 @@ test("a fresh database runs package migrations before the application's, then it
     "accounts_initial.cjs",
     "20260101000000_books.cjs",
     "20200101000000_books_index.cjs"
+  ]);
+});
+
+test("a package constraints migration references the application's users table on a fresh database", async (context) => {
+  const appRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-package-constraints-"));
+  const packageRoot = path.join(appRoot, "node_modules", "@example", "notes-core");
+  await mkdir(path.join(packageRoot, "migrations", "constraints"), { recursive: true });
+  await mkdir(path.join(appRoot, "migrations", "constraints"), { recursive: true });
+  await writeFile(path.join(appRoot, "package.json"), JSON.stringify({
+    dependencies: { "@example/notes-core": "1.0.0" }
+  }));
+  await writeFile(path.join(packageRoot, "package.json"), JSON.stringify({
+    name: "@example/notes-core",
+    version: "1.0.0",
+    jskit: { kind: "runtime", migrations: { directories: ["migrations"] } }
+  }));
+  await writeFile(path.join(packageRoot, "migrations", "notes_initial.cjs"), [
+    "exports.up = (knex) => knex.schema.createTable(\"notes\", (table) => {",
+    "  table.increments(\"id\");",
+    "  table.integer(\"user_id\").notNullable();",
+    "});",
+    "exports.down = () => {};",
+    ""
+  ].join("\n"));
+  await writeFile(path.join(appRoot, "migrations", "20260101000000_users.cjs"), [
+    "exports.up = async (knex) => {",
+    "  await knex.schema.createTable(\"users\", (table) => table.increments(\"id\"));",
+    "  await knex(\"users\").insert({ id: 1 });",
+    "};",
+    "exports.down = () => {};",
+    ""
+  ].join("\n"));
+  await writeFile(path.join(packageRoot, "migrations", "constraints", "notes_users_foreign_key.cjs"), [
+    "exports.up = async (knex) => {",
+    "  await knex.schema.alterTable(\"notes\", (table) => table.foreign(\"user_id\").references(\"id\").inTable(\"users\"));",
+    "  await knex(\"notes\").insert({ user_id: (await knex(\"users\").first(\"id\")).id });",
+    "};",
+    "exports.down = () => {};",
+    ""
+  ].join("\n"));
+  await writeFile(path.join(appRoot, "migrations", "constraints", "20200101000000_notes_index.cjs"),
+    "exports.up = (knex) => knex.schema.alterTable(\"notes\", (table) => table.index([\"user_id\"]));\nexports.down = () => {};\n");
+
+  const { migrations } = await createKnexMigrationConfigFromApp({
+    client: "pg",
+    environment: connectionEnvironment,
+    appRoot
+  });
+  const knex = knexFactory({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true, migrations });
+  context.after(async () => {
+    await knex.destroy();
+    await rm(appRoot, { recursive: true, force: true });
+  });
+
+  await knex.migrate.latest();
+  assert.deepEqual(await knex("knex_migrations").orderBy("id").pluck("name"), [
+    "notes_initial.cjs",
+    "20260101000000_users.cjs",
+    "notes_users_foreign_key.cjs",
+    "20200101000000_notes_index.cjs"
+  ]);
+  const foreignKeys = await knex.raw("PRAGMA foreign_key_list(notes)");
+  assert.deepEqual(foreignKeys.map(({ table, from, to }) => ({ table, from, to })), [
+    { table: "users", from: "user_id", to: "id" }
   ]);
 });

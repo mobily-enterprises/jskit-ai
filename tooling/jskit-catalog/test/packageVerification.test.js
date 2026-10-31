@@ -93,11 +93,18 @@ test("migration verification imports every migration and requires reversible ent
       "exports.up = async function up() {}; exports.down = async function down() {};\n",
       "utf8"
     );
+    await mkdir(path.join(migrationsRoot, "constraints"));
+    await writeFile(
+      path.join(migrationsRoot, "constraints", "example_users_foreign_key.cjs"),
+      "exports.up = async function up() {}; exports.down = async function down() {};\n",
+      "utf8"
+    );
     const record = packageRecord(packageRoot, { migrationDirectories: ["migrations"] });
     const owners = new Map();
 
     await validateMigrations(record, owners);
     assert.equal(owners.get("example_initial.cjs"), "@jskit-ai/example");
+    assert.equal(owners.get("example_users_foreign_key.cjs"), "@jskit-ai/example");
 
     await writeFile(
       path.join(migrationsRoot, "invalid_followup.cjs"),

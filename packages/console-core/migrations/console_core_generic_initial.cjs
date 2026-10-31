@@ -6,7 +6,8 @@ exports.up = async function up(knex) {
   if (!hasConsoleSettingsTable) {
     await knex.schema.createTable("console_settings", (table) => {
       table.bigInteger("id").primary();
-      table.bigInteger("owner_user_id").unsigned().nullable().references("id").inTable("users").onDelete("SET NULL");
+      // constraints/console_core_users_foreign_key.cjs adds the users key once the users table exists.
+      table.bigInteger("owner_user_id").unsigned().nullable();
       table.timestamp("created_at", { useTz: false }).notNullable().defaultTo(knex.fn.now());
       table.timestamp("updated_at", { useTz: false }).notNullable().defaultTo(knex.fn.now());
     });

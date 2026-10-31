@@ -115,6 +115,10 @@ package's metadata:
 }
 ```
 
+A `constraints/` subdirectory of a declared directory, such as
+`migrations/constraints/`, holds the package's constraints migrations; it runs
+later, as described below.
+
 Names must remain unique across the effective migration directories. Preserve
 the basename when relocating a migration: Knex records that name in its ledger.
 Do not rename it to force execution or edit an already-applied migration's body;
@@ -128,7 +132,9 @@ pending migrations in this order, using the default `migrationsDirectory`:
 1. Discovered package migration directories, sorted by their absolute paths
    using `localeCompare`.
 2. Application `migrations/`.
-3. Application `migrations/constraints/`.
+3. The `constraints/` subdirectory of each discovered package migration
+   directory that has one, in the same order.
+4. Application `migrations/constraints/`.
 
 Knex sorts filenames within each directory, not across the whole graph; see
 its [`sortDirsSeparately` option](https://knexjs.org/guide/migrations.html#migration-api).
@@ -138,21 +144,32 @@ Inspect the effective `knexfile.js` configuration if the app customizes it.
 
 Every package table exists before the application's own migrations run, so a
 root `migrations/` file can reference a package table directly, for example a
-`books.user_id` foreign key to `users.id`. A package migration must never depend
-on an application table.
+`books.user_id` foreign key to `users.id`. A package's table migrations must
+never depend on an application table.
 
 Keep table and column creation with the owning package. Put foreign keys
-between two packages, and other constraints that need the complete schema, in
-application `migrations/constraints/`. For example, a `pet_notes.product_id`
-column can be added by the pet-notes package, but its foreign key to the
-products package's `products.id` belongs in the final constraints phase. Do not
-rely on today's package-directory order to make a cross-package reference work.
+between two packages, and other constraints that need the complete schema, in a
+constraints phase: the referencing package's own `constraints/` subdirectory
+when it ships the key, or application `migrations/constraints/`. A package
+constraints migration runs after the application's `migrations/`, so it can also
+reference a table that may belong to the application, such as `users`; for
+example, `@jskit-ai/assistant-runtime` adds its `users` keys from
+`migrations/constraints/`. Similarly, a `pet_notes.product_id` column can be
+added by the pet-notes package, but its foreign key to the products package's
+`products.id` belongs in a constraints phase. Do not rely on today's
+package-directory order to make a cross-package reference work.
 
 Until `@jskit-ai/database-runtime` 0.1.252, root `migrations/` ran before the
 package directories, so a fresh database failed on any application migration
 that referenced a package table. Applied migrations stay in the Knex ledger;
 only pending ones follow the new order. An application migration that still
 creates a package-owned table belongs in that package.
+
+The assistant-runtime and console-core table migrations used to add their
+`users` keys inline, which failed on a fresh MySQL or MariaDB database whose
+`users` table had not been created yet (errno 150). They now add them from
+`migrations/constraints/`. A database migrated earlier already has those keys,
+and the constraints migrations leave them as they are.
 
 Before adding the key, check that both tables and columns exist, the referenced
 key is indexed appropriately, column types match (including integer signedness),

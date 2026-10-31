@@ -180,39 +180,53 @@ async function validateMigrations(packageRecord, migrationOwners) {
       throw new Error(`${packageJson.name} migration directory must stay inside its package.`);
     }
     const absoluteDirectory = path.resolve(packageRoot, relativeDirectory);
-    const entries = await readdir(absoluteDirectory, { withFileTypes: true }).catch(() => null);
-    if (!entries) {
-      throw new Error(`${packageJson.name} migration directory is missing: ${relativeDirectory}.`);
-    }
-    const migrations = entries.filter((entry) => entry.isFile() && entry.name.endsWith(".cjs"));
-    if (migrations.length < 1) {
-      throw new Error(`${packageJson.name} migration directory contains no .cjs migrations.`);
-    }
-    for (const migration of migrations.sort((left, right) => left.name.localeCompare(right.name))) {
-      const previous = migrationOwners.get(migration.name);
-      if (previous) {
-        throw new Error(`Migration filename ${migration.name} is owned by both ${previous} and ${packageJson.name}.`);
-      }
-      migrationOwners.set(migration.name, packageJson.name);
-
-      const migrationPath = path.join(absoluteDirectory, migration.name);
-      let namespace;
-      try {
-        namespace = await import(pathToFileURL(migrationPath).href);
-      } catch (error) {
-        throw new Error(
-          `${packageJson.name} migration ${migration.name} could not load: ${error instanceof Error ? error.message : String(error)}`,
-          { cause: error }
-        );
-      }
-      const migrationModule = namespace.default && typeof namespace.default === "object"
-        ? namespace.default
-        : namespace;
-      if (typeof migrationModule.up !== "function" || typeof migrationModule.down !== "function") {
-        throw new Error(`${packageJson.name} migration ${migration.name} must export up() and down().`);
-      }
+    const entries = await validateMigrationDirectory(packageJson.name, absoluteDirectory, relativeDirectory, migrationOwners);
+    // A constraints/ subdirectory runs after the application's migrations; see knexMigrationConfig.js.
+    if (entries.some((entry) => entry.isDirectory() && entry.name === "constraints")) {
+      await validateMigrationDirectory(
+        packageJson.name,
+        path.join(absoluteDirectory, "constraints"),
+        path.posix.join(relativeDirectory, "constraints"),
+        migrationOwners
+      );
     }
   }
+}
+
+async function validateMigrationDirectory(packageName, absoluteDirectory, relativeDirectory, migrationOwners) {
+  const entries = await readdir(absoluteDirectory, { withFileTypes: true }).catch(() => null);
+  if (!entries) {
+    throw new Error(`${packageName} migration directory is missing: ${relativeDirectory}.`);
+  }
+  const migrations = entries.filter((entry) => entry.isFile() && entry.name.endsWith(".cjs"));
+  if (migrations.length < 1) {
+    throw new Error(`${packageName} migration directory contains no .cjs migrations.`);
+  }
+  for (const migration of migrations.sort((left, right) => left.name.localeCompare(right.name))) {
+    const previous = migrationOwners.get(migration.name);
+    if (previous) {
+      throw new Error(`Migration filename ${migration.name} is owned by both ${previous} and ${packageName}.`);
+    }
+    migrationOwners.set(migration.name, packageName);
+
+    const migrationPath = path.join(absoluteDirectory, migration.name);
+    let namespace;
+    try {
+      namespace = await import(pathToFileURL(migrationPath).href);
+    } catch (error) {
+      throw new Error(
+        `${packageName} migration ${migration.name} could not load: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error }
+      );
+    }
+    const migrationModule = namespace.default && typeof namespace.default === "object"
+      ? namespace.default
+      : namespace;
+    if (typeof migrationModule.up !== "function" || typeof migrationModule.down !== "function") {
+      throw new Error(`${packageName} migration ${migration.name} must export up() and down().`);
+    }
+  }
+  return entries;
 }
 
 async function validatePackage(packageRecord, localVersions, migrationOwners) {

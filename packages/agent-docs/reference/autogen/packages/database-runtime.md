@@ -33,11 +33,12 @@ Exports
 
 ### `src/server/knexMigrationConfig.js`
 Exports
-- `createKnexMigrationConfig({ client, environment = process.env, appRoot = process.cwd(), migrationsDirectory = "migrations", // readable-check: allow dependency-default - data: a list of directory paths, not a collaborator packageMigrationDirectories = [] } = {})`
+- `createKnexMigrationConfig({ client, environment = process.env, appRoot = process.cwd(), migrationsDirectory = "migrations", // readable-check: allow dependency-default - data: a list of directory paths, not a collaborator packageMigrationDirectories = [], // readable-check: allow dependency-default - data: a list of directory paths, not a collaborator packageConstraintDirectories = [] } = {})`
 - `createKnexMigrationConfigFromApp(options = {})`
 - `discoverPackageMigrationDirectories({ appRoot = process.cwd() } = {})`
 Local functions
 - `directoryExists(directory)`
+- `packageConstraintDirectoriesOf(packageMigrationDirectories)`
 
 ### `src/server/providers/DatabaseProvider.js`
 Exports

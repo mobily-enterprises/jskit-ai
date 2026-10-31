@@ -405,6 +405,12 @@ Exports
 Exports
 - None
 
+### `migrations/constraints/assistant_users_foreign_keys.cjs`
+Exports
+- None
+Local functions
+- `hasUsersForeignKey(knex, { tableName, columnName })`
+
 ### patterns
 
 ### `patterns/assistant-surface/example/config/public.js`

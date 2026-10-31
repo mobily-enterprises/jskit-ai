@@ -262,11 +262,13 @@ historical migration when moving it so the existing Knex ledger continues to
 recognize it. Basenames must be unique across the effective graph.
 
 Keep cross-package foreign keys and other dependency-sensitive constraints in
-application `migrations/constraints/`, the final phase of
-`createKnexMigrationConfigFromApp()`. It uses `sortDirsSeparately: true`: the
-sorted package directories run before root `migrations/`, and filenames only
-order work within their own directory. A later timestamp in a package does not
-defer its foreign key until another package has created the parent table.
+a constraints phase of `createKnexMigrationConfigFromApp()`: the referencing
+package's own `constraints/` subdirectory, which runs after root `migrations/`,
+or application `migrations/constraints/`, which runs last. It uses
+`sortDirsSeparately: true`: the sorted package directories run before root
+`migrations/`, and filenames only order work within their own directory. A later
+timestamp in a package does not defer its foreign key until another package has
+created the parent table.
 Follow the [database ordering and partial-failure recovery rules](https://mobily-enterprises.github.io/jskit-ai/guide/app-setup/database-layer#directory-order-comes-before-filenames),
 including independent checks for columns and constraints after MySQL or MariaDB
 DDL fails. Seeds are not migrations: run one explicit application-owned,
