@@ -4,9 +4,16 @@ import { perplexityProvider } from "@jskit-ai/connectors-catalog/server/perplexi
 
 // App-owned composition, not an inference service. Supply the application's native
 // OpenAI-compatible client factory. Credentials and the returned client stay server-side.
+/**
+ * @param {object} dependencies
+ * @param {object} dependencies.configuration The integration configuration.
+ * @param {(context: object, request: object) => Promise<object | null>} dependencies.authorize The application's access policy: the owner, or null.
+ * @param {(options: object) => { chat: { completions: { create: (body: object, request: object) => Promise<any> } } }} dependencies.createClient
+ *   The application's native SDK client factory, such as `options => new OpenAI(options)`.
+ * @param {(reference: string, owner: object, slot: object) => Promise<string>} [dependencies.resolveReference]
+ */
 export function createPerplexityAnswers({ configuration, authorize, createClient,
   resolveReference = createEnvironmentReferenceResolver() }) {
-  if (typeof authorize !== "function" || typeof createClient !== "function") throw new TypeError("Supply application authorization and its native client factory.");
   const config = validateIntegrationConfiguration(configuration, { providers: [perplexityProvider], allowUnknownProviders: true });
   return async ({ context, integrationId, question, model, stream = false, signal }) => {
     const slot = Object.hasOwn(config.integrations, integrationId) ? config.integrations[integrationId] : null;

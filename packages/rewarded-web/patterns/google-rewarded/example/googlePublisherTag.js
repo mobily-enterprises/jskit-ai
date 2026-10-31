@@ -71,14 +71,10 @@ function launchGoogleRewardedAd({
         let settled = false;
 
         const cleanup = () => {
-          if (typeof pubads.removeEventListener === "function") {
-            pubads.removeEventListener("rewardedSlotReady", handleReady);
-            pubads.removeEventListener("rewardedSlotGranted", handleGranted);
-            pubads.removeEventListener("rewardedSlotClosed", handleClosed);
-          }
-          if (typeof googletag.destroySlots === "function") {
-            googletag.destroySlots([slot]);
-          }
+          pubads.removeEventListener("rewardedSlotReady", handleReady);
+          pubads.removeEventListener("rewardedSlotGranted", handleGranted);
+          pubads.removeEventListener("rewardedSlotClosed", handleClosed);
+          googletag.destroySlots([slot]);
         };
 
         const handleReady = async (event) => {
@@ -87,9 +83,7 @@ function launchGoogleRewardedAd({
           }
           readySeen = true;
           await Promise.resolve(onReady?.());
-          if (typeof event.makeRewardedVisible === "function") {
-            event.makeRewardedVisible();
-          }
+          event.makeRewardedVisible();
         };
 
         const handleGranted = async (event) => {

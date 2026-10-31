@@ -65,6 +65,12 @@ persistent OAuth grants. Reviews include live account values and the saved plan.
 Creation is paused and atomic; launch rechecks the live review. Do not replay a
 write after an uncertain response. Disconnecting does not pause campaigns.
 
+Each collaborator the composition receives (the `createGoogleAdsSearchService()`
+service) is a required parameter typed in a JSDoc `@param` and called directly,
+without a `typeof` probe, a "requires x" guard or a no-op default. A server
+feature that uses it follows
+[typed features](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/site/guide/framework/typed-features.md).
+
 ## Example files
 
 `example/ads-setup.js` maps the optional editor command to the shared service. It
@@ -89,6 +95,9 @@ approval and conversion/billing readiness require operator verification.
 Do not put secrets in JSON, stdout or chat. Do not execute conversion snippets in
 the editor, confuse OAuth consent with advertiser approval, or claim live account
 acceptance from fixture tests. Keep larger campaign types outside this recipe.
+
+Do not probe a collaborator, default one to `null`, `{}` or a no-op, fill a slot
+with a setter after construction, or keep a module-level registry.
 
 ## Packaged source
 

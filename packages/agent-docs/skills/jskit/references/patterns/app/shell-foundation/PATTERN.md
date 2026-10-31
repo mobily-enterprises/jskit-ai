@@ -59,6 +59,15 @@ not convert those choices into a generator questionnaire.
   scrims or coordinates.
 - Do not attach generator provenance, receipts, completion state, or replay
   history to copied source.
+- Server code the application adds follows
+  [typed features](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/site/guide/framework/typed-features.md):
+  a provided capability exports its type from `types.js`; collaborators arrive
+  through declared capabilities, typed in a JSDoc `@param` and required, never
+  probed or defaulted to nothing; slots are `optional` tokens with a named
+  default; one `create<Name>Actions()` per feature returns actions whose
+  `execute` is one call; one copy of each helper per package; files stay under
+  750 lines and functions under 600. `createServer()` types its `runtimeEnv`
+  option the same way.
 
 ## Framework APIs
 
@@ -126,3 +135,5 @@ horizontal overflow.
 - Do not push content down with persistent transient-error banners; use the
   standard toast/error presentation.
 - Do not preserve historical template ownership after copying.
+- Do not probe a collaborator, default one to `null`, `{}` or a no-op, fill a
+  slot with a setter after construction, or keep a module-level registry.

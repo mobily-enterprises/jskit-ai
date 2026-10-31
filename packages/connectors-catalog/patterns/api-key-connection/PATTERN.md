@@ -112,6 +112,11 @@ not require putting credentials into source.
 - An optional frontend key reference is distinct from the primary backend key.
   Only the application may deliberately expose a suitable search-only key;
   successful backend verification does not verify that frontend key's restrictions.
+- Each collaborator the composition receives (`authorize`) is a required
+  parameter typed in a JSDoc `@param` and called directly, without a `typeof`
+  probe, a "requires x" guard or a no-op default. Only the production
+  `env = process.env` stays as a default. A server feature that uses it follows
+  [typed features](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/site/guide/framework/typed-features.md).
 
 ## Framework APIs
 
@@ -243,6 +248,8 @@ Do not turn provider metadata into arbitrary authenticated URL forwarding.
 Do not retry a paid or mutating request automatically. Do not mark an untested
 managed mode or an unimplemented provider operation available.
 
+Do not probe a collaborator, default one to `null`, `{}` or a no-op, fill a slot
+with a setter after construction, or keep a module-level registry.
 
 ## Granola meeting data
 

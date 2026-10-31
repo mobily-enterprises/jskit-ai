@@ -38,6 +38,12 @@ the ordinary runtime for each request, preserving authorization and the
 connection's configured sandbox/live environment. The sandbox setting used for
 local schema validation sends no request and does not override runtime routing.
 
+Each collaborator the composition receives (the connection `runtime`) is a
+required parameter typed in a JSDoc `@param` and called directly, without a
+`typeof` probe, a "requires x" guard or a no-op default. A server feature that
+uses it follows
+[typed features](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/site/guide/framework/typed-features.md).
+
 ## Product decisions
 
 For assistant use, authorize the complete cloned request with
@@ -57,6 +63,9 @@ Paddle; inspect the merchant catalogue before repeating any write. Process
 termination can prevent the returned report from being saved, so an application
 needing crash recovery must record each completed step durably. This small
 recipe does not promise crash recovery, rollback or exactly-once execution.
+
+Do not probe a collaborator, default one to `null`, `{}` or a no-op, fill a slot
+with a setter after construction, or keep a module-level registry.
 
 ## Variation points
 

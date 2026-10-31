@@ -35,6 +35,11 @@ existing access policy applies before exposing its configured resources.
 - Browser load/error events report delivery. A monogram is not proof of a brand logo.
 - Domain restrictions concern the app that loads the image, including previews
   and custom domains. The editor VM may have a different origin.
+- Each collaborator the composition receives (`resolveReference`) is a required
+  parameter typed in a JSDoc `@param` and called directly, without a `typeof`
+  probe, a "requires x" guard or a no-op default. A server feature that uses it
+  follows
+  [typed features](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/site/guide/framework/typed-features.md).
 
 ## Framework APIs
 
@@ -82,3 +87,6 @@ These checks need neither live credentials nor generated sample applications.
 Do not call server `connectApiKey` to manufacture a Connected receipt for this
 image flow. Do not send a secret key, an environment dump or a caller-selected
 service origin to the browser. Do not treat key naming as provider quota isolation.
+
+Do not probe a collaborator, default one to `null`, `{}` or a no-op, fill a slot
+with a setter after construction, or keep a module-level registry.

@@ -1,7 +1,7 @@
 import { createKnexMigrationConfigFromApp } from "@jskit-ai/database-runtime/server/knexMigrationConfig";
 
 try {
-  process.loadEnvFile?.(".env");
+  process.loadEnvFile(".env");
 } catch (error) {
   if (error?.code !== "ENOENT") {
     throw error;

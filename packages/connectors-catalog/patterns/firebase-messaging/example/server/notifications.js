@@ -4,6 +4,14 @@ import { createConnectionService, createEnvironmentReferenceResolver } from "@js
 import { createFileConnectionStore, createCredentialProtection } from "@jskit-ai/connectors-core/server/file-storage";
 import { firebaseCloudMessagingProvider } from "@jskit-ai/connectors-catalog/server/firebase-cloud-messaging";
 
+/**
+ * @param {object} options
+ * @param {string} options.configurationPath
+ * @param {string} options.runtimeDirectory
+ * @param {Buffer} options.credentialKey
+ * @param {Record<string, string | undefined>} options.environment
+ * @param {(context: object, request: object) => Promise<object | null>} options.authorizeConnectionOperation The application's access policy.
+ */
 export async function openNotificationConnections({
   configurationPath, runtimeDirectory, credentialKey, environment,
   authorizeConnectionOperation

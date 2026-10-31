@@ -40,6 +40,11 @@ and whether a blocking verdict prevents a later operation.
 - Provider credentials are isolated from coding-agent sessions and credentials.
 - The host supplies its own authorized provider credentials; editor edition does
   not select a shared Vibe64 provider account.
+- Each collaborator the composition receives (`authorize`, `resolveReference`
+  and `resolveScanTarget`) is a required parameter typed in a JSDoc `@param` and
+  called directly, without a `typeof` probe, a "requires x" guard or a no-op
+  default. A server feature that uses it follows
+  [typed features](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/site/guide/framework/typed-features.md).
 
 ## Framework APIs
 
@@ -81,3 +86,6 @@ and findings require separately authorised provider acceptance.
 Do not infer workspace grants from a shared slot, return raw provider stderr,
 replay scans automatically, pass arbitrary CLI flags, use a mutable working tree
 as if it were a fixed revision, or substitute a generic API reader for source scans.
+
+Do not probe a collaborator, default one to `null`, `{}` or a no-op, fill a slot
+with a setter after construction, or keep a module-level registry.

@@ -1,5 +1,9 @@
 // Compose the service in the application's existing authenticated command owner.
 // No stdin value establishes the trusted application/administrator identity.
+/**
+ * @param {any} request The parsed setup command.
+ * @param {ReturnType<typeof import("@jskit-ai/connectors-catalog/server/google-ads-search").createGoogleAdsSearchService>} service
+ */
 export async function dispatchAdsSetup(request, service) {
   if (request?.protocol !== "vibe64.integration-setup.command.v1" || typeof request.requestId !== "string" ||
       !/^[A-Za-z0-9_-]{1,200}$/.test(request.requestId) || !request.ads || Array.isArray(request.ads) || typeof request.ads !== "object") {

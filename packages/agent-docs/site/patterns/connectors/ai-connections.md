@@ -37,6 +37,14 @@ to authorized application, user, provider and integration. The application owns
 key-entry and disconnect screens. Never return connection parameters to a
 browser or share coding-agent subscription credentials.
 
+Each collaborator the composition receives (`authorize`, `createModel`,
+`createClient` and `resolveReference`) is a required parameter typed in a JSDoc
+`@param` and called directly, without a `typeof` probe, a "requires x" guard or
+a no-op default. Only the production
+`resolveReference = createEnvironmentReferenceResolver()` stays as a default. A
+server feature that uses it follows
+[typed features](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/site/guide/framework/typed-features.md).
+
 ## Do not use when
 
 Frameworks outside Node follow their own configuration and AI client patterns.
@@ -63,6 +71,9 @@ inference or generate/deploy a sample application to prove configuration wiring.
 Do not add a runtime catalogue fetch, token billing, an inference proxy, a
 cross-language runtime or a silent paid fallback. Never infer that a model
 marked free can be used without the authentication its provider requires.
+
+Do not probe a collaborator, default one to `null`, `{}` or a no-op, fill a slot
+with a setter after construction, or keep a module-level registry.
 
 ## Existing Perplexity connector slots
 

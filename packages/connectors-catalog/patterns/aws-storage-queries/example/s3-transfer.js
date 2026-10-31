@@ -1,6 +1,17 @@
 // Application-owned composition: service.authorize must approve this exact key
 // for context. The same function works in a Node CLI or application backend.
 // Pass a bounded signal for both signing and the complete response-body read.
+/**
+ * @param {object} request
+ * @param {import("@jskit-ai/connectors-core/server/types").ConnectorsCore} request.service
+ * @param {object} request.context
+ * @param {string} request.integrationId
+ * @param {string} request.key
+ * @param {"download" | "upload"} request.direction
+ * @param {Blob | ArrayBuffer | ArrayBufferView} [request.body]
+ * @param {AbortSignal} request.signal
+ * @param {typeof globalThis.fetch} [request.fetchImpl]
+ */
 export async function transferS3Object({ service, context, integrationId, key,
   direction, body, signal, fetchImpl = globalThis.fetch }) {
   if (!["download", "upload"].includes(direction)) throw new TypeError("Choose download or upload.");

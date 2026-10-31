@@ -38,6 +38,12 @@ reference, stable project identity and public settings. Verify before reporting
 Connected; authorize every audience before sending. Preserve the existing file
 store and token lock instead of copying the grant implementation.
 
+Each collaborator the composition receives (`authorizeConnectionOperation`) is a
+required parameter typed in a JSDoc `@param` and called directly, without a
+`typeof` probe, a "requires x" guard or a no-op default. A server feature that
+uses it follows
+[typed features](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/site/guide/framework/typed-features.md).
+
 ## Framework APIs
 
 Use `parseIntegrationConfiguration`, `createConnectionService`,
@@ -153,6 +159,9 @@ Do not expose service-account JSON to the browser, confuse Firebase API keys
 with private service credentials, or choose the paid project from caller input.
 Do not treat an accepted message receipt as device delivery or automatically
 retry a send whose outcome is unknown.
+
+Do not probe a collaborator, default one to `null`, `{}` or a no-op, fill a slot
+with a setter after construction, or keep a module-level registry.
 
 ## Packaged source
 

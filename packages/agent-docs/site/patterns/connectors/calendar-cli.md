@@ -40,6 +40,11 @@ authenticated user and check membership/operation permissions there.
 - The application authorizes owners and executes package-owned migrations.
 - OAuth and persistence machinery is imported from the library.
 - Provider consent and a successful account check precede Connected.
+- Each collaborator the composition receives (the connection `service` that
+  `connectInBrowser()` uses) is a required parameter typed in a JSDoc `@param`
+  and called directly, without a `typeof` probe, a "requires x" guard or a no-op
+  default. A server feature that uses it follows
+  [typed features](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/site/guide/framework/typed-features.md).
 
 ## Framework APIs
 
@@ -103,6 +108,9 @@ your credentials and account approval. The initial runtime implements own web
 client registrations. The editor configures the generated application's own registration. Its backend
 resolves the secret from the application environment; never ship a client secret
 inside a desktop binary or browser bundle.
+
+Do not probe a collaborator, default one to `null`, `{}` or a no-op, fill a slot
+with a setter after construction, or keep a module-level registry.
 
 ## Packaged source
 

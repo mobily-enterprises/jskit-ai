@@ -43,6 +43,13 @@ account assignments, quotas and credential renewal are separate operations.
 There is no OAuth callback for these modes. See
 [AWS ownership](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/docs/aws-credentials.md).
 
+Each collaborator the composition receives (the connection `service`) is a
+required parameter typed in a JSDoc `@param` and called directly, without a
+`typeof` probe, a "requires x" guard or a no-op default. Only the production
+`fetchImpl = globalThis.fetch` stays as a default. A server feature that uses it
+follows
+[typed features](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/site/guide/framework/typed-features.md).
+
 ## Framework APIs
 
 Follow the [API-key connection pattern](../api-key-connection/PATTERN.md) to
@@ -153,6 +160,9 @@ own location. These choices use the same runtime APIs.
 Do not expose presigned URLs in logs, infer table permission from a workgroup
 read, treat workgroup membership as user isolation, or poll queries without an
 application-controlled limit.
+
+Do not probe a collaborator, default one to `null`, `{}` or a no-op, fill a slot
+with a setter after construction, or keep a module-level registry.
 
 ## Verification
 

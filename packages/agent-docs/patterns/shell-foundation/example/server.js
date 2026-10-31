@@ -85,6 +85,7 @@ function canServeStaticFile(distRoot, relativePath) {
   return existsSync(resolvedPath);
 }
 
+/** @param {{ runtimeEnv?: ReturnType<typeof resolveRuntimeEnv> }} [options] */
 async function createServer({ runtimeEnv = resolveRuntimeEnv() } = {}) {
   const app = Fastify({
     logger: true,

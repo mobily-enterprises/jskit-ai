@@ -57,6 +57,15 @@ questionnaire or infer tenancy, authentication, or database requirements.
   markers, receipts, ledgers, or operation-history state.
 - Keep browser dependencies aligned with the execution environment that will
   run the tests. Vibe64 supplies its exact managed Playwright version.
+- Server code the application adds follows
+  [typed features](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/site/guide/framework/typed-features.md):
+  a provided capability exports its type from `types.js`; collaborators arrive
+  through declared capabilities, typed in a JSDoc `@param` and required, never
+  probed or defaulted to nothing; slots are `optional` tokens with a named
+  default; one `create<Name>Actions()` per feature returns actions whose
+  `execute` is one call; one copy of each helper per package; files stay under
+  750 lines and functions under 600. `createServer()` types its `runtimeEnv`
+  option the same way.
 
 ## Framework APIs
 
@@ -128,6 +137,8 @@ Confirm `/api/health` and the first product route.
 - Do not keep `reading-room` names that no longer describe the product.
 - Do not add a hidden file recording that this pattern was copied.
 - Do not turn the example into a field interpolation language.
+- Do not probe a collaborator, default one to `null`, `{}` or a no-op, fill a
+  slot with a setter after construction, or keep a module-level registry.
 
 ## Packaged source
 

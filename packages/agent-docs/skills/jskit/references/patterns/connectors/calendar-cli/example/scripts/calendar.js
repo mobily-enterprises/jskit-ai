@@ -8,6 +8,10 @@ import { createCredentialProtection, createKnexConnectionStore } from "@jskit-ai
 import { googleCalendarProvider } from "@jskit-ai/connector-google-calendar/server";
 
 // A local operator command owns this HTTP listener; web apps use authenticated routes.
+/**
+ * @param {import("@jskit-ai/connectors-core/server/types").ConnectorsCore} service
+ * @param {object} context
+ */
 async function connectInBrowser(service, context) {
   const callback = new URL(process.env.GOOGLE_CALLBACK_URL);
   if (callback.protocol !== "http:" || callback.hostname !== "127.0.0.1" || !callback.port) {
