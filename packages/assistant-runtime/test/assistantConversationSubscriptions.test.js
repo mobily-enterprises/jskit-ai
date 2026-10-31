@@ -342,6 +342,7 @@ test("a real subscription slower than ten seconds keeps its observer, says it is
   const barrier = f.holdNextRead(id);
   const view = f.view(socket, id);
   await until(f.changes, () => barrier.started);
+  const readStartedAt = performance.now();
   const subscriptionEpoch = f.subscriptionTimings.at(-1).subscriptionEpoch;
   while (!view.errors.length) await once(f.changes, "change", { signal: AbortSignal.timeout(12_000) });
   assert.equal(view.errors[0].message, "Chat is still loading. Waiting for the server; Reload chat to try now.");
@@ -350,6 +351,9 @@ test("a real subscription slower than ten seconds keeps its observer, says it is
   assert.equal(socket.id, socketId);
   assert.equal(socket.connected, true);
   assert.equal(view.states.length, 0);
+  // The client's ten-second wait starts before the server's clock does, so the
+  // read is held until the server has also waited ten seconds.
+  await new Promise(resolve => setTimeout(resolve, Math.max(0, 10_001 - (performance.now() - readStartedAt))));
   barrier.resolve();
   await until(f.changes, () => view.states.length === 1);
   assert.equal(view.states[0].conversationLog[0].user.messageId, "survives-wait");
