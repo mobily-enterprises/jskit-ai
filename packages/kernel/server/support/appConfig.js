@@ -2,16 +2,22 @@ import { normalizeObject, normalizeText } from "../../shared/support/normalize.j
 import { normalizeMobileConfig } from "../../shared/support/mobileConfig.js";
 import { normalizeSurfaceId } from "../../shared/surface/registry.js";
 
+// A container scope can make appConfig; any other value supplies none.
+/**
+ * @param {any} value
+ * @returns {value is { has(token: string): boolean, make(token: string): unknown }}
+ */
+function isContainerScope(value) {
+  // readable-check: allow method-probe - input: a scope may be any value, and only a container supplies appConfig
+  return Boolean(value) && typeof value === "object" && typeof value.has === "function" && typeof value.make === "function";
+}
+
 function resolveAppConfig(scope = null) {
-  const source = scope && typeof scope === "object" ? scope : null;
-  if (!source || typeof source.has !== "function" || typeof source.make !== "function") {
-    return {};
-  }
-  if (!source.has("appConfig")) {
+  if (!isContainerScope(scope) || !scope.has("appConfig")) {
     return {};
   }
 
-  return normalizeObject(source.make("appConfig"));
+  return normalizeObject(scope.make("appConfig"));
 }
 
 function normalizeDefaultSurfaceId(value, { fallback = "" } = {}) {
@@ -36,10 +42,7 @@ function resolveDefaultSurfaceId(scope = null, { defaultSurfaceId = "" } = {}) {
 }
 
 function resolveMobileConfig(source = null) {
-  const appConfig =
-    source && typeof source === "object" && typeof source.has === "function" && typeof source.make === "function"
-      ? resolveAppConfig(source)
-      : normalizeObject(source);
+  const appConfig = isContainerScope(source) ? resolveAppConfig(source) : normalizeObject(source);
 
   return normalizeMobileConfig(appConfig.mobile);
 }

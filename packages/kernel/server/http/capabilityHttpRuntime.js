@@ -12,6 +12,9 @@ import {
 } from "./errorHandling.js";
 import { isAppError } from "../runtime/errors.js";
 
+/** @typedef {import("../types.js").ActionCatalogue} ActionCatalogue */
+/** @typedef {import("../types.js").RuntimeFastify} RuntimeFastify */
+
 function normalizeResolver({ id, resolve } = {}) {
   const resolverId = normalizeText(id);
   if (!resolverId) {
@@ -23,14 +26,14 @@ function normalizeResolver({ id, resolve } = {}) {
   return Object.freeze({ id: resolverId, resolve });
 }
 
+// The runtime.http capability: the routes features register, served by the
+// application's Fastify instance once the runtime starts.
+/**
+ * @param {object} dependencies
+ * @param {RuntimeFastify} dependencies.fastify
+ * @param {ActionCatalogue} dependencies.actions
+ */
 function createCapabilityHttpRuntime({ fastify, actions }) {
-  if (!fastify || typeof fastify.route !== "function") {
-    throw new TypeError("HTTP runtime requires a Fastify instance.");
-  }
-  if (!actions || typeof actions.registerContextContributor !== "function") {
-    throw new TypeError("HTTP runtime requires the runtime.actions capability.");
-  }
-
   const router = createRouter();
   const visibilityResolvers = [];
   const visibilityResolverIds = new Set();

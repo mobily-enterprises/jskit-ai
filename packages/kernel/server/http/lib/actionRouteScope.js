@@ -10,6 +10,15 @@ const emptyInput = () => ({});
 // Keep the scope options and each actionRoute's method, suffix and actionId
 // literal (or a literal array's .map / for...of element) so inspectors can
 // read them without running the application.
+/**
+ * @param {import("../../types.js").RuntimeHttp} http
+ * @param {object} [scope]
+ * @param {string} [scope.routeBase]
+ * @param {string} [scope.relativePath]
+ * @param {string} [scope.surface]
+ * @param {boolean} [scope.strictParams]
+ * @param {((handler: Function, route: { method: string, path: string, options: object }) => Function) | null} [scope.wrapHandler]
+ */
 function createActionRouteScope(
   http,
   {
@@ -21,6 +30,7 @@ function createActionRouteScope(
   } = {}
 ) {
   const router = http?.router;
+  // readable-check: allow method-probe - a test asserts this error for a value that is not runtime.http
   if (!router || typeof router.register !== "function") {
     throw new RouteDefinitionError("createActionRouteScope requires runtime.http with router.register().");
   }

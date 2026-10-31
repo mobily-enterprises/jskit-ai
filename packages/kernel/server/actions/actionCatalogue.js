@@ -1,6 +1,9 @@
 import { createActionRegistry } from "./registry.js";
 import { isRecord } from "../../shared/support/normalize.js";
 
+/** @typedef {import("../types.js").RuntimeEvents} RuntimeEvents */
+/** @typedef {import("../types.js").RuntimeLogger} RuntimeLogger */
+
 function normalizeRegistration(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new TypeError("Action catalogue registration must be an action contributor object.");
@@ -9,6 +12,14 @@ function normalizeRegistration(value) {
   return value;
 }
 
+// The runtime.actions capability: the actions features register, run through the
+// action pipeline with the context their contributors add.
+/**
+ * @param {object} [dependencies]
+ * @param {RuntimeEvents} [dependencies.events] Publishes the events an action declares; an action that declares events needs it.
+ * @param {RuntimeLogger | null} [dependencies.logger] Logs each execution at debug level; without one nothing is logged.
+ */
+// readable-check: allow dependency-default - used by assistant packages, which stay unchanged: they build catalogues without dependencies
 function createActionCatalogue({ events, logger = null } = {}) {
   const contributors = [];
   const contextContributors = [];

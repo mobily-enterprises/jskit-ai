@@ -12,13 +12,21 @@ function schemaFieldErrorDetails(error) {
   };
 }
 
+/**
+ * @param {object} error
+ * @param {number} [error.status]
+ * @param {string} [error.message]
+ * @param {string} [error.code]
+ * @param {object} [error.details]
+ * @param {unknown} [error.cause]
+ */
 function createActionValidationError({
   status = 400,
   message = "Validation failed.",
   code = "ACTION_VALIDATION_FAILED",
   details,
   cause
-} = {}) {
+}) {
   return createActionRuntimeError(status, message, {
     code,
     details,

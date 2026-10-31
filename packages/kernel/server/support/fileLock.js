@@ -107,7 +107,7 @@ async function tryAcquireExclusiveFileLock(lockPath = "", {
     };
   } catch (error) {
     child?.stdin?.destroy();
-    child?.kill?.("SIGTERM");
+    child?.kill("SIGTERM");
     await closed;
     await lockHandle.close().catch(() => null);
     if (error?.code === errorCode) {

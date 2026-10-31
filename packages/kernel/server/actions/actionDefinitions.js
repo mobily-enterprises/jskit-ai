@@ -212,6 +212,7 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
     );
   }
 
+  // readable-check: allow method-probe - input validation: an application's action definition must have execute()
   if (typeof source.execute !== "function") {
     throw createActionRuntimeError(500, `Action definition \"${id}\" execute handler is required.`, {
       code: "ACTION_DEFINITION_INVALID"

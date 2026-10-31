@@ -6,16 +6,18 @@ function normalizeListener(value) {
   }
   const id = String(value.id || "").trim();
   if (!id) throw new TypeError("Event listener id is required.");
+  // readable-check: allow method-probe - input validation: a registered listener must have handle()
   if (typeof value.handle !== "function") {
     throw new TypeError(`Event listener "${id}" requires handle().`);
   }
+  // readable-check: allow method-probe - input validation: a registered listener's matches() is optional
   if (value.matches != null && typeof value.matches !== "function") {
     throw new TypeError(`Event listener "${id}" matches must be a function when provided.`);
   }
   return Object.freeze({
     id,
     handle: value.handle,
-    matches: typeof value.matches === "function" ? value.matches : null
+    matches: value.matches ?? null
   });
 }
 

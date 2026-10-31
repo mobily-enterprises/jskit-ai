@@ -10,6 +10,9 @@ import { attachDirectRequestActionExecutor } from "../directRequestActionExecuto
 import { resolveRouteLabel } from "./routeSupport.js";
 import { JSON_API_CONTENT_TYPE } from "./routeTransport.js";
 
+/** @typedef {import("../../types.js").ActionCatalogue} ActionCatalogue */
+/** @typedef {import("../../types.js").RuntimeFastify} RuntimeFastify */
+
 const { structuredClone: cloneRouteSchema } = globalThis;
 const UNSAFE_BODY_METHODS = Object.freeze(["POST", "PUT", "PATCH"]);
 const REQUEST_INPUT_KEYS = Object.freeze(["body", "query", "params"]);
@@ -40,6 +43,7 @@ function shouldStripFastifyBodySchema(route = null, schema = null) {
     return false;
   }
 
+  // readable-check: allow method-probe - route definition data: a route may transform its body input
   return typeof route?.input?.body === "function";
 }
 
@@ -100,10 +104,12 @@ function replyHasHeader(reply, name = "") {
     return false;
   }
 
+  // readable-check: allow method-probe - platform object: a reply without hasHeader() is read through getHeader() or headers
   if (typeof reply.hasHeader === "function") {
     return reply.hasHeader(normalizedName);
   }
 
+  // readable-check: allow method-probe - platform object: a reply without getHeader() is read through headers
   if (typeof reply.getHeader === "function") {
     return reply.getHeader(normalizedName) != null;
   }
@@ -133,6 +139,7 @@ async function buildRequestInput(request, { inputTransforms = null, transportInp
 }
 
 function wrapReplySend({ reply = null, request = null, route = null, outputTransform = null, transport = null } = {}) {
+  // readable-check: allow method-probe - platform object: only a reply that can send is wrapped
   if (!reply || typeof reply.send !== "function") {
     return;
   }
@@ -153,6 +160,7 @@ function wrapReplySend({ reply = null, request = null, route = null, outputTrans
     }
 
     let nextPayload = payload;
+    // readable-check: allow method-probe - route transport data: a route's transport may define a response serializer
     if (typeof transport?.response === "function") {
       const transportedPayload = transport.response(payload, {
         request,
@@ -162,6 +170,7 @@ function wrapReplySend({ reply = null, request = null, route = null, outputTrans
         statusCode
       });
 
+      // readable-check: allow method-probe - data: a serializer's result must not be a promise
       if (transportedPayload && typeof transportedPayload.then === "function") {
         throw new RouteRegistrationError(`Route ${resolveRouteLabel(route)} transport.response must return synchronously.`);
       }
@@ -178,6 +187,7 @@ function wrapReplySend({ reply = null, request = null, route = null, outputTrans
         statusCode
       });
 
+      // readable-check: allow method-probe - data: an output transform's result must not be a promise
       if (transformedPayload && typeof transformedPayload.then === "function") {
         throw new RouteRegistrationError(`Route ${resolveRouteLabel(route)} output transform must return synchronously.`);
       }
@@ -197,6 +207,18 @@ function wrapReplySend({ reply = null, request = null, route = null, outputTrans
   };
 }
 
+/**
+ * @param {RuntimeFastify} fastify
+ * @param {object} options
+ * @param {ReadonlyArray<any>} [options.routes]
+ * @param {Function} [options.applyRoutePolicy]
+ * @param {Function} [options.missingHandler]
+ * @param {string} [options.requestActionExecutorProperty]
+ * @param {string} [options.requestActionDefaultChannel]
+ * @param {string} [options.requestActionDefaultSurface]
+ * @param {object} [options.middleware]
+ * @param {ActionCatalogue} options.actions
+ */
 function registerRoutes(
   fastify,
   {
@@ -207,16 +229,9 @@ function registerRoutes(
     requestActionDefaultChannel = "api",
     requestActionDefaultSurface = "",
     middleware = {},
-    actions = null
-  } = {}
+    actions
+  }
 ) {
-  if (!fastify || typeof fastify.route !== "function") {
-    throw new RouteRegistrationError("registerRoutes requires a Fastify instance.");
-  }
-  if (!actions || typeof actions.execute !== "function") {
-    throw new RouteRegistrationError("registerRoutes requires the runtime.actions capability.");
-  }
-
   const normalizedRoutes = normalizeArray(routes);
   const publicRoutes = normalizedRoutes.filter((route) => route?.internal !== true);
   const policyApplier = typeof applyRoutePolicy === "function" ? applyRoutePolicy : defaultApplyRoutePolicy;
@@ -229,6 +244,7 @@ function registerRoutes(
 
   for (const route of publicRoutes) {
     const routeOptions = policyApplier(toFastifyRouteOptions(route), route);
+    // readable-check: allow method-probe - route definition data: a route without a handler answers with the missing handler
     const routeHandler = typeof route.handler === "function" ? route.handler : fallbackHandler;
     const resolvedMiddlewareHandlers = resolveRouteMiddlewareHandlers(route, runtimeMiddlewareConfig);
     const routeTransport = route.transport || null;
@@ -238,7 +254,7 @@ function registerRoutes(
 
     fastify.route({
       ...routeOptions,
-      handler: async (request, reply) => {
+      handler: /** @param {any} request Decorated with input and executeAction(). */ async (request, reply) => {
         attachDirectRequestActionExecutor({
           actions,
           request,

@@ -1,7 +1,8 @@
 import { normalizeObject, normalizeText } from "../../shared/support/normalize.js";
 import { normalizeRouteVisibilityToken } from "../../shared/support/visibility.js";
 import { resolveDefaultSurfaceId } from "../support/appConfig.js";
-import { RouteRegistrationError } from "./lib/errors.js";
+
+/** @typedef {import("../types.js").ActionCatalogue} ActionCatalogue */
 
 function resolveSurface(request, explicitSurface = "", defaultSurfaceId = "") {
   return (
@@ -21,20 +22,26 @@ function routeVisibility(request, payload = {}) {
   );
 }
 
+/**
+ * @param {object} options
+ * @param {ActionCatalogue} options.actions
+ * @param {any} options.request The request to give an executeAction(); anything else is left alone.
+ * @param {string} [options.property]
+ * @param {string} [options.defaultChannel]
+ * @param {string} [options.defaultSurfaceId]
+ */
 function attachDirectRequestActionExecutor({
   actions,
   request,
   property = "executeAction",
   defaultChannel = "api",
   defaultSurfaceId = ""
-} = {}) {
-  if (!actions || typeof actions.execute !== "function") {
-    throw new RouteRegistrationError("Direct request action execution requires the runtime.actions capability.");
-  }
+}) {
   if (!request || typeof request !== "object") {
     return null;
   }
   const propertyName = normalizeText(property) || "executeAction";
+  // readable-check: allow method-probe - platform object: a request that already has an executor keeps it
   if (typeof request[propertyName] === "function") {
     return request[propertyName];
   }

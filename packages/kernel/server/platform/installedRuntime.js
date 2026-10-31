@@ -14,7 +14,19 @@ import {
   loadCapabilityProviders
 } from "./providerRuntime/capabilityProviderLoader.js";
 
-function normalizeInputCapabilities({ inputs, config, env, logger, fastify, appRoot }) {
+/** @typedef {import("../types.js").RuntimeFastify} RuntimeFastify */
+/** @typedef {import("../types.js").RuntimeLogger} RuntimeLogger */
+
+/**
+ * @param {object} seeds
+ * @param {Record<string, unknown>} seeds.inputs
+ * @param {Record<string, any>} seeds.config
+ * @param {Record<string, unknown>} seeds.env
+ * @param {RuntimeLogger} seeds.logger
+ * @param {RuntimeFastify | null} seeds.httpServer The Fastify instance that serves HTTP, if any.
+ * @param {string} seeds.appRoot
+ */
+function normalizeInputCapabilities({ inputs, config, env, logger, httpServer, appRoot }) {
   const source = inputs && typeof inputs === "object" && !Array.isArray(inputs) ? inputs : {};
   const normalized = {
     ...source,
@@ -22,7 +34,7 @@ function normalizeInputCapabilities({ inputs, config, env, logger, fastify, appR
     "runtime.config": Object.freeze({ ...(config && typeof config === "object" ? config : {}) }),
     "runtime.env": Object.freeze({ ...(env && typeof env === "object" ? env : {}) }),
     "runtime.logger": logger || console,
-    ...(fastify && typeof fastify.route === "function" ? { "runtime.fastify": fastify } : {})
+    ...(httpServer ? { "runtime.fastify": httpServer } : {})
   };
   return Object.freeze(normalized);
 }
@@ -41,6 +53,19 @@ function builtinCapabilityProviders(inputCapabilities) {
   ]);
 }
 
+// The application's capability runtime: the kernel's providers, then each
+// installed package's, then the application's own. A Fastify instance adds HTTP.
+/**
+ * @param {object} options
+ * @param {string} options.appRoot
+ * @param {string} [options.profile]
+ * @param {ReadonlyArray<object>} [options.providers]
+ * @param {Record<string, unknown>} [options.inputs]
+ * @param {Record<string, any>} [options.config]
+ * @param {Record<string, unknown>} [options.env]
+ * @param {RuntimeLogger} [options.logger]
+ * @param {RuntimeFastify} [options.fastify] Absent when the application serves no HTTP.
+ */
 async function createInstalledRuntime({
   appRoot,
   profile = "",
@@ -49,13 +74,15 @@ async function createInstalledRuntime({
   config = {},
   env = {},
   logger = console,
-  fastify = null
-} = {}) {
+  fastify
+}) {
   if (!appRoot || typeof appRoot !== "string") {
     throw new TypeError("createInstalledRuntime requires appRoot.");
   }
 
-  const inputCapabilities = normalizeInputCapabilities({ inputs, config, env, logger, fastify, appRoot });
+  // readable-check: allow method-probe - input validation: only a Fastify instance that can route serves HTTP
+  const httpServer = fastify && typeof fastify.route === "function" ? fastify : null;
+  const inputCapabilities = normalizeInputCapabilities({ inputs, config, env, logger, httpServer, appRoot });
   const installedPackages = await resolveInstalledJskitPackages({ appRoot });
   validatePackageCapabilities(installedPackages, {
     builtinProvidersByCapability: builtinCapabilityProviders(inputCapabilities)
@@ -69,7 +96,7 @@ async function createInstalledRuntime({
     providers: [
       EventProvider,
       createActionProvider({ logger }),
-      ...(fastify && typeof fastify.route === "function" ? [HttpProvider, BootstrapProvider] : [])
+      ...(httpServer ? [HttpProvider, BootstrapProvider] : [])
     ],
     sourceId: "@jskit-ai/kernel",
     seenProviderIds,
@@ -104,6 +131,7 @@ async function createInstalledRuntime({
   });
   await runtime.start();
 
+  // readable-check: allow method-probe - input validation: a server that only takes hooks still closes the runtime
   if (fastify && typeof fastify.addHook === "function") {
     fastify.addHook("onClose", async () => {
       await runtime.shutdown();

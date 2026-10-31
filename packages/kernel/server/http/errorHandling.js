@@ -4,19 +4,18 @@ import { errorFieldErrors } from "../../shared/validators/schemaPayloadValidatio
 import { resolveValidationIssueCode } from "../../shared/validators/validationIssueCodes.js";
 import { JSON_API_CONTENT_TYPE } from "./lib/routeTransport.js";
 
+/** @typedef {import("../types.js").RuntimeFastify} RuntimeFastify */
+
 const JSON_API_CONTENT_TYPE_PARSER_MARKER = Symbol.for("jskit.fastify.jsonApiContentTypeParserRegistered");
 const BODYLESS_CONTENT_TYPE_NORMALIZER_MARKER = Symbol.for("jskit.fastify.bodylessContentTypeNormalizerRegistered");
 
+/** @param {RuntimeFastify} fastify */
 function registerJsonApiContentTypeParser(fastify) {
-  if (!fastify || typeof fastify.addContentTypeParser !== "function") {
-    throw new TypeError("registerJsonApiContentTypeParser requires a Fastify instance.");
-  }
-
   if (fastify[JSON_API_CONTENT_TYPE_PARSER_MARKER]) {
     return false;
   }
 
-  if (typeof fastify.hasContentTypeParser === "function" && fastify.hasContentTypeParser(JSON_API_CONTENT_TYPE)) {
+  if (fastify.hasContentTypeParser(JSON_API_CONTENT_TYPE)) {
     fastify[JSON_API_CONTENT_TYPE_PARSER_MARKER] = true;
     return false;
   }
@@ -71,11 +70,8 @@ function normalizeBodylessContentTypeHeader(request = null) {
   return true;
 }
 
+/** @param {RuntimeFastify} fastify */
 function registerBodylessContentTypeNormalizer(fastify) {
-  if (!fastify || typeof fastify.addHook !== "function") {
-    throw new TypeError("registerBodylessContentTypeNormalizer requires a Fastify instance.");
-  }
-
   if (fastify[BODYLESS_CONTENT_TYPE_NORMALIZER_MARKER]) {
     return false;
   }
@@ -148,6 +144,7 @@ function applyRouteTransportErrorResponse(reply, request, error, {
   messageFields = {}
 } = {}) {
   const transport = resolveRequestRouteTransport(request);
+  // readable-check: allow method-probe - route transport data: a route's transport may define an error serializer
   const errorSerializer = transport && typeof transport.error === "function" ? transport.error : null;
   if (!errorSerializer) {
     return false;
@@ -163,6 +160,7 @@ function applyRouteTransportErrorResponse(reply, request, error, {
     ...messageFields
   });
 
+  // readable-check: allow method-probe - data: a serializer's result must not be a promise
   if (payload && typeof payload.then === "function") {
     throw new TypeError("Route transport error serializer must return synchronously.");
   }
@@ -213,19 +211,16 @@ function applyErrorHeaders(reply, error) {
   }
 }
 
-function registerApiErrorHandler(app, { isAppError } = {}) {
-  if (!app || typeof app.setErrorHandler !== "function") {
-    throw new TypeError("registerApiErrorHandler requires a Fastify instance.");
-  }
-  if (typeof isAppError !== "function") {
-    throw new TypeError("registerApiErrorHandler requires isAppError.");
-  }
-
+/**
+ * @param {RuntimeFastify} app
+ * @param {{ isAppError: (error: unknown) => boolean }} options
+ */
+function registerApiErrorHandler(app, { isAppError }) {
   function shouldExposeAppErrorDetails(errorCode = "") {
     return String(errorCode || "").trim() !== "ACTION_PERMISSION_DENIED";
   }
 
-  app.setErrorHandler((error, request, reply) => {
+  app.setErrorHandler(/** @param {any} error Whatever the route threw. */ (error, request, reply) => {
     const normalizedErrorCode = String(error?.code || "").trim();
     const transactionOutcome = normalizeTransactionOutcome(error?.transactionOutcome);
     const outcomeFields = transactionOutcome ? { transactionOutcome } : {};

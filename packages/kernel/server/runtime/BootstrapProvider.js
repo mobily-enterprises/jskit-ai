@@ -50,6 +50,7 @@ const BootstrapProvider = defineProvider({
   id: "runtime.bootstrap",
   requires: { http: "runtime.http" },
   provides: { bootstrap: "runtime.bootstrap" },
+  /** @param {{ http: import("../types.js").RuntimeHttp }} dependencies */
   setup({ http }) {
     const bootstrap = createBootstrapRuntime();
     http.router.register("GET", "/api/bootstrap", {

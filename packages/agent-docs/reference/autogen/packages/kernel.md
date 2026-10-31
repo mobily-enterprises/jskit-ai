@@ -581,6 +581,8 @@ Exports
 ### `server/actions/actionCatalogue.js`
 Exports
 - `createActionCatalogue({ events, logger = null } = {})`
+- `type RuntimeEvents`
+- `type RuntimeLogger`
 Local functions
 - `normalizeRegistration(value)`
 
@@ -641,7 +643,9 @@ Exports
 
 ### `server/actions/pipeline.js`
 Exports
-- `executeActionPipeline({ definition, input, context, deps = {}, events, logger = console } = {})`
+- `executeActionPipeline({ definition, input, context, deps = {}, events, logger })`
+- `type RuntimeEvents`
+- `type RuntimeLogger`
 Local functions
 - `publishActionEvents(events, builders, execution)`
 - `logActionExecution(logger, { definition, context, outcome, startedAt, errorCode = null })`
@@ -655,11 +659,13 @@ Exports
 - `normalizeActionOutput(definition, output)`
 Local functions
 - `schemaFieldErrorDetails(error)`
-- `createActionValidationError({ status = 400, message = "Validation failed.", code = "ACTION_VALIDATION_FAILED", details, cause } = {})`
+- `createActionValidationError({ status = 400, message = "Validation failed.", code = "ACTION_VALIDATION_FAILED", details, cause })`
 
 ### `server/actions/registry.js`
 Exports
-- `createActionRegistry({ contributors = [], events, logger = console } = {})`
+- `createActionRegistry({ contributors = [], events, logger = console })`
+- `type RuntimeEvents`
+- `type RuntimeLogger`
 Local functions
 - `normalizeContributors(contributors)`
 - `buildDefinitionIndex(contributors)`
@@ -692,12 +698,15 @@ Exports
 ### `server/http/capabilityHttpRuntime.js`
 Exports
 - `createCapabilityHttpRuntime({ fastify, actions })`
+- `type ActionCatalogue`
+- `type RuntimeFastify`
 Local functions
 - `normalizeResolver({ id, resolve } = {})`
 
 ### `server/http/directRequestActionExecutor.js`
 Exports
-- `attachDirectRequestActionExecutor({ actions, request, property = "executeAction", defaultChannel = "api", defaultSurfaceId = "" } = {})`
+- `attachDirectRequestActionExecutor({ actions, request, property = "executeAction", defaultChannel = "api", defaultSurfaceId = "" })`
+- `type ActionCatalogue`
 Local functions
 - `resolveSurface(request, explicitSurface = "", defaultSurfaceId = "")`
 - `routeVisibility(request, payload = {})`
@@ -707,7 +716,8 @@ Exports
 - `registerJsonApiContentTypeParser(fastify)`
 - `normalizeBodylessContentTypeHeader(request = null)`
 - `registerBodylessContentTypeNormalizer(fastify)`
-- `registerApiErrorHandler(app, { isAppError } = {})`
+- `registerApiErrorHandler(app, { isAppError })`
+- `type RuntimeFastify`
 Local functions
 - `hasHeaderValue(headers = {}, key = "")`
 - `hasRequestBody(headers = {})`
@@ -769,7 +779,9 @@ Local functions
 ### `server/http/lib/routeRegistration.js`
 Exports
 - `defaultMissingHandler`
-- `registerRoutes(fastify, { routes = [], applyRoutePolicy = defaultApplyRoutePolicy, missingHandler = defaultMissingHandler, requestActionExecutorProperty = "executeAction", requestActionDefaultChannel = "api", requestActionDefaultSurface = "", middleware = {}, actions = null } = {})`
+- `registerRoutes(fastify, { routes = [], applyRoutePolicy = defaultApplyRoutePolicy, missingHandler = defaultMissingHandler, requestActionExecutorProperty = "executeAction", requestActionDefaultChannel = "api", requestActionDefaultSurface = "", middleware = {}, actions })`
+- `type ActionCatalogue`
+- `type RuntimeFastify`
 Local functions
 - `toFastifyRouteOptions(route)`
 - `shouldStripFastifyBodySchema(route = null, schema = null)`
@@ -831,9 +843,11 @@ Exports
 
 ### `server/platform/installedRuntime.js`
 Exports
-- `createInstalledRuntime({ appRoot, profile = "", providers = [], inputs = {}, config = {}, env = {}, logger = console, fastify = null } = {})`
+- `createInstalledRuntime({ appRoot, profile = "", providers = [], inputs = {}, config = {}, env = {}, logger = console, fastify })`
+- `type RuntimeFastify`
+- `type RuntimeLogger`
 Local functions
-- `normalizeInputCapabilities({ inputs, config, env, logger, fastify, appRoot })`
+- `normalizeInputCapabilities({ inputs, config, env, logger, httpServer, appRoot })`
 - `builtinCapabilityProviders(inputCapabilities)`
 
 ### `server/platform/providerRuntime/capabilityProviderLoader.js`
@@ -862,9 +876,11 @@ Local functions
 ### `server/platform/surfaceRuntime.js`
 Exports
 - `toRequestPathname(urlValue)`
-- `shouldServePathForSurface({ surfaceRuntime, pathname, serverSurface, apiPathPrefix = "/api/", globalUiPaths = [] } = {})`
-- `registerSurfaceRequestConstraint({ fastify, surfaceRuntime, serverSurface, apiPathPrefix = "/api/", globalUiPaths = [] } = {})`
-- `resolveRuntimeProfileFromSurface({ surfaceRuntime, serverSurface, defaultProfile = "" } = {})`
+- `shouldServePathForSurface({ surfaceRuntime, pathname, serverSurface, apiPathPrefix = "/api/", globalUiPaths = [] })`
+- `registerSurfaceRequestConstraint({ fastify, surfaceRuntime, serverSurface, apiPathPrefix = "/api/", globalUiPaths = [] })`
+- `resolveRuntimeProfileFromSurface({ surfaceRuntime, serverSurface, defaultProfile = "" })`
+- `type SurfaceRuntime`
+- `type RuntimeFastify`
 Local functions
 - `matchesGlobalUiPath(pathname, globalUiPaths = [])`
 
@@ -933,6 +949,7 @@ Exports
 - `resolveClientAssetMode(source = null)`
 - `resolveMobileCallbackUrls(source = null, { appPublicUrl = "" } = {})`
 Local functions
+- `isContainerScope(value)`
 - `buildWebCallbackUrl(appPublicUrl = "", callbackPath = "")`
 - `buildMobileCallbackUrl(customScheme = "", callbackPath = "")`
 - `buildAppLinkCallbackUrls(appLinkDomains = [], callbackPath = "")`

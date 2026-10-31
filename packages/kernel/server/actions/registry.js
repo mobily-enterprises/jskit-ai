@@ -5,6 +5,9 @@ import {
 } from "./actionDefinitions.js";
 import { executeActionPipeline } from "./pipeline.js";
 
+/** @typedef {import("../types.js").RuntimeEvents} RuntimeEvents */
+/** @typedef {import("../types.js").RuntimeLogger} RuntimeLogger */
+
 function normalizeContributors(contributors) {
   const source = Array.isArray(contributors) ? contributors : [];
   return source.map((entry) => normalizeActionContributor(entry));
@@ -115,11 +118,17 @@ function resolveActionDefinition(index, actionId, version) {
   return definition;
 }
 
+/**
+ * @param {object} dependencies
+ * @param {ReadonlyArray<object>} [dependencies.contributors]
+ * @param {RuntimeEvents} dependencies.events
+ * @param {RuntimeLogger | null} [dependencies.logger] null logs nothing.
+ */
 function createActionRegistry({
   contributors = [],
   events,
   logger = console
-} = {}) {
+}) {
   const normalizedContributors = normalizeContributors(contributors);
   const index = buildDefinitionIndex(normalizedContributors);
 

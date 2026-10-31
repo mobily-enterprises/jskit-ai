@@ -246,7 +246,7 @@ test("every error class leaving the API has a code and params", async (t) => {
 });
 
 test("the kernel's own errors and statuses render their English from the catalog", async (t) => {
-  const registry = createActionRegistry();
+  const registry = createActionRegistry({});
   const actionFailures = [
     () => registry.getDefinition(""),
     () => registry.getDefinition("contacts.list", 0),

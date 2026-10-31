@@ -1,5 +1,8 @@
 import { matchesPathPrefix, normalizePathname } from "../../shared/surface/paths.js";
 
+/** @typedef {ReturnType<typeof import("../../shared/surface/runtime.js").createSurfaceRuntime>} SurfaceRuntime */
+/** @typedef {import("../types.js").RuntimeFastify} RuntimeFastify */
+
 function toRequestPathname(urlValue) {
   const rawUrl = String(urlValue || "").trim() || "/";
   try {
@@ -25,23 +28,21 @@ function matchesGlobalUiPath(pathname, globalUiPaths = []) {
   return false;
 }
 
+/**
+ * @param {object} request
+ * @param {SurfaceRuntime} request.surfaceRuntime
+ * @param {string} request.pathname
+ * @param {string} request.serverSurface
+ * @param {string} [request.apiPathPrefix]
+ * @param {string[]} [request.globalUiPaths]
+ */
 function shouldServePathForSurface({
   surfaceRuntime,
   pathname,
   serverSurface,
   apiPathPrefix = "/api/",
   globalUiPaths = []
-} = {}) {
-  if (!surfaceRuntime || typeof surfaceRuntime.normalizeSurfaceMode !== "function") {
-    throw new TypeError("shouldServePathForSurface requires surfaceRuntime.normalizeSurfaceMode().");
-  }
-  if (typeof surfaceRuntime.resolveSurfaceFromPathname !== "function") {
-    throw new TypeError("shouldServePathForSurface requires surfaceRuntime.resolveSurfaceFromPathname().");
-  }
-  if (typeof surfaceRuntime.isSurfaceEnabled !== "function") {
-    throw new TypeError("shouldServePathForSurface requires surfaceRuntime.isSurfaceEnabled().");
-  }
-
+}) {
   const normalizedSurface = surfaceRuntime.normalizeSurfaceMode(serverSurface);
   const allMode = String(surfaceRuntime.SURFACE_MODE_ALL || "all").trim().toLowerCase() || "all";
   const normalizedPathname = String(pathname || "").trim() || "/";
@@ -67,13 +68,22 @@ function shouldServePathForSurface({
   return routeSurface === normalizedSurface;
 }
 
+/**
+ * @param {object} options
+ * @param {RuntimeFastify} options.fastify
+ * @param {SurfaceRuntime} options.surfaceRuntime
+ * @param {string} options.serverSurface
+ * @param {string} [options.apiPathPrefix]
+ * @param {string[]} [options.globalUiPaths]
+ */
 function registerSurfaceRequestConstraint({
   fastify,
   surfaceRuntime,
   serverSurface,
   apiPathPrefix = "/api/",
   globalUiPaths = []
-} = {}) {
+}) {
+  // readable-check: allow method-probe - input validation: the application passes its own Fastify instance
   if (!fastify || typeof fastify.addHook !== "function") {
     throw new TypeError("registerSurfaceRequestConstraint requires fastify.addHook().");
   }
@@ -102,11 +112,18 @@ function registerSurfaceRequestConstraint({
   });
 }
 
+/**
+ * @param {object} options
+ * @param {SurfaceRuntime} options.surfaceRuntime
+ * @param {string} options.serverSurface
+ * @param {string} [options.defaultProfile]
+ */
 function resolveRuntimeProfileFromSurface({
   surfaceRuntime,
   serverSurface,
   defaultProfile = ""
-} = {}) {
+}) {
+  // readable-check: allow method-probe - input validation: the application passes its own surface runtime
   if (!surfaceRuntime || typeof surfaceRuntime.normalizeSurfaceMode !== "function") {
     throw new TypeError("resolveRuntimeProfileFromSurface requires surfaceRuntime.normalizeSurfaceMode().");
   }

@@ -8,11 +8,16 @@ import {
 import { ensureIdempotencyKeyIfRequired } from "./idempotency.js";
 import { normalizeExecutionContext } from "./executionContext.js";
 
+/** @typedef {import("../types.js").RuntimeEvents} RuntimeEvents */
+/** @typedef {import("../types.js").RuntimeLogger} RuntimeLogger */
+
+/**
+ * @param {RuntimeEvents} events
+ * @param {ReadonlyArray<Function>} builders
+ * @param {object} execution
+ */
 async function publishActionEvents(events, builders, execution) {
   if (!Array.isArray(builders) || builders.length === 0) return;
-  if (!events || typeof events.publish !== "function") {
-    throw new TypeError("Action event publishing requires runtime.events.publish().");
-  }
   for (const builder of builders) {
     const built = await builder(execution);
     const values = Array.isArray(built) ? built : [built];
@@ -22,8 +27,12 @@ async function publishActionEvents(events, builders, execution) {
   }
 }
 
+/**
+ * @param {RuntimeLogger | null} logger null logs nothing.
+ * @param {{ definition: any, context: any, outcome: string, startedAt: number, errorCode?: string | null }} execution
+ */
 function logActionExecution(logger, { definition, context, outcome, startedAt, errorCode = null }) {
-  if (!logger || typeof logger.debug !== "function") {
+  if (!logger) {
     return;
   }
   logger.debug(
@@ -41,14 +50,23 @@ function logActionExecution(logger, { definition, context, outcome, startedAt, e
   );
 }
 
+/**
+ * @param {object} execution
+ * @param {any} execution.definition A normalized action definition.
+ * @param {unknown} execution.input
+ * @param {unknown} execution.context
+ * @param {object} [execution.deps]
+ * @param {RuntimeEvents} execution.events
+ * @param {RuntimeLogger | null} execution.logger null logs nothing.
+ */
 async function executeActionPipeline({
   definition,
   input,
   context,
   deps = {},
   events,
-  logger = console
-} = {}) {
+  logger
+}) {
   const normalizedContext = normalizeExecutionContext(context);
   const startedAt = Date.now();
 
