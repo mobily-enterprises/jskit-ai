@@ -14,6 +14,37 @@ Use this on demand; do not load the full index at startup.
 
 ### src
 
+### `src/server/lib/accounts.js`
+Exports
+- `NO_PASSWORD`
+- `createLocalAccounts({ backend, devAuth, invitationContextResolver, passwords, profileProjector, sessions })`
+- `hasPassword(user)`
+- `normalizeDisplayName(value, email)`
+- `validateEmailInput(email)`
+- `validatePasswordInput(password)`
+- `type AuthProfileProjector`
+Local functions
+- `devLoginAsValidationError(fields = {})`
+- `devLoginAsUserNotFound({ email = "", userId = "" } = {})`
+- `normalizeInvitationInput(value = null)`
+
+### `src/server/lib/authPayloads.js`
+Exports
+- `DEV_AUTH_SESSION_PURPOSE`
+- `PROVIDER_ID`
+- `buildAuthPayload({ user, session, profileProjector, profileOptions = {} })`
+- `buildAuthResult({ user, session, appProfile })`
+- `buildSessionAuthPayload({ devAuth, profileProjector, request, session, user, syncProfile = true })`
+- `findExistingAppProfile(user, profileProjector)`
+- `isAuthenticatingSession(session)`
+- `type AuthProfileProjector`
+Local functions
+- `isNormalSession(session)`
+- `isDevAuthSession(session)`
+- `buildProfile(user)`
+- `buildActor(user, profile = null)`
+- `requireProfileResult(profile, methodName)`
+
 ### `src/server/lib/fileBackend.js`
 Exports
 - `createLocalFileBackend({ storeDir })`
@@ -66,6 +97,16 @@ Local functions
 - `unverifiedSignIn()`
 - `displayNameFrom(source = {})`
 
+### `src/server/lib/oauthFlows.js`
+Exports
+- `createLocalOAuthFlows({ backend, config, isProduction, oauthEnabled, oauthProvidersById, profileProjector, securityStatus, sessions })`
+- `type AuthProfileProjector`
+
+### `src/server/lib/passwordFlows.js`
+Exports
+- `createLocalPasswordFlows({ backend, config, isProduction, passwords, profileProjector, recoveryEnabled, recoverySender, sessions })`
+- `type AuthProfileProjector`
+
 ### `src/server/lib/passwords.js`
 Exports
 - `hashPassword(password)`
@@ -86,41 +127,34 @@ Local functions
 - `logNonBlockingHookFailure({ logger, hook, error })`
 - `runRegisterHook({ hook, result, logger })`
 
+### `src/server/lib/securityStatus.js`
+Exports
+- `createLocalSecurityStatus({ backend, oauthEnabled, oauthProviders, oauthProvidersById, sessions })`
+
 ### `src/server/lib/service.js`
 Exports
 - `createLocalAuthService({ backend, config, profileProjector, passwordStrategy, invitationContextResolver, recoverySender })`
 - `type AuthProfileProjector`
+
+### `src/server/lib/sessions.js`
+Exports
+- `RECOVERY_TOKEN_COOKIE_NAME`
+- `cookieOptions(isProduction, maxAge)`
+- `createLocalSessions({ backend, config, devAuth, isProduction, profileProjector })`
+- `safeRequestCookies(request)`
+- `type AuthProfileProjector`
 Local functions
 - `nowSeconds()`
-- `isoFromNow(seconds)`
-- `isExpiredIso(value)`
-- `isNormalSession(session)`
-- `isDevAuthSession(session)`
-- `isAuthenticatingSession(session)`
-- `normalizeDisplayName(value, email)`
-- `hasPassword(user)`
-- `createId(prefix)`
-- `safeRequestCookies(request)`
 - `unauthenticatedAuthResult(clearSession = false)`
-- `cookieOptions(isProduction, maxAge)`
 - `clearCookieOptions(isProduction)`
-- `buildProfile(user)`
-- `buildActor(user, profile = null)`
-- `buildAuthResult({ user, session, appProfile })`
-- `requireProfileResult(profile, methodName)`
-- `buildAuthPayload({ user, session, profileProjector, profileOptions = {} })`
-- `findExistingAppProfile(user, profileProjector)`
-- `buildSessionAuthPayload({ devAuth, profileProjector, request, session, user, syncProfile = true })`
 - `buildAccessToken({ user, session, secret, ttlSeconds = ACCESS_TTL_SECONDS })`
 - `buildSessionPayload({ user, session, refreshToken, secret })`
-- `validatePasswordInput(password)`
-- `validateEmailInput(email)`
-- `devLoginAsValidationError(fields = {})`
-- `devLoginAsUserNotFound({ email = "", userId = "" } = {})`
-- `normalizeInvitationInput(value = null)`
 
 ### `src/server/lib/tokens.js`
 Exports
+- `createId(prefix)`
+- `isExpiredIso(value)`
+- `isoFromNow(seconds)`
 - `randomToken(bytes = 32)`
 - `sha256Base64url(value)`
 - `signToken(payload, secret)`

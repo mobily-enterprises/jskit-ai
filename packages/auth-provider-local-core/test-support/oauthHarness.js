@@ -138,6 +138,7 @@ function sessionCookies(session) {
 /**
  * Starts a sign-in (or, with `link`, a link for the signed-in `cookies`), lets
  * the provider approve it, and returns the callback input and browser request.
+ * @param {ReturnType<typeof createService>} service
  */
 async function approveAtProvider(service, { provider = "google", returnTo = "/home", cookies = {}, link = false } = {}) {
   const started = link

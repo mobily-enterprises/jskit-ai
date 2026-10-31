@@ -54,4 +54,16 @@ function verifySignedToken(token, secret) {
   return payload;
 }
 
-export { randomToken, sha256Base64url, signToken, verifySignedToken };
+function createId(prefix) {
+  return `${prefix}_${randomToken(18)}`;
+}
+
+function isoFromNow(seconds) {
+  return new Date(Date.now() + seconds * 1000).toISOString();
+}
+
+function isExpiredIso(value) {
+  return Date.parse(String(value || "")) <= Date.now();
+}
+
+export { createId, isExpiredIso, isoFromNow, randomToken, sha256Base64url, signToken, verifySignedToken };

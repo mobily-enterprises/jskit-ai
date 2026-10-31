@@ -52,9 +52,8 @@ export default [
     "packages/connectors-catalog/src/server/**"
   ]),
   {
-    // Over 750 lines, with a factory over 600, until their split runs bring them under.
+    // Over 750 lines, with a factory over 600, until its split run brings it under.
     files: [
-      "packages/auth-provider-local-core/src/server/lib/service.js",
       "packages/auth-provider-supabase-core/src/server/lib/service.js"
     ],
     rules: {
