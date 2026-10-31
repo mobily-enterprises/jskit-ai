@@ -8,7 +8,7 @@
     "build": "vite build"
   },
   "dependencies": {
-    "@jskit-ai/assistant-core": "0.2.6",
+    "@jskit-ai/assistant-core": "0.2.7",
     "@jskit-ai/http-runtime": "0.2.3",
     "@jskit-ai/kernel": "0.2.3",
     "@mdi/js": "^7.4.47",
