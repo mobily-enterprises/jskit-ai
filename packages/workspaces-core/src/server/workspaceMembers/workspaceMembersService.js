@@ -103,7 +103,10 @@ function createService({
     };
   }
 
-  function normalizeInviteDeliveryResult(value = {}) {
+  // A mailer's delivery outcome; the status defaults to "sent".
+  /** @param {unknown} value */
+  function normalizeInviteDeliveryResult(value) {
+    /** @type {{ status?: string, message?: string, messageCode?: string, messageParams?: object, providerMessageId?: string }} */
     const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
     return {
       status: normalizeLowerText(source.status || "sent") || "sent",
