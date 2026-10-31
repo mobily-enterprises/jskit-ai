@@ -279,6 +279,32 @@ test("refuseInviteByToken revokes the invite and returns refused", async () => {
   assert.equal(response.workspaceId, "1");
 });
 
+test("redeemInviteByToken accepts on an accept decision and refuses on any other", async () => {
+  const user = { id: "7", email: "chiaramobily@gmail.com", displayName: "Chiara" };
+  for (const [decision, expected] of [["accept", "accepted"], ["refuse", "refused"]]) {
+    const tokenHash = "d".repeat(64);
+    const { service, calls } = createFixture({
+      inviteByTokenHash: {
+        [tokenHash]: {
+          id: "46",
+          workspaceId: "1",
+          email: user.email,
+          roleSid: "member",
+          status: "pending",
+          tokenHash,
+          expiresAt: "2030-01-01T00:00:00.000Z"
+        }
+      }
+    });
+
+    const response = await service.redeemInviteByToken(user, { token: encodeInviteTokenHash(tokenHash), decision });
+
+    assert.equal(response.decision, expected);
+    assert.deepEqual(calls.acceptCalls, decision === "accept" ? [46] : []);
+    assert.deepEqual(calls.revokeCalls, decision === "accept" ? [] : [46]);
+  }
+});
+
 test("participant registration rejects invalid, duplicate and late registration", async () => {
   const { service } = createFixture();
   assert.throws(() => service.registerAcceptanceParticipant(null), /must be a function/);

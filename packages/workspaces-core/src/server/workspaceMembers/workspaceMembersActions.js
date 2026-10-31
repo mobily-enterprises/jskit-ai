@@ -64,219 +64,196 @@ const revokeInviteActionInput = composeSchemaDefinitions([
   context: "workspaceMembersActions.revokeInviteActionInput"
 });
 
-const workspaceMembersActionSpecifications = Object.freeze([
-  {
-    id: "workspace.roles.list",
-    version: 1,
-    kind: "query",
-    channels: ["api", "automation", "internal"],
-    surfaces: ["*"],
-    permission: {
-      require: "all",
-      permissions: ["workspace.roles.view"]
-    },
-    input: workspaceSlugParamsValidator,
-    output: null,
-    extensions: {
-      assistant: {
-        description: "List the active workspace roles and assignable permissions.",
-        output: workspaceMembersResource.operations.rolesList.output,
-        transformResult: (result) => result.value
-      }
-    },
-    idempotency: "none",
-    async run(workspaceMembersService, _input, context) {
-      return returnJsonApiData(await workspaceMembersService.listRoles({ context }));
-    }
-  },
-  {
-    id: "workspace.members.list",
-    version: 1,
-    kind: "query",
-    channels: ["api", "automation", "internal"],
-    surfaces: ["*"],
-    permission: {
-      require: "all",
-      permissions: ["workspace.members.view"]
-    },
-    input: workspaceSlugParamsValidator,
-    output: null,
-    extensions: {
-      assistant: {
-        description: "List members of the active workspace.",
-        output: workspaceMembersResource.operations.membersList.output,
-        transformResult: (result) => result.value
-      }
-    },
-    idempotency: "none",
-    async run(workspaceMembersService, input, context) {
-      return returnJsonApiData(await workspaceMembersService.listMembers(resolveWorkspace(context, input), {
-        context
-      }));
-    }
-  },
-  {
-    id: "workspace.member.role.update",
-    version: 1,
-    kind: "command",
-    channels: ["api", "automation", "internal"],
-    surfaces: ["*"],
-    permission: {
-      require: "all",
-      permissions: ["workspace.members.manage"]
-    },
-    input: updateMemberRoleActionInput,
-    output: null,
-    extensions: {
-      assistant: {
-        description: "Change a member’s role in the active workspace.",
-        output: workspaceMembersResource.operations.updateMemberRole.output,
-        transformResult: (result) => result.value
-      }
-    },
-    idempotency: "optional",
-    events: WORKSPACE_MEMBER_CHANGED_EVENTS,
-    async run(workspaceMembersService, input, context) {
-      return returnJsonApiData(await workspaceMembersService.updateMemberRole(resolveWorkspace(context, input), {
-        memberUserId: input.memberUserId,
-        roleSid: input.roleSid
-      }, {
-        context
-      }));
-    }
-  },
-  {
-    id: "workspace.member.remove",
-    version: 1,
-    kind: "command",
-    channels: ["api", "automation", "internal"],
-    surfaces: ["*"],
-    permission: {
-      require: "all",
-      permissions: ["workspace.members.manage"]
-    },
-    input: removeMemberActionInput,
-    output: null,
-    extensions: {
-      assistant: {
-        description: "Remove a member from the active workspace.",
-        output: workspaceMembersResource.operations.removeMember.output,
-        transformResult: (result) => result.value
-      }
-    },
-    idempotency: "optional",
-    events: WORKSPACE_MEMBER_CHANGED_EVENTS,
-    async run(workspaceMembersService, input, context) {
-      return returnJsonApiData(await workspaceMembersService.removeMember(resolveWorkspace(context, input), {
-        memberUserId: input.memberUserId
-      }, {
-        context
-      }));
-    }
-  },
-  {
-    id: "workspace.invites.list",
-    version: 1,
-    kind: "query",
-    channels: ["api", "automation", "internal"],
-    surfaces: ["*"],
-    permission: {
-      require: "all",
-      permissions: ["workspace.members.view"]
-    },
-    input: workspaceSlugParamsValidator,
-    output: null,
-    extensions: {
-      assistant: {
-        description: "List invitations for the active workspace without invitation tokens.",
-        output: workspaceMembersResource.operations.invitesList.output,
-        transformResult: (result) => result.value
-      }
-    },
-    idempotency: "none",
-    async run(workspaceMembersService, input, context) {
-      return returnJsonApiData(await workspaceMembersService.listInvites(resolveWorkspace(context, input), {
-        context
-      }));
-    }
-  },
-  {
-    id: "workspace.invite.create",
-    version: 1,
-    kind: "command",
-    channels: ["api", "assistant_tool", "automation", "internal"],
-    surfaces: ["*"],
-    permission: {
-      require: "all",
-      permissions: ["workspace.members.invite"]
-    },
-    input: createInviteActionInput,
-    output: null,
-    extensions: {
-      assistant: {
-        description: "Invite a person to the active workspace and report delivery status without exposing invitation links.",
-        output: workspaceInviteAssistantOutput,
-        transformResult: (result) => ({
-          createdInviteId: result.value.createdInviteId,
-          invites: result.value.invites.map(({ id, email, roleSid, status, expiresAt }) =>
-            ({ id, email, roleSid, status, expiresAt })),
-          deliveryStatus: result.value.inviteDelivery.status
-        })
-      }
-    },
-    idempotency: "optional",
-    events: WORKSPACE_INVITE_CREATED_EVENTS,
-    async run(workspaceMembersService, input, context) {
-      return returnJsonApiData(await workspaceMembersService.createInvite(
+/** @param {{ workspaceMembersService: import("./workspaceMembersService.js").WorkspaceMembersService }} dependencies */
+function createWorkspaceMembersActions({ workspaceMembersService }) {
+  return Object.freeze([
+    Object.freeze({
+      id: "workspace.roles.list",
+      version: 1,
+      kind: "query",
+      channels: ["api", "automation", "internal"],
+      surfaces: ["*"],
+      permission: {
+        require: "all",
+        permissions: ["workspace.roles.view"]
+      },
+      input: workspaceSlugParamsValidator,
+      output: null,
+      extensions: {
+        assistant: {
+          description: "List the active workspace roles and assignable permissions.",
+          output: workspaceMembersResource.operations.rolesList.output,
+          transformResult: (result) => result.value
+        }
+      },
+      idempotency: "none",
+      execute: async (_input, context) => returnJsonApiData(await workspaceMembersService.listRoles({ context }))
+    }),
+    Object.freeze({
+      id: "workspace.members.list",
+      version: 1,
+      kind: "query",
+      channels: ["api", "automation", "internal"],
+      surfaces: ["*"],
+      permission: {
+        require: "all",
+        permissions: ["workspace.members.view"]
+      },
+      input: workspaceSlugParamsValidator,
+      output: null,
+      extensions: {
+        assistant: {
+          description: "List members of the active workspace.",
+          output: workspaceMembersResource.operations.membersList.output,
+          transformResult: (result) => result.value
+        }
+      },
+      idempotency: "none",
+      execute: async (input, context) => returnJsonApiData(await workspaceMembersService.listMembers(
+        resolveWorkspace(context, input),
+        { context }
+      ))
+    }),
+    Object.freeze({
+      id: "workspace.member.role.update",
+      version: 1,
+      kind: "command",
+      channels: ["api", "automation", "internal"],
+      surfaces: ["*"],
+      permission: {
+        require: "all",
+        permissions: ["workspace.members.manage"]
+      },
+      input: updateMemberRoleActionInput,
+      output: null,
+      extensions: {
+        assistant: {
+          description: "Change a member’s role in the active workspace.",
+          output: workspaceMembersResource.operations.updateMemberRole.output,
+          transformResult: (result) => result.value
+        }
+      },
+      idempotency: "optional",
+      events: WORKSPACE_MEMBER_CHANGED_EVENTS,
+      execute: async (input, context) => returnJsonApiData(await workspaceMembersService.updateMemberRole(
+        resolveWorkspace(context, input),
+        input,
+        { context }
+      ))
+    }),
+    Object.freeze({
+      id: "workspace.member.remove",
+      version: 1,
+      kind: "command",
+      channels: ["api", "automation", "internal"],
+      surfaces: ["*"],
+      permission: {
+        require: "all",
+        permissions: ["workspace.members.manage"]
+      },
+      input: removeMemberActionInput,
+      output: null,
+      extensions: {
+        assistant: {
+          description: "Remove a member from the active workspace.",
+          output: workspaceMembersResource.operations.removeMember.output,
+          transformResult: (result) => result.value
+        }
+      },
+      idempotency: "optional",
+      events: WORKSPACE_MEMBER_CHANGED_EVENTS,
+      execute: async (input, context) => returnJsonApiData(await workspaceMembersService.removeMember(
+        resolveWorkspace(context, input),
+        input,
+        { context }
+      ))
+    }),
+    Object.freeze({
+      id: "workspace.invites.list",
+      version: 1,
+      kind: "query",
+      channels: ["api", "automation", "internal"],
+      surfaces: ["*"],
+      permission: {
+        require: "all",
+        permissions: ["workspace.members.view"]
+      },
+      input: workspaceSlugParamsValidator,
+      output: null,
+      extensions: {
+        assistant: {
+          description: "List invitations for the active workspace without invitation tokens.",
+          output: workspaceMembersResource.operations.invitesList.output,
+          transformResult: (result) => result.value
+        }
+      },
+      idempotency: "none",
+      execute: async (input, context) => returnJsonApiData(await workspaceMembersService.listInvites(
+        resolveWorkspace(context, input),
+        { context }
+      ))
+    }),
+    Object.freeze({
+      id: "workspace.invite.create",
+      version: 1,
+      kind: "command",
+      channels: ["api", "assistant_tool", "automation", "internal"],
+      surfaces: ["*"],
+      permission: {
+        require: "all",
+        permissions: ["workspace.members.invite"]
+      },
+      input: createInviteActionInput,
+      output: null,
+      extensions: {
+        assistant: {
+          description: "Invite a person to the active workspace and report delivery status without exposing invitation links.",
+          output: workspaceInviteAssistantOutput,
+          transformResult: (result) => ({
+            createdInviteId: result.value.createdInviteId,
+            invites: result.value.invites.map(({ id, email, roleSid, status, expiresAt }) =>
+              ({ id, email, roleSid, status, expiresAt })),
+            deliveryStatus: result.value.inviteDelivery.status
+          })
+        }
+      },
+      idempotency: "optional",
+      events: WORKSPACE_INVITE_CREATED_EVENTS,
+      execute: async (input, context) => returnJsonApiData(await workspaceMembersService.createInvite(
         resolveWorkspace(context, input),
         resolveActionUser(context, input),
-        {
-          email: input.email,
-          roleSid: input.roleSid
-        },
-        {
-          context
+        input,
+        { context }
+      ))
+    }),
+    Object.freeze({
+      id: "workspace.invite.revoke",
+      version: 1,
+      kind: "command",
+      channels: ["api", "automation", "internal"],
+      surfaces: ["*"],
+      permission: {
+        require: "all",
+        permissions: ["workspace.invites.revoke"]
+      },
+      input: revokeInviteActionInput,
+      output: null,
+      extensions: {
+        assistant: {
+          description: "Revoke an invitation to the active workspace.",
+          output: workspaceMembersResource.operations.revokeInvite.output,
+          transformResult: (result) => result.value
         }
-      ));
-    }
-  },
-  {
-    id: "workspace.invite.revoke",
-    version: 1,
-    kind: "command",
-    channels: ["api", "automation", "internal"],
-    surfaces: ["*"],
-    permission: {
-      require: "all",
-      permissions: ["workspace.invites.revoke"]
-    },
-    input: revokeInviteActionInput,
-    output: null,
-    extensions: {
-      assistant: {
-        description: "Revoke an invitation to the active workspace.",
-        output: workspaceMembersResource.operations.revokeInvite.output,
-        transformResult: (result) => result.value
-      }
-    },
-    idempotency: "optional",
-    events: WORKSPACE_INVITE_REVOKED_EVENTS,
-    async run(workspaceMembersService, input, context) {
-      return returnJsonApiData(await workspaceMembersService.revokeInvite(resolveWorkspace(context, input), input.inviteId, {
-        context
-      }));
-    }
-  }
-]);
-
-function buildWorkspaceMembersActions({ workspaceMembersService } = {}) {
-  if (!workspaceMembersService) throw new TypeError("buildWorkspaceMembersActions requires workspaceMembersService.");
-  return workspaceMembersActionSpecifications.map(({ run, ...definition }) => Object.freeze({
-    ...definition,
-    execute(input, context) {
-      return run(workspaceMembersService, input, context);
-    }
-  }));
+      },
+      idempotency: "optional",
+      events: WORKSPACE_INVITE_REVOKED_EVENTS,
+      execute: async (input, context) => returnJsonApiData(await workspaceMembersService.revokeInvite(
+        resolveWorkspace(context, input),
+        input.inviteId,
+        { context }
+      ))
+    })
+  ]);
 }
 
-export { workspaceMembersActionSpecifications, buildWorkspaceMembersActions };
+export { createWorkspaceMembersActions };

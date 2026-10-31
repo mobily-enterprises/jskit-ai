@@ -2,7 +2,7 @@ import { defineFeature } from "@jskit-ai/kernel/server/features";
 import { createConsoleAuthServiceDecorator } from "./consoleAuthServiceDecorator.js";
 import { createConsoleBootstrapContributor } from "./consoleBootstrapContributor.js";
 import { registerConsoleSettingsRoutes } from "./consoleSettings/bootConsoleSettingsRoutes.js";
-import { buildConsoleSettingsActions } from "./consoleSettings/consoleSettingsActions.js";
+import { createConsoleSettingsActions } from "./consoleSettings/consoleSettingsActions.js";
 import { createService as createConsoleService } from "./consoleSettings/consoleService.js";
 import { createRepository as createConsoleSettingsRepository } from "./consoleSettings/consoleSettingsRepository.js";
 import { createService as createConsoleSettingsService } from "./consoleSettings/consoleSettingsService.js";
@@ -58,7 +58,7 @@ const ConsoleFeature = defineFeature({
     return { console };
   },
   actions({ console }) {
-    return buildConsoleSettingsActions({
+    return createConsoleSettingsActions({
       consoleSettingsService: console.services.settings
     });
   }

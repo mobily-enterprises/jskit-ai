@@ -18,18 +18,18 @@ import { createService as createWorkspaceService } from "./common/services/works
 import { createWorkspacesServerI18n } from "./i18n.js";
 import { createWorkspaceBootstrapContributor } from "./workspaceBootstrapContributor.js";
 import { registerWorkspaceDirectoryRoutes } from "./workspaceDirectory/bootWorkspaceDirectoryRoutes.js";
-import { buildWorkspaceDirectoryActions } from "./workspaceDirectory/workspaceDirectoryActions.js";
+import { createWorkspaceDirectoryActions } from "./workspaceDirectory/workspaceDirectoryActions.js";
 import { renderDefaultWorkspaceInviteEmail } from "./workspaceMembers/defaultWorkspaceInviteEmail.js";
 import { registerWorkspaceMembersRoutes } from "./workspaceMembers/bootWorkspaceMembers.js";
-import { buildWorkspaceMembersActions } from "./workspaceMembers/workspaceMembersActions.js";
+import { createWorkspaceMembersActions } from "./workspaceMembers/workspaceMembersActions.js";
 import { createWorkspaceInviteUrlBuilder } from "./workspaceMembers/workspaceInviteUrls.js";
 import { createService as createWorkspaceMembersService } from "./workspaceMembers/workspaceMembersService.js";
 import { registerWorkspacePendingInvitationsRoutes } from "./workspacePendingInvitations/bootWorkspacePendingInvitations.js";
-import { buildWorkspacePendingInvitationsActions } from "./workspacePendingInvitations/workspacePendingInvitationsActions.js";
+import { createWorkspacePendingInvitationsActions } from "./workspacePendingInvitations/workspacePendingInvitationsActions.js";
 import { createService as createWorkspacePendingInvitationsService } from "./workspacePendingInvitations/workspacePendingInvitationsService.js";
 import { registerWorkspaceSettingsRoutes } from "./workspaceSettings/bootWorkspaceSettings.js";
 import { createRepository as createWorkspaceSettingsRepository } from "./workspaceSettings/workspaceSettingsRepository.js";
-import { buildWorkspaceSettingsActions } from "./workspaceSettings/workspaceSettingsActions.js";
+import { createWorkspaceSettingsActions } from "./workspaceSettings/workspaceSettingsActions.js";
 import { createService as createWorkspaceSettingsService } from "./workspaceSettings/workspaceSettingsService.js";
 import { resolveWorkspaceInvitationsPolicy } from "./support/workspaceInvitationsPolicy.js";
 import { workspaceSlugParamsValidator } from "./common/validators/routeParamsValidator.js";
@@ -226,11 +226,11 @@ const WorkspacesFeature = defineFeature({
   actions({ workspaces }) {
     if (!workspaces.enabled) return [];
     return [
-      ...buildWorkspaceDirectoryActions({ workspaceService: workspaces.services.directory }),
-      ...buildWorkspaceSettingsActions({ workspaceSettingsService: workspaces.services.settings }),
-      ...buildWorkspaceMembersActions({ workspaceMembersService: workspaces.services.members }),
+      ...createWorkspaceDirectoryActions({ workspaceService: workspaces.services.directory }),
+      ...createWorkspaceSettingsActions({ workspaceSettingsService: workspaces.services.settings }),
+      ...createWorkspaceMembersActions({ workspaceMembersService: workspaces.services.members }),
       ...(workspaces.invitationsEnabled
-        ? buildWorkspacePendingInvitationsActions({
+        ? createWorkspacePendingInvitationsActions({
             workspacePendingInvitationsService: workspaces.services.pendingInvitations
           })
         : [])

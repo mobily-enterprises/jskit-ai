@@ -19,79 +19,62 @@ const workspaceSettingsUpdateInputValidator = composeSchemaDefinitions([
   context: "workspaceSettingsActions.workspaceSettingsUpdateInputValidator"
 });
 
-const workspaceSettingsActionSpecifications = Object.freeze([
-  {
-    id: "workspace.settings.read",
-    version: 1,
-    kind: "query",
-    channels: ["api", "automation", "internal"],
-    surfaces: ["*"],
-    permission: {
-      require: "any",
-      permissions: ["workspace.settings.view", "workspace.settings.update"]
-    },
-    input: workspaceSlugParamsValidator,
-    output: null,
-    extensions: {
-      assistant: {
-        description: "Read the active workspace appearance and invitation settings.",
-        output: workspaceSettingsResource.operations.view.output,
-        transformResult: (result) => result.value
-      }
-    },
-    idempotency: "none",
-    async run(workspaceSettingsService, input, context) {
-      const response = await workspaceSettingsService.getWorkspaceSettings(resolveWorkspace(context, input), {
-        context
-      });
-
-      return returnJsonApiData(response);
-    }
-  },
-  {
-    id: "workspace.settings.update",
-    version: 1,
-    kind: "command",
-    channels: ["api", "assistant_tool", "automation", "internal"],
-    surfaces: ["*"],
-    permission: {
-      require: "all",
-      permissions: ["workspace.settings.update"]
-    },
-    input: workspaceSettingsUpdateInputValidator,
-    output: null,
-    extensions: {
-      assistant: {
-        description: "Update the active workspace appearance and invitation settings.",
-        output: workspaceSettingsResource.operations.patch.output,
-        transformResult: (result) => result.value
-      }
-    },
-    idempotency: "optional",
-    events: WORKSPACE_SETTINGS_CHANGED_EVENTS,
-    async run(workspaceSettingsService, input, context) {
-      const { workspaceSlug, ...patch } = input;
-      const response = await workspaceSettingsService.updateWorkspaceSettings(
-        resolveWorkspace(context, input),
-        patch,
-        {
-          context
+/** @param {{ workspaceSettingsService: import("./workspaceSettingsService.js").WorkspaceSettingsService }} dependencies */
+function createWorkspaceSettingsActions({ workspaceSettingsService }) {
+  return Object.freeze([
+    Object.freeze({
+      id: "workspace.settings.read",
+      version: 1,
+      kind: "query",
+      channels: ["api", "automation", "internal"],
+      surfaces: ["*"],
+      permission: {
+        require: "any",
+        permissions: ["workspace.settings.view", "workspace.settings.update"]
+      },
+      input: workspaceSlugParamsValidator,
+      output: null,
+      extensions: {
+        assistant: {
+          description: "Read the active workspace appearance and invitation settings.",
+          output: workspaceSettingsResource.operations.view.output,
+          transformResult: (result) => result.value
         }
-      );
-
-      return returnJsonApiData(response);
-    }
-  }
-]);
-
-function buildWorkspaceSettingsActions({ workspaceSettingsService } = {}) {
-  if (!workspaceSettingsService) throw new TypeError("buildWorkspaceSettingsActions requires workspaceSettingsService.");
-  return workspaceSettingsActionSpecifications.map(({ run, ...definition }) => Object.freeze({
-    ...definition,
-    execute(input, context) {
-      return run(workspaceSettingsService, input, context);
-    }
-  }));
+      },
+      idempotency: "none",
+      execute: async (input, context) => returnJsonApiData(await workspaceSettingsService.getWorkspaceSettings(
+        resolveWorkspace(context, input),
+        { context }
+      ))
+    }),
+    Object.freeze({
+      id: "workspace.settings.update",
+      version: 1,
+      kind: "command",
+      channels: ["api", "assistant_tool", "automation", "internal"],
+      surfaces: ["*"],
+      permission: {
+        require: "all",
+        permissions: ["workspace.settings.update"]
+      },
+      input: workspaceSettingsUpdateInputValidator,
+      output: null,
+      extensions: {
+        assistant: {
+          description: "Update the active workspace appearance and invitation settings.",
+          output: workspaceSettingsResource.operations.patch.output,
+          transformResult: (result) => result.value
+        }
+      },
+      idempotency: "optional",
+      events: WORKSPACE_SETTINGS_CHANGED_EVENTS,
+      execute: async (input, context) => returnJsonApiData(await workspaceSettingsService.updateWorkspaceSettings(
+        resolveWorkspace(context, input),
+        input,
+        { context }
+      ))
+    })
+  ]);
 }
 
-export { workspaceSettingsActionSpecifications, buildWorkspaceSettingsActions };
+export { createWorkspaceSettingsActions };

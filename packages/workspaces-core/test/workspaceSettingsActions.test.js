@@ -1,9 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { workspaceDirectoryActionSpecifications } from "../src/server/workspaceDirectory/workspaceDirectoryActions.js";
-import { workspacePendingInvitationsActionSpecifications } from "../src/server/workspacePendingInvitations/workspacePendingInvitationsActions.js";
-import { workspaceMembersActionSpecifications } from "../src/server/workspaceMembers/workspaceMembersActions.js";
-import { workspaceSettingsActionSpecifications } from "../src/server/workspaceSettings/workspaceSettingsActions.js";
+import { createWorkspaceDirectoryActions } from "../src/server/workspaceDirectory/workspaceDirectoryActions.js";
+import { createWorkspacePendingInvitationsActions } from "../src/server/workspacePendingInvitations/workspacePendingInvitationsActions.js";
+import { createWorkspaceMembersActions } from "../src/server/workspaceMembers/workspaceMembersActions.js";
+import { createWorkspaceSettingsActions } from "../src/server/workspaceSettings/workspaceSettingsActions.js";
+
+// The definitions only; no test here executes an action.
+const workspaceDirectoryActionSpecifications = createWorkspaceDirectoryActions({ workspaceService: {} });
+const workspacePendingInvitationsActionSpecifications = createWorkspacePendingInvitationsActions({ workspacePendingInvitationsService: {} });
+const workspaceMembersActionSpecifications = createWorkspaceMembersActions({ workspaceMembersService: {} });
+const workspaceSettingsActionSpecifications = createWorkspaceSettingsActions({ workspaceSettingsService: {} });
 
 test("workspace settings action specifications stay explicit", () => {
   assert.deepEqual(

@@ -8,16 +8,19 @@ import {
   accountSettingsResponseFormatter
 } from "../common/formatters/accountSettingsResponseFormatter.js";
 
-function createService({
-  userSettingsRepository,
-  userProfilesRepository,
-  authService
-} = {}) {
-  if (!userSettingsRepository || !userProfilesRepository) {
-    throw new Error("accountPreferencesService requires repositories.");
-  }
+/** @typedef {ReturnType<typeof import("../common/repositories/userProfilesRepository.js").createRepository>} UserProfilesRepository */
+/** @typedef {ReturnType<typeof import("../common/repositories/userSettingsRepository.js").createRepository>} UserSettingsRepository */
 
-  async function updatePreferences(request, user, payload = {}, options = {}) {
+// A signed-in user's display and regional preferences.
+/**
+ * @param {object} dependencies
+ * @param {UserSettingsRepository} dependencies.userSettingsRepository
+ * @param {UserProfilesRepository} dependencies.userProfilesRepository
+ * @param {object} dependencies.authService The installed provider's `auth.service`; it reports the security status.
+ */
+function createService({ userSettingsRepository, userProfilesRepository, authService }) {
+  // Saves the validated preference fields and answers with the account's settings.
+  async function updatePreferences(request, user, payload) {
     const profile = await resolveUserProfile(userProfilesRepository, user);
     if (!profile) {
       throw new AppError(404, "User profile was not found.", { code: "users.profile.notFound" });
@@ -38,5 +41,7 @@ function createService({
     updatePreferences
   });
 }
+
+/** @typedef {ReturnType<typeof createService>} AccountPreferencesService */
 
 export { createService };

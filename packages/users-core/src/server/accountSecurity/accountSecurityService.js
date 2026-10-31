@@ -129,4 +129,6 @@ function createService({
   });
 }
 
+/** @typedef {ReturnType<typeof createService>} AccountSecurityService */
+
 export { createService };

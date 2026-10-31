@@ -41,8 +41,7 @@ Exports
 
 ### `src/server/consoleSettings/consoleSettingsActions.js`
 Exports
-- `consoleSettingsActionSpecifications`
-- `buildConsoleSettingsActions({ consoleSettingsService } = {})`
+- `createConsoleSettingsActions({ consoleSettingsService })`
 
 ### `src/server/consoleSettings/consoleSettingsRepository.js`
 Exports
@@ -54,6 +53,7 @@ Local functions
 ### `src/server/consoleSettings/consoleSettingsService.js`
 Exports
 - `createService({ consoleSettingsRepository, consoleService } = {})`
+- `type ConsoleSettingsService`
 Local functions
 - `buildSettingsResponse(record = {})`
 

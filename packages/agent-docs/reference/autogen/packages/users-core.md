@@ -16,12 +16,12 @@ Use this on demand; do not load the full index at startup.
 
 ### `src/server/accountNotifications/accountNotificationsActions.js`
 Exports
-- `accountNotificationsActionSpecifications`
-- `buildAccountNotificationsActions({ accountNotificationsService } = {})`
+- `createAccountNotificationsActions({ accountNotificationsService })`
 
 ### `src/server/accountNotifications/accountNotificationsService.js`
 Exports
 - `createService({ userSettingsRepository, userProfilesRepository, authService } = {})`
+- `type AccountNotificationsService`
 
 ### `src/server/accountNotifications/bootAccountNotificationsRoutes.js`
 Exports
@@ -29,12 +29,14 @@ Exports
 
 ### `src/server/accountPreferences/accountPreferencesActions.js`
 Exports
-- `accountPreferencesActionSpecifications`
-- `buildAccountPreferencesActions({ accountPreferencesService } = {})`
+- `createAccountPreferencesActions({ accountPreferencesService })`
 
 ### `src/server/accountPreferences/accountPreferencesService.js`
 Exports
-- `createService({ userSettingsRepository, userProfilesRepository, authService } = {})`
+- `createService({ userSettingsRepository, userProfilesRepository, authService })`
+- `type UserProfilesRepository`
+- `type UserSettingsRepository`
+- `type AccountPreferencesService`
 
 ### `src/server/accountPreferences/bootAccountPreferencesRoutes.js`
 Exports
@@ -42,12 +44,12 @@ Exports
 
 ### `src/server/accountProfile/accountProfileActions.js`
 Exports
-- `accountProfileActionSpecifications`
-- `buildAccountProfileActions({ accountProfileService } = {})`
+- `createAccountProfileActions({ accountProfileService })`
 
 ### `src/server/accountProfile/accountProfileService.js`
 Exports
 - `createService({ userSettingsRepository, userProfilesRepository, authService, avatarService } = {})`
+- `type AccountProfileService`
 
 ### `src/server/accountProfile/avatarService.js`
 Exports
@@ -70,12 +72,12 @@ Exports
 
 ### `src/server/accountSecurity/accountSecurityActions.js`
 Exports
-- `accountSecurityActionSpecifications`
-- `buildAccountSecurityActions({ accountSecurityService } = {})`
+- `createAccountSecurityActions({ accountSecurityService })`
 
 ### `src/server/accountSecurity/accountSecurityService.js`
 Exports
 - `createService({ userSettingsRepository, userProfilesRepository, authService } = {})`
+- `type AccountSecurityService`
 
 ### `src/server/accountSecurity/bootAccountSecurityRoutes.js`
 Exports
@@ -143,6 +145,7 @@ Local functions
 Exports
 - `resolveUserProfile(userProfilesRepository, user)`
 - `resolveSecurityStatus(authService, request)`
+- `type UserProfilesRepository`
 
 ### `src/server/common/services/authProfileSyncService.js`
 Exports

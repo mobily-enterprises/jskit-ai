@@ -37,4 +37,6 @@ function createService({ consoleSettingsRepository, consoleService } = {}) {
   });
 }
 
+/** @typedef {ReturnType<typeof createService>} ConsoleSettingsService */
+
 export { createService };

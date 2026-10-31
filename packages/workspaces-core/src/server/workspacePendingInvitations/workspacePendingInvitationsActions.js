@@ -10,115 +10,88 @@ import { resolveActionUser } from "../common/support/resolveActionUser.js";
 
 const WORKSPACE_INVITE_DECISION_EVENTS = createInviteDecisionEvents();
 
-const workspacePendingInvitationsActionSpecifications = Object.freeze([
-  {
-    id: "workspace.invitation.resolve",
-    version: 1,
-    kind: "query",
-    channels: ["api", "automation", "internal"],
-    surfaces: ["*"],
-    permission: {
-      require: "none"
-    },
-    input: workspacePendingInvitationsResource.operations.resolve.query,
-    output: null,
-    extensions: {
-      assistant: {
-        exclude: "Use the invitation screen; raw invitation tokens must not enter assistant arguments."
-      }
-    },
-    idempotency: "none",
-    async run(workspacePendingInvitationsService, input, context) {
-      return returnJsonApiData(
-        await workspacePendingInvitationsService.resolveInviteByToken(input?.token, {
-          context
-        })
-      );
-    }
-  },
-  {
-    id: "workspace.invitations.pending.list",
-    version: 1,
-    kind: "query",
-    channels: ["api", "automation", "internal"],
-    surfaces: ["*"],
-    permission: {
-      require: "authenticated"
-    },
-    input: emptyInputValidator,
-    output: null,
-    extensions: {
-      assistant: {
-        description: "List pending workspace invitations for the signed-in user without invitation tokens.",
-        output: pendingInvitationsAssistantOutput,
-        transformResult: (result) => ({
-          pendingInvites: result.value.pendingInvites.map(
-            ({ id, workspaceId, workspaceSlug, workspaceName, roleSid, status, expiresAt }) =>
-              ({ id, workspaceId, workspaceSlug, workspaceName, roleSid, status, expiresAt })
-          )
-        })
-      }
-    },
-    idempotency: "none",
-    async run(workspacePendingInvitationsService, input, context) {
-      return returnJsonApiData({
-        pendingInvites: await workspacePendingInvitationsService.listPendingInvitesForUser(resolveActionUser(context, input), {
-          context
-        })
-      });
-    }
-  },
-  {
-    id: "workspace.invite.redeem",
-    version: 1,
-    kind: "command",
-    channels: ["api", "automation", "internal"],
-    surfaces: ["*"],
-    permission: {
-      require: "authenticated"
-    },
-    input: workspaceMembersResource.operations.redeemInvite.body,
-    output: null,
-    extensions: {
-      assistant: {
-        exclude: "Use the authenticated invitation screen to accept or refuse; raw invitation tokens must not enter assistant arguments."
-      }
-    },
-    idempotency: "optional",
-    events: WORKSPACE_INVITE_DECISION_EVENTS,
-    async run(workspacePendingInvitationsService, input, context) {
-      const payload = input || {};
-      const user = resolveActionUser(context);
-
-      if (payload.decision === "accept") {
-        return returnJsonApiData(await workspacePendingInvitationsService.acceptInviteByToken({
-          user,
-          token: payload.token
-        }, {
-          context
-        }));
-      }
-
-      return returnJsonApiData(await workspacePendingInvitationsService.refuseInviteByToken({
-        user,
-        token: payload.token
-      }, {
-        context
-      }));
-    }
-  }
-]);
-
-function buildWorkspacePendingInvitationsActions({ workspacePendingInvitationsService } = {}) {
-  if (!workspacePendingInvitationsService) {
-    throw new TypeError("buildWorkspacePendingInvitationsActions requires workspacePendingInvitationsService.");
-  }
-  return workspacePendingInvitationsActionSpecifications.map(({ run, ...definition }) => Object.freeze({
-    ...definition,
-    execute(input, context) {
-      return run(workspacePendingInvitationsService, input, context);
-    }
-  }));
+/** @param {{ workspacePendingInvitationsService: import("./workspacePendingInvitationsService.js").WorkspacePendingInvitationsService }} dependencies */
+function createWorkspacePendingInvitationsActions({ workspacePendingInvitationsService }) {
+  return Object.freeze([
+    Object.freeze({
+      id: "workspace.invitation.resolve",
+      version: 1,
+      kind: "query",
+      channels: ["api", "automation", "internal"],
+      surfaces: ["*"],
+      permission: {
+        require: "none"
+      },
+      input: workspacePendingInvitationsResource.operations.resolve.query,
+      output: null,
+      extensions: {
+        assistant: {
+          exclude: "Use the invitation screen; raw invitation tokens must not enter assistant arguments."
+        }
+      },
+      idempotency: "none",
+      execute: async (input, context) => returnJsonApiData(await workspacePendingInvitationsService.resolveInviteByToken(
+        input.token,
+        { context }
+      ))
+    }),
+    Object.freeze({
+      id: "workspace.invitations.pending.list",
+      version: 1,
+      kind: "query",
+      channels: ["api", "automation", "internal"],
+      surfaces: ["*"],
+      permission: {
+        require: "authenticated"
+      },
+      input: emptyInputValidator,
+      output: null,
+      extensions: {
+        assistant: {
+          description: "List pending workspace invitations for the signed-in user without invitation tokens.",
+          output: pendingInvitationsAssistantOutput,
+          transformResult: (result) => ({
+            pendingInvites: result.value.pendingInvites.map(
+              ({ id, workspaceId, workspaceSlug, workspaceName, roleSid, status, expiresAt }) =>
+                ({ id, workspaceId, workspaceSlug, workspaceName, roleSid, status, expiresAt })
+            )
+          })
+        }
+      },
+      idempotency: "none",
+      execute: async (input, context) => returnJsonApiData({
+        pendingInvites: await workspacePendingInvitationsService.listPendingInvitesForUser(
+          resolveActionUser(context, input),
+          { context }
+        )
+      })
+    }),
+    Object.freeze({
+      id: "workspace.invite.redeem",
+      version: 1,
+      kind: "command",
+      channels: ["api", "automation", "internal"],
+      surfaces: ["*"],
+      permission: {
+        require: "authenticated"
+      },
+      input: workspaceMembersResource.operations.redeemInvite.body,
+      output: null,
+      extensions: {
+        assistant: {
+          exclude: "Use the authenticated invitation screen to accept or refuse; raw invitation tokens must not enter assistant arguments."
+        }
+      },
+      idempotency: "optional",
+      events: WORKSPACE_INVITE_DECISION_EVENTS,
+      // The signed-in actor decides; a user named in the input never stands in for them.
+      execute: async (input, context) => returnJsonApiData(await workspacePendingInvitationsService.redeemInviteByToken(
+        resolveActionUser(context),
+        input,
+        { context }
+      ))
+    })
+  ]);
 }
 
-export { workspacePendingInvitationsActionSpecifications, buildWorkspacePendingInvitationsActions };
+export { createWorkspacePendingInvitationsActions };

@@ -12,7 +12,7 @@ import { createRepository as membershipsRepository } from "../../src/server/comm
 import { createRepository as workspacesRepository } from "../../src/server/common/repositories/workspacesRepository.js";
 import { createService as membersService } from "../../src/server/workspaceMembers/workspaceMembersService.js";
 import { createService as pendingService } from "../../src/server/workspacePendingInvitations/workspacePendingInvitationsService.js";
-import { buildWorkspacePendingInvitationsActions } from "../../src/server/workspacePendingInvitations/workspacePendingInvitationsActions.js";
+import { createWorkspacePendingInvitationsActions } from "../../src/server/workspacePendingInvitations/workspacePendingInvitationsActions.js";
 
 // The caller verifies an empty disposable database and runs package migrations.
 // These application fixtures demonstrate composition, not production policy.
@@ -95,7 +95,7 @@ export async function verifyInvitationTransactions(t, db) {
     const options = { context: { actor: user, channel: "api", permissions: ["workspace.members.invite"] } };
     const payload = { email: user.email, roleSid: "member" };
     const actions = createActionCatalogue({ events: { async publish(event) { events.push(event); } } });
-    actions.register({ contributorId: suffix, domain: "workspace", actions: buildWorkspacePendingInvitationsActions({ workspacePendingInvitationsService: pending }) });
+    actions.register({ contributorId: suffix, domain: "workspace", actions: createWorkspacePendingInvitationsActions({ workspacePendingInvitationsService: pending }) });
     const redeem = (prepared, decision = "accept", actor = user, extraInput = {}) => actions.execute({
       actionId: "workspace.invite.redeem",
       input: { token: prepared.inviteTokenPreview, decision, ...extraInput },

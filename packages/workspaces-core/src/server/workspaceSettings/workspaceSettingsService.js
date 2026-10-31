@@ -62,4 +62,6 @@ function createService({
   });
 }
 
+/** @typedef {ReturnType<typeof createService>} WorkspaceSettingsService */
+
 export { createService };

@@ -124,4 +124,6 @@ function createService({
   });
 }
 
+/** @typedef {ReturnType<typeof createService>} AccountProfileService */
+
 export { createService };

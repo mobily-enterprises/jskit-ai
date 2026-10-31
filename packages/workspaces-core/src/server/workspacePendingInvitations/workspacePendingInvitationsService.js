@@ -297,14 +297,24 @@ function createService({
     });
   }
 
+  // Accepts the invitation a token names when the user decided "accept", and refuses it otherwise.
+  async function redeemInviteByToken(user, { token, decision }, options = {}) {
+    return decision === "accept"
+      ? acceptInviteByToken({ user, token }, options)
+      : refuseInviteByToken({ user, token }, options);
+  }
+
   return Object.freeze({
     registerAcceptanceParticipant,
     resolveInviteByToken,
     resolveInviteContextForAuth,
     listPendingInvitesForUser,
     acceptInviteByToken,
-    refuseInviteByToken
+    refuseInviteByToken,
+    redeemInviteByToken
   });
 }
+
+/** @typedef {ReturnType<typeof createService>} WorkspacePendingInvitationsService */
 
 export { createService };

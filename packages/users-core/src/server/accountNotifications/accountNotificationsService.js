@@ -39,4 +39,6 @@ function createService({
   });
 }
 
+/** @typedef {ReturnType<typeof createService>} AccountNotificationsService */
+
 export { createService };

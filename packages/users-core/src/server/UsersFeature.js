@@ -1,17 +1,17 @@
 import { defineFeature } from "@jskit-ai/kernel/server/features";
 import { USERS_SHARED_API } from "../shared/index.js";
-import { buildAccountNotificationsActions } from "./accountNotifications/accountNotificationsActions.js";
+import { createAccountNotificationsActions } from "./accountNotifications/accountNotificationsActions.js";
 import { createService as createAccountNotificationsService } from "./accountNotifications/accountNotificationsService.js";
 import { registerAccountNotificationsRoutes } from "./accountNotifications/bootAccountNotificationsRoutes.js";
-import { buildAccountPreferencesActions } from "./accountPreferences/accountPreferencesActions.js";
+import { createAccountPreferencesActions } from "./accountPreferences/accountPreferencesActions.js";
 import { createService as createAccountPreferencesService } from "./accountPreferences/accountPreferencesService.js";
 import { registerAccountPreferencesRoutes } from "./accountPreferences/bootAccountPreferencesRoutes.js";
-import { buildAccountProfileActions } from "./accountProfile/accountProfileActions.js";
+import { createAccountProfileActions } from "./accountProfile/accountProfileActions.js";
 import { createService as createAccountProfileService } from "./accountProfile/accountProfileService.js";
 import { createService as createAvatarService } from "./accountProfile/avatarService.js";
 import { createService as createAvatarStorageService } from "./accountProfile/avatarStorageService.js";
 import { registerAccountProfileRoutes } from "./accountProfile/bootAccountProfileRoutes.js";
-import { buildAccountSecurityActions } from "./accountSecurity/accountSecurityActions.js";
+import { createAccountSecurityActions } from "./accountSecurity/accountSecurityActions.js";
 import { createService as createAccountSecurityService } from "./accountSecurity/accountSecurityService.js";
 import { registerAccountSecurityRoutes } from "./accountSecurity/bootAccountSecurityRoutes.js";
 import { createUsersBootstrapContributor } from "./usersBootstrapContributor.js";
@@ -108,10 +108,10 @@ const UsersFeature = defineFeature({
   },
   actions({ users }) {
     return [
-      ...buildAccountProfileActions({ accountProfileService: users.services.accountProfile }),
-      ...buildAccountPreferencesActions({ accountPreferencesService: users.services.accountPreferences }),
-      ...buildAccountNotificationsActions({ accountNotificationsService: users.services.accountNotifications }),
-      ...buildAccountSecurityActions({ accountSecurityService: users.services.accountSecurity })
+      ...createAccountProfileActions({ accountProfileService: users.services.accountProfile }),
+      ...createAccountPreferencesActions({ accountPreferencesService: users.services.accountPreferences }),
+      ...createAccountNotificationsActions({ accountNotificationsService: users.services.accountNotifications }),
+      ...createAccountSecurityActions({ accountSecurityService: users.services.accountSecurity })
     ];
   }
 });

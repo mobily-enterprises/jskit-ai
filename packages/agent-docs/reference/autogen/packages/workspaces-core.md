@@ -74,6 +74,7 @@ Local functions
 ### `src/server/common/services/workspaceContextService.js`
 Exports
 - `createService({ appConfig = {}, workspacesRepository, workspaceMembershipsRepository, workspaceSettingsRepository } = {})`
+- `type WorkspaceContextService`
 Local functions
 - `toSlugPart(value)`
 - `buildWorkspaceBaseSlug(user = {})`
@@ -168,8 +169,7 @@ Local functions
 
 ### `src/server/workspaceDirectory/workspaceDirectoryActions.js`
 Exports
-- `workspaceDirectoryActionSpecifications`
-- `buildWorkspaceDirectoryActions({ workspaceService } = {})`
+- `createWorkspaceDirectoryActions({ workspaceService })`
 Local functions
 - `workspaceAssistantSummary({ id, slug, name, ownerUserId, avatarUrl })`
 
@@ -196,12 +196,12 @@ Local functions
 
 ### `src/server/workspaceMembers/workspaceMembersActions.js`
 Exports
-- `workspaceMembersActionSpecifications`
-- `buildWorkspaceMembersActions({ workspaceMembersService } = {})`
+- `createWorkspaceMembersActions({ workspaceMembersService })`
 
 ### `src/server/workspaceMembers/workspaceMembersService.js`
 Exports
 - `createService({ workspaceMembershipsRepository, workspaceInvitesRepository, inviteExpiresInMs, roleCatalog = null, workspaceInvitationsEnabled = true, inviteUrlBuilder = null, workspaceInviteMailer = null, workspaceInviteEmailTemplate = renderDefaultWorkspaceInviteEmail, i18n = createWorkspacesServerI18n(), userProfilesRepository = null, userSettingsRepository = null } = {})`
+- `type WorkspaceMembersService`
 Local functions
 - `roleNotAssignableError()`
 
@@ -214,12 +214,12 @@ Local functions
 
 ### `src/server/workspacePendingInvitations/workspacePendingInvitationsActions.js`
 Exports
-- `workspacePendingInvitationsActionSpecifications`
-- `buildWorkspacePendingInvitationsActions({ workspacePendingInvitationsService } = {})`
+- `createWorkspacePendingInvitationsActions({ workspacePendingInvitationsService })`
 
 ### `src/server/workspacePendingInvitations/workspacePendingInvitationsService.js`
 Exports
 - `createService({ workspaceInvitesRepository, workspaceMembershipsRepository, roleCatalog = null } = {})`
+- `type WorkspacePendingInvitationsService`
 
 ### `src/server/workspaceSettings/bootWorkspaceSettings.js`
 Exports
@@ -229,8 +229,7 @@ Local functions
 
 ### `src/server/workspaceSettings/workspaceSettingsActions.js`
 Exports
-- `workspaceSettingsActionSpecifications`
-- `buildWorkspaceSettingsActions({ workspaceSettingsService } = {})`
+- `createWorkspaceSettingsActions({ workspaceSettingsService })`
 
 ### `src/server/workspaceSettings/workspaceSettingsRepository.js`
 Exports
@@ -241,6 +240,7 @@ Local functions
 ### `src/server/workspaceSettings/workspaceSettingsService.js`
 Exports
 - `createService({ workspaceSettingsRepository, workspaceInvitationsEnabled = true, roleCatalog = null } = {})`
+- `type WorkspaceSettingsService`
 
 ### `src/server/WorkspacesFeature.js`
 Exports
