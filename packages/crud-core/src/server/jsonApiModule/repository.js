@@ -6,10 +6,13 @@ import {
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { retryDeadlocks } from "@jskit-ai/database-runtime/shared";
 
-function createCrudJsonApiRepository({ api, resource, resourceScopeName } = {}) {
-  if (!api) {
-    throw new TypeError("createCrudJsonApiRepository requires api.");
-  }
+/**
+ * @param {object} dependencies
+ * @param {import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi} dependencies.api
+ * @param {object} dependencies.resource
+ * @param {string} dependencies.resourceScopeName
+ */
+function createCrudJsonApiRepository({ api, resource, resourceScopeName }) {
   if (!resource || typeof resource !== "object" || Array.isArray(resource)) {
     throw new TypeError("createCrudJsonApiRepository requires resource.");
   }
@@ -49,7 +52,7 @@ function createCrudJsonApiRepository({ api, resource, resourceScopeName } = {}) 
   }
 
   function requireApiResource() {
-    const apiResource = api.resources?.[scopeName];
+    const apiResource = api.resources[scopeName];
     if (!apiResource) {
       throw new Error(`JSON REST resource "${scopeName}" is not registered.`);
     }

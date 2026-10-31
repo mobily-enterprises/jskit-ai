@@ -639,6 +639,7 @@ function createCrudListFilterJsonRestSearchSchema(runtime = {}, { columns = {}, 
   const schema = {};
 
   for (const filter of filterEntries) {
+    // readable-check: allow method-probe - input validation: apply holds an application's optional custom filters; other filters use the default
     const customApply = typeof apply?.[filter.key] === "function" ? apply[filter.key] : null;
     if (customApply) {
       schema[filter.queryKey] = buildJsonRestCustomFilterSearchSchemaEntry(filter, customApply);
@@ -713,9 +714,7 @@ function normalizeCrudListFilterJsonRestQuery(runtime = {}, query = {}) {
   const source = normalizeObjectInput(query);
   const filterEntries = Object.values(normalizeObject(runtime?.filters));
   const filterQueryKeys = new Set(filterEntries.map((filter) => filter.queryKey));
-  const parsedFilters = typeof runtime.parseQuery === "function"
-    ? runtime.parseQuery(source)
-    : {};
+  const parsedFilters = runtime.parseQuery(source);
   const normalized = {};
 
   for (const [key, value] of Object.entries(source)) {
@@ -766,6 +765,7 @@ function createCrudListFilters(definitions = {}, { columns = {}, apply = {} } = 
   }
 
   function applyQuery(queryBuilder, payload = {}) {
+    // readable-check: allow method-probe - input validation: the application passes its own query builder
     if (!queryBuilder || typeof queryBuilder.where !== "function") {
       throw new TypeError("createCrudListFilters.applyQuery requires query builder.");
     }
@@ -777,6 +777,7 @@ function createCrudListFilters(definitions = {}, { columns = {}, apply = {} } = 
       }
 
       const value = normalized[filter.key];
+      // readable-check: allow method-probe - input validation: apply holds an application's optional custom filters; other filters use the default
       const customApply = typeof apply?.[filter.key] === "function"
         ? apply[filter.key]
         : null;

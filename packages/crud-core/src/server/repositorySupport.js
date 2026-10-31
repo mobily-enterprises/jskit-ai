@@ -408,6 +408,7 @@ function applyCrudListQueryFilters(
     parentFilterColumns = {}
   } = {}
 ) {
+  // readable-check: allow method-probe - a test asserts this error; input validation: the application passes its own query builder
   if (!query || typeof query.modify !== "function" || typeof query.where !== "function") {
     throw new TypeError("applyCrudListQueryFilters requires query builder.");
   }

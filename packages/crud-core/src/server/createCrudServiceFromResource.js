@@ -12,7 +12,12 @@ function createCrudServiceFromResource(resource = {}, { context = "crudService" 
   const runtime = createCrudServiceRuntime(resource, { context });
   const baseServiceEvents = createCrudServiceEvents(resource, { context });
 
-  function createBaseService({ repository, fieldAccess = {} } = {}) {
+  /**
+   * @param {object} dependencies
+   * @param {import("./serviceMethods.js").CrudRecordRepository} dependencies.repository
+   * @param {object} [dependencies.fieldAccess]
+   */
+  function createBaseService({ repository, fieldAccess = {} }) {
     if (!repository) {
       throw new Error(`${context} requires repository.`);
     }

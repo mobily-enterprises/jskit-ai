@@ -1,12 +1,9 @@
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { isRecord, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveCrudResourceScopeName } from "@jskit-ai/resource-crud-core/shared/crudLookup";
-
-function isRecord(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
 
 function resolveSchemaFieldDefinitions(definition = null) {
   const schema = definition?.schema;
+  // readable-check: allow method-probe - data: a resource schema without field definitions has none
   if (!schema || typeof schema.getFieldDefinitions !== "function") {
     return {};
   }

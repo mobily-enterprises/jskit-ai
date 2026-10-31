@@ -194,7 +194,17 @@ function createCrudParentFilterQueryValidator(resource = {}) {
   });
 }
 
+/**
+ * The query schemas of a CRUD list: cursor, search, parent filters, list filters, include and fieldsets.
+ * @param {object} [options]
+ * @param {object} [options.resource]
+ * @param {object | null} [options.listFilterQueryValidator]
+ * @param {object} [options.searchQueryValidator]
+ * @param {object} [options.includeQueryValidator]
+ * @param {object} [options.fieldsetsQueryValidator]
+ */
 function createStandardCrudListQueryValidators({
+  // readable-check: allow dependency-default - data: a resource definition
   resource = {},
   listFilterQueryValidator = null,
   searchQueryValidator = listSearchQueryValidator,

@@ -74,11 +74,9 @@ Local functions
 ### `src/server/jsonApiModule/actions.js`
 Exports
 - `assertCrudOperationName(operation = "")`
-- `createCrudJsonApiActions({ namespace, resource, repository = null, service, surface, permissionForOperation, permissionForAction = permissionForOperation, operations = CRUD_OPERATION_NAMES, scopeInputValidator = null, scopeInputKeys = [], listFilterQueryValidator = null, operationLifecycle = {}, operationInputs = {}, actions: additionalActionDefinitions = {}, dependencies = {}, realtimeAudience = "event_scope" } = {})`
+- `createCrudJsonApiActions({ namespace, resource, repository, service, surface, permissionForOperation, permissionForAction = permissionForOperation, operations = CRUD_OPERATION_NAMES, scopeInputValidator, scopeInputKeys = [], listFilterQueryValidator, operationLifecycle = {}, operationInputs, actions: additionalActionDefinitions = {}, dependencies = {}, realtimeAudience = "event_scope" })`
 - `normalizeCrudOperationLifecycle(value = {})`
 Local functions
-- `isRecord(value)`
-- `normalizeOptionalCursor(value)`
 - `resolveAssistantResultValue(result)`
 - `createProjectionRecordSchema(recordSchema, { lookupContainerKey = "", relationshipEntries = [] } = {})`
 - `createProjectionOutputDefinition(output, operation, relationshipEntries, lookupContainerKey)`
@@ -86,19 +84,19 @@ Local functions
 - `projectCrudAssistantRecordFields(record, selectedFields = null, { preserveKeys = [] } = {})`
 - `projectCrudAssistantLookupValue(value, selectedFields = null)`
 - `projectCrudAssistantReadRecord(record, { lookupContainerKey = "", primaryFields = null, relatedFieldsByLookupKey = new Map() } = {})`
-- `createCrudAssistantResultProjection(input = {}, resource = {}, relationshipEntries = [])`
+- `createCrudAssistantResultProjection(input, resource = {}, relationshipEntries = [])`
 - `projectCrudAssistantReadResult(result, projection = null, { lookupContainerKey = "" } = {})`
 - `transformCrudAssistantResult(operation, result, { input = {}, resource, relationshipEntries = [], lookupContainerKey = "" } = {})`
 - `createCrudAssistantReadDescription({ fieldsetContract, lookupContainerKey = "", namespace = "", operation = "list" } = {})`
 - `createCrudAssistantExtension(resource, namespace, operation)`
 - `createActionInput(resource, operation, scopeInputValidator = null, listFilterQueryValidator = null, operationInputs = {})`
-- `omitInputKeys(input = {}, keys = [])`
+- `omitInputKeys(input, keys = [])`
 - `createLifecycleContext(value = {})`
 - `normalizeAdditionalActions(value = {}, { namespace, surface, permissionForAction, scopeInputValidator = null } = {})`
 
 ### `src/server/jsonApiModule/repository.js`
 Exports
-- `createCrudJsonApiRepository({ api, resource, resourceScopeName } = {})`
+- `createCrudJsonApiRepository({ api, resource, resourceScopeName })`
 
 ### `src/server/jsonApiModule/routes.js`
 Exports
@@ -110,7 +108,7 @@ Local functions
 
 ### `src/server/jsonApiModule/service.js`
 Exports
-- `createCrudJsonApiService({ repository } = {})`
+- `createCrudJsonApiService({ repository })`
 Local functions
 - `requireDocument(document = null)`
 
@@ -119,8 +117,6 @@ Exports
 - `resolveJsonApiFieldsetContract(resource = {})`
 - `resolveJsonApiRelationshipEntries(definition = null)`
 - `resolveSchemaFieldDefinitions(definition = null)`
-Local functions
-- `isRecord(value)`
 
 ### `src/server/listFilters.js`
 Exports
@@ -164,36 +160,11 @@ Exports
 - `jsonApiFieldsetsQueryValidator`
 - `resolveCrudParentFilterKeys(resource = {})`
 - `createCrudParentFilterQueryValidator(resource = {})`
-- `createStandardCrudListQueryValidators({ resource = {}, listFilterQueryValidator = null, searchQueryValidator = listSearchQueryValidator, includeQueryValidator = lookupIncludeQueryValidator, fieldsetsQueryValidator = jsonApiFieldsetsQueryValidator } = {})`
+- `createStandardCrudListQueryValidators({ // readable-check: allow dependency-default - data: a resource definition resource = {}, listFilterQueryValidator = null, searchQueryValidator = listSearchQueryValidator, includeQueryValidator = lookupIncludeQueryValidator, fieldsetsQueryValidator = jsonApiFieldsetsQueryValidator } = {})`
 - `createStandardCrudViewQueryValidators({ includeQueryValidator = lookupIncludeQueryValidator, fieldsetsQueryValidator = jsonApiFieldsetsQueryValidator } = {})`
 Local functions
 - `createJsonApiFieldsetValueDefinition({ allowedFields = [] } = {})`
 - `resolveCrudListUsesOrderedCursor(list = {})`
-
-### `src/server/lookupHydration.js`
-Exports
-- `createCrudLookupRuntime(resource = {}, { outputKeys = [] } = {})`
-- `hydrateCrudLookupRecords(records = [], runtime = {}, { include, mode = "list", repositoryOptions = {}, callOptions = {} } = {})`
-Local functions
-- `normalizeLookupRelationEntry(entry = {}, outputKeys = new Set())`
-- `normalizeLookupDefaultInclude(value)`
-- `normalizeLookupMaxDepth(value)`
-- `resolveLookupRuntimeDefaults(resource = {})`
-- `normalizeLookupIdentifier(value)`
-- `normalizeIncludePaths(include, { defaultInclude = DEFAULT_LOOKUP_INCLUDE } = {})`
-- `resolveChildIncludeFromPaths(paths = [])`
-- `buildLookupHydrationPlan(runtime = {}, include, { mode = "list", context = "crudRepository", includeWasExplicit = false, skippedNamespaces = new Set() } = {})`
-- `resolveLookupResolver(repositoryOptions = {}, callOptions = {}, { context = "crudRepository" } = {})`
-- `resolveLookupDepthRuntime(runtime = {}, repositoryOptions = {}, callOptions = {})`
-- `buildLookupGroupKey(relation = {})`
-- `normalizeLookupRelationValues(records = [], entries = [], childIncludeByKey = {})`
-- `resolveGroupChildInclude(group = {})`
-- `normalizeLookup(provider, relation = {}, { context = "crudRepository" } = {})`
-- `resolveLookupOwnershipFilter(provider = {}, { context = "crudRepository" } = {})`
-- `resolveLookupVisibilityContext(provider = {}, relation = {}, callOptions = {}, { context = "crudRepository" } = {})`
-- `buildLookupRecordMap(records = [], valueKey = "")`
-- `buildLookupCollectionMap(records = [], foreignKey = "")`
-- `resolveLookupVisitedNamespaces(runtime = {}, callOptions = {})`
 
 ### `src/server/lookupPathSupport.js`
 Exports
@@ -209,6 +180,10 @@ Exports
 - `createCrudLookup(repository, { context = "crudLookup", ownershipFilter = "" } = {})`
 Local functions
 - `normalizeLookupOwnershipFilter(value, { context = "crudLookup ownershipFilter" } = {})`
+
+### `src/server/normalizeOptionalText.js`
+Exports
+- `normalizeOptionalText(value)`
 
 ### `src/server/repositorySupport.js`
 Exports
@@ -308,14 +283,12 @@ Local functions
 
 ### `src/server/routeContracts.js`
 Exports
-- `createCrudJsonApiRouteContracts({ resource = {}, routeParamsValidator = null, operations = ["list", "view", "create", "update", "delete"], operationInputs = {}, listSearchQueryValidator = defaultListSearchQueryValidator, lookupIncludeQueryValidator = defaultLookupIncludeQueryValidator, listFilterQueryValidator = null } = {})`
+- `createCrudJsonApiRouteContracts({ // readable-check: allow dependency-default - data: a resource definition resource = {}, routeParamsValidator = null, operations = ["list", "view", "create", "update", "delete"], operationInputs = {}, listSearchQueryValidator = defaultListSearchQueryValidator, lookupIncludeQueryValidator = defaultLookupIncludeQueryValidator, // readable-check: allow dependency-default - data: an optional input schema listFilterQueryValidator = null } = {})`
 - `resolveJsonApiRelationshipEntries`
 Local functions
-- `isRecord(value)`
 - `readOwnValue(source = {}, key = "")`
 - `resolveLookupContainer(record = {}, lookupContainerKey = "")`
 - `resolveRelationshipValueSource(record = {}, entry = {}, { lookupContainerKey = "", preferLookup = false } = {})`
-- `normalizeLookupId(value)`
 - `normalizeRelationshipIdentifierId(value = null)`
 - `createRelationshipIdentifier(entry = {}, value = null)`
 - `createRecordAttributesResolver(definition = null, { excludeKeys = [] } = {})`
@@ -345,8 +318,9 @@ Exports
 - `crudServiceCreateRecord(runtime, repository, fieldAccess = {}, payload = {}, options = {})`
 - `crudServiceUpdateRecord(runtime, repository, fieldAccess = {}, recordId, payload = {}, options = {})`
 - `crudServiceDeleteRecord(runtime, repository, fieldAccess = {}, recordId, options = {})`
+- `type CrudRecordRepository`
 Local functions
-- `requireCrudServiceRepository(runtime = {}, repository = null)`
+- `requireCrudServiceRepository(runtime, repository)`
 - `splitCrudListRepositoryCall(query = {}, options = {})`
 
 ### `src/server/types.js`

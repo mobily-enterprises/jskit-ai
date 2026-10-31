@@ -12,11 +12,9 @@ import {
   listSearchQueryValidator as defaultListSearchQueryValidator,
   lookupIncludeQueryValidator as defaultLookupIncludeQueryValidator
 } from "./listQueryValidators.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveJsonApiRelationshipEntries } from "./jsonApiResourceContract.js";
-
-function isRecord(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
+import { normalizeOptionalText } from "./normalizeOptionalText.js";
 
 function readOwnValue(source = {}, key = "") {
   if (isRecord(source) && Object.hasOwn(source, key)) {
@@ -59,24 +57,15 @@ function resolveRelationshipValueSource(record = {}, entry = {}, {
   return recordValue.found ? recordValue : lookupValue;
 }
 
-function normalizeLookupId(value) {
-  if (value == null) {
-    return null;
-  }
-
-  const normalized = String(value).trim();
-  return normalized || null;
-}
-
 function normalizeRelationshipIdentifierId(value = null) {
   if (isRecord(value)) {
     if (isRecord(value.data)) {
-      return normalizeLookupId(value.data.id);
+      return normalizeOptionalText(value.data.id);
     }
-    return normalizeLookupId(value.id);
+    return normalizeOptionalText(value.id);
   }
 
-  return normalizeLookupId(value);
+  return normalizeOptionalText(value);
 }
 
 function createRelationshipIdentifier(entry = {}, value = null) {
@@ -229,7 +218,7 @@ function normalizeIncludedLookupRecord(source = null, fallbackId = null) {
     return null;
   }
 
-  const directId = normalizeLookupId(source.id);
+  const directId = normalizeOptionalText(source.id);
   if (directId) {
     return {
       id: directId,
@@ -237,19 +226,19 @@ function normalizeIncludedLookupRecord(source = null, fallbackId = null) {
     };
   }
 
-  const preferredNestedRecord = normalizeLookupId(fallbackId) && isRecord(source[fallbackId])
+  const preferredNestedRecord = normalizeOptionalText(fallbackId) && isRecord(source[fallbackId])
     ? source[fallbackId]
     : null;
   if (preferredNestedRecord) {
     return {
-      id: normalizeLookupId(preferredNestedRecord.id ?? fallbackId),
+      id: normalizeOptionalText(preferredNestedRecord.id ?? fallbackId),
       ...preferredNestedRecord
     };
   }
 
   const nestedEntries = Object.entries(source).filter(([, value]) => isRecord(value));
   if (nestedEntries.length !== 1) {
-    const fallbackRecordId = normalizeLookupId(fallbackId);
+    const fallbackRecordId = normalizeOptionalText(fallbackId);
     if (!fallbackRecordId) {
       return null;
     }
@@ -261,7 +250,7 @@ function normalizeIncludedLookupRecord(source = null, fallbackId = null) {
   }
 
   const [nestedKey, nestedRecord] = nestedEntries[0];
-  const nestedId = normalizeLookupId(nestedRecord.id ?? nestedKey ?? fallbackId);
+  const nestedId = normalizeOptionalText(nestedRecord.id ?? nestedKey ?? fallbackId);
   if (!nestedId) {
     return null;
   }
@@ -280,7 +269,7 @@ function appendIncludedRelationshipResource({
   fallbackId = null
 } = {}) {
   const normalizedLookupRecord = normalizeIncludedLookupRecord(lookupRecord, fallbackId);
-  const includedId = normalizeLookupId(normalizedLookupRecord?.id ?? fallbackId);
+  const includedId = normalizeOptionalText(normalizedLookupRecord?.id ?? fallbackId);
   if (!normalizedLookupRecord || !includedId) {
     return;
   }
@@ -355,7 +344,7 @@ function createLookupIncludedResolver(definition = null, {
           continue;
         }
 
-        const relationshipId = normalizeLookupId(record[entry.attributeKey]);
+        const relationshipId = normalizeOptionalText(record[entry.attributeKey]);
         const lookupRecord = sourceLookups[entry.attributeKey] ?? sourceLookups[entry.relationshipName];
         appendIncludedRelationshipResource({
           included,
@@ -371,13 +360,26 @@ function createLookupIncludedResolver(definition = null, {
   };
 }
 
+/**
+ * The transport contracts of a CRUD resource's routes, derived from its definition and input schemas.
+ * @param {object} [options]
+ * @param {object} [options.resource]
+ * @param {object | null} [options.routeParamsValidator]
+ * @param {readonly string[]} [options.operations]
+ * @param {{ create?: object, update?: object }} [options.operationInputs]
+ * @param {object} [options.listSearchQueryValidator]
+ * @param {object} [options.lookupIncludeQueryValidator]
+ * @param {object | null} [options.listFilterQueryValidator]
+ */
 function createCrudJsonApiRouteContracts({
+  // readable-check: allow dependency-default - data: a resource definition
   resource = {},
   routeParamsValidator = null,
   operations = ["list", "view", "create", "update", "delete"],
   operationInputs = {},
   listSearchQueryValidator = defaultListSearchQueryValidator,
   lookupIncludeQueryValidator = defaultLookupIncludeQueryValidator,
+  // readable-check: allow dependency-default - data: an optional input schema
   listFilterQueryValidator = null
 } = {}) {
   const enabledOperations = new Set(operations);

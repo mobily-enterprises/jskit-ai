@@ -141,6 +141,7 @@ function normalizeCrudVirtualFieldHandlers(
     if (!handlerConfig || typeof handlerConfig !== "object" || Array.isArray(handlerConfig)) {
       throw new TypeError(`${context} virtualFields["${key}"] must be an object.`);
     }
+    // readable-check: allow method-probe - input validation: an application's virtual field handler must have applyProjection()
     if (typeof handlerConfig.applyProjection !== "function") {
       throw new TypeError(`${context} virtualFields["${key}"].applyProjection must be a function.`);
     }
@@ -650,6 +651,7 @@ function applyConfiguredQueryStage(
     };
   }
 
+  // readable-check: allow method-probe - data: an application's query stage may return a promise
   if (directResult && typeof directResult.then === "function") {
     return Promise.resolve(directResult).then((awaitedResult) => {
       if (awaitedResult === undefined || awaitedResult === dbQuery) {
@@ -690,6 +692,7 @@ function isCrudRepositoryQueryBuilder(value) {
     "del",
     "first",
     "modify"
+    // readable-check: allow method-probe - platform object: a query stage's result is a query builder when it has one of its methods
   ].some((key) => typeof value[key] === "function");
 }
 
@@ -727,14 +730,12 @@ async function applyConfiguredObjectStage(
 function applyOrderedListControls(dbQuery, orderBy = []) {
   let nextQuery = dbQuery;
   for (const descriptor of Array.isArray(orderBy) ? orderBy : []) {
-    if (typeof nextQuery.orderByRaw === "function") {
-      nextQuery = nextQuery.orderByRaw(
-        descriptor.nulls === LIST_ORDER_NULLS_FIRST
-          ? "?? is null desc"
-          : "?? is null asc",
-        [descriptor.column]
-      );
-    }
+    nextQuery = nextQuery.orderByRaw(
+      descriptor.nulls === LIST_ORDER_NULLS_FIRST
+        ? "?? is null desc"
+        : "?? is null asc",
+      [descriptor.column]
+    );
     nextQuery = nextQuery.orderBy(descriptor.column, descriptor.direction);
   }
 
@@ -749,13 +750,7 @@ function enforceCrudRepositoryListControls(
     orderBy = []
   } = {}
 ) {
-  let nextQuery = dbQuery;
-  if (typeof nextQuery.clearOrder === "function") {
-    nextQuery = nextQuery.clearOrder();
-  }
-  if (typeof nextQuery.clear === "function") {
-    nextQuery = nextQuery.clear("limit");
-  }
+  const nextQuery = dbQuery.clearOrder().clear("limit");
 
   const normalizedOrderBy = Array.isArray(orderBy) ? orderBy : [];
   if (normalizedOrderBy.length > 0) {
@@ -842,7 +837,7 @@ function resolveCrudRepositoryCall(runtime, knex, callOptions = {}) {
 }
 
 function applyCrudRepositoryReadLock(dbQuery, callOptions = {}) {
-  if (callOptions?.forUpdate === true && typeof dbQuery.forUpdate === "function") {
+  if (callOptions?.forUpdate === true) {
     return dbQuery.forUpdate();
   }
 
@@ -1367,6 +1362,11 @@ async function deleteRecordById(runtime, knex, recordId, callOptions = {}) {
   };
 }
 
+/**
+ * @param {object} resource
+ * @param {import("@jskit-ai/database-runtime/server/types").RuntimeDatabase["knex"]} knex
+ * @param {object} [repositoryOptions]
+ */
 function createCrudResourceRuntime(resource = {}, knex, repositoryOptions = {}) {
   if (typeof knex !== "function") {
     throw new TypeError("createCrudResourceRuntime requires knex.");

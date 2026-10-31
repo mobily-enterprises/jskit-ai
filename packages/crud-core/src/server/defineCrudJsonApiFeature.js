@@ -59,6 +59,7 @@ function normalizeScope(scope = {}) {
         .map((entry) => normalizeText(entry))
         .filter(Boolean)
     )]),
+    // readable-check: allow method-probe - input validation: the scope an application passes may define input()
     input: typeof scope.input === "function" ? scope.input : null
   });
 }

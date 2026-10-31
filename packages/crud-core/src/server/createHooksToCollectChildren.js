@@ -31,6 +31,7 @@ function toDefaultChildCallOptions(callOptions = {}) {
 }
 
 function resolveListChildrenHandler(options = {}, { context = "createHooksToCollectChildren" } = {}) {
+  // readable-check: allow method-probe - input validation: an optional hook the application passes; its named default applies otherwise
   if (typeof options.listChildren === "function") {
     return options.listChildren;
   }
@@ -79,6 +80,7 @@ function resolveListChildrenHandler(options = {}, { context = "createHooksToColl
 }
 
 function resolveGetChildOwnerId(options = {}, { context = "createHooksToCollectChildren" } = {}) {
+  // readable-check: allow method-probe - input validation: an optional hook the application passes; its named default applies otherwise
   if (typeof options.getChildOwnerId === "function") {
     return options.getChildOwnerId;
   }
@@ -129,20 +131,24 @@ function createHooksToCollectChildren(options = {}) {
   const listChildren = resolveListChildrenHandler(options, {
     context
   });
+  // readable-check: allow method-probe - input validation: an optional hook the application passes; its named default applies otherwise
   const getParentId = typeof options.getParentId === "function"
     ? options.getParentId
     : (record = {}) => record?.id;
   const getChildOwnerId = resolveGetChildOwnerId(options, {
     context
   });
+  // readable-check: allow method-probe - input validation: an optional hook the application passes; its named default applies otherwise
   const normalizeCollectionOwnerKey = typeof options.normalizeOwnerKey === "function"
     ? options.normalizeOwnerKey
     : normalizeOwnerKey;
+  // readable-check: allow method-probe - input validation: an optional hook the application passes; its named default applies otherwise
   const buildChildCallOptions = typeof options.buildChildCallOptions === "function"
     ? options.buildChildCallOptions
     : ({ callOptions = {} } = {}) => toDefaultChildCallOptions(callOptions);
   const stateMapKey = options.stateMapKey || Symbol(`crud.children.${childKey}`);
   const attachToLookupContainer = options.attachToLookupContainer !== false;
+  // readable-check: allow method-probe - input validation: an optional hook the application passes; its named default applies otherwise
   const attachChildren = typeof options.attachChildren === "function"
     ? options.attachChildren
     : (record = {}, children = [], hookContext = {}) => {

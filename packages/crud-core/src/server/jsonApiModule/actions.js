@@ -5,6 +5,7 @@ import {
 } from "@jskit-ai/kernel/shared/validators";
 import { RestApiWriteError } from "json-rest-api";
 import { normalizeJsonApiFieldsets } from "@jskit-ai/kernel/shared/support/jsonApiFieldsets";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { ARCHITECTURE_ID_PATTERN } from "@jskit-ai/kernel/shared/capabilities";
 import { createEntityChangedActionEvent } from "@jskit-ai/kernel/server/actions";
 import {
@@ -23,6 +24,7 @@ import {
   createStandardCrudListQueryValidators,
   createStandardCrudViewQueryValidators
 } from "../listQueryValidators.js";
+import { normalizeOptionalText } from "../normalizeOptionalText.js";
 
 const CRUD_OPERATION_NAMES = Object.freeze(["list", "view", "create", "update", "delete"]);
 const CRUD_MUTATION_NAMES = new Set(["create", "update", "delete"]);
@@ -34,18 +36,6 @@ const CRUD_ASSISTANT_RESOURCE_OPERATION = Object.freeze({
   update: "patch",
   delete: "delete"
 });
-
-function isRecord(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
-function normalizeOptionalCursor(value) {
-  if (value == null) {
-    return null;
-  }
-  const normalized = String(value).trim();
-  return normalized || null;
-}
 
 function resolveAssistantResultValue(result) {
   const taggedResult = unwrapJsonApiResult(result);
@@ -61,6 +51,7 @@ function createProjectionRecordSchema(recordSchema, {
   lookupContainerKey = "",
   relationshipEntries = []
 } = {}) {
+  // readable-check: allow optional-call - data: a resource's output schema without field definitions passes through
   const definitions = recordSchema?.getFieldDefinitions?.();
   if (!isRecord(definitions)) {
     return recordSchema;
@@ -138,6 +129,7 @@ function createProjectionOutputDefinition(output, operation, relationshipEntries
 
   const listFields = resolveSchemaFieldDefinitions(output);
   const items = listFields.items;
+  // readable-check: allow method-probe - data: a resource's output schema without field definitions passes through
   if (!isRecord(items) || items.type !== "array" || typeof items.items?.getFieldDefinitions !== "function") {
     return output;
   }
@@ -219,9 +211,9 @@ function projectCrudAssistantReadRecord(record, {
   return projectedRecord;
 }
 
-function createCrudAssistantResultProjection(input = {}, resource = {}, relationshipEntries = []) {
+function createCrudAssistantResultProjection(input, resource = {}, relationshipEntries = []) {
   const primaryType = String(resource?.namespace || "").trim();
-  const fieldsets = normalizeJsonApiFieldsets(input?.fields, {
+  const fieldsets = normalizeJsonApiFieldsets(input.fields, {
     primaryType
   });
   if (Object.keys(fieldsets).length < 1) {
@@ -297,7 +289,7 @@ function transformCrudAssistantResult(operation, result, {
       );
       return projectReadResult({
         items: decoded.items,
-        nextCursor: normalizeOptionalCursor(decoded.nextCursor)
+        nextCursor: normalizeOptionalText(decoded.nextCursor)
       });
     }
     if (Array.isArray(resolved.value)) {
@@ -309,7 +301,7 @@ function transformCrudAssistantResult(operation, result, {
     if (isRecord(resolved.value) && Array.isArray(resolved.value.items)) {
       return projectReadResult({
         items: resolved.value.items,
-        nextCursor: normalizeOptionalCursor(resolved.value.nextCursor)
+        nextCursor: normalizeOptionalText(resolved.value.nextCursor)
       });
     }
     return resolved.value;
@@ -436,8 +428,12 @@ function createActionInput(
   return composeSchemaDefinitions(definitions, operation === "create" ? { mode: "create" } : {});
 }
 
-function omitInputKeys(input = {}, keys = []) {
-  const result = { ...(input && typeof input === "object" && !Array.isArray(input) ? input : {}) };
+/**
+ * @param {object} input
+ * @param {readonly string[]} [keys]
+ */
+function omitInputKeys(input, keys = []) {
+  const result = { ...(isRecord(input) ? input : {}) };
   for (const key of keys) {
     delete result[key];
   }
@@ -459,6 +455,7 @@ function normalizeCrudOperationLifecycle(value = {}) {
       if (!CRUD_LIFECYCLE_PHASES.includes(name)) {
         throw new TypeError(`CRUD operationLifecycle.${operation} has unknown phase "${name}".`);
       }
+      // readable-check: allow method-probe - input validation: each operationLifecycle phase an application passes must be a function
       if (typeof hooks[name] !== "function") {
         throw new TypeError(`CRUD operationLifecycle.${operation}.${name} must be a function.`);
       }
@@ -517,6 +514,7 @@ function normalizeAdditionalActions(value = {}, {
     if (!definition || typeof definition !== "object" || Array.isArray(definition)) {
       throw new TypeError(`CRUD custom action "${actionName}" must be an object.`);
     }
+    // readable-check: allow method-probe - input validation: an application's custom action must have execute()
     if (typeof definition.execute !== "function") {
       throw new TypeError(`CRUD custom action "${actionName}" requires execute().`);
     }
@@ -543,28 +541,45 @@ function normalizeAdditionalActions(value = {}, {
   }));
 }
 
+/**
+ * The standard and custom actions of one CRUD feature.
+ * @param {object} dependencies
+ * @param {string} dependencies.namespace
+ * @param {object} dependencies.resource
+ * @param {import("../types.js").CrudResourceApi["repository"]} dependencies.repository
+ * @param {import("../types.js").CrudResourceApi["service"]} dependencies.service
+ * @param {string} dependencies.surface
+ * @param {(operation: string) => object} dependencies.permissionForOperation
+ * @param {(actionName: string) => object} [dependencies.permissionForAction]
+ * @param {readonly string[]} [dependencies.operations]
+ * @param {object | null} [dependencies.scopeInputValidator]
+ * @param {readonly string[]} [dependencies.scopeInputKeys]
+ * @param {object | null} [dependencies.listFilterQueryValidator]
+ * @param {Record<string, object>} [dependencies.operationLifecycle]
+ * @param {{ create?: object, update?: object }} [dependencies.operationInputs]
+ * @param {Record<string, object>} [dependencies.actions]
+ * @param {Record<string, unknown>} [dependencies.dependencies]
+ * @param {string} [dependencies.realtimeAudience]
+ */
 function createCrudJsonApiActions({
   namespace,
   resource,
-  repository = null,
+  repository,
   service,
   surface,
   permissionForOperation,
   permissionForAction = permissionForOperation,
   operations = CRUD_OPERATION_NAMES,
-  scopeInputValidator = null,
+  scopeInputValidator,
   scopeInputKeys = [],
-  listFilterQueryValidator = null,
+  listFilterQueryValidator,
   operationLifecycle = {},
-  operationInputs = {},
+  operationInputs,
   actions: additionalActionDefinitions = {},
   dependencies = {},
   realtimeAudience = "event_scope"
-} = {}) {
+}) {
   const actionId = (operation) => `crud.${namespace}.${operation}`;
-  if (!service || typeof service !== "object") {
-    throw new TypeError("createCrudJsonApiActions requires service.");
-  }
   const permission = (operation) => permissionForOperation(operation);
   const input = (operation) => createActionInput(
     resource,
@@ -613,11 +628,7 @@ function createCrudJsonApiActions({
       return result;
     }
 
-    const mutation = CRUD_MUTATION_NAMES.has(operation);
-    if (mutation && (!repository || typeof repository.withTransaction !== "function")) {
-      throw new TypeError(`CRUD operationLifecycle.${operation} requires repository.withTransaction().`);
-    }
-    const result = mutation ? await repository.withTransaction(run) : await run();
+    const result = CRUD_MUTATION_NAMES.has(operation) ? await repository.withTransaction(run) : await run();
     if (hooks.afterCommit) {
       try {
         await hooks.afterCommit(createLifecycleContext({

@@ -465,6 +465,7 @@ function normalizeLookup(provider, relation = {}, { context = "crudRepository" }
   if (!provider || typeof provider !== "object" || Array.isArray(provider)) {
     throw new Error(`${context} could not resolve lookup "${relation.namespace}".`);
   }
+  // readable-check: allow method-probe - input validation: an application's resolveLookup must return a provider with listByIds()
   if (typeof provider.listByIds !== "function") {
     throw new Error(`${context} lookup "${relation.namespace}" must expose listByIds(ids, options).`);
   }

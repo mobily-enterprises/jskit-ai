@@ -4,6 +4,11 @@ import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators";
 import { requireCrudNamespace } from "@jskit-ai/resource-crud-core/shared/crudNamespaceSupport";
 import { createCrudFieldAccessRuntime } from "./fieldAccess.js";
 
+/**
+ * The records repository a CRUD service reads and writes through, as createCrudResourceRuntime builds it.
+ * @typedef {ReturnType<typeof import("./resourceRuntime/index.js").createCrudResourceRuntime>} CrudRecordRepository
+ */
+
 function createCrudServiceRuntime(resource = {}, { context = "crudService" } = {}) {
   const namespace = requireCrudNamespace(resource?.namespace, { context: `${context} resource.namespace` });
   const fieldAccessRuntime = createCrudFieldAccessRuntime(resource, { context });
@@ -16,7 +21,11 @@ function createCrudServiceRuntime(resource = {}, { context = "crudService" } = {
   });
 }
 
-function requireCrudServiceRepository(runtime = {}, repository = null) {
+/**
+ * @param {ReturnType<typeof createCrudServiceRuntime>} runtime
+ * @param {CrudRecordRepository} repository
+ */
+function requireCrudServiceRepository(runtime, repository) {
   if (!repository) {
     throw new Error(`${runtime?.context || "crudService"} requires repository.`);
   }
@@ -45,6 +54,10 @@ function splitCrudListRepositoryCall(query = {}, options = {}) {
   };
 }
 
+/**
+ * @param {ReturnType<typeof createCrudServiceRuntime>} runtime
+ * @param {CrudRecordRepository} repository
+ */
 async function crudServiceListRecords(runtime, repository, fieldAccess = {}, query = {}, options = {}) {
   const resolvedRepository = requireCrudServiceRepository(runtime, repository);
   const repositoryCall = splitCrudListRepositoryCall(query, options);
@@ -57,6 +70,10 @@ async function crudServiceListRecords(runtime, repository, fieldAccess = {}, que
   });
 }
 
+/**
+ * @param {ReturnType<typeof createCrudServiceRuntime>} runtime
+ * @param {CrudRecordRepository} repository
+ */
 async function crudServiceGetRecord(runtime, repository, fieldAccess = {}, recordId, options = {}) {
   const resolvedRepository = requireCrudServiceRepository(runtime, repository);
   const record = await resolvedRepository.findById(recordId, options);
@@ -72,6 +89,10 @@ async function crudServiceGetRecord(runtime, repository, fieldAccess = {}, recor
   });
 }
 
+/**
+ * @param {ReturnType<typeof createCrudServiceRuntime>} runtime
+ * @param {CrudRecordRepository} repository
+ */
 async function crudServiceCreateRecord(runtime, repository, fieldAccess = {}, payload = {}, options = {}) {
   const resolvedRepository = requireCrudServiceRepository(runtime, repository);
   const writablePayload = await runtime.fieldAccessRuntime.enforceWritablePayload(payload, fieldAccess, {
@@ -91,6 +112,10 @@ async function crudServiceCreateRecord(runtime, repository, fieldAccess = {}, pa
   });
 }
 
+/**
+ * @param {ReturnType<typeof createCrudServiceRuntime>} runtime
+ * @param {CrudRecordRepository} repository
+ */
 async function crudServiceUpdateRecord(runtime, repository, fieldAccess = {}, recordId, payload = {}, options = {}) {
   const resolvedRepository = requireCrudServiceRepository(runtime, repository);
   const existingRecord = await resolvedRepository.findById(recordId, options);
@@ -122,6 +147,10 @@ async function crudServiceUpdateRecord(runtime, repository, fieldAccess = {}, re
   });
 }
 
+/**
+ * @param {ReturnType<typeof createCrudServiceRuntime>} runtime
+ * @param {CrudRecordRepository} repository
+ */
 async function crudServiceDeleteRecord(runtime, repository, fieldAccess = {}, recordId, options = {}) {
   const resolvedRepository = requireCrudServiceRepository(runtime, repository);
   const deleted = await resolvedRepository.deleteById(recordId, options);

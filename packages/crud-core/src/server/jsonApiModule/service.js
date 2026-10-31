@@ -8,11 +8,8 @@ function requireDocument(document = null) {
   return document;
 }
 
-function createCrudJsonApiService({ repository } = {}) {
-  if (!repository) {
-    throw new TypeError("createCrudJsonApiService requires repository.");
-  }
-
+/** @param {{ repository: ReturnType<typeof import("./repository.js").createCrudJsonApiRepository> }} dependencies */
+function createCrudJsonApiService({ repository }) {
   return Object.freeze({
     async queryDocuments(query = {}, options = {}) {
       return returnJsonApiDocument(await repository.queryDocuments(query, {

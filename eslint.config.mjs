@@ -22,9 +22,21 @@ export default [
     "packages/database-runtime/src/server/**",
     "packages/database-runtime-mysql/src/server/**",
     "packages/database-runtime-postgres/src/server/**",
-    "packages/json-rest-api-core/src/server/**"
+    "packages/json-rest-api-core/src/server/**",
+    "packages/crud-core/src/server/**"
   ]),
   ...typedFeaturesConfig(["packages/auth-core/src/server/**"]),
+  {
+    // Over 750 lines until their split runs bring them under it.
+    files: [
+      "packages/crud-core/src/server/jsonApiModule/actions.js",
+      "packages/crud-core/src/server/listFilters.js",
+      "packages/crud-core/src/server/resourceRuntime/index.js"
+    ],
+    rules: {
+      "max-lines": "off"
+    }
+  },
   ...webConfig,
   ...nodeConfig,
   ...vueConfig,

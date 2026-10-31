@@ -19,7 +19,7 @@ function createScopeInput(scopeInput, request) {
 
 function createCustomActionInput(scopeInput, route, request) {
   const scopedInput = createScopeInput(scopeInput, request);
-  if (typeof route.input === "function") {
+  if (route.input) {
     const input = route.input(request);
     if (!input || typeof input !== "object" || Array.isArray(input)) {
       throw new TypeError("CRUD custom action route.input() must return an object.");
@@ -56,6 +56,7 @@ function normalizeCustomActionRoutes(actions = {}, namespace = "") {
     if (!route.contract || typeof route.contract !== "object" || Array.isArray(route.contract)) {
       throw new TypeError(`CRUD custom action "${name}" route.contract must be an object.`);
     }
+    // readable-check: allow method-probe - input validation: a custom action route's input must be a function
     if (route.input != null && typeof route.input !== "function") {
       throw new TypeError(`CRUD custom action "${name}" route.input must be a function.`);
     }
@@ -76,6 +77,7 @@ function normalizeCustomActionRoutes(actions = {}, namespace = "") {
   }));
 }
 
+/** @param {import("@jskit-ai/kernel/server/types").RuntimeHttp["router"]} router */
 function registerCrudJsonApiRoutes(router, {
   namespace,
   resource,
@@ -92,9 +94,6 @@ function registerCrudJsonApiRoutes(router, {
   routeParamsValidator = null,
   scopeInput = null
 } = {}) {
-  if (!router || typeof router.register !== "function") {
-    throw new TypeError("registerCrudJsonApiRoutes requires router.");
-  }
   const normalizedSurface = normalizeSurfaceId(surface);
   const basePath = resolveScopedApiBasePath({
     routeBase,
