@@ -25,6 +25,7 @@ const CRUD_CONTROLLER_OPERATIONS = Object.freeze(["list", "view", "create", "upd
 const CRUD_SCREEN_TRANSPORT_KEYS = Object.freeze(["screen", "client", "surfaceId", "transport"]);
 const CRUD_SCREEN_CLIENT_KEYS = Object.freeze(["client", "surfaceId", "transport", "resource"]);
 const MAX_UNROLLED_ELEMENTS = 64;
+const MAX_ROUTER_HOPS = 4;
 
 // Framework sources whose declarations this inspector reads statically.
 const SOURCES = Object.freeze({
@@ -450,6 +451,9 @@ function indexDeclaration(module, node, parent) {
           module.exports.set(entry.id.name, { local: entry.id.name });
         }
       }
+    }
+    if (node.declaration?.type === "FunctionDeclaration" && node.declaration.id) {
+      module.exports.set(node.declaration.id.name, { local: node.declaration.id.name });
     }
   }
   if (node.type === "ImportDeclaration") {
@@ -1076,11 +1080,8 @@ async function discoverEntryOperations(inspection) {
     }
     await recordActionRouteScopes(inspection, { module, file });
     const featureFactories = importedNames(module, SOURCES.kernelFeatures, "defineFeature");
-    if (!featureFactories.size) {
-      continue;
-    }
-    for (const record of module.nodes) {
-      recordFeatureRoute(inspection, { module, file, record, featureFactories });
+    for (const record of module.nodes.filter((entry) => isLocalCall(entry, featureFactories))) {
+      await recordFeatureRoutes(inspection, { module, record });
     }
   }
 }
@@ -1142,41 +1143,197 @@ async function recordCrudController(inspection, { module, file, record }) {
   }
 }
 
-// `http.router.register(method, path, options, handler)` inside a
-// `defineFeature` setup that receives `http`.
-function recordFeatureRoute(inspection, { module, file, record, featureFactories }) {
-  const { node, ancestors, offset } = record;
-  if (node.type !== "CallExpression" || node.callee.type !== "MemberExpression" || node.callee.computed || node.callee.property.name !== "register") {
+// Routes registered with `router.register(method, path, options, handler)` on
+// the HTTP router a `defineFeature` setup receives: `http.router` of its
+// destructured `http` dependency, or `dependencies.http.router`. The setup
+// may register there or pass the router to project functions (local, or
+// imported through named imports and re-exports, at most four calls deep)
+// that register on the parameter receiving it.
+async function recordFeatureRoutes(inspection, { module, record }) {
+  const definition = bindingNode(record.node.arguments[0], module.bindings);
+  const setup = definition?.type === "ObjectExpression" ? featureSetup(module, definition) : null;
+  const router = setup && setupRouter(setup);
+  if (router) {
+    await recordRouterRoutes(inspection, { module, fn: setup, router, depth: 0, seen: new Set() });
+  }
+}
+
+function featureSetup(module, definition) {
+  const member = definition.properties.find((entry) =>
+    ["ObjectMethod", "ObjectProperty"].includes(entry.type) && !entry.computed && propertyKey(entry) === "setup");
+  if (member?.type === "ObjectMethod") {
+    return member;
+  }
+  const value = member?.value.type === "Identifier" ? localFunction(module, member.value.name) : member?.value;
+  return value && isFunctionNode(value) ? value : null;
+}
+
+function isNamedMember(node, name) {
+  return node?.type === "MemberExpression" && !node.computed && node.property.type === "Identifier" && node.property.name === name;
+}
+
+// How a setup names its HTTP router, from its first parameter.
+function setupRouter(setup) {
+  const parameter = setup.params[0];
+  if (parameter?.type === "Identifier") {
+    const { name } = parameter;
+    return {
+      name,
+      matches: (node) => isNamedMember(node, "router") && isNamedMember(node.object, "http") &&
+        node.object.object.type === "Identifier" && node.object.object.name === name
+    };
+  }
+  const dependency = parameter?.type === "ObjectPattern" &&
+    parameter.properties.find((entry) => entry.type === "ObjectProperty" && !entry.computed && propertyKey(entry) === "http");
+  if (dependency?.value?.type !== "Identifier") {
+    return null;
+  }
+  const { name } = dependency.value;
+  return {
+    name,
+    matches: (node) => isNamedMember(node, "router") && node.object.type === "Identifier" && node.object.name === name
+  };
+}
+
+function parameterRouter(parameter) {
+  const name = parameter?.type === "AssignmentPattern" ? parameter.left.name : parameter?.name;
+  return parameter && [parameter.type, parameter.left?.type].includes("Identifier") && name
+    ? { name, matches: (node) => node.type === "Identifier" && node.name === name }
+    : null;
+}
+
+// Whether a node lies inside `fn`, with no function in between binding `name`.
+function bindsWithin(record, fn, name) {
+  for (let current = record.parent; current; current = current.parent) {
+    if (current.node === fn) {
+      return true;
+    }
+    if (current.node.params?.some((parameter) => collectNodes(parameter).some(({ node }) => node.type === "Identifier" && node.name === name))) {
+      return false;
+    }
+  }
+  return false;
+}
+
+async function recordRouterRoutes(inspection, { module, fn, router, depth, seen }) {
+  const identity = `${module.path}:${fn.start}:${router.name}`;
+  if (seen.has(identity)) {
     return;
   }
-  const router = node.callee.object;
-  if (router.type !== "MemberExpression" || router.computed || router.property.name !== "router" || router.object.type !== "Identifier") {
+  seen.add(identity);
+  const calls = module.nodes
+    .filter((record) => record.node.type === "CallExpression" && bindsWithin(record, fn, router.name))
+    .sort((left, right) => left.node.start - right.node.start);
+  for (const record of calls) {
+    const { callee, arguments: args } = record.node;
+    if (isNamedMember(callee, "register") && router.matches(callee.object)) {
+      recordRouterRoute(inspection, module, record);
+      continue;
+    }
+    const position = args.findIndex((argument) => router.matches(argument));
+    const target = position >= 0 && depth < MAX_ROUTER_HOPS && callee.type === "Identifier"
+      ? await projectFunction(inspection, module, callee.name)
+      : null;
+    const next = target && parameterRouter(target.fn.params[position]);
+    if (next) {
+      await recordRouterRoutes(inspection, { module: target.module, fn: target.fn, router: next, depth: depth + 1, seen });
+    }
+  }
+}
+
+function recordRouterRoute(inspection, module, record) {
+  const { node, offset } = record;
+  const identity = `${module.path}:${offset + node.start}`;
+  if (inspection.routeRegistrations.has(identity)) {
     return;
   }
-  const feature = ancestors.find((entry) => entry.type === "CallExpression" && entry.callee.type === "Identifier" && featureFactories.has(entry.callee.name));
-  const setup = ancestors.slice().reverse().find((entry) => entry.type === "ObjectMethod" && entry.key.name === "setup");
-  const setupParameter = setup?.params[0];
-  const dependency = setupParameter?.type === "ObjectPattern" &&
-    setupParameter.properties.find((entry) => entry.type === "ObjectProperty" && entry.key.name === "http");
-  if (!feature || dependency?.value?.name !== router.object.name) {
-    return;
-  }
-  const method = staticValue(node.arguments[0], module.bindings);
-  const operation = staticValue(node.arguments[1], module.bindings);
+  inspection.routeRegistrations.add(identity);
+  const method = routeLiteral(module, node.arguments[0]);
+  const operation = routeLiteral(module, node.arguments[1]);
   const handler = node.arguments[3];
-  if (typeof method !== "string" || typeof operation !== "string" || !handler || !isFunctionNode(handler)) {
-    warn(inspection, "CONTROLLER_UNRESOLVED", "A route's application handler or identity is dynamic.", file);
+  if (typeof method !== "string" || !/^[A-Za-z]+$/u.test(method) || typeof operation !== "string" || !handler || !isFunctionNode(handler)) {
+    warn(inspection, "CONTROLLER_UNRESOLVED", "A route's application handler or identity is dynamic.", module.path);
     return;
   }
   const entry = {
-    id: `entry:${inspection.httpScope}:${file}:${node.start}`,
+    id: `entry:${inspection.httpScope}:${module.path}:${node.start}`,
     key: { protocol: "http", scope: inspection.httpScope, method: method.toUpperCase(), operation: `${inspection.apiBasePath}${operation}` },
-    controllerFile: file,
+    controllerFile: module.path,
     resolution: "resolved",
     evidence: sourceEvidence(module, node, offset)
   };
   inspection.output.entryOperations.push(entry);
-  inspection.handlerRanges.set(entry, { file, start: offset + handler.start, end: offset + handler.end });
+  inspection.handlerRanges.set(entry, { file: module.path, start: offset + handler.start, end: offset + handler.end });
+}
+
+// A route method or path, as staticValue reads it, where a call of the
+// kernel's resolveScopedApiBasePath with literal options (directly, through a
+// local binding or inside a template literal) stands for the path it returns.
+function routeLiteral(module, node, seen = new Set()) {
+  if (node?.type === "Identifier" && module.bindings.has(node.name) && !seen.has(node.name)) {
+    return routeLiteral(module, module.bindings.get(node.name), new Set([...seen, node.name]));
+  }
+  if (node?.type === "TemplateLiteral") {
+    const parts = node.expressions.map((entry) => routeLiteral(module, entry, seen));
+    return parts.every((part) => typeof part === "string")
+      ? node.quasis.map((entry, index) => entry.value.cooked + (parts[index] ?? "")).join("")
+      : undefined;
+  }
+  if (node?.type === "CallExpression" && node.callee.type === "Identifier" &&
+    module.imports.get(node.callee.name)?.source.startsWith("@jskit-ai/kernel/") &&
+    module.imports.get(node.callee.name).imported === "resolveScopedApiBasePath") {
+    const options = staticValue(node.arguments[0], module.bindings);
+    if (!options || typeof options !== "object" || Array.isArray(options) || "params" in options) {
+      return undefined;
+    }
+    try {
+      return resolveScopedApiBasePath(options);
+    } catch {
+      return undefined;
+    }
+  }
+  return staticValue(node, module.bindings, seen);
+}
+
+// The project function a name refers to in a module: a top-level function
+// declaration or a function bound to the name, or one imported through named
+// imports and re-exports of indexed files.
+async function projectFunction(inspection, module, name, seen = new Set()) {
+  const identity = `${module.path}:${name}`;
+  if (seen.has(identity) || seen.size >= MAX_RESOURCE_HOPS) {
+    return null;
+  }
+  const next = new Set([...seen, identity]);
+  const imported = module.imports.get(name);
+  if (!imported) {
+    const fn = localFunction(module, name);
+    return fn ? { module, fn } : null;
+  }
+  return exportedFunction(inspection, module, imported.source, imported.imported, next);
+}
+
+async function exportedFunction(inspection, module, source, name, seen) {
+  const target = resolveImport(inspection, module.path, source);
+  const owner = target && await loadModule(inspection, target);
+  const entry = owner?.exports.get(name);
+  const identity = `${owner?.path}:export:${name}`;
+  if (!entry || seen.has(identity) || seen.size >= MAX_RESOURCE_HOPS) {
+    return null;
+  }
+  const next = new Set([...seen, identity]);
+  return entry.source
+    ? exportedFunction(inspection, owner, entry.source, entry.local, next)
+    : projectFunction(inspection, owner, entry.local, next);
+}
+
+function localFunction(module, name) {
+  const declaration = module.nodes.find(({ node, parent }) => node.type === "FunctionDeclaration" && node.id?.name === name &&
+    ["Program", "ExportNamedDeclaration"].includes(parent?.node.type));
+  if (declaration) {
+    return declaration.node;
+  }
+  const value = module.bindings.get(name);
+  return value && isFunctionNode(value) ? value : null;
 }
 
 // The literal value of a scope option: a string literal, or a local or
@@ -1570,6 +1727,7 @@ async function inspectVueArchitecture({
     sources: new Map(),
     checkedDirectories: new Set(),
     handlerRanges: new Map(),
+    routeRegistrations: new Set(),
     components: new Map(),
     pages: new Map()
   };

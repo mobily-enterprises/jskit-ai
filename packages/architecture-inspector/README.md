@@ -56,11 +56,20 @@ Each discovery supplies `id`, `adapter`, `surface`, `mode`, `registrations`,
   not evidence of runtime calls. Coverage remains partial; namespace use does
   not establish which individual exports are consumed.
 - An HTTP scope names the application's operations and enables scoped literal
-  `fetch` uses and receivers registered through JSKIT's `defineFeature` setup
-  `http.router.register`. It is the root `package.json` `name`, or
-  `--http-scope shop` when the operations should carry another name; without
-  either, HTTP observations stay unconfigured. `--api-base-path /api` prefixes
-  `http.router.register` paths. Use `--alias @=src` for declared project aliases.
+  `fetch` uses and the routes a `defineFeature` setup registers on its HTTP
+  router. It is the root `package.json` `name`, or `--http-scope shop` when
+  the operations should carry another name; without either, HTTP observations
+  stay unconfigured. Use `--alias @=src` for declared project aliases.
+- `router.register(method, path, options, handler)` becomes an entry operation
+  whose controller is the handler, when the router is `http.router` of the
+  setup's destructured `http` dependency (or `dependencies.http.router`), used
+  in the setup or passed to a project function that registers on the parameter
+  receiving it. Such functions may be local or imported through named imports
+  and re-exports, at most four calls deep. The method and path must be
+  literals, local constants or template literals of them; a call of the
+  kernel's `resolveScopedApiBasePath` with literal options stands for the path
+  it returns. Anything else is reported as `CONTROLLER_UNRESOLVED`.
+  `--api-base-path /api` prefixes these paths.
 - Actual `CrudListScreen` / `CrudAddEditScreen` uses whose bound screen comes from
   the matching JSKIT composable can connect to exported `defineCrudJsonApiFeature`
   controller declarations. The resource must resolve through indexed imports and
