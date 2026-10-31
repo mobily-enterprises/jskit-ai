@@ -48,7 +48,8 @@ export default [
   ]),
   ...typedFeaturesConfig([
     "packages/connectors-core/src/server/**",
-    "packages/connector-google-calendar/src/server/**"
+    "packages/connector-google-calendar/src/server/**",
+    "packages/connectors-catalog/src/server/**"
   ]),
   {
     // Over 750 lines, with a factory over 600, until their split runs bring them under.
