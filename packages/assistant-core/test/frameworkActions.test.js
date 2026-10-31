@@ -9,6 +9,20 @@ import { createAssistantActions } from "../../assistant-runtime/src/server/actio
 import { accountSettingsResponseFormatter } from "../../users-core/src/server/common/formatters/accountSettingsResponseFormatter.js";
 import { DEFAULT_USER_SETTINGS } from "../../users-core/src/shared/settings.js";
 
+// Each action's definition with a run(service, input, context) that executes
+// it against the service a test supplies.
+function specificationsOf(createActions) {
+  let service = null;
+  const forwarding = new Proxy({}, { get: (_target, method) => (...args) => service[method](...args) });
+  return createActions(new Proxy({}, { get: () => forwarding })).map(({ execute, ...definition }) => ({
+    ...definition,
+    run(nextService, input, context) {
+      service = nextService;
+      return execute(input, context);
+    }
+  }));
+}
+
 const specifications = [];
 for (const owner of ["users-core", "workspaces-core", "console-core"]) {
   const directory = new URL(`../../${owner}/src/server/`, import.meta.url);
@@ -16,7 +30,7 @@ for (const owner of ["users-core", "workspaces-core", "console-core"]) {
     if (!path.endsWith("Actions.js")) continue;
     const module = await import(new URL(path, directory));
     for (const [name, value] of Object.entries(module)) {
-      if (name.endsWith("ActionSpecifications")) specifications.push(...value);
+      if (/^create\w+Actions$/u.test(name)) specifications.push(...specificationsOf(value));
     }
   }
 }
