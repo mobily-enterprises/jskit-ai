@@ -799,29 +799,50 @@ Local functions
 Exports
 - `wixProvider`
 Local functions
-- `serializeNativeJson(value)`
-- `guid(value)`
-- `requestPath(request, index)`
-- `sameRecord(matches, message, codes)`
-- `cursor(value)`
-- `bookingDirectoryOperation(kind)`
 - `validContact(value)`
 - `contactOperation(action)`
+- `wixSiteOperation(operation)`
+
+### `src/server/wixBookings.js`
+Exports
+- `wixBookingOperations`
+Local functions
+- `bookingDirectoryOperation(kind)`
 - `validService(value)`
 - `localDate(value)`
 - `validSlot(value)`
 - `requestedAvailability(value, requested, events)`
 - `availabilityOperation(action, events = false)`
-- `productReadOperation(version, action)`
+- `bookingConfirmationOperation(action)`
+
+### `src/server/wixCms.js`
+Exports
+- `wixCmsOperations`
+Local functions
 - `collectionId(value)`
 - `validCollection(value)`
+
+### `src/server/wixStores.js`
+Exports
+- `wixStoreOperations`
+Local functions
+- `productReadOperation(version, action)`
 - `locationWriteOperation(action)`
 - `locationActionOperation(action)`
 - `validLocation(value)`
 - `validOrder(value)`
-- `bookingConfirmationOperation(action)`
 - `fulfillmentWriteOperation(update)`
-- `wixSiteOperation(operation)`
+
+### `src/server/wixValues.js`
+Exports
+- `serializeNativeJson(value)`
+- `guid(value)`
+- `requestPath(request, index)`
+- `sameRecord(matches, message, codes)`
+- `cursor(value)`
+- `querySchema`
+- `contactIdField`
+- `nativeJsonObjectField`
 
 ### `src/server/wiz.js`
 Exports
