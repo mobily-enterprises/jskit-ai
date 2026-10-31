@@ -38,6 +38,24 @@
  */
 
 /**
+ * A caller's request about one integration: the application context that
+ * authorize() receives and the integration's id.
+ * @typedef {object} IntegrationRequest
+ * @property {any} context
+ * @property {string} integrationId
+ */
+
+/**
+ * A request that may reach the provider, which `signal` cancels.
+ * @typedef {IntegrationRequest & { signal?: AbortSignal }} ProviderRequest
+ */
+
+/**
+ * A request that connects an account, with the input its verification takes.
+ * @typedef {ProviderRequest & { verificationInput?: Record<string, any> }} ConnectRequest
+ */
+
+/**
  * One connection's stored state, held under the store's lock while work runs.
  * @typedef {object} ConnectionRecord
  * @property {Record<string, any> | null} connection The stored connection, or null.

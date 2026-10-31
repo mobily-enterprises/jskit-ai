@@ -121,6 +121,7 @@ function createConnectionService({
     return { owner: { applicationId: owner.applicationId, subjectId: owner.subjectId }, integration, provider };
   }
 
+  /** @param {import("./types.js").IntegrationRequest & { action: string, input?: any }} request */
   async function authorizeAssistantAction({ context, integrationId, action, input = {} }) {
     const provider = definitions.get(config.integrations[integrationId]?.provider);
     if (executionMode !== "assistant" || !provider?.assistantActions?.some((item) => item.value === action)) {
@@ -148,6 +149,7 @@ function createConnectionService({
     };
   }
 
+  /** @param {import("./types.js").ConnectRequest} request */
   async function connectServiceAccount({ context, integrationId, verificationInput = {}, signal }) {
     verificationInput = structuredClone(verificationInput);
     const { owner, integration, provider } = await access(context, integrationId, "connect");
@@ -172,6 +174,7 @@ function createConnectionService({
     });
   }
 
+  /** @param {import("./types.js").ConnectRequest} request */
   async function connectClientCredentials({ context, integrationId, verificationInput = {}, signal }) {
     verificationInput = structuredClone(verificationInput);
     const { owner, integration, provider } = await access(context, integrationId, "connect");
@@ -197,6 +200,7 @@ function createConnectionService({
     });
   }
 
+  /** @param {import("./types.js").ConnectRequest} request */
   async function beginAuthorization({ context, integrationId, verificationInput = {}, signal }) {
     const { owner, integration, provider } = await access(context, integrationId, "connect");
     if (integration.authentication.refreshTokenRef) {
@@ -238,6 +242,7 @@ function createConnectionService({
     return { authorizationUrl: url.href, expiresAt, callbackUrl: registration.callbackUrl };
   }
 
+  /** @param {import("./types.js").IntegrationRequest} request */
   async function resumeAuthorization({ context, integrationId }) {
     const { owner, integration, provider } = await access(context, integrationId, "connect");
     if (integration.authentication.method !== "oauth2") return null;
@@ -256,6 +261,7 @@ function createConnectionService({
     });
   }
 
+  /** @param {import("./types.js").ProviderRequest & { callbackUrl: string }} request */
   async function completeAuthorization({ context, integrationId, callbackUrl, signal }) {
     const { owner, integration, provider } = await access(context, integrationId, "connect");
     const registration = await connectionCredentials.registrationFor(integration, provider);
@@ -323,6 +329,10 @@ function createConnectionService({
     return outcome.result;
   }
 
+  /**
+   * @param {import("./types.js").ConnectRequest} request
+   * @param {"api-key" | "none"} method
+   */
   async function verifyDirectConnection({ context, integrationId, verificationInput = {}, signal }, method) {
     const { owner, integration, provider } = await access(context, integrationId, "connect");
     if (integration.authentication.method !== method || (method === "api-key" &&
@@ -349,9 +359,12 @@ function createConnectionService({
     });
   }
 
+  /** @param {import("./types.js").ConnectRequest} input */
   const connectApiKey = (input) => verifyDirectConnection(input, "api-key");
+  /** @param {import("./types.js").ConnectRequest} input */
   const connectWithoutCredentials = (input) => verifyDirectConnection(input, "none");
 
+  /** @param {import("./types.js").ProviderRequest & { operation: string, input?: any }} request */
   async function invoke({ context, integrationId, operation, input = {}, signal }) {
     // Authorize and execute the same input even if the caller changes its object while awaiting policy.
     input = structuredClone(input);
@@ -428,6 +441,7 @@ function createConnectionService({
     return outcome.result;
   }
 
+  /** @param {import("./types.js").IntegrationRequest} request */
   async function status({ context, integrationId }) {
     const { owner, integration, provider } = await access(context, integrationId, "status");
     // Compare against the configured registration without resolving its secrets.
@@ -470,6 +484,7 @@ function createConnectionService({
     });
   }
 
+  /** @param {import("./types.js").IntegrationRequest} request */
   async function disconnect({ context, integrationId }) {
     const { owner, integration } = await access(context, integrationId, "disconnect");
     if (integration.authentication.refreshTokenRef) {
@@ -479,6 +494,7 @@ function createConnectionService({
     return { status: "disconnected" };
   }
 
+  /** @param {import("./types.js").IntegrationRequest & { state: string }} request */
   async function cancelAuthorization({ context, integrationId, state }) {
     const { owner } = await access(context, integrationId, "connect", undefined, false);
     await store.withConnection({ owner, integrationId }, async ({ consumeAttempt }) => consumeAttempt(state));

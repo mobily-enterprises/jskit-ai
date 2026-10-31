@@ -90,6 +90,9 @@ Exports
 - `type ConnectorAuthorizationRequest`
 - `type ConnectorAuthorize`
 - `type ResolveReference`
+- `type IntegrationRequest`
+- `type ProviderRequest`
+- `type ConnectRequest`
 - `type ConnectionRecord`
 - `type ConnectionStore`
 - `type ConnectorRequest`
