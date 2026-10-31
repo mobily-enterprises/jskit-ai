@@ -194,6 +194,7 @@ Exports
 Exports
 - `resolveCrudLookupToken`
 - `createCrudLookup(repository, { context = "crudLookup", ownershipFilter = "" } = {})`
+- `type CrudLookupRepository`
 Local functions
 - `normalizeLookupOwnershipFilter(value, { context = "crudLookup ownershipFilter" } = {})`
 
