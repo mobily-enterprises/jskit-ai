@@ -2,10 +2,8 @@ import { createJsonApiResourceRouteContract } from "@jskit-ai/http-runtime/share
 import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
 import { resolveAccountSettingsResourceId } from "../common/support/accountSettingsJsonApiTransport.js";
 
+/** @param {import("@jskit-ai/kernel/server/types").RuntimeHttp["router"]} router */
 function registerAccountNotificationsRoutes(router) {
-  if (!router || typeof router.register !== "function") {
-    throw new TypeError("registerAccountNotificationsRoutes requires router.register().");
-  }
 
   router.register(
     "PATCH",

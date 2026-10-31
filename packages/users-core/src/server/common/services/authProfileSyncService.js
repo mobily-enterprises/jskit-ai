@@ -54,37 +54,15 @@ function requireSynchronizedProfile(profile) {
   throw new Error("Profile synchronization failed.");
 }
 
-function normalizeLifecycleContributors(entries = []) {
-  if (!Array.isArray(entries)) {
-    return [];
-  }
-
-  return entries.filter(
-    (entry) => entry && typeof entry === "object" && typeof entry.afterIdentityProfileSynced === "function"
-  );
-}
-
-function createService({
-  userProfilesRepository,
-  resolveLifecycleContributors = () => [],
-  userSettingsRepository = null
-} = {}) {
-  if (!userProfilesRepository || typeof userProfilesRepository.findByIdentity !== "function") {
-    throw new Error("authProfileSyncService requires userProfilesRepository.findByIdentity().");
-  }
-  if (typeof userProfilesRepository.upsert !== "function") {
-    throw new Error("authProfileSyncService requires userProfilesRepository.upsert().");
-  }
-  if (typeof userProfilesRepository.withTransaction !== "function") {
-    throw new Error("authProfileSyncService requires userProfilesRepository.withTransaction().");
-  }
-  if (!userSettingsRepository || typeof userSettingsRepository.ensureForUserId !== "function") {
-    throw new Error("authProfileSyncService requires userSettingsRepository.ensureForUserId().");
-  }
-
-  if (typeof resolveLifecycleContributors !== "function") {
-    throw new Error("authProfileSyncService requires resolveLifecycleContributors().");
-  }
+// The profile projector: keeps a users row in step with the identity that signs in.
+/**
+ * @param {object} dependencies
+ * @param {ReturnType<typeof import("../repositories/userProfilesRepository.js").createRepository>} dependencies.userProfilesRepository
+ * @param {ReturnType<typeof import("../repositories/userSettingsRepository.js").createRepository>} dependencies.userSettingsRepository
+ * @param {import("../../types.js").UsersExtensions["profileSyncLifecycleContributors"]} dependencies.resolveLifecycleContributors
+ *   Answers the registered contributors that run after each synchronization.
+ */
+function createService({ userProfilesRepository, resolveLifecycleContributors, userSettingsRepository }) {
 
   async function findByIdentity(identityLike, options = {}) {
     const normalized = buildNormalizedIdentityKey(identityLike);
@@ -113,7 +91,7 @@ function createService({
 
   async function syncIdentityProfile(profileLike, options = {}) {
     const normalized = buildNormalizedIdentityProfile(profileLike);
-    const lifecycleContributors = normalizeLifecycleContributors(resolveLifecycleContributors());
+    const lifecycleContributors = resolveLifecycleContributors();
 
     const runSync = async (trx = null) => {
       const operationOptions = trx ? { ...options, trx } : options;

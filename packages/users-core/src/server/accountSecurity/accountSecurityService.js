@@ -10,17 +10,22 @@ import {
 } from "../common/formatters/accountSettingsResponseFormatter.js";
 import { accountSecurityStatusFormatter } from "../common/formatters/accountSecurityStatusFormatter.js";
 
-function createService({
-  userSettingsRepository,
-  userProfilesRepository,
-  authService
-} = {}) {
-  if (!userSettingsRepository || !userProfilesRepository) {
-    throw new Error("accountSecurityService requires repositories.");
-  }
+/** @typedef {ReturnType<typeof import("../common/repositories/userProfilesRepository.js").createRepository>} UserProfilesRepository */
+/** @typedef {ReturnType<typeof import("../common/repositories/userSettingsRepository.js").createRepository>} UserSettingsRepository */
+
+// A signed-in user's password, sign-in methods and sessions, as far as the
+// installed auth provider supports them.
+/**
+ * @param {object} dependencies
+ * @param {UserSettingsRepository} dependencies.userSettingsRepository
+ * @param {UserProfilesRepository} dependencies.userProfilesRepository
+ * @param {import("@jskit-ai/auth-core/server/types").AuthService} dependencies.authService The installed provider's `auth.service`.
+ */
+function createService({ userSettingsRepository, userProfilesRepository, authService }) {
 
   async function changePassword(request, user, payload = {}, options = {}) {
-    if (!authService || typeof authService.changePassword !== "function") {
+    // readable-check: allow method-probe - changePassword is an optional auth.service operation
+    if (typeof authService.changePassword !== "function") {
       throw new AppError(501, "Password change is not available.", {
         code: "users.security.passwordChangeUnavailable"
       });
@@ -52,7 +57,8 @@ function createService({
   }
 
   async function setPasswordMethodEnabled(request, user, payload = {}, options = {}) {
-    if (!authService || typeof authService.setPasswordSignInEnabled !== "function") {
+    // readable-check: allow method-probe - setPasswordSignInEnabled is an optional auth.service operation
+    if (typeof authService.setPasswordSignInEnabled !== "function") {
       throw new AppError(501, "Password method toggle is not available.", {
         code: "users.security.passwordMethodToggleUnavailable"
       });
@@ -81,7 +87,8 @@ function createService({
   }
 
   async function startOAuthProviderLink(request, user, payload = {}, options = {}) {
-    if (!authService || typeof authService.startProviderLink !== "function") {
+    // readable-check: allow method-probe - startProviderLink is an optional auth.service operation
+    if (typeof authService.startProviderLink !== "function") {
       throw new AppError(501, "OAuth linking is not available.", {
         code: "users.security.oauthLinkUnavailable"
       });
@@ -94,7 +101,8 @@ function createService({
   }
 
   async function unlinkOAuthProvider(request, user, payload = {}, options = {}) {
-    if (!authService || typeof authService.unlinkProvider !== "function") {
+    // readable-check: allow method-probe - unlinkProvider is an optional auth.service operation
+    if (typeof authService.unlinkProvider !== "function") {
       throw new AppError(501, "OAuth unlink is not available.", {
         code: "users.security.oauthUnlinkUnavailable"
       });
@@ -109,7 +117,8 @@ function createService({
   }
 
   async function logoutOtherSessions(request, _user, options = {}) {
-    if (!authService || typeof authService.signOutOtherSessions !== "function") {
+    // readable-check: allow method-probe - signOutOtherSessions is an optional auth.service operation
+    if (typeof authService.signOutOtherSessions !== "function") {
       throw new AppError(501, "Logout other sessions is not available.", {
         code: "users.security.logoutOtherSessionsUnavailable"
       });
@@ -122,6 +131,7 @@ function createService({
 
   return Object.freeze({
     changePassword,
+    // readable-check: allow setter-seam - setPasswordMethodEnabled is a service operation, not a slot
     setPasswordMethodEnabled,
     startOAuthProviderLink,
     unlinkOAuthProvider,

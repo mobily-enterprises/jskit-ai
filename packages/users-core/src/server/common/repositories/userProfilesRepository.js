@@ -165,7 +165,8 @@ async function resolveUniqueUsername(api, baseUsername, { excludeUserId = null, 
   throw new Error("Unable to generate unique username.");
 }
 
-function createRepository({ api } = {}) {
+/** @param {{ api: import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi }} dependencies */
+function createRepository({ api }) {
   if (!api?.resources?.userProfiles) {
     throw new TypeError("internal.repository.user-profiles requires json-rest-api userProfiles resource.");
   }

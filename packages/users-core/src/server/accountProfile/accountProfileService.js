@@ -8,15 +8,18 @@ import {
   accountSettingsResponseFormatter
 } from "../common/formatters/accountSettingsResponseFormatter.js";
 
-function createService({
-  userSettingsRepository,
-  userProfilesRepository,
-  authService,
-  avatarService
-} = {}) {
-  if (!userSettingsRepository || !userProfilesRepository || !avatarService) {
-    throw new Error("accountProfileService requires repositories and avatarService.");
-  }
+/** @typedef {ReturnType<typeof import("../common/repositories/userProfilesRepository.js").createRepository>} UserProfilesRepository */
+/** @typedef {ReturnType<typeof import("../common/repositories/userSettingsRepository.js").createRepository>} UserSettingsRepository */
+
+// A signed-in user's profile: display name and avatar.
+/**
+ * @param {object} dependencies
+ * @param {UserSettingsRepository} dependencies.userSettingsRepository
+ * @param {UserProfilesRepository} dependencies.userProfilesRepository
+ * @param {import("@jskit-ai/auth-core/server/types").AuthService} dependencies.authService The installed provider's `auth.service`; it may keep the display name itself.
+ * @param {import("./avatarService.js").AvatarService} dependencies.avatarService
+ */
+function createService({ userSettingsRepository, userProfilesRepository, authService, avatarService }) {
 
   async function getForUser(request, user, options = {}) {
     const profile = await resolveUserProfile(userProfilesRepository, user);
@@ -43,7 +46,8 @@ function createService({
 
     let session = null;
     let updatedProfile = null;
-    if (authService && typeof authService.updateDisplayName === "function") {
+    // readable-check: allow method-probe - updateDisplayName is an optional auth.service operation
+    if (typeof authService.updateDisplayName === "function") {
       const result = await authService.updateDisplayName(request, { displayName: payload.displayName });
       session = result?.session || null;
       updatedProfile = result?.profile || null;

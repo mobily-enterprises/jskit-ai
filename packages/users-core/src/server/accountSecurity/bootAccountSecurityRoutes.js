@@ -26,10 +26,11 @@ const passwordChangeMetaOutputValidator = deepFreeze({
   mode: "replace"
 });
 
-function registerAccountSecurityRoutes(router, { authService } = {}) {
-  if (!router || typeof router.register !== "function") {
-    throw new TypeError("registerAccountSecurityRoutes requires router.register().");
-  }
+/**
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeHttp["router"]} router
+ * @param {{ authService: import("@jskit-ai/auth-core/server/types").AuthService }} dependencies
+ */
+function registerAccountSecurityRoutes(router, { authService }) {
 
   router.register(
     "POST",
@@ -58,7 +59,7 @@ function registerAccountSecurityRoutes(router, { authService } = {}) {
         input: request.input.body
       });
 
-      if (result?.session && typeof authService.writeSessionCookies === "function") {
+      if (result?.session) {
         authService.writeSessionCookies(reply, result.session);
       }
 
@@ -133,7 +134,8 @@ function registerAccountSecurityRoutes(router, { authService } = {}) {
       });
 
       // As at sign-in, a provider that binds the attempt to this browser sets its cookie.
-      if (typeof authService?.writeOAuthStartCookies === "function") {
+      // readable-check: allow method-probe - writeOAuthStartCookies is an optional auth.service operation
+      if (typeof authService.writeOAuthStartCookies === "function") {
         authService.writeOAuthStartCookies(reply, result);
       }
       reply.redirect(result.url);

@@ -28,16 +28,18 @@ async function resolveUserProfile(userProfilesRepository, user) {
   return null;
 }
 
+/**
+ * @param {import("@jskit-ai/auth-core/server/types").AuthService} authService
+ * @param {object} request
+ */
 async function resolveSecurityStatus(authService, request) {
-  if (!authService || typeof authService.getSecurityStatus !== "function") {
+  // readable-check: allow method-probe - getSecurityStatus is an optional auth.service operation
+  if (typeof authService.getSecurityStatus !== "function") {
     return {};
   }
   // A provider that keeps passwords elsewhere, such as an accounts hub, has no
   // security status; its settings pages still load.
-  if (
-    typeof authService.getCapabilities === "function" &&
-    !isAuthOperationSupported(authService.getCapabilities(), "getSecurityStatus")
-  ) {
+  if (!isAuthOperationSupported(authService.getCapabilities(), "getSecurityStatus")) {
     return {};
   }
 

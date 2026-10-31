@@ -20,7 +20,9 @@ Exports
 
 ### `src/server/accountNotifications/accountNotificationsService.js`
 Exports
-- `createService({ userSettingsRepository, userProfilesRepository, authService } = {})`
+- `createService({ userSettingsRepository, userProfilesRepository, authService })`
+- `type UserProfilesRepository`
+- `type UserSettingsRepository`
 - `type AccountNotificationsService`
 
 ### `src/server/accountNotifications/bootAccountNotificationsRoutes.js`
@@ -48,27 +50,30 @@ Exports
 
 ### `src/server/accountProfile/accountProfileService.js`
 Exports
-- `createService({ userSettingsRepository, userProfilesRepository, authService, avatarService } = {})`
+- `createService({ userSettingsRepository, userProfilesRepository, authService, avatarService })`
+- `type UserProfilesRepository`
+- `type UserSettingsRepository`
 - `type AccountProfileService`
 
 ### `src/server/accountProfile/avatarService.js`
 Exports
-- `createService({ userProfilesRepository, avatarStorageService, avatarPolicy } = {})`
+- `createService({ userProfilesRepository, avatarStorageService, avatarPolicy })`
 - `__testables`
+- `type AvatarService`
 Local functions
 - `resolveAvatarPolicy(policy = {})`
 - `readAvatarBuffer(stream, { maxBytes = DEFAULT_AVATAR_POLICY.maxUploadBytes } = {})`
 
 ### `src/server/accountProfile/avatarStorageService.js`
 Exports
-- `createService({ storage } = {})`
+- `createService({ storage })`
 - `__testables`
 Local functions
 - `buildAvatarStorageKey(userId)`
 
 ### `src/server/accountProfile/bootAccountProfileRoutes.js`
 Exports
-- `registerAccountProfileRoutes(router, { accountProfileService, authService, uploads } = {})`
+- `registerAccountProfileRoutes(router, { accountProfileService, authService, uploads })`
 
 ### `src/server/accountSecurity/accountSecurityActions.js`
 Exports
@@ -76,12 +81,14 @@ Exports
 
 ### `src/server/accountSecurity/accountSecurityService.js`
 Exports
-- `createService({ userSettingsRepository, userProfilesRepository, authService } = {})`
+- `createService({ userSettingsRepository, userProfilesRepository, authService })`
+- `type UserProfilesRepository`
+- `type UserSettingsRepository`
 - `type AccountSecurityService`
 
 ### `src/server/accountSecurity/bootAccountSecurityRoutes.js`
 Exports
-- `registerAccountSecurityRoutes(router, { authService } = {})`
+- `registerAccountSecurityRoutes(router, { authService })`
 
 ### `src/server/common/formatters/accountAvatarFormatter.js`
 Exports
@@ -120,7 +127,7 @@ Exports
 
 ### `src/server/common/repositories/userProfilesRepository.js`
 Exports
-- `createRepository({ api } = {})`
+- `createRepository({ api })`
 Local functions
 - `normalizeUsername(value)`
 - `normalizeNullableString(value)`
@@ -136,7 +143,7 @@ Local functions
 
 ### `src/server/common/repositories/userSettingsRepository.js`
 Exports
-- `createRepository({ api } = {})`
+- `createRepository({ api })`
 Local functions
 - `pickPatchFields(source = {})`
 - `createDefaultUserSettingsCreatePayload(userId)`
@@ -149,13 +156,12 @@ Exports
 
 ### `src/server/common/services/authProfileSyncService.js`
 Exports
-- `createService({ userProfilesRepository, resolveLifecycleContributors = () => [], userSettingsRepository = null } = {})`
+- `createService({ userProfilesRepository, resolveLifecycleContributors, userSettingsRepository })`
 Local functions
 - `buildNormalizedIdentityKey(identityLike)`
 - `buildNormalizedIdentityProfile(profileLike)`
 - `profileNeedsUpdate(existing, nextProfile)`
 - `requireSynchronizedProfile(profile)`
-- `normalizeLifecycleContributors(entries = [])`
 
 ### `src/server/common/support/accountSettingsJsonApiTransport.js`
 Exports
@@ -187,7 +193,7 @@ Exports
 
 ### `src/server/usersBootstrapContributor.js`
 Exports
-- `createUsersBootstrapContributor({ userProfilesRepository, userSettingsRepository, authService } = {})`
+- `createUsersBootstrapContributor({ userProfilesRepository, userSettingsRepository, authService })`
 Local functions
 - `getOAuthProviderCatalogPayload(authService)`
 - `createAnonymousBootstrapPayload({ surfaceAccess = {} })`
@@ -206,7 +212,7 @@ Exports
 ### `src/server/UsersFeature.js`
 Exports
 - `UsersFeature`
-- `createUsersRuntime({ authService, identity, storage } = {})`
+- `createUsersRuntime({ authService, identity, storage })`
 
 ### `src/server/usersIdentity.js`
 Exports

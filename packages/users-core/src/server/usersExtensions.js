@@ -6,6 +6,7 @@ function normalizeContributor(value) {
   if (!contributorId) {
     throw new TypeError("Profile synchronization lifecycle contributor requires contributorId.");
   }
+  // readable-check: allow method-probe - registration validates the contributor an application supplies
   if (typeof value.afterIdentityProfileSynced !== "function") {
     throw new TypeError(`Profile synchronization lifecycle contributor "${contributorId}" requires afterIdentityProfileSynced().`);
   }

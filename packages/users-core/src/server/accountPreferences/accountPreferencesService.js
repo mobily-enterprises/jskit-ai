@@ -16,7 +16,7 @@ import {
  * @param {object} dependencies
  * @param {UserSettingsRepository} dependencies.userSettingsRepository
  * @param {UserProfilesRepository} dependencies.userProfilesRepository
- * @param {object} dependencies.authService The installed provider's `auth.service`; it reports the security status.
+ * @param {import("@jskit-ai/auth-core/server/types").AuthService} dependencies.authService The installed provider's `auth.service`; it reports the security status.
  */
 function createService({ userSettingsRepository, userProfilesRepository, authService }) {
   // Saves the validated preference fields and answers with the account's settings.

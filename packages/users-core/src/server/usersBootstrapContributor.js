@@ -1,12 +1,13 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime";
-import { requireServiceMethod } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
 import { accountAvatarFormatter } from "./common/formatters/accountAvatarFormatter.js";
 import { USER_SETTINGS_BOOTSTRAP_KEYS } from "../shared/resources/userSettingsResource.js";
 
+/** @param {import("@jskit-ai/auth-core/server/types").AuthService} authService */
 function getOAuthProviderCatalogPayload(authService) {
-  if (!authService || typeof authService.getOAuthProviderCatalog !== "function") {
+  // readable-check: allow method-probe - getOAuthProviderCatalog is an optional auth.service operation
+  if (typeof authService.getOAuthProviderCatalog !== "function") {
     return {
       oauthProviders: [],
       oauthDefaultProvider: null
@@ -56,19 +57,14 @@ function mapUserSettingsBootstrap(settings = {}) {
   return mapped;
 }
 
-function createUsersBootstrapContributor({
-  userProfilesRepository,
-  userSettingsRepository,
-  authService
-} = {}) {
+/**
+ * @param {object} dependencies
+ * @param {ReturnType<typeof import("./common/repositories/userProfilesRepository.js").createRepository>} dependencies.userProfilesRepository
+ * @param {ReturnType<typeof import("./common/repositories/userSettingsRepository.js").createRepository>} dependencies.userSettingsRepository
+ * @param {import("@jskit-ai/auth-core/server/types").AuthService} dependencies.authService
+ */
+function createUsersBootstrapContributor({ userProfilesRepository, userSettingsRepository, authService }) {
   const contributorId = "users.bootstrap";
-
-  requireServiceMethod(userProfilesRepository, "findById", contributorId, {
-    serviceLabel: "internal.repository.user-profiles"
-  });
-  requireServiceMethod(userSettingsRepository, "ensureForUserId", contributorId, {
-    serviceLabel: "internal.repository.user-settings"
-  });
 
   return Object.freeze({
     contributorId,
@@ -78,10 +74,10 @@ function createUsersBootstrapContributor({
         actionId: "auth.session.read"
       });
 
-      if (authResult?.clearSession === true && typeof authService?.clearSessionCookies === "function") {
+      if (authResult?.clearSession === true) {
         authService.clearSessionCookies(reply);
       }
-      if (authResult?.session && typeof authService?.writeSessionCookies === "function") {
+      if (authResult?.session) {
         authService.writeSessionCookies(reply, authResult.session);
       }
       if (authResult?.transientFailure === true) {

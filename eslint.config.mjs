@@ -32,7 +32,8 @@ export default [
     "packages/auth-provider-local-db-core/src/server/**",
     "packages/auth-provider-oidc-core/src/server/**",
     "packages/auth-provider-supabase-core/src/server/**",
-    "packages/oidc-issuer-core/src/server/**"
+    "packages/oidc-issuer-core/src/server/**",
+    "packages/users-core/src/server/**"
   ]),
   ...typedFeaturesConfig([
     "packages/storage-runtime/src/server/**",

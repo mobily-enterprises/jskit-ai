@@ -15,7 +15,8 @@ function buildAvatarStorageKey(userId) {
   return `${AVATAR_STORAGE_PREFIX}/${normalizedUserId}/avatar`;
 }
 
-function createService({ storage } = {}) {
+/** @param {{ storage: import("@jskit-ai/storage-runtime/server/types").RuntimeStorage }} dependencies */
+function createService({ storage }) {
   const uploadStorageService = createUploadStorageService({
     storage,
     mimeTypeDetector: detectCommonMimeTypeFromBuffer

@@ -8,14 +8,17 @@ import {
   accountSettingsResponseFormatter
 } from "../common/formatters/accountSettingsResponseFormatter.js";
 
-function createService({
-  userSettingsRepository,
-  userProfilesRepository,
-  authService
-} = {}) {
-  if (!userSettingsRepository || !userProfilesRepository) {
-    throw new Error("accountNotificationsService requires repositories.");
-  }
+/** @typedef {ReturnType<typeof import("../common/repositories/userProfilesRepository.js").createRepository>} UserProfilesRepository */
+/** @typedef {ReturnType<typeof import("../common/repositories/userSettingsRepository.js").createRepository>} UserSettingsRepository */
+
+// A signed-in user's notification settings.
+/**
+ * @param {object} dependencies
+ * @param {UserSettingsRepository} dependencies.userSettingsRepository
+ * @param {UserProfilesRepository} dependencies.userProfilesRepository
+ * @param {import("@jskit-ai/auth-core/server/types").AuthService} dependencies.authService The installed provider's `auth.service`; it reports the security status.
+ */
+function createService({ userSettingsRepository, userProfilesRepository, authService }) {
 
   async function updateNotifications(request, user, payload = {}, options = {}) {
     const profile = await resolveUserProfile(userProfilesRepository, user);

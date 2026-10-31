@@ -16,11 +16,13 @@ import { createService as createAccountSecurityService } from "./accountSecurity
 import { registerAccountSecurityRoutes } from "./accountSecurity/bootAccountSecurityRoutes.js";
 import { createUsersBootstrapContributor } from "./usersBootstrapContributor.js";
 
-function createUsersRuntime({
-  authService,
-  identity,
-  storage
-} = {}) {
+/**
+ * @param {object} dependencies
+ * @param {import("@jskit-ai/auth-core/server/types").AuthService} dependencies.authService
+ * @param {import("./types.js").UsersIdentity} dependencies.identity
+ * @param {import("@jskit-ai/storage-runtime/server/types").RuntimeStorage} dependencies.storage
+ */
+function createUsersRuntime({ authService, identity, storage }) {
   const userProfilesRepository = identity.repositories.userProfiles;
   const userSettingsRepository = identity.repositories.userSettings;
   const avatarStorageService = createAvatarStorageService({ storage });
@@ -78,14 +80,16 @@ const UsersFeature = defineFeature({
   provides: {
     users: "users.core"
   },
-  async setup({
-    authService,
-    bootstrap,
-    http,
-    identity,
-    storage,
-    uploads
-  }) {
+  /**
+   * @param {object} capabilities
+   * @param {import("@jskit-ai/auth-core/server/types").AuthService} capabilities.authService
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeBootstrap} capabilities.bootstrap
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeHttp} capabilities.http
+   * @param {import("./types.js").UsersIdentity} capabilities.identity
+   * @param {import("@jskit-ai/storage-runtime/server/types").RuntimeStorage} capabilities.storage
+   * @param {import("@jskit-ai/uploads-runtime/server/types").RuntimeUploads} capabilities.uploads
+   */
+  async setup({ authService, bootstrap, http, identity, storage, uploads }) {
     const users = createUsersRuntime({ authService, identity, storage });
     registerAccountProfileRoutes(http.router, {
       accountProfileService: users.services.accountProfile,

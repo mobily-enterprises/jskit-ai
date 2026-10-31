@@ -12,16 +12,14 @@ const USER_SETTINGS_RESOURCE_TRANSPORT = Object.freeze({
   getRecordId: resolveAccountSettingsResourceId
 });
 
-function registerAccountProfileRoutes(router, { accountProfileService, authService, uploads } = {}) {
-  if (!router || typeof router.register !== "function") {
-    throw new TypeError("registerAccountProfileRoutes requires router.register().");
-  }
-  if (!accountProfileService || typeof accountProfileService.readAvatar !== "function") {
-    throw new TypeError("registerAccountProfileRoutes requires accountProfileService.");
-  }
-  if (!uploads || typeof uploads.readSingleMultipartFile !== "function") {
-    throw new TypeError("registerAccountProfileRoutes requires runtime.uploads.");
-  }
+/**
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeHttp["router"]} router
+ * @param {object} dependencies
+ * @param {import("./accountProfileService.js").AccountProfileService} dependencies.accountProfileService
+ * @param {import("@jskit-ai/auth-core/server/types").AuthService} dependencies.authService
+ * @param {import("@jskit-ai/uploads-runtime/server/types").RuntimeUploads} dependencies.uploads
+ */
+function registerAccountProfileRoutes(router, { accountProfileService, authService, uploads }) {
 
   router.register(
     "GET",
@@ -66,7 +64,7 @@ function registerAccountProfileRoutes(router, { accountProfileService, authServi
         input: request.input.body
       });
 
-      if (result?.session && typeof authService.writeSessionCookies === "function") {
+      if (result?.session) {
         authService.writeSessionCookies(reply, result.session);
       }
 
