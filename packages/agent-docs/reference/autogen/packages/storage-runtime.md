@@ -31,3 +31,7 @@ Exports
 - `createStorageBinding({ env = {}, rootDir = process.cwd() } = {})`
 Local functions
 - `resolveFsBasePath(fsBasePath, { rootDir } = {})`
+
+### `src/server/types.js`
+Exports
+- None

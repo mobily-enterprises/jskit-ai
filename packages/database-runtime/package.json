@@ -9,6 +9,7 @@
     "./server/providers/DatabaseProvider": "./src/server/providers/DatabaseProvider.js",
     "./server/databaseSetup": "./src/server/databaseSetup.js",
     "./server/knexMigrationConfig": "./src/server/knexMigrationConfig.js",
+    "./server/types": "./src/server/types.js",
     "./shared": "./src/shared/index.js",
     "./shared/dateUtils": "./src/shared/dateUtils.js",
     "./shared/databaseClient": "./src/shared/databaseClient.js",
@@ -61,6 +62,10 @@
           {
             "subpath": "./shared",
             "summary": "Exports shared repository helpers (transactions, record ids, JSON columns, visibility, duplicate-entry detection and date/time serialization)."
+          },
+          {
+            "subpath": "./server/types",
+            "summary": "Types of the runtime.database capability and of the runtime.database.driver contract every driver package implements, for features that require them."
           }
         ]
       }

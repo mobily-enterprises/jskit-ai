@@ -1,43 +1,5 @@
 import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
-import { normalizeDatabaseClient, toKnexClientId } from "../../shared/databaseClient.js";
-import { resolveKnexConnectionFromEnvironment } from "../../shared/databaseConnection.js";
-import { createTransactionManager } from "../../shared/transactionManager.js";
-import { loadKnexFactory } from "../knexFactory.js";
-
-function resolveDriverDialectId(driver) {
-  const dialectId = normalizeDatabaseClient(
-    driver?.DIALECT_ID || driver?.dialectId || driver?.dialect || driver?.getDialectId?.(),
-    { allowEmpty: true }
-  );
-  if (!dialectId) {
-    throw new Error("The installed database driver did not expose a valid dialect id.");
-  }
-  return dialectId;
-}
-
-function createDatabase({ driver, env }) {
-  const dialectId = resolveDriverDialectId(driver);
-  const configuredClient = normalizeDatabaseClient(env.DB_CLIENT, { allowEmpty: true });
-  if (configuredClient && configuredClient !== dialectId) {
-    throw new Error(`DB_CLIENT="${configuredClient}" does not match installed database driver "${dialectId}".`);
-  }
-
-  const knex = loadKnexFactory()({
-    client: toKnexClientId(dialectId),
-    connection: resolveKnexConnectionFromEnvironment(env, {
-      client: dialectId,
-      defaultPort: dialectId === "pg" ? 5432 : 3306,
-      context: "database runtime"
-    })
-  });
-  const transactionManager = createTransactionManager({ knex });
-
-  return Object.freeze({
-    driver,
-    knex,
-    transactionManager
-  });
-}
+import { createDatabase } from "../database.js";
 
 const DatabaseProvider = defineProvider({
   id: "runtime.database",

@@ -47,3 +47,7 @@ Local functions
 ### `src/server/JsonRestApiProvider.js`
 Exports
 - `JsonRestApiProvider`
+
+### `src/server/types.js`
+Exports
+- None

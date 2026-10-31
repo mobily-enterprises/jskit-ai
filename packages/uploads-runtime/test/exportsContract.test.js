@@ -21,6 +21,8 @@ test("uploads-runtime exports are explicit and aligned with usage", () => {
       "./server/multipart/readSingleMultipartFile",
       "./server/policy/uploadPolicy",
       "./server/storage/createUploadStorageService",
+      // Features that require this package's capabilities take their types from it.
+      "./server/types",
       // The generated client bootstrap registers the package's English catalog.
       "./locales/en.json"
     ]

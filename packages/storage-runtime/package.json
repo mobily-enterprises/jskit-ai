@@ -7,7 +7,8 @@
   },
   "exports": {
     "./client": "./src/client/index.js",
-    "./server/providers/StorageProvider": "./src/server/providers/StorageProvider.js"
+    "./server/providers/StorageProvider": "./src/server/providers/StorageProvider.js",
+    "./server/types": "./src/server/types.js"
   },
   "dependencies": {
     "unstorage": "^1.17.5"
@@ -45,6 +46,10 @@
           {
             "subpath": "./client",
             "summary": "Exports no client runtime API today (reserved client entrypoint)."
+          },
+          {
+            "subpath": "./server/types",
+            "summary": "Type of the runtime.storage capability, for features that require it."
           }
         ]
       }

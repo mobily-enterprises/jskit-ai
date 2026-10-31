@@ -13,6 +13,7 @@
     "./server/multipart/readSingleMultipartFile": "./src/server/multipart/readSingleMultipartFile.js",
     "./server/policy/uploadPolicy": "./src/server/policy/uploadPolicy.js",
     "./server/storage/createUploadStorageService": "./src/server/storage/createUploadStorageService.js",
+    "./server/types": "./src/server/types.js",
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
@@ -72,6 +73,10 @@
           {
             "subpath": "./client",
             "summary": "Exports no client runtime API today (reserved client entrypoint)."
+          },
+          {
+            "subpath": "./server/types",
+            "summary": "Type of the runtime.uploads capability, for features that require it."
           }
         ]
       }

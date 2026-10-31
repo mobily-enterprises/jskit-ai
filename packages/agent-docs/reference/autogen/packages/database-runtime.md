@@ -14,6 +14,12 @@ Use this on demand; do not load the full index at startup.
 
 ### src
 
+### `src/server/database.js`
+Exports
+- `createDatabase({ driver, env })`
+Local functions
+- `resolveDriverDialectId(driver)`
+
 ### `src/server/databaseSetup.js`
 Exports
 - `prepareDatabaseFromApp({ client, appRoot = process.cwd(), environment = process.env, migrationsDirectory = "migrations", seed } = {})`
@@ -36,9 +42,10 @@ Local functions
 ### `src/server/providers/DatabaseProvider.js`
 Exports
 - `DatabaseProvider`
-Local functions
-- `resolveDriverDialectId(driver)`
-- `createDatabase({ driver, env })`
+
+### `src/server/types.js`
+Exports
+- None
 
 ### `src/shared/databaseClient.js`
 Exports

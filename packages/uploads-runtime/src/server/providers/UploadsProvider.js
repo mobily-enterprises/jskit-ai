@@ -1,26 +1,6 @@
 import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { registerMultipartSupport } from "../multipart/registerMultipartSupport.js";
-import { readSingleMultipartFile } from "../multipart/readSingleMultipartFile.js";
-import {
-  createUploadFieldError,
-  readUploadBuffer,
-  validateUploadMimeType
-} from "../policy/uploadPolicy.js";
-import {
-  createUploadStorageService,
-  detectCommonMimeTypeFromBuffer,
-  normalizeStorageKey
-} from "../storage/createUploadStorageService.js";
-
-const uploads = Object.freeze({
-  readSingleMultipartFile,
-  createUploadFieldError,
-  readUploadBuffer,
-  validateUploadMimeType,
-  createUploadStorageService,
-  detectCommonMimeTypeFromBuffer,
-  normalizeStorageKey
-});
+import { createUploadsRuntime } from "../uploadsRuntime.js";
 
 const UploadsProvider = defineProvider({
   id: "runtime.uploads",
@@ -31,7 +11,7 @@ const UploadsProvider = defineProvider({
     uploads: "runtime.uploads"
   },
   setup() {
-    return { uploads };
+    return { uploads: createUploadsRuntime() };
   },
   async boot({ fastify }) {
     await registerMultipartSupport(fastify);

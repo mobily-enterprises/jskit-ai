@@ -79,6 +79,13 @@ Local functions
 - `registerSocketAuthentication({ io, logger, authService })`
 - `joinContributedRooms(socket, actorId, audiences)`
 
+### `src/server/realtimeCapability.js`
+Exports
+- `createRealtimeCapability({ io })`
+- `stateByCapability`
+Local functions
+- `authenticationRequiredError()`
+
 ### `src/server/realtimeDelivery.js`
 Exports
 - `createRealtimeDelivery({ io, database = null, logger, authService = null, audiences = null })`
@@ -93,8 +100,6 @@ Exports
 Local functions
 - `parseDebugFlag(value, fallback = null)`
 - `debugEnabled(config, env)`
-- `authenticationRequiredError()`
-- `createRealtimeCapability({ io })`
 
 ### `src/server/runtime.js`
 Exports
@@ -115,6 +120,10 @@ Local functions
 ### `src/server/servedClientBuild.js`
 Exports
 - `announceServedClientBuild({ io, appRoot, logger })`
+
+### `src/server/types.js`
+Exports
+- None
 
 ### `src/shared/servedClientBuild.js`
 Exports

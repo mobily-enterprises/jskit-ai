@@ -8,6 +8,7 @@
   "exports": {
     "./server/RealtimeProvider": "./src/server/RealtimeProvider.js",
     "./server/runtime": "./src/server/runtime.js",
+    "./server/types": "./src/server/types.js",
     "./client": "./src/client/RealtimeClientProvider.js",
     "./client/RealtimeClientProvider": "./src/client/RealtimeClientProvider.js",
     "./client/composables/useRealtimeEvent": "./src/client/composables/useRealtimeEvent.js",
@@ -96,6 +97,10 @@
           {
             "subpath": "./locales/en.json",
             "summary": "English catalog for the realtime connection indicator, registered by the generated client bootstrap."
+          },
+          {
+            "subpath": "./server/types",
+            "summary": "Type of the runtime.realtime capability, for features that require it."
           }
         ],
         "capabilities": {

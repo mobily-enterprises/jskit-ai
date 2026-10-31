@@ -1534,6 +1534,10 @@
               {
                 "subpath": "./shared",
                 "summary": "Exports shared repository helpers (transactions, record ids, JSON columns, visibility, duplicate-entry detection and date/time serialization)."
+              },
+              {
+                "subpath": "./server/types",
+                "summary": "Types of the runtime.database capability and of the runtime.database.driver contract every driver package implements, for features that require them."
               }
             ]
           }
@@ -1822,6 +1826,10 @@
               {
                 "subpath": "./server",
                 "summary": "Provides runtime.json-rest-api and exports focused resource/query helpers, including server-only row policies."
+              },
+              {
+                "subpath": "./server/types",
+                "summary": "Type of the runtime.json-rest-api capability, for features that require it."
               }
             ]
           }
@@ -2156,6 +2164,10 @@
               {
                 "subpath": "./locales/en.json",
                 "summary": "English catalog for the realtime connection indicator, registered by the generated client bootstrap."
+              },
+              {
+                "subpath": "./server/types",
+                "summary": "Type of the runtime.realtime capability, for features that require it."
               }
             ],
             "capabilities": {
@@ -2845,6 +2857,10 @@
               {
                 "subpath": "./client",
                 "summary": "Exports no client runtime API today (reserved client entrypoint)."
+              },
+              {
+                "subpath": "./server/types",
+                "summary": "Type of the runtime.storage capability, for features that require it."
               }
             ]
           }
@@ -2989,6 +3005,10 @@
               {
                 "subpath": "./client",
                 "summary": "Exports no client runtime API today (reserved client entrypoint)."
+              },
+              {
+                "subpath": "./server/types",
+                "summary": "Type of the runtime.uploads capability, for features that require it."
               }
             ]
           }
