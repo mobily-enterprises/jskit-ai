@@ -33,7 +33,7 @@ Exports
 
 ### `src/server/knexMigrationConfig.js`
 Exports
-- `createKnexMigrationConfig({ client, environment = process.env, appRoot = process.cwd(), migrationsDirectory = "migrations", packageMigrationDirectories = [] } = {})`
+- `createKnexMigrationConfig({ client, environment = process.env, appRoot = process.cwd(), migrationsDirectory = "migrations", // readable-check: allow dependency-default - data: a list of directory paths, not a collaborator packageMigrationDirectories = [] } = {})`
 - `createKnexMigrationConfigFromApp(options = {})`
 - `discoverPackageMigrationDirectories({ appRoot = process.cwd() } = {})`
 Local functions

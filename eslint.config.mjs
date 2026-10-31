@@ -18,6 +18,11 @@ export default [
   // zero-warning lint leaves the rules off until then; list each converted
   // package in a typedFeaturesConfig([...]) after this entry to enforce them.
   ...typedFeaturesConfig(["**/src/server/**"], "off"),
+  ...typedFeaturesConfig([
+    "packages/database-runtime/src/server/**",
+    "packages/database-runtime-mysql/src/server/**",
+    "packages/database-runtime-postgres/src/server/**"
+  ]),
   ...webConfig,
   ...nodeConfig,
   ...vueConfig,

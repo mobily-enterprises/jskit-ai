@@ -14,10 +14,9 @@ const DatabaseProvider = defineProvider({
     return { database: createDatabase({ driver, env }) };
   },
   async shutdown(_dependencies, { outputs }) {
-    const knex = outputs.database?.knex;
-    if (knex && typeof knex.destroy === "function") {
-      await knex.destroy();
-    }
+    /** @type {import("../types.js").RuntimeDatabase} */
+    const database = outputs.database;
+    await database.knex.destroy();
   }
 });
 

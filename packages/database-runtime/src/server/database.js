@@ -3,11 +3,9 @@ import { resolveKnexConnectionFromEnvironment } from "../shared/databaseConnecti
 import { createTransactionManager } from "../shared/transactionManager.js";
 import { loadKnexFactory } from "./knexFactory.js";
 
+/** @param {import("./types.js").RuntimeDatabaseDriver} driver */
 function resolveDriverDialectId(driver) {
-  const dialectId = normalizeDatabaseClient(
-    driver?.DIALECT_ID || driver?.dialectId || driver?.dialect || driver?.getDialectId?.(),
-    { allowEmpty: true }
-  );
+  const dialectId = normalizeDatabaseClient(driver.DIALECT_ID, { allowEmpty: true });
   if (!dialectId) {
     throw new Error("The installed database driver did not expose a valid dialect id.");
   }

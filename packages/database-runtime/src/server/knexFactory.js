@@ -11,6 +11,7 @@ function loadKnexFactory() {
   const knexFactory =
     typeof moduleValue === "function"
       ? moduleValue
+      // readable-check: allow method-probe - platform object: a required module is the factory or an ES namespace that holds it
       : typeof moduleValue?.default === "function"
         ? moduleValue.default
         : null;

@@ -7,11 +7,21 @@ import {
 } from "../shared/databaseClient.js";
 import { resolveKnexConnectionFromEnvironment } from "../shared/databaseConnection.js";
 
+/**
+ * @param {object} [options]
+ * @param {string} options.client The dialect id: "mysql2" or "pg".
+ * @param {NodeJS.ProcessEnv} [options.environment]
+ * @param {string} [options.appRoot]
+ * @param {string} [options.migrationsDirectory]
+ * @param {readonly string[]} [options.packageMigrationDirectories]
+ */
+// readable-check: allow dependency-default - data: plain options (a dialect id and directory paths), not collaborators
 function createKnexMigrationConfig({
   client,
   environment = process.env,
   appRoot = process.cwd(),
   migrationsDirectory = "migrations",
+  // readable-check: allow dependency-default - data: a list of directory paths, not a collaborator
   packageMigrationDirectories = []
 } = {}) {
   const dialectId = normalizeDatabaseClient(client);
@@ -92,6 +102,7 @@ async function discoverPackageMigrationDirectories({ appRoot = process.cwd() } =
   return Object.freeze([...new Set(directories)].sort((left, right) => left.localeCompare(right)));
 }
 
+/** @param {Omit<Parameters<typeof createKnexMigrationConfig>[0], "packageMigrationDirectories">} [options] */
 async function createKnexMigrationConfigFromApp(options = {}) {
   const appRoot = path.resolve(options.appRoot || process.cwd());
   const packageMigrationDirectories = await discoverPackageMigrationDirectories({ appRoot });
