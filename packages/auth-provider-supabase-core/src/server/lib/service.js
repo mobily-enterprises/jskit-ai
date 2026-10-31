@@ -100,6 +100,27 @@ function normalizeProviderUserId(value) {
   return String(value || "").trim();
 }
 
+/**
+ * The `auth.service` for Supabase Auth.
+ * @param {object} options
+ * @param {{ id: string, supabaseUrl?: string, supabasePublishableKey?: string, jwtAudience?: string, emailManagedBy?: string, emailChangeFlow?: string, oauthProviderCatalog?: any, oauthProviders?: any, oauthDefaultProvider?: string, oauthProviderLabels?: any, oauthProviderQueryParams?: any }} options.authProvider
+ * @param {import("@jskit-ai/users-core/server/types").UsersIdentity["repositories"]["userSettings"] | null} [options.userSettingsRepository] The users' settings, when profiles live in the users table.
+ * @param {import("@jskit-ai/users-core/server/types").UsersIdentity["repositories"]["userProfiles"] | null} [options.userProfilesRepository] The users' profiles, when profiles live in the users table.
+ * @param {Required<Pick<import("@jskit-ai/auth-core/server/types").AuthProfileProjector, "syncIdentityProfile" | "findByIdentity">>} options.userProfileSyncService
+ * @param {boolean} [options.profileProjectionEnabled]
+ * @param {string} [options.nodeEnv]
+ * @param {string} [options.appPublicUrl]
+ * @param {string[]} [options.authAllowedReturnToOrigins]
+ * @param {any} [options.authOAuthProviderCatalog]
+ * @param {any} [options.authOAuthProviders]
+ * @param {string} [options.authOAuthDefaultProvider]
+ * @param {any} [options.authOAuthProviderLabels]
+ * @param {any} [options.authOAuthProviderQueryParams]
+ * @param {any} [options.devAuthBypassEnabled] The raw AUTH_DEV_BYPASS_ENABLED setting.
+ * @param {string} [options.devAuthBypassSecret]
+ * @param {any} [options.devAuthAccessTtlSeconds]
+ * @param {any} [options.devAuthRefreshTtlSeconds]
+ */
 function createService(options) {
   const authProvider = options.authProvider && typeof options.authProvider === "object" ? options.authProvider : null;
   if (!authProvider) {
@@ -115,19 +136,10 @@ function createService(options) {
   const supabasePublishableKey = String(authProvider.supabasePublishableKey || "").trim();
   const supabaseConfigured = Boolean(supabaseUrl && supabasePublishableKey);
   const userSettingsRepository = options.userSettingsRepository || null;
-  const passwordMethodToggleSupported =
-    typeof userSettingsRepository?.ensureForUserId === "function" &&
-    typeof userSettingsRepository?.updatePasswordSignInEnabled === "function";
+  const passwordMethodToggleSupported = Boolean(userSettingsRepository);
   const userProfilesRepository = options.userProfilesRepository || null;
   const userProfileSyncService = options.userProfileSyncService;
   const profileProjectionEnabled = options.profileProjectionEnabled === true;
-  if (
-    !userProfileSyncService ||
-    typeof userProfileSyncService.syncIdentityProfile !== "function" ||
-    typeof userProfileSyncService.findByIdentity !== "function"
-  ) {
-    throw new Error("userProfileSyncService with syncIdentityProfile() and findByIdentity() is required.");
-  }
   const isProduction = options.nodeEnv === "production";
   // Production cookies are Secure, so they are also host-only __Host- cookies.
   const ACCESS_TOKEN_COOKIE = hostOnlyCookieName(ACCESS_TOKEN_COOKIE_NAME, isProduction);
@@ -210,6 +222,7 @@ function createService(options) {
   });
   const securityStatusActions = Object.freeze({
     changePassword: true,
+    // readable-check: allow setter-seam - setPasswordEnabled says whether the security screen offers the toggle; it is not a slot
     setPasswordEnabled: capabilities.features.password.methodToggle,
     linkProvider: capabilities.features.providerLinking.start,
     unlinkProvider: capabilities.features.providerLinking.unlink,
@@ -733,7 +746,7 @@ function createService(options) {
   }
 
   async function resolvePasswordSignInPolicyForUserId(userId) {
-    if (!userSettingsRepository || typeof userSettingsRepository.ensureForUserId !== "function") {
+    if (!userSettingsRepository) {
       return {
         passwordSignInEnabled: true,
         passwordSetupRequired: false
@@ -748,7 +761,7 @@ function createService(options) {
   }
 
   async function setPasswordSignInEnabledForUserId(userId, enabled, options = {}) {
-    if (!userSettingsRepository || typeof userSettingsRepository.updatePasswordSignInEnabled !== "function") {
+    if (!userSettingsRepository) {
       throw new AppError(500, "Password sign-in settings repository is not configured.", {
         code: "auth.supabase.config.passwordSettingsMissing"
       });
@@ -762,7 +775,7 @@ function createService(options) {
   }
 
   async function setPasswordSetupRequiredForUserId(userId, required) {
-    if (!userSettingsRepository || typeof userSettingsRepository.updatePasswordSetupRequired !== "function") {
+    if (!userSettingsRepository) {
       return;
     }
 
@@ -1080,6 +1093,7 @@ function createService(options) {
     resetPassword,
     updateDisplayName: withActorResult(updateDisplayName),
     changePassword: withActorResult(changePassword),
+    // readable-check: allow setter-seam - setPasswordSignInEnabled is an auth.service operation, not a slot
     setPasswordSignInEnabled,
     unlinkProvider,
     signOutOtherSessions,

@@ -99,17 +99,17 @@ Exports
 
 ### `src/server/lib/devAuthBootstrap.js`
 Exports
-- `assertDevAuthBootstrapConfig(config, { userProfilesRepository = null } = {})`
-- `authenticateDevAuthRequest({ request, accessToken = "", refreshToken = "" }, { config, userProfilesRepository = null } = {})`
+- `assertDevAuthBootstrapConfig(config, { userProfilesRepository })`
+- `authenticateDevAuthRequest({ request, accessToken = "", refreshToken = "" }, { config, userProfilesRepository })`
 - `createDevAuthSession(profile, config)`
 - `isDevAuthToken(token)`
 - `resolveDevAuthConfig({ enabled = false, secret = "", nodeEnv = "development", jwtAudience = "authenticated", accessTtlSeconds = DEFAULT_DEV_AUTH_ACCESS_TTL_SECONDS, refreshTtlSeconds = DEFAULT_DEV_AUTH_REFRESH_TTL_SECONDS } = {})`
-- `resolveDevAuthProfile(input = {}, { userProfilesRepository = null, validationError } = {})`
+- `resolveDevAuthProfile(input = {}, { userProfilesRepository, validationError })`
 Local functions
 - `normalizePositiveInteger(value, fallback)`
 - `stripDevAuthTokenPrefix(token)`
 - `buildProfileFromTokenClaims(payload)`
-- `resolveProfileFromTokenClaims(payload, { userProfilesRepository = null } = {})`
+- `resolveProfileFromTokenClaims(payload, { userProfilesRepository })`
 - `signDevAuthToken(kind, profile, config)`
 - `verifyDevAuthToken(token, kind, config)`
 
@@ -162,7 +162,7 @@ Exports
 - `createStandaloneProfileSyncService()`
 - `USER_PROFILE_EMAIL_CONFLICT_CODE`
 Local functions
-- `buildIdentityKey({ authProvider, authProviderUserSid } = {})`
+- `buildIdentityKey({ authProvider, authProviderUserSid })`
 - `normalizeIdentity(identityLike)`
 - `normalizeProfile(profileLike)`
 - `cloneProfile(profile)`

@@ -357,6 +357,7 @@ function createPasswordSecurityFlows(deps) {
     completePasswordRecovery,
     resetPassword,
     changePassword,
+    // readable-check: allow setter-seam - setPasswordSignInEnabled is an auth.service operation, not a slot
     setPasswordSignInEnabled,
     signOutOtherSessions,
     getSecurityStatus

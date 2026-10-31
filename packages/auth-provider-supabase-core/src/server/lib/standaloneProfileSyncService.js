@@ -2,7 +2,8 @@ import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/suppo
 
 const USER_PROFILE_EMAIL_CONFLICT_CODE = "USER_PROFILE_EMAIL_CONFLICT";
 
-function buildIdentityKey({ authProvider, authProviderUserSid } = {}) {
+/** @param {{ authProvider: string, authProviderUserSid: string }} identity */
+function buildIdentityKey({ authProvider, authProviderUserSid }) {
   return `${normalizeLowerText(authProvider)}:${normalizeText(authProviderUserSid)}`;
 }
 

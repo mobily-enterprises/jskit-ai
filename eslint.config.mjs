@@ -30,7 +30,8 @@ export default [
     "packages/auth-core/src/server/**",
     "packages/auth-provider-local-core/src/server/**",
     "packages/auth-provider-local-db-core/src/server/**",
-    "packages/auth-provider-oidc-core/src/server/**"
+    "packages/auth-provider-oidc-core/src/server/**",
+    "packages/auth-provider-supabase-core/src/server/**"
   ]),
   ...typedFeaturesConfig([
     "packages/storage-runtime/src/server/**",
@@ -40,7 +41,8 @@ export default [
   {
     // Over 750 lines, with a factory over 600, until their split runs bring them under.
     files: [
-      "packages/auth-provider-local-core/src/server/lib/service.js"
+      "packages/auth-provider-local-core/src/server/lib/service.js",
+      "packages/auth-provider-supabase-core/src/server/lib/service.js"
     ],
     rules: {
       "max-lines": "off",

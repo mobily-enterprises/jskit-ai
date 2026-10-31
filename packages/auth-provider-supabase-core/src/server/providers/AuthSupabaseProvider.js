@@ -98,6 +98,13 @@ const AuthSupabaseProvider = defineProvider({
     assertSelectedProvider(env);
     return { authService: createDeferredAuthService() };
   },
+  /**
+   * @param {object} dependencies
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeConfig} dependencies.config
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} dependencies.env
+   * @param {import("@jskit-ai/auth-core/server/types").AuthExtensions} dependencies.extensions
+   * @param {import("@jskit-ai/users-core/server/types").UsersIdentity | null} dependencies.identity The users' records, when users-core is installed.
+   */
   boot({ config, env, extensions, identity }, { outputs }) {
     assertSelectedProvider(env);
     const mode = profileMode(config);

@@ -63,11 +63,9 @@
           "alreadyLinked": "This sign-in method is already linked.",
           "manualLinkingDisabled": "Provider linking is disabled in Supabase. Enable Manual Linking in Supabase Auth settings to link or unlink providers.",
           "lastIdentity": "At least one linked sign-in method must remain available.",
-          "notLinked": "This sign-in method is not currently linked.",
-          "unsupported": "Supabase client does not support identity linking in this environment."
+          "notLinked": "This sign-in method is not currently linked."
         },
         "unlink": {
-          "unsupported": "Supabase client does not support identity unlinking in this environment.",
           "notLinked": "{provider} is not linked to this account.",
           "identityUnresolved": "Linked identity details could not be resolved for this provider."
         },
@@ -80,8 +78,7 @@
         },
         "dev": {
           "sessionInvalid": "Dev session is invalid.",
-          "findByIdMissing": "Dev auth bootstrap requires internal.repository.user-profiles.findById().",
-          "findByEmailMissing": "Dev auth bootstrap requires internal.repository.user-profiles.findByEmail() for email lookup."
+          "findByIdMissing": "Dev auth bootstrap requires internal.repository.user-profiles.findById()."
         }
       }
     }

@@ -52,16 +52,16 @@ function resolveDevAuthConfig({
   });
 }
 
-function assertDevAuthBootstrapConfig(config, { userProfilesRepository = null } = {}) {
+/**
+ * @param {ReturnType<typeof resolveDevAuthConfig>} config
+ * @param {{ userProfilesRepository: import("@jskit-ai/users-core/server/types").UsersIdentity["repositories"]["userProfiles"] | null }} dependencies
+ */
+function assertDevAuthBootstrapConfig(config, { userProfilesRepository }) {
   assertDevAuthPolicy(config);
   if (!config?.enabled) {
     return;
   }
-  if (
-    !userProfilesRepository ||
-    typeof userProfilesRepository.findById !== "function" ||
-    typeof userProfilesRepository.findByEmail !== "function"
-  ) {
+  if (!userProfilesRepository) {
     throw new Error(
       "Dev auth bootstrap requires internal.repository.user-profiles with findById() and findByEmail() when AUTH_DEV_BYPASS_ENABLED=true."
     );
@@ -96,9 +96,13 @@ function buildProfileFromTokenClaims(payload) {
   };
 }
 
-async function resolveProfileFromTokenClaims(payload, { userProfilesRepository = null } = {}) {
+/**
+ * @param {any} payload
+ * @param {{ userProfilesRepository: import("@jskit-ai/users-core/server/types").UsersIdentity["repositories"]["userProfiles"] | null }} dependencies
+ */
+async function resolveProfileFromTokenClaims(payload, { userProfilesRepository }) {
   const userId = normalizeRecordId(payload?.sub, { fallback: null });
-  if (userId && userProfilesRepository && typeof userProfilesRepository.findById === "function") {
+  if (userId && userProfilesRepository) {
     const latest = await userProfilesRepository.findById(userId);
     if (latest?.id) {
       return latest;
@@ -190,8 +194,14 @@ async function createDevAuthSession(profile, config) {
   };
 }
 
-async function resolveDevAuthProfile(input = {}, { userProfilesRepository = null, validationError } = {}) {
-  if (!userProfilesRepository || typeof userProfilesRepository.findById !== "function") {
+/**
+ * @param {{ userId?: unknown, email?: unknown }} input
+ * @param {object} dependencies
+ * @param {import("@jskit-ai/users-core/server/types").UsersIdentity["repositories"]["userProfiles"] | null} dependencies.userProfilesRepository
+ * @param {(fieldErrors: object) => Error} dependencies.validationError
+ */
+async function resolveDevAuthProfile(input = {}, { userProfilesRepository, validationError }) {
+  if (!userProfilesRepository) {
     throw new AppError(500, "Dev auth bootstrap requires internal.repository.user-profiles.findById().", {
       code: "auth.supabase.dev.findByIdMissing"
     });
@@ -217,12 +227,6 @@ async function resolveDevAuthProfile(input = {}, { userProfilesRepository = null
   }
 
   if (normalizedEmail) {
-    if (typeof userProfilesRepository.findByEmail !== "function") {
-      throw new AppError(500, "Dev auth bootstrap requires internal.repository.user-profiles.findByEmail() for email lookup.", {
-        code: "auth.supabase.dev.findByEmailMissing"
-      });
-    }
-
     const byEmail = await userProfilesRepository.findByEmail(normalizedEmail);
     if (byEmail?.id) {
       return byEmail;
@@ -233,9 +237,15 @@ async function resolveDevAuthProfile(input = {}, { userProfilesRepository = null
   throw validationError(fieldErrors);
 }
 
+/**
+ * @param {{ request: object, accessToken?: string, refreshToken?: string }} tokens
+ * @param {object} dependencies
+ * @param {ReturnType<typeof resolveDevAuthConfig>} dependencies.config
+ * @param {import("@jskit-ai/users-core/server/types").UsersIdentity["repositories"]["userProfiles"] | null} dependencies.userProfilesRepository
+ */
 async function authenticateDevAuthRequest(
   { request, accessToken = "", refreshToken = "" },
-  { config, userProfilesRepository = null } = {}
+  { config, userProfilesRepository }
 ) {
   const hasDevAccessToken = isDevAuthToken(accessToken);
   const hasDevRefreshToken = isDevAuthToken(refreshToken);

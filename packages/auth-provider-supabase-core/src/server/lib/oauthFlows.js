@@ -108,12 +108,6 @@ function createOauthFlows(deps) {
       supabaseClient: supabase
     });
 
-    if (typeof supabase.auth.linkIdentity !== "function") {
-      throw new AppError(500, "Supabase client does not support identity linking in this environment.", {
-        code: "auth.supabase.link.unsupported"
-      });
-    }
-
     const redirectTo = buildOAuthLinkRedirectUrl({
       appPublicUrl,
       provider,
@@ -214,11 +208,6 @@ function createOauthFlows(deps) {
 
     const provider = normalizeOAuthProviderInput(payload.provider);
     const supabase = getSupabaseClient();
-    if (typeof supabase.auth.unlinkIdentity !== "function") {
-      throw new AppError(500, "Supabase client does not support identity unlinking in this environment.", {
-        code: "auth.supabase.unlink.unsupported"
-      });
-    }
 
     await setSessionFromRequestCookies(request, {
       supabaseClient: supabase
