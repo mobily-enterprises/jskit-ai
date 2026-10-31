@@ -38,10 +38,18 @@ Exports
 - `nodeConfig`
 - `webConfig`
 - `vueConfig`
+- `typedFeaturesConfig`
+- `jskitPlugin`
 
 ### `node.js`
 Exports
 - `nodeConfig`
+
+### `typedFeatures.js`
+Exports
+- `typedFeaturesConfig(files, severity = "error")`
+Local functions
+- `typedFeaturesRules(severity)`
 
 ### `vue.js`
 Exports
@@ -50,3 +58,65 @@ Exports
 ### `web.js`
 Exports
 - `webConfig`
+
+### plugin
+
+### `plugin/index.js`
+Exports
+- `jskitPlugin`
+
+### `plugin/rules/noDuplicateHelper.js`
+Exports
+- `noDuplicateHelper`
+Local functions
+- `topLevelHelpers(program, text)`
+- `packageDirectoryOf(file)`
+- `comparisonRoot(file, packageDirectory)`
+- `sourceFilesUnder(directory, files = [])`
+- `parseHelpers(file, context)`
+- `compareCopies(left, right)`
+
+### `plugin/rules/noModuleRegistry.js`
+Exports
+- `noModuleRegistry`
+Local functions
+- `moduleBindings(program)`
+
+### `plugin/rules/noSlotSetter.js`
+Exports
+- `noSlotSetter`
+Local functions
+- `isFreezeCall(node)`
+
+### `plugin/rules/oneLineAction.js`
+Exports
+- `oneLineAction`
+
+### `plugin/rules/requiredCollaborators.js`
+Exports
+- `requiredCollaborators`
+Local functions
+- `compactText(sourceCode, node)`
+
+### `plugin/rules/typedDependencies.js`
+Exports
+- `typedDependencies`
+Local functions
+- `hasParamJsdoc(sourceCode, node)`
+
+### `plugin/support.js`
+Exports
+- `createReporter(context, ruleName)`
+- `factoryDependencies(fn, sourceCode)`
+- `followsOptionalLink(node)`
+- `functionSite(fn)`
+- `isActionExecute(node, owner)`
+- `isActionsFile(filename)`
+- `isInAction(context, node)`
+- `ruleMeta(description, messages)`
+- `walk(node, visitorKeys, visit)`
+Local functions
+- `keyName(property)`
+- `functionName(fn)`
+- `isConstructor(fn)`
+- `collaboratorNames(fn, names, visitorKeys)`

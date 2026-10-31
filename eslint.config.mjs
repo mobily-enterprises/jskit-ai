@@ -1,5 +1,5 @@
 import vueI18n from "@intlify/eslint-plugin-vue-i18n";
-import { baseConfig, nodeConfig, vueConfig, webConfig } from "./tooling/config-eslint/index.js";
+import { baseConfig, nodeConfig, typedFeaturesConfig, vueConfig, webConfig } from "./tooling/config-eslint/index.js";
 
 export default [
   {
@@ -14,6 +14,10 @@ export default [
     ]
   },
   ...baseConfig,
+  // JSKIT's own server code converts to typed features package by package. The
+  // zero-warning lint leaves the rules off until then; list each converted
+  // package in a typedFeaturesConfig([...]) after this entry to enforce them.
+  ...typedFeaturesConfig(["**/src/server/**"], "off"),
   ...webConfig,
   ...nodeConfig,
   ...vueConfig,

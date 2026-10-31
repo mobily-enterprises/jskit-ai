@@ -5,11 +5,13 @@
   "type": "module",
   "files": [
     "src",
+    "plugin",
     "base.js",
     "index.js",
     "node.js",
     "web.js",
     "vue.js",
+    "typedFeatures.js",
     "README.md"
   ],
   "scripts": {
@@ -21,6 +23,7 @@
     "./node": "./node.js",
     "./web": "./web.js",
     "./vue": "./vue.js",
+    "./typed-features": "./typedFeatures.js",
     "./server": "./src/server/index.js",
     "./client": "./src/client/index.js"
   },

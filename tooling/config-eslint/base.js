@@ -1,4 +1,5 @@
 import js from "@eslint/js";
+import { typedFeaturesConfig } from "./typedFeatures.js";
 
 const SOURCE_FILES = "**/*.{js,mjs,cjs,vue}";
 
@@ -43,7 +44,10 @@ const baseConfig = Object.freeze([
         }
       ]
     }
-  }
+  },
+  // Server code is reported against the typed-features rules; an application
+  // makes them errors with typedFeaturesConfig as it converts each package.
+  ...typedFeaturesConfig(["**/src/server/**"], "warn")
 ]);
 
 export { baseConfig };
