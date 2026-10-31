@@ -45,7 +45,8 @@ Add resource service methods with `decorateService`; expose commands such as
 `execute`, and `after` share one repository transaction, `execute` receives
 `standard(nextInput)`, and `afterCommit` follows commit. Repositories persist;
 services and hooks orchestrate. Use a transactional outbox for durable
-external work.
+external work. Custom actions, services and repositories follow
+[typed features](./typed-features.md).
 
 ## Choose ownership, API access and client access independently
 

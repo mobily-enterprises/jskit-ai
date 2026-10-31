@@ -1,0 +1,388 @@
+<!-- Generated from `packages/agent-docs/site/guide/framework/typed-features.md` by `npm run agent-docs:build`. -->
+
+# Typed features
+
+## The rule
+
+> Every collaborator a feature uses arrives through its declared JSKIT
+> capabilities, and is typed where it is received and required, never probed,
+> so each call has exactly one visible destination for a reader and for the
+> code map.
+
+A *collaborator* is an object or function with behaviour that code calls: a
+service, store, repository, runtime, router, publisher, catalogue or clock.
+Plain data (an input, a record, a list, an options bag) is not one.
+
+Typed features keep JSKIT's structure: `defineFeature()` and `defineProvider()`
+with `requires`, `optional` and `provides`; named actions with input schemas;
+route tables that name action ids; `create*` factories that return frozen
+objects of named functions; and the CRUD declaration
+`defineCrudJsonApiFeature()`. They change only how dependencies are received
+and spelled:
+
+1. **A provided capability exports its type.** A named `create<Name>` factory
+   builds the value a capability provides. When `setup()` would build it
+   inline, the factory moves to its own module beside the provider, so product
+   logic does not live in the provider. The providing package writes
+   `src/server/types.js` (`server/types.js` in the kernel) with one `@typedef`
+   per token, derived from that factory, and exports it as
+   `./server/types`. Each typedef is named after its token in PascalCase
+   (`runtime.http` → `RuntimeHttp`, `feature.invoice-rollup` →
+   `InvoiceRollup`). A token with several implementations, such as
+   `auth.service`, is a contract: its owning package writes the typedef of its
+   operations by hand, with optional operations as optional properties.
+2. **A received collaborator is typed where it is received.** Every factory,
+   constructor and helper that receives a collaborator has a JSDoc `@param`
+   naming the owner's type: from the owner's `./server/types`, from
+   `ReturnType<typeof createX>` inside a package, or a class name. Reference
+   only subpaths a package exports. A feature's `setup()`, `boot()` or
+   `shutdown()` that calls a method on a capability types its parameter; a hook
+   that only passes capabilities on to factories needs no type.
+3. **Collaborators are required.** No `= null`, `= {}` or no-op default on a
+   collaborator or on the dependencies object, no
+   `typeof dependency.method === "function"` probe, no `dependency?.method?.()`
+   and no "requires x" guard on an internal collaborator: the capability
+   runtime already refuses to start without a required token. A default that is
+   the production implementation (a clock, `globalThis.fetch`) stays. A public
+   entry point that validates what an application passed it, such as
+   `defineFeature()` checking a definition, is input validation and stays.
+4. **Extension slots are capabilities.** A slot is an `optional` token whose
+   default the declaring package names and `setup()` resolves once; see
+   [Slots are optional capabilities](#slots-are-optional-capabilities).
+5. **Actions are one line and validate once.** One
+   `create<Name>Actions(dependencies)` per feature returns the definitions.
+   Each id is a string literal or a module-level string constant. `execute`
+   calls one service method with the validated input, preceded by the subject
+   id for a one-record operation. Methods whose every caller passes validated
+   input have no `input = {}` default, and services destructure the input
+   instead of normalizing schema-validated fields again. An options bag whose
+   fields are optional by contract (`options = {}` with `trx` or `context`)
+   keeps its default.
+6. **One copy of each pure helper per package**, imported directly.
+7. **One concern per factory:** files under 750 lines, functions under 600.
+
+Behaviour, ids, response shapes, error codes and events do not change when code
+moves to this style.
+
+## Why
+
+A call such as `accountPreferencesService.updatePreferences(...)` should have
+one destination that a reader can open in one step. When the parameter names
+its type, and the type is `ReturnType<typeof createService>` of one file, the
+reader goes straight to the method. The architecture inspector's code map
+follows the same step through the TypeScript checker, so the call is reported
+as exact instead of guessed from its method name.
+
+Each habit the rule forbids breaks that step. A probe or an absent default
+means the collaborator may be missing, so the call has a second, invisible
+outcome. A slot filled later by a setter, or a module-level registry, means the
+destination depends on what ran before, which neither the reader nor the
+checker can see where the call is made.
+
+## One feature end to end
+
+The account preferences of `@jskit-ai/users-core` are the worked example. One
+request travels through every layer:
+
+```text
+PATCH /api/settings/preferences
+  -> action "settings.preferences.update"
+  -> AccountPreferencesService.updatePreferences()
+  -> UserSettingsRepository.updatePreferences()
+```
+
+The excerpts below are shortened to the lines that show the style.
+
+### Types the package provides
+
+`src/server/types.js` names the type of each capability the package provides,
+derived from the factory that builds it:
+
+```js
+// The types of the users capabilities, for features that require them.
+
+/** @typedef {ReturnType<typeof import("./UsersFeature.js").createUsersRuntime>} UsersCore */
+/** @typedef {ReturnType<typeof import("./usersExtensions.js").createUsersExtensions>} UsersExtensions */
+/** @typedef {ReturnType<typeof import("./usersIdentity.js").createUsersIdentity>} UsersIdentity */
+
+export {};
+```
+
+`package.json` exports it, so code in another package that requires the
+capability can name its type:
+
+```json
+{
+  "exports": {
+    "./server/types": "./src/server/types.js"
+  }
+}
+```
+
+```js
+// In an application package whose feature requires `users: "users.core"`.
+/** @param {{ users: import("@jskit-ai/users-core/server/types").UsersCore }} dependencies */
+function createWelcomeService({ users }) {
+  // `users.services.accountPreferences` has one known type here.
+}
+```
+
+The generated package inventory lists each typedef of a module as
+`type <Name>`.
+
+### The feature
+
+The feature declares what it requires and provides. `setup()` builds the
+runtime with a named factory, registers the routes and a bootstrap contributor,
+and types its parameter because it calls `bootstrap.register()`. `actions()`
+creates the actions from the services `setup()` built:
+
+```js
+const UsersFeature = defineFeature({
+  id: "users.core",
+  requires: {
+    authService: "auth.service",
+    bootstrap: "runtime.bootstrap",
+    http: "runtime.http",
+    identity: "users.identity"
+  },
+  provides: {
+    users: "users.core"
+  },
+  /**
+   * @param {object} capabilities
+   * @param {import("@jskit-ai/auth-core/server/types").AuthService} capabilities.authService
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeBootstrap} capabilities.bootstrap
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeHttp} capabilities.http
+   * @param {import("./types.js").UsersIdentity} capabilities.identity
+   */
+  async setup({ authService, bootstrap, http, identity }) {
+    const users = createUsersRuntime({ authService, identity });
+    registerAccountPreferencesRoutes(http.router);
+    bootstrap.register({
+      id: "users.bootstrap",
+      order: 100,
+      contribute: createUsersBootstrapContributor({
+        authService,
+        userProfilesRepository: users.repositories.userProfiles,
+        userSettingsRepository: users.repositories.userSettings
+      }).contribute
+    });
+    return { users };
+  },
+  actions({ users }) {
+    return [
+      ...createAccountPreferencesActions({ accountPreferencesService: users.services.accountPreferences })
+    ];
+  }
+});
+```
+
+### The route table
+
+A route names the action it runs; the transport contract comes from the shared
+resource:
+
+```js
+/** @param {import("@jskit-ai/kernel/server/types").RuntimeHttp["router"]} router */
+function registerAccountPreferencesRoutes(router) {
+  router.register(
+    "PATCH",
+    "/api/settings/preferences",
+    {
+      auth: "required",
+      ...createJsonApiResourceRouteContract({
+        requestType: "user-preferences",
+        responseType: "user-settings",
+        body: userSettingsResource.operations.preferencesUpdate.body,
+        output: userSettingsResource.operations.view.output,
+        outputKind: "record",
+        getRecordId: resolveAccountSettingsResourceId,
+        includeValidation400: true
+      })
+    },
+    async function (request, reply) {
+      const response = await request.executeAction({
+        actionId: "settings.preferences.update",
+        input: request.input.body
+      });
+      reply.code(200).send(response);
+    }
+  );
+}
+```
+
+### The actions
+
+`createAccountPreferencesActions()` receives the typed service and returns the
+definitions. The action validates its input once, against the resource's
+schema, and its `execute` is one call:
+
+```js
+/** @param {{ accountPreferencesService: import("./accountPreferencesService.js").AccountPreferencesService }} dependencies */
+function createAccountPreferencesActions({ accountPreferencesService }) {
+  return Object.freeze([
+    Object.freeze({
+      id: "settings.preferences.update",
+      version: 1,
+      kind: "command",
+      channels: ["api", "automation", "internal"],
+      surfaces: ["*"],
+      permission: { require: "authenticated" },
+      input: userSettingsResource.operations.preferencesUpdate.body,
+      output: null,
+      idempotency: "optional",
+      events: ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS,
+      execute: (input, context) => accountPreferencesService.updatePreferences(
+        resolveRequest(context),
+        resolveActionUser(context, input),
+        input
+      )
+    })
+  ]);
+}
+```
+
+There is no `ActionSpecifications` list with a `run(service, input, context)`
+and no mapper that binds the service later: the action holds the service it was
+created with, so the inspector finds it by its literal id.
+
+### The typed service
+
+The service names the type of each repository it receives and the contract of
+`auth.service`. It has no defaults and no guards, and its method takes the
+validated payload as it is:
+
+```js
+/** @typedef {ReturnType<typeof import("../common/repositories/userProfilesRepository.js").createRepository>} UserProfilesRepository */
+/** @typedef {ReturnType<typeof import("../common/repositories/userSettingsRepository.js").createRepository>} UserSettingsRepository */
+
+// A signed-in user's display and regional preferences.
+/**
+ * @param {object} dependencies
+ * @param {UserSettingsRepository} dependencies.userSettingsRepository
+ * @param {UserProfilesRepository} dependencies.userProfilesRepository
+ * @param {import("@jskit-ai/auth-core/server/types").AuthService} dependencies.authService
+ */
+function createService({ userSettingsRepository, userProfilesRepository, authService }) {
+  // Saves the validated preference fields and answers with the account's settings.
+  async function updatePreferences(request, user, payload) {
+    const profile = await resolveUserProfile(userProfilesRepository, user);
+    if (!profile) {
+      throw new AppError(404, "User profile was not found.", { code: "users.profile.notFound" });
+    }
+
+    const settings = await userSettingsRepository.updatePreferences(profile.id, payload);
+    const securityStatus = await resolveSecurityStatus(authService, request);
+
+    return returnJsonApiData(accountSettingsResponseFormatter({ profile, settings, securityStatus, authService }));
+  }
+
+  return Object.freeze({ updatePreferences });
+}
+
+/** @typedef {ReturnType<typeof createService>} AccountPreferencesService */
+```
+
+### The repository
+
+The repository receives the JSON REST API it persists through, typed by its
+owner. Only its options bag, whose `trx` and `context` are optional by
+contract, keeps a default:
+
+```js
+/** @param {{ api: import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi }} dependencies */
+function createRepository({ api }) {
+  async function updatePreferences(userId, patch, options = {}) {
+    return patchUserSettings(userId, patch, options);
+  }
+
+  return Object.freeze({ findByUserId, ensureForUserId, updatePreferences });
+}
+```
+
+### Following the call
+
+From the route, each step is one jump:
+
+1. `request.executeAction({ actionId: "settings.preferences.update" })` reaches
+   the action with that literal id.
+2. Its `execute` calls `accountPreferencesService.updatePreferences()`;
+   `AccountPreferencesService` is `ReturnType<typeof createService>`, so the
+   call reaches that function in `accountPreferencesService.js`.
+3. `userSettingsRepository.updatePreferences()` is typed by
+   `UserSettingsRepository`, so it reaches `userSettingsRepository.js`, which
+   is the storage boundary.
+
+## Slots are optional capabilities
+
+An extension slot is a place where another package may supply an
+implementation. It is declared as an `optional` token. The declaring package
+names the default beside it, and `setup()` resolves the slot once. The kernel's
+action provider is the model:
+
+```js
+function createActionProvider(options = {}) {
+  return defineProvider({
+    id: "runtime.actions",
+    optional: {
+      events: "runtime.events"
+    },
+    provides: {
+      actions: "runtime.actions"
+    },
+    setup({ events }) {
+      return { actions: createActionCatalogue({
+        ...options,
+        events: events || createEventRuntime()
+      }) };
+    }
+  });
+}
+```
+
+After `setup()`, the action catalogue holds exactly one events runtime: the
+one an installed provider supplied for `runtime.events`, or the kernel's
+`createEventRuntime()`. A package fills the slot by providing the token; nothing
+calls the catalogue later to change it.
+
+Avoid the shapes that hide the destination:
+
+- a `set<Name>()` returned from a factory, or called on another object, to fill
+  a slot after construction;
+- a module-level `register<Name>()` that writes module state;
+- a collaborator that defaults to `null` and is probed before each call.
+
+Catalogues stay catalogues. Registering entries in a catalogue the feature
+received (routes on `http.router`, contributors on `runtime.bootstrap`,
+listeners on `runtime.events`, actions, placements) is not a slot.
+
+When the supplier of a slot itself requires the slot's owner, the two form a
+cycle. Split the part of the owner that the supplier needs into its own
+feature; the slot then becomes an optional token. Until that split, the setter
+stays, with a comment on the line before it naming the cycle:
+
+```js
+// readable-check: allow setter-seam - cycle: reminders requires billing
+```
+
+## Checks
+
+`@jskit-ai/config-eslint` reports code that does not follow the rule, as
+warnings on `**/src/server/**` in `baseConfig`. `typedFeaturesConfig(globs)`
+makes them errors for the packages an application has converted:
+
+| Rule | Reports |
+| --- | --- |
+| `jskit/typed-dependencies` | a factory or constructor that receives collaborators without a JSDoc `@param` type |
+| `jskit/required-collaborators` | an absent default, a `typeof` probe, an optional call |
+| `jskit/no-slot-setter` | a `set<Name>()` that fills a slot after construction |
+| `jskit/no-module-registry` | a module-level `register<Name>()` that writes module state |
+| `jskit/one-line-action` | `input = {}`, `input \|\| {}` or `input?.` in an action |
+| `jskit/no-duplicate-helper` | a small helper repeated in another file of the package |
+| `max-lines`, `max-lines-per-function` | files over 750 lines, functions over 600 |
+
+A justified exception carries a `// readable-check: allow <rule> - <reason>`
+comment on the line before it. The [typed features
+heuristic](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/heuristics/typed-features.md)
+lists each finding with its fix.

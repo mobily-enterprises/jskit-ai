@@ -97,7 +97,7 @@ Run this behavior-preserving audit over every affected screen:
 3. Check hierarchy, token use, component purpose, responsive presentation,
    interaction states, keyboard/focus behavior, labels, targets, contrast, and
    reduced motion.
-4. Audit Back on every affected page using [Back navigation](./ui-operations.md#back-navigation):
+4. Audit Back on every affected page using [Back navigation](ui-operations.md#back-navigation):
    verify its presence or justified omission, actual previous-page destination,
    safe direct-entry fallback, and retained origin context. Inspect handlers and
    route bindings; a hardcoded parent/list link is an explicit exception, not

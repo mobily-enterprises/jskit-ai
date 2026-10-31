@@ -64,7 +64,9 @@ Model product domains through `defineFeature()` when they own a real capability
 or operation boundary. A Feature declares stable named `requires`, optional
 inputs, and `provides`; `setup()` receives those values directly and returns
 only the promised outputs. Named actions capture the exact feature APIs they
-need. Register structural catalogue entries during `setup()` and reserve
+need. Write Features and providers as [typed features](/guide/framework/typed-features):
+each collaborator is declared, typed where it is received, and never probed.
+Register structural catalogue entries during `setup()` and reserve
 `boot()` for long-lived work that starts after composition. `shutdown()` stops
 that work. The runtime shuts Features down in reverse order and keeps going
 after one fails; it then rejects with an `AggregateError` holding one error per

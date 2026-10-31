@@ -161,6 +161,16 @@ test("generated reference maps list the types a module declares with @typedef", 
   ]);
 });
 
+test("the JSKIT skill points at the bundled typed-features guide and heuristic", async () => {
+  const skill = await readFile(path.join(packageRoot, "skills/jskit/SKILL.md"), "utf8");
+  for (const reference of ["references/typed-features.md", "references/heuristics/typed-features.md"]) {
+    assert.ok(skill.includes(`(${reference})`), `SKILL.md does not link ${reference}.`);
+    await access(path.join(packageRoot, "skills/jskit", reference));
+  }
+  const heuristicsIndex = await readFile(path.join(packageRoot, "heuristics/INDEX.md"), "utf8");
+  assert.match(heuristicsIndex, /\(\.\/typed-features\.md\)/u);
+});
+
 test("JSKIT guidance does not assume a Genesis blueprint", async () => {
   for (const relativePath of [
     "heuristics/surfaces.md",

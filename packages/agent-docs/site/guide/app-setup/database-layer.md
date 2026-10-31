@@ -218,7 +218,8 @@ Repositories own database access. Services and lifecycle hooks orchestrate
 repositories. External delivery belongs after commit; when it must be durable,
 write an outbox record inside the transaction and deliver it separately.
 A separate Feature is warranted when an operation belongs to another domain,
-not merely because a useful resource has behavior beyond list and save.
+not merely because a useful resource has behavior beyond list and save. Write
+it as a [typed feature](/guide/framework/typed-features).
 
 ## Deadlock retries
 

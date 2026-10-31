@@ -505,13 +505,21 @@ function toGeneratedSkillReference(sourceText, { commandName, sourcePath }) {
   return `<!-- Generated from \`${sourcePath}\` by \`${commandName}\`. -->\n\n${normalized}\n`;
 }
 
-function rewriteSkillGuideLinks(sourceText = "") {
+// A bundled guide links another bundled guide by that reference's file name; a
+// link to a guide chapter that is not bundled stays a site link.
+function rewriteSkillGuideLinks(sourceText = "", guidePath = "") {
   return String(sourceText || "")
     .replace(
       /\[[^\]]*source pattern(?:\s+library)?\]\(\/patterns\/\)/giu,
       "[bundled source pattern index](pattern-index.md)"
     )
-    .replace(/\(\.\/material-3\)/gu, "(material-3.md)");
+    .replace(/\]\((\/guide\/|\.\.?\/)([^)#\s]*?)(?:\.md)?(#[^)]*)?\)/gu, (link, prefix, target, anchor = "") => {
+      const linkedGuidePath = prefix === "/guide/"
+        ? target
+        : path.posix.join(path.posix.dirname(guidePath), prefix, target);
+      const skillTarget = JSKIT_SKILL_GUIDES[`${linkedGuidePath}.md`];
+      return skillTarget ? `](${skillTarget}${anchor})` : link;
+    });
 }
 
 // Heuristics link guide chapters by their source path; a bundled copy points at
@@ -832,7 +840,7 @@ async function buildGuideOutputs(commandName) {
     if (skillTarget) {
       await writeTextFile(
         path.join(JSKIT_SKILL_REFERENCES_ROOT, skillTarget),
-        toGeneratedSkillReference(rewriteSkillGuideLinks(compressedText), {
+        toGeneratedSkillReference(rewriteSkillGuideLinks(compressedText, relativePath), {
           commandName,
           sourcePath: sourceMarkdownPath
         })

@@ -377,7 +377,7 @@ Preserve `error.transactionOutcome` and `error.cause`: `rolledBack` confirms
 rollback, `committed` can accompany a failed completion hook, and `unknown`
 requires resolving the outcome before retrying. Errors after commit cannot undo
 persistence. See
-[managed transaction guidance](./existing-application-migration.md#json-rest-v2-integration).
+[managed transaction guidance](existing-application-migration.md#json-rest-v2-integration).
 
 Invitation mutations lock workspace before invitation rows. A losing acceptance,
 refusal, revocation or replacement cannot overwrite accepted/revoked state.

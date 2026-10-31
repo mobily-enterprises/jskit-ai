@@ -98,6 +98,8 @@ JSKIT email API. Its `send()` implementation owns the selected integration,
 credential resolution and safe error mapping. A connected account or a domain
 listing adapter alone does not implement email sending. Install this provider
 alongside the application's mail provider and `AuthLocalProvider`.
+[Typed features](/guide/framework/typed-features) describes how application
+providers name and type the capabilities they receive.
 For direct library composition, pass the same function as `recoverySender` to
 `createLocalAuthService()`.
 

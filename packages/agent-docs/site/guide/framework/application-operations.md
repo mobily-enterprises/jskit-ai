@@ -85,6 +85,8 @@ runtime pins. Review manifest and lockfile changes.
 The installed package graph supplies runtime providers, migrations, patterns,
 and public APIs directly; no JSKIT synchronization or mutation command follows
 the npm installation.
+Application features and providers receive those capabilities as
+[typed features](./typed-features.md).
 
 Do not add auth, users, workspaces, console, sample data, databases, or AI
 capabilities unless the product choice requires them.

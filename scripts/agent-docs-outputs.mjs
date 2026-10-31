@@ -22,6 +22,7 @@ const JSKIT_SKILL_GUIDES = Object.freeze({
   "framework/crud-operations.md": "crud-operations.md",
   "framework/material-3.md": "material-3.md",
   "framework/translation.md": "translation.md",
+  "framework/typed-features.md": "typed-features.md",
   "framework/ui-operations.md": "ui-operations.md"
 });
 const AGENT_DOCS_OUTPUT_PATHS = Object.freeze([
