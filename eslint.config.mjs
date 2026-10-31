@@ -51,16 +51,6 @@ export default [
     "packages/connector-google-calendar/src/server/**",
     "packages/connectors-catalog/src/server/**"
   ]),
-  {
-    // Over 750 lines, with a factory over 600, until its split run brings it under.
-    files: [
-      "packages/auth-provider-supabase-core/src/server/lib/service.js"
-    ],
-    rules: {
-      "max-lines": "off",
-      "max-lines-per-function": "off"
-    }
-  },
   ...webConfig,
   ...nodeConfig,
   ...vueConfig,

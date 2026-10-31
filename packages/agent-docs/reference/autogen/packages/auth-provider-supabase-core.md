@@ -149,13 +149,22 @@ Local functions
 Exports
 - `createPasswordSecurityFlows(deps)`
 
+### `src/server/lib/profileMirror.js`
+Exports
+- `DEFAULT_AUTH_PROVIDER_ID`
+- `createProfileMirror({ authProviderId, profileProjectionEnabled, userProfileSyncService })`
+- `normalizeAuthProviderId(value, { fallback = DEFAULT_AUTH_PROVIDER_ID } = {})`
+Local functions
+- `normalizeProviderUserId(value)`
+
 ### `src/server/lib/service.js`
 Exports
 - `createService(options)`
 - `__testables`
-Local functions
-- `normalizeAuthProviderId(value, { fallback = DEFAULT_AUTH_PROVIDER_ID } = {})`
-- `normalizeProviderUserId(value)`
+
+### `src/server/lib/sessions.js`
+Exports
+- `createSupabaseSessions({ devAuthConfig, ensureConfigured, getSupabaseClient, isProduction, jwtAudience, profileMirror, supabaseUrl, userProfilesRepository })`
 
 ### `src/server/lib/standaloneProfileSyncService.js`
 Exports
