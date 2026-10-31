@@ -16,17 +16,17 @@ Use this on demand; do not load the full index at startup.
 
 ### `src/server/common/contributors/workspaceActionContextContributor.js`
 Exports
-- `createWorkspaceActionContextContributor({ workspaceService, workspaceMembershipOptionalSurfaceIds = [], workspaceSurfaceIds = [] } = {})`
+- `createWorkspaceActionContextContributor({ workspaceService, workspaceMembershipOptionalSurfaceIds = [], workspaceSurfaceIds = [] })`
 Local functions
 - `normalizeWorkspaceSurfaceIds(surfaceIds = [])`
 
 ### `src/server/common/contributors/workspaceAuthPolicyContextResolver.js`
 Exports
-- `createWorkspaceAuthPolicyContextResolver({ workspaceService, workspaceMembershipOptionalSurfaceIds = [] } = {})`
+- `createWorkspaceAuthPolicyContextResolver({ workspaceService, workspaceMembershipOptionalSurfaceIds = [] })`
 
 ### `src/server/common/contributors/workspaceRouteVisibilityResolver.js`
 Exports
-- `createWorkspaceRouteVisibilityResolver({ workspaceService, workspaceMembershipOptionalSurfaceIds = [] } = {})`
+- `createWorkspaceRouteVisibilityResolver({ workspaceService, workspaceMembershipOptionalSurfaceIds = [] })`
 Local functions
 - `buildVisibilityContribution({ visibility, scopeOwnerId = null, userId = null } = {})`
 
@@ -51,7 +51,7 @@ Exports
 
 ### `src/server/common/repositories/workspaceInvitesRepository.js`
 Exports
-- `createRepository({ api } = {})`
+- `createRepository({ api })`
 - `normalizeInviteRecord(payload)`
 - `normalizeInviteWithWorkspace(payload = {})`
 Local functions
@@ -59,7 +59,7 @@ Local functions
 
 ### `src/server/common/repositories/workspaceMembershipsRepository.js`
 Exports
-- `createRepository({ api } = {})`
+- `createRepository({ api })`
 - `normalizeMembershipRecord(payload)`
 - `normalizeMemberSummaryRow(row)`
 Local functions
@@ -67,13 +67,13 @@ Local functions
 
 ### `src/server/common/repositories/workspacesRepository.js`
 Exports
-- `createRepository({ api } = {})`
+- `createRepository({ api })`
 Local functions
 - `normalizeWorkspaceRecord(payload = null)`
 
 ### `src/server/common/services/workspaceContextService.js`
 Exports
-- `createService({ appConfig = {}, workspacesRepository, workspaceMembershipsRepository, workspaceSettingsRepository } = {})`
+- `createService({ appConfig, workspacesRepository, workspaceMembershipsRepository, workspaceSettingsRepository })`
 - `type WorkspaceContextService`
 Local functions
 - `toSlugPart(value)`
@@ -91,7 +91,7 @@ Exports
 Exports
 - `INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE`
 - `createInviteDecisionEvents()`
-- `createWorkspaceEntityAndBootstrapEvents({ workspaceEntity, workspaceOperation, workspaceRealtimeEvent, bootstrapEntityId = workspaceId, bootstrapAudience = "event_scope" } = {})`
+- `createWorkspaceEntityAndBootstrapEvents({ workspaceEntity, workspaceOperation, workspaceRealtimeEvent, bootstrapEntityId = workspaceId, bootstrapAudience = "event_scope" })`
 Local functions
 - `resultValue({ result } = {})`
 - `actorId({ context } = {})`
@@ -152,7 +152,7 @@ Exports
 
 ### `src/server/workspaceBootstrapContributor.js`
 Exports
-- `createWorkspaceBootstrapContributor({ workspaceService, workspacePendingInvitationsService, userProfilesRepository, workspaceInvitationsEnabled = false, appConfig = {}, tenancyProfile = null } = {})`
+- `createWorkspaceBootstrapContributor({ workspaceService, workspacePendingInvitationsService, userProfilesRepository, workspaceInvitationsEnabled = false, appConfig = {}, tenancyProfile = null })`
 Local functions
 - `normalizeQueryPayload(value = {})`
 - `resolveBootstrapWorkspaceSlug({ query = {}, request = null } = {})`
@@ -200,7 +200,7 @@ Exports
 
 ### `src/server/workspaceMembers/workspaceMembersService.js`
 Exports
-- `createService({ workspaceMembershipsRepository, workspaceInvitesRepository, inviteExpiresInMs, roleCatalog = null, workspaceInvitationsEnabled = true, inviteUrlBuilder = null, workspaceInviteMailer = null, workspaceInviteEmailTemplate = renderDefaultWorkspaceInviteEmail, i18n = createWorkspacesServerI18n(), userProfilesRepository = null, userSettingsRepository = null } = {})`
+- `createService({ workspaceMembershipsRepository, workspaceInvitesRepository, inviteExpiresInMs, roleCatalog = null, workspaceInvitationsEnabled = true, inviteUrlBuilder = null, workspaceInviteMailer = null, workspaceInviteEmailTemplate = renderDefaultWorkspaceInviteEmail, i18n = createWorkspacesServerI18n(), userProfilesRepository, userSettingsRepository })`
 - `type WorkspaceMembersService`
 Local functions
 - `roleNotAssignableError()`
@@ -218,7 +218,7 @@ Exports
 
 ### `src/server/workspacePendingInvitations/workspacePendingInvitationsService.js`
 Exports
-- `createService({ workspaceInvitesRepository, workspaceMembershipsRepository, roleCatalog = null } = {})`
+- `createService({ workspaceInvitesRepository, workspaceMembershipsRepository, roleCatalog = null })`
 - `type WorkspacePendingInvitationsService`
 
 ### `src/server/workspaceSettings/bootWorkspaceSettings.js`
@@ -233,19 +233,19 @@ Exports
 
 ### `src/server/workspaceSettings/workspaceSettingsRepository.js`
 Exports
-- `createRepository({ api, defaultInvitesEnabled = true, defaultColorSettings = {} } = {})`
+- `createRepository({ api, defaultInvitesEnabled = true, defaultColorSettings = {} })`
 Local functions
 - `createDefaultWorkspaceSettingsCreatePayload(workspaceId, defaultInvitesEnabled, defaultColorSettings = {})`
 
 ### `src/server/workspaceSettings/workspaceSettingsService.js`
 Exports
-- `createService({ workspaceSettingsRepository, workspaceInvitationsEnabled = true, roleCatalog = null } = {})`
+- `createService({ workspaceSettingsRepository, workspaceInvitationsEnabled = true, roleCatalog = null })`
 - `type WorkspaceSettingsService`
 
 ### `src/server/WorkspacesFeature.js`
 Exports
 - `WorkspacesFeature`
-- `createWorkspacesRuntime({ appRoot = "", config, env, jsonRestApi, users = null } = {})`
+- `createWorkspacesRuntime({ appRoot, config, env, jsonRestApi, users })`
 - `installWorkspaceResources(jsonRestApi)`
 Local functions
 - `requirePositiveInteger(value, label)`

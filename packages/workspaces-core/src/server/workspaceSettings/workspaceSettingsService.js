@@ -6,14 +6,13 @@ import {
 } from "../../shared/resources/workspaceSettingsResource.js";
 import { createWorkspaceRoleCatalog, cloneWorkspaceRoleCatalog } from "../../shared/roles.js";
 
-function createService({
-  workspaceSettingsRepository,
-  workspaceInvitationsEnabled = true,
-  roleCatalog = null
-} = {}) {
-  if (!workspaceSettingsRepository) {
-    throw new Error("workspaceSettingsService requires workspaceSettingsRepository.");
-  }
+/**
+ * @param {object} dependencies
+ * @param {ReturnType<typeof import("./workspaceSettingsRepository.js").createRepository>} dependencies.workspaceSettingsRepository
+ * @param {boolean} [dependencies.workspaceInvitationsEnabled]
+ * @param {object | null} [dependencies.roleCatalog]
+ */
+function createService({ workspaceSettingsRepository, workspaceInvitationsEnabled = true, roleCatalog = null }) {
   const resolvedRoleCatalog = roleCatalog && typeof roleCatalog === "object" ? roleCatalog : createWorkspaceRoleCatalog();
   const invitesAvailable = workspaceInvitationsEnabled === true;
 

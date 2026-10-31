@@ -1,15 +1,12 @@
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 
-function createWorkspaceAuthPolicyContextResolver({
-  workspaceService,
-  workspaceMembershipOptionalSurfaceIds = []
-} = {}) {
-  if (!workspaceService || typeof workspaceService.resolveWorkspaceContextForUserBySlug !== "function") {
-    throw new Error(
-      "workspace auth policy context resolver requires workspaceService.resolveWorkspaceContextForUserBySlug()."
-    );
-  }
+/**
+ * @param {object} dependencies
+ * @param {import("../services/workspaceContextService.js").WorkspaceContextService} dependencies.workspaceService
+ * @param {string[]} [dependencies.workspaceMembershipOptionalSurfaceIds]
+ */
+function createWorkspaceAuthPolicyContextResolver({ workspaceService, workspaceMembershipOptionalSurfaceIds = [] }) {
 
   const membershipOptionalSurfaceIds = new Set(
     (Array.isArray(workspaceMembershipOptionalSurfaceIds) ? workspaceMembershipOptionalSurfaceIds : [])

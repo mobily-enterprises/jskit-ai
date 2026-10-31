@@ -4,14 +4,13 @@ import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 
-function createService({
-  workspaceInvitesRepository,
-  workspaceMembershipsRepository,
-  roleCatalog = null
-} = {}) {
-  if (!workspaceInvitesRepository || !workspaceMembershipsRepository) {
-    throw new Error("workspacePendingInvitationsService requires invite and membership repositories.");
-  }
+/**
+ * @param {object} dependencies
+ * @param {ReturnType<typeof import("../common/repositories/workspaceInvitesRepository.js").createRepository>} dependencies.workspaceInvitesRepository
+ * @param {ReturnType<typeof import("../common/repositories/workspaceMembershipsRepository.js").createRepository>} dependencies.workspaceMembershipsRepository
+ * @param {object | null} [dependencies.roleCatalog]
+ */
+function createService({ workspaceInvitesRepository, workspaceMembershipsRepository, roleCatalog = null }) {
 
   let acceptanceParticipant = null;
   let registrationClosed = false;
@@ -200,9 +199,7 @@ function createService({
 
   async function resolveInviteByToken(token, options = {}) {
     const tokenHash = requireInviteTokenHash(token);
-    const invite = typeof workspaceInvitesRepository.findByTokenHashWithWorkspace === "function"
-      ? await workspaceInvitesRepository.findByTokenHashWithWorkspace(tokenHash, options)
-      : await workspaceInvitesRepository.findPendingByTokenHash(tokenHash, options);
+    const invite = await workspaceInvitesRepository.findByTokenHashWithWorkspace(tokenHash, options);
 
     return mapResolvedInvite(invite, token);
   }

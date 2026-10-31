@@ -28,7 +28,8 @@ function normalizeWorkspaceRecord(payload = null) {
   };
 }
 
-function createRepository({ api } = {}) {
+/** @param {{ api: import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi }} dependencies */
+function createRepository({ api }) {
   if (!api?.resources?.workspaces || !api?.resources?.workspaceMemberships) {
     throw new TypeError("workspacesRepository requires json-rest-api workspaces and workspaceMemberships resources.");
   }

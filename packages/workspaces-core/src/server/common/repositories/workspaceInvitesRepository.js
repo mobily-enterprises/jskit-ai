@@ -77,7 +77,8 @@ function normalizeInviteWithWorkspace(payload = {}) {
   };
 }
 
-function createRepository({ api } = {}) {
+/** @param {{ api: import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi }} dependencies */
+function createRepository({ api }) {
   if (!api?.resources?.workspaceInvites) {
     throw new TypeError("workspaceInvitesRepository requires json-rest-api workspaceInvites resource.");
   }
@@ -86,6 +87,7 @@ function createRepository({ api } = {}) {
 
   async function queryInvites(filters = {}, options = {}, { includeWorkspace = false } = {}) {
     if (options.lock === true) {
+      // readable-check: allow method-probe - a lock needs the caller's Knex transaction, which options may omit
       if (typeof options.trx !== "function" || includeWorkspace) {
         throw new TypeError("Locking invites requires a transaction and no relationship includes.");
       }
@@ -138,7 +140,8 @@ function createRepository({ api } = {}) {
   }
 
   async function lockWorkspaceForInvitations(workspaceId, options = {}) {
-    if (typeof options.trx !== "function" || options.trx.isCompleted?.()) {
+    // readable-check: allow method-probe - a lock needs the caller's Knex transaction, which options may omit
+    if (typeof options.trx !== "function" || options.trx.isCompleted()) {
       throw new TypeError("Invitation locking requires an active transaction.");
     }
     const id = normalizeRecordId(workspaceId, { fallback: null });

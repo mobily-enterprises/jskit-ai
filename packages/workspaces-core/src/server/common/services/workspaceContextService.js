@@ -67,24 +67,20 @@ function normalizeWorkspaceCreationInput(payload = {}) {
   };
 }
 
-function createService({
-  appConfig = {},
-  workspacesRepository,
-  workspaceMembershipsRepository,
-  workspaceSettingsRepository
-} = {}) {
-  if (
-    !workspacesRepository ||
-    !workspaceMembershipsRepository ||
-    !workspaceSettingsRepository
-  ) {
-    throw new Error("workspaceService requires repositories.");
-  }
+/**
+ * @param {object} dependencies
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeConfig} dependencies.appConfig
+ * @param {ReturnType<typeof import("../repositories/workspacesRepository.js").createRepository>} dependencies.workspacesRepository
+ * @param {ReturnType<typeof import("../repositories/workspaceMembershipsRepository.js").createRepository>} dependencies.workspaceMembershipsRepository
+ * @param {ReturnType<typeof import("../../workspaceSettings/workspaceSettingsRepository.js").createRepository>} dependencies.workspaceSettingsRepository
+ */
+function createService({ appConfig, workspacesRepository, workspaceMembershipsRepository, workspaceSettingsRepository }) {
 
   const resolvedTenancyProfile = resolveTenancyProfile(appConfig);
   const resolvedTenancyMode = resolvedTenancyProfile.mode;
   const workspacePolicy = resolvedTenancyProfile.workspace;
   const personalWorkspaceName =
+    // readable-check: allow method-probe - personalWorkspaceName is an optional hook in the application's config
     typeof appConfig.personalWorkspaceName === "function" ? appConfig.personalWorkspaceName : null;
   async function ensureUniqueWorkspaceSlug(baseSlug, options = {}) {
     let suffix = 0;

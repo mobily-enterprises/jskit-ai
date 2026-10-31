@@ -1,4 +1,3 @@
-import { requireServiceMethod } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import {
@@ -28,18 +27,22 @@ function normalizeWorkspaceSurfaceIds(surfaceIds = []) {
   return normalized;
 }
 
+/**
+ * @param {object} dependencies
+ * @param {import("../services/workspaceContextService.js").WorkspaceContextService} dependencies.workspaceService
+ * @param {string[]} [dependencies.workspaceMembershipOptionalSurfaceIds]
+ * @param {string[]} [dependencies.workspaceSurfaceIds]
+ */
 function createWorkspaceActionContextContributor({
   workspaceService,
   workspaceMembershipOptionalSurfaceIds = [],
   workspaceSurfaceIds = []
-} = {}) {
+}) {
   const contributorId = "workspaces.context";
   const workspaceMembershipOptionalSurfaceIdSet = normalizeWorkspaceSurfaceIds(
     workspaceMembershipOptionalSurfaceIds
   );
   const workspaceSurfaceIdSet = normalizeWorkspaceSurfaceIds(workspaceSurfaceIds);
-
-  requireServiceMethod(workspaceService, "resolveWorkspaceContextForUserBySlug", contributorId);
 
   return Object.freeze({
     contributorId,

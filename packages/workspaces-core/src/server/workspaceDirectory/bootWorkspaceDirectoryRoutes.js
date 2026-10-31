@@ -25,10 +25,8 @@ function resolveWorkspaceRecordId(record = {}, context = {}) {
   throw new Error("Workspace JSON:API response requires workspace id.");
 }
 
+/** @param {import("@jskit-ai/kernel/server/types").RuntimeHttp["router"]} router */
 function registerWorkspaceDirectoryRoutes(router, { config = {}, workspaceSelfCreateEnabled = false } = {}) {
-  if (!router || typeof router.register !== "function") {
-    throw new TypeError("registerWorkspaceDirectoryRoutes requires router.register().");
-  }
   const workspaceRouteSurfaceId = resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig(config);
 
   if (workspaceSelfCreateEnabled) {

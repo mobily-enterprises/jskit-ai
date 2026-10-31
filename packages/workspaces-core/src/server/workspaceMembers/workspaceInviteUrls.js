@@ -50,7 +50,8 @@ function createWorkspaceInviteUrlBuilder({
   );
   const pathTemplate = normalizeInvitePathTemplate(inviteConfig.invitePath || inviteConfig.path || "/invite/:token");
 
-  return function buildWorkspaceInviteUrl({ token } = {}) {
+  /** @param {{ token: string, invite?: object, workspace?: object }} invite */
+  return function buildWorkspaceInviteUrl({ token }) {
     const invitePath = buildInvitePath(token, pathTemplate);
     if (!baseUrl) {
       return invitePath;

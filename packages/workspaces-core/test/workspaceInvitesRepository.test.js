@@ -50,6 +50,7 @@ function createWorkspaceInvitesApiStub({
     forUpdate() { return this; },
     then(resolve) { return Promise.resolve([...rowById.values()].filter((row) => row.status === "pending")).then(resolve); }
   });
+  trx.isCompleted = () => false;
   const api = {
     async transaction(work) { return work(trx); },
     resources: {

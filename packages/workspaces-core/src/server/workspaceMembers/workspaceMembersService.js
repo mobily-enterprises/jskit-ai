@@ -15,6 +15,21 @@ function roleNotAssignableError() {
   });
 }
 
+/**
+ * @param {object} dependencies
+ * @param {ReturnType<typeof import("../common/repositories/workspaceMembershipsRepository.js").createRepository>} dependencies.workspaceMembershipsRepository
+ * @param {ReturnType<typeof import("../common/repositories/workspaceInvitesRepository.js").createRepository>} dependencies.workspaceInvitesRepository
+ * @param {number} dependencies.inviteExpiresInMs
+ * @param {object | null} [dependencies.roleCatalog]
+ * @param {boolean} [dependencies.workspaceInvitationsEnabled]
+ * @param {((invite: { token: string, invite: object, workspace: object }) => string) | null} [dependencies.inviteUrlBuilder]
+ * @param {{ sendWorkspaceInvite?: (message: object, options?: object) => Promise<object> } | null} [dependencies.workspaceInviteMailer]
+ *   The mailer the application's config names, if any.
+ * @param {(input: object) => object} [dependencies.workspaceInviteEmailTemplate]
+ * @param {ReturnType<typeof createWorkspacesServerI18n>} [dependencies.i18n]
+ * @param {import("@jskit-ai/users-core/server/types").UsersCore["repositories"]["userProfiles"]} dependencies.userProfilesRepository
+ * @param {import("@jskit-ai/users-core/server/types").UsersCore["repositories"]["userSettings"]} dependencies.userSettingsRepository
+ */
 function createService({
   workspaceMembershipsRepository,
   workspaceInvitesRepository,
@@ -25,12 +40,9 @@ function createService({
   workspaceInviteMailer = null,
   workspaceInviteEmailTemplate = renderDefaultWorkspaceInviteEmail,
   i18n = createWorkspacesServerI18n(),
-  userProfilesRepository = null,
-  userSettingsRepository = null
-} = {}) {
-  if (!workspaceMembershipsRepository || !workspaceInvitesRepository) {
-    throw new Error("workspaceMembersService requires membership and invite repositories.");
-  }
+  userProfilesRepository,
+  userSettingsRepository
+}) {
   const resolvedInviteExpiresInMs = Number(inviteExpiresInMs);
   if (!Number.isInteger(resolvedInviteExpiresInMs) || resolvedInviteExpiresInMs < 1) {
     throw new Error("workspaceMembersService requires inviteExpiresInMs.");
@@ -115,10 +127,6 @@ function createService({
   // The saved locale of an existing account with the invited email, else English.
   // A failed lookup must not stop the invitation, so it also falls back to English.
   async function resolveRecipientLocale(email, options = {}) {
-    if (typeof userProfilesRepository?.findByEmail !== "function" ||
-      typeof userSettingsRepository?.findByUserId !== "function") {
-      return DEFAULT_LOCALE;
-    }
     try {
       const profile = await userProfilesRepository.findByEmail(email, options);
       const settings = profile?.id ? await userSettingsRepository.findByUserId(profile.id, options) : null;
@@ -129,6 +137,7 @@ function createService({
   }
 
   async function deliverInviteEmail({ workspace, user, invite, inviteUrl } = {}, options = {}) {
+    // readable-check: allow method-probe - workspaceInviteMailer comes from the application's config, which may name none
     if (!resolvedWorkspaceInviteMailer || typeof resolvedWorkspaceInviteMailer.sendWorkspaceInvite !== "function") {
       return {
         status: "mailer_unconfigured",

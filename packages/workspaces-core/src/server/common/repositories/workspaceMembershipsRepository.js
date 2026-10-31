@@ -57,7 +57,8 @@ function normalizeMemberSummaryRow(row) {
   };
 }
 
-function createRepository({ api } = {}) {
+/** @param {{ api: import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi }} dependencies */
+function createRepository({ api }) {
   if (!api?.resources?.workspaceMemberships) {
     throw new TypeError("workspaceMembershipsRepository requires json-rest-api workspaceMemberships resource.");
   }

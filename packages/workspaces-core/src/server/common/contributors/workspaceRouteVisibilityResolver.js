@@ -18,13 +18,12 @@ function buildVisibilityContribution({ visibility, scopeOwnerId = null, userId =
   return contribution;
 }
 
-function createWorkspaceRouteVisibilityResolver({
-  workspaceService,
-  workspaceMembershipOptionalSurfaceIds = []
-} = {}) {
-  if (!workspaceService || typeof workspaceService.resolveWorkspaceContextForUserBySlug !== "function") {
-    throw new Error("workspace route visibility resolver requires workspaceService.resolveWorkspaceContextForUserBySlug().");
-  }
+/**
+ * @param {object} dependencies
+ * @param {import("../services/workspaceContextService.js").WorkspaceContextService} dependencies.workspaceService
+ * @param {string[]} [dependencies.workspaceMembershipOptionalSurfaceIds]
+ */
+function createWorkspaceRouteVisibilityResolver({ workspaceService, workspaceMembershipOptionalSurfaceIds = [] }) {
 
   const membershipOptionalSurfaceIds = new Set(
     (Array.isArray(workspaceMembershipOptionalSurfaceIds) ? workspaceMembershipOptionalSurfaceIds : [])

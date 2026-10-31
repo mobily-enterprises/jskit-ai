@@ -99,7 +99,15 @@ async function installWorkspaceResources(jsonRestApi) {
   );
 }
 
-function createWorkspacesRuntime({ appRoot = "", config, env, jsonRestApi, users = null } = {}) {
+/**
+ * @param {object} dependencies
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeAppRoot} dependencies.appRoot
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeConfig} dependencies.config
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} dependencies.env
+ * @param {import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi} dependencies.jsonRestApi
+ * @param {import("@jskit-ai/users-core/server/types").UsersCore} dependencies.users
+ */
+function createWorkspacesRuntime({ appRoot, config, env, jsonRestApi, users }) {
   const tenancyProfile = resolveTenancyProfile(config);
   const invitationsPolicy = resolveWorkspaceInvitationsPolicy({ config, appConfig: config, tenancyProfile });
   const invitationsEnabled = invitationsPolicy.enabled === true;
@@ -139,8 +147,8 @@ function createWorkspacesRuntime({ appRoot = "", config, env, jsonRestApi, users
     workspaceInviteMailer: config?.workspaceInviteMailer || null,
     workspaceInviteEmailTemplate: resolveInviteEmailTemplate(config),
     i18n: createWorkspacesServerI18n({ appRoot }),
-    userProfilesRepository: users?.repositories?.userProfiles || null,
-    userSettingsRepository: users?.repositories?.userSettings || null
+    userProfilesRepository: users.repositories.userProfiles,
+    userSettingsRepository: users.repositories.userSettings
   });
   const workspaceSettingsService = createWorkspaceSettingsService({
     workspaceSettingsRepository,
@@ -189,6 +197,16 @@ const WorkspacesFeature = defineFeature({
   provides: {
     workspaces: "workspaces.core"
   },
+  /**
+   * @param {object} capabilities
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeAppRoot} capabilities.appRoot
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeBootstrap} capabilities.bootstrap
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeConfig} capabilities.config
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} capabilities.env
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeHttp} capabilities.http
+   * @param {import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi} capabilities.jsonRestApi
+   * @param {import("@jskit-ai/users-core/server/types").UsersCore} capabilities.users
+   */
   async setup({ appRoot, bootstrap, config, env, http, jsonRestApi, users }) {
     await installWorkspaceResources(jsonRestApi);
     const workspaces = createWorkspacesRuntime({ appRoot, config, env, jsonRestApi, users });

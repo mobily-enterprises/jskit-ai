@@ -1,4 +1,3 @@
-import { requireServiceMethod } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeLowerText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
@@ -94,6 +93,15 @@ function resolveBootstrapTenancyProfile(tenancyProfile = null, appConfig = {}) {
   });
 }
 
+/**
+ * @param {object} dependencies
+ * @param {import("./common/services/workspaceContextService.js").WorkspaceContextService} dependencies.workspaceService
+ * @param {import("./workspacePendingInvitations/workspacePendingInvitationsService.js").WorkspacePendingInvitationsService} dependencies.workspacePendingInvitationsService
+ * @param {import("@jskit-ai/users-core/server/types").UsersCore["repositories"]["userProfiles"]} dependencies.userProfilesRepository
+ * @param {boolean} [dependencies.workspaceInvitationsEnabled]
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeConfig} [dependencies.appConfig]
+ * @param {object | null} [dependencies.tenancyProfile]
+ */
 function createWorkspaceBootstrapContributor({
   workspaceService,
   workspacePendingInvitationsService,
@@ -101,24 +109,9 @@ function createWorkspaceBootstrapContributor({
   workspaceInvitationsEnabled = false,
   appConfig = {},
   tenancyProfile = null
-} = {}) {
+}) {
   const contributorId = "users.workspace.bootstrap";
   const resolvedTenancyProfile = resolveBootstrapTenancyProfile(tenancyProfile, appConfig);
-
-  requireServiceMethod(workspaceService, "listWorkspacesForUser", contributorId, {
-    serviceLabel: "workspaceService"
-  });
-  requireServiceMethod(workspaceService, "resolveWorkspaceContextForUserBySlug", contributorId, {
-    serviceLabel: "workspaceService"
-  });
-  if (workspaceInvitationsEnabled) {
-    requireServiceMethod(workspacePendingInvitationsService, "listPendingInvitesForUser", contributorId, {
-      serviceLabel: "workspacePendingInvitationsService"
-    });
-  }
-  requireServiceMethod(userProfilesRepository, "findById", contributorId, {
-    serviceLabel: "internal.repository.user-profiles"
-  });
 
   return Object.freeze({
     contributorId,

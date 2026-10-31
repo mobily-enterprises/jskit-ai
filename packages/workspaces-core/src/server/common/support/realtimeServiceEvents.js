@@ -38,13 +38,21 @@ const INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE = Object.freeze({
   }
 });
 
+/**
+ * @param {object} event
+ * @param {string} event.workspaceEntity
+ * @param {string} event.workspaceOperation
+ * @param {string} event.workspaceRealtimeEvent
+ * @param {typeof workspaceId} [event.bootstrapEntityId]
+ * @param {string} [event.bootstrapAudience]
+ */
 function createWorkspaceEntityAndBootstrapEvents({
   workspaceEntity,
   workspaceOperation,
   workspaceRealtimeEvent,
   bootstrapEntityId = workspaceId,
   bootstrapAudience = "event_scope"
-} = {}) {
+}) {
   return Object.freeze([
     createEntityChangedActionEvent({
       source: "workspace",
@@ -70,6 +78,7 @@ function createWorkspaceEntityAndBootstrapEvents({
   ]);
 }
 
+/** @param {{ source: string, entity: string, realtimeEvent: string }} event */
 function createActorEvent({ source, entity, realtimeEvent }) {
   return createEntityChangedActionEvent({
     source,
@@ -80,6 +89,7 @@ function createActorEvent({ source, entity, realtimeEvent }) {
   });
 }
 
+/** @param {{ entity: string, realtimeEvent: string }} event */
 function createWorkspaceAudienceEvent({ entity, realtimeEvent }) {
   return createEntityChangedActionEvent({
     source: "workspace",
