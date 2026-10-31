@@ -35,6 +35,7 @@
     "./server/runtime/errors": "./server/runtime/errors.js",
     "./server/runtime/requestUrl": "./server/runtime/requestUrl.js",
     "./server/support": "./server/support/index.js",
+    "./server/types": "./server/types.js",
     "./shared": "./shared/index.js",
     "./shared/capabilities": "./shared/capabilities/index.js",
     "./shared/validators": "./shared/validators/index.js",

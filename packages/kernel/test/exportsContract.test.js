@@ -36,7 +36,9 @@ const EXPORTED_UNUSED_ALLOWLIST = new Set([
   "./shared/capabilities",
   // Public HTTP composition provider used when assembling a server runtime,
   // and createActionRouteScope for applications' action route groups.
-  "./server/http"
+  "./server/http",
+  // Types of the kernel's capabilities, for the features that require them.
+  "./server/types"
 ]);
 
 function normalizeSlash(value) {
