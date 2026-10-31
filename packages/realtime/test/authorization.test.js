@@ -89,12 +89,14 @@ const event = {
 
 test("invalid authorization configuration fails closed at startup", () => {
   const io = { emit() {}, to() {} };
-  assert.throws(() => createRealtimeDelivery({ io, logger, authService: {
+  const audiences = createAudienceContributors();
+  assert.throws(() => createRealtimeDelivery({ io, logger, audiences, authService: {
     authenticateRequest() {}, realtime: { authorizeEvent: true }
   } }), /authorizeEvent must be a function/u);
-  assert.throws(() => createRealtimeDelivery({ io, logger, authService: {
+  assert.throws(() => createRealtimeDelivery({ io, logger, audiences, authService: {
     realtime: { requireAuthentication: true }
   } }), /authenticateRequest/u);
+  assert.throws(() => createRealtimeDelivery({ io, logger, authService: null }), /mayContribute/u);
 });
 
 test("real sockets authorize each conversation delivery and disconnect a revoked session", async (t) => {
@@ -285,7 +287,7 @@ test("idle socket sessions are revalidated without an application event, once pe
   const io = { emit() {}, to() {}, on() {}, off() {}, sockets: { sockets: new Map(sockets.map((socket, index) => [`s${index}`, socket])) } };
   let checks = 0;
   let options = null;
-  const delivery = createRealtimeDelivery({ io, logger, authService: {
+  const delivery = createRealtimeDelivery({ io, logger, audiences: createAudienceContributors(), authService: {
     realtime: { requireAuthentication: true },
     async authenticateRequest(_request, passOptions) {
       checks += 1;
@@ -305,7 +307,11 @@ test("idle socket sessions are revalidated without an application event, once pe
 test("delivery failures never reject a committed mutation and room unions emit once", async () => {
   const warnings = [];
   const io = { emit() { throw new Error("transport down"); }, to() { throw new Error("transport down"); } };
-  const delivery = createRealtimeDelivery({ io, logger: { debug() {}, warn(value) { warnings.push(value); } } });
+  const delivery = createRealtimeDelivery({
+    io,
+    logger: { debug() {}, warn(value) { warnings.push(value); } },
+    audiences: createAudienceContributors()
+  });
   await assert.doesNotReject(delivery.handle(event));
   await assert.doesNotReject(delivery.handle({ ...event, realtime: { ...event.realtime, payload: "invalid" } }));
   assert.equal(warnings.length, 2);

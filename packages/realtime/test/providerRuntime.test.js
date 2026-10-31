@@ -250,7 +250,7 @@ test("RealtimeProvider assembles an event-driven runtime capability", async () =
 
 test("realtime delivery sends explicit action events to their selected rooms", async () => {
   const io = createIoDouble();
-  const delivery = createRealtimeDelivery({ io, logger });
+  const delivery = createRealtimeDelivery({ io, logger, audiences: createAudienceContributors() });
   await delivery.handle({
     type: "entity.changed",
     source: "workspace",
@@ -284,7 +284,11 @@ test("realtime delivery sends explicit action events to their selected rooms", a
 test("realtime event_scope delivery never widens an undeliverable scope to every user", async () => {
   const io = createIoDouble();
   const warnings = [];
-  const delivery = createRealtimeDelivery({ io, logger: { ...logger, warn: (details) => warnings.push(details) } });
+  const delivery = createRealtimeDelivery({
+    io,
+    logger: { ...logger, warn: (details) => warnings.push(details) },
+    audiences: createAudienceContributors()
+  });
   const scopes = [undefined, { kind: "scope", id: "11" }, { kind: "public" }, { kind: "user" }];
   for (const scope of scopes) {
     await delivery.handle({
@@ -307,6 +311,7 @@ test("realtime delivery resolves an explicit database-backed audience without ex
   const delivery = createRealtimeDelivery({
     io,
     logger,
+    audiences: createAudienceContributors(),
     database: {
       knex() {}
     }

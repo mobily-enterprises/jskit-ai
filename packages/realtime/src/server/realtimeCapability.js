@@ -1,102 +1,153 @@
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
+  authenticationRequiredError,
+  createAudienceContributors,
   createSocketRequest,
   realtimeAuthenticationRequired,
+  registerSocketAudienceBootstrap,
   revalidateSocket
 } from "./realtimeAudience.js";
+import { createRealtimeDelivery } from "./realtimeDelivery.js";
+import { announceServedClientBuild } from "./servedClientBuild.js";
+import {
+  closeSocketIoRedisConnections,
+  closeSocketIoServer,
+  configureSocketIoRedisAdapter
+} from "./runtime.js";
 
-const stateByCapability = new WeakMap();
+/** @typedef {import("@jskit-ai/auth-core/server/types").AuthService} AuthService */
+/** @typedef {import("@jskit-ai/database-runtime/server/types").RuntimeDatabase} RuntimeDatabase */
+/** @typedef {import("@jskit-ai/kernel/server/types").RuntimeAppRoot} RuntimeAppRoot */
+/** @typedef {import("@jskit-ai/kernel/server/types").RuntimeEvents} RuntimeEvents */
+/** @typedef {import("@jskit-ai/kernel/shared/support/providerLogger").ProviderLogger} ProviderLogger */
 
-// The kernel's code for this English, so a client can show it in the user's language.
-function authenticationRequiredError() {
-  return Object.assign(new Error("Authentication required."), { statusCode: 401, code: "AUTHENTICATION_REQUIRED" });
-}
-
-// The `runtime.realtime` capability over one Socket.IO server. The provider
-// keeps the state its lifecycle fills in stateByCapability, keyed by it.
 /**
+ * The `runtime.realtime` capability over one Socket.IO server. It starts
+ * delivering once every provider has booted, because the auth service may be
+ * ready only then, and stops with the runtime.
  * @param {object} dependencies
  * @param {import("socket.io").Server} dependencies.io
+ * @param {ProviderLogger} dependencies.logger
+ * @param {AuthService | null} dependencies.authService
+ * @param {RuntimeDatabase | null} dependencies.database
+ * @param {RuntimeEvents} dependencies.events
+ * @param {RuntimeAppRoot | null} dependencies.appRoot
+ * @param {{ redisUrl: string, redisNamespace: string }} dependencies.redis
  */
-function createRealtimeCapability({ io }) {
-  const capability = Object.freeze({
-    onConnection(listener) {
-      if (typeof listener !== "function") throw new TypeError("Realtime connection listener must be a function.");
-      const state = stateByCapability.get(capability);
-      if (!state) throw new Error("Realtime runtime state is unavailable.");
-      const releases = new Map();
-      function attach(socket) {
-        if (releases.has(socket)) return;
-        let detach;
-        async function readRequest() {
-          const request = createSocketRequest(socket);
-          const actor = await revalidateSocket({
-            socket, request, authService: state.authService, audiences: state.audiences
-          });
-          if (!socket.connected || (!actor && realtimeAuthenticationRequired(state.authService))) {
-            throw authenticationRequiredError();
-          }
-          if (actor) request.user = actor;
-          return request;
+function createRealtimeCapability({ io, logger, authService, database, events, appRoot, redis }) {
+  const audiences = createAudienceContributors();
+  const connectionListeners = new Set();
+  let authenticationRequired = false;
+  /** @type {ReturnType<typeof createRealtimeDelivery> | null} */
+  let delivery = null;
+  /** @type {Awaited<ReturnType<typeof configureSocketIoRedisAdapter>> | null} */
+  let redisConnection = null;
+
+  function onConnection(listener) {
+    if (typeof listener !== "function") throw new TypeError("Realtime connection listener must be a function.");
+    const releases = new Map();
+    function attach(socket) {
+      if (releases.has(socket)) return;
+      let detach;
+      async function readRequest() {
+        const request = createSocketRequest(socket);
+        const actor = await revalidateSocket({ socket, request, authService, audiences });
+        if (!socket.connected || (!actor && realtimeAuthenticationRequired(authService))) {
+          throw authenticationRequiredError();
         }
-        function release() {
-          socket.off("disconnect", release);
-          releases.delete(socket);
-          try { detach?.(); }
-          catch (error) {
-            state.providerLogger.warn({ error: String(error?.message || error) }, "Realtime connection cleanup failed.");
-          }
-        }
-        try {
-          detach = listener({
-            socket,
-            // Hosts authorize this real connection request through their own
-            // action boundary. Reading it alone does not grant local access.
-            readRequest,
-            async authenticate() {
-              const request = await readRequest();
-              if (!request.user) throw authenticationRequiredError();
-              return request;
-            }
-          });
-          if (detach != null && typeof detach !== "function") {
-            throw new TypeError("Realtime connection listeners must return a cleanup function or undefined.");
-          }
-          releases.set(socket, release);
-          socket.on("disconnect", release);
-        } catch (error) {
-          state.providerLogger.warn({ error: String(error?.message || error) }, "Realtime connection listener failed.");
+        if (actor) request.user = actor;
+        return request;
+      }
+      function release() {
+        socket.off("disconnect", release);
+        releases.delete(socket);
+        try { detach?.(); }
+        catch (error) {
+          logger.warn({ error: String(error?.message || error) }, "Realtime connection cleanup failed.");
         }
       }
-      function stop() {
-        io.off("connection", attach);
-        for (const release of [...releases.values()]) release();
-        state.connectionListeners.delete(stop);
+      try {
+        detach = listener({
+          socket,
+          // Hosts authorize this real connection request through their own
+          // action boundary. Reading it alone does not grant local access.
+          readRequest,
+          async authenticate() {
+            const request = await readRequest();
+            if (!request.user) throw authenticationRequiredError();
+            return request;
+          }
+        });
+        if (detach != null && typeof detach !== "function") {
+          throw new TypeError("Realtime connection listeners must return a cleanup function or undefined.");
+        }
+        releases.set(socket, release);
+        socket.on("disconnect", release);
+      } catch (error) {
+        logger.warn({ error: String(error?.message || error) }, "Realtime connection listener failed.");
       }
-      state.connectionListeners.add(stop);
-      io.on("connection", attach);
-      for (const socket of io.sockets.sockets.values()) attach(socket);
-      return stop;
-    },
-    // A package that knows which scopes (kind "user", "workspace" or
-    // "workspace_user") an actor belongs to registers them during setup; sockets
-    // join, and on revalidation leave, exactly the rooms its scopes name.
-    registerAudienceContributor(contributor) {
-      const state = stateByCapability.get(capability);
-      if (!state) throw new Error("Realtime runtime state is unavailable.");
-      state.audiences.register(contributor);
-    },
-    diagnostics() {
-      const state = stateByCapability.get(capability);
-      return Object.freeze({
-        authenticationRequired: state?.authenticationRequired === true,
-        connectedClients: Number.isInteger(Number(io?.engine?.clientsCount))
-          ? Number(io.engine.clientsCount)
-          : null,
-        redisConfigured: state?.redisConnection?.enabled === true
-      });
     }
+    function stopListening() {
+      io.off("connection", attach);
+      for (const release of [...releases.values()]) release();
+      connectionListeners.delete(stopListening);
+    }
+    connectionListeners.add(stopListening);
+    io.on("connection", attach);
+    for (const socket of io.sockets.sockets.values()) attach(socket);
+    return stopListening;
+  }
+
+  // A package that knows which scopes (kind "user", "workspace" or
+  // "workspace_user") an actor belongs to registers them during setup; sockets
+  // join, and on revalidation leave, exactly the rooms its scopes name.
+  function registerAudienceContributor(contributor) {
+    audiences.register(contributor);
+  }
+
+  function diagnostics() {
+    return Object.freeze({
+      authenticationRequired,
+      connectedClients: Number.isInteger(Number(io.engine?.clientsCount))
+        ? Number(io.engine.clientsCount)
+        : null,
+      redisConfigured: redisConnection?.enabled === true
+    });
+  }
+
+  // Authenticates each socket and delivers every event that names a socket
+  // event, to the other servers too when Redis is configured.
+  async function start() {
+    delivery = createRealtimeDelivery({ io, database, logger, authService, audiences });
+    authenticationRequired = realtimeAuthenticationRequired(authService);
+    registerSocketAudienceBootstrap({ io, logger, authService, audiences });
+    announceServedClientBuild({ io, appRoot, logger });
+    redisConnection = await configureSocketIoRedisAdapter(io, { logger, ...redis });
+    delivery.start({ redisConfigured: redisConnection.enabled });
+    events.register({
+      id: "runtime.realtime.delivery",
+      matches: (event) => Boolean(normalizeText(event?.realtime?.event)),
+      handle: delivery.handle
+    });
+  }
+
+  // Closes Socket.IO's part of the HTTP server; the server's owner closes the server.
+  async function stop() {
+    for (const release of [...connectionListeners]) release();
+    if (delivery) delivery.stop();
+    await closeSocketIoServer(io);
+    await closeSocketIoRedisConnections(redisConnection || {});
+    authenticationRequired = false;
+    redisConnection = null;
+  }
+
+  return Object.freeze({
+    onConnection,
+    registerAudienceContributor,
+    diagnostics,
+    start,
+    stop
   });
-  return capability;
 }
 
-export { createRealtimeCapability, stateByCapability };
+export { createRealtimeCapability };

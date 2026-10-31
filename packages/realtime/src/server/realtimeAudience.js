@@ -2,7 +2,7 @@ import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/suppor
 
 /** @typedef {import("@jskit-ai/auth-core/server/types").AuthService} AuthService */
 /** @typedef {import("@jskit-ai/database-runtime/server/types").RuntimeDatabase} RuntimeDatabase */
-/** @typedef {ReturnType<typeof import("@jskit-ai/kernel/shared/support/providerLogger").createProviderLogger>} ProviderLogger */
+/** @typedef {import("@jskit-ai/kernel/shared/support/providerLogger").ProviderLogger} ProviderLogger */
 
 const ALL_CLIENTS_ROOM = "clients";
 const ALL_USERS_ROOM = "users";
@@ -179,7 +179,7 @@ function collectUserIds(rows) {
  * @param {unknown} audience
  * @param {object} event
  * @param {object} dependencies
- * @param {RuntimeDatabase} [dependencies.database] Absent when no runtime.database is installed.
+ * @param {RuntimeDatabase | null} [dependencies.database] Absent when no runtime.database is installed.
  * @param {ProviderLogger} dependencies.logger
  */
 async function resolveAudienceTargets(audience, event, { database, logger }) {
@@ -253,7 +253,7 @@ function createSocketRequest(socket) {
 // A provider that would have to (its access token expired) answers
 // `refreshRequired`, and the client refreshes over HTTP before reconnecting.
 /**
- * @param {AuthService | undefined} authService Absent when no auth.service is installed.
+ * @param {AuthService | null} authService Absent when no auth.service is installed.
  * @param {import("socket.io").Socket} socket
  * @param {object} [request]
  * @param {(request: object) => ReturnType<AuthService["authenticateRequest"]>} [authenticateRequest]
@@ -267,15 +267,20 @@ async function resolveSocketAuthentication(authService, socket, request = create
   return { actor: id ? { ...result.actor, id } : null, refreshRequired: result?.refreshRequired === true };
 }
 
-/** @param {AuthService} [authService] */
+/** @param {AuthService | null} authService Absent when no auth.service is installed. */
 function realtimeAuthenticationRequired(authService) {
   return authService?.realtime?.requireAuthentication === true;
 }
 
+// The kernel's code for this English, so a client can show it in the user's
+// language: as the error's code for a host's action boundary, and in its data
+// for a refused Socket.IO handshake.
 function authenticationRequiredError() {
-  const error = new Error("Authentication required.");
-  error.data = Object.freeze({ code: "AUTHENTICATION_REQUIRED" });
-  return error;
+  return Object.assign(new Error("Authentication required."), {
+    statusCode: 401,
+    code: "AUTHENTICATION_REQUIRED",
+    data: Object.freeze({ code: "AUTHENTICATION_REQUIRED" })
+  });
 }
 
 function sessionRefreshRequiredError() {
@@ -296,7 +301,7 @@ function rememberSocketActorId(socket, actorId) {
  * @param {object} dependencies
  * @param {import("socket.io").Server} dependencies.io
  * @param {ProviderLogger} dependencies.logger
- * @param {AuthService} [dependencies.authService]
+ * @param {AuthService | null} dependencies.authService Absent when no auth.service is installed.
  */
 function registerSocketAuthentication({ io, logger, authService }) {
   if (!authService) return;
@@ -339,7 +344,7 @@ async function joinContributedRooms(socket, actorId, audiences) {
  * @param {object} dependencies
  * @param {import("socket.io").Server} dependencies.io
  * @param {ProviderLogger} dependencies.logger
- * @param {AuthService} [dependencies.authService] Absent when no auth.service is installed.
+ * @param {AuthService | null} dependencies.authService Absent when no auth.service is installed.
  * @param {AudienceContributors} dependencies.audiences
  */
 function registerSocketAudienceBootstrap({ io, logger, authService, audiences }) {
@@ -361,7 +366,7 @@ function registerSocketAudienceBootstrap({ io, logger, authService, audiences })
 /**
  * @param {object} options
  * @param {import("socket.io").Socket} options.socket
- * @param {AuthService} [options.authService] Absent when no auth.service is installed.
+ * @param {AuthService | null} options.authService Absent when no auth.service is installed.
  * @param {Pick<AudienceContributors, "resolveActorRooms">} options.audiences
  * @param {object} [options.request]
  * @param {Parameters<typeof resolveSocketAuthentication>[3]} [options.authenticateRequest]
@@ -382,6 +387,7 @@ async function revalidateSocket({ socket, authService, audiences, request, authe
 }
 
 export {
+  authenticationRequiredError,
   createAudienceContributors,
   createSocketRequest,
   realtimeAuthenticationRequired,

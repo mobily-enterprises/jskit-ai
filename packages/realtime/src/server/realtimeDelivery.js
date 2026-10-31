@@ -1,7 +1,7 @@
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveAudienceTargets, revalidateSocket } from "./realtimeAudience.js";
 
-/** @typedef {import("./realtimeAudience.js").AuthService} AuthService */
+/** @typedef {import("@jskit-ai/auth-core/server/types").AuthService} AuthService */
 /** @typedef {import("./realtimeAudience.js").AudienceContributors} AudienceContributors */
 
 const DELIVERY_EVENT = "jskit:realtime:delivery";
@@ -39,27 +39,28 @@ function sharedWithinPass(load, keyOf = (value) => value) {
 // never refreshes a session the socket could not store.
 /**
  * @param {AuthService} authService
- * @param {AudienceContributors} audiences
+ * @param {AudienceContributors["resolveActorRooms"]} resolveActorRooms
  */
-function createPassChecks(authService, audiences) {
+function createPassChecks(authService, resolveActorRooms) {
   return {
     authenticateRequest: sharedWithinPass(
       (request) => authService.authenticateRequest(request, { syncProfile: false, refreshSession: false }),
       JSON.stringify
     ),
-    audiences: { resolveActorRooms: sharedWithinPass((actorId) => audiences.resolveActorRooms(actorId)) }
+    audiences: { resolveActorRooms: sharedWithinPass(resolveActorRooms) }
   };
 }
 
 /**
  * @param {object} dependencies
  * @param {import("socket.io").Server} dependencies.io
- * @param {import("./realtimeAudience.js").RuntimeDatabase} [dependencies.database] Absent when no runtime.database is installed.
- * @param {import("./realtimeAudience.js").ProviderLogger} dependencies.logger
- * @param {AuthService} [dependencies.authService] Absent when no auth.service is installed.
- * @param {AudienceContributors} dependencies.audiences
+ * @param {import("@jskit-ai/database-runtime/server/types").RuntimeDatabase | null} dependencies.database Absent when no runtime.database is installed.
+ * @param {import("@jskit-ai/kernel/shared/support/providerLogger").ProviderLogger} dependencies.logger
+ * @param {AuthService | null} dependencies.authService Absent when no auth.service is installed.
+ * @param {AudienceContributors} dependencies.audiences The rooms revalidation may make a socket join.
+ *   With no contributors registered, a socket stays in the rooms it already has.
  */
-function createRealtimeDelivery({ io, database, logger, authService, audiences }) {
+function createRealtimeDelivery({ io, database, logger, authService, audiences: { mayContribute, resolveActorRooms } }) {
   // readable-check: allow method-probe - a test asserts the error an auth.service without authenticateRequest() raises below
   const guarded = typeof authService?.authenticateRequest === "function";
   // readable-check: allow method-probe - a test asserts this error; input validation: an auth provider's realtime policy may name authorizeEvent()
@@ -92,12 +93,12 @@ function createRealtimeDelivery({ io, database, logger, authService, audiences }
   // joining a contributed room; otherwise checking it cannot change delivery.
   function candidateSockets(targets) {
     const sockets = [...io.sockets.sockets.values()];
-    if (targets.broadcastAllClients || targets.rooms.some((room) => audiences.mayContribute(room))) return sockets;
+    if (targets.broadcastAllClients || targets.rooms.some((room) => mayContribute(room))) return sockets;
     return sockets.filter((socket) => targets.rooms.some((room) => socket.rooms.has(room)));
   }
 
   async function deliverLocal({ eventName, payload, targets }) {
-    const checks = createPassChecks(authService, audiences);
+    const checks = createPassChecks(authService, resolveActorRooms);
     await Promise.all(candidateSockets(targets).map(async (socket) => {
       try {
         const actor = await revalidate(socket, checks);
@@ -129,7 +130,7 @@ function createRealtimeDelivery({ io, database, logger, authService, audiences }
   function scheduleRevalidation() {
     if (stopped) return;
     revalidationTimer = setTimeout(async () => {
-      const checks = createPassChecks(authService, audiences);
+      const checks = createPassChecks(authService, resolveActorRooms);
       await Promise.all([...io.sockets.sockets.values()].map((socket) => revalidate(socket, checks)));
       scheduleRevalidation();
     }, 30_000);

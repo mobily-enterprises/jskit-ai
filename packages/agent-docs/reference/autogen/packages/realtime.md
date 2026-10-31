@@ -54,6 +54,7 @@ Exports
 
 ### `src/server/realtimeAudience.js`
 Exports
+- `authenticationRequiredError()`
 - `createAudienceContributors()`
 - `createSocketRequest(socket)`
 - `realtimeAuthenticationRequired(authService)`
@@ -77,7 +78,6 @@ Local functions
 - `collectUserIds(rows)`
 - `parseCookieHeader(value = "")`
 - `resolveSocketAuthentication(authService, socket, request = createSocketRequest(socket), authenticateRequest = (value) => authService.authenticateRequest(value, { refreshSession: false }))`
-- `authenticationRequiredError()`
 - `sessionRefreshRequiredError()`
 - `rememberSocketActorId(socket, actorId)`
 - `registerSocketAuthentication({ io, logger, authService })`
@@ -85,20 +85,22 @@ Local functions
 
 ### `src/server/realtimeCapability.js`
 Exports
-- `createRealtimeCapability({ io })`
-- `stateByCapability`
-Local functions
-- `authenticationRequiredError()`
+- `createRealtimeCapability({ io, logger, authService, database, events, appRoot, redis })`
+- `type AuthService`
+- `type RuntimeDatabase`
+- `type RuntimeAppRoot`
+- `type RuntimeEvents`
+- `type ProviderLogger`
 
 ### `src/server/realtimeDelivery.js`
 Exports
-- `createRealtimeDelivery({ io, database, logger, authService, audiences })`
+- `createRealtimeDelivery({ io, database, logger, authService, audiences: { mayContribute, resolveActorRooms } })`
 - `type AuthService`
 - `type AudienceContributors`
 Local functions
 - `publicRealtimePayload(event)`
 - `sharedWithinPass(load, keyOf = (value) => value)`
-- `createPassChecks(authService, audiences)`
+- `createPassChecks(authService, resolveActorRooms)`
 
 ### `src/server/RealtimeProvider.js`
 Exports
