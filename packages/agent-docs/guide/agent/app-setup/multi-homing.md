@@ -152,11 +152,26 @@ capability provides:
 
 ### Invitation email
 
-To send invitation email, set a mailer in `config/server.js`. Without one,
-invitations are still created and delivery reports `mailer_unconfigured`.
-`workspaceInviteMailer` is an object whose `sendWorkspaceInvite(message,
-options)` receives `{ email, inviteUrl, workspace, inviter, roleSid, expiresAt,
-message }`, where the inner `message` is the rendered `{ subject, text, html }`.
+To send invitation email, provide the optional `workspaces.invite-mailer`
+capability from one of the application's providers. Without one, invitations
+are still created and delivery reports `mailer_unconfigured`. The mailer, typed
+`WorkspaceInviteMailer` in `@jskit-ai/workspaces-core/server/types`, is an
+object whose `sendWorkspaceInvite(message, options)` receives `{ email,
+inviteUrl, workspace, inviter, roleSid, expiresAt, message }`, where the inner
+`message` is the rendered `{ subject, text, html }`:
+
+```js
+const InviteMailerProvider = defineProvider({
+  id: "app.invite-mailer",
+  provides: {
+    inviteMailer: "workspaces.invite-mailer"
+  },
+  setup() {
+    return { inviteMailer: createAppInviteMailer() };
+  }
+});
+```
+
 `workspaceInviteEmailTemplate` is an optional function that renders that inner
 message; it receives `{ email, inviteUrl, workspace, inviter, roleSid,
 roleLabel, expiresAt }` (`roleLabel` only when configured). Invitation links use `/invite/:token` unless
@@ -316,23 +331,24 @@ invitation. Association failure rolls back the new invitation, replacement of
 the previous invitation, receipt and application writes. Send only after the
 transaction resolves successfully.
 
-With no `workspaceInviteMailer`, delivery returns `status: "mailer_unconfigured"`,
-an explanatory `message` and an empty `providerMessageId`; the invitation remains
-committed. Use a controlled mailer in tests; SMTP is unnecessary:
+With no provider of `workspaces.invite-mailer`, delivery returns
+`status: "mailer_unconfigured"`, an explanatory `message` and an empty
+`providerMessageId`; the invitation remains committed. Provide a controlled
+mailer in tests; SMTP is unnecessary:
 
 ```js
-workspaceInviteMailer: {
+const inviteMailer = {
   async sendWorkspaceInvite(message) {
     capturedInvites.push(message); // Test-local memory; contains the secret link.
     return { status: "sent", message: "Captured by test mailer.", providerMessageId: "fixture-1" };
   }
-}
+};
 ```
 
 Renderer/mailer exceptions return `inviteDelivery.status: "failed"` with a fixed
 message to keep provider errors from exposing tokens. Persistence is unchanged.
-Successful mailer results retain their normalized status, message and provider
-message ID; the default status is `sent`.
+Successful mailer results retain their normalized status, message, message
+code and provider message ID; the default status is `sent`.
 
 A provider may accept a message before throwing or losing its response. The
 application must track delivery attempts and decide when to retry; email is not

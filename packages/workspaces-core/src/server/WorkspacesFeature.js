@@ -7,6 +7,7 @@ import { createWorkspaceMembersActions } from "./workspaceMembers/workspaceMembe
 import { registerWorkspacePendingInvitationsRoutes } from "./workspacePendingInvitations/bootWorkspacePendingInvitations.js";
 import { createWorkspacePendingInvitationsActions } from "./workspacePendingInvitations/workspacePendingInvitationsActions.js";
 import { registerWorkspaceSettingsRoutes } from "./workspaceSettings/bootWorkspaceSettings.js";
+import { unconfiguredWorkspaceInviteMailer } from "./workspaceMembers/unconfiguredWorkspaceInviteMailer.js";
 import { createWorkspaceSettingsActions } from "./workspaceSettings/workspaceSettingsActions.js";
 import { createWorkspacesRuntime, installWorkspaceResources } from "./workspacesRuntime.js";
 
@@ -22,6 +23,9 @@ const WorkspacesFeature = defineFeature({
     jsonRestApi: "runtime.json-rest-api",
     users: "users.core"
   },
+  optional: {
+    inviteMailer: "workspaces.invite-mailer"
+  },
   provides: {
     workspaces: "workspaces.core"
   },
@@ -32,12 +36,20 @@ const WorkspacesFeature = defineFeature({
    * @param {import("@jskit-ai/kernel/server/types").RuntimeConfig} capabilities.config
    * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} capabilities.env
    * @param {import("@jskit-ai/kernel/server/types").RuntimeHttp} capabilities.http
+   * @param {import("./types.js").WorkspaceInviteMailer | undefined} capabilities.inviteMailer
    * @param {import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi} capabilities.jsonRestApi
    * @param {import("@jskit-ai/users-core/server/types").UsersCore} capabilities.users
    */
-  async setup({ appRoot, bootstrap, config, env, http, jsonRestApi, users }) {
+  async setup({ appRoot, bootstrap, config, env, http, inviteMailer, jsonRestApi, users }) {
     await installWorkspaceResources(jsonRestApi);
-    const workspaces = createWorkspacesRuntime({ appRoot, config, env, jsonRestApi, users });
+    const workspaces = createWorkspacesRuntime({
+      appRoot,
+      config,
+      env,
+      inviteMailer: inviteMailer || unconfiguredWorkspaceInviteMailer,
+      jsonRestApi,
+      users
+    });
 
     bootstrap.register({
       id: "workspaces.bootstrap",

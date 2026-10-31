@@ -96,10 +96,11 @@ async function installWorkspaceResources(jsonRestApi) {
  * @param {import("@jskit-ai/kernel/server/types").RuntimeAppRoot} dependencies.appRoot
  * @param {import("@jskit-ai/kernel/server/types").RuntimeConfig} dependencies.config
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} dependencies.env
+ * @param {import("./types.js").WorkspaceInviteMailer} dependencies.inviteMailer
  * @param {import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi} dependencies.jsonRestApi
  * @param {import("@jskit-ai/users-core/server/types").UsersCore} dependencies.users
  */
-function createWorkspacesRuntime({ appRoot, config, env, jsonRestApi, users }) {
+function createWorkspacesRuntime({ appRoot, config, env, inviteMailer, jsonRestApi, users }) {
   const tenancyProfile = resolveTenancyProfile(config);
   const invitationsPolicy = resolveWorkspaceInvitationsPolicy({ config, appConfig: config, tenancyProfile });
   const invitationsEnabled = invitationsPolicy.enabled === true;
@@ -136,7 +137,7 @@ function createWorkspacesRuntime({ appRoot, config, env, jsonRestApi, users }) {
     roleCatalog,
     workspaceInvitationsEnabled: invitationsEnabled,
     inviteUrlBuilder: createWorkspaceInviteUrlBuilder({ appConfig: config, env }),
-    workspaceInviteMailer: config?.workspaceInviteMailer || null,
+    workspaceInviteMailer: inviteMailer,
     workspaceInviteEmailTemplate: resolveInviteEmailTemplate(config),
     i18n: createWorkspacesServerI18n({ appRoot }),
     userProfilesRepository: users.repositories.userProfiles,

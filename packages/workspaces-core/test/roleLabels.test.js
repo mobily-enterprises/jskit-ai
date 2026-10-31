@@ -10,6 +10,8 @@ import { createService as createMembersService } from "../src/server/workspaceMe
 import { createService as createSettingsService } from "../src/server/workspaceSettings/workspaceSettingsService.js";
 import { createService as createPendingService } from "../src/server/workspacePendingInvitations/workspacePendingInvitationsService.js";
 import { renderDefaultWorkspaceInviteEmail } from "../src/server/workspaceMembers/defaultWorkspaceInviteEmail.js";
+import { createWorkspaceInviteUrlBuilder } from "../src/server/workspaceMembers/workspaceInviteUrls.js";
+import { unconfiguredWorkspaceInviteMailer } from "../src/server/workspaceMembers/unconfiguredWorkspaceInviteMailer.js";
 
 const config = {
   roleCatalog: {
@@ -68,7 +70,10 @@ test("Members and Invitations response validation preserves labels and saved rol
       async findByWorkspaceIdAndUserId() { return { userId: "11", roleSid: savedRole, status: "active" }; },
       async upsertMembership(_workspaceId, _userId, patch) { savedRole = patch.roleSid; }
     },
-    workspaceInvitesRepository: { async listPendingByWorkspaceIdWithWorkspace() { return []; } }
+    workspaceInvitesRepository: { async listPendingByWorkspaceIdWithWorkspace() { return []; } },
+    inviteUrlBuilder: createWorkspaceInviteUrlBuilder(),
+    workspaceInviteMailer: unconfiguredWorkspaceInviteMailer,
+    workspaceInviteEmailTemplate: renderDefaultWorkspaceInviteEmail
   });
   for (const roleSid of ["worker", "safety_manager", "administrator", "training_assessor"]) {
     await service.updateMemberRole(workspace, { memberUserId: "11", roleSid });

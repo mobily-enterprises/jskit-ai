@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { resolveWorkspaceThemePalettes } from "@jskit-ai/workspaces-core/shared/settings";
 import { createService } from "../src/server/workspaceSettings/workspaceSettingsService.js";
+import { createWorkspaceRoleCatalog } from "../src/shared/roles.js";
 
 function authorizedOptions(permissions = []) {
   return {
@@ -55,7 +56,8 @@ function createFixture({ workspaceInvitationsEnabled = true } = {}) {
         };
         return state.settings;
       }
-    }
+    },
+    roleCatalog: createWorkspaceRoleCatalog()
   });
 
   return { service, state };

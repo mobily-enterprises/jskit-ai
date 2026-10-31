@@ -8,15 +8,14 @@ import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
  * @param {object} dependencies
  * @param {ReturnType<typeof import("../common/repositories/workspaceInvitesRepository.js").createRepository>} dependencies.workspaceInvitesRepository
  * @param {ReturnType<typeof import("../common/repositories/workspaceMembershipsRepository.js").createRepository>} dependencies.workspaceMembershipsRepository
- * @param {object | null} [dependencies.roleCatalog]
+ * @param {ReturnType<typeof import("../../shared/roles.js").createWorkspaceRoleCatalog>} dependencies.roleCatalog
  */
-function createService({ workspaceInvitesRepository, workspaceMembershipsRepository, roleCatalog = null }) {
-
+function createService({ workspaceInvitesRepository, workspaceMembershipsRepository, roleCatalog }) {
   let acceptanceParticipant = null;
   let registrationClosed = false;
 
   function roleLabelMetadata(roleSid) {
-    const role = roleCatalog?.roles?.find((entry) => entry.id === (normalizeLowerText(roleSid || "member") || "member"));
+    const role = roleCatalog.roles.find((entry) => entry.id === (normalizeLowerText(roleSid || "member") || "member"));
     const label = typeof role?.label === "string" ? role.label.trim() : "";
     return label ? { roleLabel: label } : {};
   }

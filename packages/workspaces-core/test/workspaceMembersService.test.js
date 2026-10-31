@@ -6,6 +6,9 @@ import test from "node:test";
 import { createWorkspacesServerI18n } from "../src/server/i18n.js";
 import { createService } from "../src/server/workspaceMembers/workspaceMembersService.js";
 import { createWorkspaceRoleCatalog } from "../src/shared/roles.js";
+import { createWorkspaceInviteUrlBuilder } from "../src/server/workspaceMembers/workspaceInviteUrls.js";
+import { renderDefaultWorkspaceInviteEmail } from "../src/server/workspaceMembers/defaultWorkspaceInviteEmail.js";
+import { unconfiguredWorkspaceInviteMailer } from "../src/server/workspaceMembers/unconfiguredWorkspaceInviteMailer.js";
 
 function authorizedOptions(permissions = []) {
   return {
@@ -97,7 +100,10 @@ function createFixture() {
       async revokeById() {}
     },
     inviteExpiresInMs: 7 * 24 * 60 * 60 * 1000,
-    roleCatalog: createRoleCatalog()
+    roleCatalog: createRoleCatalog(),
+    inviteUrlBuilder: createWorkspaceInviteUrlBuilder(),
+    workspaceInviteMailer: unconfiguredWorkspaceInviteMailer,
+    workspaceInviteEmailTemplate: renderDefaultWorkspaceInviteEmail
   });
 
   return { service, workspace };
@@ -132,7 +138,10 @@ test("workspaceMembersService.createInvite uses configured inviteExpiresInMs", a
       async revokeById() {}
     },
     inviteExpiresInMs: 30 * 60 * 1000,
-    roleCatalog: createRoleCatalog()
+    roleCatalog: createRoleCatalog(),
+    inviteUrlBuilder: createWorkspaceInviteUrlBuilder(),
+    workspaceInviteMailer: unconfiguredWorkspaceInviteMailer,
+    workspaceInviteEmailTemplate: renderDefaultWorkspaceInviteEmail
   });
 
   const before = Date.now();
@@ -294,7 +303,10 @@ test("workspaceMembersService.revokeInvite returns the revoked invite id", async
       }
     },
     inviteExpiresInMs: 30 * 60 * 1000,
-    roleCatalog: createRoleCatalog()
+    roleCatalog: createRoleCatalog(),
+    inviteUrlBuilder: createWorkspaceInviteUrlBuilder(),
+    workspaceInviteMailer: unconfiguredWorkspaceInviteMailer,
+    workspaceInviteEmailTemplate: renderDefaultWorkspaceInviteEmail
   });
 
   const response = await service.revokeInvite(
@@ -336,7 +348,10 @@ test("workspaceMembersService rejects invite operations when invitations are dis
     },
     inviteExpiresInMs: 30 * 60 * 1000,
     roleCatalog: createRoleCatalog(),
-    workspaceInvitationsEnabled: false
+    workspaceInvitationsEnabled: false,
+    inviteUrlBuilder: createWorkspaceInviteUrlBuilder(),
+    workspaceInviteMailer: unconfiguredWorkspaceInviteMailer,
+    workspaceInviteEmailTemplate: renderDefaultWorkspaceInviteEmail
   });
 
   await assert.rejects(
@@ -469,7 +484,10 @@ test("workspaceMembersService.removeMember marks membership revoked and returns 
       async revokeById() {}
     },
     inviteExpiresInMs: 7 * 24 * 60 * 60 * 1000,
-    roleCatalog: createRoleCatalog()
+    roleCatalog: createRoleCatalog(),
+    inviteUrlBuilder: createWorkspaceInviteUrlBuilder(),
+    workspaceInviteMailer: unconfiguredWorkspaceInviteMailer,
+    workspaceInviteEmailTemplate: renderDefaultWorkspaceInviteEmail
   });
 
   const response = await service.removeMember(
@@ -522,7 +540,10 @@ test("workspaceMembersService.removeMember rejects removing the owner", async ()
       async revokeById() {}
     },
     inviteExpiresInMs: 7 * 24 * 60 * 60 * 1000,
-    roleCatalog: createRoleCatalog()
+    roleCatalog: createRoleCatalog(),
+    inviteUrlBuilder: createWorkspaceInviteUrlBuilder(),
+    workspaceInviteMailer: unconfiguredWorkspaceInviteMailer,
+    workspaceInviteEmailTemplate: renderDefaultWorkspaceInviteEmail
   });
 
   await assert.rejects(
@@ -581,7 +602,8 @@ function createMailingService({ accounts = {}, appRoot = "", mailer } = {}) {
         }
         return account ? { locale: account.locale } : null;
       }
-    }
+    },
+    workspaceInviteEmailTemplate: renderDefaultWorkspaceInviteEmail
   });
 }
 

@@ -3,9 +3,8 @@ import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/suppo
 import { encodeInviteTokenHash } from "@jskit-ai/auth-core/shared/inviteTokens";
 import { resolveInviteTokenHash, buildInviteToken, hashInviteToken } from "@jskit-ai/auth-core/server/inviteTokens";
 import { AppError, createValidationError } from "@jskit-ai/kernel/server/runtime/errors";
-import { OWNER_ROLE_ID, createWorkspaceRoleCatalog, cloneWorkspaceRoleCatalog } from "../../shared/roles.js";
+import { OWNER_ROLE_ID, cloneWorkspaceRoleCatalog } from "../../shared/roles.js";
 import { createWorkspacesServerI18n } from "../i18n.js";
-import { renderDefaultWorkspaceInviteEmail } from "./defaultWorkspaceInviteEmail.js";
 
 const DEFAULT_LOCALE = "en";
 
@@ -20,12 +19,11 @@ function roleNotAssignableError() {
  * @param {ReturnType<typeof import("../common/repositories/workspaceMembershipsRepository.js").createRepository>} dependencies.workspaceMembershipsRepository
  * @param {ReturnType<typeof import("../common/repositories/workspaceInvitesRepository.js").createRepository>} dependencies.workspaceInvitesRepository
  * @param {number} dependencies.inviteExpiresInMs
- * @param {object | null} [dependencies.roleCatalog]
+ * @param {ReturnType<typeof import("../../shared/roles.js").createWorkspaceRoleCatalog>} dependencies.roleCatalog
  * @param {boolean} [dependencies.workspaceInvitationsEnabled]
- * @param {((invite: { token: string, invite: object, workspace: object }) => string) | null} [dependencies.inviteUrlBuilder]
- * @param {{ sendWorkspaceInvite?: (message: object, options?: object) => Promise<object> } | null} [dependencies.workspaceInviteMailer]
- *   The mailer the application's config names, if any.
- * @param {(input: object) => object} [dependencies.workspaceInviteEmailTemplate]
+ * @param {(invite: { token: string, invite: object, workspace: object }) => string} dependencies.inviteUrlBuilder
+ * @param {import("../types.js").WorkspaceInviteMailer} dependencies.workspaceInviteMailer
+ * @param {import("../types.js").WorkspaceInviteEmailTemplate} dependencies.workspaceInviteEmailTemplate
  * @param {ReturnType<typeof createWorkspacesServerI18n>} [dependencies.i18n]
  * @param {import("@jskit-ai/users-core/server/types").UsersCore["repositories"]["userProfiles"]} dependencies.userProfilesRepository
  * @param {import("@jskit-ai/users-core/server/types").UsersCore["repositories"]["userSettings"]} dependencies.userSettingsRepository
@@ -34,11 +32,11 @@ function createService({
   workspaceMembershipsRepository,
   workspaceInvitesRepository,
   inviteExpiresInMs,
-  roleCatalog = null,
+  roleCatalog,
   workspaceInvitationsEnabled = true,
-  inviteUrlBuilder = null,
-  workspaceInviteMailer = null,
-  workspaceInviteEmailTemplate = renderDefaultWorkspaceInviteEmail,
+  inviteUrlBuilder,
+  workspaceInviteMailer,
+  workspaceInviteEmailTemplate,
   i18n = createWorkspacesServerI18n(),
   userProfilesRepository,
   userSettingsRepository
@@ -48,20 +46,10 @@ function createService({
     throw new Error("workspaceMembersService requires inviteExpiresInMs.");
   }
 
-  const resolvedRoleCatalog = roleCatalog && typeof roleCatalog === "object" ? roleCatalog : createWorkspaceRoleCatalog();
-  const assignableRoleIds = Array.isArray(resolvedRoleCatalog.assignableRoleIds)
-    ? [...resolvedRoleCatalog.assignableRoleIds]
+  const assignableRoleIds = Array.isArray(roleCatalog.assignableRoleIds)
+    ? [...roleCatalog.assignableRoleIds]
     : [];
   const resolvedWorkspaceInvitationsEnabled = workspaceInvitationsEnabled === true;
-  const resolvedInviteUrlBuilder = typeof inviteUrlBuilder === "function"
-    ? inviteUrlBuilder
-    : ({ token }) => `/invite/${encodeURIComponent(String(token || "").trim())}`;
-  const resolvedWorkspaceInviteMailer =
-    workspaceInviteMailer && typeof workspaceInviteMailer === "object" ? workspaceInviteMailer : null;
-  const resolvedWorkspaceInviteEmailTemplate =
-    typeof workspaceInviteEmailTemplate === "function"
-      ? workspaceInviteEmailTemplate
-      : renderDefaultWorkspaceInviteEmail;
 
   function ensureWorkspaceInvitationsEnabled() {
     if (resolvedWorkspaceInvitationsEnabled) {
@@ -74,7 +62,7 @@ function createService({
     return {
       ...payload,
       roleCatalog: cloneWorkspaceRoleCatalog({
-        ...resolvedRoleCatalog,
+        ...roleCatalog,
         assignableRoleIds
       })
     };
@@ -120,6 +108,9 @@ function createService({
     return {
       status: normalizeLowerText(source.status || "sent") || "sent",
       message: normalizeText(source.message),
+      ...(source.messageCode
+        ? { messageCode: normalizeText(source.messageCode), messageParams: { ...source.messageParams } }
+        : {}),
       providerMessageId: normalizeText(source.providerMessageId)
     };
   }
@@ -137,21 +128,10 @@ function createService({
   }
 
   async function deliverInviteEmail({ workspace, user, invite, inviteUrl } = {}, options = {}) {
-    // readable-check: allow method-probe - workspaceInviteMailer comes from the application's config, which may name none
-    if (!resolvedWorkspaceInviteMailer || typeof resolvedWorkspaceInviteMailer.sendWorkspaceInvite !== "function") {
-      return {
-        status: "mailer_unconfigured",
-        message: "No workspace invite mailer is configured.",
-        messageCode: "workspaces.invite.mailerUnconfigured",
-        messageParams: {},
-        providerMessageId: ""
-      };
-    }
-
     try {
-      const roleLabel = resolvedRoleCatalog.roles?.find((role) => role.id === invite.roleSid)?.label;
+      const roleLabel = roleCatalog.roles?.find((role) => role.id === invite.roleSid)?.label;
       const locale = await resolveRecipientLocale(invite.email, options);
-      const message = await resolvedWorkspaceInviteEmailTemplate({
+      const message = await workspaceInviteEmailTemplate({
         email: invite.email,
         inviteUrl,
         workspace: mapWorkspaceSummary(workspace),
@@ -162,7 +142,7 @@ function createService({
         locale,
         t: (key, params) => i18n.t(locale, key, params)
       });
-      const result = await resolvedWorkspaceInviteMailer.sendWorkspaceInvite({
+      const result = await workspaceInviteMailer.sendWorkspaceInvite({
         email: invite.email,
         inviteUrl,
         workspace: mapWorkspaceSummary(workspace),
@@ -187,7 +167,7 @@ function createService({
 
   async function listRoles(options = {}) {
     return cloneWorkspaceRoleCatalog({
-      ...resolvedRoleCatalog,
+      ...roleCatalog,
       assignableRoleIds
     });
   }
@@ -344,7 +324,7 @@ function createService({
       name: invite.workspaceName,
       avatarUrl: invite.workspaceAvatarUrl
     };
-    const inviteUrl = resolvedInviteUrlBuilder({ token, invite, workspace: savedWorkspace });
+    const inviteUrl = inviteUrlBuilder({ token, invite, workspace: savedWorkspace });
     const response = await listInvitesPayload(savedWorkspace, options);
     const inviteDelivery = await deliverInviteEmail({ workspace: savedWorkspace, user, invite, inviteUrl }, options);
     return {

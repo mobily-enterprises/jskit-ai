@@ -4,16 +4,15 @@ import { pickOwnProperties } from "@jskit-ai/kernel/shared/support";
 import {
   WORKSPACE_SETTINGS_FIELD_KEYS
 } from "../../shared/resources/workspaceSettingsResource.js";
-import { createWorkspaceRoleCatalog, cloneWorkspaceRoleCatalog } from "../../shared/roles.js";
+import { cloneWorkspaceRoleCatalog } from "../../shared/roles.js";
 
 /**
  * @param {object} dependencies
  * @param {ReturnType<typeof import("./workspaceSettingsRepository.js").createRepository>} dependencies.workspaceSettingsRepository
  * @param {boolean} [dependencies.workspaceInvitationsEnabled]
- * @param {object | null} [dependencies.roleCatalog]
+ * @param {ReturnType<typeof import("../../shared/roles.js").createWorkspaceRoleCatalog>} dependencies.roleCatalog
  */
-function createService({ workspaceSettingsRepository, workspaceInvitationsEnabled = true, roleCatalog = null }) {
-  const resolvedRoleCatalog = roleCatalog && typeof roleCatalog === "object" ? roleCatalog : createWorkspaceRoleCatalog();
+function createService({ workspaceSettingsRepository, workspaceInvitationsEnabled = true, roleCatalog }) {
   const invitesAvailable = workspaceInvitationsEnabled === true;
 
   async function getWorkspaceSettings(workspace, options = {}) {
@@ -37,7 +36,7 @@ function createService({ workspaceSettingsRepository, workspaceInvitationsEnable
         ownerUserId: normalizeRecordId(workspace.ownerUserId, { fallback: "" })
       },
       settings,
-      roleCatalog: cloneWorkspaceRoleCatalog(resolvedRoleCatalog)
+      roleCatalog: cloneWorkspaceRoleCatalog(roleCatalog)
     };
   }
 

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { encodeInviteTokenHash } from "@jskit-ai/auth-core/shared/inviteTokens";
 import { createService } from "../src/server/workspacePendingInvitations/workspacePendingInvitationsService.js";
+import { createWorkspaceRoleCatalog } from "../src/shared/roles.js";
 
 function createFixture({
   pendingInvitesByEmail = [],
@@ -53,7 +54,8 @@ function createFixture({
           payload: payload && typeof payload === "object" ? { ...payload } : payload
         });
       }
-    }
+    },
+    roleCatalog: createWorkspaceRoleCatalog()
   });
 
   return {
@@ -328,7 +330,8 @@ for (const transactionOutcome of ["committed", "unknown", "rolledBack"]) {
           throw failure;
         }
       },
-      workspaceMembershipsRepository: {}
+      workspaceMembershipsRepository: {},
+      roleCatalog: createWorkspaceRoleCatalog()
     });
     await assert.rejects(service.acceptInviteByToken({ user: { id: "1", email: "a@example.test" }, token: "valid-token" }),
       (error) => error === failure && error.cause === cause);

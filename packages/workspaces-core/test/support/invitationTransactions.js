@@ -13,6 +13,9 @@ import { createRepository as workspacesRepository } from "../../src/server/commo
 import { createService as membersService } from "../../src/server/workspaceMembers/workspaceMembersService.js";
 import { createService as pendingService } from "../../src/server/workspacePendingInvitations/workspacePendingInvitationsService.js";
 import { createWorkspacePendingInvitationsActions } from "../../src/server/workspacePendingInvitations/workspacePendingInvitationsActions.js";
+import { createWorkspaceInviteUrlBuilder } from "../../src/server/workspaceMembers/workspaceInviteUrls.js";
+import { renderDefaultWorkspaceInviteEmail } from "../../src/server/workspaceMembers/defaultWorkspaceInviteEmail.js";
+import { unconfiguredWorkspaceInviteMailer } from "../../src/server/workspaceMembers/unconfiguredWorkspaceInviteMailer.js";
 
 // The caller verifies an empty disposable database and runs package migrations.
 // These application fixtures demonstrate composition, not production policy.
@@ -89,9 +92,11 @@ export async function verifyInvitationTransactions(t, db) {
         if (failDelivery) throw new Error(`Controlled mail failure containing secret ${message.inviteUrl}`);
         delivered.push(String(saved.id));
         return { status: "sent", providerMessageId: "controlled-message" };
-      } } : null
+      } } : unconfiguredWorkspaceInviteMailer,
+      inviteUrlBuilder: createWorkspaceInviteUrlBuilder(),
+      workspaceInviteEmailTemplate: renderDefaultWorkspaceInviteEmail
     });
-    const pending = pendingService({ workspaceInvitesRepository: inviteRepository, workspaceMembershipsRepository: memberships });
+    const pending = pendingService({ workspaceInvitesRepository: inviteRepository, workspaceMembershipsRepository: memberships, roleCatalog: createWorkspaceRoleCatalog() });
     const options = { context: { actor: user, channel: "api", permissions: ["workspace.members.invite"] } };
     const payload = { email: user.email, roleSid: "member" };
     const actions = createActionCatalogue({ events: { async publish(event) { events.push(event); } } });
@@ -305,7 +310,7 @@ export async function verifyInvitationTransactions(t, db) {
       if (state === "accepted") await f.redeem(prepared);
       let called = false;
       // The earlier acceptance closed registration on the original service.
-      const pending = pendingService({ workspaceInvitesRepository: invites, workspaceMembershipsRepository: memberships });
+      const pending = pendingService({ workspaceInvitesRepository: invites, workspaceMembershipsRepository: memberships, roleCatalog: createWorkspaceRoleCatalog() });
       pending.registerAcceptanceParticipant(async () => { called = true; });
       const membershipBefore = await memberships.findByWorkspaceIdAndUserId(f.workspace.id, f.user.id);
       await assert.rejects(pending.acceptInviteByToken({
