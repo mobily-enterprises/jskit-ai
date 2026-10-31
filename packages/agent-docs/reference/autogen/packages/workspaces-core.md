@@ -269,6 +269,7 @@ Local functions
 - `requirePositiveInteger(value, label)`
 - `requireBoolean(value, label)`
 - `requireWorkspaceColorDefaults(defaults)`
+- `rejectConfigInviteMailer(config)`
 - `resolveInviteEmailTemplate(config)`
 
 ### `src/shared/jsonApiTransports.js`
