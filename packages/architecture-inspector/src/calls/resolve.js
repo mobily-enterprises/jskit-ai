@@ -89,11 +89,14 @@ function constructorOf(implementation) {
 function createResolver({ program, checker, symbols, evaluator, bindings, actionsById, fileOf, functionNames }) {
   const builtinMembers = libraryMemberNames(program);
   const { isExternalValue, isExternalDeclaration } = createExternalValues({ checker, symbols, fileOf });
+  /** @type {Map<import("typescript").Node, import("typescript").CallExpression[]>} */
   const callSites = new Map();
   const direct = new Map();
   // The functions each indexed call reaches, and the calls whose index entry
   // came from a guess (several values or an ambiguous injection).
+  /** @type {Map<import("typescript").CallExpression, import("typescript").Node[]>} */
   const indexedTargets = new Map();
+  /** @type {Set<import("typescript").CallExpression>} */
   const probableSites = new Set();
 
   function implementationsFor(symbol) {
