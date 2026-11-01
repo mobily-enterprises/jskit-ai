@@ -18,49 +18,49 @@ function createConnectorsActions({ connections }) {
       id: "connectors.status",
       kind: "query",
       ...connectorsActionReach,
-      input: { schema: createSchema({ integrationId }), mode: "patch" },
+      input: { schema: createSchema({ integrationId }) },
       execute: (input, context) => connections.status({ ...input, context })
     }),
     Object.freeze({
       id: "connectors.connect",
       kind: "command",
       ...connectorsActionReach,
-      input: { schema: createSchema({ integrationId, verificationInput }), mode: "patch" },
+      input: { schema: createSchema({ integrationId, verificationInput }) },
       execute: (input, context) => connections.beginAuthorization({ ...input, context })
     }),
     Object.freeze({
       id: "connectors.verifyClientCredentials",
       kind: "command",
       ...connectorsActionReach,
-      input: { schema: createSchema({ integrationId, verificationInput }), mode: "patch" },
+      input: { schema: createSchema({ integrationId, verificationInput }) },
       execute: (input, context) => connections.connectClientCredentials({ ...input, context })
     }),
     Object.freeze({
       id: "connectors.verifyServiceAccount",
       kind: "command",
       ...connectorsActionReach,
-      input: { schema: createSchema({ integrationId, verificationInput }), mode: "patch" },
+      input: { schema: createSchema({ integrationId, verificationInput }) },
       execute: (input, context) => connections.connectServiceAccount({ ...input, context })
     }),
     Object.freeze({
       id: "connectors.verifyApiKey",
       kind: "command",
       ...connectorsActionReach,
-      input: { schema: createSchema({ integrationId, verificationInput }), mode: "patch" },
+      input: { schema: createSchema({ integrationId, verificationInput }) },
       execute: (input, context) => connections.connectApiKey({ ...input, context })
     }),
     Object.freeze({
       id: "connectors.verifyWithoutCredentials",
       kind: "command",
       ...connectorsActionReach,
-      input: { schema: createSchema({ integrationId, verificationInput }), mode: "patch" },
+      input: { schema: createSchema({ integrationId, verificationInput }) },
       execute: (input, context) => connections.connectWithoutCredentials({ ...input, context })
     }),
     Object.freeze({
       id: "connectors.disconnect",
       kind: "command",
       ...connectorsActionReach,
-      input: { schema: createSchema({ integrationId }), mode: "patch" },
+      input: { schema: createSchema({ integrationId }) },
       execute: (input, context) => connections.disconnect({ ...input, context })
     })
   ]);
