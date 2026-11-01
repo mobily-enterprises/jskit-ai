@@ -1,15 +1,11 @@
-import { isRecord, normalizeArray, normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import {
-  resolveSchemaTransportSchemaDefinition,
-  resolveValidationIssueCode
-} from "@jskit-ai/kernel/shared/validators";
+import { isRecord, normalizeArray } from "@jskit-ai/kernel/shared/support/normalize";
+import { resolveValidationIssueCode } from "@jskit-ai/kernel/shared/validators";
 import {
   JSON_API_CONTENT_TYPE,
   createJsonApiDocument,
   createJsonApiErrorDocumentFromFailure,
   createJsonApiResourceObject,
-  normalizeJsonApiDocument,
-  resolveJsonApiTransportTypes
+  normalizeJsonApiDocument
 } from "./jsonApiTransport.js";
 import {
   isJsonApiDataResult,
@@ -21,120 +17,14 @@ import {
   createJsonApiResourceQueryTransportSchema,
   decodeJsonApiResourceQueryObject
 } from "./jsonApiQueryTransport.js";
+import { createTransportResponseSchema } from "./errorResponses.js";
 import {
-  STANDARD_ERROR_STATUS_CODES,
-  createTransportResponseSchema
-} from "./errorResponses.js";
-import { createEmbeddableTransportSchemaDocument } from "./transportSchemaEmbedding.js";
+  createJsonApiResourceRequestBodyTransportSchema,
+  createJsonApiResourceSuccessTransportSchema,
+  resolveRouteTypes,
+  withJsonApiErrorResponses
+} from "./jsonApiResourceSchemas.js";
 
-const JSON_API_ID_SCHEMA = Object.freeze({
-  anyOf: [
-    { type: "string", minLength: 1 },
-    { type: "number" }
-  ]
-});
-
-const JSON_API_LINK_VALUE_SCHEMA = Object.freeze({
-  anyOf: [
-    { type: "string", minLength: 1 },
-    {
-      type: "object",
-      additionalProperties: true
-    }
-  ]
-});
-
-const JSON_API_LINKS_SCHEMA = Object.freeze({
-  type: "object",
-  additionalProperties: JSON_API_LINK_VALUE_SCHEMA
-});
-
-const JSON_API_META_SCHEMA = Object.freeze({
-  type: "object",
-  additionalProperties: true
-});
-
-const JSON_API_RESOURCE_IDENTIFIER_SCHEMA = Object.freeze({
-  type: "object",
-  additionalProperties: false,
-  required: ["type", "id"],
-  properties: {
-    type: { type: "string", minLength: 1 },
-    id: JSON_API_ID_SCHEMA
-  }
-});
-
-const JSON_API_RELATIONSHIP_OBJECT_SCHEMA = Object.freeze({
-  type: "object",
-  additionalProperties: false,
-  required: ["data"],
-  properties: {
-    data: {
-      anyOf: [
-        JSON_API_RESOURCE_IDENTIFIER_SCHEMA,
-        {
-          type: "array",
-          items: JSON_API_RESOURCE_IDENTIFIER_SCHEMA
-        },
-        { type: "null" }
-      ]
-    }
-  }
-});
-
-const JSON_API_INCLUDED_RESOURCE_SCHEMA = Object.freeze({
-  type: "object",
-  additionalProperties: false,
-  required: ["type", "id"],
-  properties: {
-    type: { type: "string", minLength: 1 },
-    id: JSON_API_ID_SCHEMA,
-    attributes: {
-      type: "object",
-      additionalProperties: true
-    },
-    relationships: {
-      type: "object",
-      additionalProperties: JSON_API_RELATIONSHIP_OBJECT_SCHEMA
-    },
-    links: JSON_API_LINKS_SCHEMA,
-    meta: JSON_API_META_SCHEMA
-  }
-});
-
-const JSON_API_ERROR_OBJECT_SCHEMA = Object.freeze({
-  type: "object",
-  additionalProperties: false,
-  properties: {
-    status: { type: "string", minLength: 1 },
-    code: { type: "string", minLength: 1 },
-    title: { type: "string", minLength: 1 },
-    detail: { type: "string", minLength: 1 },
-    source: {
-      type: "object",
-      additionalProperties: true
-    },
-    links: JSON_API_LINKS_SCHEMA,
-    meta: JSON_API_META_SCHEMA
-  }
-});
-
-const JSON_API_ERROR_DOCUMENT_SCHEMA = Object.freeze({
-  type: "object",
-  additionalProperties: false,
-  required: ["errors"],
-  properties: {
-    errors: {
-      type: "array",
-      minItems: 1,
-      items: JSON_API_ERROR_OBJECT_SCHEMA
-    },
-    links: JSON_API_LINKS_SCHEMA,
-    meta: JSON_API_META_SCHEMA
-  }
-});
-
-// params are the values the code's sentence needs, as for AppError.
 function createJsonApiTransportError(statusCode, message, code, params = {}) {
   const error = new Error(String(message || "JSON:API transport error."));
   error.status = Number(statusCode) || 500;
@@ -142,412 +32,6 @@ function createJsonApiTransportError(statusCode, message, code, params = {}) {
   error.code = String(code || "jsonapi_transport_error").trim() || "jsonapi_transport_error";
   error.params = params;
   return error;
-}
-
-function resolveRouteType(type = "") {
-  const normalizedType = String(type || "").trim();
-  if (!normalizedType) {
-    throw new TypeError("JSON:API resource transport requires a non-empty type.");
-  }
-  return normalizedType;
-}
-
-function resolveRouteTypes(value = {}) {
-  const resolvedTypes = resolveJsonApiTransportTypes(value, {
-    context: "JSON:API resource transport"
-  });
-
-  return Object.freeze({
-    requestType: resolvedTypes.requestType ? resolveRouteType(resolvedTypes.requestType) : "",
-    responseType: resolvedTypes.responseType ? resolveRouteType(resolvedTypes.responseType) : ""
-  });
-}
-
-function resolveEmbeddedAttributesTransportSchema(definition, {
-  context = "JSON:API resource",
-  defaultMode = "replace",
-  removeId = false,
-  removeKeys = [],
-  allowSparseFields = false
-} = {}) {
-  const transportSchema = resolveSchemaTransportSchemaDefinition(definition, {
-    context,
-    defaultMode
-  });
-
-  if (!transportSchema || typeof transportSchema !== "object" || Array.isArray(transportSchema)) {
-    throw new TypeError(`${context} transport schema must resolve to an object schema.`);
-  }
-
-  const sourceSchema = normalizeObject(transportSchema);
-  const properties = normalizeObject(sourceSchema.properties);
-  const nextProperties = {
-    ...properties
-  };
-  const excludedKeys = new Set(
-    normalizeArray(removeKeys)
-      .map((entry) => String(entry || "").trim())
-      .filter(Boolean)
-  );
-
-  if (removeId) {
-    excludedKeys.add("id");
-  }
-
-  for (const key of excludedKeys) {
-    delete nextProperties[key];
-  }
-
-  const schemaFieldDefinitions = (() => {
-    const fieldDefinitions = definition?.schema?.getFieldDefinitions?.();
-    return isRecord(fieldDefinitions) ? fieldDefinitions : {};
-  })();
-
-  const required = allowSparseFields !== true && Array.isArray(sourceSchema.required)
-    ? sourceSchema.required.filter((entry) => {
-        const normalizedEntry = String(entry || "").trim();
-        if (!normalizedEntry || excludedKeys.has(normalizedEntry)) {
-          return false;
-        }
-
-        const fieldDefinition = normalizeObject(schemaFieldDefinitions[normalizedEntry]);
-        return fieldDefinition.nullable !== true;
-      })
-    : [];
-
-  const attributeSchema = {
-    ...sourceSchema,
-    type: "object",
-    properties: nextProperties
-  };
-
-  if (required.length > 0) {
-    attributeSchema.required = required;
-  } else {
-    delete attributeSchema.required;
-  }
-
-  return createEmbeddableTransportSchemaDocument(attributeSchema, `${normalizeText(context, { fallback: "JsonApiAttributes" }).replace(/[^a-z0-9]+/gi, "_")}`);
-}
-
-function normalizeRelationshipSchemaEntries(entries = []) {
-  const normalizedEntries = [];
-
-  for (const entry of normalizeArray(entries)) {
-    const source = normalizeObject(entry);
-    const relationshipName = normalizeText(source.relationshipName || source.name);
-    const relationshipType = normalizeText(source.relationshipType || source.type);
-    const attributeKey = normalizeText(source.attributeKey || source.fieldKey);
-    if (!relationshipName) {
-      continue;
-    }
-
-    normalizedEntries.push(Object.freeze({
-      relationshipName,
-      relationshipType,
-      attributeKey,
-      many: source.many === true,
-      required: source.required === true,
-      nullable: source.nullable === true
-    }));
-  }
-
-  return Object.freeze(normalizedEntries);
-}
-
-function createJsonApiRelationshipDataSchema(relationshipType = "", {
-  many = false,
-  nullable = false
-} = {}) {
-  const normalizedRelationshipType = normalizeText(relationshipType);
-  const resourceIdentifierSchema = normalizedRelationshipType
-    ? {
-        type: "object",
-        additionalProperties: false,
-        required: ["type", "id"],
-        properties: {
-          type: { const: normalizedRelationshipType },
-          id: JSON_API_ID_SCHEMA
-        }
-      }
-    : JSON_API_RESOURCE_IDENTIFIER_SCHEMA;
-  const linkageSchema = many
-    ? {
-        type: "array",
-        items: resourceIdentifierSchema
-      }
-    : resourceIdentifierSchema;
-
-  return {
-    anyOf: nullable
-      ? [
-          linkageSchema,
-          { type: "null" }
-        ]
-      : [linkageSchema]
-  };
-}
-
-function createJsonApiRelationshipsTransportSchema(entries = [], {
-  includeRequired = false
-} = {}) {
-  const relationshipEntries = normalizeRelationshipSchemaEntries(entries);
-  if (relationshipEntries.length < 1) {
-    return null;
-  }
-
-  const properties = {};
-  const required = [];
-
-  for (const entry of relationshipEntries) {
-    properties[entry.relationshipName] = {
-      type: "object",
-      additionalProperties: false,
-      required: ["data"],
-      properties: {
-        data: createJsonApiRelationshipDataSchema(entry.relationshipType, {
-          many: entry.many,
-          nullable: entry.nullable
-        })
-      }
-    };
-
-    if (includeRequired && entry.required) {
-      required.push(entry.relationshipName);
-    }
-  }
-
-  const schema = {
-    type: "object",
-    additionalProperties: false,
-    properties
-  };
-  if (required.length > 0) {
-    schema.required = required;
-  }
-
-  return Object.freeze({
-    schema,
-    entries: relationshipEntries
-  });
-}
-
-function createJsonApiResourceObjectTransportSchema({
-  type = "",
-  attributes,
-  requireId = true,
-  includeLinks = false,
-  includeMeta = false,
-  excludeAttributeKeys = [],
-  relationshipEntries = [],
-  relationshipMembersRequired = false,
-  allowSparseFields = false
-} = {}) {
-  const normalizedType = resolveRouteType(type);
-  const relationshipsTransport = createJsonApiRelationshipsTransportSchema(relationshipEntries, {
-    includeRequired: relationshipMembersRequired
-  });
-  const relationFieldKeys = relationshipsTransport
-    ? relationshipsTransport.entries.map((entry) => entry.attributeKey).filter(Boolean)
-    : [];
-  const embeddedAttributes = resolveEmbeddedAttributesTransportSchema(attributes, {
-    context: `${normalizedType} resource attributes`,
-    defaultMode: "replace",
-    removeId: true,
-    removeKeys: [
-      ...normalizeArray(excludeAttributeKeys),
-      ...relationFieldKeys,
-    ],
-    allowSparseFields
-  });
-
-  const properties = {
-    type: {
-      const: normalizedType
-    },
-    attributes: embeddedAttributes.schema
-  };
-  const required = allowSparseFields === true ? ["type"] : ["type", "attributes"];
-
-  if (requireId) {
-    properties.id = JSON_API_ID_SCHEMA;
-    required.push("id");
-  }
-
-  if (relationshipsTransport) {
-    properties.relationships = relationshipsTransport.schema;
-  }
-
-  if (includeLinks) {
-    properties.links = JSON_API_LINKS_SCHEMA;
-  }
-  if (includeMeta) {
-    properties.meta = JSON_API_META_SCHEMA;
-  }
-
-  return {
-    schema: {
-      type: "object",
-      additionalProperties: false,
-      required,
-      properties
-    },
-    definitions: embeddedAttributes.definitions,
-    hasRelationships: Boolean(relationshipsTransport)
-  };
-}
-
-function createJsonApiResourceRequestBodyTransportSchema({
-  type = "",
-  attributes,
-  requireId = false,
-  excludeAttributeKeys = [],
-  relationshipEntries = []
-} = {}) {
-  const resourceTransport = createJsonApiResourceObjectTransportSchema({
-    type,
-    attributes,
-    requireId,
-    excludeAttributeKeys,
-    relationshipEntries,
-    relationshipMembersRequired: true
-  });
-  const embeddedResource = createEmbeddableTransportSchemaDocument(
-    {
-      ...resourceTransport.schema,
-      definitions: resourceTransport.definitions
-    },
-    `${resolveRouteType(type)}RequestResource`
-  );
-
-  return {
-    type: "object",
-    additionalProperties: false,
-    required: ["data"],
-    properties: {
-      data: embeddedResource.schema
-    },
-    definitions: embeddedResource.definitions
-  };
-}
-
-function createJsonApiMetaSuccessTransportSchema({
-  meta
-} = {}) {
-  const embeddedMeta = resolveEmbeddedAttributesTransportSchema(meta, {
-    context: "JSON:API success meta",
-    defaultMode: "replace",
-    removeId: false
-  });
-
-  return {
-    type: "object",
-    additionalProperties: false,
-    required: ["meta"],
-    properties: {
-      meta: embeddedMeta.schema
-    },
-    definitions: embeddedMeta.definitions
-  };
-}
-
-function createJsonApiResourceSuccessTransportSchema({
-  type = "",
-  attributes,
-  kind = "record",
-  includeLinks = false,
-  includeMeta = false,
-  includeIncluded = false,
-  allowSparseFields = false,
-  excludeAttributeKeys = [],
-  relationshipEntries = []
-} = {}) {
-  const normalizedKind = String(kind || "record").trim().toLowerCase();
-  if (!["record", "nullable-record", "collection", "meta"].includes(normalizedKind)) {
-    throw new TypeError(`Unsupported JSON:API success schema kind: ${normalizedKind || "<empty>"}.`);
-  }
-
-  if (normalizedKind === "meta") {
-    return createJsonApiMetaSuccessTransportSchema({
-      meta: attributes
-    });
-  }
-
-  const resourceTransport = createJsonApiResourceObjectTransportSchema({
-    type,
-    attributes,
-    requireId: true,
-    allowSparseFields,
-    excludeAttributeKeys,
-    relationshipEntries
-  });
-  const embeddedResource = createEmbeddableTransportSchemaDocument(
-    {
-      ...resourceTransport.schema,
-      definitions: resourceTransport.definitions
-    },
-    `${resolveRouteType(type)}SuccessResource`
-  );
-
-  const documentProperties = {};
-  const documentDefinitions = { ...embeddedResource.definitions };
-
-  if (normalizedKind === "collection") {
-    documentProperties.data = {
-      type: "array",
-      items: embeddedResource.schema
-    };
-  } else if (normalizedKind === "nullable-record") {
-    documentProperties.data = {
-      anyOf: [
-        { type: "null" },
-        embeddedResource.schema
-      ]
-    };
-  } else {
-    documentProperties.data = embeddedResource.schema;
-  }
-
-  if (includeIncluded || resourceTransport.hasRelationships) {
-    documentProperties.included = {
-      type: "array",
-      items: JSON_API_INCLUDED_RESOURCE_SCHEMA
-    };
-  }
-  if (includeLinks) {
-    documentProperties.links = JSON_API_LINKS_SCHEMA;
-  }
-  if (includeMeta) {
-    documentProperties.meta = JSON_API_META_SCHEMA;
-  }
-
-  return {
-    type: "object",
-    additionalProperties: false,
-    required: ["data"],
-    properties: documentProperties,
-    definitions: documentDefinitions
-  };
-}
-
-function withJsonApiErrorResponses(successResponses, { includeValidation400 = false } = {}) {
-  const responses = {
-    ...normalizeObject(successResponses)
-  };
-
-  for (const statusCode of STANDARD_ERROR_STATUS_CODES) {
-    if (responses[statusCode]) {
-      continue;
-    }
-
-    if (statusCode === 400 && !includeValidation400) {
-      continue;
-    }
-
-    responses[statusCode] = createTransportResponseSchema(JSON_API_ERROR_DOCUMENT_SCHEMA);
-  }
-
-  return responses;
 }
 
 function defaultRecordTypeResolver(type) {
@@ -597,6 +81,11 @@ function defaultCollectionMetaResolver(payload) {
   };
 }
 
+/** The hook of an option the caller leaves out: it adds nothing. */
+function resolveNothing() {
+  return undefined;
+}
+
 function assertJsonApiSuccessResult(payload) {
   const result = unwrapJsonApiResult(payload);
   if (!result) {
@@ -610,26 +99,54 @@ function assertJsonApiSuccessResult(payload) {
   return result;
 }
 
+/**
+ * @typedef {((source: any, context: any) => any) | null | undefined} JsonApiRouteHook
+ *   One of a route's response or request hooks; left out (or null), the route uses its default.
+ */
+
+/**
+ * The JSON:API transport of one resource route: it decodes the request body and query,
+ * and encodes the route's result and errors as JSON:API documents.
+ * @param {object} options
+ * @param {string} [options.type]
+ * @param {string} [options.requestType]
+ * @param {string} [options.responseType]
+ * @param {object} [options.query] The query schema, when the route takes a query.
+ * @param {boolean} [options.allowBodyId]
+ * @param {string} [options.successKind] record, nullable-record, collection, meta or no-content.
+ * @param {string} [options.pointerPrefix]
+ * @param {JsonApiRouteHook} [options.mapRequestRelationships]
+ * @param {JsonApiRouteHook} [options.getRecordType]
+ * @param {JsonApiRouteHook} [options.getRecordId]
+ * @param {JsonApiRouteHook} [options.getRecordAttributes]
+ * @param {JsonApiRouteHook} [options.getRecordRelationships]
+ * @param {JsonApiRouteHook} [options.getRecordLinks]
+ * @param {JsonApiRouteHook} [options.getRecordMeta]
+ * @param {JsonApiRouteHook} [options.getIncluded]
+ * @param {JsonApiRouteHook} [options.getDocumentLinks]
+ * @param {JsonApiRouteHook} [options.getDocumentMeta]
+ * @param {JsonApiRouteHook} [options.getCollectionItems]
+ */
 function createJsonApiResourceRouteTransport({
   type = "",
   requestType = "",
   responseType = "",
-  query = null,
+  query,
   allowBodyId = false,
   successKind = "record",
   pointerPrefix = "/data/attributes",
-  mapRequestRelationships = null,
-  getRecordType = null,
-  getRecordId = null,
-  getRecordAttributes = null,
-  getRecordRelationships = null,
-  getRecordLinks = null,
-  getRecordMeta = null,
-  getIncluded = null,
-  getDocumentLinks = null,
-  getDocumentMeta = null,
-  getCollectionItems = null
-} = {}) {
+  mapRequestRelationships,
+  getRecordType,
+  getRecordId,
+  getRecordAttributes,
+  getRecordRelationships,
+  getRecordLinks,
+  getRecordMeta,
+  getIncluded,
+  getDocumentLinks,
+  getDocumentMeta,
+  getCollectionItems
+}) {
   const resolvedTypes = resolveRouteTypes({
     type,
     requestType,
@@ -639,11 +156,18 @@ function createJsonApiResourceRouteTransport({
   const normalizedResponseType = resolvedTypes.responseType;
   const normalizedSuccessKind = String(successKind || "record").trim().toLowerCase();
 
-  const resolveRecordType = typeof getRecordType === "function" ? getRecordType : defaultRecordTypeResolver(normalizedResponseType);
-  const resolveRecordId = typeof getRecordId === "function" ? getRecordId : defaultRecordIdResolver;
-  const resolveRecordAttributes = typeof getRecordAttributes === "function" ? getRecordAttributes : defaultRecordAttributesResolver;
-  const resolveCollectionItems = typeof getCollectionItems === "function" ? getCollectionItems : defaultCollectionItemsResolver;
-  const resolveDocumentMeta = typeof getDocumentMeta === "function" ? getDocumentMeta : defaultCollectionMetaResolver;
+  const resolveRecordType = getRecordType || defaultRecordTypeResolver(normalizedResponseType);
+  const resolveRecordId = getRecordId || defaultRecordIdResolver;
+  const resolveRecordAttributes = getRecordAttributes || defaultRecordAttributesResolver;
+  const resolveRecordRelationships = getRecordRelationships || resolveNothing;
+  const resolveRecordLinks = getRecordLinks || resolveNothing;
+  const resolveRecordMeta = getRecordMeta || resolveNothing;
+  const resolveIncluded = getIncluded || resolveNothing;
+  const resolveDocumentLinks = getDocumentLinks || resolveNothing;
+  const resolveRecordDocumentMeta = getDocumentMeta || resolveNothing;
+  const resolveCollectionMeta = getDocumentMeta || defaultCollectionMetaResolver;
+  const resolveCollectionItems = getCollectionItems || defaultCollectionItemsResolver;
+  const resolveRequestRelationships = mapRequestRelationships || resolveNothing;
 
   function buildResourceObject(record, context) {
     if (!isRecord(record)) {
@@ -656,52 +180,42 @@ function createJsonApiResourceRouteTransport({
       attributes: resolveRecordAttributes(record, context)
     };
 
-    if (typeof getRecordRelationships === "function") {
-      const relationships = getRecordRelationships(record, context);
-      if (relationships !== undefined) {
-        resourceOptions.relationships = relationships;
-      }
+    const relationships = resolveRecordRelationships(record, context);
+    if (relationships !== undefined) {
+      resourceOptions.relationships = relationships;
     }
-    if (typeof getRecordLinks === "function") {
-      const links = getRecordLinks(record, context);
-      if (links !== undefined) {
-        resourceOptions.links = links;
-      }
+    const links = resolveRecordLinks(record, context);
+    if (links !== undefined) {
+      resourceOptions.links = links;
     }
-    if (typeof getRecordMeta === "function") {
-      const meta = getRecordMeta(record, context);
-      if (meta !== undefined) {
-        resourceOptions.meta = meta;
-      }
+    const meta = resolveRecordMeta(record, context);
+    if (meta !== undefined) {
+      resourceOptions.meta = meta;
     }
 
     return createJsonApiResourceObject(resourceOptions);
   }
 
-  // Collections always resolve meta (falling back to the nextCursor page meta); records add
-  // meta only when the caller supplies getDocumentMeta.
-  function buildDocumentOptions(sourcePayload, context, data, { resolveMeta = null } = {}) {
+  /**
+   * Collections always resolve meta (falling back to the nextCursor page meta); records add
+   * meta only when the caller supplies getDocumentMeta.
+   */
+  function buildDocumentOptions(sourcePayload, context, data, resolveMeta) {
     const documentOptions = { data };
 
-    if (typeof getIncluded === "function") {
-      const included = normalizeArray(getIncluded(sourcePayload, context));
-      if (included.length > 0) {
-        documentOptions.included = included;
-      }
+    const included = normalizeArray(resolveIncluded(sourcePayload, context));
+    if (included.length > 0) {
+      documentOptions.included = included;
     }
 
-    if (typeof getDocumentLinks === "function") {
-      const links = getDocumentLinks(sourcePayload, context);
-      if (links !== undefined) {
-        documentOptions.links = links;
-      }
+    const links = resolveDocumentLinks(sourcePayload, context);
+    if (links !== undefined) {
+      documentOptions.links = links;
     }
 
-    if (typeof resolveMeta === "function") {
-      const meta = resolveMeta(sourcePayload, context);
-      if (meta !== undefined) {
-        documentOptions.meta = meta;
-      }
+    const meta = resolveMeta(sourcePayload, context);
+    if (meta !== undefined) {
+      documentOptions.meta = meta;
     }
 
     return documentOptions;
@@ -735,12 +249,10 @@ function createJsonApiResourceRouteTransport({
           nextBody.id = document.data.id;
         }
 
-        if (typeof mapRequestRelationships === "function") {
-          Object.assign(nextBody, mapRequestRelationships(document.data.relationships || {}, {
-            payload,
-            document
-          }) || {});
-        }
+        Object.assign(nextBody, resolveRequestRelationships(document.data.relationships || {}, {
+          payload,
+          document
+        }) || {});
 
         return nextBody;
       },
@@ -831,7 +343,7 @@ function createJsonApiResourceRouteTransport({
           sourcePayload,
           context,
           items.map((entry) => buildResourceObject(entry, context)),
-          { resolveMeta: resolveDocumentMeta }
+          resolveCollectionMeta
         );
 
         return createJsonApiDocument(documentOptions);
@@ -851,7 +363,7 @@ function createJsonApiResourceRouteTransport({
         sourcePayload,
         context,
         buildResourceObject(sourcePayload, context),
-        { resolveMeta: getDocumentMeta }
+        resolveRecordDocumentMeta
       );
 
       return createJsonApiDocument(documentOptions);
@@ -898,13 +410,45 @@ function createJsonApiResourceRouteTransport({
   });
 }
 
+/**
+ * The route contract of one JSON:API resource route: its transport, its request
+ * schemas and its success and error response schemas.
+ * @param {object} options
+ * @param {string} [options.type]
+ * @param {string} [options.requestType]
+ * @param {string} [options.responseType]
+ * @param {object} [options.body] The request attributes schema.
+ * @param {object} [options.query] The query schema.
+ * @param {object} [options.output] The response attributes schema; required unless outputKind is no-content.
+ * @param {string} [options.outputKind] record, nullable-record, collection, meta or no-content.
+ * @param {number} [options.successStatus] A 2xx status.
+ * @param {boolean} [options.includeValidation400]
+ * @param {boolean} [options.allowSparseFields]
+ * @param {boolean} [options.allowBodyId]
+ * @param {string} [options.pointerPrefix]
+ * @param {string[]} [options.bodyAttributeExcludeKeys]
+ * @param {string[]} [options.outputAttributeExcludeKeys]
+ * @param {object[]} [options.bodyRelationshipEntries]
+ * @param {object[]} [options.outputRelationshipEntries]
+ * @param {JsonApiRouteHook} [options.getRecordType]
+ * @param {JsonApiRouteHook} [options.getRecordId]
+ * @param {JsonApiRouteHook} [options.getRecordAttributes]
+ * @param {JsonApiRouteHook} [options.getRecordRelationships]
+ * @param {JsonApiRouteHook} [options.getRecordLinks]
+ * @param {JsonApiRouteHook} [options.getRecordMeta]
+ * @param {JsonApiRouteHook} [options.getIncluded]
+ * @param {JsonApiRouteHook} [options.getDocumentLinks]
+ * @param {JsonApiRouteHook} [options.getDocumentMeta]
+ * @param {JsonApiRouteHook} [options.getCollectionItems]
+ * @param {JsonApiRouteHook} [options.mapRequestRelationships]
+ */
 function createJsonApiResourceRouteContract({
   type = "",
   requestType = "",
   responseType = "",
-  body = null,
-  query = null,
-  output = null,
+  body,
+  query,
+  output,
   outputKind = "record",
   successStatus = 200,
   includeValidation400 = false,
@@ -915,18 +459,18 @@ function createJsonApiResourceRouteContract({
   outputAttributeExcludeKeys = [],
   bodyRelationshipEntries = [],
   outputRelationshipEntries = [],
-  getRecordType = null,
-  getRecordId = null,
-  getRecordAttributes = null,
-  getRecordRelationships = null,
-  getRecordLinks = null,
-  getRecordMeta = null,
-  getIncluded = null,
-  getDocumentLinks = null,
-  getDocumentMeta = null,
-  getCollectionItems = null,
-  mapRequestRelationships = null
-} = {}) {
+  getRecordType,
+  getRecordId,
+  getRecordAttributes,
+  getRecordRelationships,
+  getRecordLinks,
+  getRecordMeta,
+  getIncluded,
+  getDocumentLinks,
+  getDocumentMeta,
+  getCollectionItems,
+  mapRequestRelationships
+}) {
   const resolvedTypes = resolveRouteTypes({
     type,
     requestType,
@@ -942,24 +486,24 @@ function createJsonApiResourceRouteContract({
   }
 
   const transport = createJsonApiResourceRouteTransport({
-      requestType: normalizedRequestType,
-      responseType: normalizedResponseType,
-      query,
-      allowBodyId,
-      successKind: normalizedOutputKind,
-      pointerPrefix,
-      getRecordType,
-      getRecordId,
-      getRecordAttributes,
-      getRecordRelationships,
-      getRecordLinks,
-      getRecordMeta,
-      getIncluded,
-      getDocumentLinks,
-      getDocumentMeta,
-      getCollectionItems,
-      mapRequestRelationships
-    });
+    requestType: normalizedRequestType,
+    responseType: normalizedResponseType,
+    query,
+    allowBodyId,
+    successKind: normalizedOutputKind,
+    pointerPrefix,
+    getRecordType,
+    getRecordId,
+    getRecordAttributes,
+    getRecordRelationships,
+    getRecordLinks,
+    getRecordMeta,
+    getIncluded,
+    getDocumentLinks,
+    getDocumentMeta,
+    getCollectionItems,
+    mapRequestRelationships
+  });
   const contract = {
     transport
   };
@@ -1000,9 +544,9 @@ function createJsonApiResourceRouteContract({
         type: normalizedResponseType,
         attributes: output,
         kind: normalizedOutputKind,
-        includeLinks: typeof getDocumentLinks === "function",
-        includeMeta: typeof getDocumentMeta === "function" || normalizedOutputKind === "collection",
-        includeIncluded: typeof getIncluded === "function",
+        includeLinks: Boolean(getDocumentLinks),
+        includeMeta: Boolean(getDocumentMeta) || normalizedOutputKind === "collection",
+        includeIncluded: Boolean(getIncluded),
         allowSparseFields,
         excludeAttributeKeys: outputAttributeExcludeKeys,
         relationshipEntries: outputRelationshipEntries
@@ -1018,11 +562,6 @@ function createJsonApiResourceRouteContract({
 }
 
 export {
-  JSON_API_ERROR_DOCUMENT_SCHEMA,
-  createJsonApiResourceObjectTransportSchema,
-  createJsonApiResourceRequestBodyTransportSchema,
-  createJsonApiResourceSuccessTransportSchema,
-  withJsonApiErrorResponses,
   createJsonApiResourceRouteTransport,
   createJsonApiResourceRouteContract
 };

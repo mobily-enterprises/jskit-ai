@@ -55,7 +55,9 @@ export {
   createJsonApiResourceObjectTransportSchema,
   createJsonApiResourceRequestBodyTransportSchema,
   createJsonApiResourceSuccessTransportSchema,
-  withJsonApiErrorResponses,
+  withJsonApiErrorResponses
+} from "./validators/jsonApiResourceSchemas.js";
+export {
   createJsonApiResourceRouteTransport,
   createJsonApiResourceRouteContract
 } from "./validators/jsonApiRouteTransport.js";
