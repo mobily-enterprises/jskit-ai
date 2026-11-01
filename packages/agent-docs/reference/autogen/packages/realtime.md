@@ -63,7 +63,7 @@ Exports
 - `resolveAudienceTargets(audience, event, { database, logger })`
 - `type AuthService`
 - `type RuntimeDatabase`
-- `type ProviderLogger`
+- `type RealtimeLogger`
 - `type AudienceContributors`
 Local functions
 - `normalizeArray(value)`
@@ -90,7 +90,7 @@ Exports
 - `type RuntimeDatabase`
 - `type RuntimeAppRoot`
 - `type RuntimeEvents`
-- `type ProviderLogger`
+- `type RealtimeLogger`
 
 ### `src/server/realtimeDelivery.js`
 Exports
@@ -101,6 +101,10 @@ Local functions
 - `publicRealtimePayload(event)`
 - `sharedWithinPass(load, keyOf = (value) => value)`
 - `createPassChecks(authService, resolveActorRooms)`
+
+### `src/server/realtimeLogger.js`
+Exports
+- `createRealtimeLogger({ logger, debugEnabled })`
 
 ### `src/server/RealtimeProvider.js`
 Exports
@@ -132,6 +136,8 @@ Exports
 ### `src/server/types.js`
 Exports
 - `type RuntimeRealtime`
+- `type RealtimeLogger`
+- `type RealtimeAudienceContributor`
 
 ### `src/shared/servedClientBuild.js`
 Exports

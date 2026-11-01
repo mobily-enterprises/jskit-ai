@@ -56,9 +56,6 @@ Local functions
 - `isObjectBody(value)`
 - `isQueryValuePresent(value)`
 - `appendRequestQueryToUrl(url, query = null, transport = null)`
-- `parseJsonSafely(response, signal)`
-- `emitNdjsonLine(line, handlers)`
-- `readNdjsonStream(response, handlers = {})`
 
 ### `src/shared/clientRuntime/errors.js`
 Exports
@@ -95,6 +92,12 @@ Local functions
 - `assertPrimaryDataType(resource = {}, expectedType = "")`
 - `resolveCollectionPageMeta(document = {})`
 - `decodeJsonApiErrorFields(payload = {})`
+
+### `src/shared/clientRuntime/responseBody.js`
+Exports
+- `emitNdjsonLine(line, handlers)`
+- `parseJsonSafely(response, signal)`
+- `readNdjsonStream(response, handlers = {})`
 
 ### `src/shared/clientRuntime/retry.js`
 Exports
@@ -201,6 +204,22 @@ Local functions
 - `createJsonApiFieldsTransportValueSchema()`
 - `normalizeTransportQueryScalar(value)`
 
+### `src/shared/validators/jsonApiResourceSchemas.js`
+Exports
+- `JSON_API_ERROR_DOCUMENT_SCHEMA`
+- `resolveRouteTypes(value = {})`
+- `createJsonApiResourceObjectTransportSchema({ type = "", attributes, requireId = true, includeLinks = false, includeMeta = false, excludeAttributeKeys = [], relationshipEntries = [], relationshipMembersRequired = false, allowSparseFields = false } = {})`
+- `createJsonApiResourceRequestBodyTransportSchema({ type = "", attributes, requireId = false, excludeAttributeKeys = [], relationshipEntries = [] } = {})`
+- `createJsonApiResourceSuccessTransportSchema({ type = "", attributes, kind = "record", includeLinks = false, includeMeta = false, includeIncluded = false, allowSparseFields = false, excludeAttributeKeys = [], relationshipEntries = [] } = {})`
+- `withJsonApiErrorResponses(successResponses, { includeValidation400 = false } = {})`
+Local functions
+- `resolveRouteType(type = "")`
+- `resolveEmbeddedAttributesTransportSchema(definition, { context = "JSON:API resource", defaultMode = "replace", removeId = false, removeKeys = [], allowSparseFields = false } = {})`
+- `normalizeRelationshipSchemaEntries(entries = [])`
+- `createJsonApiRelationshipDataSchema(relationshipType = "", { many = false, nullable = false } = {})`
+- `createJsonApiRelationshipsTransportSchema(entries = [], { includeRequired = false } = {})`
+- `createJsonApiMetaSuccessTransportSchema({ meta } = {})`
+
 ### `src/shared/validators/jsonApiResult.js`
 Exports
 - `JSON_API_RESULT_MARKER`
@@ -219,27 +238,17 @@ Local functions
 
 ### `src/shared/validators/jsonApiRouteTransport.js`
 Exports
-- `JSON_API_ERROR_DOCUMENT_SCHEMA`
-- `createJsonApiResourceObjectTransportSchema({ type = "", attributes, requireId = true, includeLinks = false, includeMeta = false, excludeAttributeKeys = [], relationshipEntries = [], relationshipMembersRequired = false, allowSparseFields = false } = {})`
-- `createJsonApiResourceRequestBodyTransportSchema({ type = "", attributes, requireId = false, excludeAttributeKeys = [], relationshipEntries = [] } = {})`
-- `createJsonApiResourceSuccessTransportSchema({ type = "", attributes, kind = "record", includeLinks = false, includeMeta = false, includeIncluded = false, allowSparseFields = false, excludeAttributeKeys = [], relationshipEntries = [] } = {})`
-- `withJsonApiErrorResponses(successResponses, { includeValidation400 = false } = {})`
-- `createJsonApiResourceRouteTransport({ type = "", requestType = "", responseType = "", query = null, allowBodyId = false, successKind = "record", pointerPrefix = "/data/attributes", mapRequestRelationships = null, getRecordType = null, getRecordId = null, getRecordAttributes = null, getRecordRelationships = null, getRecordLinks = null, getRecordMeta = null, getIncluded = null, getDocumentLinks = null, getDocumentMeta = null, getCollectionItems = null } = {})`
-- `createJsonApiResourceRouteContract({ type = "", requestType = "", responseType = "", body = null, query = null, output = null, outputKind = "record", successStatus = 200, includeValidation400 = false, allowSparseFields = false, allowBodyId = false, pointerPrefix = "/data/attributes", bodyAttributeExcludeKeys = [], outputAttributeExcludeKeys = [], bodyRelationshipEntries = [], outputRelationshipEntries = [], getRecordType = null, getRecordId = null, getRecordAttributes = null, getRecordRelationships = null, getRecordLinks = null, getRecordMeta = null, getIncluded = null, getDocumentLinks = null, getDocumentMeta = null, getCollectionItems = null, mapRequestRelationships = null } = {})`
+- `createJsonApiResourceRouteTransport({ type = "", requestType = "", responseType = "", query, allowBodyId = false, successKind = "record", pointerPrefix = "/data/attributes", mapRequestRelationships, getRecordType, getRecordId, getRecordAttributes, getRecordRelationships, getRecordLinks, getRecordMeta, getIncluded, getDocumentLinks, getDocumentMeta, getCollectionItems })`
+- `createJsonApiResourceRouteContract({ type = "", requestType = "", responseType = "", body, query, output, outputKind = "record", successStatus = 200, includeValidation400 = false, allowSparseFields = false, allowBodyId = false, pointerPrefix = "/data/attributes", bodyAttributeExcludeKeys = [], outputAttributeExcludeKeys = [], bodyRelationshipEntries = [], outputRelationshipEntries = [], getRecordType, getRecordId, getRecordAttributes, getRecordRelationships, getRecordLinks, getRecordMeta, getIncluded, getDocumentLinks, getDocumentMeta, getCollectionItems, mapRequestRelationships })`
+- `type JsonApiRouteHook`
 Local functions
 - `createJsonApiTransportError(statusCode, message, code, params = {})`
-- `resolveRouteType(type = "")`
-- `resolveRouteTypes(value = {})`
-- `resolveEmbeddedAttributesTransportSchema(definition, { context = "JSON:API resource", defaultMode = "replace", removeId = false, removeKeys = [], allowSparseFields = false } = {})`
-- `normalizeRelationshipSchemaEntries(entries = [])`
-- `createJsonApiRelationshipDataSchema(relationshipType = "", { many = false, nullable = false } = {})`
-- `createJsonApiRelationshipsTransportSchema(entries = [], { includeRequired = false } = {})`
-- `createJsonApiMetaSuccessTransportSchema({ meta } = {})`
 - `defaultRecordTypeResolver(type)`
 - `defaultRecordIdResolver(record = {})`
 - `defaultRecordAttributesResolver(record = {})`
 - `defaultCollectionItemsResolver(payload)`
 - `defaultCollectionMetaResolver(payload)`
+- `resolveNothing()`
 - `assertJsonApiSuccessResult(payload)`
 
 ### `src/shared/validators/jsonApiTransport.js`

@@ -23,7 +23,7 @@ Local functions
 ### `src/server/databaseSetup.js`
 Exports
 - `prepareDatabaseFromApp({ client, appRoot = process.cwd(), environment = process.env, migrationsDirectory = "migrations", seed } = {})`
-- `runDatabaseSetup({ knex, seed, appRoot = process.cwd(), environment = process.env } = {})`
+- `runDatabaseSetup({ knex, seed, appRoot = process.cwd(), environment = process.env })`
 Local functions
 - `normalizeMigrationResult(result)`
 
@@ -160,8 +160,7 @@ Local functions
 
 ### `src/shared/transactionManager.js`
 Exports
-- `TransactionManager`
-- `createTransactionManager(options = {})`
+- `createTransactionManager({ knex })`
 
 ### `src/shared/visibility.js`
 Exports
