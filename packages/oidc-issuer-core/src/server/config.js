@@ -5,6 +5,8 @@ import path from "node:path";
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 const MIN_SECRET_BYTES = 32;
 const DEV_SECRET_FILE = ".jskit/oidc-hub/secret";
+/** The header an editor's preview sends the dev sign-in secret in. */
+const DEV_AUTH_SECRET_HEADER = "x-jskit-dev-auth-secret";
 
 class HubConfigError extends Error {
   constructor(message) {
@@ -119,6 +121,19 @@ function resolveGoogle(env) {
 }
 
 /**
+ * Whether an editor's preview may sign in as an existing account, and the
+ * secret it sends: AUTH_DEV_BYPASS_ENABLED and AUTH_DEV_BYPASS_SECRET, read once
+ * for the hub and for its preview identity command.
+ * @param {Record<string, string | undefined>} env
+ */
+function resolveHubDevAuth(env) {
+  return Object.freeze({
+    enabled: text(env.AUTH_DEV_BYPASS_ENABLED).toLowerCase() === "true",
+    secret: text(env.AUTH_DEV_BYPASS_SECRET)
+  });
+}
+
+/**
  * Reads and validates the hub's environment. Every problem is one sentence
  * naming the variable to fix.
  */
@@ -150,4 +165,4 @@ function resolveHubConfig(env = {}, { appRoot = "" } = {}) {
   });
 }
 
-export { HubConfigError, isLoopbackHostname, resolveHubConfig };
+export { DEV_AUTH_SECRET_HEADER, HubConfigError, isLoopbackHostname, resolveHubConfig, resolveHubDevAuth };

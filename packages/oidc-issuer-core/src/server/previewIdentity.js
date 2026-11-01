@@ -1,3 +1,5 @@
+import { DEV_AUTH_SECRET_HEADER, resolveHubDevAuth } from "./config.js";
+
 /**
  * The protocol id the command speaks when the hub names none. A preview host
  * that names its own id is configured through the `protocol` option.
@@ -35,15 +37,6 @@ function localOrigin(value, localHostnames) {
 }
 
 /**
- * The Set-Cookie headers of a fetch response.
- * @param {Response} response
- */
-function setCookies(response) {
-  // readable-check: allow method-probe - platform object: another fetch implementation's Headers may lack getSetCookie()
-  return typeof response.headers.getSetCookie === "function" ? response.headers.getSetCookie() : [];
-}
-
-/**
  * The hub's side of the editor preview identity protocol: it signs the
  * preview browser in as an existing hub account through the hub's
  * development-only exchange, which needs the exchange secret and a loopback
@@ -66,7 +59,8 @@ async function executePreviewIdentityRequest(request, {
   if (request?.protocol !== protocol || !requestId || !["login-as", "logout"].includes(request.operation)) {
     return failure(protocol, requestId, "preview_identity_request_invalid", "The preview identity request is invalid.");
   }
-  if (String(env.AUTH_DEV_BYPASS_ENABLED || "").trim().toLowerCase() !== "true") {
+  const devAuth = resolveHubDevAuth(env);
+  if (!devAuth.enabled) {
     return failure(protocol, requestId, "preview_identity_disabled", "Preview identity is not enabled.", 403);
   }
   let origin;
@@ -80,7 +74,7 @@ async function executePreviewIdentityRequest(request, {
     const signOut = await fetchImpl(`${origin}/hub/api/sign-out`, { method: "POST", headers, body: "{}" });
     if (request.operation === "logout") {
       // readable-check: allow setter-seam - not a slot: setCookie is the preview identity protocol's list of Set-Cookie headers
-      return { protocol, requestId, ok: true, identity: null, setCookie: setCookies(signOut), signedOut: true };
+      return { protocol, requestId, ok: true, identity: null, setCookie: signOut.headers.getSetCookie(), signedOut: true };
     }
     const selector = request.subject?.kind === "selector" ? request.subject.selector : null;
     const value = String(selector?.value || "").trim();
@@ -90,7 +84,7 @@ async function executePreviewIdentityRequest(request, {
     }
     const response = await fetchImpl(`${origin}/hub/api/dev/login-as`, {
       method: "POST",
-      headers: { ...headers, "x-jskit-dev-auth-secret": String(env.AUTH_DEV_BYPASS_SECRET || "") },
+      headers: { ...headers, [DEV_AUTH_SECRET_HEADER]: devAuth.secret },
       body: JSON.stringify(identity)
     });
     const payload = await response.json().catch(() => ({}));
@@ -103,7 +97,7 @@ async function executePreviewIdentityRequest(request, {
       ok: true,
       identity: { displayName: payload.displayName, email: payload.email, userId: payload.userId, username: "" },
       // readable-check: allow setter-seam - not a slot: setCookie is the preview identity protocol's list of Set-Cookie headers
-      setCookie: setCookies(response),
+      setCookie: response.headers.getSetCookie(),
       signedOut: false
     };
   } catch {

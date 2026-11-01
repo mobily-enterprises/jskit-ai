@@ -1,5 +1,5 @@
 import { RegistrationError, validateRegistrationMetadata } from "./clients.js";
-import { resolveHubConfig } from "./config.js";
+import { resolveHubConfig, resolveHubDevAuth } from "./config.js";
 import { constantEquals, randomToken } from "./crypto.js";
 import { GOOGLE_ENDPOINTS } from "./google.js";
 import { createHub } from "./hub.js";
@@ -71,10 +71,7 @@ async function createOidcIssuer({
   const hub = await createHub({
     knex,
     config,
-    devAuth: Object.freeze({
-      enabled: String(env.AUTH_DEV_BYPASS_ENABLED ?? "").trim().toLowerCase() === "true",
-      secret: String(env.AUTH_DEV_BYPASS_SECRET ?? "").trim()
-    }),
+    devAuth: resolveHubDevAuth(env),
     logger,
     mailer: mailer || createMailer({ mail: config.mail, logger, isProduction: config.isProduction, fetchImpl }),
     now,

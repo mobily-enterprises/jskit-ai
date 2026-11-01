@@ -1,4 +1,5 @@
 import { AccountError, isEmail, normalizeEmail } from "./accounts.js";
+import { DEV_AUTH_SECRET_HEADER } from "./config.js";
 import { constantEquals, randomToken } from "./crypto.js";
 import { HubError, appendCookie, clientIp, parseCookies, serializeCookie } from "./http.js";
 import { hubSessionCookieName } from "./hubSessions.js";
@@ -9,7 +10,6 @@ const GOOGLE_STATE_COOKIE = "hub_google_state";
 const GOOGLE_LINK_COOKIE = "hub_google_link";
 const GOOGLE_LINK_KIND = "GoogleLink";
 const GOOGLE_LINK_TTL_SECONDS = 600;
-const DEV_AUTH_SECRET_HEADER = "x-jskit-dev-auth-secret";
 const PENDING_SENTENCE = "This app is waiting for approval by the hub's owner.";
 const UNCONFIRMED_SENTENCE = "Confirm your email to continue: open the link we sent you, then press Continue.";
 const NO_MATCH_SENTENCE = "That email and password don't match.";

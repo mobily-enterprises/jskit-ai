@@ -54,9 +54,11 @@ Local functions
 
 ### `src/server/config.js`
 Exports
+- `DEV_AUTH_SECRET_HEADER`
 - `HubConfigError`
 - `isLoopbackHostname(hostname)`
 - `resolveHubConfig(env = {}, { appRoot = "" } = {})`
+- `resolveHubDevAuth(env)`
 Local functions
 - `text(value)`
 - `resolveIssuer(env, isProduction)`
@@ -177,7 +179,6 @@ Local functions
 - `failure(protocol, requestId, code, message, statusCode = 400)`
 - `readInput(stream)`
 - `localOrigin(value, localHostnames)`
-- `setCookies(response)`
 
 ### `src/server/providers/OidcIssuerProvider.js`
 Exports
