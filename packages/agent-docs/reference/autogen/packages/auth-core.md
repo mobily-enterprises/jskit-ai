@@ -59,9 +59,10 @@ Local functions
 ### `src/server/authPolicy.js`
 Exports
 - `createAuthPolicy({ authService, extensions, env })`
+- `everyoneSignedOut`
 Local functions
 - `parseList(value)`
-- `defaultHasPermission({ permission, permissions = [] } = {})`
+- `defaultHasPermission({ permission, permissions })`
 
 ### `src/server/authPolicyContextResolverRegistry.js`
 Exports

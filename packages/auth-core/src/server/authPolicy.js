@@ -4,28 +4,33 @@ function parseList(value) {
   return String(value || "").split(",").map((entry) => entry.trim()).filter(Boolean);
 }
 
-function defaultHasPermission({ permission, permissions = [] } = {}) {
+function defaultHasPermission({ permission, permissions }) {
   return !permission || (Array.isArray(permissions) && permissions.includes(permission));
 }
+
+/** The authentication an application without an `auth.service` has: every request is signed out. */
+const everyoneSignedOut = Object.freeze({
+  async authenticateRequest() {
+    return { authenticated: false, actor: null, transientFailure: false };
+  }
+});
 
 /**
  * How the auth policy plugin resolves a request's actor, permissions and policy context.
  * @param {object} dependencies
- * @param {import("./types.js").AuthService | null} dependencies.authService The installed provider's `auth.service`, when there is one.
+ * @param {Pick<import("./types.js").AuthService, "authenticateRequest">} dependencies.authService The installed
+ *   provider's `auth.service`, or everyoneSignedOut.
  * @param {import("./types.js").AuthExtensions} dependencies.extensions
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} dependencies.env
  */
 function createAuthPolicy({ authService, extensions, env }) {
   const unsafeMethods = parseList(env.AUTH_CSRF_UNSAFE_METHODS);
   return Object.freeze({
-    async resolveActor(request) {
-      if (authService) {
-        return authService.authenticateRequest(request);
-      }
-      return { authenticated: false, actor: null, transientFailure: false };
+    resolveActor(request) {
+      return authService.authenticateRequest(request);
     },
     hasPermission: defaultHasPermission,
-    resolveContext(input = {}) {
+    resolveContext(input) {
       return extensions.resolvePolicyContext(input);
     },
     options: Object.freeze({
@@ -44,4 +49,4 @@ function createAuthPolicy({ authService, extensions, env }) {
   });
 }
 
-export { createAuthPolicy };
+export { createAuthPolicy, everyoneSignedOut };

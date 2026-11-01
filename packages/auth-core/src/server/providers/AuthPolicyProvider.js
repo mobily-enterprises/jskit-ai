@@ -1,5 +1,5 @@
 import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
-import { createAuthPolicy } from "../authPolicy.js";
+import { createAuthPolicy, everyoneSignedOut } from "../authPolicy.js";
 import { authPolicyPlugin } from "../lib/plugin.js";
 import { createAuthActionContextContributor } from "../lib/actionContextContributor.js";
 import { createAuthRouteVisibilityResolver } from "../lib/routeVisibilityResolver.js";
@@ -38,7 +38,7 @@ const AuthPolicyProvider = defineProvider({
       id: visibility.resolverId,
       resolve: visibility.resolve
     });
-    return { policy: createAuthPolicy({ authService, extensions, env }) };
+    return { policy: createAuthPolicy({ authService: authService ?? everyoneSignedOut, extensions, env }) };
   },
   async boot({ fastify }, { outputs }) {
     const policy = outputs.policy;
