@@ -1,12 +1,47 @@
-import { createReporter, functionSite, isActionExecute, isActionsFile, isInAction, ruleMeta } from "../support.js";
+import {
+  createReporter,
+  functionSite,
+  isActionDefinition,
+  isActionExecute,
+  isActionsFile,
+  isFreezeCall,
+  isInAction,
+  keyName,
+  ruleMeta
+} from "../support.js";
+
+function executeOf(definition) {
+  return definition.properties.find((property) => keyName(property) === "execute");
+}
+
+// A CRUD custom action's execute receives one object, `{ input, service, … }`:
+// the CRUD declaration's own contract, which the action shape leaves alone.
+function isCrudCustomAction(definition) {
+  const first = executeOf(definition).value?.params?.[0];
+  return first?.type === "ObjectPattern" && first.properties.some((property) => keyName(property) === "input");
+}
+
+function isFrozen(node) {
+  return isFreezeCall(node.parent) && node.parent.arguments[0] === node;
+}
+
+// An action definition written in place, bare or frozen.
+function definitionLiteral(element) {
+  const object = isFreezeCall(element) ? element.arguments[0] : element;
+  return object?.type === "ObjectExpression" && isActionDefinition(object) && !isCrudCustomAction(object) ? object : null;
+}
 
 // An action validates its input once, against its input schema, and its
 // execute hands that input to one service method. In an action's execute, or
 // anywhere in an actions file, input is never re-defaulted with `input = {}`,
-// `input || {}` or `input?.`.
+// `input || {}` or `input?.`. The execute is not `async`, and each definition
+// and each list of them is frozen.
 const oneLineAction = Object.freeze({
-  meta: ruleMeta("Disallow re-defaulting action input that the action's schema already validated.", {
-    inputFallback: "{{fallback}} re-defaults input that the action's schema already validated. Use the validated input."
+  meta: ruleMeta("Require one-line actions: validated input used as is, no async execute, frozen definitions and lists.", {
+    inputFallback: "{{fallback}} re-defaults input that the action's schema already validated. Use the validated input.",
+    asyncExecute: "An action's execute is async. Return the one service call's result: execute: (input, context) => service.method(…).",
+    unfrozenAction: "This action definition is not frozen. Wrap it in Object.freeze({ … }).",
+    unfrozenActions: "This list of action definitions is not frozen. Wrap it in Object.freeze([ … ])."
   }),
   create(context) {
     const report = createReporter(context, "one-line-action");
@@ -33,6 +68,23 @@ const oneLineAction = Object.freeze({
       MemberExpression(node) {
         if (node.optional && node.object.type === "Identifier" && node.object.name === "input" && isInAction(context, node)) {
           report(node, "input-fallback", "inputFallback", { fallback: `input?.${node.property.name || ""}` });
+        }
+      },
+      ObjectExpression(node) {
+        if (!definitionLiteral(node)) {
+          return;
+        }
+        const execute = executeOf(node);
+        if (execute.value?.async) {
+          report(execute, "async-execute", "asyncExecute");
+        }
+        if (!isFrozen(node)) {
+          report(node, "unfrozen-action", "unfrozenAction");
+        }
+      },
+      ArrayExpression(node) {
+        if (!isFrozen(node) && node.elements.some(definitionLiteral)) {
+          report(node, "unfrozen-action", "unfrozenActions");
         }
       }
     };

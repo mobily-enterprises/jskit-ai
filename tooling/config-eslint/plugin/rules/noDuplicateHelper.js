@@ -4,29 +4,63 @@ import path from "node:path";
 import { createReporter, ruleMeta } from "../support.js";
 
 // Directories that hold no server source (or another package's), as readable-check skips them.
-const SKIPPED_DIRECTORIES = new Set(["node_modules", ".git", "dist", "test", "tests", "client", "components", "pages", "shared"]);
+const SKIPPED_DIRECTORIES = new Set(["node_modules", ".git", "dist", "test", "tests", "client", "components", "pages"]);
 const SOURCE_FILE = /\.m?js$/u;
 const TEST_FILE = /\.test\./u;
+// The agent skill bundle's generated copies of package-owned patterns; their
+// sources are checked.
+const GENERATED_MIRROR = /(^|\/)skills\/jskit\/references\/patterns(\/|$)/u;
+const FUNCTION_VALUES = new Set(["ArrowFunctionExpression", "FunctionExpression"]);
 
 // Parsed helpers of the files a lint run has read, by path; reread when a file changes.
 const helpersByFile = new Map();
 
-// A small helper is a top-level function declaration spanning fewer than twelve
-// lines. Two are the same when their parameters and bodies are, whatever their names.
+function toPosixPath(file) {
+  return file.split(path.sep).join("/");
+}
+
+// The module's top-level function declarations and `const` arrows or function
+// expressions, each with the node a finding is reported on.
+function topLevelFunctions(program) {
+  return program.body.flatMap((statement) => {
+    if (statement.type === "FunctionDeclaration") {
+      return [{ node: statement, name: statement.id.name, fn: statement }];
+    }
+    if (statement.type !== "VariableDeclaration" || statement.kind !== "const") {
+      return [];
+    }
+    return statement.declarations
+      .filter((declarator) => declarator.id.type === "Identifier" && FUNCTION_VALUES.has(declarator.init?.type))
+      .map((declarator) => ({ node: declarator, name: declarator.id.name, fn: declarator.init }));
+  });
+}
+
+// A small helper is a top-level function, declared or a `const` arrow, spanning
+// fewer than twelve lines. Two are the same when their parameters and bodies
+// are, whatever their names; an arrow's expression body reads as its return.
 function topLevelHelpers(program, text) {
-  return program.body
-    .filter((node) => node.type === "FunctionDeclaration" && node.loc.end.line - node.loc.start.line < 12)
-    .map((node) => {
-      const start = node.params[0]?.range[0] ?? node.body.range[0];
-      const body = `${node.params.length}:${text.slice(start, node.range[1]).replace(/\s+/gu, " ")}`;
-      return { name: node.id.name, line: node.loc.start.line, key: createHash("sha1").update(body).digest("hex") };
+  return topLevelFunctions(program)
+    .filter(({ node }) => node.loc.end.line - node.loc.start.line < 12)
+    .map(({ node, name, fn }) => {
+      const parameters = fn.params.length ? text.slice(fn.params[0].range[0], fn.params.at(-1).range[1]) : "";
+      const body = text.slice(...fn.body.range);
+      const block = fn.body.type === "BlockStatement" ? body : `{ return ${body}; }`;
+      const shape = `${fn.async ? "async " : ""}${fn.generator ? "* " : ""}${fn.params.length}:${parameters}:${block}`;
+      return { node, name, line: node.loc.start.line, key: createHash("sha1").update(shape.replace(/\s+/gu, " ")).digest("hex") };
     });
+}
+
+// A package, or a pattern's example application: an `example` directory beside
+// a PATTERN.md.
+function isPackageDirectory(directory) {
+  return existsSync(path.join(directory, "package.json")) ||
+    (path.basename(directory) === "example" && existsSync(path.join(path.dirname(directory), "PATTERN.md")));
 }
 
 function packageDirectoryOf(file) {
   const start = path.dirname(file);
   for (let directory = start; ; directory = path.dirname(directory)) {
-    if (existsSync(path.join(directory, "package.json"))) {
+    if (isPackageDirectory(directory)) {
       return directory;
     }
     if (directory === path.dirname(directory)) {
@@ -53,7 +87,7 @@ function sourceFilesUnder(directory, files = []) {
   for (const entry of entries) {
     const next = path.join(directory, entry.name);
     if (entry.isDirectory()) {
-      if (!SKIPPED_DIRECTORIES.has(entry.name) && !existsSync(path.join(next, "package.json"))) {
+      if (!SKIPPED_DIRECTORIES.has(entry.name) && !isPackageDirectory(next) && !GENERATED_MIRROR.test(toPosixPath(next))) {
         sourceFilesUnder(next, files);
       }
     } else if (entry.isFile() && SOURCE_FILE.test(entry.name) && !TEST_FILE.test(entry.name)) {
@@ -81,7 +115,7 @@ function parseHelpers(file, context) {
     const options = { ...parserOptions, ecmaVersion, sourceType, range: true, loc: true, tokens: true, comment: true, filePath: file };
     // readable-check: allow method-probe - platform object: an ESLint parser provides parseForESLint, or only parse
     const program = typeof parser.parseForESLint === "function" ? parser.parseForESLint(text, options).ast : parser.parse(text, options);
-    helpers = topLevelHelpers(program, text);
+    helpers = topLevelHelpers(program, text).map(({ name, line, key }) => ({ name, line, key }));
   } catch {
     // A file that does not parse is reported by its own lint run.
   }
@@ -104,7 +138,7 @@ function compareCopies(left, right) {
 // One copy of each pure helper per package, imported directly. Every copy after
 // the first, in path order, is reported.
 const noDuplicateHelper = Object.freeze({
-  meta: ruleMeta("Disallow a small top-level helper that repeats one in another file of the same package.", {
+  meta: ruleMeta("Disallow a small top-level helper, function or arrow, that repeats one in another file of the same package.", {
     duplicateHelper: "{{name}}() repeats {{first}}. Keep one copy in the package and import it."
   }),
   create(context) {
@@ -114,7 +148,7 @@ const noDuplicateHelper = Object.freeze({
       Program(program) {
         const file = context.filename;
         const own = topLevelHelpers(program, sourceCode.text);
-        if (!own.length || !path.isAbsolute(file)) {
+        if (!own.length || !path.isAbsolute(file) || GENERATED_MIRROR.test(toPosixPath(file))) {
           return;
         }
         const packageDirectory = packageDirectoryOf(file);
@@ -137,10 +171,9 @@ const noDuplicateHelper = Object.freeze({
           copies.sort(compareCopies);
           const [first] = copies;
           for (const copy of copies.slice(1).filter((candidate) => candidate.file === file)) {
-            const node = program.body.find((statement) => statement.type === "FunctionDeclaration" && statement.loc.start.line === copy.line);
-            report(node, "duplicate-helper", "duplicateHelper", {
+            report(copy.node, "duplicate-helper", "duplicateHelper", {
               name: copy.name,
-              first: `${path.relative(context.cwd, first.file).split(path.sep).join("/")}:${first.line}`
+              first: `${toPosixPath(path.relative(context.cwd, first.file))}:${first.line}`
             });
           }
         }

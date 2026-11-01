@@ -40,6 +40,16 @@ test("typedFeaturesConfig makes the rules errors for the globs an application li
   ]);
 });
 
+test("typedFeaturesConfig checks the shared modules an application lists", async () => {
+  const config = [...baseConfig, ...typedFeaturesConfig(["packages/booking/src/shared/**"])];
+  assert.deepEqual(await typedFeatureFindings(baseConfig, "packages/booking/src/shared/reader.js"), []);
+  assert.deepEqual(await typedFeatureFindings(config, "packages/booking/src/shared/reader.js"), [
+    "error jskit/typed-dependencies",
+    "error jskit/required-collaborators",
+    "error jskit/required-collaborators"
+  ]);
+});
+
 test("typedFeaturesConfig sets the file and function size limits", () => {
   const [entry] = typedFeaturesConfig(["src/server/**"]);
   assert.deepEqual(entry.rules["max-lines"], ["error", { max: 750 }]);

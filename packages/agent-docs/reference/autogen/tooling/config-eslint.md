@@ -133,7 +133,10 @@ Local functions
 Exports
 - `noDuplicateHelper`
 Local functions
+- `toPosixPath(file)`
+- `topLevelFunctions(program)`
 - `topLevelHelpers(program, text)`
+- `isPackageDirectory(directory)`
 - `packageDirectoryOf(file)`
 - `comparisonRoot(file, packageDirectory)`
 - `sourceFilesUnder(directory, files = [])`
@@ -164,6 +167,11 @@ Local functions
 ### `plugin/rules/oneLineAction.js`
 Exports
 - `oneLineAction`
+Local functions
+- `executeOf(definition)`
+- `isCrudCustomAction(definition)`
+- `isFrozen(node)`
+- `definitionLiteral(element)`
 
 ### `plugin/rules/requiredCollaborators.js`
 Exports

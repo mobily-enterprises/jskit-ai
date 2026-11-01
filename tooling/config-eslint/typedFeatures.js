@@ -1,8 +1,10 @@
 import { jskitPlugin } from "./plugin/index.js";
 
 const SERVER_SOURCE_FILES = "**/*.{js,mjs}";
+// Tests and client code. Shared modules are checked where a glob selects them:
+// the rules cover every module a capability value is built from.
 const NOT_SERVER_SOURCE = Object.freeze([
-  "**/{test,tests,client,components,pages,shared}/**",
+  "**/{test,tests,client,components,pages}/**",
   "**/*.test.*"
 ]);
 
@@ -30,8 +32,9 @@ function typedFeaturesRules(severity) {
 }
 
 /**
- * The typed-features rules for the server source files the globs select (tests
- * excluded), as errors unless another severity is given. An application lists
+ * The typed-features rules for the server and shared source files the globs
+ * select (tests and client code excluded), as errors unless another severity
+ * is given. An application lists
  * each package as it converts it, so the rules it already follows stay followed.
  * @param {string[]} files
  * @param {"error" | "warn" | "off"} [severity]
