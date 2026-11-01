@@ -7,11 +7,13 @@ export function createConversationTranscript({ storage, clock = () => new Date()
     throw new TypeError("Conversation storage requires read(scope, callback) and write(scope, callback).");
   }
 
-  async function readConversationLog(scope, { presentation = false } = {}) {
+  // With `afterTurnId`, only the turns after it (those a summary doesn't cover).
+  async function readConversationLog(scope, { presentation = false, afterTurnId = "" } = {}) {
     if (typeof presentation !== "boolean") throw new TypeError("Transcript presentation requires an explicit boolean.");
     return storage.read(scope, async (transaction) => {
-      const ids = await transaction.listTurnIds();
-      const turns = (await Promise.all(ids.map((id) => transaction.readTurn(id)))).filter(hasMessages);
+      const read = afterTurnId ? transaction.readTurnsAfter(afterTurnId)
+        : Promise.all((await transaction.listTurnIds()).map((id) => transaction.readTurn(id)));
+      const turns = (await read).filter(hasMessages);
       return presentation ? turns.filter(turn => !isCompletedEnvelopeTurn(turn)) : turns;
     });
   }

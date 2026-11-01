@@ -198,8 +198,20 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     await emit(entry, { type: "phase", phase, turnId });
   }
 
-  const readTranscript = entry => entry.conversation
-    ? entry.conversation.transcript.readConversationLog() : transcript.readConversationLog(entry.id);
+  // `afterTurnId` reads only the turns a stored summary doesn't cover.
+  const readTranscript = (entry, afterTurnId = "") => entry.conversation
+    ? entry.conversation.transcript.readConversationLog() : transcript.readConversationLog(entry.id, { afterTurnId });
+
+  // The stored compaction summary, when it belongs to this history. A bound
+  // conversation's host owns its transcript, so it has none.
+  async function readSummary(entry, inHistory) {
+    if (entry.conversation) return null;
+    return storage.read(entry.id, async transaction => {
+      const summary = await transaction.readSummary();
+      const covered = summary && await transaction.readTurn(summary.throughTurnId);
+      return covered && inHistory(covered) ? summary : null;
+    });
+  }
 
   // Identity lookups avoid reading the whole log when the transcript supports
   // them. A bound host may supply findSubmittedTurn(messageId) and readTurn(turnId).
@@ -1319,15 +1331,18 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
 
     try {
       await setPhase(entry, "preparing");
-      // Only the API engine sends the application transcript as history.
-      const recordedHistory = engine === "api" ? await readTranscript(entry) : [];
-      const activeHistory = recordedHistory.filter(turn => !turn.metadata?.runtime?.supersededBy);
       const metadata = { runtime: await readState(entry) };
       const continuity = metadata.runtime.continuity;
       // Existing application transcripts precede the first runtime segment.
       // After replacement, their context is already carried by the briefing.
-      const history = activeHistory.filter(turn => turn.metadata?.runtime?.segmentId === segmentId ||
-        !turn.metadata?.runtime?.segmentId && !continuity);
+      const inSegment = turn => turn.metadata?.runtime?.segmentId === segmentId ||
+        !turn.metadata?.runtime?.segmentId && !continuity;
+      // Only the API engine sends the application transcript as history; after
+      // a compaction, only the turns its summary doesn't cover.
+      const summary = engine === "api" ? await readSummary(entry, inSegment) : null;
+      const recordedHistory = engine === "api" ? await readTranscript(entry, summary?.throughTurnId) : [];
+      const activeHistory = recordedHistory.filter(turn => !turn.metadata?.runtime?.supersededBy);
+      const history = activeHistory.filter(inSegment);
       prepareTools(initial);
       const tools = initial.tools && { descriptors: initial.tools.descriptors, schemas: initial.tools.schemas, maximumArgumentBytes: initial.tools.maximumArgumentBytes,
         execute(input, options) {
@@ -1438,7 +1453,9 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
             if (message?.attachments?.length) message.content = (await readAttachments(message.attachments)).content;
           }
         }
-        const seen = conversationHistoryVersions(activeHistory);
+        // The versions saved before a summary still stand for the turns it covers.
+        const seen = summary ? { ...metadata.runtime.seen, ...conversationHistoryVersions(activeHistory) }
+          : conversationHistoryVersions(activeHistory);
         const priorFiles = await readAttachments(metadata.runtime.continuityAttachments || []);
         const input = { ...initial.input, text: conversationRequestText(initial.input), contextText: "",
           content: [...priorFiles.content, ...files.content] };
@@ -1449,7 +1466,9 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
           await transaction.writeMetadata(metadata);
         });
         const completion = await entry.provider.run({ ...providerInput, input, signal: active.controller.signal, continuity, history, requestHistory,
-          beforeDispatch: () => beforeDispatch(initial), accept: () => admit(initial, seen) });
+          beforeDispatch: () => beforeDispatch(initial), accept: () => admit(initial, seen),
+          ...(entry.conversation ? {} : { summary: summary?.text || "",
+            saveSummary: saved => storage.write(entry.id, transaction => transaction.writeSummary(saved)) }) });
         if (completion?.metadata && Object.keys(completion.metadata).length) {
           await storage.write(entry.id, transaction => transaction.updateTurnMetadata(initial.turnId, { completion: completion.metadata }));
         }
