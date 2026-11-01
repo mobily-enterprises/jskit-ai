@@ -321,6 +321,7 @@ Local functions
 
 ### `src/server/serviceEvents.js`
 Exports
+- `buildCrudRecordChangedEvent({ namespace, operation, entityId, audience })`
 - `resolveCrudJsonApiEntityIdFromResult({ result } = {})`
 
 ### `src/server/serviceMethods.js`

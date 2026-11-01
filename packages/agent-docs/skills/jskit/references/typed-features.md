@@ -826,6 +826,9 @@ owner, instead of a copy per package:
   (`@jskit-ai/crud-core/server/serviceEvents`), from the tagged JSON:API
   result a CRUD service or action returns (a document result's `data.id` or a
   data result's record `id`);
+- a CRUD record mutation's event: `buildCrudRecordChangedEvent({ namespace,
+  operation, entityId, audience })` (`@jskit-ai/crud-core/server/serviceEvents`),
+  the entity change crud-core's own create, update and delete actions announce;
 - a context's workspace id: `resolveWorkspaceScopeValue(context)`
   (`@jskit-ai/json-rest-api-core/server/jsonRestApiHost`), from the context's
   workspace, the resolved one, the request's, a workspace visibility owner or

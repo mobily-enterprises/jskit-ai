@@ -5,14 +5,12 @@ import {
 import { RestApiWriteError } from "json-rest-api";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { ARCHITECTURE_ID_PATTERN } from "@jskit-ai/kernel/shared/capabilities";
-import { createEntityChangedActionEvent } from "@jskit-ai/kernel/server/actions";
-import { resolveCrudRecordChangedEvent } from "@jskit-ai/resource-crud-core/shared/crudNamespaceSupport";
 import {
   createJsonApiFieldsetsQueryValidator,
   createStandardCrudListQueryValidators,
   createStandardCrudViewQueryValidators
 } from "../listQueryValidators.js";
-import { resolveCrudJsonApiEntityIdFromResult } from "../serviceEvents.js";
+import { buildCrudRecordChangedEvent, resolveCrudJsonApiEntityIdFromResult } from "../serviceEvents.js";
 import { createCrudAssistantExtension } from "./assistantExtension.js";
 import { buildCrudCustomActionId } from "./customActionId.js";
 
@@ -174,16 +172,11 @@ function createCrudJsonApiActions({
   dependencies,
   realtimeAudience
 }) {
-  const recordChangedEvent = resolveCrudRecordChangedEvent(namespace);
-  const mutationEvent = (operation, entityId) => createEntityChangedActionEvent({
-    source: "crud",
-    entity: "record",
+  const mutationEvent = (operation, entityId) => buildCrudRecordChangedEvent({
+    namespace,
     operation,
     entityId,
-    realtime: {
-      event: recordChangedEvent,
-      audience: realtimeAudience
-    }
+    audience: realtimeAudience
   });
   const additionalActions = normalizeAdditionalActions(actions, {
     namespace,
