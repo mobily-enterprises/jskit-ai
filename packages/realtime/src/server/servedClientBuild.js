@@ -8,7 +8,7 @@ import { SERVED_CLIENT_BUILD_EVENT } from "../shared/servedClientBuild.js";
  * @param {object} dependencies
  * @param {import("socket.io").Server} dependencies.io
  * @param {import("@jskit-ai/kernel/server/types").RuntimeAppRoot | null} dependencies.appRoot Absent when no runtime.app-root is installed.
- * @param {import("./types.js").RealtimeLogger} dependencies.logger
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
  */
 function announceServedClientBuild({ io, appRoot, logger }) {
   if (!appRoot) return;

@@ -225,6 +225,7 @@ Exports
 - `createSurfacePathHelpers({ defaultSurfaceId, surfaceDefinitions, apiBasePath = API_BASE_PATH })`
 - `normalizePathname(pathname)`
 - `matchesPathPrefix(pathname, prefix)`
+- `toRequestPathname(urlValue)`
 Local functions
 - `compileSurfaceRouteMatcher(routeBase)`
 - `compareSurfaceRouteSpecificity(left, right)`

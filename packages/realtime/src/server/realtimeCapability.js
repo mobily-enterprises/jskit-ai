@@ -1,4 +1,3 @@
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   authenticationRequiredError,
   createAudienceContributors,
@@ -7,19 +6,20 @@ import {
   registerSocketAudienceBootstrap,
   revalidateSocket
 } from "./realtimeAudience.js";
-import { createRealtimeDelivery } from "./realtimeDelivery.js";
+import { createRealtimeDelivery, matchesRealtimeEvent } from "./realtimeDelivery.js";
 import { announceServedClientBuild } from "./servedClientBuild.js";
 import {
   closeSocketIoRedisConnections,
   closeSocketIoServer,
-  configureSocketIoRedisAdapter
+  configureSocketIoRedisAdapter,
+  countConnectedClients
 } from "./runtime.js";
 
 /** @typedef {import("@jskit-ai/auth-core/server/types").AuthService} AuthService */
 /** @typedef {import("@jskit-ai/database-runtime/server/types").RuntimeDatabase} RuntimeDatabase */
 /** @typedef {import("@jskit-ai/kernel/server/types").RuntimeAppRoot} RuntimeAppRoot */
 /** @typedef {import("@jskit-ai/kernel/server/types").RuntimeEvents} RuntimeEvents */
-/** @typedef {import("./types.js").RealtimeLogger} RealtimeLogger */
+/** @typedef {import("@jskit-ai/kernel/server/types").RuntimeLogger} RuntimeLogger */
 
 /**
  * The `runtime.realtime` capability over one Socket.IO server. It starts
@@ -27,7 +27,7 @@ import {
  * ready only then, and stops with the runtime.
  * @param {object} dependencies
  * @param {import("socket.io").Server} dependencies.io
- * @param {RealtimeLogger} dependencies.logger
+ * @param {RuntimeLogger} dependencies.logger
  * @param {AuthService | null} dependencies.authService
  * @param {RuntimeDatabase | null} dependencies.database
  * @param {RuntimeEvents} dependencies.events
@@ -44,6 +44,7 @@ function createRealtimeCapability({ io, logger, authService, database, events, a
   let redisConnection = null;
 
   function onConnection(listener) {
+    // readable-check: allow method-probe - input validation: an application hands over its connection listener
     if (typeof listener !== "function") throw new TypeError("Realtime connection listener must be a function.");
     const releases = new Map();
     function attach(socket) {
@@ -78,6 +79,7 @@ function createRealtimeCapability({ io, logger, authService, database, events, a
             return request;
           }
         });
+        // readable-check: allow method-probe - input validation: an application's listener returns its cleanup
         if (detach != null && typeof detach !== "function") {
           throw new TypeError("Realtime connection listeners must return a cleanup function or undefined.");
         }
@@ -111,9 +113,7 @@ function createRealtimeCapability({ io, logger, authService, database, events, a
   function diagnostics() {
     return Object.freeze({
       authenticationRequired,
-      connectedClients: Number.isInteger(Number(io.engine?.clientsCount))
-        ? Number(io.engine.clientsCount)
-        : null,
+      connectedClients: countConnectedClients(io),
       redisConfigured: redisConnection?.enabled === true
     });
   }
@@ -131,7 +131,7 @@ function createRealtimeCapability({ io, logger, authService, database, events, a
     delivery.start({ redisConfigured: redisConnection.enabled });
     events.register({
       id: "runtime.realtime.delivery",
-      matches: (event) => Boolean(normalizeText(event?.realtime?.event)),
+      matches: matchesRealtimeEvent,
       handle: delivery.handle
     });
   }
@@ -143,7 +143,7 @@ function createRealtimeCapability({ io, logger, authService, database, events, a
     for (const release of [...connectionListeners]) release();
     if (delivery) delivery.stop();
     await closeSocketIoServer(io);
-    await closeSocketIoRedisConnections(redisConnection || {});
+    if (redisConnection) await closeSocketIoRedisConnections(redisConnection);
     authenticationRequired = false;
     redisConnection = null;
   }

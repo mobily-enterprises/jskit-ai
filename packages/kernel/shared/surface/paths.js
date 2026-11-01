@@ -145,4 +145,19 @@ function createSurfacePathHelpers({ defaultSurfaceId, surfaceDefinitions, apiBas
   });
 }
 
-export { API_BASE_PATH, createSurfacePathHelpers, normalizePathname, matchesPathPrefix };
+/**
+ * The normalized pathname of a request URL (which may be relative or malformed),
+ * without its query.
+ * @param {unknown} urlValue
+ */
+function toRequestPathname(urlValue) {
+  const rawUrl = String(urlValue || "").trim() || "/";
+  try {
+    return normalizePathname(new URL(rawUrl, "http://localhost").pathname || "/");
+  } catch {
+    const [pathname] = rawUrl.split("?");
+    return normalizePathname(pathname || "/");
+  }
+}
+
+export { API_BASE_PATH, createSurfacePathHelpers, normalizePathname, matchesPathPrefix, toRequestPathname };

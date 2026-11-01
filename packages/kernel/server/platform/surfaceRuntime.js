@@ -1,17 +1,7 @@
-import { matchesPathPrefix, normalizePathname } from "../../shared/surface/paths.js";
+import { matchesPathPrefix, normalizePathname, toRequestPathname } from "../../shared/surface/paths.js";
 
 /** @typedef {ReturnType<typeof import("../../shared/surface/runtime.js").createSurfaceRuntime>} SurfaceRuntime */
 /** @typedef {import("../types.js").RuntimeFastify} RuntimeFastify */
-
-function toRequestPathname(urlValue) {
-  const rawUrl = String(urlValue || "").trim() || "/";
-  try {
-    return normalizePathname(new URL(rawUrl, "http://localhost").pathname || "/");
-  } catch {
-    const [pathname] = rawUrl.split("?");
-    return normalizePathname(pathname || "/");
-  }
-}
 
 function matchesGlobalUiPath(pathname, globalUiPaths) {
   const normalizedPathname = normalizePathname(pathname);
@@ -146,7 +136,6 @@ function resolveRuntimeProfileFromSurface({
 }
 
 export {
-  toRequestPathname,
   shouldServePathForSurface,
   registerSurfaceRequestConstraint,
   resolveRuntimeProfileFromSurface

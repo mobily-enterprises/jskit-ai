@@ -264,6 +264,7 @@ Exports
 - `createSurfacePathHelpers({ defaultSurfaceId, surfaceDefinitions, apiBasePath = API_BASE_PATH })`
 - `normalizePathname(pathname)`
 - `matchesPathPrefix(pathname, prefix)`
+- `toRequestPathname(urlValue)`
 Local functions
 - `compileSurfaceRouteMatcher(routeBase)`
 - `compareSurfaceRouteSpecificity(left, right)`
@@ -876,7 +877,6 @@ Local functions
 
 ### `server/platform/surfaceRuntime.js`
 Exports
-- `toRequestPathname(urlValue)`
 - `shouldServePathForSurface({ surfaceRuntime, pathname, serverSurface, apiPathPrefix = "/api/", globalUiPaths = [] })`
 - `registerSurfaceRequestConstraint({ fastify, surfaceRuntime, serverSurface, apiPathPrefix = "/api/", globalUiPaths = [] })`
 - `resolveRuntimeProfileFromSurface({ surfaceRuntime, serverSurface, defaultProfile = "" })`

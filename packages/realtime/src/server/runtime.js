@@ -2,24 +2,15 @@ import { Server as SocketIoServer } from "socket.io";
 import { createAdapter as createSocketIoRedisAdapter } from "@socket.io/redis-adapter";
 import { createClient as createRedisClient } from "redis";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { normalizePathname } from "@jskit-ai/kernel/shared/surface/paths";
+import { toRequestPathname } from "@jskit-ai/kernel/shared/surface/paths";
 
 const SOCKET_IO_PATH = "/socket.io";
 const REDIS_URL_ENV_KEY = "REDIS_URL";
 const REDIS_NAMESPACE_ENV_KEY = "REDIS_NAMESPACE";
 
-function toRequestPathname(urlValue) {
-  const rawUrl = String(urlValue || "").trim() || "/";
-  try {
-    return normalizePathname(new URL(rawUrl, "http://localhost").pathname || "/");
-  } catch {
-    return normalizePathname(rawUrl.split("?")[0] || "/");
-  }
-}
-
 /** @param {import("@jskit-ai/kernel/server/types").RuntimeFastify | null} fastify */
 function registerSocketIoUpgradeHandoff(fastify) {
-  // readable-check: allow method-probe - platform object: a host that hands over only its HTTP server ({ server }) has no addHook()
+  // readable-check: allow method-probe - input validation: a host that hands over only its HTTP server ({ server }) has no addHook()
   if (typeof fastify?.addHook !== "function") return;
   fastify.addHook("onRequest", async (request, reply) => {
     if (request?.ws !== true) return;
@@ -53,6 +44,7 @@ function createSocketIoServer({
   options = {},
   ServerCtor = SocketIoServer
 } = {}) {
+  // readable-check: allow method-probe - input validation: a caller may pass its own Socket.IO Server class
   if (typeof ServerCtor !== "function") {
     throw new Error("createSocketIoServer requires a valid socket.io Server constructor.");
   }
@@ -61,11 +53,10 @@ function createSocketIoServer({
     httpServer,
     fastify
   });
-  const source = options && typeof options === "object" && !Array.isArray(options) ? options : {};
   const normalizedOptions = {
     // Application WebSocket routes may still be authorizing their upgrades.
     destroyUpgrade: false,
-    ...source,
+    ...options,
     path: SOCKET_IO_PATH
   };
   registerSocketIoUpgradeHandoff(fastify);
@@ -88,14 +79,22 @@ async function closeSocketIoServer(io) {
   await io.sockets.adapter.close();
 }
 
-function resolveRealtimeRedisUrl(env = {}) {
-  const source = env && typeof env === "object" && !Array.isArray(env) ? env : {};
-  return normalizeText(source[REDIS_URL_ENV_KEY]);
+/** @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} env */
+function resolveRealtimeRedisUrl(env) {
+  return normalizeText(env[REDIS_URL_ENV_KEY]);
 }
 
-function resolveRealtimeRedisNamespace(env = {}) {
-  const source = env && typeof env === "object" && !Array.isArray(env) ? env : {};
-  return normalizeText(source[REDIS_NAMESPACE_ENV_KEY]);
+/** @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} env */
+function resolveRealtimeRedisNamespace(env) {
+  return normalizeText(env[REDIS_NAMESPACE_ENV_KEY]);
+}
+
+/**
+ * How many clients the Socket.IO engine holds, or null before it is attached.
+ * @param {import("socket.io").Server} io
+ */
+function countConnectedClients(io) {
+  return Number.isInteger(Number(io.engine?.clientsCount)) ? Number(io.engine.clientsCount) : null;
 }
 
 function buildSocketIoRedisAdapterKey(redisNamespace = "") {
@@ -111,7 +110,7 @@ function buildSocketIoRedisAdapterKey(redisNamespace = "") {
  * @param {object} options
  * @param {string} [options.redisUrl]
  * @param {string} [options.redisNamespace]
- * @param {import("./types.js").RealtimeLogger} options.logger Warned when a Redis connection fails.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} options.logger Warned when a Redis connection fails.
  * @param {typeof createSocketIoRedisAdapter} [options.createRedisAdapter]
  * @param {typeof createRedisClient} [options.createRedisConnection]
  */
@@ -178,7 +177,12 @@ async function configureSocketIoRedisAdapter(
   });
 }
 
-async function closeSocketIoRedisConnections({ pubClient = null, subClient = null } = {}) {
+/**
+ * @param {object} connections
+ * @param {object | null} connections.pubClient
+ * @param {object | null} connections.subClient
+ */
+async function closeSocketIoRedisConnections({ pubClient, subClient }) {
   const connections = [subClient, pubClient];
   for (const connection of connections) {
     if (!connection) {
@@ -208,5 +212,6 @@ export {
   resolveRealtimeRedisUrl,
   resolveRealtimeRedisNamespace,
   configureSocketIoRedisAdapter,
-  closeSocketIoRedisConnections
+  closeSocketIoRedisConnections,
+  countConnectedClients
 };

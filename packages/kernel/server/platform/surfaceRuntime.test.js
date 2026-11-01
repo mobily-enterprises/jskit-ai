@@ -3,9 +3,9 @@ import test from "node:test";
 
 import {
   resolveRuntimeProfileFromSurface,
-  shouldServePathForSurface,
-  toRequestPathname
+  shouldServePathForSurface
 } from "./surfaceRuntime.js";
+import { toRequestPathname } from "../../shared/surface/paths.js";
 
 function createFakeSurfaceRuntime() {
   return {

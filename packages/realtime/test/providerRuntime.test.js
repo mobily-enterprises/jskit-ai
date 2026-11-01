@@ -306,6 +306,37 @@ test("realtime event_scope delivery never widens an undeliverable scope to every
   assert.deepEqual(warnings, scopes.map((scope) => ({ audience: "event_scope", scope: scope || null })));
 });
 
+test("realtime delivery warns and continues when an event's scope is null", async () => {
+  const io = createIoDouble();
+  const warnings = [];
+  const delivery = createRealtimeDelivery({
+    io,
+    logger: { ...logger, warn: (details, message) => warnings.push({ details, message }) },
+    audiences: createAudienceContributors()
+  });
+  await delivery.handle({
+    type: "entity.changed",
+    source: "crud",
+    entity: "record",
+    operation: "updated",
+    entityId: "5",
+    scope: null,
+    realtime: { event: "things.record.changed", audience: ["all_workspace_users", "event_scope", "all_users"] }
+  });
+
+  assert.deepEqual(warnings, [
+    {
+      details: { audience: "all_workspace_users", scope: null },
+      message: "Realtime audience requires a workspace scope."
+    },
+    {
+      details: { audience: "event_scope", scope: null },
+      message: "Realtime event_scope audience has no deliverable scope."
+    }
+  ]);
+  assert.deepEqual(io.emitted.map((entry) => entry.room), [["users"]]);
+});
+
 test("realtime delivery resolves an explicit database-backed audience without exposing query controls", async () => {
   const io = createIoDouble();
   const delivery = createRealtimeDelivery({
@@ -466,7 +497,8 @@ test("socket audience bootstrap rejects unauthenticated handshakes when the auth
   await authenticationMiddleware({
     data: {},
     handshake: { headers: { cookie: "session=invalid" } },
-    request: { headers: {} }
+    request: { headers: {}, socket: {} },
+    conn: {}
   }, (error) => rejected.push(error));
   assert.equal(rejected.length, 1);
   assert.equal(rejected[0].data.code, "AUTHENTICATION_REQUIRED");
@@ -474,7 +506,8 @@ test("socket audience bootstrap rejects unauthenticated handshakes when the auth
   const socket = {
     data: {},
     handshake: { headers: { cookie: "session=valid" } },
-    request: { headers: {} },
+    request: { headers: {}, socket: {} },
+    conn: {},
     join(room) {
       this.joinedRooms ||= [];
       this.joinedRooms.push(room);

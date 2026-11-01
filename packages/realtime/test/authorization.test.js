@@ -279,7 +279,10 @@ test("a login whose session needs refreshing is dropped and refused until the cl
 
 test("idle socket sessions are revalidated without an application event, once per login", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
-  const tab = () => ({ data: { actorId: "1" }, handshake: {}, disconnect() { this.connected = false; }, connected: true });
+  const tab = () => ({
+    data: { actorId: "1" }, handshake: { headers: {} }, request: { headers: {}, socket: {} }, conn: {},
+    disconnect() { this.connected = false; }, connected: true
+  });
   const sockets = [tab(), tab()];
   const io = { emit() {}, to() {}, on() {}, off() {}, sockets: { sockets: new Map(sockets.map((socket, index) => [`s${index}`, socket])) } };
   let checks = 0;
@@ -318,7 +321,8 @@ test("Redis peer deliveries authorize the receiving server's sockets without reb
   const delivered = [];
   const peerHandlers = new Map();
   const socket = {
-    connected: true, data: { actorId: "2" }, handshake: {}, rooms: new Set(["users", "user:2"]),
+    connected: true, data: { actorId: "2" }, handshake: { headers: {} }, request: { headers: {}, socket: {} }, conn: {},
+    rooms: new Set(["users", "user:2"]),
     disconnect() { this.connected = false; },
     emit(name, payload) { delivered.push({ name, payload }); }
   };

@@ -63,21 +63,23 @@ Exports
 - `resolveAudienceTargets(audience, event, { database, logger })`
 - `type AuthService`
 - `type RuntimeDatabase`
-- `type RealtimeLogger`
+- `type RuntimeLogger`
+- `type ActorRoomsResolver`
 - `type AudienceContributors`
 Local functions
-- `normalizeArray(value)`
+- `flattenEntries(value)`
 - `roomForUser(userId)`
 - `roomForWorkspace(workspaceId)`
 - `roomForWorkspaceUser(workspaceId, userId)`
-- `resolveScopeWorkspaceId(scope = {})`
-- `resolveScopeUserId(scope = {})`
-- `roomForScope(scope = {})`
+- `resolveScopeWorkspaceId(scope)`
+- `resolveScopeUserId(scope)`
+- `roomForScope(scope)`
 - `applyAudiencePreset(preset, { event, rooms, flags, logger })`
 - `addAudienceRooms(selection, state)`
 - `collectUserIds(rows)`
 - `parseCookieHeader(value = "")`
-- `resolveSocketAuthentication(authService, socket, request = createSocketRequest(socket), authenticateRequest = (value) => authService.authenticateRequest(value, { refreshSession: false }))`
+- `authenticateWithoutRefresh(authService)`
+- `resolveSocketAuthentication(authService, socket, request = createSocketRequest(socket), authenticateRequest = authenticateWithoutRefresh(authService))`
 - `sessionRefreshRequiredError()`
 - `rememberSocketActorId(socket, actorId)`
 - `registerSocketAuthentication({ io, logger, authService })`
@@ -90,27 +92,26 @@ Exports
 - `type RuntimeDatabase`
 - `type RuntimeAppRoot`
 - `type RuntimeEvents`
-- `type RealtimeLogger`
+- `type RuntimeLogger`
 
 ### `src/server/realtimeDelivery.js`
 Exports
 - `createRealtimeDelivery({ io, database, logger, authService, audiences: { mayContribute, resolveActorRooms } })`
+- `matchesRealtimeEvent(event)`
 - `type AuthService`
+- `type ActorRoomsResolver`
 - `type AudienceContributors`
 Local functions
 - `publicRealtimePayload(event)`
-- `sharedWithinPass(load, keyOf = (value) => value)`
+- `valueAsKey(value)`
+- `sharedWithinPass(load, keyOf = valueAsKey)`
 - `createPassChecks(authService, resolveActorRooms)`
-
-### `src/server/realtimeLogger.js`
-Exports
-- `createRealtimeLogger({ logger, debugEnabled })`
 
 ### `src/server/RealtimeProvider.js`
 Exports
 - `RealtimeProvider`
 Local functions
-- `parseDebugFlag(value, fallback = null)`
+- `parseDebugFlag(value, fallback)`
 - `debugEnabled(config, env)`
 
 ### `src/server/runtime.js`
@@ -119,12 +120,12 @@ Exports
 - `closeSocketIoServer(io)`
 - `REDIS_URL_ENV_KEY`
 - `REDIS_NAMESPACE_ENV_KEY`
-- `resolveRealtimeRedisUrl(env = {})`
-- `resolveRealtimeRedisNamespace(env = {})`
+- `resolveRealtimeRedisUrl(env)`
+- `resolveRealtimeRedisNamespace(env)`
 - `configureSocketIoRedisAdapter(io, { redisUrl = "", redisNamespace = "", logger, createRedisAdapter = createSocketIoRedisAdapter, createRedisConnection = createRedisClient })`
-- `closeSocketIoRedisConnections({ pubClient = null, subClient = null } = {})`
+- `closeSocketIoRedisConnections({ pubClient, subClient })`
+- `countConnectedClients(io)`
 Local functions
-- `toRequestPathname(urlValue)`
 - `registerSocketIoUpgradeHandoff(fastify)`
 - `resolveHttpServer({ httpServer = null, fastify = null } = {})`
 - `buildSocketIoRedisAdapterKey(redisNamespace = "")`
@@ -136,7 +137,8 @@ Exports
 ### `src/server/types.js`
 Exports
 - `type RuntimeRealtime`
-- `type RealtimeLogger`
+- `type ActorRoomsResolver`
+- `type AudienceContributors`
 - `type RealtimeAudienceContributor`
 
 ### `src/shared/servedClientBuild.js`

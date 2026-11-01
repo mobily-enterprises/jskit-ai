@@ -1,13 +1,15 @@
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveAudienceTargets, revalidateSocket } from "./realtimeAudience.js";
+import { countConnectedClients } from "./runtime.js";
 
 /** @typedef {import("@jskit-ai/auth-core/server/types").AuthService} AuthService */
-/** @typedef {import("./realtimeAudience.js").AudienceContributors} AudienceContributors */
+/** @typedef {import("./types.js").ActorRoomsResolver} ActorRoomsResolver */
+/** @typedef {import("./types.js").AudienceContributors} AudienceContributors */
 
 const DELIVERY_EVENT = "jskit:realtime:delivery";
 
 function publicRealtimePayload(event) {
-  const { realtime } = event && typeof event === "object" ? event : {};
+  const { realtime } = event;
   const canonical = {};
   for (const key of [
     "type", "source", "entity", "operation", "entityId", "scope", "actorId",
@@ -22,8 +24,16 @@ function publicRealtimePayload(event) {
   return Object.freeze({ ...(payload || {}), ...canonical });
 }
 
+/**
+ * A question's key when its value is the key.
+ * @param {unknown} value
+ */
+function valueAsKey(value) {
+  return value;
+}
+
 /** One answer per question within one pass. */
-function sharedWithinPass(load, keyOf = (value) => value) {
+function sharedWithinPass(load, keyOf = valueAsKey) {
   const answers = new Map();
   return (value) => {
     const key = keyOf(value);
@@ -39,7 +49,7 @@ function sharedWithinPass(load, keyOf = (value) => value) {
  * in, so the provider reads the app profile instead of synchronizing it, and
  * never refreshes a session the socket could not store.
  * @param {AuthService} authService
- * @param {AudienceContributors["resolveActorRooms"]} resolveActorRooms
+ * @param {ActorRoomsResolver} resolveActorRooms
  */
 function createPassChecks(authService, resolveActorRooms) {
   return {
@@ -55,7 +65,7 @@ function createPassChecks(authService, resolveActorRooms) {
  * @param {object} dependencies
  * @param {import("socket.io").Server} dependencies.io
  * @param {import("@jskit-ai/database-runtime/server/types").RuntimeDatabase | null} dependencies.database Absent when no runtime.database is installed.
- * @param {import("./types.js").RealtimeLogger} dependencies.logger
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
  * @param {AuthService | null} dependencies.authService Absent when no auth.service is installed.
  * @param {AudienceContributors} dependencies.audiences The rooms revalidation may make a socket join.
  *   With no contributors registered, a socket stays in the rooms it already has.
@@ -151,11 +161,10 @@ function createRealtimeDelivery({ io, database, logger, authService, audiences: 
     if (guarded) io.off(DELIVERY_EVENT, receive);
   }
 
-  /** @param {object} event A published runtime event; its realtime part, when present, names the socket event. */
+  /** @param {object} event A published runtime event whose realtime part names a socket event (see matchesRealtimeEvent). */
   async function handle(event) {
     try {
-      const eventName = normalizeText(event.realtime?.event);
-      if (!eventName) return;
+      const eventName = normalizeText(event.realtime.event);
       const targets = await resolveAudienceTargets(event.realtime.audience, event, { database, logger });
       const payload = publicRealtimePayload(event);
       if (guarded) {
@@ -177,9 +186,7 @@ function createRealtimeDelivery({ io, database, logger, authService, audiences: 
         socketEvent: eventName,
         rooms: targets.rooms,
         broadcastAllClients: targets.broadcastAllClients,
-        connectedClients: Number.isInteger(Number(io?.engine?.clientsCount))
-          ? Number(io.engine.clientsCount)
-          : null
+        connectedClients: countConnectedClients(io)
       }, "Realtime delivered an action event.");
     } catch (error) {
       logger.warn({ socketEvent: event.realtime?.event, error: String(error?.message || error) }, "Realtime delivery failed; the domain mutation remains successful.");
@@ -189,4 +196,12 @@ function createRealtimeDelivery({ io, database, logger, authService, audiences: 
   return Object.freeze({ start, stop, handle });
 }
 
-export { createRealtimeDelivery };
+/**
+ * Whether a published runtime event names a socket event for realtime to deliver.
+ * @param {object} event
+ */
+function matchesRealtimeEvent(event) {
+  return Boolean(normalizeText(event.realtime?.event));
+}
+
+export { createRealtimeDelivery, matchesRealtimeEvent };
