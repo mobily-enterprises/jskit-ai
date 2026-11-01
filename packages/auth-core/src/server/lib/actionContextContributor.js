@@ -1,10 +1,11 @@
+import { resolveRequest } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { normalizePermissionList } from "@jskit-ai/kernel/shared/support/permissions";
 
 function createAuthActionContextContributor() {
   return Object.freeze({
     contributorId: "auth.policy.request-context",
-    contribute({ context } = {}) {
-      const request = context?.requestMeta?.request || null;
+    contribute({ context }) {
+      const request = resolveRequest(context);
       const contribution = {};
       const permissions = normalizePermissionList(request?.permissions);
 

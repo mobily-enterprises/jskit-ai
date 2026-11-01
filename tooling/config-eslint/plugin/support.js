@@ -5,6 +5,7 @@
 // code, never the state of a project: "input validation:", "data:",
 // "platform object:", "optional operation:", "test asserts error:",
 // "not a slot:", "cycle: <supplier> requires <owner>",
+// "deferred until boot: <reason>",
 // "filled by <repository>; convert with its supplier" or
 // "cross-repository slot <token>".
 

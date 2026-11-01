@@ -168,11 +168,11 @@ function recoveryInsert(input = {}) {
   };
 }
 
-// The `auth.local.backend` that keeps local auth's records in the database.
 /**
+ * The `auth.local.backend` that keeps local auth's records in the database.
  * @param {object} dependencies
- * @param {import("knex").Knex} dependencies.knex
- * @param {import("@jskit-ai/database-runtime/server/types").RuntimeDatabase["transactionManager"]} dependencies.transactionManager
+ * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} dependencies.knex
+ * @param {import("@jskit-ai/database-runtime/server/types").RuntimeTransactionManager} dependencies.transactionManager
  */
 function createLocalDbBackend({ knex, transactionManager }) {
   function table(client, tableName) {

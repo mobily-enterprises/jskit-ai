@@ -131,6 +131,7 @@ Exports
 - `normalizeActorResolution(result)`
 Local functions
 - `assertFunction(value, name)`
+- `ignorePolicyDenial()`
 
 ### `src/server/lib/errors.js`
 Exports
@@ -165,7 +166,6 @@ Local functions
 - `enforceCsrfProtection(fastify, request, reply)`
 - `resolveCsrfToken(request)`
 - `resolveOwnerValue(meta, request)`
-- `notifyPolicyDenied(onPolicyDenied, payload)`
 
 ### `src/server/lib/routeMeta.js`
 Exports

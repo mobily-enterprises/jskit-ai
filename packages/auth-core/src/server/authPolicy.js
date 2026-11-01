@@ -29,8 +29,9 @@ function createAuthPolicy({ authService, extensions, env }) {
       return extensions.resolvePolicyContext(input);
     },
     options: Object.freeze({
-      nodeEnv: String(env.NODE_ENV || "development").trim() || "development",
-      apiPrefix: String(env.AUTH_API_PREFIX || "/api/").trim() || "/api/",
+      // The plugin resolves both defaults: NODE_ENV not production, and the /api/ prefix.
+      nodeEnv: env.NODE_ENV,
+      apiPrefix: env.AUTH_API_PREFIX,
       // Unset AUTH_CSRF_UNSAFE_METHODS keeps the plugin default (POST, PUT, PATCH, DELETE).
       unsafeMethods: unsafeMethods.length > 0 ? Object.freeze(unsafeMethods) : undefined,
       // Unset AUTH_CSRF_COOKIE_SECURE follows NODE_ENV (Secure in production).

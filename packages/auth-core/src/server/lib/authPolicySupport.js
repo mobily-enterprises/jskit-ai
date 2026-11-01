@@ -7,6 +7,9 @@ function assertFunction(value, name) {
   return value;
 }
 
+/** The onPolicyDenied default when an application passes none: a denial is not reported. */
+function ignorePolicyDenial() {}
+
 function assertAuthPolicyDeps(deps = {}) {
   const source = asObject(deps);
   const resolveActor = assertFunction(source.resolveActor, "resolveActor");
@@ -18,7 +21,7 @@ function assertAuthPolicyDeps(deps = {}) {
     resolveContext: typeof source.resolveContext === "function" ? source.resolveContext : null,
     hasPermission,
     // readable-check: allow method-probe - input validation: the callbacks an application passes authPolicyPlugin
-    onPolicyDenied: typeof source.onPolicyDenied === "function" ? source.onPolicyDenied : null
+    onPolicyDenied: typeof source.onPolicyDenied === "function" ? source.onPolicyDenied : ignorePolicyDenial
   };
 }
 

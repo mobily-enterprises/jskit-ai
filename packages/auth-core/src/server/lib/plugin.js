@@ -82,13 +82,6 @@ function resolveOwnerValue(meta, request) {
   return null;
 }
 
-function notifyPolicyDenied(onPolicyDenied, payload) {
-  if (typeof onPolicyDenied !== "function") {
-    return;
-  }
-  onPolicyDenied(payload);
-}
-
 function authPolicyPlugin(deps = {}, options = {}) {
   const { resolveActor, resolveContext, hasPermission, onPolicyDenied } = assertAuthPolicyDeps(deps);
   const apiPrefix = normalizeApiPrefix(options.apiPrefix);
@@ -147,7 +140,7 @@ function authPolicyPlugin(deps = {}, options = {}) {
 
       const actorResolution = normalizeActorResolution(await resolveActor(request, reply, meta));
       if (actorResolution.transientFailure) {
-        notifyPolicyDenied(onPolicyDenied, {
+        onPolicyDenied({
           reason: AUTH_POLICY_DENY_REASONS.AUTH_UPSTREAM_UNAVAILABLE,
           statusCode: 503,
           request,
@@ -161,7 +154,7 @@ function authPolicyPlugin(deps = {}, options = {}) {
       }
 
       if (!actorResolution.authenticated) {
-        notifyPolicyDenied(onPolicyDenied, {
+        onPolicyDenied({
           reason: AUTH_POLICY_DENY_REASONS.UNAUTHENTICATED,
           statusCode: 401,
           request,
@@ -182,7 +175,7 @@ function authPolicyPlugin(deps = {}, options = {}) {
         const userValue = request?.user ? request.user[meta.userField] : null;
 
         if (ownerValue == null || userValue == null) {
-          notifyPolicyDenied(onPolicyDenied, {
+          onPolicyDenied({
             reason: AUTH_POLICY_DENY_REASONS.OWNER_UNRESOLVED,
             statusCode: 400,
             request,
@@ -194,7 +187,7 @@ function authPolicyPlugin(deps = {}, options = {}) {
         }
 
         if (String(ownerValue) !== String(userValue)) {
-          notifyPolicyDenied(onPolicyDenied, {
+          onPolicyDenied({
             reason: AUTH_POLICY_DENY_REASONS.FORBIDDEN_OWNER_MISMATCH,
             statusCode: 403,
             request,
@@ -205,7 +198,7 @@ function authPolicyPlugin(deps = {}, options = {}) {
           throw createError(403, "Forbidden.", { code: "auth.policy.ownerMismatch" });
         }
       } else if (meta.authPolicy !== AUTH_POLICIES.REQUIRED) {
-        notifyPolicyDenied(onPolicyDenied, {
+        onPolicyDenied({
           reason: AUTH_POLICY_DENY_REASONS.INVALID_AUTH_POLICY,
           statusCode: 500,
           request,
@@ -241,7 +234,7 @@ function authPolicyPlugin(deps = {}, options = {}) {
           })
         );
         if (!allowed) {
-          notifyPolicyDenied(onPolicyDenied, {
+          onPolicyDenied({
             reason: AUTH_POLICY_DENY_REASONS.FORBIDDEN_PERMISSION,
             statusCode: 403,
             request,

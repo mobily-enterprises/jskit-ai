@@ -2,6 +2,7 @@
 
 /** @typedef {ReturnType<typeof import("./database.js").createDatabase>} RuntimeDatabase */
 /** @typedef {import("knex").Knex} RuntimeKnex A Knex client: the one `runtime.database` shares, or one an application passes in. */
+/** @typedef {RuntimeDatabase["transactionManager"]} RuntimeTransactionManager The transaction manager `runtime.database` shares. */
 
 /**
  * The `runtime.database.driver` capability: the shared exports of the

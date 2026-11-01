@@ -412,6 +412,7 @@ and says what is true of the code, never the state of a project:
 | `test asserts error:` | keeps a guard whose error a test asserts |
 | `not a slot:` | matched a name that fills no slot |
 | `cycle: <supplier> requires <owner>` | keeps a setter because the slot's supplier requires its owner |
+| `deferred until boot: <reason>` | keeps a capability handed out at setup and filled in `boot()`, such as the deferred `auth.service` |
 | `filled by <repository>; convert with its supplier` | keeps a setter that another repository's code calls |
 | `cross-repository slot <token>` | keeps a probe for a token another repository supplies |
 
