@@ -1,18 +1,19 @@
 import { normalizeAuthCapabilities } from "@jskit-ai/auth-core/shared/authCapabilities";
 import { AUTH_ACTION_IDS } from "../constants/authActionIds.js";
 
-// The auth routes' service: it runs the auth actions for a request and
-// writes the installed auth service's cookies.
+/**
+ * The auth routes' service: it runs the auth actions for a request and
+ * writes the installed auth service's cookies.
+ */
 class AuthWebService {
   /**
    * @param {object} dependencies
    * @param {import("@jskit-ai/auth-core/server/types").AuthService} dependencies.authService
-   * @param {boolean} [dependencies.devAuthBootstrapEnabled] Whether dev login-as is offered; when absent, the auth service says.
+   * @param {boolean} dependencies.devAuthBootstrapEnabled Whether dev login-as is offered.
    */
   constructor({ authService, devAuthBootstrapEnabled }) {
     this.authService = authService;
-    this.devAuthBootstrapEnabled =
-      typeof devAuthBootstrapEnabled === "boolean" ? devAuthBootstrapEnabled : null;
+    this.devAuthBootstrapEnabled = devAuthBootstrapEnabled;
   }
 
   static get actionIds() {
@@ -75,15 +76,8 @@ class AuthWebService {
     });
   }
 
-  resolveAuthService() {
-    return this.authService;
-  }
-
   isDevLoginAsAvailable() {
-    if (this.devAuthBootstrapEnabled != null) {
-      return this.devAuthBootstrapEnabled === true;
-    }
-    return this.resolveAuthService().isDevAuthBootstrapEnabled();
+    return this.devAuthBootstrapEnabled;
   }
 
   async logout(request) {
@@ -121,14 +115,16 @@ class AuthWebService {
 
   writeSessionCookies(reply, session) {
     if (session && reply) {
-      this.resolveAuthService().writeSessionCookies(reply, session);
+      this.authService.writeSessionCookies(reply, session);
     }
   }
 
-  // Providers that bind an OAuth attempt to the browser (state, nonce, PKCE)
-  // keep it in their own short-lived cookie; others need no hook.
+  /**
+   * Providers that bind an OAuth attempt to the browser (state, nonce, PKCE)
+   * keep it in their own short-lived cookie; others need no hook.
+   */
   writeOAuthStartCookies(reply, result) {
-    const authService = this.resolveAuthService();
+    const { authService } = this;
     // readable-check: allow method-probe - optional operation: writeOAuthStartCookies is an optional auth.service operation
     if (reply && typeof authService.writeOAuthStartCookies === "function") {
       authService.writeOAuthStartCookies(reply, result);
@@ -136,7 +132,7 @@ class AuthWebService {
   }
 
   clearOAuthStartCookies(reply) {
-    const authService = this.resolveAuthService();
+    const { authService } = this;
     // readable-check: allow method-probe - optional operation: clearOAuthStartCookies is an optional auth.service operation
     if (reply && typeof authService.clearOAuthStartCookies === "function") {
       authService.clearOAuthStartCookies(reply);
@@ -145,12 +141,12 @@ class AuthWebService {
 
   clearSessionCookies(reply) {
     if (reply) {
-      this.resolveAuthService().clearSessionCookies(reply);
+      this.authService.clearSessionCookies(reply);
     }
   }
 
   getOAuthProviderCatalogPayload() {
-    const capabilities = normalizeAuthCapabilities(this.resolveAuthService().getCapabilities());
+    const capabilities = normalizeAuthCapabilities(this.authService.getCapabilities());
     const oauth = capabilities.features.oauthLogin;
     return {
       authCapabilities: capabilities,

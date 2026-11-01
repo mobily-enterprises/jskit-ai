@@ -23,7 +23,7 @@ function failure(requestId, error) {
     code: String(error?.code || "jskit_managed_preview_identity_failed"),
     error: String(error?.message || error || "Managed preview identity failed."),
     ok: false,
-    // readable-check: allow setter-seam - not a slot: setCookie is the response's list of Set-Cookie headers
+    // readable-check: allow setter-seam - not a slot: setCookie is the preview identity protocol's list of Set-Cookie headers
     setCookie: Array.isArray(error?.setCookie) ? error.setCookie : [],
     signedOut: error?.signedOut === true,
     statusCode: Number.isInteger(Number(error?.statusCode)) ? Number(error.statusCode) : 400
@@ -133,15 +133,13 @@ function identityFromSubject(subject) {
   );
 }
 
-// The Set-Cookie headers of a response from the application's fetch.
-function responseCookies(fetchResponse) {
+/**
+ * The Set-Cookie headers of a fetch response.
+ * @param {Response} response
+ */
+function setCookies(response) {
   // readable-check: allow method-probe - platform object: another fetch implementation's Headers may lack getSetCookie()
-  if (typeof fetchResponse?.headers?.getSetCookie === "function") {
-    return fetchResponse.headers.getSetCookie().map(String).filter(Boolean);
-  }
-  // readable-check: allow optional-call - platform object: another fetch implementation's response may lack headers.get()
-  const value = String(fetchResponse?.headers?.get?.("set-cookie") || "").trim();
-  return value ? [value] : [];
+  return typeof response.headers.getSetCookie === "function" ? response.headers.getSetCookie() : [];
 }
 
 function cookieHeader(setCookie) {
@@ -156,8 +154,9 @@ function cookieHeader(setCookie) {
   return [...cookies.values()].join("; ");
 }
 
+/** @param {Response} fetchResponse */
 async function responsePayload(fetchResponse) {
-  const text = fetchResponse?.body
+  const text = fetchResponse.body
     ? await readBoundedStream(fetchResponse.body, "Managed preview identity response")
     : "";
   if (!text) {
@@ -171,6 +170,11 @@ async function responsePayload(fetchResponse) {
   }
 }
 
+/**
+ * @param {object | null} payload The response's JSON body, when it has one.
+ * @param {Response} fetchResponse
+ * @param {object} [details]
+ */
 function rejected(payload, fetchResponse, details = {}) {
   const fieldErrors = payload?.details?.fieldErrors || payload?.fieldErrors || {};
   const fieldMessage = Object.values(
@@ -187,7 +191,7 @@ function rejected(payload, fetchResponse, details = {}) {
       "Managed preview identity exchange failed."
     ),
     String(firstError?.code || payload?.code || "jskit_managed_preview_identity_rejected"),
-    { statusCode: Number(fetchResponse?.status || 502), ...details }
+    { statusCode: Number(fetchResponse.status || 502), ...details }
   );
 }
 
@@ -218,7 +222,7 @@ async function bootstrapSession(fetchImpl, targetOrigin) {
     redirect: "manual"
   });
   const payload = await responsePayload(fetchResponse);
-  const setCookie = responseCookies(fetchResponse);
+  const setCookie = setCookies(fetchResponse);
   if (!fetchResponse.ok) {
     throw rejected(payload, fetchResponse, { setCookie });
   }
@@ -230,7 +234,7 @@ async function bootstrapSession(fetchImpl, targetOrigin) {
       { setCookie, statusCode: 502 }
     );
   }
-  // readable-check: allow setter-seam - not a slot: setCookie is the response's list of Set-Cookie headers
+  // readable-check: allow setter-seam - not a slot: setCookie is the preview identity protocol's list of Set-Cookie headers
   return { csrfToken, setCookie };
 }
 
@@ -240,11 +244,11 @@ async function logout(fetchImpl, targetOrigin, session) {
     "csrf-token": session.csrfToken
   });
   const payload = await responsePayload(fetchResponse);
-  const setCookie = [...session.setCookie, ...responseCookies(fetchResponse)];
+  const setCookie = [...session.setCookie, ...setCookies(fetchResponse)];
   if (!fetchResponse.ok || payload?.ok !== true) {
     throw rejected(payload, fetchResponse, { setCookie, signedOut: false });
   }
-  // readable-check: allow setter-seam - not a slot: setCookie is the response's list of Set-Cookie headers
+  // readable-check: allow setter-seam - not a slot: setCookie is the preview identity protocol's list of Set-Cookie headers
   return { csrfToken: session.csrfToken, setCookie };
 }
 
@@ -255,7 +259,7 @@ async function login(fetchImpl, targetOrigin, identity, secret, session) {
     [DEV_AUTH_SECRET_HEADER]: secret
   });
   const payload = await responsePayload(fetchResponse);
-  const setCookie = [...session.setCookie, ...responseCookies(fetchResponse)];
+  const setCookie = [...session.setCookie, ...setCookies(fetchResponse)];
   if (!fetchResponse.ok || payload?.ok !== true) {
     throw rejected(payload, fetchResponse, { setCookie, signedOut: true });
   }
@@ -266,7 +270,7 @@ async function login(fetchImpl, targetOrigin, identity, secret, session) {
       userId: String(payload.userId || identity.userId || "").trim(),
       username: String(payload.username || "").trim()
     },
-    // readable-check: allow setter-seam - not a slot: setCookie is the response's list of Set-Cookie headers
+    // readable-check: allow setter-seam - not a slot: setCookie is the preview identity protocol's list of Set-Cookie headers
     setCookie
   };
 }
@@ -316,7 +320,7 @@ async function executeManagedPreviewIdentityRequest(value, {
       return response(requestId, {
         identity: null,
         ok: true,
-        // readable-check: allow setter-seam - not a slot: setCookie is the response's list of Set-Cookie headers
+        // readable-check: allow setter-seam - not a slot: setCookie is the preview identity protocol's list of Set-Cookie headers
         setCookie: signedOutSession.setCookie,
         signedOut: true
       });
@@ -325,7 +329,7 @@ async function executeManagedPreviewIdentityRequest(value, {
     return response(requestId, {
       identity: result.identity,
       ok: true,
-      // readable-check: allow setter-seam - not a slot: setCookie is the response's list of Set-Cookie headers
+      // readable-check: allow setter-seam - not a slot: setCookie is the preview identity protocol's list of Set-Cookie headers
       setCookie: result.setCookie,
       signedOut: false
     });

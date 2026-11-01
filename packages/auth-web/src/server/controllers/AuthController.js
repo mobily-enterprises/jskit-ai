@@ -2,11 +2,10 @@ import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { normalizeAuthDenied } from "@jskit-ai/auth-core/shared/authDenied";
 import { AUTH_TEXTS, authMessageFields, authText } from "@jskit-ai/auth-core/server/authTexts";
 import { AUTH_ACTION_IDS } from "../constants/authActionIds.js";
-import { AuthWebService } from "../services/AuthWebService.js";
 
-// The auth routes' handlers over AuthWebService.
+/** The auth routes' handlers over AuthWebService. */
 class AuthController {
-  /** @param {{ service: AuthWebService }} dependencies */
+  /** @param {{ service: import("../services/AuthWebService.js").AuthWebService }} dependencies */
   constructor({ service }) {
     this.service = service;
   }
@@ -219,20 +218,4 @@ class AuthController {
   }
 }
 
-/**
- * An auth controller over the given AuthWebService, or over one built on authService.
- * @param {object} dependencies
- * @param {AuthWebService} [dependencies.service]
- * @param {import("@jskit-ai/auth-core/server/types").AuthService} [dependencies.authService]
- */
-function createController({ service, authService }) {
-  if (!service) {
-    if (!authService) {
-      throw new Error("createController requires either service or authService.");
-    }
-    service = new AuthWebService({ authService });
-  }
-  return new AuthController({ service });
-}
-
-export { AuthController, AUTH_ACTION_IDS, createController };
+export { AuthController, AUTH_ACTION_IDS };

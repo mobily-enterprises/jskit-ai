@@ -272,8 +272,6 @@ Exports
 ### `src/server/authWeb.js`
 Exports
 - `createAuthWeb({ authService, env })`
-Local functions
-- `devAuthBootstrapEnabled(env)`
 
 ### `src/server/AuthWebFeature.js`
 Exports
@@ -287,7 +285,6 @@ Exports
 Exports
 - `AuthController`
 - `AUTH_ACTION_IDS`
-- `createController({ service, authService })`
 
 ### `src/server/managedPreviewIdentity.js`
 Exports
@@ -303,7 +300,7 @@ Local functions
 - `localTargetOrigin(value)`
 - `normalizeRequest(value)`
 - `identityFromSubject(subject)`
-- `responseCookies(fetchResponse)`
+- `setCookies(response)`
 - `cookieHeader(setCookie)`
 - `responsePayload(fetchResponse)`
 - `rejected(payload, fetchResponse, details = {})`

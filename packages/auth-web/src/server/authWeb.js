@@ -1,16 +1,13 @@
-import { resolveDevAuthPolicyFromEnv } from "@jskit-ai/auth-core/server/devAuth";
+import { isDevAuthBootstrapEnabled, resolveDevAuthPolicyFromEnv } from "@jskit-ai/auth-core/server/devAuth";
 import { AuthController } from "./controllers/AuthController.js";
 import { buildRoutes } from "./routes/authRoutes.js";
 import { AuthWebService } from "./services/AuthWebService.js";
 
-function devAuthBootstrapEnabled(env) {
-  const policy = resolveDevAuthPolicyFromEnv(env);
-  return policy.enabled && !policy.isProduction;
-}
-
 /**
  * The auth web routes over the installed auth service: their service,
- * controller and route table.
+ * controller and route table. Routes are registered at setup, before the
+ * deferred auth service exists, so dev login-as is read from the env with the
+ * predicate the auth providers use.
  * @param {object} dependencies
  * @param {import("@jskit-ai/auth-core/server/types").AuthService} dependencies.authService
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} dependencies.env
@@ -18,7 +15,7 @@ function devAuthBootstrapEnabled(env) {
 function createAuthWeb({ authService, env }) {
   const service = new AuthWebService({
     authService,
-    devAuthBootstrapEnabled: devAuthBootstrapEnabled(env)
+    devAuthBootstrapEnabled: isDevAuthBootstrapEnabled(resolveDevAuthPolicyFromEnv(env))
   });
   const controller = new AuthController({ service });
   const routes = buildRoutes(controller, {

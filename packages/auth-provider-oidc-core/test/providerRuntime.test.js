@@ -100,7 +100,7 @@ function authWeb(authService) {
     },
     ...extra
   });
-  return { controller: new AuthController({ service: new AuthWebService({ authService }) }), request };
+  return { controller: new AuthController({ service: new AuthWebService({ authService, devAuthBootstrapEnabled: false }) }), request };
 }
 
 test("the package provides auth.service with the documented descriptor", () => {

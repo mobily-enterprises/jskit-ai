@@ -2,7 +2,7 @@ const PROTOCOL = "vibe64.preview-identity.command.v1";
 const MAX_MESSAGE_BYTES = 64 * 1024;
 
 function failure(requestId, code, message, statusCode = 400) {
-  // readable-check: allow setter-seam - not a slot: setCookie is a field of the preview identity protocol
+  // readable-check: allow setter-seam - not a slot: setCookie is the preview identity protocol's list of Set-Cookie headers
   return { protocol: PROTOCOL, requestId, ok: false, code, error: message, setCookie: [], signedOut: false, statusCode };
 }
 
@@ -26,7 +26,10 @@ function localOrigin(value) {
   return target.origin;
 }
 
-/** @param {Response} response */
+/**
+ * The Set-Cookie headers of a fetch response.
+ * @param {Response} response
+ */
 function setCookies(response) {
   // readable-check: allow method-probe - platform object: another fetch implementation's Headers may lack getSetCookie()
   return typeof response.headers.getSetCookie === "function" ? response.headers.getSetCookie() : [];
@@ -56,7 +59,7 @@ async function executePreviewIdentityRequest(request, { env = process.env, fetch
   try {
     const signOut = await fetchImpl(`${origin}/hub/api/sign-out`, { method: "POST", headers, body: "{}" });
     if (request.operation === "logout") {
-      // readable-check: allow setter-seam - not a slot: setCookie is a field of the preview identity protocol
+      // readable-check: allow setter-seam - not a slot: setCookie is the preview identity protocol's list of Set-Cookie headers
       return { protocol: PROTOCOL, requestId, ok: true, identity: null, setCookie: setCookies(signOut), signedOut: true };
     }
     const selector = request.subject?.kind === "selector" ? request.subject.selector : null;
@@ -79,7 +82,7 @@ async function executePreviewIdentityRequest(request, { env = process.env, fetch
       requestId,
       ok: true,
       identity: { displayName: payload.displayName, email: payload.email, userId: payload.userId, username: "" },
-      // readable-check: allow setter-seam - not a slot: setCookie is a field of the preview identity protocol
+      // readable-check: allow setter-seam - not a slot: setCookie is the preview identity protocol's list of Set-Cookie headers
       setCookie: setCookies(response),
       signedOut: false
     };

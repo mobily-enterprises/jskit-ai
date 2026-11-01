@@ -21,8 +21,6 @@ import { AUTH_PATHS } from "@jskit-ai/auth-core/shared/authPaths";
  * @param {{ includeDevLoginAs?: boolean }} [options]
  */
 function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
-  const handler = (methodName) => controller[methodName].bind(controller);
-
   return [
     {
       path: AUTH_PATHS.REGISTER,
@@ -43,7 +41,7 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         max: 10,
         timeWindow: "1 minute"
       },
-      handler: handler("register")
+      handler: (request, reply) => controller.register(request, reply)
     },
     {
       path: AUTH_PATHS.REGISTER_CONFIRMATION_RESEND,
@@ -64,7 +62,7 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         max: 5,
         timeWindow: "1 minute"
       },
-      handler: handler("resendRegisterConfirmation")
+      handler: (request, reply) => controller.resendRegisterConfirmation(request, reply)
     },
     {
       path: AUTH_PATHS.LOGIN,
@@ -85,7 +83,7 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         max: 10,
         timeWindow: "1 minute"
       },
-      handler: handler("login")
+      handler: (request, reply) => controller.login(request, reply)
     },
     {
       path: AUTH_PATHS.LOGIN_OTP_REQUEST,
@@ -106,7 +104,7 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         max: 10,
         timeWindow: "1 minute"
       },
-      handler: handler("requestOtpLogin")
+      handler: (request, reply) => controller.requestOtpLogin(request, reply)
     },
     {
       path: AUTH_PATHS.LOGIN_OTP_VERIFY,
@@ -127,7 +125,7 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         max: 10,
         timeWindow: "1 minute"
       },
-      handler: handler("verifyOtpLogin")
+      handler: (request, reply) => controller.verifyOtpLogin(request, reply)
     },
     {
       path: AUTH_PATHS.OAUTH_START_TEMPLATE,
@@ -150,7 +148,7 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         max: 20,
         timeWindow: "1 minute"
       },
-      handler: handler("oauthStart")
+      handler: (request, reply) => controller.oauthStart(request, reply)
     },
     {
       path: AUTH_PATHS.OAUTH_COMPLETE,
@@ -171,7 +169,7 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         max: 20,
         timeWindow: "1 minute"
       },
-      handler: handler("oauthComplete")
+      handler: (request, reply) => controller.oauthComplete(request, reply)
     },
     ...(includeDevLoginAs ? [{
       path: AUTH_PATHS.DEV_LOGIN_AS,
@@ -192,7 +190,7 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         max: 30,
         timeWindow: "1 minute"
       },
-      handler: handler("devLoginAs")
+      handler: (request, reply) => controller.devLoginAs(request, reply)
     }] : []),
     {
       path: AUTH_PATHS.PASSWORD_FORGOT,
@@ -213,7 +211,7 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         max: 5,
         timeWindow: "1 minute"
       },
-      handler: handler("requestPasswordReset")
+      handler: (request, reply) => controller.requestPasswordReset(request, reply)
     },
     {
       path: AUTH_PATHS.PASSWORD_RECOVERY,
@@ -234,7 +232,7 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         max: 20,
         timeWindow: "1 minute"
       },
-      handler: handler("completePasswordRecovery")
+      handler: (request, reply) => controller.completePasswordRecovery(request, reply)
     },
     {
       path: AUTH_PATHS.PASSWORD_RESET,
@@ -255,7 +253,7 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         max: 20,
         timeWindow: "1 minute"
       },
-      handler: handler("resetPassword")
+      handler: (request, reply) => controller.resetPassword(request, reply)
     },
     {
       path: AUTH_PATHS.LOGOUT,
@@ -268,7 +266,7 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
       responses: withStandardErrorResponses({
         200: authLogoutCommand.operation.response
       }),
-      handler: handler("logout")
+      handler: (request, reply) => controller.logout(request, reply)
     },
     {
       path: AUTH_PATHS.SESSION,
@@ -282,7 +280,7 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         200: authSessionReadCommand.operation.response,
         503: authSessionReadCommand.operation.unavailableResponse
       }),
-      handler: handler("session")
+      handler: (request, reply) => controller.session(request, reply)
     }
   ];
 }
