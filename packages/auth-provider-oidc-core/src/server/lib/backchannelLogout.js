@@ -14,20 +14,20 @@ class BackchannelLogoutError extends Error {
  * OpenID Connect Back-Channel Logout 1.0 for this app: the issuer posts a
  * signed logout_token and the matching app sessions end.
  * @param {object} dependencies
- * @param {ReturnType<typeof import("./config.js").resolveOidcConfig>} dependencies.config
- * @param {ReturnType<typeof import("./store.js").createOidcStore>} dependencies.store
- * @param {ReturnType<typeof import("./issuer.js").createIssuerClient>} dependencies.issuer
- * @param {typeof fetch | null} [dependencies.fetchImpl] jose's own fetch unless given.
+ * @param {import("../types.js").OidcConfig} dependencies.config
+ * @param {import("../types.js").OidcStore} dependencies.store
+ * @param {import("../types.js").OidcIssuerClient} dependencies.issuer
+ * @param {typeof fetch} [dependencies.fetchImpl] The fetch that reads the issuer's signing keys.
  * @param {() => number} [dependencies.now]
  */
-function createBackchannelLogout({ config, store, issuer, fetchImpl = null, now = Date.now }) {
+function createBackchannelLogout({ config, store, issuer, fetchImpl = globalThis.fetch, now = Date.now }) {
   let keySet = null;
 
   async function keys() {
     if (keySet) return keySet;
     const metadata = await issuer.serverMetadata();
     if (!metadata.jwks_uri) throw new BackchannelLogoutError("The issuer publishes no signing keys.");
-    keySet = createRemoteJWKSet(new URL(metadata.jwks_uri), fetchImpl ? { [customFetch]: fetchImpl } : {});
+    keySet = createRemoteJWKSet(new URL(metadata.jwks_uri), { [customFetch]: fetchImpl });
     return keySet;
   }
 

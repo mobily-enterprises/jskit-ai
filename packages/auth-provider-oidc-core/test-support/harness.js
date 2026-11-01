@@ -53,7 +53,7 @@ function createProfileProjector(knex) {
   };
 }
 
-async function createRelyingParty({ issuer, env = {}, fetchImpl = null, now = Date.now } = {}) {
+async function createRelyingParty({ issuer, env = {}, fetchImpl = globalThis.fetch, now = Date.now } = {}) {
   const appRoot = await mkdtemp(path.join(tmpdir(), "jskit-oidc-rp-"));
   const knex = await createDatabase();
   const config = resolveOidcConfig({

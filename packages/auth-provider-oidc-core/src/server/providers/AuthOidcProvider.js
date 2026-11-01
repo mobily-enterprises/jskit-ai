@@ -50,6 +50,7 @@ const AuthOidcProvider = defineProvider({
       profileProjector,
       logger
     });
+    // readable-check: allow setter-seam - deferred until boot: auth.extensions holds every feature's service decorators only once all setups have run
     attachDeferredAuthService(outputs.authService, extensions.decorateService(baseService));
     await registerOidcRoutes(fastify, {
       authService: baseService,

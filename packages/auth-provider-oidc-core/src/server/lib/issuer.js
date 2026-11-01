@@ -37,23 +37,23 @@ function unreachable(error, logger) {
  * (self-registered with the registration token, or the static client), and
  * the openid-client configuration each sign-in uses.
  * @param {object} dependencies
- * @param {ReturnType<typeof import("./config.js").resolveOidcConfig>} dependencies.config
- * @param {ReturnType<typeof import("./store.js").createOidcStore>} dependencies.store
+ * @param {import("../types.js").OidcConfig} dependencies.config
+ * @param {import("../types.js").OidcStore} dependencies.store
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
- * @param {import("openid-client").CustomFetch | null} [dependencies.fetchImpl] openid-client's own fetch unless given.
+ * @param {import("openid-client").CustomFetch} [dependencies.fetchImpl] The fetch every issuer request uses.
  * @param {() => number} [dependencies.now]
  */
-function createIssuerClient({ config, store, logger, fetchImpl = null, now = Date.now }) {
+function createIssuerClient({ config, store, logger, fetchImpl = globalThis.fetch, now = Date.now }) {
   const issuerUrl = config.issuer ? new URL(config.issuer) : null;
   const insecure = Boolean(issuerUrl && issuerUrl.protocol === "http:" && isLoopbackHostname(issuerUrl.hostname));
   const requestOptions = {
-    ...(fetchImpl ? { [client.customFetch]: fetchImpl } : {}),
+    [client.customFetch]: fetchImpl,
     ...(insecure ? { execute: [client.allowInsecureRequests] } : {})
   };
   let discovered = null;
 
   function configure(configuration) {
-    if (fetchImpl) configuration[client.customFetch] = fetchImpl;
+    configuration[client.customFetch] = fetchImpl;
     if (insecure) client.allowInsecureRequests(configuration);
     return configuration;
   }

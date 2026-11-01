@@ -52,7 +52,7 @@ function isDuplicateError(error) {
  * Knex storage for registered clients (one per issuer and app origin), app
  * sessions, and seen back-channel logout token ids.
  * @param {object} dependencies
- * @param {import("knex").Knex} dependencies.knex
+ * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} dependencies.knex
  * @param {() => number} [dependencies.now]
  */
 function createOidcStore({ knex, now = Date.now }) {

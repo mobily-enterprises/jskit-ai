@@ -79,9 +79,9 @@ function buildResult(identity, { session = null, appProfile = null } = {}) {
  * person is; this app keeps its own session cookie and its own users row,
  * keyed (oidc, sub).
  * @param {object} dependencies
- * @param {ReturnType<typeof import("./config.js").resolveOidcConfig>} dependencies.config
- * @param {ReturnType<typeof import("./store.js").createOidcStore>} dependencies.store
- * @param {ReturnType<typeof import("./issuer.js").createIssuerClient>} dependencies.issuer
+ * @param {import("../types.js").OidcConfig} dependencies.config
+ * @param {import("../types.js").OidcStore} dependencies.store
+ * @param {import("../types.js").OidcIssuerClient} dependencies.issuer
  * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector | null} [dependencies.profileProjector] The registered projector, when there is one.
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
  * @param {() => number} [dependencies.now]
@@ -174,7 +174,7 @@ function createOidcAuthService({ config, store, issuer, profileProjector, logger
     return origin.origin;
   }
 
-  async function oauthStart(input = {}, request = null) {
+  async function oauthStart(input, request) {
     const provider = String(input.provider || AUTH_OIDC_PROVIDER_ID).trim().toLowerCase();
     if (provider !== AUTH_OIDC_PROVIDER_ID) {
       throw new AppError(400, `OAuth provider must be ${AUTH_OIDC_PROVIDER_ID}.`, {
@@ -233,7 +233,7 @@ function createOidcAuthService({ config, store, issuer, profileProjector, logger
     return { sub: String(claims.sub), email, displayName: displayNameFrom(source, email), sid: String(claims.sid || "") };
   }
 
-  async function oauthComplete(input = {}, request = null) {
+  async function oauthComplete(input, request) {
     const errorCode = String(input.error || input.error_code || "").trim();
     if (errorCode) {
       throw errorCode === "access_denied"
@@ -313,10 +313,10 @@ function createOidcAuthService({ config, store, issuer, profileProjector, logger
     };
   }
 
-  async function devLoginAs(request, input = {}) {
+  async function devLoginAs(request, input) {
     ensureDevAuthExchangeAvailable(config.devAuth, request);
-    const userId = String(input?.userId || "").trim();
-    const email = normalizeEmail(input?.email);
+    const userId = String(input.userId || "").trim();
+    const email = normalizeEmail(input.email);
     if (!userId && !email) {
       throw createAuthError(AUTH_TEXTS.devUserRequired, {
         details: authFieldErrorDetails({ userId: AUTH_TEXTS.devUserRequired, email: AUTH_TEXTS.devUserRequired })

@@ -18,7 +18,7 @@ Use this on demand; do not load the full index at startup.
 Exports
 - `BACKCHANNEL_LOGOUT_EVENT`
 - `BackchannelLogoutError`
-- `createBackchannelLogout({ config, store, issuer, fetchImpl = null, now = Date.now })`
+- `createBackchannelLogout({ config, store, issuer, fetchImpl = globalThis.fetch, now = Date.now })`
 
 ### `src/server/lib/config.js`
 Exports
@@ -43,7 +43,7 @@ Exports
 
 ### `src/server/lib/issuer.js`
 Exports
-- `createIssuerClient({ config, store, logger, fetchImpl = null, now = Date.now })`
+- `createIssuerClient({ config, store, logger, fetchImpl = globalThis.fetch, now = Date.now })`
 - `registrationMetadata(origin, appName)`
 Local functions
 - `unreachable(error, logger)`
@@ -100,6 +100,12 @@ Local functions
 Exports
 - `AuthOidcProvider`
 
+### `src/server/types.js`
+Exports
+- `type OidcConfig`
+- `type OidcStore`
+- `type OidcIssuerClient`
+
 ### `src/shared/index.js`
 Exports
 - `AUTH_OIDC_BACKCHANNEL_LOGOUT_PATH`
@@ -129,7 +135,7 @@ Exports
 ### `test-support/harness.js`
 Exports
 - `APP_ORIGIN`
-- `createRelyingParty({ issuer, env = {}, fetchImpl = null, now = Date.now } = {})`
+- `createRelyingParty({ issuer, env = {}, fetchImpl = globalThis.fetch, now = Date.now } = {})`
 - `requestAt(origin = APP_ORIGIN, cookies = {})`
 - `signInAtIssuer(rp, { origin = APP_ORIGIN, returnTo = "/home" } = {})`
 Local functions
