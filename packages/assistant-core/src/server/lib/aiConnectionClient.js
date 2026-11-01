@@ -66,6 +66,8 @@ export function createAiConnectionClient(connection, { fetch, timeoutMs = 120_00
   }
   return Object.freeze({
     enabled: true, supportsAttachments: true, provider: connection.providerId, defaultModel: connection.model,
+    // The AI SDK model itself, for the agent engine's loop.
+    model,
     async createChatCompletion(input) {
       const result = await generateText(options(input));
       return { choices: [{ message: { role: "assistant", content: result.text,

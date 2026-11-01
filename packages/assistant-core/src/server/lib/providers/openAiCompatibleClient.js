@@ -1,4 +1,6 @@
 import OpenAI from "openai";
+import { createOpenAI } from "@ai-sdk/openai";
+import { chatModel } from "@jskit-ai/agent/server";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   createDisabledClient,
@@ -36,10 +38,15 @@ function createOpenAiCompatibleClient({
     timeout: normalizeTimeoutMs(timeoutMs)
   });
 
+  const baseURL = normalizedBaseUrl || undefined;
   return Object.freeze({
     enabled: true,
     provider: normalizedProvider,
     defaultModel: normalizedModel,
+    // The same endpoint as an AI SDK model, for the agent engine's loop.
+    model: normalizedProvider === "deepseek"
+      ? chatModel({ apiKey: normalizedApiKey, model: normalizedModel, baseURL })
+      : createOpenAI({ apiKey: normalizedApiKey, baseURL }).chat(normalizedModel),
     async createChatCompletion({ messages = [], tools = [], temperature = 0, signal } = {}) {
       const requestPayload = {
         model: normalizedModel,

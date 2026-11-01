@@ -1081,7 +1081,10 @@ Exports
 Exports
 - `createApiConversationDriver({ connections, apiClientFactory, fetch, limits = {} })`
 Local functions
-- `toolResultContent(result)`
+- `toolOutput(result)`
+- `stateNote()`
+- `content(message)`
+- `turnMessages(turn)`
 
 ### `src/server/conversation/providers/claude.js`
 Exports
@@ -1414,9 +1417,6 @@ Exports
 - `writeNdjson`
 - `resolveWorkspaceSlug`
 - `createServiceToolCatalog`
-- `consumeCompletionStream`
-- `sanitizeAssistantMessageText`
-- `runAssistantToolLoop`
 - `runBoundedAssistantToolLoop`
 - `readAssistantResponseEnvelope`
 - `readPartialAssistantReply`
@@ -1432,26 +1432,6 @@ Exports
 - `createAiConnectionClient(connection, { fetch, timeoutMs = 120_000, maxOutputTokens, effort, reportUnavailableToolCalls = false } = {})`
 Local functions
 - `sdkMessages(messages)`
-
-### `src/server/lib/assistantCompletion.js`
-Exports
-- `consumeCompletionStream(stream, onText = () => {}, { signal, limits, preserveWhitespace = false, requireCallIds = false, callIdPrefix = "" } = {})`
-- `sanitizeAssistantMessageText(value, { preserveWhitespace = false } = {})`
-Local functions
-- `extractTextDelta(deltaContent)`
-- `parseDsmlToolCallsFromText(value = "")`
-
-### `src/server/lib/assistantToolLoop.js`
-Exports
-- `runAssistantToolLoop({ messages, input, toolSet, toToolSchema, complete, executeToolCalls, finish, preserveWhitespace = false })`
-Local functions
-- `requiresCurrentTime(value = "")`
-- `resolvePreflightTools(toolDescriptors = [], input = "")`
-- `buildRecoveryPrompt({ reason = "", toolFailures = [], toolSuccesses = [] } = {})`
-- `buildRecoveryFallbackAnswer({ reason = "", toolFailures = [], toolSuccesses = [] } = {})`
-- `toSafeToolResultText(value)`
-- `buildToolOutcomeFallbackAnswer({ toolFailures = [], toolSuccesses = [] } = {})`
-- `buildAssistantToolCallMessage(toolCalls = [])`
 
 ### `src/server/lib/ndjson.js`
 Exports

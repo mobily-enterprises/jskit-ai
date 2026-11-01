@@ -430,8 +430,7 @@ catalog by opting it in explicitly:
 ```js
 extensions: {
   assistant: {
-    alwaysAvailable: true,
-    preflight: ["current-time"]
+    alwaysAvailable: true
   }
 }
 ```
@@ -444,32 +443,27 @@ lookup before discovery-mode execution.
 ### Database surface conversation lifecycle
 
 The client receives answer text incrementally and shows working status before
-text arrives. Tool calls produce timeline events. Internal reasoning tags and raw
-tool arguments do not become visible answer text. A tool/recovery round replaces
-its provisional answer; completed answers occupy the existing chat rows.
-Common runtime commentary is retained separately from those chat rows. Progress-only
-responses such as “Let me query…” may appear provisionally while streaming but
-are retried internally and never stored or replayed as final chat history.
+text arrives. Tool calls produce timeline events. Internal reasoning, provider tool
+markup and raw tool arguments do not become visible answer text. Each model step
+streams its own provisional answer; a step that also calls actions is kept as
+commentary, separately from the chat rows, and the last step becomes the completed
+answer in the existing chat rows.
 
-The runtime permits up to 16 bounded tool rounds so catalog search, contract
-lookup, and execution can complete in one turn. If ordinary tool-failure
-recovery cannot finish, the runtime returns the latest successful tool result
-with a 4,000-character cap, or a concise failure when there was no successful
-result. Genuine round-budget exhaustion ends with exactly `Limit reached. Start
-a new conversation.`
+Replies run on the agent engine (`@jskit-ai/agent`), up to 40 steps by default, so
+catalog search, contract lookup and execution can complete in one turn. A failed
+action reaches the model as its error. A reply that runs out of steps ends with
+the model's own account of what it did and what is left. The engine's checks send
+a reply back once when it leaks markup, stops at announcing its next step (“Let me
+query…”), or claims an action no tool performed. Long conversations are summarised
+rather than refused; see the conversation runtime guide.
 
-For current or relative date and time questions, the runtime instructs the
-model to use an available authoritative workspace clock action. When an
-authorized `preflight: ["current-time"]` action has no model-required input,
-the runtime executes it before the first model completion and places its result
-in model history. Mark it `alwaysAvailable` when the authorized catalog can
-enter discovery mode. Trusted workspace input can still be required by the
-application because JSKIT hides and injects it before execution.
-
-The clock action and its timezone policy remain application-owned; JSKIT does
-not invent a clock action or infer the current date from model knowledge. Make
-that action automation-capable and available on the assistant surface if the
-product needs now, today, tomorrow, or other relative-date answers.
+Every request carries the current date and time in UTC in the engine's state
+note, so no turn needs an extra action to learn it; the API driver no longer runs
+a `preflight: ["current-time"]` action before the model. The workspace's own time
+zone and clock remain application-owned: when answers need local now, today or
+tomorrow, make a clock action automation-capable, available on the assistant
+surface and `alwaysAvailable` when the catalog can enter discovery mode, and the
+model calls it like any other action.
 
 Conversation restoration loads every transcript page needed to retain the
 newest bounded transcript window, so a completed response on page two does not

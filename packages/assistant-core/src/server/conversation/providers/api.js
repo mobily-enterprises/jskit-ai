@@ -1,29 +1,72 @@
+import { defaultSettingsMiddleware, extractReasoningMiddleware, wrapLanguageModel } from "ai";
+import {
+  LEAKED_MARKUP, REASONING, checkTexts, clipOldResult, compactMessages, remindOnRepeat, reportsActions, runLoop,
+  stoppedShort, stripNotes, toolRecord, unsupportedClaims, windowLimits, withinBudget, withoutClosingWords, withoutMarkup
+} from "@jskit-ai/agent/server";
 import { conversationRequestText } from "../continuity.js";
 import { validateConversationConfiguration, validateConnectionModel } from "../configuration.js";
-import { consumeCompletionStream, sanitizeAssistantMessageText } from "../../lib/assistantCompletion.js";
-import { runAssistantToolLoop } from "../../lib/assistantToolLoop.js";
-import { isAssistantProgressOnlyText } from "../../../shared/assistantResponseText.js";
+
+// The agent engine's account of a reply that stopped early, and its checks, speak for a
+// generic assistant in an app.
+const NAME = "the assistant";
+const APP = "the app";
+const CHECKS = checkTexts(APP);
+// The engine's step limit for work with app tools; a reply without tools is one step anyway.
+const MAX_STEPS = 40;
+// The engine's sizes are for a window of a million tokens (WINDOW_TOKENS). Many catalogue
+// models (DeepSeek's chat models, Groq's, GPT-4o) have 128k: sized for 1M, their requests
+// would fail long before compaction began, while sized for 128k a larger window only
+// compacts sooner. The former character cap was about 64k tokens of history.
+const CONTEXT_TOKENS = 128_000;
+const OUTPUT_LIMIT = "The assistant exceeded the configured response limit.";
 
 // Preserve the original assistant service's model-facing action result. The
 // durable receipt keeps its full ok/result/error envelope in common storage.
-const toolResultContent = result => JSON.stringify(result.ok ? result.result ?? null : { error: result.error });
+const toolOutput = result => result.ok ? result.result ?? null : { error: result.error };
 
-/** Direct API inference uses the same authorized connection catalogue as other JSKIT services. */
+// The engine's state note: what the system knows for certain this turn. Its time
+// replaces the former clock preflight, so no turn needs an extra action for it.
+function stateNote() {
+  const now = new Intl.DateTimeFormat("en-GB", { dateStyle: "full", timeStyle: "short", timeZone: "UTC" }).format(new Date());
+  return ["Current state, from the system. It is the truth; earlier messages may be out of date:",
+    `- The time: ${now} UTC. The person may be in another time zone.`].join("\n");
+}
+
+const content = message => message.content?.length
+  ? [...(message.text ? [{ type: "text", text: message.text }] : []), ...message.content] : message.text;
+
+// A saved turn as model messages: the authored request, its recorded application
+// actions with their results (long old results cut, as the engine reads them), the answer.
+function turnMessages(turn) {
+  return [
+    ...(turn.user ? [{ role: "user", content: content({ ...turn.user, text: conversationRequestText(turn.user) }) }] : []),
+    ...(turn.system ? [{ role: "user", content: content({ ...turn.system, text: conversationRequestText({ ...turn.system, origin: "application" }) }) }] : []),
+    ...(turn.metadata?.applicationTools || []).filter(call => call.result).flatMap(call => [
+      { role: "assistant", content: [{ type: "tool-call", toolCallId: call.id, toolName: call.name, input: call.arguments ? JSON.parse(call.arguments) : {} }] },
+      clipOldResult({ role: "tool", content: [{ type: "tool-result", toolCallId: call.id, toolName: call.name,
+        output: { type: "json", value: toolOutput(call.result) } }] })
+    ]),
+    ...(turn.assistant ? [{ role: "assistant", content: turn.assistant.text }] : [])
+  ];
+}
+
+/** Direct API inference runs on the agent engine with the same authorized connection catalogue as other JSKIT services. */
 export function createApiConversationDriver({ connections, apiClientFactory, fetch, limits = {} }) {
   if (apiClientFactory !== undefined && typeof apiClientFactory?.resolveClient !== "function") {
     throw new TypeError("An API client factory requires resolveClient({ context, configuration }).");
   }
   if (!apiClientFactory && typeof connections?.resolve !== "function") throw new TypeError("API conversations require an authorized AI connection resolver.");
   const maximumOutput = limits.maxOutputCharacters ?? 64_000;
-  const maximumHistory = limits.maxHistoryCharacters ?? 256_000;
   const maximumToolProgress = limits.maxApiToolProgressCharacters;
-  const preserveWhitespace = apiClientFactory?.preserveWhitespace !== false;
-  for (const limit of [maximumOutput, maximumHistory]) {
+  const maximumSteps = limits.maxSteps ?? MAX_STEPS;
+  const contextTokens = limits.contextTokens ?? CONTEXT_TOKENS;
+  for (const limit of [maximumOutput, maximumSteps, contextTokens]) {
     if (!Number.isSafeInteger(limit) || limit < 1) throw new TypeError("Invalid API conversation limit.");
   }
   if (maximumToolProgress !== undefined && (!Number.isSafeInteger(maximumToolProgress) || maximumToolProgress < 1)) {
     throw new TypeError("Invalid API application tool progress limit.");
   }
+  const window = windowLimits(contextTokens);
   const driver = Object.freeze({
     admissionBeforeDispatch: true,
     attachmentTypes: ["text", "image", "file"],
@@ -34,110 +77,166 @@ export function createApiConversationDriver({ connections, apiClientFactory, fet
       validateConversationConfiguration(configuration, { engine: "API", connections, apiClientFactory, connectionRequired: true,
         efforts: ["none", "minimal", "low", "medium", "high", "xhigh"] });
     },
-    async run({ configuration, context, input, history, requestHistory, continuity, tools, signal, accept, beforeDispatch, onMessage }) {
+    // `summary` is the stored summary of the turns before `history`; `saveSummary`
+    // stores a new one, so the next turn reads only the turns after it.
+    async run({ configuration, context, input, history, requestHistory, continuity, tools, signal, accept, beforeDispatch,
+      onMessage, onEvent, summary = "", saveSummary }) {
       const { createAiConnectionClient } = await import("../../lib/aiConnectionClient.js");
-      const content = message => message.content?.length
-        ? [...(message.text ? [{ type: "text", text: message.text }] : []), ...message.content] : message.text;
-      const messages = [
-        { role: "system", content: configuration.systemPrompt },
-        ...(continuity ? [{ role: "user", content: continuity }] : []),
-        ...(requestHistory ?? history.flatMap(turn => [
-          ...(turn.user ? [{ role: "user", content: content({ ...turn.user, text: conversationRequestText(turn.user) }) }] : []),
-          ...(turn.system ? [{ role: "user", content: content({ ...turn.system, text: conversationRequestText({ ...turn.system, origin: "application" }) }) }] : []),
-          ...(turn.metadata?.applicationTools || []).filter(call => call.result).flatMap(call => [
-            { role: "assistant", content: "", tool_calls: [{ id: call.id, type: "function", function: { name: call.name, arguments: call.arguments } }] },
-            { role: "tool", tool_call_id: call.id, content: toolResultContent(call.result) }
-          ]),
-          ...(turn.assistant ? [{ role: "assistant", content: turn.assistant.text }] : [])
-        ])),
-        { role: "user", content: content(input) }
-      ];
-      let accepted = false;
-      let round = 0;
-      let responseId;
-      let responseIsCommentary = false;
-      async function prepareClient(inferenceMessages = messages) {
-        if (inferenceMessages.reduce((size, message) => size + (typeof message.content === "string" ? message.content.length
-          : message.content.reduce((count, part) => count + (part.type === "text" ? part.text.length : 0), 0)) +
-          (message.tool_calls ? JSON.stringify(message.tool_calls).length : 0), 0) > maximumHistory) {
-          throw new Error("This conversation exceeds the configured API history limit. Start another conversation or increase the limit.");
-        }
-        let client;
+      // A broken receipt, a lost authorization or a limit ends the reply with its
+      // own error: the engine ends at once with an aborted signal's reason.
+      const stop = new AbortController();
+      const stopped = AbortSignal.any([signal, stop.signal]);
+      const fail = error => {
+        if (!stop.signal.aborted) stop.abort(error);
+        return stop.signal.reason;
+      };
+
+      async function resolveModel() {
         if (apiClientFactory) {
-          client = await apiClientFactory.resolveClient({ context, configuration });
-          if (!client?.enabled || typeof client.createChatCompletionStream !== "function") {
-            throw new Error("Assistant provider is not configured.");
-          }
+          const client = await apiClientFactory.resolveClient({ context, configuration });
+          if (!client?.enabled || !client.model) throw new Error("Assistant provider is not configured.");
           validateConnectionModel(configuration, { model: client.defaultModel });
-        } else {
-          const connection = await connections.resolve({ context, integrationId: configuration.integrationId });
-          validateConnectionModel(configuration, connection);
-          client = createAiConnectionClient(connection, { fetch, effort: configuration.effort,
-            reportUnavailableToolCalls: Boolean(tools),
-            maxOutputTokens: limits.maxOutputTokens, timeoutMs: limits.timeoutMs });
+          return client.model;
         }
-        signal.throwIfAborted();
-        await beforeDispatch();
-        if (!accepted) { await accept(); accepted = true; }
-        return client;
+        const connection = await connections.resolve({ context, integrationId: configuration.integrationId });
+        validateConnectionModel(configuration, connection);
+        return createAiConnectionClient(connection, { fetch }).model;
       }
-      return runAssistantToolLoop({
-        messages, input: input.text, toolSet: { tools: tools?.descriptors || [] }, preserveWhitespace,
-        toToolSchema: tool => tools.schemas.find(schema => schema.function.name === tool.name),
-        async complete(messages, schemas) {
-          const id = responseId = `reply-${++round}`;
-          responseIsCommentary = false;
-          const client = await prepareClient(messages);
-          const completion = await consumeCompletionStream(
-            await client.createChatCompletionStream({ signal, messages, tools: schemas }),
-            async text => { if (text.trim()) await onMessage({ id, outputId: id, role: "assistant", text, complete: false }); },
-            { signal, preserveWhitespace, requireCallIds: true, callIdPrefix: `${id}:`,
-              limits: { maxOutputCharacters: maximumOutput, maxToolCalls: tools ? limits.maxToolCalls ?? 32 : 0,
-                maxToolArgumentBytes: tools?.maximumArgumentBytes ?? 0 } }
-          );
-          const { toolCalls: calls, toolCallSource } = completion;
-          // Environment clients expose the provider's original OpenAI spelling;
-          // SDK connection clients use the normalized equivalent.
-          const finishReason = completion.finishReason === "tool_calls" ? "tool-calls" : completion.finishReason;
-          const text = sanitizeAssistantMessageText(completion.assistantText, { preserveWhitespace });
-          if (finishReason === "length") throw new Error("The model reached its output token limit before completing the answer. Increase maxOutputTokens in the conversation limits.");
-          if (calls.length) {
-            if (finishReason !== (toolCallSource === "text" ? "stop" : "tool-calls")) throw new Error("The model stream ended without confirming its application tool calls.");
-          } else if (finishReason !== "stop") {
-            throw new Error("The model stream ended without confirming a completed answer.");
-          }
-          if (calls.length && maximumToolProgress !== undefined && text.length > maximumToolProgress) {
-            throw new Error("Application tool progress text exceeds the configured API limit.");
-          }
-          if (text.trim() && (calls.length || isAssistantProgressOnlyText(text))) {
-            responseIsCommentary = true;
-            await onMessage({ id, outputId: id, role: "commentary", text, complete: true });
-          }
-          return completion;
-        },
-        async executeToolCalls(calls, { toolFailures, toolSuccesses }) {
-          // The original preflight runs before inference, but never before the
-          // same authorized connection and durable admission as ordinary sends.
-          if (!accepted) await prepareClient();
-          const failures = [];
-          for (const call of calls) {
-            const result = await tools.execute(call);
-            messages.push({ role: "tool", tool_call_id: call.id, content: toolResultContent(result) });
-            if (result.ok) toolSuccesses.push({ name: call.name, result: result.result });
-            else {
-              const failure = { name: call.name, error: result.error };
-              failures.push(failure);
-              toolFailures.push(failure);
+      async function authorize() {
+        const model = await resolveModel();
+        stopped.throwIfAborted();
+        await beforeDispatch();
+        return model;
+      }
+
+      // Admission precedes every model call. Each later call (steps, checks,
+      // summaries, accounts) authorizes the same connection again. Reasoning a
+      // model writes inline in <think> tags is reasoning, never reply text.
+      let admitted = false;
+      const model = wrapLanguageModel({ model: await authorize(), middleware: [
+        { specificationVersion: "v4", async transformParams({ params }) {
+          if (admitted) await authorize().catch(error => { throw fail(error); });
+          admitted = true;
+          return params;
+        } },
+        extractReasoningMiddleware({ tagName: "think" }),
+        ...(configuration.effort ? [defaultSettingsMiddleware({ settings: { reasoning: configuration.effort } })] : [])
+      ] });
+      await accept();
+
+      let step = 0;
+      const repeats = {};
+      async function runTool(call) {
+        // Another action after an unknown outcome could repeat it.
+        try { return await tools.execute(call); } catch (error) { throw fail(error); }
+      }
+      const engineTools = Object.fromEntries((tools?.schemas || []).map(({ function: tool }) => {
+        const engineTool = { id: tool.name, description: tool.description, parameters: tool.parameters,
+          execute: async (value, { toolCallId }) => toolOutput(await runTool({
+            id: `reply-${step + 1}:${toolCallId}`, name: tool.name, arguments: JSON.stringify(value ?? {}) })) };
+        remindOnRepeat(engineTool, repeats);
+        return [tool.name, engineTool];
+      }));
+
+      const request = { role: "user", content: content(input) };
+      let earlier = summary;
+      let recorded = requestHistory ?? history.flatMap(turnMessages);
+      // The runtime's own history is compacted between turns; the summary and
+      // its last turn are stored, so later turns read only what follows.
+      if (!requestHistory && saveSummary) {
+        let started = false;
+        try {
+          const compacted = await compactMessages({ model, app: APP, messages: recorded, previous: summary, limits: window.summaries,
+            onCompacting: async () => { started = true; await onEvent?.({ type: "phase", phase: "compacting" }); } });
+          if (compacted.saved) {
+            // The summary ends where a turn starts.
+            let covered = 0;
+            let throughTurnId = "";
+            for (const turn of history) {
+              const size = turnMessages(turn).length;
+              if (covered + size > compacted.saved.covers) break;
+              covered += size;
+              throughTurnId = turn.turnId;
             }
+            await saveSummary({ text: compacted.summary, throughTurnId });
+            ({ summary: earlier, messages: recorded } = compacted);
           }
-          return failures;
-        },
-        async finish(text, { metadata = {} } = {}) {
-          const id = responseIsCommentary ? `reply-${++round}` : responseId;
-          await onMessage({ id, outputId: id, role: "assistant", text, complete: true });
-          return { metadata };
+        } catch (error) {
+          stopped.throwIfAborted();
+          // The engine's last-resort cut below still keeps the reply within its window.
+          console.error(`Compacting a conversation: ${error?.message || error}`);
         }
-      });
+        if (started) await onEvent?.({ type: "phase", phase: "working" });
+      }
+      const messages = withinBudget([...(continuity ? [{ role: "user", content: continuity }] : []), ...recorded, request], window.history);
+
+      // Each step streams as reply-N. A step that also calls tools ends as
+      // commentary; the reply's last words become the answer.
+      // Output past its limit stops showing at once and fails the reply when its step
+      // ends: aborting a stream mid-way leaves Node 26 an unhandled rejection.
+      let answer = "";
+      let overLimit = false;
+      // The engine's reply joins every step's words; the answer leaves out those
+      // already shown as commentary, unless they are all there is.
+      const shown = [];
+      const unsaid = text => shown.reduce((rest, said) => rest === said ? ""
+        : rest.startsWith(`${said}\n\n`) ? rest.slice(said.length + 2) : rest, text) || text;
+      async function onText(text) {
+        overLimit ||= text.length > maximumOutput;
+        const visible = withoutMarkup(text);
+        if (!visible || overLimit) return;
+        answer = `reply-${step + 1}`;
+        await onMessage({ id: answer, outputId: answer, role: "assistant", text: visible, complete: false });
+      }
+      async function onStep(result) {
+        const id = `reply-${++step}`;
+        if (overLimit) return fail(new Error(OUTPUT_LIMIT));
+        if (result.finishReason === "length") return fail(new Error("The model reached its output token limit before completing the answer. Increase maxOutputTokens in the conversation limits."));
+        if (!result.toolCalls.length) return;
+        const text = withoutMarkup(result.text);
+        if (maximumToolProgress !== undefined && text.length > maximumToolProgress) return fail(new Error("Application tool progress text exceeds the configured API limit."));
+        if (answer === id) answer = "";
+        if (!text) return;
+        shown.push(...result.content.filter(part => part.type === "text").map(part => part.text.trim()).filter(Boolean));
+        await onMessage({ id, outputId: id, role: "commentary", text, complete: true });
+      }
+      const pass = async history => {
+        const result = await runLoop({ model, name: NAME, instructions: configuration.systemPrompt, history, tools: engineTools,
+          summary: earlier, state: stateNote(), maxSteps: maximumSteps, onText, onStep, signal: stopped, clean: text => stripNotes(unsaid(text)),
+          // With nothing done yet, a failed call is the reply's error, not an account.
+          throwIf: (_error, steps) => !step && !steps.length,
+          // A configured effort reaches every provider the standard way.
+          reasoning: configuration.effort ? {} : REASONING.on,
+          ...(limits.maxOutputTokens ? { maxOutputTokens: limits.maxOutputTokens } : {}) });
+        stopped.throwIfAborted();
+        return result;
+      };
+
+      let { text, transcript, unfinished } = await pass(messages);
+      // A check sends the reply back once, carrying on from its own steps.
+      let check = "";
+      async function carryOn(name, note) {
+        check = name;
+        const steps = withoutClosingWords(transcript);
+        const next = await pass([...messages, ...steps.map(clipOldResult), { role: "user", content: note }]);
+        ({ text, unfinished } = next);
+        transcript = [...steps, ...next.transcript];
+      }
+      const working = Object.keys(engineTools).length > 0;
+      if (working && LEAKED_MARKUP.test(text)) await carryOn("markup", CHECKS.markup);
+      else if (working && stoppedShort(text.trim())) await carryOn("stoppedShort", CHECKS.stoppedShort);
+      if (!check && working && reportsActions(text)) {
+        const claims = await unsupportedClaims({ model, reply: text, record: toolRecord(transcript, [], APP) });
+        stopped.throwIfAborted();
+        if (claims.length) await carryOn("unsupported", CHECKS.unsupported(claims));
+      }
+      text = withoutMarkup(text);
+      if (text.length > maximumOutput) throw new Error(OUTPUT_LIMIT);
+      if (text) {
+        const id = answer || `reply-${step + 1}`;
+        await onMessage({ id, outputId: id, role: "assistant", text, complete: true });
+      }
+      return { metadata: { ...(unfinished ? { unfinished } : {}), ...(check ? { check } : {}) } };
     }
   });
   return driver;

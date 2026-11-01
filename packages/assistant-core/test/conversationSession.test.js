@@ -29,7 +29,7 @@ async function fixture(t, options = {}) {
     authorize: ({ context: actor, conversationId, operation }) => state.allowed && actor === context && ["one", "two"].includes(conversationId) &&
       (options.authorize?.({ operation, context: actor, conversationId }) ?? true),
     fetch: (url, init) => { requests.push(JSON.parse(init.body)); return options.fetch?.(url, init) || response(); },
-    limits: options.limits
+    limits: options.limits, ...(options.attachments ? { attachments: options.attachments } : {})
   });
   t.after(() => runtime.close());
   const conversation = await runtime.open({ id: "one", context, configuration: options.resume ? undefined : configuration });
@@ -82,7 +82,8 @@ test("saved history and current instructions use the existing authorized model c
   await f.conversation.configure({ systemPrompt: "Use the new instructions." });
   await f.conversation.send({ messageId: "two", text: "Continue" });
   await f.conversation.wait();
-  assert.equal(f.requests[1].messages[0].content, "Use the new instructions.");
+  assert.match(f.requests[1].messages[0].content, /^Use the new instructions\.\n\nCurrent state, from the system\./u,
+    "The current instructions lead the system prompt, before the engine's state note");
   assert.deepEqual(f.requests[1].messages.slice(1).map(message => message.content), ["Hello", "Hello there.", "Continue"]);
   f.state.modelAllowed = false;
   await assert.rejects(f.conversation.send({ messageId: "three", text: "No longer authorized" }));
@@ -193,8 +194,63 @@ test("application data must fit the message limit before reserving or dispatchin
   assert.equal((await f.conversation.read()).pendingRequest, null);
 });
 
-test("provider errors are status information, never assistant replies or automatic retries", async t => {
-  const f = await fixture(t, { fetch: () => new Response('{"error":{"message":"Capacity unavailable"}}', { status: 429 }) });
+test("API compaction stores its summary with the last turn it covers, and later turns read only the turns after it", async t => {
+  const storage = createMemoryConversationStorage();
+  const transcript = createConversationTranscript({ storage });
+  for (let index = 0; index < 6; index++) {
+    await transcript.writeConversationUserMessage("one", { messageId: `earlier-${index}`, text: `Question ${index} ${"x".repeat(4000)}` });
+    await transcript.writeConversationAssistantMessage("one", { text: `Answer ${index}` });
+  }
+  const f = await fixture(t, { storage, limits: { contextTokens: 10_000 }, fetch: (_url, init) => JSON.parse(init.body).stream ? undefined
+    : Response.json({ choices: [{ index: 0, message: { role: "assistant", content: "Six long questions so far." }, finish_reason: "stop" }] }) });
+  const phases = [];
+  await f.conversation.subscribe(event => { if (event.type === "phase") phases.push(event.phase); });
+  await f.conversation.send(input);
+  const first = await f.conversation.wait();
+  assert.equal(first.conversationLog.at(-1).assistant.text, "Hello there.");
+  assert.ok(phases.includes("compacting"));
+  const summary = await storage.read("one", transaction => transaction.readSummary());
+  assert.equal(summary.text, "Six long questions so far.");
+  const turnIds = first.conversationLog.map(turn => turn.turnId);
+  const after = turnIds.slice(turnIds.indexOf(summary.throughTurnId) + 1);
+  assert.ok(after.length >= 2 && after.length < turnIds.length);
+  const seen = (await storage.read("one", transaction => transaction.readMetadata())).runtime.seen;
+  await f.conversation.send({ messageId: "two", text: "Continue" });
+  const second = await f.conversation.wait();
+  const last = f.requests.at(-1);
+  assert.match(last.messages[0].content, /Summary of the earlier part of this conversation[^]*Six long questions so far\./u);
+  assert.deepEqual(last.messages.filter(message => message.role === "user").map(message => message.content),
+    [...second.conversationLog.filter(turn => after.includes(turn.turnId)).map(turn => turn.user.text), "Continue"]);
+  assert.deepEqual(await storage.read("one", transaction => transaction.readSummary()), summary, "A short remainder is not compacted again");
+  const later = (await storage.read("one", transaction => transaction.readMetadata())).runtime.seen;
+  assert.ok(Object.keys(seen).every(id => Object.hasOwn(later, id)), "Versions saved before the summary still stand");
+});
+
+test("API history sends files again only within the newest 20 messages; older turns name theirs", async t => {
+  const resolved = [];
+  const attachments = { async resolve({ attachmentIds }) {
+    resolved.push([...attachmentIds]);
+    return { attachments: attachmentIds.map(attachmentId => ({ attachmentId, fileName: `${attachmentId}.txt`, size: 4 })),
+      content: attachmentIds.map(attachmentId => ({ type: "text", text: `Bytes of ${attachmentId}` })) };
+  } };
+  const f = await fixture(t, { attachments });
+  const send = async message => { await f.conversation.send(message); await f.conversation.wait(); };
+  await send({ messageId: "old", text: "Old file", attachmentIds: ["old"] });
+  for (let index = 0; index < 10; index++) await send({ messageId: `m${index}`, text: `Message ${index}` });
+  await send({ messageId: "recent", text: "Recent file", attachmentIds: ["recent"] });
+  resolved.length = 0;
+  await send({ messageId: "last", text: "Last" });
+  assert.deepEqual(resolved, [["recent"]], "Only the recent turn's file is read again");
+  const messages = f.requests.at(-1).messages;
+  assert.deepEqual(messages.find(message => Array.isArray(message.content) && message.content[0].text === "Old file").content,
+    [{ type: "text", text: "Old file" }, { type: "text", text: "(Files attached to this message, no longer shown: old.txt.)" }]);
+  assert.deepEqual(messages.find(message => Array.isArray(message.content) && message.content[0].text === "Recent file").content,
+    [{ type: "text", text: "Recent file" }, { type: "text", text: "Bytes of recent" }]);
+});
+
+test("provider errors before anything was done are status information after the engine's retries, never assistant replies", async t => {
+  const f = await fixture(t, { fetch: () => new Response('{"error":{"message":"Capacity unavailable"}}',
+    { status: 429, headers: { "content-type": "application/json", "retry-after-ms": "0" } }) });
   const receipt = await f.conversation.send(input);
   assert.equal(receipt.status, "accepted");
   const result = await f.conversation.wait();
@@ -202,7 +258,7 @@ test("provider errors are status information, never assistant replies or automat
   assert.equal(result.conversationLog[0].metadata.runtime.status, "failed");
   assert.match(result.error, /Capacity unavailable/);
   assert.equal((await f.conversation.send(input)).duplicate, true);
-  assert.equal(f.requests.length, 1);
+  assert.equal(f.requests.length, 7, "The engine tries a failed call again six times, then the turn fails");
 });
 
 test("cancellation aborts inference and leaves another conversation usable", async t => {
