@@ -38,7 +38,7 @@ export {
   isJsonApiMetaResult,
   jsonApiResultValue,
   simplifyJsonApiResult,
-  unwrapJsonApiResult
+  jsonApiResultOrNull
 } from "./validators/jsonApiResult.js";
 export {
   JSON_API_QUERY_PAGE_CURSOR_KEY,

@@ -1,4 +1,4 @@
-import { isRecord, normalizeArray } from "@jskit-ai/kernel/shared/support/normalize";
+import { isRecord, normalizeArray, normalizeLowerText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveValidationIssueCode } from "@jskit-ai/kernel/shared/validators";
 import {
   JSON_API_CONTENT_TYPE,
@@ -11,7 +11,7 @@ import {
   isJsonApiDataResult,
   isJsonApiDocumentResult,
   isJsonApiMetaResult,
-  unwrapJsonApiResult
+  jsonApiResultOrNull
 } from "./jsonApiResult.js";
 import {
   createJsonApiResourceQueryTransportSchema,
@@ -25,7 +25,15 @@ import {
   withJsonApiErrorResponses
 } from "./jsonApiResourceSchemas.js";
 
-function createJsonApiTransportError(statusCode, message, code, params = {}) {
+/**
+ * An error the kernel's error handler answers with statusCode; params are the
+ * values the code's sentence needs, as for AppError.
+ * @param {number} statusCode
+ * @param {string} message
+ * @param {string} code
+ * @param {Record<string, unknown>} [params]
+ */
+function buildJsonApiTransportError(statusCode, message, code, params = {}) {
   const error = new Error(String(message || "JSON:API transport error."));
   error.status = Number(statusCode) || 500;
   error.statusCode = error.status;
@@ -40,19 +48,15 @@ function defaultRecordTypeResolver(type) {
   };
 }
 
-function defaultRecordIdResolver(record = {}) {
-  if (!isRecord(record) || record.id == null || String(record.id).trim() === "") {
-    throw createJsonApiTransportError(500, "JSON:API resource response requires record.id.", "jsonapi_record_id_missing");
+function defaultRecordIdResolver(record) {
+  if (record.id == null || String(record.id).trim() === "") {
+    throw buildJsonApiTransportError(500, "JSON:API resource response requires record.id.", "jsonapi_record_id_missing");
   }
 
   return record.id;
 }
 
-function defaultRecordAttributesResolver(record = {}) {
-  if (!isRecord(record)) {
-    return {};
-  }
-
+function defaultRecordAttributesResolver(record) {
   const attributes = {
     ...record
   };
@@ -87,9 +91,9 @@ function resolveNothing() {
 }
 
 function assertJsonApiSuccessResult(payload) {
-  const result = unwrapJsonApiResult(payload);
+  const result = jsonApiResultOrNull(payload);
   if (!result) {
-    throw createJsonApiTransportError(
+    throw buildJsonApiTransportError(
       500,
       "JSON:API route success payload must be returned with an explicit JSON:API result wrapper.",
       "jsonapi_success_result_missing"
@@ -147,15 +151,59 @@ function createJsonApiResourceRouteTransport({
   getDocumentMeta,
   getCollectionItems
 }) {
-  const resolvedTypes = resolveRouteTypes({
-    type,
-    requestType,
-    responseType
+  return buildRouteTransport({
+    types: resolveRouteTypes({ type, requestType, responseType }),
+    successKind: normalizeLowerText(successKind),
+    query,
+    allowBodyId,
+    pointerPrefix,
+    hooks: {
+      mapRequestRelationships,
+      getRecordType,
+      getRecordId,
+      getRecordAttributes,
+      getRecordRelationships,
+      getRecordLinks,
+      getRecordMeta,
+      getIncluded,
+      getDocumentLinks,
+      getDocumentMeta,
+      getCollectionItems
+    }
   });
-  const normalizedRequestType = resolvedTypes.requestType;
-  const normalizedResponseType = resolvedTypes.responseType;
-  const normalizedSuccessKind = String(successKind || "record").trim().toLowerCase();
+}
 
+/**
+ * The transport of createJsonApiResourceRouteTransport, for types and a kind
+ * already resolved.
+ * @param {object} options
+ * @param {{ requestType: string, responseType: string }} options.types
+ * @param {string} options.successKind
+ * @param {object | undefined} options.query
+ * @param {boolean} options.allowBodyId
+ * @param {string} options.pointerPrefix
+ * @param {Record<string, JsonApiRouteHook>} options.hooks
+ */
+function buildRouteTransport({
+  types: { requestType: normalizedRequestType, responseType: normalizedResponseType },
+  successKind: normalizedSuccessKind,
+  query,
+  allowBodyId,
+  pointerPrefix,
+  hooks: {
+    mapRequestRelationships,
+    getRecordType,
+    getRecordId,
+    getRecordAttributes,
+    getRecordRelationships,
+    getRecordLinks,
+    getRecordMeta,
+    getIncluded,
+    getDocumentLinks,
+    getDocumentMeta,
+    getCollectionItems
+  }
+}) {
   const resolveRecordType = getRecordType || defaultRecordTypeResolver(normalizedResponseType);
   const resolveRecordId = getRecordId || defaultRecordIdResolver;
   const resolveRecordAttributes = getRecordAttributes || defaultRecordAttributesResolver;
@@ -171,7 +219,7 @@ function createJsonApiResourceRouteTransport({
 
   function buildResourceObject(record, context) {
     if (!isRecord(record)) {
-      throw createJsonApiTransportError(500, "JSON:API resource response requires an object record.", "jsonapi_record_invalid");
+      throw buildJsonApiTransportError(500, "JSON:API resource response requires an object record.", "jsonapi_record_invalid");
     }
 
     const resourceOptions = {
@@ -231,7 +279,7 @@ function createJsonApiResourceRouteTransport({
     if (isJsonApiDocumentResult(result)) {
       const document = normalizeJsonApiDocument(result.value);
       if (document.kind === "unknown") {
-        throw createJsonApiTransportError(
+        throw buildJsonApiTransportError(
           500,
           "JSON:API document result must contain a valid JSON:API document.",
           "jsonapi_document_result_invalid"
@@ -239,7 +287,7 @@ function createJsonApiResourceRouteTransport({
       }
 
       if (normalizedSuccessKind === "collection" && document.kind !== "collection") {
-        throw createJsonApiTransportError(
+        throw buildJsonApiTransportError(
           500,
           "JSON:API collection route requires a collection document result.",
           "jsonapi_document_result_kind_mismatch"
@@ -250,7 +298,7 @@ function createJsonApiResourceRouteTransport({
         (normalizedSuccessKind === "record" || normalizedSuccessKind === "nullable-record") &&
         document.kind !== "resource"
       ) {
-        throw createJsonApiTransportError(
+        throw buildJsonApiTransportError(
           500,
           "JSON:API record route requires a resource document result.",
           "jsonapi_document_result_kind_mismatch"
@@ -258,7 +306,7 @@ function createJsonApiResourceRouteTransport({
       }
 
       if (normalizedSuccessKind === "meta" && document.kind !== "meta") {
-        throw createJsonApiTransportError(
+        throw buildJsonApiTransportError(
           500,
           "JSON:API meta route requires a meta-only document result.",
           "jsonapi_document_result_kind_mismatch"
@@ -275,7 +323,7 @@ function createJsonApiResourceRouteTransport({
         });
       }
 
-      throw createJsonApiTransportError(
+      throw buildJsonApiTransportError(
         500,
         "JSON:API meta route requires a meta result.",
         "jsonapi_meta_result_missing"
@@ -283,7 +331,7 @@ function createJsonApiResourceRouteTransport({
     }
 
     if (!isJsonApiDataResult(result)) {
-      throw createJsonApiTransportError(
+      throw buildJsonApiTransportError(
         500,
         "JSON:API resource route requires a data or document result.",
         "jsonapi_success_result_kind_invalid"
@@ -311,7 +359,7 @@ function createJsonApiResourceRouteTransport({
         });
       }
 
-      throw createJsonApiTransportError(500, "JSON:API resource response requires a record payload.", "jsonapi_record_missing");
+      throw buildJsonApiTransportError(500, "JSON:API resource response requires a record payload.", "jsonapi_record_missing");
     }
 
     const documentOptions = buildDocumentOptions(
@@ -367,19 +415,19 @@ function createJsonApiResourceRouteTransport({
   return Object.freeze({
     kind: "jsonapi-resource",
     contentType: JSON_API_CONTENT_TYPE,
-    request: {
+    request: Object.freeze({
       body(payload) {
         if (!normalizedRequestType) {
-          throw createJsonApiTransportError(500, "JSON:API request transport requires requestType for body parsing.", "jsonapi_request_type_missing");
+          throw buildJsonApiTransportError(500, "JSON:API request transport requires requestType for body parsing.", "jsonapi_request_type_missing");
         }
 
         const document = normalizeJsonApiDocument(payload);
         if (document.kind !== "resource" || document.data == null) {
-          throw createJsonApiTransportError(400, "JSON:API request body must contain a resource document.", "jsonapi_request_body_invalid");
+          throw buildJsonApiTransportError(400, "JSON:API request body must contain a resource document.", "jsonapi_request_body_invalid");
         }
 
         if (String(document.data.type || "").trim() !== normalizedRequestType) {
-          throw createJsonApiTransportError(409, `JSON:API resource type must be ${normalizedRequestType}.`, "jsonapi_request_type_mismatch", {
+          throw buildJsonApiTransportError(409, `JSON:API resource type must be ${normalizedRequestType}.`, "jsonapi_request_type_mismatch", {
             type: normalizedRequestType
           });
         }
@@ -408,7 +456,7 @@ function createJsonApiResourceRouteTransport({
           responseType: normalizedResponseType
         });
       }
-    },
+    }),
     response,
     error: errorDocument
   });
@@ -486,31 +534,32 @@ function createJsonApiResourceRouteContract({
   });
   const normalizedRequestType = resolvedTypes.requestType;
   const normalizedResponseType = resolvedTypes.responseType;
-  const normalizedOutputKind = String(outputKind || "record").trim().toLowerCase();
+  const normalizedOutputKind = normalizeLowerText(outputKind);
   const statusCode = Number(successStatus);
 
   if (!Number.isInteger(statusCode) || statusCode < 200 || statusCode > 299) {
     throw new TypeError("JSON:API resource route contract requires a 2xx successStatus.");
   }
 
-  const transport = createJsonApiResourceRouteTransport({
-    requestType: normalizedRequestType,
-    responseType: normalizedResponseType,
+  const transport = buildRouteTransport({
+    types: resolvedTypes,
+    successKind: normalizedOutputKind,
     query,
     allowBodyId,
-    successKind: normalizedOutputKind,
     pointerPrefix,
-    getRecordType,
-    getRecordId,
-    getRecordAttributes,
-    getRecordRelationships,
-    getRecordLinks,
-    getRecordMeta,
-    getIncluded,
-    getDocumentLinks,
-    getDocumentMeta,
-    getCollectionItems,
-    mapRequestRelationships
+    hooks: {
+      mapRequestRelationships,
+      getRecordType,
+      getRecordId,
+      getRecordAttributes,
+      getRecordRelationships,
+      getRecordLinks,
+      getRecordMeta,
+      getIncluded,
+      getDocumentLinks,
+      getDocumentMeta,
+      getCollectionItems
+    }
   });
   const contract = {
     transport

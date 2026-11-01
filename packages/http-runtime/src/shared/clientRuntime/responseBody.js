@@ -49,20 +49,30 @@ function emitNdjsonLine(line, handlers) {
 /** @typedef {{ onEvent: (payload: any) => void, onMalformedLine: (line: string, error: unknown) => void }} NdjsonHandlers */
 
 /**
+ * Calls handlers.onEvent with each NDJSON line of the response's whole text.
+ * @param {any} response
+ * @param {NdjsonHandlers} handlers
+ */
+async function readNdjsonText(response, handlers) {
+  // readable-check: allow method-probe - platform object: another fetch implementation's Response may lack text()
+  if (typeof response.text !== "function") {
+    return;
+  }
+  const rawText = await response.text().catch(() => "");
+  for (const line of String(rawText || "").split(/\r?\n/g)) {
+    emitNdjsonLine(line, handlers);
+  }
+}
+
+/**
  * Calls handlers.onEvent with each NDJSON line of the response body, as it arrives.
  * @param {any} response
  * @param {NdjsonHandlers} handlers
  */
 async function readNdjsonStream(response, handlers) {
   // readable-check: allow method-probe - platform object: another fetch implementation's Response may lack a readable body
-  if (!response?.body || typeof response.body.getReader !== "function") {
-    // readable-check: allow method-probe - platform object: another fetch implementation's Response may lack text()
-    if (typeof response?.text === "function") {
-      const rawText = await response.text().catch(() => "");
-      for (const line of String(rawText || "").split(/\r?\n/g)) {
-        emitNdjsonLine(line, handlers);
-      }
-    }
+  if (!response.body || typeof response.body.getReader !== "function") {
+    await readNdjsonText(response, handlers);
     return;
   }
 
@@ -93,4 +103,4 @@ async function readNdjsonStream(response, handlers) {
   }
 }
 
-export { emitNdjsonLine, parseJsonSafely, readNdjsonStream };
+export { emitNdjsonLine, parseJsonSafely, readNdjsonStream, readNdjsonText };

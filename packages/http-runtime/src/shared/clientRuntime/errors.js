@@ -1,6 +1,6 @@
-import { normalizeTransactionOutcome } from "@jskit-ai/kernel/shared/support/normalize";
-import { isRecord, resolveFieldErrors } from "../support/fieldErrors.js";
-import { createJsonApiClientErrorPayload } from "./jsonApiResourceTransport.js";
+import { isRecord, normalizeTransactionOutcome } from "@jskit-ai/kernel/shared/support/normalize";
+import { resolveFieldErrors } from "../support/fieldErrors.js";
+import { buildJsonApiClientErrorPayload } from "./jsonApiResourceTransport.js";
 
 function standardErrorMessage(payload = {}) {
   const nestedMessage = Array.isArray(payload.errors)
@@ -28,9 +28,11 @@ function resolveErrorStatus(error) {
   return Number.isInteger(status) ? status : null;
 }
 
-// True when the error carries only the transport's own wording (a network
-// failure or the status-only message createHttpError falls back to), so a
-// caller's specific fallback copy is more useful than the message.
+/**
+ * True when the error carries only the transport's own wording (a network
+ * failure or the status-only message createHttpError falls back to), so a
+ * caller's specific fallback copy is more useful than the message.
+ */
 function isGenericHttpErrorMessage(error) {
   const normalizedMessage = String(error?.message || "").trim();
   if (!normalizedMessage) {
@@ -48,14 +50,14 @@ function isGenericHttpErrorMessage(error) {
 function createHttpError(response, data = {}) {
   const payload = isRecord(data) ? data : {};
   const message = standardErrorMessage(payload);
-  const jsonApiPayload = message ? null : createJsonApiClientErrorPayload(payload);
+  const jsonApiPayload = message ? null : buildJsonApiClientErrorPayload(payload);
   if (jsonApiPayload) {
     return createHttpError(response, jsonApiPayload);
   }
 
   const error = new Error(message || genericHttpErrorMessage(response.status));
   const normalizedFieldErrors = resolveFieldErrors(payload);
-  error.status = Number(response?.status || 0);
+  error.status = Number(response.status || 0);
   error.code = String(payload.code || "").trim() || null;
   error.params = isRecord(payload.params) ? payload.params : {};
   if (payload.messageCode) {

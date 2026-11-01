@@ -21,6 +21,24 @@ function isJsonApiResourceTransport(transport = null) {
   return normalizeTransportKind(transport) === "jsonapi-resource";
 }
 
+/**
+ * @typedef {Readonly<{
+ *   kind: "jsonapi-resource",
+ *   requestType: string,
+ *   responseType: string,
+ *   responseKind: string,
+ *   includeBodyId: boolean,
+ *   lookupContainerKey: string,
+ *   lookupFieldMap: Readonly<Record<string, string>>
+ * }>} JsonApiClientTransport
+ */
+
+/**
+ * A request's JSON:API resource transport resolved once, or null when the
+ * transport is not one.
+ * @param {object | null} [transport]
+ * @returns {JsonApiClientTransport | null}
+ */
 function normalizeJsonApiClientTransport(transport = null) {
   if (!isJsonApiResourceTransport(transport)) {
     return null;
@@ -64,12 +82,12 @@ function defaultEncodeAttributes(body = {}) {
   return attributes;
 }
 
-function encodeJsonApiResourceRequestBody(body, transport = null) {
-  const normalizedTransport = normalizeJsonApiClientTransport(transport);
-  if (!normalizedTransport) {
-    return body;
-  }
-
+/**
+ * A request body as the JSON:API document of a client transport's request type.
+ * @param {Record<string, unknown>} body
+ * @param {JsonApiClientTransport} normalizedTransport From normalizeJsonApiClientTransport.
+ */
+function encodeJsonApiResourceRequestBody(body, normalizedTransport) {
   if (!isRecord(body)) {
     throw new TypeError("JSON:API resource request body must be an object.");
   }
@@ -88,12 +106,12 @@ function encodeJsonApiResourceRequestBody(body, transport = null) {
   });
 }
 
-function encodeJsonApiResourceQuery(query, transport = null) {
-  const normalizedTransport = normalizeJsonApiClientTransport(transport);
-  if (!normalizedTransport) {
-    return query;
-  }
-
+/**
+ * A request query in JSON:API wire keys for a client transport's response type.
+ * @param {unknown} query
+ * @param {JsonApiClientTransport} normalizedTransport From normalizeJsonApiClientTransport.
+ */
+function encodeJsonApiResourceQuery(query, normalizedTransport) {
   return encodeJsonApiResourceQueryObject(query, {
     responseType: normalizedTransport.responseType
   });
@@ -115,7 +133,7 @@ function createIncludedResourceIndex(document) {
   return index;
 }
 
-function simplifyRelationshipResource(linkage = {}, options = {}) {
+function simplifyRelationshipResource(linkage, options) {
   const normalizedLinkage = isRecord(linkage) ? normalizeObject(linkage) : {};
   const type = normalizeText(normalizedLinkage.type);
   const id = normalizeText(normalizedLinkage.id);
@@ -124,7 +142,7 @@ function simplifyRelationshipResource(linkage = {}, options = {}) {
   }
 
   const resourceKey = `${type}:${id}`;
-  const includedResource = options.includedResourceIndex?.get(resourceKey);
+  const includedResource = options.includedResourceIndex.get(resourceKey);
   if (!includedResource) {
     return null;
   }
@@ -132,22 +150,22 @@ function simplifyRelationshipResource(linkage = {}, options = {}) {
   return simplifyResourceObject(includedResource, options);
 }
 
-function simplifyResourceObject(resource = {}, options = {}) {
+function simplifyResourceObject(resource, options) {
   const normalizedResource = isRecord(resource) ? normalizeObject(resource) : {};
   const type = normalizeText(normalizedResource.type);
   const id = normalizeText(normalizedResource.id);
   const resourceKey = type && id ? `${type}:${id}` : "";
-  if (resourceKey && options.resourceCache?.has(resourceKey)) {
+  if (resourceKey && options.resourceCache.has(resourceKey)) {
     return options.resourceCache.get(resourceKey);
   }
 
   const lookupFieldMap = options.lookupFieldMap || null;
   const simplified = simplifyJsonApiResourceWithRelationshipIds(normalizedResource, { lookupFieldMap });
-  if (resourceKey && options.inFlightKeys?.has(resourceKey)) {
+  if (resourceKey && options.inFlightKeys.has(resourceKey)) {
     return simplified;
   }
   if (resourceKey) {
-    options.inFlightKeys?.add(resourceKey);
+    options.inFlightKeys.add(resourceKey);
   }
 
   const lookupContainerKey = normalizeText(options.lookupContainerKey, {
@@ -195,8 +213,8 @@ function simplifyResourceObject(resource = {}, options = {}) {
     simplified[lookupContainerKey] = lookups;
   }
   if (resourceKey) {
-    options.inFlightKeys?.delete(resourceKey);
-    options.resourceCache?.set(resourceKey, simplified);
+    options.inFlightKeys.delete(resourceKey);
+    options.resourceCache.set(resourceKey, simplified);
   }
 
   return simplified;
@@ -225,12 +243,24 @@ function resolveCollectionPageMeta(document = {}) {
   };
 }
 
+/**
+ * A response payload decoded by a JSON:API resource transport (kind "jsonapi-resource"),
+ * or the payload as it is for any other transport.
+ * @param {unknown} payload
+ * @param {object | null} [transport]
+ */
 function decodeJsonApiResourceResponse(payload, transport = null) {
   const normalizedTransport = normalizeJsonApiClientTransport(transport);
-  if (!normalizedTransport) {
-    return payload;
-  }
+  return normalizedTransport ? decodeJsonApiResourceDocument(payload, normalizedTransport) : payload;
+}
 
+/**
+ * A JSON:API response document as the plain record, collection or meta its client
+ * transport's responseKind names.
+ * @param {unknown} payload
+ * @param {JsonApiClientTransport} normalizedTransport From normalizeJsonApiClientTransport.
+ */
+function decodeJsonApiResourceDocument(payload, normalizedTransport) {
   const document = normalizeJsonApiDocument(payload);
   if (document.kind === "unknown") {
     throw new Error("Expected JSON:API response document.");
@@ -280,7 +310,7 @@ function decodeJsonApiResourceResponse(payload, transport = null) {
   return document.data == null ? null : simplifyResourceObject(document.data, simplifyOptions);
 }
 
-// Each field's English detail and, from the entry's meta, the code that renders it.
+/** Each field's English detail and, from the entry's meta, the code that renders it. */
 function decodeJsonApiErrorFields(payload = {}) {
   const document = normalizeJsonApiDocument(payload);
   const fieldErrors = {};
@@ -310,14 +340,12 @@ function decodeJsonApiErrorFields(payload = {}) {
   return { fieldErrors, fieldErrorCodes };
 }
 
-function decodeJsonApiErrorFieldErrors(payload = {}) {
-  return decodeJsonApiErrorFields(payload).fieldErrors;
-}
-
-// The plain-JSON error payload a JSON:API errors document stands for: the first
-// entry's code and params, every field's English and code, and a messageCode for
-// the sentence shown (the first entry's detail, else its title).
-function createJsonApiClientErrorPayload(payload = {}) {
+/**
+ * The plain-JSON error payload a JSON:API errors document stands for: the first
+ * entry's code and params, every field's English and code, and a messageCode for
+ * the sentence shown (the first entry's detail, else its title).
+ */
+function buildJsonApiClientErrorPayload(payload = {}) {
   const document = normalizeJsonApiDocument(payload);
   if (document.kind !== "errors") {
     return null;
@@ -362,6 +390,6 @@ export {
   encodeJsonApiResourceRequestBody,
   encodeJsonApiResourceQuery,
   decodeJsonApiResourceResponse,
-  decodeJsonApiErrorFieldErrors,
-  createJsonApiClientErrorPayload
+  decodeJsonApiResourceDocument,
+  buildJsonApiClientErrorPayload
 };

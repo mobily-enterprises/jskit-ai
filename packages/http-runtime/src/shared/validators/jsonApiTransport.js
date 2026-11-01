@@ -388,9 +388,11 @@ function normalizeCodedEntry(entry) {
     : null;
 }
 
-// Each entry's meta carries what a client needs to show it in the user's language:
-// params and messageCode for the code and title, fieldErrorCode for the detail.
-function createJsonApiErrorMeta({ transactionOutcome, params, messageCode, messageParams, fieldErrorCode }) {
+/**
+ * Each entry's meta carries what a client needs to show it in the user's language:
+ * params and messageCode for the code and title, fieldErrorCode for the detail.
+ */
+function buildJsonApiErrorMeta({ transactionOutcome, params, messageCode, messageParams, fieldErrorCode }) {
   const meta = {};
   if (transactionOutcome) {
     meta.transactionOutcome = transactionOutcome;
@@ -443,7 +445,7 @@ function createJsonApiErrorDocumentFromFailure({
         const detail = String(issue?.message || "").trim();
         return createJsonApiErrorObject({
           status: normalizedStatus,
-          meta: createJsonApiErrorMeta({
+          meta: buildJsonApiErrorMeta({
             ...errorMeta,
             fieldErrorCode: detail ? normalizeCodedEntry(issueCodes[index]) : INVALID_VALUE_CODE
           }),
@@ -463,7 +465,7 @@ function createJsonApiErrorDocumentFromFailure({
         const detail = String(fieldDetail || "").trim();
         return createJsonApiErrorObject({
           status: normalizedStatus,
-          meta: createJsonApiErrorMeta({
+          meta: buildJsonApiErrorMeta({
             ...errorMeta,
             fieldErrorCode: detail ? normalizeCodedEntry(normalizedFieldErrorCodes[field]) : INVALID_VALUE_CODE
           }),
@@ -482,7 +484,7 @@ function createJsonApiErrorDocumentFromFailure({
     errors: [
       createJsonApiErrorObject({
         status: normalizedStatus,
-        meta: createJsonApiErrorMeta(errorMeta),
+        meta: buildJsonApiErrorMeta(errorMeta),
         code: normalizedCode,
         title: normalizedMessage
       })

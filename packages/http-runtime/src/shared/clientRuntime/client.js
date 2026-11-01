@@ -1,11 +1,11 @@
 import { createHttpError, createNetworkError } from "./errors.js";
 import { hasHeader, setHeaderIfMissing } from "./headers.js";
-import { DEFAULT_RETRYABLE_CSRF_ERROR_CODES, shouldRetryForCsrfFailure } from "./retry.js";
-import { appendQueryString } from "@jskit-ai/kernel/shared/support";
-import { emitNdjsonLine, parseJsonSafely, readNdjsonStream } from "./responseBody.js";
+import { shouldRetryForCsrfFailure } from "./retry.js";
+import { appendQueryString, isRecord } from "@jskit-ai/kernel/shared/support";
+import { parseJsonSafely, readNdjsonStream, readNdjsonText } from "./responseBody.js";
 import {
   JSON_API_CONTENT_TYPE,
-  decodeJsonApiResourceResponse,
+  decodeJsonApiResourceDocument,
   encodeJsonApiResourceRequestBody,
   encodeJsonApiResourceQuery,
   normalizeJsonApiClientTransport
@@ -29,9 +29,8 @@ function normalizeMethod(method) {
     .toUpperCase();
 }
 
-function resolveUnsafeMethods(value) {
-  const source = Array.isArray(value) ? value : DEFAULT_UNSAFE_METHODS;
-  return new Set(source.map((method) => normalizeMethod(method)).filter(Boolean));
+function resolveUnsafeMethods(methods) {
+  return new Set(methods.map((method) => normalizeMethod(method)).filter(Boolean));
 }
 
 function fetchWithGlobalFetch(url, config) {
@@ -88,14 +87,9 @@ function appendRequestQueryToUrl(url, query = null, transport = null) {
     return "";
   }
 
-  const encodedQuery =
-    transport
-      ? encodeJsonApiResourceQuery(query, transport)
-      : query && typeof query === "object" && !Array.isArray(query)
-        ? query
-        : null;
+  const encodedQuery = transport ? encodeJsonApiResourceQuery(query, transport) : query;
 
-  if (!encodedQuery || typeof encodedQuery !== "object" || Array.isArray(encodedQuery)) {
+  if (!isRecord(encodedQuery)) {
     return normalizedUrl;
   }
 
@@ -147,12 +141,21 @@ function appendRequestQueryToUrl(url, query = null, transport = null) {
  * @param {RequestCredentials} [options.credentials]
  * @param {number} [options.readTimeoutMs]
  */
-function createHttpClient(options = {}) {
-  const {
-    fetchImpl = fetchWithGlobalFetch,
-    resolveRequestUrl: resolveConfiguredRequestUrl = keepRequestUrl,
-    hooks = {}
-  } = options;
+function createHttpClient({
+  fetchImpl = fetchWithGlobalFetch,
+  resolveRequestUrl: resolveConfiguredRequestUrl = keepRequestUrl,
+  hooks = {},
+  unsafeMethods: configuredUnsafeMethods = DEFAULT_UNSAFE_METHODS,
+  csrf: {
+    enabled: csrfEnabledByDefault = true,
+    sessionPath: csrfSessionPath = "/api/session",
+    headerName: csrfHeaderName = "csrf-token",
+    tokenField: csrfTokenField = "csrfToken",
+    retryableErrorCodes: csrfRetryableErrorCodes
+  } = {},
+  credentials = "same-origin",
+  readTimeoutMs = DEFAULT_READ_TIMEOUT_MS
+} = {}) {
   const {
     decorateHeaders: decorateConfiguredHeaders = keepHeaders,
     onFailure = ignoreRequestOutcome,
@@ -162,17 +165,14 @@ function createHttpClient(options = {}) {
     shouldRetryRequest = useCsrfRetryRule,
     shouldTreatAsNdjsonStream = useContentTypeForStream
   } = hooks;
-  const unsafeMethods = resolveUnsafeMethods(options.unsafeMethods);
-
-  const csrf = {
-    enabled: options.csrf?.enabled !== false,
-    sessionPath: String(options.csrf?.sessionPath || "/api/session"),
-    headerName: String(options.csrf?.headerName || "csrf-token"),
-    tokenField: String(options.csrf?.tokenField || "csrfToken"),
-    retryableErrorCodes: Array.isArray(options.csrf?.retryableErrorCodes)
-      ? options.csrf.retryableErrorCodes
-      : DEFAULT_RETRYABLE_CSRF_ERROR_CODES
-  };
+  const unsafeMethods = resolveUnsafeMethods(configuredUnsafeMethods);
+  const csrf = Object.freeze({
+    enabled: csrfEnabledByDefault,
+    sessionPath: csrfSessionPath,
+    headerName: csrfHeaderName,
+    tokenField: csrfTokenField,
+    retryableErrorCodes: csrfRetryableErrorCodes
+  });
 
   let csrfTokenCache = "";
   let csrfFetchPromise = null;
@@ -185,7 +185,7 @@ function createHttpClient(options = {}) {
   }
 
   async function fetchSessionForCsrf() {
-    const signal = requestSignalWithDeadline(null, options.readTimeoutMs ?? DEFAULT_READ_TIMEOUT_MS);
+    const signal = requestSignalWithDeadline(null, readTimeoutMs);
     const requestUrl = await resolveRequestUrl(csrf.sessionPath, {
       originalUrl: csrf.sessionPath,
       method: "GET",
@@ -200,7 +200,7 @@ function createHttpClient(options = {}) {
     try {
       response = await fetchImpl(requestUrl, {
         method: "GET",
-        credentials: String(options.credentials || "same-origin"),
+        credentials,
         signal
       });
     } catch (cause) {
@@ -247,7 +247,7 @@ function createHttpClient(options = {}) {
     return normalizeResolvedRequestUrl(resolved, normalizedUrl);
   }
 
-  async function maybeRetry({ response, method, state, data, stream, csrfEnabled = csrf.enabled }) {
+  async function maybeRetry({ response, method, state, data, stream, csrfEnabled }) {
     if (!csrfEnabled) {
       return false;
     }
@@ -308,7 +308,7 @@ function createHttpClient(options = {}) {
       csrf: requestCsrf,
       timeoutMs: requestTimeoutMs,
       ...forwardedRequestOptions
-    } = requestOptions && typeof requestOptions === "object" ? requestOptions : {};
+    } = requestOptions;
     const csrfEnabled = csrf.enabled && requestCsrf !== false;
     const requestUrl = appendRequestQueryToUrl(url, requestQuery, transport);
     const resolvedRequestUrl = await resolveRequestUrl(requestUrl, {
@@ -332,15 +332,13 @@ function createHttpClient(options = {}) {
     });
 
     const config = {
-      credentials: String(options.credentials || "same-origin"),
+      credentials,
       ...forwardedRequestOptions,
       method,
       headers
     };
     const ordinaryRead = !stream && ["GET", "HEAD"].includes(method);
-    const timeoutMs = requestTimeoutMs ?? (ordinaryRead
-      ? options.readTimeoutMs ?? DEFAULT_READ_TIMEOUT_MS
-      : undefined);
+    const timeoutMs = requestTimeoutMs ?? (ordinaryRead ? readTimeoutMs : undefined);
     if (timeoutMs !== undefined) {
       config.signal = requestSignalWithDeadline(config.signal, timeoutMs);
     }
@@ -539,7 +537,7 @@ function createHttpClient(options = {}) {
       transport
     } = execution.value;
 
-    if (Number(result.response?.status || 200) === 204) {
+    if (Number(result.response.status) === 204) {
       await onSuccess({
         url,
         method,
@@ -557,7 +555,7 @@ function createHttpClient(options = {}) {
     let responseData = result.data;
     if (transport) {
       try {
-        responseData = decodeJsonApiResourceResponse(result.data, transport);
+        responseData = decodeJsonApiResourceDocument(result.data, transport);
       } catch (cause) {
         const error = createNetworkError(cause);
         error.message = "JSON:API response decoding failed.";
@@ -650,12 +648,8 @@ function createHttpClient(options = {}) {
         await readNdjsonStream(result.response, lineHandlers);
       } else if (Object.keys(result.data).length > 0) {
         lineHandlers.onEvent(result.data);
-        // readable-check: allow method-probe - platform object: another fetch implementation's Response may lack text()
-      } else if (typeof result.response?.text === "function") {
-        const rawText = await result.response.text().catch(() => "");
-        for (const line of String(rawText || "").split(/\r?\n/g)) {
-          emitNdjsonLine(line, lineHandlers);
-        }
+      } else {
+        await readNdjsonText(result.response, lineHandlers);
       }
     } catch (error) {
       await onFailure({

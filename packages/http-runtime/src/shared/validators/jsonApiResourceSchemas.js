@@ -1,4 +1,4 @@
-import { isRecord, normalizeArray, normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { isRecord, normalizeArray, normalizeLowerText, normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveSchemaTransportSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
 import { resolveJsonApiTransportTypes } from "./jsonApiTransport.js";
 import {
@@ -114,8 +114,6 @@ const JSON_API_ERROR_DOCUMENT_SCHEMA = Object.freeze({
   }
 });
 
-// params are the values the code's sentence needs, as for AppError.
-
 function resolveRouteType(type = "") {
   const normalizedType = String(type || "").trim();
   if (!normalizedType) {
@@ -147,7 +145,7 @@ function resolveEmbeddedAttributesTransportSchema(definition, {
     defaultMode
   });
 
-  if (!transportSchema || typeof transportSchema !== "object" || Array.isArray(transportSchema)) {
+  if (!isRecord(transportSchema)) {
     throw new TypeError(`${context} transport schema must resolve to an object schema.`);
   }
 
@@ -170,11 +168,7 @@ function resolveEmbeddedAttributesTransportSchema(definition, {
     delete nextProperties[key];
   }
 
-  const schemaFieldDefinitions = (() => {
-    // readable-check: allow optional-call - data: a resource schema without field definitions has none
-    const fieldDefinitions = definition?.schema?.getFieldDefinitions?.();
-    return isRecord(fieldDefinitions) ? fieldDefinitions : {};
-  })();
+  const schemaFieldDefinitions = definition.schema.getFieldDefinitions();
 
   const required = allowSparseFields !== true && Array.isArray(sourceSchema.required)
     ? sourceSchema.required.filter((entry) => {
@@ -228,7 +222,7 @@ function normalizeRelationshipSchemaEntries(entries = []) {
   return Object.freeze(normalizedEntries);
 }
 
-function createJsonApiRelationshipDataSchema(relationshipType = "", {
+function buildJsonApiRelationshipDataSchema(relationshipType = "", {
   many = false,
   nullable = false
 } = {}) {
@@ -261,7 +255,7 @@ function createJsonApiRelationshipDataSchema(relationshipType = "", {
   };
 }
 
-function createJsonApiRelationshipsTransportSchema(entries = [], {
+function buildJsonApiRelationshipsTransportSchema(entries = [], {
   includeRequired = false
 } = {}) {
   const relationshipEntries = normalizeRelationshipSchemaEntries(entries);
@@ -278,7 +272,7 @@ function createJsonApiRelationshipsTransportSchema(entries = [], {
       additionalProperties: false,
       required: ["data"],
       properties: {
-        data: createJsonApiRelationshipDataSchema(entry.relationshipType, {
+        data: buildJsonApiRelationshipDataSchema(entry.relationshipType, {
           many: entry.many,
           nullable: entry.nullable
         })
@@ -331,8 +325,45 @@ function createJsonApiResourceObjectTransportSchema({
   relationshipMembersRequired = false,
   allowSparseFields = false
 }) {
-  const normalizedType = resolveRouteType(type);
-  const relationshipsTransport = createJsonApiRelationshipsTransportSchema(relationshipEntries, {
+  return buildResourceObjectTransportSchema({
+    normalizedType: resolveRouteType(type),
+    attributes,
+    requireId,
+    includeLinks,
+    includeMeta,
+    excludeAttributeKeys,
+    relationshipEntries,
+    relationshipMembersRequired,
+    allowSparseFields
+  });
+}
+
+/**
+ * The resource object schema of createJsonApiResourceObjectTransportSchema, for a type
+ * already resolved.
+ * @param {object} options
+ * @param {string} options.normalizedType
+ * @param {object} options.attributes
+ * @param {boolean} options.requireId
+ * @param {boolean} options.includeLinks
+ * @param {boolean} options.includeMeta
+ * @param {ReadonlyArray<string>} options.excludeAttributeKeys
+ * @param {ReadonlyArray<object>} options.relationshipEntries
+ * @param {boolean} options.relationshipMembersRequired
+ * @param {boolean} options.allowSparseFields
+ */
+function buildResourceObjectTransportSchema({
+  normalizedType,
+  attributes,
+  requireId,
+  includeLinks,
+  includeMeta,
+  excludeAttributeKeys,
+  relationshipEntries,
+  relationshipMembersRequired,
+  allowSparseFields
+}) {
+  const relationshipsTransport = buildJsonApiRelationshipsTransportSchema(relationshipEntries, {
     includeRequired: relationshipMembersRequired
   });
   const relationFieldKeys = relationshipsTransport
@@ -403,20 +434,24 @@ function createJsonApiResourceRequestBodyTransportSchema({
   // readable-check: allow dependency-default - data: a list of relationship entries, not a collaborator
   relationshipEntries = []
 }) {
-  const resourceTransport = createJsonApiResourceObjectTransportSchema({
-    type,
+  const normalizedType = resolveRouteType(type);
+  const resourceTransport = buildResourceObjectTransportSchema({
+    normalizedType,
     attributes,
     requireId,
+    includeLinks: false,
+    includeMeta: false,
     excludeAttributeKeys,
     relationshipEntries,
-    relationshipMembersRequired: true
+    relationshipMembersRequired: true,
+    allowSparseFields: false
   });
   const embeddedResource = createEmbeddableTransportSchemaDocument(
     {
       ...resourceTransport.schema,
       definitions: resourceTransport.definitions
     },
-    `${resolveRouteType(type)}RequestResource`
+    `${normalizedType}RequestResource`
   );
 
   return {
@@ -430,7 +465,7 @@ function createJsonApiResourceRequestBodyTransportSchema({
   };
 }
 
-function createJsonApiMetaSuccessTransportSchema({
+function buildJsonApiMetaSuccessTransportSchema({
   meta
 } = {}) {
   const embeddedMeta = resolveEmbeddedAttributesTransportSchema(meta, {
@@ -477,31 +512,35 @@ function createJsonApiResourceSuccessTransportSchema({
   // readable-check: allow dependency-default - data: a list of relationship entries, not a collaborator
   relationshipEntries = []
 }) {
-  const normalizedKind = String(kind || "record").trim().toLowerCase();
+  const normalizedKind = normalizeLowerText(kind);
   if (!["record", "nullable-record", "collection", "meta"].includes(normalizedKind)) {
     throw new TypeError(`Unsupported JSON:API success schema kind: ${normalizedKind || "<empty>"}.`);
   }
 
   if (normalizedKind === "meta") {
-    return createJsonApiMetaSuccessTransportSchema({
+    return buildJsonApiMetaSuccessTransportSchema({
       meta: attributes
     });
   }
 
-  const resourceTransport = createJsonApiResourceObjectTransportSchema({
-    type,
+  const normalizedType = resolveRouteType(type);
+  const resourceTransport = buildResourceObjectTransportSchema({
+    normalizedType,
     attributes,
     requireId: true,
-    allowSparseFields,
+    includeLinks: false,
+    includeMeta: false,
     excludeAttributeKeys,
-    relationshipEntries
+    relationshipEntries,
+    relationshipMembersRequired: false,
+    allowSparseFields
   });
   const embeddedResource = createEmbeddableTransportSchemaDocument(
     {
       ...resourceTransport.schema,
       definitions: resourceTransport.definitions
     },
-    `${resolveRouteType(type)}SuccessResource`
+    `${normalizedType}SuccessResource`
   );
 
   const documentProperties = {};

@@ -46,12 +46,12 @@ Exports
 
 ### `src/shared/clientRuntime/client.js`
 Exports
-- `createHttpClient(options = {})`
+- `createHttpClient({ fetchImpl = fetchWithGlobalFetch, resolveRequestUrl: resolveConfiguredRequestUrl = keepRequestUrl, hooks = {}, unsafeMethods: configuredUnsafeMethods = DEFAULT_UNSAFE_METHODS, csrf: { enabled: csrfEnabledByDefault = true, sessionPath: csrfSessionPath = "/api/session", headerName: csrfHeaderName = "csrf-token", tokenField: csrfTokenField = "csrfToken", retryableErrorCodes: csrfRetryableErrorCodes } = {}, credentials = "same-origin", readTimeoutMs = DEFAULT_READ_TIMEOUT_MS } = {})`
 - `type HttpClientHooks`
 Local functions
 - `requestSignalWithDeadline(signal, timeoutMs)`
 - `normalizeMethod(method)`
-- `resolveUnsafeMethods(value)`
+- `resolveUnsafeMethods(methods)`
 - `fetchWithGlobalFetch(url, config)`
 - `keepRequestUrl(url)`
 - `keepHeaders()`
@@ -86,17 +86,18 @@ Exports
 - `JSON_API_CONTENT_TYPE`
 - `isJsonApiResourceTransport(transport = null)`
 - `normalizeJsonApiClientTransport(transport = null)`
-- `encodeJsonApiResourceRequestBody(body, transport = null)`
-- `encodeJsonApiResourceQuery(query, transport = null)`
+- `encodeJsonApiResourceRequestBody(body, normalizedTransport)`
+- `encodeJsonApiResourceQuery(query, normalizedTransport)`
 - `decodeJsonApiResourceResponse(payload, transport = null)`
-- `decodeJsonApiErrorFieldErrors(payload = {})`
-- `createJsonApiClientErrorPayload(payload = {})`
+- `decodeJsonApiResourceDocument(payload, normalizedTransport)`
+- `buildJsonApiClientErrorPayload(payload = {})`
+- `type JsonApiClientTransport`
 Local functions
 - `normalizeTransportKind(transport = null)`
 - `defaultEncodeAttributes(body = {})`
 - `createIncludedResourceIndex(document)`
-- `simplifyRelationshipResource(linkage = {}, options = {})`
-- `simplifyResourceObject(resource = {}, options = {})`
+- `simplifyRelationshipResource(linkage, options)`
+- `simplifyResourceObject(resource, options)`
 - `assertPrimaryDataType(resource, expectedType = "")`
 - `resolveCollectionPageMeta(document = {})`
 - `decodeJsonApiErrorFields(payload = {})`
@@ -106,6 +107,7 @@ Exports
 - `emitNdjsonLine(line, handlers)`
 - `parseJsonSafely(response, signal)`
 - `readNdjsonStream(response, handlers)`
+- `readNdjsonText(response, handlers)`
 - `type NdjsonHandlers`
 
 ### `src/shared/clientRuntime/retry.js`
@@ -113,7 +115,7 @@ Exports
 - `DEFAULT_RETRYABLE_CSRF_ERROR_CODES`
 - `shouldRetryForCsrfFailure({ response, method, state, data, unsafeMethods, retryableErrorCodes = DEFAULT_RETRYABLE_CSRF_ERROR_CODES })`
 Local functions
-- `toUpperStringSet(values, fallback = [])`
+- `toUpperStringSet(values)`
 
 ### `src/shared/index.js`
 Exports
@@ -152,7 +154,7 @@ Exports
 - `isJsonApiMetaResult`
 - `jsonApiResultValue`
 - `simplifyJsonApiResult`
-- `unwrapJsonApiResult`
+- `jsonApiResultOrNull`
 - `JSON_API_QUERY_PAGE_CURSOR_KEY`
 - `JSON_API_QUERY_PAGE_LIMIT_KEY`
 - `JSON_API_QUERY_INCLUDE_KEY`
@@ -173,7 +175,6 @@ Exports
 
 ### `src/shared/support/fieldErrors.js`
 Exports
-- `isRecord`
 - `normalizeFieldErrors(value)`
 - `resolveFieldErrors(value = null)`
 
@@ -208,11 +209,10 @@ Exports
 - `decodeJsonApiResourceQueryObject(query = {}, { responseType = "" } = {})`
 - `createJsonApiResourceQueryTransportSchema({ query, responseType = "" } = {})`
 Local functions
-- `normalizeQueryKey(key = "")`
 - `buildFieldsTransportKey(responseType = "")`
 - `parseFieldsTransportType(key = "")`
 - `addJsonApiFieldset(fieldsets, type = "", value = [])`
-- `createJsonApiFieldsTransportValueSchema()`
+- `buildJsonApiFieldsTransportValueSchema()`
 - `normalizeTransportQueryScalar(value)`
 
 ### `src/shared/validators/jsonApiResourceSchemas.js`
@@ -227,9 +227,10 @@ Local functions
 - `resolveRouteType(type = "")`
 - `resolveEmbeddedAttributesTransportSchema(definition, { context = "JSON:API resource", defaultMode = "replace", removeId = false, removeKeys = [], allowSparseFields = false } = {})`
 - `normalizeRelationshipSchemaEntries(entries = [])`
-- `createJsonApiRelationshipDataSchema(relationshipType = "", { many = false, nullable = false } = {})`
-- `createJsonApiRelationshipsTransportSchema(entries = [], { includeRequired = false } = {})`
-- `createJsonApiMetaSuccessTransportSchema({ meta } = {})`
+- `buildJsonApiRelationshipDataSchema(relationshipType = "", { many = false, nullable = false } = {})`
+- `buildJsonApiRelationshipsTransportSchema(entries = [], { includeRequired = false } = {})`
+- `buildResourceObjectTransportSchema({ normalizedType, attributes, requireId, includeLinks, includeMeta, excludeAttributeKeys, relationshipEntries, relationshipMembersRequired, allowSparseFields })`
+- `buildJsonApiMetaSuccessTransportSchema({ meta } = {})`
 
 ### `src/shared/validators/jsonApiResult.js`
 Exports
@@ -243,7 +244,7 @@ Exports
 - `isJsonApiMetaResult(value)`
 - `jsonApiResultValue(value)`
 - `simplifyJsonApiResult(result)`
-- `unwrapJsonApiResult(value)`
+- `jsonApiResultOrNull(value)`
 Local functions
 - `normalizeJsonApiResultKind(kind = "")`
 - `createJsonApiResult(kind, value)`
@@ -255,14 +256,15 @@ Exports
 - `createJsonApiResourceRouteContract({ type = "", requestType = "", responseType = "", body, query, output, outputKind = "record", successStatus = 200, includeValidation400 = false, allowSparseFields = false, allowBodyId = false, pointerPrefix = "/data/attributes", // readable-check: allow dependency-default - data: a list of attribute keys, not a collaborator bodyAttributeExcludeKeys = [], // readable-check: allow dependency-default - data: a list of attribute keys, not a collaborator outputAttributeExcludeKeys = [], // readable-check: allow dependency-default - data: a list of relationship entries, not a collaborator bodyRelationshipEntries = [], // readable-check: allow dependency-default - data: a list of relationship entries, not a collaborator outputRelationshipEntries = [], getRecordType, getRecordId, getRecordAttributes, getRecordRelationships, getRecordLinks, getRecordMeta, getIncluded, getDocumentLinks, getDocumentMeta, getCollectionItems, mapRequestRelationships })`
 - `type JsonApiRouteHook`
 Local functions
-- `createJsonApiTransportError(statusCode, message, code, params = {})`
+- `buildJsonApiTransportError(statusCode, message, code, params = {})`
 - `defaultRecordTypeResolver(type)`
-- `defaultRecordIdResolver(record = {})`
-- `defaultRecordAttributesResolver(record = {})`
+- `defaultRecordIdResolver(record)`
+- `defaultRecordAttributesResolver(record)`
 - `defaultCollectionItemsResolver(payload)`
 - `defaultCollectionMetaResolver(payload)`
 - `resolveNothing()`
 - `assertJsonApiSuccessResult(payload)`
+- `buildRouteTransport({ types: { requestType: normalizedRequestType, responseType: normalizedResponseType }, successKind: normalizedSuccessKind, query, allowBodyId, pointerPrefix, hooks: { mapRequestRelationships, getRecordType, getRecordId, getRecordAttributes, getRecordRelationships, getRecordLinks, getRecordMeta, getIncluded, getDocumentLinks, getDocumentMeta, getCollectionItems } })`
 
 ### `src/shared/validators/jsonApiTransport.js`
 Exports
@@ -290,7 +292,7 @@ Local functions
 - `escapeJsonPointerSegment(value = "")`
 - `resolveValidationFieldName(issue)`
 - `resolveJsonApiValidationSource(issue = {}, validationContext = "")`
-- `createJsonApiErrorMeta({ transactionOutcome, params, messageCode, messageParams, fieldErrorCode })`
+- `buildJsonApiErrorMeta({ transactionOutcome, params, messageCode, messageParams, fieldErrorCode })`
 - `simplifyJsonApiResourceObject(resource = {})`
 
 ### `src/shared/validators/operationValidation.js`
@@ -299,10 +301,6 @@ Exports
 Local functions
 - `resolveOperationSection(operation = {}, section = "body")`
 - `isFieldValidationError(error)`
-
-### `src/shared/validators/schemaUtils.js`
-Exports
-- `asSchemaDefinition(value, label, defaultMode, { required = true } = {})`
 
 ### `src/shared/validators/transportSchemaEmbedding.js`
 Exports

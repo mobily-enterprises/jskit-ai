@@ -12,17 +12,13 @@ const JSON_API_QUERY_SORT_KEY = "sort";
 const JSON_API_FILTER_PREFIX = "filter[";
 const JSON_API_FIELDS_PREFIX = "fields[";
 
-function normalizeQueryKey(key = "") {
-  return String(key || "").trim();
-}
-
 function buildFieldsTransportKey(responseType = "") {
   const normalizedResponseType = normalizeText(responseType);
   return normalizedResponseType ? `${JSON_API_FIELDS_PREFIX}${normalizedResponseType}]` : "";
 }
 
 function parseFieldsTransportType(key = "") {
-  const normalizedKey = normalizeQueryKey(key);
+  const normalizedKey = normalizeText(key);
   if (!normalizedKey.startsWith(JSON_API_FIELDS_PREFIX) || !normalizedKey.endsWith("]")) {
     return "";
   }
@@ -46,7 +42,7 @@ function addJsonApiFieldset(fieldsets, type = "", value = []) {
   );
 }
 
-function createJsonApiFieldsTransportValueSchema() {
+function buildJsonApiFieldsTransportValueSchema() {
   return {
     anyOf: [
       {
@@ -66,7 +62,7 @@ function createJsonApiFieldsTransportValueSchema() {
 }
 
 function mapPlainQueryKeyToTransportKey(key = "", { responseType = "" } = {}) {
-  const normalizedKey = normalizeQueryKey(key);
+  const normalizedKey = normalizeText(key);
   if (!normalizedKey) {
     return "";
   }
@@ -94,7 +90,7 @@ function mapPlainQueryKeyToTransportKey(key = "", { responseType = "" } = {}) {
 }
 
 function mapTransportQueryKeyToPlainKey(key = "", { responseType = "" } = {}) {
-  const normalizedKey = normalizeQueryKey(key);
+  const normalizedKey = normalizeText(key);
   if (!normalizedKey) {
     return "";
   }
@@ -154,7 +150,7 @@ function encodeJsonApiResourceQueryObject(query = {}, { responseType = "" } = {}
   const encoded = {};
 
   for (const [rawKey, rawValue] of Object.entries(source)) {
-    if (normalizeQueryKey(rawKey) === "fields") {
+    if (normalizeText(rawKey) === "fields") {
       for (const [type, fields] of Object.entries(normalizeJsonApiFieldsets(rawValue, {
         primaryType: responseType
       }))) {
@@ -194,7 +190,7 @@ function decodeJsonApiResourceQueryObject(query = {}, { responseType = "" } = {}
   const fieldsets = new Map();
 
   for (const [rawKey, rawValue] of Object.entries(source)) {
-    if (normalizeQueryKey(rawKey) === "fields") {
+    if (normalizeText(rawKey) === "fields") {
       addJsonApiFieldset(fieldsets, responseType, rawValue);
       continue;
     }
@@ -248,9 +244,9 @@ function createJsonApiResourceQueryTransportSchema({
 
   for (const [plainKey, propertySchema] of Object.entries(sourceProperties)) {
     if (plainKey === "fields") {
-      properties.fields = createJsonApiFieldsTransportValueSchema();
+      properties.fields = buildJsonApiFieldsTransportValueSchema();
       patternProperties["^fields\\[[^\\[\\]]+\\]$"] =
-        createJsonApiFieldsTransportValueSchema();
+        buildJsonApiFieldsTransportValueSchema();
       continue;
     }
 

@@ -64,12 +64,12 @@ function isJsonApiMetaResult(value) {
   return isJsonApiResultKind(value, "meta");
 }
 
-function unwrapJsonApiResult(value) {
-  if (!isJsonApiResult(value)) {
-    return null;
-  }
-
-  return value;
+/**
+ * The JSON:API result wrapper itself (its kind and value) when the value is one, or null.
+ * @param {unknown} value
+ */
+function jsonApiResultOrNull(value) {
+  return isJsonApiResult(value) ? value : null;
 }
 
 /**
@@ -104,5 +104,5 @@ export {
   isJsonApiMetaResult,
   jsonApiResultValue,
   simplifyJsonApiResult,
-  unwrapJsonApiResult
+  jsonApiResultOrNull
 };

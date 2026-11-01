@@ -28,4 +28,4 @@ function resolveFieldErrors(value = null) {
   return {};
 }
 
-export { isRecord, normalizeFieldErrors, resolveFieldErrors };
+export { normalizeFieldErrors, resolveFieldErrors };

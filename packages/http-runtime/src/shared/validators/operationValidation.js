@@ -12,8 +12,10 @@ function isFieldValidationError(error) {
   return Boolean(error?.fieldErrors && typeof error.fieldErrors === "object");
 }
 
-// fieldErrors are the English sentences; fieldErrorCodes ({ field: { code, params } })
-// render the coded ones in the user's language.
+/**
+ * fieldErrors are the English sentences; fieldErrorCodes ({ field: { code, params } })
+ * render the coded ones in the user's language.
+ */
 function validateOperationSection({
   operation = {},
   section = "body",
