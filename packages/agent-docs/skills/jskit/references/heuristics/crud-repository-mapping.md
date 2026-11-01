@@ -61,7 +61,7 @@ remainingBatchWeight: {
 - `storage: { virtual: true }` fields must not appear in create/patch write schemas
 
 Repository pattern:
-- build the runtime with `createCrudResourceRuntime(resource, { ... })`
+- build the runtime with `createCrudResourceRuntime(resource, knex, { ... })`, passing the application's Knex instance
 - register computed projections in `virtualFields`
 - keep SQL in the repository, not in shared metadata
 - let generic CRUD runtime apply `storage.writeSerializer` during create/update writes
@@ -69,7 +69,7 @@ Repository pattern:
 Example:
 
 ```js
-const repositoryRuntime = createCrudResourceRuntime(resource, {
+const repositoryRuntime = createCrudResourceRuntime(resource, knex, {
   context: "receivals repository",
   list: LIST_CONFIG,
   virtualFields: {
