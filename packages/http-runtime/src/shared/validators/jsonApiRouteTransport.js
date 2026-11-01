@@ -459,9 +459,13 @@ function createJsonApiResourceRouteContract({
   allowSparseFields = false,
   allowBodyId = false,
   pointerPrefix = "/data/attributes",
+  // readable-check: allow dependency-default - data: a list of attribute keys, not a collaborator
   bodyAttributeExcludeKeys = [],
+  // readable-check: allow dependency-default - data: a list of attribute keys, not a collaborator
   outputAttributeExcludeKeys = [],
+  // readable-check: allow dependency-default - data: a list of relationship entries, not a collaborator
   bodyRelationshipEntries = [],
+  // readable-check: allow dependency-default - data: a list of relationship entries, not a collaborator
   outputRelationshipEntries = [],
   getRecordType,
   getRecordId,

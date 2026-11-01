@@ -171,6 +171,7 @@ function resolveEmbeddedAttributesTransportSchema(definition, {
   }
 
   const schemaFieldDefinitions = (() => {
+    // readable-check: allow optional-call - data: a resource schema without field definitions has none
     const fieldDefinitions = definition?.schema?.getFieldDefinitions?.();
     return isRecord(fieldDefinitions) ? fieldDefinitions : {};
   })();
@@ -304,17 +305,32 @@ function createJsonApiRelationshipsTransportSchema(entries = [], {
   });
 }
 
+/**
+ * The schema of one JSON:API resource object, with its attributes and relationships.
+ * @param {object} options
+ * @param {string} options.type
+ * @param {object} options.attributes The attributes schema.
+ * @param {boolean} [options.requireId]
+ * @param {boolean} [options.includeLinks]
+ * @param {boolean} [options.includeMeta]
+ * @param {string[]} [options.excludeAttributeKeys]
+ * @param {object[]} [options.relationshipEntries]
+ * @param {boolean} [options.relationshipMembersRequired]
+ * @param {boolean} [options.allowSparseFields]
+ */
 function createJsonApiResourceObjectTransportSchema({
   type = "",
   attributes,
   requireId = true,
   includeLinks = false,
   includeMeta = false,
+  // readable-check: allow dependency-default - data: a list of attribute keys, not a collaborator
   excludeAttributeKeys = [],
+  // readable-check: allow dependency-default - data: a list of relationship entries, not a collaborator
   relationshipEntries = [],
   relationshipMembersRequired = false,
   allowSparseFields = false
-} = {}) {
+}) {
   const normalizedType = resolveRouteType(type);
   const relationshipsTransport = createJsonApiRelationshipsTransportSchema(relationshipEntries, {
     includeRequired: relationshipMembersRequired
@@ -369,13 +385,24 @@ function createJsonApiResourceObjectTransportSchema({
   };
 }
 
+/**
+ * The schema of a JSON:API request body that carries one resource object.
+ * @param {object} options
+ * @param {string} options.type
+ * @param {object} options.attributes The attributes schema.
+ * @param {boolean} [options.requireId]
+ * @param {string[]} [options.excludeAttributeKeys]
+ * @param {object[]} [options.relationshipEntries]
+ */
 function createJsonApiResourceRequestBodyTransportSchema({
   type = "",
   attributes,
   requireId = false,
+  // readable-check: allow dependency-default - data: a list of attribute keys, not a collaborator
   excludeAttributeKeys = [],
+  // readable-check: allow dependency-default - data: a list of relationship entries, not a collaborator
   relationshipEntries = []
-} = {}) {
+}) {
   const resourceTransport = createJsonApiResourceObjectTransportSchema({
     type,
     attributes,
@@ -423,6 +450,20 @@ function createJsonApiMetaSuccessTransportSchema({
   };
 }
 
+/**
+ * The schema of a JSON:API success document: one record, a nullable record, a
+ * collection or meta only.
+ * @param {object} options
+ * @param {string} options.type
+ * @param {object} options.attributes The attributes schema, or the meta schema for kind meta.
+ * @param {string} [options.kind] record, nullable-record, collection or meta.
+ * @param {boolean} [options.includeLinks]
+ * @param {boolean} [options.includeMeta]
+ * @param {boolean} [options.includeIncluded]
+ * @param {boolean} [options.allowSparseFields]
+ * @param {string[]} [options.excludeAttributeKeys]
+ * @param {object[]} [options.relationshipEntries]
+ */
 function createJsonApiResourceSuccessTransportSchema({
   type = "",
   attributes,
@@ -431,9 +472,11 @@ function createJsonApiResourceSuccessTransportSchema({
   includeMeta = false,
   includeIncluded = false,
   allowSparseFields = false,
+  // readable-check: allow dependency-default - data: a list of attribute keys, not a collaborator
   excludeAttributeKeys = [],
+  // readable-check: allow dependency-default - data: a list of relationship entries, not a collaborator
   relationshipEntries = []
-} = {}) {
+}) {
   const normalizedKind = String(kind || "record").trim().toLowerCase();
   if (!["record", "nullable-record", "collection", "meta"].includes(normalizedKind)) {
     throw new TypeError(`Unsupported JSON:API success schema kind: ${normalizedKind || "<empty>"}.`);

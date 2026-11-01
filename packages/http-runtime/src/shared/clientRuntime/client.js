@@ -34,13 +34,34 @@ function resolveUnsafeMethods(value) {
   return new Set(source.map((method) => normalizeMethod(method)).filter(Boolean));
 }
 
-function resolveFetch() {
-  if (typeof fetch === "function") {
-    return fetch;
+function fetchWithGlobalFetch(url, config) {
+  // readable-check: allow method-probe - platform object: a runtime without a global fetch needs fetchImpl
+  if (typeof fetch !== "function") {
+    throw new Error("createHttpClient requires fetchImpl when global fetch is unavailable.");
   }
-
-  throw new Error("createHttpClient requires fetchImpl when global fetch is unavailable.");
+  return fetch(url, config);
 }
+
+function keepRequestUrl(url) {
+  return url;
+}
+
+function keepHeaders() {}
+
+async function ignoreRequestOutcome() {}
+
+/** Returns null, which keeps the client's own CSRF retry rule. */
+function useCsrfRetryRule() {
+  return null;
+}
+
+function useContentTypeForStream() {
+  return false;
+}
+
+function ignoreStreamEvent() {}
+
+function ignoreMalformedLine() {}
 
 function normalizeResolvedRequestUrl(value, fallback = "") {
   if (value === undefined || value === null || value === "") {
@@ -103,12 +124,45 @@ function appendRequestQueryToUrl(url, query = null, transport = null) {
   return appendQueryString(normalizedUrl, serializedQuery);
 }
 
+/**
+ * @typedef {object} HttpClientHooks
+ * @property {(request: object) => void | Promise<void>} [decorateHeaders] Adds headers to a request before it is sent.
+ * @property {(failure: object) => void | Promise<void>} [onFailure]
+ * @property {(success: object) => void | Promise<void>} [onSuccess]
+ * @property {(error: Error) => void | Promise<void>} [onUnauthorized]
+ * @property {(failure: object) => void | Promise<void>} [onRetryableFailure]
+ * @property {(failure: object) => boolean | null | Promise<boolean | null>} [shouldRetryRequest] null keeps the CSRF retry rule.
+ * @property {(result: object) => boolean | Promise<boolean>} [shouldTreatAsNdjsonStream]
+ */
+
+/**
+ * An HTTP client that sends JSON and JSON:API requests, keeps a CSRF token for
+ * unsafe methods and reads NDJSON streams.
+ * @param {object} [options]
+ * @param {typeof fetch} [options.fetchImpl] The global fetch unless given.
+ * @param {(url: string, context: object) => string | Promise<string>} [options.resolveRequestUrl]
+ * @param {HttpClientHooks} [options.hooks]
+ * @param {string[]} [options.unsafeMethods]
+ * @param {{ enabled?: boolean, sessionPath?: string, headerName?: string, tokenField?: string, retryableErrorCodes?: string[] }} [options.csrf]
+ * @param {RequestCredentials} [options.credentials]
+ * @param {number} [options.readTimeoutMs]
+ */
 function createHttpClient(options = {}) {
-  const configuredFetchImpl = typeof options.fetchImpl === "function" ? options.fetchImpl : null;
-  const configuredResolveRequestUrl =
-    typeof options.resolveRequestUrl === "function" ? options.resolveRequestUrl : null;
+  const {
+    fetchImpl = fetchWithGlobalFetch,
+    resolveRequestUrl: resolveConfiguredRequestUrl = keepRequestUrl,
+    hooks = {}
+  } = options;
+  const {
+    decorateHeaders: decorateConfiguredHeaders = keepHeaders,
+    onFailure = ignoreRequestOutcome,
+    onSuccess = ignoreRequestOutcome,
+    onUnauthorized = ignoreRequestOutcome,
+    onRetryableFailure = ignoreRequestOutcome,
+    shouldRetryRequest = useCsrfRetryRule,
+    shouldTreatAsNdjsonStream = useContentTypeForStream
+  } = hooks;
   const unsafeMethods = resolveUnsafeMethods(options.unsafeMethods);
-  const hooks = options.hooks && typeof options.hooks === "object" ? options.hooks : {};
 
   const csrf = {
     enabled: options.csrf?.enabled !== false,
@@ -131,7 +185,6 @@ function createHttpClient(options = {}) {
   }
 
   async function fetchSessionForCsrf() {
-    const activeFetch = configuredFetchImpl || resolveFetch();
     const signal = requestSignalWithDeadline(null, options.readTimeoutMs ?? DEFAULT_READ_TIMEOUT_MS);
     const requestUrl = await resolveRequestUrl(csrf.sessionPath, {
       originalUrl: csrf.sessionPath,
@@ -145,7 +198,7 @@ function createHttpClient(options = {}) {
     });
     let response;
     try {
-      response = await activeFetch(requestUrl, {
+      response = await fetchImpl(requestUrl, {
         method: "GET",
         credentials: String(options.credentials || "same-origin"),
         signal
@@ -185,40 +238,9 @@ function createHttpClient(options = {}) {
     return csrfTokenCache;
   }
 
-  function decorateHeaders({ url, method, headers, requestOptions, state, stream }) {
-    if (typeof hooks.decorateHeaders !== "function") {
-      return null;
-    }
-
-    return hooks.decorateHeaders({
-      url,
-      method,
-      headers,
-      requestOptions,
-      state,
-      stream
-    });
-  }
-
-  async function notifyFailure(payload) {
-    if (typeof hooks.onFailure === "function") {
-      await hooks.onFailure(payload);
-    }
-  }
-
-  async function notifySuccess(payload) {
-    if (typeof hooks.onSuccess === "function") {
-      await hooks.onSuccess(payload);
-    }
-  }
-
   async function resolveRequestUrl(url, context = {}) {
     const normalizedUrl = String(url || "").trim();
-    if (!configuredResolveRequestUrl) {
-      return normalizedUrl;
-    }
-
-    const resolved = await configuredResolveRequestUrl(normalizedUrl, {
+    const resolved = await resolveConfiguredRequestUrl(normalizedUrl, {
       ...context,
       url: normalizedUrl
     });
@@ -230,16 +252,13 @@ function createHttpClient(options = {}) {
       return false;
     }
 
-    const customShouldRetry =
-      typeof hooks.shouldRetryRequest === "function"
-        ? await hooks.shouldRetryRequest({
-            response,
-            method,
-            state,
-            data,
-            stream
-          })
-        : null;
+    const customShouldRetry = await shouldRetryRequest({
+      response,
+      method,
+      state,
+      data,
+      stream
+    });
     const shouldRetry =
       customShouldRetry == null
         ? shouldRetryForCsrfFailure({
@@ -255,15 +274,13 @@ function createHttpClient(options = {}) {
       return false;
     }
 
-    if (typeof hooks.onRetryableFailure === "function") {
-      await hooks.onRetryableFailure({
-        response,
-        method,
-        state,
-        data,
-        stream
-      });
-    }
+    await onRetryableFailure({
+      response,
+      method,
+      state,
+      data,
+      stream
+    });
 
     csrfTokenCache = "";
     await ensureCsrfToken(true);
@@ -305,7 +322,7 @@ function createHttpClient(options = {}) {
     const headers =
       requestOptions.headers && typeof requestOptions.headers === "object" ? { ...requestOptions.headers } : {};
 
-    const decorateHeadersResult = decorateHeaders({
+    await decorateConfiguredHeaders({
       url: resolvedRequestUrl,
       method,
       headers,
@@ -313,9 +330,6 @@ function createHttpClient(options = {}) {
       state: resolvedState,
       stream: Boolean(stream)
     });
-    if (decorateHeadersResult && typeof decorateHeadersResult.then === "function") {
-      await decorateHeadersResult;
-    }
 
     const config = {
       credentials: String(options.credentials || "same-origin"),
@@ -366,8 +380,7 @@ function createHttpClient(options = {}) {
     config.signal?.throwIfAborted();
     let response;
     try {
-      const activeFetch = configuredFetchImpl || resolveFetch();
-      response = await activeFetch(url, config);
+      response = await fetchImpl(url, config);
     } catch (cause) {
       config.signal?.throwIfAborted();
       return onNetworkFailure(cause);
@@ -413,11 +426,11 @@ function createHttpClient(options = {}) {
     }
 
     const error = createHttpError(response, data);
-    if (Number(response.status) === 401 && typeof hooks.onUnauthorized === "function") {
-      await hooks.onUnauthorized(error);
+    if (Number(response.status) === 401) {
+      await onUnauthorized(error);
     }
 
-    await notifyFailure({
+    await onFailure({
       url,
       method,
       state,
@@ -439,14 +452,7 @@ function createHttpClient(options = {}) {
     stream = false,
     handleNetworkFailure,
     retryRequest
-  } = {}) {
-    if (typeof handleNetworkFailure !== "function") {
-      throw new TypeError("executeRequestLifecycle requires handleNetworkFailure().");
-    }
-    if (typeof retryRequest !== "function") {
-      throw new TypeError("executeRequestLifecycle requires retryRequest().");
-    }
-
+  }) {
     const requestContext = await prepareRequestConfig(url, requestOptions, state, stream);
     const {
       method,
@@ -508,7 +514,7 @@ function createHttpClient(options = {}) {
           throw cause;
         }
         const error = createNetworkError(cause);
-        await notifyFailure({
+        await onFailure({
           url,
           method,
           state: resolvedState,
@@ -534,7 +540,7 @@ function createHttpClient(options = {}) {
     } = execution.value;
 
     if (Number(result.response?.status || 200) === 204) {
-      await notifySuccess({
+      await onSuccess({
         url,
         method,
         state: resolvedState,
@@ -555,7 +561,7 @@ function createHttpClient(options = {}) {
       } catch (cause) {
         const error = createNetworkError(cause);
         error.message = "JSON:API response decoding failed.";
-        await notifyFailure({
+        await onFailure({
           url,
           method,
           state: resolvedState,
@@ -571,7 +577,7 @@ function createHttpClient(options = {}) {
       }
     }
 
-    await notifySuccess({
+    await onSuccess({
       url,
       method,
       state: resolvedState,
@@ -586,6 +592,8 @@ function createHttpClient(options = {}) {
   }
 
   async function requestStream(url, requestOptions = {}, handlers = {}, state = null) {
+    const { onEvent = ignoreStreamEvent, onMalformedLine = ignoreMalformedLine } = handlers;
+    const lineHandlers = Object.freeze({ onEvent, onMalformedLine });
     const execution = await executeRequestLifecycle({
       url,
       requestOptions,
@@ -594,7 +602,7 @@ function createHttpClient(options = {}) {
       async handleNetworkFailure({ cause, method, state: resolvedState }) {
         const aborted = String(cause?.name || "") === "AbortError";
         const reason = aborted ? "aborted" : "network_error";
-        await notifyFailure({
+        await onFailure({
           url,
           method,
           state: resolvedState,
@@ -624,9 +632,9 @@ function createHttpClient(options = {}) {
 
     try {
       let shouldParseAsNdjson = result.contentType.includes(DEFAULT_NDJSON_CONTENT_TYPE);
-      if (!shouldParseAsNdjson && typeof hooks.shouldTreatAsNdjsonStream === "function") {
+      if (!shouldParseAsNdjson) {
         shouldParseAsNdjson = Boolean(
-          await hooks.shouldTreatAsNdjsonStream({
+          await shouldTreatAsNdjsonStream({
             url,
             method,
             state: resolvedState,
@@ -639,17 +647,18 @@ function createHttpClient(options = {}) {
       }
 
       if (shouldParseAsNdjson) {
-        await readNdjsonStream(result.response, handlers);
-      } else if (typeof handlers.onEvent === "function" && Object.keys(result.data).length > 0) {
-        handlers.onEvent(result.data);
-      } else if (typeof handlers.onEvent === "function" && typeof result.response?.text === "function") {
+        await readNdjsonStream(result.response, lineHandlers);
+      } else if (Object.keys(result.data).length > 0) {
+        lineHandlers.onEvent(result.data);
+        // readable-check: allow method-probe - platform object: another fetch implementation's Response may lack text()
+      } else if (typeof result.response?.text === "function") {
         const rawText = await result.response.text().catch(() => "");
         for (const line of String(rawText || "").split(/\r?\n/g)) {
-          emitNdjsonLine(line, handlers);
+          emitNdjsonLine(line, lineHandlers);
         }
       }
     } catch (error) {
-      await notifyFailure({
+      await onFailure({
         url,
         method,
         state: resolvedState,
@@ -664,7 +673,7 @@ function createHttpClient(options = {}) {
       throw error;
     }
 
-    await notifySuccess({
+    await onSuccess({
       url,
       method,
       state: resolvedState,

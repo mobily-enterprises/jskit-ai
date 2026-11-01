@@ -2,6 +2,7 @@ import { isJsonContentType } from "../validators/jsonApiTransport.js";
 
 /** Reads a JSON response body; a body that is not JSON reads as an empty object. */
 function parseJsonSafely(response, signal) {
+  // readable-check: allow optional-call - platform object: another fetch implementation's Response may lack headers.get()
   const contentType = String(response?.headers?.get?.("content-type") || "");
   const isJson = isJsonContentType(contentType);
   if (!isJson) {
@@ -12,6 +13,7 @@ function parseJsonSafely(response, signal) {
     });
   }
 
+  // readable-check: allow optional-call - platform object: another fetch implementation's Response may lack json()
   return Promise.resolve(response?.json?.())
     .catch((error) => {
       signal?.throwIfAborted();
@@ -27,6 +29,10 @@ function parseJsonSafely(response, signal) {
     }));
 }
 
+/**
+ * @param {string} line
+ * @param {NdjsonHandlers} handlers
+ */
 function emitNdjsonLine(line, handlers) {
   const normalizedLine = String(line || "").trim();
   if (!normalizedLine) {
@@ -34,20 +40,23 @@ function emitNdjsonLine(line, handlers) {
   }
 
   try {
-    const payload = JSON.parse(normalizedLine);
-    if (typeof handlers?.onEvent === "function") {
-      handlers.onEvent(payload);
-    }
+    handlers.onEvent(JSON.parse(normalizedLine));
   } catch (error) {
-    if (typeof handlers?.onMalformedLine === "function") {
-      handlers.onMalformedLine(normalizedLine, error);
-    }
+    handlers.onMalformedLine(normalizedLine, error);
   }
 }
 
-/** Calls handlers.onEvent with each NDJSON line of the response body, as it arrives. */
-async function readNdjsonStream(response, handlers = {}) {
+/** @typedef {{ onEvent: (payload: any) => void, onMalformedLine: (line: string, error: unknown) => void }} NdjsonHandlers */
+
+/**
+ * Calls handlers.onEvent with each NDJSON line of the response body, as it arrives.
+ * @param {any} response
+ * @param {NdjsonHandlers} handlers
+ */
+async function readNdjsonStream(response, handlers) {
+  // readable-check: allow method-probe - platform object: another fetch implementation's Response may lack a readable body
   if (!response?.body || typeof response.body.getReader !== "function") {
+    // readable-check: allow method-probe - platform object: another fetch implementation's Response may lack text()
     if (typeof response?.text === "function") {
       const rawText = await response.text().catch(() => "");
       for (const line of String(rawText || "").split(/\r?\n/g)) {
