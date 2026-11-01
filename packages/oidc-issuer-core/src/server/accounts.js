@@ -77,7 +77,13 @@ class AccountError extends Error {
   }
 }
 
-function createAccountStore(knex, { now = () => new Date() } = {}) {
+/**
+ * The hub's accounts: their emails, passwords, Google links and lockouts.
+ * @param {object} dependencies
+ * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} dependencies.knex
+ * @param {import("./types.js").HubClock} dependencies.now
+ */
+function createAccountStore({ knex, now }) {
   const table = () => knex(ACCOUNTS_TABLE);
 
   async function rowByEmail(email) {

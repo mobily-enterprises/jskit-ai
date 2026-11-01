@@ -19,7 +19,7 @@ Exports
 - `ACCOUNTS_TABLE`
 - `AccountError`
 - `LOCK_AFTER_FAILURES`
-- `createAccountStore(knex, { now = () => new Date() } = {})`
+- `createAccountStore({ knex, now })`
 - `isEmail(value)`
 - `normalizeEmail(value)`
 - `passwordProblem(password)`
@@ -33,8 +33,8 @@ Local functions
 ### `src/server/adapter.js`
 Exports
 - `MODELS_TABLE`
-- `createKnexAdapterClass(knex, { now = () => new Date() } = {})`
-- `deleteExpiredModels(knex, { now = () => new Date() } = {})`
+- `createKnexAdapterClass({ knex, now })`
+- `deleteExpiredModels({ knex, now })`
 Local functions
 - `toDate(value)`
 - `isExpired(row, now)`
@@ -43,7 +43,7 @@ Local functions
 Exports
 - `CLIENTS_TABLE`
 - `RegistrationError`
-- `createClientStore(knex, { now = () => new Date() } = {})`
+- `createClientStore({ knex, now })`
 - `isDevelopmentOrigin(origin, patterns)`
 - `validateRegistrationMetadata(body)`
 Local functions
@@ -51,6 +51,10 @@ Local functions
 - `originOf(uri, field)`
 - `globToRegExp(pattern)`
 - `assertOnlyValue(body, field, value)`
+
+### `src/server/clock.js`
+Exports
+- `systemClock()`
 
 ### `src/server/config.js`
 Exports
@@ -82,12 +86,12 @@ Exports
 
 ### `src/server/emailTokens.js`
 Exports
-- `createEmailTokenStore(knex, { now = () => new Date() } = {})`
+- `createEmailTokenStore({ knex, now })`
 
 ### `src/server/google.js`
 Exports
 - `GOOGLE_ENDPOINTS`
-- `createGoogleSignIn({ google, issuer, Adapter, endpoints = GOOGLE_ENDPOINTS, fetchImpl = globalThis.fetch })`
+- `createGoogleSignIn({ google, issuer, Adapter, endpoints, fetchImpl })`
 
 ### `src/server/http.js`
 Exports
@@ -121,14 +125,14 @@ Local functions
 
 ### `src/server/hubSessions.js`
 Exports
-- `createHubSessionStore(knex, { now = () => new Date() } = {})`
-- `createSettingStore(knex)`
+- `createHubSessionStore({ knex, now })`
+- `createSettingStore({ knex })`
 - `hubSessionCookieName(config)`
 
 ### `src/server/importAccounts.js`
 Exports
 - `describeImport(result, { apply })`
-- `importAccounts({ knex, text, apply = false, now })`
+- `importAccounts({ knex, text, apply = false, now = systemClock })`
 Local functions
 - `parseLine(line)`
 - `samePassword(existing, row)`
@@ -148,7 +152,7 @@ Exports
 ### `src/server/issuer.js`
 Exports
 - `HUB_GLOBAL_PATHS`
-- `createOidcIssuer({ knex, env = process.env, logger, mailer, now = () => new Date(), appRoot = "", googleEndpoints = GOOGLE_ENDPOINTS, fetchImpl = globalThis.fetch })`
+- `createOidcIssuer({ knex, env = process.env, logger, mailer, now = systemClock, appRoot = "", googleEndpoints = GOOGLE_ENDPOINTS, fetchImpl = globalThis.fetch })`
 Local functions
 - `isHubPath(url)`
 - `bearerToken(request)`
@@ -159,7 +163,7 @@ Local functions
 ### `src/server/mailer.js`
 Exports
 - `composeMessage({ heading, body, actionLabel, actionUrl, footer })`
-- `createMailer({ mail, logger, isProduction, fetchImpl = globalThis.fetch })`
+- `createMailer({ mail, logger, isProduction, fetchImpl })`
 
 ### `src/server/oidcProvider.js`
 Exports
@@ -186,11 +190,11 @@ Exports
 
 ### `src/server/rateLimits.js`
 Exports
-- `createRateLimiter(knex, { now = () => new Date() } = {})`
+- `createRateLimiter({ knex, now })`
 
 ### `src/server/signingKeys.js`
 Exports
-- `createSigningKeyStore(knex, { secret, now = () => new Date() })`
+- `createSigningKeyStore({ knex, secret, now })`
 
 ### `src/server/types.js`
 Exports
@@ -199,6 +203,8 @@ Exports
 - `type HubAdapterClass`
 - `type Hub`
 - `type HubMailer`
+- `type HubClock`
+- `type GoogleEndpoints`
 
 ### bin
 

@@ -1,4 +1,5 @@
 import { createAccountStore, isEmail, normalizeEmail } from "./accounts.js";
+import { systemClock } from "./clock.js";
 
 const PASSWORD_FIELDS = ["password_algorithm", "password_version", "password_salt", "password_hash"];
 
@@ -31,9 +32,14 @@ function samePassword(existing, row) {
  * `sub`, scrypt fields are kept byte for byte, and email starts unverified.
  * Dry-run unless `apply` is true. Rows that clash with a different existing
  * account are refused and reported, never merged.
+ * @param {object} input
+ * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} input.knex
+ * @param {string} input.text The exported accounts, one JSON object per line.
+ * @param {boolean} [input.apply] True to write the accounts; otherwise only counts them.
+ * @param {import("./types.js").HubClock} [input.now]
  */
-async function importAccounts({ knex, text, apply = false, now }) {
-  const accounts = createAccountStore(knex, { now });
+async function importAccounts({ knex, text, apply = false, now = systemClock }) {
+  const accounts = createAccountStore({ knex, now });
   const result = { imported: 0, skipped: 0, conflicts: [] };
   const seen = new Set();
   const lines = String(text).split("\n");

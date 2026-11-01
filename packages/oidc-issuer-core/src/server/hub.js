@@ -19,19 +19,19 @@ import { createSigningKeyStore } from "./signingKeys.js";
  * @param {{ enabled: boolean, secret: string }} dependencies.devAuth Whether an editor's preview may sign in as an existing account, and the secret it sends.
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
  * @param {import("./types.js").HubMailer} dependencies.mailer
- * @param {() => Date} dependencies.now
- * @param {typeof import("./google.js").GOOGLE_ENDPOINTS} dependencies.googleEndpoints
+ * @param {import("./types.js").HubClock} dependencies.now
+ * @param {import("./types.js").GoogleEndpoints} dependencies.googleEndpoints
  * @param {typeof fetch} dependencies.fetchImpl
  */
 async function createHub({ knex, config, devAuth, logger, mailer, now, googleEndpoints, fetchImpl }) {
-  const Adapter = createKnexAdapterClass(knex, { now });
-  const accounts = createAccountStore(knex, { now });
-  const clients = createClientStore(knex, { now });
-  const keys = createSigningKeyStore(knex, { secret: config.secret, now });
-  const sessions = createHubSessionStore(knex, { now });
-  const settings = createSettingStore(knex);
-  const emailTokens = createEmailTokenStore(knex, { now });
-  const rateLimiter = createRateLimiter(knex, { now });
+  const Adapter = createKnexAdapterClass({ knex, now });
+  const accounts = createAccountStore({ knex, now });
+  const clients = createClientStore({ knex, now });
+  const keys = createSigningKeyStore({ knex, secret: config.secret, now });
+  const sessions = createHubSessionStore({ knex, now });
+  const settings = createSettingStore({ knex });
+  const emailTokens = createEmailTokenStore({ knex, now });
+  const rateLimiter = createRateLimiter({ knex, now });
   const google = config.google
     ? createGoogleSignIn({ google: config.google, issuer: config.issuer, Adapter, endpoints: googleEndpoints, fetchImpl })
     : null;
@@ -99,7 +99,7 @@ async function createHub({ knex, config, devAuth, logger, mailer, now, googleEnd
     try {
       await refreshKeysIfChanged();
       await clients.removeIdleDevelopmentClients();
-      await deleteExpiredModels(knex, { now });
+      await deleteExpiredModels({ knex, now });
       await emailTokens.deleteExpired();
       await rateLimiter.deleteExpired();
     } catch (error) {

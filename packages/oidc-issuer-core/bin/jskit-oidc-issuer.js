@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { createKnexMigrationConfigFromApp } from "@jskit-ai/database-runtime/server/knexMigrationConfig";
 import createKnex from "knex";
+import { systemClock } from "../src/server/clock.js";
 import { resolveHubConfig } from "../src/server/config.js";
 import { describeImport, importAccounts } from "../src/server/importAccounts.js";
 import { runPreviewIdentityCommand } from "../src/server/previewIdentity.js";
@@ -57,7 +58,7 @@ async function main(argv) {
   loadDotEnv();
   if (command === "keys" && rest[0] === "rotate") {
     const config = resolveHubConfig(process.env, { appRoot: process.cwd() });
-    const kid = await withKnex((knex) => createSigningKeyStore(knex, { secret: config.secret }).rotate());
+    const kid = await withKnex((knex) => createSigningKeyStore({ knex, secret: config.secret, now: systemClock }).rotate());
     console.log(`New signing key ${kid} is active. The previous key keeps verifying for two hours. A running hub picks it up within a minute.`);
     return 0;
   }

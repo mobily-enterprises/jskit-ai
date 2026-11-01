@@ -100,7 +100,13 @@ function validateRegistrationMetadata(body) {
   return { origin: [...origins][0], name };
 }
 
-function createClientStore(knex, { now = () => new Date() } = {}) {
+/**
+ * The apps registered with the hub, their approval and their last use.
+ * @param {object} dependencies
+ * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} dependencies.knex
+ * @param {import("./types.js").HubClock} dependencies.now
+ */
+function createClientStore({ knex, now }) {
   const table = () => knex(CLIENTS_TABLE);
 
   async function deleteProviderClient(clientId) {

@@ -23,9 +23,9 @@ function composeMessage({ heading, body, actionLabel, actionUrl, footer }) {
  * @param {import("./types.js").HubConfig["mail"]} dependencies.mail
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
  * @param {boolean} dependencies.isProduction
- * @param {typeof fetch} [dependencies.fetchImpl]
+ * @param {typeof fetch} dependencies.fetchImpl
  */
-function createMailer({ mail, logger, isProduction, fetchImpl = globalThis.fetch }) {
+function createMailer({ mail, logger, isProduction, fetchImpl }) {
   let smtpTransport = null;
 
   async function sendWithSmtp(message) {

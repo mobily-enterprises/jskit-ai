@@ -11,8 +11,12 @@ const RETIRE_GRACE_SECONDS = 3600 + 3600;
  * ES256 signing keys, stored encrypted with a key derived from
  * OIDC_HUB_SECRET. The active key signs; retiring keys stay in the JWKS until
  * every token they signed has expired; retired keys leave the JWKS.
+ * @param {object} dependencies
+ * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} dependencies.knex
+ * @param {string} dependencies.secret OIDC_HUB_SECRET, which the keys' encryption key is derived from.
+ * @param {import("./types.js").HubClock} dependencies.now
  */
-function createSigningKeyStore(knex, { secret, now = () => new Date() }) {
+function createSigningKeyStore({ knex, secret, now }) {
   const encryptionKey = deriveKey(secret, "signing-keys");
   const table = () => knex(SIGNING_KEYS_TABLE);
 

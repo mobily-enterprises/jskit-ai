@@ -13,8 +13,11 @@ function hubSessionCookieName(config) {
 /**
  * The hub's own signed-in state, shared by its pages and by every app's
  * sign-in. The cookie carries a random token; the database keeps its hash.
+ * @param {object} dependencies
+ * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} dependencies.knex
+ * @param {import("./types.js").HubClock} dependencies.now
  */
-function createHubSessionStore(knex, { now = () => new Date() } = {}) {
+function createHubSessionStore({ knex, now }) {
   const sessions = () => knex(MODELS_TABLE).where({ kind: SESSION_KIND });
 
   function toSession(row) {
@@ -75,7 +78,12 @@ function createHubSessionStore(knex, { now = () => new Date() } = {}) {
   });
 }
 
-function createSettingStore(knex) {
+/**
+ * The hub's own settings, one JSON value per id.
+ * @param {object} dependencies
+ * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} dependencies.knex
+ */
+function createSettingStore({ knex }) {
   const settings = () => knex(MODELS_TABLE).where({ kind: SETTING_KIND });
 
   async function get(id) {

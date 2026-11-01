@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { createAccount, createBrowser, redeemCode, registerApp, signInThroughHub, verifyIdToken } from "./support/browser.js";
+import { systemClock } from "../src/server/clock.js";
 import { createSigningKeyStore } from "../src/server/signingKeys.js";
 import { OWNER_EMAIL, createDatabase, startHub } from "./support/hub.js";
 
@@ -64,9 +65,10 @@ test("only the owner can rotate the signing key", async () => {
 test("a hub started with a different secret stops with a sentence naming OIDC_HUB_SECRET", async () => {
   const database = await createDatabase();
   try {
-    await createSigningKeyStore(database, { secret: "the-first-hub-secret-0123456789abcdef0123" }).ensureActiveKey();
+    await createSigningKeyStore({ knex: database, secret: "the-first-hub-secret-0123456789abcdef0123", now: systemClock })
+      .ensureActiveKey();
     await assert.rejects(
-      createSigningKeyStore(database, { secret: "a-different-hub-secret-0123456789abcdef01" }).jwks(),
+      createSigningKeyStore({ knex: database, secret: "a-different-hub-secret-0123456789abcdef01", now: systemClock }).jwks(),
       (error) => error.name === "HubConfigError" && /OIDC_HUB_SECRET/u.test(error.message)
     );
   } finally {

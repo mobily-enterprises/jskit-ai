@@ -1,4 +1,5 @@
 import { RegistrationError, validateRegistrationMetadata } from "./clients.js";
+import { systemClock } from "./clock.js";
 import { resolveHubConfig, resolveHubDevAuth } from "./config.js";
 import { constantEquals, randomToken } from "./crypto.js";
 import { GOOGLE_ENDPOINTS } from "./google.js";
@@ -52,9 +53,9 @@ function parseJsonBody(buffer) {
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} [dependencies.env]
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
  * @param {import("./types.js").HubMailer} [dependencies.mailer] Sends the hub's emails instead of the configured sender.
- * @param {() => Date} [dependencies.now]
+ * @param {import("./types.js").HubClock} [dependencies.now]
  * @param {string} [dependencies.appRoot]
- * @param {typeof GOOGLE_ENDPOINTS} [dependencies.googleEndpoints]
+ * @param {import("./types.js").GoogleEndpoints} [dependencies.googleEndpoints]
  * @param {typeof fetch} [dependencies.fetchImpl]
  */
 async function createOidcIssuer({
@@ -62,7 +63,7 @@ async function createOidcIssuer({
   env = process.env,
   logger,
   mailer,
-  now = () => new Date(),
+  now = systemClock,
   appRoot = "",
   googleEndpoints = GOOGLE_ENDPOINTS,
   fetchImpl = globalThis.fetch

@@ -3,8 +3,13 @@ import { randomToken, sha256 } from "./crypto.js";
 const EMAIL_TOKENS_TABLE = "oidc_issuer_email_tokens";
 const TTL_SECONDS = Object.freeze({ confirm: 7 * 86400, recovery: 3600, "google-link": 3600 });
 
-/** Single-use emailed links. Only a hash of each token is stored. */
-function createEmailTokenStore(knex, { now = () => new Date() } = {}) {
+/**
+ * Single-use emailed links. Only a hash of each token is stored.
+ * @param {object} dependencies
+ * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} dependencies.knex
+ * @param {import("./types.js").HubClock} dependencies.now
+ */
+function createEmailTokenStore({ knex, now }) {
   const table = () => knex(EMAIL_TOKENS_TABLE);
 
   async function create(accountId, purpose, payload = null) {

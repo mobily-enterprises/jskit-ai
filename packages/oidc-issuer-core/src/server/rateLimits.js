@@ -6,8 +6,13 @@ const LIMITS = Object.freeze({
   emailPerIp: { limit: 20, windowSeconds: 3600 }
 });
 
-/** Fixed-window counters kept in the database, so limits hold across restarts. */
-function createRateLimiter(knex, { now = () => new Date() } = {}) {
+/**
+ * Fixed-window counters kept in the database, so limits hold across restarts.
+ * @param {object} dependencies
+ * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} dependencies.knex
+ * @param {import("./types.js").HubClock} dependencies.now
+ */
+function createRateLimiter({ knex, now }) {
   async function hit(bucket, { limit, windowSeconds }) {
     return knex.transaction(async (trx) => {
       const current = now();

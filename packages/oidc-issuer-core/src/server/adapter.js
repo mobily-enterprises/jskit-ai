@@ -15,8 +15,11 @@ function isExpired(row, now) {
  * codes, grants, clients, registration tokens) is one row, so codes and
  * sessions survive a hub restart. The hub's own records (hub sessions and
  * settings) use the same table under their own kinds.
+ * @param {object} dependencies
+ * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} dependencies.knex
+ * @param {import("./types.js").HubClock} dependencies.now
  */
-function createKnexAdapterClass(knex, { now = () => new Date() } = {}) {
+function createKnexAdapterClass({ knex, now }) {
   return class KnexAdapter {
     constructor(kind) {
       this.kind = kind;
@@ -71,7 +74,13 @@ function createKnexAdapterClass(knex, { now = () => new Date() } = {}) {
   };
 }
 
-async function deleteExpiredModels(knex, { now = () => new Date() } = {}) {
+/**
+ * Deletes every short-lived record whose time is up.
+ * @param {object} dependencies
+ * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} dependencies.knex
+ * @param {import("./types.js").HubClock} dependencies.now
+ */
+async function deleteExpiredModels({ knex, now }) {
   return knex(MODELS_TABLE).whereNotNull("expires_at").where("expires_at", "<=", now()).delete();
 }
 
