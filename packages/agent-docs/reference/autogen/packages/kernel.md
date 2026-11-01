@@ -145,6 +145,7 @@ Exports
 Exports
 - `normalizePermissionList(value)`
 - `hasPermission(permissionSet = [], permission = "")`
+- `missingPermissionDetails(mode, requiredPermissions, actorPermissions)`
 
 ### `shared/support/pickOwnProperties.js`
 Exports
@@ -597,11 +598,9 @@ Exports
 ### `server/actions/actionDefinitions.js`
 Exports
 - `ActionRuntimeError`
-- `createActionRuntimeError(status, message, options = {})`
 - `normalizeActionDefinition(definition, { contributorId = "", contributorDomain = "" } = {})`
-- `normalizeActionContributor(contributor)`
-- `registerActionContributor(contributor, policy)`
-- `createActionVersionKey(actionId, version)`
+- `toRegisteredContributor(contributor, policy)`
+- `toActionVersionKey(actionId, version)`
 - `__testables`
 - `type ActionDefinition`
 - `type ActionPolicy`
@@ -612,6 +611,7 @@ Local functions
 - `normalizeActionPermission(permission, actionId)`
 - `normalizeActionExtensions(value)`
 - `normalizeActionEvents(value, actionId)`
+- `normalizeActionContributor(contributor)`
 - `withPolicyInput(declared, policy)`
 
 ### `server/actions/actionEvents.js`
@@ -634,6 +634,7 @@ Exports
 
 ### `server/actions/executionContext.js`
 Exports
+- `normalizeActionChannel(value)`
 - `normalizeExecutionContext(context = {})`
 Local functions
 - `copyRecord(value)`
@@ -653,7 +654,7 @@ Exports
 
 ### `server/actions/pipeline.js`
 Exports
-- `executeActionPipeline({ definition, declared, input, context, deps = {}, events, logger, policy })`
+- `executeActionPipeline({ definition, declared, input, context, deps, events, logger, policy })`
 - `type ActionDefinition`
 - `type ActionPolicy`
 - `type RuntimeEvents`
@@ -671,7 +672,7 @@ Exports
 - `normalizeActionOutput(definition, output)`
 Local functions
 - `schemaFieldErrorDetails(error)`
-- `createActionValidationError({ status = 400, message = "Validation failed.", code = "ACTION_VALIDATION_FAILED", details, cause })`
+- `buildActionValidationError({ status = 400, message = "Validation failed.", code = "ACTION_VALIDATION_FAILED", details, cause })`
 
 ### `server/actions/registry.js`
 Exports

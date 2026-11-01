@@ -19,7 +19,6 @@ import { normalizeExecutionContext } from "./executionContext.js";
  * @param {object} execution
  */
 async function publishActionEvents(events, builders, execution) {
-  if (!Array.isArray(builders) || builders.length === 0) return;
   for (const builder of builders) {
     const built = await builder(execution);
     const values = Array.isArray(built) ? built : [built];
@@ -36,11 +35,11 @@ async function publishActionEvents(events, builders, execution) {
 function logActionExecution(logger, { definition, context, outcome, startedAt, errorCode = null }) {
   logger.debug(
     {
-      action: definition?.id,
-      version: definition?.version,
-      channel: context?.channel,
-      surface: context?.surface,
-      requestId: context?.requestMeta?.requestId || null,
+      action: definition.id,
+      version: definition.version,
+      channel: context.channel,
+      surface: context.surface,
+      requestId: context.requestMeta.requestId || null,
       durationMs: Date.now() - startedAt,
       outcome,
       errorCode
@@ -55,7 +54,7 @@ function logActionExecution(logger, { definition, context, outcome, startedAt, e
  * @param {ActionDefinition} execution.declared The action as its feature declared it.
  * @param {unknown} execution.input
  * @param {unknown} execution.context
- * @param {object} [execution.deps]
+ * @param {object} execution.deps
  * @param {RuntimeEvents} execution.events
  * @param {RuntimeLogger} execution.logger
  * @param {ActionPolicy} execution.policy
@@ -65,7 +64,7 @@ async function executeActionPipeline({
   declared,
   input,
   context,
-  deps = {},
+  deps,
   events,
   logger,
   policy

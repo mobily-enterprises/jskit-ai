@@ -44,7 +44,25 @@ function hasPermission(permissionSet = [], permission = "") {
   return false;
 }
 
+/**
+ * What an actor's permissions lack for a requirement that names permissions: null
+ * when they satisfy it; under "all", the first missing permission; under "any",
+ * the required permissions, none of which it has.
+ * @param {"all" | "any"} mode
+ * @param {ReadonlyArray<string>} requiredPermissions
+ * @param {ReadonlyArray<string>} actorPermissions
+ * @returns {{ permission: string } | { requiredPermissions: ReadonlyArray<string> } | null}
+ */
+function missingPermissionDetails(mode, requiredPermissions, actorPermissions) {
+  if (mode === "all") {
+    const permission = requiredPermissions.find((entry) => !hasPermission(actorPermissions, entry));
+    return permission === undefined ? null : { permission };
+  }
+  return requiredPermissions.some((entry) => hasPermission(actorPermissions, entry)) ? null : { requiredPermissions };
+}
+
 export {
   normalizePermissionList,
-  hasPermission
+  hasPermission,
+  missingPermissionDetails
 };

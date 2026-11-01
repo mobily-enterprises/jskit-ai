@@ -1,5 +1,5 @@
-import { createActionRuntimeError } from "./actionDefinitions.js";
-import { hasPermission, normalizePermissionList } from "../../shared/support/permissions.js";
+import { ActionRuntimeError } from "./actionDefinitions.js";
+import { missingPermissionDetails, normalizePermissionList } from "../../shared/support/permissions.js";
 import { isRecord, normalizeLowerText, normalizeOpaqueId } from "../../shared/support/normalize.js";
 import { validateSchemaPayload } from "../../shared/validators/schemaPayloadValidation.js";
 
@@ -20,14 +20,14 @@ function schemaFieldErrorDetails(error) {
  * @param {object} [error.details]
  * @param {unknown} [error.cause]
  */
-function createActionValidationError({
+function buildActionValidationError({
   status = 400,
   message = "Validation failed.",
   code = "ACTION_VALIDATION_FAILED",
   details,
   cause
 }) {
-  return createActionRuntimeError(status, message, {
+  return new ActionRuntimeError(status, message, {
     code,
     details,
     cause
@@ -35,10 +35,10 @@ function createActionValidationError({
 }
 
 function ensureActionChannelAllowed(definition, context) {
-  const channel = normalizeLowerText(context?.channel);
+  const channel = normalizeLowerText(context.channel);
 
   if (!channel || !definition.channels.includes(channel)) {
-    throw createActionRuntimeError(403, "Forbidden.", {
+    throw new ActionRuntimeError(403, "Forbidden.", {
       code: "ACTION_CHANNEL_FORBIDDEN",
       details: {
         actionId: definition.id,
@@ -49,11 +49,11 @@ function ensureActionChannelAllowed(definition, context) {
 }
 
 function ensureActionSurfaceAllowed(definition, context) {
-  const surface = normalizeLowerText(context?.surface);
+  const surface = normalizeLowerText(context.surface);
   const allowedSurfaces = definition.surfaces;
 
   if (!allowedSurfaces.includes("*") && (!surface || !allowedSurfaces.includes(surface))) {
-    throw createActionRuntimeError(403, "Forbidden.", {
+    throw new ActionRuntimeError(403, "Forbidden.", {
       code: "ACTION_SURFACE_FORBIDDEN",
       details: {
         actionId: definition.id,
@@ -71,9 +71,9 @@ function ensureActionPermissionAllowed(definition, context) {
     return;
   }
 
-  const actorId = normalizeOpaqueId(context?.actor?.id);
+  const actorId = normalizeOpaqueId(context.actor?.id);
   if (actorId == null) {
-    throw createActionRuntimeError(401, permission.message || "Authentication required.", {
+    throw new ActionRuntimeError(401, permission.message || "Authentication required.", {
       code: permission.code || "ACTION_AUTHENTICATION_REQUIRED",
       details: {
         actionId: definition.id
@@ -90,32 +90,13 @@ function ensureActionPermissionAllowed(definition, context) {
     return;
   }
 
-  const actorPermissions = normalizePermissionList(context?.permissions);
-  if (mode === "all") {
-    for (const requiredPermission of requiredPermissions) {
-      if (hasPermission(actorPermissions, requiredPermission)) {
-        continue;
-      }
-
-      throw createActionRuntimeError(403, permission.message || "Forbidden.", {
-        code: permission.code || "ACTION_PERMISSION_DENIED",
-        details: {
-          actionId: definition.id,
-          permission: requiredPermission
-        }
-      });
-    }
-
-    return;
-  }
-
-  const hasAnyPermission = requiredPermissions.some((requiredPermission) => hasPermission(actorPermissions, requiredPermission));
-  if (!hasAnyPermission) {
-    throw createActionRuntimeError(403, permission.message || "Forbidden.", {
+  const missing = missingPermissionDetails(mode, requiredPermissions, normalizePermissionList(context.permissions));
+  if (missing) {
+    throw new ActionRuntimeError(403, permission.message || "Forbidden.", {
       code: permission.code || "ACTION_PERMISSION_DENIED",
       details: {
         actionId: definition.id,
-        requiredPermissions
+        ...missing
       }
     });
   }
@@ -129,7 +110,7 @@ async function normalizeActionInput(definition, input) {
     });
   } catch (error) {
     if (isRecord(error?.fieldErrors) || isRecord(error?.details?.fieldErrors)) {
-      throw createActionValidationError({
+      throw buildActionValidationError({
         details: schemaFieldErrorDetails(error),
         cause: error
       });
@@ -138,7 +119,7 @@ async function normalizeActionInput(definition, input) {
       throw error;
     }
 
-    throw createActionValidationError({
+    throw buildActionValidationError({
       details: {
         error: String(error?.message || "Invalid input.")
       },
@@ -159,7 +140,7 @@ async function normalizeActionOutput(definition, output) {
     });
   } catch (error) {
     if (isRecord(error?.fieldErrors) || isRecord(error?.details?.fieldErrors)) {
-      throw createActionValidationError({
+      throw buildActionValidationError({
         status: 500,
         message: "Action output validation failed.",
         code: "ACTION_OUTPUT_VALIDATION_FAILED",
@@ -168,7 +149,7 @@ async function normalizeActionOutput(definition, output) {
       });
     }
     if (error?.code === "ACTION_VALIDATION_FAILED") {
-      throw createActionValidationError({
+      throw buildActionValidationError({
         status: 500,
         message: "Action output validation failed.",
         code: "ACTION_OUTPUT_VALIDATION_FAILED",
@@ -177,7 +158,7 @@ async function normalizeActionOutput(definition, output) {
       });
     }
 
-    throw createActionValidationError({
+    throw buildActionValidationError({
       status: 500,
       message: "Action output validation failed.",
       code: "ACTION_OUTPUT_VALIDATION_FAILED",

@@ -1,5 +1,5 @@
 import { normalizeObject, normalizeOpaqueId, normalizeText } from "../../shared/support/normalize.js";
-import { hasPermission, normalizePermissionList } from "../../shared/support/permissions.js";
+import { missingPermissionDetails, normalizePermissionList } from "../../shared/support/permissions.js";
 import { AppError } from "./errors.js";
 
 const AUTH_REQUIRE_MODES = new Set(["none", "authenticated", "all", "any"]);
@@ -74,31 +74,11 @@ function requireAuth(source = {}, options = {}) {
   if (requiredPermissions.length < 1) {
     return actor;
   }
-  const actorPermissions = normalizePermissionList(context.permissions);
-
-  if (mode === "all") {
-    for (const permission of requiredPermissions) {
-      if (hasPermission(actorPermissions, permission)) {
-        continue;
-      }
-
-      throw new AppError(403, settings.message || "Forbidden.", {
-        code: settings.code || "PERMISSION_DENIED",
-        details: {
-          permission
-        }
-      });
-    }
-    return actor;
-  }
-
-  const allowed = requiredPermissions.some((permission) => hasPermission(actorPermissions, permission));
-  if (!allowed) {
+  const missing = missingPermissionDetails(mode, requiredPermissions, normalizePermissionList(context.permissions));
+  if (missing) {
     throw new AppError(403, settings.message || "Forbidden.", {
       code: settings.code || "PERMISSION_DENIED",
-      details: {
-        requiredPermissions
-      }
+      details: missing
     });
   }
 

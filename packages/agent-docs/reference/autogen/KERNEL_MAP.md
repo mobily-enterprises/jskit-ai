@@ -104,6 +104,7 @@ Exports
 Exports
 - `normalizePermissionList(value)`
 - `hasPermission(permissionSet = [], permission = "")`
+- `missingPermissionDetails(mode, requiredPermissions, actorPermissions)`
 
 ### `support/pickOwnProperties.js`
 Exports

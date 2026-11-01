@@ -1,13 +1,10 @@
-import {
-  createActionRuntimeError,
-  createActionVersionKey
-} from "./actionDefinitions.js";
+import { ActionRuntimeError, toActionVersionKey } from "./actionDefinitions.js";
 import { executeActionPipeline } from "./pipeline.js";
 
 /** @typedef {import("../types.js").ActionPolicy} ActionPolicy */
 /** @typedef {import("../types.js").RuntimeEvents} RuntimeEvents */
 /** @typedef {import("../types.js").RuntimeLogger} RuntimeLogger */
-/** @typedef {ReturnType<typeof import("./actionDefinitions.js").registerActionContributor>} RegisteredActionContributor */
+/** @typedef {ReturnType<typeof import("./actionDefinitions.js").toRegisteredContributor>} RegisteredActionContributor */
 
 /**
  * @param {ReadonlyArray<RegisteredActionContributor>} contributors
@@ -20,10 +17,10 @@ function buildDefinitionIndex(contributors) {
 
   for (const contributor of contributors) {
     for (const { definition, declared } of contributor.actions) {
-      const versionKey = createActionVersionKey(definition.id, definition.version);
+      const versionKey = toActionVersionKey(definition.id, definition.version);
       if (byVersionKey.has(versionKey)) {
         const existing = byVersionKey.get(versionKey);
-        throw createActionRuntimeError(
+        throw new ActionRuntimeError(
           500,
           `Action definition \"${versionKey}\" is duplicated between contributors \"${existing.contributorId}\" and \"${contributor.contributorId}\".`,
           {
@@ -58,7 +55,7 @@ function buildDefinitionIndex(contributors) {
 function normalizeRequestedVersion(version) {
   const parsed = Number(version);
   if (!Number.isInteger(parsed) || parsed < 1) {
-    throw createActionRuntimeError(400, "Validation failed.", {
+    throw new ActionRuntimeError(400, "Validation failed.", {
       code: "ACTION_VERSION_INVALID",
       details: {
         fieldErrors: {
@@ -77,7 +74,7 @@ function normalizeRequestedVersion(version) {
 function resolveActionDefinition(index, actionId, version) {
   const normalizedActionId = String(actionId || "").trim();
   if (!normalizedActionId) {
-    throw createActionRuntimeError(400, "Validation failed.", {
+    throw new ActionRuntimeError(400, "Validation failed.", {
       code: "ACTION_ID_REQUIRED",
       details: {
         fieldErrors: {
@@ -93,7 +90,7 @@ function resolveActionDefinition(index, actionId, version) {
   if (version == null) {
     const versions = index.byActionId.get(normalizedActionId) || [];
     if (versions.length < 1) {
-      throw createActionRuntimeError(404, "Not found.", {
+      throw new ActionRuntimeError(404, "Not found.", {
         code: "ACTION_NOT_FOUND",
         details: {
           actionId: normalizedActionId
@@ -105,10 +102,10 @@ function resolveActionDefinition(index, actionId, version) {
   }
 
   const normalizedVersion = normalizeRequestedVersion(version);
-  const versionKey = createActionVersionKey(normalizedActionId, normalizedVersion);
+  const versionKey = toActionVersionKey(normalizedActionId, normalizedVersion);
   const definition = index.byVersionKey.get(versionKey);
   if (!definition) {
-    throw createActionRuntimeError(404, "Not found.", {
+    throw new ActionRuntimeError(404, "Not found.", {
       code: "ACTION_NOT_FOUND",
       details: {
         actionId: normalizedActionId,
@@ -135,7 +132,7 @@ function createActionRegistry({
 }) {
   const index = buildDefinitionIndex(contributors);
 
-  async function execute({ actionId, version = null, input = {}, context = {}, deps = {} } = {}) {
+  async function execute({ actionId, version, input, context, deps }) {
     const definition = resolveActionDefinition(index, actionId, version);
     return executeActionPipeline({
       definition,
@@ -149,10 +146,10 @@ function createActionRegistry({
     });
   }
 
-  async function executeStream({ actionId, version = null, input = {}, context = {}, deps = {} } = {}) {
+  async function executeStream({ actionId, version, input, context, deps }) {
     const definition = resolveActionDefinition(index, actionId, version);
     if (definition.kind !== "stream") {
-      throw createActionRuntimeError(400, "Validation failed.", {
+      throw new ActionRuntimeError(400, "Validation failed.", {
         code: "ACTION_STREAM_KIND_REQUIRED",
         details: {
           actionId: definition.id,

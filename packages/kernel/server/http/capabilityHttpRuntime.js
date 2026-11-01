@@ -5,6 +5,7 @@ import {
 } from "../../shared/support/visibility.js";
 import { normalizeText } from "../../shared/support/normalize.js";
 import { resolveRequest } from "../actions/actionContributorHelpers.js";
+import { normalizeActionChannel } from "../actions/executionContext.js";
 import { createRouter } from "./lib/router.js";
 import { registerRoutes } from "./lib/routeRegistration.js";
 import {
@@ -71,7 +72,7 @@ function createCapabilityHttpRuntime({ fastify, actions }) {
           actionId,
           version,
           definition,
-          channel: normalizeText(context.channel).toLowerCase() || "api"
+          channel: normalizeActionChannel(context.channel)
         }));
         if (contribution && typeof contribution === "object" && !Array.isArray(contribution)) {
           Object.assign(patch, contribution);

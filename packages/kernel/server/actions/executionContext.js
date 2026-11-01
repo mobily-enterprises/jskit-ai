@@ -18,9 +18,7 @@ function normalizeActor(actor) {
     return null;
   }
 
-  if (!Object.prototype.hasOwnProperty.call(source, "id")) {
-    source.id = null;
-  } else if (source.id == null) {
+  if (source.id == null) {
     source.id = null;
   }
 
@@ -58,6 +56,14 @@ function copyPassthroughContextEntries(source = {}) {
   return passthrough;
 }
 
+/**
+ * An execution's channel: the one it names, else "internal".
+ * @param {unknown} value
+ */
+function normalizeActionChannel(value) {
+  return normalizeLowerText(value) || "internal";
+}
+
 function normalizeExecutionContext(context = {}) {
   const source = context && typeof context === "object" ? context : {};
   const passthrough = copyPassthroughContextEntries(source);
@@ -67,10 +73,10 @@ function normalizeExecutionContext(context = {}) {
     actor: normalizeActor(source.actor),
     permissions: normalizePermissionList(source.permissions),
     surface: normalizeLowerText(source.surface),
-    channel: normalizeLowerText(source.channel) || "internal",
+    channel: normalizeActionChannel(source.channel),
     requestMeta: normalizeRequestMeta(source.requestMeta),
     timeMeta: normalizeTimeMeta(source.timeMeta)
   });
 }
 
-export { normalizeExecutionContext };
+export { normalizeActionChannel, normalizeExecutionContext };

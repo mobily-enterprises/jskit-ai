@@ -1,4 +1,4 @@
-import { createActionRuntimeError } from "./actionDefinitions.js";
+import { ActionRuntimeError } from "./actionDefinitions.js";
 import { normalizeText } from "../../shared/support/normalize.js";
 
 function ensureIdempotencyKeyIfRequired(definition, context) {
@@ -11,7 +11,7 @@ function ensureIdempotencyKeyIfRequired(definition, context) {
     return;
   }
 
-  throw createActionRuntimeError(400, "Validation failed.", {
+  throw new ActionRuntimeError(400, "Validation failed.", {
     code: "ACTION_IDEMPOTENCY_KEY_REQUIRED",
     details: {
       fieldErrors: {

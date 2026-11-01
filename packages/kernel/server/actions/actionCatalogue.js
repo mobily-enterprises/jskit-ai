@@ -1,5 +1,5 @@
 import { createActionRegistry } from "./registry.js";
-import { registerActionContributor } from "./actionDefinitions.js";
+import { toRegisteredContributor } from "./actionDefinitions.js";
 import { noActionPolicy } from "./actionPolicy.js";
 import { isRecord } from "../../shared/support/normalize.js";
 import { createEventRuntime } from "../runtime/eventRuntime.js";
@@ -41,7 +41,7 @@ function createActionCatalogue({ events = createEventRuntime(), logger = silentL
     if (sealed) {
       throw new Error("Action catalogue registration is closed after discovery or execution begins.");
     }
-    const registered = registerActionContributor(normalizeRegistration(contributor), policy);
+    const registered = toRegisteredContributor(normalizeRegistration(contributor), policy);
     const nextRegistry = createActionRegistry({
       contributors: [...contributors, registered],
       events,

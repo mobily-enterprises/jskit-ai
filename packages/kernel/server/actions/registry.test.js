@@ -3,16 +3,25 @@ import test from "node:test";
 import { createSchema } from "json-rest-schema";
 
 import { createActionRegistry } from "./registry.js";
-import { registerActionContributor } from "./actionDefinitions.js";
+import { toRegisteredContributor } from "./actionDefinitions.js";
 import { noActionPolicy } from "./actionPolicy.js";
 import { silentLogger } from "../runtime/logger.js";
 
-// A registry of contributors registered as the catalogue registers them, without a policy.
+/**
+ * A registry of contributors registered as the catalogue registers them, without a
+ * policy, whose execute() passes the input, context and deps the catalogue always passes.
+ */
 function createRegistry({ contributors, ...dependencies }) {
-  return createActionRegistry({
+  const registry = createActionRegistry({
     ...dependencies,
     policy: noActionPolicy,
-    contributors: contributors.map((contributor) => registerActionContributor(contributor, noActionPolicy))
+    contributors: contributors.map((contributor) => toRegisteredContributor(contributor, noActionPolicy))
+  });
+  return Object.freeze({
+    execute: ({ actionId, version = null, input = {}, context = {}, deps = {} }) =>
+      registry.execute({ actionId, version, input, context, deps }),
+    getDefinition: registry.getDefinition,
+    listDefinitions: registry.listDefinitions
   });
 }
 
