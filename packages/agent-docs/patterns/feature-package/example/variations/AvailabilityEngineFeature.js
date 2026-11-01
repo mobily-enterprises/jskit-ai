@@ -15,7 +15,7 @@ function createAvailabilityEngineActions({ availabilityEngine }) {
   ]);
 }
 
-const AvailabilityEngineProvider = defineFeature({
+const AvailabilityEngineFeature = defineFeature({
   id: "feature.availability-engine",
   domain: "availability",
   provides: {
@@ -33,4 +33,4 @@ const AvailabilityEngineProvider = defineFeature({
   }
 });
 
-export { AvailabilityEngineProvider };
+export { AvailabilityEngineFeature };

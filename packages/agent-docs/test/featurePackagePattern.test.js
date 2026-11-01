@@ -5,6 +5,8 @@ import path from "node:path";
 import test from "node:test";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
+import { baseConfig, typedFeaturesConfig } from "@jskit-ai/config-eslint/server";
+import { ESLint } from "eslint";
 
 const execFileAsync = promisify(execFile);
 
@@ -39,7 +41,7 @@ test("server feature pattern preserves the three useful package boundaries witho
   assert.match(document, /repository-free lane/u);
   assert.match(document, /explicit custom Knex\s+repository/u);
   assert.match(combinedSource, /defineFeature/u);
-  assert.match(combinedSource, /const AvailabilityEngineProvider/u);
+  assert.match(combinedSource, /const AvailabilityEngineFeature/u);
   assert.match(combinedSource, /createWithTransaction/u);
   assert.doesNotMatch(combinedSource, /__JSKIT_|\$\{option:/u);
   assert.doesNotMatch(combinedSource, /scaffoldShape|scaffoldMode|provenance|receipt/u);
@@ -47,4 +49,68 @@ test("server feature pattern preserves the three useful package boundaries witho
   for (const file of exampleFiles.filter((entry) => entry.endsWith(".js"))) {
     await execFileAsync(process.execPath, ["--check", file]);
   }
+});
+
+const TYPED_FEATURE_RULES = /^(?:jskit\/|max-lines)/u;
+
+function typedFeaturesLinter() {
+  return new ESLint({
+    cwd: patternRoot,
+    overrideConfigFile: true,
+    overrideConfig: [...baseConfig, ...typedFeaturesConfig(["example/**"])]
+  });
+}
+
+function typedFeatureFindings(results) {
+  return results.flatMap((result) => result.messages
+    .filter((message) => message.fatal || TYPED_FEATURE_RULES.test(message.ruleId || ""))
+    .map((message) => `${path.relative(patternRoot, result.filePath)}:${message.line} ${message.ruleId || "parse"}`));
+}
+
+test("the feature package example passes the typed-features rules as errors", async () => {
+  const eslint = typedFeaturesLinter();
+  const results = await eslint.lintFiles(["example/**/*.js"]);
+  assert.ok(results.length >= 12, `linted ${results.length} files`);
+  assert.deepEqual(typedFeatureFindings(results), []);
+
+  const probe = "export function createReader({ store } = {}) {\n  return () => store.read?.();\n}\n";
+  const [probeResult] = await eslint.lintText(probe, {
+    filePath: path.join(patternRoot, "example/booking-engine/src/server/reader.js")
+  });
+  assert.ok(probeResult.messages.some((message) => message.ruleId === "jskit/required-collaborators" && message.severity === 2));
+});
+
+test("the feature package example shows each typed-features shape", async () => {
+  const serverRoot = path.join(patternRoot, "example/booking-engine/src/server");
+  const read = (name) => readFile(path.join(serverRoot, name), "utf8");
+  const [feature, engine, actions, types, availability, requester] = await Promise.all([
+    read("BookingEngineFeature.js"),
+    read("bookingEngine.js"),
+    read("bookingEngineActions.js"),
+    read("types.js"),
+    read("bookingAvailability.js"),
+    read("bookingRequester.js")
+  ]);
+
+  assert.match(feature, /optional: \{\s+availability: "feature\.booking-engine\.availability"/u);
+  assert.match(feature, /BookingEngineAvailability \| null \}\} capabilities/u);
+  assert.match(feature, /availability: availability \?\? everyScopeOpen/u);
+  assert.match(availability, /async function everyScopeOpen\(\)/u);
+  assert.match(types, /@typedef \{ReturnType<typeof import\("\.\/bookingEngine\.js"\)\.createBookingEngine>\} BookingEngine/u);
+  assert.match(types, /\} BookingEngineAvailability/u);
+  assert.match(engine, /function createBookingEngine\(\{ availability \}\)/u);
+  assert.match(engine, /requestedBy: bookingRequester\(context\)/u);
+  assert.match(engine, /return Object\.freeze\(\{ readStatus \}\);/u);
+  assert.match(requester, /function bookingRequester\(context\)/u);
+  assert.match(actions, /function createBookingEngineActions\(\{ bookingEngine \}\)/u);
+  assert.match(actions, /execute: \(input, context\) => bookingEngine\.readStatus\(input, \{ context \}\)/u);
+  assert.match(actions, /return Object\.freeze\(\[\s+Object\.freeze\(\{/u);
+
+  const exampleSource = (await Promise.all(
+    (await collectFiles(path.join(patternRoot, "example")))
+      .filter((file) => file.endsWith(".js"))
+      .map((file) => readFile(file, "utf8"))
+  )).join("\n");
+  assert.doesNotMatch(exampleSource, /async execute|execute: async|\?\.\w+\?\.\(|= null[,)}]/u);
+  assert.doesNotMatch(exampleSource, /^\/\/ .*\n(?:async )?function /mu, "A description sits in a // line above a function.");
 });

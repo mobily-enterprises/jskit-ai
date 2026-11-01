@@ -9,7 +9,7 @@
     "json-rest-schema": "^1.0.17"
   },
   "exports": {
-    "./server/actions": "./src/server/actions.js",
+    "./server/actions": "./src/server/bookingEngineActions.js",
     "./server/types": "./src/server/types.js"
   },
   "jskit": {
@@ -26,8 +26,8 @@
       "server": {
         "providers": [
           {
-            "entrypoint": "src/server/BookingEngineProvider.js",
-            "export": "BookingEngineProvider"
+            "entrypoint": "src/server/BookingEngineFeature.js",
+            "export": "BookingEngineFeature"
           }
         ]
       },
@@ -44,7 +44,7 @@
           },
           {
             "subpath": "./server/types",
-            "summary": "Type of the feature.booking-engine capability, for features that require it."
+            "summary": "Types of the feature.booking-engine capability and its optional feature.booking-engine.availability slot."
           }
         ]
       }

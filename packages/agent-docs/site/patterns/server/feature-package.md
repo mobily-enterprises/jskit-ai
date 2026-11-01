@@ -54,18 +54,27 @@ questionnaire.
   no `typeof` probe, no optional call and no "requires x" guard: the capability
   runtime refuses to start without a required token.
 - An extension point is an `optional` token whose default the package names
-  and `setup()` resolves once, never a setter that fills a slot later or a
-  module-level registry.
-- One `create<Name>Actions(dependencies)` per feature creates its actions and
-  closes over the feature APIs they need; an inline `actions()` array becomes
-  an unexported `create<Name>Actions()` in the same file. Each id is a string
-  literal or a module-level constant, and `execute` is one call to one feature
-  method with the validated input. Actions never resolve arbitrary
-  dependencies at execution time.
-- Methods take the validated input as it is: no `input = {}` default and no
-  second normalization of fields the input schema already checked. An options
-  bag whose fields are optional by contract (`options = {}` with `trx` or
-  `context`) keeps its default.
+  in a module of its own and `setup()` resolves once with `??`, never a setter
+  that fills a slot later or a module-level registry. The token is typed
+  `X | null` only in `setup()`; what `setup()` builds receives it as required.
+- One `create<Name>Actions({ <api> })` per feature, destructured, in
+  `<name>Actions.js`, creates its actions and closes over the feature APIs they
+  need; an inline `actions()` array becomes an unexported
+  `create<Name>Actions()` in the same file. Every definition and the list are
+  frozen. Each id is a string literal or a module-level constant, and
+  `execute: (input, context) => api.method(input, { context })` is one call,
+  without `async`, a body, an envelope or a helper that builds or strips it.
+  Actions never resolve arbitrary dependencies at execution time.
+- Methods take the validated input as it is: no `input = {}` default, no
+  `input?.x` and no second normalization of fields the input schema already
+  checked. An options bag whose fields are optional by contract
+  (`options = {}` with `trx`) keeps its default.
+- The package reads the actor or workspace from an action context through one
+  helper (`bookingRequester(context)`), and its actions pass the context one
+  way.
+- Every `create*` returns `Object.freeze({ … })` of named inner functions, and
+  exposes another factory's functions by name, never by spreading it.
+- A description sits inside its `/** */` block, never in a `//` line above it.
 - One copy of each pure helper per package, imported directly. Files stay under
   750 lines and functions under 600, one concern per factory.
 - The service orchestrates the feature and does not issue SQL directly.
@@ -92,23 +101,56 @@ The custom persistence variation uses `createWithTransaction()` from
 ## Example files
 
 `example/booking-engine/` is a concrete app-local package showing the preferred
-small-feature boundary. `src/server/BookingEngineProvider.js` declares the
-feature, `src/server/bookingEngine.js` builds the provided engine with
-`createBookingEngine()`, `src/server/actions.js` creates its actions with
-`createBookingEngineActions()`, and `src/server/types.js` declares the
-`BookingEngine` type, exported as `./server/types`. Its status query is
-deliberately small: product logic can grow inside the returned feature API
-without creating ceremonial layers.
+small-feature boundary:
 
-`example/variations/AvailabilityEngineProvider.js` and
+- `src/server/BookingEngineFeature.js` declares the feature, its optional
+  `feature.booking-engine.availability` slot and the engine it provides;
+- `src/server/bookingEngine.js` builds the engine with `createBookingEngine()`,
+  a frozen object of named functions;
+- `src/server/bookingAvailability.js` names the slot's default,
+  `everyScopeOpen`;
+- `src/server/bookingRequester.js` is the package's one request-context helper;
+- `src/server/bookingEngineActions.js` creates its one-line, frozen actions
+  with `createBookingEngineActions({ bookingEngine })`;
+- `src/server/types.js` declares `BookingEngine` and
+  `BookingEngineAvailability`, exported as `./server/types`.
+
+Its status query is deliberately small: product logic can grow inside the
+returned feature API without creating ceremonial layers. The feature resolves
+the slot once:
+
+```js
+optional: {
+  availability: "feature.booking-engine.availability"
+},
+/** @param {{ availability: import("./types.js").BookingEngineAvailability | null }} capabilities */
+setup({ availability }) {
+  return { bookingEngine: createBookingEngine({ availability: availability ?? everyScopeOpen }) };
+},
+```
+
+Another package fills the slot by providing the token, never by calling a
+setter:
+
+```js
+const SeasonalAvailabilityFeature = defineFeature({
+  id: "feature.seasonal-availability",
+  provides: { availability: "feature.booking-engine.availability" },
+  setup: () => ({ availability: isInSeason })
+});
+```
+
+`example/variations/AvailabilityEngineFeature.js` and
 `example/variations/orchestratorService.js` show the repository-free lane.
-`example/variations/InvoiceRollupProvider.js` and
+`example/variations/InvoiceRollupFeature.js` and
 `example/variations/customKnexRepository.js` show the explicit custom
 persistence lane. `example/variations/types.js` declares the
 `AvailabilityEngine` and `InvoiceRollup` types.
 
 The [typed features guide](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/site/guide/framework/typed-features.md)
-explains each rule with a complete feature.
+explains each rule with a complete feature, and its
+[common mistakes](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/site/guide/framework/typed-features.md#common-mistakes)
+list what still goes wrong in code that passes the lint rules.
 
 ## Variation points
 
@@ -142,6 +184,15 @@ illustrative status query with narrow product language before shipping.
 - absent defaults on a collaborator or on the dependencies object (`= null`,
   `= {}`, a no-op)
 - setters that fill a slot after construction, and module-level registries
+- a collaborator accepted in two shapes (`capability.service || capability`)
+- an `async` `execute`, an `execute` with a body, or a helper that builds an
+  action or strips its input
+- a hand-written `(...args: any[]) => Promise<any>` type instead of the
+  owner's type, and the same `ReturnType<…>` or indexed type spelled out in
+  several files
+- spreading an in-package factory's result into a provided value
+- unfrozen `create*` results and inline methods
+- a guard, default or comment that exists for a test double
 - metadata claiming which authoring tool or pattern created the package
 - field questionnaires, overwrite switches, or durable operation records
 

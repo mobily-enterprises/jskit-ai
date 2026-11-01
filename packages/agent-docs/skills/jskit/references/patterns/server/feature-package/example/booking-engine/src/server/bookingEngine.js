@@ -1,12 +1,25 @@
-// The booking engine: what the feature provides as `feature.booking-engine`.
-function createBookingEngine() {
-  // Reports the engine's status for the validated query.
-  async function readStatus({ scope = "default", verbose = false }) {
+import { bookingRequester } from "./bookingRequester.js";
+
+/**
+ * The booking engine the feature provides as `feature.booking-engine`.
+ * @param {object} dependencies
+ * @param {import("./types.js").BookingEngineAvailability} dependencies.availability
+ */
+function createBookingEngine({ availability }) {
+  /**
+   * Reports, for the validated query, whether its scope takes bookings and who
+   * asked.
+   * @param {{ scope?: string, verbose?: boolean }} query
+   * @param {{ context: { actor: { id: unknown } | null } }} options
+   */
+  async function readStatus({ scope = "default", verbose = false }, { context }) {
     return {
       ok: true,
       feature: "booking-engine",
       scope,
-      verbose
+      verbose,
+      open: await availability(scope),
+      requestedBy: bookingRequester(context)
     };
   }
 

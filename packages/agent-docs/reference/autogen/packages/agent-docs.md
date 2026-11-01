@@ -14,18 +14,26 @@ Use this on demand; do not load the full index at startup.
 
 ### patterns
 
-### `patterns/feature-package/example/booking-engine/src/server/actions.js`
+### `patterns/feature-package/example/booking-engine/src/server/bookingAvailability.js`
+Exports
+- `everyScopeOpen()`
+
+### `patterns/feature-package/example/booking-engine/src/server/bookingEngine.js`
+Exports
+- `createBookingEngine({ availability })`
+
+### `patterns/feature-package/example/booking-engine/src/server/bookingEngineActions.js`
 Exports
 - `ACTION_GET_STATUS`
 - `createBookingEngineActions({ bookingEngine })`
 
-### `patterns/feature-package/example/booking-engine/src/server/bookingEngine.js`
+### `patterns/feature-package/example/booking-engine/src/server/BookingEngineFeature.js`
 Exports
-- `createBookingEngine()`
+- `BookingEngineFeature`
 
-### `patterns/feature-package/example/booking-engine/src/server/BookingEngineProvider.js`
+### `patterns/feature-package/example/booking-engine/src/server/bookingRequester.js`
 Exports
-- `BookingEngineProvider`
+- `bookingRequester(context)`
 
 ### `patterns/feature-package/example/booking-engine/src/server/inputSchemas.js`
 Exports
@@ -34,10 +42,11 @@ Exports
 ### `patterns/feature-package/example/booking-engine/src/server/types.js`
 Exports
 - `type BookingEngine`
+- `type BookingEngineAvailability`
 
-### `patterns/feature-package/example/variations/AvailabilityEngineProvider.js`
+### `patterns/feature-package/example/variations/AvailabilityEngineFeature.js`
 Exports
-- `AvailabilityEngineProvider`
+- `AvailabilityEngineFeature`
 Local functions
 - `createAvailabilityEngineActions({ availabilityEngine })`
 
@@ -45,9 +54,9 @@ Local functions
 Exports
 - `createRepository({ knex })`
 
-### `patterns/feature-package/example/variations/InvoiceRollupProvider.js`
+### `patterns/feature-package/example/variations/InvoiceRollupFeature.js`
 Exports
-- `InvoiceRollupProvider`
+- `InvoiceRollupFeature`
 Local functions
 - `createInvoiceRollupActions({ invoiceRollup })`
 
@@ -108,7 +117,7 @@ Local functions
 - `toRequestPathname(urlValue)`
 - `isApiPath(pathname)`
 - `hasFileExtension(pathname)`
-- `resolveGlobalUiPaths(runtimeGlobalUiPaths = [])`
+- `resolveGlobalUiPaths(runtimeGlobalUiPaths)`
 - `resolveStaticFilePath(pathname)`
 - `canServeStaticFile(distRoot, relativePath)`
 
@@ -205,7 +214,7 @@ Local functions
 - `toRequestPathname(urlValue)`
 - `isApiPath(pathname)`
 - `hasFileExtension(pathname)`
-- `resolveGlobalUiPaths(runtimeGlobalUiPaths = [])`
+- `resolveGlobalUiPaths(runtimeGlobalUiPaths)`
 - `resolveStaticFilePath(pathname)`
 - `canServeStaticFile(distRoot, relativePath)`
 

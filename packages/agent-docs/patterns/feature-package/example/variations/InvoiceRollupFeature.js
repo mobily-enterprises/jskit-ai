@@ -15,7 +15,7 @@ function createInvoiceRollupActions({ invoiceRollup }) {
   ]);
 }
 
-const InvoiceRollupProvider = defineFeature({
+const InvoiceRollupFeature = defineFeature({
   id: "feature.invoice-rollup",
   domain: "invoices",
   requires: {
@@ -39,4 +39,4 @@ const InvoiceRollupProvider = defineFeature({
   }
 });
 
-export { InvoiceRollupProvider };
+export { InvoiceRollupFeature };
