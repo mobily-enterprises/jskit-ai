@@ -44,15 +44,21 @@ export default [
   regular expressions, URLs, `readable-check: allow` comments, ESLint
   directives and JSDoc type tags may run past it, so long prose stays inline.
 - Semicolons, double quotes (template literals allowed), no trailing commas,
-  no space before a named function's parentheses, no repeated spaces.
+  no space before a named function's parentheses, no repeated or trailing
+  spaces.
 - A one-line body without braces stays beside its `if` (`if (!x) return null;`);
   an `if`/`else` chain braces all its bodies or none, and a line holds at most
   two statements.
 - An object whose properties span lines puts each property on its own line,
   with its braces on their own lines; a call whose arguments span lines breaks
   after `(` and before `)`.
+- A braced block spans lines (`1tbs`: `} else {` on the closing brace's line),
+  and code is indented by two spaces, `case` inside `switch` by one level and a
+  ternary's object, array or function branch past its `?`.
 
-`eslint --fix` fixes all of these except the width and the statements per line.
+`eslint --fix` fixes all of these except the width and the statements per line,
+and its output passes them: a block it braces or an argument list it breaks is
+re-indented in the same run.
 
 ## Typed features
 

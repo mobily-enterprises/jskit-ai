@@ -850,8 +850,9 @@ errors for the globs an application lists. The application foundations list
 `packages/*/src/server/**`, `server/**` and `server.js`, so new server code is
 held to the rules from the start. `formatterConfig(globs)`, from the same
 package, is an application's one formatter config: width 140, semicolons,
-double quotes, no trailing commas and one property per line once an object's
-properties span lines.
+double quotes, no trailing commas, one property per line once an object's
+properties span lines, braced blocks on their own lines and two-space
+indentation. Its `eslint --fix` output is already formatted.
 
 | Rule | Reports |
 | --- | --- |

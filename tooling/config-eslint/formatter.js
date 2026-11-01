@@ -27,13 +27,19 @@ const FORMATTER_RULES = Object.freeze({
   "object-property-newline": ["error", { allowAllPropertiesOnSameLine: true }],
   "function-paren-newline": ["error", "multiline-arguments"],
   "max-statements-per-line": ["error", { max: 2 }],
-  "no-multi-spaces": "error"
+  "no-multi-spaces": "error",
+  "no-trailing-spaces": "error",
+  // A braced block spans lines, `} else {` stays on the closing brace's line, and two-space indentation re-indents
+  // what the other fixes break onto new lines. A ternary's object, array or function branch is indented past its `?`.
+  "brace-style": ["error", "1tbs"],
+  "block-spacing": ["error", "always"],
+  indent: ["error", 2, { SwitchCase: 1, offsetTernaryExpressions: true }]
 });
 
 /**
  * The one formatter config of a JSKIT application, as errors, for the source files the globs select: width 140,
- * semicolons, double quotes, no trailing commas, one property per line in an object that spans lines, and a one-line
- * `if` only without braces. Tests are not formatted.
+ * semicolons, double quotes, no trailing commas, one property per line in an object that spans lines, a one-line
+ * `if` only without braces, braced blocks on their own lines and two-space indentation. Tests are not formatted.
  * @param {string[]} files
  * @param {{ ignores?: string[] }} [options] Files the formatter never touches, such as published scripts that must not
  * change.
