@@ -275,7 +275,7 @@ it as a [typed feature](/guide/framework/typed-features).
 
 A CRUD resource whose records carry a version number names it with
 `lockVersionField`, an integer schema field over a non-null integer column
-that starts at `0`:
+with a starting value, such as `0`:
 
 ```js
 defineCrudResource({
@@ -292,9 +292,9 @@ defineCrudResource({
 
 The CRUD repository's
 `patchDocumentIfLockVersion(recordId, expectedLockVersion, patch, { trx, context })`
-then applies `patch` only while the record still holds `expectedLockVersion`,
-and adds one to the lock version in the same transaction: the caller's `trx`,
-or one it owns. It returns the patched document, which carries the new lock
+then applies `patch` only while the record still holds `expectedLockVersion`, a
+non-negative integer, and adds one to the lock version in the same
+transaction: the caller's `trx`, or one it owns. It returns the patched document, which carries the new lock
 version, or `null` when the record does not exist or is outside the caller's
 scope. A record whose lock version has moved on rejects with a 409 coded
 `crud.document.lockVersionConflict` ("This record changed. Reload and try
