@@ -3,10 +3,10 @@ import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { xeroDefinition } from "../shared/xero.js";
 import { jsonOperation } from "./jsonOperation.js";
+import { isUuid } from "../shared/uuid.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
-const uuid = (value) => typeof value === "string" && uuidPattern.test(value);
-const tenantId = { type: "string", required: true, validator: (value) => uuid(value) || "Choose an organisation ID returned by connections.list." };
+const tenantId = { type: "string", required: true, validator: (value) => isUuid(value) || "Choose an organisation ID returned by connections.list." };
 const paging = {
   page: { type: "integer", min: 1, max: 1_000_000, defaultTo: 1 },
   pageSize: { type: "integer", min: 1, max: 200, defaultTo: 100 }
@@ -22,12 +22,12 @@ const reportFields = {
   timeframe: { type: "string", enum: ["MONTH", "QUARTER", "YEAR"] },
   standardLayout: { type: "boolean" }, paymentsOnly: { type: "boolean" }
 };
-const reportRow = row => row !== null && typeof row === "object" && !Array.isArray(row) && typeof row.RowType === "string" &&
+const reportRow = row => isRecord(row) && typeof row.RowType === "string" &&
   (row.Cells === undefined || Array.isArray(row.Cells) && row.Cells.every(cell => typeof cell?.Value === "string"));
 const reportResult = value => Array.isArray(value?.Reports) && value.Reports.length === 1 && value.Reports.every(report =>
   typeof report?.ReportID === "string" && Array.isArray(report.Rows) && report.Rows.every(row => reportRow(row) &&
     (row.Rows === undefined || Array.isArray(row.Rows) && row.Rows.every(reportRow))));
-const validConnections = (value) => Array.isArray(value) && value.every((entry) => uuid(entry?.id) && uuid(entry.tenantId) &&
+const validConnections = (value) => Array.isArray(value) && value.every((entry) => isUuid(entry?.id) && isUuid(entry.tenantId) &&
   ["ORGANISATION", "PRACTICEMANAGER", "PRACTICE"].includes(entry.tenantType) && (entry.tenantName === null || typeof entry.tenantName === "string"));
 
 function accountingRead(resource, fields, scopes, validateResult) {
@@ -49,7 +49,7 @@ function accountingRead(resource, fields, scopes, validateResult) {
 }
 
 function accountingRecord(resource, idName, scopes, fields = {}) {
-  const schema = createSchema({ tenantId, ...fields, id: { type: "string", required: true, validator: value => uuid(value) || "Use the record ID returned by Xero." } });
+  const schema = createSchema({ tenantId, ...fields, id: { type: "string", required: true, validator: value => isUuid(value) || "Use the record ID returned by Xero." } });
   return {
     scopes,
     request(input) {
@@ -62,7 +62,7 @@ function accountingRecord(resource, idName, scopes, fields = {}) {
       return { method: "GET", url: url.href,
         headers: { "Xero-tenant-id": tenant.toLowerCase() } };
     },
-    validateResult: value => Array.isArray(value?.[resource]) && value[resource].length === 1 && uuid(value[resource][0]?.[idName])
+    validateResult: value => Array.isArray(value?.[resource]) && value[resource].length === 1 && isUuid(value[resource][0]?.[idName])
   };
 }
 
@@ -70,7 +70,7 @@ function contactWrite(update) {
   const schema = createSchema({
     tenantId,
     idempotencyKey: idempotencyField,
-    ...(update ? { id: { type: "string", required: true, validator: value => uuid(value) || "Use the contact ID returned by Xero." } } : {}),
+    ...(update ? { id: { type: "string", required: true, validator: value => isUuid(value) || "Use the contact ID returned by Xero." } } : {}),
     Name: { type: "string", required: !update, minLength: 1, maxLength: 255 },
     FirstName: { type: "string", maxLength: 255 }, LastName: { type: "string", maxLength: 255 },
     EmailAddress: { type: "string", maxLength: 255 }, ContactNumber: { type: "string", maxLength: 50 }
@@ -83,15 +83,15 @@ function contactWrite(update) {
       return { method: update ? "POST" : "PUT", url: `https://api.xero.com/api.xro/2.0/Contacts${update ? `/${id.toLowerCase()}` : ""}`,
         headers: { "Xero-tenant-id": tenant.toLowerCase(), "Idempotency-Key": idempotencyKey }, body: { Contacts: [contact] } };
     },
-    validateResult: value => Array.isArray(value?.Contacts) && value.Contacts.length === 1 && uuid(value.Contacts[0]?.ContactID) &&
+    validateResult: value => Array.isArray(value?.Contacts) && value.Contacts.length === 1 && isUuid(value.Contacts[0]?.ContactID) &&
       value.Contacts[0].HasValidationErrors !== true && !value.Contacts[0].ValidationErrors?.length
   };
 }
 
 const paymentSchema = createSchema({
   tenantId, idempotencyKey: idempotencyField,
-  invoiceId: { type: "string", required: true, validator: value => uuid(value) || "Choose an invoice ID." },
-  accountId: { type: "string", required: true, validator: value => uuid(value) || "Choose an account ID." },
+  invoiceId: { type: "string", required: true, validator: value => isUuid(value) || "Choose an invoice ID." },
+  accountId: { type: "string", required: true, validator: value => isUuid(value) || "Choose an account ID." },
   Date: dateField,
   Amount: { type: "number", required: true, validator: value => Number.isFinite(value) && value > 0 && value <= Number.MAX_SAFE_INTEGER || "Use a positive finite payment amount." },
   CurrencyRate: { type: "number", validator: value => Number.isFinite(value) && value > 0 || "Use a positive finite exchange rate." },
@@ -101,9 +101,9 @@ const finiteAmount = { type: "number", validator: value => Number.isFinite(value
 function invoiceWrite(update) {
   const schema = createSchema({
     tenantId, idempotencyKey: idempotencyField,
-    ...(update ? { id: { type: "string", required: true, validator: value => uuid(value) || "Choose the invoice ID." } } : {}),
+    ...(update ? { id: { type: "string", required: true, validator: value => isUuid(value) || "Choose the invoice ID." } } : {}),
     Type: { type: "string", required: !update, enum: ["ACCREC", "ACCPAY"] },
-    contactId: { type: "string", required: !update, validator: value => uuid(value) || "Choose a contact ID." },
+    contactId: { type: "string", required: !update, validator: value => isUuid(value) || "Choose a contact ID." },
     Date: { ...dateField, required: !update }, DueDate: { ...dateField, required: false },
     CurrencyCode: { type: "string", required: !update, validator: value => /^[A-Z]{3}$/u.test(value) || "Use the three-letter invoice currency code." },
     LineAmountTypes: { type: "string", required: !update, enum: ["Exclusive", "Inclusive", "NoTax"] },
@@ -111,7 +111,7 @@ function invoiceWrite(update) {
     Reference: { type: "string", maxLength: 255 }, InvoiceNumber: { type: "string", maxLength: 255 },
     LineItems: { type: "array", required: !update, validator: values => values.length > 0 && values.length <= 100 || "Supply 1–100 invoice lines.",
       items: { type: "object", schema: createSchema({
-        LineItemID: { type: "string", validator: value => uuid(value) || "Use the existing line item ID." },
+        LineItemID: { type: "string", validator: value => isUuid(value) || "Use the existing line item ID." },
         Description: { type: "string", required: true, minLength: 1, maxLength: 4000 },
         Quantity: { ...finiteAmount, required: true, min: 0.0001 },
         UnitAmount: { ...finiteAmount, required: true }, AccountCode: { type: "string", required: true, minLength: 1, maxLength: 50 },
@@ -131,7 +131,7 @@ function invoiceWrite(update) {
       return { method: update ? "POST" : "PUT", url: `https://api.xero.com/api.xro/2.0/Invoices${update ? `/${id.toLowerCase()}` : ""}?unitdp=4`,
         headers: { "Xero-tenant-id": tenant.toLowerCase(), "Idempotency-Key": idempotencyKey }, body: { Invoices: [invoice] } };
     },
-    validateResult: value => Array.isArray(value?.Invoices) && value.Invoices.length === 1 && uuid(value.Invoices[0]?.InvoiceID) &&
+    validateResult: value => Array.isArray(value?.Invoices) && value.Invoices.length === 1 && isUuid(value.Invoices[0]?.InvoiceID) &&
       value.Invoices[0].HasErrors !== true && !value.Invoices[0].ValidationErrors?.length
   };
 }
@@ -141,8 +141,8 @@ function attachmentOperation(action) {
   const schema = createSchema({
     tenantId,
     resource: { type: "string", required: true, enum: ["Contacts", "Invoices", "BankTransactions", "ManualJournals"] },
-    id: { type: "string", required: true, validator: value => uuid(value) || "Choose the parent record ID." },
-    ...(action === "download" ? { attachmentId: { type: "string", required: true, validator: value => uuid(value) || "Choose an attachment ID from attachments.list." } } : {}),
+    id: { type: "string", required: true, validator: value => isUuid(value) || "Choose the parent record ID." },
+    ...(action === "download" ? { attachmentId: { type: "string", required: true, validator: value => isUuid(value) || "Choose an attachment ID from attachments.list." } } : {}),
     ...(writing ? {
       idempotencyKey: idempotencyField,
       filename: { type: "string", required: true, minLength: 1, maxLength: 255,
@@ -172,24 +172,24 @@ function attachmentOperation(action) {
     validateResult: action === "download"
       ? value => typeof value?.contentBase64 === "string" && Number.isInteger(value.size) && value.size > 0
       : value => Array.isArray(value?.Attachments) && (!writing || value.Attachments.length === 1) && value.Attachments.every(file =>
-          uuid(file?.AttachmentID) && typeof file.FileName === "string" && Number.isInteger(file.ContentLength) && file.ContentLength >= 0)
+          isUuid(file?.AttachmentID) && typeof file.FileName === "string" && Number.isInteger(file.ContentLength) && file.ContentLength >= 0)
   };
 }
 
 function bankTransactionWrite(update) {
   const schema = createSchema({
     tenantId, idempotencyKey: idempotencyField,
-    ...(update ? { id: { type: "string", required: true, validator: value => uuid(value) || "Choose a bank transaction ID." } } : {}),
+    ...(update ? { id: { type: "string", required: true, validator: value => isUuid(value) || "Choose a bank transaction ID." } } : {}),
     Type: { type: "string", required: !update, enum: ["SPEND", "RECEIVE"] },
-    contactId: { type: "string", required: !update, validator: value => uuid(value) || "Choose a contact ID." },
-    bankAccountId: { type: "string", required: !update, validator: value => uuid(value) || "Choose a bank account ID." },
+    contactId: { type: "string", required: !update, validator: value => isUuid(value) || "Choose a contact ID." },
+    bankAccountId: { type: "string", required: !update, validator: value => isUuid(value) || "Choose a bank account ID." },
     Date: { ...dateField, required: !update }, Reference: { type: "string", maxLength: 255 },
     CurrencyRate: { type: "number", validator: value => Number.isFinite(value) && value > 0 || "Use a positive finite exchange rate." },
     LineAmountTypes: { type: "string", required: !update, enum: ["Exclusive", "Inclusive", "NoTax"] },
     ...(update ? { Status: { type: "string", enum: ["AUTHORISED", "DELETED"] } } : {}),
     LineItems: { type: "array", required: !update, validator: values => values.length > 0 && values.length <= 100 || "Supply 1–100 transaction lines.",
       items: { type: "object", schema: createSchema({
-        LineItemID: { type: "string", validator: value => uuid(value) || "Use the existing line item ID." },
+        LineItemID: { type: "string", validator: value => isUuid(value) || "Use the existing line item ID." },
         Description: { type: "string", required: true, minLength: 1, maxLength: 4000 },
         Quantity: { ...finiteAmount, required: true, min: 0.0001 }, UnitAmount: { ...finiteAmount, required: true },
         AccountCode: { type: "string", required: true, minLength: 1, maxLength: 50 }, TaxType: { type: "string", maxLength: 50 }
@@ -207,7 +207,7 @@ function bankTransactionWrite(update) {
       return { method: update ? "POST" : "PUT", url: `https://api.xero.com/api.xro/2.0/BankTransactions${update ? `/${id.toLowerCase()}` : ""}?unitdp=4`,
         headers: { "Xero-tenant-id": tenant.toLowerCase(), "Idempotency-Key": idempotencyKey }, body: { BankTransactions: [transaction] } };
     },
-    validateResult: value => Array.isArray(value?.BankTransactions) && value.BankTransactions.length === 1 && uuid(value.BankTransactions[0]?.BankTransactionID) &&
+    validateResult: value => Array.isArray(value?.BankTransactions) && value.BankTransactions.length === 1 && isUuid(value.BankTransactions[0]?.BankTransactionID) &&
       !value.BankTransactions[0].ValidationErrors?.length
   };
 }
@@ -215,7 +215,7 @@ function bankTransactionWrite(update) {
 function manualJournalWrite(update) {
   const schema = createSchema({
     tenantId, idempotencyKey: idempotencyField,
-    ...(update ? { id: { type: "string", required: true, validator: value => uuid(value) || "Choose a manual journal ID." } } : {}),
+    ...(update ? { id: { type: "string", required: true, validator: value => isUuid(value) || "Choose a manual journal ID." } } : {}),
     Narration: { type: "string", required: !update, minLength: 1, maxLength: 4000 },
     Date: { ...dateField, required: !update },
     LineAmountTypes: { type: "string", required: !update, enum: ["Exclusive", "Inclusive", "NoTax"] },
@@ -244,7 +244,7 @@ function manualJournalWrite(update) {
       return { method: update ? "POST" : "PUT", url: `https://api.xero.com/api.xro/2.0/ManualJournals${update ? `/${id.toLowerCase()}` : ""}`,
         headers: { "Xero-tenant-id": tenant.toLowerCase(), "Idempotency-Key": idempotencyKey }, body: { ManualJournals: [journal] } };
     },
-    validateResult: value => Array.isArray(value?.ManualJournals) && value.ManualJournals.length === 1 && uuid(value.ManualJournals[0]?.ManualJournalID) &&
+    validateResult: value => Array.isArray(value?.ManualJournals) && value.ManualJournals.length === 1 && isUuid(value.ManualJournals[0]?.ManualJournalID) &&
       !value.ManualJournals[0].ValidationErrors?.length
   };
 }
@@ -260,20 +260,20 @@ const xeroProvider = Object.freeze({
     "attachments.replace": attachmentOperation("replace"),
     "connections.list": jsonOperation(connectionsUrl, {}, validConnections),
     "accounts.list": accountingRead("Accounts", {}, ["accounting.settings.read", "accounting.settings"],
-      value => Array.isArray(value?.Accounts) && value.Accounts.every(account => uuid(account?.AccountID) && typeof account.Type === "string")),
+      value => Array.isArray(value?.Accounts) && value.Accounts.every(account => isUuid(account?.AccountID) && typeof account.Type === "string")),
     "currencies.list": accountingRead("Currencies", {}, ["accounting.settings.read", "accounting.settings"],
       value => Array.isArray(value?.Currencies) && value.Currencies.every(currency => /^[A-Z]{3}$/u.test(currency?.Code) && typeof currency.Description === "string")),
     "taxRates.list": accountingRead("TaxRates", {}, ["accounting.settings.read", "accounting.settings"],
       value => Array.isArray(value?.TaxRates) && value.TaxRates.every(rate => typeof rate?.TaxType === "string" && typeof rate.Name === "string")),
     "trackingCategories.list": accountingRead("TrackingCategories", { includeArchived: { type: "boolean", defaultTo: false } },
       ["accounting.settings.read", "accounting.settings"],
-      value => Array.isArray(value?.TrackingCategories) && value.TrackingCategories.every(category => uuid(category?.TrackingCategoryID) && typeof category.Name === "string")),
+      value => Array.isArray(value?.TrackingCategories) && value.TrackingCategories.every(category => isUuid(category?.TrackingCategoryID) && typeof category.Name === "string")),
     "reports.agedReceivables": accountingRead("Reports/AgedReceivablesByContact", {
-      contactId: { type: "string", required: true, validator: value => uuid(value) || "Choose a contact ID." },
+      contactId: { type: "string", required: true, validator: value => isUuid(value) || "Choose a contact ID." },
       date: dateField, fromDate: { ...dateField, required: false }, toDate: { ...dateField, required: false }
     }, ["accounting.reports.aged.read"], reportResult),
     "reports.agedPayables": accountingRead("Reports/AgedPayablesByContact", {
-      contactId: { type: "string", required: true, validator: value => uuid(value) || "Choose a contact ID." },
+      contactId: { type: "string", required: true, validator: value => isUuid(value) || "Choose a contact ID." },
       date: dateField, fromDate: { ...dateField, required: false }, toDate: { ...dateField, required: false }
     }, ["accounting.reports.aged.read"], reportResult),
     "reports.executiveSummary": accountingRead("Reports/ExecutiveSummary", { date: dateField },
@@ -285,7 +285,7 @@ const xeroProvider = Object.freeze({
     "budgets.list": accountingRead("Budgets", {
       DateFrom: { ...dateField, required: false }, DateTo: { ...dateField, required: false }
     }, ["accounting.budgets.read"],
-      value => Array.isArray(value?.Budgets) && value.Budgets.every(budget => uuid(budget?.BudgetID) && ["OVERALL", "TRACKING"].includes(budget.Type))),
+      value => Array.isArray(value?.Budgets) && value.Budgets.every(budget => isUuid(budget?.BudgetID) && ["OVERALL", "TRACKING"].includes(budget.Type))),
     "budgets.get": accountingRecord("Budgets", "BudgetID", ["accounting.budgets.read"], {
       DateFrom: { ...dateField, required: false }, DateTo: { ...dateField, required: false }
     }),
@@ -297,13 +297,13 @@ const xeroProvider = Object.freeze({
     "bankTransactions.update": bankTransactionWrite(true),
     "bankTransactions.list": accountingRead("BankTransactions", { page: paging.page },
       ["accounting.banktransactions.read", "accounting.banktransactions"],
-      value => Array.isArray(value?.BankTransactions) && value.BankTransactions.length <= 100 && value.BankTransactions.every(record => uuid(record?.BankTransactionID))),
+      value => Array.isArray(value?.BankTransactions) && value.BankTransactions.length <= 100 && value.BankTransactions.every(record => isUuid(record?.BankTransactionID))),
     "bankTransactions.get": accountingRecord("BankTransactions", "BankTransactionID", ["accounting.banktransactions.read", "accounting.banktransactions"]),
     "manualJournals.create": manualJournalWrite(false),
     "manualJournals.update": manualJournalWrite(true),
     "manualJournals.list": accountingRead("ManualJournals", { page: paging.page },
       ["accounting.manualjournals.read", "accounting.manualjournals"],
-      value => Array.isArray(value?.ManualJournals) && value.ManualJournals.length <= 100 && value.ManualJournals.every(record => uuid(record?.ManualJournalID))),
+      value => Array.isArray(value?.ManualJournals) && value.ManualJournals.length <= 100 && value.ManualJournals.every(record => isUuid(record?.ManualJournalID))),
     "manualJournals.get": accountingRecord("ManualJournals", "ManualJournalID", ["accounting.manualjournals.read", "accounting.manualjournals"]),
     "payments.create": {
       scopes: ["accounting.payments"],
@@ -313,7 +313,7 @@ const xeroProvider = Object.freeze({
           headers: { "Xero-tenant-id": tenant.toLowerCase(), "Idempotency-Key": idempotencyKey },
           body: { Payments: [{ ...payment, Invoice: { InvoiceID: invoiceId }, Account: { AccountID: accountId } }] } };
       },
-      validateResult: value => Array.isArray(value?.Payments) && value.Payments.length === 1 && uuid(value.Payments[0]?.PaymentID) &&
+      validateResult: value => Array.isArray(value?.Payments) && value.Payments.length === 1 && isUuid(value.Payments[0]?.PaymentID) &&
         Number.isFinite(value.Payments[0].Amount) && value.Payments[0].HasValidationErrors !== true && !value.Payments[0].ValidationErrors?.length
     },
     "contacts.get": accountingRecord("Contacts", "ContactID", ["accounting.contacts.read", "accounting.contacts"]),
@@ -329,13 +329,13 @@ const xeroProvider = Object.freeze({
     "payments.list": accountingRead("Payments", { page: paging.page, pageSize: { ...paging.pageSize, max: 100 } },
       ["accounting.payments.read", "accounting.payments"],
       (value) => Array.isArray(value?.Payments) && value.Payments.length <= 100 && value.Payments.every((entry) =>
-        uuid(entry?.PaymentID) && Number.isFinite(entry.Amount) && typeof entry.Status === "string")),
+        isUuid(entry?.PaymentID) && Number.isFinite(entry.Amount) && typeof entry.Status === "string")),
     "organisation.read": accountingRead("Organisation", {}, ["accounting.settings.read", "accounting.settings"],
-      (value) => Array.isArray(value?.Organisations) && value.Organisations.length === 1 && uuid(value.Organisations[0]?.OrganisationID)),
+      (value) => Array.isArray(value?.Organisations) && value.Organisations.length === 1 && isUuid(value.Organisations[0]?.OrganisationID)),
     "contacts.list": accountingRead("Contacts", { ...paging, includeArchived: { type: "boolean", defaultTo: false }, searchTerm: { type: "string", minLength: 1, maxLength: 255 } },
-      ["accounting.contacts.read", "accounting.contacts"], (value) => Array.isArray(value?.Contacts) && value.Contacts.length <= 200 && value.Contacts.every((entry) => uuid(entry?.ContactID))),
+      ["accounting.contacts.read", "accounting.contacts"], (value) => Array.isArray(value?.Contacts) && value.Contacts.length <= 200 && value.Contacts.every((entry) => isUuid(entry?.ContactID))),
     "invoices.list": accountingRead("Invoices", paging, ["accounting.invoices.read", "accounting.invoices"],
-      (value) => Array.isArray(value?.Invoices) && value.Invoices.length <= 200 && value.Invoices.every((entry) => uuid(entry?.InvoiceID)))
+      (value) => Array.isArray(value?.Invoices) && value.Invoices.length <= 200 && value.Invoices.every((entry) => isUuid(entry?.InvoiceID)))
   },
   async exchange(address, options, { request, fetchImpl }) {
     if (address !== connectionsUrl) {
@@ -380,7 +380,7 @@ const xeroProvider = Object.freeze({
     if (record) {
       const idName = { Contacts: "ContactID", Invoices: "InvoiceID", Budgets: "BudgetID", BankTransactions: "BankTransactionID", ManualJournals: "ManualJournalID" }[record[1]];
       const returnedId = result?.[record[1]]?.[0]?.[idName];
-      if (!uuid(returnedId) || returnedId.toLowerCase() !== record[2].toLowerCase()) {
+      if (!isUuid(returnedId) || returnedId.toLowerCase() !== record[2].toLowerCase()) {
         throw new ConnectorError("connector_response_invalid", "Xero returned a different record.", { statusCode: 502, messageCode: "connectors.shared.differentRecord", messageParams: { provider: "Xero" } });
       }
     }

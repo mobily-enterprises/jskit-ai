@@ -4,6 +4,7 @@ import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { semrushDefinition } from "../shared/semrush.js";
 import { jsonOperation } from "./jsonOperation.js";
 import { isCount } from "./connectorValues.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 const projectsUrl = "https://api.semrush.com/apis/v4/projects/v1/projects";
 const projectSchema = createSchema({ projectId: { type: "integer", required: true, min: 1, max: Number.MAX_SAFE_INTEGER } });
@@ -61,7 +62,7 @@ function semrushKeywordReport(target, kind) {
   };
 }
 
-const trackingObject = (value) => Boolean(value && typeof value === "object" && !Array.isArray(value) && value.error === undefined);
+const trackingObject = (value) => Boolean(isRecord(value) && value.error === undefined);
 
 function semrushTrackingReport(type, positions = false) {
   const operation = jsonOperation("https://api.semrush.com/", {
@@ -222,7 +223,7 @@ const semrushProvider = Object.freeze({
       validateResult: v4Result(({ meta, data }, url) => meta.keyword === url.searchParams.get("keyword") && meta.country === url.searchParams.get("country") &&
         typeof meta.month === "string" && /^\d{4}-(0[1-9]|1[0-2])$/u.test(meta.month) &&
         (!url.searchParams.has("month") || meta.month === url.searchParams.get("month")) &&
-        data !== null && typeof data === "object" && !Array.isArray(data) &&
+        isRecord(data) &&
         ["cpc", "number_of_results", "search_volume"].every((key) => typeof data[key] === "string" && /^\d+$/u.test(data[key])) &&
         ["competitive_density", "keyword_difficulty"].every((key) => Number.isFinite(data[key])) &&
         ["intents", "serp_features"].every((key) => Array.isArray(data[key]) && data[key].every((value) => typeof value === "string")) &&

@@ -1,5 +1,6 @@
 import { storyblokDefinition } from "../shared/tokens.js";
 import { jsonOperation } from "./jsonOperation.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 const origins = {
   eu: "https://api.storyblok.com", us: "https://api-us.storyblok.com",
@@ -15,7 +16,7 @@ const contentFields = {
   resolve_assets: { type: "integer", enum: [0, 1] }
 };
 const story = (value) => Number.isSafeInteger(value?.id) && value.id > 0 &&
-  value.content !== null && typeof value.content === "object" && !Array.isArray(value.content);
+  isRecord(value.content);
 const getStory = jsonOperation((settings) => `${origins[settings.region]}/v2/cdn/stories`, {
   ...contentFields,
   id: { type: "string", required: true, minLength: 1, maxLength: 1024,

@@ -2,6 +2,7 @@ import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { clayDefinition } from "../shared/tokens.js";
 import { jsonOperation } from "./jsonOperation.js";
+import { hasDataList } from "./connectorValues.js";
 
 const endpoint = "https://api.clay.com/public/v0";
 const pageSchema = createSchema({
@@ -57,7 +58,7 @@ const clayProvider = Object.freeze({
         group_by: array(text, 5), order_by: array(object, 3)
       }) },
       cursor: text, limit: { type: "integer", min: 1, max: 100, defaultTo: 50 }
-    }, result => Array.isArray(result?.data), "POST"),
+    }, hasDataList, "POST"),
     "searches.create": jsonOperation(`${endpoint}/search/query-mode`, {
       query: { type: "string", required: true, minLength: 1, maxLength: 16000,
         validator: (value) => value.trim().length > 0 || "Enter a Clay search query." }

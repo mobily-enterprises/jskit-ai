@@ -1,6 +1,7 @@
 import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { clickhouseDefinition } from "../shared/clickhouse.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 const name = { type: "string", required: true, minLength: 1, maxLength: 256,
   validator: (value) => !/[\p{Cc}]/u.test(value) || "Use a name without control characters." };
@@ -31,7 +32,7 @@ function queryOperation(query, fields, validateData, parameters = values => valu
       return Boolean(result && !result.exception && !result.error && Array.isArray(result.meta) &&
         result.meta.every((column) => typeof column?.name === "string" && typeof column.type === "string") &&
         Array.isArray(result.data) && result.data.length <= 100 && Number.isInteger(result.rows) && result.rows === result.data.length &&
-        result.data.every((row) => row && typeof row === "object" && !Array.isArray(row)) && (!validateData || validateData(result.data)));
+        result.data.every(isRecord) && (!validateData || validateData(result.data)));
     }
   };
 }

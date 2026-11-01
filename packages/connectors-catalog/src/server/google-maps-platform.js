@@ -3,6 +3,8 @@ import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { googleMapsPlatformDefinition } from "../shared/google-maps-platform.js";
 import { jsonOperation, validatedOperation } from "./jsonOperation.js";
+import { hasStringId } from "./connectorValues.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 const endpoint = "https://maps.googleapis.com/maps/api/geocode/json";
 const language = { type: "string", minLength: 2, maxLength: 35,
@@ -53,7 +55,7 @@ const googleMapsPlatformProvider = Object.freeze({
   },
   operations: {
     "places.search": validatedOperation({ textQuery: { type: "string", required: true, minLength: 1, maxLength: 1000 }, pageSize: { type: "integer", min: 1, max: 20, defaultTo: 10 }, pageToken: { type: "string", minLength: 1, maxLength: 4096 }, languageCode: language }, body => ({ method: "POST", url: "https://places.googleapis.com/v1/places:searchText", headers: { "X-Goog-FieldMask": placeFields.split(",").map(field => `places.${field}`).join(",") + ",nextPageToken" }, body }),
-      result => Boolean(result && typeof result === "object" && !Array.isArray(result) && !result.error && (result.places === undefined || Array.isArray(result.places) && result.places.every(place => typeof place?.id === "string")))),
+      result => Boolean(isRecord(result) && !result.error && (result.places === undefined || Array.isArray(result.places) && result.places.every(hasStringId)))),
     "places.get": validatedOperation({ placeId: { type: "string", required: true, minLength: 1, maxLength: 512, validator: value => /^[A-Za-z0-9_-]+$/.test(value) || "Use a place ID, not a URL." } }, ({ placeId }) => ({ method: "GET", url: `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`, headers: { "X-Goog-FieldMask": placeFields } }), result => typeof result?.id === "string"),
     "routes.compute": validatedOperation({ originLatitude: latitude, originLongitude: longitude, destinationLatitude: latitude, destinationLongitude: longitude,
       travelMode: { type: "string", enum: ["DRIVE", "WALK", "BICYCLE"], defaultTo: "DRIVE" }
@@ -61,7 +63,7 @@ const googleMapsPlatformProvider = Object.freeze({
       origin: { location: { latLng: { latitude: originLatitude, longitude: originLongitude } } },
       destination: { location: { latLng: { latitude: destinationLatitude, longitude: destinationLongitude } } },
       travelMode, polylineEncoding: "GEO_JSON_LINESTRING"
-    } }), result => Boolean(result && typeof result === "object" && !Array.isArray(result) && !result.error && (result.routes === undefined || Array.isArray(result.routes)))),
+    } }), result => Boolean(isRecord(result) && !result.error && (result.routes === undefined || Array.isArray(result.routes)))),
     "geocoding.forward": jsonOperation(endpoint, {
       address: { type: "string", required: true, minLength: 1, maxLength: 1000,
         validator: (value) => Boolean(value.trim()) || "Enter an address or plus code." },

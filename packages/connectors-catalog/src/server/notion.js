@@ -4,8 +4,9 @@ import { mcpOperations, exchangeMcp } from "./mcpTransport.js";
 import { mcpRegistrationFields, registerMcpClient } from "./mcpRegistration.js";
 import { notionDefinition } from "../shared/tokens.js";
 import { jsonOperation, validatedOperation } from "./jsonOperation.js";
+import { UUID_SOURCE } from "../shared/uuid.js";
 
-const identifier = { type: "string", required: true, pattern: "^(?:[a-fA-F0-9]{32}|[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})$" };
+const identifier = { type: "string", required: true, pattern: `^(?:[a-fA-F0-9]{32}|${UUID_SOURCE})$` };
 const document = { type: "object", additionalProperties: true,
   validator: value => Buffer.byteLength(JSON.stringify(value)) <= 65536 || "Keep each document below 64 KiB." };
 const pagination = { page_size: { type: "integer", min: 1, max: 100, defaultTo: 100 },

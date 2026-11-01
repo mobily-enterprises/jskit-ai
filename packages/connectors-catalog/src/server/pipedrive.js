@@ -3,6 +3,7 @@ import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { pipedriveDefinition } from "../shared/tokens.js";
 import { jsonOperation } from "./jsonOperation.js";
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
+import { UUID_SOURCE } from "../shared/uuid.js";
 
 function companyApiDomain(value) {
   if (typeof value !== "string" || !/^https:\/\/[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.pipedrive\.com$/.test(value)) {
@@ -26,7 +27,7 @@ const recordFields = {
 };
 function crmOperation(collection, action) {
   const lead = collection === "leads", write = ["create", "update"].includes(action);
-  const id = lead ? { type: "string", pattern: "^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$" } : numberId;
+  const id = lead ? { type: "string", pattern: `^${UUID_SOURCE}$` } : numberId;
   const primary = ["deals", "leads"].includes(collection) ? "title" : collection === "activities" ? "subject" : "name";
   const fields = write ? { ...recordFields[collection], ...(action === "create" ? { [primary]: { ...text, required: true } } : {}) } : action === "list"
     ? { limit: { type: "integer", min: 1, max: 500, defaultTo: 100 }, ...(lead ? { start: { type: "integer", min: 0 } } : { cursor: { type: "string", minLength: 1, maxLength: 4096 } }) } : {};

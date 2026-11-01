@@ -4,25 +4,25 @@ import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { validateGoogleAdsSearchPlan } from "../shared/google-ads-search.js";
 import { validatedOperation } from "./jsonOperation.js";
+import { googleAdsApi, googleAdsScope, loginCustomerHeaders } from "./googleAdsApi.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
-const api = "https://googleads.googleapis.com/v25";
-const scope = "https://www.googleapis.com/auth/adwords";
 const customerId = { type: "string", required: true, validator: value => /^[0-9]{10}$/.test(value) || "Use a ten-digit customer ID." };
 const id = { type: "string", required: true, validator: value => /^[0-9]{1,20}$/.test(value) || "Use a numeric campaign ID." };
 const error = (message, codes) => { throw new ConnectorError("connector_input_invalid", message, { statusCode: 422, ...codes }); };
 const hash = value => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 function requestOperation(fields, build, validateResult) {
   return validatedOperation(fields, (values, settings) => (
-    { method: "POST", ...build(values), headers: settings.loginCustomerId ? { "login-customer-id": settings.loginCustomerId } : {} }
-  ), validateResult, [scope]);
+    { method: "POST", ...build(values), headers: loginCustomerHeaders(settings) }
+  ), validateResult, [googleAdsScope]);
 }
-const mutated = result => result && typeof result === "object" && !Array.isArray(result) && !result.partialFailureError &&
+const mutated = result => isRecord(result) && !result.partialFailureError &&
   (result.results === undefined || Array.isArray(result.results)) && (result.mutateOperationResponses === undefined || Array.isArray(result.mutateOperationResponses));
 
 function searchMutation(plan, validateOnly) {
   const p = validateGoogleAdsSearchPlan(plan), root = `customers/${p.customerId}`;
   const budget = `${root}/campaignBudgets/-1`, campaign = `${root}/campaigns/-2`, group = `${root}/adGroups/-3`, goal = `${root}/customConversionGoals/-4`;
-  return { url: `${api}/${root}/googleAds:mutate`, body: { validateOnly, partialFailure: false, mutateOperations: [
+  return { url: `${googleAdsApi}/${root}/googleAds:mutate`, body: { validateOnly, partialFailure: false, mutateOperations: [
     { campaignBudgetOperation: { create: { resourceName: budget, name: `${p.name} budget`, amountMicros: p.dailyBudgetMicros, deliveryMethod: "STANDARD", explicitlyShared: false } } },
     { campaignOperation: { create: { resourceName: campaign, name: p.name, advertisingChannelType: "SEARCH", status: "PAUSED", campaignBudget: budget,
       manualCpc: {}, containsEuPoliticalAdvertising: "DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING",
@@ -39,12 +39,12 @@ function searchMutation(plan, validateOnly) {
   ] } };
 }
 const googleAdsSearchOperations = {
-  "search.validate": { scopes: [scope], request: (input, settings) => ({ method: "POST", ...searchMutation(input, true), headers: settings.loginCustomerId ? { "login-customer-id": settings.loginCustomerId } : {} }), validateResult: mutated },
-  "search.createPaused": { scopes: [scope], request: (input, settings) => ({ method: "POST", ...searchMutation(input, false), headers: settings.loginCustomerId ? { "login-customer-id": settings.loginCustomerId } : {} }), validateResult: result => mutated(result) && Array.isArray(result.mutateOperationResponses) && result.mutateOperationResponses.some(item => /^customers\/[0-9]{10}\/campaigns\/[0-9]+$/.test(item.campaignResult?.resourceName || "")) },
+  "search.validate": { scopes: [googleAdsScope], request: (input, settings) => ({ method: "POST", ...searchMutation(input, true), headers: loginCustomerHeaders(settings) }), validateResult: mutated },
+  "search.createPaused": { scopes: [googleAdsScope], request: (input, settings) => ({ method: "POST", ...searchMutation(input, false), headers: loginCustomerHeaders(settings) }), validateResult: result => mutated(result) && Array.isArray(result.mutateOperationResponses) && result.mutateOperationResponses.some(item => /^customers\/[0-9]{10}\/campaigns\/[0-9]+$/.test(item.campaignResult?.resourceName || "")) },
   "campaigns.setStatus": requestOperation({ customerId, campaignId: id, status: { type: "string", required: true, enum: ["PAUSED", "ENABLED"] } },
-    p => ({ url: `${api}/customers/${p.customerId}/campaigns:mutate`, body: { operations: [{ update: { resourceName: `customers/${p.customerId}/campaigns/${p.campaignId}`, status: p.status }, updateMask: "status" }] } }), result => mutated(result) && result.results?.length === 1),
+    p => ({ url: `${googleAdsApi}/customers/${p.customerId}/campaigns:mutate`, body: { operations: [{ update: { resourceName: `customers/${p.customerId}/campaigns/${p.campaignId}`, status: p.status }, updateMask: "status" }] } }), result => mutated(result) && result.results?.length === 1),
   "conversions.createWebsite": requestOperation({ customerId, name: { type: "string", required: true, minLength: 1, maxLength: 100 } },
-    p => ({ url: `${api}/customers/${p.customerId}/conversionActions:mutate`, body: { operations: [{ create: { name: p.name, type: "WEBPAGE", category: "SUBMIT_LEAD_FORM", status: "ENABLED", countingType: "ONE_PER_CLICK", primaryForGoal: true } }] } }), result => mutated(result) && result.results?.length === 1)
+    p => ({ url: `${googleAdsApi}/customers/${p.customerId}/conversionActions:mutate`, body: { operations: [{ create: { name: p.name, type: "WEBPAGE", category: "SUBMIT_LEAD_FORM", status: "ENABLED", countingType: "ONE_PER_CLICK", primaryForGoal: true } }] } }), result => mutated(result) && result.results?.length === 1)
 };
 
 /**

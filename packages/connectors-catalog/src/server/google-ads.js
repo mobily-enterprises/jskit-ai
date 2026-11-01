@@ -4,11 +4,9 @@ import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { googleAdsSearchOperations } from "./google-ads-search.js";
 import { googleAdsDefinition } from "../shared/google-ads.js";
 import { googleProvider, googleRead } from "./google.js";
+import { googleAdsOrigin, googleAdsApi, googleAdsScope, loginCustomerHeaders } from "./googleAdsApi.js";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
-const origin = "https://googleads.googleapis.com";
-const api = `${origin}/v25`;
-const scope = "https://www.googleapis.com/auth/adwords";
 const customerId = { type: "string", required: true, noTrim: true, minLength: 10, maxLength: 10,
   validator: (value) => /^[0-9]{10}$/u.test(value) || "Use a 10-digit customer ID without hyphens." };
 const pageToken = { type: "string", minLength: 1, maxLength: 4096, noTrim: true,
@@ -21,8 +19,8 @@ const clientsSchema = createSchema({ customerId, pageToken });
 
 function searchRequest(schema, input, settings, fixedQuery) {
   const { customerId: id, ...body } = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
-  return { method: "POST", url: `${api}/customers/${id}/googleAds:search`,
-    headers: settings.loginCustomerId ? { "login-customer-id": settings.loginCustomerId } : {},
+  return { method: "POST", url: `${googleAdsApi}/customers/${id}/googleAds:search`,
+    headers: loginCustomerHeaders(settings),
     body: fixedQuery ? { ...body, query: fixedQuery } : body };
 }
 
@@ -35,13 +33,13 @@ function searchResult(value) {
 }
 
 const googleAdsProvider = Object.freeze({
-  ...googleProvider(googleAdsDefinition, origin, "customers.listAccessible", {
+  ...googleProvider(googleAdsDefinition, googleAdsOrigin, "customers.listAccessible", {
     ...googleAdsSearchOperations,
-    "customers.listAccessible": googleRead([scope], {}, () => ({ url: `${api}/customers:listAccessibleCustomers` }),
+    "customers.listAccessible": googleRead([googleAdsScope], {}, () => ({ url: `${googleAdsApi}/customers:listAccessibleCustomers` }),
       (value) => isRecord(value) && !value.error && (value.resourceNames === undefined || Array.isArray(value.resourceNames) &&
         value.resourceNames.every((name) => typeof name === "string" && /^customers\/[0-9]{10}$/u.test(name)))),
-    "reports.search": { scopes: [scope], request: (input, settings) => searchRequest(searchSchema, input, settings), validateResult: searchResult },
-    "customers.listClients": { scopes: [scope], request: (input, settings) => searchRequest(clientsSchema, input, settings,
+    "reports.search": { scopes: [googleAdsScope], request: (input, settings) => searchRequest(searchSchema, input, settings), validateResult: searchResult },
+    "customers.listClients": { scopes: [googleAdsScope], request: (input, settings) => searchRequest(clientsSchema, input, settings,
       "SELECT customer_client.client_customer, customer_client.level, customer_client.manager, customer_client.descriptive_name, customer_client.currency_code, customer_client.time_zone, customer_client.id, customer_client.status FROM customer_client"), validateResult: searchResult }
   }),
   async exchange(url, options, { fetchImpl }) {

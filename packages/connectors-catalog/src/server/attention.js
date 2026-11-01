@@ -3,6 +3,7 @@ import { createSchema } from "json-rest-schema";
 import { attentionDefinition } from "../shared/tokens.js";
 import { jsonOperation, validatedOperation, withQuery } from "./jsonOperation.js";
 import { hasDataList } from "./connectorValues.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 const text = { type: "string", minLength: 1, maxLength: 2000 };
 const id = { type: "string", minLength: 1, maxLength: 100, pattern: "^[A-Za-z0-9_-]+$" };
@@ -11,8 +12,8 @@ const ids = { type: "array", items: id, validator: value => value.length <= 100 
 const bool = { type: "boolean" };
 const page = { page: { type: "integer", min: 1, defaultTo: 1 }, size: { type: "integer", min: 1, max: 200, defaultTo: 50 } };
 const dateTime = { ...text, validator: value => /^\d{4}-\d{2}-\d{2}T/.test(value) && Number.isFinite(Date.parse(value)) || "Use an ISO timestamp." };
-const record = result => result?.data !== null && typeof result?.data === "object" && !Array.isArray(result.data) && typeof (result.data.uuid ?? result.data.id) === "string";
-const conversation = result => result?.type === "conversations" && typeof result.id === "string" && result.attributes !== null && typeof result.attributes === "object" && !Array.isArray(result.attributes);
+const record = result => isRecord(result?.data) && typeof (result.data.uuid ?? result.data.id) === "string";
+const conversation = result => result?.type === "conversations" && typeof result.id === "string" && isRecord(result.attributes);
 function operation(method, endpoint, fields, validateResult, prepare = value => value) {
   return validatedOperation(fields, values => {
     const { id: resource, ...body } = prepare(values);
@@ -71,7 +72,7 @@ const attentionProvider = Object.freeze({
       roleUUID: id, seat_type: { type: "string", enum: ["listener", "recording"] }, teamUUIDsToRemove: ids,
       teamsToAdd: { type: "array", items: team, validator: value => value.length <= 100 || "Use at most 100 teams." }
     }, record),
-    "users.delete": operation("DELETE", "organizations/users/{id}", { id: requiredId }, result => result === null || result !== null && typeof result === "object" && !Array.isArray(result) && Object.keys(result).length === 0),
+    "users.delete": operation("DELETE", "organizations/users/{id}", { id: requiredId }, result => result === null || isRecord(result) && Object.keys(result).length === 0),
     "teams.list": operation("GET", "organizations/teams", {}, hasDataList),
     "teams.create": operation("POST", "organizations/teams", { name: { ...text, required: true }, parentTeamUUID: id }, record),
     "teams.update": operation("PATCH", "organizations/teams/{id}", { id: requiredId, name: text, parentTeamUUID: id }, record),
@@ -82,7 +83,7 @@ const attentionProvider = Object.freeze({
       "filter[hide_internal]": { type: "boolean" },
       detailedTranscript: { type: "boolean", defaultTo: false }
     }, (result) => Array.isArray(result?.data) && (result.meta === undefined ||
-      result.meta !== null && typeof result.meta === "object" && !Array.isArray(result.meta) &&
+      isRecord(result.meta) &&
       ["totalRecords", "pageCount", "pageNumber", "pageSize"].every((field) => result.meta[field] === undefined ||
         Number.isInteger(result.meta[field]) && result.meta[field] >= 0)))
   }

@@ -3,6 +3,7 @@ import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { microsoftOneNoteDefinition } from "../shared/microsoft.js";
 import { graphRead, microsoftProvider, pageSize } from "./microsoft.js";
+import { hasStringId } from "./connectorValues.js";
 
 const id = { type: "string", required: true, minLength: 1, maxLength: 1024,
   validator: value => /^[A-Za-z0-9!_{}:.-]+$/u.test(value) && value !== "." && value !== ".." || "Use the returned OneNote resource ID." };
@@ -20,7 +21,7 @@ const base = microsoftProvider(microsoftOneNoteDefinition, "common", "notebooks.
     const { pageId } = validateSchemaPayload({ schema: contentSchema, mode: "replace" }, input, { statusCode: 422 });
     return { method: "GET", url: `${origin}/pages/${encodeURIComponent(pageId)}/content?includeIDs=true` };
   } },
-  "pages.create": { scopes: ["Notes.Create", "Notes.ReadWrite", "Notes.ReadWrite.All"], validateResult: value => typeof value?.id === "string", request(input) {
+  "pages.create": { scopes: ["Notes.Create", "Notes.ReadWrite", "Notes.ReadWrite.All"], validateResult: hasStringId, request(input) {
     const { sectionId, title, text } = validateSchemaPayload({ schema: createSchemaPage, mode: "replace" }, input, { statusCode: 422 });
     return { method: "POST", url: `${origin}/sections/${encodeURIComponent(sectionId)}/pages`, headers: { "Content-Type": "text/html" },
       body: `<!DOCTYPE html><html><head><title>${escape(title)}</title></head><body><p>${escape(text).replaceAll("\n", "<br />")}</p></body></html>` };

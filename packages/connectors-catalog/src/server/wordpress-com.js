@@ -3,6 +3,7 @@ import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { wordpressComDefinition } from "../shared/wordpress-com.js";
 import { jsonOperation } from "./jsonOperation.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 const postsSchema = createSchema({
   siteId: { type: "integer", required: true, min: 1, max: Number.MAX_SAFE_INTEGER },
@@ -131,7 +132,7 @@ const wordpressComProvider = Object.freeze({
         }
         return { method: "GET", url: url.href };
       },
-      validateResult: value => value !== null && typeof value === "object" && !Array.isArray(value) &&
+      validateResult: value => isRecord(value) &&
         Object.keys(value).length > 0 && Object.values(value).every(entry => entry !== null && typeof entry === "object")
     },
     "stats.read": siteOperation("", {}, {

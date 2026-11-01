@@ -1,6 +1,7 @@
 import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 const graphOrigin = "https://graph.microsoft.com";
 const pageSize = { type: "integer", min: 1, max: 100, defaultTo: 25 };
@@ -54,7 +55,7 @@ function microsoftProvider(definition, authority, checkOperation, operations) {
 
 function microsoftDocumentProvider(definition, extensions) {
   const fields = "id,name,size,webUrl,file,folder,parentReference,lastModifiedDateTime,eTag";
-  const facet = (value) => value === undefined || (value !== null && typeof value === "object" && !Array.isArray(value));
+  const facet = (value) => value === undefined || isRecord(value);
   const metadata = (value) => typeof value?.id === "string" && value.id.length > 0 &&
     typeof value.name === "string" && value.name.length > 0 && facet(value.file) && facet(value.folder);
   const matches = (value) => value?.file && extensions.includes(value.name.split(".").at(-1).toLowerCase());

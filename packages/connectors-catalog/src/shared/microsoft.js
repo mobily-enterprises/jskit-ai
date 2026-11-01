@@ -1,4 +1,5 @@
 import { createSchema } from "json-rest-schema";
+import { isUuid } from "./uuid.js";
 
 const registrationUrl = "https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app";
 
@@ -14,7 +15,7 @@ function definition(id, name, description, permission, label, organizationOnly =
     ],
     settingsSchema: createSchema({
       tenantId: { type: "string", maxLength: 36, defaultTo: authority,
-        validator: (value) => audiences.includes(value) || /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/iu.test(value) ||
+        validator: (value) => audiences.includes(value) || isUuid(value) ||
           `Use ${audiences.join(", ")} or your Directory (tenant) ID as a GUID.` }
     }),
     settingsFields: [{ name: "tenantId", label: "jskit.connectors.microsoft.fields.tenantId.label", placeholder: authority,

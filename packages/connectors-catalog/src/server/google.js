@@ -3,6 +3,7 @@ import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { googleScope } from "../shared/googleScope.js";
 import { validatedOperation } from "./jsonOperation.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 const oauth = Object.freeze({
   issuer: "https://accounts.google.com",
@@ -14,7 +15,7 @@ const pageToken = { type: "string", minLength: 1, maxLength: 4096 };
 
 // Request builders report rejected input as the caller's mistake, not a provider outage.
 const inputInvalid = (message, { statusCode = 422, ...codes } = {}) => new ConnectorError("connector_input_invalid", message, { statusCode, ...codes });
-const nativeRequest = request => request && typeof request === "object" && !Array.isArray(request) && Object.keys(request).length === 1 &&
+const nativeRequest = request => isRecord(request) && Object.keys(request).length === 1 &&
   /^[a-zA-Z][a-zA-Z0-9]+$/.test(Object.keys(request)[0]) && Boolean(Object.values(request)[0]) &&
   typeof Object.values(request)[0] === "object" && !Array.isArray(Object.values(request)[0]);
 // Docs, Slides and Sheets batchUpdate share one limit: 1-100 single-operation request objects within 1 MiB.

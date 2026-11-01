@@ -1,6 +1,6 @@
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { createSchema } from "json-rest-schema";
-import { isUuid } from "./connectorValues.js";
+import { isUuid } from "../shared/uuid.js";
 
 // The Wix value checks, fields and record checks the operation groups share.
 

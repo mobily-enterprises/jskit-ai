@@ -1,15 +1,16 @@
 import { createSchema } from "json-rest-schema";
+import { isUuid } from "./uuid.js";
 
 const wixDefinition = Object.freeze({
   id: "wix", name: "Wix", description: "jskit.connectors.wix.description",
   accountModes: ["shared", "assistant"], authenticationMethods: ["api-key"], scopes: [],
   settingsSchema: createSchema({ accountId: { type: "string", required: true, minLength: 36, maxLength: 36,
-    validator: (value) => /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/iu.test(value) || "Enter the Account ID from Wix's API Keys Manager." },
+    validator: (value) => isUuid(value) || "Enter the Account ID from Wix's API Keys Manager." },
     selectableSiteIds: { type: "string", maxLength: 4000, validator: value => {
       const ids = value.split(",").map(id => id.trim());
-      return ids.length <= 100 && ids.every(id => /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/iu.test(id)) && new Set(ids.map(id => id.toLowerCase())).size === ids.length || "Enter up to 100 distinct Site IDs separated by commas.";
+      return ids.length <= 100 && ids.every(id => isUuid(id)) && new Set(ids.map(id => id.toLowerCase())).size === ids.length || "Enter up to 100 distinct Site IDs separated by commas.";
     } },
-    siteId: { type: "string", minLength: 36, maxLength: 36, validator: value => /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/iu.test(value) || "Copy the Site ID from the Wix site dashboard URL." } }),
+    siteId: { type: "string", minLength: 36, maxLength: 36, validator: value => isUuid(value) || "Copy the Site ID from the Wix site dashboard URL." } }),
   settingsFields: [{ name: "accountId", label: "jskit.connectors.wix.fields.accountId.label", placeholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
     hint: "jskit.connectors.wix.fields.accountId.hint" },
     { name: "selectableSiteIds", label: "jskit.connectors.wix.fields.selectableSiteIds.label", placeholder: "jskit.connectors.wix.fields.selectableSiteIds.placeholder", hint: "jskit.connectors.wix.fields.selectableSiteIds.hint" },

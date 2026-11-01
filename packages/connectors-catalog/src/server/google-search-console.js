@@ -1,5 +1,6 @@
 import { googleSearchConsoleDefinition } from "../shared/google.js";
 import { googleOperation, googleRead, googleProvider, inputInvalid } from "./google.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 const origin = "https://searchconsole.googleapis.com";
 const readScopes = ["webmasters.readonly", "webmasters"];
 const website = value => { try { const url = new URL(value); return ["http:", "https:"].includes(url.protocol) && !url.username && !url.password && !url.hash; } catch { return false; } };
@@ -7,13 +8,13 @@ const siteUrl = { type: "string", required: true, minLength: 1, maxLength: 2048,
 const feedpath = { type: "string", required: true, minLength: 1, maxLength: 2048, validator: value => website(value) || "Use the full sitemap URL." };
 const date = { type: "string", required: true, maxLength: 10, validator: value => /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value || "Use a valid YYYY-MM-DD date." };
 const dimensions = ["date", "country", "device", "page", "query", "searchAppearance"];
-const plain = value => Boolean(value && typeof value === "object" && !Array.isArray(value) && !value.error);
+const plain = value => Boolean(isRecord(value) && !value.error);
 function propertyPath(site) { return `${origin}/webmasters/v3/sites/${encodeURIComponent(site)}`; }
 const googleSearchConsoleProvider = googleProvider(googleSearchConsoleDefinition, origin, "sites.list", {
   "sites.get": googleRead(readScopes, { siteUrl }, ({ siteUrl }) => ({ url: propertyPath(siteUrl) }), value => typeof value?.siteUrl === "string" && typeof value.permissionLevel === "string"),
   "searchAnalytics.query": googleOperation(readScopes, { siteUrl, startDate: date, endDate: date,
     dimensions: { type: "array", validator: value => value.length <= dimensions.length && new Set(value).size === value.length && value.every(dimension => dimensions.includes(dimension)) || "Choose distinct supported dimensions." },
-    filters: { type: "array", validator: filters => filters.length <= 100 && filters.every(filter => filter && typeof filter === "object" && !Array.isArray(filter) && Object.keys(filter).every(key => ["dimension", "operator", "expression"].includes(key)) && dimensions.includes(filter.dimension) && filter.dimension !== "date" && ["contains", "equals", "notContains", "notEquals", "includingRegex", "excludingRegex"].includes(filter.operator) && typeof filter.expression === "string" && filter.expression.length <= 4096) || "Use supported dimension/operator/expression filters." },
+    filters: { type: "array", validator: filters => filters.length <= 100 && filters.every(filter => isRecord(filter) && Object.keys(filter).every(key => ["dimension", "operator", "expression"].includes(key)) && dimensions.includes(filter.dimension) && filter.dimension !== "date" && ["contains", "equals", "notContains", "notEquals", "includingRegex", "excludingRegex"].includes(filter.operator) && typeof filter.expression === "string" && filter.expression.length <= 4096) || "Use supported dimension/operator/expression filters." },
     type: { type: "string", enum: ["web", "image", "video", "news", "discover", "googleNews"], defaultTo: "web" },
     rowLimit: { type: "integer", min: 1, max: 25000, defaultTo: 1000 }, startRow: { type: "integer", min: 0, defaultTo: 0 }
   }, ({ siteUrl, filters, ...body }) => {
@@ -26,6 +27,6 @@ const googleSearchConsoleProvider = googleProvider(googleSearchConsoleDefinition
   "sitemaps.submit": googleOperation(["webmasters"], { siteUrl, feedpath }, ({ siteUrl, feedpath }) => ({ method: "PUT", url: `${propertyPath(siteUrl)}/sitemaps/${encodeURIComponent(feedpath)}` }), value => value === null || plain(value) && !Object.keys(value).length),
   "sitemaps.delete": googleOperation(["webmasters"], { siteUrl, feedpath }, ({ siteUrl, feedpath }) => ({ method: "DELETE", url: `${propertyPath(siteUrl)}/sitemaps/${encodeURIComponent(feedpath)}` }), value => value === null || plain(value) && !Object.keys(value).length),
   "sites.list": googleRead(["webmasters.readonly", "webmasters"], {}, () => ({ url: `${origin}/webmasters/v3/sites` }),
-    (value) => Boolean(value && typeof value === "object" && !Array.isArray(value) && !value.error && (value.siteEntry === undefined || Array.isArray(value.siteEntry))))
+    (value) => Boolean(isRecord(value) && !value.error && (value.siteEntry === undefined || Array.isArray(value.siteEntry))))
 });
 export { googleSearchConsoleProvider };

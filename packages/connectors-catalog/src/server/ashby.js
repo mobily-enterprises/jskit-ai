@@ -1,10 +1,11 @@
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { ashbyDefinition } from "../shared/tokens.js";
 import { jsonOperation } from "./jsonOperation.js";
+import { UUID_SOURCE } from "../shared/uuid.js";
 
 const text = { type: "string", minLength: 1, maxLength: 256 };
 const uuid = { type: "string", required: true,
-  pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" };
+  pattern: `^${UUID_SOURCE}$` };
 const page = { limit: { type: "integer", min: 1, max: 100, defaultTo: 25 },
   cursor: { type: "string", minLength: 1, maxLength: 8192 }, syncToken: { type: "string", minLength: 1, maxLength: 8192 } };
 const candidate = { name: text, email: { ...text, pattern: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$" }, phoneNumber: text };

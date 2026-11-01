@@ -204,7 +204,6 @@ Local functions
 Exports
 - `isCount(value)`
 - `isText(value)`
-- `isUuid(value)`
 - `hasStringId(value)`
 - `hasDataList(result)`
 - `accountOrigin(settings)`
@@ -387,6 +386,13 @@ Exports
 - `pageToken`
 Local functions
 - `nativeRequest(request)`
+
+### `src/server/googleAdsApi.js`
+Exports
+- `googleAdsOrigin`
+- `googleAdsApi`
+- `googleAdsScope`
+- `loginCustomerHeaders(settings)`
 
 ### `src/server/granola.js`
 Exports
@@ -903,7 +909,6 @@ Local functions
 Exports
 - `xeroProvider`
 Local functions
-- `uuid(value)`
 - `reportRow(row)`
 - `reportResult(value)`
 - `validConnections(value)`
@@ -1266,6 +1271,11 @@ Exports
 ### `src/shared/twitch.js`
 Exports
 - `twitchDefinition`
+
+### `src/shared/uuid.js`
+Exports
+- `UUID_SOURCE`
+- `isUuid(value)`
 
 ### `src/shared/wave.js`
 Exports

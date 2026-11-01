@@ -2,7 +2,8 @@ import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { snowflakeDefinition } from "../shared/snowflake.js";
 import { jsonOperation } from "./jsonOperation.js";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
-import { isUuid, accountOrigin } from "./connectorValues.js";
+import { accountOrigin } from "./connectorValues.js";
+import { isUuid } from "../shared/uuid.js";
 
 const database = (value) => isRecord(value) && typeof value.name === "string" && value.name.length > 0 && value.name.length <= 255 &&
   ["owner", "comment", "kind", "created_on"].every((key) => value[key] == null || typeof value[key] === "string");

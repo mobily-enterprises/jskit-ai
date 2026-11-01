@@ -3,6 +3,8 @@ import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { microsoftSharePointDefinition } from "../shared/microsoft.js";
 import { graphRead, microsoftProvider, driveItemId, pageSize } from "./microsoft.js";
 import { microsoftOneDriveProvider } from "./microsoft-onedrive.js";
+import { hasStringId } from "./connectorValues.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 const siteId = { type: "string", required: true, minLength: 1, maxLength: 512,
   validator: value => /^[A-Za-z0-9.,_-]+$/u.test(value) && value !== "." && value !== ".." || "Use the site's returned ID, not its URL." };
@@ -33,11 +35,11 @@ const base = microsoftProvider(microsoftSharePointDefinition, "organizations", "
   "files.upload": fileOperation("files.upload", ["Sites.ReadWrite.All"]),
   "lists.list": graphRead("Sites.Read.All", { siteId }, ({ siteId }) => ({ pathname: `/sites/${encodeURIComponent(siteId)}/lists` })),
   "listItems.list": graphRead("Sites.Read.All", { siteId, listId, pageSize }, ({ siteId, listId, pageSize }) => ({ pathname: `/sites/${encodeURIComponent(siteId)}/lists/${encodeURIComponent(listId)}/items`, query: { $expand: "fields", $top: pageSize } })),
-  "listItems.create": { scopes: ["Sites.ReadWrite.All"], validateResult: value => typeof value?.id === "string", request(input) {
+  "listItems.create": { scopes: ["Sites.ReadWrite.All"], validateResult: hasStringId, request(input) {
     const { siteId, listId, fields } = validateSchemaPayload({ schema: createItemSchema, mode: "replace" }, input, { statusCode: 422 });
     return { method: "POST", url: `https://graph.microsoft.com/v1.0/sites/${encodeURIComponent(siteId)}/lists/${encodeURIComponent(listId)}/items`, body: { fields } };
   } },
-  "listItems.update": { scopes: ["Sites.ReadWrite.All"], validateResult: value => value !== null && typeof value === "object" && !Array.isArray(value), request(input) {
+  "listItems.update": { scopes: ["Sites.ReadWrite.All"], validateResult: isRecord, request(input) {
     const { siteId, listId, itemId, fields, eTag } = validateSchemaPayload({ schema: updateItemSchema, mode: "replace" }, input, { statusCode: 422 });
     return { method: "PATCH", url: `https://graph.microsoft.com/v1.0/sites/${encodeURIComponent(siteId)}/lists/${encodeURIComponent(listId)}/items/${encodeURIComponent(itemId)}/fields`, headers: { "If-Match": eTag }, body: fields };
   } }

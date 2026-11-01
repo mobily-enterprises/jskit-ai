@@ -2,7 +2,8 @@ import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { serializeNativeJson, requestPath, sameRecord, cursor, querySchema, contactIdField, nativeJsonObjectField } from "./wixValues.js";
-import { isUuid } from "./connectorValues.js";
+import { isUuid } from "../shared/uuid.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 // Wix Bookings operations: bookings, services, availability, staff, categories and service forms.
 
@@ -22,9 +23,9 @@ function bookingDirectoryOperation(kind) {
       const values = staff ? value?.staffMembers : value?.categories;
       const paging = value?.pagingMetadata;
       return Array.isArray(values) && values.length <= 100 && values.every(item => isUuid(item?.id) && typeof item.name === "string" &&
-        (!staff || isUuid(item.resourceId))) && (paging === undefined || paging && typeof paging === "object" && !Array.isArray(paging) &&
+        (!staff || isUuid(item.resourceId))) && (paging === undefined || isRecord(paging) &&
           (paging.hasNext === undefined || typeof paging.hasNext === "boolean") &&
-          (paging.cursors === undefined || paging.cursors && typeof paging.cursors === "object" && !Array.isArray(paging.cursors) &&
+          (paging.cursors === undefined || isRecord(paging.cursors) &&
             ["next", "prev"].every(key => paging.cursors[key] === undefined || cursor(paging.cursors[key]))));
     }
   };
@@ -393,9 +394,9 @@ const wixBookingOperations = {
     validateResult: (value, request) => Array.isArray(value?.extendedBookings) && value.extendedBookings.length <= 100 && value.extendedBookings.every(record =>
       isUuid(record?.booking?.id) && typeof record.booking.revision === "string" && /^\d{1,19}$/u.test(record.booking.revision) && BigInt(record.booking.revision) <= 9223372036854775807n &&
       typeof record.booking.status === "string" && record.booking.status.length > 0 &&
-      (record.allowedActions === undefined || record.allowedActions && typeof record.allowedActions === "object" && !Array.isArray(record.allowedActions) &&
+      (record.allowedActions === undefined || isRecord(record.allowedActions) &&
         ["cancel", "reschedule"].every(key => record.allowedActions[key] === undefined || typeof record.allowedActions[key] === "boolean"))) &&
-      (value.pagingMetadata === undefined || value.pagingMetadata && typeof value.pagingMetadata === "object" && !Array.isArray(value.pagingMetadata) &&
+      (value.pagingMetadata === undefined || isRecord(value.pagingMetadata) &&
         ["count", "offset", "total"].every(key => value.pagingMetadata[key] === undefined || Number.isSafeInteger(value.pagingMetadata[key]) && value.pagingMetadata[key] >= 0) &&
         (value.pagingMetadata.count === undefined || value.pagingMetadata.count === value.extendedBookings.length)) &&
       (!request.body.query.filter?.id || sameRecord(value.extendedBookings.length <= 1 && value.extendedBookings.every(record => record.booking.id === request.body.query.filter.id),
@@ -420,7 +421,7 @@ const wixBookingOperations = {
       return { method: "POST", url: "https://www.wixapis.com/_api/bookings/v2/services/query", body: { query: { paging } } };
     },
     validateResult: value => Array.isArray(value?.services) && value.services.length <= 100 && value.services.every(validService) &&
-      (value.pagingMetadata === undefined || value.pagingMetadata && typeof value.pagingMetadata === "object" && !Array.isArray(value.pagingMetadata) &&
+      (value.pagingMetadata === undefined || isRecord(value.pagingMetadata) &&
         ["count", "offset", "total"].every(key => value.pagingMetadata[key] === undefined || Number.isSafeInteger(value.pagingMetadata[key]) && value.pagingMetadata[key] >= 0) &&
         (value.pagingMetadata.count === undefined || value.pagingMetadata.count === value.services.length))
   },

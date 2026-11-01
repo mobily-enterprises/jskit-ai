@@ -2,6 +2,8 @@ import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { lightspeedDefinition } from "../shared/lightspeed.js";
 import { jsonOperation } from "./jsonOperation.js";
 import { isCount } from "./connectorValues.js";
+import { isUuid } from "../shared/uuid.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 const apiOrigin = (settings) => `https://${settings.domainPrefix}.retail.lightspeed.app`;
 const identifier = (value) => typeof value === "string" && /^[a-zA-Z0-9_-]{1,128}$/u.test(value);
@@ -39,9 +41,9 @@ const inventoryRead = jsonOperation(settings => `${apiOrigin(settings)}/api/2026
   size: { type: "integer", min: 1, max: 1000, defaultTo: 100 },
   include_deleted: { type: "boolean", defaultTo: false },
   sort_direction: { type: "string", enum: ["asc", "desc"], defaultTo: "asc" },
-  product_id: { type: "string", validator: value => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(value) || "Use a product UUID." },
+  product_id: { type: "string", validator: value => isUuid(value) || "Use a product UUID." },
   variants: { type: "boolean", defaultTo: false }
-}, result => Array.isArray(result) && result.every(row => row && typeof row === "object" && !Array.isArray(row) && isCount(row.version)), "POST");
+}, result => Array.isArray(result) && result.every(row => isRecord(row) && isCount(row.version)), "POST");
 
 const lightspeedProvider = Object.freeze({
   ...lightspeedDefinition,

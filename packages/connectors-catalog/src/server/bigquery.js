@@ -3,6 +3,7 @@ import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { jsonOperation, validatedOperation } from "./jsonOperation.js";
 import { bigqueryDefinition } from "../shared/google.js";
 import { googleRead, googleProvider, pageToken } from "./google.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 const origin = "https://bigquery.googleapis.com";
 const queryScopes = ["https://www.googleapis.com/auth/bigquery", "https://www.googleapis.com/auth/cloud-platform"];
 const resultFields = {
@@ -13,9 +14,9 @@ const resultFields = {
 const resultsSchema = createSchema({ ...resultFields,
   jobId: { type: "string", required: true, minLength: 1, maxLength: 1024, pattern: "^[a-zA-Z0-9_-]+$" }, pageToken: { ...pageToken, noTrim: true }
 });
-const validQueryResult = (value) => Boolean(value && typeof value === "object" && !Array.isArray(value) && !value.error &&
+const validQueryResult = (value) => Boolean(isRecord(value) && !value.error &&
   typeof value.jobComplete === "boolean" && (value.rows === undefined || Array.isArray(value.rows) && value.rows.every((row) =>
-    Array.isArray(row?.f) && row.f.every((cell) => cell && typeof cell === "object" && !Array.isArray(cell) && Object.hasOwn(cell, "v")))) &&
+    Array.isArray(row?.f) && row.f.every((cell) => isRecord(cell) && Object.hasOwn(cell, "v")))) &&
   (value.schema === undefined || Array.isArray(value.schema?.fields)) &&
   (value.pageToken === undefined || typeof value.pageToken === "string") &&
   (value.totalRows === undefined || (typeof value.totalRows === "string" && /^\d+$/.test(value.totalRows))) &&
@@ -41,7 +42,7 @@ const metadataPage = { maxResults: resultFields.maxResults, pageToken: { ...page
 const jobFields = { jobId: resultsSchema.getFieldDefinitions().jobId, location: resultFields.location };
 const validJob = (job) => Boolean(typeof job?.jobReference?.jobId === "string" && job.jobReference.jobId.length > 0 && typeof job.jobReference.projectId === "string" &&
   ["PENDING", "RUNNING", "DONE"].includes(job.status?.state));
-const validPage = (result, field, reference) => Boolean(result && typeof result === "object" && !Array.isArray(result) && !result.error &&
+const validPage = (result, field, reference) => Boolean(isRecord(result) && !result.error &&
   (result[field] === undefined || Array.isArray(result[field]) && result[field].every((item) => typeof item?.[reference]?.projectId === "string")) &&
   (result.nextPageToken === undefined || typeof result.nextPageToken === "string"));
 
@@ -86,7 +87,7 @@ const bigqueryProvider = googleProvider(bigqueryDefinition, origin, "projects.li
   "projects.list": googleRead(["bigquery.readonly", "bigquery", "cloud-platform.read-only", "cloud-platform"], {
     maxResults: { type: "integer", min: 1, max: 50, defaultTo: 50 }, pageToken
   }, (query) => ({ url: `${origin}/bigquery/v2/projects`, query }),
-  (result) => Boolean(result && typeof result === "object" && !Array.isArray(result) && !result.error
+  (result) => Boolean(isRecord(result) && !result.error
     && Number.isInteger(result.totalItems) && result.totalItems >= 0
     && (Array.isArray(result.projects) || (result.totalItems === 0 && result.projects === undefined))))
 });

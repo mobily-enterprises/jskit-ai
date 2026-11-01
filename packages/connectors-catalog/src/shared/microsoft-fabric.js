@@ -1,10 +1,9 @@
 import { createSchema } from "json-rest-schema";
+import { UUID_SOURCE, isUuid } from "./uuid.js";
 
 const delegatedScope = "https://analysis.windows.net/powerbi/api/GraphQLApi.Execute.All";
 const serviceScope = "https://api.fabric.microsoft.com/.default";
-const guid = "[a-fA-F0-9]{8}-(?:[a-fA-F0-9]{4}-){3}[a-fA-F0-9]{12}";
-const guidPattern = new RegExp(`^${guid}$`, "u");
-const endpointPattern = new RegExp(`^https://api\\.fabric\\.microsoft\\.com/v1/workspaces/${guid}/(?:graphqlapis|graphQLApis|GraphQLApis)/${guid}/graphql$`, "u");
+const endpointPattern = new RegExp(`^https://api\\.fabric\\.microsoft\\.com/v1/workspaces/${UUID_SOURCE}/(?:graphqlapis|graphQLApis|GraphQLApis)/${UUID_SOURCE}/graphql$`, "u");
 const scopes = [
   { value: delegatedScope, label: "jskit.connectors.microsoftFabric.scopes.delegatedScope.label", recommended: true },
   { value: "offline_access", label: "jskit.connectors.microsoftFabric.scopes.offlineAccess.label", recommended: true },
@@ -16,11 +15,11 @@ const microsoftFabricDefinition = Object.freeze({
   description: "jskit.connectors.microsoftFabric.description",
   accountModes: ["shared", "per-user", "assistant"], authenticationMethods: ["oauth2"],
   oauthGrantTypes: ["authorization_code", "client_credentials"], oauthClientAuthenticationMethods: ["client_secret_post"],
-  validateClientId: (value) => guidPattern.test(value) || "Enter the Application (client) ID as a GUID.",
+  validateClientId: (value) => isUuid(value) || "Enter the Application (client) ID as a GUID.",
   oauthGrantHint: "jskit.connectors.microsoftFabric.oauthGrantHint",
   settingsSchema: createSchema({
     tenantId: { type: "string", required: true, maxLength: 36,
-      validator: (value) => guidPattern.test(value) || "Enter the Directory (tenant) ID as a GUID, not common or a client ID." },
+      validator: (value) => isUuid(value) || "Enter the Directory (tenant) ID as a GUID, not common or a client ID." },
     graphqlEndpoint: { type: "string", required: true, maxLength: 256,
       validator: (value) => endpointPattern.test(value) || "Copy the Fabric GraphQL API endpoint with workspace and API IDs, without a query string or fragment." }
   }),

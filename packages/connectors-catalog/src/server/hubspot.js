@@ -3,6 +3,7 @@ import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { hubspotDefinition } from "../shared/tokens.js";
 import { jsonOperation } from "./jsonOperation.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 const base = "https://api.hubapi.com/crm/objects/2026-09";
 const recordId = { type: "string", required: true, minLength: 1, maxLength: 100,
@@ -18,7 +19,7 @@ const readFields = {
   associations: { type: "string", enum: ["contacts", "deals", "contacts,deals"] },
   archived: { type: "boolean", defaultTo: false }
 };
-const validRecord = value => typeof value?.id === "string" && value.properties && typeof value.properties === "object" && !Array.isArray(value.properties);
+const validRecord = value => typeof value?.id === "string" && isRecord(value.properties);
 function objectOperations(object) {
   const readScope = `crm.objects.${object}.read`, writeScope = `crm.objects.${object}.write`;
   const read = createSchema({ id: recordId, ...readFields });

@@ -6,7 +6,8 @@ import { wixDefinition } from "../shared/wix.js";
 import { wixBookingOperations } from "./wixBookings.js";
 import { wixCmsOperations } from "./wixCms.js";
 import { wixStoreOperations } from "./wixStores.js";
-import { isUuid } from "./connectorValues.js";
+import { isUuid } from "../shared/uuid.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 // The Wix provider: its API-key headers, site addressing and the site and contact
 // operations. The Bookings, eCommerce and Stores, and CMS operations live beside it.
@@ -26,7 +27,7 @@ const contactInfoSchema = createSchema({
       countryCode: { type: "string", validator: value => /^[A-Z]{2}$/u.test(value) || "Use a two-letter country code." }, primary: { type: "boolean" } }) } } }) }
 });
 const validContact = value => isUuid(value?.id) && Number.isSafeInteger(value.revision) && value.revision >= 0 &&
-  value.info && typeof value.info === "object" && !Array.isArray(value.info);
+  isRecord(value.info);
 function contactOperation(action) {
   const fields = action === "get" ? { contactId: contactIdField } : {
     ...(action === "update" ? { contactId: contactIdField, revision: { type: "integer", required: true, min: 0, max: 2147483647 } } : {}),
@@ -74,8 +75,8 @@ const wixRuntime = {
           body: { query: { paging }, ...(search === undefined ? {} : { search }) } };
       },
       validateResult: value => Array.isArray(value?.contacts) && value.contacts.length <= 100 &&
-        value.contacts.every(contact => isUuid(contact?.id) && (contact.info === undefined || contact.info && typeof contact.info === "object" && !Array.isArray(contact.info))) &&
-        (value.pagingMetadata === undefined || value.pagingMetadata && typeof value.pagingMetadata === "object" && !Array.isArray(value.pagingMetadata) &&
+        value.contacts.every(contact => isUuid(contact?.id) && (contact.info === undefined || isRecord(contact.info))) &&
+        (value.pagingMetadata === undefined || isRecord(value.pagingMetadata) &&
           ["count", "offset", "total"].every(key => value.pagingMetadata[key] === undefined || Number.isSafeInteger(value.pagingMetadata[key]) && value.pagingMetadata[key] >= 0) &&
           (value.pagingMetadata.count === undefined || value.pagingMetadata.count === value.contacts.length))
     },
@@ -88,9 +89,9 @@ const wixRuntime = {
       validateResult: (value) => Array.isArray(value?.sites) && value.sites.length <= 100 && value.sites.every((site) => isUuid(site?.id) &&
         ["name", "displayName", "viewUrl", "editUrl", "thumbnail"].every((key) => site[key] === undefined || typeof site[key] === "string") &&
         ["published", "premium", "domainConnected"].every((key) => site[key] === undefined || typeof site[key] === "boolean")) &&
-        (value.metadata === undefined || value.metadata && typeof value.metadata === "object" && !Array.isArray(value.metadata) &&
+        (value.metadata === undefined || isRecord(value.metadata) &&
           (value.metadata.count === undefined || Number.isSafeInteger(value.metadata.count) && value.metadata.count === value.sites.length) &&
-          (value.metadata.cursors === undefined || value.metadata.cursors && typeof value.metadata.cursors === "object" && !Array.isArray(value.metadata.cursors) &&
+          (value.metadata.cursors === undefined || isRecord(value.metadata.cursors) &&
             ["next", "prev"].every((key) => value.metadata.cursors[key] === undefined || cursor(value.metadata.cursors[key]))))
     }
   }

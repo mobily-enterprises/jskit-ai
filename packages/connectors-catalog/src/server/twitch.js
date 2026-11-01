@@ -2,6 +2,7 @@ import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { twitchDefinition } from "../shared/twitch.js";
 import { jsonOperation } from "./jsonOperation.js";
 import { createSchema } from "json-rest-schema";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 const validationUrl = "https://id.twitch.tv/oauth2/validate";
 const userId = (value) => typeof value === "string" && /^[1-9]\d*$/u.test(value);
@@ -36,7 +37,7 @@ function helixOperation(path, fields, scopes, validateResult, method = "GET", ch
   } };
 }
 const page = (value, record) => Array.isArray(value?.data) && value.data.every(record) &&
-  value.pagination && typeof value.pagination === "object" && !Array.isArray(value.pagination) &&
+  isRecord(value.pagination) &&
   (value.pagination.cursor === undefined || typeof value.pagination.cursor === "string");
 function analyticsOperation(kind, identity) {
   const date = { type: "string", validator: value => /^\d{4}-\d{2}-\d{2}T00:00:00Z$/u.test(value) &&

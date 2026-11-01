@@ -1,6 +1,7 @@
 import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { serializeNativeJson, requestPath, sameRecord } from "./wixValues.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 // Wix CMS operations: data collections and their items.
 
@@ -77,7 +78,7 @@ const wixCmsOperations = {
       url.searchParams.set("dataCollectionId", dataCollectionId); url.searchParams.set("consistentRead", String(consistentRead));
       return { method: "GET", url: url.href };
     },
-    validateResult: (value, request) => value?.dataItem?.data && typeof value.dataItem.data === "object" && !Array.isArray(value.dataItem.data) &&
+    validateResult: (value, request) => isRecord(value?.dataItem?.data) &&
       sameRecord(value.dataItem.id === requestPath(request, -1) && value.dataItem.dataCollectionId === new URL(request.url).searchParams.get("dataCollectionId"), "Wix returned a different CMS item or collection. Check write outcomes before retrying.", { messageCode: "connectors.wix.returnedDifferentCmsItemCollection" })
   },
   "cmsItems.patch": {
@@ -87,7 +88,7 @@ const wixCmsOperations = {
       return { method: "PATCH", url: `https://www.wixapis.com/wix-data/v2/items/${encodeURIComponent(itemId)}`,
         body: { dataCollectionId, patch: { dataItemId: itemId, fieldModifications }, ...(conditionFilter !== undefined ? { condition: { filter: conditionFilter } } : {}) } };
     },
-    validateResult: (value, request) => value?.dataItem?.data && typeof value.dataItem.data === "object" && !Array.isArray(value.dataItem.data) &&
+    validateResult: (value, request) => isRecord(value?.dataItem?.data) &&
       sameRecord(value.dataItem.id === requestPath(request, -1) && value.dataItem.dataCollectionId === request.body.dataCollectionId, "Wix returned a different CMS item or collection. Check write outcomes before retrying.", { messageCode: "connectors.wix.returnedDifferentCmsItemCollection" })
   },
   "cmsItems.list": {
@@ -100,8 +101,8 @@ const wixCmsOperations = {
           query: { paging, ...(filter !== undefined ? { filter } : {}), ...(sort !== undefined ? { sort } : {}), ...(fields !== undefined ? { fields } : {}) } } };
     },
     validateResult: (value, request) => Array.isArray(value?.dataItems) && value.dataItems.length <= 100 && value.dataItems.every(item =>
-      typeof item?.id === "string" && item.id.length > 0 && collectionId(item.dataCollectionId) && item.data && typeof item.data === "object" && !Array.isArray(item.data)) &&
-      (value.pagingMetadata === undefined || value.pagingMetadata && typeof value.pagingMetadata === "object" && !Array.isArray(value.pagingMetadata)) &&
+      typeof item?.id === "string" && item.id.length > 0 && collectionId(item.dataCollectionId) && isRecord(item.data)) &&
+      (value.pagingMetadata === undefined || isRecord(value.pagingMetadata)) &&
       sameRecord(value.dataItems.every(item => item.dataCollectionId === request.body.dataCollectionId), "Wix returned items from a different CMS collection.", { messageCode: "connectors.wix.returnedItemsDifferentCmsCollection" })
   },
   "cmsCollections.list": {
@@ -114,7 +115,7 @@ const wixCmsOperations = {
       return { method: "GET", url: url.href };
     },
     validateResult: value => Array.isArray(value?.collections) && value.collections.length <= 100 && value.collections.every(validCollection) &&
-      (value.pagingMetadata === undefined || value.pagingMetadata && typeof value.pagingMetadata === "object" && !Array.isArray(value.pagingMetadata))
+      (value.pagingMetadata === undefined || isRecord(value.pagingMetadata))
   },
   "cmsCollections.get": {
     scopes: [],

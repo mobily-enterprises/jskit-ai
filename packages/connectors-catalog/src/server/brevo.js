@@ -2,6 +2,7 @@ import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { createSchema } from "json-rest-schema";
 import { brevoDefinition } from "../shared/tokens.js";
 import { jsonOperation, validatedOperation, withQuery } from "./jsonOperation.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 const text = { type: "string", minLength: 1, maxLength: 1000 };
 const email = { ...text, maxLength: 320, pattern: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$" };
@@ -13,7 +14,7 @@ const mailbox = { type: "object", schema: createSchema({ email: { ...email, requ
 const ids = { type: "array", items: { type: "integer", min: 1 }, validator: value => value.length <= 100 || "Use at most 100 list IDs." };
 const emails = { type: "array", items: email, validator: value => value.length > 0 && value.length <= 150 || "Supply 1–150 email addresses." };
 const domain = { type: "string", minLength: 3, maxLength: 253, pattern: "^(?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?\\.)+[A-Za-z]{2,}$", required: true };
-const empty = result => result === null || result !== null && typeof result === "object" && !Array.isArray(result) && Object.keys(result).length === 0;
+const empty = result => result === null || isRecord(result) && Object.keys(result).length === 0;
 const record = result => Number.isInteger(result?.id);
 function operation(method, endpoint, fields, validateResult, prepare = value => value) {
   return validatedOperation(fields, values => {

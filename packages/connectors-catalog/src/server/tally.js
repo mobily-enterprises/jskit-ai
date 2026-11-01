@@ -3,11 +3,12 @@ import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { tallyDefinition } from "../shared/tokens.js";
 import { jsonOperation } from "./jsonOperation.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 const formIdField = { type: "string", required: true, noTrim: true,
   validator: (value) => /^[A-Za-z0-9_-]{1,128}$/u.test(value) || "Enter a Tally form ID, not a URL." };
 const blocksField = { type: "array", validator: (value) => value.length <= 500 &&
-  value.every((block) => block && typeof block === "object" && !Array.isArray(block) && typeof block.type === "string") || "Supply up to 500 native Tally block objects." };
+  value.every((block) => isRecord(block) && typeof block.type === "string") || "Supply up to 500 native Tally block objects." };
 const statusField = { type: "string", enum: ["BLANK", "DRAFT", "PUBLISHED"] };
 const formResult = (result) => typeof result?.id === "string" && typeof result.name === "string" &&
   ["BLANK", "DRAFT", "PUBLISHED"].includes(result.status);

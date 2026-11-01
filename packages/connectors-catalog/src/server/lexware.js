@@ -2,8 +2,9 @@ import { createSchema } from "json-rest-schema";
 import { lexwareDefinition } from "../shared/tokens.js";
 import { hasStringId } from "./connectorValues.js";
 import { jsonOperation, validatedOperation } from "./jsonOperation.js";
+import { isUuid } from "../shared/uuid.js";
 
-const id = { type: "string", required: true, validator: value => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(value) || "Use a Lexware resource UUID." };
+const id = { type: "string", required: true, validator: value => isUuid(value) || "Use a Lexware resource UUID." };
 const text = { type: "string", minLength: 1, maxLength: 1000 };
 const date = { type: "string", required: true, validator: value => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/u.test(value) && Number.isFinite(Date.parse(value)) && new Date(`${value.slice(0, 10)}T00:00:00Z`).toISOString().startsWith(value.slice(0, 10)) || "Use an ISO timestamp with timezone." };
 const paging = { page: { type: "integer", min: 0, max: 100000, defaultTo: 0 }, size: { type: "integer", min: 1, max: 250, defaultTo: 25 } };

@@ -1,6 +1,7 @@
 import { createSchema } from "json-rest-schema";
 import { incidentIoDefinition } from "../shared/tokens.js";
 import { jsonOperation, validatedOperation } from "./jsonOperation.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 const id = { type: "string", required: true, minLength: 1, maxLength: 200,
   validator: value => /^[a-zA-Z0-9_-]+$/u.test(value) || "Use the incident.io resource ID, not a URL." };
@@ -13,11 +14,11 @@ const address = path => `https://api.incident.io${path}`;
 const incidentFields = { name: text, summary: text, severity_id: optionalId, incident_status_id: optionalId };
 const followUpFields = { title: { ...text, required: true, maxLength: 1000 }, description: text,
   assignee_id: optionalId, assignee_team_id: optionalId, follow_up_category_id: optionalId, follow_up_priority_option_id: optionalId };
-const literal = value => value && typeof value === "object" && !Array.isArray(value) &&
+const literal = value => isRecord(value) &&
   Object.keys(value).length === 1 && typeof value.literal === "string" && value.literal.length <= 20000;
 const attributes = { type: "object", required: true, additionalProperties: true,
   validator: value => Object.keys(value).length <= 250 && Buffer.byteLength(JSON.stringify(value)) <= 100000 &&
-    Object.entries(value).every(([key, binding]) => /^[a-zA-Z0-9_-]+$/u.test(key) && binding && typeof binding === "object" && !Array.isArray(binding) &&
+    Object.entries(value).every(([key, binding]) => /^[a-zA-Z0-9_-]+$/u.test(key) && isRecord(binding) &&
       Object.keys(binding).every(field => ["value", "array_value"].includes(field)) &&
       (binding.value === undefined || literal(binding.value)) &&
       (binding.array_value === undefined || Array.isArray(binding.array_value) && binding.array_value.length <= 100 && binding.array_value.every(literal))) ||

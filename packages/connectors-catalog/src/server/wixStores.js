@@ -2,7 +2,8 @@ import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { requestPath, sameRecord, cursor, contactIdField, nativeJsonObjectField } from "./wixValues.js";
-import { isUuid } from "./connectorValues.js";
+import { isUuid } from "../shared/uuid.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 // Wix eCommerce and Stores operations: carts, products, catalog version, orders, fulfillments and business locations.
 
@@ -27,10 +28,10 @@ function productReadOperation(version, action) {
     },
     validateResult: (value, request) => action === "get" ? validProduct(value?.product) && sameRecord(value.product.id === requestPath(request, -1), "Wix returned a different product.", { messageCode: "connectors.wix.returnedDifferentProduct" }) : Array.isArray(value?.products) && value.products.length <= 100 && value.products.every(validProduct) &&
       (version === 1 ? (value.totalResults === undefined || Number.isSafeInteger(value.totalResults) && value.totalResults >= 0) &&
-        (value.metadata === undefined || value.metadata && typeof value.metadata === "object" && !Array.isArray(value.metadata) &&
+        (value.metadata === undefined || isRecord(value.metadata) &&
           ["items", "offset"].every(key => value.metadata[key] === undefined || Number.isSafeInteger(value.metadata[key]) && value.metadata[key] >= 0)) :
-        (value.pagingMetadata === undefined || value.pagingMetadata && typeof value.pagingMetadata === "object" && !Array.isArray(value.pagingMetadata) &&
-          (value.pagingMetadata.cursors === undefined || value.pagingMetadata.cursors && typeof value.pagingMetadata.cursors === "object" && !Array.isArray(value.pagingMetadata.cursors) &&
+        (value.pagingMetadata === undefined || isRecord(value.pagingMetadata) &&
+          (value.pagingMetadata.cursors === undefined || isRecord(value.pagingMetadata.cursors) &&
             ["next", "prev"].every(key => value.pagingMetadata.cursors[key] === undefined || cursor(value.pagingMetadata.cursors[key])))))
   };
 }
@@ -208,7 +209,7 @@ const wixStoreOperations = {
         body: { query: { filter: { archived }, paging }, filterAuthorizedLocationEntities: true } };
     },
     validateResult: value => Array.isArray(value?.locations) && value.locations.length <= 100 && value.locations.every(validLocation) &&
-      (value.pagingMetadata === undefined || value.pagingMetadata && typeof value.pagingMetadata === "object" && !Array.isArray(value.pagingMetadata) &&
+      (value.pagingMetadata === undefined || isRecord(value.pagingMetadata) &&
         ["count", "offset", "total"].every(key => value.pagingMetadata[key] === undefined || Number.isSafeInteger(value.pagingMetadata[key]) && value.pagingMetadata[key] >= 0))
   },
   "locations.get": {
@@ -263,10 +264,10 @@ const wixStoreOperations = {
         body: { search: { cursorPaging, ...(Object.keys(filter).length ? { filter } : {}) } } };
     },
     validateResult: value => Array.isArray(value?.orders) && value.orders.length <= 100 && value.orders.every(validOrder) &&
-      (value.metadata === undefined || value.metadata && typeof value.metadata === "object" && !Array.isArray(value.metadata) &&
+      (value.metadata === undefined || isRecord(value.metadata) &&
         (value.metadata.count === undefined || value.metadata.count === value.orders.length) &&
         (value.metadata.hasNext === undefined || typeof value.metadata.hasNext === "boolean") &&
-        (value.metadata.cursors === undefined || value.metadata.cursors && typeof value.metadata.cursors === "object" && !Array.isArray(value.metadata.cursors) &&
+        (value.metadata.cursors === undefined || isRecord(value.metadata.cursors) &&
           ["next", "prev"].every(key => value.metadata.cursors[key] === undefined || cursor(value.metadata.cursors[key]))))
   },
   "orders.get": {

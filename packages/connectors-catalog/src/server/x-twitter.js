@@ -2,6 +2,7 @@ import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { xTwitterDefinition } from "../shared/x-twitter.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 const validId = (value) => typeof value === "string" && /^[0-9]{1,19}$/u.test(value);
 const validUsername = (value) => typeof value === "string" && /^[A-Za-z0-9_]{1,15}$/u.test(value);
@@ -21,7 +22,7 @@ const searchSchema = createSchema({
   nextToken: { type: "string", noTrim: true, validator: (value) => validCursor(value) || "Use the returned next token." }
 });
 
-const validEnvelope = (value) => value && typeof value === "object" && !Array.isArray(value) && (value.errors === undefined || Array.isArray(value.errors));
+const validEnvelope = (value) => isRecord(value) && (value.errors === undefined || Array.isArray(value.errors));
 // The profile must be the username the request asked for.
 const validUser = (value, request) => validEnvelope(value) && validId(value.data?.id) && validUsername(value.data?.username) &&
   typeof value.data.name === "string" && value.data.username.toLowerCase() === new URL(request.url).pathname.split("/").at(-1).toLowerCase();
