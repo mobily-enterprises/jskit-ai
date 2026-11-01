@@ -339,16 +339,18 @@ function createAnthropicClient({
     };
   }
 
+  const streaming = createAiConnectionClient({
+    providerId: "anthropic", sdkPackage: "@ai-sdk/anthropic", apiKey: normalizedApiKey,
+    model: normalizedModel, baseURL: `${normalizedBaseUrl}/v1`
+  }, { timeoutMs, maxOutputTokens: DEFAULT_ANTHROPIC_MAX_OUTPUT_LIMIT });
   return Object.freeze({
     enabled: true,
     provider: "anthropic",
     defaultModel: normalizedModel,
+    model: streaming.model,
     createChatCompletion: createCompletion,
     createChatCompletionStream(input) {
-      return createAiConnectionClient({
-        providerId: "anthropic", sdkPackage: "@ai-sdk/anthropic", apiKey: normalizedApiKey,
-        model: normalizedModel, baseURL: `${normalizedBaseUrl}/v1`
-      }, { timeoutMs, maxOutputTokens: DEFAULT_ANTHROPIC_MAX_OUTPUT_LIMIT }).createChatCompletionStream({ temperature: 0.2, ...input });
+      return streaming.createChatCompletionStream({ temperature: 0.2, ...input });
     }
   });
 }
