@@ -5,7 +5,7 @@ import {
   createSchemaDefinition
 } from "@jskit-ai/resource-core/shared/resource";
 import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
-import { createOperationMessages } from "../operationMessages.js";
+import { OPERATION_MESSAGES } from "../operationMessages.js";
 import { DEFAULT_USER_SETTINGS, normalizeLocaleCode } from "../settings.js";
 import {
   accountSecurityStatusSchema,
@@ -252,8 +252,6 @@ const logoutOtherSessionsOutputSchema = createSchema({
   ok: { type: "boolean", required: true }
 });
 
-const USER_SETTINGS_OPERATION_MESSAGES = createOperationMessages();
-
 const userSettingsResource = defineCrudResource({
   namespace: "userSettings",
   tableName: "user_settings",
@@ -371,7 +369,7 @@ const userSettingsResource = defineCrudResource({
       }
     }
   },
-  messages: USER_SETTINGS_OPERATION_MESSAGES,
+  messages: OPERATION_MESSAGES,
   crudOperations: ["view", "list", "create", "replace", "patch"],
   crud: {
     output: userSettingsOutputValidator,

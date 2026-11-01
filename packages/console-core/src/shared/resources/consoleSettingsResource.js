@@ -1,6 +1,6 @@
 import { createSchema } from "json-rest-schema";
 import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
-import { createOperationMessages } from "../operationMessages.js";
+import { OPERATION_MESSAGES } from "../operationMessages.js";
 
 const consoleSettingsBodySchema = createSchema({});
 const consoleSettingsOutputSchema = createSchema({
@@ -13,7 +13,7 @@ const consoleSettingsOutputSchema = createSchema({
 
 const consoleSettingsResource = defineCrudResource({
   namespace: "consoleSettings",
-  messages: createOperationMessages(),
+  messages: OPERATION_MESSAGES,
   crudOperations: ["view", "list", "create", "replace", "patch"],
   crud: {
     output: consoleSettingsOutputSchema,

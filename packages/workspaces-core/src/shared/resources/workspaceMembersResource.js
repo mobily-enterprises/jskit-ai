@@ -1,7 +1,7 @@
 import { RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
 import { createSchema } from "json-rest-schema";
 import { defineResource } from "@jskit-ai/resource-core/shared/resource";
-import { createOperationMessages } from "../operationMessages.js";
+import { OPERATION_MESSAGES } from "../operationMessages.js";
 import { workspaceRoleCatalogSchema } from "./workspaceRoleCatalogSchema.js";
 
 const workspaceSummaryOutputSchema = createSchema({
@@ -206,7 +206,7 @@ const redeemInviteOutputSchema = createSchema({
 
 const workspaceMembersResource = defineResource({
   namespace: "workspaceMembers",
-  messages: createOperationMessages(),
+  messages: OPERATION_MESSAGES,
   operations: {
     rolesList: {
       method: "GET",

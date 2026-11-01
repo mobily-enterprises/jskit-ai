@@ -1,7 +1,7 @@
 import { createSchema } from "json-rest-schema";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
-import { createOperationMessages } from "../operationMessages.js";
+import { OPERATION_MESSAGES } from "../operationMessages.js";
 import { userProfileOutputSchema } from "./accountSettingsSchemas.js";
 import { userSettingsOutputSchema } from "./userSettingsResource.js";
 import { USERNAME_MAX_LENGTH, normalizeNullableString, normalizeNullableVersion, normalizeUsername } from "./userProfileValues.js";
@@ -48,8 +48,6 @@ const avatarUploadBodySchema = createSchema({
     }
   }
 });
-
-const USER_PROFILE_OPERATION_MESSAGES = createOperationMessages();
 
 const userProfileResource = defineCrudResource({
   namespace: "userProfile",
@@ -134,7 +132,7 @@ const userProfileResource = defineCrudResource({
       }
     }
   },
-  messages: USER_PROFILE_OPERATION_MESSAGES,
+  messages: OPERATION_MESSAGES,
   crudOperations: ["view", "list", "create", "replace", "patch"],
   crud: {
     output: userProfileOutputSchema,

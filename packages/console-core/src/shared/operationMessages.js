@@ -1,16 +1,7 @@
-function createOperationMessages({
-  validationMessage = "Validation failed.",
-  apiValidationMessage = validationMessage
-} = {}) {
-  const validation = String(validationMessage || "Validation failed.");
-  const apiValidation = String(apiValidationMessage || validation || "Validation failed.");
+/** The messages a resource's operations show when their input fails validation. */
+const OPERATION_MESSAGES = Object.freeze({
+  validation: "Validation failed.",
+  apiValidation: "Validation failed."
+});
 
-  return Object.freeze({
-    validation,
-    apiValidation
-  });
-}
-
-export {
-  createOperationMessages
-};
+export { OPERATION_MESSAGES };
