@@ -53,6 +53,15 @@ function isLocalDevAuthRequest(request) {
   return isLoopbackIp(remoteAddress) && isLoopbackHostname(normalizeRequestHostname(request));
 }
 
+/**
+ * True when NODE_ENV names production, in any letter case. Every auth package
+ * decides "production" this one way.
+ * @param {unknown} nodeEnv
+ */
+function isProductionNodeEnv(nodeEnv) {
+  return String(nodeEnv || "").trim().toLowerCase() === "production";
+}
+
 function resolveDevAuthPolicy({
   enabled = false,
   nodeEnv = "development",
@@ -60,7 +69,7 @@ function resolveDevAuthPolicy({
 } = {}) {
   return Object.freeze({
     enabled: parseBooleanFlag(enabled, false),
-    isProduction: String(nodeEnv || "development").trim().toLowerCase() === "production",
+    isProduction: isProductionNodeEnv(nodeEnv),
     secret: String(secret || "").trim()
   });
 }
@@ -133,6 +142,7 @@ export {
   ensureDevAuthRuntimeAvailable,
   isDevAuthBootstrapEnabled,
   isLocalDevAuthRequest,
+  isProductionNodeEnv,
   resolveDevAuthPolicy,
   resolveDevAuthPolicyFromEnv
 };

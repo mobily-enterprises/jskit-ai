@@ -101,6 +101,7 @@ Exports
 - `ensureDevAuthRuntimeAvailable(policy = {}, request = null)`
 - `isDevAuthBootstrapEnabled(policy)`
 - `isLocalDevAuthRequest(request)`
+- `isProductionNodeEnv(nodeEnv)`
 - `resolveDevAuthPolicy({ enabled = false, nodeEnv = "development", secret = "" } = {})`
 - `resolveDevAuthPolicyFromEnv(env = {})`
 Local functions
