@@ -28,6 +28,7 @@ Exports
 Local functions
 - `cloneStructuredFieldMetadata(value = {})`
 - `mergeFieldContractEntry(target, source, { context = "crud field contract", fieldKey = "" } = {})`
+- `resolveCrudFieldOperations(fieldDefinition)`
 
 ### `src/shared/crudListFilters.js`
 Exports
@@ -127,6 +128,7 @@ Local functions
 ### `src/shared/crudLookup.js`
 Exports
 - `DEFAULT_CRUD_LOOKUP_CONTAINER_KEY`
+- `expandCrudLookupFields(schema)`
 - `normalizeCrudLookupApiPath(value = "")`
 - `normalizeCrudLookupNamespace(value = "")`
 - `resolveCrudLookupApiPathFromNamespace(value = "")`
@@ -138,6 +140,8 @@ Exports
 - `resolveCrudParentFilterKeys(resource = {})`
 - `resolveCrudLookupFieldKeyFromRouteParam(resource = {}, routeParamKey = "", { allowKeys = [] } = {})`
 Local functions
+- `usesCrudLookupShorthand(fieldDefinition)`
+- `expandCrudLookupField(fieldKey, fieldDefinition)`
 - `resolveCrudLookupFieldEntries(resource = {}, { allowKeys = [] } = {})`
 - `resolveCrudLookupCreateSchemaKeys(resource)`
 
@@ -170,6 +174,7 @@ Local functions
 - `buildDefaultCrudOperations(resource = {})`
 - `mergeCrudOperationDefinition(baseDefinition, overrideDefinition)`
 - `mergeCrudOperations(defaultOperations = {}, overrides = {})`
+- `withExpandedCrudLookups(resource)`
 
 ### patterns
 

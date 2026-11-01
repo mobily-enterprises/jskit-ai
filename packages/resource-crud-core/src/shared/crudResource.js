@@ -11,6 +11,7 @@ import {
   defineResource,
   normalizeSchemaDefinitionLike
 } from "@jskit-ai/resource-core/shared/resource";
+import { expandCrudLookupFields } from "./crudLookup.js";
 import { requireCrudNamespace, resolveCrudRecordChangedEvent } from "./crudNamespaceSupport.js";
 
 const DEFAULT_CRUD_OPERATION_NAMES = Object.freeze([
@@ -366,8 +367,13 @@ function mergeCrudOperations(defaultOperations = {}, overrides = {}) {
   return merged;
 }
 
+function withExpandedCrudLookups(resource) {
+  const schema = expandCrudLookupFields(resource.schema);
+  return schema === resource.schema ? resource : { ...resource, schema };
+}
+
 function defineCrudResource(resource = {}) {
-  const source = normalizeObject(resource);
+  const source = withExpandedCrudLookups(normalizeObject(resource));
   const {
     crud: _crudConfig,
     crudOperations: _crudOperations,

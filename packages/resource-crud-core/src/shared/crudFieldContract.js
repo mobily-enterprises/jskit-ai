@@ -1,5 +1,6 @@
 import { normalizeSingleSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
 import {
+  isRecord,
   normalizeObject,
   normalizeText
 } from "@jskit-ai/kernel/shared/support/normalize";
@@ -247,11 +248,39 @@ function buildCrudFieldContractMap(resource, { context = "crud resource field co
   );
 }
 
+/**
+ * The operations a schema field takes part in. A field's own `operations` always
+ * win. A field without them takes the default: none when it is `hidden: true`,
+ * output only when it is `readOnly: true`, and otherwise output, create (required
+ * when the field is `required: true`) and patch.
+ * @param {Record<string, any>} fieldDefinition
+ * @returns {Record<string, unknown>}
+ */
+function resolveCrudFieldOperations(fieldDefinition) {
+  if (fieldDefinition.operations !== undefined) {
+    return normalizeObject(fieldDefinition.operations);
+  }
+  if (fieldDefinition.hidden === true) {
+    return {};
+  }
+  if (fieldDefinition.readOnly === true) {
+    return { output: { required: true } };
+  }
+  return {
+    output: { required: true },
+    create: { required: fieldDefinition.required === true },
+    patch: { required: false }
+  };
+}
+
 function buildCrudOperationSchemaFields(fields = {}, operationName = "") {
   const definitions = {};
 
   for (const [fieldKey, fieldDefinition] of Object.entries(fields)) {
-    const operationConfig = fieldDefinition?.operations?.[operationName];
+    if (!isRecord(fieldDefinition)) {
+      continue;
+    }
+    const operationConfig = resolveCrudFieldOperations(fieldDefinition)[operationName];
     if (!operationConfig) {
       continue;
     }

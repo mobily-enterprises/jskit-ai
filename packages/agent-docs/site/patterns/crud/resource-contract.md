@@ -43,7 +43,9 @@ not from a JSKIT questionnaire.
 - User ownership is represented by a non-null `user_id` column.
 - The resource's hidden `userId` field maps to that ownership column.
 - `autofilter: "user"` is used only for genuine current-user ownership.
-- Output, create, and patch participation is explicit on each product field.
+- Each product field's output, create, and patch participation is its
+  `operations` block, or the default `defineCrudResource()` gives a field
+  without one (see Field operations and lookups below).
 - Temporal database values use the declared storage serializer.
 - The source-controlled migration and resource contract agree.
 - Server policy tests prove that one user cannot read or mutate another user's
@@ -58,6 +60,56 @@ CRUD operation validators from one readable field contract.
 Higher layers should consume this resource through JSKIT's CRUD service,
 repository, route, and UI APIs. They should not rebuild field validators or
 serialize requests independently.
+
+## Field operations and lookups
+
+A field's `operations` name the operations it takes part in: `output` (the
+record in every response), and `create` and `patch` (the request bodies; an
+enabled `replace` uses the `create` fields unless a field names `replace`). A
+field that leaves `operations` out takes the default:
+
+| Field | Default `operations` |
+| --- | --- |
+| `hidden: true` | `{}`: no operation |
+| `readOnly: true` | `{ output: { required: true } }` |
+| any other field | `{ output: { required: true }, create: { required: <the field's required> }, patch: { required: false } }` |
+
+So a `required: true` field is required on create, and any other field is
+optional there. An `operations` block you write always wins, for example
+`operations: { output: {}, create: {}, patch: {} }` for a field that is
+optional everywhere. Write the block only where it differs from the default:
+
+```js
+schema: {
+  userId: { type: "id", required: true, hidden: true },
+  title: { type: "string", maxLength: 255, required: true, search: true },
+  notes: { type: "string", maxLength: 65535, nullable: true, search: true },
+  createdAt: { type: "dateTime", default: "now()", readOnly: true, storage: { writeSerializer: "datetime-utc" } }
+}
+```
+
+A field that looks up a record of another resource can name that resource's
+namespace with `lookup`:
+
+```js
+shelfId: { type: "id", nullable: true, search: true, lookup: "shelves" }
+```
+
+`defineCrudResource()` expands it, where `lookup` stood, to:
+
+```js
+relation: { kind: "lookup", namespace: "shelves", valueKey: "id" },
+belongsTo: "shelves",  // the namespace's JSON REST resource, camel-cased
+as: "shelf",           // the field key without its Id suffix
+ui: { formControl: "autocomplete" }
+```
+
+Keys you write beside `lookup` win: `belongsTo` and `as` replace the
+filled-in values, and `relation` and `ui` are merged over them, so
+`relation: { labelKey: "name" }` adds a label key and
+`ui: { formControl: "select" }` picks a select. A field whose key has no `Id`
+suffix must write `as`. The built resource equals one that writes the expanded
+keys out.
 
 ## Example files
 

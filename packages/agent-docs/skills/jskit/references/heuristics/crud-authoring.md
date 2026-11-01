@@ -33,6 +33,11 @@ Read these package-owned source patterns:
 The migration and resource are both authored contracts. A live schema is useful
 for understanding an imported system, but it is never the sole source of truth.
 
+Write a field's `operations` only where it differs from the default (output,
+create required as the field is, patch; none for `hidden: true`; output only
+for `readOnly: true`), and write a lookup field as `lookup: "<namespace>"`.
+The `crud/resource-contract` pattern lists what each expands to.
+
 ## Ownership and access
 
 - `public` means every record is intentionally public. It cannot be combined
