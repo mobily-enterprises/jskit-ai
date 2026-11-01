@@ -3,6 +3,7 @@ import {
   JSON_API_CONTENT_TYPE,
   createJsonApiDocument,
   createJsonApiResourceObject,
+  jsonApiNextCursor,
   normalizeCodedEntry,
   normalizeJsonApiDocument,
   resolveJsonApiTransportTypes
@@ -233,11 +234,8 @@ function assertPrimaryDataType(resource, expectedType = "") {
 }
 
 function resolveCollectionPageMeta(document = {}) {
-  const nextCursor = normalizeText(
-    document.meta?.page?.nextCursor || document.meta?.pagination?.cursor?.next
-  );
   return {
-    nextCursor: nextCursor || null,
+    nextCursor: jsonApiNextCursor(document),
     ...(isRecord(document.meta) ? { meta: document.meta } : {}),
     ...(isRecord(document.links) ? { links: document.links } : {})
   };

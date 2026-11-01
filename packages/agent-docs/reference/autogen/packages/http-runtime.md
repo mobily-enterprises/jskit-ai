@@ -141,6 +141,7 @@ Exports
 - `isJsonApiErrorDocument`
 - `isJsonApiResourceDocument`
 - `isJsonContentType`
+- `jsonApiNextCursor`
 - `normalizeJsonApiDocument`
 - `normalizeJsonApiResourceObject`
 - `resolveJsonApiTransportTypes`
@@ -279,6 +280,7 @@ Exports
 - `isJsonApiErrorDocument(payload = {})`
 - `isJsonApiResourceDocument(payload = {})`
 - `isJsonContentType(contentType = "")`
+- `jsonApiNextCursor(document)`
 - `normalizeCodedEntry(entry)`
 - `normalizeJsonApiDocument(payload = {})`
 - `normalizeJsonApiResourceObject(resource = {})`

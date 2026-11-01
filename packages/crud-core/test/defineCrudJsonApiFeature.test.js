@@ -251,7 +251,7 @@ test("generated CRUD actions expose truthful assistant contracts without changin
       async queryDocuments() {
         return returnJsonApiDocument({
           data: [document("1", "Kindred").data],
-          meta: { page: { nextCursor: "cursor-2" } }
+          meta: { pagination: { cursor: { next: "cursor-2" } } }
         });
       },
       async getDocumentById() {

@@ -819,6 +819,9 @@ owner, instead of a copy per package:
   (`@jskit-ai/http-runtime/shared`). Both read only a tagged result
   (`returnJsonApiDocument`, `returnJsonApiData` or `returnJsonApiMeta`) and
   throw on anything else;
+- a collection document's next-page cursor: `jsonApiNextCursor(document)`
+  (`@jskit-ai/http-runtime/shared`), from `meta.pagination.cursor.next`, the
+  one shape json-rest-api and the route transport both write;
 - a create event's record id: `resolveCrudJsonApiEntityIdFromResult`
   (`@jskit-ai/crud-core/server/serviceEvents`), from the tagged JSON:API
   result a CRUD service or action returns (a document result's `data.id` or a

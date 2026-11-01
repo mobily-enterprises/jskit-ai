@@ -23,6 +23,7 @@ export {
   isJsonApiErrorDocument,
   isJsonApiResourceDocument,
   isJsonContentType,
+  jsonApiNextCursor,
   normalizeJsonApiDocument,
   normalizeJsonApiResourceObject,
   resolveJsonApiTransportTypes,

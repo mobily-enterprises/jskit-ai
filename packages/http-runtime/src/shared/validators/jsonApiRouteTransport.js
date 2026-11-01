@@ -78,9 +78,12 @@ function defaultCollectionMetaResolver(payload) {
     return undefined;
   }
 
+  // The one next-cursor shape, the one json-rest-api writes for a resource query (jsonApiNextCursor reads it).
   return {
-    page: {
-      nextCursor
+    pagination: {
+      cursor: {
+        next: nextCursor
+      }
     }
   };
 }
@@ -245,7 +248,7 @@ function buildRouteTransport({
   }
 
   /**
-   * Collections always resolve meta (falling back to the nextCursor page meta); records add
+   * Collections always resolve meta (falling back to the next-cursor pagination meta); records add
    * meta only when the caller supplies getDocumentMeta.
    */
   function buildDocumentOptions(sourcePayload, context, data, resolveMeta) {

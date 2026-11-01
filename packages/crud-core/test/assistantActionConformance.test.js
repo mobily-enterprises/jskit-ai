@@ -142,8 +142,10 @@ function createBookingDocument(query = {}) {
     data,
     ...(included.length > 0 ? { included } : {}),
     meta: {
-      page: {
-        nextCursor: limit < BOOKINGS.length ? `after-${rows.at(-1)?.id}` : null
+      pagination: {
+        cursor: {
+          next: limit < BOOKINGS.length ? `after-${rows.at(-1)?.id}` : null
+        }
       }
     }
   };

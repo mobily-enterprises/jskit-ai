@@ -514,6 +514,17 @@ function simplifyJsonApiDocument(payload = {}) {
   return payload;
 }
 
+/**
+ * The cursor of a collection document's next page, or null on the last page. Every JSKIT collection carries it as
+ * `meta.pagination.cursor.next`: json-rest-api writes it for a resource query, and the route transport for a
+ * hand-written collection.
+ * @param {{ meta?: { pagination?: { cursor?: { next?: unknown } } } } | null} document
+ * @returns {string | null}
+ */
+function jsonApiNextCursor(document) {
+  return normalizeText(document?.meta?.pagination?.cursor?.next) || null;
+}
+
 export {
   JSON_API_CONTENT_TYPE,
   resolveJsonApiTransportTypes,
@@ -526,6 +537,7 @@ export {
   isJsonApiErrorDocument,
   isJsonApiResourceDocument,
   isJsonContentType,
+  jsonApiNextCursor,
   normalizeCodedEntry,
   normalizeJsonApiDocument,
   normalizeJsonApiResourceObject,

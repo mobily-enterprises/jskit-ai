@@ -119,7 +119,7 @@ export default defineConfig({
           const older = url.searchParams.has("page[cursor]");
           return json({ data: [{ type: "assistant-conversations", id: older ? "2" : "1", attributes: {
             title: older ? "Older conversation" : "Saved conversation", status: "completed", startedAt: "2026-09-01T00:00:00Z"
-          } }], meta: { page: { nextCursor: older ? null : "older" } } });
+          } }], meta: { pagination: { cursor: { next: older ? null : "older" } } } });
         }
         res.statusCode = 404;
         json({ error: "Unknown fixture request" });

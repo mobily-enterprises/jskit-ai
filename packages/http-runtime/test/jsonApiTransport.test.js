@@ -315,3 +315,11 @@ test("createJsonApiErrorDocumentFromFailure puts params, messageCode and each fi
   const plain = createJsonApiErrorDocumentFromFailure({ statusCode: 404, code: "not_found", message: "Not found." });
   assert.deepEqual(plain, { errors: [{ status: "404", code: "not_found", title: "Not found." }] });
 });
+
+test("jsonApiNextCursor reads the one next-cursor shape of a collection document", async () => {
+  const { jsonApiNextCursor } = await import("../src/shared/index.js");
+  assert.equal(jsonApiNextCursor({ data: [], meta: { pagination: { pageSize: 2, hasMore: true, cursor: { next: " id:3 " } } } }), "id:3");
+  assert.equal(jsonApiNextCursor({ data: [], meta: { pagination: { pageSize: 2, hasMore: false } } }), null);
+  assert.equal(jsonApiNextCursor({ data: [] }), null);
+  assert.equal(jsonApiNextCursor(null), null);
+});

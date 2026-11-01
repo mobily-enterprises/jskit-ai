@@ -626,8 +626,10 @@ test("request decodes json:api collection responses into JSKIT paged-list shape"
           }
         ],
         meta: {
-          page: {
-            nextCursor: "cursor_2"
+          pagination: {
+            cursor: {
+              next: "cursor_2"
+            }
           }
         },
         links: {
@@ -655,8 +657,10 @@ test("request decodes json:api collection responses into JSKIT paged-list shape"
     ],
     nextCursor: "cursor_2",
     meta: {
-      page: {
-        nextCursor: "cursor_2"
+      pagination: {
+        cursor: {
+          next: "cursor_2"
+        }
       }
     },
     links: {

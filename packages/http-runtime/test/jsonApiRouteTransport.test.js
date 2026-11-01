@@ -196,8 +196,10 @@ test("createJsonApiResourceRouteTransport unwraps request payloads and wraps res
       }
     ],
     meta: {
-      page: {
-        nextCursor: "cursor_2"
+      pagination: {
+        cursor: {
+          next: "cursor_2"
+        }
       }
     }
   });
