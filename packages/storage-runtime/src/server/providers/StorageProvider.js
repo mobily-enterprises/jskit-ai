@@ -10,6 +10,11 @@ const StorageProvider = defineProvider({
   provides: {
     storage: "runtime.storage"
   },
+  /**
+   * @param {object} dependencies
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeAppRoot} dependencies.appRoot
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} dependencies.env
+   */
   setup({ appRoot, env }) {
     return {
       storage: createStorageBinding({ env, rootDir: appRoot })

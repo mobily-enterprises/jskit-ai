@@ -14,28 +14,26 @@ function normalizeStorageDriver(value) {
 }
 
 /**
- * @param {string | undefined} fsBasePath
- * @param {object} [options]
- * @param {string} [options.rootDir]
+ * @param {string | undefined} fsBasePath The configured base path, if any.
+ * @param {string} rootDir The application's root, under which the default base path lies.
  */
-function resolveFsBasePath(fsBasePath, { rootDir } = {}) {
+function resolveFsBasePath(fsBasePath, rootDir) {
   const normalized = String(fsBasePath || "").trim();
   if (normalized) {
     return path.resolve(normalized);
   }
 
-  const resolvedRootDir = rootDir || process.cwd();
-  return path.resolve(resolvedRootDir, "data", "storage");
+  return path.resolve(rootDir, "data", "storage");
 }
 
 /**
  * The storage `runtime.storage` provides: unstorage over the driver the environment selects.
- * @param {object} [options]
- * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} [options.env]
- * @param {import("@jskit-ai/kernel/server/types").RuntimeAppRoot} [options.rootDir]
+ * @param {object} options
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} options.env
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeAppRoot} options.rootDir
  */
-function createStorageBinding({ env = {}, rootDir = process.cwd() } = {}) {
-  const driver = normalizeStorageDriver(env?.[STORAGE_DRIVER_ENV_KEY]);
+function createStorageBinding({ env, rootDir }) {
+  const driver = normalizeStorageDriver(env[STORAGE_DRIVER_ENV_KEY]);
 
   if (driver === "memory") {
     return createStorage({
@@ -47,7 +45,7 @@ function createStorageBinding({ env = {}, rootDir = process.cwd() } = {}) {
     throw new Error(`Unsupported ${STORAGE_DRIVER_ENV_KEY} "${driver}". Supported: fs, memory.`);
   }
 
-  const fsBasePath = resolveFsBasePath(env?.[STORAGE_FS_BASE_PATH_ENV_KEY], { rootDir });
+  const fsBasePath = resolveFsBasePath(env[STORAGE_FS_BASE_PATH_ENV_KEY], rootDir);
   mkdirSync(fsBasePath, { recursive: true });
 
   return createStorage({

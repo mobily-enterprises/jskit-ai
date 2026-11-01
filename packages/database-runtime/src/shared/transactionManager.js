@@ -1,16 +1,18 @@
-import { normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
 import { retryDeadlocks } from "./repositoryOptions.js";
 
-class TransactionManager {
-  constructor({ knex } = {}) {
-    if (!knex || typeof knex.transaction !== "function") {
-      throw new TypeError("TransactionManager requires knex with transaction().");
-    }
-
-    this.knex = knex;
-  }
-
-  async inTransaction(work, { trx = null } = {}) {
+/**
+ * Runs work in a transaction of the database's Knex instance, retrying deadlocks,
+ * or in the transaction the caller already holds.
+ * @param {object} dependencies
+ * @param {import("../server/types.js").RuntimeKnex} dependencies.knex
+ */
+function createTransactionManager({ knex }) {
+  /**
+   * @template T
+   * @param {(trx: import("knex").Knex.Transaction) => Promise<T>} work
+   * @param {{ trx?: import("knex").Knex.Transaction | null }} [options] A transaction to run in instead of a new one.
+   */
+  async function inTransaction(work, { trx = null } = {}) {
     if (typeof work !== "function") {
       throw new TypeError("inTransaction requires a callback function.");
     }
@@ -19,14 +21,10 @@ class TransactionManager {
       return work(trx);
     }
 
-    return retryDeadlocks(() => this.knex.transaction(async (nextTrx) => {
-      return work(nextTrx);
-    }));
+    return retryDeadlocks(() => knex.transaction((nextTrx) => work(nextTrx)));
   }
+
+  return Object.freeze({ inTransaction });
 }
 
-function createTransactionManager(options = {}) {
-  return new TransactionManager(normalizeObject(options));
-}
-
-export { TransactionManager, createTransactionManager };
+export { createTransactionManager };

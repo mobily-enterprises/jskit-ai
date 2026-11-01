@@ -603,8 +603,9 @@ async function returnBadRequestWhenJsonRestFieldsetInvalid(run) {
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger Receives json-rest-api's log calls.
  */
 async function createJsonRestApiHost({ knex, logger }) {
-  if (typeof knex !== "function") {
-    throw new TypeError("createJsonRestApiHost requires knex.");
+  // readable-check: allow method-probe - input validation: the application passes its own Knex instance
+  if (typeof knex !== "function" || typeof knex.transaction !== "function") {
+    throw new TypeError("createJsonRestApiHost requires the application's Knex instance.");
   }
 
   /** @type {import("json-rest-api").JsonRestApi<Record<string, import("./types.js").JsonRestResource>>} */

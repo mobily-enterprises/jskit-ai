@@ -10,7 +10,7 @@ import {
   normalizeStorageKey
 } from "./storage/createUploadStorageService.js";
 
-// The upload operations features reach through the `runtime.uploads` capability.
+/** The upload operations features reach through the `runtime.uploads` capability. */
 function createUploadsRuntime() {
   return Object.freeze({
     readSingleMultipartFile,

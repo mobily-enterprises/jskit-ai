@@ -9,9 +9,9 @@ const hash = (value) => createHash("sha256").update(value).digest("hex");
  * @param {import("./types.js").CredentialProtection} options.protection
  */
 function createKnexConnectionStore({ knex, protection }) {
-  // readable-check: allow method-probe - input validation: the application passes its own transactional Knex client
+  // readable-check: allow method-probe - input validation: the application passes its own Knex instance
   if (typeof knex !== "function" || typeof knex.transaction !== "function") {
-    throw new TypeError("Connector storage requires the application's transactional Knex client.");
+    throw new TypeError("createKnexConnectionStore requires the application's Knex instance.");
   }
   // readable-check: allow method-probe - input validation: the application passes its credential protection
   if (typeof protection?.seal !== "function" || typeof protection?.open !== "function") {

@@ -14,16 +14,16 @@ function normalizeMigrationResult(result) {
 
 /**
  * Migrates the database an application's Knex instance reaches, then runs its seed, if any, in one transaction.
- * @param {object} [options]
+ * @param {object} options
  * @param {import("./types.js").RuntimeKnex} options.knex
  * @param {(context: { knex: import("knex").Knex.Transaction, appRoot: string, environment: NodeJS.ProcessEnv }) => unknown} [options.seed]
  * @param {string} [options.appRoot]
  * @param {NodeJS.ProcessEnv} [options.environment]
  */
-async function runDatabaseSetup({ knex, seed, appRoot = process.cwd(), environment = process.env } = {}) {
+async function runDatabaseSetup({ knex, seed, appRoot = process.cwd(), environment = process.env }) {
   // readable-check: allow method-probe - input validation: the application passes its own Knex instance
-  if (!knex || typeof knex !== "function" || typeof knex.migrate?.latest !== "function") {
-    throw new TypeError("runDatabaseSetup requires a Knex instance.");
+  if (typeof knex !== "function" || typeof knex.transaction !== "function") {
+    throw new TypeError("runDatabaseSetup requires the application's Knex instance.");
   }
   if (typeof seed !== "undefined" && seed !== null && typeof seed !== "function") {
     throw new TypeError("runDatabaseSetup seed must be a function when supplied.");
@@ -32,10 +32,6 @@ async function runDatabaseSetup({ knex, seed, appRoot = process.cwd(), environme
   const migrationResult = normalizeMigrationResult(await knex.migrate.latest());
   if (typeof seed !== "function") {
     return Object.freeze({ ...migrationResult, seeded: false });
-  }
-  // readable-check: allow method-probe - input validation: the application passes its own Knex instance
-  if (typeof knex.transaction !== "function") {
-    throw new TypeError("runDatabaseSetup requires Knex transaction support for seeding.");
   }
 
   await runInTransaction(knex, async (transaction) => {
