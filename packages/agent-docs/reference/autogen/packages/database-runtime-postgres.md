@@ -25,12 +25,10 @@ Exports
 ### `src/shared/dialect.js`
 Exports
 - `DIALECT_ID`
-- `getDialectId()`
 
 ### `src/shared/index.js`
 Exports
 - `DIALECT_ID`
-- `getDialectId`
 
 ### patterns
 

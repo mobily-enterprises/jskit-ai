@@ -13,11 +13,13 @@ import { detectDialectFromClient } from "../shared/dialect.js";
  */
 
 /**
- * Whether a foreign key already links the column to the parent column, whatever its name.
+ * The name of the foreign key that links the column to the parent column, whatever that name is,
+ * or null when no key does. SQLite keys have no name, so a SQLite key's is "".
  * @param {import("./types.js").RuntimeKnex} knex
  * @param {ForeignKey} key
+ * @returns {Promise<string | null>}
  */
-async function hasForeignKey(knex, { tableName, columnName, parentTable, parentColumn = "id" }) {
+async function findForeignKeyName(knex, { tableName, columnName, parentTable, parentColumn = "id" }) {
   const dialect = detectDialectFromClient(knex);
   if (dialect === "mysql") {
     const row = await knex("information_schema.KEY_COLUMN_USAGE")
@@ -29,11 +31,11 @@ async function hasForeignKey(knex, { tableName, columnName, parentTable, parentC
         REFERENCED_COLUMN_NAME: parentColumn
       })
       .first("CONSTRAINT_NAME");
-    return Boolean(row);
+    return row ? row.CONSTRAINT_NAME : null;
   }
   if (dialect === "postgres") {
     const { rows } = await knex.raw(
-      `SELECT 1 FROM pg_constraint c
+      `SELECT c.conname FROM pg_constraint c
          JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = c.conkey[1]
          JOIN pg_attribute p ON p.attrelid = c.confrelid AND p.attnum = c.confkey[1]
         WHERE c.contype = 'f' AND cardinality(c.conkey) = 1
@@ -41,13 +43,24 @@ async function hasForeignKey(knex, { tableName, columnName, parentTable, parentC
           AND a.attname = ? AND p.attname = ?`,
       [tableName, parentTable, columnName, parentColumn]
     );
-    return rows.length > 0;
+    return rows.length > 0 ? rows[0].conname : null;
   }
   if (dialect.includes("sqlite")) {
     const keys = await knex.raw("PRAGMA foreign_key_list(??)", [tableName]);
-    return keys.some((key) => key.table === parentTable && key.from === columnName && key.to === parentColumn);
+    return keys.some((key) => key.table === parentTable && key.from === columnName && key.to === parentColumn)
+      ? ""
+      : null;
   }
   throw new Error(`Foreign key migrations do not support the ${dialect || "unknown"} dialect.`);
+}
+
+/**
+ * Whether a foreign key already links the column to the parent column, whatever its name.
+ * @param {import("./types.js").RuntimeKnex} knex
+ * @param {ForeignKey} key
+ */
+async function hasForeignKey(knex, key) {
+  return (await findForeignKeyName(knex, key)) !== null;
 }
 
 /**
@@ -94,13 +107,14 @@ async function addMissingForeignKey(knex, key) {
  * @returns {Promise<boolean>} Whether it dropped the key.
  */
 async function dropForeignKeyIfPresent(knex, key) {
-  if (!(await hasForeignKey(knex, key))) {
+  const name = await findForeignKeyName(knex, key);
+  if (name === null) {
     return false;
   }
-  // Knex's SQLite table rebuild finds the key by its column; the others need its name.
-  const name = detectDialectFromClient(knex).includes("sqlite") ? undefined : key.name;
+  // Knex's SQLite table rebuild finds the key by its column (its name is ""); the others drop it by
+  // the name the database holds, which may differ from key.name.
   await knex.schema.alterTable(key.tableName, (table) => {
-    table.dropForeign(key.columnName, name);
+    table.dropForeign(key.columnName, name || undefined);
   });
   return true;
 }

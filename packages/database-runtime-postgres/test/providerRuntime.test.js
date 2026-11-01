@@ -18,6 +18,5 @@ test("PostgresDatabaseDriverProvider provides the exclusive database driver capa
 
   await runtime.start();
   assert.equal(driver.DIALECT_ID, "pg");
-  assert.equal(driver.getDialectId(), "pg");
   await runtime.shutdown();
 });

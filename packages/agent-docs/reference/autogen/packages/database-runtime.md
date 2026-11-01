@@ -31,8 +31,10 @@ Local functions
 Exports
 - `addMissingForeignKey(knex, key)`
 - `dropForeignKeyIfPresent(knex, key)`
-- `hasForeignKey(knex, { tableName, columnName, parentTable, parentColumn = "id" })`
+- `hasForeignKey(knex, key)`
 - `type ForeignKey`
+Local functions
+- `findForeignKeyName(knex, { tableName, columnName, parentTable, parentColumn = "id" })`
 
 ### `src/server/knexFactory.js`
 Exports
@@ -147,7 +149,7 @@ Exports
 ### `src/shared/repositoryOptions.js`
 Exports
 - `resolveTransaction(options)`
-- `resolveQueryOptions(options = {})`
+- `resolveQueryOptions(options)`
 - `resolveRepoClient(dbClient, options = {})`
 - `applyForUpdate(query, options = {})`
 - `parseJsonObject(value, fallback = {})`

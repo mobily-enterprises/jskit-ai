@@ -18,6 +18,5 @@ test("MysqlDatabaseDriverProvider provides the exclusive database driver capabil
 
   await runtime.start();
   assert.equal(driver.DIALECT_ID, "mysql2");
-  assert.equal(driver.getDialectId(), "mysql2");
   await runtime.shutdown();
 });

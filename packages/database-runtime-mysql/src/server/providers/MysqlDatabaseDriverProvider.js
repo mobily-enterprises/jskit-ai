@@ -1,5 +1,5 @@
 import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
-import * as mysqlDriver from "../../shared/index.js";
+import { DIALECT_ID, introspectCrudTableSnapshot } from "../../shared/index.js";
 
 const MysqlDatabaseDriverProvider = defineProvider({
   id: "runtime.database.driver.mysql",
@@ -8,7 +8,7 @@ const MysqlDatabaseDriverProvider = defineProvider({
   },
   setup() {
     return {
-      driver: Object.freeze({ ...mysqlDriver })
+      driver: Object.freeze({ DIALECT_ID, introspectCrudTableSnapshot })
     };
   }
 });

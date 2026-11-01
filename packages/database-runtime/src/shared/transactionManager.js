@@ -13,6 +13,7 @@ function createTransactionManager({ knex }) {
    * @param {{ trx?: import("../server/types.js").RuntimeKnexTransaction | null }} [options] A transaction to run in instead of a new one.
    */
   async function inTransaction(work, { trx = null } = {}) {
+    // readable-check: allow method-probe - input validation: the caller hands over the work to run
     if (typeof work !== "function") {
       throw new TypeError("inTransaction requires a callback function.");
     }

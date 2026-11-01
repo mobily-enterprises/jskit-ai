@@ -25,12 +25,13 @@ async function runDatabaseSetup({ knex, seed, appRoot = process.cwd(), environme
   if (typeof knex !== "function" || typeof knex.transaction !== "function") {
     throw new TypeError("runDatabaseSetup requires the application's Knex instance.");
   }
-  if (typeof seed !== "undefined" && seed !== null && typeof seed !== "function") {
+  // readable-check: allow method-probe - input validation: the application may pass its own seed
+  if (seed != null && typeof seed !== "function") {
     throw new TypeError("runDatabaseSetup seed must be a function when supplied.");
   }
 
   const migrationResult = normalizeMigrationResult(await knex.migrate.latest());
-  if (typeof seed !== "function") {
+  if (seed == null) {
     return Object.freeze({ ...migrationResult, seeded: false });
   }
 

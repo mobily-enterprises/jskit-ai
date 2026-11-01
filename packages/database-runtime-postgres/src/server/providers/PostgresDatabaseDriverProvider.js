@@ -1,5 +1,5 @@
 import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
-import * as postgresDriver from "../../shared/index.js";
+import { DIALECT_ID } from "../../shared/index.js";
 
 const PostgresDatabaseDriverProvider = defineProvider({
   id: "runtime.database.driver.postgres",
@@ -8,7 +8,7 @@ const PostgresDatabaseDriverProvider = defineProvider({
   },
   setup() {
     return {
-      driver: Object.freeze({ ...postgresDriver })
+      driver: Object.freeze({ DIALECT_ID })
     };
   }
 });

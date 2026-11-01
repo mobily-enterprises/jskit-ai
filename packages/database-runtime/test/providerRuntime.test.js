@@ -14,8 +14,7 @@ function driverProvider(dialectId = "mysql2") {
     setup() {
       return {
         driver: Object.freeze({
-          DIALECT_ID: dialectId,
-          getDialectId: () => dialectId
+          DIALECT_ID: dialectId
         })
       };
     }

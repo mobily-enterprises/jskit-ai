@@ -28,6 +28,5 @@ test("server provider module exports the declarative postgres driver provider", 
 
 test("shared entrypoint exports postgres dialect helpers", () => {
   assert.equal(sharedApi.DIALECT_ID, "pg");
-  assert.equal(sharedApi.getDialectId(), "pg");
   assert.equal(typeof sharedApi.PostgresDatabaseDriverProvider, "undefined");
 });

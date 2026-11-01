@@ -2,29 +2,25 @@ import { normalizeCanonicalRecordIdText } from "@jskit-ai/kernel/shared/support/
 
 /**
  * The transaction a repository or service call runs in: its options' `trx`,
- * or null for a call outside one.
+ * or null for a call outside one (a call may pass no options).
  * @param {{ trx?: import("../server/types.js").RuntimeKnexTransaction | null } | null} [options]
  * @returns {import("../server/types.js").RuntimeKnexTransaction | null}
  */
 function resolveTransaction(options) {
-  // data: a call may pass no options
   if (!options || typeof options !== "object") {
     return null;
   }
   return options.trx || null;
 }
 
-function resolveQueryOptions(options = {}) {
-  if (!options || typeof options !== "object") {
-    return {
-      trx: null,
-      forUpdate: false
-    };
-  }
-
+/**
+ * A query's transaction (see resolveTransaction) and whether it locks the rows it reads.
+ * @param {{ trx?: import("../server/types.js").RuntimeKnexTransaction | null, forUpdate?: boolean } | null} [options]
+ */
+function resolveQueryOptions(options) {
   return {
     trx: resolveTransaction(options),
-    forUpdate: options.forUpdate === true
+    forUpdate: options?.forUpdate === true
   };
 }
 
@@ -166,9 +162,12 @@ function toDbJson(value) {
   return JSON.stringify(value);
 }
 
-// True when the error reports a transaction the database aborted, and rolled
-// back in full, as a deadlock victim. A wrapper that reports its transaction
-// committed (json-rest-api's transactionOutcome) never is one.
+/**
+ * True when the error reports a transaction the database aborted, and rolled
+ * back in full, as a deadlock victim. A wrapper that reports its transaction
+ * committed (json-rest-api's transactionOutcome) never is one.
+ * @param {unknown} error
+ */
 function isDeadlockError(error) {
   const seen = new Set();
   while (error && typeof error === "object" && !seen.has(error)) {
@@ -185,8 +184,14 @@ function isDeadlockError(error) {
   return false;
 }
 
-// Runs a whole transaction again when the database chose it as a deadlock
-// victim, so `run` must be safe to repeat: no external effects inside it.
+/**
+ * Runs a whole transaction again when the database chose it as a deadlock
+ * victim, so `run` must be safe to repeat: no external effects inside it.
+ * @template T
+ * @param {() => Promise<T>} run
+ * @param {{ retries?: number }} [options]
+ * @returns {Promise<T>}
+ */
 async function retryDeadlocks(run, { retries = 3 } = {}) {
   for (let attempt = 1; ; attempt += 1) {
     try {
