@@ -157,6 +157,12 @@ function createRepository(knex) {
     return rows.map(mapMessageRow);
   }
 
+  async function lastSequence(conversationId, options = {}) {
+    const normalizedConversationId = normalizeInputRecordId(conversationId);
+    if (!normalizedConversationId) return 0;
+    return (await resolveNextSequence(options?.trx || knex, normalizedConversationId)) - 1;
+  }
+
   async function transaction(callback) {
     return runInTransaction(knex, callback);
   }
@@ -168,6 +174,7 @@ function createRepository(knex) {
     updateById,
     countByConversationScope,
     listByConversationScope,
+    lastSequence,
     transaction
   });
 }

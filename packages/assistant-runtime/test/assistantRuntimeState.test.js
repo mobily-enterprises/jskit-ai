@@ -1,12 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  buildHistory,
   interruptPendingToolEvents,
   mapTranscriptEntriesToAssistantState
 } from "../src/client/support/assistantRuntimeState.js";
 
-test("restored progress narration is neither rendered nor replayed", () => {
+test("restored progress narration is not rendered", () => {
   const restored = mapTranscriptEntriesToAssistantState([
     {
       id: "1",
@@ -42,20 +41,6 @@ test("restored progress narration is neither rendered nor replayed", () => {
       "Let me check. The second booking is also confirmed."
     ]
   );
-  assert.deepEqual(buildHistory(restored.messages), [
-    {
-      role: "user",
-      content: "Find the booking."
-    },
-    {
-      role: "assistant",
-      content: "The booking is confirmed."
-    },
-    {
-      role: "assistant",
-      content: "Let me check. The second booking is also confirmed."
-    }
-  ]);
 });
 
 test("restored orphaned tool calls are marked interrupted", () => {

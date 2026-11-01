@@ -109,7 +109,7 @@ function createAssistantRuntime({
 }
 
 // Internal SQL composition: the existing facade supplies the authenticated action
-// context and normalized request history, never another browser context channel.
+// context; the model's history is the conversation's saved history, never the browser's.
 function createAssistantConversationRuntime({ conversationsRepository, messagesRepository, aiClientFactory, toolCatalog, attachments }) {
   return createConversationRuntime({
     storage: createSqlConversationStorage({ conversationsRepository, messagesRepository }),
@@ -123,15 +123,15 @@ function createAssistantConversationRuntime({ conversationsRepository, messagesR
     },
     apiClientFactory: { preserveWhitespace: false, resolveClient: ({ context, configuration }) => aiClientFactory.resolveClient(context.surface,
       { context, integrationId: configuration.integrationId }) },
-    apiHistory: ({ context }) => context.assistantRequest.history,
     toolCatalog,
     ...(attachments ? { attachments: {
+      // The facade authorized the new message's files before admission; files saved
+      // with earlier turns of this conversation are authorized again as they are read.
       resolve({ attachmentIds, context }) {
-        const prepared = context.assistantRequest.resolvedAttachments.shift();
-        if (!prepared || !isDeepStrictEqual(prepared.attachmentIds, attachmentIds)) {
-          throw new Error("The API attachment request differs from its authorized request context.");
-        }
-        return prepared.files;
+        const { assistantRequest: request, ...assistantContext } = context;
+        const prepared = request.resolvedAttachments[0];
+        if (prepared && isDeepStrictEqual(prepared.attachmentIds, attachmentIds)) return request.resolvedAttachments.shift().files;
+        return attachments.resolve({ attachmentIds, context: assistantContext, workspace: request.workspace, conversation: request.conversation });
       }
     } } : {})
   });

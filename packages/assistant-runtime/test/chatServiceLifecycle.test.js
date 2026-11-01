@@ -515,7 +515,7 @@ test("split internal tags and tool arguments never become answer deltas", async 
 });
 
 
-test("application-authorized attachments reach the model and survive transcript restore", async () => {
+test("application-authorized attachments reach the model and are authorized again from saved history", async () => {
   const calls = [];
   const receipt = { attachmentId: "file-one", fileName: "notes.txt", size: 12 };
   const attachments = { async resolve(request) {
@@ -525,15 +525,17 @@ test("application-authorized attachments reach the model and survive transcript 
     if (request.attachmentIds[0] !== "file-one") throw new Error("Attachment access denied");
     return { attachments: [receipt], content: [{ type: "text", text: "Authorized file bytes" }] };
   } };
-  const harness = createHarness([textCompletion("I read your notes.")], { attachments });
-  await harness.run("Read this", { attachmentIds: ["file-one"], history: [
-    { role: "user", content: "Previous file", attachmentIds: ["file-one"] }
-  ] });
-  assert.equal(calls.length, 2, "Both current and historical files must be authorized");
+  const harness = createHarness([textCompletion("I read your notes."), textCompletion("They mention the plan.")], { attachments });
+  await harness.run("Read this", { attachmentIds: ["file-one"] });
+  assert.equal(calls.length, 1, "The new message's file is authorized before admission");
   assert.deepEqual(harness.transcriptMessages[0].metadata.attachments, [receipt]);
   assert.deepEqual(harness.completionRequests[0].messages.at(-1).content, [
     { type: "text", text: "Read this" }, { type: "text", text: "Authorized file bytes" }
   ]);
+  await harness.run("What do they say?", { messageId: "message_2" });
+  assert.equal(calls.length, 2, "The saved file is authorized again when the next turn reads its history");
+  assert.ok(harness.completionRequests[1].messages.some(message => message.role === "user" && Array.isArray(message.content) &&
+    message.content.some(part => part.text === "Authorized file bytes")), "The saved history gives the model the earlier file");
   const denied = createHarness([textCompletion("Must not run")], { attachments });
   await assert.rejects(denied.run("Read this", { attachmentIds: ["another-users-file"] }), /access denied/);
   assert.deepEqual(denied.completionRequests, []);

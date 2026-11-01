@@ -60,6 +60,26 @@ export async function verifyConversationStorageContract(storage, { runtime = fal
       metadata: await transaction.readMetadata(), turn: await transaction.readTurn(first.turnId), ids: await transaction.listTurnIds()
     }));
     assert.deepEqual(after, before, "Failed runtime writes must preserve transcript and metadata together.");
+    const ids = before.ids;
+    const later = await storage.read(scope, async transaction => ({
+      all: await transaction.readTurnsAfter(""), after: await transaction.readTurnsAfter(first.turnId),
+      each: await Promise.all(ids.map(id => transaction.readTurn(id))), summary: await transaction.readSummary()
+    }));
+    assert.deepEqual(later.all, later.each, "readTurnsAfter(\"\") reads every turn in order.");
+    assert.deepEqual(later.after, later.each.slice(1), "readTurnsAfter reads only the turns after the given one.");
+    assert.equal(later.summary, null, "A conversation starts without a summary.");
+    const summary = { text: "The person asked a first question.", throughTurnId: first.turnId };
+    await storage.write(scope, transaction => transaction.writeSummary(summary));
+    assert.deepEqual(await storage.read(scope, transaction => transaction.readSummary()), summary);
+    assert.equal(await storage.read(other, transaction => transaction.readSummary()), null, "Summaries must remain scoped.");
+    const detachedSummary = await storage.read(scope, transaction => transaction.readSummary());
+    detachedSummary.text = "client edit";
+    await assert.rejects(storage.write(scope, async transaction => {
+      await transaction.writeSummary({ text: "Uncommitted", throughTurnId: ids.at(-1) });
+      throw new Error("contract-rollback");
+    }), /contract-rollback/);
+    assert.deepEqual(await storage.read(scope, transaction => transaction.readSummary()), summary,
+      "Failed runtime writes must preserve the summary.");
   }
   return { scope, other, transcript };
 }

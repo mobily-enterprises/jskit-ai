@@ -19,13 +19,19 @@ async function fixture(t) {
 test("file conversations satisfy the shared storage contract and survive a new process", async (t) => {
   const f = await fixture(t);
   const { scope, transcript } = await verifyConversationStorageContract(f.storage, { runtime: true });
-  const expected = await transcript.readConversationLog(scope);
+  const log = await transcript.readConversationLog(scope);
+  const expected = { log, summary: await f.storage.read(scope, transaction => transaction.readSummary()),
+    after: await transcript.readConversationLog(scope, { afterTurnId: log[0].turnId }) };
+  assert.ok(expected.summary);
+  assert.deepEqual(expected.after, log.slice(1));
   const { stdout } = await promisify(execFile)(process.execPath, ["--input-type=module", "-e", `
     import { createFileConversationStorage } from ${JSON.stringify(new URL("../src/server/conversation/fileStorage.js", import.meta.url).href)};
     import { createConversationTranscript } from ${JSON.stringify(new URL("../src/server/conversation/transcript.js", import.meta.url).href)};
     const storage = createFileConversationStorage({ directory: process.argv[1] });
     const transcript = createConversationTranscript({ storage });
-    process.stdout.write(JSON.stringify(await transcript.readConversationLog(process.argv[2])));
+    const log = await transcript.readConversationLog(process.argv[2]);
+    process.stdout.write(JSON.stringify({ log, summary: await storage.read(process.argv[2], transaction => transaction.readSummary()),
+      after: await transcript.readConversationLog(process.argv[2], { afterTurnId: log[0].turnId }) }));
   `, f.directory, scope]);
   assert.deepEqual(JSON.parse(stdout), expected);
   assert.equal((await readdir(f.directory)).some((name) => name.endsWith(".tmp")), false);
@@ -54,7 +60,8 @@ test("damaged or unsupported stored data fails explicitly and is never overwritt
   await f.transcript.writeConversationUserMessage("one", { text: "Saved" });
   const [filename] = await readdir(f.directory);
   const path = join(f.directory, filename);
-  for (const damaged of ["{", "null", '{"version":2}', '{"version":1,"scope":"other","turns":[]}']) {
+  for (const damaged of ["{", "null", '{"version":2}', '{"version":1,"scope":"other","turns":[]}',
+    '{"version":1,"scope":"one","turns":[],"summary":{"text":"Earlier","throughTurnId":"000009"}}']) {
     await writeFile(path, damaged);
     await assert.rejects(f.transcript.readConversationLog("one"), /Conversation storage/);
     await assert.rejects(f.transcript.writeConversationUserMessage("one", { text: "Do not replace" }), /Conversation storage/);

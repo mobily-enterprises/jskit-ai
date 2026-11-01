@@ -3,7 +3,7 @@
  */
 export function createMemoryAssistantRows({ id = "conversation_1", surfaceId = "assistant", messages = [] } = {}) {
   let state = { conversation: { id, workspaceId: null, createdByUserId: "1", surfaceId,
-    title: "New conversation", status: "active", messageCount: 0, metadata: {} }, messages: [] };
+    title: "New conversation", status: "active", messageCount: 0, metadata: {} }, transcript: { revision: "", summary: null }, messages: [] };
   let pending = Promise.resolve();
   const read = options => options?.trx || state;
   const conversationsRepository = {
@@ -17,6 +17,10 @@ export function createMemoryAssistantRows({ id = "conversation_1", surfaceId = "
       if (value !== id) return null;
       Object.assign(target.conversation, structuredClone(patch));
       return structuredClone(target.conversation);
+    },
+    async readTranscriptState(value, options) { return value === id ? structuredClone(read(options).transcript) : null; },
+    async writeTranscriptState(value, transcript, options) {
+      if (value === id) read(options).transcript = structuredClone(transcript);
     },
     transaction(operation) {
       const next = pending.then(async () => {
@@ -34,6 +38,7 @@ export function createMemoryAssistantRows({ id = "conversation_1", surfaceId = "
     async listByConversationScope(_id, _scope, { page, pageSize }, options) {
       return structuredClone(read(options).messages.slice((page - 1) * pageSize, page * pageSize));
     },
+    async lastSequence(_id, options) { return read(options).messages.length; },
     async create(payload, options) {
       const rows = read(options).messages;
       const row = { ...structuredClone(payload), id: String(rows.length + 1), seq: rows.length + 1,

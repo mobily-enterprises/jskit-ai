@@ -183,6 +183,32 @@ function createRepository(knex) {
     });
   }
 
+  // The transcript's own state stays out of conversation records, which reach the browser.
+  async function readTranscriptState(conversationId, options = {}) {
+    const id = normalizeInputRecordId(conversationId);
+    if (!id) return null;
+    const client = options?.trx || knex;
+    const row = await client(assistantRuntimeConfig.conversationsTable).where({ id })
+      .first("summary_text", "summary_through_turn_id", "transcript_revision");
+    if (!row) return null;
+    return {
+      revision: row.transcript_revision || "",
+      summary: row.summary_text == null ? null
+        : { text: String(row.summary_text), throughTurnId: String(row.summary_through_turn_id || "") }
+    };
+  }
+
+  async function writeTranscriptState(conversationId, { revision, summary }, options = {}) {
+    const id = normalizeInputRecordId(conversationId);
+    if (!id) throw new TypeError("writeTranscriptState requires conversationId.");
+    const client = options?.trx || knex;
+    await client(assistantRuntimeConfig.conversationsTable).where({ id }).update({
+      transcript_revision: revision,
+      summary_text: summary ? summary.text : null,
+      summary_through_turn_id: summary ? summary.throughTurnId : null
+    });
+  }
+
   async function listForActorScope(
     { workspaceId = null, actorUserId = null, surfaceId = "", pagination = {}, filters = {} } = {},
     options = {}
@@ -239,6 +265,8 @@ function createRepository(knex) {
     create,
     updateById,
     listForActorScope,
+    readTranscriptState,
+    writeTranscriptState,
     transaction
   });
 }

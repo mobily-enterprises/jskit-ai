@@ -77,7 +77,7 @@ function buildChatStreamActionInput(routeInput = {}, requestBody = {}) {
     input: requestBody.input
   };
 
-  for (const key of ["conversationId", "history", "clientContext"]) {
+  for (const key of ["conversationId", "clientContext"]) {
     if (Object.prototype.hasOwnProperty.call(requestBody, key)) {
       actionInput[key] = requestBody[key];
     }
