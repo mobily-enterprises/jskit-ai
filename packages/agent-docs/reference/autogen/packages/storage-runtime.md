@@ -28,9 +28,9 @@ Exports
 - `STORAGE_FS_BASE_PATH_ENV_KEY`
 - `DEFAULT_STORAGE_DRIVER`
 - `normalizeStorageDriver(value)`
-- `createStorageBinding({ env, rootDir })`
+- `createStorageBinding({ env, appRoot })`
 Local functions
-- `resolveFsBasePath(fsBasePath, rootDir)`
+- `resolveFsBasePath(fsBasePath, appRoot)`
 
 ### `src/server/types.js`
 Exports

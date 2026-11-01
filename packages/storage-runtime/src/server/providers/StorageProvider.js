@@ -17,7 +17,7 @@ const StorageProvider = defineProvider({
    */
   setup({ appRoot, env }) {
     return {
-      storage: createStorageBinding({ env, rootDir: appRoot })
+      storage: createStorageBinding({ env, appRoot })
     };
   }
 });

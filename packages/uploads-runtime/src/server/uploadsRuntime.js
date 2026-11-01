@@ -1,6 +1,6 @@
 import { readSingleMultipartFile } from "./multipart/readSingleMultipartFile.js";
 import {
-  createUploadFieldError,
+  buildUploadFieldError,
   readUploadBuffer,
   validateUploadMimeType
 } from "./policy/uploadPolicy.js";
@@ -14,7 +14,7 @@ import {
 function createUploadsRuntime() {
   return Object.freeze({
     readSingleMultipartFile,
-    createUploadFieldError,
+    buildUploadFieldError,
     readUploadBuffer,
     validateUploadMimeType,
     createUploadStorageService,

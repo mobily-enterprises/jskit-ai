@@ -5,7 +5,7 @@ import { catalogMessage, formatMessage, messageKeyForCode } from "@jskit-ai/kern
 import en from "../locales/en.json" with { type: "json" };
 import { readSingleMultipartFile } from "../src/server/multipart/readSingleMultipartFile.js";
 import {
-  createUploadFieldError,
+  buildUploadFieldError,
   readUploadBuffer,
   validateUploadMimeType
 } from "../src/server/policy/uploadPolicy.js";
@@ -43,11 +43,11 @@ test("upload policy field errors carry codes that render their English", async (
     () => readUploadBuffer(Readable.from([]), { fieldName: "avatar", label: "Avatar" }),
     (error) => assertCodedFieldError(error, "avatar", "uploads.file.empty")
   );
-  assertCodedFieldError(createUploadFieldError("photo", ""), "photo", "uploads.file.invalid");
+  assertCodedFieldError(buildUploadFieldError("photo", ""), "photo", "uploads.file.invalid");
 });
 
 test("an upload field error with the caller's own message has no code", () => {
-  const error = createUploadFieldError("photo", "Photo is blurry.");
+  const error = buildUploadFieldError("photo", "Photo is blurry.");
   assert.equal(error.details.fieldErrors.photo, "Photo is blurry.");
   assert.equal(error.details.fieldErrorCodes, undefined);
 });

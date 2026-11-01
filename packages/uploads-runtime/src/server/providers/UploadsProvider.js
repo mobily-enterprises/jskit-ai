@@ -13,6 +13,10 @@ const UploadsProvider = defineProvider({
   setup() {
     return { uploads: createUploadsRuntime() };
   },
+  /**
+   * @param {object} dependencies
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeFastify} dependencies.fastify
+   */
   async boot({ fastify }) {
     await registerMultipartSupport(fastify);
   }

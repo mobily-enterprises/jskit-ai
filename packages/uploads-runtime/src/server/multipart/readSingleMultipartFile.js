@@ -1,4 +1,4 @@
-import { createUploadFieldError } from "../policy/uploadPolicy.js";
+import { buildUploadFieldError } from "../policy/uploadPolicy.js";
 
 function normalizeFieldName(value) {
   return String(value || "").trim();
@@ -56,7 +56,7 @@ async function readSingleMultipartFile(request, options = {}) {
   } catch (error) {
     if (isMultipartError(error, "FST_REQ_FILE_TOO_LARGE") && normalizedMaxBytes > 0) {
       const maxMb = formatMaxSizeMb(normalizedMaxBytes);
-      throw createUploadFieldError(
+      throw buildUploadFieldError(
         normalizedFieldErrorKey,
         `${normalizedLabel} file is too large. Maximum allowed size is ${maxMb}MB.`,
         { code: "uploads.file.tooLarge", params: { label: normalizedLabel, maxMb } }
@@ -64,7 +64,7 @@ async function readSingleMultipartFile(request, options = {}) {
     }
 
     if (isMultipartError(error, "FST_FILES_LIMIT")) {
-      throw createUploadFieldError(normalizedFieldErrorKey, `${normalizedLabel} upload allows only one file.`, {
+      throw buildUploadFieldError(normalizedFieldErrorKey, `${normalizedLabel} upload allows only one file.`, {
         code: "uploads.file.tooMany",
         params: { label: normalizedLabel }
       });
@@ -75,7 +75,7 @@ async function readSingleMultipartFile(request, options = {}) {
 
   if (!filePart) {
     if (options.required === true) {
-      throw createUploadFieldError(normalizedFieldErrorKey, `${normalizedLabel} file is required.`, {
+      throw buildUploadFieldError(normalizedFieldErrorKey, `${normalizedLabel} file is required.`, {
         code: "uploads.file.required",
         params: { label: normalizedLabel }
       });
@@ -89,7 +89,7 @@ async function readSingleMultipartFile(request, options = {}) {
     if (filePart.file && typeof filePart.file.resume === "function") {
       filePart.file.resume();
     }
-    throw createUploadFieldError(
+    throw buildUploadFieldError(
       normalizedFieldErrorKey,
       `${normalizedLabel} field "${actualFieldName}" is not allowed.`,
       { code: "uploads.file.fieldNotAllowed", params: { label: normalizedLabel, field: actualFieldName } }
