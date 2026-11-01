@@ -84,6 +84,10 @@ async function runRegisterHook({ hook, result, logger }) {
  */
 function createLocalAuthRegisterHookDecorator({ decoratorId = "auth.local.registerHook", order = 0, logger, hook }) {
   const registerHook = normalizeRegisterHook(hook);
+  // readable-check: allow method-probe - input validation: the logger an application passes
+  if (typeof logger?.warn !== "function") {
+    throw new TypeError("createLocalAuthRegisterHookDecorator requires a logger.");
+  }
 
   /** @param {import("@jskit-ai/auth-core/server/types").AuthService} authService */
   function decorateAuthService(authService) {
@@ -113,7 +117,7 @@ function createLocalAuthRegisterHookDecorator({ decoratorId = "auth.local.regist
   }
 
   return Object.freeze({
-    decoratorId: String(decoratorId || registerHook.hookId || "auth.local.registerHook"),
+    decoratorId: String(decoratorId),
     order: Number.isFinite(order) ? Number(order) : 0,
     decorateAuthService
   });

@@ -509,6 +509,20 @@ test("local auth register hook decorators require explicit blocking mode", () =>
   );
 });
 
+test("local auth register hook decorators require a logger for failed non-blocking hooks", () => {
+  assert.throws(
+    () =>
+      createLocalAuthRegisterHookDecorator({
+        hook: {
+          hookId: "audit",
+          blocking: false,
+          async handle() {}
+        }
+      }),
+    /createLocalAuthRegisterHookDecorator requires a logger/
+  );
+});
+
 test("local auth provider accepts a custom password strategy capability", async () => {
   const passwordStrategy = {
     prefix: "strategy",
