@@ -88,7 +88,7 @@ test("Members and Invitations response validation preserves labels and saved rol
   }
   const roles = output(workspaceMembersResource, "rolesList", await service.listRoles());
   assert.deepEqual(roles.roles.map((role) => role.label), expectedLabels);
-  const invites = output(workspaceMembersResource, "invitesList", (await service.listInvites(workspace)).value);
+  const invites = output(workspaceMembersResource, "invitesList", (await service.listInvitesResponse(workspace)).value);
   assert.deepEqual(invites.roleCatalog.roles.map((role) => role.label), expectedLabels);
   await assert.rejects(service.updateMemberRole(workspace, { memberUserId: "11", roleSid: "Controller" }), /Validation failed/);
   await assert.rejects(service.updateMemberRole(workspace, { memberUserId: "11", roleSid: "owner" }), /Validation failed/);

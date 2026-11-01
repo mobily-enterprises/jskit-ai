@@ -87,7 +87,7 @@ function createWorkspaceMembersActions({ workspaceMembersService }) {
         }
       },
       idempotency: "none",
-      execute: (_input, context) => workspaceMembersService.listRolesResponse({ context })
+      execute: () => workspaceMembersService.listRolesResponse()
     }),
     Object.freeze({
       id: "workspace.members.list",
@@ -188,7 +188,7 @@ function createWorkspaceMembersActions({ workspaceMembersService }) {
         }
       },
       idempotency: "none",
-      execute: (input, context) => workspaceMembersService.listInvites(
+      execute: (input, context) => workspaceMembersService.listInvitesResponse(
         resolveWorkspace(context, input),
         { context }
       )

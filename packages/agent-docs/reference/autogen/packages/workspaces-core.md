@@ -178,6 +178,7 @@ Local functions
 
 ### `src/server/workspaceMembers/unconfiguredWorkspaceInviteMailer.js`
 Exports
+- `buildMailerUnconfiguredDelivery()`
 - `unconfiguredWorkspaceInviteMailer`
 
 ### `src/server/workspaceMembers/workspaceInviteUrls.js`

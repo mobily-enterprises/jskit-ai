@@ -5,6 +5,10 @@ import { resolveInviteTokenHash, buildInviteToken, hashInviteToken } from "@jski
 import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import { AppError, createValidationError } from "@jskit-ai/kernel/server/runtime/errors";
 import { OWNER_ROLE_ID, cloneWorkspaceRoleCatalog } from "../../shared/roles.js";
+import {
+  buildMailerUnconfiguredDelivery,
+  unconfiguredWorkspaceInviteMailer
+} from "./unconfiguredWorkspaceInviteMailer.js";
 
 const DEFAULT_LOCALE = "en";
 
@@ -23,6 +27,7 @@ function roleNotAssignableError() {
  * @param {boolean} dependencies.workspaceInvitationsEnabled
  * @param {import("../types.js").WorkspaceInviteUrlBuilder} dependencies.inviteUrlBuilder
  * @param {import("../types.js").WorkspaceInviteMailer} dependencies.workspaceInviteMailer
+ *   The provided `workspaces.invite-mailer`, or unconfiguredWorkspaceInviteMailer when no feature provides one.
  * @param {import("../types.js").WorkspaceInviteEmailTemplate} dependencies.workspaceInviteEmailTemplate
  * @param {import("../types.js").WorkspacesServerI18n} dependencies.i18n
  * @param {import("@jskit-ai/users-core/server/types").UserProfilesRepository} dependencies.userProfilesRepository
@@ -41,9 +46,8 @@ function createService({
   userProfilesRepository,
   userSettingsRepository
 }) {
-  const assignableRoleIds = Array.isArray(roleCatalog.assignableRoleIds)
-    ? [...roleCatalog.assignableRoleIds]
-    : [];
+  const { assignableRoleIds } = roleCatalog;
+  const inviteMailerProvided = workspaceInviteMailer !== unconfiguredWorkspaceInviteMailer;
 
   function ensureWorkspaceInvitationsEnabled() {
     if (workspaceInvitationsEnabled) {
@@ -52,17 +56,15 @@ function createService({
     throw new AppError(403, "Workspace invitations are disabled.", { code: "workspaces.invite.disabled" });
   }
 
-  function withRoleCatalog(payload = {}) {
+  function withRoleCatalog(payload) {
     return {
       ...payload,
-      roleCatalog: cloneWorkspaceRoleCatalog({
-        ...roleCatalog,
-        assignableRoleIds
-      })
+      roleCatalog: cloneWorkspaceRoleCatalog(roleCatalog)
     };
   }
 
-  function mapWorkspaceSummary(workspace = {}) {
+  // The workspace as the members, invites and invitation email show it.
+  function mapMembersWorkspace(workspace) {
     return {
       id: normalizeRecordId(workspace.id, { fallback: "" }),
       slug: normalizeText(workspace.slug),
@@ -72,7 +74,7 @@ function createService({
     };
   }
 
-  function mapMemberSummary(member = {}, workspace = {}) {
+  function mapMemberSummary(member, workspace) {
     const userId = normalizeRecordId(member.userId, { fallback: "" });
     const roleSid = normalizeLowerText(member.roleSid || "member") || "member";
 
@@ -86,7 +88,7 @@ function createService({
     };
   }
 
-  function mapInviteSummary(invite = {}) {
+  function mapInviteSummary(invite) {
     return {
       id: normalizeRecordId(invite.id, { fallback: "" }),
       email: normalizeLowerText(invite.email),
@@ -126,14 +128,19 @@ function createService({
     }
   }
 
-  async function deliverInviteEmail({ workspace, user, invite, inviteUrl } = {}, options = {}) {
+  async function deliverInviteEmail({ workspace, user, invite, inviteUrl }, options) {
+    // With no mailer provided there is nothing to send, so the recipient's
+    // locale is not looked up and no email is rendered.
+    if (!inviteMailerProvided) {
+      return buildMailerUnconfiguredDelivery();
+    }
     try {
-      const roleLabel = roleCatalog.roles?.find((role) => role.id === invite.roleSid)?.label;
+      const roleLabel = roleCatalog.roles.find((role) => role.id === invite.roleSid)?.label;
       const locale = await resolveRecipientLocale(invite.email, options);
       const message = await workspaceInviteEmailTemplate({
         email: invite.email,
         inviteUrl,
-        workspace: mapWorkspaceSummary(workspace),
+        workspace: mapMembersWorkspace(workspace),
         inviter: user || null,
         roleSid: invite.roleSid,
         ...(roleLabel ? { roleLabel } : {}),
@@ -144,14 +151,14 @@ function createService({
       const result = await workspaceInviteMailer.sendWorkspaceInvite({
         email: invite.email,
         inviteUrl,
-        workspace: mapWorkspaceSummary(workspace),
+        workspace: mapMembersWorkspace(workspace),
         inviter: user || null,
         roleSid: invite.roleSid,
         expiresAt: invite.expiresAt,
         locale,
         message
       }, options);
-      return normalizeInviteDeliveryResult(result || { status: "sent" });
+      return normalizeInviteDeliveryResult(result);
     } catch {
       return {
         status: "failed",
@@ -164,34 +171,27 @@ function createService({
     }
   }
 
-  // Applications read the role catalog and member list as they are; their
-  // actions answer with them as JSON:API data.
-  async function listRoles(options = {}) {
-    return cloneWorkspaceRoleCatalog({
-      ...roleCatalog,
-      assignableRoleIds
-    });
+  // Applications read the role catalog and member list as they are; the
+  // *Response methods answer with them as JSON:API data, for the actions.
+  async function listRoles() {
+    return cloneWorkspaceRoleCatalog(roleCatalog);
   }
 
-  async function listRolesResponse(options = {}) {
-    return returnJsonApiData(await listRoles(options));
+  async function listRolesResponse() {
+    return returnJsonApiData(await listRoles());
   }
 
-  async function listMembersPayload(workspace, options = {}) {
+  async function listMembers(workspace, options = {}) {
     const members = await workspaceMembershipsRepository.listActiveByWorkspaceId(workspace.id, options);
 
     return withRoleCatalog({
-      workspace: mapWorkspaceSummary(workspace),
+      workspace: mapMembersWorkspace(workspace),
       members: members.map((member) => mapMemberSummary(member, workspace))
     });
   }
 
-  async function listMembers(workspace, options = {}) {
-    return listMembersPayload(workspace, options);
-  }
-
   async function listMembersResponse(workspace, options = {}) {
-    return returnJsonApiData(await listMembersPayload(workspace, options));
+    return returnJsonApiData(await listMembers(workspace, options));
   }
 
   async function updateMemberRole(workspace, payload, options = {}) {
@@ -222,7 +222,7 @@ function createService({
       options
     );
 
-    return returnJsonApiData(await listMembersPayload(workspace, options));
+    return returnJsonApiData(await listMembers(workspace, options));
   }
 
   async function removeMember(workspace, payload, options = {}) {
@@ -249,7 +249,7 @@ function createService({
       options
     );
 
-    return returnJsonApiData(await listMembersPayload(workspace, options));
+    return returnJsonApiData(await listMembers(workspace, options));
   }
 
   async function listInvitesPayload(workspace, options = {}) {
@@ -257,16 +257,16 @@ function createService({
     const invites = await workspaceInvitesRepository.listPendingByWorkspaceIdWithWorkspace(workspace.id, options);
 
     return withRoleCatalog({
-      workspace: mapWorkspaceSummary(workspace),
+      workspace: mapMembersWorkspace(workspace),
       invites: invites.map((invite) => mapInviteSummary(invite))
     });
   }
 
-  async function listInvites(workspace, options = {}) {
+  async function listInvitesResponse(workspace, options = {}) {
     return returnJsonApiData(await listInvitesPayload(workspace, options));
   }
 
-  async function prepareInvite(workspace, user, payload = {}, options = {}) {
+  async function prepareInvite(workspace, user, payload, options = {}) {
     ensureWorkspaceInvitationsEnabled();
     // readable-check: allow required-collaborators - platform object: a Knex transaction, which prepareInvite writes in
     if (!options.trx) {
@@ -303,7 +303,7 @@ function createService({
     return { createdInviteId, inviteTokenPreview: token };
   }
 
-  async function sendInvite(workspace, user, prepared = {}, options = {}) {
+  async function sendInvite(workspace, user, prepared, options = {}) {
     ensureWorkspaceInvitationsEnabled();
     // readable-check: allow required-collaborators - platform object: a Knex transaction, which sendInvite must run after
     if (options.trx) {
@@ -395,7 +395,7 @@ function createService({
     listMembersResponse,
     updateMemberRole,
     removeMember,
-    listInvites,
+    listInvitesResponse,
     createInvite,
     prepareInvite,
     sendInvite,

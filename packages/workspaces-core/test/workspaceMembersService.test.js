@@ -179,6 +179,61 @@ test("workspaceMembersService.createInvite uses configured inviteExpiresInMs", a
   });
 });
 
+test("workspaceMembersService.createInvite without a provided mailer neither looks up the recipient nor renders", async () => {
+  const lookups = [];
+  let savedInvite;
+  const service = createService({
+    workspaceInvitationsEnabled: true,
+    i18n: createWorkspacesServerI18n(),
+    workspaceMembershipsRepository: {
+      async listActiveByWorkspaceId() {
+        return [];
+      }
+    },
+    workspaceInvitesRepository: {
+      async withTransaction(work) {
+        return work({});
+      },
+      async lockWorkspaceForInvitations() {},
+      async expirePendingByWorkspaceIdAndEmail() {},
+      async insert(payload) {
+        savedInvite = { ...payload, id: "32" };
+        return savedInvite;
+      },
+      async listPendingByWorkspaceIdWithWorkspace() {
+        return [];
+      },
+      async findPendingByIdForWorkspace() {
+        return savedInvite;
+      }
+    },
+    userProfilesRepository: {
+      async findByEmail(email) {
+        lookups.push(email);
+        return null;
+      }
+    },
+    inviteExpiresInMs: 30 * 60 * 1000,
+    roleCatalog: createRoleCatalog(),
+    inviteUrlBuilder: createWorkspaceInviteUrlBuilder(),
+    workspaceInviteMailer: unconfiguredWorkspaceInviteMailer,
+    workspaceInviteEmailTemplate() {
+      throw new Error("No email is rendered without a mailer.");
+    }
+  });
+
+  const response = (await service.createInvite(
+    { id: "7", ownerUserId: "9" },
+    { id: "11" },
+    { email: "alice@example.com", roleSid: "member" },
+    authorizedOptions(["workspace.members.invite"])
+  )).value;
+
+  assert.deepEqual(lookups, []);
+  assert.equal(response.inviteDelivery.status, "mailer_unconfigured");
+  assert.equal(response.inviteDelivery.messageCode, "workspaces.invite.mailerUnconfigured");
+});
+
 test("workspaceMembersService.createInvite sends generated invite URLs through the configured mailer", async () => {
   const templateCalls = [];
   const mailerCalls = [];
@@ -366,7 +421,7 @@ test("workspaceMembersService rejects invite operations when invitations are dis
 
   await assert.rejects(
     () =>
-      service.listInvites(
+      service.listInvitesResponse(
         {
           id: "7",
           ownerUserId: "9"
