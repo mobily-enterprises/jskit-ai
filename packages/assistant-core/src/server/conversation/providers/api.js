@@ -19,6 +19,7 @@ const MAX_STEPS = 40;
 // compacts sooner. The former character cap was about 64k tokens of history.
 const CONTEXT_TOKENS = 128_000;
 const OUTPUT_LIMIT = "The assistant exceeded the configured response limit.";
+const PROGRESS_LIMIT = "Application tool progress text exceeds the configured API limit.";
 
 // Preserve the original assistant service's model-facing action result. The
 // durable receipt keeps its full ok/result/error envelope in common storage.
@@ -114,12 +115,22 @@ export function createApiConversationDriver({ connections, apiClientFactory, fet
       // Admission precedes every model call. Each later call (steps, checks,
       // summaries, accounts) authorizes the same connection again. Reasoning a
       // model writes inline in <think> tags is reasoning, never reply text.
+      // `stepWords` are the streaming step's words so far, without that reasoning: its
+      // actions run only once its model call has ended, so they are all said by then.
       let admitted = false;
+      let stepWords = "";
       const model = wrapLanguageModel({ model: await authorize(), middleware: [
         { specificationVersion: "v4", async transformParams({ params }) {
           if (admitted) await authorize().catch(error => { throw fail(error); });
           admitted = true;
           return params;
+        }, async wrapStream({ doStream }) {
+          const result = await doStream();
+          stepWords = "";
+          return { ...result, stream: result.stream.pipeThrough(new TransformStream({ transform(part, controller) {
+            if (part.type === "text-delta") stepWords += part.delta;
+            controller.enqueue(part);
+          } })) };
         } },
         extractReasoningMiddleware({ tagName: "think" }),
         ...(configuration.effort ? [defaultSettingsMiddleware({ settings: { reasoning: configuration.effort } })] : [])
@@ -129,8 +140,12 @@ export function createApiConversationDriver({ connections, apiClientFactory, fet
       let step = 0;
       const repeats = {};
       async function runTool(call) {
-        // Another action after an unknown outcome could repeat it.
-        try { return await tools.execute(call); } catch (error) { throw fail(error); }
+        // A step's progress is shown and held to its limits before any of its actions
+        // runs. Another action after an unknown outcome could repeat it.
+        try {
+          await stepProgress();
+          return await tools.execute(call);
+        } catch (error) { throw fail(error); }
       }
       const engineTools = Object.fromEntries((tools?.schemas || []).map(({ function: tool }) => {
         // The engine's copy of the frozen definition is the one its repeat reminder wraps.
@@ -175,8 +190,9 @@ export function createApiConversationDriver({ connections, apiClientFactory, fet
 
       // Each step streams as reply-N. A step that also calls tools ends as
       // commentary; the reply's last words become the answer.
-      // Output past its limit stops showing at once and fails the reply when its step
-      // ends: aborting a stream mid-way leaves Node 26 an unhandled rejection.
+      // Output past its limit stops showing at once and fails the reply before the
+      // step's actions run, or when it ends: aborting a stream mid-way leaves Node 26
+      // an unhandled rejection.
       let answer = "";
       let overLimit = false;
       // The engine's reply joins every step's words; the answer leaves out those
@@ -184,10 +200,26 @@ export function createApiConversationDriver({ connections, apiClientFactory, fet
       const shown = [];
       const unsaid = text => shown.reduce((rest, said) => rest === said ? ""
         : rest.startsWith(`${said}\n\n`) ? rest.slice(said.length + 2) : rest, text) || text;
+      // A step whose actions run completes as commentary before the first of them;
+      // one whose calls don't run (an action it wasn't given) does when it ends.
+      let progress = { id: "", words: "", shown: null };
+      function stepProgress() {
+        const id = `reply-${step + 1}`;
+        if (progress.id !== id) progress = { id, words: stepWords, shown: showProgress(id, stepWords) };
+        return progress.shown;
+      }
+      async function showProgress(id, words) {
+        if (words.length > maximumOutput) throw new Error(OUTPUT_LIMIT);
+        const text = withoutMarkup(words);
+        if (maximumToolProgress !== undefined && text.length > maximumToolProgress) throw new Error(PROGRESS_LIMIT);
+        if (answer === id) answer = "";
+        if (text) await onMessage({ id, outputId: id, role: "commentary", text, complete: true });
+      }
       async function onText(text) {
         overLimit ||= text.length > maximumOutput;
         const visible = withoutMarkup(text);
-        if (!visible || overLimit) return;
+        // Words streamed after their step's progress was shown are already in it.
+        if (!visible || overLimit || progress.id === `reply-${step + 1}`) return;
         answer = `reply-${step + 1}`;
         await onMessage({ id: answer, outputId: answer, role: "assistant", text: visible, complete: false });
       }
@@ -197,10 +229,11 @@ export function createApiConversationDriver({ connections, apiClientFactory, fet
         if (result.finishReason === "length") return fail(new Error("The model reached its output token limit before completing the answer. Increase maxOutputTokens in the conversation limits."));
         if (!result.toolCalls.length) return;
         const text = withoutMarkup(result.text);
-        if (maximumToolProgress !== undefined && text.length > maximumToolProgress) return fail(new Error("Application tool progress text exceeds the configured API limit."));
+        if (maximumToolProgress !== undefined && text.length > maximumToolProgress) return fail(new Error(PROGRESS_LIMIT));
         if (answer === id) answer = "";
         if (!text) return;
         shown.push(...result.content.filter(part => part.type === "text").map(part => part.text.trim()).filter(Boolean));
+        if (progress.id === id && progress.words === result.text) return;
         await onMessage({ id, outputId: id, role: "commentary", text, complete: true });
       }
       const pass = async history => {

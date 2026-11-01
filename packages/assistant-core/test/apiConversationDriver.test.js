@@ -66,6 +66,33 @@ test("each step streams as reply-N, a step with actions ends as commentary and t
   assert.deepEqual(result, { metadata: {} });
 });
 
+test("a step's words complete as commentary before any of its actions runs, and only once", async () => {
+  const shownBefore = [];
+  const f = fixture({ reply: round => round === 1 ? { text: "Checking the bookings.", call: "action_execute" } : { text: "You have 3 bookings." },
+    execute: () => { shownBefore.push(f.messages.map(({ id, role, text, complete }) => [id, role, text, complete]).at(-1)); } });
+  await f.run();
+  assert.deepEqual(shownBefore, [["reply-1", "commentary", "Checking the bookings.", true]]);
+  assert.deepEqual(f.messages.map(({ id, role, complete }) => [id, role, complete]), [
+    ["reply-1", "assistant", false], ["reply-1", "commentary", true], ["reply-2", "assistant", false], ["reply-2", "assistant", true]
+  ]);
+});
+
+test("a step's words past the progress or output limit fail the reply before any of its actions runs", async () => {
+  for (const [limits, error] of [
+    [{ maxApiToolProgressCharacters: 21 }, /Application tool progress text exceeds the configured API limit/],
+    [{ maxOutputCharacters: 21 }, /The assistant exceeded the configured response limit/]
+  ]) {
+    const f = fixture({ limits, reply: () => ({ text: "Checking the bookings.", call: "action_execute" }) });
+    await assert.rejects(f.run(), error);
+    assert.deepEqual(f.executions, [], "Nothing runs");
+    assert.equal(f.requests.length, 1, "Nothing else is asked of the model");
+  }
+  const bounded = fixture({ limits: { maxApiToolProgressCharacters: 22 },
+    reply: round => round === 1 ? { text: "Checking the bookings.", call: "action_execute" } : { text: "You have 3 bookings." } });
+  await bounded.run();
+  assert.equal(bounded.executions.length, 1, "Progress at its limit runs");
+});
+
 test("every action goes through the application receipt with a per-step id and its arguments", async () => {
   const f = fixture({ reply: round => round < 3 ? { call: "action_execute", id: "call_0", input: { round } } : { text: "Both are saved." },
     once: () => JSON.stringify({ unsupported: [] }) });
