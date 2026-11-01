@@ -105,8 +105,8 @@ const WorkspacesFeature = defineFeature({
     return { workspaces };
   },
   actions({ workspaces }) {
-    if (!workspaces.enabled) return [];
-    return [
+    if (!workspaces.enabled) return Object.freeze([]);
+    return Object.freeze([
       ...createWorkspaceDirectoryActions({ workspaceService: workspaces.services.directory }),
       ...createWorkspaceSettingsActions({ workspaceSettingsService: workspaces.services.settings }),
       ...createWorkspaceMembersActions({ workspaceMembersService: workspaces.services.members }),
@@ -115,7 +115,7 @@ const WorkspacesFeature = defineFeature({
             workspacePendingInvitationsService: workspaces.services.pendingInvitations
           })
         : [])
-    ];
+    ]);
   }
 });
 

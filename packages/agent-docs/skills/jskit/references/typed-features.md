@@ -666,10 +666,10 @@ const UsersFeature = defineFeature({
     return { users };
   },
   actions({ users }) {
-    return [
+    return Object.freeze([
       ...createAccountProfileActions({ accountProfileService: users.services.accountProfile }),
       ...createAccountPreferencesActions({ accountPreferencesService: users.services.accountPreferences })
-    ];
+    ]);
   }
 });
 ```
