@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { createAiConnectionResolver } from "../../connectors-catalog/src/server/ai.js";
 import { createAiConnectionClient } from "../src/server/lib/aiConnectionClient.js";
@@ -12,6 +13,11 @@ function publicConnection(model = "opencode/mimo-v2.5-free") {
     authorize: () => ({ applicationId: "example", subjectId: "user" })
   }).resolve({ context: {}, integrationId: "assistant" });
 }
+
+// Node 26.5's web streams lose a rejection when a piped read is cancelled mid-stream; Node 22, 24
+// and 26.13 (the runtime packs' version) do not.
+const NODE_LOSES_CANCELLED_PIPE_REJECTIONS = process.versions.node.startsWith("26.") &&
+  Number(process.versions.node.split(".")[1]) < 13 && "this Node 26 loses a web-stream rejection; 26.13 does not";
 
 function eventsResponse(events) {
   return new Response(events.map(data => `data: ${JSON.stringify(data)}\n\n`).join(""), {
@@ -248,7 +254,9 @@ test("SDK streaming rejects the first invalid tool input without yielding later 
   assert.equal(requests, 1);
 });
 
-test("SDK cancellation after its first text retains the original reason and suppresses later output", { timeout: 5000 }, async t => {
+test("SDK cancellation after its first text retains the original reason and suppresses later output", {
+  timeout: 5000, skip: NODE_LOSES_CANCELLED_PIPE_REJECTIONS
+}, async t => {
   const source = new TransformStream();
   const writer = source.writable.getWriter();
   t.after(() => writer.abort().catch(() => {}));
@@ -425,3 +433,36 @@ for (const modelId of ["deepseek-flash", "deepseek-v4-flash", "deepseek-v4-flash
     assert.deepEqual(connection.modelLimits, { context: 1048576, output: 393216 });
   });
 }
+
+test("a stream cancelled mid-way leaves no unhandled rejection under strict rejection handling", {
+  timeout: 20_000, skip: NODE_LOSES_CANCELLED_PIPE_REJECTIONS
+}, () => {
+  const client = new URL("../src/server/lib/aiConnectionClient.js", import.meta.url).href;
+  const script = `
+    const { createAiConnectionClient } = await import(${JSON.stringify(client)});
+    const source = new TransformStream();
+    const writer = source.writable.getWriter();
+    const send = data => writer.write(new TextEncoder().encode("data: " + JSON.stringify(data) + "\\n\\n"));
+    const abort = new AbortController();
+    const connection = { providerId: "test", model: "test-model", sdkPackage: "@ai-sdk/openai-compatible", apiKey: "test",
+      baseURL: "http://test.invalid/v1" };
+    const client = createAiConnectionClient(connection, {
+      fetch: async () => new Response(source.readable, { headers: { "content-type": "text/event-stream" } })
+    });
+    const iterator = client.createChatCompletionStream({ messages: [{ role: "user", content: "Hello" }], signal: abort.signal });
+    const first = iterator.next();
+    await send({ choices: [{ index: 0, delta: { content: "First text" } }] });
+    await first;
+    const ending = iterator.next().then(() => null, error => error);
+    abort.abort(new Error("Stopped"));
+    await send({ choices: [{ index: 0, delta: { content: "Late text" } }] }).catch(() => {});
+    await writer.close().catch(() => {});
+    if ((await ending)?.message !== "Stopped") throw new Error("The stream did not end with the abort reason.");
+    await new Promise(resolve => setTimeout(resolve, 200));
+    process.stdout.write("clean");
+  `;
+  const child = spawnSync(process.execPath, ["--unhandled-rejections=strict", "--input-type=module", "-e", script],
+    { encoding: "utf8", timeout: 15_000 });
+  assert.equal(child.status, 0, child.stderr);
+  assert.equal(child.stdout, "clean");
+});
