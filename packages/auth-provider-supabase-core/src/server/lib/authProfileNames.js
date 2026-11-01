@@ -3,8 +3,14 @@ function displayNameFromEmail(email) {
   return local.slice(0, 120);
 }
 
-function resolveDisplayName(supabaseUser, fallbackEmail) {
-  const metadataDisplayName = String(supabaseUser?.user_metadata?.display_name || "").trim();
+/**
+ * The display name in a Supabase user's or its token claims' metadata, else
+ * one made from the email.
+ * @param {{ user_metadata?: { display_name?: unknown } } | null | undefined} source
+ * @param {string} fallbackEmail
+ */
+function resolveDisplayName(source, fallbackEmail) {
+  const metadataDisplayName = String(source?.user_metadata?.display_name || "").trim();
   if (metadataDisplayName) {
     return metadataDisplayName.slice(0, 120);
   }
@@ -12,13 +18,4 @@ function resolveDisplayName(supabaseUser, fallbackEmail) {
   return displayNameFromEmail(fallbackEmail);
 }
 
-function resolveDisplayNameFromClaims(claims, fallbackEmail) {
-  const metadataDisplayName = String(claims?.user_metadata?.display_name || "").trim();
-  if (metadataDisplayName) {
-    return metadataDisplayName.slice(0, 120);
-  }
-
-  return displayNameFromEmail(fallbackEmail);
-}
-
-export { displayNameFromEmail, resolveDisplayName, resolveDisplayNameFromClaims };
+export { displayNameFromEmail, resolveDisplayName };

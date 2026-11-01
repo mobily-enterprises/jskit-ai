@@ -20,7 +20,7 @@ Exports
 
 ### `src/server/lib/accountFlows.js`
 Exports
-- `createAccountFlows({ appPublicUrl, ensureConfigured, getSupabaseClient, normalizeReturnToPath, otpLoginRedirectUrl, resolvePasswordSignInPolicyForUserId, setSessionFromRequestCookies, syncProfileFromSupabaseUser })`
+- `createSupabaseAccountFlows({ config, clients, sessions, profileMirror, securityStatus })`
 
 ### `src/server/lib/authCookies.js`
 Exports
@@ -76,8 +76,7 @@ Local functions
 ### `src/server/lib/authProfileNames.js`
 Exports
 - `displayNameFromEmail(email)`
-- `resolveDisplayName(supabaseUser, fallbackEmail)`
-- `resolveDisplayNameFromClaims(claims, fallbackEmail)`
+- `resolveDisplayName(source, fallbackEmail)`
 
 ### `src/server/lib/authRedirectUrls.js`
 Exports
@@ -95,14 +94,22 @@ Exports
 Exports
 - `buildDisabledPasswordSecret()`
 
+### `src/server/lib/config.js`
+Exports
+- `assertSelectedProvider(env)`
+- `resolveSupabaseConfig({ config, env })`
+Local functions
+- `splitCsv(value)`
+- `resolveOAuthCatalog(env, auth)`
+- `resolveProfileMode(auth)`
+
 ### `src/server/lib/devAuthBootstrap.js`
 Exports
-- `assertDevAuthBootstrapConfig(config, { userProfilesRepository })`
 - `authenticateDevAuthRequest({ request, accessToken = "", refreshToken = "" }, { config, userProfilesRepository })`
 - `createDevAuthSession(profile, config)`
 - `isDevAuthToken(token)`
-- `resolveDevAuthConfig({ enabled = false, secret = "", nodeEnv = "development", jwtAudience = "authenticated", accessTtlSeconds = DEFAULT_DEV_AUTH_ACCESS_TTL_SECONDS, refreshTtlSeconds = DEFAULT_DEV_AUTH_REFRESH_TTL_SECONDS } = {})`
-- `resolveDevAuthProfile(input = {}, { userProfilesRepository, validationError })`
+- `resolveDevAuthConfig(env, jwtAudience)`
+- `resolveDevAuthProfile(input, { userProfilesRepository })`
 Local functions
 - `normalizePositiveInteger(value, fallback)`
 - `stripDevAuthTokenPrefix(token)`
@@ -113,19 +120,17 @@ Local functions
 
 ### `src/server/lib/flowGuards.js`
 Exports
-- `requireNoFieldErrors(parsed, validationError)`
 - `requireAuthUserSession(response, mapError, status = 401)`
 - `requireAuthUser(response, mapError, status = 400)`
 - `requireAuthSession(response, mapError, status = 401)`
 
 ### `src/server/lib/index.js`
 Exports
-- `createService`
-- `__testables`
+- `createSupabaseAuthService`
 
 ### `src/server/lib/oauthFlows.js`
 Exports
-- `createSupabaseOAuthFlows({ appPublicUrl, authOAuthDefaultProvider, buildOAuthLinkRedirectUrl, buildOAuthLoginRedirectUrl, buildProviderSecurityStatus, ensureConfigured, getSupabaseClient, normalizeOAuthProviderInput, normalizeReturnToPath, resolveCurrentAuthContext, resolveOAuthProviderQueryParams, setSessionFromRequestCookies, syncProfileFromSupabaseUser })`
+- `createSupabaseOAuthFlows({ config, clients, sessions, profileMirror, securityStatus })`
 
 ### `src/server/lib/oauthProviderCatalog.js`
 Exports
@@ -143,26 +148,35 @@ Local functions
 - `normalizeExplicitProviderCatalogEntry(entry)`
 - `normalizeExplicitProviderCatalog(value)`
 
-### `src/server/lib/passwordSecurityFlows.js`
+### `src/server/lib/passwordFlows.js`
 Exports
-- `createPasswordSecurityFlows({ authOAuthProviders, buildProviderSecurityStatus, createStatelessSupabaseClient, ensureConfigured, getSupabaseClient, passwordResetRedirectUrl, resolveCurrentAuthContext, resolveDevAuthSecurityStatus, resolvePasswordSignInPolicyForUserId, setPasswordSignInEnabledForUserId, setPasswordSetupRequiredForUserId, setRecoverySessionFromRequestCookies, setSessionFromRequestCookies, syncProfileFromSupabaseUser })`
+- `createSupabasePasswordFlows({ config, clients, sessions, profileMirror, securityStatus, profiles })`
 
 ### `src/server/lib/profileMirror.js`
 Exports
-- `DEFAULT_AUTH_PROVIDER_ID`
-- `createProfileMirror({ authProviderId, profileProjectionEnabled, userProfileSyncService })`
-- `normalizeAuthProviderId(value, { fallback = DEFAULT_AUTH_PROVIDER_ID } = {})`
+- `createSupabaseProfileMirror({ config, profiles })`
 Local functions
+- `normalizeAuthProviderId(value, { fallback = DEFAULT_AUTH_PROVIDER_ID } = {})`
 - `normalizeProviderUserId(value)`
+
+### `src/server/lib/profileModes.js`
+Exports
+- `PROVIDER_MODE_PROFILES`
+- `createUsersModeProfiles(identity)`
+Local functions
+- `createProviderProfileProjector()`
+
+### `src/server/lib/securityStatus.js`
+Exports
+- `createSupabaseSecurityStatus({ config, capabilities, sessions, profileMirror, profiles })`
 
 ### `src/server/lib/service.js`
 Exports
-- `createService(options)`
-- `__testables`
+- `createSupabaseAuthService({ config, profiles })`
 
 ### `src/server/lib/sessions.js`
 Exports
-- `createSupabaseSessions({ devAuthConfig, ensureConfigured, getSupabaseClient, isProduction, jwtAudience, profileMirror, supabaseUrl, userProfilesRepository })`
+- `createSupabaseSessions({ config, clients, profileMirror, profiles })`
 
 ### `src/server/lib/standaloneProfileSyncService.js`
 Exports
@@ -181,49 +195,24 @@ Exports
 Local functions
 - `resolveRealtimeTransport(options = {})`
 
-### `src/server/lib/test-utils.js`
+### `src/server/lib/supabaseClients.js`
 Exports
-- `createAccountFlows`
-- `createSupabaseOAuthFlows`
-- `createPasswordSecurityFlows`
-- `mapAuthError`
-- `validationError`
-- `isUserNotFoundLikeAuthError`
-- `mapRecoveryError`
-- `mapPasswordUpdateError`
-- `mapOtpVerifyError`
-- `mapProfileUpdateError`
-- `mapCurrentPasswordError`
-- `isTransientAuthMessage`
-- `isTransientSupabaseError`
-- `buildOtpLoginRedirectUrl`
-- `normalizeOAuthIntent`
-- `normalizeReturnToPath`
-- `buildOAuthRedirectUrl`
-- `buildOAuthLoginRedirectUrl`
-- `buildOAuthLinkRedirectUrl`
-- `normalizeOAuthProviderInput`
-- `mapOAuthCallbackError`
-- `resolveSupabaseOAuthProviderCatalog`
-- `resolveOAuthProviderQueryParams`
-- `buildOAuthProviderCatalogResponse`
-- `buildAuthMethodsStatusFromProviderIds`
-- `collectProviderIdsFromSupabaseUser`
-- `findAuthMethodById`
-- `findLinkedIdentityByProvider`
-- `buildSecurityStatusFromAuthMethodsStatus`
+- `createSupabaseClients(config)`
+
+### `src/server/lib/types.js`
+Exports
+- `type SupabaseConfig`
+- `type SupabaseClients`
+- `type SupabaseProfileMirror`
+- `type SupabaseSessions`
+- `type SupabaseSecurityStatus`
+- `type SupabaseUserProfiles`
+- `type SupabaseUserSettings`
+- `type SupabaseProfiles`
 
 ### `src/server/providers/AuthSupabaseProvider.js`
 Exports
 - `AuthSupabaseProvider`
-Local functions
-- `normalizeRecord(value)`
-- `splitCsv(value)`
-- `oauthConfig(config)`
-- `providerConfig(env, config)`
-- `profileMode(config)`
-- `createProviderProfileProjector()`
-- `assertSelectedProvider(env)`
 
 ### patterns
 

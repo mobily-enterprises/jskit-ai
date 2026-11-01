@@ -8,7 +8,7 @@ import {
   requireAuthSession,
   requireAuthUserSession
 } from "./flowGuards.js";
-import { AUTH_METHOD_PASSWORD_ID, AUTH_METHOD_PASSWORD_PROVIDER } from "@jskit-ai/auth-core/shared/authMethods";
+import { AUTH_METHOD_PASSWORD_ID } from "@jskit-ai/auth-core/shared/authMethods";
 import { normalizeEmail } from "@jskit-ai/auth-core/server/utils";
 import {
   mapAuthError,
@@ -17,50 +17,23 @@ import {
   mapRecoveryError,
   validationError
 } from "./authErrorMappers.js";
-import {
-  buildAuthMethodsStatusFromProviderIds,
-  buildAuthMethodsStatusFromSupabaseUser,
-  findAuthMethodById
-} from "./authMethodStatus.js";
+import { buildAuthMethodsStatusFromSupabaseUser, findAuthMethodById } from "./authMethodStatus.js";
 import { buildDisabledPasswordSecret } from "./authSecrets.js";
 
-// Password recovery, changing a password, password sign-in, signing out
-// other sessions and the security status, through Supabase.
 /**
+ * Password recovery, changing a password and turning password sign-in on or
+ * off, through Supabase.
  * @param {object} dependencies
- * @param {ReturnType<typeof import("./oauthProviderCatalog.js").resolveSupabaseOAuthProviderCatalog>["providers"]} dependencies.authOAuthProviders The configured OAuth providers.
- * @param {(authMethodsStatus: any) => object} dependencies.buildProviderSecurityStatus The security status, with the actions this app offers.
- * @param {() => import("@supabase/supabase-js").SupabaseClient} dependencies.createStatelessSupabaseClient A client that keeps no session, to verify a password.
- * @param {() => void} dependencies.ensureConfigured Throws when Supabase is not configured.
- * @param {() => import("@supabase/supabase-js").SupabaseClient} dependencies.getSupabaseClient
- * @param {string} dependencies.passwordResetRedirectUrl Where a password reset link returns.
- * @param {(request: object, options?: { supabaseClient?: import("@supabase/supabase-js").SupabaseClient }) => Promise<{ user: import("@supabase/supabase-js").User, profile: { id: string }, authMethodsStatus: any }>} dependencies.resolveCurrentAuthContext
- * @param {(request: object) => Promise<object | null>} dependencies.resolveDevAuthSecurityStatus The security status of a dev auth session, or null for any other.
- * @param {(userId: string) => Promise<{ passwordSignInEnabled: boolean, passwordSetupRequired: boolean }>} dependencies.resolvePasswordSignInPolicyForUserId
- * @param {(userId: string, enabled: boolean, options?: object) => Promise<{ passwordSignInEnabled: boolean, passwordSetupRequired: boolean }>} dependencies.setPasswordSignInEnabledForUserId
- * @param {(userId: string, required: boolean) => Promise<void>} dependencies.setPasswordSetupRequiredForUserId
- * @param {ReturnType<typeof import("./sessions.js").createSupabaseSessions>["setRecoverySessionFromRequestCookies"]} dependencies.setRecoverySessionFromRequestCookies
- * @param {ReturnType<typeof import("./sessions.js").createSupabaseSessions>["setSessionFromRequestCookies"]} dependencies.setSessionFromRequestCookies
- * @param {ReturnType<typeof import("./profileMirror.js").createProfileMirror>["syncProfileFromSupabaseUser"]} dependencies.syncProfileFromSupabaseUser
+ * @param {import("./types.js").SupabaseConfig} dependencies.config
+ * @param {import("./types.js").SupabaseClients} dependencies.clients
+ * @param {import("./types.js").SupabaseSessions} dependencies.sessions
+ * @param {import("./types.js").SupabaseProfileMirror} dependencies.profileMirror
+ * @param {import("./types.js").SupabaseSecurityStatus} dependencies.securityStatus
+ * @param {import("./types.js").SupabaseProfiles} dependencies.profiles
  */
-function createPasswordSecurityFlows({
-  authOAuthProviders,
-  buildProviderSecurityStatus,
-  createStatelessSupabaseClient,
-  ensureConfigured,
-  getSupabaseClient,
-  passwordResetRedirectUrl,
-  resolveCurrentAuthContext,
-  resolveDevAuthSecurityStatus,
-  resolvePasswordSignInPolicyForUserId,
-  setPasswordSignInEnabledForUserId,
-  setPasswordSetupRequiredForUserId,
-  setRecoverySessionFromRequestCookies,
-  setSessionFromRequestCookies,
-  syncProfileFromSupabaseUser
-}) {
+function createSupabasePasswordFlows({ config, clients, sessions, profileMirror, securityStatus, profiles }) {
   async function requestPasswordReset(payload) {
-    ensureConfigured();
+    clients.ensureConfigured();
 
     const result = authPasswordResetRequestBodyValidator.schema.create(payload);
     if (Object.keys(result.errors).length > 0) {
@@ -68,8 +41,8 @@ function createPasswordSecurityFlows({
     }
     const parsed = result.validatedObject;
 
-    const supabase = getSupabaseClient();
-    const options = { redirectTo: passwordResetRedirectUrl };
+    const supabase = clients.createSupabaseClient();
+    const options = { redirectTo: config.passwordResetRedirectUrl };
     let response;
     try {
       response = await supabase.auth.resetPasswordForEmail(parsed.email, options);
@@ -92,7 +65,7 @@ function createPasswordSecurityFlows({
   }
 
   async function completePasswordRecovery(payload) {
-    ensureConfigured();
+    clients.ensureConfigured();
 
     const result = authPasswordRecoveryCompleteBodyValidator.schema.patch(payload);
     if (Object.keys(result.errors).length > 0) {
@@ -131,7 +104,7 @@ function createPasswordSecurityFlows({
       throw validationError(fieldErrors);
     }
 
-    const supabase = getSupabaseClient();
+    const supabase = clients.createSupabaseClient();
     let response;
     try {
       if (hasCode) {
@@ -158,7 +131,7 @@ function createPasswordSecurityFlows({
 
     const { user, session } = requireAuthUserSession(response, () =>
       new AppError(401, "Recovery link is invalid or has expired.", { code: "auth.supabase.recovery.linkInvalid" }));
-    const profile = await syncProfileFromSupabaseUser(user, user.email);
+    const profile = await profileMirror.syncProfileFromSupabaseUser(user, user.email);
 
     return {
       profile,
@@ -170,7 +143,7 @@ function createPasswordSecurityFlows({
   }
 
   async function resetPassword(request, payload) {
-    ensureConfigured();
+    clients.ensureConfigured();
 
     const result = authPasswordResetBodyValidator.schema.create(payload);
     if (Object.keys(result.errors).length > 0) {
@@ -178,15 +151,15 @@ function createPasswordSecurityFlows({
     }
     const parsed = result.validatedObject;
 
-    const supabase = getSupabaseClient();
-    const sessionResponse = await setRecoverySessionFromRequestCookies(request, {
+    const supabase = clients.createSupabaseClient();
+    const sessionResponse = await sessions.setRecoverySessionFromRequestCookies(request, {
       supabaseClient: supabase
     });
-    const profile = await syncProfileFromSupabaseUser(
+    const profile = await profileMirror.syncProfileFromSupabaseUser(
       sessionResponse.data.user,
       sessionResponse.data.user?.email || ""
     );
-    const passwordSignInPolicy = await resolvePasswordSignInPolicyForUserId(profile.id);
+    const passwordSignInPolicy = await securityStatus.passwordSignInPolicyForUser(profile.id);
     if (!passwordSignInPolicy.passwordSignInEnabled) {
       throw new AppError(409, "Password sign-in is disabled for this account.", { code: "auth.supabase.password.signInDisabled" });
     }
@@ -202,8 +175,8 @@ function createPasswordSecurityFlows({
 
     const { user } = requireAuthUser(updateResponse, mapPasswordUpdateError);
 
-    const updatedProfile = await syncProfileFromSupabaseUser(user, user.email);
-    await setPasswordSetupRequiredForUserId(updatedProfile.id, false);
+    const updatedProfile = await profileMirror.syncProfileFromSupabaseUser(user, user.email);
+    await profiles.userSettingsRepository.updatePasswordSetupRequired(updatedProfile.id, false);
 
     const signOutResponse = await supabase.auth.signOut({
       scope: "local"
@@ -215,13 +188,13 @@ function createPasswordSecurityFlows({
   }
 
   async function changePassword(request, payload) {
-    ensureConfigured();
+    clients.ensureConfigured();
 
-    const currentPassword = String(payload?.currentPassword || "");
-    const newPassword = String(payload?.newPassword || "");
-    const requireCurrentPassword = payload?.requireCurrentPassword !== false;
-    const supabase = getSupabaseClient();
-    const sessionResponse = await setSessionFromRequestCookies(request, {
+    const currentPassword = String(payload.currentPassword || "");
+    const newPassword = String(payload.newPassword || "");
+    const requireCurrentPassword = payload.requireCurrentPassword !== false;
+    const supabase = clients.createSupabaseClient();
+    const sessionResponse = await sessions.setSessionFromRequestCookies(request, {
       supabaseClient: supabase
     });
 
@@ -231,7 +204,7 @@ function createPasswordSecurityFlows({
     }
 
     if (requireCurrentPassword) {
-      const verificationClient = createStatelessSupabaseClient();
+      const verificationClient = clients.createSupabaseClient();
       let verifyResponse;
       try {
         verifyResponse = await verificationClient.auth.signInWithPassword({
@@ -256,8 +229,8 @@ function createPasswordSecurityFlows({
 
     const { user } = requireAuthUser(updateResponse, mapPasswordUpdateError);
 
-    const profile = await syncProfileFromSupabaseUser(user, user.email);
-    await setPasswordSetupRequiredForUserId(profile.id, false);
+    const profile = await profileMirror.syncProfileFromSupabaseUser(user, user.email);
+    await profiles.userSettingsRepository.updatePasswordSetupRequired(profile.id, false);
 
     return {
       profile,
@@ -265,20 +238,20 @@ function createPasswordSecurityFlows({
     };
   }
 
-  async function setPasswordSignInEnabled(request, payload = {}) {
-    ensureConfigured();
+  async function setPasswordSignInEnabled(request, payload) {
+    clients.ensureConfigured();
 
-    if (typeof payload?.enabled !== "boolean") {
+    if (typeof payload.enabled !== "boolean") {
       throw validationError({
         enabled: { code: "auth.supabase.methods.enabledNotBoolean", message: "Enabled must be a boolean." }
       });
     }
 
-    const supabase = getSupabaseClient();
-    await setSessionFromRequestCookies(request, {
+    const supabase = clients.createSupabaseClient();
+    await sessions.setSessionFromRequestCookies(request, {
       supabaseClient: supabase
     });
-    const current = await resolveCurrentAuthContext(request, {
+    const current = await securityStatus.currentAuthContext(request, {
       supabaseClient: supabase
     });
     const passwordMethod = findAuthMethodById(current.authMethodsStatus, AUTH_METHOD_PASSWORD_ID);
@@ -317,74 +290,35 @@ function createPasswordSecurityFlows({
       }
 
       if (updateResponse?.data?.user) {
-        await syncProfileFromSupabaseUser(updateResponse.data.user, updateResponse.data.user.email);
+        await profileMirror.syncProfileFromSupabaseUser(updateResponse.data.user, updateResponse.data.user.email);
       }
     }
 
     const passwordSignInOptions = !payload.enabled && passwordMethod.configured ? { passwordSetupRequired: true } : {};
-    const nextPasswordSignInPolicy = await setPasswordSignInEnabledForUserId(
+    const updatedSettings = await profiles.userSettingsRepository.updatePasswordSignInEnabled(
       current.profile.id,
       payload.enabled,
       passwordSignInOptions
     );
     const nextAuthMethodsStatus = buildAuthMethodsStatusFromSupabaseUser(current.user, {
-      ...nextPasswordSignInPolicy,
-      oauthProviders: authOAuthProviders
+      passwordSignInEnabled: updatedSettings.passwordSignInEnabled !== false,
+      passwordSetupRequired: updatedSettings.passwordSetupRequired === true,
+      oauthProviders: config.oauth.providers
     });
 
     return {
-      securityStatus: buildProviderSecurityStatus(nextAuthMethodsStatus)
+      securityStatus: securityStatus.buildSecurityStatus(nextAuthMethodsStatus)
     };
   }
 
-  async function signOutOtherSessions(request) {
-    ensureConfigured();
-    const supabase = getSupabaseClient();
-    await setSessionFromRequestCookies(request, {
-      supabaseClient: supabase
-    });
-    const response = await supabase.auth.signOut({
-      scope: "others"
-    });
-
-    if (response.error) {
-      throw mapAuthError(response.error, Number(response.error?.status || 400));
-    }
-
-    return {
-      ok: true
-    };
-  }
-
-  async function getSecurityStatus(request) {
-    if (!request) {
-      const authMethodsStatus = buildAuthMethodsStatusFromProviderIds([AUTH_METHOD_PASSWORD_PROVIDER], {
-        passwordSignInEnabled: true,
-        passwordSetupRequired: false,
-        oauthProviders: authOAuthProviders
-      });
-      return buildProviderSecurityStatus(authMethodsStatus);
-    }
-
-    const devAuthSecurityStatus = await resolveDevAuthSecurityStatus(request);
-    if (devAuthSecurityStatus) {
-      return devAuthSecurityStatus;
-    }
-
-    const current = await resolveCurrentAuthContext(request);
-    return buildProviderSecurityStatus(current.authMethodsStatus);
-  }
-
-  return {
+  return Object.freeze({
     requestPasswordReset,
     completePasswordRecovery,
     resetPassword,
     changePassword,
     // readable-check: allow setter-seam - not a slot: setPasswordSignInEnabled is an auth.service operation
-    setPasswordSignInEnabled,
-    signOutOtherSessions,
-    getSecurityStatus
-  };
+    setPasswordSignInEnabled
+  });
 }
 
-export { createPasswordSecurityFlows };
+export { createSupabasePasswordFlows };

@@ -1,7 +1,7 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { normalizeAuthActor, normalizeAuthResult } from "@jskit-ai/auth-core/server/authActor";
 import { normalizeEmail } from "@jskit-ai/auth-core/server/utils";
-import { resolveDisplayName, resolveDisplayNameFromClaims } from "./authProfileNames.js";
+import { resolveDisplayName } from "./authProfileNames.js";
 import { requireAuthenticatedProfile } from "./authenticatedProfile.js";
 import { USER_PROFILE_EMAIL_CONFLICT_CODE } from "./standaloneProfileSyncService.js";
 
@@ -30,15 +30,18 @@ function normalizeProviderUserId(value) {
   return String(value || "").trim();
 }
 
-// The app profile mirrored from a Supabase user or its token claims, and the
-// actor an auth result carries for it.
 /**
+ * The app profile mirrored from a Supabase user or its token claims, and the
+ * actor an auth result carries for it.
  * @param {object} dependencies
- * @param {string} dependencies.authProviderId
- * @param {boolean} dependencies.profileProjectionEnabled
- * @param {Required<Pick<import("@jskit-ai/auth-core/server/types").AuthProfileProjector, "syncIdentityProfile" | "findByIdentity">>} dependencies.userProfileSyncService
+ * @param {import("./types.js").SupabaseConfig} dependencies.config
+ * @param {import("./types.js").SupabaseProfiles} dependencies.profiles
  */
-function createProfileMirror({ authProviderId, profileProjectionEnabled, userProfileSyncService }) {
+function createSupabaseProfileMirror({ config, profiles }) {
+  const authProviderId = DEFAULT_AUTH_PROVIDER_ID;
+  const profileProjectionEnabled = config.profileMode === "users";
+  const { projector } = profiles;
+
   function requireSynchronizedProfile(profile) {
     try {
       return requireAuthenticatedProfile(profile, {
@@ -91,7 +94,7 @@ function createProfileMirror({ authProviderId, profileProjectionEnabled, userPro
 
   async function findProfileByIdentity(identityProfile, options = {}) {
     const normalized = buildNormalizedIdentityKey(identityProfile);
-    return userProfileSyncService.findByIdentity(
+    return projector.findByIdentity(
       {
         authProvider: normalized.authProvider,
         authProviderUserSid: normalized.authProviderUserSid
@@ -108,7 +111,7 @@ function createProfileMirror({ authProviderId, profileProjectionEnabled, userPro
     }
     try {
       const normalized = buildNormalizedIdentityProfile(nextProfile);
-      const synchronizedProfile = await userProfileSyncService.syncIdentityProfile(normalized);
+      const synchronizedProfile = await projector.syncIdentityProfile(normalized);
       return requireSynchronizedProfile(synchronizedProfile);
     } catch (error) {
       if (String(error?.code || "") === USER_PROFILE_EMAIL_CONFLICT_CODE) {
@@ -204,7 +207,7 @@ function createProfileMirror({ authProviderId, profileProjectionEnabled, userPro
       authProvider: authProviderId,
       authProviderUserSid: supabaseUserId,
       email: emailFromToken,
-      displayName: resolveDisplayNameFromClaims(claims, emailFromToken)
+      displayName: resolveDisplayName(claims, emailFromToken)
     });
   }
 
@@ -216,4 +219,4 @@ function createProfileMirror({ authProviderId, profileProjectionEnabled, userPro
   });
 }
 
-export { DEFAULT_AUTH_PROVIDER_ID, createProfileMirror, normalizeAuthProviderId };
+export { createSupabaseProfileMirror };

@@ -18,6 +18,7 @@ import {
   validationError
 } from "./authErrorMappers.js";
 import { displayNameFromEmail } from "./authProfileNames.js";
+import { normalizeReturnToPath } from "@jskit-ai/auth-core/server/utils";
 import { buildOtpLoginRedirectUrl } from "./authRedirectUrls.js";
 
 // The answer is the same whether or not an account exists for the email.
@@ -35,38 +36,26 @@ const OTP_SENT_RESULT = Object.freeze({
   messageParams: Object.freeze({})
 });
 
-// Registering, signing in with a password or a one-time code, and renaming
-// an account through Supabase.
 /**
+ * Registering, signing in with a password or a one-time code, and renaming
+ * an account through Supabase.
  * @param {object} dependencies
- * @param {string} dependencies.appPublicUrl
- * @param {() => void} dependencies.ensureConfigured Throws when Supabase is not configured.
- * @param {() => import("@supabase/supabase-js").SupabaseClient} dependencies.getSupabaseClient
- * @param {(value: unknown, options?: { fallback?: string }) => string} dependencies.normalizeReturnToPath A return path on an allowed origin.
- * @param {string} dependencies.otpLoginRedirectUrl Where a one-time code link returns.
- * @param {(userId: string) => Promise<{ passwordSignInEnabled: boolean, passwordSetupRequired: boolean }>} dependencies.resolvePasswordSignInPolicyForUserId
- * @param {ReturnType<typeof import("./sessions.js").createSupabaseSessions>["setSessionFromRequestCookies"]} dependencies.setSessionFromRequestCookies
- * @param {ReturnType<typeof import("./profileMirror.js").createProfileMirror>["syncProfileFromSupabaseUser"]} dependencies.syncProfileFromSupabaseUser
+ * @param {import("./types.js").SupabaseConfig} dependencies.config
+ * @param {import("./types.js").SupabaseClients} dependencies.clients
+ * @param {import("./types.js").SupabaseSessions} dependencies.sessions
+ * @param {import("./types.js").SupabaseProfileMirror} dependencies.profileMirror
+ * @param {import("./types.js").SupabaseSecurityStatus} dependencies.securityStatus
  */
-function createAccountFlows({
-  appPublicUrl,
-  ensureConfigured,
-  getSupabaseClient,
-  normalizeReturnToPath,
-  otpLoginRedirectUrl,
-  resolvePasswordSignInPolicyForUserId,
-  setSessionFromRequestCookies,
-  syncProfileFromSupabaseUser
-}) {
+function createSupabaseAccountFlows({ config, clients, sessions, profileMirror, securityStatus }) {
   function resolveOtpEmailRedirectTo(returnToValue) {
-    const returnTo = normalizeReturnToPath(returnToValue, { fallback: "" });
+    const returnTo = normalizeReturnToPath(returnToValue, { fallback: "", allowedOrigins: config.allowedReturnToOrigins });
     if (!returnTo) {
-      return otpLoginRedirectUrl;
+      return config.otpLoginRedirectUrl;
     }
 
     try {
       return buildOtpLoginRedirectUrl({
-        appPublicUrl,
+        appPublicUrl: config.appPublicUrl,
         returnTo
       });
     } catch {
@@ -74,27 +63,27 @@ function createAccountFlows({
     }
 
     try {
-      const redirectUrl = new URL(String(otpLoginRedirectUrl || ""));
+      const redirectUrl = new URL(String(config.otpLoginRedirectUrl || ""));
       redirectUrl.searchParams.set("returnTo", returnTo);
       return redirectUrl.toString();
     } catch {
-      return otpLoginRedirectUrl;
+      return config.otpLoginRedirectUrl;
     }
   }
 
   function resolveRegisterEmailRedirectTo() {
     try {
       return buildOtpLoginRedirectUrl({
-        appPublicUrl
+        appPublicUrl: config.appPublicUrl
       });
     } catch {
       // Fall through to the pre-built URL fallback below.
     }
-    return otpLoginRedirectUrl;
+    return config.otpLoginRedirectUrl;
   }
 
   async function register(payload) {
-    ensureConfigured();
+    clients.ensureConfigured();
 
     const result = authRegisterBodyValidator.schema.create(payload);
     if (Object.keys(result.errors).length > 0) {
@@ -102,7 +91,7 @@ function createAccountFlows({
     }
     const parsed = result.validatedObject;
 
-    const supabase = getSupabaseClient();
+    const supabase = clients.createSupabaseClient();
     const response = await supabase.auth.signUp({
       email: parsed.email,
       password: parsed.password,
@@ -122,7 +111,7 @@ function createAccountFlows({
       throw new AppError(500, "Supabase sign-up did not return a user.", { code: "auth.supabase.register.noUser" });
     }
 
-    const profile = await syncProfileFromSupabaseUser(response.data.user, parsed.email);
+    const profile = await profileMirror.syncProfileFromSupabaseUser(response.data.user, parsed.email);
 
     if (!response.data.session) {
       return {
@@ -141,7 +130,7 @@ function createAccountFlows({
   }
 
   async function resendRegisterConfirmation(payload) {
-    ensureConfigured();
+    clients.ensureConfigured();
 
     const result = authRegisterConfirmationResendBodyValidator.schema.create(payload);
     if (Object.keys(result.errors).length > 0) {
@@ -149,7 +138,7 @@ function createAccountFlows({
     }
     const parsed = result.validatedObject;
 
-    const supabase = getSupabaseClient();
+    const supabase = clients.createSupabaseClient();
     const emailRedirectTo = resolveRegisterEmailRedirectTo();
     let response;
     try {
@@ -184,7 +173,7 @@ function createAccountFlows({
   }
 
   async function login(payload) {
-    ensureConfigured();
+    clients.ensureConfigured();
 
     const result = authLoginPasswordBodyValidator.schema.create(payload);
     if (Object.keys(result.errors).length > 0) {
@@ -192,7 +181,7 @@ function createAccountFlows({
     }
     const parsed = result.validatedObject;
 
-    const supabase = getSupabaseClient();
+    const supabase = clients.createSupabaseClient();
     const response = await supabase.auth.signInWithPassword({
       email: parsed.email,
       password: parsed.password
@@ -200,8 +189,8 @@ function createAccountFlows({
 
     const { user, session } = requireAuthUserSession(response, mapAuthError, 401);
 
-    const profile = await syncProfileFromSupabaseUser(user, parsed.email);
-    const passwordSignInPolicy = await resolvePasswordSignInPolicyForUserId(profile.id);
+    const profile = await profileMirror.syncProfileFromSupabaseUser(user, parsed.email);
+    const passwordSignInPolicy = await securityStatus.passwordSignInPolicyForUser(profile.id);
     if (!passwordSignInPolicy.passwordSignInEnabled) {
       throw createAuthError(AUTH_TEXTS.invalidCredentials);
     }
@@ -213,7 +202,7 @@ function createAccountFlows({
   }
 
   async function requestOtpLogin(payload) {
-    ensureConfigured();
+    clients.ensureConfigured();
 
     const result = authLoginOtpRequestBodyValidator.schema.create(payload);
     if (Object.keys(result.errors).length > 0) {
@@ -222,7 +211,7 @@ function createAccountFlows({
     const parsed = result.validatedObject;
 
     const emailRedirectTo = resolveOtpEmailRedirectTo(parsed.returnTo);
-    const supabase = getSupabaseClient();
+    const supabase = clients.createSupabaseClient();
     let response;
     try {
       response = await supabase.auth.signInWithOtp({
@@ -256,7 +245,7 @@ function createAccountFlows({
   }
 
   async function verifyOtpLogin(payload) {
-    ensureConfigured();
+    clients.ensureConfigured();
 
     const result = authLoginOtpVerifyBodyValidator.schema.patch(payload);
     if (Object.keys(result.errors).length > 0) {
@@ -280,7 +269,7 @@ function createAccountFlows({
       throw validationError(fieldErrors);
     }
 
-    const supabase = getSupabaseClient();
+    const supabase = clients.createSupabaseClient();
     let response;
     try {
       if (tokenHash) {
@@ -301,7 +290,7 @@ function createAccountFlows({
 
     const { user, session } = requireAuthUserSession(response, mapOtpVerifyError);
 
-    const profile = await syncProfileFromSupabaseUser(user, user.email || parsed.email);
+    const profile = await profileMirror.syncProfileFromSupabaseUser(user, user.email || parsed.email);
 
     return {
       profile,
@@ -309,8 +298,8 @@ function createAccountFlows({
     };
   }
 
-  async function updateDisplayName(request, payload = {}) {
-    ensureConfigured();
+  async function updateDisplayName(request, payload) {
+    clients.ensureConfigured();
 
     const normalizedDisplayName = String(
       payload && typeof payload === "object" && !Array.isArray(payload)
@@ -323,8 +312,8 @@ function createAccountFlows({
       });
     }
 
-    const supabase = getSupabaseClient();
-    const sessionResponse = await setSessionFromRequestCookies(request, {
+    const supabase = clients.createSupabaseClient();
+    const sessionResponse = await sessions.setSessionFromRequestCookies(request, {
       supabaseClient: supabase
     });
 
@@ -341,7 +330,7 @@ function createAccountFlows({
 
     const { user } = requireAuthUser(updateResponse, mapProfileUpdateError);
 
-    const profile = await syncProfileFromSupabaseUser(user, user.email);
+    const profile = await profileMirror.syncProfileFromSupabaseUser(user, user.email);
 
     return {
       profile,
@@ -349,14 +338,14 @@ function createAccountFlows({
     };
   }
 
-  return {
+  return Object.freeze({
     register,
     resendRegisterConfirmation,
     login,
     requestOtpLogin,
     verifyOtpLogin,
     updateDisplayName
-  };
+  });
 }
 
-export { createAccountFlows };
+export { createSupabaseAccountFlows };

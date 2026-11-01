@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createService } from "../src/server/lib/index.js";
+import { resolveSupabaseConfig } from "../src/server/lib/config.js";
+import { createSupabaseAuthService } from "../src/server/lib/index.js";
+import { PROVIDER_MODE_PROFILES } from "../src/server/lib/profileModes.js";
 
 const DEV_AUTH_SECRET = "dev-bootstrap-secret";
 
@@ -77,22 +79,23 @@ function createDevAuthExchangeRequest(overrides = {}) {
   };
 }
 
-function createServiceFixture(overrides = {}) {
-  return createService({
-    authProvider: {
-      id: "supabase",
-      supabaseUrl: "",
-      supabasePublishableKey: "",
-      jwtAudience: "authenticated"
-    },
-    appPublicUrl: "http://localhost:5173",
-    nodeEnv: "development",
-    devAuthBypassEnabled: true,
-    devAuthBypassSecret: DEV_AUTH_SECRET,
-    userProfilesRepository: createUserProfilesRepository(),
-    userProfileSyncService: createUserProfileSyncService(),
-    profileProjectionEnabled: true,
-    ...overrides
+function createServiceFixture({ userProfilesRepository = createUserProfilesRepository() } = {}) {
+  return createSupabaseAuthService({
+    config: resolveSupabaseConfig({
+      config: { auth: { profileMode: "users" } },
+      env: {
+        APP_PUBLIC_URL: "http://localhost:5173",
+        NODE_ENV: "development",
+        AUTH_JWT_AUDIENCE: "authenticated",
+        AUTH_DEV_BYPASS_ENABLED: true,
+        AUTH_DEV_BYPASS_SECRET: DEV_AUTH_SECRET
+      }
+    }),
+    profiles: {
+      projector: createUserProfileSyncService(),
+      userProfilesRepository,
+      userSettingsRepository: PROVIDER_MODE_PROFILES.userSettingsRepository
+    }
   });
 }
 

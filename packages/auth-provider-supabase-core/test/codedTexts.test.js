@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createValidationError } from "@jskit-ai/kernel/server/runtime/errors";
 import { catalogMessage, formatMessage, mergeCatalogs, messageKeyForCode } from "@jskit-ai/kernel/shared/i18n";
 import authCoreEnglish from "@jskit-ai/auth-core/locales/en.json" with { type: "json" };
 import supabaseEnglish from "../locales/en.json" with { type: "json" };
@@ -84,8 +83,7 @@ test("Supabase field errors carry codes whose English is the field message", asy
   });
 
   await assert.rejects(() => resolveDevAuthProfile({ email: "ghost@example.com" }, {
-    userProfilesRepository: { findById: async () => null, findByEmail: async () => null },
-    validationError: createValidationError
+    userProfilesRepository: { findById: async () => null, findByEmail: async () => null }
   }), (error) => assertCoded(error, "validation_failed").details.fieldErrorCodes.email.code === "auth.dev.userNotFound");
 });
 

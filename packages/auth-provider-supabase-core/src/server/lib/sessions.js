@@ -12,29 +12,17 @@ const RECOVERY_ACCESS_TOKEN_COOKIE_NAME = "sb_recovery_access_token";
 const RECOVERY_REFRESH_TOKEN_COOKIE_NAME = "sb_recovery_refresh_token";
 const PERSISTENT_SESSION_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 400;
 
-// A request's Supabase session: its cookies, verifying its access token,
-// refreshing it, and signing it out.
 /**
+ * A request's Supabase session: its cookies, verifying its access token,
+ * refreshing it, and signing it or the account's other sessions out.
  * @param {object} dependencies
- * @param {ReturnType<typeof import("./devAuthBootstrap.js").resolveDevAuthConfig>} dependencies.devAuthConfig
- * @param {() => void} dependencies.ensureConfigured Throws when Supabase is not configured.
- * @param {() => import("@supabase/supabase-js").SupabaseClient} dependencies.getSupabaseClient
- * @param {boolean} dependencies.isProduction
- * @param {string} dependencies.jwtAudience
- * @param {ReturnType<typeof import("./profileMirror.js").createProfileMirror>} dependencies.profileMirror
- * @param {string} dependencies.supabaseUrl
- * @param {import("@jskit-ai/users-core/server/types").UsersIdentity["repositories"]["userProfiles"] | null} dependencies.userProfilesRepository
+ * @param {import("./types.js").SupabaseConfig} dependencies.config
+ * @param {import("./types.js").SupabaseClients} dependencies.clients
+ * @param {import("./types.js").SupabaseProfileMirror} dependencies.profileMirror
+ * @param {import("./types.js").SupabaseProfiles} dependencies.profiles
  */
-function createSupabaseSessions({
-  devAuthConfig,
-  ensureConfigured,
-  getSupabaseClient,
-  isProduction,
-  jwtAudience,
-  profileMirror,
-  supabaseUrl,
-  userProfilesRepository
-}) {
+function createSupabaseSessions({ config, clients, profileMirror, profiles }) {
+  const { isProduction, jwtAudience, supabaseUrl } = config;
   // Production cookies are Secure, so they are also host-only __Host- cookies.
   const ACCESS_TOKEN_COOKIE = hostOnlyCookieName(ACCESS_TOKEN_COOKIE_NAME, isProduction);
   const REFRESH_TOKEN_COOKIE = hostOnlyCookieName(REFRESH_TOKEN_COOKIE_NAME, isProduction);
@@ -78,7 +66,7 @@ function createSupabaseSessions({
   }
 
   async function verifyAccessTokenViaSupabase(accessToken, profileOptions = {}) {
-    const supabase = getSupabaseClient();
+    const supabase = clients.createSupabaseClient();
 
     try {
       const response = await supabase.auth.getUser(accessToken);
@@ -132,7 +120,7 @@ function createSupabaseSessions({
       throw createAuthError(AUTH_TEXTS.sessionRequired);
     }
 
-    const supabase = options.supabaseClient || getSupabaseClient();
+    const supabase = options.supabaseClient || clients.createSupabaseClient();
     let sessionResponse;
     try {
       sessionResponse = await supabase.auth.setSession({
@@ -161,7 +149,7 @@ function createSupabaseSessions({
   }
 
   async function resolveCurrentSupabaseUser(request, options = {}) {
-    const supabase = options.supabaseClient || getSupabaseClient();
+    const supabase = options.supabaseClient || clients.createSupabaseClient();
     const cookies = safeRequestCookies(request);
     const accessToken = String(cookies[ACCESS_TOKEN_COOKIE] || "").trim();
     let user = null;
@@ -234,8 +222,8 @@ function createSupabaseSessions({
         refreshToken: tokens.refreshToken
       },
       {
-        config: devAuthConfig,
-        userProfilesRepository
+        config: config.devAuth,
+        userProfilesRepository: profiles.userProfilesRepository
       }
     );
 
@@ -301,8 +289,8 @@ function createSupabaseSessions({
       };
     }
 
-    ensureConfigured();
-    const supabase = getSupabaseClient();
+    clients.ensureConfigured();
+    const supabase = clients.createSupabaseClient();
     await setSessionFromRequestCookies(request, {
       supabaseClient: supabase
     });
@@ -342,7 +330,7 @@ function createSupabaseSessions({
       };
     }
 
-    ensureConfigured();
+    clients.ensureConfigured();
 
     if (accessToken) {
       const verification = await verifyAccessToken(accessToken);
@@ -398,7 +386,7 @@ function createSupabaseSessions({
       };
     }
 
-    const supabase = getSupabaseClient();
+    const supabase = clients.createSupabaseClient();
     let refreshResponse;
     try {
       refreshResponse = await supabase.auth.refreshSession({ refresh_token: refreshToken });
@@ -452,6 +440,25 @@ function createSupabaseSessions({
     return signedIn(profile, refreshResponse.data.session);
   }
 
+  async function signOutOtherSessions(request) {
+    clients.ensureConfigured();
+    const supabase = clients.createSupabaseClient();
+    await setSessionFromRequestCookies(request, {
+      supabaseClient: supabase
+    });
+    const response = await supabase.auth.signOut({
+      scope: "others"
+    });
+
+    if (response.error) {
+      throw mapAuthError(response.error, Number(response.error?.status || 400));
+    }
+
+    return {
+      ok: true
+    };
+  }
+
   function hasAccessTokenCookie(request) {
     const cookies = safeRequestCookies(request);
     return Boolean(cookies[ACCESS_TOKEN_COOKIE] || cookies[RECOVERY_ACCESS_TOKEN_COOKIE]);
@@ -479,7 +486,8 @@ function createSupabaseSessions({
     hasSessionCookie,
     writeSessionCookies,
     clearSessionCookies,
-    logout
+    logout,
+    signOutOtherSessions
   });
 }
 

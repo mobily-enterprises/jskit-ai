@@ -4,37 +4,41 @@ import { once } from "node:events";
 import test from "node:test";
 import * as jose from "jose";
 import * as authProviderSupabase from "../src/server/lib/index.js";
-import { createAccountFlows } from "../src/server/lib/accountFlows.js";
-import { createPasswordSecurityFlows } from "../src/server/lib/passwordSecurityFlows.js";
+import { createSupabaseAccountFlows } from "../src/server/lib/accountFlows.js";
+import { resolveSupabaseConfig } from "../src/server/lib/config.js";
+import { createSupabasePasswordFlows } from "../src/server/lib/passwordFlows.js";
+import { PROVIDER_MODE_PROFILES } from "../src/server/lib/profileModes.js";
 
 test("auth.provider.supabase exports required symbols", () => {
-  assert.equal(typeof authProviderSupabase.createService, "function");
+  assert.equal(typeof authProviderSupabase.createSupabaseAuthService, "function");
 });
 
-function createServiceFixture(overrides = {}) {
-  return authProviderSupabase.createService({
-    authProvider: {
-      id: "supabase",
-      supabaseUrl: "",
-      supabasePublishableKey: ""
-    },
-    appPublicUrl: "http://localhost:5173",
-    nodeEnv: "development",
-    userProfileSyncService: {
-      async findByIdentity() {
-        return null;
-      },
-      async syncIdentityProfile(profile) {
-        return {
-          id: "1",
-          email: String(profile?.email || "ada@example.com"),
-          displayName: String(profile?.displayName || "Ada Example"),
-          authProvider: String(profile?.authProvider || "supabase"),
-          authProviderUserSid: String(profile?.authProviderUserSid || "supabase-user-1")
-        };
-      }
-    },
-    ...overrides
+function supabaseConfig(env = {}) {
+  return resolveSupabaseConfig({
+    config: {},
+    env: { APP_PUBLIC_URL: "http://localhost:5173", NODE_ENV: "development", ...env }
+  });
+}
+
+const fixtureProjector = {
+  async findByIdentity() {
+    return null;
+  },
+  async syncIdentityProfile(profile) {
+    return {
+      id: "1",
+      email: String(profile?.email || "ada@example.com"),
+      displayName: String(profile?.displayName || "Ada Example"),
+      authProvider: String(profile?.authProvider || "supabase"),
+      authProviderUserSid: String(profile?.authProviderUserSid || "supabase-user-1")
+    };
+  }
+};
+
+function createServiceFixture({ env = {}, projector = fixtureProjector } = {}) {
+  return authProviderSupabase.createSupabaseAuthService({
+    config: supabaseConfig(env),
+    profiles: { ...PROVIDER_MODE_PROFILES, projector }
   });
 }
 
@@ -69,7 +73,7 @@ test("clearSessionCookies clears root and API path session cookie variants", () 
 
 test("clearSessionCookies preserves secure cookie clearing in production", () => {
   const authService = createServiceFixture({
-    nodeEnv: "production"
+    env: { NODE_ENV: "production" }
   });
   const clearCalls = [];
   const reply = {
@@ -98,53 +102,55 @@ test("clearSessionCookies preserves secure cookie clearing in production", () =>
 
 test("supabase account flow updateDisplayName accepts the core command payload shape", async () => {
   let updatePayload = null;
-  const flows = createAccountFlows({
-    ensureConfigured() {},
-    validationError(errors) {
-      return new Error(JSON.stringify(errors));
-    },
-    getSupabaseClient() {
-      return {
-        auth: {
-          async updateUser(payload) {
-            updatePayload = payload;
-            return {
-              data: {
-                user: {
-                  id: "supabase-user-1",
-                  email: "ada@example.com",
-                  user_metadata: {
-                    display_name: payload.data.display_name
-                  },
-                  app_metadata: {}
+  const flows = createSupabaseAccountFlows({
+    config: supabaseConfig(),
+    clients: {
+      ensureConfigured() {},
+      createSupabaseClient() {
+        return {
+          auth: {
+            async updateUser(payload) {
+              updatePayload = payload;
+              return {
+                data: {
+                  user: {
+                    id: "supabase-user-1",
+                    email: "ada@example.com",
+                    user_metadata: {
+                      display_name: payload.data.display_name
+                    },
+                    app_metadata: {}
+                  }
                 }
-              }
-            };
+              };
+            }
           }
-        }
-      };
+        };
+      }
     },
-    async setSessionFromRequestCookies() {
-      return {
-        data: {
-          session: {
-            access_token: "access"
+    sessions: {
+      async setSessionFromRequestCookies() {
+        return {
+          data: {
+            session: {
+              access_token: "access"
+            }
           }
-        }
-      };
+        };
+      }
     },
-    async syncProfileFromSupabaseUser(user) {
-      return {
-        id: "profile-1",
-        email: user.email,
-        displayName: user.user_metadata.display_name,
-        authProvider: "supabase",
-        authProviderUserSid: user.id
-      };
+    profileMirror: {
+      async syncProfileFromSupabaseUser(user) {
+        return {
+          id: "profile-1",
+          email: user.email,
+          displayName: user.user_metadata.display_name,
+          authProvider: "supabase",
+          authProviderUserSid: user.id
+        };
+      }
     },
-    mapProfileUpdateError(error) {
-      return error || new Error("profile update failed");
-    }
+    securityStatus: {}
   });
 
   const result = await flows.updateDisplayName(
@@ -223,8 +229,8 @@ test("authentication without profile sync reads the existing profile", async (t)
   let existingProfile = profile;
   let syncCalls = 0;
   const authService = createServiceFixture({
-    authProvider: { id: "supabase", supabaseUrl, supabasePublishableKey: "publishable-key" },
-    userProfileSyncService: {
+    env: { AUTH_SUPABASE_URL: supabaseUrl, AUTH_SUPABASE_PUBLISHABLE_KEY: "publishable-key" },
+    projector: {
       async findByIdentity() {
         return existingProfile;
       },
@@ -260,7 +266,7 @@ test("a caller that cannot store a refreshed session is told to refresh instead 
   await once(supabase, "listening");
   t.after(() => new Promise((resolve) => supabase.close(resolve)));
   const authService = createServiceFixture({
-    authProvider: { id: "supabase", supabaseUrl: `http://127.0.0.1:${supabase.address().port}`, supabasePublishableKey: "publishable-key" }
+    env: { AUTH_SUPABASE_URL: `http://127.0.0.1:${supabase.address().port}`, AUTH_SUPABASE_PUBLISHABLE_KEY: "publishable-key" }
   });
   // The access cookie is gone once its token expires; the refresh cookie remains.
   const request = { cookies: { sb_refresh_token: "R1" } };
@@ -310,81 +316,86 @@ test("supabase password reset consumes the recovery session reader", async () =>
   let normalSessionReads = 0;
   let recoverySessionReads = 0;
   let signOutCalls = 0;
-  const flows = createPasswordSecurityFlows({
-    ensureConfigured() {},
-    validationError(errors) {
-      const error = new Error("Validation failed.");
-      error.errors = errors;
-      return error;
-    },
-    getSupabaseClient() {
-      return {
-        auth: {
-          async updateUser(input) {
-            assert.deepEqual(input, { password: "new password value" });
-            return {
-              data: {
-                user: {
-                  id: "supabase-user-1",
-                  email: "reset@example.com"
-                }
-              },
-              error: null
-            };
-          },
-          async signOut(options) {
-            signOutCalls += 1;
-            assert.deepEqual(options, {
-              scope: "local"
-            });
-            return {
-              error: null
-            };
+  const flows = createSupabasePasswordFlows({
+    config: supabaseConfig(),
+    clients: {
+      ensureConfigured() {},
+      createSupabaseClient() {
+        return {
+          auth: {
+            async updateUser(input) {
+              assert.deepEqual(input, { password: "new password value" });
+              return {
+                data: {
+                  user: {
+                    id: "supabase-user-1",
+                    email: "reset@example.com"
+                  }
+                },
+                error: null
+              };
+            },
+            async signOut(options) {
+              signOutCalls += 1;
+              assert.deepEqual(options, {
+                scope: "local"
+              });
+              return {
+                error: null
+              };
+            }
           }
-        }
-      };
+        };
+      }
     },
-    async setSessionFromRequestCookies() {
-      normalSessionReads += 1;
-      throw new Error("normal session reader should not be used for reset.");
-    },
-    async setRecoverySessionFromRequestCookies(_request, { supabaseClient }) {
-      recoverySessionReads += 1;
-      assert.equal(typeof supabaseClient.auth.updateUser, "function");
-      return {
-        data: {
-          user: {
-            id: "supabase-user-1",
-            email: "reset@example.com"
-          },
-          session: {
-            access_token: "recovery-access",
-            refresh_token: "recovery-refresh"
+    sessions: {
+      async setSessionFromRequestCookies() {
+        normalSessionReads += 1;
+        throw new Error("normal session reader should not be used for reset.");
+      },
+      async setRecoverySessionFromRequestCookies(_request, { supabaseClient }) {
+        recoverySessionReads += 1;
+        assert.equal(typeof supabaseClient.auth.updateUser, "function");
+        return {
+          data: {
+            user: {
+              id: "supabase-user-1",
+              email: "reset@example.com"
+            },
+            session: {
+              access_token: "recovery-access",
+              refresh_token: "recovery-refresh"
+            }
           }
+        };
+      }
+    },
+    profileMirror: {
+      async syncProfileFromSupabaseUser(user) {
+        return {
+          id: "1",
+          email: user.email,
+          displayName: "Reset Example",
+          authProvider: "supabase",
+          authProviderUserSid: user.id
+        };
+      }
+    },
+    securityStatus: {
+      async passwordSignInPolicyForUser(userId) {
+        assert.equal(userId, "1");
+        return {
+          passwordSignInEnabled: true
+        };
+      }
+    },
+    profiles: {
+      userSettingsRepository: {
+        async updatePasswordSetupRequired(userId, required) {
+          assert.equal(userId, "1");
+          assert.equal(required, false);
         }
-      };
-    },
-    async syncProfileFromSupabaseUser(user) {
-      return {
-        id: "1",
-        email: user.email,
-        displayName: "Reset Example",
-        authProvider: "supabase",
-        authProviderUserSid: user.id
-      };
-    },
-    async resolvePasswordSignInPolicyForUserId(userId) {
-      assert.equal(userId, "1");
-      return {
-        passwordSignInEnabled: true
-      };
-    },
-    async setPasswordSetupRequiredForUserId(userId, required) {
-      assert.equal(userId, "1");
-      assert.equal(required, false);
-    },
-    mapPasswordUpdateError(error) {
-      return error instanceof Error ? error : new Error("Password update failed.");
+      }
     }
   });
 

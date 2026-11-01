@@ -1,1 +1,1 @@
-export { createService, __testables } from "./service.js";
+export { createSupabaseAuthService } from "./service.js";

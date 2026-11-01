@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createService } from "../src/server/lib/index.js";
+import { createSupabaseAuthService } from "../src/server/lib/index.js";
 
-test("auth provider supabase core validates required provider options", () => {
-  assert.throws(() => createService({}), /authProvider is required/);
+test("auth provider supabase core exports its auth service factory", () => {
+  assert.equal(typeof createSupabaseAuthService, "function");
 });

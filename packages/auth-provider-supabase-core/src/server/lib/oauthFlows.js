@@ -3,45 +3,40 @@ import { authLoginOAuthStartParamsValidator, authLoginOAuthStartQueryValidator }
 import { authLoginOAuthCompleteBodyValidator } from "@jskit-ai/auth-core/shared/commands/authLoginOAuthCompleteCommand";
 import { buildOAuthMethodId } from "@jskit-ai/auth-core/shared/authMethods";
 import { mapAuthError, mapRecoveryError, validationError } from "./authErrorMappers.js";
-import { mapOAuthCallbackError } from "./authInputParsers.js";
+import { normalizeReturnToPath } from "@jskit-ai/auth-core/server/utils";
+import { mapOAuthCallbackError, normalizeOAuthProviderInput } from "./authInputParsers.js";
+import { buildOAuthLinkRedirectUrl, buildOAuthLoginRedirectUrl } from "./authRedirectUrls.js";
+import { resolveOAuthProviderQueryParams } from "./oauthProviderCatalog.js";
 import { findAuthMethodById, findLinkedIdentityByProvider } from "./authMethodStatus.js";
 
-// Signing in with, linking and unlinking an OAuth provider through Supabase.
 /**
+ * Signing in with, linking and unlinking an OAuth provider through Supabase.
  * @param {object} dependencies
- * @param {string} dependencies.appPublicUrl
- * @param {string} dependencies.authOAuthDefaultProvider
- * @param {(input: { appPublicUrl: string, provider: string, returnTo: string }) => string} dependencies.buildOAuthLinkRedirectUrl The link redirect URL for a configured provider.
- * @param {(input: { appPublicUrl: string, provider: string, returnTo: string }) => string} dependencies.buildOAuthLoginRedirectUrl The sign-in redirect URL for a configured provider.
- * @param {(authMethodsStatus: any) => object} dependencies.buildProviderSecurityStatus The security status, with the actions this app offers.
- * @param {() => void} dependencies.ensureConfigured Throws when Supabase is not configured.
- * @param {() => import("@supabase/supabase-js").SupabaseClient} dependencies.getSupabaseClient
- * @param {(value: unknown) => string} dependencies.normalizeOAuthProviderInput A configured provider id.
- * @param {(value: unknown, options?: { fallback?: string }) => string} dependencies.normalizeReturnToPath A return path on an allowed origin.
- * @param {(request: object, options?: { supabaseClient?: import("@supabase/supabase-js").SupabaseClient }) => Promise<{ user: import("@supabase/supabase-js").User, profile: { id: string }, authMethodsStatus: any }>} dependencies.resolveCurrentAuthContext
- * @param {(providerId: string) => Record<string, string> | null} dependencies.resolveOAuthProviderQueryParams The provider's configured query parameters.
- * @param {ReturnType<typeof import("./sessions.js").createSupabaseSessions>["setSessionFromRequestCookies"]} dependencies.setSessionFromRequestCookies
- * @param {ReturnType<typeof import("./profileMirror.js").createProfileMirror>["syncProfileFromSupabaseUser"]} dependencies.syncProfileFromSupabaseUser
+ * @param {import("./types.js").SupabaseConfig} dependencies.config
+ * @param {import("./types.js").SupabaseClients} dependencies.clients
+ * @param {import("./types.js").SupabaseSessions} dependencies.sessions
+ * @param {import("./types.js").SupabaseProfileMirror} dependencies.profileMirror
+ * @param {import("./types.js").SupabaseSecurityStatus} dependencies.securityStatus
  */
-function createSupabaseOAuthFlows({
-  appPublicUrl,
-  authOAuthDefaultProvider,
-  buildOAuthLinkRedirectUrl,
-  buildOAuthLoginRedirectUrl,
-  buildProviderSecurityStatus,
-  ensureConfigured,
-  getSupabaseClient,
-  normalizeOAuthProviderInput,
-  normalizeReturnToPath,
-  resolveCurrentAuthContext,
-  resolveOAuthProviderQueryParams,
-  setSessionFromRequestCookies,
-  syncProfileFromSupabaseUser
-}) {
+function createSupabaseOAuthFlows({ config, clients, sessions, profileMirror, securityStatus }) {
+  /** A provider the app offers, else its default one. */
+  function configuredProvider(value) {
+    return normalizeOAuthProviderInput(value, {
+      providerIds: config.oauth.providerIds,
+      defaultProvider: config.oauth.defaultProvider
+    });
+  }
+
+  function allowedReturnTo(value) {
+    return normalizeReturnToPath(value, { fallback: "/", allowedOrigins: config.allowedReturnToOrigins });
+  }
+
   async function requestOAuthRedirectUrl(supabase, provider, redirectTo, requestFlow) {
     let response;
     try {
-      const queryParams = resolveOAuthProviderQueryParams(provider);
+      const queryParams = resolveOAuthProviderQueryParams(provider, {
+        providerQueryParamsById: config.oauth.providerQueryParamsById
+      });
       response = await requestFlow({
         provider,
         options: {
@@ -60,11 +55,11 @@ function createSupabaseOAuthFlows({
     return String(response.data.url);
   }
 
-  async function oauthStart(payload = {}) {
-    ensureConfigured();
+  async function oauthStart(payload) {
+    clients.ensureConfigured();
 
     const paramsResult = authLoginOAuthStartParamsValidator.schema.patch({
-      provider: payload.provider || authOAuthDefaultProvider
+      provider: payload.provider || config.oauth.defaultProvider
     });
     if (Object.keys(paramsResult.errors).length > 0) {
       throw validationError(paramsResult.errors);
@@ -77,14 +72,15 @@ function createSupabaseOAuthFlows({
       throw validationError(queryResult.errors);
     }
 
-    const provider = normalizeOAuthProviderInput(paramsResult.validatedObject.provider);
-    const returnTo = normalizeReturnToPath(queryResult.validatedObject.returnTo, { fallback: "/" });
+    const provider = configuredProvider(paramsResult.validatedObject.provider);
+    const returnTo = allowedReturnTo(queryResult.validatedObject.returnTo);
     const redirectTo = buildOAuthLoginRedirectUrl({
-      appPublicUrl,
+      appPublicUrl: config.appPublicUrl,
+      providerIds: config.oauth.providerIds,
       provider,
       returnTo
     });
-    const supabase = getSupabaseClient();
+    const supabase = clients.createSupabaseClient();
     const url = await requestOAuthRedirectUrl(supabase, provider, redirectTo, (input) =>
       supabase.auth.signInWithOAuth(input)
     );
@@ -96,11 +92,11 @@ function createSupabaseOAuthFlows({
     };
   }
 
-  async function startProviderLink(request, payload = {}) {
-    ensureConfigured();
+  async function startProviderLink(request, payload) {
+    clients.ensureConfigured();
 
     const paramsResult = authLoginOAuthStartParamsValidator.schema.patch({
-      provider: payload.provider || authOAuthDefaultProvider
+      provider: payload.provider || config.oauth.defaultProvider
     });
     if (Object.keys(paramsResult.errors).length > 0) {
       throw validationError(paramsResult.errors);
@@ -113,15 +109,16 @@ function createSupabaseOAuthFlows({
       throw validationError(queryResult.errors);
     }
 
-    const provider = normalizeOAuthProviderInput(paramsResult.validatedObject.provider);
-    const returnTo = normalizeReturnToPath(queryResult.validatedObject.returnTo, { fallback: "/" });
-    const supabase = getSupabaseClient();
-    await setSessionFromRequestCookies(request, {
+    const provider = configuredProvider(paramsResult.validatedObject.provider);
+    const returnTo = allowedReturnTo(queryResult.validatedObject.returnTo);
+    const supabase = clients.createSupabaseClient();
+    await sessions.setSessionFromRequestCookies(request, {
       supabaseClient: supabase
     });
 
     const redirectTo = buildOAuthLinkRedirectUrl({
-      appPublicUrl,
+      appPublicUrl: config.appPublicUrl,
+      providerIds: config.oauth.providerIds,
       provider,
       returnTo
     });
@@ -136,8 +133,8 @@ function createSupabaseOAuthFlows({
     };
   }
 
-  async function oauthComplete(payload = {}) {
-    ensureConfigured();
+  async function oauthComplete(payload) {
+    clients.ensureConfigured();
 
     const result = authLoginOAuthCompleteBodyValidator.schema.patch(payload);
     if (Object.keys(result.errors).length > 0) {
@@ -179,14 +176,14 @@ function createSupabaseOAuthFlows({
 
     const provider =
       !hasSessionPair || code || errorCode
-        ? normalizeOAuthProviderInput(parsed.provider || authOAuthDefaultProvider)
+        ? configuredProvider(parsed.provider || config.oauth.defaultProvider)
         : null;
 
     if (errorCode) {
       throw mapOAuthCallbackError(errorCode);
     }
 
-    const supabase = getSupabaseClient();
+    const supabase = clients.createSupabaseClient();
     let response;
     try {
       if (hasSessionPair) {
@@ -205,7 +202,7 @@ function createSupabaseOAuthFlows({
       throw mapRecoveryError(response.error);
     }
 
-    const profile = await syncProfileFromSupabaseUser(response.data.user, response.data.user.email);
+    const profile = await profileMirror.syncProfileFromSupabaseUser(response.data.user, response.data.user.email);
 
     return {
       provider,
@@ -214,16 +211,16 @@ function createSupabaseOAuthFlows({
     };
   }
 
-  async function unlinkProvider(request, payload = {}) {
-    ensureConfigured();
+  async function unlinkProvider(request, payload) {
+    clients.ensureConfigured();
 
-    const provider = normalizeOAuthProviderInput(payload.provider);
-    const supabase = getSupabaseClient();
+    const provider = configuredProvider(payload.provider);
+    const supabase = clients.createSupabaseClient();
 
-    await setSessionFromRequestCookies(request, {
+    await sessions.setSessionFromRequestCookies(request, {
       supabaseClient: supabase
     });
-    const current = await resolveCurrentAuthContext(request, {
+    const current = await securityStatus.currentAuthContext(request, {
       supabaseClient: supabase
     });
     const methodId = buildOAuthMethodId(provider);
@@ -256,20 +253,20 @@ function createSupabaseOAuthFlows({
       throw mapAuthError(response.error, Number(response.error?.status || 400));
     }
 
-    const refreshed = await resolveCurrentAuthContext(request, {
+    const refreshed = await securityStatus.currentAuthContext(request, {
       supabaseClient: supabase
     });
     return {
-      securityStatus: buildProviderSecurityStatus(refreshed.authMethodsStatus)
+      securityStatus: securityStatus.buildSecurityStatus(refreshed.authMethodsStatus)
     };
   }
 
-  return {
+  return Object.freeze({
     oauthStart,
     startProviderLink,
     oauthComplete,
     unlinkProvider
-  };
+  });
 }
 
 export { createSupabaseOAuthFlows };

@@ -1,12 +1,9 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
-import {
-  assertDevAuthPolicy,
-  ensureDevAuthRuntimeAvailable,
-  resolveDevAuthPolicy
-} from "@jskit-ai/auth-core/server/devAuth";
+import { ensureDevAuthRuntimeAvailable, resolveDevAuthPolicyFromEnv } from "@jskit-ai/auth-core/server/devAuth";
 import { normalizeEmail } from "@jskit-ai/auth-core/server/utils";
 import { AUTH_TEXTS, authFieldError } from "@jskit-ai/auth-core/server/authTexts";
+import { validationError } from "./authErrorMappers.js";
 import { loadJose, isExpiredJwtError } from "./authJwt.js";
 
 const DEV_AUTH_TOKEN_PREFIX = "jskit-dev.";
@@ -31,41 +28,19 @@ function stripDevAuthTokenPrefix(token) {
   return String(token || "").trim().slice(DEV_AUTH_TOKEN_PREFIX.length);
 }
 
-function resolveDevAuthConfig({
-  enabled = false,
-  secret = "",
-  nodeEnv = "development",
-  jwtAudience = "authenticated",
-  accessTtlSeconds = DEFAULT_DEV_AUTH_ACCESS_TTL_SECONDS,
-  refreshTtlSeconds = DEFAULT_DEV_AUTH_REFRESH_TTL_SECONDS
-} = {}) {
-  const policy = resolveDevAuthPolicy({
-    enabled,
-    nodeEnv,
-    secret
-  });
-  return Object.freeze({
-    ...policy,
-    jwtAudience: String(jwtAudience || "authenticated").trim() || "authenticated",
-    accessTtlSeconds: normalizePositiveInteger(accessTtlSeconds, DEFAULT_DEV_AUTH_ACCESS_TTL_SECONDS),
-    refreshTtlSeconds: normalizePositiveInteger(refreshTtlSeconds, DEFAULT_DEV_AUTH_REFRESH_TTL_SECONDS)
-  });
-}
-
 /**
- * @param {ReturnType<typeof resolveDevAuthConfig>} config
- * @param {{ userProfilesRepository: import("@jskit-ai/users-core/server/types").UsersIdentity["repositories"]["userProfiles"] | null }} dependencies
+ * Dev auth's policy (AUTH_DEV_BYPASS_ENABLED and AUTH_DEV_BYPASS_SECRET), and
+ * the audience and lifetimes of the tokens it signs.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} env
+ * @param {string} jwtAudience
  */
-function assertDevAuthBootstrapConfig(config, { userProfilesRepository }) {
-  assertDevAuthPolicy(config);
-  if (!config?.enabled) {
-    return;
-  }
-  if (!userProfilesRepository) {
-    throw new Error(
-      "Dev auth bootstrap requires internal.repository.user-profiles with findById() and findByEmail() when AUTH_DEV_BYPASS_ENABLED=true."
-    );
-  }
+function resolveDevAuthConfig(env, jwtAudience) {
+  return Object.freeze({
+    ...resolveDevAuthPolicyFromEnv(env),
+    jwtAudience,
+    accessTtlSeconds: normalizePositiveInteger(env.AUTH_DEV_ACCESS_TTL_SECONDS, DEFAULT_DEV_AUTH_ACCESS_TTL_SECONDS),
+    refreshTtlSeconds: normalizePositiveInteger(env.AUTH_DEV_REFRESH_TTL_SECONDS, DEFAULT_DEV_AUTH_REFRESH_TTL_SECONDS)
+  });
 }
 
 function buildProfileFromTokenClaims(payload) {
@@ -98,11 +73,11 @@ function buildProfileFromTokenClaims(payload) {
 
 /**
  * @param {any} payload
- * @param {{ userProfilesRepository: import("@jskit-ai/users-core/server/types").UsersIdentity["repositories"]["userProfiles"] | null }} dependencies
+ * @param {{ userProfilesRepository: import("./types.js").SupabaseUserProfiles }} dependencies
  */
 async function resolveProfileFromTokenClaims(payload, { userProfilesRepository }) {
   const userId = normalizeRecordId(payload?.sub, { fallback: null });
-  if (userId && userProfilesRepository) {
+  if (userId) {
     const latest = await userProfilesRepository.findById(userId);
     if (latest?.id) {
       return latest;
@@ -195,20 +170,13 @@ async function createDevAuthSession(profile, config) {
 }
 
 /**
+ * The app user a dev login names by id or email.
  * @param {{ userId?: unknown, email?: unknown }} input
- * @param {object} dependencies
- * @param {import("@jskit-ai/users-core/server/types").UsersIdentity["repositories"]["userProfiles"] | null} dependencies.userProfilesRepository
- * @param {(fieldErrors: object) => Error} dependencies.validationError
+ * @param {{ userProfilesRepository: import("./types.js").SupabaseUserProfiles }} dependencies
  */
-async function resolveDevAuthProfile(input = {}, { userProfilesRepository, validationError }) {
-  if (!userProfilesRepository) {
-    throw new AppError(500, "Dev auth bootstrap requires internal.repository.user-profiles.findById().", {
-      code: "auth.supabase.dev.findByIdMissing"
-    });
-  }
-
-  const normalizedUserId = normalizeRecordId(input?.userId, { fallback: null });
-  const normalizedEmail = normalizeEmail(input?.email || "");
+async function resolveDevAuthProfile(input, { userProfilesRepository }) {
+  const normalizedUserId = normalizeRecordId(input.userId, { fallback: null });
+  const normalizedEmail = normalizeEmail(input.email || "");
   if (!normalizedUserId && !normalizedEmail) {
     throw validationError({
       userId: authFieldError(AUTH_TEXTS.devUserRequired),
@@ -240,8 +208,8 @@ async function resolveDevAuthProfile(input = {}, { userProfilesRepository, valid
 /**
  * @param {{ request: object, accessToken?: string, refreshToken?: string }} tokens
  * @param {object} dependencies
- * @param {ReturnType<typeof resolveDevAuthConfig>} dependencies.config
- * @param {import("@jskit-ai/users-core/server/types").UsersIdentity["repositories"]["userProfiles"] | null} dependencies.userProfilesRepository
+ * @param {import("./types.js").SupabaseConfig["devAuth"]} dependencies.config
+ * @param {import("./types.js").SupabaseUserProfiles} dependencies.userProfilesRepository
  */
 async function authenticateDevAuthRequest(
   { request, accessToken = "", refreshToken = "" },
@@ -321,7 +289,6 @@ async function authenticateDevAuthRequest(
 }
 
 export {
-  assertDevAuthBootstrapConfig,
   authenticateDevAuthRequest,
   createDevAuthSession,
   isDevAuthToken,

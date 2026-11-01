@@ -77,8 +77,7 @@
           "payloadIncomplete": "Auth provider user payload is missing required fields."
         },
         "dev": {
-          "sessionInvalid": "Dev session is invalid.",
-          "findByIdMissing": "Dev auth bootstrap requires internal.repository.user-profiles.findById()."
+          "sessionInvalid": "Dev session is invalid."
         }
       }
     }
