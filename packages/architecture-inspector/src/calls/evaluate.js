@@ -40,6 +40,11 @@ function normalizedSegment(value) {
   return value.startsWith("/") || value.startsWith(ANY) || value === "" ? value : `/${value}`;
 }
 
+/**
+ * @param {object} dependencies
+ * @param {import("./types.js").CallSymbols} dependencies.symbols
+ * @param {import("./types.js").FileOf} dependencies.fileOf
+ */
 function createEvaluator({ symbols, fileOf }) {
   const unrolled = new Map();
 

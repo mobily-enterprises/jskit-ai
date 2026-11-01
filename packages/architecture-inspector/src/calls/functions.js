@@ -193,6 +193,69 @@ function collectFileFunctions({ file, hash, sourceFile, checker }) {
   return { module, functions: module ? [module, ...records] : records, nodes };
 }
 
+// A function that runs while the code around it runs: one passed straight to
+// a call, or called in place.
+function isCalledInPlace(fn) {
+  let child = fn;
+  let parent = fn.parent;
+  while (parent && ts.isParenthesizedExpression(parent)) {
+    child = parent;
+    parent = parent.parent;
+  }
+  return Boolean(parent) && (ts.isCallExpression(parent) || ts.isNewExpression(parent)) &&
+    (parent.expression === child || Boolean(parent.arguments?.includes(child)));
+}
+
+// Whether code at `node` runs while `fn` runs: no function between them is
+// stored, returned or declared to run later.
+function runsDuring(node, fn) {
+  for (let current = node.parent; current; current = current.parent) {
+    if (current === fn) {
+      return true;
+    }
+    if (isFunctionLike(current) && !isCalledInPlace(current)) {
+      return false;
+    }
+  }
+  return false;
+}
+
+// The names a function's parameters bind, destructured ones included.
+function parameterNames(fn) {
+  const names = new Set();
+  const visit = (name) => {
+    if (ts.isIdentifier(name)) {
+      names.add(name.text);
+    } else if (ts.isObjectBindingPattern(name) || ts.isArrayBindingPattern(name)) {
+      name.elements.forEach((element) => ts.isBindingElement(element) && visit(element.name));
+    }
+  };
+  fn.parameters.forEach((parameter) => visit(parameter.name));
+  return names;
+}
+
+// The function (and parameter position) a parameter or destructured
+// parameter element belongs to, with its property path.
+function owningParameter(declaration) {
+  const pathParts = [];
+  let current = declaration;
+  while (current && ts.isBindingElement(current)) {
+    if (!ts.isObjectBindingPattern(current.parent)) {
+      return null;
+    }
+    const key = current.propertyName || current.name;
+    if (!ts.isIdentifier(key) && !ts.isStringLiteralLike(key)) {
+      return null;
+    }
+    pathParts.unshift(key.text);
+    current = current.parent.parent;
+  }
+  if (!current || !ts.isParameter(current) || !isFunctionLike(current.parent)) {
+    return null;
+  }
+  return { fn: current.parent, index: current.parent.parameters.indexOf(current), path: pathParts };
+}
+
 function safeAliased(checker, symbol) {
   try {
     return checker.getAliasedSymbol(symbol);
@@ -201,4 +264,14 @@ function safeAliased(checker, symbol) {
   }
 }
 
-export { collectFileFunctions, isFunctionLike, point, safeAliased, unwrapExpression };
+export {
+  collectFileFunctions,
+  isCalledInPlace,
+  isFunctionLike,
+  owningParameter,
+  parameterNames,
+  point,
+  runsDuring,
+  safeAliased,
+  unwrapExpression
+};

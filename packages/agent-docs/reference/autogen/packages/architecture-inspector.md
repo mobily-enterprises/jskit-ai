@@ -52,8 +52,12 @@ Local functions
 ### `src/calls/functions.js`
 Exports
 - `collectFileFunctions({ file, hash, sourceFile, checker })`
+- `isCalledInPlace(fn)`
 - `isFunctionLike(node)`
+- `owningParameter(declaration)`
+- `parameterNames(fn)`
 - `point(sourceFile, position)`
+- `runsDuring(node, fn)`
 - `safeAliased(checker, symbol)`
 - `unwrapExpression(node)`
 Local functions
@@ -89,11 +93,7 @@ Local functions
 - `isNullish(expression)`
 - `compatibleSides(left, right)`
 - `libraryMemberNames(program)`
-- `isCalledInPlace(fn)`
-- `runsDuring(node, fn)`
-- `parameterNames(fn)`
 - `constructorOf(implementation)`
-- `owningParameter(declaration)`
 
 ### `src/calls/symbols.js`
 Exports
@@ -115,6 +115,13 @@ Local functions
 - `matchSegments(client, route, clientIndex = 0, routeIndex = 0, score = { literal: 0, wildcard: 0 })`
 - `routeLiterals(route)`
 
+### `src/calls/types.js`
+Exports
+- `type FileOf`
+- `type CallSymbols`
+- `type CallEvaluator`
+- `type FeatureBindings`
+
 ### `src/cli.js`
 Exports
 - None
@@ -130,45 +137,47 @@ Local functions
 Exports
 - `inspectVueArchitecture({ projectRoot, input, aliases = {}, httpScope = "", apiBasePath = "", calls = false, apiPrefixAliases = [] })`
 Local functions
-- `hashBytes(source)`
-- `isCanonicalPath(value)`
-- `propertyKey(entry)`
-- `isStaticObjectProperty(entry)`
-- `objectProperty(node, key)`
-- `hasOnlyStaticProperties(node)`
-- `isFunctionNode(node)`
-- `directoryPrefixes(filePath)`
-- `nodeRecord(node, parent)`
-- `collectNodes(root)`
-- `staticValue(node, bindings, seen = new Set(), environment = null)`
-- `staticObjectValue(node, bindings, seen, environment)`
-- `bindingNode(node, bindings, seen = new Set())`
-- `isShadowed({ ancestors }, name)`
-- `isLocalCall(record, names)`
-- `importedNames(module, source, imported)`
-- `findRecord(module, node)`
-- `kebabCase(name)`
-- `templateTagImport(module, tag)`
-- `sourcePoint(module, index)`
-- `sourceEvidence(module, node, offset = 0)`
-- `pageTitle(file)`
 - `validateInput({ projectRoot, input, aliases, apiPrefixAliases })`
 - `createOutput({ input, calls })`
-- `warn(inspection, code, message, source)`
-- `readDeclaredSource(inspection, filePath)`
-- `projectHttpScope(inspection)`
-- `utf8Source(bytes, filePath)`
+- `importSpecifierName(specifier)`
+- `isTypeOnlyImport(node)`
+- `collectImports(inspection)`
+- `parentIdForFile(inspection, file)`
+- `discoverCalls(inspection)`
+- `inspectCallsAndCache(inspection, { sources, hashes, keys, location, reuse })`
+
+### `src/previewLocator.js`
+Exports
+- None
+
+### `src/vue/modules.js`
+Exports
+- `MAX_RESOURCE_HOPS`
+- `SCRIPT_FILE_PATTERN`
+- `SOURCES`
 - `loadModule(inspection, filePath)`
+- `projectHttpScope(inspection)`
+- `readDeclaredSource(inspection, filePath)`
+- `resolveImport(inspection, from, specifier)`
+- `resolvePackageImport(inspection, from, specifier)`
+- `utf8Source(bytes, filePath)`
+- `warn(inspection, code, message, source)`
+Local functions
 - `scriptUnits(inspection, module)`
 - `indexScriptUnit(inspection, module, unit)`
 - `indexDeclaration(module, node, parent)`
-- `resolveImport(inspection, from, specifier)`
 - `resolvePackageEntryFile(inspection, from, specifier)`
 - `packageEntryTarget(entry, importPath)`
-- `resolvePackageImport(inspection, from, specifier)`
-- `resolveCrudResource(inspection, module, node, seen = new Set())`
-- `resolveExportedCrudResource(inspection, module, name, seen)`
+
+### `src/vue/pages.js`
+Exports
 - `crudOperationKey(inspection, surface, namespace, operation, apiSuffix)`
+- `discoverComponents(inspection)`
+- `discoverPages(inspection, discoveries)`
+- `resolveCrudResource(inspection, module, node, seen = new Set())`
+Local functions
+- `pageTitle(file)`
+- `resolveExportedCrudResource(inspection, module, name, seen)`
 - `recordPage(inspection, { file, discovery, identity, registrationModule, registrationNode, parentId = null })`
 - `isSupportedFilesystemOptions(options)`
 - `discoverFilesystemPages(inspection, discovery, module, registrationPath)`
@@ -177,9 +186,7 @@ Local functions
 - `discoverRegisteredPages(inspection, discovery, module, registrationPath)`
 - `routeComponentSpecifier(module, component)`
 - `recordRegisteredRoutes(inspection, { routes, discovery, module, registrationPath })`
-- `discoverPages(inspection, discoveries)`
 - `readTemplate(module)`
-- `discoverComponents(inspection)`
 - `recordComponentUse(inspection, { module, file, parentId, tag, pending })`
 - `recordPackageComponent(inspection, { module, file, tag, imported })`
 - `crudScreenKind(component)`
@@ -189,7 +196,11 @@ Local functions
 - `recordCrudScreenUse(inspection, { module, file, parentId, tag })`
 - `isGlobalFetchCall(module, { node, ancestors })`
 - `recordFetchUses(inspection, { module, parentId, eventHandlers })`
+
+### `src/vue/routes.js`
+Exports
 - `discoverEntryOperations(inspection)`
+Local functions
 - `crudControllerOperations(module, config, resource)`
 - `recordCrudController(inspection, { module, file, record })`
 - `recordCrudActionRoutes(inspection, { module, record, config, namespace, apiSuffix })`
@@ -217,13 +228,28 @@ Local functions
 - `unrolledEnvironments(module, { node, ancestors })`
 - `recordActionRouteScopes(inspection, { module, file })`
 - `recordScopedRoute(inspection, { module, file, routeBase, registration, kind })`
-- `importSpecifierName(specifier)`
-- `isTypeOnlyImport(node)`
-- `collectImports(inspection)`
-- `parentIdForFile(inspection, file)`
-- `discoverCalls(inspection)`
-- `inspectCallsAndCache(inspection, { sources, hashes, keys, location, reuse })`
 
-### `src/previewLocator.js`
+### `src/vue/syntax.js`
 Exports
-- None
+- `bindingNode(node, bindings, seen = new Set())`
+- `collectNodes(root)`
+- `directoryPrefixes(filePath)`
+- `findRecord(module, node)`
+- `hasOnlyStaticProperties(node)`
+- `hashBytes(source)`
+- `importedNames(module, source, imported)`
+- `isCanonicalPath(value)`
+- `isFunctionNode(node)`
+- `isLocalCall(record, names)`
+- `isShadowed({ ancestors }, name)`
+- `isStaticObjectProperty(entry)`
+- `objectProperty(node, key)`
+- `propertyKey(entry)`
+- `sourceEvidence(module, node, offset = 0)`
+- `staticValue(node, bindings, seen = new Set(), environment = null)`
+- `templateTagImport(module, tag)`
+Local functions
+- `nodeRecord(node, parent)`
+- `staticObjectValue(node, bindings, seen, environment)`
+- `kebabCase(name)`
+- `sourcePoint(module, index)`

@@ -20,11 +20,17 @@ function isActionObject(node) {
     Boolean(memberNamed(node, "id")) && Boolean(memberNamed(node, "execute"));
 }
 
-// JSKIT's defineFeature dependency injection, read statically:
-// requires/optional tokens, provides tokens, setup outputs and the actions()
-// definitions. Feature setup and actions parameters are bound to the
-// expressions their providers return. One provider is exact; several are
-// ambiguous; none leaves the parameter unbound.
+/**
+ * JSKIT's defineFeature dependency injection, read statically:
+ * requires/optional tokens, provides tokens, setup outputs and the actions()
+ * definitions. Feature setup and actions parameters are bound to the
+ * expressions their providers return. One provider is exact; several are
+ * ambiguous; none leaves the parameter unbound.
+ * @param {object} dependencies
+ * @param {import("typescript").CallExpression[]} dependencies.calls
+ * @param {import("./types.js").CallSymbols} dependencies.symbols
+ * @param {import("./types.js").CallEvaluator} dependencies.evaluator
+ */
 function bindFeatures({ calls, symbols, evaluator }) {
   const features = [];
   const crudDeclarations = [];
@@ -192,7 +198,7 @@ function memberValue(member) {
 /**
  * The functions an action's `execute` member runs.
  * @param {import("typescript").Node} member
- * @param {ReturnType<typeof import("./symbols.js").createSymbols>} symbols
+ * @param {import("./types.js").CallSymbols} symbols
  */
 function executeFunctions(member, symbols) {
   if (isFunctionLike(member)) {

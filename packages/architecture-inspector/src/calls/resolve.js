@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events";
 import { Stats } from "node:fs";
 import { Duplex } from "node:stream";
 import ts from "typescript";
-import { isFunctionLike, unwrapExpression } from "./functions.js";
+import { isCalledInPlace, isFunctionLike, owningParameter, parameterNames, runsDuring, unwrapExpression } from "./functions.js";
 import { isClassLike } from "./symbols.js";
 import { isLiteralPattern } from "./evaluate.js";
 
@@ -78,47 +78,6 @@ function libraryMemberNames(program) {
   return names;
 }
 
-// A function that runs while the code around it runs: one passed straight to
-// a call, or called in place.
-function isCalledInPlace(fn) {
-  let child = fn;
-  let parent = fn.parent;
-  while (parent && ts.isParenthesizedExpression(parent)) {
-    child = parent;
-    parent = parent.parent;
-  }
-  return Boolean(parent) && (ts.isCallExpression(parent) || ts.isNewExpression(parent)) &&
-    (parent.expression === child || Boolean(parent.arguments?.includes(child)));
-}
-
-// Whether code at `node` runs while `fn` runs: no function between them is
-// stored, returned or declared to run later.
-function runsDuring(node, fn) {
-  for (let current = node.parent; current; current = current.parent) {
-    if (current === fn) {
-      return true;
-    }
-    if (isFunctionLike(current) && !isCalledInPlace(current)) {
-      return false;
-    }
-  }
-  return false;
-}
-
-// The names a function's parameters bind, destructured ones included.
-function parameterNames(fn) {
-  const names = new Set();
-  const visit = (name) => {
-    if (ts.isIdentifier(name)) {
-      names.add(name.text);
-    } else if (ts.isObjectBindingPattern(name) || ts.isArrayBindingPattern(name)) {
-      name.elements.forEach((element) => ts.isBindingElement(element) && visit(element.name));
-    }
-  };
-  fn.parameters.forEach((parameter) => visit(parameter.name));
-  return names;
-}
-
 function constructorOf(implementation) {
   if (!isClassLike(implementation)) {
     return implementation;
@@ -126,31 +85,20 @@ function constructorOf(implementation) {
   return implementation.members.find((member) => ts.isConstructorDeclaration(member) && member.body) || null;
 }
 
-// The function (and parameter position) a parameter or destructured
-// parameter element belongs to, with its property path.
-function owningParameter(declaration) {
-  const pathParts = [];
-  let current = declaration;
-  while (current && ts.isBindingElement(current)) {
-    if (!ts.isObjectBindingPattern(current.parent)) {
-      return null;
-    }
-    const key = current.propertyName || current.name;
-    if (!ts.isIdentifier(key) && !ts.isStringLiteralLike(key)) {
-      return null;
-    }
-    pathParts.unshift(key.text);
-    current = current.parent.parent;
-  }
-  if (!current || !ts.isParameter(current) || !isFunctionLike(current.parent)) {
-    return null;
-  }
-  return { fn: current.parent, index: current.parent.parameters.indexOf(current), path: pathParts };
-}
-
-// Call resolution over one program: TypeScript checker targets, defineFeature
-// injection, argument flow, literal-array unrolling and receiver names, each
-// labelled with its certainty. Provably external calls are dropped.
+/**
+ * Call resolution over one program: TypeScript checker targets, defineFeature
+ * injection, argument flow, literal-array unrolling and receiver names, each
+ * labelled with its certainty. Provably external calls are dropped.
+ * @param {object} dependencies
+ * @param {import("typescript").Program} dependencies.program
+ * @param {import("typescript").TypeChecker} dependencies.checker
+ * @param {import("./types.js").CallSymbols} dependencies.symbols
+ * @param {import("./types.js").CallEvaluator} dependencies.evaluator
+ * @param {import("./types.js").FeatureBindings["bindings"]} dependencies.bindings
+ * @param {Map<string, import("./types.js").FeatureBindings["actions"]>} dependencies.actionsById
+ * @param {import("./types.js").FileOf} dependencies.fileOf
+ * @param {Map<string, import("typescript").Node[]>} dependencies.functionNames
+ */
 function createResolver({ program, checker, symbols, evaluator, bindings, actionsById, fileOf, functionNames }) {
   const builtinMembers = libraryMemberNames(program);
   const callSites = new Map();
