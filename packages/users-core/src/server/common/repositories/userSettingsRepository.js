@@ -1,14 +1,10 @@
-import {
-  normalizeRecordId,
-  isDuplicateEntryError,
-  retryDeadlocks
-} from "./repositoryUtils.js";
+import { isLostDuplicateInsertRace, resolveTransaction, retryDeadlocks } from "@jskit-ai/database-runtime/shared";
+import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   createJsonRestContext,
   extractJsonRestCollectionRows
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { DEFAULT_USER_SETTINGS, normalizeLocaleCode } from "../../../shared/settings.js";
-import { resolveTransaction } from "@jskit-ai/database-runtime/shared";
 
 const USER_SETTINGS_PATCH_FIELDS = Object.freeze([
   "theme",
@@ -37,7 +33,7 @@ function pickPatchFields(source = {}) {
   return patch;
 }
 
-function createDefaultUserSettingsCreatePayload(userId) {
+function buildDefaultUserSettingsCreatePayload(userId) {
   return {
     id: userId,
     theme: DEFAULT_USER_SETTINGS.theme,
@@ -69,7 +65,7 @@ function createRepository({ api }) {
           transaction: resolveTransaction(options),
           format: "plain"
         },
-        createJsonRestContext(options.context || null)
+        createJsonRestContext(options.context)
       )
     );
 
@@ -101,15 +97,15 @@ function createRepository({ api }) {
     try {
       await api.resources.userSettings.post(
         {
-          data: createDefaultUserSettingsCreatePayload(normalizedUserId),
+          data: buildDefaultUserSettingsCreatePayload(normalizedUserId),
           format: "plain",
           returning: "full",
           transaction: resolveTransaction(options)
         },
-        createJsonRestContext(options.context || null)
+        createJsonRestContext(options.context)
       );
     } catch (error) {
-      if (options.trx || error?.transactionOutcome !== "rolledBack" || !isDuplicateEntryError(error)) {
+      if (!isLostDuplicateInsertRace(error, options)) {
         throw error;
       }
     }
@@ -117,7 +113,7 @@ function createRepository({ api }) {
     return findByUserId(normalizedUserId, options);
   }
 
-  async function patchUserSettings(userId, patch = {}, options = {}) {
+  async function patchUserSettings(userId, patch, options = {}) {
     const normalizedUserId = normalizeRecordId(userId, { fallback: null });
     if (!normalizedUserId) {
       throw new TypeError("userSettingsRepository.patchUserSettings requires a valid user id.");
@@ -142,17 +138,17 @@ function createRepository({ api }) {
         returning: "full",
         transaction: resolveTransaction(options)
       },
-      createJsonRestContext(options.context || null)
+      createJsonRestContext(options.context)
     );
 
     return findByUserId(normalizedUserId, options);
   }
 
-  async function updatePreferences(userId, patch = {}, options = {}) {
+  async function updatePreferences(userId, patch, options = {}) {
     return patchUserSettings(userId, patch, options);
   }
 
-  async function updateNotifications(userId, patch = {}, options = {}) {
+  async function updateNotifications(userId, patch, options = {}) {
     return patchUserSettings(userId, patch, options);
   }
 

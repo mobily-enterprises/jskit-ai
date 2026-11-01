@@ -1,5 +1,5 @@
-import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
-import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { joinOrOpenTransaction } from "@jskit-ai/database-runtime/shared";
+import { normalizeLowerText, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeIdentity } from "../support/identity.js";
 
 function buildNormalizedIdentityKey(identityLike) {
@@ -92,8 +92,8 @@ function createService({ userProfilesRepository, resolveLifecycleContributors, u
     const normalized = buildNormalizedIdentityProfile(profileLike);
     const lifecycleContributors = resolveLifecycleContributors();
 
-    const runSync = async (trx = null) => {
-      const operationOptions = trx ? { ...options, trx } : options;
+    const runSync = async (trx) => {
+      const operationOptions = { ...options, trx };
       const existing = await findByIdentity(normalized, operationOptions);
       let created = false;
       if (!profileNeedsUpdate(existing, normalized)) {
@@ -124,11 +124,7 @@ function createService({ userProfilesRepository, resolveLifecycleContributors, u
       return synchronizedProfile;
     };
 
-    if (options.trx) {
-      return runSync(options.trx);
-    }
-
-    return userProfilesRepository.withTransaction((trx) => runSync(trx));
+    return joinOrOpenTransaction(options, userProfilesRepository.withTransaction, runSync);
   }
 
   return Object.freeze({

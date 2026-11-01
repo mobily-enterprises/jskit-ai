@@ -1,20 +1,19 @@
 import {
   findDuplicateEntryError,
-  isDuplicateEntryError,
+  isLostDuplicateInsertRace,
+  joinOrOpenTransaction,
   normalizeDbRecordId,
-  normalizeLowerText,
-  normalizeRecordId,
-  normalizeText,
-  toIsoString,
-  retryDeadlocks
-} from "./repositoryUtils.js";
+  resolveTransaction,
+  retryDeadlocks,
+  toIsoString
+} from "@jskit-ai/database-runtime/shared";
+import { normalizeLowerText, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   createJsonRestContext,
   extractJsonRestCollectionRows
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { normalizeIdentity } from "../support/identity.js";
 import { USERNAME_MAX_LENGTH, normalizeNullableString, normalizeNullableVersion, normalizeUsername } from "../../../shared/resources/userProfileValues.js";
-import { resolveTransaction } from "@jskit-ai/database-runtime/shared";
 
 function normalizeProfileRecord(payload = null) {
   if (!payload || typeof payload !== "object") {
@@ -107,7 +106,7 @@ function duplicateTargetsUsername(error) {
   return message.includes("username");
 }
 
-function createDuplicateEmailConflictError(cause) {
+function buildDuplicateEmailConflictError(cause) {
   const error = new Error("Email is already linked to a different profile.", { cause });
   error.transactionOutcome = cause.transactionOutcome;
   error.code = "USER_PROFILE_EMAIL_CONFLICT";
@@ -159,7 +158,7 @@ function createRepository({ api }) {
           transaction: resolveTransaction(options),
           format: "plain"
         },
-        createJsonRestContext(options.context || null)
+        createJsonRestContext(options.context)
       )
     );
 
@@ -218,7 +217,7 @@ function createRepository({ api }) {
         returning: "full",
         transaction: resolveTransaction(options)
       },
-      createJsonRestContext(options.context || null)
+      createJsonRestContext(options.context)
     );
 
     return normalizeProfileRecord(updated);
@@ -243,7 +242,7 @@ function createRepository({ api }) {
         returning: "full",
         transaction: resolveTransaction(options)
       },
-      createJsonRestContext(options.context || null)
+      createJsonRestContext(options.context)
     );
 
     return normalizeProfileRecord(updated);
@@ -268,7 +267,7 @@ function createRepository({ api }) {
         returning: "full",
         transaction: resolveTransaction(options)
       },
-      createJsonRestContext(options.context || null)
+      createJsonRestContext(options.context)
     );
 
     return normalizeProfileRecord(updated);
@@ -294,7 +293,7 @@ function createRepository({ api }) {
     const executeUpsert = async (trx) => {
       const existing = await findByIdentity(identity, {
         trx,
-        context: options.context || null
+        context: options.context
       });
 
       if (existing) {
@@ -320,7 +319,7 @@ function createRepository({ api }) {
             returning: "full",
             transaction: trx
           },
-          createJsonRestContext(options.context || null)
+          createJsonRestContext(options.context)
         );
 
         return normalizeProfileRecord(updated);
@@ -346,26 +345,26 @@ function createRepository({ api }) {
           returning: "full",
           transaction: trx
         },
-        createJsonRestContext(options.context || null)
+        createJsonRestContext(options.context)
       );
 
       return normalizeProfileRecord(created);
     };
 
     try {
-      return await (options.trx ? executeUpsert(options.trx) : withTransaction(executeUpsert));
+      return await joinOrOpenTransaction(options, withTransaction, executeUpsert);
     } catch (error) {
       if (["pending", "rolledBack"].includes(error?.transactionOutcome) && duplicateTargetsEmail(error)) {
-        throw createDuplicateEmailConflictError(error);
+        throw buildDuplicateEmailConflictError(error);
       }
       // A failed participant cannot recover inside the caller's transaction.
-      if (options.trx || error?.transactionOutcome !== "rolledBack" || !isDuplicateEntryError(error)) {
+      if (!isLostDuplicateInsertRace(error, options)) {
         throw error;
       }
       if (duplicateTargetsUsername(error)) {
         throw error;
       }
-      const existing = await findByIdentity(identity, { context: options.context || null });
+      const existing = await findByIdentity(identity, { context: options.context });
       if (existing) {
         return existing;
       }

@@ -103,20 +103,6 @@ Exports
 Local functions
 - `resolveAuthProfileSettings(authService)`
 
-### `src/server/common/repositories/repositoryUtils.js`
-Exports
-- `toIsoString`
-- `retryDeadlocks`
-- `isDuplicateEntryError`
-- `findDuplicateEntryError`
-- `normalizeText`
-- `normalizeLowerText`
-- `normalizeRecordId`
-- `normalizeDbRecordId`
-- `uniqueSorted(values)`
-- `parseJson(value, fallback = {})`
-- `toDbJson(value, fallback = {})`
-
 ### `src/server/common/repositories/userProfilesRepository.js`
 Exports
 - `createRepository({ api })`
@@ -127,7 +113,7 @@ Local functions
 - `buildUsernameCandidate(baseUsername, suffix)`
 - `duplicateTargetsEmail(error)`
 - `duplicateTargetsUsername(error)`
-- `createDuplicateEmailConflictError(cause)`
+- `buildDuplicateEmailConflictError(cause)`
 - `resolveUniqueUsername(api, baseUsername, { excludeUserId = null, transaction = null } = {})`
 
 ### `src/server/common/repositories/userSettingsRepository.js`
@@ -135,7 +121,7 @@ Exports
 - `createRepository({ api })`
 Local functions
 - `pickPatchFields(source = {})`
-- `createDefaultUserSettingsCreatePayload(userId)`
+- `buildDefaultUserSettingsCreatePayload(userId)`
 
 ### `src/server/common/services/accountContextService.js`
 Exports
@@ -154,10 +140,6 @@ Local functions
 ### `src/server/common/support/accountSettingsJsonApiTransport.js`
 Exports
 - `resolveAccountSettingsResourceId(_record, context = {})`
-
-### `src/server/common/support/deepFreeze.js`
-Exports
-- `deepFreeze`
 
 ### `src/server/common/support/identity.js`
 Exports
