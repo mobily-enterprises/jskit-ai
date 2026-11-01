@@ -248,8 +248,9 @@ test("voice example runs a direct file-backed headless task while denying browse
   // Keep an early provider failure observed while waiting for its controlled stream.
   answer.catch(() => {});
   await f.until(() => f.requests.length === 1, "the actual runHeadless inference");
-  assert.equal(f.requests[0].body.messages[0].content,
-    "You are the assistant for Headless task. Answer briefly in plain language.");
+  assert.match(f.requests[0].body.messages[0].content,
+    /^You are the assistant for Headless task\. Answer briefly in plain language\.\n\nCurrent state, from the system\. /u,
+    "The system prompt, then the engine's state note");
   assert.equal(f.requests[0].body.messages.at(-1).content, text);
   f.requests[0].text("The headless task is complete.");
   f.requests[0].finish();
