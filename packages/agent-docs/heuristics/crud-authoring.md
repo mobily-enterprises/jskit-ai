@@ -72,6 +72,10 @@ or rewrite a historical baseline.
 - `actions` exposes non-CRUD service methods through normal validated,
   permissioned, audited JSKIT actions and optional explicit HTTP routes.
 
+A resource whose records carry a version number names it `lockVersionField`
+and patches through the repository's `patchDocumentIfLockVersion`; see the
+database layer guide's Optimistic locking.
+
 Keep database reads and writes in repositories. Services and lifecycle hooks
 orchestrate repositories; they do not issue raw database queries. Put external
 side effects after commit, or write a durable outbox record inside the

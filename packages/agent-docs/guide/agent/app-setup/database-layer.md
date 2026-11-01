@@ -249,6 +249,38 @@ A separate Feature is warranted when an operation belongs to another domain,
 not merely because a useful resource has behavior beyond list and save. Write
 it as a [typed feature](/guide/framework/typed-features).
 
+## Optimistic locking
+
+A CRUD resource whose records carry a version number names it with
+`lockVersionField`, an integer schema field over a non-null integer column
+that starts at `0`:
+
+```js
+defineCrudResource({
+  namespace: "contracts",
+  tableName: "contracts",
+  autofilter: "workspace",
+  lockVersionField: "lockVersion",
+  schema: {
+    // ...
+    lockVersion: { type: "integer", min: 0, readOnly: true, column: "lock_version" }
+  }
+});
+```
+
+The CRUD repository's
+`patchDocumentIfLockVersion(recordId, expectedLockVersion, patch, { trx, context })`
+then applies `patch` only while the record still holds `expectedLockVersion`,
+and adds one to the lock version in the same transaction: the caller's `trx`,
+or one it owns. It returns the patched document, which carries the new lock
+version, or `null` when the record does not exist or is outside the caller's
+scope. A record whose lock version has moved on rejects with a 409 coded
+`crud.document.lockVersionConflict` ("This record changed. Reload and try
+again."), and nothing is written. The patch leaves the lock field out; an app
+that wants its own wording for the conflict catches that code. A resource
+without `lockVersionField` cannot call it, and `defineCrudResource()` rejects
+a `lockVersionField` that names no integer schema field.
+
 ## Deadlock retries
 
 When the database aborts a transaction as a deadlock victim (MySQL and MariaDB
@@ -259,8 +291,8 @@ request instead of a 500. This applies to `runInTransaction()` and
 `createWithTransaction()` from `@jskit-ai/database-runtime/shared`, to
 `transactionManager.inTransaction()`, to the seed transaction, to every JSON
 REST repository's `withTransaction()` (CRUD, users and workspaces), and to a
-CRUD `createDocument`, `patchDocumentById` or `deleteDocumentById` given no
-`trx`, which owns its own transaction. A lock wait timeout (errno 1205) is not
+CRUD `createDocument`, `patchDocumentById`, `patchDocumentIfLockVersion` or
+`deleteDocumentById` given no `trx`, which owns its own transaction. A lock wait timeout (errno 1205) is not
 retried.
 
 Only the outermost transaction retries. A call given an existing `trx`, or a

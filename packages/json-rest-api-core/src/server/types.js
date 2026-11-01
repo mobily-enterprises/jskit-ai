@@ -1,6 +1,13 @@
 // The type of the `runtime.json-rest-api` capability, for features that require it.
 
-/** @typedef {Awaited<ReturnType<typeof import("./jsonRestApiHost.js").createJsonRestApiHost>>} RuntimeJsonRestApi */
+/**
+ * The API createJsonRestApiHost builds. Its Knex plugin adds
+ * `knex.helpers.getStorageAdapter(scopeName)`: a registered resource's table
+ * query, id column and field columns.
+ * @typedef {Awaited<ReturnType<typeof import("./jsonRestApiHost.js").createJsonRestApiHost>> & {
+ *   knex: { helpers: { getStorageAdapter(scopeName: string): NonNullable<import("json-rest-api").HookContext["storageAdapter"]> } }
+ * }} RuntimeJsonRestApi
+ */
 
 /**
  * One of `api.resources`: json-rest-api's resource and its CRUD methods. query()

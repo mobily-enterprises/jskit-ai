@@ -233,3 +233,101 @@ test("a failing CRUD afterCommit hook reports committed and leaves the actual wr
   );
   assert.equal((await knex("books").where({ id: book.data.id }).first()).title, "Kindred");
 });
+
+async function createLockedNotesRepository(t, { lockVersionField = "lockVersion" } = {}) {
+  const knex = knexLib({
+    client: "better-sqlite3",
+    connection: { filename: ":memory:" },
+    useNullAsDefault: true
+  });
+  t.after(() => knex.destroy());
+  await knex.schema.createTable("notes", (table) => {
+    table.increments("id");
+    table.integer("workspace_id").notNullable();
+    table.string("title").notNullable();
+    table.integer("lock_version").notNullable().defaultTo(0);
+  });
+  await knex.schema.createTable("audit_entries", (table) => {
+    table.increments("id");
+    table.string("message").notNullable();
+  });
+  await knex("notes").insert([
+    { workspace_id: 1, title: "Dune", lock_version: 3 },
+    { workspace_id: 2, title: "Kindred", lock_version: 0 }
+  ]);
+  const resource = defineCrudResource({
+    namespace: "notes",
+    tableName: "notes",
+    autofilter: "workspace",
+    lockVersionField,
+    schema: {
+      workspaceId: { type: "id", required: true, hidden: true, column: "workspace_id" },
+      title: { type: "string", required: true },
+      lockVersion: { type: "integer", min: 0, readOnly: true, column: "lock_version" }
+    }
+  });
+  const api = await createJsonRestApiHost({ knex, logger: silentLogger });
+  await api.addResource("notes", createJsonRestResourceScopeOptions(resource));
+  const repository = createCrudJsonApiRepository({ api, resource, resourceScopeName: "notes" });
+  const stored = (id) => knex("notes").where({ id }).first("title", "lock_version");
+  return { knex, repository, stored };
+}
+
+const WORKSPACE_ONE = Object.freeze({ context: Object.freeze({ scopeValues: Object.freeze({ workspaceId: "1" }) }) });
+
+test("a patch at the record's lock version applies and moves the lock version on by one", async (t) => {
+  const { repository, stored } = await createLockedNotesRepository(t);
+  const document = await repository.patchDocumentIfLockVersion("1", 3, { title: "Dune Messiah" }, WORKSPACE_ONE);
+  assert.equal(document.data.attributes.title, "Dune Messiah");
+  assert.equal(document.data.attributes.lockVersion, 4);
+  assert.deepEqual(await stored(1), { title: "Dune Messiah", lock_version: 4 });
+  assert.equal((await repository.patchDocumentIfLockVersion("1", 4, {}, WORKSPACE_ONE)).data.attributes.lockVersion, 5);
+});
+
+test("a patch at a stale lock version rejects with a lock version conflict and changes nothing", async (t) => {
+  const { repository, stored } = await createLockedNotesRepository(t);
+  await assert.rejects(
+    () => repository.patchDocumentIfLockVersion("1", 2, { title: "Dune Messiah" }, WORKSPACE_ONE),
+    (error) => error.status === 409 && error.code === "crud.document.lockVersionConflict" &&
+      error.message === "This record changed. Reload and try again."
+  );
+  assert.deepEqual(await stored(1), { title: "Dune", lock_version: 3 });
+});
+
+test("a record that is missing or out of scope patches to null and keeps its lock version", async (t) => {
+  const { repository, stored } = await createLockedNotesRepository(t);
+  assert.equal(await repository.patchDocumentIfLockVersion("2", 0, { title: "Fledgling" }, WORKSPACE_ONE), null);
+  assert.equal(await repository.patchDocumentIfLockVersion("9", 0, { title: "Fledgling" }, WORKSPACE_ONE), null);
+  assert.deepEqual(await stored(2), { title: "Kindred", lock_version: 0 });
+});
+
+test("a lock-version patch joins the caller's transaction and rolls back with it", async (t) => {
+  const { knex, repository, stored } = await createLockedNotesRepository(t);
+  await assert.rejects(() => repository.withTransaction(async (trx) => {
+    await repository.patchDocumentIfLockVersion("1", 3, { title: "Dune Messiah" }, { ...WORKSPACE_ONE, trx });
+    await trx("audit_entries").insert({ message: "Renamed" });
+    assert.deepEqual(await trx("notes").where({ id: 1 }).first("title", "lock_version"), { title: "Dune Messiah", lock_version: 4 });
+    throw new Error("Abandon the rename");
+  }), /Abandon the rename/);
+  assert.deepEqual(await stored(1), { title: "Dune", lock_version: 3 });
+  assert.deepEqual(await knex("audit_entries"), []);
+  await repository.withTransaction((trx) => repository.patchDocumentIfLockVersion("1", 3, { title: "Dune Messiah" }, { ...WORKSPACE_ONE, trx }));
+  assert.deepEqual(await stored(1), { title: "Dune Messiah", lock_version: 4 });
+});
+
+test("patchDocumentIfLockVersion needs a lockVersionField, a whole expected version and a patch without the lock", async (t) => {
+  const { repository } = await createLockedNotesRepository(t);
+  const unlocked = createCrudJsonApiRepository({
+    api: { resources: {} },
+    resource: { schema: {} },
+    resourceScopeName: "notes"
+  });
+  await assert.rejects(() => unlocked.patchDocumentIfLockVersion("1", 0, {}), /needs resource "notes" to name its lockVersionField/);
+  for (const expected of [-1, 1.5, "3", null]) {
+    await assert.rejects(() => repository.patchDocumentIfLockVersion("1", expected, {}, WORKSPACE_ONE), /must be a non-negative integer/);
+  }
+  await assert.rejects(
+    () => repository.patchDocumentIfLockVersion("1", 3, { lockVersion: 9 }, WORKSPACE_ONE),
+    /advances lockVersion itself, so the patch must leave it out/
+  );
+});

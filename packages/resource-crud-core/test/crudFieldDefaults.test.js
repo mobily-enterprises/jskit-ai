@@ -187,3 +187,13 @@ test("a resource without the lookup shorthand keeps its own schema object", () =
   const schema = { title: { type: "string", required: true, lookup: { namespace: "kept-as-data" } } };
   assert.equal(defineNotes(schema).schema, schema);
 });
+
+test("lockVersionField must name an integer schema field", () => {
+  const schema = {
+    title: { type: "string", required: true },
+    lockVersion: { type: "integer", min: 0 }
+  };
+  assert.equal(defineNotes(schema, { lockVersionField: "lockVersion" }).lockVersionField, "lockVersion");
+  assert.throws(() => defineNotes(schema, { lockVersionField: "version" }), /lockVersionField must name an integer schema field/);
+  assert.throws(() => defineNotes(schema, { lockVersionField: "title" }), /lockVersionField must name an integer schema field/);
+});

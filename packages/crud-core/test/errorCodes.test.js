@@ -11,6 +11,7 @@ import {
   jsonApiFieldsetsQueryValidator,
   lookupIncludeQueryValidator
 } from "../src/server/listQueryValidators.js";
+import { createCrudJsonApiRepository } from "../src/server/jsonApiModule/repository.js";
 import { createCrudJsonApiService } from "../src/server/jsonApiModule/service.js";
 import {
   createCrudServiceRuntime,
@@ -56,6 +57,21 @@ test("crud-core errors carry codes and params rendering their English", async ()
     }
   };
 
+  // A record whose lock version has moved on: the guarded update claims no row.
+  const movedOnRepository = createCrudJsonApiRepository({
+    api: {
+      resources: { notes: { async get() { return { data: { type: "notes", id: "7" } }; } } },
+      knex: { helpers: { getStorageAdapter: () => ({
+        getIdColumn: () => "id",
+        translateColumn: (field) => field,
+        translateFilterValue: (_field, value) => value,
+        buildBaseQuery: () => ({ where() { return this; }, async update() { return 0; } })
+      }) } },
+      transaction: (work) => work("managed")
+    },
+    resource: { lockVersionField: "lockVersion", schema: {} },
+    resourceScopeName: "notes"
+  });
   const errors = [
     await rejection(() => crudServiceGetRecord(runtime, missingRepository, {}, 7, {})),
     await rejection(() => crudServiceUpdateRecord(runtime, missingRepository, {}, 7, {}, {})),
@@ -65,6 +81,7 @@ test("crud-core errors carry codes and params rendering their English", async ()
       writeMode: "throw"
     }, { name: "Ada", role: "owner", secret: "x" }, {})),
     await rejection(() => createCrudJsonApiService({ repository: missingRepository }).getDocumentById(7)),
+    await rejection(() => movedOnRepository.patchDocumentIfLockVersion("7", 0, {})),
     await rejection(() => normalizeCrudListCursor("abc"))
   ];
 
@@ -74,6 +91,7 @@ test("crud-core errors carry codes and params rendering their English", async ()
     [404, "crud.record.notFound"],
     [403, "crud.fieldAccess.writeDenied"],
     [404, "crud.document.notFound"],
+    [409, "crud.document.lockVersionConflict"],
     [400, "INVALID_CURSOR"]
   ]);
   assert.deepEqual(errors[3].params, { fields: "role, secret" });

@@ -174,6 +174,7 @@ Local functions
 - `buildDefaultCrudOperations(resource = {})`
 - `mergeCrudOperationDefinition(baseDefinition, overrideDefinition)`
 - `mergeCrudOperations(defaultOperations = {}, overrides = {})`
+- `requireCrudLockVersionField(resource)`
 - `withExpandedCrudLookups(resource)`
 
 ### patterns

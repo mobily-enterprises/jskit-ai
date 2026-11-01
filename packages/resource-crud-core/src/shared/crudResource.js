@@ -367,6 +367,23 @@ function mergeCrudOperations(defaultOperations = {}, overrides = {}) {
   return merged;
 }
 
+/**
+ * A resource's `lockVersionField` names the integer schema field that
+ * `patchDocumentIfLockVersion` checks and advances.
+ * @param {Record<string, any>} resource
+ */
+function requireCrudLockVersionField(resource) {
+  if (resource.lockVersionField === undefined) {
+    return;
+  }
+  const fieldKey = resource.lockVersionField;
+  if (typeof fieldKey !== "string" || normalizeObject(resource.schema)[fieldKey]?.type !== "integer") {
+    throw new TypeError(
+      `defineCrudResource lockVersionField must name an integer schema field. Received: ${JSON.stringify(resource.lockVersionField)}.`
+    );
+  }
+}
+
 function withExpandedCrudLookups(resource) {
   const schema = expandCrudLookupFields(resource.schema);
   return schema === resource.schema ? resource : { ...resource, schema };
@@ -374,6 +391,7 @@ function withExpandedCrudLookups(resource) {
 
 function defineCrudResource(resource = {}) {
   const source = withExpandedCrudLookups(normalizeObject(resource));
+  requireCrudLockVersionField(source);
   const {
     crud: _crudConfig,
     crudOperations: _crudOperations,
