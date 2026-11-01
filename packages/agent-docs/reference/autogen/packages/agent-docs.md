@@ -69,7 +69,7 @@ Exports
 Exports
 - None
 Local functions
-- `requiredPort(value, fallback = 3000)`
+- `requiredPort(value)`
 - `waitForChild(child)`
 - `requestShutdown(signal)`
 
@@ -107,22 +107,26 @@ Exports
 
 ### `patterns/minimal-foundation/example/server.js`
 Exports
-- `createServer({ runtimeEnv = resolveRuntimeEnv() } = {})`
-- `startServer(options = {})`
+- `createServer({ runtimeEnv })`
+- `startServer({ host, port } = {})`
+- `type RuntimeEnv`
 Local functions
-- `toRequestPathname(urlValue)`
 - `isApiPath(pathname)`
 - `hasFileExtension(pathname)`
-- `resolveGlobalUiPaths(runtimeGlobalUiPaths)`
-- `resolveStaticFilePath(pathname)`
+- `buildGlobalUiPaths(runtimeGlobalUiPaths)`
+- `toStaticFilePath(pathname)`
 - `canServeStaticFile(distRoot, relativePath)`
+
+### `patterns/minimal-foundation/example/server/lib/envFile.js`
+Exports
+- `loadEnvFile()`
 
 ### `patterns/minimal-foundation/example/server/lib/runtimeEnv.js`
 Exports
+- `DEFAULT_PORT`
 - `resolveRuntimeEnv()`
 Local functions
-- `toPort(value, fallback = 3000)`
-- `ensureRuntimeEnvLoaded()`
+- `toPort(value, fallback)`
 
 ### `patterns/minimal-foundation/example/server/lib/surfaceRuntime.js`
 Exports
@@ -158,7 +162,7 @@ Local functions
 Exports
 - None
 Local functions
-- `requiredPort(value, fallback = 3000)`
+- `requiredPort(value)`
 - `waitForChild(child)`
 - `requestShutdown(signal)`
 
@@ -204,22 +208,26 @@ Exports
 
 ### `patterns/shell-foundation/example/server.js`
 Exports
-- `createServer({ runtimeEnv = resolveRuntimeEnv() } = {})`
-- `startServer(options = {})`
+- `createServer({ runtimeEnv })`
+- `startServer({ host, port } = {})`
+- `type RuntimeEnv`
 Local functions
-- `toRequestPathname(urlValue)`
 - `isApiPath(pathname)`
 - `hasFileExtension(pathname)`
-- `resolveGlobalUiPaths(runtimeGlobalUiPaths)`
-- `resolveStaticFilePath(pathname)`
+- `buildGlobalUiPaths(runtimeGlobalUiPaths)`
+- `toStaticFilePath(pathname)`
 - `canServeStaticFile(distRoot, relativePath)`
+
+### `patterns/shell-foundation/example/server/lib/envFile.js`
+Exports
+- `loadEnvFile()`
 
 ### `patterns/shell-foundation/example/server/lib/runtimeEnv.js`
 Exports
+- `DEFAULT_PORT`
 - `resolveRuntimeEnv()`
 Local functions
-- `toPort(value, fallback = 3000)`
-- `ensureRuntimeEnvLoaded()`
+- `toPort(value, fallback)`
 
 ### `patterns/shell-foundation/example/server/lib/surfaceRuntime.js`
 Exports

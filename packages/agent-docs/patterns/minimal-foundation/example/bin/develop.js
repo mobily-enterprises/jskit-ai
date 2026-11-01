@@ -1,11 +1,16 @@
 import { spawn } from "node:child_process";
 import { startServer } from "../server.js";
+import { DEFAULT_PORT } from "../server/lib/runtimeEnv.js";
 
 const LOOPBACK_HOST = "127.0.0.1";
 
-function requiredPort(value, fallback = 3000) {
-  const normalized = String(value || "").trim();
-  const parsed = Number.parseInt(normalized || String(fallback), 10);
+/**
+ * The development port a value names; anything that is not a TCP port stops the launcher.
+ * @param {string} value
+ */
+function requiredPort(value) {
+  const normalized = value.trim();
+  const parsed = Number.parseInt(normalized, 10);
   if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65_535) {
     throw new Error(`Invalid development port: ${normalized || "(empty)"}.`);
   }
@@ -20,7 +25,7 @@ function waitForChild(child) {
 }
 
 const previewHost = String(process.env.HOST || "").trim() || "0.0.0.0";
-const previewPort = requiredPort(process.env.PORT);
+const previewPort = requiredPort(process.env.PORT || String(DEFAULT_PORT));
 let apiServer = null;
 let viteProcess = null;
 let requestedSignal = "";
@@ -37,7 +42,7 @@ process.once("SIGTERM", () => requestShutdown("SIGTERM"));
 
 try {
   apiServer = await startServer({ host: LOOPBACK_HOST, port: 0 });
-  const apiPort = requiredPort(apiServer.server.address()?.port);
+  const apiPort = /** @type {import("node:net").AddressInfo} */ (apiServer.server.address()).port;
   const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
   viteProcess = spawn(
     npmCommand,
