@@ -24,4 +24,6 @@ Exports
 
 ### `fakeFastify.mjs`
 Exports
-- `createFakeFastifyPolicyRuntime({ csrfHandler, autoRunPlugin = null } = {})`
+- `createFakeFastifyPolicyRuntime({ csrfHandler = passCsrfProtection } = {})`
+Local functions
+- `passCsrfProtection(_request, _reply, done)`

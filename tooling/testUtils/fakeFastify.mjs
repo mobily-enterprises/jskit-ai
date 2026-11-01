@@ -1,10 +1,21 @@
-function createFakeFastifyPolicyRuntime({ csrfHandler, autoRunPlugin = null } = {}) {
+// csrfProtection's default in the fake: every request passes.
+function passCsrfProtection(_request, _reply, done) {
+  done();
+}
+
+/**
+ * A Fastify stand-in for policy plugin tests. It records the plugins
+ * registered (and the CSRF plugin's options), the request decorators and the
+ * preHandler hook, and runs csrfProtection through `csrfHandler`.
+ * @param {object} [options]
+ * @param {(request: unknown, reply: unknown, done: (error?: Error) => void) => void} [options.csrfHandler]
+ */
+function createFakeFastifyPolicyRuntime({ csrfHandler = passCsrfProtection } = {}) {
   const state = {
     csrfOptions: null,
     preHandler: null,
     registeredPlugins: [],
-    requestDecorators: new Set(),
-    pluginRunCount: 0
+    requestDecorators: new Set()
   };
 
   const fastify = {
@@ -14,18 +25,9 @@ function createFakeFastifyPolicyRuntime({ csrfHandler, autoRunPlugin = null } = 
         options
       });
 
+      // readable-check: allow method-probe - data: the CSRF plugin's registration is the one whose options carry getToken
       if (options && typeof options.getToken === "function") {
         state.csrfOptions = options;
-      }
-
-      const shouldRunPlugin =
-        typeof autoRunPlugin === "function"
-          ? Boolean(autoRunPlugin({ plugin, options, state }))
-          : autoRunPlugin === true;
-
-      if (shouldRunPlugin && typeof plugin === "function") {
-        state.pluginRunCount += 1;
-        await plugin(fastify, options);
       }
     },
     decorateRequest(name) {
@@ -37,11 +39,7 @@ function createFakeFastifyPolicyRuntime({ csrfHandler, autoRunPlugin = null } = 
       }
     },
     csrfProtection(request, reply, done) {
-      if (typeof csrfHandler === "function") {
-        csrfHandler(request, reply, done);
-        return;
-      }
-      done();
+      csrfHandler(request, reply, done);
     }
   };
 

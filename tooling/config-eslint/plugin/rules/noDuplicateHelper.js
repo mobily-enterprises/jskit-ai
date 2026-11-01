@@ -79,6 +79,7 @@ function parseHelpers(file, context) {
     const text = readFileSync(file, "utf8");
     const { parser, ecmaVersion, sourceType, parserOptions } = context.languageOptions;
     const options = { ...parserOptions, ecmaVersion, sourceType, range: true, loc: true, tokens: true, comment: true, filePath: file };
+    // readable-check: allow method-probe - platform object: an ESLint parser provides parseForESLint, or only parse
     const program = typeof parser.parseForESLint === "function" ? parser.parseForESLint(text, options).ast : parser.parse(text, options);
     helpers = topLevelHelpers(program, text);
   } catch {
