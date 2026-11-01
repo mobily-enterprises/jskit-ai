@@ -2,8 +2,7 @@ import { resolveInviteTokenHash } from "@jskit-ai/auth-core/server/inviteTokens"
 import { encodeInviteTokenHash } from "@jskit-ai/auth-core/shared/inviteTokens";
 import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeLowerText, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 /**
  * @param {object} dependencies
@@ -63,7 +62,7 @@ function createService({ workspaceInvitesRepository, workspaceMembershipsReposit
     return tokenHash;
   }
 
-  function maskInviteEmail(email = "") {
+  function maskInviteEmail(email) {
     const normalizedEmail = normalizeLowerText(email);
     const [localPart = "", domain = ""] = normalizedEmail.split("@");
     if (!localPart || !domain) {
@@ -73,7 +72,7 @@ function createService({ workspaceInvitesRepository, workspaceMembershipsReposit
     return `${visibleLocal}${"*".repeat(Math.max(localPart.length - visibleLocal.length, 1))}@${domain}`;
   }
 
-  function resolvePublicInviteStatus(invite = null) {
+  function resolvePublicInviteStatus(invite) {
     if (!invite) {
       return "not_found";
     }
@@ -87,7 +86,7 @@ function createService({ workspaceInvitesRepository, workspaceMembershipsReposit
     return "pending";
   }
 
-  function mapResolvedInvite(invite = null, token = "") {
+  function mapResolvedInvite(invite, token) {
     const status = resolvePublicInviteStatus(invite);
     if (!invite) {
       return {
@@ -125,7 +124,7 @@ function createService({ workspaceInvitesRepository, workspaceMembershipsReposit
     };
   }
 
-  function mapPendingInvite(invite = {}) {
+  function mapPendingInvite(invite) {
     const id = normalizeRecordId(invite.id, { fallback: null });
     const workspaceId = normalizeRecordId(invite.workspaceId, { fallback: null });
     const tokenHash = normalizeText(invite.tokenHash);
@@ -159,7 +158,7 @@ function createService({ workspaceInvitesRepository, workspaceMembershipsReposit
       });
     }
 
-    if (normalizeLowerText(invite.email) !== normalizeLowerText(actor?.email)) {
+    if (normalizeLowerText(invite.email) !== normalizeLowerText(actor.email)) {
       throw new AppError(403, "Invitation email does not match authenticated user.", {
         code: "workspaces.invite.emailMismatchUser"
       });
@@ -173,13 +172,13 @@ function createService({ workspaceInvitesRepository, workspaceMembershipsReposit
 
   async function listPendingInvitesForUser(user, options = {}) {
     const actor = requireAuthenticatedInviteUser(user);
-    const actorEmail = normalizeLowerText(actor?.email);
+    const actorEmail = normalizeLowerText(actor.email);
     if (!actorEmail) {
       return [];
     }
 
     const invites = await workspaceInvitesRepository.listPendingByEmail(actorEmail, options);
-    return invites.map((invite) => mapPendingInvite(invite)).filter(Boolean);
+    return invites.map(mapPendingInvite).filter(Boolean);
   }
 
   // The bootstrap reads the pending invitations as they are; the action answers
@@ -199,7 +198,7 @@ function createService({ workspaceInvitesRepository, workspaceMembershipsReposit
     return returnJsonApiData(await findInviteByToken(token, options));
   }
 
-  async function resolveInviteContextForAuth({ token, email } = {}, options = {}) {
+  async function resolveInviteContextForAuth({ token, email }, options = {}) {
     const resolved = await findInviteByToken(token, options);
     if (resolved.status !== "pending") {
       throw new AppError(409, "Invitation is not available.", { code: "workspaces.invite.notAvailable" });
@@ -221,15 +220,15 @@ function createService({ workspaceInvitesRepository, workspaceMembershipsReposit
     };
   }
 
-  function requireWorkspaceIdFromInvite(invite, methodName = "workspacePendingInvitationsService") {
-    const workspaceId = normalizeRecordId(invite?.workspaceId, { fallback: null });
+  function requireWorkspaceIdFromInvite(invite, methodName) {
+    const workspaceId = normalizeRecordId(invite.workspaceId, { fallback: null });
     if (!workspaceId) {
       throw new Error(`${methodName} expected invite workspace id.`);
     }
     return workspaceId;
   }
 
-  async function resolveInviteActionInput(user, token, options = {}, methodName = "workspacePendingInvitationsService") {
+  async function resolveInviteActionInput(user, token, options, methodName) {
     const resolvedInvite = await requirePendingInviteForUserByToken(user, token, options);
     if (resolvedInvite.invite.expiresAt && new Date(resolvedInvite.invite.expiresAt).getTime() < Date.now()) {
       await workspaceInvitesRepository.revokeById(resolvedInvite.invite.id, options);
@@ -242,7 +241,7 @@ function createService({ workspaceInvitesRepository, workspaceMembershipsReposit
     };
   }
 
-  async function acceptInviteByToken({ user, token } = {}, options = {}) {
+  async function acceptInviteByToken({ user, token }, options = {}) {
     return withInviteTransaction(user, token, options, async (transactionOptions) => {
       const resolved = await resolveInviteActionInput(
         user,
@@ -270,7 +269,7 @@ function createService({ workspaceInvitesRepository, workspaceMembershipsReposit
     });
   }
 
-  async function refuseInviteByToken({ user, token } = {}, options = {}) {
+  async function refuseInviteByToken({ user, token }, options = {}) {
     return withInviteTransaction(user, token, options, async (transactionOptions) => {
       const resolved = await resolveInviteActionInput(
         user,

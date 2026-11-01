@@ -1,6 +1,5 @@
-import { resolveWorkspaceThemePalettes } from "@jskit-ai/workspaces-core/shared/settings";
-import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeLowerText, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { resolveWorkspaceThemePalettes } from "../../../shared/settings.js";
 
 function mapWorkspaceSummary(workspace, membership, roleCatalog = null) {
   const roleSid = normalizeLowerText(membership?.roleSid || "member") || "member";
@@ -16,11 +15,14 @@ function mapWorkspaceSummary(workspace, membership, roleCatalog = null) {
   };
 }
 
-function mapWorkspaceSettingsPublic(workspaceSettings, { workspaceInvitationsEnabled = true } = {}) {
-  const source = workspaceSettings && typeof workspaceSettings === "object" ? workspaceSettings : {};
-  const invitesAvailable = workspaceInvitationsEnabled === true;
-  const invitesEnabled = invitesAvailable && source.invitesEnabled !== false;
-  const themePalettes = resolveWorkspaceThemePalettes(source);
+/**
+ * A workspace's settings as the bootstrap shows them.
+ * @param {object} workspaceSettings The workspace's settings record.
+ * @param {{ workspaceInvitationsEnabled: boolean }} policy Whether the app allows invitations.
+ */
+function mapWorkspaceSettingsPublic(workspaceSettings, { workspaceInvitationsEnabled }) {
+  const invitesEnabled = workspaceInvitationsEnabled && workspaceSettings.invitesEnabled !== false;
+  const themePalettes = resolveWorkspaceThemePalettes(workspaceSettings);
 
   return {
     lightPrimaryColor: themePalettes.light.color,
@@ -32,8 +34,8 @@ function mapWorkspaceSettingsPublic(workspaceSettings, { workspaceInvitationsEna
     darkSurfaceColor: themePalettes.dark.surfaceColor,
     darkSurfaceVariantColor: themePalettes.dark.surfaceVariantColor,
     invitesEnabled,
-    invitesAvailable,
-    invitesEffective: invitesAvailable && invitesEnabled
+    invitesAvailable: workspaceInvitationsEnabled,
+    invitesEffective: invitesEnabled
   };
 }
 

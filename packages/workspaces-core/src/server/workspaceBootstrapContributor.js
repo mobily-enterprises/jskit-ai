@@ -1,5 +1,5 @@
-import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
-import { normalizeLowerText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeLowerText, normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
 import { TENANCY_MODE_NONE } from "../shared/tenancyProfile.js";
 import {
   mapMembershipSummary,
@@ -12,25 +12,18 @@ const REQUESTED_WORKSPACE_STATUS_NOT_FOUND = "not_found";
 const REQUESTED_WORKSPACE_STATUS_FORBIDDEN = "forbidden";
 const REQUESTED_WORKSPACE_STATUS_UNAUTHENTICATED = "unauthenticated";
 
-function normalizeQueryPayload(value = {}) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-  return value;
-}
-
-function resolveBootstrapWorkspaceSlug({ query = {}, request = null } = {}) {
-  const normalizedQuery = normalizeQueryPayload(query);
+function resolveBootstrapWorkspaceSlug({ query, request }) {
+  const normalizedQuery = normalizeObjectInput(query);
   if (Object.hasOwn(normalizedQuery, "workspaceSlug")) {
     return normalizeLowerText(normalizedQuery.workspaceSlug);
   }
 
-  const normalizedInputQuery = normalizeQueryPayload(request?.input?.query);
+  const normalizedInputQuery = normalizeObjectInput(request?.input?.query);
   if (Object.hasOwn(normalizedInputQuery, "workspaceSlug")) {
     return normalizeLowerText(normalizedInputQuery.workspaceSlug);
   }
 
-  const normalizedRequestQuery = normalizeQueryPayload(request?.query);
+  const normalizedRequestQuery = normalizeObjectInput(request?.query);
   if (Object.hasOwn(normalizedRequestQuery, "workspaceSlug")) {
     return normalizeLowerText(normalizedRequestQuery.workspaceSlug);
   }
@@ -38,7 +31,7 @@ function resolveBootstrapWorkspaceSlug({ query = {}, request = null } = {}) {
   return "";
 }
 
-function normalizeRequestedWorkspaceStatus(value = "") {
+function normalizeRequestedWorkspaceStatus(value) {
   const normalizedValue = normalizeLowerText(value);
   if (
     normalizedValue === REQUESTED_WORKSPACE_STATUS_RESOLVED ||
@@ -51,7 +44,7 @@ function normalizeRequestedWorkspaceStatus(value = "") {
   return "";
 }
 
-function createRequestedWorkspacePayload(workspaceSlug = "", status = "") {
+function buildRequestedWorkspacePayload(workspaceSlug, status) {
   const normalizedWorkspaceSlug = normalizeLowerText(workspaceSlug);
   const normalizedStatus = normalizeRequestedWorkspaceStatus(status);
   if (!normalizedWorkspaceSlug || !normalizedStatus) {
@@ -92,7 +85,8 @@ function createWorkspaceBootstrapContributor({
   workspaceInvitationsEnabled,
   tenancyProfile
 }) {
-  async function contribute({ request = null, query = {}, payload = {} } = {}) {
+  /** @param {{ request?: object, query?: object, payload: object }} bootstrap The kernel bootstrap's request, query and payload so far. */
+  async function contribute({ request, query, payload }) {
     const inheritedAppState = payload.app && typeof payload.app === "object" ? payload.app : {};
     const inheritedFeatures =
       inheritedAppState.features && typeof inheritedAppState.features === "object" ? inheritedAppState.features : {};
@@ -112,11 +106,11 @@ function createWorkspaceBootstrapContributor({
           ...inheritedAppState,
           features: {
             ...inheritedFeatures,
-            workspaceSwitching: normalizeLowerText(tenancyProfile.mode) !== TENANCY_MODE_NONE,
-            workspaceInvites: workspaceInvitationsEnabled === true
+            workspaceSwitching: tenancyProfile.mode !== TENANCY_MODE_NONE,
+            workspaceInvites: workspaceInvitationsEnabled
           }
         },
-        requestedWorkspace: createRequestedWorkspacePayload(
+        requestedWorkspace: buildRequestedWorkspacePayload(
           normalizedWorkspaceSlug,
           REQUESTED_WORKSPACE_STATUS_UNAUTHENTICATED
         )
@@ -136,17 +130,16 @@ function createWorkspaceBootstrapContributor({
             }
           })
         : [];
-    const workspaces = await workspaceService.listWorkspacesForUser(latestProfile, { request });
+    const workspaces = await workspaceService.listWorkspacesForUser(latestProfile);
     let workspaceContext = null;
     let requestedWorkspace = null;
     if (normalizedWorkspaceSlug && tenancyProfile.mode !== TENANCY_MODE_NONE) {
       try {
         workspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(
           latestProfile,
-          normalizedWorkspaceSlug,
-          { request }
+          normalizedWorkspaceSlug
         );
-        requestedWorkspace = createRequestedWorkspacePayload(
+        requestedWorkspace = buildRequestedWorkspacePayload(
           normalizedWorkspaceSlug,
           REQUESTED_WORKSPACE_STATUS_RESOLVED
         );
@@ -155,7 +148,7 @@ function createWorkspaceBootstrapContributor({
         if (!requestedWorkspaceStatus) {
           throw error;
         }
-        requestedWorkspace = createRequestedWorkspacePayload(normalizedWorkspaceSlug, requestedWorkspaceStatus);
+        requestedWorkspace = buildRequestedWorkspacePayload(normalizedWorkspaceSlug, requestedWorkspaceStatus);
       }
     }
 
@@ -165,8 +158,8 @@ function createWorkspaceBootstrapContributor({
         ...inheritedAppState,
         features: {
           ...inheritedFeatures,
-          workspaceSwitching: normalizeLowerText(tenancyProfile.mode) !== TENANCY_MODE_NONE,
-          workspaceInvites: workspaceInvitationsEnabled === true
+          workspaceSwitching: tenancyProfile.mode !== TENANCY_MODE_NONE,
+          workspaceInvites: workspaceInvitationsEnabled
         }
       },
       workspaces: [...workspaces],

@@ -31,7 +31,7 @@ Local functions
 ### `src/server/common/formatters/workspaceFormatter.js`
 Exports
 - `mapMembershipSummary(membership, workspace)`
-- `mapWorkspaceSettingsPublic(workspaceSettings, { workspaceInvitationsEnabled = true } = {})`
+- `mapWorkspaceSettingsPublic(workspaceSettings, { workspaceInvitationsEnabled })`
 - `mapWorkspaceSummary(workspace, membership, roleCatalog = null)`
 
 ### `src/server/common/repositories/workspaceInvitesRepository.js`
@@ -151,10 +151,9 @@ Exports
 Exports
 - `createWorkspaceBootstrapContributor({ workspaceService, workspacePendingInvitationsService, userProfilesRepository, workspaceInvitationsEnabled, tenancyProfile })`
 Local functions
-- `normalizeQueryPayload(value = {})`
-- `resolveBootstrapWorkspaceSlug({ query = {}, request = null } = {})`
-- `normalizeRequestedWorkspaceStatus(value = "")`
-- `createRequestedWorkspacePayload(workspaceSlug = "", status = "")`
+- `resolveBootstrapWorkspaceSlug({ query, request })`
+- `normalizeRequestedWorkspaceStatus(value)`
+- `buildRequestedWorkspacePayload(workspaceSlug, status)`
 - `resolveRequestedWorkspaceStatusFromError(error)`
 
 ### `src/server/workspaceDirectory/workspaceDirectoryActions.js`
