@@ -96,7 +96,7 @@ function createAccountProfileActions({ accountProfileService }) {
       permission: {
         require: "authenticated"
       },
-      input: userProfileResource.operations.avatarDelete.body,
+      input: { schema: userProfileResource.operations.avatarDelete.body.schema },
       output: null,
       extensions: {
         assistant: {

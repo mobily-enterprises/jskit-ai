@@ -9,7 +9,7 @@ const oauthLinkStartInputValidator = composeSchemaDefinitions([
   userSettingsResource.operations.oauthLinkStart.params,
   userSettingsResource.operations.oauthLinkStart.query
 ], {
-  mode: "patch",
+  mode: "create",
   context: "accountSecurityActions.oauthLinkStartInputValidator"
 });
 
@@ -44,7 +44,7 @@ function createAccountSecurityActions({ accountSecurityService }) {
       permission: {
         require: "authenticated"
       },
-      input: userSettingsResource.operations.passwordMethodToggle.body,
+      input: { schema: userSettingsResource.operations.passwordMethodToggle.body.schema },
       output: null,
       extensions: {
         assistant: {
@@ -88,7 +88,7 @@ function createAccountSecurityActions({ accountSecurityService }) {
       permission: {
         require: "authenticated"
       },
-      input: userSettingsResource.operations.oauthUnlink.params,
+      input: { schema: userSettingsResource.operations.oauthUnlink.params.schema },
       output: null,
       extensions: {
         assistant: {
