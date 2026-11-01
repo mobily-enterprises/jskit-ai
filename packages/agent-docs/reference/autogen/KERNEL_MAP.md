@@ -231,7 +231,7 @@ Local functions
 ### `surface/registry.js`
 Exports
 - `createSurfaceRegistry(options = {})`
-- `normalizeSurfaceId(value)`
+- `normalizeSurfaceId`
 - `normalizeSurfacePagesRoot(pagesRootLike)`
 - `deriveSurfaceRouteBaseFromPagesRoot(pagesRootLike)`
 Local functions
@@ -405,7 +405,6 @@ Exports
 - `messageKeyForCode(code = "")`
 - `messageParams(template = "")`
 Local functions
-- `isRecord(value)`
 - `placeholderEnd(template, start)`
 - `parseMessage(template = "")`
 - `pluralChoice(count, choices)`

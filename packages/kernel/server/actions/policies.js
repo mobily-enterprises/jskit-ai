@@ -3,7 +3,7 @@ import { hasPermission, normalizePermissionList } from "../../shared/support/per
 import { isRecord, normalizeLowerText, normalizeOpaqueId } from "../../shared/support/normalize.js";
 import { validateSchemaPayload } from "../../shared/validators/schemaPayloadValidation.js";
 
-// A schema validation error's fieldErrors with their codes, when it has any.
+/** A schema validation error's fieldErrors with their codes, when it has any. */
 function schemaFieldErrorDetails(error) {
   const fieldErrorCodes = error.fieldErrorCodes || error.details?.fieldErrorCodes;
   return {

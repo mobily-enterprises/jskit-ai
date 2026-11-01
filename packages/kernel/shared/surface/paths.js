@@ -78,7 +78,7 @@ function compareSurfaceRouteSpecificity(left, right) {
 
 /**
  * Path helpers for an application's surfaces: which surface a pathname belongs
- * to, and each surface's paths.
+ * to, API paths included.
  * @param {object} options
  * @param {string} options.defaultSurfaceId
  * @param {Array<{ id: string, routeBase?: string }>} options.surfaceDefinitions

@@ -93,8 +93,10 @@ function resolveJsonRestSchemaParentFieldMessages(schemaDefinition = null, field
   return resolveJsonRestSchemaFieldMessages(schemaDefinition, segments.join("."));
 }
 
-// A field's `messages` entry is its English sentence, or { code, message, params }
-// when the resource gives that sentence a code. Only the message is English.
+/**
+ * A field's `messages` entry is its English sentence, or { code, message, params }
+ * when the resource gives that sentence a code. Only the message is English.
+ */
 function resolveFieldMessageOverride(messages, key) {
   const value = key ? messages[key] : undefined;
   if (typeof value === "string") {
@@ -112,8 +114,10 @@ function resolveFieldMessageOverride(messages, key) {
   return code ? { message, code, params: normalizeObject(value.params) } : { message };
 }
 
-// One json-rest-schema field error as { message, code, params }: the English JSKIT
-// shows today, plus the code and params that render it, when it has a code.
+/**
+ * One json-rest-schema field error as { message, code, params }: its English
+ * message, plus the code and params that render it, when it has a code.
+ */
 function resolveJsonRestSchemaFieldError(fieldName, entry, schemaDefinition = null) {
   const errorCode = normalizeText(entry?.code).toUpperCase();
   const known = JSON_REST_SCHEMA_ERRORS[errorCode] || {};
@@ -140,8 +144,10 @@ function resolveJsonRestSchemaFieldError(fieldName, entry, schemaDefinition = nu
   return rawCode ? { message: rawCode } : { ...INVALID_VALUE, params: {} };
 }
 
-// json-rest-schema errors as fieldErrors (English, exactly as before) and
-// fieldErrorCodes ({ code, params } for every field whose sentence has a code).
+/**
+ * json-rest-schema errors as fieldErrors (the English sentences) and
+ * fieldErrorCodes ({ code, params } for every field whose sentence has a code).
+ */
 function normalizeJsonRestSchemaFieldErrors(errors = {}, schemaDefinition = null) {
   const source = normalizeObject(errors);
   const fieldErrors = {};

@@ -84,8 +84,10 @@ function registerBodylessContentTypeNormalizer(fastify) {
   return true;
 }
 
-// Fastify's Ajv issues as fieldErrors (Ajv's English, first issue per field) and
-// fieldErrorCodes (that issue's kernel.validation.<keyword> code and params).
+/**
+ * Fastify's Ajv issues as fieldErrors (Ajv's English, first issue per field) and
+ * fieldErrorCodes (that issue's kernel.validation.<keyword> code and params).
+ */
 function resolveValidationFieldErrors(error) {
   const issues = Array.isArray(error?.validation) ? error.validation : [];
   const fieldErrors = {};
@@ -127,7 +129,7 @@ function messageCodeFields(error, expose = true) {
     : {};
 }
 
-// A hidden 5xx keeps its own code, so its fixed English gets a messageCode.
+/** A hidden 5xx keeps its own code, so its fixed English gets a messageCode. */
 function hiddenServerErrorFields(code = "") {
   return code === "internal_server_error" ? {} : { messageCode: "internal_server_error", messageParams: {} };
 }

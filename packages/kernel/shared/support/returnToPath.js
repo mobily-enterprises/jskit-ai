@@ -2,8 +2,10 @@ import { normalizePathname } from "../surface/paths.js";
 
 const SAME_ORIGIN_PROBE = "http://return-to.invalid";
 
-// Browsers read "/\\host" and "/<tab>/host" as another site, so a path counts
-// only if it resolves on the page's own origin.
+/**
+ * Browsers read "/\\host" and "/<tab>/host" as another site, so a path counts
+ * only if it resolves on the page's own origin.
+ */
 function staysOnSameOrigin(path) {
   try {
     return new URL(path, SAME_ORIGIN_PROBE).origin === SAME_ORIGIN_PROBE;

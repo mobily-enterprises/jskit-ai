@@ -53,7 +53,6 @@ Exports
 - `messageKeyForCode(code = "")`
 - `messageParams(template = "")`
 Local functions
-- `isRecord(value)`
 - `placeholderEnd(template, start)`
 - `parseMessage(template = "")`
 - `pluralChoice(count, choices)`
@@ -273,7 +272,7 @@ Local functions
 ### `shared/surface/registry.js`
 Exports
 - `createSurfaceRegistry(options = {})`
-- `normalizeSurfaceId(value)`
+- `normalizeSurfaceId`
 - `normalizeSurfacePagesRoot(pagesRootLike)`
 - `deriveSurfaceRouteBaseFromPagesRoot(pagesRootLike)`
 Local functions
@@ -885,7 +884,7 @@ Exports
 - `type SurfaceRuntime`
 - `type RuntimeFastify`
 Local functions
-- `matchesGlobalUiPath(pathname, globalUiPaths = [])`
+- `matchesGlobalUiPath(pathname, globalUiPaths)`
 
 ### `server/runtime/BootstrapProvider.js`
 Exports
@@ -907,8 +906,6 @@ Exports
 - `DomainValidationError`
 - `ConflictError`
 - `NotFoundError`
-Local functions
-- `normalizeErrorParams(params)`
 
 ### `server/runtime/EventProvider.js`
 Exports
@@ -969,7 +966,6 @@ Local functions
 Exports
 - `loadAppConfigFromAppRoot({ appRoot = "", publicConfigRelativePath = PUBLIC_CONFIG_RELATIVE_PATH, serverConfigRelativePath = SERVER_CONFIG_RELATIVE_PATH } = {})`
 Local functions
-- `normalizeConfigObject(value)`
 - `loadConfigModuleAtPath(absolutePath)`
 
 ### `server/support/clientBuild.js`

@@ -2,8 +2,10 @@ import { createSurfacePathHelpers } from "./paths.js";
 import { createSurfaceRegistry, normalizeSurfaceId } from "./registry.js";
 import { isRecord } from "../support/normalize.js";
 
-// Unlike normalizePathname, this keeps "?" so vue-router optional params
-// such as "/users/:id?" survive when a route is hoisted to an absolute path.
+/**
+ * Unlike normalizePathname, this keeps "?" so vue-router optional params
+ * such as "/users/:id?" survive when a route is hoisted to an absolute path.
+ */
 function normalizeRoutePath(pathLike = "") {
   const rawPath = String(pathLike || "").trim();
   if (!rawPath || rawPath === "/") {
@@ -222,7 +224,7 @@ function filterRoutesBySurface(routeList, { surfaceRuntime, surfaceMode } = {}) 
   const normalizedRoutes = normalizeRoutesBySurfaceBoundaries(routeList, {
     surfaceRuntime
   });
-  const allMode = String(surfaceRuntime.SURFACE_MODE_ALL || "all").trim().toLowerCase() || "all";
+  const allMode = surfaceRuntime.SURFACE_MODE_ALL;
   const normalizedMode = surfaceRuntime.normalizeSurfaceMode(surfaceMode);
   const enabledSurfaces = new Set(surfaceRuntime.listEnabledSurfaceIds());
 

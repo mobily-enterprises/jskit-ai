@@ -12,7 +12,7 @@ const ENGLISH = "en";
 const APP_TRANSLATIONS_FILE = "jskit.json";
 const appTranslationsByRoot = new Map();
 
-// Locale folders match case-insensitively: settings may store "it-it" for "it-IT".
+/** Locale folders match case-insensitively: settings may store "it-it" for "it-IT". */
 function loadAppTranslations(appRoot) {
   const directory = path.join(appRoot, "src", "locales");
   const catalogs = new Map();
@@ -46,7 +46,11 @@ function localeCandidates(locale = "") {
   return [...new Set([code, code.split("-")[0], ENGLISH].filter(Boolean))];
 }
 
-// appRoot is the runtime.app-root capability; without one only English renders.
+/**
+ * @param {object} [options]
+ * @param {import("./types.js").RuntimeAppRoot} [options.appRoot] The runtime.app-root capability, whose src/locales hold the app's translations; without one only English renders.
+ * @param {ReadonlyArray<object>} [options.catalogs] The packages' bundled English catalogs.
+ */
 function createServerI18n({ appRoot = "", catalogs = [] } = {}) {
   const english = mergeCatalogs(...catalogs);
 

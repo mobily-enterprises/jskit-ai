@@ -31,7 +31,7 @@ const VALIDATION_ISSUE_CODES = new Map([
   { keyword: "if", code: "kernel.validation.if" }
 ].map(({ keyword, code }) => [keyword, code]));
 
-// { code, params } for one Ajv issue, or null when its sentence has no code.
+/** { code, params } for one Ajv issue, or null when its sentence has no code. */
 function resolveValidationIssueCode(issue = {}) {
   const code = VALIDATION_ISSUE_CODES.get(issue.keyword);
   if (!code) {

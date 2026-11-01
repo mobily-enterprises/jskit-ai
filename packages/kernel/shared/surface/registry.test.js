@@ -37,8 +37,8 @@ test("createSurfaceRegistry keeps registered normalization with fallback", () =>
     defaultSurfaceId: "app"
   });
 
-  assert.equal(registry.normalizeSurfaceId("ADMIN"), "admin");
-  assert.equal(registry.normalizeSurfaceId("unknown"), "app");
+  assert.equal(registry.resolveRegisteredSurfaceId("ADMIN"), "admin");
+  assert.equal(registry.resolveRegisteredSurfaceId("unknown"), "app");
   assert.equal(registry.resolveSurfacePagesRoot("ADMIN"), "admin");
   assert.equal(registry.resolveSurfaceRouteBase("ADMIN"), "/admin");
 });

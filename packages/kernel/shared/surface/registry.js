@@ -1,10 +1,4 @@
-import { normalizeObject } from "../support/normalize.js";
-
-function normalizeSurfaceId(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase();
-}
+import { normalizeLowerText, normalizeObject } from "../support/normalize.js";
 
 function normalizeSurfacePagesRoot(pagesRootLike) {
   const rawPagesRoot = String(pagesRootLike || "").trim();
@@ -62,7 +56,7 @@ function createSurfaceRegistry(options = {}) {
   const normalizedEntries = Object.entries(rawSurfaces)
     .map(([key, value]) => {
       const sourceDefinition = normalizeObject(value);
-      const normalizedId = normalizeSurfaceId(sourceDefinition.id || key);
+      const normalizedId = normalizeLowerText(sourceDefinition.id || key);
       if (!normalizedId) {
         return null;
       }
@@ -94,13 +88,13 @@ function createSurfaceRegistry(options = {}) {
 
   const SURFACE_REGISTRY = Object.freeze(Object.fromEntries(normalizedEntries));
   const fallbackSurfaceId = normalizedEntries[0][0];
-  const requestedDefaultSurfaceId = normalizeSurfaceId(options.defaultSurfaceId);
+  const requestedDefaultSurfaceId = normalizeLowerText(options.defaultSurfaceId);
   const DEFAULT_SURFACE_ID = SURFACE_REGISTRY[requestedDefaultSurfaceId]
     ? requestedDefaultSurfaceId
     : fallbackSurfaceId;
 
-  function normalizeRegisteredSurfaceId(value) {
-    const normalized = normalizeSurfaceId(value);
+  function resolveRegisteredSurfaceId(value) {
+    const normalized = normalizeLowerText(value);
     if (SURFACE_REGISTRY[normalized]) {
       return normalized;
     }
@@ -109,11 +103,11 @@ function createSurfaceRegistry(options = {}) {
   }
 
   function resolveSurfacePagesRoot(surfaceId) {
-    return SURFACE_REGISTRY[normalizeRegisteredSurfaceId(surfaceId)]?.pagesRoot || "";
+    return SURFACE_REGISTRY[resolveRegisteredSurfaceId(surfaceId)]?.pagesRoot || "";
   }
 
   function resolveSurfaceRouteBase(surfaceId) {
-    return SURFACE_REGISTRY[normalizeRegisteredSurfaceId(surfaceId)]?.routeBase || "/";
+    return SURFACE_REGISTRY[resolveRegisteredSurfaceId(surfaceId)]?.routeBase || "/";
   }
 
   function listSurfaceDefinitions() {
@@ -123,7 +117,7 @@ function createSurfaceRegistry(options = {}) {
   return Object.freeze({
     SURFACE_REGISTRY,
     DEFAULT_SURFACE_ID,
-    normalizeSurfaceId: normalizeRegisteredSurfaceId,
+    resolveRegisteredSurfaceId,
     resolveSurfacePagesRoot,
     resolveSurfaceRouteBase,
     listSurfaceDefinitions
@@ -132,7 +126,7 @@ function createSurfaceRegistry(options = {}) {
 
 export {
   createSurfaceRegistry,
-  normalizeSurfaceId,
+  normalizeLowerText as normalizeSurfaceId,
   normalizeSurfacePagesRoot,
   deriveSurfaceRouteBaseFromPagesRoot
 };

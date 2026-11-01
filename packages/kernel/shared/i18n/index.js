@@ -3,15 +3,15 @@
 // app's vue-i18n instance, without one, and on the server (emails, error messages).
 // Supported: named {placeholders}, literal {'text'} and plural choices split by |.
 
+import { isRecord } from "../support/normalize.js";
+
 const MESSAGE_KEY_PREFIX = "jskit.";
 
-function isRecord(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
-// A dotted server code ("auth.login.invalidCredentials") renders from
-// "jskit.auth.login.invalidCredentials". Older undotted codes kept for existing
-// callers ("ACTION_PERMISSION_DENIED", "not_found") render from "jskit.errors.<code>".
+/**
+ * A dotted server code ("auth.login.invalidCredentials") renders from
+ * "jskit.auth.login.invalidCredentials"; an undotted one ("ACTION_PERMISSION_DENIED",
+ * "not_found") renders from "jskit.errors.<code>".
+ */
 function messageKeyForCode(code = "") {
   const normalized = String(code || "").trim();
   if (!normalized) {
@@ -31,7 +31,7 @@ function catalogMessage(catalog, key = "") {
   return typeof current === "string" ? current : undefined;
 }
 
-// Later catalogs win, so an application's own messages override JSKIT's English.
+/** Later catalogs win, so an application's own messages override JSKIT's English. */
 function mergeCatalogs(...catalogs) {
   const merged = {};
   for (const catalog of catalogs) {
@@ -117,8 +117,10 @@ function parseMessage(template = "") {
   return choices;
 }
 
-// vue-i18n's default plural rule: two choices are "one | other", three are
-// "zero | one | other".
+/**
+ * vue-i18n's default plural rule: two choices are "one | other", three are
+ * "zero | one | other".
+ */
 function pluralChoice(count, choices) {
   const value = Math.abs(Number(count));
   if (choices === 2) {

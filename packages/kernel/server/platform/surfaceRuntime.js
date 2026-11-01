@@ -13,9 +13,9 @@ function toRequestPathname(urlValue) {
   }
 }
 
-function matchesGlobalUiPath(pathname, globalUiPaths = []) {
+function matchesGlobalUiPath(pathname, globalUiPaths) {
   const normalizedPathname = normalizePathname(pathname);
-  const normalizedGlobalUiPaths = [...new Set((Array.isArray(globalUiPaths) ? globalUiPaths : []).map(normalizePathname))]
+  const normalizedGlobalUiPaths = [...new Set(globalUiPaths.map(normalizePathname))]
     .filter(Boolean)
     .sort((left, right) => right.length - left.length);
 
@@ -44,11 +44,9 @@ function shouldServePathForSurface({
   globalUiPaths = []
 }) {
   const normalizedSurface = surfaceRuntime.normalizeSurfaceMode(serverSurface);
-  const allMode = String(surfaceRuntime.SURFACE_MODE_ALL || "all").trim().toLowerCase() || "all";
   const normalizedPathname = String(pathname || "").trim() || "/";
-  const normalizedApiPrefix = String(apiPathPrefix || "/api/").trim() || "/api/";
 
-  if (normalizedPathname.startsWith(normalizedApiPrefix)) {
+  if (normalizedPathname.startsWith(apiPathPrefix)) {
     return true;
   }
 
@@ -61,7 +59,7 @@ function shouldServePathForSurface({
     return false;
   }
 
-  if (normalizedSurface === allMode) {
+  if (normalizedSurface === surfaceRuntime.SURFACE_MODE_ALL) {
     return true;
   }
 
@@ -129,7 +127,7 @@ function resolveRuntimeProfileFromSurface({
   }
 
   const normalizedSurface = surfaceRuntime.normalizeSurfaceMode(serverSurface);
-  const allMode = String(surfaceRuntime.SURFACE_MODE_ALL || "all").trim().toLowerCase() || "all";
+  const allMode = surfaceRuntime.SURFACE_MODE_ALL;
   if (normalizedSurface !== allMode) {
     return normalizedSurface;
   }

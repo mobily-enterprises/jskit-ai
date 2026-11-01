@@ -3,7 +3,7 @@ import { registerActionContributor } from "./actionDefinitions.js";
 import { noActionPolicy } from "./actionPolicy.js";
 import { isRecord } from "../../shared/support/normalize.js";
 import { createEventRuntime } from "../runtime/eventRuntime.js";
-import { silentLogger } from "../runtime/logger.js";
+import { silentLogger } from "../../shared/support/silentLogger.js";
 
 /** @typedef {import("../types.js").ActionPolicy} ActionPolicy */
 /** @typedef {import("../types.js").RuntimeEvents} RuntimeEvents */

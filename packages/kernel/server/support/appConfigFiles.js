@@ -1,13 +1,10 @@
 import path from "node:path";
 import { fileExists } from "../../internal/node/fileSystem.js";
+import { normalizeObject } from "../../shared/support/normalize.js";
 import { importFreshModuleFromAbsolutePath } from "./importFreshModuleFromAbsolutePath.js";
 
 const PUBLIC_CONFIG_RELATIVE_PATH = "config/public.js";
 const SERVER_CONFIG_RELATIVE_PATH = "config/server.js";
-
-function normalizeConfigObject(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-}
 
 async function loadConfigModuleAtPath(absolutePath) {
   if (!(await fileExists(absolutePath))) {
@@ -15,7 +12,7 @@ async function loadConfigModuleAtPath(absolutePath) {
   }
 
   const loadedModule = await importFreshModuleFromAbsolutePath(absolutePath);
-  return normalizeConfigObject(loadedModule?.config);
+  return normalizeObject(loadedModule?.config);
 }
 
 async function loadAppConfigFromAppRoot({

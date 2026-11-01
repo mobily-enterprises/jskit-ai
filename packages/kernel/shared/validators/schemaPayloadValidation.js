@@ -6,9 +6,11 @@ import {
 
 const SCHEMA_VALIDATION_FAILED_MESSAGE = "Schema validation failed.";
 
-// fieldErrors keeps the English sentences; fieldErrorCodes ({ field: { code, params } })
-// lets a client show the coded ones in the user's language. The HTTP error handler
-// answers a 4xx one as a validation_failed response carrying both.
+/**
+ * fieldErrors keeps the English sentences; fieldErrorCodes ({ field: { code, params } })
+ * lets a client show the coded ones in the user's language. The HTTP error handler
+ * answers a 4xx one as a validation_failed response carrying both.
+ */
 function buildSchemaValidationError({
   message = SCHEMA_VALIDATION_FAILED_MESSAGE,
   fieldErrors = null,
@@ -72,7 +74,7 @@ function validateSchemaPayload(schemaDefinition, payload, {
   return result.validatedObject ?? payload;
 }
 
-// The field errors an error names (own or in details) and their codes, or null.
+/** The field errors an error names (own or in details) and their codes, or null. */
 function errorFieldErrors(error) {
   const fieldErrors = isRecord(error?.fieldErrors)
     ? error.fieldErrors
@@ -90,8 +92,10 @@ function errorFieldErrors(error) {
   return { fieldErrors, fieldErrorCodes };
 }
 
-// An error's field errors in createValidationError's input shape: the English
-// string, or { code, params, message } for a field whose sentence has a code.
+/**
+ * An error's field errors in createValidationError's input shape: the English
+ * string, or { code, params, message } for a field whose sentence has a code.
+ */
 function codedFieldErrors(error) {
   const found = errorFieldErrors(error);
   if (!found) {
