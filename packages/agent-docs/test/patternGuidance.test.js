@@ -7,7 +7,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
-import { describeSourceFile } from "../../../scripts/build-agent-docs.mjs";
+import { describeSourceFile } from "../../../scripts/agent-docs-source-symbols.mjs";
 
 const execFileAsync = promisify(execFile);
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");

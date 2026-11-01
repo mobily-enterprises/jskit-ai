@@ -14,10 +14,9 @@ export default [
     ]
   },
   ...baseConfig,
-  // JSKIT's own server code converts to typed features package by package. The
-  // zero-warning lint leaves the rules off until then; each converted package's
-  // server and shared code is listed in the typedFeaturesConfig([...]) after
-  // this entry, which enforces them.
+  // The typed-features rules apply, as errors, to the server and shared code of
+  // the packages listed in the second typedFeaturesConfig([...]); every other
+  // server tree has them off, so the zero-warning lint reports only those.
   ...typedFeaturesConfig(["**/src/server/**"], "off"),
   ...typedFeaturesConfig([
     "packages/kernel/server/**",
