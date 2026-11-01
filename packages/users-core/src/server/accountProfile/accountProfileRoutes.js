@@ -1,6 +1,7 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
 import { createJsonApiResourceRouteContract } from "@jskit-ai/http-runtime/shared/validators/jsonApiRouteTransport";
 import { DEFAULT_IMAGE_UPLOAD_MAX_BYTES } from "@jskit-ai/uploads-runtime/shared";
+import { resolveActor } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
 import { userProfileResource } from "../../shared/resources/userProfileResource.js";
 import { resolveAccountSettingsResourceId } from "../common/support/accountSettingsJsonApiTransport.js";
@@ -82,7 +83,7 @@ function registerAccountProfileRoutes(router, { accountProfileService, authServi
       }
     },
     async function (request, reply) {
-      const avatar = await accountProfileService.readAvatar(request, request.user);
+      const avatar = await accountProfileService.readAvatar(request, resolveActor(null, request));
 
       reply
         .header("Cache-Control", "private, max-age=31536000, immutable")

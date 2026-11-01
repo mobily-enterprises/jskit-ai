@@ -1,3 +1,4 @@
+import { resolveActorId } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 
@@ -23,8 +24,14 @@ function createService({ consoleSettingsRepository }) {
     return Boolean(ownerUserId) && ownerUserId === normalizedUserId;
   }
 
-  async function requireConsoleOwner(context = {}, options = {}) {
-    const actorUserId = normalizeRecordId(context.actor?.id, { fallback: null });
+  /**
+   * Refuses anyone but the console's owner; the first signed-in user to ask
+   * becomes the owner.
+   * @param {object | null | undefined} context The call's context: its actor, else its request's user.
+   * @param {{ trx?: import("@jskit-ai/database-runtime/server/types").RuntimeKnexTransaction | null }} [options]
+   */
+  async function requireConsoleOwner(context, options = {}) {
+    const actorUserId = normalizeRecordId(resolveActorId(context), { fallback: null });
     if (!actorUserId) {
       throw new AppError(401, "Authentication required.", { code: "console.owner.authenticationRequired" });
     }

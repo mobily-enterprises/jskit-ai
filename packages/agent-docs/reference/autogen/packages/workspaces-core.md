@@ -71,7 +71,7 @@ Exports
 - `createWorkspaceEntityAndBootstrapEvents({ workspaceEntity, workspaceOperation, workspaceRealtimeEvent, bootstrapEntityId = workspaceId, bootstrapAudience = "event_scope" })`
 Local functions
 - `resultValue({ result })`
-- `actorId({ context } = {})`
+- `actorId({ context })`
 - `workspaceId(execution = {})`
 - `workspaceSlugPayload(execution = {})`
 - `createActorEvent({ source, entity, realtimeEvent })`
@@ -215,7 +215,7 @@ Exports
 Exports
 - `registerWorkspacePendingInvitationsRoutes(router)`
 Local functions
-- `resolveAuthenticatedUserRecordId(_record, context = {})`
+- `resolveAuthenticatedUserRecordId(_record, context)`
 - `resolveInviteResolutionRecordId(record)`
 
 ### `src/server/workspacePendingInvitations/workspacePendingInvitationsService.js`

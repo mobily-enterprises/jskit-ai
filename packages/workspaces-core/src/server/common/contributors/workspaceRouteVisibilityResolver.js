@@ -1,6 +1,6 @@
-import { normalizeOpaqueId, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
-import { resolveActor } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
+import { resolveActor, resolveActorId } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 
 function buildVisibilityContribution({ visibility, scopeOwnerId = null, userId = null } = {}) {
   const requiresActorScope = visibility === "workspace_user";
@@ -33,7 +33,7 @@ function createWorkspaceRouteVisibilityResolver({ workspaceService, workspaceMem
     }
 
     const actor = resolveActor(context, request);
-    const userId = normalizeOpaqueId(actor?.id);
+    const userId = resolveActorId(context, request);
     const workspace =
       context?.workspace || context?.requestMeta?.resolvedWorkspaceContext?.workspace || request?.workspace || null;
     const scopeOwnerId = normalizeRecordId(workspace?.id, { fallback: null });

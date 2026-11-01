@@ -134,7 +134,7 @@ Local functions
 
 ### `src/server/common/support/accountSettingsJsonApiTransport.js`
 Exports
-- `resolveAccountSettingsResourceId(_record, context = {})`
+- `resolveAccountSettingsResourceId(_record, context)`
 
 ### `src/server/common/support/identity.js`
 Exports
@@ -144,7 +144,7 @@ Exports
 Exports
 - `ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS`
 Local functions
-- `resolveActorScopedEntityId({ context } = {})`
+- `resolveActorScopedEntityId({ context })`
 
 ### `src/server/common/support/resolveActionUser.js`
 Exports

@@ -1,4 +1,5 @@
 import { createJsonApiResourceRouteContract } from "@jskit-ai/http-runtime/shared/validators/jsonApiRouteTransport";
+import { resolveActorId } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
 import { workspacePendingInvitationsResource } from "../../shared/resources/workspacePendingInvitationsResource.js";
 import {
@@ -7,9 +8,14 @@ import {
   WORKSPACE_PENDING_INVITATIONS_TRANSPORT
 } from "../../shared/jsonApiTransports.js";
 
-function resolveAuthenticatedUserRecordId(_record, context = {}) {
-  const userId = context.request?.user?.id;
-  if (userId != null && String(userId).trim()) {
+/**
+ * The JSON:API record id of a signed-in user's invitations: the user's id.
+ * @param {unknown} _record
+ * @param {{ request: object }} context The route transport's context.
+ */
+function resolveAuthenticatedUserRecordId(_record, context) {
+  const userId = resolveActorId(null, context.request);
+  if (userId) {
     return userId;
   }
 

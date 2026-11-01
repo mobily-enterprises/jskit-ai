@@ -1,5 +1,6 @@
 import { normalizeDbRecordId } from "@jskit-ai/database-runtime/shared";
 import { createEntityChangedActionEvent } from "@jskit-ai/kernel/server/actions";
+import { resolveActorId } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveWorkspace } from "../../support/resolveWorkspace.js";
 
@@ -7,8 +8,8 @@ function resultValue({ result }) {
   return result.value;
 }
 
-function actorId({ context } = {}) {
-  return context?.actor?.id;
+function actorId({ context }) {
+  return resolveActorId(context);
 }
 
 function workspaceId(execution = {}) {
