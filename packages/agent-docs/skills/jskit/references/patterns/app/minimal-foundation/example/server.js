@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import SerializerSelector from "@fastify/fast-json-stringify-compiler";
 import { createCachedResponseSerializerFactory } from "@jskit-ai/kernel/server/http";
 import fastifyStatic from "@fastify/static";
+import { buildLoggerOptions } from "./server/lib/loggerOptions.js";
 import { resolveRuntimeEnv } from "./server/lib/runtimeEnv.js";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
@@ -88,7 +89,7 @@ function canServeStaticFile(distRoot, relativePath) {
  */
 async function createServer({ runtimeEnv }) {
   const app = Fastify({
-    logger: true,
+    logger: buildLoggerOptions(),
     schemaController: {
       compilersFactory: {
         buildSerializer: createCachedResponseSerializerFactory(SerializerSelector())

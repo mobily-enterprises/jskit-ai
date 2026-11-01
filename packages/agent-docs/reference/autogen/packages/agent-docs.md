@@ -121,6 +121,10 @@ Local functions
 Exports
 - `loadEnvFile()`
 
+### `patterns/minimal-foundation/example/server/lib/loggerOptions.js`
+Exports
+- `buildLoggerOptions()`
+
 ### `patterns/minimal-foundation/example/server/lib/runtimeEnv.js`
 Exports
 - `DEFAULT_PORT`
@@ -221,6 +225,10 @@ Local functions
 ### `patterns/shell-foundation/example/server/lib/envFile.js`
 Exports
 - `loadEnvFile()`
+
+### `patterns/shell-foundation/example/server/lib/loggerOptions.js`
+Exports
+- `buildLoggerOptions()`
 
 ### `patterns/shell-foundation/example/server/lib/runtimeEnv.js`
 Exports

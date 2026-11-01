@@ -71,7 +71,9 @@ not convert those choices into a generator questionnaire.
   environment, string values: `resolveRuntimeEnv()` keeps `PORT` a string), and
   `server.js` takes `API_BASE_PATH` and `toRequestPathname` from the kernel's
   `shared/surface/paths`. `server/lib/envFile.js` loads `.env` once per process
-  for every entry point. `eslint.config.mjs` applies
+  for every entry point. `server/lib/loggerOptions.js` gives Fastify's logger
+  pino's error serializer under `error` as well as `err`, so
+  `logger.error({ error }, "...")` keeps the error's message and stack. `eslint.config.mjs` applies
   `typedFeaturesConfig(["packages/*/src/server/**", "server/**", "server.js"])`,
   so lint reports server code that breaks these rules as errors.
 
