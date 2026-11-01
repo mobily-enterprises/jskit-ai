@@ -1,5 +1,6 @@
 import { mkdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { toPosixPath } from "./files.mjs";
 import { resolveInstalledPackage } from "./project-packages.mjs";
 
 // `jskit i18n export|check <locale>`: an app translates JSKIT by supplying
@@ -225,7 +226,7 @@ function nestCatalog(flat, file) {
 }
 
 function relativeFile(projectRoot, file) {
-  return path.relative(path.resolve(projectRoot), file).split(path.sep).join("/");
+  return toPosixPath(path.relative(path.resolve(projectRoot), file));
 }
 
 // --- export ------------------------------------------------------------------------

@@ -1,15 +1,8 @@
-import { spawn } from "node:child_process";
-import {
-  access,
-  mkdtemp,
-  readFile,
-  readdir,
-  realpath,
-  rename,
-  rm,
-  writeFile
-} from "node:fs/promises";
+import { realpath, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { fileExists, toPosixPath } from "./files.mjs";
+import { readOptionalFile, restoreProjectFiles, runNpmInstall, writeManifestUpdates } from "./project-install.mjs";
+import { discoverProjectManifests, readJsonRecord, serializePackageJson } from "./project-manifests.mjs";
 
 const JSKIT_SCOPE_PREFIX = "@jskit-ai/";
 const CATALOG_PACKAGE_ID = "@jskit-ai/jskit-catalog";
@@ -19,141 +12,8 @@ const DEPENDENCY_FIELDS = Object.freeze([
   "peerDependencies",
   "optionalDependencies"
 ]);
-const SKIPPED_DIRECTORY_NAMES = new Set([
-  ".git",
-  ".cache",
-  ".next",
-  ".nuxt",
-  ".output",
-  ".turbo",
-  "build",
-  "coverage",
-  "dist",
-  "node_modules",
-  "tmp"
-]);
 const UPDATE_SCRIPT = "npx --yes @jskit-ai/jskit-catalog@latest update";
 const CHECK_SCRIPT = "jskit check";
-
-function toPosixPath(value = "") {
-  return String(value || "").split(path.sep).join("/");
-}
-
-function normalizeWorkspacePatterns(value) {
-  if (Array.isArray(value)) {
-    return value;
-  }
-  if (value && typeof value === "object" && Array.isArray(value.packages)) {
-    return value.packages;
-  }
-  return [];
-}
-
-function globToRegExp(pattern = "") {
-  const source = toPosixPath(pattern).replace(/^\.\//u, "").replace(/\/$/u, "");
-  let expression = "^";
-
-  for (let index = 0; index < source.length; index += 1) {
-    const character = source[index];
-    if (character === "*") {
-      if (source[index + 1] === "*") {
-        index += 1;
-        if (source[index + 1] === "/") {
-          index += 1;
-          expression += "(?:.*/)?";
-        } else {
-          expression += ".*";
-        }
-      } else {
-        expression += "[^/]*";
-      }
-      continue;
-    }
-    if (character === "?") {
-      expression += "[^/]";
-      continue;
-    }
-    expression += /[.+^${}()|[\]\\]/u.test(character) ? `\\${character}` : character;
-  }
-
-  return new RegExp(`${expression}$`, "u");
-}
-
-function createWorkspaceMatcher(workspaces) {
-  const patterns = normalizeWorkspacePatterns(workspaces)
-    .map((entry) => String(entry || "").trim())
-    .filter(Boolean);
-  const includes = patterns
-    .filter((entry) => !entry.startsWith("!"))
-    .map(globToRegExp);
-  const excludes = patterns
-    .filter((entry) => entry.startsWith("!"))
-    .map((entry) => globToRegExp(entry.slice(1)));
-
-  return function matchesWorkspace(relativeDirectory = "") {
-    const normalized = toPosixPath(relativeDirectory).replace(/^\.\//u, "").replace(/\/$/u, "");
-    return includes.some((matcher) => matcher.test(normalized)) &&
-      !excludes.some((matcher) => matcher.test(normalized));
-  };
-}
-
-async function fileExists(absolutePath) {
-  try {
-    await access(absolutePath);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function readJsonRecord(absolutePath) {
-  const contents = await readFile(absolutePath, "utf8");
-  let value;
-  try {
-    value = JSON.parse(contents);
-  } catch (error) {
-    throw new Error(`${absolutePath} is not valid JSON: ${error instanceof Error ? error.message : String(error)}`);
-  }
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new TypeError(`${absolutePath} must contain a JSON object.`);
-  }
-  return { absolutePath, contents, value };
-}
-
-async function collectNestedPackageJsonPaths(directory, results = []) {
-  for (const entry of await readdir(directory, { withFileTypes: true }).catch(() => [])) {
-    if (!entry.isDirectory() || SKIPPED_DIRECTORY_NAMES.has(entry.name) || entry.name.startsWith(".")) {
-      continue;
-    }
-    const childDirectory = path.join(directory, entry.name);
-    const manifestPath = path.join(childDirectory, "package.json");
-    if (await fileExists(manifestPath)) {
-      results.push(manifestPath);
-    }
-    await collectNestedPackageJsonPaths(childDirectory, results);
-  }
-  return results;
-}
-
-async function discoverProjectManifests(projectRoot, additionalManifests = []) {
-  const root = path.resolve(projectRoot);
-  const rootManifestPath = path.join(root, "package.json");
-  if (!(await fileExists(rootManifestPath))) {
-    throw new Error(`JSKIT project root has no package.json: ${root}`);
-  }
-  const rootManifest = await readJsonRecord(rootManifestPath);
-  const matchesWorkspace = createWorkspaceMatcher(rootManifest.value.workspaces);
-  const nestedPaths = await collectNestedPackageJsonPaths(root);
-  const workspacePaths = nestedPaths
-    .filter((manifestPath) => matchesWorkspace(path.relative(root, path.dirname(manifestPath))))
-    .sort((left, right) => left.localeCompare(right));
-  const manifests = [rootManifest];
-  for (const manifestPath of new Set([...workspacePaths, ...additionalManifests.map((file) => path.resolve(root, file))])) {
-    if (manifestPath === rootManifestPath) continue;
-    manifests.push(await readJsonRecord(manifestPath));
-  }
-  return Object.freeze(manifests);
-}
 
 function normalizeCatalog(catalog = {}) {
   const releasePackages = catalog?.release?.packages;
@@ -175,12 +35,6 @@ function normalizeCatalog(catalog = {}) {
       .filter((entry) => versions.has(entry))
   );
   return Object.freeze({ versions, singletonPackages });
-}
-
-function serializePackageJson(value, originalContents = "") {
-  const indentMatch = /\n([ \t]+)"/u.exec(String(originalContents || ""));
-  const indentation = indentMatch?.[1] || "  ";
-  return `${JSON.stringify(value, null, indentation)}\n`;
 }
 
 function collectManifestDeclarations(manifests, projectRoot) {
@@ -464,68 +318,6 @@ async function checkInstalledGraph({ catalog, manifestPaths = [], sourcePackages
   return { ok: issues.length === 0, issues, installations };
 }
 
-async function writeManifestUpdates(updates = []) {
-  const temporaryPaths = [];
-  const committed = [];
-  try {
-    for (const [index, update] of updates.entries()) {
-      const temporaryPath = `${update.manifest.absolutePath}.jskit-${process.pid}-${index}.tmp`;
-      await writeFile(temporaryPath, update.contents, "utf8");
-      temporaryPaths.push(temporaryPath);
-    }
-    for (const [index, update] of updates.entries()) {
-      await rename(temporaryPaths[index], update.manifest.absolutePath);
-      committed.push(update);
-    }
-  } catch (error) {
-    for (const update of committed) {
-      await writeFile(update.manifest.absolutePath, update.manifest.contents, "utf8");
-    }
-    throw error;
-  } finally {
-    await Promise.all(temporaryPaths.map((temporaryPath) => rm(temporaryPath, { force: true })));
-  }
-}
-
-async function readOptionalFile(absolutePath) {
-  try {
-    return Object.freeze({
-      contents: await readFile(absolutePath, "utf8"),
-      exists: true
-    });
-  } catch (error) {
-    if (error?.code === "ENOENT") {
-      return Object.freeze({
-        contents: "",
-        exists: false
-      });
-    }
-    throw error;
-  }
-}
-
-async function restoreProjectFiles(updates, packageLockPath, packageLockSnapshot) {
-  const rollbackUpdates = updates.map((update) => Object.freeze({
-    contents: update.manifest.contents,
-    manifest: Object.freeze({
-      ...update.manifest,
-      contents: update.contents
-    })
-  }));
-  await writeManifestUpdates(rollbackUpdates);
-  if (packageLockSnapshot.exists) {
-    const temporaryPath = `${packageLockPath}.jskit-${process.pid}-rollback.tmp`;
-    try {
-      await writeFile(temporaryPath, packageLockSnapshot.contents, "utf8");
-      await rename(temporaryPath, packageLockPath);
-    } finally {
-      await rm(temporaryPath, { force: true });
-    }
-    return;
-  }
-  await rm(packageLockPath, { force: true });
-}
-
 function removeJskitDependencyRecords(dependencies = {}, localPackageNames = new Set()) {
   for (const [packageId, record] of Object.entries(dependencies || {})) {
     if (packageId.startsWith(JSKIT_SCOPE_PREFIX) && !localPackageNames.has(packageId)) {
@@ -595,90 +387,12 @@ async function preparePackageLockForInstall(projectRoot, manifests, packageLockP
   }
 }
 
-async function spawnNpmInstall(projectRoot) {
-  await new Promise((resolve, reject) => {
-    const child = spawn("npm", ["install"], {
-      cwd: projectRoot,
-      env: process.env,
-      stdio: "inherit"
-    });
-    child.on("error", reject);
-    child.on("close", (code, signal) => {
-      if (code === 0) {
-        resolve();
-        return;
-      }
-      reject(new Error(`npm install failed (code=${code}, signal=${signal || "none"}).`));
-    });
-  });
-}
-
-async function runNpmInstall(projectRoot) {
-  const nodeModulesPath = path.join(projectRoot, "node_modules");
-  const hadNodeModules = await fileExists(nodeModulesPath);
-  const backupRoot = hadNodeModules
-    ? await mkdtemp(path.join(projectRoot, ".jskit-update-"))
-    : null;
-  // Preserve the dependency directory name so development watchers keep excluding it.
-  const backupPath = backupRoot ? path.join(backupRoot, "node_modules") : null;
-  if (hadNodeModules) {
-    try {
-      await rename(nodeModulesPath, backupPath);
-    } catch (error) {
-      await rm(backupRoot, { force: true, recursive: true });
-      throw error;
-    }
-  }
-
-  let settled = false;
-  const transaction = Object.freeze({
-    async commit() {
-      if (settled) {
-        return;
-      }
-      if (backupRoot) {
-        await rm(backupRoot, { force: true, recursive: true });
-      }
-      settled = true;
-    },
-    async rollback() {
-      if (settled) {
-        return;
-      }
-      try {
-        await rm(nodeModulesPath, { force: true, recursive: true });
-        if (backupPath) {
-          await rename(backupPath, nodeModulesPath);
-        }
-      } catch (error) {
-        if (backupPath) {
-          throw new Error(`Could not restore node_modules; backup retained at ${backupPath}.`, { cause: error });
-        }
-        throw error;
-      }
-      if (backupRoot) {
-        await rm(backupRoot, { force: true, recursive: true });
-      }
-      settled = true;
-    }
-  });
-
-  try {
-    await spawnNpmInstall(projectRoot);
-    return transaction;
-  } catch (error) {
-    try {
-      await transaction.rollback();
-    } catch (rollbackError) {
-      throw new AggregateError(
-        [error, rollbackError],
-        `npm install failed and the previous node_modules directory could not be restored. ${rollbackError.message}`
-      );
-    }
-    throw error;
-  }
-}
-
+/**
+ * Pins a project's JSKIT dependencies to the catalog and installs them; a
+ * failed install or check restores the manifests, lockfile and node_modules.
+ * @param {object} options
+ * @param {(projectRoot: string) => Promise<import("./project-install.mjs").InstallTransaction>} [options.installProject]
+ */
 async function updateProject({
   projectRoot = process.cwd(),
   catalog,
@@ -775,12 +489,14 @@ async function updateProject({
       if (!result.ok) {
         throw new Error(`JSKIT graph remains inconsistent after npm install:\n- ${result.issues.join("\n- ")}`);
       }
-      await installTransaction?.commit?.();
+      await installTransaction.commit();
     }
   } catch (error) {
     const rollbackErrors = [];
     try {
-      await installTransaction?.rollback?.();
+      if (installTransaction) {
+        await installTransaction.rollback();
+      }
     } catch (rollbackError) {
       rollbackErrors.push(rollbackError);
     }

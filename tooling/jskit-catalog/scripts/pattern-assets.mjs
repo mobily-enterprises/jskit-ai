@@ -1,5 +1,6 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
+import { toPosixPath } from "./files.mjs";
 
 const PATTERN_DOCUMENT_NAME = "PATTERN.md";
 const PATTERN_EXAMPLE_DIRECTORY = "example";
@@ -25,10 +26,6 @@ const REQUIRED_PATTERN_SECTIONS = Object.freeze([
 
 function normalizeText(value = "") {
   return String(value || "").trim();
-}
-
-function normalizePath(value = "") {
-  return String(value || "").split(path.sep).join("/");
 }
 
 function sortedUniqueStrings(values = []) {
@@ -156,7 +153,7 @@ async function collectFiles(rootDirectory) {
         continue;
       }
       if (entry.isFile()) {
-        files.push(normalizePath(path.relative(rootDirectory, absolutePath)));
+        files.push(toPosixPath(path.relative(rootDirectory, absolutePath)));
       }
     }
   }
@@ -186,7 +183,7 @@ async function discoverPackagePatterns({ packageRoot, packageJson } = {}) {
   for (const entry of patternDirectories) {
     const patternRoot = path.join(patternsRoot, entry.name);
     const documentPath = path.join(patternRoot, PATTERN_DOCUMENT_NAME);
-    const relativeDocumentPath = normalizePath(path.relative(resolvedPackageRoot, documentPath));
+    const relativeDocumentPath = toPosixPath(path.relative(resolvedPackageRoot, documentPath));
     let source;
     try {
       source = await readFile(documentPath, "utf8");
@@ -220,7 +217,7 @@ async function discoverPackagePatterns({ packageRoot, packageJson } = {}) {
       packageId,
       packageVersion,
       documentPath: relativeDocumentPath,
-      examplePath: normalizePath(path.relative(resolvedPackageRoot, exampleRoot)),
+      examplePath: toPosixPath(path.relative(resolvedPackageRoot, exampleRoot)),
       files: Object.freeze(files)
     }));
   }

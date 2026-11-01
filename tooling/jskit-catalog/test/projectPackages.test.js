@@ -200,6 +200,7 @@ test("project updates align root and workspace declarations without changing non
             "node_modules/@jskit-ai/shell-web": { version: "0.1.4" }
           }
         });
+        return { async commit() {}, async rollback() {} };
       }
     });
 
@@ -502,6 +503,7 @@ test("project updates reject private JSKIT overrides before changing manifests o
         catalog: CATALOG,
         async installProject() {
           installCalls += 1;
+          return { async commit() {}, async rollback() {} };
         }
       }),
       /private JSKIT overrides.*package\.json#overrides\.@jskit-ai\/shell-web/u

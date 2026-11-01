@@ -1,16 +1,8 @@
-import { access, readdir, readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
+import { fileExists } from "./files.mjs";
 
 const BUILTIN_SINGLETON_PACKAGE_IDS = Object.freeze(["@jskit-ai/kernel"]);
-
-async function fileExists(filePath) {
-  try {
-    await access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 // The JSKIT framework packages are the direct children of packagesRoot whose
 // package.json declares `jskit` metadata. The catalog builder and the package

@@ -23,12 +23,15 @@ Local functions
 - `buildCatalog({ repoRoot, packagesRoot, outputPath })`
 - `main()`
 
+### `scripts/files.mjs`
+Exports
+- `fileExists(absolutePath)`
+- `toPosixPath(value = "")`
+
 ### `scripts/framework-packages.mjs`
 Exports
 - `collectSingletonPackageIds(packageJsons)`
 - `discoverFrameworkPackages(packagesRoot)`
-Local functions
-- `fileExists(filePath)`
 
 ### `scripts/i18n.mjs`
 Exports
@@ -77,13 +80,33 @@ Exports
 - `parsePatternDocument(source = "", { documentPath = PATTERN_DOCUMENT_NAME } = {})`
 Local functions
 - `normalizeText(value = "")`
-- `normalizePath(value = "")`
 - `sortedUniqueStrings(values = [])`
 - `parseCommaSeparatedValue(value = "")`
 - `requirePatternFrontMatter(source = "", { documentPath = PATTERN_DOCUMENT_NAME } = {})`
 - `requirePatternSections(body = "", { documentPath = PATTERN_DOCUMENT_NAME } = {})`
 - `directoryExists(directoryPath)`
 - `collectFiles(rootDirectory)`
+
+### `scripts/project-install.mjs`
+Exports
+- `readOptionalFile(absolutePath)`
+- `restoreProjectFiles(updates, packageLockPath, packageLockSnapshot)`
+- `runNpmInstall(projectRoot)`
+- `writeManifestUpdates(updates = [])`
+- `type InstallTransaction`
+Local functions
+- `spawnNpmInstall(projectRoot)`
+
+### `scripts/project-manifests.mjs`
+Exports
+- `discoverProjectManifests(projectRoot, additionalManifests = [])`
+- `readJsonRecord(absolutePath)`
+- `serializePackageJson(value, originalContents = "")`
+Local functions
+- `normalizeWorkspacePatterns(value)`
+- `globToRegExp(pattern = "")`
+- `createWorkspaceMatcher(workspaces)`
+- `collectNestedPackageJsonPaths(directory, results = [])`
 
 ### `scripts/project-packages.mjs`
 Exports
@@ -95,30 +118,17 @@ Exports
 - `checkInstalledGraph({ catalog, manifestPaths = [], sourcePackages = {} } = {})`
 - `resolveInstalledPackage(consumerDirectory, packageId)`
 - `collectLockInstallations(packageLock = {})`
-- `discoverProjectManifests(projectRoot, additionalManifests = [])`
+- `discoverProjectManifests`
 - `normalizeCatalog(catalog = {})`
 - `updateProject({ projectRoot = process.cwd(), catalog, install = true, installProject = runNpmInstall, additionalManifests = [] } = {})`
 Local functions
-- `toPosixPath(value = "")`
-- `normalizeWorkspacePatterns(value)`
-- `globToRegExp(pattern = "")`
-- `createWorkspaceMatcher(workspaces)`
-- `fileExists(absolutePath)`
-- `readJsonRecord(absolutePath)`
-- `collectNestedPackageJsonPaths(directory, results = [])`
-- `serializePackageJson(value, originalContents = "")`
 - `collectManifestDeclarations(manifests, projectRoot)`
 - `collectLocalPackageNames(manifests)`
 - `resolveLockPackageName(packagePath = "", record = {})`
 - `collectJskitOverridePaths(value, currentPath = "overrides", results = [])`
-- `writeManifestUpdates(updates = [])`
-- `readOptionalFile(absolutePath)`
-- `restoreProjectFiles(updates, packageLockPath, packageLockSnapshot)`
 - `removeJskitDependencyRecords(dependencies = {}, localPackageNames = new Set())`
 - `alignLockManifestRecord(lockRecord, manifest, localPackageNames)`
 - `preparePackageLockForInstall(projectRoot, manifests, packageLockPath)`
-- `spawnNpmInstall(projectRoot)`
-- `runNpmInstall(projectRoot)`
 
 ### `scripts/verify-packages.mjs`
 Exports
@@ -129,7 +139,6 @@ Exports
 - `validateProviderList(packageRecord, side)`
 - `validateSingletonPeerDependencies(packages)`
 Local functions
-- `fileExists(filePath)`
 - `requireStringArray(value, label)`
 - `requireArchitectureId(value, label)`
 - `validateCapabilityMap(value, label)`

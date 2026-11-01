@@ -7,7 +7,7 @@ import {
   assertUniquePatternIds,
   discoverPackagePatterns
 } from "./pattern-assets.mjs";
-import { discoverProjectManifests } from "./project-packages.mjs";
+import { discoverProjectManifests } from "./project-manifests.mjs";
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const PACKAGE_ROOT = path.resolve(path.dirname(SCRIPT_PATH), "..");

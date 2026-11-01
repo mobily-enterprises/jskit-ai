@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-import { access, readdir } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileExists } from "./files.mjs";
 import {
   assertUniquePatternIds,
   discoverPackagePatterns
@@ -49,15 +50,6 @@ const FORBIDDEN_AUTHORING_FIELDS = new Set([
   "options"
 ]);
 
-async function fileExists(filePath) {
-  try {
-    await access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 function requireStringArray(value, label) {
   if (!Array.isArray(value) || value.some((item) => !String(item || "").trim())) {
     throw new Error(`${label} must be an array of non-empty strings.`);
@@ -102,10 +94,12 @@ function validateProviderDefinition(value, label) {
   validateCapabilityMap(value.requires, `${label}.requires`);
   validateCapabilityMap(value.optional, `${label}.optional`);
   validateCapabilityMap(value.provides, `${label}.provides`);
+  // readable-check: allow method-probe - input validation: a package's provider export is checked before the catalog lists it
   if (typeof value.setup !== "function") {
     throw new Error(`${label}.setup must be a function.`);
   }
   for (const lifecycleMethod of ["boot", "shutdown"]) {
+    // readable-check: allow method-probe - input validation: a package's provider export is checked before the catalog lists it
     if (value[lifecycleMethod] != null && typeof value[lifecycleMethod] !== "function") {
       throw new Error(`${label}.${lifecycleMethod} must be a function or null.`);
     }
@@ -222,6 +216,7 @@ async function validateMigrationDirectory(packageName, absoluteDirectory, relati
     const migrationModule = namespace.default && typeof namespace.default === "object"
       ? namespace.default
       : namespace;
+    // readable-check: allow method-probe - input validation: a package's migration module is checked before the catalog lists it
     if (typeof migrationModule.up !== "function" || typeof migrationModule.down !== "function") {
       throw new Error(`${packageName} migration ${migration.name} must export up() and down().`);
     }
