@@ -248,10 +248,6 @@ function transformCrudAssistantResult(operation, result, {
   lookupContainerKey = ""
 } = {}) {
   if (operation === "delete") {
-    const resolved = resolveAssistantResultValue(result);
-    if (isRecord(resolved.value) && resolved.value.deleted === true && resolved.value.id != null) {
-      return resolved.value;
-    }
     return {
       id: String(input.recordId || ""),
       deleted: true

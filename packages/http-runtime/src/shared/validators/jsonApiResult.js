@@ -73,14 +73,17 @@ function jsonApiResultOrNull(value) {
 }
 
 /**
- * What a service or action result carries: a JSON:API result's value (the
- * document, data or meta a service returned with returnJsonApiDocument and
- * the like), or the value itself when it is not one, as a repository's bare
- * document is not.
+ * The value a tagged JSON:API result carries: the document, data or meta a service returned with
+ * returnJsonApiDocument, returnJsonApiData or returnJsonApiMeta.
  * @param {unknown} value
  */
 function jsonApiResultValue(value) {
-  return isJsonApiResult(value) ? value.value : value;
+  if (!isJsonApiResult(value)) {
+    throw new TypeError(
+      "jsonApiResultValue requires a JSON:API result (returnJsonApiDocument, returnJsonApiData or returnJsonApiMeta)."
+    );
+  }
+  return value.value;
 }
 
 /**

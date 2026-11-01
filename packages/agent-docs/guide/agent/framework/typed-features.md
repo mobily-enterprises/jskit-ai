@@ -811,7 +811,9 @@ owner, instead of a copy per package:
   actor, else the request's user, as auth's own route visibility reads it;
 - a service or action result's records: `simplifyJsonApiResult(result)`, and
   the document it carries, `jsonApiResultValue(result)`
-  (`@jskit-ai/http-runtime/shared`);
+  (`@jskit-ai/http-runtime/shared`). Both read only a tagged result
+  (`returnJsonApiDocument`, `returnJsonApiData` or `returnJsonApiMeta`) and
+  throw on anything else;
 - a create event's record id: `resolveCrudJsonApiEntityIdFromResult`
   (`@jskit-ai/crud-core/server/serviceEvents`), from the tagged JSON:API
   result a CRUD service or action returns (a document result's `data.id` or a
