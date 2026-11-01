@@ -8,6 +8,7 @@ import { AppError } from "@jskit-ai/kernel/server/runtime";
 import { createConversationTranscript } from "@jskit-ai/assistant-core/server/conversation";
 import { verifyConversationStorageContract } from "@jskit-ai/assistant-core/testing/conversation-storage";
 import transcriptsMigration from "../migrations/assistant_transcripts_initial.cjs";
+import summaryMigration from "../migrations/assistant_transcripts_summary.cjs";
 import claimsMigration from "../migrations/assistant_turn_requests.cjs";
 import { createRepository as createConversationsRepository } from "../src/server/repositories/conversationsRepository.js";
 import { createRepository as createMessagesRepository } from "../src/server/repositories/messagesRepository.js";
@@ -35,6 +36,7 @@ async function fixture(t) {
   await first.db.schema.createTable("users", table => table.bigInteger("id").primary());
   await first.db("users").insert([{ id: 1 }, { id: 2 }]);
   await transcriptsMigration.up(first.db);
+  await summaryMigration.up(first.db);
   await claimsMigration.up(first.db);
   await first.db.raw("PRAGMA journal_mode = WAL");
   const conversation = actor => first.conversationsRepository.create({ createdByUserId: actor || "1", surfaceId: "assistant", metadata: {} });
@@ -428,3 +430,119 @@ for (const shape of ["orphan-output", "orphan-tool-result", "unconfirmed-tool"])
     assert.deepEqual((await restarted.getConversationMessages(conversation.id, {}, options)).entries, historical);
   });
 }
+
+function recordQueries(db) {
+  const queries = [];
+  const listener = query => queries.push(query.sql);
+  db.on("query", listener);
+  return { queries, stop: () => db.removeListener("query", listener) };
+}
+
+const readsWholeConversation = sql => /from [`"]assistant_messages[`"]/u.test(sql) && /order by/u.test(sql);
+
+async function writeTurns(storage, conversationId, count, prefix = "turn") {
+  await storage.write(conversationId, async transaction => {
+    for (let index = 0; index < count; index += 1) {
+      const turnId = await transaction.nextTurnId();
+      const at = new Date(Date.UTC(2026, 0, 1, 0, 0, index)).toISOString();
+      await transaction.appendMessage(turnId, { role: "user", messageId: `${prefix}-${index}`, text: `Question ${index}`, at,
+        turnMetadata: { runtime: { status: "complete" } } });
+      await transaction.appendMessage(turnId, { role: "assistant", messageId: `${prefix}-${index}:reply-1`, text: `Answer ${index}`, at });
+    }
+  });
+}
+
+test("a long conversation's rows are read once, then each write appends its rows without reading the conversation again", async t => {
+  const f = await fixture(t);
+  const conversation = await f.conversation();
+  await writeTurns(f.storage, conversation.id, 300);
+  const cold = f.connect();
+  let recorded = recordQueries(cold.db);
+  assert.equal((await cold.storage.read(conversation.id, transaction => transaction.listTurnIds())).length, 300);
+  recorded.stop();
+  assert.equal(recorded.queries.filter(readsWholeConversation).length, 2, "A cold server reads the 600 rows once, in pages of 500");
+
+  const measure = async operation => {
+    recorded = recordQueries(cold.db);
+    const result = await operation();
+    recorded.stop();
+    return { result, queries: recorded.queries };
+  };
+  const appendTurn = messageId => cold.storage.write(conversation.id, async transaction => {
+    const turnId = await transaction.nextTurnId();
+    await transaction.appendMessage(turnId, { role: "user", messageId, text: "One more", at: "2026-02-01T00:00:00.000Z" });
+    await transaction.updateTurnMetadata(turnId, { runtime: { status: "running" } });
+    return turnId;
+  });
+  const write = await measure(() => appendTurn("after-300"));
+  assert.equal(write.result, "000301");
+  assert.deepEqual(write.queries.filter(readsWholeConversation), []);
+  if (process.env.SHOW_QUERIES) console.log(JSON.stringify({ write: write.queries }, null, 1));
+  assert.ok(write.queries.length <= 12, `A write issues a constant number of queries, not one per stored row (${write.queries.length})`);
+  const read = await measure(() => cold.storage.read(conversation.id, transaction => transaction.readTurn("000301")));
+  assert.equal(read.result.user.text, "One more");
+  assert.deepEqual(read.result.metadata, { runtime: { status: "running" } });
+  assert.deepEqual(read.queries.filter(readsWholeConversation), []);
+  assert.ok(read.queries.length <= 5, `A read issues a constant number of queries (${read.queries.length})`);
+
+  await writeTurns(cold.storage, conversation.id, 50, "later");
+  const longer = await measure(() => appendTurn("after-350"));
+  assert.equal(longer.result, "000352");
+  assert.deepEqual(longer.queries, write.queries, "The same write issues the same queries however long the conversation is");
+  const answer = await measure(() => cold.storage.write(conversation.id, transaction =>
+    transaction.replaceAssistant("000301", { role: "assistant", messageId: "after-300:reply-1", text: "Answered", at: "2026-02-01T00:00:01.000Z" })));
+  assert.deepEqual(answer.queries.filter(readsWholeConversation), []);
+
+  const fresh = f.connect();
+  const expected = await fresh.storage.read(conversation.id, async transaction =>
+    Promise.all((await transaction.listTurnIds()).map(id => transaction.readTurn(id))));
+  const cached = await cold.storage.read(conversation.id, async transaction =>
+    Promise.all((await transaction.listTurnIds()).map(id => transaction.readTurn(id))));
+  assert.equal(expected.length, 352);
+  assert.deepEqual(cached, expected, "Cached rows project exactly as a fresh read of the database");
+});
+
+test("a server sees another server's saves, direct row inserts and conversation updates at once", async t => {
+  const f = await fixture(t);
+  const conversation = await f.conversation();
+  const other = f.connect();
+  await writeTurns(f.storage, conversation.id, 2);
+  assert.deepEqual(await f.storage.read(conversation.id, transaction => transaction.listTurnIds()), ["000001", "000002"]);
+  await writeTurns(other.storage, conversation.id, 1, "other");
+  assert.deepEqual(await f.storage.read(conversation.id, transaction => transaction.listTurnIds()), ["000001", "000002", "000003"]);
+  await other.storage.write(conversation.id, transaction => transaction.updateTurnMetadata("000001", { product: { edited: true } }));
+  assert.deepEqual((await f.storage.read(conversation.id, transaction => transaction.readTurn("000001"))).metadata,
+    { runtime: { status: "complete" }, product: { edited: true } });
+  assert.equal(await f.storage.write(conversation.id, transaction => transaction.nextTurnId()), "000004");
+
+  await f.messagesRepository.create({ conversationId: conversation.id, actorUserId: "1", role: "user", kind: "chat",
+    clientMessageSid: "imported", contentText: "Imported question",
+    metadata: { surfaceId: "assistant", conversationRuntime: { turnId: "000009" } } });
+  assert.equal((await f.storage.read(conversation.id, transaction => transaction.readTurn("000009"))).user.text, "Imported question");
+
+  await f.conversationsRepository.updateById(conversation.id, { metadata: { runtime: { external: true } } });
+  assert.deepEqual(await f.storage.read(conversation.id, transaction => transaction.readMetadata()), { runtime: { external: true } });
+});
+
+test("a save that fails to commit leaves the cached rows on what the database holds", async t => {
+  const f = await fixture(t);
+  const conversation = await f.conversation();
+  let fail = false;
+  const storage = createSqlConversationStorage({ conversationsRepository: f.conversationsRepository,
+    messagesRepository: { ...f.messagesRepository, async create(input, options) {
+      const result = await f.messagesRepository.create(input, options);
+      if (fail) throw new Error("forced-row-commit-failure");
+      return result;
+    } } });
+  await writeTurns(storage, conversation.id, 2);
+  assert.equal((await storage.read(conversation.id, transaction => transaction.listTurnIds())).length, 2);
+  fail = true;
+  await assert.rejects(writeTurns(storage, conversation.id, 1, "failed"), /forced-row-commit-failure/);
+  fail = false;
+  assert.deepEqual(await storage.read(conversation.id, transaction => transaction.listTurnIds()), ["000001", "000002"]);
+  await writeTurns(storage, conversation.id, 1, "next");
+  const saved = await f.messagesRepository.listByConversationScope(conversation.id);
+  assert.deepEqual(saved.map(row => row.seq), [1, 2, 3, 4, 5, 6]);
+  assert.equal(saved.at(-2).clientMessageSid, "next-0");
+  assert.equal((await f.conversationsRepository.findById(conversation.id)).messageCount, 6);
+});

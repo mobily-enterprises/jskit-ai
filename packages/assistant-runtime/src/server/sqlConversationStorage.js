@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { setTimeout as delay } from "node:timers/promises";
 import { AppError } from "@jskit-ai/kernel/server/runtime";
@@ -87,34 +88,82 @@ function requireUnambiguous(projection) {
   });
 }
 
+// Rows kept in memory across every cached conversation. A conversation with more rows
+// than this is read from the database on each access.
+const CACHED_ROWS = 50_000;
+
 /** Existing SQL rows remain authoritative. Core supplies the transaction methods;
  * the database owns locking, sequence allocation and commit/rollback together.
+ * Each conversation's rows stay cached while its transcript revision and last message
+ * sequence are unchanged. Every save that changes rows or the summary writes a new
+ * random revision under the conversation lock, so a save by another server makes the
+ * next access read the rows again, as does a row inserted without this storage; the
+ * cache takes a save only after its transaction commits.
  */
 function createSqlConversationStorage({ conversationsRepository, messagesRepository }) {
-  async function load(id, trx, write = false) {
-    const conversation = await conversationsRepository.findById(id, { trx, forUpdate: write });
-    if (!conversation) throw new AppError(404, "Conversation not found.", { code: "assistant.runtime.conversation.notFound" });
+  const cache = new Map();
+  let cachedRows = 0;
+
+  function forget(id) {
+    const entry = cache.get(id);
+    if (!entry) return;
+    cache.delete(id);
+    cachedRows -= entry.rows.length;
+  }
+
+  function remember(id, entry) {
+    forget(id);
+    if (!entry.revision || entry.rows.length > CACHED_ROWS) return;
+    cache.set(id, entry);
+    cachedRows += entry.rows.length;
+    for (const [oldest, value] of cache) {
+      if (cachedRows <= CACHED_ROWS) break;
+      cache.delete(oldest);
+      cachedRows -= value.rows.length;
+    }
+  }
+
+  async function readRows(id, conversation, trx) {
     const rows = [];
     for (let page = 1; ; page += 1) {
       const batch = await messagesRepository.listByConversationScope(id, { workspaceId: conversation.workspaceId }, { page, pageSize: 500 }, { trx });
       rows.push(...batch);
       if (batch.length < 500) break;
     }
-    return { conversation, rows, projection: inspectSqlConversationRows(conversation, rows) };
+    return rows;
+  }
+
+  async function load(id, trx, write = false) {
+    const conversation = await conversationsRepository.findById(id, { trx, forUpdate: write });
+    if (!conversation) throw new AppError(404, "Conversation not found.", { code: "assistant.runtime.conversation.notFound" });
+    const { revision, summary } = await conversationsRepository.readTranscriptState(id, { trx });
+    const lastSeq = await messagesRepository.lastSequence(id, { trx });
+    let saved = cache.get(id);
+    if (saved && revision && saved.revision === revision && saved.lastSeq === lastSeq) remember(id, saved);
+    else {
+      const rows = await readRows(id, conversation, trx);
+      saved = { revision, lastSeq, rows, projection: inspectSqlConversationRows(conversation, rows) };
+      remember(id, saved);
+    }
+    const { projection } = saved;
+    const record = { ...projection.record, metadata: structuredClone(conversation.metadata || {}), ...(summary ? { summary } : {}) };
+    return { conversation, summary, lastSeq, rows: saved.rows, projection: { ...projection, record }, next: null };
   }
 
   async function save(id, loaded, record, trx) {
     const { conversation, projection } = loaded;
     let added = 0;
     let title = conversation.title;
+    const updated = new Map();
+    const inserted = [];
     const persist = async (previous, fields) => {
       if (previous) {
         if (previous.contentText !== fields.contentText || !isDeepStrictEqual(previous.metadata, fields.metadata)) {
-          await messagesRepository.updateById(previous.id, { contentText: fields.contentText, metadata: fields.metadata }, { trx });
+          updated.set(previous.id, await messagesRepository.updateById(previous.id, { contentText: fields.contentText, metadata: fields.metadata }, { trx }));
         }
       } else {
-        await messagesRepository.create({ conversationId: id, workspaceId: conversation.workspaceId,
-          actorUserId: conversation.createdByUserId, ...fields }, { trx });
+        inserted.push(await messagesRepository.create({ conversationId: id, workspaceId: conversation.workspaceId,
+          actorUserId: conversation.createdByUserId, ...fields }, { trx }));
         added += 1;
       }
     };
@@ -152,14 +201,22 @@ function createSqlConversationStorage({ conversationsRepository, messagesReposit
       ...(title !== conversation.title ? { title } : {}),
       ...(!isDeepStrictEqual(record.metadata, conversation.metadata) ? { metadata: record.metadata } : {}) };
     if (Object.keys(patch).length) await conversationsRepository.updateById(id, patch, { trx });
+    const summary = record.summary ? { text: record.summary.text, throughTurnId: record.summary.throughTurnId } : null;
+    if (!updated.size && !inserted.length && isDeepStrictEqual(summary, loaded.summary)) return;
+    const revision = randomUUID();
+    await conversationsRepository.writeTranscriptState(id, { revision, summary }, { trx });
+    const rows = loaded.rows.map(row => updated.get(row.id) || row).concat(inserted);
+    loaded.next = { revision, lastSeq: Math.max(loaded.lastSeq, ...inserted.map(row => row.seq)), rows,
+      projection: inspectSqlConversationRows(conversation, rows) };
   }
 
   async function access(id, operation, write) {
     for (let attempt = 0; ; attempt += 1) {
       let entered = false;
+      let loaded = null;
       try {
-        return await conversationsRepository.transaction(async trx => {
-          const loaded = await load(id, trx, write);
+        const result = await conversationsRepository.transaction(async trx => {
+          loaded = await load(id, trx, write);
           requireUnambiguous(loaded.projection);
           const storage = createConversationStorage({
             readRecord: () => loaded.projection.record,
@@ -168,6 +225,8 @@ function createSqlConversationStorage({ conversationsRepository, messagesReposit
           entered = true;
           return storage[write ? "write" : "read"](id, operation);
         }, { retries: 0 });
+        if (loaded.next) remember(id, loaded.next);
+        return result;
       } catch (error) {
         // SQLite cannot wait asynchronously for another connection's writer.
         // Retry acquiring the snapshot/lock only; never replay a caller or save,
