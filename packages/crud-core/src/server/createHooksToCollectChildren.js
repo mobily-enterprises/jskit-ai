@@ -121,6 +121,31 @@ function resolveChildrenContainerKey(hookContext = {}, options = {}) {
   return "lookups";
 }
 
+/**
+ * Hooks that load the children of a page of records in one call (afterQuery) and attach each record's
+ * children to it (transformReturnedRecord).
+ * @param {object} options
+ * @param {string} options.childKey The key the children are attached under.
+ * @param {string} [options.context] The name errors give the hooks.
+ * @param {(ids: unknown[], callOptions: object, hookContext: object) => Promise<object[]>} [options.listChildren]
+ *   Lists the children of the owner ids; otherwise childRepository's childListMethod does.
+ * @param {object} [options.childRepository]
+ * @param {string} [options.childListMethod]
+ * @param {string} [options.childForeignKey]
+ * @param {(child: object, hookContext: object) => unknown} [options.getChildOwnerId]
+ *   Reads a child's owner id; otherwise childOwnerIdKey or childForeignKey names it.
+ * @param {string} [options.childOwnerIdKey]
+ * @param {(record: object, hookContext: object) => unknown} [options.getParentId] Reads a record's id.
+ * @param {(value: unknown) => string} [options.normalizeOwnerKey] Turns an owner id into a map key.
+ * @param {(input: { callOptions: object, records: object[], ownerIds: unknown[], context: object }) => object} [options.buildChildCallOptions]
+ *   The options the children are listed with; by default the query's trx and visibilityContext.
+ * @param {(record: object, children: object[], hookContext: object) => object} [options.attachChildren]
+ *   Returns the record with its children; by default under childKey in the lookup container, or on
+ *   the record itself when attachToLookupContainer is false.
+ * @param {symbol | string} [options.stateMapKey]
+ * @param {boolean} [options.attachToLookupContainer]
+ * @param {string} [options.lookupContainerKey]
+ */
 function createHooksToCollectChildren(options = {}) {
   const context = normalizeText(options.context) || "createHooksToCollectChildren";
   const childKey = normalizeText(options.childKey);
@@ -131,21 +156,15 @@ function createHooksToCollectChildren(options = {}) {
   const listChildren = resolveListChildrenHandler(options, {
     context
   });
-  // readable-check: allow method-probe - input validation: an optional hook the application passes; readParentId applies otherwise
-  const getParentId = typeof options.getParentId === "function"
-    ? options.getParentId
-    : readParentId;
+  const {
+    getParentId = readParentId,
+    normalizeOwnerKey: normalizeCollectionOwnerKey = normalizeOwnerKey,
+    buildChildCallOptions = toDefaultChildCallOptions,
+    attachChildren = attachChildrenToRecord
+  } = options;
   const getChildOwnerId = resolveGetChildOwnerId(options, {
     context
   });
-  // readable-check: allow method-probe - input validation: an optional hook the application passes; normalizeOwnerKey applies otherwise
-  const normalizeCollectionOwnerKey = typeof options.normalizeOwnerKey === "function"
-    ? options.normalizeOwnerKey
-    : normalizeOwnerKey;
-  // readable-check: allow method-probe - input validation: an optional hook the application passes; toDefaultChildCallOptions applies otherwise
-  const buildChildCallOptions = typeof options.buildChildCallOptions === "function"
-    ? options.buildChildCallOptions
-    : toDefaultChildCallOptions;
   const stateMapKey = options.stateMapKey || Symbol(`crud.children.${childKey}`);
   const attachToLookupContainer = options.attachToLookupContainer !== false;
 
@@ -172,11 +191,6 @@ function createHooksToCollectChildren(options = {}) {
       }
     };
   }
-
-  // readable-check: allow method-probe - input validation: an optional hook the application passes; attachChildrenToRecord applies otherwise
-  const attachChildren = typeof options.attachChildren === "function"
-    ? options.attachChildren
-    : attachChildrenToRecord;
 
   async function afterQuery(records = [], ctx = {}) {
     const normalizedRecords = Array.isArray(records) ? records : [];
