@@ -17,9 +17,25 @@ import { createTool, textPart } from "@jskit-ai/agent/server";
 // stopped), exit_code, output, truncated, server, heartbeat_at, started_at, ended_at.
 export const COMMAND_LIMITS = { foregroundSeconds: 120, maxSeconds: 1800, outputHead: 8000, outputTail: 8000, outputFull: 16 * 1024 * 1024, heartbeatSeconds: 20, staleSeconds: 90 };
 
+/**
+ * The commands of every conversation, in `table`, run through `executor`.
+ * @param {object} dependencies
+ * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} dependencies.knex
+ * @param {import("../types.js").AgentExecutor} dependencies.executor
+ * @param {string} [dependencies.table]
+ * @param {string} [dependencies.outputDir]
+ * @param {(command: object) => unknown} [dependencies.onEnd]
+ * @param {typeof COMMAND_LIMITS} [dependencies.limits]
+ * @param {string} [dependencies.server]
+ */
 export function createCommands({
-  knex, executor, table = "agent_commands", outputDir = path.join(os.tmpdir(), "agent-runs"),
-  onEnd = () => {}, limits = COMMAND_LIMITS, server = `${os.hostname()}:${process.pid}`
+  knex,
+  executor,
+  table = "agent_commands",
+  outputDir = path.join(os.tmpdir(), "agent-runs"),
+  onEnd = ignoreEnd,
+  limits = COMMAND_LIMITS,
+  server = `${os.hostname()}:${process.pid}`
 }) {
   const live = new Map();
   const logOf = (conversationId, id) => path.join(outputDir, String(conversationId), `${id}.log`);
@@ -80,7 +96,7 @@ export function createCommands({
     return { run: String(row.id), status: "running", output: kept.slice(0, limits.outputHead), note: "It's still going and carries on in the background; follow it with check_command." };
   }
 
-  // A running command whose server stopped beating has stopped with it.
+  /** A running command whose server stopped beating has stopped with it. */
   async function check(conversationId, id) {
     if (!/^\d+$/u.test(String(id))) return { error: "Give the run number from run_command." };
     const row = await knex(table).where({ id, conversation_id: conversationId }).first();
@@ -103,17 +119,37 @@ export function createCommands({
     return { run: String(row.id), lines, output: shown };
   }
 
-  // On shutdown: commands still running here stop, and say so.
+  /** On shutdown: commands still running here stop, and say so. */
   async function stop() {
     for (const child of live.values()) child.kill();
   }
 
-  return { run, check, wholeOutput, stop, limits };
+  return Object.freeze({
+    run,
+    check,
+    wholeOutput,
+    stop,
+    limits
+  });
 }
 
+function ignoreEnd() {}
+
+/**
+ * The command tools, for one turn in one conversation.
+ * @param {object} options
+ * @param {import("../types.js").AgentCommands} options.commands
+ * @param {number | string} options.conversationId
+ * @param {string} options.root The workspace, where commands run.
+ */
 export function commandTools({ commands, conversationId, root }) {
+  /** The whole output of a run, looked up only by its number from run_command or check_command. */
+  async function readOutput({ run, from_line: fromLine = 1 }) {
+    return /^\d+$/u.test(run) ? commands.wholeOutput(conversationId, run, fromLine) : { error: "Give the run number from run_command or check_command." };
+  }
+
   return {
-    runCommand: createTool({
+    runCommand: createTool(Object.freeze({
       id: "run_command",
       description: `Run a bash script in the workspace: build, test, run programs, use git and the usual Unix tools with pipes and loops. Check what you made and fix errors by running again. A command still running after ${Math.round(commands.limits.foregroundSeconds / 60)} minutes carries on in the background; follow it with check_command.`,
       inputSchema: z.object({
@@ -121,19 +157,19 @@ export function commandTools({ commands, conversationId, root }) {
         script: z.string().min(1).max(20000).describe("The bash script"),
         seconds: z.number().int().min(5).max(commands.limits.maxSeconds).optional().describe("Most it may take in total; default 30 minutes")
       }),
-      execute: async ({ why, script, seconds }) => commands.run({ conversationId, cwd: root, why, script, seconds })
-    }),
-    checkCommand: createTool({
+      execute: ({ why, script, seconds }) => commands.run({ conversationId, cwd: root, why, script, seconds })
+    })),
+    checkCommand: createTool(Object.freeze({
       id: "check_command",
       description: "See how a command that went on in the background is doing: its status and output so far.",
       inputSchema: z.object({ run: z.string().min(1).max(30) }),
-      execute: async ({ run }) => commands.check(conversationId, run)
-    }),
-    readCommandOutput: createTool({
+      execute: ({ run }) => commands.check(conversationId, run)
+    })),
+    readCommandOutput: createTool(Object.freeze({
       id: "read_command_output",
       description: "Read the whole output of a command whose result was cut (it says so), in parts: give the run number, and from_line to carry on where the last part stopped.",
       inputSchema: z.object({ run: z.string().min(1).max(30), from_line: z.number().int().min(1).optional() }),
-      execute: async ({ run, from_line: fromLine = 1 }) => (/^\d+$/u.test(run) ? commands.wholeOutput(conversationId, run, fromLine) : { error: "Give the run number from run_command or check_command." })
-    })
+      execute: (input) => readOutput(input)
+    }))
   };
 }

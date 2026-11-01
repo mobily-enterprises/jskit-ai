@@ -5,7 +5,9 @@
   },
   "release": {
     "packages": {
+      "@jskit-ai/agent": "0.1.0",
       "@jskit-ai/agent-docs": "0.1.257",
+      "@jskit-ai/agent-runtime": "0.1.0",
       "@jskit-ai/architecture-inspector": "0.1.1",
       "@jskit-ai/assistant-core": "0.2.7",
       "@jskit-ai/assistant-runtime": "0.2.9",
@@ -68,6 +70,108 @@
     ]
   },
   "packages": [
+    {
+      "packageId": "@jskit-ai/agent",
+      "version": "0.1.0",
+      "description": "A working agent loop on the AI SDK: reasoning on every step, retries, tools, room inside a long turn, checks on every reply and summaries for a 1M-token window. No tables.",
+      "jskit": {
+        "kind": "runtime",
+        "capabilities": {
+          "provides": [],
+          "requires": []
+        },
+        "runtime": {
+          "server": {
+            "providers": []
+          },
+          "client": {
+            "providers": []
+          }
+        },
+        "metadata": {
+          "apiSummary": {
+            "surfaces": [
+              {
+                "subpath": "./server",
+                "summary": "The agent loop, its model calls, tool schemas, context limits, reply checks and table-free summaries."
+              }
+            ],
+            "capabilities": []
+          }
+        }
+      },
+      "packageJson": {
+        "dependencies": {
+          "@ai-sdk/anthropic": "^4.0.93",
+          "@ai-sdk/deepseek": "^3.0.72",
+          "ai": "^7.0.152",
+          "zod": "^4.6.7"
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/agent-runtime",
+      "version": "0.1.0",
+      "description": "Opt-in parts of the agent: its own tables (saved runs, goals, summaries, commands) and coding tools (files, commands in gVisor or a local process, to-do list, notes, goals, asking the person). PostgreSQL.",
+      "jskit": {
+        "kind": "runtime",
+        "capabilities": {
+          "provides": [],
+          "requires": []
+        },
+        "runtime": {
+          "server": {
+            "providers": []
+          },
+          "client": {
+            "providers": []
+          }
+        },
+        "metadata": {
+          "jskit": {
+            "tableOwnership": {
+              "tables": [
+                {
+                  "tableName": "agent_runs"
+                },
+                {
+                  "tableName": "agent_goals"
+                },
+                {
+                  "tableName": "agent_summaries"
+                },
+                {
+                  "tableName": "agent_summary_queue"
+                },
+                {
+                  "tableName": "agent_commands"
+                }
+              ]
+            }
+          },
+          "apiSummary": {
+            "surfaces": [
+              {
+                "subpath": "./server",
+                "summary": "Saved runs and their resumer, goal rounds, background summaries, planning notes, the default coding tools and their executors."
+              }
+            ],
+            "capabilities": []
+          }
+        },
+        "migrations": {
+          "directories": [
+            "migrations"
+          ]
+        }
+      },
+      "packageJson": {
+        "dependencies": {
+          "@jskit-ai/agent": "0.1.0",
+          "zod": "^4.6.7"
+        }
+      }
+    },
     {
       "packageId": "@jskit-ai/assistant-core",
       "version": "0.2.7",
@@ -214,7 +318,7 @@
       },
       "packageJson": {
         "dependencies": {
-          "@ai-sdk/anthropic": "^4.0.53",
+          "@ai-sdk/anthropic": "^4.0.93",
           "@ai-sdk/cerebras": "^3.0.48",
           "@ai-sdk/google": "^4.0.70",
           "@ai-sdk/groq": "^4.0.41",
@@ -228,7 +332,7 @@
           "@jskit-ai/resource-crud-core": "0.1.194",
           "@mdi/js": "^7.4.47",
           "@openrouter/ai-sdk-provider": "^3.0.0",
-          "ai": "^7.0.101",
+          "ai": "^7.0.152",
           "json-rest-schema": "^1.0.17",
           "openai": "^6.22.0",
           "ws": "^8.20.1"

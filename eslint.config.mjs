@@ -20,6 +20,8 @@ export default [
   ...typedFeaturesConfig(["**/src/server/**"], "off"),
   ...typedFeaturesConfig([
     "packages/kernel/server/**",
+    "packages/agent/src/server/**",
+    "packages/agent-runtime/src/server/**",
     "packages/http-runtime/src/server/**",
     "packages/database-runtime/src/server/**",
     "packages/database-runtime-mysql/src/server/**",

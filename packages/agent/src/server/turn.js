@@ -1,8 +1,10 @@
 // Wrappers on a turn's tools: each replaces a tool's `execute` for that turn only.
 
-// What the person writes while the model works reaches it with the next tool result (as Claude Code
-// takes messages mid-task), so the model can change course at once instead of finishing the
-// old plan first. inbox() returns what's new since it was last asked.
+/**
+ * What the person writes while the model works reaches it with the next tool result (as Claude Code
+ * takes messages mid-task), so the model can change course at once instead of finishing the
+ * old plan first. inbox() returns what's new since it was last asked.
+ */
 export function hearWhileWorking(tool, inbox) {
   const execute = tool.execute;
   tool.execute = async (input, context) => {

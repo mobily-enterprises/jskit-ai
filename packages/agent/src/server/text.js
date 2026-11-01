@@ -1,7 +1,9 @@
 // Reading and measuring text.
 
-// A rough token count (about four characters a token; a picture counts as a thousand), enough to
-// decide when to summarise and where to cut.
+/**
+ * A rough token count (about four characters a token; a picture counts as a thousand), enough to
+ * decide when to summarise and where to cut.
+ */
 export function estimateTokens(messages) {
   let tokens = 0;
   for (const message of messages) {
@@ -14,8 +16,10 @@ export function estimateTokens(messages) {
 // How much of a long text is shown at once (about 30,000 tokens).
 export const READ_LIMIT = 120000;
 
-// A long text in parts, whole lines at a time (as Claude Code's reader does). A line longer than
-// half a part (minified JSON, a progress bar) is split, so reading always moves on.
+/**
+ * A long text in parts, whole lines at a time (as Claude Code's reader does). A line longer than
+ * half a part (minified JSON, a progress bar) is split, so reading always moves on.
+ */
 export function textPart(text, fromLine = 1) {
   const pieces = String(text).split("\n").flatMap((line) => (line.length <= READ_LIMIT / 2 ? [line] : Array.from({ length: Math.ceil(line.length / (READ_LIMIT / 2)) }, (_, index) => line.slice(index * (READ_LIMIT / 2), (index + 1) * (READ_LIMIT / 2)))));
   const part = [];
@@ -29,7 +33,7 @@ export function textPart(text, fromLine = 1) {
   return { lines: pieces.length, shown: `${part.join("\n")}${more}` };
 }
 
-// Whether two passages say much the same: most of the shorter one's longer words are in the other.
+/** Whether two passages say much the same: most of the shorter one's longer words are in the other. */
 export function sameGist(a, b) {
   const words = (text) => new Set(String(text).toLowerCase().match(/[\p{L}\p{N}'-]{4,}/gu) || []);
   const [one, two] = [words(a), words(b)];
@@ -38,7 +42,7 @@ export function sameGist(a, b) {
   return [...one].filter((word) => two.has(word)).length / smaller >= 0.6;
 }
 
-// Lines that are only a bracketed note are bookkeeping, never something to show the person.
+/** Lines that are only a bracketed note are bookkeeping, never something to show the person. */
 export function stripNotes(text) {
   return String(text || "")
     .split("\n")

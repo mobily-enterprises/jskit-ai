@@ -72,8 +72,10 @@ export function gvisorExecutor(settings = {}) {
   };
 }
 
-// The local process (opt in): bash in the workspace, with this machine's programs and no sandbox,
-// for a trusted machine or a container of its own.
+/**
+ * The local process (opt in): bash in the workspace, with this machine's programs and no sandbox,
+ * for a trusted machine or a container of its own.
+ */
 export function localExecutor() {
   return {
     kind: "local",

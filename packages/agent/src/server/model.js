@@ -2,9 +2,11 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import { createDeepSeek } from "@ai-sdk/deepseek";
 import { generateText } from "ai";
 
-// A provider's chat model. With an Anthropic-style address (DeepSeek's own API) it's called in
-// that format, as Claude Code calls it, so signed reasoning goes back on every step; otherwise in
-// the OpenAI style (Together AI, DeepSeek), where reasoning goes back as reasoning_content.
+/**
+ * A provider's chat model. With an Anthropic-style address (DeepSeek's own API) it's called in
+ * that format, as Claude Code calls it, so signed reasoning goes back on every step; otherwise in
+ * the OpenAI style (Together AI, DeepSeek), where reasoning goes back as reasoning_content.
+ */
 export function chatModel({ apiKey, model, baseURL, anthropicURL = "", fetch: fetchImpl }) {
   const client = anthropicURL
     ? createAnthropic({ apiKey, baseURL: anthropicURL, fetch: fetchImpl })
@@ -27,7 +29,7 @@ export const LOOP_OUTPUT_TOKENS = 32000;
 // all, before a reply gives up and says so.
 export const MODEL_RETRIES = 6;
 
-// One call without tools, such as a summary or a short label; returns its text.
+/** One call without tools, such as a summary or a short label; returns its text. */
 export async function generateOnce({ model, system, messages, reasoning = REASONING.off, maxOutputTokens }) {
   const result = await generateText({
     model,

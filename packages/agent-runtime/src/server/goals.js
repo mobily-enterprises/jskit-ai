@@ -1,12 +1,14 @@
 import { z } from "zod";
 import { createTool } from "@jskit-ai/agent/server";
+import { NO_NOTICES } from "./notices.js";
 
-// Goals and goal rounds, after DeepSeek Harness (MIT; docs/agent-loop-dsh.md P3–P5). For a job of
-// several steps the model opens a goal; whenever its turn ends while the goal is active, another
-// round is queued telling it to check the real state and carry on, until it marks the goal complete
-// with evidence, or blocked (not before round 3), or a limit is reached: rounds, or what the job
-// may spend (AGENT_JOB_COST_USD, 5 dollars by default, 0 for none). The person's own message always
-// comes first. Rounds are claimed through the database with a lease, so any server carries them on.
+// Goals and goal rounds, after DeepSeek Harness (MIT; P3–P5 in @jskit-ai/agent's
+// docs/deepseek-harness.md). For a job of several steps the model opens a goal; whenever its turn
+// ends while the goal is active, another round is queued telling it to check the real state and
+// carry on, until it marks the goal complete with evidence, or blocked (not before round 3), or a
+// limit is reached: rounds, or what the job may spend (AGENT_JOB_COST_USD, 5 dollars by default, 0
+// for none). The person's own message always comes first. Rounds are claimed through the database
+// with a lease, so any server carries them on.
 //
 // The table has: id, conversation_id, objective, status (active, paused, complete, blocked), rounds,
 // max_rounds, reason, time_zone, language, round_at, lease_until, attempts, created_at, updated_at,
@@ -30,22 +32,25 @@ export function roundPrompt(goal) {
 const COMPLETE_NOTE = "The goal is marked complete and this run is ending. Write the closing message to the person now: state the outcome, summarise what was done and how it was verified, and point to the concrete results (files, apps, records). Report only what this conversation's tool results actually establish; when a detail isn't established, say so instead of inventing it. Note anything they should review or do next. Don't call any more tools.";
 const BLOCKED_NOTE = "The goal is marked blocked and this run is ending. Write the closing message to the person now: what was completed, the concrete blocking condition, what you tried, and exactly what you need from them. Don't call any more tools.";
 
-// The goal tools, for one turn: `operations` is what goals.operationsFor(row, …) returns.
+/**
+ * The goal tools, for one turn: `operations` is what goals.operationsFor(row, …) returns.
+ * @param {import("./types.js").AgentGoalOperations} operations
+ */
 export function goalTools(operations) {
   return {
-    createGoal: createTool({
+    createGoal: createTool(Object.freeze({
       id: "create_goal",
       description: "Set up a goal that keeps you working on the person's request across automatic rounds until it's done. Use it whenever their request is a job with several steps (building or changing an app, working on files, a multi-step errand), even if they didn't say \"goal\"; not for a quick answer. Then start working on it straight away.",
       inputSchema: z.object({ objective: z.string().min(5).max(2000).describe("The whole job, with what counts as done") }),
-      execute: async ({ objective }) => operations.create(objective.trim())
-    }),
-    getGoal: createTool({
+      execute: ({ objective }) => operations.create(objective.trim())
+    })),
+    getGoal: createTool(Object.freeze({
       id: "get_goal",
       description: "Read the current goal: its objective, status and round.",
       inputSchema: z.object({}),
-      execute: async () => operations.get()
-    }),
-    updateGoal: createTool({
+      execute: () => operations.get()
+    })),
+    updateGoal: createTool(Object.freeze({
       id: "update_goal",
       description: "Change the goal: complete (only with evidence that the whole objective is achieved), blocked (a real blocker only the person can remove; not before 3 rounds of trying), pause, or edit its objective.",
       inputSchema: z.object({
@@ -53,25 +58,61 @@ export function goalTools(operations) {
         objective: z.string().max(2000).optional(),
         reason: z.string().max(1000).optional().describe("For blocked: what's blocking and what you need")
       }),
-      execute: async (input) => operations.update(input)
-    })
+      execute: (input) => operations.update(input)
+    }))
   };
 }
 
-// Hooks: `find(goal)` the conversation a goal is in (null when it's gone); `respond(row, options)`
-// runs one reply there; `claim(row)` takes the conversation's reply slot (runs.claim); `record(row,
-// { text, detail })` shows an event line; `notify(row, event)` tells open pages; `owner(row)` extra
-// columns for a new goal; `spent(goal)` what the job has cost so far; `track(goal, work)` meters it.
+/**
+ * Goals in `table`, and their rounds. Hooks: `find(goal)` the conversation a goal is in (null when
+ * it's gone); `respond(row, options)` runs one reply there; `claim(row)` takes the conversation's
+ * reply slot (runs.claim); `record(row, { text, detail })` shows an event line; `notify(row, event)`
+ * tells open pages; `owner(row)` extra columns for a new goal; `spent(goal)` what the job has cost
+ * so far; `track(goal, work)` meters it; `background(work)` keeps a round going after the turn
+ * that queued it. Without `notices`, each server finds due rounds on its own timer.
+ * @param {object} dependencies
+ * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} dependencies.knex
+ * @param {import("./types.js").AgentRuns} dependencies.runs
+ * @param {string} [dependencies.table]
+ * @param {string} [dependencies.channel]
+ * @param {import("./types.js").AgentNotices | null} [dependencies.notices]
+ * @param {typeof GOAL_LIMITS} [dependencies.limits]
+ * @param {(goal: object) => Promise<object | null>} dependencies.find
+ * @param {(row: object, options: { timeZone: string, language: string, prompt: string, goalTurn: boolean }) => Promise<unknown>} dependencies.respond
+ * @param {(row: object) => Promise<boolean>} dependencies.claim
+ * @param {(row: object, event: { text: string, detail: string }) => Promise<unknown>} dependencies.record
+ * @param {(row: object, event: object) => Promise<unknown>} [dependencies.notify]
+ * @param {(row: object) => object} [dependencies.owner]
+ * @param {(goal: object) => Promise<number>} [dependencies.spent]
+ * @param {(goal: object, work: () => Promise<unknown>) => Promise<unknown>} [dependencies.track]
+ * @param {(work: Promise<unknown>) => unknown} [dependencies.background]
+ */
 export function createGoals({
-  knex, runs, table = "agent_goals", channel = "agent-goals", notices = null, limits = GOAL_LIMITS,
-  find, respond, claim, record, notify = async () => {}, owner = () => ({}), spent = async () => 0, track = (_goal, work) => work(), background = (work) => work
+  knex,
+  runs,
+  table = "agent_goals",
+  channel = "agent-goals",
+  notices,
+  limits = GOAL_LIMITS,
+  find,
+  respond,
+  claim,
+  record,
+  notify = notifyNoPages,
+  owner = noOwnerColumns,
+  spent = async () => 0,
+  track = (_goal, work) => work(),
+  background = (work) => work
 }) {
-  const wake = () => notices?.publish?.(channel, "all", {}).catch(() => {});
+  const channelNotices = notices ?? NO_NOTICES;
+  const wake = () => channelNotices.publish(channel, "all", {}).catch(() => {});
   const openGoal = (conversationId) => knex(table).where({ conversation_id: conversationId }).whereIn("status", OPEN).first();
   const view = (goal) => goal && { objective: goal.objective, status: goal.status, rounds: goal.rounds, maxRounds: goal.max_rounds, ...(goal.reason ? { reason: goal.reason } : {}) };
 
-  // What the goal tools do, for one turn in one conversation. Only a turn started by the person can
-  // open a goal; another bot's request or a routine can't (DSH P5).
+  /**
+   * What the goal tools do, for one turn in one conversation. Only a turn started by the person can
+   * open a goal; another bot's request or a routine can't (DSH P5).
+   */
   function operationsFor(row, { human = false, timeZone = "UTC", language = "" } = {}) {
     return {
       async create(objective) {
@@ -119,12 +160,12 @@ export function createGoals({
     };
   }
 
-  // Opens a goal for a request whose reply ran out of steps or time, so it carries on by itself.
+  /** Opens a goal for a request whose reply ran out of steps or time, so it carries on by itself. */
   function openFor(row, request, options) {
     return operationsFor(row, { ...options, human: true }).create(`Finish what the person asked: ${String(request).slice(0, 1500)}`);
   }
 
-  // A goal that stops at a limit says so plainly, so the person can ask for more.
+  /** A goal that stops at a limit says so plainly, so the person can ask for more. */
   async function stopAt(goal, reason, detail) {
     await knex(table).where({ id: goal.id }).update({ status: "blocked", reason, round_at: null, updated_at: knex.fn.now() });
     const row = await find(goal);
@@ -134,7 +175,7 @@ export function createGoals({
     }
   }
 
-  // After any turn in a conversation: an active goal gets its next round, unless a limit is reached.
+  /** After any turn in a conversation: an active goal gets its next round, unless a limit is reached. */
   async function afterTurn(conversationId) {
     const goal = await knex(table).where({ conversation_id: conversationId, status: "active" }).first();
     if (!goal) return;
@@ -151,7 +192,7 @@ export function createGoals({
     background(runDue());
   }
 
-  // The person carrying on with a paused goal makes it active again.
+  /** The person carrying on with a paused goal makes it active again. */
   async function resume(conversationId) {
     await knex(table).where({ conversation_id: conversationId, status: "paused" }).update({ status: "active", updated_at: knex.fn.now() });
   }
@@ -223,8 +264,8 @@ export function createGoals({
     let stopped = false;
     const tick = () => { if (!stopped) background(runDue()); };
     const timer = setInterval(tick, everyMs);
-    timer.unref?.();
-    const unsubscribe = notices?.subscribe?.(channel, "all", () => tick()) || (() => {});
+    timer.unref();
+    const unsubscribe = channelNotices.subscribe(channel, "all", () => tick());
     tick();
     return {
       async drain(ms) {
@@ -236,5 +277,19 @@ export function createGoals({
     };
   }
 
-  return { operationsFor, openFor, afterTurn, resume, runDue, start, openGoal };
+  return Object.freeze({
+    operationsFor,
+    openFor,
+    afterTurn,
+    resume,
+    runDue,
+    start,
+    openGoal
+  });
+}
+
+async function notifyNoPages() {}
+
+function noOwnerColumns() {
+  return {};
 }
