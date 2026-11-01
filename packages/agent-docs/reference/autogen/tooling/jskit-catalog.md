@@ -93,7 +93,6 @@ Exports
 - `restoreProjectFiles(updates, packageLockPath, packageLockSnapshot)`
 - `runNpmInstall(projectRoot)`
 - `writeManifestUpdates(updates = [])`
-- `type InstallTransaction`
 Local functions
 - `spawnNpmInstall(projectRoot)`
 

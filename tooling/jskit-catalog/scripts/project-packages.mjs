@@ -391,7 +391,7 @@ async function preparePackageLockForInstall(projectRoot, manifests, packageLockP
  * Pins a project's JSKIT dependencies to the catalog and installs them; a
  * failed install or check restores the manifests, lockfile and node_modules.
  * @param {object} options
- * @param {(projectRoot: string) => Promise<import("./project-install.mjs").InstallTransaction>} [options.installProject]
+ * @param {typeof runNpmInstall} [options.installProject] installs the project and returns the transaction that commits or rolls back its node_modules
  */
 async function updateProject({
   projectRoot = process.cwd(),

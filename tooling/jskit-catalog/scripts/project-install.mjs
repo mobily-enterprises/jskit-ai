@@ -7,14 +7,6 @@ import { fileExists } from "./files.mjs";
 // writes are atomic per file and restorable, and `npm install` runs against a
 // moved-aside node_modules that a rollback puts back.
 
-/**
- * An `npm install` that has run: commit keeps its node_modules, rollback
- * restores the one it replaced.
- * @typedef {object} InstallTransaction
- * @property {() => Promise<void>} commit
- * @property {() => Promise<void>} rollback
- */
-
 async function writeManifestUpdates(updates = []) {
   const temporaryPaths = [];
   const committed = [];
