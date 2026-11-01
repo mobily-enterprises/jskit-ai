@@ -3,6 +3,7 @@ import { createChatService } from "../../src/server/services/chatService.js";
 import { ASSISTANT_STREAM_WRITER_METHODS } from "../../src/server/support/assistantStreamWriter.js";
 import { createAssistantConversationRuntime } from "../../src/server/createAssistantRuntime.js";
 import { createMemoryAssistantRows } from "../../test/support/memoryAssistantRows.js";
+import { createScriptedModel } from "../../test/support/scriptedModel.js";
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import { fileURLToPath } from "node:url";
@@ -66,14 +67,14 @@ export default defineConfig({
               turnRequests,
               aiClientFactory: { async resolveClient(_surface, { integrationId }) {
                 return { enabled: true, provider: "fixture", defaultModel: integrationId, supportsAttachments: true,
-                  async *createChatCompletionStream({ messages }) {
+                  model: createScriptedModel(async function* ({ messages }) {
                     stream.receivedFiles = messages.at(-1).content;
                     await nextChunk();
                     yield { choices: [{ delta: { content: "Partial answer" } }] };
                     await nextChunk();
                     yield { choices: [{ delta: { content: " completed." } }] };
                     yield { choices: [{ delta: {}, finish_reason: "stop" }] };
-                  }
+                  }, { model: integrationId })
                 };
               } },
               attachments: { async resolve({ attachmentIds }) {

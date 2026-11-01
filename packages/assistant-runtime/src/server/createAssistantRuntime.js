@@ -121,7 +121,7 @@ function createAssistantConversationRuntime({ conversationsRepository, messagesR
         workspaceId: normalizeRecordId(request.workspace?.id || request.workspace, { fallback: null })
       }));
     },
-    apiClientFactory: { preserveWhitespace: false, resolveClient: ({ context, configuration }) => aiClientFactory.resolveClient(context.surface,
+    apiClientFactory: { resolveClient: ({ context, configuration }) => aiClientFactory.resolveClient(context.surface,
       { context, integrationId: configuration.integrationId }) },
     toolCatalog,
     ...(attachments ? { attachments: {
