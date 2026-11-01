@@ -1,4 +1,3 @@
-import { createProviderLogger } from "@jskit-ai/kernel/shared/support/providerLogger";
 import { useJskitText } from "../i18n.js";
 
 const { t } = useJskitText();
@@ -33,6 +32,16 @@ function normalizeBootstrapResponseError(response, url) {
   return error;
 }
 
+/**
+ * @param {object} options
+ * @param {any} options.handlers
+ * @param {any} options.placementRuntime
+ * @param {any} [options.requestRecoveryRuntime]
+ * @param {any} [options.router]
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} options.logger
+ * @param {typeof fetch} [options.fetchImplementation]
+ * @param {string} [options.bootstrapPath]
+ */
 function createShellBootstrapRuntime({
   handlers,
   placementRuntime,
@@ -49,7 +58,6 @@ function createShellBootstrapRuntime({
     throw new Error("createShellBootstrapRuntime requires a placement runtime.");
   }
 
-  const runtimeLogger = createProviderLogger(logger);
   let initialized = false;
   let refreshQueue = Promise.resolve();
 
@@ -169,7 +177,7 @@ function createShellBootstrapRuntime({
         source: "shell-web.bootstrap",
         dedupeKey: `shell-web.bootstrap.${String(reason || "manual").trim() || "manual"}.request-failed`
       });
-      runtimeLogger.warn(
+      logger.warn(
         {
           reason,
           error: String(error?.message || error || "unknown error")

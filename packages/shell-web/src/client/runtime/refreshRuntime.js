@@ -1,5 +1,4 @@
 import { isRecord } from "@jskit-ai/kernel/shared/support";
-import { createProviderLogger as createSharedProviderLogger } from "@jskit-ai/kernel/shared/support/providerLogger";
 import { useJskitText } from "../i18n.js";
 
 const { t } = useJskitText();
@@ -19,13 +18,19 @@ function isPullRefreshQuery(query = null) {
   return jskitMeta.refreshOnPull !== false;
 }
 
+/**
+ * @param {object} options
+ * @param {any} [options.bootstrapRuntime]
+ * @param {any} [options.queryClient]
+ * @param {any} [options.errorRuntime]
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} options.logger
+ */
 function createShellRefreshRuntime({
   bootstrapRuntime = null,
   queryClient = null,
   errorRuntime = null,
-  logger = null
-} = {}) {
-  const runtimeLogger = createSharedProviderLogger(logger);
+  logger
+}) {
   let refreshQueue = Promise.resolve(null);
 
   async function refreshBootstrap(reason) {
@@ -55,7 +60,7 @@ function createShellRefreshRuntime({
   }
 
   function reportRefreshFailure(error) {
-    runtimeLogger.warn(
+    logger.warn(
       {
         error: String(error?.message || error || "unknown error")
       },

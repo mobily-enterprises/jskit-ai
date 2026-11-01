@@ -1,6 +1,5 @@
 import { guardedReloadApp } from "@jskit-ai/kernel/client/asyncModuleRecovery";
 import { isRecord, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { createProviderLogger as createSharedProviderLogger } from "@jskit-ai/kernel/shared/support/providerLogger";
 import { useJskitText } from "../i18n.js";
 
 const { t, text } = useJskitText();
@@ -323,12 +322,17 @@ function installRecoverableQueryObserver({
   });
 }
 
+/**
+ * @param {object} options
+ * @param {any} [options.queryClient]
+ * @param {any} [options.errorRuntime]
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} options.logger
+ */
 function createShellRequestRecoveryRuntime({
   queryClient = null,
   errorRuntime = null,
-  logger = null
-} = {}) {
-  const runtimeLogger = createSharedProviderLogger(logger);
+  logger
+}) {
   let installedQueryObserver = null;
   let reloadAttempt = 0;
 
@@ -398,7 +402,7 @@ function createShellRequestRecoveryRuntime({
 
     const source = normalizeText(options.source, { fallback: "shell-web.request-recovery" });
     if (!errorRuntime || typeof errorRuntime.report !== "function") {
-      runtimeLogger.warn(
+      logger.warn(
         {
           source,
           error: errorMessage(error) || "unknown error"
@@ -429,7 +433,7 @@ function createShellRequestRecoveryRuntime({
         action
       });
     } catch (reportError) {
-      runtimeLogger.error(
+      logger.error(
         {
           source,
           error: errorMessage(reportError) || "unknown error"
@@ -448,7 +452,7 @@ function createShellRequestRecoveryRuntime({
     installedQueryObserver = installRecoverableQueryObserver({
       queryClient,
       runtime: api,
-      logger: runtimeLogger
+      logger
     });
     return installedQueryObserver;
   }

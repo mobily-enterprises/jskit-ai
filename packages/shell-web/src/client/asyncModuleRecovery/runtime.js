@@ -5,24 +5,28 @@ import {
   isDynamicImportError,
   notifyAsyncModuleLoadError
 } from "@jskit-ai/kernel/client/asyncModuleRecovery";
-import { createProviderLogger as createSharedProviderLogger } from "@jskit-ai/kernel/shared/support/providerLogger";
 import { appReloadFailureMessage } from "../requestRecovery/runtime.js";
 import { useJskitText } from "../i18n.js";
 
 const { t } = useJskitText();
 
+/**
+ * @param {object} options
+ * @param {any} [options.router]
+ * @param {any} [options.errorRuntime]
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} options.logger
+ */
 function createShellAsyncModuleRecoveryRuntime({
   router = null,
   errorRuntime = null,
-  logger = null
-} = {}) {
-  const runtimeLogger = createSharedProviderLogger(logger);
+  logger
+}) {
   const state = createAsyncModuleRecoveryState();
   let installedRecovery = null;
 
   function report(nextState = state) {
     if (!errorRuntime || typeof errorRuntime.report !== "function") {
-      runtimeLogger.warn(
+      logger.warn(
         {
           label: String(nextState?.label || "")
         },
@@ -52,7 +56,7 @@ function createShellAsyncModuleRecoveryRuntime({
         }
       });
     } catch (error) {
-      runtimeLogger.error(
+      logger.error(
         {
           label: String(nextState?.label || ""),
           error: String(error?.message || error || "unknown error")

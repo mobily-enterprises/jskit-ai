@@ -1,44 +1,24 @@
-function asLogger(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return null;
-  }
-  return value;
-}
-
-function callLoggerMethod(logger, methodName, fallbackMethodName, args) {
-  if (logger && typeof logger[methodName] === "function") {
-    logger[methodName](...args);
-    return;
-  }
-
-  if (typeof console[fallbackMethodName] === "function") {
-    console[fallbackMethodName](...args);
-  }
-}
-
-function createProviderLogger(loggerLike = null, { debugEnabled = false, debugMethod = "info" } = {}) {
-  const logger = asLogger(loggerLike);
-  const resolvedDebugMethod = String(debugMethod || "info").trim() || "info";
-
-  function debug(...args) {
-    if (debugEnabled !== true) {
-      return;
-    }
-    callLoggerMethod(logger, resolvedDebugMethod, "info", args);
-  }
-
+/**
+ * The logger a provider writes through: the application's logger, whose debug
+ * messages are written with its info method only when debugEnabled is true.
+ * @param {import("../../server/types.js").RuntimeLogger} logger
+ * @param {{ debugEnabled?: boolean }} [options]
+ */
+function createProviderLogger(logger, { debugEnabled = false } = {}) {
   function info(...args) {
-    callLoggerMethod(logger, "info", "info", args);
+    logger.info(...args);
   }
-
   function warn(...args) {
-    callLoggerMethod(logger, "warn", "warn", args);
+    logger.warn(...args);
   }
-
   function error(...args) {
-    callLoggerMethod(logger, "error", "error", args);
+    logger.error(...args);
   }
-
+  function debug(...args) {
+    if (debugEnabled === true) {
+      info(...args);
+    }
+  }
   return Object.freeze({ debug, info, warn, error });
 }
 

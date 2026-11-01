@@ -21,7 +21,6 @@ import {
 } from "./bootstrapPlacementRuntimeConstants.js";
 import {
   countPendingInvites,
-  createProviderLogger,
   normalizeWorkspaceBootstrapStatus,
   normalizeWorkspaceSlugKey,
   resolveRequestedWorkspaceBootstrapStatus,
@@ -29,14 +28,23 @@ import {
 } from "./bootstrapPlacementRuntimeHelpers.js";
 import { resolveErrorStatusCode } from "../support/runtimeNormalization.js";
 
+/**
+ * @param {object} options
+ * @param {any} options.bootstrapRuntime
+ * @param {any} options.placementRuntime
+ * @param {any} [options.realtime]
+ * @param {any} [options.router]
+ * @param {any} [options.vueApp]
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} options.logger
+ */
 function createBootstrapPlacementRuntime({
   bootstrapRuntime,
   placementRuntime,
   realtime = null,
   router = null,
   vueApp = null,
-  logger = null
-} = {}) {
+  logger
+}) {
   if (!placementRuntime || typeof placementRuntime.getContext !== "function") {
     throw new Error("createBootstrapPlacementRuntime requires shell-web placement runtime.");
   }
@@ -44,7 +52,6 @@ function createBootstrapPlacementRuntime({
     throw new Error("createBootstrapPlacementRuntime requires shell-web bootstrap runtime.");
   }
 
-  const runtimeLogger = createProviderLogger(logger);
   let vuetifyThemeController = resolveVuetifyThemeController(vueApp);
   const socket = realtime?.socket || null;
   const cleanup = [];
@@ -200,7 +207,7 @@ function createBootstrapPlacementRuntime({
       setVuetifyThemeName(themeController, nextThemeName);
       persistBootstrapThemePreference(payload);
     } catch (error) {
-      runtimeLogger.warn(
+      logger.warn(
         {
           reason,
           error: String(error?.message || error || "unknown error")
@@ -246,7 +253,7 @@ function createBootstrapPlacementRuntime({
       const workspaceTheme = resolveWorkspaceThemeForCurrentRoute();
       setVuetifyPrimaryColorOverride(themeController, workspaceTheme);
     } catch (error) {
-      runtimeLogger.warn(
+      logger.warn(
         {
           reason,
           error: String(error?.message || error || "unknown error")
@@ -372,7 +379,7 @@ function createBootstrapPlacementRuntime({
       setWorkspaceBootstrapStatus(requested.workspaceSlug, WORKSPACE_BOOTSTRAP_STATUS_ERROR, normalizedSource);
     }
 
-    runtimeLogger.warn(
+    logger.warn(
       {
         reason,
         error: String(error?.message || error || "unknown error")

@@ -19,7 +19,6 @@ import {
 import {
   isRecord
 } from "@jskit-ai/kernel/shared/support";
-import { createProviderLogger as createSharedProviderLogger } from "@jskit-ai/kernel/shared/support/providerLogger";
 import {
   createDefaultErrorPolicy
 } from "../error/policy.js";
@@ -253,7 +252,7 @@ const ShellWebClientProvider = defineProvider({
   id: "shell.web.client",
   requires: {
     components: "client.components",
-    loggerInput: "client.logger",
+    logger: "client.logger",
     pinia: "client.pinia",
     queryClient: "client.query",
     router: "client.router",
@@ -266,8 +265,7 @@ const ShellWebClientProvider = defineProvider({
   provides: {
     shell: "client.shell"
   },
-  setup({ components, loggerInput, queryClient, router }) {
-    const logger = createSharedProviderLogger(loggerInput);
+  setup({ components, logger, queryClient, router }) {
     const bootstrapHandlers = createBootstrapPayloadHandlerRegistry();
     bootstrapHandlers.register(
       Object.freeze({
@@ -341,8 +339,7 @@ const ShellWebClientProvider = defineProvider({
       })
     };
   },
-  async boot({ loggerInput, pinia, realtime, router, surfaceRuntime, vueApp }, { outputs }) {
-    const logger = createSharedProviderLogger(loggerInput);
+  async boot({ logger, pinia, realtime, router, surfaceRuntime, vueApp }, { outputs }) {
     const {
       asyncModuleRecovery: asyncModuleRecoveryRuntime,
       bootstrap: bootstrapRuntime,

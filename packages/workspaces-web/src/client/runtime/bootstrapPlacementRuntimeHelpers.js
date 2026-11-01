@@ -1,7 +1,4 @@
 import {
-  createProviderLogger as createSharedProviderLogger
-} from "@jskit-ai/kernel/shared/support/providerLogger";
-import {
   resolveRuntimePathname,
   resolveSurfaceIdFromPlacementPathname
 } from "@jskit-ai/shell-web/client/placement";
@@ -13,10 +10,6 @@ import {
   normalizeWorkspaceBootstrapStatusValue
 } from "../support/runtimeNormalization.js";
 import { WORKSPACE_BOOTSTRAP_STATUSES } from "./bootstrapPlacementRuntimeConstants.js";
-
-function createProviderLogger(logger) {
-  return createSharedProviderLogger(logger);
-}
 
 function resolveRouteState(placementRuntime, router) {
   const context = placementRuntime.getContext();
@@ -134,7 +127,6 @@ async function fetchBootstrapPayload(workspaceSlug = "") {
 
 export {
   countPendingInvites,
-  createProviderLogger,
   fetchBootstrapPayload,
   isGuardDenied,
   normalizeSearch,

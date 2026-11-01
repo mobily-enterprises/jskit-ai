@@ -38,8 +38,13 @@ function resolveRealtimeClientConfig({ env = {}, mobile = null } = {}) {
   return Object.freeze({ url, options, debugEnabled });
 }
 
-function createRealtimeClient({ config, loggerInput } = {}) {
-  const logger = createProviderLogger(loggerInput, {
+/**
+ * @param {object} options
+ * @param {any} options.config
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} options.logger
+ */
+function createRealtimeClient({ config, logger: appLogger }) {
+  const logger = createProviderLogger(appLogger, {
     debugEnabled: config.debugEnabled
   });
   const socket = createSocketIoClient({
@@ -189,7 +194,7 @@ const RealtimeClientProvider = defineProvider({
     return {
       realtime: createRealtimeClient({
         config: resolveRealtimeClientConfig({ env, mobile }),
-        loggerInput: logger
+        logger
       })
     };
   },
