@@ -90,11 +90,8 @@ function authPolicyPlugin(deps = {}, options = {}) {
   const nodeEnv = String(options.nodeEnv || "").trim();
   const csrfCookieOpts =
     options.csrfCookieOpts && typeof options.csrfCookieOpts === "object" ? options.csrfCookieOpts : {};
-  // readable-check: allow method-probe - input validation: the options an application passes authPolicyPlugin
-  const resolveCsrfTokenFn = typeof options.resolveCsrfToken === "function" ? options.resolveCsrfToken : resolveCsrfToken;
   // createError(status, englishMessage, { code }) builds each refusal.
-  // readable-check: allow method-probe - input validation: the options an application passes authPolicyPlugin
-  const createError = typeof options.createError === "function" ? options.createError : createAuthPolicyError;
+  const { resolveCsrfToken: resolveCsrfTokenFn = resolveCsrfToken, createError = createAuthPolicyError } = options;
 
   // CSRF uses tokens checked against a secret cookie, never SameSite alone. In
   // production that cookie is host-only (__Host-), so a sibling host cannot plant
