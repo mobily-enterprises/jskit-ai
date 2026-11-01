@@ -85,7 +85,7 @@ test("admission precedes every model call, the state note gives the time, and a 
   const f = fixture();
   await f.run("What day is it today?");
   assert.deepEqual(f.order, ["accept", "model"]);
-  assert.deepEqual(f.executions, [], "The state note's time replaces the former clock preflight");
+  assert.deepEqual(f.executions, [], "No action runs before the model asks for one");
   assert.match(f.requests[0].messages[0].content, /^Use the supplied actions\.\n\nCurrent state, from the system\. It is the truth; earlier messages may be out of date:\n- The time: .+ UTC\. The person may be in another time zone\.$/u);
   const denied = fixture({ authorize: () => { throw new Error("Connection access revoked"); } });
   await assert.rejects(denied.run(), /Connection access revoked/);

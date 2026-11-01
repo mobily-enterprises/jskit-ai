@@ -1497,7 +1497,6 @@ Exports
 - `createServiceToolCatalog(actions, { isActionAvailable, barredActionIds = [], skipActionPrefixes = [], maxDirectTools: rawMaxDirectTools = DEFAULT_MAX_DIRECT_TOOLS, discoveryPageSize: rawDiscoveryPageSize = DEFAULT_DISCOVERY_PAGE_SIZE, maxToolArgumentBytes: rawMaxToolArgumentBytes = DEFAULT_MAX_TOOL_ARGUMENT_BYTES, maxToolResultBytes: rawMaxToolResultBytes = DEFAULT_MAX_TOOL_RESULT_BYTES } = {})`
 - `DISCOVERY_TOOL_DESCRIPTORS`
 Local functions
-- `normalizePreflightIntents(value)`
 - `normalizeAssistantExtension(value)`
 - `normalizeAssistantActionExtension(action = {})`
 - `normalizeBarredEntry(value)`

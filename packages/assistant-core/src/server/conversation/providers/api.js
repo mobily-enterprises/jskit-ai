@@ -24,8 +24,8 @@ const OUTPUT_LIMIT = "The assistant exceeded the configured response limit.";
 // durable receipt keeps its full ok/result/error envelope in common storage.
 const toolOutput = result => result.ok ? result.result ?? null : { error: result.error };
 
-// The engine's state note: what the system knows for certain this turn. Its time
-// replaces the former clock preflight, so no turn needs an extra action for it.
+// The engine's state note: what the system knows for certain this turn. It carries
+// the time, so no turn needs an extra action to learn it.
 function stateNote() {
   const now = new Intl.DateTimeFormat("en-GB", { dateStyle: "full", timeStyle: "short", timeZone: "UTC" }).format(new Date());
   return ["Current state, from the system. It is the truth; earlier messages may be out of date:",

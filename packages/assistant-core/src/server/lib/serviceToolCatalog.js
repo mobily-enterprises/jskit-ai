@@ -10,7 +10,6 @@ import { resolveWorkspaceSlug } from "./resolveWorkspaceSlug.js";
 const AUTOMATION_CHANNEL = "automation";
 const DEFAULT_MAX_DIRECT_TOOLS = 32;
 const MAX_ALWAYS_AVAILABLE_TOOLS = 8;
-const MAX_PREFLIGHT_INTENTS_PER_TOOL = 8;
 const DEFAULT_DISCOVERY_PAGE_SIZE = 10;
 const MAX_DISCOVERY_PAGE_SIZE = 20;
 const DEFAULT_MAX_TOOL_ARGUMENT_BYTES = 32 * 1024;
@@ -143,14 +142,6 @@ const DISCOVERY_TOOL_DESCRIPTORS = Object.freeze([
   })
 ]);
 
-function normalizePreflightIntents(value) {
-  const source = Array.isArray(value) ? value : [value];
-  const normalized = source
-    .map((entry) => normalizeText(entry).toLowerCase())
-    .filter(Boolean);
-  return Object.freeze([...new Set(normalized)].slice(0, MAX_PREFLIGHT_INTENTS_PER_TOOL));
-}
-
 function normalizeAssistantExtension(value) {
   const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   if (source.transformResult != null && typeof source.transformResult !== "function") {
@@ -161,7 +152,6 @@ function normalizeAssistantExtension(value) {
     description: normalizeText(source.description),
     exclude: normalizeText(source.exclude),
     alwaysAvailable: source.alwaysAvailable === true,
-    preflight: normalizePreflightIntents(source.preflight),
     output: Object.hasOwn(source, "output") ? source.output : null,
     transformResult: typeof source.transformResult === "function" ? source.transformResult : null
   });
@@ -541,7 +531,6 @@ function resolveActionBackedToolEntries(actions) {
       toolBaseName: actionId,
       description: assistantExtension.description || `Run ${actionId}.`,
       alwaysAvailable: assistantExtension.alwaysAvailable,
-      preflight: assistantExtension.preflight,
       inputSchema,
       outputDefinition,
       outputSchema,
@@ -592,7 +581,6 @@ function resolveActionToolEntries(
           actionVersion: Number(actionEntry.actionVersion) || null,
           description: normalizeText(actionEntry.description) || `Run ${actionId}.`,
           alwaysAvailable: actionEntry.alwaysAvailable === true,
-          preflight: actionEntry.preflight,
           parameters: actionEntry.inputSchema,
           outputSchema: actionEntry.outputSchema
         }),

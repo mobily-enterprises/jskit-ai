@@ -2490,8 +2490,7 @@ OpenCode delivery recovery applies the bound to the joined decoded native reply
 while retaining the proven user admission and avoiding another inference. An advanced
 host supplying its own native runtime retains that runtime's writer policy.
 
-The state note's time replaces the former `current-time` clock preflight; no
-action runs before inference. Uncertain application effects stop the turn; nothing
+The state note carries the current time; no action runs before inference. Uncertain application effects stop the turn; nothing
 silently retries them. The legacy database service delegates to the same driver through its
 transactional adapter over the existing conversation, message and request-claim rows.
 

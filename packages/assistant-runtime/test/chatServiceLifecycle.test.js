@@ -287,8 +287,7 @@ test("a reply that only announces work carries on once, and the state note gives
           additionalProperties: false,
           properties: {}
         },
-        outputSchema: { type: "object" },
-        preflight: ["current-time"]
+        outputSchema: { type: "object" }
       }],
       executeToolCall() {
         return { ok: true, result: { localDateTime: "2026-08-25T11:15:00+08:00", timeZone: "Australia/Perth" } };
@@ -315,50 +314,6 @@ test("a reply that only announces work carries on once, and the state note gives
       .map((message) => message.contentText),
     ["What day is it today?", "It is Tuesday in the workspace timezone."]
   );
-});
-
-test("a clock action marked for the current time does not run for unrelated prompts", async () => {
-  const harness = createHarness(
-    [textCompletion("There are three active bookings.")],
-    {
-      tools: [{
-        name: "workspace_clock",
-        parameters: { type: "object", properties: {} },
-        outputSchema: { type: "object" },
-        preflight: ["current-time"]
-      }]
-    }
-  );
-
-  await harness.run("How many active bookings are there?");
-
-  assert.deepEqual(harness.executedTools, []);
-  assert.deepEqual(assistantMessages(harness.streamEvents), ["There are three active bookings."]);
-});
-
-test("a time question never runs a clock action that needs input", async () => {
-  const harness = createHarness(
-    [textCompletion("Choose a timezone before asking for its local time.")],
-    {
-      tools: [{
-        name: "timezone_clock",
-        parameters: {
-          type: "object",
-          required: ["timeZone"],
-          properties: {
-            timeZone: { type: "string" }
-          }
-        },
-        outputSchema: { type: "object" },
-        preflight: ["current-time"]
-      }]
-    }
-  );
-
-  await harness.run("What time is it now?");
-
-  assert.deepEqual(harness.executedTools, []);
-  assert.deepEqual(assistantMessages(harness.streamEvents), ["Choose a timezone before asking for its local time."]);
 });
 
 test("native search, contract, and execution workflows stream progress across more than four tool rounds", async () => {

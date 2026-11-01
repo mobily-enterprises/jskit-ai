@@ -458,8 +458,8 @@ query…”), or claims an action no tool performed. Long conversations are summ
 rather than refused; see the conversation runtime guide.
 
 Every request carries the current date and time in UTC in the engine's state
-note, so no turn needs an extra action to learn it; the API driver no longer runs
-a `preflight: ["current-time"]` action before the model. The workspace's own time
+note, so no turn needs an extra action to learn it, and no action runs before
+the model asks for one. The workspace's own time
 zone and clock remain application-owned: when answers need local now, today or
 tomorrow, make a clock action automation-capable, available on the assistant
 surface and `alwaysAvailable` when the catalog can enter discovery mode, and the

@@ -284,8 +284,7 @@ test("large authorized catalogs use compact paged discovery, exact contracts, an
       input: workspaceInput,
       extensions: {
         assistant: {
-          alwaysAvailable: true,
-          preflight: ["CURRENT-TIME", "current-time"]
+          alwaysAvailable: true
         }
       },
       execute: async (input, context) => {
@@ -327,7 +326,6 @@ test("large authorized catalogs use compact paged discovery, exact contracts, an
     "demo_clock_read"
   ]);
   const clockTool = toolSet.tools.find((entry) => entry.actionId === "demo.clock.read");
-  assert.deepEqual(clockTool.preflight, ["current-time"]);
   assert.equal(clockTool.alwaysAvailable, true);
   assert.equal(clockTool.parameters.required?.includes("workspaceSlug") || false, false);
   assert.deepEqual(await catalog.executeToolCall({
@@ -489,8 +487,7 @@ test("discovery mode bounds authorized always-available tools", () => {
     id: `demo.clock-${String(index + 1).padStart(2, "0")}.read`,
     extensions: {
       assistant: {
-        alwaysAvailable: true,
-        preflight: ["current-time"]
+        alwaysAvailable: true
       }
     }
   }));
@@ -499,8 +496,7 @@ test("discovery mode bounds authorized always-available tools", () => {
     permission: { require: "all", permissions: ["clock.read"] },
     extensions: {
       assistant: {
-        alwaysAvailable: true,
-        preflight: ["current-time"]
+        alwaysAvailable: true
       }
     }
   }));
