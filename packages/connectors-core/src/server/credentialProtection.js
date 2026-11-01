@@ -8,7 +8,7 @@ import { ConnectorError } from "./errors.js";
  * @param {string} options.activeKeyId The key that seals new values.
  */
 function createCredentialProtection({ keys, activeKeyId }) {
-  const keyring = new Map(Object.entries(keys || {}));
+  const keyring = new Map(Object.entries(keys));
   if (!keyring.has(activeKeyId) || [...keyring.values()].some((key) => !(key instanceof Uint8Array) || key.length !== 32)) {
     throw new TypeError("Credential protection requires named 32-byte keys and an active key ID.");
   }

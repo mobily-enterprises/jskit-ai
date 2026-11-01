@@ -2,10 +2,14 @@ import { defineFeature } from "@jskit-ai/kernel/server/features";
 import { createSchema } from "json-rest-schema";
 import { createConnectionService } from "./connectionService.js";
 
-const integrationId = { type: "string", required: true, minLength: 1, maxLength: 200 };
-const verificationInput = { type: "object", additionalProperties: true };
+const integrationId = Object.freeze({ type: "string", required: true, minLength: 1, maxLength: 200 });
+const verificationInput = Object.freeze({ type: "object", additionalProperties: true });
 // Every connectors action serves API and internal callers on app surfaces.
-const connectorsActionReach = { channels: ["api", "internal"], surfaces: ["app"], idempotency: "none" };
+const connectorsActionReach = Object.freeze({
+  channels: Object.freeze(["api", "internal"]),
+  surfaces: Object.freeze(["app"]),
+  idempotency: "none"
+});
 
 /** @param {{ connections: import("./types.js").ConnectorsCore }} dependencies */
 function createConnectorsActions({ connections }) {

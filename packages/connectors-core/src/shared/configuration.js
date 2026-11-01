@@ -116,8 +116,8 @@ const MESSAGE_KEY_SOURCE = Symbol.for("@jskit-ai/connectors-core.messageKeySourc
 
 // Provider definitions carry message keys, which connectors-web translates. Code that
 // shows a definition's texts itself gets the same definitions with every key (and every
-// { key, params } a function returns) rendered to the catalog's English, exactly as
-// before keys. Each English object keeps its keyed original under MESSAGE_KEY_SOURCE.
+// { key, params } a function returns) rendered to the catalog's English text. Each
+// English object keeps its keyed original under MESSAGE_KEY_SOURCE.
 function createEnglishProviderTexts(catalog) {
   const rendered = new WeakMap();
   const englishMessage = (key, params) => {
