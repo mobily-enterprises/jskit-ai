@@ -14,7 +14,6 @@ import {
   createJsonRestContext,
   createJsonRestApiHost,
   extractJsonRestCollectionRows,
-  isJsonRestResourceMissingError,
   returnNullWhenJsonRestResourceMissing,
   returnBadRequestWhenJsonRestFieldsetInvalid,
   resolveWorkspaceScopeValue,
@@ -43,7 +42,6 @@ test("server entrypoint exports shared host helpers", () => {
   assert.equal(typeof createJsonRestContext, "function");
   assert.equal(typeof createJsonRestApiHost, "function");
   assert.equal(typeof extractJsonRestCollectionRows, "function");
-  assert.equal(typeof isJsonRestResourceMissingError, "function");
   assert.equal(typeof returnNullWhenJsonRestResourceMissing, "function");
   assert.equal(typeof returnBadRequestWhenJsonRestFieldsetInvalid, "function");
   assert.equal(typeof resolveWorkspaceScopeValue, "function");
@@ -161,6 +159,14 @@ test("createJsonRestApiHost uses the v2 runtime and the logger it is given", asy
   });
 
   assert.ok(api instanceof JsonRestApi);
+  await assert.rejects(
+    () => createJsonRestApiHost({ knex: fakeKnex }),
+    /createJsonRestApiHost requires a logger with debug, info, warn and error\./
+  );
+  await assert.rejects(
+    () => createJsonRestApiHost({ knex: fakeKnex, logger: { error() {} } }),
+    /createJsonRestApiHost requires a logger/
+  );
   assert.equal(api.vars.format, "plain");
   assert.equal(api.vars.returning, "full");
   assert.equal(api.options.logging, undefined);
@@ -723,7 +729,6 @@ test("returnNullWhenJsonRestResourceMissing only swallows missing-resource error
     subtype: "not_found"
   });
 
-  assert.equal(isJsonRestResourceMissingError(missing), true);
   assert.equal(await returnNullWhenJsonRestResourceMissing(async () => {
     throw missing;
   }), null);

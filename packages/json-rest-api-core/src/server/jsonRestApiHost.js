@@ -8,7 +8,9 @@ import {
   RowPolicyPlugin
 } from "json-rest-api";
 import {
+  normalizeObject,
   normalizeRecordId,
+  normalizeText,
   normalizeUniqueTextList
 } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveCrudResourceScopeName } from "@jskit-ai/resource-crud-core/shared/crudLookup";
@@ -76,7 +78,7 @@ function cloneJsonRestResourceValue(value, { writeSerializers = {} } = {}) {
   }
 
   if (isPlainJsonRestObject(next.storage)) {
-    const serializerKey = normalizeJsonRestText(next.storage.writeSerializer).toLowerCase();
+    const serializerKey = normalizeText(next.storage.writeSerializer).toLowerCase();
     if (next.storage.virtual === true) {
       next.virtual = true;
     }
@@ -95,7 +97,7 @@ function cloneJsonRestResourceValue(value, { writeSerializers = {} } = {}) {
   }
   if (
     isPlainJsonRestObject(next.relation) &&
-    normalizeJsonRestText(next.relation.kind).toLowerCase() === "collection"
+    normalizeText(next.relation.kind).toLowerCase() === "collection"
   ) {
     next.virtual = true;
   }
@@ -138,11 +140,6 @@ function normalizeScopeValue(value) {
   return null;
 }
 
-function normalizeJsonRestText(value, { fallback = "" } = {}) {
-  const normalized = String(value || "").trim();
-  return normalized || fallback;
-}
-
 function normalizeJsonRestFilterValue(value) {
   if (value == null) {
     return undefined;
@@ -157,13 +154,13 @@ function normalizeJsonRestFilterValue(value) {
 
   if (isPlainJsonRestObject(value)) {
     const entries = Object.entries(value)
-      .map(([key, entry]) => [normalizeJsonRestText(key), normalizeJsonRestFilterValue(entry)])
+      .map(([key, entry]) => [normalizeText(key), normalizeJsonRestFilterValue(entry)])
       .filter(([key, entry]) => key && entry !== undefined);
     return entries.length > 0 ? Object.fromEntries(entries) : undefined;
   }
 
   if (typeof value === "string") {
-    const normalized = normalizeJsonRestText(value);
+    const normalized = normalizeText(value);
     return normalized || undefined;
   }
 
@@ -182,50 +179,42 @@ function normalizeJsonRestFilterValue(value) {
   return undefined;
 }
 
-function normalizeJsonRestObject(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  return value;
-}
-
 function normalizeJsonRestList(value) {
   if (Array.isArray(value)) {
     return value
-      .map((entry) => normalizeJsonRestText(entry))
+      .map((entry) => normalizeText(entry))
       .filter(Boolean);
   }
 
-  const normalized = normalizeJsonRestText(value);
+  const normalized = normalizeText(value);
   if (!normalized) {
     return [];
   }
 
   return normalized
     .split(",")
-    .map((entry) => normalizeJsonRestText(entry))
+    .map((entry) => normalizeText(entry))
     .filter(Boolean);
 }
 
 function resolveJsonRestCollectionRelationships(resource) {
-  const resourceSchema = normalizeJsonRestObject(resource?.schema);
+  const resourceSchema = normalizeObject(resource?.schema);
   const relationships = {};
 
   for (const [fieldName, fieldDefinition] of Object.entries(resourceSchema)) {
-    const normalizedFieldDefinition = normalizeJsonRestObject(fieldDefinition);
-    const relation = normalizeJsonRestObject(normalizedFieldDefinition.relation);
-    if (normalizeJsonRestText(relation.kind).toLowerCase() !== "collection") {
+    const normalizedFieldDefinition = normalizeObject(fieldDefinition);
+    const relation = normalizeObject(normalizedFieldDefinition.relation);
+    if (normalizeText(relation.kind).toLowerCase() !== "collection") {
       continue;
     }
 
-    const relationshipName = normalizeJsonRestText(relation.as || normalizedFieldDefinition.as, {
+    const relationshipName = normalizeText(relation.as || normalizedFieldDefinition.as, {
       fallback: fieldName
     });
     const target = resolveCrudResourceScopeName(
       relation.target || relation.targetResource || relation.namespace || relation.apiPath
     );
-    const foreignKey = normalizeJsonRestText(relation.foreignKey);
+    const foreignKey = normalizeText(relation.foreignKey);
     if (!relationshipName || !target || !foreignKey) {
       continue;
     }
@@ -241,14 +230,12 @@ function resolveJsonRestCollectionRelationships(resource) {
 }
 
 function normalizeJsonRestQueryField(fieldName = "", fieldDefinition = {}, projectionDefinition = null) {
-  const normalizedFieldName = normalizeJsonRestText(fieldName);
+  const normalizedFieldName = normalizeText(fieldName);
   const sourceProjection = isPlainJsonRestObject(projectionDefinition)
     ? projectionDefinition
     : isPlainJsonRestObject(fieldDefinition.storage?.queryProjection)
       ? fieldDefinition.storage.queryProjection
-      : isPlainJsonRestObject(fieldDefinition.queryProjection)
-        ? fieldDefinition.queryProjection
-        : null;
+      : null;
   if (!normalizedFieldName || !sourceProjection) {
     return null;
   }
@@ -261,7 +248,7 @@ function normalizeJsonRestQueryField(fieldName = "", fieldDefinition = {}, proje
     : typeof sourceProjection.project === "function"
       ? sourceProjection.project
       : null;
-  const type = normalizeJsonRestText(sourceProjection.type || sourceFieldDefinition.type);
+  const type = normalizeText(sourceProjection.type || sourceFieldDefinition.type);
   return {
     ...sourceProjection,
     ...(type ? { type } : {}),
@@ -272,13 +259,13 @@ function normalizeJsonRestQueryField(fieldName = "", fieldDefinition = {}, proje
 function isJsonRestVirtualField(fieldDefinition = null) {
   return fieldDefinition?.virtual === true ||
     fieldDefinition?.storage?.virtual === true ||
-    Boolean(fieldDefinition?.storage?.queryProjection || fieldDefinition?.queryProjection);
+    Boolean(fieldDefinition?.storage?.queryProjection);
 }
 
 function applyJsonRestQueryFields(scopeOptions = {}, extraQueryFields = {}) {
-  const schema = normalizeJsonRestObject(scopeOptions.schema);
+  const schema = normalizeObject(scopeOptions.schema);
   const queryFields = {
-    ...normalizeJsonRestObject(scopeOptions.queryFields)
+    ...normalizeObject(scopeOptions.queryFields)
   };
 
   for (const [fieldName, fieldDefinition] of Object.entries(schema)) {
@@ -304,8 +291,8 @@ function applyJsonRestQueryFields(scopeOptions = {}, extraQueryFields = {}) {
     delete schema[key];
   }
 
-  for (const [fieldName, projectionDefinition] of Object.entries(normalizeJsonRestObject(extraQueryFields))) {
-    const key = normalizeJsonRestText(fieldName);
+  for (const [fieldName, projectionDefinition] of Object.entries(normalizeObject(extraQueryFields))) {
+    const key = normalizeText(fieldName);
     if (!key) {
       continue;
     }
@@ -353,9 +340,9 @@ function applyJsonRestDefaultExclusions(scopeOptions = {}, resource = {}) {
     return;
   }
 
-  const schema = normalizeJsonRestObject(scopeOptions.schema);
-  const queryFields = normalizeJsonRestObject(scopeOptions.queryFields);
-  const idProperty = normalizeJsonRestText(scopeOptions.idProperty, {
+  const schema = normalizeObject(scopeOptions.schema);
+  const queryFields = normalizeObject(scopeOptions.queryFields);
+  const idProperty = normalizeText(scopeOptions.idProperty, {
     fallback: "id"
   });
 
@@ -374,19 +361,19 @@ function applyJsonRestDefaultExclusions(scopeOptions = {}, resource = {}) {
     }
 
     definitions[field] = {
-      ...normalizeJsonRestObject(definitions[field]),
+      ...normalizeObject(definitions[field]),
       normallyHidden: true
     };
   }
 }
 
 function buildJsonRestQueryParams(resourceType = "", query = {}, { include = undefined } = {}) {
-  const normalizedResourceType = normalizeJsonRestText(resourceType);
-  const source = normalizeJsonRestObject(query);
+  const normalizedResourceType = normalizeText(resourceType);
+  const source = normalizeObject(query);
   const filters = {};
 
   for (const [rawKey, rawValue] of Object.entries(source)) {
-    const key = normalizeJsonRestText(rawKey);
+    const key = normalizeText(rawKey);
     if (!key || JSON_REST_RESERVED_QUERY_KEYS.has(key)) {
       continue;
     }
@@ -415,8 +402,8 @@ function buildJsonRestQueryParams(resourceType = "", query = {}, { include = und
     queryParams.sort = sortValues;
   }
 
-  const cursor = normalizeJsonRestText(source.cursor);
-  const limitText = normalizeJsonRestText(source.limit);
+  const cursor = normalizeText(source.cursor);
+  const limitText = normalizeText(source.limit);
   if (cursor || limitText) {
     queryParams.page = {
       ...(cursor ? { after: cursor } : {}),
@@ -461,18 +448,18 @@ function createJsonRestResourceScopeOptions(
   resource = {},
   {
     writeSerializers = {},
-    normalizeId = null,
-    rowPolicy = undefined,
-    searchSchema = null,
-    queryFields = null
+    normalizeId,
+    rowPolicy,
+    searchSchema,
+    queryFields
   } = {}
 ) {
   const scopeOptions = cloneJsonRestResourceValue(resource, {
-    writeSerializers: normalizeJsonRestObject(writeSerializers)
+    writeSerializers: normalizeObject(writeSerializers)
   });
   if (isPlainJsonRestObject(searchSchema)) {
     scopeOptions.searchSchema = {
-      ...normalizeJsonRestObject(scopeOptions.searchSchema),
+      ...normalizeObject(scopeOptions.searchSchema),
       ...searchSchema
     };
   }
@@ -492,11 +479,11 @@ function createJsonRestResourceScopeOptions(
 
     scopeOptions.relationships = {
       ...collectionRelationships,
-      ...normalizeJsonRestObject(scopeOptions.relationships)
+      ...normalizeObject(scopeOptions.relationships)
     };
   }
 
-  if (typeof normalizeId === "function") {
+  if (normalizeId !== undefined) {
     scopeOptions.normalizeId = normalizeId;
   }
   if (rowPolicy !== undefined) {
@@ -549,11 +536,12 @@ function resolveUserScopeValue(context = null) {
 }
 
 function isJsonRestResourceMissingError(error = null) {
-  return normalizeJsonRestText(error?.code) === "REST_API_RESOURCE" &&
-    normalizeJsonRestText(error?.subtype) === "not_found";
+  return normalizeText(error?.code) === "REST_API_RESOURCE" &&
+    normalizeText(error?.subtype) === "not_found";
 }
 
 async function returnNullWhenJsonRestResourceMissing(run) {
+  // readable-check: allow method-probe - input validation: the caller hands the operation to guard
   if (typeof run !== "function") {
     throw new TypeError("returnNullWhenJsonRestResourceMissing requires run function.");
   }
@@ -571,10 +559,11 @@ async function returnNullWhenJsonRestResourceMissing(run) {
 }
 
 function isJsonRestSparseFieldError(error = null) {
-  return normalizeJsonRestText(error?.code) === REST_API_FIELDSET_ERROR_CODE;
+  return normalizeText(error?.code) === REST_API_FIELDSET_ERROR_CODE;
 }
 
 async function returnBadRequestWhenJsonRestFieldsetInvalid(run) {
+  // readable-check: allow method-probe - input validation: the caller hands the operation to guard
   if (typeof run !== "function") {
     throw new TypeError("returnBadRequestWhenJsonRestFieldsetInvalid requires run function.");
   }
@@ -607,6 +596,10 @@ async function createJsonRestApiHost({ knex, logger }) {
   if (typeof knex !== "function" || typeof knex.transaction !== "function") {
     throw new TypeError("createJsonRestApiHost requires the application's Knex instance.");
   }
+  // readable-check: allow method-probe - input validation: the caller passes the application's logger
+  if (!logger || ["debug", "info", "warn", "error"].some((level) => typeof logger[level] !== "function")) {
+    throw new TypeError("createJsonRestApiHost requires a logger with debug, info, warn and error.");
+  }
 
   /** @type {import("json-rest-api").JsonRestApi<Record<string, import("./types.js").JsonRestResource>>} */
   const api = new JsonRestApi({
@@ -635,13 +628,11 @@ async function createJsonRestApiHost({ knex, logger }) {
 }
 
 export {
-  JSON_REST_AUTOFILTER_PRESETS,
   addResourceIfMissing,
   buildJsonRestQueryParams,
   createJsonRestResourceScopeOptions,
   createJsonRestContext,
   extractJsonRestCollectionRows,
-  isJsonRestResourceMissingError,
   returnNullWhenJsonRestResourceMissing,
   returnBadRequestWhenJsonRestFieldsetInvalid,
   resolveWorkspaceScopeValue,

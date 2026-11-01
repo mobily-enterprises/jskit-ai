@@ -16,13 +16,11 @@ Use this on demand; do not load the full index at startup.
 
 ### `src/server/jsonRestApiHost.js`
 Exports
-- `JSON_REST_AUTOFILTER_PRESETS`
 - `addResourceIfMissing(api, scopeName, resourceConfig)`
 - `buildJsonRestQueryParams(resourceType = "", query = {}, { include = undefined } = {})`
-- `createJsonRestResourceScopeOptions(resource = {}, { writeSerializers = {}, normalizeId = null, rowPolicy = undefined, searchSchema = null, queryFields = null } = {})`
+- `createJsonRestResourceScopeOptions(resource = {}, { writeSerializers = {}, normalizeId, rowPolicy, searchSchema, queryFields } = {})`
 - `createJsonRestContext(context = null)`
 - `extractJsonRestCollectionRows(payload)`
-- `isJsonRestResourceMissingError(error = null)`
 - `returnNullWhenJsonRestResourceMissing(run)`
 - `returnBadRequestWhenJsonRestFieldsetInvalid(run)`
 - `resolveWorkspaceScopeValue(context = null)`
@@ -32,9 +30,7 @@ Local functions
 - `isPlainJsonRestObject(value)`
 - `cloneJsonRestResourceValue(value, { writeSerializers = {} } = {})`
 - `normalizeScopeValue(value)`
-- `normalizeJsonRestText(value, { fallback = "" } = {})`
 - `normalizeJsonRestFilterValue(value)`
-- `normalizeJsonRestObject(value)`
 - `normalizeJsonRestList(value)`
 - `resolveJsonRestCollectionRelationships(resource)`
 - `normalizeJsonRestQueryField(fieldName = "", fieldDefinition = {}, projectionDefinition = null)`
@@ -42,6 +38,7 @@ Local functions
 - `applyJsonRestQueryFields(scopeOptions = {}, extraQueryFields = {})`
 - `resolveJsonRestDefaultExcludedFields(resource)`
 - `applyJsonRestDefaultExclusions(scopeOptions = {}, resource = {})`
+- `isJsonRestResourceMissingError(error = null)`
 - `isJsonRestSparseFieldError(error = null)`
 
 ### `src/server/JsonRestApiProvider.js`
