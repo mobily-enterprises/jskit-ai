@@ -139,11 +139,11 @@ async function changePassword(request, user, payload) {
 ```js
 // before: the OIDC issuer client defaulted fetch to nothing and branched on it
 function createIssuerClient({ config, store, logger, fetchImpl = null, now = Date.now }) {
-  ...(fetchImpl ? { [client.customFetch]: fetchImpl } : {}),
+  const requestOptions = { ...(fetchImpl ? { [client.customFetch]: fetchImpl } : {}) };
 
 // after
 function createIssuerClient({ config, store, logger, fetchImpl = globalThis.fetch, now = Date.now }) {
-  [client.customFetch]: fetchImpl,
+  const requestOptions = { [client.customFetch]: fetchImpl };
 ```
 
 ### 4. Extension slots are optional capabilities
@@ -294,6 +294,14 @@ return Object.freeze({ discover, targets, preview, create, createConversion, cam
 - These rules cover every module a capability value is built from, `src/shared`
   modules included.
 
+```js
+// before: workspaces-core's settings, directory and members routes each defined one
+function resolveWorkspaceSettingsRecordId(record = {}, context = {}) {
+
+// after: each route file imports the one copy
+import { resolveWorkspaceRecordId } from "../common/support/workspaceRecordId.js";
+```
+
 ### 10. Names and comments
 
 - Factories and action creators are `create*`; `build*` names a pure data
@@ -308,6 +316,14 @@ return Object.freeze({ discover, targets, preview, create, createConversion, cam
 - Comments describe the code. None narrates history ("was", "now", "until X
   is converted"), and no shim stays behind for a removed option.
 - No dead probes, and no blank first line left where a guard was removed.
+
+```js
+// before: workspaces-core's route registrars lived in boot*.js files
+import { registerWorkspaceSettingsRoutes } from "./workspaceSettings/bootWorkspaceSettings.js";
+
+// after
+import { registerWorkspaceSettingsRoutes } from "./workspaceSettings/workspaceSettingsRoutes.js";
+```
 
 ## Common mistakes
 
