@@ -39,7 +39,8 @@ function buildActionInput(resource, operation, scopeInputValidator, listFilterQu
     definitions.push(recordIdParamsValidator);
   }
 
-  return composeSchemaDefinitions(definitions, operation === "create" ? { mode: "create" } : {});
+  // Only update changes part of a record; every other operation's input is strict.
+  return composeSchemaDefinitions(definitions, { mode: operation === "update" ? "patch" : "create" });
 }
 
 /**
