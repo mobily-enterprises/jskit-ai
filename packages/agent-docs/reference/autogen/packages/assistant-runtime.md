@@ -96,7 +96,6 @@ Exports
 
 ### `src/client/support/assistantRuntimeState.js`
 Exports
-- `buildHistory(messages)`
 - `buildId(prefix = "id")`
 - `interruptPendingToolEvents(toolEvents)`
 - `mapTranscriptEntriesToAssistantState(entries)`
@@ -252,7 +251,6 @@ Exports
 - `createChatService({ conversationRuntime, aiClientFactory, turnRequests, attachments, transcriptService, serviceToolCatalog, assistantConfigService, appConfig = {}, workspaceScopeSupport = null } = {})`
 Local functions
 - `normalizeConversationId(value)`
-- `normalizeHistory(history = [])`
 - `normalizeStreamInput(payload = {})`
 - `hasStreamWriter(streamWriter)`
 - `savedMessageFields(error)`
@@ -398,6 +396,10 @@ Exports
 - None
 
 ### `migrations/assistant_transcripts_initial.cjs`
+Exports
+- None
+
+### `migrations/assistant_transcripts_summary.cjs`
 Exports
 - None
 

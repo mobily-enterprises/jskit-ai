@@ -1544,7 +1544,6 @@ Local functions
 ### `src/shared/assistantResource.js`
 Exports
 - `MAX_INPUT_CHARS`
-- `MAX_HISTORY_MESSAGES`
 - `MAX_MESSAGE_PAGE_SIZE`
 - `attachmentIdsField`
 - `assistantResource`
@@ -1698,7 +1697,6 @@ Exports
 - `ASSISTANT_STREAM_EVENT_TYPES`
 - `normalizeAssistantStreamEventType`
 - `MAX_INPUT_CHARS`
-- `MAX_HISTORY_MESSAGES`
 - `MAX_MESSAGE_PAGE_SIZE`
 - `attachmentIdsField`
 - `assistantResource`
