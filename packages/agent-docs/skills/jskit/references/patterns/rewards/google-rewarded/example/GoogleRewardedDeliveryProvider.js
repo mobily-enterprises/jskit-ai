@@ -5,7 +5,7 @@ const GoogleRewardedDeliveryProvider = defineProvider({
   id: "app.rewarded.google",
   provides: { delivery: "client.rewarded-delivery" },
   setup() {
-    return { delivery: { launchReward: launchGoogleRewardedAd } };
+    return { delivery: Object.freeze({ launchReward: launchGoogleRewardedAd }) };
   }
 });
 

@@ -227,4 +227,4 @@ Exports
 
 ### `patterns/accounts-hub/example/server/hubPaths.js`
 Exports
-- `hubGlobalUiPaths(runtimeGlobalUiPaths = [])`
+- `hubGlobalUiPaths(runtimeGlobalUiPaths)`
