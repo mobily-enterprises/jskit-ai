@@ -1,8 +1,10 @@
+import { actionExecuteShape } from "./rules/actionExecuteShape.js";
 import { allowCommentForm } from "./rules/allowCommentForm.js";
 import { jsdocDescriptionInside } from "./rules/jsdocDescriptionInside.js";
 import { namedRepeatedType } from "./rules/namedRepeatedType.js";
 import { noDualShape } from "./rules/noDualShape.js";
 import { noDuplicateHelper } from "./rules/noDuplicateHelper.js";
+import { noFactorySpread } from "./rules/noFactorySpread.js";
 import { noModuleRegistry } from "./rules/noModuleRegistry.js";
 import { noSlotSetter } from "./rules/noSlotSetter.js";
 import { oneLineAction } from "./rules/oneLineAction.js";
@@ -22,7 +24,9 @@ const jskitPlugin = Object.freeze({
     "allow-comment-form": allowCommentForm,
     "jsdoc-description-inside": jsdocDescriptionInside,
     "no-dual-shape": noDualShape,
-    "named-repeated-type": namedRepeatedType
+    "named-repeated-type": namedRepeatedType,
+    "action-execute-shape": actionExecuteShape,
+    "no-factory-spread": noFactorySpread
   })
 });
 

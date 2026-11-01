@@ -76,6 +76,17 @@ function isConstructor(fn) {
   return fn.parent?.type === "MethodDefinition" && fn.parent.kind === "constructor" && fn.parent.value === fn;
 }
 
+// An object an action catalogue reads: an action definition (`id` and `execute`).
+function isActionDefinition(object) {
+  const keys = new Set(object.properties.map(keyName));
+  return keys.has("id") && keys.has("execute");
+}
+
+function isFreezeCall(node) {
+  return node?.type === "CallExpression" && node.callee.type === "MemberExpression" &&
+    node.callee.object.name === "Object" && node.callee.property.name === "freeze";
+}
+
 // The execute of an action definition: a property of an object that also has an id.
 function isActionExecute(node, owner) {
   return node?.type === "Property" && keyName(node) === "execute" && owner?.type === "ObjectExpression" &&
@@ -209,9 +220,12 @@ export {
   factoryDependencies,
   followsOptionalLink,
   functionSite,
+  isActionDefinition,
   isActionExecute,
   isActionsFile,
+  isFreezeCall,
   isInAction,
+  keyName,
   ruleMeta,
   walk
 };

@@ -22,6 +22,8 @@ function typedFeaturesRules(severity) {
     "jskit/jsdoc-description-inside": severity,
     "jskit/no-dual-shape": severity,
     "jskit/named-repeated-type": severity,
+    "jskit/action-execute-shape": severity,
+    "jskit/no-factory-spread": severity,
     "max-lines": [severity, { max: 750 }],
     "max-lines-per-function": [severity, { max: 600, IIFEs: true }]
   });

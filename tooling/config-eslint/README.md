@@ -39,6 +39,8 @@ code that does not:
 | `jskit/jsdoc-description-inside` | a `//` line comment directly above a `/** */` block, whose description belongs inside it |
 | `jskit/no-dual-shape` | a value accepted in two shapes: `x.service \|\| x`, `x?.value ?? x`, `x.service ? x.service : x` |
 | `jskit/named-repeated-type` | a `ReturnType<…>` or indexed JSDoc type (`X["y"]`) written in two or more files of a package, instead of named once in its `types.js` |
+| `jskit/action-execute-shape` | an action's `execute` that is not one expression-bodied arrow making one call: a method or block body, a helper-built `execute: helper(…)`, a bare reference, or a body that builds a result or makes a second call |
+| `jskit/no-factory-spread` | a `create*()` result spread into a factory's frozen API or a `setup()` token value; a `decorateService`/`decorateRepository` may spread the CRUD service or repository, and data may be spread |
 | `max-lines`, `max-lines-per-function` | files over 750 lines, functions over 600 |
 
 `baseConfig` reports them as warnings, so adopting a new version does not fail

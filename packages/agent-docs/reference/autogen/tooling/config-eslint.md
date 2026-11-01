@@ -61,6 +61,22 @@ Exports
 
 ### plugin
 
+### `plugin/factoryResults.js`
+Exports
+- `CREATE_NAME`
+- `FUNCTION_TYPES`
+- `definedName(fn)`
+- `definitionOf(sourceCode, identifier)`
+- `enclosingFunction(sourceCode, node)`
+- `holdsBehaviour(sourceCode, object)`
+- `isInlineFunction(property)`
+- `localFunction(sourceCode, identifier)`
+- `returnedFrom(sourceCode, node)`
+- `returnsOnlyData(sourceCode, fn)`
+Local functions
+- `findVariable(scope, name)`
+- `refersToFunction(sourceCode, property)`
+
 ### `plugin/index.js`
 Exports
 - `jskitPlugin`
@@ -71,6 +87,14 @@ Exports
 - `packageSourceFiles(directory, files = [])`
 Local functions
 - `isPatternExample(directory)`
+
+### `plugin/rules/actionExecuteShape.js`
+Exports
+- `actionExecuteShape`
+Local functions
+- `isPlainCallee(node)`
+- `unwrapCall(node)`
+- `shapeProblem(value)`
 
 ### `plugin/rules/allowCommentForm.js`
 Exports
@@ -116,6 +140,15 @@ Local functions
 - `parseHelpers(file, context)`
 - `compareCopies(left, right)`
 
+### `plugin/rules/noFactorySpread.js`
+Exports
+- `noFactorySpread`
+Local functions
+- `unwrap(node)`
+- `factoryCall(sourceCode, argument)`
+- `spreadFactory(sourceCode, argument)`
+- `returnedApi(sourceCode, object)`
+
 ### `plugin/rules/noModuleRegistry.js`
 Exports
 - `noModuleRegistry`
@@ -150,13 +183,15 @@ Exports
 - `factoryDependencies(fn, sourceCode)`
 - `followsOptionalLink(node)`
 - `functionSite(fn)`
+- `isActionDefinition(object)`
 - `isActionExecute(node, owner)`
 - `isActionsFile(filename)`
+- `isFreezeCall(node)`
 - `isInAction(context, node)`
+- `keyName(property)`
 - `ruleMeta(description, messages)`
 - `walk(node, visitorKeys, visit)`
 Local functions
-- `keyName(property)`
 - `functionName(fn)`
 - `isConstructor(fn)`
 - `collaboratorNames(fn, names, visitorKeys)`

@@ -82,7 +82,7 @@ data (input, record, list, options bag) is not one.
   - Destructure the input in the service instead of normalizing it again.
     Turn `input.x || d` into `{ x = d }` only after confirming that the schema
     rejects null and empty values for `x`.
-- `async execute`, `execute(input) { … }`, `await` in an action, an envelope built in an action, a helper that builds actions or strips their input, input rebuilt in an action (`jskit/one-line-action`)
+- `async execute`, `execute(input) { … }`, `await` in an action, an envelope built in an action, a helper that builds actions or strips their input, input rebuilt in an action (`jskit/one-line-action`, `jskit/action-execute-shape`)
   - Write each definition literally and freeze it and the list. Make
     `execute` one call: `execute: (input, context) => service.method(input, { context })`.
   - The service returns the final result, its JSON:API document included.
@@ -116,7 +116,7 @@ data (input, record, list, options bag) is not one.
   - Name the type once in the owner's `types.js` and import that name:
     `RuntimeKnex`, `RuntimeRouter`, crud-core's `CrudService` and
     `CrudRepository`, the package's own service type.
-- `...factory(…)` in a token value or a returned API, `return { method() { … } }` from a `create*`
+- `...factory(…)` in a token value or a returned API, `return { method() { … } }` from a `create*` (`jskit/no-factory-spread`)
   - Build each factory once and name each member
     (`logout: sessions.logout`). Return `Object.freeze({ … })` of named inner
     functions. Spread only in `decorateService` or `decorateRepository` over

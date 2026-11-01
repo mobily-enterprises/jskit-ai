@@ -369,6 +369,7 @@ action, and a stripping helper reshapes input the schema already validated.
 Write each definition literally and frozen, with a constant id and
 `execute: (input, context) => service.method(input, { context })`. The service
 returns the final result and destructures what it uses.
+`jskit/action-execute-shape` reports a body and a helper-built `execute`.
 
 ### A hand-written `(...args: any[]) => Promise<any>` interface
 
@@ -393,6 +394,7 @@ return { invoices: Object.freeze({ ...createInvoiceReads(dependencies), ...creat
 The members have no visible origin, so a reader opens every factory to find
 one, and a later spread silently replaces an earlier member. Build each
 factory once and name each member: `listInvoices: reads.listInvoices`.
+`jskit/no-factory-spread` reports the spread.
 
 ### `= {}` on contract operations
 
@@ -772,6 +774,8 @@ held to the rules from the start.
 | `jskit/jsdoc-description-inside` | a `//` description directly above a `/** */` block |
 | `jskit/no-dual-shape` | a value accepted in two shapes, `x.service \|\| x` or `x?.value ?? x` |
 | `jskit/named-repeated-type` | a `ReturnType<…>` or `X["y"]` JSDoc type written in two or more files of a package |
+| `jskit/action-execute-shape` | an `execute` that is not one arrow making one call: a body, `execute: helper(…)`, or a built result |
+| `jskit/no-factory-spread` | a `create*()` result spread into a factory's API or a token value |
 | `max-lines`, `max-lines-per-function` | files over 750 lines, functions over 600 |
 
 The rules see shapes, not intent: what they cannot see under
