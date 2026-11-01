@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { ESLint } from "eslint";
 import { baseConfig } from "../base.js";
+import { jskitPlugin } from "../plugin/index.js";
 import { typedFeaturesConfig } from "../typedFeatures.js";
 
 const PROBE = "export function createReader({ store } = {}) {\n  return () => store.read?.();\n}\n";
@@ -44,4 +45,9 @@ test("typedFeaturesConfig sets the file and function size limits", () => {
   assert.deepEqual(entry.rules["max-lines"], ["error", { max: 750 }]);
   assert.deepEqual(entry.rules["max-lines-per-function"], ["error", { max: 600, IIFEs: true }]);
   assert.throws(() => typedFeaturesConfig([]), TypeError);
+});
+
+test("typedFeaturesConfig turns on every jskit rule", () => {
+  const [entry] = typedFeaturesConfig(["src/server/**"]);
+  assert.deepEqual(Object.keys(jskitPlugin.rules).filter((rule) => entry.rules[`jskit/${rule}`] !== "error"), []);
 });

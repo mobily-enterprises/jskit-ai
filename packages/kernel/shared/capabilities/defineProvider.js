@@ -87,8 +87,10 @@ function normalizeLifecycleMethod(value, label) {
  * @property {((dependencies: any, context: ProviderLifecycleContext) => any) | null} [shutdown]
  */
 
-// An absent definition reaches the checks below, which name what is missing.
-/** @param {ProviderDefinition} [definition] */
+/**
+ * An absent definition reaches the checks below, which name what is missing.
+ * @param {ProviderDefinition} [definition]
+ */
 function defineProvider({
   id,
   requires = {},

@@ -460,7 +460,8 @@ Production code shaped around a test double keeps a shape no real caller
 uses, and its comment describes the tests instead of the code. Complete the
 double with the real shape, or the method with its neutral value, and delete
 the guard. An allow reason describes the code, with a prefix from the
-vocabulary under [checks](#checks).
+vocabulary under [checks](#checks); `jskit/allow-comment-form` reports one
+that cites tests.
 
 ### `null` flowing below the receiving hook
 
@@ -763,6 +764,8 @@ held to the rules from the start.
 | `jskit/no-module-registry` | a module-level `register<Name>()` that writes module state |
 | `jskit/one-line-action` | `input = {}`, `input \|\| {}` or `input?.` in an action, an `async` `execute`, and a definition that is not frozen |
 | `jskit/no-duplicate-helper` | a small helper, function or arrow, repeated in another file of the package |
+| `jskit/allow-comment-form` | a `readable-check: allow` reason without a prefix from the table below, or one that cites tests or the state of a project |
+| `jskit/jsdoc-description-inside` | a `//` description directly above a `/** */` block |
 | `max-lines`, `max-lines-per-function` | files over 750 lines, functions over 600 |
 
 The rules see shapes, not intent: everything under

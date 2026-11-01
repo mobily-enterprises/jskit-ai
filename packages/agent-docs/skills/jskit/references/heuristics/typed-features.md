@@ -121,7 +121,7 @@ data (input, record, list, options bag) is not one.
     (`logout: sessions.logout`). Return `Object.freeze({ … })` of named inner
     functions. Spread only in `decorateService` or `decorateRepository` over
     the JSKIT CRUD service or repository.
-- `// …` description line before a `/** */` block, a comment that says "was", "now", "until", "tests"
+- `// …` description line before a `/** */` block, a comment that says "was", "now", "until", "tests" (`jskit/jsdoc-description-inside`, `jskit/allow-comment-form`)
   - Move the description inside the JSDoc block. Delete comments that narrate
     history or cite tests; complete the test double instead of shaping the
     code around it.
@@ -137,7 +137,8 @@ data (input, record, list, options bag) is not one.
 
 A justified exception carries `// readable-check: allow <rule> - <reason>` on
 the line before it. The reason starts with one of these prefixes and says what
-is true of the code, never the state of a project or its tests:
+is true of the code, never the state of a project or its tests
+(`jskit/allow-comment-form` reports one that does not):
 
 | Reason prefix | The exception |
 | --- | --- |

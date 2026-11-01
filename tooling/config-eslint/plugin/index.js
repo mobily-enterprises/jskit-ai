@@ -1,3 +1,5 @@
+import { allowCommentForm } from "./rules/allowCommentForm.js";
+import { jsdocDescriptionInside } from "./rules/jsdocDescriptionInside.js";
 import { noDuplicateHelper } from "./rules/noDuplicateHelper.js";
 import { noModuleRegistry } from "./rules/noModuleRegistry.js";
 import { noSlotSetter } from "./rules/noSlotSetter.js";
@@ -14,7 +16,9 @@ const jskitPlugin = Object.freeze({
     "no-slot-setter": noSlotSetter,
     "no-module-registry": noModuleRegistry,
     "one-line-action": oneLineAction,
-    "no-duplicate-helper": noDuplicateHelper
+    "no-duplicate-helper": noDuplicateHelper,
+    "allow-comment-form": allowCommentForm,
+    "jsdoc-description-inside": jsdocDescriptionInside
   })
 });
 

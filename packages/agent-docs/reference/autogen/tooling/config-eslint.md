@@ -65,6 +65,18 @@ Exports
 Exports
 - `jskitPlugin`
 
+### `plugin/rules/allowCommentForm.js`
+Exports
+- `allowCommentForm`
+Local functions
+- `allowLines(comment)`
+
+### `plugin/rules/jsdocDescriptionInside.js`
+Exports
+- `jsdocDescriptionInside`
+Local functions
+- `startsItsLine(lines, comment)`
+
 ### `plugin/rules/noDuplicateHelper.js`
 Exports
 - `noDuplicateHelper`

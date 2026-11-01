@@ -18,6 +18,8 @@ function typedFeaturesRules(severity) {
     "jskit/no-module-registry": severity,
     "jskit/one-line-action": severity,
     "jskit/no-duplicate-helper": severity,
+    "jskit/allow-comment-form": severity,
+    "jskit/jsdoc-description-inside": severity,
     "max-lines": [severity, { max: 750 }],
     "max-lines-per-function": [severity, { max: 600, IIFEs: true }]
   });
