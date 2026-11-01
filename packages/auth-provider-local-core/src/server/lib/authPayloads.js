@@ -29,7 +29,7 @@ function buildProfile(user) {
   };
 }
 
-function buildActor(user, profile = null) {
+function buildActor(user, profile) {
   const profileSource = profile ? "users" : "auth-provider";
   return normalizeAuthActor({
     provider: PROVIDER_ID,

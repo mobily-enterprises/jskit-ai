@@ -2,13 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
-import { invitationAsGiven } from "@jskit-ai/auth-core/server/authExtensions";
-import { noAppProfiles } from "@jskit-ai/auth-core/server/noAppProfiles";
 import { AuthExtensionsProvider } from "@jskit-ai/auth-core/server/providers/AuthExtensionsProvider";
 import { createLocalAuthService, hashPassword } from "@jskit-ai/auth-provider-local-core/server/lib/index";
 import { AuthLocalProvider } from "@jskit-ai/auth-provider-local-core/server/providers/AuthLocalProvider";
 import { createLocalDbBackend, LOCAL_AUTH_DB_TABLES } from "../src/server/lib/index.js";
 import { AuthLocalDatabaseBackendProvider } from "../src/server/providers/AuthLocalDatabaseBackendProvider.js";
+import { localServiceOptions } from "../../auth-provider-local-core/test-support/localService.js";
 import packageJson from "../package.json" with { type: "json" };
 
 const packageMetadata = packageJson.jskit;
@@ -148,22 +147,10 @@ function createDbBackendFixture() {
   };
 }
 
-function createService(backend, options = {}) {
-  const {
-    config = {},
-    ...serviceOptions
-  } = options;
+function createService(backend, { env = {}, ...serviceOptions } = {}) {
   return createLocalAuthService({
+    ...localServiceOptions({ env }),
     backend,
-    invitationContextResolver: invitationAsGiven,
-    profileProjector: noAppProfiles,
-    config: {
-      nodeEnv: "test",
-      sessionSecret: "test-secret",
-      appPublicUrl: "http://localhost:5173",
-      recoveryDevOutput: "response",
-      ...config
-    },
     ...serviceOptions
   });
 }
@@ -364,12 +351,9 @@ test("local database auth uses the shared native login-as session contract", asy
     password
   }));
   const authService = createService(backend, {
-    config: {
-      devAuth: {
-        enabled: true,
-        isProduction: false,
-        secret: DEV_AUTH_SECRET
-      }
+    env: {
+      AUTH_DEV_BYPASS_ENABLED: "true",
+      AUTH_DEV_BYPASS_SECRET: DEV_AUTH_SECRET
     }
   });
 

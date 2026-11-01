@@ -1,14 +1,17 @@
 const LOCAL_AUTH_USER_REGISTERED_EVENT = "auth.local.user.registered";
 
 function assertBlockingMode(hook) {
-  if (typeof hook?.blocking !== "boolean") {
+  if (typeof hook.blocking !== "boolean") {
     throw new TypeError("Local auth register hooks must set blocking to true or false.");
   }
 }
 
-function normalizeRegisterHook(hook = null) {
+/**
+ * @param {LocalAuthRegisterHook} hook
+ */
+function normalizeRegisterHook(hook) {
   if (!hook || typeof hook !== "object" || Array.isArray(hook)) {
-    return null;
+    throw new TypeError("createLocalAuthRegisterHookDecorator requires a hook object.");
   }
   assertBlockingMode(hook);
   // readable-check: allow method-probe - input validation: the hook an application passes
@@ -22,38 +25,41 @@ function normalizeRegisterHook(hook = null) {
   });
 }
 
-// Without a logger, a failed non-blocking hook is reported on the console.
-const consoleLogger = Object.freeze({
-  warn(payload, message) {
-    console.warn(message, payload);
-  }
-});
-
-/** @typedef {Pick<import("@jskit-ai/kernel/server/types").RuntimeLogger, "warn">} RegisterHookLogger */
+/**
+ * What an application's register hook is: `blocking` hooks run before register
+ * answers, and their errors fail it; the others run after, and their errors are
+ * logged.
+ * @typedef {object} LocalAuthRegisterHook
+ * @property {string} [hookId]
+ * @property {boolean} blocking
+ * @property {(payload: { event: string, actor: object, authResult: object }) => unknown} handle
+ */
 
 /**
  * @param {object} failure
- * @param {RegisterHookLogger} failure.logger
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} failure.logger
  * @param {{ hookId: string }} failure.hook
  * @param {unknown} failure.error
  */
 function logNonBlockingHookFailure({ logger, hook, error }) {
   const payload = {
     err: error,
-    hook: hook?.hookId || "anonymous",
+    hook: hook.hookId,
     event: LOCAL_AUTH_USER_REGISTERED_EVENT
   };
   logger.warn(payload, "Non-blocking local auth register hook failed.");
 }
 
+/**
+ * @param {object} run
+ * @param {{ hookId: string, blocking: boolean, handle: LocalAuthRegisterHook["handle"] }} run.hook
+ * @param {object} run.result The answer of register, or of an oauthComplete that registered the user.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} run.logger
+ */
 async function runRegisterHook({ hook, result, logger }) {
-  if (!hook) {
-    return;
-  }
-
   const payload = Object.freeze({
     event: LOCAL_AUTH_USER_REGISTERED_EVENT,
-    actor: result?.actor || null,
+    actor: result.actor,
     authResult: result
   });
 
@@ -68,23 +74,16 @@ async function runRegisterHook({ hook, result, logger }) {
 }
 
 /**
- * @param {object} [options]
+ * An auth service decorator that runs an application's hook for each user
+ * that registers, by password or by a first OAuth sign-in.
+ * @param {object} options
  * @param {string} [options.decoratorId]
  * @param {number} [options.order]
- * @param {RegisterHookLogger} [options.logger] Reports a failed non-blocking hook; the console by default.
- * @param {object | null} [options.hook]
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} options.logger Reports a failed non-blocking hook.
+ * @param {LocalAuthRegisterHook} options.hook
  */
-function createLocalAuthRegisterHookDecorator({
-  decoratorId = "auth.local.registerHook",
-  order = 0,
-  logger = consoleLogger,
-  hook = null
-} = {}) {
+function createLocalAuthRegisterHookDecorator({ decoratorId = "auth.local.registerHook", order = 0, logger, hook }) {
   const registerHook = normalizeRegisterHook(hook);
-
-  if (!registerHook) {
-    throw new TypeError("createLocalAuthRegisterHookDecorator requires a hook object.");
-  }
 
   return Object.freeze({
     decoratorId: String(decoratorId || registerHook.hookId || "auth.local.registerHook"),
@@ -95,7 +94,7 @@ function createLocalAuthRegisterHookDecorator({
         Object.defineProperties(Object.create(authService), {
           register: {
             enumerable: true,
-            value: async function register(input = {}) {
+            value: async function register(input) {
               const result = await authService.register(input);
               await runRegisterHook({ hook: registerHook, result, logger });
               return result;
@@ -104,9 +103,9 @@ function createLocalAuthRegisterHookDecorator({
           // A first sign-in through a provider creates the user the way register does.
           oauthComplete: {
             enumerable: true,
-            value: async function oauthComplete(input = {}, request = null) {
+            value: async function oauthComplete(input, request) {
               const result = await authService.oauthComplete(input, request);
-              if (result?.registered === true) {
+              if (result.registered === true) {
                 await runRegisterHook({ hook: registerHook, result, logger });
               }
               return result;

@@ -41,28 +41,30 @@ async function verifyPassword(password, record) {
   return expected.length === actual.length && timingSafeEqual(expected, actual);
 }
 
-function normalizePasswordStrategy(strategy = null) {
-  if (strategy == null) {
-    return Object.freeze({
-      hashPassword,
-      verifyPassword
-    });
-  }
+/**
+ * The `auth.local.password-strategy` default when no feature provides one:
+ * scrypt records.
+ * @type {import("../types.js").AuthLocalPasswordStrategy}
+ */
+const scryptPasswordStrategy = Object.freeze({ hashPassword, verifyPassword });
 
-  if (typeof strategy !== "object" || Array.isArray(strategy)) {
+/**
+ * The password operations local auth uses: the strategy's own, with scrypt for
+ * an operation it leaves out.
+ * @param {import("../types.js").AuthLocalPasswordStrategy} strategy
+ */
+function normalizePasswordStrategy(strategy) {
+  // readable-check: allow method-probe - input validation: the password strategy an application installs
+  if (!strategy || typeof strategy !== "object" || Array.isArray(strategy)) {
     throw new TypeError("Local auth password strategy must be an object.");
   }
 
-  const strategyHashPassword = typeof strategy.hashPassword === "undefined"
-    ? hashPassword
-    : strategy.hashPassword;
-  const strategyVerifyPassword = typeof strategy.verifyPassword === "undefined"
-    ? verifyPassword
-    : strategy.verifyPassword;
-
+  const { hashPassword: strategyHashPassword = hashPassword, verifyPassword: strategyVerifyPassword = verifyPassword } = strategy;
+  // readable-check: allow method-probe - input validation: the password strategy an application installs
   if (typeof strategyHashPassword !== "function") {
     throw new TypeError("Local auth password strategy hashPassword must be a function.");
   }
+  // readable-check: allow method-probe - input validation: the password strategy an application installs
   if (typeof strategyVerifyPassword !== "function") {
     throw new TypeError("Local auth password strategy verifyPassword must be a function.");
   }
@@ -77,4 +79,4 @@ function normalizePasswordStrategy(strategy = null) {
   });
 }
 
-export { hashPassword, verifyPassword, normalizePasswordStrategy };
+export { hashPassword, normalizePasswordStrategy, scryptPasswordStrategy, verifyPassword };

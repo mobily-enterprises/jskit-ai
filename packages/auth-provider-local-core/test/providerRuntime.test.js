@@ -5,11 +5,12 @@ import path from "node:path";
 import test from "node:test";
 import { createActionProvider } from "@jskit-ai/kernel/server/actions";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
-import { createAuthExtensions, invitationAsGiven } from "@jskit-ai/auth-core/server/authExtensions";
-import { noAppProfiles } from "@jskit-ai/auth-core/server/noAppProfiles";
+import { createAuthExtensions } from "@jskit-ai/auth-core/server/authExtensions";
+import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { DEV_AUTH_SECRET_HEADER } from "@jskit-ai/auth-core/server/devAuth";
 import { AuthFeature } from "@jskit-ai/auth-core/server/providers/AuthFeature";
 import { AuthLocalProvider } from "../src/server/providers/AuthLocalProvider.js";
+import { localServiceOptions } from "../test-support/localService.js";
 import {
   createLocalAuthRegisterHookDecorator,
   createLocalAuthService,
@@ -442,6 +443,7 @@ test("local auth provider applies auth service decorators for blocking and non-b
       extensions.registerServiceDecorator(createLocalAuthRegisterHookDecorator({
           decoratorId: "test.auth.local.blockingHook",
           order: 10,
+          logger: runtimeLogger,
           hook: {
             hookId: "permissions",
             blocking: true,
@@ -485,6 +487,7 @@ test("local auth register hook decorators require explicit blocking mode", () =>
   assert.throws(
     () =>
       createLocalAuthRegisterHookDecorator({
+        logger: silentLogger,
         hook: {
           hookId: "invalid",
           async handle() {}
@@ -495,6 +498,7 @@ test("local auth register hook decorators require explicit blocking mode", () =>
   assert.throws(
     () =>
       createLocalAuthRegisterHookDecorator({
+        logger: silentLogger,
         hook: {
           hookId: "invalid",
           blocking: false
@@ -619,15 +623,8 @@ test("local auth login verifies password and creates session in one backend tran
     }
   };
   const authService = createLocalAuthService({
-    invitationContextResolver: invitationAsGiven,
-    profileProjector: noAppProfiles,
-    backend: wrappedBackend,
-    config: {
-      sessionSecret: "test-secret",
-      nodeEnv: "test",
-      recoveryDevOutput: "response",
-      appPublicUrl: "http://localhost:5173"
-    }
+    ...localServiceOptions(),
+    backend: wrappedBackend
   });
 
   const result = await authService.login({
@@ -644,8 +641,7 @@ test("local auth service accepts a custom stored-password format", async () => {
   const passwordRecords = [];
   const sessions = [];
   const authService = createLocalAuthService({
-    invitationContextResolver: invitationAsGiven,
-    profileProjector: noAppProfiles,
+    ...localServiceOptions(),
     backend: {
       async withTransaction(callback) {
         return callback({
@@ -728,12 +724,6 @@ test("local auth service accepts a custom stored-password format", async () => {
           }
         });
       }
-    },
-    config: {
-      sessionSecret: "test-secret",
-      nodeEnv: "test",
-      recoveryDevOutput: "response",
-      appPublicUrl: "http://localhost:5173"
     },
     passwordStrategy: {
       async verifyPassword(password, record) {

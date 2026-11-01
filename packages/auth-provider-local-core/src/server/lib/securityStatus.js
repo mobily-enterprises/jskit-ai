@@ -3,16 +3,18 @@ import { buildSecurityStatusFromAuthMethodsStatus } from "@jskit-ai/auth-core/sh
 import { AUTH_TEXTS, createAuthError } from "@jskit-ai/auth-core/server/authTexts";
 import { hasPassword } from "./accounts.js";
 
-// The sign-in methods of an account: its password and each configured provider.
 /**
+ * The sign-in methods of an account: its password and each configured provider.
  * @param {object} dependencies
  * @param {import("../types.js").AuthLocalBackend} dependencies.backend
- * @param {boolean} dependencies.oauthEnabled
- * @param {ReturnType<typeof import("../providers/AuthLocalProvider.js").resolveConfig>["oauthProviders"]} dependencies.oauthProviders
- * @param {Map<string, ReturnType<typeof import("../providers/AuthLocalProvider.js").resolveConfig>["oauthProviders"][number]>} dependencies.oauthProvidersById
- * @param {ReturnType<typeof import("./sessions.js").createLocalSessions>} dependencies.sessions
+ * @param {import("../types.js").AuthLocalConfig} dependencies.config
+ * @param {Map<string, import("../types.js").AuthLocalOAuthProvider>} dependencies.oauthProvidersById
+ * @param {import("../types.js").AuthLocalSessions} dependencies.sessions
  */
-function createLocalSecurityStatus({ backend, oauthEnabled, oauthProviders, oauthProvidersById, sessions }) {
+function createLocalSecurityStatus({ backend, config, oauthProvidersById, sessions }) {
+  const { oauthProviders } = config;
+  const oauthEnabled = oauthProviders.length > 0;
+
   async function securityStatusForUser(userId) {
     const { user, identities } = await backend.withTransaction(async (tx) => ({
       user: await tx.users.findById(userId),

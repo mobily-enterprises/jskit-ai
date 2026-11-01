@@ -1,5 +1,5 @@
 import { normalizeAuthCapabilities } from "@jskit-ai/auth-core/shared/authCapabilities";
-import { assertDevAuthPolicy, resolveDevAuthPolicy } from "@jskit-ai/auth-core/server/devAuth";
+import { isDevAuthBootstrapEnabled } from "@jskit-ai/auth-core/server/devAuth";
 import { noAppProfiles } from "@jskit-ai/auth-core/server/noAppProfiles";
 import { throwUnsupportedAuthOperation } from "@jskit-ai/auth-core/server/unsupportedOperation";
 import { createLocalAccounts } from "./accounts.js";
@@ -10,56 +10,35 @@ import { normalizePasswordStrategy } from "./passwords.js";
 import { createLocalSecurityStatus } from "./securityStatus.js";
 import { createLocalSessions } from "./sessions.js";
 
-/** @typedef {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} AuthProfileProjector */
-
-// The `auth.service` of local auth. The optional collaborators are the ones
-// the provider resolved once: null (or left out) when none is installed.
 /**
+ * The `auth.service` of local auth, from the collaborators its provider
+ * resolved once.
  * @param {object} dependencies
  * @param {import("../types.js").AuthLocalBackend} dependencies.backend
- * @param {ReturnType<typeof import("../providers/AuthLocalProvider.js").resolveConfig>} dependencies.config
- * @param {AuthProfileProjector} dependencies.profileProjector The `auth.profile.projector`, or noAppProfiles.
- * @param {object | null} [dependencies.passwordStrategy] The `auth.local.password-strategy`, when one is installed.
+ * @param {import("../types.js").AuthLocalConfig} dependencies.config
  * @param {import("@jskit-ai/auth-core/server/types").AuthInvitationContextResolver} dependencies.invitationContextResolver
- * @param {((delivery: { email: string, recoveryUrl: string }) => Promise<void>) | null} [dependencies.recoverySender] The `auth.local.recovery-sender`, when one is installed.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
+ * @param {import("../types.js").AuthLocalPasswordStrategy} dependencies.passwordStrategy The
+ *   `auth.local.password-strategy`, or scryptPasswordStrategy.
+ * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} dependencies.profileProjector The
+ *   `auth.profile.projector`, or noAppProfiles.
+ * @param {import("../types.js").AuthLocalRecoverySender} dependencies.recoverySender The
+ *   `auth.local.recovery-sender`, or one made by createLoggedRecoverySender.
  */
 function createLocalAuthService({
   backend,
   config,
-  profileProjector,
-  passwordStrategy,
   invitationContextResolver,
+  logger,
+  passwordStrategy,
+  profileProjector,
   recoverySender
 }) {
-  if (!config?.sessionSecret) {
-    throw new Error("Local auth requires a session secret.");
-  }
-
-  if (recoverySender != null && typeof recoverySender !== "function") {
-    throw new Error("auth.local.recovery-sender must be a function.");
-  }
-
   const passwords = normalizePasswordStrategy(passwordStrategy);
-  const isProduction = config.nodeEnv === "production";
-  const oauthProviders = Array.isArray(config.oauthProviders) ? config.oauthProviders : [];
-  const oauthProvidersById = new Map(oauthProviders.map((provider) => [provider.id, provider]));
-  const oauthEnabled = oauthProviders.length > 0;
-  if (oauthEnabled && !config.appPublicUrl) {
-    throw new Error("Local auth OAuth sign-in requires config.appPublicUrl.");
-  }
-  const devAuth = config.devAuth || resolveDevAuthPolicy({
-    nodeEnv: config.nodeEnv
-  });
-  assertDevAuthPolicy(devAuth);
+  const oauthProvidersById = new Map(config.oauthProviders.map((provider) => [provider.id, provider]));
+  const oauthEnabled = config.oauthProviders.length > 0;
   const appProfileProjection = profileProjector !== noAppProfiles;
-  const recoveryDelivery = recoverySender
-    ? "email"
-    : isProduction
-      ? "disabled"
-      : config.recoveryDevOutput === "response"
-        ? "dev-response"
-        : "dev-log";
-  const recoveryEnabled = recoveryDelivery !== "disabled";
+  const recoveryEnabled = config.recoveryDelivery !== "disabled";
   const capabilities = normalizeAuthCapabilities({
     provider: {
       id: PROVIDER_ID,
@@ -75,14 +54,14 @@ function createLocalAuthService({
       passwordRecovery: {
         request: recoveryEnabled,
         complete: recoveryEnabled,
-        delivery: recoveryDelivery
+        delivery: config.recoveryDelivery
       },
       otp: {
         login: false
       },
       oauthLogin: {
         enabled: oauthEnabled,
-        providers: oauthProviders.map(({ id, label }) => ({ id, label }))
+        providers: config.oauthProviders.map(({ id, label }) => ({ id, label }))
       },
       emailConfirmation: false,
       profileUpdate: true,
@@ -93,15 +72,15 @@ function createLocalAuthService({
       securityStatus: true,
       signOutOtherSessions: true,
       appProfileProjection,
-      devLoginAs: devAuth.enabled === true && devAuth.isProduction !== true
+      devLoginAs: isDevAuthBootstrapEnabled(config.devAuth)
     }
   });
 
-  const sessions = createLocalSessions({ appProfileProjection, backend, config, devAuth, isProduction, profileProjector });
+  const sessions = createLocalSessions({ appProfileProjection, backend, config, profileProjector });
   const accounts = createLocalAccounts({
     appProfileProjection,
     backend,
-    devAuth,
+    config,
     invitationContextResolver,
     passwords,
     profileProjector,
@@ -110,19 +89,16 @@ function createLocalAuthService({
   const passwordFlows = createLocalPasswordFlows({
     backend,
     config,
-    isProduction,
     passwords,
     profileProjector,
-    recoveryEnabled,
     recoverySender,
     sessions
   });
-  const securityStatus = createLocalSecurityStatus({ backend, oauthEnabled, oauthProviders, oauthProvidersById, sessions });
+  const securityStatus = createLocalSecurityStatus({ backend, config, oauthProvidersById, sessions });
   const oauthFlows = createLocalOAuthFlows({
     backend,
     config,
-    isProduction,
-    oauthEnabled,
+    logger,
     oauthProvidersById,
     profileProjector,
     securityStatus,

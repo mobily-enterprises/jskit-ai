@@ -103,7 +103,8 @@ alongside the application's mail provider and `AuthLocalProvider`.
 [Typed features](/guide/framework/typed-features) describes how application
 providers name and type the capabilities they receive.
 For direct library composition, pass the same function as `recoverySender` to
-`createLocalAuthService()`.
+`createLocalAuthService()`, with a configuration from
+`resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery: true })`.
 
 Set `APP_PUBLIC_URL` to the application's actual public URL. When a sender is
 configured, auth requires this value and does not return or log the recovery

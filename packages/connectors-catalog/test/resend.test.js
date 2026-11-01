@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createHash } from "node:crypto";
-import { invitationAsGiven } from "../../auth-core/src/server/authExtensions.js";
-import { noAppProfiles } from "../../auth-core/src/server/noAppProfiles.js";
 import { createLocalAuthService, createLocalFileBackend } from "../../auth-provider-local-core/src/server/lib/index.js";
+import { localServiceOptions } from "../../auth-provider-local-core/test-support/localService.js";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -84,11 +83,8 @@ test("documented application wiring sends auth recovery through the Resend adapt
   const createRecoverySender = new Function("createHash", `${example.replace('import { createHash } from "node:crypto";', "")}\nreturn createRecoverySender;`)(createHash);
   const sender = createRecoverySender({ connections: service, context, integrationId: "mail", from: input.from });
   const auth = createLocalAuthService({
+    ...localServiceOptions({ env: { APP_PUBLIC_URL: "https://app.example.com" }, emailRecovery: true }),
     backend: createLocalFileBackend({ storeDir: path.join(directory, "auth") }),
-    invitationContextResolver: invitationAsGiven,
-    profileProjector: noAppProfiles,
-    config: { nodeEnv: "test", sessionSecret: "fixture-session-secret",
-      appPublicUrl: "https://app.example.com", recoveryDevOutput: "response" },
     recoverySender: sender
   });
   await auth.register({ email: "person@example.com", password: "correct horse battery staple" });

@@ -1,4 +1,5 @@
-// The type of the `auth.local.backend` capability, for packages that provide one.
+// The types of local auth's capabilities, for packages that provide one, and
+// the types its modules share.
 
 /**
  * One transaction of a local auth backend. A find answers null when nothing
@@ -47,5 +48,26 @@
  * @property {<T>(callback: (tx: AuthLocalBackendTransaction) => Promise<T>) => Promise<T>} withTransaction
  *   Runs the callback in one transaction and answers what it answered.
  */
+
+/**
+ * The `auth.local.password-strategy` capability: how local auth hashes and
+ * checks passwords. A strategy may give only one of the two operations; local
+ * auth uses scrypt for the other.
+ * @typedef {object} AuthLocalPasswordStrategy
+ * @property {(password: string) => Promise<unknown>} [hashPassword] Answers the record to store.
+ * @property {(password: string, record: unknown) => Promise<boolean> | boolean} [verifyPassword]
+ *   Answers true when the password matches the stored record.
+ */
+
+/**
+ * The `auth.local.recovery-sender` capability: sends a password recovery link
+ * to the person it belongs to.
+ * @typedef {(delivery: { email: string, recoveryUrl: string }) => Promise<void>} AuthLocalRecoverySender
+ */
+
+/** @typedef {ReturnType<typeof import("./lib/config.js").resolveLocalAuthConfig>} AuthLocalConfig */
+/** @typedef {AuthLocalConfig["oauthProviders"][number]} AuthLocalOAuthProvider */
+/** @typedef {ReturnType<typeof import("./lib/passwords.js").normalizePasswordStrategy>} AuthLocalPasswords */
+/** @typedef {ReturnType<typeof import("./lib/sessions.js").createLocalSessions>} AuthLocalSessions */
 
 export {};

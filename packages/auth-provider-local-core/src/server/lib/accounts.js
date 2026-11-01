@@ -3,13 +3,13 @@ import {
   AUTH_PASSWORD_MAX_LENGTH,
   AUTH_PASSWORD_MIN_LENGTH
 } from "@jskit-ai/auth-core/shared/authConstraints";
-import { ensureDevAuthExchangeAvailable } from "@jskit-ai/auth-core/server/devAuth";
+import { ensureDevAuthExchangeAvailable, isDevAuthBootstrapEnabled } from "@jskit-ai/auth-core/server/devAuth";
 import { normalizeEmail } from "@jskit-ai/auth-core/server/utils";
 import { AUTH_TEXTS, authFieldErrorDetails, createAuthError } from "@jskit-ai/auth-core/server/authTexts";
 import { DEV_AUTH_SESSION_PURPOSE, buildAuthPayload, buildAuthResult, findExistingAppProfile } from "./authPayloads.js";
 import { createId } from "./tokens.js";
 
-// An account created through a provider has no password until recovery sets one.
+/** An account created through a provider has no password until recovery sets one. */
 const NO_PASSWORD = Object.freeze({ algorithm: "", version: "", salt: "", hash: "" });
 
 /** @typedef {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} AuthProfileProjector */
@@ -22,8 +22,10 @@ function normalizeDisplayName(value, email) {
   return email.split("@")[0] || "User";
 }
 
-// Accounts created through a provider store NO_PASSWORD; any other stored
-// record, in whatever format the password strategy uses, is a password.
+/**
+ * Accounts created through a provider store NO_PASSWORD; any other stored
+ * record, in whatever format the password strategy uses, is a password.
+ */
 function hasPassword(user) {
   const record = user?.password;
   return record && typeof record === "object" ? Boolean(record.hash) : Boolean(record);
@@ -69,7 +71,7 @@ function validateEmailInput(email) {
   return normalized;
 }
 
-// fields: { field: AUTH_TEXTS entry }; the error says the first field's text.
+/** fields: { field: AUTH_TEXTS entry }; the error says the first field's text. */
 function devLoginAsValidationError(fields = {}) {
   const [first = AUTH_TEXTS.devUserRequired] = Object.values(fields);
   return createAuthError(first, {
@@ -84,7 +86,7 @@ function devLoginAsUserNotFound({ email = "", userId = "" } = {}) {
   });
 }
 
-function normalizeInvitationInput(value = null) {
+function normalizeInvitationInput(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null;
   }
@@ -98,20 +100,22 @@ function normalizeInvitationInput(value = null) {
   };
 }
 
-// The accounts of local auth: registering one, signing in with its password
-// or as a dev user, and renaming it.
 /**
+ * The accounts of local auth: registering one, signing in with its password
+ * or as a dev user, and renaming it.
  * @param {object} dependencies
- * @param {import("../types.js").AuthLocalBackend} dependencies.backend
- * @param {ReturnType<typeof import("@jskit-ai/auth-core/server/devAuth").resolveDevAuthPolicy>} dependencies.devAuth
- * @param {import("@jskit-ai/auth-core/server/types").AuthInvitationContextResolver} dependencies.invitationContextResolver
- * @param {ReturnType<typeof import("./passwords.js").normalizePasswordStrategy>} dependencies.passwords
- * @param {AuthProfileProjector} dependencies.profileProjector
  * @param {boolean} dependencies.appProfileProjection True when the application keeps profiles.
- * @param {ReturnType<typeof import("./sessions.js").createLocalSessions>} dependencies.sessions
+ * @param {import("../types.js").AuthLocalBackend} dependencies.backend
+ * @param {import("../types.js").AuthLocalConfig} dependencies.config
+ * @param {import("@jskit-ai/auth-core/server/types").AuthInvitationContextResolver} dependencies.invitationContextResolver
+ * @param {import("../types.js").AuthLocalPasswords} dependencies.passwords
+ * @param {AuthProfileProjector} dependencies.profileProjector
+ * @param {import("../types.js").AuthLocalSessions} dependencies.sessions
  */
-function createLocalAccounts({ appProfileProjection, backend, devAuth, invitationContextResolver, passwords, profileProjector, sessions }) {
-  async function resolveProfileOptionsForRegistration(input = {}, { email } = {}) {
+function createLocalAccounts({ appProfileProjection, backend, config, invitationContextResolver, passwords, profileProjector, sessions }) {
+  const { devAuth } = config;
+
+  async function resolveProfileOptionsForRegistration(input, email) {
     const invitation = normalizeInvitationInput(input.invitation);
     if (!invitation) {
       return {};
@@ -125,11 +129,11 @@ function createLocalAccounts({ appProfileProjection, backend, devAuth, invitatio
     };
   }
 
-  async function register(input = {}) {
+  async function register(input) {
     const email = validateEmailInput(input.email);
     validatePasswordInput(input.password);
     const displayName = normalizeDisplayName(input.displayName, email);
-    const profileOptions = await resolveProfileOptionsForRegistration(input, { email });
+    const profileOptions = await resolveProfileOptionsForRegistration(input, email);
     const password = await passwords.hashPassword(input.password);
     const result = await backend.withTransaction(async (tx) => {
       const existing = await tx.users.findByEmail(email);
@@ -158,7 +162,7 @@ function createLocalAccounts({ appProfileProjection, backend, devAuth, invitatio
     };
   }
 
-  async function login(input = {}) {
+  async function login(input) {
     const email = validateEmailInput(input.email);
     const password = String(input.password || "");
     return backend.withTransaction(async (tx) => {
@@ -171,14 +175,14 @@ function createLocalAccounts({ appProfileProjection, backend, devAuth, invitatio
     });
   }
 
-  function isDevAuthBootstrapEnabled() {
-    return devAuth.enabled === true && devAuth.isProduction !== true;
+  function devAuthBootstrapEnabled() {
+    return isDevAuthBootstrapEnabled(devAuth);
   }
 
-  async function devLoginAs(request, input = {}) {
+  async function devLoginAs(request, input) {
     ensureDevAuthExchangeAvailable(devAuth, request);
-    const userId = String(input?.userId || "").trim();
-    const email = normalizeEmail(input?.email || "");
+    const userId = String(input.userId || "").trim();
+    const email = normalizeEmail(input.email || "");
     if (!userId && !email) {
       throw devLoginAsValidationError({
         userId: AUTH_TEXTS.devUserRequired,
@@ -205,7 +209,7 @@ function createLocalAccounts({ appProfileProjection, backend, devAuth, invitatio
     });
   }
 
-  async function updateDisplayName(request, input = {}) {
+  async function updateDisplayName(request, input) {
     const authResult = await sessions.authenticateRequest(request);
     if (authResult.authenticated !== true) {
       throw createAuthError(AUTH_TEXTS.sessionRequired);
@@ -226,7 +230,7 @@ function createLocalAccounts({ appProfileProjection, backend, devAuth, invitatio
   return Object.freeze({
     register,
     login,
-    isDevAuthBootstrapEnabled,
+    isDevAuthBootstrapEnabled: devAuthBootstrapEnabled,
     devLoginAs,
     updateDisplayName
   });

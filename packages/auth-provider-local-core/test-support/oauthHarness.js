@@ -2,9 +2,8 @@ import { createHash } from "node:crypto";
 import http from "node:http";
 import { once } from "node:events";
 import { followAuthorization, startMockIssuer } from "../../auth-provider-oidc-core/test-support/mockIssuer.js";
-import { invitationAsGiven } from "@jskit-ai/auth-core/server/authExtensions";
-import { noAppProfiles } from "@jskit-ai/auth-core/server/noAppProfiles";
 import { createLocalAuthService } from "../src/server/lib/service.js";
+import { localServiceOptions } from "./localService.js";
 
 const APP_URL = "http://localhost:5173";
 const REDIRECT_URI = `${APP_URL}/auth/login`;
@@ -119,18 +118,20 @@ function oidcProviderEntry(issuer, { id = "google", label = "Google" } = {}) {
   return { id, label, ...CLIENT, issuer: issuer.issuer };
 }
 
-function createService({ backend, oauthProviders, profileProjector = noAppProfiles }) {
+/**
+ * The local auth service of a sign-in test, whose OAuth providers are the mock ones.
+ * @param {object} dependencies
+ * @param {import("../src/server/types.js").AuthLocalBackend} dependencies.backend
+ * @param {import("../src/server/types.js").AuthLocalOAuthProvider[]} dependencies.oauthProviders
+ * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} dependencies.profileProjector
+ */
+function createService({ backend, oauthProviders, profileProjector }) {
+  const options = localServiceOptions({ env: { APP_PUBLIC_URL: APP_URL } });
   return createLocalAuthService({
+    ...options,
     backend,
-    invitationContextResolver: invitationAsGiven,
-    profileProjector,
-    config: {
-      sessionSecret: "oauth-test-session-secret",
-      nodeEnv: "test",
-      appPublicUrl: APP_URL,
-      oauthProviders,
-      logger: { warn() {} }
-    }
+    config: { ...options.config, oauthProviders },
+    profileProjector
   });
 }
 

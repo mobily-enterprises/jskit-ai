@@ -3,6 +3,7 @@ import test from "node:test";
 import createKnex from "knex";
 import initialMigration from "../migrations/auth_local_db_initial.cjs";
 import oauthMigration from "../migrations/auth_local_db_oauth.cjs";
+import { noAppProfiles } from "@jskit-ai/auth-core/server/noAppProfiles";
 import { createLocalDbBackend, LOCAL_AUTH_DB_TABLES } from "../src/server/lib/index.js";
 import {
   ATTEMPT_COOKIE,
@@ -30,7 +31,7 @@ test("provider sign-in and linking store identities and single-use attempts in t
   const issuer = await startOidcProvider();
   t.after(() => issuer.close());
   const { knex, backend } = await databaseBackend(t);
-  const service = createService({ backend, oauthProviders: [oidcProviderEntry(issuer)] });
+  const service = createService({ backend, oauthProviders: [oidcProviderEntry(issuer)], profileProjector: noAppProfiles });
 
   const { input, request } = await approveAtProvider(service);
   assert.equal((await knex(LOCAL_AUTH_DB_TABLES.oauthAttempts).count({ count: "*" }))[0].count, 1);
@@ -87,7 +88,7 @@ test("an attempt cookie from another browser finds nothing", async (t) => {
   const issuer = await startOidcProvider();
   t.after(() => issuer.close());
   const { backend } = await databaseBackend(t);
-  const service = createService({ backend, oauthProviders: [oidcProviderEntry(issuer)] });
+  const service = createService({ backend, oauthProviders: [oidcProviderEntry(issuer)], profileProjector: noAppProfiles });
   const { input } = await approveAtProvider(service);
   await assert.rejects(service.oauthComplete(input, { cookies: { [ATTEMPT_COOKIE]: "forged-browser-key" } }), {
     code: "auth.local.oauth.expired"

@@ -5,10 +5,9 @@ import path from "node:path";
 import test from "node:test";
 import { catalogMessage, formatMessage, mergeCatalogs, messageKeyForCode } from "@jskit-ai/kernel/shared/i18n";
 import authCoreEnglish from "@jskit-ai/auth-core/locales/en.json" with { type: "json" };
-import { invitationAsGiven } from "@jskit-ai/auth-core/server/authExtensions";
-import { noAppProfiles } from "@jskit-ai/auth-core/server/noAppProfiles";
 import localEnglish from "../locales/en.json" with { type: "json" };
 import { createLocalAuthService, createLocalFileBackend } from "../src/server/lib/index.js";
+import { localServiceOptions } from "../test-support/localService.js";
 
 const english = mergeCatalogs(authCoreEnglish, localEnglish);
 
@@ -28,19 +27,11 @@ function assertCoded(error, code) {
   return true;
 }
 
-async function createService(config = {}) {
+async function createService(env = {}) {
   const storeDir = await fs.mkdtemp(path.join(os.tmpdir(), "jskit-auth-local-coded-"));
   return createLocalAuthService({
-    backend: createLocalFileBackend({ storeDir }),
-    invitationContextResolver: invitationAsGiven,
-    profileProjector: noAppProfiles,
-    config: {
-      sessionSecret: "coded-texts-secret",
-      nodeEnv: "test",
-      appPublicUrl: "http://localhost:5173",
-      recoveryDevOutput: "response",
-      ...config
-    }
+    ...localServiceOptions({ env }),
+    backend: createLocalFileBackend({ storeDir })
   });
 }
 
@@ -62,7 +53,7 @@ test("local auth errors carry codes whose English is the thrown message", async 
   await assert.rejects(() => service.updateDisplayName({ cookies: {} }, { displayName: "Ada" }),
     (error) => assertCoded(error, "auth.session.required"));
 
-  const disabled = await createService({ nodeEnv: "production", recoveryDevOutput: "log" });
+  const disabled = await createService({ NODE_ENV: "production", AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "log" });
   await assert.rejects(() => disabled.requestPasswordReset({ email: "ada@example.com" }),
     (error) => assertCoded(error, "auth.local.recovery.notConfigured"));
 });

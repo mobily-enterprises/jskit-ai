@@ -9,37 +9,27 @@ import { createId, isExpiredIso, isoFromNow, randomToken, sha256Base64url } from
 
 const OAUTH_ATTEMPT_COOKIE_NAME = "jskit_local_oauth_attempt";
 const OAUTH_ATTEMPT_TTL_SECONDS = 10 * 60;
-// Every provider returns to the login page, which completes a sign-in or a link.
+/** Every provider returns to the login page, which completes a sign-in or a link. */
 const OAUTH_REDIRECT_PATH = "/auth/login";
 
-/** @typedef {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} AuthProfileProjector */
-
-// Signing in with a configured OAuth provider, and linking or unlinking one.
 /**
+ * Signing in with a configured OAuth provider, and linking or unlinking one.
  * @param {object} dependencies
  * @param {import("../types.js").AuthLocalBackend} dependencies.backend
- * @param {ReturnType<typeof import("../providers/AuthLocalProvider.js").resolveConfig>} dependencies.config
- * @param {boolean} dependencies.isProduction
- * @param {boolean} dependencies.oauthEnabled
- * @param {Map<string, ReturnType<typeof import("../providers/AuthLocalProvider.js").resolveConfig>["oauthProviders"][number]>} dependencies.oauthProvidersById
- * @param {AuthProfileProjector} dependencies.profileProjector
+ * @param {import("../types.js").AuthLocalConfig} dependencies.config
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
+ * @param {Map<string, import("../types.js").AuthLocalOAuthProvider>} dependencies.oauthProvidersById
+ * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} dependencies.profileProjector
  * @param {ReturnType<typeof import("./securityStatus.js").createLocalSecurityStatus>} dependencies.securityStatus
- * @param {ReturnType<typeof import("./sessions.js").createLocalSessions>} dependencies.sessions
+ * @param {import("../types.js").AuthLocalSessions} dependencies.sessions
  */
-function createLocalOAuthFlows({
-  backend,
-  config,
-  isProduction,
-  oauthEnabled,
-  oauthProvidersById,
-  profileProjector,
-  securityStatus,
-  sessions
-}) {
+function createLocalOAuthFlows({ backend, config, logger, oauthProvidersById, profileProjector, securityStatus, sessions }) {
+  const { isProduction } = config;
+  const oauthEnabled = config.oauthProviders.length > 0;
   const OAUTH_ATTEMPT_COOKIE = hostOnlyCookieName(OAUTH_ATTEMPT_COOKIE_NAME, isProduction);
   const oauthRedirectUri = oauthEnabled ? `${config.appPublicUrl.replace(/\/$/u, "")}${OAUTH_REDIRECT_PATH}` : "";
   const appOrigin = oauthEnabled ? new URL(config.appPublicUrl).origin : "";
-  const oauthClients = createOAuthClients({ logger: config.logger });
+  const oauthClients = createOAuthClients({ logger });
 
   function requireOAuthProvider(value) {
     const provider = oauthProvidersById.get(String(value || "").trim().toLowerCase());
@@ -72,11 +62,11 @@ function createLocalOAuthFlows({
     return { provider: provider.id, returnTo: attempt.returnTo, url, attempt: browserKey };
   }
 
-  async function oauthStart(input = {}) {
+  async function oauthStart(input) {
     return beginOAuthAttempt(requireOAuthProvider(input.provider), { intent: "login", returnTo: input.returnTo });
   }
 
-  async function startProviderLink(request, input = {}) {
+  async function startProviderLink(request, input) {
     const userId = await sessions.requireNormalSessionUserId(request);
     return beginOAuthAttempt(requireOAuthProvider(input.provider), { intent: "link", userId, returnTo: input.returnTo });
   }
@@ -153,7 +143,7 @@ function createLocalOAuthFlows({
     return buildAuthPayload({ user, session: null, profileProjector });
   }
 
-  async function oauthComplete(input = {}, request = null) {
+  async function oauthComplete(input, request) {
     const errorCode = String(input.error || input.error_code || "").trim();
     if (errorCode) {
       throw errorCode === "access_denied"
@@ -190,7 +180,7 @@ function createLocalOAuthFlows({
     return { ...result, provider: provider.id, returnTo: attempt.returnTo };
   }
 
-  async function unlinkProvider(request, input = {}) {
+  async function unlinkProvider(request, input) {
     const userId = await sessions.requireNormalSessionUserId(request);
     const provider = requireOAuthProvider(input.provider);
     await backend.withTransaction(async (tx) => {

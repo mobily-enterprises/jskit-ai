@@ -9,34 +9,36 @@ import { createId, isExpiredIso, isoFromNow, randomToken, sha256Base64url, verif
 const RECOVERY_SESSION_TTL_SECONDS = 15 * 60;
 const RECOVERY_TOKEN_TTL_SECONDS = 60 * 60;
 
-/** @typedef {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} AuthProfileProjector */
-
-// Changing a password, and recovering one: a recovery link opens a short
-// recovery session, which can only set a new password.
 /**
+ * The `auth.local.recovery-sender` default when no feature provides one: outside
+ * production, local auth logs each recovery link instead of emailing it.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} logger
+ * @returns {import("../types.js").AuthLocalRecoverySender}
+ */
+function createLoggedRecoverySender(logger) {
+  return async function logRecoveryLink({ email, recoveryUrl }) {
+    logger.info({ recoveryUrl, email }, "Local auth password recovery URL created.");
+  };
+}
+
+/**
+ * Changing a password, and recovering one: a recovery link opens a short
+ * recovery session, which can only set a new password.
  * @param {object} dependencies
  * @param {import("../types.js").AuthLocalBackend} dependencies.backend
- * @param {ReturnType<typeof import("../providers/AuthLocalProvider.js").resolveConfig>} dependencies.config
- * @param {boolean} dependencies.isProduction
- * @param {ReturnType<typeof import("./passwords.js").normalizePasswordStrategy>} dependencies.passwords
- * @param {AuthProfileProjector} dependencies.profileProjector
- * @param {boolean} dependencies.recoveryEnabled
- * @param {((delivery: { email: string, recoveryUrl: string }) => Promise<void>) | null} dependencies.recoverySender The `auth.local.recovery-sender`, when one is installed.
- * @param {ReturnType<typeof import("./sessions.js").createLocalSessions>} dependencies.sessions
+ * @param {import("../types.js").AuthLocalConfig} dependencies.config
+ * @param {import("../types.js").AuthLocalPasswords} dependencies.passwords
+ * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} dependencies.profileProjector
+ * @param {import("../types.js").AuthLocalRecoverySender} dependencies.recoverySender Sends each recovery
+ *   link, except when the configuration returns it in the response.
+ * @param {import("../types.js").AuthLocalSessions} dependencies.sessions
  */
-function createLocalPasswordFlows({
-  backend,
-  config,
-  isProduction,
-  passwords,
-  profileProjector,
-  recoveryEnabled,
-  recoverySender,
-  sessions
-}) {
-  const RECOVERY_TOKEN_COOKIE = hostOnlyCookieName(RECOVERY_TOKEN_COOKIE_NAME, isProduction);
+function createLocalPasswordFlows({ backend, config, passwords, profileProjector, recoverySender, sessions }) {
+  const RECOVERY_TOKEN_COOKIE = hostOnlyCookieName(RECOVERY_TOKEN_COOKIE_NAME, config.isProduction);
+  const recoveryEnabled = config.recoveryDelivery !== "disabled";
+  const recoveryInResponse = config.recoveryDelivery === "dev-response";
 
-  async function requestPasswordReset(input = {}) {
+  async function requestPasswordReset(input) {
     if (!recoveryEnabled) {
       throw new AppError(503, "Password recovery is not configured.", { code: "auth.local.recovery.notConfigured" });
     }
@@ -56,22 +58,19 @@ function createLocalPasswordFlows({
         expiresAt: isoFromNow(RECOVERY_TOKEN_TTL_SECONDS)
       });
     });
-    if (recoveryUrl) {
-      if (recoverySender) await recoverySender({ email, recoveryUrl });
-      if (!recoverySender && config.recoveryDevOutput === "log" && config.logger?.info) {
-        config.logger.info({ recoveryUrl, email }, "Local auth password recovery URL created.");
-      }
+    if (recoveryUrl && !recoveryInResponse) {
+      await recoverySender({ email, recoveryUrl });
     }
     return {
       ok: true,
       message: "If an account exists for that email, password reset instructions have been sent.",
       messageCode: "auth.local.recovery.requested",
       messageParams: {},
-      ...(recoveryUrl && !recoverySender && config.recoveryDevOutput === "response" ? { recoveryUrl } : {})
+      ...(recoveryUrl && recoveryInResponse ? { recoveryUrl } : {})
     };
   }
 
-  async function completePasswordRecovery(input = {}) {
+  async function completePasswordRecovery(input) {
     if (!recoveryEnabled) {
       throw new AppError(503, "Password recovery is not configured.", { code: "auth.local.recovery.notConfigured" });
     }
@@ -98,7 +97,7 @@ function createLocalPasswordFlows({
     });
   }
 
-  async function resetPassword(request, input = {}) {
+  async function resetPassword(request, input) {
     validatePasswordInput(input.password);
     const cookies = safeRequestCookies(request);
     const recoveryAccessToken = String(cookies[RECOVERY_TOKEN_COOKIE] || "").trim();
@@ -125,7 +124,7 @@ function createLocalPasswordFlows({
     };
   }
 
-  async function changePassword(request, input = {}) {
+  async function changePassword(request, input) {
     validatePasswordInput(input.newPassword);
     const authResult = await sessions.authenticateRequest(request);
     if (authResult.authenticated !== true || authResult.sessionPurpose !== "normal") {
@@ -161,4 +160,4 @@ function createLocalPasswordFlows({
   });
 }
 
-export { createLocalPasswordFlows };
+export { createLocalPasswordFlows, createLoggedRecoverySender };

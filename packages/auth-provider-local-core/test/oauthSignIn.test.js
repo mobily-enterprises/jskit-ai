@@ -5,9 +5,11 @@ import path from "node:path";
 import test from "node:test";
 import { decodeJwt, generateKeyPair, SignJWT } from "jose";
 import { createService as createProfileSyncService } from "../../users-core/src/server/common/services/authProfileSyncService.js";
+import { noAppProfiles } from "@jskit-ai/auth-core/server/noAppProfiles";
+import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { createLocalAuthRegisterHookDecorator, createLocalFileBackend } from "../src/server/lib/index.js";
 import { sha256Base64url } from "../src/server/lib/tokens.js";
-import { resolveConfig } from "../src/server/providers/AuthLocalProvider.js";
+import { resolveLocalAuthConfig } from "../src/server/lib/config.js";
 import {
   APP_URL,
   ATTEMPT_COOKIE,
@@ -67,7 +69,7 @@ function createUsersProfileSync() {
   return { profileProjector, profiles, provisioned };
 }
 
-async function googleSetup(t, { account, profileProjector } = {}) {
+async function googleSetup(t, { account, profileProjector = noAppProfiles } = {}) {
   const issuer = await startOidcProvider({ account });
   t.after(() => issuer.close());
   const backend = await fileBackend();
@@ -96,6 +98,7 @@ test("a first Google sign-in creates the user like register, provisions it, and 
   const { issuer, backend, service: baseService } = await googleSetup(t, { profileProjector: usersSync.profileProjector });
   const registered = [];
   const service = createLocalAuthRegisterHookDecorator({
+    logger: silentLogger,
     hook: { blocking: true, handle: (payload) => registered.push(payload.actor.email) }
   }).decorateAuthService(baseService);
 
@@ -234,7 +237,8 @@ test("Microsoft accepts personal accounts and work accounts on a verified domain
       st.after(() => issuer.close());
       const service = createService({
         backend: await fileBackend(),
-        oauthProviders: [oidcProviderEntry(issuer, { id: "microsoft", label: "Microsoft" })]
+        oauthProviders: [oidcProviderEntry(issuer, { id: "microsoft", label: "Microsoft" })],
+        profileProjector: noAppProfiles
       });
       tamperIdToken(st, issuer, claims);
       const { input, request } = await approveAtProvider(service, { provider: "microsoft" });
@@ -252,7 +256,7 @@ test("GitHub signs in with the primary verified address and refuses an unverifie
   const github = await startFakeGitHub();
   t.after(() => github.close());
   const backend = await fileBackend();
-  const service = createService({ backend, oauthProviders: [github.provider] });
+  const service = createService({ backend, oauthProviders: [github.provider], profileProjector: noAppProfiles });
 
   const { started, input, request } = await approveAtProvider(service, { provider: "github" });
   assert.equal(new URL(started.url).searchParams.get("scope"), "read:user user:email");
@@ -283,7 +287,8 @@ test("account settings link and unlink providers, never removing the last sign-i
   });
   const service = createService({
     backend: await fileBackend(),
-    oauthProviders: [oidcProviderEntry(issuer), github.provider]
+    oauthProviders: [oidcProviderEntry(issuer), github.provider],
+    profileProjector: noAppProfiles
   });
   const methods = async (cookies) => Object.fromEntries((await service.getSecurityStatus({ cookies })).authMethods
     .map((method) => [method.id, { enabled: method.enabled, canEnable: method.canEnable ?? false, canDisable: method.canDisable }]));
@@ -341,7 +346,12 @@ test("returnTo stays on the app's own origin", async (t) => {
 
 test("a provider appears only when its client id and secret are both set", () => {
   const base = { NODE_ENV: "test", AUTH_LOCAL_SESSION_SECRET: "secret", APP_PUBLIC_URL: APP_URL };
-  const config = (env) => resolveConfig({ appRoot: os.tmpdir(), backend: {}, env: { ...base, ...env }, logger: null });
+  const config = (env) => resolveLocalAuthConfig({
+    appRoot: os.tmpdir(),
+    env: { ...base, ...env },
+    fileBackend: false,
+    emailRecovery: false
+  });
 
   assert.deepEqual(config({}).oauthProviders, []);
   assert.deepEqual(config({

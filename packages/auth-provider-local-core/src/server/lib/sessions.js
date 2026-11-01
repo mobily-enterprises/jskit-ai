@@ -74,18 +74,17 @@ function buildSessionPayload({ user, session, refreshToken, secret }) {
   };
 }
 
-// The sessions of local auth: creating one, authenticating a request from its
-// cookies, writing and clearing those cookies, and revoking sessions.
 /**
+ * The sessions of local auth: creating one, authenticating a request from its
+ * cookies, writing and clearing those cookies, and revoking sessions.
  * @param {object} dependencies
- * @param {import("../types.js").AuthLocalBackend} dependencies.backend
- * @param {ReturnType<typeof import("../providers/AuthLocalProvider.js").resolveConfig>} dependencies.config
- * @param {ReturnType<typeof import("@jskit-ai/auth-core/server/devAuth").resolveDevAuthPolicy>} dependencies.devAuth
- * @param {boolean} dependencies.isProduction
- * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} dependencies.profileProjector
  * @param {boolean} dependencies.appProfileProjection True when the application keeps profiles.
+ * @param {import("../types.js").AuthLocalBackend} dependencies.backend
+ * @param {import("../types.js").AuthLocalConfig} dependencies.config
+ * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} dependencies.profileProjector
  */
-function createLocalSessions({ appProfileProjection, backend, config, devAuth, isProduction, profileProjector }) {
+function createLocalSessions({ appProfileProjection, backend, config, profileProjector }) {
+  const { devAuth, isProduction } = config;
   // Production cookies are Secure, so they are also host-only __Host- cookies.
   const ACCESS_TOKEN_COOKIE = hostOnlyCookieName(ACCESS_TOKEN_COOKIE_NAME, isProduction);
   const REFRESH_TOKEN_COOKIE = hostOnlyCookieName(REFRESH_TOKEN_COOKIE_NAME, isProduction);

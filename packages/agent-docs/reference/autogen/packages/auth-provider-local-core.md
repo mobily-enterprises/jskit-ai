@@ -17,7 +17,7 @@ Use this on demand; do not load the full index at startup.
 ### `src/server/lib/accounts.js`
 Exports
 - `NO_PASSWORD`
-- `createLocalAccounts({ appProfileProjection, backend, devAuth, invitationContextResolver, passwords, profileProjector, sessions })`
+- `createLocalAccounts({ appProfileProjection, backend, config, invitationContextResolver, passwords, profileProjector, sessions })`
 - `hasPassword(user)`
 - `normalizeDisplayName(value, email)`
 - `validateEmailInput(email)`
@@ -26,7 +26,7 @@ Exports
 Local functions
 - `devLoginAsValidationError(fields = {})`
 - `devLoginAsUserNotFound({ email = "", userId = "" } = {})`
-- `normalizeInvitationInput(value = null)`
+- `normalizeInvitationInput(value)`
 
 ### `src/server/lib/authPayloads.js`
 Exports
@@ -42,7 +42,16 @@ Local functions
 - `isNormalSession(session)`
 - `isDevAuthSession(session)`
 - `buildProfile(user)`
-- `buildActor(user, profile = null)`
+- `buildActor(user, profile)`
+
+### `src/server/lib/config.js`
+Exports
+- `resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery })`
+Local functions
+- `resolveStoreDir(env, appRoot)`
+- `resolveSessionSecret(env, { storeDir, isProduction })`
+- `resolveAppPublicUrl(env, { emailRecovery, oauthProviders })`
+- `resolveRecoveryDelivery(env, { emailRecovery, isProduction })`
 
 ### `src/server/lib/fileBackend.js`
 Exports
@@ -80,11 +89,14 @@ Local functions
 ### `src/server/lib/index.js`
 Exports
 - `createLocalAuthService`
+- `resolveLocalAuthConfig`
+- `createLoggedRecoverySender`
 - `createLocalFileBackend`
 - `LOCAL_AUTH_USER_REGISTERED_EVENT`
 - `createLocalAuthRegisterHookDecorator`
 - `hashPassword`
 - `normalizePasswordStrategy`
+- `scryptPasswordStrategy`
 - `verifyPassword`
 
 ### `src/server/lib/oauth.js`
@@ -98,19 +110,19 @@ Local functions
 
 ### `src/server/lib/oauthFlows.js`
 Exports
-- `createLocalOAuthFlows({ backend, config, isProduction, oauthEnabled, oauthProvidersById, profileProjector, securityStatus, sessions })`
-- `type AuthProfileProjector`
+- `createLocalOAuthFlows({ backend, config, logger, oauthProvidersById, profileProjector, securityStatus, sessions })`
 
 ### `src/server/lib/passwordFlows.js`
 Exports
-- `createLocalPasswordFlows({ backend, config, isProduction, passwords, profileProjector, recoveryEnabled, recoverySender, sessions })`
-- `type AuthProfileProjector`
+- `createLocalPasswordFlows({ backend, config, passwords, profileProjector, recoverySender, sessions })`
+- `createLoggedRecoverySender(logger)`
 
 ### `src/server/lib/passwords.js`
 Exports
 - `hashPassword(password)`
+- `normalizePasswordStrategy(strategy)`
+- `scryptPasswordStrategy`
 - `verifyPassword(password, record)`
-- `normalizePasswordStrategy(strategy = null)`
 Local functions
 - `base64url(buffer)`
 - `fromBase64url(value)`
@@ -118,28 +130,27 @@ Local functions
 ### `src/server/lib/registerHookDecorator.js`
 Exports
 - `LOCAL_AUTH_USER_REGISTERED_EVENT`
-- `createLocalAuthRegisterHookDecorator({ decoratorId = "auth.local.registerHook", order = 0, logger = consoleLogger, hook = null } = {})`
-- `type RegisterHookLogger`
+- `createLocalAuthRegisterHookDecorator({ decoratorId = "auth.local.registerHook", order = 0, logger, hook })`
+- `type LocalAuthRegisterHook`
 Local functions
 - `assertBlockingMode(hook)`
-- `normalizeRegisterHook(hook = null)`
+- `normalizeRegisterHook(hook)`
 - `logNonBlockingHookFailure({ logger, hook, error })`
 - `runRegisterHook({ hook, result, logger })`
 
 ### `src/server/lib/securityStatus.js`
 Exports
-- `createLocalSecurityStatus({ backend, oauthEnabled, oauthProviders, oauthProvidersById, sessions })`
+- `createLocalSecurityStatus({ backend, config, oauthProvidersById, sessions })`
 
 ### `src/server/lib/service.js`
 Exports
-- `createLocalAuthService({ backend, config, profileProjector, passwordStrategy, invitationContextResolver, recoverySender })`
-- `type AuthProfileProjector`
+- `createLocalAuthService({ backend, config, invitationContextResolver, logger, passwordStrategy, profileProjector, recoverySender })`
 
 ### `src/server/lib/sessions.js`
 Exports
 - `RECOVERY_TOKEN_COOKIE_NAME`
 - `cookieOptions(isProduction, maxAge)`
-- `createLocalSessions({ appProfileProjection, backend, config, devAuth, isProduction, profileProjector })`
+- `createLocalSessions({ appProfileProjection, backend, config, profileProjector })`
 - `safeRequestCookies(request)`
 Local functions
 - `nowSeconds()`
@@ -164,25 +175,30 @@ Local functions
 ### `src/server/providers/AuthLocalProvider.js`
 Exports
 - `AuthLocalProvider`
-- `resolveConfig({ appRoot, backend, env, logger, recoverySender = null })`
-Local functions
-- `resolveStoreDir(env, appRoot)`
-- `resolveSessionSecret(env, { storeDir, isProduction })`
-- `resolveAppPublicUrl(env, { recoverySender, oauthProviders })`
 
 ### `src/server/types.js`
 Exports
 - `type AuthLocalBackendTransaction`
 - `type AuthLocalBackend`
+- `type AuthLocalPasswordStrategy`
+- `type AuthLocalRecoverySender`
+- `type AuthLocalConfig`
+- `type AuthLocalOAuthProvider`
+- `type AuthLocalPasswords`
+- `type AuthLocalSessions`
 
 ### test-support
+
+### `test-support/localService.js`
+Exports
+- `localServiceOptions({ env = {}, emailRecovery = false } = {})`
 
 ### `test-support/oauthHarness.js`
 Exports
 - `APP_URL`
 - `ATTEMPT_COOKIE`
 - `approveAtProvider(service, { provider = "google", returnTo = "/home", cookies = {}, link = false } = {})`
-- `createService({ backend, oauthProviders, profileProjector = noAppProfiles })`
+- `createService({ backend, oauthProviders, profileProjector })`
 - `oidcProviderEntry(issuer, { id = "google", label = "Google" } = {})`
 - `sessionCookies(session)`
 - `startFakeGitHub({ user = { id: 4242, login: "ada", name: "Ada Lovelace" }, emails } = {})`
