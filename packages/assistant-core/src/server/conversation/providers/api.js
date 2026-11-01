@@ -58,7 +58,9 @@ export function createApiConversationDriver({ connections, apiClientFactory, fet
   if (!apiClientFactory && typeof connections?.resolve !== "function") throw new TypeError("API conversations require an authorized AI connection resolver.");
   const maximumOutput = limits.maxOutputCharacters ?? 64_000;
   const maximumToolProgress = limits.maxApiToolProgressCharacters;
-  const maximumSteps = limits.maxSteps ?? MAX_STEPS;
+  // The runtime ends a turn with an error past its application action-call limit (32 by
+  // default), so the step limit stays within it and a long turn ends with the model's account.
+  const maximumSteps = limits.maxSteps ?? Math.min(MAX_STEPS, limits.maxToolCalls ?? 32);
   const contextTokens = limits.contextTokens ?? CONTEXT_TOKENS;
   for (const limit of [maximumOutput, maximumSteps, contextTokens]) {
     if (!Number.isSafeInteger(limit) || limit < 1) throw new TypeError("Invalid API conversation limit.");
