@@ -53,7 +53,15 @@ function createProfileProjector(knex) {
   };
 }
 
-async function createRelyingParty({ issuer, env = {}, fetchImpl = globalThis.fetch, now = Date.now } = {}) {
+/**
+ * A relying party over an in-memory database, signing in at the given issuer.
+ * @param {object} options
+ * @param {Awaited<ReturnType<typeof import("./mockIssuer.js").startMockIssuer>>} options.issuer
+ * @param {Record<string, string>} [options.env] Env values over the test defaults.
+ * @param {typeof fetch} [options.fetchImpl]
+ * @param {() => number} [options.now]
+ */
+async function createRelyingParty({ issuer, env = {}, fetchImpl = globalThis.fetch, now = Date.now }) {
   const appRoot = await mkdtemp(path.join(tmpdir(), "jskit-oidc-rp-"));
   const knex = await createDatabase();
   const config = resolveOidcConfig({

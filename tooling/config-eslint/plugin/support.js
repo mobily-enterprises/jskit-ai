@@ -206,6 +206,11 @@ function factoryDependencies(fn, sourceCode) {
   return { name, first, pattern, collaborators };
 }
 
+// A node's source text on one line, for messages that quote it.
+function compactText(sourceCode, node) {
+  return sourceCode.getText(node).replace(/\s+/gu, " ");
+}
+
 function ruleMeta(description, messages) {
   return {
     type: "suggestion",
@@ -216,6 +221,7 @@ function ruleMeta(description, messages) {
 }
 
 export {
+  compactText,
   createReporter,
   factoryDependencies,
   followsOptionalLink,

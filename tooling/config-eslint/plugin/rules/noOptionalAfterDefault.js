@@ -1,4 +1,4 @@
-import { createReporter, ruleMeta } from "../support.js";
+import { compactText, createReporter, ruleMeta } from "../support.js";
 
 // Defaults that are never null or undefined: an object, array, string, number,
 // boolean, template, function or constructed value.
@@ -42,10 +42,6 @@ function defaultedNames(pattern, found = []) {
     }
   }
   return found;
-}
-
-function compactText(sourceCode, node) {
-  return sourceCode.getText(node).replace(/\s+/gu, " ");
 }
 
 // A parameter that has a present default is never absent in its function, so

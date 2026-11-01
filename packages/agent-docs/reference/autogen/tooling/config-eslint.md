@@ -170,7 +170,6 @@ Exports
 Local functions
 - `isPresentDefault(node)`
 - `defaultedNames(pattern, found = [])`
-- `compactText(sourceCode, node)`
 
 ### `plugin/rules/noSlotSetter.js`
 Exports
@@ -190,8 +189,6 @@ Local functions
 ### `plugin/rules/requiredCollaborators.js`
 Exports
 - `requiredCollaborators`
-Local functions
-- `compactText(sourceCode, node)`
 
 ### `plugin/rules/typedDependencies.js`
 Exports
@@ -201,6 +198,7 @@ Local functions
 
 ### `plugin/support.js`
 Exports
+- `compactText(sourceCode, node)`
 - `createReporter(context, ruleName)`
 - `factoryDependencies(fn, sourceCode)`
 - `followsOptionalLink(node)`

@@ -148,6 +148,7 @@ function normalizeCrudListFilterDefinition(rawKey = "", rawDefinition = null) {
   const label = normalizeText(source.label) || key;
   const options = resolveCrudListFilterOptionSet(source, type);
   const lookup = normalizeCrudListFilterLookup(source.lookup);
+  // readable-check: allow method-probe - input validation: an application's list filter definition may name a chipLabel function
   const chipLabel = typeof source.chipLabel === "function" ? source.chipLabel : null;
   const ui = source.ui && typeof source.ui === "object" && !Array.isArray(source.ui)
     ? deepFreeze({ ...source.ui })

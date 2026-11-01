@@ -1,14 +1,10 @@
-import { createReporter, factoryDependencies, ruleMeta } from "../support.js";
+import { compactText, createReporter, factoryDependencies, ruleMeta } from "../support.js";
 
 // A default that makes a collaborator absent: null, undefined, {}, [] or a no-op.
 // A default that is the production implementation (a clock, the global fetch)
 // is fine.
 const ABSENT_DEFAULT = /^(null|undefined|\{\}|\[\]|(async\s*)?\(\)\s*=>\s*(null|undefined|\{\s*\}|\(\{\s*\}\)|\[\]))$/u;
 const FUNCTION_TYPES = new Set(["ArrowFunctionExpression", "FunctionExpression"]);
-
-function compactText(sourceCode, node) {
-  return sourceCode.getText(node).replace(/\s+/gu, " ");
-}
 
 // Collaborators are required: no absent default, no `typeof x.y === "function"`
 // probe and no `x?.y?.()` call. The capability runtime already refuses to start

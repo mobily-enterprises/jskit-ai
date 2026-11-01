@@ -135,7 +135,7 @@ Exports
 ### `test-support/harness.js`
 Exports
 - `APP_ORIGIN`
-- `createRelyingParty({ issuer, env = {}, fetchImpl = globalThis.fetch, now = Date.now } = {})`
+- `createRelyingParty({ issuer, env = {}, fetchImpl = globalThis.fetch, now = Date.now })`
 - `requestAt(origin = APP_ORIGIN, cookies = {})`
 - `signInAtIssuer(rp, { origin = APP_ORIGIN, returnTo = "/home" } = {})`
 Local functions
