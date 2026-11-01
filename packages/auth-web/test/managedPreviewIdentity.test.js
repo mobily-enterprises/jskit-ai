@@ -140,6 +140,33 @@ test("managed preview identity rejects a disabled or non-local exchange", async 
     "a hostname the application does not list is not local");
 });
 
+test("managed preview identity accepts the dev auth secret auth-core accepts", async () => {
+  const request = {
+    operation: "logout",
+    protocol: HOST_PROTOCOL,
+    requestId: "request-5",
+    target: { origin: "http://localhost:3000" }
+  };
+  const missing = await executeManagedPreviewIdentityRequest(request, {
+    ...HOST_OPTIONS,
+    env: { AUTH_DEV_BYPASS_ENABLED: "true", AUTH_DEV_BYPASS_SECRET: "  " },
+    fetchImpl: async () => assert.fail("fetch must not run")
+  });
+  assert.equal(missing.code, "jskit_managed_preview_identity_secret_missing");
+
+  const responses = [
+    jsonResponse({ csrfToken: "csrf-token" }, { cookie: "session=initial; Path=/" }),
+    jsonResponse({ ok: true }, { cookie: "session=; Max-Age=0; Path=/" })
+  ];
+  const signedOut = await executeManagedPreviewIdentityRequest(request, {
+    ...HOST_OPTIONS,
+    env: { AUTH_DEV_BYPASS_ENABLED: "true", AUTH_DEV_BYPASS_SECRET: " any-local-secret " },
+    fetchImpl: async () => responses.shift()
+  });
+  assert.equal(signedOut.ok, true);
+  assert.deepEqual(signedOut.setCookie, ["session=initial; Path=/", "session=; Max-Age=0; Path=/"]);
+});
+
 test("the auth surface pattern ships the managed-preview login as standard", () => {
   const pattern = readFileSync(new URL("../patterns/auth-surface/PATTERN.md", import.meta.url), "utf8");
   const executable = new URL("../patterns/auth-surface/example/tools/preview-identity", import.meta.url);

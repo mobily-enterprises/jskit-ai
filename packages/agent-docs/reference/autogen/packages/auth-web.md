@@ -300,7 +300,6 @@ Local functions
 - `localTargetOrigin(value, localHostnames)`
 - `normalizeRequest(value, { protocol, localHostnames })`
 - `identityFromSubject(subject)`
-- `setCookies(response)`
 - `cookieHeader(setCookie)`
 - `responsePayload(fetchResponse)`
 - `rejected(payload, fetchResponse, details = {})`

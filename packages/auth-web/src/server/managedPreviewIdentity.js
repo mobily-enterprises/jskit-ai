@@ -1,4 +1,8 @@
-import { DEV_AUTH_SECRET_HEADER } from "@jskit-ai/auth-core/server/devAuth";
+import {
+  DEV_AUTH_SECRET_HEADER,
+  isDevAuthBootstrapEnabled,
+  resolveDevAuthPolicyFromEnv
+} from "@jskit-ai/auth-core/server/devAuth";
 import { AUTH_PATHS } from "@jskit-ai/auth-core/shared/authPaths";
 
 /**
@@ -7,8 +11,6 @@ import { AUTH_PATHS } from "@jskit-ai/auth-core/shared/authPaths";
  * option.
  */
 const DEFAULT_PREVIEW_IDENTITY_PROTOCOL = "jskit.preview-identity.command.v1";
-const MANAGED_PREVIEW_IDENTITY_ENABLED_ENV = "AUTH_DEV_BYPASS_ENABLED";
-const MANAGED_PREVIEW_IDENTITY_SECRET_ENV = "AUTH_DEV_BYPASS_SECRET";
 const MAX_MESSAGE_BYTES = 64 * 1024;
 
 function commandError(message, code = "jskit_managed_preview_identity_failed", details = {}) {
@@ -146,15 +148,6 @@ function identityFromSubject(subject) {
   );
 }
 
-/**
- * The Set-Cookie headers of a fetch response.
- * @param {Response} response
- */
-function setCookies(response) {
-  // readable-check: allow method-probe - platform object: another fetch implementation's Headers may lack getSetCookie()
-  return typeof response.headers.getSetCookie === "function" ? response.headers.getSetCookie() : [];
-}
-
 function cookieHeader(setCookie) {
   const cookies = new Map();
   for (const entry of setCookie) {
@@ -235,7 +228,7 @@ async function bootstrapSession(fetchImpl, targetOrigin) {
     redirect: "manual"
   });
   const payload = await responsePayload(fetchResponse);
-  const setCookie = setCookies(fetchResponse);
+  const setCookie = fetchResponse.headers.getSetCookie();
   if (!fetchResponse.ok) {
     throw rejected(payload, fetchResponse, { setCookie });
   }
@@ -257,7 +250,7 @@ async function logout(fetchImpl, targetOrigin, session) {
     "csrf-token": session.csrfToken
   });
   const payload = await responsePayload(fetchResponse);
-  const setCookie = [...session.setCookie, ...setCookies(fetchResponse)];
+  const setCookie = [...session.setCookie, ...fetchResponse.headers.getSetCookie()];
   if (!fetchResponse.ok || payload?.ok !== true) {
     throw rejected(payload, fetchResponse, { setCookie, signedOut: false });
   }
@@ -272,7 +265,7 @@ async function login(fetchImpl, targetOrigin, identity, secret, session) {
     [DEV_AUTH_SECRET_HEADER]: secret
   });
   const payload = await responsePayload(fetchResponse);
-  const setCookie = [...session.setCookie, ...setCookies(fetchResponse)];
+  const setCookie = [...session.setCookie, ...fetchResponse.headers.getSetCookie()];
   if (!fetchResponse.ok || payload?.ok !== true) {
     throw rejected(payload, fetchResponse, { setCookie, signedOut: true });
   }
@@ -310,6 +303,7 @@ async function executeManagedPreviewIdentityRequest(value, {
   try {
     const request = normalizeRequest(value, { protocol, localHostnames });
     requestId = request.requestId;
+    // readable-check: allow method-probe - input validation: the fetch an application passes
     if (typeof fetchImpl !== "function") {
       throw commandError(
         "Managed preview identity requires fetch support.",
@@ -317,15 +311,15 @@ async function executeManagedPreviewIdentityRequest(value, {
         { statusCode: 500 }
       );
     }
-    if (String(env[MANAGED_PREVIEW_IDENTITY_ENABLED_ENV] || "").trim().toLowerCase() !== "true") {
+    const devAuth = resolveDevAuthPolicyFromEnv(env);
+    if (!isDevAuthBootstrapEnabled(devAuth)) {
       throw commandError(
         "Managed preview identity is not enabled.",
         "jskit_managed_preview_identity_disabled",
         { statusCode: 403 }
       );
     }
-    const secret = String(env[MANAGED_PREVIEW_IDENTITY_SECRET_ENV] || "").trim();
-    if (!/^[a-f0-9]{64}$/u.test(secret)) {
+    if (!devAuth.secret) {
       throw commandError(
         "Managed preview identity secret is unavailable.",
         "jskit_managed_preview_identity_secret_missing",
@@ -346,7 +340,7 @@ async function executeManagedPreviewIdentityRequest(value, {
         signedOut: true
       });
     }
-    const result = await login(fetchImpl, request.targetOrigin, identity, secret, signedOutSession);
+    const result = await login(fetchImpl, request.targetOrigin, identity, devAuth.secret, signedOutSession);
     return response(protocol, requestId, {
       identity: result.identity,
       ok: true,
