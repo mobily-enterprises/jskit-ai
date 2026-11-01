@@ -71,6 +71,7 @@ field that leaves `operations` out takes the default:
 
 | Field | Default `operations` |
 | --- | --- |
+| `primary: true` | `{}`: no operation; every record output already carries its `id` |
 | `hidden: true` | `{}`: no operation |
 | `readOnly: true` | `{ output: { required: true } }` |
 | any other field | `{ output: { required: true }, create: { required: <the field's required> }, patch: { required: false } }` |

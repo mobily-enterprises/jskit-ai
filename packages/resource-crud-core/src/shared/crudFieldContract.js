@@ -250,9 +250,10 @@ function buildCrudFieldContractMap(resource, { context = "crud resource field co
 
 /**
  * The operations a schema field takes part in. A field's own `operations` always
- * win. A field without them takes the default: none when it is `hidden: true`,
- * output only when it is `readOnly: true`, and otherwise output, create (required
- * when the field is `required: true`) and patch.
+ * win. A field without them takes the default: none when it is `primary: true`
+ * (every record output already carries its id) or `hidden: true`, output only
+ * when it is `readOnly: true`, and otherwise output, create (required when the
+ * field is `required: true`) and patch.
  * @param {Record<string, any>} fieldDefinition
  * @returns {Record<string, unknown>}
  */
@@ -260,7 +261,7 @@ function resolveCrudFieldOperations(fieldDefinition) {
   if (fieldDefinition.operations !== undefined) {
     return normalizeObject(fieldDefinition.operations);
   }
-  if (fieldDefinition.hidden === true) {
+  if (fieldDefinition.primary === true || fieldDefinition.hidden === true) {
     return {};
   }
   if (fieldDefinition.readOnly === true) {

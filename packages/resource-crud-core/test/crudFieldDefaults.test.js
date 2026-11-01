@@ -89,14 +89,16 @@ test("a default field is required on create only when the field is required", ()
   assert.equal(output.body.required, true);
 });
 
-test("hidden fields take no operation and read-only fields take output only", () => {
+test("primary-key and hidden fields take no operation and read-only fields take output only", () => {
   const resource = defineNotes({
+    id: { type: "id", primary: true },
     title: { type: "string", required: true },
     ownerId: { type: "id", required: true, hidden: true },
     createdAt: { type: "dateTime", readOnly: true }
   });
   const fieldsOf = (operation) => Object.keys(operation.schema.getFieldDefinitions());
   assert.deepEqual(fieldsOf(resource.operations.view.output), ["id", "title", "createdAt"]);
+  assert.equal(resource.operations.view.output.schema.getFieldDefinitions().id.type, "string");
   assert.deepEqual(fieldsOf(resource.operations.create.body), ["title"]);
   assert.deepEqual(fieldsOf(resource.operations.patch.body), ["title"]);
 });
