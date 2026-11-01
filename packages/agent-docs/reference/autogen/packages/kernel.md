@@ -19,8 +19,6 @@ Exports
 - `ARCHITECTURE_ID_PATTERN`
 - `defineProvider({ id, requires = {}, optional = {}, provides = {}, setup, boot = null, shutdown = null } = {})`
 - `normalizeArchitectureId(value, label)`
-- `type ProviderSetupContext`
-- `type ProviderLifecycleContext`
 - `type ProviderDefinition`
 Local functions
 - `normalizeCapabilityMap(value, label)`
@@ -694,7 +692,6 @@ Exports
 ### `server/features/defineFeature.js`
 Exports
 - `defineFeature({ id, domain = id, requires = {}, optional = {}, provides = {}, setup = () => ({}), actions = [], actionDefaults = {}, boot = null, shutdown = null } = {})`
-- `type FeatureSetupContext`
 - `type FeatureDefinition`
 Local functions
 - `exactOutputNames(value, expectedNames, featureId)`
@@ -1035,6 +1032,11 @@ Exports
 - `type RuntimeEnv`
 - `type RuntimeFastify`
 - `type RuntimeLogger`
+- `type ProviderSetupContext`
+- `type ProviderLifecycleContext`
+- `type ProviderDefinition`
+- `type FeatureSetupContext`
+- `type FeatureDefinition`
 - `type ActionPolicy`
 - `type ActionPolicyExecution`
 

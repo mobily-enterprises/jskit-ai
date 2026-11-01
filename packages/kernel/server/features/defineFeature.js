@@ -1,6 +1,8 @@
 import { isRecord } from "../../shared/support/normalize.js";
 import { defineProvider } from "../../shared/capabilities/defineProvider.js";
 
+/** @typedef {import("../types.js").FeatureDefinition} FeatureDefinition */
+
 function exactOutputNames(value, expectedNames, featureId) {
   const outputs = value == null ? {} : value;
   if (!isRecord(outputs)) {
@@ -57,30 +59,6 @@ function withoutActionCatalogue(dependencies) {
   const { actionCatalogue, ...featureDependencies } = dependencies;
   return Object.freeze(featureDependencies);
 }
-
-/**
- * What a feature's setup() and actions() receive besides their dependencies.
- * @typedef {object} FeatureSetupContext
- * @property {string} profile
- * @property {import("../types.js").ActionCatalogue} actionCatalogue
- */
-
-/**
- * A feature: a provider that can also register actions. Its hooks receive the
- * capabilities it requires and the optional ones that are installed, by local
- * name; actions() also receives the capabilities setup() returned.
- * @typedef {object} FeatureDefinition
- * @property {string} id
- * @property {string} [domain]
- * @property {Record<string, string>} [requires]
- * @property {Record<string, string>} [optional]
- * @property {Record<string, string>} [provides]
- * @property {(dependencies: any, context: FeatureSetupContext) => any} [setup] Returns the provided capabilities, by local name.
- * @property {ReadonlyArray<object> | ((dependencies: any, context: FeatureSetupContext) => ReadonlyArray<object> | Promise<ReadonlyArray<object>>)} [actions]
- * @property {Record<string, any>} [actionDefaults]
- * @property {((dependencies: any, context: import("../../shared/capabilities/defineProvider.js").ProviderLifecycleContext) => any) | null} [boot]
- * @property {((dependencies: any, context: import("../../shared/capabilities/defineProvider.js").ProviderLifecycleContext) => any) | null} [shutdown]
- */
 
 /**
  * An absent definition reaches the checks below, which name what is missing.

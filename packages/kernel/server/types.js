@@ -14,12 +14,62 @@
 /** @typedef {import("fastify").FastifyInstance} RuntimeFastify */
 
 /**
- * A console-like logger: `console` unless the application supplies its own.
+ * The application's logger (debug, info, warn, error).
  * @typedef {object} RuntimeLogger
  * @property {(...args: any[]) => void} debug
  * @property {(...args: any[]) => void} info
  * @property {(...args: any[]) => void} warn
  * @property {(...args: any[]) => void} error
+ */
+
+/**
+ * What the capability runtime passes a provider's setup().
+ * @typedef {object} ProviderSetupContext
+ * @property {string} profile
+ */
+
+/**
+ * What the capability runtime passes a provider's boot() and shutdown().
+ * @typedef {object} ProviderLifecycleContext
+ * @property {Readonly<Record<string, any>>} outputs The capabilities this provider's setup() returned, by local name.
+ * @property {string} profile
+ */
+
+/**
+ * A capability provider. Its lifecycle hooks receive the capabilities it
+ * requires and the optional ones that are installed, by local name.
+ * @typedef {object} ProviderDefinition
+ * @property {string} id
+ * @property {Record<string, string>} [requires]
+ * @property {Record<string, string>} [optional]
+ * @property {Record<string, string>} [provides]
+ * @property {(dependencies: any, context: ProviderSetupContext) => any} setup Returns the provided capabilities, by local name.
+ * @property {((dependencies: any, context: ProviderLifecycleContext) => any) | null} [boot]
+ * @property {((dependencies: any, context: ProviderLifecycleContext) => any) | null} [shutdown]
+ */
+
+/**
+ * What a feature's setup() and actions() receive besides their dependencies.
+ * @typedef {object} FeatureSetupContext
+ * @property {string} profile
+ * @property {ActionCatalogue} actionCatalogue
+ */
+
+/**
+ * A feature: a provider that can also register actions. Its hooks receive the
+ * capabilities it requires and the optional ones that are installed, by local
+ * name; actions() also receives the capabilities setup() returned.
+ * @typedef {object} FeatureDefinition
+ * @property {string} id
+ * @property {string} [domain]
+ * @property {Record<string, string>} [requires]
+ * @property {Record<string, string>} [optional]
+ * @property {Record<string, string>} [provides]
+ * @property {(dependencies: any, context: FeatureSetupContext) => any} [setup] Returns the provided capabilities, by local name.
+ * @property {ReadonlyArray<object> | ((dependencies: any, context: FeatureSetupContext) => ReadonlyArray<object> | Promise<ReadonlyArray<object>>)} [actions]
+ * @property {Record<string, any>} [actionDefaults]
+ * @property {((dependencies: any, context: ProviderLifecycleContext) => any) | null} [boot]
+ * @property {((dependencies: any, context: ProviderLifecycleContext) => any) | null} [shutdown]
  */
 
 /**

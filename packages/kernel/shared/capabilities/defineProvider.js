@@ -1,5 +1,7 @@
 import { isRecord } from "../support/normalize.js";
 
+/** @typedef {import("../../server/types.js").ProviderDefinition} ProviderDefinition */
+
 const ARCHITECTURE_ID_PATTERN = /^[a-z][a-z0-9_.-]*$/u;
 const LOCAL_NAME_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/u;
 
@@ -60,32 +62,6 @@ function normalizeLifecycleMethod(value, label) {
   }
   return value;
 }
-
-/**
- * What the capability runtime passes a provider's setup().
- * @typedef {object} ProviderSetupContext
- * @property {string} profile
- */
-
-/**
- * What the capability runtime passes a provider's boot() and shutdown().
- * @typedef {object} ProviderLifecycleContext
- * @property {Readonly<Record<string, any>>} outputs The capabilities this provider's setup() returned, by local name.
- * @property {string} profile
- */
-
-/**
- * A capability provider. Its lifecycle hooks receive the capabilities it
- * requires and the optional ones that are installed, by local name.
- * @typedef {object} ProviderDefinition
- * @property {string} id
- * @property {Record<string, string>} [requires]
- * @property {Record<string, string>} [optional]
- * @property {Record<string, string>} [provides]
- * @property {(dependencies: any, context: ProviderSetupContext) => any} setup Returns the provided capabilities, by local name.
- * @property {((dependencies: any, context: ProviderLifecycleContext) => any) | null} [boot]
- * @property {((dependencies: any, context: ProviderLifecycleContext) => any) | null} [shutdown]
- */
 
 /**
  * An absent definition reaches the checks below, which name what is missing.
