@@ -53,7 +53,7 @@ const authPasswordRecoveryCompleteBodyValidator = deepFreeze({
       enum: ["recovery"]
     }
   }),
-  mode: "patch",
+  mode: "create",
   messages: AUTH_PASSWORD_RECOVERY_COMPLETE_MESSAGES
 });
 

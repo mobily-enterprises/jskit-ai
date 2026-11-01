@@ -47,7 +47,7 @@ const authLoginOtpVerifyBodyValidator = deepFreeze({
       enum: ["email"]
     }
   }),
-  mode: "patch",
+  mode: "create",
   messages: AUTH_LOGIN_OTP_VERIFY_MESSAGES
 });
 

@@ -247,7 +247,7 @@ function createSupabaseAccountFlows({ config, clients, sessions, profileMirror, 
   async function verifyOtpLogin(payload) {
     clients.ensureConfigured();
 
-    const result = authLoginOtpVerifyBodyValidator.schema.patch(payload);
+    const result = authLoginOtpVerifyBodyValidator.schema.create(payload);
     if (Object.keys(result.errors).length > 0) {
       throw validationError(result.errors);
     }

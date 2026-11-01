@@ -32,7 +32,7 @@ const authDevLoginAsBodyValidator = deepFreeze({
       required: false
     }
   }),
-  mode: "patch",
+  mode: "create",
   messages: {
     ...AUTH_DEV_LOGIN_AS_MESSAGES,
     keywords: {

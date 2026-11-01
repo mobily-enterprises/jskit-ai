@@ -25,7 +25,7 @@ const authLoginOAuthStartInput = composeSchemaDefinitions([
   authLoginOAuthStartCommand.operation.params,
   authLoginOAuthStartCommand.operation.query
 ], {
-  mode: "patch",
+  mode: "create",
   context: "authActions.authLoginOAuthStartInput"
 });
 

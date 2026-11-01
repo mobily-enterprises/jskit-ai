@@ -46,7 +46,7 @@ const authLoginOAuthCompleteBodyValidator = deepFreeze({
     error_code: { type: "string", required: false, minLength: 1, maxLength: 128 },
     error_description: { type: "string", required: false, minLength: 1, maxLength: 1024 }
   }),
-  mode: "patch",
+  mode: "create",
   messages: AUTH_LOGIN_OAUTH_COMPLETE_MESSAGES
 });
 
