@@ -808,8 +808,9 @@ owner, instead of a copy per package:
   the document it carries, `jsonApiResultValue(result)`
   (`@jskit-ai/http-runtime/shared`);
 - a create event's record id: `resolveCrudJsonApiEntityIdFromResult`
-  (`@jskit-ai/crud-core/server/serviceEvents`), from the JSON:API document
-  result a CRUD service or action returns;
+  (`@jskit-ai/crud-core/server/serviceEvents`), from the tagged JSON:API
+  result a CRUD service or action returns (a document result's `data.id` or a
+  data result's record `id`);
 - a workspace CRUD call's workspace: `workspaceIdFromContext(context)`
   (`@jskit-ai/workspaces-core/server/support/workspaceCrud`).
 

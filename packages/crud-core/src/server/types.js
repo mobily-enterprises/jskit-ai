@@ -17,10 +17,12 @@
  */
 
 /**
- * A JSON:API document result, as returnJsonApiDocument (`@jskit-ai/http-runtime/shared`)
- * builds it: what a CRUD service's document methods and a feature's standard
- * list, view, create and update operations return.
- * @typedef {ReturnType<typeof import("@jskit-ai/http-runtime/shared").returnJsonApiDocument>} CrudDocumentResult
+ * A tagged JSON:API result, as returnJsonApiDocument and returnJsonApiData
+ * (`@jskit-ai/http-runtime/shared`) build it. A CRUD service's document methods
+ * and a feature's standard list, view, create and update operations return
+ * document results; an execute hook or a decorated service may return a data
+ * result (one record) instead.
+ * @typedef {ReturnType<typeof import("@jskit-ai/http-runtime/shared").returnJsonApiDocument>} CrudJsonApiResult
  */
 
 /**
@@ -86,24 +88,25 @@
  * @property {Repository} repository
  * @property {Service} service
  * @property {import("@jskit-ai/database-runtime/server/types").RuntimeKnexTransaction | null} trx
- * @property {CrudDocumentResult | null} [result]
- * @property {(nextInput?: object) => Promise<CrudDocumentResult | null>} [standard]
+ * @property {CrudJsonApiResult | null} [result]
+ * @property {(nextInput?: object) => Promise<CrudJsonApiResult | null>} [standard]
  */
 
 /**
  * One standard operation's hooks: `before`, `execute` and `after` share a
  * mutation's transaction, `execute` replaces the standard operation, and
  * `afterCommit` (mutations only) runs once the transaction has committed.
- * `execute` returns what `standard()` returns: the operation's JSON:API
- * document result (null for delete). A create's must be the created record's
- * document result, since its created and record-changed events read the
- * record's id from it; a create that returns anything else fails, inside its
- * transaction.
+ * `execute` returns what `standard()` returns: the operation's tagged JSON:API
+ * result (null for delete). A create's must carry the created record with its
+ * id, as a document result (what `standard()` returns) or a data result
+ * (`returnJsonApiData(record)`), since its created and record-changed events
+ * read the record's id from it; a create that returns anything else, such as
+ * an untagged document or record, fails inside its transaction.
  * @template [Service=CrudService]
  * @template [Repository=CrudRepository]
  * @typedef {object} CrudLifecycleHooks
  * @property {(hook: CrudLifecycleContext<Service, Repository>) => unknown} [before]
- * @property {(hook: CrudLifecycleContext<Service, Repository>) => Promise<CrudDocumentResult | null> | CrudDocumentResult | null} [execute]
+ * @property {(hook: CrudLifecycleContext<Service, Repository>) => Promise<CrudJsonApiResult | null> | CrudJsonApiResult | null} [execute]
  * @property {(hook: CrudLifecycleContext<Service, Repository>) => unknown} [after]
  * @property {(hook: CrudLifecycleContext<Service, Repository>) => unknown} [afterCommit]
  */

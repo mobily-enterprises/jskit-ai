@@ -132,11 +132,12 @@ resource, ...dependencies })`. Retain the standard methods, override only the
 methods whose CRUD behavior changes, and add resource-related domain methods
 such as `confirmBooking()` or `sendReminder()` directly to that service. Those
 additional methods remain available through the resource capability. An
-overridden `createDocument()` returns the created record as a JSON:API document
-result (`returnJsonApiDocument`), as the standard one does: the create action's
-created and `record.changed` events read the record's id from it, and a create
-whose service returns anything else, such as a bare document or
-`returnJsonApiData(record)`, fails in every channel. When the
+overridden `createDocument()` returns the created record, with its id, as a
+tagged JSON:API result: a document result (`returnJsonApiDocument`), as the
+standard one does, or a data result (`returnJsonApiData(record)`). The create
+action's created and `record.changed` events read the record's id from it, and
+a create whose service returns an untagged document or record, or a result
+without the record's id, fails in every channel. When the
 product needs only a few additional queries or locking operations, provide
 `decorateRepository({ repository, database, http, jsonRestApi, resource,
 ...dependencies })`; return the standard methods plus only those unique
@@ -147,11 +148,12 @@ per-operation `before`, `execute`, and `after` phases share one repository
 transaction for create, update, and delete. An `execute` hook receives
 `standard(nextInput)` so it can retain the framework write while adjusting its
 input or coordinating other repository work, and returns what `standard()`
-returns: the operation's JSON:API document result (null for delete). A create's
-`execute` returns the created record's document result, as `standard()` does,
-because the create's events read its id; a create that returns anything else
-fails inside its transaction. `after` and `afterCommit` receive that `result`,
-so a record id is `result.value.data.id`. `afterCommit` runs only after the
+returns: the operation's tagged JSON:API result (null for delete). A create's
+`execute` returns the created record with its id, as the document result
+`standard()` returns or as `returnJsonApiData(record)`, because the create's
+events read its id; a create that returns anything else fails inside its
+transaction. `after` and `afterCommit` receive that `result`, so a record id is
+`result.value.data.id` for a document result. `afterCommit` runs only after the
 mutation transaction succeeds. A hook's argument is `CrudLifecycleContext` from
 `@jskit-ai/crud-core/server/types`; type a lifecycle declared apart from its
 feature with `CrudOperationLifecycle`, whose type arguments are the decorated

@@ -3,7 +3,6 @@ import {
   recordIdParamsValidator
 } from "@jskit-ai/kernel/shared/validators";
 import { RestApiWriteError } from "json-rest-api";
-import { isJsonApiDocumentResult } from "@jskit-ai/http-runtime/shared";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { ARCHITECTURE_ID_PATTERN } from "@jskit-ai/kernel/shared/capabilities";
 import { createEntityChangedActionEvent } from "@jskit-ai/kernel/server/actions";
@@ -214,17 +213,18 @@ function createCrudJsonApiActions({
 
   /**
    * An operation's result, checked where its events depend on it: a create
-   * returns the created record as a JSON:API document result, as the service's
-   * createDocument and a lifecycle's standard() do, since its created and
-   * record-changed events read the record's id from it.
+   * returns the created record, with its id, as a tagged JSON:API result of a
+   * kind the HTTP transport encodes (returnJsonApiDocument, as the service's
+   * createDocument and a lifecycle's standard() do, or returnJsonApiData), since
+   * its created and record-changed events read the record's id from it.
    * @param {string} operation
    * @param {unknown} result
    */
   function requireOperationResult(operation, result) {
-    if (operation === "create" && !(isJsonApiDocumentResult(result) && resolveCrudJsonApiEntityIdFromResult({ result }))) {
+    if (operation === "create" && !resolveCrudJsonApiEntityIdFromResult({ result })) {
       throw new TypeError(
-        `CRUD ${namespace} create must return the created record as a JSON:API document result ` +
-          "(returnJsonApiDocument), as createDocument() and a lifecycle's standard() do."
+        `CRUD ${namespace} create must return the created record, with its id, as a tagged JSON:API result ` +
+          "(returnJsonApiDocument, as createDocument() and a lifecycle's standard() do, or returnJsonApiData)."
       );
     }
     return result;

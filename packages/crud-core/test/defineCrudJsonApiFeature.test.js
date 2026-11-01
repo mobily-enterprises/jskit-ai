@@ -8,7 +8,7 @@ import { EventProvider } from "@jskit-ai/kernel/server/runtime";
 import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
-import { returnJsonApiDocument } from "@jskit-ai/http-runtime/shared";
+import { returnJsonApiData, returnJsonApiDocument } from "@jskit-ai/http-runtime/shared";
 import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
 import { defineCrudJsonApiFeature } from "../src/server/defineCrudJsonApiFeature.js";
 import { createCrudJsonApiActions } from "../src/server/jsonApiModule/actions.js";
@@ -633,12 +633,14 @@ test("CRUD operation lifecycle does not run after or afterCommit when the transa
   assert.deepEqual(calls, ["transaction:begin", "before", "service"]);
 });
 
-test("a CRUD create that returns no JSON:API document result fails before its after hooks, in every channel", async () => {
+test("a CRUD create that returns no tagged JSON:API result with the record id fails before its after hooks, in every channel", async () => {
   const createdDocument = { data: { type: "books", id: "7", attributes: { title: "Kindred" } } };
   const results = [
     createdDocument,
+    { id: "7", title: "Kindred" },
     { kind: "document", value: createdDocument },
-    returnJsonApiDocument({ data: null })
+    returnJsonApiDocument({ data: null }),
+    returnJsonApiData({ title: "Kindred" })
   ];
   for (const returned of results) {
     const calls = [];
@@ -672,7 +674,7 @@ test("a CRUD create that returns no JSON:API document result fails before its af
 
     await assert.rejects(
       actions[0].execute({ title: "Kindred" }, {}),
-      /CRUD books create must return the created record as a JSON:API document result/
+      /CRUD books create must return the created record, with its id, as a tagged JSON:API result/
     );
     assert.deepEqual(calls, ["transaction:begin"]);
   }
@@ -692,23 +694,27 @@ test("a CRUD create that returns no JSON:API document result fails before its af
   }));
   await assert.rejects(
     decoratedActions[0].execute({ title: "Kindred" }, {}),
-    /CRUD books create must return the created record as a JSON:API document result/
+    /CRUD books create must return the created record, with its id, as a tagged JSON:API result/
   );
 
-  const standardActions = createCrudJsonApiActions(crudJsonApiActionOptions({
-    namespace: "books",
-    resource: createBookResource(),
-    repository: {},
-    service: {
-      async createDocument() {
-        return returnJsonApiDocument(createdDocument);
-      }
-    },
-    surface: "app",
-    operations: ["create"],
-    permissionForOperation: () => ({ require: "authenticated" })
-  }));
-  assert.equal((await standardActions[0].execute({ title: "Kindred" }, {})).value, createdDocument);
+  for (const returned of [returnJsonApiDocument(createdDocument), returnJsonApiData({ id: 7, title: "Kindred" })]) {
+    const acceptedActions = createCrudJsonApiActions(crudJsonApiActionOptions({
+      namespace: "books",
+      resource: createBookResource(),
+      repository: {},
+      service: {
+        async createDocument() {
+          return returned;
+        }
+      },
+      surface: "app",
+      operations: ["create"],
+      permissionForOperation: () => ({ require: "authenticated" })
+    }));
+    const result = await acceptedActions[0].execute({ title: "Kindred" }, {});
+    assert.equal(result, returned);
+    assert.equal(acceptedActions[0].events[0]({ input: {}, result, context: {} }).entityId, "7");
+  }
 });
 
 test("CRUD afterCommit failures preserve the original cause and acknowledged commit", async () => {
