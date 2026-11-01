@@ -21,7 +21,7 @@ function createWorkspacePendingInvitationsActions({ workspacePendingInvitationsS
       permission: {
         require: "none"
       },
-      input: workspacePendingInvitationsResource.operations.resolve.query,
+      input: { schema: workspacePendingInvitationsResource.operations.resolve.query.schema },
       output: null,
       extensions: {
         assistant: {

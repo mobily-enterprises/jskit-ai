@@ -37,9 +37,10 @@ const routeParamsValidator = deepFreeze({
   mode: "patch"
 });
 
+// No mode: an action takes it as create, a route or a composition as patch; with
+// no required field and no default, both validate it the same.
 const workspaceSlugParamsValidator = deepFreeze({
-  schema: workspaceSlugParamsSchema,
-  mode: "patch"
+  schema: workspaceSlugParamsSchema
 });
 
 export { routeParamsValidator, workspaceSlugParamsValidator };

@@ -36,7 +36,7 @@ const updateMemberRoleActionInput = composeSchemaDefinitions([
   workspaceSlugParamsValidator,
   workspaceMembersResource.operations.updateMemberRole.input
 ], {
-  mode: workspaceMembersResource.operations.updateMemberRole.input.mode,
+  mode: "create",
   context: "workspaceMembersActions.updateMemberRoleActionInput"
 });
 
@@ -44,7 +44,7 @@ const removeMemberActionInput = composeSchemaDefinitions([
   workspaceSlugParamsValidator,
   workspaceMembersResource.operations.removeMember.input
 ], {
-  mode: workspaceMembersResource.operations.removeMember.input.mode,
+  mode: "create",
   context: "workspaceMembersActions.removeMemberActionInput"
 });
 
@@ -52,7 +52,7 @@ const createInviteActionInput = composeSchemaDefinitions([
   workspaceSlugParamsValidator,
   workspaceMembersResource.operations.createInvite.body
 ], {
-  mode: workspaceMembersResource.operations.createInvite.body.mode,
+  mode: "create",
   context: "workspaceMembersActions.createInviteActionInput"
 });
 
@@ -60,7 +60,7 @@ const revokeInviteActionInput = composeSchemaDefinitions([
   workspaceSlugParamsValidator,
   workspaceMembersResource.operations.revokeInvite.input
 ], {
-  mode: workspaceMembersResource.operations.revokeInvite.input.mode,
+  mode: "create",
   context: "workspaceMembersActions.revokeInviteActionInput"
 });
 
