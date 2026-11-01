@@ -31,10 +31,6 @@ async function resolveUserProfile(userProfilesRepository, user) {
  * @param {object} request
  */
 async function resolveSecurityStatus(authService, request) {
-  // readable-check: allow method-probe - optional operation: getSecurityStatus is an optional auth.service operation
-  if (typeof authService.getSecurityStatus !== "function") {
-    return {};
-  }
   // A provider that keeps passwords elsewhere, such as an accounts hub, has no
   // security status; its settings pages still load.
   if (!isAuthOperationSupported(authService.getCapabilities(), "getSecurityStatus")) {

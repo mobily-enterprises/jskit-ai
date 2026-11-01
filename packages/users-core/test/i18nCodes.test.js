@@ -35,13 +35,6 @@ test("account services throw coded errors whose catalog English matches", async 
   });
   await assert.rejects(() => profileService.getForUser({}, { id: 7 }), assertCodedError("users.profile.notFound"));
   await assert.rejects(() => profileService.readAvatar({}, { id: 7 }), assertCodedError("users.avatar.notFound"));
-
-  const securityService = createAccountSecurityService({ userSettingsRepository: {}, userProfilesRepository: emptyProfiles, authService: {} });
-  await assert.rejects(() => securityService.changePassword({}, { id: 7 }), assertCodedError("users.security.passwordChangeUnavailable"));
-  await assert.rejects(() => securityService.setPasswordMethodEnabled({}, { id: 7 }), assertCodedError("users.security.passwordMethodToggleUnavailable"));
-  await assert.rejects(() => securityService.startOAuthProviderLink({}, { id: 7 }), assertCodedError("users.security.oauthLinkUnavailable"));
-  await assert.rejects(() => securityService.unlinkOAuthProvider({}, { id: 7 }), assertCodedError("users.security.oauthUnlinkUnavailable"));
-  await assert.rejects(() => securityService.logoutOtherSessions({}, { id: 7 }), assertCodedError("users.security.logoutOtherSessionsUnavailable"));
 });
 
 test("password change codes its field error and its success message", async () => {

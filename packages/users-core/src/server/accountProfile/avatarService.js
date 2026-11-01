@@ -23,7 +23,7 @@ async function readAvatarBuffer(stream, { maxBytes = DEFAULT_AVATAR_POLICY.maxUp
 
 /**
  * @param {object} dependencies
- * @param {ReturnType<typeof import("../common/repositories/userProfilesRepository.js").createRepository>} dependencies.userProfilesRepository
+ * @param {import("../types.js").UserProfilesRepository} dependencies.userProfilesRepository
  * @param {ReturnType<typeof import("./avatarStorageService.js").createService>} dependencies.avatarStorageService
  * @param {object} [dependencies.avatarPolicy] Upload limits that replace the default image policy.
  */
@@ -38,14 +38,14 @@ function createService({ userProfilesRepository, avatarStorageService, avatarPol
     return profile;
   }
 
-  async function uploadForUser(user, avatarUpload = {}) {
+  async function uploadForUser(user, avatarUpload) {
     const profile = await resolveProfile(user);
-    validateUploadMimeType(avatarUpload?.mimeType, resolvedAvatarPolicy, {
+    validateUploadMimeType(avatarUpload.mimeType, resolvedAvatarPolicy, {
       fieldName: "avatar",
       label: "Avatar"
     });
 
-    const buffer = await readAvatarBuffer(avatarUpload?.stream, {
+    const buffer = await readAvatarBuffer(avatarUpload.stream, {
       maxBytes: resolvedAvatarPolicy.maxUploadBytes
     });
 

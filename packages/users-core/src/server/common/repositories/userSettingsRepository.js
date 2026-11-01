@@ -56,9 +56,6 @@ function createDefaultUserSettingsCreatePayload(userId) {
 
 /** @param {{ api: import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi }} dependencies */
 function createRepository({ api }) {
-  if (!api?.resources?.userSettings) {
-    throw new TypeError("userSettingsRepository requires json-rest-api userSettings resource.");
-  }
   const withTransaction = (work) => retryDeadlocks(() => api.transaction(work));
 
   async function queryFirst(filters = {}, options = {}) {

@@ -4,10 +4,10 @@ import { readSingleMultipartFile } from "@jskit-ai/uploads-runtime/server/multip
 import { createRouter } from "../../kernel/server/http/lib/router.js";
 import { validateOperationSection } from "../../http-runtime/src/shared/validators/operationValidation.js";
 import { userProfileResource } from "../src/shared/resources/userProfileResource.js";
-import { registerAccountProfileRoutes } from "../src/server/accountProfile/bootAccountProfileRoutes.js";
-import { registerAccountPreferencesRoutes } from "../src/server/accountPreferences/bootAccountPreferencesRoutes.js";
-import { registerAccountNotificationsRoutes } from "../src/server/accountNotifications/bootAccountNotificationsRoutes.js";
-import { registerAccountSecurityRoutes } from "../src/server/accountSecurity/bootAccountSecurityRoutes.js";
+import { registerAccountProfileRoutes } from "../src/server/accountProfile/accountProfileRoutes.js";
+import { registerAccountPreferencesRoutes } from "../src/server/accountPreferences/accountPreferencesRoutes.js";
+import { registerAccountNotificationsRoutes } from "../src/server/accountNotifications/accountNotificationsRoutes.js";
+import { registerAccountSecurityRoutes } from "../src/server/accountSecurity/accountSecurityRoutes.js";
 
 function createReplyDouble() {
   return {

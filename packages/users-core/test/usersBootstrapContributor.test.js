@@ -82,7 +82,6 @@ test("users bootstrap contributor exposes the generic authenticated bootstrap pa
     },
     reply
   });
-  assert.equal(contributor.order, 100);
   assert.equal(writtenSessions.length, 1);
   assert.equal(writtenSessions[0].reply, reply);
   assert.deepEqual(writtenSessions[0].session, {

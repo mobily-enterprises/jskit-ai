@@ -8,8 +8,8 @@ import {
   accountSettingsResponseFormatter
 } from "../common/formatters/accountSettingsResponseFormatter.js";
 
-// A signed-in user's profile: display name and avatar.
 /**
+ * A signed-in user's profile: display name and avatar.
  * @param {object} dependencies
  * @param {import("../types.js").UserSettingsRepository} dependencies.userSettingsRepository
  * @param {import("../types.js").UserProfilesRepository} dependencies.userProfilesRepository
@@ -17,7 +17,7 @@ import {
  * @param {import("./avatarService.js").AvatarService} dependencies.avatarService
  */
 function createService({ userSettingsRepository, userProfilesRepository, authService, avatarService }) {
-  async function getForUser(request, user, options = {}) {
+  async function getForUser(request, user) {
     const profile = await resolveUserProfile(userProfilesRepository, user);
     if (!profile) {
       throw new AppError(404, "User profile was not found.", { code: "users.profile.notFound" });
@@ -34,24 +34,16 @@ function createService({ userSettingsRepository, userProfilesRepository, authSer
     }));
   }
 
-  async function updateProfile(request, user, payload, options = {}) {
+  async function updateProfile(request, user, payload) {
     const profile = await resolveUserProfile(userProfilesRepository, user);
     if (!profile) {
       throw new AppError(404, "User profile was not found.", { code: "users.profile.notFound" });
     }
 
-    let session = null;
-    let updatedProfile = null;
-    // readable-check: allow method-probe - optional operation: updateDisplayName is an optional auth.service operation
-    if (typeof authService.updateDisplayName === "function") {
-      const result = await authService.updateDisplayName(request, { displayName: payload.displayName });
-      session = result?.session || null;
-      updatedProfile = result?.profile || null;
-    }
-
-    if (!updatedProfile) {
-      updatedProfile = await userProfilesRepository.updateDisplayNameById(profile.id, payload.displayName);
-    }
+    const result = await authService.updateDisplayName(request, { displayName: payload.displayName });
+    const session = result?.session || null;
+    const updatedProfile =
+      result?.profile || (await userProfilesRepository.updateDisplayNameById(profile.id, payload.displayName));
 
     const settings = await userSettingsRepository.ensureForUserId(updatedProfile.id);
     const securityStatus = await resolveSecurityStatus(authService, request);
@@ -67,9 +59,7 @@ function createService({ userSettingsRepository, userProfilesRepository, authSer
     };
   }
 
-  async function uploadAvatar(request, user, avatarUpload = {}, options = {}) {
-    void options;
-
+  async function uploadAvatar(request, user, avatarUpload) {
     const result = await avatarService.uploadForUser(user, avatarUpload);
     const profile = result?.profile || null;
     if (!profile) {
@@ -89,9 +79,7 @@ function createService({ userSettingsRepository, userProfilesRepository, authSer
     }));
   }
 
-  async function deleteAvatar(request, user, options = {}) {
-    void options;
-
+  async function deleteAvatar(request, user) {
     const profile = await avatarService.clearForUser(user);
     const settings = await userSettingsRepository.ensureForUserId(profile.id);
     const securityStatus = await resolveSecurityStatus(authService, request);
@@ -104,9 +92,7 @@ function createService({ userSettingsRepository, userProfilesRepository, authSer
     }));
   }
 
-  async function readAvatar(_request, user, options = {}) {
-    void options;
-
+  async function readAvatar(_request, user) {
     const avatar = await avatarService.readForUser(user);
     if (!avatar) {
       throw new AppError(404, "Avatar not found.", { code: "users.avatar.notFound" });

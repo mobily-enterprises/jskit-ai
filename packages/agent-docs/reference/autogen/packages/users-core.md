@@ -18,31 +18,35 @@ Use this on demand; do not load the full index at startup.
 Exports
 - `createAccountNotificationsActions({ accountNotificationsService })`
 
+### `src/server/accountNotifications/accountNotificationsRoutes.js`
+Exports
+- `registerAccountNotificationsRoutes(router)`
+
 ### `src/server/accountNotifications/accountNotificationsService.js`
 Exports
 - `createService({ userSettingsRepository, userProfilesRepository, authService })`
 - `type AccountNotificationsService`
 
-### `src/server/accountNotifications/bootAccountNotificationsRoutes.js`
-Exports
-- `registerAccountNotificationsRoutes(router)`
-
 ### `src/server/accountPreferences/accountPreferencesActions.js`
 Exports
 - `createAccountPreferencesActions({ accountPreferencesService })`
+
+### `src/server/accountPreferences/accountPreferencesRoutes.js`
+Exports
+- `registerAccountPreferencesRoutes(router)`
 
 ### `src/server/accountPreferences/accountPreferencesService.js`
 Exports
 - `createService({ userSettingsRepository, userProfilesRepository, authService })`
 - `type AccountPreferencesService`
 
-### `src/server/accountPreferences/bootAccountPreferencesRoutes.js`
-Exports
-- `registerAccountPreferencesRoutes(router)`
-
 ### `src/server/accountProfile/accountProfileActions.js`
 Exports
 - `createAccountProfileActions({ accountProfileService })`
+
+### `src/server/accountProfile/accountProfileRoutes.js`
+Exports
+- `registerAccountProfileRoutes(router, { accountProfileService, authService, uploads })`
 
 ### `src/server/accountProfile/accountProfileService.js`
 Exports
@@ -65,22 +69,18 @@ Exports
 Local functions
 - `buildAvatarStorageKey(userId)`
 
-### `src/server/accountProfile/bootAccountProfileRoutes.js`
-Exports
-- `registerAccountProfileRoutes(router, { accountProfileService, authService, uploads })`
-
 ### `src/server/accountSecurity/accountSecurityActions.js`
 Exports
 - `createAccountSecurityActions({ accountSecurityService })`
+
+### `src/server/accountSecurity/accountSecurityRoutes.js`
+Exports
+- `registerAccountSecurityRoutes(router, { authService })`
 
 ### `src/server/accountSecurity/accountSecurityService.js`
 Exports
 - `createService({ userSettingsRepository, userProfilesRepository, authService })`
 - `type AccountSecurityService`
-
-### `src/server/accountSecurity/bootAccountSecurityRoutes.js`
-Exports
-- `registerAccountSecurityRoutes(router, { authService })`
 
 ### `src/server/common/formatters/accountAvatarFormatter.js`
 Exports
@@ -99,9 +99,9 @@ Local functions
 ### `src/server/common/formatters/accountSettingsResponseFormatter.js`
 Exports
 - `accountSettingsResponseFormatter({ profile, settings, securityStatus, authService })`
+- `formatUserSettingsSection(fieldKeys, settings = {})`
 Local functions
 - `resolveAuthProfileSettings(authService)`
-- `formatUserSettingsSection(fieldKeys, settings = {})`
 
 ### `src/server/common/repositories/repositoryUtils.js`
 Exports
@@ -190,7 +190,6 @@ Exports
 Local functions
 - `getOAuthProviderCatalogPayload(authService)`
 - `createAnonymousBootstrapPayload({ surfaceAccess = {} })`
-- `mapUserSettingsBootstrap(settings = {})`
 
 ### `src/server/usersExtensions.js`
 Exports

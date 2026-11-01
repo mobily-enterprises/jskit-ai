@@ -2,9 +2,9 @@ import { createRepository as createUserProfilesRepository } from "./common/repos
 import { createRepository as createUserSettingsRepository } from "./common/repositories/userSettingsRepository.js";
 import { createService as createAuthProfileSyncService } from "./common/services/authProfileSyncService.js";
 
-// The users' profile and settings records, and the projector that keeps a
-// profile in step with the identity that signs in.
 /**
+ * The users' profile and settings records, and the projector that keeps a
+ * profile in step with the identity that signs in.
  * @param {object} dependencies
  * @param {import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi} dependencies.jsonRestApi
  * @param {import("./types.js").UsersExtensions} dependencies.extensions

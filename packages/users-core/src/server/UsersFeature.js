@@ -1,12 +1,12 @@
 import { defineFeature } from "@jskit-ai/kernel/server/features";
 import { createAccountNotificationsActions } from "./accountNotifications/accountNotificationsActions.js";
-import { registerAccountNotificationsRoutes } from "./accountNotifications/bootAccountNotificationsRoutes.js";
+import { registerAccountNotificationsRoutes } from "./accountNotifications/accountNotificationsRoutes.js";
 import { createAccountPreferencesActions } from "./accountPreferences/accountPreferencesActions.js";
-import { registerAccountPreferencesRoutes } from "./accountPreferences/bootAccountPreferencesRoutes.js";
+import { registerAccountPreferencesRoutes } from "./accountPreferences/accountPreferencesRoutes.js";
 import { createAccountProfileActions } from "./accountProfile/accountProfileActions.js";
-import { registerAccountProfileRoutes } from "./accountProfile/bootAccountProfileRoutes.js";
+import { registerAccountProfileRoutes } from "./accountProfile/accountProfileRoutes.js";
 import { createAccountSecurityActions } from "./accountSecurity/accountSecurityActions.js";
-import { registerAccountSecurityRoutes } from "./accountSecurity/bootAccountSecurityRoutes.js";
+import { registerAccountSecurityRoutes } from "./accountSecurity/accountSecurityRoutes.js";
 import { createUsersBootstrapContributor } from "./usersBootstrapContributor.js";
 import { createUsersRuntime } from "./usersRuntime.js";
 
@@ -33,7 +33,7 @@ const UsersFeature = defineFeature({
    * @param {import("@jskit-ai/storage-runtime/server/types").RuntimeStorage} capabilities.storage
    * @param {import("@jskit-ai/uploads-runtime/server/types").RuntimeUploads} capabilities.uploads
    */
-  async setup({ authService, bootstrap, http, identity, storage, uploads }) {
+  setup({ authService, bootstrap, http, identity, storage, uploads }) {
     const users = createUsersRuntime({ authService, identity, storage });
     registerAccountProfileRoutes(http.router, {
       accountProfileService: users.services.accountProfile,

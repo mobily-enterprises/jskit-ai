@@ -172,10 +172,6 @@ async function resolveUniqueUsername(api, baseUsername, { excludeUserId = null, 
 
 /** @param {{ api: import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi }} dependencies */
 function createRepository({ api }) {
-  if (!api?.resources?.userProfiles) {
-    throw new TypeError("internal.repository.user-profiles requires json-rest-api userProfiles resource.");
-  }
-
   const withTransaction = (work) => retryDeadlocks(() => api.transaction(work));
 
   async function queryFirst(filters = {}, options = {}) {

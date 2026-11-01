@@ -11,6 +11,7 @@ test("profile updates use the auth provider's display-name input contract", asyn
     userSettingsRepository: { async ensureForUserId(id) { assert.equal(id, 7); return {}; } },
     avatarService: {},
     authService: {
+      getCapabilities() { return {}; },
       async updateDisplayName(actualRequest, input) {
         assert.equal(actualRequest, request);
         assert.deepEqual(input, { displayName: "After" });

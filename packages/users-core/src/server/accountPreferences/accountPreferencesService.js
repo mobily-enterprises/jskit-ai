@@ -8,8 +8,8 @@ import {
   accountSettingsResponseFormatter
 } from "../common/formatters/accountSettingsResponseFormatter.js";
 
-// A signed-in user's display and regional preferences.
 /**
+ * A signed-in user's display and regional preferences.
  * @param {object} dependencies
  * @param {import("../types.js").UserSettingsRepository} dependencies.userSettingsRepository
  * @param {import("../types.js").UserProfilesRepository} dependencies.userProfilesRepository

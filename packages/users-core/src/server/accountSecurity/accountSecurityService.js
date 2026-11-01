@@ -10,23 +10,16 @@ import {
 } from "../common/formatters/accountSettingsResponseFormatter.js";
 import { accountSecurityStatusFormatter } from "../common/formatters/accountSecurityStatusFormatter.js";
 
-// A signed-in user's password, sign-in methods and sessions, as far as the
-// installed auth provider supports them.
 /**
+ * A signed-in user's password, sign-in methods and sessions, through the
+ * installed auth provider.
  * @param {object} dependencies
  * @param {import("../types.js").UserSettingsRepository} dependencies.userSettingsRepository
  * @param {import("../types.js").UserProfilesRepository} dependencies.userProfilesRepository
  * @param {import("@jskit-ai/auth-core/server/types").AuthService} dependencies.authService The installed provider's `auth.service`.
  */
 function createService({ userSettingsRepository, userProfilesRepository, authService }) {
-  async function changePassword(request, user, payload, options = {}) {
-    // readable-check: allow method-probe - optional operation: changePassword is an optional auth.service operation
-    if (typeof authService.changePassword !== "function") {
-      throw new AppError(501, "Password change is not available.", {
-        code: "users.security.passwordChangeUnavailable"
-      });
-    }
-
+  async function changePassword(request, user, payload) {
     if (payload.confirmPassword !== payload.newPassword) {
       throw createValidationError({
         confirmPassword: {
@@ -52,14 +45,7 @@ function createService({ userSettingsRepository, userProfilesRepository, authSer
     };
   }
 
-  async function setPasswordMethodEnabled(request, user, payload, options = {}) {
-    // readable-check: allow method-probe - optional operation: setPasswordSignInEnabled is an optional auth.service operation
-    if (typeof authService.setPasswordSignInEnabled !== "function") {
-      throw new AppError(501, "Password method toggle is not available.", {
-        code: "users.security.passwordMethodToggleUnavailable"
-      });
-    }
-
+  async function setPasswordMethodEnabled(request, user, payload) {
     const profile = await resolveUserProfile(userProfilesRepository, user);
     if (!profile) {
       throw new AppError(404, "User profile was not found.", { code: "users.profile.notFound" });
@@ -82,28 +68,14 @@ function createService({ userSettingsRepository, userProfilesRepository, authSer
     });
   }
 
-  async function startOAuthProviderLink(request, user, payload, options = {}) {
-    // readable-check: allow method-probe - optional operation: startProviderLink is an optional auth.service operation
-    if (typeof authService.startProviderLink !== "function") {
-      throw new AppError(501, "OAuth linking is not available.", {
-        code: "users.security.oauthLinkUnavailable"
-      });
-    }
-
+  async function startOAuthProviderLink(request, user, payload) {
     return authService.startProviderLink(request, {
       provider: payload.provider,
       returnTo: payload.returnTo
     });
   }
 
-  async function unlinkOAuthProvider(request, user, payload, options = {}) {
-    // readable-check: allow method-probe - optional operation: unlinkProvider is an optional auth.service operation
-    if (typeof authService.unlinkProvider !== "function") {
-      throw new AppError(501, "OAuth unlink is not available.", {
-        code: "users.security.oauthUnlinkUnavailable"
-      });
-    }
-
+  async function unlinkOAuthProvider(request, user, payload) {
     const result = await authService.unlinkProvider(request, {
       provider: payload.provider
     });
@@ -112,14 +84,7 @@ function createService({ userSettingsRepository, userProfilesRepository, authSer
     });
   }
 
-  async function logoutOtherSessions(request, _user, options = {}) {
-    // readable-check: allow method-probe - optional operation: signOutOtherSessions is an optional auth.service operation
-    if (typeof authService.signOutOtherSessions !== "function") {
-      throw new AppError(501, "Logout other sessions is not available.", {
-        code: "users.security.logoutOtherSessionsUnavailable"
-      });
-    }
-
+  async function logoutOtherSessions(request, _user) {
     await authService.signOutOtherSessions(request);
 
     return null;

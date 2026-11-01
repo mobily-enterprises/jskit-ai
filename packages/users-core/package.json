@@ -9,6 +9,7 @@
     "./server/UsersFeature": "./src/server/UsersFeature.js",
     "./server/UsersIdentityProvider": "./src/server/UsersIdentityProvider.js",
     "./server/usersExtensions": "./src/server/usersExtensions.js",
+    "./server/resolveActionUser": "./src/server/common/support/resolveActionUser.js",
     "./server/types": "./src/server/types.js",
     "./shared/resources/userProfileResource": "./src/shared/resources/userProfileResource.js",
     "./shared/resources/userSettingsResource": "./src/shared/resources/userSettingsResource.js",

@@ -54,11 +54,11 @@ function requireSynchronizedProfile(profile) {
   throw new Error("Profile synchronization failed.");
 }
 
-// The profile projector: keeps a users row in step with the identity that signs in.
 /**
+ * The profile projector: keeps a users row in step with the identity that signs in.
  * @param {object} dependencies
- * @param {ReturnType<typeof import("../repositories/userProfilesRepository.js").createRepository>} dependencies.userProfilesRepository
- * @param {ReturnType<typeof import("../repositories/userSettingsRepository.js").createRepository>} dependencies.userSettingsRepository
+ * @param {import("../../types.js").UserProfilesRepository} dependencies.userProfilesRepository
+ * @param {import("../../types.js").UserSettingsRepository} dependencies.userSettingsRepository
  * @param {import("../../types.js").UsersExtensions["profileSyncLifecycleContributors"]} dependencies.resolveLifecycleContributors
  *   Answers the registered contributors that run after each synchronization.
  */

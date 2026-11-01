@@ -82,11 +82,7 @@ function registerAccountProfileRoutes(router, { accountProfileService, authServi
       }
     },
     async function (request, reply) {
-      const avatar = await accountProfileService.readAvatar(request, request.user, {
-        context: {
-          actor: request.user
-        }
-      });
+      const avatar = await accountProfileService.readAvatar(request, request.user);
 
       reply
         .header("Cache-Control", "private, max-age=31536000, immutable")

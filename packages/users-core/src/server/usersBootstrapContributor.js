@@ -2,6 +2,7 @@ import { AppError } from "@jskit-ai/kernel/server/runtime";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
 import { accountAvatarFormatter } from "./common/formatters/accountAvatarFormatter.js";
+import { formatUserSettingsSection } from "./common/formatters/accountSettingsResponseFormatter.js";
 import { USER_SETTINGS_BOOTSTRAP_KEYS } from "../shared/resources/userSettingsResource.js";
 
 /** @param {import("@jskit-ai/auth-core/server/types").AuthService} authService */
@@ -46,30 +47,15 @@ function createAnonymousBootstrapPayload({ surfaceAccess = {} }) {
   };
 }
 
-function mapUserSettingsBootstrap(settings = {}) {
-  const source = settings && typeof settings === "object" ? settings : {};
-  const mapped = {};
-
-  for (const fieldKey of USER_SETTINGS_BOOTSTRAP_KEYS) {
-    mapped[fieldKey] = source[fieldKey];
-  }
-
-  return mapped;
-}
-
 /**
  * @param {object} dependencies
- * @param {ReturnType<typeof import("./common/repositories/userProfilesRepository.js").createRepository>} dependencies.userProfilesRepository
- * @param {ReturnType<typeof import("./common/repositories/userSettingsRepository.js").createRepository>} dependencies.userSettingsRepository
+ * @param {import("./types.js").UserProfilesRepository} dependencies.userProfilesRepository
+ * @param {import("./types.js").UserSettingsRepository} dependencies.userSettingsRepository
  * @param {import("@jskit-ai/auth-core/server/types").AuthService} dependencies.authService
  */
 function createUsersBootstrapContributor({ userProfilesRepository, userSettingsRepository, authService }) {
-  const contributorId = "users.bootstrap";
-
   return Object.freeze({
-    contributorId,
-    order: 100,
-    async contribute({ request = null, reply = null, payload: existingPayload = {} } = {}) {
+    async contribute({ request, reply, payload: existingPayload }) {
       const authResult = await request.executeAction({
         actionId: "auth.session.read"
       });
@@ -87,7 +73,7 @@ function createUsersBootstrapContributor({ userProfilesRepository, userSettingsR
       }
 
       const normalizedUser = authResult?.authenticated === true ? authResult?.actor || null : null;
-      const inheritedSurfaceAccess = normalizeObject(existingPayload?.surfaceAccess);
+      const inheritedSurfaceAccess = normalizeObject(existingPayload.surfaceAccess);
       let payload = createAnonymousBootstrapPayload({
         surfaceAccess: inheritedSurfaceAccess
       });
@@ -108,21 +94,18 @@ function createUsersBootstrapContributor({ userProfilesRepository, userSettingsR
           },
           app: {},
           surfaceAccess: inheritedSurfaceAccess,
-          userSettings: mapUserSettingsBootstrap(userSettings),
+          userSettings: formatUserSettingsSection(USER_SETTINGS_BOOTSTRAP_KEYS, userSettings),
           requestMeta: {
-            hasRequest: Boolean(request)
+            hasRequest: true
           }
         };
       }
 
-      const oauthCatalogPayload = getOAuthProviderCatalogPayload(authService);
-      const session = payload?.session && typeof payload.session === "object" ? payload.session : { authenticated: false };
-
       return {
         ...payload,
         session: {
-          ...session,
-          ...oauthCatalogPayload
+          ...payload.session,
+          ...getOAuthProviderCatalogPayload(authService)
         }
       };
     }

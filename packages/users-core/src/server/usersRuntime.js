@@ -6,9 +6,9 @@ import { createService as createAvatarService } from "./accountProfile/avatarSer
 import { createService as createAvatarStorageService } from "./accountProfile/avatarStorageService.js";
 import { createService as createAccountSecurityService } from "./accountSecurity/accountSecurityService.js";
 
-// The `users.core` capability: the users' repositories and the account
-// services built on them.
 /**
+ * The `users.core` capability: the users' repositories and the account
+ * services built on them.
  * @param {object} dependencies
  * @param {import("@jskit-ai/auth-core/server/types").AuthService} dependencies.authService
  * @param {import("./types.js").UsersIdentity} dependencies.identity

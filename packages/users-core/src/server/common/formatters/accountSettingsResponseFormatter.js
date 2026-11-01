@@ -58,4 +58,4 @@ function accountSettingsResponseFormatter({ profile, settings, securityStatus, a
   };
 }
 
-export { accountSettingsResponseFormatter };
+export { accountSettingsResponseFormatter, formatUserSettingsSection };
