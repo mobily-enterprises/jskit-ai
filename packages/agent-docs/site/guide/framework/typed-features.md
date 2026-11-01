@@ -726,8 +726,8 @@ From the route, each step is one jump:
    `UserSettingsRepository`, so it reaches `userSettingsRepository.js`, the
    storage boundary.
 
-The [feature package pattern](/patterns/server/feature-package) is the
-smallest feature to copy: a `types.js`, a typed engine, an optional token with
+The `server/feature-package` pattern in the
+[source pattern library](/patterns/) is the smallest feature to copy: a `types.js`, a typed engine, an optional token with
 a named default, one request-context helper and a `bookingEngineActions.js` of
 one-line frozen actions.
 
