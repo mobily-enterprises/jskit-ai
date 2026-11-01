@@ -1,6 +1,6 @@
 import { defaultSettingsMiddleware, extractReasoningMiddleware, wrapLanguageModel } from "ai";
 import {
-  LEAKED_MARKUP, REASONING, checkTexts, clipOldResult, compactMessages, remindOnRepeat, reportsActions, runLoop,
+  LEAKED_MARKUP, REASONING, checkTexts, clipOldResult, compactMessages, createTool, remindOnRepeat, reportsActions, runLoop,
   stoppedShort, stripNotes, toolRecord, unsupportedClaims, windowLimits, withinBudget, withoutClosingWords, withoutMarkup
 } from "@jskit-ai/agent/server";
 import { conversationRequestText } from "../continuity.js";
@@ -133,9 +133,10 @@ export function createApiConversationDriver({ connections, apiClientFactory, fet
         try { return await tools.execute(call); } catch (error) { throw fail(error); }
       }
       const engineTools = Object.fromEntries((tools?.schemas || []).map(({ function: tool }) => {
-        const engineTool = { id: tool.name, description: tool.description, parameters: tool.parameters,
-          execute: async (value, { toolCallId }) => toolOutput(await runTool({
-            id: `reply-${step + 1}:${toolCallId}`, name: tool.name, arguments: JSON.stringify(value ?? {}) })) };
+        // The engine's copy of the frozen definition is the one its repeat reminder wraps.
+        const engineTool = createTool(Object.freeze({ id: tool.name, description: tool.description, parameters: tool.parameters,
+          execute: (value, { toolCallId }) => runTool({
+            id: `reply-${step + 1}:${toolCallId}`, name: tool.name, arguments: JSON.stringify(value ?? {}) }).then(toolOutput) }));
         remindOnRepeat(engineTool, repeats);
         return [tool.name, engineTool];
       }));
