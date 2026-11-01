@@ -79,7 +79,7 @@ code, never the state of a project:
 | `data:` | probes data (a route definition, a transport, a parsed record), not a collaborator |
 | `platform object:` | probes a platform or library object whose implementations differ, such as `Headers` |
 | `optional operation:` | calls an operation the collaborator's type marks optional |
-| `test asserts error:` | keeps a guard whose error a test asserts |
+| `safety invariant: <what goes wrong>` | keeps a guard that protects an internal invariant, saying what goes wrong without it (the retired `test asserts error:` is reported) |
 | `not a slot:` | matched a name that fills no slot |
 | `cycle: <supplier> requires <owner>` | keeps a setter because the slot's supplier requires its owner |
 | `deferred until boot: <reason>` | keeps a capability handed out at setup and filled in `boot()`, such as the deferred `auth.service` |

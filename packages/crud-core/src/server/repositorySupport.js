@@ -408,7 +408,7 @@ function applyCrudListQueryFilters(
     parentFilterColumns = {}
   } = {}
 ) {
-  // readable-check: allow method-probe - test asserts error: applyCrudListQueryFilters refuses a value that is not a query builder
+  // readable-check: allow method-probe - safety invariant: a value that is not a query builder fails inside the filter callbacks with an unclear error
   if (!query || typeof query.modify !== "function" || typeof query.where !== "function") {
     throw new TypeError("applyCrudListQueryFilters requires query builder.");
   }

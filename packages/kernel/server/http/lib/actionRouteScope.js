@@ -31,7 +31,7 @@ function createActionRouteScope(
   } = {}
 ) {
   const router = http?.router;
-  // readable-check: allow method-probe - test asserts error: createActionRouteScope refuses a value that is not runtime.http
+  // readable-check: allow method-probe - safety invariant: without runtime.http's router no action route registers, and the scope fails at its first route
   if (!router || typeof router.register !== "function") {
     throw new RouteDefinitionError("createActionRouteScope requires runtime.http with router.register().");
   }

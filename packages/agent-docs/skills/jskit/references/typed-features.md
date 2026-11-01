@@ -871,7 +871,7 @@ and says what is true of the code, never the state of a project or its tests:
 | `data:` | probes data (a route definition, a transport, a parsed record), not a collaborator |
 | `platform object:` | probes a host or library object reached internally, such as `Headers`, a fetch `Response` or a Knex transaction (`platform object: a Knex transaction`) |
 | `optional operation:` | calls a contract method that some real implementer lacks, which the contract marks optional |
-| `test asserts error:` | keeps a guard whose error a test asserts |
+| `safety invariant: <what goes wrong>` | keeps a guard that protects an internal invariant, saying what goes wrong without it; the retired `test asserts error:` is reported |
 | `not a slot:` | matched a name that fills no slot |
 | `cycle: <supplier> requires <owner>` | keeps a setter because the slot's supplier requires its owner |
 | `deferred until boot: <reason>` | keeps a capability handed out at setup and filled in `boot()`, such as the deferred `auth.service`: a two-phase value that is neither a cycle nor a setter |

@@ -212,7 +212,7 @@ test("the typed-features guide states its rules and common mistakes as headings"
   for (const rule of section("Rules").split(/^### /mu).slice(1)) {
     assert.match(rule, /\/\/ before[^\n]*\n[\s\S]+\/\/ after/u, `Rule "${rule.split("\n")[0]}" has no before and after.`);
   }
-  for (const prefix of ["input validation:", "data:", "platform object:", "optional operation:", "test asserts error:", "not a slot:", "deferred until boot: <reason>", "cycle: <supplier> requires <owner>"]) {
+  for (const prefix of ["input validation:", "data:", "platform object:", "optional operation:", "safety invariant: <what goes wrong>", "not a slot:", "deferred until boot: <reason>", "cycle: <supplier> requires <owner>"]) {
     assert.ok(section("Checks").includes(`| \`${prefix}\``), `Checks lacks the ${prefix} prefix.`);
   }
   assert.match(section("Checks"), /platform object: a Knex transaction/u);

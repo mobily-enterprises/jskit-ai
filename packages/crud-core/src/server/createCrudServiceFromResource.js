@@ -21,7 +21,7 @@ function createCrudServiceFromResource(resource, { context = "crudService" } = {
    * @param {import("./types.js").CrudFieldAccess} [dependencies.fieldAccess] Defaults to no field restrictions.
    */
   function createBaseService({ repository, fieldAccess = {} }) {
-    // readable-check: allow required-collaborators - test asserts error: createBaseService refuses a missing repository
+    // readable-check: allow required-collaborators - safety invariant: without a repository every operation of the service fails later, far from the resource that lacks one
     if (!repository) {
       throw new Error(`${context} requires repository.`);
     }

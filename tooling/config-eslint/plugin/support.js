@@ -3,7 +3,7 @@
 // on the line before it: "// readable-check: allow <finding or rule> - <reason>".
 // The reason starts with one of these prefixes and says what is true of the
 // code, never the state of a project: "input validation:", "data:",
-// "platform object:", "optional operation:", "test asserts error:",
+// "platform object:", "optional operation:", "safety invariant:",
 // "not a slot:", "cycle: <supplier> requires <owner>",
 // "deferred until boot: <reason>",
 // "filled by <repository>; convert with its supplier" or
