@@ -149,7 +149,7 @@ test("Chargebee app billing uses indexed forms, explicit idempotency and verifie
   const returns = { redirect_url: "https://app.example/billing/return", cancel_url: "https://app.example/billing/cancel" };
   const samples = [
     ["customers.create", "customers", { email: "sam@example.test", first_name: "Sam", id: "customer-1" }, { customer: { id: "customer-1" } }],
-    ["customers.update", "customers/customer-1", { resource: "customer-1", company: "Dog and Groom" }, { customer: { id: "customer-1", company: "Dog and Groom" } }],
+    ["customers.update", "customers/customer-1", { resource: "customer-1", company: "Example Grooming" }, { customer: { id: "customer-1", company: "Example Grooming" } }],
     ["subscriptions.create", "customers/customer-1/subscription_for_items", { resource: "customer-1", subscription_items: items, auto_collection: "off", invoice_immediately: false }, { subscription: { id: "sub-1", status: "active" }, unbilled_charges: [{ id: "charge-1" }] }],
     ["subscriptions.updateAtTermEnd", "subscriptions/sub-1/update_for_items", { resource: "sub-1", subscription_items: items, replace_items_list: true }, { subscription: { id: "sub-1", has_scheduled_changes: true } }, { end_of_term: "true" }],
     ["subscriptions.cancelAtTermEnd", "subscriptions/sub-1/cancel_for_items", { resource: "sub-1" }, { subscription: { id: "sub-1", status: "non_renewing" } }, { cancel_option: "end_of_term" }],

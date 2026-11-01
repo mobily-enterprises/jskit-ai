@@ -150,8 +150,8 @@ test("workspacesRepository.findById reads a canonical workspace row through json
     rowsById: new Map([
       ["7", {
         id: "7",
-        slug: "tonymobily3",
-        name: "TonyMobily3",
+        slug: "tony3",
+        name: "Tony3",
         ownerUserId: "9",
         isPersonal: true,
         avatarUrl: "",
@@ -167,8 +167,8 @@ test("workspacesRepository.findById reads a canonical workspace row through json
 
   assert.deepEqual(workspace, {
     id: "7",
-    slug: "tonymobily3",
-    name: "TonyMobily3",
+    slug: "tony3",
+    name: "Tony3",
     ownerUserId: "9",
     isPersonal: true,
     avatarUrl: "",
@@ -220,16 +220,16 @@ test("workspacesRepository.insert writes canonical fields through json-rest-api"
   const repository = createRepository({ api });
 
   const inserted = await repository.insert({
-    slug: "TonyMobily3",
-    name: "TonyMobily3",
+    slug: "Tony3",
+    name: "Tony3",
     ownerUserId: "9",
     avatarUrl: "",
     isPersonal: false
   });
 
   assert.equal(state.postPayload.data.owner, "9");
-  assert.equal(state.postPayload.data.slug, "TonyMobily3");
-  assert.equal(state.postPayload.data.name, "TonyMobily3");
+  assert.equal(state.postPayload.data.slug, "Tony3");
+  assert.equal(state.postPayload.data.name, "Tony3");
   assert.equal(state.postPayload.data.isPersonal, false);
   assert.equal(state.postPayload.data.avatarUrl, "");
   assert.equal(typeof state.postPayload.data.createdAt, "string");
@@ -271,8 +271,8 @@ test("workspacesRepository.updateById patches canonical fields and updatedAt", a
     rowsById: new Map([
       ["7", {
         id: "7",
-        slug: "tonymobily3",
-        name: "TonyMobily3",
+        slug: "tony3",
+        name: "Tony3",
         ownerUserId: "9",
         isPersonal: false,
         avatarUrl: "",
@@ -285,11 +285,11 @@ test("workspacesRepository.updateById patches canonical fields and updatedAt", a
   const repository = createRepository({ api });
 
   await repository.updateById("7", {
-    name: "TonyMobily 4"
+    name: "Tony 4"
   });
 
   assert.equal(state.patchPayload.id, "7");
-  assert.equal(state.patchPayload.data.name, "TonyMobily 4");
+  assert.equal(state.patchPayload.data.name, "Tony 4");
   assert.equal(typeof state.patchPayload.data.updatedAt, "string");
 });
 
@@ -302,8 +302,8 @@ test("workspacesRepository.listForUserId keeps membership fields outside the can
         status: "active",
         workspace: {
           id: "7",
-          slug: "tonymobily3",
-          name: "TonyMobily3",
+          slug: "tony3",
+          name: "Tony3",
           ownerUserId: "9",
           isPersonal: true,
           avatarUrl: "",
@@ -353,8 +353,8 @@ test("workspacesRepository.listForUserId keeps membership fields outside the can
   assert.deepEqual(workspaces, [
     {
       id: "7",
-      slug: "tonymobily3",
-      name: "TonyMobily3",
+      slug: "tony3",
+      name: "Tony3",
       ownerUserId: "9",
       isPersonal: true,
       avatarUrl: "",

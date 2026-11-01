@@ -20,7 +20,7 @@ test("Brevo explicitly sends messages and campaigns, manages contacts and retain
       return state.response === null ? new Response(null, { status: 204 }) : Response.json(state.response, { status: state.status }); }
   });
   const invoke = (operation, input = {}) => service.invoke({ ...identity, operation, input }); await service.connectApiKey(identity);
-  const sender = { email: "bookings@example.test", name: "Dog and Groom" };
+  const sender = { email: "bookings@example.test", name: "Example Bookings" };
   const email = { sender, to: [{ email: "customer@example.test" }], subject: "Booking confirmed", textContent: "Tuesday at 10" };
   const dns = { brevo_code: { host_name: "example.test", type: "TXT", value: "brevo-code:fixture", status: false },
     dkim_record: { host_name: "mail._domainkey.example.test", type: "TXT", value: "fixture-dkim", status: false } };

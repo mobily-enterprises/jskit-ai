@@ -9,7 +9,7 @@ import { parseIntegrationConfiguration, validateIntegrationConfiguration } from 
 const configuration = (patch = {}) => ({ schemaVersion: 1, registrations: {}, integrations: {
   suggestions: { provider: "ai", accountMode: "shared", scopes: [], authentication: { method: "none" }, ...patch }
 } });
-const actor = { applicationId: "dogandgroom", subjectId: "customer-one" };
+const actor = { applicationId: "bookings", subjectId: "customer-one" };
 const request = { context: actor, integrationId: "suggestions" };
 const authorize = async (context) => context?.applicationId === actor.applicationId ? context : null;
 const validate = (config) => validateIntegrationConfiguration(config, { providers: [aiDefinition] });

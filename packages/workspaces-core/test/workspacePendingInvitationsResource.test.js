@@ -13,8 +13,8 @@ test("workspacePendingInvitationsResource output schema accepts already-shaped i
       {
         id: "10",
         workspaceId: "3",
-        workspaceSlug: "tonymobily3",
-        workspaceName: "TonyMobily3",
+        workspaceSlug: "tony3",
+        workspaceName: "Tony3",
         workspaceAvatarUrl: "",
         roleSid: "member",
         status: "pending",

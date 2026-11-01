@@ -11,8 +11,8 @@ import { snowflakeProvider } from "../src/server/snowflake.js";
 const context = { applicationId: "app-one", subjectId: "owner-one" };
 const args = { context, integrationId: "warehouse" };
 const callback = "https://app.example.test/oauth/snowflake/callback";
-const database = { name: "INVENTORY", owner: "VIBE64_READER", kind: "PERMANENT", comment: "Stock", created_on: "2026-09-01T12:00:00Z" };
-async function fixture(t, { role = "VIBE64_READER", accountUrl = "https://myorg-myaccount.snowflakecomputing.com", basic = false, sqlContext = {} } = {}) {
+const database = { name: "INVENTORY", owner: "REPORTING_READER", kind: "PERMANENT", comment: "Stock", created_on: "2026-09-01T12:00:00Z" };
+async function fixture(t, { role = "REPORTING_READER", accountUrl = "https://myorg-myaccount.snowflakecomputing.com", basic = false, sqlContext = {} } = {}) {
   const directory = await mkdtemp(path.join(tmpdir(), "snowflake-connector-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const settings = { accountUrl, ...(role ? { role } : {}), ...sqlContext };
@@ -84,7 +84,7 @@ async function fixture(t, { role = "VIBE64_READER", accountUrl = "https://myorg-
 test("Snowflake binds PKCE and credentials to the account and persists encrypted restartable consent", async (t) => {
   const f = await fixture(t); const start = await f.start();
   assert.equal(start.url.href.split("?")[0], "https://myorg-myaccount.snowflakecomputing.com/oauth/authorize");
-  assert.equal(start.url.searchParams.get("scope"), "refresh_token session:role:VIBE64_READER");
+  assert.equal(start.url.searchParams.get("scope"), "refresh_token session:role:REPORTING_READER");
   assert.equal(start.url.searchParams.get("code_challenge_method"), "S256"); assert.equal(start.url.searchParams.has("client_secret"), false);
   await f.service.completeAuthorization({ ...args, callbackUrl: start.callbackUrl });
   for (const file of await readdir(f.directory)) {
@@ -93,7 +93,7 @@ test("Snowflake binds PKCE and credentials to the account and persists encrypted
   }
   const restarted = createConnectionService(f.options);
   assert.equal((await restarted.status(args)).status, "connected");
-  assert.deepEqual((await restarted.status(args)).grantedScopes, ["refresh_token", "session:role:VIBE64_READER"]);
+  assert.deepEqual((await restarted.status(args)).grantedScopes, ["refresh_token", "session:role:REPORTING_READER"]);
   assert.deepEqual(await restarted.invoke({ ...args, operation: "databases.list" }), [database]);
 });
 
@@ -133,7 +133,7 @@ test("Snowflake isolates application users and invalidates saved grants after ac
   }
   const denied = createConnectionService({ ...f.options, authorize: async () => null });
   await assert.rejects(denied.invoke({ ...args, operation: "databases.list" }), { code: "connector_access_denied" });
-  for (const settings of [{ accountUrl: "https://other-account.snowflakecomputing.com", role: "VIBE64_READER" }, { accountUrl: "https://myorg-myaccount.snowflakecomputing.com", role: "PUBLIC" }]) {
+  for (const settings of [{ accountUrl: "https://other-account.snowflakecomputing.com", role: "REPORTING_READER" }, { accountUrl: "https://myorg-myaccount.snowflakecomputing.com", role: "PUBLIC" }]) {
     const configuration = structuredClone(f.options.configuration); configuration.integrations.warehouse.settings = settings;
     configuration.integrations.warehouse.scopes = getProviderScopes(snowflakeProvider, settings).map((scope) => scope.value);
     const changed = createConnectionService({ ...f.options, configuration });
@@ -246,14 +246,14 @@ test("Snowflake SQL lifecycle binds context, preserves typed partitions and canc
   let phase = 0;
   state.sqlReply = (url, init) => {
     assert.equal(new Headers(init.headers).get("authorization"), "Bearer private-access-1");
-    assert.equal(new Headers(init.headers).get("x-snowflake-role"), '\"VIBE64_READER\"');
+    assert.equal(new Headers(init.headers).get("x-snowflake-role"), '\"REPORTING_READER\"');
     assert.equal(init.redirect, "error");
     if (phase++ === 0) {
       assert.equal(init.method, "POST");
       assert.equal(url.searchParams.get("requestId"), requestId);
       assert.equal(url.searchParams.get("async"), "true");
       assert.deepEqual(JSON.parse(init.body), { statement: "select ?", bindings: { "1": { type: "FIXED", value: "9007199254740993" } }, timeout: 60,
-        warehouse: "APP_WH", database: "DATA", schema: "PUBLIC", role: "VIBE64_READER", parameters: { multi_statement_count: "1" } });
+        warehouse: "APP_WH", database: "DATA", schema: "PUBLIC", role: "REPORTING_READER", parameters: { multi_statement_count: "1" } });
       return Response.json({ code: "333334", statementHandle: handle, statementStatusUrl: "https://untrusted.test/never-follow" }, { status: 202 });
     }
     assert.equal(url.pathname, `/api/v2/statements/${handle}${phase === 4 ? "/cancel" : ""}`);

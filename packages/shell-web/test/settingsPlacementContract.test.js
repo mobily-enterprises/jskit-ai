@@ -279,12 +279,12 @@ test("shell-web route transition keeps mobile route motion placement-driven", as
 });
 
 test("shell-web route transition key preserves no-motion surfaces and animated path transitions", () => {
-  const previewSurfaceKey = "surface:vibe64-preview";
+  const previewSurfaceKey = "surface:editor-preview";
   assert.equal(
     resolveShellRouteTransitionKey({
       routeTransitionName: "",
       routePathKey: "/preview",
-      surfaceId: "vibe64-preview"
+      surfaceId: "editor-preview"
     }),
     previewSurfaceKey
   );
@@ -292,7 +292,7 @@ test("shell-web route transition key preserves no-motion surfaces and animated p
     resolveShellRouteTransitionKey({
       routeTransitionName: "",
       routePathKey: "/preview/dashboard",
-      surfaceId: "vibe64-preview"
+      surfaceId: "editor-preview"
     }),
     previewSurfaceKey
   );

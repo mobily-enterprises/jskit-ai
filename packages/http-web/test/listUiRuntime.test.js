@@ -30,19 +30,19 @@ test("createListUiRuntime resolves nested route links from the parent list scope
     isInitialLoading: ref(false),
     recordIdParam: "petId",
     routeParams: ref({
-      workspaceSlug: "dogandgroom",
+      workspaceSlug: "harbor",
       contactId: "541841",
       petId: "715528"
     }),
     routeParamNames: ref(["workspaceSlug", "contactId", "petId"]),
-    routePath: ref("/w/dogandgroom/admin/contacts/541841/pets/715528"),
+    routePath: ref("/w/harbor/admin/contacts/541841/pets/715528"),
     viewUrlTemplate: "./:petId",
     editUrlTemplate: "./:petId/edit"
   });
 
-  assert.equal(runtime.resolveParams("./new"), "/w/dogandgroom/admin/contacts/541841/pets/new");
-  assert.equal(runtime.resolveViewUrl({ id: "901" }), "/w/dogandgroom/admin/contacts/541841/pets/901");
-  assert.equal(runtime.resolveEditUrl({ id: "901" }), "/w/dogandgroom/admin/contacts/541841/pets/901/edit");
+  assert.equal(runtime.resolveParams("./new"), "/w/harbor/admin/contacts/541841/pets/new");
+  assert.equal(runtime.resolveViewUrl({ id: "901" }), "/w/harbor/admin/contacts/541841/pets/901");
+  assert.equal(runtime.resolveEditUrl({ id: "901" }), "/w/harbor/admin/contacts/541841/pets/901/edit");
 });
 
 test("createListUiRuntime resolves templates that depend on existing route params", () => {

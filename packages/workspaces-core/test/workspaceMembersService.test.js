@@ -49,8 +49,8 @@ function createRoleCatalog() {
 function createFixture() {
   const workspace = {
     id: "7",
-    slug: "tonymobily3",
-    name: "TonyMobily3",
+    slug: "tony3",
+    name: "Tony3",
     ownerUserId: "9",
     avatarUrl: ""
   };
@@ -423,8 +423,8 @@ test("workspaceMembersService.listMembers uses the resolved workspace directly",
 
   assert.deepEqual(response.workspace, {
     id: "7",
-    slug: "tonymobily3",
-    name: "TonyMobily3",
+    slug: "tony3",
+    name: "Tony3",
     ownerUserId: "9",
     avatarUrl: ""
   });
@@ -452,8 +452,8 @@ test("workspaceMembersService.removeMember marks membership revoked and returns 
   let removed = false;
   const workspace = {
     id: "7",
-    slug: "tonymobily3",
-    name: "TonyMobily3",
+    slug: "tony3",
+    name: "Tony3",
     ownerUserId: "9",
     avatarUrl: ""
   };
@@ -527,8 +527,8 @@ test("workspaceMembersService.removeMember marks membership revoked and returns 
 test("workspaceMembersService.removeMember rejects removing the owner", async () => {
   const workspace = {
     id: "7",
-    slug: "tonymobily3",
-    name: "TonyMobily3",
+    slug: "tony3",
+    name: "Tony3",
     ownerUserId: "9",
     avatarUrl: ""
   };

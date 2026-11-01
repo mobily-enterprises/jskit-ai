@@ -249,7 +249,7 @@ test("request resolves request urls after query encoding and before fetch", asyn
     },
     resolveRequestUrl(url, context = {}) {
       contexts.push({ url, context });
-      return url.replace(/^\/api\//u, "/api/app/beepollen/");
+      return url.replace(/^\/api\//u, "/api/app/acme/");
     },
     fetchImpl: async (url, options) => {
       calls.push([url, options]);
@@ -261,7 +261,7 @@ test("request resolves request urls after query encoding and before fetch", asyn
     }
   });
 
-  const payload = await client.request("/api/vibe64/sessions", {
+  const payload = await client.request("/api/chat/sessions", {
     method: "GET",
     query: {
       cursor: "next page"
@@ -269,9 +269,9 @@ test("request resolves request urls after query encoding and before fetch", asyn
   });
 
   assert.deepEqual(payload, { ok: true });
-  assert.equal(calls[0][0], "/api/app/beepollen/vibe64/sessions?cursor=next+page");
-  assert.equal(contexts[0].url, "/api/vibe64/sessions?cursor=next+page");
-  assert.equal(contexts[0].context.originalUrl, "/api/vibe64/sessions");
+  assert.equal(calls[0][0], "/api/app/acme/chat/sessions?cursor=next+page");
+  assert.equal(contexts[0].url, "/api/chat/sessions?cursor=next+page");
+  assert.equal(contexts[0].context.originalUrl, "/api/chat/sessions");
   assert.equal(contexts[0].context.method, "GET");
   assert.equal(contexts[0].context.stream, false);
 });
@@ -283,7 +283,7 @@ test("requestStream resolves request urls before fetch", async () => {
       enabled: false
     },
     resolveRequestUrl(url) {
-      return url.replace(/^\/api\//u, "/api/app/beepollen/");
+      return url.replace(/^\/api\//u, "/api/app/acme/");
     },
     fetchImpl: async (url, options) => {
       calls.push([url, options]);
@@ -294,11 +294,11 @@ test("requestStream resolves request urls before fetch", async () => {
     }
   });
 
-  await client.requestStream("/api/vibe64/events", {
+  await client.requestStream("/api/chat/events", {
     method: "GET"
   });
 
-  assert.equal(calls[0][0], "/api/app/beepollen/vibe64/events");
+  assert.equal(calls[0][0], "/api/app/acme/chat/events");
 });
 
 test("request parses json:api responses as json payloads", async () => {

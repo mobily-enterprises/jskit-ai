@@ -26,42 +26,42 @@ function routeRequest(overrides = {}) {
 
 test("the scope base path is the scoped API base path the kernel resolves", () => {
   const http = httpWithRouter();
-  const scope = createActionRouteScope(http, { routeBase: "/app/:slug", relativePath: "vibe64", surface: "App" });
-  assert.equal(scope.routeBase, resolveScopedApiBasePath({ routeBase: "/app/:slug", relativePath: "vibe64", strictParams: false }));
-  assert.equal(scope.routeBase, "/api/app/:slug/vibe64");
+  const scope = createActionRouteScope(http, { routeBase: "/app/:slug", relativePath: "chat", surface: "App" });
+  assert.equal(scope.routeBase, resolveScopedApiBasePath({ routeBase: "/app/:slug", relativePath: "chat", strictParams: false }));
+  assert.equal(scope.routeBase, "/api/app/:slug/chat");
   assert.equal(createActionRouteScope(http).routeBase, resolveScopedApiBasePath({ routeBase: "/", relativePath: "", strictParams: false }));
   assert.throws(() => createActionRouteScope(http, { routeBase: "/app/:slug", strictParams: true }), /missing required route params: slug/u);
 });
 
 test("action routes record their action id and run it with the built input", async () => {
   const http = httpWithRouter();
-  const scope = createActionRouteScope(http, { routeBase: "/app/:slug", relativePath: "vibe64", surface: "App" });
+  const scope = createActionRouteScope(http, { routeBase: "/app/:slug", relativePath: "chat", surface: "App" });
   scope.actionRoute("GET", "/sessions/:sessionId/status", {
-    actionId: "vibe64.sessions.status.read",
+    actionId: "chat.sessions.status.read",
     buildInput: (request) => ({ sessionId: request.params.sessionId }),
     meta: { summary: "Read session status." }
   });
-  scope.actionRoute("post", "/sessions", { actionId: "vibe64.sessions.create" });
+  scope.actionRoute("post", "/sessions", { actionId: "chat.sessions.create" });
   scope.serviceRoute("GET", "/stream", { auth: "public" }, async () => "streamed");
 
   const [status, create, stream] = http.router.list();
   assert.deepEqual(
     http.router.list().map(({ method, path, actionId, surface }) => ({ method, path, actionId, surface })),
     [
-      { method: "GET", path: "/api/app/:slug/vibe64/sessions/:sessionId/status", actionId: "vibe64.sessions.status.read", surface: "app" },
-      { method: "POST", path: "/api/app/:slug/vibe64/sessions", actionId: "vibe64.sessions.create", surface: "app" },
-      { method: "GET", path: "/api/app/:slug/vibe64/stream", actionId: "", surface: "app" }
+      { method: "GET", path: "/api/app/:slug/chat/sessions/:sessionId/status", actionId: "chat.sessions.status.read", surface: "app" },
+      { method: "POST", path: "/api/app/:slug/chat/sessions", actionId: "chat.sessions.create", surface: "app" },
+      { method: "GET", path: "/api/app/:slug/chat/stream", actionId: "", surface: "app" }
     ]
   );
 
   const statusCall = routeRequest();
   assert.deepEqual(await status.handler(statusCall.request, {}), {
     ok: true,
-    payload: { actionId: "vibe64.sessions.status.read", input: { sessionId: "s1" } }
+    payload: { actionId: "chat.sessions.status.read", input: { sessionId: "s1" } }
   });
   const createCall = routeRequest();
   await create.handler(createCall.request, {});
-  assert.deepEqual(createCall.calls, [{ actionId: "vibe64.sessions.create", input: {} }]);
+  assert.deepEqual(createCall.calls, [{ actionId: "chat.sessions.create", input: {} }]);
   assert.equal(await stream.handler(routeRequest().request, {}), "streamed");
 });
 

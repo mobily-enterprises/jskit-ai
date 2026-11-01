@@ -310,7 +310,7 @@ test("realtime bursts never cancel a read in flight and read once more after it"
 
 test("endpoint resource reads attach request recovery metadata to query options", async () => {
   const queryClient = new QueryClient();
-  const queryKey = ["project-access", "beepollen"];
+  const queryKey = ["project-access", "acme"];
   const app = createSSRApp({
     setup() {
       useEndpointResource({
@@ -448,7 +448,7 @@ test("endpoint resources use the configured http-web HTTP client by default", as
       enabled: false
     },
     resolveRequestUrl(url) {
-      return url.replace(/^\/api\//u, "/api/app/beepollen/");
+      return url.replace(/^\/api\//u, "/api/app/acme/");
     },
     fetchImpl: async (url, options) => {
       calls.push([url, options]);
@@ -475,8 +475,8 @@ test("endpoint resources use the configured http-web HTTP client by default", as
     const app = createSSRApp({
       setup() {
         resource = useEndpointResource({
-          queryKey: ["vibe64-sessions"],
-          path: "/api/vibe64/sessions"
+          queryKey: ["chat-sessions"],
+          path: "/api/chat/sessions"
         });
         return () => h("div");
       }
@@ -488,7 +488,7 @@ test("endpoint resources use the configured http-web HTTP client by default", as
 
     await resource.reload();
 
-    assert.equal(calls.at(-1)?.[0], "/api/app/beepollen/vibe64/sessions");
+    assert.equal(calls.at(-1)?.[0], "/api/app/acme/chat/sessions");
   } finally {
     resetHttpWebClientForTests();
   }
@@ -503,7 +503,7 @@ test("commands use the configured http-web HTTP client by default", async () => 
       enabled: false
     },
     resolveRequestUrl(url) {
-      return url.replace(/^\/api\//u, "/api/app/beepollen/");
+      return url.replace(/^\/api\//u, "/api/app/acme/");
     },
     fetchImpl: async (url, options) => {
       calls.push([url, options]);
@@ -531,7 +531,7 @@ test("commands use the configured http-web HTTP client by default", async () => 
       setup() {
         command = useCommand({
           access: "always",
-          apiSuffix: "/vibe64/sessions"
+          apiSuffix: "/chat/sessions"
         });
         return () => h("div");
       }
@@ -543,7 +543,7 @@ test("commands use the configured http-web HTTP client by default", async () => 
 
     await command.run();
 
-    assert.equal(calls.at(-1)?.[0], "/api/app/beepollen/vibe64/sessions");
+    assert.equal(calls.at(-1)?.[0], "/api/app/acme/chat/sessions");
     assert.equal(calls.at(-1)?.[1]?.method, "POST");
   } finally {
     resetHttpWebClientForTests();

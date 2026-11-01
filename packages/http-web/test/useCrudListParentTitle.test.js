@@ -45,7 +45,7 @@ test("resolveCrudListParentDescriptor selects the nearest lookup route parent", 
         { path: "/w/:workspaceSlug/admin/contacts/:contactId/availabilities" }
       ],
       params: {
-        workspaceSlug: "dogandgroom",
+        workspaceSlug: "harbor",
         contactId: "538779"
       }
     },
@@ -80,7 +80,7 @@ test("resolveCrudListParentTitleFromItems uses the hydrated lookup label", () =>
     route: {
       matched: [{ path: "/w/:workspaceSlug/admin/contacts/:contactId/availabilities" }],
       params: {
-        workspaceSlug: "dogandgroom",
+        workspaceSlug: "harbor",
         contactId: "538779"
       }
     },
@@ -113,7 +113,7 @@ test("resolveCrudListParentTitleFromItems ignores raw lookup ids when no hydrate
     route: {
       matched: [{ path: "/w/:workspaceSlug/admin/contacts/:contactId/availabilities" }],
       params: {
-        workspaceSlug: "dogandgroom",
+        workspaceSlug: "harbor",
         contactId: "538779"
       }
     },
@@ -171,7 +171,7 @@ test("resolveCrudListParentDescriptor supports parentRouteParamKey aliases", () 
     route: {
       matched: [{ path: "/w/:workspaceSlug/admin/contacts/:contactId/availabilities" }],
       params: {
-        workspaceSlug: "dogandgroom",
+        workspaceSlug: "harbor",
         contactId: "538779"
       }
     },
@@ -199,7 +199,7 @@ test("useCrudListParentTitle loads the parent record when child rows only expose
     route: {
       matched: [{ path: "/w/:workspaceSlug/admin/contacts/:contactId/availabilities" }],
       params: {
-        workspaceSlug: "dogandgroom",
+        workspaceSlug: "harbor",
         contactId: "538779"
       }
     },
@@ -237,7 +237,7 @@ test("useCrudListParentTitle requests the parent through JSON:API record transpo
     route: {
       matched: [{ path: "/w/:workspaceSlug/admin/contacts/:contactId/availabilities" }],
       params: {
-        workspaceSlug: "dogandgroom",
+        workspaceSlug: "harbor",
         contactId: "538779"
       }
     },

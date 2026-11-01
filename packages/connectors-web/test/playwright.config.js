@@ -7,7 +7,7 @@ export default defineConfig({
   workers: 1,
   use: {
     baseURL: managedUrl || "http://127.0.0.1:4187",
-    storageState: process.env.VIBE64_PLAYWRIGHT_STORAGE_STATE || undefined
+    storageState: process.env.PLAYWRIGHT_STORAGE_STATE || undefined
   },
   webServer: managedUrl ? undefined : {
     command: "npm exec --no -- vite --config packages/connectors-web/test/vite.config.js",

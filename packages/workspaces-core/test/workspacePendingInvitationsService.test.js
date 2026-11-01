@@ -80,8 +80,8 @@ test("listPendingInvitesForUser returns raw pending invite rows", async () => {
       {
         id: "10",
         workspaceId: "1",
-        workspaceSlug: "tonymobily3",
-        workspaceName: "TonyMobily3",
+        workspaceSlug: "tony3",
+        workspaceName: "Tony3",
         workspaceAvatarUrl: "",
         roleSid: "member",
         status: "pending",
@@ -93,12 +93,12 @@ test("listPendingInvitesForUser returns raw pending invite rows", async () => {
 
   const pendingInvites = await service.listPendingInvitesForUser({
     id: "7",
-    email: "chiaramobily@gmail.com"
+    email: "chiara@example.com"
   });
 
   assert.equal(pendingInvites.length, 1);
   assert.equal(pendingInvites[0].token, encodeInviteTokenHash(tokenHash));
-  assert.equal(pendingInvites[0].workspaceName, "TonyMobily3");
+  assert.equal(pendingInvites[0].workspaceName, "Tony3");
   assert.equal(pendingInvites[0].status, "pending");
 });
 
@@ -108,8 +108,8 @@ test("listPendingInvitesResponse answers the pending list action with the rows a
       {
         id: "10",
         workspaceId: "1",
-        workspaceSlug: "tonymobily3",
-        workspaceName: "TonyMobily3",
+        workspaceSlug: "tony3",
+        workspaceName: "Tony3",
         workspaceAvatarUrl: "",
         roleSid: "member",
         status: "pending",
@@ -118,7 +118,7 @@ test("listPendingInvitesResponse answers the pending list action with the rows a
       }
     ]
   });
-  const user = { id: "7", email: "chiaramobily@gmail.com" };
+  const user = { id: "7", email: "chiara@example.com" };
 
   assert.deepEqual(
     await service.listPendingInvitesResponse(user),
@@ -248,7 +248,7 @@ test("acceptInviteByToken accepts opaque invite token and resolves invite by dec
       [tokenHash]: {
         id: "44",
         workspaceId: "1",
-        email: "chiaramobily@gmail.com",
+        email: "chiara@example.com",
         roleSid: "member",
         status: "pending",
         tokenHash,
@@ -260,7 +260,7 @@ test("acceptInviteByToken accepts opaque invite token and resolves invite by dec
   const response = await service.acceptInviteByToken({
     user: {
       id: "7",
-      email: "chiaramobily@gmail.com",
+      email: "chiara@example.com",
       displayName: "Chiara"
     },
     token: encodedToken
@@ -282,7 +282,7 @@ test("refuseInviteByToken revokes the invite and returns refused", async () => {
       [tokenHash]: {
         id: "45",
         workspaceId: "1",
-        email: "chiaramobily@gmail.com",
+        email: "chiara@example.com",
         roleSid: "member",
         status: "pending",
         tokenHash,
@@ -294,7 +294,7 @@ test("refuseInviteByToken revokes the invite and returns refused", async () => {
   const response = await service.refuseInviteByToken({
     user: {
       id: "7",
-      email: "chiaramobily@gmail.com",
+      email: "chiara@example.com",
       displayName: "Chiara"
     },
     token: encodedToken
@@ -309,7 +309,7 @@ test("refuseInviteByToken revokes the invite and returns refused", async () => {
 });
 
 test("redeemInviteByToken accepts on an accept decision and refuses on any other", async () => {
-  const user = { id: "7", email: "chiaramobily@gmail.com", displayName: "Chiara" };
+  const user = { id: "7", email: "chiara@example.com", displayName: "Chiara" };
   for (const [decision, expected] of [["accept", "accepted"], ["refuse", "refused"]]) {
     const tokenHash = "d".repeat(64);
     const { service, calls } = createFixture({

@@ -229,7 +229,7 @@ test("Salesforce host policy, cancelled/denied consent and managed references ca
   f.state.deny = true; await assert.rejects(f.service.beginAuthorization(input), /Host denied/);
   assert.equal(f.state.requests.length, 0);
   f.state.deny = false;
-  const config = structuredClone(f.configuration); config.registrations.sf = { source: "managed", serviceUrlRef: "env:GATEWAY", serviceCredentialRef: "env:APP", assignmentRef: "online" };
+  const config = structuredClone(f.configuration); config.registrations.sf = { source: "managed", serviceUrlRef: "env:GATEWAY", serviceCredentialRef: "env:APP", assignmentRef: "shared" };
   assert.throws(() => createConnectionService({ ...f.options, configuration: config }), { code: "integration_configuration_invalid" });
   assert.equal(f.state.requests.length, 0);
 });

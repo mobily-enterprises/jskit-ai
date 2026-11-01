@@ -18,7 +18,7 @@ assert.ok(source, "The setup guide must contain its dispatch example.");
 const dispatchSetup = new Function(`${source}\nreturn dispatchSetup;`)();
 const scope = "https://www.googleapis.com/auth/calendar.calendarlist.readonly";
 const callback = "http://127.0.0.1:8080/integrations/google/callback";
-const context = { applicationId: "dogandgroom-dev", subjectId: "business-account" };
+const context = { applicationId: "bookings-dev", subjectId: "business-account" };
 
 async function fixture(t) {
   const directory = await mkdtemp(path.join(tmpdir(), "setup-composition-"));
@@ -220,7 +220,7 @@ test("moving application state preserves grants and refresh while invalidating c
   const moved = `${directory}-relocated`;
   t.after(() => rm(moved, { recursive: true, force: true }));
   await rename(directory, moved);
-  env.CALLBACK = "https://dogandgroom.example/integrations/google/callback";
+  env.CALLBACK = "https://bookings.example/integrations/google/callback";
   const relocated = restart(moved);
   const requestCount = requests.length;
   assert.equal(await relocated.resumeAuthorization(input), null);
@@ -235,7 +235,7 @@ test("moving application state preserves grants and refresh while invalidating c
     "oauth2.googleapis.com", "www.googleapis.com"
   ]);
   assert.equal((await restart(moved).status(input)).status, "connected");
-  const otherEnvironment = { ...context, applicationId: "dogandgroom-production" };
+  const otherEnvironment = { ...context, applicationId: "bookings-production" };
   assert.equal((await relocated.status({ ...input, context: otherEnvironment })).status, "disconnected");
   await relocated.disconnect({ ...input, context: otherEnvironment });
   assert.equal((await relocated.status(input)).status, "connected");
@@ -259,7 +259,7 @@ test("documented OAuth setup resumes across restarts, preserves a grant on cance
   const callbackUrl = `${callback}?code=fixture-code&state=${pending.attemptId}`;
   await restart().completeAuthorization({ context, integrationId: "calendar", callbackUrl });
   assert.equal((await dispatch("status", "calendar")).status, "connected");
-  env.CALLBACK = "https://dogandgroom.example/integrations/google/callback";
+  env.CALLBACK = "https://bookings.example/integrations/google/callback";
   assert.equal((await dispatch("status", "calendar")).callbackUrl, env.CALLBACK);
   env.CALLBACK = callback;
   const replacement = await dispatch("connect", "calendar");

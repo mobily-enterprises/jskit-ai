@@ -23,8 +23,8 @@ function createFixture({ workspaceInvitationsEnabled = true } = {}) {
     settingsPatch: null,
     workspace: {
       id: 7,
-      slug: "tonymobily3",
-      name: "TonyMobily3",
+      slug: "tony3",
+      name: "Tony3",
       ownerUserId: 9
     },
     settings: {

@@ -104,7 +104,7 @@ test("Wiz preserves Auth0 configuration but rejects unsupported execution before
   const f = await fixture(t); f.config.integrations.security.settings.tokenUrl = "https://auth.wiz.io/oauth/token";
   assert.equal(validateIntegrationConfiguration(f.config, { providers: [wizDefinition] }).integrations.security.settings.tokenUrl, "https://auth.wiz.io/oauth/token");
   await assert.rejects(f.scanner().scan(args), { code: "connector_authentication_unsupported" }); assert.deepEqual(f.resolutions, []);
-  f.config.registrations.wiz = { source: "managed", serviceUrlRef: "env:GATEWAY", serviceCredentialRef: "env:IDENTITY", assignmentRef: "online-wiz" };
+  f.config.registrations.wiz = { source: "managed", serviceUrlRef: "env:GATEWAY", serviceCredentialRef: "env:IDENTITY", assignmentRef: "shared-wiz" };
   assert.throws(() => f.scanner(), { code: "integration_configuration_invalid" }); assert.deepEqual(f.resolutions, []);
 });
 

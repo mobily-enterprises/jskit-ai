@@ -9,7 +9,7 @@ import { createPaymentService } from '@jskit-ai/payments-core/server';
 import { createKnexPaymentStore } from '@jskit-ai/payments-core/server/storage';
 import migration from '../migrations/payments_core_initial.cjs';
 
-// No editor, Genesis project, network or generated application is involved.
+// No editor, project tooling, network or generated application is involved.
 test('a hand-written app reloads payment policy from disk while retaining its own billing state', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'standalone-payments-'));
   const path = join(directory, 'integrations.json');

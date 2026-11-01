@@ -274,7 +274,7 @@ async function searchFixture(t) {
     if (url.pathname.endsWith("campaigns:mutate")) { live.campaign.status = body.operations[0].update.status; return { results: [{ resourceName: `customers/${customerId}/campaigns/33` }] }; }
     if (url.pathname.endsWith("conversionActions:mutate")) return { results: [{ resourceName: `customers/${customerId}/conversionActions/22` }] };
     const q = body.query;
-    if (q.includes("FROM customer ")) return { results: [{ customer: { id: customerId, descriptiveName: "Dog And Groom", currencyCode: "AUD", timeZone: "Australia/Perth", status: "ENABLED", manager: false } }] };
+    if (q.includes("FROM customer ")) return { results: [{ customer: { id: customerId, descriptiveName: "Example Grooming", currencyCode: "AUD", timeZone: "Australia/Perth", status: "ENABLED", manager: false } }] };
     if (q.includes("FROM conversion_action")) return { results: [{ conversionAction: { id: "22", name: "Booking", type: "WEBPAGE", status: "ENABLED", tagSnippets: [{ eventSnippet: "<script>fixture-only</script>" }] } }] };
     if (q.includes("FROM geo_target_constant")) return { results: [{ geoTargetConstant: { id: "2036", canonicalName: "Australia" } }] };
     if (q.includes("FROM language_constant")) return { results: [{ languageConstant: { id: "1000", name: "English" } }] };

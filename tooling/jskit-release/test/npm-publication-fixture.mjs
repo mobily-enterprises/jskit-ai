@@ -14,7 +14,7 @@ const realNpm = execFileSync("sh", ["-c", "command -v npm"], { encoding: "utf8" 
 const sourceRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const releaseBin = fileURLToPath(new URL("../bin/jskit-release.mjs", import.meta.url));
 
-async function publicationFixture(t, publisher = "genesis") {
+async function publicationFixture(t, publisher = "file-linked") {
   const directory = await mkdtemp(path.join(tmpdir(), "npm-publication-test-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const repo = path.join(directory, "repo");
@@ -27,8 +27,8 @@ async function publicationFixture(t, publisher = "genesis") {
   }
   await symlink(path.join(sourceRoot, "node_modules"), path.join(repo, "node_modules"), "dir");
   await writeFile(path.join(repo, ".gitignore"), "node_modules\n");
-  const packages = publisher === "genesis"
-    ? [{ name: "genesis-compiler", dir: repo }, { name: "genesis-stack", dir: path.join(repo, "packages/genesis-stack") }]
+  const packages = publisher === "file-linked"
+    ? [{ name: "tool-compiler", dir: repo }, { name: "tool-stack", dir: path.join(repo, "packages/tool-stack") }]
     : [{ name: "@jskit-ai/a", dir: path.join(repo, "packages/a") }, { name: "@jskit-ai/b", dir: path.join(repo, "packages/b") }];
   if (publisher === "jskit") {
     await writeFile(path.join(repo, "package.json"), JSON.stringify({ name: "release-fixture", private: true, workspaces: ["packages/*", "tooling/*"],
@@ -38,8 +38,8 @@ async function publicationFixture(t, publisher = "genesis") {
     await mkdir(record.dir, { recursive: true });
     record.packageJson = { name: record.name, version: "1.0.0", files: ["index.js"],
       ...(publisher === "jskit" && index === 1 ? { dependencies: { "@jskit-ai/a": "1.0.0" } } : {}),
-      // Genesis shape: the root package reaches the second one only through `file:`.
-      ...(publisher === "genesis" && index === 0 ? { devDependencies: { "genesis-stack": "file:packages/genesis-stack" } } : {}) };
+      // File-linked shape: the root package reaches the second one only through `file:`.
+      ...(publisher === "file-linked" && index === 0 ? { devDependencies: { "tool-stack": "file:packages/tool-stack" } } : {}) };
     await writeFile(path.join(record.dir, "package.json"), JSON.stringify(record.packageJson) + "\n");
     await writeFile(path.join(record.dir, "index.js"), "export const value = 1;\n");
   }

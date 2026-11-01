@@ -186,8 +186,8 @@ test("workspaceInvitesRepository.findByTokenHashWithWorkspace preserves workspac
         id: "45",
         workspace: {
           id: "9",
-          slug: "tonymobily3",
-          name: "TonyMobily3",
+          slug: "tony3",
+          name: "Tony3",
           avatarUrl: "https://example.com/avatar.png"
         },
         email: "invitee@example.com",
@@ -209,8 +209,8 @@ test("workspaceInvitesRepository.findByTokenHashWithWorkspace preserves workspac
 
   assert.equal(invite?.id, "45");
   assert.equal(invite?.status, "accepted");
-  assert.equal(invite?.workspaceSlug, "tonymobily3");
-  assert.equal(invite?.workspaceName, "TonyMobily3");
+  assert.equal(invite?.workspaceSlug, "tony3");
+  assert.equal(invite?.workspaceName, "Tony3");
   assert.equal(invite?.workspaceAvatarUrl, "https://example.com/avatar.png");
 });
 
@@ -250,8 +250,8 @@ test("workspaceInvitesRepository.listPendingByWorkspaceIdWithWorkspace keeps wor
         id: "1",
         workspace: {
           id: "9",
-          slug: "tonymobily3",
-          name: "TonyMobily3",
+          slug: "tony3",
+          name: "Tony3",
           avatarUrl: "https://example.com/avatar.png"
         },
         email: "invitee@example.com",
@@ -285,8 +285,8 @@ test("workspaceInvitesRepository.listPendingByWorkspaceIdWithWorkspace keeps wor
       revokedAt: null,
       createdAt: toIsoString("2026-03-09 00:26:35.710"),
       updatedAt: toIsoString("2026-03-09 00:26:35.710"),
-      workspaceSlug: "tonymobily3",
-      workspaceName: "TonyMobily3",
+      workspaceSlug: "tony3",
+      workspaceName: "Tony3",
       workspaceAvatarUrl: "https://example.com/avatar.png"
     }
   ]);

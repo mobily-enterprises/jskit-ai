@@ -671,12 +671,12 @@ console.log(JSON.stringify({ tarball }));
 });
 
 test("a root package and its file: dependency release together in dependency order", async t => {
-  const f = await publicationFixture(t, "genesis");
+  const f = await publicationFixture(t, "file-linked");
   const [compiler, stack] = f.packages;
-  const pluginManifest = path.join(f.repo, "plugins/genesis/plugin.json");
+  const pluginManifest = path.join(f.repo, "plugins/tool/plugin.json");
   await mkdir(path.dirname(pluginManifest), { recursive: true });
-  await writeFile(pluginManifest, '{"name":"genesis","version":"1.0.0"}\n');
-  compiler.packageJson.jskitRelease = { versionFiles: ["plugins/genesis/plugin.json"] };
+  await writeFile(pluginManifest, '{"name":"tool","version":"1.0.0"}\n');
+  compiler.packageJson.jskitRelease = { versionFiles: ["plugins/tool/plugin.json"] };
   await writeFile(path.join(compiler.dir, "package.json"), JSON.stringify(compiler.packageJson) + "\n");
   for (let index = 0; index < f.packages.length; index++) await f.published(index);
   f.git("add", "."); f.git("commit", "-m", "Declare plugin version file"); f.git("push", "origin", "main");
@@ -692,16 +692,16 @@ test("a root package and its file: dependency release together in dependency ord
   assert.equal(result.status, 0, result.stderr);
   const root = JSON.parse(await readFile(path.join(f.repo, "package.json"), "utf8"));
   assert.equal(root.version, "1.0.1");
-  assert.equal(root.devDependencies["genesis-stack"], "file:packages/genesis-stack");
+  assert.equal(root.devDependencies["tool-stack"], "file:packages/tool-stack");
   assert.equal(JSON.parse(await readFile(path.join(stack.dir, "package.json"), "utf8")).version, "1.0.1");
   assert.equal(JSON.parse(await readFile(pluginManifest, "utf8")).version, "1.0.1");
-  assert.equal(f.git("log", "-1", "--format=%s").toString().trim(), "Release genesis-stack@1.0.1, genesis-compiler@1.0.1");
+  assert.equal(f.git("log", "-1", "--format=%s").toString().trim(), "Release tool-stack@1.0.1, tool-compiler@1.0.1");
   const publications = (await f.calls()).filter(call => call.args[0] === "publish");
-  assert.deepEqual(publications.map(call => path.basename(call.args[1])), ["genesis-stack-1.0.1.tgz", "genesis-compiler-1.0.1.tgz"]);
+  assert.deepEqual(publications.map(call => path.basename(call.args[1])), ["tool-stack-1.0.1.tgz", "tool-compiler-1.0.1.tgz"]);
 });
 
 test("a version file that disagrees with its package stops publication", async t => {
-  const f = await publicationFixture(t, "genesis");
+  const f = await publicationFixture(t, "file-linked");
   const [compiler] = f.packages;
   await writeFile(path.join(f.repo, "plugin.json"), '{"version":"0.9.0"}\n');
   compiler.packageJson.jskitRelease = { versionFiles: ["plugin.json"] };

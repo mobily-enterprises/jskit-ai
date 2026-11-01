@@ -76,7 +76,7 @@ test("createTransientRetryHttpClient resolves request urls before fetch", async 
       enabled: false
     },
     resolveRequestUrl(url) {
-      return url.replace(/^\/api\//u, "/api/app/beepollen/");
+      return url.replace(/^\/api\//u, "/api/app/acme/");
     },
     fetchImpl: async (url, options) => {
       calls.push([url, options]);
@@ -88,12 +88,12 @@ test("createTransientRetryHttpClient resolves request urls before fetch", async 
     }
   });
 
-  const payload = await client.request("/api/vibe64/sessions", {
+  const payload = await client.request("/api/chat/sessions", {
     method: "GET"
   });
 
   assert.deepEqual(payload, { ok: true });
-  assert.equal(calls[0][0], "/api/app/beepollen/vibe64/sessions");
+  assert.equal(calls[0][0], "/api/app/acme/chat/sessions");
 });
 
 test("createTransientRetryHttpClient does not retry unsafe transient failures", async () => {

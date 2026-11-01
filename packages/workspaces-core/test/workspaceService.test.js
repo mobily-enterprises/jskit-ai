@@ -41,8 +41,8 @@ function createWorkspaceServiceFixture({
   personalWorkspaceName = undefined,
   personalWorkspace = {
     id: "1",
-    slug: "tonymobily3",
-    name: "TonyMobily3",
+    slug: "tony3",
+    name: "Tony3",
     ownerUserId: "7",
     isPersonal: true,
     avatarUrl: ""
@@ -108,8 +108,8 @@ function createWorkspaceServiceFixture({
         return [
           {
             id: "1",
-            slug: "tonymobily3",
-            name: "TonyMobily3",
+            slug: "tony3",
+            name: "Tony3",
             avatarUrl: "",
             roleSid: "owner",
             membershipStatus: "active"
@@ -201,12 +201,12 @@ test("workspaceService.listWorkspacesForUser returns only accessible workspaces"
   const { service, calls } = createWorkspaceServiceFixture();
   const workspaces = await service.listWorkspacesForUser({
     id: "7",
-    email: "chiaramobily@gmail.com",
+    email: "chiara@example.com",
     displayName: "Chiara"
   });
 
   assert.equal(workspaces.length, 1);
-  assert.equal(workspaces[0].slug, "tonymobily3");
+  assert.equal(workspaces[0].slug, "tony3");
   assert.equal(workspaces[0].roleSid, "owner");
   assert.equal(calls.listForUserId, 1);
   assert.equal(calls.insert, 0);
@@ -220,7 +220,7 @@ test("workspaceService.listWorkspacesForUser does not provision a personal works
 
   await service.listWorkspacesForUser({
     id: "7",
-    email: "chiaramobily@gmail.com",
+    email: "chiara@example.com",
     displayName: "Chiara"
   });
 
@@ -234,7 +234,7 @@ test("workspaceService.listWorkspacesForUser returns all active memberships in p
     userWorkspaceRows: [
       {
         id: "1",
-        slug: "chiaramobily",
+        slug: "chiara",
         name: "Chiara Personal",
         avatarUrl: "",
         roleSid: "owner",
@@ -242,7 +242,7 @@ test("workspaceService.listWorkspacesForUser returns all active memberships in p
       },
       {
         id: "2",
-        slug: "tonymobily",
+        slug: "tony",
         name: "Tony Workspace",
         avatarUrl: "",
         roleSid: "member",
@@ -261,13 +261,13 @@ test("workspaceService.listWorkspacesForUser returns all active memberships in p
 
   const workspaces = await service.listWorkspacesForUser({
     id: "7",
-    email: "chiaramobily@gmail.com",
+    email: "chiara@example.com",
     displayName: "Chiara"
   });
 
   assert.deepEqual(
     workspaces.map((workspace) => workspace.slug),
-    ["chiaramobily", "tonymobily"]
+    ["chiara", "tony"]
   );
   assert.equal(calls.findPersonalByOwnerUserId, 0);
   assert.equal(calls.listForUserId, 1);
@@ -281,7 +281,7 @@ test("workspaceService.ensureProvisionedWorkspaceForAuthenticatedUser provisions
 
   const workspace = await service.ensureProvisionedWorkspaceForAuthenticatedUser({
     id: "7",
-    email: "chiaramobily@gmail.com",
+    email: "chiara@example.com",
     displayName: "Chiara"
   });
 
@@ -308,7 +308,7 @@ test("workspaceService.ensureProvisionedWorkspaceForAuthenticatedUser provisions
 
   const workspace = await service.ensureProvisionedWorkspaceForAuthenticatedUser({
     id: "7",
-    email: "chiaramobily@gmail.com",
+    email: "chiara@example.com",
     displayName: "Chiara"
   });
 
@@ -326,7 +326,7 @@ test("workspaceService.ensureProvisionedWorkspaceForAuthenticatedUser reuses the
 
   const workspace = await service.ensureProvisionedWorkspaceForAuthenticatedUser({
     id: "7",
-    email: "chiaramobily@gmail.com",
+    email: "chiara@example.com",
     displayName: "Chiara"
   });
 
@@ -344,7 +344,7 @@ test("workspaceService.ensureProvisionedWorkspaceForAuthenticatedUser is a no-op
 
   const result = await service.ensureProvisionedWorkspaceForAuthenticatedUser({
     id: "7",
-    email: "chiaramobily@gmail.com",
+    email: "chiara@example.com",
     displayName: "Chiara"
   });
 
@@ -365,7 +365,7 @@ test("workspaceService.createWorkspaceForAuthenticatedUser creates non-personal 
   const workspace = (await service.createWorkspaceForAuthenticatedUser(
     {
       id: "7",
-      email: "chiaramobily@gmail.com",
+      email: "chiara@example.com",
       displayName: "Chiara"
     },
     {
@@ -395,7 +395,7 @@ test("workspaceService.createWorkspaceForAuthenticatedUser generates an omitted 
   const workspace = (await service.createWorkspaceForAuthenticatedUser(
     {
       id: "7",
-      email: "chiaramobily@gmail.com",
+      email: "chiara@example.com",
       displayName: "Chiara"
     },
     {
@@ -422,7 +422,7 @@ test("workspaceService.createWorkspaceForAuthenticatedUser rejects creation when
       service.createWorkspaceForAuthenticatedUser(
         {
           id: "7",
-          email: "chiaramobily@gmail.com",
+          email: "chiara@example.com",
           displayName: "Chiara"
         },
         {
@@ -444,10 +444,10 @@ test("workspaceService.resolveWorkspaceContextForUserBySlug returns workspace-no
       service.resolveWorkspaceContextForUserBySlug(
         {
           id: "7",
-          email: "chiaramobily@gmail.com",
+          email: "chiara@example.com",
           displayName: "Chiara"
         },
-        "tonymobily3"
+        "tony3"
       ),
     /Workspace not found/
   );
@@ -479,7 +479,7 @@ test("workspaceService.resolveWorkspaceContextForUserBySlug allows personal tena
   const context = await service.resolveWorkspaceContextForUserBySlug(
     {
       id: "7",
-      email: "chiaramobily@gmail.com",
+      email: "chiara@example.com",
       displayName: "Chiara"
     },
     "team-alpha"
@@ -501,13 +501,13 @@ test("workspaceService.resolveWorkspaceContextForUserBySlug grants owner access 
     }),
     workspacesRepository: {
       async findBySlug(slug) {
-        if (String(slug) !== "tonymobily") {
+        if (String(slug) !== "tony") {
           return null;
         }
         return {
           id: "1",
-          slug: "tonymobily",
-          name: "TonyMobily",
+          slug: "tony",
+          name: "Tony",
           ownerUserId: "7",
           isPersonal: true,
           avatarUrl: ""
@@ -550,10 +550,10 @@ test("workspaceService.resolveWorkspaceContextForUserBySlug grants owner access 
   const context = await service.resolveWorkspaceContextForUserBySlug(
     {
       id: "7",
-      email: "chiaramobily@gmail.com",
+      email: "chiara@example.com",
       displayName: "Chiara"
     },
-    "tonymobily"
+    "tony"
   );
 
   assert.equal(ensuredMembershipCount, 1);
@@ -572,7 +572,7 @@ test("workspaceService.resolveWorkspaceContextForUserBySlug can resolve an exist
         return {
           id: "42",
           slug: "dog-and-groom",
-          name: "Dog And Groom",
+          name: "Harbor Grooming",
           ownerUserId: "99",
           isPersonal: false,
           avatarUrl: ""
@@ -641,10 +641,10 @@ test("workspaceService.resolveWorkspaceContextForUserBySlug resolves permissions
   const context = await service.resolveWorkspaceContextForUserBySlug(
     {
       id: "7",
-      email: "chiaramobily@gmail.com",
+      email: "chiara@example.com",
       displayName: "Chiara"
     },
-    "tonymobily3"
+    "tony3"
   );
 
   assert.deepEqual(context.permissions, ["workspace.settings.update"]);
@@ -667,7 +667,7 @@ test("workspaceService.getWorkspaceForAuthenticatedUser resolves workspace from 
   const workspace = (await service.getWorkspaceForAuthenticatedUser(
     {
       id: "7",
-      email: "chiaramobily@gmail.com",
+      email: "chiara@example.com",
       displayName: "Chiara"
     },
     "team-alpha"
@@ -683,10 +683,10 @@ test("workspaceService.updateWorkspaceForAuthenticatedUser updates workspace pro
   const workspace = (await service.updateWorkspaceForAuthenticatedUser(
     {
       id: "7",
-      email: "chiaramobily@gmail.com",
+      email: "chiara@example.com",
       displayName: "Chiara"
     },
-    "tonymobily3",
+    "tony3",
     {
       name: "Updated Workspace",
       avatarUrl: "https://example.com/acme.png"

@@ -231,7 +231,7 @@ test("TikTok enforces host policy, registration ownership and unavailable manage
   await assert.rejects(service.invoke({ ...input, operation: "profile.read" })); assert.equal(state.calls.length, before); state.deny = false;
   const changed = structuredClone(configuration); changed.registrations.tiktok.clientId = "other-key";
   await assert.rejects(createConnectionService({ ...options, configuration: changed }).invoke({ ...input, operation: "profile.read" }), { code: "connector_reconnect_required" });
-  changed.registrations.tiktok = { source: "managed", serviceUrlRef: "env:GATEWAY", serviceCredentialRef: "env:GATEWAY_KEY", assignmentRef: "online" };
+  changed.registrations.tiktok = { source: "managed", serviceUrlRef: "env:GATEWAY", serviceCredentialRef: "env:GATEWAY_KEY", assignmentRef: "shared" };
   assert.throws(() => createConnectionService({ ...options, configuration: changed }), { code: "integration_configuration_invalid" });
   assert.equal(state.calls.length, before);
 });

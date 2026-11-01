@@ -610,12 +610,12 @@ test("bootstrap placement runtime tracks status per workspace slug across route 
 
 test("bootstrap placement runtime uses requestedWorkspace status and keeps global workspace list on inaccessible slug", async () => {
   const placementRuntime = createPlacementRuntimeStub();
-  const router = createRouterStub("/w/tonymobily");
+  const router = createRouterStub("/w/tony");
   const runtime = createTestRuntime({ placementRuntime, router });
 
   await runtime.initialize();
   await runtime.applyBootstrapPayload({
-    request: createBootstrapRequest("/w/tonymobily", "tonymobily"),
+    request: createBootstrapRequest("/w/tony", "tony"),
     payload: {
       session: {
         authenticated: true,
@@ -628,9 +628,9 @@ test("bootstrap placement runtime uses requestedWorkspace status and keeps globa
           effectiveUrl: ""
         }
       },
-      workspaces: [{ id: "3", slug: "chiaramobily", name: "Chiara Workspace" }],
+      workspaces: [{ id: "3", slug: "chiara", name: "Chiara Workspace" }],
       requestedWorkspace: {
-        slug: "tonymobily",
+        slug: "tony",
         status: "forbidden"
       },
       permissions: []
@@ -638,12 +638,12 @@ test("bootstrap placement runtime uses requestedWorkspace status and keeps globa
   });
 
   const context = placementRuntime.getContext();
-  assert.equal(runtime.getWorkspaceBootstrapStatus("tonymobily"), WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN);
-  assert.equal(context.workspaceBootstrapStatuses?.tonymobily, WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN);
+  assert.equal(runtime.getWorkspaceBootstrapStatus("tony"), WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN);
+  assert.equal(context.workspaceBootstrapStatuses?.tony, WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN);
   assert.equal(context.workspace, null);
   assert.equal(Array.isArray(context.workspaces), true);
   assert.equal(context.workspaces.length, 1);
-  assert.equal(context.workspaces[0]?.slug, "chiaramobily");
+  assert.equal(context.workspaces[0]?.slug, "chiara");
 });
 
 test("bootstrap placement runtime uses requestedWorkspace=not_found without forcing forbidden fallback", async () => {

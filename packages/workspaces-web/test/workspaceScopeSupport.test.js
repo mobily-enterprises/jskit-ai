@@ -54,10 +54,10 @@ test("workspace scope support exposes the shared route-scope reader", () => {
         }
       }),
       currentSurfaceId: computed(() => "app"),
-      routePath: computed(() => "/w/dogandgroom")
+      routePath: computed(() => "/w/harbor")
     }),
     {
-      workspaceSlug: "dogandgroom"
+      workspaceSlug: "harbor"
     }
   );
 });

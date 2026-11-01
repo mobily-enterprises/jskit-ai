@@ -201,7 +201,7 @@ test("LinkedIn respects host policy, registration identity and unavailable manag
   await assert.rejects(service.invoke({ ...input, operation: "profile.read" })); assert.equal(state.calls.length, count); state.deny = false;
   const changed = structuredClone(configuration); changed.registrations.linkedin.clientId = "other-client";
   await assert.rejects(createConnectionService({ ...options, configuration: changed }).invoke({ ...input, operation: "profile.read" }), { code: "connector_reconnect_required" });
-  changed.registrations.linkedin = { source: "managed", serviceUrlRef: "env:GATEWAY", serviceCredentialRef: "env:GATEWAY_KEY", assignmentRef: "online" };
+  changed.registrations.linkedin = { source: "managed", serviceUrlRef: "env:GATEWAY", serviceCredentialRef: "env:GATEWAY_KEY", assignmentRef: "shared" };
   assert.throws(() => createConnectionService({ ...options, configuration: changed }), { code: "integration_configuration_invalid" });
   assert.equal(state.calls.length, count);
 });

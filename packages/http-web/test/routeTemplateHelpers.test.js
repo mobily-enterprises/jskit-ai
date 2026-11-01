@@ -30,9 +30,9 @@ test("resolveRouteParamNamesInOrder prefers matched route templates", () => {
 });
 
 test("resolveScopedRoutePathname supports at/before/after anchors", () => {
-  const currentPathname = "/w/dogandgroom/admin/contacts/541841/pets/715528/edit/advanced";
+  const currentPathname = "/w/harbor/admin/contacts/541841/pets/715528/edit/advanced";
   const params = {
-    workspaceSlug: "dogandgroom",
+    workspaceSlug: "harbor",
     contactId: "541841",
     petId: "715528"
   };
@@ -46,7 +46,7 @@ test("resolveScopedRoutePathname supports at/before/after anchors", () => {
       anchorParamName: "contactId",
       anchorMode: "at"
     }),
-    "/w/dogandgroom/admin/contacts/541841"
+    "/w/harbor/admin/contacts/541841"
   );
   assert.equal(
     resolveScopedRoutePathname({
@@ -56,7 +56,7 @@ test("resolveScopedRoutePathname supports at/before/after anchors", () => {
       anchorParamName: "petId",
       anchorMode: "before"
     }),
-    "/w/dogandgroom/admin/contacts/541841/pets"
+    "/w/harbor/admin/contacts/541841/pets"
   );
   assert.equal(
     resolveScopedRoutePathname({
@@ -66,7 +66,7 @@ test("resolveScopedRoutePathname supports at/before/after anchors", () => {
       anchorParamName: "petId",
       anchorMode: "after"
     }),
-    "/w/dogandgroom/admin/contacts/541841/pets/715528/edit"
+    "/w/harbor/admin/contacts/541841/pets/715528/edit"
   );
 });
 

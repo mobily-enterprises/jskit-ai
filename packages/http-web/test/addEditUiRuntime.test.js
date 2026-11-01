@@ -39,17 +39,17 @@ test("createAddEditUiRuntime keeps nested child routes stable when the saved chi
   const runtime = createAddEditUiRuntime({
     recordIdParam: "addressId",
     routeParams: ref({
-      workspaceSlug: "tonymobily",
+      workspaceSlug: "tony",
       contactId: "1"
     }),
     routeParamNames: ref(["workspaceSlug", "contactId"]),
-    routePath: ref("/w/tonymobily/admin/contacts/1/addresses/new"),
+    routePath: ref("/w/tony/admin/contacts/1/addresses/new"),
     viewUrlTemplate: "../:addressId",
     listUrlTemplate: ".."
   });
 
-  assert.equal(runtime.listUrl.value, "/w/tonymobily/admin/contacts/1/addresses");
-  assert.equal(runtime.resolveSavedViewUrl({ id: 1 }), "/w/tonymobily/admin/contacts/1/addresses/1");
+  assert.equal(runtime.listUrl.value, "/w/tony/admin/contacts/1/addresses");
+  assert.equal(runtime.resolveSavedViewUrl({ id: 1 }), "/w/tony/admin/contacts/1/addresses/1");
 });
 
 test("createAddEditUiRuntime resolves edit-page relative list and cancel links", () => {
@@ -72,18 +72,18 @@ test("createAddEditUiRuntime resolves nested edit links from the record scope", 
   const runtime = createAddEditUiRuntime({
     recordIdParam: "petId",
     routeParams: ref({
-      workspaceSlug: "dogandgroom",
+      workspaceSlug: "harbor",
       contactId: "541841",
       petId: "715528"
     }),
     routeParamNames: ref(["workspaceSlug", "contactId", "petId"]),
-    routePath: ref("/w/dogandgroom/admin/contacts/541841/pets/715528/edit/advanced"),
+    routePath: ref("/w/harbor/admin/contacts/541841/pets/715528/edit/advanced"),
     viewUrlTemplate: "..",
     listUrlTemplate: "../.."
   });
 
-  assert.equal(runtime.cancelUrl.value, "/w/dogandgroom/admin/contacts/541841/pets/715528");
-  assert.equal(runtime.listUrl.value, "/w/dogandgroom/admin/contacts/541841/pets");
+  assert.equal(runtime.cancelUrl.value, "/w/harbor/admin/contacts/541841/pets/715528");
+  assert.equal(runtime.listUrl.value, "/w/harbor/admin/contacts/541841/pets");
 });
 
 test("createAddEditUiRuntime supports custom saved-record selector", () => {

@@ -8,8 +8,8 @@ for (const width of [390, 820, 1440]) {
     const permissions = page.getByRole("button", { name: "Permissions", exact: true });
     const save = page.getByRole("button", { name: "Export configuration", exact: true });
     await save.click(); const original = JSON.parse(await page.getByTestId("export").textContent());
-    await role.fill("VIBE64_READER"); await permissions.click();
-    const named = page.getByRole("checkbox", { name: "Use role VIBE64_READER (required)", exact: true });
+    await role.fill("REPORTING_READER"); await permissions.click();
+    const named = page.getByRole("checkbox", { name: "Use role REPORTING_READER (required)", exact: true });
     await expect(named).toBeChecked(); await expect(named).toBeDisabled();
     const offline = page.getByRole("checkbox", { name: "Keep access between visits", exact: true });
     await offline.uncheck(); await role.fill("Inventory & stock");
