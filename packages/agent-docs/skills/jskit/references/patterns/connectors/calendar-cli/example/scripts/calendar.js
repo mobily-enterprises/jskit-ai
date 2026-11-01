@@ -7,8 +7,8 @@ import { createConnectionService, createEnvironmentReferenceResolver } from "@js
 import { createCredentialProtection, createKnexConnectionStore } from "@jskit-ai/connectors-core/server/storage";
 import { googleCalendarProvider } from "@jskit-ai/connector-google-calendar/server";
 
-// A local operator command owns this HTTP listener; web apps use authenticated routes.
 /**
+ * A local operator command owns this HTTP listener; web apps use authenticated routes.
  * @param {import("@jskit-ai/connectors-core/server/types").ConnectorsCore} service
  * @param {object} context
  */
@@ -51,9 +51,9 @@ async function connectInBrowser(service, context) {
     const start = await service.beginAuthorization({ context, integrationId: "calendar", signal: controller.signal });
     state = new URL(start.authorizationUrl).searchParams.get("state");
     console.log(`Open this URL in your browser:\n${start.authorizationUrl}`);
-    const completed = await outcome;
-    if (completed.error) throw completed.error;
-    return completed.result;
+    const settled = await outcome;
+    if (settled.error) throw settled.error;
+    return settled.result;
   } finally {
     clearTimeout(timeout);
     process.off("SIGINT", cancel);

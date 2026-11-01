@@ -83,7 +83,7 @@ function writeEvent(method) {
   return {
     scopes: writeScopes,
     validateResult: result => method === "DELETE" ? result === null : result?.kind === "calendar#event" && typeof result.id === "string",
-    request(input = {}) {
+    request(input) {
       const { event, sendUpdates, ifMatch, ...target } = input;
       if (!["all", "externalOnly", "none"].includes(sendUpdates)) invalid("Choose sendUpdates explicitly: all, externalOnly or none.", { messageCode: "connectors.googleCalendar.chooseSendUpdates" });
       if (ifMatch !== undefined && (typeof ifMatch !== "string" || !ifMatch || ifMatch.length > 1024 || /[\r\n]/.test(ifMatch))) invalid("Invalid event ETag.", { messageCode: "connectors.googleCalendar.invalidEventEtag" });
