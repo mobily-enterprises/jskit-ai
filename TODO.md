@@ -75,7 +75,7 @@
 - [x] Define `packages/rewarded-core/package.json.jskit`.
 - [x] Keep package-level migrations out of `rewarded-core` unless a real non-CRUD workflow table is explicitly justified.
 - [x] Add the server provider:
-  - `src/server/RewardedCoreProvider.js`
+  - `src/server/RewardedCoreFeature.js`
 - [x] Wire server container tokens for the gate workflow service.
 - [x] Decide whether the workflow service consumes CRUD services, CRUD repositories, or both.
 - [x] Add the core gate decision service.

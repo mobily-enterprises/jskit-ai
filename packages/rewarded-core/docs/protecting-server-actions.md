@@ -20,7 +20,8 @@ The correct split is:
 
 ## What The Helper Does
 
-`requireRewardedUnlock()` calls `rewarded.core.service.getCurrentState(...)` and then enforces one simple rule:
+`requireRewardedUnlock()` asks the `rewarded.core` capability for the gate's
+current state (`getCurrentState(input, { context })`) and then enforces one simple rule:
 
 - if the gate is already unlocked, it returns the gate state
 - if the gate is not configured and `requireConfigured` is not enabled, it returns the gate state
@@ -38,60 +39,80 @@ import { requireRewardedUnlock } from "@jskit-ai/rewarded-core/server/requireRew
 
 ## Basic Service Pattern
 
-Inject `rewarded.core.service` into your own feature service, then call the helper before the protected mutation.
+Your service receives the `rewarded.core` capability, typed `RewardedCore`, and
+calls the helper before the protected mutation.
 
 Example:
 
 ```js
+// notesService.js
 import { requireRewardedUnlock } from "@jskit-ai/rewarded-core/server/requireRewardedUnlock";
 
-function createProgressLoggingService({
-  rewardedService,
-  workoutLogRepository
-} = {}) {
-  async function logProgress(input = {}, options = {}) {
+/**
+ * The notes export service: an export needs the "notes-export" rewarded unlock.
+ * @param {object} dependencies
+ * @param {import("@jskit-ai/rewarded-core/server/types").RewardedCore} dependencies.rewarded
+ * @param {import("@jskit-ai/crud-core/server/types").CrudService} dependencies.notesService
+ */
+function createNotesExportService({ rewarded, notesService }) {
+  async function exportNotes(input, { context }) {
     await requireRewardedUnlock(
-      rewardedService,
-      {
-        gateKey: "progress-logging",
-        workspaceSlug: input.workspaceSlug
-      },
-      {
-        context: options.context,
-        errorMessage: "Watch a rewarded ad before logging progress."
-      }
+      rewarded,
+      { gateKey: "notes-export", workspaceSlug: input.workspaceSlug },
+      { context, errorMessage: "Watch a rewarded ad before exporting notes." }
     );
 
-    return workoutLogRepository.create(input, options);
+    return notesService.queryDocuments({}, { context });
   }
 
-  return Object.freeze({
-    logProgress
-  });
+  return Object.freeze({ exportNotes });
 }
 ```
 
-## Provider Wiring Pattern
+## Feature Wiring Pattern
 
-Inject the rewarded service from the container the same way as any other JSKIT runtime service.
+The feature requires `rewarded.core` like any other capability and hands it to
+the service it builds in `setup`.
 
 Example:
 
 ```js
-app.service(
-  "convict.progress-logging.service",
-  (scope) => createProgressLoggingService({
-    rewardedService: scope.make("rewarded.core.service"),
-    workoutLogRepository: scope.make("convict.workout-log.repository")
-  })
-);
+// NotesExportFeature.js
+import { defineFeature } from "@jskit-ai/kernel/server/features";
+import { createNotesExportService } from "./notesService.js";
+import { createNotesExportActions } from "./notesExportActions.js";
+
+const NotesExportFeature = defineFeature({
+  id: "notes.export",
+  domain: "notes",
+  requires: {
+    rewarded: "rewarded.core",
+    notes: "notes"
+  },
+  provides: {
+    notesExport: "notes.export"
+  },
+  /**
+   * @param {object} capabilities
+   * @param {import("@jskit-ai/rewarded-core/server/types").RewardedCore} capabilities.rewarded
+   * @param {import("@jskit-ai/crud-core/server/types").CrudResourceApi} capabilities.notes
+   */
+  setup({ rewarded, notes }) {
+    return { notesExport: createNotesExportService({ rewarded, notesService: notes.service }) };
+  },
+  actions({ notesExport }) {
+    return createNotesExportActions({ notesExport });
+  }
+});
+
+export { NotesExportFeature };
 ```
 
 ## Exact Helper Signature
 
 ```js
 await requireRewardedUnlock(
-  rewardedService,
+  rewarded,
   {
     gateKey,
     workspaceSlug
@@ -107,13 +128,13 @@ await requireRewardedUnlock(
 
 Arguments:
 
-- `rewardedService`
-  - must expose `getCurrentState(input, { context })`
+- `rewarded`
+  - the `rewarded.core` capability (`RewardedCore`), whose `getCurrentState(input, { context })` it calls
 - first object
   - `gateKey`: required gate identifier
   - `workspaceSlug`: required for the current workspace gate
 - second object
-  - `context`: the normal JSKIT action/service context
+  - `context`: the action context of the protected operation
   - `requireConfigured`: fail closed when no rule/provider config exists
   - `errorCode`: optional override for the thrown `AppError.code`
   - `errorMessage`: optional override for the thrown `AppError.message`
@@ -159,7 +180,7 @@ Important built-in failure cases:
 
 ## What The Helper Returns
 
-On success, the helper returns the gate state from `rewardedService.getCurrentState(...)`.
+On success, the helper returns the gate state from `rewarded.getCurrentState(...)`.
 
 That lets your service inspect the unlock window if it wants to log or branch on it, for example:
 

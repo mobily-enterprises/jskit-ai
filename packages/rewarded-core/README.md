@@ -80,13 +80,12 @@ The dedicated manual page is:
 
 - [docs/protecting-server-actions.md](docs/protecting-server-actions.md)
 
-That page shows the exact service and provider wiring pattern.
+That page shows the service and feature wiring pattern.
 
 ## Grant authorization
 
 The application must supply capability `rewarded.grant-policy` with an
-`authorizeGrant({ session, context, trx })` function. Direct service composition
-supplies the same function as `authorizeGrant`. Missing policy fails at setup;
+`authorizeGrant({ session, context, trx })` function. Missing policy fails at setup;
 only the literal result `true` permits a grant. False, absent or other results
 reject it before any watch-session update or receipt creation.
 
