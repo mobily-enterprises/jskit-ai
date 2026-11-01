@@ -1084,6 +1084,7 @@ Local functions
 - `toolOutput(result)`
 - `stateNote()`
 - `content(message)`
+- `providerCallId(id)`
 - `turnMessages(turn)`
 
 ### `src/server/conversation/providers/claude.js`

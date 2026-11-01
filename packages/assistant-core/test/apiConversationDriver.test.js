@@ -216,6 +216,18 @@ test("a long history is compacted: the summary and its last turn are saved, and 
   assert.deepEqual(phases, ["compacting", "working"]);
 });
 
+test("history replays each recorded action under the provider's own call id", async () => {
+  const f = fixture({ descriptors: null });
+  const call = { id: "reply-2:toolu_01", name: "action_execute", arguments: JSON.stringify({ day: "today" }),
+    result: { ok: true, result: { bookings: 3 } } };
+  await f.run("And tomorrow?", { history: [{ turnId: "000001", user: { role: "user", messageId: "m1", text: "Bookings today?" },
+    assistant: { role: "assistant", text: "You have 3." }, metadata: { applicationTools: [call] }, messages: [] }] });
+  const [request] = f.requests;
+  assert.deepEqual(request.messages.filter(message => message.tool_calls).flatMap(message => message.tool_calls.map(({ id }) => id)), ["toolu_01"]);
+  assert.deepEqual(request.messages.filter(message => message.role === "tool").map(message => [message.tool_call_id, message.content]),
+    [["toolu_01", JSON.stringify({ bookings: 3 })]]);
+});
+
 test("a short history is read whole with its stored summary, and nothing is saved", async () => {
   const saved = [];
   const f = fixture({ descriptors: null });

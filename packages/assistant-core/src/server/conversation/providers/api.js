@@ -36,6 +36,11 @@ function stateNote() {
 const content = message => message.content?.length
   ? [...(message.text ? [{ type: "text", text: message.text }] : []), ...message.content] : message.text;
 
+// A recorded action's receipt id is the provider's call id under its step (`reply-N:`). The
+// model reads the provider's own id, as it does within a reply: providers restrict their ids
+// (Anthropic's take only letters, digits, "_" and "-"; Mistral's are nine characters).
+const providerCallId = id => id.replace(/^reply-\d+:/u, "");
+
 // A saved turn as model messages: the authored request, its recorded application
 // actions with their results (long old results cut, as the engine reads them), the answer.
 function turnMessages(turn) {
@@ -43,8 +48,9 @@ function turnMessages(turn) {
     ...(turn.user ? [{ role: "user", content: content({ ...turn.user, text: conversationRequestText(turn.user) }) }] : []),
     ...(turn.system ? [{ role: "user", content: content({ ...turn.system, text: conversationRequestText({ ...turn.system, origin: "application" }) }) }] : []),
     ...(turn.metadata?.applicationTools || []).filter(call => call.result).flatMap(call => [
-      { role: "assistant", content: [{ type: "tool-call", toolCallId: call.id, toolName: call.name, input: call.arguments ? JSON.parse(call.arguments) : {} }] },
-      clipOldResult({ role: "tool", content: [{ type: "tool-result", toolCallId: call.id, toolName: call.name,
+      { role: "assistant", content: [{ type: "tool-call", toolCallId: providerCallId(call.id), toolName: call.name,
+        input: call.arguments ? JSON.parse(call.arguments) : {} }] },
+      clipOldResult({ role: "tool", content: [{ type: "tool-result", toolCallId: providerCallId(call.id), toolName: call.name,
         output: { type: "json", value: toolOutput(call.result) } }] })
     ]),
     ...(turn.assistant ? [{ role: "assistant", content: turn.assistant.text }] : [])
