@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildWorkspaceName, createService } from "../src/server/common/services/workspaceContextService.js";
+import { buildWorkspaceName, createService } from "../src/server/common/services/workspaceDirectoryService.js";
 import { createWorkspaceRoleCatalog } from "../src/shared/roles.js";
 import { resolveTenancyProfile } from "../src/shared/tenancyProfile.js";
 

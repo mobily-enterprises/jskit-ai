@@ -10,7 +10,7 @@ import { registerWorkspaceSettingsRoutes } from "./workspaceSettings/workspaceSe
 import { unconfiguredWorkspaceInviteMailer } from "./workspaceMembers/unconfiguredWorkspaceInviteMailer.js";
 import { renderDefaultWorkspaceInviteEmail } from "./workspaceMembers/defaultWorkspaceInviteEmail.js";
 import { noInviteAcceptanceParticipant } from "./workspacePendingInvitations/noInviteAcceptanceParticipant.js";
-import { buildWorkspaceName } from "./common/services/workspaceContextService.js";
+import { buildWorkspaceName } from "./common/services/workspaceDirectoryService.js";
 import { createWorkspaceSettingsActions } from "./workspaceSettings/workspaceSettingsActions.js";
 import { createWorkspacesRuntime, installWorkspaceResources } from "./workspacesRuntime.js";
 

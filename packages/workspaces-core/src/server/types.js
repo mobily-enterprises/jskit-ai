@@ -2,7 +2,7 @@
 
 /** @typedef {ReturnType<typeof import("./workspacesRuntime.js").createWorkspacesRuntime>} WorkspacesCore */
 
-/** @typedef {ReturnType<typeof import("./common/services/workspaceContextService.js").createService>} WorkspaceDirectoryService The workspace directory service: `services.directory` of `workspaces.core`. */
+/** @typedef {ReturnType<typeof import("./common/services/workspaceDirectoryService.js").createService>} WorkspaceDirectoryService The workspace directory service: `services.directory` of `workspaces.core`. */
 /** @typedef {ReturnType<typeof import("./workspaceMembers/workspaceMembersService.js").createService>} WorkspaceMembersService The workspace members service: `services.members` of `workspaces.core`. */
 /** @typedef {ReturnType<typeof import("./workspacePendingInvitations/workspacePendingInvitationsService.js").createService>} WorkspacePendingInvitationsService The pending invitations service: `services.pendingInvitations` of `workspaces.core`. */
 /** @typedef {ReturnType<typeof import("./workspaceSettings/workspaceSettingsService.js").createService>} WorkspaceSettingsService The workspace settings service: `services.settings` of `workspaces.core`. */

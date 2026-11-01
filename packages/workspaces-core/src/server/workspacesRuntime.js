@@ -13,7 +13,7 @@ import { resolveTenancyProfile } from "../shared/tenancyProfile.js";
 import { createRepository as createWorkspaceInvitesRepository } from "./common/repositories/workspaceInvitesRepository.js";
 import { createRepository as createWorkspaceMembershipsRepository } from "./common/repositories/workspaceMembershipsRepository.js";
 import { createRepository as createWorkspacesRepository } from "./common/repositories/workspacesRepository.js";
-import { createService as createWorkspaceService } from "./common/services/workspaceContextService.js";
+import { createService as createWorkspaceService } from "./common/services/workspaceDirectoryService.js";
 import { createWorkspacesServerI18n } from "./i18n.js";
 import { createWorkspaceInviteUrlBuilder } from "./workspaceMembers/workspaceInviteUrls.js";
 import { createService as createWorkspaceMembersService } from "./workspaceMembers/workspaceMembersService.js";

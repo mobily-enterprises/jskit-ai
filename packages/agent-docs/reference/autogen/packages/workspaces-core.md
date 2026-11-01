@@ -54,7 +54,7 @@ Exports
 Local functions
 - `normalizeWorkspaceRecord(payload = null)`
 
-### `src/server/common/services/workspaceContextService.js`
+### `src/server/common/services/workspaceDirectoryService.js`
 Exports
 - `buildWorkspaceName(user)`
 - `createService({ tenancyProfile, roleCatalog, personalWorkspaceName, workspacesRepository, workspaceMembershipsRepository, workspaceSettingsRepository })`
