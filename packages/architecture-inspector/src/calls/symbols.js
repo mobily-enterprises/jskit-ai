@@ -88,6 +88,9 @@ function createSymbols(context) {
     if (ts.isShorthandPropertyAssignment(declaration)) {
       return symbolImplementations(checker.getShorthandAssignmentValueSymbol(declaration), depth + 1);
     }
+    if (ts.isBindingElement(declaration)) {
+      return bindingElementImplementations(declaration, depth + 1);
+    }
     if (ts.isExportSpecifier(declaration) || ts.isImportSpecifier(declaration) || ts.isImportClause(declaration)) {
       return symbolImplementations(checker.getSymbolAtLocation(declaration.name), depth + 1);
     }
@@ -102,6 +105,26 @@ function createSymbols(context) {
       return expressionImplementations(declaration.parent.right, depth + 1);
     }
     return [];
+  }
+
+  // A name an object pattern binds (`const { a: b } = source`, a parameter's
+  // pattern, or one nested in another) holds the property it reads from the
+  // type of what the pattern destructures.
+  function bindingElementImplementations(element, depth) {
+    const key = element.propertyName || element.name;
+    if (!ts.isObjectBindingPattern(element.parent) || element.dotDotDotToken || !(ts.isIdentifier(key) || ts.isStringLiteralLike(key))) {
+      return [];
+    }
+    const property = checker.getTypeAtLocation(element.parent).getProperty(key.text);
+    const found = new Set();
+    for (const declaration of property?.declarations || []) {
+      if (declaration !== element) {
+        for (const implementation of declarationImplementations(declaration, depth)) {
+          found.add(implementation);
+        }
+      }
+    }
+    return [...found];
   }
 
   function expressionImplementations(expression, depth) {

@@ -307,6 +307,52 @@ test("argument flow is exact when a parameter has one value across the project, 
   assert.deepEqual(facts("read"), [["ambiguous", "probable", "argument-flow", ["fn:src/server/provider.js#3:1", "fn:src/server/provider.js#4:1"]]]);
 });
 
+test("a destructured name reaches the function its source's property holds, wherever it is called", async (t) => {
+  const { result } = await inspectCallsOf(t, {
+    "src/server/access.js": [
+      "export function createRecordAccess(repository) {",
+      "  function requireAsset(id) { return repository.find(id); }",
+      "  function listAssets() { return []; }",
+      "  return { requireAsset, listAssets, audit: { record(entry) { return entry; } } };",
+      "}",
+      ""
+    ].join("\n"),
+    "src/server/use.js": [
+      "import { createRecordAccess } from \"./access.js\";",
+      "function useAccess(access) { return access.requireAsset(2); }",
+      "export function direct(repository) {",
+      "  const { requireAsset, listAssets: list, audit: { record } } = createRecordAccess(repository);",
+      "  requireAsset(1);",
+      "  list();",
+      "  record({});",
+      "  return useAccess({ requireAsset });",
+      "}",
+      "export function createService(repository) {",
+      "  const { requireAsset } = createRecordAccess(repository);",
+      "  return { requireAsset };",
+      "}",
+      "export function viaReturn(repository) { return createService(repository).requireAsset(3); }",
+      "/** @param {ReturnType<typeof createRecordAccess>} access */",
+      "export function viaParameter({ requireAsset: need, audit: { record: write } }) { need(4); return write({}); }",
+      "export function untyped({ requireAsset }) { return requireAsset(5); }",
+      ""
+    ].join("\n")
+  });
+  const facts = (callee) => callsFrom(result, callee).map((call) => [call.fromFunctionId.replace("fn:src/server/use.js#", ""), call.certainty, call.method, call.targets]);
+  const REQUIRE = "fn:src/server/access.js#2:3";
+  const RECORD = "fn:src/server/access.js#4:47";
+  assert.deepEqual(facts("requireAsset"), [["3:8", "exact", "checker", [REQUIRE]], ["17:8", "unresolved", "none", []]]);
+  // A renamed binding reads the property it names; a nested pattern reads its parent's property.
+  assert.deepEqual(facts("list"), [["3:8", "exact", "checker", ["fn:src/server/access.js#3:3"]]]);
+  assert.deepEqual(facts("record"), [["3:8", "exact", "checker", [RECORD]]]);
+  // Passed on in `{ requireAsset }`, and returned in it.
+  assert.deepEqual(facts("access.requireAsset"), [["2:1", "exact", "argument-flow", [REQUIRE]]]);
+  assert.deepEqual(facts("createService(repository).requireAsset"), [["14:8", "exact", "checker", [REQUIRE]]]);
+  // A typed parameter's pattern reads the parameter's type; an untyped one reaches nothing.
+  assert.deepEqual(facts("need"), [["16:8", "exact", "checker", [REQUIRE]]]);
+  assert.deepEqual(facts("write"), [["16:8", "exact", "checker", [RECORD]]]);
+});
+
 const FEATURE = "import { defineFeature } from \"@jskit-ai/kernel/server/features\";";
 
 test("defineFeature injection binds one provider exactly, several ambiguously and none not at all", async (t) => {
