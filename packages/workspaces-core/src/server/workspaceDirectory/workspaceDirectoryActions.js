@@ -16,7 +16,7 @@ const workspaceUpdateInputValidator = composeSchemaDefinitions([
   context: "workspaceDirectoryActions.workspaceUpdateInputValidator"
 });
 
-/** @param {{ workspaceService: import("../common/services/workspaceContextService.js").WorkspaceContextService }} dependencies */
+/** @param {{ workspaceService: import("../types.js").WorkspaceDirectoryService }} dependencies */
 function createWorkspaceDirectoryActions({ workspaceService }) {
   return Object.freeze([
     Object.freeze({

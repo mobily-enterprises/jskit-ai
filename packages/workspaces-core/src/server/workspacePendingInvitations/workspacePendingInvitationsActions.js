@@ -9,7 +9,7 @@ import { resolveActionUser } from "@jskit-ai/users-core/server/resolveActionUser
 
 const WORKSPACE_INVITE_DECISION_EVENTS = createInviteDecisionEvents();
 
-/** @param {{ workspacePendingInvitationsService: import("./workspacePendingInvitationsService.js").WorkspacePendingInvitationsService }} dependencies */
+/** @param {{ workspacePendingInvitationsService: import("../types.js").WorkspacePendingInvitationsService }} dependencies */
 function createWorkspacePendingInvitationsActions({ workspacePendingInvitationsService }) {
   return Object.freeze([
     Object.freeze({

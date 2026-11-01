@@ -79,8 +79,8 @@ function resolveRequestedWorkspaceStatusFromError(error) {
 
 /**
  * @param {object} dependencies
- * @param {import("./common/services/workspaceContextService.js").WorkspaceContextService} dependencies.workspaceService
- * @param {import("./workspacePendingInvitations/workspacePendingInvitationsService.js").WorkspacePendingInvitationsService} dependencies.workspacePendingInvitationsService
+ * @param {import("./types.js").WorkspaceDirectoryService} dependencies.workspaceService
+ * @param {import("./types.js").WorkspacePendingInvitationsService} dependencies.workspacePendingInvitationsService
  * @param {import("@jskit-ai/users-core/server/types").UserProfilesRepository} dependencies.userProfilesRepository
  * @param {boolean} dependencies.workspaceInvitationsEnabled
  * @param {import("./types.js").WorkspaceTenancyProfile} dependencies.tenancyProfile

@@ -18,7 +18,7 @@ const workspaceSettingsUpdateInputValidator = composeSchemaDefinitions([
   context: "workspaceSettingsActions.workspaceSettingsUpdateInputValidator"
 });
 
-/** @param {{ workspaceSettingsService: import("./workspaceSettingsService.js").WorkspaceSettingsService }} dependencies */
+/** @param {{ workspaceSettingsService: import("../types.js").WorkspaceSettingsService }} dependencies */
 function createWorkspaceSettingsActions({ workspaceSettingsService }) {
   return Object.freeze([
     Object.freeze({

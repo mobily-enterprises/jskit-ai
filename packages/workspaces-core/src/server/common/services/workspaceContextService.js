@@ -297,6 +297,4 @@ function createService({
   });
 }
 
-/** @typedef {ReturnType<typeof createService>} WorkspaceContextService */
-
 export { buildWorkspaceName, createService };

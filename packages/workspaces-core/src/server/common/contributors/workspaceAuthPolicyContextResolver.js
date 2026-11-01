@@ -3,7 +3,7 @@ import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 
 /**
  * @param {object} dependencies
- * @param {import("../services/workspaceContextService.js").WorkspaceContextService} dependencies.workspaceService
+ * @param {import("../../types.js").WorkspaceDirectoryService} dependencies.workspaceService
  * @param {string[]} dependencies.workspaceMembershipOptionalSurfaceIds The surfaces' normalized ids.
  */
 function createWorkspaceAuthPolicyContextResolver({ workspaceService, workspaceMembershipOptionalSurfaceIds }) {

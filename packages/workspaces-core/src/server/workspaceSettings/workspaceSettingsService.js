@@ -65,6 +65,4 @@ function createService({ workspaceSettingsRepository, workspaceInvitationsEnable
   });
 }
 
-/** @typedef {ReturnType<typeof createService>} WorkspaceSettingsService */
-
 export { createService };

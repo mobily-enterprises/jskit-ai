@@ -15,7 +15,7 @@ const WORKSPACE_VISIBILITY_ACTION_CONTEXT_SET = new Set([
 
 /**
  * @param {object} dependencies
- * @param {import("../services/workspaceContextService.js").WorkspaceContextService} dependencies.workspaceService
+ * @param {import("../../types.js").WorkspaceDirectoryService} dependencies.workspaceService
  * @param {string[]} dependencies.workspaceMembershipOptionalSurfaceIds The surfaces' normalized ids.
  * @param {string[]} dependencies.workspaceSurfaceIds The surfaces' normalized ids.
  */

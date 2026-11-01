@@ -304,6 +304,4 @@ function createService({ workspaceInvitesRepository, workspaceMembershipsReposit
   });
 }
 
-/** @typedef {ReturnType<typeof createService>} WorkspacePendingInvitationsService */
-
 export { createService };

@@ -149,7 +149,7 @@ function normalizeAdditionalActions(definitions, { namespace, surface, permissio
  * @param {object | null} dependencies.scopeInputValidator
  * @param {readonly string[]} dependencies.scopeInputKeys
  * @param {object | null} dependencies.listFilterQueryValidator
- * @param {Record<string, object>} dependencies.operationLifecycle What normalizeCrudOperationLifecycle returned.
+ * @param {import("../types.js").CrudOperationLifecycle} dependencies.operationLifecycle What normalizeCrudOperationLifecycle returned.
  * @param {{ create?: object, update?: object }} dependencies.operationInputs
  * @param {Record<string, object>} dependencies.actions The feature's custom actions, by name.
  * @param {Record<string, unknown>} dependencies.dependencies The capabilities in the feature's `requires`, by local name.

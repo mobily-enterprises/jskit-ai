@@ -162,7 +162,7 @@ function projectEnabledServiceOperations(service, operations) {
  * @param {Record<string, string>} [feature.requires] More capabilities the feature requires, by name.
  * @param {((dependencies: any) => any) | null} [feature.decorateRepository]
  * @param {((dependencies: any) => any) | null} [feature.decorateService]
- * @param {object} [feature.operationLifecycle]
+ * @param {import("./types.js").CrudOperationLifecycle} [feature.operationLifecycle]
  * @param {object} [feature.operationInputs]
  * @param {object} [feature.actions] Custom actions, by name.
  * @param {string[]} [feature.operations] Defaults to every operation the resource defines.

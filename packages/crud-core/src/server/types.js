@@ -58,6 +58,51 @@
  */
 
 /**
+ * What an `operationLifecycle` hook receives: the operation, the input its
+ * schema validated, the action context, the feature's resource, repository
+ * and service, and `trx`, the transaction a create, update or delete runs in
+ * (null for list and view, and in afterCommit, which runs after the commit).
+ * `after` and `afterCommit` also receive the operation's `result`; `execute`
+ * receives `standard(nextInput)`, which runs the standard operation.
+ * `Service` and `Repository` are what decorateService and decorateRepository
+ * return, when they add methods a hook calls.
+ * @template [Service=CrudService]
+ * @template [Repository=CrudRepository]
+ * @typedef {object} CrudLifecycleContext
+ * @property {"list" | "view" | "create" | "update" | "delete"} operation
+ * @property {any} input
+ * @property {object} context
+ * @property {CrudResourceDefinition} resource
+ * @property {Repository} repository
+ * @property {Service} service
+ * @property {import("@jskit-ai/database-runtime/server/types").RuntimeKnexTransaction | null} trx
+ * @property {any} [result]
+ * @property {(nextInput?: object) => Promise<any>} [standard]
+ */
+
+/**
+ * One standard operation's hooks: `before`, `execute` and `after` share a
+ * mutation's transaction, `execute` replaces the standard operation, and
+ * `afterCommit` (mutations only) runs once the transaction has committed.
+ * @template [Service=CrudService]
+ * @template [Repository=CrudRepository]
+ * @typedef {object} CrudLifecycleHooks
+ * @property {(hook: CrudLifecycleContext<Service, Repository>) => unknown} [before]
+ * @property {(hook: CrudLifecycleContext<Service, Repository>) => unknown} [execute]
+ * @property {(hook: CrudLifecycleContext<Service, Repository>) => unknown} [after]
+ * @property {(hook: CrudLifecycleContext<Service, Repository>) => unknown} [afterCommit]
+ */
+
+/**
+ * A CRUD feature's `operationLifecycle`: the hooks of each standard operation
+ * that has any. Type a lifecycle declared apart from its feature with it:
+ * `@type {CrudOperationLifecycle<DrumsService, DrumsRepository>}`.
+ * @template [Service=CrudService]
+ * @template [Repository=CrudRepository]
+ * @typedef {{ list?: CrudLifecycleHooks<Service, Repository>, view?: CrudLifecycleHooks<Service, Repository>, create?: CrudLifecycleHooks<Service, Repository>, update?: CrudLifecycleHooks<Service, Repository>, delete?: CrudLifecycleHooks<Service, Repository> }} CrudOperationLifecycle
+ */
+
+/**
  * The records repository a CRUD service reads and writes through, as createCrudResourceRuntime builds it.
  * @typedef {ReturnType<typeof import("./resourceRuntime/index.js").createCrudResourceRuntime>} CrudRecordRepository
  */
