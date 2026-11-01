@@ -17,13 +17,15 @@ Run `jskit-inspect-vue` in the project directory. It reads one bounded JSON
 document from stdin and writes one `genesis.architecture-observations.v1` JSON
 document to stdout. Errors use stderr and a failing exit status. It does not
 import application code, start a server, generate router declarations or retain
-a watcher. The package has no Genesis or Vibe64 dependency. The command runs the
+a watcher. The package imports no consumer's code: the input contract is its
+own, and it writes the observation format its consumer defines, which it names
+only by schema id. The command runs the
 inspection in a child Node process whose old generation is bounded by the size
 of the declared scripts (192 MB plus 56 MB per MiB), so memory stays near what
 the inspection holds; a caller that starts Node with its own
 `--max-old-space-size` keeps that bound and runs in place.
 
-Input supplies `schema: "vibe64.architecture-inspection-input.v1"`, indexed
+Input supplies `schema: "jskit.architecture-inspection-input.v1"`, indexed
 `files: [{ path, hash }]` and `uiDiscovery.discoveries`. Optional `packages`
 carry `id`, `name`, `manifest`, `declarations`, `root`, `opaque` and public
 `entryPoints: [{ importPath, file }]`; `packageIdentity` binds observations to
@@ -176,7 +178,7 @@ Each discovery supplies `id`, `adapter`, `surface`, `mode`, `registrations`,
 ### Preview locator
 
 `src/previewLocator.js` is a classic script a Preview can inline. It defines
-`globalThis.__vibe64LocateElement(element)`, which returns `{ file, name? }` for
+`globalThis.__jskitLocateElement(element)`, which returns `{ file, name? }` for
 the nearest component with a source file (Vue development builds record it as
 `__file`) that rendered the element, or `null` for plain DOM. It reads only
 Vue's component bookkeeping, never text content or values.

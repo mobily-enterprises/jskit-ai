@@ -6,7 +6,7 @@ import { discoverComponents, discoverPages } from "./vue/pages.js";
 import { discoverEntryOperations } from "./vue/routes.js";
 import { isCanonicalPath, sourceEvidence } from "./vue/syntax.js";
 
-const INPUT_SCHEMA = "vibe64.architecture-inspection-input.v1";
+const INPUT_SCHEMA = "jskit.architecture-inspection-input.v1";
 const OUTPUT_SCHEMA = "genesis.architecture-observations.v1";
 const ADAPTER_ID = "jskit.vue-static.v1";
 

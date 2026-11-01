@@ -24,7 +24,7 @@ async function project(t, source, { discovery = NO_PAGES, packages, undeclared =
     }
   }
   const input = {
-    schema: "vibe64.architecture-inspection-input.v1",
+    schema: "jskit.architecture-inspection-input.v1",
     files,
     uiDiscovery: { discoveries: [discovery] },
     ...(packages ? { packages } : {})

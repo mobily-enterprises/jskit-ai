@@ -13,8 +13,8 @@ async function loadLocator() {
   assert.ok(Buffer.byteLength(source) <= 64 * 1024);
   const context = vm.createContext({});
   new vm.Script(source, { filename: "previewLocator.js" }).runInContext(context);
-  assert.equal(typeof context.__vibe64LocateElement, "function");
-  return context.__vibe64LocateElement;
+  assert.equal(typeof context.__jskitLocateElement, "function");
+  return context.__jskitLocateElement;
 }
 
 // DOM nodes that record any read of element content.

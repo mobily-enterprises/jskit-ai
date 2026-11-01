@@ -1,5 +1,5 @@
 // Vue Preview locator: a classic script a Preview bridge can inline. It defines
-// globalThis.__vibe64LocateElement(element), which returns the nearest project
+// globalThis.__jskitLocateElement(element), which returns the nearest project
 // component that rendered the element in a Vue development build, as
 // { file, name? } with the file as the build reports it, or null. It reads only
 // Vue's own component bookkeeping (`__vueParentComponent`, the component's
@@ -19,7 +19,7 @@
     return null;
   }
 
-  globalThis.__vibe64LocateElement = function locateElement(element) {
+  globalThis.__jskitLocateElement = function locateElement(element) {
     for (var node = element, steps = 0; node && steps < MAX_STEPS; node = node.parentNode, steps += 1) {
       if (node.__vueParentComponent) {
         return projectComponent(node.__vueParentComponent);

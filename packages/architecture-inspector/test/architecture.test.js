@@ -15,7 +15,7 @@ async function fixture(t, source, discovery) {
     await writeFile(path.join(root, file), text);
     files.push({ path: file, hash: `sha256:${createHash("sha256").update(text).digest("hex")}` });
   }
-  return { root, input: { schema: "vibe64.architecture-inspection-input.v1", files, uiDiscovery: { discoveries: [discovery] } } };
+  return { root, input: { schema: "jskit.architecture-inspection-input.v1", files, uiDiscovery: { discoveries: [discovery] } } };
 }
 
 test('source import evidence resolves configured aliases and project-root paths without treating every target export as imported', async t => {

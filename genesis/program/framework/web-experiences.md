@@ -35,7 +35,7 @@ itself; **Reload** returns to the same address once the server answers.
 `@jskit-ai/architecture-inspector`, a plain tool package outside the framework
 runtime, ships `jskit-inspect-vue`, an optional static inspector for the
 portable architecture-inspection command contract. It reads
-one `vibe64.architecture-inspection-input.v1` request on stdin and prints one
+one `jskit.architecture-inspection-input.v1` request on stdin and prints one
 `genesis.architecture-observations.v1` document: routed pages, the components
 their templates use, literal `fetch` and JSKIT CRUD screen operation uses,
 `defineFeature` and `defineCrudJsonApiFeature` entry operations, and source
