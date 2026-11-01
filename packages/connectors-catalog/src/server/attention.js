@@ -2,6 +2,7 @@ import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { createSchema } from "json-rest-schema";
 import { attentionDefinition } from "../shared/tokens.js";
 import { jsonOperation, validatedOperation, withQuery } from "./jsonOperation.js";
+import { hasDataList } from "./connectorValues.js";
 
 const text = { type: "string", minLength: 1, maxLength: 2000 };
 const id = { type: "string", minLength: 1, maxLength: 100, pattern: "^[A-Za-z0-9_-]+$" };
@@ -10,7 +11,6 @@ const ids = { type: "array", items: id, validator: value => value.length <= 100 
 const bool = { type: "boolean" };
 const page = { page: { type: "integer", min: 1, defaultTo: 1 }, size: { type: "integer", min: 1, max: 200, defaultTo: 50 } };
 const dateTime = { ...text, validator: value => /^\d{4}-\d{2}-\d{2}T/.test(value) && Number.isFinite(Date.parse(value)) || "Use an ISO timestamp." };
-const list = result => Array.isArray(result?.data);
 const record = result => result?.data !== null && typeof result?.data === "object" && !Array.isArray(result.data) && typeof (result.data.uuid ?? result.data.id) === "string";
 const conversation = result => result?.type === "conversations" && typeof result.id === "string" && result.attributes !== null && typeof result.attributes === "object" && !Array.isArray(result.attributes);
 function operation(method, endpoint, fields, validateResult, prepare = value => value) {
@@ -49,19 +49,19 @@ const attentionProvider = Object.freeze({
     "analysis.ask": operation("POST", "ask_attention/v2", { conversations_ids: { ...ids, required: true },
       deal_id: { type: "string", required: true, maxLength: 100 }, prompt: { ...text, required: true, maxLength: 20000 }
     }, result => Array.isArray(result) && result.every(item => typeof item?.output === "string" && typeof item.error === "string" && typeof item.conversation_id === "string")),
-    "scorecards.list": operation("GET", "scorecards", page, list),
+    "scorecards.list": operation("GET", "scorecards", page, hasDataList),
     "scorecards.get": operation("GET", "scorecards/{id}", { id: requiredId }, record),
-    "scorecardItems.list": operation("GET", "scorecards/{id}/items", { id: requiredId, ...page }, list),
+    "scorecardItems.list": operation("GET", "scorecards/{id}/items", { id: requiredId, ...page }, hasDataList),
     "scorecards.summary": operation("POST", "scorecards/summary", { fromDateTime: { ...dateTime, required: true }, toDateTime: { ...dateTime, required: true },
       scorecardUUID: requiredId, scorecardsItemsUUIDs: { ...ids, required: true }, teamUUIDs: { ...ids, required: true }, userUUIDs: { ...ids, required: true }
-    }, list, value => { if (Date.parse(value.fromDateTime) >= Date.parse(value.toDateTime)) throw new ConnectorError("connector_input_invalid", "End time must follow start time.", { statusCode: 422, messageCode: "connectors.attention.endTimeMustFollowStart" }); return value; }),
+    }, hasDataList, value => { if (Date.parse(value.fromDateTime) >= Date.parse(value.toDateTime)) throw new ConnectorError("connector_input_invalid", "End time must follow start time.", { statusCode: 422, messageCode: "connectors.attention.endTimeMustFollowStart" }); return value; }),
     "scorecardResults.create": operation("POST", "createScorecardResult", { scorecard_uuid: requiredId, conversation_uuid: requiredId,
       summary: { ...text, required: true, maxLength: 20000 }, items: { type: "array", required: true,
         items: { type: "object", schema: createSchema({ scorecard_item_uuid: requiredId, numeric_result: { type: "integer" }, description: { ...text, required: true } }) },
         validator: value => value.length > 0 && value.length <= 100 || "Supply 1–100 scoring items." }
     }, result => result?.success === true),
-    "users.list": operation("GET", "organizations/users", { teamUUID: id }, list),
-    "roles.list": operation("GET", "organizations/roles", {}, list),
+    "users.list": operation("GET", "organizations/users", { teamUUID: id }, hasDataList),
+    "roles.list": operation("GET", "organizations/roles", {}, hasDataList),
     "users.create": operation("POST", "organizations/users", { email: { ...text, required: true, pattern: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$" },
       first_name: { ...text, required: true }, last_name: { ...text, required: true }, roleUUID: requiredId,
       seat_type: { type: "string", required: true, enum: ["listener", "recording"] },
@@ -72,7 +72,7 @@ const attentionProvider = Object.freeze({
       teamsToAdd: { type: "array", items: team, validator: value => value.length <= 100 || "Use at most 100 teams." }
     }, record),
     "users.delete": operation("DELETE", "organizations/users/{id}", { id: requiredId }, result => result === null || result !== null && typeof result === "object" && !Array.isArray(result) && Object.keys(result).length === 0),
-    "teams.list": operation("GET", "organizations/teams", {}, list),
+    "teams.list": operation("GET", "organizations/teams", {}, hasDataList),
     "teams.create": operation("POST", "organizations/teams", { name: { ...text, required: true }, parentTeamUUID: id }, record),
     "teams.update": operation("PATCH", "organizations/teams/{id}", { id: requiredId, name: text, parentTeamUUID: id }, record),
     "conversations.list": jsonOperation("https://api.attention.tech/v2/conversations/list", {

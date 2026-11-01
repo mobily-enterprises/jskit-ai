@@ -1,5 +1,6 @@
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { createSchema } from "json-rest-schema";
+import { isUuid } from "./connectorValues.js";
 
 // The Wix value checks, fields and record checks the operation groups share.
 
@@ -11,7 +12,6 @@ function serializeNativeJson(value) {
     return item;
   });
 }
-const guid = (value) => typeof value === "string" && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/iu.test(value);
 // Results are checked against the operation's own request; a different record is reported with what Wix got wrong.
 const requestPath = (request, index) => decodeURIComponent(new URL(request.url).pathname.split("/").at(index));
 function sameRecord(matches, message, codes) {
@@ -23,7 +23,7 @@ const querySchema = createSchema({
   limit: { type: "integer", min: 1, max: 100, defaultTo: 20 },
   cursor: { type: "string", minLength: 1, maxLength: 16000, noTrim: true, validator: (value) => cursor(value) || "Use the returned Wix page cursor." }
 });
-const contactIdField = { type: "string", required: true, validator: value => guid(value) || "Use the contact ID returned by Wix." };
+const contactIdField = { type: "string", required: true, validator: value => isUuid(value) || "Use the contact ID returned by Wix." };
 const nativeJsonObjectField = { type: "none", validator: value => {
   if (!value || typeof value !== "object" || Array.isArray(value)) return "Use a native Wix JSON object.";
   try {
@@ -32,4 +32,4 @@ const nativeJsonObjectField = { type: "none", validator: value => {
   } catch { return "Use serializable native Wix JSON data."; }
 } };
 
-export { serializeNativeJson, guid, requestPath, sameRecord, cursor, querySchema, contactIdField, nativeJsonObjectField };
+export { serializeNativeJson, requestPath, sameRecord, cursor, querySchema, contactIdField, nativeJsonObjectField };

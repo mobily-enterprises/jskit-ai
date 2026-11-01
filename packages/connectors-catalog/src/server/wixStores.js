@@ -1,19 +1,20 @@
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
-import { guid, requestPath, sameRecord, cursor, contactIdField, nativeJsonObjectField } from "./wixValues.js";
+import { requestPath, sameRecord, cursor, contactIdField, nativeJsonObjectField } from "./wixValues.js";
+import { isUuid } from "./connectorValues.js";
 
 // Wix eCommerce and Stores operations: carts, products, catalog version, orders, fulfillments and business locations.
 
 function productReadOperation(version, action) {
   const schema = createSchema(action === "get" ? {
-    productId: { type: "string", required: true, validator: value => guid(value) || "Use the Wix product ID." }
+    productId: { type: "string", required: true, validator: value => isUuid(value) || "Use the Wix product ID." }
   } : {
     limit: { type: "integer", min: 1, max: 100, defaultTo: 20 },
     ...(version === 1 ? { offset: { type: "integer", min: 0, max: 100000, defaultTo: 0 }, includeVariants: { type: "boolean", defaultTo: false } } :
       { cursor: { type: "string", validator: value => cursor(value) || "Use the returned product cursor." } })
   });
-  const validProduct = value => guid(value?.id) && typeof value.name === "string" && value.name.length > 0;
+  const validProduct = value => isUuid(value?.id) && typeof value.name === "string" && value.name.length > 0;
   return {
     scopes: [],
     request(input) {
@@ -90,16 +91,16 @@ const locationQuerySchema = createSchema({
   limit: { type: "integer", min: 1, max: 100, defaultTo: 20 }, offset: { type: "integer", min: 0, max: 100000, defaultTo: 0 },
   archived: { type: "boolean", defaultTo: false }
 });
-const locationGetSchema = createSchema({ locationId: { type: "string", required: true, validator: value => guid(value) || "Use the returned location ID." } });
-const validLocation = value => guid(value?.id) && typeof value.name === "string" &&
+const locationGetSchema = createSchema({ locationId: { type: "string", required: true, validator: value => isUuid(value) || "Use the returned location ID." } });
+const validLocation = value => isUuid(value?.id) && typeof value.name === "string" &&
   (value.timeZone === undefined || typeof value.timeZone === "string") && (value.archived === undefined || typeof value.archived === "boolean");
 const productV1UpdateSchema = createSchema({
-  productId: { type: "string", required: true, validator: value => guid(value) || "Use the Wix product ID." },
+  productId: { type: "string", required: true, validator: value => isUuid(value) || "Use the Wix product ID." },
   name: { type: "string", minLength: 1, maxLength: 80 }, visible: { type: "boolean" },
   price: { type: "none", validator: value => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 999999999.99 || "Use a numeric Wix base price from 0 to 999999999.99." }
 });
 const productV3UpdateSchema = createSchema({
-  productId: { type: "string", required: true, validator: value => guid(value) || "Use the Wix product ID." },
+  productId: { type: "string", required: true, validator: value => isUuid(value) || "Use the Wix product ID." },
   revision: { type: "none", required: true, validator: value => typeof value === "string" && /^\d{1,19}$/u.test(value) && BigInt(value) <= 9223372036854775807n || "Use the current product revision string." },
   name: { type: "string", minLength: 1, maxLength: 80 },
   visible: { type: "boolean" }
@@ -109,7 +110,7 @@ const orderSearchSchema = createSchema({
   limit: { type: "integer", min: 1, max: 100, defaultTo: 20 },
   cursor: { type: "string", validator: value => cursor(value) || "Use the returned order cursor." },
   status: { type: "string", minLength: 1, maxLength: 100 },
-  contactId: { type: "string", validator: value => guid(value) || "Use the buyer's contact ID." }
+  contactId: { type: "string", validator: value => isUuid(value) || "Use the buyer's contact ID." }
 });
 const orderIdSchema = createSchema({ orderId: { type: "string", required: true, minLength: 1, maxLength: 100, validator: value => !/[\p{Cc}]/u.test(value) && ![".", ".."].includes(value) || "Use the returned order ID." } });
 const cartCreateSchema = createSchema({
@@ -118,13 +119,13 @@ const cartCreateSchema = createSchema({
     items: { type: "object", schema: createSchema({
       quantity: { type: "integer", required: true, min: 1, max: 100000 },
       catalogReference: { type: "object", required: true, schema: createSchema({
-        appId: { type: "string", required: true, validator: value => guid(value) || "Use the catalogue app ID." },
+        appId: { type: "string", required: true, validator: value => isUuid(value) || "Use the catalogue app ID." },
         catalogItemId: { type: "string", required: true, minLength: 1, maxLength: 36, validator: value => !/[\p{Cc}]/u.test(value) || "Use the selected catalogue item ID." },
         options: nativeJsonObjectField
       }) }
     }) } }
 });
-const cartIdSchema = createSchema({ cartId: { type: "string", required: true, validator: value => guid(value) || "Use the cart ID returned by Wix." } });
+const cartIdSchema = createSchema({ cartId: { type: "string", required: true, validator: value => isUuid(value) || "Use the cart ID returned by Wix." } });
 const validOrder = value => typeof value?.id === "string" && value.id.length > 0 && value.id.length <= 100 &&
   typeof value.status === "string" && value.status.length > 0 && (value.currency === undefined || typeof value.currency === "string") &&
   (value.lineItems === undefined || Array.isArray(value.lineItems));
@@ -166,11 +167,11 @@ function fulfillmentWriteOperation(update) {
     validateResult: (value, request) => typeof value?.orderWithFulfillments?.orderId === "string" &&
       sameRecord(value.orderWithFulfillments.orderId === requestPath(request, update ? -1 : -2), "Wix returned fulfillments for a different order.", { messageCode: "connectors.wix.returnedFulfillmentsDifferentOrder" }) &&
       Array.isArray(value.orderWithFulfillments.fulfillments) &&
-      value.orderWithFulfillments.fulfillments.every(item => guid(item?.id) && Array.isArray(item.lineItems) && item.lineItems.length <= 300 &&
-        item.lineItems.every(line => guid(line?.id) && Number.isInteger(line.quantity) && line.quantity >= 1 && line.quantity <= 100000)) &&
+      value.orderWithFulfillments.fulfillments.every(item => isUuid(item?.id) && Array.isArray(item.lineItems) && item.lineItems.length <= 300 &&
+        item.lineItems.every(line => isUuid(line?.id) && Number.isInteger(line.quantity) && line.quantity >= 1 && line.quantity <= 100000)) &&
       (update ? sameRecord(value.orderWithFulfillments.fulfillments.some(item => item.id === requestPath(request, -3)),
         "Wix did not return the updated fulfillment. Inspect the order before retrying.", { messageCode: "connectors.wix.didNotReturnUpdatedFulfillment" }) :
-        guid(value.fulfillmentId) && value.orderWithFulfillments.fulfillments.some(item => item.id === value.fulfillmentId))
+        isUuid(value.fulfillmentId) && value.orderWithFulfillments.fulfillments.some(item => item.id === value.fulfillmentId))
   };
 }
 const wixStoreOperations = {
@@ -181,8 +182,8 @@ const wixStoreOperations = {
       return { method: "POST", url: "https://www.wixapis.com/ecom/v2/carts",
         body: { cart: { source: { channelType: "WEB" }, ...(note === undefined ? {} : { note }) }, catalogItems } };
     },
-    validateResult: value => guid(value?.cart?.id) && Array.isArray(value.cart.lineItems) && value.cart.lineItems.length <= 300 &&
-      value.cart.lineItems.every(item => guid(item?.id))
+    validateResult: value => isUuid(value?.cart?.id) && Array.isArray(value.cart.lineItems) && value.cart.lineItems.length <= 300 &&
+      value.cart.lineItems.every(item => isUuid(item?.id))
   },
   "carts.getCheckoutUrl": {
     scopes: [],
@@ -228,7 +229,7 @@ const wixStoreOperations = {
       return { method: "PATCH", url: `https://www.wixapis.com/stores/v1/products/${productId}`,
         body: { product: { ...changes, ...(price === undefined ? {} : { priceData: { price } }) } } };
     },
-    validateResult: (value, request) => guid(value?.product?.id) && typeof value.product.name === "string" && value.product.name.length > 0 &&
+    validateResult: (value, request) => isUuid(value?.product?.id) && typeof value.product.name === "string" && value.product.name.length > 0 &&
       sameRecord(value.product.id === requestPath(request, -1), "Wix returned a different product.", { messageCode: "connectors.wix.returnedDifferentProduct" })
   },
   "productsV3.list": productReadOperation(3, "list"),
@@ -241,7 +242,7 @@ const wixStoreOperations = {
       return { method: "PATCH", url: `https://www.wixapis.com/stores/v3/products/${productId}`,
         body: { product: { id: productId, revision, ...changes } } };
     },
-    validateResult: (value, request) => guid(value?.product?.id) && typeof value.product.name === "string" && value.product.name.length > 0 &&
+    validateResult: (value, request) => isUuid(value?.product?.id) && typeof value.product.name === "string" && value.product.name.length > 0 &&
       sameRecord(value.product.id === requestPath(request, -1), "Wix returned a different product.", { messageCode: "connectors.wix.returnedDifferentProduct" }) &&
       typeof value.product.revision === "string" && /^\d{1,19}$/u.test(value.product.revision) && BigInt(value.product.revision) <= 9223372036854775807n
   },
@@ -283,11 +284,11 @@ const wixStoreOperations = {
       const { orderId } = validateSchemaPayload({ schema: orderIdSchema, mode: "replace" }, input, { statusCode: 422 });
       return { method: "GET", url: `https://www.wixapis.com/ecom/v1/fulfillments/orders/${encodeURIComponent(orderId)}` };
     },
-    validateResult: (value, request) => guid(value?.orderWithFulfillments?.orderId) &&
+    validateResult: (value, request) => isUuid(value?.orderWithFulfillments?.orderId) &&
       sameRecord(value.orderWithFulfillments.orderId === requestPath(request, -1), "Wix returned fulfillments for a different order.", { messageCode: "connectors.wix.returnedFulfillmentsDifferentOrder" }) &&
       Array.isArray(value.orderWithFulfillments.fulfillments) &&
-      value.orderWithFulfillments.fulfillments.every(item => guid(item?.id) && Array.isArray(item.lineItems) && item.lineItems.length <= 300 &&
-        item.lineItems.every(line => guid(line?.id) && Number.isInteger(line.quantity) && line.quantity >= 1 && line.quantity <= 100000))
+      value.orderWithFulfillments.fulfillments.every(item => isUuid(item?.id) && Array.isArray(item.lineItems) && item.lineItems.length <= 300 &&
+        item.lineItems.every(line => isUuid(line?.id) && Number.isInteger(line.quantity) && line.quantity >= 1 && line.quantity <= 100000))
   }
 };
 

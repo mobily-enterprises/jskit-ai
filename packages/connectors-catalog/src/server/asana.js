@@ -1,6 +1,7 @@
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { asanaDefinition } from "../shared/tokens.js";
 import { jsonOperation, validatedOperation } from "./jsonOperation.js";
+import { hasDataList } from "./connectorValues.js";
 
 const gid = { type: "string", minLength: 1, maxLength: 100, pattern: "^[0-9]+$" };
 const requiredGid = { ...gid, required: true };
@@ -17,7 +18,6 @@ const project = { ...common, archived: { type: "boolean" }, owner: { ...gid, nul
 const taskFields = "gid,name,notes,completed,assignee.gid,assignee.name,due_on,start_on,projects.gid,parent.gid";
 const projectFields = "gid,name,notes,archived,owner.gid,privacy_setting,due_on,start_on,workspace.gid";
 const record = result => typeof result?.data?.gid === "string";
-const list = result => Array.isArray(result?.data);
 function read(endpoint, input = {}, fields) {
   const url = new URL(`https://app.asana.com/api/1.0/${endpoint}`);
   for (const [key, value] of Object.entries(input)) url.searchParams.set(key, String(value));
@@ -40,21 +40,21 @@ const asanaProvider = Object.freeze({
   apiKey: { headers: (key) => ({ Authorization: `Bearer ${key}` }) },
   checkOperation: "workspaces.list",
   operations: {
-    "workspaces.list": jsonOperation("https://app.asana.com/api/1.0/workspaces", page, list),
+    "workspaces.list": jsonOperation("https://app.asana.com/api/1.0/workspaces", page, hasDataList),
     "projects.list": validatedOperation({ workspace: requiredGid, ...page, archived: { type: "boolean" } },
-      input => read("projects", input, projectFields), list),
+      input => read("projects", input, projectFields), hasDataList),
     "projects.get": validatedOperation({ gid: requiredGid }, ({ gid }) => read(`projects/${gid}`, {}, projectFields), record),
     "projects.create": write("POST", "projects", { ...project, name: { ...common.name, required: true },
       workspace: requiredGid, privacy_setting: { ...project.privacy_setting, required: true } }, projectFields),
     "projects.update": write("PUT", "projects", project, projectFields),
     "tasks.list": validatedOperation({ project: requiredGid, ...page, completed_since: { type: "string", maxLength: 100 } },
-      ({ project, ...input }) => read(`projects/${project}/tasks`, input, taskFields), list),
+      ({ project, ...input }) => read(`projects/${project}/tasks`, input, taskFields), hasDataList),
     "tasks.get": validatedOperation({ gid: requiredGid }, ({ gid }) => read(`tasks/${gid}`, {}, taskFields), record),
     "tasks.create": write("POST", "tasks", { ...task, name: { ...common.name, required: true }, workspace: requiredGid,
       projects: { type: "array", items: gid, validator: values => values.length <= 100 || "Choose at most 100 projects." } }, taskFields),
     "tasks.update": write("PUT", "tasks", task, taskFields),
-    "users.list": validatedOperation({ workspace: requiredGid, ...page }, ({ workspace, ...input }) => read(`workspaces/${workspace}/users`, input), list),
-    "teams.list": validatedOperation({ workspace: requiredGid, ...page }, ({ workspace, ...input }) => read(`workspaces/${workspace}/teams`, input), list),
+    "users.list": validatedOperation({ workspace: requiredGid, ...page }, ({ workspace, ...input }) => read(`workspaces/${workspace}/users`, input), hasDataList),
+    "teams.list": validatedOperation({ workspace: requiredGid, ...page }, ({ workspace, ...input }) => read(`workspaces/${workspace}/teams`, input), hasDataList),
     "projectMembers.add": validatedOperation({ project: requiredGid, member: requiredGid,
       access_level: { type: "string", required: true, enum: ["admin", "editor", "commenter"] } },
       ({ project, member, access_level }) => ({ method: "POST", url: "https://app.asana.com/api/1.0/memberships",

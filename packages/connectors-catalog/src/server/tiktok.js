@@ -1,9 +1,9 @@
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { tiktokDefinition } from "../shared/tiktok.js";
 import { jsonOperation } from "./jsonOperation.js";
+import { isCount } from "./connectorValues.js";
 
 const textId = (value) => typeof value === "string" && value.length > 0 && value.length <= 1024 && !/[\p{Cc}]/u.test(value);
-const count = (value) => Number.isSafeInteger(value) && value >= 0;
 
 function checkReply(value) {
   const code = value?.error?.code ?? value?.code;
@@ -55,14 +55,14 @@ const tiktokProvider = Object.freeze({
     "profile.extended": profileOperation(["username", "bio_description", "profile_deep_link", "is_verified"], "user.info.profile", (user) =>
       ["username", "bio_description", "profile_deep_link"].every((field) => typeof user?.[field] === "string") && typeof user?.is_verified === "boolean"),
     "profile.stats": profileOperation(["follower_count", "following_count", "likes_count", "video_count"], "user.info.stats", (user) =>
-      ["follower_count", "following_count", "likes_count", "video_count"].every((field) => count(user?.[field]))),
+      ["follower_count", "following_count", "likes_count", "video_count"].every((field) => isCount(user?.[field]))),
     "videos.list": {
       ...jsonOperation("https://open.tiktokapis.com/v2/video/list/?fields=id,title,cover_image_url", {
         max_count: { type: "integer", min: 1, max: 20, defaultTo: 10 },
         cursor: { type: "integer", min: 0, max: Number.MAX_SAFE_INTEGER }
       }, (value) => value?.error?.code === "ok" && Array.isArray(value.data?.videos) && value.data.videos.length <= 20 &&
         value.data.videos.every((video) => textId(video?.id) && typeof video.title === "string" && typeof video.cover_image_url === "string") &&
-        typeof value.data.has_more === "boolean" && count(value.data.cursor), "POST"),
+        typeof value.data.has_more === "boolean" && isCount(value.data.cursor), "POST"),
       scopes: ["video.list"]
     }
   },

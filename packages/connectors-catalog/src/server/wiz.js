@@ -6,8 +6,8 @@ import path from "node:path";
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { validateIntegrationConfiguration } from "@jskit-ai/connectors-core/shared/configuration";
 import { wizDefinition } from "../shared/wiz.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
-const object = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 const failure = (code, message, statusCode = 502, codes = {}) => new ConnectorError(code, message, { statusCode, ...codes });
 
 // This process belongs to the scanner, not the application's chat/agent runtime.
@@ -86,7 +86,7 @@ function createWizScanner({ configuration, authorize, resolveReference, resolveS
     // The browser supplies no filesystem path. The trusted host selects an immutable
     // source snapshot and revision after checking the requesting principal's access.
     const target = await resolveScanTarget({ ...owner }, { integrationId, signal });
-    if (!object(target) || typeof target.directory !== "string" || !path.isAbsolute(target.directory) ||
+    if (!isRecord(target) || typeof target.directory !== "string" || !path.isAbsolute(target.directory) ||
       target.directory.includes("\0") || typeof target.revision !== "string" || !target.revision.trim() || target.revision.length > 512) {
       throw failure("connector_source_invalid", "The host must supply an absolute source directory and revision.", 422, { messageCode: "connectors.wiz.hostMustSupplyAbsoluteSource" });
     }
@@ -120,7 +120,7 @@ function createWizScanner({ configuration, authorize, resolveReference, resolveS
         } finally { await file.close(); }
       } catch { throw failure("connector_response_invalid", "Wiz did not produce a readable report within the configured size limit.", 502, { messageCode: "connectors.wiz.didNotProduceReadableReport" }); }
       const verdict = report?.status?.verdict;
-      if (!object(report) || report.status?.state !== "SUCCESS" || !object(report.result) || !["PASSED_BY_POLICY", "WARN_BY_POLICY", "FAILED_BY_POLICY"].includes(verdict) ||
+      if (!isRecord(report) || report.status?.state !== "SUCCESS" || !isRecord(report.result) || !["PASSED_BY_POLICY", "WARN_BY_POLICY", "FAILED_BY_POLICY"].includes(verdict) ||
         (exitCode === 4 && verdict !== "FAILED_BY_POLICY")) {
         throw failure("connector_response_invalid", "Wiz returned an unsupported or inconsistent scan report.", 502, { messageCode: "connectors.wiz.returnedUnsupportedInconsistentScanReport" });
       }

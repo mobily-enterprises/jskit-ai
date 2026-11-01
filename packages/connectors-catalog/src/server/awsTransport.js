@@ -18,6 +18,12 @@ function awsOperation(service, command, fields, makeInput, validateResult, scope
 }
 
 function awsExchange(service, Client, execute) {
+  /**
+   * Sends one AWS request, signed with the connection's access key bindings.
+   * @param {string} endpoint
+   * @param {object} options
+   * @param {import("@jskit-ai/connectors-core/server/types").ConnectorExchangeTransport} transport
+   */
   return async (endpoint, options, { settings, apiKey, resolveReference, fetchImpl }) => {
     let credentials;
     try {

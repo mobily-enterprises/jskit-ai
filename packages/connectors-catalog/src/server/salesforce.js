@@ -3,17 +3,17 @@ import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { salesforceDefinition } from "../shared/salesforce.js";
 import { jsonOperation } from "./jsonOperation.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { accountOrigin } from "./connectorValues.js";
 
 const apiPath = "/services/data/v66.0";
-const origin = (settings) => new URL(settings.accountUrl).origin;
-const endpoint = (resource) => (settings) => `${origin(settings)}${apiPath}/${resource}`;
+const endpoint = (resource) => (settings) => `${accountOrigin(settings)}${apiPath}/${resource}`;
 const objectName = (value) => typeof value === "string" && /^[A-Za-z][A-Za-z0-9_]{0,254}$/u.test(value);
 const locator = (value) => typeof value === "string" && /^\/services\/data\/v66\.0\/query\/[A-Za-z0-9]{15,18}-[0-9]{1,10}$/u.test(value);
-const record = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
-const limits = (value) => record(value) && Number.isSafeInteger(value.DailyApiRequests?.Max) && value.DailyApiRequests.Max >= 0 &&
+const limits = (value) => isRecord(value) && Number.isSafeInteger(value.DailyApiRequests?.Max) && value.DailyApiRequests.Max >= 0 &&
   Number.isSafeInteger(value.DailyApiRequests.Remaining) && value.DailyApiRequests.Remaining >= 0;
 const queryResult = (value) => Number.isSafeInteger(value?.totalSize) && value.totalSize >= 0 && typeof value.done === "boolean" &&
-  Array.isArray(value.records) && value.records.length <= 2000 && value.records.every(record) && value.records.length <= value.totalSize &&
+  Array.isArray(value.records) && value.records.length <= 2000 && value.records.every(isRecord) && value.records.length <= value.totalSize &&
   (value.done ? value.nextRecordsUrl == null : locator(value.nextRecordsUrl));
 const describeSchema = createSchema({ object: { type: "string", required: true, validator: (value) => objectName(value) || "Use a Salesforce object API name." } });
 const nextSchema = createSchema({ nextRecordsUrl: { type: "string", required: true, noTrim: true,
@@ -21,13 +21,13 @@ const nextSchema = createSchema({ nextRecordsUrl: { type: "string", required: tr
 
 const salesforceProvider = Object.freeze({
   ...salesforceDefinition,
-  oauth: (settings) => ({ issuer: origin(settings), authorization_endpoint: `${origin(settings)}/services/oauth2/authorize`, token_endpoint: `${origin(settings)}/services/oauth2/token` }),
-  apiOrigins: (settings) => [origin(settings)], checkOperation: "limits.read",
+  oauth: (settings) => ({ issuer: accountOrigin(settings), authorization_endpoint: `${accountOrigin(settings)}/services/oauth2/authorize`, token_endpoint: `${accountOrigin(settings)}/services/oauth2/token` }),
+  apiOrigins: (settings) => [accountOrigin(settings)], checkOperation: "limits.read",
   async normalizeTokenResponse(response, { settings }) {
     if (!response.ok) return response;
     let value;
     try { value = await response.clone().json(); } catch { /* reported below */ }
-    if (!record(value) || ![origin(settings), origin(settings) + "/"].includes(value.instance_url) || typeof value.scope !== "string" || !value.scope.trim()) {
+    if (!isRecord(value) || ![accountOrigin(settings), accountOrigin(settings) + "/"].includes(value.instance_url) || typeof value.scope !== "string" || !value.scope.trim()) {
       throw new ConnectorError("connector_response_invalid", "Salesforce returned an invalid grant or a different organisation.", { statusCode: 502, messageCode: "connectors.salesforce.returnedInvalidGrantDifferentOrganisation" });
     }
     // Salesforce can omit expiry. Renew after five minutes of use as a local
@@ -54,7 +54,7 @@ const salesforceProvider = Object.freeze({
       scopes: ["api"],
       request(input, settings) {
         const values = validateSchemaPayload({ schema: nextSchema, mode: "replace" }, input, { statusCode: 422 });
-        return { method: "GET", url: origin(settings) + values.nextRecordsUrl };
+        return { method: "GET", url: accountOrigin(settings) + values.nextRecordsUrl };
       },
       validateResult: queryResult
     }
@@ -72,7 +72,7 @@ const salesforceProvider = Object.freeze({
       if (response.status === 400) throw new ConnectorError("connector_query_invalid", "Salesforce rejected the query or object. Check its API names and the user's permissions.", { statusCode: 422, messageCode: "connectors.salesforce.rejectedQueryObjectCheckApi" });
       throw Object.assign(new Error("Salesforce request failed."), { status: response.status });
     }
-    if (response.status !== 200 || !record(value)) throw new ConnectorError("connector_response_invalid", "Salesforce returned an unexpected response.", { statusCode: 502, messageCode: "connectors.shared.unexpectedResponse", messageParams: { provider: "Salesforce" } });
+    if (response.status !== 200 || !isRecord(value)) throw new ConnectorError("connector_response_invalid", "Salesforce returned an unexpected response.", { statusCode: 502, messageCode: "connectors.shared.unexpectedResponse", messageParams: { provider: "Salesforce" } });
     const url = new URL(address);
     if (url.pathname.endsWith("/describe") && value.name !== url.pathname.split("/").at(-2)) {
       throw new ConnectorError("connector_response_invalid", "Salesforce described a different object.", { statusCode: 502, messageCode: "connectors.salesforce.describedDifferentObject" });

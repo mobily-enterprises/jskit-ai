@@ -99,44 +99,41 @@ function createGoogleAdsSearchService({ connections, configuration, context, int
     if (details.ads.length > 20 || details.targets.length > 30 || details.keywords.length > 30) error("This campaign exceeds the bounded Search review. Manage it in Google Ads.", { messageCode: "connectors.googleAdsSearch.campaignExceedsBoundedSearchReview" });
     return { ...details, reviewId: review(details) };
   }
-  return {
-    async discover(id) {
-      if (!id) return { accounts: (await invoke("customers.listAccessible", {})).resourceNames || [] };
-      const selected = await account(id);
-      return { account: selected,
-        clients: selected.manager ? (await invoke("customers.listClients", { customerId: id })).results || [] : [],
-        conversions: await query(id, "SELECT conversion_action.id, conversion_action.name, conversion_action.status, conversion_action.type, conversion_action.tag_snippets FROM conversion_action WHERE conversion_action.type = 'WEBPAGE' AND conversion_action.status = 'ENABLED' LIMIT 50"),
-        campaigns: await query(id, "SELECT campaign.id, campaign.name, campaign.status FROM campaign WHERE campaign.advertising_channel_type = 'SEARCH' AND campaign.status != 'REMOVED' LIMIT 50") };
-    },
-    async targets(id, name) {
-      customer(id);
-      if (typeof name !== "string" || !/^[\p{L}\p{N} .-]{2,80}$/u.test(name)) error("Enter a location name using letters, numbers, spaces, dots or hyphens.", { messageCode: "connectors.googleAdsSearch.enterLocationNameUsingLetters" });
-      return { locations: await query(id, `SELECT geo_target_constant.id, geo_target_constant.canonical_name, geo_target_constant.status FROM geo_target_constant WHERE geo_target_constant.name LIKE '%${name}%' AND geo_target_constant.status = 'ENABLED' LIMIT 20`),
-        languages: await query(id, "SELECT language_constant.id, language_constant.name FROM language_constant WHERE language_constant.targetable = TRUE LIMIT 100") };
-    },
-    preview,
-    async create(reviewId) {
-      const checked = await preview();
-      if (reviewId !== checked.reviewId) error("The Search plan changed. Review it again before creation.", { messageCode: "connectors.googleAdsSearch.searchPlanChangedReviewAgain" });
-      const response = await invoke("search.createPaused", checked.plan);
-      const resource = response.mutateOperationResponses.find(item => item.campaignResult)?.campaignResult.resourceName;
-      return { campaignId: resource.split("/").at(-1), status: "PAUSED" };
-    },
-    createConversion: ({ customerId, name }) => invoke("conversions.createWebsite", { customerId, name }),
-    campaign,
-    async launch({ campaignId, reviewId, trackingConfirmed, billingConfirmed }) {
-      const current = await campaign(campaignId);
-      if (current.reviewId !== reviewId) error("The campaign changed. Inspect and approve it again.", { messageCode: "connectors.googleAdsSearch.campaignChangedInspectApproveAgain" });
-      if (trackingConfirmed !== true || billingConfirmed !== true) error("Confirm installed conversion tracking and billing/advertiser readiness before launch.", { messageCode: "connectors.googleAdsSearch.confirmInstalledConversionTrackingBilling" });
-      if (current.account.manager || current.account.status !== "ENABLED") error("Choose an active client account.", { messageCode: "connectors.googleAdsSearch.chooseActiveClientAccount" });
-      if (current.campaign.containsEuPoliticalAdvertising !== "DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING" ||
-          !current.customGoals?.length || current.customGoals[0].customConversionGoal?.status !== "ENABLED") error("Review a non-political Search campaign with an enabled custom conversion goal.", { messageCode: "connectors.googleAdsSearch.reviewNonPoliticalSearchCampaign" });
-      if (!current.ads.length || !current.keywords.length || current.campaign.biddingStrategyType !== "MANUAL_CPC") error("This screen launches only Search campaigns with manual CPC, ads and keywords. Manage other campaigns in Google Ads.", { messageCode: "connectors.googleAdsSearch.screenLaunchesSearchCampaignsManual" });
-      if (current.campaign.status !== "PAUSED") error("Only a paused campaign can be launched here.", { messageCode: "connectors.googleAdsSearch.pausedCampaignCanLaunchedHere" });
-      return invoke("campaigns.setStatus", { customerId: current.customerId, campaignId, status: "ENABLED" });
-    },
-    pause: id => invoke("campaigns.setStatus", { customerId: plan().customerId, campaignId: campaignId(id), status: "PAUSED" }),
-    report: async () => ({ campaigns: await query(plan().customerId, "SELECT campaign.id, campaign.name, campaign.status, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions FROM campaign WHERE segments.date DURING LAST_30_DAYS AND campaign.advertising_channel_type = 'SEARCH' LIMIT 50") })
-  };
+  async function discover(id) {
+    if (!id) return { accounts: (await invoke("customers.listAccessible", {})).resourceNames || [] };
+    const selected = await account(id);
+    return { account: selected,
+      clients: selected.manager ? (await invoke("customers.listClients", { customerId: id })).results || [] : [],
+      conversions: await query(id, "SELECT conversion_action.id, conversion_action.name, conversion_action.status, conversion_action.type, conversion_action.tag_snippets FROM conversion_action WHERE conversion_action.type = 'WEBPAGE' AND conversion_action.status = 'ENABLED' LIMIT 50"),
+      campaigns: await query(id, "SELECT campaign.id, campaign.name, campaign.status FROM campaign WHERE campaign.advertising_channel_type = 'SEARCH' AND campaign.status != 'REMOVED' LIMIT 50") };
+  }
+  async function targets(id, name) {
+    customer(id);
+    if (typeof name !== "string" || !/^[\p{L}\p{N} .-]{2,80}$/u.test(name)) error("Enter a location name using letters, numbers, spaces, dots or hyphens.", { messageCode: "connectors.googleAdsSearch.enterLocationNameUsingLetters" });
+    return { locations: await query(id, `SELECT geo_target_constant.id, geo_target_constant.canonical_name, geo_target_constant.status FROM geo_target_constant WHERE geo_target_constant.name LIKE '%${name}%' AND geo_target_constant.status = 'ENABLED' LIMIT 20`),
+      languages: await query(id, "SELECT language_constant.id, language_constant.name FROM language_constant WHERE language_constant.targetable = TRUE LIMIT 100") };
+  }
+  async function create(reviewId) {
+    const checked = await preview();
+    if (reviewId !== checked.reviewId) error("The Search plan changed. Review it again before creation.", { messageCode: "connectors.googleAdsSearch.searchPlanChangedReviewAgain" });
+    const response = await invoke("search.createPaused", checked.plan);
+    const resource = response.mutateOperationResponses.find(item => item.campaignResult)?.campaignResult.resourceName;
+    return { campaignId: resource.split("/").at(-1), status: "PAUSED" };
+  }
+  const createConversion = ({ customerId, name }) => invoke("conversions.createWebsite", { customerId, name });
+  async function launch({ campaignId, reviewId, trackingConfirmed, billingConfirmed }) {
+    const current = await campaign(campaignId);
+    if (current.reviewId !== reviewId) error("The campaign changed. Inspect and approve it again.", { messageCode: "connectors.googleAdsSearch.campaignChangedInspectApproveAgain" });
+    if (trackingConfirmed !== true || billingConfirmed !== true) error("Confirm installed conversion tracking and billing/advertiser readiness before launch.", { messageCode: "connectors.googleAdsSearch.confirmInstalledConversionTrackingBilling" });
+    if (current.account.manager || current.account.status !== "ENABLED") error("Choose an active client account.", { messageCode: "connectors.googleAdsSearch.chooseActiveClientAccount" });
+    if (current.campaign.containsEuPoliticalAdvertising !== "DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING" ||
+        !current.customGoals?.length || current.customGoals[0].customConversionGoal?.status !== "ENABLED") error("Review a non-political Search campaign with an enabled custom conversion goal.", { messageCode: "connectors.googleAdsSearch.reviewNonPoliticalSearchCampaign" });
+    if (!current.ads.length || !current.keywords.length || current.campaign.biddingStrategyType !== "MANUAL_CPC") error("This screen launches only Search campaigns with manual CPC, ads and keywords. Manage other campaigns in Google Ads.", { messageCode: "connectors.googleAdsSearch.screenLaunchesSearchCampaignsManual" });
+    if (current.campaign.status !== "PAUSED") error("Only a paused campaign can be launched here.", { messageCode: "connectors.googleAdsSearch.pausedCampaignCanLaunchedHere" });
+    return invoke("campaigns.setStatus", { customerId: current.customerId, campaignId, status: "ENABLED" });
+  }
+  const pause = id => invoke("campaigns.setStatus", { customerId: plan().customerId, campaignId: campaignId(id), status: "PAUSED" });
+  const report = async () => ({ campaigns: await query(plan().customerId, "SELECT campaign.id, campaign.name, campaign.status, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions FROM campaign WHERE segments.date DURING LAST_30_DAYS AND campaign.advertising_channel_type = 'SEARCH' LIMIT 50") });
+  return Object.freeze({ discover, targets, preview, create, createConversion, campaign, launch, pause, report });
 }
 export { googleAdsSearchOperations, createGoogleAdsSearchService };

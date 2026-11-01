@@ -2,10 +2,10 @@ import { createSchema } from "json-rest-schema";
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { dbtSemanticLayerDefinition } from "../shared/dbt-semantic-layer.js";
 import { graphqlOperation } from "./graphqlOperation.js";
+import { isText } from "./connectorValues.js";
 
 const origin = (settings) => `https://${settings.host}`;
 const endpoint = (settings) => `${origin(settings)}/api/graphql`;
-const text = (value) => typeof value === "string" && value.length > 0;
 const description = (value) => value === null || typeof value === "string";
 const paging = {
   pageNum: { type: "integer", min: 1, max: 2_147_483_647, defaultTo: 1 },
@@ -14,7 +14,7 @@ const paging = {
 };
 const pageFields = "pageNum pageSize totalItems totalPages items { name description type }";
 const validPage = (page, typed = true) => Array.isArray(page?.items) && page.items.length <= 100 &&
-  page.items.every((item) => text(item?.name) && description(item.description) && (!typed || text(item.type))) &&
+  page.items.every((item) => isText(item?.name) && description(item.description) && (!typed || isText(item.type))) &&
   Number.isSafeInteger(page.pageNum) && page.pageNum >= 1 && Number.isSafeInteger(page.pageSize) && page.pageSize >= 1 && page.pageSize <= 100 &&
   Number.isSafeInteger(page.totalItems) && page.totalItems >= page.items.length && Number.isSafeInteger(page.totalPages) && page.totalPages >= 0;
 
@@ -43,15 +43,15 @@ const dbtSemanticLayerProvider = Object.freeze({
       where: { type: "array", validator: (value) => value.length <= 20 || "Use at most 20 filters.",
         items: { type: "object", schema: createSchema({ sql: { type: "string", required: true, minLength: 1, maxLength: 4000 } }) } },
       limit: { type: "integer", min: 1, max: 10000, defaultTo: 100 }
-    }, (data) => text(data?.createQuery?.queryId)),
+    }, (data) => isText(data?.createQuery?.queryId)),
     "queries.get": environmentOperation("query ConnectorDbtQueryResult($environmentId: BigInt!, $queryId: String!, $pageNum: Int!) { query(environmentId: $environmentId, queryId: $queryId, pageNum: $pageNum) { status error totalPages jsonResult(orient: TABLE, encoded: false) } }", {
       queryId: { type: "string", required: true, minLength: 1, maxLength: 512 },
       pageNum: { type: "integer", min: 1, max: 2_147_483_647, defaultTo: 1 }
-    }, (data) => text(data?.query?.status) && description(data.query.error) &&
+    }, (data) => isText(data?.query?.status) && description(data.query.error) &&
       (data.query.totalPages === null || (Number.isSafeInteger(data.query.totalPages) && data.query.totalPages >= 0)) &&
       (data.query.jsonResult === null || (typeof data.query.jsonResult === "object" && Array.isArray(data.query.jsonResult?.data) && Array.isArray(data.query.jsonResult?.schema?.fields)))),
     "environment.read": environmentOperation("query ConnectorDbtEnvironment($environmentId: BigInt!) { environmentInfo(environmentId: $environmentId) { dialect } }", {},
-      (data) => text(data?.environmentInfo?.dialect)),
+      (data) => isText(data?.environmentInfo?.dialect)),
     "metrics.list": environmentOperation(`query ConnectorDbtMetrics($environmentId: BigInt!, $pageNum: Int!, $pageSize: Int!, $search: String) { metricsPaginated(environmentId: $environmentId, pageNum: $pageNum, pageSize: $pageSize, search: $search) { ${pageFields} } }`, paging,
       (data) => validPage(data?.metricsPaginated)),
     "dimensions.list": environmentOperation(`query ConnectorDbtDimensions($environmentId: BigInt!, $metrics: [MetricInput!]!, $pageNum: Int!, $pageSize: Int!, $search: String) { dimensionsPaginated(environmentId: $environmentId, metrics: $metrics, pageNum: $pageNum, pageSize: $pageSize, search: $search) { ${pageFields} } }`, {

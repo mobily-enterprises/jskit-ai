@@ -2,10 +2,10 @@ import { isDeepStrictEqual } from "node:util";
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { microsoftFabricDefinition, delegatedScope, serviceScope } from "../shared/microsoft-fabric.js";
 import { jsonOperation } from "./jsonOperation.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
-const object = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 const name = (value) => typeof value === "string" && /^[_A-Za-z][_0-9A-Za-z]*$/u.test(value);
-const validResult = (value) => object(value?.data) &&
+const validResult = (value) => isRecord(value?.data) &&
   (value.errors === undefined || (Array.isArray(value.errors) && value.errors.length === 0));
 const endpoint = (settings) => settings.graphqlEndpoint;
 const permissions = [delegatedScope, serviceScope];
@@ -51,7 +51,7 @@ const microsoftFabricProvider = Object.freeze({
   operations: {
     "connection.check": fixedQuery("query ConnectorFabricCheck { __typename }", (data) => name(data.__typename)),
     "schema.types": fixedQuery("query ConnectorFabricTypes { __schema { types { name kind } queryType { name } mutationType { name } } }",
-      (data) => object(data.__schema) && Array.isArray(data.__schema.types) && data.__schema.types.every((type) => name(type?.name) &&
+      (data) => isRecord(data.__schema) && Array.isArray(data.__schema.types) && data.__schema.types.every((type) => name(type?.name) &&
         ["SCALAR", "OBJECT", "INTERFACE", "UNION", "ENUM", "INPUT_OBJECT", "LIST", "NON_NULL"].includes(type.kind)) &&
         name(data.__schema.queryType?.name) && (data.__schema.mutationType === null || name(data.__schema.mutationType?.name))),
     "graphql.execute": {

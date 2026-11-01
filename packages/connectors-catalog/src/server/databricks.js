@@ -1,19 +1,19 @@
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { databricksDefinition } from "../shared/databricks.js";
 import { jsonOperation } from "./jsonOperation.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 const origin = (settings) => new URL(settings.workspaceUrl).origin;
-const object = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 const identifier = (value) => Number.isSafeInteger(value) && value > 0;
 const pageToken = { type: "string", minLength: 1, maxLength: 8192 };
 const pagination = (value) => ["next_page_token", "prev_page_token"].every((key) => value[key] === undefined ||
   typeof value[key] === "string" && value[key].length > 0 && value[key].length <= 8192);
-const job = (value) => object(value) && identifier(value.job_id) &&
-  (value.settings === undefined || object(value.settings)) && (value.has_more === undefined || typeof value.has_more === "boolean");
+const job = (value) => isRecord(value) && identifier(value.job_id) &&
+  (value.settings === undefined || isRecord(value.settings)) && (value.has_more === undefined || typeof value.has_more === "boolean");
 const jobsList = jsonOperation((settings) => `${origin(settings)}/api/2.2/jobs/list`, {
   limit: { type: "integer", min: 1, max: 100, defaultTo: 20 },
   expand_tasks: { type: "boolean", defaultTo: false }, name: { type: "string", minLength: 1, maxLength: 4096 }, page_token: pageToken
-}, (value) => object(value) && pagination(value) && (value.jobs === undefined || Array.isArray(value.jobs) && value.jobs.every(job)));
+}, (value) => isRecord(value) && pagination(value) && (value.jobs === undefined || Array.isArray(value.jobs) && value.jobs.every(job)));
 const jobsGet = jsonOperation((settings) => `${origin(settings)}/api/2.2/jobs/get`, {
   job_id: { type: "integer", required: true, min: 1, max: Number.MAX_SAFE_INTEGER },
   include_trigger_state: { type: "boolean", defaultTo: false }, page_token: pageToken
@@ -44,7 +44,7 @@ const databricksProvider = Object.freeze({
     if (!response.ok) throw Object.assign(new Error("Databricks request failed."), { status: response.status });
     let result;
     try { result = await response.json(); } catch { /* checked below */ }
-    if (response.status !== 200 || !object(result) || result.error_code || result.error ||
+    if (response.status !== 200 || !isRecord(result) || result.error_code || result.error ||
       (url.pathname.endsWith("/list") && result?.jobs?.length > Number(url.searchParams.get("limit"))) ||
       (url.pathname.endsWith("/get") && result?.job_id !== Number(url.searchParams.get("job_id")))) {
       throw new ConnectorError("connector_response_invalid", "Databricks returned an unexpected job response.", { statusCode: 502, messageCode: "connectors.databricks.returnedUnexpectedJobResponse" });

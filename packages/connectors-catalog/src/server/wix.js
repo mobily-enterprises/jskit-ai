@@ -1,11 +1,12 @@
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
-import { guid, requestPath, sameRecord, cursor, querySchema, contactIdField } from "./wixValues.js";
+import { requestPath, sameRecord, cursor, querySchema, contactIdField } from "./wixValues.js";
 import { wixDefinition } from "../shared/wix.js";
 import { wixBookingOperations } from "./wixBookings.js";
 import { wixCmsOperations } from "./wixCms.js";
 import { wixStoreOperations } from "./wixStores.js";
+import { isUuid } from "./connectorValues.js";
 
 // The Wix provider: its API-key headers, site addressing and the site and contact
 // operations. The Bookings, eCommerce and Stores, and CMS operations live beside it.
@@ -24,7 +25,7 @@ const contactInfoSchema = createSchema({
     items: { type: "object", schema: createSchema({ phone: { type: "string", required: true, minLength: 1, maxLength: 50 },
       countryCode: { type: "string", validator: value => /^[A-Z]{2}$/u.test(value) || "Use a two-letter country code." }, primary: { type: "boolean" } }) } } }) }
 });
-const validContact = value => guid(value?.id) && Number.isSafeInteger(value.revision) && value.revision >= 0 &&
+const validContact = value => isUuid(value?.id) && Number.isSafeInteger(value.revision) && value.revision >= 0 &&
   value.info && typeof value.info === "object" && !Array.isArray(value.info);
 function contactOperation(action) {
   const fields = action === "get" ? { contactId: contactIdField } : {
@@ -73,7 +74,7 @@ const wixRuntime = {
           body: { query: { paging }, ...(search === undefined ? {} : { search }) } };
       },
       validateResult: value => Array.isArray(value?.contacts) && value.contacts.length <= 100 &&
-        value.contacts.every(contact => guid(contact?.id) && (contact.info === undefined || contact.info && typeof contact.info === "object" && !Array.isArray(contact.info))) &&
+        value.contacts.every(contact => isUuid(contact?.id) && (contact.info === undefined || contact.info && typeof contact.info === "object" && !Array.isArray(contact.info))) &&
         (value.pagingMetadata === undefined || value.pagingMetadata && typeof value.pagingMetadata === "object" && !Array.isArray(value.pagingMetadata) &&
           ["count", "offset", "total"].every(key => value.pagingMetadata[key] === undefined || Number.isSafeInteger(value.pagingMetadata[key]) && value.pagingMetadata[key] >= 0) &&
           (value.pagingMetadata.count === undefined || value.pagingMetadata.count === value.contacts.length))
@@ -84,7 +85,7 @@ const wixRuntime = {
         const paging = validateSchemaPayload({ schema: querySchema, mode: "replace" }, input, { statusCode: 422 });
         return { method: "POST", url: "https://www.wixapis.com/site-list/v2/sites/query", body: { query: { cursorPaging: paging } } };
       },
-      validateResult: (value) => Array.isArray(value?.sites) && value.sites.length <= 100 && value.sites.every((site) => guid(site?.id) &&
+      validateResult: (value) => Array.isArray(value?.sites) && value.sites.length <= 100 && value.sites.every((site) => isUuid(site?.id) &&
         ["name", "displayName", "viewUrl", "editUrl", "thumbnail"].every((key) => site[key] === undefined || typeof site[key] === "string") &&
         ["published", "premium", "domainConnected"].every((key) => site[key] === undefined || typeof site[key] === "boolean")) &&
         (value.metadata === undefined || value.metadata && typeof value.metadata === "object" && !Array.isArray(value.metadata) &&
@@ -102,10 +103,10 @@ function wixSiteOperation(operation) {
       let siteId = settings.siteId, values = input;
       if (input && Object.hasOwn(input, "siteId")) {
         ({ siteId, ...values } = input);
-        if (!guid(siteId)) throw new ConnectorError("connector_input_invalid", "Choose a valid Wix Site ID.", { statusCode: 422, messageCode: "connectors.wix.chooseValidSiteId" });
+        if (!isUuid(siteId)) throw new ConnectorError("connector_input_invalid", "Choose a valid Wix Site ID.", { statusCode: 422, messageCode: "connectors.wix.chooseValidSiteId" });
         const allowed = (settings.selectableSiteIds || "").split(",").map(id => id.trim().toLowerCase());
         if (!allowed.includes(siteId.toLowerCase())) throw new ConnectorError("connector_input_invalid", "This site is not enabled in the project's Selectable Site IDs.", { statusCode: 422, messageCode: "connectors.wix.siteNotEnabledProjectSelectable" });
-      } else if (!guid(siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422, messageCode: "connectors.wix.configureSiteIdFirst" });
+      } else if (!isUuid(siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422, messageCode: "connectors.wix.configureSiteIdFirst" });
       const request = operation.request(values, { ...settings, siteId });
       return { ...request, headers: { ...request.headers, "wix-site-id": siteId } };
     }

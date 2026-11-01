@@ -1,9 +1,9 @@
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { lightspeedDefinition } from "../shared/lightspeed.js";
 import { jsonOperation } from "./jsonOperation.js";
+import { isCount } from "./connectorValues.js";
 
 const apiOrigin = (settings) => `https://${settings.domainPrefix}.retail.lightspeed.app`;
-const versionNumber = (value) => Number.isSafeInteger(value) && value >= 0;
 const identifier = (value) => typeof value === "string" && /^[a-zA-Z0-9_-]{1,128}$/u.test(value);
 
 function collection(resource) {
@@ -13,12 +13,12 @@ function collection(resource) {
     page_size: { type: "integer", min: 1, max: 100, defaultTo: 20 },
     ...(resource === "sales" ? {} : { deleted: { type: "boolean", defaultTo: false } })
   }, (result) => {
-    if (!Array.isArray(result?.data) || !result.data.every((row) => identifier(row?.id) && versionNumber(row.version))) return false;
+    if (!Array.isArray(result?.data) || !result.data.every((row) => identifier(row?.id) && isCount(row.version))) return false;
     // The customer reference includes a response without the optional envelope version.
     if (resource === "customers" && result.version === undefined) return true;
     const { min, max } = result.version || {};
     return result.data.length === 0 ? min === null && max === null :
-      versionNumber(min) && versionNumber(max) && min <= max && result.data.every((row) => row.version >= min && row.version <= max);
+      isCount(min) && isCount(max) && min <= max && result.data.every((row) => row.version >= min && row.version <= max);
   });
   return {
     ...operation, scopes: [`${resource}:read`],
@@ -41,7 +41,7 @@ const inventoryRead = jsonOperation(settings => `${apiOrigin(settings)}/api/2026
   sort_direction: { type: "string", enum: ["asc", "desc"], defaultTo: "asc" },
   product_id: { type: "string", validator: value => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(value) || "Use a product UUID." },
   variants: { type: "boolean", defaultTo: false }
-}, result => Array.isArray(result) && result.every(row => row && typeof row === "object" && !Array.isArray(row) && versionNumber(row.version)), "POST");
+}, result => Array.isArray(result) && result.every(row => row && typeof row === "object" && !Array.isArray(row) && isCount(row.version)), "POST");
 
 const lightspeedProvider = Object.freeze({
   ...lightspeedDefinition,

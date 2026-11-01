@@ -2,6 +2,8 @@ import { createSchema } from "json-rest-schema";
 import { geminiEnterpriseDefinition, geminiEnterpriseScope } from "../shared/gemini-enterprise.js";
 import { googleProvider } from "./google.js";
 import { jsonOperation } from "./jsonOperation.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { isText } from "./connectorValues.js";
 
 function apiOrigin({ location = "global" } = {}) {
   return `https://${location === "global" ? "" : `${location}-`}discoveryengine.googleapis.com`;
@@ -9,12 +11,10 @@ function apiOrigin({ location = "global" } = {}) {
 function engineUrl(settings) {
   return `${apiOrigin(settings)}/v1/projects/${settings.projectId}/locations/${settings.location || "global"}/collections/default_collection/engines/${settings.engineId}`;
 }
-const object = (value) => Boolean(value && typeof value === "object" && !Array.isArray(value));
-const text = (value) => typeof value === "string" && value.length > 0;
 const geminiEnterpriseProvider = Object.freeze({
   ...googleProvider(geminiEnterpriseDefinition, apiOrigin(), "engine.get", {
     "engine.get": {
-      ...jsonOperation(engineUrl, {}, (result) => object(result) && !result.error && text(result.displayName)
+      ...jsonOperation(engineUrl, {}, (result) => isRecord(result) && !result.error && isText(result.displayName)
         && typeof result.name === "string" && /^projects\/[a-z0-9-]+\/locations\/(global|us|eu)\/collections\/default_collection\/engines\/[a-z0-9][a-z0-9_-]{0,62}$/u.test(result.name)),
       scopes: [geminiEnterpriseScope]
     },
@@ -33,12 +33,12 @@ const geminiEnterpriseProvider = Object.freeze({
           }) }
         }) },
         pageToken: { type: "string", minLength: 1, maxLength: 16000, noTrim: true }
-      }, (result) => object(result) && !result.error && text(result.attributionToken)
+      }, (result) => isRecord(result) && !result.error && isText(result.attributionToken)
         && (result.totalSize === undefined || Number.isInteger(result.totalSize) && result.totalSize >= 0)
         && (result.nextPageToken === undefined || typeof result.nextPageToken === "string")
         && (result.redirectUri === undefined || typeof result.redirectUri === "string")
         && (result.results === undefined || Array.isArray(result.results) && result.results.length <= 25
-          && result.results.every((item) => object(item) && text(item.id) && object(item.document))), "POST"),
+          && result.results.every((item) => isRecord(item) && isText(item.id) && isRecord(item.document))), "POST"),
       scopes: [geminiEnterpriseScope]
     }
   }),

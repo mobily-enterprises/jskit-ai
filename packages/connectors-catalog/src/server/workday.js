@@ -3,21 +3,21 @@ import { jsonOperation } from "./jsonOperation.js";
 import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 function workersUrl(settings) {
   const { host, prefix = "", tenant } = workdayRestEndpoint(settings.restApiEndpoint);
   return `https://${host}${prefix}/api/staffing/v7/${tenant}/workers`;
 }
-const object = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
-const worker = (value) => object(value) && /^[a-f0-9]{32}$/u.test(value.id) && typeof value.descriptor === "string" &&
+const worker = (value) => isRecord(value) && /^[a-f0-9]{32}$/u.test(value.id) && typeof value.descriptor === "string" &&
   (value.workerId === undefined || typeof value.workerId === "string");
 const pageFields = {
   limit: { type: "integer", min: 1, max: 100, defaultTo: 20 },
   offset: { type: "integer", min: 0, max: Number.MAX_SAFE_INTEGER, defaultTo: 0 }
 };
-const organizationRecord = (value) => object(value) && typeof value.id === "string" && value.id.length > 0 &&
+const organizationRecord = (value) => isRecord(value) && typeof value.id === "string" && value.id.length > 0 &&
   typeof value.descriptor === "string";
-const organizationPage = (value) => object(value) && !value.error && !value.errors && Number.isSafeInteger(value.total) && value.total >= 0 &&
+const organizationPage = (value) => isRecord(value) && !value.error && !value.errors && Number.isSafeInteger(value.total) && value.total >= 0 &&
   Array.isArray(value.data) && value.data.length <= 100 && value.data.every(organizationRecord);
 function organizationRead(part) {
   const schema = createSchema({
@@ -68,10 +68,10 @@ function absenceRead(kind) {
       return { method: "GET", url: url.href };
     },
     validateResult(value) {
-      return object(value) && !value.error && !value.errors && Number.isSafeInteger(value.total) && value.total >= 0 &&
+      return isRecord(value) && !value.error && !value.errors && Number.isSafeInteger(value.total) && value.total >= 0 &&
         Array.isArray(value.data) && value.data.length <= 100 && value.data.every(row =>
-          kind === "statuses" ? organizationRecord(row) : object(row) && Number.isFinite(row.quantity) && object(row.unit) &&
-            (kind === "balances" ? object(row.absencePlan) : typeof row.date === "string" && object(row.status)));
+          kind === "statuses" ? organizationRecord(row) : isRecord(row) && Number.isFinite(row.quantity) && isRecord(row.unit) &&
+            (kind === "balances" ? isRecord(row.absencePlan) : typeof row.date === "string" && isRecord(row.status)));
     }
   };
 }
@@ -112,7 +112,7 @@ const workdayProvider = Object.freeze({
         if (url.href.length > 16384) throw new ConnectorError("connector_input_invalid", "Use a smaller report prompt request.", { statusCode: 422, messageCode: "connectors.workday.useSmallerReportPromptRequest" });
         return { method: "GET", url: url.href };
       },
-      validateResult: result => object(result) && !result.error && !result.errors && Array.isArray(result.Report_Entry) && result.Report_Entry.every(object)
+      validateResult: result => isRecord(result) && !result.error && !result.errors && Array.isArray(result.Report_Entry) && result.Report_Entry.every(isRecord)
     },
     "timeOff.balances": absenceRead("balances"),
     "timeOff.details": absenceRead("details"),
@@ -129,7 +129,7 @@ const workdayProvider = Object.freeze({
       offset: { type: "integer", min: 0, max: Number.MAX_SAFE_INTEGER, defaultTo: 0 },
       search: { type: "string", minLength: 1, maxLength: 512, noTrim: true },
       includeTerminatedWorkers: { type: "boolean" }, filterByOrgVisibility: { type: "boolean" }
-    }, (result) => object(result) && !result.error && !result.errors && Number.isSafeInteger(result.total) && result.total >= 0 &&
+    }, (result) => isRecord(result) && !result.error && !result.errors && Number.isSafeInteger(result.total) && result.total >= 0 &&
       Array.isArray(result.data) && result.data.length <= 100 && result.data.every(worker))
   }
 });

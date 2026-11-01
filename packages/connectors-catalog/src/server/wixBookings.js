@@ -1,7 +1,8 @@
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
-import { serializeNativeJson, guid, requestPath, sameRecord, cursor, querySchema, contactIdField, nativeJsonObjectField } from "./wixValues.js";
+import { serializeNativeJson, requestPath, sameRecord, cursor, querySchema, contactIdField, nativeJsonObjectField } from "./wixValues.js";
+import { isUuid } from "./connectorValues.js";
 
 // Wix Bookings operations: bookings, services, availability, staff, categories and service forms.
 
@@ -20,8 +21,8 @@ function bookingDirectoryOperation(kind) {
     validateResult(value) {
       const values = staff ? value?.staffMembers : value?.categories;
       const paging = value?.pagingMetadata;
-      return Array.isArray(values) && values.length <= 100 && values.every(item => guid(item?.id) && typeof item.name === "string" &&
-        (!staff || guid(item.resourceId))) && (paging === undefined || paging && typeof paging === "object" && !Array.isArray(paging) &&
+      return Array.isArray(values) && values.length <= 100 && values.every(item => isUuid(item?.id) && typeof item.name === "string" &&
+        (!staff || isUuid(item.resourceId))) && (paging === undefined || paging && typeof paging === "object" && !Array.isArray(paging) &&
           (paging.hasNext === undefined || typeof paging.hasNext === "boolean") &&
           (paging.cursors === undefined || paging.cursors && typeof paging.cursors === "object" && !Array.isArray(paging.cursors) &&
             ["next", "prev"].every(key => paging.cursors[key] === undefined || cursor(paging.cursors[key]))));
@@ -37,20 +38,20 @@ const serviceUpdateSchema = createSchema({
   payment: nativeJsonObjectField,
   onlineBooking: { type: "object", schema: createSchema({ enabled: { type: "boolean" }, requireManualApproval: { type: "boolean" }, allowMultipleRequests: { type: "boolean" } }) },
   defaultCapacity: { type: "integer", min: 1, max: 1000 },
-  staffMemberIds: { type: "array", validator: values => values.length > 0 && values.length <= 100 || "Select 1–100 staff resource IDs.", items: { type: "string", validator: value => guid(value) || "Use a staff resource ID." } },
+  staffMemberIds: { type: "array", validator: values => values.length > 0 && values.length <= 100 || "Select 1–100 staff resource IDs.", items: { type: "string", validator: value => isUuid(value) || "Use a staff resource ID." } },
   schedule: { type: "object", schema: createSchema({ availabilityConstraints: { type: "object", required: true, schema: createSchema({
     sessionDurations: { type: "array", validator: values => values.length > 0 && values.length <= 50 || "Use 1–50 appointment durations.", items: { type: "integer", min: 1 } },
     timeBetweenSessions: { type: "integer", min: 0 }
   }) } }) }
 });
-const validService = value => guid(value?.id) && typeof value.name === "string" && typeof value.revision === "string" && /^\d{1,19}$/u.test(value.revision) &&
+const validService = value => isUuid(value?.id) && typeof value.name === "string" && typeof value.revision === "string" && /^\d{1,19}$/u.test(value.revision) &&
   ["APPOINTMENT", "CLASS", "COURSE"].includes(value.type);
 const localDate = value => typeof value === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/u.test(value) &&
   Number.isFinite(Date.parse(`${value}Z`)) && new Date(`${value}Z`).toISOString().slice(0, 19) === value;
-const validSlot = value => guid(value?.serviceId) && localDate(value.localStartDate) && localDate(value.localEndDate) &&
+const validSlot = value => isUuid(value?.serviceId) && localDate(value.localStartDate) && localDate(value.localEndDate) &&
   value.localStartDate < value.localEndDate && typeof value.bookable === "boolean";
 const availabilityLocationSchema = createSchema({
-  id: { type: "string", validator: value => guid(value) || "Use the Wix business location ID." },
+  id: { type: "string", validator: value => isUuid(value) || "Use the Wix business location ID." },
   locationType: { type: "string", required: true, enum: ["BUSINESS", "CUSTOM", "CUSTOMER"] },
   name: { type: "string", maxLength: 1000 }, formattedAddress: { type: "string", maxLength: 4000 }
 });
@@ -68,19 +69,19 @@ function availabilityOperation(action, events = false) {
       customerChoices: { type: "object", schema: createSchema({
         durationInMinutes: { type: "integer", min: 1, max: 57600 },
         addOnIds: { type: "array", validator: values => values.length > 0 && values.length <= 21 && new Set(values).size === values.length || "Select 1–21 distinct add-ons.",
-          items: { type: "string", validator: value => guid(value) || "Use the add-on ID returned by Wix." } }
+          items: { type: "string", validator: value => isUuid(value) || "Use the add-on ID returned by Wix." } }
       }) },
-      includeResourceTypeIds: { type: "array", validator: values => values.length <= 100 || "Choose at most 100 resource types.", items: { type: "string", validator: value => guid(value) || "Use a resource type ID." } },
+      includeResourceTypeIds: { type: "array", validator: values => values.length <= 100 || "Choose at most 100 resource types.", items: { type: "string", validator: value => isUuid(value) || "Use a resource type ID." } },
       ...(action === "list" ? { locations: { type: "array", validator: values => values.length <= 5 || "Choose at most five locations.", items: { type: "object", schema: availabilityLocationSchema } } } : {
         location: { type: "object", schema: availabilityLocationSchema },
         resourceTypes: { type: "array", validator: values => values.length <= 8 || "Choose at most eight resource types.", items: { type: "object", schema: createSchema({
-          resourceTypeId: { type: "string", required: true, validator: value => guid(value) || "Use a resource type ID." },
-          resourceIds: { type: "array", required: true, validator: values => values.length > 0 && values.length <= 135 || "Choose 1–135 resource IDs.", items: { type: "string", validator: value => guid(value) || "Use a resource ID." } }
+          resourceTypeId: { type: "string", required: true, validator: value => isUuid(value) || "Use a resource type ID." },
+          resourceIds: { type: "array", required: true, validator: values => values.length > 0 && values.length <= 135 || "Choose 1–135 resource IDs.", items: { type: "string", validator: value => isUuid(value) || "Use a resource ID." } }
         }) } }
       })
     } : {}),
     ...(events ? { minBookableCapacity: { type: "integer", min: 1, max: 1000 } } : {}),
-    serviceId: { type: "string", validator: value => guid(value) || "Use the appointment service ID." },
+    serviceId: { type: "string", validator: value => isUuid(value) || "Use the appointment service ID." },
     ...(action === "list" ? {
       fromLocalDate: { type: "string", validator: value => localDate(value) || "Use YYYY-MM-DDThh:mm:ss without an offset." },
       toLocalDate: { type: "string", validator: value => localDate(value) || "Use YYYY-MM-DDThh:mm:ss without an offset." },
@@ -136,9 +137,9 @@ const setServiceLocationsSchema = createSchema({
   notifyParticipants: { type: "boolean", defaultTo: false }, notificationMessage: { type: "string", maxLength: 2000 }
 });
 const serviceCreateSchema = createSchema({ service: { ...nativeJsonObjectField, required: true } });
-const formSummarySchema = createSchema({ formId: { type: "string", required: true, validator: value => guid(value) || "Use the service form ID." } });
+const formSummarySchema = createSchema({ formId: { type: "string", required: true, validator: value => isUuid(value) || "Use the service form ID." } });
 const bookingCreateSchema = createSchema({
-  serviceId: { type: "string", required: true, validator: value => guid(value) || "Use the Wix service ID." },
+  serviceId: { type: "string", required: true, validator: value => isUuid(value) || "Use the Wix service ID." },
   kind: { type: "string", required: true, enum: ["APPOINTMENT", "CLASS", "COURSE"] },
   timeZone: { type: "string", required: true, maxLength: 150, validator: value => {
     try { new Intl.DateTimeFormat("en", { timeZone: value }); return true; } catch { return "Use an IANA time zone."; }
@@ -146,10 +147,10 @@ const bookingCreateSchema = createSchema({
   startDate: { type: "string", validator: value => localDate(value) || "Use the selected slot's local start date." },
   endDate: { type: "string", validator: value => localDate(value) || "Use the selected slot's local end date." },
   eventId: { type: "string", minLength: 36, maxLength: 250, validator: value => !/[\p{Cc}]/u.test(value) || "Use the returned event ID." },
-  scheduleId: { type: "string", validator: value => guid(value) || "Use the course schedule ID." },
-  resourceId: { type: "string", validator: value => guid(value) || "Use the selected resource ID." },
+  scheduleId: { type: "string", validator: value => isUuid(value) || "Use the course schedule ID." },
+  resourceId: { type: "string", validator: value => isUuid(value) || "Use the selected resource ID." },
   location: { type: "object", schema: createSchema({
-    id: { type: "string", validator: value => guid(value) || "Use the business location ID." },
+    id: { type: "string", validator: value => isUuid(value) || "Use the business location ID." },
     locationType: { type: "string", required: true, enum: ["OWNER_BUSINESS", "OWNER_CUSTOM", "CUSTOM"] },
     name: { type: "string", maxLength: 1000 }, formattedAddress: { type: "string", maxLength: 4000 }
   }) },
@@ -160,7 +161,7 @@ const bookingCreateSchema = createSchema({
         numberOfParticipants: { type: "integer", required: true, min: 1, max: 1000 },
         choices: { type: "array", required: true, validator: values => values.length > 0 && values.length <= 5 || "Use 1–5 service choices per group.",
           items: { type: "object", schema: createSchema({
-            optionId: { type: "string", required: true, validator: value => guid(value) || "Use the option ID returned by Wix." },
+            optionId: { type: "string", required: true, validator: value => isUuid(value) || "Use the option ID returned by Wix." },
             custom: { type: "string", minLength: 1, maxLength: 1000 },
             duration: { type: "object", schema: createSchema({ minutes: { type: "integer", required: true, min: 1, max: 44639 }, name: { type: "string", maxLength: 255 } }) }
           }) } }
@@ -168,8 +169,8 @@ const bookingCreateSchema = createSchema({
   }) },
   bookedAddOns: { type: "array", validator: values => values.length > 0 && values.length <= 21 && new Set(values.map(value => value?.id)).size === values.length || "Select 1–21 distinct add-ons.",
     items: { type: "object", schema: createSchema({
-      id: { type: "string", required: true, validator: value => guid(value) || "Use the add-on ID returned by Wix." },
-      groupId: { type: "string", validator: value => guid(value) || "Use the add-on group ID." },
+      id: { type: "string", required: true, validator: value => isUuid(value) || "Use the add-on ID returned by Wix." },
+      groupId: { type: "string", validator: value => isUuid(value) || "Use the add-on group ID." },
       quantity: { type: "integer", min: 1, max: 1000 }
     }) } },
   formSubmission: { type: "none", required: true, validator: value => {
@@ -182,19 +183,19 @@ const bookingCreateSchema = createSchema({
   notifyParticipants: { type: "boolean", defaultTo: false }, sendSmsReminder: { type: "boolean", defaultTo: false }
 });
 const bookingQuerySchema = createSchema({
-  bookingId: { type: "string", validator: value => guid(value) || "Use the Wix booking ID." },
+  bookingId: { type: "string", validator: value => isUuid(value) || "Use the Wix booking ID." },
   limit: { type: "integer", min: 1, max: 100, defaultTo: 20 },
   offset: { type: "integer", min: 0, max: 100000, defaultTo: 0 }
 });
 const bookingCancelSchema = createSchema({
-  bookingId: { type: "string", required: true, validator: value => guid(value) || "Use the Wix booking ID." },
+  bookingId: { type: "string", required: true, validator: value => isUuid(value) || "Use the Wix booking ID." },
   revision: { type: "none", required: true, validator: value => typeof value === "string" && /^\d{1,19}$/u.test(value) && BigInt(value) <= 9223372036854775807n || "Use the current booking revision string." },
   notifyParticipants: { type: "boolean", defaultTo: false },
   message: { type: "string", maxLength: 2000 },
   waiveCharges: { type: "boolean", defaultTo: false }
 });
 const bookingRescheduleSchema = createSchema({
-  bookingId: { type: "string", required: true, validator: value => guid(value) || "Use the Wix booking ID." },
+  bookingId: { type: "string", required: true, validator: value => isUuid(value) || "Use the Wix booking ID." },
   revision: { type: "none", required: true, validator: value => typeof value === "string" && /^\d{1,19}$/u.test(value) && BigInt(value) <= 9223372036854775807n || "Use the current booking revision string." },
   slot: { ...nativeJsonObjectField, required: true },
   notifyParticipants: { type: "boolean", defaultTo: false }, message: { type: "string", maxLength: 2000 }
@@ -202,7 +203,7 @@ const bookingRescheduleSchema = createSchema({
 function bookingConfirmationOperation(action) {
   const automatic = action === "confirmOrDecline";
   const schema = createSchema({
-    bookingId: { type: "string", required: true, validator: value => guid(value) || "Use the Wix booking ID." },
+    bookingId: { type: "string", required: true, validator: value => isUuid(value) || "Use the Wix booking ID." },
     ...(automatic ? {
       paymentStatus: { type: "string", required: true, enum: ["UNDEFINED", "NOT_PAID", "PAID", "PARTIALLY_PAID", "REFUNDED", "EXEMPT"] }
     } : {
@@ -219,7 +220,7 @@ function bookingConfirmationOperation(action) {
         `https://www.wixapis.com/_api/bookings-service/v2/bookings/${bookingId}/${action}`,
         body: automatic ? { paymentStatus } : { revision, participantNotification: { notifyParticipants, ...(message === undefined ? {} : { message }) } } };
     },
-    validateResult: (value, request) => guid(value?.booking?.id) &&
+    validateResult: (value, request) => isUuid(value?.booking?.id) &&
       sameRecord(value.booking.id === (automatic ? requestPath(request, -1).split(":")[0] : requestPath(request, -2)), "Wix returned a different booking. Check the operation outcome before retrying.", { messageCode: "connectors.wix.returnedDifferentBookingCheckOperation" }) &&
       typeof value.booking.revision === "string" && /^\d{1,19}$/u.test(value.booking.revision) &&
       BigInt(value.booking.revision) <= 9223372036854775807n && (automatic ? ["CONFIRMED", "PENDING", "DECLINED"].includes(value.booking.status) : value.booking.status === (action === "confirm" ? "CONFIRMED" : "DECLINED"))
@@ -238,14 +239,14 @@ const wixBookingOperations = {
       } else {
         let validTimeZone = false;
         try { validTimeZone = typeof slot.timezone === "string" && !!new Intl.DateTimeFormat("en", { timeZone: slot.timezone }); } catch {}
-        if (!guid(slot.serviceId) || !guid(slot.scheduleId) || !localDate(slot.startDate) || !localDate(slot.endDate) || slot.startDate >= slot.endDate || !validTimeZone) {
+        if (!isUuid(slot.serviceId) || !isUuid(slot.scheduleId) || !localDate(slot.startDate) || !localDate(slot.endDate) || slot.startDate >= slot.endDate || !validTimeZone) {
           throw new ConnectorError("connector_input_invalid", "For an appointment, supply its service/schedule IDs, increasing local slot dates and IANA timezone. Courses cannot be rescheduled.", { statusCode: 422, messageCode: "connectors.wix.appointmentSupplyServiceScheduleIds" });
         }
       }
       return { method: "POST", url: `https://www.wixapis.com/_api/bookings-service/v2/bookings/${bookingId}/reschedule`,
         body: { revision, slot, participantNotification: { notifyParticipants, ...(message === undefined ? {} : { message }) } } };
     },
-    validateResult: (value, request) => guid(value?.booking?.id) && sameRecord(value.booking.id === requestPath(request, -2), "Wix returned a different booking. Check the operation outcome before retrying.", { messageCode: "connectors.wix.returnedDifferentBookingCheckOperation" }) && typeof value.booking.revision === "string" && /^\d{1,19}$/u.test(value.booking.revision) &&
+    validateResult: (value, request) => isUuid(value?.booking?.id) && sameRecord(value.booking.id === requestPath(request, -2), "Wix returned a different booking. Check the operation outcome before retrying.", { messageCode: "connectors.wix.returnedDifferentBookingCheckOperation" }) && typeof value.booking.revision === "string" && /^\d{1,19}$/u.test(value.booking.revision) &&
       BigInt(value.booking.revision) <= 9223372036854775807n && typeof value.booking.status === "string" && value.booking.status.length > 0
   },
   "bookings.confirm": bookingConfirmationOperation("confirm"),
@@ -259,9 +260,9 @@ const wixBookingOperations = {
         body: value };
     },
     validateResult: value => Array.isArray(value?.addOnGroupsDetails) && value.addOnGroupsDetails.length <= 3 &&
-      value.addOnGroupsDetails.every(group => guid(group?.groupId) && typeof group.groupName === "string" &&
+      value.addOnGroupsDetails.every(group => isUuid(group?.groupId) && typeof group.groupName === "string" &&
         Number.isInteger(group.maxNumberOfAddOns) && group.maxNumberOfAddOns >= 0 &&
-        Array.isArray(group.addOns) && group.addOns.length <= 7 && group.addOns.every(addOn => guid(addOn?.addOnId) && typeof addOn.name === "string"))
+        Array.isArray(group.addOns) && group.addOns.length <= 7 && group.addOns.every(addOn => isUuid(addOn?.addOnId) && typeof addOn.name === "string"))
   },
   "bookingServices.getVariants": {
     scopes: [],
@@ -271,10 +272,10 @@ const wixBookingOperations = {
     },
     validateResult(value, request) {
       const variants = value?.serviceVariants;
-      return guid(variants?.id) && guid(variants.serviceId) && sameRecord(variants.serviceId === requestPath(request, -1), "Wix returned variants for a different service.", { messageCode: "connectors.wix.returnedVariantsDifferentService" }) &&
-        Array.isArray(variants.options?.values) && variants.options.values.every(option => guid(option?.id) && typeof option.type === "string") &&
+      return isUuid(variants?.id) && isUuid(variants.serviceId) && sameRecord(variants.serviceId === requestPath(request, -1), "Wix returned variants for a different service.", { messageCode: "connectors.wix.returnedVariantsDifferentService" }) &&
+        Array.isArray(variants.options?.values) && variants.options.values.every(option => isUuid(option?.id) && typeof option.type === "string") &&
         Array.isArray(variants.variants?.values) && variants.variants.values.every(variant =>
-          Array.isArray(variant?.choices) && variant.choices.every(choice => guid(choice?.optionId)));
+          Array.isArray(variant?.choices) && variant.choices.every(choice => isUuid(choice?.optionId)));
     }
   },
   "bookingCategories.list": bookingDirectoryOperation("categories"),
@@ -323,7 +324,7 @@ const wixBookingOperations = {
       if (options.deposit && (!options.online || options.inPerson || !money(rate?.deposit))) invalid("A deposit requires its amount, online payment and no in-person payment.", { messageCode: "connectors.wix.depositRequiresAmountOnlinePayment" });
       const durations = service.schedule?.availabilityConstraints?.sessionDurations;
       if (service.type === "APPOINTMENT") {
-        if (!Array.isArray(service.staffMemberIds) || !service.staffMemberIds.length || !service.staffMemberIds.every(guid)) invalid("Select at least one staff resource ID for the appointment service.", { messageCode: "connectors.wix.selectLeastStaffResourceId" });
+        if (!Array.isArray(service.staffMemberIds) || !service.staffMemberIds.length || !service.staffMemberIds.every(isUuid)) invalid("Select at least one staff resource ID for the appointment service.", { messageCode: "connectors.wix.selectLeastStaffResourceId" });
         if (!Array.isArray(durations) || !durations.length || !durations.every(value => Number.isInteger(value) && value > 0)) invalid("Provide appointment session durations in minutes.", { messageCode: "connectors.wix.provideAppointmentSessionDurationsMinutes" });
       } else if (durations !== undefined) invalid("Class/course session durations belong to their sessions, not service availability constraints.", { messageCode: "connectors.wix.classCourseSessionDurationsBelong" });
       return { method: "POST", url: "https://www.wixapis.com/_api/bookings/v2/services", body: { service } };
@@ -347,9 +348,9 @@ const wixBookingOperations = {
       const { formId } = validateSchemaPayload({ schema: formSummarySchema, mode: "replace" }, input, { statusCode: 422 });
       return { method: "GET", url: `https://www.wixapis.com/form-schema-service/v4/forms/${formId}/summary` };
     },
-    validateResult: (value, request) => guid(value?.formSummary?.id) && sameRecord(value.formSummary.id === requestPath(request, -2), "Wix returned a different form summary.", { messageCode: "connectors.wix.returnedDifferentFormSummary" }) &&
+    validateResult: (value, request) => isUuid(value?.formSummary?.id) && sameRecord(value.formSummary.id === requestPath(request, -2), "Wix returned a different form summary.", { messageCode: "connectors.wix.returnedDifferentFormSummary" }) &&
       Array.isArray(value.formSummary.fields) && value.formSummary.fields.length <= 500 &&
-      value.formSummary.fields.every(field => guid(field?.id) && typeof field.target === "string" && field.target.length > 0 && field.target.length <= 200 &&
+      value.formSummary.fields.every(field => isUuid(field?.id) && typeof field.target === "string" && field.target.length > 0 && field.target.length <= 200 &&
         typeof field.type === "string" && field.type.length > 0 && (field.label === undefined || typeof field.label === "string" && field.label.length <= 350) &&
         (field.deleted === undefined || typeof field.deleted === "boolean") && (field.options === undefined || Array.isArray(field.options) && field.options.length <= 400))
   },
@@ -377,7 +378,7 @@ const wixBookingOperations = {
         body: { booking: { bookedEntity, ...(participantsChoices ? { participantsChoices } : { totalParticipants: totalParticipants ?? 1 }),
           ...(bookedAddOns ? { bookedAddOns } : {}) }, formSubmission, participantNotification: { notifyParticipants }, sendSmsReminder } };
     },
-    validateResult: value => guid(value?.booking?.id) && typeof value.booking.revision === "string" && /^\d{1,19}$/u.test(value.booking.revision) &&
+    validateResult: value => isUuid(value?.booking?.id) && typeof value.booking.revision === "string" && /^\d{1,19}$/u.test(value.booking.revision) &&
       BigInt(value.booking.revision) <= 9223372036854775807n && typeof value.booking.status === "string" && value.booking.status.length > 0
   },
   "availability.list": availabilityOperation("list"),
@@ -390,7 +391,7 @@ const wixBookingOperations = {
         body: { query: { paging, ...(bookingId ? { filter: { id: bookingId } } : {}) }, withBookingAllowedActions: true } };
     },
     validateResult: (value, request) => Array.isArray(value?.extendedBookings) && value.extendedBookings.length <= 100 && value.extendedBookings.every(record =>
-      guid(record?.booking?.id) && typeof record.booking.revision === "string" && /^\d{1,19}$/u.test(record.booking.revision) && BigInt(record.booking.revision) <= 9223372036854775807n &&
+      isUuid(record?.booking?.id) && typeof record.booking.revision === "string" && /^\d{1,19}$/u.test(record.booking.revision) && BigInt(record.booking.revision) <= 9223372036854775807n &&
       typeof record.booking.status === "string" && record.booking.status.length > 0 &&
       (record.allowedActions === undefined || record.allowedActions && typeof record.allowedActions === "object" && !Array.isArray(record.allowedActions) &&
         ["cancel", "reschedule"].every(key => record.allowedActions[key] === undefined || typeof record.allowedActions[key] === "boolean"))) &&
@@ -409,7 +410,7 @@ const wixBookingOperations = {
         body: { revision, waiveCharges,
           participantNotification: { notifyParticipants, ...(message === undefined ? {} : { message }) } } };
     },
-    validateResult: (value, request) => guid(value?.booking?.id) && sameRecord(value.booking.id === requestPath(request, -2), "Wix returned a different booking. Check the operation outcome before retrying.", { messageCode: "connectors.wix.returnedDifferentBookingCheckOperation" }) && value.booking.status === "CANCELED" &&
+    validateResult: (value, request) => isUuid(value?.booking?.id) && sameRecord(value.booking.id === requestPath(request, -2), "Wix returned a different booking. Check the operation outcome before retrying.", { messageCode: "connectors.wix.returnedDifferentBookingCheckOperation" }) && value.booking.status === "CANCELED" &&
       typeof value.booking.revision === "string" && /^\d{1,19}$/u.test(value.booking.revision) && BigInt(value.booking.revision) <= 9223372036854775807n
   },
   "bookingServices.list": {

@@ -4,11 +4,11 @@ import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { googleAdsSearchOperations } from "./google-ads-search.js";
 import { googleAdsDefinition } from "../shared/google-ads.js";
 import { googleProvider, googleRead } from "./google.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 const origin = "https://googleads.googleapis.com";
 const api = `${origin}/v25`;
 const scope = "https://www.googleapis.com/auth/adwords";
-const record = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
 const customerId = { type: "string", required: true, noTrim: true, minLength: 10, maxLength: 10,
   validator: (value) => /^[0-9]{10}$/u.test(value) || "Use a 10-digit customer ID without hyphens." };
 const pageToken = { type: "string", minLength: 1, maxLength: 4096, noTrim: true,
@@ -27,8 +27,8 @@ function searchRequest(schema, input, settings, fixedQuery) {
 }
 
 function searchResult(value) {
-  return record(value) && !value.error &&
-    (value.results === undefined || Array.isArray(value.results) && value.results.length <= 10000 && value.results.every(record)) &&
+  return isRecord(value) && !value.error &&
+    (value.results === undefined || Array.isArray(value.results) && value.results.length <= 10000 && value.results.every(isRecord)) &&
     (value.nextPageToken === undefined || typeof value.nextPageToken === "string" && value.nextPageToken.length <= 4096 && !/[\p{Cc}]/u.test(value.nextPageToken)) &&
     (value.fieldMask === undefined || typeof value.fieldMask === "string") &&
     (value.totalResultsCount === undefined || typeof value.totalResultsCount === "string" && /^[0-9]+$/u.test(value.totalResultsCount));
@@ -38,7 +38,7 @@ const googleAdsProvider = Object.freeze({
   ...googleProvider(googleAdsDefinition, origin, "customers.listAccessible", {
     ...googleAdsSearchOperations,
     "customers.listAccessible": googleRead([scope], {}, () => ({ url: `${api}/customers:listAccessibleCustomers` }),
-      (value) => record(value) && !value.error && (value.resourceNames === undefined || Array.isArray(value.resourceNames) &&
+      (value) => isRecord(value) && !value.error && (value.resourceNames === undefined || Array.isArray(value.resourceNames) &&
         value.resourceNames.every((name) => typeof name === "string" && /^customers\/[0-9]{10}$/u.test(name)))),
     "reports.search": { scopes: [scope], request: (input, settings) => searchRequest(searchSchema, input, settings), validateResult: searchResult },
     "customers.listClients": { scopes: [scope], request: (input, settings) => searchRequest(clientsSchema, input, settings,
@@ -55,7 +55,7 @@ const googleAdsProvider = Object.freeze({
     if (!response.ok || value?.error) {
       const details = Array.isArray(value?.error?.details) ? value.error.details : [];
       const errors = details.flatMap((detail) => Array.isArray(detail?.errors) ? detail.errors : []);
-      const codes = errors.flatMap((error) => record(error?.errorCode) ? Object.values(error.errorCode) : []);
+      const codes = errors.flatMap((error) => isRecord(error?.errorCode) ? Object.values(error.errorCode) : []);
       if (response.status === 429 || value?.error?.status === "RESOURCE_EXHAUSTED" || errors.some((error) => error?.errorCode?.quotaError)) {
         throw new ConnectorError("connector_rate_limited", "Google Ads API capacity is exhausted. Check the Cloud project and account quotas.", { statusCode: 429, messageCode: "connectors.googleAds.apiCapacityExhaustedCheckCloud" });
       }
@@ -72,7 +72,7 @@ const googleAdsProvider = Object.freeze({
       if (response.status === 404) throw new ConnectorError("connector_resource_not_found", "This Google Ads resource is unavailable.", { statusCode: 404, messageCode: "connectors.googleAds.resourceUnavailable" });
       throw Object.assign(new Error("Google Ads request failed."), { status: response.ok ? 502 : response.status });
     }
-    if (response.status !== 200 || !record(value)) throw new ConnectorError("connector_response_invalid", "Google Ads returned an unexpected response.", { statusCode: 502, messageCode: "connectors.shared.unexpectedResponse", messageParams: { provider: "Google Ads" } });
+    if (response.status !== 200 || !isRecord(value)) throw new ConnectorError("connector_response_invalid", "Google Ads returned an unexpected response.", { statusCode: 502, messageCode: "connectors.shared.unexpectedResponse", messageParams: { provider: "Google Ads" } });
     return value;
   }
 });

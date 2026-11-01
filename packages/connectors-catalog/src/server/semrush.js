@@ -3,6 +3,7 @@ import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { semrushDefinition } from "../shared/semrush.js";
 import { jsonOperation } from "./jsonOperation.js";
+import { isCount } from "./connectorValues.js";
 
 const projectsUrl = "https://api.semrush.com/apis/v4/projects/v1/projects";
 const projectSchema = createSchema({ projectId: { type: "integer", required: true, min: 1, max: Number.MAX_SAFE_INTEGER } });
@@ -133,22 +134,21 @@ function v4Result(check, status = 200) {
     typeof value.meta.request_id === "string" && value.meta.request_id.length > 0 && value.error === undefined &&
     Boolean(check(value, new URL(request.url), request));
 }
-const count = (value) => Number.isSafeInteger(value) && value >= 0;
 // Backlink reports keep the requested scope and, when Semrush supplies them, the requested page bounds.
 function backlinkResult(report) {
   return v4Result((value, url) => {
     const { meta, data } = value;
     if (meta.scope !== undefined && meta.scope !== url.searchParams.get("scope")) return false;
-    if (report === "overview") return ["backlinks_count", "domains_count", "urls_count", "score"].every((field) => count(data?.[field]));
+    if (report === "overview") return ["backlinks_count", "domains_count", "urls_count", "score"].every((field) => isCount(data?.[field]));
     // Some report envelopes omit pagination metadata; validate it when supplied.
     return Array.isArray(data) && data.length <= Number(url.searchParams.get("limit")) && data.every((row) => {
       if (!row || typeof row !== "object" || Array.isArray(row)) return false;
       if (report === "links") return typeof row.source_url === "string" && typeof row.target_url === "string" &&
         typeof row.anchor === "string" && typeof row.is_nofollow === "boolean";
-      if (report === "ref-domains") return typeof row.domain === "string" && count(row.backlinks_count) && count(row.domain_score);
-      return typeof row.anchor === "string" && count(row.backlinks_count) && count(row.domains_count);
+      if (report === "ref-domains") return typeof row.domain === "string" && isCount(row.backlinks_count) && isCount(row.domain_score);
+      return typeof row.anchor === "string" && isCount(row.backlinks_count) && isCount(row.domains_count);
     }) && ["limit", "offset"].every((field) => meta[field] === undefined || String(meta[field]) === url.searchParams.get(field)) &&
-      (meta.total === undefined || count(meta.total));
+      (meta.total === undefined || isCount(meta.total));
   });
 }
 const requestedProject = (url) => Number(url.pathname.split("/").at(-1));
@@ -249,7 +249,7 @@ const semrushProvider = Object.freeze({
     }, v4Result(({ meta, data }, url) => {
       const limit = Number(url.searchParams.get("limit"));
       return meta.scope === url.searchParams.get("scope") && meta.limit === limit && meta.offset === Number(url.searchParams.get("offset")) &&
-        count(meta.total_count) && Array.isArray(data) && data.length <= limit && data.length <= meta.total_count && data.every(validProject);
+        isCount(meta.total_count) && Array.isArray(data) && data.length <= limit && data.length <= meta.total_count && data.every(validProject);
     })),
     "projects.delete": {
       scopes: [],

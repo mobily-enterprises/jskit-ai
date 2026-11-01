@@ -93,7 +93,6 @@ Exports
 - `asanaProvider`
 Local functions
 - `record(result)`
-- `list(result)`
 - `read(endpoint, input = {}, fields)`
 - `write(method, endpoint, fields, resultFields)`
 
@@ -113,7 +112,6 @@ Exports
 Exports
 - `attentionProvider`
 Local functions
-- `list(result)`
 - `record(result)`
 - `conversation(result)`
 - `operation(method, endpoint, fields, validateResult, prepare = value => value)`
@@ -202,6 +200,14 @@ Exports
 Local functions
 - `provider(definition, path)`
 
+### `src/server/connectorValues.js`
+Exports
+- `isCount(value)`
+- `isText(value)`
+- `isUuid(value)`
+- `hasDataList(result)`
+- `accountOrigin(settings)`
+
 ### `src/server/contentful.js`
 Exports
 - `contentfulProvider`
@@ -216,7 +222,6 @@ Exports
 - `databricksProvider`
 Local functions
 - `origin(settings)`
-- `object(value)`
 - `identifier(value)`
 - `pagination(value)`
 - `job(value)`
@@ -227,7 +232,6 @@ Exports
 Local functions
 - `origin(settings)`
 - `endpoint(settings)`
-- `text(value)`
 - `description(value)`
 - `validPage(page, typed = true)`
 - `environmentOperation(query, fields, validateData)`
@@ -276,8 +280,6 @@ Exports
 Local functions
 - `apiOrigin({ location = "global" } = {})`
 - `engineUrl(settings)`
-- `object(value)`
-- `text(value)`
 
 ### `src/server/github-api.js`
 Exports
@@ -326,7 +328,6 @@ Local functions
 Exports
 - `googleAdsProvider`
 Local functions
-- `record(value)`
 - `searchRequest(schema, input, settings, fixedQuery)`
 - `searchResult(value)`
 
@@ -465,7 +466,6 @@ Exports
 - `lightspeedProvider`
 Local functions
 - `apiOrigin(settings)`
-- `versionNumber(value)`
 - `identifier(value)`
 - `collection(resource)`
 
@@ -515,7 +515,6 @@ Local functions
 Exports
 - `microsoftFabricProvider`
 Local functions
-- `object(value)`
 - `name(value)`
 - `validResult(value)`
 - `endpoint(settings)`
@@ -647,11 +646,9 @@ Local functions
 Exports
 - `salesforceProvider`
 Local functions
-- `origin(settings)`
 - `endpoint(resource)`
 - `objectName(value)`
 - `locator(value)`
-- `record(value)`
 - `limits(value)`
 - `queryResult(value)`
 
@@ -670,7 +667,6 @@ Local functions
 - `parseSemrushCsv(text)`
 - `validProject(project)`
 - `v4Result(check, status = 200)`
-- `count(value)`
 - `backlinkResult(report)`
 - `requestedProject(url)`
 
@@ -709,10 +705,7 @@ Local functions
 Exports
 - `snowflakeProvider`
 Local functions
-- `origin(settings)`
-- `object(value)`
 - `database(value)`
-- `uuid(value)`
 - `sqlResult(value)`
 
 ### `src/server/storyblok.js`
@@ -746,7 +739,6 @@ Exports
 - `tiktokProvider`
 Local functions
 - `textId(value)`
-- `count(value)`
 - `checkReply(value)`
 - `profileOperation(fields, scope, validateUser)`
 
@@ -836,7 +828,6 @@ Local functions
 ### `src/server/wixValues.js`
 Exports
 - `serializeNativeJson(value)`
-- `guid(value)`
 - `requestPath(request, index)`
 - `sameRecord(matches, message, codes)`
 - `cursor(value)`
@@ -849,7 +840,6 @@ Exports
 - `createWizScanner({ configuration, authorize, resolveReference, resolveScanTarget, executable, environment = { PATH: process.env.PATH || "/usr/bin:/bin" }, timeoutMs = 600_000, maxReportBytes = 16 * 1024 * 1024 })`
 - `type WizScanTargetResolver`
 Local functions
-- `object(value)`
 - `failure(code, message, statusCode = 502, codes = {})`
 - `runCli(executable, args, options, signal, timeoutMs)`
 
@@ -894,7 +884,6 @@ Exports
 - `workdayProvider`
 Local functions
 - `workersUrl(settings)`
-- `object(value)`
 - `worker(value)`
 - `organizationRecord(value)`
 - `organizationPage(value)`

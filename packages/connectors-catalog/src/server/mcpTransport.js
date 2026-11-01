@@ -21,6 +21,12 @@ function mcpOperations(endpoint) {
   };
 }
 
+/**
+ * Sends one MCP request to the provider's endpoint over the connection's fetch.
+ * @param {string} endpoint
+ * @param {{ headers: Record<string, string>, signal: AbortSignal, body: any }} options
+ * @param {import("@jskit-ai/connectors-core/server/types").ConnectorExchangeTransport} transport
+ */
 async function exchangeMcp(endpoint, { headers, signal, body }, { fetchImpl }) {
   const client = new Client({ name: "jskit-connectors", version: "0.1.0" }, { capabilities: {} });
   let cleanup = false;
