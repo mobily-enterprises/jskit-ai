@@ -26,9 +26,7 @@ test("account security service returns no content result for other sessions", as
     id: "request-1"
   };
 
-  const result = await service.logoutOtherSessions(request, {
-    id: "user-1"
-  });
+  const result = await service.logoutOtherSessions(request);
 
   assert.equal(result, null);
   assert.deepEqual(calls, [request]);
@@ -59,7 +57,7 @@ test("unlinking returns the security status in the settings output contract", as
       }
     }
   });
-  const result = await service.unlinkOAuthProvider({}, { id: "user-1" }, { provider: "github" });
+  const result = await service.unlinkOAuthProvider({}, { provider: "github" });
   const output = outputOf(result.value);
   assert.equal(output.ok, true, JSON.stringify(output.fieldErrors));
   assert.equal(result.value.securityStatus.authMethods[1].canEnable, true);

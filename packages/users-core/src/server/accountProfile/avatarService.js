@@ -1,35 +1,15 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { DEFAULT_IMAGE_UPLOAD_POLICY } from "@jskit-ai/uploads-runtime/shared";
-import {
-  normalizeUploadPolicy,
-  readUploadBuffer,
-  validateUploadMimeType
-} from "@jskit-ai/uploads-runtime/server/policy/uploadPolicy";
+import { readUploadBuffer, validateUploadMimeType } from "@jskit-ai/uploads-runtime/server/policy/uploadPolicy";
 import { resolveUserProfile } from "../common/services/accountContextService.js";
 
-const DEFAULT_AVATAR_POLICY = DEFAULT_IMAGE_UPLOAD_POLICY;
-
-function resolveAvatarPolicy(policy = {}) {
-  return normalizeUploadPolicy(policy, DEFAULT_AVATAR_POLICY);
-}
-
-async function readAvatarBuffer(stream, { maxBytes = DEFAULT_AVATAR_POLICY.maxUploadBytes } = {}) {
-  return readUploadBuffer(stream, {
-    maxBytes,
-    fieldName: "avatar",
-    label: "Avatar"
-  });
-}
-
 /**
+ * Avatars are images within uploads-runtime's default image upload policy.
  * @param {object} dependencies
  * @param {import("../types.js").UserProfilesRepository} dependencies.userProfilesRepository
  * @param {import("../types.js").AvatarStorageService} dependencies.avatarStorageService
- * @param {object} [dependencies.avatarPolicy] Upload limits that replace the default image policy.
  */
-function createService({ userProfilesRepository, avatarStorageService, avatarPolicy }) {
-  const resolvedAvatarPolicy = resolveAvatarPolicy(avatarPolicy);
-
+function createService({ userProfilesRepository, avatarStorageService }) {
   async function resolveProfile(user) {
     const profile = await resolveUserProfile(userProfilesRepository, user);
     if (!profile) {
@@ -40,13 +20,15 @@ function createService({ userProfilesRepository, avatarStorageService, avatarPol
 
   async function uploadForUser(user, avatarUpload) {
     const profile = await resolveProfile(user);
-    validateUploadMimeType(avatarUpload.mimeType, resolvedAvatarPolicy, {
+    validateUploadMimeType(avatarUpload.mimeType, DEFAULT_IMAGE_UPLOAD_POLICY, {
       fieldName: "avatar",
       label: "Avatar"
     });
 
-    const buffer = await readAvatarBuffer(avatarUpload.stream, {
-      maxBytes: resolvedAvatarPolicy.maxUploadBytes
+    const buffer = await readUploadBuffer(avatarUpload.stream, {
+      maxBytes: DEFAULT_IMAGE_UPLOAD_POLICY.maxUploadBytes,
+      fieldName: "avatar",
+      label: "Avatar"
     });
 
     const avatarVersionMs = Date.now();
@@ -91,9 +73,4 @@ function createService({ userProfilesRepository, avatarStorageService, avatarPol
   });
 }
 
-const __testables = Object.freeze({
-  resolveAvatarPolicy,
-  readAvatarBuffer
-});
-
-export { createService, __testables };
+export { createService };

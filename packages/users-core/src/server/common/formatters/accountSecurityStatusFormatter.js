@@ -1,5 +1,4 @@
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { isRecord, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 function normalizeMfa(source) {
   const mfaSource = isRecord(source?.mfa) ? source.mfa : {};
@@ -49,7 +48,7 @@ function normalizeAuthMethods(sourceMethods) {
   };
 }
 
-function accountSecurityStatusFormatter(securityStatus = {}) {
+function accountSecurityStatusFormatter(securityStatus) {
   const source = isRecord(securityStatus) ? securityStatus : {};
   const policy = isRecord(source.policy) ? source.policy : {};
   const { methods: authMethods, enabledMethodsCount } = normalizeAuthMethods(source.authMethods);

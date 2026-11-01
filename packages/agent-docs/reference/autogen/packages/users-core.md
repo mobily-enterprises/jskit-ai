@@ -52,11 +52,7 @@ Exports
 
 ### `src/server/accountProfile/avatarService.js`
 Exports
-- `createService({ userProfilesRepository, avatarStorageService, avatarPolicy })`
-- `__testables`
-Local functions
-- `resolveAvatarPolicy(policy = {})`
-- `readAvatarBuffer(stream, { maxBytes = DEFAULT_AVATAR_POLICY.maxUploadBytes } = {})`
+- `createService({ userProfilesRepository, avatarStorageService })`
 
 ### `src/server/accountProfile/avatarStorageService.js`
 Exports
@@ -81,12 +77,12 @@ Exports
 Exports
 - `accountAvatarFormatter(profile, settings)`
 Local functions
-- `createGravatarUrl(email, size = 64)`
-- `createUploadedAvatarUrl(profile)`
+- `buildGravatarUrl(email, size)`
+- `buildUploadedAvatarUrl(profile)`
 
 ### `src/server/common/formatters/accountSecurityStatusFormatter.js`
 Exports
-- `accountSecurityStatusFormatter(securityStatus = {})`
+- `accountSecurityStatusFormatter(securityStatus)`
 Local functions
 - `normalizeMfa(source)`
 - `normalizeAuthMethods(sourceMethods)`
@@ -170,7 +166,7 @@ Exports
 - `createUsersBootstrapContributor({ userProfilesRepository, userSettingsRepository, authService })`
 Local functions
 - `getOAuthProviderCatalogPayload(authService)`
-- `createAnonymousBootstrapPayload({ surfaceAccess = {} })`
+- `buildAnonymousBootstrapPayload(surfaceAccess)`
 
 ### `src/server/usersExtensions.js`
 Exports
@@ -205,7 +201,7 @@ Exports
 
 ### `src/shared/operationMessages.js`
 Exports
-- `createOperationMessages({ validationMessage = "Validation failed.", apiValidationMessage = validationMessage } = {})`
+- `OPERATION_MESSAGES`
 
 ### `src/shared/resources/accountSettingsSchemas.js`
 Exports

@@ -275,7 +275,7 @@ Exports
 
 ### `src/shared/operationMessages.js`
 Exports
-- `createOperationMessages({ validationMessage = "Validation failed.", apiValidationMessage = validationMessage } = {})`
+- `OPERATION_MESSAGES`
 
 ### `src/shared/resources/workspaceAssistantOutputs.js`
 Exports

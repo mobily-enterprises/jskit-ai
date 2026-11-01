@@ -1,6 +1,5 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime";
-import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeLowerText, normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { accountAvatarFormatter } from "./common/formatters/accountAvatarFormatter.js";
 import { formatUserSettingsSection } from "./common/formatters/accountSettingsResponseFormatter.js";
 import { USER_SETTINGS_BOOTSTRAP_KEYS } from "../shared/resources/userSettingsResource.js";
@@ -32,14 +31,14 @@ function getOAuthProviderCatalogPayload(authService) {
   };
 }
 
-function createAnonymousBootstrapPayload({ surfaceAccess = {} }) {
+function buildAnonymousBootstrapPayload(surfaceAccess) {
   return {
     session: {
       authenticated: false
     },
     profile: null,
     app: {},
-    surfaceAccess: normalizeObject(surfaceAccess),
+    surfaceAccess,
     userSettings: null,
     requestMeta: {
       hasRequest: false
@@ -71,11 +70,9 @@ function createUsersBootstrapContributor({ userProfilesRepository, userSettingsR
       });
     }
 
-    const normalizedUser = authResult?.authenticated === true ? authResult?.actor || null : null;
+    const normalizedUser = authResult?.authenticated === true ? authResult.actor || null : null;
     const inheritedSurfaceAccess = normalizeObject(existingPayload.surfaceAccess);
-    let payload = createAnonymousBootstrapPayload({
-      surfaceAccess: inheritedSurfaceAccess
-    });
+    let payload = buildAnonymousBootstrapPayload(inheritedSurfaceAccess);
 
     if (normalizedUser) {
       const latestProfile = (await userProfilesRepository.findById(normalizedUser.id)) || normalizedUser;

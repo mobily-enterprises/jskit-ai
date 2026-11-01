@@ -92,7 +92,7 @@ function createService({ userSettingsRepository, userProfilesRepository, authSer
     }));
   }
 
-  async function readAvatar(_request, user) {
+  async function readAvatar(user) {
     const avatar = await avatarService.readForUser(user);
     if (!avatar) {
       throw new AppError(404, "Avatar not found.", { code: "users.avatar.notFound" });

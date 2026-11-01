@@ -34,7 +34,7 @@ test("account services throw coded errors whose catalog English matches", async 
     avatarService: { async readForUser() { return null; } }
   });
   await assert.rejects(() => profileService.getForUser({}, { id: 7 }), assertCodedError("users.profile.notFound"));
-  await assert.rejects(() => profileService.readAvatar({}, { id: 7 }), assertCodedError("users.avatar.notFound"));
+  await assert.rejects(() => profileService.readAvatar({ id: 7 }), assertCodedError("users.avatar.notFound"));
 });
 
 test("password change codes its field error and its success message", async () => {
@@ -45,7 +45,7 @@ test("password change codes its field error and its success message", async () =
   });
 
   await assert.rejects(
-    () => service.changePassword({}, { id: 7 }, { newPassword: "new-password", confirmPassword: "other" }),
+    () => service.changePassword({}, { newPassword: "new-password", confirmPassword: "other" }),
     (error) => {
       const coded = error.details.fieldErrorCodes.confirmPassword;
       assert.equal(coded.code, "users.security.passwordConfirmationMismatch");
@@ -54,7 +54,7 @@ test("password change codes its field error and its success message", async () =
     }
   );
 
-  const { response } = await service.changePassword({}, { id: 7 }, { newPassword: "new-password", confirmPassword: "new-password" });
+  const { response } = await service.changePassword({}, { newPassword: "new-password", confirmPassword: "new-password" });
   assert.deepEqual(response.value, { message: "Password updated.", messageCode: "users.security.passwordUpdated", messageParams: {} });
   assert.equal(catalogEnglish(response.value.messageCode), response.value.message);
 });

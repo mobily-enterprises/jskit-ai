@@ -33,11 +33,7 @@ function createAccountSecurityActions({ accountSecurityService }) {
         }
       },
       idempotency: "none",
-      execute: (input, context) => accountSecurityService.changePassword(
-        resolveRequest(context),
-        resolveActionUser(context, input),
-        input
-      )
+      execute: (input, context) => accountSecurityService.changePassword(resolveRequest(context), input)
     }),
     Object.freeze({
       id: "settings.security.password_method.toggle",
@@ -81,11 +77,7 @@ function createAccountSecurityActions({ accountSecurityService }) {
         }
       },
       idempotency: "none",
-      execute: (input, context) => accountSecurityService.startOAuthProviderLink(
-        resolveRequest(context),
-        resolveActionUser(context, input),
-        input
-      )
+      execute: (input, context) => accountSecurityService.startOAuthProviderLink(resolveRequest(context), input)
     }),
     Object.freeze({
       id: "settings.security.oauth.unlink",
@@ -106,11 +98,7 @@ function createAccountSecurityActions({ accountSecurityService }) {
         }
       },
       idempotency: "none",
-      execute: (input, context) => accountSecurityService.unlinkOAuthProvider(
-        resolveRequest(context),
-        resolveActionUser(context, input),
-        input
-      )
+      execute: (input, context) => accountSecurityService.unlinkOAuthProvider(resolveRequest(context), input)
     }),
     Object.freeze({
       id: "settings.security.sessions.logout_others",
@@ -131,7 +119,7 @@ function createAccountSecurityActions({ accountSecurityService }) {
         }
       },
       idempotency: "none",
-      execute: (input, context) => accountSecurityService.logoutOtherSessions(resolveRequest(context), resolveActionUser(context, input))
+      execute: (input, context) => accountSecurityService.logoutOtherSessions(resolveRequest(context))
     })
   ]);
 }

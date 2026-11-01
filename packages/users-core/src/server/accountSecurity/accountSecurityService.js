@@ -19,7 +19,7 @@ import { accountSecurityStatusFormatter } from "../common/formatters/accountSecu
  * @param {import("@jskit-ai/auth-core/server/types").AuthService} dependencies.authService The installed provider's `auth.service`.
  */
 function createService({ userSettingsRepository, userProfilesRepository, authService }) {
-  async function changePassword(request, user, payload) {
+  async function changePassword(request, payload) {
     if (payload.confirmPassword !== payload.newPassword) {
       throw createValidationError({
         confirmPassword: {
@@ -68,14 +68,14 @@ function createService({ userSettingsRepository, userProfilesRepository, authSer
     });
   }
 
-  async function startOAuthProviderLink(request, user, payload) {
+  async function startOAuthProviderLink(request, payload) {
     return authService.startProviderLink(request, {
       provider: payload.provider,
       returnTo: payload.returnTo
     });
   }
 
-  async function unlinkOAuthProvider(request, user, payload) {
+  async function unlinkOAuthProvider(request, payload) {
     const result = await authService.unlinkProvider(request, {
       provider: payload.provider
     });
@@ -84,7 +84,7 @@ function createService({ userSettingsRepository, userProfilesRepository, authSer
     });
   }
 
-  async function logoutOtherSessions(request, _user) {
+  async function logoutOtherSessions(request) {
     await authService.signOutOtherSessions(request);
 
     return null;

@@ -4,13 +4,13 @@ import { DEFAULT_USER_SETTINGS } from "../../../shared/settings.js";
 
 const ACCOUNT_AVATAR_FILE_PATH = "/api/settings/profile/avatar";
 
-function createGravatarUrl(email, size = 64) {
+function buildGravatarUrl(email, size) {
   const normalizedEmail = normalizeLowerText(email);
   const hash = createHash("sha256").update(normalizedEmail).digest("hex");
   return `https://www.gravatar.com/avatar/${hash}?d=mp&s=${Number(size) || 64}`;
 }
 
-function createUploadedAvatarUrl(profile) {
+function buildUploadedAvatarUrl(profile) {
   const storageKey = String(profile?.avatarStorageKey || "").trim();
   if (!storageKey) {
     return null;
@@ -26,8 +26,8 @@ function createUploadedAvatarUrl(profile) {
 
 function accountAvatarFormatter(profile, settings) {
   const size = Number(settings?.avatarSize || DEFAULT_USER_SETTINGS.avatarSize);
-  const uploadedUrl = createUploadedAvatarUrl(profile);
-  const gravatarUrl = createGravatarUrl(profile?.email, size);
+  const uploadedUrl = buildUploadedAvatarUrl(profile);
+  const gravatarUrl = buildGravatarUrl(profile?.email, size);
 
   return {
     uploadedUrl,
