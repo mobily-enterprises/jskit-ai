@@ -235,6 +235,52 @@ test("defineCrudJsonApiFeature makes workspace scope and permissions explicit", 
   await runtime.shutdown();
 });
 
+test("a scoped CRUD custom action's input keeps its own mode, and one without a mode is create", async () => {
+  const routes = [];
+  const feature = defineCrudJsonApiFeature({
+    resource: createBookResource({ autofilter: "workspace" }),
+    surface: "app",
+    scope: {
+      routeBase: "/w/:workspaceSlug",
+      actionInputValidator: schemaDefinition({ workspaceSlug: { type: "string", required: true } }),
+      routeParamsValidator: schemaDefinition({ workspaceSlug: { type: "string", required: true } }),
+      inputKeys: ["workspaceSlug"],
+      input: (request) => ({ workspaceSlug: request.input.params.workspaceSlug })
+    },
+    actions: {
+      archive: {
+        input: { schema: createSchema({ recordId: { type: "string", required: true } }) },
+        execute: ({ input }) => input
+      },
+      rename: {
+        input: schemaDefinition({ recordId: { type: "string", required: true }, title: { type: "string" } }),
+        execute: ({ input }) => input
+      }
+    }
+  });
+  let actions;
+  const observer = defineProvider({
+    id: "test.custom-mode-observer",
+    requires: { actions: "runtime.actions" },
+    setup({ actions: value }) {
+      actions = value;
+      return {};
+    }
+  });
+  const runtime = createCapabilityRuntime({
+    inputs: { "runtime.logger": silentLogger },
+    providers: [EventProvider, ActionProvider, ...createFeatureDependencies(routes), feature, observer]
+  });
+
+  await runtime.start();
+  const archive = actions.getDefinition("crud.books.archive").input;
+  const rename = actions.getDefinition("crud.books.rename").input;
+  assert.equal(archive.mode, "create");
+  assert.deepEqual(Object.keys(archive.schema.getFieldDefinitions()), ["workspaceSlug", "recordId"]);
+  assert.equal(rename.mode, "patch");
+  await runtime.shutdown();
+});
+
 test("generated CRUD actions expose truthful assistant contracts without changing native results", async () => {
   const resource = createBookResource();
   const document = (id, title) => ({

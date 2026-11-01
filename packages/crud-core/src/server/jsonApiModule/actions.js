@@ -5,6 +5,7 @@ import {
 import { RestApiWriteError } from "json-rest-api";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { ARCHITECTURE_ID_PATTERN } from "@jskit-ai/kernel/shared/capabilities";
+import { ACTION_INPUT_DEFAULT_MODE } from "@jskit-ai/kernel/server/actions";
 import {
   createJsonApiFieldsetsQueryValidator,
   createStandardCrudListQueryValidators,
@@ -127,7 +128,9 @@ function normalizeAdditionalActions(definitions, { namespace, surface, permissio
       surfaces: definition.surfaces || [surface],
       permission: definition.permission || permissionForAction(actionName),
       input: scopeInputValidator
-        ? composeSchemaDefinitions([scopeInputValidator, definition.input])
+        ? composeSchemaDefinitions([scopeInputValidator, definition.input], {
+          mode: definition.input.mode || ACTION_INPUT_DEFAULT_MODE
+        })
         : definition.input,
       idempotency: definition.idempotency || (kind === "query" ? "none" : "optional"),
       events: definition.events || []
