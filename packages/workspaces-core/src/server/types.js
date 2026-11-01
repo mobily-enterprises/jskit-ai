@@ -2,6 +2,8 @@
 
 /** @typedef {ReturnType<typeof import("./workspacesRuntime.js").createWorkspacesRuntime>} WorkspacesCore */
 
+/** @typedef {ReturnType<typeof import("./workspaceMembers/workspaceMembersService.js").createService>} WorkspaceMembersService The workspace members service: `services.members` of `workspaces.core`. */
+
 /** @typedef {ReturnType<typeof import("./common/repositories/workspacesRepository.js").createRepository>} WorkspacesRepository */
 /** @typedef {ReturnType<typeof import("./common/repositories/workspaceMembershipsRepository.js").createRepository>} WorkspaceMembershipsRepository */
 /** @typedef {ReturnType<typeof import("./common/repositories/workspaceInvitesRepository.js").createRepository>} WorkspaceInvitesRepository */

@@ -50,9 +50,11 @@ makes the destination depend on what ran before.
   type (`AppBooks` is crud-core's `CrudResourceApi`).
 - A type used in two or more files is named once, in the `types.js` of the
   package that owns it: no repeated `ReturnType<typeof createX>` and no
-  repeated `X["y"]`. Knex is `RuntimeKnex`, a router `RuntimeRouter`, a logger
-  `RuntimeLogger`. Import a type from its owner, never re-alias it through
-  another module.
+  repeated `X["y"]`. Knex is `RuntimeKnex`, a Knex transaction
+  `RuntimeKnexTransaction` and a query `RuntimeKnexQueryBuilder`, a router
+  `RuntimeRouter`, a logger `RuntimeLogger`, the workspace members service
+  `WorkspaceMembersService`. Import a type from its owner, never re-alias it
+  through another module.
 - Never hand-write an interface for a token with one implementation. Only a
   token with several implementations (`auth.service`) is a hand-written
   contract, in its owning package, with optional operations as optional

@@ -153,6 +153,7 @@ Exports
 ### `src/server/types.js`
 Exports
 - `type WorkspacesCore`
+- `type WorkspaceMembersService`
 - `type WorkspacesRepository`
 - `type WorkspaceMembershipsRepository`
 - `type WorkspaceInvitesRepository`
@@ -214,7 +215,6 @@ Exports
 ### `src/server/workspaceMembers/workspaceMembersService.js`
 Exports
 - `createService({ workspaceMembershipsRepository, workspaceInvitesRepository, inviteExpiresInMs, roleCatalog, workspaceInvitationsEnabled, inviteUrlBuilder, workspaceInviteMailer, workspaceInviteEmailTemplate, i18n, userProfilesRepository, userSettingsRepository })`
-- `type WorkspaceMembersService`
 Local functions
 - `roleNotAssignableError()`
 

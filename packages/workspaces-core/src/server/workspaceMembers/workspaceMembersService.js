@@ -402,6 +402,4 @@ function createService({
   });
 }
 
-/** @typedef {ReturnType<typeof createService>} WorkspaceMembersService */
-
 export { createService };

@@ -9,8 +9,8 @@ import { retryDeadlocks } from "./repositoryOptions.js";
 function createTransactionManager({ knex }) {
   /**
    * @template T
-   * @param {(trx: import("knex").Knex.Transaction) => Promise<T>} work
-   * @param {{ trx?: import("knex").Knex.Transaction | null }} [options] A transaction to run in instead of a new one.
+   * @param {(trx: import("../server/types.js").RuntimeKnexTransaction) => Promise<T>} work
+   * @param {{ trx?: import("../server/types.js").RuntimeKnexTransaction | null }} [options] A transaction to run in instead of a new one.
    */
   async function inTransaction(work, { trx = null } = {}) {
     if (typeof work !== "function") {

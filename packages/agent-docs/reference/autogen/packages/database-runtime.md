@@ -56,6 +56,8 @@ Exports
 - `type RuntimeDatabase`
 - `type RuntimeKnex`
 - `type RuntimeTransactionManager`
+- `type RuntimeKnexTransaction`
+- `type RuntimeKnexQueryBuilder`
 - `type RuntimeDatabaseDriver`
 
 ### `src/shared/databaseClient.js`

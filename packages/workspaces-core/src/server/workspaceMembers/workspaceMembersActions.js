@@ -63,7 +63,7 @@ const revokeInviteActionInput = composeSchemaDefinitions([
   context: "workspaceMembersActions.revokeInviteActionInput"
 });
 
-/** @param {{ workspaceMembersService: import("./workspaceMembersService.js").WorkspaceMembersService }} dependencies */
+/** @param {{ workspaceMembersService: import("../types.js").WorkspaceMembersService }} dependencies */
 function createWorkspaceMembersActions({ workspaceMembersService }) {
   return Object.freeze([
     Object.freeze({
