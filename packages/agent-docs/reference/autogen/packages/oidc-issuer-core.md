@@ -170,12 +170,13 @@ Local functions
 
 ### `src/server/previewIdentity.js`
 Exports
-- `executePreviewIdentityRequest(request, { env = process.env, fetchImpl = globalThis.fetch } = {})`
-- `runPreviewIdentityCommand({ env = process.env, fetchImpl = globalThis.fetch, stdin = process.stdin, stdout = process.stdout } = {})`
+- `DEFAULT_PREVIEW_IDENTITY_PROTOCOL`
+- `executePreviewIdentityRequest(request, { env = process.env, fetchImpl = globalThis.fetch, protocol = DEFAULT_PREVIEW_IDENTITY_PROTOCOL, localHostnames = [] } = {})`
+- `runPreviewIdentityCommand({ env = process.env, fetchImpl = globalThis.fetch, stdin = process.stdin, stdout = process.stdout, protocol = DEFAULT_PREVIEW_IDENTITY_PROTOCOL, localHostnames = [] } = {})`
 Local functions
-- `failure(requestId, code, message, statusCode = 400)`
+- `failure(protocol, requestId, code, message, statusCode = 400)`
 - `readInput(stream)`
-- `localOrigin(value)`
+- `localOrigin(value, localHostnames)`
 - `setCookies(response)`
 
 ### `src/server/providers/OidcIssuerProvider.js`
@@ -206,6 +207,7 @@ Exports
 Local functions
 - `loadDotEnv()`
 - `withKnex(work)`
+- `previewIdentityHost(args)`
 - `main(argv)`
 
 ### migrations

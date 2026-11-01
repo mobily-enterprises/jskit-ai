@@ -288,17 +288,17 @@ Exports
 
 ### `src/server/managedPreviewIdentity.js`
 Exports
-- `MANAGED_PREVIEW_IDENTITY_PROTOCOL`
-- `executeManagedPreviewIdentityRequest(value, { env = process.env, fetchImpl = globalThis.fetch } = {})`
-- `runManagedPreviewIdentityCommand({ env = process.env, fetchImpl = globalThis.fetch, stdin = process.stdin, stdout = process.stdout } = {})`
+- `DEFAULT_PREVIEW_IDENTITY_PROTOCOL`
+- `executeManagedPreviewIdentityRequest(value, { env = process.env, fetchImpl = globalThis.fetch, protocol = DEFAULT_PREVIEW_IDENTITY_PROTOCOL, localHostnames = [] } = {})`
+- `runManagedPreviewIdentityCommand({ env = process.env, fetchImpl = globalThis.fetch, stdin = process.stdin, stdout = process.stdout, protocol = DEFAULT_PREVIEW_IDENTITY_PROTOCOL, localHostnames = [] } = {})`
 Local functions
 - `commandError(message, code = "jskit_managed_preview_identity_failed", details = {})`
-- `response(requestId, values)`
-- `failure(requestId, error)`
+- `response(protocol, requestId, values)`
+- `failure(protocol, requestId, error)`
 - `readBoundedStream(stream, label)`
 - `readCommandInput(stream)`
-- `localTargetOrigin(value)`
-- `normalizeRequest(value)`
+- `localTargetOrigin(value, localHostnames)`
+- `normalizeRequest(value, { protocol, localHostnames })`
 - `identityFromSubject(subject)`
 - `setCookies(response)`
 - `cookieHeader(setCookie)`

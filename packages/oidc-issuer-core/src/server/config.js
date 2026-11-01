@@ -83,7 +83,7 @@ function parseDevOriginPatterns(value) {
     const match = /^https:\/\/([a-z0-9*-]+(?:\.[a-z0-9*-]+)+)(?::(\d{1,5}))?$/u.exec(pattern);
     if (!match) {
       throw new HubConfigError(
-        `OIDC_HUB_DEV_ORIGIN_PATTERNS entry "${raw.trim()}" must look like https://v64preview-*--team.example.dev.`
+        `OIDC_HUB_DEV_ORIGIN_PATTERNS entry "${raw.trim()}" must look like https://preview-*--team.example.dev.`
       );
     }
     const labels = match[1].split(".");

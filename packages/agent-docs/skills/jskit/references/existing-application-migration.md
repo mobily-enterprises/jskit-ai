@@ -316,11 +316,10 @@ Do not conflate these identities:
 
 An application with accounts has the standard managed-preview login: retain
 the app-owned `tools/preview-identity` executable, or add it from
-`auth/auth-surface` when it is missing, and declare it under
-`#### Preview identity` in the web-presented Vibe64 `Outputs` target exactly as
-that pattern shows. JSKIT owns the executable/library pattern, Vibe64 owns
-the declaration's grammar and runtime behavior, and Genesis transports the
-consumer-owned section without interpreting it. The executable calls the
+`auth/auth-surface` when it is missing, pass it the preview host's protocol id
+and hostnames, and declare it to the host as that pattern shows. JSKIT owns
+the executable/library pattern; the host owns the declaration's grammar, its
+protocol id and its runtime behavior. The executable calls the
 `@jskit-ai/auth-web` server-side managed-preview library; it does not need a
 framework CLI. Never expose the exchange secret in browser code, a URL, client
 environment, logs, or source.

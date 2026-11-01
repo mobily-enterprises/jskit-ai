@@ -47,8 +47,8 @@ test("each production problem is one sentence naming the variable", () => {
 
 test("development falls back to localhost and accepts development patterns", () => {
   const config = resolveHubConfig(
-    { ...base, PORT: "3009", OIDC_HUB_DEV_ORIGIN_PATTERNS: "https://v64preview-*--acme.vibe64.dev, https://*.staging.example.test" }
+    { ...base, PORT: "3009", OIDC_HUB_DEV_ORIGIN_PATTERNS: "https://preview-*--acme.example.dev, https://*.staging.example.test" }
   );
   assert.equal(config.issuer, "http://localhost:3009");
-  assert.deepEqual(config.devOriginPatterns, ["https://v64preview-*--acme.vibe64.dev", "https://*.staging.example.test"]);
+  assert.deepEqual(config.devOriginPatterns, ["https://preview-*--acme.example.dev", "https://*.staging.example.test"]);
 });

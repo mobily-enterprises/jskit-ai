@@ -11,9 +11,12 @@ import { createSigningKeyStore } from "../src/server/signingKeys.js";
 const USAGE = `Usage:
   jskit-oidc-issuer keys rotate
   jskit-oidc-issuer import-accounts --in <file> [--apply]
-  jskit-oidc-issuer preview-identity
+  jskit-oidc-issuer preview-identity [--protocol <id>] [--local-hostname <pattern>]...
 
-Run from the hub application's folder; it reads the same .env and database settings.`;
+Run from the hub application's folder; it reads the same .env and database settings.
+preview-identity answers one request on stdin: --protocol names the preview host's
+protocol id, and each --local-hostname a regular expression for a hostname, besides
+loopback, that the host serves the hub on.`;
 
 function loadDotEnv() {
   try {
@@ -33,10 +36,23 @@ async function withKnex(work) {
   }
 }
 
+/** The preview host's protocol id and hostnames, from `--protocol` and `--local-hostname` arguments. */
+function previewIdentityHost(args) {
+  const host = { localHostnames: [] };
+  for (let index = 0; index < args.length; index += 2) {
+    const [flag, value] = [args[index], args[index + 1]];
+    if (!value) throw new Error(USAGE);
+    if (flag === "--protocol") host.protocol = value;
+    else if (flag === "--local-hostname") host.localHostnames.push(new RegExp(value, "u"));
+    else throw new Error(USAGE);
+  }
+  return host;
+}
+
 async function main(argv) {
   const [command, ...rest] = argv;
   if (command === "preview-identity") {
-    return runPreviewIdentityCommand();
+    return runPreviewIdentityCommand(previewIdentityHost(rest));
   }
   loadDotEnv();
   if (command === "keys" && rest[0] === "rotate") {

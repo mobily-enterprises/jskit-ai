@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { executePreviewIdentityRequest } from "../src/server/previewIdentity.js";
+import { DEFAULT_PREVIEW_IDENTITY_PROTOCOL, executePreviewIdentityRequest } from "../src/server/previewIdentity.js";
 import { createAccount, createBrowser } from "./support/browser.js";
 import { startHub } from "./support/hub.js";
 
@@ -16,9 +16,9 @@ after(async () => {
   await hub?.stop();
 });
 
-function request(selector) {
+function request(selector, protocol = DEFAULT_PREVIEW_IDENTITY_PROTOCOL) {
   return {
-    protocol: "vibe64.preview-identity.command.v1",
+    protocol,
     requestId: "r1",
     operation: "login-as",
     subject: { kind: "selector", selector },
@@ -32,6 +32,17 @@ test("the preview signs in as an existing hub account and receives its cookie", 
   assert.equal(result.ok, true, JSON.stringify(result));
   assert.equal(result.identity.email, "ada@example.test");
   assert.ok(result.setCookie.some((cookie) => cookie.startsWith("hub_session=")));
+});
+
+test("the command answers only the protocol id its host names", async () => {
+  const env = { AUTH_DEV_BYPASS_ENABLED: "true", AUTH_DEV_BYPASS_SECRET: SECRET };
+  const protocol = "example-host.preview-identity.command.v1";
+  const named = await executePreviewIdentityRequest(request({ type: "email", value: "ada@example.test" }, protocol), { env, protocol });
+  assert.equal(named.ok, true, JSON.stringify(named));
+  assert.equal(named.protocol, protocol);
+  const other = await executePreviewIdentityRequest(request({ type: "email", value: "ada@example.test" }), { env, protocol });
+  assert.equal(other.code, "preview_identity_request_invalid");
+  assert.equal(other.protocol, protocol);
 });
 
 test("a wrong secret, an unknown account or a disabled exchange is refused", async () => {

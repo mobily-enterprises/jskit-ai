@@ -17,7 +17,7 @@ let hub;
 let owner;
 
 before(async () => {
-  hub = await startHub({ env: { OIDC_HUB_DEV_ORIGIN_PATTERNS: "https://v64preview-*--acme.vibe64.dev" } });
+  hub = await startHub({ env: { OIDC_HUB_DEV_ORIGIN_PATTERNS: "https://preview-*--acme.example.dev" } });
   owner = createBrowser();
   await createAccount(owner, hub.url, { email: OWNER_EMAIL, password: PASSWORD });
   assert.equal((await confirmLatestEmail(hub, owner)).status, 200);
@@ -36,11 +36,11 @@ test("13. loopback and development-pattern origins are approved automatically", 
   const loopback = await registerApp(hub.url, { origin: "http://localhost:5173" });
   assert.equal(loopback.response.headers.get("x-hub-client-status"), "active-dev");
   assert.equal(await statusOf(loopback.body.client_id), "active-dev");
-  const preview = await registerApp(hub.url, { origin: "https://v64preview-ab12cd34ef56--acme.vibe64.dev" });
+  const preview = await registerApp(hub.url, { origin: "https://preview-ab12cd34ef56--acme.example.dev" });
   assert.equal(await statusOf(preview.body.client_id), "active-dev");
-  const otherTeam = await registerApp(hub.url, { origin: "https://v64preview-ab12cd34ef56--other.vibe64.dev" });
+  const otherTeam = await registerApp(hub.url, { origin: "https://preview-ab12cd34ef56--other.example.dev" });
   assert.equal(await statusOf(otherTeam.body.client_id), "pending");
-  const nested = await registerApp(hub.url, { origin: "https://x.v64preview-a--acme.vibe64.dev" });
+  const nested = await registerApp(hub.url, { origin: "https://x.preview-a--acme.example.dev" });
   assert.equal(await statusOf(nested.body.client_id), "pending", "* never spans a dot");
 });
 

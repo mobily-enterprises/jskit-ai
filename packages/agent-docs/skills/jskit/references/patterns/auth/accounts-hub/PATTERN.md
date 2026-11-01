@@ -66,7 +66,8 @@ server's global UI paths so a surface-filtered server still serves them.
 Pages send `x-hub-request: 1` on every state-changing call.
 
 Commands (`jskit-oidc-issuer`): `keys rotate`, `import-accounts --in <file>
-[--apply]` (dry run by default), `preview-identity`.
+[--apply]` (dry run by default), `preview-identity [--protocol <id>]
+[--local-hostname <pattern>]...`.
 
 ## Example files
 

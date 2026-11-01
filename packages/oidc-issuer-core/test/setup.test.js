@@ -8,7 +8,7 @@ let hub;
 let owner;
 
 before(async () => {
-  hub = await startHub({ env: { OIDC_HUB_DEV_ORIGIN_PATTERNS: "https://v64preview-*--acme.vibe64.dev" } });
+  hub = await startHub({ env: { OIDC_HUB_DEV_ORIGIN_PATTERNS: "https://preview-*--acme.example.dev" } });
   owner = createBrowser();
   await createAccount(owner, hub.url, { email: OWNER_EMAIL, password: PASSWORD });
 });
@@ -44,7 +44,7 @@ test("the setup checklist reports each item", async () => {
     development: "ok"
   });
   assert.equal(body.googleRedirectUri, `${hub.url}/hub/google/callback`);
-  assert.deepEqual(body.devOriginPatterns, ["https://v64preview-*--acme.vibe64.dev"]);
+  assert.deepEqual(body.devOriginPatterns, ["https://preview-*--acme.example.dev"]);
 });
 
 test("a test email and the domain confirmation tick their items", async () => {

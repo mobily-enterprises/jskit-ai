@@ -1,7 +1,12 @@
 import { DEV_AUTH_SECRET_HEADER } from "@jskit-ai/auth-core/server/devAuth";
 import { AUTH_PATHS } from "@jskit-ai/auth-core/shared/authPaths";
 
-const MANAGED_PREVIEW_IDENTITY_PROTOCOL = "vibe64.preview-identity.command.v1";
+/**
+ * The protocol id the command speaks when the application names none. A preview
+ * host that names its own id is configured through the command's `protocol`
+ * option.
+ */
+const DEFAULT_PREVIEW_IDENTITY_PROTOCOL = "jskit.preview-identity.command.v1";
 const MANAGED_PREVIEW_IDENTITY_ENABLED_ENV = "AUTH_DEV_BYPASS_ENABLED";
 const MANAGED_PREVIEW_IDENTITY_SECRET_ENV = "AUTH_DEV_BYPASS_SECRET";
 const MAX_MESSAGE_BYTES = 64 * 1024;
@@ -10,16 +15,16 @@ function commandError(message, code = "jskit_managed_preview_identity_failed", d
   return Object.assign(new Error(message), { code, ...details });
 }
 
-function response(requestId, values) {
+function response(protocol, requestId, values) {
   return {
-    protocol: MANAGED_PREVIEW_IDENTITY_PROTOCOL,
+    protocol,
     requestId: String(requestId || ""),
     ...values
   };
 }
 
-function failure(requestId, error) {
-  return response(requestId, {
+function failure(protocol, requestId, error) {
+  return response(protocol, requestId, {
     code: String(error?.code || "jskit_managed_preview_identity_failed"),
     error: String(error?.message || error || "Managed preview identity failed."),
     ok: false,
@@ -62,7 +67,11 @@ async function readCommandInput(stream) {
   }
 }
 
-function localTargetOrigin(value) {
+/**
+ * @param {unknown} value
+ * @param {RegExp[]} localHostnames
+ */
+function localTargetOrigin(value, localHostnames) {
   let target;
   try {
     target = new URL(String(value || ""));
@@ -77,7 +86,7 @@ function localTargetOrigin(value) {
     hostname.endsWith(".localhost") ||
     /^127(?:\.\d{1,3}){3}$/u.test(hostname) ||
     hostname === "::1" ||
-    /^vibe64-launch-[a-f0-9]{12}$/u.test(hostname);
+    localHostnames.some((pattern) => pattern.test(hostname));
   if (target.protocol !== "http:" || !local) {
     throw commandError(
       "Managed preview identity target must be a local application.",
@@ -87,7 +96,11 @@ function localTargetOrigin(value) {
   return target.origin;
 }
 
-function normalizeRequest(value) {
+/**
+ * @param {unknown} value
+ * @param {{ protocol: string, localHostnames: RegExp[] }} host
+ */
+function normalizeRequest(value, { protocol, localHostnames }) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw commandError(
       "Managed preview identity request must be an object.",
@@ -96,7 +109,7 @@ function normalizeRequest(value) {
   }
   const requestId = String(value.requestId || "").trim();
   const operation = String(value.operation || "").trim();
-  if (value.protocol !== MANAGED_PREVIEW_IDENTITY_PROTOCOL || !requestId) {
+  if (value.protocol !== protocol || !requestId) {
     throw commandError(
       "Managed preview identity request protocol is invalid.",
       "jskit_managed_preview_identity_protocol_invalid"
@@ -112,7 +125,7 @@ function normalizeRequest(value) {
     operation,
     requestId,
     subject: value.subject,
-    targetOrigin: localTargetOrigin(value.target?.origin || value.target?.href)
+    targetOrigin: localTargetOrigin(value.target?.origin || value.target?.href, localHostnames)
   };
 }
 
@@ -276,18 +289,26 @@ async function login(fetchImpl, targetOrigin, identity, secret, session) {
 }
 
 /**
+ * Answers one preview identity request: signs the preview browser out, and for
+ * `login-as` back in as an existing application user, through the development
+ * exchange. The preview host names the protocol id and any hostnames, besides
+ * loopback, that it serves the application on.
  * @param {Record<string, any>} value The command's request, which is validated here.
  * @param {object} [options]
  * @param {Record<string, string | undefined>} [options.env]
  * @param {typeof fetch} [options.fetchImpl]
+ * @param {string} [options.protocol] The protocol id requests carry and responses echo.
+ * @param {RegExp[]} [options.localHostnames] Hostnames, besides loopback, the application is served on.
  */
 async function executeManagedPreviewIdentityRequest(value, {
   env = process.env,
-  fetchImpl = globalThis.fetch
+  fetchImpl = globalThis.fetch,
+  protocol = DEFAULT_PREVIEW_IDENTITY_PROTOCOL,
+  localHostnames = []
 } = {}) {
   let requestId = String(value?.requestId || "").trim();
   try {
-    const request = normalizeRequest(value);
+    const request = normalizeRequest(value, { protocol, localHostnames });
     requestId = request.requestId;
     if (typeof fetchImpl !== "function") {
       throw commandError(
@@ -317,7 +338,7 @@ async function executeManagedPreviewIdentityRequest(value, {
     const session = await bootstrapSession(fetchImpl, request.targetOrigin);
     const signedOutSession = await logout(fetchImpl, request.targetOrigin, session);
     if (request.operation === "logout") {
-      return response(requestId, {
+      return response(protocol, requestId, {
         identity: null,
         ok: true,
         // readable-check: allow setter-seam - not a slot: setCookie is the preview identity protocol's list of Set-Cookie headers
@@ -326,7 +347,7 @@ async function executeManagedPreviewIdentityRequest(value, {
       });
     }
     const result = await login(fetchImpl, request.targetOrigin, identity, secret, signedOutSession);
-    return response(requestId, {
+    return response(protocol, requestId, {
       identity: result.identity,
       ok: true,
       // readable-check: allow setter-seam - not a slot: setCookie is the preview identity protocol's list of Set-Cookie headers
@@ -334,7 +355,7 @@ async function executeManagedPreviewIdentityRequest(value, {
       signedOut: false
     });
   } catch (error) {
-    return failure(requestId, error);
+    return failure(protocol, requestId, error);
   }
 }
 
@@ -345,27 +366,31 @@ async function executeManagedPreviewIdentityRequest(value, {
  * @param {typeof fetch} [options.fetchImpl]
  * @param {AsyncIterable<string | Buffer>} [options.stdin]
  * @param {{ write(text: string): unknown }} [options.stdout]
+ * @param {string} [options.protocol] The protocol id requests carry and responses echo.
+ * @param {RegExp[]} [options.localHostnames] Hostnames, besides loopback, the application is served on.
  */
 async function runManagedPreviewIdentityCommand({
   env = process.env,
   fetchImpl = globalThis.fetch,
   stdin = process.stdin,
-  stdout = process.stdout
+  stdout = process.stdout,
+  protocol = DEFAULT_PREVIEW_IDENTITY_PROTOCOL,
+  localHostnames = []
 } = {}) {
   let request;
   try {
     request = await readCommandInput(stdin);
   } catch (error) {
-    stdout.write(`${JSON.stringify(failure("", error))}\n`);
+    stdout.write(`${JSON.stringify(failure(protocol, "", error))}\n`);
     return 0;
   }
-  const result = await executeManagedPreviewIdentityRequest(request, { env, fetchImpl });
+  const result = await executeManagedPreviewIdentityRequest(request, { env, fetchImpl, protocol, localHostnames });
   stdout.write(`${JSON.stringify(result)}\n`);
   return 0;
 }
 
 export {
-  MANAGED_PREVIEW_IDENTITY_PROTOCOL,
+  DEFAULT_PREVIEW_IDENTITY_PROTOCOL,
   executeManagedPreviewIdentityRequest,
   runManagedPreviewIdentityCommand
 };

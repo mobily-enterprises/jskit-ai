@@ -127,10 +127,12 @@ npx jskit-oidc-issuer import-accounts --in accounts.jsonl --apply
   password they already had. Emails start unconfirmed: each person confirms
   theirs once, at their first app sign-in. Rows that clash with a
   different hub account are refused and listed. A dry run prints only counts.
-- `preview-identity` implements `vibe64.preview-identity.command.v1` for the
-  hub, so an editor's preview can sign in as an existing hub account. It works
-  only outside production, from loopback, with `AUTH_DEV_BYPASS_ENABLED` and
-  `AUTH_DEV_BYPASS_SECRET`.
+- `preview-identity` answers the preview identity exchange for the hub, so an
+  editor's preview can sign in as an existing hub account. Pass the preview
+  host's protocol id with `--protocol` and each hostname pattern, besides
+  loopback, that the host serves the hub on with `--local-hostname`. It works
+  only outside production, from loopback, with
+  `AUTH_DEV_BYPASS_ENABLED` and `AUTH_DEV_BYPASS_SECRET`.
 
 ## Connecting an app
 

@@ -44,12 +44,14 @@ An application with accounts always includes the managed-preview login, whether
 or not anyone asked for it. Adding authentication adds both parts from the
 `auth/auth-surface` pattern:
 
-- the committed, executable `tools/preview-identity` from its example;
-- the `#### Preview identity` block in the web-presented Vibe64 `Outputs`
-  target (Command `tools/preview-identity`, Protocol
-  `vibe64.preview-identity.command.v1`, Identity types `email` `user-id`,
-  Enabled environment `AUTH_DEV_BYPASS_ENABLED`, Secret environment
-  `AUTH_DEV_BYPASS_SECRET`, Runtimes `nodejs`), copied exactly from the pattern.
+- the committed, executable `tools/preview-identity` from its example, which
+  passes `runManagedPreviewIdentityCommand` the preview host's protocol id and
+  the hostnames, besides loopback, that the host serves the app on;
+- its declaration to the preview host in the form that host reads (for a host
+  that reads the web `Outputs` target, the pattern's `#### Preview identity`
+  block: Command `tools/preview-identity`, the same protocol id, Identity types
+  `email` `user-id`, Enabled environment `AUTH_DEV_BYPASS_ENABLED`, Secret
+  environment `AUTH_DEV_BYPASS_SECRET`, Runtimes `nodejs`).
 
 The preview host supplies both environment values per run, so a managed
 preview can sign its browser in as an existing account. Which accounts it may
