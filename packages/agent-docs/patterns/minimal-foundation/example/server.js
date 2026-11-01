@@ -41,8 +41,8 @@ function hasFileExtension(pathname) {
   return path.extname(normalizePathname(pathname)) !== "";
 }
 
-function resolveGlobalUiPaths(runtimeGlobalUiPaths = []) {
-  const paths = new Set(Array.isArray(runtimeGlobalUiPaths) ? runtimeGlobalUiPaths : []);
+function resolveGlobalUiPaths(runtimeGlobalUiPaths) {
+  const paths = new Set(runtimeGlobalUiPaths);
   for (const staticPath of STATIC_GLOBAL_UI_PATHS) {
     paths.add(staticPath);
   }
@@ -127,7 +127,7 @@ async function createServer({ runtimeEnv = resolveRuntimeEnv() } = {}) {
     fastify: app,
     surfaceRuntime,
     serverSurface: runtimeEnv.SERVER_SURFACE,
-    globalUiPaths: resolveGlobalUiPaths(runtime?.globalUiPaths || [])
+    globalUiPaths: resolveGlobalUiPaths(runtime.globalUiPaths)
   });
 
   if (hasWebBuild) {
@@ -141,10 +141,8 @@ async function createServer({ runtimeEnv = resolveRuntimeEnv() } = {}) {
   }
 
   app.setNotFoundHandler(async (request, reply) => {
-    const pathname = toRequestPathname(request?.url);
-    const method = String(request?.method || "GET")
-      .trim()
-      .toUpperCase();
+    const pathname = toRequestPathname(request.url);
+    const method = request.method;
     if (isApiPath(pathname) || (method !== "GET" && method !== "HEAD")) {
       return reply.code(404).send({
         message: `Route ${method}:${pathname} not found`,
@@ -186,9 +184,9 @@ async function createServer({ runtimeEnv = resolveRuntimeEnv() } = {}) {
 
 async function startServer(options = {}) {
   const runtimeEnv = resolveRuntimeEnv();
-  const configuredPort = options?.port === undefined ? runtimeEnv.PORT : Number(options.port);
+  const configuredPort = options.port === undefined ? runtimeEnv.PORT : Number(options.port);
   const port = Number.isInteger(configuredPort) && configuredPort >= 0 ? configuredPort : runtimeEnv.PORT;
-  const host = String(options?.host || "").trim() || runtimeEnv.HOST;
+  const host = String(options.host || "").trim() || runtimeEnv.HOST;
   const app = await createServer({
     runtimeEnv: {
       ...runtimeEnv,

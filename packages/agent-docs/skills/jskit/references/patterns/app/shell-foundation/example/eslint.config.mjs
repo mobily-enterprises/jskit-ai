@@ -1,4 +1,4 @@
-import { baseConfig, nodeConfig, vueConfig, webConfig } from "@jskit-ai/config-eslint/server";
+import { baseConfig, nodeConfig, typedFeaturesConfig, vueConfig, webConfig } from "@jskit-ai/config-eslint/server";
 
 export default [
   {
@@ -13,6 +13,8 @@ export default [
     }
   },
   ...baseConfig,
+  // Server code follows JSKIT's typed features from the start.
+  ...typedFeaturesConfig(["packages/*/src/server/**", "server/**", "server.js"]),
   ...vueConfig,
   ...webConfig,
   ...nodeConfig

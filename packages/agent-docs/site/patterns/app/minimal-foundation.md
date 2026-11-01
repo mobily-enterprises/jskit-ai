@@ -62,10 +62,13 @@ questionnaire or infer tenancy, authentication, or database requirements.
   a provided capability exports its type from `types.js`; collaborators arrive
   through declared capabilities, typed in a JSDoc `@param` and required, never
   probed or defaulted to nothing; slots are `optional` tokens with a named
-  default; one `create<Name>Actions()` per feature returns actions whose
-  `execute` is one call; one copy of each helper per package; files stay under
+  default; one `create<Name>Actions({ <api> })` per feature returns frozen
+  actions whose `execute` is one call; every `create*` returns a frozen object
+  of named functions; one copy of each helper per package; files stay under
   750 lines and functions under 600. `createServer()` types its `runtimeEnv`
-  option the same way.
+  option the same way. `eslint.config.mjs` applies
+  `typedFeaturesConfig(["packages/*/src/server/**", "server/**", "server.js"])`,
+  so lint reports server code that breaks these rules as errors.
 
 ## Framework APIs
 

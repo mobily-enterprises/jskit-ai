@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import test from "node:test";
+import { ESLint } from "eslint";
 
 const execFileAsync = promisify(execFile);
 const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -270,5 +271,27 @@ test("shell foundation reuses the shell-web application shell and the minimal fo
     assert.ok(shellFiles.has(relativePath), `shell-foundation is missing ${relativePath}.`);
     const [shellSource, minimalSource] = await readPair(shellRoot, minimalRoot, relativePath);
     assert.ok(shellSource.equals(minimalSource), `${relativePath} drifted from minimal-foundation.`);
+  }
+});
+
+test("foundation lint configurations hold server code to typed features as errors", async () => {
+  const probe = "export function createReader({ store } = {}) {\n  return () => store.read?.();\n}\n";
+  for (const patternName of FOUNDATION_NAMES) {
+    const exampleRoot = path.join(PATTERNS_ROOT, patternName, "example");
+    const { default: config } = await import(pathToFileURL(path.join(exampleRoot, "eslint.config.mjs")).href);
+    const eslint = new ESLint({ cwd: exampleRoot, overrideConfigFile: true, overrideConfig: config });
+
+    for (const relativePath of ["server.js", "server/lib/reader.js", "packages/booking/src/server/reader.js"]) {
+      const [result] = await eslint.lintText(probe, { filePath: path.join(exampleRoot, relativePath) });
+      const findings = result.messages.filter((message) => message.ruleId?.startsWith("jskit/"));
+      assert.ok(findings.length > 0, `${patternName} does not check ${relativePath}.`);
+      assert.ok(findings.every((message) => message.severity === 2), `${patternName} only warns on ${relativePath}.`);
+    }
+
+    const results = await eslint.lintFiles(["server.js", "server/**/*.js", "bin/**/*.js"]);
+    const findings = results.flatMap((result) => result.messages.map((message) => (
+      `${path.relative(exampleRoot, result.filePath)}:${message.line} ${message.ruleId || "parse"}`
+    )));
+    assert.deepEqual(findings, [], `${patternName} server code breaks its own lint configuration.`);
   }
 });
