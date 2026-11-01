@@ -1,5 +1,6 @@
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
+import { BOOTSTRAP_PATH } from "@jskit-ai/kernel/shared/surface/paths";
 
 function normalizeWorkspaceSlug(value = "") {
   return normalizeLowerText(value);
@@ -48,13 +49,13 @@ function findWorkspaceBySlug(entries = [], workspaceSlug = "") {
 function buildBootstrapApiPath(workspaceSlug = "") {
   const normalizedWorkspaceSlug = normalizeWorkspaceSlug(workspaceSlug);
   if (!normalizedWorkspaceSlug) {
-    return "/api/bootstrap";
+    return BOOTSTRAP_PATH;
   }
 
   const params = new URLSearchParams({
     workspaceSlug: normalizedWorkspaceSlug
   });
-  return `/api/bootstrap?${params.toString()}`;
+  return `${BOOTSTRAP_PATH}?${params.toString()}`;
 }
 
 export { buildBootstrapApiPath, findWorkspaceBySlug, normalizeWorkspaceEntry, normalizeWorkspaceList };

@@ -833,6 +833,11 @@ owner, instead of a copy per package:
 - a CRUD record mutation's event: `buildCrudRecordChangedEvent({ namespace,
   operation, entityId, audience })` (`@jskit-ai/crud-core/server/serviceEvents`),
   the entity change crud-core's own create, update and delete actions announce;
+- the workspace a request asks for before any action context exists, as in
+  an auth service decorator: `requestedWorkspaceScope(request)`
+  (`@jskit-ai/workspaces-core/server/support/workspaceRouteInput`), from the
+  route's `workspaceSlug` param or the bootstrap request's query, never by
+  matching the URL;
 - a context's workspace id: `resolveWorkspaceScopeValue(context)`
   (`@jskit-ai/json-rest-api-core/server/jsonRestApiHost`), from the context's
   workspace, the resolved one, the request's, a workspace visibility owner or

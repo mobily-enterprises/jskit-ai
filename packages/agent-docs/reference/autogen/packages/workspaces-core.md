@@ -117,6 +117,7 @@ Local functions
 Exports
 - `readWorkspaceSlugFromRouteParams(params = {})`
 - `buildWorkspaceInputFromRouteParams(params = {})`
+- `requestedWorkspaceScope(request)`
 
 ### `src/server/support/workspaceRoutePaths.js`
 Exports

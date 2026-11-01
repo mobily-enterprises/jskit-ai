@@ -2,6 +2,8 @@ import { escapeRegExp } from "./escapeRegExp.js";
 import { normalizeSurfaceId } from "./registry.js";
 
 const API_BASE_PATH = "/api";
+// The route the kernel's bootstrap provider serves the app's bootstrap payload on.
+const BOOTSTRAP_PATH = `${API_BASE_PATH}/bootstrap`;
 
 function normalizePathname(pathname) {
   const rawValue = String(pathname || "/").trim();
@@ -160,4 +162,4 @@ function toRequestPathname(urlValue) {
   }
 }
 
-export { API_BASE_PATH, createSurfacePathHelpers, normalizePathname, matchesPathPrefix, toRequestPathname };
+export { API_BASE_PATH, BOOTSTRAP_PATH, createSurfacePathHelpers, normalizePathname, matchesPathPrefix, toRequestPathname };

@@ -420,10 +420,10 @@ Local functions
 
 ### `src/client/runtime/bootstrapRuntime.js`
 Exports
-- `createShellBootstrapRuntime({ handlers, placementRuntime, requestRecoveryRuntime = null, router = null, logger, fetchImplementation = globalThis.fetch, bootstrapPath = DEFAULT_BOOTSTRAP_PATH } = {})`
+- `createShellBootstrapRuntime({ handlers, placementRuntime, requestRecoveryRuntime = null, router = null, logger, fetchImplementation = globalThis.fetch, bootstrapPath = BOOTSTRAP_PATH } = {})`
 Local functions
 - `normalizeObject(value)`
-- `buildBootstrapUrl({ path = DEFAULT_BOOTSTRAP_PATH, query = {} } = {})`
+- `buildBootstrapUrl({ path = BOOTSTRAP_PATH, query = {} } = {})`
 - `normalizeBootstrapResponseError(response, url)`
 
 ### `src/client/runtime/refreshRuntime.js`

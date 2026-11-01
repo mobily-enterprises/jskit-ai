@@ -223,6 +223,7 @@ Exports
 ### `surface/paths.js`
 Exports
 - `API_BASE_PATH`
+- `BOOTSTRAP_PATH`
 - `createSurfacePathHelpers({ defaultSurfaceId, surfaceDefinitions, apiBasePath = API_BASE_PATH })`
 - `normalizePathname(pathname)`
 - `matchesPathPrefix(pathname, prefix)`

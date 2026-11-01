@@ -3623,7 +3623,7 @@
               },
               {
                 "subpath": "./server/support/workspaceRouteInput",
-                "summary": "Exports the action input a workspace route's params give."
+                "summary": "Exports the action input a workspace route's params give, and requestedWorkspaceScope, the workspace a request asks for before the workspace context exists."
               },
               {
                 "subpath": "./server/support/workspaceCrud",

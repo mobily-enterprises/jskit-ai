@@ -1,5 +1,6 @@
 import { defineProvider } from "../../shared/capabilities/defineProvider.js";
 import { AUTH_POLICY_PUBLIC } from "../../shared/support/policies.js";
+import { BOOTSTRAP_PATH } from "../../shared/surface/paths.js";
 import { createBootstrapRuntime } from "./bootstrapRuntime.js";
 
 const BootstrapProvider = defineProvider({
@@ -9,7 +10,7 @@ const BootstrapProvider = defineProvider({
   /** @param {{ http: import("../types.js").RuntimeHttp }} dependencies */
   setup({ http }) {
     const bootstrap = createBootstrapRuntime();
-    http.router.register("GET", "/api/bootstrap", {
+    http.router.register("GET", BOOTSTRAP_PATH, {
       auth: AUTH_POLICY_PUBLIC,
       meta: { tags: ["bootstrap"], summary: "Resolve app bootstrap payload" }
     }, async (request, reply) => {

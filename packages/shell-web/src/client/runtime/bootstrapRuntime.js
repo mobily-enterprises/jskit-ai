@@ -1,15 +1,14 @@
+import { BOOTSTRAP_PATH } from "@jskit-ai/kernel/shared/surface/paths";
 import { useJskitText } from "../i18n.js";
 
 const { t } = useJskitText();
-
-const DEFAULT_BOOTSTRAP_PATH = "/api/bootstrap";
 
 function normalizeObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
-function buildBootstrapUrl({ path = DEFAULT_BOOTSTRAP_PATH, query = {} } = {}) {
-  const normalizedPath = String(path || DEFAULT_BOOTSTRAP_PATH).trim() || DEFAULT_BOOTSTRAP_PATH;
+function buildBootstrapUrl({ path = BOOTSTRAP_PATH, query = {} } = {}) {
+  const normalizedPath = String(path || BOOTSTRAP_PATH).trim() || BOOTSTRAP_PATH;
   const params = new URLSearchParams();
 
   for (const [key, value] of Object.entries(normalizeObject(query))) {
@@ -49,7 +48,7 @@ function createShellBootstrapRuntime({
   router = null,
   logger,
   fetchImplementation = globalThis.fetch,
-  bootstrapPath = DEFAULT_BOOTSTRAP_PATH
+  bootstrapPath = BOOTSTRAP_PATH
 } = {}) {
   if (!handlers || typeof handlers.list !== "function") {
     throw new Error("createShellBootstrapRuntime requires a bootstrap handler registry.");
