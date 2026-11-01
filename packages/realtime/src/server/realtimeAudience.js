@@ -2,7 +2,7 @@ import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/suppor
 
 /** @typedef {import("@jskit-ai/auth-core/server/types").AuthService} AuthService */
 /** @typedef {import("@jskit-ai/database-runtime/server/types").RuntimeDatabase} RuntimeDatabase */
-/** @typedef {import("@jskit-ai/kernel/shared/support/providerLogger").ProviderLogger} ProviderLogger */
+/** @typedef {import("./types.js").RealtimeLogger} RealtimeLogger */
 
 const ALL_CLIENTS_ROOM = "clients";
 const ALL_USERS_ROOM = "users";
@@ -45,8 +45,10 @@ function resolveScopeUserId(scope = {}) {
   return normalizeRecordId(scope?.userId, { fallback: null });
 }
 
-// The single mapping from a kernel event scope ({ kind: "user" | "workspace" |
-// "workspace_user" }) to its Socket.IO room; null when the scope names no room.
+/**
+ * The single mapping from a kernel event scope ({ kind: "user" | "workspace" |
+ * "workspace_user" }) to its Socket.IO room; null when the scope names no room.
+ */
 function roomForScope(scope = {}) {
   const kind = normalizeText(scope?.kind).toLowerCase();
   const workspaceId = resolveScopeWorkspaceId(scope);
@@ -57,13 +59,15 @@ function roomForScope(scope = {}) {
   return null;
 }
 
-// Packages that know which scopes an actor belongs to (for example workspace
-// memberships) contribute them here; realtime only turns scopes into rooms.
+/**
+ * Packages that know which scopes an actor belongs to (for example workspace
+ * memberships) contribute them here; realtime only turns scopes into rooms.
+ */
 function createAudienceContributors() {
   const contributors = new Map();
   return Object.freeze({
-    /** @param {{ id?: string, resolveActorScopes?: (actorId: string) => unknown }} [contributor] */
-    register({ id, resolveActorScopes } = {}) {
+    /** @param {import("./types.js").RealtimeAudienceContributor} contributor Validated here. */
+    register({ id, resolveActorScopes }) {
       const contributorId = normalizeText(id);
       if (!contributorId) throw new TypeError("Realtime audience contributors require an id.");
       if (typeof resolveActorScopes !== "function") {
@@ -126,7 +130,7 @@ function applyAudiencePreset(preset, { event, rooms, flags, logger }) {
 
 function addAudienceRooms(selection, state) {
   if (!selection || typeof selection !== "object" || Array.isArray(selection)) return;
-  const { event, rooms, flags, logger } = state;
+  const { rooms, flags } = state;
   if (Object.hasOwn(selection, "preset")) {
     applyAudiencePreset(selection.preset, state);
   }
@@ -159,8 +163,6 @@ function addAudienceRooms(selection, state) {
     const userId = normalizeRecordId(entry.userId, { fallback: null });
     if (workspaceId && userId) rooms.add(roomForWorkspaceUser(workspaceId, userId));
   }
-
-  if (!event || !logger) throw new TypeError("Realtime audience state is incomplete.");
 }
 
 function collectUserIds(rows) {
@@ -180,7 +182,7 @@ function collectUserIds(rows) {
  * @param {object} event
  * @param {object} dependencies
  * @param {RuntimeDatabase | null} dependencies.database Absent when no runtime.database is installed.
- * @param {ProviderLogger} dependencies.logger
+ * @param {RealtimeLogger} dependencies.logger
  */
 async function resolveAudienceTargets(audience, event, { database, logger }) {
   const rooms = new Set();
@@ -272,9 +274,11 @@ function realtimeAuthenticationRequired(authService) {
   return authService?.realtime?.requireAuthentication === true;
 }
 
-// The kernel's code for this English, so a client can show it in the user's
-// language: as the error's code for a host's action boundary, and in its data
-// for a refused Socket.IO handshake.
+/**
+ * The kernel's code for this English, so a client can show it in the user's
+ * language: as the error's code for a host's action boundary, and in its data
+ * for a refused Socket.IO handshake.
+ */
 function authenticationRequiredError() {
   return Object.assign(new Error("Authentication required."), {
     statusCode: 401,
@@ -300,7 +304,7 @@ function rememberSocketActorId(socket, actorId) {
  * reconnects instead of silently connecting without its user's rooms.
  * @param {object} dependencies
  * @param {import("socket.io").Server} dependencies.io
- * @param {ProviderLogger} dependencies.logger
+ * @param {RealtimeLogger} dependencies.logger
  * @param {AuthService | null} dependencies.authService Absent when no auth.service is installed.
  */
 function registerSocketAuthentication({ io, logger, authService }) {
@@ -343,7 +347,7 @@ async function joinContributedRooms(socket, actorId, audiences) {
 /**
  * @param {object} dependencies
  * @param {import("socket.io").Server} dependencies.io
- * @param {ProviderLogger} dependencies.logger
+ * @param {RealtimeLogger} dependencies.logger
  * @param {AuthService | null} dependencies.authService Absent when no auth.service is installed.
  * @param {AudienceContributors} dependencies.audiences
  */

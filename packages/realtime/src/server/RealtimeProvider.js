@@ -1,7 +1,7 @@
 import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
-import { createProviderLogger } from "@jskit-ai/kernel/shared/support/providerLogger";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { createRealtimeCapability } from "./realtimeCapability.js";
+import { createRealtimeLogger } from "./realtimeLogger.js";
 import {
   createSocketIoServer,
   resolveRealtimeRedisNamespace,
@@ -38,10 +38,21 @@ const RealtimeProvider = defineProvider({
   provides: {
     realtime: "runtime.realtime"
   },
+  /**
+   * @param {object} capabilities
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeAppRoot | null} capabilities.appRoot
+   * @param {import("@jskit-ai/auth-core/server/types").AuthService | null} capabilities.authService
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeConfig} capabilities.config
+   * @param {import("@jskit-ai/database-runtime/server/types").RuntimeDatabase | null} capabilities.database
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} capabilities.env
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeEvents} capabilities.events
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeFastify} capabilities.fastify
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} capabilities.logger
+   */
   setup({ appRoot, authService, config, database, env, events, fastify, logger }) {
     const realtime = createRealtimeCapability({
       io: createSocketIoServer({ fastify }),
-      logger: createProviderLogger(logger, { debugEnabled: debugEnabled(config, env) }),
+      logger: createRealtimeLogger({ logger, debugEnabled: debugEnabled(config, env) }),
       authService,
       database,
       events,

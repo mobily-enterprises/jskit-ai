@@ -93,9 +93,6 @@ test("invalid authorization configuration fails closed at startup", () => {
   assert.throws(() => createRealtimeDelivery({ io, logger, audiences, authService: {
     authenticateRequest() {}, realtime: { authorizeEvent: true }
   } }), /authorizeEvent must be a function/u);
-  assert.throws(() => createRealtimeDelivery({ io, logger, audiences, authService: {
-    realtime: { requireAuthentication: true }
-  } }), /authenticateRequest/u);
   assert.throws(() => createRealtimeDelivery({ io, logger, authService: null }), /mayContribute/u);
 });
 

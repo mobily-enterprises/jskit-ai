@@ -19,7 +19,7 @@ import {
 /** @typedef {import("@jskit-ai/database-runtime/server/types").RuntimeDatabase} RuntimeDatabase */
 /** @typedef {import("@jskit-ai/kernel/server/types").RuntimeAppRoot} RuntimeAppRoot */
 /** @typedef {import("@jskit-ai/kernel/server/types").RuntimeEvents} RuntimeEvents */
-/** @typedef {import("@jskit-ai/kernel/shared/support/providerLogger").ProviderLogger} ProviderLogger */
+/** @typedef {import("./types.js").RealtimeLogger} RealtimeLogger */
 
 /**
  * The `runtime.realtime` capability over one Socket.IO server. It starts
@@ -27,7 +27,7 @@ import {
  * ready only then, and stops with the runtime.
  * @param {object} dependencies
  * @param {import("socket.io").Server} dependencies.io
- * @param {ProviderLogger} dependencies.logger
+ * @param {RealtimeLogger} dependencies.logger
  * @param {AuthService | null} dependencies.authService
  * @param {RuntimeDatabase | null} dependencies.database
  * @param {RuntimeEvents} dependencies.events
@@ -98,9 +98,12 @@ function createRealtimeCapability({ io, logger, authService, database, events, a
     return stopListening;
   }
 
-  // A package that knows which scopes (kind "user", "workspace" or
-  // "workspace_user") an actor belongs to registers them during setup; sockets
-  // join, and on revalidation leave, exactly the rooms its scopes name.
+  /**
+   * A package that knows which scopes (kind "user", "workspace" or
+   * "workspace_user") an actor belongs to registers them during setup; sockets
+   * join, and on revalidation leave, exactly the rooms its scopes name.
+   * @param {import("./types.js").RealtimeAudienceContributor} contributor
+   */
   function registerAudienceContributor(contributor) {
     audiences.register(contributor);
   }
@@ -115,8 +118,10 @@ function createRealtimeCapability({ io, logger, authService, database, events, a
     });
   }
 
-  // Authenticates each socket and delivers every event that names a socket
-  // event, to the other servers too when Redis is configured.
+  /**
+   * Authenticates each socket and delivers every event that names a socket
+   * event, to the other servers too when Redis is configured.
+   */
   async function start() {
     delivery = createRealtimeDelivery({ io, database, logger, authService, audiences });
     authenticationRequired = realtimeAuthenticationRequired(authService);
@@ -131,7 +136,9 @@ function createRealtimeCapability({ io, logger, authService, database, events, a
     });
   }
 
-  // Closes Socket.IO's part of the HTTP server; the server's owner closes the server.
+  /**
+   * Closes Socket.IO's part of the HTTP server; the server's owner closes the server.
+   */
   async function stop() {
     for (const release of [...connectionListeners]) release();
     if (delivery) delivery.stop();

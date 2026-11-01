@@ -22,7 +22,7 @@ function publicRealtimePayload(event) {
   return Object.freeze({ ...(payload || {}), ...canonical });
 }
 
-// One answer per question within one pass.
+/** One answer per question within one pass. */
 function sharedWithinPass(load, keyOf = (value) => value) {
   const answers = new Map();
   return (value) => {
@@ -55,20 +55,19 @@ function createPassChecks(authService, resolveActorRooms) {
  * @param {object} dependencies
  * @param {import("socket.io").Server} dependencies.io
  * @param {import("@jskit-ai/database-runtime/server/types").RuntimeDatabase | null} dependencies.database Absent when no runtime.database is installed.
- * @param {import("@jskit-ai/kernel/shared/support/providerLogger").ProviderLogger} dependencies.logger
+ * @param {import("./types.js").RealtimeLogger} dependencies.logger
  * @param {AuthService | null} dependencies.authService Absent when no auth.service is installed.
  * @param {AudienceContributors} dependencies.audiences The rooms revalidation may make a socket join.
  *   With no contributors registered, a socket stays in the rooms it already has.
  */
 function createRealtimeDelivery({ io, database, logger, authService, audiences: { mayContribute, resolveActorRooms } }) {
-  // readable-check: allow method-probe - test asserts error: realtime authorization refuses an auth.service without authenticateRequest()
-  const guarded = typeof authService?.authenticateRequest === "function";
+  // With an auth.service, each socket is revalidated before it receives an event;
+  // without one, events go straight to their rooms.
+  const guarded = Boolean(authService);
+  const authorizeEvent = authService?.realtime?.authorizeEvent ?? null;
   // readable-check: allow method-probe - input validation: an auth provider's realtime policy may name authorizeEvent()
-  if (authService?.realtime?.authorizeEvent != null && typeof authService.realtime.authorizeEvent !== "function") {
+  if (authorizeEvent !== null && typeof authorizeEvent !== "function") {
     throw new TypeError("Realtime authorizeEvent must be a function.");
-  }
-  if ((authService?.realtime?.requireAuthentication === true || authService?.realtime?.authorizeEvent) && !guarded) {
-    throw new TypeError("Realtime authorization requires auth.service.authenticateRequest().");
   }
   let redisEnabled = false;
   let revalidationTimer = null;
@@ -89,8 +88,10 @@ function createRealtimeDelivery({ io, database, logger, authService, audiences: 
     }
   }
 
-  // A socket outside every target room can enter one only by revalidation
-  // joining a contributed room; otherwise checking it cannot change delivery.
+  /**
+   * A socket outside every target room can enter one only by revalidation
+   * joining a contributed room; otherwise checking it cannot change delivery.
+   */
   function candidateSockets(targets) {
     const sockets = [...io.sockets.sockets.values()];
     if (targets.broadcastAllClients || targets.rooms.some((room) => mayContribute(room))) return sockets;
@@ -104,8 +105,7 @@ function createRealtimeDelivery({ io, database, logger, authService, audiences: 
         const actor = await revalidate(socket, checks);
         if (!socket.connected) return;
         if (!targets.broadcastAllClients && !targets.rooms.some((room) => socket.rooms.has(room))) return;
-        // readable-check: allow method-probe - optional operation: authorizeEvent is an optional part of the auth.service realtime policy
-        if (typeof authService.realtime?.authorizeEvent === "function") {
+        if (authorizeEvent) {
           const authorized = await authService.realtime.authorizeEvent({
             actor,
             event: { name: eventName, payload }
@@ -150,9 +150,10 @@ function createRealtimeDelivery({ io, database, logger, authService, audiences: 
       clearTimeout(revalidationTimer);
       if (guarded) io.off(DELIVERY_EVENT, receive);
     },
-    async handle(event = {}) {
+    /** @param {object} event A published runtime event; its realtime part, when present, names the socket event. */
+    async handle(event) {
       try {
-        const eventName = normalizeText(event?.realtime?.event);
+        const eventName = normalizeText(event.realtime?.event);
         if (!eventName) return;
         const targets = await resolveAudienceTargets(event.realtime.audience, event, { database, logger });
         const payload = publicRealtimePayload(event);
@@ -180,7 +181,7 @@ function createRealtimeDelivery({ io, database, logger, authService, audiences: 
             : null
         }, "Realtime delivered an action event.");
       } catch (error) {
-        logger.warn({ socketEvent: event?.realtime?.event, error: String(error?.message || error) }, "Realtime delivery failed; the domain mutation remains successful.");
+        logger.warn({ socketEvent: event.realtime?.event, error: String(error?.message || error) }, "Realtime delivery failed; the domain mutation remains successful.");
       }
     }
   });

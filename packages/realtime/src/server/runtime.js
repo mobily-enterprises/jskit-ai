@@ -111,7 +111,7 @@ function buildSocketIoRedisAdapterKey(redisNamespace = "") {
  * @param {object} options
  * @param {string} [options.redisUrl]
  * @param {string} [options.redisNamespace]
- * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger | import("@jskit-ai/kernel/shared/support/providerLogger").ProviderLogger} options.logger Warned when a Redis connection fails.
+ * @param {import("./types.js").RealtimeLogger} options.logger Warned when a Redis connection fails.
  * @param {typeof createSocketIoRedisAdapter} [options.createRedisAdapter]
  * @param {typeof createRedisClient} [options.createRedisConnection]
  */
