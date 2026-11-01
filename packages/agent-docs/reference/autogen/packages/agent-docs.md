@@ -31,10 +31,6 @@ Exports
 Exports
 - `BookingEngineFeature`
 
-### `patterns/feature-package/example/booking-engine/src/server/bookingRequester.js`
-Exports
-- `bookingRequester(context)`
-
 ### `patterns/feature-package/example/booking-engine/src/server/inputSchemas.js`
 Exports
 - `statusQueryInputValidator`

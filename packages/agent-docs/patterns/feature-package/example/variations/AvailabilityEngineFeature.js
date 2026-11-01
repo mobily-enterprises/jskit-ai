@@ -7,8 +7,10 @@ function createAvailabilityEngineActions({ availabilityEngine }) {
   return Object.freeze([
     Object.freeze({
       id: "availability.status.read",
+      version: 1,
       kind: "query",
       input: emptyInputValidator,
+      output: null,
       idempotency: "none",
       execute: (input) => availabilityEngine.getStatus(input)
     })

@@ -7,8 +7,10 @@ function createInvoiceRollupActions({ invoiceRollup }) {
   return Object.freeze([
     Object.freeze({
       id: "invoices.rollup.status.read",
+      version: 1,
       kind: "query",
       input: emptyInputValidator,
+      output: null,
       idempotency: "none",
       execute: (input, context) => invoiceRollup.getStatus(input, { context })
     })

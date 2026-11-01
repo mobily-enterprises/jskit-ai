@@ -70,7 +70,7 @@ function typedFeatureFindings(results) {
 test("the feature package example passes the typed-features rules as errors", async () => {
   const eslint = typedFeaturesLinter();
   const results = await eslint.lintFiles(["example/**/*.js"]);
-  assert.ok(results.length >= 12, `linted ${results.length} files`);
+  assert.ok(results.length >= 11, `linted ${results.length} files`);
   assert.deepEqual(typedFeatureFindings(results), []);
 
   const probe = "export function createReader({ store } = {}) {\n  return () => store.read?.();\n}\n";
@@ -83,13 +83,12 @@ test("the feature package example passes the typed-features rules as errors", as
 test("the feature package example shows each typed-features shape", async () => {
   const serverRoot = path.join(patternRoot, "example/booking-engine/src/server");
   const read = (name) => readFile(path.join(serverRoot, name), "utf8");
-  const [feature, engine, actions, types, availability, requester] = await Promise.all([
+  const [feature, engine, actions, types, availability] = await Promise.all([
     read("BookingEngineFeature.js"),
     read("bookingEngine.js"),
     read("bookingEngineActions.js"),
     read("types.js"),
-    read("bookingAvailability.js"),
-    read("bookingRequester.js")
+    read("bookingAvailability.js")
   ]);
 
   assert.match(feature, /optional: \{\s+availability: "feature\.booking-engine\.availability"/u);
@@ -99,9 +98,9 @@ test("the feature package example shows each typed-features shape", async () => 
   assert.match(types, /@typedef \{ReturnType<typeof import\("\.\/bookingEngine\.js"\)\.createBookingEngine>\} BookingEngine/u);
   assert.match(types, /\} BookingEngineAvailability/u);
   assert.match(engine, /function createBookingEngine\(\{ availability \}\)/u);
-  assert.match(engine, /requestedBy: bookingRequester\(context\)/u);
+  assert.match(engine, /import \{ resolveActorId \} from "@jskit-ai\/kernel\/server\/actions\/actionContributorHelpers";/u);
+  assert.match(engine, /requestedBy: resolveActorId\(context\)/u);
   assert.match(engine, /return Object\.freeze\(\{ readStatus \}\);/u);
-  assert.match(requester, /function bookingRequester\(context\)/u);
   assert.match(actions, /function createBookingEngineActions\(\{ bookingEngine \}\)/u);
   assert.match(actions, /execute: \(input, context\) => bookingEngine\.readStatus\(input, \{ context \}\)/u);
   assert.match(actions, /return Object\.freeze\(\[\s+Object\.freeze\(\{/u);

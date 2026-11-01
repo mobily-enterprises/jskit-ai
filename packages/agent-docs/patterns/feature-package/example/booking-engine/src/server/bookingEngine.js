@@ -1,4 +1,4 @@
-import { bookingRequester } from "./bookingRequester.js";
+import { resolveActorId } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 
 /**
  * The booking engine the feature provides as `feature.booking-engine`.
@@ -10,7 +10,7 @@ function createBookingEngine({ availability }) {
    * Reports, for the validated query, whether its scope takes bookings and who
    * asked.
    * @param {{ scope?: string, verbose?: boolean }} query
-   * @param {{ context: { actor: { id: unknown } | null } }} options
+   * @param {{ context: object }} options
    */
   async function readStatus({ scope = "default", verbose = false }, { context }) {
     return {
@@ -19,7 +19,7 @@ function createBookingEngine({ availability }) {
       scope,
       verbose,
       open: await availability(scope),
-      requestedBy: bookingRequester(context)
+      requestedBy: resolveActorId(context)
     };
   }
 

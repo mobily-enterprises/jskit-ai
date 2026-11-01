@@ -483,9 +483,9 @@ actorId(options?.context) || null
 ```
 
 Each form treats an absent actor differently, so one action behaves
-differently depending on the path it takes. Give the package one helper, such
-as the feature package pattern's `bookingRequester(context)`, and pass the
-context from actions one way.
+differently depending on the path it takes. Read the actor with the kernel's
+`resolveActorId(context)` or `resolveActor(context)`, as the feature package
+pattern's engine does, and pass the context from actions one way.
 
 ### Unfrozen results
 
@@ -831,8 +831,8 @@ From the route, each step is one jump:
 
 The `server/feature-package` pattern in the
 [source pattern library](/patterns/) is the smallest feature to copy: a `types.js`, a typed engine, an optional token with
-a named default, one request-context helper and a `bookingEngineActions.js` of
-one-line frozen actions.
+a named default, the kernel's `resolveActorId(context)` for who asked and a
+`bookingEngineActions.js` of one-line frozen actions.
 
 ## Checks
 

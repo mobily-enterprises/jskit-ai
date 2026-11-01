@@ -70,9 +70,10 @@ questionnaire.
   `input?.x` and no second normalization of fields the input schema already
   checked. An options bag whose fields are optional by contract
   (`options = {}` with `trx`) keeps its default.
-- The package reads the actor or workspace from an action context through one
-  helper (`bookingRequester(context)`), and its actions pass the context one
-  way.
+- The package reads the actor from an action context one way, with the
+  kernel's `resolveActorId(context)` or `resolveActor(context)`
+  (`@jskit-ai/kernel/server/actions/actionContributorHelpers`), and its actions
+  pass the context one way.
 - Every `create*` returns `Object.freeze({ … })` of named inner functions, and
   exposes another factory's functions by name, never by spreading it.
 - A description sits inside its `/** */` block, never in a `//` line above it.
@@ -107,10 +108,10 @@ small-feature boundary:
 - `src/server/BookingEngineFeature.js` declares the feature, its optional
   `feature.booking-engine.availability` slot and the engine it provides;
 - `src/server/bookingEngine.js` builds the engine with `createBookingEngine()`,
-  a frozen object of named functions;
+  a frozen object of named functions, and reads who asked with the kernel's
+  `resolveActorId(context)`;
 - `src/server/bookingAvailability.js` names the slot's default,
   `everyScopeOpen`;
-- `src/server/bookingRequester.js` is the package's one request-context helper;
 - `src/server/bookingEngineActions.js` creates its one-line, frozen actions
   with `createBookingEngineActions({ bookingEngine })`;
 - `src/server/types.js` declares `BookingEngine` and
