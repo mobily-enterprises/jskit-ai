@@ -16,6 +16,7 @@ const guide = await readFile(new URL("../docs/setup-command.md", import.meta.url
 const source = guide.match(/```js\n([\s\S]*?)\n```/u)?.[1];
 assert.ok(source, "The setup guide must contain its dispatch example.");
 const dispatchSetup = new Function(`${source}\nreturn dispatchSetup;`)();
+const protocol = "example-host.integration-setup.command.v1";
 const scope = "https://www.googleapis.com/auth/calendar.calendarlist.readonly";
 const callback = "http://127.0.0.1:8080/integrations/google/callback";
 const context = { applicationId: "bookings-dev", subjectId: "business-account" };
@@ -72,9 +73,9 @@ async function fixture(t) {
     }
   });
   const dispatch = async (operation, integrationId, extra = {}, identity = context) => {
-    const result = await dispatchSetup({ protocol: "vibe64.integration-setup.command.v1",
+    const result = await dispatchSetup({ protocol,
       requestId: "fixture-request", operation, integrationId, ...extra },
-    { configuration, connections: restart(), context: identity });
+    { protocol, configuration, connections: restart(), context: identity });
     assert.equal(result.requestId, "fixture-request");
     assert.equal(JSON.stringify(result).includes("private-"), false);
     return result;
@@ -123,14 +124,14 @@ try {
       return Response.json({ object: "list", data: [], has_more: false });
     }
   });
-  const result = await dispatchSetup(JSON.parse(input), { configuration, connections, context });
+  const result = await dispatchSetup(JSON.parse(input), { protocol: ${JSON.stringify(protocol)}, configuration, connections, context });
   process.stdout.write(JSON.stringify(result) + "\\n");
 } catch {
   process.stderr.write("Integration setup failed.\\n");
   process.exitCode = 1;
 }
 `);
-  const request = { protocol: "vibe64.integration-setup.command.v1", requestId: "cli-request", integrationId: "mail" };
+  const request = { protocol, requestId: "cli-request", integrationId: "mail" };
   for (const [operation, key, applicationId, expected, allowCheck] of [
     ["status", "MISSING", "first-app", "unconfigured", false],
     ["connect", "MISSING", "first-app", "unconfigured", false],

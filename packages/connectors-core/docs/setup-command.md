@@ -4,15 +4,13 @@ An application can expose its connection setup to a CLI or an editor using the
 same `createConnectionService()` instance as its backend. JSKIT owns connection
 logic and optional stores; the application owns the executable, operator
 identity, environment, callback route and deployment. Neither the backend nor
-this library requires Vibe64 to run.
+this library requires a particular host to run.
 
-For Vibe64, the application declares its own command in its Stack:
-
-```markdown
-## Integration setup
-
-- Command with `nodejs` in `.`: `node` `scripts/integrations.js`
-```
+The host that runs the command (an editor, a CLI wrapper or an operations tool)
+says how the application declares it, for example as `node
+scripts/integrations.js`, and owns its request protocol: the protocol id that
+requests carry and responses echo, the input and output size bounds and the
+time limit.
 
 The script loads the application's existing configuration and server composition.
 Resolve administrator references from its existing Env using
@@ -21,18 +19,19 @@ identity includes the environment. Keep runtime data outside source and release
 snapshots. The script's operator context must be established by the application;
 never accept applicationId, subjectId or administrator privileges from stdin.
 The normal service `authorize` callback still enforces connect/status/disconnect
-permissions. An editor user's identity is not an application user's identity.
+permissions. A host user's identity is not an application user's identity.
 
 ## Dispatch example
 
 The following function belongs in the application's script. It accepts the
-already-created service, validated configuration and trusted operator context.
-It is deliberately a composition example, not a new JSKIT command runner.
+already-created service, validated configuration, trusted operator context and
+the protocol id of the host that runs the command. It is deliberately a
+composition example, not a new JSKIT command runner.
 
 ```js
-async function dispatchSetup(request, { connections, configuration, context }) {
-  const { protocol, requestId, operation, integrationId } = request;
-  if (protocol !== "vibe64.integration-setup.command.v1" ||
+async function dispatchSetup(request, { protocol, connections, configuration, context }) {
+  const { requestId, operation, integrationId } = request;
+  if (request.protocol !== protocol ||
       typeof requestId !== "string" || !requestId ||
       !["status", "connect", "cancel", "disconnect"].includes(operation) ||
       !Object.hasOwn(configuration.integrations, integrationId)) {
@@ -94,11 +93,12 @@ async function dispatchSetup(request, { connections, configuration, context }) {
 }
 ```
 
-Read exactly one JSON request from stdin with a 32 KiB bound. Write only the
-returned JSON object plus a newline to stdout. On failure exit nonzero; do not
-print credentials, provider responses or raw exceptions. Close the application's
-database pool/resources in `finally`. The editor bounds the command at 30 seconds;
-return pending immediately instead of waiting for browser consent.
+Read exactly one JSON request from stdin within the host's input bound. Write
+only the returned JSON object plus a newline to stdout. On failure exit nonzero;
+do not print credentials, provider responses or raw exceptions. Close the
+application's database pool/resources in `finally`. The host bounds the
+command's time; return pending immediately instead of waiting for browser
+consent.
 
 `verificationInput` supplies provider-specific check inputs such as a resource
 ID. It is not a credential entry channel. Keys and client secrets belong in Env.
@@ -107,11 +107,11 @@ A configuration save does not verify credentials or produce a connected state.
 Status validates required local bindings without calling the provider. Before a
 first connection, missing credentials or an invalid callback produce
 `unconfigured` with a safe `configurationError` code; the dispatcher maps that
-code to the editor's setup guidance. A previous grant remains available for
+code to the host's setup guidance. A previous grant remains available for
 disconnect and reports `reconnect-required` when its bindings are incomplete.
 For a valid authorization-code registration, status and pending authorization
 report `callbackUrl` resolved from the application's Env. This is the URL to
-register with the provider, not the editor's suggestion. Invalid or incomplete
+register with the provider, not one the host suggests. Invalid or incomplete
 bindings do not expose an unvalidated callback or private Env values.
 
 Providers may expose `accountLabel` from their verified account response. Gmail
@@ -127,7 +127,7 @@ the grant; cancelled replacement consent retains the previous grant's label.
 
 ### Individual application accounts
 
-For `accountMode: "per-user"`, the editor configures the OAuth client but does
+For `accountMode: "per-user"`, the host configures the OAuth client but does
 not run this shared-operator dispatcher. The application implements its own
 connection screen using its existing UI and authenticated routes:
 
@@ -141,7 +141,7 @@ connection screen using its existing UI and authenticated routes:
 
 Supply `{ context, integrationId }` to each operation. Derive `context` from
 trusted application authentication and membership, never a form field, callback
-query or editor identity. The service's `authorize` function must enforce the
+query or host identity. The service's `authorize` function must enforce the
 application and user boundary. Keep registration credentials in backend Env;
 each user's grant lives separately in the existing connection store. The browser
 receives only safe status/consent metadata. OAuth callback state does not replace
@@ -162,7 +162,7 @@ The callback Env value must match both this real route and the provider's
 registered redirect URI. For a hosted project use its assigned application URL
 as the starting origin, then append the implemented callback path. Custom domains
 or explicit overrides require updating that Env value and provider registration;
-changing an editor hostname cannot change application identity.
+changing the host's hostname cannot change application identity.
 
 Status can recover a still-valid pending attempt after the process restarts.
 Cancellation consumes its state and preserves an earlier working connection.
