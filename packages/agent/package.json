@@ -1,0 +1,44 @@
+{
+  "name": "@jskit-ai/agent",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test --test-concurrency=1"
+  },
+  "exports": {
+    "./server": "./src/server/index.js"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.93",
+    "@ai-sdk/deepseek": "^3.0.72",
+    "ai": "^7.0.152",
+    "zod": "^4.6.7"
+  },
+  "description": "A working agent loop on the AI SDK: reasoning on every step, retries, tools, room inside a long turn, checks on every reply and summaries for a 1M-token window. No tables.",
+  "jskit": {
+    "kind": "runtime",
+    "capabilities": {
+      "provides": [],
+      "requires": []
+    },
+    "runtime": {
+      "server": {
+        "providers": []
+      },
+      "client": {
+        "providers": []
+      }
+    },
+    "metadata": {
+      "apiSummary": {
+        "surfaces": [
+          {
+            "subpath": "./server",
+            "summary": "The agent loop, its model calls, tool schemas, context limits, reply checks and table-free summaries."
+          }
+        ],
+        "capabilities": []
+      }
+    }
+  }
+}
