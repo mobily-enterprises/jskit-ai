@@ -87,7 +87,7 @@ relationship to framework operation bookkeeping.
 
 ### Managed-session isolation is a release requirement
 
-The new JSKIT line must support managed editors such as Vibe64 without making
+The new JSKIT line must support managed editors without making
 them invent technology-specific adapters or weaken isolation. Two operational
 properties are non-negotiable acceptance requirements for this version.
 
@@ -111,13 +111,14 @@ is an invariant of execution, not a repair phase.
 
 The decisive hosted failure was an `EACCES` from Vite while immediately
 rewriting an atomically replaced `src/typed-router.d.ts`. The human writer and
-the workspace daemon shared the `vibe64` group and the directory was setgid,
-but there was no inherited default ACL. Vite failed before the former
-post-command permission repair could run. Therefore a Vibe64-managed source
-must be created under group `vibe64`, directory mode `2770`, managed-writer
-umask `0007`, and access plus inherited default group ACL `vibe64:rwx`, with no
-access for other users. Human actors and the workspace daemon must both belong
-to that group. Missing ACL support is a startup failure.
+the workspace daemon shared the host's managed group and the directory was
+setgid, but there was no inherited default ACL. Vite failed before the former
+post-command permission repair could run. Therefore a managed source must be
+created under the host's shared group, as a setgid directory the group can
+write, with a managed-writer umask that keeps group write, and access plus an
+inherited default group ACL granting that group read, write and execute, with
+no access for other users. Human actors and the workspace daemon must both
+belong to that group. Missing ACL support is a startup failure.
 
 Acceptance must include a real cross-identity proof: a human actor using umask
 `0022` creates and atomically replaces a generated file while a daemon watcher
@@ -127,8 +128,8 @@ preserve the contract before a path becomes visible. A failed preview must
 also expose a working fresh-start/retry operation; a dead former process is not
 a reason to reject the replacement terminal.
 
-These requirements do not move Vibe64 host policy into JSKIT. JSKIT exposes
-portable, explicit application operations; Vibe64 remains the shell that owns
+These requirements do not move host policy into JSKIT. JSKIT exposes
+portable, explicit application operations; the managed shell remains the owner of
 session isolation, host users and groups, credentials, process execution, Git,
 preview, and lifecycle.
 
@@ -1402,10 +1403,10 @@ The target is not an arbitrary benchmark number. The target is an obvious
 qualitative change: the agent should spend its effort understanding and
 building the product, not reverse-engineering the framework's authoring tools.
 
-DogAndGroom is the decisive downstream proof before the new JSKIT line is
-considered practically publishable. Its product behavior, data, migrations,
-actions, routes, and UI should survive an explicit migration without a
-compatibility shim. If porting DogAndGroom feels like rebuilding the product,
+A substantial existing application is the decisive downstream proof before the
+new JSKIT line is considered practically publishable. Its product behavior, data,
+migrations, actions, routes, and UI should survive an explicit migration without
+a compatibility shim. If porting it feels like rebuilding the product,
 the new framework has become too clever or the migration has deleted the wrong
 things. That result blocks practical publication until the architecture is
 simplified.
@@ -1430,7 +1431,7 @@ has already earned:
 - existing migrations and product data remain authoritative and are not
   regenerated, replayed, or replaced
 
-The proof is therefore not merely that DogAndGroom can be made to start. Its
+The proof is therefore not merely that the application can be made to start. Its
 simple packages should become materially smaller, its complex packages should
 become easier to read, and its product code should remain recognizably the same
 codebase.
@@ -1439,7 +1440,7 @@ codebase.
 
 This change will not:
 
-- make Vibe64 required for JSKIT development
+- make any hosted editor required for JSKIT development
 - make any particular agent host or project orchestrator a JSKIT dependency
 - turn JSKIT into an LLM host or agent scheduler
 - allow product requirements to be silently inferred when materially

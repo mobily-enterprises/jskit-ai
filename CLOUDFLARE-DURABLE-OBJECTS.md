@@ -7,8 +7,8 @@ as a sketch, not a contract.
 
 ## Why we are looking at this
 
-The question is not about Vibe64 itself (which has no database). It is about the
-**applications Vibe64 generates with JSKIT**: could app authors (and the agents
+The question is not about the hosted editor itself (which has no database). It is
+about the **applications a hosted editor generates with JSKIT**: could app authors (and the agents
 writing apps for them) store data as Cloudflare-style Durable Objects, where every
 entity — a user, workspace, board, document, room — has its own private SQLite
 database?
@@ -85,27 +85,26 @@ Points to get right:
   which enforces uniqueness and assigns the ID, then the object is woken and
   initialises itself.
 
-This is the same shape as Vibe64 Online's own workspace registry: a small central
+This is the same shape as a multi-workspace host's own registry: a small central
 list pointing at large isolated shards.
 
 ## Fit for generated apps
 
-Why it suits Vibe64-generated apps:
+Why it suits agent-generated apps:
 
 - Scale comes from the design: the agent chooses the shard key once.
 - Local development is realistic: `wrangler dev` / Miniflare / `workerd` run
   Durable Objects and D1 locally without a Cloudflare account. Preview could run
   the real thing; only Deploy needs an account.
 - Cheap hosting for many small apps (idle objects are nearly free).
-- Familiar to people coming from Lovable, which publishes to Cloudflare
-  (see Vibe64 Online `docs/_old/research/vibe64-vs-lovable.md`).
+- Familiar to people coming from Lovable, which publishes to Cloudflare.
 
 The real risk: it only pays off for apps that shard naturally — collaborative
 documents, chat, multi-tenant SaaS, per-user data. A classic admin app full of
 "query everything" reports fights the model. Stack guidance must teach the agent
 *when* to choose it, not make it the default.
 
-Deployment would need its own Vibe64 Deploy contract (`wrangler deploy`) using the
+Deployment would need its own host Deploy contract (`wrangler deploy`) using the
 **user's** Cloudflare account and API token — secrets and billing are theirs.
 
 ## JSKIT today (evidence from the code, 2026-10-18)
@@ -453,8 +452,8 @@ in every URL. RivetKit stays a fallback if the Cloudflare/celld path stalls.
 7. Directory sync guarantees: `waitUntil` vs Queues vs reconciliation sweep.
 8. Per-object schema migration story for JSKIT migrations (lazy on wake).
 9. celld maturity and the actual `workerd` merge timeline.
-10. Vibe64 side: a Stack component and a Deploy contract using the user's own
-    Cloudflare account; Colleague usage docs for both.
+10. Host side: a stack component and a deploy contract using the user's own
+    Cloudflare account, with usage docs for both.
 
 ## Proposed spike (when we revisit)
 
@@ -490,7 +489,7 @@ incremental generation, edge middleware, image optimisation), maturity, ecosyste
 size and hosting support (Vercel; Cloudflare through OpenNext).
 
 Summary: JSKIT is more batteries-included for full apps; Next.js is more mature and
-wider-reaching as a web framework. For Vibe64 that is the right trade-off — the
+wider-reaching as a web framework. For agent-built apps that is the right trade-off — the
 agent benefits more from consistent built-in app features than from a giant
 ecosystem it has to assemble.
 
@@ -498,7 +497,7 @@ ecosystem it has to assemble.
 
 Current state (checked 2026-10-18): JSKIT has no server-side rendering. A search
 for SSR terms found only built bundles and tests. It is a client-rendered Vite +
-Vue application, and `genesis/blueprint.md` describes "authenticated user and
+Vue application, and its own project description describes "authenticated user and
 workspace experiences". Behind a login, most Next.js rendering features buy very
 little.
 

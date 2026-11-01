@@ -7,13 +7,13 @@ Please update `@jskit-ai/auth-provider-local-core` so JSKIT local auth supports 
 1. A pluggable password hash/verify strategy.
 2. Lazy resolution of `auth.profile.projector` so local auth can boot reliably with `users-core` and `json-rest-api-core`.
 
-This should be fixed structurally in JSKIT, not worked around in CompAS. CompAS is a representative use case: it wants the new JSKIT local auth architecture and stock login UI, but its existing users live in a migrated database and already have secure password hashes.
+This should be fixed structurally in JSKIT, not worked around in the requesting application. That application is a representative use case: it wants the new JSKIT local auth architecture and stock login UI, but its existing users live in a migrated database and already have secure password hashes.
 
 ## Problem 1: Password Verification Is Not Pluggable
 
 The local auth provider already has a storage seam through `auth.local.backend`, but password hashing and verification are hard-wired inside the local auth service. That makes the backend a storage adapter only. Apps can replace where users, sessions, and recovery records are stored, but they cannot support existing password hash formats without replacing the whole auth provider.
 
-CompAS needs to authenticate existing users from the migrated `contacts` table:
+The application needs to authenticate existing users from the migrated `contacts` table:
 
 - username/email: `contacts.email`
 - password hash: `contacts.password`
@@ -67,7 +67,7 @@ This keeps the security boundary intact:
 - apps can support legacy hash formats without storing clear-text passwords
 - JSKIT core does not need to add bcrypt as a dependency
 
-Example CompAS registration:
+Example registration:
 
 ```js
 import bcrypt from "bcryptjs";
@@ -90,7 +90,7 @@ With `users-core` installed, `users-core` registers `auth.profile.projector`. Th
 
 Current local auth behavior resolves `auth.profile.projector` while constructing `authService` during `auth.provider.local.boot()`. In a common app with local auth plus users-core, boot can fail before `json-rest-api.core` has booted and registered `internal.json-rest-api`.
 
-Observed CompAS failure:
+Observed failure:
 
 ```text
 ProviderLifecycleError: Provider "auth.provider.local" failed during boot().
@@ -142,7 +142,7 @@ That preserves current behavior when projection is actually needed, but avoids f
 11. A provider test should prove that a registered projector factory is not invoked during local-auth boot, but is invoked when login/register/session payload projection actually needs it.
 12. A JSKIT app with local auth, `users-core`, and `json-rest-api-core` should boot without `Token "internal.json-rest-api" is not registered`.
 
-## Verification Already Performed In CompAS Session
+## Verification Already Performed In The Application's Session
 
 The password strategy seam was monkey-patched into `node_modules/@jskit-ai/auth-provider-local-core@0.1.2` and package tests were run:
 
@@ -153,7 +153,7 @@ node --test test/providerRuntime.test.js
 
 Result: all package tests passed at that point.
 
-A CompAS-shaped smoke test was also run using V1's `bcryptjs` copy. It created a bcrypt hash, returned that hash from a fake backend user record, registered a custom `verifyPassword`, and confirmed that `createLocalAuthService(...).login(...)` returns a JSKIT session.
+An application-shaped smoke test was also run using V1's `bcryptjs` copy. It created a bcrypt hash, returned that hash from a fake backend user record, registered a custom `verifyPassword`, and confirmed that `createLocalAuthService(...).login(...)` returns a JSKIT session.
 
 The lazy profile projector patch was then applied locally to:
 
@@ -161,7 +161,7 @@ The lazy profile projector patch was then applied locally to:
 node_modules/@jskit-ai/auth-provider-local-core/src/server/providers/AuthLocalServiceProvider.js
 ```
 
-After that patch, CompAS server startup succeeded:
+After that patch, the application's server startup succeeded:
 
 ```bash
 PORT=4199 HOST=127.0.0.1 npm run server
@@ -540,7 +540,7 @@ diff --git a/test/providerRuntime.test.js b/test/providerRuntime.test.js
 
 ## Notes For Reviewer
 
-- This is not a CompAS-only customization. Local auth plus users-core is a normal JSKIT app shape.
+- This is not a one-application customization. Local auth plus users-core is a normal JSKIT app shape.
 - The lazy projector adapter avoids resolving users/json-rest dependencies during local auth boot while preserving projection behavior at auth-payload time.
 - The password strategy methods are intentionally called with `this` bound to the strategy object, so implementers may keep shared helpers/state on the object.
 - This does not change the local auth backend contract.

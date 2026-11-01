@@ -24,7 +24,7 @@ Environment overrides:
   CENTRAL_REDIS  Shared Redis service name   (default: central_redis)
 
 Examples:
-  dokku-install-app.sh beepollen ops@example.com
+  dokku-install-app.sh myapp ops@example.com
   CENTRAL_DB=mydb CENTRAL_REDIS=myredis dokku-install-app.sh my-app ops@example.com
 EOF
 }

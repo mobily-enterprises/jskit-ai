@@ -143,12 +143,12 @@ package published from those repositories follows its current version, keeping
 version), commits `Consume released packages` and pushes with the same retry.
 A real pin requires the same clean, current `main` checkout. `--no-commit`
 stops after the install and leaves the edits uncommitted, for a caller that
-builds from them and discards them (Vibe64 Online's deploy rehearsal).
+builds from them and discards them, such as a deploy rehearsal.
 
 Supply `NPM_TOKEN` in the command's environment, with publishing access to the
-JSKIT packages. The same scripts run locally, in CI and in Vibe64. In Vibe64,
-open the JSKIT project's **Env → Development**, add `NPM_TOKEN` with **Secret**
-enabled, and choose **Add**. Managed shell commands receive the saved value.
+JSKIT packages. The same scripts run locally, in CI and in a hosted editor. In a
+hosted editor, store `NPM_TOKEN` as a secret in the JSKIT project's development
+environment; managed shell commands receive the saved value.
 Keep credentials out of source and chat. The publisher creates a private
 temporary npm configuration and removes it after publishing or failure.
 
