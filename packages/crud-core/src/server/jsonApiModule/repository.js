@@ -9,7 +9,7 @@ import { resolveTransaction, retryDeadlocks } from "@jskit-ai/database-runtime/s
 /**
  * @param {object} dependencies
  * @param {import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi} dependencies.api
- * @param {object} dependencies.resource
+ * @param {import("../types.js").CrudResourceDefinition} dependencies.resource
  * @param {string} dependencies.resourceScopeName
  */
 function createCrudJsonApiRepository({ api, resource, resourceScopeName }) {
@@ -67,7 +67,7 @@ function createCrudJsonApiRepository({ api, resource, resourceScopeName }) {
           transaction: resolveTransaction(options),
           format: "jsonapi"
         },
-        createJsonRestContext(options.context || null)
+        createJsonRestContext(options.context)
       )
     );
   }
@@ -82,7 +82,7 @@ function createCrudJsonApiRepository({ api, resource, resourceScopeName }) {
             transaction: resolveTransaction(options),
             format: "jsonapi"
           },
-          createJsonRestContext(options.context || null)
+          createJsonRestContext(options.context)
         )
       )
     );
@@ -96,13 +96,12 @@ function createCrudJsonApiRepository({ api, resource, resourceScopeName }) {
         transaction: resolveTransaction(options),
         format: "jsonapi"
       },
-      createJsonRestContext(options.context || null)
+      createJsonRestContext(options.context)
     ));
   }
 
-  async function patchDocumentById(recordId, patch = {}, options = {}) {
-    const sourcePatch = patch && typeof patch === "object" && !Array.isArray(patch) ? patch : {};
-    if (Object.keys(sourcePatch).length < 1) {
+  async function patchDocumentById(recordId, patch, options = {}) {
+    if (Object.keys(patch).length < 1) {
       return getDocumentById(recordId, {}, options);
     }
 
@@ -110,12 +109,12 @@ function createCrudJsonApiRepository({ api, resource, resourceScopeName }) {
       requireApiResource().patch(
         {
           id: recordId,
-          data: inputData(sourcePatch),
+          data: inputData(patch),
           returning: "full",
           transaction: resolveTransaction(options),
           format: "jsonapi"
         },
-        createJsonRestContext(options.context || null)
+        createJsonRestContext(options.context)
       )
     ));
   }
@@ -129,7 +128,7 @@ function createCrudJsonApiRepository({ api, resource, resourceScopeName }) {
           transaction: resolveTransaction(options),
           format: "jsonapi"
         },
-        createJsonRestContext(options.context || null)
+        createJsonRestContext(options.context)
       ));
       return null;
     });

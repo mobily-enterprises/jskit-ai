@@ -187,17 +187,17 @@ function deriveRepositoryMappingFromResource(resource = {}, { context = "crudRep
     throw new TypeError(`${context} requires resource.operations.`);
   }
 
-  const outputProperties = requireFieldDefinitions(operations?.view?.output, {
+  const outputProperties = requireFieldDefinitions(operations.view?.output, {
     context,
     schemaLabel: "operations.view.output",
     defaultMode: "replace"
   });
-  const writeProperties = requireFieldDefinitions(operations?.create?.body, {
+  const writeProperties = requireFieldDefinitions(operations.create?.body, {
     context,
     schemaLabel: "operations.create.body",
     defaultMode: "create"
   });
-  const patchProperties = resolveOptionalFieldDefinitions(operations?.patch?.body, {
+  const patchProperties = resolveOptionalFieldDefinitions(operations.patch?.body, {
     context,
     schemaLabel: "operations.patch.body",
     defaultMode: "patch"
@@ -225,11 +225,11 @@ function deriveRepositoryMappingFromResource(resource = {}, { context = "crudRep
     if (!key) {
       continue;
     }
-    fieldStorageByKey[key] = entry?.storage?.mode || CRUD_FIELD_STORAGE_COLUMN;
-    if (entry?.storage?.column) {
+    fieldStorageByKey[key] = entry.storage.mode || CRUD_FIELD_STORAGE_COLUMN;
+    if (entry.storage.column) {
       columnOverrides[key] = entry.storage.column;
     }
-    if (entry?.storage?.writeSerializer) {
+    if (entry.storage.writeSerializer) {
       writeSerializerByKey[key] = entry.storage.writeSerializer;
     }
   }

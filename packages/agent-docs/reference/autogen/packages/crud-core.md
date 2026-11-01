@@ -53,7 +53,7 @@ Local functions
 - `normalizeFeatureRequirements(requires = {})`
 - `operationsFromResource(resource)`
 - `normalizeOperations(operations, resource)`
-- `resolveActionPermission(actionName, { access, workspaceScoped, permissions } = {})`
+- `resolveActionPermission(actionName, { access, workspaceScoped, permissions })`
 - `projectEnabledServiceOperations(service, operations)`
 
 ### `src/server/fieldAccess.js`
@@ -115,7 +115,7 @@ Exports
 - `createCrudJsonApiService({ repository })`
 - `repositoryCallOptions(options = {})`
 Local functions
-- `requireDocument(document = null)`
+- `requireDocument(document)`
 
 ### `src/server/jsonApiResourceContract.js`
 Exports

@@ -114,12 +114,16 @@ function normalizeOperations(operations, resource) {
   return Object.freeze([...new Set(source.map((operation) => assertCrudOperationName(operation)))]);
 }
 
-function resolveActionPermission(actionName, { access, workspaceScoped, permissions } = {}) {
+/**
+ * @param {string} actionName
+ * @param {{ access: string, workspaceScoped: boolean, permissions: { namespace: string } & Record<string, unknown> }} policy
+ */
+function resolveActionPermission(actionName, { access, workspaceScoped, permissions }) {
   const normalizedActionName = normalizeText(actionName).toLowerCase();
   if (!normalizedActionName) {
     throw new TypeError("CRUD action name is required.");
   }
-  const explicitPermission = permissions?.[normalizedActionName];
+  const explicitPermission = permissions[normalizedActionName];
   if (explicitPermission && typeof explicitPermission === "object") {
     return explicitPermission;
   }
@@ -132,7 +136,7 @@ function resolveActionPermission(actionName, { access, workspaceScoped, permissi
   if (workspaceScoped) {
     return Object.freeze({
       require: "all",
-      permissions: [`crud.${permissions?.namespace || "resource"}.${normalizedActionName}`]
+      permissions: [`crud.${permissions.namespace}.${normalizedActionName}`]
     });
   }
   return Object.freeze({ require: "authenticated" });
@@ -147,7 +151,7 @@ function projectEnabledServiceOperations(service, operations) {
 
 /**
  * @param {object} feature
- * @param {object} feature.resource The CRUD resource definition the feature serves.
+ * @param {import("./types.js").CrudResourceDefinition} feature.resource The CRUD resource definition the feature serves.
  * @param {string} feature.surface The surface whose routes serve it.
  * @param {string} [feature.id] Defaults to `crud.<namespace>`.
  * @param {string} [feature.capability] Defaults to the feature id.
@@ -160,8 +164,10 @@ function projectEnabledServiceOperations(service, operations) {
  * @param {object | null} [feature.permissions]
  * @param {import("./types.js").CrudScope} [feature.scope] The route base, validators, input keys and input() of a scoped resource.
  * @param {Record<string, string>} [feature.requires] More capabilities the feature requires, by name.
- * @param {((dependencies: any) => any) | null} [feature.decorateRepository]
- * @param {((dependencies: any) => any) | null} [feature.decorateService]
+ * @param {((dependencies: { repository: import("./types.js").CrudRepository, resource: import("./types.js").CrudResourceDefinition } & Record<string, any>) => import("./types.js").CrudRepository | Promise<import("./types.js").CrudRepository>) | null} [feature.decorateRepository]
+ *   Receives the CRUD repository, the resource, runtime.database, runtime.http, runtime.json-rest-api and the feature's requires.
+ * @param {((dependencies: { service: import("./types.js").CrudService, repository: import("./types.js").CrudRepository, resource: import("./types.js").CrudResourceDefinition } & Record<string, any>) => import("./types.js").CrudService | Promise<import("./types.js").CrudService>) | null} [feature.decorateService]
+ *   Receives the CRUD service, the (decorated) repository, the resource and the feature's requires.
  * @param {import("./types.js").CrudOperationLifecycle} [feature.operationLifecycle]
  * @param {object} [feature.operationInputs]
  * @param {object} [feature.actions] Custom actions, by name.
@@ -303,10 +309,9 @@ function defineCrudJsonApiFeature({
         resourceApi: Object.freeze({ repository, resource, service })
       };
     },
-    actions(dependencies) {
-      const { resourceApi } = dependencies;
+    actions({ resourceApi, ...required }) {
       const actionDependencies = Object.freeze(Object.fromEntries(
-        Object.keys(featureRequirements).map((name) => [name, dependencies[name]])
+        Object.keys(featureRequirements).map((name) => [name, required[name]])
       ));
       return createCrudJsonApiActions({
         namespace,
