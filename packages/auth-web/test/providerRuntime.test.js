@@ -63,7 +63,7 @@ function createAuthService(events = []) {
         actor: { displayName: "Ada", email: "ada@example.com" }
       };
     },
-    async devLoginAs(_request, input) {
+    async devLoginAs(input) {
       return {
         session: { access_token: "dev-a", refresh_token: "dev-r" },
         actor: { id: input.userId || "7", displayName: "Dev Ada", email: "ada@example.com" }

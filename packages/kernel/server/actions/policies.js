@@ -1,6 +1,7 @@
 import { ActionRuntimeError } from "./actionDefinitions.js";
 import { missingPermissionDetails, normalizePermissionList } from "../../shared/support/permissions.js";
-import { isRecord, normalizeLowerText, normalizeOpaqueId } from "../../shared/support/normalize.js";
+import { isRecord, normalizeLowerText } from "../../shared/support/normalize.js";
+import { resolveActorId } from "./actionContributorHelpers.js";
 import { validateSchemaPayload } from "../../shared/validators/schemaPayloadValidation.js";
 
 /** A schema validation error's fieldErrors with their codes, when it has any. */
@@ -71,7 +72,7 @@ function ensureActionPermissionAllowed(definition, context) {
     return;
   }
 
-  const actorId = normalizeOpaqueId(context.actor?.id);
+  const actorId = resolveActorId(context);
   if (actorId == null) {
     throw new ActionRuntimeError(401, permission.message || "Authentication required.", {
       code: permission.code || "ACTION_AUTHENTICATION_REQUIRED",

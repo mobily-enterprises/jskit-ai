@@ -4,6 +4,7 @@ import {
   normalizeText,
   isRecord
 } from "../../shared/support/normalize.js";
+import { resolveActorId } from "./actionContributorHelpers.js";
 
 const ENTITY_CHANGE_OPERATIONS = new Set(["created", "updated", "deleted"]);
 
@@ -166,7 +167,7 @@ function createEntityChangedActionEvent({
       operation: normalizedOperation,
       entityId: normalizedEntityId,
       scope: resolveEventScope(context),
-      actorId: normalizeOpaqueId(context?.actor?.id),
+      actorId: resolveActorId(context),
       commandId: normalizeText(requestMeta.commandId || requestMeta.idempotencyKey) || null,
       sourceClientId: normalizeText(requestMeta.sourceClientId) || null,
       occurredAt: new Date().toISOString(),

@@ -1,6 +1,7 @@
 import { isDeepStrictEqual } from "node:util";
 import { normalizeObject, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { AppError } from "@jskit-ai/kernel/server/runtime";
+import { resolveActor } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { createAiClient, createAiConnectionClient } from "@jskit-ai/assistant-core/server";
 import { createConversationRuntime } from "@jskit-ai/assistant-core/server/conversation";
 import { createSqlConversationStorage } from "./sqlConversationStorage.js";
@@ -117,7 +118,7 @@ function createAssistantConversationRuntime({ conversationsRepository, messagesR
       const request = context?.assistantRequest;
       if (!request || request.conversation.id !== conversationId) return false;
       return Boolean(await conversationsRepository.findByIdForActorScope(conversationId, {
-        actorUserId: normalizeRecordId(context.actor?.id, { fallback: null }), surfaceId: context.surface,
+        actorUserId: normalizeRecordId(resolveActor(context)?.id, { fallback: null }), surfaceId: context.surface,
         workspaceId: normalizeRecordId(request.workspace?.id || request.workspace, { fallback: null })
       }));
     },

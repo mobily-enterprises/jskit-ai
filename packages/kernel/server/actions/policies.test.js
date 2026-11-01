@@ -145,6 +145,21 @@ test("action permission denies unauthenticated access when required", () => {
   );
 });
 
+test("action permission reads the request's user when the context has no actor", () => {
+  assert.doesNotThrow(() => ensureActionPermissionAllowed(
+    {
+      id: "tests.secure",
+      permission: {
+        require: "authenticated"
+      }
+    },
+    {
+      permissions: [],
+      requestMeta: { request: { user: { id: 5 } } }
+    }
+  ));
+});
+
 test("action permission enforces required permissions", () => {
   assert.throws(
     () =>

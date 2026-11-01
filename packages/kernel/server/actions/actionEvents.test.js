@@ -77,3 +77,9 @@ test("entity-changed action events keep actor-scoped ownership only with an expl
     }
   }).scope, { kind: "workspace_user", id: "workspace_23" });
 });
+
+test("entity-changed action events read the request's user when the context has no actor", () => {
+  const event = buildEvent({ requestMeta: { request: { user: { id: 31 } } } });
+
+  assert.equal(event.actorId, "31");
+});

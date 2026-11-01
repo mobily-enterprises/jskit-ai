@@ -308,7 +308,7 @@ function createOidcAuthService({ config, store, issuer, profileProjector, logger
     };
   }
 
-  async function devLoginAs(request, input) {
+  async function devLoginAs(input, request) {
     ensureDevAuthExchangeAvailable(config.devAuth, request);
     const userId = String(input.userId || "").trim();
     const email = normalizeEmail(input.email);

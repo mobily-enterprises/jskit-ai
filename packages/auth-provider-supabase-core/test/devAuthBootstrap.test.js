@@ -103,9 +103,9 @@ test("dev auth bootstrap can issue and authenticate a local session without Supa
   const authService = createServiceFixture();
   const loginRequest = createDevAuthExchangeRequest();
 
-  const loginResult = await authService.devLoginAs(loginRequest, {
+  const loginResult = await authService.devLoginAs({
     userId: "7"
-  });
+  }, loginRequest);
 
   assert.equal(loginResult.actor.id, "7");
   assert.match(loginResult.session.access_token, /^jskit-dev\./);
@@ -128,9 +128,9 @@ test("dev auth bootstrap can issue and authenticate a local session without Supa
 
 test("dev auth bootstrap resolves security status without Supabase", async () => {
   const authService = createServiceFixture();
-  const loginResult = await authService.devLoginAs(createDevAuthExchangeRequest(), {
+  const loginResult = await authService.devLoginAs({
     userId: "7"
-  });
+  }, createDevAuthExchangeRequest());
 
   const securityStatus = await authService.getSecurityStatus(
     createLocalRequest({
@@ -170,9 +170,9 @@ test("dev auth security status rejects invalid dev sessions without recovery-lin
 test("dev auth bootstrap supports email lookup", async () => {
   const authService = createServiceFixture();
 
-  const result = await authService.devLoginAs(createDevAuthExchangeRequest(), {
+  const result = await authService.devLoginAs({
     email: "ADA@EXAMPLE.COM"
-  });
+  }, createDevAuthExchangeRequest());
 
   assert.equal(result.actor.id, "7");
   assert.equal(result.actor.email, "ada@example.com");
@@ -182,16 +182,16 @@ test("dev auth bootstrap rejects a missing or incorrect exchange secret", async 
   const authService = createServiceFixture();
 
   await assert.rejects(
-    () => authService.devLoginAs(createLocalRequest(), { userId: "7" }),
+    () => authService.devLoginAs({ userId: "7" }, createLocalRequest()),
     /not authorized/
   );
   await assert.rejects(
-    () => authService.devLoginAs(createLocalRequest({
+    () => authService.devLoginAs({ userId: "7" }, createLocalRequest({
       headers: {
         host: "localhost:3000",
         "x-jskit-dev-auth-secret": "wrong-secret"
       }
-    }), { userId: "7" }),
+    })),
     /not authorized/
   );
 });
@@ -212,9 +212,9 @@ test("dev auth bootstrap returns the canonical actor", async () => {
     userProfilesRepository: createUserProfilesRepository(rawProfile)
   });
 
-  const loginResult = await authService.devLoginAs(createDevAuthExchangeRequest(), {
+  const loginResult = await authService.devLoginAs({
     userId: "7"
-  });
+  }, createDevAuthExchangeRequest());
 
   assert.deepEqual(loginResult.actor, {
     id: "7",
@@ -231,19 +231,19 @@ test("dev auth bootstrap returns the canonical actor", async () => {
 
 test("dev auth bootstrap rejects non-local requests and clears leaked dev sessions", async () => {
   const authService = createServiceFixture();
-  const issued = await authService.devLoginAs(createDevAuthExchangeRequest(), {
+  const issued = await authService.devLoginAs({
     userId: "7"
-  });
+  }, createDevAuthExchangeRequest());
 
   await assert.rejects(
     () =>
       authService.devLoginAs(
+        { userId: "7" },
         createDevAuthExchangeRequest({
           ip: "203.0.113.10",
           hostname: "example.com",
           headers: { host: "example.com" }
-        }),
-        { userId: "7" }
+        })
       ),
     /localhost/
   );
@@ -268,6 +268,7 @@ test("dev auth bootstrap does not trust forwarded localhost headers", async () =
   await assert.rejects(
     () =>
       authService.devLoginAs(
+        { userId: "7" },
         createDevAuthExchangeRequest({
           ip: "203.0.113.10",
           socket: {
@@ -283,8 +284,7 @@ test("dev auth bootstrap does not trust forwarded localhost headers", async () =
             "x-forwarded-for": "127.0.0.1",
             "x-forwarded-host": "localhost"
           }
-        }),
-        { userId: "7" }
+        })
       ),
     /localhost/
   );

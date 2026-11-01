@@ -304,15 +304,19 @@ async function updateSettings(input, { context }) {
 The expression that reads the request, the actor or the workspace from an
 action context lives behind one helper per package, and every action passes
 the context the same way. Variants with `?.` or `|| null` count as different
-forms. The kernel's `resolveRequest(context)` reads the request.
+forms. The kernel's `resolveRequest(context)` reads the request, and
+`resolveActor(context)` / `resolveActorId(context)` read the signed-in user
+(`resolveActorId(null, request)` where only the request is held); never
+`context.actor?.id` or `request.user?.id` by hand. A method that takes both
+the input and the request takes `(input, request)`.
 
 ```js
-// before: auth-core read the request two ways
+// before: auth-core read the request two ways, and passed it first or second
 execute: (input, context) => authService.oauthStart(input, resolveRequest(context))
 execute: (input, context) => authService.resetPassword(requireRequestContext(context, "auth.password.reset"), input)
 
 // after
-execute: (input, context) => authService.resetPassword(resolveRequest(context), input)
+execute: (input, context) => authService.resetPassword(input, resolveRequest(context))
 ```
 
 ### 8. Factory results are frozen, with named members

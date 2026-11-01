@@ -209,9 +209,9 @@ test("local file auth login-as issues native cookies for an existing user", asyn
     password: "correct horse battery staple"
   });
 
-  const impersonated = await authService.devLoginAs(createDevAuthExchangeRequest(), {
+  const impersonated = await authService.devLoginAs({
     email: "ADA@EXAMPLE.COM"
-  });
+  }, createDevAuthExchangeRequest());
   assert.equal(impersonated.actor.email, "ada@example.com");
   assert.equal(impersonated.session.purpose, "dev-auth");
   assert.equal(authService.getCapabilities().features.devLoginAs, true);
@@ -264,9 +264,9 @@ test("local login-as never invokes the mutating profile projector", async () => 
   findCalls = 0;
   syncCalls = 0;
 
-  const impersonated = await authService.devLoginAs(createDevAuthExchangeRequest(), {
+  const impersonated = await authService.devLoginAs({
     email: "ada@example.com"
-  });
+  }, createDevAuthExchangeRequest());
   const reply = createReplyFixture();
   authService.writeSessionCookies(reply, impersonated.session);
   const authenticated = await authService.authenticateRequest(createLocalAuthRequest({
@@ -363,7 +363,7 @@ test("local login-as rejects missing, disabled, and unprojected users", async ()
     "unprojected@example.com"
   ]) {
     await assert.rejects(
-      () => authService.devLoginAs(createDevAuthExchangeRequest(), { email }),
+      () => authService.devLoginAs({ email }, createDevAuthExchangeRequest()),
       /User not found/
     );
   }
@@ -380,21 +380,21 @@ test("local login-as rejects missing, incorrect, and non-loopback exchange autho
   });
 
   await assert.rejects(
-    () => authService.devLoginAs(createLocalAuthRequest(), { email: "ada@example.com" }),
+    () => authService.devLoginAs({ email: "ada@example.com" }, createLocalAuthRequest()),
     /not authorized/
   );
   await assert.rejects(
-    () => authService.devLoginAs(createLocalAuthRequest({
+    () => authService.devLoginAs({ email: "ada@example.com" }, createLocalAuthRequest({
       headers: {
         [DEV_AUTH_SECRET_HEADER]: "wrong-secret"
       }
-    }), { email: "ada@example.com" }),
+    })),
     /not authorized/
   );
   await assert.rejects(
-    () => authService.devLoginAs(createDevAuthExchangeRequest({
+    () => authService.devLoginAs({ email: "ada@example.com" }, createDevAuthExchangeRequest({
       remoteAddress: "203.0.113.5"
-    }), { email: "ada@example.com" }),
+    })),
     /localhost/
   );
 });
@@ -813,10 +813,10 @@ test("local auth password strategy handles register, reset, login, and change pa
   authService.writeSessionCookies(recoveryReply, recovery.session);
   await authService.resetPassword(
     {
-      cookies: recoveryReply.cookies
+      password: "reset password value"
     },
     {
-      password: "reset password value"
+      cookies: recoveryReply.cookies
     }
   );
 
@@ -872,10 +872,10 @@ test("local auth provider completes recovery through a recovery-scoped session",
     () =>
       authService.resetPassword(
         {
-          cookies: normalReply.cookies
+          password: "not allowed value"
         },
         {
-          password: "not allowed value"
+          cookies: normalReply.cookies
         }
       ),
     /Recovery session required/
@@ -903,10 +903,10 @@ test("local auth provider completes recovery through a recovery-scoped session",
 
   await authService.resetPassword(
     {
-      cookies: reply.cookies
+      password: "updated password value"
     },
     {
-      password: "updated password value"
+      cookies: reply.cookies
     }
   );
 
@@ -950,10 +950,10 @@ test("local auth reset invalidates other outstanding recovery tokens for the use
   authService.writeSessionCookies(reply, recovery.session);
   await authService.resetPassword(
     {
-      cookies: reply.cookies
+      password: "updated password value"
     },
     {
-      password: "updated password value"
+      cookies: reply.cookies
     }
   );
 

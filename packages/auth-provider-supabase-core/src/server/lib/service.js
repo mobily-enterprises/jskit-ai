@@ -86,7 +86,7 @@ function createSupabaseAuthService({ config, profiles }) {
     return config.devAuth.enabled === true;
   }
 
-  async function devLoginAs(request, input) {
+  async function devLoginAs(input, request) {
     ensureDevAuthExchangeAvailable(config.devAuth, request);
     const rawProfile = await resolveDevAuthProfile(input, {
       userProfilesRepository: profiles.userProfilesRepository

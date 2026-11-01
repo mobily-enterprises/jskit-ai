@@ -121,7 +121,7 @@ function createAuthActions({ authService }) {
       surfaces: ["*"],
       input: authDevLoginAsCommand.operation.body,
       idempotency: "none",
-      execute: (input, context) => authService.devLoginAs(resolveRequest(context), input)
+      execute: (input, context) => authService.devLoginAs(input, resolveRequest(context))
     }),
     Object.freeze({
       id: "auth.password.reset.request",
@@ -151,7 +151,7 @@ function createAuthActions({ authService }) {
       surfaces: ["*"],
       input: authPasswordResetCommand.operation.body,
       idempotency: "none",
-      execute: (input, context) => authService.resetPassword(resolveRequest(context), input)
+      execute: (input, context) => authService.resetPassword(input, resolveRequest(context))
     }),
     Object.freeze({
       id: "auth.logout",

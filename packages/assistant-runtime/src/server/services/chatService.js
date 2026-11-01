@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
+import { resolveActor } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { AppError, createValidationError } from "@jskit-ai/kernel/server/runtime";
 import { normalizeObject, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveWorkspaceSlug } from "@jskit-ai/assistant-core/server";
@@ -223,7 +224,7 @@ function createChatService({
     const assistantContext = buildAssistantActionContext(context, assistantSurface);
     const workspace = resolveRuntimeWorkspace(assistantSurface, assistantContext, payload);
     const source = normalizeStreamInput(payload);
-    const actor = context.actor;
+    const actor = resolveActor(context);
     const actorUserId = normalizeRecordId(actor?.id, { fallback: null });
     if (!actorUserId) throw new AppError(401, "Authentication required.", { code: "assistant.runtime.authenticationRequired" });
     if (!hasStreamWriter(options.streamWriter)) throw new Error("assistant.chat.stream requires streamWriter methods.");

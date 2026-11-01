@@ -6,6 +6,7 @@ import {
 } from "../../shared/support/normalize.js";
 import { missingPermissionDetails, normalizePermissionList } from "../../shared/support/permissions.js";
 import { AppError } from "./errors.js";
+import { resolveActor } from "../actions/actionContributorHelpers.js";
 
 const AUTH_REQUIRE_MODES = new Set(["none", "authenticated", "all", "any"]);
 
@@ -45,7 +46,7 @@ function normalizeRequireAuthOptions(options = {}) {
 }
 
 function requireAuthenticatedActor(context = {}, options = {}) {
-  const actor = normalizeObject(context.actor);
+  const actor = normalizeObject(resolveActor(context));
   const actorId = normalizeOpaqueId(actor.id);
 
   if (actorId == null) {

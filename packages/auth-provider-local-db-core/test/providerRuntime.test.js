@@ -275,10 +275,10 @@ test("local auth service works end to end with DB backend", async () => {
   authService.writeSessionCookies(recoveryReply, recovery.session);
   await authService.resetPassword(
     {
-      cookies: recoveryReply.cookies
+      password: "updated password value"
     },
     {
-      password: "updated password value"
+      cookies: recoveryReply.cookies
     }
   );
 
@@ -357,11 +357,11 @@ test("local database auth uses the shared native login-as session contract", asy
     }
   });
 
-  const impersonated = await authService.devLoginAs(createLocalRequest({
-    exchange: true
-  }), {
+  const impersonated = await authService.devLoginAs({
     email: "PREVIEW-DB@EXAMPLE.COM"
-  });
+  }, createLocalRequest({
+    exchange: true
+  }));
   assert.equal(impersonated.actor.id, "usr_preview_db");
   assert.equal(impersonated.session.purpose, "dev-auth");
 

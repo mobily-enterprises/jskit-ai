@@ -192,7 +192,7 @@ test("preview identity signs in as an existing oidc users row only", async (t) =
     await issuer.close();
   });
   const previewRequest = { ...requestAt(), headers: { host: "localhost:5173", "x-jskit-dev-auth-secret": "preview-secret-0123456789abcdef" } };
-  await assert.rejects(rp.service.devLoginAs(previewRequest, { email: issuer.account.email }), {
+  await assert.rejects(rp.service.devLoginAs({ email: issuer.account.email }, previewRequest), {
     message: "User not found.",
     code: "auth.dev.userNotFound",
     details: {
@@ -203,9 +203,9 @@ test("preview identity signs in as an existing oidc users row only", async (t) =
 
   const { input, request } = await signInAtIssuer(rp);
   await rp.service.oauthComplete(input, request);
-  const byEmail = await rp.service.devLoginAs(previewRequest, { email: issuer.account.email });
+  const byEmail = await rp.service.devLoginAs({ email: issuer.account.email }, previewRequest);
   assert.equal(byEmail.actor.providerUserId, issuer.account.sub);
-  const bySubject = await rp.service.devLoginAs(previewRequest, { userId: issuer.account.sub });
+  const bySubject = await rp.service.devLoginAs({ userId: issuer.account.sub }, previewRequest);
   assert.equal(bySubject.actor.email, issuer.account.email);
 
   const signedIn = await rp.service.authenticateRequest({ ...previewRequest, cookies: { jskit_oidc_session: bySubject.session.token } });

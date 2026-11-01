@@ -142,7 +142,7 @@ function createSupabasePasswordFlows({ config, clients, sessions, profileMirror,
     };
   }
 
-  async function resetPassword(request, payload) {
+  async function resetPassword(payload, request) {
     clients.ensureConfigured();
 
     const result = authPasswordResetBodyValidator.schema.create(payload);

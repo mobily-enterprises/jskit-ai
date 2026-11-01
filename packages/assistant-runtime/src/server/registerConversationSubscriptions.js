@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { resolveActorId } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { attachDirectRequestActionExecutor } from "@jskit-ai/kernel/server/http";
 import { AppError } from "@jskit-ai/kernel/server/runtime";
 import { actionIds } from "./actionIds.js";
@@ -128,7 +129,7 @@ function registerConversationSubscriptions({ realtime, events, actions, config =
           resolveCurrentAppConfig: () => config, requiresWorkspace, workspaceScopeSupport
         });
         attachDirectRequestActionExecutor({ actions, request });
-        const actorId = request.user?.id;
+        const actorId = resolveActorId(null, request);
 
         function publish(event, revision) {
           subscription.queue = subscription.queue.then(async () => {

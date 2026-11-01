@@ -83,7 +83,7 @@
  * @property {(input: object, request: object | null) => Promise<object>} oauthComplete
  * @property {(input: object) => Promise<object>} requestPasswordReset
  * @property {(input: object) => Promise<object>} completePasswordRecovery
- * @property {(request: object, input: object) => Promise<object>} resetPassword
+ * @property {(input: object, request: object | null) => Promise<object>} resetPassword
  * @property {(request: object, input: object) => Promise<object>} changePassword
  * @property {(request: object, input: object) => Promise<object>} updateDisplayName
  * @property {(request: object) => Promise<object>} getSecurityStatus
@@ -91,7 +91,7 @@
  * @property {(request: object, input: object) => Promise<object>} startProviderLink
  * @property {(request: object, input: object) => Promise<object>} unlinkProvider
  * @property {(request: object) => Promise<object>} signOutOtherSessions
- * @property {(request: object, input: object) => Promise<object>} devLoginAs
+ * @property {(input: object, request: object | null) => Promise<object>} devLoginAs
  * @property {(reply: object, result: object) => void} [writeOAuthStartCookies] Keeps the state of an OAuth sign-in that oauthStart() began.
  * @property {(reply: object) => void} [clearOAuthStartCookies]
  * @property {(request: object, options?: { everywhere?: boolean }) => Promise<any>} [logoutEverywhere]

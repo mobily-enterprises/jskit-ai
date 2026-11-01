@@ -94,7 +94,7 @@ function createLocalPasswordFlows({ backend, config, passwords, profileProjector
     });
   }
 
-  async function resetPassword(request, input) {
+  async function resetPassword(input, request) {
     validatePasswordInput(input.password);
     const payload = verifySignedToken(sessions.readRecoveryAccessToken(request), config.sessionSecret);
     if (!payload?.sub || !payload?.sid) {

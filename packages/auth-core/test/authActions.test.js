@@ -30,7 +30,7 @@ test("shared dev login-as action passes the trusted request to auth.service", as
   let received = null;
   const action = createAuthActions({
     authService: {
-      async devLoginAs(receivedRequest, receivedInput) {
+      async devLoginAs(receivedInput, receivedRequest) {
         received = { input: receivedInput, request: receivedRequest };
         return { ok: true };
       }

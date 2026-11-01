@@ -1,3 +1,4 @@
+import { resolveActor } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { AppError, createValidationError, parsePositiveInteger } from "@jskit-ai/kernel/server/runtime";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { normalizeObject, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
@@ -150,7 +151,7 @@ function createTranscriptService({ conversationsRepository, messagesRepository }
 
     const source = normalizeObject(payload);
     const context = normalizeObject(options.context);
-    const actorUserId = resolveActorUserId(context.actor, {
+    const actorUserId = resolveActorUserId(resolveActor(context), {
       required: true
     });
     const workspaceId = resolveExpectedWorkspaceId(resolvedAssistantSurface, options.workspace || context.workspace);

@@ -401,15 +401,15 @@ test("supabase password reset consumes the recovery session reader", async () =>
 
   await flows.resetPassword(
     {
+      password: "new password value"
+    },
+    {
       cookies: {
         sb_access_token: "normal-access",
         sb_refresh_token: "normal-refresh",
         sb_recovery_access_token: "recovery-access",
         sb_recovery_refresh_token: "recovery-refresh"
       }
-    },
-    {
-      password: "new password value"
     }
   );
 

@@ -98,3 +98,9 @@ test("requireAuth allows namespace wildcard permissions", () => {
     )
   );
 });
+
+test("requireAuth reads the request's user when the context has no actor", () => {
+  const actor = requireAuth({ context: { requestMeta: { request: { user: { id: "u-9" } } } } }, { require: "authenticated" });
+
+  assert.equal(actor.id, "u-9");
+});
