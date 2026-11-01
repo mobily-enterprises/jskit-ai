@@ -117,6 +117,7 @@
     "./server/workday": "./src/server/workday.js",
     "./server/shopify": "./src/server/shopify.js",
     "./server/wiz": "./src/server/wiz.js",
+    "./server/types": "./src/server/types.js",
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {

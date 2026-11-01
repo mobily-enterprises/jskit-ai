@@ -776,6 +776,12 @@ Local functions
 - `rewardWrite(path, fields, method, queryNames, validateResult)`
 - `normalizeTokenResponse(response)`
 
+### `src/server/types.js`
+Exports
+- `type AiConnectionResolver`
+- `type GoogleAdsSearchService`
+- `type WizScanTargetResolver`
+
 ### `src/server/wave.js`
 Exports
 - `waveProvider`
@@ -844,7 +850,6 @@ Exports
 ### `src/server/wiz.js`
 Exports
 - `createWizScanner({ configuration, authorize, resolveReference, resolveScanTarget, executable, environment = { PATH: process.env.PATH || "/usr/bin:/bin" }, timeoutMs = 600_000, maxReportBytes = 16 * 1024 * 1024 })`
-- `type WizScanTargetResolver`
 Local functions
 - `failure(code, message, statusCode = 502, codes = {})`
 - `runCli(executable, args, options, signal, timeoutMs)`
@@ -1361,7 +1366,7 @@ Exports
 
 ### `patterns/google-ads-search/example/ads-setup.js`
 Exports
-- `dispatchAdsSetup(request, service)`
+- `dispatchAdsSetup(request, service, { protocol, maxResponseBytes })`
 
 ### `patterns/paddle-catalogue/example/create-products.js`
 Exports

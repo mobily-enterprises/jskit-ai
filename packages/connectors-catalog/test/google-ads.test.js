@@ -345,9 +345,13 @@ test("Search rejects stale plans and live budgets, unsupported campaigns and den
 
 test("Search application command fragment reuses the native service and emits bounded display results", async t => {
   const f = await searchFixture(t);
-  const request = { protocol: "vibe64.integration-setup.command.v1", requestId: "ads-fixture", operation: "ads-preview", ads: {} };
-  const reply = await dispatchAdsSetup(request, f.ads);
+  const host = { protocol: "example-host.integration-setup.command.v1", maxResponseBytes: 32768 };
+  const request = { protocol: host.protocol, requestId: "ads-fixture", operation: "ads-preview", ads: {} };
+  const reply = await dispatchAdsSetup(request, f.ads, host);
   assert.equal(reply.status, "ads"); assert.equal(reply.operation, "ads-preview"); assert.equal(reply.data.plan.name, searchPlan.name);
+  assert.equal(reply.protocol, host.protocol);
   assert.equal(JSON.stringify(reply).includes("access-fixture"), false);
-  await assert.rejects(dispatchAdsSetup({ ...request, operation: "ads-arbitrary" }, f.ads));
+  await assert.rejects(dispatchAdsSetup({ ...request, operation: "ads-arbitrary" }, f.ads, host));
+  await assert.rejects(dispatchAdsSetup({ ...request, protocol: "other-host.command.v1" }, f.ads, host), /Invalid advertising setup request/);
+  await assert.rejects(dispatchAdsSetup(request, f.ads, { ...host, maxResponseBytes: 64 }), /exceeds the host's response limit/);
 });

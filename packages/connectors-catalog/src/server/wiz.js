@@ -41,17 +41,11 @@ async function runCli(executable, args, options, signal, timeoutMs) {
 }
 
 /**
- * The application's choice of what to scan for an authorized owner: an
- * immutable source snapshot and its revision, never a path from the browser.
- * @typedef {(owner: import("@jskit-ai/connectors-core/server/types").ConnectionOwner, request: { integrationId: string, signal?: AbortSignal }) => Promise<{ directory: string, revision: string }>} WizScanTargetResolver
- */
-
-/**
  * @param {object} options
  * @param {Record<string, any>} options.configuration The integration configuration.
  * @param {import("@jskit-ai/connectors-core/server/types").ConnectorAuthorize} options.authorize
  * @param {import("@jskit-ai/connectors-core/server/types").ResolveReference} options.resolveReference Resolves the registration's client secret.
- * @param {WizScanTargetResolver} options.resolveScanTarget
+ * @param {import("./types.js").WizScanTargetResolver} options.resolveScanTarget
  * @param {string} options.executable The installed Wiz CLI's absolute path.
  * @param {Record<string, string>} [options.environment] The scan worker's PATH, proxy and CA variables.
  * @param {number} [options.timeoutMs]

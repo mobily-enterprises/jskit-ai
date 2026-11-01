@@ -26,18 +26,20 @@ const created = await ads.create(review.reviewId); // starts PAUSED
 `configuration.extensions.googleAdsSearch[integrationId]` holds the saved plan.
 Validate it with `validateGoogleAdsSearchPlan` from the package's shared
 `google-ads-search` export. Keep OAuth settings separate so campaign edits do not
-invalidate consent. The runtime has no Vibe64 protocol, frontend, Env injection or
+invalidate consent. The runtime has no command protocol, frontend, Env injection or
 storage owner. CLI apps can call it directly. Normal `connections.authorize` must
 authorize the trusted application's advertising administrator for each operation;
 never accept a subject identity from a request body.
 
-For Vibe64, compose `example/ads-setup.js` into the app's existing Integration setup
-command and return exactly one JSON result on stdout. Derive `context` and the
+When a host runs the app's integration setup command, compose `example/ads-setup.js`
+into that command and return exactly one JSON result on stdout. Pass the host's
+request protocol as the fragment's third argument: `protocol`, the id its requests
+carry and its response echoes, and `maxResponseBytes`, the largest response it
+accepts; the host's own command contract names both. Derive `context` and the
 allowed integration ID from trusted command composition before calling the
 fragment. Keep connection status/connect/reconnect/disconnect operations intact.
-Read the public Vibe64 `application-google-ads.md` command contract when targeting
-that editor. Other frameworks implement its JSON/Env and operation contract with
-their native libraries; they do not execute this JavaScript fragment.
+Other frameworks implement its JSON/Env and operation contract with their native
+libraries; they do not execute this JavaScript fragment.
 
 The Search recipe supports only non-political manual-CPC campaigns with one ad
 group, phrase keywords and a website conversion goal. Account creation, PMax,
@@ -73,7 +75,7 @@ feature that uses it follows
 
 ## Example files
 
-`example/ads-setup.js` maps the optional editor command to the shared service. It
+`example/ads-setup.js` maps a host's optional setup command to the shared service. It
 contains no HTTP endpoint, credential resolution or trusted-identity inference.
 
 ## Variation points

@@ -45,7 +45,7 @@ and whether a blocking verdict prevents a later operation.
   default. `authorize` and `resolveReference` are typed with `ConnectorAuthorize`
   and `ResolveReference` from `@jskit-ai/connectors-core/server/types`, and
   `resolveScanTarget` with `WizScanTargetResolver` from
-  `@jskit-ai/connectors-catalog/server/wiz`. A server feature that uses it follows
+  `@jskit-ai/connectors-catalog/server/types`. A server feature that uses it follows
   [typed features](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/site/guide/framework/typed-features.md).
 
 ## Framework APIs

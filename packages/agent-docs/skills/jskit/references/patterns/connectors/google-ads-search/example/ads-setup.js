@@ -1,11 +1,15 @@
-// Compose the service in the application's existing authenticated command owner.
-// No stdin value establishes the trusted application/administrator identity.
 /**
- * @param {any} request The parsed setup command.
- * @param {ReturnType<typeof import("@jskit-ai/connectors-catalog/server/google-ads-search").createGoogleAdsSearchService>} service
+ * Runs one advertising setup request against the Google Ads Search service. Compose
+ * the service in the application's existing authenticated command owner: no request
+ * value establishes the trusted application or administrator identity.
+ * @param {{ protocol: string, requestId: string, operation: string, ads: Record<string, any> }} request The parsed setup command.
+ * @param {import("@jskit-ai/connectors-catalog/server/types").GoogleAdsSearchService} service
+ * @param {object} host The command host's request protocol.
+ * @param {string} host.protocol The protocol id that requests carry and the response echoes.
+ * @param {number} host.maxResponseBytes The largest response the host accepts.
  */
-export async function dispatchAdsSetup(request, service) {
-  if (request?.protocol !== "vibe64.integration-setup.command.v1" || typeof request.requestId !== "string" ||
+export async function dispatchAdsSetup(request, service, { protocol, maxResponseBytes }) {
+  if (request?.protocol !== protocol || typeof request.requestId !== "string" ||
       !/^[A-Za-z0-9_-]{1,200}$/.test(request.requestId) || !request.ads || Array.isArray(request.ads) || typeof request.ads !== "object") {
     throw new Error("Invalid advertising setup request.");
   }
@@ -24,6 +28,6 @@ export async function dispatchAdsSetup(request, service) {
     default: throw new Error("Unsupported advertising setup operation.");
   }
   const response = { protocol: request.protocol, requestId: request.requestId, status: "ads", operation: request.operation, data };
-  if (Buffer.byteLength(JSON.stringify(response)) > 32768) throw new Error("Advertising result exceeds the editor's display limit. Inspect Google Ads before repeating any write.");
+  if (Buffer.byteLength(JSON.stringify(response)) > maxResponseBytes) throw new Error("Advertising result exceeds the host's response limit. Inspect Google Ads before repeating any write.");
   return response;
 }

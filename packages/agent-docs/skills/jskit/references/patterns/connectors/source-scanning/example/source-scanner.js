@@ -9,7 +9,7 @@ import { createWizScanner } from "@jskit-ai/connectors-catalog/server/wiz";
  * @param {string} dependencies.installedWizCliPath
  * @param {import("@jskit-ai/connectors-core/server/types").ConnectorAuthorize} dependencies.authorize The application's access policy.
  * @param {import("@jskit-ai/connectors-core/server/types").ResolveReference} dependencies.resolveReference
- * @param {import("@jskit-ai/connectors-catalog/server/wiz").WizScanTargetResolver} dependencies.resolveScanTarget
+ * @param {import("@jskit-ai/connectors-catalog/server/types").WizScanTargetResolver} dependencies.resolveScanTarget
  * @param {Record<string, string>} [dependencies.environment]
  */
 export async function projectSourceScanner({ configFile = "integrations.json", installedWizCliPath,
