@@ -20,7 +20,6 @@
     "./server/defineCrudJsonApiFeature": "./src/server/defineCrudJsonApiFeature.js",
     "./server/jsonApiRepository": "./src/server/jsonApiModule/repository.js",
     "./server/jsonApiService": "./src/server/jsonApiModule/service.js",
-    "./server/crudModuleConfig": "./src/server/crudModuleConfig.js",
     "./server/listQueryValidators": "./src/server/listQueryValidators.js",
     "./server/listFilters": "./src/server/listFilters.js",
     "./server/routeContracts": "./src/server/routeContracts.js",

@@ -29,18 +29,6 @@ Local functions
 - `resolveGetChildOwnerId(options = {}, { context = "createHooksToCollectChildren" } = {})`
 - `resolveChildrenContainerKey(hookContext = {}, options = {})`
 
-### `src/server/crudModuleConfig.js`
-Exports
-- `CRUD_REQUESTED_OWNERSHIP_FILTER_AUTO`
-- `normalizeCrudRequestedOwnershipFilter(value, { fallback = CRUD_REQUESTED_OWNERSHIP_FILTER_AUTO } = {})`
-- `resolveCrudRelativePath(namespace = "")`
-- `normalizeCrudRelativePath(relativePath = "", { context = "resolveCrudSurfacePolicy" } = {})`
-- `resolveCrudSurfacePolicy(sourceConfig = {}, { surfaceDefinitions = {}, defaultSurfaceId = "", context = "resolveCrudSurfacePolicy" } = {})`
-- `resolveCrudSurfacePolicyFromAppConfig(sourceConfig = {}, appConfig = {}, options = {})`
-Local functions
-- `normalizeSurfaceDefinitions(sourceDefinitions = {})`
-- `resolveOwnershipFilterFromSurfaceDefinition(definition = {})`
-
 ### `src/server/defineCrudJsonApiFeature.js`
 Exports
 - `defineCrudJsonApiFeature({ resource, id = "", capability = "", surface, ownershipFilter = "", relativePath = "", internal = false, routes = true, listFilterQueryValidator = null, searchSchema = null, permissions = null, scope = {}, requires = {}, decorateRepository = null, decorateService = null, operationLifecycle = {}, operationInputs = {}, actions = {}, operations = undefined, realtimeAudience = "event_scope" })`
