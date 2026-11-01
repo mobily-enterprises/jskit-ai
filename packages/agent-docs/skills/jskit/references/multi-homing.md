@@ -65,16 +65,25 @@ an empty result keeps the default:
 
 ```js
 import { defineFeature } from "@jskit-ai/kernel/server/features";
+import { homeWorkspaceName } from "./homeWorkspaceName.js";
 
 const AppPersonalWorkspaceNameFeature = defineFeature({
   id: "app.personal-workspace-name",
   provides: {
     personalWorkspaceName: "workspaces.personal-workspace-name"
   },
-  setup() {
-    return { personalWorkspaceName: (user) => `${user.displayName || user.email}'s home` };
-  }
+  setup: () => ({ personalWorkspaceName: homeWorkspaceName })
 });
+```
+
+```js
+// homeWorkspaceName.js
+/** @type {import("@jskit-ai/workspaces-core/server/types").PersonalWorkspaceName} */
+function homeWorkspaceName(user) {
+  return `${user.displayName || user.email}'s home`;
+}
+
+export { homeWorkspaceName };
 ```
 
 ### Development sign-in

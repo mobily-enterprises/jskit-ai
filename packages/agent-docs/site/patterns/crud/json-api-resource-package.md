@@ -158,18 +158,38 @@ Use `operationInputs.create` or `operationInputs.update` when a standard CRUD
 operation intentionally accepts a small virtual product field that is handled
 by the service decorator rather than stored on the resource row.
 
+A decorator lives in a module of its own and returns its result frozen, with
+each added method a named function. Spreading belongs here only, over the CRUD
+service or repository, whose members are the contract's. `types.js` names the
+decorated types once:
+
+```js
+// bookingsService.js
+/**
+ * The bookings service: the CRUD service plus booking confirmation.
+ * @param {object} dependencies
+ * @param {import("@jskit-ai/crud-core/server/types").CrudService} dependencies.service
+ * @param {import("./types.js").BookingsRepository} dependencies.repository
+ */
+function decorateBookingsService({ service, repository }) {
+  async function confirmBooking(recordId, options) {
+    return repository.confirmBooking(recordId, options);
+  }
+
+  return Object.freeze({ ...service, confirmBooking });
+}
+
+// types.js
+/** @typedef {ReturnType<typeof import("./bookingsRepository.js").decorateBookingsRepository>} BookingsRepository */
+/** @typedef {ReturnType<typeof import("./bookingsService.js").decorateBookingsService>} BookingsService */
+```
+
 ```js
 const BookingsFeature = defineCrudJsonApiFeature({
   resource: bookingResource,
   surface: "app",
-  decorateService({ service, repository }) {
-    return {
-      ...service,
-      async confirmBooking(recordId, options) {
-        return repository.confirmBooking(recordId, options);
-      }
-    };
-  },
+  decorateRepository: decorateBookingsRepository,
+  decorateService: decorateBookingsService,
   operationLifecycle: {
     update: {
       async before({ input, service, trx, context }) {
@@ -184,10 +204,8 @@ const BookingsFeature = defineCrudJsonApiFeature({
     confirm: {
       input: confirmBookingInput,
       permission: { require: "all", permissions: ["bookings.confirm"] },
-      /** @param {import("@jskit-ai/crud-core/server/types").CrudCustomActionInvocation<import("./types.js").AppBookings["service"]>} action */
-      execute({ input, context, service }) {
-        return service.confirmBooking(input.recordId, { context });
-      },
+      /** @param {import("@jskit-ai/crud-core/server/types").CrudCustomActionInvocation<import("./types.js").BookingsService>} action */
+      execute: ({ input, context, service }) => service.confirmBooking(input.recordId, { context }),
       route: {
         method: "POST",
         path: "/:recordId/confirm",

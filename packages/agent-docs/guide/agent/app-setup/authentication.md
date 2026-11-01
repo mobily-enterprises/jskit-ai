@@ -76,23 +76,36 @@ capability using an ordinary application provider:
 
 ```js
 import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
+import { createRecoverySender } from "./recoverySender.js";
 
 export const RecoveryEmailProvider = defineProvider({
   id: "app.recovery-email",
   requires: { mail: "app.mail" },
   provides: { recoverySender: "auth.local.recovery-sender" },
+  /** @param {{ mail: import("@local/mail/server/types").AppMail }} capabilities */
   setup({ mail }) {
-    return {
-      recoverySender: async ({ email, recoveryUrl }) => {
-        await mail.send({
-          to: email,
-          subject: "Reset your password",
-          text: `Open this link to reset your password:\n\n${recoveryUrl}\n`
-        });
-      }
-    };
+    return { recoverySender: createRecoverySender({ mail }) };
   }
 });
+```
+
+```js
+// recoverySender.js
+/** @param {{ mail: import("@local/mail/server/types").AppMail }} dependencies */
+function createRecoverySender({ mail }) {
+  /** @type {import("@jskit-ai/auth-provider-local-core/server/types").AuthLocalRecoverySender} */
+  async function sendRecoveryEmail({ email, recoveryUrl }) {
+    await mail.send({
+      to: email,
+      subject: "Reset your password",
+      text: `Open this link to reset your password:\n\n${recoveryUrl}\n`
+    });
+  }
+
+  return sendRecoveryEmail;
+}
+
+export { createRecoverySender };
 ```
 
 `app.mail` is an application-owned capability in this example, not a built-in
