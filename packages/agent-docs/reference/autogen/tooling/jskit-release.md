@@ -14,6 +14,31 @@ Use this on demand; do not load the full index at startup.
 
 ### src
 
+### `src/manifests.mjs`
+Exports
+- `DEPENDENCY_FIELDS`
+- `bumpPatch(version)`
+- `collectPatternPackageJsonPaths(packageRoot, nestedManifests = ["patterns", "examples"])`
+- `collectPublishDependencies(packageJson, localNames)`
+- `collectVersionMismatches(packageJson, versions, source)`
+- `currentVersionMap(records)`
+- `discoverManifests(repoRoot)`
+- `discoverReleasePackages(repoRoot)`
+- `fileExists(absolutePath)`
+- `prepareManifests(records, versions, repoRoot, config)`
+- `readJsonFile(absolutePath)`
+- `releaseConfig(repoRoot)`
+- `serializeJson(value)`
+- `toPosixPath(value)`
+- `topologicalPublishOrder(records)`
+- `updatePackageDependencyVersions(packageJson, versions, changes = [])`
+- `updatePatternPackageJsonContents(contents, versions)`
+- `validateReleaseState(records, repoRoot)`
+Local functions
+- `followVersion(declared, version)`
+- `expandWorkspacePattern(repoRoot, pattern)`
+- `versionFilePaths(record)`
+
 ### `src/npm-publication.mjs`
 Exports
 - `createPublicationInspection({ directory, registry, configPath = "", env = process.env })`
@@ -30,31 +55,21 @@ Local functions
 ### `src/release.mjs`
 Exports
 - `assertMainReleaseCheckout(repoRoot)`
-- `bumpPatch(version)`
-- `collectPublishDependencies(packageJson, localNames)`
-- `collectPatternPackageJsonPaths(packageRoot, nestedManifests = ["patterns", "examples"])`
-- `collectVersionMismatches(packageJson, versions, source)`
+- `bumpPatch`
+- `collectPublishDependencies`
+- `collectPatternPackageJsonPaths`
+- `collectVersionMismatches`
 - `commitAndPush(repoRoot, message)`
-- `discoverManifests(repoRoot)`
-- `discoverReleasePackages(repoRoot)`
+- `discoverManifests`
+- `discoverReleasePackages`
 - `main(argv = process.argv.slice(2))`
 - `parseArgs(argv = [])`
-- `topologicalPublishOrder(records)`
-- `updatePackageDependencyVersions(packageJson, versions, changes = [])`
-- `updatePatternPackageJsonContents(contents, versions)`
-- `validateReleaseState(records, repoRoot)`
+- `topologicalPublishOrder`
+- `updatePackageDependencyVersions`
+- `updatePatternPackageJsonContents`
+- `validateReleaseState`
 Local functions
 - `normalizeRegistryUrl(value)`
-- `fileExists(absolutePath)`
-- `readJsonFile(absolutePath)`
-- `serializeJson(value)`
-- `toPosixPath(value)`
-- `followVersion(declared, version)`
-- `expandWorkspacePattern(repoRoot, pattern)`
-- `releaseConfig(repoRoot)`
-- `currentVersionMap(records)`
-- `prepareManifests(records, versions, repoRoot, config)`
-- `versionFilePaths(record)`
 - `runCommand(command, args, { cwd, env = process.env } = {})`
 - `compareVersions(left, right)`
 - `assertNoNewerVersions(records, inspection)`
