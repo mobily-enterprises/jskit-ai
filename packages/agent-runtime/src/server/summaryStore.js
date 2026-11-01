@@ -1,50 +1,73 @@
 import { SUMMARY_LIMITS, cutPoint, estimateTokens, transcriptText, writeSummary } from "@jskit-ai/agent/server";
+import { NO_NOTICES } from "./notices.js";
 
-// Summaries between turns, in the background. A reply reads the conversation's newest summary and
-// every message after it word for word. When that part grows past `compactAt`, the conversation is
-// queued; one server claims it and summarises everything but the latest turns, folding in the
-// previous summary. A summary replaces exactly the messages it covers, so anything said meanwhile
-// stays as it was, and no reply waits for it. Summaries are written recall first: what was asked
-// and decided, facts, what was done and promised, what's open. Sized for a 1-million-token window,
-// close to DeepSeek Harness's 727k/127k: a chat is read word for word until it's far into the
-// window, leaving room for one long turn's own steps on top.
-//
-// Tables: summaries (id, conversation_id, covers_up_to, summary, messages, created_at) and a queue
-// (conversation_id unique, requested_at, run_after, lease_until, attempts, last_error).
-
-// Hooks: `history(conversationId, { after })` gives { messages, inherited, toModel, named }: the
-// stored messages after `after` (message ids), what a conversation inherits from one it continues
-// (only needed before its first summary), the app's way of turning messages into model messages, and
-// whether people's lines carry their names (groups and rooms). `track(conversationId, work)` meters
-// the summary to whoever the conversation belongs to. `summarize({ previous, text })` may replace
-// the model call (tests).
+/**
+ * Summaries between turns, in the background. A reply reads the conversation's newest summary and
+ * every message after it word for word. When that part grows past `compactAt`, the conversation is
+ * queued; one server claims it and summarises everything but the latest turns, folding in the
+ * previous summary. A summary replaces exactly the messages it covers, so anything said meanwhile
+ * stays as it was, and no reply waits for it. Summaries are written recall first: what was asked
+ * and decided, facts, what was done and promised, what's open. Sized for a 1-million-token window,
+ * close to DeepSeek Harness's 727k/127k: a chat is read word for word until it's far into the
+ * window, leaving room for one long turn's own steps on top.
+ *
+ * Tables: summaries (id, conversation_id, covers_up_to, summary, messages, created_at) and a queue
+ * (conversation_id unique, requested_at, run_after, lease_until, attempts, last_error).
+ *
+ * Hooks: `history(conversationId, { after })` gives { messages, inherited, toModel, named }: the
+ * stored messages after `after` (message ids), what a conversation inherits from one it continues
+ * (only needed before its first summary), the app's way of turning messages into model messages, and
+ * whether people's lines carry their names (groups and rooms). `track(conversationId, work)` meters
+ * the summary to whoever the conversation belongs to. `summarize({ previous, text })` may replace
+ * the model call. Without `notices`, each server finds queued conversations on its own timer.
+ * @param {object} dependencies
+ * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} dependencies.knex
+ * @param {import("ai").LanguageModel} [dependencies.model]
+ * @param {string} [dependencies.app]
+ * @param {(conversationId: number | string, query: { after: number }) => Promise<{ messages: object[], inherited: object[], toModel: (messages: object[]) => Promise<object[]>, named?: boolean }>} dependencies.history
+ * @param {(conversationId: number | string, work: () => Promise<string>) => Promise<string>} [dependencies.track]
+ * @param {import("./types.js").AgentNotices | null} [dependencies.notices]
+ * @param {{ summaries: string, queue: string }} [dependencies.tables]
+ * @param {string} [dependencies.channel]
+ * @param {(input: { previous: string, text: string }) => Promise<string>} [dependencies.summarize]
+ * @param {typeof SUMMARY_LIMITS} [dependencies.limits]
+ */
 export function createSummaries({
-  knex, model, app = "the app", history, track = (_conversationId, work) => work(), notices = null,
-  tables = { summaries: "agent_summaries", queue: "agent_summary_queue" }, channel = "agent-summaries",
-  summarize = (input) => writeSummary({ model, app, ...input, limits }), limits = SUMMARY_LIMITS
+  knex,
+  model,
+  app = "the app",
+  history,
+  track = (_conversationId, work) => work(),
+  notices,
+  tables = { summaries: "agent_summaries", queue: "agent_summary_queue" },
+  channel = "agent-summaries",
+  summarize = (input) => writeSummary({ model, app, ...input, limits }),
+  limits = SUMMARY_LIMITS
 }) {
+  const channelNotices = notices ?? NO_NOTICES;
+
   async function latest(conversationId) {
     return knex(tables.summaries).where({ conversation_id: conversationId }).orderBy("id", "desc").first();
   }
 
-  // What a reply reads: the newest summary's text, and the id after which messages are read whole.
+  /** What a reply reads: the newest summary's text, and the id after which messages are read whole. */
   async function current(conversationId) {
     const row = await latest(conversationId);
     return row ? { summary: row.summary, after: Number(row.covers_up_to) } : { summary: "", after: 0 };
   }
 
-  // After a reply: queue a summary when the part since the last one has grown too big.
+  /** After a reply: queue a summary when the part since the last one has grown too big. */
   async function consider(conversationId) {
     const { after } = await current(conversationId);
     const { messages, inherited, toModel } = await history(conversationId, { after });
     const size = estimateTokens(await toModel([...(after ? [] : inherited), ...messages]));
     if (size <= limits.compactAt) return false;
     await knex(tables.queue).insert({ conversation_id: conversationId }).onConflict("conversation_id").ignore();
-    await notices?.publish?.(channel, "all", {}).catch(() => {});
+    await channelNotices.publish(channel, "all", {}).catch(() => {});
     return true;
   }
 
-  // One summary: everything after the previous one up to the kept turns, folded into it.
+  /** One summary: everything after the previous one up to the kept turns, folded into it. */
   async function compact(conversationId) {
     const previous = await latest(conversationId);
     const after = previous ? Number(previous.covers_up_to) : 0;
@@ -78,9 +101,11 @@ export function createSummaries({
     return { coversUpTo, messages: folded.length };
   }
 
-  // Before a reply: if summarising fell behind and the part a reply reads is past
-  // `summariseNowAt`, summarise now, a few pieces at most, rather than let the oldest messages drop
-  // off unseen. A failure leaves the reply its last-resort cut (withinBudget, @jskit-ai/agent).
+  /**
+   * Before a reply: if summarising fell behind and the part a reply reads is past
+   * `summariseNowAt`, summarise now, a few pieces at most, rather than let the oldest messages drop
+   * off unseen. A failure leaves the reply its last-resort cut (withinBudget, @jskit-ai/agent).
+   */
   async function ensureWithin(conversationId) {
     for (let piece = 0; piece < 4; piece += 1) {
       const { after } = await current(conversationId);
@@ -94,7 +119,7 @@ export function createSummaries({
     }
   }
 
-  // Claimed once across servers with a lease; a failure waits longer before the next try.
+  /** Claimed once across servers with a lease; a failure waits longer before the next try. */
   async function claim() {
     return knex.transaction(async (trx) => {
       const due = await trx(tables.queue).where("run_after", "<=", trx.fn.now())
@@ -122,7 +147,7 @@ export function createSummaries({
     return true;
   }
 
-  // Every serving server runs this loop; a notice wakes it as soon as something is queued.
+  /** Every serving server runs this loop; a notice wakes it as soon as something is queued. */
   function start({ everyMs = 15000 } = {}) {
     let stopped = false;
     let running = null;
@@ -139,8 +164,8 @@ export function createSummaries({
       });
     };
     const timer = setInterval(tick, everyMs);
-    timer.unref?.();
-    const unsubscribe = notices?.subscribe?.(channel, "all", () => tick()) || (() => {});
+    timer.unref();
+    const unsubscribe = channelNotices.subscribe(channel, "all", () => tick());
     tick();
     return {
       async drain(ms) {
@@ -152,5 +177,12 @@ export function createSummaries({
     };
   }
 
-  return { current, consider, compact, ensureWithin, runOne, start };
+  return Object.freeze({
+    current,
+    consider,
+    compact,
+    ensureWithin,
+    runOne,
+    start
+  });
 }
