@@ -849,7 +849,7 @@ test("defineCrudJsonApiFeature exposes custom service methods as actions and opt
 
   await runtime.start();
   assert.equal(typeof books.service.confirmBook, "function");
-  const definition = actions.getDefinition("books.confirm");
+  const definition = actions.getDefinition("crud.books.confirm");
   assert.deepEqual(definition.permission.permissions, ["books.confirm"]);
   assert.equal(routes.at(-1).method, "POST");
   assert.equal(routes.at(-1).path, "/api/books/:recordId/confirm");
@@ -868,7 +868,7 @@ test("defineCrudJsonApiFeature exposes custom service methods as actions and opt
     }
   }, reply);
   assert.deepEqual(routeCalls, [{
-    actionId: "books.confirm",
+    actionId: "crud.books.confirm",
     input: { recordId: "42", note: "Ready" }
   }]);
   assert.equal(reply.statusCode, 202);
@@ -882,7 +882,7 @@ test("defineCrudJsonApiFeature exposes custom service methods as actions and opt
   };
   assert.deepEqual(
     await actions.execute({
-      actionId: "books.confirm",
+      actionId: "crud.books.confirm",
       input: { recordId: "42", note: "Ready" },
       context
     }),

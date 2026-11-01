@@ -89,7 +89,7 @@ Each discovery supplies `id`, `adapter`, `surface`, `mode`, `registrations`,
   object, bound locally or imported through named re-exports) that declare a
   literal `route` become `http` entry operations at the declaration's API base
   path (`scope.routeBase` and `relativePath`) plus the route's `path`, with the
-  action's `id`, or `<namespace>.<name>` without one. Other forms are reported
+  action's `id`, or `crud.<namespace>.<name>` without one. Other forms are reported
   as `CRUD_ACTION_ROUTE_UNRESOLVED`.
 
 - Routes registered through the kernel's `createActionRouteScope` become entry

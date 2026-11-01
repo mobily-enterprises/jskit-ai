@@ -132,7 +132,7 @@ async function recordCrudActionRoutes(inspection, { module, record, config, name
     const method = staticValue(objectProperty(route, "method"), bindings) ?? "POST";
     const routePath = staticValue(objectProperty(route, "path"), bindings);
     const declaredId = objectProperty(definition, "id") ? staticValue(objectProperty(definition, "id"), bindings) : "";
-    const id = typeof declaredId === "string" ? declaredId.trim() || `${namespace}.${name}` : null;
+    const id = typeof declaredId === "string" ? declaredId.trim() || `crud.${namespace}.${name}` : null;
     if (route?.type !== "ObjectExpression" || typeof method !== "string" || !/^\s*[A-Za-z]+\s*$/u.test(method) ||
       typeof routePath !== "string" || !routePath.trim().startsWith("/") || !id) {
       warn(inspection, "CRUD_ACTION_ROUTE_UNRESOLVED", "A CRUD custom action route needs a literal method, path and action id.", owner.module.path);

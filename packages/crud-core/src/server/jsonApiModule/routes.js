@@ -3,6 +3,7 @@ import { resolveScopedApiBasePath } from "@jskit-ai/kernel/shared/surface";
 import { checkRouteVisibility } from "@jskit-ai/kernel/shared/support/visibility";
 import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
 import { createCrudJsonApiRouteContracts } from "../routeContracts.js";
+import { buildCrudCustomActionId } from "./customActionId.js";
 
 const CUSTOM_ACTION_METHODS = new Set(["DELETE", "GET", "PATCH", "POST", "PUT"]);
 
@@ -62,7 +63,7 @@ function normalizeCustomActionRoutes(actions, namespace) {
     }
     return [Object.freeze({
       name,
-      actionId: String(definition.id || `${namespace}.${name}`).trim(),
+      actionId: buildCrudCustomActionId(namespace, name, definition),
       method,
       path,
       contract: route.contract,

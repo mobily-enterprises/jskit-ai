@@ -230,7 +230,7 @@ const CRUD = {
   "packages/receivals/src/server/trigger.js": [
     "export async function placeAll(request) {",
     "  await request.executeAction({ actionId: \"crud.receivals.placeInFreezer\" });",
-    "  await request.executeAction({ actionId: \"receivals.recount\" });",
+    "  await request.executeAction({ actionId: \"crud.receivals.recount\" });",
     "}",
     ""
   ].join("\n")
@@ -247,12 +247,12 @@ test("CRUD declarations name each route's action, and custom action routes reach
     ["jskit.crud", undefined, "receivals:list", "crud.receivals.list", "packages/receivals/src/server/ReceivalsFeature.js", undefined],
     ["jskit.crud", undefined, "receivals:view", "crud.receivals.view", "packages/receivals/src/server/ReceivalsFeature.js", undefined],
     ["http", "POST", "/api/w/:workspaceSlug/receivals/:recordId/place-in-freezer", "crud.receivals.placeInFreezer", "packages/receivals/src/server/receivalActions.js", FREEZE],
-    ["http", "POST", "/api/w/:workspaceSlug/receivals/:recordId/reopen", "receivals.reopen", "packages/receivals/src/server/receivalActions.js", REOPEN]
+    ["http", "POST", "/api/w/:workspaceSlug/receivals/:recordId/reopen", "crud.receivals.reopen", "packages/receivals/src/server/receivalActions.js", REOPEN]
   ]);
   assert.deepEqual(result.entryPoints.map((entry) => [entry.id, entry.file, entry.functionIds]), [
     ["entry:action:crud.receivals.placeInFreezer", "packages/receivals/src/server/receivalActions.js", [FREEZE]],
-    ["entry:action:receivals.reopen", "packages/receivals/src/server/receivalActions.js", [REOPEN]],
-    ["entry:action:receivals.recount", "packages/receivals/src/server/receivalActions.js", [RECOUNT]]
+    ["entry:action:crud.receivals.reopen", "packages/receivals/src/server/receivalActions.js", [REOPEN]],
+    ["entry:action:crud.receivals.recount", "packages/receivals/src/server/receivalActions.js", [RECOUNT]]
   ]);
   assert.deepEqual(callsFrom(result, "request.executeAction").map((call) => [call.certainty, call.method, call.targets]), [
     ["exact", "route-action", [FREEZE]],
@@ -273,7 +273,7 @@ test("CRUD custom action routes outside the literal forms are reported, not gues
     ].join("\n")
   }, { httpScope: "demo" });
   assert.deepEqual(result.entryOperations.map((entry) => entry.key.protocol), ["jskit.crud", "jskit.crud"]);
-  assert.deepEqual(result.entryPoints.map((entry) => entry.id), ["entry:action:receivals.move"]);
+  assert.deepEqual(result.entryPoints.map((entry) => entry.id), ["entry:action:crud.receivals.move"]);
   assert.deepEqual(result.diagnostics.filter((entry) => entry.code.startsWith("CRUD_") || entry.code.startsWith("ACTION_")).map((entry) => [entry.code, entry.path]), [
     ["CRUD_ACTION_ROUTE_UNRESOLVED", "packages/receivals/src/server/receivalActions.js"],
     ["CRUD_ACTION_ROUTE_UNRESOLVED", "packages/receivals/src/server/receivalActions.js"],

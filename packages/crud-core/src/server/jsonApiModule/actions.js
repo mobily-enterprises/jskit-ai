@@ -14,6 +14,7 @@ import {
 } from "../listQueryValidators.js";
 import { resolveCrudJsonApiEntityIdFromResult } from "../serviceEvents.js";
 import { createCrudAssistantExtension } from "./assistantExtension.js";
+import { buildCrudCustomActionId } from "./customActionId.js";
 
 const CRUD_OPERATION_NAMES = Object.freeze(["list", "view", "create", "update", "delete"]);
 const CRUD_MUTATION_NAMES = new Set(["create", "update", "delete"]);
@@ -121,7 +122,7 @@ function normalizeAdditionalActions(definitions, { namespace, surface, permissio
     return Object.freeze({
       ...definition,
       name: actionName,
-      id: String(definition.id || `${namespace}.${actionName}`).trim(),
+      id: buildCrudCustomActionId(namespace, actionName, definition),
       version: definition.version || 1,
       kind,
       channels: definition.channels || ["api", "automation", "internal"],

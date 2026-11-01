@@ -96,6 +96,10 @@ Local functions
 - `transformCrudAssistantResult(operation, result, { input = {}, resource, relationshipEntries = [], lookupContainerKey = "" } = {})`
 - `buildCrudAssistantReadDescription({ fieldsetContract, lookupContainerKey = "", namespace = "", operation = "list" } = {})`
 
+### `src/server/jsonApiModule/customActionId.js`
+Exports
+- `buildCrudCustomActionId(namespace, name, definition)`
+
 ### `src/server/jsonApiModule/repository.js`
 Exports
 - `createCrudJsonApiRepository({ api, resource, resourceScopeName })`

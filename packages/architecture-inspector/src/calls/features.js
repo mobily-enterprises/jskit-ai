@@ -215,7 +215,7 @@ function executeFunctions(member, symbols) {
 
 // The custom actions a CRUD declaration adds (`actions: { name: { execute } }`).
 // Each runs its own execute; its id is the declared `id`, or
-// `<resource namespace>.<name>` as crud-core names it.
+// `crud.<resource namespace>.<name>` as crud-core names it.
 function collectCrudActions(declarations, { symbols, evaluator }) {
   const actions = [];
   for (const config of declarations) {
@@ -231,7 +231,7 @@ function collectCrudActions(declarations, { symbols, evaluator }) {
       const idMember = memberNamed(object, "id");
       const declared = idMember ? evaluator.evaluateLiteral(memberValue(idMember))?.trim() : "";
       const namespace = declared === "" ? crudNamespace(config, { symbols, evaluator }) : null;
-      const actionId = declared || (namespace ? `${namespace}.${name}` : null);
+      const actionId = declared || (namespace ? `crud.${namespace}.${name}` : null);
       actions.push({ actionId, object, execute: executeFunctions(execute, symbols) });
     }
   }
