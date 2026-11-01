@@ -12,8 +12,7 @@ const statusQueryInputValidator = deepFreeze({
       type: "boolean",
       required: false
     }
-  }),
-  mode: "patch"
+  })
 });
 
 export { statusQueryInputValidator };
