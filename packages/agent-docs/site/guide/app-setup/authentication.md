@@ -229,7 +229,7 @@ in the server process and use `loginAsExistingUser()` from
 client environment.
 
 A managed host instead supplies authenticated state through
-`VIBE64_PLAYWRIGHT_STORAGE_STATE` and the app-owned Playwright config. Treat the
+`PLAYWRIGHT_STORAGE_STATE` and the app-owned Playwright config. Treat the
 file as a temporary secret, use relative URLs, and do not call the localhost
 login helper or start a duplicate server.
 

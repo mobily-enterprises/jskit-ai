@@ -101,7 +101,11 @@ test("application foundations are concrete source patterns rather than generator
     assert.doesNotMatch(combinedSource, /\.generated-ui-screen/u);
     assert.doesNotMatch(combinedSource, /run `?create-app|npx @jskit-ai\/create-app/u);
 
-    assert.equal(files.some((filePath) => filePath.includes(`${path.sep}.vibe64${path.sep}`)), false);
+    // An example carries no host state directory.
+    assert.equal(
+      files.some((filePath) => path.relative(exampleRoot, path.dirname(filePath)).split(path.sep).some((part) => part.startsWith("."))),
+      false
+    );
   }
 });
 

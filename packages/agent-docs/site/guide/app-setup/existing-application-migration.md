@@ -328,7 +328,7 @@ framework CLI. Never expose the exchange secret in browser code, a URL, client
 environment, logs, or source.
 
 Managed Playwright uses the host-provided
-`VIBE64_PLAYWRIGHT_STORAGE_STATE`, relative URLs, and the existing managed
+`PLAYWRIGHT_STORAGE_STATE`, relative URLs, and the existing managed
 server. Direct-local tests may instead use `loginAsExistingUser()` from
 `@jskit-ai/auth-web/test/playwright` with a server-only development secret.
 Do not mix those two authentication modes or start a duplicate server against
@@ -354,10 +354,11 @@ do not accept a visually similar screen as behavioral equivalence.
 
 ## 7. Reconcile, then Deslop as a distinct pass
 
-When the project uses Genesis, run an explicit reconciliation after the port is
-functionally green. Compare the implemented source with the current Blueprint,
-selected Stack, Program, resources, managed skills, and effective workspace and
-Outputs recipes. Update stale citations and declarations to describe what now
+When the project keeps authoritative project documentation, run an explicit
+reconciliation after the port is functionally green. Compare the implemented
+source with its current product description, selected stack, subsystem notes,
+resources, managed skills, and effective workspace and output recipes. Update
+stale citations and declarations to describe what now
 exists. Do not duplicate an inherited setup recipe merely to make the project
 look self-contained.
 
@@ -382,10 +383,10 @@ evidence in ordinary source, configuration, command output, and tests:
 1. **Behavior:** focused tests and the full managed browser suite are green
    against an isolated disposable database. Use the managed host and server
    when supplied.
-2. **Reconciliation:** a dedicated Genesis reconciliation confirms the
-   Blueprint, Stack, Program, resources, managed skills, and effective setup and
-   Outputs recipes match the implementation. For a project without Genesis,
-   reconcile its equivalent authoritative product and host documentation.
+2. **Reconciliation:** a dedicated reconciliation confirms the project's
+   authoritative product and host documentation (product description, selected
+   stack, subsystem notes, resources, managed skills, and effective setup and
+   output recipes) matches the implementation.
 3. **Deslop:** a distinct JSKIT Deslop pass, including the selected Material 3
    audit where UI is affected, removes obsolete framework residue without
    changing legitimate behavior.
@@ -401,9 +402,9 @@ Do not satisfy a gate by adding a completion ledger or generated conformance
 state. If a command cannot run, report the missing evidence rather than marking
 the port complete.
 
-## Downstream proof: DogAndGroom
+## Downstream proof: a production port
 
-DogAndGroom validated this procedure on a substantial existing product rather
+A production application validated this procedure on a substantial existing product rather
 than a sample. The port redistributed 66 historical migrations among 43 owning
 packages while retaining globally unique basenames and putting cross-package
 constraints last. Its imported database ledger remained read-only and
@@ -417,7 +418,7 @@ and safety behavior. Obsolete framework generators, provenance markers,
 service-location wiring, and empty extension modules were removed without
 flattening those workflows.
 
-After a separate Genesis reconciliation and JSKIT/Material Deslop, its focused
+After a separate reconciliation and JSKIT/Material Deslop, its focused
 checks, 339 server tests, client tests, production build, database proofs, and
 all 105 managed Playwright cases passed. These numbers are downstream evidence
 that the method scales; they are not template targets or state that another

@@ -41,12 +41,13 @@ test("the JSKIT skill routes existing-app ports to the distributed migration gui
     assert.match(guide, /one isolated mutable development database per\s+session/u);
     assert.match(guide, /inherited default\s+ACL, and restrictive umask/u);
     assert.match(guide, /recursive ownership or mode repair afterward/u);
-    assert.doesNotMatch(guide, /group `vibe64`|vibe64:rwx|v64d_|`2770`|umask `0007`/u);
+    // The guide states the managed-source requirement, not one host's group, ACL entry or modes.
+    assert.doesNotMatch(guide, /group `[^`]+`|\b\w+:rwx\b|`2770`|umask `0007`/u);
     assert.match(guide, /managed preview identity selects an existing auth-backend user/u);
     assert.match(guide, /patterns as examples, not regeneration input/iu);
     assert.match(guide, /Five finish gates/u);
-    assert.match(guide, /Downstream proof: DogAndGroom/u);
-    assert.match(guide, /separate Genesis reconciliation and JSKIT\/Material Deslop/u);
+    assert.match(guide, /Downstream proof: a production port/u);
+    assert.match(guide, /separate reconciliation and JSKIT\/Material Deslop/u);
     assert.doesNotMatch(guide, /run `?(?:npx )?jskit doctor/iu);
     assert.doesNotMatch(guide, /machine-readable|receipt\.json|completion\.json/u);
   }

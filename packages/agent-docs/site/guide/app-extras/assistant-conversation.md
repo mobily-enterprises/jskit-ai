@@ -1118,8 +1118,8 @@ separate concerns.
 ## Optional shared capabilities
 
 All capabilities below are optional. Omit their adapter field to leave them off.
-They work in the aggregate element and as separately exported components; Vibe64
-uses the same components with its native transport and project policy.
+They work in the aggregate element and as separately exported components; a hosted
+editor can use the same components with its native transport and project policy.
 Configuration UI never grants backend permissions.
 
 ### Working status and suggestions
@@ -1310,7 +1310,7 @@ adapter.attachments = reactive(useAssistantAttachments({
 ```
 
 `sessionId` is an opaque application upload scope, such as a conversation or
-session identifier. It does not require Vibe64. The application owns routes,
+session identifier. It does not require a hosted editor. The application owns routes,
 authentication, storage, limits, inspection, retention and provider file access.
 An upload returns `{ attachmentId, fileName, size }` with optional `reference` and
 application fields. Progress reports use `{ loaded, total }`. The controller
@@ -2767,8 +2767,8 @@ execution identity remains the filesystem boundary for those tools.
 
 Install Claude Code and log in with `claude auth login` under the application's
 server identity. The ordinary single-user host uses that account and owned POSIX
-process groups. It requires no Vibe64, Genesis or application-specific startup
-callbacks:
+process groups. It requires no hosted editor, project tooling or application-specific
+startup callbacks:
 
 ```js
 const runtime = createConversationRuntime({
@@ -3719,7 +3719,7 @@ acknowledgement, stream blocks, nested-event exclusion, background-task
 completion and the interruption barrier for steering. Normalized owner events
 let the host persist admissions and publish application state; receiver
 completion alone does not prove process exit. `claudeNativeMessageId()`
-retains the same stable native message IDs used by the Vibe64 adapter.
+retains the same stable native message IDs that a host's own adapter uses.
 An exact native acknowledgement ends its ACK deadline before the admission
 writer runs; a slow write remains awaited, and a rejected write rejects admission.
 A missing acknowledgement remains uncertain. Native failure-result text stays
@@ -3931,8 +3931,8 @@ sandbox or resource limiter. It does not grant a permission bypass by default.
 The native executable and its account login must already exist. Call `stop()`
 and await its proof on shutdown; closing the protocol stream alone does not
 prove that native work stopped. Failed cleanup remains an error or an unconfirmed
-proof, and the owning application must retain its stop handle. Managed applications
-such as Vibe64 replace execution to enforce identity, resources and scope cleanup.
+proof, and the owning application must retain its stop handle. Managed hosts
+replace execution to enforce identity, resources and scope cleanup.
 
 For native history retirement, `nativeConversationStoragePolicy(engineId)` from
 `/server/conversation` describes the engine's writer requirements. Codex's native

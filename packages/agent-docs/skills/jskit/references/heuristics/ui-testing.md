@@ -26,7 +26,7 @@ Rules:
   reach the form before reload, then assert the original list URL; direct entry
   checks the configured fallback separately. Do not replace this wait with sleeps.
 - A managed runner supplies `PLAYWRIGHT_BASE_URL`. When it is set, JSKIT does not start another app server.
-- Vibe64 supplies an authenticated context through `VIBE64_PLAYWRIGHT_STORAGE_STATE`. Treat that file as a temporary secret: do not commit it, print it, or retain it after the run.
+- A managed runner may supply an authenticated context through `PLAYWRIGHT_STORAGE_STATE`. Treat that file as a temporary secret: do not commit it, print it, or retain it after the run.
 - Do not install a browser when the environment provides a managed browser runner.
 - Shared CRUD lists retain both card and table markup and hide the inactive
   layout with CSS. Select visible record text with
@@ -134,7 +134,7 @@ A managed preview must not expose `AUTH_DEV_BYPASS_SECRET` to project code or fo
 
 ```bash
 PLAYWRIGHT_BASE_URL=https://managed-preview.example.test \
-VIBE64_PLAYWRIGHT_STORAGE_STATE=/secure/temp/playwright-state.json \
+PLAYWRIGHT_STORAGE_STATE=/secure/temp/playwright-state.json \
 playwright test tests/e2e/contacts.spec.ts
 ```
 
@@ -152,7 +152,7 @@ test into a successful command. For an unmanaged project, for example:
 npx playwright test tests/e2e/contacts.spec.ts -g filters --reporter=dot > /tmp/contacts-test.log 2>&1
 ```
 
-On Vibe64, use `vibe64-playwright --target <declared-test-target> test ...`
+On a managed host, run the host's launcher for the declared test target
 with the same file/case selection and output redirection. Do not replace the
 managed launcher with the unmanaged example.
 

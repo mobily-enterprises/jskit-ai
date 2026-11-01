@@ -57,7 +57,7 @@ questionnaire or infer tenancy, authentication, or database requirements.
 - Treat copied files as app-owned source. Do not add provenance, ownership
   markers, receipts, ledgers, or operation-history state.
 - Keep browser dependencies aligned with the execution environment that will
-  run the tests. Vibe64 supplies its exact managed Playwright version.
+  run the tests. A managed runner supplies its exact Playwright version.
 - Server code the application adds follows
   [typed features](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/site/guide/framework/typed-features.md):
   a provided capability exports its type from `types.js`; collaborators arrive

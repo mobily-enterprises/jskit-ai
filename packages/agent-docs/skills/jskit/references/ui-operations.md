@@ -98,8 +98,8 @@ For Back, enter the same page from two different origins and verify each
 returns to its own origin with context intact. Also check direct entry, reload,
 browser back/forward, fixed-destination exceptions, and any unsaved-change guard.
 
-Vibe64 owns its managed browser and may provide
-`VIBE64_PLAYWRIGHT_STORAGE_STATE`; never print or commit that value, bypass it,
+A managed host owns its browser and may provide
+`PLAYWRIGHT_STORAGE_STATE`; never print or commit that value, bypass it,
 or install another browser. For explicitly enabled direct-local auth, use
 `loginAsExistingUser()` from `@jskit-ai/auth-web/test/playwright`; never expose
 the exchange secret to browser code, URLs, or client environment.

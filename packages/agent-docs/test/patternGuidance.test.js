@@ -237,7 +237,7 @@ test("the typed-features heuristic maps the common mistakes to their fixes", asy
   }
 });
 
-test("JSKIT guidance does not assume a Genesis blueprint", async () => {
+test("JSKIT guidance does not assume a project blueprint or page generator", async () => {
   for (const relativePath of [
     "heuristics/surfaces.md",
     "heuristics/page-scaffolding.md",

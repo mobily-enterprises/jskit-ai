@@ -4,7 +4,7 @@ const managedBaseUrl = String(process.env.PLAYWRIGHT_BASE_URL || "")
   .trim()
   .replace(/\/+$/u, "");
 const baseURL = managedBaseUrl || "http://127.0.0.1:4173";
-const storageState = String(process.env.VIBE64_PLAYWRIGHT_STORAGE_STATE || "").trim();
+const storageState = String(process.env.PLAYWRIGHT_STORAGE_STATE || "").trim();
 
 export default defineConfig({
   testDir: "./tests/e2e",
