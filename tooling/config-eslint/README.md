@@ -34,7 +34,7 @@ code that does not:
 | `jskit/no-slot-setter` | a returned `set<Name>()` that fills a slot after construction, or a call that fills one |
 | `jskit/no-module-registry` | a module-level `register<Name>()` that writes module state |
 | `jskit/one-line-action` | `input = {}`, `input \|\| {}` or `input?.` in an action's `execute` or an actions file; an `async` `execute`; an action definition, or a list of them, that is not `Object.freeze`d |
-| `jskit/no-duplicate-helper` | a small top-level helper, a function or a `const` arrow, that repeats one in another file of the package's server code |
+| `jskit/no-duplicate-helper` | a small top-level helper, a function or a `const` arrow, that repeats one in another file of the package's server code (a named no-op is not a helper) |
 | `jskit/allow-comment-form` | a `readable-check: allow` comment whose reason has no fixed prefix, cites tests, or cites the state of a project |
 | `jskit/jsdoc-description-inside` | a `//` line comment directly above a `/** */` block, whose description belongs inside it |
 | `jskit/no-dual-shape` | a value accepted in two shapes: `x.service \|\| x`, `x?.value ?? x`, `x.service ? x.service : x` |
