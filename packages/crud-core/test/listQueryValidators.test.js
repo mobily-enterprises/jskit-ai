@@ -13,8 +13,7 @@ import {
   createJsonApiFieldsetsQueryValidator,
   createCrudParentFilterQueryValidator,
   createStandardCrudListQueryValidators,
-  createStandardCrudViewQueryValidators,
-  resolveCrudParentFilterKeys
+  createStandardCrudViewQueryValidators
 } from "../src/server/listQueryValidators.js";
 
 function composeSchemaDefinition(...definitions) {
@@ -166,58 +165,6 @@ test("createCrudCursorPaginationQueryValidator allows opaque cursor strings for 
     cursor: "offset:3",
     limit: 25
   });
-});
-
-test("resolveCrudParentFilterKeys returns lookup keys that exist in create schema", () => {
-  const resource = createCrudResource({
-    viewFields: {
-      contactId: {
-        type: "integer",
-        relation: {
-          kind: "lookup",
-          apiPath: "/contacts",
-          valueKey: "id"
-        }
-      },
-      vetId: {
-        type: "integer",
-        relation: {
-          kind: "lookup",
-          apiPath: "/vets",
-          valueKey: "id"
-        }
-      },
-      ignoredLookup: {
-        type: "integer",
-        relation: {
-          kind: "lookup",
-          apiPath: "/ignored",
-          valueKey: "id"
-        }
-      }
-    },
-    createFields: {
-      contactId: {
-        type: "integer",
-        relation: {
-          kind: "lookup",
-          apiPath: "/contacts",
-          valueKey: "id"
-        }
-      },
-      name: { type: "string" },
-      vetId: {
-        type: "integer",
-        relation: {
-          kind: "lookup",
-          apiPath: "/vets",
-          valueKey: "id"
-        }
-      }
-    }
-  });
-
-  assert.deepEqual(resolveCrudParentFilterKeys(resource), ["contactId", "vetId"]);
 });
 
 test("createCrudParentFilterQueryValidator normalizes configured parent filters", async () => {

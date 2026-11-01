@@ -1,7 +1,7 @@
 import { RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
 import { createSchema } from "json-rest-schema";
 import {
-  isRecord as isPlainObject,
+  isRecord,
   normalizeText
 } from "@jskit-ai/kernel/shared/support/normalize";
 import {
@@ -16,6 +16,8 @@ import {
   CRUD_LIST_FILTER_TYPE_DATE_RANGE,
   CRUD_LIST_FILTER_TYPE_NUMBER_RANGE,
   CRUD_LIST_FILTER_TYPE_PRESENCE,
+  CRUD_LIST_FILTER_PRESENCE_PRESENT,
+  CRUD_LIST_FILTER_PRESENCE_MISSING,
   INVALID_CRUD_LIST_FILTER_QUERY_VALUE,
   normalizeCrudListFilterInvalidValues,
   parseCrudListFilterQueryValue
@@ -133,6 +135,29 @@ function addDaysToDateFilterValue(value = "", days = 0) {
   return `${year}-${month}-${day}`;
 }
 
+function buildAllowedValuesTransportSchema({ discardInvalidValues, allowedValues }) {
+  return discardInvalidValues
+    ? cloneTransportSchema(looseTextTransportSchema)
+    : {
+        type: "string",
+        enum: allowedValues
+      };
+}
+
+function applyEqualsFilterQuery(queryBuilder, value, column = "") {
+  if (column && value !== undefined) {
+    queryBuilder.where(column, value);
+  }
+  return queryBuilder;
+}
+
+function applyInFilterQuery(queryBuilder, value, column = "") {
+  if (column && Array.isArray(value) && value.length > 0) {
+    queryBuilder.whereIn(column, value);
+  }
+  return queryBuilder;
+}
+
 const FILTER_TYPE_SERVER_HANDLERS = Object.freeze({
   [CRUD_LIST_FILTER_TYPE_FLAG]: Object.freeze({
     buildTransportSchema() {
@@ -146,20 +171,8 @@ const FILTER_TYPE_SERVER_HANDLERS = Object.freeze({
     }
   }),
   [CRUD_LIST_FILTER_TYPE_ENUM]: Object.freeze({
-    buildTransportSchema({ discardInvalidValues, allowedValues }) {
-      return discardInvalidValues
-        ? cloneTransportSchema(looseTextTransportSchema)
-        : {
-            type: "string",
-            enum: allowedValues
-          };
-    },
-    applyQuery(queryBuilder, value, column = "") {
-      if (column && value !== undefined) {
-        queryBuilder.where(column, value);
-      }
-      return queryBuilder;
-    }
+    buildTransportSchema: buildAllowedValuesTransportSchema,
+    applyQuery: applyEqualsFilterQuery
   }),
   [CRUD_LIST_FILTER_TYPE_ENUM_MANY]: Object.freeze({
     buildTransportSchema({ discardInvalidValues, allowedValues }) {
@@ -172,12 +185,7 @@ const FILTER_TYPE_SERVER_HANDLERS = Object.freeze({
             }
       );
     },
-    applyQuery(queryBuilder, value, column = "") {
-      if (column && Array.isArray(value) && value.length > 0) {
-        queryBuilder.whereIn(column, value);
-      }
-      return queryBuilder;
-    }
+    applyQuery: applyInFilterQuery
   }),
   [CRUD_LIST_FILTER_TYPE_RECORD_ID]: Object.freeze({
     buildTransportSchema({ discardInvalidValues }) {
@@ -185,12 +193,7 @@ const FILTER_TYPE_SERVER_HANDLERS = Object.freeze({
         ? cloneTransportSchema(looseStringOrNumberTransportSchema)
         : cloneTransportSchema(recordIdTransportSchema);
     },
-    applyQuery(queryBuilder, value, column = "") {
-      if (column && value !== undefined) {
-        queryBuilder.where(column, value);
-      }
-      return queryBuilder;
-    }
+    applyQuery: applyEqualsFilterQuery
   }),
   [CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY]: Object.freeze({
     buildTransportSchema({ discardInvalidValues }) {
@@ -200,12 +203,7 @@ const FILTER_TYPE_SERVER_HANDLERS = Object.freeze({
           : recordIdTransportSchema
       );
     },
-    applyQuery(queryBuilder, value, column = "") {
-      if (column && Array.isArray(value) && value.length > 0) {
-        queryBuilder.whereIn(column, value);
-      }
-      return queryBuilder;
-    }
+    applyQuery: applyInFilterQuery
   }),
   [CRUD_LIST_FILTER_TYPE_DATE]: Object.freeze({
     buildTransportSchema({ discardInvalidValues }) {
@@ -276,23 +274,16 @@ const FILTER_TYPE_SERVER_HANDLERS = Object.freeze({
     }
   }),
   [CRUD_LIST_FILTER_TYPE_PRESENCE]: Object.freeze({
-    buildTransportSchema({ discardInvalidValues, allowedValues }) {
-      return discardInvalidValues
-        ? cloneTransportSchema(looseTextTransportSchema)
-        : {
-            type: "string",
-            enum: allowedValues
-          };
-    },
+    buildTransportSchema: buildAllowedValuesTransportSchema,
     applyQuery(queryBuilder, value, column = "") {
       if (!column) {
         return queryBuilder;
       }
 
-      if (value === "present") {
+      if (value === CRUD_LIST_FILTER_PRESENCE_PRESENT) {
         queryBuilder.whereNotNull(column);
       }
-      if (value === "missing") {
+      if (value === CRUD_LIST_FILTER_PRESENCE_MISSING) {
         queryBuilder.whereNull(column);
       }
       return queryBuilder;
@@ -300,8 +291,8 @@ const FILTER_TYPE_SERVER_HANDLERS = Object.freeze({
   })
 });
 
-function normalizeCrudListFilterQueryFieldInput(filterDefinition = null) {
-  if (!filterDefinition || typeof filterDefinition !== "object" || Array.isArray(filterDefinition)) {
+function normalizeCrudListFilterQueryFieldInput(filterDefinition) {
+  if (!isRecord(filterDefinition)) {
     throw new TypeError("createCrudListFilterQueryField requires a normalized filter definition object.");
   }
 
@@ -320,7 +311,7 @@ function normalizeCrudListFilterQueryFieldInput(filterDefinition = null) {
   return filterDefinition;
 }
 
-function createCrudListFilterQueryField(filterDefinition = {}, {
+function createCrudListFilterQueryField(filterDefinition, {
   invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT
 } = {}) {
   const invalidValueMode = normalizeCrudListFilterInvalidValues(invalidValues);
@@ -336,18 +327,19 @@ function createCrudListFilterQueryField(filterDefinition = {}, {
   });
 }
 
-function buildFilterQueryFieldDefinition(filterDefinition = {}, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {}) {
-  const filter = normalizeCrudListFilterQueryFieldInput(filterDefinition);
+function buildFilterQueryFieldDefinition(filterDefinition, { invalidValues }) {
+  const field = createCrudListFilterQueryField(filterDefinition, { invalidValues });
   return {
-    [filter.queryKey]: createCrudListFilterQueryField(filter, {
-      invalidValues
-    })
+    [field.filterContract.filter.queryKey]: field
   };
 }
 
-function buildFilterQueryTransportSchema(filter = {}, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {}) {
-  const invalidValueMode = normalizeCrudListFilterInvalidValues(invalidValues);
-  const discardInvalidValues = invalidValueMode === CRUD_LIST_FILTER_INVALID_VALUES_DISCARD;
+/**
+ * The transport schema of a filter query field, from its contract (whose
+ * invalidValues createCrudListFilterQueryField has already normalized).
+ */
+function buildFilterQueryTransportSchema(filter, { invalidValues }) {
+  const discardInvalidValues = invalidValues === CRUD_LIST_FILTER_INVALID_VALUES_DISCARD;
   const allowedValues = (Array.isArray(filter.options) ? filter.options : []).map((entry) => entry.value);
   const handler = FILTER_TYPE_SERVER_HANDLERS[filter.type];
   return handler
@@ -357,7 +349,7 @@ function buildFilterQueryTransportSchema(filter = {}, { invalidValues = CRUD_LIS
 
 crudListFilterSchemaFactory.addType(CRUD_LIST_FILTER_QUERY_TYPE, Object.assign(
   (context) => {
-    const contract = isPlainObject(context.definition.filterContract)
+    const contract = isRecord(context.definition.filterContract)
       ? context.definition.filterContract
       : null;
     const filter = contract?.filter;
@@ -379,7 +371,7 @@ crudListFilterSchemaFactory.addType(CRUD_LIST_FILTER_QUERY_TYPE, Object.assign(
   },
   {
     toJsonSchema({ definition }) {
-      const contract = isPlainObject(definition?.filterContract)
+      const contract = isRecord(definition?.filterContract)
         ? definition.filterContract
         : null;
       const filter = contract?.filter;

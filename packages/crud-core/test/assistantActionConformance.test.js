@@ -425,7 +425,7 @@ test("generated CRUD list contracts conform through native assistant discovery a
     assert.equal(response.ok, false);
     assert.equal(response.error.code, "ACTION_VALIDATION_FAILED");
     assert.equal(response.error.status, 400);
-    assert.match(response.error.message, /include expects a comma-separated string such as "pet,service"/u);
+    assert.match(response.error.message, /include expects a comma-separated string such as "author,publisher"/u);
   });
 
   await t.test("invalid array-shaped fields gives an actionable validation result", async () => {

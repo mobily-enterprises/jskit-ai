@@ -1,12 +1,13 @@
 import { createSchema } from "@jskit-ai/kernel/shared/validators";
 import { normalizeJsonApiFieldsets } from "@jskit-ai/kernel/shared/support/jsonApiFieldsets";
-import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { isRecord, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   decodeJsonApiResourceResponse,
   jsonApiResultValue,
   normalizeJsonApiDocument
 } from "@jskit-ai/http-runtime/shared";
 import {
+  resolveDeclaredLookupContainerKey,
   resolveJsonApiFieldsetContract,
   resolveJsonApiRelationshipEntries,
   resolveSchemaFieldDefinitions
@@ -195,7 +196,7 @@ function projectCrudAssistantReadRecord(record, {
 }
 
 function createCrudAssistantResultProjection(input, resource, relationshipEntries = []) {
-  const primaryType = String(resource?.namespace || "").trim();
+  const primaryType = normalizeText(resource.namespace);
   const fieldsets = normalizeJsonApiFieldsets(input.fields, {
     primaryType
   });
@@ -309,7 +310,7 @@ function createCrudAssistantReadDescription({
   const firstRelationship = relationshipEntries[0] || null;
   const includeExample = relationshipEntries.length > 0
     ? relationshipEntries.slice(0, 2).map((entry) => entry.relationshipName).join(",")
-    : "pet,service";
+    : "author,publisher";
   const fieldsExample = firstRelationship
     ? ` fields can be {\"${namespace}\":[\"${firstRelationship.attributeKey}\"],` +
       `\"${firstRelationship.relationshipType}\":[\"${firstRelationship.labelKey || "id"}\"]}.`
@@ -348,7 +349,7 @@ function createCrudAssistantExtension(resource, namespace, operation) {
       })
     : nativeOutput;
   const relationshipEntries = resolveJsonApiRelationshipEntries(recordOutput);
-  const lookupContainerKey = String(resource?.contract?.lookup?.containerKey || "").trim();
+  const lookupContainerKey = resolveDeclaredLookupContainerKey(resource);
   const output = createProjectionOutputDefinition(
     nativeOutput,
     operation,

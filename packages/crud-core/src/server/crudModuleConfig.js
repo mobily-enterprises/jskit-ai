@@ -164,8 +164,6 @@ function resolveCrudSurfacePolicyFromAppConfig(sourceConfig = {}, appConfig = {}
 export {
   CRUD_REQUESTED_OWNERSHIP_FILTER_AUTO,
   normalizeCrudRequestedOwnershipFilter,
-  isWorkspaceRouteVisibility,
-  requireCrudNamespace,
   resolveCrudRelativePath,
   normalizeCrudRelativePath,
   resolveCrudSurfacePolicy,

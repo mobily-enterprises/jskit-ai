@@ -3,7 +3,7 @@ import {
   cursorPaginationQueryValidator
 } from "@jskit-ai/kernel/shared/validators";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { resolveCrudParentFilterKeys as resolveSharedCrudParentFilterKeys } from "@jskit-ai/resource-crud-core/shared/crudLookup";
+import { resolveCrudParentFilterKeys } from "@jskit-ai/resource-crud-core/shared/crudLookup";
 import { resolveJsonApiFieldsetContract } from "./jsonApiResourceContract.js";
 
 const listSearchQueryValidator = Object.freeze({
@@ -24,8 +24,8 @@ const lookupIncludeQueryValidator = Object.freeze({
       messages: {
         default: {
           code: "crud.query.includeInvalid",
-          message: "include expects a comma-separated string such as \"pet,service\".",
-          params: { example: "pet,service" }
+          message: "include expects a comma-separated string such as \"author,publisher\".",
+          params: { example: "author,publisher" }
         }
       }
     }
@@ -63,8 +63,8 @@ const jsonApiFieldsetsQueryValidator = Object.freeze({
       messages: {
         default: {
           code: "crud.query.fieldsInvalid",
-          message: "fields expects an object such as {\"bookings\":[\"petId\"],\"pets\":[\"name\"]}.",
-          params: { example: "{\"bookings\":[\"petId\"],\"pets\":[\"name\"]}" }
+          message: "fields expects an object such as {\"books\":[\"authorId\"],\"authors\":[\"name\"]}.",
+          params: { example: "{\"books\":[\"authorId\"],\"authors\":[\"name\"]}" }
         }
       },
       values: jsonApiFieldsetValueDefinition
@@ -173,10 +173,6 @@ function createCrudCursorPaginationQueryValidator(list = {}) {
   });
 }
 
-function resolveCrudParentFilterKeys(resource = {}) {
-  return resolveSharedCrudParentFilterKeys(resource);
-}
-
 function createCrudParentFilterQueryValidator(resource = {}) {
   const keys = resolveCrudParentFilterKeys(resource);
   const schemaProperties = {};
@@ -216,7 +212,7 @@ function createStandardCrudListQueryValidators({
     ?? resource.contract?.listFilters?.queryValidator
     ?? null;
 
-  return [
+  return Object.freeze([
     createCrudCursorPaginationQueryValidator({
       orderBy: resource.defaultSort
     }),
@@ -227,17 +223,17 @@ function createStandardCrudListQueryValidators({
       : []),
     includeQueryValidator,
     fieldsetsQueryValidator
-  ];
+  ]);
 }
 
 function createStandardCrudViewQueryValidators({
   includeQueryValidator = lookupIncludeQueryValidator,
   fieldsetsQueryValidator = jsonApiFieldsetsQueryValidator
 } = {}) {
-  return [
+  return Object.freeze([
     includeQueryValidator,
     fieldsetsQueryValidator
-  ];
+  ]);
 }
 
 export {
@@ -246,7 +242,6 @@ export {
   listSearchQueryValidator,
   lookupIncludeQueryValidator,
   jsonApiFieldsetsQueryValidator,
-  resolveCrudParentFilterKeys,
   createCrudParentFilterQueryValidator,
   createStandardCrudListQueryValidators,
   createStandardCrudViewQueryValidators

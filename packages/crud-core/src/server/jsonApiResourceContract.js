@@ -17,9 +17,9 @@ function resolveJsonApiRelationshipEntries(definition = null) {
 
   for (const [fieldKey, fieldDefinition] of Object.entries(resolveSchemaFieldDefinitions(definition))) {
     const normalizedFieldDefinition = isRecord(fieldDefinition) ? fieldDefinition : {};
-    const relationshipType = String(normalizedFieldDefinition.belongsTo || "").trim();
+    const relationshipType = normalizeText(normalizedFieldDefinition.belongsTo);
     if (relationshipType) {
-      const relationshipName = String(normalizedFieldDefinition.as || fieldKey || "").trim();
+      const relationshipName = normalizeText(normalizedFieldDefinition.as || fieldKey);
       if (!relationshipName) {
         continue;
       }
@@ -28,7 +28,7 @@ function resolveJsonApiRelationshipEntries(definition = null) {
         attributeKey: fieldKey,
         relationshipName,
         relationshipType,
-        labelKey: String(normalizedFieldDefinition?.relation?.labelKey || "").trim(),
+        labelKey: normalizeText(normalizedFieldDefinition.relation?.labelKey),
         required: normalizedFieldDefinition.required === true,
         nullable: normalizedFieldDefinition.nullable === true
       }));
@@ -38,7 +38,7 @@ function resolveJsonApiRelationshipEntries(definition = null) {
     const relation = isRecord(normalizedFieldDefinition.relation)
       ? normalizedFieldDefinition.relation
       : {};
-    if (String(relation.kind || "").trim().toLowerCase() !== "collection") {
+    if (normalizeText(relation.kind).toLowerCase() !== "collection") {
       continue;
     }
 
@@ -49,9 +49,7 @@ function resolveJsonApiRelationshipEntries(definition = null) {
       continue;
     }
 
-    const collectionRelationshipName = String(
-      relation.as || normalizedFieldDefinition.as || fieldKey || ""
-    ).trim();
+    const collectionRelationshipName = normalizeText(relation.as || normalizedFieldDefinition.as || fieldKey);
     if (!collectionRelationshipName) {
       continue;
     }
@@ -60,7 +58,7 @@ function resolveJsonApiRelationshipEntries(definition = null) {
       attributeKey: fieldKey,
       relationshipName: collectionRelationshipName,
       relationshipType: collectionRelationshipType,
-      labelKey: String(relation.labelKey || "").trim(),
+      labelKey: normalizeText(relation.labelKey),
       many: true,
       required: normalizedFieldDefinition.required === true,
       nullable: normalizedFieldDefinition.nullable === true
@@ -70,12 +68,20 @@ function resolveJsonApiRelationshipEntries(definition = null) {
   return Object.freeze(entries);
 }
 
+/**
+ * The lookup container key a resource's contract declares, or "" when it declares none.
+ * @param {import("./types.js").CrudResourceDefinition} resource
+ */
+function resolveDeclaredLookupContainerKey(resource) {
+  return normalizeText(resource.contract?.lookup?.containerKey);
+}
+
 function resolveJsonApiFieldsetContract(resource) {
-  const primaryType = normalizeText(resource?.namespace);
-  const relationshipEntries = resolveJsonApiRelationshipEntries(resource?.operations?.view?.output);
-  const lookupContainerKey = normalizeText(resource?.contract?.lookup?.containerKey);
+  const primaryType = normalizeText(resource.namespace);
+  const relationshipEntries = resolveJsonApiRelationshipEntries(resource.operations?.view?.output);
+  const lookupContainerKey = resolveDeclaredLookupContainerKey(resource);
   const primaryFields = Object.freeze(
-    Object.keys(resolveSchemaFieldDefinitions(resource?.operations?.view?.output))
+    Object.keys(resolveSchemaFieldDefinitions(resource.operations?.view?.output))
       .map((entry) => normalizeText(entry))
       .filter((entry) => entry && entry !== lookupContainerKey)
   );
@@ -110,6 +116,7 @@ function resolveJsonApiFieldsetContract(resource) {
 }
 
 export {
+  resolveDeclaredLookupContainerKey,
   resolveJsonApiFieldsetContract,
   resolveJsonApiRelationshipEntries,
   resolveSchemaFieldDefinitions

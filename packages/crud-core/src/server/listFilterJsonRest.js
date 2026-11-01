@@ -1,6 +1,6 @@
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators";
 import {
-  isRecord as isPlainObject,
+  isRecord,
   normalizeObject,
   normalizeText
 } from "@jskit-ai/kernel/shared/support/normalize";
@@ -44,7 +44,7 @@ function normalizeColumnsMap(columns = {}) {
 }
 
 function resolveJsonRestFilterActualField(filter = {}, columns = {}) {
-  const meta = isPlainObject(filter.meta?.jsonRest) ? filter.meta.jsonRest : {};
+  const meta = isRecord(filter.meta?.jsonRest) ? filter.meta.jsonRest : {};
   return normalizeText(meta.actualField || meta.column || columns[filter.key] || filter.key);
 }
 
@@ -131,22 +131,7 @@ function buildJsonRestSimpleFilterSearchSchemaEntry(filter = {}, { actualField =
 }
 
 function buildJsonRestRangeFilterSearchSchemaEntries(filter = {}, { actualField = "" } = {}) {
-  if (filter.type === CRUD_LIST_FILTER_TYPE_DATE) {
-    return {
-      [renderInternalJsonRestFilterKey(filter, "from")]: createJsonRestSearchSchemaEntry({
-        type: "dateTime",
-        actualField,
-        filterOperator: ">="
-      }),
-      [renderInternalJsonRestFilterKey(filter, "toExclusive")]: createJsonRestSearchSchemaEntry({
-        type: "dateTime",
-        actualField,
-        filterOperator: "<"
-      })
-    };
-  }
-
-  if (filter.type === CRUD_LIST_FILTER_TYPE_DATE_RANGE) {
+  if (filter.type === CRUD_LIST_FILTER_TYPE_DATE || filter.type === CRUD_LIST_FILTER_TYPE_DATE_RANGE) {
     return {
       [renderInternalJsonRestFilterKey(filter, "from")]: createJsonRestSearchSchemaEntry({
         type: "dateTime",
@@ -189,7 +174,7 @@ function buildJsonRestPresenceFilterSearchSchemaEntry(filter = {}, { actualField
   };
 }
 
-function buildJsonRestCustomFilterSearchSchemaEntry(filter = {}, customApply = null) {
+function buildJsonRestCustomFilterSearchSchemaEntry(filter, customApply) {
   return {
     type: "none",
     applyFilter(queryBuilder, value) {
@@ -204,7 +189,7 @@ function buildJsonRestCustomFilterSearchSchemaEntry(filter = {}, customApply = n
 }
 
 function resolveCrudListFilterEntries(value = {}) {
-  if (isPlainObject(value.filters)) {
+  if (isRecord(value.filters)) {
     return Object.values(normalizeObject(value.filters));
   }
 

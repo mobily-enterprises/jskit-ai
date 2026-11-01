@@ -128,6 +128,13 @@
  */
 
 /**
+ * The repository a lookup reads: any object with listByIds().
+ * @typedef {object} CrudLookupRepository
+ * @property {(ids: unknown[], options?: Record<string, unknown>) => Promise<unknown>} listByIds
+ * @property {string} [ownershipFilter] The ownership filter its records use.
+ */
+
+/**
  * A records service's field access policy: the fields a call may read and
  * write (a list, a set, "*", or a function of the call that returns one), and
  * whether a write to another field throws or is stripped.

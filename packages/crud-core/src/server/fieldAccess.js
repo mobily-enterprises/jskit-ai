@@ -1,6 +1,6 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { resolveCrudFieldSchemaProperties } from "@jskit-ai/resource-crud-core/shared/crudFieldContract";
-import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { isRecord, normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
 
 function normalizeFieldSet(value, { context = "crudFieldAccess", label = "field list" } = {}) {
@@ -25,14 +25,13 @@ function normalizeFieldSet(value, { context = "crudFieldAccess", label = "field 
 }
 
 async function resolveFieldSet(resolver, input = {}, { context = "crudFieldAccess", label = "field list" } = {}) {
-  const resolvedResolver = resolver;
-  if (resolvedResolver == null) {
+  if (resolver == null) {
     return null;
   }
 
-  const resolvedValue = typeof resolvedResolver === "function"
-    ? await resolvedResolver(input)
-    : resolvedResolver;
+  const resolvedValue = typeof resolver === "function"
+    ? await resolver(input)
+    : resolver;
 
   return normalizeFieldSet(resolvedValue, { context, label });
 }
@@ -101,7 +100,7 @@ function resolveOperationPolicyValue(operationPolicy, input = {}, action = "*") 
   ) {
     return operationPolicy;
   }
-  if (typeof operationPolicy !== "object" || Array.isArray(operationPolicy)) {
+  if (typeof operationPolicy !== "object") {
     return null;
   }
 
@@ -150,20 +149,26 @@ function createFieldAccessForRoleMatrix(matrix = {}, { context = "crudFieldAcces
   return Object.freeze({ readable, writable, writeMode });
 }
 
-function applyReadableFieldPolicyToRecord(record, allowedFields, outputRules = null, { context = "crudFieldAccess" } = {}) {
-  if (!record || typeof record !== "object" || Array.isArray(record) || !allowedFields) {
+/**
+ * The record with the fields the caller may not read removed, or nulled or
+ * defaulted where the output schema requires them. outputRules is present
+ * whenever allowedFields is: resolveReadableAllowedFields refuses a readable
+ * policy on a resource with no view output.
+ */
+function applyReadableFieldPolicyToRecord(record, allowedFields, outputRules, { context = "crudFieldAccess" } = {}) {
+  if (!isRecord(record) || !allowedFields) {
     return record;
   }
 
   const nextRecord = { ...record };
-  const fieldRules = outputRules?.fieldRules instanceof Map ? outputRules.fieldRules : null;
+  const { fieldRules } = outputRules;
 
   for (const fieldKey of Object.keys(nextRecord)) {
     if (allowedFields.has(fieldKey)) {
       continue;
     }
 
-    const fieldRule = fieldRules?.get(fieldKey);
+    const fieldRule = fieldRules.get(fieldKey);
     if (!fieldRule || fieldRule.required !== true) {
       delete nextRecord[fieldKey];
       continue;
@@ -286,5 +291,4 @@ function createCrudFieldAccessRuntime(resource = {}, { context = "crudFieldAcces
   });
 }
 
-export { createCrudFieldAccessRuntime };
-export { createFieldAccessForRoleMatrix };
+export { createCrudFieldAccessRuntime, createFieldAccessForRoleMatrix };

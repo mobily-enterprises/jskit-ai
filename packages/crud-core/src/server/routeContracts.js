@@ -12,8 +12,8 @@ import {
   listSearchQueryValidator as defaultListSearchQueryValidator,
   lookupIncludeQueryValidator as defaultLookupIncludeQueryValidator
 } from "./listQueryValidators.js";
-import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
-import { resolveJsonApiRelationshipEntries } from "./jsonApiResourceContract.js";
+import { isRecord, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { resolveDeclaredLookupContainerKey, resolveJsonApiRelationshipEntries } from "./jsonApiResourceContract.js";
 import { normalizeOptionalText } from "./normalizeOptionalText.js";
 
 function readOwnValue(source = {}, key = "") {
@@ -31,7 +31,7 @@ function readOwnValue(source = {}, key = "") {
 }
 
 function resolveLookupContainer(record, lookupContainerKey = "") {
-  const normalizedLookupContainerKey = String(lookupContainerKey || "").trim();
+  const normalizedLookupContainerKey = normalizeText(lookupContainerKey);
   if (!normalizedLookupContainerKey || !isRecord(record?.[normalizedLookupContainerKey])) {
     return {};
   }
@@ -86,12 +86,12 @@ function createRecordAttributesResolver(definition = null, {
   const relationshipEntries = resolveJsonApiRelationshipEntries(definition);
   const excludedKeys = new Set(
     relationshipEntries
-      .map((entry) => String(entry.attributeKey || "").trim())
+      .map((entry) => normalizeText(entry.attributeKey))
       .filter(Boolean)
   );
 
   for (const key of excludeKeys) {
-    const normalizedKey = String(key || "").trim();
+    const normalizedKey = normalizeText(key);
     if (normalizedKey) {
       excludedKeys.add(normalizedKey);
     }
@@ -204,12 +204,8 @@ function createRequestRelationshipMapper(definition = null) {
   };
 }
 
-function resolveLookupContainerKey(resource) {
-  return String(resource?.contract?.lookup?.containerKey || "").trim();
-}
-
-function resolveOutputAttributeExcludeKeys(resource = {}) {
-  const lookupContainerKey = resolveLookupContainerKey(resource);
+function resolveOutputAttributeExcludeKeys(resource) {
+  const lookupContainerKey = resolveDeclaredLookupContainerKey(resource);
   return lookupContainerKey ? Object.freeze([lookupContainerKey]) : Object.freeze([]);
 }
 
@@ -300,7 +296,7 @@ function createLookupIncludedResolver(definition = null, {
   lookupContainerKey = ""
 } = {}) {
   const relationshipEntries = resolveJsonApiRelationshipEntries(definition);
-  const normalizedLookupContainerKey = String(lookupContainerKey || "").trim();
+  const normalizedLookupContainerKey = normalizeText(lookupContainerKey);
   if (!normalizedLookupContainerKey || relationshipEntries.length < 1) {
     return null;
   }
@@ -409,7 +405,7 @@ function createCrudJsonApiRouteContracts({
   const patchBody = operationInputs.update || resource.operations?.patch?.body;
   const patchOutput = resource.operations?.patch?.output;
   const outputAttributeExcludeKeys = resolveOutputAttributeExcludeKeys(resource);
-  const lookupContainerKey = resolveLookupContainerKey(resource);
+  const lookupContainerKey = resolveDeclaredLookupContainerKey(resource);
   const viewOutputRelationships = resolveJsonApiRelationshipEntries(viewOutput);
   const createBodyRelationships = resolveJsonApiRelationshipEntries(createBody);
   const createOutputRelationships = resolveJsonApiRelationshipEntries(createOutput);

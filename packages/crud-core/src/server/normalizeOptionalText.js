@@ -1,4 +1,7 @@
-// Text without surrounding spaces, or null when there is none.
+/**
+ * Text without surrounding spaces, or null when there is none.
+ * @param {unknown} value
+ */
 function normalizeOptionalText(value) {
   if (value == null) {
     return null;

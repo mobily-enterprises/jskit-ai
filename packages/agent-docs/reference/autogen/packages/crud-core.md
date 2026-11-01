@@ -33,8 +33,6 @@ Local functions
 Exports
 - `CRUD_REQUESTED_OWNERSHIP_FILTER_AUTO`
 - `normalizeCrudRequestedOwnershipFilter(value, { fallback = CRUD_REQUESTED_OWNERSHIP_FILTER_AUTO } = {})`
-- `isWorkspaceRouteVisibility`
-- `requireCrudNamespace`
 - `resolveCrudRelativePath(namespace = "")`
 - `normalizeCrudRelativePath(relativePath = "", { context = "resolveCrudSurfacePolicy" } = {})`
 - `resolveCrudSurfacePolicy(sourceConfig = {}, { surfaceDefinitions = {}, defaultSurfaceId = "", context = "resolveCrudSurfacePolicy" } = {})`
@@ -69,7 +67,7 @@ Local functions
 - `resolveActionFromFieldAccessInput(input)`
 - `resolveOperationPolicyValue(operationPolicy, input = {}, action = "*")`
 - `resolveRoleMatrixPolicy(matrix = {}, operation = "readable", input = {})`
-- `applyReadableFieldPolicyToRecord(record, allowedFields, outputRules = null, { context = "crudFieldAccess" } = {})`
+- `applyReadableFieldPolicyToRecord(record, allowedFields, outputRules, { context = "crudFieldAccess" } = {})`
 
 ### `src/server/jsonApiModule/actions.js`
 Exports
@@ -119,6 +117,7 @@ Local functions
 
 ### `src/server/jsonApiResourceContract.js`
 Exports
+- `resolveDeclaredLookupContainerKey(resource)`
 - `resolveJsonApiFieldsetContract(resource)`
 - `resolveJsonApiRelationshipEntries(definition = null)`
 - `resolveSchemaFieldDefinitions(definition = null)`
@@ -136,7 +135,7 @@ Local functions
 - `buildJsonRestSimpleFilterSearchSchemaEntry(filter = {}, { actualField = "" } = {})`
 - `buildJsonRestRangeFilterSearchSchemaEntries(filter = {}, { actualField = "" } = {})`
 - `buildJsonRestPresenceFilterSearchSchemaEntry(filter = {}, { actualField = "" } = {})`
-- `buildJsonRestCustomFilterSearchSchemaEntry(filter = {}, customApply = null)`
+- `buildJsonRestCustomFilterSearchSchemaEntry(filter, customApply)`
 - `resolveCrudListFilterEntries(value = {})`
 - `addJsonRestDateFilterValues(target = {}, filter = {}, value = "")`
 - `addJsonRestFilterValue(target = {}, filter = {}, value)`
@@ -158,15 +157,18 @@ Exports
 - `recordIdTransportSchema`
 - `cloneTransportSchema(value)`
 - `addDaysToDateFilterValue(value = "", days = 0)`
-- `createCrudListFilterQueryField(filterDefinition = {}, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
+- `createCrudListFilterQueryField(filterDefinition, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
 - `createCrudListFilterQuerySchema(structure = {})`
 - `buildFilterQuerySchemaDefinition(filterEntries = [], { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
 - `applyDefaultFilterQuery(queryBuilder, filter = {}, value, column = "")`
 Local functions
 - `buildSingleOrMultiTransportSchema(itemSchema)`
-- `normalizeCrudListFilterQueryFieldInput(filterDefinition = null)`
-- `buildFilterQueryFieldDefinition(filterDefinition = {}, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
-- `buildFilterQueryTransportSchema(filter = {}, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
+- `buildAllowedValuesTransportSchema({ discardInvalidValues, allowedValues })`
+- `applyEqualsFilterQuery(queryBuilder, value, column = "")`
+- `applyInFilterQuery(queryBuilder, value, column = "")`
+- `normalizeCrudListFilterQueryFieldInput(filterDefinition)`
+- `buildFilterQueryFieldDefinition(filterDefinition, { invalidValues })`
+- `buildFilterQueryTransportSchema(filter, { invalidValues })`
 
 ### `src/server/listQueryValidators.js`
 Exports
@@ -175,7 +177,6 @@ Exports
 - `listSearchQueryValidator`
 - `lookupIncludeQueryValidator`
 - `jsonApiFieldsetsQueryValidator`
-- `resolveCrudParentFilterKeys(resource = {})`
 - `createCrudParentFilterQueryValidator(resource = {})`
 - `createStandardCrudListQueryValidators({ // readable-check: allow dependency-default - data: a resource definition resource = {}, listFilterQueryValidator = null, searchQueryValidator = listSearchQueryValidator, includeQueryValidator = lookupIncludeQueryValidator, fieldsetsQueryValidator = jsonApiFieldsetsQueryValidator } = {})`
 - `createStandardCrudViewQueryValidators({ includeQueryValidator = lookupIncludeQueryValidator, fieldsetsQueryValidator = jsonApiFieldsetsQueryValidator } = {})`
@@ -196,7 +197,6 @@ Exports
 Exports
 - `resolveCrudLookupToken`
 - `createCrudLookup(repository, { context = "crudLookup", ownershipFilter = "" } = {})`
-- `type CrudLookupRepository`
 
 ### `src/server/normalizeOptionalText.js`
 Exports
@@ -325,8 +325,7 @@ Local functions
 - `createRecordAttributesResolver(definition = null, { excludeKeys = [] } = {})`
 - `createRecordRelationshipsResolver(definition = null, { lookupContainerKey = "" } = {})`
 - `createRequestRelationshipMapper(definition = null)`
-- `resolveLookupContainerKey(resource)`
-- `resolveOutputAttributeExcludeKeys(resource = {})`
+- `resolveOutputAttributeExcludeKeys(resource)`
 - `normalizeIncludedLookupRecord(source = null, fallbackId = null)`
 - `appendIncludedRelationshipResource({ included = [], seen = new Set(), entry = {}, lookupRecord = null, fallbackId = null } = {})`
 - `createLookupIncludedResolver(definition = null, { lookupContainerKey = "" } = {})`
@@ -360,6 +359,7 @@ Exports
 - `type CrudOperationLifecycle`
 - `type CrudRecordRepository`
 - `type CompiledCrudRepositoryRuntime`
+- `type CrudLookupRepository`
 - `type CrudFieldAccess`
 - `type CrudServiceRuntime`
 
