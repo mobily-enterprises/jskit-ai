@@ -11,8 +11,7 @@ import {
   resolveCrudLookupContainerKey,
   resolveCrudParentFilterKeys,
   resolveCrudLookupFieldKeys,
-  resolveCrudLookupFieldKeyFromRouteParam,
-  resolveCrudParentFilterFieldKeyFromRouteParam
+  resolveCrudLookupFieldKeyFromRouteParam
 } from "../src/shared/crudLookup.js";
 
 function createCrudResource({
@@ -218,39 +217,3 @@ test("resolveCrudParentFilterKeys keeps only lookup keys that are writable throu
   assert.deepEqual(resolveCrudParentFilterKeys(resource), ["serviceId"]);
 });
 
-test("resolveCrudParentFilterFieldKeyFromRouteParam uses the same allowed keys as server parent filters", () => {
-  const resource = createCrudResource({
-    viewFields: {
-      staffContactId: {
-        type: "integer",
-        parentRouteParamKey: "contactId",
-        relation: {
-          kind: "lookup",
-          apiPath: "/contacts",
-          valueKey: "id"
-        }
-      },
-      serviceId: {
-        type: "integer",
-        relation: {
-          kind: "lookup",
-          apiPath: "/services",
-          valueKey: "id"
-        }
-      }
-    },
-    createFields: {
-      serviceId: {
-        type: "integer",
-        relation: {
-          kind: "lookup",
-          apiPath: "/services",
-          valueKey: "id"
-        }
-      }
-    }
-  });
-
-  assert.equal(resolveCrudParentFilterFieldKeyFromRouteParam(resource, "contactId"), "");
-  assert.equal(resolveCrudParentFilterFieldKeyFromRouteParam(resource, "serviceId"), "serviceId");
-});

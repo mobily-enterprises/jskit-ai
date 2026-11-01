@@ -52,7 +52,7 @@ function normalizeCrudLookupContainerKey(
   } = {}
 ) {
   if (value === undefined || value === null || value === "") {
-    return normalizeText(defaultValue) || DEFAULT_CRUD_LOOKUP_CONTAINER_KEY;
+    return normalizeText(defaultValue);
   }
 
   const normalized = normalizeText(value);
@@ -104,10 +104,6 @@ function resolveCrudLookupFieldEntries(resource = {}, { allowKeys = [] } = {}) {
   const keys = [];
   const seenKeys = new Set();
   for (const entry of entries) {
-    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-      continue;
-    }
-
     const key = normalizeText(entry.key);
     if (!key || seenKeys.has(key)) {
       continue;
@@ -181,12 +177,6 @@ function resolveCrudLookupFieldKeyFromRouteParam(resource = {}, routeParamKey = 
   return "";
 }
 
-function resolveCrudParentFilterFieldKeyFromRouteParam(resource = {}, routeParamKey = "") {
-  return resolveCrudLookupFieldKeyFromRouteParam(resource, routeParamKey, {
-    allowKeys: resolveCrudLookupCreateSchemaKeys(resource)
-  });
-}
-
 export {
   DEFAULT_CRUD_LOOKUP_CONTAINER_KEY,
   normalizeCrudLookupApiPath,
@@ -198,6 +188,5 @@ export {
   resolveCrudLookupContainerKey,
   resolveCrudLookupFieldKeys,
   resolveCrudParentFilterKeys,
-  resolveCrudLookupFieldKeyFromRouteParam,
-  resolveCrudParentFilterFieldKeyFromRouteParam
+  resolveCrudLookupFieldKeyFromRouteParam
 };

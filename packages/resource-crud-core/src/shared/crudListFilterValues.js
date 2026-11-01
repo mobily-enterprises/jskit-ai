@@ -31,6 +31,10 @@ const CRUD_LIST_FILTER_TYPES = Object.freeze([
 
 const CRUD_LIST_FILTER_PRESENCE_PRESENT = "present";
 const CRUD_LIST_FILTER_PRESENCE_MISSING = "missing";
+const CRUD_LIST_FILTER_PRESENCE_VALUES = new Set([
+  CRUD_LIST_FILTER_PRESENCE_PRESENT,
+  CRUD_LIST_FILTER_PRESENCE_MISSING
+]);
 const CRUD_LIST_FILTER_PRESENCE_OPTIONS = Object.freeze([
   Object.freeze({
     value: CRUD_LIST_FILTER_PRESENCE_PRESENT,
@@ -267,10 +271,7 @@ function normalizeCrudListFilterUiValue(filter = {}, rawValue) {
   }
 
   if (type === CRUD_LIST_FILTER_TYPE_PRESENCE) {
-    return normalizeAllowedFilterTextValue(rawValue, new Set([
-      CRUD_LIST_FILTER_PRESENCE_PRESENT,
-      CRUD_LIST_FILTER_PRESENCE_MISSING
-    ]));
+    return normalizeAllowedFilterTextValue(rawValue, CRUD_LIST_FILTER_PRESENCE_VALUES);
   }
 
   if (type === CRUD_LIST_FILTER_TYPE_ENUM_MANY) {
@@ -353,7 +354,7 @@ function formatCrudListFilterQueryValue(filter = {}, value) {
   return value;
 }
 
-function rejectInvalidCrudListFilterValue({ invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {}) {
+function rejectInvalidCrudListFilterValue(invalidValues) {
   return invalidValues === CRUD_LIST_FILTER_INVALID_VALUES_DISCARD
     ? null
     : INVALID_CRUD_LIST_FILTER_QUERY_VALUE;
@@ -442,14 +443,14 @@ function parseCrudListFilterQueryValue(
 
   if (type === CRUD_LIST_FILTER_TYPE_FLAG) {
     if (value !== null && value !== "" && !isPrimitiveCrudListFilterInput(value)) {
-      return rejectInvalidCrudListFilterValue({ invalidValues });
+      return rejectInvalidCrudListFilterValue(invalidValues);
     }
   } else if (isCrudListFilterMultiValue(filter)) {
     if (!isPrimitiveOrPrimitiveArrayCrudListFilterInput(value)) {
-      return rejectInvalidCrudListFilterValue({ invalidValues });
+      return rejectInvalidCrudListFilterValue(invalidValues);
     }
   } else if (!isPrimitiveCrudListFilterInput(value)) {
-    return rejectInvalidCrudListFilterValue({ invalidValues });
+    return rejectInvalidCrudListFilterValue(invalidValues);
   }
 
   if (type === CRUD_LIST_FILTER_TYPE_FLAG) {
@@ -460,19 +461,17 @@ function parseCrudListFilterQueryValue(
     try {
       return normalizeBoolean(firstCrudListFilterValue(value));
     } catch {
-      return rejectInvalidCrudListFilterValue({ invalidValues });
+      return rejectInvalidCrudListFilterValue(invalidValues);
     }
   }
 
   if (type === CRUD_LIST_FILTER_TYPE_ENUM) {
-    return normalizeAllowedFilterTextValue(value, allowedValues) || rejectInvalidCrudListFilterValue({ invalidValues });
+    return normalizeAllowedFilterTextValue(value, allowedValues) || rejectInvalidCrudListFilterValue(invalidValues);
   }
 
   if (type === CRUD_LIST_FILTER_TYPE_PRESENCE) {
-    return normalizeAllowedFilterTextValue(value, new Set([
-      CRUD_LIST_FILTER_PRESENCE_PRESENT,
-      CRUD_LIST_FILTER_PRESENCE_MISSING
-    ])) || rejectInvalidCrudListFilterValue({ invalidValues });
+    return normalizeAllowedFilterTextValue(value, CRUD_LIST_FILTER_PRESENCE_VALUES) ||
+      rejectInvalidCrudListFilterValue(invalidValues);
   }
 
   if (type === CRUD_LIST_FILTER_TYPE_ENUM_MANY) {
@@ -486,7 +485,7 @@ function parseCrudListFilterQueryValue(
   if (type === CRUD_LIST_FILTER_TYPE_RECORD_ID) {
     return normalizeCanonicalRecordIdText(firstCrudListFilterValue(value), {
       fallback: ""
-    }) || rejectInvalidCrudListFilterValue({ invalidValues });
+    }) || rejectInvalidCrudListFilterValue(invalidValues);
   }
 
   if (type === CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY) {
@@ -498,23 +497,15 @@ function parseCrudListFilterQueryValue(
   }
 
   if (type === CRUD_LIST_FILTER_TYPE_DATE) {
-    return normalizeDateFilterText(value) || rejectInvalidCrudListFilterValue({ invalidValues });
+    return normalizeDateFilterText(value) || rejectInvalidCrudListFilterValue(invalidValues);
   }
 
   if (type === CRUD_LIST_FILTER_TYPE_DATE_RANGE) {
-    const normalized = normalizeCrudListDateRangeQueryValue(value);
-    if (invalidValues === CRUD_LIST_FILTER_INVALID_VALUES_DISCARD) {
-      return normalized || null;
-    }
-    return normalized || INVALID_CRUD_LIST_FILTER_QUERY_VALUE;
+    return normalizeCrudListDateRangeQueryValue(value) || rejectInvalidCrudListFilterValue(invalidValues);
   }
 
   if (type === CRUD_LIST_FILTER_TYPE_NUMBER_RANGE) {
-    const normalized = normalizeCrudListNumberRangeQueryValue(value);
-    if (invalidValues === CRUD_LIST_FILTER_INVALID_VALUES_DISCARD) {
-      return normalized || null;
-    }
-    return normalized || INVALID_CRUD_LIST_FILTER_QUERY_VALUE;
+    return normalizeCrudListNumberRangeQueryValue(value) || rejectInvalidCrudListFilterValue(invalidValues);
   }
 
   return INVALID_CRUD_LIST_FILTER_QUERY_VALUE;
@@ -557,12 +548,17 @@ function listCrudListFilterChipValues(filter = {}, rawValue) {
   return [normalizedValue];
 }
 
-function formatCrudListFilterDefaultChipLabel(filter = {}, rawValue, { resolveAtomicValue = null } = {}) {
+/**
+ * An atomic filter value's chip text when the caller gives no label resolver.
+ * @param {unknown} value
+ */
+function atomicValueText(value) {
+  return String(value || "");
+}
+
+function formatCrudListFilterDefaultChipLabel(filter = {}, rawValue, { resolveAtomicValue: resolveAtomicLabel = atomicValueText } = {}) {
   const normalizedValue = normalizeCrudListFilterUiValue(filter, rawValue);
   const type = normalizeCrudListFilterType(filter.type);
-  const resolveAtomicLabel = typeof resolveAtomicValue === "function"
-    ? resolveAtomicValue
-    : (value) => String(value || "");
 
   if (type === CRUD_LIST_FILTER_TYPE_FLAG) {
     return filter.label;

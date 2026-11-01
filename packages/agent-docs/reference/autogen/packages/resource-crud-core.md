@@ -21,12 +21,10 @@ Exports
 - `CRUD_FIELD_WRITE_SERIALIZER_DATETIME_UTC`
 - `CRUD_LOOKUP_FORM_CONTROL_AUTOCOMPLETE`
 - `CRUD_LOOKUP_FORM_CONTROL_SELECT`
-- `checkCrudLookupFormControl(value, { context = "crud field ui.formControl", defaultValue = CRUD_LOOKUP_FORM_CONTROL_AUTOCOMPLETE } = {})`
 - `resolveCrudFieldSchemaProperties(value, { context = "crud resource field definitions" } = {})`
 - `normalizeCrudFieldStorageConfig(fieldDefinition = {}, { context = "crud field storage", fieldKey = "" } = {})`
 - `buildCrudOperationSchemaFields(fields = {}, operationName = "")`
 - `buildCrudFieldContractMap(resource, { context = "crud resource field contract" } = {})`
-- `resolveCrudFieldContractEntry(resource = {}, fieldKey = "", options = {})`
 Local functions
 - `cloneStructuredFieldMetadata(value = {})`
 - `mergeFieldContractEntry(target, source, { context = "crud field contract", fieldKey = "" } = {})`
@@ -103,7 +101,7 @@ Exports
 - `areCrudListFilterUiValuesEqual(filter = {}, currentValue, expectedValue)`
 - `hasCrudListFilterUiValue(filter = {}, rawValue)`
 - `listCrudListFilterChipValues(filter = {}, rawValue)`
-- `formatCrudListFilterDefaultChipLabel(filter = {}, rawValue, { resolveAtomicValue = null } = {})`
+- `formatCrudListFilterDefaultChipLabel(filter = {}, rawValue, { resolveAtomicValue: resolveAtomicLabel = atomicValueText } = {})`
 - `formatCrudListFilterQueryValue(filter = {}, value)`
 - `parseCrudListFilterQueryValue(filter = {}, value, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
 - `normalizeCrudListFilterType(value = "")`
@@ -120,10 +118,11 @@ Local functions
 - `normalizeCrudListDateRangeUiValue(rawValue)`
 - `normalizeCrudListNumberRangeUiValue(rawValue)`
 - `matchCrudListFilterValues(currentValue, expectedValue)`
-- `rejectInvalidCrudListFilterValue({ invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
+- `rejectInvalidCrudListFilterValue(invalidValues)`
 - `normalizeCrudListDateRangeQueryValue(value)`
 - `normalizeCrudListNumberRangeQueryValue(value)`
 - `parseCrudListFilterMultiQueryValue(value, normalizeEntry, { invalidValues })`
+- `atomicValueText(value)`
 
 ### `src/shared/crudLookup.js`
 Exports
@@ -138,7 +137,6 @@ Exports
 - `resolveCrudLookupFieldKeys(resource = {}, { allowKeys = [] } = {})`
 - `resolveCrudParentFilterKeys(resource = {})`
 - `resolveCrudLookupFieldKeyFromRouteParam(resource = {}, routeParamKey = "", { allowKeys = [] } = {})`
-- `resolveCrudParentFilterFieldKeyFromRouteParam(resource = {}, routeParamKey = "")`
 Local functions
 - `resolveCrudLookupFieldEntries(resource = {}, { allowKeys = [] } = {})`
 - `resolveCrudLookupCreateSchemaKeys(resource)`
@@ -153,23 +151,23 @@ Exports
 Exports
 - `defineCrudResource(resource = {})`
 Local functions
-- `createCrudRecordIdFieldDefinition()`
+- `buildCrudRecordIdFieldDefinition()`
 - `resolveConfiguredLookupContainerKey(resource)`
 - `resolveFieldEntries(resource, operationName = "output")`
-- `createDerivedCrudRecordOutputDefinition(resource = {})`
-- `createDerivedCrudBodyDefinition(resource = {}, operationName = "patch", bodyMode = "patch")`
-- `createCrudDeleteOutputDefinition()`
+- `buildDerivedCrudRecordOutputDefinition(resource = {})`
+- `buildDerivedCrudBodyDefinition(resource = {}, operationName = "patch", bodyMode = "patch")`
+- `buildCrudDeleteOutputDefinition()`
 - `requireCrudOperationName(value = "", { context = "crud operation name" } = {})`
 - `requireCrudOperationSpec(operationName = "")`
 - `resolveCrudOperationNames(resource = {})`
 - `resolveFirstPresentValue(source = {}, keys = [])`
 - `resolveExplicitCrudSchemaDefinition(crudConfig = {}, keys = [], { context = "defineCrudResource schema definition", defaultMode = "patch" } = {})`
-- `createCrudListOutputDefinition(resolveRecordOutputDefinition, crudConfig = {})`
+- `buildCrudListOutputDefinition(resolveRecordOutputDefinition, crudConfig = {})`
 - `createCrudRecordOutputDefinitionResolver(resource = {}, crudConfig = {})`
 - `resolveCrudBodyDefinition(spec, resource = {}, crudConfig = {})`
 - `resolveCrudOutputDefinition(spec, resolveRecordOutputDefinition, crudConfig = {})`
-- `createCrudOperationDefinition(operationName, { namespace = "", resource = {}, crudConfig = {}, resolveRecordOutputDefinition } = {})`
-- `createDefaultCrudOperations(resource = {})`
+- `buildCrudOperationDefinition(operationName, { namespace = "", resource = {}, crudConfig = {}, resolveRecordOutputDefinition } = {})`
+- `buildDefaultCrudOperations(resource = {})`
 - `mergeCrudOperationDefinition(baseDefinition, overrideDefinition)`
 - `mergeCrudOperations(defaultOperations = {}, overrides = {})`
 

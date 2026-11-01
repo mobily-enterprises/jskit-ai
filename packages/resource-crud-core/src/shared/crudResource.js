@@ -67,7 +67,7 @@ const CRUD_OPERATION_SPECS = deepFreeze({
   }
 });
 
-function createCrudRecordIdFieldDefinition() {
+function buildCrudRecordIdFieldDefinition() {
   return {
     type: "string",
     required: true,
@@ -76,8 +76,10 @@ function createCrudRecordIdFieldDefinition() {
   };
 }
 
-// Only an explicitly configured container key adds a lookup field to the derived output;
-// unlike crudLookup.js resolveCrudLookupContainerKey, the default "lookups" key is not applied.
+/**
+ * Only an explicitly configured container key adds a lookup field to the derived output;
+ * unlike crudLookup.js resolveCrudLookupContainerKey, the default "lookups" key is not applied.
+ */
 function resolveConfiguredLookupContainerKey(resource) {
   return normalizeText(resource?.contract?.lookup?.containerKey);
 }
@@ -86,7 +88,7 @@ function resolveFieldEntries(resource, operationName = "output") {
   return buildCrudOperationSchemaFields(resource?.schema, operationName);
 }
 
-function createDerivedCrudRecordOutputDefinition(resource = {}) {
+function buildDerivedCrudRecordOutputDefinition(resource = {}) {
   const outputFields = resolveFieldEntries(resource, "output");
   if (Object.keys(outputFields).length < 1) {
     throw new Error(
@@ -95,7 +97,7 @@ function createDerivedCrudRecordOutputDefinition(resource = {}) {
   }
 
   const fields = {
-    id: createCrudRecordIdFieldDefinition(),
+    id: buildCrudRecordIdFieldDefinition(),
     ...outputFields
   };
   const lookupContainerKey = resolveConfiguredLookupContainerKey(resource);
@@ -112,7 +114,7 @@ function createDerivedCrudRecordOutputDefinition(resource = {}) {
   });
 }
 
-function createDerivedCrudBodyDefinition(resource = {}, operationName = "patch", bodyMode = "patch") {
+function buildDerivedCrudBodyDefinition(resource = {}, operationName = "patch", bodyMode = "patch") {
   let fields = resolveFieldEntries(resource, operationName);
 
   if (operationName === "replace" && Object.keys(fields).length === 0) {
@@ -133,9 +135,9 @@ function createDerivedCrudBodyDefinition(resource = {}, operationName = "patch",
   });
 }
 
-function createCrudDeleteOutputDefinition() {
+function buildCrudDeleteOutputDefinition() {
   return createSchemaDefinition(createSchema({
-    id: createCrudRecordIdFieldDefinition(),
+    id: buildCrudRecordIdFieldDefinition(),
     deleted: {
       type: "boolean",
       required: true
@@ -161,7 +163,7 @@ function requireCrudOperationSpec(operationName = "") {
   if (spec) {
     return spec;
   }
-  throw new Error(`createCrudOperationDefinition received unsupported operation "${operationName}".`);
+  throw new Error(`buildCrudOperationDefinition received unsupported operation "${operationName}".`);
 }
 
 function resolveCrudOperationNames(resource = {}) {
@@ -209,7 +211,7 @@ function resolveExplicitCrudSchemaDefinition(crudConfig = {}, keys = [], {
   });
 }
 
-function createCrudListOutputDefinition(resolveRecordOutputDefinition, crudConfig = {}) {
+function buildCrudListOutputDefinition(resolveRecordOutputDefinition, crudConfig = {}) {
   const explicitListOutput = resolveExplicitCrudSchemaDefinition(crudConfig, ["listOutput"], {
     context: "defineCrudResource crud.listOutput",
     defaultMode: "replace"
@@ -243,7 +245,7 @@ function createCrudRecordOutputDefinitionResolver(resource = {}, crudConfig = {}
     cachedDefinition = resolveExplicitCrudSchemaDefinition(crudConfig, ["output"], {
       context: "defineCrudResource crud.output",
       defaultMode: "replace"
-    }) || createDerivedCrudRecordOutputDefinition(resource);
+    }) || buildDerivedCrudRecordOutputDefinition(resource);
     hasResolved = true;
     return cachedDefinition;
   };
@@ -262,12 +264,12 @@ function resolveCrudBodyDefinition(spec, resource = {}, crudConfig = {}) {
     return explicitBody;
   }
 
-  return createDerivedCrudBodyDefinition(resource, spec.bodyOperation, spec.bodyMode);
+  return buildDerivedCrudBodyDefinition(resource, spec.bodyOperation, spec.bodyMode);
 }
 
 function resolveCrudOutputDefinition(spec, resolveRecordOutputDefinition, crudConfig = {}) {
   if (spec.outputKind === "list") {
-    return createCrudListOutputDefinition(resolveRecordOutputDefinition, crudConfig);
+    return buildCrudListOutputDefinition(resolveRecordOutputDefinition, crudConfig);
   }
 
   if (spec.outputKind === "record") {
@@ -278,13 +280,13 @@ function resolveCrudOutputDefinition(spec, resolveRecordOutputDefinition, crudCo
     return resolveExplicitCrudSchemaDefinition(crudConfig, ["deleteOutput"], {
       context: "defineCrudResource operations.delete.output",
       defaultMode: "replace"
-    }) || createCrudDeleteOutputDefinition();
+    }) || buildCrudDeleteOutputDefinition();
   }
 
   throw new Error(`resolveCrudOutputDefinition received unsupported output kind "${spec.outputKind}".`);
 }
 
-function createCrudOperationDefinition(operationName, {
+function buildCrudOperationDefinition(operationName, {
   namespace = "",
   resource = {},
   crudConfig = {},
@@ -309,16 +311,16 @@ function createCrudOperationDefinition(operationName, {
   return nextOperation;
 }
 
-function createDefaultCrudOperations(resource = {}) {
+function buildDefaultCrudOperations(resource = {}) {
   const namespace = requireCrudNamespace(resource.namespace, {
-    context: "createDefaultCrudOperations resource.namespace"
+    context: "buildDefaultCrudOperations resource.namespace"
   });
   const crudConfig = normalizeObject(resource.crud);
   const resolveRecordOutputDefinition = createCrudRecordOutputDefinitionResolver(resource, crudConfig);
   const operations = {};
 
   for (const operationName of resolveCrudOperationNames(resource)) {
-    operations[operationName] = createCrudOperationDefinition(operationName, {
+    operations[operationName] = buildCrudOperationDefinition(operationName, {
       namespace,
       resource,
       crudConfig,
@@ -375,7 +377,7 @@ function defineCrudResource(resource = {}) {
   return defineResource({
     ...authoredResource,
     operations: mergeCrudOperations(
-      createDefaultCrudOperations(source),
+      buildDefaultCrudOperations(source),
       authoredResource.operations
     )
   });

@@ -10,31 +10,6 @@ const CRUD_FIELD_WRITE_SERIALIZER_DATETIME_UTC = "datetime-utc";
 const CRUD_LOOKUP_FORM_CONTROL_AUTOCOMPLETE = "autocomplete";
 const CRUD_LOOKUP_FORM_CONTROL_SELECT = "select";
 
-function checkCrudLookupFormControl(
-  value,
-  {
-    context = "crud field ui.formControl",
-    defaultValue = CRUD_LOOKUP_FORM_CONTROL_AUTOCOMPLETE
-  } = {}
-) {
-  const resolvedValue = value === undefined || value === null || value === "" ? defaultValue : value;
-  if (resolvedValue === "") {
-    return "";
-  }
-
-  if (
-    resolvedValue === CRUD_LOOKUP_FORM_CONTROL_AUTOCOMPLETE ||
-    resolvedValue === CRUD_LOOKUP_FORM_CONTROL_SELECT
-  ) {
-    return resolvedValue;
-  }
-
-  throw new Error(
-    `${context} must be "${CRUD_LOOKUP_FORM_CONTROL_AUTOCOMPLETE}" or "${CRUD_LOOKUP_FORM_CONTROL_SELECT}". ` +
-      `Received: ${JSON.stringify(resolvedValue)}.`
-  );
-}
-
 function cloneStructuredFieldMetadata(value = {}) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null;
@@ -75,10 +50,6 @@ function resolveCrudFieldSchemaProperties(value, { context = "crud resource fiel
     context,
     defaultMode: "patch"
   });
-  if (!normalized) {
-    return {};
-  }
-
   return normalizeObject(normalized.schema.getFieldDefinitions());
 }
 
@@ -300,26 +271,14 @@ function buildCrudOperationSchemaFields(fields = {}, operationName = "") {
   return definitions;
 }
 
-function resolveCrudFieldContractEntry(resource = {}, fieldKey = "", options = {}) {
-  const normalizedFieldKey = normalizeText(fieldKey);
-  if (!normalizedFieldKey) {
-    return null;
-  }
-
-  const entries = buildCrudFieldContractMap(resource, options);
-  return entries[normalizedFieldKey] || null;
-}
-
 export {
   CRUD_FIELD_STORAGE_COLUMN,
   CRUD_FIELD_STORAGE_VIRTUAL,
   CRUD_FIELD_WRITE_SERIALIZER_DATETIME_UTC,
   CRUD_LOOKUP_FORM_CONTROL_AUTOCOMPLETE,
   CRUD_LOOKUP_FORM_CONTROL_SELECT,
-  checkCrudLookupFormControl,
   resolveCrudFieldSchemaProperties,
   normalizeCrudFieldStorageConfig,
   buildCrudOperationSchemaFields,
-  buildCrudFieldContractMap,
-  resolveCrudFieldContractEntry
+  buildCrudFieldContractMap
 };
