@@ -55,24 +55,12 @@ function createWorkspaceRouteVisibilityResolver({ workspaceService, workspaceMem
       const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(
         actor,
         workspaceSlug,
-        {
-          request,
-          ...(membershipOptionalSurfaceIds.has(activeSurfaceId) ? { requireMembership: false } : {})
-        }
+        { requireMembership: !membershipOptionalSurfaceIds.has(activeSurfaceId) }
       );
-      const resolvedWorkspaceOwnerId = normalizeRecordId(resolvedWorkspaceContext?.workspace?.id, { fallback: null });
-      if (!resolvedWorkspaceOwnerId) {
-        return visibility === "workspace_user"
-          ? buildVisibilityContribution({
-              visibility,
-              userId
-            })
-          : {};
-      }
 
       return buildVisibilityContribution({
         visibility,
-        scopeOwnerId: resolvedWorkspaceOwnerId,
+        scopeOwnerId: normalizeRecordId(resolvedWorkspaceContext.workspace.id),
         userId
       });
     }

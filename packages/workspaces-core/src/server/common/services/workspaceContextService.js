@@ -1,13 +1,11 @@
 import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import { pickOwnProperties } from "@jskit-ai/kernel/shared/support";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+import { normalizeLowerText, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { WORKSPACE_PATCH_FIELD_KEYS } from "../../../shared/resources/workspaceResource.js";
+import { listCatalogRolePermissions } from "../../../shared/roles.js";
 import { TENANCY_MODE_NONE } from "../../../shared/tenancyProfile.js";
-import {
-  mapWorkspaceSummary
-} from "../formatters/workspaceFormatter.js";
-import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
+import { mapWorkspaceSummary } from "../formatters/workspaceFormatter.js";
 
 function toSlugPart(value) {
   const normalized = normalizeLowerText(value)
@@ -17,7 +15,7 @@ function toSlugPart(value) {
   return normalized || "workspace";
 }
 
-function buildWorkspaceBaseSlug(user = {}) {
+function buildWorkspaceBaseSlug(user) {
   const username = normalizeLowerText(user.username);
   if (username) {
     return toSlugPart(username);
@@ -38,7 +36,7 @@ function buildWorkspaceBaseSlug(user = {}) {
  * email, followed by "'s Workspace".
  * @type {import("../../types.js").PersonalWorkspaceName}
  */
-function buildWorkspaceName(user = {}) {
+function buildWorkspaceName(user) {
   const displayName = normalizeText(user.displayName);
   if (displayName) {
     return `${displayName}'s Workspace`;
@@ -48,24 +46,6 @@ function buildWorkspaceName(user = {}) {
     return `${email}'s Workspace`;
   }
   return "Workspace";
-}
-
-/**
- * @param {{ roleSid?: string }} membership
- * @param {import("../../types.js").WorkspaceRoleCatalog} roleCatalog
- */
-function buildPermissionsFromMembership(membership, roleCatalog) {
-  const roleSid = normalizeLowerText(membership.roleSid || "member");
-  const role = roleCatalog.roles.find((entry) => entry.id === roleSid);
-  return role ? [...role.permissions] : [];
-}
-
-function normalizeWorkspaceCreationInput(payload = {}) {
-  const source = payload && typeof payload === "object" && !Array.isArray(payload) ? payload : {};
-  return {
-    name: normalizeText(source.name),
-    requestedSlug: normalizeLowerText(source.slug)
-  };
 }
 
 /**
@@ -102,7 +82,7 @@ function createService({
   }
 
   async function ensureWorkspaceSettingsForWorkspace(workspace, options = {}) {
-    return workspaceSettingsRepository.ensureForWorkspaceId(workspace?.id, {
+    return workspaceSettingsRepository.ensureForWorkspaceId(workspace.id, {
       ...options,
       workspace
     });
@@ -180,7 +160,14 @@ function createService({
     }, options);
   }
 
-  async function createWorkspaceForAuthenticatedUser(user, payload, options = {}) {
+  /**
+   * Creates a workspace the user owns. The action's input schema has already
+   * trimmed the name and slug and lowercased the slug.
+   * @param {{ id?: unknown } | null} user
+   * @param {{ name: string, slug?: string }} input
+   * @param {object} [options]
+   */
+  async function createWorkspaceForAuthenticatedUser(user, { name, slug: requestedSlug }, options = {}) {
     const normalizedUserId = normalizeRecordId(user?.id, { fallback: null });
     if (!normalizedUserId) {
       throw new AppError(401, "Authentication required.", { code: "workspaces.auth.required" });
@@ -192,17 +179,11 @@ function createService({
       });
     }
 
-    const createInput = normalizeWorkspaceCreationInput(payload);
-    if (!createInput.name) {
-      throw new AppError(400, "Workspace name is required.", { code: "workspaces.workspace.nameRequired" });
-    }
-
-    const slugBase = createInput.requestedSlug || toSlugPart(createInput.name);
-    const slug = await ensureUniqueWorkspaceSlug(slugBase, options);
+    const slug = await ensureUniqueWorkspaceSlug(requestedSlug || toSlugPart(name), options);
     const inserted = await workspacesRepository.insert(
       {
         slug,
-        name: createInput.name,
+        name,
         ownerUserId: normalizedUserId,
         isPersonal: false,
         avatarUrl: ""
@@ -272,7 +253,7 @@ function createService({
     }
 
     const workspaceSettings = await ensureWorkspaceSettingsForWorkspace(workspace, options);
-    const permissions = membership ? buildPermissionsFromMembership(membership, roleCatalog) : [];
+    const permissions = membership ? listCatalogRolePermissions(roleCatalog, membership.roleSid) : [];
 
     return {
       workspace,
@@ -283,9 +264,6 @@ function createService({
   }
 
   return Object.freeze({
-    toSlugPart,
-    buildWorkspaceName,
-    buildWorkspaceBaseSlug,
     ensurePersonalWorkspaceForUser,
     ensureProvisionedWorkspaceForAuthenticatedUser,
     createWorkspaceForAuthenticatedUser,

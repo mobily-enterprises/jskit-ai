@@ -21,26 +21,19 @@ function createWorkspaceAuthPolicyContextResolver({ workspaceService, workspaceM
       return {};
     }
 
-    const resolveOptions = { request };
     const activeSurfaceId = normalizeSurfaceId(request?.routeOptions?.config?.surface);
-    if (
+    const requireMembership = !(
       (contextPolicy === "optional" && !permission) ||
       membershipOptionalSurfaceIds.has(activeSurfaceId)
-    ) {
-      resolveOptions.requireMembership = false;
-    }
-
-    const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(
-      actor,
-      workspaceSlug,
-      resolveOptions
     );
 
-    return {
-      workspace: resolvedWorkspaceContext?.workspace || null,
-      membership: resolvedWorkspaceContext?.membership || null,
-      permissions: Array.isArray(resolvedWorkspaceContext?.permissions) ? resolvedWorkspaceContext.permissions : []
-    };
+    const { workspace, membership, permissions } = await workspaceService.resolveWorkspaceContextForUserBySlug(
+      actor,
+      workspaceSlug,
+      { requireMembership }
+    );
+
+    return { workspace, membership, permissions };
   };
 }
 

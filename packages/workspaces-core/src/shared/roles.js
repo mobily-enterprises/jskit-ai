@@ -139,19 +139,21 @@ function listRoleDescriptors(appConfig = {}) {
   }));
 }
 
-function resolveRolePermissions(roleSid, appConfig = {}) {
+/**
+ * The permissions of one role in a built role catalog; none for an unknown role.
+ * @param {import("../server/types.js").WorkspaceRoleCatalog} roleCatalog
+ * @param {unknown} roleSid
+ * @returns {string[]}
+ */
+function listCatalogRolePermissions(roleCatalog, roleSid) {
   const normalizedRoleId = normalizeRoleId(roleSid);
-  if (!normalizedRoleId) {
-    return [];
-  }
-
-  const roleCatalog = createWorkspaceRoleCatalog(appConfig);
   const role = roleCatalog.roles.find((entry) => entry.id === normalizedRoleId);
-  if (!role) {
-    return [];
-  }
+  return role ? [...role.permissions] : [];
+}
 
-  return [...role.permissions];
+/** The permissions of one role in the app's configured role catalog. */
+function resolveRolePermissions(roleSid, appConfig = {}) {
+  return listCatalogRolePermissions(createWorkspaceRoleCatalog(appConfig), roleSid);
 }
 
 export {
@@ -159,6 +161,7 @@ export {
   ADMIN_ROLE_ID,
   MEMBER_ROLE_ID,
   resolveRolePermissions,
+  listCatalogRolePermissions,
   listRoleDescriptors,
   createWorkspaceRoleCatalog,
   cloneWorkspaceRoleCatalog,

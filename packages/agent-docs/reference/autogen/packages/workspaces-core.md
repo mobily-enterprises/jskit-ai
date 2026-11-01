@@ -56,13 +56,11 @@ Local functions
 
 ### `src/server/common/services/workspaceContextService.js`
 Exports
-- `buildWorkspaceName(user = {})`
+- `buildWorkspaceName(user)`
 - `createService({ tenancyProfile, roleCatalog, personalWorkspaceName, workspacesRepository, workspaceMembershipsRepository, workspaceSettingsRepository })`
 Local functions
 - `toSlugPart(value)`
-- `buildWorkspaceBaseSlug(user = {})`
-- `buildPermissionsFromMembership(membership, roleCatalog)`
-- `normalizeWorkspaceCreationInput(payload = {})`
+- `buildWorkspaceBaseSlug(user)`
 
 ### `src/server/common/support/realtimeServiceEvents.js`
 Exports
@@ -331,6 +329,7 @@ Exports
 - `ADMIN_ROLE_ID`
 - `MEMBER_ROLE_ID`
 - `resolveRolePermissions(roleSid, appConfig = {})`
+- `listCatalogRolePermissions(roleCatalog, roleSid)`
 - `listRoleDescriptors(appConfig = {})`
 - `createWorkspaceRoleCatalog(appConfig = {})`
 - `cloneWorkspaceRoleCatalog(roleCatalog = null)`

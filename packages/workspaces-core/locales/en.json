@@ -10,7 +10,6 @@
       "workspace": {
         "slugUnavailable": "Unable to generate unique workspace slug.",
         "creationDisabled": "Workspace creation is disabled for this tenancy mode.",
-        "nameRequired": "Workspace name is required.",
         "contextDisabled": "Workspace context is disabled.",
         "slugRequired": "workspaceSlug is required.",
         "notFound": "Workspace not found.",
