@@ -51,7 +51,9 @@ Exports
 
 ### `src/server/readiness.js`
 Exports
-- `createPaymentReadiness({ adapter, catalogue, scope, inspectApplication })`
+- `createPaymentReadiness({ adapter, catalogue, scope, inspectApplication = inspectNoApplicationEvidence })`
+Local functions
+- `inspectNoApplicationEvidence()`
 
 ### `src/server/service.js`
 Exports
@@ -80,8 +82,15 @@ Exports
 - `type PaymentCheckoutService`
 - `type PaymentReadiness`
 - `type PaymentService`
-- `type PaymentStore`
 - `type PaymentConfiguration`
+- `type PaymentMerchantScope`
+- `type PaymentAccountScope`
+- `type PaymentAccountState`
+- `type PaymentAccountTransaction`
+- `type PaymentCatalogueState`
+- `type PaymentStore`
+- `type PaymentProviderPage`
+- `type PaymentProviderPrice`
 - `type PaymentProviderAdapter`
 
 ### `src/shared/configuration.js`

@@ -13,6 +13,8 @@ const DEFAULT_CHECKS = Object.freeze([
 ]);
 // Only these checks take their result from the application's own evidence.
 const APPLICATION_CHECKS = ["webhook", "checkout", "site", "deployment"];
+// No application evidence: every application check keeps its default.
+const inspectNoApplicationEvidence = async () => ({});
 
 /**
  * App-server inspection, invoked only after the host authorizes management.
@@ -20,10 +22,10 @@ const APPLICATION_CHECKS = ["webhook", "checkout", "site", "deployment"];
  * @param {object} dependencies
  * @param {import("./types.js").PaymentProviderAdapter} dependencies.adapter
  * @param {import("./types.js").PaymentCatalogue} dependencies.catalogue
- * @param {object} dependencies.scope The merchant scope the readiness checks belong to.
+ * @param {import("./types.js").PaymentMerchantScope} dependencies.scope The merchant scope the readiness checks belong to.
  * @param {() => unknown} [dependencies.inspectApplication] The application's own evidence, by check id.
  */
-function createPaymentReadiness({ adapter, catalogue, scope, inspectApplication }) {
+function createPaymentReadiness({ adapter, catalogue, scope, inspectApplication = inspectNoApplicationEvidence }) {
   const merchant = structuredClone(scope);
   if (!["sandbox", "live"].includes(merchant?.environment) || !merchant.providerAccountId) throw new TypeError("Supply the configured payment merchant scope.");
   async function inspect() {
@@ -57,18 +59,16 @@ function createPaymentReadiness({ adapter, catalogue, scope, inspectApplication 
           unresolved ? "Catalogue changes, drift, removed plans or an unresolved write need review." : "Saved plans match their published provider products and prices.");
       } catch { set("catalogue", "failed", "Catalogue inspection failed. Review the application's catalogue command and provider access."); }
     }
-    if (inspectApplication) {
-      let evidence;
-      try { evidence = await inspectApplication(); } catch { evidence = {}; }
-      for (const id of APPLICATION_CHECKS) {
-        const value = evidence?.[id];
-        if (value === undefined) continue;
-        if (!value || !["passed", "failed", "unknown", "manual"].includes(value.status) || typeof value.detail !== "string" ||
-          !value.detail.trim() || value.detail.length > 500 || /[\p{Cc}\p{Cf}]/u.test(value.detail)) {
-          throw new PaymentError("payment_readiness_invalid", "App readiness checks must return bounded status and safe explanatory text.");
-        }
-        set(id, value.status, value.detail);
+    let evidence;
+    try { evidence = await inspectApplication(); } catch { evidence = {}; }
+    for (const id of APPLICATION_CHECKS) {
+      const value = evidence?.[id];
+      if (value === undefined) continue;
+      if (!value || !["passed", "failed", "unknown", "manual"].includes(value.status) || typeof value.detail !== "string" ||
+        !value.detail.trim() || value.detail.length > 500 || /[\p{Cc}\p{Cf}]/u.test(value.detail)) {
+        throw new PaymentError("payment_readiness_invalid", "App readiness checks must return bounded status and safe explanatory text.");
       }
+      set(id, value.status, value.detail);
     }
     return { paymentEnvironment: merchant.environment, providerAccountId: merchant.providerAccountId, checks: [...checks.values()] };
   }

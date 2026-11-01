@@ -48,7 +48,10 @@ async function grant(tx, { reference: id, units: quantity, expiresAt }, now) {
  * @param {() => number} [dependencies.clock]
  */
 function createPaymentService({ store, configuration, clock = Date.now }) {
-  if (!store?.withAccount || !store?.inspect || !configuration?.plans) throw new TypeError("Supply payment storage and validated payment configuration.");
+  // readable-check: allow method-probe - input validation: the application passes its own payment store and validated configuration
+  if (typeof store?.withAccount !== "function" || typeof store?.inspect !== "function" || !configuration?.plans) {
+    throw new TypeError("Supply payment storage and validated payment configuration.");
+  }
   const plans = structuredClone(configuration.plans);
   const environments = structuredClone(configuration.environments);
   function checkScope(scope) {
@@ -128,6 +131,7 @@ function createPaymentService({ store, configuration, clock = Date.now }) {
   async function reconcileEvent(merchantScope, { eventId, customerId, load }) {
     checkScope(merchantScope);
     reference(eventId); reference(customerId);
+    // readable-check: allow method-probe - input validation: the caller passes its authenticated provider reconciliation
     if (typeof load !== "function") throw new TypeError("Supply an authenticated provider reconciliation function.");
     const subjectId = await store.resolveCustomer(merchantScope, customerId);
     if (!subjectId) fail("payment_customer_unbound", "Bind this provider customer before processing its events.", 409);

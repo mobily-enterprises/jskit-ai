@@ -8,11 +8,12 @@ import { PaymentError, fingerprint } from "./errors.js";
  * @param {import("./types.js").PaymentProviderAdapter} dependencies.adapter
  * @param {import("./types.js").PaymentStore} dependencies.store
  * @param {import("./types.js").PaymentService} dependencies.payments
- * @param {object} dependencies.merchantScope
+ * @param {import("./types.js").PaymentMerchantScope} dependencies.merchantScope
  * @param {string} dependencies.returnUrl
  * @param {(actor: unknown, request: { subjectId: string, action: string }) => boolean | Promise<boolean>} dependencies.authorize
  */
 function createPaymentCheckoutService({ adapter, store, payments, merchantScope, returnUrl, authorize }) {
+  // readable-check: allow method-probe - input validation: the application passes its billable-subject authorization
   if (typeof authorize !== "function") throw new TypeError("Supply the application's billable-subject authorization function.");
   const target = new URL(returnUrl);
   if ((target.protocol !== "https:" && !(target.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(target.hostname))) || target.username || target.password || target.hash) {
@@ -103,6 +104,7 @@ function createPaymentCheckoutService({ adapter, store, payments, merchantScope,
   // provider dashboard/API and must return evidence, never browser-supplied data.
   async function reconcilePending({ actor, subjectId, inspectProvider }) {
     const scope = await allowed(actor, subjectId, "reconcile");
+    // readable-check: allow method-probe - input validation: the caller passes its server-side provider inspection
     if (typeof inspectProvider !== "function") throw new TypeError("Supply the server's provider inspection function.");
     return store.withAccount(scope, async (tx) => {
       const pending = tx.state.pendingPaymentOperation;

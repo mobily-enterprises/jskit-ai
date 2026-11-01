@@ -10,7 +10,7 @@ const samePrice = (a, b) => fingerprint(priceFields(a)) === fingerprint(priceFie
  * @param {object} dependencies
  * @param {import("./types.js").PaymentStore} dependencies.store
  * @param {import("./types.js").PaymentProviderAdapter} dependencies.adapter
- * @param {object} dependencies.scope The merchant scope the catalogue belongs to.
+ * @param {import("./types.js").PaymentMerchantScope} dependencies.scope The merchant scope the catalogue belongs to.
  * @param {import("./types.js").PaymentConfiguration} dependencies.configuration
  */
 function createPaymentCatalogue({ store, adapter, scope, configuration }) {
