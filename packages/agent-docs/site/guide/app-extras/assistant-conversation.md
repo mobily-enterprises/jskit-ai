@@ -2430,8 +2430,8 @@ used as given. History turns within the newest 20 messages send their files agai
 older turns name their files without their content.
 
 Each reply streams one message per step: `reply-1`, `reply-2` and so on. A step
-that also calls actions ends as commentary, and the reply's last step becomes the
-answer. The answer leaves out words already shown as commentary, unless they are
+that also calls actions ends as commentary, complete before the first of its actions
+runs, and the reply's last step becomes the answer. The answer leaves out words already shown as commentary, unless they are
 all the reply says. Reasoning a model writes inline in `<think>` tags is kept as
 reasoning, including tags split across chunks. Provider tool markup and DeepSeek's
 own tokens never reach visible text, and a call written out as text never runs: the
