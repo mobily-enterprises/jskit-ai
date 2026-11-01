@@ -49,10 +49,52 @@ Exports
 - `CRUD_LIST_FILTER_INVALID_VALUES_REJECT`
 - `CRUD_LIST_FILTER_INVALID_VALUES_DISCARD`
 - `INVALID_CRUD_LIST_FILTER_QUERY_VALUE`
+- `normalizeCrudListFilterInvalidValues`
+- `parseCrudListRangeQueryExpression`
+- `formatCrudListRangeQueryExpression`
+- `createCrudListFilterEmptyValue`
+- `createCrudListFilterInitialValue`
+- `isCrudListFilterMultiValue`
+- `isCrudListFilterStructuredValue`
+- `normalizeCrudListFilterUiValue`
+- `areCrudListFilterUiValuesEqual`
+- `hasCrudListFilterUiValue`
+- `listCrudListFilterChipValues`
+- `formatCrudListFilterDefaultChipLabel`
+- `formatCrudListFilterQueryValue`
+- `parseCrudListFilterQueryValue`
+- `defineCrudListFilters(definitions = {})`
+- `resolveCrudListFilterQueryKeys(definition = {})`
+- `resolveCrudListFilterOptionLabel(definition = {}, value = "", { fallback = "" } = {})`
+Local functions
+- `normalizeCrudListFilterOption(rawOption = null, { context = "filter option" } = {})`
+- `normalizeCrudListFilterOptions(rawOptions = [], { context = "filter options" } = {})`
+- `normalizeCrudListFilterPresenceOptions(rawOptions = [])`
+- `normalizeCrudListFilterLookup(rawLookup = null)`
+- `resolveCrudListFilterOptionSet(rawDefinition = {}, type = "")`
+- `normalizeCrudListFilterDefinition(rawKey = "", rawDefinition = null)`
+
+### `src/shared/crudListFilterValues.js`
+Exports
+- `CRUD_LIST_FILTER_TYPE_FLAG`
+- `CRUD_LIST_FILTER_TYPE_ENUM`
+- `CRUD_LIST_FILTER_TYPE_ENUM_MANY`
+- `CRUD_LIST_FILTER_TYPE_RECORD_ID`
+- `CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY`
+- `CRUD_LIST_FILTER_TYPE_DATE`
+- `CRUD_LIST_FILTER_TYPE_DATE_RANGE`
+- `CRUD_LIST_FILTER_TYPE_NUMBER_RANGE`
+- `CRUD_LIST_FILTER_TYPE_PRESENCE`
+- `CRUD_LIST_FILTER_TYPES`
+- `CRUD_LIST_FILTER_PRESENCE_PRESENT`
+- `CRUD_LIST_FILTER_PRESENCE_MISSING`
+- `CRUD_LIST_FILTER_PRESENCE_OPTIONS`
+- `CRUD_LIST_FILTER_INVALID_VALUES_REJECT`
+- `CRUD_LIST_FILTER_INVALID_VALUES_DISCARD`
+- `INVALID_CRUD_LIST_FILTER_QUERY_VALUE`
 - `normalizeCrudListFilterInvalidValues(value = "")`
 - `parseCrudListRangeQueryExpression(value = null)`
 - `formatCrudListRangeQueryExpression(startValue = "", endValue = "", { collapseExact = false } = {})`
-- `defineCrudListFilters(definitions = {})`
 - `createCrudListFilterEmptyValue(filter = {})`
 - `createCrudListFilterInitialValue(filter = {})`
 - `isCrudListFilterMultiValue(filter = {})`
@@ -64,8 +106,7 @@ Exports
 - `formatCrudListFilterDefaultChipLabel(filter = {}, rawValue, { resolveAtomicValue = null } = {})`
 - `formatCrudListFilterQueryValue(filter = {}, value)`
 - `parseCrudListFilterQueryValue(filter = {}, value, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
-- `resolveCrudListFilterQueryKeys(definition = {})`
-- `resolveCrudListFilterOptionLabel(definition = {}, value = "", { fallback = "" } = {})`
+- `normalizeCrudListFilterType(value = "")`
 Local functions
 - `firstCrudListFilterValue(value)`
 - `isPrimitiveCrudListFilterInput(value)`
@@ -83,13 +124,6 @@ Local functions
 - `normalizeCrudListDateRangeQueryValue(value)`
 - `normalizeCrudListNumberRangeQueryValue(value)`
 - `parseCrudListFilterMultiQueryValue(value, normalizeEntry, { invalidValues })`
-- `normalizeCrudListFilterType(value = "")`
-- `normalizeCrudListFilterOption(rawOption = null, { context = "filter option" } = {})`
-- `normalizeCrudListFilterOptions(rawOptions = [], { context = "filter options" } = {})`
-- `normalizeCrudListFilterPresenceOptions(rawOptions = [])`
-- `normalizeCrudListFilterLookup(rawLookup = null)`
-- `resolveCrudListFilterOptionSet(rawDefinition = {}, type = "")`
-- `normalizeCrudListFilterDefinition(rawKey = "", rawDefinition = null)`
 
 ### `src/shared/crudLookup.js`
 Exports
