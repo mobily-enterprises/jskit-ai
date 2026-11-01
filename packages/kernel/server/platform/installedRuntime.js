@@ -14,31 +14,32 @@ import {
   loadCapabilityProviders
 } from "./providerRuntime/capabilityProviderLoader.js";
 
+/** @typedef {import("../types.js").RuntimeConfig} RuntimeConfig */
+/** @typedef {import("../types.js").RuntimeEnv} RuntimeEnv */
 /** @typedef {import("../types.js").RuntimeFastify} RuntimeFastify */
 /** @typedef {import("../types.js").RuntimeLogger} RuntimeLogger */
 
 const RUNTIME_LOGGER_METHODS = Object.freeze(["debug", "info", "warn", "error"]);
 
 /**
+ * The application's own inputs with the capabilities the installed runtime seeds.
  * @param {object} seeds
  * @param {Record<string, unknown>} seeds.inputs
- * @param {Record<string, any>} seeds.config
- * @param {Record<string, unknown>} seeds.env
+ * @param {RuntimeConfig} seeds.config
+ * @param {RuntimeEnv} seeds.env
  * @param {RuntimeLogger} seeds.logger
  * @param {RuntimeFastify | null} seeds.httpServer The Fastify instance that serves HTTP, if any.
  * @param {string} seeds.appRoot
  */
-function normalizeInputCapabilities({ inputs, config, env, logger, httpServer, appRoot }) {
-  const source = inputs && typeof inputs === "object" && !Array.isArray(inputs) ? inputs : {};
-  const normalized = {
-    ...source,
+function seedInputCapabilities({ inputs, config, env, logger, httpServer, appRoot }) {
+  return Object.freeze({
+    ...inputs,
     "runtime.app-root": appRoot,
-    "runtime.config": Object.freeze({ ...(config && typeof config === "object" ? config : {}) }),
-    "runtime.env": Object.freeze({ ...(env && typeof env === "object" ? env : {}) }),
+    "runtime.config": Object.freeze({ ...config }),
+    "runtime.env": Object.freeze({ ...env }),
     "runtime.logger": logger,
     ...(httpServer ? { "runtime.fastify": httpServer } : {})
-  };
-  return Object.freeze(normalized);
+  });
 }
 
 function builtinCapabilityProviders(inputCapabilities) {
@@ -63,8 +64,8 @@ function builtinCapabilityProviders(inputCapabilities) {
  * @param {string} [options.profile]
  * @param {ReadonlyArray<object>} [options.providers]
  * @param {Record<string, unknown>} [options.inputs]
- * @param {Record<string, any>} [options.config]
- * @param {Record<string, unknown>} [options.env]
+ * @param {RuntimeConfig} [options.config]
+ * @param {RuntimeEnv} [options.env]
  * @param {RuntimeLogger} options.logger The application's logger, which features and actions log through.
  * @param {RuntimeFastify} [options.fastify] Absent when the application serves no HTTP.
  */
@@ -92,7 +93,7 @@ async function createInstalledRuntime({
   }
 
   const httpServer = fastify || null;
-  const inputCapabilities = normalizeInputCapabilities({ inputs, config, env, logger, httpServer, appRoot });
+  const inputCapabilities = seedInputCapabilities({ inputs, config, env, logger, httpServer, appRoot });
   const installedPackages = await resolveInstalledJskitPackages({ appRoot });
   validatePackageCapabilities(installedPackages, {
     builtinProvidersByCapability: builtinCapabilityProviders(inputCapabilities)
@@ -128,7 +129,7 @@ async function createInstalledRuntime({
   }
 
   appendCapabilityProviders({
-    providers: Array.isArray(providers) ? providers : [],
+    providers,
     sourceId: "application",
     seenProviderIds,
     orderedProviders

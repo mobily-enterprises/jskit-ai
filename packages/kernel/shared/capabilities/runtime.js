@@ -108,29 +108,29 @@ function resolveProviderDependencies(provider, capabilities) {
   return Object.freeze(dependencies);
 }
 
+/**
+ * A provider's setup() result, checked to hold exactly the capabilities it
+ * declares; a provider that declares none may return nothing.
+ * @param {{ id: string, provides: Record<string, string> }} provider
+ * @param {unknown} value
+ */
 function normalizeProviderOutputs(provider, value) {
-  const expectedNames = Object.keys(provider.provides);
-  if (expectedNames.length === 0) {
-    if (value != null && (!isRecord(value) || Object.keys(value).length > 0)) {
-      throw new Error(`Provider "${provider.id}" declares no capabilities but setup() returned outputs.`);
-    }
-    return Object.freeze({});
-  }
-  if (!isRecord(value)) {
+  const expectedNames = Object.keys(provider.provides).sort();
+  const outputs = value == null && expectedNames.length === 0 ? {} : value;
+  if (!isRecord(outputs)) {
     throw new Error(`Provider "${provider.id}" setup() must return its declared capability outputs.`);
   }
 
-  const actualNames = Object.keys(value).sort();
-  const sortedExpectedNames = [...expectedNames].sort();
+  const actualNames = Object.keys(outputs).sort();
   if (
-    actualNames.length !== sortedExpectedNames.length ||
-    actualNames.some((name, index) => name !== sortedExpectedNames[index])
+    actualNames.length !== expectedNames.length ||
+    actualNames.some((name, index) => name !== expectedNames[index])
   ) {
     throw new Error(
-      `Provider "${provider.id}" setup() outputs must be exactly: ${sortedExpectedNames.join(", ") || "<none>"}.`
+      `Provider "${provider.id}" setup() outputs must be exactly: ${expectedNames.join(", ") || "<none>"}.`
     );
   }
-  return Object.freeze({ ...value });
+  return Object.freeze({ ...outputs });
 }
 
 function createCapabilityRuntime({ providers = [], inputs = {}, profile = "" } = {}) {
@@ -267,4 +267,4 @@ function createCapabilityRuntime({ providers = [], inputs = {}, profile = "" } =
   return api;
 }
 
-export { createCapabilityRuntime };
+export { createCapabilityRuntime, normalizeProviderOutputs };

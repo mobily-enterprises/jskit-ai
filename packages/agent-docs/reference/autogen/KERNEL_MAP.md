@@ -384,13 +384,13 @@ Exports
 ### `capabilities/runtime.js`
 Exports
 - `createCapabilityRuntime({ providers = [], inputs = {}, profile = "" } = {})`
+- `normalizeProviderOutputs(provider, value)`
 Local functions
 - `normalizeProviderDefinition(value)`
 - `normalizeInputCapabilities(value)`
 - `providerCapabilityIds(provider, field)`
 - `buildProviderOrder(providers, inputCapabilities)`
 - `resolveProviderDependencies(provider, capabilities)`
-- `normalizeProviderOutputs(provider, value)`
 
 ### i18n
 

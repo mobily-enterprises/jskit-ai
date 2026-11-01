@@ -82,8 +82,8 @@ function registerSurfaceRequestConstraint({
   globalUiPaths = []
 }) {
   // readable-check: allow method-probe - input validation: the application passes its own Fastify instance
-  if (!fastify || typeof fastify.addHook !== "function") {
-    throw new TypeError("registerSurfaceRequestConstraint requires fastify.addHook().");
+  if (typeof fastify?.route !== "function" || typeof fastify.addHook !== "function") {
+    throw new TypeError("registerSurfaceRequestConstraint requires a Fastify instance.");
   }
 
   const normalizedSurface = surfaceRuntime.normalizeSurfaceMode(serverSurface);

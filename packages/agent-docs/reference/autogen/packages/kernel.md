@@ -34,13 +34,13 @@ Exports
 ### `shared/capabilities/runtime.js`
 Exports
 - `createCapabilityRuntime({ providers = [], inputs = {}, profile = "" } = {})`
+- `normalizeProviderOutputs(provider, value)`
 Local functions
 - `normalizeProviderDefinition(value)`
 - `normalizeInputCapabilities(value)`
 - `providerCapabilityIds(provider, field)`
 - `buildProviderOrder(providers, inputCapabilities)`
 - `resolveProviderDependencies(provider, capabilities)`
-- `normalizeProviderOutputs(provider, value)`
 
 ### `shared/i18n/index.js`
 Exports
@@ -694,7 +694,6 @@ Exports
 - `defineFeature({ id, domain = id, requires = {}, optional = {}, provides = {}, setup = () => ({}), actions = [], actionDefaults = {}, boot = null, shutdown = null } = {})`
 - `type FeatureDefinition`
 Local functions
-- `exactOutputNames(value, expectedNames, featureId)`
 - `normalizeActionFactory(value, featureId)`
 - `applyActionDefaults(actions, defaults, featureId)`
 - `withoutActionCatalogue(dependencies)`
@@ -843,10 +842,12 @@ Exports
 ### `server/platform/installedRuntime.js`
 Exports
 - `createInstalledRuntime({ appRoot, profile = "", providers = [], inputs = {}, config = {}, env = {}, logger, fastify })`
+- `type RuntimeConfig`
+- `type RuntimeEnv`
 - `type RuntimeFastify`
 - `type RuntimeLogger`
 Local functions
-- `normalizeInputCapabilities({ inputs, config, env, logger, httpServer, appRoot })`
+- `seedInputCapabilities({ inputs, config, env, logger, httpServer, appRoot })`
 - `builtinCapabilityProviders(inputCapabilities)`
 
 ### `server/platform/providerRuntime/capabilityProviderLoader.js`

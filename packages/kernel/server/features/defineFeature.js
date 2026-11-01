@@ -1,27 +1,8 @@
 import { isRecord } from "../../shared/support/normalize.js";
 import { defineProvider } from "../../shared/capabilities/defineProvider.js";
+import { normalizeProviderOutputs } from "../../shared/capabilities/runtime.js";
 
 /** @typedef {import("../types.js").FeatureDefinition} FeatureDefinition */
-
-function exactOutputNames(value, expectedNames, featureId) {
-  const outputs = value == null ? {} : value;
-  if (!isRecord(outputs)) {
-    throw new TypeError(`Feature "${featureId}" setup() must return its declared capability outputs.`);
-  }
-
-  const actualNames = Object.keys(outputs).sort();
-  const normalizedExpectedNames = [...expectedNames].sort();
-  if (
-    actualNames.length !== normalizedExpectedNames.length ||
-    actualNames.some((name, index) => name !== normalizedExpectedNames[index])
-  ) {
-    throw new TypeError(
-      `Feature "${featureId}" setup() outputs must be exactly: ${normalizedExpectedNames.join(", ") || "<none>"}.`
-    );
-  }
-
-  return Object.freeze({ ...outputs });
-}
 
 function normalizeActionFactory(value, featureId) {
   if (value == null) {
@@ -40,16 +21,10 @@ function applyActionDefaults(actions, defaults, featureId) {
   if (!isRecord(defaults)) {
     throw new TypeError(`Feature "${featureId}" actionDefaults must be an object.`);
   }
-  if (Object.hasOwn(defaults, "dependencies")) {
-    throw new TypeError(`Feature "${featureId}" actionDefaults cannot declare container dependencies.`);
-  }
 
   return actions.map((value) => {
     if (!isRecord(value)) {
       throw new TypeError(`Feature "${featureId}" actions must contain action definition objects.`);
-    }
-    if (Object.hasOwn(value, "dependencies")) {
-      throw new TypeError(`Feature "${featureId}" actions cannot declare container dependencies.`);
     }
     return Object.freeze({ ...defaults, ...value });
   });
@@ -79,12 +54,12 @@ function defineFeature({
   if (Object.hasOwn(requires, "actionCatalogue") || Object.hasOwn(optional, "actionCatalogue")) {
     throw new TypeError("Feature dependencies reserve the local name actionCatalogue.");
   }
+  const featureId = String(id || "");
   if (typeof setup !== "function") {
-    throw new TypeError(`Feature "${String(id || "")}" setup must be a function.`);
+    throw new TypeError(`Feature "${featureId}" setup must be a function.`);
   }
 
-  const actionFactory = normalizeActionFactory(actions, String(id || ""));
-  const expectedOutputNames = Object.keys(provides);
+  const actionFactory = normalizeActionFactory(actions, featureId);
 
   return defineProvider({
     id,
@@ -98,10 +73,9 @@ function defineFeature({
       const { actionCatalogue } = dependencies;
       const featureDependencies = withoutActionCatalogue(dependencies);
       const featureContext = Object.freeze({ ...context, actionCatalogue });
-      const outputs = exactOutputNames(
-        await setup(Object.freeze(featureDependencies), featureContext),
-        expectedOutputNames,
-        String(id || "")
+      const outputs = normalizeProviderOutputs(
+        { id: featureId, provides },
+        await setup(Object.freeze(featureDependencies), featureContext)
       );
       const featureActions = await actionFactory(
         Object.freeze({
@@ -111,14 +85,14 @@ function defineFeature({
         featureContext
       );
       if (!Array.isArray(featureActions)) {
-        throw new TypeError(`Feature "${String(id || "")}" actions() must return an array.`);
+        throw new TypeError(`Feature "${featureId}" actions() must return an array.`);
       }
 
-      const materializedActions = applyActionDefaults(featureActions, actionDefaults, String(id || ""));
+      const materializedActions = applyActionDefaults(featureActions, actionDefaults, featureId);
 
       if (materializedActions.length > 0) {
         actionCatalogue.register({
-          contributorId: String(id || ""),
+          contributorId: featureId,
           domain,
           actions: materializedActions
         });
