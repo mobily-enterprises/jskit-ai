@@ -53,7 +53,8 @@ value is built from, so list a package's shared modules too
 `components` and `pages` directories are not checked.
 
 `one-line-action` leaves CRUD custom actions' `execute({ input, service, … })`
-alone: that is the CRUD declaration's own contract. `no-duplicate-helper` and
+alone, also when it takes only part of that object (`({ service, context })`):
+that is the CRUD declaration's own contract. `no-duplicate-helper` and
 `named-repeated-type` compare a file with the rest of its package. Both treat a
 pattern's example application (an `example` directory beside a `PATTERN.md`)
 as a package of its own, skip `templates` and `patterns` directories inside a

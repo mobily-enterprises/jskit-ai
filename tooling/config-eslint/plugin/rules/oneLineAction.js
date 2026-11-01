@@ -16,11 +16,16 @@ function executeOf(definition) {
   return definition.properties.find((property) => keyName(property) === "execute");
 }
 
-// A CRUD custom action's execute receives one object, `{ input, service, … }`:
-// the CRUD declaration's own contract, which the action shape leaves alone.
+// The members of a CRUD custom action's one argument that only that contract
+// has; an ordinary action that destructures its input names input fields.
+const CRUD_ACTION_MEMBERS = new Set(["input", "service", "repository"]);
+
+// A CRUD custom action's execute receives one object, `{ input, service,
+// context, … }`: the CRUD declaration's own contract, which the action shape
+// leaves alone. It may take only some of it, as `({ service, context })` does.
 function isCrudCustomAction(definition) {
   const first = executeOf(definition).value?.params?.[0];
-  return first?.type === "ObjectPattern" && first.properties.some((property) => keyName(property) === "input");
+  return first?.type === "ObjectPattern" && first.properties.some((property) => CRUD_ACTION_MEMBERS.has(keyName(property)));
 }
 
 // An action definition written in place, bare or frozen.
