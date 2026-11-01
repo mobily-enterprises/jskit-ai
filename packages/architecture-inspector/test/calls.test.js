@@ -402,6 +402,80 @@ test("a function passed on through JSDoc-typed destructured parameters reaches i
   ]);
 });
 
+test("calls injection or argument flow resolves are call sites, for the values and callbacks they pass", async (t) => {
+  const concern = (name, operation, store) => [
+    `import { ${store} } from "./store.js";`,
+    "/** @typedef {import(\"./types.js\").Access} Access */",
+    "/**",
+    " * @param {object} dependencies",
+    " * @param {Access[\"transaction\"]} dependencies.transaction",
+    " * @param {Access[\"now\"]} dependencies.now",
+    " */",
+    `function ${name}({ transaction, now }) {`,
+    `  function ${operation}(repository, input, options) {`,
+    `    now(() => ${store}(null, input));`,
+    `    return transaction(repository, options, "${operation}", async (trx) => ${store}(trx, input));`,
+    "  }",
+    `  return Object.freeze({ ${operation} });`,
+    "}",
+    `export { ${name} };`,
+    ""
+  ].join("\n");
+  const { result } = await inspectCallsOf(t, {
+    "src/server/types.js": "/** @typedef {ReturnType<typeof import(\"./access.js\").createAccess>} Access */\nexport {};\n",
+    "src/server/store.js": "export async function saveCredential(trx, input) { return [trx, input]; }\nexport async function removeAssessment(trx, input) { return [trx, input]; }\n",
+    "src/server/access.js": [
+      "export function createAccess() {",
+      "  async function transaction(repository, options, permission, work) {",
+      "    const run = async (trx) => {",
+      "      const result = await work(trx);",
+      "      return result;",
+      "    };",
+      "    return options.trx ? run(options.trx) : repository.withTransaction(run);",
+      "  }",
+      "  function now(work) {",
+      "    return work();",
+      "  }",
+      "  return Object.freeze({ transaction, now });",
+      "}",
+      ""
+    ].join("\n"),
+    "src/server/credentials.js": concern("createCredentials", "create", "saveCredential"),
+    "src/server/assessments.js": concern("createAssessments", "remove", "removeAssessment"),
+    "src/server/service.js": [
+      "import { createAccess } from \"./access.js\";",
+      "import { createAssessments } from \"./assessments.js\";",
+      "import { createCredentials } from \"./credentials.js\";",
+      "export function createService() {",
+      "  const { transaction, now } = createAccess();",
+      "  return { credentials: createCredentials({ transaction, now }), assessments: createAssessments({ transaction, now }) };",
+      "}",
+      ""
+    ].join("\n")
+  });
+  const facts = (callee) => callsFrom(result, callee).map((call) => [call.id.replace(/^call:jskit:src\/server\//u, ""), call.certainty, call.method, call.targets]);
+  const TRANSACTION = "fn:src/server/access.js#2:3";
+  const NOW = "fn:src/server/access.js#9:3";
+  // The concerns' calls resolve by argument flow alone...
+  assert.deepEqual(facts("transaction"), [
+    ["credentials.js#11:12", "exact", "argument-flow", [TRANSACTION]],
+    ["assessments.js#11:12", "exact", "argument-flow", [TRANSACTION]]
+  ]);
+  // ...so `work(trx)` reaches the callbacks they pass, a guess between two
+  // values, and the callback each passes to `now`, which calls it at once, is
+  // that caller's own exact reach.
+  assert.deepEqual(facts("work"), [
+    ["access.js#4:28", "probable", "argument-flow", ["fn:src/server/credentials.js#11:55", "fn:src/server/assessments.js#11:55"]],
+    ["access.js#10:12", "unresolved", "none", []]
+  ]);
+  assert.deepEqual(facts("now"), [
+    ["credentials.js#10:5", "exact", "argument-flow", [NOW]],
+    ["credentials.js#10:5~2", "exact", "argument-flow", ["fn:src/server/credentials.js#10:9"]],
+    ["assessments.js#10:5", "exact", "argument-flow", [NOW]],
+    ["assessments.js#10:5~2", "exact", "argument-flow", ["fn:src/server/assessments.js#10:9"]]
+  ]);
+});
+
 const FEATURE = "import { defineFeature } from \"@jskit-ai/kernel/server/features\";";
 
 test("defineFeature injection binds one provider exactly, several ambiguously and none not at all", async (t) => {

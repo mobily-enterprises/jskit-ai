@@ -129,12 +129,15 @@ function inspectCalls({
   // Each file's checker targets per call position, in call order, so argument
   // flow into closures that run later sees the same call sites whether a file
   // is reused or resolved.
+  // A site injection or argument flow resolved carries a third element when
+  // its targets are a guess.
   const sitesByFile = new Map();
+  const resolvedCalls = [];
   for (const [file, calls] of callsByFile) {
     if (reused.has(file)) {
       const callAt = new Map(calls.map((call) => [call.getStart(), call]));
-      for (const [position, targets] of reuse.get(file).sites) {
-        resolver.indexSite(callAt.get(position), targets.map((target) => nodeById.get(target)));
+      for (const [position, targets, probable] of reuse.get(file).sites) {
+        resolver.indexSite(callAt.get(position), targets.map((target) => nodeById.get(target)), probable === 1);
       }
       sitesByFile.set(file, reuse.get(file).sites);
       continue;
@@ -146,7 +149,15 @@ function inspectCalls({
       }
     });
     sitesByFile.set(file, sites);
+    resolvedCalls.push(...calls.map((call) => ({ file, call })));
   }
+  resolver.indexBoundCalls(resolvedCalls.map(({ call }) => call)).forEach(({ targets, probable }, index) => {
+    const { file, call } = resolvedCalls[index];
+    const ids = targets.map(functionId);
+    if (ids.length && ids.every(Boolean) && !sitesByFile.get(file).some(([position]) => position === call.getStart())) {
+      sitesByFile.get(file).push(probable ? [call.getStart(), ids, 1] : [call.getStart(), ids]);
+    }
+  });
 
   function enclosingFunction(node) {
     const position = node.getStart();

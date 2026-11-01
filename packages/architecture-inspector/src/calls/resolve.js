@@ -103,6 +103,10 @@ function createResolver({ program, checker, symbols, evaluator, bindings, action
   const builtinMembers = libraryMemberNames(program);
   const callSites = new Map();
   const direct = new Map();
+  // The functions each indexed call reaches, and the calls whose index entry
+  // came from a guess (several values or an ambiguous injection).
+  const indexedTargets = new Map();
+  const probableSites = new Set();
 
   function implementationsFor(symbol) {
     const found = symbols.symbolImplementations(symbol).map(constructorOf).filter(Boolean);
@@ -164,13 +168,25 @@ function createResolver({ program, checker, symbols, evaluator, bindings, action
     return { kind: "other" };
   }
 
-  // Records that a call reaches these functions, for argument flow.
-  function indexSite(call, targets) {
+  // Records that a call reaches these functions, for argument flow. A
+  // probable site's values are never exact.
+  function indexSite(call, targets, probable = false) {
+    const known = indexedTargets.get(call) || [];
     for (const target of targets) {
+      if (known.includes(target)) {
+        continue;
+      }
+      known.push(target);
       if (!callSites.has(target)) {
         callSites.set(target, []);
       }
       callSites.get(target).push(call);
+    }
+    if (known.length) {
+      indexedTargets.set(call, known);
+    }
+    if (probable) {
+      probableSites.add(call);
     }
   }
 
@@ -205,7 +221,13 @@ function createResolver({ program, checker, symbols, evaluator, bindings, action
 
   function argumentValues(declaration) {
     const owner = owningParameter(declaration);
-    return owner ? (callSites.get(owner.fn) || []).map((call) => argumentValue(call, owner)).filter(Boolean) : [];
+    if (!owner) {
+      return [];
+    }
+    return (callSites.get(owner.fn) || []).map((call) => {
+      const value = argumentValue(call, owner);
+      return value && { ...value, probable: probableSites.has(call) };
+    }).filter(Boolean);
   }
 
   function propertyValueExpressions(property) {
@@ -366,7 +388,7 @@ function createResolver({ program, checker, symbols, evaluator, bindings, action
       !passedOn.includes(parameter) && passedOn.length < MAX_TYPE_DEPTH) {
       const values = argumentValues(parameter);
       for (const passed of values) {
-        addValueTargets(passed, targets, exact && values.length === 1, [...passedOn, parameter]);
+        addValueTargets(passed, targets, exact && values.length === 1 && !passed.probable, [...passedOn, parameter]);
       }
       return;
     }
@@ -395,7 +417,7 @@ function createResolver({ program, checker, symbols, evaluator, bindings, action
     }
     const values = argumentValues(declaration);
     for (const value of values) {
-      addValueTargets(value, targets, values.length === 1, []);
+      addValueTargets(value, targets, values.length === 1 && !value.probable, []);
     }
     return targets;
   }
@@ -405,6 +427,39 @@ function createResolver({ program, checker, symbols, evaluator, bindings, action
       direct.set(call, directResolution(call));
     }
     return direct.get(call).targets || [];
+  }
+
+  // The functions a call reaches as the index knows them: the checker's, or
+  // those injection or argument flow resolved.
+  function siteTargets(call) {
+    return indexedTargets.get(call) || checkerTargets(call);
+  }
+
+  // Calls the checker cannot resolve but injection or argument flow can are
+  // call sites too, so argument flow and the callbacks a call passes reach
+  // through them. Each round can expose more; the targets and guesses only
+  // grow, so the rounds stop. Returns each call's targets and whether they
+  // are a guess.
+  function indexBoundCalls(calls) {
+    const candidates = calls.filter((call) => {
+      checkerTargets(call);
+      const declaration = direct.get(call).declaration;
+      return declaration && (ts.isParameter(declaration) || ts.isBindingElement(declaration));
+    });
+    for (let changed = true; changed;) {
+      changed = false;
+      for (const call of candidates) {
+        const found = boundFunctionTargets(direct.get(call).declaration, call);
+        const targets = found.size > MAX_TARGETS ? [] : [...found.keys()];
+        const probable = targets.length !== 1 || !found.get(targets[0]).exact;
+        const known = indexedTargets.get(call) || [];
+        if (targets.some((target) => !known.includes(target)) || (probable && targets.length && !probableSites.has(call))) {
+          indexSite(call, targets, probable);
+          changed = true;
+        }
+      }
+    }
+    return calls.map((call) => ({ targets: indexedTargets.get(call) || [], probable: probableSites.has(call) }));
   }
 
   // The parameters ({ index, path }) a function calls while it runs: in its
@@ -438,7 +493,7 @@ function createResolver({ program, checker, symbols, evaluator, bindings, action
         }
         node.arguments.forEach((argument, position) => {
           const forwarded = own(argument);
-          for (const target of forwarded ? checkerTargets(node) : []) {
+          for (const target of forwarded ? siteTargets(node) : []) {
             for (const inner of invokedParameters(target)) {
               if (inner.index === position) {
                 add(forwarded.index, [...forwarded.path, ...inner.path]);
@@ -462,11 +517,11 @@ function createResolver({ program, checker, symbols, evaluator, bindings, action
       return null;
     }
     const targets = new Map();
-    for (const callee of checkerTargets(call)) {
+    for (const callee of siteTargets(call)) {
       for (const parameter of invokedParameters(callee)) {
         const value = argumentValue(call, parameter);
         if (value) {
-          addValueTargets(value, targets, true);
+          addValueTargets(value, targets, !probableSites.has(call));
         }
       }
     }
@@ -689,7 +744,7 @@ function createResolver({ program, checker, symbols, evaluator, bindings, action
     }
   }
 
-  return { indexCalls, indexSite, resolve, passedCall, builtinMembers };
+  return { indexCalls, indexSite, indexBoundCalls, resolve, passedCall, builtinMembers };
 }
 
 export { codeSide, createResolver };
