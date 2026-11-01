@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createActionProvider } from "@jskit-ai/kernel/server/actions";
+import { ActionProvider } from "@jskit-ai/kernel/server/actions";
+import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
-import { createBootstrapRuntime } from "@jskit-ai/kernel/server/runtime";
+import { createBootstrapRuntime, EventProvider } from "@jskit-ai/kernel/server/runtime";
 import { UsersExtensionsProvider } from "../src/server/UsersExtensionsProvider.js";
 import { UsersFeature } from "../src/server/UsersFeature.js";
 import { UsersIdentityProvider } from "../src/server/UsersIdentityProvider.js";
@@ -44,6 +45,7 @@ test("UsersFeature assembles account behavior through explicit capabilities", as
   });
   const runtime = createCapabilityRuntime({
     inputs: {
+      "runtime.logger": silentLogger,
       "auth.service": {},
       "runtime.bootstrap": bootstrap,
       "runtime.http": {
@@ -61,7 +63,7 @@ test("UsersFeature assembles account behavior through explicit capabilities", as
       },
       "runtime.uploads": { readSingleMultipartFile() {} }
     },
-    providers: [createActionProvider(), UsersExtensionsProvider, UsersIdentityProvider, UsersFeature, probe]
+    providers: [EventProvider, ActionProvider, UsersExtensionsProvider, UsersIdentityProvider, UsersFeature, probe]
   });
 
   await runtime.start();

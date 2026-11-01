@@ -119,10 +119,10 @@ test("standard error schemas preserve optional transaction outcomes during seria
 test("standard error response schemas keep the params, messageCode and field codes of real errors", async (t) => {
   const { default: Fastify } = await import("fastify");
   const { registerApiErrorHandler } = await import("../../kernel/server/http/errorHandling.js");
-  const { AppError, isAppError } = await import("../../kernel/server/runtime/errors.js");
+  const { AppError } = await import("../../kernel/server/runtime/errors.js");
   const app = Fastify();
   t.after(() => app.close());
-  registerApiErrorHandler(app, { isAppError });
+  registerApiErrorHandler(app);
   const response = Object.fromEntries(
     Object.entries(withStandardErrorResponses({ 200: createTransportResponseSchema({ type: "object" }) }, {
       includeValidation400: true

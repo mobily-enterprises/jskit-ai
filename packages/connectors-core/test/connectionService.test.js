@@ -5,7 +5,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import Fastify from "fastify";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
-import { createActionProvider } from "@jskit-ai/kernel/server/actions";
+import { ActionProvider } from "@jskit-ai/kernel/server/actions";
+import { EventProvider } from "@jskit-ai/kernel/server/runtime";
+import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { googleCalendarProvider } from "../../connector-google-calendar/src/server/provider.js";
 import { createConnectionService, createConnectorsFeature, createEnvironmentReferenceResolver } from "../src/server/index.js";
 import { integrationsSchema, parseIntegrationConfiguration, validateIntegrationConfiguration } from "../src/shared/configuration.js";
@@ -111,8 +113,8 @@ test("the ordinary credential-free Feature action verifies without resolving ref
       return Response.json({ meta: [], data: [{ ok: 1, user: "default" }], rows: 1 });
     }
   };
-  const runtime = createCapabilityRuntime({ providers: [
-    createActionProvider(), createConnectorsFeature(options),
+  const runtime = createCapabilityRuntime({ inputs: { "runtime.logger": silentLogger }, providers: [
+    EventProvider, ActionProvider, createConnectorsFeature(options),
     defineProvider({ id: "test.credential-free-observer", requires: { catalogue: "runtime.actions" }, setup({ catalogue }) { actions = catalogue; } })
   ] });
   await runtime.start();
@@ -395,7 +397,7 @@ test("cancelling a service token exchange preserves the previous grant without r
 test("the client credentials Feature action uses the ordinary application policy and runtime", async () => {
   const { options } = serviceAccountSetup();
   let actions;
-  const runtime = createCapabilityRuntime({ providers: [createActionProvider(), createConnectorsFeature(options),
+  const runtime = createCapabilityRuntime({ inputs: { "runtime.logger": silentLogger }, providers: [EventProvider, ActionProvider, createConnectorsFeature(options),
     defineProvider({ id: "test.service-observer", requires: { catalogue: "runtime.actions" }, setup({ catalogue }) { actions = catalogue; } })] });
   await runtime.start();
   try {
@@ -828,8 +830,8 @@ test("configuration rejects gateway registrations before constructing a runtime"
 test("the Feature exposes ordinary JSKIT actions with application authorization", async () => {
   const { options } = setup();
   let actions;
-  const runtime = createCapabilityRuntime({ providers: [
-    createActionProvider(), createConnectorsFeature(options),
+  const runtime = createCapabilityRuntime({ inputs: { "runtime.logger": silentLogger }, providers: [
+    EventProvider, ActionProvider, createConnectorsFeature(options),
     defineProvider({
       id: "test.observer", requires: { catalogue: "runtime.actions" },
       setup({ catalogue }) { actions = catalogue; }
@@ -997,8 +999,8 @@ test("JSON-body credentials replace supplied values, preserve input and reach th
     }
   };
   let actions;
-  const runtime = createCapabilityRuntime({ providers: [
-    createActionProvider(), createConnectorsFeature(options),
+  const runtime = createCapabilityRuntime({ inputs: { "runtime.logger": silentLogger }, providers: [
+    EventProvider, ActionProvider, createConnectorsFeature(options),
     defineProvider({ id: "test.body-observer", requires: { catalogue: "runtime.actions" }, setup({ catalogue }) { actions = catalogue; } })
   ] });
   await runtime.start();

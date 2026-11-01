@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createEventRuntime } from "./EventProvider.js";
+import { createEventRuntime } from "./eventRuntime.js";
 
 test("event runtime publishes ephemeral events to explicit listeners in registration order", async () => {
   const events = createEventRuntime();

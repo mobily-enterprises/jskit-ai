@@ -620,7 +620,7 @@ Local functions
 
 ### `server/actions/actionProvider.js`
 Exports
-- `createActionProvider(options = {})`
+- `ActionProvider`
 
 ### `server/actions/executionContext.js`
 Exports
@@ -638,7 +638,7 @@ Exports
 ### `server/actions/index.js`
 Exports
 - `createActionCatalogue`
-- `createActionProvider`
+- `ActionProvider`
 - `createEntityChangedActionEvent`
 
 ### `server/actions/pipeline.js`
@@ -716,7 +716,7 @@ Exports
 - `registerJsonApiContentTypeParser(fastify)`
 - `normalizeBodylessContentTypeHeader(request = null)`
 - `registerBodylessContentTypeNormalizer(fastify)`
-- `registerApiErrorHandler(app, { isAppError })`
+- `registerApiErrorHandler(app)`
 - `type RuntimeFastify`
 Local functions
 - `hasHeaderValue(headers = {}, key = "")`
@@ -778,8 +778,7 @@ Local functions
 
 ### `server/http/lib/routeRegistration.js`
 Exports
-- `defaultMissingHandler`
-- `registerRoutes(fastify, { routes = [], applyRoutePolicy = defaultApplyRoutePolicy, missingHandler = defaultMissingHandler, requestActionExecutorProperty = "executeAction", requestActionDefaultChannel = "api", requestActionDefaultSurface = "", middleware = {}, actions })`
+- `registerRoutes(fastify, { routes, actions })`
 - `type ActionCatalogue`
 - `type RuntimeFastify`
 Local functions
@@ -843,7 +842,7 @@ Exports
 
 ### `server/platform/installedRuntime.js`
 Exports
-- `createInstalledRuntime({ appRoot, profile = "", providers = [], inputs = {}, config = {}, env = {}, logger = console, fastify })`
+- `createInstalledRuntime({ appRoot, profile = "", providers = [], inputs = {}, config = {}, env = {}, logger, fastify })`
 - `type RuntimeFastify`
 - `type RuntimeLogger`
 Local functions
@@ -887,6 +886,9 @@ Local functions
 ### `server/runtime/BootstrapProvider.js`
 Exports
 - `BootstrapProvider`
+
+### `server/runtime/bootstrapRuntime.js`
+Exports
 - `createBootstrapRuntime()`
 - `type BootstrapContributionContext`
 - `type BootstrapContributor`
@@ -907,6 +909,9 @@ Local functions
 ### `server/runtime/EventProvider.js`
 Exports
 - `EventProvider`
+
+### `server/runtime/eventRuntime.js`
+Exports
 - `createEventRuntime()`
 Local functions
 - `normalizeListener(value)`
@@ -948,14 +953,10 @@ Local functions
 
 ### `server/support/appConfig.js`
 Exports
-- `resolveAppConfig(scope = null)`
-- `normalizeDefaultSurfaceId(value, { fallback = "" } = {})`
-- `resolveDefaultSurfaceId(scope = null, { defaultSurfaceId = "" } = {})`
-- `resolveMobileConfig(source = null)`
-- `resolveClientAssetMode(source = null)`
-- `resolveMobileCallbackUrls(source = null, { appPublicUrl = "" } = {})`
+- `resolveMobileConfig(appConfig)`
+- `resolveClientAssetMode(appConfig)`
+- `resolveMobileCallbackUrls(appConfig, { appPublicUrl = "" } = {})`
 Local functions
-- `isContainerScope(value)`
 - `buildWebCallbackUrl(appPublicUrl = "", callbackPath = "")`
 - `buildMobileCallbackUrl(customScheme = "", callbackPath = "")`
 - `buildAppLinkCallbackUrls(appLinkDomains = [], callbackPath = "")`
@@ -970,10 +971,6 @@ Local functions
 ### `server/support/clientBuild.js`
 Exports
 - `readServedClientBuildId({ appRoot } = {})`
-
-### `server/support/defaultMissingHandler.js`
-Exports
-- `defaultMissingHandler(_request, reply)`
 
 ### `server/support/fileLock.js`
 Exports
@@ -992,7 +989,6 @@ Local functions
 ### `server/support/index.js`
 Exports
 - `symlinkSafeRequire`
-- `resolveAppConfig`
 - `resolveMobileConfig`
 - `resolveClientAssetMode`
 - `resolveMobileCallbackUrls`

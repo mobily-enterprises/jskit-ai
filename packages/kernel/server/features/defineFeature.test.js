@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createSchema } from "json-rest-schema";
 import {
-  createActionProvider,
+  ActionProvider,
   createEntityChangedActionEvent
 } from "@jskit-ai/kernel/server/actions";
+import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { defineFeature } from "@jskit-ai/kernel/server/features";
 import { EventProvider } from "@jskit-ai/kernel/server/runtime";
@@ -66,7 +67,8 @@ test("features capture only named capabilities and publish actions without conta
     }
   });
   const runtime = createCapabilityRuntime({
-    providers: [observer, booksFeature, createActionProvider(), databaseProvider]
+    inputs: { "runtime.logger": silentLogger },
+    providers: [observer, booksFeature, EventProvider, ActionProvider, databaseProvider]
   });
   await runtime.start();
 
@@ -102,7 +104,8 @@ test("feature registration rejects duplicate actions and undeclared setup output
   const first = defineFeature({ id: "feature.first", domain: "books", actions: [action] });
   const second = defineFeature({ id: "feature.second", domain: "books", actions: [action] });
   const duplicateRuntime = createCapabilityRuntime({
-    providers: [createActionProvider(), first, second]
+    inputs: { "runtime.logger": silentLogger },
+    providers: [EventProvider, ActionProvider, first, second]
   });
   await assert.rejects(duplicateRuntime.start(), /duplicated between contributors/u);
 
@@ -113,14 +116,14 @@ test("feature registration rejects duplicate actions and undeclared setup output
     }
   });
   const invalidRuntime = createCapabilityRuntime({
-    providers: [createActionProvider(), undeclared]
+    inputs: { "runtime.logger": silentLogger },
+    providers: [EventProvider, ActionProvider, undeclared]
   });
   await assert.rejects(invalidRuntime.start(), /outputs must be exactly: <none>/u);
 });
 
 test("action context contributors enrich execution without a request scope container", async () => {
   let actions;
-  const actionProvider = createActionProvider();
   const feature = defineFeature({
     id: "feature.context-proof",
     domain: "context-proof",
@@ -153,7 +156,10 @@ test("action context contributors enrich execution without a request scope conta
       return {};
     }
   });
-  const runtime = createCapabilityRuntime({ providers: [actionProvider, contributor, feature] });
+  const runtime = createCapabilityRuntime({
+    inputs: { "runtime.logger": silentLogger },
+    providers: [EventProvider, ActionProvider, contributor, feature]
+  });
 
   await runtime.start();
   const context = await actions.execute({
@@ -220,7 +226,8 @@ test("feature actions publish explicit success events without service registrati
     }
   });
   const runtime = createCapabilityRuntime({
-    providers: [EventProvider, createActionProvider(), feature, listener]
+    inputs: { "runtime.logger": silentLogger },
+    providers: [EventProvider, ActionProvider, feature, listener]
   });
   await runtime.start();
 

@@ -3,6 +3,7 @@ import { isRecord, normalizeTransactionOutcome } from "../../shared/support/norm
 import { errorFieldErrors } from "../../shared/validators/schemaPayloadValidation.js";
 import { resolveValidationIssueCode } from "../../shared/validators/validationIssueCodes.js";
 import { JSON_API_CONTENT_TYPE } from "./lib/routeTransport.js";
+import { isAppError } from "../runtime/errors.js";
 
 /** @typedef {import("../types.js").RuntimeFastify} RuntimeFastify */
 
@@ -211,11 +212,8 @@ function applyErrorHeaders(reply, error) {
   }
 }
 
-/**
- * @param {RuntimeFastify} app
- * @param {{ isAppError: (error: unknown) => boolean }} options
- */
-function registerApiErrorHandler(app, { isAppError }) {
+/** @param {RuntimeFastify} app */
+function registerApiErrorHandler(app) {
   function shouldExposeAppErrorDetails(errorCode = "") {
     return String(errorCode || "").trim() !== "ACTION_PERMISSION_DENIED";
   }

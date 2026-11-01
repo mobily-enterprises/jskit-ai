@@ -3,7 +3,8 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { createActionProvider } from "@jskit-ai/kernel/server/actions";
+import { ActionProvider } from "@jskit-ai/kernel/server/actions";
+import { EventProvider } from "@jskit-ai/kernel/server/runtime";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { createAuthExtensions } from "@jskit-ai/auth-core/server/authExtensions";
 import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
@@ -133,7 +134,7 @@ async function createStartedApp({
   const runtime = createCapabilityRuntime({
     inputs,
     providers: [
-      createActionProvider(),
+      EventProvider, ActionProvider,
       AuthLocalProvider,
       AuthFeature,
       probe

@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createAuthExtensions } from "@jskit-ai/auth-core/server/authExtensions";
-import { createActionProvider } from "@jskit-ai/kernel/server/actions";
+import { ActionProvider } from "@jskit-ai/kernel/server/actions";
+import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
-import { createBootstrapRuntime } from "@jskit-ai/kernel/server/runtime";
+import { createBootstrapRuntime, EventProvider } from "@jskit-ai/kernel/server/runtime";
 import { createUsersExtensions } from "@jskit-ai/users-core/server/usersExtensions";
 import { WorkspacesFeature, createWorkspacesRuntime } from "../src/server/WorkspacesFeature.js";
 import { WorkspacesIntegrationsProvider } from "../src/server/WorkspacesIntegrationsProvider.js";
@@ -71,6 +72,7 @@ test("WorkspacesFeature assembles workspace behavior and explicit integrations",
   });
   const runtime = createCapabilityRuntime({
     inputs: {
+      "runtime.logger": silentLogger,
       "auth.extensions": authExtensions,
       "runtime.app-root": process.cwd(),
       "runtime.bootstrap": bootstrap,
@@ -99,7 +101,7 @@ test("WorkspacesFeature assembles workspace behavior and explicit integrations",
       },
       "users.extensions": usersExtensions
     },
-    providers: [createActionProvider(), WorkspacesFeature, WorkspacesIntegrationsProvider, probe]
+    providers: [EventProvider, ActionProvider, WorkspacesFeature, WorkspacesIntegrationsProvider, probe]
   });
 
   await runtime.start();

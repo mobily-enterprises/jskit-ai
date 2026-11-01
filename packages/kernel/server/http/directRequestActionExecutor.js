@@ -1,6 +1,6 @@
 import { normalizeObject, normalizeText } from "../../shared/support/normalize.js";
 import { normalizeRouteVisibilityToken } from "../../shared/support/visibility.js";
-import { resolveDefaultSurfaceId } from "../support/appConfig.js";
+import { normalizeSurfaceId } from "../../shared/surface/registry.js";
 
 /** @typedef {import("../types.js").ActionCatalogue} ActionCatalogue */
 
@@ -9,7 +9,7 @@ function resolveSurface(request, explicitSurface = "", defaultSurfaceId = "") {
     normalizeText(explicitSurface).toLowerCase() ||
     normalizeText(request?.routeOptions?.config?.surface).toLowerCase() ||
     normalizeText(request?.surface).toLowerCase() ||
-    resolveDefaultSurfaceId(null, { defaultSurfaceId })
+    normalizeSurfaceId(defaultSurfaceId)
   );
 }
 

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { AppError, isAppError } from "../runtime/errors.js";
+import { AppError } from "../runtime/errors.js";
 import {
   normalizeBodylessContentTypeHeader,
   registerApiErrorHandler,
@@ -92,7 +92,7 @@ function createReplyStub() {
 
 test("registerApiErrorHandler includes code for validation errors", () => {
   const fastify = createFastifyStub();
-  registerApiErrorHandler(fastify, { isAppError });
+  registerApiErrorHandler(fastify);
 
   const reply = createReplyStub();
   fastify.errorHandler(
@@ -117,7 +117,7 @@ test("registerApiErrorHandler includes code for validation errors", () => {
 
 test("registerApiErrorHandler includes code for AppError payloads", () => {
   const fastify = createFastifyStub();
-  registerApiErrorHandler(fastify, { isAppError });
+  registerApiErrorHandler(fastify);
 
   const reply = createReplyStub();
   const error = new AppError(422, "Domain validation failed.", {
@@ -141,7 +141,7 @@ test("registerApiErrorHandler includes code for AppError payloads", () => {
 
 test("registerApiErrorHandler falls back to app_error code for AppError without code", () => {
   const fastify = createFastifyStub();
-  registerApiErrorHandler(fastify, { isAppError });
+  registerApiErrorHandler(fastify);
 
   const reply = createReplyStub();
   const error = new AppError(409, "Conflict.");
@@ -155,7 +155,7 @@ test("registerApiErrorHandler falls back to app_error code for AppError without 
 
 test("registerApiErrorHandler hides internal permission details for action permission denials", () => {
   const fastify = createFastifyStub();
-  registerApiErrorHandler(fastify, { isAppError });
+  registerApiErrorHandler(fastify);
 
   const reply = createReplyStub();
   const error = new AppError(403, "Forbidden.", {
@@ -178,7 +178,7 @@ test("registerApiErrorHandler hides internal permission details for action permi
 
 test("registerApiErrorHandler includes internal_server_error code for unhandled 500 errors", () => {
   const fastify = createFastifyStub();
-  registerApiErrorHandler(fastify, { isAppError });
+  registerApiErrorHandler(fastify);
 
   const reply = createReplyStub();
   const error = new Error("Unexpected DB failure");
@@ -192,7 +192,7 @@ test("registerApiErrorHandler includes internal_server_error code for unhandled 
 
 test("registerApiErrorHandler exposes only allowlisted transaction outcomes", () => {
   const fastify = createFastifyStub();
-  registerApiErrorHandler(fastify, { isAppError });
+  registerApiErrorHandler(fastify);
   for (const transactionOutcome of ["none", "pending", "committed", "rolledBack", "unknown"]) {
     const error = Object.assign(new Error("Private SQL failure"), {
       transactionOutcome,
@@ -218,7 +218,7 @@ test("registerApiErrorHandler exposes only allowlisted transaction outcomes", ()
 
 test("AppError and validation payloads retain transaction outcomes", () => {
   const fastify = createFastifyStub();
-  registerApiErrorHandler(fastify, { isAppError });
+  registerApiErrorHandler(fastify);
   for (const error of [
     Object.assign(new AppError(409, "Conflict."), { transactionOutcome: "rolledBack" }),
     { validation: [{ instancePath: "/title", message: "Required" }], transactionOutcome: "none" }
@@ -231,7 +231,7 @@ test("AppError and validation payloads retain transaction outcomes", () => {
 
 test("registerApiErrorHandler keeps known error code for non-app errors", () => {
   const fastify = createFastifyStub();
-  registerApiErrorHandler(fastify, { isAppError });
+  registerApiErrorHandler(fastify);
 
   const reply = createReplyStub();
   const error = new Error("CSRF token invalid");
@@ -249,7 +249,7 @@ test("registerApiErrorHandler keeps known error code for non-app errors", () => 
 
 test("registerApiErrorHandler uses route transport error serializer when present", () => {
   const fastify = createFastifyStub();
-  registerApiErrorHandler(fastify, { isAppError });
+  registerApiErrorHandler(fastify);
 
   const reply = createReplyStub();
   const error = new AppError(422, "Validation failed.", {
@@ -282,7 +282,7 @@ test("registerApiErrorHandler uses route transport error serializer when present
 
 test("transport routes log 5xx AppErrors and keep their headers", () => {
   const fastify = createFastifyStub();
-  registerApiErrorHandler(fastify, { isAppError });
+  registerApiErrorHandler(fastify);
 
   const reply = createReplyStub();
   const error = new AppError(503, "Try again shortly.", {
@@ -303,7 +303,7 @@ test("transport routes log 5xx AppErrors and keep their headers", () => {
 
 test("Fastify client errors are logged below error level and server errors at error level", () => {
   const fastify = createFastifyStub();
-  registerApiErrorHandler(fastify, { isAppError });
+  registerApiErrorHandler(fastify);
 
   const tooLarge = Object.assign(new Error("Request body is too large"), {
     statusCode: 413,
@@ -373,7 +373,7 @@ test("registerBodylessContentTypeNormalizer installs the request hook once", asy
 
 test("registerApiErrorHandler returns the params and coded field errors of an AppError", () => {
   const fastify = createFastifyStub();
-  registerApiErrorHandler(fastify, { isAppError });
+  registerApiErrorHandler(fastify);
 
   const reply = createReplyStub();
   fastify.errorHandler(new AppError(400, "Use at least 8 characters.", {
@@ -395,7 +395,7 @@ test("registerApiErrorHandler returns the params and coded field errors of an Ap
 
 test("registerApiErrorHandler passes a per-sentence messageCode next to a shared code", () => {
   const fastify = createFastifyStub();
-  registerApiErrorHandler(fastify, { isAppError });
+  registerApiErrorHandler(fastify);
 
   const appReply = createReplyStub();
   fastify.errorHandler(new AppError(400, "Pick a calendar first.", {

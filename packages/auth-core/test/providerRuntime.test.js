@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import Fastify from "fastify";
-import { createActionProvider } from "@jskit-ai/kernel/server/actions";
+import { ActionProvider } from "@jskit-ai/kernel/server/actions";
+import { EventProvider } from "@jskit-ai/kernel/server/runtime";
+import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { HttpProvider } from "@jskit-ai/kernel/server/http";
 import { createFakeFastifyPolicyRuntime } from "../../../tooling/testUtils/fakeFastify.mjs";
@@ -19,7 +21,8 @@ function createFastify() {
 function runtimeInputs(fastify) {
   return {
     "runtime.env": { NODE_ENV: "test" },
-    "runtime.fastify": fastify
+    "runtime.fastify": fastify,
+    "runtime.logger": silentLogger
   };
 }
 
@@ -28,7 +31,7 @@ test("AuthPolicyProvider installs Fastify policy and explicit action/visibility 
   const runtime = createCapabilityRuntime({
     inputs: runtimeInputs(fastify),
     providers: [
-      createActionProvider(),
+      EventProvider, ActionProvider,
       HttpProvider,
       AuthExtensionsProvider,
       AuthFeature,
@@ -80,7 +83,7 @@ test("AuthPolicyProvider resolves registered workspace context without a service
   const runtime = createCapabilityRuntime({
     inputs: runtimeInputs(fastify),
     providers: [
-      createActionProvider(),
+      EventProvider, ActionProvider,
       HttpProvider,
       AuthExtensionsProvider,
       AuthService,
@@ -113,7 +116,7 @@ test("auth policy denies protected routes when no auth service is installed", as
   const runtime = createCapabilityRuntime({
     inputs: runtimeInputs(fastify),
     providers: [
-      createActionProvider(),
+      EventProvider, ActionProvider,
       HttpProvider,
       AuthExtensionsProvider,
       AuthFeature,
@@ -134,7 +137,7 @@ test("AuthPolicyProvider checks CSRF on unsafe methods when AUTH_CSRF_UNSAFE_MET
   const runtime = createCapabilityRuntime({
     inputs: runtimeInputs(app),
     providers: [
-      createActionProvider(),
+      EventProvider, ActionProvider,
       HttpProvider,
       AuthExtensionsProvider,
       AuthFeature,

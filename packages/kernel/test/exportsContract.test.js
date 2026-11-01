@@ -38,7 +38,9 @@ const EXPORTED_UNUSED_ALLOWLIST = new Set([
   // and createActionRouteScope for applications' action route groups.
   "./server/http",
   // Types of the kernel's capabilities, for the features that require them.
-  "./server/types"
+  "./server/types",
+  // silentLogger, for applications whose callers may omit a logger.
+  "./server/runtime/logger"
 ]);
 
 function normalizeSlash(value) {

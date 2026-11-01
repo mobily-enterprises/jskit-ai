@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { createInstalledRuntime } from "@jskit-ai/kernel/server/platform";
+import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 
 test("installed runtime composes explicit package providers and application inputs", async (context) => {
   const appRoot = await mkdtemp(path.join(tmpdir(), "jskit-installed-runtime-"));
@@ -92,9 +93,11 @@ test("installed runtime attaches one idempotent Fastify shutdown hook", async (c
   const fastify = {
     addHook(name, handler) {
       hooks.push({ name, handler });
-    }
+    },
+    route() {},
+    setErrorHandler() {}
   };
-  const installed = await createInstalledRuntime({ appRoot, fastify });
+  const installed = await createInstalledRuntime({ appRoot, fastify, logger: silentLogger });
   const closeHook = hooks.find((entry) => entry.name === "onClose");
   assert.ok(closeHook);
   await closeHook.handler();

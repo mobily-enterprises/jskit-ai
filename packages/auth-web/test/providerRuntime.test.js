@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createActionProvider } from "@jskit-ai/kernel/server/actions";
+import { ActionProvider } from "@jskit-ai/kernel/server/actions";
+import { EventProvider } from "@jskit-ai/kernel/server/runtime";
+import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { createCapabilityRuntime } from "@jskit-ai/kernel/shared/capabilities";
 import { AuthFeature } from "@jskit-ai/auth-core/server/providers/AuthFeature";
 import { HttpProvider } from "@jskit-ai/kernel/server/http";
@@ -104,11 +106,12 @@ async function startAuthWeb({ env = {}, authService = null } = {}) {
   const fastify = createFastifyStub();
   const runtime = createCapabilityRuntime({
     inputs: {
+      "runtime.logger": silentLogger,
       "auth.service": authService || createAuthService(),
       "runtime.env": { NODE_ENV: "test", ...env },
       "runtime.fastify": fastify
     },
-    providers: [createActionProvider(), HttpProvider, AuthFeature, AuthWebFeature]
+    providers: [EventProvider, ActionProvider, HttpProvider, AuthFeature, AuthWebFeature]
   });
   await runtime.start();
   return { fastify, runtime };

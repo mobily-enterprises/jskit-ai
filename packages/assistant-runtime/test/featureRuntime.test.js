@@ -4,7 +4,9 @@ import { spawnSync } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { createSchema } from "json-rest-schema";
 
-import { createActionProvider } from "@jskit-ai/kernel/server/actions";
+import { ActionProvider } from "@jskit-ai/kernel/server/actions";
+import { EventProvider } from "@jskit-ai/kernel/server/runtime";
+import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { attachDirectRequestActionExecutor } from "@jskit-ai/kernel/server/http";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { AssistantFeature } from "../src/server/AssistantProvider.js";
@@ -36,8 +38,9 @@ test("AssistantFeature composes chat, transcripts, settings, routes, and action 
     }
   };
   const runtime = createCapabilityRuntime({
+    inputs: { "runtime.logger": silentLogger },
     providers: [
-      createActionProvider(),
+      EventProvider, ActionProvider,
       valueProvider("test.config", "runtime.config", config),
       valueProvider("test.database", "runtime.database", { knex: Object.assign(() => {}, {}) }),
       valueProvider("test.env", "runtime.env", {}),
@@ -100,7 +103,8 @@ test("AssistantFeature uses a supplied file runtime without loading database or 
     }
     const { AssistantFeature } = await import("@jskit-ai/assistant-runtime/server");
     const { createConversationRuntime, createFileConversationStorage } = await import("@jskit-ai/assistant-core/server/conversation");
-    const { createActionProvider } = await import("@jskit-ai/kernel/server/actions");
+    const { ActionProvider } = await import("@jskit-ai/kernel/server/actions");
+    const { silentLogger } = await import("@jskit-ai/kernel/server/runtime/logger");
     const { createCapabilityRuntime, defineProvider } = await import("@jskit-ai/kernel/shared/capabilities");
     const directory = await mkdtemp(join(tmpdir(), "assistant-feature-"));
     const runtime = createConversationRuntime({ storage: createFileConversationStorage({ directory }),
@@ -118,7 +122,7 @@ test("AssistantFeature uses a supplied file runtime without loading database or 
       for (const unrelatedDatabase of [false, true]) {
         const routes = [];
         let assistant, actions;
-        const host = createCapabilityRuntime({ providers: [createActionProvider(),
+        const host = createCapabilityRuntime({ inputs: { "runtime.logger": silentLogger }, providers: [ActionProvider,
           valueProvider("runtime.config", config), valueProvider("runtime.env", {}),
           valueProvider("runtime.http", { router: { register(...route) { routes.push(route); } } }),
           valueProvider("assistant.conversations", runtime),
@@ -207,7 +211,7 @@ test("one AssistantFeature composes host access and declared data while settings
     requestPolicy: "host"
   };
   const host = createCapabilityRuntime({
-    providers: [createActionProvider(), AssistantFeature, defineProvider({
+    providers: [ActionProvider, AssistantFeature, defineProvider({
       id: "test.host.observer", requires: { catalogue: "runtime.actions", assistant: "assistant.runtime" },
       setup({ catalogue, assistant }) {
         actions = catalogue;
@@ -216,6 +220,7 @@ test("one AssistantFeature composes host access and declared data while settings
       }
     })],
     inputs: {
+      "runtime.logger": silentLogger,
       "runtime.config": config, "runtime.env": {}, "runtime.http": { router },
       "assistant.conversations": conversationRuntime, "assistant.conversation.access": access,
       "assistant.settings": {}, "runtime.events": { async publish() {} },
@@ -302,7 +307,8 @@ test("AssistantFeature rejects incomplete host access before registering routes 
     [null, validAccess]
   ]) {
     let registrations = 0;
-    const host = createCapabilityRuntime({ providers: [createActionProvider(), AssistantFeature], inputs: {
+    const host = createCapabilityRuntime({ providers: [EventProvider, ActionProvider, AssistantFeature], inputs: {
+      "runtime.logger": silentLogger,
       "runtime.config": {}, "runtime.env": {},
       "runtime.http": { router: { register() { registrations++; } } },
       "assistant.conversation.access": access,

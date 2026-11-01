@@ -1,4 +1,4 @@
-import { createActionProvider } from "@jskit-ai/kernel/server/actions";
+import { ActionProvider } from "@jskit-ai/kernel/server/actions";
 import { HttpProvider } from "@jskit-ai/kernel/server/http";
 import { AppError, BootstrapProvider, EventProvider } from "@jskit-ai/kernel/server/runtime";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
@@ -62,7 +62,7 @@ async function registerFastifyConversations(app, {
   // Realtime remains optional for consumers using the feature on their own host.
   const { RealtimeProvider } = await import("@jskit-ai/realtime/server/RealtimeProvider");
   const host = createCapabilityRuntime({
-    providers: [EventProvider, createActionProvider(), HttpProvider, BootstrapProvider,
+    providers: [EventProvider, ActionProvider, HttpProvider, BootstrapProvider,
       RealtimeProvider, AccessProvider, AssistantFeature],
     inputs: { "runtime.config": config, "runtime.env": env, "runtime.fastify": app,
       "runtime.logger": app.log, "assistant.conversations": runtime }

@@ -1,4 +1,4 @@
-import { createActionProvider } from "../actions/actionProvider.js";
+import { ActionProvider } from "../actions/actionProvider.js";
 import { createCapabilityRuntime } from "../../shared/capabilities/runtime.js";
 import { HttpProvider } from "../http/HttpProvider.js";
 import { BootstrapProvider } from "../runtime/BootstrapProvider.js";
@@ -65,7 +65,7 @@ function builtinCapabilityProviders(inputCapabilities) {
  * @param {Record<string, unknown>} [options.inputs]
  * @param {Record<string, any>} [options.config]
  * @param {Record<string, unknown>} [options.env]
- * @param {RuntimeLogger} [options.logger] `console` when absent.
+ * @param {RuntimeLogger} options.logger The application's logger, which features and actions log through.
  * @param {RuntimeFastify} [options.fastify] Absent when the application serves no HTTP.
  */
 async function createInstalledRuntime({
@@ -75,7 +75,7 @@ async function createInstalledRuntime({
   inputs = {},
   config = {},
   env = {},
-  logger = console,
+  logger,
   fastify
 }) {
   if (!appRoot || typeof appRoot !== "string") {
@@ -86,8 +86,12 @@ async function createInstalledRuntime({
     throw new TypeError("createInstalledRuntime requires a logger with debug(), info(), warn() and error().");
   }
 
-  // readable-check: allow method-probe - input validation: only a Fastify instance that can route serves HTTP
-  const httpServer = fastify && typeof fastify.route === "function" ? fastify : null;
+  // readable-check: allow method-probe - input validation: the application passes its own Fastify instance
+  if (fastify && (typeof fastify.route !== "function" || typeof fastify.addHook !== "function")) {
+    throw new TypeError("createInstalledRuntime requires a Fastify instance when it serves HTTP.");
+  }
+
+  const httpServer = fastify || null;
   const inputCapabilities = normalizeInputCapabilities({ inputs, config, env, logger, httpServer, appRoot });
   const installedPackages = await resolveInstalledJskitPackages({ appRoot });
   validatePackageCapabilities(installedPackages, {
@@ -101,7 +105,7 @@ async function createInstalledRuntime({
   appendCapabilityProviders({
     providers: [
       EventProvider,
-      createActionProvider({ logger }),
+      ActionProvider,
       ...(httpServer ? [HttpProvider, BootstrapProvider] : [])
     ],
     sourceId: "@jskit-ai/kernel",
@@ -137,9 +141,8 @@ async function createInstalledRuntime({
   });
   await runtime.start();
 
-  // readable-check: allow method-probe - input validation: a server that only takes hooks still closes the runtime
-  if (fastify && typeof fastify.addHook === "function") {
-    fastify.addHook("onClose", async () => {
+  if (httpServer) {
+    httpServer.addHook("onClose", async () => {
       await runtime.shutdown();
     });
   }

@@ -74,9 +74,6 @@
         "idRequired": "actionId is required.",
         "idempotencyKeyRequired": "Idempotency key is required for this action."
       },
-      "route": {
-        "handlerUnavailable": "Route handler is not available in this runtime profile."
-      },
       "surface": {
         "pathNotServed": "Path {path} is not served by {surface} surface server."
       },

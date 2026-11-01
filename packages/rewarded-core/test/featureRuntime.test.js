@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createActionProvider } from "@jskit-ai/kernel/server/actions";
+import { ActionProvider } from "@jskit-ai/kernel/server/actions";
+import { EventProvider } from "@jskit-ai/kernel/server/runtime";
+import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { RewardedCoreFeature } from "../src/server/RewardedCoreFeature.js";
 import {
@@ -32,8 +34,9 @@ test("Rewarded composes standard resource capabilities around one explicit domai
     }
   });
   const runtime = createCapabilityRuntime({
+    inputs: { "runtime.logger": silentLogger },
     providers: [
-      createActionProvider(),
+      EventProvider, ActionProvider,
       valueProvider("test.grant-policy", "rewarded.grant-policy", { authorizeGrant: async () => false }),
       valueProvider("test.database", "runtime.database", { knex }),
       valueProvider("test.http", "runtime.http", {

@@ -1,24 +1,23 @@
 import { defineProvider } from "../../shared/capabilities/defineProvider.js";
-import { createEventRuntime } from "../runtime/EventProvider.js";
 import { createActionCatalogue } from "./actionCatalogue.js";
 
-/** @param {{ logger?: import("../types.js").RuntimeLogger }} [options] Without a logger nothing is logged. */
-function createActionProvider(options = {}) {
-  return defineProvider({
-    id: "runtime.actions",
-    optional: {
-      events: "runtime.events"
-    },
-    provides: {
-      actions: "runtime.actions"
-    },
-    setup({ events }) {
-      return { actions: createActionCatalogue({
-        ...options,
-        events: events || createEventRuntime()
-      }) };
-    }
-  });
-}
+const ActionProvider = defineProvider({
+  id: "runtime.actions",
+  requires: {
+    events: "runtime.events",
+    logger: "runtime.logger"
+  },
+  provides: {
+    actions: "runtime.actions"
+  },
+  /**
+   * @param {object} dependencies
+   * @param {import("../types.js").RuntimeEvents} dependencies.events
+   * @param {import("../types.js").RuntimeLogger} dependencies.logger
+   */
+  setup({ events, logger }) {
+    return { actions: createActionCatalogue({ events, logger }) };
+  }
+});
 
-export { createActionProvider };
+export { ActionProvider };

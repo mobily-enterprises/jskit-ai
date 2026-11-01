@@ -1,5 +1,5 @@
 export { symlinkSafeRequire } from "./symlinkSafeRequire.js";
-export { resolveAppConfig, resolveMobileConfig, resolveClientAssetMode, resolveMobileCallbackUrls } from "./appConfig.js";
+export { resolveMobileConfig, resolveClientAssetMode, resolveMobileCallbackUrls } from "./appConfig.js";
 export { loadAppConfigFromAppRoot } from "./appConfigFiles.js";
 export { importFreshModuleFromAbsolutePath } from "./importFreshModuleFromAbsolutePath.js";
 export {

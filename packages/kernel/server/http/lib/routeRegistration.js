@@ -1,8 +1,7 @@
-import { normalizeArray, normalizeObject, normalizeText } from "../../../shared/support/normalize.js";
+import { normalizeObject, normalizeText } from "../../../shared/support/normalize.js";
 import { AppError } from "../../runtime/errors.js";
 import { defaultApplyRoutePolicy } from "../../support/routePolicyConfig.js";
-import { resolveDefaultSurfaceId } from "../../support/appConfig.js";
-import { defaultMissingHandler } from "../../support/defaultMissingHandler.js";
+import { normalizeSurfaceId } from "../../../shared/surface/registry.js";
 import { registerJsonApiContentTypeParser } from "../errorHandling.js";
 import { RouteRegistrationError } from "./errors.js";
 import { executeMiddlewareStack, normalizeRuntimeMiddlewareConfig, resolveRouteMiddlewareHandlers } from "./middlewareRuntime.js";
@@ -210,47 +209,22 @@ function wrapReplySend({ reply = null, request = null, route = null, outputTrans
 /**
  * @param {RuntimeFastify} fastify
  * @param {object} options
- * @param {ReadonlyArray<any>} [options.routes]
- * @param {Function} [options.applyRoutePolicy]
- * @param {Function} [options.missingHandler]
- * @param {string} [options.requestActionExecutorProperty]
- * @param {string} [options.requestActionDefaultChannel]
- * @param {string} [options.requestActionDefaultSurface]
- * @param {object} [options.middleware]
+ * @param {ReadonlyArray<any>} options.routes The router's routes, each with its handler.
  * @param {ActionCatalogue} options.actions
  */
-function registerRoutes(
-  fastify,
-  {
-    routes = [],
-    applyRoutePolicy = defaultApplyRoutePolicy,
-    missingHandler = defaultMissingHandler,
-    requestActionExecutorProperty = "executeAction",
-    requestActionDefaultChannel = "api",
-    requestActionDefaultSurface = "",
-    middleware = {},
-    actions
-  }
-) {
-  const normalizedRoutes = normalizeArray(routes);
-  const publicRoutes = normalizedRoutes.filter((route) => route?.internal !== true);
-  const policyApplier = typeof applyRoutePolicy === "function" ? applyRoutePolicy : defaultApplyRoutePolicy;
-  const fallbackHandler = typeof missingHandler === "function" ? missingHandler : defaultMissingHandler;
-  const runtimeMiddlewareConfig = normalizeRuntimeMiddlewareConfig(middleware);
+function registerRoutes(fastify, { routes, actions }) {
+  const publicRoutes = routes.filter((route) => route.internal !== true);
+  const runtimeMiddlewareConfig = normalizeRuntimeMiddlewareConfig({});
 
   if (publicRoutes.some((route) => routeRequiresJsonApiContentTypeParser(route))) {
     registerJsonApiContentTypeParser(fastify);
   }
 
   for (const route of publicRoutes) {
-    const routeOptions = policyApplier(toFastifyRouteOptions(route), route);
-    // readable-check: allow method-probe - data: a route without a handler answers with the missing handler
-    const routeHandler = typeof route.handler === "function" ? route.handler : fallbackHandler;
+    const routeOptions = defaultApplyRoutePolicy(toFastifyRouteOptions(route), route);
     const resolvedMiddlewareHandlers = resolveRouteMiddlewareHandlers(route, runtimeMiddlewareConfig);
     const routeTransport = route.transport || null;
-    const routeActionDefaultSurface = resolveDefaultSurfaceId(null, {
-      defaultSurfaceId: route.surface || routeOptions?.config?.surface || requestActionDefaultSurface
-    });
+    const routeActionDefaultSurface = normalizeSurfaceId(route.surface || routeOptions.config.surface);
 
     fastify.route({
       ...routeOptions,
@@ -258,8 +232,8 @@ function registerRoutes(
         attachDirectRequestActionExecutor({
           actions,
           request,
-          property: requestActionExecutorProperty,
-          defaultChannel: requestActionDefaultChannel,
+          property: "executeAction",
+          defaultChannel: "api",
           defaultSurfaceId: routeActionDefaultSurface
         });
 
@@ -289,7 +263,7 @@ function registerRoutes(
         if (reply?.sent) {
           return;
         }
-        await routeHandler(request, reply);
+        await route.handler(request, reply);
       }
     });
   }
@@ -299,4 +273,4 @@ function registerRoutes(
   };
 }
 
-export { defaultMissingHandler, registerRoutes };
+export { registerRoutes };

@@ -5,7 +5,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { createSchema } from "json-rest-schema";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
-import { createActionProvider } from "@jskit-ai/kernel/server/actions";
+import { ActionProvider } from "@jskit-ai/kernel/server/actions";
+import { EventProvider } from "@jskit-ai/kernel/server/runtime";
+import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { createConnectionService, createConnectorsFeature } from "../src/server/index.js";
 import { ConnectorError } from "../src/server/errors.js";
 import { createFileConnectionStore, createCredentialProtection } from "../src/server/fileStorage.js";
@@ -182,7 +184,7 @@ test("service grants honor cancellation and deadlines without replay or partial 
 
 test("the service-account Feature action uses the same application policy and verified runtime", async (t) => {
   const f = await fixture(t); let actions;
-  const runtime = createCapabilityRuntime({ providers: [createActionProvider(), createConnectorsFeature(f.options),
+  const runtime = createCapabilityRuntime({ inputs: { "runtime.logger": silentLogger }, providers: [EventProvider, ActionProvider, createConnectorsFeature(f.options),
     defineProvider({ id: "test.service-observer", requires: { catalogue: "runtime.actions" }, setup({ catalogue }) { actions = catalogue; } })] });
   await runtime.start();
   try {

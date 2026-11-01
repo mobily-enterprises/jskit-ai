@@ -30,7 +30,7 @@ import {
 import { createSchema } from "../../kernel/shared/validators/index.js";
 import { resolveRouteValidatorOptions } from "../../kernel/server/http/lib/routeValidator.js";
 import { registerApiErrorHandler } from "../../kernel/server/http/errorHandling.js";
-import { AppError, createValidationError, isAppError } from "../../kernel/server/runtime/errors.js";
+import { AppError, createValidationError } from "../../kernel/server/runtime/errors.js";
 import { createHttpError } from "../src/shared/clientRuntime/errors.js";
 import { createJsonRestApiHost } from "../../json-rest-api-core/src/server/jsonRestApiHost.js";
 
@@ -223,7 +223,7 @@ test("createJsonApiResourceRouteTransport unwraps request payloads and wraps res
 test("real HTTP responses classify typed JSON REST read and write errors", async (t) => {
   const app = Fastify();
   t.after(() => app.close());
-  registerApiErrorHandler(app, { isAppError });
+  registerApiErrorHandler(app);
   const transport = createJsonApiResourceRouteTransport({ type: "books" });
   const cases = [
     ["validation", () => new RestApiValidationError("Title is required."), 422],
@@ -307,7 +307,7 @@ test("real resource validation, permission hooks and completion failures retain 
       }
     }
   } });
-  registerApiErrorHandler(app, { isAppError });
+  registerApiErrorHandler(app);
   const transport = createJsonApiResourceRouteTransport({ type: "books" });
   for (const jsonapi of [false, true]) {
     const prefix = `/${jsonapi ? "jsonapi" : "plain"}`;
@@ -342,7 +342,7 @@ test("real resource validation, permission hooks and completion failures retain 
 test("error handler, JSON:API transport and client preserve outcomes without disclosing internal failures", () => {
   const transport = createJsonApiResourceRouteTransport({ type: "books" });
   const app = { log: { error() {}, info() {} }, setErrorHandler(handler) { this.errorHandler = handler; } };
-  registerApiErrorHandler(app, { isAppError });
+  registerApiErrorHandler(app);
 
   for (const transactionOutcome of ["none", "pending", "committed", "rolledBack", "unknown", "invalid", undefined]) {
     const failure = Object.assign(new Error("Private SQL statement"), {
@@ -388,7 +388,7 @@ test("JSON:API field errors retain outcomes and permission details remain privat
   assert.ok(payload.errors.every((error) => error.meta.transactionOutcome === "rolledBack"));
 
   const app = { log: { error() {}, info() {} }, setErrorHandler(handler) { this.errorHandler = handler; } };
-  registerApiErrorHandler(app, { isAppError });
+  registerApiErrorHandler(app);
   const reply = {
     code() { return this; },
     header() { return this; },
@@ -425,7 +425,7 @@ test("JSON:API errors carry params, message codes and field codes the client ren
 
   const app = Fastify();
   t.after(() => app.close());
-  registerApiErrorHandler(app, { isAppError });
+  registerApiErrorHandler(app);
   const transport = createJsonApiResourceRouteTransport({ type: "books" });
   for (const jsonapi of [false, true]) {
     const prefix = `/${jsonapi ? "jsonapi" : "plain"}`;

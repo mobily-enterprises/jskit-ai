@@ -2,8 +2,8 @@
 // seeds, for features that require them.
 
 /** @typedef {ReturnType<typeof import("./actions/actionCatalogue.js").createActionCatalogue>} ActionCatalogue */
-/** @typedef {ReturnType<typeof import("./runtime/BootstrapProvider.js").createBootstrapRuntime>} RuntimeBootstrap */
-/** @typedef {ReturnType<typeof import("./runtime/EventProvider.js").createEventRuntime>} RuntimeEvents */
+/** @typedef {ReturnType<typeof import("./runtime/bootstrapRuntime.js").createBootstrapRuntime>} RuntimeBootstrap */
+/** @typedef {ReturnType<typeof import("./runtime/eventRuntime.js").createEventRuntime>} RuntimeEvents */
 /** @typedef {ReturnType<typeof import("./http/capabilityHttpRuntime.js").createCapabilityHttpRuntime>} RuntimeHttp */
 /** @typedef {ReturnType<typeof import("./http/lib/router.js").createRouter>} RuntimeRouter The router of `runtime.http`, on which features register their routes. */
 

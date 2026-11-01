@@ -10,7 +10,6 @@ import {
   registerApiErrorHandler,
   registerBodylessContentTypeNormalizer
 } from "./errorHandling.js";
-import { isAppError } from "../runtime/errors.js";
 
 /** @typedef {import("../types.js").ActionCatalogue} ActionCatalogue */
 /** @typedef {import("../types.js").RuntimeFastify} RuntimeFastify */
@@ -93,13 +92,12 @@ function createCapabilityHttpRuntime({ fastify, actions }) {
     }
   });
 
-  function start(options = {}) {
+  function start() {
     assertOpen();
     started = true;
     registerBodylessContentTypeNormalizer(fastify);
-    registerApiErrorHandler(fastify, { isAppError });
+    registerApiErrorHandler(fastify);
     registration = Object.freeze(registerRoutes(fastify, {
-      ...options,
       actions,
       routes: router.list()
     }));

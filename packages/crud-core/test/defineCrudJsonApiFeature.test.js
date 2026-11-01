@@ -3,7 +3,9 @@ import test from "node:test";
 import { createSchema } from "json-rest-schema";
 import { RestApiWriteError } from "json-rest-api";
 
-import { createActionProvider } from "@jskit-ai/kernel/server/actions";
+import { ActionProvider } from "@jskit-ai/kernel/server/actions";
+import { EventProvider } from "@jskit-ai/kernel/server/runtime";
+import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { returnJsonApiDocument } from "@jskit-ai/http-runtime/shared";
@@ -110,8 +112,9 @@ test("defineCrudJsonApiFeature composes one resource without ceremonial token la
     }
   });
   const runtime = createCapabilityRuntime({
+    inputs: { "runtime.logger": silentLogger },
     providers: [
-      createActionProvider(),
+      EventProvider, ActionProvider,
       ...createFeatureDependencies(routes),
       feature,
       observer
@@ -164,8 +167,9 @@ test("defineCrudJsonApiFeature sends record.changed to its realtime audience", a
       }
     });
     const runtime = createCapabilityRuntime({
+      inputs: { "runtime.logger": silentLogger },
       providers: [
-        createActionProvider(),
+        EventProvider, ActionProvider,
         ...createFeatureDependencies([]),
         defineCrudJsonApiFeature({
           resource: createBookResource({ apiAccess: "public", autofilter: "public" }),
@@ -213,7 +217,8 @@ test("defineCrudJsonApiFeature makes workspace scope and permissions explicit", 
     }
   });
   const runtime = createCapabilityRuntime({
-    providers: [createActionProvider(), ...createFeatureDependencies(routes), feature, observer]
+    inputs: { "runtime.logger": silentLogger },
+    providers: [EventProvider, ActionProvider, ...createFeatureDependencies(routes), feature, observer]
   });
 
   await runtime.start();
@@ -349,8 +354,9 @@ test("defineCrudJsonApiFeature lets product services name exact capability depen
     }
   });
   const runtime = createCapabilityRuntime({
+    inputs: { "runtime.logger": silentLogger },
     providers: [
-      createActionProvider(),
+      EventProvider, ActionProvider,
       ...createFeatureDependencies(routes),
       valueProvider("test.console-access", "console.access", access),
       feature,
@@ -394,7 +400,8 @@ test("defineCrudJsonApiFeature lets product repositories add only unique persist
     }
   });
   const runtime = createCapabilityRuntime({
-    providers: [createActionProvider(), ...createFeatureDependencies(routes), feature, observer]
+    inputs: { "runtime.logger": silentLogger },
+    providers: [EventProvider, ActionProvider, ...createFeatureDependencies(routes), feature, observer]
   });
 
   await runtime.start();
@@ -458,7 +465,8 @@ test("defineCrudJsonApiFeature exposes only deliberately selected operations", a
     }
   });
   const runtime = createCapabilityRuntime({
-    providers: [createActionProvider(), ...createFeatureDependencies(routes), feature, observer]
+    inputs: { "runtime.logger": silentLogger },
+    providers: [EventProvider, ActionProvider, ...createFeatureDependencies(routes), feature, observer]
   });
 
   await runtime.start();
@@ -485,7 +493,8 @@ test("defineCrudJsonApiFeature supports resources that define only selected oper
     surface: "app"
   });
   const runtime = createCapabilityRuntime({
-    providers: [createActionProvider(), ...createFeatureDependencies(routes), feature]
+    inputs: { "runtime.logger": silentLogger },
+    providers: [EventProvider, ActionProvider, ...createFeatureDependencies(routes), feature]
   });
 
   await runtime.start();
@@ -514,7 +523,8 @@ test("defineCrudJsonApiFeature can expose actions and capability without HTTP ro
     }
   });
   const runtime = createCapabilityRuntime({
-    providers: [createActionProvider(), ...createFeatureDependencies(routes), feature, observer]
+    inputs: { "runtime.logger": silentLogger },
+    providers: [EventProvider, ActionProvider, ...createFeatureDependencies(routes), feature, observer]
   });
 
   await runtime.start();
@@ -749,7 +759,8 @@ test("defineCrudJsonApiFeature exposes custom service methods as actions and opt
     }
   });
   const runtime = createCapabilityRuntime({
-    providers: [createActionProvider(), ...createFeatureDependencies(routes), feature, observer]
+    inputs: { "runtime.logger": silentLogger },
+    providers: [EventProvider, ActionProvider, ...createFeatureDependencies(routes), feature, observer]
   });
 
   await runtime.start();

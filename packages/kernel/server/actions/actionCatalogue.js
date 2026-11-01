@@ -1,6 +1,6 @@
 import { createActionRegistry } from "./registry.js";
 import { isRecord } from "../../shared/support/normalize.js";
-import { createEventRuntime } from "../runtime/EventProvider.js";
+import { createEventRuntime } from "../runtime/eventRuntime.js";
 import { silentLogger } from "../runtime/logger.js";
 
 /** @typedef {import("../types.js").RuntimeEvents} RuntimeEvents */

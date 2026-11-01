@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createActionProvider } from "@jskit-ai/kernel/server/actions";
+import { ActionProvider } from "@jskit-ai/kernel/server/actions";
+import { EventProvider } from "@jskit-ai/kernel/server/runtime";
+import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { createAuthActions } from "../src/server/actions/authActions.js";
 import { AuthFeature } from "../src/server/providers/AuthFeature.js";
@@ -65,7 +67,8 @@ test("AuthFeature contributes actions only when auth.service exists", async () =
     }
   });
   const runtime = createCapabilityRuntime({
-    providers: [createActionProvider(), SelectedAuthProvider, AuthFeature, ProbeProvider]
+    inputs: { "runtime.logger": silentLogger },
+    providers: [EventProvider, ActionProvider, SelectedAuthProvider, AuthFeature, ProbeProvider]
   });
   await runtime.start();
   assert.equal(actions.listDefinitions().some((definition) => definition.id === "auth.login.password"), true);
@@ -81,7 +84,8 @@ test("AuthFeature contributes actions only when auth.service exists", async () =
     }
   });
   const noAuthRuntime = createCapabilityRuntime({
-    providers: [createActionProvider(), AuthFeature, EmptyProbe]
+    inputs: { "runtime.logger": silentLogger },
+    providers: [EventProvider, ActionProvider, AuthFeature, EmptyProbe]
   });
   await noAuthRuntime.start();
   assert.deepEqual(publicActions.listDefinitions(), []);

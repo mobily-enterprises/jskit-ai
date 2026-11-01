@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createSchema } from "json-rest-schema";
 
-import { createActionProvider } from "../actions/actionProvider.js";
+import { ActionProvider } from "../actions/actionProvider.js";
+import { EventProvider } from "../runtime/EventProvider.js";
+import { silentLogger } from "../runtime/logger.js";
 import { createCapabilityRuntime } from "../../shared/capabilities/runtime.js";
 import { defineFeature } from "../features/defineFeature.js";
 import { HttpProvider } from "./HttpProvider.js";
@@ -90,8 +92,8 @@ test("HttpProvider registers routes that invoke actions directly", async () => {
     }]
   });
   const runtime = createCapabilityRuntime({
-    inputs: { "runtime.fastify": fastify },
-    providers: [createActionProvider(), HttpProvider, feature]
+    inputs: { "runtime.logger": silentLogger, "runtime.fastify": fastify },
+    providers: [EventProvider, ActionProvider, HttpProvider, feature]
   });
 
   await runtime.start();
@@ -147,8 +149,8 @@ test("direct HTTP action execution preserves request-scoped stream dependencies"
     }]
   });
   const runtime = createCapabilityRuntime({
-    inputs: { "runtime.fastify": fastify },
-    providers: [createActionProvider(), HttpProvider, feature]
+    inputs: { "runtime.logger": silentLogger, "runtime.fastify": fastify },
+    providers: [EventProvider, ActionProvider, HttpProvider, feature]
   });
 
   await runtime.start();
@@ -188,8 +190,8 @@ test("route transport reaches the error handler before the route handler runs, e
     actions: []
   });
   const runtime = createCapabilityRuntime({
-    inputs: { "runtime.fastify": fastify },
-    providers: [createActionProvider(), HttpProvider, feature]
+    inputs: { "runtime.logger": silentLogger, "runtime.fastify": fastify },
+    providers: [EventProvider, ActionProvider, HttpProvider, feature]
   });
 
   await runtime.start();

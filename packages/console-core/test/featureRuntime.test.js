@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createAuthExtensions } from "@jskit-ai/auth-core/server/authExtensions";
-import { createActionProvider } from "@jskit-ai/kernel/server/actions";
+import { ActionProvider } from "@jskit-ai/kernel/server/actions";
+import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
-import { createBootstrapRuntime } from "@jskit-ai/kernel/server/runtime";
+import { createBootstrapRuntime, EventProvider } from "@jskit-ai/kernel/server/runtime";
 import { ConsoleFeature } from "../src/server/ConsoleFeature.js";
 
 test("ConsoleFeature assembles owner access, settings, routes, actions, and bootstrap explicitly", async () => {
@@ -26,6 +27,7 @@ test("ConsoleFeature assembles owner access, settings, routes, actions, and boot
   });
   const runtime = createCapabilityRuntime({
     inputs: {
+      "runtime.logger": silentLogger,
       "auth.extensions": authExtensions,
       "runtime.bootstrap": bootstrap,
       "runtime.database": { knex() {} },
@@ -37,7 +39,7 @@ test("ConsoleFeature assembles owner access, settings, routes, actions, and boot
         }
       }
     },
-    providers: [createActionProvider(), ConsoleFeature, probe]
+    providers: [EventProvider, ActionProvider, ConsoleFeature, probe]
   });
 
   await runtime.start();

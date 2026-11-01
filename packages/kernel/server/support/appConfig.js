@@ -1,54 +1,14 @@
-import { normalizeObject, normalizeText } from "../../shared/support/normalize.js";
+import { normalizeText } from "../../shared/support/normalize.js";
 import { normalizeMobileConfig } from "../../shared/support/mobileConfig.js";
-import { normalizeSurfaceId } from "../../shared/surface/registry.js";
 
-/**
- * A container scope can make appConfig; any other value supplies none.
- * @param {any} value
- * @returns {value is { has(token: string): boolean, make(token: string): unknown }}
- */
-function isContainerScope(value) {
-  // readable-check: allow method-probe - input validation: a scope may be any value, and only a container supplies appConfig
-  return Boolean(value) && typeof value === "object" && typeof value.has === "function" && typeof value.make === "function";
-}
-
-function resolveAppConfig(scope = null) {
-  if (!isContainerScope(scope) || !scope.has("appConfig")) {
-    return {};
-  }
-
-  return normalizeObject(scope.make("appConfig"));
-}
-
-function normalizeDefaultSurfaceId(value, { fallback = "" } = {}) {
-  const normalizedValue = normalizeSurfaceId(value);
-  if (normalizedValue) {
-    return normalizedValue;
-  }
-
-  const normalizedFallback = normalizeSurfaceId(fallback);
-  if (normalizedFallback) {
-    return normalizedFallback;
-  }
-
-  return "";
-}
-
-function resolveDefaultSurfaceId(scope = null, { defaultSurfaceId = "" } = {}) {
-  const appConfig = resolveAppConfig(scope);
-  return normalizeDefaultSurfaceId(defaultSurfaceId, {
-    fallback: appConfig.surfaceDefaultId
-  });
-}
-
-function resolveMobileConfig(source = null) {
-  const appConfig = isContainerScope(source) ? resolveAppConfig(source) : normalizeObject(source);
-
+/** @param {import("../types.js").RuntimeConfig} appConfig */
+function resolveMobileConfig(appConfig) {
   return normalizeMobileConfig(appConfig.mobile);
 }
 
-function resolveClientAssetMode(source = null) {
-  return resolveMobileConfig(source).assetMode;
+/** @param {import("../types.js").RuntimeConfig} appConfig */
+function resolveClientAssetMode(appConfig) {
+  return resolveMobileConfig(appConfig).assetMode;
 }
 
 function buildWebCallbackUrl(appPublicUrl = "", callbackPath = "") {
@@ -103,8 +63,12 @@ function buildAppLinkCallbackUrls(appLinkDomains = [], callbackPath = "") {
   return Object.freeze([...new Set(urls)]);
 }
 
-function resolveMobileCallbackUrls(source = null, { appPublicUrl = "" } = {}) {
-  const mobileConfig = resolveMobileConfig(source);
+/**
+ * @param {import("../types.js").RuntimeConfig} appConfig
+ * @param {{ appPublicUrl?: string }} [options]
+ */
+function resolveMobileCallbackUrls(appConfig, { appPublicUrl = "" } = {}) {
+  const mobileConfig = resolveMobileConfig(appConfig);
   const callbackPath = mobileConfig.auth.callbackPath;
   const webCallbackUrl = buildWebCallbackUrl(appPublicUrl, callbackPath);
   const mobileCallbackUrl = buildMobileCallbackUrl(mobileConfig.auth.customScheme, callbackPath);
@@ -123,9 +87,6 @@ function resolveMobileCallbackUrls(source = null, { appPublicUrl = "" } = {}) {
 }
 
 export {
-  resolveAppConfig,
-  normalizeDefaultSurfaceId,
-  resolveDefaultSurfaceId,
   resolveMobileConfig,
   resolveClientAssetMode,
   resolveMobileCallbackUrls

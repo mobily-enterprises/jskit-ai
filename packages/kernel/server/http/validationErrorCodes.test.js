@@ -6,7 +6,7 @@ import { createSchema } from "json-rest-schema";
 import english from "../../locales/en.json" with { type: "json" };
 import { catalogMessage, formatMessage, messageKeyForCode } from "../../shared/i18n/index.js";
 import { recordIdParamsValidator, resolveValidationIssueCode } from "../../shared/validators/index.js";
-import { AppError, isAppError } from "../runtime/errors.js";
+import { AppError } from "../runtime/errors.js";
 import { createActionRegistry } from "../actions/registry.js";
 import { ensureIdempotencyKeyIfRequired } from "../actions/idempotency.js";
 import { registerSurfaceRequestConstraint } from "../platform/surfaceRuntime.js";
@@ -34,7 +34,7 @@ function thrownBy(fail) {
 function createRouteApp(t, routes) {
   const app = Fastify();
   t.after(() => app.close());
-  registerApiErrorHandler(app, { isAppError });
+  registerApiErrorHandler(app);
   registerRoutes(app, {
     routes: routes.map(({ method, path, options = {}, handler, transport }) => ({
       method,
@@ -137,7 +137,7 @@ function createValidationApp(t, fastifyOptions = {}) {
   const app = Fastify(fastifyOptions);
   t.after(() => app.close());
   const failures = [];
-  registerApiErrorHandler(app, { isAppError });
+  registerApiErrorHandler(app);
   app.addHook("onError", async (_request, _reply, error) => {
     failures.push(error);
   });
@@ -209,7 +209,7 @@ test("Fastify schema validation errors carry kernel.validation codes rendering A
 test("every error class leaving the API has a code and params", async (t) => {
   const app = Fastify();
   t.after(() => app.close());
-  registerApiErrorHandler(app, { isAppError });
+  registerApiErrorHandler(app);
   const errors = {
     app: () => new AppError(409, "Busy.", { code: "x.busy", params: { n: 1 } }),
     uncodedApp: () => new AppError(400, "Bad."),
@@ -258,19 +258,6 @@ test("the kernel's own errors and statuses render their English from the catalog
     assertCatalogRenders(coded, error.details.fieldErrors[field]);
     assertCatalogRenders({ code: error.code, params: error.params }, error.message);
   }
-
-  const app = createRouteApp(t, [
-    {
-      method: "POST",
-      path: "/api/books",
-      options: { body: { schema: createSchema({ title: { type: "string" } }), mode: "create" } },
-      handler: async (_request, reply) => reply.send({ ok: true })
-    },
-    { method: "GET", path: "/api/missing" }
-  ]);
-  const missing = (await app.inject({ method: "GET", url: "/api/missing" })).json();
-  assert.equal(missing.code, "kernel.route.handlerUnavailable");
-  assertCatalogRenders(missing, missing.error);
 
   const surfaceApp = Fastify();
   t.after(() => surfaceApp.close());
