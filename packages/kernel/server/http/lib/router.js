@@ -1,7 +1,7 @@
-import { ensureNonEmptyText, normalizeObject, normalizeText } from "../../../shared/support/normalize.js";
+import { ensureNonEmptyText, normalizeArray, normalizeObject, normalizeText } from "../../../shared/support/normalize.js";
 import { RouteDefinitionError } from "./errors.js";
 import { resolveRouteValidatorOptions } from "./routeValidator.js";
-import { normalizeMiddlewareStack as normalizeSharedMiddlewareStack, resolveRouteLabel } from "./routeSupport.js";
+import { resolveRouteLabel } from "./routeSupport.js";
 import { normalizeRouteOutputTransform, normalizeRouteTransport } from "./routeTransport.js";
 
 function normalizeMethod(method) {
@@ -16,13 +16,12 @@ function normalizePath(pathname) {
   return value.replace(/\/+/g, "/").replace(/(.)\/$/, "$1");
 }
 
-function normalizeRouterMiddlewareStack(value, { context = "middleware" } = {}) {
-  return normalizeSharedMiddlewareStack(value, {
-    context,
-    ErrorType: RouteDefinitionError,
-    entryLabel: "entries",
-    includeIndex: false
-  });
+function normalizeRouteMiddleware(value, routeLabel) {
+  const middleware = normalizeArray(value);
+  if (middleware.some((entry) => typeof entry !== "function")) {
+    throw new RouteDefinitionError(`Route ${routeLabel} middleware entries must be functions.`);
+  }
+  return Object.freeze([...middleware]);
 }
 
 function normalizeRouteInternal(value, { method = "", path = "" } = {}) {
@@ -73,9 +72,7 @@ class HttpRouter {
       path: input.path,
       options: input.options
     });
-    const routeMiddleware = normalizeRouterMiddlewareStack(resolvedOptions.middleware, {
-      context: `Route ${input.method} ${input.path} middleware`
-    });
+    const routeMiddleware = normalizeRouteMiddleware(resolvedOptions.middleware, `${input.method} ${input.path}`);
     const routeInput = Object.hasOwn(resolvedOptions, "input") ? resolvedOptions.input : null;
     const routeOutput = normalizeRouteOutputTransform(
       Object.hasOwn(resolvedOptions, "output") ? resolvedOptions.output : null,
@@ -116,7 +113,7 @@ class HttpRouter {
       ownerResolver: resolvedOptions.ownerResolver,
       csrfProtection: resolvedOptions.csrfProtection,
       bodyLimit: resolvedOptions.bodyLimit,
-      middleware: Object.freeze(routeMiddleware),
+      middleware: routeMiddleware,
       handler: input.handler
     });
 

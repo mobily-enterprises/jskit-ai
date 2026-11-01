@@ -721,11 +721,11 @@ Local functions
 
 ### `server/http/directRequestActionExecutor.js`
 Exports
-- `attachDirectRequestActionExecutor({ actions, request, property = "executeAction", defaultChannel = "api", defaultSurfaceId = "" })`
+- `attachDirectRequestActionExecutor({ actions, request, defaultChannel = "api", defaultSurfaceId = "" })`
 - `type ActionCatalogue`
 Local functions
-- `resolveSurface(request, explicitSurface = "", defaultSurfaceId = "")`
-- `routeVisibility(request, payload = {})`
+- `resolveSurface(request, explicitSurface, defaultSurfaceId)`
+- `routeVisibility(request, payload)`
 
 ### `server/http/errorHandling.js`
 Exports
@@ -760,26 +760,16 @@ Exports
 
 ### `server/http/lib/actionRouteScope.js`
 Exports
-- `createActionRouteScope(http, { routeBase = "/", relativePath = "", surface = "", strictParams = false, wrapHandler = null } = {})`
+- `createActionRouteScope(http, { routeBase = "/", relativePath = "", surface = "", strictParams = false, wrapHandler = handlerAsGiven } = {})`
 Local functions
 - `emptyInput()`
+- `handlerAsGiven(handler)`
 
 ### `server/http/lib/errors.js`
 Exports
 - `HttpKernelError`
 - `RouteDefinitionError`
 - `RouteRegistrationError`
-
-### `server/http/lib/middlewareRuntime.js`
-Exports
-- `executeMiddlewareStack(middleware, request, reply)`
-- `normalizeRuntimeMiddlewareConfig(runtimeMiddleware)`
-- `resolveRouteMiddlewareHandlers(route, runtimeMiddlewareConfig)`
-Local functions
-- `normalizeMiddlewareName(value)`
-- `normalizeMiddlewareAliases(sourceAliases)`
-- `normalizeMiddlewareGroups(sourceGroups)`
-- `expandMiddlewareEntry({ entry, runtimeMiddlewareConfig, resolvedHandlers, groupStack, routeLabel })`
 
 ### `server/http/lib/router.js`
 Exports
@@ -788,7 +778,7 @@ Exports
 Local functions
 - `normalizeMethod(method)`
 - `normalizePath(pathname)`
-- `normalizeRouterMiddlewareStack(value, { context = "middleware" } = {})`
+- `normalizeRouteMiddleware(value, routeLabel)`
 - `normalizeRouteInternal(value, { method = "", path = "" } = {})`
 - `normalizeRouteInput(method, path, optionsOrHandler, maybeHandler)`
 
@@ -799,22 +789,20 @@ Exports
 - `type RuntimeFastify`
 Local functions
 - `toFastifyRouteOptions(route)`
-- `shouldStripFastifyBodySchema(route = null, schema = null)`
+- `shouldStripFastifyBodySchema(route, schema)`
 - `normalizeHeaderValue(value)`
 - `normalizeMediaType(value = "")`
-- `routeDefinesRequestBody(route = null)`
-- `shouldEnforceRequestContentType(method = "", transport = null, route = null)`
-- `routeRequiresJsonApiContentTypeParser(route = null)`
-- `enforceRequestContentType({ request = null, route = null, transport = null } = {})`
-- `replyHasHeader(reply, name = "")`
-- `buildRequestInput(request, { inputTransforms = null, transportInputTransforms = null } = {})`
-- `wrapReplySend({ reply = null, request = null, route = null, outputTransform = null, transport = null } = {})`
+- `routeDefinesRequestBody(route)`
+- `shouldEnforceRequestContentType(route, transport)`
+- `routeRequiresJsonApiContentTypeParser(route)`
+- `enforceRequestContentType({ request, route, transport })`
+- `buildRequestInput(request, { inputTransforms, transportInputTransforms })`
+- `executeMiddlewareStack(middleware, request, reply)`
+- `wrapReplySend({ reply, request, route, outputTransform, transport })`
 
 ### `server/http/lib/routeSupport.js`
 Exports
 - `resolveRouteLabel({ method = "", path = "" } = {})`
-- `normalizeMiddlewareEntry(entry, { context = "middleware", index = -1, ErrorType = Error, entryLabel = "entry" } = {})`
-- `normalizeMiddlewareStack(value, { context = "middleware", ErrorType = Error, entryLabel = "entry", includeIndex = true } = {})`
 
 ### `server/http/lib/routeTransport.js`
 Exports
@@ -1027,7 +1015,7 @@ Exports
 ### `server/support/routePolicyConfig.js`
 Exports
 - `normalizeRoutePolicyConfig(routeOptions, route)`
-- `defaultApplyRoutePolicy(routeOptions, route)`
+- `applyRoutePolicy(routeOptions, route)`
 
 ### `server/support/symlinkSafeRequire.js`
 Exports

@@ -4,6 +4,7 @@ import { normalizeText } from "../../../shared/support/normalize.js";
 import { RouteDefinitionError } from "./errors.js";
 
 const emptyInput = () => ({});
+const handlerAsGiven = (handler) => handler;
 
 /**
  * A group of HTTP routes under one scoped API base. Action routes name the
@@ -17,7 +18,7 @@ const emptyInput = () => ({});
  * @param {string} [scope.relativePath]
  * @param {string} [scope.surface]
  * @param {boolean} [scope.strictParams]
- * @param {((handler: Function, route: { method: string, path: string, options: object }) => Function) | null} [scope.wrapHandler]
+ * @param {(handler: Function, route: { method: string, path: string, options: object }) => Function} [scope.wrapHandler] Wraps each route's handler; by default the handler is registered as given.
  */
 function createActionRouteScope(
   http,
@@ -26,7 +27,7 @@ function createActionRouteScope(
     relativePath = "",
     surface = "",
     strictParams = false,
-    wrapHandler = null
+    wrapHandler = handlerAsGiven
   } = {}
 ) {
   const router = http?.router;
@@ -34,7 +35,8 @@ function createActionRouteScope(
   if (!router || typeof router.register !== "function") {
     throw new RouteDefinitionError("createActionRouteScope requires runtime.http with router.register().");
   }
-  if (wrapHandler != null && typeof wrapHandler !== "function") {
+  // readable-check: allow method-probe - input validation: the application passes its own handler wrapper
+  if (typeof wrapHandler !== "function") {
     throw new RouteDefinitionError("createActionRouteScope wrapHandler must be a function.");
   }
 
@@ -42,13 +44,13 @@ function createActionRouteScope(
   const scopeSurface = normalizeSurfaceId(surface);
 
   function register(method, suffix, options, handler) {
+    // readable-check: allow method-probe - input validation: the router sees only the wrapper, so the scope checks the route's own handler
     if (typeof handler !== "function") {
       throw new RouteDefinitionError(`Route ${method} ${scopeBase}${suffix} requires a handler function.`);
     }
     const path = `${scopeBase}${suffix}`;
     const routeOptions = { ...options, ...(scopeSurface ? { surface: scopeSurface } : {}) };
-    const routeHandler = wrapHandler ? wrapHandler(handler, { method, path, options: routeOptions }) : handler;
-    router.register(method, path, routeOptions, routeHandler);
+    router.register(method, path, routeOptions, wrapHandler(handler, { method, path, options: routeOptions }));
   }
 
   function actionRoute(method, suffix, options = {}) {

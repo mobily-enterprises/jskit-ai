@@ -1,10 +1,9 @@
-import { normalizeObject, normalizeText } from "../../../shared/support/normalize.js";
+import { isRecord, normalizeObject, normalizeText } from "../../../shared/support/normalize.js";
 import { AppError } from "../../runtime/errors.js";
-import { defaultApplyRoutePolicy } from "../../support/routePolicyConfig.js";
+import { applyRoutePolicy } from "../../support/routePolicyConfig.js";
 import { normalizeSurfaceId } from "../../../shared/surface/registry.js";
 import { registerJsonApiContentTypeParser } from "../errorHandling.js";
 import { RouteRegistrationError } from "./errors.js";
-import { executeMiddlewareStack, normalizeRuntimeMiddlewareConfig, resolveRouteMiddlewareHandlers } from "./middlewareRuntime.js";
 import { attachDirectRequestActionExecutor } from "../directRequestActionExecutor.js";
 import { resolveRouteLabel } from "./routeSupport.js";
 import { JSON_API_CONTENT_TYPE } from "./routeTransport.js";
@@ -33,17 +32,13 @@ function toFastifyRouteOptions(route) {
   };
 }
 
-function shouldStripFastifyBodySchema(route = null, schema = null) {
-  if (!route || !schema || typeof schema !== "object" || Array.isArray(schema)) {
-    return false;
-  }
-
-  if (!Object.prototype.hasOwnProperty.call(schema, "body")) {
+function shouldStripFastifyBodySchema(route, schema) {
+  if (!isRecord(schema) || !Object.hasOwn(schema, "body")) {
     return false;
   }
 
   // readable-check: allow method-probe - data: a route may transform its body input
-  return typeof route?.input?.body === "function";
+  return typeof route.input?.body === "function";
 }
 
 function normalizeHeaderValue(value) {
@@ -60,33 +55,29 @@ function normalizeMediaType(value = "") {
     .toLowerCase();
 }
 
-function routeDefinesRequestBody(route = null) {
-  if (!route || typeof route !== "object") {
-    return false;
-  }
-
-  return route.body != null || route.schema?.body != null;
+function routeDefinesRequestBody(route) {
+  return route.schema?.body != null;
 }
 
-function shouldEnforceRequestContentType(method = "", transport = null, route = null) {
+function shouldEnforceRequestContentType(route, transport) {
   return (
-    UNSAFE_BODY_METHODS.includes(String(method || "").toUpperCase()) &&
+    UNSAFE_BODY_METHODS.includes(route.method) &&
     normalizeText(transport?.contentType).length > 0 &&
     routeDefinesRequestBody(route)
   );
 }
 
-function routeRequiresJsonApiContentTypeParser(route = null) {
-  return routeDefinesRequestBody(route) && normalizeMediaType(route?.transport?.contentType) === JSON_API_CONTENT_TYPE;
+function routeRequiresJsonApiContentTypeParser(route) {
+  return routeDefinesRequestBody(route) && normalizeMediaType(route.transport?.contentType) === JSON_API_CONTENT_TYPE;
 }
 
-function enforceRequestContentType({ request = null, route = null, transport = null } = {}) {
-  if (!shouldEnforceRequestContentType(route?.method, transport, route)) {
+function enforceRequestContentType({ request, route, transport }) {
+  if (!shouldEnforceRequestContentType(route, transport)) {
     return;
   }
 
-  const expectedContentType = normalizeMediaType(transport?.contentType);
-  const actualContentType = normalizeMediaType(request?.headers?.["content-type"]);
+  const expectedContentType = normalizeMediaType(transport.contentType);
+  const actualContentType = normalizeMediaType(request.headers["content-type"]);
   if (actualContentType === expectedContentType) {
     return;
   }
@@ -97,33 +88,10 @@ function enforceRequestContentType({ request = null, route = null, transport = n
   });
 }
 
-function replyHasHeader(reply, name = "") {
-  const normalizedName = String(name || "").trim().toLowerCase();
-  if (!normalizedName || !reply) {
-    return false;
-  }
-
-  // readable-check: allow method-probe - platform object: a reply without hasHeader() is read through getHeader() or headers
-  if (typeof reply.hasHeader === "function") {
-    return reply.hasHeader(normalizedName);
-  }
-
-  // readable-check: allow method-probe - platform object: a reply without getHeader() is read through headers
-  if (typeof reply.getHeader === "function") {
-    return reply.getHeader(normalizedName) != null;
-  }
-
-  if (reply.headers && typeof reply.headers === "object") {
-    return Object.keys(reply.headers).some((key) => String(key || "").trim().toLowerCase() === normalizedName);
-  }
-
-  return false;
-}
-
-async function buildRequestInput(request, { inputTransforms = null, transportInputTransforms = null } = {}) {
+async function buildRequestInput(request, { inputTransforms, transportInputTransforms }) {
   const input = {};
   for (const key of REQUEST_INPUT_KEYS) {
-    let value = request?.[key];
+    let value = request[key];
     const transportTransform = transportInputTransforms?.[key];
     if (typeof transportTransform === "function" && (key !== "body" || value !== undefined)) {
       value = await transportTransform(value, request);
@@ -137,20 +105,24 @@ async function buildRequestInput(request, { inputTransforms = null, transportInp
   return Object.freeze(input);
 }
 
-function wrapReplySend({ reply = null, request = null, route = null, outputTransform = null, transport = null } = {}) {
-  // readable-check: allow method-probe - platform object: only a reply that can send is wrapped
-  if (!reply || typeof reply.send !== "function") {
-    return;
+async function executeMiddlewareStack(middleware, request, reply) {
+  for (const handler of middleware) {
+    await handler(request, reply);
+    if (reply.sent) {
+      return;
+    }
   }
+}
 
+function wrapReplySend({ reply, request, route, outputTransform, transport }) {
   const originalSend = reply.send.bind(reply);
   reply.send = function transformedSend(payload) {
-    const statusCode = Number(reply?.statusCode || 200);
+    const statusCode = Number(reply.statusCode || 200);
 
     if (payload instanceof Error || statusCode >= 400) {
       if (
         normalizeText(transport?.contentType) &&
-        !replyHasHeader(reply, "content-type")
+        !reply.hasHeader("content-type")
       ) {
         reply.header("Content-Type", transport.contentType);
       }
@@ -197,7 +169,7 @@ function wrapReplySend({ reply = null, request = null, route = null, outputTrans
     if (
       normalizeText(transport?.contentType) &&
       statusCode !== 204 &&
-      !replyHasHeader(reply, "content-type")
+      !reply.hasHeader("content-type")
     ) {
       reply.header("Content-Type", transport.contentType);
     }
@@ -214,15 +186,13 @@ function wrapReplySend({ reply = null, request = null, route = null, outputTrans
  */
 function registerRoutes(fastify, { routes, actions }) {
   const publicRoutes = routes.filter((route) => route.internal !== true);
-  const runtimeMiddlewareConfig = normalizeRuntimeMiddlewareConfig({});
 
   if (publicRoutes.some((route) => routeRequiresJsonApiContentTypeParser(route))) {
     registerJsonApiContentTypeParser(fastify);
   }
 
   for (const route of publicRoutes) {
-    const routeOptions = defaultApplyRoutePolicy(toFastifyRouteOptions(route), route);
-    const resolvedMiddlewareHandlers = resolveRouteMiddlewareHandlers(route, runtimeMiddlewareConfig);
+    const routeOptions = applyRoutePolicy(toFastifyRouteOptions(route), route);
     const routeTransport = route.transport || null;
     const routeActionDefaultSurface = normalizeSurfaceId(route.surface || routeOptions.config.surface);
 
@@ -232,8 +202,6 @@ function registerRoutes(fastify, { routes, actions }) {
         attachDirectRequestActionExecutor({
           actions,
           request,
-          property: "executeAction",
-          defaultChannel: "api",
           defaultSurfaceId: routeActionDefaultSurface
         });
 
@@ -259,8 +227,8 @@ function registerRoutes(fastify, { routes, actions }) {
           transport: routeTransport
         });
 
-        await executeMiddlewareStack(resolvedMiddlewareHandlers, request, reply);
-        if (reply?.sent) {
+        await executeMiddlewareStack(route.middleware, request, reply);
+        if (reply.sent) {
           return;
         }
         await route.handler(request, reply);

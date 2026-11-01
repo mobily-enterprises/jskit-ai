@@ -41,11 +41,11 @@ function normalizeRoutePolicyConfig(routeOptions, route) {
   return nextConfig;
 }
 
-function defaultApplyRoutePolicy(routeOptions, route) {
+function applyRoutePolicy(routeOptions, route) {
   return {
     ...routeOptions,
     config: normalizeRoutePolicyConfig(routeOptions, route)
   };
 }
 
-export { normalizeRoutePolicyConfig, defaultApplyRoutePolicy };
+export { normalizeRoutePolicyConfig, applyRoutePolicy };

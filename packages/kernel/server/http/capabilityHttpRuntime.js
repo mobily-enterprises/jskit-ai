@@ -4,6 +4,7 @@ import {
   normalizeVisibilityContext
 } from "../../shared/support/visibility.js";
 import { normalizeText } from "../../shared/support/normalize.js";
+import { resolveRequest } from "../actions/actionContributorHelpers.js";
 import { createRouter } from "./lib/router.js";
 import { registerRoutes } from "./lib/routeRegistration.js";
 import {
@@ -63,7 +64,7 @@ function createCapabilityHttpRuntime({ fastify, actions }) {
       const patch = {};
       for (const resolver of visibilityResolvers) {
         const contribution = await resolver.resolve(Object.freeze({
-          request: context.requestMeta?.request || null,
+          request: resolveRequest(context),
           visibility,
           context,
           input,

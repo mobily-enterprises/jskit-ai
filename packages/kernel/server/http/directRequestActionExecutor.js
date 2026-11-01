@@ -1,20 +1,20 @@
-import { normalizeObject, normalizeText } from "../../shared/support/normalize.js";
+import { normalizeLowerText, normalizeObject } from "../../shared/support/normalize.js";
 import { normalizeRouteVisibilityToken } from "../../shared/support/visibility.js";
 import { normalizeSurfaceId } from "../../shared/surface/registry.js";
 
 /** @typedef {import("../types.js").ActionCatalogue} ActionCatalogue */
 
-function resolveSurface(request, explicitSurface = "", defaultSurfaceId = "") {
+function resolveSurface(request, explicitSurface, defaultSurfaceId) {
   return (
-    normalizeText(explicitSurface).toLowerCase() ||
-    normalizeText(request?.routeOptions?.config?.surface).toLowerCase() ||
-    normalizeText(request?.surface).toLowerCase() ||
+    normalizeSurfaceId(explicitSurface) ||
+    normalizeSurfaceId(request.routeOptions?.config?.surface) ||
+    normalizeSurfaceId(request.surface) ||
     normalizeSurfaceId(defaultSurfaceId)
   );
 }
 
-function routeVisibility(request, payload = {}) {
-  const routeConfig = normalizeObject(request?.routeOptions?.config);
+function routeVisibility(request, payload) {
+  const routeConfig = normalizeObject(request.routeOptions?.config);
   return normalizeRouteVisibilityToken(
     Object.hasOwn(routeConfig, "visibility")
       ? routeConfig.visibility
@@ -26,29 +26,26 @@ function routeVisibility(request, payload = {}) {
  * @param {object} options
  * @param {ActionCatalogue} options.actions
  * @param {any} options.request The request to give an executeAction(); anything else is left alone.
- * @param {string} [options.property]
  * @param {string} [options.defaultChannel]
  * @param {string} [options.defaultSurfaceId]
  */
 function attachDirectRequestActionExecutor({
   actions,
   request,
-  property = "executeAction",
   defaultChannel = "api",
   defaultSurfaceId = ""
 }) {
   if (!request || typeof request !== "object") {
     return null;
   }
-  const propertyName = normalizeText(property) || "executeAction";
   // readable-check: allow method-probe - platform object: a request that already has an executor keeps it
-  if (typeof request[propertyName] === "function") {
-    return request[propertyName];
+  if (typeof request.executeAction === "function") {
+    return request.executeAction;
   }
 
   const executeAction = async (payload = {}) => {
     const source = normalizeObject(payload);
-    const channel = normalizeText(source.channel || defaultChannel).toLowerCase() || "api";
+    const channel = normalizeLowerText(source.channel) || defaultChannel;
     const context = Object.freeze({
       ...normalizeObject(source.context),
       channel,
@@ -73,7 +70,7 @@ function attachDirectRequestActionExecutor({
     });
   };
 
-  Object.defineProperty(request, propertyName, {
+  Object.defineProperty(request, "executeAction", {
     configurable: true,
     enumerable: false,
     writable: true,
