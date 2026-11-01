@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import knexLib from "knex";
+import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import {
   createJsonRestApiHost,
   createJsonRestResourceScopeOptions
@@ -97,7 +98,7 @@ async function createDatabaseRepository(t) {
     table.increments("id");
     table.string("message").notNullable();
   });
-  const api = await createJsonRestApiHost({ knex });
+  const api = await createJsonRestApiHost({ knex, logger: silentLogger });
   const resource = { tableName: "books", schema: { title: { type: "string", required: true } } };
   await api.addResource("books", createJsonRestResourceScopeOptions(resource));
   const repository = createCrudJsonApiRepository({ api, resource, resourceScopeName: "books" });

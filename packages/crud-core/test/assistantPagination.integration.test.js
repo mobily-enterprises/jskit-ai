@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import knexLib from "knex";
+import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { createServiceToolCatalog } from "@jskit-ai/assistant-core/server";
 import { createActionCatalogue } from "@jskit-ai/kernel/server/actions";
 import {
@@ -51,7 +52,7 @@ test("assistant list traverses real SQL pages with sparse fields and capped limi
       createdAt: { type: "dateTime", temporalPrecision: 3, column: "created_at" }
     }
   });
-  const api = await createJsonRestApiHost({ knex });
+  const api = await createJsonRestApiHost({ knex, logger: silentLogger });
   await addResourceIfMissing(api, "books", createJsonRestResourceScopeOptions(resource));
   const repository = createCrudJsonApiRepository({ api, resource, resourceScopeName: "books" });
   const service = createCrudJsonApiService({ repository });

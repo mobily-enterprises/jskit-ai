@@ -17,7 +17,6 @@ import {
   normalizeJsonApiFieldsets
 } from "@jskit-ai/kernel/shared/support/jsonApiFieldsets";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 
 const JSON_REST_AUTOFILTER_PRESETS = Object.freeze({
   public: Object.freeze([]),
@@ -52,15 +51,6 @@ const JSON_REST_RESERVED_QUERY_KEYS = Object.freeze(new Set([
   "sort",
   "fields"
 ]));
-/**
- * The logger json-rest-api gets when its host is given none: its errors reach
- * the console and everything else is dropped.
- * @type {import("@jskit-ai/kernel/server/types").RuntimeLogger}
- */
-const consoleErrorLogger = Object.freeze({
-  ...silentLogger,
-  error: (...args) => console.error(...args)
-});
 
 function isPlainJsonRestObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -610,9 +600,9 @@ async function returnBadRequestWhenJsonRestFieldsetInvalid(run) {
 /**
  * @param {object} dependencies
  * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} dependencies.knex
- * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} [dependencies.logger] Without one, only json-rest-api's errors are logged, to the console.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger Receives json-rest-api's log calls.
  */
-async function createJsonRestApiHost({ knex, logger = consoleErrorLogger }) {
+async function createJsonRestApiHost({ knex, logger }) {
   if (typeof knex !== "function") {
     throw new TypeError("createJsonRestApiHost requires knex.");
   }

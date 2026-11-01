@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import knexLib from "knex";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
+import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { JsonRestApi, RestApiFieldsetError, RestApiWriteError } from "json-rest-api";
 
 import {
@@ -48,7 +49,7 @@ test("server entrypoint exports shared host helpers", () => {
   assert.equal(typeof resolveWorkspaceScopeValue, "function");
   assert.equal(typeof resolveUserScopeValue, "function");
   assert.equal(JsonRestApiProvider.id, "runtime.json-rest-api");
-  assert.deepEqual(JsonRestApiProvider.requires, { database: "runtime.database" });
+  assert.deepEqual(JsonRestApiProvider.requires, { database: "runtime.database", logger: "runtime.logger" });
   assert.deepEqual(JsonRestApiProvider.provides, { jsonRestApi: "runtime.json-rest-api" });
 });
 
@@ -126,7 +127,8 @@ test("createJsonRestApiHost installs normalizeRecordId as the default resource i
   });
 
   const api = await createJsonRestApiHost({
-    knex: fakeKnex
+    knex: fakeKnex,
+    logger: silentLogger
   });
 
   assert.equal(api.vars.normalizeId, normalizeRecordId);
@@ -135,7 +137,7 @@ test("createJsonRestApiHost installs normalizeRecordId as the default resource i
   assert.equal(api.vars.normalizeId(7.5), null);
 });
 
-test("createJsonRestApiHost uses the v2 runtime, error-only default logging and an injected logger", async (t) => {
+test("createJsonRestApiHost uses the v2 runtime and the logger it is given", async () => {
   const fakeKnex = Object.assign(() => {}, {
     client: {
       config: {
@@ -155,7 +157,7 @@ test("createJsonRestApiHost uses the v2 runtime, error-only default logging and 
   const messages = [];
   const api = await createJsonRestApiHost({
     knex: fakeKnex,
-    logger: { error: (...args) => messages.push(args) }
+    logger: { ...silentLogger, error: (...args) => messages.push(args) }
   });
 
   assert.ok(api instanceof JsonRestApi);
@@ -165,12 +167,13 @@ test("createJsonRestApiHost uses the v2 runtime, error-only default logging and 
   api.log.error("failure", { code: "example" });
   assert.deepEqual(messages, [["failure", { code: "example" }]]);
 
-  const errorSink = t.mock.method(console, "error", () => {});
-  const defaultApi = await createJsonRestApiHost({ knex: fakeKnex });
-  defaultApi.log.info("quiet");
-  defaultApi.log.error("default failure");
-  assert.equal(errorSink.mock.callCount(), 1);
-  assert.deepEqual(errorSink.mock.calls[0].arguments, ["default failure"]);
+  const providerMessages = [];
+  const { jsonRestApi } = await JsonRestApiProvider.setup({
+    database: { knex: fakeKnex },
+    logger: { ...silentLogger, warn: (...args) => providerMessages.push(args) }
+  });
+  jsonRestApi.log.warn("provider warning");
+  assert.deepEqual(providerMessages, [["provider warning"]]);
 });
 
 test("createJsonRestApiHost installs row policies before resources are added", async () => {
@@ -190,7 +193,7 @@ test("createJsonRestApiHost installs row policies before resources are added", a
     transaction() {}
   });
 
-  const api = await createJsonRestApiHost({ knex: fakeKnex });
+  const api = await createJsonRestApiHost({ knex: fakeKnex, logger: silentLogger });
   const rowPolicy = () => false;
   const scopeOptions = createJsonRestResourceScopeOptions({
     tableName: "private_contacts",
@@ -555,7 +558,7 @@ test("createJsonRestApiHost installs json-rest-api query projections", async (t)
     table.increments("id");
   });
   await knex("projection_contacts").insert({ id: 1 });
-  const api = await createJsonRestApiHost({ knex });
+  const api = await createJsonRestApiHost({ knex, logger: silentLogger });
 
   await api.addResource("projectionContacts", {
     tableName: "projection_contacts",
@@ -594,7 +597,7 @@ async function createTemporalFixture() {
       table.time("opens_at");
       table.integer("holiday_id").references("id").inTable("holidays");
     });
-    const api = await createJsonRestApiHost({ knex });
+    const api = await createJsonRestApiHost({ knex, logger: silentLogger });
     await api.addResource("holidays", createJsonRestResourceScopeOptions({
       tableName: "holidays",
       schema: {
@@ -653,6 +656,7 @@ test("calendar date writes and responses keep leap day across server time zones"
   const hostModuleUrl = new URL("../src/server/jsonRestApiHost.js", import.meta.url).href;
   const script = `
     import knexLib from "knex";
+    import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
     import { createJsonRestApiHost, createJsonRestResourceScopeOptions } from ${JSON.stringify(hostModuleUrl)};
     ${createTemporalFixture.toString()}
     const { api, knex } = await createTemporalFixture();
