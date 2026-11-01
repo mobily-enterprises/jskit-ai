@@ -90,6 +90,38 @@ test("a cached call whose target disappeared is resolved again", async (t) => {
   assert.equal(warm.calls.find((call) => call.evidence[0].path === "src/d.js").callee, "helper");
 });
 
+// actions.js's `read()` runs later, so the functions callers in provider.js
+// pass decide its targets; provider.js changes while actions.js, which does not
+// import it, keeps its cache key.
+test("a call resolved from another file's arguments follows a change to that file", async (t) => {
+  const reader = "export function createReader(read) {\n  return { execute: () => read() };\n}\n";
+  const provider = (calls) => [
+    "import { createReader } from \"./actions.js\";",
+    "function first() { return 1; }",
+    "function second() { return 2; }",
+    `export function setup() { ${calls} }`,
+    ""
+  ].join("\n");
+  const { root, input } = await project(t, {
+    ...SOURCE,
+    "src/actions.js": reader,
+    "src/provider.js": provider("createReader(first); createReader(second);")
+  });
+  const directory = await cacheDirectory(t);
+  const before = await inspect(root, { ...input, cacheDirectory: directory });
+  const facts = (result) => result.calls.filter((call) => call.callee === "read")
+    .map((call) => [call.resolution, call.certainty, call.method, call.targets]);
+  assert.deepEqual(facts(before), [["ambiguous", "probable", "argument-flow", ["fn:src/provider.js#2:1", "fn:src/provider.js#3:1"]]]);
+  await mark(directory, ["src/c.js"]);
+  const changed = await change(root, input, "src/provider.js", provider("createReader(first);"));
+  const warm = await inspect(root, { ...changed, cacheDirectory: directory });
+  assert.deepEqual(facts(warm), [["resolved", "exact", "argument-flow", ["fn:src/provider.js#2:1"]]]);
+  assert.deepEqual(warm.calls.filter((call) => call.callee !== "reused src/c.js"),
+    (await inspect(root, changed)).calls.filter((call) => call.evidence[0].path !== "src/c.js"));
+  // A file that no bound site reaches keeps its records.
+  assert.equal(callees(warm)["src/c.js"], "reused src/c.js");
+});
+
 test("a changed manifest, Stack hash or option rebuilds every file", async (t) => {
   const { root, input } = await project(t, SOURCE);
   const directory = await cacheDirectory(t);
@@ -119,7 +151,7 @@ test("an absent, relative, in-project or corrupt cache gives a cold run", async 
   assert.equal((await readdir(path.join(root, "src"))).includes(CACHE_FILE), false);
   await writeFile(path.join(directory, CACHE_FILE), "{not json");
   assert.deepEqual(await inspect(root, { ...input, cacheDirectory: directory }), cold);
-  assert.equal(JSON.parse(await readFile(path.join(directory, CACHE_FILE), "utf8")).schema, "jskit.architecture-calls-cache.v2");
+  assert.equal(JSON.parse(await readFile(path.join(directory, CACHE_FILE), "utf8")).schema, "jskit.architecture-calls-cache.v3");
 });
 
 test("a changed inspector source changes the cache key without a version bump", async (t) => {

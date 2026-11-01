@@ -35,7 +35,8 @@ function rangeOf(sourceFile, node) {
 // resolved calls and call sites, transport operation uses, named action entry
 // points and entry operation controllers. `reuse` holds
 // earlier call records of files whose own and directly imported sources are
-// unchanged; they are kept unless a target no longer exists.
+// unchanged; they are kept unless a target no longer exists or the sites
+// other files' arguments resolve in them have changed.
 function inspectCalls({
   projectRoot,
   sources,
@@ -124,22 +125,25 @@ function inspectCalls({
   });
   const functionId = (node) => recordByNode.get(node)?.id;
   const functionIds = new Set(nodeById.keys());
-  const reused = new Set([...reuse].filter(([file, cached]) => callsByFile.has(file) &&
-    cached.calls.every((record) => record.targets.every((target) => functionIds.has(target)))).map(([file]) => file));
+  const targetsExist = (entries) => entries.every(({ 1: targets }) => targets.every((target) => functionIds.has(target)));
+  const reusable = new Set([...reuse].filter(([file, cached]) => callsByFile.has(file) &&
+    targetsExist(cached.sites) && cached.calls.every((record) => record.targets.every((target) => functionIds.has(target))))
+    .map(([file]) => file));
   // Each file's checker targets per call position, in call order, so argument
   // flow into closures that run later sees the same call sites whether a file
-  // is reused or resolved.
-  // A site injection or argument flow resolved carries a third element when
-  // its targets are a guess.
+  // is reused or resolved. A reused file's checker sites depend only on its own
+  // and directly imported sources, so they come from the cache.
   const sitesByFile = new Map();
-  const resolvedCalls = [];
+  const candidatesByFile = new Map();
   for (const [file, calls] of callsByFile) {
-    if (reused.has(file)) {
+    if (reusable.has(file)) {
+      const cached = reuse.get(file);
       const callAt = new Map(calls.map((call) => [call.getStart(), call]));
-      for (const [position, targets, probable] of reuse.get(file).sites) {
-        resolver.indexSite(callAt.get(position), targets.map((target) => nodeById.get(target)), probable === 1);
+      for (const [position, targets] of cached.sites) {
+        resolver.indexSite(callAt.get(position), targets.map((target) => nodeById.get(target)));
       }
-      sitesByFile.set(file, reuse.get(file).sites);
+      sitesByFile.set(file, cached.sites);
+      candidatesByFile.set(file, resolver.boundCandidates(cached.boundCandidates.map((position) => callAt.get(position))));
       continue;
     }
     const sites = [];
@@ -149,15 +153,37 @@ function inspectCalls({
       }
     });
     sitesByFile.set(file, sites);
-    resolvedCalls.push(...calls.map((call) => ({ file, call })));
+    candidatesByFile.set(file, resolver.boundCandidates(calls));
   }
-  resolver.indexBoundCalls(resolvedCalls.map(({ call }) => call)).forEach(({ targets, probable }, index) => {
-    const { file, call } = resolvedCalls[index];
+  // The sites injection and argument flow resolve depend on other files'
+  // arguments, so they are resolved on every run, for every file. A site
+  // carries a third element when its targets are a guess.
+  const candidates = [...candidatesByFile.values()].flat();
+  const boundByFile = new Map([...callsByFile.keys()].map((file) => [file, []]));
+  resolver.indexBoundCalls(candidates).forEach(({ targets, probable }, index) => {
+    const call = candidates[index];
+    const file = fileOf(call);
     const ids = targets.map(functionId);
     if (ids.length && ids.every(Boolean) && !sitesByFile.get(file).some(([position]) => position === call.getStart())) {
-      sitesByFile.get(file).push(probable ? [call.getStart(), ids, 1] : [call.getStart(), ids]);
+      boundByFile.get(file).push(probable ? [call.getStart(), ids, 1] : [call.getStart(), ids]);
     }
   });
+  // A reused file keeps its records while its bound sites are the ones they
+  // were resolved with, and while every file its records reach keeps its own.
+  const sameSites = (left, right) => JSON.stringify(left) === JSON.stringify(right);
+  const reused = new Set([...reusable].filter((file) => sameSites(reuse.get(file).boundSites, boundByFile.get(file))));
+  const changedBound = new Set([...reusable].filter((file) => !reused.has(file)));
+  for (let changed = changedBound.size > 0; changed;) {
+    changed = false;
+    for (const file of reused) {
+      const reaches = reuse.get(file).calls.some((record) => record.targets.some((target) => changedBound.has(fileOf(nodeById.get(target)))));
+      if (reaches) {
+        reused.delete(file);
+        changedBound.add(file);
+        changed = true;
+      }
+    }
+  }
 
   function enclosingFunction(node) {
     const position = node.getStart();
@@ -169,12 +195,18 @@ function inspectCalls({
     return moduleByFile.get(fileOf(node));
   }
 
+  // What the cache keeps of a file's sites for the next run.
+  const fileSites = (file) => ({
+    sites: sitesByFile.get(file),
+    boundCandidates: candidatesByFile.get(file).map((call) => call.getStart()),
+    boundSites: boundByFile.get(file)
+  });
   const fileRecords = new Map();
   let truncated = false;
   for (const [file, calls] of callsByFile) {
     if (reused.has(file)) {
       const cached = reuse.get(file);
-      fileRecords.set(file, { functions: functionsByFile.get(file), calls: cached.calls, sites: cached.sites, truncated: cached.truncated });
+      fileRecords.set(file, { functions: functionsByFile.get(file), ...fileSites(file), calls: cached.calls, truncated: cached.truncated });
       if (cached.truncated) {
         truncated = true;
         diagnose("CALLS_TRUNCATED", `Only the first ${MAX_CALLS_PER_FILE} calls of this file are recorded.`, file);
@@ -216,7 +248,7 @@ function inspectCalls({
         });
       }
     }
-    fileRecords.set(file, { functions: functionsByFile.get(file), calls: records, sites: sitesByFile.get(file), truncated: fileTruncated });
+    fileRecords.set(file, { functions: functionsByFile.get(file), ...fileSites(file), calls: records, truncated: fileTruncated });
   }
 
   const routes = routeTable(entryOperations);

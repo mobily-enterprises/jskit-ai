@@ -4,8 +4,9 @@ import { readFile, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-// v2: calls a function makes through the callbacks it passes are its own records.
-const CACHE_SCHEMA = "jskit.architecture-calls-cache.v2";
+// v3: each file keeps its checker sites, the candidates injection or argument
+// flow can resolve, and the sites they resolved to, apart.
+const CACHE_SCHEMA = "jskit.architecture-calls-cache.v3";
 const CACHE_FILE = "jskit-calls.json";
 // Manifests, lockfiles and compiler configurations change how every file
 // resolves, so any change to them rebuilds everything.

@@ -426,17 +426,24 @@ function createResolver({ program, checker, symbols, evaluator, bindings, action
     return indexedTargets.get(call) || checkerTargets(call);
   }
 
-  // Calls the checker cannot resolve but injection or argument flow can are
-  // call sites too, so argument flow and the callbacks a call passes reach
-  // through them. Each round can expose more; the targets and guesses only
-  // grow, so the rounds stop. Returns each call's targets and whether they
-  // are a guess.
-  function indexBoundCalls(calls) {
-    const candidates = calls.filter((call) => {
+  // The calls whose callee is a parameter or a destructured name: those
+  // injection or argument flow can resolve. What a call's callee is declared
+  // as depends only on its own file.
+  function boundCandidates(calls) {
+    return calls.filter((call) => {
       checkerTargets(call);
       const declaration = direct.get(call).declaration;
       return declaration && (ts.isParameter(declaration) || ts.isBindingElement(declaration));
     });
+  }
+
+  // Calls the checker cannot resolve but injection or argument flow can are
+  // call sites too, so argument flow and the callbacks a call passes reach
+  // through them. Each round can expose more; the targets and guesses only
+  // grow, so the rounds stop. Takes the candidates of every file, since one
+  // file's arguments decide another's targets, and returns each candidate's
+  // targets and whether they are a guess.
+  function indexBoundCalls(candidates) {
     for (let changed = true; changed;) {
       changed = false;
       for (const call of candidates) {
@@ -450,7 +457,7 @@ function createResolver({ program, checker, symbols, evaluator, bindings, action
         }
       }
     }
-    return calls.map((call) => ({ targets: indexedTargets.get(call) || [], probable: probableSites.has(call) }));
+    return candidates.map((call) => ({ targets: indexedTargets.get(call) || [], probable: probableSites.has(call) }));
   }
 
   // The parameters ({ index, path }) a function calls while it runs: in its
@@ -645,7 +652,7 @@ function createResolver({ program, checker, symbols, evaluator, bindings, action
     }
   }
 
-  return { indexCalls, indexSite, indexBoundCalls, resolve, passedCall, builtinMembers };
+  return { indexCalls, indexSite, boundCandidates, indexBoundCalls, resolve, passedCall, builtinMembers };
 }
 
 export { codeSide, createResolver };

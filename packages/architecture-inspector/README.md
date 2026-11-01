@@ -164,7 +164,10 @@ Each discovery supplies `id`, `adapter`, `surface`, `mode`, `registrations`,
 - **Cache.** With an absolute, existing `cacheDirectory` outside the project,
   the command keeps `jskit-calls.json` there. An unchanged rerun reuses the
   whole result. Otherwise a file keeps its calls when its own and its directly
-  imported sources are unchanged and every target still exists. Any change to a
+  imported sources are unchanged and every target still exists. Calls that
+  injection or argument flow resolve depend on other files' arguments, so they
+  are resolved again on every run; a file whose such calls now reach other
+  functions is resolved again, with every reused file whose calls reach it. Any change to a
   manifest, lockfile, `tsconfig`/`jsconfig`, the inspector's own manifest or
   source (even without a version bump), packages, UI discovery, options or
   `stackHash` rebuilds everything. An absent, unusable or corrupt cache means a
