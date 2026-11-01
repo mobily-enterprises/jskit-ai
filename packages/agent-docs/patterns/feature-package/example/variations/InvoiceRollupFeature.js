@@ -11,7 +11,6 @@ function createInvoiceRollupActions({ invoiceRollup }) {
       kind: "query",
       input: emptyInputValidator,
       output: null,
-      idempotency: "none",
       execute: (input, context) => invoiceRollup.getStatus(input, { context })
     })
   ]);

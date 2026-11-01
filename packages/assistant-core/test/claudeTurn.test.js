@@ -1451,7 +1451,7 @@ async function suppliedCommonFixture(t, { tools = true, onDeliveryTiming, hostDe
   const actions = createActionCatalogue();
   actions.register({ contributorId: "lesson", domain: "lesson", actions: [{
     id: "lesson.inspect", version: 1, kind: "query", channels: ["automation"], surfaces: ["app"],
-    permission: { require: "authenticated" }, idempotency: "none",
+    permission: { require: "authenticated" },
     input: { schema: createSchema({}), mode: "replace" },
     output: { schema: createSchema({}), mode: "replace" }, execute: executeTool
   }] });

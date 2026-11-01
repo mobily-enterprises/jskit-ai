@@ -25,7 +25,7 @@ function boundedTools(execute) {
   const actions = createActionCatalogue();
   actions.register({ contributorId: "bounded.tools", domain: "bounded", actions: [{
     id: "bounded.read", version: 1, kind: "query", channels: ["automation"], surfaces: ["app"],
-    permission: { require: "none" }, idempotency: "none",
+    permission: { require: "none" },
     input: { schema: createSchema({ value: { type: "string", enum: ["1", "2", "3", "4"], required: true } }), mode: "replace" },
     output: { schema: createSchema({ prompt: { type: "string", required: true } }), mode: "replace" },
     execute({ value }, context) { return execute({ value: Number(value) }, context); }

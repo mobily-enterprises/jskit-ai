@@ -9,7 +9,6 @@ import { recordIdParamsValidator, resolveValidationIssueCode } from "../../share
 import { AppError } from "../runtime/errors.js";
 import { createActionRegistry } from "../actions/registry.js";
 import { noActionPolicy } from "../actions/actionPolicy.js";
-import { ensureIdempotencyKeyIfRequired } from "../actions/idempotency.js";
 import { registerSurfaceRequestConstraint } from "../platform/surfaceRuntime.js";
 import { registerApiErrorHandler } from "./errorHandling.js";
 import { registerRoutes } from "./lib/routeRegistration.js";
@@ -250,8 +249,7 @@ test("the kernel's own errors and statuses render their English from the catalog
   const registry = createActionRegistry({ contributors: [], policy: noActionPolicy });
   const actionFailures = [
     () => registry.getDefinition(""),
-    () => registry.getDefinition("contacts.list", 0),
-    () => ensureIdempotencyKeyIfRequired({ idempotency: "required" }, {})
+    () => registry.getDefinition("contacts.list", 0)
   ];
   for (const fail of actionFailures) {
     const error = thrownBy(fail);

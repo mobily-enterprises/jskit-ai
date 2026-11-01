@@ -50,7 +50,6 @@ function createAuthActions({ authService }) {
       channels: ["api", "internal"],
       surfaces: ["*"],
       input: authRegisterCommand.operation.body,
-      idempotency: "none",
       execute: (input) => authService.register(input)
     }),
     Object.freeze({
@@ -60,7 +59,6 @@ function createAuthActions({ authService }) {
       channels: ["api", "internal"],
       surfaces: ["*"],
       input: authRegisterConfirmationResendCommand.operation.body,
-      idempotency: "none",
       execute: (input) => authService.resendRegisterConfirmation(input)
     }),
     Object.freeze({
@@ -70,7 +68,6 @@ function createAuthActions({ authService }) {
       channels: ["api", "internal"],
       surfaces: ["*"],
       input: authLoginPasswordCommand.operation.body,
-      idempotency: "none",
       execute: (input) => authService.login(input)
     }),
     Object.freeze({
@@ -80,7 +77,6 @@ function createAuthActions({ authService }) {
       channels: ["api", "internal"],
       surfaces: ["*"],
       input: authLoginOtpRequestCommand.operation.body,
-      idempotency: "none",
       execute: (input) => authService.requestOtpLogin(input)
     }),
     Object.freeze({
@@ -90,7 +86,6 @@ function createAuthActions({ authService }) {
       channels: ["api", "internal"],
       surfaces: ["*"],
       input: authLoginOtpVerifyCommand.operation.body,
-      idempotency: "none",
       execute: (input) => authService.verifyOtpLogin(input)
     }),
     Object.freeze({
@@ -100,7 +95,6 @@ function createAuthActions({ authService }) {
       channels: ["api", "internal"],
       surfaces: ["*"],
       input: authLoginOAuthStartInput,
-      idempotency: "none",
       execute: (input, context) => authService.oauthStart(input, resolveRequest(context))
     }),
     Object.freeze({
@@ -110,7 +104,6 @@ function createAuthActions({ authService }) {
       channels: ["api", "internal"],
       surfaces: ["*"],
       input: authLoginOAuthCompleteCommand.operation.body,
-      idempotency: "none",
       execute: (input, context) => authService.oauthComplete(input, resolveRequest(context))
     }),
     Object.freeze({
@@ -120,7 +113,6 @@ function createAuthActions({ authService }) {
       channels: ["api", "internal"],
       surfaces: ["*"],
       input: authDevLoginAsCommand.operation.body,
-      idempotency: "none",
       execute: (input, context) => authService.devLoginAs(input, resolveRequest(context))
     }),
     Object.freeze({
@@ -130,7 +122,6 @@ function createAuthActions({ authService }) {
       channels: ["api", "internal"],
       surfaces: ["*"],
       input: authPasswordResetRequestCommand.operation.body,
-      idempotency: "none",
       execute: (input) => authService.requestPasswordReset(input)
     }),
     Object.freeze({
@@ -140,7 +131,6 @@ function createAuthActions({ authService }) {
       channels: ["api", "internal"],
       surfaces: ["*"],
       input: authPasswordRecoveryCompleteCommand.operation.body,
-      idempotency: "none",
       execute: (input) => authService.completePasswordRecovery(input)
     }),
     Object.freeze({
@@ -150,7 +140,6 @@ function createAuthActions({ authService }) {
       channels: ["api", "internal"],
       surfaces: ["*"],
       input: authPasswordResetCommand.operation.body,
-      idempotency: "none",
       execute: (input, context) => authService.resetPassword(input, resolveRequest(context))
     }),
     Object.freeze({
@@ -161,7 +150,6 @@ function createAuthActions({ authService }) {
       surfaces: ["*"],
       input: emptyInputValidator,
       output: authLogoutOutput,
-      idempotency: "none",
       execute: (input, context) => authService.logout(resolveRequest(context))
     }),
     Object.freeze({
@@ -171,7 +159,6 @@ function createAuthActions({ authService }) {
       channels: ["api", "internal"],
       surfaces: ["*"],
       input: emptyInputValidator,
-      idempotency: "none",
       execute: (input, context) => authService.authenticateRequest(resolveRequest(context))
     })
   ]);

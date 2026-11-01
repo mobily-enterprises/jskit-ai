@@ -525,7 +525,7 @@ function applicationActions(execute) {
   const actions = createActionCatalogue();
   actions.register({ contributorId: "test.tools", domain: "numbers", actions: [{
     id: "numbers.read", version: 1, kind: "query", channels: ["automation"], surfaces: ["app"],
-    permission: { require: "all", permissions: ["numbers.read"] }, idempotency: "none",
+    permission: { require: "all", permissions: ["numbers.read"] },
     input: { schema: createSchema({}), mode: "replace" },
     output: { schema: createSchema({ value: { type: "number", required: true } }), mode: "replace" }, execute
   }] });

@@ -80,7 +80,6 @@ test("HttpProvider registers routes that invoke actions directly", async () => {
       channels: ["api"],
       surfaces: ["app"],
       input: { schema: createSchema({}) },
-      idempotency: "none",
       async execute(_input, context) {
         return {
           channel: context.channel,
@@ -139,7 +138,6 @@ test("direct HTTP action execution preserves request-scoped stream dependencies"
       channels: ["api"],
       surfaces: ["app"],
       input: { schema: createSchema({}) },
-      idempotency: "none",
       async execute(_input, _context, deps) {
         return {
           writerId: deps.streamWriter.id,

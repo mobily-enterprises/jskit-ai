@@ -225,6 +225,10 @@ const AppInviteAcceptanceFeature = defineFeature({
   action that updates part of a record declares `mode: "patch"`; a command
   (start, invite, run, connect) never does. A CRUD custom action's input
   follows the same rule, with or without a scope.
+- An action declares no idempotency policy; the kernel refuses the field. An
+  action that must tolerate a repeated request handles it in its own domain
+  (a unique key, an upsert, a state check) and says so in a comment where
+  that is not obvious.
 - A rule every action of an application obeys (who may run it, which record
   it acts within, the scope it runs in) is data each definition declares in
   `extensions`, applied by the application's one [action policy](#the-action-policy).
@@ -250,8 +254,8 @@ without a policy, each action is registered as declared and runs its own
   listed with, so assistants and automation see the fields the rule adds or
   removes before anything runs.
 - `execute({ definition, input, context, run })` runs for every execution,
-  after the kernel's channel, surface, permission, input and idempotency
-  checks. It receives the action as declared and the validated input, and
+  after the kernel's channel, surface, permission and input checks. It
+  receives the action as declared and the validated input, and
   calls `run(input, context)` with what the action should receive. Because it
   calls `run` itself, it can refuse, adjust the input or the context, or run
   the action inside a scope, such as an `AsyncLocalStorage` context.
@@ -746,7 +750,6 @@ function createAccountPreferencesActions({ accountPreferencesService }) {
       permission: { require: "authenticated" },
       input: userSettingsResource.operations.preferencesUpdate.body,
       output: null,
-      idempotency: "optional",
       events: ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS,
       execute: (input, context) => accountPreferencesService.updatePreferences(
         resolveRequest(context),

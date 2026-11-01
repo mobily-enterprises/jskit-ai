@@ -45,7 +45,6 @@ function createAssistantSettingsActions({ assistantConfigService, settingsSurfac
         exclude: "Assistant self-configuration is disabled; use the authenticated assistant settings screen."
       }
     },
-    idempotency: "none",
     async execute(input, context) {
       return returnJsonApiData(await assistantConfigService.getSettings(input, {
         context
@@ -68,7 +67,6 @@ function createAssistantSettingsActions({ assistantConfigService, settingsSurfac
         exclude: "Assistant self-configuration is disabled; use the authenticated assistant settings screen."
       }
     },
-    idempotency: "optional",
     async execute(input, context) {
       return returnJsonApiData(await assistantConfigService.updateSettings(input, input.patch, {
         context

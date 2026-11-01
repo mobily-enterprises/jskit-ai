@@ -117,6 +117,9 @@ function normalizeAdditionalActions(definitions, { namespace, surface, permissio
     if (!definition.input || typeof definition.input !== "object" || Array.isArray(definition.input)) {
       throw new TypeError(`CRUD custom action "${actionName}" requires an input schema.`);
     }
+    if (Object.hasOwn(definition, "idempotency")) {
+      throw new TypeError(`CRUD custom action "${actionName}" declares idempotency. Action definitions no longer declare idempotency.`);
+    }
 
     const kind = definition.kind || "command";
     return Object.freeze({
@@ -133,7 +136,6 @@ function normalizeAdditionalActions(definitions, { namespace, surface, permissio
           mode: definition.input.mode || ACTION_INPUT_DEFAULT_MODE
         })
         : definition.input,
-      idempotency: definition.idempotency || (kind === "query" ? "none" : "optional"),
       events: definition.events || []
     });
   }));
@@ -283,35 +285,30 @@ function createCrudJsonApiActions({
     {
       operation: "list",
       kind: "query",
-      idempotency: "none",
       events: [],
       execute: (input, context) => executeOperation("list", input, context, listDocuments)
     },
     {
       operation: "view",
       kind: "query",
-      idempotency: "none",
       events: [],
       execute: (input, context) => executeOperation("view", input, context, viewDocument)
     },
     {
       operation: "create",
       kind: "command",
-      idempotency: "optional",
       events: [mutationEvent("created", resolveCrudJsonApiEntityIdFromResult)],
       execute: (input, context) => executeOperation("create", input, context, createDocument)
     },
     {
       operation: "update",
       kind: "command",
-      idempotency: "optional",
       events: [mutationEvent("updated", ({ input }) => input.recordId)],
       execute: (input, context) => executeOperation("update", input, context, updateDocument)
     },
     {
       operation: "delete",
       kind: "command",
-      idempotency: "optional",
       events: [mutationEvent("deleted", ({ input }) => input.recordId)],
       execute: (input, context) => executeOperation("delete", input, context, deleteDocument)
     }
@@ -330,7 +327,6 @@ function createCrudJsonApiActions({
     extensions: Object.freeze({
       assistant: createCrudAssistantExtension(resource, namespace, definition.operation)
     }),
-    idempotency: definition.idempotency,
     events: definition.events,
     execute: definition.execute
   }));
@@ -342,7 +338,6 @@ function createCrudJsonApiActions({
     surfaces: definition.surfaces,
     input: definition.input,
     output: definition.output || null,
-    idempotency: definition.idempotency,
     permission: definition.permission,
     extensions: definition.extensions || {},
     events: definition.events,

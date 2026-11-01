@@ -11,7 +11,6 @@ function createAvailabilityEngineActions({ availabilityEngine }) {
       kind: "query",
       input: emptyInputValidator,
       output: null,
-      idempotency: "none",
       execute: (input) => availabilityEngine.getStatus(input)
     })
   ]);

@@ -86,7 +86,6 @@ function createWorkspaceMembersActions({ workspaceMembersService }) {
           transformResult: (result) => result.value
         }
       },
-      idempotency: "none",
       execute: () => workspaceMembersService.listRolesResponse()
     }),
     Object.freeze({
@@ -108,7 +107,6 @@ function createWorkspaceMembersActions({ workspaceMembersService }) {
           transformResult: (result) => result.value
         }
       },
-      idempotency: "none",
       execute: (input, context) => workspaceMembersService.listMembersResponse(
         resolveWorkspace(context, input),
         { context }
@@ -133,7 +131,6 @@ function createWorkspaceMembersActions({ workspaceMembersService }) {
           transformResult: (result) => result.value
         }
       },
-      idempotency: "optional",
       events: WORKSPACE_MEMBER_CHANGED_EVENTS,
       execute: (input, context) => workspaceMembersService.updateMemberRole(
         resolveWorkspace(context, input),
@@ -160,7 +157,6 @@ function createWorkspaceMembersActions({ workspaceMembersService }) {
           transformResult: (result) => result.value
         }
       },
-      idempotency: "optional",
       events: WORKSPACE_MEMBER_CHANGED_EVENTS,
       execute: (input, context) => workspaceMembersService.removeMember(
         resolveWorkspace(context, input),
@@ -187,7 +183,6 @@ function createWorkspaceMembersActions({ workspaceMembersService }) {
           transformResult: (result) => result.value
         }
       },
-      idempotency: "none",
       execute: (input, context) => workspaceMembersService.listInvitesResponse(
         resolveWorkspace(context, input),
         { context }
@@ -217,7 +212,6 @@ function createWorkspaceMembersActions({ workspaceMembersService }) {
           })
         }
       },
-      idempotency: "optional",
       events: WORKSPACE_INVITE_CREATED_EVENTS,
       execute: (input, context) => workspaceMembersService.createInvite(
         resolveWorkspace(context, input),
@@ -245,7 +239,6 @@ function createWorkspaceMembersActions({ workspaceMembersService }) {
           transformResult: (result) => result.value
         }
       },
-      idempotency: "optional",
       events: WORKSPACE_INVITE_REVOKED_EVENTS,
       execute: (input, context) => workspaceMembersService.revokeInvite(
         resolveWorkspace(context, input),

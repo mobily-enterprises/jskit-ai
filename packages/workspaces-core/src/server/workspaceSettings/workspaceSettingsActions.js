@@ -40,7 +40,6 @@ function createWorkspaceSettingsActions({ workspaceSettingsService }) {
           transformResult: (result) => result.value
         }
       },
-      idempotency: "none",
       execute: (input, context) => workspaceSettingsService.getWorkspaceSettings(
         resolveWorkspace(context, input),
         { context }
@@ -65,7 +64,6 @@ function createWorkspaceSettingsActions({ workspaceSettingsService }) {
           transformResult: (result) => result.value
         }
       },
-      idempotency: "optional",
       events: WORKSPACE_SETTINGS_CHANGED_EVENTS,
       execute: (input, context) => workspaceSettingsService.updateWorkspaceSettings(
         resolveWorkspace(context, input),

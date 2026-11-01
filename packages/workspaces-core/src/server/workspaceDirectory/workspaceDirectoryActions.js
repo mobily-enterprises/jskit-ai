@@ -37,7 +37,6 @@ function createWorkspaceDirectoryActions({ workspaceService }) {
           transformResult: (result) => workspaceAssistantSummary(result.value)
         }
       },
-      idempotency: "none",
       execute: (input, context) => workspaceService.createWorkspaceForAuthenticatedUser(
         resolveActionUser(context, input),
         input,
@@ -66,7 +65,6 @@ function createWorkspaceDirectoryActions({ workspaceService }) {
           })
         }
       },
-      idempotency: "none",
       execute: (input, context) => workspaceService.listWorkspacesForAuthenticatedUser(
         resolveActionUser(context, input),
         { context }
@@ -91,7 +89,6 @@ function createWorkspaceDirectoryActions({ workspaceService }) {
           transformResult: (result) => workspaceAssistantSummary(result.value)
         }
       },
-      idempotency: "none",
       execute: (input, context) => workspaceService.getWorkspaceForAuthenticatedUser(
         resolveActionUser(context, input),
         input.workspaceSlug,
@@ -117,7 +114,6 @@ function createWorkspaceDirectoryActions({ workspaceService }) {
           transformResult: (result) => workspaceAssistantSummary(result.value)
         }
       },
-      idempotency: "optional",
       execute: (input, context) => workspaceService.updateWorkspaceForAuthenticatedUser(
         resolveActionUser(context, input),
         input.workspaceSlug,

@@ -281,6 +281,29 @@ test("a scoped CRUD custom action's input keeps its own mode, and one without a 
   await runtime.shutdown();
 });
 
+test("a CRUD custom action that declares idempotency stops the feature from starting", async () => {
+  const feature = defineCrudJsonApiFeature({
+    resource: createBookResource(),
+    surface: "app",
+    actions: {
+      archive: {
+        input: schemaDefinition({ recordId: { type: "string", required: true } }),
+        idempotency: "optional",
+        execute: ({ input }) => input
+      }
+    }
+  });
+  const runtime = createCapabilityRuntime({
+    inputs: { "runtime.logger": silentLogger },
+    providers: [EventProvider, ActionProvider, ...createFeatureDependencies([]), feature]
+  });
+
+  await assert.rejects(
+    runtime.start(),
+    { message: "CRUD custom action \"archive\" declares idempotency. Action definitions no longer declare idempotency." }
+  );
+});
+
 test("generated CRUD actions expose truthful assistant contracts without changing native results", async () => {
   const resource = createBookResource();
   const document = (id, title) => ({

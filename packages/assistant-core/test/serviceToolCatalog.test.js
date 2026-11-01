@@ -40,7 +40,6 @@ function action({
     permission,
     input,
     output,
-    idempotency: "none",
     extensions,
     execute
   };

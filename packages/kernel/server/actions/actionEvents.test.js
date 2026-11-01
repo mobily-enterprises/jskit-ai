@@ -15,7 +15,7 @@ function buildEvent(context, { entityId = 11, realtime = null } = {}) {
 test("entity-changed action events carry actor, command and source client", () => {
   const event = buildEvent({
     actor: { id: 17 },
-    requestMeta: { idempotencyKey: "cmd-1", sourceClientId: "client-a" },
+    requestMeta: { commandId: "cmd-1", sourceClientId: "client-a" },
     visibilityContext: { scopeOwnerId: 23 }
   }, {
     entityId: 5,

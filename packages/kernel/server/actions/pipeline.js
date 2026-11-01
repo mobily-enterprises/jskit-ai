@@ -5,7 +5,6 @@ import {
   normalizeActionInput,
   normalizeActionOutput
 } from "./policies.js";
-import { ensureIdempotencyKeyIfRequired } from "./idempotency.js";
 import { normalizeExecutionContext } from "./executionContext.js";
 
 /** @typedef {import("../types.js").ActionDefinition} ActionDefinition */
@@ -78,7 +77,6 @@ async function executeActionPipeline({
     ensureActionPermissionAllowed(definition, normalizedContext);
 
     const normalizedInput = await normalizeActionInput(definition, input);
-    ensureIdempotencyKeyIfRequired(definition, normalizedContext);
 
     const executionResult = await policy.execute(Object.freeze({
       definition: declared,

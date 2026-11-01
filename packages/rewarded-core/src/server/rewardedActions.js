@@ -41,7 +41,6 @@ function createRewardedActions({ rewarded }) {
       permission: { require: "authenticated" },
       input: currentQueryInputValidator,
       output: currentStateOutputValidator,
-      idempotency: "none",
       execute: (input, context) => rewarded.getCurrentState(input, { context })
     }),
     Object.freeze({
@@ -53,7 +52,6 @@ function createRewardedActions({ rewarded }) {
       permission: { require: "authenticated" },
       input: startCommandInputValidator,
       output: startGateOutputValidator,
-      idempotency: "optional",
       events: [changedEvent({
         entity: "watch-session",
         operation: "created",
@@ -71,7 +69,6 @@ function createRewardedActions({ rewarded }) {
       permission: { require: "authenticated" },
       input: grantCommandInputValidator,
       output: grantRewardOutputValidator,
-      idempotency: "optional",
       events: [
         changedEvent({
           entity: "watch-session",
@@ -97,7 +94,6 @@ function createRewardedActions({ rewarded }) {
       permission: { require: "authenticated" },
       input: closeCommandInputValidator,
       output: closeSessionOutputValidator,
-      idempotency: "optional",
       events: [changedEvent({
         entity: "watch-session",
         operation: "updated",

@@ -34,7 +34,6 @@ function createAccountProfileActions({ accountProfileService }) {
           transformResult: (result) => result.value
         }
       },
-      idempotency: "none",
       execute: (input, context) => accountProfileService.getForUser(resolveRequest(context), resolveActionUser(context, input))
     }),
     Object.freeze({
@@ -55,7 +54,6 @@ function createAccountProfileActions({ accountProfileService }) {
           transformResult: (result) => result.response.value
         }
       },
-      idempotency: "optional",
       events: ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS,
       execute: (input, context) => accountProfileService.updateProfile(
         resolveRequest(context),
@@ -79,7 +77,6 @@ function createAccountProfileActions({ accountProfileService }) {
           exclude: "Use the authenticated account profile file picker; upload streams must not enter assistant arguments."
         }
       },
-      idempotency: "none",
       events: ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS,
       execute: (input, context) => accountProfileService.uploadAvatar(
         resolveRequest(context),
@@ -105,7 +102,6 @@ function createAccountProfileActions({ accountProfileService }) {
           transformResult: (result) => result.value
         }
       },
-      idempotency: "none",
       events: ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS,
       execute: (input, context) => accountProfileService.deleteAvatar(resolveRequest(context), resolveActionUser(context, input))
     })

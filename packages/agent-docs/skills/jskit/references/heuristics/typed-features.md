@@ -97,6 +97,11 @@ data (input, record, list, options bag) is not one.
     is enforced and defaults are applied. Keep `mode: "patch"` only where the
     action updates part of a record; a command (start, invite, run) drops it,
     and its service drops the guards that only repeated `required`.
+- `idempotency:` on an action definition, or an idempotency key in request metadata
+  - Remove it: the kernel has no idempotency machinery and refuses the field.
+    An action that must tolerate a repeated request handles it in its own
+    domain (a unique key, an upsert, a state check) and says so in a comment
+    where that is not obvious.
 - `ActionSpecifications`, `run(service, input, context)`, `build<Name>Actions` mapper, positional `create<Name>Actions(service)`
   - Replace them with one `create<Name>Actions({ <service> })` whose
     definitions call the service in `execute`. Keep each id a string literal or

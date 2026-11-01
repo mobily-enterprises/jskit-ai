@@ -16,7 +16,6 @@
       "ACTION_SURFACE_FORBIDDEN": "Forbidden.",
       "ACTION_NOT_FOUND": "Not found.",
       "ACTION_VALIDATION_FAILED": "Validation failed.",
-      "ACTION_IDEMPOTENCY_KEY_REQUIRED": "Validation failed.",
       "ACTION_ID_REQUIRED": "Validation failed.",
       "ACTION_STREAM_KIND_REQUIRED": "Validation failed.",
       "ACTION_VERSION_INVALID": "Validation failed.",
@@ -71,8 +70,7 @@
       },
       "action": {
         "versionInvalid": "version must be an integer >= 1.",
-        "idRequired": "actionId is required.",
-        "idempotencyKeyRequired": "Idempotency key is required for this action."
+        "idRequired": "actionId is required."
       },
       "surface": {
         "pathNotServed": "Path {path} is not served by {surface} surface server."

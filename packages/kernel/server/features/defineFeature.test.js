@@ -50,7 +50,6 @@ test("features capture only named capabilities and publish actions without conta
         id: "books.list",
         kind: "query",
         input: emptyInput(),
-        idempotency: "none",
         async execute() {
           return books.list();
         }
@@ -96,7 +95,6 @@ test("feature registration rejects duplicate actions and undeclared setup output
     channels: ["api"],
     surfaces: ["app"],
     input: emptyInput(),
-    idempotency: "none",
     async execute() {
       return {};
     }
@@ -133,7 +131,6 @@ test("action context contributors enrich execution without a request scope conta
       channels: ["api"],
       surfaces: ["app"],
       input: emptyInput(),
-      idempotency: "none",
       async execute(_input, context) {
         return context;
       }
@@ -197,7 +194,6 @@ test("feature actions publish explicit success events without service registrati
       channels: ["api"],
       surfaces: ["app"],
       input: emptyInput(),
-      idempotency: "none",
       events: [createEntityChangedActionEvent({
         source: "books",
         entity: "book",

@@ -26,7 +26,6 @@ function createAccountNotificationsActions({ accountNotificationsService }) {
           transformResult: (result) => result.value
         }
       },
-      idempotency: "optional",
       events: ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS,
       execute: (input, context) => accountNotificationsService.updateNotifications(
         resolveRequest(context),

@@ -26,7 +26,6 @@ function createAccountPreferencesActions({ accountPreferencesService }) {
           transformResult: (result) => result.value
         }
       },
-      idempotency: "optional",
       events: ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS,
       execute: (input, context) => accountPreferencesService.updatePreferences(
         resolveRequest(context),

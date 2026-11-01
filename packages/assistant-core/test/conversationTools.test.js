@@ -20,7 +20,7 @@ function actionCatalog(execute) {
   const actions = createActionCatalogue();
   actions.register({ contributorId: "test.tools", domain: "test", actions: [{
     id: "numbers.add", version: 1, kind: "command", channels: ["automation"], surfaces: ["app"],
-    permission: { require: "authenticated" }, idempotency: "none",
+    permission: { require: "authenticated" },
     input: { schema: createSchema({ left: { type: "number", required: true }, right: { type: "number", required: true } }), mode: "replace" },
     output: { schema: createSchema({ total: { type: "number", required: true } }), mode: "replace" }, execute
   }] });

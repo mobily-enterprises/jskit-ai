@@ -28,7 +28,6 @@ function createWorkspacePendingInvitationsActions({ workspacePendingInvitationsS
           exclude: "Use the invitation screen; raw invitation tokens must not enter assistant arguments."
         }
       },
-      idempotency: "none",
       execute: (input, context) => workspacePendingInvitationsService.resolveInviteByToken(
         input.token,
         { context }
@@ -57,7 +56,6 @@ function createWorkspacePendingInvitationsActions({ workspacePendingInvitationsS
           })
         }
       },
-      idempotency: "none",
       execute: (input, context) => workspacePendingInvitationsService.listPendingInvitesResponse(
         resolveActionUser(context, input),
         { context }
@@ -79,7 +77,6 @@ function createWorkspacePendingInvitationsActions({ workspacePendingInvitationsS
           exclude: "Use the authenticated invitation screen to accept or refuse; raw invitation tokens must not enter assistant arguments."
         }
       },
-      idempotency: "optional",
       events: WORKSPACE_INVITE_DECISION_EVENTS,
       // The signed-in actor decides; a user named in the input never stands in for them.
       execute: (input, context) => workspacePendingInvitationsService.redeemInviteByToken(

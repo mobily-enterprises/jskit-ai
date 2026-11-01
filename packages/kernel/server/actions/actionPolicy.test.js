@@ -19,7 +19,6 @@ function noteAction({ id = "notes.write", execute, events = [] } = {}) {
     channels: ["api"],
     surfaces: ["app"],
     input: { schema: createSchema({ text: { type: "string", required: true }, author: { type: "string" } }) },
-    idempotency: "none",
     extensions: { notes: { scoped: true } },
     events,
     execute

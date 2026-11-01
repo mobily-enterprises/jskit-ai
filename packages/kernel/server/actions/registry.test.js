@@ -47,7 +47,6 @@ test("action registry executes latest version by default", async () => {
             channels: ["api"],
             surfaces: ["app", "admin", "console"],
             input: { schema: createPassThroughSchema() },
-            idempotency: "none",
             async execute() {
               calls.push("version-one");
               return {
@@ -63,7 +62,6 @@ test("action registry executes latest version by default", async () => {
             channels: ["api"],
             surfaces: ["app", "admin", "console"],
             input: { schema: createPassThroughSchema() },
-            idempotency: "none",
             async execute() {
               calls.push("v2");
               return {
@@ -121,7 +119,6 @@ test("action registry validates action input with a single schema contract", asy
                 }
               })
             },
-            idempotency: "optional",
             async execute(input) {
               return input;
             }
@@ -210,7 +207,6 @@ test("action registry fails startup on duplicate action id + version", () => {
                 channels: ["api"],
                 surfaces: ["app"],
                 input: { schema: createPassThroughSchema() },
-                idempotency: "optional",
                 async execute() {
                   return {
                     ok: true
@@ -231,7 +227,6 @@ test("action registry fails startup on duplicate action id + version", () => {
                 channels: ["api"],
                 surfaces: ["app"],
                 input: { schema: createPassThroughSchema() },
-                idempotency: "optional",
                 async execute() {
                   return {
                     ok: true
@@ -262,7 +257,6 @@ test("action registry rejects invalid version requests", async () => {
             channels: ["api"],
             surfaces: ["app"],
             input: { schema: createPassThroughSchema() },
-            idempotency: "none",
             async execute() {
               return {
                 ok: true
@@ -311,7 +305,6 @@ test("action registry ignores unknown extra fields", async () => {
             surfaces: ["app"],
             consoleUsersOnly: true,
             input: { schema: createPassThroughSchema() },
-            idempotency: "none",
             async execute() {
               return { ok: true };
             }
@@ -351,7 +344,6 @@ test("action registry enforces action-level permissions", async () => {
               permissions: ["workspace.settings.update"]
             },
             input: { schema: createPassThroughSchema() },
-            idempotency: "optional",
             async execute() {
               return { ok: true };
             }
@@ -415,31 +407,11 @@ function createSingleActionRegistry(action, options = {}) {
   });
 }
 
-test("action registry requires an idempotency key only for required actions", async () => {
-  const registry = createSingleActionRegistry({
-    idempotency: "required",
-    async execute() {
-      return { ok: true };
-    }
-  });
-  const context = { channel: "api", surface: "app" };
-
-  await assert.rejects(
-    () => registry.execute({ actionId: "tests.run", context }),
-    { code: "ACTION_IDEMPOTENCY_KEY_REQUIRED", status: 400 }
-  );
-  assert.deepEqual(
-    await registry.execute({ actionId: "tests.run", context: { ...context, requestMeta: { commandId: " cmd-1 " } } }),
-    { ok: true }
-  );
-});
-
 test("action registry logs one debug entry per outcome and returns the result directly", async () => {
   const entries = [];
   const logger = { debug: (payload, message) => entries.push({ payload, message }) };
   let fail = false;
   const registry = createSingleActionRegistry({
-    idempotency: "optional",
     async execute() {
       if (fail) {
         throw Object.assign(new Error("boom"), { code: "TEST_FAILED" });

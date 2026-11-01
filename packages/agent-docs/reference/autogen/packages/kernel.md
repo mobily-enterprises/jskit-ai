@@ -646,10 +646,6 @@ Local functions
 - `normalizeTimeMeta(timeMeta)`
 - `copyPassthroughContextEntries(source = {})`
 
-### `server/actions/idempotency.js`
-Exports
-- `ensureIdempotencyKeyIfRequired(definition, context)`
-
 ### `server/actions/index.js`
 Exports
 - `createActionCatalogue`

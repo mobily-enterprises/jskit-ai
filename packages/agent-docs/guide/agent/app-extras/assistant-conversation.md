@@ -2590,7 +2590,8 @@ or application turn owns separate call identities, even if the model reuses an
 ID. An interrupted reservation without a
 result or a server failure after execution stops the turn with an unknown-outcome
 error instead of executing again. Applications
-still own action-level idempotency and inspection of uncertain external effects.
+still make each action tolerate a repeated request in its own domain, and
+inspect uncertain external effects.
 The runtime cannot infer whether two different call IDs mean the same mutation.
 
 Events with `type: "tool"` carry the call's `id`, `name`, `arguments`, `status` and,

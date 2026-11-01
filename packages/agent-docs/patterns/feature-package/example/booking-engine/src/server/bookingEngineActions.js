@@ -11,7 +11,6 @@ function createBookingEngineActions({ bookingEngine }) {
       kind: "query",
       input: statusQueryInputValidator,
       output: null,
-      idempotency: "none",
       execute: (input, context) => bookingEngine.readStatus(input, { context })
     })
   ]);

@@ -32,7 +32,6 @@ function createAccountSecurityActions({ accountSecurityService }) {
           exclude: "Use the authenticated account security form; passwords must not enter assistant arguments."
         }
       },
-      idempotency: "none",
       execute: (input, context) => accountSecurityService.changePassword(resolveRequest(context), input)
     }),
     Object.freeze({
@@ -53,7 +52,6 @@ function createAccountSecurityActions({ accountSecurityService }) {
           transformResult: (result) => ({ securityStatus: result.value.securityStatus, settings: result.value.settings })
         }
       },
-      idempotency: "none",
       execute: (input, context) => accountSecurityService.setPasswordMethodEnabled(
         resolveRequest(context),
         resolveActionUser(context, input),
@@ -76,7 +74,6 @@ function createAccountSecurityActions({ accountSecurityService }) {
           exclude: "Use the authenticated account security screen; OAuth authorization URLs contain transient credentials."
         }
       },
-      idempotency: "none",
       execute: (input, context) => accountSecurityService.startOAuthProviderLink(resolveRequest(context), input)
     }),
     Object.freeze({
@@ -97,7 +94,6 @@ function createAccountSecurityActions({ accountSecurityService }) {
           transformResult: (result) => ({ securityStatus: result.value.securityStatus })
         }
       },
-      idempotency: "none",
       execute: (input, context) => accountSecurityService.unlinkOAuthProvider(resolveRequest(context), input)
     }),
     Object.freeze({
@@ -118,7 +114,6 @@ function createAccountSecurityActions({ accountSecurityService }) {
           transformResult: () => ({ ok: true })
         }
       },
-      idempotency: "none",
       execute: (input, context) => accountSecurityService.logoutOtherSessions(resolveRequest(context))
     })
   ]);

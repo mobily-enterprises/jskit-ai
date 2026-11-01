@@ -137,7 +137,6 @@ test("normalizeActionDefinition stays channel-agnostic and ignores unknown extra
     output: {
       schema: createSchema({})
     },
-    idempotency: "none",
     customExtension: {
       description: "Ignored field"
     },
@@ -146,6 +145,24 @@ test("normalizeActionDefinition stays channel-agnostic and ignores unknown extra
 
   assert.equal(typeof definition, "object");
   assert.equal(Object.prototype.hasOwnProperty.call(definition, "customExtension"), false);
+});
+
+test("normalizeActionDefinition refuses a definition that declares idempotency", () => {
+  assert.throws(
+    () => normalizeActionDefinition({
+      id: "demo.notes.create",
+      domain: "demo",
+      channels: ["api"],
+      surfaces: ["app"],
+      input: { schema: createSchema({}) },
+      idempotency: "optional",
+      execute: async () => ({})
+    }),
+    {
+      code: "ACTION_DEFINITION_INVALID",
+      message: "Action definition \"demo.notes.create\" declares idempotency. Action definitions no longer declare idempotency."
+    }
+  );
 });
 
 test("normalizeActionSchema accepts single schema definitions", () => {
@@ -222,7 +239,6 @@ test("normalizeActionDefinition keeps only the contract the runtime enforces", (
     "execute",
     "extensions",
     "id",
-    "idempotency",
     "input",
     "kind",
     "output",

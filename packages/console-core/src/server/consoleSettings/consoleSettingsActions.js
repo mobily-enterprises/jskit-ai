@@ -23,7 +23,6 @@ function createConsoleSettingsActions({ consoleSettingsService }) {
           exclude: "Application-owned console settings require an explicit assistant field allowlist; arbitrary configuration is not model-safe."
         }
       },
-      idempotency: "none",
       execute: (_input, context) => consoleSettingsService.getSettings({ context })
     }),
     Object.freeze({
@@ -37,7 +36,6 @@ function createConsoleSettingsActions({ consoleSettingsService }) {
       },
       input: consoleSettingsResource.operations.replace.body,
       output: null,
-      idempotency: "optional",
       extensions: {
         assistant: { exclude: "Application-owned console settings require an explicit assistant field allowlist; arbitrary configuration is not model-safe." },
         realtime: {

@@ -7,11 +7,9 @@ import { ARCHITECTURE_ID_PATTERN } from "../../shared/capabilities/defineProvide
 /** @typedef {import("../types.js").ActionPolicy} ActionPolicy */
 
 const ACTION_KINDS = Object.freeze(["query", "command", "stream"]);
-const ACTION_IDEMPOTENCY_POLICIES = Object.freeze(["none", "optional", "required", "domain_native"]);
 const ACTION_PERMISSION_REQUIRE_MODES = Object.freeze(["none", "authenticated", "all", "any"]);
 
 const ACTION_KIND_SET = new Set(ACTION_KINDS);
-const ACTION_IDEMPOTENCY_SET = new Set(ACTION_IDEMPOTENCY_POLICIES);
 const ACTION_PERMISSION_REQUIRE_SET = new Set(ACTION_PERMISSION_REQUIRE_MODES);
 /**
  * The mode of an action input that declares none: create, so the schema's
@@ -208,11 +206,10 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
   const channels = normalizeStringArray(source.channels, "channels");
   const surfaces = normalizeStringArray(source.surfaces, "surfaces");
 
-  const idempotency = normalizeText(source.idempotency || "none").toLowerCase();
-  if (!ACTION_IDEMPOTENCY_SET.has(idempotency)) {
+  if (Object.hasOwn(source, "idempotency")) {
     throw new ActionRuntimeError(
       500,
-      `Action definition \"${id}\" has unsupported idempotency policy \"${idempotency}\".`,
+      `Action definition \"${id}\" declares idempotency. Action definitions no longer declare idempotency.`,
       {
         code: "ACTION_DEFINITION_INVALID"
       }
@@ -237,7 +234,6 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
     output: normalizeActionSchema(source.output, "output", {
       defaultMode: "replace"
     }),
-    idempotency,
     permission: normalizeActionPermission(source.permission, id),
     extensions: normalizeActionExtensions(source.extensions),
     events: normalizeActionEvents(source.events, id),

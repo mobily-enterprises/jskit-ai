@@ -660,9 +660,9 @@ The new default is:
 - providers remain the runtime composition mechanism, but app-owned features
   use a small framework feature declaration instead of hand-writing provider
   lifecycle mechanics
-- authentication, permissions, transactions, audit, observability,
-  idempotency, HTTP exposure, and assistant exposure are stated once and
-  projected consistently
+- authentication, permissions, transactions, audit, observability, HTTP
+  exposure, and assistant exposure are stated once and projected
+  consistently
 - code is grouped by bounded product feature; technical subdirectories appear
   inside a feature only as it grows
 

@@ -1,6 +1,6 @@
 import { normalizeText } from "../../shared/support/normalize.js";
 
-const TEXT_FIELDS = Object.freeze(["requestId", "commandId", "idempotencyKey", "ip", "userAgent"]);
+const TEXT_FIELDS = Object.freeze(["requestId", "commandId", "ip", "userAgent"]);
 
 function normalizeRequestMeta(requestMeta = {}) {
   const source = requestMeta && typeof requestMeta === "object" ? requestMeta : {};

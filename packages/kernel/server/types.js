@@ -80,7 +80,7 @@
  * registered with the input it declares and runs its own `execute`.
  * @typedef {object} ActionPolicy
  * @property {(definition: ActionDefinition) => ActionDefinition["input"]} input Called once per action, at registration, with the action as declared: returns the input schema the action is validated and listed with.
- * @property {(execution: ActionPolicyExecution) => unknown} execute Called for every execution, after the channel, surface, permission, input and idempotency checks: runs the action through `execution.run`, with the input and context it should receive, inside any scope it needs.
+ * @property {(execution: ActionPolicyExecution) => unknown} execute Called for every execution, after the channel, surface, permission and input checks: runs the action through `execution.run`, with the input and context it should receive, inside any scope it needs.
  */
 
 /**

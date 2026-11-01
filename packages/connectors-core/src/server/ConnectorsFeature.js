@@ -7,8 +7,7 @@ const verificationInput = Object.freeze({ type: "object", additionalProperties: 
 // Every connectors action serves API and internal callers on app surfaces.
 const connectorsActionReach = Object.freeze({
   channels: Object.freeze(["api", "internal"]),
-  surfaces: Object.freeze(["app"]),
-  idempotency: "none"
+  surfaces: Object.freeze(["app"])
 });
 
 /** @param {{ connections: import("./types.js").ConnectorsCore }} dependencies */

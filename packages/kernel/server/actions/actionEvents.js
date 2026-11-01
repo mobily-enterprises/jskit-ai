@@ -168,7 +168,7 @@ function createEntityChangedActionEvent({
       entityId: normalizedEntityId,
       scope: resolveEventScope(context),
       actorId: resolveActorId(context),
-      commandId: normalizeText(requestMeta.commandId || requestMeta.idempotencyKey) || null,
+      commandId: normalizeText(requestMeta.commandId) || null,
       sourceClientId: normalizeText(requestMeta.sourceClientId) || null,
       occurredAt: new Date().toISOString(),
       ...(realtimeMeta ? { realtime: realtimeMeta } : {})
