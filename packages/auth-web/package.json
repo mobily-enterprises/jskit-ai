@@ -42,8 +42,7 @@
     "kind": "runtime",
     "capabilities": {
       "provides": [
-        "auth.web",
-        "auth.web-login"
+        "auth.web"
       ],
       "requires": [
         "auth.service",

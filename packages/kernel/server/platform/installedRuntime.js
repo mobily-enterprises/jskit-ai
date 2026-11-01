@@ -4,6 +4,7 @@ import { HttpProvider } from "../http/HttpProvider.js";
 import { BootstrapProvider } from "../runtime/BootstrapProvider.js";
 import { EventProvider } from "../runtime/EventProvider.js";
 import {
+  assertManifestMatchesProviders,
   collectGlobalUiPaths,
   resolveInstalledJskitPackages,
   resolvePackageLoadOrder,
@@ -119,6 +120,7 @@ async function createInstalledRuntime({
     if (packageProviders.length === 0) {
       continue;
     }
+    assertManifestMatchesProviders(packageEntry, packageProviders, { logger });
     providerPackageOrder.push(packageEntry.packageId);
     appendCapabilityProviders({
       providers: packageProviders,

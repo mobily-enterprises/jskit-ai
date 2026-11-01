@@ -7,9 +7,12 @@ import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { createInstalledRuntime } from "@jskit-ai/kernel/server/platform";
 import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 
-test("installed runtime composes explicit package providers and application inputs", async (context) => {
+/**
+ * Writes a fixture app with one package whose provider requires runtime.env and provides feature.example.
+ * @param {{ requires: string[], provides: string[] }} capabilities The package manifest's capabilities.
+ */
+async function writeExampleApp(capabilities) {
   const appRoot = await mkdtemp(path.join(tmpdir(), "jskit-installed-runtime-"));
-  context.after(() => rm(appRoot, { recursive: true, force: true }));
   const packageRoot = path.join(appRoot, "packages", "example");
   await mkdir(path.join(packageRoot, "src"), { recursive: true });
   await writeFile(
@@ -28,10 +31,7 @@ test("installed runtime composes explicit package providers and application inpu
       type: "module",
       jskit: {
         kind: "runtime",
-        capabilities: {
-          requires: ["runtime.env"],
-          provides: ["feature.example"]
-        },
+        capabilities,
         runtime: {
           server: {
             providers: [{ entrypoint: "src/provider.js", export: "ExampleProvider" }]
@@ -51,6 +51,15 @@ test("installed runtime composes explicit package providers and application inpu
       "};"
     ].join("\n")
   );
+  return appRoot;
+}
+
+test("installed runtime composes explicit package providers and application inputs", async (context) => {
+  const appRoot = await writeExampleApp({
+    requires: ["runtime.env"],
+    provides: ["feature.example"]
+  });
+  context.after(() => rm(appRoot, { recursive: true, force: true }));
 
   let observed = null;
   const observer = defineProvider({
@@ -103,4 +112,17 @@ test("installed runtime attaches one idempotent Fastify shutdown hook", async (c
   await closeHook.handler();
   await closeHook.handler();
   assert.equal(installed.runtime.diagnostics().lifecycleState, "stopped");
+});
+
+test("installed runtime refuses a package whose manifest disagrees with its providers", async (context) => {
+  const appRoot = await writeExampleApp({
+    requires: [],
+    provides: ["feature.example"]
+  });
+  context.after(() => rm(appRoot, { recursive: true, force: true }));
+
+  await assert.rejects(
+    createInstalledRuntime({ appRoot, env: {}, logger: silentLogger }),
+    { message: "Package @fixture/example requires capability runtime.env in its providers but not in its manifest." }
+  );
 });

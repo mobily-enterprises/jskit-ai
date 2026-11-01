@@ -11,6 +11,6 @@ test("database-runtime exposes migration configuration without authoring mutatio
   assert.equal(Object.hasOwn(packageJson.jskit.metadata.apiSummary, "containerTokens"), false);
   assert.deepEqual(packageJson.jskit.capabilities, {
     provides: ["runtime.database"],
-    requires: ["runtime.database.driver"]
+    requires: ["runtime.database.driver", "runtime.env"]
   });
 });

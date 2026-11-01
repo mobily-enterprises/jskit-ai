@@ -1,11 +1,23 @@
 import { sortStrings } from "../../../shared/support/sorting.js";
 import { discoverInstalledPackages } from "../../../internal/node/installedPackages.js";
 import { isRecord } from "../../../shared/support/normalize.js";
+import { ActionProvider } from "../../actions/actionProvider.js";
+import { HttpProvider } from "../../http/HttpProvider.js";
+import { BootstrapProvider } from "../../runtime/BootstrapProvider.js";
+import { EventProvider } from "../../runtime/EventProvider.js";
 
 const EXCLUSIVE_CAPABILITIES = Object.freeze([
   "auth.service",
   "runtime.database.driver"
 ]);
+/** @typedef {import("../../types.js").ProviderDefinition} ProviderDefinition */
+/** @typedef {import("../../types.js").RuntimeLogger} RuntimeLogger */
+
+// What the kernel's own providers give every package: events, actions, HTTP and the bootstrap.
+const KERNEL_PROVIDED_CAPABILITIES = new Set([EventProvider, ActionProvider, HttpProvider, BootstrapProvider]
+  .flatMap((provider) => Object.values(provider.provides)));
+// Client capabilities come from client providers, which the server never loads.
+const CLIENT_CAPABILITY = /^client\./u;
 
 function normalizeUiRoutePath(pathValue) {
   const rawPath = String(pathValue || "").trim();
@@ -162,7 +174,60 @@ function validatePackageCapabilities(packageEntries, { builtinProvidersByCapabil
   }
 }
 
+/**
+ * The capability ids a manifest list names, trimmed, without empty entries.
+ * @param {unknown} list
+ */
+function manifestCapabilityIds(list) {
+  return new Set((Array.isArray(list) ? list : []).map((id) => String(id || "").trim()).filter(Boolean));
+}
+
+/**
+ * The capability ids a package's providers name under one key (`requires`, `optional` or `provides`).
+ * @param {ReadonlyArray<ProviderDefinition>} providers
+ * @param {"requires" | "optional" | "provides"} key
+ */
+function providerCapabilityIds(providers, key) {
+  return new Set(providers.flatMap((provider) => Object.values(provider[key])));
+}
+
+/**
+ * Checks a package's manifest (`jskit.capabilities`) against the server providers it declares, so the two cannot
+ * drift. The manifest provides exactly what the providers provide, client capabilities aside. It requires every
+ * capability a provider requires, apart from the kernel's own and those the package provides; optional ones are never
+ * required. A manifest requirement no provider has is an install-time one, such as the database a migration needs, so
+ * it is logged, not refused.
+ * @param {{ packageId: string, packageMetadata?: { capabilities?: { provides?: unknown, requires?: unknown } } }} packageEntry
+ * @param {ReadonlyArray<ProviderDefinition>} packageProviders
+ * @param {{ logger: RuntimeLogger }} options
+ */
+function assertManifestMatchesProviders(packageEntry, packageProviders, { logger }) {
+  const { packageId } = packageEntry;
+  const manifest = packageEntry.packageMetadata?.capabilities;
+  const manifestProvides = [...manifestCapabilityIds(manifest?.provides)].filter((id) => !CLIENT_CAPABILITY.test(id));
+  const manifestRequires = manifestCapabilityIds(manifest?.requires);
+  const provided = providerCapabilityIds(packageProviders, "provides");
+  const required = providerCapabilityIds(packageProviders, "requires");
+
+  if (manifestProvides.length !== provided.size || manifestProvides.some((id) => !provided.has(id))) {
+    const manifestList = sortStrings(manifestProvides).join(", ");
+    const providerList = sortStrings([...provided]).join(", ");
+    throw new Error(`Package ${packageId} manifest provides [${manifestList}] but its providers provide [${providerList}].`);
+  }
+  for (const capabilityId of sortStrings([...required])) {
+    if (!KERNEL_PROVIDED_CAPABILITIES.has(capabilityId) && !provided.has(capabilityId) && !manifestRequires.has(capabilityId)) {
+      throw new Error(`Package ${packageId} requires capability ${capabilityId} in its providers but not in its manifest.`);
+    }
+  }
+  for (const capabilityId of sortStrings([...manifestRequires])) {
+    if (!CLIENT_CAPABILITY.test(capabilityId) && !required.has(capabilityId)) {
+      logger.warn({ packageId, capabilityId }, "Package manifest requires a capability its providers do not.");
+    }
+  }
+}
+
 export {
+  assertManifestMatchesProviders,
   collectGlobalUiPaths,
   resolveInstalledJskitPackages,
   resolvePackageLoadOrder,

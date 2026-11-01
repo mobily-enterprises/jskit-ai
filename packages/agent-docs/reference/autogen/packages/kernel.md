@@ -867,13 +867,18 @@ Exports
 
 ### `server/platform/providerRuntime/packageCatalog.js`
 Exports
+- `assertManifestMatchesProviders(packageEntry, packageProviders, { logger })`
 - `collectGlobalUiPaths(packageEntries)`
 - `resolveInstalledJskitPackages({ appRoot })`
 - `resolvePackageLoadOrder(packageEntries)`
 - `validatePackageCapabilities(packageEntries, { builtinProvidersByCapability = {} } = {})`
+- `type ProviderDefinition`
+- `type RuntimeLogger`
 Local functions
 - `normalizeUiRoutePath(pathValue)`
 - `registerCapabilityProvider(providersByCapability, capabilityId, providerPackageId)`
+- `manifestCapabilityIds(list)`
+- `providerCapabilityIds(providers, key)`
 
 ### `server/platform/surfaceRuntime.js`
 Exports

@@ -26,7 +26,8 @@
         "runtime.json-rest-api"
       ],
       "requires": [
-        "runtime.database"
+        "runtime.database",
+        "runtime.logger"
       ]
     },
     "runtime": {

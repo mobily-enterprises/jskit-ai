@@ -29,7 +29,8 @@
         "runtime.database"
       ],
       "requires": [
-        "runtime.database.driver"
+        "runtime.database.driver",
+        "runtime.env"
       ]
     },
     "runtime": {

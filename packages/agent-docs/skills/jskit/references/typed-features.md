@@ -109,6 +109,12 @@ function createRepository({ knex }) {
   dependencies object; no `typeof dependency.method === "function"` probe; no
   `dependency?.method?.()`; no "requires x" guard. The capability runtime
   refuses to start without a required token.
+- A package's manifest (`jskit.capabilities` in its `package.json`) provides
+  exactly what its server providers provide, client capabilities aside, and
+  requires every capability they require, apart from the kernel's own
+  (`runtime.actions`, events, HTTP and the bootstrap) and its own. Boot refuses
+  a package whose manifest disagrees. A manifest requirement no provider has,
+  such as the database its migrations need, is logged as an install-time one.
 - A default that is the production implementation stays:
   `fetchImpl = globalThis.fetch`, `now = Date.now`.
 - Resolve each default once, at the feature or at the public entry point.

@@ -932,8 +932,7 @@
         "kind": "runtime",
         "capabilities": {
           "provides": [
-            "auth.web",
-            "auth.web-login"
+            "auth.web"
           ],
           "requires": [
             "auth.service",
@@ -1605,7 +1604,8 @@
             "runtime.database"
           ],
           "requires": [
-            "runtime.database.driver"
+            "runtime.database.driver",
+            "runtime.env"
           ]
         },
         "runtime": {
@@ -1913,7 +1913,8 @@
             "runtime.json-rest-api"
           ],
           "requires": [
-            "runtime.database"
+            "runtime.database",
+            "runtime.logger"
           ]
         },
         "runtime": {
@@ -2945,7 +2946,8 @@
             "runtime.storage"
           ],
           "requires": [
-            "runtime.app-root"
+            "runtime.app-root",
+            "runtime.env"
           ]
         },
         "runtime": {

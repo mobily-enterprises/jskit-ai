@@ -20,7 +20,8 @@
         "runtime.storage"
       ],
       "requires": [
-        "runtime.app-root"
+        "runtime.app-root",
+        "runtime.env"
       ]
     },
     "runtime": {
