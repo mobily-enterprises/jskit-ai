@@ -7,6 +7,7 @@ import {
   ensureDevAuthExchangeAvailable,
   ensureDevAuthRuntimeAvailable
 } from "@jskit-ai/auth-core/server/devAuth";
+import { noAppProfiles } from "@jskit-ai/auth-core/server/noAppProfiles";
 import { hostOnlyCookieName, normalizeEmail, normalizeReturnToPath } from "@jskit-ai/auth-core/server/utils";
 import { throwUnsupportedAuthOperation } from "@jskit-ai/auth-core/server/unsupportedOperation";
 import { AUTH_TEXTS, authFieldErrorDetails, createAuthError } from "@jskit-ai/auth-core/server/authTexts";
@@ -82,7 +83,7 @@ function buildResult(identity, { session = null, appProfile = null } = {}) {
  * @param {import("../types.js").OidcConfig} dependencies.config
  * @param {import("../types.js").OidcStore} dependencies.store
  * @param {import("../types.js").OidcIssuerClient} dependencies.issuer
- * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector | null} [dependencies.profileProjector] The registered projector, when there is one.
+ * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} dependencies.profileProjector The `auth.profile.projector`, or noAppProfiles.
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
  * @param {() => number} [dependencies.now]
  */
@@ -91,7 +92,7 @@ function createOidcAuthService({ config, store, issuer, profileProjector, logger
   const secureCookies = config.isProduction;
   // Production sessions use a host-only __Host- cookie, like the other providers.
   const sessionCookie = hostOnlyCookieName(SESSION_COOKIE, secureCookies);
-  const projectorSyncs = Boolean(profileProjector);
+  const appProfileProjection = profileProjector !== noAppProfiles;
   const devLoginEnabled = config.devAuth.enabled === true && config.devAuth.isProduction !== true;
   const capabilities = normalizeAuthCapabilities({
     provider: { id: AUTH_OIDC_PROVIDER_ID, label: config.label },
@@ -109,26 +110,18 @@ function createOidcAuthService({ config, store, issuer, profileProjector, logger
       providerLinking: { start: false, unlink: false },
       securityStatus: false,
       signOutOtherSessions: false,
-      appProfileProjection: projectorSyncs,
+      appProfileProjection,
       devLoginAs: devLoginEnabled
     }
   });
 
   async function syncedResult(identity, { session = null } = {}) {
-    if (!projectorSyncs) return buildResult(identity, { session });
+    if (!appProfileProjection) return buildResult(identity, { session });
     const appProfile = await profileProjector.syncIdentityProfile(buildProfile(identity));
-    if (!appProfile || typeof appProfile !== "object") {
-      throw new Error("auth.profile.projector.syncIdentityProfile() must return a profile object.");
-    }
     return buildResult(identity, { session, appProfile });
   }
 
   async function existingProfile(identity) {
-    if (!profileProjector) return null;
-    // readable-check: allow method-probe - optional operation: findByIdentity is an optional profile projector operation
-    if (typeof profileProjector.findByIdentity !== "function") {
-      throw new Error("auth.profile.projector.findByIdentity() is required for preview identity and profile lookups without sync.");
-    }
     return profileProjector.findByIdentity(buildProfile(identity));
   }
 
@@ -298,7 +291,7 @@ function createOidcAuthService({ config, store, issuer, profileProjector, logger
     let result;
     if (devSession || !syncProfile) {
       const appProfile = await existingProfile(identity);
-      if (profileProjector && !appProfile) return unauthenticated(true);
+      if (appProfileProjection && !appProfile) return unauthenticated(true);
       result = buildResult(identity, { appProfile });
     } else {
       result = await syncedResult(identity);
@@ -325,7 +318,7 @@ function createOidcAuthService({ config, store, issuer, profileProjector, logger
     const known = await store.findKnownUser(AUTH_OIDC_PROVIDER_ID, { userId, email });
     const identity = known ? { sub: known.sub, email: known.email, displayName: known.displayName } : null;
     const appProfile = identity ? await existingProfile(identity) : null;
-    if (!identity || (profileProjector && !appProfile)) {
+    if (!identity || (appProfileProjection && !appProfile)) {
       throw createAuthError(AUTH_TEXTS.devUserNotFound, {
         details: authFieldErrorDetails({
           ...(userId ? { userId: AUTH_TEXTS.devUserNotFound } : {}),
@@ -355,10 +348,16 @@ function createOidcAuthService({ config, store, issuer, profileProjector, logger
     return Boolean(cookiesOf(request)[sessionCookie]);
   }
 
-  async function logout(request) {
+  /** Revokes the request's app session and answers it, or null when it has none. */
+  async function endSession(request) {
     const session = await sessionFromRequest(request);
     if (session) await store.revokeSession(session.id);
-    return { ok: true, clearSession: true, session };
+    return session;
+  }
+
+  async function logout(request) {
+    await endSession(request);
+    return { ok: true, clearSession: true };
   }
 
   /**
@@ -366,7 +365,7 @@ function createOidcAuthService({ config, store, issuer, profileProjector, logger
    * end-session address so the person also signs out at the hub.
    */
   async function logoutEverywhere(request, { everywhere = false } = {}) {
-    const { session } = await logout(request);
+    const session = await endSession(request);
     if (!everywhere || !session?.idToken || !session.clientId) return "/";
     try {
       const configuration = await issuer.configurationForClientId(session.clientId);
@@ -383,9 +382,17 @@ function createOidcAuthService({ config, store, issuer, profileProjector, logger
 
   const unsupported = (operation) => () => throwUnsupportedAuthOperation(operation);
 
+  function getCapabilities() {
+    return capabilities;
+  }
+
+  function isDevAuthBootstrapEnabled() {
+    return devLoginEnabled;
+  }
+
   return Object.freeze({
-    getCapabilities: () => capabilities,
-    isDevAuthBootstrapEnabled: () => devLoginEnabled,
+    getCapabilities,
+    isDevAuthBootstrapEnabled,
     devLoginAs,
     authenticateRequest,
     // One cookie carries the session, so both questions read it.
@@ -397,10 +404,7 @@ function createOidcAuthService({ config, store, issuer, profileProjector, logger
     clearOAuthStartCookies,
     oauthStart,
     oauthComplete,
-    logout: async (request) => {
-      await logout(request);
-      return { ok: true, clearSession: true };
-    },
+    logout,
     logoutEverywhere,
     register: unsupported("register"),
     resendRegisterConfirmation: unsupported("resendRegisterConfirmation"),

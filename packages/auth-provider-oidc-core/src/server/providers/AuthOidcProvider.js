@@ -2,6 +2,7 @@ import {
   attachDeferredAuthService,
   createDeferredAuthService
 } from "@jskit-ai/auth-core/server/deferredAuthService";
+import { noAppProfiles } from "@jskit-ai/auth-core/server/noAppProfiles";
 import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { createBackchannelLogout } from "../lib/backchannelLogout.js";
 import { resolveOidcConfig } from "../lib/config.js";
@@ -47,7 +48,7 @@ const AuthOidcProvider = defineProvider({
       config,
       store,
       issuer,
-      profileProjector,
+      profileProjector: profileProjector ?? noAppProfiles,
       logger
     });
     // readable-check: allow setter-seam - deferred until boot: auth.service is built after every setup has registered its auth extensions, and those setups already receive it

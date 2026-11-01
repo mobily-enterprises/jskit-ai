@@ -12,7 +12,7 @@
 /**
  * Where each Supabase user's app profile lives, by config.auth.profileMode.
  * @typedef {object} SupabaseProfiles
- * @property {Required<Pick<import("@jskit-ai/auth-core/server/types").AuthProfileProjector, "syncIdentityProfile" | "findByIdentity">>} projector
+ * @property {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} projector
  *   Makes or finds the app profile of a Supabase user.
  * @property {SupabaseUserProfiles} userProfilesRepository
  * @property {SupabaseUserSettings} userSettingsRepository
