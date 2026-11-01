@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { createActionProvider } from "@jskit-ai/kernel/server/actions";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
-import { RewardedCoreFeature } from "../src/server/RewardedCoreProvider.js";
+import { RewardedCoreFeature } from "../src/server/RewardedCoreFeature.js";
 import {
   RewardedProviderConfigsFeature,
   RewardedRulesFeature,

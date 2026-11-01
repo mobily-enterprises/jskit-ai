@@ -2330,7 +2330,7 @@
                 "export": "RewardedUnlockReceiptsFeature"
               },
               {
-                "entrypoint": "src/server/RewardedCoreProvider.js",
+                "entrypoint": "src/server/RewardedCoreFeature.js",
                 "export": "RewardedCoreFeature"
               }
             ]
@@ -2373,8 +2373,8 @@
                 "summary": "Exports Rewarded shared CRUD resources."
               },
               {
-                "subpath": "./server/actions",
-                "summary": "Exports Rewarded workflow action identifiers and validators."
+                "subpath": "./server/rewardedActions",
+                "summary": "Exports the Rewarded workflow action identifiers and createRewardedActions()."
               },
               {
                 "subpath": "./server/requireRewardedUnlock",

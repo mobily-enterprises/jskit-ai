@@ -7,7 +7,7 @@
   },
   "exports": {
     "./shared": "./src/shared/index.js",
-    "./server/actions": "./src/server/actions.js",
+    "./server/rewardedActions": "./src/server/rewardedActions.js",
     "./server/requireRewardedUnlock": "./src/server/support/requireRewardedUnlock.js",
     "./server/types": "./src/server/types.js",
     "./locales/en.json": "./locales/en.json"
@@ -54,7 +54,7 @@
             "export": "RewardedUnlockReceiptsFeature"
           },
           {
-            "entrypoint": "src/server/RewardedCoreProvider.js",
+            "entrypoint": "src/server/RewardedCoreFeature.js",
             "export": "RewardedCoreFeature"
           }
         ]
@@ -97,8 +97,8 @@
             "summary": "Exports Rewarded shared CRUD resources."
           },
           {
-            "subpath": "./server/actions",
-            "summary": "Exports Rewarded workflow action identifiers and validators."
+            "subpath": "./server/rewardedActions",
+            "summary": "Exports the Rewarded workflow action identifiers and createRewardedActions()."
           },
           {
             "subpath": "./server/requireRewardedUnlock",

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { registerRoutes } from "../src/server/registerRoutes.js";
+import { registerRewardedRoutes } from "../src/server/rewardedRoutes.js";
 
 function createReplyDouble() {
   return {
@@ -35,7 +35,7 @@ function mountRoutes() {
     }
   };
 
-  registerRoutes(router);
+  registerRewardedRoutes(router);
   return registeredRoutes;
 }
 

@@ -12,7 +12,7 @@ import {
   ACTION_START,
   ACTION_GRANT,
   ACTION_CLOSE
-} from "./actions.js";
+} from "./rewardedActions.js";
 import {
   currentQueryInputValidator,
   startCommandInputValidator,
@@ -37,27 +37,18 @@ function createWorkflowResponses(outputValidator) {
 }
 
 /**
+ * Registers the Rewarded gate routes: the app surface's workspace routes under `rewarded`, for the
+ * workspace's signed-in user.
  * @param {import("@jskit-ai/kernel/server/types").RuntimeRouter} router
- * @param {object} [options]
- * @param {string} [options.routeOwnershipFilter]
- * @param {string} [options.routeSurface]
- * @param {string} [options.routeRelativePath]
  */
-function registerRoutes(
-  router,
-  {
-    routeOwnershipFilter = "workspace_user",
-    routeSurface = "app",
-    routeRelativePath = "rewarded"
-  } = {}
-) {
-  const normalizedRouteSurface = normalizeSurfaceId(routeSurface);
+function registerRewardedRoutes(router) {
+  const normalizedRouteSurface = normalizeSurfaceId("app");
   const routeBase = resolveScopedApiBasePath({
     routeBase: "/w/:workspaceSlug",
-    relativePath: routeRelativePath,
+    relativePath: "rewarded",
     strictParams: false
   });
-  const visibility = checkRouteVisibility(routeOwnershipFilter);
+  const visibility = checkRouteVisibility("workspace_user");
 
   router.register(
     "GET",
@@ -168,4 +159,4 @@ function registerRoutes(
   );
 }
 
-export { registerRoutes };
+export { registerRewardedRoutes };

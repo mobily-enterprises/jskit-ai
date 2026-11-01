@@ -1,8 +1,8 @@
 import { defineFeature } from "@jskit-ai/kernel/server/features";
 
 import { createService } from "./service.js";
-import { createRewardedActions } from "./actions.js";
-import { registerRoutes } from "./registerRoutes.js";
+import { createRewardedActions } from "./rewardedActions.js";
+import { registerRewardedRoutes } from "./rewardedRoutes.js";
 
 const RewardedCoreFeature = defineFeature({
   id: "rewarded.core",
@@ -39,11 +39,7 @@ const RewardedCoreFeature = defineFeature({
       rewardedWatchSessionsRepository: watchSessions.repository,
       rewardedUnlockReceiptsRepository: unlockReceipts.repository
     });
-    registerRoutes(http.router, {
-      routeOwnershipFilter: "workspace_user",
-      routeSurface: "app",
-      routeRelativePath: "rewarded"
-    });
+    registerRewardedRoutes(http.router);
     return { rewarded };
   },
   actions({ rewarded }) {

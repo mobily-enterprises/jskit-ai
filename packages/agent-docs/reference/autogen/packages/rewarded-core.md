@@ -14,16 +14,6 @@ Use this on demand; do not load the full index at startup.
 
 ### src
 
-### `src/server/actions.js`
-Exports
-- `ACTION_CURRENT`
-- `ACTION_START`
-- `ACTION_GRANT`
-- `ACTION_CLOSE`
-- `createRewardedActions({ rewarded })`
-Local functions
-- `changedEvent({ entity, operation, entityId, event })`
-
 ### `src/server/inputSchemas.js`
 Exports
 - `currentQueryInputValidator`
@@ -37,13 +27,17 @@ Exports
 Local functions
 - `createGateStateOutputValidator({ includeSession = false } = {})`
 
-### `src/server/registerRoutes.js`
+### `src/server/rewardedActions.js`
 Exports
-- `registerRoutes(router, { routeOwnershipFilter = "workspace_user", routeSurface = "app", routeRelativePath = "rewarded" } = {})`
+- `ACTION_CURRENT`
+- `ACTION_START`
+- `ACTION_GRANT`
+- `ACTION_CLOSE`
+- `createRewardedActions({ rewarded })`
 Local functions
-- `createWorkflowResponses(outputValidator)`
+- `changedEvent({ entity, operation, entityId, event })`
 
-### `src/server/RewardedCoreProvider.js`
+### `src/server/RewardedCoreFeature.js`
 Exports
 - `RewardedCoreFeature`
 
@@ -56,10 +50,16 @@ Exports
 Local functions
 - `workspaceScope()`
 
+### `src/server/rewardedRoutes.js`
+Exports
+- `registerRewardedRoutes(router)`
+Local functions
+- `createWorkflowResponses(outputValidator)`
+
 ### `src/server/service.js`
 Exports
 - `createService({ authorizeGrant, rewardedRulesRepository, rewardedProviderConfigsRepository, rewardedWatchSessionsRepository, rewardedUnlockReceiptsRepository })`
-- `type RewardedRepository`
+- `type CrudJsonApiRepository`
 Local functions
 - `resolveActionUser(context, input)`
 - `normalizeRecordList(document = null)`
