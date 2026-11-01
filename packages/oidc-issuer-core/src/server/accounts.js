@@ -165,7 +165,7 @@ function createAccountStore(knex, { now = () => new Date() } = {}) {
       return Boolean(row?.password_hash) && verifyPassword(password, passwordRecord(row));
     },
 
-    // readable-check: allow setter-seam - setPassword changes an account's password; it is not a slot
+    // readable-check: allow setter-seam - not a slot: setPassword changes an account's password
     async setPassword(id, password) {
       const problem = passwordProblem(password);
       if (problem) throw new AccountError("password_rejected", problem);
@@ -203,7 +203,7 @@ function createAccountStore(knex, { now = () => new Date() } = {}) {
       return update(id, { google_sub: null });
     },
 
-    // readable-check: allow setter-seam - setDisabled changes an account's status; it is not a slot
+    // readable-check: allow setter-seam - not a slot: setDisabled changes an account's status
     setDisabled(id, disabled) {
       return update(id, { disabled: Boolean(disabled) });
     },
