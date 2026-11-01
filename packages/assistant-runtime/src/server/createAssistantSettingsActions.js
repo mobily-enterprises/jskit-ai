@@ -6,7 +6,7 @@ import { assistantConfigResource } from "@jskit-ai/assistant-core/shared";
 import { actionIds } from "./actionIds.js";
 import { assistantTargetSurfaceInputValidator } from "./inputSchemas.js";
 
-const settingsReadInputValidator = assistantTargetSurfaceInputValidator;
+const settingsReadInputValidator = deepFreeze({ schema: assistantTargetSurfaceInputValidator.schema });
 
 const settingsUpdatePatchInputValidator = deepFreeze({
   schema: createSchema({

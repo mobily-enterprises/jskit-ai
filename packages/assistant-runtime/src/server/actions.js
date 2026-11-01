@@ -43,7 +43,7 @@ const runtimeConversationsListQueryInputValidator = deepFreeze({
 const runtimeConversationsListInputValidator = composeSchemaDefinitions(
   [assistantTargetSurfaceInputValidator, runtimeConversationsListQueryInputValidator],
   {
-    mode: "patch",
+    mode: "create",
     context: "assistant-runtime conversations list action input"
   }
 );
@@ -66,7 +66,7 @@ const runtimeConversationMessagesListInputValidator = composeSchemaDefinitions(
     runtimeConversationMessagesListQueryInputValidator
   ],
   {
-    mode: "patch",
+    mode: "create",
     context: "assistant-runtime conversation messages action input"
   }
 );
@@ -77,7 +77,7 @@ const runtimeChatStreamInputValidator = composeSchemaDefinitions(
     assistantResource.operations.chatStream.body
   ],
   {
-    mode: "patch",
+    mode: "create",
     context: "assistant-runtime chat stream action input"
   }
 );
@@ -90,24 +90,24 @@ function configuredAssistantSurfaces(config = {}) {
 
 const conversationInputValidator = composeSchemaDefinitions(
   [assistantTargetSurfaceInputValidator, assistantConversationIdInputValidator],
-  { mode: "patch", context: "assistant-runtime conversation action input" }
+  { mode: "create", context: "assistant-runtime conversation action input" }
 );
 
 const conversationDeliveryInputValidator = composeSchemaDefinitions(
   [conversationInputValidator, assistantConversationMessageIdInputValidator],
-  { mode: "patch", context: "assistant-runtime conversation delivery inspection input" }
+  { mode: "create", context: "assistant-runtime conversation delivery inspection input" }
 );
 
 const conversationReadInputValidator = composeSchemaDefinitions(
   [conversationInputValidator, assistantConversationReadQueryValidator],
-  { mode: "patch", context: "assistant-runtime conversation read action input" }
+  { mode: "create", context: "assistant-runtime conversation read action input" }
 );
 
 function createConversationActions({ conversationRuntime, conversationDataSchema, conversationConfigurationSchema,
   conversationSelectionSchema, conversationReplacementSchema, config, runtimeSurfaces, workspaceScopeSupport }) {
   const conversationSendInputValidator = composeSchemaDefinitions(
     [conversationInputValidator, conversationSendBodyValidator(conversationDataSchema)],
-    { mode: "patch", context: "assistant-runtime conversation send action input" }
+    { mode: "create", context: "assistant-runtime conversation send action input" }
   );
   async function openConversation(input, context) {
     const assistantSurface = requireAssistantSurface(config, input.targetSurfaceId);
