@@ -18,9 +18,11 @@ export const REPLY_DEADLINE_MS = (Number(process.env.AGENT_REPLY_MINUTES) || 15)
 // carry on from here. With `onText(text)` the reply streams: each step's words so far, as they
 // come. `onStep(step)` hears each finished step. Aborting `signal` (the person pressed Stop, or a
 // tool's outcome is unknown) ends the run at once with the signal's reason, without an account.
+// When `throwIf(error, steps)` says so, a failed call ends the run with its error instead of an
+// account (an app that shows errors itself, when nothing was done yet).
 export async function runLoop({
   model, name, instructions, history, tools = {}, summary = "", state = "", maxSteps,
-  onSteps = null, onStep = null, onText = null, signal = null, carriesOn = false, quietIfEmpty = false, clean = stripNotes,
+  onSteps = null, onStep = null, onText = null, signal = null, carriesOn = false, quietIfEmpty = false, clean = stripNotes, throwIf = null,
   reasoning = REASONING.on, maxOutputTokens = LOOP_OUTPUT_TOKENS, turnLimits = TURN_LIMITS, deadlineMs = REPLY_DEADLINE_MS
 }) {
   const messages = [...history];
@@ -64,6 +66,7 @@ export async function runLoop({
     result = onText ? await streamed(call, onText) : await generateText(call);
   } catch (error) {
     if (signal?.aborted) throw signal.reason ?? error;
+    if (throwIf?.(error, done)) throw error;
     stopped = deadline.signal.aborted ? "it was taking too long" : "something went wrong on my side";
     console.error(`${name}'s reply stopped: ${error?.message || error}`);
   } finally {

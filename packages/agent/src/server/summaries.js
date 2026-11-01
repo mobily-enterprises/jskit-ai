@@ -93,11 +93,12 @@ export function cutPoint(messages, sizes, limits = SUMMARY_LIMITS) {
 // summary, a piece of at most `readTokens` at a time. Returns { summary, messages, saved }:
 // the summary to show, the messages still read word for word, and what to keep for next time
 // (the summary, how many messages it covers, and a fingerprint of them, so a history that
-// changed underneath is summarised afresh). `onCompacting()` hears when it starts.
-export async function compactMessages({ model, app = "the app", messages, saved = null, limits = SUMMARY_LIMITS, summarize = (input) => writeSummary({ model, app, ...input, limits }), onCompacting = () => {} }) {
+// changed underneath is summarised afresh). `onCompacting()` hears when it starts. A store that
+// keeps only the messages after its summary passes that summary as `previous`.
+export async function compactMessages({ model, app = "the app", messages, saved = null, previous = "", limits = SUMMARY_LIMITS, summarize = (input) => writeSummary({ model, app, ...input, limits }), onCompacting = () => {} }) {
   const fingerprint = (count) => createHash("sha256").update(JSON.stringify(messages.slice(0, count))).digest("hex");
   let covers = saved && saved.covers <= messages.length && saved.check === fingerprint(saved.covers) ? saved.covers : 0;
-  let summary = covers ? saved.summary : "";
+  let summary = covers ? saved.summary : previous;
   let started = false;
   for (let piece = 0; piece < 4 && estimateTokens(messages.slice(covers)) > limits.compactAt; piece += 1) {
     const rest = messages.slice(covers);
