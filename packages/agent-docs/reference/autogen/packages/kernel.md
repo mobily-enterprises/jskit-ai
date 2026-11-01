@@ -600,6 +600,7 @@ Exports
 
 ### `server/actions/actionDefinitions.js`
 Exports
+- `ACTION_INPUT_DEFAULT_MODE`
 - `ActionRuntimeError`
 - `normalizeActionDefinition(definition, { contributorId = "", contributorDomain = "" } = {})`
 - `toRegisteredContributor(contributor, policy)`
@@ -652,6 +653,7 @@ Exports
 ### `server/actions/index.js`
 Exports
 - `createActionCatalogue`
+- `ACTION_INPUT_DEFAULT_MODE`
 - `ActionProvider`
 - `createEntityChangedActionEvent`
 

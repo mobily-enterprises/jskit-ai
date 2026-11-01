@@ -13,7 +13,13 @@ const ACTION_PERMISSION_REQUIRE_MODES = Object.freeze(["none", "authenticated", 
 const ACTION_KIND_SET = new Set(ACTION_KINDS);
 const ACTION_IDEMPOTENCY_SET = new Set(ACTION_IDEMPOTENCY_POLICIES);
 const ACTION_PERMISSION_REQUIRE_SET = new Set(ACTION_PERMISSION_REQUIRE_MODES);
-const ACTION_INPUT_SCHEMA_OPTIONS = Object.freeze({ required: true, defaultMode: "patch" });
+/**
+ * The mode of an action input that declares none: create, so the schema's
+ * required fields are enforced and its defaults applied. Only an action that
+ * updates part of a record declares `mode: "patch"`.
+ */
+const ACTION_INPUT_DEFAULT_MODE = "create";
+const ACTION_INPUT_SCHEMA_OPTIONS = Object.freeze({ required: true, defaultMode: ACTION_INPUT_DEFAULT_MODE });
 
 class ActionRuntimeError extends Error {
   constructor(status, message, options = {}) {
@@ -315,6 +321,7 @@ const __testables = {
 };
 
 export {
+  ACTION_INPUT_DEFAULT_MODE,
   ActionRuntimeError,
   normalizeActionDefinition,
   toRegisteredContributor,

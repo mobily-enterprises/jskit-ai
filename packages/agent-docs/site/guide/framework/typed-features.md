@@ -223,6 +223,11 @@ const AppInviteAcceptanceFeature = defineFeature({
   `execute: ({ workspaceSlug, ...payload }, context) => service.update(workspaceSlug, payload, { context })`.
 - CRUD custom actions keep the declaration's own
   `execute({ input, context, service })` contract, written as a one-line arrow.
+- An action's input is strict. With no `mode`, it is validated in create mode:
+  the schema's required fields are enforced and its defaults applied. Only an
+  action that updates part of a record declares `mode: "patch"`; a command
+  (start, invite, run, connect) never does. A CRUD custom action's input
+  follows the same rule, with or without a scope.
 - A rule every action of an application obeys (who may run it, which record
   it acts within, the scope it runs in) is data each definition declares in
   `extensions`, applied by the application's one [action policy](#the-action-policy).

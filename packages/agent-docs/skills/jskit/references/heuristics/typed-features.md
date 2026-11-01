@@ -92,6 +92,11 @@ data (input, record, list, options bag) is not one.
   - A wrapper that applies one application rule to every definition becomes
     data in each definition's `extensions` and one `runtime.actions.policy`
     the application provides.
+- `mode: "patch"` on an action input that is not a partial update, or a guard in the service for a field the schema marks `required`
+  - An action input with no `mode` is validated in create mode, so `required`
+    is enforced and defaults are applied. Keep `mode: "patch"` only where the
+    action updates part of a record; a command (start, invite, run) drops it,
+    and its service drops the guards that only repeated `required`.
 - `ActionSpecifications`, `run(service, input, context)`, `build<Name>Actions` mapper, positional `create<Name>Actions(service)`
   - Replace them with one `create<Name>Actions({ <service> })` whose
     definitions call the service in `execute`. Keep each id a string literal or

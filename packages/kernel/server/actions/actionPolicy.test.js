@@ -88,7 +88,7 @@ test("a policy's input is applied once per action, when it is registered, and th
   assert.deepEqual(calls.input.map((definition) => definition.id), ["notes.write", "other.write"]);
   assert.deepEqual(Object.keys(calls.input[0].input.schema.getFieldDefinitions()), ["text", "author"]);
   assert.deepEqual(Object.keys(actions.getDefinition("notes.write").input.schema.getFieldDefinitions()), ["text", "scope"]);
-  assert.equal(actions.getDefinition("notes.write").input.mode, "patch");
+  assert.equal(actions.getDefinition("notes.write").input.mode, "create");
   assert.deepEqual(Object.keys(actions.getDefinition("other.write").input.schema.getFieldDefinitions()), ["text", "author"]);
   assert.deepEqual(actions.listDefinitions().map((definition) => definition.id), ["notes.write", "other.write"]);
 

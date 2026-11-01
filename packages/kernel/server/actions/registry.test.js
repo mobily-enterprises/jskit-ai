@@ -150,6 +150,48 @@ test("action registry validates action input with a single schema contract", asy
   });
 });
 
+test("action registry validates an input without a mode in create mode, and a patch input as a partial update", async () => {
+  const schema = createSchema({
+    title: { type: "string", required: true },
+    notify: { type: "boolean", defaultTo: false }
+  });
+  const action = (id, input) => ({
+    id,
+    version: 1,
+    kind: "command",
+    channels: ["api"],
+    surfaces: ["app"],
+    input,
+    execute: (validated) => validated
+  });
+  const registry = createRegistry({
+    logger: silentLogger,
+    contributors: [
+      {
+        contributorId: "tests.notes",
+        domain: "notes",
+        actions: [
+          action("notes.create", { schema }),
+          action("notes.update", { schema, mode: "patch" })
+        ]
+      }
+    ]
+  });
+  const context = { channel: "api", surface: "app", permissions: [] };
+
+  assert.equal(registry.getDefinition("notes.create").input.mode, "create");
+  assert.equal(registry.getDefinition("notes.update").input.mode, "patch");
+  await assert.rejects(
+    registry.execute({ actionId: "notes.create", input: { notify: true }, context }),
+    (error) => error.code === "ACTION_VALIDATION_FAILED" && Object.keys(error.details.fieldErrors).join() === "title"
+  );
+  assert.deepEqual(await registry.execute({ actionId: "notes.create", input: { title: "Hello" }, context }), {
+    title: "Hello",
+    notify: false
+  });
+  assert.deepEqual(await registry.execute({ actionId: "notes.update", input: { notify: true }, context }), { notify: true });
+});
+
 test("action registry fails startup on duplicate action id + version", () => {
   assert.throws(
     () =>

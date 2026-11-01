@@ -19,6 +19,7 @@ const BARREL_EXPECTATIONS = Object.freeze([
   Object.freeze({
     filePath: path.join(REPO_ROOT, "packages", "kernel", "server", "actions", "index.js"),
     expectedExports: Object.freeze([
+      "ACTION_INPUT_DEFAULT_MODE",
       "ActionProvider",
       "createActionCatalogue",
       "createEntityChangedActionEvent"
