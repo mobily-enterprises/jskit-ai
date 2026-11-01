@@ -11,6 +11,26 @@ function requireOperationScope(operation, scopes, message, { messageCode }) {
   }
 }
 
+// The token response oauth4webapi processes, rewritten by the provider's normalizeTokenResponse() when it has one.
+function tokenResponse(provider, response, details) {
+  // readable-check: allow method-probe - optional operation: normalizeTokenResponse is an optional hook of the provider definition
+  return typeof provider.normalizeTokenResponse === "function" ? provider.normalizeTokenResponse(response, details) : response;
+}
+
+// The headers that carry a connection's credential: the provider's API-key headers, or its OAuth headers and bearer token.
+function credentialHeaders(provider, connection) {
+  if (connection.method === "none") return {};
+  if (connection.method === "api-key") {
+    // readable-check: allow method-probe - optional operation: apiKey.headers is an optional hook of the provider definition
+    return typeof provider.apiKey.headers === "function" ? provider.apiKey.headers(connection.apiKey, connection.settings || {}) : {};
+  }
+  return {
+    // readable-check: allow method-probe - optional operation: oauthHeaders is an optional hook of the provider definition
+    ...(typeof provider.oauthHeaders === "function" ? provider.oauthHeaders({ clientId: connection.clientId }) : {}),
+    Authorization: `Bearer ${connection.tokens.accessToken}`
+  };
+}
+
 // Builds the provider request, reporting schema input errors as connector_input_invalid.
 function operationRequest(operation, input, settings, providerData) {
   try { return operation.request(input, settings || {}, providerData); } catch (error) {
@@ -68,7 +88,8 @@ function createProviderRequests({ fetchImpl, now, resolveReference }) {
     if (url.protocol !== "https:" || url.username || url.password || !origins.includes(url.origin)) {
       throw new ConnectorError("connector_destination_invalid", "The provider operation has an invalid destination.", { messageCode: "connectors.connection.providerOperationInvalidDestination" });
     }
-    if (connection.method === "api-key" && provider.apiKey.pathPrefix) {
+    // readable-check: allow method-probe - optional operation: apiKey.pathPrefix is an optional hook of the provider definition
+    if (connection.method === "api-key" && typeof provider.apiKey.pathPrefix === "function") {
       const prefix = provider.apiKey.pathPrefix(connection.apiKey);
       if (typeof prefix !== "string" || !prefix.startsWith("/") || prefix.startsWith("//") ||
         /[?#\\]/.test(prefix) || prefix.split("/").some((part) => /^(?:\.|%2e){1,2}$/i.test(part))) {
@@ -90,19 +111,14 @@ function createProviderRequests({ fetchImpl, now, resolveReference }) {
     const options = {
       method: descriptor.method,
       body,
-      headers: { ...descriptor.headers, Accept: "application/json", ...(connection.method === "api-key"
-        // readable-check: allow optional-call - input validation: an optional hook of the provider definition
-        ? provider.apiKey.headers?.(connection.apiKey, connection.settings || {})
-        : connection.method === "none" ? {} : {
-          // readable-check: allow optional-call - input validation: an optional hook of the provider definition
-          ...provider.oauthHeaders?.({ clientId: connection.clientId }), Authorization: `Bearer ${connection.tokens.accessToken}`
-        }) },
+      headers: { ...descriptor.headers, Accept: "application/json", ...credentialHeaders(provider, connection) },
       redirect: "error",
       signal: requestOptions(signal, provider.requestTimeoutMs).signal
     };
     let result;
     try {
-      result = provider.exchange
+      // readable-check: allow method-probe - optional operation: exchange is an optional hook of the provider definition
+      result = typeof provider.exchange === "function"
         ? await provider.exchange(url.href, options, { fetchImpl, request: http.request, resolveReference,
           settings: connection.settings || {}, apiKey: connection.method === "api-key" ? connection.apiKey : undefined })
         : await http.request(url.href, options);
@@ -112,7 +128,7 @@ function createProviderRequests({ fetchImpl, now, resolveReference }) {
       throw error;
     }
     // The validator also receives the operation's own request, so it can check the provider answered what was asked.
-    // readable-check: allow method-probe - input validation: an optional hook of the provider definition
+    // readable-check: allow method-probe - optional operation: validateResult is an optional hook of the provider definition
     if (typeof operation.validateResult === "function" && !operation.validateResult(result, descriptor)) {
       throw new ConnectorError("connector_response_invalid", "The provider returned an unexpected response.", { statusCode: 502, messageCode: "connectors.connection.providerReturnedUnexpectedResponse" });
     }
@@ -128,7 +144,8 @@ function createProviderRequests({ fetchImpl, now, resolveReference }) {
    */
   function tokensFrom(response, previous, requestedScopes, scopeSeparator = " ", provider) {
     return {
-      ...(provider?.dataFromTokenResponse ? { providerData: provider.dataFromTokenResponse(response, previous?.providerData) } : {}),
+      // readable-check: allow method-probe - optional operation: dataFromTokenResponse is an optional hook of the provider definition
+      ...(typeof provider?.dataFromTokenResponse === "function" ? { providerData: provider.dataFromTokenResponse(response, previous?.providerData) } : {}),
       tokens: {
         accessToken: response.access_token,
         refreshToken: response.refresh_token || previous?.tokens.refreshToken || null,
@@ -147,10 +164,6 @@ function createProviderRequests({ fetchImpl, now, resolveReference }) {
    * @param {AbortSignal} [signal]
    */
   async function serviceAccountGrant(integration, provider, binding, signal) {
-    // readable-check: allow method-probe - input validation: a provider definition may lack serviceAccountGrant()
-    if (typeof provider.serviceAccountGrant !== "function") {
-      throw new ConnectorError("connector_mode_unavailable", "This provider does not implement service-account authorization.", { messageCode: "connectors.connection.providerDoesNotImplementService" });
-    }
     const options = requestOptions(signal, provider.requestTimeoutMs);
     options.signal.throwIfAborted();
     let response;
@@ -185,14 +198,16 @@ function createProviderRequests({ fetchImpl, now, resolveReference }) {
    */
   async function verifyOAuthConnection(provider, connection, verificationInput, requestedScopes, signal) {
     const verification = await request(provider, provider.checkOperation, verificationInput, connection, signal);
-    if (provider.accountLabelFromVerification) {
+    // readable-check: allow method-probe - optional operation: accountLabelFromVerification is an optional hook of the provider definition
+    if (typeof provider.accountLabelFromVerification === "function") {
       const label = provider.accountLabelFromVerification(verification);
       if (typeof label !== "string" || !label.trim() || label.length > 256 || /[\p{Cc}\p{Cf}]/u.test(label)) {
         throw new ConnectorError("connector_response_invalid", "The provider returned an invalid account label.", { statusCode: 502, messageCode: "connectors.connection.providerReturnedInvalidAccountLabel" });
       }
       connection.accountLabel = label;
     }
-    if (!provider.grantedScopesFromVerification) return;
+    // readable-check: allow method-probe - optional operation: grantedScopesFromVerification is an optional hook of the provider definition
+    if (typeof provider.grantedScopesFromVerification !== "function") return;
     const scopes = provider.grantedScopesFromVerification(verification, { clientId: connection.clientId });
     if (!Array.isArray(scopes) || scopes.some((scope) => typeof scope !== "string" || !scope)) {
       throw new ConnectorError("connector_response_invalid", "The provider returned an invalid permission grant.", { statusCode: 502, messageCode: "connectors.connection.providerReturnedInvalidPermissionGrant" });
@@ -215,7 +230,7 @@ function createProviderRequests({ fetchImpl, now, resolveReference }) {
       requestOptions(signal)
     );
     const result = await oauth.processClientCredentialsResponse(registration.oauth, registration.client,
-      provider.normalizeTokenResponse ? await provider.normalizeTokenResponse(response, { settings, grantType: "client_credentials" }) : response);
+      await tokenResponse(provider, response, { settings, grantType: "client_credentials" }));
     const grant = tokensFrom(result, null, scopes, provider.scopeSeparator, provider);
     // Client credentials renew with the application's secret, never a user refresh token.
     grant.tokens.refreshToken = null;
@@ -226,4 +241,4 @@ function createProviderRequests({ fetchImpl, now, resolveReference }) {
   return Object.freeze({ requestOptions, request, tokensFrom, serviceAccountGrant, verifyOAuthConnection, clientCredentialsGrant });
 }
 
-export { createProviderRequests, operationRequest, requireOperationScope };
+export { createProviderRequests, operationRequest, requireOperationScope, tokenResponse };

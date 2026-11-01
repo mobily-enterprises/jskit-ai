@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { registrationClientAuthentication, registrationGrantType, validateIntegrationConfiguration } from "../shared/configuration.js";
 import { createConnectionCredentials } from "./connectionCredentials.js";
 import { ConnectorError, providerError } from "./errors.js";
-import { createProviderRequests, operationRequest, requireOperationScope } from "./providerRequests.js";
+import { createProviderRequests, operationRequest, requireOperationScope, tokenResponse } from "./providerRequests.js";
 
 function publicConnection(connection) {
   if (!connection) return { status: "disconnected" };
@@ -74,6 +74,7 @@ function createConnectionService({
   const config = validateIntegrationConfiguration(configuration, { providers });
   const definitions = new Map(providers.map((provider) => [provider.id, provider]));
   if (!providers.length || definitions.size !== providers.length) throw new TypeError("Register unique connector providers.");
+  // readable-check: allow method-probe - input validation: the application passes its access policy and reference resolver
   if (typeof authorize !== "function" || typeof resolveReference !== "function") {
     throw new TypeError("Connections require application authorization and reference resolution.");
   }
@@ -88,7 +89,8 @@ function createConnectionService({
       throw new ConnectorError("connector_not_found", "This integration is not configured.", { statusCode: 404, messageCode: "connectors.connection.integrationNotConfigured" });
     }
     const baseDefinition = definitions.get(integration.provider);
-    const definition = baseDefinition.runtimeForSettings
+    // readable-check: allow method-probe - optional operation: runtimeForSettings is an optional hook of the provider definition
+    const definition = typeof baseDefinition.runtimeForSettings === "function"
       ? { ...baseDefinition, ...baseDefinition.runtimeForSettings(integration.settings || {}) } : baseDefinition;
     // readable-check: allow method-probe - data: a provider definition gives checkOperation as an operation id or as a function of the credential mode
     const provider = typeof definition.checkOperation === "function"
@@ -96,6 +98,7 @@ function createConnectionService({
       : definition;
     let assistantPermission;
     if (executionMode === "assistant" && checkAssistantPermission && !["status", "disconnect"].includes(operation)) {
+      // A configuration-only definition has no operations; its connection steps refuse it.
       const action = provider.operations?.[operation]?.assistantAction || operation;
       const policy = integration.assistantPolicy;
       const decision = policy?.enabled === false ? "never" : policy?.actions?.[action] || policy?.defaultPermission || "ask";
@@ -153,7 +156,7 @@ function createConnectionService({
   async function connectServiceAccount({ context, integrationId, verificationInput = {}, signal }) {
     verificationInput = structuredClone(verificationInput);
     const { owner, integration, provider } = await access(context, integrationId, "connect");
-    // readable-check: allow method-probe - input validation: a provider definition may lack serviceAccountGrant()
+    // readable-check: allow method-probe - optional operation: serviceAccountGrant is an optional hook of the provider definition
     if (integration.authentication.method !== "service-account" || typeof provider.serviceAccountGrant !== "function") {
       throw new ConnectorError("connector_mode_unavailable", "Select service-account credentials to verify this connection.", { messageCode: "connectors.connection.selectServiceAccountCredentialsVerify" });
     }
@@ -221,8 +224,8 @@ function createConnectionService({
     url.searchParams.set(provider.oauthClientIdParameter || "client_id", registration.client.client_id);
     url.searchParams.set("redirect_uri", registration.callbackUrl);
     url.searchParams.set("response_type", "code");
-    // readable-check: allow optional-call - input validation: an optional hook of the provider definition
-    const scopeParameter = provider.authorizationScopeParameter?.(integration.settings || {}) || "scope";
+    // readable-check: allow method-probe - optional operation: authorizationScopeParameter is an optional hook of the provider definition
+    const scopeParameter = (typeof provider.authorizationScopeParameter === "function" && provider.authorizationScopeParameter(integration.settings || {})) || "scope";
     if (integration.scopes.length) url.searchParams.set(scopeParameter, integration.scopes.join(provider.scopeSeparator || " "));
     url.searchParams.set("state", state);
     if (codeVerifier !== null) {
@@ -307,7 +310,7 @@ function createConnectionService({
             ...(registration.resource ? { additionalParameters: { resource: registration.resource } } : {}) }
         );
         const result = await oauth.processAuthorizationCodeResponse(registration.oauth, registration.client,
-          provider.normalizeTokenResponse ? await provider.normalizeTokenResponse(response, { settings: integration.settings || {}, grantType: "authorization_code" }) : response);
+          await tokenResponse(provider, response, { settings: integration.settings || {}, grantType: "authorization_code" }));
         const connection = {
           integrationId, provider: provider.id, registrationRef: registration.registrationRef,
           grantType: registration.grantType,
@@ -413,7 +416,7 @@ function createConnectionService({
                 } }
             );
             const refreshed = await oauth.processRefreshTokenResponse(registration.oauth, registration.client,
-              provider.normalizeTokenResponse ? await provider.normalizeTokenResponse(response, { settings: integration.settings || {}, grantType: "refresh_token" }) : response);
+              await tokenResponse(provider, response, { settings: integration.settings || {}, grantType: "refresh_token" }));
             grant = providerRequests.tokensFrom(refreshed, connection, integration.scopes, provider.scopeSeparator, provider);
           }
           grant.grantedScopes = grant.grantedScopes.filter((scope) =>

@@ -74,7 +74,10 @@ Exports
 - `createProviderRequests({ fetchImpl, now, resolveReference })`
 - `operationRequest(operation, input, settings, providerData)`
 - `requireOperationScope(operation, scopes, message, { messageCode })`
+- `tokenResponse(provider, response, details)`
 - `type ConnectionProvider`
+Local functions
+- `credentialHeaders(provider, connection)`
 
 ### `src/server/storage.js`
 Exports

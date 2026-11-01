@@ -173,16 +173,20 @@ function getProviderSettingsSchema(provider, settings = {}) {
 }
 
 function getProviderAuthenticationMethods(provider, settings = {}) {
-  return provider.authenticationMethodsForSettings ? provider.authenticationMethodsForSettings(settings) : provider.authenticationMethods;
+  // readable-check: allow method-probe - optional operation: authenticationMethodsForSettings is an optional hook of the provider definition
+  return typeof provider.authenticationMethodsForSettings === "function" ? provider.authenticationMethodsForSettings(settings) : provider.authenticationMethods;
 }
 
 function getProviderAccountModes(provider, settings = {}) {
-  return provider.accountModesForSettings ? provider.accountModesForSettings(settings) : provider.accountModes;
+  // readable-check: allow method-probe - optional operation: accountModesForSettings is an optional hook of the provider definition
+  return typeof provider.accountModesForSettings === "function" ? provider.accountModesForSettings(settings) : provider.accountModes;
 }
 
 function getProviderScopes(provider, settings = {}, grantType = DEFAULT_GRANT_TYPE, authenticationMethod) {
-  const scopes = provider.scopesForGrantType ? provider.scopesForGrantType(grantType, settings)
-    : provider.scopesForSettings ? provider.scopesForSettings(settings) : provider.scopes;
+  // readable-check: allow method-probe - optional operation: scopesForGrantType is an optional hook of the provider definition
+  const scopes = typeof provider.scopesForGrantType === "function" ? provider.scopesForGrantType(grantType, settings)
+    // readable-check: allow method-probe - optional operation: scopesForSettings is an optional hook of the provider definition
+    : typeof provider.scopesForSettings === "function" ? provider.scopesForSettings(settings) : provider.scopes;
   return authenticationMethod ? scopes.filter(scope => !scope.authenticationMethods || scope.authenticationMethods.includes(authenticationMethod)) : scopes;
 }
 
@@ -321,7 +325,8 @@ function validateIntegrationConfiguration(input, { providers = [], allowUnknownP
         if (!methods.includes(registrationClientAuthentication(registration))) {
           fieldErrors[`${registrationPath}.tokenEndpointAuthMethod`] = FIELD_ERRORS.clientAuthenticationUnsupported;
         }
-        if (registration.clientId && provider.validateClientId) {
+        // readable-check: allow method-probe - optional operation: validateClientId is an optional hook of the provider definition
+        if (registration.clientId && typeof provider.validateClientId === "function") {
           const result = provider.validateClientId(registration.clientId);
           if (result !== true) fieldErrors[`${registrationPath}.clientId`] = result || FIELD_ERRORS.clientId;
         }

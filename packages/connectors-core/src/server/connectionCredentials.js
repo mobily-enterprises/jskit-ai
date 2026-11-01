@@ -50,7 +50,8 @@ function createConnectionCredentials({ config, resolveReference }) {
       throw new ConnectorError("connector_binding_missing", "A required registration binding is missing.", { messageCode: "connectors.connection.requiredRegistrationBindingMissing" });
     }
     const callbackUrl = grantType === "authorization_code" ? validateCallbackUrl(callback) : undefined;
-    if (callbackUrl && provider.validateCallbackUrl && provider.validateCallbackUrl(callbackUrl) !== true) {
+    // readable-check: allow method-probe - optional operation: validateCallbackUrl is an optional hook of the provider definition
+    if (callbackUrl && typeof provider.validateCallbackUrl === "function" && provider.validateCallbackUrl(callbackUrl) !== true) {
       throw new ConnectorError("connector_callback_invalid", "The callback URL does not meet this provider's requirements.", { messageCode: "connectors.connection.callbackUrlDoesNotMeet" });
     }
     let clientAuth = tokenEndpointAuthMethod === "none" ? oauth.None()

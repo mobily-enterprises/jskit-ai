@@ -55,7 +55,6 @@
         "providerClientIdNotConfigured": "The provider client ID is not configured.",
         "providerDeniedOperation": "The provider denied this operation.",
         "providerDoesNotDeclareAssistant": "This provider does not declare this assistant action.",
-        "providerDoesNotImplementService": "This provider does not implement service-account authorization.",
         "providerInvalidCredentialPath": "This provider has an invalid credential path.",
         "providerNonPkceFlowRequires": "This provider's non-PKCE flow requires a confidential client.",
         "providerOperationInvalidDestination": "The provider operation has an invalid destination.",

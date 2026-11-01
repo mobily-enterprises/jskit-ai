@@ -113,6 +113,11 @@
  * @property {Record<string, ConnectorOperation>} operations
  * @property {string | ((method: string) => string)} checkOperation The operation that verifies a connection.
  * @property {string[] | ((settings: Record<string, any>, providerData?: any) => string[])} apiOrigins The HTTPS origins its requests may reach.
+ * @property {(settings: Record<string, any>) => string[]} [authenticationMethodsForSettings] The credential modes for these settings, in place of the definition's list.
+ * @property {(settings: Record<string, any>) => string[]} [accountModesForSettings] The account modes for these settings, in place of the definition's list.
+ * @property {(grantType: string, settings: Record<string, any>) => Array<{ value: string }>} [scopesForGrantType] The scopes an OAuth grant type offers.
+ * @property {(settings: Record<string, any>) => Array<{ value: string }>} [scopesForSettings] The scopes for these settings, in place of the definition's list.
+ * @property {(clientId: string) => unknown} [validateClientId] True for a client ID the provider accepts; otherwise its field error.
  * @property {(settings: Record<string, any>) => object} [runtimeForSettings] Runtime fields that replace these for the integration's settings.
  * @property {Array<{ value: string }>} [assistantActions]
  * @property {number} [requestTimeoutMs] Defaults to 15 seconds.
