@@ -1,7 +1,6 @@
 import { createValidationError } from "@jskit-ai/kernel/server/runtime/errors";
-import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { isRecord, normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
 import { codedFieldErrors, validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
-import { normalizeCrudRepositoryObjectInput } from "./operationStages.js";
 
 function extractExplicitFieldErrors(error) {
   if (isRecord(error?.fieldErrors)) {
@@ -30,7 +29,7 @@ async function normalizeRepositoryInputPayload(
   const input = operationKey === "patch"
     ? runtime.input?.patch
     : runtime.input?.create;
-  const normalizedPayload = normalizeCrudRepositoryObjectInput(payload);
+  const normalizedPayload = normalizeObject(payload);
 
   if (!input) {
     return normalizedPayload;
@@ -41,7 +40,7 @@ async function normalizeRepositoryInputPayload(
       phase: "input",
       context: `${runtime?.context || "crudRepository"} operations.${operationKey}.body`
     });
-    return normalizeCrudRepositoryObjectInput(nextPayload);
+    return normalizeObject(nextPayload);
   } catch (error) {
     const fieldErrors = codedFieldErrors(error);
     if (fieldErrors) {

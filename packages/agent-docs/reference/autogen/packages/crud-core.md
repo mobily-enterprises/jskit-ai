@@ -23,10 +23,11 @@ Exports
 - `createHooksToCollectChildren(options = {})`
 Local functions
 - `normalizeOwnerKey(value)`
-- `toDefaultChildCallOptions(callOptions = {})`
+- `readParentId(record = {})`
+- `toDefaultChildCallOptions({ callOptions = {} } = {})`
 - `resolveListChildrenHandler(options = {}, { context = "createHooksToCollectChildren" } = {})`
 - `resolveGetChildOwnerId(options = {}, { context = "createHooksToCollectChildren" } = {})`
-- `resolveLookupContainerKey(record = {}, hookContext = {}, options = {})`
+- `resolveChildrenContainerKey(hookContext = {}, options = {})`
 
 ### `src/server/crudModuleConfig.js`
 Exports
@@ -39,7 +40,6 @@ Exports
 - `resolveCrudSurfacePolicy(sourceConfig = {}, { surfaceDefinitions = {}, defaultSurfaceId = "", context = "resolveCrudSurfacePolicy" } = {})`
 - `resolveCrudSurfacePolicyFromAppConfig(sourceConfig = {}, appConfig = {}, options = {})`
 Local functions
-- `asRecord(value)`
 - `normalizeSurfaceDefinitions(sourceDefinitions = {})`
 - `resolveOwnershipFilterFromSurfaceDefinition(definition = {})`
 
@@ -74,13 +74,13 @@ Local functions
 ### `src/server/jsonApiModule/actions.js`
 Exports
 - `assertCrudOperationName(operation = "")`
-- `createCrudJsonApiActions({ namespace, resource, repository, service, surface, permissionForOperation, permissionForAction = permissionForOperation, operations = CRUD_OPERATION_NAMES, scopeInputValidator, scopeInputKeys = [], listFilterQueryValidator, operationLifecycle = {}, operationInputs, actions: additionalActionDefinitions = {}, dependencies = {}, realtimeAudience = "event_scope" })`
-- `normalizeCrudOperationLifecycle(value = {})`
+- `createCrudJsonApiActions({ namespace, resource, repository, service, surface, permissionForOperation, operations, scopeInputValidator, scopeInputKeys, listFilterQueryValidator, operationLifecycle, operationInputs, actions, dependencies, realtimeAudience })`
+- `normalizeCrudOperationLifecycle(value)`
 Local functions
-- `createActionInput(resource, operation, scopeInputValidator = null, listFilterQueryValidator = null, operationInputs = {})`
-- `omitInputKeys(input, keys = [])`
-- `createLifecycleContext(value = {})`
-- `normalizeAdditionalActions(value = {}, { namespace, surface, permissionForAction, scopeInputValidator = null } = {})`
+- `createActionInput(resource, operation, scopeInputValidator, listFilterQueryValidator, operationInputs)`
+- `omitInputKeys(input, keys)`
+- `createLifecycleContext(value)`
+- `normalizeAdditionalActions(definitions, { namespace, surface, permissionForAction, scopeInputValidator })`
 
 ### `src/server/jsonApiModule/assistantExtension.js`
 Exports
@@ -104,11 +104,11 @@ Exports
 
 ### `src/server/jsonApiModule/routes.js`
 Exports
-- `normalizeCustomActionRoutes(actions = {}, namespace = "")`
-- `registerCrudJsonApiRoutes(router, { namespace, resource, routeBase = "/", relativePath, surface, ownershipFilter, access, internal = false, operations = ["list", "view", "create", "update", "delete"], actions = {}, operationInputs = {}, listFilterQueryValidator = null, routeParamsValidator = null, scopeInput = null } = {})`
+- `registerCrudJsonApiRoutes(router, { namespace, resource, routeBase, relativePath, surface, ownershipFilter, access, internal, operations, actions, operationInputs, listFilterQueryValidator, routeParamsValidator, scopeInput })`
 Local functions
 - `createScopeInput(scopeInput, request)`
 - `createCustomActionInput(scopeInput, route, request)`
+- `normalizeCustomActionRoutes(actions, namespace)`
 
 ### `src/server/jsonApiModule/service.js`
 Exports
@@ -186,6 +186,7 @@ Local functions
 Exports
 - `normalizeCrudLookupApiPath`
 - `normalizeCrudLookupNamespace`
+- `normalizeLookupOwnershipFilter(value, { context })`
 - `requireCrudLookupNamespace(value = "", { context = "crudLookup" } = {})`
 - `resolveCrudLookupNamespaceFromRelation(relation = {}, { context = "crudLookup" } = {})`
 - `resolveCrudLookupToken(namespace = "", { context = "crudLookup" } = {})`
@@ -195,8 +196,6 @@ Exports
 - `resolveCrudLookupToken`
 - `createCrudLookup(repository, { context = "crudLookup", ownershipFilter = "" } = {})`
 - `type CrudLookupRepository`
-Local functions
-- `normalizeLookupOwnershipFilter(value, { context = "crudLookup ownershipFilter" } = {})`
 
 ### `src/server/normalizeOptionalText.js`
 Exports
@@ -291,7 +290,6 @@ Local functions
 - `normalizeLookupRelationValues(records = [], entries = [], childIncludeByKey = {})`
 - `resolveGroupChildInclude(group = {})`
 - `normalizeLookup(provider, relation = {}, { context = "crudRepository" } = {})`
-- `resolveLookupOwnershipFilter(provider = {}, { context = "crudRepository" } = {})`
 - `resolveLookupVisibilityContext(provider = {}, relation = {}, callOptions = {}, { context = "crudRepository" } = {})`
 - `buildLookupRecordMap(records = [], valueKey = "")`
 - `buildLookupCollectionMap(records = [], foreignKey = "")`
@@ -300,9 +298,8 @@ Local functions
 ### `src/server/resourceRuntime/operationStages.js`
 Exports
 - `applyCrudRepositoryVirtualProjections(dbQuery, runtime = {}, { knex, tableName } = {})`
-- `applyConfiguredQueryStage(dbQuery, stage = null, stageContext = {}, { context = "crudRepository", stageKey = "applyQuery" } = {})`
-- `normalizeCrudRepositoryObjectInput(value = {})`
-- `applyConfiguredObjectStage(payload = {}, stage = null, stageContext = {}, { context = "crudRepository", stageKey = "preparePayload" } = {})`
+- `applyConfiguredQueryStage(dbQuery, stage, stageContext, { context, stageKey })`
+- `applyConfiguredObjectStage(payload, stage, stageContext, { context, stageKey })`
 - `createCrudRepositoryActionContextBase(runtime, callOptions = {})`
 Local functions
 - `isCrudRepositoryQueryBuilder(value)`
@@ -327,8 +324,8 @@ Local functions
 - `createRecordAttributesResolver(definition = null, { excludeKeys = [] } = {})`
 - `createRecordRelationshipsResolver(definition = null, { lookupContainerKey = "" } = {})`
 - `createRequestRelationshipMapper(definition = null)`
-- `resolveOutputAttributeExcludeKeys(resource = {})`
 - `resolveLookupContainerKey(resource = {})`
+- `resolveOutputAttributeExcludeKeys(resource = {})`
 - `normalizeIncludedLookupRecord(source = null, fallbackId = null)`
 - `appendIncludedRelationshipResource({ included = [], seen = new Set(), entry = {}, lookupRecord = null, fallbackId = null } = {})`
 - `createLookupIncludedResolver(definition = null, { lookupContainerKey = "" } = {})`
@@ -351,15 +348,18 @@ Exports
 - `crudServiceCreateRecord(runtime, repository, fieldAccess = {}, payload = {}, options = {})`
 - `crudServiceUpdateRecord(runtime, repository, fieldAccess = {}, recordId, payload = {}, options = {})`
 - `crudServiceDeleteRecord(runtime, repository, fieldAccess = {}, recordId, options = {})`
-- `type CrudRecordRepository`
 Local functions
-- `requireCrudServiceRepository(runtime, repository)`
 - `splitCrudListRepositoryCall(query = {}, options = {})`
 
 ### `src/server/types.js`
 Exports
+- `type CrudResourceDefinition`
+- `type CrudJsonApiRepository`
+- `type CrudJsonApiService`
 - `type CrudResourceApi`
 - `type CrudCustomActionInvocation`
+- `type CrudRecordRepository`
+- `type CrudServiceRuntime`
 
 ### patterns
 

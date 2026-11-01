@@ -10,6 +10,7 @@ import { returnJsonApiDocument } from "@jskit-ai/http-runtime/shared";
 import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
 import { defineCrudJsonApiFeature } from "../src/server/defineCrudJsonApiFeature.js";
 import { createCrudJsonApiActions } from "../src/server/jsonApiModule/actions.js";
+import { crudJsonApiActionOptions, crudJsonApiRouteOptions } from "./support/crudJsonApiActionOptions.js";
 import { registerCrudJsonApiRoutes } from "../src/server/jsonApiModule/routes.js";
 
 function createBookResource({ apiAccess = "authenticated", autofilter = "user" } = {}) {
@@ -238,7 +239,7 @@ test("generated CRUD actions expose truthful assistant contracts without changin
       attributes: { title }
     }
   });
-  const actions = createCrudJsonApiActions({
+  const actions = createCrudJsonApiActions(crudJsonApiActionOptions({
     namespace: "books",
     resource,
     service: {
@@ -263,7 +264,7 @@ test("generated CRUD actions expose truthful assistant contracts without changin
     },
     surface: "admin",
     permissionForOperation: () => ({ require: "authenticated" })
-  });
+  }));
   const byOperation = new Map(actions.map((entry) => [entry.id.split(".").at(-1), entry]));
 
   assert.ok(actions.every((entry) => entry.output === null));
@@ -543,7 +544,7 @@ test("CRUD operation lifecycle wraps a mutation transaction and runs afterCommit
     }
   };
   const resource = createBookResource();
-  const actions = createCrudJsonApiActions({
+  const actions = createCrudJsonApiActions(crudJsonApiActionOptions({
     namespace: "books",
     resource,
     repository,
@@ -568,7 +569,7 @@ test("CRUD operation lifecycle wraps a mutation transaction and runs afterCommit
         }
       }
     }
-  });
+  }));
   const context = { actor: "tester" };
   const input = { recordId: "42", title: "  Kindred  " };
 
@@ -588,7 +589,7 @@ test("CRUD operation lifecycle wraps a mutation transaction and runs afterCommit
 test("CRUD operation lifecycle does not run after or afterCommit when the transaction fails", async () => {
   const calls = [];
   const error = new Error("write failed");
-  const actions = createCrudJsonApiActions({
+  const actions = createCrudJsonApiActions(crudJsonApiActionOptions({
     namespace: "books",
     resource: createBookResource(),
     repository: {
@@ -613,7 +614,7 @@ test("CRUD operation lifecycle does not run after or afterCommit when the transa
         afterCommit() { calls.push("afterCommit"); }
       }
     }
-  });
+  }));
 
   await assert.rejects(
     actions[0].execute({ recordId: "42", title: "Kindred" }, {}),
@@ -625,7 +626,7 @@ test("CRUD operation lifecycle does not run after or afterCommit when the transa
 test("CRUD afterCommit failures preserve the original cause and acknowledged commit", async () => {
   for (const failure of [new Error("notification failed"), Object.freeze(new Error("frozen failure")), null, undefined]) {
     let committed = false;
-    const actions = createCrudJsonApiActions({
+    const actions = createCrudJsonApiActions(crudJsonApiActionOptions({
       namespace: "books",
       resource: createBookResource(),
       repository: {
@@ -644,7 +645,7 @@ test("CRUD afterCommit failures preserve the original cause and acknowledged com
       operationLifecycle: {
         update: { afterCommit() { assert.equal(committed, true); throw failure; } }
       }
-    });
+    }));
     await assert.rejects(
       () => actions[0].execute({ recordId: "42", title: "Kindred" }, {}),
       (error) => {
@@ -662,7 +663,7 @@ test("CRUD failures before acknowledged commit are not marked committed", async 
     const failure = Object.freeze(new Error(`${phase} failed`));
     let committed = false;
     let afterCommitCalled = false;
-    const actions = createCrudJsonApiActions({
+    const actions = createCrudJsonApiActions(crudJsonApiActionOptions({
       namespace: "books",
       resource: createBookResource(),
       repository: {
@@ -686,7 +687,7 @@ test("CRUD failures before acknowledged commit are not marked committed", async 
           afterCommit() { afterCommitCalled = true; }
         }
       }
-    });
+    }));
     await assert.rejects(
       () => actions[0].execute({ recordId: "42", title: "Kindred" }, {}),
       (error) => error === failure && error.transactionOutcome === undefined
@@ -849,7 +850,7 @@ test("registerCrudJsonApiRoutes forwards scope, record, query, and body values t
         routes.push({ method, path, contract, handler });
       }
     },
-    {
+    crudJsonApiRouteOptions({
       namespace: "books",
       resource: createBookResource({ autofilter: "workspace" }),
       routeBase: "/w/:workspaceSlug",
@@ -858,7 +859,7 @@ test("registerCrudJsonApiRoutes forwards scope, record, query, and body values t
       ownershipFilter: "workspace",
       access: "authenticated",
       scopeInput: (request) => ({ workspaceSlug: request.input.params.workspaceSlug })
-    }
+    })
   );
 
   const actionCalls = [];

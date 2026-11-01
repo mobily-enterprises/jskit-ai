@@ -1,28 +1,4 @@
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { resolveCrudLookupToken } from "./lookupPathSupport.js";
-
-const LOOKUP_OWNERSHIP_FILTER_VALUES = Object.freeze([
-  "public",
-  "user",
-  "workspace",
-  "workspace_user"
-]);
-const LOOKUP_OWNERSHIP_FILTER_SET = new Set(LOOKUP_OWNERSHIP_FILTER_VALUES);
-
-function normalizeLookupOwnershipFilter(value, { context = "crudLookup ownershipFilter" } = {}) {
-  const normalized = normalizeText(value).toLowerCase();
-  if (!normalized) {
-    return "";
-  }
-
-  if (LOOKUP_OWNERSHIP_FILTER_SET.has(normalized)) {
-    return normalized;
-  }
-
-  throw new TypeError(
-    `${context} must be one of: ${LOOKUP_OWNERSHIP_FILTER_VALUES.join(", ")}.`
-  );
-}
+import { normalizeLookupOwnershipFilter, resolveCrudLookupToken } from "./lookupPathSupport.js";
 
 /**
  * The repository a lookup reads: any object with listByIds().
@@ -51,15 +27,17 @@ function createCrudLookup(repository, { context = "crudLookup", ownershipFilter 
     }
   );
 
+  async function listByIds(ids = [], options = {}) {
+    const include = options?.include === undefined ? "none" : options.include;
+    return repository.listByIds(ids, {
+      ...options,
+      include
+    });
+  }
+
   return Object.freeze({
     ownershipFilter: normalizedOwnershipFilter || null,
-    async listByIds(ids = [], options = {}) {
-      const include = options?.include === undefined ? "none" : options.include;
-      return repository.listByIds(ids, {
-        ...options,
-        include
-      });
-    }
+    listByIds
   });
 }
 

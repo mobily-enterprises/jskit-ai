@@ -7,18 +7,11 @@ import {
   resolveCrudLookupContainerKey
 } from "@jskit-ai/resource-crud-core/shared/crudLookup";
 import { buildCrudFieldContractMap } from "@jskit-ai/resource-crud-core/shared/crudFieldContract";
-import { normalizeCrudLookupApiPath } from "../lookupPathSupport.js";
+import { normalizeCrudLookupApiPath, normalizeLookupOwnershipFilter } from "../lookupPathSupport.js";
 
 const DEFAULT_LOOKUP_INCLUDE = "*";
 const DEFAULT_LOOKUP_MAX_DEPTH = 3;
 const MAX_LOOKUP_MAX_DEPTH = 10;
-const LOOKUP_OWNERSHIP_FILTER_VALUES = Object.freeze([
-  "public",
-  "user",
-  "workspace",
-  "workspace_user"
-]);
-const LOOKUP_OWNERSHIP_FILTER_SET = new Set(LOOKUP_OWNERSHIP_FILTER_VALUES);
 
 function normalizeLookupRelationEntry(entry = {}, outputKeys = new Set()) {
   if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
@@ -472,21 +465,6 @@ function normalizeLookup(provider, relation = {}, { context = "crudRepository" }
   return provider;
 }
 
-function resolveLookupOwnershipFilter(provider = {}, { context = "crudRepository" } = {}) {
-  const normalizedOwnershipFilter = normalizeText(provider?.ownershipFilter).toLowerCase();
-  if (!normalizedOwnershipFilter) {
-    return "";
-  }
-
-  if (LOOKUP_OWNERSHIP_FILTER_SET.has(normalizedOwnershipFilter)) {
-    return normalizedOwnershipFilter;
-  }
-
-  throw new TypeError(
-    `${context} lookup ownershipFilter must be one of: ${LOOKUP_OWNERSHIP_FILTER_VALUES.join(", ")}.`
-  );
-}
-
 function resolveLookupVisibilityContext(
   provider = {},
   relation = {},
@@ -494,8 +472,8 @@ function resolveLookupVisibilityContext(
   { context = "crudRepository" } = {}
 ) {
   const parentVisibilityContext = normalizeVisibilityContext(callOptions?.visibilityContext);
-  const lookupOwnershipFilter = resolveLookupOwnershipFilter(provider, {
-    context
+  const lookupOwnershipFilter = normalizeLookupOwnershipFilter(provider?.ownershipFilter, {
+    context: `${context} lookup ownershipFilter`
   });
 
   if (!lookupOwnershipFilter) {

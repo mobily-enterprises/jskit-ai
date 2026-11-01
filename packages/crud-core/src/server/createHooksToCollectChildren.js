@@ -18,7 +18,11 @@ function normalizeOwnerKey(value) {
   return String(value).trim();
 }
 
-function toDefaultChildCallOptions(callOptions = {}) {
+function readParentId(record = {}) {
+  return record?.id;
+}
+
+function toDefaultChildCallOptions({ callOptions = {} } = {}) {
   const nextOptions = {};
   if (Object.hasOwn(callOptions, "trx")) {
     nextOptions.trx = callOptions.trx;
@@ -31,7 +35,7 @@ function toDefaultChildCallOptions(callOptions = {}) {
 }
 
 function resolveListChildrenHandler(options = {}, { context = "createHooksToCollectChildren" } = {}) {
-  // readable-check: allow method-probe - input validation: an optional hook the application passes; its named default applies otherwise
+  // readable-check: allow method-probe - input validation: an application passes listChildren() or a childRepository to read through
   if (typeof options.listChildren === "function") {
     return options.listChildren;
   }
@@ -80,7 +84,7 @@ function resolveListChildrenHandler(options = {}, { context = "createHooksToColl
 }
 
 function resolveGetChildOwnerId(options = {}, { context = "createHooksToCollectChildren" } = {}) {
-  // readable-check: allow method-probe - input validation: an optional hook the application passes; its named default applies otherwise
+  // readable-check: allow method-probe - input validation: an application passes getChildOwnerId() or the key that holds the owner id
   if (typeof options.getChildOwnerId === "function") {
     return options.getChildOwnerId;
   }
@@ -103,7 +107,7 @@ function resolveGetChildOwnerId(options = {}, { context = "createHooksToCollectC
   };
 }
 
-function resolveLookupContainerKey(record = {}, hookContext = {}, options = {}) {
+function resolveChildrenContainerKey(hookContext = {}, options = {}) {
   const explicitContainerKey = normalizeText(options.lookupContainerKey);
   if (explicitContainerKey) {
     return explicitContainerKey;
@@ -112,10 +116,6 @@ function resolveLookupContainerKey(record = {}, hookContext = {}, options = {}) 
   const runtimeContainerKey = normalizeText(hookContext?.runtime?.lookup?.containerKey);
   if (runtimeContainerKey) {
     return runtimeContainerKey;
-  }
-
-  if (Object.hasOwn(record, "lookups")) {
-    return "lookups";
   }
 
   return "lookups";
@@ -131,123 +131,126 @@ function createHooksToCollectChildren(options = {}) {
   const listChildren = resolveListChildrenHandler(options, {
     context
   });
-  // readable-check: allow method-probe - input validation: an optional hook the application passes; its named default applies otherwise
+  // readable-check: allow method-probe - input validation: an optional hook the application passes; readParentId applies otherwise
   const getParentId = typeof options.getParentId === "function"
     ? options.getParentId
-    : (record = {}) => record?.id;
+    : readParentId;
   const getChildOwnerId = resolveGetChildOwnerId(options, {
     context
   });
-  // readable-check: allow method-probe - input validation: an optional hook the application passes; its named default applies otherwise
+  // readable-check: allow method-probe - input validation: an optional hook the application passes; normalizeOwnerKey applies otherwise
   const normalizeCollectionOwnerKey = typeof options.normalizeOwnerKey === "function"
     ? options.normalizeOwnerKey
     : normalizeOwnerKey;
-  // readable-check: allow method-probe - input validation: an optional hook the application passes; its named default applies otherwise
+  // readable-check: allow method-probe - input validation: an optional hook the application passes; toDefaultChildCallOptions applies otherwise
   const buildChildCallOptions = typeof options.buildChildCallOptions === "function"
     ? options.buildChildCallOptions
-    : ({ callOptions = {} } = {}) => toDefaultChildCallOptions(callOptions);
+    : toDefaultChildCallOptions;
   const stateMapKey = options.stateMapKey || Symbol(`crud.children.${childKey}`);
   const attachToLookupContainer = options.attachToLookupContainer !== false;
-  // readable-check: allow method-probe - input validation: an optional hook the application passes; its named default applies otherwise
-  const attachChildren = typeof options.attachChildren === "function"
-    ? options.attachChildren
-    : (record = {}, children = [], hookContext = {}) => {
-      if (!attachToLookupContainer) {
-        return {
-          ...record,
-          [childKey]: children
-        };
-      }
 
-      const containerKey = resolveLookupContainerKey(record, hookContext, options);
-      const sourceContainer = record?.[containerKey];
-      const normalizedContainer =
-        sourceContainer && typeof sourceContainer === "object" && !Array.isArray(sourceContainer)
-          ? sourceContainer
-          : {};
-
+  function attachChildrenToRecord(record = {}, children = [], hookContext = {}) {
+    if (!attachToLookupContainer) {
       return {
         ...record,
-        [containerKey]: {
-          ...normalizedContainer,
-          [childKey]: children
-        }
+        [childKey]: children
       };
-    };
-
-  return Object.freeze({
-    async afterQuery(records = [], ctx = {}) {
-      const normalizedRecords = Array.isArray(records) ? records : [];
-      const ownerIds = [];
-      const seenOwnerKeys = new Set();
-
-      for (const record of normalizedRecords) {
-        const ownerId = getParentId(record, ctx);
-        const ownerKey = normalizeCollectionOwnerKey(ownerId);
-        if (!ownerKey || seenOwnerKeys.has(ownerKey)) {
-          continue;
-        }
-
-        seenOwnerKeys.add(ownerKey);
-        ownerIds.push(ownerId);
-      }
-
-      const state = ctx?.state && typeof ctx.state === "object" ? ctx.state : null;
-      if (!state) {
-        throw new TypeError(`${context} requires ctx.state object.`);
-      }
-
-      if (ownerIds.length < 1) {
-        state[stateMapKey] = new Map();
-        return;
-      }
-
-      const childCallOptions = buildChildCallOptions({
-        callOptions: ctx.callOptions || {},
-        records: normalizedRecords,
-        ownerIds,
-        context: ctx
-      });
-      const children = await listChildren(ownerIds, childCallOptions, ctx);
-      if (!Array.isArray(children)) {
-        throw new TypeError(`${context} listChildren must return an array.`);
-      }
-
-      const childrenByOwnerKey = new Map();
-      for (const child of children) {
-        const childOwnerId = getChildOwnerId(child, ctx);
-        const childOwnerKey = normalizeCollectionOwnerKey(childOwnerId);
-        if (!childOwnerKey) {
-          continue;
-        }
-
-        const currentList = childrenByOwnerKey.get(childOwnerKey);
-        if (currentList) {
-          currentList.push(child);
-          continue;
-        }
-
-        childrenByOwnerKey.set(childOwnerKey, [child]);
-      }
-
-      state[stateMapKey] = childrenByOwnerKey;
-    },
-
-    transformReturnedRecord(record = {}, ctx = {}) {
-      if (!record || typeof record !== "object" || Array.isArray(record)) {
-        return record;
-      }
-
-      const state = ctx?.state && typeof ctx.state === "object" ? ctx.state : null;
-      const childrenByOwnerKey = state ? state[stateMapKey] : null;
-      const ownerKey = normalizeCollectionOwnerKey(getParentId(record, ctx));
-      const children = ownerKey && childrenByOwnerKey instanceof Map
-        ? (childrenByOwnerKey.get(ownerKey) || [])
-        : [];
-
-      return attachChildren(record, children, ctx);
     }
-  });
+
+    const containerKey = resolveChildrenContainerKey(hookContext, options);
+    const sourceContainer = record?.[containerKey];
+    const normalizedContainer =
+      sourceContainer && typeof sourceContainer === "object" && !Array.isArray(sourceContainer)
+        ? sourceContainer
+        : {};
+
+    return {
+      ...record,
+      [containerKey]: {
+        ...normalizedContainer,
+        [childKey]: children
+      }
+    };
+  }
+
+  // readable-check: allow method-probe - input validation: an optional hook the application passes; attachChildrenToRecord applies otherwise
+  const attachChildren = typeof options.attachChildren === "function"
+    ? options.attachChildren
+    : attachChildrenToRecord;
+
+  async function afterQuery(records = [], ctx = {}) {
+    const normalizedRecords = Array.isArray(records) ? records : [];
+    const ownerIds = [];
+    const seenOwnerKeys = new Set();
+
+    for (const record of normalizedRecords) {
+      const ownerId = getParentId(record, ctx);
+      const ownerKey = normalizeCollectionOwnerKey(ownerId);
+      if (!ownerKey || seenOwnerKeys.has(ownerKey)) {
+        continue;
+      }
+
+      seenOwnerKeys.add(ownerKey);
+      ownerIds.push(ownerId);
+    }
+
+    const state = ctx?.state && typeof ctx.state === "object" ? ctx.state : null;
+    if (!state) {
+      throw new TypeError(`${context} requires ctx.state object.`);
+    }
+
+    if (ownerIds.length < 1) {
+      state[stateMapKey] = new Map();
+      return;
+    }
+
+    const childCallOptions = buildChildCallOptions({
+      callOptions: ctx.callOptions || {},
+      records: normalizedRecords,
+      ownerIds,
+      context: ctx
+    });
+    const children = await listChildren(ownerIds, childCallOptions, ctx);
+    if (!Array.isArray(children)) {
+      throw new TypeError(`${context} listChildren must return an array.`);
+    }
+
+    const childrenByOwnerKey = new Map();
+    for (const child of children) {
+      const childOwnerId = getChildOwnerId(child, ctx);
+      const childOwnerKey = normalizeCollectionOwnerKey(childOwnerId);
+      if (!childOwnerKey) {
+        continue;
+      }
+
+      const currentList = childrenByOwnerKey.get(childOwnerKey);
+      if (currentList) {
+        currentList.push(child);
+        continue;
+      }
+
+      childrenByOwnerKey.set(childOwnerKey, [child]);
+    }
+
+    state[stateMapKey] = childrenByOwnerKey;
+  }
+
+  function transformReturnedRecord(record = {}, ctx = {}) {
+    if (!record || typeof record !== "object" || Array.isArray(record)) {
+      return record;
+    }
+
+    const state = ctx?.state && typeof ctx.state === "object" ? ctx.state : null;
+    const childrenByOwnerKey = state ? state[stateMapKey] : null;
+    const ownerKey = normalizeCollectionOwnerKey(getParentId(record, ctx));
+    const children = ownerKey && childrenByOwnerKey instanceof Map
+      ? (childrenByOwnerKey.get(ownerKey) || [])
+      : [];
+
+    return attachChildren(record, children, ctx);
+  }
+
+  return Object.freeze({ afterQuery, transformReturnedRecord });
 }
 
 export { createHooksToCollectChildren };

@@ -8,6 +8,7 @@ import {
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
 import { createCrudJsonApiActions } from "../src/server/jsonApiModule/actions.js";
+import { crudJsonApiActionOptions } from "./support/crudJsonApiActionOptions.js";
 import { createCrudJsonApiRepository } from "../src/server/jsonApiModule/repository.js";
 import { createCrudJsonApiService } from "../src/server/jsonApiModule/service.js";
 
@@ -205,7 +206,7 @@ test("a failing CRUD afterCommit hook reports committed and leaves the actual wr
   const { knex, repository } = await createDatabaseRepository(t);
   const book = await repository.createDocument({ title: "Dune" });
   const failure = Object.freeze(new Error("Notification failed"));
-  const actions = createCrudJsonApiActions({
+  const actions = createCrudJsonApiActions(crudJsonApiActionOptions({
     namespace: "books",
     resource: defineCrudResource({
       namespace: "books",
@@ -225,7 +226,7 @@ test("a failing CRUD afterCommit hook reports committed and leaves the actual wr
     operations: ["update"],
     permissionForOperation: () => ({ require: "authenticated" }),
     operationLifecycle: { update: { afterCommit() { throw failure; } } }
-  });
+  }));
   await assert.rejects(
     () => actions[0].execute({ recordId: book.data.id, title: "Kindred" }, {}),
     (error) => error.transactionOutcome === "committed" && error.cause === failure

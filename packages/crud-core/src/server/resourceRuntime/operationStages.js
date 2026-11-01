@@ -1,3 +1,5 @@
+import { normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
+
 function applyCrudRepositoryVirtualProjections(
   dbQuery,
   runtime = {},
@@ -20,13 +22,15 @@ function applyCrudRepositoryVirtualProjections(
   return dbQuery;
 }
 
-function applyConfiguredQueryStage(
-  dbQuery,
-  stage = null,
-  stageContext = {},
-  { context = "crudRepository", stageKey = "applyQuery" } = {}
-) {
-  if (typeof stage !== "function") {
+/**
+ * Runs an operation's applyQuery stage, which the compiled runtime holds as a function or null.
+ * @param {object} dbQuery
+ * @param {Function | null | undefined} stage
+ * @param {object} stageContext
+ * @param {{ context: string, stageKey: string }} labels
+ */
+function applyConfiguredQueryStage(dbQuery, stage, stageContext, { context, stageKey }) {
+  if (!stage) {
     return {
       queryBuilder: dbQuery
     };
@@ -90,22 +94,16 @@ function isCrudRepositoryQueryBuilder(value) {
   ].some((key) => typeof value[key] === "function");
 }
 
-function normalizeCrudRepositoryObjectInput(value = {}) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  return value;
-}
-
-async function applyConfiguredObjectStage(
-  payload = {},
-  stage = null,
-  stageContext = {},
-  { context = "crudRepository", stageKey = "preparePayload" } = {}
-) {
-  const normalizedPayload = normalizeCrudRepositoryObjectInput(payload);
-  if (typeof stage !== "function") {
+/**
+ * Runs an operation's payload stage, which the compiled runtime holds as a function or null.
+ * @param {object} payload
+ * @param {Function | null | undefined} stage
+ * @param {object} stageContext
+ * @param {{ context: string, stageKey: string }} labels
+ */
+async function applyConfiguredObjectStage(payload, stage, stageContext, { context, stageKey }) {
+  const normalizedPayload = normalizeObject(payload);
+  if (!stage) {
     return normalizedPayload;
   }
 
@@ -133,7 +131,6 @@ function createCrudRepositoryActionContextBase(runtime, callOptions = {}) {
 export {
   applyCrudRepositoryVirtualProjections,
   applyConfiguredQueryStage,
-  normalizeCrudRepositoryObjectInput,
   applyConfiguredObjectStage,
   createCrudRepositoryActionContextBase
 };

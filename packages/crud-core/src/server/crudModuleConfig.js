@@ -1,4 +1,4 @@
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import {
   requireCrudNamespace
@@ -15,14 +15,6 @@ const CRUD_REQUESTED_OWNERSHIP_FILTER_SET = new Set([
   CRUD_REQUESTED_OWNERSHIP_FILTER_AUTO
 ]);
 const WORKSPACE_CAPABLE_TENANCY_MODES = new Set(["personal", "workspaces"]);
-
-function asRecord(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  return value;
-}
 
 function normalizeCrudRequestedOwnershipFilter(value, { fallback = CRUD_REQUESTED_OWNERSHIP_FILTER_AUTO } = {}) {
   const normalized = normalizeText(value).toLowerCase();
@@ -56,11 +48,11 @@ function normalizeCrudRelativePath(relativePath = "", { context = "resolveCrudSu
 }
 
 function normalizeSurfaceDefinitions(sourceDefinitions = {}) {
-  const definitions = asRecord(sourceDefinitions);
+  const definitions = normalizeObject(sourceDefinitions);
   const normalized = {};
 
   for (const [key, value] of Object.entries(definitions)) {
-    const definition = asRecord(value);
+    const definition = normalizeObject(value);
     const surfaceId = normalizeSurfaceId(definition.id || key);
     if (!surfaceId) {
       continue;
@@ -96,7 +88,7 @@ function resolveCrudSurfacePolicy(
     context = "resolveCrudSurfacePolicy"
   } = {}
 ) {
-  const config = asRecord(sourceConfig);
+  const config = normalizeObject(sourceConfig);
   const normalizedDefinitions = normalizeSurfaceDefinitions(surfaceDefinitions);
   const requestedSurfaceId = normalizeSurfaceId(config.surface);
   const fallbackSurfaceId = normalizeSurfaceId(defaultSurfaceId);
@@ -142,14 +134,14 @@ function resolveCrudSurfacePolicy(
 }
 
 function resolveCrudSurfacePolicyFromAppConfig(sourceConfig = {}, appConfig = {}, options = {}) {
-  const config = asRecord(appConfig);
-  const requestedSurfaceId = normalizeSurfaceId(asRecord(sourceConfig).surface);
+  const config = normalizeObject(appConfig);
+  const requestedSurfaceId = normalizeSurfaceId(normalizeObject(sourceConfig).surface);
   const fallbackSurfaceId = normalizeSurfaceId(config.surfaceDefaultId);
   const resolvedSurfaceId = requestedSurfaceId || fallbackSurfaceId;
 
   try {
     return resolveCrudSurfacePolicy(sourceConfig, {
-      ...asRecord(options),
+      ...normalizeObject(options),
       surfaceDefinitions: config.surfaceDefinitions,
       defaultSurfaceId: config.surfaceDefaultId
     });

@@ -204,13 +204,13 @@ function createRequestRelationshipMapper(definition = null) {
   };
 }
 
-function resolveOutputAttributeExcludeKeys(resource = {}) {
-  const lookupContainerKey = String(resource?.contract?.lookup?.containerKey || "").trim();
-  return lookupContainerKey ? Object.freeze([lookupContainerKey]) : Object.freeze([]);
-}
-
 function resolveLookupContainerKey(resource = {}) {
   return String(resource?.contract?.lookup?.containerKey || "").trim();
+}
+
+function resolveOutputAttributeExcludeKeys(resource = {}) {
+  const lookupContainerKey = resolveLookupContainerKey(resource);
+  return lookupContainerKey ? Object.freeze([lookupContainerKey]) : Object.freeze([]);
 }
 
 function normalizeIncludedLookupRecord(source = null, fallbackId = null) {

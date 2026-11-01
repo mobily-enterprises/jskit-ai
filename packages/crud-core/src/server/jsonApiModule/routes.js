@@ -7,7 +7,7 @@ import { createCrudJsonApiRouteContracts } from "../routeContracts.js";
 const CUSTOM_ACTION_METHODS = new Set(["DELETE", "GET", "PATCH", "POST", "PUT"]);
 
 function createScopeInput(scopeInput, request) {
-  if (typeof scopeInput !== "function") {
+  if (!scopeInput) {
     return {};
   }
   const result = scopeInput(request);
@@ -34,11 +34,7 @@ function createCustomActionInput(scopeInput, route, request) {
   };
 }
 
-function normalizeCustomActionRoutes(actions = {}, namespace = "") {
-  if (!actions || typeof actions !== "object" || Array.isArray(actions)) {
-    throw new TypeError("CRUD actions must be an object.");
-  }
-
+function normalizeCustomActionRoutes(actions, namespace) {
   return Object.freeze(Object.entries(actions).flatMap(([name, definition]) => {
     if (!definition?.route) return [];
     const route = definition.route;
@@ -77,23 +73,41 @@ function normalizeCustomActionRoutes(actions = {}, namespace = "") {
   }));
 }
 
-/** @param {import("@jskit-ai/kernel/server/types").RuntimeRouter} router */
+/**
+ * Registers the routes of one CRUD feature, from the options defineCrudJsonApiFeature resolved.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeRouter} router
+ * @param {object} options
+ * @param {string} options.namespace
+ * @param {import("../types.js").CrudResourceDefinition} options.resource
+ * @param {string} options.routeBase
+ * @param {string} options.relativePath
+ * @param {string} options.surface
+ * @param {string} options.ownershipFilter
+ * @param {string} options.access
+ * @param {boolean} options.internal
+ * @param {readonly string[]} options.operations
+ * @param {Record<string, object>} options.actions The feature's custom actions, by name.
+ * @param {{ create?: object, update?: object }} options.operationInputs
+ * @param {object | null} options.listFilterQueryValidator
+ * @param {object | null} options.routeParamsValidator
+ * @param {((request: object) => object) | null} options.scopeInput
+ */
 function registerCrudJsonApiRoutes(router, {
   namespace,
   resource,
-  routeBase = "/",
+  routeBase,
   relativePath,
   surface,
   ownershipFilter,
   access,
-  internal = false,
-  operations = ["list", "view", "create", "update", "delete"],
-  actions = {},
-  operationInputs = {},
-  listFilterQueryValidator = null,
-  routeParamsValidator = null,
-  scopeInput = null
-} = {}) {
+  internal,
+  operations,
+  actions,
+  operationInputs,
+  listFilterQueryValidator,
+  routeParamsValidator,
+  scopeInput
+}) {
   const normalizedSurface = normalizeSurfaceId(surface);
   const basePath = resolveScopedApiBasePath({
     routeBase,
@@ -271,4 +285,4 @@ function registerCrudJsonApiRoutes(router, {
   }
 }
 
-export { normalizeCustomActionRoutes, registerCrudJsonApiRoutes };
+export { registerCrudJsonApiRoutes };

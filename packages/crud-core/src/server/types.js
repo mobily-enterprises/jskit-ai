@@ -1,5 +1,13 @@
-// The type of the capability a CRUD feature provides, for features that require it,
-// and of what its custom actions receive.
+// The types of the capability a CRUD feature provides, for features that require it,
+// of what its custom actions receive, and of the records repository a CRUD service uses.
+
+/**
+ * The resource definition a CRUD feature serves, as defineCrudResource returns it.
+ * @typedef {object} CrudResourceDefinition
+ */
+
+/** @typedef {ReturnType<typeof import("./jsonApiModule/repository.js").createCrudJsonApiRepository>} CrudJsonApiRepository */
+/** @typedef {ReturnType<typeof import("./jsonApiModule/service.js").createCrudJsonApiService>} CrudJsonApiService */
 
 /**
  * What a `defineCrudJsonApiFeature` feature provides under the capability its
@@ -7,9 +15,9 @@
  * decorateRepository and decorateService. The service keeps only the methods
  * of the feature's enabled operations.
  * @typedef {object} CrudResourceApi
- * @property {object} resource
- * @property {ReturnType<typeof import("./jsonApiModule/repository.js").createCrudJsonApiRepository>} repository
- * @property {ReturnType<typeof import("./jsonApiModule/service.js").createCrudJsonApiService>} service
+ * @property {CrudResourceDefinition} resource
+ * @property {CrudJsonApiRepository} repository
+ * @property {CrudJsonApiService} service
  */
 
 /**
@@ -18,15 +26,25 @@
  * and service, and each capability in the feature's `requires`, under its local
  * name. `Service` is the service decorateService returns, when it adds methods;
  * `Requires` holds the types of the required capabilities an action uses.
- * @template [Service=CrudResourceApi["service"]]
+ * @template [Service=CrudJsonApiService]
  * @template [Requires={}]
  * @typedef {{
  *   input: any,
  *   context: object,
- *   resource: CrudResourceApi["resource"],
- *   repository: CrudResourceApi["repository"],
+ *   resource: CrudResourceDefinition,
+ *   repository: CrudJsonApiRepository,
  *   service: Service
  * } & Requires} CrudCustomActionInvocation
+ */
+
+/**
+ * The records repository a CRUD service reads and writes through, as createCrudResourceRuntime builds it.
+ * @typedef {ReturnType<typeof import("./resourceRuntime/index.js").createCrudResourceRuntime>} CrudRecordRepository
+ */
+
+/**
+ * The resource, namespace and field access a CRUD service's methods share.
+ * @typedef {ReturnType<typeof import("./serviceMethods.js").createCrudServiceRuntime>} CrudServiceRuntime
  */
 
 export {};

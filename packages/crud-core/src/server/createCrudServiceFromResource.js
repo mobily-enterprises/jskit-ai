@@ -14,7 +14,7 @@ function createCrudServiceFromResource(resource = {}, { context = "crudService" 
 
   /**
    * @param {object} dependencies
-   * @param {import("./serviceMethods.js").CrudRecordRepository} dependencies.repository
+   * @param {import("./types.js").CrudRecordRepository} dependencies.repository
    * @param {object} [dependencies.fieldAccess]
    */
   function createBaseService({ repository, fieldAccess = {} }) {

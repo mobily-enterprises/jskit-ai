@@ -9,6 +9,7 @@ import {
 import { returnJsonApiDocument } from "@jskit-ai/http-runtime/shared";
 import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
 import { createCrudJsonApiActions } from "../src/server/jsonApiModule/actions.js";
+import { crudJsonApiActionOptions } from "./support/crudJsonApiActionOptions.js";
 
 const BOOKINGS = Object.freeze([
   Object.freeze({
@@ -164,7 +165,7 @@ function createFixture() {
       });
     }
   };
-  const definitions = createCrudJsonApiActions({
+  const definitions = createCrudJsonApiActions(crudJsonApiActionOptions({
     namespace: "bookings",
     resource,
     service,
@@ -181,7 +182,7 @@ function createFixture() {
       require: "all",
       permissions: ["bookings.list"]
     })
-  });
+  }));
   const actions = createActionCatalogue();
   actions.register({
     contributorId: "test.generated-bookings",

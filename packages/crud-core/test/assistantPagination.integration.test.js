@@ -12,6 +12,7 @@ import {
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
 import { createCrudJsonApiActions } from "../src/server/jsonApiModule/actions.js";
+import { crudJsonApiActionOptions } from "./support/crudJsonApiActionOptions.js";
 import { createCrudJsonApiRepository } from "../src/server/jsonApiModule/repository.js";
 import { createCrudJsonApiService } from "../src/server/jsonApiModule/service.js";
 
@@ -60,14 +61,14 @@ test("assistant list traverses real SQL pages with sparse fields and capped limi
   actions.register({
     contributorId: "test.books",
     domain: "books",
-    actions: createCrudJsonApiActions({
+    actions: createCrudJsonApiActions(crudJsonApiActionOptions({
       namespace: "books",
       resource,
       service,
       surface: "admin",
       operations: ["list"],
       permissionForOperation: () => ({ require: "all", permissions: ["books.list"] })
-    })
+    }))
   });
   const catalog = createServiceToolCatalog(actions, { maxDirectTools: 0 });
   const context = {
