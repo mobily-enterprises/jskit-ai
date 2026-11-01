@@ -15,9 +15,9 @@ export default [
   },
   ...baseConfig,
   // JSKIT's own server code converts to typed features package by package. The
-  // zero-warning lint leaves the rules off until then; each converted package
-  // is listed in the typedFeaturesConfig([...]) after this entry, which
-  // enforces them.
+  // zero-warning lint leaves the rules off until then; each converted package's
+  // server and shared code is listed in the typedFeaturesConfig([...]) after
+  // this entry, which enforces them.
   ...typedFeaturesConfig(["**/src/server/**"], "off"),
   ...typedFeaturesConfig([
     "packages/kernel/server/**",
@@ -45,7 +45,25 @@ export default [
     "packages/auth-web/src/server/**",
     "packages/connectors-core/src/server/**",
     "packages/connector-google-calendar/src/server/**",
-    "packages/connectors-catalog/src/server/**"
+    "packages/connectors-catalog/src/server/**",
+    "packages/kernel/shared/**",
+    "packages/http-runtime/src/shared/**",
+    "packages/database-runtime/src/shared/**",
+    "packages/database-runtime-mysql/src/shared/**",
+    "packages/database-runtime-postgres/src/shared/**",
+    "packages/auth-core/src/shared/**",
+    "packages/auth-provider-oidc-core/src/shared/**",
+    "packages/users-core/src/shared/**",
+    "packages/workspaces-core/src/shared/**",
+    "packages/console-core/src/shared/**",
+    "packages/uploads-runtime/src/shared/**",
+    "packages/realtime/src/shared/**",
+    "packages/payments-core/src/shared/**",
+    "packages/rewarded-core/src/shared/**",
+    "packages/rewarded-web/src/shared/**",
+    "packages/connectors-core/src/shared/**",
+    "packages/connector-google-calendar/src/shared/**",
+    "packages/connectors-catalog/src/shared/**"
   ]),
   ...webConfig,
   ...nodeConfig,
