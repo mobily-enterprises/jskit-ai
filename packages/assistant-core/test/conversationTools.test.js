@@ -213,12 +213,31 @@ test("incomplete model tool streams cannot execute application actions", async t
 });
 
 test("tool limits bound continuation even when the model keeps requesting actions", async t => {
-  const f = await fixture(t, { limits: { maxToolCalls: 2 }, response: (_body, round, name) => response({ name, id: `call_${round}` }) });
+  const f = await fixture(t, { limits: { maxToolCalls: 2, maxSteps: 5 }, response: (_body, round, name) => response({ name, id: `call_${round}` }) });
   await f.conversation.send(message);
   const result = await f.conversation.wait();
   assert.equal(f.observed.executions.length, 2);
   assert.equal(f.observed.requests.length, 3);
   assert.match(result.error, /tool-call limit/);
+});
+
+test("by default the step limit stays within the action-call limit, so the model gives its own account", async t => {
+  const account = "I added the numbers twice and stopped there.";
+  const answer = content => Response.json({ id: "once", object: "chat.completion", created: 0, model: "exact-model",
+    choices: [{ index: 0, message: { role: "assistant", content }, finish_reason: "stop" }] });
+  const f = await fixture(t, { limits: { maxToolCalls: 2 }, response: (body, round, name) => {
+    if (body.stream) return response({ name, id: `call_${round}` });
+    return /^You check an assistant's reply/u.test(body.messages[0].content) ? answer('{"unsupported": []}') : answer(account);
+  } });
+  await f.conversation.send(message);
+  const result = await f.conversation.wait();
+  assert.equal(f.observed.executions.length, 2);
+  assert.deepEqual(f.observed.requests.map(body => body.stream === true), [true, true, false, false],
+    "Two steps, then the engine's account of where it got to and its check of that account's claims");
+  assert.match(f.observed.requests[2].messages[0].content, /stopped early because I reached the most steps/u);
+  assert.equal(result.error, "");
+  assert.equal(result.conversationLog[0].metadata.runtime.status, "complete");
+  assert.equal(result.conversationLog[0].assistant.text, account);
 });
 
 test("cancel waits for an admitted application action to settle and saves its result", async t => {
