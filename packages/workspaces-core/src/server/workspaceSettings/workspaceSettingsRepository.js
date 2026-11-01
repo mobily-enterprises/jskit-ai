@@ -1,18 +1,14 @@
-import {
-  normalizeRecordId,
-  isDuplicateEntryError,
-  retryDeadlocks
-} from "../common/repositories/repositoryUtils.js";
+import { isLostDuplicateInsertRace, resolveTransaction, retryDeadlocks } from "@jskit-ai/database-runtime/shared";
 import {
   createJsonRestContext,
   extractJsonRestCollectionRows
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { pickOwnProperties } from "@jskit-ai/kernel/shared/support";
+import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { WORKSPACE_SETTINGS_FIELD_KEYS } from "../../shared/resources/workspaceSettingsResource.js";
 import { resolveWorkspaceThemePalettes } from "../../shared/settings.js";
-import { resolveTransaction } from "@jskit-ai/database-runtime/shared";
 
-function createDefaultWorkspaceSettingsCreatePayload(workspaceId, defaultInvitesEnabled, defaultColorSettings = {}) {
+function buildDefaultWorkspaceSettingsCreatePayload(workspaceId, defaultInvitesEnabled, defaultColorSettings) {
   const palettes = resolveWorkspaceThemePalettes(defaultColorSettings);
 
   return {
@@ -48,7 +44,7 @@ function createRepository({ api, defaultInvitesEnabled, defaultColorSettings }) 
           transaction: resolveTransaction(options),
           format: "plain"
         },
-        createJsonRestContext(options.context || null)
+        createJsonRestContext(options.context)
       )
     );
 
@@ -78,19 +74,19 @@ function createRepository({ api, defaultInvitesEnabled, defaultColorSettings }) 
     try {
       await api.resources.workspaceSettings.post(
         {
-          data: createDefaultWorkspaceSettingsCreatePayload(
+          data: buildDefaultWorkspaceSettingsCreatePayload(
             normalizedWorkspaceId,
-            defaultInvitesEnabled === true,
+            defaultInvitesEnabled,
             defaultColorSettings
           ),
           format: "plain",
           returning: "full",
           transaction: resolveTransaction(options)
         },
-        createJsonRestContext(options.context || null)
+        createJsonRestContext(options.context)
       );
     } catch (error) {
-      if (options.trx || error?.transactionOutcome !== "rolledBack" || !isDuplicateEntryError(error)) {
+      if (!isLostDuplicateInsertRace(error, options)) {
         throw error;
       }
     }
@@ -98,7 +94,7 @@ function createRepository({ api, defaultInvitesEnabled, defaultColorSettings }) 
     return findByWorkspaceId(normalizedWorkspaceId, options);
   }
 
-  async function updateSettingsByWorkspaceId(workspaceId, patch = {}, options = {}) {
+  async function updateSettingsByWorkspaceId(workspaceId, patch, options = {}) {
     const normalizedWorkspaceId = normalizeRecordId(workspaceId, { fallback: null });
     if (!normalizedWorkspaceId) {
       throw new TypeError("workspaceSettingsRepository.updateSettingsByWorkspaceId requires a valid workspace id.");
@@ -123,7 +119,7 @@ function createRepository({ api, defaultInvitesEnabled, defaultColorSettings }) 
         returning: "full",
         transaction: resolveTransaction(options)
       },
-      createJsonRestContext(options.context || null)
+      createJsonRestContext(options.context)
     );
 
     return findByWorkspaceId(normalizedWorkspaceId, options);

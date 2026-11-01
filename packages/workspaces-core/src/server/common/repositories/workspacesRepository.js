@@ -1,15 +1,9 @@
-import {
-  normalizeRecordId,
-  isDuplicateEntryError,
-  normalizeText,
-  toIsoString,
-  retryDeadlocks
-} from "./repositoryUtils.js";
+import { isLostDuplicateInsertRace, resolveTransaction, retryDeadlocks, toIsoString } from "@jskit-ai/database-runtime/shared";
+import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   createJsonRestContext,
   extractJsonRestCollectionRows
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
-import { resolveTransaction } from "@jskit-ai/database-runtime/shared";
 
 function normalizeWorkspaceRecord(payload = null) {
   if (!payload || typeof payload !== "object") {
@@ -43,7 +37,7 @@ function createRepository({ api }) {
           transaction: resolveTransaction(options),
           format: "plain"
         },
-        createJsonRestContext(options.context || null)
+        createJsonRestContext(options.context)
       )
     );
 
@@ -86,7 +80,7 @@ function createRepository({ api }) {
           transaction: resolveTransaction(options),
           format: "plain"
         },
-        createJsonRestContext(options.context || null)
+        createJsonRestContext(options.context)
       )
     );
 
@@ -102,7 +96,7 @@ function createRepository({ api }) {
     return normalizedRows[0] || null;
   }
 
-  async function insert(payload = {}, options = {}) {
+  async function insert(payload, options = {}) {
     const source = payload && typeof payload === "object" && !Array.isArray(payload) ? payload : {};
     const ownerUserId = normalizeRecordId(source.ownerUserId, { fallback: null });
     if (!ownerUserId) {
@@ -130,12 +124,12 @@ function createRepository({ api }) {
           returning: "full",
           transaction: resolveTransaction(options)
         },
-        createJsonRestContext(options.context || null)
+        createJsonRestContext(options.context)
       );
 
       return normalizeWorkspaceRecord(created);
     } catch (error) {
-      if (options.trx || error?.transactionOutcome !== "rolledBack" || !isDuplicateEntryError(error)) {
+      if (!isLostDuplicateInsertRace(error, options)) {
         throw error;
       }
       if (!Object.hasOwn(createPayload, "slug")) {
@@ -150,7 +144,7 @@ function createRepository({ api }) {
     }
   }
 
-  async function updateById(workspaceId, patch = {}, options = {}) {
+  async function updateById(workspaceId, patch, options = {}) {
     const normalizedWorkspaceId = normalizeRecordId(workspaceId, { fallback: null });
     if (!normalizedWorkspaceId) {
       return null;
@@ -174,7 +168,7 @@ function createRepository({ api }) {
         returning: "full",
         transaction: resolveTransaction(options)
       },
-      createJsonRestContext(options.context || null)
+      createJsonRestContext(options.context)
     );
 
     return normalizeWorkspaceRecord(updated);
@@ -199,7 +193,7 @@ function createRepository({ api }) {
           transaction: resolveTransaction(options),
           format: "plain"
         },
-        createJsonRestContext(options.context || null)
+        createJsonRestContext(options.context)
       )
     );
 

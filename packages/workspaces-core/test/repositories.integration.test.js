@@ -113,7 +113,7 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     workspaces = createWorkspacesRepository({ api });
     memberships = createMembershipsRepository({ api });
     invites = createInvitesRepository({ api });
-    settings = createSettingsRepository({ api });
+    settings = createSettingsRepository({ api, defaultInvitesEnabled: false, defaultColorSettings: {} });
   });
 
   beforeEach(async () => {

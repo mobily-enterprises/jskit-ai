@@ -20,6 +20,7 @@ function createService({ workspaceInvitesRepository, workspaceMembershipsReposit
   }
 
   async function withInviteTransaction(user, token, options, work) {
+    // readable-check: allow required-collaborators - platform object: a Knex transaction, which acceptance and refusal open themselves
     if (options.trx) {
       throw new TypeError("Invitation acceptance/refusal owns its transaction; use the acceptance participant for related writes.");
     }

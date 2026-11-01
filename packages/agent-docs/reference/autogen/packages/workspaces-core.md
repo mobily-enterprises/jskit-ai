@@ -34,19 +34,6 @@ Exports
 - `mapWorkspaceSettingsPublic(workspaceSettings, { workspaceInvitationsEnabled = true } = {})`
 - `mapWorkspaceSummary(workspace, membership, roleCatalog = null)`
 
-### `src/server/common/repositories/repositoryUtils.js`
-Exports
-- `toIsoString`
-- `retryDeadlocks`
-- `isDuplicateEntryError`
-- `normalizeText`
-- `normalizeLowerText`
-- `normalizeRecordId`
-- `normalizeDbRecordId`
-- `uniqueSorted(values)`
-- `parseJson(value, fallback = {})`
-- `toDbJson(value, fallback = {})`
-
 ### `src/server/common/repositories/workspaceInvitesRepository.js`
 Exports
 - `createRepository({ api })`
@@ -60,8 +47,6 @@ Exports
 - `createRepository({ api })`
 - `normalizeMembershipRecord(payload)`
 - `normalizeMemberSummaryRow(row)`
-Local functions
-- `normalizeMembershipPatchPayload(payload = {})`
 
 ### `src/server/common/repositories/workspacesRepository.js`
 Exports
@@ -78,10 +63,6 @@ Local functions
 - `buildWorkspaceBaseSlug(user = {})`
 - `buildPermissionsFromMembership(membership, roleCatalog)`
 - `normalizeWorkspaceCreationInput(payload = {})`
-
-### `src/server/common/support/deepFreeze.js`
-Exports
-- `deepFreeze`
 
 ### `src/server/common/support/realtimeServiceEvents.js`
 Exports
@@ -247,7 +228,7 @@ Exports
 Exports
 - `createRepository({ api, defaultInvitesEnabled, defaultColorSettings })`
 Local functions
-- `createDefaultWorkspaceSettingsCreatePayload(workspaceId, defaultInvitesEnabled, defaultColorSettings = {})`
+- `buildDefaultWorkspaceSettingsCreatePayload(workspaceId, defaultInvitesEnabled, defaultColorSettings)`
 
 ### `src/server/workspaceSettings/workspaceSettingsRoutes.js`
 Exports

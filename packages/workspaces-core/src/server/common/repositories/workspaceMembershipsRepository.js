@@ -1,18 +1,16 @@
 import {
-  normalizeLowerText,
-  normalizeRecordId,
+  isLostDuplicateInsertRace,
   normalizeDbRecordId,
-  normalizeText,
-  isDuplicateEntryError,
-  toIsoString,
-  retryDeadlocks
-} from "./repositoryUtils.js";
+  resolveTransaction,
+  retryDeadlocks,
+  toIsoString
+} from "@jskit-ai/database-runtime/shared";
+import { normalizeLowerText, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   createJsonRestContext,
   extractJsonRestCollectionRows
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { OWNER_ROLE_ID } from "../../../shared/roles.js";
-import { resolveTransaction } from "@jskit-ai/database-runtime/shared";
 
 function normalizeMembershipRecord(payload) {
   if (!payload) {
@@ -28,20 +26,6 @@ function normalizeMembershipRecord(payload) {
     createdAt: payload.createdAt ? toIsoString(payload.createdAt) : null,
     updatedAt: payload.updatedAt ? toIsoString(payload.updatedAt) : null
   };
-}
-
-function normalizeMembershipPatchPayload(payload = {}) {
-  const source = payload && typeof payload === "object" && !Array.isArray(payload) ? payload : {};
-  const normalized = {};
-
-  if (Object.hasOwn(source, "roleSid")) {
-    normalized.roleSid = normalizeLowerText(source.roleSid);
-  }
-  if (Object.hasOwn(source, "status")) {
-    normalized.status = normalizeLowerText(source.status);
-  }
-
-  return normalized;
 }
 
 function normalizeMemberSummaryRow(row) {
@@ -80,7 +64,7 @@ function createRepository({ api }) {
           transaction: resolveTransaction(options),
           format: "plain"
         },
-        createJsonRestContext(options.context || null)
+        createJsonRestContext(options.context)
       )
     );
   }
@@ -127,7 +111,7 @@ function createRepository({ api }) {
             returning: "full",
             transaction: resolveTransaction(options)
           },
-          createJsonRestContext(options.context || null)
+          createJsonRestContext(options.context)
         );
       }
       return findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, options);
@@ -149,10 +133,10 @@ function createRepository({ api }) {
           returning: "full",
           transaction: resolveTransaction(options)
         },
-        createJsonRestContext(options.context || null)
+        createJsonRestContext(options.context)
       );
     } catch (error) {
-      if (options.trx || error?.transactionOutcome !== "rolledBack" || !isDuplicateEntryError(error)) {
+      if (!isLostDuplicateInsertRace(error, options)) {
         throw error;
       }
     }
@@ -168,12 +152,8 @@ function createRepository({ api }) {
     }
 
     const existing = await findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, options);
-    const normalizedPatch = normalizeMembershipPatchPayload({
-      roleSid: patch?.roleSid ?? existing?.roleSid ?? "member",
-      status: patch?.status ?? existing?.status ?? "active"
-    });
-    const roleSid = normalizeLowerText(normalizedPatch.roleSid || "member") || "member";
-    const status = normalizeLowerText(normalizedPatch.status || "active") || "active";
+    const roleSid = normalizeLowerText(patch?.roleSid ?? existing?.roleSid) || "member";
+    const status = normalizeLowerText(patch?.status ?? existing?.status) || "active";
 
     if (!existing) {
       try {
@@ -192,10 +172,10 @@ function createRepository({ api }) {
             returning: "full",
             transaction: resolveTransaction(options)
           },
-          createJsonRestContext(options.context || null)
+          createJsonRestContext(options.context)
         );
       } catch (error) {
-        if (options.trx || error?.transactionOutcome !== "rolledBack" || !isDuplicateEntryError(error)) {
+        if (!isLostDuplicateInsertRace(error, options)) {
           throw error;
         }
       }
@@ -215,7 +195,7 @@ function createRepository({ api }) {
         returning: "full",
         transaction: resolveTransaction(options)
       },
-      createJsonRestContext(options.context || null)
+      createJsonRestContext(options.context)
     );
 
     return findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, options);

@@ -1,18 +1,17 @@
-import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import {
-  normalizeLowerText,
-  normalizeRecordId,
+  isLostDuplicateInsertRace,
+  joinOrOpenTransaction,
   normalizeDbRecordId,
-  normalizeText,
-  isDuplicateEntryError,
-  toIsoString,
-  retryDeadlocks
-} from "./repositoryUtils.js";
+  resolveTransaction,
+  retryDeadlocks,
+  toIsoString
+} from "@jskit-ai/database-runtime/shared";
+import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+import { normalizeLowerText, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   createJsonRestContext,
   extractJsonRestCollectionRows
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
-import { resolveTransaction } from "@jskit-ai/database-runtime/shared";
 
 function normalizeInviteRecord(payload) {
   if (!payload) {
@@ -84,7 +83,7 @@ function createRepository({ api }) {
 
   async function queryInvites(filters = {}, options = {}, { includeWorkspace = false } = {}) {
     if (options.lock === true) {
-      // readable-check: allow method-probe - data: a lock needs the caller's Knex transaction, which options may omit
+      // readable-check: allow method-probe - platform object: a Knex transaction, which a locking read needs and options may omit
       if (typeof options.trx !== "function" || includeWorkspace) {
         throw new TypeError("Locking invites requires a transaction and no relationship includes.");
       }
@@ -103,6 +102,7 @@ function createRepository({ api }) {
         return [fields[key], value];
       }));
       // Read PostgreSQL's UTC timestamps as text to avoid the driver's local-time conversion.
+      // readable-check: allow method-probe - platform object: a Knex transaction, whose client config names its dialect
       const dateColumn = (name) => options.trx.client?.config?.client === "pg"
         ? options.trx.raw("CAST(?? AS TEXT)", [name])
         : name;
@@ -131,13 +131,13 @@ function createRepository({ api }) {
           transaction: resolveTransaction(options),
           format: "plain"
         },
-        createJsonRestContext(options.context || null)
+        createJsonRestContext(options.context)
       )
     );
   }
 
   async function lockWorkspaceForInvitations(workspaceId, options = {}) {
-    // readable-check: allow method-probe - data: a lock needs the caller's Knex transaction, which options may omit
+    // readable-check: allow method-probe - platform object: a Knex transaction, which the workspace lock needs and options may omit
     if (typeof options.trx !== "function" || options.trx.isCompleted()) {
       throw new TypeError("Invitation locking requires an active transaction.");
     }
@@ -227,7 +227,7 @@ function createRepository({ api }) {
       .sort((left, right) => String(right.createdAt || "").localeCompare(String(left.createdAt || "")));
   }
 
-  async function insert(payload = {}, options = {}) {
+  async function insert(payload, options = {}) {
     const source = payload && typeof payload === "object" && !Array.isArray(payload) ? payload : {};
     const workspaceId = normalizeRecordId(source.workspaceId, { fallback: null });
     if (!workspaceId) {
@@ -264,12 +264,12 @@ function createRepository({ api }) {
           returning: "full",
           transaction: resolveTransaction(options)
         },
-        createJsonRestContext(options.context || null)
+        createJsonRestContext(options.context)
       );
 
       return normalizeInviteRecord(created);
     } catch (error) {
-      if (options.trx || error?.transactionOutcome !== "rolledBack" || !isDuplicateEntryError(error)) {
+      if (!isLostDuplicateInsertRace(error, options)) {
         throw error;
       }
     }
@@ -293,38 +293,38 @@ function createRepository({ api }) {
       return;
     }
 
-    if (!options.trx) {
-      return withTransaction((trx) => expirePendingByWorkspaceIdAndEmail(workspaceId, email, { ...options, trx }));
-    }
-    await lockWorkspaceForInvitations(normalizedWorkspaceId, options);
-    const patch = normalizeInvitePatchPayload({ status: "expired" });
-    const rows = await queryInvites(
-      {
-        workspace: normalizedWorkspaceId,
-        email: normalizeLowerText(email),
-        status: "pending"
-      },
-      { ...options, lock: true }
-    );
-
-    for (const row of rows) {
-      if (!row?.id) {
-        continue;
-      }
-      await api.resources.workspaceInvites.patch(
+    await joinOrOpenTransaction(options, withTransaction, async (trx) => {
+      const transactionOptions = { ...options, trx };
+      await lockWorkspaceForInvitations(normalizedWorkspaceId, transactionOptions);
+      const patch = normalizeInvitePatchPayload({ status: "expired" });
+      const rows = await queryInvites(
         {
-          id: row.id,
-          data: {
-            status: patch.status,
-            updatedAt: new Date().toISOString()
-          },
-          format: "plain",
-          returning: "full",
-          transaction: resolveTransaction(options)
+          workspace: normalizedWorkspaceId,
+          email: normalizeLowerText(email),
+          status: "pending"
         },
-        createJsonRestContext(options.context || null)
+        { ...transactionOptions, lock: true }
       );
-    }
+
+      for (const row of rows) {
+        if (!row?.id) {
+          continue;
+        }
+        await api.resources.workspaceInvites.patch(
+          {
+            id: row.id,
+            data: {
+              status: patch.status,
+              updatedAt: new Date().toISOString()
+            },
+            format: "plain",
+            returning: "full",
+            transaction: trx
+          },
+          createJsonRestContext(options.context)
+        );
+      }
+    });
   }
 
   async function transitionPendingById(inviteId, status, options = {}) {
@@ -342,30 +342,29 @@ function createRepository({ api }) {
       }
       workspaceId = normalizeInviteRecord(candidate[0]).workspaceId;
     }
-    if (!options.trx) {
-      return withTransaction((trx) => transitionPendingById(id, status, { ...options, trx, workspaceId }));
-    }
-    const invite = await findPendingByIdForWorkspace(id, workspaceId, { ...options, lock: true });
-    if (!invite) {
-      throw new AppError(404, "Invitation not found or already handled.", {
-        code: "workspaces.invite.invitationNotFoundOrHandled"
-      });
-    }
-    const updatedAt = new Date().toISOString();
-    await api.resources.workspaceInvites.patch(
-      {
-        id,
-        data: {
-          status,
-          [status === "accepted" ? "acceptedAt" : "revokedAt"]: updatedAt,
-          updatedAt
+    await joinOrOpenTransaction(options, withTransaction, async (trx) => {
+      const invite = await findPendingByIdForWorkspace(id, workspaceId, { ...options, trx, workspaceId, lock: true });
+      if (!invite) {
+        throw new AppError(404, "Invitation not found or already handled.", {
+          code: "workspaces.invite.invitationNotFoundOrHandled"
+        });
+      }
+      const updatedAt = new Date().toISOString();
+      await api.resources.workspaceInvites.patch(
+        {
+          id,
+          data: {
+            status,
+            [status === "accepted" ? "acceptedAt" : "revokedAt"]: updatedAt,
+            updatedAt
+          },
+          format: "plain",
+          returning: "full",
+          transaction: trx
         },
-        format: "plain",
-        returning: "full",
-        transaction: options.trx
-      },
-      createJsonRestContext(options.context || null)
-    );
+        createJsonRestContext(options.context)
+      );
+    });
   }
 
   async function markAcceptedById(inviteId, options = {}) {

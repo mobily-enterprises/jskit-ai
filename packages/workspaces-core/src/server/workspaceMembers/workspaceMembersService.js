@@ -1,5 +1,5 @@
-import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
-import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { joinOrOpenTransaction } from "@jskit-ai/database-runtime/shared";
+import { normalizeLowerText, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { encodeInviteTokenHash } from "@jskit-ai/auth-core/shared/inviteTokens";
 import { resolveInviteTokenHash, buildInviteToken, hashInviteToken } from "@jskit-ai/auth-core/server/inviteTokens";
 import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
@@ -268,6 +268,7 @@ function createService({
 
   async function prepareInvite(workspace, user, payload = {}, options = {}) {
     ensureWorkspaceInvitationsEnabled();
+    // readable-check: allow required-collaborators - platform object: a Knex transaction, which prepareInvite writes in
     if (!options.trx) {
       throw new TypeError("prepareInvite requires a managed transaction.");
     }
@@ -304,6 +305,7 @@ function createService({
 
   async function sendInvite(workspace, user, prepared = {}, options = {}) {
     ensureWorkspaceInvitationsEnabled();
+    // readable-check: allow required-collaborators - platform object: a Knex transaction, which sendInvite must run after
     if (options.trx) {
       throw new TypeError("sendInvite must run after the invitation transaction commits.");
     }
@@ -347,6 +349,7 @@ function createService({
 
   async function createInvite(workspace, user, payload, options = {}) {
     ensureWorkspaceInvitationsEnabled();
+    // readable-check: allow required-collaborators - platform object: a Knex transaction, which createInvite opens itself
     if (options.trx) {
       throw new TypeError("Use prepareInvite inside a transaction, then sendInvite after commit.");
     }
@@ -376,9 +379,7 @@ function createService({
       await workspaceInvitesRepository.revokeById(normalizedInviteId, transactionOptions);
       return normalizeRecordId(invite.id, { fallback: null });
     };
-    const revokedInviteId = options.trx
-      ? await revoke(options.trx)
-      : await workspaceInvitesRepository.withTransaction(revoke);
+    const revokedInviteId = await joinOrOpenTransaction(options, workspaceInvitesRepository.withTransaction, revoke);
 
     const response = await listInvitesPayload(workspace, options);
     return returnJsonApiData({
