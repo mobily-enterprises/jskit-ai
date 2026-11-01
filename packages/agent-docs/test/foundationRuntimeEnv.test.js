@@ -18,12 +18,12 @@ async function resolvePortIn(patternName, workingDirectory) {
   delete environment.PORT;
   const { stdout } = await execFileAsync(process.execPath, ["--input-type=module", "--eval", `
     const { resolveRuntimeEnv } = await import(${JSON.stringify(moduleUrl)});
-    console.log(resolveRuntimeEnv().PORT);
+    console.log(JSON.stringify(resolveRuntimeEnv().PORT));
   `], { cwd: workingDirectory, env: environment });
-  return Number(stdout.trim());
+  return JSON.parse(stdout);
 }
 
-test("application foundations load .env with the Node runtime and run without one", async (t) => {
+test("application foundations load .env with the Node runtime, run without one and keep PORT a string", async (t) => {
   const withEnv = await mkdtemp(path.join(os.tmpdir(), "jskit-foundation-env-"));
   const withoutEnv = await mkdtemp(path.join(os.tmpdir(), "jskit-foundation-no-env-"));
   t.after(() => Promise.all([
@@ -33,7 +33,7 @@ test("application foundations load .env with the Node runtime and run without on
   await writeFile(path.join(withEnv, ".env"), "PORT=4567\n", "utf8");
 
   for (const patternName of ["minimal-foundation", "shell-foundation"]) {
-    assert.equal(await resolvePortIn(patternName, withEnv), 4567);
-    assert.equal(await resolvePortIn(patternName, withoutEnv), 3000);
+    assert.equal(await resolvePortIn(patternName, withEnv), "4567");
+    assert.equal(await resolvePortIn(patternName, withoutEnv), "3000");
   }
 });

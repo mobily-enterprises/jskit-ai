@@ -67,7 +67,8 @@ questionnaire or infer tenancy, authentication, or database requirements.
   actions whose `execute` is one call; every `create*` returns a frozen object
   of named functions; one copy of each helper per package; files stay under
   750 lines and functions under 600. `createServer({ runtimeEnv })` requires
-  the environment it runs with, typed as the kernel's `RuntimeEnv`, and
+  the environment it runs with, typed as the kernel's `RuntimeEnv` (the process
+  environment, string values: `resolveRuntimeEnv()` keeps `PORT` a string), and
   `server.js` takes `API_BASE_PATH` and `toRequestPathname` from the kernel's
   `shared/surface/paths`. `server/lib/envFile.js` loads `.env` once per process
   for every entry point. `eslint.config.mjs` applies

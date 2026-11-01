@@ -16,7 +16,11 @@ function toPort(value, fallback) {
   return fallback;
 }
 
-/** The process environment, with .env loaded and SERVER_SURFACE, PORT and HOST resolved. */
+/**
+ * The process environment, with .env loaded and SERVER_SURFACE, PORT and HOST resolved. Every value stays a string,
+ * as the kernel's RuntimeEnv type says.
+ * @returns {import("@jskit-ai/kernel/server/types").RuntimeEnv}
+ */
 function resolveRuntimeEnv() {
   loadEnvFile();
   const serverSurface = surfaceRuntime.normalizeSurfaceMode(
@@ -25,7 +29,7 @@ function resolveRuntimeEnv() {
   return {
     ...process.env,
     SERVER_SURFACE: serverSurface,
-    PORT: toPort(process.env.PORT, DEFAULT_PORT),
+    PORT: String(toPort(process.env.PORT, DEFAULT_PORT)),
     HOST: String(process.env.HOST || "").trim() || "0.0.0.0"
   };
 }
