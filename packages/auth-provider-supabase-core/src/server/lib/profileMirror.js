@@ -3,9 +3,10 @@ import { normalizeAuthActor, normalizeAuthResult } from "@jskit-ai/auth-core/ser
 import { normalizeEmail } from "@jskit-ai/auth-core/server/utils";
 import { resolveDisplayName } from "./authProfileNames.js";
 import { requireAuthenticatedProfile } from "./authenticatedProfile.js";
-import { USER_PROFILE_EMAIL_CONFLICT_CODE } from "./standaloneProfileSyncService.js";
 
 const DEFAULT_AUTH_PROVIDER_ID = "supabase";
+/** The code users-core's profiles repository gives an email that another sign-in already uses. */
+const USER_PROFILE_EMAIL_CONFLICT_CODE = "USER_PROFILE_EMAIL_CONFLICT";
 const AUTH_PROVIDER_ID_PATTERN = /^[a-z][a-z0-9_-]{1,63}$/;
 
 function normalizeAuthProviderId(value, { fallback = DEFAULT_AUTH_PROVIDER_ID } = {}) {

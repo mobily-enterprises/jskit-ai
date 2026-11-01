@@ -178,17 +178,6 @@ Exports
 Exports
 - `createSupabaseSessions({ config, clients, profileMirror, profiles })`
 
-### `src/server/lib/standaloneProfileSyncService.js`
-Exports
-- `createStandaloneProfileSyncService()`
-- `USER_PROFILE_EMAIL_CONFLICT_CODE`
-Local functions
-- `buildIdentityKey({ authProvider, authProviderUserSid })`
-- `normalizeIdentity(identityLike)`
-- `normalizeProfile(profileLike)`
-- `cloneProfile(profile)`
-- `createEmailConflictError()`
-
 ### `src/server/lib/supabaseClientOptions.js`
 Exports
 - `buildSupabaseServerClientOptions(options = {})`
