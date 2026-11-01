@@ -87,6 +87,34 @@ function isFreezeCall(node) {
     node.callee.object.name === "Object" && node.callee.property.name === "freeze";
 }
 
+// The local names a module imports `deepFreeze` under (the kernel's, from
+// `@jskit-ai/kernel/shared/support/deepFreeze`), which freezes a value and
+// every value inside it.
+function deepFreezeNames(program) {
+  return new Set(program.body
+    .filter((statement) => statement.type === "ImportDeclaration")
+    .flatMap((statement) => statement.specifiers)
+    .filter((specifier) => specifier.type === "ImportSpecifier" && (specifier.imported.name || specifier.imported.value) === "deepFreeze")
+    .map((specifier) => specifier.local.name));
+}
+
+// A value is frozen when it is Object.freeze's argument, or stands, through
+// array elements and object properties, inside the argument of deepFreeze.
+function isFrozenValue(node, deepFreezing) {
+  if (isFreezeCall(node.parent) && node.parent.arguments[0] === node) {
+    return true;
+  }
+  for (let child = node, parent = node.parent; parent; child = parent, parent = parent.parent) {
+    if (parent.type === "CallExpression") {
+      return parent.callee.type === "Identifier" && deepFreezing.has(parent.callee.name) && parent.arguments[0] === child;
+    }
+    if (parent.type !== "ArrayExpression" && parent.type !== "ObjectExpression" && parent.type !== "Property") {
+      return false;
+    }
+  }
+  return false;
+}
+
 // The execute of an action definition: a property of an object that also has an id.
 function isActionExecute(node, owner) {
   return node?.type === "Property" && keyName(node) === "execute" && owner?.type === "ObjectExpression" &&
@@ -156,8 +184,9 @@ function collaboratorNames(fn, names, visitorKeys) {
   return found;
 }
 
-// The object patterns that destructure a dependencies parameter at the top of
-// the function body: `const { store, clock } = dependencies;`.
+// The object patterns that destructure a dependencies parameter in the
+// function body's own statements (not nested blocks), wherever they stand:
+// `const { store, clock } = dependencies;`.
 function bodyDestructuring(fn, parameterName) {
   if (fn.body?.type !== "BlockStatement") {
     return [];
@@ -186,7 +215,8 @@ function dependenciesPattern(fn, first) {
 }
 
 // A create*/build* factory or class constructor that destructures collaborators
-// from its first parameter, in its signature or at the top of its body, or null.
+// from its first parameter, in its signature or in its body's own statements,
+// or null.
 function factoryDependencies(fn, sourceCode) {
   const name = functionName(fn);
   if (!FACTORY_NAME.test(name) && !isConstructor(fn)) {
@@ -223,6 +253,7 @@ function ruleMeta(description, messages) {
 export {
   compactText,
   createReporter,
+  deepFreezeNames,
   factoryDependencies,
   followsOptionalLink,
   functionSite,
@@ -230,6 +261,7 @@ export {
   isActionExecute,
   isActionsFile,
   isFreezeCall,
+  isFrozenValue,
   isInAction,
   keyName,
   ruleMeta,

@@ -33,7 +33,7 @@ code that does not:
 | `jskit/required-collaborators` | a collaborator defaulted to nothing (`null`, `{}`, a no-op), a `typeof x.y === "function"` probe, an `x.y?.()` call |
 | `jskit/no-slot-setter` | a returned `set<Name>()` that fills a slot after construction, or a call that fills one |
 | `jskit/no-module-registry` | a module-level `register<Name>()` that writes module state |
-| `jskit/one-line-action` | `input = {}`, `input \|\| {}` or `input?.` in an action's `execute` or an actions file; an `async` `execute`; an action definition, or a list of them, that is not `Object.freeze`d |
+| `jskit/one-line-action` | `input = {}`, `input \|\| {}` or `input?.` in an action's `execute` or an actions file; an `async` `execute`; an action definition, or a list of them, that is neither `Object.freeze`d nor inside the kernel's `deepFreeze(…)` |
 | `jskit/no-duplicate-helper` | a small top-level helper, a function or a `const` arrow, that repeats one in another file of the package's server code (a named no-op is not a helper) |
 | `jskit/allow-comment-form` | a `readable-check: allow` comment whose reason has no fixed prefix, cites tests, or cites the state of a project |
 | `jskit/jsdoc-description-inside` | a `//` line comment directly above a `/** */` block, whose description belongs inside it |
@@ -53,10 +53,12 @@ value is built from, so list a package's shared modules too
 `components` and `pages` directories are not checked.
 
 `one-line-action` leaves CRUD custom actions' `execute({ input, service, … })`
-alone: that is the CRUD declaration's own contract. `no-duplicate-helper`
-treats a pattern's example application (an `example` directory beside a
-`PATTERN.md`) as a package of its own, and skips the agent skill bundle's
-generated copies under `skills/jskit/references/patterns`.
+alone: that is the CRUD declaration's own contract. `no-duplicate-helper` and
+`named-repeated-type` compare a file with the rest of its package. Both treat a
+pattern's example application (an `example` directory beside a `PATTERN.md`)
+as a package of its own, skip `templates` and `patterns` directories inside a
+package, and leave the agent skill bundle's generated copies under
+`skills/jskit/references/patterns` to their sources.
 
 A justified exception carries a comment on the line before it, naming the rule
 (`one-line-action`) or the finding (`input-fallback`, `async-execute`,

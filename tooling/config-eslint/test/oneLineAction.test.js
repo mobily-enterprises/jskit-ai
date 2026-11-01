@@ -17,6 +17,8 @@ new RuleTester().run("jskit/one-line-action", oneLineAction, {
     "const actions = Object.freeze([Object.freeze({ id: \"booking.read\", execute: (input, context) => bookingEngine.readStatus(input, { context }) })]);",
     "const operations = [{ operation: \"list\", execute: (input, context) => run(\"list\", input, context) }];",
     "const receivalActions = { \"intake-drums\": { id: \"crud.receivals.intakeDrums\", async execute({ input, service }) { return service.recordIntakeDrums(input); } } };",
+    "import { deepFreeze } from \"@jskit-ai/kernel/shared/support/deepFreeze\";\nconst actions = deepFreeze([{ id: \"booking.read\", execute: (input) => bookingEngine.readStatus(input) }]);",
+    "import { deepFreeze as frozen } from \"@jskit-ai/kernel/shared/support\";\nconst action = frozen({ id: \"booking.read\", execute: (input) => bookingEngine.readStatus(input) });",
     "const actions = Object.freeze([\n  // readable-check: allow unfrozen-action - data: a fixture the catalogue copies\n  { id: \"booking.read\", execute: (input) => bookingEngine.readStatus(input) }\n]);"
   ],
   invalid: [
@@ -60,6 +62,14 @@ new RuleTester().run("jskit/one-line-action", oneLineAction, {
     {
       code: "function createBookingActions({ bookingEngine }) {\n  return [Object.freeze({ id: \"booking.read\", execute: (input) => bookingEngine.readStatus(input) })];\n}",
       errors: [{ messageId: "unfrozenActions", line: 2 }]
+    },
+    {
+      code: "function deepFreeze(value) { return value; }\nconst actions = deepFreeze([{ id: \"booking.read\", execute: (input) => bookingEngine.readStatus(input) }]);",
+      errors: [{ messageId: "unfrozenActions", line: 2 }, { messageId: "unfrozenAction", line: 2 }]
+    },
+    {
+      code: "import { deepFreeze } from \"@jskit-ai/kernel/shared/support/deepFreeze\";\nconst actions = deepFreeze(createList([{ id: \"booking.read\", execute: (input) => bookingEngine.readStatus(input) }]));",
+      errors: [{ messageId: "unfrozenActions", line: 2 }, { messageId: "unfrozenAction", line: 2 }]
     },
     {
       code: "const actions = [{ id: \"booking.read\", execute: (input) => bookingEngine.readStatus(input) }];",

@@ -30,6 +30,8 @@ writeSource("booking/src/server/vendor/aaa.js", HELPER);
 writeSource("booking/src/client/format.js", HELPER);
 writeSource("invoices/package.json", "{}\n");
 writeSource("invoices/src/server/format.js", HELPER);
+// Scaffolding templates hold no package source.
+writeSource("invoices/src/server/templates/slots.js", SLOT_HELPER);
 writeSource("booking/src/server/labels.js", ARROW);
 // A pattern's example application is a package of its own.
 writeSource("shell/package.json", "{}\n");
@@ -53,6 +55,7 @@ new RuleTester().run("jskit/no-duplicate-helper", noDuplicateHelper, {
     { code: HELPER, filename: path.join(server, "format.js") },
     { code: HELPER, filename: path.join(server, "a-first.js") },
     { code: HELPER, filename: path.join(root, "invoices", "src", "server", "format.js") },
+    { code: SLOT_HELPER, filename: path.join(root, "invoices", "src", "server", "slots.js") },
     { code: `export ${HELPER.replace("\nexport { toText };", "")}`, filename: path.join(server, "zeta.js") },
     { code: "function toLabel(value) {\n  return String(value).toUpperCase();\n}\nexport { toLabel };\n", filename: path.join(server, "zeta.js") },
     { code: `// readable-check: allow duplicate-helper - a published copy\n${HELPER}`, filename: path.join(server, "zeta.js") },

@@ -83,10 +83,13 @@ Exports
 
 ### `plugin/packageSources.js`
 Exports
+- `createSourceMemo(read, unreadable)`
+- `isGeneratedMirror(file)`
 - `packageRootOf(file)`
 - `packageSourceFiles(directory, files = [])`
+- `toPosixPath(file)`
 Local functions
-- `isPatternExample(directory)`
+- `isPackageDirectory(directory)`
 
 ### `plugin/rules/actionExecuteShape.js`
 Exports
@@ -105,8 +108,6 @@ Local functions
 ### `plugin/rules/frozenFactoryResult.js`
 Exports
 - `frozenFactoryResult`
-Local functions
-- `memberName(property)`
 
 ### `plugin/rules/jsdocDescriptionInside.js`
 Exports
@@ -124,8 +125,6 @@ Local functions
 - `importedNames(text, directory)`
 - `typeKey(text, file, imports)`
 - `commentTypes(text)`
-- `fileTypeKeys(file)`
-- `displayPath(context, file)`
 
 ### `plugin/rules/noDualShape.js`
 Exports
@@ -139,14 +138,9 @@ Local functions
 Exports
 - `noDuplicateHelper`
 Local functions
-- `toPosixPath(file)`
 - `topLevelFunctions(program)`
 - `topLevelHelpers(program, text)`
-- `isPackageDirectory(directory)`
-- `packageDirectoryOf(file)`
 - `comparisonRoot(file, packageDirectory)`
-- `sourceFilesUnder(directory, files = [])`
-- `parseHelpers(file, context)`
 - `compareCopies(left, right)`
 
 ### `plugin/rules/noFactorySpread.js`
@@ -174,8 +168,6 @@ Local functions
 ### `plugin/rules/noSlotSetter.js`
 Exports
 - `noSlotSetter`
-Local functions
-- `isFreezeCall(node)`
 
 ### `plugin/rules/oneLineAction.js`
 Exports
@@ -183,7 +175,6 @@ Exports
 Local functions
 - `executeOf(definition)`
 - `isCrudCustomAction(definition)`
-- `isFrozen(node)`
 - `definitionLiteral(element)`
 
 ### `plugin/rules/requiredCollaborators.js`
@@ -200,6 +191,7 @@ Local functions
 Exports
 - `compactText(sourceCode, node)`
 - `createReporter(context, ruleName)`
+- `deepFreezeNames(program)`
 - `factoryDependencies(fn, sourceCode)`
 - `followsOptionalLink(node)`
 - `functionSite(fn)`
@@ -207,6 +199,7 @@ Exports
 - `isActionExecute(node, owner)`
 - `isActionsFile(filename)`
 - `isFreezeCall(node)`
+- `isFrozenValue(node, deepFreezing)`
 - `isInAction(context, node)`
 - `keyName(property)`
 - `ruleMeta(description, messages)`

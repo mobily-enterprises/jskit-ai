@@ -1,9 +1,5 @@
 import { CREATE_NAME, definedName, holdsBehaviour, isInlineFunction, returnedFrom } from "../factoryResults.js";
-import { createReporter, isActionDefinition, isFreezeCall, ruleMeta } from "../support.js";
-
-function memberName(property) {
-  return property.key?.name || property.key?.value || "member";
-}
+import { createReporter, isActionDefinition, isFreezeCall, keyName, ruleMeta } from "../support.js";
 
 // A create* factory that returns behaviour returns Object.freeze({ … }) of
 // named functions, so its shape is fixed and each member has a name a reader
@@ -33,7 +29,7 @@ const frozenFactoryResult = Object.freeze({
         report(object, "unfrozen-result", "unfrozenResult", { factory });
       }
       for (const property of inline) {
-        report(property, "inline-member", "inlineMember", { factory, member: memberName(property) });
+        report(property, "inline-member", "inlineMember", { factory, member: keyName(property) || "member" });
       }
     }
     return {

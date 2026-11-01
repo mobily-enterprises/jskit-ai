@@ -1,23 +1,9 @@
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
+import { createSourceMemo, isGeneratedMirror, packageRootOf, packageSourceFiles, toPosixPath } from "../packageSources.js";
 import { createReporter, ruleMeta } from "../support.js";
 
-// Directories that hold no server source (or another package's), as readable-check skips them.
-const SKIPPED_DIRECTORIES = new Set(["node_modules", ".git", "dist", "test", "tests", "client", "components", "pages"]);
-const SOURCE_FILE = /\.m?js$/u;
-const TEST_FILE = /\.test\./u;
-// The agent skill bundle's generated copies of package-owned patterns; their
-// sources are checked.
-const GENERATED_MIRROR = /(^|\/)skills\/jskit\/references\/patterns(\/|$)/u;
 const FUNCTION_VALUES = new Set(["ArrowFunctionExpression", "FunctionExpression"]);
-
-// Parsed helpers of the files a lint run has read, by path; reread when a file changes.
-const helpersByFile = new Map();
-
-function toPosixPath(file) {
-  return file.split(path.sep).join("/");
-}
 
 // The module's top-level function declarations and `const` arrows or function
 // expressions, each with the node a finding is reported on.
@@ -51,25 +37,6 @@ function topLevelHelpers(program, text) {
     });
 }
 
-// A package, or a pattern's example application: an `example` directory beside
-// a PATTERN.md.
-function isPackageDirectory(directory) {
-  return existsSync(path.join(directory, "package.json")) ||
-    (path.basename(directory) === "example" && existsSync(path.join(path.dirname(directory), "PATTERN.md")));
-}
-
-function packageDirectoryOf(file) {
-  const start = path.dirname(file);
-  for (let directory = start; ; directory = path.dirname(directory)) {
-    if (isPackageDirectory(directory)) {
-      return directory;
-    }
-    if (directory === path.dirname(directory)) {
-      return start;
-    }
-  }
-}
-
 // The package's server tree (`src/server`, or a kernel-style `server`) holds the
 // file's siblings; a package without one compares its whole directory.
 function comparisonRoot(file, packageDirectory) {
@@ -78,51 +45,14 @@ function comparisonRoot(file, packageDirectory) {
   return serverIndex < 0 ? packageDirectory : path.join(packageDirectory, ...segments.slice(0, serverIndex + 1));
 }
 
-function sourceFilesUnder(directory, files = []) {
-  let entries;
-  try {
-    entries = readdirSync(directory, { withFileTypes: true });
-  } catch {
-    return files;
-  }
-  for (const entry of entries) {
-    const next = path.join(directory, entry.name);
-    if (entry.isDirectory()) {
-      if (!SKIPPED_DIRECTORIES.has(entry.name) && !isPackageDirectory(next) && !GENERATED_MIRROR.test(toPosixPath(next))) {
-        sourceFilesUnder(next, files);
-      }
-    } else if (entry.isFile() && SOURCE_FILE.test(entry.name) && !TEST_FILE.test(entry.name)) {
-      files.push(next);
-    }
-  }
-  return files;
-}
-
-function parseHelpers(file, context) {
-  let stats;
-  try {
-    stats = statSync(file);
-  } catch {
-    return [];
-  }
-  const cached = helpersByFile.get(file);
-  if (cached && cached.mtimeMs === stats.mtimeMs && cached.size === stats.size) {
-    return cached.helpers;
-  }
-  let helpers = [];
-  try {
-    const text = readFileSync(file, "utf8");
-    const { parser, ecmaVersion, sourceType, parserOptions } = context.languageOptions;
-    const options = { ...parserOptions, ecmaVersion, sourceType, range: true, loc: true, tokens: true, comment: true, filePath: file };
-    // readable-check: allow method-probe - platform object: an ESLint parser provides parseForESLint, or only parse
-    const program = typeof parser.parseForESLint === "function" ? parser.parseForESLint(text, options).ast : parser.parse(text, options);
-    helpers = topLevelHelpers(program, text).map(({ name, line, key }) => ({ name, line, key }));
-  } catch {
-    // A file that does not parse is reported by its own lint run.
-  }
-  helpersByFile.set(file, { mtimeMs: stats.mtimeMs, size: stats.size, helpers });
-  return helpers;
-}
+// The small helpers of another file of the package, parsed as this lint run parses.
+const helpersOf = createSourceMemo((text, file, context) => {
+  const { parser, ecmaVersion, sourceType, parserOptions } = context.languageOptions;
+  const options = { ...parserOptions, ecmaVersion, sourceType, range: true, loc: true, tokens: true, comment: true, filePath: file };
+  // readable-check: allow method-probe - platform object: an ESLint parser provides parseForESLint, or only parse
+  const program = typeof parser.parseForESLint === "function" ? parser.parseForESLint(text, options).ast : parser.parse(text, options);
+  return topLevelHelpers(program, text).map(({ name, line, key }) => ({ name, line, key }));
+}, Object.freeze([]));
 
 // Paths in the order readable-check walks them: directory by directory, by name.
 function compareCopies(left, right) {
@@ -149,19 +79,19 @@ const noDuplicateHelper = Object.freeze({
       Program(program) {
         const file = context.filename;
         const own = topLevelHelpers(program, sourceCode.text);
-        if (!own.length || !path.isAbsolute(file) || GENERATED_MIRROR.test(toPosixPath(file))) {
+        if (!own.length || !path.isAbsolute(file) || isGeneratedMirror(file)) {
           return;
         }
-        const packageDirectory = packageDirectoryOf(file);
+        const packageDirectory = packageRootOf(file);
         const copiesByKey = new Map(own.map((helper) => [helper.key, []]));
         for (const helper of own) {
           copiesByKey.get(helper.key).push({ ...helper, file });
         }
-        for (const other of sourceFilesUnder(comparisonRoot(file, packageDirectory))) {
+        for (const other of packageSourceFiles(comparisonRoot(file, packageDirectory))) {
           if (other === file) {
             continue;
           }
-          for (const helper of parseHelpers(other, context)) {
+          for (const helper of helpersOf(other, context)) {
             copiesByKey.get(helper.key)?.push({ ...helper, file: other });
           }
         }

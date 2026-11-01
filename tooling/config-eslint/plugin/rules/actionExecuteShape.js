@@ -1,4 +1,4 @@
-import { createReporter, isActionExecute, ruleMeta } from "../support.js";
+import { createReporter, isActionExecute, keyName, ruleMeta } from "../support.js";
 
 // A callee a reader follows in one step: a name or a member chain, with no
 // call inside it.
@@ -62,7 +62,7 @@ const actionExecuteShape = Object.freeze({
         if (!messageId) {
           return;
         }
-        const id = node.parent.properties.find((property) => (property.key?.name || property.key?.value) === "id");
+        const id = node.parent.properties.find((property) => keyName(property) === "id");
         const idText = id.value.type === "Literal" ? `"${id.value.value}"` : sourceCode.getText(id.value);
         const action = idText.length > 60 ? `${idText.slice(0, 57)}...` : idText;
         const helper = node.value.type === "CallExpression" ? sourceCode.getText(node.value.callee) : "";

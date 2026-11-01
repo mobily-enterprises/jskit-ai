@@ -1,10 +1,12 @@
 import {
   createReporter,
+  deepFreezeNames,
   functionSite,
   isActionDefinition,
   isActionExecute,
   isActionsFile,
   isFreezeCall,
+  isFrozenValue,
   isInAction,
   keyName,
   ruleMeta
@@ -21,10 +23,6 @@ function isCrudCustomAction(definition) {
   return first?.type === "ObjectPattern" && first.properties.some((property) => keyName(property) === "input");
 }
 
-function isFrozen(node) {
-  return isFreezeCall(node.parent) && node.parent.arguments[0] === node;
-}
-
 // An action definition written in place, bare or frozen.
 function definitionLiteral(element) {
   const object = isFreezeCall(element) ? element.arguments[0] : element;
@@ -35,7 +33,7 @@ function definitionLiteral(element) {
 // execute hands that input to one service method. In an action's execute, or
 // anywhere in an actions file, input is never re-defaulted with `input = {}`,
 // `input || {}` or `input?.`. The execute is not `async`, and each definition
-// and each list of them is frozen.
+// and each list of them is frozen, by Object.freeze or the kernel's deepFreeze.
 const oneLineAction = Object.freeze({
   meta: ruleMeta("Require one-line actions: validated input used as is, no async execute, frozen definitions and lists.", {
     inputFallback: "{{fallback}} re-defaults input that the action's schema already validated. Use the validated input.",
@@ -46,6 +44,7 @@ const oneLineAction = Object.freeze({
   create(context) {
     const report = createReporter(context, "one-line-action");
     const actionsFile = isActionsFile(context.filename);
+    const deepFreezing = deepFreezeNames(context.sourceCode.ast);
     function checkParameters(fn) {
       const first = fn.params[0];
       if (first?.type !== "AssignmentPattern" || first.left.name !== "input") {
@@ -78,12 +77,12 @@ const oneLineAction = Object.freeze({
         if (execute.value?.async) {
           report(execute, "async-execute", "asyncExecute");
         }
-        if (!isFrozen(node)) {
+        if (!isFrozenValue(node, deepFreezing)) {
           report(node, "unfrozen-action", "unfrozenAction");
         }
       },
       ArrayExpression(node) {
-        if (!isFrozen(node) && node.elements.some(definitionLiteral)) {
+        if (!isFrozenValue(node, deepFreezing) && node.elements.some(definitionLiteral)) {
           report(node, "unfrozen-action", "unfrozenActions");
         }
       }

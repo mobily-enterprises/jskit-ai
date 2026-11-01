@@ -1,6 +1,5 @@
-import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
-import { packageRootOf, packageSourceFiles } from "../packageSources.js";
+import { createSourceMemo, isGeneratedMirror, packageRootOf, packageSourceFiles, toPosixPath } from "../packageSources.js";
 import { createReporter, ruleMeta } from "../support.js";
 
 // The JSDoc tags whose braces hold a type.
@@ -11,9 +10,6 @@ const INDEX_CHAIN = /^(?:\s*\[\s*(?:"[^"]*"|'[^']*'|\d+)\s*\])+/u;
 // `import("…").X["y"]["z"]`.
 const INDEXED_TYPE = /(?<![\w$.])(?:import\(\s*(?:"[^"]+"|'[^']+')\s*\)\.)?[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*(?:\s*\[\s*(?:"[^"]*"|'[^']*')\s*\])+/gu;
 const TYPES_MODULE = /^types\.m?js$/u;
-
-// Type expressions found in the files a lint run has read, by path; reread when a file changes.
-const typesByFile = new Map();
 
 // The text between a `{` at `start` and its matching `}`.
 function balanced(text, start, open, close) {
@@ -111,36 +107,17 @@ function commentTypes(text) {
   return found;
 }
 
-function fileTypeKeys(file) {
-  let stats;
-  try {
-    stats = statSync(file);
-  } catch {
-    return new Set();
-  }
-  const cached = typesByFile.get(file);
-  if (cached && cached.mtimeMs === stats.mtimeMs && cached.size === stats.size) {
-    return cached.keys;
-  }
+// The type expressions of another file of the package, as keys.
+const typeKeysOf = createSourceMemo((text, file) => {
+  const imports = importedNames(text, path.dirname(file));
   const keys = new Set();
-  try {
-    const text = readFileSync(file, "utf8");
-    const imports = importedNames(text, path.dirname(file));
-    for (const block of text.matchAll(JSDOC_BLOCK)) {
-      for (const type of commentTypes(block[0])) {
-        keys.add(typeKey(type.text, file, imports));
-      }
+  for (const block of text.matchAll(JSDOC_BLOCK)) {
+    for (const type of commentTypes(block[0])) {
+      keys.add(typeKey(type.text, file, imports));
     }
-  } catch {
-    // An unreadable file is reported by its own lint run.
   }
-  typesByFile.set(file, { mtimeMs: stats.mtimeMs, size: stats.size, keys });
   return keys;
-}
-
-function displayPath(context, file) {
-  return path.relative(context.cwd, file).split(path.sep).join("/");
-}
+}, new Set());
 
 // A type used in two or more files of a package is named once, in its types.js,
 // and imported by that name: every copy must otherwise change together.
@@ -154,7 +131,7 @@ const namedRepeatedType = Object.freeze({
     return {
       Program() {
         const file = context.filename;
-        if (!path.isAbsolute(file) || TYPES_MODULE.test(path.basename(file))) {
+        if (!path.isAbsolute(file) || TYPES_MODULE.test(path.basename(file)) || isGeneratedMirror(file)) {
           return;
         }
         const own = sourceCode.getAllComments()
@@ -171,7 +148,7 @@ const namedRepeatedType = Object.freeze({
           if (other === file) {
             continue;
           }
-          for (const key of fileTypeKeys(other)) {
+          for (const key of typeKeysOf(other, context)) {
             if (wanted.has(key) && !firstOtherFile.has(key)) {
               firstOtherFile.set(key, other);
             }
@@ -187,7 +164,7 @@ const namedRepeatedType = Object.freeze({
           const shown = type.text.replace(/\s+/gu, " ");
           report({ loc }, "repeated-type", "repeatedType", {
             type: shown.length > 120 ? `${shown.slice(0, 117)}...` : shown,
-            other: displayPath(context, other)
+            other: toPosixPath(path.relative(context.cwd, other))
           });
         }
       }
