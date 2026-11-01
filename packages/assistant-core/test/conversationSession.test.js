@@ -29,7 +29,7 @@ async function fixture(t, options = {}) {
     authorize: ({ context: actor, conversationId, operation }) => state.allowed && actor === context && ["one", "two"].includes(conversationId) &&
       (options.authorize?.({ operation, context: actor, conversationId }) ?? true),
     fetch: (url, init) => { requests.push(JSON.parse(init.body)); return options.fetch?.(url, init) || response(); },
-    limits: options.limits
+    limits: options.limits, ...(options.attachments ? { attachments: options.attachments } : {})
   });
   t.after(() => runtime.close());
   const conversation = await runtime.open({ id: "one", context, configuration: options.resume ? undefined : configuration });
@@ -224,6 +224,28 @@ test("API compaction stores its summary with the last turn it covers, and later 
   assert.deepEqual(await storage.read("one", transaction => transaction.readSummary()), summary, "A short remainder is not compacted again");
   const later = (await storage.read("one", transaction => transaction.readMetadata())).runtime.seen;
   assert.ok(Object.keys(seen).every(id => Object.hasOwn(later, id)), "Versions saved before the summary still stand");
+});
+
+test("API history sends files again only within the newest 20 messages; older turns name theirs", async t => {
+  const resolved = [];
+  const attachments = { async resolve({ attachmentIds }) {
+    resolved.push([...attachmentIds]);
+    return { attachments: attachmentIds.map(attachmentId => ({ attachmentId, fileName: `${attachmentId}.txt`, size: 4 })),
+      content: attachmentIds.map(attachmentId => ({ type: "text", text: `Bytes of ${attachmentId}` })) };
+  } };
+  const f = await fixture(t, { attachments });
+  const send = async message => { await f.conversation.send(message); await f.conversation.wait(); };
+  await send({ messageId: "old", text: "Old file", attachmentIds: ["old"] });
+  for (let index = 0; index < 10; index++) await send({ messageId: `m${index}`, text: `Message ${index}` });
+  await send({ messageId: "recent", text: "Recent file", attachmentIds: ["recent"] });
+  resolved.length = 0;
+  await send({ messageId: "last", text: "Last" });
+  assert.deepEqual(resolved, [["recent"]], "Only the recent turn's file is read again");
+  const messages = f.requests.at(-1).messages;
+  assert.deepEqual(messages.find(message => Array.isArray(message.content) && message.content[0].text === "Old file").content,
+    [{ type: "text", text: "Old file" }, { type: "text", text: "(Files attached to this message, no longer shown: old.txt.)" }]);
+  assert.deepEqual(messages.find(message => Array.isArray(message.content) && message.content[0].text === "Recent file").content,
+    [{ type: "text", text: "Recent file" }, { type: "text", text: "Bytes of recent" }]);
 });
 
 test("provider errors before anything was done are status information after the engine's retries, never assistant replies", async t => {

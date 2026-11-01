@@ -31,6 +31,9 @@ function failure(message, code, statusCode = 409, { messageCode, messageParams }
 // The newest messages cancelled in one open conversation, refused if sent again.
 const MAX_CANCELLED_MESSAGES = 100;
 
+// API history turns within this many newest messages send their files again.
+const HISTORY_FILE_MESSAGES = 20;
+
 // A native delivery result keeps its own sentence and messageCode when it has one.
 function deliveryFailure(delivered) {
   const code = delivered?.code || "conversation_delivery_uncertain";
@@ -1448,9 +1451,15 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
               ? [{ type: "text", text: message.content }, ...previousFiles.content] : message.content });
           }
         } else {
-          for (const turn of history) {
+          // Files go to the model again only within the newest messages; older
+          // turns name theirs, so a long chat's files never outgrow one request.
+          let newer = 0;
+          for (const turn of history.toReversed()) {
+            newer += turn.messages.filter(message => ["user", "system", "assistant"].includes(message.role)).length;
             const message = submittedMessage(turn);
-            if (message?.attachments?.length) message.content = (await readAttachments(message.attachments)).content;
+            if (!message?.attachments?.length) continue;
+            message.content = newer <= HISTORY_FILE_MESSAGES ? (await readAttachments(message.attachments)).content
+              : [{ type: "text", text: `(Files attached to this message, no longer shown: ${message.attachments.map(file => file.fileName).join(", ")}.)` }];
           }
         }
         // The versions saved before a summary still stand for the turns it covers.
