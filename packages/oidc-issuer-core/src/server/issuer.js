@@ -1,16 +1,10 @@
-import { createAccountStore } from "./accounts.js";
-import { createKnexAdapterClass, deleteExpiredModels } from "./adapter.js";
-import { createClientStore, RegistrationError, validateRegistrationMetadata } from "./clients.js";
+import { RegistrationError, validateRegistrationMetadata } from "./clients.js";
 import { resolveHubConfig } from "./config.js";
 import { constantEquals, randomToken } from "./crypto.js";
-import { createEmailTokenStore } from "./emailTokens.js";
-import { createGoogleSignIn, GOOGLE_ENDPOINTS } from "./google.js";
-import { createHubSessionStore, createSettingStore, hubSessionCookieName } from "./hubSessions.js";
+import { GOOGLE_ENDPOINTS } from "./google.js";
+import { createHub } from "./hub.js";
 import { registerHubRoutes } from "./hubRoutes.js";
 import { createMailer } from "./mailer.js";
-import { ACTIVE_STATUSES, createOidcProvider } from "./oidcProvider.js";
-import { createRateLimiter } from "./rateLimits.js";
-import { createSigningKeyStore } from "./signingKeys.js";
 
 const MAINTENANCE_INTERVAL_MS = 60 * 1000;
 const BODY_LIMIT = 56 * 1024;
@@ -54,7 +48,7 @@ function parseJsonBody(buffer) {
  * policy, the hub's own sign-in and admin API, and Google sign-in.
  * `mount(app)` registers everything on a Fastify instance.
  * @param {object} dependencies
- * @param {import("knex").Knex} dependencies.knex
+ * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} dependencies.knex
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} [dependencies.env]
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
  * @param {ReturnType<typeof createMailer>} [dependencies.mailer] Sends the hub's emails instead of the configured sender.
@@ -74,95 +68,20 @@ async function createOidcIssuer({
   fetchImpl = globalThis.fetch
 }) {
   const config = resolveHubConfig(env, { appRoot });
-  const Adapter = createKnexAdapterClass(knex, { now });
-  const accounts = createAccountStore(knex, { now });
-  const clients = createClientStore(knex, { now });
-  const keys = createSigningKeyStore(knex, { secret: config.secret, now });
-  const hub = {
+  const hub = await createHub({
+    knex,
     config,
-    logger,
-    accounts,
-    clients,
-    keys,
-    sessions: createHubSessionStore(knex, { now }),
-    settings: createSettingStore(knex),
-    emailTokens: createEmailTokenStore(knex, { now }),
-    rateLimiter: createRateLimiter(knex, { now }),
-    mailer: mailer || createMailer({ mail: config.mail, logger, isProduction: config.isProduction, fetchImpl }),
-    google: config.google
-      ? createGoogleSignIn({ google: config.google, issuer: config.issuer, Adapter, endpoints: googleEndpoints, fetchImpl })
-      : null,
-    Adapter,
-    provider: null,
     devAuth: Object.freeze({
       enabled: String(env.AUTH_DEV_BYPASS_ENABLED ?? "").trim().toLowerCase() === "true",
       secret: String(env.AUTH_DEV_BYPASS_SECRET ?? "").trim()
     }),
-    now
-  };
-
-  let keyFingerprint = "";
-  let callback = null;
-
-  async function buildProvider() {
-    await keys.ensureActiveKey();
-    keyFingerprint = await keys.fingerprint();
-    hub.provider = createOidcProvider({
-      config,
-      jwks: await keys.jwks(),
-      Adapter,
-      accounts,
-      clients,
-      async hasHubSession(ctx, accountId) {
-        const session = await hub.sessions.find(ctx.cookies.get(hubSessionCookieName(config), { signed: false }));
-        return session?.accountId === accountId;
-      }
-    });
-    callback = hub.provider.callback();
-  }
-
-  async function refreshKeysIfChanged() {
-    await keys.retireExpired();
-    if ((await keys.fingerprint()) !== keyFingerprint) await buildProvider();
-  }
-
-  hub.rotateSigningKey = async () => {
-    const kid = await keys.rotate();
-    await buildProvider();
-    return kid;
-  };
-
-  /** Sends a signed logout token to every approved app that asked for back-channel logout. */
-  hub.backchannelLogout = async (accountId) => {
-    const results = [];
-    for (const row of await clients.list()) {
-      if (!ACTIVE_STATUSES.has(row.status)) continue;
-      const client = await hub.provider.Client.find(row.client_id);
-      if (!client?.backchannelLogoutUri) continue;
-      try {
-        await client.backchannelLogout(accountId);
-        results.push({ clientId: row.client_id, ok: true });
-      } catch (error) {
-        logger.warn({ clientId: row.client_id, err: error }, "Back-channel logout was not accepted.");
-        results.push({ clientId: row.client_id, ok: false });
-      }
-    }
-    return results;
-  };
-
-  async function maintain() {
-    try {
-      await refreshKeysIfChanged();
-      await clients.removeIdleDevelopmentClients();
-      await deleteExpiredModels(knex, { now });
-      await hub.emailTokens.deleteExpired();
-      await hub.rateLimiter.deleteExpired();
-    } catch (error) {
-      logger.error({ err: error }, "Accounts hub maintenance failed.");
-    }
-  }
-
-  await buildProvider();
+    logger,
+    mailer: mailer || createMailer({ mail: config.mail, logger, isProduction: config.isProduction, fetchImpl }),
+    now,
+    googleEndpoints,
+    fetchImpl
+  });
+  const { clients } = hub;
   let timer = null;
 
   function forwardToProvider(request, reply) {
@@ -173,7 +92,7 @@ async function createOidcIssuer({
     headers["x-forwarded-proto"] = issuer.protocol.slice(0, -1);
     if (request.body !== undefined) request.raw.body = request.body;
     reply.hijack();
-    callback(request.raw, reply.raw);
+    hub.handleProtocolRequest(request.raw, reply.raw);
   }
 
   async function register(request, reply) {
@@ -259,10 +178,10 @@ async function createOidcIssuer({
         registerHubRoutes(instance, hub);
         done();
       });
-      timer = setInterval(maintain, MAINTENANCE_INTERVAL_MS);
+      timer = setInterval(hub.maintain, MAINTENANCE_INTERVAL_MS);
       timer.unref();
     },
-    maintain,
+    maintain: hub.maintain,
     rotateSigningKey: hub.rotateSigningKey,
     async close() {
       if (timer) clearInterval(timer);

@@ -43,37 +43,23 @@ function isLoopbackRequest(request) {
   return ip === "::1" || ip.startsWith("127.");
 }
 
+/** @typedef {ReturnType<typeof createHubRouteSupport>} HubRouteSupport */
+
 /**
- * The hub's own JSON API (sign-in, account, admin) and the browser hops of
- * an app's sign-in (interaction and Google). Every state-changing call needs
- * the `x-hub-request` header, which a cross-site form cannot send.
+ * What every route group shares: the hub session cookie and who it signs in,
+ * the owner check, the hub's emails and its rate limits.
+ * @param {import("./types.js").Hub} hub
  */
-function registerHubRoutes(app, hub) {
-  const { config, accounts, clients, sessions, settings, emailTokens, rateLimiter, mailer } = hub;
+function createHubRouteSupport(hub) {
+  const { config, accounts, sessions, rateLimiter, mailer } = hub;
   const sessionCookie = hubSessionCookieName(config);
-  const googleLinks = new hub.Adapter(GOOGLE_LINK_KIND);
   const hubHost = new URL(config.issuer).host;
-
-  app.setErrorHandler((error, _request, reply) => {
-    if (error instanceof HubError || error instanceof AccountError) {
-      return reply.code(error.status).send({ error: error.code, message: error.message });
-    }
-    hub.logger.error({ err: error }, "Accounts hub request failed.");
-    return reply.code(500).send({ error: "hub_failed", message: "Something went wrong. Try again in a moment." });
-  });
-
-  app.addHook("onRequest", async (request) => {
-    if (["GET", "HEAD", "OPTIONS"].includes(request.method)) return;
-    if (request.headers["x-hub-request"] !== "1") {
-      throw new HubError(403, "hub_request_required", "This request must come from the hub's own pages.");
-    }
-  });
 
   function cookies(request) {
     return parseCookies(request.headers.cookie);
   }
 
-  function setCookie(reply, name, value, maxAge) {
+  function writeCookie(reply, name, value, maxAge) {
     appendCookie(reply, serializeCookie(name, value, { maxAge, secure: config.secure }));
   }
 
@@ -106,7 +92,7 @@ function registerHubRoutes(app, hub) {
   async function signIn(request, reply, account, method) {
     await sessions.destroyToken(cookies(request)[sessionCookie]);
     const token = await sessions.create(account.id, { userAgent: request.headers["user-agent"], method });
-    setCookie(reply, sessionCookie, token, sessions.ttlSeconds);
+    writeCookie(reply, sessionCookie, token, sessions.ttlSeconds);
   }
 
   async function sendEmail(account, purpose, token) {
@@ -156,12 +142,37 @@ function registerHubRoutes(app, hub) {
     if (!(await rateLimiter.email(email, clientIp(request)))) throw new HubError(429, "rate_limited", TOO_MANY_SENTENCE);
   }
 
-  /* ---------------- Interactions: an app's sign-in passing through the hub ---------------- */
+  return Object.freeze({
+    sessionCookie,
+    hubHost,
+    cookies,
+    writeCookie,
+    current,
+    requireAccount,
+    isOwner,
+    requireOwner,
+    signIn,
+    sendEmail,
+    endEverySession,
+    guardSignInRate,
+    guardEmailRate
+  });
+}
+
+/**
+ * Interactions: an app's sign-in passing through the hub.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeFastify} app
+ * @param {import("./types.js").Hub} hub
+ * @param {HubRouteSupport} support
+ */
+function registerInteractionRoutes(app, hub, support) {
+  const { clients } = hub;
+  const { current, requireAccount } = support;
 
   async function loadInteraction(request, reply) {
     let details;
     try {
-      details = await hub.provider.interactionDetails(request.raw, reply.raw);
+      details = await hub.oidcProvider().interactionDetails(request.raw, reply.raw);
     } catch {
       details = null;
     }
@@ -180,11 +191,11 @@ function registerHubRoutes(app, hub) {
     if (!account.emailVerified) throw new HubError(409, "email_unconfirmed", UNCONFIRMED_SENTENCE);
     let result = { login: { accountId: account.id } };
     if (details.prompt.name === "consent" && details.session?.accountId === account.id) {
-      const grant = new hub.provider.Grant({ accountId: account.id, clientId: appRow.client_id });
+      const grant = new hub.oidcProvider().Grant({ accountId: account.id, clientId: appRow.client_id });
       grant.addOIDCScope(HUB_SCOPES);
       result = { consent: { grantId: await grant.save() } };
     }
-    const redirectTo = await hub.provider.interactionResult(request.raw, reply.raw, result);
+    const redirectTo = await hub.oidcProvider().interactionResult(request.raw, reply.raw, result);
     return { redirectTo };
   }
 
@@ -213,7 +224,7 @@ function registerHubRoutes(app, hub) {
 
   app.post("/hub/interaction/:uid/cancel", async (request, reply) => {
     await loadInteraction(request, reply);
-    const redirectTo = await hub.provider.interactionResult(request.raw, reply.raw, {
+    const redirectTo = await hub.oidcProvider().interactionResult(request.raw, reply.raw, {
       error: "access_denied",
       error_description: "The person cancelled the sign-in."
     }, { mergeWithLastSubmission: false });
@@ -231,8 +242,17 @@ function registerHubRoutes(app, hub) {
       throw error;
     }
   });
+}
 
-  /* ---------------- Sign-in, accounts, email ---------------- */
+/**
+ * Signing in and out, creating an account, confirming its email and recovering its password.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeFastify} app
+ * @param {import("./types.js").Hub} hub
+ * @param {HubRouteSupport} support
+ */
+function registerSignInRoutes(app, hub, support) {
+  const { accounts, sessions, emailTokens } = hub;
+  const { sessionCookie, cookies, writeCookie, current, requireAccount, isOwner, signIn, sendEmail, endEverySession, guardSignInRate, guardEmailRate } = support;
 
   app.get("/hub/api/session", async (request) => {
     const signedIn = await current(request);
@@ -253,7 +273,7 @@ function registerHubRoutes(app, hub) {
 
   app.post("/hub/api/sign-out", async (request, reply) => {
     await sessions.destroyToken(cookies(request)[sessionCookie]);
-    setCookie(reply, sessionCookie, "", 0);
+    writeCookie(reply, sessionCookie, "", 0);
     return { ok: true };
   });
 
@@ -306,8 +326,17 @@ function registerHubRoutes(app, hub) {
     await signIn(request, reply, account, "recovery");
     return { account: accountView(account) };
   });
+}
 
-  /* ---------------- Your account ---------------- */
+/**
+ * Your account: its profile, password, sessions and Google link.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeFastify} app
+ * @param {import("./types.js").Hub} hub
+ * @param {HubRouteSupport} support
+ */
+function registerAccountRoutes(app, hub, support) {
+  const { accounts, sessions } = hub;
+  const { sessionCookie, writeCookie, requireAccount, isOwner, endEverySession, guardSignInRate } = support;
 
   app.get("/hub/api/account", async (request) => {
     const { account, session } = await requireAccount(request);
@@ -348,7 +377,7 @@ function registerHubRoutes(app, hub) {
   app.post("/hub/api/account/sign-out-everywhere", async (request, reply) => {
     const { account } = await requireAccount(request);
     await endEverySession(account.id);
-    setCookie(reply, sessionCookie, "", 0);
+    writeCookie(reply, sessionCookie, "", 0);
     return { ok: true };
   });
 
@@ -356,8 +385,18 @@ function registerHubRoutes(app, hub) {
     const { account } = await requireAccount(request);
     return { account: accountView(await accounts.unlinkGoogle(account.id)) };
   });
+}
 
-  /* ---------------- Google ---------------- */
+/**
+ * Continue with Google: signing in, linking, and connecting Google to an existing account.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeFastify} app
+ * @param {import("./types.js").Hub} hub
+ * @param {HubRouteSupport} support
+ */
+function registerGoogleRoutes(app, hub, support) {
+  const { accounts, emailTokens } = hub;
+  const { cookies, writeCookie, current, requireAccount, signIn, sendEmail, endEverySession, guardSignInRate, guardEmailRate } = support;
+  const googleLinks = new hub.Adapter(GOOGLE_LINK_KIND);
 
   function requireGoogle() {
     if (!hub.google) throw new HubError(404, "google_disabled", "Continue with Google is not set up on this hub.");
@@ -380,13 +419,13 @@ function registerHubRoutes(app, hub) {
       uid: typeof request.query.interaction === "string" ? request.query.interaction : null,
       accountId: signedIn?.account.id ?? null
     });
-    setCookie(reply, GOOGLE_STATE_COOKIE, state, 600);
+    writeCookie(reply, GOOGLE_STATE_COOKIE, state, 600);
     return reply.redirect(url, 303);
   });
 
   app.get("/hub/google/callback", async (request, reply) => {
     requireGoogle();
-    setCookie(reply, GOOGLE_STATE_COOKIE, "", 0);
+    writeCookie(reply, GOOGLE_STATE_COOKIE, "", 0);
     let outcome = null;
     try {
       outcome = await hub.google.finish({
@@ -427,7 +466,7 @@ function registerHubRoutes(app, hub) {
       }
       const linkId = randomToken(24);
       await googleLinks.upsert(linkId, { accountId: sameEmail.id, googleSub: identity.sub, uid }, GOOGLE_LINK_TTL_SECONDS);
-      setCookie(reply, GOOGLE_LINK_COOKIE, linkId, GOOGLE_LINK_TTL_SECONDS);
+      writeCookie(reply, GOOGLE_LINK_COOKIE, linkId, GOOGLE_LINK_TTL_SECONDS);
       return reply.redirect("/auth/connect-google", 303);
     }
     if (!identity.email || !identity.emailVerified) return reply.redirect("/auth/sign-in?google=unverified", 303);
@@ -462,7 +501,7 @@ function registerHubRoutes(app, hub) {
     // Google confirmed this same address, so it counts as confirmed here.
     await accounts.markEmailVerified(account.id);
     await googleLinks.destroy(id);
-    setCookie(reply, GOOGLE_LINK_COOKIE, "", 0);
+    writeCookie(reply, GOOGLE_LINK_COOKIE, "", 0);
     await signIn(request, reply, verified, "google");
     return { redirectTo: googleDone(link.uid) };
   });
@@ -488,8 +527,17 @@ function registerHubRoutes(app, hub) {
     await signIn(request, reply, account, "google");
     return { account: accountView(account) };
   });
+}
 
-  /* ---------------- Admin: Apps, People, Setup ---------------- */
+/**
+ * Admin: the hub's apps, people and setup, for its owner.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeFastify} app
+ * @param {import("./types.js").Hub} hub
+ * @param {HubRouteSupport} support
+ */
+function registerAdminRoutes(app, hub, support) {
+  const { config, accounts, clients, settings, mailer } = hub;
+  const { hubHost, isOwner, requireOwner, endEverySession } = support;
 
   app.get("/hub/api/admin/apps", async (request) => {
     await requireOwner(request);
@@ -602,8 +650,17 @@ function registerHubRoutes(app, hub) {
     await settings.set("domain-confirmed", { confirmed });
     return { confirmed };
   });
+}
 
-  /* ---------------- Development: an editor's preview signs in as an existing account ---------------- */
+/**
+ * Development: an editor's preview signs in as an existing account.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeFastify} app
+ * @param {import("./types.js").Hub} hub
+ * @param {HubRouteSupport} support
+ */
+function registerDevelopmentRoutes(app, hub, support) {
+  const { config, accounts } = hub;
+  const { signIn } = support;
 
   app.post("/hub/api/dev/login-as", async (request, reply) => {
     const { enabled, secret } = hub.devAuth;
@@ -622,6 +679,38 @@ function registerHubRoutes(app, hub) {
     await signIn(request, reply, account, "preview");
     return { ok: true, userId: account.id, email: account.email, displayName: account.displayName };
   });
+}
+
+/**
+ * The hub's own JSON API (sign-in, account, admin) and the browser hops of
+ * an app's sign-in (interaction and Google). Every state-changing call needs
+ * the `x-hub-request` header, which a cross-site form cannot send.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeFastify} app
+ * @param {import("./types.js").Hub} hub
+ */
+function registerHubRoutes(app, hub) {
+  app.setErrorHandler((error, _request, reply) => {
+    if (error instanceof HubError || error instanceof AccountError) {
+      return reply.code(error.status).send({ error: error.code, message: error.message });
+    }
+    hub.logger.error({ err: error }, "Accounts hub request failed.");
+    return reply.code(500).send({ error: "hub_failed", message: "Something went wrong. Try again in a moment." });
+  });
+
+  app.addHook("onRequest", async (request) => {
+    if (["GET", "HEAD", "OPTIONS"].includes(request.method)) return;
+    if (request.headers["x-hub-request"] !== "1") {
+      throw new HubError(403, "hub_request_required", "This request must come from the hub's own pages.");
+    }
+  });
+
+  const support = createHubRouteSupport(hub);
+  registerInteractionRoutes(app, hub, support);
+  registerSignInRoutes(app, hub, support);
+  registerAccountRoutes(app, hub, support);
+  registerGoogleRoutes(app, hub, support);
+  registerAdminRoutes(app, hub, support);
+  registerDevelopmentRoutes(app, hub, support);
 }
 
 export { registerHubRoutes };

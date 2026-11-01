@@ -16,9 +16,9 @@ const STATE_TTL_SECONDS = 600;
  * is an ordinary Google relying party: authorization code, PKCE, state bound
  * to the browser, nonce, and a verified ID token.
  * @param {object} dependencies
- * @param {NonNullable<ReturnType<typeof import("./config.js").resolveHubConfig>["google"]>} dependencies.google
+ * @param {NonNullable<import("./types.js").HubConfig["google"]>} dependencies.google
  * @param {string} dependencies.issuer The hub's issuer address.
- * @param {ReturnType<typeof import("./adapter.js").createKnexAdapterClass>} dependencies.Adapter
+ * @param {import("./types.js").HubAdapterClass} dependencies.Adapter
  * @param {typeof GOOGLE_ENDPOINTS} [dependencies.endpoints]
  * @param {typeof fetch} [dependencies.fetchImpl]
  */

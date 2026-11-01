@@ -97,13 +97,25 @@ Exports
 - `parseCookies(header)`
 - `serializeCookie(name, value, { maxAge, secure, path = "/", httpOnly = true, sameSite = "Lax" })`
 
+### `src/server/hub.js`
+Exports
+- `createHub({ knex, config, devAuth, logger, mailer, now, googleEndpoints, fetchImpl })`
+
 ### `src/server/hubRoutes.js`
 Exports
 - `registerHubRoutes(app, hub)`
+- `type HubRouteSupport`
 Local functions
 - `accountView(account)`
 - `appView(row)`
 - `isLoopbackRequest(request)`
+- `createHubRouteSupport(hub)`
+- `registerInteractionRoutes(app, hub, support)`
+- `registerSignInRoutes(app, hub, support)`
+- `registerAccountRoutes(app, hub, support)`
+- `registerGoogleRoutes(app, hub, support)`
+- `registerAdminRoutes(app, hub, support)`
+- `registerDevelopmentRoutes(app, hub, support)`
 
 ### `src/server/hubSessions.js`
 Exports
@@ -181,6 +193,9 @@ Exports
 ### `src/server/types.js`
 Exports
 - `type AuthOidcIssuer`
+- `type HubConfig`
+- `type HubAdapterClass`
+- `type Hub`
 
 ### bin
 

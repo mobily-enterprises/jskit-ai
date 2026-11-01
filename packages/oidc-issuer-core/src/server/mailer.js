@@ -20,7 +20,7 @@ function composeMessage({ heading, body, actionLabel, actionUrl, footer }) {
  * RESEND_API_KEY is set, otherwise SMTP_URL. Outside production, with neither
  * set, messages are written to the log so the developer can follow the link.
  * @param {object} dependencies
- * @param {ReturnType<typeof import("./config.js").resolveHubConfig>["mail"]} dependencies.mail
+ * @param {import("./types.js").HubConfig["mail"]} dependencies.mail
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
  * @param {boolean} dependencies.isProduction
  * @param {typeof fetch} [dependencies.fetchImpl]
