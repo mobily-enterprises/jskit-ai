@@ -1,4 +1,4 @@
-import { normalizeObject, normalizeText } from "../../../shared/support/normalize.js";
+import { normalizeObject, normalizeText, isRecord } from "../../../shared/support/normalize.js";
 
 const JSON_API_CONTENT_TYPE = "application/vnd.api+json";
 const ROUTE_TRANSPORT_KINDS = Object.freeze([
@@ -11,6 +11,7 @@ function normalizeRouteOutputTransform(value, { context = "route output", ErrorT
     return null;
   }
 
+  // readable-check: allow method-probe - input validation: a route transport's hook is a function when given
   if (typeof value !== "function") {
     throw new ErrorType(`${context} must be a function.`);
   }
@@ -23,7 +24,7 @@ function normalizeRouteTransport(value, { context = "route transport", ErrorType
     return null;
   }
 
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (!isRecord(value)) {
     throw new ErrorType(`${context} must be an object.`);
   }
 
@@ -53,7 +54,7 @@ function normalizeRouteTransport(value, { context = "route transport", ErrorType
   if (Object.hasOwn(source, "request")) {
     const request = source.request;
     if (request != null) {
-      if (!request || typeof request !== "object" || Array.isArray(request)) {
+      if (!isRecord(request)) {
         throw new ErrorType(`${context}.request must be an object.`);
       }
 
@@ -76,6 +77,7 @@ function normalizeRouteTransport(value, { context = "route transport", ErrorType
           continue;
         }
 
+        // readable-check: allow method-probe - input validation: each request transform of a route transport must be a function
         if (typeof transform !== "function") {
           throw new ErrorType(`${context}.request.${key} must be a function.`);
         }

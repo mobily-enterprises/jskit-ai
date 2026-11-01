@@ -55,6 +55,7 @@ function defineFeature({
     throw new TypeError("Feature dependencies reserve the local name actionCatalogue.");
   }
   const featureId = String(id || "");
+  // readable-check: allow method-probe - input validation: a feature definition must have setup()
   if (typeof setup !== "function") {
     throw new TypeError(`Feature "${featureId}" setup must be a function.`);
   }
@@ -99,6 +100,7 @@ function defineFeature({
       }
       return outputs;
     },
+    // readable-check: allow method-probe - input validation: a feature's boot() and shutdown() are optional
     boot: typeof boot === "function"
       ? (dependencies, context) => boot(withoutActionCatalogue(dependencies), context)
       : boot,

@@ -1,5 +1,6 @@
 import { sortStrings } from "../../../shared/support/sorting.js";
 import { discoverInstalledPackages } from "../../../internal/node/installedPackages.js";
+import { isRecord } from "../../../shared/support/normalize.js";
 
 const EXCLUSIVE_CAPABILITIES = Object.freeze([
   "auth.service",
@@ -30,7 +31,7 @@ function collectGlobalUiPaths(packageEntries) {
       : [];
 
     for (const routeEntry of uiRoutes) {
-      const routeRecord = routeEntry && typeof routeEntry === "object" && !Array.isArray(routeEntry) ? routeEntry : null;
+      const routeRecord = isRecord(routeEntry) ? routeEntry : null;
       if (!routeRecord) {
         continue;
       }

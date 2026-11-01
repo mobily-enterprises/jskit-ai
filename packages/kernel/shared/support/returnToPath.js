@@ -1,4 +1,5 @@
 import { normalizePathname } from "../surface/paths.js";
+import { isRecord } from "./normalize.js";
 
 const SAME_ORIGIN_PROBE = "http://return-to.invalid";
 
@@ -57,7 +58,7 @@ function appendNormalizedOrigin(origins, value) {
 function resolveAllowedOriginsFromSurfaceDefinitions(surfaceDefinitions = {}, { seedOrigins = [] } = {}) {
   const resolvedOrigins = normalizeAllowedOrigins(seedOrigins);
   const source =
-    surfaceDefinitions && typeof surfaceDefinitions === "object" && !Array.isArray(surfaceDefinitions)
+    isRecord(surfaceDefinitions)
       ? surfaceDefinitions
       : {};
 

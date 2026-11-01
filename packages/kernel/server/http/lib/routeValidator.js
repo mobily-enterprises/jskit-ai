@@ -1,4 +1,4 @@
-import { normalizeObject, normalizeText } from "../../../shared/support/normalize.js";
+import { normalizeObject, normalizeText, isRecord } from "../../../shared/support/normalize.js";
 import {
   normalizeSingleSchemaDefinition,
   resolveSchemaTransportSchemaDefinition,
@@ -63,7 +63,7 @@ function normalizeResponseDefinition(value, { context = "route responses" } = {}
     return undefined;
   }
 
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (!isRecord(value)) {
     throw new RouteDefinitionError(`${context} must be an object.`);
   }
 
@@ -101,7 +101,7 @@ function normalizeAdvancedFastifySchema(value, { context = "route validator" } =
   }
 
   const fastifySchema = value.fastifySchema;
-  if (!fastifySchema || typeof fastifySchema !== "object" || Array.isArray(fastifySchema)) {
+  if (!isRecord(fastifySchema)) {
     throw new RouteDefinitionError(`${context}.advanced.fastifySchema must be an object.`);
   }
 
@@ -115,7 +115,7 @@ function normalizeRouteValidatorMeta(value, { context = "route validator" } = {}
     return Object.freeze({});
   }
 
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (!isRecord(value)) {
     throw new RouteDefinitionError(`${context}.meta must be an object.`);
   }
 
@@ -150,7 +150,7 @@ function normalizeRouteValidatorMeta(value, { context = "route validator" } = {}
 
 function normalizeRouteValidatorDefinition(sourceDefinition, { context = "route validator" } = {}) {
   const definition =
-    sourceDefinition && typeof sourceDefinition === "object" && !Array.isArray(sourceDefinition)
+    isRecord(sourceDefinition)
       ? normalizeObject(sourceDefinition)
       : null;
 
@@ -178,7 +178,7 @@ function normalizeRouteValidatorDefinition(sourceDefinition, { context = "route 
   });
 
   const advancedSource =
-    definition.advanced && typeof definition.advanced === "object" && !Array.isArray(definition.advanced)
+    isRecord(definition.advanced)
       ? normalizeObject(definition.advanced)
       : definition.advanced == null
         ? {}
@@ -276,7 +276,7 @@ function compileRouteValidator(validator, { context = "route validator" } = {}) 
 
     for (const [statusCode, entry] of Object.entries(normalizedValidator.responses || {})) {
       responseSchema[statusCode] =
-        entry && typeof entry === "object" && !Array.isArray(entry) && Object.prototype.hasOwnProperty.call(entry, "transportSchema")
+        isRecord(entry) && Object.prototype.hasOwnProperty.call(entry, "transportSchema")
           ? entry.transportSchema
           : resolveSchemaTransportSchemaDefinition(entry, {
               defaultMode: "replace",

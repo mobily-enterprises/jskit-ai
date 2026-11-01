@@ -29,6 +29,7 @@ function createBootstrapRuntime() {
     if (sealed) throw new Error("Bootstrap registration is closed after the first payload is resolved.");
     const contributorId = normalizeText(id);
     if (!contributorId) throw new TypeError("Bootstrap contributor id is required.");
+    // readable-check: allow method-probe - input validation: a registered bootstrap contributor must have contribute()
     if (typeof contribute !== "function") throw new TypeError(`Bootstrap contributor "${contributorId}" requires contribute().`);
     if (contributorIds.has(contributorId)) throw new Error(`Bootstrap contributor "${contributorId}" is duplicated.`);
     contributorIds.add(contributorId);

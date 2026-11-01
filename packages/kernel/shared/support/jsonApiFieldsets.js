@@ -1,5 +1,5 @@
 import { deepFreeze } from "./deepFreeze.js";
-import { normalizeText } from "./normalize.js";
+import { normalizeText, isRecord } from "./normalize.js";
 
 function normalizeJsonApiFieldList(value = []) {
   const values = Array.isArray(value) ? value : [value];
@@ -21,7 +21,7 @@ function normalizeJsonApiFieldList(value = []) {
 function normalizeJsonApiFieldsets(value = {}, { primaryType = "" } = {}) {
   const normalizedPrimaryType = normalizeText(primaryType);
   let source = {};
-  if (value && typeof value === "object" && !Array.isArray(value)) {
+  if (isRecord(value)) {
     source = value;
   } else if (normalizedPrimaryType) {
     source = { [normalizedPrimaryType]: value };

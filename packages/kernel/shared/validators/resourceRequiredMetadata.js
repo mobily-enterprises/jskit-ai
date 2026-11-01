@@ -1,3 +1,5 @@
+import { isRecord } from "../support/normalize.js";
+
 function normalizeRequiredFieldList(value) {
   if (!Array.isArray(value)) {
     return Object.freeze([]);
@@ -11,7 +13,7 @@ function normalizeRequiredFieldList(value) {
 }
 
 function deriveRequiredFieldsFromSchema(schema) {
-  if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
+  if (!isRecord(schema)) {
     return Object.freeze([]);
   }
 

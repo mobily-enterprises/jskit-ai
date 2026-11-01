@@ -3,6 +3,7 @@ function subscribeListener(listeners, listener) {
     throw new TypeError("subscribeListener requires a Set.");
   }
 
+  // readable-check: allow method-probe - input validation: a listener that is not a function subscribes nothing
   if (typeof listener !== "function") {
     return () => {};
   }

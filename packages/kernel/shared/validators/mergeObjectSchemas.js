@@ -1,3 +1,5 @@
+import { isRecord } from "../support/normalize.js";
+
 function cloneSchemaValue(value) {
   if (Array.isArray(value)) {
     return value.map((entry) => cloneSchemaValue(entry));
@@ -13,7 +15,7 @@ function cloneSchemaValue(value) {
 }
 
 function assertMergeableObjectSchema(schema) {
-  if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
+  if (!isRecord(schema)) {
     throw new Error("mergeObjectSchemas only supports object schemas.");
   }
 
@@ -22,7 +24,7 @@ function assertMergeableObjectSchema(schema) {
     throw new Error("mergeObjectSchemas only supports object schemas.");
   }
 
-  if (!schema.properties || typeof schema.properties !== "object" || Array.isArray(schema.properties)) {
+  if (!isRecord(schema.properties)) {
     throw new Error("mergeObjectSchemas only supports object schemas with properties.");
   }
 }

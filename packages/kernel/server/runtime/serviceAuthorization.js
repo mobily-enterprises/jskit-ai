@@ -1,4 +1,9 @@
-import { normalizeObject, normalizeOpaqueId, normalizeText } from "../../shared/support/normalize.js";
+import {
+  normalizeObject,
+  normalizeOpaqueId,
+  normalizeText,
+  isRecord
+} from "../../shared/support/normalize.js";
 import { missingPermissionDetails, normalizePermissionList } from "../../shared/support/permissions.js";
 import { AppError } from "./errors.js";
 
@@ -7,11 +12,11 @@ const AUTH_REQUIRE_MODES = new Set(["none", "authenticated", "all", "any"]);
 function resolveServiceContext(source = {}) {
   const payload = normalizeObject(source);
 
-  if (payload.context && typeof payload.context === "object" && !Array.isArray(payload.context)) {
+  if (isRecord(payload.context)) {
     return payload.context;
   }
 
-  if (payload.actionContext && typeof payload.actionContext === "object" && !Array.isArray(payload.actionContext)) {
+  if (isRecord(payload.actionContext)) {
     return payload.actionContext;
   }
 

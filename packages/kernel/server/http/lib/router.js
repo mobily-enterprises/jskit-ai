@@ -18,6 +18,7 @@ function normalizePath(pathname) {
 
 function normalizeRouteMiddleware(value, routeLabel) {
   const middleware = normalizeArray(value);
+  // readable-check: allow method-probe - input validation: a route's middleware entries must be functions
   if (middleware.some((entry) => typeof entry !== "function")) {
     throw new RouteDefinitionError(`Route ${routeLabel} middleware entries must be functions.`);
   }
@@ -48,6 +49,7 @@ function normalizeRouteInput(method, path, optionsOrHandler, maybeHandler) {
         ? maybeHandler
         : null;
 
+  // readable-check: allow method-probe - input validation: a route must have a handler function
   if (typeof handler !== "function") {
     throw new RouteDefinitionError(`Route ${method} ${path} requires a handler function.`);
   }

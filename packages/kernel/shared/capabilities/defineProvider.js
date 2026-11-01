@@ -57,6 +57,7 @@ function normalizeLifecycleMethod(value, label) {
   if (value == null) {
     return null;
   }
+  // readable-check: allow method-probe - input validation: a provider's lifecycle method is optional, and a function when given
   if (typeof value !== "function") {
     throw new TypeError(`${label} must be a function when provided.`);
   }

@@ -1,9 +1,9 @@
 import { normalizeRequestMeta } from "./requestMeta.js";
-import { normalizeLowerText, normalizeText } from "../../shared/support/normalize.js";
+import { normalizeLowerText, normalizeText, isRecord } from "../../shared/support/normalize.js";
 import { normalizePermissionList } from "../../shared/support/permissions.js";
 
 function copyRecord(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (!isRecord(value)) {
     return null;
   }
 

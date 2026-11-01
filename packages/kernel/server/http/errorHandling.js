@@ -55,7 +55,7 @@ function hasRequestBody(headers = {}) {
 
 function normalizeBodylessContentTypeHeader(request = null) {
   const headers = request?.headers;
-  if (!headers || typeof headers !== "object" || Array.isArray(headers)) {
+  if (!isRecord(headers)) {
     return false;
   }
 

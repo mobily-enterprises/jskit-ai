@@ -162,6 +162,7 @@ function normalizeActionEvents(value, actionId) {
     });
   }
   return Object.freeze(value.map((builder, index) => {
+    // readable-check: allow method-probe - input validation: each of an action definition's event builders must be a function
     if (typeof builder !== "function") {
       throw new ActionRuntimeError(
         500,

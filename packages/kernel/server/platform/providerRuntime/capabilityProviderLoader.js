@@ -3,6 +3,7 @@ import { pathToFileURL } from "node:url";
 import { defineProvider } from "../../../shared/capabilities/defineProvider.js";
 import { fileExists } from "../../../internal/node/fileSystem.js";
 import { isIdentifier, isInsidePackageRoot } from "./helpers.js";
+import { isRecord } from "../../../shared/support/normalize.js";
 
 function declaredProviderEntrypoints(packageEntry) {
   const runtime = packageEntry?.packageMetadata?.runtime;
@@ -10,7 +11,7 @@ function declaredProviderEntrypoints(packageEntry) {
   const entries = Array.isArray(server?.providers) ? server.providers : [];
 
   return entries.map((value) => {
-    const entry = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+    const entry = isRecord(value) ? value : {};
     if (entry.discover != null) {
       throw new Error(
         `Package ${packageEntry.packageId} runtime.server.providers[] must declare an explicit entrypoint and export.`

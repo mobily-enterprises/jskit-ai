@@ -1,5 +1,7 @@
+import { isRecord } from "../support/normalize.js";
+
 function normalizeObjectInput(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (!isRecord(value)) {
     return {};
   }
 

@@ -1,5 +1,7 @@
+import { isRecord } from "../../shared/support/normalize.js";
+
 function normalizeListener(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (!isRecord(value)) {
     throw new TypeError("Event listener must be an object.");
   }
   const id = String(value.id || "").trim();
@@ -20,7 +22,7 @@ function normalizeListener(value) {
 }
 
 function normalizeEvent(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (!isRecord(value)) {
     throw new TypeError("Published event must be an object.");
   }
   const type = String(value.type || "").trim();

@@ -1,6 +1,7 @@
 import { filterRoutesBySurface } from "../shared/surface/runtime.js";
 import { isExternalLinkTarget } from "../shared/support/linkPath.js";
 import { AUTH_POLICY_AUTHENTICATED, AUTH_POLICY_PUBLIC } from "../shared/support/policies.js";
+import { isRecord } from "../shared/support/normalize.js";
 
 const DEFAULT_GUARD_EVALUATOR_KEY = "__JSKIT_WEB_SHELL_GUARD_EVALUATOR__";
 const WEB_ROOT_ALLOW_YES = "yes";
@@ -50,17 +51,17 @@ function normalizeGuardPolicy(value) {
 }
 
 function resolveRouteGuardFromMeta(meta) {
-  if (!meta || typeof meta !== "object" || Array.isArray(meta)) {
+  if (!isRecord(meta)) {
     return null;
   }
 
-  if (meta.guard && typeof meta.guard === "object" && !Array.isArray(meta.guard)) {
+  if (isRecord(meta.guard)) {
     return meta.guard;
   }
 
-  if (meta.jskit && typeof meta.jskit === "object" && !Array.isArray(meta.jskit)) {
+  if (isRecord(meta.jskit)) {
     const jskitGuard = meta.jskit.guard;
-    if (jskitGuard && typeof jskitGuard === "object" && !Array.isArray(jskitGuard)) {
+    if (isRecord(jskitGuard)) {
       return jskitGuard;
     }
   }
@@ -76,7 +77,7 @@ function resolveRouteGuard(to) {
       continue;
     }
 
-    if (routeRecord.guard && typeof routeRecord.guard === "object" && !Array.isArray(routeRecord.guard)) {
+    if (isRecord(routeRecord.guard)) {
       return routeRecord.guard;
     }
 
@@ -152,7 +153,7 @@ function normalizeGuardOutcome(outcome) {
     };
   }
 
-  if (outcome == null || outcome === true || typeof outcome !== "object" || Array.isArray(outcome)) {
+  if (!isRecord(outcome)) {
     return {
       allow: true,
       redirectTo: "",

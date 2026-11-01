@@ -26,7 +26,7 @@ function isRouteComponent(value) {
   if (typeof value === "function") {
     return true;
   }
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+  return isRecord(value);
 }
 
 function normalizeRoute(route, { packageId, index }) {

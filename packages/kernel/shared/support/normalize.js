@@ -74,7 +74,7 @@ function normalizeQueryToken(value, { fallback = "__none__" } = {}) {
 }
 
 function normalizeObject(value, { fallback = {} } = {}) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (!isRecord(value)) {
     return { ...fallback };
   }
   return value;
@@ -92,6 +92,7 @@ function normalizeIfInSource(source, normalized, fieldName, normalizer = (value)
   if (!normalizedFieldName) {
     throw new TypeError("normalizeIfInSource requires fieldName.");
   }
+  // readable-check: allow method-probe - input validation: the caller passes its normalizer function
   if (typeof normalizer !== "function") {
     throw new TypeError("normalizeIfInSource requires normalizer function.");
   }
@@ -135,6 +136,7 @@ function normalizeIfInSource(source, normalized, fieldName, normalizer = (value)
 }
 
 function normalizeIfPresent(value, normalizer = (entry) => entry) {
+  // readable-check: allow method-probe - input validation: the caller passes its normalizer function
   if (typeof normalizer !== "function") {
     throw new TypeError("normalizeIfPresent requires normalizer function.");
   }
@@ -142,6 +144,7 @@ function normalizeIfPresent(value, normalizer = (entry) => entry) {
 }
 
 function normalizeOrNull(value, normalizer = (entry) => entry) {
+  // readable-check: allow method-probe - input validation: the caller passes its normalizer function
   if (typeof normalizer !== "function") {
     throw new TypeError("normalizeOrNull requires normalizer function.");
   }

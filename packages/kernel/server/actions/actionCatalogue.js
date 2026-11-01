@@ -10,7 +10,7 @@ import { silentLogger } from "../../shared/support/silentLogger.js";
 /** @typedef {import("../types.js").RuntimeLogger} RuntimeLogger */
 
 function normalizeRegistration(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (!isRecord(value)) {
     throw new TypeError("Action catalogue registration must be an action contributor object.");
   }
 
@@ -62,6 +62,7 @@ function createActionCatalogue({ events = createEventRuntime(), logger = silentL
     if (!contributorId) {
       throw new TypeError("Action context contributor id is required.");
     }
+    // readable-check: allow method-probe - input validation: a registered context contributor must have contribute()
     if (typeof contribute !== "function") {
       throw new TypeError(`Action context contributor "${contributorId}" requires contribute().`);
     }

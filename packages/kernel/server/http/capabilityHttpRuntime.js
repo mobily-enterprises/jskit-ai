@@ -3,7 +3,7 @@ import {
   normalizeRouteVisibilityToken,
   normalizeVisibilityContext
 } from "../../shared/support/visibility.js";
-import { normalizeText } from "../../shared/support/normalize.js";
+import { normalizeText, isRecord } from "../../shared/support/normalize.js";
 import { resolveRequest } from "../actions/actionContributorHelpers.js";
 import { normalizeActionChannel } from "../actions/executionContext.js";
 import { createRouter } from "./lib/router.js";
@@ -21,6 +21,7 @@ function normalizeResolver({ id, resolve } = {}) {
   if (!resolverId) {
     throw new TypeError("HTTP visibility resolver id is required.");
   }
+  // readable-check: allow method-probe - input validation: a registered visibility resolver must have resolve()
   if (typeof resolve !== "function") {
     throw new TypeError(`HTTP visibility resolver "${resolverId}" requires resolve().`);
   }
@@ -74,7 +75,7 @@ function createCapabilityHttpRuntime({ fastify, actions }) {
           definition,
           channel: normalizeActionChannel(context.channel)
         }));
-        if (contribution && typeof contribution === "object" && !Array.isArray(contribution)) {
+        if (isRecord(contribution)) {
           Object.assign(patch, contribution);
         }
       }

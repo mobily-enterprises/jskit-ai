@@ -1,5 +1,7 @@
+import { isRecord } from "./normalize.js";
+
 function pickOwnProperties(source, keys) {
-  if (!source || typeof source !== "object" || Array.isArray(source)) {
+  if (!isRecord(source)) {
     throw new TypeError("pickOwnProperties requires a plain object source.");
   }
 

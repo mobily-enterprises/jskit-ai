@@ -1,7 +1,8 @@
 import { API_BASE_PATH, normalizePathname } from "./paths.js";
+import { isRecord } from "../support/normalize.js";
 
 function normalizeRouteTemplateParams(params = null) {
-  if (!params || typeof params !== "object" || Array.isArray(params)) {
+  if (!isRecord(params)) {
     return {};
   }
   return params;

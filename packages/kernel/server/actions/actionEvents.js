@@ -1,4 +1,9 @@
-import { normalizeObject, normalizeOpaqueId, normalizeText } from "../../shared/support/normalize.js";
+import {
+  normalizeObject,
+  normalizeOpaqueId,
+  normalizeText,
+  isRecord
+} from "../../shared/support/normalize.js";
 
 const ENTITY_CHANGE_OPERATIONS = new Set(["created", "updated", "deleted"]);
 
@@ -109,7 +114,7 @@ function normalizeRealtime(value, execution) {
   if (!event) throw new TypeError("Action entity-change realtime.event is required.");
   const audience = resolveValue(source.audience ?? "event_scope", execution);
   const payload = resolveValue(source.payload, execution);
-  if (payload != null && (!payload || typeof payload !== "object" || Array.isArray(payload))) {
+  if (payload != null && !isRecord(payload)) {
     throw new TypeError("Action entity-change realtime.payload must resolve to an object.");
   }
   return Object.freeze({
