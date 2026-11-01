@@ -46,4 +46,18 @@ function isDuplicateEntryError(error, options) {
   return findDuplicateEntryError(error, options) !== null;
 }
 
-export { findDuplicateEntryError, isDuplicateEntryError };
+/**
+ * True when an insert lost a race to a concurrent insert of the same row,
+ * outside a caller's transaction: the call held no `options.trx`, its own
+ * transaction rolled back in full (json-rest-api's `transactionOutcome`), and
+ * the error is a duplicate entry. The caller may then read the winner's row.
+ * Inside a caller's transaction the failed statement cannot be recovered, so
+ * it is never such a race.
+ * @param {{ transactionOutcome?: string } | null | undefined} error
+ * @param {{ trx?: unknown }} options The insert call's options.
+ */
+function isLostDuplicateInsertRace(error, options) {
+  return !options.trx && error?.transactionOutcome === "rolledBack" && isDuplicateEntryError(error);
+}
+
+export { findDuplicateEntryError, isDuplicateEntryError, isLostDuplicateInsertRace };

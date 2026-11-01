@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { findDuplicateEntryError, isDuplicateEntryError } from "../src/shared/duplicateEntry.js";
+import { findDuplicateEntryError, isDuplicateEntryError, isLostDuplicateInsertRace } from "../src/shared/duplicateEntry.js";
 
 test("isDuplicateEntryError matches mysql and postgres duplicate signatures", () => {
   assert.equal(isDuplicateEntryError({ code: "ER_DUP_ENTRY" }), true);
@@ -30,4 +30,14 @@ test("duplicate classification terminates on missing, primitive and cyclic cause
     assert.equal(findDuplicateEntryError(error), null);
     assert.equal(isDuplicateEntryError(error), false);
   }
+});
+
+test("isLostDuplicateInsertRace is a rolled-back duplicate insert outside a caller's transaction", () => {
+  const lostRace = { transactionOutcome: "rolledBack", code: "ER_DUP_ENTRY" };
+
+  assert.equal(isLostDuplicateInsertRace(lostRace, {}), true);
+  assert.equal(isLostDuplicateInsertRace(lostRace, { trx: () => {} }), false);
+  assert.equal(isLostDuplicateInsertRace({ ...lostRace, transactionOutcome: "pending" }, {}), false);
+  assert.equal(isLostDuplicateInsertRace({ transactionOutcome: "rolledBack", code: "ER_PARSE_ERROR" }, {}), false);
+  assert.equal(isLostDuplicateInsertRace(undefined, {}), false);
 });

@@ -226,6 +226,21 @@ function createWithTransaction(knex) {
   };
 }
 
+/**
+ * Joins the caller's transaction or opens one: runs work in the call's
+ * `options.trx` when the caller holds a transaction, else in the one that
+ * withTransaction opens.
+ * @template T
+ * @param {{ trx?: import("../server/types.js").RuntimeKnexTransaction | null }} options The call's options.
+ * @param {(work: (trx: import("../server/types.js").RuntimeKnexTransaction) => Promise<T>) => Promise<T>} withTransaction
+ *   The repository's withTransaction: opens a transaction and runs work in it.
+ * @param {(trx: import("../server/types.js").RuntimeKnexTransaction) => Promise<T>} work
+ * @returns {Promise<T>}
+ */
+function joinOrOpenTransaction(options, withTransaction, work) {
+  return options.trx ? work(options.trx) : withTransaction(work);
+}
+
 function requireSqlIdentifier(value, label) {
   const identifier = String(value || "").trim();
   if (!/^[A-Za-z_][A-Za-z0-9_]*$/u.test(identifier)) {
@@ -278,5 +293,6 @@ export {
   retryDeadlocks,
   runInTransaction,
   createWithTransaction,
+  joinOrOpenTransaction,
   lockScopedRecordId
 };

@@ -9,7 +9,7 @@ export {
 } from "./dateUtils.js";
 export { normalizeDialect, detectDialectFromClient } from "./dialect.js";
 export { normalizeDatabaseClient, toKnexClientId } from "./databaseClient.js";
-export { findDuplicateEntryError, isDuplicateEntryError } from "./duplicateEntry.js";
+export { findDuplicateEntryError, isDuplicateEntryError, isLostDuplicateInsertRace } from "./duplicateEntry.js";
 export { DEFAULT_VISIBILITY_COLUMNS, applyVisibility, applyVisibilityOwners } from "./visibility.js";
 export {
   resolveTransaction,
@@ -27,5 +27,6 @@ export {
   retryDeadlocks,
   runInTransaction,
   createWithTransaction,
+  joinOrOpenTransaction,
   lockScopedRecordId
 } from "./repositoryOptions.js";

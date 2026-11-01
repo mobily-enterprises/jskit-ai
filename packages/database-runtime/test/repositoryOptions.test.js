@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   isDeadlockError,
+  joinOrOpenTransaction,
   lockScopedRecordId,
   normalizeDbRecordId,
   parseJsonValue,
@@ -134,4 +135,18 @@ test("runInTransaction retries only deadlocks of the outermost transaction, a fe
   assert.equal(await attemptsUntilRejected(fakeKnex(), victim), 4);
   assert.equal(await attemptsUntilRejected(fakeKnex(), victim, { retries: 0 }), 1);
   assert.equal(await attemptsUntilRejected(fakeKnex({ isTransaction: true }), victim), 1, "A savepoint leaves the retry to its outermost transaction");
+});
+
+test("joinOrOpenTransaction runs work in the caller's transaction, else in one it opens", async () => {
+  const opened = [];
+  const withTransaction = async (work) => {
+    opened.push("opened");
+    return work("new-trx");
+  };
+  const work = async (trx) => `ran in ${trx}`;
+
+  assert.equal(await joinOrOpenTransaction({ trx: "caller-trx" }, withTransaction, work), "ran in caller-trx");
+  assert.deepEqual(opened, []);
+  assert.equal(await joinOrOpenTransaction({}, withTransaction, work), "ran in new-trx");
+  assert.deepEqual(opened, ["opened"]);
 });

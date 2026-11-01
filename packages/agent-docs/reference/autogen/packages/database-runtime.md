@@ -102,6 +102,7 @@ Exports
 Exports
 - `findDuplicateEntryError(error, { dialect = "", client = null } = {})`
 - `isDuplicateEntryError(error, options)`
+- `isLostDuplicateInsertRace(error, options)`
 Local functions
 - `isMysqlDuplicateEntryError(error)`
 - `isPostgresDuplicateEntryError(error)`
@@ -121,6 +122,7 @@ Exports
 - `toKnexClientId`
 - `findDuplicateEntryError`
 - `isDuplicateEntryError`
+- `isLostDuplicateInsertRace`
 - `DEFAULT_VISIBILITY_COLUMNS`
 - `applyVisibility`
 - `applyVisibilityOwners`
@@ -139,6 +141,7 @@ Exports
 - `retryDeadlocks`
 - `runInTransaction`
 - `createWithTransaction`
+- `joinOrOpenTransaction`
 - `lockScopedRecordId`
 
 ### `src/shared/repositoryOptions.js`
@@ -158,6 +161,7 @@ Exports
 - `retryDeadlocks(run, { retries = 3 } = {})`
 - `runInTransaction(knex, callback, options = {})`
 - `createWithTransaction(knex)`
+- `joinOrOpenTransaction(options, withTransaction, work)`
 - `lockScopedRecordId({ trx, tableName, recordId, scopeId, idColumn = "id", scopeColumn = "workspace_id" } = {})`
 Local functions
 - `requireSqlIdentifier(value, label)`
