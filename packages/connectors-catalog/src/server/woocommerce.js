@@ -242,8 +242,7 @@ function refundOperation(action) {
     scopes: [],
     request(input, settings) {
       if (action === "create" && (typeof input?.amount !== "string" || typeof input.api_refund !== "boolean" || typeof input.api_restock !== "boolean" ||
-          // readable-check: allow optional-call - input validation: the raw refund input, before the schema checks it
-          input.line_items?.some?.(line => typeof line?.refund_total !== "string"))) {
+          Array.isArray(input.line_items) && input.line_items.some(line => typeof line?.refund_total !== "string"))) {
         throw new ConnectorError("connector_input_invalid", "Choose explicit refund/restock flags and decimal-string amounts.", { statusCode: 422, messageCode: "connectors.woocommerce.chooseExplicitRefundRestockFlags" });
       }
       const { order_id, id, ...fields } = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });

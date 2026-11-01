@@ -12,6 +12,7 @@ import { aiCatalogue, aiDefinition, getAiModel } from "../shared/ai.js";
  *   Reads `env:NAME` references from the environment unless the application resolves its own.
  */
 function createAiConnectionResolver({ configuration, authorize, resolveReference = createEnvironmentReferenceResolver() }) {
+  // readable-check: allow method-probe - input validation: the application passes its access policy
   if (typeof authorize !== "function") throw new TypeError("AI connections require application authorization.");
   const config = validateIntegrationConfiguration(configuration, { providers: [aiDefinition], allowUnknownProviders: true });
 

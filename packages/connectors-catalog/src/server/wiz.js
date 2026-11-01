@@ -61,7 +61,10 @@ function createWizScanner({ configuration, authorize, resolveReference, resolveS
   environment = { PATH: process.env.PATH || "/usr/bin:/bin" }, timeoutMs = 600_000, maxReportBytes = 16 * 1024 * 1024 }) {
   if (!["linux", "darwin"].includes(process.platform)) throw new TypeError("Run Wiz in a Linux or macOS scan worker.");
   if (typeof executable !== "string" || !path.isAbsolute(executable) || executable.includes("\0")) throw new TypeError("Supply the installed Wiz CLI's absolute path.");
-  if (![authorize, resolveReference, resolveScanTarget].every((value) => typeof value === "function")) throw new TypeError("Wiz requires host authorization, secret resolution and source resolution.");
+  // readable-check: allow method-probe - input validation: the application passes its access policy, reference resolver and scan target resolver
+  if (typeof authorize !== "function" || typeof resolveReference !== "function" || typeof resolveScanTarget !== "function") {
+    throw new TypeError("Wiz requires host authorization, secret resolution and source resolution.");
+  }
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 3_600_000) throw new TypeError("Use a scan timeout between 1 and 3600000 milliseconds.");
   if (!Number.isSafeInteger(maxReportBytes) || maxReportBytes < 1 || maxReportBytes > 64 * 1024 * 1024) throw new TypeError("Use a positive report limit of at most 64 MiB.");
   const env = {};

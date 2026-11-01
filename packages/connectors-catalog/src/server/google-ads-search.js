@@ -48,7 +48,11 @@ const googleAdsSearchOperations = {
 };
 
 /**
- * Application composition: this service has no editor protocol, command runner or storage.
+ * Runs the saved Search plan through the Google Ads integration's operations: it
+ * discovers accounts and targets, reviews the plan and creates its campaign paused,
+ * creates a website conversion, inspects, launches and pauses a campaign, and reports
+ * campaign metrics. Creating and launching need the id of an unchanged review, a hash
+ * of the caller, the plan and what was reviewed; the service stores nothing.
  * @param {object} options
  * @param {import("@jskit-ai/connectors-core/server/types").ConnectorsCore} options.connections
  *   The connection service whose Google Ads integration it invokes.

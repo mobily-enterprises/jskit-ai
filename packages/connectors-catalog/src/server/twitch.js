@@ -28,11 +28,12 @@ const choiceList = max => ({ type: "array", required: true,
   validator: values => values.length >= 2 && values.length <= max || `Use between two and ${max} choices.` });
 const interactionResult = value => Array.isArray(value?.data) && value.data.every(item =>
   typeof item?.id === "string" && userId(item.broadcaster_id) && typeof item.status === "string");
-function helixOperation(path, fields, scopes, validateResult, method = "GET", checkInput) {
+function acceptAnyBody() {}
+function helixOperation(path, fields, scopes, validateResult, method = "GET", checkInput = acceptAnyBody) {
   const operation = jsonOperation(`https://api.twitch.tv/helix/${path}`, fields, validateResult, method === "GET" ? "GET" : "POST");
   return { ...operation, scopes, request(input) {
     const request = operation.request(input);
-    checkInput?.(request.body);
+    checkInput(request.body);
     return { ...request, method };
   } };
 }

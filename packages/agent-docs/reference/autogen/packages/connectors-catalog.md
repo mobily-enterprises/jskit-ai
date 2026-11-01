@@ -752,7 +752,8 @@ Exports
 - `verifyTwilioRequest({ rawBody, signature, authToken, url, accountSid, contentType })`
 Local functions
 - `sid(prefix)`
-- `resourceOperation(resource, method, fields, checkInput)`
+- `acceptAnyValues()`
+- `resourceOperation(resource, method, fields, checkInput = acceptAnyValues)`
 
 ### `src/server/twitch.js`
 Exports
@@ -765,7 +766,8 @@ Local functions
 - `eventSubscriptions(value)`
 - `choiceList(max)`
 - `interactionResult(value)`
-- `helixOperation(path, fields, scopes, validateResult, method = "GET", checkInput)`
+- `acceptAnyBody()`
+- `helixOperation(path, fields, scopes, validateResult, method = "GET", checkInput = acceptAnyBody)`
 - `page(value, record)`
 - `analyticsOperation(kind, identity)`
 - `rewardResult(value)`

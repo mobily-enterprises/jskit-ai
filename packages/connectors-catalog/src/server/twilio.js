@@ -14,13 +14,14 @@ const callbackUrl = { type: "string", maxLength: 2048, validator: value => {
   try { const url = new URL(value); return url.protocol === "https:" && !url.username && !url.password && !url.hash || "Use an HTTPS URL without credentials or a fragment."; }
   catch { return "Use an absolute HTTPS URL."; }
 } };
-function resourceOperation(resource, method, fields, checkInput) {
+function acceptAnyValues() {}
+function resourceOperation(resource, method, fields, checkInput = acceptAnyValues) {
   const schema = createSchema(fields);
   return {
     scopes: [],
     request(input, settings) {
       const { resourceSid, ...values } = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
-      checkInput?.(values, settings);
+      checkInput(values, settings);
       const url = `${origins[settings.region]}/2010-04-01/Accounts/${settings.accountSid}/${resource}${resourceSid ? `/${resourceSid}` : ""}.json`;
       if (method === "GET") return { method, url };
       return { method, url, headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams(values).toString() };
