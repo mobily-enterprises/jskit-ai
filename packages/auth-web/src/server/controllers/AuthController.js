@@ -135,11 +135,9 @@ class AuthController {
   async logout(request, reply) {
     let clearSession = true;
     try {
-      const result = await this.service.logout(request);
-      clearSession = result?.clearSession !== false;
+      ({ clearSession } = await this.service.logout(request));
     } catch (error) {
       request.log.warn({ err: error }, "Auth logout fallback: clearing local session cookies.");
-      clearSession = true;
     }
 
     if (clearSession) {

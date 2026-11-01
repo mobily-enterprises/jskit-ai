@@ -10,7 +10,7 @@
     "./server/providers/AuthExtensionsProvider": "./src/server/providers/AuthExtensionsProvider.js",
     "./server/providers/AuthFeature": "./src/server/providers/AuthFeature.js",
     "./server/providers/AuthPolicyProvider": "./src/server/providers/AuthPolicyProvider.js",
-    "./server/actions/auth.contributor": "./src/server/actions/auth.contributor.js",
+    "./server/actions/authActions": "./src/server/actions/authActions.js",
     "./server/authExtensions": "./src/server/authExtensions.js",
     "./server/authPolicyContextResolverRegistry": "./src/server/authPolicyContextResolverRegistry.js",
     "./server/authServiceDecoratorRegistry": "./src/server/authServiceDecoratorRegistry.js",

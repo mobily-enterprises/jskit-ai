@@ -9,7 +9,7 @@ import fastifyCookie from "@fastify/cookie";
 import createKnex from "knex";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { createAuthExtensions } from "@jskit-ai/auth-core/server/authExtensions";
-import { createAuthActions } from "@jskit-ai/auth-core/server/actions/auth.contributor";
+import { createAuthActions } from "@jskit-ai/auth-core/server/actions/authActions";
 import { AuthController } from "@jskit-ai/auth-web/server/controllers/AuthController";
 import { AuthWebService } from "@jskit-ai/auth-web/server/services/AuthWebService";
 import packageJson from "../package.json" with { type: "json" };

@@ -26,7 +26,7 @@ const authLoginOAuthStartInput = composeSchemaDefinitions([
   authLoginOAuthStartCommand.operation.query
 ], {
   mode: "patch",
-  context: "authContributor.authLoginOAuthStartInput"
+  context: "authActions.authLoginOAuthStartInput"
 });
 
 const authLogoutOutput = deepFreeze({
@@ -37,25 +37,10 @@ const authLogoutOutput = deepFreeze({
   mode: "replace"
 });
 
-function requireRequestContext(context, actionId) {
-  const request = context?.requestMeta?.request || null;
-  if (request) {
-    return request;
-  }
-
-  throw new Error(`${actionId} requires request context.`);
-}
-
-// What auth.logout answers: each flag stays true unless the provider says false.
-function logoutOutcome(result) {
-  return {
-    ok: result?.ok !== false,
-    clearSession: result?.clearSession !== false
-  };
-}
-
-// The shared auth actions, each one call to the installed provider's auth.service.
-/** @param {{ authService: import("../types.js").AuthService }} dependencies */
+/**
+ * The shared auth actions, each one call to the installed provider's auth.service.
+ * @param {{ authService: import("../types.js").AuthService }} dependencies
+ */
 function createAuthActions({ authService }) {
   return Object.freeze([
     Object.freeze({
@@ -136,7 +121,7 @@ function createAuthActions({ authService }) {
       surfaces: ["*"],
       input: authDevLoginAsCommand.operation.body,
       idempotency: "none",
-      execute: (input, context) => authService.devLoginAs(requireRequestContext(context, "auth.dev.loginAs"), input)
+      execute: (input, context) => authService.devLoginAs(resolveRequest(context), input)
     }),
     Object.freeze({
       id: "auth.password.reset.request",
@@ -166,7 +151,7 @@ function createAuthActions({ authService }) {
       surfaces: ["*"],
       input: authPasswordResetCommand.operation.body,
       idempotency: "none",
-      execute: (input, context) => authService.resetPassword(requireRequestContext(context, "auth.password.reset"), input)
+      execute: (input, context) => authService.resetPassword(resolveRequest(context), input)
     }),
     Object.freeze({
       id: "auth.logout",
@@ -177,7 +162,7 @@ function createAuthActions({ authService }) {
       input: emptyInputValidator,
       output: authLogoutOutput,
       idempotency: "none",
-      execute: async (input, context) => logoutOutcome(await authService.logout(requireRequestContext(context, "auth.logout")))
+      execute: (input, context) => authService.logout(resolveRequest(context))
     }),
     Object.freeze({
       id: "auth.session.read",
@@ -187,9 +172,9 @@ function createAuthActions({ authService }) {
       surfaces: ["*"],
       input: emptyInputValidator,
       idempotency: "none",
-      execute: (input, context) => authService.authenticateRequest(requireRequestContext(context, "auth.session.read"))
+      execute: (input, context) => authService.authenticateRequest(resolveRequest(context))
     })
   ]);
 }
 
-export { createAuthActions, requireRequestContext };
+export { createAuthActions };

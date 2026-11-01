@@ -8,8 +8,8 @@ function defaultHasPermission({ permission, permissions = [] } = {}) {
   return !permission || (Array.isArray(permissions) && permissions.includes(permission));
 }
 
-// How the auth policy plugin resolves a request's actor, permissions and policy context.
 /**
+ * How the auth policy plugin resolves a request's actor, permissions and policy context.
  * @param {object} dependencies
  * @param {import("./types.js").AuthService | null} dependencies.authService The installed provider's `auth.service`, when there is one.
  * @param {import("./types.js").AuthExtensions} dependencies.extensions

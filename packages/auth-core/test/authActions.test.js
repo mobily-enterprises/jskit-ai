@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createActionProvider } from "@jskit-ai/kernel/server/actions";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
-import { createAuthActions } from "../src/server/actions/auth.contributor.js";
+import { createAuthActions } from "../src/server/actions/authActions.js";
 import { AuthFeature } from "../src/server/providers/AuthFeature.js";
 
 test("auth logout action delegates directly to the selected auth service", async () => {

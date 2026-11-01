@@ -10,7 +10,7 @@ export {
 export { AUTH_PATHS, buildAuthOauthStartPath } from "./authPaths.js";
 export {
   AUTH_PASSWORD_RECOVERY_DELIVERIES,
-  AUTH_OPTIONAL_OPERATION_FEATURES,
+  AUTH_OPERATION_FEATURES,
   normalizeAuthProviderId,
   normalizeAuthCapabilities,
   getCapabilityFeature,

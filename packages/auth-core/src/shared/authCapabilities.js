@@ -2,7 +2,12 @@ import { normalizeOAuthProviderId } from "./oauthProviders.js";
 
 const AUTH_PASSWORD_RECOVERY_DELIVERIES = Object.freeze(["email", "dev-log", "dev-response", "disabled"]);
 
-const AUTH_OPTIONAL_OPERATION_FEATURES = Object.freeze({
+/**
+ * The auth.service operations that depend on a feature of getCapabilities(),
+ * each with the feature's path. Every provider implements them; one whose
+ * feature is off throws AUTH_OPERATION_UNSUPPORTED.
+ */
+const AUTH_OPERATION_FEATURES = Object.freeze({
   register: "password.register",
   resendRegisterConfirmation: "emailConfirmation",
   login: "password.login",
@@ -167,7 +172,7 @@ function getCapabilityFeature(capabilities, path) {
 }
 
 function isAuthOperationSupported(capabilities, operationName) {
-  const path = AUTH_OPTIONAL_OPERATION_FEATURES[String(operationName || "").trim()];
+  const path = AUTH_OPERATION_FEATURES[String(operationName || "").trim()];
   if (!path) {
     return true;
   }
@@ -176,7 +181,7 @@ function isAuthOperationSupported(capabilities, operationName) {
 
 export {
   AUTH_PASSWORD_RECOVERY_DELIVERIES,
-  AUTH_OPTIONAL_OPERATION_FEATURES,
+  AUTH_OPERATION_FEATURES,
   normalizeAuthProviderId,
   normalizeAuthCapabilities,
   getCapabilityFeature,

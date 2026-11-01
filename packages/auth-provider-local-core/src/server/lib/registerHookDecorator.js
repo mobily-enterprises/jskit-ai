@@ -91,11 +91,6 @@ function createLocalAuthRegisterHookDecorator({
     order: Number.isFinite(order) ? Number(order) : 0,
     /** @param {import("@jskit-ai/auth-core/server/types").AuthService} authService */
     decorateAuthService(authService) {
-      // readable-check: allow method-probe - optional operation: register is an optional auth.service operation
-      if (typeof authService.register !== "function") {
-        return authService;
-      }
-
       return Object.freeze(
         Object.defineProperties(Object.create(authService), {
           register: {

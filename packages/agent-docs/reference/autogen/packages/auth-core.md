@@ -30,12 +30,9 @@ Exports
 Exports
 - `runAuthSignOutFlow`
 
-### `src/server/actions/auth.contributor.js`
+### `src/server/actions/authActions.js`
 Exports
 - `createAuthActions({ authService })`
-- `requireRequestContext(context, actionId)`
-Local functions
-- `logoutOutcome(result)`
 
 ### `src/server/authAccess.js`
 Exports
@@ -216,6 +213,7 @@ Exports
 - `type AuthProfileProjector`
 - `type AuthInvitationContextResolver`
 - `type AuthRealtimePolicy`
+- `type AuthLogoutResult`
 - `type AuthService`
 
 ### `src/server/unsupportedOperation.js`
@@ -257,7 +255,7 @@ Exports
 ### `src/shared/authCapabilities.js`
 Exports
 - `AUTH_PASSWORD_RECOVERY_DELIVERIES`
-- `AUTH_OPTIONAL_OPERATION_FEATURES`
+- `AUTH_OPERATION_FEATURES`
 - `normalizeAuthProviderId(value, { fallback = "unknown" } = {})`
 - `normalizeAuthCapabilities(value = {})`
 - `getCapabilityFeature(capabilities, path)`
@@ -486,7 +484,7 @@ Exports
 - `AUTH_PATHS`
 - `buildAuthOauthStartPath`
 - `AUTH_PASSWORD_RECOVERY_DELIVERIES`
-- `AUTH_OPTIONAL_OPERATION_FEATURES`
+- `AUTH_OPERATION_FEATURES`
 - `normalizeAuthProviderId`
 - `normalizeAuthCapabilities`
 - `getCapabilityFeature`

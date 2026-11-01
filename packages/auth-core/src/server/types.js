@@ -49,12 +49,21 @@
  */
 
 /**
+ * What logout() answers: the provider signed the session out, and whether the
+ * caller should clear the request's session cookies.
+ * @typedef {object} AuthLogoutResult
+ * @property {boolean} ok
+ * @property {boolean} clearSession
+ */
+
+/**
  * The `auth.service` capability: the installed auth provider's operations,
- * after every auth service decorator. Every provider implements the required
- * ones. An optional operation is one a provider may lack; the ones named in
- * AUTH_OPTIONAL_OPERATION_FEATURES (`@jskit-ai/auth-core/shared/authCapabilities`)
- * also depend on a feature of getCapabilities(), and a provider that has the
- * operation but not the feature throws AUTH_OPERATION_UNSUPPORTED.
+ * after every auth service decorator. Every provider implements every
+ * operation without brackets. The ones named in AUTH_OPERATION_FEATURES
+ * (`@jskit-ai/auth-core/shared/authCapabilities`) depend on a feature of
+ * getCapabilities(): when the feature is off, the operation throws
+ * AUTH_OPERATION_UNSUPPORTED. An optional operation (in brackets) is one some
+ * provider lacks.
  * @typedef {object} AuthService
  * @property {() => AuthCapabilities} getCapabilities
  * @property {(request: object, options?: { syncProfile?: boolean, refreshSession?: boolean }) => Promise<AuthRequestResult>} authenticateRequest
@@ -62,26 +71,26 @@
  * @property {(request: object) => boolean} hasSessionCookie
  * @property {(reply: object, session: object) => void} writeSessionCookies
  * @property {(reply: object) => void} clearSessionCookies
- * @property {(request: object) => Promise<object>} logout
+ * @property {(request: object) => Promise<AuthLogoutResult>} logout
  * @property {() => boolean} isDevAuthBootstrapEnabled
- * @property {(input: object) => Promise<object>} [register]
- * @property {(input: object) => Promise<object>} [resendRegisterConfirmation]
- * @property {(input: object) => Promise<object>} [login]
- * @property {(input: object) => Promise<object>} [requestOtpLogin]
- * @property {(input: object) => Promise<object>} [verifyOtpLogin]
- * @property {(input: object, request?: object | null) => Promise<object>} [oauthStart]
- * @property {(input: object, request?: object | null) => Promise<object>} [oauthComplete]
- * @property {(input: object) => Promise<object>} [requestPasswordReset]
- * @property {(input: object) => Promise<object>} [completePasswordRecovery]
- * @property {(request: object, input: object) => Promise<object>} [resetPassword]
- * @property {(request: object, input: object) => Promise<object>} [changePassword]
- * @property {(request: object, input: object) => Promise<object>} [updateDisplayName]
- * @property {(request: object) => Promise<object>} [getSecurityStatus]
- * @property {(request: object, input: object) => Promise<object>} [setPasswordSignInEnabled]
- * @property {(request: object, input: object) => Promise<object>} [startProviderLink]
- * @property {(request: object, input: object) => Promise<object>} [unlinkProvider]
- * @property {(request: object) => Promise<object>} [signOutOtherSessions]
- * @property {(request: object, input: object) => Promise<object>} [devLoginAs]
+ * @property {(input: object) => Promise<object>} register
+ * @property {(input: object) => Promise<object>} resendRegisterConfirmation
+ * @property {(input: object) => Promise<object>} login
+ * @property {(input: object) => Promise<object>} requestOtpLogin
+ * @property {(input: object) => Promise<object>} verifyOtpLogin
+ * @property {(input: object, request: object | null) => Promise<object>} oauthStart
+ * @property {(input: object, request: object | null) => Promise<object>} oauthComplete
+ * @property {(input: object) => Promise<object>} requestPasswordReset
+ * @property {(input: object) => Promise<object>} completePasswordRecovery
+ * @property {(request: object, input: object) => Promise<object>} resetPassword
+ * @property {(request: object, input: object) => Promise<object>} changePassword
+ * @property {(request: object, input: object) => Promise<object>} updateDisplayName
+ * @property {(request: object) => Promise<object>} getSecurityStatus
+ * @property {(request: object, input: object) => Promise<object>} setPasswordSignInEnabled
+ * @property {(request: object, input: object) => Promise<object>} startProviderLink
+ * @property {(request: object, input: object) => Promise<object>} unlinkProvider
+ * @property {(request: object) => Promise<object>} signOutOtherSessions
+ * @property {(request: object, input: object) => Promise<object>} devLoginAs
  * @property {(reply: object, result: object) => void} [writeOAuthStartCookies] Keeps the state of an OAuth sign-in that oauthStart() began.
  * @property {(reply: object) => void} [clearOAuthStartCookies]
  * @property {(request: object, options?: { everywhere?: boolean }) => Promise<any>} [logoutEverywhere]
