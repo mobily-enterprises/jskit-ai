@@ -31,7 +31,7 @@ function resolveAssistantResultValue(result) {
   };
 }
 
-function createProjectionRecordSchema(recordSchema, {
+function buildProjectionRecordSchema(recordSchema, {
   lookupContainerKey = "",
   relationshipEntries = []
 } = {}) {
@@ -99,14 +99,14 @@ function createProjectionRecordSchema(recordSchema, {
   return createSchema(fields);
 }
 
-function createProjectionOutputDefinition(output, operation, relationshipEntries, lookupContainerKey) {
+function buildProjectionOutputDefinition(output, operation, relationshipEntries, lookupContainerKey) {
   if (!output || (operation !== "list" && operation !== "view")) {
     return output;
   }
 
   if (operation === "view") {
     return Object.freeze({
-      schema: createProjectionRecordSchema(output.schema, { lookupContainerKey, relationshipEntries }),
+      schema: buildProjectionRecordSchema(output.schema, { lookupContainerKey, relationshipEntries }),
       mode: "replace"
     });
   }
@@ -123,14 +123,14 @@ function createProjectionOutputDefinition(output, operation, relationshipEntries
       ...listFields,
       items: {
         ...items,
-        items: createProjectionRecordSchema(items.items, { lookupContainerKey, relationshipEntries })
+        items: buildProjectionRecordSchema(items.items, { lookupContainerKey, relationshipEntries })
       }
     }),
     mode: "replace"
   });
 }
 
-function createCrudAssistantTransport(resource, operation, relationshipEntries, lookupContainerKey) {
+function buildCrudAssistantTransport(resource, operation, relationshipEntries, lookupContainerKey) {
   const lookupFieldMap = Object.fromEntries(
     relationshipEntries
       .filter((entry) => entry.many !== true)
@@ -195,7 +195,7 @@ function projectCrudAssistantReadRecord(record, {
   return projectedRecord;
 }
 
-function createCrudAssistantResultProjection(input, resource, relationshipEntries = []) {
+function buildCrudAssistantResultProjection(input, resource, relationshipEntries = []) {
   const primaryType = normalizeText(resource.namespace);
   const fieldsets = normalizeJsonApiFieldsets(input.fields, {
     primaryType
@@ -260,7 +260,7 @@ function transformCrudAssistantResult(operation, result, {
 
   const resolved = resolveAssistantResultValue(result);
   const projection = operation === "list" || operation === "view"
-    ? createCrudAssistantResultProjection(input, resource, relationshipEntries)
+    ? buildCrudAssistantResultProjection(input, resource, relationshipEntries)
     : null;
   const projectReadResult = (value) => projectCrudAssistantReadResult(value, projection, {
     lookupContainerKey
@@ -269,7 +269,7 @@ function transformCrudAssistantResult(operation, result, {
     if (resolved.document.kind === "collection") {
       const decoded = decodeJsonApiResourceResponse(
         resolved.value,
-        createCrudAssistantTransport(resource, operation, relationshipEntries, lookupContainerKey)
+        buildCrudAssistantTransport(resource, operation, relationshipEntries, lookupContainerKey)
       );
       return projectReadResult({
         items: decoded.items,
@@ -294,13 +294,13 @@ function transformCrudAssistantResult(operation, result, {
   if (resolved.document.kind === "resource") {
     return projectReadResult(decodeJsonApiResourceResponse(
       resolved.value,
-      createCrudAssistantTransport(resource, operation, relationshipEntries, lookupContainerKey)
+      buildCrudAssistantTransport(resource, operation, relationshipEntries, lookupContainerKey)
     ));
   }
   return projectReadResult(resolved.value);
 }
 
-function createCrudAssistantReadDescription({
+function buildCrudAssistantReadDescription({
   fieldsetContract,
   lookupContainerKey = "",
   namespace = "",
@@ -350,14 +350,14 @@ function createCrudAssistantExtension(resource, namespace, operation) {
     : nativeOutput;
   const relationshipEntries = resolveJsonApiRelationshipEntries(recordOutput);
   const lookupContainerKey = resolveDeclaredLookupContainerKey(resource);
-  const output = createProjectionOutputDefinition(
+  const output = buildProjectionOutputDefinition(
     nativeOutput,
     operation,
     relationshipEntries,
     lookupContainerKey
   );
   const actionLabel = operation === "list" || operation === "view"
-    ? createCrudAssistantReadDescription({
+    ? buildCrudAssistantReadDescription({
         fieldsetContract: resolveJsonApiFieldsetContract(resource),
         lookupContainerKey,
         namespace,

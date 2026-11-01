@@ -6,7 +6,7 @@ import { createCrudJsonApiRouteContracts } from "../routeContracts.js";
 
 const CUSTOM_ACTION_METHODS = new Set(["DELETE", "GET", "PATCH", "POST", "PUT"]);
 
-function createScopeInput(scopeInput, request) {
+function buildScopeInput(scopeInput, request) {
   if (!scopeInput) {
     return {};
   }
@@ -17,8 +17,8 @@ function createScopeInput(scopeInput, request) {
   return result;
 }
 
-function createCustomActionInput(scopeInput, route, request) {
-  const scopedInput = createScopeInput(scopeInput, request);
+function buildCustomActionInput(scopeInput, route, request) {
+  const scopedInput = buildScopeInput(scopeInput, request);
   if (route.input) {
     const input = route.input(request);
     if (!input || typeof input !== "object" || Array.isArray(input)) {
@@ -152,7 +152,7 @@ function registerCrudJsonApiRoutes(router, {
       const response = await request.executeAction({
         actionId: actionId("list"),
         input: {
-          ...createScopeInput(scopeInput, request),
+          ...buildScopeInput(scopeInput, request),
           ...(request.input.query || {})
         }
       });
@@ -173,7 +173,7 @@ function registerCrudJsonApiRoutes(router, {
       const response = await request.executeAction({
         actionId: actionId("view"),
         input: {
-          ...createScopeInput(scopeInput, request),
+          ...buildScopeInput(scopeInput, request),
           recordId: request.input.params.recordId,
           ...(request.input.query || {})
         }
@@ -195,7 +195,7 @@ function registerCrudJsonApiRoutes(router, {
       const response = await request.executeAction({
         actionId: actionId("create"),
         input: {
-          ...createScopeInput(scopeInput, request),
+          ...buildScopeInput(scopeInput, request),
           ...(request.input.body || {})
         }
       });
@@ -216,7 +216,7 @@ function registerCrudJsonApiRoutes(router, {
       const response = await request.executeAction({
         actionId: actionId("update"),
         input: {
-          ...createScopeInput(scopeInput, request),
+          ...buildScopeInput(scopeInput, request),
           recordId: request.input.params.recordId,
           ...(request.input.body || {})
         }
@@ -238,7 +238,7 @@ function registerCrudJsonApiRoutes(router, {
       const response = await request.executeAction({
         actionId: actionId("delete"),
         input: {
-          ...createScopeInput(scopeInput, request),
+          ...buildScopeInput(scopeInput, request),
           recordId: request.input.params.recordId
         }
       });
@@ -272,7 +272,7 @@ function registerCrudJsonApiRoutes(router, {
       async function (request, reply) {
         const response = await request.executeAction({
           actionId: actionRoute.actionId,
-          input: createCustomActionInput(scopeInput, actionRoute, request)
+          input: buildCustomActionInput(scopeInput, actionRoute, request)
         });
         const nextReply = reply.code(actionRoute.statusCode);
         if (actionRoute.statusCode === 204) {

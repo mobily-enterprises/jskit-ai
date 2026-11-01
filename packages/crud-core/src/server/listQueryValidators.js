@@ -33,7 +33,7 @@ const lookupIncludeQueryValidator = Object.freeze({
   mode: "patch"
 });
 
-function createJsonApiFieldsetValueDefinition({ allowedFields = [] } = {}) {
+function buildJsonApiFieldsetValueDefinition({ allowedFields = [] } = {}) {
   const normalizedAllowedFields = [...new Set(
     (Array.isArray(allowedFields) ? allowedFields : [])
       .map((entry) => normalizeText(entry))
@@ -53,7 +53,7 @@ function createJsonApiFieldsetValueDefinition({ allowedFields = [] } = {}) {
   });
 }
 
-const jsonApiFieldsetValueDefinition = createJsonApiFieldsetValueDefinition();
+const jsonApiFieldsetValueDefinition = buildJsonApiFieldsetValueDefinition();
 
 const jsonApiFieldsetsQueryValidator = Object.freeze({
   schema: createSchema({
@@ -104,7 +104,7 @@ function createJsonApiFieldsetsQueryValidator({ resource = {} } = {}) {
     Object.fromEntries(
       contract.resourceTypes.map((resourceType) => [
         resourceType,
-        createJsonApiFieldsetValueDefinition({
+        buildJsonApiFieldsetValueDefinition({
           allowedFields: resourceType === contract.primaryType ? contract.primaryFields : []
         })
       ])

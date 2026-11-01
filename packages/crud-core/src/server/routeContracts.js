@@ -68,7 +68,7 @@ function normalizeRelationshipIdentifierId(value = null) {
   return normalizeOptionalText(value);
 }
 
-function createRelationshipIdentifier(entry = {}, value = null) {
+function buildRelationshipIdentifier(entry = {}, value = null) {
   const id = normalizeRelationshipIdentifierId(value);
   if (!id) {
     return null;
@@ -146,14 +146,14 @@ function createRecordRelationshipsResolver(definition = null, {
         const items = Array.isArray(value) ? value : [];
         relationships[entry.relationshipName] = {
           data: items
-            .map((item) => createRelationshipIdentifier(entry, item))
+            .map((item) => buildRelationshipIdentifier(entry, item))
             .filter(Boolean)
         };
         continue;
       }
 
       relationships[entry.relationshipName] = {
-        data: createRelationshipIdentifier(entry, value)
+        data: buildRelationshipIdentifier(entry, value)
       };
     }
 

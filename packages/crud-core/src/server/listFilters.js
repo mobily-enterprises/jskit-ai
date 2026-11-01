@@ -12,7 +12,7 @@ import {
   normalizeCrudListFilterJsonRestQuery
 } from "./listFilterJsonRest.js";
 import {
-  createCrudListFilterQueryField,
+  buildCrudListFilterQueryField,
   createCrudListFilterQuerySchema,
   buildFilterQuerySchemaDefinition,
   applyDefaultFilterQuery
@@ -143,7 +143,7 @@ function createCrudListFilterContract(definitions = {}, {
 export {
   CRUD_LIST_FILTER_INVALID_VALUES_REJECT,
   CRUD_LIST_FILTER_INVALID_VALUES_DISCARD,
-  createCrudListFilterQueryField,
+  buildCrudListFilterQueryField,
   createCrudListFilterQuerySchema,
   createCrudListFilterJsonRestSearchSchema,
   createCrudListFilters,

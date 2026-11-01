@@ -11,7 +11,7 @@ import { listSearchQueryValidator } from "../src/server/listQueryValidators.js";
 import {
   CRUD_LIST_FILTER_INVALID_VALUES_REJECT,
   CRUD_LIST_FILTER_INVALID_VALUES_DISCARD,
-  createCrudListFilterQueryField,
+  buildCrudListFilterQueryField,
   createCrudListFilterQuerySchema,
   createCrudListFilterJsonRestSearchSchema,
   createCrudListFilters,
@@ -28,7 +28,7 @@ function composeSchemaDefinition(...definitions) {
 test("crud-core exposes createCrudListFilters through the public package export", async () => {
   const module = await import("@jskit-ai/crud-core/server/listFilters");
   assert.equal(typeof module.createCrudListFilters, "function");
-  assert.equal(typeof module.createCrudListFilterQueryField, "function");
+  assert.equal(typeof module.buildCrudListFilterQueryField, "function");
   assert.equal(typeof module.createCrudListFilterQuerySchema, "function");
   assert.equal(typeof module.createCrudListFilterJsonRestSearchSchema, "function");
   assert.equal(typeof module.createCrudListFilterContract, "function");
@@ -296,7 +296,7 @@ test("createCrudListFilters query validator stays mergeable with search and curs
   assert.deepEqual(compiled.schema.querystring.required || [], []);
 });
 
-test("createCrudListFilterQueryField keeps route query params explicit while reusing filter semantics", () => {
+test("buildCrudListFilterQueryField keeps route query params explicit while reusing filter semantics", () => {
   const filters = defineCrudListFilters({
     status: {
       type: "enum",
@@ -314,10 +314,10 @@ test("createCrudListFilterQueryField keeps route query params explicit while reu
 
   const explicitFilterQueryValidator = Object.freeze({
     schema: createCrudListFilterQuerySchema({
-      status: createCrudListFilterQueryField(filters.status, {
+      status: buildCrudListFilterQueryField(filters.status, {
         invalidValues: CRUD_LIST_FILTER_INVALID_VALUES_REJECT
       }),
-      arrivalDate: createCrudListFilterQueryField(filters.arrivalDate, {
+      arrivalDate: buildCrudListFilterQueryField(filters.arrivalDate, {
         invalidValues: CRUD_LIST_FILTER_INVALID_VALUES_REJECT
       })
     }),
@@ -357,9 +357,9 @@ test("createCrudListFilterQueryField keeps route query params explicit while reu
   });
 });
 
-test("createCrudListFilterQueryField requires normalized filter definitions", () => {
+test("buildCrudListFilterQueryField requires normalized filter definitions", () => {
   assert.throws(
-    () => createCrudListFilterQueryField({
+    () => buildCrudListFilterQueryField({
       type: "enum",
       label: "Status"
     }),

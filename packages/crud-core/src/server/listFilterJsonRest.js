@@ -59,7 +59,7 @@ function renderInternalJsonRestFilterKey(filter = {}, suffix = "") {
     .join("_");
 }
 
-function createJsonRestSearchSchemaEntry({
+function buildJsonRestSearchSchemaEntry({
   type = "string",
   actualField = "",
   filterOperator = "=",
@@ -90,7 +90,7 @@ function buildJsonRestFilterItemSchema(filter = {}) {
 
 function buildJsonRestSimpleFilterSearchSchemaEntry(filter = {}, { actualField = "" } = {}) {
   if (filter.type === CRUD_LIST_FILTER_TYPE_FLAG) {
-    return createJsonRestSearchSchemaEntry({
+    return buildJsonRestSearchSchemaEntry({
       type: "boolean",
       actualField,
       filterOperator: "="
@@ -98,7 +98,7 @@ function buildJsonRestSimpleFilterSearchSchemaEntry(filter = {}, { actualField =
   }
 
   if (filter.type === CRUD_LIST_FILTER_TYPE_ENUM) {
-    return createJsonRestSearchSchemaEntry({
+    return buildJsonRestSearchSchemaEntry({
       type: "string",
       actualField,
       filterOperator: "=",
@@ -109,7 +109,7 @@ function buildJsonRestSimpleFilterSearchSchemaEntry(filter = {}, { actualField =
   }
 
   if (filter.type === CRUD_LIST_FILTER_TYPE_ENUM_MANY || filter.type === CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY) {
-    return createJsonRestSearchSchemaEntry({
+    return buildJsonRestSearchSchemaEntry({
       type: "array",
       actualField,
       filterOperator: "in",
@@ -120,7 +120,7 @@ function buildJsonRestSimpleFilterSearchSchemaEntry(filter = {}, { actualField =
   }
 
   if (filter.type === CRUD_LIST_FILTER_TYPE_RECORD_ID) {
-    return createJsonRestSearchSchemaEntry({
+    return buildJsonRestSearchSchemaEntry({
       type: "id",
       actualField,
       filterOperator: "="
@@ -133,12 +133,12 @@ function buildJsonRestSimpleFilterSearchSchemaEntry(filter = {}, { actualField =
 function buildJsonRestRangeFilterSearchSchemaEntries(filter = {}, { actualField = "" } = {}) {
   if (filter.type === CRUD_LIST_FILTER_TYPE_DATE || filter.type === CRUD_LIST_FILTER_TYPE_DATE_RANGE) {
     return {
-      [renderInternalJsonRestFilterKey(filter, "from")]: createJsonRestSearchSchemaEntry({
+      [renderInternalJsonRestFilterKey(filter, "from")]: buildJsonRestSearchSchemaEntry({
         type: "dateTime",
         actualField,
         filterOperator: ">="
       }),
-      [renderInternalJsonRestFilterKey(filter, "toExclusive")]: createJsonRestSearchSchemaEntry({
+      [renderInternalJsonRestFilterKey(filter, "toExclusive")]: buildJsonRestSearchSchemaEntry({
         type: "dateTime",
         actualField,
         filterOperator: "<"
@@ -148,12 +148,12 @@ function buildJsonRestRangeFilterSearchSchemaEntries(filter = {}, { actualField 
 
   if (filter.type === CRUD_LIST_FILTER_TYPE_NUMBER_RANGE) {
     return {
-      [renderInternalJsonRestFilterKey(filter, "min")]: createJsonRestSearchSchemaEntry({
+      [renderInternalJsonRestFilterKey(filter, "min")]: buildJsonRestSearchSchemaEntry({
         type: "number",
         actualField,
         filterOperator: ">="
       }),
-      [renderInternalJsonRestFilterKey(filter, "max")]: createJsonRestSearchSchemaEntry({
+      [renderInternalJsonRestFilterKey(filter, "max")]: buildJsonRestSearchSchemaEntry({
         type: "number",
         actualField,
         filterOperator: "<="

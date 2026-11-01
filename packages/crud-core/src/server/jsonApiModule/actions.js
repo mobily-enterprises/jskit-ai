@@ -20,7 +20,7 @@ const CRUD_OPERATION_NAMES = Object.freeze(["list", "view", "create", "update", 
 const CRUD_MUTATION_NAMES = new Set(["create", "update", "delete"]);
 const CRUD_LIFECYCLE_PHASES = Object.freeze(["before", "execute", "after", "afterCommit"]);
 
-function createActionInput(resource, operation, scopeInputValidator, listFilterQueryValidator, operationInputs) {
+function buildActionInput(resource, operation, scopeInputValidator, listFilterQueryValidator, operationInputs) {
   const definitions = scopeInputValidator ? [scopeInputValidator] : [];
   if (operation === "list") {
     definitions.push(...createStandardCrudListQueryValidators({
@@ -83,7 +83,7 @@ function normalizeCrudOperationLifecycle(value) {
   return Object.freeze(lifecycle);
 }
 
-function createLifecycleContext(value) {
+function buildLifecycleContext(value) {
   const { operation, input, context, resource, repository, service, trx, result, standard } = value;
   return Object.freeze({
     operation,
@@ -246,14 +246,14 @@ function createCrudJsonApiActions({
     async function run(trx = null) {
       const base = { operation, input, context, resource, repository, service, trx };
       if (hooks.before) {
-        await hooks.before(createLifecycleContext(base));
+        await hooks.before(buildLifecycleContext(base));
       }
       const standard = (nextInput = input) => runStandard(nextInput, context, trx);
       const result = requireOperationResult(operation, hooks.execute
-        ? await hooks.execute(createLifecycleContext({ ...base, standard }))
+        ? await hooks.execute(buildLifecycleContext({ ...base, standard }))
         : await standard());
       if (hooks.after) {
-        await hooks.after(createLifecycleContext({ ...base, result }));
+        await hooks.after(buildLifecycleContext({ ...base, result }));
       }
       return result;
     }
@@ -261,7 +261,7 @@ function createCrudJsonApiActions({
     const result = CRUD_MUTATION_NAMES.has(operation) ? await repository.withTransaction(run) : await run();
     if (hooks.afterCommit) {
       try {
-        await hooks.afterCommit(createLifecycleContext({
+        await hooks.afterCommit(buildLifecycleContext({
           operation,
           input,
           context,
@@ -327,7 +327,7 @@ function createCrudJsonApiActions({
     channels: ["api", "automation", "internal"],
     surfaces: [surface],
     permission: permissionForOperation(definition.operation),
-    input: createActionInput(resource, definition.operation, scopeInputValidator, listFilterQueryValidator, operationInputs),
+    input: buildActionInput(resource, definition.operation, scopeInputValidator, listFilterQueryValidator, operationInputs),
     output: null,
     extensions: Object.freeze({
       assistant: createCrudAssistantExtension(resource, namespace, definition.operation)

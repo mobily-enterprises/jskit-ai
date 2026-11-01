@@ -75,9 +75,9 @@ Exports
 - `createCrudJsonApiActions({ namespace, resource, repository, service, surface, permissionForOperation, operations, scopeInputValidator, scopeInputKeys, listFilterQueryValidator, operationLifecycle, operationInputs, actions, dependencies, realtimeAudience })`
 - `normalizeCrudOperationLifecycle(value)`
 Local functions
-- `createActionInput(resource, operation, scopeInputValidator, listFilterQueryValidator, operationInputs)`
+- `buildActionInput(resource, operation, scopeInputValidator, listFilterQueryValidator, operationInputs)`
 - `omitInputKeys(input, keys)`
-- `createLifecycleContext(value)`
+- `buildLifecycleContext(value)`
 - `normalizeAdditionalActions(definitions, { namespace, surface, permissionForAction, scopeInputValidator })`
 
 ### `src/server/jsonApiModule/assistantExtension.js`
@@ -85,16 +85,16 @@ Exports
 - `createCrudAssistantExtension(resource, namespace, operation)`
 Local functions
 - `resolveAssistantResultValue(result)`
-- `createProjectionRecordSchema(recordSchema, { lookupContainerKey = "", relationshipEntries = [] } = {})`
-- `createProjectionOutputDefinition(output, operation, relationshipEntries, lookupContainerKey)`
-- `createCrudAssistantTransport(resource, operation, relationshipEntries, lookupContainerKey)`
+- `buildProjectionRecordSchema(recordSchema, { lookupContainerKey = "", relationshipEntries = [] } = {})`
+- `buildProjectionOutputDefinition(output, operation, relationshipEntries, lookupContainerKey)`
+- `buildCrudAssistantTransport(resource, operation, relationshipEntries, lookupContainerKey)`
 - `projectCrudAssistantRecordFields(record, selectedFields = null, { preserveKeys = [] } = {})`
 - `projectCrudAssistantLookupValue(value, selectedFields = null)`
 - `projectCrudAssistantReadRecord(record, { lookupContainerKey = "", primaryFields = null, relatedFieldsByLookupKey = new Map() } = {})`
-- `createCrudAssistantResultProjection(input, resource, relationshipEntries = [])`
+- `buildCrudAssistantResultProjection(input, resource, relationshipEntries = [])`
 - `projectCrudAssistantReadResult(result, projection = null, { lookupContainerKey = "" } = {})`
 - `transformCrudAssistantResult(operation, result, { input = {}, resource, relationshipEntries = [], lookupContainerKey = "" } = {})`
-- `createCrudAssistantReadDescription({ fieldsetContract, lookupContainerKey = "", namespace = "", operation = "list" } = {})`
+- `buildCrudAssistantReadDescription({ fieldsetContract, lookupContainerKey = "", namespace = "", operation = "list" } = {})`
 
 ### `src/server/jsonApiModule/repository.js`
 Exports
@@ -104,8 +104,8 @@ Exports
 Exports
 - `registerCrudJsonApiRoutes(router, { namespace, resource, routeBase, relativePath, surface, ownershipFilter, access, internal, operations, actions, operationInputs, listFilterQueryValidator, routeParamsValidator, scopeInput })`
 Local functions
-- `createScopeInput(scopeInput, request)`
-- `createCustomActionInput(scopeInput, route, request)`
+- `buildScopeInput(scopeInput, request)`
+- `buildCustomActionInput(scopeInput, route, request)`
 - `normalizeCustomActionRoutes(actions, namespace)`
 
 ### `src/server/jsonApiModule/service.js`
@@ -130,7 +130,7 @@ Exports
 Local functions
 - `resolveJsonRestFilterActualField(filter = {}, columns = {})`
 - `renderInternalJsonRestFilterKey(filter = {}, suffix = "")`
-- `createJsonRestSearchSchemaEntry({ type = "string", actualField = "", filterOperator = "=", extra = {} } = {})`
+- `buildJsonRestSearchSchemaEntry({ type = "string", actualField = "", filterOperator = "=", extra = {} } = {})`
 - `buildJsonRestFilterItemSchema(filter = {})`
 - `buildJsonRestSimpleFilterSearchSchemaEntry(filter = {}, { actualField = "" } = {})`
 - `buildJsonRestRangeFilterSearchSchemaEntries(filter = {}, { actualField = "" } = {})`
@@ -144,7 +144,7 @@ Local functions
 Exports
 - `CRUD_LIST_FILTER_INVALID_VALUES_REJECT`
 - `CRUD_LIST_FILTER_INVALID_VALUES_DISCARD`
-- `createCrudListFilterQueryField`
+- `buildCrudListFilterQueryField`
 - `createCrudListFilterQuerySchema`
 - `createCrudListFilterJsonRestSearchSchema`
 - `createCrudListFilters(definitions = {}, { columns = {}, apply = {} } = {})`
@@ -157,7 +157,7 @@ Exports
 - `recordIdTransportSchema`
 - `cloneTransportSchema(value)`
 - `addDaysToDateFilterValue(value = "", days = 0)`
-- `createCrudListFilterQueryField(filterDefinition, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
+- `buildCrudListFilterQueryField(filterDefinition, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
 - `createCrudListFilterQuerySchema(structure = {})`
 - `buildFilterQuerySchemaDefinition(filterEntries = [], { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
 - `applyDefaultFilterQuery(queryBuilder, filter = {}, value, column = "")`
@@ -181,16 +181,13 @@ Exports
 - `createStandardCrudListQueryValidators({ // readable-check: allow dependency-default - data: a resource definition resource = {}, listFilterQueryValidator = null, searchQueryValidator = listSearchQueryValidator, includeQueryValidator = lookupIncludeQueryValidator, fieldsetsQueryValidator = jsonApiFieldsetsQueryValidator } = {})`
 - `createStandardCrudViewQueryValidators({ includeQueryValidator = lookupIncludeQueryValidator, fieldsetsQueryValidator = jsonApiFieldsetsQueryValidator } = {})`
 Local functions
-- `createJsonApiFieldsetValueDefinition({ allowedFields = [] } = {})`
+- `buildJsonApiFieldsetValueDefinition({ allowedFields = [] } = {})`
 - `resolveCrudListUsesOrderedCursor(list = {})`
 
 ### `src/server/lookupPathSupport.js`
 Exports
-- `normalizeCrudLookupApiPath`
-- `normalizeCrudLookupNamespace`
 - `normalizeLookupOwnershipFilter(value, { context })`
 - `requireCrudLookupNamespace(value = "", { context = "crudLookup" } = {})`
-- `resolveCrudLookupNamespaceFromRelation(relation, { context = "crudLookup" } = {})`
 - `resolveCrudLookupToken(namespace = "", { context = "crudLookup" } = {})`
 
 ### `src/server/lookups.js`
@@ -321,7 +318,7 @@ Local functions
 - `resolveLookupContainer(record, lookupContainerKey = "")`
 - `resolveRelationshipValueSource(record = {}, entry = {}, { lookupContainerKey = "", preferLookup = false } = {})`
 - `normalizeRelationshipIdentifierId(value = null)`
-- `createRelationshipIdentifier(entry = {}, value = null)`
+- `buildRelationshipIdentifier(entry = {}, value = null)`
 - `createRecordAttributesResolver(definition = null, { excludeKeys = [] } = {})`
 - `createRecordRelationshipsResolver(definition = null, { lookupContainerKey = "" } = {})`
 - `createRequestRelationshipMapper(definition = null)`

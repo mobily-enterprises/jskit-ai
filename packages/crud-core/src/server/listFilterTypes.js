@@ -293,7 +293,7 @@ const FILTER_TYPE_SERVER_HANDLERS = Object.freeze({
 
 function normalizeCrudListFilterQueryFieldInput(filterDefinition) {
   if (!isRecord(filterDefinition)) {
-    throw new TypeError("createCrudListFilterQueryField requires a normalized filter definition object.");
+    throw new TypeError("buildCrudListFilterQueryField requires a normalized filter definition object.");
   }
 
   const key = normalizeText(filterDefinition.key);
@@ -301,7 +301,7 @@ function normalizeCrudListFilterQueryFieldInput(filterDefinition) {
   const queryKey = normalizeText(filterDefinition.queryKey);
   if (!key || !type || !queryKey) {
     throw new TypeError(
-      "createCrudListFilterQueryField requires a normalized filter definition from defineCrudListFilters(...)."
+      "buildCrudListFilterQueryField requires a normalized filter definition from defineCrudListFilters(...)."
     );
   }
   if (!FILTER_TYPE_SERVER_HANDLERS[type]) {
@@ -311,7 +311,7 @@ function normalizeCrudListFilterQueryFieldInput(filterDefinition) {
   return filterDefinition;
 }
 
-function createCrudListFilterQueryField(filterDefinition, {
+function buildCrudListFilterQueryField(filterDefinition, {
   invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT
 } = {}) {
   const invalidValueMode = normalizeCrudListFilterInvalidValues(invalidValues);
@@ -328,7 +328,7 @@ function createCrudListFilterQueryField(filterDefinition, {
 }
 
 function buildFilterQueryFieldDefinition(filterDefinition, { invalidValues }) {
-  const field = createCrudListFilterQueryField(filterDefinition, { invalidValues });
+  const field = buildCrudListFilterQueryField(filterDefinition, { invalidValues });
   return {
     [field.filterContract.filter.queryKey]: field
   };
@@ -336,7 +336,7 @@ function buildFilterQueryFieldDefinition(filterDefinition, { invalidValues }) {
 
 /**
  * The transport schema of a filter query field, from its contract (whose
- * invalidValues createCrudListFilterQueryField has already normalized).
+ * invalidValues buildCrudListFilterQueryField has already normalized).
  */
 function buildFilterQueryTransportSchema(filter, { invalidValues }) {
   const discardInvalidValues = invalidValues === CRUD_LIST_FILTER_INVALID_VALUES_DISCARD;
@@ -420,7 +420,7 @@ export {
   recordIdTransportSchema,
   cloneTransportSchema,
   addDaysToDateFilterValue,
-  createCrudListFilterQueryField,
+  buildCrudListFilterQueryField,
   createCrudListFilterQuerySchema,
   buildFilterQuerySchemaDefinition,
   applyDefaultFilterQuery
