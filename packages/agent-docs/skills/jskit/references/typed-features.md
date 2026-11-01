@@ -324,8 +324,9 @@ import { registerWorkspaceSettingsRoutes } from "./workspaceSettings/workspaceSe
 
 ## Common mistakes
 
-Each of these passes the lint rules or hides behind an allow comment, and each
-breaks the one-step reading the rules protect.
+Each of these breaks the one-step reading the rules protect. A lint rule
+reports some of their shapes, named in each; the rest pass the rules or hide
+behind an allow comment, and are checked by reading.
 
 ### A collaborator accepted in two shapes "for tests"
 
@@ -336,7 +337,8 @@ const audits = auditsCapability.service || auditsCapability; // tests pass the b
 The type promises one shape, production takes one branch and the tests take
 the other, so a reader follows two and the code map guesses. Read `.service`
 on a CRUD capability, use a feature capability as it is, and give the test
-double the real shape: `{ service: auditsDouble }`.
+double the real shape: `{ service: auditsDouble }`. `jskit/no-dual-shape`
+reports the fallback.
 
 ### A probe on a collaborator that is always present
 
@@ -445,6 +447,8 @@ too.
 Every copy must change together, and the type has no home a reader can find.
 Name it once in the owner's `types.js` (`ContactsService`, crud-core's
 `CrudService` and `CrudRepository`, `RuntimeKnex`) and import that name.
+`jskit/named-repeated-type` reports a `ReturnType<…>` or indexed type spelled
+out in two or more files of one package.
 
 ### A guard or comment that cites tests
 
@@ -763,9 +767,11 @@ held to the rules from the start.
 | `jskit/no-duplicate-helper` | a small helper, function or arrow, repeated in another file of the package |
 | `jskit/allow-comment-form` | a `readable-check: allow` reason without a prefix from the table below, or one that cites tests or the state of a project |
 | `jskit/jsdoc-description-inside` | a `//` description directly above a `/** */` block |
+| `jskit/no-dual-shape` | a value accepted in two shapes, `x.service \|\| x` or `x?.value ?? x` |
+| `jskit/named-repeated-type` | a `ReturnType<…>` or `X["y"]` JSDoc type written in two or more files of a package |
 | `max-lines`, `max-lines-per-function` | files over 750 lines, functions over 600 |
 
-The rules see shapes, not intent: everything under
+The rules see shapes, not intent: what they cannot see under
 [common mistakes](#common-mistakes) is checked by reading.
 
 A justified exception carries a `// readable-check: allow <rule> - <reason>`

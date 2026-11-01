@@ -37,6 +37,8 @@ code that does not:
 | `jskit/no-duplicate-helper` | a small top-level helper that repeats one in another file of the package's server code |
 | `jskit/allow-comment-form` | a `readable-check: allow` comment whose reason has no fixed prefix, cites tests, or cites the state of a project |
 | `jskit/jsdoc-description-inside` | a `//` line comment directly above a `/** */` block, whose description belongs inside it |
+| `jskit/no-dual-shape` | a value accepted in two shapes: `x.service \|\| x`, `x?.value ?? x`, `x.service ? x.service : x` |
+| `jskit/named-repeated-type` | a `ReturnType<…>` or indexed JSDoc type (`X["y"]`) written in two or more files of a package, instead of named once in its `types.js` |
 | `max-lines`, `max-lines-per-function` | files over 750 lines, functions over 600 |
 
 `baseConfig` reports them as warnings, so adopting a new version does not fail

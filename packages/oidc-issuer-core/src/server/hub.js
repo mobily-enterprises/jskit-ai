@@ -18,7 +18,7 @@ import { createSigningKeyStore } from "./signingKeys.js";
  * @param {import("./types.js").HubConfig} dependencies.config
  * @param {{ enabled: boolean, secret: string }} dependencies.devAuth Whether an editor's preview may sign in as an existing account, and the secret it sends.
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
- * @param {ReturnType<typeof import("./mailer.js").createMailer>} dependencies.mailer
+ * @param {import("./types.js").HubMailer} dependencies.mailer
  * @param {() => Date} dependencies.now
  * @param {typeof import("./google.js").GOOGLE_ENDPOINTS} dependencies.googleEndpoints
  * @param {typeof fetch} dependencies.fetchImpl

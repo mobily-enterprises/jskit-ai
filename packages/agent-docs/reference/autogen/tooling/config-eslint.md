@@ -65,6 +65,13 @@ Exports
 Exports
 - `jskitPlugin`
 
+### `plugin/packageSources.js`
+Exports
+- `packageRootOf(file)`
+- `packageSourceFiles(directory, files = [])`
+Local functions
+- `isPatternExample(directory)`
+
 ### `plugin/rules/allowCommentForm.js`
 Exports
 - `allowCommentForm`
@@ -76,6 +83,27 @@ Exports
 - `jsdocDescriptionInside`
 Local functions
 - `startsItsLine(lines, comment)`
+
+### `plugin/rules/namedRepeatedType.js`
+Exports
+- `namedRepeatedType`
+Local functions
+- `balanced(text, start, open, close)`
+- `repeatableTypes(type)`
+- `moduleKey(specifier, directory)`
+- `importedNames(text, directory)`
+- `typeKey(text, file, imports)`
+- `commentTypes(text)`
+- `fileTypeKeys(file)`
+- `displayPath(context, file)`
+
+### `plugin/rules/noDualShape.js`
+Exports
+- `noDualShape`
+Local functions
+- `unwrapChain(node)`
+- `referenceText(sourceCode, node)`
+- `dualShape(sourceCode, member, fallback)`
 
 ### `plugin/rules/noDuplicateHelper.js`
 Exports

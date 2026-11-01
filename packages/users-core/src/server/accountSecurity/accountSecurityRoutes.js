@@ -58,11 +58,11 @@ function registerAccountSecurityRoutes(router, { authService }) {
         input: request.input.body
       });
 
-      if (result?.session) {
+      if (result.session) {
         authService.writeSessionCookies(reply, result.session);
       }
 
-      reply.code(200).send(result?.response || result);
+      reply.code(200).send(result.response);
     }
   );
 

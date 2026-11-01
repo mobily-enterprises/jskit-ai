@@ -3,8 +3,8 @@ import { createEntityChangedActionEvent } from "@jskit-ai/kernel/server/actions"
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveWorkspace } from "../../support/resolveWorkspace.js";
 
-function resultValue({ result } = {}) {
-  return result?.value ?? result ?? {};
+function resultValue({ result }) {
+  return result.value;
 }
 
 function actorId({ context } = {}) {

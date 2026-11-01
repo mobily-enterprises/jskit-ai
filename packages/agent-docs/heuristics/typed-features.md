@@ -44,7 +44,7 @@ data (input, record, list, options bag) is not one.
 - `logger = null`, `if (!logger) return`, `logger = console`, `logger?.info`
   - Require the logger, typed `RuntimeLogger`. Use the kernel's `silentLogger`
     only where a real caller may omit it.
-- `capability.service || capability`, two shapes, "tests pass the bare service"
+- `capability.service || capability`, two shapes, "tests pass the bare service" (`jskit/no-dual-shape`)
   - Accept one shape. Read `.service` on a CRUD capability, use a feature
     capability as it is, and give the test double the real shape.
 - `create<Name>(dependencies)` with `dependencies.x` in the body, a pure helper passed in
@@ -110,7 +110,7 @@ data (input, record, list, options bag) is not one.
 - `(...args: any[]) => Promise<any>`, a type literal of methods, a package cycle
   - Import the owner's type. A JSDoc `import("…")` is type-only, so a package
     cycle is no reason to hand-write an interface.
-- `ReturnType<typeof import(…)>` or `X["service"]`, `RuntimeDatabase["knex"]`, `import("knex").Knex` repeated in files
+- `ReturnType<typeof import(…)>` or `X["service"]`, `RuntimeDatabase["knex"]`, `import("knex").Knex` repeated in files (`jskit/named-repeated-type`)
   - Name the type once in the owner's `types.js` and import that name:
     `RuntimeKnex`, `RuntimeRouter`, crud-core's `CrudService` and
     `CrudRepository`, the package's own service type.

@@ -51,7 +51,7 @@ function parseJsonBody(buffer) {
  * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} dependencies.knex
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} [dependencies.env]
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
- * @param {ReturnType<typeof createMailer>} [dependencies.mailer] Sends the hub's emails instead of the configured sender.
+ * @param {import("./types.js").HubMailer} [dependencies.mailer] Sends the hub's emails instead of the configured sender.
  * @param {() => Date} [dependencies.now]
  * @param {string} [dependencies.appRoot]
  * @param {typeof GOOGLE_ENDPOINTS} [dependencies.googleEndpoints]

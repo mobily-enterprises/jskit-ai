@@ -20,6 +20,8 @@ function typedFeaturesRules(severity) {
     "jskit/no-duplicate-helper": severity,
     "jskit/allow-comment-form": severity,
     "jskit/jsdoc-description-inside": severity,
+    "jskit/no-dual-shape": severity,
+    "jskit/named-repeated-type": severity,
     "max-lines": [severity, { max: 750 }],
     "max-lines-per-function": [severity, { max: 600, IIFEs: true }]
   });

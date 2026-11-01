@@ -196,6 +196,7 @@ Exports
 - `type HubConfig`
 - `type HubAdapterClass`
 - `type Hub`
+- `type HubMailer`
 
 ### bin
 
