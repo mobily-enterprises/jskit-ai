@@ -97,7 +97,7 @@ export async function verifyInvitationTransactions(t, db) {
         delivered.push(String(saved.id));
         return { status: "sent", providerMessageId: "controlled-message" };
       } } : unconfiguredWorkspaceInviteMailer,
-      inviteUrlBuilder: createWorkspaceInviteUrlBuilder(),
+      inviteUrlBuilder: createWorkspaceInviteUrlBuilder({ appConfig: {}, env: {} }),
       workspaceInviteEmailTemplate: renderDefaultWorkspaceInviteEmail
     });
     // Each test chooses the application's acceptance participant.

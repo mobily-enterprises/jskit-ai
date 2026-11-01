@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { WORKSPACE_CRUD_SCOPE, workspaceIdFromContext } from "../src/server/support/workspaceCrud.js";
-import { WORKSPACE_ROUTE_BASE_PATH, resolveWorkspaceRoutePath } from "../src/server/common/support/workspaceRoutePaths.js";
+import { WORKSPACE_ROUTE_BASE_PATH, resolveWorkspaceRoutePath } from "../src/server/support/workspaceRoutePaths.js";
 import { routeParamsValidator, workspaceSlugParamsValidator } from "../src/server/common/validators/routeParamsValidator.js";
 
 test("the workspace CRUD scope routes under the workspace slug and reads it from the route", () => {

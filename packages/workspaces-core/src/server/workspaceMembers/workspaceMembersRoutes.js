@@ -8,7 +8,7 @@ import {
 } from "../../shared/jsonApiTransports.js";
 import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
 import { resolveWorkspaceRecordId } from "../common/support/workspaceRecordId.js";
-import { resolveWorkspaceRoutePath } from "../common/support/workspaceRoutePaths.js";
+import { resolveWorkspaceRoutePath } from "../support/workspaceRoutePaths.js";
 import {
   routeParamsValidator,
   workspaceSlugParamsValidator

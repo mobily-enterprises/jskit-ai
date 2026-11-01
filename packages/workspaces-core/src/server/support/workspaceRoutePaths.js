@@ -8,11 +8,12 @@ const WORKSPACE_ROUTE_BASE_PATH = resolveScopedApiBasePath({
 });
 
 /**
- * A workspace route's path: relativePath under /api/w/:workspaceSlug.
+ * A workspace route's path: relativePath under /api/w/:workspaceSlug; the
+ * base itself when relativePath is left out or empty.
  * @param {string} [relativePath]
  */
-function resolveWorkspaceRoutePath(relativePath = "/") {
-  const normalizedRelativePath = normalizePathname(relativePath || "/");
+function resolveWorkspaceRoutePath(relativePath) {
+  const normalizedRelativePath = normalizePathname(relativePath);
   if (normalizedRelativePath === "/") {
     return WORKSPACE_ROUTE_BASE_PATH;
   }

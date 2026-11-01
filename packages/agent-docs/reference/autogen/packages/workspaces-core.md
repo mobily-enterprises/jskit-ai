@@ -79,11 +79,6 @@ Local functions
 Exports
 - `resolveWorkspaceRecordId(record, context = {})`
 
-### `src/server/common/support/workspaceRoutePaths.js`
-Exports
-- `WORKSPACE_ROUTE_BASE_PATH`
-- `resolveWorkspaceRoutePath(relativePath = "/")`
-
 ### `src/server/common/validators/routeParamsValidator.js`
 Exports
 - `routeParamsValidator`
@@ -126,6 +121,11 @@ Local functions
 Exports
 - `readWorkspaceSlugFromRouteParams(params = {})`
 - `buildWorkspaceInputFromRouteParams(params = {})`
+
+### `src/server/support/workspaceRoutePaths.js`
+Exports
+- `WORKSPACE_ROUTE_BASE_PATH`
+- `resolveWorkspaceRoutePath(relativePath)`
 
 ### `src/server/types.js`
 Exports
@@ -181,11 +181,11 @@ Exports
 
 ### `src/server/workspaceMembers/workspaceInviteUrls.js`
 Exports
-- `buildInvitePath(token, pathTemplate = "/invite/:token")`
-- `createWorkspaceInviteUrlBuilder({ appConfig = {}, env = {} } = {})`
+- `createWorkspaceInviteUrlBuilder({ appConfig, env })`
 Local functions
-- `normalizeInvitePathTemplate(value = "")`
-- `normalizeBaseUrl(value = "")`
+- `normalizeInvitePathTemplate(value)`
+- `buildInvitePath(token, template)`
+- `normalizeBaseUrl(value)`
 
 ### `src/server/workspaceMembers/workspaceMembersActions.js`
 Exports

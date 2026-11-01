@@ -1,10 +1,7 @@
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
-import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
 import { pickOwnProperties } from "@jskit-ai/kernel/shared/support";
 import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
-import {
-  WORKSPACE_SETTINGS_FIELD_KEYS
-} from "../../shared/resources/workspaceSettingsResource.js";
+import { WORKSPACE_SETTINGS_FIELD_KEYS } from "../../shared/resources/workspaceSettingsResource.js";
 import { cloneWorkspaceRoleCatalog } from "../../shared/roles.js";
 
 /**
@@ -14,8 +11,6 @@ import { cloneWorkspaceRoleCatalog } from "../../shared/roles.js";
  * @param {import("../types.js").WorkspaceRoleCatalog} dependencies.roleCatalog
  */
 function createService({ workspaceSettingsRepository, workspaceInvitationsEnabled, roleCatalog }) {
-  const invitesAvailable = workspaceInvitationsEnabled;
-
   async function readWorkspaceSettings(workspace, options = {}) {
     const settingsRecord = await workspaceSettingsRepository.ensureForWorkspaceId(workspace.id, {
       ...options,
@@ -25,10 +20,10 @@ function createService({ workspaceSettingsRepository, workspaceInvitationsEnable
     for (const fieldKey of WORKSPACE_SETTINGS_FIELD_KEYS) {
       settings[fieldKey] = settingsRecord[fieldKey];
     }
-    const invitesEnabled = invitesAvailable && settings.invitesEnabled !== false;
+    const invitesEnabled = workspaceInvitationsEnabled && settings.invitesEnabled !== false;
     settings.invitesEnabled = invitesEnabled;
-    settings.invitesAvailable = invitesAvailable;
-    settings.invitesEffective = invitesAvailable && invitesEnabled;
+    settings.invitesAvailable = workspaceInvitationsEnabled;
+    settings.invitesEffective = invitesEnabled;
 
     return {
       workspace: {
@@ -45,9 +40,9 @@ function createService({ workspaceSettingsRepository, workspaceInvitationsEnable
     return returnJsonApiData(await readWorkspaceSettings(workspace, options));
   }
 
-  async function updateWorkspaceSettings(workspace, payload, options = {}) {
-    const source = normalizeObjectInput(payload);
-    const settingsPatch = pickOwnProperties(source, WORKSPACE_SETTINGS_FIELD_KEYS);
+  /** The action's validated input; only the settings fields go to the repository. */
+  async function updateWorkspaceSettings(workspace, input, options = {}) {
+    const settingsPatch = pickOwnProperties(input, WORKSPACE_SETTINGS_FIELD_KEYS);
 
     if (Object.keys(settingsPatch).length > 0) {
       await workspaceSettingsRepository.updateSettingsByWorkspaceId(workspace.id, settingsPatch, {

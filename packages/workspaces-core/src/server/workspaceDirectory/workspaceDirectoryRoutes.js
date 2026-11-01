@@ -8,7 +8,7 @@ import {
   WORKSPACES_TRANSPORT
 } from "../../shared/jsonApiTransports.js";
 import { resolveWorkspaceRecordId } from "../common/support/workspaceRecordId.js";
-import { resolveWorkspaceRoutePath } from "../common/support/workspaceRoutePaths.js";
+import { resolveWorkspaceRoutePath } from "../support/workspaceRoutePaths.js";
 import { workspaceSlugParamsValidator } from "../common/validators/routeParamsValidator.js";
 import { resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig } from "../support/workspaceActionSurfaces.js";
 

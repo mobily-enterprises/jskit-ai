@@ -2,7 +2,7 @@ import { createJsonApiResourceRouteContract } from "@jskit-ai/http-runtime/share
 import { WORKSPACE_SETTINGS_TRANSPORT } from "../../shared/jsonApiTransports.js";
 import { workspaceSettingsResource } from "../../shared/resources/workspaceSettingsResource.js";
 import { resolveWorkspaceRecordId } from "../common/support/workspaceRecordId.js";
-import { resolveWorkspaceRoutePath } from "../common/support/workspaceRoutePaths.js";
+import { resolveWorkspaceRoutePath } from "../support/workspaceRoutePaths.js";
 import { workspaceSlugParamsValidator } from "../common/validators/routeParamsValidator.js";
 import { resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig } from "../support/workspaceActionSurfaces.js";
 

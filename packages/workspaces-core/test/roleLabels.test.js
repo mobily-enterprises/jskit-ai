@@ -75,7 +75,7 @@ test("Members and Invitations response validation preserves labels and saved rol
       async upsertMembership(_workspaceId, _userId, patch) { savedRole = patch.roleSid; }
     },
     workspaceInvitesRepository: { async listPendingByWorkspaceIdWithWorkspace() { return []; } },
-    inviteUrlBuilder: createWorkspaceInviteUrlBuilder(),
+    inviteUrlBuilder: createWorkspaceInviteUrlBuilder({ appConfig: {}, env: {} }),
     workspaceInviteMailer: unconfiguredWorkspaceInviteMailer,
     workspaceInviteEmailTemplate: renderDefaultWorkspaceInviteEmail
   });

@@ -104,7 +104,7 @@ function createFixture() {
     },
     inviteExpiresInMs: 7 * 24 * 60 * 60 * 1000,
     roleCatalog: createRoleCatalog(),
-    inviteUrlBuilder: createWorkspaceInviteUrlBuilder(),
+    inviteUrlBuilder: createWorkspaceInviteUrlBuilder({ appConfig: {}, env: {} }),
     workspaceInviteMailer: unconfiguredWorkspaceInviteMailer,
     workspaceInviteEmailTemplate: renderDefaultWorkspaceInviteEmail
   });
@@ -144,7 +144,7 @@ test("workspaceMembersService.createInvite uses configured inviteExpiresInMs", a
     },
     inviteExpiresInMs: 30 * 60 * 1000,
     roleCatalog: createRoleCatalog(),
-    inviteUrlBuilder: createWorkspaceInviteUrlBuilder(),
+    inviteUrlBuilder: createWorkspaceInviteUrlBuilder({ appConfig: {}, env: {} }),
     workspaceInviteMailer: unconfiguredWorkspaceInviteMailer,
     workspaceInviteEmailTemplate: renderDefaultWorkspaceInviteEmail
   });
@@ -215,7 +215,7 @@ test("workspaceMembersService.createInvite without a provided mailer neither loo
     },
     inviteExpiresInMs: 30 * 60 * 1000,
     roleCatalog: createRoleCatalog(),
-    inviteUrlBuilder: createWorkspaceInviteUrlBuilder(),
+    inviteUrlBuilder: createWorkspaceInviteUrlBuilder({ appConfig: {}, env: {} }),
     workspaceInviteMailer: unconfiguredWorkspaceInviteMailer,
     workspaceInviteEmailTemplate() {
       throw new Error("No email is rendered without a mailer.");
@@ -368,7 +368,7 @@ test("workspaceMembersService.revokeInvite returns the revoked invite id", async
     },
     inviteExpiresInMs: 30 * 60 * 1000,
     roleCatalog: createRoleCatalog(),
-    inviteUrlBuilder: createWorkspaceInviteUrlBuilder(),
+    inviteUrlBuilder: createWorkspaceInviteUrlBuilder({ appConfig: {}, env: {} }),
     workspaceInviteMailer: unconfiguredWorkspaceInviteMailer,
     workspaceInviteEmailTemplate: renderDefaultWorkspaceInviteEmail
   });
@@ -414,7 +414,7 @@ test("workspaceMembersService rejects invite operations when invitations are dis
     inviteExpiresInMs: 30 * 60 * 1000,
     roleCatalog: createRoleCatalog(),
     workspaceInvitationsEnabled: false,
-    inviteUrlBuilder: createWorkspaceInviteUrlBuilder(),
+    inviteUrlBuilder: createWorkspaceInviteUrlBuilder({ appConfig: {}, env: {} }),
     workspaceInviteMailer: unconfiguredWorkspaceInviteMailer,
     workspaceInviteEmailTemplate: renderDefaultWorkspaceInviteEmail
   });
@@ -563,7 +563,7 @@ test("workspaceMembersService.removeMember marks membership revoked and returns 
     },
     inviteExpiresInMs: 7 * 24 * 60 * 60 * 1000,
     roleCatalog: createRoleCatalog(),
-    inviteUrlBuilder: createWorkspaceInviteUrlBuilder(),
+    inviteUrlBuilder: createWorkspaceInviteUrlBuilder({ appConfig: {}, env: {} }),
     workspaceInviteMailer: unconfiguredWorkspaceInviteMailer,
     workspaceInviteEmailTemplate: renderDefaultWorkspaceInviteEmail
   });
@@ -621,7 +621,7 @@ test("workspaceMembersService.removeMember rejects removing the owner", async ()
     },
     inviteExpiresInMs: 7 * 24 * 60 * 60 * 1000,
     roleCatalog: createRoleCatalog(),
-    inviteUrlBuilder: createWorkspaceInviteUrlBuilder(),
+    inviteUrlBuilder: createWorkspaceInviteUrlBuilder({ appConfig: {}, env: {} }),
     workspaceInviteMailer: unconfiguredWorkspaceInviteMailer,
     workspaceInviteEmailTemplate: renderDefaultWorkspaceInviteEmail
   });
