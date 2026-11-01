@@ -82,7 +82,8 @@ test("saved history and current instructions use the existing authorized model c
   await f.conversation.configure({ systemPrompt: "Use the new instructions." });
   await f.conversation.send({ messageId: "two", text: "Continue" });
   await f.conversation.wait();
-  assert.equal(f.requests[1].messages[0].content, "Use the new instructions.");
+  assert.match(f.requests[1].messages[0].content, /^Use the new instructions\.\n\nCurrent state, from the system\./u,
+    "The current instructions lead the system prompt, before the engine's state note");
   assert.deepEqual(f.requests[1].messages.slice(1).map(message => message.content), ["Hello", "Hello there.", "Continue"]);
   f.state.modelAllowed = false;
   await assert.rejects(f.conversation.send({ messageId: "three", text: "No longer authorized" }));
@@ -193,8 +194,41 @@ test("application data must fit the message limit before reserving or dispatchin
   assert.equal((await f.conversation.read()).pendingRequest, null);
 });
 
-test("provider errors are status information, never assistant replies or automatic retries", async t => {
-  const f = await fixture(t, { fetch: () => new Response('{"error":{"message":"Capacity unavailable"}}', { status: 429 }) });
+test("API compaction stores its summary with the last turn it covers, and later turns read only the turns after it", async t => {
+  const storage = createMemoryConversationStorage();
+  const transcript = createConversationTranscript({ storage });
+  for (let index = 0; index < 6; index++) {
+    await transcript.writeConversationUserMessage("one", { messageId: `earlier-${index}`, text: `Question ${index} ${"x".repeat(4000)}` });
+    await transcript.writeConversationAssistantMessage("one", { text: `Answer ${index}` });
+  }
+  const f = await fixture(t, { storage, limits: { contextTokens: 10_000 }, fetch: (_url, init) => JSON.parse(init.body).stream ? undefined
+    : Response.json({ choices: [{ index: 0, message: { role: "assistant", content: "Six long questions so far." }, finish_reason: "stop" }] }) });
+  const phases = [];
+  await f.conversation.subscribe(event => { if (event.type === "phase") phases.push(event.phase); });
+  await f.conversation.send(input);
+  const first = await f.conversation.wait();
+  assert.equal(first.conversationLog.at(-1).assistant.text, "Hello there.");
+  assert.ok(phases.includes("compacting"));
+  const summary = await storage.read("one", transaction => transaction.readSummary());
+  assert.equal(summary.text, "Six long questions so far.");
+  const turnIds = first.conversationLog.map(turn => turn.turnId);
+  const after = turnIds.slice(turnIds.indexOf(summary.throughTurnId) + 1);
+  assert.ok(after.length >= 2 && after.length < turnIds.length);
+  const seen = (await storage.read("one", transaction => transaction.readMetadata())).runtime.seen;
+  await f.conversation.send({ messageId: "two", text: "Continue" });
+  const second = await f.conversation.wait();
+  const last = f.requests.at(-1);
+  assert.match(last.messages[0].content, /Summary of the earlier part of this conversation[^]*Six long questions so far\./u);
+  assert.deepEqual(last.messages.filter(message => message.role === "user").map(message => message.content),
+    [...second.conversationLog.filter(turn => after.includes(turn.turnId)).map(turn => turn.user.text), "Continue"]);
+  assert.deepEqual(await storage.read("one", transaction => transaction.readSummary()), summary, "A short remainder is not compacted again");
+  const later = (await storage.read("one", transaction => transaction.readMetadata())).runtime.seen;
+  assert.ok(Object.keys(seen).every(id => Object.hasOwn(later, id)), "Versions saved before the summary still stand");
+});
+
+test("provider errors before anything was done are status information after the engine's retries, never assistant replies", async t => {
+  const f = await fixture(t, { fetch: () => new Response('{"error":{"message":"Capacity unavailable"}}',
+    { status: 429, headers: { "content-type": "application/json", "retry-after-ms": "0" } }) });
   const receipt = await f.conversation.send(input);
   assert.equal(receipt.status, "accepted");
   const result = await f.conversation.wait();
@@ -202,7 +236,7 @@ test("provider errors are status information, never assistant replies or automat
   assert.equal(result.conversationLog[0].metadata.runtime.status, "failed");
   assert.match(result.error, /Capacity unavailable/);
   assert.equal((await f.conversation.send(input)).duplicate, true);
-  assert.equal(f.requests.length, 1);
+  assert.equal(f.requests.length, 7, "The engine tries a failed call again six times, then the turn fails");
 });
 
 test("cancellation aborts inference and leaves another conversation usable", async t => {

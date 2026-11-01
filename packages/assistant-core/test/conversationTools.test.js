@@ -5,6 +5,7 @@ import { createActionCatalogue } from "@jskit-ai/kernel/server/actions";
 import { createConversationRuntime, createMemoryConversationStorage } from "../src/server/conversation/index.js";
 import { createServiceToolCatalog } from "../src/server/lib/serviceToolCatalog.js";
 import { createConversationTools } from "../src/server/conversation/tools.js";
+import { checkTexts } from "@jskit-ai/agent/server";
 
 const configuration = { systemPrompt: "Use the available application operations when needed.", integrationId: "assistant" };
 const context = { actor: { id: "owner" }, surface: "app", applicationId: "test", subjectId: "owner" };
@@ -73,6 +74,8 @@ test("API tools use authorized action contracts, save results and resume the sam
 
 // Carried from assistant-runtime's original split-tag lifecycle case. Only the
 // action name/arguments and confirmed API framing adapt to the common fixture.
+// A call written out as text never runs: the reply carries on once, told so, and
+// the model then calls the action itself.
 test("split internal tags and tool arguments never become common answer deltas", async t => {
   const f = await fixture(t, { response: (_body, round, name) => round === 1 ? new Response([
     "<th", "ink>private reasoning", "</thi", "nk>", "<｜DSML｜function_",
@@ -80,31 +83,35 @@ test("split internal tags and tool arguments never become common answer deltas",
     "</｜DSML｜invoke></｜DSML｜function_calls>"
   ].map(content => frame({ content })).join("") + frame({}, "stop"), {
     headers: { "content-type": "text/event-stream" }
-  }) : response({ text: "The search is complete." }) });
+  }) : round === 2 ? response({ name }) : response({ text: "The search is complete." }) });
   await f.conversation.send(message);
   const result = await f.conversation.wait();
   assert.deepEqual(f.observed.executions, [{ left: 2, right: 3 }]);
+  assert.equal(f.observed.requests[1].messages.at(-1).content, checkTexts("the app").markup);
   assert.deepEqual(f.observed.events.filter(event => event.type === "message" && event.status !== "complete")
     .map(event => event.text), ["The search is complete."]);
   assert.equal(result.conversationLog[0].assistant.text, "The search is complete.");
 });
 
-test("text-encoded calls in separate responses retain separate durable receipts", async t => {
+test("text-encoded calls never run or reach the person, even when written again after the check", async t => {
   const f = await fixture(t, { response: (_body, round, name) => round < 3 ? new Response(frame({ content:
     `<function_calls><invoke name="${name}">${round === 1 ? call.arguments : '{"left":4,"right":5}'}</invoke></function_calls>`
   }) + frame({}, "stop"), { headers: { "content-type": "text/event-stream" } }) : response() });
   await f.conversation.send(message);
   const result = await f.conversation.wait();
-  assert.deepEqual(f.observed.executions, [{ left: 2, right: 3 }, { left: 4, right: 5 }]);
-  assert.equal(result.error, "");
-  assert.equal(new Set(result.conversationLog[0].metadata.applicationTools.map(call => call.id)).size, 2);
+  assert.deepEqual(f.observed.executions, []);
+  assert.equal(f.observed.requests.length, 2, "The check sends the reply back once");
+  assert.equal(f.observed.requests[1].messages.at(-1).content, checkTexts("the app").markup);
+  assert.deepEqual(result.conversationLog[0].metadata.applicationTools, []);
+  assert.equal(f.observed.events.some(event => event.type === "message" && /invoke|function_calls/u.test(event.text)), false);
 });
 
 test("text-encoded calls still require confirmed completion and raw-output limits", async t => {
   for (const oversized of [false, true]) {
     const f = await fixture(t, { limits: oversized ? { maxOutputCharacters: 100 } : {},
       response: (_body, _round, name) => new Response(frame({ content:
-        (oversized ? `<think>${"private".repeat(50)}</think>` : "") +
+        // Inline <think> reasoning is reasoning, bounded by tokens; the limit counts reply text.
+        (oversized ? "Working on it. ".repeat(10) : "") +
         `<function_calls><invoke name="${name}">${call.arguments}</invoke></function_calls>`
       }) + (oversized ? frame({}, "stop") : ""), { headers: { "content-type": "text/event-stream" } }) });
     await f.conversation.send(message);
@@ -186,18 +193,13 @@ test("the runtime applies application tool policy to schemas and an unsolicited 
   assert.equal(result.conversationLog[0].metadata.runtime.status, "complete");
   assert.equal(result.error, "");
   assert.equal(result.conversationLog[0].assistant.text, "The total is five.");
-  const refusal = { ok: false, error: { code: "assistant_tool_unknown", message: "Unknown tool." } };
-  const recorded = result.conversationLog[0].metadata.applicationTools[0];
-  assert.equal(result.conversationLog[0].metadata.applicationTools.length, 1);
-  assert.equal(recorded.id, call.id);
-  assert.equal(recorded.name, f.name);
-  assert.equal(recorded.arguments, call.arguments);
-  assert.equal(recorded.status, "complete");
-  assert.deepEqual(recorded.result, refusal);
+  // The engine answers a call to a tool it was not given as a tool error; no
+  // application receipt is made, since nothing could run.
+  assert.deepEqual(result.conversationLog[0].metadata.applicationTools, []);
   const feedback = f.observed.requests[1].messages.filter(message => message.role === "tool");
   assert.equal(feedback.length, 1);
   assert.equal(feedback[0].tool_call_id, call.id);
-  assert.deepEqual(JSON.parse(feedback[0].content), { error: refusal.error });
+  assert.match(feedback[0].content, new RegExp(`unavailable tool '${f.name}'`, "u"));
 });
 
 test("incomplete model tool streams cannot execute application actions", async t => {

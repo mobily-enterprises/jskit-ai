@@ -1477,7 +1477,7 @@ history, sends, stops, deletion and attachment reads. The memory reference
 adapter requires a nonempty string; other adapters may use structured scopes.
 
 Each callback receives these asynchronous operations. The first six serve the
-transcript service. All nine are mandatory for `createConversationRuntime()`:
+transcript service. All the others are mandatory for `createConversationRuntime()`:
 
 | Transaction operation | Contract |
 | --- | --- |
@@ -1491,6 +1491,9 @@ transcript service. All nine are mandatory for `createConversationRuntime()`:
 | `readMetadata()` | Detached conversation metadata object; return `{}` for an empty scope. |
 | `writeMetadata(value)` | Replace conversation metadata within this transaction, committing atomically with its turn/message changes. |
 | `updateTurnMetadata(turnId, patch)` | Shallow-merge a detached patch into an existing turn's metadata; preserve unrelated keys and reject absent turns. |
+| `readTurnsAfter(turnId)` | Detached snapshots of the turns after that turn, oldest first, as `readTurn` returns them; `""` reads every turn. Reject an absent turn. |
+| `readSummary()` | The API compaction summary `{ text, throughTurnId }` (the last turn it covers), detached, or null. |
+| `writeSummary({ text, throughTurnId })` | Replace that summary within this transaction; reject empty text or an absent turn. Messages are never deleted. |
 
 `write` serializes mutations for the same scope, including duplicate checks and
 ID allocation. A successful return means the write is durable for that adapter.
@@ -1502,6 +1505,9 @@ and metadata unchanged; serializing independently durable file writes is insuffi
 Reads must not expose mutable backing objects.
 Use storage-level locks or transactions when several processes share storage;
 an in-process promise queue alone does not provide that guarantee.
+
+`readConversationLog(scope, { afterTurnId })` reads only the turns after that turn,
+through the transaction's `readTurnsAfter`.
 
 The service exposes `readConversationLog`, `readConversationLogPage`,
 `conversationMessageIdExists`, `writeConversationUserMessage`,
@@ -1534,7 +1540,8 @@ await verifyConversationStorageContract(storage, { runtime: true });
 Those checks cover scoped isolation, concurrent duplicate writes, stable
 ordering, pagination, final replacement, attachments and detached reads. An
 adapter selected with `runtime: true` also checks all metadata operations, scope
-isolation, patch preservation and combined transcript/metadata rollback. Use a
+isolation, patch preservation, combined transcript/metadata rollback, reading the
+turns after a turn and the saved, scoped and rolled-back compaction summary. Use a
 fresh isolated fixture for each invocation; omit the option only for transcript-only
 adapters. An app must additionally test its authentication, crash/reopen behavior,
 multi-process writes, failed commits and attachment cleanup.
@@ -2388,7 +2395,8 @@ the same transaction. The file adapter remains one-writer storage.
 
 `createConversationStorage({ readRecord, writeRecord, deleteRecord, recordVersion })` is exported
 for custom single-writer record stores. Each record contains `{ turns: Map,
-metadata: object }`; a missing record uses an empty map and metadata object. Its
+metadata: object }` and, once an API conversation is compacted, `summary: { text,
+throughTurnId }`; a missing record uses an empty map and metadata object. Its
 copy-on-write transaction methods match the supplied memory/file adapters. Saved
 records are shared and never changed in place; a transaction copies only the turn
 map and the turns it changes. The optional `recordVersion(id)` returns a cheap
@@ -2403,26 +2411,68 @@ serializes writes through one instance, not across processes. A database-backed
 application with concurrent writers must implement `read`/`write` using its own
 database transaction or hold that transaction across record loading and commit.
 
-The current API driver supports application action tools and authorized attachments.
-It reports steering and native goals as unsupported. Limits can bound input, output and history characters, output
-tokens and request duration. Oversized history fails explicitly; it is not silently
-truncated or presented as native compaction. These capabilities will be extended
-as their shared integrations are migrated.
+The API driver runs each reply on the agent engine, `@jskit-ai/agent`. It supports
+application action tools and authorized attachments, and reports steering and native
+goals as unsupported. Limits can bound input and output characters, output tokens,
+steps and request duration. `limits.maxOutputCharacters` bounds each step's text
+and the final reply; reasoning is bounded by output tokens instead.
 
-API replies use the shared streaming completion parser. Internal reasoning and
-provider tool markup stay out of visible replies, including tags split across
-chunks. Structured and text-encoded application calls use the same authorized
-execution and saved receipts. A completed response is required before executing
-a call; interrupted streams do not imply permission to execute or retry it.
-Output limits count raw provider text, including hidden blocks. Code indentation
-and blank lines remain intact in ordinary API answers.
+A long conversation is compacted rather than refused. `limits.contextTokens`
+(default 128,000) is the model's window, and the engine's sizes scale to it. Past
+the engine's compaction point, everything but the latest turns is folded into a
+summary written for the model, and storage keeps that summary with the last turn
+it covers (`writeSummary`). Later turns read only the turns after it
+(`readTurnsAfter`) and send the summary in the system prompt; messages are never
+deleted. Should compacting fail, the engine's last-resort cut drops the oldest
+messages and tells the model so. A bound conversation's host owns its transcript,
+so it is not compacted, and history an application supplies as `apiHistory` is
+used as given. History turns within the newest 20 messages send their files again;
+older turns name their files without their content.
+
+Each reply streams one message per step: `reply-1`, `reply-2` and so on. A step
+that also calls actions ends as commentary, and the reply's last step becomes the
+answer. The answer leaves out words already shown as commentary, unless they are
+all the reply says. Reasoning a model writes inline in `<think>` tags is kept as
+reasoning, including tags split across chunks. Provider tool markup and DeepSeek's
+own tokens never reach visible text, and a call written out as text never runs: the
+markup check below tells the model so. Every structured action call runs through
+the same authorized execution and saved receipts; a call to an action the model was
+not given is answered as a tool error, and nothing runs or is saved for it. A
+failed action reaches the model as its error; an unknown outcome or a broken
+receipt ends the reply at once with its error. A completed step is required before
+any of its calls runs.
+Results of earlier turns past 6,000 characters are cut, and the third, fifth and
+eighth identical call in a row tells the model it is not making progress.
+
+A finished reply gets the engine's checks. Each sends it back once to carry on from
+its own steps: raw markup (nothing in it ran), a reply that stops at announcing
+its next step, and, when neither ran, a claimed action that the reply's own
+actions do not support (one short model call compares them). The completion
+metadata names the check as `check`.
+
+A reply runs at most `limits.maxSteps` steps (default 40, the engine's limit for
+work with app tools). Out of steps, or past the engine's 15-minute reply deadline,
+it ends with the model's own short account of what it did and what is left, and
+the completion metadata says why as `unfinished`. Failed model calls are tried
+again six times with growing waits (or the provider's retry-after), about two
+minutes in all. When nothing has been done yet, the call's error fails the turn as
+status information; after some steps, the engine's account ends the reply instead.
+
+Admission precedes every model call. The first resolves the authorized connection,
+checks access and admits the request; every later call (steps, checks, summaries,
+accounts) authorizes the same connection again and stops the reply when access is
+gone. A configured `effort` reaches every provider as the AI SDK's standard
+reasoning setting; without one, the engine's default applies (adaptive thinking at
+high effort for Anthropic-format models). The system prompt is the configured
+instructions, then the summary, then the engine's state note with the current UTC
+time.
 
 An application can set server-owned `limits.maxApiToolProgressCharacters` to a
 positive safe integer to bound the decoded text accompanying confirmed API tool
 calls. The API driver rejects oversized progress before executing any call from
 that response; it does not clip the text or ask the model to repeat the operation.
 Omit the limit to retain the original API policy. It does not change final-answer
-limits or the original sixteen tool rounds and three recovery passes. This option
+limits or the step limit. This option
 applies only to the direct API carrier; native tool progress needs association
 with its exact admitted native use at that engine's execution boundary.
 
@@ -2438,14 +2488,10 @@ OpenCode delivery recovery applies the bound to the joined decoded native reply
 while retaining the proven user admission and avoiding another inference. An advanced
 host supplying its own native runtime retains that runtime's writer policy.
 
-The API driver uses the existing assistant tool-loop policy: up to sixteen tool
-rounds, then three recovery passes with tools disabled. Progress-only narration
-is retained as commentary rather than accepted as the final answer. An available
-clock action marked `current-time` runs before inference for time questions only
-when it requires no parameters, after connection authorization and turn admission.
-Uncertain application effects stop the turn; recovery never silently retries them.
-The legacy database service delegates to the same loop through its transactional
-adapter over the existing conversation, message and request-claim rows.
+The state note's time replaces the former `current-time` clock preflight; no
+action runs before inference. Uncertain application effects stop the turn; nothing
+silently retries them. The legacy database service delegates to the same driver through its
+transactional adapter over the existing conversation, message and request-claim rows.
 
 ### Authorized attachments
 
