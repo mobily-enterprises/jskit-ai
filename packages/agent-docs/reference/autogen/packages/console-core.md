@@ -32,12 +32,6 @@ Exports
 Exports
 - `createConsoleRuntime({ database })`
 
-### `src/server/consoleSettings/bootConsoleSettingsRoutes.js`
-Exports
-- `registerConsoleSettingsRoutes(router)`
-Local functions
-- `resolveConsoleSettingsRecordId()`
-
 ### `src/server/consoleSettings/consoleService.js`
 Exports
 - `createService({ consoleSettingsRepository })`
@@ -48,10 +42,16 @@ Exports
 
 ### `src/server/consoleSettings/consoleSettingsRepository.js`
 Exports
-- `createRepository(knex)`
+- `createRepository({ knex })`
 Local functions
 - `nowDb()`
 - `mapSingletonRow(row)`
+
+### `src/server/consoleSettings/consoleSettingsRoutes.js`
+Exports
+- `registerConsoleSettingsRoutes(router)`
+Local functions
+- `resolveConsoleSettingsRecordId()`
 
 ### `src/server/consoleSettings/consoleSettingsService.js`
 Exports
@@ -63,6 +63,8 @@ Local functions
 ### `src/server/types.js`
 Exports
 - `type ConsoleCore`
+- `type ConsoleService`
+- `type ConsoleSettingsRepository`
 
 ### `src/shared/operationMessages.js`
 Exports

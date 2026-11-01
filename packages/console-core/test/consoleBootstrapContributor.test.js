@@ -11,7 +11,6 @@ test("console bootstrap contributor exposes consoleowner when the authenticated 
     }
   });
 
-  assert.equal(contributor.order, 300);
   const contribution = await contributor.contribute({
     payload: {
       session: {

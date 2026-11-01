@@ -24,8 +24,10 @@ function normalizeRequestPathname(request = null) {
   return "";
 }
 
-// Makes the first user who reads their session the console's owner.
-/** @param {{ consoleService: ReturnType<typeof import("./consoleSettings/consoleService.js").createService> }} dependencies */
+/**
+ * Makes the first user who reads their session the console's owner.
+ * @param {{ consoleService: import("./types.js").ConsoleService }} dependencies
+ */
 function createConsoleAuthServiceDecorator({ consoleService }) {
   let consoleOwnerInitialized = false;
 

@@ -1,7 +1,7 @@
 import { defineFeature } from "@jskit-ai/kernel/server/features";
 import { createConsoleAuthServiceDecorator } from "./consoleAuthServiceDecorator.js";
 import { createConsoleBootstrapContributor } from "./consoleBootstrapContributor.js";
-import { registerConsoleSettingsRoutes } from "./consoleSettings/bootConsoleSettingsRoutes.js";
+import { registerConsoleSettingsRoutes } from "./consoleSettings/consoleSettingsRoutes.js";
 import { createConsoleSettingsActions } from "./consoleSettings/consoleSettingsActions.js";
 import { createConsoleRuntime } from "./consoleRuntime.js";
 
@@ -15,7 +15,7 @@ const ConsoleFeature = defineFeature({
     http: "runtime.http"
   },
   provides: {
-    console: "console.core"
+    consoleCore: "console.core"
   },
   /**
    * @param {object} capabilities
@@ -25,25 +25,25 @@ const ConsoleFeature = defineFeature({
    * @param {import("@jskit-ai/kernel/server/types").RuntimeHttp} capabilities.http
    */
   setup({ authExtensions, bootstrap, database, http }) {
-    const console = createConsoleRuntime({ database });
+    const consoleCore = createConsoleRuntime({ database });
 
     authExtensions.registerServiceDecorator(
-      createConsoleAuthServiceDecorator({ consoleService: console.services.access })
+      createConsoleAuthServiceDecorator({ consoleService: consoleCore.services.access })
     );
     bootstrap.register({
       id: "console.bootstrap",
       order: 300,
       contribute: createConsoleBootstrapContributor({
-        consoleService: console.services.access
+        consoleService: consoleCore.services.access
       }).contribute
     });
     registerConsoleSettingsRoutes(http.router);
 
-    return { console };
+    return { consoleCore };
   },
-  actions({ console }) {
+  actions({ consoleCore }) {
     return createConsoleSettingsActions({
-      consoleSettingsService: console.services.settings
+      consoleSettingsService: consoleCore.services.settings
     });
   }
 });

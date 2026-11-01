@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { registerConsoleSettingsRoutes } from "../src/server/consoleSettings/bootConsoleSettingsRoutes.js";
+import { registerConsoleSettingsRoutes } from "../src/server/consoleSettings/consoleSettingsRoutes.js";
 
 function createReplyDouble() {
   return {

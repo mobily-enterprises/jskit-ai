@@ -17,7 +17,7 @@ function createKnexStub() {
 test("console-core repositories expose withTransaction", async () => {
   const knex = createKnexStub();
   const repositories = [
-    createConsoleSettingsRepository(knex)
+    createConsoleSettingsRepository({ knex })
   ];
 
   for (const repository of repositories) {

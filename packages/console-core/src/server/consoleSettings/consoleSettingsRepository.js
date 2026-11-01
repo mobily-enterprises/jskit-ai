@@ -25,11 +25,8 @@ function mapSingletonRow(row) {
   };
 }
 
-/** @param {import("knex").Knex} knex */
-function createRepository(knex) {
-  if (typeof knex !== "function") {
-    throw new TypeError("consoleSettingsRepository requires knex.");
-  }
+/** @param {{ knex: import("@jskit-ai/database-runtime/server/types").RuntimeKnex }} dependencies */
+function createRepository({ knex }) {
   const withTransaction = createWithTransaction(knex);
 
   async function readSingleton(client) {

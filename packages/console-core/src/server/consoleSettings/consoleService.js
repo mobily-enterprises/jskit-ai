@@ -1,7 +1,7 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 
-/** @param {{ consoleSettingsRepository: ReturnType<typeof import("./consoleSettingsRepository.js").createRepository> }} dependencies */
+/** @param {{ consoleSettingsRepository: import("../types.js").ConsoleSettingsRepository }} dependencies */
 function createService({ consoleSettingsRepository }) {
   async function ensureInitialConsoleMember(userId, options = {}) {
     const normalizedUserId = normalizeRecordId(userId, { fallback: null });

@@ -1,14 +1,11 @@
 import { normalizeObject, normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 
-/** @param {{ consoleService: ReturnType<typeof import("./consoleSettings/consoleService.js").createService> }} dependencies */
+/** @param {{ consoleService: import("./types.js").ConsoleService }} dependencies */
 function createConsoleBootstrapContributor({ consoleService }) {
   return Object.freeze({
-    contributorId: "console.bootstrap",
-    order: 300,
-    async contribute({ payload = {} } = {}) {
-      const normalizedPayload = normalizeObject(payload);
-      const session = normalizeObject(normalizedPayload.session);
-      const surfaceAccess = normalizeObject(normalizedPayload.surfaceAccess);
+    async contribute({ payload }) {
+      const session = normalizeObject(payload.session);
+      const surfaceAccess = normalizeObject(payload.surfaceAccess);
       const authenticatedUserId =
         session.authenticated === true ? normalizeRecordId(session.userId, { fallback: null }) : null;
 

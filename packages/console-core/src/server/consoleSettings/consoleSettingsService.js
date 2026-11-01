@@ -10,19 +10,19 @@ function buildSettingsResponse(record = {}) {
 
 /**
  * @param {object} dependencies
- * @param {ReturnType<typeof import("./consoleSettingsRepository.js").createRepository>} dependencies.consoleSettingsRepository
- * @param {ReturnType<typeof import("./consoleService.js").createService>} dependencies.consoleService
+ * @param {import("../types.js").ConsoleSettingsRepository} dependencies.consoleSettingsRepository
+ * @param {import("../types.js").ConsoleService} dependencies.consoleService
  */
 function createService({ consoleSettingsRepository, consoleService }) {
-  async function getSettings(options = {}) {
-    await consoleService.requireConsoleOwner(options?.context, options);
+  async function getSettings({ context }) {
+    await consoleService.requireConsoleOwner(context);
     const settings = await consoleSettingsRepository.getSingleton();
 
     return returnJsonApiData(buildSettingsResponse(settings));
   }
 
-  async function updateSettings(input, options = {}) {
-    await consoleService.requireConsoleOwner(options?.context, options);
+  async function updateSettings(input, { context }) {
+    await consoleService.requireConsoleOwner(context);
     const settings = await consoleSettingsRepository.updateSingleton(input);
 
     return returnJsonApiData(buildSettingsResponse(settings));
