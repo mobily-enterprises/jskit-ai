@@ -226,91 +226,91 @@ Local functions
 
 ### `src/server/resourceRuntime/compiledRuntime.js`
 Exports
-- `createCompiledCrudRepositoryRuntime(resource = {}, repositoryOptions = {})`
+- `buildCompiledCrudRepositoryRuntime(resource, repositoryOptions)`
 Local functions
-- `requireCrudRepositoryOptions(value = {}, { context = "crudRepository" } = {})`
-- `resolveRepositoryDefaults(resource = {}, repositoryMapping = {}, { context = "crudRepository" } = {})`
-- `normalizeCrudVirtualFieldHandlers(virtualFields = {}, repositoryMapping = {}, { context = "crudRepository" } = {})`
-- `resolveRecordOutputValidator(resource, { context = "crudRepository" } = {})`
-- `resolveOperationBodyValidator(resource, operationKey = "", { context = "crudRepository" } = {})`
-- `normalizeCrudRepositoryOperationStage(stage = null, stageLabel = "", { context = "crudRepository" } = {})`
-- `normalizeCrudRepositoryOperationConfig(config = {}, operationKey = "", { context = "crudRepository" } = {})`
-- `normalizeCrudRepositoryOperations(sourceOperations = {}, { context = "crudRepository" } = {})`
+- `requireCrudRepositoryOptions(value)`
+- `resolveRepositoryDefaults(resource, repositoryMapping, { context })`
+- `normalizeCrudVirtualFieldHandlers(virtualFields = {}, repositoryMapping, { context })`
+- `resolveRecordOutputValidator(resource, { context })`
+- `resolveOperationBodyValidator(resource, operationKey, { context })`
+- `normalizeCrudRepositoryOperationStage(stage, stageLabel, { context })`
+- `normalizeCrudRepositoryOperationConfig(config, operationKey, { context })`
+- `normalizeCrudRepositoryOperations(sourceOperations, { context })`
 
 ### `src/server/resourceRuntime/index.js`
 Exports
-- `createCrudResourceRuntime(resource = {}, knex, repositoryOptions = {})`
+- `createCrudResourceRuntime(resource, knex, repositoryOptions = {})`
+- `type RuntimeKnex`
 Local functions
-- `requireCrudRecordId(value, { context = "crudRepository" } = {})`
-- `resolveCrudRepositoryCall(runtime, knex, callOptions = {})`
-- `applyCrudRepositoryReadLock(dbQuery, callOptions = {})`
-- `listRecords(runtime, knex, query = {}, callOptions = {})`
-- `findRecordById(runtime, knex, recordId, callOptions = {})`
-- `listRecordsByIds(runtime, knex, ids = [], callOptions = {})`
-- `createRecord(runtime, knex, payload = {}, callOptions = {})`
-- `updateRecordById(runtime, knex, recordId, patch = {}, callOptions = {})`
-- `deleteRecordById(runtime, knex, recordId, callOptions = {})`
+- `requireCrudRecordId(value, { context })`
+- `resolveCrudRepositoryCall(runtime, knex, callOptions)`
+- `applyCrudRepositoryReadLock(dbQuery, callOptions)`
+- `listRecords(runtime, knex, query, callOptions)`
+- `findRecordById(runtime, knex, recordId, callOptions)`
+- `listRecordsByIds(runtime, knex, ids, callOptions)`
+- `createRecord(runtime, knex, payload, callOptions)`
+- `updateRecordById(runtime, knex, recordId, patch, callOptions)`
+- `deleteRecordById(runtime, knex, recordId, callOptions)`
 
 ### `src/server/resourceRuntime/listControls.js`
 Exports
-- `resolveListRuntimeConfig(list = {}, fallbackSearchColumns = [], { idColumn = "id" } = {})`
-- `encodeOrderedListCursor(row = null, orderBy = [])`
-- `applyOrderedListCursorFilter(query, { orderBy = [], cursor = "" } = {})`
-- `enforceCrudRepositoryListControls(dbQuery, { idColumn = "id", limit = DEFAULT_LIST_LIMIT + 1, orderBy = [] } = {})`
+- `resolveListRuntimeConfig(list = {}, fallbackSearchColumns, { idColumn })`
+- `encodeOrderedListCursor(row, orderBy)`
+- `applyOrderedListCursorFilter(query, { orderBy, cursor })`
+- `enforceCrudRepositoryListControls(dbQuery, { idColumn, limit, orderBy })`
 Local functions
-- `normalizeSearchColumns(searchColumns = [], fallbackColumns = [])`
+- `normalizeSearchColumns(searchColumns, fallbackColumns)`
 - `normalizeListOrderDirection(value = LIST_ORDER_DIRECTION_ASC)`
 - `normalizeListOrderNulls(value = LIST_ORDER_NULLS_LAST)`
-- `normalizeListOrderBy(orderBy = [], { idColumn = "id" } = {})`
+- `normalizeListOrderBy(orderBy, { idColumn })`
 - `encodeOrderedListCursorValue(value = null)`
 - `decodeOrderedListCursorValue(value = null)`
-- `decodeOrderedListCursor(cursor = "", orderBy = [])`
+- `decodeOrderedListCursor(cursor, orderBy)`
 - `applyOrderedListCursorEquality(query, descriptor = {}, value = null)`
 - `applyOrderedListCursorAfterBranch(query, descriptor = {}, value = null)`
 - `canApplyOrderedListCursorAfterBranch(descriptor = {}, value = null)`
 - `appendOrderedListCursorBranches(query, orderBy = [], cursorValues = [], index = 0, { useOr = false } = {})`
-- `applyOrderedListControls(dbQuery, orderBy = [])`
+- `applyOrderedListControls(dbQuery, orderBy)`
 
 ### `src/server/resourceRuntime/lookupHydration.js`
 Exports
-- `createCrudLookupRuntime(resource = {}, { outputKeys = [] } = {})`
-- `hydrateCrudLookupRecords(records = [], runtime = {}, { include, mode = "list", repositoryOptions = {}, callOptions = {} } = {})`
+- `buildCrudLookupRuntime(resource, { outputKeys, context })`
+- `hydrateCrudLookupRecords(records, runtime, { include, mode, repositoryOptions, callOptions })`
+- `type LookupRuntime`
 Local functions
-- `normalizeLookupRelationEntry(entry = {}, outputKeys = new Set())`
+- `normalizeLookupRelationEntry(entry, outputKeys)`
 - `normalizeLookupDefaultInclude(value)`
 - `normalizeLookupMaxDepth(value)`
 - `resolveLookupRuntimeDefaults(resource)`
 - `normalizeLookupIdentifier(value)`
-- `normalizeIncludePaths(include, { defaultInclude = DEFAULT_LOOKUP_INCLUDE } = {})`
-- `resolveChildIncludeFromPaths(paths = [])`
-- `shouldHydrateByMode(entry, mode = "list")`
-- `buildLookupHydrationPlan(runtime = {}, include, { mode = "list", context = "crudRepository", includeWasExplicit = false, skippedNamespaces = new Set() } = {})`
-- `resolveLookupResolver(repositoryOptions = {}, callOptions = {}, { context = "crudRepository" } = {})`
-- `resolveLookupDepthRuntime(runtime = {}, repositoryOptions = {}, callOptions = {})`
-- `buildLookupGroupKey(relation = {})`
-- `normalizeLookupRelationValues(records = [], entries = [], childIncludeByKey = {})`
-- `resolveGroupChildInclude(group = {})`
-- `normalizeLookup(provider, relation = {}, { context = "crudRepository" } = {})`
-- `resolveLookupVisibilityContext(provider, relation = {}, callOptions = {}, { context = "crudRepository" } = {})`
-- `buildLookupRecordMap(records = [], valueKey = "")`
-- `buildLookupCollectionMap(records = [], foreignKey = "")`
-- `resolveLookupVisitedNamespaces(runtime = {}, callOptions = {})`
+- `normalizeIncludePaths(include, defaultInclude)`
+- `resolveChildIncludeFromPaths(paths)`
+- `shouldHydrateByMode(entry, mode)`
+- `buildLookupHydrationPlan(runtime, include, { mode, includeWasExplicit, skippedNamespaces })`
+- `resolveLookupResolver(repositoryOptions, callOptions, { context })`
+- `resolveLookupDepthRuntime(runtime, repositoryOptions, callOptions)`
+- `buildLookupGroupKey(relation)`
+- `normalizeLookupRelationValues(records, entries, childIncludeByKey)`
+- `resolveGroupChildInclude(group)`
+- `normalizeLookup(provider, relation, { context })`
+- `resolveLookupVisibilityContext(provider, relation, callOptions, { context })`
+- `buildLookupRecordMap(records, valueKey)`
+- `buildLookupCollectionMap(records, foreignKey)`
+- `resolveLookupVisitedNamespaces(runtime, callOptions)`
 
 ### `src/server/resourceRuntime/operationStages.js`
 Exports
-- `applyCrudRepositoryVirtualProjections(dbQuery, runtime = {}, { knex, tableName } = {})`
+- `applyCrudRepositoryVirtualProjections(dbQuery, runtime, { knex, tableName })`
 - `applyConfiguredQueryStage(dbQuery, stage, stageContext, { context, stageKey })`
 - `applyConfiguredObjectStage(payload, stage, stageContext, { context, stageKey })`
-- `createCrudRepositoryActionContextBase(runtime, callOptions = {})`
+- `buildCrudRepositoryActionContextBase(runtime, callOptions)`
 Local functions
 - `isCrudRepositoryQueryBuilder(value)`
 
 ### `src/server/resourceRuntime/recordValidation.js`
 Exports
-- `normalizeRepositoryInputPayload(runtime = {}, payload = {}, { operationKey = "create", phase = "crudCreate", action = "create", recordId = null, existingRecord = null, actionContextBase = {} } = {})`
-- `normalizeRepositoryOutputRecord(runtime = {}, record = {}, { operation = "list" } = {})`
-Local functions
-- `extractExplicitFieldErrors(error)`
+- `normalizeRepositoryInputPayload(runtime, payload, operationKey)`
+- `normalizeRepositoryOutputRecord(runtime, record, { operation })`
 
 ### `src/server/routeContracts.js`
 Exports
@@ -364,6 +364,7 @@ Exports
 - `type CrudLifecycleHooks`
 - `type CrudOperationLifecycle`
 - `type CrudRecordRepository`
+- `type CompiledCrudRepositoryRuntime`
 - `type CrudServiceRuntime`
 
 ### patterns

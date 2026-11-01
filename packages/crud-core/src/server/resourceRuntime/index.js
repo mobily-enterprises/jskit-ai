@@ -8,12 +8,10 @@ import { applyVisibility, applyVisibilityOwners } from "@jskit-ai/database-runti
 import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   normalizeCrudListLimit,
-  requireCrudTableName,
   applyCrudListQueryFilters,
   buildWritePayload,
   mapRecordRow,
-  resolveColumnName,
-  resolveCrudIdColumn
+  resolveColumnName
 } from "../repositorySupport.js";
 import { hydrateCrudLookupRecords } from "./lookupHydration.js";
 import { CRUD_FIELD_STORAGE_COLUMN } from "@jskit-ai/resource-crud-core/shared/crudFieldContract";
@@ -21,7 +19,7 @@ import {
   applyCrudRepositoryVirtualProjections,
   applyConfiguredQueryStage,
   applyConfiguredObjectStage,
-  createCrudRepositoryActionContextBase
+  buildCrudRepositoryActionContextBase
 } from "./operationStages.js";
 import {
   encodeOrderedListCursor,
@@ -32,9 +30,11 @@ import {
   normalizeRepositoryInputPayload,
   normalizeRepositoryOutputRecord
 } from "./recordValidation.js";
-import { createCompiledCrudRepositoryRuntime } from "./compiledRuntime.js";
+import { buildCompiledCrudRepositoryRuntime } from "./compiledRuntime.js";
 
-function requireCrudRecordId(value, { context = "crudRepository" } = {}) {
+/** @typedef {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} RuntimeKnex */
+
+function requireCrudRecordId(value, { context }) {
   const recordId = normalizeRecordId(value, { fallback: null });
   if (!recordId) {
     throw new TypeError(`${context} requires recordId.`);
@@ -42,25 +42,24 @@ function requireCrudRecordId(value, { context = "crudRepository" } = {}) {
   return recordId;
 }
 
-function resolveCrudRepositoryCall(runtime, knex, callOptions = {}) {
-  const client = resolveRepoClient(knex, callOptions);
-  const tableName = requireCrudTableName(runtime.repositoryOptions?.tableName ?? runtime.defaults?.tableName, {
-    context: runtime.context || "crudRepository"
-  });
-  const idColumn = resolveCrudIdColumn(runtime.repositoryOptions?.idColumn, {
-    fallback: runtime.defaults?.idColumn || "id"
-  });
-  const visible = (queryBuilder) => applyVisibility(queryBuilder, callOptions.visibilityContext);
-
+/**
+ * What one repository call reads and writes through: the call's transaction
+ * (else the repository's Knex), with the runtime's table and id column, and the
+ * visibility filter of the call's visibility context.
+ * @param {import("../types.js").CompiledCrudRepositoryRuntime} runtime
+ * @param {RuntimeKnex} knex
+ * @param {object} callOptions
+ */
+function resolveCrudRepositoryCall(runtime, knex, callOptions) {
   return Object.freeze({
-    client,
-    tableName,
-    idColumn,
-    visible
+    client: resolveRepoClient(knex, callOptions),
+    tableName: runtime.tableName,
+    idColumn: runtime.idColumn,
+    visible: (queryBuilder) => applyVisibility(queryBuilder, callOptions.visibilityContext)
   });
 }
 
-function applyCrudRepositoryReadLock(dbQuery, callOptions = {}) {
+function applyCrudRepositoryReadLock(dbQuery, callOptions) {
   if (callOptions.forUpdate === true) {
     return dbQuery.forUpdate();
   }
@@ -68,13 +67,19 @@ function applyCrudRepositoryReadLock(dbQuery, callOptions = {}) {
   return dbQuery;
 }
 
-async function listRecords(runtime, knex, query = {}, callOptions = {}) {
+/**
+ * @param {import("../types.js").CompiledCrudRepositoryRuntime} runtime
+ * @param {RuntimeKnex} knex
+ * @param {object} query
+ * @param {object} callOptions
+ */
+async function listRecords(runtime, knex, query, callOptions) {
   const { client, tableName, idColumn, visible } = resolveCrudRepositoryCall(runtime, knex, callOptions);
   const normalizedLimit = normalizeCrudListLimit(query.limit, {
     fallback: runtime.list.defaultLimit,
     max: runtime.list.maxLimit
   });
-  const actionContextBase = createCrudRepositoryActionContextBase(runtime, callOptions);
+  const actionContextBase = buildCrudRepositoryActionContextBase(runtime, callOptions);
   const usesOrderedListCursor = runtime.list.orderBy.length > 0;
   let dbQuery = client(tableName)
     .select(...runtime.selectColumns);
@@ -101,7 +106,7 @@ async function listRecords(runtime, knex, query = {}, callOptions = {}) {
 
   const readListStageResult = await applyConfiguredQueryStage(
     dbQuery,
-    runtime.operations?.read?.applyQuery,
+    runtime.operations.read.applyQuery,
     {
       action: "list",
       query,
@@ -115,7 +120,7 @@ async function listRecords(runtime, knex, query = {}, callOptions = {}) {
   dbQuery = readListStageResult.queryBuilder;
   const listStageResult = await applyConfiguredQueryStage(
     dbQuery,
-    runtime.operations?.list?.applyQuery,
+    runtime.operations.list.applyQuery,
     {
       action: "list",
       query,
@@ -159,10 +164,7 @@ async function listRecords(runtime, knex, query = {}, callOptions = {}) {
     }));
   }
 
-  const hydratedItems = await hydrateCrudLookupRecords(items, {
-    ...runtime.lookup,
-    context: runtime.context
-  }, {
+  const hydratedItems = await hydrateCrudLookupRecords(items, runtime.lookup, {
     include: callOptions.include,
     mode: "list",
     repositoryOptions: runtime.repositoryOptions,
@@ -184,10 +186,16 @@ async function listRecords(runtime, knex, query = {}, callOptions = {}) {
   };
 }
 
-async function findRecordById(runtime, knex, recordId, callOptions = {}) {
+/**
+ * @param {import("../types.js").CompiledCrudRepositoryRuntime} runtime
+ * @param {RuntimeKnex} knex
+ * @param {unknown} recordId
+ * @param {object} callOptions
+ */
+async function findRecordById(runtime, knex, recordId, callOptions) {
   const { client, tableName, idColumn, visible } = resolveCrudRepositoryCall(runtime, knex, callOptions);
   const normalizedRecordId = requireCrudRecordId(recordId, { context: "crudRepository.findById" });
-  const actionContextBase = createCrudRepositoryActionContextBase(runtime, callOptions);
+  const actionContextBase = buildCrudRepositoryActionContextBase(runtime, callOptions);
   let dbQuery = client(tableName)
     .select(...runtime.selectColumns);
   dbQuery = applyCrudRepositoryVirtualProjections(dbQuery, runtime, {
@@ -197,7 +205,7 @@ async function findRecordById(runtime, knex, recordId, callOptions = {}) {
 
   const readFindStageResult = await applyConfiguredQueryStage(
     dbQuery,
-    runtime.operations?.read?.applyQuery,
+    runtime.operations.read.applyQuery,
     {
       action: "findById",
       recordId,
@@ -211,7 +219,7 @@ async function findRecordById(runtime, knex, recordId, callOptions = {}) {
   dbQuery = readFindStageResult.queryBuilder;
   const findStageResult = await applyConfiguredQueryStage(
     dbQuery,
-    runtime.operations?.findById?.applyQuery,
+    runtime.operations.findById.applyQuery,
     {
       action: "findById",
       recordId,
@@ -249,10 +257,7 @@ async function findRecordById(runtime, knex, recordId, callOptions = {}) {
   const normalizedRecord = await normalizeRepositoryOutputRecord(runtime, mappedRecord, {
     operation: "findById"
   });
-  const hydrated = await hydrateCrudLookupRecords([normalizedRecord], {
-    ...runtime.lookup,
-    context: runtime.context
-  }, {
+  const hydrated = await hydrateCrudLookupRecords([normalizedRecord], runtime.lookup, {
     include: callOptions.include,
     mode: "view",
     repositoryOptions: runtime.repositoryOptions,
@@ -262,23 +267,29 @@ async function findRecordById(runtime, knex, recordId, callOptions = {}) {
   return hydrated[0] || null;
 }
 
-async function listRecordsByIds(runtime, knex, ids = [], callOptions = {}) {
+/**
+ * @param {import("../types.js").CompiledCrudRepositoryRuntime} runtime
+ * @param {RuntimeKnex} knex
+ * @param {unknown[]} ids
+ * @param {object} callOptions
+ */
+async function listRecordsByIds(runtime, knex, ids, callOptions) {
   const { client, tableName, visible } = resolveCrudRepositoryCall(runtime, knex, callOptions);
-  const actionContextBase = createCrudRepositoryActionContextBase(runtime, callOptions);
+  const actionContextBase = buildCrudRepositoryActionContextBase(runtime, callOptions);
   const lookupValueKey = normalizeText(callOptions.valueKey) || "id";
   if (!runtime.mapping.outputKeys.includes(lookupValueKey)) {
     throw new TypeError(
-      `${runtime.context || "crudRepository"} listByIds requires valueKey "${lookupValueKey}" to exist in output schema.`
+      `${runtime.context} listByIds requires valueKey "${lookupValueKey}" to exist in output schema.`
     );
   }
-  if (runtime.mapping.fieldStorageByKey?.[lookupValueKey] !== CRUD_FIELD_STORAGE_COLUMN) {
+  if (runtime.mapping.fieldStorageByKey[lookupValueKey] !== CRUD_FIELD_STORAGE_COLUMN) {
     throw new TypeError(
-      `${runtime.context || "crudRepository"} listByIds requires valueKey "${lookupValueKey}" to be column-backed.`
+      `${runtime.context} listByIds requires valueKey "${lookupValueKey}" to be column-backed.`
     );
   }
   const lookupColumn = resolveColumnName(lookupValueKey, runtime.mapping.columnOverrides);
   if (!lookupColumn) {
-    throw new TypeError(`${runtime.context || "crudRepository"} listByIds requires a valid valueKey.`);
+    throw new TypeError(`${runtime.context} listByIds requires a valid valueKey.`);
   }
 
   const normalizedIds = Array.isArray(ids)
@@ -297,7 +308,7 @@ async function listRecordsByIds(runtime, knex, ids = [], callOptions = {}) {
 
   const readListByIdsStageResult = await applyConfiguredQueryStage(
     dbQuery,
-    runtime.operations?.read?.applyQuery,
+    runtime.operations.read.applyQuery,
     {
       action: "listByIds",
       ids: normalizedIds,
@@ -313,7 +324,7 @@ async function listRecordsByIds(runtime, knex, ids = [], callOptions = {}) {
   dbQuery = readListByIdsStageResult.queryBuilder;
   const listByIdsStageResult = await applyConfiguredQueryStage(
     dbQuery,
-    runtime.operations?.listByIds?.applyQuery,
+    runtime.operations.listByIds.applyQuery,
     {
       action: "listByIds",
       ids: normalizedIds,
@@ -356,10 +367,7 @@ async function listRecordsByIds(runtime, knex, ids = [], callOptions = {}) {
   }
 
   const lookupInclude = callOptions.include === undefined ? "none" : callOptions.include;
-  return hydrateCrudLookupRecords(records, {
-    ...runtime.lookup,
-    context: runtime.context
-  }, {
+  return hydrateCrudLookupRecords(records, runtime.lookup, {
     include: lookupInclude,
     mode: "list",
     repositoryOptions: runtime.repositoryOptions,
@@ -367,18 +375,19 @@ async function listRecordsByIds(runtime, knex, ids = [], callOptions = {}) {
   });
 }
 
-async function createRecord(runtime, knex, payload = {}, callOptions = {}) {
+/**
+ * @param {import("../types.js").CompiledCrudRepositoryRuntime} runtime
+ * @param {RuntimeKnex} knex
+ * @param {object} payload
+ * @param {object} callOptions
+ */
+async function createRecord(runtime, knex, payload, callOptions) {
   const { client, tableName } = resolveCrudRepositoryCall(runtime, knex, callOptions);
-  const actionContextBase = createCrudRepositoryActionContextBase(runtime, callOptions);
-  let sourcePayload = await normalizeRepositoryInputPayload(runtime, payload, {
-    operationKey: "create",
-    phase: "crudCreate",
-    action: "create",
-    actionContextBase
-  });
+  const actionContextBase = buildCrudRepositoryActionContextBase(runtime, callOptions);
+  let sourcePayload = await normalizeRepositoryInputPayload(runtime, payload, "create");
   sourcePayload = await applyConfiguredObjectStage(
     sourcePayload,
-    runtime.operations?.create?.preparePayload,
+    runtime.operations.create.preparePayload,
     {
       action: "create",
       payload: sourcePayload,
@@ -407,7 +416,7 @@ async function createRecord(runtime, knex, payload = {}, callOptions = {}) {
   }
   insertPayload = await applyConfiguredObjectStage(
     insertPayload,
-    runtime.operations?.create?.prepareInsertPayload,
+    runtime.operations.create.prepareInsertPayload,
     {
       action: "create",
       payload: sourcePayload,
@@ -426,7 +435,7 @@ async function createRecord(runtime, knex, payload = {}, callOptions = {}) {
   let createQuery = client(tableName);
   const createStageResult = await applyConfiguredQueryStage(
     createQuery,
-    runtime.operations?.create?.applyQuery,
+    runtime.operations.create.applyQuery,
     {
       action: "create",
       payload: {
@@ -454,28 +463,21 @@ async function createRecord(runtime, knex, payload = {}, callOptions = {}) {
   });
 }
 
-async function updateRecordById(runtime, knex, recordId, patch = {}, callOptions = {}) {
+/**
+ * @param {import("../types.js").CompiledCrudRepositoryRuntime} runtime
+ * @param {RuntimeKnex} knex
+ * @param {unknown} recordId
+ * @param {object} patch
+ * @param {object} callOptions
+ */
+async function updateRecordById(runtime, knex, recordId, patch, callOptions) {
   const { client, tableName, idColumn, visible } = resolveCrudRepositoryCall(runtime, knex, callOptions);
   const normalizedRecordId = requireCrudRecordId(recordId, { context: "crudRepository.updateById" });
-  const actionContextBase = createCrudRepositoryActionContextBase(runtime, callOptions);
-  const existingRecord = Object.hasOwn(callOptions, "existingRecord")
-    ? callOptions.existingRecord
-    : await findRecordById(runtime, knex, normalizedRecordId, {
-        ...callOptions,
-        trx: client,
-        sourceOperation: "update"
-      });
-  let sourcePatch = await normalizeRepositoryInputPayload(runtime, patch, {
-    operationKey: "patch",
-    phase: "crudPatch",
-    action: "update",
-    recordId: normalizedRecordId,
-    existingRecord,
-    actionContextBase
-  });
+  const actionContextBase = buildCrudRepositoryActionContextBase(runtime, callOptions);
+  let sourcePatch = await normalizeRepositoryInputPayload(runtime, patch, "patch");
   sourcePatch = await applyConfiguredObjectStage(
     sourcePatch,
-    runtime.operations?.updateById?.preparePatch,
+    runtime.operations.updateById.preparePatch,
     {
       action: "updateById",
       recordId,
@@ -511,7 +513,7 @@ async function updateRecordById(runtime, knex, recordId, patch = {}, callOptions
   let updateQuery = client(tableName);
   const updateStageResult = await applyConfiguredQueryStage(
     updateQuery,
-    runtime.operations?.updateById?.applyQuery,
+    runtime.operations.updateById.applyQuery,
     {
       action: "updateById",
       recordId,
@@ -542,10 +544,16 @@ async function updateRecordById(runtime, knex, recordId, patch = {}, callOptions
   });
 }
 
-async function deleteRecordById(runtime, knex, recordId, callOptions = {}) {
+/**
+ * @param {import("../types.js").CompiledCrudRepositoryRuntime} runtime
+ * @param {RuntimeKnex} knex
+ * @param {unknown} recordId
+ * @param {object} callOptions
+ */
+async function deleteRecordById(runtime, knex, recordId, callOptions) {
   const { client, tableName, idColumn, visible } = resolveCrudRepositoryCall(runtime, knex, callOptions);
   const normalizedRecordId = requireCrudRecordId(recordId, { context: "crudRepository.deleteById" });
-  const actionContextBase = createCrudRepositoryActionContextBase(runtime, callOptions);
+  const actionContextBase = buildCrudRepositoryActionContextBase(runtime, callOptions);
   const existing = await findRecordById(runtime, knex, recordId, {
     ...callOptions,
     include: "none",
@@ -558,7 +566,7 @@ async function deleteRecordById(runtime, knex, recordId, callOptions = {}) {
   let deleteQuery = client(tableName);
   const deleteStageResult = await applyConfiguredQueryStage(
     deleteQuery,
-    runtime.operations?.deleteById?.applyQuery,
+    runtime.operations.deleteById.applyQuery,
     {
       action: "deleteById",
       recordId,
@@ -587,16 +595,17 @@ async function deleteRecordById(runtime, knex, recordId, callOptions = {}) {
 }
 
 /**
- * @param {object} resource
- * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} knex
+ * @param {import("../types.js").CrudResourceDefinition} resource
+ * @param {RuntimeKnex} knex
  * @param {object} [repositoryOptions]
  */
-function createCrudResourceRuntime(resource = {}, knex, repositoryOptions = {}) {
-  if (typeof knex !== "function") {
-    throw new TypeError("createCrudResourceRuntime requires knex.");
+function createCrudResourceRuntime(resource, knex, repositoryOptions = {}) {
+  // readable-check: allow method-probe - input validation: the application passes its own Knex instance
+  if (typeof knex !== "function" || typeof knex.transaction !== "function") {
+    throw new TypeError("createCrudResourceRuntime requires the application's Knex instance.");
   }
 
-  const runtime = createCompiledCrudRepositoryRuntime(resource, repositoryOptions);
+  const runtime = buildCompiledCrudRepositoryRuntime(resource, repositoryOptions);
   const withTransaction = createWithTransaction(knex);
 
   async function list(query = {}, callOptions = {}) {
@@ -614,7 +623,7 @@ function createCrudResourceRuntime(resource = {}, knex, repositoryOptions = {}) 
   async function listByForeignIds(ids = [], foreignKey = "", callOptions = {}) {
     const normalizedForeignKey = normalizeText(foreignKey);
     if (!normalizedForeignKey) {
-      throw new TypeError(`${runtime.context || "crudRepository"} listByForeignIds requires foreignKey.`);
+      throw new TypeError(`${runtime.context} listByForeignIds requires foreignKey.`);
     }
 
     return listRecordsByIds(runtime, knex, ids, {

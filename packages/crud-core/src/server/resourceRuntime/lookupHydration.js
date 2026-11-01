@@ -1,20 +1,22 @@
-import { normalizeOpaqueId, normalizeText, normalizeUniqueTextList } from "@jskit-ai/kernel/shared/support/normalize";
+import { isRecord, normalizeOpaqueId, normalizeText, normalizeUniqueTextList } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeVisibilityContext } from "@jskit-ai/kernel/shared/support/visibility";
 import {
+  normalizeCrudLookupApiPath,
   normalizeCrudLookupNamespace,
   resolveCrudLookupApiPathFromNamespace,
-  normalizeCrudLookupContainerKey,
   resolveCrudLookupContainerKey
 } from "@jskit-ai/resource-crud-core/shared/crudLookup";
 import { buildCrudFieldContractMap } from "@jskit-ai/resource-crud-core/shared/crudFieldContract";
-import { normalizeCrudLookupApiPath, normalizeLookupOwnershipFilter } from "../lookupPathSupport.js";
+import { normalizeLookupOwnershipFilter } from "../lookupPathSupport.js";
 
 const DEFAULT_LOOKUP_INCLUDE = "*";
 const DEFAULT_LOOKUP_MAX_DEPTH = 3;
 const MAX_LOOKUP_MAX_DEPTH = 10;
 
-function normalizeLookupRelationEntry(entry = {}, outputKeys = new Set()) {
-  if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+/** @typedef {ReturnType<typeof buildCrudLookupRuntime>} LookupRuntime */
+
+function normalizeLookupRelationEntry(entry, outputKeys) {
+  if (!isRecord(entry)) {
     return null;
   }
 
@@ -24,7 +26,7 @@ function normalizeLookupRelationEntry(entry = {}, outputKeys = new Set()) {
   }
 
   const relation = entry.relation;
-  if (!relation || typeof relation !== "object" || Array.isArray(relation)) {
+  if (!isRecord(relation)) {
     return null;
   }
 
@@ -43,22 +45,22 @@ function normalizeLookupRelationEntry(entry = {}, outputKeys = new Set()) {
   const apiPath = explicitApiPath || resolveCrudLookupApiPathFromNamespace(namespace);
 
   if (relationKind === "lookup") {
-    if (outputKeys instanceof Set && !outputKeys.has(key)) {
+    if (!outputKeys.has(key)) {
       return null;
     }
     const valueKey = normalizeText(relation.valueKey) || "id";
 
-    return {
+    return Object.freeze({
       key,
-      relation: {
+      relation: Object.freeze({
         kind: "lookup",
         namespace,
         apiPath,
         valueKey,
         hydrateOnList: relation.hydrateOnList !== false,
         hydrateOnView: relation.hydrateOnView !== false
-      }
-    };
+      })
+    });
   }
 
   const foreignKey = normalizeText(relation.foreignKey);
@@ -67,13 +69,13 @@ function normalizeLookupRelationEntry(entry = {}, outputKeys = new Set()) {
   }
 
   const parentValueKey = normalizeText(relation.parentValueKey) || "id";
-  if (outputKeys instanceof Set && !outputKeys.has(parentValueKey)) {
+  if (!outputKeys.has(parentValueKey)) {
     return null;
   }
 
-  return {
+  return Object.freeze({
     key,
-    relation: {
+    relation: Object.freeze({
       kind: "collection",
       namespace,
       apiPath,
@@ -81,8 +83,8 @@ function normalizeLookupRelationEntry(entry = {}, outputKeys = new Set()) {
       parentValueKey,
       hydrateOnList: relation.hydrateOnList !== false,
       hydrateOnView: relation.hydrateOnView !== false
-    }
-  };
+    })
+  });
 }
 
 function normalizeLookupDefaultInclude(value) {
@@ -108,7 +110,7 @@ function normalizeLookupMaxDepth(value) {
 }
 
 function resolveLookupRuntimeDefaults(resource) {
-  const lookupContract = resource?.contract?.lookup;
+  const lookupContract = resource.contract?.lookup;
   if (
     lookupContract !== undefined &&
     lookupContract !== null &&
@@ -123,12 +125,15 @@ function resolveLookupRuntimeDefaults(resource) {
   };
 }
 
-function createCrudLookupRuntime(resource = {}, { outputKeys = [] } = {}) {
-  const outputKeySet = new Set(
-    (Array.isArray(outputKeys) ? outputKeys : [])
-      .map((key) => normalizeText(key))
-      .filter(Boolean)
-  );
+/**
+ * A resource's lookup relations, resolved once: the error context, the
+ * resource's namespace and lookup container key, the default include and
+ * depth, and each lookup entry, in order and by key.
+ * @param {import("../types.js").CrudResourceDefinition} resource
+ * @param {{ outputKeys: readonly string[], context: string }} options
+ */
+function buildCrudLookupRuntime(resource, { outputKeys, context }) {
+  const outputKeySet = new Set(outputKeys);
 
   const sourceEntries = Object.values(buildCrudFieldContractMap(resource, {
     context: "crud lookup runtime field contract"
@@ -162,29 +167,28 @@ function createCrudLookupRuntime(resource = {}, { outputKeys = [] } = {}) {
     normalizeCrudLookupNamespace(resource.apiPath);
   const defaults = resolveLookupRuntimeDefaults(resource);
 
-  return {
+  return Object.freeze({
+    context,
     namespace,
     containerKey,
     defaultInclude: defaults.defaultInclude,
     maxDepth: defaults.maxDepth,
-    entries: lookupEntries,
-    byKey: lookupEntryByKey
-  };
+    entries: Object.freeze(lookupEntries),
+    byKey: Object.freeze(lookupEntryByKey)
+  });
 }
 
 function normalizeLookupIdentifier(value) {
-  const normalized = normalizeOpaqueId(value);
-  if (normalized == null) {
-    return "";
-  }
-
-  return normalizeText(normalized);
+  return normalizeOpaqueId(value, { fallback: "" });
 }
 
-function normalizeIncludePaths(include, { defaultInclude = DEFAULT_LOOKUP_INCLUDE } = {}) {
-  const sourceInclude = normalizeText(include);
-  const normalizedInclude = sourceInclude || normalizeLookupDefaultInclude(defaultInclude);
-  if (!normalizedInclude || normalizedInclude.toLowerCase() === "none") {
+/**
+ * @param {unknown} include
+ * @param {string} defaultInclude The lookup runtime's normalized default include.
+ */
+function normalizeIncludePaths(include, defaultInclude) {
+  const normalizedInclude = normalizeText(include) || defaultInclude;
+  if (normalizedInclude.toLowerCase() === "none") {
     return [];
   }
 
@@ -214,31 +218,21 @@ function normalizeIncludePaths(include, { defaultInclude = DEFAULT_LOOKUP_INCLUD
   return paths;
 }
 
-function resolveChildIncludeFromPaths(paths = []) {
-  const entries = Array.isArray(paths) ? paths : [];
+/** @param {string[][]} paths Normalized include paths below one lookup. */
+function resolveChildIncludeFromPaths(paths) {
   const pathKeys = new Set();
   let includesAll = false;
 
-  for (const path of entries) {
-    if (!Array.isArray(path) || path.length < 1) {
+  for (const path of paths) {
+    if (path.length < 1) {
       continue;
     }
-
-    const normalizedPath = path
-      .map((entry) => normalizeText(entry))
-      .filter(Boolean);
-    if (normalizedPath.length < 1) {
-      continue;
-    }
-    if (normalizedPath[0] === "*") {
+    if (path[0] === "*") {
       includesAll = true;
       continue;
     }
 
-    const childPath = normalizedPath.join(".");
-    if (childPath) {
-      pathKeys.add(childPath);
-    }
+    pathKeys.add(path.join("."));
   }
 
   if (includesAll) {
@@ -250,27 +244,22 @@ function resolveChildIncludeFromPaths(paths = []) {
   return [...pathKeys].join(",");
 }
 
-function shouldHydrateByMode(entry, mode = "list") {
-  const relation = entry?.relation || {};
+function shouldHydrateByMode(entry, mode) {
+  const relation = entry.relation;
   if (mode === "view") {
     return relation.hydrateOnView !== false;
   }
   return relation.hydrateOnList !== false;
 }
 
-function buildLookupHydrationPlan(
-  runtime = {},
-  include,
-  {
-    mode = "list",
-    context = "crudRepository",
-    includeWasExplicit = false,
-    skippedNamespaces = new Set()
-  } = {}
-) {
-  const includePaths = normalizeIncludePaths(include, {
-    defaultInclude: runtime.defaultInclude
-  });
+/**
+ * @param {LookupRuntime} runtime
+ * @param {unknown} include
+ * @param {{ mode: string, includeWasExplicit: boolean, skippedNamespaces: Set<string> }} options
+ */
+function buildLookupHydrationPlan(runtime, include, { mode, includeWasExplicit, skippedNamespaces }) {
+  const { context, entries } = runtime;
+  const includePaths = normalizeIncludePaths(include, runtime.defaultInclude);
   if (includePaths.length < 1) {
     return {
       entries: [],
@@ -278,11 +267,8 @@ function buildLookupHydrationPlan(
     };
   }
 
-  const entries = Array.isArray(runtime.entries) ? runtime.entries : [];
   if (entries.length < 1) {
-    const wildcardOnlyInclude =
-      includePaths.length > 0 &&
-      includePaths.every((pathSegments) => Array.isArray(pathSegments) && pathSegments[0] === "*");
+    const wildcardOnlyInclude = includePaths.every((pathSegments) => pathSegments[0] === "*");
     if (includeWasExplicit === true && wildcardOnlyInclude !== true) {
       throw new Error(`${context} include requires lookups, but the resource declares no lookup relations.`);
     }
@@ -296,8 +282,8 @@ function buildLookupHydrationPlan(
   const childIncludeByKey = {};
   const seenKeys = new Set();
 
-  function appendEntry(entry = {}, childPaths = []) {
-    if (!entry || seenKeys.has(entry.key)) {
+  function appendEntry(entry, childPaths) {
+    if (seenKeys.has(entry.key)) {
       return;
     }
 
@@ -305,8 +291,7 @@ function buildLookupHydrationPlan(
       return;
     }
 
-    const relationNamespace = normalizeCrudLookupNamespace(entry.relation?.namespace);
-    if (relationNamespace && skippedNamespaces instanceof Set && skippedNamespaces.has(relationNamespace)) {
+    if (skippedNamespaces.has(entry.relation.namespace)) {
       return;
     }
 
@@ -322,17 +307,13 @@ function buildLookupHydrationPlan(
     }
   }
 
-  const entryByKey = runtime.byKey && typeof runtime.byKey === "object" ? runtime.byKey : {};
   for (const pathSegments of includePaths) {
-    if (!Array.isArray(pathSegments) || pathSegments.length < 1) {
-      continue;
-    }
     const [head, ...tail] = pathSegments;
     if (head === "*") {
       continue;
     }
 
-    const entry = entryByKey[head];
+    const entry = runtime.byKey[head];
     if (!entry) {
       throw new Error(`${context} include references unknown lookup key "${head}".`);
     }
@@ -351,15 +332,16 @@ function buildLookupHydrationPlan(
   };
 }
 
-function resolveLookupResolver(repositoryOptions = {}, callOptions = {}, { context = "crudRepository" } = {}) {
+function resolveLookupResolver(repositoryOptions, callOptions, { context }) {
   const resolver = callOptions.resolveLookup || repositoryOptions.resolveLookup;
+  // readable-check: allow method-probe - input validation: the application passes resolveLookup(relation) in its options
   if (typeof resolver !== "function") {
     throw new TypeError(`${context} requires resolveLookup(relation) to hydrate lookups.`);
   }
   return resolver;
 }
 
-function resolveLookupDepthRuntime(runtime = {}, repositoryOptions = {}, callOptions = {}) {
+function resolveLookupDepthRuntime(runtime, repositoryOptions, callOptions) {
   const maxDepth = normalizeLookupMaxDepth(
     callOptions.lookupMaxDepth ?? repositoryOptions.lookupMaxDepth ?? runtime.maxDepth
   );
@@ -373,14 +355,14 @@ function resolveLookupDepthRuntime(runtime = {}, repositoryOptions = {}, callOpt
   };
 }
 
-function buildLookupGroupKey(relation = {}) {
+function buildLookupGroupKey(relation) {
   if (relation.kind === "collection") {
     return `collection::${relation.namespace}::${relation.foreignKey}::${relation.parentValueKey}`;
   }
   return `lookup::${relation.namespace}::${relation.valueKey}`;
 }
 
-function normalizeLookupRelationValues(records = [], entries = [], childIncludeByKey = {}) {
+function normalizeLookupRelationValues(records, entries, childIncludeByKey) {
   const byGroup = new Map();
   for (const entry of entries) {
     const relation = entry.relation;
@@ -403,10 +385,10 @@ function normalizeLookupRelationValues(records = [], entries = [], childIncludeB
     const seen = new Set();
     for (const record of records) {
       for (const entry of group.entries) {
-        const relation = entry?.relation || {};
+        const relation = entry.relation;
         const rawValue = relation.kind === "collection"
-          ? record?.[relation.parentValueKey]
-          : record?.[entry.key];
+          ? record[relation.parentValueKey]
+          : record[entry.key];
         const normalized = normalizeLookupIdentifier(rawValue);
         if (!normalized || seen.has(normalized)) {
           continue;
@@ -420,12 +402,11 @@ function normalizeLookupRelationValues(records = [], entries = [], childIncludeB
   return byGroup;
 }
 
-function resolveGroupChildInclude(group = {}) {
-  const sourceIncludes = group.childIncludes instanceof Set ? [...group.childIncludes] : [];
+function resolveGroupChildInclude(group) {
   const includeSet = new Set();
   let includeAll = false;
 
-  for (const includeValue of sourceIncludes) {
+  for (const includeValue of group.childIncludes) {
     const normalized = normalizeText(includeValue);
     if (!normalized || normalized.toLowerCase() === "none") {
       continue;
@@ -454,8 +435,9 @@ function resolveGroupChildInclude(group = {}) {
   return [...includeSet].join(",");
 }
 
-function normalizeLookup(provider, relation = {}, { context = "crudRepository" } = {}) {
-  if (!provider || typeof provider !== "object" || Array.isArray(provider)) {
+function normalizeLookup(provider, relation, { context }) {
+  // readable-check: allow method-probe - input validation: an application's resolveLookup must return a provider object
+  if (!isRecord(provider)) {
     throw new Error(`${context} could not resolve lookup "${relation.namespace}".`);
   }
   // readable-check: allow method-probe - input validation: an application's resolveLookup must return a provider with listByIds()
@@ -465,14 +447,9 @@ function normalizeLookup(provider, relation = {}, { context = "crudRepository" }
   return provider;
 }
 
-function resolveLookupVisibilityContext(
-  provider,
-  relation = {},
-  callOptions = {},
-  { context = "crudRepository" } = {}
-) {
+function resolveLookupVisibilityContext(provider, relation, callOptions, { context }) {
   const parentVisibilityContext = normalizeVisibilityContext(callOptions.visibilityContext);
-  const lookupOwnershipFilter = normalizeLookupOwnershipFilter(provider?.ownershipFilter, {
+  const lookupOwnershipFilter = normalizeLookupOwnershipFilter(provider.ownershipFilter, {
     context: `${context} lookup ownershipFilter`
   });
 
@@ -498,7 +475,7 @@ function resolveLookupVisibilityContext(
   return nextVisibilityContext;
 }
 
-function buildLookupRecordMap(records = [], valueKey = "") {
+function buildLookupRecordMap(records, valueKey) {
   const lookupMap = new Map();
   for (const record of Array.isArray(records) ? records : []) {
     const lookupId = normalizeLookupIdentifier(record?.[valueKey]);
@@ -510,7 +487,7 @@ function buildLookupRecordMap(records = [], valueKey = "") {
   return lookupMap;
 }
 
-function buildLookupCollectionMap(records = [], foreignKey = "") {
+function buildLookupCollectionMap(records, foreignKey) {
   const collectionMap = new Map();
   for (const record of Array.isArray(records) ? records : []) {
     const ownerId = normalizeLookupIdentifier(record?.[foreignKey]);
@@ -527,7 +504,7 @@ function buildLookupCollectionMap(records = [], foreignKey = "") {
   return collectionMap;
 }
 
-function resolveLookupVisitedNamespaces(runtime = {}, callOptions = {}) {
+function resolveLookupVisitedNamespaces(runtime, callOptions) {
   const namespaces = [];
   const seen = new Set();
 
@@ -551,47 +528,38 @@ function resolveLookupVisitedNamespaces(runtime = {}, callOptions = {}) {
   return namespaces;
 }
 
-async function hydrateCrudLookupRecords(
-  records = [],
-  runtime = {},
-  {
-    include,
-    mode = "list",
-    repositoryOptions = {},
-    callOptions = {}
-  } = {}
-) {
-  const sourceRecords = Array.isArray(records) ? records : [];
-  if (sourceRecords.length < 1) {
-    return sourceRecords;
+/**
+ * Records with their lookups hydrated under the lookup container key, up to the lookup depth.
+ * @param {object[]} records
+ * @param {LookupRuntime} runtime
+ * @param {{ include: unknown, mode: "list" | "view", repositoryOptions: object, callOptions: object }} options
+ */
+async function hydrateCrudLookupRecords(records, runtime, { include, mode, repositoryOptions, callOptions }) {
+  const { context, containerKey: lookupContainerKey } = runtime;
+  if (records.length < 1) {
+    return records;
   }
 
   const depthRuntime = resolveLookupDepthRuntime(runtime, repositoryOptions, callOptions);
   if (depthRuntime.depth >= depthRuntime.maxDepth) {
-    return sourceRecords;
+    return records;
   }
 
-  const lookupContainerKey = normalizeCrudLookupContainerKey(runtime.containerKey, {
-    context: `${runtime.context || "crudRepository"} lookup runtime container key`
-  });
   const visitedNamespaces = resolveLookupVisitedNamespaces(runtime, callOptions);
 
   const lookupPlan = buildLookupHydrationPlan(runtime, include, {
     mode,
-    context: runtime.context || "crudRepository",
     includeWasExplicit: normalizeText(include).length > 0,
     skippedNamespaces: new Set(visitedNamespaces)
   });
   const selectedEntries = lookupPlan.entries;
   if (selectedEntries.length < 1) {
-    return sourceRecords;
+    return records;
   }
 
-  const resolveLookup = resolveLookupResolver(repositoryOptions, callOptions, {
-    context: runtime.context || "crudRepository"
-  });
+  const resolveLookup = resolveLookupResolver(repositoryOptions, callOptions, { context });
 
-  const relationGroups = normalizeLookupRelationValues(sourceRecords, selectedEntries, lookupPlan.childIncludeByKey);
+  const relationGroups = normalizeLookupRelationValues(records, selectedEntries, lookupPlan.childIncludeByKey);
   const groupRecordMaps = new Map();
   for (const group of relationGroups.values()) {
     if (group.values.length < 1) {
@@ -599,19 +567,10 @@ async function hydrateCrudLookupRecords(
       continue;
     }
 
-    const provider = normalizeLookup(resolveLookup(group.relation), group.relation, {
-      context: runtime.context || "crudRepository"
-    });
-    const childVisibilityContext = resolveLookupVisibilityContext(
-      provider,
-      group.relation,
-      callOptions,
-      {
-        context: runtime.context || "crudRepository"
-      }
-    );
+    const provider = normalizeLookup(resolveLookup(group.relation), group.relation, { context });
+    const childVisibilityContext = resolveLookupVisibilityContext(provider, group.relation, callOptions, { context });
     const childInclude = resolveGroupChildInclude(group);
-    const groupValueKey = group?.relation?.kind === "collection"
+    const groupValueKey = group.relation.kind === "collection"
       ? group.relation.foreignKey
       : group.relation.valueKey;
     const groupRecords = await provider.listByIds(group.values, {
@@ -625,31 +584,28 @@ async function hydrateCrudLookupRecords(
     });
     groupRecordMaps.set(
       buildLookupGroupKey(group.relation),
-      group?.relation?.kind === "collection"
+      group.relation.kind === "collection"
         ? buildLookupCollectionMap(groupRecords, group.relation.foreignKey)
         : buildLookupRecordMap(groupRecords, group.relation.valueKey)
     );
   }
 
-  return sourceRecords.map((record) => {
-    const baseRecord = record && typeof record === "object" && !Array.isArray(record) ? record : {};
-    const existingLookups =
-      baseRecord[lookupContainerKey] &&
-      typeof baseRecord[lookupContainerKey] === "object" &&
-      !Array.isArray(baseRecord[lookupContainerKey])
-        ? baseRecord[lookupContainerKey]
-        : {};
+  return records.map((record) => {
+    const baseRecord = isRecord(record) ? record : {};
+    const existingLookups = isRecord(baseRecord[lookupContainerKey])
+      ? baseRecord[lookupContainerKey]
+      : {};
     const nextLookups = { ...existingLookups };
 
     for (const entry of selectedEntries) {
       const relation = entry.relation;
       const lookupMap = groupRecordMaps.get(buildLookupGroupKey(relation)) || new Map();
       if (relation.kind === "collection") {
-        const ownerId = normalizeLookupIdentifier(baseRecord?.[relation.parentValueKey]);
+        const ownerId = normalizeLookupIdentifier(baseRecord[relation.parentValueKey]);
         nextLookups[entry.key] = ownerId ? (lookupMap.get(ownerId) || []) : [];
         continue;
       }
-      const lookupId = normalizeLookupIdentifier(baseRecord?.[entry.key]);
+      const lookupId = normalizeLookupIdentifier(baseRecord[entry.key]);
       if (!lookupId) {
         nextLookups[entry.key] = null;
         continue;
@@ -665,6 +621,6 @@ async function hydrateCrudLookupRecords(
 }
 
 export {
-  createCrudLookupRuntime,
+  buildCrudLookupRuntime,
   hydrateCrudLookupRecords
 };

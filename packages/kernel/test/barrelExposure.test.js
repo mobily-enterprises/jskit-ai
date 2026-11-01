@@ -83,6 +83,7 @@ const BARREL_EXPECTATIONS = Object.freeze([
       "cursorPaginationQueryValidator",
       "deriveRequiredFieldsFromSchema",
       "deriveResourceRequiredMetadata",
+      "errorFieldErrors",
       "executeJsonRestSchemaDefinition",
       "hasJsonRestSchemaDefinition",
       "isJsonRestSchemaInstance",

@@ -1,5 +1,5 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { isRecord, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   DEFAULT_LIST_LIMIT,
   MAX_LIST_LIMIT,
@@ -14,20 +14,20 @@ const ORDERED_LIST_CURSOR_VALUE_TYPE_KEY = "__jskitCursorValueType";
 const ORDERED_LIST_CURSOR_VALUE_KEY = "value";
 const ORDERED_LIST_CURSOR_VALUE_TYPE_DATE = "date";
 
-function normalizeSearchColumns(searchColumns = [], fallbackColumns = []) {
+/**
+ * @param {unknown} searchColumns The list options' searchColumns, when given.
+ * @param {readonly string[]} fallbackColumns The resource's string columns.
+ */
+function normalizeSearchColumns(searchColumns, fallbackColumns) {
   const normalizedConfiguredColumns = (Array.isArray(searchColumns) ? searchColumns : [])
-    .map((columnName) => String(columnName || "").trim())
+    .map((columnName) => normalizeText(columnName))
     .filter(Boolean);
 
   if (normalizedConfiguredColumns.length > 0) {
     return Object.freeze([...new Set(normalizedConfiguredColumns)]);
   }
 
-  return Object.freeze(
-    (Array.isArray(fallbackColumns) ? fallbackColumns : [])
-      .map((columnName) => String(columnName || "").trim())
-      .filter(Boolean)
-  );
+  return fallbackColumns;
 }
 
 function normalizeListOrderDirection(value = LIST_ORDER_DIRECTION_ASC) {
@@ -54,13 +54,12 @@ function normalizeListOrderNulls(value = LIST_ORDER_NULLS_LAST) {
   throw new TypeError(`crudRepository list.orderBy nulls must be "${LIST_ORDER_NULLS_FIRST}" or "${LIST_ORDER_NULLS_LAST}".`);
 }
 
-function normalizeListOrderBy(orderBy = [], { idColumn = "id" } = {}) {
+function normalizeListOrderBy(orderBy, { idColumn }) {
   const sourceEntries = Array.isArray(orderBy)
     ? orderBy
     : orderBy === null || orderBy === undefined
       ? []
       : [orderBy];
-  const normalizedIdColumn = normalizeText(idColumn) || "id";
   const normalizedOrderBy = [];
   const seenColumns = new Set();
 
@@ -68,7 +67,7 @@ function normalizeListOrderBy(orderBy = [], { idColumn = "id" } = {}) {
     const sourceEntry = typeof rawEntry === "string"
       ? { column: rawEntry }
       : rawEntry;
-    if (!sourceEntry || typeof sourceEntry !== "object" || Array.isArray(sourceEntry)) {
+    if (!isRecord(sourceEntry)) {
       throw new TypeError("crudRepository list.orderBy entries must be objects or column strings.");
     }
 
@@ -90,10 +89,10 @@ function normalizeListOrderBy(orderBy = [], { idColumn = "id" } = {}) {
     );
   }
 
-  if (normalizedOrderBy.length > 0 && !seenColumns.has(normalizedIdColumn)) {
+  if (normalizedOrderBy.length > 0 && !seenColumns.has(idColumn)) {
     normalizedOrderBy.push(
       Object.freeze({
-        column: normalizedIdColumn,
+        column: idColumn,
         direction: normalizedOrderBy[normalizedOrderBy.length - 1].direction,
         nulls: LIST_ORDER_NULLS_LAST
       })
@@ -103,7 +102,14 @@ function normalizeListOrderBy(orderBy = [], { idColumn = "id" } = {}) {
   return Object.freeze(normalizedOrderBy);
 }
 
-function resolveListRuntimeConfig(list = {}, fallbackSearchColumns = [], { idColumn = "id" } = {}) {
+/**
+ * A repository's list controls, from its list options: the default and maximum
+ * page size, the search columns and the order.
+ * @param {object} list The repository options' list, when given.
+ * @param {readonly string[]} fallbackSearchColumns
+ * @param {{ idColumn: string }} keys The id column that breaks order ties.
+ */
+function resolveListRuntimeConfig(list = {}, fallbackSearchColumns, { idColumn }) {
   const parsedMaxLimit = Number(list.maxLimit);
   const normalizedMaxLimit = Number.isInteger(parsedMaxLimit) && parsedMaxLimit > 0
     ? parsedMaxLimit
@@ -133,7 +139,7 @@ function encodeOrderedListCursorValue(value = null) {
 }
 
 function decodeOrderedListCursorValue(value = null) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (!isRecord(value)) {
     return value === undefined ? null : value;
   }
 
@@ -158,17 +164,16 @@ function decodeOrderedListCursorValue(value = null) {
   return date;
 }
 
-function encodeOrderedListCursor(row = null, orderBy = []) {
-  if (!row || typeof row !== "object" || Array.isArray(row)) {
+/**
+ * @param {unknown} row
+ * @param {ReadonlyArray<{ column: string }>} orderBy The runtime's list order.
+ */
+function encodeOrderedListCursor(row, orderBy) {
+  if (!isRecord(row) || orderBy.length < 1) {
     return null;
   }
 
-  const normalizedOrderBy = Array.isArray(orderBy) ? orderBy : [];
-  if (normalizedOrderBy.length < 1) {
-    return null;
-  }
-
-  const values = normalizedOrderBy.map(({ column }) => (
+  const values = orderBy.map(({ column }) => (
     Object.hasOwn(row, column) && row[column] !== undefined
       ? encodeOrderedListCursorValue(row[column])
       : null
@@ -177,10 +182,9 @@ function encodeOrderedListCursor(row = null, orderBy = []) {
   return Buffer.from(JSON.stringify({ values }), "utf8").toString("base64url");
 }
 
-function decodeOrderedListCursor(cursor = "", orderBy = []) {
+function decodeOrderedListCursor(cursor, orderBy) {
   const normalizedCursor = normalizeText(cursor);
-  const normalizedOrderBy = Array.isArray(orderBy) ? orderBy : [];
-  if (!normalizedCursor || normalizedOrderBy.length < 1) {
+  if (!normalizedCursor || orderBy.length < 1) {
     return null;
   }
 
@@ -188,7 +192,7 @@ function decodeOrderedListCursor(cursor = "", orderBy = []) {
     const decoded = Buffer.from(normalizedCursor, "base64url").toString("utf8");
     const payload = JSON.parse(decoded);
     const values = Array.isArray(payload?.values) ? payload.values : null;
-    if (!values || values.length !== normalizedOrderBy.length) {
+    if (!values || values.length !== orderBy.length) {
       throw new AppError(400, "Invalid cursor.", {
         code: "INVALID_CURSOR"
       });
@@ -274,21 +278,24 @@ function appendOrderedListCursorBranches(query, orderBy = [], cursorValues = [],
   return true;
 }
 
-function applyOrderedListCursorFilter(query, { orderBy = [], cursor = "" } = {}) {
-  const normalizedOrderBy = Array.isArray(orderBy) ? orderBy : [];
-  const cursorValues = decodeOrderedListCursor(cursor, normalizedOrderBy);
+/**
+ * @param {object} query
+ * @param {{ orderBy: ReadonlyArray<object>, cursor: unknown }} list The runtime's list order and the query's cursor.
+ */
+function applyOrderedListCursorFilter(query, { orderBy, cursor }) {
+  const cursorValues = decodeOrderedListCursor(cursor, orderBy);
   if (!cursorValues) {
     return query;
   }
 
   return query.where((cursorQuery) => {
-    appendOrderedListCursorBranches(cursorQuery, normalizedOrderBy, cursorValues);
+    appendOrderedListCursorBranches(cursorQuery, orderBy, cursorValues);
   });
 }
 
-function applyOrderedListControls(dbQuery, orderBy = []) {
+function applyOrderedListControls(dbQuery, orderBy) {
   let nextQuery = dbQuery;
-  for (const descriptor of Array.isArray(orderBy) ? orderBy : []) {
+  for (const descriptor of orderBy) {
     nextQuery = nextQuery.orderByRaw(
       descriptor.nulls === LIST_ORDER_NULLS_FIRST
         ? "?? is null desc"
@@ -301,19 +308,15 @@ function applyOrderedListControls(dbQuery, orderBy = []) {
   return nextQuery;
 }
 
-function enforceCrudRepositoryListControls(
-  dbQuery,
-  {
-    idColumn = "id",
-    limit = DEFAULT_LIST_LIMIT + 1,
-    orderBy = []
-  } = {}
-) {
+/**
+ * @param {object} dbQuery
+ * @param {{ idColumn: string, limit: number, orderBy: ReadonlyArray<object> }} controls
+ */
+function enforceCrudRepositoryListControls(dbQuery, { idColumn, limit, orderBy }) {
   const nextQuery = dbQuery.clearOrder().clear("limit");
 
-  const normalizedOrderBy = Array.isArray(orderBy) ? orderBy : [];
-  if (normalizedOrderBy.length > 0) {
-    return applyOrderedListControls(nextQuery, normalizedOrderBy)
+  if (orderBy.length > 0) {
+    return applyOrderedListControls(nextQuery, orderBy)
       .limit(limit);
   }
 

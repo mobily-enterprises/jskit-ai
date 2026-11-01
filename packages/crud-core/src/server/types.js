@@ -108,6 +108,11 @@
  */
 
 /**
+ * What a records repository resolves once from its resource and options, and each of its calls reads.
+ * @typedef {ReturnType<typeof import("./resourceRuntime/compiledRuntime.js").buildCompiledCrudRepositoryRuntime>} CompiledCrudRepositoryRuntime
+ */
+
+/**
  * The resource, namespace and field access a CRUD service's methods share.
  * @typedef {ReturnType<typeof import("./serviceMethods.js").createCrudServiceRuntime>} CrudServiceRuntime
  */

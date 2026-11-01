@@ -1,16 +1,13 @@
 import { normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
 
-function applyCrudRepositoryVirtualProjections(
-  dbQuery,
-  runtime = {},
-  { knex, tableName } = {}
-) {
-  const virtualFields = Array.isArray(runtime.virtualFields) ? runtime.virtualFields : [];
-  if (virtualFields.length < 1) {
-    return dbQuery;
-  }
-
-  for (const virtualField of virtualFields) {
+/**
+ * Adds each virtual field's projection to a read query.
+ * @param {object} dbQuery
+ * @param {import("../types.js").CompiledCrudRepositoryRuntime} runtime
+ * @param {{ knex: import("@jskit-ai/database-runtime/server/types").RuntimeKnex, tableName: string }} projection
+ */
+function applyCrudRepositoryVirtualProjections(dbQuery, runtime, { knex, tableName }) {
+  for (const virtualField of runtime.virtualFields) {
     virtualField.applyProjection(dbQuery, {
       knex,
       tableName,
@@ -119,7 +116,14 @@ async function applyConfiguredObjectStage(payload, stage, stageContext, { contex
   return nextPayload;
 }
 
-function createCrudRepositoryActionContextBase(runtime, callOptions = {}) {
+/**
+ * What every stage of one repository call receives besides its own values: the
+ * runtime, the repository options, the call's options and a state object the
+ * call's stages share.
+ * @param {import("../types.js").CompiledCrudRepositoryRuntime} runtime
+ * @param {object} callOptions
+ */
+function buildCrudRepositoryActionContextBase(runtime, callOptions) {
   return {
     runtime,
     repositoryOptions: runtime.repositoryOptions,
@@ -132,5 +136,5 @@ export {
   applyCrudRepositoryVirtualProjections,
   applyConfiguredQueryStage,
   applyConfiguredObjectStage,
-  createCrudRepositoryActionContextBase
+  buildCrudRepositoryActionContextBase
 };

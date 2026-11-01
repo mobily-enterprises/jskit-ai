@@ -1,34 +1,15 @@
 import { createValidationError } from "@jskit-ai/kernel/server/runtime/errors";
-import { isRecord, normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
-import { codedFieldErrors, validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
+import { normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
+import { codedFieldErrors, errorFieldErrors, validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 
-function extractExplicitFieldErrors(error) {
-  if (isRecord(error?.fieldErrors)) {
-    return error.fieldErrors;
-  }
-
-  if (isRecord(error?.details?.fieldErrors)) {
-    return error.details.fieldErrors;
-  }
-
-  return null;
-}
-
-async function normalizeRepositoryInputPayload(
-  runtime = {},
-  payload = {},
-  {
-    operationKey = "create",
-    phase = "crudCreate",
-    action = "create",
-    recordId = null,
-    existingRecord = null,
-    actionContextBase = {}
-  } = {}
-) {
-  const input = operationKey === "patch"
-    ? runtime.input?.patch
-    : runtime.input?.create;
+/**
+ * A create or patch payload validated by the resource's body schema for it, when it has one.
+ * @param {import("../types.js").CompiledCrudRepositoryRuntime} runtime
+ * @param {object} payload
+ * @param {"create" | "patch"} operationKey
+ */
+async function normalizeRepositoryInputPayload(runtime, payload, operationKey) {
+  const input = runtime.input[operationKey];
   const normalizedPayload = normalizeObject(payload);
 
   if (!input) {
@@ -38,7 +19,7 @@ async function normalizeRepositoryInputPayload(
   try {
     const nextPayload = validateSchemaPayload(input, normalizedPayload, {
       phase: "input",
-      context: `${runtime.context || "crudRepository"} operations.${operationKey}.body`
+      context: `${runtime.context} operations.${operationKey}.body`
     });
     return normalizeObject(nextPayload);
   } catch (error) {
@@ -50,24 +31,30 @@ async function normalizeRepositoryInputPayload(
   }
 }
 
-async function normalizeRepositoryOutputRecord(runtime = {}, record = {}, { operation = "list" } = {}) {
+/**
+ * A stored record validated by the resource's view output schema.
+ * @param {import("../types.js").CompiledCrudRepositoryRuntime} runtime
+ * @param {object} record
+ * @param {{ operation: string }} labels The operation its error names.
+ */
+async function normalizeRepositoryOutputRecord(runtime, record, { operation }) {
   try {
     return validateSchemaPayload(runtime.output, record, {
       phase: "output",
-      context: `${runtime.context || "crudRepository"} operations.view.output`
+      context: `${runtime.context} operations.view.output`
     });
   } catch (error) {
-    const explicitFieldErrors = extractExplicitFieldErrors(error);
-    if (explicitFieldErrors) {
-      const detailMessage = Object.entries(explicitFieldErrors)
+    const fieldErrors = errorFieldErrors(error)?.fieldErrors;
+    if (fieldErrors) {
+      const detailMessage = Object.entries(fieldErrors)
         .map(([field, message]) => `${field}: ${message}`)
         .join(", ");
       throw new TypeError(
-        `${runtime.context || "crudRepository"} ${operation} output validation failed: ${detailMessage}.`
+        `${runtime.context} ${operation} output validation failed: ${detailMessage}.`
       );
     }
     throw new TypeError(
-      `${runtime.context || "crudRepository"} ${operation} output validation failed: ${String(error?.message || "Invalid value.")}.`
+      `${runtime.context} ${operation} output validation failed: ${String(error?.message || "Invalid value.")}.`
     );
   }
 }

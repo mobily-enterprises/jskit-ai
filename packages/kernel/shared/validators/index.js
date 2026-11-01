@@ -18,6 +18,7 @@ export {
 export {
   buildSchemaValidationError,
   codedFieldErrors,
+  errorFieldErrors,
   validateSchemaPayload
 } from "./schemaPayloadValidation.js";
 export { resolveValidationIssueCode } from "./validationIssueCodes.js";

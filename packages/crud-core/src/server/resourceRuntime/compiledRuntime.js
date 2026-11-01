@@ -2,10 +2,12 @@ import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   buildRepositoryColumnMetadata,
   deriveRepositoryMappingFromResource,
-  resolveColumnName
+  requireCrudTableName,
+  resolveColumnName,
+  resolveCrudIdColumn
 } from "../repositorySupport.js";
 import { resolveSchemaTransportSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
-import { createCrudLookupRuntime } from "./lookupHydration.js";
+import { buildCrudLookupRuntime } from "./lookupHydration.js";
 import { CRUD_FIELD_STORAGE_COLUMN } from "@jskit-ai/resource-crud-core/shared/crudFieldContract";
 import { resolveListRuntimeConfig } from "./listControls.js";
 
@@ -28,15 +30,15 @@ const REPOSITORY_OPERATION_STAGE_KEYS = Object.freeze({
   deleteById: ["applyQuery"]
 });
 
-function requireCrudRepositoryOptions(value = {}, { context = "crudRepository" } = {}) {
+function requireCrudRepositoryOptions(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new TypeError(`${context} requires repository options object when provided.`);
+    throw new TypeError("createCrudResourceRuntime requires repository options object when provided.");
   }
 
   return value;
 }
 
-function resolveRepositoryDefaults(resource = {}, repositoryMapping = {}, { context = "crudRepository" } = {}) {
+function resolveRepositoryDefaults(resource, repositoryMapping, { context }) {
   const resourceName = normalizeText(resource.namespace);
   const tableName = normalizeText(resource.tableName) || resourceName;
   if (!tableName) {
@@ -45,11 +47,11 @@ function resolveRepositoryDefaults(resource = {}, repositoryMapping = {}, { cont
 
   const idColumn = normalizeText(resource.idColumn) || resolveColumnName("id", repositoryMapping.columnOverrides) || "id";
   const createdAtColumn = repositoryMapping.outputKeys.includes("createdAt") &&
-    repositoryMapping.fieldStorageByKey?.createdAt === CRUD_FIELD_STORAGE_COLUMN
+    repositoryMapping.fieldStorageByKey.createdAt === CRUD_FIELD_STORAGE_COLUMN
     ? resolveColumnName("createdAt", repositoryMapping.columnOverrides)
     : "";
   const updatedAtColumn = repositoryMapping.outputKeys.includes("updatedAt") &&
-    repositoryMapping.fieldStorageByKey?.updatedAt === CRUD_FIELD_STORAGE_COLUMN
+    repositoryMapping.fieldStorageByKey.updatedAt === CRUD_FIELD_STORAGE_COLUMN
     ? resolveColumnName("updatedAt", repositoryMapping.columnOverrides)
     : "";
 
@@ -61,18 +63,10 @@ function resolveRepositoryDefaults(resource = {}, repositoryMapping = {}, { cont
   });
 }
 
-function normalizeCrudVirtualFieldHandlers(
-  virtualFields = {},
-  repositoryMapping = {},
-  { context = "crudRepository" } = {}
-) {
-  const expectedKeys = new Set(
-    (Array.isArray(repositoryMapping.virtualOutputKeys) ? repositoryMapping.virtualOutputKeys : [])
-      .map((key) => normalizeText(key))
-      .filter(Boolean)
-  );
+function normalizeCrudVirtualFieldHandlers(virtualFields = {}, repositoryMapping, { context }) {
+  const expectedKeys = new Set(repositoryMapping.virtualOutputKeys);
   if (expectedKeys.size < 1) {
-    if (virtualFields === null || virtualFields === undefined) {
+    if (virtualFields === null) {
       return Object.freeze([]);
     }
     if (!virtualFields || typeof virtualFields !== "object" || Array.isArray(virtualFields)) {
@@ -129,8 +123,8 @@ function normalizeCrudVirtualFieldHandlers(
   return Object.freeze(normalizedHandlers);
 }
 
-function resolveRecordOutputValidator(resource, { context = "crudRepository" } = {}) {
-  const output = resource?.operations?.view?.output;
+function resolveRecordOutputValidator(resource, { context }) {
+  const output = resource.operations.view?.output;
   if (!output || typeof output !== "object" || Array.isArray(output)) {
     throw new TypeError(`${context} requires operations.view.output.`);
   }
@@ -145,8 +139,8 @@ function resolveRecordOutputValidator(resource, { context = "crudRepository" } =
   return output;
 }
 
-function resolveOperationBodyValidator(resource, operationKey = "", { context = "crudRepository" } = {}) {
-  const body = resource?.operations?.[operationKey]?.body;
+function resolveOperationBodyValidator(resource, operationKey, { context }) {
+  const body = resource.operations[operationKey]?.body;
   if (body == null) {
     return null;
   }
@@ -157,7 +151,7 @@ function resolveOperationBodyValidator(resource, operationKey = "", { context = 
   return body;
 }
 
-function normalizeCrudRepositoryOperationStage(stage = null, stageLabel = "", { context = "crudRepository" } = {}) {
+function normalizeCrudRepositoryOperationStage(stage, stageLabel, { context }) {
   if (stage === undefined || stage === null) {
     return null;
   }
@@ -167,7 +161,7 @@ function normalizeCrudRepositoryOperationStage(stage = null, stageLabel = "", { 
   return stage;
 }
 
-function normalizeCrudRepositoryOperationConfig(config = {}, operationKey = "", { context = "crudRepository" } = {}) {
+function normalizeCrudRepositoryOperationConfig(config, operationKey, { context }) {
   if (config === undefined || config === null) {
     return Object.freeze({});
   }
@@ -175,7 +169,7 @@ function normalizeCrudRepositoryOperationConfig(config = {}, operationKey = "", 
     throw new TypeError(`${context} operations.${operationKey} must be an object when provided.`);
   }
 
-  const allowedKeys = REPOSITORY_OPERATION_STAGE_KEYS[operationKey] || [];
+  const allowedKeys = REPOSITORY_OPERATION_STAGE_KEYS[operationKey];
   const normalized = {};
   for (const [rawKey, rawValue] of Object.entries(config)) {
     const key = normalizeText(rawKey);
@@ -197,24 +191,28 @@ function normalizeCrudRepositoryOperationConfig(config = {}, operationKey = "", 
   return Object.freeze(normalized);
 }
 
-function normalizeCrudRepositoryOperations(sourceOperations = {}, { context = "crudRepository" } = {}) {
-  if (sourceOperations === undefined || sourceOperations === null) {
-    return Object.freeze({});
-  }
-  if (!sourceOperations || typeof sourceOperations !== "object" || Array.isArray(sourceOperations)) {
+/**
+ * Each repository operation's stages, with an entry for every operation, so a
+ * stage is read as `operations.<operation>.<stage>` (undefined when not configured).
+ * @param {unknown} sourceOperations The repository options' operations, when given.
+ * @param {{ context: string }} labels
+ */
+function normalizeCrudRepositoryOperations(sourceOperations, { context }) {
+  const source = sourceOperations ?? {};
+  if (typeof source !== "object" || Array.isArray(source)) {
     throw new TypeError(`${context} operations must be an object when provided.`);
   }
 
   const normalized = {};
   for (const operationKey of REPOSITORY_OPERATION_KEYS) {
     normalized[operationKey] = normalizeCrudRepositoryOperationConfig(
-      sourceOperations[operationKey],
+      source[operationKey],
       operationKey,
       { context }
     );
   }
 
-  for (const rawKey of Object.keys(sourceOperations)) {
+  for (const rawKey of Object.keys(source)) {
     const key = normalizeText(rawKey);
     if (key && !REPOSITORY_OPERATION_KEYS.includes(key)) {
       throw new TypeError(
@@ -226,16 +224,23 @@ function normalizeCrudRepositoryOperations(sourceOperations = {}, { context = "c
   return Object.freeze(normalized);
 }
 
-function createCompiledCrudRepositoryRuntime(resource = {}, repositoryOptions = {}) {
-  const sourceOptions = requireCrudRepositoryOptions(repositoryOptions, {
-    context: "createCrudResourceRuntime"
-  });
+/**
+ * What a records repository resolves once from its resource and options: the
+ * error context, table and id column (the options' tableName and idColumn, else
+ * the resource's), the field mapping, the input and output schemas, the list
+ * controls, the lookups, each operation's stages and the virtual fields.
+ * @param {import("../types.js").CrudResourceDefinition} resource
+ * @param {object} repositoryOptions
+ */
+function buildCompiledCrudRepositoryRuntime(resource, repositoryOptions) {
+  const sourceOptions = requireCrudRepositoryOptions(repositoryOptions);
   const context = normalizeText(sourceOptions.context) || "crudRepository";
   const repositoryMapping = deriveRepositoryMappingFromResource(resource, { context });
   const defaults = resolveRepositoryDefaults(resource, repositoryMapping, { context });
   const output = resolveRecordOutputValidator(resource, { context });
-  const lookupRuntime = createCrudLookupRuntime(resource, {
-    outputKeys: repositoryMapping.outputKeys
+  const lookupRuntime = buildCrudLookupRuntime(resource, {
+    outputKeys: repositoryMapping.outputKeys,
+    context
   });
   const listRuntime = resolveListRuntimeConfig(sourceOptions.list, repositoryMapping.listSearchColumns, {
     idColumn: defaults.idColumn
@@ -257,6 +262,8 @@ function createCompiledCrudRepositoryRuntime(resource = {}, repositoryOptions = 
     context,
     resource,
     repositoryOptions: sourceOptions,
+    tableName: requireCrudTableName(sourceOptions.tableName ?? defaults.tableName, { context }),
+    idColumn: resolveCrudIdColumn(sourceOptions.idColumn, { fallback: defaults.idColumn }),
     defaults,
     input: Object.freeze({
       create: resolveOperationBodyValidator(resource, "create", { context }),
@@ -273,5 +280,5 @@ function createCompiledCrudRepositoryRuntime(resource = {}, repositoryOptions = 
 }
 
 export {
-  createCompiledCrudRepositoryRuntime
+  buildCompiledCrudRepositoryRuntime
 };

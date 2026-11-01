@@ -286,6 +286,7 @@ Exports
 - `executeJsonRestSchemaDefinition`
 - `buildSchemaValidationError`
 - `codedFieldErrors`
+- `errorFieldErrors`
 - `validateSchemaPayload`
 - `resolveValidationIssueCode`
 - `RECORD_ID_PATTERN`
