@@ -305,15 +305,16 @@ function validateIntegrationConfiguration(input, { providers = [], allowUnknownP
           Object.assign(fieldErrorCodes, codes);
         }
       }
+      const settings = integration.settings || {};
       for (const field of provider.settingsFields || []) {
-        if (field.authenticationMethods && !field.authenticationMethods.includes(auth.method) && Object.hasOwn(integration.settings || {}, field.name)) {
+        if (field.authenticationMethods && !field.authenticationMethods.includes(auth.method) && Object.hasOwn(settings, field.name)) {
           fieldErrors[`${path}.settings.${field.name}`] = FIELD_ERRORS.otherCredentialModeSetting;
         }
       }
-      if (!getProviderAccountModes(provider, integration.settings || {}).includes(integration.accountMode)) {
+      if (!getProviderAccountModes(provider, settings).includes(integration.accountMode)) {
         fieldErrors[`${path}.accountMode`] = FIELD_ERRORS.accountModeUnsupported;
       }
-      if (!getProviderAuthenticationMethods(provider, integration.settings).includes(auth.method)) {
+      if (!getProviderAuthenticationMethods(provider, settings).includes(auth.method)) {
         fieldErrors[`${path}.authentication.method`] = FIELD_ERRORS.credentialModeUnsupported;
       }
       if (auth.method === "oauth2" && registration?.source === "own") {
@@ -321,7 +322,7 @@ function validateIntegrationConfiguration(input, { providers = [], allowUnknownP
         if (!providerGrantTypes(provider).includes(grantType)) {
           fieldErrors[`${registrationPath}.grantType`] = FIELD_ERRORS.oauthFlowUnsupported;
         }
-        const methods = getProviderClientAuthenticationMethods(provider, grantType, integration.settings || {});
+        const methods = getProviderClientAuthenticationMethods(provider, grantType, settings);
         if (!methods.includes(registrationClientAuthentication(registration))) {
           fieldErrors[`${registrationPath}.tokenEndpointAuthMethod`] = FIELD_ERRORS.clientAuthenticationUnsupported;
         }
@@ -331,7 +332,7 @@ function validateIntegrationConfiguration(input, { providers = [], allowUnknownP
           if (result !== true) fieldErrors[`${registrationPath}.clientId`] = result || FIELD_ERRORS.clientId;
         }
       }
-      const scopes = getProviderScopes(provider, integration.settings || {}, grantType, auth.method);
+      const scopes = getProviderScopes(provider, settings, grantType, auth.method);
       const allowedScopes = new Set(scopes.map((scope) => scope.value));
       if (scopes.some((scope) => scope.required && !integration.scopes.includes(scope.value))) {
         fieldErrors[`${path}.scopes`] = FIELD_ERRORS.requiredScopes;
