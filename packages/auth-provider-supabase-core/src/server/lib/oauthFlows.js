@@ -12,11 +12,11 @@ import { findAuthMethodById, findLinkedIdentityByProvider } from "./authMethodSt
 /**
  * Signing in with, linking and unlinking an OAuth provider through Supabase.
  * @param {object} dependencies
- * @param {import("./types.js").SupabaseConfig} dependencies.config
- * @param {import("./types.js").SupabaseClients} dependencies.clients
- * @param {import("./types.js").SupabaseSessions} dependencies.sessions
- * @param {import("./types.js").SupabaseProfileMirror} dependencies.profileMirror
- * @param {import("./types.js").SupabaseSecurityStatus} dependencies.securityStatus
+ * @param {import("../types.js").SupabaseConfig} dependencies.config
+ * @param {import("../types.js").SupabaseClients} dependencies.clients
+ * @param {import("../types.js").SupabaseSessions} dependencies.sessions
+ * @param {import("../types.js").SupabaseProfileMirror} dependencies.profileMirror
+ * @param {import("../types.js").SupabaseSecurityStatus} dependencies.securityStatus
  */
 function createSupabaseOAuthFlows({ config, clients, sessions, profileMirror, securityStatus }) {
   /** A provider the app offers, else its default one. */

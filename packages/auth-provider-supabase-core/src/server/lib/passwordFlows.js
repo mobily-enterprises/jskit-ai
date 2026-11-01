@@ -24,12 +24,12 @@ import { buildDisabledPasswordSecret } from "./authSecrets.js";
  * Password recovery, changing a password and turning password sign-in on or
  * off, through Supabase.
  * @param {object} dependencies
- * @param {import("./types.js").SupabaseConfig} dependencies.config
- * @param {import("./types.js").SupabaseClients} dependencies.clients
- * @param {import("./types.js").SupabaseSessions} dependencies.sessions
- * @param {import("./types.js").SupabaseProfileMirror} dependencies.profileMirror
- * @param {import("./types.js").SupabaseSecurityStatus} dependencies.securityStatus
- * @param {import("./types.js").SupabaseProfiles} dependencies.profiles
+ * @param {import("../types.js").SupabaseConfig} dependencies.config
+ * @param {import("../types.js").SupabaseClients} dependencies.clients
+ * @param {import("../types.js").SupabaseSessions} dependencies.sessions
+ * @param {import("../types.js").SupabaseProfileMirror} dependencies.profileMirror
+ * @param {import("../types.js").SupabaseSecurityStatus} dependencies.securityStatus
+ * @param {import("../types.js").SupabaseProfiles} dependencies.profiles
  */
 function createSupabasePasswordFlows({ config, clients, sessions, profileMirror, securityStatus, profiles }) {
   async function requestPasswordReset(payload) {

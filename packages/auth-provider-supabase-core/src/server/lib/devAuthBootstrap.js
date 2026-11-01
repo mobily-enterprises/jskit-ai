@@ -73,7 +73,7 @@ function buildProfileFromTokenClaims(payload) {
 
 /**
  * @param {any} payload
- * @param {{ userProfilesRepository: import("./types.js").SupabaseUserProfiles }} dependencies
+ * @param {{ userProfilesRepository: import("../types.js").SupabaseUserProfiles }} dependencies
  */
 async function resolveProfileFromTokenClaims(payload, { userProfilesRepository }) {
   const userId = normalizeRecordId(payload?.sub, { fallback: null });
@@ -172,7 +172,7 @@ async function createDevAuthSession(profile, config) {
 /**
  * The app user a dev login names by id or email.
  * @param {{ userId?: unknown, email?: unknown }} input
- * @param {{ userProfilesRepository: import("./types.js").SupabaseUserProfiles }} dependencies
+ * @param {{ userProfilesRepository: import("../types.js").SupabaseUserProfiles }} dependencies
  */
 async function resolveDevAuthProfile(input, { userProfilesRepository }) {
   const normalizedUserId = normalizeRecordId(input.userId, { fallback: null });
@@ -208,8 +208,8 @@ async function resolveDevAuthProfile(input, { userProfilesRepository }) {
 /**
  * @param {{ request: object, accessToken?: string, refreshToken?: string }} tokens
  * @param {object} dependencies
- * @param {import("./types.js").SupabaseConfig["devAuth"]} dependencies.config
- * @param {import("./types.js").SupabaseUserProfiles} dependencies.userProfilesRepository
+ * @param {import("../types.js").SupabaseConfig["devAuth"]} dependencies.config
+ * @param {import("../types.js").SupabaseUserProfiles} dependencies.userProfilesRepository
  */
 async function authenticateDevAuthRequest(
   { request, accessToken = "", refreshToken = "" },

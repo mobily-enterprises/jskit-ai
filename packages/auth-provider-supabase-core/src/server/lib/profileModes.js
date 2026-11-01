@@ -1,6 +1,7 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { normalizeEmail } from "@jskit-ai/auth-core/server/utils";
 import { normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
+import { SUPABASE_PROVIDER_ID } from "./profileMirror.js";
 
 /** In profile mode "provider", the profile is the Supabase user itself: its id, email and name. */
 function createProviderProfileProjector() {
@@ -17,7 +18,7 @@ function createProviderProfileProjector() {
     }
     return {
       id: authProviderUserSid,
-      authProvider: String(profile.authProvider || "supabase").trim() || "supabase",
+      authProvider: String(profile.authProvider || SUPABASE_PROVIDER_ID).trim() || SUPABASE_PROVIDER_ID,
       authProviderUserSid,
       email,
       displayName: String(profile.displayName || email.split("@")[0] || "User").trim(),
@@ -54,7 +55,7 @@ const PROVIDER_MODE_USER_SETTINGS = Object.freeze({
 /**
  * config.auth.profileMode "provider" (the default): Supabase holds the
  * profile, and the app keeps no users of its own.
- * @type {import("./types.js").SupabaseProfiles}
+ * @type {import("../types.js").SupabaseProfiles}
  */
 const PROVIDER_MODE_PROFILES = Object.freeze({
   projector: createProviderProfileProjector(),
@@ -66,7 +67,7 @@ const PROVIDER_MODE_PROFILES = Object.freeze({
  * config.auth.profileMode "users": users-core keeps an app user for each
  * Supabase user, with its password sign-in settings.
  * @param {import("@jskit-ai/users-core/server/types").UsersIdentity} identity
- * @returns {import("./types.js").SupabaseProfiles}
+ * @returns {import("../types.js").SupabaseProfiles}
  */
 function createUsersModeProfiles(identity) {
   return Object.freeze({

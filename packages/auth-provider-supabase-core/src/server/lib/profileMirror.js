@@ -4,27 +4,18 @@ import { normalizeEmail } from "@jskit-ai/auth-core/server/utils";
 import { resolveDisplayName } from "./authProfileNames.js";
 import { requireAuthenticatedProfile } from "./authenticatedProfile.js";
 
-const DEFAULT_AUTH_PROVIDER_ID = "supabase";
+/** The provider id of Supabase auth: in its capabilities, its profiles' identity and AUTH_PROVIDER. */
+const SUPABASE_PROVIDER_ID = "supabase";
 /** The code users-core's profiles repository gives an email that another sign-in already uses. */
 const USER_PROFILE_EMAIL_CONFLICT_CODE = "USER_PROFILE_EMAIL_CONFLICT";
 const AUTH_PROVIDER_ID_PATTERN = /^[a-z][a-z0-9_-]{1,63}$/;
 
-function normalizeAuthProviderId(value, { fallback = DEFAULT_AUTH_PROVIDER_ID } = {}) {
+/** A profile's auth provider id, or SUPABASE_PROVIDER_ID when it names none or an invalid one. */
+function normalizeAuthProviderId(value) {
   const normalized = String(value || "")
     .trim()
     .toLowerCase();
-  if (AUTH_PROVIDER_ID_PATTERN.test(normalized)) {
-    return normalized;
-  }
-
-  const fallbackNormalized = String(fallback || "")
-    .trim()
-    .toLowerCase();
-  if (AUTH_PROVIDER_ID_PATTERN.test(fallbackNormalized)) {
-    return fallbackNormalized;
-  }
-
-  return DEFAULT_AUTH_PROVIDER_ID;
+  return AUTH_PROVIDER_ID_PATTERN.test(normalized) ? normalized : SUPABASE_PROVIDER_ID;
 }
 
 function normalizeProviderUserId(value) {
@@ -35,11 +26,10 @@ function normalizeProviderUserId(value) {
  * The app profile mirrored from a Supabase user or its token claims, and the
  * actor an auth result carries for it.
  * @param {object} dependencies
- * @param {import("./types.js").SupabaseConfig} dependencies.config
- * @param {import("./types.js").SupabaseProfiles} dependencies.profiles
+ * @param {import("../types.js").SupabaseConfig} dependencies.config
+ * @param {import("../types.js").SupabaseProfiles} dependencies.profiles
  */
 function createSupabaseProfileMirror({ config, profiles }) {
-  const authProviderId = DEFAULT_AUTH_PROVIDER_ID;
   const profileProjectionEnabled = config.profileMode === "users";
   const { projector } = profiles;
 
@@ -60,9 +50,7 @@ function createSupabaseProfileMirror({ config, profiles }) {
 
   function buildNormalizedIdentityKey(identityLike) {
     const source = identityLike && typeof identityLike === "object" ? identityLike : {};
-    const authProvider = normalizeAuthProviderId(source.authProvider || authProviderId, {
-      fallback: authProviderId
-    });
+    const authProvider = normalizeAuthProviderId(source.authProvider);
     const authProviderUserSid = normalizeProviderUserId(source.authProviderUserSid);
 
     if (!authProviderUserSid) {
@@ -104,8 +92,10 @@ function createSupabaseProfileMirror({ config, profiles }) {
     );
   }
 
-  // With syncProfile: false the caller asks only who is signed in, so the
-  // existing profile is read instead of synchronized.
+  /**
+   * With syncProfile: false the caller asks only who is signed in, so the
+   * existing profile is read instead of synchronized.
+   */
   async function syncProfileMirror(nextProfile, { syncProfile = true } = {}) {
     if (!syncProfile) {
       return findProfileByIdentity(nextProfile);
@@ -136,7 +126,7 @@ function createSupabaseProfileMirror({ config, profiles }) {
     }
 
     return syncProfileMirror({
-      authProvider: authProviderId,
+      authProvider: SUPABASE_PROVIDER_ID,
       authProviderUserSid: supabaseUserId,
       email,
       displayName: resolveDisplayName(supabaseUser, email)
@@ -146,7 +136,7 @@ function createSupabaseProfileMirror({ config, profiles }) {
   function buildActorFromProfile(profile) {
     return normalizeAuthActor(
       {
-        provider: profile?.authProvider || authProviderId,
+        provider: profile?.authProvider || SUPABASE_PROVIDER_ID,
         providerUserId: profile?.authProviderUserSid || profile?.id,
         email: profile?.email,
         displayName: profile?.displayName,
@@ -154,7 +144,7 @@ function createSupabaseProfileMirror({ config, profiles }) {
         profileSource: profile?.profileSource || (profileProjectionEnabled ? "users" : "auth-provider")
       },
       {
-        provider: authProviderId,
+        provider: SUPABASE_PROVIDER_ID,
         profileSource: profileProjectionEnabled ? "users" : "auth-provider"
       }
     );
@@ -189,7 +179,7 @@ function createSupabaseProfileMirror({ config, profiles }) {
     }
 
     const existing = await findProfileByIdentity({
-      authProvider: authProviderId,
+      authProvider: SUPABASE_PROVIDER_ID,
       authProviderUserSid: supabaseUserId
     });
     if (!syncProfile) {
@@ -205,7 +195,7 @@ function createSupabaseProfileMirror({ config, profiles }) {
     }
 
     return syncProfileMirror({
-      authProvider: authProviderId,
+      authProvider: SUPABASE_PROVIDER_ID,
       authProviderUserSid: supabaseUserId,
       email: emailFromToken,
       displayName: resolveDisplayName(claims, emailFromToken)
@@ -220,4 +210,4 @@ function createSupabaseProfileMirror({ config, profiles }) {
   });
 }
 
-export { createSupabaseProfileMirror };
+export { SUPABASE_PROVIDER_ID, createSupabaseProfileMirror };

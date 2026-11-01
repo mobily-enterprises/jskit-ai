@@ -5,12 +5,11 @@ import { requireAuthenticatedProfile } from "./authenticatedProfile.js";
 import { createDevAuthSession, resolveDevAuthProfile } from "./devAuthBootstrap.js";
 import { createSupabaseOAuthFlows } from "./oauthFlows.js";
 import { createSupabasePasswordFlows } from "./passwordFlows.js";
-import { createSupabaseProfileMirror } from "./profileMirror.js";
+import { SUPABASE_PROVIDER_ID, createSupabaseProfileMirror } from "./profileMirror.js";
 import { createSupabaseSecurityStatus } from "./securityStatus.js";
 import { createSupabaseSessions } from "./sessions.js";
 import { createSupabaseClients } from "./supabaseClients.js";
 
-const SUPABASE_PROVIDER_ID = "supabase";
 const SETTINGS_PROFILE_AUTH_INFO = Object.freeze({
   emailManagedBy: SUPABASE_PROVIDER_ID,
   emailChangeFlow: SUPABASE_PROVIDER_ID
@@ -19,8 +18,8 @@ const SETTINGS_PROFILE_AUTH_INFO = Object.freeze({
 /**
  * The `auth.service` for Supabase Auth.
  * @param {object} dependencies
- * @param {import("./types.js").SupabaseConfig} dependencies.config
- * @param {import("./types.js").SupabaseProfiles} dependencies.profiles
+ * @param {import("../types.js").SupabaseConfig} dependencies.config
+ * @param {import("../types.js").SupabaseProfiles} dependencies.profiles
  */
 function createSupabaseAuthService({ config, profiles }) {
   const { configured } = config;

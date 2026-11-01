@@ -16,10 +16,10 @@ const PERSISTENT_SESSION_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 400;
  * A request's Supabase session: its cookies, verifying its access token,
  * refreshing it, and signing it or the account's other sessions out.
  * @param {object} dependencies
- * @param {import("./types.js").SupabaseConfig} dependencies.config
- * @param {import("./types.js").SupabaseClients} dependencies.clients
- * @param {import("./types.js").SupabaseProfileMirror} dependencies.profileMirror
- * @param {import("./types.js").SupabaseProfiles} dependencies.profiles
+ * @param {import("../types.js").SupabaseConfig} dependencies.config
+ * @param {import("../types.js").SupabaseClients} dependencies.clients
+ * @param {import("../types.js").SupabaseProfileMirror} dependencies.profileMirror
+ * @param {import("../types.js").SupabaseProfiles} dependencies.profiles
  */
 function createSupabaseSessions({ config, clients, profileMirror, profiles }) {
   const { isProduction, jwtAudience, supabaseUrl } = config;

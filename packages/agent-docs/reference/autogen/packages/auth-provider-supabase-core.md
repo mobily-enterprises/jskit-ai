@@ -154,9 +154,10 @@ Exports
 
 ### `src/server/lib/profileMirror.js`
 Exports
+- `SUPABASE_PROVIDER_ID`
 - `createSupabaseProfileMirror({ config, profiles })`
 Local functions
-- `normalizeAuthProviderId(value, { fallback = DEFAULT_AUTH_PROVIDER_ID } = {})`
+- `normalizeAuthProviderId(value)`
 - `normalizeProviderUserId(value)`
 
 ### `src/server/lib/profileModes.js`
@@ -188,7 +189,11 @@ Local functions
 Exports
 - `createSupabaseClients(config)`
 
-### `src/server/lib/types.js`
+### `src/server/providers/AuthSupabaseProvider.js`
+Exports
+- `AuthSupabaseProvider`
+
+### `src/server/types.js`
 Exports
 - `type SupabaseConfig`
 - `type SupabaseClients`
@@ -198,10 +203,6 @@ Exports
 - `type SupabaseUserProfiles`
 - `type SupabaseUserSettings`
 - `type SupabaseProfiles`
-
-### `src/server/providers/AuthSupabaseProvider.js`
-Exports
-- `AuthSupabaseProvider`
 
 ### patterns
 

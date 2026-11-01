@@ -11,11 +11,11 @@ import {
  * sign in with it, and each linked OAuth provider, with the actions this app
  * offers on them.
  * @param {object} dependencies
- * @param {import("./types.js").SupabaseConfig} dependencies.config
+ * @param {import("../types.js").SupabaseConfig} dependencies.config
  * @param {import("@jskit-ai/auth-core/server/types").AuthCapabilities} dependencies.capabilities
- * @param {import("./types.js").SupabaseSessions} dependencies.sessions
- * @param {import("./types.js").SupabaseProfileMirror} dependencies.profileMirror
- * @param {import("./types.js").SupabaseProfiles} dependencies.profiles
+ * @param {import("../types.js").SupabaseSessions} dependencies.sessions
+ * @param {import("../types.js").SupabaseProfileMirror} dependencies.profileMirror
+ * @param {import("../types.js").SupabaseProfiles} dependencies.profiles
  */
 function createSupabaseSecurityStatus({ config, capabilities, sessions, profileMirror, profiles }) {
   const { features } = capabilities;

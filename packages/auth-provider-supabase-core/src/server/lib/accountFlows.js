@@ -40,11 +40,11 @@ const OTP_SENT_RESULT = Object.freeze({
  * Registering, signing in with a password or a one-time code, and renaming
  * an account through Supabase.
  * @param {object} dependencies
- * @param {import("./types.js").SupabaseConfig} dependencies.config
- * @param {import("./types.js").SupabaseClients} dependencies.clients
- * @param {import("./types.js").SupabaseSessions} dependencies.sessions
- * @param {import("./types.js").SupabaseProfileMirror} dependencies.profileMirror
- * @param {import("./types.js").SupabaseSecurityStatus} dependencies.securityStatus
+ * @param {import("../types.js").SupabaseConfig} dependencies.config
+ * @param {import("../types.js").SupabaseClients} dependencies.clients
+ * @param {import("../types.js").SupabaseSessions} dependencies.sessions
+ * @param {import("../types.js").SupabaseProfileMirror} dependencies.profileMirror
+ * @param {import("../types.js").SupabaseSecurityStatus} dependencies.securityStatus
  */
 function createSupabaseAccountFlows({ config, clients, sessions, profileMirror, securityStatus }) {
   function resolveOtpEmailRedirectTo(returnToValue) {
@@ -301,11 +301,7 @@ function createSupabaseAccountFlows({ config, clients, sessions, profileMirror, 
   async function updateDisplayName(request, payload) {
     clients.ensureConfigured();
 
-    const normalizedDisplayName = String(
-      payload && typeof payload === "object" && !Array.isArray(payload)
-        ? payload.displayName
-        : payload
-    ).trim();
+    const normalizedDisplayName = String(payload.displayName || "").trim();
     if (!normalizedDisplayName) {
       throw validationError({
         displayName: authFieldError(AUTH_TEXTS.displayNameRequired)

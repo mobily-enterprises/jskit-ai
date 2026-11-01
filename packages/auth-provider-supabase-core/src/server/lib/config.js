@@ -4,6 +4,7 @@ import { resolveAllowedOriginsFromSurfaceDefinitions } from "@jskit-ai/kernel/sh
 import { buildOtpLoginRedirectUrl, buildPasswordResetRedirectUrl } from "./authRedirectUrls.js";
 import { resolveDevAuthConfig } from "./devAuthBootstrap.js";
 import { buildOAuthProviderCatalogResponse, resolveSupabaseOAuthProviderCatalog } from "./oauthProviderCatalog.js";
+import { SUPABASE_PROVIDER_ID } from "./profileMirror.js";
 
 const PROFILE_MODES = Object.freeze(["provider", "users"]);
 const DEFAULT_JWT_AUDIENCE = "authenticated";
@@ -40,7 +41,7 @@ function resolveProfileMode(auth) {
  */
 function assertSelectedProvider(env) {
   const selected = String(env.AUTH_PROVIDER || "").trim().toLowerCase();
-  if (selected && selected !== "supabase") {
+  if (selected && selected !== SUPABASE_PROVIDER_ID) {
     throw new Error(`AUTH_PROVIDER is "${selected}", but the installed auth provider is Supabase.`);
   }
 }
@@ -48,7 +49,7 @@ function assertSelectedProvider(env) {
 /**
  * Supabase auth's settings, read once from the app's config and Env: the
  * project, where profiles live, the app's addresses, its OAuth providers and
- * dev auth.
+ * dev auth. Production is worked out once, by auth-core's dev auth policy.
  * @param {object} sources
  * @param {import("@jskit-ai/kernel/server/types").RuntimeConfig} sources.config
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} sources.env
@@ -60,7 +61,6 @@ function resolveSupabaseConfig({ config, env }) {
   const supabasePublishableKey = String(env.AUTH_SUPABASE_PUBLISHABLE_KEY || env.SUPABASE_PUBLISHABLE_KEY || "").trim();
   const jwtAudience = String(env.AUTH_JWT_AUDIENCE || "").trim() || DEFAULT_JWT_AUDIENCE;
   const appPublicUrl = String(env.APP_PUBLIC_URL || "").trim();
-  const nodeEnv = String(env.NODE_ENV || "").trim() || "development";
   const oauth = resolveOAuthCatalog(env, auth);
   const devAuth = resolveDevAuthConfig(env, jwtAudience);
   assertDevAuthPolicy(devAuth);
@@ -74,7 +74,7 @@ function resolveSupabaseConfig({ config, env }) {
     supabasePublishableKey,
     configured: Boolean(supabaseUrl && supabasePublishableKey),
     jwtAudience,
-    isProduction: nodeEnv === "production",
+    isProduction: devAuth.isProduction,
     appPublicUrl,
     allowedReturnToOrigins: resolveAllowedOriginsFromSurfaceDefinitions(config.surfaceDefinitions || {}, {
       seedOrigins: [appPublicUrl]

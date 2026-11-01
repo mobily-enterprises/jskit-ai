@@ -5,7 +5,7 @@ import { buildSupabaseServerClientOptions } from "./supabaseClientOptions.js";
 /**
  * New Supabase clients for the app's project. Each operation makes its own,
  * since a client holds the session it signs in with.
- * @param {import("./types.js").SupabaseConfig} config
+ * @param {import("../types.js").SupabaseConfig} config
  */
 function createSupabaseClients(config) {
   /** Refuses the operation when the app names no Supabase project. */
