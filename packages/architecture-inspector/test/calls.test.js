@@ -353,6 +353,55 @@ test("a destructured name reaches the function its source's property holds, wher
   assert.deepEqual(facts("write"), [["16:8", "exact", "checker", [RECORD]]]);
 });
 
+test("a function passed on through JSDoc-typed destructured parameters reaches its callers' value", async (t) => {
+  const typedParameter = (name) => [
+    "/** @typedef {import(\"./types.js\").Access} Access */",
+    "/**",
+    " * @param {object} dependencies",
+    " * @param {Access[\"requireAsset\"]} dependencies.requireAsset",
+    " */",
+    `function ${name}({ requireAsset }) {`
+  ];
+  const { result } = await inspectCallsOf(t, {
+    "src/server/types.js": "/** @typedef {ReturnType<typeof import(\"./access.js\").createAccess>} Access */\nexport {};\n",
+    "src/server/access.js": "export function createAccess() {\n  async function requireAsset(id) { return id; }\n  return Object.freeze({ requireAsset });\n}\n",
+    "src/server/completion.js": [
+      ...typedParameter("createCompletion"),
+      "  async function correct(id) { await requireAsset(id); }",
+      "  return { correct };",
+      "}",
+      "export { createCompletion };",
+      ""
+    ].join("\n"),
+    "src/server/execution.js": [
+      "import { createCompletion } from \"./completion.js\";",
+      ...typedParameter("createExecution"),
+      "  async function group(id) { await requireAsset(id); }",
+      "  const { correct } = createCompletion({ requireAsset });",
+      "  return { group, correct };",
+      "}",
+      "export { createExecution };",
+      ""
+    ].join("\n"),
+    "src/server/service.js": [
+      "import { createAccess } from \"./access.js\";",
+      "import { createExecution } from \"./execution.js\";",
+      "export function createService() {",
+      "  const { requireAsset } = createAccess();",
+      "  return createExecution({ requireAsset });",
+      "}",
+      ""
+    ].join("\n")
+  });
+  const facts = callsFrom(result, "requireAsset").map((call) => [call.fromFunctionId, call.certainty, call.method, call.targets]);
+  const REQUIRE = "fn:src/server/access.js#2:3";
+  // One hop (execution's own call) and two (completion, given execution's parameter).
+  assert.deepEqual(facts, [
+    ["fn:src/server/completion.js#7:3", "exact", "argument-flow", [REQUIRE]],
+    ["fn:src/server/execution.js#8:3", "exact", "argument-flow", [REQUIRE]]
+  ]);
+});
+
 const FEATURE = "import { defineFeature } from \"@jskit-ai/kernel/server/features\";";
 
 test("defineFeature injection binds one provider exactly, several ambiguously and none not at all", async (t) => {

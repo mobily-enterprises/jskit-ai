@@ -404,11 +404,24 @@ function createResolver({ program, checker, symbols, evaluator, bindings, action
     return { resolution: "unresolved", certainty: "unresolved", method: "none", targets: [] };
   }
 
-  // The functions a passed value can be, added to `targets`.
-  function addValueTargets(value, targets, exact = false) {
+  // The functions a passed value can be, added to `targets`. With `passedOn`,
+  // the path of parameters followed so far, a parameter the value passes on
+  // holds what its own callers give it; a callback a helper runs (passedCall)
+  // is never followed to another caller's value.
+  function addValueTargets(value, targets, exact = false, passedOn = null) {
     const found = value.path.length
       ? [...targetsFromTypes(valueTypes({ expression: value.expression, path: value.path.slice(0, -1) }, 0, new Set()), [value.path.at(-1)]).targets.keys()]
       : symbols.expressionImplementations(value.expression, 0).map(constructorOf).filter(Boolean);
+    const expression = unwrapExpression(value.expression);
+    const parameter = passedOn && !found.length && !value.path.length && ts.isIdentifier(expression) ? symbols.declarationOf(expression) : null;
+    if (parameter && (ts.isParameter(parameter) || ts.isBindingElement(parameter)) &&
+      !passedOn.includes(parameter) && passedOn.length < MAX_TYPE_DEPTH) {
+      const values = argumentValues(parameter);
+      for (const passed of values) {
+        addValueTargets(passed, targets, exact && values.length === 1, [...passedOn, parameter]);
+      }
+      return;
+    }
     for (const target of found) {
       targets.set(target, { exact: exact && found.length === 1 && !value.path.length, via: "argument-flow" });
     }
@@ -434,7 +447,7 @@ function createResolver({ program, checker, symbols, evaluator, bindings, action
     }
     const values = argumentValues(declaration);
     for (const value of values) {
-      addValueTargets(value, targets, values.length === 1);
+      addValueTargets(value, targets, values.length === 1, []);
     }
     return targets;
   }
