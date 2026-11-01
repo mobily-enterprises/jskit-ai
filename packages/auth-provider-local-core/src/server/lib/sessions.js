@@ -9,7 +9,6 @@ const RECOVERY_TOKEN_COOKIE_NAME = "jskit_local_recovery_token";
 const ACCESS_TTL_SECONDS = 15 * 60;
 const REFRESH_TTL_SECONDS = 60 * 60 * 24 * 30;
 
-
 function nowSeconds() {
   return Math.floor(Date.now() / 1000);
 }
@@ -218,6 +217,11 @@ function createLocalSessions({ appProfileProjection, backend, config, profilePro
     return authResult.actor.providerUserId;
   }
 
+  /** The access token of the request's recovery session, or "" when it has none. */
+  function readRecoveryAccessToken(request) {
+    return String(safeRequestCookies(request)[RECOVERY_TOKEN_COOKIE] || "").trim();
+  }
+
   function hasAccessTokenCookie(request) {
     return Boolean(safeRequestCookies(request)[ACCESS_TOKEN_COOKIE] || safeRequestCookies(request)[RECOVERY_TOKEN_COOKIE]);
   }
@@ -307,6 +311,7 @@ function createLocalSessions({ appProfileProjection, backend, config, profilePro
     createSessionForUser,
     authenticateRequest,
     requireNormalSessionUserId,
+    readRecoveryAccessToken,
     hasAccessTokenCookie,
     hasSessionCookie,
     writeSessionCookies,
@@ -316,4 +321,4 @@ function createLocalSessions({ appProfileProjection, backend, config, profilePro
   });
 }
 
-export { RECOVERY_TOKEN_COOKIE_NAME, cookieOptions, createLocalSessions, safeRequestCookies };
+export { cookieOptions, createLocalSessions, safeRequestCookies };

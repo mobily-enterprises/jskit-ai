@@ -22,7 +22,6 @@ Exports
 - `normalizeDisplayName(value, email)`
 - `validateEmailInput(email)`
 - `validatePasswordInput(password)`
-- `type AuthProfileProjector`
 Local functions
 - `devLoginAsValidationError(fields = {})`
 - `devLoginAsUserNotFound({ email = "", userId = "" } = {})`
@@ -37,7 +36,6 @@ Exports
 - `buildSessionAuthPayload({ appProfileProjection, devAuth, profileProjector, request, session, user, syncProfile = true })`
 - `findExistingAppProfile(user, profileProjector)`
 - `isAuthenticatingSession(session)`
-- `type AuthProfileProjector`
 Local functions
 - `isNormalSession(session)`
 - `isDevAuthSession(session)`
@@ -50,7 +48,7 @@ Exports
 Local functions
 - `resolveStoreDir(env, appRoot)`
 - `resolveSessionSecret(env, { storeDir, isProduction })`
-- `resolveAppPublicUrl(env, { emailRecovery, oauthProviders })`
+- `resolveAppPublicUrl(env, { emailRecovery, oauthEnabled })`
 - `resolveRecoveryDelivery(env, { emailRecovery, isProduction })`
 
 ### `src/server/lib/fileBackend.js`
@@ -148,7 +146,6 @@ Exports
 
 ### `src/server/lib/sessions.js`
 Exports
-- `RECOVERY_TOKEN_COOKIE_NAME`
 - `cookieOptions(isProduction, maxAge)`
 - `createLocalSessions({ appProfileProjection, backend, config, profileProjector })`
 - `safeRequestCookies(request)`

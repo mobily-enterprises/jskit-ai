@@ -12,8 +12,6 @@ import { createId } from "./tokens.js";
 /** An account created through a provider has no password until recovery sets one. */
 const NO_PASSWORD = Object.freeze({ algorithm: "", version: "", salt: "", hash: "" });
 
-/** @typedef {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} AuthProfileProjector */
-
 function normalizeDisplayName(value, email) {
   const displayName = String(value || "").trim();
   if (displayName) {
@@ -109,7 +107,7 @@ function normalizeInvitationInput(value) {
  * @param {import("../types.js").AuthLocalConfig} dependencies.config
  * @param {import("@jskit-ai/auth-core/server/types").AuthInvitationContextResolver} dependencies.invitationContextResolver
  * @param {import("../types.js").AuthLocalPasswords} dependencies.passwords
- * @param {AuthProfileProjector} dependencies.profileProjector
+ * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} dependencies.profileProjector
  * @param {import("../types.js").AuthLocalSessions} dependencies.sessions
  */
 function createLocalAccounts({ appProfileProjection, backend, config, invitationContextResolver, passwords, profileProjector, sessions }) {

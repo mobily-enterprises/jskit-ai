@@ -4,8 +4,6 @@ import { ensureDevAuthRuntimeAvailable } from "@jskit-ai/auth-core/server/devAut
 const PROVIDER_ID = "local";
 const DEV_AUTH_SESSION_PURPOSE = "dev-auth";
 
-/** @typedef {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} AuthProfileProjector */
-
 function isNormalSession(session) {
   return (session?.purpose || "normal") === "normal";
 }
@@ -53,7 +51,7 @@ function buildAuthResult({ user, session, appProfile }) {
  * @param {object} input
  * @param {object} input.user
  * @param {object | null} input.session
- * @param {AuthProfileProjector} input.profileProjector
+ * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} input.profileProjector
  * @param {object} [input.profileOptions]
  */
 async function buildAuthPayload({ user, session, profileProjector, profileOptions = {} }) {
@@ -63,7 +61,7 @@ async function buildAuthPayload({ user, session, profileProjector, profileOption
 
 /**
  * @param {object} user
- * @param {AuthProfileProjector} profileProjector
+ * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} profileProjector
  */
 function findExistingAppProfile(user, profileProjector) {
   return profileProjector.findByIdentity(buildProfile(user));
@@ -76,7 +74,7 @@ function findExistingAppProfile(user, profileProjector) {
  * @param {object} input
  * @param {boolean} input.appProfileProjection True when the application keeps profiles.
  * @param {object} input.devAuth
- * @param {AuthProfileProjector} input.profileProjector
+ * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} input.profileProjector
  * @param {object} input.request
  * @param {object} input.session
  * @param {object} input.user

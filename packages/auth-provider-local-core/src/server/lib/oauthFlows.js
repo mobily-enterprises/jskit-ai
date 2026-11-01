@@ -24,8 +24,7 @@ const OAUTH_REDIRECT_PATH = "/auth/login";
  * @param {import("../types.js").AuthLocalSessions} dependencies.sessions
  */
 function createLocalOAuthFlows({ backend, config, logger, oauthProvidersById, profileProjector, securityStatus, sessions }) {
-  const { isProduction } = config;
-  const oauthEnabled = config.oauthProviders.length > 0;
+  const { isProduction, oauthEnabled } = config;
   const OAUTH_ATTEMPT_COOKIE = hostOnlyCookieName(OAUTH_ATTEMPT_COOKIE_NAME, isProduction);
   const oauthRedirectUri = oauthEnabled ? `${config.appPublicUrl.replace(/\/$/u, "")}${OAUTH_REDIRECT_PATH}` : "";
   const appOrigin = oauthEnabled ? new URL(config.appPublicUrl).origin : "";
@@ -39,8 +38,10 @@ function createLocalOAuthFlows({ backend, config, logger, oauthProvidersById, pr
     return provider;
   }
 
-  // The attempt (state, nonce, PKCE verifier) is stored server-side under the
-  // hash of a random key that only the starting browser holds in a cookie.
+  /**
+   * The attempt (state, nonce, PKCE verifier) is stored server-side under the
+   * hash of a random key that only the starting browser holds in a cookie.
+   */
   async function beginOAuthAttempt(provider, { intent, userId = "", returnTo }) {
     const browserKey = randomToken(32);
     const attempt = {
@@ -83,8 +84,10 @@ function createLocalOAuthFlows({ backend, config, logger, oauthProvidersById, pr
     }
   }
 
-  // Subject first, then a verified email that matches an existing user, then a
-  // new user created like register; profile sync then provisions it as usual.
+  /**
+   * Subject first, then a verified email that matches an existing user, then a
+   * new user created like register; profile sync then provisions it as usual.
+   */
   async function signInWithOAuthIdentity(identity) {
     const result = await backend.withTransaction(async (tx) => {
       const linked = await tx.identities.findByProviderSubject(identity.provider, identity.providerSubject);

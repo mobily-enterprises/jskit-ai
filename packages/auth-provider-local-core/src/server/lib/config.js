@@ -44,13 +44,13 @@ function resolveSessionSecret(env, { storeDir, isProduction }) {
  * APP_PUBLIC_URL, from which recovery links and OAuth redirect addresses are
  * built. Email recovery and OAuth sign-in require it.
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} env
- * @param {{ emailRecovery: boolean, oauthProviders: readonly object[] }} options
+ * @param {{ emailRecovery: boolean, oauthEnabled: boolean }} options
  */
-function resolveAppPublicUrl(env, { emailRecovery, oauthProviders }) {
+function resolveAppPublicUrl(env, { emailRecovery, oauthEnabled }) {
   const configured = String(env.APP_PUBLIC_URL || "").trim();
   if (!configured) {
     if (emailRecovery) throw new Error("APP_PUBLIC_URL is required when local auth email recovery is configured.");
-    if (oauthProviders.length > 0) throw new Error("APP_PUBLIC_URL is required when local auth OAuth sign-in is configured.");
+    if (oauthEnabled) throw new Error("APP_PUBLIC_URL is required when local auth OAuth sign-in is configured.");
     return "http://localhost:5173";
   }
   let parsed;
@@ -83,6 +83,8 @@ function resolveRecoveryDelivery(env, { emailRecovery, isProduction }) {
 
 /**
  * The local auth configuration, resolved and checked once from the environment.
+ * Production is worked out once, by auth-core's dev auth policy, so local auth
+ * and its dev sign-in agree on it.
  * @param {object} input
  * @param {import("@jskit-ai/kernel/server/types").RuntimeAppRoot} input.appRoot
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} input.env
@@ -91,21 +93,25 @@ function resolveRecoveryDelivery(env, { emailRecovery, isProduction }) {
  * @param {boolean} input.emailRecovery True when an `auth.local.recovery-sender` is installed.
  */
 function resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery }) {
-  const isProduction = String(env.NODE_ENV || "development").trim() === "production";
+  const devAuth = resolveDevAuthPolicyFromEnv(env);
+  const { isProduction } = devAuth;
   const storeDir = resolveStoreDir(env, appRoot);
   if (fileBackend && isProduction && !parseBooleanFlag(env.AUTH_LOCAL_FILE_PRODUCTION_ACK, false)) {
     throw new Error("AUTH_LOCAL_FILE_PRODUCTION_ACK is required to use the local file auth backend in production.");
   }
-  const devAuth = resolveDevAuthPolicyFromEnv(env);
   assertDevAuthPolicy(devAuth);
   const oauthProviders = resolveOAuthProviders(env);
+  const oauthEnabled = oauthProviders.length > 0;
+  const recoveryDelivery = resolveRecoveryDelivery(env, { emailRecovery, isProduction });
   return Object.freeze({
     storeDir,
     isProduction,
-    appPublicUrl: resolveAppPublicUrl(env, { emailRecovery, oauthProviders }),
+    appPublicUrl: resolveAppPublicUrl(env, { emailRecovery, oauthEnabled }),
     oauthProviders,
+    oauthEnabled,
     sessionSecret: resolveSessionSecret(env, { storeDir, isProduction }),
-    recoveryDelivery: resolveRecoveryDelivery(env, { emailRecovery, isProduction }),
+    recoveryDelivery,
+    recoveryEnabled: recoveryDelivery !== "disabled",
     devAuth
   });
 }

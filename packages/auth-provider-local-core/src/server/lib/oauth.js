@@ -44,7 +44,7 @@ function resolveOAuthProviders(env = {}) {
   return Object.freeze(providers);
 }
 
-// Errors that name a provider carry its label as the provider param.
+/** Errors that name a provider carry its label as the provider param. */
 function signInError(statusCode, message, { code, provider = null }) {
   return new AppError(statusCode, message, {
     code,

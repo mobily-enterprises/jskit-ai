@@ -42,20 +42,17 @@ const AuthLocalProvider = defineProvider({
    * @param {import("../types.js").AuthLocalRecoverySender | null} dependencies.recoverySender The `auth.local.recovery-sender`, when one is installed.
    */
   boot({ appRoot, backend, env, extensions, logger, passwordStrategy, profileProjector, recoverySender }, { outputs }) {
-    const config = resolveLocalAuthConfig({
-      appRoot,
-      env,
-      fileBackend: backend === null,
-      emailRecovery: recoverySender !== null
-    });
+    const fileBackend = backend === null;
+    const emailRecovery = recoverySender !== null;
+    const config = resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery });
     const baseService = createLocalAuthService({
-      backend: backend ?? createLocalFileBackend({ storeDir: config.storeDir }),
+      backend: fileBackend ? createLocalFileBackend({ storeDir: config.storeDir }) : backend,
       config,
       invitationContextResolver: extensions.resolveInvitationContextResolver(),
       logger,
       passwordStrategy: passwordStrategy ?? scryptPasswordStrategy,
       profileProjector: profileProjector ?? noAppProfiles,
-      recoverySender: recoverySender ?? createLoggedRecoverySender(logger)
+      recoverySender: emailRecovery ? recoverySender : createLoggedRecoverySender(logger)
     });
     // readable-check: allow setter-seam - deferred until boot: auth.service is built after every setup has registered its auth extensions, and those setups already receive it
     attachDeferredAuthService(outputs.authService, extensions.decorateService(baseService));

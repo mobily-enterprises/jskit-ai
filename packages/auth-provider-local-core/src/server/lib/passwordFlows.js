@@ -1,9 +1,7 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import { hostOnlyCookieName } from "@jskit-ai/auth-core/server/utils";
 import { AUTH_TEXTS, authMessageFields, createAuthError } from "@jskit-ai/auth-core/server/authTexts";
 import { validateEmailInput, validatePasswordInput } from "./accounts.js";
 import { buildAuthPayload } from "./authPayloads.js";
-import { RECOVERY_TOKEN_COOKIE_NAME, safeRequestCookies } from "./sessions.js";
 import { createId, isExpiredIso, isoFromNow, randomToken, sha256Base64url, verifySignedToken } from "./tokens.js";
 
 const RECOVERY_SESSION_TTL_SECONDS = 15 * 60;
@@ -34,8 +32,7 @@ function createLoggedRecoverySender(logger) {
  * @param {import("../types.js").AuthLocalSessions} dependencies.sessions
  */
 function createLocalPasswordFlows({ backend, config, passwords, profileProjector, recoverySender, sessions }) {
-  const RECOVERY_TOKEN_COOKIE = hostOnlyCookieName(RECOVERY_TOKEN_COOKIE_NAME, config.isProduction);
-  const recoveryEnabled = config.recoveryDelivery !== "disabled";
+  const { recoveryEnabled } = config;
   const recoveryInResponse = config.recoveryDelivery === "dev-response";
 
   async function requestPasswordReset(input) {
@@ -99,9 +96,7 @@ function createLocalPasswordFlows({ backend, config, passwords, profileProjector
 
   async function resetPassword(request, input) {
     validatePasswordInput(input.password);
-    const cookies = safeRequestCookies(request);
-    const recoveryAccessToken = String(cookies[RECOVERY_TOKEN_COOKIE] || "").trim();
-    const payload = verifySignedToken(recoveryAccessToken, config.sessionSecret);
+    const payload = verifySignedToken(sessions.readRecoveryAccessToken(request), config.sessionSecret);
     if (!payload?.sub || !payload?.sid) {
       throw createAuthError(AUTH_TEXTS.sessionRequired);
     }

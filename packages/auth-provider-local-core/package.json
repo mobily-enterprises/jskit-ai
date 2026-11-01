@@ -48,11 +48,11 @@
           },
           {
             "subpath": "./server/lib/index",
-            "summary": "Exports local auth service, file backend helpers, password strategy helpers, and local auth register hook decorators. Google, Microsoft and GitHub sign-in turn on from AUTH_GOOGLE_*, AUTH_MICROSOFT_* and AUTH_GITHUB_* client id and secret pairs."
+            "summary": "Exports the local auth service and its configuration (createLocalAuthService, resolveLocalAuthConfig), the file backend, the password strategy helpers (scryptPasswordStrategy, normalizePasswordStrategy, hashPassword, verifyPassword), the logged recovery sender (createLoggedRecoverySender), and local auth register hook decorators. Google, Microsoft and GitHub sign-in turn on from AUTH_GOOGLE_*, AUTH_MICROSOFT_* and AUTH_GITHUB_* client id and secret pairs."
           },
           {
             "subpath": "./server/types",
-            "summary": "Type of the auth.local.backend contract (AuthLocalBackend) that every local auth backend implements."
+            "summary": "Types of the auth.local.backend contract (AuthLocalBackend) that every local auth backend implements, of the auth.local.password-strategy and auth.local.recovery-sender capabilities, and of the configuration, passwords and sessions local auth's modules share."
           }
         ],
         "extensionCapabilities": [

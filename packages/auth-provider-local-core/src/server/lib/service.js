@@ -36,9 +36,8 @@ function createLocalAuthService({
 }) {
   const passwords = normalizePasswordStrategy(passwordStrategy);
   const oauthProvidersById = new Map(config.oauthProviders.map((provider) => [provider.id, provider]));
-  const oauthEnabled = config.oauthProviders.length > 0;
+  const { oauthEnabled, recoveryEnabled } = config;
   const appProfileProjection = profileProjector !== noAppProfiles;
-  const recoveryEnabled = config.recoveryDelivery !== "disabled";
   const capabilities = normalizeAuthCapabilities({
     provider: {
       id: PROVIDER_ID,

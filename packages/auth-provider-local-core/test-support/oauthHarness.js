@@ -130,7 +130,7 @@ function createService({ backend, oauthProviders, profileProjector }) {
   return createLocalAuthService({
     ...options,
     backend,
-    config: { ...options.config, oauthProviders },
+    config: { ...options.config, oauthProviders, oauthEnabled: oauthProviders.length > 0 },
     profileProjector
   });
 }

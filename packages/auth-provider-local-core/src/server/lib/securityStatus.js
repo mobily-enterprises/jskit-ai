@@ -12,8 +12,7 @@ import { hasPassword } from "./accounts.js";
  * @param {import("../types.js").AuthLocalSessions} dependencies.sessions
  */
 function createLocalSecurityStatus({ backend, config, oauthProvidersById, sessions }) {
-  const { oauthProviders } = config;
-  const oauthEnabled = oauthProviders.length > 0;
+  const { oauthProviders, oauthEnabled } = config;
 
   async function securityStatusForUser(userId) {
     const { user, identities } = await backend.withTransaction(async (tx) => ({
