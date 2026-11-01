@@ -30,7 +30,9 @@ function isCrossSiteNavigation(request) {
  * parser the back-channel route needs applies to it alone.
  * @param {import("@jskit-ai/kernel/server/types").RuntimeFastify} fastify
  * @param {object} dependencies
- * @param {ReturnType<typeof import("./service.js").createOidcAuthService>} dependencies.authService
+ * @param {ReturnType<typeof import("./service.js").createOidcAuthService>} dependencies.authService The installed
+ *   `auth.service`: this provider's service with the application's auth.extensions decorators, so a
+ *   decorator of logoutEverywhere or clearSessionCookies applies to these routes too.
  * @param {ReturnType<typeof import("./backchannelLogout.js").createBackchannelLogout>} dependencies.backchannelLogout
  */
 async function registerOidcRoutes(fastify, { authService, backchannelLogout }) {

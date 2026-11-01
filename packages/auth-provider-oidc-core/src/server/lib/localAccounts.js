@@ -12,6 +12,9 @@ function isTruthy(value) {
  * import: ids, emails, names and the scrypt password fields, unchanged. The
  * file holds password hashes, so it is created owner-only and never replaces
  * an existing file.
+ * @param {object} input
+ * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} input.knex The app's database.
+ * @param {string} input.out The file to create.
  */
 async function exportLocalAccounts({ knex, out }) {
   const rows = await knex("auth_local_users as local")
@@ -71,6 +74,10 @@ async function readExportedIds(file) {
  * accounts listed in the export the hub imported. The hub keeps each local id
  * as its subject, so `auth_provider_user_sid` stays as it is. Dry-run unless
  * `apply` is set.
+ * @param {object} input
+ * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} input.knex The app's database.
+ * @param {string} input.file The export the hub imported.
+ * @param {boolean} [input.apply] True to move the rows; otherwise only counts them.
  */
 async function adoptOidcAccounts({ knex, file, apply = false }) {
   const ids = await readExportedIds(file);

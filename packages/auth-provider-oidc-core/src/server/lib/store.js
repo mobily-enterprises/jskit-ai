@@ -67,7 +67,7 @@ function createOidcStore({ knex, now = Date.now }) {
     return rows.map((row) => row.client_id);
   }
 
-  // Two first sign-ins may register at once; the first stored client wins.
+  /** Two first sign-ins may register at once; the first stored client wins. */
   async function insertClient(client) {
     try {
       await knex(TABLES.clients).insert({
@@ -114,7 +114,7 @@ function createOidcStore({ knex, now = Date.now }) {
     await knex(TABLES.sessions).where({ id }).whereNull("revoked_at").update({ revoked_at: stamp(), updated_at: stamp() });
   }
 
-  // A subject ends all of that person's sessions; an issuer session id alone ends its own.
+  /** A subject ends all of that person's sessions; an issuer session id alone ends its own. */
   async function revokeIssuerSessions(issuer, { sub = "", sid = "" } = {}) {
     if (!sub && !sid) return 0;
     return knex(TABLES.sessions).where({ issuer }).whereNull("revoked_at")
@@ -122,7 +122,7 @@ function createOidcStore({ knex, now = Date.now }) {
       .update({ revoked_at: stamp(), updated_at: stamp() });
   }
 
-  // Returns false when this token id was already used.
+  /** Returns false when this token id was already used. */
   async function rememberLogoutToken(issuer, jti, expiresAt) {
     await knex(TABLES.logoutTokens).where("expires_at", "<=", stamp()).del();
     try {
@@ -134,7 +134,7 @@ function createOidcStore({ knex, now = Date.now }) {
     }
   }
 
-  // Preview identity signs in as an account the app already knows.
+  /** Preview identity signs in as an account the app already knows. */
   async function findKnownUser(provider, { userId = "", email = "" } = {}) {
     const query = knex("users").where({ auth_provider: provider });
     if (userId) query.andWhere({ auth_provider_user_sid: userId });

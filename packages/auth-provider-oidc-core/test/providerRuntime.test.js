@@ -21,13 +21,15 @@ import { followAuthorization, startMockIssuer } from "../test-support/mockIssuer
 
 const quietLogger = { info() {}, warn() {}, error() {}, debug() {} };
 
-async function startApp(t, { env = {} } = {}) {
+async function startApp(t, { env = {}, configureExtensions = () => {} } = {}) {
   const issuer = await startMockIssuer();
   const appRoot = await mkdtemp(path.join(tmpdir(), "jskit-oidc-app-"));
   const knex = createKnex({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
   await migration.up(knex);
   const fastify = Fastify();
   await fastify.register(fastifyCookie);
+  const extensions = createAuthExtensions();
+  configureExtensions(extensions);
   let authService = null;
   const probe = defineProvider({
     id: "test.oidc.probe",
@@ -49,7 +51,7 @@ async function startApp(t, { env = {} } = {}) {
       },
       "runtime.fastify": fastify,
       "runtime.logger": quietLogger,
-      "auth.extensions": createAuthExtensions()
+      "auth.extensions": extensions
     },
     providers: [AuthOidcProvider, probe]
   });
@@ -111,11 +113,11 @@ test("the package provides auth.service with the documented descriptor", () => {
 
 test("capabilities: one OIDC button, no password features, preview identity unchanged", async (t) => {
   const { authService } = await startApp(t, {
-    env: { AUTH_OIDC_LABEL: "Sign in with Mobily", AUTH_DEV_BYPASS_ENABLED: "true", AUTH_DEV_BYPASS_SECRET: "preview-secret-0123456789abcdef" }
+    env: { AUTH_OIDC_LABEL: "Sign in with Example", AUTH_DEV_BYPASS_ENABLED: "true", AUTH_DEV_BYPASS_SECRET: "preview-secret-0123456789abcdef" }
   });
   const { provider, features } = authService.getCapabilities();
-  assert.deepEqual(provider, { id: "oidc", label: "Sign in with Mobily" });
-  assert.deepEqual(features.oauthLogin, { enabled: true, providers: [{ id: "oidc", label: "Sign in with Mobily" }], defaultProvider: "oidc" });
+  assert.deepEqual(provider, { id: "oidc", label: "Sign in with Example" });
+  assert.deepEqual(features.oauthLogin, { enabled: true, providers: [{ id: "oidc", label: "Sign in with Example" }], defaultProvider: "oidc" });
   assert.deepEqual(features.password, { login: false, register: false, change: false, methodToggle: false });
   assert.equal(features.passwordRecovery.request, false);
   assert.equal(features.otp.login, false);
@@ -212,4 +214,29 @@ test("the logout route ignores cross-site links and clears the session", async (
   assert.equal(sameOrigin.statusCode, 302);
   assert.equal(sameOrigin.headers.location, "/");
   assert.match(String(sameOrigin.headers["set-cookie"]), /jskit_oidc_session=;/u);
+});
+
+test("the logout route signs out through auth.service with the application's decorators", async (t) => {
+  const cleared = [];
+  const { fastify } = await startApp(t, {
+    configureExtensions(extensions) {
+      extensions.registerServiceDecorator({
+        decoratorId: "test.oidc.clearAppCookie",
+        decorateAuthService(authService) {
+          return Object.freeze(Object.defineProperties(Object.create(authService), {
+            clearSessionCookies: {
+              enumerable: true,
+              value(reply) {
+                cleared.push("app cookie");
+                return authService.clearSessionCookies(reply);
+              }
+            }
+          }));
+        }
+      });
+    }
+  });
+  const response = await fastify.inject({ method: "GET", url: AUTH_OIDC_LOGOUT_PATH, headers: { "sec-fetch-site": "same-origin" } });
+  assert.equal(response.statusCode, 302);
+  assert.deepEqual(cleared, ["app cookie"]);
 });

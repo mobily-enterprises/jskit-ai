@@ -51,10 +51,11 @@ const AuthOidcProvider = defineProvider({
       profileProjector: profileProjector ?? noAppProfiles,
       logger
     });
+    const authService = extensions.decorateService(baseService);
     // readable-check: allow setter-seam - deferred until boot: auth.service is built after every setup has registered its auth extensions, and those setups already receive it
-    attachDeferredAuthService(outputs.authService, extensions.decorateService(baseService));
+    attachDeferredAuthService(outputs.authService, authService);
     await registerOidcRoutes(fastify, {
-      authService: baseService,
+      authService,
       backchannelLogout: createBackchannelLogout({ config, store, issuer })
     });
     if (config.appPublicOrigin && !config.setupProblem) {

@@ -69,10 +69,12 @@ function resolveSessionSecret(env, { appRoot, isProduction }) {
  * Reads the OIDC sign-in Env. Malformed values stop the app with one sentence.
  * A missing issuer or client is not fatal: the app runs and sign-in explains
  * what to set (`setupProblem`), so a project can be prepared before its
- * accounts hub exists.
+ * accounts hub exists. Production is worked out once, by auth-core's dev auth
+ * policy, so sign-in and dev sign-in agree on it.
  */
 function resolveOidcConfig({ env = {}, appRoot = process.cwd() } = {}) {
-  const isProduction = text(env.NODE_ENV) === "production";
+  const devAuth = resolveDevAuthPolicyFromEnv(env);
+  const { isProduction } = devAuth;
   const issuerValue = text(env.AUTH_OIDC_ISSUER);
   const registrationToken = text(env.AUTH_OIDC_REGISTRATION_TOKEN);
   const clientId = text(env.AUTH_OIDC_CLIENT_ID);
@@ -90,7 +92,6 @@ function resolveOidcConfig({ env = {}, appRoot = process.cwd() } = {}) {
   }
   const issuer = issuerValue ? parseAddress(issuerValue, "AUTH_OIDC_ISSUER").href.replace(/\/$/u, "") : "";
   const appPublicOrigin = publicUrlValue ? parseAddress(publicUrlValue, "APP_PUBLIC_URL").origin : "";
-  const devAuth = resolveDevAuthPolicyFromEnv(env);
   assertDevAuthPolicy(devAuth);
 
   let setupProblem = null;

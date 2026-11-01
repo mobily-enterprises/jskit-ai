@@ -274,8 +274,10 @@ function createOidcAuthService({ config, store, issuer, profileProjector, logger
     return token ? store.findActiveSessionByTokenHash(sha256(token)) : null;
   }
 
-  // A dev session, or a caller that asks only who is signed in (syncProfile:
-  // false), reads the existing app profile instead of synchronizing it.
+  /**
+   * A dev session, or a caller that asks only who is signed in (syncProfile:
+   * false), reads the existing app profile instead of synchronizing it.
+   */
   async function authenticateRequest(request, { syncProfile = true } = {}) {
     const session = await sessionFromRequest(request);
     if (!session) return unauthenticated(hasSessionCookie(request));
