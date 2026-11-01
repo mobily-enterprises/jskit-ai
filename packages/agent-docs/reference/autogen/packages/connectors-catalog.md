@@ -1337,7 +1337,7 @@ Exports
 
 ### `patterns/ai-connections/example/ai-model.js`
 Exports
-- `createConfiguredAiModel({ configuration, authorize, resolveReference, createModel })`
+- `createConfiguredAiModel({ configuration, authorize, resolveReference = createEnvironmentReferenceResolver(), createModel })`
 
 ### `patterns/ai-connections/example/perplexity-answer.js`
 Exports

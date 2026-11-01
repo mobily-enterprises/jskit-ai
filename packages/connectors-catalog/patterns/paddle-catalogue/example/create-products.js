@@ -1,8 +1,10 @@
 import { paddleProvider } from "@jskit-ai/connectors-catalog/server/paddle";
 
-// Application-owned composition: pass an application-mode connection runtime.
-// An assistant host must approve the complete batch before calling this recipe.
-/** @param {{ runtime: import("@jskit-ai/connectors-core/server/types").ConnectorsCore, context: object, integrationId: string, items: object[], signal?: AbortSignal }} request */
+/**
+ * Application-owned composition: pass an application-mode connection runtime.
+ * An assistant host must approve the complete batch before calling this recipe.
+ * @param {{ runtime: import("@jskit-ai/connectors-core/server/types").ConnectorsCore, context: object, integrationId: string, items: object[], signal?: AbortSignal }} request
+ */
 async function createProductsWithPrices({ runtime, context, integrationId, items, signal }) {
   if (!Array.isArray(items) || !items.length || items.length > 100) {
     throw new TypeError("Supply between 1 and 100 products with prices.");

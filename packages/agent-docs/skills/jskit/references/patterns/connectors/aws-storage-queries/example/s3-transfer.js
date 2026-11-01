@@ -1,7 +1,7 @@
-// Application-owned composition: service.authorize must approve this exact key
-// for context. The same function works in a Node CLI or application backend.
-// Pass a bounded signal for both signing and the complete response-body read.
 /**
+ * Application-owned composition: service.authorize must approve this exact key
+ * for context. The same function works in a Node CLI or application backend.
+ * Pass a bounded signal for both signing and the complete response-body read.
  * @param {object} request
  * @param {import("@jskit-ai/connectors-core/server/types").ConnectorsCore} request.service
  * @param {object} request.context

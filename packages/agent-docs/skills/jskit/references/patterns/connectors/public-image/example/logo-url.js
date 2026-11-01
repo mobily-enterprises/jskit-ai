@@ -2,8 +2,10 @@ import { parseIntegrationConfiguration } from "@jskit-ai/connectors-core/shared/
 import { logoDevDefinition } from "@jskit-ai/connectors-catalog/shared";
 import { createLogoDevImageUrl } from "@jskit-ai/connectors-catalog/client/logo-dev";
 
-// The application authorizes access before passing its configuration and resolver.
-/** @param {{ configurationText: string, integrationId: string, resolveReference: import("@jskit-ai/connectors-core/server/types").ResolveReference, image: object }} request */
+/**
+ * The application authorizes access before passing its configuration and resolver.
+ * @param {{ configurationText: string, integrationId: string, resolveReference: import("@jskit-ai/connectors-core/server/types").ResolveReference, image: object }} request
+ */
 async function logoUrlFromConfiguration({ configurationText, integrationId, resolveReference, image }) {
   const configuration = parseIntegrationConfiguration(configurationText, { providers: [logoDevDefinition], allowUnknownProviders: true });
   const integration = configuration.integrations[integrationId];

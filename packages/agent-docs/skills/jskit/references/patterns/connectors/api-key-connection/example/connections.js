@@ -5,9 +5,11 @@ import { createFileConnectionStore, createCredentialProtection } from "@jskit-ai
 import { resendProvider } from "@jskit-ai/connectors-catalog/server/resend";
 import { firecrawlProvider } from "@jskit-ai/connectors-catalog/server/firecrawl";
 
-// Both a manually written CLI and a server can compose this application-owned module.
-// The application supplies its existing identity and permission policy.
-/** @param {{ authorize: import("@jskit-ai/connectors-core/server/types").ConnectorAuthorize, env?: Record<string, string | undefined>, configFile?: string }} dependencies */
+/**
+ * Both a manually written CLI and a server can compose this application-owned module.
+ * The application supplies its existing identity and permission policy.
+ * @param {{ authorize: import("@jskit-ai/connectors-core/server/types").ConnectorAuthorize, env?: Record<string, string | undefined>, configFile?: string }} dependencies
+ */
 export async function applicationConnections({ authorize, env = process.env, configFile = "integrations.json" }) {
   const providers = [resendProvider, firecrawlProvider];
   const configuration = parseIntegrationConfiguration(await readFile(configFile, "utf8"), { providers });
