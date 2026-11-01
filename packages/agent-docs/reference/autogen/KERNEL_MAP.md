@@ -79,6 +79,7 @@ Exports
 - `TRANSACTION_OUTCOMES`
 - `normalizeTransactionOutcome(value)`
 - `normalizeText(value, { fallback = "" } = {})`
+- `toText(value)`
 - `hasValue(value)`
 - `normalizeBoolean(value)`
 - `normalizeFiniteNumber(value)`

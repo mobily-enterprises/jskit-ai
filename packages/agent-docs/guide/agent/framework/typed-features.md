@@ -355,6 +355,10 @@ return Object.freeze({ discover, targets, preview, create, createConversion, cam
   `common/support/workspaceRecordId.js`, and its copy of users-core's
   `resolveActionUser` became an import of
   `@jskit-ai/users-core/server/resolveActionUser`.
+- A helper the kernel owns is imported from it, never copied. A value as
+  trimmed text where only `null` and `undefined` are empty (0 and false keep
+  their text) is `toText(value)`; `normalizeText(value)` treats every falsy
+  value as empty (`@jskit-ai/kernel/shared/support/normalize`).
 - Files stay under 750 lines and functions under 600, one concern per factory.
 - These rules cover every module a capability value is built from, `src/shared`
   modules included.

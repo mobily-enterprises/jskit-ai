@@ -9,6 +9,16 @@ function normalizeText(value, { fallback = "" } = {}) {
   return normalized || fallback;
 }
 
+/**
+ * A value as trimmed text. Only null and undefined are empty: 0 and false keep their text, unlike normalizeText,
+ * which treats every falsy value as empty.
+ * @param {unknown} value
+ * @returns {string}
+ */
+function toText(value) {
+  return String(value ?? "").trim();
+}
+
 function hasValue(value) {
   if (value == null) {
     return false;
@@ -275,6 +285,7 @@ export {
   TRANSACTION_OUTCOMES,
   normalizeTransactionOutcome,
   normalizeText,
+  toText,
   hasValue,
   normalizeBoolean,
   normalizeFiniteNumber,

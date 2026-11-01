@@ -16,7 +16,8 @@ import {
   normalizeQueryToken,
   normalizeText,
   normalizeTransactionOutcome,
-  normalizeUniqueTextList
+  normalizeUniqueTextList,
+  toText
 } from "./normalize.js";
 
 test("normalizeTransactionOutcome accepts only the documented literal outcomes", () => {
@@ -221,4 +222,13 @@ test("normalizeUniqueTextList trims, dedupes, and supports optional single value
     }),
     ["one"]
   );
+});
+
+test("toText keeps 0 and false as text and empties only null and undefined", () => {
+  assert.equal(toText(" Ada "), "Ada");
+  assert.equal(toText(0), "0");
+  assert.equal(toText(false), "false");
+  assert.equal(toText(null), "");
+  assert.equal(toText(undefined), "");
+  assert.equal(normalizeText(0), "");
 });
