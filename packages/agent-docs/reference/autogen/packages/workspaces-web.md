@@ -262,7 +262,7 @@ Exports
 - `WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN`
 - `WORKSPACE_BOOTSTRAP_STATUS_UNAUTHENTICATED`
 - `WORKSPACE_BOOTSTRAP_STATUS_ERROR`
-- `createBootstrapPlacementRuntime({ bootstrapRuntime, placementRuntime, realtime = null, router = null, vueApp = null, logger = null } = {})`
+- `createBootstrapPlacementRuntime({ bootstrapRuntime, placementRuntime, realtime = null, router = null, vueApp = null, logger })`
 
 ### `src/client/runtime/bootstrapPlacementRuntimeConstants.js`
 Exports
@@ -279,7 +279,6 @@ Exports
 ### `src/client/runtime/bootstrapPlacementRuntimeHelpers.js`
 Exports
 - `countPendingInvites(entries = [])`
-- `createProviderLogger(logger)`
 - `fetchBootstrapPayload(workspaceSlug = "")`
 - `isGuardDenied(outcome)`
 - `normalizeSearch(search = "")`

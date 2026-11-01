@@ -43,7 +43,7 @@ Exports
 - `RealtimeClientProvider`
 - `resolveRealtimeClientConfig({ env = {}, mobile = null } = {})`
 Local functions
-- `createRealtimeClient({ config, loggerInput } = {})`
+- `createRealtimeClient({ config, logger: appLogger })`
 - `trackServedClientBuild(socket, logger)`
 
 ### `src/client/runtime.js`

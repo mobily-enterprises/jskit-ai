@@ -35,7 +35,7 @@ Exports
 
 ### `src/client/asyncModuleRecovery/runtime.js`
 Exports
-- `createShellAsyncModuleRecoveryRuntime({ router = null, errorRuntime = null, logger = null } = {})`
+- `createShellAsyncModuleRecoveryRuntime({ router = null, errorRuntime = null, logger })`
 
 ### `src/client/bootstrap/bootstrapErrorStatus.js`
 Exports
@@ -404,7 +404,7 @@ Exports
 ### `src/client/requestRecovery/runtime.js`
 Exports
 - `appReloadFailureMessage()`
-- `createShellRequestRecoveryRuntime({ queryClient = null, errorRuntime = null, logger = null } = {})`
+- `createShellRequestRecoveryRuntime({ queryClient = null, errorRuntime = null, logger })`
 - `isRecoverableRequestError(error = null)`
 - `requestRecoveryMessage(error = null, { label = "", message = "" } = {})`
 Local functions
@@ -432,7 +432,7 @@ Local functions
 ### `src/client/runtime/refreshRuntime.js`
 Exports
 - `SHELL_WEB_REFRESH_RUNTIME_KEY`
-- `createShellRefreshRuntime({ bootstrapRuntime = null, queryClient = null, errorRuntime = null, logger = null } = {})`
+- `createShellRefreshRuntime({ bootstrapRuntime = null, queryClient = null, errorRuntime = null, logger })`
 Local functions
 - `isPullRefreshQuery(query = null)`
 

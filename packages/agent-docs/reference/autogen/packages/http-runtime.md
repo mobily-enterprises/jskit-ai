@@ -47,11 +47,19 @@ Exports
 ### `src/shared/clientRuntime/client.js`
 Exports
 - `createHttpClient(options = {})`
+- `type HttpClientHooks`
 Local functions
 - `requestSignalWithDeadline(signal, timeoutMs)`
 - `normalizeMethod(method)`
 - `resolveUnsafeMethods(value)`
-- `resolveFetch()`
+- `fetchWithGlobalFetch(url, config)`
+- `keepRequestUrl(url)`
+- `keepHeaders()`
+- `ignoreRequestOutcome()`
+- `useCsrfRetryRule()`
+- `useContentTypeForStream()`
+- `ignoreStreamEvent()`
+- `ignoreMalformedLine()`
 - `normalizeResolvedRequestUrl(value, fallback = "")`
 - `isObjectBody(value)`
 - `isQueryValuePresent(value)`
@@ -97,7 +105,8 @@ Local functions
 Exports
 - `emitNdjsonLine(line, handlers)`
 - `parseJsonSafely(response, signal)`
-- `readNdjsonStream(response, handlers = {})`
+- `readNdjsonStream(response, handlers)`
+- `type NdjsonHandlers`
 
 ### `src/shared/clientRuntime/retry.js`
 Exports
@@ -208,9 +217,9 @@ Local functions
 Exports
 - `JSON_API_ERROR_DOCUMENT_SCHEMA`
 - `resolveRouteTypes(value = {})`
-- `createJsonApiResourceObjectTransportSchema({ type = "", attributes, requireId = true, includeLinks = false, includeMeta = false, excludeAttributeKeys = [], relationshipEntries = [], relationshipMembersRequired = false, allowSparseFields = false } = {})`
-- `createJsonApiResourceRequestBodyTransportSchema({ type = "", attributes, requireId = false, excludeAttributeKeys = [], relationshipEntries = [] } = {})`
-- `createJsonApiResourceSuccessTransportSchema({ type = "", attributes, kind = "record", includeLinks = false, includeMeta = false, includeIncluded = false, allowSparseFields = false, excludeAttributeKeys = [], relationshipEntries = [] } = {})`
+- `createJsonApiResourceObjectTransportSchema({ type = "", attributes, requireId = true, includeLinks = false, includeMeta = false, // readable-check: allow dependency-default - data: a list of attribute keys, not a collaborator excludeAttributeKeys = [], // readable-check: allow dependency-default - data: a list of relationship entries, not a collaborator relationshipEntries = [], relationshipMembersRequired = false, allowSparseFields = false })`
+- `createJsonApiResourceRequestBodyTransportSchema({ type = "", attributes, requireId = false, // readable-check: allow dependency-default - data: a list of attribute keys, not a collaborator excludeAttributeKeys = [], // readable-check: allow dependency-default - data: a list of relationship entries, not a collaborator relationshipEntries = [] })`
+- `createJsonApiResourceSuccessTransportSchema({ type = "", attributes, kind = "record", includeLinks = false, includeMeta = false, includeIncluded = false, allowSparseFields = false, // readable-check: allow dependency-default - data: a list of attribute keys, not a collaborator excludeAttributeKeys = [], // readable-check: allow dependency-default - data: a list of relationship entries, not a collaborator relationshipEntries = [] })`
 - `withJsonApiErrorResponses(successResponses, { includeValidation400 = false } = {})`
 Local functions
 - `resolveRouteType(type = "")`
@@ -239,7 +248,7 @@ Local functions
 ### `src/shared/validators/jsonApiRouteTransport.js`
 Exports
 - `createJsonApiResourceRouteTransport({ type = "", requestType = "", responseType = "", query, allowBodyId = false, successKind = "record", pointerPrefix = "/data/attributes", mapRequestRelationships, getRecordType, getRecordId, getRecordAttributes, getRecordRelationships, getRecordLinks, getRecordMeta, getIncluded, getDocumentLinks, getDocumentMeta, getCollectionItems })`
-- `createJsonApiResourceRouteContract({ type = "", requestType = "", responseType = "", body, query, output, outputKind = "record", successStatus = 200, includeValidation400 = false, allowSparseFields = false, allowBodyId = false, pointerPrefix = "/data/attributes", bodyAttributeExcludeKeys = [], outputAttributeExcludeKeys = [], bodyRelationshipEntries = [], outputRelationshipEntries = [], getRecordType, getRecordId, getRecordAttributes, getRecordRelationships, getRecordLinks, getRecordMeta, getIncluded, getDocumentLinks, getDocumentMeta, getCollectionItems, mapRequestRelationships })`
+- `createJsonApiResourceRouteContract({ type = "", requestType = "", responseType = "", body, query, output, outputKind = "record", successStatus = 200, includeValidation400 = false, allowSparseFields = false, allowBodyId = false, pointerPrefix = "/data/attributes", // readable-check: allow dependency-default - data: a list of attribute keys, not a collaborator bodyAttributeExcludeKeys = [], // readable-check: allow dependency-default - data: a list of attribute keys, not a collaborator outputAttributeExcludeKeys = [], // readable-check: allow dependency-default - data: a list of relationship entries, not a collaborator bodyRelationshipEntries = [], // readable-check: allow dependency-default - data: a list of relationship entries, not a collaborator outputRelationshipEntries = [], getRecordType, getRecordId, getRecordAttributes, getRecordRelationships, getRecordLinks, getRecordMeta, getIncluded, getDocumentLinks, getDocumentMeta, getCollectionItems, mapRequestRelationships })`
 - `type JsonApiRouteHook`
 Local functions
 - `createJsonApiTransportError(statusCode, message, code, params = {})`

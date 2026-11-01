@@ -258,6 +258,7 @@ Local functions
 ### `src/shared/authApi.js`
 Exports
 - `createApi({ request })`
+- `type AuthApiRequest`
 
 ### `src/shared/authCapabilities.js`
 Exports
@@ -527,6 +528,8 @@ Exports
 
 ### `src/shared/signOutFlow.js`
 Exports
-- `runAuthSignOutFlow({ authApi, clearCsrfTokenCache = null, afterSignOut = null } = {})`
+- `runAuthSignOutFlow({ authApi, clearCsrfTokenCache = keepCsrfTokenCache, afterSignOut = doNothingAfterSignOut } = {})`
 Local functions
 - `normalizeAuthApi(authApi)`
+- `keepCsrfTokenCache()`
+- `doNothingAfterSignOut()`

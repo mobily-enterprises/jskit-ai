@@ -376,7 +376,7 @@ Local functions
 
 ### `src/server/google.js`
 Exports
-- `googleScope(name)`
+- `googleScope`
 - `googleOperation(scopes, fields, request, validateResult)`
 - `googleBatchRequests(requests, product)`
 - `inputInvalid(message, { statusCode = 422, ...codes } = {})`
@@ -930,7 +930,6 @@ Exports
 Local functions
 - `regionFor({ region = "us" } = {})`
 - `apiOrigin(settings = {})`
-- `identifier(value)`
 - `pageToken(value)`
 - `recordsList(module, defaults)`
 
@@ -1104,8 +1103,11 @@ Exports
 - `bigqueryDefinition`
 - `googleDefinitions`
 Local functions
-- `scope(name)`
 - `definition(id, name, api, description, recommended, permissions, verificationFields = [], setupNotes = [])`
+
+### `src/shared/googleScope.js`
+Exports
+- `googleScope(name)`
 
 ### `src/shared/granola.js`
 Exports
@@ -1302,7 +1304,6 @@ Exports
 ### `src/shared/zoho-books.js`
 Exports
 - `zohoBooksDefinition`
-- `zohoBooksIdentifier(value)`
 - `zohoBooksOrganizationField`
 
 ### `src/shared/zoho-crm.js`
@@ -1310,8 +1311,9 @@ Exports
 - `zohoCrmDefinition`
 - `zohoCrmRegions`
 
-### `src/shared/zoho-regions.js`
+### `src/shared/zoho.js`
 Exports
+- `isZohoId(value)`
 - `zohoRegions`
 
 ### patterns

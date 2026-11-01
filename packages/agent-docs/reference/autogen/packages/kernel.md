@@ -162,10 +162,7 @@ Exports
 
 ### `shared/support/providerLogger.js`
 Exports
-- `createProviderLogger(loggerLike = null, { debugEnabled = false, debugMethod = "info" } = {})`
-Local functions
-- `asLogger(value)`
-- `callLoggerMethod(logger, methodName, fallbackMethodName, args)`
+- `createProviderLogger(logger, { debugEnabled = false } = {})`
 
 ### `shared/support/queryPath.js`
 Exports
@@ -262,7 +259,7 @@ Exports
 ### `shared/surface/paths.js`
 Exports
 - `API_BASE_PATH`
-- `createSurfacePathHelpers({ defaultSurfaceId, surfaceDefinitions, apiBasePath = API_BASE_PATH } = {})`
+- `createSurfacePathHelpers({ defaultSurfaceId, surfaceDefinitions, apiBasePath = API_BASE_PATH })`
 - `normalizePathname(pathname)`
 - `matchesPathPrefix(pathname, prefix)`
 Local functions

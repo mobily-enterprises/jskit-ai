@@ -121,9 +121,6 @@ Exports
 Exports
 - `createRepository({ api })`
 Local functions
-- `normalizeUsername(value)`
-- `normalizeNullableString(value)`
-- `normalizeNullableVersion(value)`
 - `normalizeProfileRecord(payload = null)`
 - `normalizeCreatePayload(payload = {})`
 - `usernameBaseFromEmail(email)`
@@ -235,10 +232,13 @@ Exports
 ### `src/shared/resources/userProfileResource.js`
 Exports
 - `userProfileResource`
-Local functions
-- `normalizeUsername(value)`
+
+### `src/shared/resources/userProfileValues.js`
+Exports
+- `USERNAME_MAX_LENGTH`
 - `normalizeNullableString(value)`
 - `normalizeNullableVersion(value)`
+- `normalizeUsername(value)`
 
 ### `src/shared/resources/userSettingsResource.js`
 Exports
