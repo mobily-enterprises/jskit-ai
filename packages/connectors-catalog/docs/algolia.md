@@ -61,7 +61,7 @@ The application ID is public configuration. The two key values stay outside
 source. Omit `publicApiKeyRef` when all searches go through the backend. The
 reference validator accepts the same `env:NAME` format as other connectors.
 The shared UI provides an Application ID text field, optional public-key
-reference and the primary API-key reference. Vibe64 provides a separate Env
+reference and the primary API-key reference. A hosted editor can provide a separate Env
 shortcut for each configured key, including a notice that the frontend key may
 be published. Clearing its reference removes the shortcut, not the Env value.
 Sharing grants remain a separate host responsibility.
@@ -125,7 +125,7 @@ Current CLI documentation exposes `algolia application create`, with name,
 region, plan and dry-run options. For example, review each request first:
 
 ```sh
-algolia application create --name dogandgroom-search --region EU --plan free --dry-run
+algolia application create --name example-search --region EU --plan free --dry-run
 ```
 
 Actual creation requires the chosen plan's terms and, for paid plans, a payment

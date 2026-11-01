@@ -61,7 +61,7 @@ HTTP success. If a write times out, inspect the flag/rules before retrying; neit
 local cancellation nor disconnect undoes a remotely applied change.
 
 The host owns its OAuth registration, callback and private Env references. A CLI
-can use the same JSKIT methods without Vibe64, or another framework's native MCP
+can use the same JSKIT methods, or another framework's native MCP
 client with the same endpoint and its own OAuth storage. Production flag evaluation
 belongs to that framework's Confidence/OpenFeature integration; never place this
 management grant in a browser or treat it as the application's client secret.

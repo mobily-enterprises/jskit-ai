@@ -152,7 +152,7 @@ approval can be read explicitly; full go-live readiness and arbitrary read/write
 actions remain outstanding and must not be advertised as executable merely because
 permission controls exist. No unrestricted API URL or write proxy is exposed.
 JSKIT owns the JavaScript configuration/runtime contract; Laravel applications
-use their own Paddle SDK and authorization implementation. Vibe64 edits the
+use their own Paddle SDK and authorization implementation. The editor edits the
 project configuration and does not become the merchant account owner.
 
 ## Full application payments
@@ -161,8 +161,8 @@ This connector's operations are only part of a billing implementation. For
 checkout, subscriptions, feature access, renewal credits and durable catalogue
 mappings, read [payments-core](../../payments-core/README.md) and its
 [standalone composition guide](../../payments-core/docs/standalone.md). These
-JavaScript libraries work from ordinary app code or a CLI without Vibe64 or
-Genesis. Other frameworks consume the [portable contract](../../payments-core/docs/contract.md)
+JavaScript libraries work from ordinary app code or a CLI without a hosted
+editor. Other frameworks consume the [portable contract](../../payments-core/docs/contract.md)
 and its static examples using their own runtime libraries. Keep provider setup
 from this guide; do not substitute a successful connection check for working
 checkout, verified webhooks or merchant approval.

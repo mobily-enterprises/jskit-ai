@@ -98,7 +98,7 @@ await connections.invoke({ context, integrationId: "calendar",
 ```
 
 Other frameworks use the same project configuration/Env and their native Google
-Calendar client or HTTP transport. Vibe64 stores configuration, not events.
+Calendar client or HTTP transport. The editor stores configuration, not events.
 The application authorizes the caller and chooses a connection, calendar and
 notification policy. It owns appointment screens, scheduling and conflict rules.
 

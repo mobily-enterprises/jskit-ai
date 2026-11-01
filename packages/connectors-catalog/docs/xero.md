@@ -4,7 +4,7 @@ The `xeroProvider` export from `@jskit-ai/connectors-catalog/server/xero`
 connects an own web registration through the shared OAuth runtime. It discovers
 authorised tenants and provides organisation settings, contacts, invoices,
 payments, reports, budgets, manual journals, bank transactions and attachments. Configuration, consent, refresh and encrypted file storage work from
-an ordinary backend or CLI; no database or Vibe64 service is required.
+an ordinary backend or CLI; no database or hosted service is required.
 
 ## Create the provider registration
 
@@ -120,7 +120,7 @@ describe the underlying read parameters and lightweight responses.
 
 Each application owns its provider registration, callback route, credentials
 and grants. Hosted and installed editors configure the same app-owned setup;
-neither supplies a shared Vibe64 registration or token gateway. Use the app's
+neither supplies a shared registration or token gateway. Use the app's
 assigned public URL as the initial callback origin, append the route the backend
 actually implements, and register the exact URL with the provider. Keep the
 client secret and callback binding in the application's Env.
@@ -337,7 +337,7 @@ Dates use `YYYY-MM-DD`. Choose the contact from `contacts.list`; aged reports ar
 
 Select **Read budgets** (`accounting.budgets.read`) and reconnect. Call `budgets.list` with `tenantId`; call `budgets.get` with that tenant and the returned budget UUID as `id`. Both accept optional `DateFrom` and `DateTo` in `YYYY-MM-DD` format (capitalization matches Xero). The adapter preserves account budget lines, balances, periods, notes and tracking data, and rejects a detail response for a different budget. It does not create or edit budgets.
 
-For a summary, separately select **Read budget summary reports** (`accounting.reports.budgetsummary.read`) and reconnect. `reports.budgetSummary` takes `tenantId`, required `date`, optional `periods` (1–12) and optional integer `timeframe`: 1=month, 3=quarter, 12=year. This differs from the string timeframe used by profit/loss reports. The application owns rendering; no Vibe64 runtime is required.
+For a summary, separately select **Read budget summary reports** (`accounting.reports.budgetsummary.read`) and reconnect. `reports.budgetSummary` takes `tenantId`, required `date`, optional `periods` (1–12) and optional integer `timeframe`: 1=month, 3=quarter, 12=year. This differs from the string timeframe used by profit/loss reports. The application owns rendering; no hosted runtime is required.
 
 ### Bank transaction and manual journal reads
 

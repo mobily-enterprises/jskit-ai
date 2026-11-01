@@ -2,7 +2,7 @@
 
 Import `zohoBooksProvider` from `@jskit-ai/connectors-catalog/server/zoho-books`.
 This initial adapter discovers organisations and reads contact and invoice pages.
-CLI and Vibe64 use the same configuration, OAuth service and encrypted file store.
+The CLI and a hosted editor use the same configuration, OAuth service and encrypted file store.
 Saving configuration does not connect an account.
 
 ## Register and configure
@@ -156,7 +156,7 @@ refresh tokens. [Token lifecycle and revocation](https://www.zoho.com/books/api/
 
 The application owner creates the provider registration and stores its secret
 in the application's private Env. Every editor and CLI uses this same
-[ownership model](../../connectors-core/docs/online-setup.md): the configuration
+[ownership model](../../connectors-core/docs/application-setup.md): the configuration
 file holds the client ID and Env references; the editor does not own the
 application's grants.
 

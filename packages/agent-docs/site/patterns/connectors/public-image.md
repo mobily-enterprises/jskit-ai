@@ -28,7 +28,7 @@ existing access policy applies before exposing its configured resources.
 
 ## Invariants
 
-- CLI and Vibe64 edit the same reference-only `integrations.json`.
+- The CLI and a hosted editor edit the same reference-only `integrations.json`.
 - Only a `pk_` key enters an image URL; a private key fails validation.
 - URL creation is local and does not establish a verified account connection.
 - Browser load/error events report delivery. A monogram is not proof of a brand logo.

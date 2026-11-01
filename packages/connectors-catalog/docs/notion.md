@@ -70,7 +70,7 @@ intended shared/per-user account mode. The app owns its callback route and uses
 `beginAuthorization`, `completeAuthorization`, `invoke` and `disconnect` from
 the common connection service with its authorized owner and configured storage.
 Laravel implements the same provider protocol in its own framework; JSKIT
-contains no PHP runtime. Vibe64 edits this configuration and the project's Env.
+contains no PHP runtime. The editor edits this configuration and the project's Env.
 
 The adapter sends owner=user and the exact callback at authorization. It uses
 confidential Basic authentication and JSON requests at the token endpoint, per

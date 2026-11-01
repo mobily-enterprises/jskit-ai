@@ -122,7 +122,7 @@ CLI users use the same JSON and private Env with optional JSKIT libraries.
 Other frameworks use their native OAuth and MIME tools with the same settings
 and [Gmail REST methods](https://developers.google.com/workspace/gmail/api/reference/rest).
 An AI can wire those operations using the provider schema and this guide without
-Vibe64 running. There is no shared Vibe64 mailbox or Google registration.
+a hosted editor running. There is no shared hosted mailbox or Google registration.
 
 **LIMITATIONS:** no background/history sync, push watch service, mail-client UI,
 permanent message deletion or mailbox-settings administration. MIME composition

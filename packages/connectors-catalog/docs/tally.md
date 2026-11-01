@@ -57,7 +57,7 @@ The application owns who can read these responses and how they are retained.
 A shared key does not grant every app user access to every form. Do not fetch
 returned PDF/preview/file URLs automatically or render answers as trusted HTML.
 Other frameworks can use their native server HTTP client with the same Env
-Bearer token and version header; no JSKIT or Vibe64 process is required.
+Bearer token and version header; no JSKIT or hosted process is required.
 [Submission API](https://developers.tally.so/api-reference/endpoint/forms/submissions/list).
 
 No live submission was read.

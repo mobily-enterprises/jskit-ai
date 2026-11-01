@@ -162,7 +162,7 @@ not exposed as user messages. Cancellation/deadlines do not replay a request.
 
 The application owner creates the provider registration and stores its secret
 in the application's private Env. Every editor and CLI uses this same
-[ownership model](../../connectors-core/docs/online-setup.md): the configuration
+[ownership model](../../connectors-core/docs/application-setup.md): the configuration
 file holds the client ID and Env references; the editor does not own the
 application's grants.
 

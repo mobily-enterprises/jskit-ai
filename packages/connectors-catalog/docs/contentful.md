@@ -88,7 +88,7 @@ and management credentials are intentionally excluded.
 
 ## Provisioning and ownership
 
-The application owner supplies the space and key. No OAuth callback or Vibe64
+The application owner supplies the space and key. No OAuth callback or hosted
 registration is needed; custom application domains do not change this flow.
 An AI can prepare the configuration and framework wiring. Contentful documents
 Delivery key creation through its Content Management API after authorized

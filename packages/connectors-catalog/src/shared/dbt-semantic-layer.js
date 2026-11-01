@@ -25,7 +25,7 @@ const dbtSemanticLayerDefinition = Object.freeze({
     "Return to Project details and copy the GraphQL hostname and Environment ID from the Semantic Layer connection details. Enter them here, preserving every ID digit. Enter env:DBT_SERVICE_TOKEN in Service token reference and save configuration. Choose Set credential in Env, paste the token as DBT_SERVICE_TOKEN and save it there.",
     "Return here and choose Connect account / Verify again. Check connection only reads saved status. Verification reads environment metadata; an explicitly wired application can then create metric queries and request their status and JSON result pages. If denied, check the host, environment, linked warehouse credential and token permissions. Replace the token through Env when rotating it; local Disconnect does not revoke it in dbt.",
     "Query execution uses your warehouse capacity. The app owns permitted metrics, trusted dimension/time filters and bounded polling. JSON results suit small tables; use dbt’s native Arrow tooling for large production workloads. Do not retry an uncertain query submission automatically. Your application must explicitly expose approved dbt tools to its assistant.",
-    "This token flow has no OAuth callback or app-user login. Public and Online need the customer's own account, permissions and capacity."
+    "This token flow has no OAuth callback or app-user login. Every deployment needs the customer's own account, permissions and capacity."
   ] }
 });
 

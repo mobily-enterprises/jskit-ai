@@ -149,7 +149,7 @@ inspect the site's content before deciding whether to repeat it.
 A non-Node framework uses its own HTTPS client, the same site URL/Env username
 and password binding, and these native `/wp-json/wp/v2/posts` or `/pages` routes.
 Use GET for reads, JSON POST for create/update, and DELETE with force=false for
-trash. There is no Vibe64 runtime or JSKIT service requirement for that framework.
+trash. There is no hosted runtime or JSKIT service requirement for that framework.
 
 ## Media and user operations
 

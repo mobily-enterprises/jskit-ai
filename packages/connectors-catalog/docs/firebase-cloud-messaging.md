@@ -97,7 +97,7 @@ Switching back to **Server or native only** removes the three web-only settings.
 ```
 
 For web push, use `clientMode: "web"` and add `apiKey`, `appId` and `vapidKey`.
-The same schema validates files edited by hand, AI or Vibe64. It accepts
+The same schema validates files edited by hand, AI or a hosted editor. It accepts
 `shared` and explicitly authorized `assistant` ownership. This service account
 does not represent a separate Google identity for every app user.
 
@@ -159,7 +159,7 @@ to send to arbitrary installations or topics. No login functionality is implied.
 ## Editors, hosting and custom domains
 
 **Universal OAuth callback URL: not applicable.** Service-account authorization
-is a server-to-server exchange, with no browser redirect to register. A VPS
+is a server-to-server exchange, with no browser redirect to register. A server
 address or custom domain does not change the target project or that exchange.
 Browser notification permission, service workers and registrations belong to
 the origin, so register the app on each new custom domain and update its stored
@@ -208,7 +208,7 @@ outside this initial fragment. These are explicit limits, not proven workflows.
 ## Client enrollment and expired recipients
 
 The app owns the registration endpoint and storage. It may use ordinary files or
-its own selected storage; this connector does not add a database to Vibe64. The
+its own selected storage; this connector does not add a database to the editor. The
 backend authenticates the current user, binds each FID/token to that user and
 device, and updates a server timestamp. Do not accept an arbitrary user ID as
 proof of ownership. Support multiple devices and remove the association on

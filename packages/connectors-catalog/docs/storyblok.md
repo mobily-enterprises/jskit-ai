@@ -119,7 +119,7 @@ The app owns its revalidation trigger and scheduler.
 
 A CLI-only or non-JSKIT app uses the same token Env and region with its native
 HTTP/Storyblok client. Keep the same published-default and preview authorization
-rules; it does not need Vibe64 or a JSKIT server.
+rules; it does not need a hosted editor or a JSKIT server.
 
 Current focused source proof: four Storyblok cases pass, covering all regions,
 credential rotation/restart, page/list results, linked content and assets,

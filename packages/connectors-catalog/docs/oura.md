@@ -125,7 +125,7 @@ creates and authorizes the registration; approval remains a provider process.
 
 The application owner creates the provider registration and stores its secret
 in the application's private Env. Every editor and CLI uses this same
-[ownership model](../../connectors-core/docs/online-setup.md): the configuration
+[ownership model](../../connectors-core/docs/application-setup.md): the configuration
 file holds the client ID and Env references; the editor does not own the
 application's grants.
 
@@ -153,7 +153,7 @@ A user may decline heart-rate permission without preventing daily sleep access.
 
 The same service.invoke/configuration/Env/store contract works from a CLI app.
 Other frameworks use their native OAuth client and these Oura V2 endpoints,
-with per-user grants; Vibe64 holds no health-data gateway. The app owns charts,
+with per-user grants; no hosted health-data gateway is involved. The app owns charts,
 refresh scheduling, user access policy and private storage.
 
 **LIMITATIONS:** No continuous sync/webhooks, health dashboard, workouts, tags,

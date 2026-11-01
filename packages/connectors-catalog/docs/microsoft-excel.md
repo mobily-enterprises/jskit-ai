@@ -74,8 +74,8 @@ Use `ranges.update` with the same inputs plus exactly one of
 Matrices must exactly match the address, with at most 10,000 cells. Null leaves
 the corresponding cell unchanged. Files.ReadWrite is required even for reading.
 The application owns workbook/worksheet selection, cell-edit authorization and
-presentation; Vibe64 only configures credentials. CLI applications use the same
-connection service without Vibe64; another framework calls Graph itself.
+presentation; the editor only configures credentials. CLI applications use the same
+connection service; another framework calls Graph itself.
 
 For a work/school account, call `sessions.create` with
 `{ itemId, persistChanges: true }` and pass returned `id` as `sessionId` to range

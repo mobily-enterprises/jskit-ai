@@ -73,7 +73,7 @@ queries, pagination, file persistence, rotation, isolation and provider errors.
    [OAuth connection pattern](../patterns/oauth-connection/PATTERN.md), binds it
    to its authenticated user and completes the original attempt. Its backend
    owns the tokens and refresh lifecycle. Laravel uses its own framework;
-   this JavaScript runtime does not introduce a Vibe64 dependency.
+   this JavaScript runtime does not introduce a hosted-editor dependency.
 6. Verify the profile. After changing the instance, client or callback,
    reconnect. **Disconnect** removes the local connection; revoke the grant
    in GitLab as well when provider-side revocation is intended.

@@ -3,7 +3,7 @@
 Import `mailgunProvider` from `@jskit-ai/connectors-catalog/server/mailgun`.
 The adapter verifies an account API key, sends transactional messages, creates
 and verifies sending domains, returns their DNS records, and queries delivery logs.
-DNS records are installed at the domain owner’s DNS host, not at Vibe64.
+DNS records are installed at the domain owner’s DNS host, not in the editor.
 
 ## Configure access
 

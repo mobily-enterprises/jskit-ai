@@ -102,7 +102,7 @@ keep webhook history if the app needs delivery reporting.
 
 CLI apps use identical configuration, Env and these optional Node exports.
 Other frameworks use native HTTP and HMAC-SHA256 verification of raw bytes;
-no Vibe64 service is required. Disconnect does not remove provider webhooks;
+no hosted service is required. Disconnect does not remove provider webhooks;
 deactivate them in GatewayAPI when retiring the application.
 
 **LIMITATIONS:** no automatic webhook registration, number leasing, RCS agent

@@ -3,7 +3,7 @@
 Import `xTwitterProvider` from `@jskit-ai/connectors-catalog/server/x-twitter`.
 This adapter reads public profiles, post timelines and recent search using an app-only
 bearer token. The shared connection service and file store work from a CLI or
-application server. Vibe64 edits the same JSON; saving does not contact X.
+application server. A hosted editor edits the same JSON; saving does not contact X.
 
 ## Create the provider application
 
@@ -117,7 +117,7 @@ advertised as individual users connecting their X accounts.
 [Authentication boundary](https://docs.x.com/fundamentals/authentication/oauth-2-0/application-only).
 
 An OAuth callback is **not applicable to this bearer-token flow**. Neither a
-customer's VPS hostname nor a custom application domain changes authentication.
+customer's server hostname nor a custom application domain changes authentication.
 The application owner supplies its authorized token through private Env and
 retains that credential ownership when moving hosts.
 
@@ -171,7 +171,7 @@ rendering a purported complete result.
 
 A native framework uses the same Env token in its server-side HTTP client,
 `Authorization: Bearer <value>`, and these fixed API paths/query parameters.
-It does not require JSKIT or Vibe64 at runtime. The application owns query
+It does not require JSKIT or a hosted editor at runtime. The application owns query
 permissions, pagination controls, spend limits, escaping post text, joining
 expansions, attribution and links back to the original post. Do not turn returned
 media URLs into arbitrary backend downloads or render post text as trusted HTML.

@@ -32,7 +32,7 @@ provider credentials. See [Get contacts](https://developers.brevo.com/reference/
 
 Use the [API-key source pattern](../patterns/api-key-connection/PATTERN.md).
 The application owns access to contact information and sending
-workflows. A CLI and Vibe64 configure the same slot and reference; connection
+workflows. A CLI and a hosted editor configure the same slot and reference; connection
 metadata lives in the chosen runtime file directory.
 
 ## Provisioning automation and capacity
@@ -97,7 +97,7 @@ Call path IDs are passed as `resource` (number for lists/campaigns; email for
 contacts; bare domain for domains). The same key and configuration are used
 from CLI through the [API-key pattern](../patterns/api-key-connection/PATTERN.md).
 Other frameworks use their native HTTP, Env and app authorization with these
-contracts; Vibe64 and a Node service are not required at runtime.
+contracts; a hosted editor and a Node service are not required at runtime.
 
 For an appointment reminder, confirm sender readiness, authorize the recipient,
 call email.send, save messageId and read email.events later. For a newsletter,

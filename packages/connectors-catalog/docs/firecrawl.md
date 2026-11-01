@@ -99,15 +99,15 @@ This adapter does not sell credits or provision a subscription.
 
 OAuth callback: **not applicable** to these API-key modes. Normal server API
 requests do not use the customer's browser origin. A custom web domain does
-not change the team/key binding; VPS changes must preserve the authorized
-application identity. Follow the [Online setup contract](../../connectors-core/docs/online-setup.md)
+not change the team/key binding; server changes must preserve the authorized
+application identity. Follow the [application setup contract](../../connectors-core/docs/application-setup.md)
 for application-owned readiness and failure states. This fragment does not configure
 crawl/job webhooks; those would require their own verified receiving endpoint.
 
 ## CLI and other frameworks
 
 Use the shared API-key runtime pattern with `firecrawlProvider`, the same
-`integrations.json` and private `FIRECRAWL_API_KEY`; Vibe64 is not required.
+`integrations.json` and private `FIRECRAWL_API_KEY`; no hosted editor is required.
 After the application has connected and authorized the caller:
 
 ```js
@@ -127,7 +127,7 @@ and [Search](https://docs.firecrawl.dev/api-reference/endpoint/search),
 [results](https://docs.firecrawl.dev/api-reference/endpoint/crawl-get),
 [errors](https://docs.firecrawl.dev/api-reference/endpoint/crawl-get-errors) and
 [cancel](https://docs.firecrawl.dev/api-reference/endpoint/crawl-delete) endpoints.
-No JSKIT or Vibe64 execution service is required.
+No JSKIT or hosted execution service is required.
 
 **LIMITATIONS:** no managed Firecrawl account/credits provisioning, browser
 sessions, monitor service or editor coding-assistant attachment. For example,

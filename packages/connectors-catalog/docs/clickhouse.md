@@ -219,7 +219,7 @@ The database owner can create separate application users with distinct grants an
 quota profiles. Two usernames alone do not isolate CPU, memory or storage;
 independent capacity requires appropriate budgets or separate compute. Each
 application stores its own credential in private Env and enforces its access and
-network policy. The [application setup contract](../../connectors-core/docs/online-setup.md)
+network policy. The [application setup contract](../../connectors-core/docs/application-setup.md)
 also applies when the application moves hosts.
 
 ## Focused proof and remaining work

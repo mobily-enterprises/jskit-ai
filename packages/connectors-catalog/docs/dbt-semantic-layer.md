@@ -1,7 +1,7 @@
 # dbt Semantic Layer
 
 Import `dbtSemanticLayerProvider` from
-`@jskit-ai/connectors-catalog/server/dbt-semantic-layer`. The library verifies an environment, browses metadata and queries metric values. CLI and Vibe64 use the
+`@jskit-ai/connectors-catalog/server/dbt-semantic-layer`. The library verifies an environment, browses metadata and queries metric values. The CLI and a hosted editor use the
 same file and validators. Saving does not contact dbt or run a warehouse query.
 
 ## Provider setup
@@ -114,7 +114,7 @@ const page = await connections.invoke({
 Other frameworks use their native HTTP client with the same host, exact string
 Environment ID and backend Env token. They send the documented GraphQL requests
 and implement their own result parsing/access policy. No JSKIT dependency or
-Vibe64 service is required for those applications.
+hosted service is required for those applications.
 
 ## Editors and universal URLs
 

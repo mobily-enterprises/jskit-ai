@@ -119,9 +119,9 @@ other frameworks use their supported Google authentication tools. File-sourced
 OIDC tokens require the deployment to update the token file before expiration.
 [Google authentication library federation setup](https://github.com/googleapis/google-auth-library-nodejs#workload-identity-federation).
 
-Vibe64 should edit the application configuration and Env references. It must
+A hosted editor should edit the application configuration and Env references. It must
 not issue deployment identities or require an exported application to call a
-Vibe64 token gateway. The runtime implementation still needs to define and
+hosted token gateway. The runtime implementation still needs to define and
 validate its credential-source input and prove exchange and renewal before this
 mode can be offered as working.
 

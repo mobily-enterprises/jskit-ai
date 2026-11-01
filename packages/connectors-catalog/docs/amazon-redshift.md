@@ -94,7 +94,7 @@ For either deployment type:
    to the resulting database identity. Use database permissions to enforce
    read-only access where required; accepting SQL does not make it SELECT-only.
 4. Store the access key ID, secret key and any session token in the application's
-   secret environment. Enter references through Vibe64 or edit the JSON file.
+   secret environment. Enter references through the editor or edit the JSON file.
 5. Save, then explicitly call `connectApiKey`. It lists one metadata page in the
    configured database. An empty table list can still be a successful connection;
    it does not prove permission to read every table or execute every statement.
@@ -195,7 +195,7 @@ statement access in [Data API trusted identity propagation](https://docs.aws.ama
 The remaining configuration must capture the **identity provider issuer URL,
 OAuth client ID and secret reference, AWS region, Identity Center application
 ARN, bootstrap role ARN, and access role ARN**. The provider registration needs
-the application's explicitly configured callback, whether hosted by Vibe64 or
+the application's explicitly configured callback, whether hosted by a managed host or
 operated independently. Start from the project's actual public address and
 register the exact callback implemented by the application. No production
 Redshift federation callback implementation is shipped yet.

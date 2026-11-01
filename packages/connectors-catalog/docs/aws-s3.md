@@ -130,7 +130,7 @@ or transfer files through issued URLs.
 
 The tested [transfer example](../patterns/aws-storage-queries/example/s3-transfer.js)
 composes the existing connection service with native Fetch. Copy it into an
-application server module or CLI; it needs no Vibe64 process. Supply the same
+application server module or CLI; it needs no hosted process. Supply the same
 authorized context and integration ID used by the service, an exact permitted
 key, and a timeout/cancellation signal. The upload body is a Blob, ArrayBuffer
 or typed array. Downloads return a Response whose body can be streamed to a file

@@ -46,7 +46,7 @@ personal-token creation flow is interactive. A public integration instead needs
 a developer account and OAuth application: sign into the developer portal,
 create an OAuth app, and set its name, client type and authorized callback.
 The generated application owns that registration and its callback. Hosted and
-installed editors do not supply shared Vibe64 registrations. These OAuth
+installed editors do not supply shared registrations. These OAuth
 credentials are consumed by the web OAuth mode described below.
 [OAuth app setup](https://developer.calendly.com/docs/authentication/creating-an-oauth-app).
 
@@ -104,7 +104,7 @@ Sources: [OAuth app creation](https://developer.calendly.com/docs/authentication
 
 Both authentication methods use these same operations through `service.invoke`.
 A CLI Node app installs the provider and composes the normal file connection service;
-Vibe64 is not required. Other frameworks use their native HTTP/OAuth library and the
+no hosted editor is required. Other frameworks use their native HTTP/OAuth library and the
 same project configuration, Env references and callback contract.
 
 | Operations | Input / useful result | Scope |
@@ -118,7 +118,7 @@ same project configuration, Env references and callback contract.
 | `events.cancel` | Event UUID, optional reason; cancellation confirmation | scheduled_events:write |
 | `noShows.create`, `noShows.get`, `noShows.delete` | Full invitee URI / no-show UUID; mark/read/undo no-show | scheduled_events:read or write |
 
-Example: DogAndGroom reads its owner profile, lists active event types, then creates
+Example: a grooming business reads its owner profile, lists active event types, then creates
 one link for its grooming event type and sends that URL to the customer. The customer
 selects and confirms the time on Calendly. A created link is not a scheduled event.
 For an app-owned booking form, fetch future availability then submit `invitees.create`;

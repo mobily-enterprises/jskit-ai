@@ -119,7 +119,7 @@ do not repeatedly retry the spent refresh token.
 
 The application owner creates the provider registration and stores its secret
 in the application's private Env. Every editor and CLI uses this same
-[ownership model](../../connectors-core/docs/online-setup.md): the configuration
+[ownership model](../../connectors-core/docs/application-setup.md): the configuration
 file holds the client ID and Env references; the editor does not own the
 application's grants.
 
@@ -185,7 +185,7 @@ reconciliation during concurrent stock changes.
 
 A CLI app uses these same connection operations. Other frameworks implement
 native HTTP calls with their own project-owned OAuth grant and the same JSON/Env
-contract; no Vibe64 runtime or JSKIT sidecar is required.
+contract; no hosted runtime or JSKIT sidecar is required.
 
 **LIMITATIONS:** No POS/dashboard UI, customer/product/stock/payment/sale writes,
 gift-card/store-credit workflows, webhook receiver or automatic editor tool

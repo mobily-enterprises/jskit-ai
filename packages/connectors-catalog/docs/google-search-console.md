@@ -75,7 +75,7 @@ Inspect the entry after an uncertain write before deciding to repeat it.
 
 Other frameworks use the same project config/Env with their native Google client
 or HTTP. The app owns property authorization, report UI, comparisons and indexing
-interpretation; no Vibe64 service receives search data.
+interpretation; no hosted service receives search data.
 
 **Limitations:** no DNS/HTML ownership deployment, Site Verification API, automated
 indexing requests, sitemap generation, crawler or SEO dashboard. No fresh/hourly

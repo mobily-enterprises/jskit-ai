@@ -99,7 +99,7 @@ delegated permissions, secret Value and expiry steps. Save
 `env:MICROSOFT_POWERPOINT_CALLBACK_URL`; use **Set credential in Env** and
 **Open Env** to store the values. Shared/assistant **Connect account** invokes
 the prepared application runtime. Per-user connections belong to individual
-users inside that application. No Vibe64 gateway or shared registration is used.
+users inside that application. No hosted gateway or shared registration is used.
 
 ## Scope and limitations
 

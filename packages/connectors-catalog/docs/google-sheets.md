@@ -74,7 +74,7 @@ No automatic retry follows a timeout/503: inspect the spreadsheet before repeati
 an append/create, or duplicate rows/files may result.
 
 Other frameworks use their native Google client or HTTP implementation with the
-same project-owned JSON/Env configuration; JSKIT is optional and requires no Vibe64
+same project-owned JSON/Env configuration; JSKIT is optional and requires no hosted
 runtime. No PHP code or editor-specific credential service is involved.
 
 ## Provisioning and limitations

@@ -19,7 +19,7 @@ setting the suggested callback. The existing owner-authorized action saves the
 client ID in configuration, saves secret/callback/recovery ID in Env and starts
 the application's setup command. It refuses occupied Env keys and stale source.
 An uncertain outcome requires inspection before retrying. This does not register
-a central Vibe64 client.
+a central hosted client.
 
 For manual setup, use the OAuth client registration screen's JSON, or invoke
 `registerSanityClient({ clientName, callbackUrl, scopes: ["global"] })` from
@@ -27,7 +27,7 @@ For manual setup, use the OAuth client registration screen's JSON, or invoke
 then save the returned client ID and private client secret into your own
 configuration/Env. Investigate an interrupted request before retrying, because
 the provider may already have created the client. Use the exact backend callback
-suggested by your project. No central Vibe64 callback or managed registration.
+suggested by your project. No central hosted callback or managed registration.
 
 Connect and consent only after the backend serves that callback. Sanity account
 permissions govern the grant; the host must still authorize project/dataset
@@ -93,7 +93,7 @@ private token store with the same fixed endpoint and Env references. It does not
 run JSKIT or call an editor server for content. The generated application can use
 its own Sanity SDK for runtime content; this builder-context connection does not
 automatically become a public site's credential. CLI composition uses the same
-configuration and runtime API without Vibe64. Neither path automatically attaches
+configuration and runtime API. Neither path automatically attaches
 these tools to an assistant.
 
 ## Automation and application ownership

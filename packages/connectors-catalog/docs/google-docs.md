@@ -68,7 +68,7 @@ review a conflict rather than blindly retrying. The app renders content safely,
 authorizes user/document mappings and reviews destructive edits.
 
 Other frameworks use the same config and private Env references with their
-native Google Docs client or HTTP. No JSKIT requirement or Vibe64 service applies.
+native Google Docs client or HTTP. No JSKIT requirement or hosted service applies.
 
 **Limitations:** no visual editor, Google Picker component, sharing/Drive exports,
 comment/suggestion review UI, autonomous editing agent or editor chat attachment.

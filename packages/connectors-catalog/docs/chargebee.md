@@ -148,7 +148,7 @@ customer/subscription/page/event before deciding whether a new request is approp
 Do not generate a fresh key for a blind retry. Provider errors remain errors; this
 adapter does not expose the response's idempotency-replayed header.
 
-Example flow for DogAndGroom: authenticate the customer in the app, resolve their
+Example flow for a grooming business: authenticate the customer in the app, resolve their
 server-owned Chargebee customer ID, select a configured recurring item price, then
 create hosted checkout with that customer and the app's allowlisted return/cancel URLs.
 Keep the hosted page ID bound to that local customer. Send the returned URL to their
@@ -162,7 +162,7 @@ customer ID to issue a portal session: that URL grants billing-account access.
 Use the same service.invoke operations in a standalone Node/CLI application;
 The connection editor only edits the portable configuration. Other frameworks use native Chargebee
 SDK/HTTP with these Env bindings, indexed form fields and app-owned intent state.
-No Node bridge or Vibe64 server is needed. The existing owner authorization callback
+No Node bridge or hosted server is needed. The existing owner authorization callback
 must approve customer, subscription, return destination and financial intent.
 
 **LIMITATIONS:** Assistant tool attachment requires explicit host integration. For example, an app

@@ -1,8 +1,8 @@
 # Application billing UI
 
 `@jskit-ai/payments-web` supplies a Vue/Vuetify account component for generated or
-hand-written JavaScript applications. It has no Vibe64, Online, Genesis, provider
-SDK, credential, file-discovery or HTTP dependency; its only JSKIT peer is
+hand-written JavaScript applications. It has no hosted-editor, provider SDK,
+credential, file-discovery or HTTP dependency; its only JSKIT peer is
 `@jskit-ai/kernel`, for the client text helper. The application mounts it in
 its existing billing page or semantic placement. It does not register routes or
 change shell navigation automatically. This worktree package is not yet published.

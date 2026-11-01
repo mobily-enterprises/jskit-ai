@@ -25,9 +25,9 @@ stores the same JSON a CLI user writes. Saving configuration contacts no provide
       "accountMode": "per-user",
       "settings": {
         "accountUrl": "https://myorg-myaccount.snowflakecomputing.com",
-        "role": "VIBE64_READER"
+        "role": "REPORTING_READER"
       },
-      "scopes": ["refresh_token", "session:role:VIBE64_READER"],
+      "scopes": ["refresh_token", "session:role:REPORTING_READER"],
       "authentication": { "method": "oauth2", "registrationRef": "snowflake" }
     }
   }
@@ -83,7 +83,7 @@ account or role invalidates saved access and pending consent.
    production integration as a shortcut.
 
 ```sql
-CREATE SECURITY INTEGRATION DOGANDGROOM_READER
+CREATE SECURITY INTEGRATION APP_READER
   TYPE = OAUTH
   ENABLED = TRUE
   OAUTH_CLIENT = CUSTOM
@@ -94,8 +94,8 @@ CREATE SECURITY INTEGRATION DOGANDGROOM_READER
   OAUTH_REFRESH_TOKEN_VALIDITY = 86400
   OAUTH_USE_SECONDARY_ROLES = NONE;
 
-DESC SECURITY INTEGRATION DOGANDGROOM_READER;
-SELECT SYSTEM$SHOW_OAUTH_CLIENT_SECRETS('DOGANDGROOM_READER');
+DESC SECURITY INTEGRATION APP_READER;
+SELECT SYSTEM$SHOW_OAUTH_CLIENT_SECRETS('APP_READER');
 ```
 
 5. Copy `OAUTH_CLIENT_ID` into **Client ID**. Save one returned client secret in

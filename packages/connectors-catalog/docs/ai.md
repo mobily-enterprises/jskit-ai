@@ -2,7 +2,7 @@
 
 This integration supplies configuration and authorized connection parameters.
 The application's AI library makes requests directly to its chosen provider.
-There is no JSKIT or Vibe64 inference gateway, token resale, conversation engine,
+There is no JSKIT or hosted inference gateway, token resale, conversation engine,
 coding-agent runtime, or automatic paid fallback.
 
 ## Ownership
@@ -17,7 +17,7 @@ coding-agent runtime, or automatic paid fallback.
 | Other frameworks | Read the same configuration or map it into their native configuration; use their own libraries and private credential storage |
 
 JSKIT is a JavaScript library for Node applications. A Laravel application does
-not install JSKIT, Node, OpenCode or Vibe64. Its backend can read the selected
+not install JSKIT, Node or OpenCode. Its backend can read the selected
 model and `env:NAME` reference and use its own environment/configuration and AI
 client. Framework-independent facts in this guide are usable by its coding AI;
 PHP code and a parallel PHP package are not part of JSKIT.
@@ -209,6 +209,6 @@ and selects its ID through `assistantServer.<surface>.aiIntegrationId`. An optio
 `aiIntegrationIds` list permits the shared chat model chooser. Resolve on every
 request so individual accounts and key rotation keep their existing owner.
 The Assistant guide and `assistant/assistant-surface` pattern document setup.
-No Vibe64 coding credentials, paid fallback or runtime package installation is
+No hosted coding credentials, paid fallback or runtime package installation is
 involved. The standalone conversation template includes a separate suggestion
 integration, streaming answers and app-owned uploads and storage.

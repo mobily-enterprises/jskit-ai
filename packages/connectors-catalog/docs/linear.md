@@ -147,7 +147,7 @@ implement application login. This flow acts as the consenting Linear user.
 
 The same grant supports `tools.list` and `tools.call` against Linear's fixed MCP
 endpoint. Authorize each tool and its arguments before invocation; tools can
-write if the provider permissions allow it. No second MCP registration or Vibe64
+write if the provider permissions allow it. No second MCP registration or hosted
 gateway is needed. For personal keys use the [API-key pattern](../patterns/api-key-connection/PATTERN.md), keep the `read`
 configuration scope and restrict the actual key in Linear. Disconnect deletes
 the local grant; provider revocation remains a separate account action.

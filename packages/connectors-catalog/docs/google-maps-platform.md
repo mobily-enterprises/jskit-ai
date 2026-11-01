@@ -170,7 +170,7 @@ const mounted = await mountGoogleMap({
   element: document.querySelector("#map"), maps: google.maps,
   center: { lat: -31.95, lng: 115.86 }, zoom: 12,
   mapId: configuredMapId,
-  markers: [{ position: { lat: -31.95, lng: 115.86 }, title: "DogAndGroom" }],
+  markers: [{ position: { lat: -31.95, lng: 115.86 }, title: "Grooming salon" }],
   path: routeCoordinates.map(([lng, lat]) => ({ lat, lng })),
   signal: componentAbortController.signal
 });
@@ -188,7 +188,7 @@ it also owns place selection, viewport/route updates and readable error/empty UI
 No SDK or API request is made before the app explicitly loads and invokes it.
 
 Other frameworks use their own browser/native Google Maps tools and the same
-config/Env split; they do not need this JavaScript helper or a Vibe64 service.
+config/Env split; they do not need this JavaScript helper or a hosted service.
 Keep Google attribution and data-retention/display requirements intact.
 
 **Limitations:** no embedded map designer, SDK loader, autocomplete/session-token

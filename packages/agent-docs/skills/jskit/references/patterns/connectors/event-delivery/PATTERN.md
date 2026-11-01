@@ -145,7 +145,7 @@ schedules with awareness of daylight-saving behavior.
 Expose the SDK route through the app's normal server composition, then deploy
 and sync its HTTPS `/api/inngest` URL in the selected Inngest environment.
 Keep the Signing Key private and let the native adapter verify signatures.
-JSKIT CLI users follow the same steps without Vibe64. Other stacks use native
+JSKIT CLI users follow the same steps. Other stacks use native
 SDKs where available and the same event name/payload/Env contract; this example
 does not promise an SDK in every language. No function execution, cloud sync
 or generated application is performed by this reference pattern.

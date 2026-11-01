@@ -153,7 +153,7 @@ For the MCP assistant connection:
 [Granola MCP](https://docs.granola.ai/help-center/sharing/integrations/mcp) and
 [live OAuth metadata](https://mcp-auth.granola.ai/.well-known/oauth-authorization-server)
 were reviewed on 2026-09-12. Registration, callbacks, tokens and runtime belong
-to the initiating application/assistant host. There is no Vibe64 gateway.
+to the initiating application/assistant host. There is no hosted gateway.
 Granola advertises DCR for compatible clients. The explicit Register client and
 connect action uses its existing helper; plain Connect does not silently create
 registrations. Enterprise-managed authorization is not implemented here.
@@ -162,7 +162,7 @@ AI can write and validate the file, compose the existing library, prepare host
 routes and automate the documented read operations after authorised credential
 setup. The reviewed API documentation does not establish an endpoint for creating
 personal/workspace API keys. Key creation, permissions, account sign-in and required
-provider subscription are operator/provider steps. Vibe64 need not gate its own
+provider subscription are operator/provider steps. The editor need not gate its own
 form, but cannot remove Granola's subscription or permission requirements.
 
 Focused proof uses controlled HTTP responses and temporary encrypted files,

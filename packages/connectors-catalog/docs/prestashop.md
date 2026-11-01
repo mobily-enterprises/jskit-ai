@@ -114,7 +114,7 @@ The editor VM and application custom domain need no provider redirect
 registration. If the store itself changes address, update `siteUrl` and
 re-verify it. The application retains its credential in private Env and enforces
 access through its own authorization policy. See the
-[application setup contract](../../connectors-core/docs/online-setup.md).
+[application setup contract](../../connectors-core/docs/application-setup.md).
 
 ## Focused proof and remaining work
 

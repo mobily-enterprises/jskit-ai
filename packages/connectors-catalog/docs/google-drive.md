@@ -64,7 +64,7 @@ const downloaded = await connections.invoke({ context, integrationId: "drive",
 
 Other frameworks use native Drive clients/HTTP with the same project config and
 private Env. For larger transfers use native resumable upload/streaming, not a
-larger JSON/base64 payload. No Vibe64 gateway receives or stores the content.
+larger JSON/base64 payload. No hosted gateway receives or stores the content.
 
 **Limitations:** no sync/watch service, embedded Picker, large/resumable transfer,
 sharing administration, permanent deletion, revision history or Workspace-format

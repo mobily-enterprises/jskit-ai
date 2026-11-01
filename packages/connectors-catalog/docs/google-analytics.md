@@ -28,7 +28,7 @@ Saving this configuration is not evidence that tracking is installed.
 Google's [ID instructions](https://support.google.com/analytics/answer/9539598?hl=en)
 and [tag installation instructions](https://support.google.com/analytics/answer/15756615?hl=en-GB)
 are the provider references. This flow does not require a Google OAuth client,
-client secret, callback URL, or Vibe64-owned Google registration.
+client secret, callback URL, or editor-owned Google registration.
 
 ## Configuration and ownership contract to implement
 
@@ -190,7 +190,7 @@ A missing slot must not instantiate a tracker.
 
 Other frameworks use their existing tag/Tag Manager support and native consent
 and route hooks with the same public ID. They do not need the JavaScript helper
-or a Node daemon. The app/framework remains the tracking owner; Vibe64 only edits
+or a Node daemon. The app/framework remains the tracking owner; the editor only edits
 configuration and supplies guidance. See Google's
 [manual page views](https://developers.google.com/analytics/devguides/collection/ga4/views)
 and [disable flag](https://developers.google.com/tag-platform/security/guides/privacy).

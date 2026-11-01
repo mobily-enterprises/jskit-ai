@@ -20,7 +20,7 @@ file storage. No live Google presentation, consent or generated app was exercise
    Testing refresh-token expiry and domain changes.
 5. Enter the client ID and Env references, then Save configuration. **Set credential
    in Env** stores the secret; **Set callback in Env** stores the exact registered
-   URL. CLI users set the same references/file without Vibe64.
+   URL. CLI users set the same references/file by hand.
 6. Leave **Presentation ID (optional)** blank to verify accessible Drive metadata.
    Empty metadata is accepted without creating a deck; it does not verify that
    Slides API is enabled. For an existing deck, copy the ID between `/presentation/d/`
@@ -82,7 +82,7 @@ sharing, export and trash belong to the separately authorized Drive API.
 
 Authorized AI can enable APIs using gcloud/Service Usage and prepare configuration;
 client creation, branding, audience, approval and consent follow the console steps.
-No Vibe64-owned Google registration or gateway is required.
+No editor-owned Google registration or gateway is required.
 
 **LIMITATIONS:** No visual slide designer, template library, embedded Picker,
 whole-file sharing/export UI or editor-assistant attachment. For example an app can

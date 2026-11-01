@@ -103,9 +103,9 @@ await connections.invoke({ context, integrationId: "work", operation: "tasks.upd
 A lost create response has an uncertain outcome. Inspect the project/task list
 before retrying; the adapter does not replay writes. Display permission failures,
 missing resources, invalid values and rate limits distinctly in the application.
-The same ordinary Node library works in CLI-built applications without Vibe64;
+The same ordinary Node library works in CLI-built applications;
 other frameworks read the configuration/Env reference and use their native HTTP
-client for these endpoints. No Vibe64 server is needed at application runtime.
+client for these endpoints. No hosted server is needed at application runtime.
 
 Sources: [projects](https://developers.asana.com/reference/getprojects),
 [create project](https://developers.asana.com/reference/createproject),

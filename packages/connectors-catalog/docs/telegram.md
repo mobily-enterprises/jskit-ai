@@ -150,6 +150,6 @@ to contact arbitrary people. No send is retried automatically after uncertainty.
 [chat action](https://core.telegram.org/bots/api#sendchataction).
 
 A non-JavaScript framework uses its own HTTP client and worker with the same Env
-bot token, JSON payloads and offset contract. JSKIT is optional; Vibe64 hosts no
-polling service. Local disconnect leaves the bot and queued updates intact.
+bot token, JSON payloads and offset contract. JSKIT is optional; no hosted
+polling service is involved. Local disconnect leaves the bot and queued updates intact.
 Revoke/replace a compromised token with BotFather, change Env and verify again.

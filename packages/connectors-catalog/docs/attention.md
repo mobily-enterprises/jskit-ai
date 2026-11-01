@@ -137,8 +137,8 @@ operation runs when saving configuration. Writes are never retried automatically
 a lost response may mean the mutation succeeded. Inspect the provider before
 retrying imports, snippets, users or scorecard results.
 
-The same `integrations.json`, Env reference and API-key composition work from CLI
-without Vibe64. Other frameworks use their native HTTP/client, secret storage and
+The same `integrations.json`, Env reference and API-key composition work from
+the CLI. Other frameworks use their native HTTP/client, secret storage and
 application authorization against these endpoints; they need no Node service.
 
 ## LIMITATIONS

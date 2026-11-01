@@ -63,7 +63,7 @@ registration. Task availability depends on the administrator's permissions.
    Tenant Setup – Security**, enable **OAuth 2.0 Clients Enabled**, and apply the
    organization's normal security-change process.
 3. Search for **Register API Client**. Enter a recognizable client name such as
-   `DogAndGroom — production` or `DogAndGroom — sandbox`.
+   `Bookings — production` or `Bookings — sandbox`.
    Choose **Authorization Code Grant** and **Bearer** access tokens.
 4. Leave **Support Proof Key for Code Exchange (PKCE)** disabled for this
    confidential setup. The captured Workday connector expects the client secret
@@ -138,7 +138,7 @@ updates, employment changes, bulk sync or automatic pagination.
 
 The application owner creates the provider registration and stores its secret
 in the application's private Env. Every editor and CLI uses this same
-[ownership model](../../connectors-core/docs/online-setup.md): the configuration
+[ownership model](../../connectors-core/docs/application-setup.md): the configuration
 file holds the client ID and Env references; the editor does not own the
 application's grants.
 

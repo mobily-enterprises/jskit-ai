@@ -15,7 +15,7 @@ configuration validation.
 
 See [application-owned OAuth callbacks](docs/oauth-callbacks.md) for callback
 routes, environment bindings and changes of domain or hosting.
-The [application setup guide](docs/online-setup.md) explains credential and
+The [application setup guide](docs/application-setup.md) explains credential and
 runtime ownership for hosted editors and direct CLI use.
 
 ## Pre-release migration to application-owned connections

@@ -3,7 +3,7 @@
 Import `tiktokProvider` from `@jskit-ai/connectors-catalog/server/tiktok`.
 The library reads the consenting creator's profile, statistics and public video
 metadata. CLI and server consumers use the same configuration and connection
-service; Vibe64 edits that file through shared fields and validation.
+service; a hosted editor edits that file through shared fields and validation.
 
 ## Provider setup
 
@@ -162,7 +162,7 @@ vanish between pages; do not assume the feed is an immutable snapshot.
 [Public-video listing](https://developers.tiktok.com/docs/en/tiktok-api-v2-video-list).
 
 A Node app or CLI consumes the same installed JSKIT exports and file without
-Vibe64. A different framework owns its OAuth/token storage and native HTTP calls:
+a hosted editor. A different framework owns its OAuth/token storage and native HTTP calls:
 read the same registration references and ownership/scopes, call GET
 `/v2/user/info/` and JSON POST `/v2/video/list/`, then build the same gallery
 response. It must retain the provider-specific `client_key`, comma scopes and
@@ -172,7 +172,7 @@ refresh-token rules described above. JSKIT supplies no PHP implementation.
 
 Each application owns its provider registration, callback route, credentials
 and grants. Hosted and installed editors configure the same app-owned setup;
-neither supplies a shared Vibe64 registration or token gateway. Use the app's
+neither supplies a shared registration or token gateway. Use the app's
 assigned public URL as the initial callback origin, append the route the backend
 actually implements, and register the exact URL with the provider. Keep the
 client secret and callback binding in the application's Env.

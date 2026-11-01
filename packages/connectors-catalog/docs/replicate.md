@@ -53,7 +53,7 @@ file-store restart, rotation, isolation and HTTP failures. No model was run.
 3. Save the returned ID under the authorized app user. Poll `predictions.get({id})` on your application's schedule. Starting/processing are pending; succeeded exposes output; failed exposes error; canceled is terminal. `predictions.cancel({id})` explicitly requests cancellation. Do not resubmit a timed-out creation automatically: its outcome may be unknown.
 4. Output is preserved, including strings, arrays, structured JSON and image/audio/video URLs. The app renders the result and, when needed, saves files before the provider's retention window expires (normally one hour for API predictions). The adapter never fetches arbitrary result URLs.
 
-For CLI or another framework, use the same project slot and Env reference with these documented HTTP endpoints and ownership checks. JSKIT invokes them through the existing connection service; no Vibe64 execution service is required.
+For CLI or another framework, use the same project slot and Env reference with these documented HTTP endpoints and ownership checks. JSKIT invokes them through the existing connection service; no hosted execution service is required.
 
 **LIMITATIONS:** No media studio, background polling/history service, training, deployment administration, file uploader or editor-tool attachment. Example: an app can request a generated image and poll its ID, but must show progress and save/display the resulting image itself. Backend authorization must restrict prediction IDs to their initiating users; a shared provider token alone does not provide app-user isolation.
 

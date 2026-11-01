@@ -68,10 +68,10 @@ with a setter after construction, or keep a module-level registry.
 
 ## Variation points
 
-CLI users can call this same JavaScript recipe with their own runtime. Vibe64
+CLI users can call this same JavaScript recipe with their own runtime. An editor
 configures the project; it does not execute catalogue writes on configuration
 save. Laravel applications implement this composition with their own framework
-and Paddle client, without importing JavaScript or depending on Vibe64.
+and Paddle client, without importing JavaScript or depending on an editor.
 
 ## Example files
 

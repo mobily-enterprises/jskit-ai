@@ -63,7 +63,7 @@ the file. Changing either reference or the branch requires verification again.
 
 Compose the provider with the [API-key file-runtime pattern](../patterns/api-key-connection/PATTERN.md).
 The existing connection owner handles authorization, environment resolution,
-file persistence and disconnect. No database or Vibe64 server is required by
+file persistence and disconnect. No database or hosted server is required by
 the CLI. The [event-delivery pattern](../patterns/event-delivery/PATTERN.md)
 adds application-owned event authorization and explains the workflow boundary.
 

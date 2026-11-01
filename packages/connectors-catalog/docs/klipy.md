@@ -49,7 +49,7 @@ adapter makes no unlimited-capacity promise.
 Compose the [API-key pattern](../patterns/api-key-connection/PATTERN.md) with
 `providers: [klipyProvider]`, application authorization and private file storage.
 The same configuration and runtime calls work from a manually wired CLI. The
-provider module adds no database or Vibe64 service dependency.
+provider module adds no database or hosted service dependency.
 
 ```js
 await connections.connectApiKey({ context, integrationId: "media" });

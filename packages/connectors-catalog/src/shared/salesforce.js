@@ -29,7 +29,7 @@ const salesforceDefinition = Object.freeze({
     "Enable OAuth, register the exact backend callback, and select api plus refresh_token/offline_access. Keep PKCE enabled and require the secret for Web Server and Refresh Token flows.",
     "Open the app's Settings, then Consumer Key and Secret. Copy the key as Client ID; put the secret and callback in Env and save their references here.",
     "An administrator grants API access and authorizes the app/users through its policies and permission sets. Save configuration, then start consent from your application's connection flow.",
-    "Public/Online registrations need separate provisioning and distribution decisions. Local apps cannot serve unrelated customer orgs; packaged apps require installation and subscriber policies. Org API quotas remain shared."
+    "Registrations shared beyond this org need separate provisioning and distribution decisions. Local apps cannot serve unrelated customer orgs; packaged apps require installation and subscriber policies. Org API quotas remain shared."
   ] }
 });
 

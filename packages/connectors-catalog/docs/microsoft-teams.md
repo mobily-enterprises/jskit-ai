@@ -43,7 +43,7 @@ and rotation. Save `env:MICROSOFT_TEAMS_CLIENT_SECRET` and
 `env:MICROSOFT_TEAMS_CALLBACK_URL`, then use **Set credential in Env** and
 **Open Env** for their values. Shared/assistant **Connect account** uses the
 prepared project runtime. Per-user connections belong to authenticated users
-of that app. No Vibe64 gateway or editor-owned provider registration is used.
+of that app. No hosted gateway or editor-owned provider registration is used.
 Local disconnect does not revoke provider consent.
 
 ## Conversations in CLI and generated apps

@@ -70,8 +70,8 @@ This connector's operations are only part of a billing implementation. For
 checkout, subscriptions, feature access, renewal credits and durable catalogue
 mappings, read [payments-core](../../payments-core/README.md) and its
 [standalone composition guide](../../payments-core/docs/standalone.md). These
-JavaScript libraries work from ordinary app code or a CLI without Vibe64 or
-Genesis. Other frameworks consume the [portable contract](../../payments-core/docs/contract.md)
+JavaScript libraries work from ordinary app code or a CLI without a hosted
+editor. Other frameworks consume the [portable contract](../../payments-core/docs/contract.md)
 and its static examples using their own runtime libraries. Keep provider setup
 from this guide; do not substitute a successful connection check for working
 checkout, verified webhooks or merchant approval.

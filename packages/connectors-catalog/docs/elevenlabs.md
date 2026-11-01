@@ -29,7 +29,7 @@ This connector discovers voices/models, generates audio and creates Instant Voic
 
 Compose the [API-key source pattern](../patterns/api-key-connection/PATTERN.md)
 with this provider and an application authorizer. Keep resource ownership in
-the application. A CLI edits the same portable JSON as Vibe64; neither requires
+the application. A CLI edits the same portable JSON as a hosted editor; neither requires
 a database to store connection state.
 
 ## Provisioning automation and capacity
@@ -85,7 +85,7 @@ const bytes = Buffer.from(audio.bodyBase64, "base64");
 The generated app owns authorization, voice selection, samples, storage, credit
 limits and playback. Other frameworks use their native HTTP/multipart clients
 with the same backend Env key and documented endpoints; no JSKIT runtime or
-Vibe64 gateway is needed. API-key setup has no OAuth client or callback URL.
+hosted gateway is needed. API-key setup has no OAuth client or callback URL.
 
 **LIMITATIONS:** Audio is buffered up to 16 MiB; it is not low-latency streaming.
 Use native ElevenLabs streaming for live conversation or larger outputs.

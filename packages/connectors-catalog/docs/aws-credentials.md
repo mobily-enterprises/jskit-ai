@@ -3,7 +3,7 @@
 S3 and Athena use AWS Signature Version 4, implemented by the official AWS SDK.
 The shared runtime resolves explicit credential references for each operation.
 It never falls back to environment names, AWS profiles, instance metadata or the
-machine operator's account. CLI and Vibe64 use the same configuration and file
+machine operator's account. The CLI and a hosted editor use the same configuration and file
 connection store. This is useful library code; provisioning remains host work.
 
 ## Create or obtain credentials
@@ -39,7 +39,7 @@ an integration does not create an AWS account or confer administrator rights.
 ## Editors and independent CLI
 
 There is **no OAuth registration, redirect URI or universal callback URL** for
-these credential modes. The app's VPS and custom domain do not change the AWS
+these credential modes. The app's server and custom domain do not change the AWS
 account, region or identity. Browser S3 access can require a CORS update when the
 app changes domain; server-side Athena calls do not use browser CORS.
 
@@ -48,7 +48,7 @@ configuration use the same application-owned Env bindings. Hosted and installed
 editors do not supply shared AWS credentials. Two access keys or roles in one
 account do not create separate quota pools.
 
-After saving the configuration, Vibe64 provides a **Set credential in Env**
+After saving the configuration, a hosted editor can provide a **Set credential in Env**
 link for the access key ID, secret access key and any configured session token.
 Each link opens that project's Env screen with the referenced variable name.
 Only references are saved in the integration file. Clearing the optional token

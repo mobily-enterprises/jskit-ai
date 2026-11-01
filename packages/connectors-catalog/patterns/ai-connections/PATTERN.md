@@ -93,6 +93,6 @@ search_results. For stream=true consume the async iterator, rendering deltas
 and retaining final citations/search_results; cancel with AbortSignal.
 Allow only safe HTTP(S) links in rendered citations. Never send the API key/client
 to a browser. A public route must sanitize SDK failures and enforce app budgets.
-This is direct app-to-provider traffic, with no Vibe64 token sales or proxy.
+This is direct app-to-provider traffic, with no hosted token sales or proxy.
 A trusted CLI operator can use the same JSON/Env and factory. Other frameworks
 use their own native Perplexity/OpenAI-compatible clients and the same slot.

@@ -43,7 +43,7 @@ limits. A scoped key can receive 403 when an endpoint is not allowed.
 
 Use the [API-key composition pattern](../patterns/api-key-connection/PATTERN.md)
 with `providers: [apolloIoProvider]`, environment-reference resolution and the
-file connection store. CLI and Vibe64 edit this same configuration. Runtime
+file connection store. The CLI and a hosted editor edit this same configuration. Runtime
 connection records remain encrypted JSON outside exported source.
 
 ```js
@@ -177,7 +177,7 @@ The HTTP layer makes one request per invocation. After an uncertain create or
 enrichment response, inspect Apollo before retrying; retrying can duplicate a
 record or spend credits again. Handle 403/422 as permission/input failures and
 429 with a bounded app policy. Do not expose the workspace key to browser code.
-The same operations work in a CLI-owned Node app without Vibe64; other frameworks
+The same operations work in a CLI-owned Node app; other frameworks
 use their own HTTP client against the documented endpoints and read the same Env
 reference from project configuration.
 

@@ -66,7 +66,7 @@ GitHub.com. The adapter normalizes comma-separated returned scopes without
 changing authorization-request scope formatting. OAuth API requests retain the
 same GitHub headers as PAT requests. Disconnect is local; revoke authorization
 in GitHub separately. The app's OAuth registration, secret and provider quotas
-are not supplied by Vibe64.
+are not supplied by the editor.
 
 Focused OAuth fixtures cover confidential S256 exchange, cancellation,
 denial, replay, refresh rotation, file restart, PAT coexistence, per-user and

@@ -103,8 +103,8 @@ existing permissions editor.
 
 The component handles OAuth configurations with pre-existing slots and
 registrations, API-key configurations and declared no-credential modes. The
-host owns catalogue search, slot creation and persistent file editing; public
-Vibe64 supplies those through its source editor. Account connection and consent
+host owns catalogue search, slot creation and persistent file editing; a hosted
+editor supplies those itself. Account connection and consent
 controls are still pending. The browser fixture is a focused round-trip test,
 not a complete application.
 

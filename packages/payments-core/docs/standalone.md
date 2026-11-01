@@ -249,7 +249,7 @@ An optional app-owned `inspectApplication` callback may supply `webhook`,
 `passed`, `failed`, `unknown` or `manual` and a safe explanation of at most 500
 characters. Record only observed checks. Never turn an unavailable check into
 success or claim provider approval from a fixture. This callback is a normal app
-function, not a Vibe64 API. Authorize any route/CLI wrapper exposing the service.
+function, not a hosted API. Authorize any route/CLI wrapper exposing the service.
 
 Catalogue recovery requires a fresh `catalogue.preview()` and its `reviewId`:
 `catalogue.recover({reviewId, providerId})`. The adapter reads the candidate object;

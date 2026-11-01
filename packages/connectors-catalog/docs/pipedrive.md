@@ -77,7 +77,7 @@ unattended app registration was established in this pass.
 The application owner supplies its authorized user token through private Env.
 Separate configuration names still reference the same user/company capacity.
 The project owns its registration, callback handler, Env secrets and private
-grants. Vibe64 configures these values; it does not operate a central gateway.
+grants. The editor configures these values; it does not operate a central gateway.
 JSKIT supplies the JavaScript runtime; Laravel implements the same provider
 contract with its own framework. Disconnect deletes the local grant; revoke
 provider access separately by uninstalling the app in Pipedrive.
@@ -111,7 +111,7 @@ never creates a CRM record; uncertain writes are not automatically replayed.
 
 CLI uses service.invoke with the same JSON/Env and authorized local operator.
 Other frameworks use these endpoints with their native client and company-bound
-OAuth grant. No central Vibe64 credential gateway.
+OAuth grant. No central credential gateway.
 **LIMITATIONS:** No full CRM UI, pipeline administration, custom fields/bulk import,
 attachments, webhooks or coding-chat attachment. Example: create a contact and
 follow-up deal; build the sales dashboard in the application. No live/generated-app proof.

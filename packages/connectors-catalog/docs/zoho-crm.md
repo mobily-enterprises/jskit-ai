@@ -3,7 +3,7 @@
 Import `zohoCrmProvider` from `@jskit-ai/connectors-catalog/server/zoho-crm`.
 The initial adapter reads the current CRM user and pages of leads, contacts,
 accounts and deals. It uses the existing OAuth connection service and encrypted
-file store. Vibe64 and CLI users edit the same `integrations.json`; saving that
+file store. Hosted-editor and CLI users edit the same `integrations.json`; saving that
 file does not perform consent or verify credentials.
 
 ## Register a client
@@ -134,7 +134,7 @@ Revocation is separate from deleting this integration's configuration.
 
 The application owner creates the provider registration and stores its secret
 in the application's private Env. Every editor and CLI uses this same
-[ownership model](../../connectors-core/docs/online-setup.md): the configuration
+[ownership model](../../connectors-core/docs/application-setup.md): the configuration
 file holds the client ID and Env references; the editor does not own the
 application's grants.
 

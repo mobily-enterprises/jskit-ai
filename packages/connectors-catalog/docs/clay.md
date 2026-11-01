@@ -103,7 +103,7 @@ The application owner supplies its authorized Clay key through private Env.
 Two keys alone do not establish separate quota or billing pools; confirm the
 provider's capacity terms. The application must not silently substitute an
 unrelated Clay workspace for the customer's. See the
-[application setup contract](../../connectors-core/docs/online-setup.md).
+[application setup contract](../../connectors-core/docs/application-setup.md).
 
 AI can generate the portable file, environment wiring, query operations and
 tests. The documentation reviewed exposes key creation through the console,
@@ -171,7 +171,7 @@ not treating that response as the full dataset.
 Current query-mode handles search criteria; legacy filters-mode is deprecated
 and is intentionally absent. Native frameworks can use these same fixed Public
 API endpoints with `clay-api-key` from private Env and their own HTTP client;
-JSKIT and Vibe64 are not required for execution.
+JSKIT and a hosted editor are not required for execution.
 
 ## Focused proof and limitations
 

@@ -3,7 +3,7 @@
 Import `wixProvider` from `@jskit-ai/connectors-catalog/server/wix`. The
 runtime reads account sites and business locations, manages site contacts and
 booking-service settings, queries availability, creates/cancels bookings, reads orders
-and reads/edits products in both Wix catalogue versions. Vibe64 and CLI consumers
+and reads/edits products in both Wix catalogue versions. Hosted-editor and CLI consumers
 edit the same JSON and use shared validation, authorization and encrypted file
 storage. Provider acceptance is still in progress; see Verification status below.
 
@@ -103,16 +103,16 @@ fields and input values fail explicitly. Cancellation preserves a verified grant
 ## Editors, hosting and automation
 
 For this account-key flow, the universal OAuth callback is **not applicable**.
-Customer VPS and custom-domain URLs do not enter the provider authentication
+Customer server and custom-domain URLs do not enter the provider authentication
 request. Each connected customer account requires its own authorized account
-binding. A single Vibe64-owned account key cannot grant access to unrelated
+binding. A single editor-owned account key cannot grant access to unrelated
 customers' Wix accounts.
 
 The application owner supplies the authorized key and its matching Wix account
 binding through private Env and configuration. The backend enforces access to
 that account and keeps the key off browsers. Separate keys do not establish
 independent quota pools; provider limits and permitted use still apply. CLI and
-Vibe64 users configure the same application-owned key flow.
+hosted-editor users configure the same application-owned key flow.
 
 | Task | Automation assessment |
 |---|---|
@@ -276,7 +276,7 @@ administrative write workflow). This is a backend site-wide credential, not each
 customer's authorization. The generated app must check booking ownership before
 returning private details or invoking actions. Frameworks other than JSKIT use the
 same configured site and Env credential with their native HTTP client. No editor
-or Vibe64 server is required by the deployed app.
+or hosted server is required by the deployed app.
 
 
 ### Appointment availability
@@ -369,7 +369,7 @@ Check current bookability/capacity before submitting `bookings.create` with
 `kind: "CLASS"`. The generated app owns party-size selection and lost-capacity
 feedback. This does not reserve seats. A mismatched event/service/time-zone
 response is rejected. CLI/native framework users follow the same native flow and
-project-owned credentials; no Vibe64 service participates in the booking.
+project-owned credentials; no hosted service participates in the booking.
 
 
 ### Select a resource and location
@@ -414,7 +414,7 @@ Detailed transaction/refund history requires the native transactions API.
 CLI-created JSKIT apps invoke these operations through the same connection
 service; other frameworks use the same site-scoped endpoints and Env key with
 their own HTTP client. The generated app owns commerce screens, authorization,
-fulfilment and payment reconciliation. No Vibe64 gateway or managed key is used.
+fulfilment and payment reconciliation. No hosted gateway or managed key is used.
 
 
 
@@ -560,7 +560,7 @@ business object. Hide unauthorized sites in the app's picker as well.
 
 This is the same text configuration and operation interface for CLI projects.
 Other frameworks must enforce the configured allowed IDs and user authorization
-before choosing the site header. No new Vibe64 server or gateway is involved.
+before choosing the site header. No new hosted server or gateway is involved.
 
 
 ### Filtered CMS content and references
@@ -935,7 +935,7 @@ fixtures. Package/rendered proof still requires the next refresh.
 for the selected service through the project-owned site connection. The response
 field is `serviceVariants`, not `serviceOptionsAndVariants`. Preserve its option
 IDs, choices, revision and decimal price strings. The generated application's
-own form displays the choices and collects participants per choice; Vibe64 does
+own form displays the choices and collects participants per choice; the editor does
 not maintain a separate catalogue or expose the API key to that form.
 
 Use the selected service ID from `bookingServices.list` or `.get`. The API key
@@ -948,7 +948,7 @@ provider error and check service configuration before offering a booking.
 
 CLI callers use the same invocation and existing Env-backed connection as the
 other site operations. Other frameworks call Wix's native endpoint with their
-project-owned key and site header. No additional Vibe64 service is required.
+project-owned key and site header. No additional hosted service is required.
 
 The lookup feeds the explicit availability and booking selections below.
 The generated app owns the form and authorization. Confirmation is an explicit operation described below; creation does not
@@ -1117,7 +1117,7 @@ Create Cart reference also lists **Manage eCommerce - Admin Permissions** as an
 alternative permission. Keep the selected site's ID in project configuration.
 Publish the Wix site and configure its checkout/payment methods before expecting
 a working payment page. SITE_NOT_PUBLISHED or CHECKOUT_PAGE_NOT_FOUND requires
-fixing the Wix site, not adding an OAuth app or a Vibe64 gateway.
+fixing the Wix site, not adding an OAuth app or a hosted gateway.
 
 The app backend calls `carts.create` with a nonempty `catalogItems` array and an
 optional `note`. Each item has `quantity` and `catalogReference`:
@@ -1159,7 +1159,7 @@ JSKIT CLI/runtime consumers use the same calls with text/Env configuration. Othe
 frameworks POST `{ cart: { source: { channelType: "WEB" }, note? }, catalogItems }`
 to `/ecom/v2/carts`, then POST `{}` to `/ecom/v2/carts/{cartId}/get-checkout-url`
 with the project-owned key and `wix-site-id` header. They can use their framework's
-normal redirect response. No card details, provider credentials or Vibe64 billing
+normal redirect response. No card details, provider credentials or hosted billing
 service are passed through the browser.
 
 References: [Create Cart](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/create-cart),
@@ -1198,7 +1198,7 @@ This reader does not create shipments or send shipping notifications. Use the
 separate create/update operations documented below to record shipments or change
 tracking. Those writes can trigger Wix shipping notifications.
 CLI and other frameworks use the same project Env key, site header and native
-endpoint; there is no Vibe64 service dependency.
+endpoint; there is no hosted service dependency.
 
 Reference: [Wix List Fulfillments For Single Order](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/order-fulfillments/list-fulfillments-for-single-order).
 

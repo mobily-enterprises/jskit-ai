@@ -172,7 +172,7 @@ The controlled design workflow fixture exercises candidate creation, transaction
 start/edit/commit, useful returned design content, host denial and a failed commit.
 It proves the transport and host-approval seam with representative provider payloads;
 it does not substitute for Canva's live discovered input schemas or run a design AI.
-CLI Node hosts use the same provider/pattern without Vibe64. Other frameworks use
+CLI Node hosts use the same provider/pattern. Other frameworks use
 a native MCP client with the same metadata identity, callback and private grant state.
 
 **LIMITATIONS:** Assistant tool attachment requires explicit host integration. For example,
@@ -180,7 +180,7 @@ configuring Canva alone does not authorize an assistant to create or edit
 your shop's poster. An explicitly wired application-owned assistant can invoke the
 supplied MCP runtime after Canva approves its callback and each owner consents.
 Metadata hosting and provider approval remain owner setup steps; Copy client metadata
-does not publish a working endpoint. No shared Vibe64 registration, embedded design
+does not publish a working endpoint. No shared hosted registration, embedded design
 editor, Canva Connect REST implementation, app-user login or AI execution is supplied.
 Provider plan/license limits still apply; no live creation, editing or export was tested.
 

@@ -98,7 +98,7 @@ editor and hosted editor use the same configuration file and private Env
 reference. The editor does not provide a provider account, retain the key in a
 central connector service or assign capacity based on the editor subscription.
 
-For this V4 key flow, a universal OAuth callback is **not applicable**. VPS
+For this V4 key flow, a universal OAuth callback is **not applicable**. Server
 addresses and custom domains do not change provider key authentication. The
 application owner supplies its authorized key through private Env and retains
 that ownership when moving hosts.
@@ -269,7 +269,7 @@ The JSON response preserves keyword IDs, date-keyed rankings, visibility and
 other provider fields. `data` may be an indexed object rather than a JS array;
 use the framework's object-value iteration when rendering rows. The application
 must authorize project/campaign access, review unit usage and decide whether to
-request another page. Neither Vibe64 nor this adapter automatically polls campaigns.
+request another page. Neither the editor nor this adapter automatically polls campaigns.
 Connecting only checks V4 project access. Errors from tracking do not invalidate
 that separate V4 connection. No live campaigns were queried during verification.
 

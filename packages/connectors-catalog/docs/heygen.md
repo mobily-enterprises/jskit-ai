@@ -88,7 +88,7 @@ To configure the OAuth assistant connection:
    and does not promise provider-wide revocation.
 
 The application/assistant host owns its registration, callback, Env and grants.
-There is no Vibe64 gateway. Ordinary Connect never silently registers a client;
+There is no hosted gateway. Ordinary Connect never silently registers a client;
 the explicit Register client and connect action uses the existing helper. Metadata
 advertises a revocation endpoint, but this adapter's Disconnect remains local;
 no provider-wide revocation claim is made. Both credential instruction screens were rendered and reviewed with controlled
@@ -118,7 +118,7 @@ user consent, content rights and credit limits. Fixtures prove transport and
 host policy, not actual media generation or current plan entitlement.
 
 CLI Node applications use the same exported provider and registration helper,
-JSON and Env without Vibe64. Other frameworks use their native MCP/OAuth client
+JSON and Env. Other frameworks use their native MCP/OAuth client
 with those same project-owned configuration values; no JSKIT runtime or Node
 sidecar is required. Select tools from discovery rather than hard-coding this
 module's example catalogue as permanent provider API contracts.

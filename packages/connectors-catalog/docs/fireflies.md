@@ -75,7 +75,7 @@ shared key. Do not render returned Markdown as untrusted raw HTML.
 
 CLI apps use the same file and private Env with the API-key pattern. Other
 frameworks use their native HTTP client to POST the fixed query/variables to
-Fireflies; JSKIT and Vibe64 are optional. The app owns its digest schedules,
+Fireflies; JSKIT and a hosted editor are optional. The app owns its digest schedules,
 cache, task tracking and CRM writes through their respective APIs.
 
 **LIMITATIONS:** assistant tool attachment requires explicit host integration. Example: a

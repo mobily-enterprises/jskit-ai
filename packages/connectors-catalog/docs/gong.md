@@ -187,7 +187,7 @@ HTTP Basic against the selected company host and the official
 [call-data](https://help.gong.io/apidocs/retrieve-detailed-call-data-by-various-filters-v2callsextensive-2),
 [transcript](https://help.gong.io/apidocs/retrieve-transcripts-of-calls-by-date-or-callids-v2callstranscript-2)
 and [interaction-statistics](https://help.gong.io/apidocs/retrieve-interaction-stats-for-applicable-users-by-date-v2statsinteraction)
-APIs. No Vibe64 runtime or AI service is involved.
+APIs. No hosted runtime or AI service is involved.
 
 **LIMITATIONS:** no CRM synchronization, standalone deal timeline, recording
 uploads, media archive, OAuth or editor assistant attachment. Example: an app

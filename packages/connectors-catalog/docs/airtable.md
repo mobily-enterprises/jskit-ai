@@ -38,7 +38,7 @@ not prove access to a particular base. See [List bases](https://airtable.com/dev
 Use the [API-key source pattern](../patterns/api-key-connection/PATTERN.md),
 substituting this provider, slot and secret reference. The application owns
 authorization and maps the trusted caller to the connection owner. The library
-supplies validation, HTTP errors and file persistence. A CLI and Vibe64 edit
+supplies validation, HTTP errors and file persistence. A CLI and a hosted editor edit
 the same JSON. The provider supplies the record and schema operations below. Application screens
 and rules deciding which rows a caller may access remain application work.
 

@@ -2,7 +2,7 @@
 
 `contracts/conformance.json` is ordinary JSON, also exported as
 `@jskit-ai/payments-core/conformance.json`. Read the file as data; no Node process,
-JSKIT import, editor service or Genesis command is necessary to interpret it.
+JSKIT import, editor service or project tool is necessary to interpret it.
 It accompanies the draft-07 configuration schema and the semantic contract.
 These are test examples, not a production workflow interpreter.
 
@@ -72,9 +72,9 @@ runtime. The application selects its billable model and schema; the fixture does
 not prescribe table names or copy JSKIT's storage internals into another framework.
 
 A Node CLI consumer can run the same semantic calls against its installed JSKIT
-services. Genesis may describe the project's test command, but these fixtures do
-not require Genesis to execute it. Vibe64 configuration must preserve these same
-values rather than inventing a different hosted payment format.
+services. Project tooling may describe the project's test command, but these
+fixtures do not require it to execute. A hosted editor's configuration must
+preserve these same values rather than inventing a different hosted payment format.
 
 ## Evidence boundaries
 

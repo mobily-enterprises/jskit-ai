@@ -18,7 +18,7 @@ The example wires that library to application-owned authority and snapshot looku
 ## Do not use when
 
 This is not an HTTP application-data connector, user login, a managed gateway,
-or an implementation of Vibe64's coding agents. It does not generate an app.
+or an implementation of a hosted editor's coding agents. It does not generate an app.
 Auth0 and native Windows execution are not implemented in the current runner.
 
 ## Product decisions
@@ -39,7 +39,7 @@ and whether a blocking verdict prevents a later operation.
 - Missing/invalid reports, cancellation and failed scans never become clean scans.
 - Provider credentials are isolated from coding-agent sessions and credentials.
 - The host supplies its own authorized provider credentials; editor edition does
-  not select a shared Vibe64 provider account.
+  not select a shared hosted provider account.
 - Each collaborator the composition receives (`authorize`, `resolveReference`
   and `resolveScanTarget`) is a required parameter typed in a JSDoc `@param` and
   called directly, without a `typeof` probe, a "requires x" guard or a no-op

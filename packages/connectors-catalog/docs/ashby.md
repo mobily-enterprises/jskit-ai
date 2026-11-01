@@ -156,7 +156,7 @@ await connections.invoke({ context, integrationId: "hiring",
 
 The generated application owns recruiter authorization, job/candidate visibility,
 consent to changes and UI. The organization API key is not a tenant/user identity.
-The optional Node runtime works without Vibe64 using the same JSON and Env
+The optional Node runtime works without a hosted editor using the same JSON and Env
 reference. Other frameworks can use their own HTTP client for these documented
 endpoints, preserving the same ownership and connection configuration.
 

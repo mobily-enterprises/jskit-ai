@@ -71,7 +71,7 @@ For hosted and installed editors there is **no OAuth callback URL** in this
 mode. See [AWS ownership and quota isolation](aws-credentials.md#editors-and-independent-cli).
 Separate workgroups do not isolate account service quotas. The application
 operator supplies AWS credentials, chooses resources and controls their budget.
-The same application-owned setup works from CLI or editor without a Vibe64
+The same application-owned setup works from CLI or editor without a hosted
 managed service.
 
 ## Runtime contract

@@ -24,7 +24,7 @@ SQL can modify data; read-only behavior requires appropriate database grants.
 
 ## Product decisions
 
-Select serverless or provisioned in the same JSON edited by Vibe64. Serverless
+Select serverless or provisioned in the same JSON the editor edits. Serverless
 requires a workgroup name; provisioned requires a cluster identifier and may use
 an explicit database user. Both require a database and region. Store AWS secrets
 outside the file. Temporary credentials additionally need `sessionTokenRef` and

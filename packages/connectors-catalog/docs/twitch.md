@@ -319,7 +319,7 @@ These navigation steps follow Twitch's
 The confidential/public distinction is described in its
 [refresh documentation](https://dev.twitch.tv/docs/authentication/refresh-tokens/).
 A CLI uses these same packages and a callback served by its own backend/listener
-at a provider-accepted, registered URL. No Vibe64 account is required. Do not
+at a provider-accepted, registered URL. No hosted-editor account is required. Do not
 embed a confidential client secret into a distributed desktop binary.
 
 ## Portable configuration and library composition
@@ -410,7 +410,7 @@ Register the application's own callback route, using its assigned public origin
 as the starting point, and keep that exact URL in application Env. When it
 changes, update both the app binding and the provider registration. The
 [callback contract](../../connectors-core/docs/oauth-callbacks.md) describes
-identity, consent and grant handling during a move. No Vibe64 callback gateway
+identity, consent and grant handling during a move. No hosted callback gateway
 participates in this flow.
 
 The documented registration path is the console. No supported application

@@ -75,7 +75,7 @@ content; no automatic send retry after uncertainty.
 or Calendars.ReadWrite. `events.create({calendarId,subject,start,end})` requires
 Calendars.ReadWrite; start/end are UTC ISO strings ending in Z, with end after start.
 It creates an appointment with no attendees/invitations. The app owns time-zone
-presentation and event selection, not Vibe64.
+presentation and event selection, not the editor.
 
 CLI uses the same connections.invoke operations; other frameworks call these
 Graph endpoints with their own HTTP client and project-owned Env/grant store.

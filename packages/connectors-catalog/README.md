@@ -9,7 +9,7 @@ business workflows. There is no automatic provider installation or activation.
 
 Each application owns its registration, callback, credentials and grants. Read
 the core package's [callback guide](../connectors-core/docs/oauth-callbacks.md)
-and [application setup contract](../connectors-core/docs/online-setup.md), which
+and [application setup contract](../connectors-core/docs/application-setup.md), which
 apply to hosted editors, installed editors and CLI use. The catalogue supplies no
 shared provider registration or token gateway. An assistant host must explicitly
 expose authorized connector operations as tools; saving a connection alone does
@@ -25,9 +25,9 @@ is not proof that the application's requested feature is implemented.
 
 `integrations.json` is application-owned source; secret values belong in the
 application's Env or private grant storage. The same files can be authored by
-hand, by a coding agent or by an editor. Genesis is optional: when used, selected
-Stack guidance should lead to these same documents, while the application
-records its actual environment requirements and implemented commands.
+hand, by a coding agent or by an editor. Any project guidance the application
+keeps should lead to these same documents, while the application records its
+actual environment requirements and implemented commands.
 
 For full Stripe/Paddle checkout, subscriptions, features and usage credits,
 continue to [application-owned payments](../payments-core/README.md) and its

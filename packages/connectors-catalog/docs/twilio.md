@@ -93,8 +93,8 @@ region on failure, and not every Twilio product is available in every region.
 Apply the [API-key source pattern](../patterns/api-key-connection/PATTERN.md)
 with `providers: [twilioProvider]`, the encrypted file connection store, the
 application's environment reference resolver and its authorization policy.
-Configuration and runtime state are text files. The runtime needs neither the
-Vibe64 editor nor a database.
+Configuration and runtime state are text files. The runtime needs neither a
+hosted editor nor a database.
 
 ```js
 await connections.connectApiKey({ context, integrationId: "voice" });
@@ -281,4 +281,4 @@ token references, all region choices, setup instructions, persistence and
 connect/disconnect at compact, medium and expanded sizes.
 Provider signup, real API use and generated applications are outside the test
 scope. The same ten tests pass using normal exports from an installed package
-in a disposable Node consumer, independently of Vibe64.
+in a disposable Node consumer, independently of any editor.

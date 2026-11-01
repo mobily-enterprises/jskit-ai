@@ -9,7 +9,7 @@ It reuses the OAuth state, refresh and encrypted file-store implementations.
 
 1. Check the intended Hex workspace endpoint and account. Hex documents MCP on
    Team and Enterprise plans with an Explorer or higher role.
-2. Choose Standard, Europe or HIPAA in the Vibe64 **Hex workspace endpoint**
+2. Choose Standard, Europe or HIPAA in the editor's **Hex workspace endpoint**
    field. Single-tenant custom Hex domains are not supported by this fragment.
 3. Confirm **Suggested callback URL** is the route your host will serve. Choose
    **Register client and connect** to register at the selected fixed authority.
@@ -137,7 +137,7 @@ runtime records bound to that owner. Update registration and callback Env when
 the actual callback changes. Separate clients do not establish separate Hex
 workspace credits or capacity. Provider accounts, plans and workspace permissions
 still apply. Selecting the HIPAA endpoint is a routing choice, not a compliance
-certification for JSKIT, Vibe64 or a generated application. The explicit registration and controlled connection UI have been reviewed.
+certification for JSKIT, its editor or a generated application. The explicit registration and controlled connection UI have been reviewed.
 The explicit Register client and connect action supports DCR; ordinary Connect
 does not silently create another registration.
 

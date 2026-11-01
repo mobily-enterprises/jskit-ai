@@ -139,7 +139,7 @@ steps. Do not promise unattended provisioning from a client ID alone.
 
 Each application owns its provider registration, callback route, credentials
 and grants. Hosted and installed editors configure the same app-owned setup;
-neither supplies a shared Vibe64 registration or token gateway. Use the app's
+neither supplies a shared registration or token gateway. Use the app's
 assigned public URL as the initial callback origin, append the route the backend
 actually implements, and register the exact URL with the provider. Keep the
 client secret and callback binding in the application's Env.

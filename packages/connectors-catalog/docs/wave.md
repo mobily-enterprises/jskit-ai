@@ -3,7 +3,7 @@
 `waveProvider` from `@jskit-ai/connectors-catalog/server/wave` provides OAuth
 consent, profile verification, business/accounting reads, customer/product and
 account/tax maintenance, invoice/estimate workflows and money-transaction creation. An ordinary CLI or backend composes the shared connection service
-with encrypted file storage. Vibe64 edits the same portable JSON; saving it
+with encrypted file storage. A hosted editor edits the same portable JSON; saving it
 does not connect an account.
 
 ## Provider registration
@@ -234,7 +234,7 @@ including final setup/lifecycle and distribution evidence, is still open.
 
 Each application owns its provider registration, callback route, credentials
 and grants. Hosted and installed editors configure the same app-owned setup;
-neither supplies a shared Vibe64 registration or token gateway. Use the app's
+neither supplies a shared registration or token gateway. Use the app's
 assigned public URL as the initial callback origin, append the route the backend
 actually implements, and register the exact URL with the provider. Keep the
 client secret and callback binding in the application's Env.
@@ -278,7 +278,7 @@ The implemented mutations are described below.
 Use `estimates.list` with `{ businessId, page, pageSize }` and `estimates.get`
 with `{ businessId, estimateId }` to populate the app's estimate screens. List
 ordering is newest-created first. The app owns those screens and the business
-access policy; Vibe64 does not approve or send estimates.
+access policy; the editor does not approve or send estimates.
 
 ```js
 const draft = await connections.invoke({ context, integrationId: "wave",

@@ -72,7 +72,7 @@ callback. Keep persistent grants and application identity when moving hosts.
 An authorized AI can prepare configuration and enable APIs using Google Cloud's
 normal tooling. OAuth client creation, consent verification and access approval
 require the actual owner's permissions and provider processes. There is no
-universal Vibe64 credential or automatic approval. API quotas follow the Cloud
+universal hosted credential or automatic approval. API quotas follow the Cloud
 project and account limits; a second OAuth client does not imply independent
 capacity. The adwords permission can authorize writes even though this fragment
 only implements reads.
@@ -123,7 +123,7 @@ Its reusable operations discover accounts/website conversion goals and targeting
 validate a saved plan with Google, atomically create a paused Search campaign,
 inspect a current campaign, separately launch/pause it and report last-30-days
 metrics. The application owns the authenticated administrator and connection
-service; CLI apps use this without Vibe64.
+service; CLI apps use this unchanged.
 
 Store plans at `extensions.googleAdsSearch[integrationId]`, outside OAuth settings.
 Use `validateGoogleAdsSearchPlan` from the shared `google-ads-search` export. Read
@@ -194,5 +194,5 @@ application-owned callback configuration and account quota boundaries.
 Different client IDs do not automatically separate developer-token capacity;
 approved pilot projects can have usage caps while organization/account limits
 still apply. The CLI uses exactly this library and file configuration without
-Vibe64. No generated app or live provider operation is required to validate the
+a hosted editor. No generated app or live provider operation is required to validate the
 configuration, run the focused provider tests or read the [OAuth pattern](../patterns/oauth-connection/PATTERN.md).

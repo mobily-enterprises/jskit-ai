@@ -18,7 +18,7 @@ composes those libraries with the application's identity and resource policy.
 ## Do not use when
 
 Do not use this as an application login, an AWS account creator, a general SDK
-proxy, or proof that a managed Vibe64 allocation exists. Do not use a machine's
+proxy, or proof that a managed host's allocation exists. Do not use a machine's
 default AWS credentials for arbitrary application users. Per-user federation,
 AWS IAM Identity Center, noncommercial AWS partitions and arbitrary endpoints
 are outside the fragment. Athena statements can write data and incur costs;
@@ -27,8 +27,8 @@ connecting does not approve arbitrary future SQL.
 ## Product decisions
 
 Use the exact [S3](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/docs/aws-s3.md) or
-[Athena](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/docs/aws-athena.md) JSON. The same file is usable by CLI and the
-Vibe64 form. Store the actual secret access key, access key ID and optional
+[Athena](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/docs/aws-athena.md) JSON. The same file is usable by CLI and a
+hosted editor's form. Store the actual secret access key, access key ID and optional
 session token outside source. The access key ID uses `settings.accessKeyIdRef`,
 the secret uses `authentication.secretRef`, and temporary credentials add
 `settings.sessionTokenRef`. A missing explicit binding is an error.

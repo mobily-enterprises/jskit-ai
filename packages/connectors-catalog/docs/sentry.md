@@ -74,7 +74,7 @@ MCP requests. The provider constrains that resource; the application still owns
 caller authorization and review of any triage or write operation.
 
 The application owns tokens, encrypted persistence, callback execution and
-refresh. CLI applications use the ordinary connection service without Vibe64.
+refresh. CLI applications use the ordinary connection service.
 Other frameworks consume the same configuration and Env names using their native
 OAuth/MCP libraries, without importing JavaScript or running a Node sidecar.
 The editor's subscription does not supply a Sentry account or quota.
