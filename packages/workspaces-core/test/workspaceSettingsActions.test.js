@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import { createWorkspaceDirectoryActions } from "../src/server/workspaceDirectory/workspaceDirectoryActions.js";
 import { createWorkspacePendingInvitationsActions } from "../src/server/workspacePendingInvitations/workspacePendingInvitationsActions.js";
 import { createWorkspaceMembersActions } from "../src/server/workspaceMembers/workspaceMembersActions.js";
@@ -70,7 +71,7 @@ test("workspace mutation actions declare their domain and bootstrap changes expl
   );
   const events = await Promise.all(settingsAction.events.map((builder) => builder({
     input: { workspaceSlug: "acme", invitesEnabled: true },
-    result: { value: { invitesEnabled: true } },
+    result: returnJsonApiData({ invitesEnabled: true }),
     context
   })));
 
@@ -92,7 +93,7 @@ test("workspace invite actions carry recipient lookup as delivery policy, not se
   };
   const events = await Promise.all(action.events.map((builder) => builder({
     input: { workspaceSlug: "acme", email: "reader@example.test", roleSid: "member" },
-    result: { value: { createdInviteId: 91 } },
+    result: returnJsonApiData({ createdInviteId: 91 }),
     context
   })));
   assert.equal(events[0].operation, "created");
@@ -122,7 +123,7 @@ test("accepting an invitation declares directory/member refresh while refusal do
   async function emittedNames(decision) {
     const built = await Promise.all(action.events.map((builder) => builder({
       input: { decision, token: "opaque" },
-      result: { value: { workspaceId: 11 } },
+      result: returnJsonApiData({ workspaceId: 11 }),
       context: { actor: { id: 7 } }
     })));
     return built.filter(Boolean).map((event) => event.realtime.event);

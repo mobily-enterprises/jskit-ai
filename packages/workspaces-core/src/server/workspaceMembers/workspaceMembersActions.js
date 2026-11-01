@@ -1,5 +1,6 @@
 import { workspaceInviteAssistantOutput } from "../../shared/resources/workspaceAssistantOutputs.js";
 import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
+import { jsonApiResultValue } from "@jskit-ai/http-runtime/shared";
 import { resolveWorkspace } from "../support/resolveWorkspace.js";
 import { resolveActionUser } from "@jskit-ai/users-core/server/resolveActionUser";
 import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
@@ -19,7 +20,7 @@ const WORKSPACE_INVITE_CREATED_EVENTS = createWorkspaceEntityAndBootstrapEvents(
   workspaceEntity: "invite",
   workspaceOperation: "created",
   workspaceRealtimeEvent: "workspace.invites.changed",
-  bootstrapEntityId: ({ result } = {}) => result?.value?.createdInviteId,
+  bootstrapEntityId: ({ result }) => jsonApiResultValue(result).createdInviteId,
   bootstrapAudience: INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE
 });
 
@@ -27,7 +28,7 @@ const WORKSPACE_INVITE_REVOKED_EVENTS = createWorkspaceEntityAndBootstrapEvents(
   workspaceEntity: "invite",
   workspaceOperation: "updated",
   workspaceRealtimeEvent: "workspace.invites.changed",
-  bootstrapEntityId: ({ result } = {}) => result?.value?.revokedInviteId,
+  bootstrapEntityId: ({ result }) => jsonApiResultValue(result).revokedInviteId,
   bootstrapAudience: INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE
 });
 

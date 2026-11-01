@@ -1,19 +1,16 @@
 import { normalizeDbRecordId } from "@jskit-ai/database-runtime/shared";
+import { jsonApiResultValue } from "@jskit-ai/http-runtime/shared";
 import { createEntityChangedActionEvent } from "@jskit-ai/kernel/server/actions";
 import { resolveActorId } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveWorkspace } from "../../support/resolveWorkspace.js";
-
-function resultValue({ result }) {
-  return result.value;
-}
 
 function actorId({ context }) {
   return resolveActorId(context);
 }
 
 function workspaceId(execution = {}) {
-  return resolveWorkspace(execution.context, execution.input)?.id || resultValue(execution)?.workspaceId;
+  return resolveWorkspace(execution.context, execution.input)?.id || jsonApiResultValue(execution.result)?.workspaceId;
 }
 
 function workspaceSlugPayload(execution = {}) {
@@ -96,10 +93,10 @@ function createWorkspaceAudienceEvent({ entity, realtimeEvent }) {
     source: "workspace",
     entity,
     operation: "updated",
-    entityId: ({ result }) => result?.value?.workspaceId ?? result?.workspaceId,
+    entityId: ({ result }) => jsonApiResultValue(result).workspaceId,
     realtime: {
       event: realtimeEvent,
-      audience: ({ result }) => ({ workspaceId: result?.value?.workspaceId ?? result?.workspaceId })
+      audience: ({ result }) => ({ workspaceId: jsonApiResultValue(result).workspaceId })
     }
   });
 }

@@ -70,7 +70,6 @@ Exports
 - `createInviteDecisionEvents()`
 - `createWorkspaceEntityAndBootstrapEvents({ workspaceEntity, workspaceOperation, workspaceRealtimeEvent, bootstrapEntityId = workspaceId, bootstrapAudience = "event_scope" })`
 Local functions
-- `resultValue({ result })`
 - `actorId({ context })`
 - `workspaceId(execution = {})`
 - `workspaceSlugPayload(execution = {})`
