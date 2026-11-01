@@ -543,3 +543,31 @@ test("a save that fails to commit leaves the cached rows on what the database ho
   assert.equal(saved.at(-2).clientMessageSid, "next-0");
   assert.equal((await f.conversationsRepository.findById(conversation.id)).messageCount, 6);
 });
+
+test("the summary and the last turn it covers are saved on the conversation row, and a new server reads only the turns after it", async t => {
+  const f = await fixture(t);
+  const conversation = await f.conversation();
+  await writeTurns(f.storage, conversation.id, 4);
+  const before = await rows(f.db);
+  await f.storage.write(conversation.id, transaction => transaction.writeSummary({ text: "Turns one to three.", throughTurnId: "000003" }));
+  const saved = await f.db("assistant_conversations").where({ id: conversation.id }).first();
+  assert.equal(saved.summary_text, "Turns one to three.");
+  assert.equal(saved.summary_through_turn_id, "000003");
+  assert.notEqual(saved.transcript_revision, before.conversations[0].transcript_revision);
+  assert.deepEqual((await rows(f.db)).messages, before.messages, "Compaction never deletes or changes messages");
+  assert.doesNotMatch(saved.metadata_json || "", /Turns one to three/u);
+  assert.equal(Object.hasOwn(await f.conversationsRepository.findById(conversation.id), "summary"), false,
+    "Conversation records sent to the browser do not carry the summary");
+
+  const restarted = f.connect();
+  const later = await restarted.storage.read(conversation.id, async transaction => {
+    const summary = await transaction.readSummary();
+    return { summary, turns: await transaction.readTurnsAfter(summary.throughTurnId) };
+  });
+  assert.deepEqual(later.summary, { text: "Turns one to three.", throughTurnId: "000003" });
+  assert.deepEqual(later.turns.map(turn => [turn.turnId, turn.user.text, turn.assistant.text]), [["000004", "Question 3", "Answer 3"]]);
+
+  await restarted.storage.write(conversation.id, transaction => transaction.writeSummary({ text: "Turns one to four.", throughTurnId: "000004" }));
+  assert.deepEqual(await f.storage.read(conversation.id, transaction => transaction.readSummary()),
+    { text: "Turns one to four.", throughTurnId: "000004" }, "Another server's summary is read at once");
+});
