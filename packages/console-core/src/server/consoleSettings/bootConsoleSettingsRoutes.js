@@ -5,7 +5,7 @@ function resolveConsoleSettingsRecordId() {
   return "console-settings";
 }
 
-/** @param {import("@jskit-ai/kernel/server/types").RuntimeHttp["router"]} router */
+/** @param {import("@jskit-ai/kernel/server/types").RuntimeRouter} router */
 function registerConsoleSettingsRoutes(router) {
   router.register(
     "GET",

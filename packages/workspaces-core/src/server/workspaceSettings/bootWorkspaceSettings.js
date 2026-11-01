@@ -19,7 +19,7 @@ function resolveWorkspaceSettingsRecordId(record = {}, context = {}) {
   throw new Error("Workspace settings JSON:API response requires workspace id.");
 }
 
-/** @param {import("@jskit-ai/kernel/server/types").RuntimeHttp["router"]} router */
+/** @param {import("@jskit-ai/kernel/server/types").RuntimeRouter} router */
 function registerWorkspaceSettingsRoutes(router, { config = {} } = {}) {
   const workspaceRouteSurfaceId = resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig(config);
 
