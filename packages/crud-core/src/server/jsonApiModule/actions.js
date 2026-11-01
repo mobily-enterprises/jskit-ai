@@ -3,6 +3,7 @@ import {
   recordIdParamsValidator
 } from "@jskit-ai/kernel/shared/validators";
 import { RestApiWriteError } from "json-rest-api";
+import { isJsonApiDocumentResult } from "@jskit-ai/http-runtime/shared";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { ARCHITECTURE_ID_PATTERN } from "@jskit-ai/kernel/shared/capabilities";
 import { createEntityChangedActionEvent } from "@jskit-ai/kernel/server/actions";
@@ -212,6 +213,24 @@ function createCrudJsonApiActions({
   }
 
   /**
+   * An operation's result, checked where its events depend on it: a create
+   * returns the created record as a JSON:API document result, as the service's
+   * createDocument and a lifecycle's standard() do, since its created and
+   * record-changed events read the record's id from it.
+   * @param {string} operation
+   * @param {unknown} result
+   */
+  function requireOperationResult(operation, result) {
+    if (operation === "create" && !(isJsonApiDocumentResult(result) && resolveCrudJsonApiEntityIdFromResult({ result }))) {
+      throw new TypeError(
+        `CRUD ${namespace} create must return the created record as a JSON:API document result ` +
+          "(returnJsonApiDocument), as createDocument() and a lifecycle's standard() do."
+      );
+    }
+    return result;
+  }
+
+  /**
    * Runs one standard operation through the feature's lifecycle hooks for it, if any.
    * @param {string} operation
    * @param {object} input
@@ -221,7 +240,7 @@ function createCrudJsonApiActions({
   async function executeOperation(operation, input, context, runStandard) {
     const hooks = operationLifecycle[operation];
     if (!hooks) {
-      return runStandard(input, context, null);
+      return requireOperationResult(operation, await runStandard(input, context, null));
     }
 
     async function run(trx = null) {
@@ -230,9 +249,9 @@ function createCrudJsonApiActions({
         await hooks.before(createLifecycleContext(base));
       }
       const standard = (nextInput = input) => runStandard(nextInput, context, trx);
-      const result = hooks.execute
+      const result = requireOperationResult(operation, hooks.execute
         ? await hooks.execute(createLifecycleContext({ ...base, standard }))
-        : await standard();
+        : await standard());
       if (hooks.after) {
         await hooks.after(createLifecycleContext({ ...base, result }));
       }

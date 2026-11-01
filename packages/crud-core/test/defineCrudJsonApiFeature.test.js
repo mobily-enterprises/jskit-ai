@@ -633,6 +633,84 @@ test("CRUD operation lifecycle does not run after or afterCommit when the transa
   assert.deepEqual(calls, ["transaction:begin", "before", "service"]);
 });
 
+test("a CRUD create that returns no JSON:API document result fails before its after hooks, in every channel", async () => {
+  const createdDocument = { data: { type: "books", id: "7", attributes: { title: "Kindred" } } };
+  const results = [
+    createdDocument,
+    { kind: "document", value: createdDocument },
+    returnJsonApiDocument({ data: null })
+  ];
+  for (const returned of results) {
+    const calls = [];
+    const actions = createCrudJsonApiActions(crudJsonApiActionOptions({
+      namespace: "books",
+      resource: createBookResource(),
+      repository: {
+        async withTransaction(work) {
+          calls.push("transaction:begin");
+          const result = await work({ id: "transaction" });
+          calls.push("transaction:commit");
+          return result;
+        }
+      },
+      service: {
+        async createDocument() {
+          return returnJsonApiDocument(createdDocument);
+        }
+      },
+      surface: "app",
+      operations: ["create"],
+      permissionForOperation: () => ({ require: "authenticated" }),
+      operationLifecycle: {
+        create: {
+          execute() { return returned; },
+          after() { calls.push("after"); },
+          afterCommit() { calls.push("afterCommit"); }
+        }
+      }
+    }));
+
+    await assert.rejects(
+      actions[0].execute({ title: "Kindred" }, {}),
+      /CRUD books create must return the created record as a JSON:API document result/
+    );
+    assert.deepEqual(calls, ["transaction:begin"]);
+  }
+
+  const decoratedActions = createCrudJsonApiActions(crudJsonApiActionOptions({
+    namespace: "books",
+    resource: createBookResource(),
+    repository: {},
+    service: {
+      async createDocument() {
+        return createdDocument;
+      }
+    },
+    surface: "app",
+    operations: ["create"],
+    permissionForOperation: () => ({ require: "authenticated" })
+  }));
+  await assert.rejects(
+    decoratedActions[0].execute({ title: "Kindred" }, {}),
+    /CRUD books create must return the created record as a JSON:API document result/
+  );
+
+  const standardActions = createCrudJsonApiActions(crudJsonApiActionOptions({
+    namespace: "books",
+    resource: createBookResource(),
+    repository: {},
+    service: {
+      async createDocument() {
+        return returnJsonApiDocument(createdDocument);
+      }
+    },
+    surface: "app",
+    operations: ["create"],
+    permissionForOperation: () => ({ require: "authenticated" })
+  }));
+  assert.equal((await standardActions[0].execute({ title: "Kindred" }, {})).value, createdDocument);
+});
+
 test("CRUD afterCommit failures preserve the original cause and acknowledged commit", async () => {
   for (const failure of [new Error("notification failed"), Object.freeze(new Error("frozen failure")), null, undefined]) {
     let committed = false;

@@ -57,8 +57,8 @@ from a generator questionnaire or treat a live table as the sole contract.
 
 Use `defineCrudResource()` from `@jskit-ai/resource-crud-core` and
 `defineCrudJsonApiFeature()` from `@jskit-ai/crud-core`. The latter composes the
-JSON REST resource, repository, service events, standard CRUD actions, route
-contracts, access policy, and HTTP routes.
+JSON REST resource, repository, service, standard CRUD actions with their
+record-changed events, route contracts, access policy, and HTTP routes.
 
 ## Example files
 
@@ -131,7 +131,12 @@ capabilities in `requires` and provide `decorateService({ service, repository,
 resource, ...dependencies })`. Retain the standard methods, override only the
 methods whose CRUD behavior changes, and add resource-related domain methods
 such as `confirmBooking()` or `sendReminder()` directly to that service. Those
-additional methods remain available through the resource capability. When the
+additional methods remain available through the resource capability. An
+overridden `createDocument()` returns the created record as a JSON:API document
+result (`returnJsonApiDocument`), as the standard one does: the create action's
+created and `record.changed` events read the record's id from it, and a create
+whose service returns anything else, such as a bare document or
+`returnJsonApiData(record)`, fails in every channel. When the
 product needs only a few additional queries or locking operations, provide
 `decorateRepository({ repository, database, http, jsonRestApi, resource,
 ...dependencies })`; return the standard methods plus only those unique
@@ -141,7 +146,12 @@ Use `operationLifecycle` for behavior surrounding a standard operation. Its
 per-operation `before`, `execute`, and `after` phases share one repository
 transaction for create, update, and delete. An `execute` hook receives
 `standard(nextInput)` so it can retain the framework write while adjusting its
-input or coordinating other repository work. `afterCommit` runs only after the
+input or coordinating other repository work, and returns what `standard()`
+returns: the operation's JSON:API document result (null for delete). A create's
+`execute` returns the created record's document result, as `standard()` does,
+because the create's events read its id; a create that returns anything else
+fails inside its transaction. `after` and `afterCommit` receive that `result`,
+so a record id is `result.value.data.id`. `afterCommit` runs only after the
 mutation transaction succeeds. A hook's argument is `CrudLifecycleContext` from
 `@jskit-ai/crud-core/server/types`; type a lifecycle declared apart from its
 feature with `CrudOperationLifecycle`, whose type arguments are the decorated
@@ -155,7 +165,8 @@ service, repository, ...dependencies })` contract. Type that argument with
 `CrudCustomActionInvocation` from `@jskit-ai/crud-core/server/types`. Its first
 type argument is the service the action calls, when `decorateService` adds the
 method; its second holds the types of required capabilities the action uses,
-by local name. Its optional `route`
+by local name; its third is the repository the action calls, when
+`decorateRepository` adds the method. Its optional `route`
 declares an HTTP method, path below the resource base, explicit route contract,
 status code, and optional request-to-action input mapper. This is the normal
 home for `confirm`, `publish`, `cancel`, `reorder`, or `sendReminder`. Move to a
@@ -176,8 +187,11 @@ decorated types once:
 
 ```js
 // bookingsService.js
+import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+
 /**
- * The bookings service: the CRUD service plus booking confirmation.
+ * The bookings service: the CRUD service plus booking confirmation and the
+ * checks and history its updates need.
  * @param {object} dependencies
  * @param {import("@jskit-ai/crud-core/server/types").CrudService} dependencies.service
  * @param {import("./types.js").BookingsRepository} dependencies.repository
@@ -187,7 +201,17 @@ function decorateBookingsService({ service, repository }) {
     return repository.confirmBooking(recordId, options);
   }
 
-  return Object.freeze({ ...service, confirmBooking });
+  async function assertUpdateAllowed(recordId, options) {
+    if (await repository.isBookingLocked(recordId, options)) {
+      throw new AppError(409, "This booking is locked.", { code: "bookings.locked" });
+    }
+  }
+
+  async function recordUpdateCompleted(recordId, options) {
+    return repository.addBookingHistoryEntry(recordId, "updated", options);
+  }
+
+  return Object.freeze({ ...service, confirmBooking, assertUpdateAllowed, recordUpdateCompleted });
 }
 
 // types.js
@@ -207,7 +231,7 @@ const BookingsFeature = defineCrudJsonApiFeature({
         await service.assertUpdateAllowed(input.recordId, { trx, context });
       },
       async afterCommit({ result, service, context }) {
-        await service.recordUpdateCompleted(result.data.id, { context });
+        await service.recordUpdateCompleted(result.value.data.id, { context });
       }
     }
   },

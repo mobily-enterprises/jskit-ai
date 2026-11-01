@@ -17,6 +17,13 @@
  */
 
 /**
+ * A JSON:API document result, as returnJsonApiDocument (`@jskit-ai/http-runtime/shared`)
+ * builds it: what a CRUD service's document methods and a feature's standard
+ * list, view, create and update operations return.
+ * @typedef {ReturnType<typeof import("@jskit-ai/http-runtime/shared").returnJsonApiDocument>} CrudDocumentResult
+ */
+
+/**
  * The scope of a scoped CRUD resource: the route base its routes live under,
  * the validators of the scope's route params and action input, the input keys
  * the scope owns, and input(request), which reads them from a request.
@@ -45,14 +52,16 @@
  * its schema validated, the action context, the feature's resource, repository
  * and service, and each capability in the feature's `requires`, under its local
  * name. `Service` is the service decorateService returns, when it adds methods;
- * `Requires` holds the types of the required capabilities an action uses.
+ * `Requires` holds the types of the required capabilities an action uses;
+ * `Repository` is the repository decorateRepository returns, when it adds methods.
  * @template [Service=CrudService]
  * @template [Requires={}]
+ * @template [Repository=CrudRepository]
  * @typedef {{
  *   input: any,
  *   context: object,
  *   resource: CrudResourceDefinition,
- *   repository: CrudRepository,
+ *   repository: Repository,
  *   service: Service
  * } & Requires} CrudCustomActionInvocation
  */
@@ -62,8 +71,9 @@
  * schema validated, the action context, the feature's resource, repository
  * and service, and `trx`, the transaction a create, update or delete runs in
  * (null for list and view, and in afterCommit, which runs after the commit).
- * `after` and `afterCommit` also receive the operation's `result`; `execute`
- * receives `standard(nextInput)`, which runs the standard operation.
+ * `after` and `afterCommit` also receive the operation's `result` (the JSON:API
+ * document result; null for delete); `execute` receives `standard(nextInput)`,
+ * which runs the standard operation and returns its result.
  * `Service` and `Repository` are what decorateService and decorateRepository
  * return, when they add methods a hook calls.
  * @template [Service=CrudService]
@@ -76,19 +86,24 @@
  * @property {Repository} repository
  * @property {Service} service
  * @property {import("@jskit-ai/database-runtime/server/types").RuntimeKnexTransaction | null} trx
- * @property {any} [result]
- * @property {(nextInput?: object) => Promise<any>} [standard]
+ * @property {CrudDocumentResult | null} [result]
+ * @property {(nextInput?: object) => Promise<CrudDocumentResult | null>} [standard]
  */
 
 /**
  * One standard operation's hooks: `before`, `execute` and `after` share a
  * mutation's transaction, `execute` replaces the standard operation, and
  * `afterCommit` (mutations only) runs once the transaction has committed.
+ * `execute` returns what `standard()` returns: the operation's JSON:API
+ * document result (null for delete). A create's must be the created record's
+ * document result, since its created and record-changed events read the
+ * record's id from it; a create that returns anything else fails, inside its
+ * transaction.
  * @template [Service=CrudService]
  * @template [Repository=CrudRepository]
  * @typedef {object} CrudLifecycleHooks
  * @property {(hook: CrudLifecycleContext<Service, Repository>) => unknown} [before]
- * @property {(hook: CrudLifecycleContext<Service, Repository>) => unknown} [execute]
+ * @property {(hook: CrudLifecycleContext<Service, Repository>) => Promise<CrudDocumentResult | null> | CrudDocumentResult | null} [execute]
  * @property {(hook: CrudLifecycleContext<Service, Repository>) => unknown} [after]
  * @property {(hook: CrudLifecycleContext<Service, Repository>) => unknown} [afterCommit]
  */

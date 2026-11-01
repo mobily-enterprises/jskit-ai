@@ -357,6 +357,7 @@ Exports
 - `type CrudResourceDefinition`
 - `type CrudRepository`
 - `type CrudService`
+- `type CrudDocumentResult`
 - `type CrudScope`
 - `type CrudResourceApi`
 - `type CrudCustomActionInvocation`
