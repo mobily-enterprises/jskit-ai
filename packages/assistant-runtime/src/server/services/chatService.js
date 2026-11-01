@@ -8,7 +8,7 @@ import { errorMessageFields, exposedAppErrorDetails, errorStatus } from "../supp
 import { requireAssistantSurface } from "../support/assistantSurface.js";
 import { ASSISTANT_STREAM_WRITER_METHODS } from "../support/assistantStreamWriter.js";
 
-const CLOCK_INSTRUCTION = "For current or relative date and time questions, first use any available authoritative workspace clock action; never infer the current date or time from model knowledge.";
+const CLOCK_INSTRUCTION = "For current or relative date and time questions, use the current time in the system's state note, or an available authoritative workspace clock action for another time zone; never infer the current date or time from model knowledge.";
 
 function normalizeConversationId(value) {
   return normalizeRecordId(value, { fallback: null });

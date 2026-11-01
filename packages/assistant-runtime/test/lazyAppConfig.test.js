@@ -311,8 +311,7 @@ test("registerRoutes returns clear AppError payload for pre-stream assistant fai
         },
         body: {
           messageId: "msg_1",
-          input: "hello",
-          history: []
+          input: "hello"
         }
       },
       executeAction: async ({ input }) => {
@@ -333,8 +332,7 @@ test("registerRoutes returns clear AppError payload for pre-stream assistant fai
     targetSurfaceId: "admin",
     workspaceSlug: "dogandgroom",
     messageId: "msg_1",
-    input: "hello",
-    history: []
+    input: "hello"
   });
 
   // Coded conversation failures keep their per-sentence messageCode, like the kernel payload.
@@ -351,7 +349,7 @@ test("registerRoutes returns clear AppError payload for pre-stream assistant fai
     await route.handler({
       raw: { on() {}, off() {} },
       headers: { "x-jskit-surface": "admin" },
-      input: { params: { workspaceSlug: "dogandgroom", surfaceId: "admin" }, body: { messageId: "msg_2", input: "hello", history: [] } },
+      input: { params: { workspaceSlug: "dogandgroom", surfaceId: "admin" }, body: { messageId: "msg_2", input: "hello" } },
       executeAction: async () => { throw failure; }
     }, reply);
     assert.equal(reply.statusCode, status);

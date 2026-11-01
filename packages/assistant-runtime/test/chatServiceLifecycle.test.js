@@ -4,6 +4,7 @@ import test from "node:test";
 import { createChatService } from "../src/server/services/chatService.js";
 import { createAssistantConversationRuntime } from "../src/server/createAssistantRuntime.js";
 import { createMemoryAssistantRows } from "./support/memoryAssistantRows.js";
+import { createScriptedModel } from "./support/scriptedModel.js";
 
 const APP_CONFIG = Object.freeze({
   surfaceDefinitions: {
@@ -73,7 +74,8 @@ async function* completionStream(completion = {}) {
   yield { choices: [{ delta: {}, finish_reason: completion.toolCall ? "tool_calls" : "stop" }] };
 }
 
-function createHarness(completions, { executeToolCall = null, tools: configuredTools = null, attachments, supportsAttachments = true, wrapRuntime = (runtime) => runtime } = {}) {
+function createHarness(completions, { executeToolCall = null, tools: configuredTools = null, attachments, supportsAttachments = true, wrapRuntime = (runtime) => runtime,
+  once } = {}) {
   const pendingCompletions = [...completions];
   const completionRequests = [];
   const transcriptMessages = [];
@@ -102,15 +104,15 @@ function createHarness(completions, { executeToolCall = null, tools: configuredT
           supportsAttachments,
           provider: "test",
           defaultModel: "test-model",
-          async createChatCompletionStream(request) {
+          model: createScriptedModel(body => {
             completionRequests.push({
-              messages: structuredClone(request.messages),
-              tools: structuredClone(request.tools)
+              messages: structuredClone(body.messages),
+              tools: structuredClone(body.tools)
             });
             const completion = pendingCompletions.shift();
             assert.ok(completion, "Expected a queued assistant completion.");
             return completion[Symbol.asyncIterator] ? completion : completionStream(completion);
-          }
+          }, { once })
         };
       }
     },
@@ -212,6 +214,11 @@ function createHarness(completions, { executeToolCall = null, tools: configuredT
   };
 }
 
+function messageText(message) {
+  return typeof message?.content === "string" ? message.content
+    : (message?.content || []).filter(part => part.type === "text").map(part => part.text).join("");
+}
+
 function assistantMessages(events) {
   return events
     .filter((event) => event.method === "sendAssistantMessage" && event.payload.status !== "streaming")
@@ -261,12 +268,12 @@ test("an empty authorized tool set does not advertise discovery or collection ac
   await harness.run("List the available records.");
 
   const request = harness.completionRequests[0];
-  assert.deepEqual(request.tools, []);
+  assert.equal(request.tools, undefined, "The model is offered no tools");
   assert.match(request.messages[0].content, /No tools are currently available for this user\/session/u);
   assert.doesNotMatch(request.messages[0].content, /assistant_action_search|collection action/u);
 });
 
-test("progress-only output is replaced on retry and current-time prompts require a workspace clock", async () => {
+test("a reply that only announces work carries on once, and the state note gives the time without a clock action", async () => {
   const harness = createHarness(
     [
       textCompletion("Let me query the current time."),
@@ -284,13 +291,7 @@ test("progress-only output is replaced on retry and current-time prompts require
         preflight: ["current-time"]
       }],
       executeToolCall() {
-        return {
-          ok: true,
-          result: {
-            localDateTime: "2026-08-25T11:15:00+08:00",
-            timeZone: "Australia/Perth"
-          }
-        };
+        return { ok: true, result: { localDateTime: "2026-08-25T11:15:00+08:00", timeZone: "Australia/Perth" } };
       }
     }
   );
@@ -298,27 +299,16 @@ test("progress-only output is replaced on retry and current-time prompts require
   const result = await harness.run("What day is it today?");
 
   assert.equal(result.status, "completed");
-  assert.deepEqual(harness.executedTools.map((request) => request.toolName), ["workspace_clock"]);
-  assert.equal(
-    harness.completionRequests[0].messages.some((message) => (
-      message.role === "tool" && /Australia\/Perth/u.test(message.content)
-    )),
-    true
-  );
+  assert.deepEqual(harness.executedTools, [], "No clock action runs before the model asks for one");
+  const system = harness.completionRequests[0].messages[0];
+  assert.equal(system.role, "system");
+  assert.match(system.content, /use the current time in the system's state note/u);
+  assert.match(system.content, /\n\nCurrent state, from the system\. It is the truth; earlier messages may be out of date:\n- The time: .+ UTC\./u,
+    "The state note at the end of the system prompt tells the model the current time");
+  assert.match(messageText(harness.completionRequests[1].messages.at(-1)), /^\(Check from the app: your reply ended by saying what you'd do next/u,
+    "The reply that only announced work carries on once with the engine's check");
   assert.deepEqual(assistantMessages(harness.streamEvents), ["It is Tuesday in the workspace timezone."]);
   assert.ok(harness.streamEvents.some((event) => event.method === "sendAssistantDelta"));
-  assert.match(
-    harness.completionRequests[0].messages[0].content,
-    /first use any available authoritative workspace clock action/u
-  );
-  assert.equal(
-    harness.completionRequests[1].messages.some((message) => message.content === "Let me query the current time."),
-    false
-  );
-  assert.equal(
-    harness.completionRequests[1].messages.some((message) => /Either call the required available tool now/u.test(message.content)),
-    true
-  );
   assert.deepEqual(
     harness.transcriptMessages
       .filter((message) => message.kind === "chat")
@@ -327,7 +317,7 @@ test("progress-only output is replaced on retry and current-time prompts require
   );
 });
 
-test("current-time preflight does not run for unrelated prompts", async () => {
+test("a clock action marked for the current time does not run for unrelated prompts", async () => {
   const harness = createHarness(
     [textCompletion("There are three active bookings.")],
     {
@@ -346,7 +336,7 @@ test("current-time preflight does not run for unrelated prompts", async () => {
   assert.deepEqual(assistantMessages(harness.streamEvents), ["There are three active bookings."]);
 });
 
-test("current-time preflight does not invent required tool input", async () => {
+test("a time question never runs a clock action that needs input", async () => {
   const harness = createHarness(
     [textCompletion("Choose a timezone before asking for its local time.")],
     {
@@ -389,88 +379,47 @@ test("native search, contract, and execution workflows stream progress across mo
   );
   assert.deepEqual(assistantMessages(harness.streamEvents), ["The requested operation completed successfully."]);
   assert.ok(harness.streamEvents.some((event) => event.method === "sendAssistantDelta"));
-  const assistantToolMessages = harness.completionRequests
-    .flatMap((request) => request.messages)
-    .filter((message) => Array.isArray(message.tool_calls));
-  assert.ok(assistantToolMessages.length > 0);
-  assert.equal(assistantToolMessages.every((message) => message.content === ""), true);
+  const lastRequest = harness.completionRequests.at(-1).messages;
+  const assistantToolMessages = lastRequest.filter((message) => Array.isArray(message.tool_calls));
+  assert.equal(assistantToolMessages.length, 5);
+  assert.deepEqual(assistantToolMessages.map(message => message.content || ""),
+    ["I'll search first.", "Let me inspect that contract.", "I'll execute it now.", "", ""],
+    "Each step's words stay with its action calls in the model's history");
 });
 
-test("tool-loop exhaustion gives the concise new-conversation instruction", async () => {
-  const mainRounds = Array.from({ length: 16 }, (_, index) =>
-    toolCompletion("action_execute", index + 1)
-  );
+test("at the step limit the model gives its own account of where it got to", async () => {
   const harness = createHarness(
-    [
-      ...mainRounds,
-      textCompletion("Let me prepare the answer."),
-      textCompletion("I'll summarize the result."),
-      textCompletion("Checking the final output.")
-    ],
+    Array.from({ length: 32 }, (_, index) => toolCompletion("action_execute", index + 1)),
+    { once: body => /personal assistant/u.test(JSON.stringify(body.messages)) ? "I ran 32 actions and stopped before the last check." : "" }
+  );
+
+  await harness.run();
+
+  assert.equal(harness.executedTools.length, 32, "The step limit stays within the turn's 32 application action calls");
+  assert.equal(harness.completionRequests.length, 32);
+  assert.deepEqual(assistantMessages(harness.streamEvents), ["I ran 32 actions and stopped before the last check."]);
+  assert.doesNotMatch(JSON.stringify(harness.streamEvents), /Limit reached/u);
+});
+
+test("a failed action's error goes back to the model, and the action stays available", async () => {
+  const harness = createHarness(
+    [toolCompletion("action_search", 1), toolCompletion("action_search", 2), textCompletion("The second search found it.")],
     {
       executeToolCall(_request, sequence) {
-        return {
-          ok: true,
-          result: {
-            sequence,
-            payload: sequence === 16 ? "x".repeat(10_000) : "ok"
-          }
-        };
+        return sequence === 1
+          ? { ok: false, error: { code: "assistant_tool_failed", message: "Tool call failed." } }
+          : { ok: true, result: { found: 1 } };
       }
     }
   );
 
   await harness.run();
 
-  const finalMessages = assistantMessages(harness.streamEvents);
-  assert.equal(harness.executedTools.length, 16);
-  assert.equal(harness.completionRequests.length, 19);
-  assert.deepEqual(finalMessages, ["Limit reached. Start a new conversation."]);
-  assert.ok(harness.streamEvents.some((event) => event.method === "sendAssistantDelta"));
-});
-
-test("tool-failure recovery retains the bounded latest successful result", async () => {
-  const mainRounds = Array.from({ length: 16 }, (_, index) =>
-    toolCompletion(index === 1 ? "action_search" : "action_execute", index + 1)
-  );
-  const harness = createHarness(
-    [
-      ...mainRounds,
-      textCompletion("Let me prepare the answer."),
-      textCompletion("I'll summarize the result."),
-      textCompletion("Checking the final output.")
-    ],
-    {
-      executeToolCall(request, sequence) {
-        if (request.toolName === "action_search") {
-          return {
-            ok: false,
-            error: {
-              code: "assistant_tool_failed",
-              message: "Tool call failed."
-            }
-          };
-        }
-        return {
-          ok: true,
-          result: {
-            sequence,
-            payload: sequence === 16 ? "x".repeat(10_000) : "ok"
-          }
-        };
-      }
-    }
-  );
-
-  await harness.run();
-
-  const [fallback] = assistantMessages(harness.streamEvents);
-  assert.equal(harness.executedTools.length, 16);
-  assert.ok(fallback.length <= 4000);
-  assert.match(fallback, /Latest successful result from action_execute/u);
-  assert.match(fallback, /"sequence": 16/u);
-  assert.match(fallback, /…\[truncated\]$/u);
-  assert.doesNotMatch(fallback, /Limit reached/u);
+  assert.deepEqual(harness.executedTools.map(request => request.toolName), ["action_search", "action_search"]);
+  assert.deepEqual(JSON.parse(harness.completionRequests[1].messages.at(-1).content),
+    { error: { code: "assistant_tool_failed", message: "Tool call failed." } });
+  assert.ok(harness.completionRequests[1].tools.some(tool => tool.function.name === "action_search"), "The failed action is not hidden");
+  assert.deepEqual(assistantMessages(harness.streamEvents), ["The second search found it."]);
 });
 
 
@@ -487,6 +436,8 @@ test("answer text reaches the client before the provider finishes, then persists
   const harness = createHarness([response()]);
   const running = harness.run();
   await firstChunk.promise;
+  const deltas = () => harness.streamEvents.filter(event => event.method === "sendAssistantDelta");
+  for (let tries = 0; tries < 200 && !deltas().length; tries += 1) await new Promise(resolve => setTimeout(resolve, 5));
   try {
     assert.deepEqual(harness.streamEvents.filter(event => event.method === "sendAssistantDelta").map(event => event.payload.delta), ["The first sentence."]);
     assert.deepEqual(harness.completedConversations, []);
@@ -500,7 +451,7 @@ test("answer text reaches the client before the provider finishes, then persists
   assert.deepEqual(harness.transcriptMessages.filter(message => message.role === "assistant").map(message => message.contentText), ["The first sentence. The second sentence."]);
 });
 
-test("split internal tags and tool arguments never become answer deltas", async () => {
+test("tool calls written as text never run, never become answer deltas, and the model carries on once", async () => {
   async function* response() {
     for (const content of ["<th", "ink>private reasoning", "</thi", "nk>", "<｜DSML｜function_", "calls><｜DSML｜invoke name=\"action_search\">", '{"secret":"private arguments"}', "</｜DSML｜invoke></｜DSML｜function_calls>"]) {
       yield { choices: [{ delta: { content } }] };
@@ -509,11 +460,11 @@ test("split internal tags and tool arguments never become answer deltas", async 
   }
   const harness = createHarness([response(), textCompletion("The search is complete.")]);
   await harness.run();
-  assert.deepEqual(harness.executedTools.map(request => request.toolName), ["action_search"]);
-  assert.deepEqual(harness.streamEvents.filter(event => event.method === "sendAssistantDelta").map(event => event.payload.delta), ["The search is complete."]);
+  assert.deepEqual(harness.executedTools, [], "A tool call written as text is not run");
+  assert.match(messageText(harness.completionRequests[1].messages.at(-1)), /^\(Check from the app: your last message contained raw markup/u);
+  assert.doesNotMatch(JSON.stringify(harness.streamEvents), /DSML|private reasoning|private arguments/u);
   assert.deepEqual(assistantMessages(harness.streamEvents), ["The search is complete."]);
 });
-
 
 test("application-authorized attachments reach the model and are authorized again from saved history", async () => {
   const calls = [];

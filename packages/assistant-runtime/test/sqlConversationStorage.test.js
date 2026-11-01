@@ -17,6 +17,7 @@ import { createSqlConversationStorage } from "../src/server/sqlConversationStora
 import { createAssistantConversationRuntime } from "../src/server/createAssistantRuntime.js";
 import { createTranscriptService } from "../src/server/services/transcriptService.js";
 import { createChatService } from "../src/server/services/chatService.js";
+import { createScriptedModel } from "./support/scriptedModel.js";
 
 async function fixture(t) {
   const directory = await mkdtemp(path.join(tmpdir(), "assistant-sql-runtime-"));
@@ -151,14 +152,14 @@ test("the SQL facade uses common inference and durable tool rows, and the model'
   let executions = 0;
   const aiClientFactory = { resolveClient(surface, input) {
     resolved.push({ surface, integrationId: input.integrationId, actor: input.context.actor.id });
-    return { enabled: true, provider: "test", defaultModel: "fixture-model", async createChatCompletionStream(request) {
+    return { enabled: true, provider: "test", defaultModel: "fixture-model", model: createScriptedModel(request => {
       requests.push(structuredClone(request.messages));
       const tool = requests.length === 1;
       return (async function* () {
         yield { choices: [{ delta: tool ? { tool_calls: [{ index: 0, id: "lookup", function: { name: "inventory_lookup", arguments: "{}" } }] }
           : { content: "Stored once." }, finish_reason: tool ? "tool_calls" : "stop" }] };
       })();
-    } };
+    }, { model: "fixture-model" }) };
   } };
   const catalog = { limits: { maxToolArgumentBytes: 4096 },
     resolveToolSet: () => ({ tools: [{ name: "inventory_lookup", parameters: { type: "object" } }] }),
@@ -223,7 +224,8 @@ test("the SQL facade replays historical inspection failures with their exact pub
   let inference = 0;
   let effects = 0;
   const aiClientFactory = { resolveClient: () => ({ enabled: true, provider: "test", defaultModel: "test",
-    createChatCompletionStream() { inference++; assert.fail("Historical inspection cannot invoke inference"); } }) };
+    model: createScriptedModel(() => { inference++; assert.fail("Historical inspection cannot invoke inference"); },
+      { once: () => { inference++; assert.fail("Historical inspection cannot invoke inference"); }, model: "test" }) }) };
   const catalog = { resolveToolSet: () => ({ tools: [] }),
     executeToolCall() { effects++; assert.fail("Historical inspection cannot invoke application effects"); } };
   const runtime = createAssistantConversationRuntime({ ...f, aiClientFactory, toolCatalog: catalog });
@@ -326,13 +328,13 @@ for (const shape of ["orphan-output", "orphan-tool-result", "unconfirmed-tool"])
     const requests = [];
     let effects = 0;
     const aiClientFactory = { resolveClient: () => ({ enabled: true, provider: "test", defaultModel: "fixture-model",
-      async createChatCompletionStream(request) {
+      model: createScriptedModel(request => {
         assert.equal(allowFreshInference, true, "Historical refusal and foreign admission must not start inference");
         requests.push(structuredClone(request.messages));
         return (async function* () {
           yield { choices: [{ delta: { content: "Fresh answer." }, finish_reason: "stop" }] };
         })();
-      } }) };
+      }, { model: "fixture-model" }) }) };
     const catalog = { limits: { maxToolArgumentBytes: 4096 }, resolveToolSet: () => ({ tools: [] }),
       toOpenAiToolSchema: tool => ({ type: "function", function: tool }),
       executeToolCall() { effects++; assert.fail("Retained history cannot repeat an application effect"); } };

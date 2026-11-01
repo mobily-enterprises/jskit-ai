@@ -9,6 +9,7 @@ import { createRepository } from "../src/server/repositories/turnRequestsReposit
 import { createChatService } from "../src/server/services/chatService.js";
 import { createAssistantConversationRuntime } from "../src/server/createAssistantRuntime.js";
 import { createMemoryAssistantRows } from "./support/memoryAssistantRows.js";
+import { createScriptedModel } from "./support/scriptedModel.js";
 
 async function database(t) {
   const dir = await mkdtemp(path.join(tmpdir(), "assistant-requests-"));
@@ -49,7 +50,8 @@ test("migration preserves existing claims and database uniqueness arbitrates ind
 function service(repository, { provider, transcript = [] } = {}) {
   const dependencies = {
     turnRequests: repository,
-    aiClientFactory: { resolveClient: () => ({ enabled: true, provider: "test", defaultModel: "test", createChatCompletionStream: provider }) },
+    aiClientFactory: { resolveClient: () => ({ enabled: true, provider: "test", defaultModel: "test",
+      model: provider && createScriptedModel(body => provider({ messages: body.messages }), { model: "test" }) }) },
     transcriptService: {
       async createConversationForTurn() { return { conversation: { id: "100" } }; },
       async completeConversation() {}
