@@ -9,6 +9,7 @@ import {
   createJsonRestContext,
   extractJsonRestCollectionRows
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
+import { resolveTransaction } from "@jskit-ai/database-runtime/shared";
 
 function normalizeWorkspaceRecord(payload = null) {
   if (!payload || typeof payload !== "object") {
@@ -39,7 +40,7 @@ function createRepository({ api }) {
           queryParams: {
             filters
           },
-          transaction: options.trx || null,
+          transaction: resolveTransaction(options),
           format: "plain"
         },
         createJsonRestContext(options.context || null)
@@ -82,7 +83,7 @@ function createRepository({ api }) {
               isPersonal: true
             }
           },
-          transaction: options.trx || null,
+          transaction: resolveTransaction(options),
           format: "plain"
         },
         createJsonRestContext(options.context || null)
@@ -127,7 +128,7 @@ function createRepository({ api }) {
           },
           format: "plain",
           returning: "full",
-          transaction: options.trx || null
+          transaction: resolveTransaction(options)
         },
         createJsonRestContext(options.context || null)
       );
@@ -171,7 +172,7 @@ function createRepository({ api }) {
         data: workspacePatch,
         format: "plain",
         returning: "full",
-        transaction: options.trx || null
+        transaction: resolveTransaction(options)
       },
       createJsonRestContext(options.context || null)
     );
@@ -195,7 +196,7 @@ function createRepository({ api }) {
             },
             include: ["workspace"]
           },
-          transaction: options.trx || null,
+          transaction: resolveTransaction(options),
           format: "plain"
         },
         createJsonRestContext(options.context || null)

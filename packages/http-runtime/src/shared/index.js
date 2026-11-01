@@ -36,6 +36,8 @@ export {
   isJsonApiDataResult,
   isJsonApiDocumentResult,
   isJsonApiMetaResult,
+  jsonApiResultValue,
+  simplifyJsonApiResult,
   unwrapJsonApiResult
 } from "./validators/jsonApiResult.js";
 export {

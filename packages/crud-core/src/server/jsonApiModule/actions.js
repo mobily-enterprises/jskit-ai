@@ -12,6 +12,7 @@ import {
   createStandardCrudListQueryValidators,
   createStandardCrudViewQueryValidators
 } from "../listQueryValidators.js";
+import { resolveCrudJsonApiEntityIdFromResult } from "../serviceEvents.js";
 import { createCrudAssistantExtension } from "./assistantExtension.js";
 
 const CRUD_OPERATION_NAMES = Object.freeze(["list", "view", "create", "update", "delete"]);
@@ -280,7 +281,7 @@ function createCrudJsonApiActions({
       operation: "create",
       kind: "command",
       idempotency: "optional",
-      events: [mutationEvent("created", ({ result }) => result?.data?.id ?? result?.value?.data?.id)],
+      events: [mutationEvent("created", resolveCrudJsonApiEntityIdFromResult)],
       execute: (input, context) => executeOperation("create", input, context, createDocument)
     },
     {

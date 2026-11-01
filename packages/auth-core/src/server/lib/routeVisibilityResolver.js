@@ -1,4 +1,4 @@
-import { normalizeOpaqueId } from "@jskit-ai/kernel/shared/support/normalize";
+import { resolveActorId } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 
 function createAuthRouteVisibilityResolver() {
   function resolve({ visibility, context, request } = {}) {
@@ -6,8 +6,7 @@ function createAuthRouteVisibilityResolver() {
       return {};
     }
 
-    const actor = context?.actor || request?.user || null;
-    const userId = normalizeOpaqueId(actor?.id);
+    const userId = resolveActorId(context, request);
     if (userId == null) {
       return {};
     }

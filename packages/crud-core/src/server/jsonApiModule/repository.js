@@ -4,7 +4,7 @@ import {
   returnBadRequestWhenJsonRestFieldsetInvalid,
   returnNullWhenJsonRestResourceMissing
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
-import { retryDeadlocks } from "@jskit-ai/database-runtime/shared";
+import { resolveTransaction, retryDeadlocks } from "@jskit-ai/database-runtime/shared";
 
 /**
  * @param {object} dependencies
@@ -27,7 +27,7 @@ function createCrudJsonApiRepository({ api, resource, resourceScopeName }) {
 
   // A write given no transaction owns one, so it is outermost and may re-run.
   function write(options, run) {
-    return options.trx ? run() : retryDeadlocks(run);
+    return resolveTransaction(options) ? run() : retryDeadlocks(run);
   }
 
   function inputData(payload) {
@@ -64,7 +64,7 @@ function createCrudJsonApiRepository({ api, resource, resourceScopeName }) {
       requireApiResource().query(
         {
           queryParams: buildJsonRestQueryParams(scopeName, query),
-          transaction: options.trx || null,
+          transaction: resolveTransaction(options),
           format: "jsonapi"
         },
         createJsonRestContext(options.context || null)
@@ -79,7 +79,7 @@ function createCrudJsonApiRepository({ api, resource, resourceScopeName }) {
           {
             id: recordId,
             queryParams: buildJsonRestQueryParams(scopeName, query),
-            transaction: options.trx || null,
+            transaction: resolveTransaction(options),
             format: "jsonapi"
           },
           createJsonRestContext(options.context || null)
@@ -93,7 +93,7 @@ function createCrudJsonApiRepository({ api, resource, resourceScopeName }) {
       {
         data: inputData(payload),
         returning: "full",
-        transaction: options.trx || null,
+        transaction: resolveTransaction(options),
         format: "jsonapi"
       },
       createJsonRestContext(options.context || null)
@@ -112,7 +112,7 @@ function createCrudJsonApiRepository({ api, resource, resourceScopeName }) {
           id: recordId,
           data: inputData(sourcePatch),
           returning: "full",
-          transaction: options.trx || null,
+          transaction: resolveTransaction(options),
           format: "jsonapi"
         },
         createJsonRestContext(options.context || null)
@@ -126,7 +126,7 @@ function createCrudJsonApiRepository({ api, resource, resourceScopeName }) {
         {
           id: recordId,
           returning: "none",
-          transaction: options.trx || null,
+          transaction: resolveTransaction(options),
           format: "jsonapi"
         },
         createJsonRestContext(options.context || null)

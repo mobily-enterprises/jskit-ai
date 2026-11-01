@@ -1,7 +1,8 @@
 import {
+  createWithTransaction,
   normalizeDbRecordId,
-  toIsoString,
-  createWithTransaction
+  resolveRepoClient,
+  toIsoString
 } from "@jskit-ai/database-runtime/shared";
 import { toInsertDateTime } from "@jskit-ai/database-runtime/shared";
 import { normalizeRecordId as normalizeKernelRecordId } from "@jskit-ai/kernel/shared/support/normalize";
@@ -34,12 +35,12 @@ function createRepository({ knex }) {
   }
 
   async function getSingleton(options = {}) {
-    const client = options.trx || knex;
+    const client = resolveRepoClient(knex, options);
     return mapSingletonRow(await readSingleton(client));
   }
 
   async function ensureOwnerUserId(userId, options = {}) {
-    const client = options.trx || knex;
+    const client = resolveRepoClient(knex, options);
     const candidateOwnerUserId = normalizeKernelRecordId(userId, { fallback: null });
     if (!candidateOwnerUserId) {
       throw new TypeError("consoleSettingsRepository.ensureOwnerUserId requires a positive user id.");
@@ -67,7 +68,7 @@ function createRepository({ knex }) {
   }
 
   async function updateSingleton(patch, options = {}) {
-    const client = options.trx || knex;
+    const client = resolveRepoClient(knex, options);
     const dbPatch = {
       updated_at: nowDb()
     };

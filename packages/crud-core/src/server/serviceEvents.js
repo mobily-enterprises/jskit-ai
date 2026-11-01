@@ -11,8 +11,15 @@ function resolveCrudEntityIdFromResult({ result } = {}) {
   return normalizeCrudEventEntityId(result?.id);
 }
 
+/**
+ * The created record's id, for a create event: the id in the JSON:API document
+ * result the action or service returned (returnJsonApiDocument, which a CRUD
+ * service's createDocument and a CRUD feature's create action return).
+ * @param {{ result?: { value?: { data?: { id?: unknown } | null } } | null }} [execution]
+ */
 function resolveCrudJsonApiEntityIdFromResult({ result } = {}) {
-  return normalizeCrudEventEntityId(result?.data?.id ?? result?.value?.data?.id);
+  // data: a document result's data may be null
+  return normalizeCrudEventEntityId(result?.value?.data?.id);
 }
 
 function resolveCrudEntityIdFromArgs({ args = [] } = {}) {

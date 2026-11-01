@@ -8,6 +8,7 @@ import {
   extractJsonRestCollectionRows
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { DEFAULT_USER_SETTINGS, normalizeLocaleCode } from "../../../shared/settings.js";
+import { resolveTransaction } from "@jskit-ai/database-runtime/shared";
 
 const USER_SETTINGS_PATCH_FIELDS = Object.freeze([
   "theme",
@@ -65,7 +66,7 @@ function createRepository({ api }) {
           queryParams: {
             filters
           },
-          transaction: options.trx || null,
+          transaction: resolveTransaction(options),
           format: "plain"
         },
         createJsonRestContext(options.context || null)
@@ -103,7 +104,7 @@ function createRepository({ api }) {
           data: createDefaultUserSettingsCreatePayload(normalizedUserId),
           format: "plain",
           returning: "full",
-          transaction: options.trx || null
+          transaction: resolveTransaction(options)
         },
         createJsonRestContext(options.context || null)
       );
@@ -139,7 +140,7 @@ function createRepository({ api }) {
         },
         format: "plain",
         returning: "full",
-        transaction: options.trx || null
+        transaction: resolveTransaction(options)
       },
       createJsonRestContext(options.context || null)
     );

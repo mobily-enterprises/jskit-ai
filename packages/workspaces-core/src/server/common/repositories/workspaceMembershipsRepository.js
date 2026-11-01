@@ -12,6 +12,7 @@ import {
   extractJsonRestCollectionRows
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { OWNER_ROLE_ID } from "../../../shared/roles.js";
+import { resolveTransaction } from "@jskit-ai/database-runtime/shared";
 
 function normalizeMembershipRecord(payload) {
   if (!payload) {
@@ -76,7 +77,7 @@ function createRepository({ api }) {
             filters,
             ...(normalizedInclude.length > 0 ? { include: normalizedInclude } : {})
           },
-          transaction: options.trx || null,
+          transaction: resolveTransaction(options),
           format: "plain"
         },
         createJsonRestContext(options.context || null)
@@ -124,7 +125,7 @@ function createRepository({ api }) {
             },
             format: "plain",
             returning: "full",
-            transaction: options.trx || null
+            transaction: resolveTransaction(options)
           },
           createJsonRestContext(options.context || null)
         );
@@ -146,7 +147,7 @@ function createRepository({ api }) {
           },
           format: "plain",
           returning: "full",
-          transaction: options.trx || null
+          transaction: resolveTransaction(options)
         },
         createJsonRestContext(options.context || null)
       );
@@ -189,7 +190,7 @@ function createRepository({ api }) {
             },
             format: "plain",
             returning: "full",
-            transaction: options.trx || null
+            transaction: resolveTransaction(options)
           },
           createJsonRestContext(options.context || null)
         );
@@ -212,7 +213,7 @@ function createRepository({ api }) {
         },
         format: "plain",
         returning: "full",
-        transaction: options.trx || null
+        transaction: resolveTransaction(options)
       },
       createJsonRestContext(options.context || null)
     );

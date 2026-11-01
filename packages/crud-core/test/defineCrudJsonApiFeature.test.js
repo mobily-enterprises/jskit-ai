@@ -155,7 +155,7 @@ test("defineCrudJsonApiFeature composes one resource without ceremonial token la
 });
 
 test("defineCrudJsonApiFeature sends record.changed to its realtime audience", async () => {
-  const execution = { input: { recordId: "5" }, result: { data: { id: "5" } }, context: {} };
+  const execution = { input: { recordId: "5" }, result: returnJsonApiDocument({ data: { id: "5" } }), context: {} };
   for (const [options, audience] of [[{}, "event_scope"], [{ realtimeAudience: "all_users" }, "all_users"]]) {
     let actions;
     const observer = defineProvider({

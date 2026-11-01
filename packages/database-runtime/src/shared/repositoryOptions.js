@@ -1,5 +1,19 @@
 import { normalizeCanonicalRecordIdText } from "@jskit-ai/kernel/shared/support/normalize";
 
+/**
+ * The transaction a repository or service call runs in: its options' `trx`,
+ * or null for a call outside one.
+ * @param {{ trx?: import("../server/types.js").RuntimeKnexTransaction | null } | null} [options]
+ * @returns {import("../server/types.js").RuntimeKnexTransaction | null}
+ */
+function resolveTransaction(options) {
+  // data: a call may pass no options
+  if (!options || typeof options !== "object") {
+    return null;
+  }
+  return options.trx || null;
+}
+
 function resolveQueryOptions(options = {}) {
   if (!options || typeof options !== "object") {
     return {
@@ -9,7 +23,7 @@ function resolveQueryOptions(options = {}) {
   }
 
   return {
-    trx: options.trx || null,
+    trx: resolveTransaction(options),
     forUpdate: options.forUpdate === true
   };
 }
@@ -249,6 +263,7 @@ async function lockScopedRecordId({
 }
 
 export {
+  resolveTransaction,
   resolveQueryOptions,
   resolveRepoClient,
   applyForUpdate,

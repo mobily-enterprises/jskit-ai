@@ -10,6 +10,7 @@ import {
 import { pickOwnProperties } from "@jskit-ai/kernel/shared/support";
 import { WORKSPACE_SETTINGS_FIELD_KEYS } from "../../shared/resources/workspaceSettingsResource.js";
 import { resolveWorkspaceThemePalettes } from "../../shared/settings.js";
+import { resolveTransaction } from "@jskit-ai/database-runtime/shared";
 
 function createDefaultWorkspaceSettingsCreatePayload(workspaceId, defaultInvitesEnabled, defaultColorSettings = {}) {
   const palettes = resolveWorkspaceThemePalettes(defaultColorSettings);
@@ -44,7 +45,7 @@ function createRepository({ api, defaultInvitesEnabled, defaultColorSettings }) 
           queryParams: {
             filters
           },
-          transaction: options.trx || null,
+          transaction: resolveTransaction(options),
           format: "plain"
         },
         createJsonRestContext(options.context || null)
@@ -84,7 +85,7 @@ function createRepository({ api, defaultInvitesEnabled, defaultColorSettings }) 
           ),
           format: "plain",
           returning: "full",
-          transaction: options.trx || null
+          transaction: resolveTransaction(options)
         },
         createJsonRestContext(options.context || null)
       );
@@ -120,7 +121,7 @@ function createRepository({ api, defaultInvitesEnabled, defaultColorSettings }) 
         },
         format: "plain",
         returning: "full",
-        transaction: options.trx || null
+        transaction: resolveTransaction(options)
       },
       createJsonRestContext(options.context || null)
     );

@@ -3,8 +3,8 @@ import { normalizeJsonApiFieldsets } from "@jskit-ai/kernel/shared/support/jsonA
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   decodeJsonApiResourceResponse,
-  normalizeJsonApiDocument,
-  unwrapJsonApiResult
+  jsonApiResultValue,
+  normalizeJsonApiDocument
 } from "@jskit-ai/http-runtime/shared";
 import {
   resolveJsonApiFieldsetContract,
@@ -22,8 +22,7 @@ const CRUD_ASSISTANT_RESOURCE_OPERATION = Object.freeze({
 });
 
 function resolveAssistantResultValue(result) {
-  const taggedResult = unwrapJsonApiResult(result);
-  const value = taggedResult ? taggedResult.value : result;
+  const value = jsonApiResultValue(result);
   const document = normalizeJsonApiDocument(value);
   return {
     value,

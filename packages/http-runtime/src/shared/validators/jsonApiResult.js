@@ -1,3 +1,5 @@
+import { simplifyJsonApiDocument } from "./jsonApiTransport.js";
+
 const JSON_API_RESULT_MARKER = "__jskitJsonApiResult";
 const JSON_API_RESULT_KINDS = Object.freeze([
   "data",
@@ -70,6 +72,27 @@ function unwrapJsonApiResult(value) {
   return value;
 }
 
+/**
+ * What a service or action result carries: a JSON:API result's value (the
+ * document, data or meta a service returned with returnJsonApiDocument and
+ * the like), or the value itself when it is not one, as a repository's bare
+ * document is not.
+ * @param {unknown} value
+ */
+function jsonApiResultValue(value) {
+  return isJsonApiResult(value) ? value.value : value;
+}
+
+/**
+ * A service or action result as the plain records it carries: its document
+ * (see jsonApiResultValue) simplified to a record, a list of records or the
+ * meta object.
+ * @param {unknown} result
+ */
+function simplifyJsonApiResult(result) {
+  return simplifyJsonApiDocument(jsonApiResultValue(result));
+}
+
 export {
   JSON_API_RESULT_MARKER,
   returnJsonApiData,
@@ -79,5 +102,7 @@ export {
   isJsonApiDataResult,
   isJsonApiDocumentResult,
   isJsonApiMetaResult,
+  jsonApiResultValue,
+  simplifyJsonApiResult,
   unwrapJsonApiResult
 };

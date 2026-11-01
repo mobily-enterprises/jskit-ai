@@ -12,6 +12,7 @@ export { normalizeDatabaseClient, toKnexClientId } from "./databaseClient.js";
 export { findDuplicateEntryError, isDuplicateEntryError } from "./duplicateEntry.js";
 export { DEFAULT_VISIBILITY_COLUMNS, applyVisibility, applyVisibilityOwners } from "./visibility.js";
 export {
+  resolveTransaction,
   resolveQueryOptions,
   resolveRepoClient,
   applyForUpdate,

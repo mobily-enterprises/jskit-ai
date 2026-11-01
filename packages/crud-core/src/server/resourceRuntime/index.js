@@ -1,6 +1,7 @@
 import {
   createWithTransaction,
   resolveInsertedRecordId,
+  resolveRepoClient,
   toInsertDateTime
 } from "@jskit-ai/database-runtime/shared";
 import { applyVisibility, applyVisibilityOwners } from "@jskit-ai/database-runtime/shared/visibility";
@@ -42,7 +43,7 @@ function requireCrudRecordId(value, { context = "crudRepository" } = {}) {
 }
 
 function resolveCrudRepositoryCall(runtime, knex, callOptions = {}) {
-  const client = callOptions.trx || knex;
+  const client = resolveRepoClient(knex, callOptions);
   const tableName = requireCrudTableName(runtime.repositoryOptions?.tableName ?? runtime.defaults?.tableName, {
     context: runtime.context || "crudRepository"
   });

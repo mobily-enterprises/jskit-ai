@@ -14,6 +14,7 @@ import {
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { normalizeIdentity } from "../support/identity.js";
 import { USERNAME_MAX_LENGTH, normalizeNullableString, normalizeNullableVersion, normalizeUsername } from "../../../shared/resources/userProfileValues.js";
+import { resolveTransaction } from "@jskit-ai/database-runtime/shared";
 
 function normalizeProfileRecord(payload = null) {
   if (!payload || typeof payload !== "object") {
@@ -155,7 +156,7 @@ function createRepository({ api }) {
           queryParams: {
             filters
           },
-          transaction: options.trx || null,
+          transaction: resolveTransaction(options),
           format: "plain"
         },
         createJsonRestContext(options.context || null)
@@ -215,7 +216,7 @@ function createRepository({ api }) {
         },
         format: "plain",
         returning: "full",
-        transaction: options.trx || null
+        transaction: resolveTransaction(options)
       },
       createJsonRestContext(options.context || null)
     );
@@ -240,7 +241,7 @@ function createRepository({ api }) {
         },
         format: "plain",
         returning: "full",
-        transaction: options.trx || null
+        transaction: resolveTransaction(options)
       },
       createJsonRestContext(options.context || null)
     );
@@ -265,7 +266,7 @@ function createRepository({ api }) {
         },
         format: "plain",
         returning: "full",
-        transaction: options.trx || null
+        transaction: resolveTransaction(options)
       },
       createJsonRestContext(options.context || null)
     );

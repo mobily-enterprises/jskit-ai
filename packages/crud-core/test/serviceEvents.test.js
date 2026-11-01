@@ -41,13 +41,6 @@ test("createCrudJsonApiServiceEvents builds JSON:API-aware create/update/delete 
   assert.equal(events.deleteDocumentById[0].realtime.event, "contacts.record.changed");
   assert.equal(events.createDocument[0].entityId({
     result: {
-      data: {
-        id: "21"
-      }
-    }
-  }), "21");
-  assert.equal(events.createDocument[0].entityId({
-    result: {
       kind: "document",
       value: {
         data: {
@@ -64,16 +57,9 @@ test("createCrudJsonApiServiceEvents builds JSON:API-aware create/update/delete 
   }), "23");
 });
 
-test("service event entity-id helpers normalize ids from args, plain results, and JSON:API results", () => {
+test("service event entity-id helpers normalize ids from args, plain results, and JSON:API document results", () => {
   assert.equal(resolveCrudEntityIdFromArgs({ args: [12] }), "12");
   assert.equal(resolveCrudEntityIdFromResult({ result: { id: 13 } }), "13");
-  assert.equal(resolveCrudJsonApiEntityIdFromResult({
-    result: {
-      data: {
-        id: 14
-      }
-    }
-  }), "14");
   assert.equal(resolveCrudJsonApiEntityIdFromResult({
     result: {
       kind: "document",
@@ -84,5 +70,8 @@ test("service event entity-id helpers normalize ids from args, plain results, an
       }
     }
   }), "15");
+  assert.equal(resolveCrudJsonApiEntityIdFromResult({ result: { data: { id: 16 } } }), "",
+    "a bare document is not a create result: the action or service returns a JSON:API document result");
+  assert.equal(resolveCrudJsonApiEntityIdFromResult({ result: { kind: "document", value: { data: null } } }), "");
   assert.equal(resolveCrudEntityIdFromArgs({ args: ["   "] }), "");
 });

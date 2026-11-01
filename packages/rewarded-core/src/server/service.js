@@ -1,13 +1,14 @@
+import { resolveActor } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { simplifyJsonApiDocument } from "@jskit-ai/http-runtime/shared";
 
 const REWARDED_SURFACE = "app";
 
+// The user a gate action runs for: the input's user, when an internal caller names one, else the signed-in user.
 function resolveActionUser(context, input) {
   const payload = normalizeObject(input);
-  const request = context?.requestMeta?.request || null;
-  return payload.user || request?.user || context?.actor || null;
+  return payload.user || resolveActor(context);
 }
 
 function normalizeRecordList(document = null) {
