@@ -166,10 +166,75 @@ test("the JSKIT skill points at the bundled typed-features guide and heuristic",
   const guide = await readFile(path.join(packageRoot, "skills/jskit/references/typed-features.md"), "utf8");
   assert.ok(skill.includes("(references/typed-features.md)"), "SKILL.md does not link references/typed-features.md.");
   assert.match(skill, /\(references\/typed-features\.md\) and its heuristic/u, "SKILL.md does not point at the heuristic.");
+  assert.match(skill, /Before writing server code, read \[typed features\]/u, "SKILL.md does not send server work to typed features first.");
+  const guideIndex = await readFile(path.join(packageRoot, "site/guide/index.md"), "utf8");
+  assert.match(guideIndex, /\[Typed features\]\(\/guide\/framework\/typed-features\): read before writing any\s+server/u);
   assert.ok(guide.includes("](heuristics/typed-features.md)"), "The bundled guide does not link its heuristic.");
   await access(path.join(packageRoot, "skills/jskit/references/heuristics/typed-features.md"));
   const heuristicsIndex = await readFile(path.join(packageRoot, "heuristics/INDEX.md"), "utf8");
   assert.match(heuristicsIndex, /\(\.\/typed-features\.md\)/u);
+});
+
+test("the typed-features guide states its rules and common mistakes as headings", async () => {
+  const guide = await readFile(path.join(packageRoot, "site/guide/framework/typed-features.md"), "utf8");
+  const headings = (level) => [...guide.matchAll(new RegExp(`^${"#".repeat(level)} (.+)$`, "gmu"))].map((match) => match[1]);
+  const section = (title) => guide.slice(guide.indexOf(`## ${title}\n`), guide.indexOf("\n## ", guide.indexOf(`## ${title}\n`) + 1));
+
+  assert.deepEqual(headings(2), ["The rule", "Rules", "Common mistakes", "One feature end to end", "Checks"]);
+  assert.deepEqual([...section("Rules").matchAll(/^### (.+)$/gmu)].map((match) => match[1]), [
+    "1. A provided capability exports its type",
+    "2. A received collaborator is typed where it is received",
+    "3. Collaborators are required",
+    "4. Extension slots are optional capabilities",
+    "5. Actions are one line",
+    "6. Methods take the validated input as it is",
+    "7. One request-context form per package",
+    "8. Factory results are frozen, with named members",
+    "9. One copy of each helper, concern-sized files",
+    "10. Names and comments"
+  ]);
+  const mistakes = [...section("Common mistakes").matchAll(/^### (.+)$/gmu)].map((match) => match[1]);
+  for (const mistake of [
+    "A collaborator accepted in two shapes \"for tests\"",
+    "A probe on a collaborator that is always present",
+    "An action built by a helper, given a body, or stripped by a helper",
+    "A hand-written `(...args: any[]) => Promise<any>` interface",
+    "Spreading an in-package factory into a token value",
+    "`= {}` on contract operations",
+    "Input re-parsed after the schema validated it",
+    "Several request-context forms in one package",
+    "Unfrozen results",
+    "The same indexed type spelled out at every use",
+    "A guard or comment that cites tests"
+  ]) {
+    assert.ok(mistakes.includes(mistake), `Common mistakes lacks "${mistake}".`);
+  }
+  for (const rule of section("Rules").split(/^### /mu).slice(1)) {
+    assert.match(rule, /\/\/ before[^\n]*\n[\s\S]+\/\/ after/u, `Rule "${rule.split("\n")[0]}" has no before and after.`);
+  }
+  for (const prefix of ["input validation:", "data:", "platform object:", "optional operation:", "test asserts error:", "not a slot:", "deferred until boot: <reason>", "cycle: <supplier> requires <owner>"]) {
+    assert.ok(section("Checks").includes(`| \`${prefix}\``), `Checks lacks the ${prefix} prefix.`);
+  }
+  assert.match(section("Checks"), /platform object: a Knex transaction/u);
+});
+
+test("the typed-features heuristic maps the common mistakes to their fixes", async () => {
+  const heuristic = await readFile(path.join(packageRoot, "heuristics/typed-features.md"), "utf8");
+  for (const keyword of [
+    "`capability.service || capability`",
+    "`async execute`",
+    "`(...args: any[]) => Promise<any>`",
+    "`...factory(…)`",
+    "`payload = {}`",
+    "`logger = null`",
+    "`context?.actor`",
+    "`X | null`",
+    "`deferred until boot: <reason>`",
+    "`optional operation:` on a method every implementer has",
+    "(../site/guide/framework/typed-features.md#common-mistakes)"
+  ]) {
+    assert.ok(heuristic.includes(keyword), `The heuristic lacks ${keyword}.`);
+  }
 });
 
 test("JSKIT guidance does not assume a Genesis blueprint", async () => {

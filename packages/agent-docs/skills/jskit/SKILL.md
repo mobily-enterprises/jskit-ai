@@ -43,7 +43,7 @@ manifests, migrations, tests, and runtime behaviour are the evidence.
 4. Load only relevant references:
    - [port guide](references/existing-application-migration.md) for existing apps.
    - [heuristics index](references/heuristics/INDEX.md) for recurring traps.
-   - [typed features](references/typed-features.md) and its heuristic for server code.
+   - Before writing server code, read [typed features](references/typed-features.md) and its heuristic.
    - [multi-homing](references/multi-homing.md) for workspaces or invitations.
    - [translation](references/translation.md) for languages, translated texts
      or error codes.

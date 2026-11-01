@@ -44,5 +44,5 @@ How to use it:
   - [crud-repository-mapping.md](./crud-repository-mapping.md)
 - row policy, permission filtering, visibility before pagination, recursive CTE, descendants, package cycle, `RowPolicyPlugin`
   - [row-policies.md](./row-policies.md)
-- typed features, collaborator, `typeof`, `= null`, `setProvider`, `register`, `input || {}`, `requires`, `optional`, `types.js`, `create<Name>Actions`, `ActionSpecifications`, `jskit/*` lint findings, `readable-check: allow`
+- typed features, server feature, provider, service, repository, collaborator, `typeof`, `= null`, `setProvider`, `register`, `input || {}`, `payload = {}`, `async execute`, `Object.freeze`, `requires`, `optional`, `types.js`, `RuntimeKnex`, `silentLogger`, `create<Name>Actions`, `ActionSpecifications`, request context, `jskit/*` lint findings, `readable-check: allow`, `optional operation:`
   - [typed-features.md](./typed-features.md)

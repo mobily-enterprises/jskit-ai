@@ -24,7 +24,8 @@ apply or adapt. It does not prescribe an agent host or project orchestrator.
 - [Application operations](/guide/framework/application-operations)
 - [CRUD operations](/guide/framework/crud-operations)
 - [Record form actions](/guide/framework/crud-form-actions)
-- [Typed features](/guide/framework/typed-features)
+- [Typed features](/guide/framework/typed-features): read before writing any
+  server feature, provider, action, service or repository
 - [UI operations](/guide/framework/ui-operations)
 - [Material 3](/guide/framework/material-3)
 - [Translating a JSKIT app](/guide/framework/translation)
@@ -41,7 +42,8 @@ apply or adapt. It does not prescribe an agent host or project orchestrator.
 ## How to use the guide
 
 Begin with the Quickstart and one application-foundation pattern. Add only the
-capabilities selected by the product. The public pattern library contains every
+capabilities selected by the product. Server code follows Typed features from
+its first line; the foundations' lint configuration reports what breaks it. The public pattern library contains every
 published `PATTERN.md` and links its complete example tree. If a runtime package
 is installed, its package-owned copy is the version-matched implementation
 reference. The optional standalone JSKIT Agent Skill bundles the same pattern
