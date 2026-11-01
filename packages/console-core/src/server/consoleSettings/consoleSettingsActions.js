@@ -4,7 +4,7 @@ import {
 import { createEntityChangedActionEvent } from "@jskit-ai/kernel/server/actions";
 import { consoleSettingsResource } from "../../shared/resources/consoleSettingsResource.js";
 
-/** @param {{ consoleSettingsService: import("./consoleSettingsService.js").ConsoleSettingsService }} dependencies */
+/** @param {{ consoleSettingsService: import("../types.js").ConsoleSettingsService }} dependencies */
 function createConsoleSettingsActions({ consoleSettingsService }) {
   return Object.freeze([
     Object.freeze({

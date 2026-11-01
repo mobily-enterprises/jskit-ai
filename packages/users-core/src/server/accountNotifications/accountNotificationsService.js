@@ -38,6 +38,4 @@ function createService({ userSettingsRepository, userProfilesRepository, authSer
   });
 }
 
-/** @typedef {ReturnType<typeof createService>} AccountNotificationsService */
-
 export { createService };

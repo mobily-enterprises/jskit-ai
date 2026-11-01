@@ -25,7 +25,6 @@ Exports
 ### `src/server/accountNotifications/accountNotificationsService.js`
 Exports
 - `createService({ userSettingsRepository, userProfilesRepository, authService })`
-- `type AccountNotificationsService`
 
 ### `src/server/accountPreferences/accountPreferencesActions.js`
 Exports
@@ -38,7 +37,6 @@ Exports
 ### `src/server/accountPreferences/accountPreferencesService.js`
 Exports
 - `createService({ userSettingsRepository, userProfilesRepository, authService })`
-- `type AccountPreferencesService`
 
 ### `src/server/accountProfile/accountProfileActions.js`
 Exports
@@ -51,13 +49,11 @@ Exports
 ### `src/server/accountProfile/accountProfileService.js`
 Exports
 - `createService({ userSettingsRepository, userProfilesRepository, authService, avatarService })`
-- `type AccountProfileService`
 
 ### `src/server/accountProfile/avatarService.js`
 Exports
 - `createService({ userProfilesRepository, avatarStorageService, avatarPolicy })`
 - `__testables`
-- `type AvatarService`
 Local functions
 - `resolveAvatarPolicy(policy = {})`
 - `readAvatarBuffer(stream, { maxBytes = DEFAULT_AVATAR_POLICY.maxUploadBytes } = {})`
@@ -80,7 +76,6 @@ Exports
 ### `src/server/accountSecurity/accountSecurityService.js`
 Exports
 - `createService({ userSettingsRepository, userProfilesRepository, authService })`
-- `type AccountSecurityService`
 
 ### `src/server/common/formatters/accountAvatarFormatter.js`
 Exports
@@ -162,6 +157,13 @@ Exports
 - `type UsersIdentity`
 - `type UserProfilesRepository`
 - `type UserSettingsRepository`
+- `type ResolveProfileSyncLifecycleContributors`
+- `type AccountNotificationsService`
+- `type AccountPreferencesService`
+- `type AccountProfileService`
+- `type AvatarService`
+- `type AvatarStorageService`
+- `type AccountSecurityService`
 
 ### `src/server/usersBootstrapContributor.js`
 Exports

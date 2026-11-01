@@ -13,6 +13,8 @@
 /** @typedef {ReturnType<typeof import("./workspaceSettings/workspaceSettingsRepository.js").createRepository>} WorkspaceSettingsRepository */
 /** @typedef {ReturnType<typeof import("../shared/roles.js").createWorkspaceRoleCatalog>} WorkspaceRoleCatalog */
 /** @typedef {ReturnType<typeof import("../shared/tenancyProfile.js").resolveTenancyProfile>} WorkspaceTenancyProfile */
+/** @typedef {ReturnType<typeof import("./workspaceMembers/workspaceInviteUrls.js").createWorkspaceInviteUrlBuilder>} WorkspaceInviteUrlBuilder The invitation URL a token opens, from the app's public URL and invite path. */
+/** @typedef {ReturnType<typeof import("./i18n.js").createWorkspacesServerI18n>} WorkspacesServerI18n The workspace texts rendered on the server, in a recipient's language. */
 
 /**
  * The `workspaces.invite-mailer` capability: a feature that provides it sends

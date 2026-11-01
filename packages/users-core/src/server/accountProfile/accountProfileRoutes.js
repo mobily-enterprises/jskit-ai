@@ -15,7 +15,7 @@ const USER_SETTINGS_RESOURCE_TRANSPORT = Object.freeze({
 /**
  * @param {import("@jskit-ai/kernel/server/types").RuntimeRouter} router
  * @param {object} dependencies
- * @param {import("./accountProfileService.js").AccountProfileService} dependencies.accountProfileService
+ * @param {import("../types.js").AccountProfileService} dependencies.accountProfileService
  * @param {import("@jskit-ai/auth-core/server/types").AuthService} dependencies.authService
  * @param {import("@jskit-ai/uploads-runtime/server/types").RuntimeUploads} dependencies.uploads
  */

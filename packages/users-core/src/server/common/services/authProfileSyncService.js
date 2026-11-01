@@ -59,7 +59,7 @@ function requireSynchronizedProfile(profile) {
  * @param {object} dependencies
  * @param {import("../../types.js").UserProfilesRepository} dependencies.userProfilesRepository
  * @param {import("../../types.js").UserSettingsRepository} dependencies.userSettingsRepository
- * @param {import("../../types.js").UsersExtensions["profileSyncLifecycleContributors"]} dependencies.resolveLifecycleContributors
+ * @param {import("../../types.js").ResolveProfileSyncLifecycleContributors} dependencies.resolveLifecycleContributors
  *   Answers the registered contributors that run after each synchronization.
  */
 function createService({ userProfilesRepository, resolveLifecycleContributors, userSettingsRepository }) {

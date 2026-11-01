@@ -56,7 +56,6 @@ Local functions
 ### `src/server/consoleSettings/consoleSettingsService.js`
 Exports
 - `createService({ consoleSettingsRepository, consoleService })`
-- `type ConsoleSettingsService`
 Local functions
 - `buildSettingsResponse(record)`
 
@@ -65,6 +64,7 @@ Exports
 - `type ConsoleCore`
 - `type ConsoleService`
 - `type ConsoleSettingsRepository`
+- `type ConsoleSettingsService`
 
 ### `src/shared/operationMessages.js`
 Exports

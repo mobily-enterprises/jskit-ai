@@ -5,7 +5,7 @@ import { userSettingsResource } from "../../shared/resources/userSettingsResourc
 import { resolveActionUser } from "../common/support/resolveActionUser.js";
 import { ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS } from "../common/support/realtimeServiceEvents.js";
 
-/** @param {{ accountPreferencesService: import("./accountPreferencesService.js").AccountPreferencesService }} dependencies */
+/** @param {{ accountPreferencesService: import("../types.js").AccountPreferencesService }} dependencies */
 function createAccountPreferencesActions({ accountPreferencesService }) {
   return Object.freeze([
     Object.freeze({

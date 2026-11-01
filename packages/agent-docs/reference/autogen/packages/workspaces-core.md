@@ -143,6 +143,8 @@ Exports
 - `type WorkspaceSettingsRepository`
 - `type WorkspaceRoleCatalog`
 - `type WorkspaceTenancyProfile`
+- `type WorkspaceInviteUrlBuilder`
+- `type WorkspacesServerI18n`
 - `type WorkspaceInviteMailer`
 - `type WorkspaceInviteEmailTemplate`
 - `type WorkspaceInviteAcceptanceParticipant`

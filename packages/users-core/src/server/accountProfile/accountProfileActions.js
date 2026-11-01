@@ -13,7 +13,7 @@ const settingsProfileUpdateInputValidator = deepFreeze({
   mode: userProfileResource.operations.patch.body.mode
 });
 
-/** @param {{ accountProfileService: import("./accountProfileService.js").AccountProfileService }} dependencies */
+/** @param {{ accountProfileService: import("../types.js").AccountProfileService }} dependencies */
 function createAccountProfileActions({ accountProfileService }) {
   return Object.freeze([
     Object.freeze({

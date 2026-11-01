@@ -21,10 +21,10 @@ function roleNotAssignableError() {
  * @param {number} dependencies.inviteExpiresInMs
  * @param {import("../types.js").WorkspaceRoleCatalog} dependencies.roleCatalog
  * @param {boolean} dependencies.workspaceInvitationsEnabled
- * @param {(invite: { token: string, invite: object, workspace: object }) => string} dependencies.inviteUrlBuilder
+ * @param {import("../types.js").WorkspaceInviteUrlBuilder} dependencies.inviteUrlBuilder
  * @param {import("../types.js").WorkspaceInviteMailer} dependencies.workspaceInviteMailer
  * @param {import("../types.js").WorkspaceInviteEmailTemplate} dependencies.workspaceInviteEmailTemplate
- * @param {ReturnType<typeof import("../i18n.js").createWorkspacesServerI18n>} dependencies.i18n
+ * @param {import("../types.js").WorkspacesServerI18n} dependencies.i18n
  * @param {import("@jskit-ai/users-core/server/types").UserProfilesRepository} dependencies.userProfilesRepository
  * @param {import("@jskit-ai/users-core/server/types").UserSettingsRepository} dependencies.userSettingsRepository
  */

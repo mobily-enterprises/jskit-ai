@@ -24,7 +24,7 @@ async function readAvatarBuffer(stream, { maxBytes = DEFAULT_AVATAR_POLICY.maxUp
 /**
  * @param {object} dependencies
  * @param {import("../types.js").UserProfilesRepository} dependencies.userProfilesRepository
- * @param {ReturnType<typeof import("./avatarStorageService.js").createService>} dependencies.avatarStorageService
+ * @param {import("../types.js").AvatarStorageService} dependencies.avatarStorageService
  * @param {object} [dependencies.avatarPolicy] Upload limits that replace the default image policy.
  */
 function createService({ userProfilesRepository, avatarStorageService, avatarPolicy }) {
@@ -95,7 +95,5 @@ const __testables = Object.freeze({
   resolveAvatarPolicy,
   readAvatarBuffer
 });
-
-/** @typedef {ReturnType<typeof createService>} AvatarService */
 
 export { createService, __testables };

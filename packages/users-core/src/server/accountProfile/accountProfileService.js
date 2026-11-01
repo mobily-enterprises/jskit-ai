@@ -14,7 +14,7 @@ import {
  * @param {import("../types.js").UserSettingsRepository} dependencies.userSettingsRepository
  * @param {import("../types.js").UserProfilesRepository} dependencies.userProfilesRepository
  * @param {import("@jskit-ai/auth-core/server/types").AuthService} dependencies.authService The installed provider's `auth.service`; it may keep the display name itself.
- * @param {import("./avatarService.js").AvatarService} dependencies.avatarService
+ * @param {import("../types.js").AvatarService} dependencies.avatarService
  */
 function createService({ userSettingsRepository, userProfilesRepository, authService, avatarService }) {
   async function getForUser(request, user) {
@@ -109,7 +109,5 @@ function createService({ userSettingsRepository, userProfilesRepository, authSer
     readAvatar
   });
 }
-
-/** @typedef {ReturnType<typeof createService>} AccountProfileService */
 
 export { createService };

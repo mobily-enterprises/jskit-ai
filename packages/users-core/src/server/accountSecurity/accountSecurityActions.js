@@ -13,7 +13,7 @@ const oauthLinkStartInputValidator = composeSchemaDefinitions([
   context: "accountSecurityActions.oauthLinkStartInputValidator"
 });
 
-/** @param {{ accountSecurityService: import("./accountSecurityService.js").AccountSecurityService }} dependencies */
+/** @param {{ accountSecurityService: import("../types.js").AccountSecurityService }} dependencies */
 function createAccountSecurityActions({ accountSecurityService }) {
   return Object.freeze([
     Object.freeze({
