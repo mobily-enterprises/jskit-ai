@@ -2,8 +2,9 @@ import { resolveRequest } from "@jskit-ai/kernel/server/actions/actionContributo
 import { normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
 
 /**
- * The workspace an action runs in: the input's workspace, else the one the
- * workspace context contributor resolved, else the context's or the request's.
+ * The workspace an action runs in: the input's workspace, else the context's,
+ * else the one the workspace context contributor resolved, else the request's.
+ * This is json-rest-api-core's resolveWorkspaceScopeValue order.
  * @param {object} context
  * @param {unknown} [input]
  */
@@ -12,7 +13,7 @@ function resolveWorkspace(context = {}, input = {}) {
   const requestMeta = normalizeObject(context.requestMeta);
   const resolvedWorkspaceContext = normalizeObject(requestMeta.resolvedWorkspaceContext);
 
-  return payload.workspace || resolvedWorkspaceContext.workspace || context.workspace || resolveRequest(context)?.workspace || null;
+  return payload.workspace || context.workspace || resolvedWorkspaceContext.workspace || resolveRequest(context)?.workspace || null;
 }
 
 export { resolveWorkspace };

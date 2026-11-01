@@ -825,7 +825,7 @@ test("scope resolvers understand explicit scopeValues and JSKIT visibilityContex
       workspaceId: "workspace-explicit"
     },
     visibilityContext: {
-      scopeOwnerId: "workspace-visibility"
+      scopeOwnerId: "workspace-explicit"
     }
   }), "workspace-explicit");
 

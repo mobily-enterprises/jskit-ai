@@ -3627,7 +3627,7 @@
               },
               {
                 "subpath": "./server/support/workspaceCrud",
-                "summary": "Exports WORKSPACE_CRUD_SCOPE and workspaceIdFromContext, the workspace scope of CRUD resources."
+                "summary": "Exports WORKSPACE_CRUD_SCOPE, the workspace scope of CRUD resources."
               },
               {
                 "subpath": "./server/support/workspaceRoutePaths",

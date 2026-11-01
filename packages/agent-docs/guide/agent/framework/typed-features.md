@@ -824,8 +824,10 @@ owner, instead of a copy per package:
   (`@jskit-ai/crud-core/server/serviceEvents`), from the tagged JSON:API
   result a CRUD service or action returns (a document result's `data.id` or a
   data result's record `id`);
-- a workspace CRUD call's workspace: `workspaceIdFromContext(context)`
-  (`@jskit-ai/workspaces-core/server/support/workspaceCrud`).
+- a context's workspace id: `resolveWorkspaceScopeValue(context)`
+  (`@jskit-ai/json-rest-api-core/server/jsonRestApiHost`), from the context's
+  workspace, the resolved one, the request's, a workspace visibility owner or
+  the `workspaceId` scope value; it throws when they name two workspaces.
 
 ### Following the call
 

@@ -38,6 +38,7 @@ Local functions
 - `applyJsonRestQueryFields(scopeOptions = {}, extraQueryFields = {})`
 - `resolveJsonRestDefaultExcludedFields(resource)`
 - `applyJsonRestDefaultExclusions(scopeOptions = {}, resource = {})`
+- `workspaceScopeOwnerId(visibilityContext)`
 - `isJsonRestResourceMissingError(error = null)`
 - `isJsonRestSparseFieldError(error = null)`
 

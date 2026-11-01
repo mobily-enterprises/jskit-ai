@@ -19,6 +19,8 @@ import {
   normalizeJsonApiFieldsets
 } from "@jskit-ai/kernel/shared/support/jsonApiFieldsets";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+import { resolveRequest } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
+import { ROUTE_VISIBILITY_WORKSPACE, ROUTE_VISIBILITY_WORKSPACE_USER } from "@jskit-ai/kernel/shared/support/visibility";
 
 const JSON_REST_AUTOFILTER_PRESETS = Object.freeze({
   public: Object.freeze([]),
@@ -517,13 +519,52 @@ function createJsonRestContext(context = null) {
   return nextContext;
 }
 
-function resolveWorkspaceScopeValue(context = null) {
-  const explicitScopeValue = normalizeScopeValue(context?.scopeValues?.workspaceId);
-  if (explicitScopeValue) {
-    return explicitScopeValue;
-  }
+const WORKSPACE_SCOPE_KINDS = new Set([ROUTE_VISIBILITY_WORKSPACE, ROUTE_VISIBILITY_WORKSPACE_USER]);
 
-  return normalizeScopeValue(context?.visibilityContext?.scopeOwnerId);
+/**
+ * The visibility scope's owner when the scope is a workspace's. Its kind is
+ * the scopeKind, else the visibility. Workspaces' visibility resolver sets a
+ * workspace kind, but an application's resolver may add another kind, whose
+ * owner is not a workspace id. A hand-built context naming only the owner,
+ * with no kind, is a workspace's.
+ * @param {{ scopeKind?: string | null, visibility?: string, scopeOwnerId?: unknown } | null} [visibilityContext]
+ */
+function workspaceScopeOwnerId(visibilityContext) {
+  // Outside a route, a context carries no visibility.
+  if (!visibilityContext) {
+    return null;
+  }
+  const kind = normalizeText(visibilityContext.scopeKind || visibilityContext.visibility).toLowerCase();
+  return !kind || WORKSPACE_SCOPE_KINDS.has(kind) ? visibilityContext.scopeOwnerId : null;
+}
+
+/**
+ * The id of the workspace a context acts on; null when it names none. It reads, in this order:
+ * 1. the context's workspace (`context.workspace.id`);
+ * 2. the workspace the request resolved (`context.requestMeta.resolvedWorkspaceContext.workspace.id`);
+ * 3. the request's workspace (`context.requestMeta.request.workspace.id`);
+ * 4. the owner of a workspace visibility scope (a `user` or other scope's owner is not a workspace);
+ * 5. the `workspaceId` scope value (`context.scopeValues.workspaceId`).
+ * One execution acts on one workspace, so the sources it finds must agree: two different ids throw.
+ * @param {object | null} [context]
+ * @returns {string | null}
+ */
+function resolveWorkspaceScopeValue(context = null) {
+  const workspaceIds = [
+    context?.workspace?.id,
+    context?.requestMeta?.resolvedWorkspaceContext?.workspace?.id,
+    resolveRequest(context)?.workspace?.id,
+    workspaceScopeOwnerId(context?.visibilityContext),
+    context?.scopeValues?.workspaceId
+  ].map(normalizeScopeValue).filter(Boolean);
+  const [workspaceId = null] = workspaceIds;
+  const otherWorkspaceId = workspaceIds.find((id) => id !== workspaceId);
+  if (otherWorkspaceId) {
+    throw new Error(
+      `safety invariant: a context names two workspaces (${workspaceId}, ${otherWorkspaceId}); one execution acts on one workspace.`
+    );
+  }
+  return workspaceId;
 }
 
 function resolveUserScopeValue(context = null) {

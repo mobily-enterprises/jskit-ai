@@ -104,10 +104,8 @@ Local functions
 ### `src/server/support/workspaceCrud.js`
 Exports
 - `WORKSPACE_CRUD_SCOPE`
-- `workspaceIdFromContext(context = {})`
 Local functions
 - `workspaceCrudScopeInput(request)`
-- `workspaceScopeOwnerId(visibilityContext)`
 
 ### `src/server/support/workspaceInvitationsPolicy.js`
 Exports
