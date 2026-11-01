@@ -20,9 +20,9 @@ Exports
 - `createTransientRetryHttpClient`
 - `normalizeFieldErrors`
 - `resolveFieldErrors`
-- `createValidationFailure`
-- `createHttpError`
-- `createNetworkError`
+- `buildValidationFailure`
+- `buildHttpError`
+- `buildNetworkError`
 - `isGenericHttpErrorMessage`
 - `DEFAULT_RETRYABLE_CSRF_ERROR_CODES`
 - `shouldRetryForCsrfFailure`
@@ -42,7 +42,7 @@ Local functions
 Exports
 - `normalizeFieldErrors`
 - `resolveFieldErrors`
-- `createValidationFailure({ error = "Validation failed.", code = "validation_failed", fieldErrors = {}, fieldErrorCodes = null } = {})`
+- `buildValidationFailure({ error = "Validation failed.", code = "validation_failed", fieldErrors = {}, fieldErrorCodes = null } = {})`
 
 ### `src/shared/clientRuntime/client.js`
 Exports
@@ -67,8 +67,8 @@ Local functions
 
 ### `src/shared/clientRuntime/errors.js`
 Exports
-- `createHttpError(response, data = {})`
-- `createNetworkError(cause)`
+- `buildHttpError(response, data = {})`
+- `buildNetworkError(cause)`
 - `isGenericHttpErrorMessage(error)`
 Local functions
 - `standardErrorMessage(payload = {})`
@@ -128,7 +128,7 @@ Exports
 - `apiValidationErrorTransportSchema`
 - `fastifyDefaultErrorTransportSchema`
 - `STANDARD_ERROR_STATUS_CODES`
-- `createTransportResponseSchema`
+- `buildTransportResponseSchema`
 - `withStandardErrorResponses`
 - `validateOperationSection`
 - `JSON_API_CONTENT_TYPE`
@@ -163,12 +163,12 @@ Exports
 - `mapTransportQueryKeyToPlainKey`
 - `encodeJsonApiResourceQueryObject`
 - `decodeJsonApiResourceQueryObject`
-- `createJsonApiResourceQueryTransportSchema`
+- `buildJsonApiResourceQueryTransportSchema`
 - `decodeJsonApiResourceResponse`
 - `JSON_API_ERROR_DOCUMENT_SCHEMA`
-- `createJsonApiResourceObjectTransportSchema`
-- `createJsonApiResourceRequestBodyTransportSchema`
-- `createJsonApiResourceSuccessTransportSchema`
+- `buildJsonApiResourceObjectTransportSchema`
+- `buildJsonApiResourceRequestBodyTransportSchema`
+- `buildJsonApiResourceSuccessTransportSchema`
 - `withJsonApiErrorResponses`
 - `createJsonApiResourceRouteTransport`
 - `createJsonApiResourceRouteContract`
@@ -194,7 +194,7 @@ Exports
 - `apiValidationErrorTransportSchema`
 - `fastifyDefaultErrorTransportSchema`
 - `STANDARD_ERROR_STATUS_CODES`
-- `createTransportResponseSchema(schema = {})`
+- `buildTransportResponseSchema(schema = {})`
 - `withStandardErrorResponses(successResponses, { includeValidation400 = false } = {})`
 
 ### `src/shared/validators/jsonApiQueryTransport.js`
@@ -207,7 +207,7 @@ Exports
 - `mapTransportQueryKeyToPlainKey(key = "", { responseType = "" } = {})`
 - `encodeJsonApiResourceQueryObject(query = {}, { responseType = "" } = {})`
 - `decodeJsonApiResourceQueryObject(query = {}, { responseType = "" } = {})`
-- `createJsonApiResourceQueryTransportSchema({ query, responseType = "" } = {})`
+- `buildJsonApiResourceQueryTransportSchema({ query, responseType = "" } = {})`
 Local functions
 - `buildFieldsTransportKey(responseType = "")`
 - `parseFieldsTransportType(key = "")`
@@ -219,9 +219,9 @@ Local functions
 Exports
 - `JSON_API_ERROR_DOCUMENT_SCHEMA`
 - `resolveRouteTypes(value = {})`
-- `createJsonApiResourceObjectTransportSchema({ type = "", attributes, requireId = true, includeLinks = false, includeMeta = false, // readable-check: allow dependency-default - data: a list of attribute keys, not a collaborator excludeAttributeKeys = [], // readable-check: allow dependency-default - data: a list of relationship entries, not a collaborator relationshipEntries = [], relationshipMembersRequired = false, allowSparseFields = false })`
-- `createJsonApiResourceRequestBodyTransportSchema({ type = "", attributes, requireId = false, // readable-check: allow dependency-default - data: a list of attribute keys, not a collaborator excludeAttributeKeys = [], // readable-check: allow dependency-default - data: a list of relationship entries, not a collaborator relationshipEntries = [] })`
-- `createJsonApiResourceSuccessTransportSchema({ type = "", attributes, kind = "record", includeLinks = false, includeMeta = false, includeIncluded = false, allowSparseFields = false, // readable-check: allow dependency-default - data: a list of attribute keys, not a collaborator excludeAttributeKeys = [], // readable-check: allow dependency-default - data: a list of relationship entries, not a collaborator relationshipEntries = [] })`
+- `buildJsonApiResourceObjectTransportSchema({ type = "", attributes, requireId = true, includeLinks = false, includeMeta = false, // readable-check: allow dependency-default - data: a list of attribute keys, not a collaborator excludeAttributeKeys = [], // readable-check: allow dependency-default - data: a list of relationship entries, not a collaborator relationshipEntries = [], relationshipMembersRequired = false, allowSparseFields = false })`
+- `buildJsonApiResourceRequestBodyTransportSchema({ type = "", attributes, requireId = false, // readable-check: allow dependency-default - data: a list of attribute keys, not a collaborator excludeAttributeKeys = [], // readable-check: allow dependency-default - data: a list of relationship entries, not a collaborator relationshipEntries = [] })`
+- `buildJsonApiResourceSuccessTransportSchema({ type = "", attributes, kind = "record", includeLinks = false, includeMeta = false, includeIncluded = false, allowSparseFields = false, // readable-check: allow dependency-default - data: a list of attribute keys, not a collaborator excludeAttributeKeys = [], // readable-check: allow dependency-default - data: a list of relationship entries, not a collaborator relationshipEntries = [] })`
 - `withJsonApiErrorResponses(successResponses, { includeValidation400 = false } = {})`
 Local functions
 - `resolveRouteType(type = "")`

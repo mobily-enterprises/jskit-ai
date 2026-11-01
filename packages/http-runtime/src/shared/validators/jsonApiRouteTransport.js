@@ -14,13 +14,13 @@ import {
   jsonApiResultOrNull
 } from "./jsonApiResult.js";
 import {
-  createJsonApiResourceQueryTransportSchema,
+  buildJsonApiResourceQueryTransportSchema,
   decodeJsonApiResourceQueryObject
 } from "./jsonApiQueryTransport.js";
-import { createTransportResponseSchema } from "./errorResponses.js";
+import { buildTransportResponseSchema } from "./errorResponses.js";
 import {
-  createJsonApiResourceRequestBodyTransportSchema,
-  createJsonApiResourceSuccessTransportSchema,
+  buildJsonApiResourceRequestBodyTransportSchema,
+  buildJsonApiResourceSuccessTransportSchema,
   resolveRouteTypes,
   withJsonApiErrorResponses
 } from "./jsonApiResourceSchemas.js";
@@ -568,7 +568,7 @@ function createJsonApiResourceRouteContract({
   const fastifySchema = {};
   if (body) {
     contract.body = body;
-    fastifySchema.body = createJsonApiResourceRequestBodyTransportSchema({
+    fastifySchema.body = buildJsonApiResourceRequestBodyTransportSchema({
       type: normalizedRequestType,
       attributes: body,
       requireId: allowBodyId,
@@ -578,7 +578,7 @@ function createJsonApiResourceRouteContract({
   }
   if (query) {
     contract.query = query;
-    fastifySchema.querystring = createJsonApiResourceQueryTransportSchema({
+    fastifySchema.querystring = buildJsonApiResourceQueryTransportSchema({
       query,
       responseType: normalizedResponseType
     });
@@ -596,8 +596,8 @@ function createJsonApiResourceRouteContract({
       throw new TypeError(`JSON:API resource route contract for ${normalizedResponseType} requires output schema.`);
     }
 
-    successResponses[statusCode] = createTransportResponseSchema(
-      createJsonApiResourceSuccessTransportSchema({
+    successResponses[statusCode] = buildTransportResponseSchema(
+      buildJsonApiResourceSuccessTransportSchema({
         type: normalizedResponseType,
         attributes: output,
         kind: normalizedOutputKind,

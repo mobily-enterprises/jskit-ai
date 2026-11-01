@@ -224,7 +224,7 @@ function decodeJsonApiResourceQueryObject(query = {}, { responseType = "" } = {}
   return Object.freeze(decoded);
 }
 
-function createJsonApiResourceQueryTransportSchema({
+function buildJsonApiResourceQueryTransportSchema({
   query,
   responseType = ""
 } = {}) {
@@ -284,5 +284,5 @@ export {
   mapTransportQueryKeyToPlainKey,
   encodeJsonApiResourceQueryObject,
   decodeJsonApiResourceQueryObject,
-  createJsonApiResourceQueryTransportSchema
+  buildJsonApiResourceQueryTransportSchema
 };

@@ -18,11 +18,11 @@ import {
   JSON_API_CONTENT_TYPE,
   apiErrorTransportSchema,
   encodeJsonApiResourceQueryObject,
-  createJsonApiResourceQueryTransportSchema,
-  createJsonApiResourceRequestBodyTransportSchema,
+  buildJsonApiResourceQueryTransportSchema,
+  buildJsonApiResourceRequestBodyTransportSchema,
   createJsonApiResourceRouteContract,
   createJsonApiResourceRouteTransport,
-  createJsonApiResourceSuccessTransportSchema,
+  buildJsonApiResourceSuccessTransportSchema,
   returnJsonApiData,
   returnJsonApiDocument,
   returnJsonApiMeta
@@ -31,8 +31,9 @@ import { createSchema } from "../../kernel/shared/validators/index.js";
 import { resolveRouteValidatorOptions } from "../../kernel/server/http/lib/routeValidator.js";
 import { registerApiErrorHandler } from "../../kernel/server/http/errorHandling.js";
 import { AppError, createValidationError } from "../../kernel/server/runtime/errors.js";
-import { createHttpError } from "../src/shared/clientRuntime/errors.js";
+import { buildHttpError } from "../src/shared/clientRuntime/errors.js";
 import { createJsonRestApiHost } from "../../json-rest-api-core/src/server/jsonRestApiHost.js";
+import { silentLogger } from "../../kernel/server/runtime/logger.js";
 
 const CONTACT_BODY_SCHEMA = Object.freeze({
   schema: createSchema({
@@ -109,8 +110,8 @@ const CONTACT_LIST_QUERY_SCHEMA = Object.freeze({
   mode: "patch"
 });
 
-test("createJsonApiResourceRequestBodyTransportSchema wraps plain body schema in a JSON:API document", () => {
-  const schema = createJsonApiResourceRequestBodyTransportSchema({
+test("buildJsonApiResourceRequestBodyTransportSchema wraps plain body schema in a JSON:API document", () => {
+  const schema = buildJsonApiResourceRequestBodyTransportSchema({
     type: "contacts",
     attributes: CONTACT_BODY_SCHEMA
   });
@@ -125,8 +126,8 @@ test("createJsonApiResourceRequestBodyTransportSchema wraps plain body schema in
   assert.equal(resourceSchema.properties.attributes.allOf[0].$ref, "#/definitions/contactsRequestResource__contacts_resource_attributes");
 });
 
-test("createJsonApiResourceSuccessTransportSchema wraps plain record schema in a JSON:API response document", () => {
-  const schema = createJsonApiResourceSuccessTransportSchema({
+test("buildJsonApiResourceSuccessTransportSchema wraps plain record schema in a JSON:API response document", () => {
+  const schema = buildJsonApiResourceSuccessTransportSchema({
     type: "contacts",
     attributes: CONTACT_RECORD_SCHEMA,
     kind: "record",
@@ -267,7 +268,7 @@ test("real HTTP responses classify typed JSON REST read and write errors", async
         const response = await app.inject({ method: "GET", url });
         assert.equal(response.statusCode, expectedStatus, url);
         const payload = response.json();
-        const clientError = createHttpError({ status: response.statusCode }, payload);
+        const clientError = buildHttpError({ status: response.statusCode }, payload);
         assert.equal(clientError.status, expectedStatus, url);
         assert.equal(clientError.transactionOutcome, wrapped ? "rolledBack" : undefined, url);
         assert.equal(clientError.message, expectedStatus >= 500 ? "Internal server error." : createError().message, url);
@@ -293,7 +294,7 @@ test("real resource validation, permission hooks and completion failures retain 
     table.increments("id");
     table.string("title").notNullable();
   });
-  const api = await createJsonRestApiHost({ knex, logger: { error() {} } });
+  const api = await createJsonRestApiHost({ knex, logger: silentLogger });
   await api.addResource("books", { schema: { title: { type: "string", required: true } } });
   await api.customize({ hooks: {
     checkPermissions({ context }) {
@@ -326,7 +327,7 @@ test("real resource validation, permission hooks and completion failures retain 
     ]) {
       const response = await app.inject({ method, url: `${prefix}/${path}`, ...(payload ? { payload } : {}) });
       assert.equal(response.statusCode, status, response.body);
-      const clientError = createHttpError({ status: response.statusCode }, response.json());
+      const clientError = buildHttpError({ status: response.statusCode }, response.json());
       assert.equal(clientError.status, status);
       assert.equal(clientError.code, code);
       assert.equal(clientError.transactionOutcome, outcome);
@@ -362,7 +363,7 @@ test("error handler, JSON:API transport and client preserve outcomes without dis
       };
       app.errorHandler(failure, jsonapi ? { routeOptions: { config: { transport } } } : {}, reply);
       assert.equal(reply.statusCode, 500);
-      const clientError = createHttpError({ status: reply.statusCode }, reply.payload);
+      const clientError = buildHttpError({ status: reply.statusCode }, reply.payload);
       assert.equal(clientError.message, "Internal server error.");
       assert.equal(clientError.code, "REST_API_WRITE");
       assert.equal(clientError.transactionOutcome, transactionOutcome === "invalid" ? undefined : transactionOutcome);
@@ -491,7 +492,7 @@ test("JSON:API errors carry params, message codes and field codes the client ren
       const url = `/${jsonapi ? "jsonapi" : "plain"}/${name}${name === "ajv" ? "?page=x" : ""}`;
       const response = await app.inject({ method: "GET", url });
       assert.doesNotMatch(response.body, /private/u);
-      const clientError = createHttpError({ status: response.statusCode }, response.json());
+      const clientError = buildHttpError({ status: response.statusCode }, response.json());
       const label = `${name} ${jsonapi ? "JSON:API" : "plain"}`;
       assert.equal(clientError.code, expected.code, label);
       assert.deepEqual(clientError.params, expected.params, label);
@@ -526,8 +527,8 @@ test("JSON:API transport errors render their English from the http-runtime catal
   }
 });
 
-test("createJsonApiResourceQueryTransportSchema and route transport map list query params to JSON:API", () => {
-  const schema = createJsonApiResourceQueryTransportSchema({
+test("buildJsonApiResourceQueryTransportSchema and route transport map list query params to JSON:API", () => {
+  const schema = buildJsonApiResourceQueryTransportSchema({
     query: CONTACT_LIST_QUERY_SCHEMA,
     responseType: "contacts"
   });
@@ -598,7 +599,7 @@ test("createJsonApiResourceQueryTransportSchema and route transport map list que
 });
 
 test("sparse JSON:API response contracts preserve field types without requiring every attribute", () => {
-  const schema = createJsonApiResourceSuccessTransportSchema({
+  const schema = buildJsonApiResourceSuccessTransportSchema({
     type: "contacts",
     attributes: CONTACT_RECORD_SCHEMA,
     kind: "collection",

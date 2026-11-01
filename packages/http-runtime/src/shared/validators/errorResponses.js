@@ -103,7 +103,7 @@ const fastifyDefaultErrorTransportSchema = {
 
 const STANDARD_ERROR_STATUS_CODES = [400, 401, 403, 404, 409, 422, 429, 500, 503];
 
-function createTransportResponseSchema(schema = {}) {
+function buildTransportResponseSchema(schema = {}) {
   return {
     transportSchema: schema
   };
@@ -135,7 +135,7 @@ function withStandardErrorResponses(successResponses, { includeValidation400 = f
     }
 
     if (statusCode === 400 && includeValidation400) {
-      responses[statusCode] = createTransportResponseSchema({
+      responses[statusCode] = buildTransportResponseSchema({
         anyOf: [
           embeddedApiValidationErrorTransportSchema.schema,
           embeddedApiErrorTransportSchema.schema,
@@ -146,7 +146,7 @@ function withStandardErrorResponses(successResponses, { includeValidation400 = f
       continue;
     }
 
-    responses[statusCode] = createTransportResponseSchema({
+    responses[statusCode] = buildTransportResponseSchema({
       anyOf: [
         embeddedApiErrorTransportSchema.schema,
         fastifyDefaultErrorTransportSchema
@@ -168,6 +168,6 @@ export {
   apiValidationErrorTransportSchema,
   fastifyDefaultErrorTransportSchema,
   STANDARD_ERROR_STATUS_CODES,
-  createTransportResponseSchema,
+  buildTransportResponseSchema,
   withStandardErrorResponses
 };

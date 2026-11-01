@@ -4,9 +4,9 @@ import test from "node:test";
 import {
   normalizeFieldErrors,
   resolveFieldErrors,
-  createValidationFailure,
-  createHttpError,
-  createNetworkError,
+  buildValidationFailure,
+  buildHttpError,
+  buildNetworkError,
   isGenericHttpErrorMessage
 } from "../src/client/index.js";
 
@@ -50,8 +50,8 @@ test("resolveFieldErrors reads top-level and nested details field errors", () =>
   );
 });
 
-test("createValidationFailure returns canonical validation envelope", () => {
-  const failure = createValidationFailure({
+test("buildValidationFailure returns canonical validation envelope", () => {
+  const failure = buildValidationFailure({
     error: "Validation failed.",
     code: "validation_failed",
     fieldErrors: {
@@ -73,8 +73,8 @@ test("createValidationFailure returns canonical validation envelope", () => {
   });
 });
 
-test("createHttpError normalizes code and fieldErrors", () => {
-  const error = createHttpError(
+test("buildHttpError normalizes code and fieldErrors", () => {
+  const error = buildHttpError(
     {
       status: 422
     },
@@ -101,8 +101,8 @@ test("createHttpError normalizes code and fieldErrors", () => {
   });
 });
 
-test("createHttpError preserves standard error envelopes that also contain an errors list", () => {
-  const error = createHttpError(
+test("buildHttpError preserves standard error envelopes that also contain an errors list", () => {
+  const error = buildHttpError(
     {
       status: 409
     },
@@ -133,8 +133,8 @@ test("createHttpError preserves standard error envelopes that also contain an er
   });
 });
 
-test("createHttpError reads errors-list messages when a standard envelope has no top-level message", () => {
-  const error = createHttpError(
+test("buildHttpError reads errors-list messages when a standard envelope has no top-level message", () => {
+  const error = buildHttpError(
     {
       status: 400
     },
@@ -151,8 +151,8 @@ test("createHttpError reads errors-list messages when a standard envelope has no
   assert.equal(error.message, "The request is invalid.");
 });
 
-test("createHttpError decodes json:api error documents into the existing fieldErrors shape", () => {
-  const error = createHttpError(
+test("buildHttpError decodes json:api error documents into the existing fieldErrors shape", () => {
+  const error = buildHttpError(
     {
       status: 422
     },
@@ -185,27 +185,27 @@ test("createHttpError decodes json:api error documents into the existing fieldEr
 });
 
 test("isGenericHttpErrorMessage recognises only the transport's own wording", () => {
-  assert.equal(isGenericHttpErrorMessage(createHttpError({ status: 500 }, {})), true);
-  assert.equal(isGenericHttpErrorMessage(createNetworkError(new Error("offline"))), true);
-  assert.equal(isGenericHttpErrorMessage(createHttpError({ status: 500 }, { error: "Server exploded" })), false);
+  assert.equal(isGenericHttpErrorMessage(buildHttpError({ status: 500 }, {})), true);
+  assert.equal(isGenericHttpErrorMessage(buildNetworkError(new Error("offline"))), true);
+  assert.equal(isGenericHttpErrorMessage(buildHttpError({ status: 500 }, { error: "Server exploded" })), false);
   assert.equal(isGenericHttpErrorMessage({ statusCode: 404, message: "Request failed with status 404." }), true);
   assert.equal(isGenericHttpErrorMessage({ message: "Request failed with status 500." }), false);
   assert.equal(isGenericHttpErrorMessage(null), false);
 });
 
-test("createValidationFailure carries field codes like the server's validation response", () => {
+test("buildValidationFailure carries field codes like the server's validation response", () => {
   const fieldErrorCodes = { name: { code: "kernel.validation.field.required", params: {} } };
-  assert.deepEqual(createValidationFailure({ fieldErrors: { name: "Field is required" }, fieldErrorCodes }), {
+  assert.deepEqual(buildValidationFailure({ fieldErrors: { name: "Field is required" }, fieldErrorCodes }), {
     error: "Validation failed.",
     code: "validation_failed",
     fieldErrors: { name: "Field is required" },
     details: { fieldErrors: { name: "Field is required" }, fieldErrorCodes }
   });
-  assert.deepEqual(createValidationFailure({ fieldErrors: { name: "Bad." } }).details, { fieldErrors: { name: "Bad." } });
+  assert.deepEqual(buildValidationFailure({ fieldErrors: { name: "Bad." } }).details, { fieldErrors: { name: "Bad." } });
 });
 
-test("createHttpError gives a JSON:API error without any text the request_failed sentence", () => {
-  const error = createHttpError({ status: 400 }, { errors: [{ status: "400", code: "bad_request" }] });
+test("buildHttpError gives a JSON:API error without any text the request_failed sentence", () => {
+  const error = buildHttpError({ status: 400 }, { errors: [{ status: "400", code: "bad_request" }] });
   assert.equal(error.message, "Request failed.");
   assert.equal(error.code, "bad_request");
   assert.equal(error.messageCode, "request_failed");

@@ -8,7 +8,7 @@ import {
   apiErrorTransportSchema,
   apiValidationErrorTransportSchema,
   fastifyDefaultErrorTransportSchema,
-  createTransportResponseSchema,
+  buildTransportResponseSchema,
   withStandardErrorResponses
 } from "../src/shared/validators/errorResponses.js";
 
@@ -84,7 +84,7 @@ test("withStandardErrorResponses does not override existing error schemas", () =
           type: "string"
         }
       },
-      400: createTransportResponseSchema(custom400)
+      400: buildTransportResponseSchema(custom400)
     },
     { includeValidation400: true }
   );
@@ -124,7 +124,7 @@ test("standard error response schemas keep the params, messageCode and field cod
   t.after(() => app.close());
   registerApiErrorHandler(app);
   const response = Object.fromEntries(
-    Object.entries(withStandardErrorResponses({ 200: createTransportResponseSchema({ type: "object" }) }, {
+    Object.entries(withStandardErrorResponses({ 200: buildTransportResponseSchema({ type: "object" }) }, {
       includeValidation400: true
     })).map(([status, entry]) => [status, entry.transportSchema])
   );

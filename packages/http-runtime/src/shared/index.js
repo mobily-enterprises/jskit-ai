@@ -8,7 +8,7 @@ export {
   apiValidationErrorTransportSchema,
   fastifyDefaultErrorTransportSchema,
   STANDARD_ERROR_STATUS_CODES,
-  createTransportResponseSchema,
+  buildTransportResponseSchema,
   withStandardErrorResponses
 } from "./validators/errorResponses.js";
 export { validateOperationSection } from "./validators/operationValidation.js";
@@ -49,14 +49,14 @@ export {
   mapTransportQueryKeyToPlainKey,
   encodeJsonApiResourceQueryObject,
   decodeJsonApiResourceQueryObject,
-  createJsonApiResourceQueryTransportSchema
+  buildJsonApiResourceQueryTransportSchema
 } from "./validators/jsonApiQueryTransport.js";
 export { decodeJsonApiResourceResponse } from "./clientRuntime/jsonApiResourceTransport.js";
 export {
   JSON_API_ERROR_DOCUMENT_SCHEMA,
-  createJsonApiResourceObjectTransportSchema,
-  createJsonApiResourceRequestBodyTransportSchema,
-  createJsonApiResourceSuccessTransportSchema,
+  buildJsonApiResourceObjectTransportSchema,
+  buildJsonApiResourceRequestBodyTransportSchema,
+  buildJsonApiResourceSuccessTransportSchema,
   withJsonApiErrorResponses
 } from "./validators/jsonApiResourceSchemas.js";
 export {

@@ -30,7 +30,7 @@ function resolveErrorStatus(error) {
 
 /**
  * True when the error carries only the transport's own wording (a network
- * failure or the status-only message createHttpError falls back to), so a
+ * failure or the status-only message buildHttpError falls back to), so a
  * caller's specific fallback copy is more useful than the message.
  */
 function isGenericHttpErrorMessage(error) {
@@ -47,12 +47,12 @@ function isGenericHttpErrorMessage(error) {
   return status != null && status >= 400 && normalizedMessage === genericHttpErrorMessage(status);
 }
 
-function createHttpError(response, data = {}) {
+function buildHttpError(response, data = {}) {
   const payload = isRecord(data) ? data : {};
   const message = standardErrorMessage(payload);
   const jsonApiPayload = message ? null : buildJsonApiClientErrorPayload(payload);
   if (jsonApiPayload) {
-    return createHttpError(response, jsonApiPayload);
+    return buildHttpError(response, jsonApiPayload);
   }
 
   const error = new Error(message || genericHttpErrorMessage(response.status));
@@ -85,7 +85,7 @@ function createHttpError(response, data = {}) {
   return error;
 }
 
-function createNetworkError(cause) {
+function buildNetworkError(cause) {
   const error = new Error("Network request failed.");
   error.status = 0;
   // Request recovery reads the cause's own code, so the text has a messageCode.
@@ -99,7 +99,7 @@ function createNetworkError(cause) {
 }
 
 export {
-  createHttpError,
-  createNetworkError,
+  buildHttpError,
+  buildNetworkError,
   isGenericHttpErrorMessage
 };

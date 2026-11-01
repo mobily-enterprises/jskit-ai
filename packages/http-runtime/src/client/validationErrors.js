@@ -6,7 +6,7 @@ import { resolveFieldErrors, normalizeFieldErrors } from "../shared/support/fiel
  * code validation_failed (whose English is "Validation failed.") and, for fields
  * whose sentence has one, details.fieldErrorCodes.
  */
-function createValidationFailure({
+function buildValidationFailure({
   error = "Validation failed.",
   code = "validation_failed",
   fieldErrors = {},
@@ -28,5 +28,5 @@ function createValidationFailure({
 export {
   normalizeFieldErrors,
   resolveFieldErrors,
-  createValidationFailure
+  buildValidationFailure
 };

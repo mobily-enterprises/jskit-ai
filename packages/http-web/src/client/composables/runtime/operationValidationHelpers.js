@@ -1,4 +1,4 @@
-import { createValidationFailure } from "@jskit-ai/http-runtime/client";
+import { buildValidationFailure } from "@jskit-ai/http-runtime/client";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { toUiFieldErrors } from "../support/errorMessageHelpers.js";
 import { useJskitText } from "../../i18n.js";
@@ -36,7 +36,7 @@ function validateOperationInput({
 
     const fieldErrorCodes = error.fieldErrorCodes || error.details?.fieldErrorCodes;
     const failure = {
-      ...createValidationFailure({
+      ...buildValidationFailure({
         error: text(validationMessage) || t("jskit.http.feedback.validationFailed"),
         code: "validation_failed",
         fieldErrors: error?.fieldErrors

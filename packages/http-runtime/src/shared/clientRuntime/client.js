@@ -1,4 +1,4 @@
-import { createHttpError, createNetworkError } from "./errors.js";
+import { buildHttpError, buildNetworkError } from "./errors.js";
 import { hasHeader, setHeaderIfMissing } from "./headers.js";
 import { shouldRetryForCsrfFailure } from "./retry.js";
 import { appendQueryString, isRecord } from "@jskit-ai/kernel/shared/support";
@@ -205,7 +205,7 @@ function createHttpClient({
       });
     } catch (cause) {
       signal.throwIfAborted();
-      throw createNetworkError(cause);
+      throw buildNetworkError(cause);
     }
 
     const { data } = await parseJsonSafely(response, signal);
@@ -213,7 +213,7 @@ function createHttpClient({
     updateCsrfTokenFromPayload(data);
 
     if (!response.ok) {
-      throw createHttpError(response, data);
+      throw buildHttpError(response, data);
     }
 
     return data;
@@ -423,7 +423,7 @@ function createHttpClient({
       return retryRequest();
     }
 
-    const error = createHttpError(response, data);
+    const error = buildHttpError(response, data);
     if (Number(response.status) === 401) {
       await onUnauthorized(error);
     }
@@ -511,7 +511,7 @@ function createHttpClient({
         if (cause?.name === "AbortError") {
           throw cause;
         }
-        const error = createNetworkError(cause);
+        const error = buildNetworkError(cause);
         await onFailure({
           url,
           method,
@@ -557,7 +557,7 @@ function createHttpClient({
       try {
         responseData = decodeJsonApiResourceDocument(result.data, transport);
       } catch (cause) {
-        const error = createNetworkError(cause);
+        const error = buildNetworkError(cause);
         error.message = "JSON:API response decoding failed.";
         await onFailure({
           url,
@@ -612,7 +612,7 @@ function createHttpClient({
           throw cause;
         }
 
-        throw createNetworkError(cause);
+        throw buildNetworkError(cause);
       },
       retryRequest(nextState) {
         return requestStream(url, requestOptions, handlers, nextState);

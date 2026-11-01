@@ -1,6 +1,6 @@
 import { checkRouteVisibility } from "@jskit-ai/kernel/shared/support/visibility";
 import {
-  createTransportResponseSchema,
+  buildTransportResponseSchema,
   withStandardErrorResponses
 } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
 import { routeParamsValidator } from "@jskit-ai/workspaces-core/server/validators/routeParamsValidator";
@@ -27,7 +27,7 @@ const REWARDED_ROUTE_SURFACE = "app";
 
 function buildWorkflowResponses(outputValidator) {
   return withStandardErrorResponses({
-    200: createTransportResponseSchema(
+    200: buildTransportResponseSchema(
       outputValidator.schema.toJsonSchema({
         mode: outputValidator.mode
       })

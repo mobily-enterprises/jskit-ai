@@ -3,11 +3,11 @@ export { createTransientRetryHttpClient } from "./transientRetryHttpClient.js";
 export {
   normalizeFieldErrors,
   resolveFieldErrors,
-  createValidationFailure
+  buildValidationFailure
 } from "./validationErrors.js";
 export {
-  createHttpError,
-  createNetworkError,
+  buildHttpError,
+  buildNetworkError,
   isGenericHttpErrorMessage
 } from "../shared/clientRuntime/errors.js";
 export { DEFAULT_RETRYABLE_CSRF_ERROR_CODES, shouldRetryForCsrfFailure } from "../shared/clientRuntime/retry.js";

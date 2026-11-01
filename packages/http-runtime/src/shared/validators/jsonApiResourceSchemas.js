@@ -3,7 +3,7 @@ import { resolveSchemaTransportSchemaDefinition } from "@jskit-ai/kernel/shared/
 import { resolveJsonApiTransportTypes } from "./jsonApiTransport.js";
 import {
   STANDARD_ERROR_STATUS_CODES,
-  createTransportResponseSchema
+  buildTransportResponseSchema
 } from "./errorResponses.js";
 import { createEmbeddableTransportSchemaDocument } from "./transportSchemaEmbedding.js";
 
@@ -312,7 +312,7 @@ function buildJsonApiRelationshipsTransportSchema(entries = [], {
  * @param {boolean} [options.relationshipMembersRequired]
  * @param {boolean} [options.allowSparseFields]
  */
-function createJsonApiResourceObjectTransportSchema({
+function buildJsonApiResourceObjectTransportSchema({
   type = "",
   attributes,
   requireId = true,
@@ -339,7 +339,7 @@ function createJsonApiResourceObjectTransportSchema({
 }
 
 /**
- * The resource object schema of createJsonApiResourceObjectTransportSchema, for a type
+ * The resource object schema of buildJsonApiResourceObjectTransportSchema, for a type
  * already resolved.
  * @param {object} options
  * @param {string} options.normalizedType
@@ -425,7 +425,7 @@ function buildResourceObjectTransportSchema({
  * @param {string[]} [options.excludeAttributeKeys]
  * @param {object[]} [options.relationshipEntries]
  */
-function createJsonApiResourceRequestBodyTransportSchema({
+function buildJsonApiResourceRequestBodyTransportSchema({
   type = "",
   attributes,
   requireId = false,
@@ -499,7 +499,7 @@ function buildJsonApiMetaSuccessTransportSchema({
  * @param {string[]} [options.excludeAttributeKeys]
  * @param {object[]} [options.relationshipEntries]
  */
-function createJsonApiResourceSuccessTransportSchema({
+function buildJsonApiResourceSuccessTransportSchema({
   type = "",
   attributes,
   kind = "record",
@@ -598,7 +598,7 @@ function withJsonApiErrorResponses(successResponses, { includeValidation400 = fa
       continue;
     }
 
-    responses[statusCode] = createTransportResponseSchema(JSON_API_ERROR_DOCUMENT_SCHEMA);
+    responses[statusCode] = buildTransportResponseSchema(JSON_API_ERROR_DOCUMENT_SCHEMA);
   }
 
   return responses;
@@ -607,8 +607,8 @@ function withJsonApiErrorResponses(successResponses, { includeValidation400 = fa
 export {
   JSON_API_ERROR_DOCUMENT_SCHEMA,
   resolveRouteTypes,
-  createJsonApiResourceObjectTransportSchema,
-  createJsonApiResourceRequestBodyTransportSchema,
-  createJsonApiResourceSuccessTransportSchema,
+  buildJsonApiResourceObjectTransportSchema,
+  buildJsonApiResourceRequestBodyTransportSchema,
+  buildJsonApiResourceSuccessTransportSchema,
   withJsonApiErrorResponses
 };
