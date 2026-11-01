@@ -8,7 +8,7 @@ function requireDocument(document = null) {
   return document;
 }
 
-/** @param {{ repository: import("../types.js").CrudJsonApiRepository }} dependencies */
+/** @param {{ repository: import("../types.js").CrudRepository }} dependencies */
 function createCrudJsonApiService({ repository }) {
   async function queryDocuments(query = {}, options = {}) {
     return returnJsonApiDocument(await repository.queryDocuments(query, {

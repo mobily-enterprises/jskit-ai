@@ -141,8 +141,8 @@ function normalizeAdditionalActions(definitions, { namespace, surface, permissio
  * @param {object} dependencies
  * @param {string} dependencies.namespace
  * @param {import("../types.js").CrudResourceDefinition} dependencies.resource
- * @param {import("../types.js").CrudJsonApiRepository} dependencies.repository
- * @param {import("../types.js").CrudJsonApiService} dependencies.service
+ * @param {import("../types.js").CrudRepository} dependencies.repository
+ * @param {import("../types.js").CrudService} dependencies.service
  * @param {string} dependencies.surface
  * @param {(operation: string) => object} dependencies.permissionForOperation Also answers for each custom action's name.
  * @param {readonly string[]} dependencies.operations

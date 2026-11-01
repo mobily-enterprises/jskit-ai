@@ -59,7 +59,7 @@ Local functions
 ### `src/server/service.js`
 Exports
 - `createService({ authorizeGrant, rewardedRulesRepository, rewardedProviderConfigsRepository, rewardedWatchSessionsRepository, rewardedUnlockReceiptsRepository })`
-- `type CrudJsonApiRepository`
+- `type CrudRepository`
 Local functions
 - `resolveActionUser(context, input)`
 - `normalizeRecordList(document = null)`

@@ -354,8 +354,8 @@ Local functions
 ### `src/server/types.js`
 Exports
 - `type CrudResourceDefinition`
-- `type CrudJsonApiRepository`
-- `type CrudJsonApiService`
+- `type CrudRepository`
+- `type CrudService`
 - `type CrudResourceApi`
 - `type CrudCustomActionInvocation`
 - `type CrudRecordRepository`

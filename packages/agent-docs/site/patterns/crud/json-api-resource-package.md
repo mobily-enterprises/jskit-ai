@@ -40,7 +40,8 @@ from a generator questionnaire or treat a live table as the sole contract.
 - The package exports the type of the capability it provides:
   `src/server/types.js` declares `AppBooks` (for `app.books`) as crud-core's
   `CrudResourceApi`, exported as `./server/types`. A feature that requires
-  `app.books` names that type in a JSDoc `@param`.
+  `app.books` names that type in a JSDoc `@param`; code given only its service
+  or repository names crud-core's `CrudService` or `CrudRepository`.
 - Code the declaration adds follows [typed features](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/site/guide/framework/typed-features.md):
   `decorateService`, `decorateRepository`, `operationLifecycle` hooks and named
   `actions` call the collaborators they receive directly, with no `typeof`

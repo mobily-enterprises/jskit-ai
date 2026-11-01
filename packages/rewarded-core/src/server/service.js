@@ -148,7 +148,7 @@ function isFutureDate(value = null, now = new Date()) {
   return !!date && date.getTime() > now.getTime();
 }
 
-/** @typedef {import("@jskit-ai/crud-core/server/types").CrudJsonApiRepository} CrudJsonApiRepository */
+/** @typedef {import("@jskit-ai/crud-core/server/types").CrudRepository} CrudRepository */
 
 /**
  * The Rewarded gate workflow over its four resources' repositories and the
@@ -156,10 +156,10 @@ function isFutureDate(value = null, now = new Date()) {
  * `{ context }`, the action context.
  * @param {object} dependencies
  * @param {import("./types.js").RewardedGrantPolicy["authorizeGrant"]} dependencies.authorizeGrant
- * @param {CrudJsonApiRepository} dependencies.rewardedRulesRepository
- * @param {CrudJsonApiRepository} dependencies.rewardedProviderConfigsRepository
- * @param {CrudJsonApiRepository} dependencies.rewardedWatchSessionsRepository
- * @param {CrudJsonApiRepository} dependencies.rewardedUnlockReceiptsRepository
+ * @param {CrudRepository} dependencies.rewardedRulesRepository
+ * @param {CrudRepository} dependencies.rewardedProviderConfigsRepository
+ * @param {CrudRepository} dependencies.rewardedWatchSessionsRepository
+ * @param {CrudRepository} dependencies.rewardedUnlockReceiptsRepository
  */
 function createService({
   authorizeGrant,
@@ -168,13 +168,13 @@ function createService({
   rewardedWatchSessionsRepository,
   rewardedUnlockReceiptsRepository
 }) {
-  /** @param {CrudJsonApiRepository} repository */
+  /** @param {CrudRepository} repository */
   async function queryFirst(repository, query, repositoryOptions) {
     const rows = normalizeRecordList(await repository.queryDocuments(query, repositoryOptions));
     return rows[0] || null;
   }
 
-  /** @param {CrudJsonApiRepository} repository */
+  /** @param {CrudRepository} repository */
   async function listRecords(repository, query, repositoryOptions) {
     return normalizeRecordList(await repository.queryDocuments(query, repositoryOptions));
   }

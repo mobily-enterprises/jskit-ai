@@ -6,8 +6,15 @@
  * @typedef {object} CrudResourceDefinition
  */
 
-/** @typedef {ReturnType<typeof import("./jsonApiModule/repository.js").createCrudJsonApiRepository>} CrudJsonApiRepository */
-/** @typedef {ReturnType<typeof import("./jsonApiModule/service.js").createCrudJsonApiService>} CrudJsonApiService */
+/**
+ * The JSON:API repository a CRUD feature provides as its capability's `repository`.
+ * @typedef {ReturnType<typeof import("./jsonApiModule/repository.js").createCrudJsonApiRepository>} CrudRepository
+ */
+
+/**
+ * The JSON:API service a CRUD feature provides as its capability's `service`.
+ * @typedef {ReturnType<typeof import("./jsonApiModule/service.js").createCrudJsonApiService>} CrudService
+ */
 
 /**
  * What a `defineCrudJsonApiFeature` feature provides under the capability its
@@ -16,8 +23,8 @@
  * of the feature's enabled operations.
  * @typedef {object} CrudResourceApi
  * @property {CrudResourceDefinition} resource
- * @property {CrudJsonApiRepository} repository
- * @property {CrudJsonApiService} service
+ * @property {CrudRepository} repository
+ * @property {CrudService} service
  */
 
 /**
@@ -26,13 +33,13 @@
  * and service, and each capability in the feature's `requires`, under its local
  * name. `Service` is the service decorateService returns, when it adds methods;
  * `Requires` holds the types of the required capabilities an action uses.
- * @template [Service=CrudJsonApiService]
+ * @template [Service=CrudService]
  * @template [Requires={}]
  * @typedef {{
  *   input: any,
  *   context: object,
  *   resource: CrudResourceDefinition,
- *   repository: CrudJsonApiRepository,
+ *   repository: CrudRepository,
  *   service: Service
  * } & Requires} CrudCustomActionInvocation
  */
