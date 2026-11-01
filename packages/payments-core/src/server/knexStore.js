@@ -79,7 +79,14 @@ function createKnexPaymentStore({ knex }) {
       return result;
     });
   }
-  return Object.freeze({ inspect, withAccount, bindCustomer, resolveCustomer, inspectCatalogue, withCatalogue });
+  return Object.freeze({
+    inspect,
+    withAccount,
+    bindCustomer,
+    resolveCustomer,
+    inspectCatalogue,
+    withCatalogue
+  });
 }
 
 export { createKnexPaymentStore };

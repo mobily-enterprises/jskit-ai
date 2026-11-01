@@ -27,7 +27,10 @@ function declaredProviderEntrypoints(packageEntry) {
         `Package ${packageEntry.packageId} runtime.server.providers[] export is invalid: ${exportName || "<missing>"}`
       );
     }
-    return Object.freeze({ entrypoint, exportName });
+    return Object.freeze({
+      entrypoint,
+      exportName
+    });
   });
 }
 

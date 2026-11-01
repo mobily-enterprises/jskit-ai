@@ -122,7 +122,22 @@ function createPaddlePaymentAdapter({ apiKey, webhookSecret, environment, priceB
   async function createPrice({ productId, amount, currency, interval }) {
     return client.prices.create({ productId, description: `${currency} ${amount} per ${interval}`, unitPrice: { amount: String(amount), currencyCode: currency }, billingCycle: { interval, frequency: 1 } });
   }
-  return Object.freeze({ validatePlan, verifyAccount, verifyEvent, eventIdentity, loadEvent, createCustomer, createCheckout, createPortal, readHistory, readProduct, createProduct, renameProduct, readPrice, createPrice });
+  return Object.freeze({
+    validatePlan,
+    verifyAccount,
+    verifyEvent,
+    eventIdentity,
+    loadEvent,
+    createCustomer,
+    createCheckout,
+    createPortal,
+    readHistory,
+    readProduct,
+    createProduct,
+    renameProduct,
+    readPrice,
+    createPrice
+  });
 }
 
 export { createPaddlePaymentAdapter };

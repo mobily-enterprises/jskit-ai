@@ -17,7 +17,10 @@ function createAuthRouteVisibilityResolver() {
     };
   }
 
-  return Object.freeze({ resolverId: "auth.policy.visibility", resolve });
+  return Object.freeze({
+    resolverId: "auth.policy.visibility",
+    resolve
+  });
 }
 
 export { createAuthRouteVisibilityResolver };

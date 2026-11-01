@@ -21,7 +21,11 @@ function createAuthWeb({ authService, env }) {
   const routes = buildRoutes(controller, {
     includeDevLoginAs: service.isDevLoginAsAvailable()
   });
-  return Object.freeze({ controller, routes: Object.freeze(routes), service });
+  return Object.freeze({
+    controller,
+    routes: Object.freeze(routes),
+    service
+  });
 }
 
 export { createAuthWeb };

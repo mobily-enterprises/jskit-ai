@@ -10,6 +10,7 @@ import { noFactorySpread } from "./rules/noFactorySpread.js";
 import { noModuleRegistry } from "./rules/noModuleRegistry.js";
 import { noSlotSetter } from "./rules/noSlotSetter.js";
 import { oneLineAction } from "./rules/oneLineAction.js";
+import { onePropertyPerLine } from "./rules/onePropertyPerLine.js";
 import { requiredCollaborators } from "./rules/requiredCollaborators.js";
 import { typedDependencies } from "./rules/typedDependencies.js";
 
@@ -30,7 +31,8 @@ const jskitPlugin = Object.freeze({
     "action-execute-shape": actionExecuteShape,
     "no-factory-spread": noFactorySpread,
     "frozen-factory-result": frozenFactoryResult,
-    "no-optional-after-default": noOptionalAfterDefault
+    "no-optional-after-default": noOptionalAfterDefault,
+    "one-property-per-line": onePropertyPerLine
   })
 });
 

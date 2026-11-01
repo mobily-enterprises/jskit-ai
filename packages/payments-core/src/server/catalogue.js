@@ -119,7 +119,11 @@ function createPaymentCatalogue({ store, adapter, scope, configuration }) {
     await finish(pending, { id: providerId });
     return { pending: false };
   }
-  return Object.freeze({ preview, publish, recover });
+  return Object.freeze({
+    preview,
+    publish,
+    recover
+  });
 }
 
 export { createPaymentCatalogue };

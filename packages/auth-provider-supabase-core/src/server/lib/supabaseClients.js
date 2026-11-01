@@ -20,7 +20,10 @@ function createSupabaseClients(config) {
     return createClient(config.supabaseUrl, config.supabasePublishableKey, buildSupabaseServerClientOptions());
   }
 
-  return Object.freeze({ ensureConfigured, createSupabaseClient });
+  return Object.freeze({
+    ensureConfigured,
+    createSupabaseClient
+  });
 }
 
 export { createSupabaseClients };

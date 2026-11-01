@@ -202,7 +202,10 @@ function createOAuthClients({ logger }) {
     return { provider: provider.id, providerSubject: String(identity.subject), email, name: identity.name.slice(0, 160) };
   }
 
-  return Object.freeze({ authorizationUrl, verifiedIdentity });
+  return Object.freeze({
+    authorizationUrl,
+    verifiedIdentity
+  });
 }
 
 export { createOAuthClients, resolveOAuthProviders };

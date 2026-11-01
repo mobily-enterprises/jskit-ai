@@ -27,7 +27,10 @@ function normalizeEvent(value) {
   }
   const type = String(value.type || "").trim();
   if (!type) throw new TypeError("Published event type is required.");
-  return Object.freeze({ ...value, type });
+  return Object.freeze({
+    ...value,
+    type
+  });
 }
 
 function createEventRuntime() {

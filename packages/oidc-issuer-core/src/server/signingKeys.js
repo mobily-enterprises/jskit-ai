@@ -76,7 +76,14 @@ function createSigningKeyStore({ knex, secret, now }) {
     return rows.map((row) => `${row.kid}:${row.state}`).join(",");
   }
 
-  return Object.freeze({ ensureActiveKey, rotate, retireExpired, jwks, summary, fingerprint });
+  return Object.freeze({
+    ensureActiveKey,
+    rotate,
+    retireExpired,
+    jwks,
+    summary,
+    fingerprint
+  });
 }
 
 export { createSigningKeyStore };

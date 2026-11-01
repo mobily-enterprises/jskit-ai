@@ -36,7 +36,10 @@ function createCredentialProtection({ keys, activeKeyId }) {
     }
   }
 
-  return Object.freeze({ seal, open });
+  return Object.freeze({
+    seal,
+    open
+  });
 }
 
 export { createCredentialProtection };

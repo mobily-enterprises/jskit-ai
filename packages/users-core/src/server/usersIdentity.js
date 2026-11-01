@@ -19,7 +19,10 @@ function createUsersIdentity({ jsonRestApi, extensions }) {
     userSettingsRepository: repositories.userSettings,
     resolveLifecycleContributors: extensions.profileSyncLifecycleContributors
   });
-  return Object.freeze({ repositories, profileProjector });
+  return Object.freeze({
+    repositories,
+    profileProjector
+  });
 }
 
 export { createUsersIdentity };

@@ -374,7 +374,11 @@ function createCrudAssistantExtension(resource, namespace, operation) {
     });
   }
 
-  return Object.freeze({ description: actionLabel, output, transformResult });
+  return Object.freeze({
+    description: actionLabel,
+    output,
+    transformResult
+  });
 }
 
 export {

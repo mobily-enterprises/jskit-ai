@@ -845,7 +845,10 @@ a named default, the kernel's `resolveActorId(context)` for who asked and a
 `**/src/server/**` in `baseConfig`. `typedFeaturesConfig(globs)` makes them
 errors for the globs an application lists. The application foundations list
 `packages/*/src/server/**`, `server/**` and `server.js`, so new server code is
-held to the rules from the start.
+held to the rules from the start. `formatterConfig(globs)`, from the same
+package, is an application's one formatter config: width 140, semicolons,
+double quotes, no trailing commas and one property per line once an object's
+properties span lines.
 
 | Rule | Reports |
 | --- | --- |
@@ -863,6 +866,7 @@ held to the rules from the start.
 | `jskit/no-factory-spread` | a `create*()` result spread into a factory's API or a token value |
 | `jskit/frozen-factory-result` | a `create*` result that is not frozen, or a member defined inline in it |
 | `jskit/no-optional-after-default` | `options?.` or a second `options || {}` on a parameter that has a default |
+| `jskit/one-property-per-line` | two properties on one line in a returned `Object.freeze({ … })` or a feature's `requires` / `optional` / `provides` map (`eslint --fix` splits them) |
 | `max-lines`, `max-lines-per-function` | files over 750 lines, functions over 600 |
 
 The rules see shapes, not intent: what they cannot see under

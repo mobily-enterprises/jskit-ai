@@ -44,7 +44,11 @@ function createRateLimiter({ knex, now }) {
     return knex(RATE_LIMITS_TABLE).where("window_ends_at", "<=", now()).delete();
   }
 
-  return Object.freeze({ signIn, email, deleteExpired });
+  return Object.freeze({
+    signIn,
+    email,
+    deleteExpired
+  });
 }
 
 export { createRateLimiter };

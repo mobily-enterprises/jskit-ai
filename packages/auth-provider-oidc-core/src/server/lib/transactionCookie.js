@@ -37,7 +37,10 @@ function createTransactionSealer({ secret, now = Date.now }) {
     }
   }
 
-  return Object.freeze({ open, seal });
+  return Object.freeze({
+    open,
+    seal
+  });
 }
 
 function transactionCookieOptions(secure, maxAge = TRANSACTION_TTL_SECONDS) {

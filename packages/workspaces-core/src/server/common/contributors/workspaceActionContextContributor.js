@@ -79,7 +79,10 @@ function createWorkspaceActionContextContributor({
     return contribution;
   }
 
-  return Object.freeze({ contributorId, contribute });
+  return Object.freeze({
+    contributorId,
+    contribute
+  });
 }
 
 export { createWorkspaceActionContextContributor };

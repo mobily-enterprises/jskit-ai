@@ -23,12 +23,12 @@ const ACTIONS_FILE = /(?:^|[^A-Za-z])[Aa]ctions?\.m?js$|Actions?\.m?js$/u;
 function createReporter(context, ruleName) {
   const lines = context.sourceCode.lines;
   const names = [ruleName, `jskit/${ruleName}`];
-  return function report(node, finding, messageId, data) {
+  return function report(node, finding, messageId, data, fix = null) {
     const previous = lines[node.loc.start.line - 2] || "";
     if ([finding, ...names].some((name) => previous.includes(`readable-check: allow ${name}`))) {
       return;
     }
-    context.report({ node, messageId, data });
+    context.report({ node, messageId, data, ...(fix ? { fix } : {}) });
   };
 }
 

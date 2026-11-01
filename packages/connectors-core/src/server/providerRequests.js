@@ -278,7 +278,14 @@ function createProviderRequests({ fetchImpl, now, resolveReference }) {
     return grant;
   }
 
-  return Object.freeze({ tokenRequestOptions, request, tokensFrom, serviceAccountGrant, verifyOAuthConnection, clientCredentialsGrant });
+  return Object.freeze({
+    tokenRequestOptions,
+    request,
+    tokensFrom,
+    serviceAccountGrant,
+    verifyOAuthConnection,
+    clientCredentialsGrant
+  });
 }
 
 export { connectionProvider, createProviderRequests, operationRequest, requireOperationScope, tokenResponse };

@@ -32,6 +32,10 @@ Exports
 Exports
 - `baseConfig`
 
+### `formatter.js`
+Exports
+- `formatterConfig(files, { ignores = [] } = {})`
+
 ### `index.js`
 Exports
 - `baseConfig`
@@ -39,6 +43,7 @@ Exports
 - `webConfig`
 - `vueConfig`
 - `typedFeaturesConfig`
+- `formatterConfig`
 - `jskitPlugin`
 
 ### `node.js`
@@ -176,6 +181,14 @@ Local functions
 - `executeOf(definition)`
 - `isCrudCustomAction(definition)`
 - `definitionLiteral(element)`
+
+### `plugin/rules/onePropertyPerLine.js`
+Exports
+- `onePropertyPerLine`
+Local functions
+- `calleeName(call)`
+- `checkedPlace(object)`
+- `splitObjectLines(sourceCode, object)`
 
 ### `plugin/rules/requiredCollaborators.js`
 Exports

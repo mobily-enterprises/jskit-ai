@@ -68,7 +68,11 @@ function createActionRouteScope(
     register(method, suffix, options, handler);
   }
 
-  return Object.freeze({ routeBase: scopeBase, actionRoute, serviceRoute });
+  return Object.freeze({
+    routeBase: scopeBase,
+    actionRoute,
+    serviceRoute
+  });
 }
 
 export { createActionRouteScope };

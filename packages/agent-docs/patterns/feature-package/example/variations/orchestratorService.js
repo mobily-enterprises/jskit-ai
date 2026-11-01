@@ -19,7 +19,10 @@ function createService() {
     };
   }
 
-  return Object.freeze({ getStatus, execute });
+  return Object.freeze({
+    getStatus,
+    execute
+  });
 }
 
 export { createService };

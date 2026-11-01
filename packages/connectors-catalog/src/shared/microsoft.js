@@ -7,8 +7,12 @@ function definition(id, name, description, permission, label, organizationOnly =
   const authority = organizationOnly ? "organizations" : "common";
   const audiences = organizationOnly ? ["organizations"] : ["common", "organizations", "consumers"];
   return Object.freeze({
-    id, name, description, verificationFields,
-    accountModes: ["shared", "per-user", "assistant"], authenticationMethods: ["oauth2"],
+    id,
+    name,
+    description,
+    verificationFields,
+    accountModes: ["shared", "per-user", "assistant"],
+    authenticationMethods: ["oauth2"],
     scopes: [
       { value: permission, label, recommended: true },
       { value: "offline_access", label: "jskit.connectors.microsoft.scopes.offlineAccess.label", recommended: true }

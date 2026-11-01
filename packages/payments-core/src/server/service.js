@@ -158,7 +158,14 @@ function createPaymentService({ store, configuration, clock = Date.now }) {
     }));
   }
 
-  return Object.freeze({ inspect, requireFeature, grantCredits, debitCredits, refundDebit, reconcileEvent });
+  return Object.freeze({
+    inspect,
+    requireFeature,
+    grantCredits,
+    debitCredits,
+    refundDebit,
+    reconcileEvent
+  });
 }
 
 export { createPaymentService, PaymentError };

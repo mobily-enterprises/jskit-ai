@@ -64,7 +64,10 @@ function createKnexConnectionStore({ knex, protection }) {
     return knex("connector_authorization_attempts").where("expires_at", "<=", before).delete();
   }
 
-  return Object.freeze({ withConnection, pruneExpiredAttempts });
+  return Object.freeze({
+    withConnection,
+    pruneExpiredAttempts
+  });
 }
 
 export { createKnexConnectionStore };

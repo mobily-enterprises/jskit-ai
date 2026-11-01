@@ -26,7 +26,10 @@ function createProviderProfileProjector() {
     };
   }
 
-  return Object.freeze({ findByIdentity, syncIdentityProfile });
+  return Object.freeze({
+    findByIdentity,
+    syncIdentityProfile
+  });
 }
 
 /** Profile mode "provider" has no app users, so dev auth, which signs in as one, finds none. */

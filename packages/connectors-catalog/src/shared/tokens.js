@@ -2,8 +2,13 @@ import { createSchema } from "json-rest-schema";
 
 function definition(id, name, description, url, steps) {
   return Object.freeze({
-    id, name, description, accountModes: ["shared", "assistant"],
-    authenticationMethods: ["api-key"], scopes: [], setup: { url, steps }
+    id,
+    name,
+    description,
+    accountModes: ["shared", "assistant"],
+    authenticationMethods: ["api-key"],
+    scopes: [],
+    setup: { url, steps }
   });
 }
 
@@ -725,7 +730,6 @@ const clayDefinition = Object.freeze({
     ]),
   apiKeyReferenceLabel: "jskit.connectors.clay.apiKeyReferenceLabel"
 });
-
 const tokenDefinitions = Object.freeze([
   airtableDefinition, notionDefinition, brevoDefinition, elevenlabsDefinition, githubApiDefinition, apifyDefinition,
   calendlyDefinition, hubspotDefinition, linearDefinition, pipedriveDefinition, gitlabApiDefinition, tallyDefinition, contentfulDefinition, asanaDefinition,

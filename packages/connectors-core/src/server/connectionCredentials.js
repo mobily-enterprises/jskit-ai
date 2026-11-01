@@ -118,7 +118,12 @@ function createConnectionCredentials({ config, resolveReference }) {
     }
   }
 
-  return Object.freeze({ registrationFor, apiKeyFor, serviceAccountCredentialFor, envRefreshTokenFor });
+  return Object.freeze({
+    registrationFor,
+    apiKeyFor,
+    serviceAccountCredentialFor,
+    envRefreshTokenFor
+  });
 }
 
 export { createConnectionCredentials };

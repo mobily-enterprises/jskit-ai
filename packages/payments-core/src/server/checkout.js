@@ -136,7 +136,14 @@ function createPaymentCheckoutService({ adapter, store, payments, merchantScope,
       return facts;
     } });
   }
-  return Object.freeze({ account, history, checkout, portal, webhook, reconcilePending });
+  return Object.freeze({
+    account,
+    history,
+    checkout,
+    portal,
+    webhook,
+    reconcilePending
+  });
 }
 
 export { createPaymentCheckoutService };

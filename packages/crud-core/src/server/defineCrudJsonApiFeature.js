@@ -128,7 +128,10 @@ function resolveActionPermission(actionName, { access, workspaceScoped, permissi
     return explicitPermission;
   }
   if (typeof explicitPermission === "string" && explicitPermission.trim()) {
-    return Object.freeze({ require: "all", permissions: [explicitPermission.trim()] });
+    return Object.freeze({
+      require: "all",
+      permissions: [explicitPermission.trim()]
+    });
   }
   if (access === "public") {
     return Object.freeze({ require: "none" });

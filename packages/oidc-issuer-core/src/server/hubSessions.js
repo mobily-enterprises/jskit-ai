@@ -98,7 +98,10 @@ function createSettingStore({ knex }) {
       .merge();
   }
 
-  return Object.freeze({ get, set });
+  return Object.freeze({
+    get,
+    set
+  });
 }
 
 export { createHubSessionStore, createSettingStore, hubSessionCookieName };

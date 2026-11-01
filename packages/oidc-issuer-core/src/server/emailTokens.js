@@ -40,7 +40,11 @@ function createEmailTokenStore({ knex, now }) {
     return table().where("expires_at", "<=", now()).delete();
   }
 
-  return Object.freeze({ create, consume, deleteExpired });
+  return Object.freeze({
+    create,
+    consume,
+    deleteExpired
+  });
 }
 
 export { createEmailTokenStore };

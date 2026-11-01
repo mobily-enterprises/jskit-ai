@@ -182,7 +182,14 @@ async function createOidcIssuer({
     timer = null;
   }
 
-  return Object.freeze({ config, hub, mount, maintain: hub.maintain, rotateSigningKey: hub.rotateSigningKey, close });
+  return Object.freeze({
+    config,
+    hub,
+    mount,
+    maintain: hub.maintain,
+    rotateSigningKey: hub.rotateSigningKey,
+    close
+  });
 }
 
 export { HUB_GLOBAL_PATHS, createOidcIssuer };

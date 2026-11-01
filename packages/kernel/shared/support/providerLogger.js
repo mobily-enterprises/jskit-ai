@@ -19,7 +19,12 @@ function createProviderLogger(logger, { debugEnabled = false } = {}) {
       info(...args);
     }
   }
-  return Object.freeze({ debug, info, warn, error });
+  return Object.freeze({
+    debug,
+    info,
+    warn,
+    error
+  });
 }
 
 export { createProviderLogger };

@@ -25,7 +25,10 @@ function normalizeResolver({ id, resolve } = {}) {
   if (typeof resolve !== "function") {
     throw new TypeError(`HTTP visibility resolver "${resolverId}" requires resolve().`);
   }
-  return Object.freeze({ id: resolverId, resolve });
+  return Object.freeze({
+    id: resolverId,
+    resolve
+  });
 }
 
 /**

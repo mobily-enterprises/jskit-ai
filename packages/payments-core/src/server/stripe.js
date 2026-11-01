@@ -142,7 +142,22 @@ function createStripePaymentAdapter({ apiKey, webhookSecret, environment, provid
     await verifyAccount();
     return client.prices.create({ product: productId, unit_amount: amount, currency: currency.toLowerCase(), recurring: { interval } }, { idempotencyKey: requestId });
   }
-  return Object.freeze({ validatePlan, verifyAccount, verifyEvent, eventIdentity, loadEvent, createCustomer, createCheckout, createPortal, readHistory, readProduct, createProduct, renameProduct, readPrice, createPrice });
+  return Object.freeze({
+    validatePlan,
+    verifyAccount,
+    verifyEvent,
+    eventIdentity,
+    loadEvent,
+    createCustomer,
+    createCheckout,
+    createPortal,
+    readHistory,
+    readProduct,
+    createProduct,
+    renameProduct,
+    readPrice,
+    createPrice
+  });
 }
 
 export { createStripePaymentAdapter };

@@ -26,7 +26,10 @@ function createAuthActionContextContributor() {
     return contribution;
   }
 
-  return Object.freeze({ contributorId: "auth.policy.request-context", contribute });
+  return Object.freeze({
+    contributorId: "auth.policy.request-context",
+    contribute
+  });
 }
 
 export { createAuthActionContextContributor };

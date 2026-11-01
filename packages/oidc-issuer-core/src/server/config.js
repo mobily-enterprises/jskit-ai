@@ -108,7 +108,11 @@ function resolveMail(env, { isProduction }) {
       "Set OIDC_HUB_EMAIL_FROM and either RESEND_API_KEY or SMTP_URL so the hub can send confirmation and recovery emails."
     );
   }
-  return Object.freeze({ from, resendApiKey, smtpUrl });
+  return Object.freeze({
+    from,
+    resendApiKey,
+    smtpUrl
+  });
 }
 
 function resolveGoogle(env) {

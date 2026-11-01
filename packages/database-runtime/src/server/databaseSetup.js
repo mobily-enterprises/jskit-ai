@@ -9,7 +9,10 @@ function normalizeMigrationResult(result) {
   const migrations = Array.isArray(migrationValues)
     ? migrationValues.map((value) => String(value || "").trim()).filter(Boolean)
     : [];
-  return Object.freeze({ batch, migrations: Object.freeze(migrations) });
+  return Object.freeze({
+    batch,
+    migrations: Object.freeze(migrations)
+  });
 }
 
 /**
@@ -32,7 +35,10 @@ async function runDatabaseSetup({ knex, seed, appRoot = process.cwd(), environme
 
   const migrationResult = normalizeMigrationResult(await knex.migrate.latest());
   if (seed == null) {
-    return Object.freeze({ ...migrationResult, seeded: false });
+    return Object.freeze({
+      ...migrationResult,
+      seeded: false
+    });
   }
 
   await runInTransaction(knex, async (transaction) => {
@@ -43,7 +49,10 @@ async function runDatabaseSetup({ knex, seed, appRoot = process.cwd(), environme
     }));
   });
 
-  return Object.freeze({ ...migrationResult, seeded: true });
+  return Object.freeze({
+    ...migrationResult,
+    seeded: true
+  });
 }
 
 /**

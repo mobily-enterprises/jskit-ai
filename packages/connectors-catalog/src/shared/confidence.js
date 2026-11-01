@@ -7,7 +7,12 @@ const confidenceScopes = [
 
 function definition(id, name, description) {
   return Object.freeze({
-    id, name, description, accountModes: ["assistant"], authenticationMethods: ["oauth2"], scopes: confidenceScopes,
+    id,
+    name,
+    description,
+    accountModes: ["assistant"],
+    authenticationMethods: ["oauth2"],
+    scopes: confidenceScopes,
     setup: { url: "https://confidence.spotify.com/docs/sdks/mcp-servers", clientRegistrationEndpoint: "https://mcp.confidence.dev/register", steps: [
       "Use a Confidence account with access to the intended organisation. This assistant connection uses browser OAuth, not a flag client secret or management API token.",
       "Confirm the suggested callback is the route your application will serve. Choose Register client and connect to create a project-owned client and save its ID, secret and callback through project Env. Existing Env values are preserved. Manual users can send the displayed registration JSON with Content-Type application/json; CLI users can call registerConfidenceClient.",

@@ -11,7 +11,8 @@ const NOT_SERVER_SOURCE = Object.freeze([
 // The typed-features rules at one severity: collaborators arrive through
 // declared capabilities, typed where they are received and required, never
 // probed; slots are optional capabilities; actions are one line; one copy of
-// each helper per package; files under 750 lines and functions under 600.
+// each helper per package; one property per line in frozen results and token
+// maps; files under 750 lines and functions under 600.
 function typedFeaturesRules(severity) {
   return Object.freeze({
     "jskit/typed-dependencies": severity,
@@ -28,6 +29,7 @@ function typedFeaturesRules(severity) {
     "jskit/no-factory-spread": severity,
     "jskit/frozen-factory-result": severity,
     "jskit/no-optional-after-default": severity,
+    "jskit/one-property-per-line": severity,
     "max-lines": [severity, { max: 750 }],
     "max-lines-per-function": [severity, { max: 600, IIFEs: true }]
   });

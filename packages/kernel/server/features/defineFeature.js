@@ -26,7 +26,10 @@ function applyActionDefaults(actions, defaults, featureId) {
     if (!isRecord(value)) {
       throw new TypeError(`Feature "${featureId}" actions must contain action definition objects.`);
     }
-    return Object.freeze({ ...defaults, ...value });
+    return Object.freeze({
+      ...defaults,
+      ...value
+    });
   });
 }
 

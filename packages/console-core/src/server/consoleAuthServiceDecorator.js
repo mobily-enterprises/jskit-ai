@@ -70,7 +70,11 @@ function createConsoleAuthServiceDecorator({ consoleService }) {
     );
   }
 
-  return Object.freeze({ decoratorId: "console.core.authServiceDecorator", order: 0, decorateAuthService });
+  return Object.freeze({
+    decoratorId: "console.core.authServiceDecorator",
+    order: 0,
+    decorateAuthService
+  });
 }
 
 export { createConsoleAuthServiceDecorator };

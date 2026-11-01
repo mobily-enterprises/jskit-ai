@@ -368,7 +368,10 @@ function createLocalDbBackend({ knex, transactionManager }) {
     return transactionManager.inTransaction(async (trx) => callback(createTx(trx)));
   }
 
-  return Object.freeze({ tables: TABLES, withTransaction });
+  return Object.freeze({
+    tables: TABLES,
+    withTransaction
+  });
 }
 
 export { TABLES as LOCAL_AUTH_DB_TABLES, createLocalDbBackend };

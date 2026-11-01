@@ -111,7 +111,11 @@ function createAudienceContributors() {
     return rooms;
   }
 
-  return Object.freeze({ register, mayContribute, resolveActorRooms });
+  return Object.freeze({
+    register,
+    mayContribute,
+    resolveActorRooms
+  });
 }
 
 function applyAudiencePreset(preset, { event, rooms, flags, logger }) {

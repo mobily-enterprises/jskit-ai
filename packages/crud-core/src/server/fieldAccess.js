@@ -146,7 +146,11 @@ function createFieldAccessForRoleMatrix(matrix = {}, { context = "crudFieldAcces
     return resolveRoleMatrixPolicy(sourceMatrix, "writable", input);
   }
 
-  return Object.freeze({ readable, writable, writeMode });
+  return Object.freeze({
+    readable,
+    writable,
+    writeMode
+  });
 }
 
 /**

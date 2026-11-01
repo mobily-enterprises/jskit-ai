@@ -72,7 +72,10 @@ function createWorkspaceRouteVisibilityResolver({ workspaceService, workspaceMem
     });
   }
 
-  return Object.freeze({ resolverId: "workspaces.visibility", resolve });
+  return Object.freeze({
+    resolverId: "workspaces.visibility",
+    resolve
+  });
 }
 
 export { createWorkspaceRouteVisibilityResolver };

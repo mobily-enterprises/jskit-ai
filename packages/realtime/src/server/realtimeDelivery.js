@@ -21,7 +21,10 @@ function publicRealtimePayload(event) {
   if (payload != null && (typeof payload !== "object" || Array.isArray(payload))) {
     throw new TypeError("Realtime event payload must be an object when provided.");
   }
-  return Object.freeze({ ...(payload || {}), ...canonical });
+  return Object.freeze({
+    ...(payload || {}),
+    ...canonical
+  });
 }
 
 /**
@@ -193,7 +196,11 @@ function createRealtimeDelivery({ io, database, logger, authService, audiences: 
     }
   }
 
-  return Object.freeze({ start, stop, handle });
+  return Object.freeze({
+    start,
+    stop,
+    handle
+  });
 }
 
 /**

@@ -500,7 +500,20 @@ function createConnectionService({
     return { status: "cancelled" };
   }
 
-  return Object.freeze({ beginAuthorization, resumeAuthorization, completeAuthorization, cancelAuthorization, connectClientCredentials, connectServiceAccount, connectApiKey, connectWithoutCredentials, invoke, status, disconnect, authorizeAssistantAction });
+  return Object.freeze({
+    beginAuthorization,
+    resumeAuthorization,
+    completeAuthorization,
+    cancelAuthorization,
+    connectClientCredentials,
+    connectServiceAccount,
+    connectApiKey,
+    connectWithoutCredentials,
+    invoke,
+    status,
+    disconnect,
+    authorizeAssistantAction
+  });
 }
 
 export { createConnectionService };

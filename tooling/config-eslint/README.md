@@ -21,6 +21,39 @@ export default [
 - `nodeConfig`, `webConfig`: Node and browser globals.
 - `vueConfig`: `eslint-plugin-vue`'s recommended rules.
 
+## Formatter
+
+`formatterConfig(globs)` is the one formatter config of a JSKIT application, as
+errors, for the source files the globs select (tests are not formatted):
+
+```js
+// eslint.config.mjs
+import { baseConfig, formatterConfig, typedFeaturesConfig } from "@jskit-ai/config-eslint/server";
+
+const SERVER_SOURCES = ["packages/*/src/server/**", "packages/*/src/shared/**", "server/**", "server.js"];
+
+export default [
+  ...baseConfig,
+  ...typedFeaturesConfig(SERVER_SOURCES),
+  // Published upgrade scripts never change, so the formatter leaves them alone.
+  ...formatterConfig(SERVER_SOURCES, { ignores: ["packages/core/src/server/upgrades/**"] })
+];
+```
+
+- Width 140 for code, comments and JSDoc prose. Strings, template literals,
+  regular expressions, URLs, `readable-check: allow` comments, ESLint
+  directives and JSDoc type tags may run past it, so long prose stays inline.
+- Semicolons, double quotes (template literals allowed), no trailing commas,
+  no space before a named function's parentheses, no repeated spaces.
+- A one-line body without braces stays beside its `if` (`if (!x) return null;`);
+  an `if`/`else` chain braces all its bodies or none, and a line holds at most
+  two statements.
+- An object whose properties span lines puts each property on its own line,
+  with its braces on their own lines; a call whose arguments span lines breaks
+  after `(` and before `)`.
+
+`eslint --fix` fixes all of these except the width and the statements per line.
+
 ## Typed features
 
 A feature receives every collaborator through its declared capabilities, typed
@@ -43,6 +76,7 @@ code that does not:
 | `jskit/no-factory-spread` | a `create*()` result spread into a factory's frozen API or a `setup()` token value; a `decorateService`/`decorateRepository` may spread the CRUD service or repository, and data may be spread |
 | `jskit/no-optional-after-default` | `x?.` or a second `x || {}` / `x ?? []` on a parameter that already has a present default (`options = {}`, `{ env = {} } = {}`, `items = []`, `name = ""`), so the value is never absent where it is read; a parameter that may be null takes no default and keeps its `?.` |
 | `jskit/frozen-factory-result` | a `create*` factory that returns behaviour in an object that is not `Object.freeze`d, or defines a member inline (a method or function expression) instead of naming an inner function; a factory returning plain data and an action definition are left alone |
+| `jskit/one-property-per-line` | two properties on one line in the `Object.freeze({ … })` a `return` statement returns, or in the `requires`, `optional` or `provides` map of a `defineFeature`/`defineProvider` call; `eslint --fix` breaks the object after `{`, after each `,` and before `}` |
 | `max-lines`, `max-lines-per-function` | files over 750 lines, functions over 600 |
 
 `baseConfig` reports them as warnings, so adopting a new version does not fail

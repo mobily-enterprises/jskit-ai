@@ -264,7 +264,10 @@ function createHooksToCollectChildren(options = {}) {
     return attachChildren(record, children, ctx);
   }
 
-  return Object.freeze({ afterQuery, transformReturnedRecord });
+  return Object.freeze({
+    afterQuery,
+    transformReturnedRecord
+  });
 }
 
 export { createHooksToCollectChildren };

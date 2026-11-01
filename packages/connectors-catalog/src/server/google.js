@@ -51,9 +51,12 @@ function googleRead(scopes, fields, destination, validateResult) {
 
 function googleProvider(definition, origin, checkOperation, operations) {
   return Object.freeze({
-    ...definition, oauth, apiOrigins: [origin],
+    ...definition,
+    oauth,
+    apiOrigins: [origin],
     authorizationParameters: { access_type: "offline", prompt: "consent" },
-    checkOperation, operations
+    checkOperation,
+    operations
   });
 }
 function googleFileVerification(get, field) {

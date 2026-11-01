@@ -10,7 +10,12 @@ const oauth = Object.freeze({ issuer: origin, authorization_endpoint: `${origin}
 
 function provider(definition, path) {
   return Object.freeze({
-    ...definition, oauth, oauthResource: `${origin}/mcp`, apiOrigins: [origin], checkOperation: "tools.list", exchange: exchangeMcp,
+    ...definition,
+    oauth,
+    oauthResource: `${origin}/mcp`,
+    apiOrigins: [origin],
+    checkOperation: "tools.list",
+    exchange: exchangeMcp,
     operations: Object.fromEntries(Object.entries(mcpOperations(() => `${origin}/mcp/${path}`)).map(([name, operation]) => [name, { ...operation, scopes: ["openid"] }]))
   });
 }

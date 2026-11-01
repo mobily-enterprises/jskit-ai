@@ -23,7 +23,11 @@ function createPriceBindings({ priceBindings, historicalPriceBindings = {}, inva
     if (matches.length !== 1) invalid();
     return matches[0][0];
   }
-  return Object.freeze({ validatePlan, priceFor, planFor });
+  return Object.freeze({
+    validatePlan,
+    priceFor,
+    planFor
+  });
 }
 
 export { createPriceBindings };

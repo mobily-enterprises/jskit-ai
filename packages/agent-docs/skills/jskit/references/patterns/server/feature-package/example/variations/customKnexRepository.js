@@ -30,7 +30,11 @@ function createRepository({ knex }) {
     };
   }
 
-  return Object.freeze({ withTransaction, getStatus, execute });
+  return Object.freeze({
+    withTransaction,
+    getStatus,
+    execute
+  });
 }
 
 export { createRepository };

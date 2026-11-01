@@ -86,7 +86,11 @@ function createGoogleSignIn({ google, issuer, Adapter, endpoints, fetchImpl }) {
     };
   }
 
-  return Object.freeze({ redirectUri, start, finish });
+  return Object.freeze({
+    redirectUri,
+    start,
+    finish
+  });
 }
 
 export { GOOGLE_ENDPOINTS, createGoogleSignIn };

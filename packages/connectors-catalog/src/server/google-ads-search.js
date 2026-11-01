@@ -138,6 +138,16 @@ function createGoogleAdsSearchService({ connections, configuration, context, int
   }
   const pause = id => invoke("campaigns.setStatus", { customerId: plan().customerId, campaignId: campaignId(id), status: "PAUSED" });
   const report = async () => ({ campaigns: await query(plan().customerId, "SELECT campaign.id, campaign.name, campaign.status, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions FROM campaign WHERE segments.date DURING LAST_30_DAYS AND campaign.advertising_channel_type = 'SEARCH' LIMIT 50") });
-  return Object.freeze({ discover, targets, preview, create, createConversion, campaign, launch, pause, report });
+  return Object.freeze({
+    discover,
+    targets,
+    preview,
+    create,
+    createConversion,
+    campaign,
+    launch,
+    pause,
+    report
+  });
 }
 export { googleAdsSearchOperations, createGoogleAdsSearchService };

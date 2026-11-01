@@ -54,7 +54,10 @@ function createMailer({ mail, logger, isProduction, fetchImpl }) {
     logger.info({ to: message.to, subject: message.subject }, `Accounts hub email (not sent: no sender configured)\n${message.text}`);
   }
 
-  return Object.freeze({ configured: Boolean(mail.from && (mail.resendApiKey || mail.smtpUrl)), send });
+  return Object.freeze({
+    configured: Boolean(mail.from && (mail.resendApiKey || mail.smtpUrl)),
+    send
+  });
 }
 
 export { composeMessage, createMailer };
