@@ -86,7 +86,7 @@ function createAuthExtensions() {
     });
   }
 
-  // readable-check: allow setter-seam - cycle: workspaces.integrations requires auth.service
+  // readable-check: allow setter-seam - cycle: workspaces.integrations requires auth.service through workspaces.core and users.core
   function registerInvitationContextResolver(extension) {
     return register(invitationContextResolvers, extension, {
       idField: "resolverId",

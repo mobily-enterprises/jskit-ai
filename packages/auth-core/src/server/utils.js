@@ -2,9 +2,11 @@ import { normalizeReturnToPath as normalizeSharedReturnToPath } from "@jskit-ai/
 
 const HOST_ONLY_COOKIE_PREFIX = "__Host-";
 
-// Secure (HTTPS) cookies carry the __Host- prefix: the browser then requires
-// Secure, Path=/ and no Domain, so a sibling host under the same parent domain
-// can neither set nor overwrite them (no cookie tossing or session fixation).
+/**
+ * Secure (HTTPS) cookies carry the __Host- prefix: the browser then requires
+ * Secure, Path=/ and no Domain, so a sibling host under the same parent domain
+ * can neither set nor overwrite them (no cookie tossing or session fixation).
+ */
 export function hostOnlyCookieName(name, secure) {
   const cookieName = String(name || "").trim();
   return secure && !cookieName.startsWith(HOST_ONLY_COOKIE_PREFIX) ? `${HOST_ONLY_COOKIE_PREFIX}${cookieName}` : cookieName;

@@ -133,6 +133,7 @@ Exports
 Local functions
 - `assertFunction(value, name)`
 - `ignorePolicyDenial()`
+- `resolveNoPolicyContext()`
 
 ### `src/server/lib/errors.js`
 Exports

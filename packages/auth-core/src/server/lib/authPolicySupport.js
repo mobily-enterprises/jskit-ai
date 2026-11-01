@@ -10,6 +10,11 @@ function assertFunction(value, name) {
 /** The onPolicyDenied default when an application passes none: a denial is not reported. */
 function ignorePolicyDenial() {}
 
+/** The resolveContext default when an application passes none: a request has no policy context. */
+function resolveNoPolicyContext() {
+  return null;
+}
+
 function assertAuthPolicyDeps(deps = {}) {
   const source = asObject(deps);
   const resolveActor = assertFunction(source.resolveActor, "resolveActor");
@@ -18,7 +23,7 @@ function assertAuthPolicyDeps(deps = {}) {
   return {
     resolveActor,
     // readable-check: allow method-probe - input validation: the callbacks an application passes authPolicyPlugin
-    resolveContext: typeof source.resolveContext === "function" ? source.resolveContext : null,
+    resolveContext: typeof source.resolveContext === "function" ? source.resolveContext : resolveNoPolicyContext,
     hasPermission,
     // readable-check: allow method-probe - input validation: the callbacks an application passes authPolicyPlugin
     onPolicyDenied: typeof source.onPolicyDenied === "function" ? source.onPolicyDenied : ignorePolicyDenial

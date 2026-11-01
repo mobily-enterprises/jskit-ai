@@ -7,7 +7,7 @@ import * as inviteTokens from "./inviteTokens.js";
 import * as utils from "./utils.js";
 import * as validators from "./validators.js";
 
-// The auth helpers other packages reach through the `auth.access` capability.
+/** The auth helpers other packages reach through the `auth.access` capability. */
 function createAuthAccess() {
   return Object.freeze({
     authConstraints,

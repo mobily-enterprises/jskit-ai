@@ -1,7 +1,7 @@
 import { resolveActorId } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 
 function createAuthRouteVisibilityResolver() {
-  function resolve({ visibility, context, request } = {}) {
+  function resolve({ visibility, context, request }) {
     if (visibility !== "user") {
       return {};
     }

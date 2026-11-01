@@ -35,7 +35,7 @@ function normalizeRateLimitPluginOptions(value) {
 }
 
 function resolveRouteConfig(request) {
-  if (!request?.routeOptions || typeof request.routeOptions !== "object") {
+  if (!request.routeOptions || typeof request.routeOptions !== "object") {
     return {};
   }
 
@@ -121,13 +121,13 @@ function authPolicyPlugin(deps = {}, options = {}) {
     fastify.decorateRequest("permissions", null);
 
     fastify.addHook("preHandler", async (request, reply) => {
-      const pathname = request?.raw?.url || request?.url || "/";
+      const pathname = request.raw.url || request.url || "/";
       if (!String(pathname).startsWith(apiPrefix)) {
         return;
       }
 
       const meta = resolveAuthPolicyMeta(resolveRouteConfig(request));
-      if (meta.csrfProtection && unsafeMethods.has(String(request?.method || "").toUpperCase())) {
+      if (meta.csrfProtection && unsafeMethods.has(String(request.method || "").toUpperCase())) {
         await enforceCsrfProtection(fastify, request, reply);
       }
 
@@ -169,7 +169,7 @@ function authPolicyPlugin(deps = {}, options = {}) {
 
       if (meta.authPolicy === AUTH_POLICIES.OWN) {
         const ownerValue = await resolveOwnerValue(meta, request);
-        const userValue = request?.user ? request.user[meta.userField] : null;
+        const userValue = request.user ? request.user[meta.userField] : null;
 
         if (ownerValue == null || userValue == null) {
           onPolicyDenied({
@@ -207,7 +207,7 @@ function authPolicyPlugin(deps = {}, options = {}) {
       }
 
       let context = null;
-      if (resolveContext && (meta.contextPolicy !== CONTEXT_POLICIES.NONE || meta.permission)) {
+      if (meta.contextPolicy !== CONTEXT_POLICIES.NONE || meta.permission) {
         context = await resolveContext({
           request,
           actor: actorResolution.actor,
