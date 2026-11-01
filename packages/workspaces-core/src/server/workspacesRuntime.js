@@ -157,10 +157,10 @@ function createWorkspacesRuntime({
   });
 
   return Object.freeze({
-    config,
     enabled: tenancyProfile.workspace.enabled === true,
     invitationsEnabled,
     selfCreateEnabled: tenancyProfile.workspace.allowSelfCreate === true,
+    // The workspace route support the assistant runtime reads.
     scope: Object.freeze({
       params: workspaceSlugParamsValidator,
       buildInputFromRouteParams: buildWorkspaceInputFromRouteParams,

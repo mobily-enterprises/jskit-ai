@@ -80,18 +80,20 @@ const WorkspacesIntegrationsProvider = defineProvider({
     usersExtensions.registerProfileSyncLifecycleContributor({
       contributorId: "workspaces.provisioning",
       order: 100,
-      async afterIdentityProfileSynced({ profile, options } = {}) {
+      async afterIdentityProfileSynced({ profile, options }) {
         await workspaceService.ensureProvisionedWorkspaceForAuthenticatedUser(profile, options);
       }
     });
 
-    realtime?.registerAudienceContributor({
-      id: "workspaces.memberships",
-      resolveActorScopes: (actorId) => resolveWorkspaceRealtimeScopes(
-        workspaces.repositories.workspaceMemberships,
-        actorId
-      )
-    });
+    if (realtime) {
+      realtime.registerAudienceContributor({
+        id: "workspaces.memberships",
+        resolveActorScopes: (actorId) => resolveWorkspaceRealtimeScopes(
+          workspaces.repositories.workspaceMemberships,
+          actorId
+        )
+      });
+    }
 
     if (workspaces.invitationsEnabled) {
       authExtensions.registerInvitationContextResolver({

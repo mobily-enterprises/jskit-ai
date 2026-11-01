@@ -139,8 +139,19 @@ test("pending and resolved invitation responses derive labels while acceptance s
 });
 
 test("default invitation email uses the configured label with HTML escaping and the original fallback", () => {
-  const labelled = renderDefaultWorkspaceInviteEmail({ roleSid: "worker", roleLabel: " Member <team> " });
+  const i18n = createWorkspacesServerI18n();
+  const input = {
+    email: "reader@example.test",
+    inviteUrl: "/invite/abc",
+    workspace: { name: "Acme", slug: "acme" },
+    inviter: null,
+    roleSid: "worker",
+    expiresAt: "2026-11-02T00:00:00.000Z",
+    locale: "en",
+    t: (key, params) => i18n.t("en", key, params)
+  };
+  const labelled = renderDefaultWorkspaceInviteEmail({ ...input, roleLabel: "Member <team>" });
   assert.match(labelled.text, /as Member <team>/u);
   assert.match(labelled.html, /as Member &lt;team&gt;/u);
-  assert.match(renderDefaultWorkspaceInviteEmail({ roleSid: "worker" }).text, /as worker/u);
+  assert.match(renderDefaultWorkspaceInviteEmail(input).text, /as worker/u);
 });

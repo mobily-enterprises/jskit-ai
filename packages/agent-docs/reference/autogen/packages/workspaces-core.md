@@ -97,8 +97,6 @@ Exports
 - `resolveWorkspaceSurfaceIdsFromAppConfig(appConfig = {})`
 - `resolveWorkspaceMembershipOptionalSurfaceIdsFromAppConfig(appConfig = {})`
 - `resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig(appConfig = {})`
-- `materializeWorkspaceActionSurfaces(actions = [], { workspaceSurfaceIds = [] } = {})`
-- `materializeWorkspaceActionSurfacesFromAppConfig(actions = [], { appConfig = {} } = {})`
 Local functions
 - `normalizeSurfaceIds(surfaceIds = [])`
 - `resolveSurfaceIdsFromAppConfig(appConfig = {}, predicate)`
@@ -168,10 +166,9 @@ Exports
 
 ### `src/server/workspaceMembers/defaultWorkspaceInviteEmail.js`
 Exports
-- `renderDefaultWorkspaceInviteEmail({ inviteUrl = "", workspace, inviter = null, roleSid = "member", roleLabel = "", expiresAt = "", t = english } = {})`
+- `renderDefaultWorkspaceInviteEmail({ inviteUrl, workspace, inviter, roleSid, roleLabel, expiresAt, t })`
 Local functions
-- `english(key, params)`
-- `escapeHtml(value = "")`
+- `escapeHtml(value)`
 
 ### `src/server/workspaceMembers/unconfiguredWorkspaceInviteMailer.js`
 Exports

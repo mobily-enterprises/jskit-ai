@@ -60,40 +60,6 @@ function resolveSurfaceIdsFromAppConfig(appConfig = {}, predicate) {
   return normalizeSurfaceIds(resolved);
 }
 
-function materializeWorkspaceActionSurfaces(actions = [], { workspaceSurfaceIds = [] } = {}) {
-  const sourceActions = Array.isArray(actions) ? actions : [];
-  const resolvedWorkspaceSurfaceIds = normalizeSurfaceIds(workspaceSurfaceIds);
-  const materialized = [];
-
-  for (const entry of sourceActions) {
-    const action = isRecord(entry) ? entry : {};
-    const surfacesFrom = String(action.surfacesFrom || "")
-      .trim()
-      .toLowerCase();
-    if (surfacesFrom !== "workspace") {
-      materialized.push(action);
-      continue;
-    }
-
-    if (resolvedWorkspaceSurfaceIds.length < 1) {
-      continue;
-    }
-
-    const { surfacesFrom: _ignored, ...rest } = action;
-    materialized.push({
-      ...rest,
-      surfaces: [...resolvedWorkspaceSurfaceIds]
-    });
-  }
-
-  return Object.freeze(materialized.map((entry) => Object.freeze({ ...entry })));
-}
-
-function materializeWorkspaceActionSurfacesFromAppConfig(actions = [], { appConfig = {} } = {}) {
-  const workspaceSurfaceIds = resolveWorkspaceSurfaceIdsFromAppConfig(appConfig);
-  return materializeWorkspaceActionSurfaces(actions, { workspaceSurfaceIds });
-}
-
 function resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig(appConfig = {}) {
   const workspaceSurfaceIds = resolveWorkspaceSurfaceIdsFromAppConfig(appConfig);
   const workspaceSurfaceSet = new Set(workspaceSurfaceIds);
@@ -117,7 +83,5 @@ function resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig(appConfig = {}) {
 export {
   resolveWorkspaceSurfaceIdsFromAppConfig,
   resolveWorkspaceMembershipOptionalSurfaceIdsFromAppConfig,
-  resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig,
-  materializeWorkspaceActionSurfaces,
-  materializeWorkspaceActionSurfacesFromAppConfig
+  resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig
 };

@@ -35,7 +35,7 @@ const WORKSPACE_SCOPE_KINDS = new Set([ROUTE_VISIBILITY_WORKSPACE, ROUTE_VISIBIL
  * @param {{ scopeKind?: string | null, visibility?: string, scopeOwnerId?: unknown }} [visibilityContext]
  */
 function workspaceScopeOwnerId(visibilityContext) {
-  // data: a context carries no visibility outside a route
+  // Outside a route, a context carries no visibility.
   if (!visibilityContext) {
     return null;
   }
