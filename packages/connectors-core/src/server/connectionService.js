@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { registrationClientAuthentication, registrationGrantType, validateIntegrationConfiguration } from "../shared/configuration.js";
 import { createConnectionCredentials } from "./connectionCredentials.js";
 import { ConnectorError, providerError } from "./errors.js";
-import { createProviderRequests, operationRequest, requireOperationScope, tokenResponse } from "./providerRequests.js";
+import { connectionProvider, createProviderRequests, operationRequest, requireOperationScope, tokenResponse } from "./providerRequests.js";
 
 function publicConnection(connection) {
   if (!connection) return { status: "disconnected" };
@@ -31,7 +31,7 @@ function connectionMatches(connection, integration, providerId, registration) {
   const method = integration.authentication.method;
   return connection.provider === providerId &&
     (connection.method || "oauth2") === method &&
-    isDeepStrictEqual(connection.settings || {}, integration.settings || {}) &&
+    isDeepStrictEqual(connection.settings || {}, integration.settings) &&
     (!["api-key", "service-account"].includes(method) || connection.secretRef === integration.authentication.secretRef) &&
     (method !== "service-account" || isDeepStrictEqual(connection.requestedScopes, integration.scopes)) &&
     (method !== "oauth2" || (connection.registrationRef === registration.registrationRef &&
@@ -72,6 +72,9 @@ function createConnectionService({
 }) {
   if (!["application", "assistant"].includes(executionMode)) throw new TypeError("Select application or assistant execution.");
   const config = validateIntegrationConfiguration(configuration, { providers });
+  // Each integration with its settings resolved, so the service reads them as one object.
+  const integrations = Object.fromEntries(Object.entries(config.integrations)
+    .map(([id, integration]) => [id, { ...integration, settings: integration.settings || {} }]));
   const definitions = new Map(providers.map((provider) => [provider.id, provider]));
   if (!providers.length || definitions.size !== providers.length) throw new TypeError("Register unique connector providers.");
   // readable-check: allow method-probe - input validation: the application passes its access policy and reference resolver
@@ -84,18 +87,11 @@ function createConnectionService({
   const providerRequests = createProviderRequests({ fetchImpl, now, resolveReference });
 
   async function access(context, integrationId, operation, input, checkAssistantPermission = true) {
-    const integration = config.integrations[integrationId];
-    if (!Object.hasOwn(config.integrations, integrationId)) {
+    const integration = integrations[integrationId];
+    if (!Object.hasOwn(integrations, integrationId)) {
       throw new ConnectorError("connector_not_found", "This integration is not configured.", { statusCode: 404, messageCode: "connectors.connection.integrationNotConfigured" });
     }
-    const baseDefinition = definitions.get(integration.provider);
-    // readable-check: allow method-probe - optional operation: runtimeForSettings is an optional hook of the provider definition
-    const definition = typeof baseDefinition.runtimeForSettings === "function"
-      ? { ...baseDefinition, ...baseDefinition.runtimeForSettings(integration.settings || {}) } : baseDefinition;
-    // readable-check: allow method-probe - data: a provider definition gives checkOperation as an operation id or as a function of the credential mode
-    const provider = typeof definition.checkOperation === "function"
-      ? { ...definition, checkOperation: definition.checkOperation(integration.authentication.method) }
-      : definition;
+    const provider = connectionProvider(definitions.get(integration.provider), integration);
     let assistantPermission;
     if (executionMode === "assistant" && checkAssistantPermission && !["status", "disconnect"].includes(operation)) {
       // A configuration-only definition has no operations; its connection steps refuse it.
@@ -126,7 +122,7 @@ function createConnectionService({
 
   /** @param {import("./types.js").IntegrationRequest & { action: string, input?: any }} request */
   async function authorizeAssistantAction({ context, integrationId, action, input = {} }) {
-    const provider = definitions.get(config.integrations[integrationId]?.provider);
+    const provider = definitions.get(integrations[integrationId]?.provider);
     if (executionMode !== "assistant" || !provider?.assistantActions?.some((item) => item.value === action)) {
       throw new ConnectorError("connector_operation_unknown", "This provider does not declare this assistant action.", { messageCode: "connectors.connection.providerDoesNotDeclareAssistant" });
     }
@@ -145,7 +141,7 @@ function createConnectionService({
       integrationId, provider: provider.id, registrationRef: registration.registrationRef,
       grantType: registration.grantType, clientId: registration.client.client_id,
       tokenEndpointAuthMethod: registration.tokenEndpointAuthMethod, status: "connected", source: "env",
-      seedFingerprint: seed.fingerprint, verifiedAt: now(), settings: structuredClone(integration.settings || {}),
+      seedFingerprint: seed.fingerprint, verifiedAt: now(), settings: structuredClone(integration.settings),
       ...(provider.refreshRequiresRedirectUri ? { callbackUrl: registration.callbackUrl } : {}),
       tokens: { accessToken: null, refreshToken: seed.refreshToken, expiresAt: 0 },
       grantedScopes: [...integration.scopes]
@@ -167,7 +163,7 @@ function createConnectionService({
         const binding = await connectionCredentials.serviceAccountCredentialFor(integration);
         const connection = {
           integrationId, provider: provider.id, method: "service-account", secretRef: integration.authentication.secretRef,
-          requestedScopes: [...integration.scopes], settings: structuredClone(integration.settings || {}),
+          requestedScopes: [...integration.scopes], settings: structuredClone(integration.settings),
           status: "connected", verifiedAt: now(), ...await providerRequests.serviceAccountGrant(integration, provider, binding, signal)
         };
         await providerRequests.request(provider, provider.checkOperation, verificationInput, connection, signal);
@@ -193,8 +189,8 @@ function createConnectionService({
           integrationId, provider: provider.id, registrationRef: registration.registrationRef,
           clientId: registration.client.client_id, tokenEndpointAuthMethod: registration.tokenEndpointAuthMethod,
           grantType: registration.grantType, requestedScopes: [...integration.scopes],
-          settings: structuredClone(integration.settings || {}), status: "connected", verifiedAt: now(),
-          ...await providerRequests.clientCredentialsGrant(registration, provider, integration.settings || {}, integration.scopes, signal)
+          settings: structuredClone(integration.settings), status: "connected", verifiedAt: now(),
+          ...await providerRequests.clientCredentialsGrant(registration, provider, integration.settings, integration.scopes, signal)
         };
         await providerRequests.verifyOAuthConnection(provider, connection, verificationInput, integration.scopes, signal);
         await save(connection);
@@ -225,8 +221,8 @@ function createConnectionService({
     url.searchParams.set("redirect_uri", registration.callbackUrl);
     url.searchParams.set("response_type", "code");
     // readable-check: allow method-probe - optional operation: authorizationScopeParameter is an optional hook of the provider definition
-    const scopeParameter = (typeof provider.authorizationScopeParameter === "function" && provider.authorizationScopeParameter(integration.settings || {})) || "scope";
-    if (integration.scopes.length) url.searchParams.set(scopeParameter, integration.scopes.join(provider.scopeSeparator || " "));
+    const scopeParameter = (typeof provider.authorizationScopeParameter === "function" && provider.authorizationScopeParameter(integration.settings)) || "scope";
+    if (integration.scopes.length) url.searchParams.set(scopeParameter, integration.scopes.join(provider.scopeSeparator));
     url.searchParams.set("state", state);
     if (codeVerifier !== null) {
       url.searchParams.set("code_challenge", await oauth.calculatePKCECodeChallenge(codeVerifier));
@@ -239,7 +235,7 @@ function createConnectionService({
       registrationRef: registration.registrationRef,
       grantType: registration.grantType,
       callbackUrl: registration.callbackUrl,
-      scopes: [...integration.scopes], settings: structuredClone(integration.settings || {}),
+      scopes: [...integration.scopes], settings: structuredClone(integration.settings),
       verificationInput: structuredClone(verificationInput), authorizationUrl: url.href, codeVerifier, expiresAt
     }));
     return { authorizationUrl: url.href, expiresAt, callbackUrl: registration.callbackUrl };
@@ -259,7 +255,7 @@ function createConnectionService({
           attempt.callbackUrl !== registration.callbackUrl ||
           attempt.tokenEndpointAuthMethod !== registration.tokenEndpointAuthMethod ||
           !isDeepStrictEqual(attempt.scopes, integration.scopes) ||
-          !isDeepStrictEqual(attempt.settings, integration.settings || {})) return null;
+          !isDeepStrictEqual(attempt.settings, integration.settings)) return null;
       return { authorizationUrl: attempt.authorizationUrl, expiresAt: attempt.expiresAt, callbackUrl: registration.callbackUrl };
     });
   }
@@ -291,7 +287,7 @@ function createConnectionService({
           registrationGrantType(attempt) !== registration.grantType ||
           registrationClientAuthentication(attempt) !== registration.tokenEndpointAuthMethod ||
           attempt.callbackUrl !== registration.callbackUrl || JSON.stringify(attempt.scopes) !== JSON.stringify(integration.scopes) ||
-          !isDeepStrictEqual(attempt.settings || {}, integration.settings || {})) {
+          !isDeepStrictEqual(attempt.settings || {}, integration.settings)) {
           throw new ConnectorError("connector_attempt_invalid", "The authorization attempt is invalid or has expired.", { messageCode: "connectors.connection.authorizationAttemptInvalidExpired" });
         }
         const parameters = oauth.validateAuthResponse(registration.oauth, registration.client, url, state);
@@ -301,23 +297,23 @@ function createConnectionService({
           if (values.length !== 1) {
             throw new ConnectorError("connector_response_invalid", "The provider did not return an unambiguous permission grant.", { statusCode: 502, messageCode: "connectors.connection.ambiguousPermissionGrant" });
           }
-          const granted = new Set(values[0].split(provider.scopeSeparator || " ").map((scope) => scope.trim()).filter(Boolean));
+          const granted = new Set(values[0].split(provider.scopeSeparator).map((scope) => scope.trim()).filter(Boolean));
           fallbackScopes = attempt.scopes.filter((scope) => granted.has(scope));
         }
         const response = await oauth.authorizationCodeGrantRequest(
           registration.oauth, registration.client, registration.clientAuth,
-          parameters, registration.callbackUrl, attempt.codeVerifier === null ? oauth.nopkce : attempt.codeVerifier, { ...providerRequests.requestOptions(signal, undefined, provider.tokenRequestEncoding),
+          parameters, registration.callbackUrl, attempt.codeVerifier === null ? oauth.nopkce : attempt.codeVerifier, { ...providerRequests.tokenRequestOptions(signal, provider),
             ...(registration.resource ? { additionalParameters: { resource: registration.resource } } : {}) }
         );
         const result = await oauth.processAuthorizationCodeResponse(registration.oauth, registration.client,
-          await tokenResponse(provider, response, { settings: integration.settings || {}, grantType: "authorization_code" }));
+          await tokenResponse(provider, response, { settings: integration.settings, grantType: "authorization_code" }));
         const connection = {
           integrationId, provider: provider.id, registrationRef: registration.registrationRef,
           grantType: registration.grantType,
           clientId: registration.client.client_id, tokenEndpointAuthMethod: registration.tokenEndpointAuthMethod, status: "connected", verifiedAt: now(),
-          settings: structuredClone(integration.settings || {}),
+          settings: structuredClone(integration.settings),
           ...(provider.refreshRequiresRedirectUri ? { callbackUrl: registration.callbackUrl } : {}),
-          ...providerRequests.tokensFrom(result, null, fallbackScopes, provider.scopeSeparator, provider)
+          ...providerRequests.tokensFrom(result, null, fallbackScopes, provider)
         };
         connection.grantedScopes = connection.grantedScopes.filter((scope) => integration.scopes.includes(scope));
         await providerRequests.verifyOAuthConnection(provider, connection, attempt.verificationInput || {}, attempt.scopes, signal);
@@ -350,7 +346,7 @@ function createConnectionService({
       const connection = {
         integrationId, provider: provider.id, method,
         ...(method === "api-key" && integration.authentication.secretRef ? { secretRef: integration.authentication.secretRef } : {}),
-        grantedScopes: [], status: "connected", verifiedAt: now(), settings: structuredClone(integration.settings || {})
+        grantedScopes: [], status: "connected", verifiedAt: now(), settings: structuredClone(integration.settings)
       };
       try {
         const credentials = method === "api-key" ? { ...connection, apiKey: await connectionCredentials.apiKeyFor(integration, provider) } : connection;
@@ -394,30 +390,30 @@ function createConnectionService({
       try {
         if (usesServiceAccount) {
           const binding = await connectionCredentials.serviceAccountCredentialFor(integration);
-          if (binding.fingerprint !== connection.credentialFingerprint || connection.tokens.expiresAt <= now() + (provider.tokenRefreshLeewayMs ?? 30_000)) {
+          if (binding.fingerprint !== connection.credentialFingerprint || connection.tokens.expiresAt <= now() + provider.tokenRefreshLeewayMs) {
             connection = { ...connection, ...await providerRequests.serviceAccountGrant(integration, provider, binding, signal) };
             await save(connection);
           }
         }
-        if (usesOAuth && connection.tokens.expiresAt !== null && connection.tokens.expiresAt <= now() + (provider.tokenRefreshLeewayMs ?? 30_000)) {
+        if (usesOAuth && connection.tokens.expiresAt !== null && connection.tokens.expiresAt <= now() + provider.tokenRefreshLeewayMs) {
           let grant;
           if (registration.grantType === "client_credentials") {
-            grant = await providerRequests.clientCredentialsGrant(registration, provider, integration.settings || {}, connection.grantedScopes, signal);
+            grant = await providerRequests.clientCredentialsGrant(registration, provider, integration.settings, connection.grantedScopes, signal);
           } else {
             if (!connection.tokens.refreshToken) {
               throw new ConnectorError("connector_reconnect_required", "Connect this account again.", { statusCode: 401, messageCode: "connectors.connection.connectAccountAgain" });
             }
             const response = await oauth.refreshTokenGrantRequest(
               registration.oauth, registration.client, registration.clientAuth,
-              connection.tokens.refreshToken, { ...providerRequests.requestOptions(signal, undefined, provider.tokenRequestEncoding),
+              connection.tokens.refreshToken, { ...providerRequests.tokenRequestOptions(signal, provider),
                 additionalParameters: {
                   ...(registration.resource ? { resource: registration.resource } : {}),
                   ...(provider.refreshRequiresRedirectUri ? { redirect_uri: connection.callbackUrl } : {})
                 } }
             );
             const refreshed = await oauth.processRefreshTokenResponse(registration.oauth, registration.client,
-              await tokenResponse(provider, response, { settings: integration.settings || {}, grantType: "refresh_token" }));
-            grant = providerRequests.tokensFrom(refreshed, connection, integration.scopes, provider.scopeSeparator, provider);
+              await tokenResponse(provider, response, { settings: integration.settings, grantType: "refresh_token" }));
+            grant = providerRequests.tokensFrom(refreshed, connection, integration.scopes, provider);
           }
           grant.grantedScopes = grant.grantedScopes.filter((scope) =>
             connection.grantedScopes.includes(scope) && integration.scopes.includes(scope));

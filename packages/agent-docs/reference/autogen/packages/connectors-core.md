@@ -71,13 +71,15 @@ Local functions
 
 ### `src/server/providerRequests.js`
 Exports
+- `connectionProvider(definition, integration)`
 - `createProviderRequests({ fetchImpl, now, resolveReference })`
 - `operationRequest(operation, input, settings, providerData)`
 - `requireOperationScope(operation, scopes, message, { messageCode })`
 - `tokenResponse(provider, response, details)`
 - `type ConnectionProvider`
 Local functions
-- `credentialHeaders(provider, connection)`
+- `credentialHeaders(provider, connection, settings)`
+- `requestSignal(signal, timeoutMs)`
 
 ### `src/server/storage.js`
 Exports

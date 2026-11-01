@@ -120,7 +120,7 @@
  * @property {(clientId: string) => unknown} [validateClientId] True for a client ID the provider accepts; otherwise its field error.
  * @property {(settings: Record<string, any>) => object} [runtimeForSettings] Runtime fields that replace these for the integration's settings.
  * @property {Array<{ value: string }>} [assistantActions]
- * @property {number} [requestTimeoutMs] Defaults to 15 seconds.
+ * @property {number} [requestTimeoutMs] The timeout of its operations and service-account grants. Defaults to 15 seconds, the timeout of every OAuth token request.
  * @property {string} [scopeSeparator] Defaults to a space.
  * @property {object | ((settings: Record<string, any>) => object)} [oauth] The OAuth authorization server metadata.
  * @property {string | ((settings: Record<string, any>) => string)} [oauthResource]
@@ -131,7 +131,7 @@
  * @property {Record<string, string>} [authorizationParameters]
  * @property {(settings: Record<string, any>) => string | undefined} [authorizationScopeParameter]
  * @property {boolean} [scopesInAuthorizationResponse]
- * @property {string} [tokenRequestEncoding] "json" sends token requests as JSON instead of a form.
+ * @property {string} [tokenRequestEncoding] "json" sends every token request as JSON instead of a form.
  * @property {number} [tokenRefreshLeewayMs] Defaults to 30 seconds.
  * @property {boolean} [refreshRequiresRedirectUri]
  * @property {(callbackUrl: string) => boolean} [validateCallbackUrl]

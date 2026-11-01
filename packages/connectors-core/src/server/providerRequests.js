@@ -2,7 +2,35 @@ import * as oauth from "oauth4webapi";
 import { createHttpClient } from "@jskit-ai/http-runtime/client";
 import { ConnectorError } from "./errors.js";
 
-/** @typedef {import("./types.js").ConnectorProvider & { checkOperation: string }} ConnectionProvider A provider whose checkOperation is resolved for the integration's credential mode. */
+const DEFAULT_SCOPE_SEPARATOR = " ";
+// Every OAuth token request takes this timeout; a provider's operations default to it.
+const REQUEST_TIMEOUT_MS = 15_000;
+const DEFAULT_TOKEN_REFRESH_LEEWAY_MS = 30_000;
+
+/**
+ * A provider as an integration's requests use it: with its runtime for the
+ * integration's settings, its checkOperation for the credential mode and its
+ * defaults applied.
+ * @typedef {import("./types.js").ConnectorProvider & { checkOperation: string, scopeSeparator: string, requestTimeoutMs: number, tokenRefreshLeewayMs: number }} ConnectionProvider
+ */
+
+/**
+ * @param {import("./types.js").ConnectorProvider} definition
+ * @param {{ settings: Record<string, any>, authentication: { method: string } }} integration
+ * @returns {ConnectionProvider}
+ */
+function connectionProvider(definition, integration) {
+  // readable-check: allow method-probe - optional operation: runtimeForSettings is an optional hook of the provider definition
+  const runtime = typeof definition.runtimeForSettings === "function" ? { ...definition, ...definition.runtimeForSettings(integration.settings) } : definition;
+  return {
+    ...runtime,
+    // readable-check: allow method-probe - data: a provider definition gives checkOperation as an operation id or as a function of the credential mode
+    checkOperation: typeof runtime.checkOperation === "function" ? runtime.checkOperation(integration.authentication.method) : runtime.checkOperation,
+    scopeSeparator: runtime.scopeSeparator || DEFAULT_SCOPE_SEPARATOR,
+    requestTimeoutMs: runtime.requestTimeoutMs ?? REQUEST_TIMEOUT_MS,
+    tokenRefreshLeewayMs: runtime.tokenRefreshLeewayMs ?? DEFAULT_TOKEN_REFRESH_LEEWAY_MS
+  };
+}
 
 // An operation without scopes always runs; otherwise one of its scopes must be present.
 function requireOperationScope(operation, scopes, message, { messageCode }) {
@@ -18,11 +46,11 @@ function tokenResponse(provider, response, details) {
 }
 
 // The headers that carry a connection's credential: the provider's API-key headers, or its OAuth headers and bearer token.
-function credentialHeaders(provider, connection) {
+function credentialHeaders(provider, connection, settings) {
   if (connection.method === "none") return {};
   if (connection.method === "api-key") {
     // readable-check: allow method-probe - optional operation: apiKey.headers is an optional hook of the provider definition
-    return typeof provider.apiKey.headers === "function" ? provider.apiKey.headers(connection.apiKey, connection.settings || {}) : {};
+    return typeof provider.apiKey.headers === "function" ? provider.apiKey.headers(connection.apiKey, settings) : {};
   }
   return {
     // readable-check: allow method-probe - optional operation: oauthHeaders is an optional hook of the provider definition
@@ -31,9 +59,15 @@ function credentialHeaders(provider, connection) {
   };
 }
 
+// A signal that aborts at the timeout or with the caller's signal.
+function requestSignal(signal, timeoutMs) {
+  const timeout = AbortSignal.timeout(timeoutMs);
+  return signal ? AbortSignal.any([signal, timeout]) : timeout;
+}
+
 // Builds the provider request, reporting schema input errors as connector_input_invalid.
 function operationRequest(operation, input, settings, providerData) {
-  try { return operation.request(input, settings || {}, providerData); } catch (error) {
+  try { return operation.request(input, settings, providerData); } catch (error) {
     if (!error.fieldErrors) throw error;
     const failure = new ConnectorError("connector_input_invalid", "Check the operation's input values.", { statusCode: 422, messageCode: "connectors.connection.checkOperationInputValues" });
     failure.fieldErrors = error.fieldErrors;
@@ -53,16 +87,22 @@ function operationRequest(operation, input, settings, providerData) {
 function createProviderRequests({ fetchImpl, now, resolveReference }) {
   const http = createHttpClient({ fetchImpl, csrf: { enabled: false }, credentials: "omit" });
 
-  function requestOptions(signal, timeoutMs = 15_000, tokenRequestEncoding) {
-    const timeout = AbortSignal.timeout(timeoutMs);
+  /**
+   * The oauth4webapi options of an OAuth token request: the fetch that sends
+   * it in the provider's token request encoding, and its timeout joined with
+   * the caller's signal.
+   * @param {AbortSignal | undefined} signal
+   * @param {ConnectionProvider} provider
+   */
+  function tokenRequestOptions(signal, provider) {
     return {
-      [oauth.customFetch]: tokenRequestEncoding === "json" ? (address, options) => {
+      [oauth.customFetch]: provider.tokenRequestEncoding === "json" ? (address, options) => {
         const headers = new Headers(options.headers);
         headers.set("Content-Type", "application/json");
         return fetchImpl(address, { ...options, headers,
           body: JSON.stringify(Object.fromEntries(new URLSearchParams(options.body))) });
       } : fetchImpl,
-      signal: signal ? AbortSignal.any([signal, timeout]) : timeout
+      signal: requestSignal(signal, REQUEST_TIMEOUT_MS)
     };
   }
 
@@ -81,10 +121,11 @@ function createProviderRequests({ fetchImpl, now, resolveReference }) {
     if (["oauth2", "service-account"].includes(connection.method || "oauth2")) {
       requireOperationScope(operation, connection.grantedScopes, "Connect again with the permission required for this operation.", { messageCode: "connectors.connection.connectAgainPermissionRequiredOperation" });
     }
-    const descriptor = operationRequest(operation, input, connection.settings, connection.providerData);
+    const settings = connection.settings || {};
+    const descriptor = operationRequest(operation, input, settings, connection.providerData);
     const url = new URL(descriptor.url);
     // readable-check: allow method-probe - data: a provider definition gives apiOrigins as a list or as a function of the settings
-    const origins = typeof provider.apiOrigins === "function" ? provider.apiOrigins(connection.settings || {}, connection.providerData) : provider.apiOrigins;
+    const origins = typeof provider.apiOrigins === "function" ? provider.apiOrigins(settings, connection.providerData) : provider.apiOrigins;
     if (url.protocol !== "https:" || url.username || url.password || !origins.includes(url.origin)) {
       throw new ConnectorError("connector_destination_invalid", "The provider operation has an invalid destination.", { messageCode: "connectors.connection.providerOperationInvalidDestination" });
     }
@@ -111,16 +152,16 @@ function createProviderRequests({ fetchImpl, now, resolveReference }) {
     const options = {
       method: descriptor.method,
       body,
-      headers: { ...descriptor.headers, Accept: "application/json", ...credentialHeaders(provider, connection) },
+      headers: { ...descriptor.headers, Accept: "application/json", ...credentialHeaders(provider, connection, settings) },
       redirect: "error",
-      signal: requestOptions(signal, provider.requestTimeoutMs).signal
+      signal: requestSignal(signal, provider.requestTimeoutMs)
     };
     let result;
     try {
       // readable-check: allow method-probe - optional operation: exchange is an optional hook of the provider definition
       result = typeof provider.exchange === "function"
         ? await provider.exchange(url.href, options, { fetchImpl, request: http.request, resolveReference,
-          settings: connection.settings || {}, apiKey: connection.method === "api-key" ? connection.apiKey : undefined })
+          settings, apiKey: connection.method === "api-key" ? connection.apiKey : undefined })
         : await http.request(url.href, options);
     } catch (error) {
       // Transports can wrap cancellation in a network or protocol error.
@@ -139,13 +180,12 @@ function createProviderRequests({ fetchImpl, now, resolveReference }) {
    * @param {any} response
    * @param {Record<string, any> | null} previous
    * @param {string[]} requestedScopes
-   * @param {string} [scopeSeparator]
-   * @param {ConnectionProvider} [provider]
+   * @param {ConnectionProvider} provider
    */
-  function tokensFrom(response, previous, requestedScopes, scopeSeparator = " ", provider) {
+  function tokensFrom(response, previous, requestedScopes, provider) {
     return {
       // readable-check: allow method-probe - optional operation: dataFromTokenResponse is an optional hook of the provider definition
-      ...(typeof provider?.dataFromTokenResponse === "function" ? { providerData: provider.dataFromTokenResponse(response, previous?.providerData) } : {}),
+      ...(typeof provider.dataFromTokenResponse === "function" ? { providerData: provider.dataFromTokenResponse(response, previous?.providerData) } : {}),
       tokens: {
         accessToken: response.access_token,
         refreshToken: response.refresh_token || previous?.tokens.refreshToken || null,
@@ -153,7 +193,7 @@ function createProviderRequests({ fetchImpl, now, resolveReference }) {
       },
       grantedScopes: response.scope === undefined
         ? [...(previous?.grantedScopes || requestedScopes)]
-        : response.scope.split(scopeSeparator).map((scope) => scope.trim()).filter(Boolean)
+        : response.scope.split(provider.scopeSeparator).map((scope) => scope.trim()).filter(Boolean)
     };
   }
 
@@ -164,19 +204,19 @@ function createProviderRequests({ fetchImpl, now, resolveReference }) {
    * @param {AbortSignal} [signal]
    */
   async function serviceAccountGrant(integration, provider, binding, signal) {
-    const options = requestOptions(signal, provider.requestTimeoutMs);
-    options.signal.throwIfAborted();
+    const grantSignal = requestSignal(signal, provider.requestTimeoutMs);
+    grantSignal.throwIfAborted();
     let response;
     try {
       response = await provider.serviceAccountGrant({
-        credential: binding.credential, settings: structuredClone(integration.settings || {}),
-        scopes: [...integration.scopes], fetchImpl, signal: options.signal, now: now()
+        credential: binding.credential, settings: structuredClone(integration.settings),
+        scopes: [...integration.scopes], fetchImpl, signal: grantSignal, now: now()
       });
     } catch (error) {
-      options.signal.throwIfAborted();
+      grantSignal.throwIfAborted();
       throw error;
     }
-    options.signal.throwIfAborted();
+    grantSignal.throwIfAborted();
     if (typeof response?.access_token !== "string" || !response.access_token || /\s/u.test(response.access_token) ||
         // readable-check: allow optional-call - data: the provider's token response
         response.token_type?.toLowerCase?.() !== "bearer" ||
@@ -184,7 +224,7 @@ function createProviderRequests({ fetchImpl, now, resolveReference }) {
         response.refresh_token !== undefined || (response.scope !== undefined && typeof response.scope !== "string")) {
       throw new ConnectorError("connector_response_invalid", "The provider returned an invalid service-account token.", { statusCode: 502, messageCode: "connectors.connection.providerReturnedInvalidServiceAccount" });
     }
-    const grant = tokensFrom(response, null, integration.scopes, provider.scopeSeparator, provider);
+    const grant = tokensFrom(response, null, integration.scopes, provider);
     grant.grantedScopes = grant.grantedScopes.filter((scope) => integration.scopes.includes(scope));
     return { ...grant, credentialFingerprint: binding.fingerprint };
   }
@@ -226,19 +266,19 @@ function createProviderRequests({ fetchImpl, now, resolveReference }) {
   async function clientCredentialsGrant(registration, provider, settings, scopes, signal) {
     const response = await oauth.clientCredentialsGrantRequest(
       registration.oauth, registration.client, registration.clientAuth,
-      { scope: scopes.join(provider.scopeSeparator || " "), ...(registration.resource ? { resource: registration.resource } : {}) },
-      requestOptions(signal)
+      { scope: scopes.join(provider.scopeSeparator), ...(registration.resource ? { resource: registration.resource } : {}) },
+      tokenRequestOptions(signal, provider)
     );
     const result = await oauth.processClientCredentialsResponse(registration.oauth, registration.client,
       await tokenResponse(provider, response, { settings, grantType: "client_credentials" }));
-    const grant = tokensFrom(result, null, scopes, provider.scopeSeparator, provider);
+    const grant = tokensFrom(result, null, scopes, provider);
     // Client credentials renew with the application's secret, never a user refresh token.
     grant.tokens.refreshToken = null;
     grant.grantedScopes = grant.grantedScopes.filter((scope) => scopes.includes(scope));
     return grant;
   }
 
-  return Object.freeze({ requestOptions, request, tokensFrom, serviceAccountGrant, verifyOAuthConnection, clientCredentialsGrant });
+  return Object.freeze({ tokenRequestOptions, request, tokensFrom, serviceAccountGrant, verifyOAuthConnection, clientCredentialsGrant });
 }
 
-export { createProviderRequests, operationRequest, requireOperationScope, tokenResponse };
+export { connectionProvider, createProviderRequests, operationRequest, requireOperationScope, tokenResponse };

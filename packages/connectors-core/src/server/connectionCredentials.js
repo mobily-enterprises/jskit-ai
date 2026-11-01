@@ -63,9 +63,9 @@ function createConnectionCredentials({ config, resolveReference }) {
     }
     return {
       // readable-check: allow method-probe - data: a provider definition gives oauth as metadata or as a function of the settings
-      oauth: typeof provider.oauth === "function" ? provider.oauth(integration.settings || {}) : provider.oauth,
+      oauth: typeof provider.oauth === "function" ? provider.oauth(integration.settings) : provider.oauth,
       // readable-check: allow method-probe - data: a provider definition gives oauthResource as a value or as a function of the settings
-      resource: typeof provider.oauthResource === "function" ? provider.oauthResource(integration.settings || {}) : provider.oauthResource,
+      resource: typeof provider.oauthResource === "function" ? provider.oauthResource(integration.settings) : provider.oauthResource,
       client: { client_id: registration.clientId },
       clientAuth: provider.oauthClientIdParameter ? (as, client, body, headers) => {
         clientAuth(as, client, body, headers);
