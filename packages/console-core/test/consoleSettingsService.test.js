@@ -23,8 +23,8 @@ function createFixture({ deny = false } = {}) {
       async getSingleton() {
         return {};
       },
-      async updateSingleton(patch = {}) {
-        calls.updateSingleton.push({ ...patch });
+      async updateSingleton() {
+        calls.updateSingleton.push("touched");
         return {};
       }
     }
@@ -57,13 +57,10 @@ test("consoleSettingsService.updateSettings requires owner access before writing
     }
   };
 
-  const response = (await service.updateSettings(
-    {},
-    { context }
-  )).value;
+  const response = (await service.updateSettings({ context })).value;
 
   assert.deepEqual(calls.requireConsoleOwner, [context]);
-  assert.deepEqual(calls.updateSingleton, [{}]);
+  assert.deepEqual(calls.updateSingleton, ["touched"]);
   assert.deepEqual(response, {
     settings: {}
   });

@@ -20,7 +20,7 @@ function createService({ consoleSettingsRepository }) {
     }
 
     const settings = await consoleSettingsRepository.getSingleton(options);
-    const ownerUserId = normalizeRecordId(settings?.ownerUserId, { fallback: null });
+    const ownerUserId = normalizeRecordId(settings.ownerUserId, { fallback: null });
     return Boolean(ownerUserId) && ownerUserId === normalizedUserId;
   }
 

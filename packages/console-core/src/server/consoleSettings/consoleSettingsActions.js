@@ -55,7 +55,7 @@ function createConsoleSettingsActions({ consoleSettingsService }) {
           audience: "all_users"
         }
       })],
-      execute: (input, context) => consoleSettingsService.updateSettings(input, { context })
+      execute: (_input, context) => consoleSettingsService.updateSettings({ context })
     })
   ]);
 }

@@ -2,10 +2,10 @@ import {
   createWithTransaction,
   normalizeDbRecordId,
   resolveRepoClient,
+  toInsertDateTime,
   toIsoString
 } from "@jskit-ai/database-runtime/shared";
-import { toInsertDateTime } from "@jskit-ai/database-runtime/shared";
-import { normalizeRecordId as normalizeKernelRecordId } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 
 function nowDb() {
   return toInsertDateTime();
@@ -41,7 +41,7 @@ function createRepository({ knex }) {
 
   async function ensureOwnerUserId(userId, options = {}) {
     const client = resolveRepoClient(knex, options);
-    const candidateOwnerUserId = normalizeKernelRecordId(userId, { fallback: null });
+    const candidateOwnerUserId = normalizeRecordId(userId, { fallback: null });
     if (!candidateOwnerUserId) {
       throw new TypeError("consoleSettingsRepository.ensureOwnerUserId requires a positive user id.");
     }
@@ -67,7 +67,8 @@ function createRepository({ knex }) {
     return reloaded.ownerUserId;
   }
 
-  async function updateSingleton(patch, options = {}) {
+  // Touches the singleton row's updated_at; the settings have no columns.
+  async function updateSingleton(options = {}) {
     const client = resolveRepoClient(knex, options);
     const dbPatch = {
       updated_at: nowDb()
