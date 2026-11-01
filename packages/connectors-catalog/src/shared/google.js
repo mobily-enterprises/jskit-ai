@@ -1,10 +1,10 @@
 import { createSchema } from "json-rest-schema";
-const scope = (name) => name.startsWith("https:") ? name : `https://www.googleapis.com/auth/${name}`;
+import { googleScope } from "./googleScope.js";
 function definition(id, name, api, description, recommended, permissions, verificationFields = [], setupNotes = []) {
   return Object.freeze({
     id, name, description, verificationFields,
     accountModes: ["shared", "per-user", "assistant"], authenticationMethods: ["oauth2"],
-    scopes: permissions.map(([value, label, required = false]) => ({ value: scope(value), label,
+    scopes: permissions.map(([value, label, required = false]) => ({ value: googleScope(value), label,
       recommended: Array.isArray(recommended) ? recommended.includes(value) : value === recommended, ...(required ? { required: true } : {}) })),
     setup: {
       url: "https://developers.google.com/identity/protocols/oauth2/web-server",

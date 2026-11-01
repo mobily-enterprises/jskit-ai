@@ -21,6 +21,7 @@ const AUTH_OPERATION_FEATURES = Object.freeze({
   changePassword: "password.change",
   updateDisplayName: "profileUpdate",
   getSecurityStatus: "securityStatus",
+  // readable-check: allow setter-seam - not a slot: setPasswordSignInEnabled is an auth.service operation
   setPasswordSignInEnabled: "password.methodToggle",
   startProviderLink: "providerLinking.start",
   unlinkProvider: "providerLinking.unlink",

@@ -4,33 +4,7 @@ import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudReso
 import { createOperationMessages } from "../operationMessages.js";
 import { userProfileOutputSchema } from "./accountSettingsSchemas.js";
 import { userSettingsOutputSchema } from "./userSettingsResource.js";
-
-const USERNAME_MAX_LENGTH = 120;
-
-function normalizeUsername(value) {
-  const normalized = normalizeLowerText(value)
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, USERNAME_MAX_LENGTH);
-
-  return normalized || "";
-}
-
-function normalizeNullableString(value) {
-  if (value === null || value === undefined) {
-    return null;
-  }
-
-  return normalizeText(value);
-}
-
-function normalizeNullableVersion(value) {
-  if (value === null || value === undefined || value === "") {
-    return null;
-  }
-
-  return String(value);
-}
+import { USERNAME_MAX_LENGTH, normalizeNullableString, normalizeNullableVersion, normalizeUsername } from "./userProfileValues.js";
 
 const userProfileBodySchema = createSchema({
   displayName: {

@@ -1,5 +1,5 @@
 import { createSchema } from "json-rest-schema";
-import { zohoRegions } from "./zoho-regions.js";
+import { zohoRegions } from "./zoho.js";
 
 const zohoCrmRegions = Object.freeze(zohoRegions.filter(({ value }) => value !== "sa"));
 

@@ -13,33 +13,7 @@ import {
   extractJsonRestCollectionRows
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { normalizeIdentity } from "../support/identity.js";
-
-const USERNAME_MAX_LENGTH = 120;
-
-function normalizeUsername(value) {
-  const normalized = normalizeLowerText(value)
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, USERNAME_MAX_LENGTH);
-
-  return normalized || "";
-}
-
-function normalizeNullableString(value) {
-  if (value === null || value === undefined) {
-    return null;
-  }
-
-  return normalizeText(value);
-}
-
-function normalizeNullableVersion(value) {
-  if (value === null || value === undefined || value === "") {
-    return null;
-  }
-
-  return String(value);
-}
+import { USERNAME_MAX_LENGTH, normalizeNullableString, normalizeNullableVersion, normalizeUsername } from "../../../shared/resources/userProfileValues.js";
 
 function normalizeProfileRecord(payload = null) {
   if (!payload || typeof payload !== "object") {

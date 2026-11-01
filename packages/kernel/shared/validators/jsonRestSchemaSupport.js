@@ -22,13 +22,11 @@ const JSON_REST_SCHEMA_ERRORS = Object.freeze({
 });
 const INVALID_VALUE = Object.freeze({ code: "kernel.validation.invalid", message: "Invalid value." });
 
+const JSON_REST_SCHEMA_METHODS = Object.freeze(["create", "replace", "patch", "toJsonSchema"]);
+
 function isJsonRestSchemaInstance(value) {
-  return Boolean(value) &&
-    typeof value === "object" &&
-    typeof value.create === "function" &&
-    typeof value.replace === "function" &&
-    typeof value.patch === "function" &&
-    typeof value.toJsonSchema === "function";
+  // readable-check: allow method-probe - input validation: a schema definition's schema must be a json-rest-schema instance
+  return Boolean(value) && typeof value === "object" && JSON_REST_SCHEMA_METHODS.every((name) => typeof value[name] === "function");
 }
 
 function requireJsonRestSchemaInstance(schemaDefinition = null, {

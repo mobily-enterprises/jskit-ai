@@ -1,13 +1,13 @@
 import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
+import { isZohoId } from "../shared/zoho.js";
 import { zohoCrmDefinition, zohoCrmRegions } from "../shared/zoho-crm.js";
 import { jsonOperation } from "./jsonOperation.js";
 import { zohoAuthorizationParameters, zohoOAuthMetadata, normalizeZohoTokenResponse } from "./zohoOAuth.js";
 
 const regionFor = ({ region = "us" } = {}) => zohoCrmRegions.find(({ value }) => value === region);
 const apiOrigin = (settings = {}) => `https://${settings.environment === "sandbox" ? "sandbox" : settings.environment === "developer" ? "developer" : "www"}.zohoapis.${regionFor(settings).suffix}`;
-const identifier = (value) => typeof value === "string" && /^[1-9][0-9]{0,29}$/u.test(value);
 const pageToken = (value) => typeof value === "string" && value.length > 0 && value.length <= 4096 && !/[\s\p{Cc}]/u.test(value);
 
 function recordsList(module, defaults) {
@@ -32,7 +32,7 @@ function recordsList(module, defaults) {
       for (const [name, value] of Object.entries(values)) url.searchParams.set(name, String(value));
       return { method: "GET", url: url.href };
     },
-    validateResult: (result) => Array.isArray(result?.data) && result.data.length <= 200 && result.data.every((record) => identifier(record?.id)) &&
+    validateResult: (result) => Array.isArray(result?.data) && result.data.length <= 200 && result.data.every((record) => isZohoId(record?.id)) &&
       Number.isSafeInteger(result.info?.count) && result.info.count === result.data.length &&
       Number.isSafeInteger(result.info.per_page) && result.info.per_page >= 1 && result.info.per_page <= 200 &&
       typeof result.info.more_records === "boolean" &&
@@ -51,7 +51,7 @@ const zohoCrmProvider = Object.freeze({
   operations: {
     "users.current": {
       ...jsonOperation((settings) => `${apiOrigin(settings)}/crm/v8/users?type=CurrentUser`, {},
-        (value) => Array.isArray(value?.users) && value.users.length === 1 && identifier(value.users[0]?.id)),
+        (value) => Array.isArray(value?.users) && value.users.length === 1 && isZohoId(value.users[0]?.id)),
       scopes: ["ZohoCRM.users.READ", "ZohoCRM.users.ALL"]
     },
     "leads.list": recordsList("Leads", "Last_Name,Email"),

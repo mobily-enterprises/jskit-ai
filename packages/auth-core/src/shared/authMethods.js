@@ -131,6 +131,11 @@ function buildOAuthMethodDefinitions(oauthProviders = []) {
   return Object.freeze(definitions);
 }
 
+/**
+ * The sign-in methods: password, OTP and one per OAuth provider.
+ * @param {{ oauthProviders?: Array<{ id: string, label?: string }> }} [options]
+ */
+// readable-check: allow dependency-default - data: oauthProviders lists provider entries, and an absent list has none
 function buildAuthMethodDefinitions({ oauthProviders = [] } = {}) {
   return Object.freeze([...AUTH_METHOD_DEFINITIONS, ...buildOAuthMethodDefinitions(oauthProviders)]);
 }

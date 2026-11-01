@@ -44,6 +44,7 @@ function normalizeSecurityActions(value = {}) {
   const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   return Object.freeze({
     changePassword: normalizeBoolean(source.changePassword),
+    // readable-check: allow setter-seam - not a slot: setPasswordEnabled says whether the security status offers that action
     setPasswordEnabled: normalizeBoolean(source.setPasswordEnabled),
     linkProvider: normalizeBoolean(source.linkProvider),
     unlinkProvider: normalizeBoolean(source.unlinkProvider),

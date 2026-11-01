@@ -206,12 +206,15 @@ function filterRoutesBySurface(routeList, { surfaceRuntime, surfaceMode } = {}) 
   if (!surfaceRuntime || typeof surfaceRuntime !== "object") {
     throw new Error("filterRoutesBySurface requires surfaceRuntime.");
   }
+  // readable-check: allow method-probe - input validation: the application passes its own surface runtime
   if (typeof surfaceRuntime.normalizeSurfaceMode !== "function") {
     throw new Error("filterRoutesBySurface requires surfaceRuntime.normalizeSurfaceMode().");
   }
+  // readable-check: allow method-probe - input validation: the application passes its own surface runtime
   if (typeof surfaceRuntime.resolveSurfaceFromPathname !== "function") {
     throw new Error("filterRoutesBySurface requires surfaceRuntime.resolveSurfaceFromPathname().");
   }
+  // readable-check: allow method-probe - input validation: the application passes its own surface runtime
   if (typeof surfaceRuntime.listEnabledSurfaceIds !== "function") {
     throw new Error("filterRoutesBySurface requires surfaceRuntime.listEnabledSurfaceIds().");
   }

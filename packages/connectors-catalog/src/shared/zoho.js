@@ -9,4 +9,7 @@ const zohoRegions = Object.freeze([
   { value: "sa", title: "jskit.connectors.zoho.regions.sa.title", accounts: "https://accounts.zoho.sa", suffix: "sa" }
 ]);
 
-export { zohoRegions };
+// Zoho's organisation and record IDs: up to 30 digits, without a leading zero.
+const isZohoId = (value) => typeof value === "string" && /^[1-9][0-9]{0,29}$/u.test(value);
+
+export { isZohoId, zohoRegions };

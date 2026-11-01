@@ -10,8 +10,9 @@ function clientBuildIdFromHtml(html = "") {
 
 // The build of the page this tab loaded; "" in development and outside a browser.
 function pageClientBuildId(documentObject = globalThis.document) {
-  const meta = documentObject?.querySelector?.(`meta[name="${CLIENT_BUILD_META_NAME}"]`);
-  return String(meta?.getAttribute?.("content") || "").trim();
+  // readable-check: allow optional-call - platform object: there is no document outside a browser
+  const meta = documentObject?.querySelector(`meta[name="${CLIENT_BUILD_META_NAME}"]`);
+  return String(meta?.getAttribute("content") || "").trim();
 }
 
 export {

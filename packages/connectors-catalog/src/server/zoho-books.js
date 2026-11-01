@@ -1,15 +1,15 @@
 import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
-import { zohoBooksDefinition, zohoBooksIdentifier, zohoBooksOrganizationField } from "../shared/zoho-books.js";
-import { zohoRegions } from "../shared/zoho-regions.js";
+import { zohoBooksDefinition, zohoBooksOrganizationField } from "../shared/zoho-books.js";
+import { isZohoId, zohoRegions } from "../shared/zoho.js";
 import { jsonOperation } from "./jsonOperation.js";
 import { zohoAuthorizationParameters, zohoOAuthMetadata, normalizeZohoTokenResponse } from "./zohoOAuth.js";
 
 const regionFor = ({ region = "eu" } = {}) => zohoRegions.find(({ value }) => value === region);
 const apiOrigin = (settings) => `https://www.zohoapis.${regionFor(settings).suffix}`;
 const validOrganizations = (value) => Array.isArray(value?.organizations) && value.organizations.every((org) =>
-  zohoBooksIdentifier(org?.organization_id) && typeof org.name === "string" && typeof org.is_org_active === "boolean");
+  isZohoId(org?.organization_id) && typeof org.name === "string" && typeof org.is_org_active === "boolean");
 
 function booksList(resource, identifier) {
   const schema = createSchema({
@@ -33,7 +33,7 @@ function booksList(resource, identifier) {
       return { method: "GET", url: url.href };
     },
     validateResult: (value) => Array.isArray(value?.[resource]) && value[resource].length <= 200 &&
-      value[resource].every((record) => zohoBooksIdentifier(record?.[identifier])) && typeof value.page_context?.has_more_page === "boolean"
+      value[resource].every((record) => isZohoId(record?.[identifier])) && typeof value.page_context?.has_more_page === "boolean"
   };
 }
 

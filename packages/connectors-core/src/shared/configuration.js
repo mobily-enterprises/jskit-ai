@@ -168,6 +168,7 @@ function providerGrantTypes(provider) {
 }
 
 function getProviderSettingsSchema(provider, settings = {}) {
+  // readable-check: allow method-probe - data: a provider definition gives its settings schema as a schema or as a function of the settings
   return typeof provider.settingsSchema === "function" ? provider.settingsSchema(settings) : provider.settingsSchema;
 }
 
@@ -187,6 +188,7 @@ function getProviderScopes(provider, settings = {}, grantType = DEFAULT_GRANT_TY
 
 function getProviderClientAuthenticationMethods(provider, grantType = DEFAULT_GRANT_TYPE, settings = {}) {
   const methods = provider.oauthClientAuthenticationMethods;
+  // readable-check: allow method-probe - data: a provider definition gives its client authentication methods as a list or as a function of the grant type
   return typeof methods === "function" ? methods(grantType, settings) : methods || [DEFAULT_TOKEN_ENDPOINT_AUTH_METHOD];
 }
 
@@ -194,12 +196,15 @@ function getProviderClientAuthenticationMethods(provider, grantType = DEFAULT_GR
 function getProviderSetup(provider, settings = {}, authenticationMethod) {
   const setup = provider.setup || {};
   return {
+    // readable-check: allow optional-call - data: a provider definition's setup may give its URL for the settings
     url: setup.urlForSettings?.(settings, authenticationMethod) || setup.urlByAuthentication?.[authenticationMethod] || setup.url,
+    // readable-check: allow optional-call - data: a provider definition's setup may give its steps for the settings
     steps: setup.stepsForSettings?.(settings, authenticationMethod) || setup.stepsByAuthentication?.[authenticationMethod] || setup.steps
   };
 }
 
 function isProviderConfigurationOnly(provider, settings = {}) {
+  // readable-check: allow optional-call - data: a provider definition may say per settings whether it is configuration only
   return Boolean(provider.configurationOnly || provider.configurationOnlyForSettings?.(settings));
 }
 

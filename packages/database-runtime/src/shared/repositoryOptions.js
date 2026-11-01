@@ -21,6 +21,7 @@ function resolveRepoClient(dbClient, options = {}) {
 
 function applyForUpdate(query, options = {}) {
   const { forUpdate } = resolveQueryOptions(options);
+  // readable-check: allow method-probe - platform object: a Knex query builder that cannot lock rows is used as is
   if (forUpdate && typeof query?.forUpdate === "function") {
     return query.forUpdate();
   }
@@ -193,6 +194,7 @@ async function runInTransaction(knex, callback, options = {}) {
     throw new TypeError("runInTransaction requires knex client.");
   }
 
+  // readable-check: allow method-probe - platform object: a Knex client without transaction() runs the callback on itself
   if (typeof knex.transaction !== "function") {
     return callback(knex);
   }

@@ -1,5 +1,15 @@
 import { AUTH_PATHS, buildAuthOauthStartPath } from "./authPaths.js";
 
+/**
+ * Sends one request and answers the response body, as the HTTP client's
+ * request does.
+ * @typedef {(path: string, options?: { method?: string, body?: unknown }) => Promise<any>} AuthApiRequest
+ */
+
+/**
+ * The auth API's calls, each one request to its auth path.
+ * @param {{ request: AuthApiRequest }} dependencies
+ */
 function createApi({ request }) {
   function session() {
     return request(AUTH_PATHS.SESSION);

@@ -76,7 +76,15 @@ function compareSurfaceRouteSpecificity(left, right) {
   return String(left.id || "").localeCompare(String(right.id || ""));
 }
 
-function createSurfacePathHelpers({ defaultSurfaceId, surfaceDefinitions, apiBasePath = API_BASE_PATH } = {}) {
+/**
+ * Path helpers for an application's surfaces: which surface a pathname belongs
+ * to, and each surface's paths.
+ * @param {object} options
+ * @param {string} options.defaultSurfaceId
+ * @param {Array<{ id: string, routeBase?: string }>} options.surfaceDefinitions
+ * @param {string} [options.apiBasePath]
+ */
+function createSurfacePathHelpers({ defaultSurfaceId, surfaceDefinitions, apiBasePath = API_BASE_PATH }) {
   const normalizedDefaultSurfaceId = normalizeSurfaceId(defaultSurfaceId);
   if (!normalizedDefaultSurfaceId) {
     throw new Error("createSurfacePathHelpers requires defaultSurfaceId.");

@@ -1,9 +1,8 @@
 import { createSchema } from "json-rest-schema";
-import { zohoRegions } from "./zoho-regions.js";
+import { isZohoId, zohoRegions } from "./zoho.js";
 
-const zohoBooksIdentifier = (value) => typeof value === "string" && /^[1-9][0-9]{0,29}$/u.test(value);
 const zohoBooksOrganizationField = { type: "string", noTrim: true,
-  validator: (value) => zohoBooksIdentifier(value) || "Use an organisation ID containing digits only." };
+  validator: (value) => isZohoId(value) || "Use an organisation ID containing digits only." };
 
 const zohoBooksDefinition = Object.freeze({
   id: "zoho-books", name: "Zoho Books", description: "jskit.connectors.zohoBooks.description",
@@ -36,4 +35,4 @@ const zohoBooksDefinition = Object.freeze({
   ] }
 });
 
-export { zohoBooksDefinition, zohoBooksIdentifier, zohoBooksOrganizationField };
+export { zohoBooksDefinition, zohoBooksOrganizationField };

@@ -9,6 +9,7 @@ const TABLE_NAME_PATTERN = /^[A-Za-z0-9_]+$/;
 const TEMPORAL_DATA_TYPES = new Set(["datetime", "timestamp"]);
 
 function requireKnexRaw(knex) {
+  // readable-check: allow method-probe - input validation: the application passes its own Knex instance
   if (!knex || typeof knex.raw !== "function") {
     throw new TypeError("introspectCrudTableSnapshot requires knex with raw().");
   }

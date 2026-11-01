@@ -1,6 +1,7 @@
 import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
+import { googleScope } from "../shared/googleScope.js";
 import { validatedOperation } from "./jsonOperation.js";
 
 const oauth = Object.freeze({
@@ -8,7 +9,6 @@ const oauth = Object.freeze({
   authorization_endpoint: "https://accounts.google.com/o/oauth2/v2/auth",
   token_endpoint: "https://oauth2.googleapis.com/token"
 });
-const googleScope = (name) => name.startsWith("https:") ? name : `https://www.googleapis.com/auth/${name}`;
 const documentId = { type: "string", required: true, minLength: 1, maxLength: 1024, validator: (value) => /^[a-zA-Z0-9_-]+$/u.test(value) || "Enter the document ID from its URL." };
 const pageToken = { type: "string", minLength: 1, maxLength: 4096 };
 
