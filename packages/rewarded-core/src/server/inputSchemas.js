@@ -17,13 +17,11 @@ const gateQuerySchema = createSchema({
 });
 
 const currentQueryInputValidator = deepFreeze({
-  schema: gateQuerySchema,
-  mode: "patch"
+  schema: gateQuerySchema
 });
 
 const startCommandInputValidator = deepFreeze({
-  schema: gateQuerySchema,
-  mode: "patch"
+  schema: gateQuerySchema
 });
 
 const grantCommandInputValidator = deepFreeze({
@@ -38,8 +36,7 @@ const grantCommandInputValidator = deepFreeze({
       minLength: 1,
       maxLength: 120
     }
-  }),
-  mode: "patch"
+  })
 });
 
 const closeCommandInputValidator = deepFreeze({
@@ -54,8 +51,7 @@ const closeCommandInputValidator = deepFreeze({
       minLength: 1,
       maxLength: 120
     }
-  }),
-  mode: "patch"
+  })
 });
 
 const gateRuleOutputSchema = createSchema({
