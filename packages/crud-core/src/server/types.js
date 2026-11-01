@@ -17,6 +17,19 @@
  */
 
 /**
+ * The scope of a scoped CRUD resource: the route base its routes live under,
+ * the validators of the scope's route params and action input, the input keys
+ * the scope owns, and input(request), which reads them from a request.
+ * Workspaces-core's WORKSPACE_CRUD_SCOPE is the workspace one.
+ * @typedef {object} CrudScope
+ * @property {string} [routeBase]
+ * @property {object} [actionInputValidator]
+ * @property {object} [routeParamsValidator]
+ * @property {ReadonlyArray<string>} [inputKeys]
+ * @property {(request: any) => Record<string, unknown>} [input]
+ */
+
+/**
  * What a `defineCrudJsonApiFeature` feature provides under the capability its
  * application names: the resource, its repository and its service, after any
  * decorateRepository and decorateService. The service keeps only the methods

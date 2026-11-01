@@ -54,7 +54,8 @@ and the resource contracts from `@jskit-ai/resource-crud-core`.
 
 `example/packages/users/` is a global administration package.
 `example/packages/users-workspace/` demonstrates the workspace route/action
-boundary while reusing the same service contract. Each package's
+boundary, with workspaces-core's `WORKSPACE_CRUD_SCOPE`, while reusing the same
+service contract. Each package's
 `src/server/types.js` declares the type of the capability it provides. Copy only the composition
 that matches the product and adapt it as ordinary application source.
 

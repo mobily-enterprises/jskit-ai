@@ -18,6 +18,9 @@ test("workspaces-core exports are explicit and aligned with production usage", (
       "./server/WorkspacesIntegrationsProvider",
       "./server/validators/routeParamsValidator",
       "./server/support/workspaceRouteInput",
+      // Workspace CRUD features take their scope, workspace id and route paths from these.
+      "./server/support/workspaceCrud",
+      "./server/support/workspaceRoutePaths",
       "./shared/resources/workspaceResource",
       "./shared/resources/workspaceSettingsResource",
       // Features that require this package's capabilities take their types from it.

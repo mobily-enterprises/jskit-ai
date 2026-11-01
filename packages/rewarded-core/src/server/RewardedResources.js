@@ -1,21 +1,9 @@
 import { defineCrudJsonApiFeature } from "@jskit-ai/crud-core/server/defineCrudJsonApiFeature";
-import { routeParamsValidator } from "@jskit-ai/workspaces-core/server/validators/routeParamsValidator";
-import { workspaceSlugParamsValidator } from "@jskit-ai/workspaces-core/server/validators/routeParamsValidator";
-import { buildWorkspaceInputFromRouteParams } from "@jskit-ai/workspaces-core/server/support/workspaceRouteInput";
+import { WORKSPACE_CRUD_SCOPE } from "@jskit-ai/workspaces-core/server/support/workspaceCrud";
 import { resource as providerConfigResource } from "../shared/rewardedProviderConfigResource.js";
 import { resource as ruleResource } from "../shared/rewardedRuleResource.js";
 import { resource as unlockReceiptResource } from "../shared/rewardedUnlockReceiptResource.js";
 import { resource as watchSessionResource } from "../shared/rewardedWatchSessionResource.js";
-
-function workspaceScope() {
-  return {
-    routeBase: "/w/:workspaceSlug",
-    actionInputValidator: workspaceSlugParamsValidator,
-    routeParamsValidator,
-    inputKeys: ["workspaceSlug"],
-    input: (request) => buildWorkspaceInputFromRouteParams(request.input.params)
-  };
-}
 
 const RewardedRulesFeature = defineCrudJsonApiFeature({
   id: "rewarded.rules",
@@ -25,7 +13,7 @@ const RewardedRulesFeature = defineCrudJsonApiFeature({
   ownershipFilter: "workspace",
   relativePath: "/rewarded-rules",
   internal: true,
-  scope: workspaceScope()
+  scope: WORKSPACE_CRUD_SCOPE
 });
 
 const RewardedProviderConfigsFeature = defineCrudJsonApiFeature({
@@ -36,7 +24,7 @@ const RewardedProviderConfigsFeature = defineCrudJsonApiFeature({
   ownershipFilter: "workspace",
   relativePath: "/rewarded-provider-configs",
   internal: true,
-  scope: workspaceScope()
+  scope: WORKSPACE_CRUD_SCOPE
 });
 
 const RewardedWatchSessionsFeature = defineCrudJsonApiFeature({
@@ -47,7 +35,7 @@ const RewardedWatchSessionsFeature = defineCrudJsonApiFeature({
   ownershipFilter: "workspace_user",
   relativePath: "/rewarded-watch-sessions",
   internal: true,
-  scope: workspaceScope()
+  scope: WORKSPACE_CRUD_SCOPE
 });
 
 const RewardedUnlockReceiptsFeature = defineCrudJsonApiFeature({
@@ -58,7 +46,7 @@ const RewardedUnlockReceiptsFeature = defineCrudJsonApiFeature({
   ownershipFilter: "workspace_user",
   relativePath: "/rewarded-unlock-receipts",
   internal: true,
-  scope: workspaceScope()
+  scope: WORKSPACE_CRUD_SCOPE
 });
 
 export {

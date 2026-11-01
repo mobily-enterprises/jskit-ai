@@ -158,7 +158,7 @@ function projectEnabledServiceOperations(service, operations) {
  * @param {object | null} [feature.listFilterQueryValidator]
  * @param {object | null} [feature.searchSchema]
  * @param {object | null} [feature.permissions]
- * @param {object} [feature.scope] The route base, validators, input keys and input() of a scoped resource.
+ * @param {import("./types.js").CrudScope} [feature.scope] The route base, validators, input keys and input() of a scoped resource.
  * @param {Record<string, string>} [feature.requires] More capabilities the feature requires, by name.
  * @param {((dependencies: any) => any) | null} [feature.decorateRepository]
  * @param {((dependencies: any) => any) | null} [feature.decorateService]

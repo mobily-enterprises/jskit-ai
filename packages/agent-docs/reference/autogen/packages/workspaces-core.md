@@ -131,6 +131,13 @@ Local functions
 - `normalizeSurfaceIds(surfaceIds = [])`
 - `resolveSurfaceIdsFromAppConfig(appConfig = {}, predicate)`
 
+### `src/server/support/workspaceCrud.js`
+Exports
+- `WORKSPACE_CRUD_SCOPE`
+- `workspaceIdFromContext(context = {})`
+Local functions
+- `workspaceCrudScopeInput(request)`
+
 ### `src/server/support/workspaceInvitationsPolicy.js`
 Exports
 - `resolveWorkspaceInvitationsPolicy({ appConfig, tenancyProfile })`

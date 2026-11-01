@@ -39,7 +39,8 @@ for understanding an imported system, but it is never the sole source of truth.
   with user or workspace ownership.
 - `user` requires a real user ownership column and negative cross-user tests.
 - `workspace` and `workspace_user` require an explicit workspace route/action
-  scope plus named permission policy.
+  scope plus named permission policy. The scope is workspaces-core's
+  `WORKSPACE_CRUD_SCOPE`; never copy its literal into a feature.
 - Domain relationships such as `recipient_user_id` are not ownership merely
   because they point to a user.
 

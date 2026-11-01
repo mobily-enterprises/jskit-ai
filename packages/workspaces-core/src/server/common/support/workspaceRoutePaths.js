@@ -1,11 +1,16 @@
 import { resolveScopedApiBasePath } from "@jskit-ai/kernel/shared/surface";
 import { normalizePathname } from "@jskit-ai/kernel/shared/surface/paths";
 
+/** The API base of the workspace routes, /api/w/:workspaceSlug. */
 const WORKSPACE_ROUTE_BASE_PATH = resolveScopedApiBasePath({
   routeBase: "/w/:workspaceSlug",
   strictParams: false
 });
 
+/**
+ * A workspace route's path: relativePath under /api/w/:workspaceSlug.
+ * @param {string} [relativePath]
+ */
 function resolveWorkspaceRoutePath(relativePath = "/") {
   const normalizedRelativePath = normalizePathname(relativePath || "/");
   if (normalizedRelativePath === "/") {

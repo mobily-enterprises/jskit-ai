@@ -47,8 +47,6 @@ Exports
 - `RewardedRulesFeature`
 - `RewardedUnlockReceiptsFeature`
 - `RewardedWatchSessionsFeature`
-Local functions
-- `workspaceScope()`
 
 ### `src/server/rewardedRoutes.js`
 Exports

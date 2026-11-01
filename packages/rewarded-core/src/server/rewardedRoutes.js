@@ -1,11 +1,11 @@
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { checkRouteVisibility } from "@jskit-ai/kernel/shared/support/visibility";
-import { resolveScopedApiBasePath } from "@jskit-ai/kernel/shared/surface";
 import {
   createTransportResponseSchema,
   withStandardErrorResponses
 } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
 import { routeParamsValidator } from "@jskit-ai/workspaces-core/server/validators/routeParamsValidator";
+import { resolveWorkspaceRoutePath } from "@jskit-ai/workspaces-core/server/support/workspaceRoutePaths";
 import { buildWorkspaceInputFromRouteParams } from "@jskit-ai/workspaces-core/server/support/workspaceRouteInput";
 import {
   ACTION_CURRENT,
@@ -43,11 +43,7 @@ function createWorkflowResponses(outputValidator) {
  */
 function registerRewardedRoutes(router) {
   const normalizedRouteSurface = normalizeSurfaceId("app");
-  const routeBase = resolveScopedApiBasePath({
-    routeBase: "/w/:workspaceSlug",
-    relativePath: "rewarded",
-    strictParams: false
-  });
+  const routeBase = resolveWorkspaceRoutePath("rewarded");
   const visibility = checkRouteVisibility("workspace_user");
 
   router.register(

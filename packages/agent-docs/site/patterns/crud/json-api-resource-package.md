@@ -32,7 +32,8 @@ from a generator questionnaire or treat a live table as the sole contract.
 - Migration and resource storage metadata describe the same table.
 - `apiAccess`, surface access, and `autofilter` agree.
 - Public routes use public ownership only.
-- Workspace routes receive explicit scope validators and route-to-action input.
+- Workspace routes receive explicit scope validators and route-to-action input:
+  workspaces-core's `WORKSPACE_CRUD_SCOPE`, never a copied scope literal.
 - Application source contains one module declaration, not copied generic CRUD
   repository, service, action, route, and provider files.
 - Current migration/resource/source state is authoritative; there is no receipt,
@@ -104,8 +105,14 @@ an unfiltered collection can satisfy a matching-row-only assertion.
 
 Change the package name, resource fields, table, surface, ownership filter,
 relative route, messages, and migration. Supply explicit permissions when the
-surface uses named policy. For workspace ownership, add the workspace route and
-action validators through the module's `scope` option. The feature exposes the
+surface uses named policy. For workspace ownership, pass `scope:
+WORKSPACE_CRUD_SCOPE` (`@jskit-ai/workspaces-core/server/support/workspaceCrud`):
+the `/w/:workspaceSlug` route base, the workspace route and action validators
+and the slug input. A repository method of such a feature reads the workspace
+id with `workspaceIdFromContext(options.context)` from the same module, and a
+hand-written workspace route's path is
+`resolveWorkspaceRoutePath("relative-path")`
+(`@jskit-ai/workspaces-core/server/support/workspaceRoutePaths`). The feature exposes the
 operations declared by the resource. Use `operations` only to narrow that
 surface further; do not register unused mutation actions and routes. Use
 `routes: false` only for an internal

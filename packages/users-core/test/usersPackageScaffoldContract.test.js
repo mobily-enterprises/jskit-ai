@@ -38,7 +38,7 @@ test("global user administration example is one declarative CRUD feature", async
   assert.doesNotMatch(feature, /\.make\(|\.singleton\(|containerToken|repositoryToken|serviceToken/);
 });
 
-test("workspace user administration example makes route and action scope explicit", async () => {
+test("workspace user administration example takes workspaces-core's workspace CRUD scope", async () => {
   const packageManifest = JSON.parse(await readFile(
     path.join(patternRoot, "example", "packages", "users-workspace", "package.json"),
     "utf8"
@@ -60,10 +60,8 @@ test("workspace user administration example makes route and action scope explici
   assert.equal(packageManifest.jskit?.mutations, undefined);
   assert.deepEqual(packageManifest.jskit?.capabilities?.provides, ["app.users-workspace"]);
   assert.match(feature, /ownershipFilter: "workspace"/);
-  assert.match(feature, /routeBase: "\/w\/:workspaceSlug"/);
-  assert.match(feature, /actionInputValidator: workspaceSlugParamsValidator/);
-  assert.match(feature, /inputKeys: \["workspaceSlug"\]/);
-  assert.match(feature, /buildWorkspaceInputFromRouteParams/);
+  assert.match(feature, /import \{ WORKSPACE_CRUD_SCOPE \} from "@jskit-ai\/workspaces-core\/server\/support\/workspaceCrud";/);
+  assert.match(feature, /scope: WORKSPACE_CRUD_SCOPE/);
   assert.doesNotMatch(feature, /\.make\(|\.singleton\(|containerToken|repositoryToken|serviceToken/);
 });
 

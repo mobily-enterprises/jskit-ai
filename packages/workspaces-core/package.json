@@ -10,6 +10,8 @@
     "./server/WorkspacesIntegrationsProvider": "./src/server/WorkspacesIntegrationsProvider.js",
     "./server/validators/routeParamsValidator": "./src/server/common/validators/routeParamsValidator.js",
     "./server/support/workspaceRouteInput": "./src/server/support/workspaceRouteInput.js",
+    "./server/support/workspaceCrud": "./src/server/support/workspaceCrud.js",
+    "./server/support/workspaceRoutePaths": "./src/server/common/support/workspaceRoutePaths.js",
     "./server/types": "./src/server/types.js",
     "./shared/jsonApiTransports": "./src/shared/jsonApiTransports.js",
     "./shared/settings": "./src/shared/settings.js",
