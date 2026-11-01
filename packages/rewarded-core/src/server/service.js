@@ -1,44 +1,34 @@
-import { resolveActor } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { simplifyJsonApiDocument } from "@jskit-ai/http-runtime/shared";
+import { resolveActionUser } from "@jskit-ai/users-core/server/resolveActionUser";
 
 const REWARDED_SURFACE = "app";
 
-// The user a gate action runs for: the input's user, when an internal caller names one, else the signed-in user.
-function resolveActionUser(context, input) {
-  const payload = normalizeObject(input);
-  return payload.user || resolveActor(context);
-}
-
-function normalizeRecordList(document = null) {
+function normalizeRecordList(document) {
   const simplified = simplifyJsonApiDocument(document);
   return Array.isArray(simplified) ? simplified.filter(Boolean) : [];
 }
 
-function normalizeRecord(document = null) {
+function normalizeRecord(document) {
   const simplified = simplifyJsonApiDocument(document);
   return simplified && typeof simplified === "object" && !Array.isArray(simplified) ? simplified : null;
 }
 
-function normalizeGateKey(value = "") {
-  return normalizeText(value);
+/**
+ * Lower-case text, or the fallback when there is none.
+ * @param {unknown} value
+ * @param {string} fallback
+ */
+function normalizeKeyword(value, fallback) {
+  return normalizeText(value).toLowerCase() || fallback;
 }
 
-function normalizeSurface(value = "", { fallback = REWARDED_SURFACE } = {}) {
-  const normalized = normalizeText(value).toLowerCase();
-  return normalized || fallback;
+function toIsoOrNull(value) {
+  return parseDate(value)?.toISOString() ?? null;
 }
 
-function toIsoOrNull(value = null) {
-  if (!value) {
-    return null;
-  }
-  const date = value instanceof Date ? value : new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
-}
-
-function parseDate(value = null) {
+function parseDate(value) {
   if (!value) {
     return null;
   }
@@ -65,7 +55,7 @@ function requireActor(context, input) {
 }
 
 function requireWorkspaceSlug(input) {
-  const workspaceSlug = normalizeText(input?.workspaceSlug).toLowerCase();
+  const workspaceSlug = normalizeText(input.workspaceSlug).toLowerCase();
   if (!workspaceSlug) {
     throw new AppError(400, "workspaceSlug is required.", { code: "rewarded.request.workspaceSlugRequired" });
   }
@@ -73,22 +63,22 @@ function requireWorkspaceSlug(input) {
 }
 
 function requireGateKey(input) {
-  const gateKey = normalizeGateKey(input?.gateKey);
+  const gateKey = normalizeText(input.gateKey);
   if (!gateKey) {
     throw new AppError(400, "gateKey is required.", { code: "rewarded.request.gateKeyRequired" });
   }
   return gateKey;
 }
 
-function formatRule(rule = null) {
+function formatRule(rule) {
   if (!rule) {
     return null;
   }
 
   return {
     id: rule.id || null,
-    gateKey: normalizeGateKey(rule.gateKey),
-    surface: normalizeSurface(rule.surface, { fallback: REWARDED_SURFACE }),
+    gateKey: normalizeText(rule.gateKey),
+    surface: normalizeKeyword(rule.surface, REWARDED_SURFACE),
     enabled: rule.enabled === true,
     unlockMinutes: Number(rule.unlockMinutes || 0),
     cooldownMinutes: Number(rule.cooldownMinutes || 0),
@@ -98,30 +88,30 @@ function formatRule(rule = null) {
   };
 }
 
-function formatProviderConfig(record = null) {
+function formatProviderConfig(record) {
   if (!record) {
     return null;
   }
 
   return {
     id: record.id || null,
-    surface: normalizeSurface(record.surface, { fallback: REWARDED_SURFACE }),
+    surface: normalizeKeyword(record.surface, REWARDED_SURFACE),
     enabled: record.enabled === true,
     placement: normalizeText(record.placement),
     provider: normalizeText(record.provider)
   };
 }
 
-function formatWatchSession(record = null) {
+function formatWatchSession(record) {
   if (!record) {
     return null;
   }
 
   return {
     id: record.id || null,
-    gateKey: normalizeGateKey(record.gateKey),
+    gateKey: normalizeText(record.gateKey),
     providerConfigId: record.providerConfigId || null,
-    status: normalizeSurface(record.status, { fallback: "started" }),
+    status: normalizeKeyword(record.status, "started"),
     startedAt: toIsoOrNull(record.startedAt),
     rewardedAt: toIsoOrNull(record.rewardedAt),
     completedAt: toIsoOrNull(record.completedAt),
@@ -129,14 +119,14 @@ function formatWatchSession(record = null) {
   };
 }
 
-function formatUnlockReceipt(record = null) {
+function formatUnlockReceipt(record) {
   if (!record) {
     return null;
   }
 
   return {
     id: record.id || null,
-    gateKey: normalizeGateKey(record.gateKey),
+    gateKey: normalizeText(record.gateKey),
     providerConfigId: record.providerConfigId || null,
     watchSessionId: record.watchSessionId || null,
     grantedAt: toIsoOrNull(record.grantedAt),
@@ -144,43 +134,49 @@ function formatUnlockReceipt(record = null) {
   };
 }
 
-function isFutureDate(value = null, now = new Date()) {
+function isFutureDate(value, now) {
   const date = parseDate(value);
   return !!date && date.getTime() > now.getTime();
 }
 
 /** @typedef {import("@jskit-ai/crud-core/server/types").CrudRepository} CrudRepository */
+/** @typedef {{ context: object, trx?: import("@jskit-ai/database-runtime/server/types").RuntimeKnexTransaction }} RewardedRepositoryOptions */
 
 /**
  * The Rewarded gate workflow over its four resources' repositories and the
  * application's grant policy. Each operation takes the validated input and
  * `{ context }`, the action context.
  * @param {object} dependencies
- * @param {import("./types.js").RewardedGrantPolicy["authorizeGrant"]} dependencies.authorizeGrant
+ * @param {import("./types.js").RewardedGrantPolicy} dependencies.grantPolicy
  * @param {CrudRepository} dependencies.rewardedRulesRepository
  * @param {CrudRepository} dependencies.rewardedProviderConfigsRepository
  * @param {CrudRepository} dependencies.rewardedWatchSessionsRepository
  * @param {CrudRepository} dependencies.rewardedUnlockReceiptsRepository
  */
 function createService({
-  authorizeGrant,
+  grantPolicy,
   rewardedRulesRepository,
   rewardedProviderConfigsRepository,
   rewardedWatchSessionsRepository,
   rewardedUnlockReceiptsRepository
 }) {
-  /** @param {CrudRepository} repository */
-  async function queryFirst(repository, query, repositoryOptions) {
-    const rows = normalizeRecordList(await repository.queryDocuments(query, repositoryOptions));
-    return rows[0] || null;
-  }
-
-  /** @param {CrudRepository} repository */
+  /**
+   * @param {CrudRepository} repository
+   * @param {RewardedRepositoryOptions} repositoryOptions
+   */
   async function listRecords(repository, query, repositoryOptions) {
     return normalizeRecordList(await repository.queryDocuments(query, repositoryOptions));
   }
 
-  /** @param {{ context: object, trx?: object }} repositoryOptions */
+  /**
+   * @param {CrudRepository} repository
+   * @param {RewardedRepositoryOptions} repositoryOptions
+   */
+  async function queryFirst(repository, query, repositoryOptions) {
+    return (await listRecords(repository, query, repositoryOptions))[0] || null;
+  }
+
+  /** @param {RewardedRepositoryOptions} repositoryOptions */
   async function resolveRule(gateKey, repositoryOptions) {
     return queryFirst(rewardedRulesRepository, {
       gateKey,
@@ -191,21 +187,23 @@ function createService({
     }, repositoryOptions);
   }
 
-  async function resolveProviderConfig(context) {
+  /** @param {RewardedRepositoryOptions} repositoryOptions */
+  async function resolveProviderConfig(repositoryOptions) {
     return queryFirst(rewardedProviderConfigsRepository, {
       surface: REWARDED_SURFACE,
       enabled: "true",
       sort: ["-updatedAt"],
       limit: 1
-    }, { context });
+    }, repositoryOptions);
   }
 
-  async function resolveUnlockReceipts(gateKey, context) {
+  /** @param {RewardedRepositoryOptions} repositoryOptions */
+  async function resolveUnlockReceipts(gateKey, repositoryOptions) {
     return listRecords(rewardedUnlockReceiptsRepository, {
       gateKey,
       sort: ["-grantedAt"],
       limit: 25
-    }, { context });
+    }, repositoryOptions);
   }
 
   async function evaluateGate(input, context) {
@@ -234,7 +232,7 @@ function createService({
       };
     }
 
-    const providerConfigRecord = await resolveProviderConfig(context);
+    const providerConfigRecord = await resolveProviderConfig({ context });
     if (!providerConfigRecord) {
       return {
         gateKey,
@@ -254,7 +252,7 @@ function createService({
 
     const rule = formatRule(ruleRecord);
     const providerConfig = formatProviderConfig(providerConfigRecord);
-    const receipts = await resolveUnlockReceipts(gateKey, context);
+    const receipts = await resolveUnlockReceipts(gateKey, { context });
     const activeReceiptRecord = receipts.find((entry) => isFutureDate(entry?.unlockedUntil, now)) || null;
     const activeUnlock = formatUnlockReceipt(activeReceiptRecord);
 
@@ -396,7 +394,7 @@ function createService({
         throw new AppError(404, "Watch session not found.", { code: "rewarded.session.notFound" });
       }
 
-      const authorized = await authorizeGrant({
+      const authorized = await grantPolicy.authorizeGrant({
         session: formatWatchSession(sessionRecord),
         context,
         trx
@@ -417,13 +415,13 @@ function createService({
         return {
           unlocked: true,
           workspaceSlug,
-          gateKey: normalizeGateKey(sessionRecord.gateKey),
+          gateKey: normalizeText(sessionRecord.gateKey),
           unlock: formatUnlockReceipt(receiptRecord),
           session: formatWatchSession(sessionRecord)
         };
       }
 
-      const ruleRecord = await resolveRule(normalizeGateKey(sessionRecord.gateKey), { context, trx });
+      const ruleRecord = await resolveRule(normalizeText(sessionRecord.gateKey), { context, trx });
       if (!ruleRecord) {
         throw new AppError(409, "No rewarded rule is configured for this session.", {
           code: "rewarded.session.ruleMissing"
@@ -446,7 +444,7 @@ function createService({
 
       const createdReceipt = normalizeRecord(await rewardedUnlockReceiptsRepository.createDocument(
         {
-          gateKey: normalizeGateKey(sessionRecord.gateKey),
+          gateKey: normalizeText(sessionRecord.gateKey),
           providerConfigId: sessionRecord.providerConfigId || null,
           watchSessionId: sessionId,
           grantedAt: nowIso,
@@ -458,7 +456,7 @@ function createService({
       return {
         unlocked: true,
         workspaceSlug,
-        gateKey: normalizeGateKey(sessionRecord.gateKey),
+        gateKey: normalizeText(sessionRecord.gateKey),
         unlock: formatUnlockReceipt(createdReceipt),
         session: formatWatchSession(updatedSession)
       };
@@ -482,7 +480,7 @@ function createService({
       return {
         closed: false,
         workspaceSlug,
-        gateKey: normalizeGateKey(sessionRecord.gateKey),
+        gateKey: normalizeText(sessionRecord.gateKey),
         session: formatWatchSession(sessionRecord),
         reason: "already-rewarded"
       };
@@ -500,7 +498,7 @@ function createService({
     return {
       closed: true,
       workspaceSlug,
-      gateKey: normalizeGateKey(closedSession?.gateKey || sessionRecord.gateKey),
+      gateKey: normalizeText(closedSession?.gateKey || sessionRecord.gateKey),
       session: formatWatchSession(closedSession)
     };
   }

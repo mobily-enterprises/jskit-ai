@@ -25,7 +25,7 @@ Exports
 - `grantRewardOutputValidator`
 - `closeSessionOutputValidator`
 Local functions
-- `createGateStateOutputValidator({ includeSession = false } = {})`
+- `buildGateStateOutputValidator({ includeSession = false } = {})`
 
 ### `src/server/rewardedActions.js`
 Exports
@@ -52,41 +52,40 @@ Exports
 Exports
 - `registerRewardedRoutes(router)`
 Local functions
-- `createWorkflowResponses(outputValidator)`
+- `buildWorkflowResponses(outputValidator)`
 
 ### `src/server/service.js`
 Exports
-- `createService({ authorizeGrant, rewardedRulesRepository, rewardedProviderConfigsRepository, rewardedWatchSessionsRepository, rewardedUnlockReceiptsRepository })`
+- `createService({ grantPolicy, rewardedRulesRepository, rewardedProviderConfigsRepository, rewardedWatchSessionsRepository, rewardedUnlockReceiptsRepository })`
 - `type CrudRepository`
+- `type RewardedRepositoryOptions`
 Local functions
-- `resolveActionUser(context, input)`
-- `normalizeRecordList(document = null)`
-- `normalizeRecord(document = null)`
-- `normalizeGateKey(value = "")`
-- `normalizeSurface(value = "", { fallback = REWARDED_SURFACE } = {})`
-- `toIsoOrNull(value = null)`
-- `parseDate(value = null)`
+- `normalizeRecordList(document)`
+- `normalizeRecord(document)`
+- `normalizeKeyword(value, fallback)`
+- `toIsoOrNull(value)`
+- `parseDate(value)`
 - `addMinutes(date, minutes)`
 - `startOfUtcDay(date)`
 - `requireActor(context, input)`
 - `requireWorkspaceSlug(input)`
 - `requireGateKey(input)`
-- `formatRule(rule = null)`
-- `formatProviderConfig(record = null)`
-- `formatWatchSession(record = null)`
-- `formatUnlockReceipt(record = null)`
-- `isFutureDate(value = null, now = new Date())`
+- `formatRule(rule)`
+- `formatProviderConfig(record)`
+- `formatWatchSession(record)`
+- `formatUnlockReceipt(record)`
+- `isFutureDate(value, now)`
 
 ### `src/server/support/requireRewardedUnlock.js`
 Exports
 - `requireRewardedUnlock(rewardedService, input = {}, { context = null, requireConfigured = false, errorCode = "", errorMessage = "" } = {})`
 Local functions
-- `normalizeReason(value = "")`
-- `isUnlockSatisfied(gateState = null)`
+- `normalizeReason(value)`
+- `isUnlockSatisfied(gateState)`
 - `hasBooleanGateFlag(gateState, key)`
-- `assertWellFormedGateState(gateState = null)`
-- `isConfigurationBypassAllowed(gateState = null, requireConfigured = false)`
-- `createRewardedGateError(gateState = null, { errorCode = "", errorMessage = "" } = {})`
+- `assertWellFormedGateState(gateState)`
+- `isConfigurationBypassAllowed(gateState, requireConfigured)`
+- `buildRewardedGateError(gateState, { errorCode, errorMessage })`
 
 ### `src/server/types.js`
 Exports

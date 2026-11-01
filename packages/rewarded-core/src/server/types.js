@@ -10,7 +10,7 @@
  * The `rewarded.grant-policy` capability the application provides: it decides
  * whether a watch session earns its reward.
  * @typedef {object} RewardedGrantPolicy
- * @property {(input: { session: object, context: object | null, trx: object }) => boolean | Promise<boolean>} authorizeGrant
+ * @property {(input: { session: object, context: object, trx: import("@jskit-ai/database-runtime/server/types").RuntimeKnexTransaction }) => boolean | Promise<boolean>} authorizeGrant
  *   Answers true when the session's reward may be granted.
  */
 

@@ -101,7 +101,7 @@ const REQUEST_CONTEXT = Object.freeze({
 
 test("getCurrentState reports a blocked gate when rule and provider config exist without an active unlock", async () => {
   const service = createService({
-    authorizeGrant: async () => true,
+    grantPolicy: { authorizeGrant: async () => true },
     rewardedRulesRepository: createRuleRepository([
       {
         id: "11",
@@ -148,7 +148,7 @@ test("getCurrentState reports a blocked gate when rule and provider config exist
 test("getCurrentState reuses an active unlock receipt instead of blocking", async () => {
   const futureDate = new Date(Date.now() + 15 * 60 * 1000).toISOString();
   const service = createService({
-    authorizeGrant: async () => true,
+    grantPolicy: { authorizeGrant: async () => true },
     rewardedRulesRepository: createRuleRepository([
       {
         id: "11",
@@ -203,7 +203,7 @@ test("getCurrentState ignores caller surface overrides and evaluates the app-sur
   const recordedRuleQueries = [];
   const recordedConfigQueries = [];
   const service = createService({
-    authorizeGrant: async () => true,
+    grantPolicy: { authorizeGrant: async () => true },
     rewardedRulesRepository: {
       async queryDocuments(query) {
         recordedRuleQueries.push(query);
@@ -279,7 +279,7 @@ test("grantReward patches the watch session and creates an unlock receipt", asyn
   };
 
   const service = createService({
-    authorizeGrant: async () => true,
+    grantPolicy: { authorizeGrant: async () => true },
     rewardedRulesRepository: createRuleRepository([
       {
         id: "11",
@@ -340,14 +340,14 @@ test("grant policy sees stored session and server context and rejects before wri
     }
   };
   for (const decision of [false, undefined, "true"]) {
-    const service = createService({ ...dependencies, authorizeGrant: async ({ session, context, trx }) => {
+    const service = createService({ ...dependencies, grantPolicy: { authorizeGrant: async ({ session, context, trx }) => {
       calls += 1;
       assert.equal(session.id, "41");
       assert.equal(session.gateKey, "bonus");
       assert.equal(context, REQUEST_CONTEXT);
       assert.ok(trx);
       return decision;
-    } });
+    } } });
     await assert.rejects(service.grantReward({ workspaceSlug: "alpha", sessionId: "41",
       authorized: true, gateKey: "forged" }, { context: REQUEST_CONTEXT }), /Reward grant is not authorized/);
   }

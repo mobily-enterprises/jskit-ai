@@ -1,4 +1,3 @@
-import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { checkRouteVisibility } from "@jskit-ai/kernel/shared/support/visibility";
 import {
   createTransportResponseSchema,
@@ -24,7 +23,9 @@ import {
   closeSessionOutputValidator
 } from "./inputSchemas.js";
 
-function createWorkflowResponses(outputValidator) {
+const REWARDED_ROUTE_SURFACE = "app";
+
+function buildWorkflowResponses(outputValidator) {
   return withStandardErrorResponses({
     200: createTransportResponseSchema(
       outputValidator.schema.toJsonSchema({
@@ -42,7 +43,6 @@ function createWorkflowResponses(outputValidator) {
  * @param {import("@jskit-ai/kernel/server/types").RuntimeRouter} router
  */
 function registerRewardedRoutes(router) {
-  const normalizedRouteSurface = normalizeSurfaceId("app");
   const routeBase = resolveWorkspaceRoutePath("rewarded");
   const visibility = checkRouteVisibility("workspace_user");
 
@@ -51,11 +51,11 @@ function registerRewardedRoutes(router) {
     `${routeBase}/current`,
     {
       auth: "required",
-      surface: normalizedRouteSurface,
+      surface: REWARDED_ROUTE_SURFACE,
       visibility,
       params: routeParamsValidator,
       query: currentQueryInputValidator,
-      responses: createWorkflowResponses(currentStateOutputValidator),
+      responses: buildWorkflowResponses(currentStateOutputValidator),
       meta: {
         tags: ["rewarded"],
         summary: "Read the current Rewarded gate state."
@@ -78,11 +78,11 @@ function registerRewardedRoutes(router) {
     `${routeBase}/start`,
     {
       auth: "required",
-      surface: normalizedRouteSurface,
+      surface: REWARDED_ROUTE_SURFACE,
       visibility,
       params: routeParamsValidator,
       body: startCommandInputValidator,
-      responses: createWorkflowResponses(startGateOutputValidator),
+      responses: buildWorkflowResponses(startGateOutputValidator),
       meta: {
         tags: ["rewarded"],
         summary: "Start a Rewarded watch session."
@@ -105,11 +105,11 @@ function registerRewardedRoutes(router) {
     `${routeBase}/grant`,
     {
       auth: "required",
-      surface: normalizedRouteSurface,
+      surface: REWARDED_ROUTE_SURFACE,
       visibility,
       params: routeParamsValidator,
       body: grantCommandInputValidator,
-      responses: createWorkflowResponses(grantRewardOutputValidator),
+      responses: buildWorkflowResponses(grantRewardOutputValidator),
       meta: {
         tags: ["rewarded"],
         summary: "Grant a Rewarded unlock after a rewarded ad completes."
@@ -132,11 +132,11 @@ function registerRewardedRoutes(router) {
     `${routeBase}/close`,
     {
       auth: "required",
-      surface: normalizedRouteSurface,
+      surface: REWARDED_ROUTE_SURFACE,
       visibility,
       params: routeParamsValidator,
       body: closeCommandInputValidator,
-      responses: createWorkflowResponses(closeSessionOutputValidator),
+      responses: buildWorkflowResponses(closeSessionOutputValidator),
       meta: {
         tags: ["rewarded"],
         summary: "Close a Rewarded watch session without granting a reward."

@@ -23,33 +23,31 @@ function valueProvider(id, capability, value) {
   });
 }
 
-test("Rewarded composes standard resource capabilities around one explicit domain feature", async () => {
-  const routes = [];
-  const resources = {};
-  let actions;
-  let rewarded;
+function createRewardedRuntime(grantPolicy, observed = {}) {
   const knex = Object.assign(() => {}, {
     async transaction(callback) {
       return callback({});
     }
   });
-  const runtime = createCapabilityRuntime({
+  return createCapabilityRuntime({
     inputs: { "runtime.logger": silentLogger },
     providers: [
       EventProvider, ActionProvider,
-      valueProvider("test.grant-policy", "rewarded.grant-policy", { authorizeGrant: async () => false }),
+      valueProvider("test.grant-policy", "rewarded.grant-policy", grantPolicy),
       valueProvider("test.database", "runtime.database", { knex }),
       valueProvider("test.http", "runtime.http", {
         router: {
           register(method, path, contract, handler) {
-            routes.push({ method, path, contract, handler });
+            observed.routes?.push({ method, path, contract, handler });
           }
         }
       }),
       valueProvider("test.json-rest-api", "runtime.json-rest-api", {
-        resources,
+        resources: observed.resources ?? {},
         async addResource(name, config) {
-          resources[name] = { config };
+          if (observed.resources) {
+            observed.resources[name] = { config };
+          }
         }
       }),
       RewardedRulesFeature,
@@ -63,16 +61,22 @@ test("Rewarded composes standard resource capabilities around one explicit domai
           actionCatalogue: "runtime.actions",
           rewarded: "rewarded.core"
         },
-        setup(dependencies) {
-          actions = dependencies.actionCatalogue;
-          rewarded = dependencies.rewarded;
+        setup({ actionCatalogue, rewarded }) {
+          observed.actions = actionCatalogue;
+          observed.rewarded = rewarded;
           return {};
         }
       })
     ]
   });
+}
+
+test("Rewarded composes standard resource capabilities around one explicit domain feature", async () => {
+  const observed = { routes: [], resources: {} };
+  const runtime = createRewardedRuntime({ authorizeGrant: async () => false }, observed);
 
   await runtime.start();
+  const { routes, resources, actions, rewarded } = observed;
 
   const definitions = actions.listDefinitions();
   assert.equal(definitions.length, 24);
@@ -91,4 +95,10 @@ test("Rewarded composes standard resource capabilities around one explicit domai
   assert.equal(Object.keys(resources).length, 4);
 
   await runtime.shutdown();
+});
+
+test("Rewarded refuses a grant policy without authorizeGrant when it starts", async () => {
+  const runtime = createRewardedRuntime({});
+
+  await assert.rejects(runtime.start(), /rewarded\.grant-policy requires authorizeGrant\./u);
 });

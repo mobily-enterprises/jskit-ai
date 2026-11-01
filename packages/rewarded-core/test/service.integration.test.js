@@ -143,13 +143,15 @@ test(`rewarded grants use real resources and atomic transactions (${databaseUrl 
     rewardedRulesRepository: repositories.rewardedRules,
     rewardedWatchSessionsRepository: repositories.rewardedWatchSessions,
     rewardedUnlockReceiptsRepository: repositories.rewardedUnlockReceipts,
-    async authorizeGrant({ session, context: grantContext, trx }) {
-      transactions.set(grantContext.testCase, trx);
-      const stored = await trx("rewarded_watch_sessions").where({ id: session.id }).first();
-      assert.equal(String(stored.user_id), grantContext.scopeValues.userId);
-      assert.equal(String(stored.workspace_id), grantContext.scopeValues.workspaceId);
-      assert.equal(events.some((entry) => entry.event === "afterCommit" && entry.testCase === grantContext.testCase), false);
-      return authorize;
+    grantPolicy: {
+      async authorizeGrant({ session, context: grantContext, trx }) {
+        transactions.set(grantContext.testCase, trx);
+        const stored = await trx("rewarded_watch_sessions").where({ id: session.id }).first();
+        assert.equal(String(stored.user_id), grantContext.scopeValues.userId);
+        assert.equal(String(stored.workspace_id), grantContext.scopeValues.workspaceId);
+        assert.equal(events.some((entry) => entry.event === "afterCommit" && entry.testCase === grantContext.testCase), false);
+        return authorize;
+      }
     }
   });
   const gate = { workspaceSlug: "alpha", gateKey: "progress" };

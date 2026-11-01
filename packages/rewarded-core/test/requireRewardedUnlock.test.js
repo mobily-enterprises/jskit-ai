@@ -53,8 +53,7 @@ test("requireRewardedUnlock allows an already unlocked gate", async () => {
   assert.deepEqual(rewardedService.calls[0], {
     input: {
       gateKey: "progress-logging",
-      workspaceSlug: "alpha",
-      surface: "app"
+      workspaceSlug: "alpha"
     },
     options: {
       context: REQUEST_CONTEXT

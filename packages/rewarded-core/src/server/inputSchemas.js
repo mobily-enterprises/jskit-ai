@@ -223,7 +223,7 @@ const unlockReceiptOutputSchema = createSchema({
   }
 });
 
-function createGateStateOutputValidator({
+function buildGateStateOutputValidator({
   includeSession = false
 } = {}) {
   const fields = {
@@ -309,8 +309,8 @@ function createGateStateOutputValidator({
   });
 }
 
-const currentStateOutputValidator = createGateStateOutputValidator();
-const startGateOutputValidator = createGateStateOutputValidator({
+const currentStateOutputValidator = buildGateStateOutputValidator();
+const startGateOutputValidator = buildGateStateOutputValidator({
   includeSession: true
 });
 

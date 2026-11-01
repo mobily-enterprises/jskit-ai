@@ -129,6 +129,7 @@
     "@jskit-ai/database-runtime": "0.1.252",
     "@jskit-ai/json-rest-api-core": "0.2.3",
     "@jskit-ai/resource-crud-core": "0.1.194",
+    "@jskit-ai/users-core": "0.2.4",
     "@jskit-ai/workspaces-core": "0.2.4",
     "json-rest-schema": "^1.0.17"
   },

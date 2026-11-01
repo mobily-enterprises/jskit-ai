@@ -33,7 +33,7 @@ const RewardedCoreFeature = defineFeature({
       throw new TypeError("rewarded.grant-policy requires authorizeGrant.");
     }
     const rewarded = createService({
-      authorizeGrant: (input) => grantPolicy.authorizeGrant(input),
+      grantPolicy,
       rewardedRulesRepository: rules.repository,
       rewardedProviderConfigsRepository: providerConfigs.repository,
       rewardedWatchSessionsRepository: watchSessions.repository,

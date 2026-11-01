@@ -1,8 +1,6 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
-const REWARDED_SURFACE = "app";
-
 const REWARDED_GATE_CONFIGURATION_REASONS = new Set([
   "rule-not-configured",
   "provider-not-configured"
@@ -42,25 +40,29 @@ const REWARDED_GATE_REASON_ERROR_MAP = Object.freeze({
   }
 });
 
-function normalizeReason(value = "") {
+function normalizeReason(value) {
   return normalizeText(value).toLowerCase();
 }
 
-function isUnlockSatisfied(gateState = null) {
-  const reason = normalizeReason(gateState?.reason);
-  return Boolean(gateState?.unlock) || reason === "already-unlocked";
+function isUnlockSatisfied(gateState) {
+  return Boolean(gateState.unlock) || normalizeReason(gateState.reason) === "already-unlocked";
 }
 
 function hasBooleanGateFlag(gateState, key) {
   return gateState && typeof gateState === "object" && typeof gateState[key] === "boolean";
 }
 
-function assertWellFormedGateState(gateState = null) {
+/**
+ * Refuses a gate state that is not an object with boolean enabled and blocked
+ * flags and a blocking, unlocked or known non-blocking reason.
+ * @param {unknown} gateState What the Rewarded service answered.
+ */
+function assertWellFormedGateState(gateState) {
   if (hasBooleanGateFlag(gateState, "enabled") && hasBooleanGateFlag(gateState, "blocked")) {
     if (
       gateState.blocked === true ||
       isUnlockSatisfied(gateState) ||
-      REWARDED_GATE_NON_BLOCKING_REASONS.has(normalizeReason(gateState?.reason))
+      REWARDED_GATE_NON_BLOCKING_REASONS.has(normalizeReason(gateState.reason))
     ) {
       return;
     }
@@ -74,24 +76,21 @@ function assertWellFormedGateState(gateState = null) {
   });
 }
 
-function isConfigurationBypassAllowed(gateState = null, requireConfigured = false) {
+function isConfigurationBypassAllowed(gateState, requireConfigured) {
   if (requireConfigured === true) {
     return false;
   }
 
-  if (gateState?.enabled === true) {
+  if (gateState.enabled === true) {
     return false;
   }
 
-  const reason = normalizeReason(gateState?.reason);
+  const reason = normalizeReason(gateState.reason);
   return REWARDED_GATE_CONFIGURATION_REASONS.has(reason) || !reason;
 }
 
-function createRewardedGateError(gateState = null, {
-  errorCode = "",
-  errorMessage = ""
-} = {}) {
-  const reason = normalizeReason(gateState?.reason);
+function buildRewardedGateError(gateState, { errorCode, errorMessage }) {
+  const reason = normalizeReason(gateState.reason);
   const defaults = REWARDED_GATE_REASON_ERROR_MAP[reason] || {
     status: 423,
     code: "rewarded_unlock_blocked",
@@ -123,22 +122,14 @@ async function requireRewardedUnlock(rewardedService, input = {}, {
   errorCode = "",
   errorMessage = ""
 } = {}) {
-  const gateState = await rewardedService.getCurrentState(
-    {
-      ...input,
-      surface: REWARDED_SURFACE
-    },
-    {
-      context
-    }
-  );
+  const gateState = await rewardedService.getCurrentState(input, { context });
   assertWellFormedGateState(gateState);
 
   if (isUnlockSatisfied(gateState) || isConfigurationBypassAllowed(gateState, requireConfigured)) {
     return gateState;
   }
 
-  throw createRewardedGateError(gateState, {
+  throw buildRewardedGateError(gateState, {
     errorCode,
     errorMessage
   });
