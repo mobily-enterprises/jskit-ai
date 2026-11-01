@@ -126,6 +126,28 @@ function constructorOf(implementation) {
   return implementation.members.find((member) => ts.isConstructorDeclaration(member) && member.body) || null;
 }
 
+// The function (and parameter position) a parameter or destructured
+// parameter element belongs to, with its property path.
+function owningParameter(declaration) {
+  const pathParts = [];
+  let current = declaration;
+  while (current && ts.isBindingElement(current)) {
+    if (!ts.isObjectBindingPattern(current.parent)) {
+      return null;
+    }
+    const key = current.propertyName || current.name;
+    if (!ts.isIdentifier(key) && !ts.isStringLiteralLike(key)) {
+      return null;
+    }
+    pathParts.unshift(key.text);
+    current = current.parent.parent;
+  }
+  if (!current || !ts.isParameter(current) || !isFunctionLike(current.parent)) {
+    return null;
+  }
+  return { fn: current.parent, index: current.parent.parameters.indexOf(current), path: pathParts };
+}
+
 // Call resolution over one program: TypeScript checker targets, defineFeature
 // injection, argument flow, literal-array unrolling and receiver names, each
 // labelled with its certainty. Provably external calls are dropped.
@@ -212,28 +234,6 @@ function createResolver({ program, checker, symbols, evaluator, bindings, action
       indexSite(call, resolution.targets || []);
       return resolution.targets || [];
     });
-  }
-
-  // The function (and parameter position) a parameter or destructured
-  // parameter element belongs to, with its property path.
-  function owningParameter(declaration) {
-    const pathParts = [];
-    let current = declaration;
-    while (current && ts.isBindingElement(current)) {
-      if (!ts.isObjectBindingPattern(current.parent)) {
-        return null;
-      }
-      const key = current.propertyName || current.name;
-      if (!ts.isIdentifier(key) && !ts.isStringLiteralLike(key)) {
-        return null;
-      }
-      pathParts.unshift(key.text);
-      current = current.parent.parent;
-    }
-    if (!current || !ts.isParameter(current) || !isFunctionLike(current.parent)) {
-      return null;
-    }
-    return { fn: current.parent, index: current.parent.parameters.indexOf(current), path: pathParts };
   }
 
   // The value one call gives a parameter: the argument, or the property of an

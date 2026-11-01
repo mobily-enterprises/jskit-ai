@@ -93,6 +93,7 @@ Local functions
 - `runsDuring(node, fn)`
 - `parameterNames(fn)`
 - `constructorOf(implementation)`
+- `owningParameter(declaration)`
 
 ### `src/calls/symbols.js`
 Exports

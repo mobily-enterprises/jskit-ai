@@ -189,6 +189,11 @@ function memberValue(member) {
   return ts.isShorthandPropertyAssignment(member) ? member.name : null;
 }
 
+/**
+ * The functions an action's `execute` member runs.
+ * @param {import("typescript").Node} member
+ * @param {ReturnType<typeof import("./symbols.js").createSymbols>} symbols
+ */
 function executeFunctions(member, symbols) {
   if (isFunctionLike(member)) {
     return [member];
