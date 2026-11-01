@@ -116,7 +116,7 @@ data (input, record, list, options bag) is not one.
   - Name the type once in the owner's `types.js` and import that name:
     `RuntimeKnex`, `RuntimeRouter`, crud-core's `CrudService` and
     `CrudRepository`, the package's own service type.
-- `...factory(…)` in a token value or a returned API, `return { method() { … } }` from a `create*` (`jskit/no-factory-spread`)
+- `...factory(…)` in a token value or a returned API (`jskit/no-factory-spread`), `return { method() { … } }` from a `create*` (`jskit/frozen-factory-result`)
   - Build each factory once and name each member
     (`logout: sessions.logout`). Return `Object.freeze({ … })` of named inner
     functions. Spread only in `decorateService` or `decorateRepository` over

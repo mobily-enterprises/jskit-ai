@@ -89,149 +89,165 @@ function createAccountStore(knex, { now = () => new Date() } = {}) {
     return toAccount(await table().where({ id }).first());
   }
 
-  return Object.freeze({
-    async findById(id) {
-      return toAccount(await table().where({ id: String(id ?? "") }).first());
-    },
+  async function findById(id) {
+    return toAccount(await table().where({ id: String(id ?? "") }).first());
+  }
 
-    async findByEmail(email) {
-      return toAccount(await rowByEmail(email));
-    },
+  async function findByEmail(email) {
+    return toAccount(await rowByEmail(email));
+  }
 
-    async findByGoogleSub(googleSub) {
-      return toAccount(await table().where({ google_sub: String(googleSub ?? "") }).first());
-    },
+  async function findByGoogleSub(googleSub) {
+    return toAccount(await table().where({ google_sub: String(googleSub ?? "") }).first());
+  }
 
-    async list() {
-      return (await table().orderBy("created_at", "desc")).map(toAccount);
-    },
+  async function list() {
+    return (await table().orderBy("created_at", "desc")).map(toAccount);
+  }
 
-    async create({ email, password = null, displayName = "", emailVerified = false, googleSub = null }) {
-      const normalizedEmail = normalizeEmail(email);
-      if (!isEmail(normalizedEmail)) {
-        throw new AccountError("email_invalid", "Enter a valid email address.");
-      }
-      if (password !== null) {
-        const problem = passwordProblem(password);
-        if (problem) throw new AccountError("password_rejected", problem);
-      }
-      if (await rowByEmail(normalizedEmail)) {
-        throw new AccountError("email_taken", "This email already has an account. Sign in, or reset its password.", 409);
-      }
-      const id = createAccountId();
-      const timestamp = now();
-      await table().insert({
-        id,
-        email: normalizedEmail,
-        email_verified: Boolean(emailVerified),
-        display_name: displayNameFor(displayName, normalizedEmail),
-        ...(password === null ? {} : passwordColumns(await hashPassword(password))),
-        google_sub: googleSub,
-        disabled: false,
-        failed_logins: 0,
-        created_at: timestamp,
-        updated_at: timestamp
-      });
-      return toAccount(await table().where({ id }).first());
-    },
-
-    /**
-     * Checks an email and password. Unknown emails, wrong passwords, disabled
-     * and locked accounts all fail the same way, so the caller shows one
-     * generic sentence. A locked account stays locked until recovery, even
-     * with the right password.
-     */
-    async authenticate(email, password) {
-      const row = await rowByEmail(email);
-      if (!row || !row.password_hash) {
-        await verifyPassword(password, { algorithm: "scrypt", version: "v1", salt: "AAAA", hash: "A".repeat(86) });
-        return null;
-      }
-      if (Number(row.failed_logins) >= LOCK_AFTER_FAILURES || row.disabled) {
-        return null;
-      }
-      if (!(await verifyPassword(password, passwordRecord(row)))) {
-        await table().where({ id: row.id }).increment("failed_logins", 1);
-        return null;
-      }
-      if (Number(row.failed_logins) > 0) {
-        await table().where({ id: row.id }).update({ failed_logins: 0 });
-      }
-      return toAccount(row);
-    },
-
-    async checkPassword(id, password) {
-      const row = await table().where({ id }).first();
-      return Boolean(row?.password_hash) && verifyPassword(password, passwordRecord(row));
-    },
-
-    // readable-check: allow setter-seam - not a slot: setPassword changes an account's password
-    async setPassword(id, password) {
+  async function create({ email, password = null, displayName = "", emailVerified = false, googleSub = null }) {
+    const normalizedEmail = normalizeEmail(email);
+    if (!isEmail(normalizedEmail)) {
+      throw new AccountError("email_invalid", "Enter a valid email address.");
+    }
+    if (password !== null) {
       const problem = passwordProblem(password);
       if (problem) throw new AccountError("password_rejected", problem);
-      return update(id, { ...passwordColumns(await hashPassword(password)), failed_logins: 0 });
-    },
+    }
+    if (await rowByEmail(normalizedEmail)) {
+      throw new AccountError("email_taken", "This email already has an account. Sign in, or reset its password.", 409);
+    }
+    const id = createAccountId();
+    const timestamp = now();
+    await table().insert({
+      id,
+      email: normalizedEmail,
+      email_verified: Boolean(emailVerified),
+      display_name: displayNameFor(displayName, normalizedEmail),
+      ...(password === null ? {} : passwordColumns(await hashPassword(password))),
+      google_sub: googleSub,
+      disabled: false,
+      failed_logins: 0,
+      created_at: timestamp,
+      updated_at: timestamp
+    });
+    return toAccount(await table().where({ id }).first());
+  }
 
-    async clearPassword(id) {
-      return update(id, {
-        password_algorithm: null,
-        password_version: null,
-        password_salt: null,
-        password_hash: null
-      });
-    },
+  /**
+   * Checks an email and password. Unknown emails, wrong passwords, disabled
+   * and locked accounts all fail the same way, so the caller shows one
+   * generic sentence. A locked account stays locked until recovery, even
+   * with the right password.
+   */
+  async function authenticate(email, password) {
+    const row = await rowByEmail(email);
+    if (!row || !row.password_hash) {
+      await verifyPassword(password, { algorithm: "scrypt", version: "v1", salt: "AAAA", hash: "A".repeat(86) });
+      return null;
+    }
+    if (Number(row.failed_logins) >= LOCK_AFTER_FAILURES || row.disabled) {
+      return null;
+    }
+    if (!(await verifyPassword(password, passwordRecord(row)))) {
+      await table().where({ id: row.id }).increment("failed_logins", 1);
+      return null;
+    }
+    if (Number(row.failed_logins) > 0) {
+      await table().where({ id: row.id }).update({ failed_logins: 0 });
+    }
+    return toAccount(row);
+  }
 
-    async updateProfile(id, { displayName }) {
-      const name = String(displayName ?? "").trim();
-      if (!name) throw new AccountError("display_name_required", "Enter the name your apps should show.");
-      return update(id, { display_name: name.slice(0, 160) });
-    },
+  async function checkPassword(id, password) {
+    const row = await table().where({ id }).first();
+    return Boolean(row?.password_hash) && verifyPassword(password, passwordRecord(row));
+  }
 
-    markEmailVerified(id) {
-      return update(id, { email_verified: true });
-    },
+  async function setPassword(id, password) {
+    const problem = passwordProblem(password);
+    if (problem) throw new AccountError("password_rejected", problem);
+    return update(id, { ...passwordColumns(await hashPassword(password)), failed_logins: 0 });
+  }
 
-    linkGoogle(id, googleSub) {
-      return update(id, { google_sub: String(googleSub) });
-    },
+  async function clearPassword(id) {
+    return update(id, {
+      password_algorithm: null,
+      password_version: null,
+      password_salt: null,
+      password_hash: null
+    });
+  }
 
-    async unlinkGoogle(id) {
-      const row = await table().where({ id }).first();
-      if (!row?.password_hash) {
-        throw new AccountError("password_required", "Set a password first, so you can still sign in without Google.");
-      }
-      return update(id, { google_sub: null });
-    },
+  async function updateProfile(id, { displayName }) {
+    const name = String(displayName ?? "").trim();
+    if (!name) throw new AccountError("display_name_required", "Enter the name your apps should show.");
+    return update(id, { display_name: name.slice(0, 160) });
+  }
 
+  function markEmailVerified(id) {
+    return update(id, { email_verified: true });
+  }
+
+  function linkGoogle(id, googleSub) {
+    return update(id, { google_sub: String(googleSub) });
+  }
+
+  async function unlinkGoogle(id) {
+    const row = await table().where({ id }).first();
+    if (!row?.password_hash) {
+      throw new AccountError("password_required", "Set a password first, so you can still sign in without Google.");
+    }
+    return update(id, { google_sub: null });
+  }
+
+  function setDisabled(id, disabled) {
+    return update(id, { disabled: Boolean(disabled) });
+  }
+
+  /** Imports one exported JSKIT local account, keeping its id and scrypt fields byte for byte. */
+  async function importLocal(row) {
+    const timestamp = now();
+    await table().insert({
+      id: row.id,
+      email: normalizeEmail(row.email),
+      email_verified: false,
+      display_name: displayNameFor(row.display_name, normalizeEmail(row.email)),
+      password_algorithm: row.password_algorithm,
+      password_version: row.password_version,
+      password_salt: row.password_salt,
+      password_hash: row.password_hash,
+      google_sub: null,
+      disabled: Boolean(row.disabled),
+      failed_logins: 0,
+      created_at: timestamp,
+      updated_at: timestamp
+    });
+  }
+
+  async function rawById(id) {
+    return table().where({ id }).first();
+  }
+
+  return Object.freeze({
+    findById,
+    findByEmail,
+    findByGoogleSub,
+    list,
+    create,
+    authenticate,
+    checkPassword,
+    // readable-check: allow setter-seam - not a slot: setPassword changes an account's password
+    setPassword,
+    clearPassword,
+    updateProfile,
+    markEmailVerified,
+    linkGoogle,
+    unlinkGoogle,
     // readable-check: allow setter-seam - not a slot: setDisabled changes an account's status
-    setDisabled(id, disabled) {
-      return update(id, { disabled: Boolean(disabled) });
-    },
-
-    /** Imports one exported JSKIT local account, keeping its id and scrypt fields byte for byte. */
-    async importLocal(row) {
-      const timestamp = now();
-      await table().insert({
-        id: row.id,
-        email: normalizeEmail(row.email),
-        email_verified: false,
-        display_name: displayNameFor(row.display_name, normalizeEmail(row.email)),
-        password_algorithm: row.password_algorithm,
-        password_version: row.password_version,
-        password_salt: row.password_salt,
-        password_hash: row.password_hash,
-        google_sub: null,
-        disabled: Boolean(row.disabled),
-        failed_logins: 0,
-        created_at: timestamp,
-        updated_at: timestamp
-      });
-    },
-
-    async rawById(id) {
-      return table().where({ id }).first();
-    },
-
+    setDisabled,
+    importLocal,
+    rawById,
     rawByEmail: rowByEmail
   });
 }

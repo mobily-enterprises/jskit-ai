@@ -35,46 +35,44 @@ function createSigningKeyStore(knex, { secret, now = () => new Date() }) {
     return table().where({ state: "retiring" }).andWhere("retire_after", "<=", now()).update({ state: "retired" });
   }
 
-  return Object.freeze({
-    async ensureActiveKey() {
-      if (!(await table().where({ state: "active" }).first())) await createKey();
-    },
+  async function ensureActiveKey() {
+    if (!(await table().where({ state: "active" }).first())) await createKey();
+  }
 
-    async rotate() {
-      await table().where({ state: "active" }).update({
-        state: "retiring",
-        retire_after: new Date(now().getTime() + RETIRE_GRACE_SECONDS * 1000)
-      });
-      return createKey();
-    },
+  async function rotate() {
+    await table().where({ state: "active" }).update({
+      state: "retiring",
+      retire_after: new Date(now().getTime() + RETIRE_GRACE_SECONDS * 1000)
+    });
+    return createKey();
+  }
 
-    retireExpired,
-
-    /** The JWKS for oidc-provider: the active key first, so it is the one that signs. */
-    async jwks() {
-      await retireExpired();
-      const rows = await table().whereIn("state", ["active", "retiring"]).orderBy("created_at", "desc");
-      rows.sort((left, right) => (left.state === "active" ? -1 : 0) - (right.state === "active" ? -1 : 0));
-      try {
-        return { keys: rows.map((row) => JSON.parse(decrypt(encryptionKey, row.private_jwk_encrypted))) };
-      } catch {
-        throw new HubConfigError(
-          "The stored signing keys were sealed with a different OIDC_HUB_SECRET. Set OIDC_HUB_SECRET back to the value they were made with."
-        );
-      }
-    },
-
-    async summary() {
-      return (await table().whereNot({ state: "retired" }).orderBy("created_at", "desc"))
-        .map((row) => ({ kid: row.kid, state: row.state, createdAt: row.created_at, retireAfter: row.retire_after }));
-    },
-
-    /** A fingerprint of the published keys, to notice rotation by another process. */
-    async fingerprint() {
-      const rows = await table().whereIn("state", ["active", "retiring"]).orderBy("kid");
-      return rows.map((row) => `${row.kid}:${row.state}`).join(",");
+  /** The JWKS for oidc-provider: the active key first, so it is the one that signs. */
+  async function jwks() {
+    await retireExpired();
+    const rows = await table().whereIn("state", ["active", "retiring"]).orderBy("created_at", "desc");
+    rows.sort((left, right) => (left.state === "active" ? -1 : 0) - (right.state === "active" ? -1 : 0));
+    try {
+      return { keys: rows.map((row) => JSON.parse(decrypt(encryptionKey, row.private_jwk_encrypted))) };
+    } catch {
+      throw new HubConfigError(
+        "The stored signing keys were sealed with a different OIDC_HUB_SECRET. Set OIDC_HUB_SECRET back to the value they were made with."
+      );
     }
-  });
+  }
+
+  async function summary() {
+    return (await table().whereNot({ state: "retired" }).orderBy("created_at", "desc"))
+      .map((row) => ({ kid: row.kid, state: row.state, createdAt: row.created_at, retireAfter: row.retire_after }));
+  }
+
+  /** A fingerprint of the published keys, to notice rotation by another process. */
+  async function fingerprint() {
+    const rows = await table().whereIn("state", ["active", "retiring"]).orderBy("kid");
+    return rows.map((row) => `${row.kid}:${row.state}`).join(",");
+  }
+
+  return Object.freeze({ ensureActiveKey, rotate, retireExpired, jwks, summary, fingerprint });
 }
 
 export { createSigningKeyStore };

@@ -112,74 +112,83 @@ function createClientStore(knex, { now = () => new Date() } = {}) {
     return (await table().where({ client_id: clientId }).delete()) > 0;
   }
 
-  return Object.freeze({
-    async get(clientId) {
-      return (await table().where({ client_id: String(clientId ?? "") }).first()) || null;
-    },
+  async function get(clientId) {
+    return (await table().where({ client_id: String(clientId ?? "") }).first()) || null;
+  }
 
-    async list() {
-      return table().orderBy("created_at", "desc");
-    },
+  async function list() {
+    return table().orderBy("created_at", "desc");
+  }
 
-    /** The status a new registration from this origin receives. */
-    async statusForOrigin(origin, devOriginPatterns) {
-      const rows = await table().where({ origin });
-      if (rows.some((row) => row.status === "blocked")) {
-        throw new RegistrationError("invalid_redirect_uri", "This address is blocked by the hub's owner.", 403);
-      }
-      if (isDevelopmentOrigin(origin, devOriginPatterns)) return "active-dev";
-      return rows.some((row) => row.status === "active") ? "active" : "pending";
-    },
-
-    async insert({ clientId, origin, name, status }) {
-      await table().insert({
-        client_id: clientId,
-        origin,
-        client_name: name,
-        status,
-        created_at: now(),
-        approved_at: status === "active" ? now() : null,
-        approved_by: null,
-        last_used_at: null
-      });
-    },
-
-    rename(clientId, name) {
-      return table().where({ client_id: clientId }).update({ client_name: name });
-    },
-
-    async approve(clientId, accountId) {
-      const updated = await table()
-        .where({ client_id: clientId, status: "pending" })
-        .update({ status: "active", approved_at: now(), approved_by: accountId });
-      return updated > 0;
-    },
-
-    async blockOrigin(clientId) {
-      const row = await table().where({ client_id: clientId }).first();
-      if (!row) return false;
-      const siblings = await table().where({ origin: row.origin });
-      for (const sibling of siblings) await deleteProviderClient(sibling.client_id);
-      await table().where({ origin: row.origin }).update({ status: "blocked" });
-      return true;
-    },
-
-    remove,
-
-    touch(clientId) {
-      return table().where({ client_id: clientId }).update({ last_used_at: now() });
-    },
-
-    async removeIdleDevelopmentClients() {
-      const cutoff = new Date(now().getTime() - DEV_CLIENT_IDLE_DAYS * 86400 * 1000);
-      const idle = await table()
-        .where({ status: "active-dev" })
-        .andWhere((query) => query
-          .where("last_used_at", "<", cutoff)
-          .orWhere((inner) => inner.whereNull("last_used_at").andWhere("created_at", "<", cutoff)));
-      for (const row of idle) await remove(row.client_id);
-      return idle.length;
+  /** The status a new registration from this origin receives. */
+  async function statusForOrigin(origin, devOriginPatterns) {
+    const rows = await table().where({ origin });
+    if (rows.some((row) => row.status === "blocked")) {
+      throw new RegistrationError("invalid_redirect_uri", "This address is blocked by the hub's owner.", 403);
     }
+    if (isDevelopmentOrigin(origin, devOriginPatterns)) return "active-dev";
+    return rows.some((row) => row.status === "active") ? "active" : "pending";
+  }
+
+  async function insert({ clientId, origin, name, status }) {
+    await table().insert({
+      client_id: clientId,
+      origin,
+      client_name: name,
+      status,
+      created_at: now(),
+      approved_at: status === "active" ? now() : null,
+      approved_by: null,
+      last_used_at: null
+    });
+  }
+
+  function rename(clientId, name) {
+    return table().where({ client_id: clientId }).update({ client_name: name });
+  }
+
+  async function approve(clientId, accountId) {
+    const updated = await table()
+      .where({ client_id: clientId, status: "pending" })
+      .update({ status: "active", approved_at: now(), approved_by: accountId });
+    return updated > 0;
+  }
+
+  async function blockOrigin(clientId) {
+    const row = await table().where({ client_id: clientId }).first();
+    if (!row) return false;
+    const siblings = await table().where({ origin: row.origin });
+    for (const sibling of siblings) await deleteProviderClient(sibling.client_id);
+    await table().where({ origin: row.origin }).update({ status: "blocked" });
+    return true;
+  }
+
+  function touch(clientId) {
+    return table().where({ client_id: clientId }).update({ last_used_at: now() });
+  }
+
+  async function removeIdleDevelopmentClients() {
+    const cutoff = new Date(now().getTime() - DEV_CLIENT_IDLE_DAYS * 86400 * 1000);
+    const idle = await table()
+      .where({ status: "active-dev" })
+      .andWhere((query) => query
+        .where("last_used_at", "<", cutoff)
+        .orWhere((inner) => inner.whereNull("last_used_at").andWhere("created_at", "<", cutoff)));
+    for (const row of idle) await remove(row.client_id);
+    return idle.length;
+  }
+
+  return Object.freeze({
+    get,
+    list,
+    statusForOrigin,
+    insert,
+    rename,
+    approve,
+    blockOrigin,
+    remove,
+    touch,
+    removeIdleDevelopmentClients
   });
 }
 

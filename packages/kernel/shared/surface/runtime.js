@@ -187,7 +187,7 @@ function createSurfaceRuntime(options = {}) {
     return enabledSurfaceIds.includes(normalizedSurface);
   }
 
-  return {
+  return Object.freeze({
     SURFACE_MODE_ALL: allMode,
     SURFACE_IDS: [...surfaceIds],
     DEFAULT_SURFACE_ID,
@@ -198,7 +198,7 @@ function createSurfaceRuntime(options = {}) {
     listSurfaceDefinitions,
     listEnabledSurfaceIds,
     isSurfaceEnabled
-  };
+  });
 }
 
 

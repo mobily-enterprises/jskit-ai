@@ -680,12 +680,12 @@ function createHttpClient(options = {}) {
     csrfTokenCache = "";
   }
 
-  return {
+  return Object.freeze({
     request,
     requestStream,
     ensureCsrfToken,
     clearCsrfTokenCache
-  };
+  });
 }
 
 export { createHttpClient };

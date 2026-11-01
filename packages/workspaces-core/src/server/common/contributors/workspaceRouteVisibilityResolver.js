@@ -26,65 +26,64 @@ function buildVisibilityContribution({ visibility, scopeOwnerId = null, userId =
 function createWorkspaceRouteVisibilityResolver({ workspaceService, workspaceMembershipOptionalSurfaceIds }) {
   const membershipOptionalSurfaceIds = new Set(workspaceMembershipOptionalSurfaceIds);
 
-  return Object.freeze({
-    resolverId: "workspaces.visibility",
-    async resolve({ visibility, context, request, input } = {}) {
-      if (visibility !== "workspace" && visibility !== "workspace_user") {
-        return {};
+  async function resolve({ visibility, context, request, input } = {}) {
+    if (visibility !== "workspace" && visibility !== "workspace_user") {
+      return {};
+    }
+
+    const actor = context?.actor || request?.user || null;
+    const userId = normalizeOpaqueId(actor?.id);
+    const workspace =
+      context?.workspace || context?.requestMeta?.resolvedWorkspaceContext?.workspace || request?.workspace || null;
+    const scopeOwnerId = normalizeRecordId(workspace?.id, { fallback: null });
+    if (!scopeOwnerId) {
+      const workspaceSlug = normalizeText(input?.workspaceSlug).toLowerCase();
+
+      if (!workspaceSlug || !actor) {
+        return visibility === "workspace_user"
+          ? buildVisibilityContribution({
+              visibility,
+              userId
+            })
+          : {};
       }
 
-      const actor = context?.actor || request?.user || null;
-      const userId = normalizeOpaqueId(actor?.id);
-      const workspace =
-        context?.workspace || context?.requestMeta?.resolvedWorkspaceContext?.workspace || request?.workspace || null;
-      const scopeOwnerId = normalizeRecordId(workspace?.id, { fallback: null });
-      if (!scopeOwnerId) {
-        const workspaceSlug = normalizeText(input?.workspaceSlug).toLowerCase();
-
-        if (!workspaceSlug || !actor) {
-          return visibility === "workspace_user"
-            ? buildVisibilityContribution({
-                visibility,
-                userId
-              })
-            : {};
+      const activeSurfaceId = normalizeSurfaceId(
+        request?.routeOptions?.config?.surface || context?.surface
+      );
+      const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(
+        actor,
+        workspaceSlug,
+        {
+          request,
+          ...(membershipOptionalSurfaceIds.has(activeSurfaceId) ? { requireMembership: false } : {})
         }
-
-        const activeSurfaceId = normalizeSurfaceId(
-          request?.routeOptions?.config?.surface || context?.surface
-        );
-        const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(
-          actor,
-          workspaceSlug,
-          {
-            request,
-            ...(membershipOptionalSurfaceIds.has(activeSurfaceId) ? { requireMembership: false } : {})
-          }
-        );
-        const resolvedWorkspaceOwnerId = normalizeRecordId(resolvedWorkspaceContext?.workspace?.id, { fallback: null });
-        if (!resolvedWorkspaceOwnerId) {
-          return visibility === "workspace_user"
-            ? buildVisibilityContribution({
-                visibility,
-                userId
-              })
-            : {};
-        }
-
-        return buildVisibilityContribution({
-          visibility,
-          scopeOwnerId: resolvedWorkspaceOwnerId,
-          userId
-        });
+      );
+      const resolvedWorkspaceOwnerId = normalizeRecordId(resolvedWorkspaceContext?.workspace?.id, { fallback: null });
+      if (!resolvedWorkspaceOwnerId) {
+        return visibility === "workspace_user"
+          ? buildVisibilityContribution({
+              visibility,
+              userId
+            })
+          : {};
       }
 
       return buildVisibilityContribution({
         visibility,
-        scopeOwnerId,
+        scopeOwnerId: resolvedWorkspaceOwnerId,
         userId
       });
     }
-  });
+
+    return buildVisibilityContribution({
+      visibility,
+      scopeOwnerId,
+      userId
+    });
+  }
+
+  return Object.freeze({ resolverId: "workspaces.visibility", resolve });
 }
 
 export { createWorkspaceRouteVisibilityResolver };

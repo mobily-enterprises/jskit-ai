@@ -65,35 +65,38 @@ function roomForScope(scope = {}) {
  */
 function createAudienceContributors() {
   const contributors = new Map();
-  return Object.freeze({
-    /** @param {import("./types.js").RealtimeAudienceContributor} contributor Validated here. */
-    register({ id, resolveActorScopes }) {
-      const contributorId = normalizeText(id);
-      if (!contributorId) throw new TypeError("Realtime audience contributors require an id.");
-      if (typeof resolveActorScopes !== "function") {
-        throw new TypeError(`Realtime audience contributor "${contributorId}" requires resolveActorScopes().`);
-      }
-      if (contributors.has(contributorId)) {
-        throw new Error(`Realtime audience contributor "${contributorId}" is already registered.`);
-      }
-      contributors.set(contributorId, resolveActorScopes);
-    },
-    // Whether revalidation could make a socket join this room: every room
-    // roomForScope() names starts with user: or workspace:.
-    mayContribute(room) {
-      return contributors.size > 0 && /^(?:user|workspace):/u.test(String(room));
-    },
-    async resolveActorRooms(actorId) {
-      const rooms = new Set();
-      for (const resolveActorScopes of contributors.values()) {
-        for (const scope of normalizeArray(await resolveActorScopes(actorId))) {
-          const room = roomForScope(scope);
-          if (room) rooms.add(room);
-        }
-      }
-      return rooms;
+
+  /** @param {import("./types.js").RealtimeAudienceContributor} contributor Validated here. */
+  function register({ id, resolveActorScopes }) {
+    const contributorId = normalizeText(id);
+    if (!contributorId) throw new TypeError("Realtime audience contributors require an id.");
+    if (typeof resolveActorScopes !== "function") {
+      throw new TypeError(`Realtime audience contributor "${contributorId}" requires resolveActorScopes().`);
     }
-  });
+    if (contributors.has(contributorId)) {
+      throw new Error(`Realtime audience contributor "${contributorId}" is already registered.`);
+    }
+    contributors.set(contributorId, resolveActorScopes);
+  }
+
+  // Whether revalidation could make a socket join this room: every room
+  // roomForScope() names starts with user: or workspace:.
+  function mayContribute(room) {
+    return contributors.size > 0 && /^(?:user|workspace):/u.test(String(room));
+  }
+
+  async function resolveActorRooms(actorId) {
+    const rooms = new Set();
+    for (const resolveActorScopes of contributors.values()) {
+      for (const scope of normalizeArray(await resolveActorScopes(actorId))) {
+        const room = roomForScope(scope);
+        if (room) rooms.add(room);
+      }
+    }
+    return rooms;
+  }
+
+  return Object.freeze({ register, mayContribute, resolveActorRooms });
 }
 
 function applyAudiencePreset(preset, { event, rooms, flags, logger }) {

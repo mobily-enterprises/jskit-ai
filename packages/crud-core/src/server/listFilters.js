@@ -101,16 +101,18 @@ function createCrudListFilters(definitions = {}, { columns = {}, apply = {} } = 
     return queryValidatorsByInvalidValueMode[invalidValueMode];
   }
 
+  function toJsonRestQuery(query = {}) {
+    return normalizeCrudListFilterJsonRestQuery({
+      filters: normalizedFilters,
+      parseQuery: parseFilterPayload
+    }, query);
+  }
+
   return Object.freeze({
     filters: normalizedFilters,
     createQueryValidator,
     parseQuery: parseFilterPayload,
-    toJsonRestQuery(query = {}) {
-      return normalizeCrudListFilterJsonRestQuery({
-        filters: normalizedFilters,
-        parseQuery: parseFilterPayload
-      }, query);
-    },
+    toJsonRestQuery,
     jsonRestSearchSchema: createCrudListFilterJsonRestSearchSchema({
       filters: normalizedFilters
     }, {

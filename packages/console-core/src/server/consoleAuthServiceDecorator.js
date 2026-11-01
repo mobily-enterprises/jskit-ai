@@ -31,48 +31,46 @@ function normalizeRequestPathname(request = null) {
 function createConsoleAuthServiceDecorator({ consoleService }) {
   let consoleOwnerInitialized = false;
 
-  return Object.freeze({
-    decoratorId: "console.core.authServiceDecorator",
-    order: 0,
-    /** @param {import("@jskit-ai/auth-core/server/types").AuthService} authService */
-    decorateAuthService(authService) {
-      return Object.freeze(
-        Object.defineProperty(Object.create(authService), "authenticateRequest", {
-          enumerable: true,
-          value: async function authenticateRequest(request, ...args) {
-            const authResult = await authService.authenticateRequest(request, ...args);
-            if (consoleOwnerInitialized) {
-              return authResult;
-            }
-
-            const requestPathname = normalizeRequestPathname(request);
-            if (requestPathname !== AUTH_PATHS.SESSION) {
-              return authResult;
-            }
-
-            const authenticatedUserId =
-              authResult?.authenticated === true
-                ? normalizeRecordId(authResult?.actor?.id, { fallback: null })
-                : null;
-
-            if (!authenticatedUserId) {
-              return authResult;
-            }
-
-            const ownerUserId = normalizeRecordId(
-              await consoleService.ensureInitialConsoleMember(authenticatedUserId),
-              { fallback: null }
-            );
-            if (ownerUserId) {
-              consoleOwnerInitialized = true;
-            }
-
+  /** @param {import("@jskit-ai/auth-core/server/types").AuthService} authService */
+  function decorateAuthService(authService) {
+    return Object.freeze(
+      Object.defineProperty(Object.create(authService), "authenticateRequest", {
+        enumerable: true,
+        value: async function authenticateRequest(request, ...args) {
+          const authResult = await authService.authenticateRequest(request, ...args);
+          if (consoleOwnerInitialized) {
             return authResult;
           }
-        })
-      );
-    }
-  });
+
+          const requestPathname = normalizeRequestPathname(request);
+          if (requestPathname !== AUTH_PATHS.SESSION) {
+            return authResult;
+          }
+
+          const authenticatedUserId =
+            authResult?.authenticated === true
+              ? normalizeRecordId(authResult?.actor?.id, { fallback: null })
+              : null;
+
+          if (!authenticatedUserId) {
+            return authResult;
+          }
+
+          const ownerUserId = normalizeRecordId(
+            await consoleService.ensureInitialConsoleMember(authenticatedUserId),
+            { fallback: null }
+          );
+          if (ownerUserId) {
+            consoleOwnerInitialized = true;
+          }
+
+          return authResult;
+        }
+      })
+    );
+  }
+
+  return Object.freeze({ decoratorId: "console.core.authServiceDecorator", order: 0, decorateAuthService });
 }
 
 export { createConsoleAuthServiceDecorator };

@@ -139,15 +139,15 @@ function createFieldAccessForRoleMatrix(matrix = {}, { context = "crudFieldAcces
     { context: `${context} createFieldAccessForRoleMatrix` }
   );
 
-  return Object.freeze({
-    readable(input = {}) {
-      return resolveRoleMatrixPolicy(sourceMatrix, "readable", input);
-    },
-    writable(input = {}) {
-      return resolveRoleMatrixPolicy(sourceMatrix, "writable", input);
-    },
-    writeMode
-  });
+  function readable(input = {}) {
+    return resolveRoleMatrixPolicy(sourceMatrix, "readable", input);
+  }
+
+  function writable(input = {}) {
+    return resolveRoleMatrixPolicy(sourceMatrix, "writable", input);
+  }
+
+  return Object.freeze({ readable, writable, writeMode });
 }
 
 function applyReadableFieldPolicyToRecord(record, allowedFields, outputRules = null, { context = "crudFieldAccess" } = {}) {

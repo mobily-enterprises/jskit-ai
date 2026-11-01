@@ -41,6 +41,7 @@ code that does not:
 | `jskit/named-repeated-type` | a `ReturnType<…>` or indexed JSDoc type (`X["y"]`) written in two or more files of a package, instead of named once in its `types.js` |
 | `jskit/action-execute-shape` | an action's `execute` that is not one expression-bodied arrow making one call: a method or block body, a helper-built `execute: helper(…)`, a bare reference, or a body that builds a result or makes a second call |
 | `jskit/no-factory-spread` | a `create*()` result spread into a factory's frozen API or a `setup()` token value; a `decorateService`/`decorateRepository` may spread the CRUD service or repository, and data may be spread |
+| `jskit/frozen-factory-result` | a `create*` factory that returns behaviour in an object that is not `Object.freeze`d, or defines a member inline (a method or function expression) instead of naming an inner function; a factory returning plain data and an action definition are left alone |
 | `max-lines`, `max-lines-per-function` | files over 750 lines, functions over 600 |
 
 `baseConfig` reports them as warnings, so adopting a new version does not fail

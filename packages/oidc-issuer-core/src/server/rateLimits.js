@@ -25,19 +25,21 @@ function createRateLimiter(knex, { now = () => new Date() } = {}) {
     });
   }
 
-  return Object.freeze({
-    signIn(ip) {
-      return hit(`sign-in:${ip}`, LIMITS.signInPerIp);
-    },
-    async email(address, ip) {
-      const perAddress = await hit(`email:${String(address).toLowerCase()}`, LIMITS.emailPerAddress);
-      const perIp = await hit(`email-ip:${ip}`, LIMITS.emailPerIp);
-      return perAddress && perIp;
-    },
-    async deleteExpired() {
-      return knex(RATE_LIMITS_TABLE).where("window_ends_at", "<=", now()).delete();
-    }
-  });
+  function signIn(ip) {
+    return hit(`sign-in:${ip}`, LIMITS.signInPerIp);
+  }
+
+  async function email(address, ip) {
+    const perAddress = await hit(`email:${String(address).toLowerCase()}`, LIMITS.emailPerAddress);
+    const perIp = await hit(`email-ip:${ip}`, LIMITS.emailPerIp);
+    return perAddress && perIp;
+  }
+
+  async function deleteExpired() {
+    return knex(RATE_LIMITS_TABLE).where("window_ends_at", "<=", now()).delete();
+  }
+
+  return Object.freeze({ signIn, email, deleteExpired });
 }
 
 export { createRateLimiter };

@@ -137,54 +137,56 @@ function createRealtimeDelivery({ io, database, logger, authService, audiences: 
     revalidationTimer.unref();
   }
 
-  return Object.freeze({
-    start({ redisConfigured = false } = {}) {
-      redisEnabled = redisConfigured;
-      if (guarded) {
-        io.on(DELIVERY_EVENT, receive);
-        scheduleRevalidation();
-      }
-    },
-    stop() {
-      stopped = true;
-      clearTimeout(revalidationTimer);
-      if (guarded) io.off(DELIVERY_EVENT, receive);
-    },
-    /** @param {object} event A published runtime event; its realtime part, when present, names the socket event. */
-    async handle(event) {
-      try {
-        const eventName = normalizeText(event.realtime?.event);
-        if (!eventName) return;
-        const targets = await resolveAudienceTargets(event.realtime.audience, event, { database, logger });
-        const payload = publicRealtimePayload(event);
-        if (guarded) {
-          const envelope = { eventName, payload, targets };
-          if (redisEnabled) {
-            try {
-              io.serverSideEmit(DELIVERY_EVENT, envelope);
-            } catch (error) {
-              logger.warn({ socketEvent: eventName, error: String(error?.message || error) }, "Realtime peer publication failed.");
-            }
-          }
-          await deliverLocal(envelope);
-        } else if (targets.broadcastAllClients) {
-          io.emit(eventName, payload);
-        } else if (targets.rooms.length) {
-          io.to(targets.rooms).emit(eventName, payload);
-        }
-        logger.debug({
-          socketEvent: eventName,
-          rooms: targets.rooms,
-          broadcastAllClients: targets.broadcastAllClients,
-          connectedClients: Number.isInteger(Number(io?.engine?.clientsCount))
-            ? Number(io.engine.clientsCount)
-            : null
-        }, "Realtime delivered an action event.");
-      } catch (error) {
-        logger.warn({ socketEvent: event.realtime?.event, error: String(error?.message || error) }, "Realtime delivery failed; the domain mutation remains successful.");
-      }
+  function start({ redisConfigured = false } = {}) {
+    redisEnabled = redisConfigured;
+    if (guarded) {
+      io.on(DELIVERY_EVENT, receive);
+      scheduleRevalidation();
     }
-  });
+  }
+
+  function stop() {
+    stopped = true;
+    clearTimeout(revalidationTimer);
+    if (guarded) io.off(DELIVERY_EVENT, receive);
+  }
+
+  /** @param {object} event A published runtime event; its realtime part, when present, names the socket event. */
+  async function handle(event) {
+    try {
+      const eventName = normalizeText(event.realtime?.event);
+      if (!eventName) return;
+      const targets = await resolveAudienceTargets(event.realtime.audience, event, { database, logger });
+      const payload = publicRealtimePayload(event);
+      if (guarded) {
+        const envelope = { eventName, payload, targets };
+        if (redisEnabled) {
+          try {
+            io.serverSideEmit(DELIVERY_EVENT, envelope);
+          } catch (error) {
+            logger.warn({ socketEvent: eventName, error: String(error?.message || error) }, "Realtime peer publication failed.");
+          }
+        }
+        await deliverLocal(envelope);
+      } else if (targets.broadcastAllClients) {
+        io.emit(eventName, payload);
+      } else if (targets.rooms.length) {
+        io.to(targets.rooms).emit(eventName, payload);
+      }
+      logger.debug({
+        socketEvent: eventName,
+        rooms: targets.rooms,
+        broadcastAllClients: targets.broadcastAllClients,
+        connectedClients: Number.isInteger(Number(io?.engine?.clientsCount))
+          ? Number(io.engine.clientsCount)
+          : null
+      }, "Realtime delivered an action event.");
+    } catch (error) {
+      logger.warn({ socketEvent: event.realtime?.event, error: String(error?.message || error) }, "Realtime delivery failed; the domain mutation remains successful.");
+    }
+  }
+
+  return Object.freeze({ start, stop, handle });
 }
 
 export { createRealtimeDelivery };

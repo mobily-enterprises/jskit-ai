@@ -109,6 +109,22 @@ function createLocalAuthService({
     return capabilities;
   }
 
+  function resendRegisterConfirmation() {
+    return throwUnsupportedAuthOperation("resendRegisterConfirmation");
+  }
+
+  function requestOtpLogin() {
+    return throwUnsupportedAuthOperation("requestOtpLogin");
+  }
+
+  function verifyOtpLogin() {
+    return throwUnsupportedAuthOperation("verifyOtpLogin");
+  }
+
+  function setPasswordSignInEnabled() {
+    return throwUnsupportedAuthOperation("setPasswordSignInEnabled");
+  }
+
   return Object.freeze({
     getCapabilities,
     isDevAuthBootstrapEnabled: accounts.isDevAuthBootstrapEnabled,
@@ -119,16 +135,10 @@ function createLocalAuthService({
     writeSessionCookies: sessions.writeSessionCookies,
     clearSessionCookies: sessions.clearSessionCookies,
     register: accounts.register,
-    resendRegisterConfirmation() {
-      return throwUnsupportedAuthOperation("resendRegisterConfirmation");
-    },
+    resendRegisterConfirmation,
     login: accounts.login,
-    requestOtpLogin() {
-      return throwUnsupportedAuthOperation("requestOtpLogin");
-    },
-    verifyOtpLogin() {
-      return throwUnsupportedAuthOperation("verifyOtpLogin");
-    },
+    requestOtpLogin,
+    verifyOtpLogin,
     writeOAuthStartCookies: oauthFlows.writeOAuthStartCookies,
     clearOAuthStartCookies: oauthFlows.clearOAuthStartCookies,
     oauthStart: oauthFlows.oauthStart,
@@ -140,9 +150,7 @@ function createLocalAuthService({
     updateDisplayName: accounts.updateDisplayName,
     getSecurityStatus: securityStatus.getSecurityStatus,
     // readable-check: allow setter-seam - not a slot: setPasswordSignInEnabled is an auth.service operation
-    setPasswordSignInEnabled() {
-      return throwUnsupportedAuthOperation("setPasswordSignInEnabled");
-    },
+    setPasswordSignInEnabled,
     startProviderLink: oauthFlows.startProviderLink,
     unlinkProvider: oauthFlows.unlinkProvider,
     signOutOtherSessions: sessions.signOutOtherSessions,

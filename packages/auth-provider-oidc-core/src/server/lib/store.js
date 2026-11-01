@@ -58,91 +58,106 @@ function isDuplicateError(error) {
 function createOidcStore({ knex, now = Date.now }) {
   const stamp = () => new Date(now());
 
-  return Object.freeze({
-    async findClient(issuer, origin) {
-      return mapClient(await knex(TABLES.clients).where({ issuer, origin }).first());
-    },
-    async listClientIds(issuer) {
-      const rows = await knex(TABLES.clients).where({ issuer }).select("client_id");
-      return rows.map((row) => row.client_id);
-    },
-    // Two first sign-ins may register at once; the first stored client wins.
-    async insertClient(client) {
-      try {
-        await knex(TABLES.clients).insert({
-          issuer: client.issuer,
-          origin: client.origin,
-          client_id: client.clientId,
-          client_secret: client.clientSecret || null,
-          registration_access_token: client.registrationAccessToken || null,
-          registration_client_uri: client.registrationClientUri || null,
-          created_at: stamp(),
-          updated_at: stamp()
-        });
-      } catch (error) {
-        if (!isDuplicateError(error)) throw error;
-      }
-      return mapClient(await knex(TABLES.clients).where({ issuer: client.issuer, origin: client.origin }).first());
-    },
+  async function findClient(issuer, origin) {
+    return mapClient(await knex(TABLES.clients).where({ issuer, origin }).first());
+  }
 
-    async createSession(session) {
-      const createdAt = stamp();
-      await knex(TABLES.sessions).insert({
-        id: session.id,
-        token_hash: session.tokenHash,
-        issuer: session.issuer,
-        client_id: session.clientId || null,
-        sub: session.sub,
-        sid: session.sid || null,
-        email: session.email,
-        display_name: session.displayName,
-        id_token: session.idToken || null,
-        purpose: session.purpose,
-        expires_at: toDate(session.expiresAt),
-        created_at: createdAt,
-        updated_at: createdAt
+  async function listClientIds(issuer) {
+    const rows = await knex(TABLES.clients).where({ issuer }).select("client_id");
+    return rows.map((row) => row.client_id);
+  }
+
+  // Two first sign-ins may register at once; the first stored client wins.
+  async function insertClient(client) {
+    try {
+      await knex(TABLES.clients).insert({
+        issuer: client.issuer,
+        origin: client.origin,
+        client_id: client.clientId,
+        client_secret: client.clientSecret || null,
+        registration_access_token: client.registrationAccessToken || null,
+        registration_client_uri: client.registrationClientUri || null,
+        created_at: stamp(),
+        updated_at: stamp()
       });
-    },
-    async findActiveSessionByTokenHash(tokenHash) {
-      const session = mapSession(await knex(TABLES.sessions).where({ token_hash: tokenHash }).first());
-      return session && !session.revokedAt && !isExpired(session.expiresAt, now()) ? session : null;
-    },
-    async revokeSession(id) {
-      await knex(TABLES.sessions).where({ id }).whereNull("revoked_at").update({ revoked_at: stamp(), updated_at: stamp() });
-    },
-    // A subject ends all of that person's sessions; an issuer session id alone ends its own.
-    async revokeIssuerSessions(issuer, { sub = "", sid = "" } = {}) {
-      if (!sub && !sid) return 0;
-      return knex(TABLES.sessions).where({ issuer }).whereNull("revoked_at")
-        .andWhere(sub ? { sub } : { sid })
-        .update({ revoked_at: stamp(), updated_at: stamp() });
-    },
-
-    // Returns false when this token id was already used.
-    async rememberLogoutToken(issuer, jti, expiresAt) {
-      await knex(TABLES.logoutTokens).where("expires_at", "<=", stamp()).del();
-      try {
-        await knex(TABLES.logoutTokens).insert({ issuer, jti, expires_at: toDate(expiresAt) });
-        return true;
-      } catch (error) {
-        if (isDuplicateError(error)) return false;
-        throw error;
-      }
-    },
-
-    // Preview identity signs in as an account the app already knows.
-    async findKnownUser(provider, { userId = "", email = "" } = {}) {
-      const query = knex("users").where({ auth_provider: provider });
-      if (userId) query.andWhere({ auth_provider_user_sid: userId });
-      else query.andWhere({ email });
-      let row;
-      try {
-        row = await query.first("auth_provider_user_sid", "email", "display_name");
-      } catch {
-        return null;
-      }
-      return row ? { sub: row.auth_provider_user_sid, email: row.email, displayName: row.display_name } : null;
+    } catch (error) {
+      if (!isDuplicateError(error)) throw error;
     }
+    return mapClient(await knex(TABLES.clients).where({ issuer: client.issuer, origin: client.origin }).first());
+  }
+
+  async function createSession(session) {
+    const createdAt = stamp();
+    await knex(TABLES.sessions).insert({
+      id: session.id,
+      token_hash: session.tokenHash,
+      issuer: session.issuer,
+      client_id: session.clientId || null,
+      sub: session.sub,
+      sid: session.sid || null,
+      email: session.email,
+      display_name: session.displayName,
+      id_token: session.idToken || null,
+      purpose: session.purpose,
+      expires_at: toDate(session.expiresAt),
+      created_at: createdAt,
+      updated_at: createdAt
+    });
+  }
+
+  async function findActiveSessionByTokenHash(tokenHash) {
+    const session = mapSession(await knex(TABLES.sessions).where({ token_hash: tokenHash }).first());
+    return session && !session.revokedAt && !isExpired(session.expiresAt, now()) ? session : null;
+  }
+
+  async function revokeSession(id) {
+    await knex(TABLES.sessions).where({ id }).whereNull("revoked_at").update({ revoked_at: stamp(), updated_at: stamp() });
+  }
+
+  // A subject ends all of that person's sessions; an issuer session id alone ends its own.
+  async function revokeIssuerSessions(issuer, { sub = "", sid = "" } = {}) {
+    if (!sub && !sid) return 0;
+    return knex(TABLES.sessions).where({ issuer }).whereNull("revoked_at")
+      .andWhere(sub ? { sub } : { sid })
+      .update({ revoked_at: stamp(), updated_at: stamp() });
+  }
+
+  // Returns false when this token id was already used.
+  async function rememberLogoutToken(issuer, jti, expiresAt) {
+    await knex(TABLES.logoutTokens).where("expires_at", "<=", stamp()).del();
+    try {
+      await knex(TABLES.logoutTokens).insert({ issuer, jti, expires_at: toDate(expiresAt) });
+      return true;
+    } catch (error) {
+      if (isDuplicateError(error)) return false;
+      throw error;
+    }
+  }
+
+  // Preview identity signs in as an account the app already knows.
+  async function findKnownUser(provider, { userId = "", email = "" } = {}) {
+    const query = knex("users").where({ auth_provider: provider });
+    if (userId) query.andWhere({ auth_provider_user_sid: userId });
+    else query.andWhere({ email });
+    let row;
+    try {
+      row = await query.first("auth_provider_user_sid", "email", "display_name");
+    } catch {
+      return null;
+    }
+    return row ? { sub: row.auth_provider_user_sid, email: row.email, displayName: row.display_name } : null;
+  }
+
+  return Object.freeze({
+    findClient,
+    listClientIds,
+    insertClient,
+    createSession,
+    findActiveSessionByTokenHash,
+    revokeSession,
+    revokeIssuerSessions,
+    rememberLogoutToken,
+    findKnownUser
   });
 }
 

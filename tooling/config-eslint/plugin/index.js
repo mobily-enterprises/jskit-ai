@@ -1,5 +1,6 @@
 import { actionExecuteShape } from "./rules/actionExecuteShape.js";
 import { allowCommentForm } from "./rules/allowCommentForm.js";
+import { frozenFactoryResult } from "./rules/frozenFactoryResult.js";
 import { jsdocDescriptionInside } from "./rules/jsdocDescriptionInside.js";
 import { namedRepeatedType } from "./rules/namedRepeatedType.js";
 import { noDualShape } from "./rules/noDualShape.js";
@@ -26,7 +27,8 @@ const jskitPlugin = Object.freeze({
     "no-dual-shape": noDualShape,
     "named-repeated-type": namedRepeatedType,
     "action-execute-shape": actionExecuteShape,
-    "no-factory-spread": noFactorySpread
+    "no-factory-spread": noFactorySpread,
+    "frozen-factory-result": frozenFactoryResult
   })
 });
 

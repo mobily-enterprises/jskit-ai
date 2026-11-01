@@ -85,35 +85,37 @@ async function runRegisterHook({ hook, result, logger }) {
 function createLocalAuthRegisterHookDecorator({ decoratorId = "auth.local.registerHook", order = 0, logger, hook }) {
   const registerHook = normalizeRegisterHook(hook);
 
+  /** @param {import("@jskit-ai/auth-core/server/types").AuthService} authService */
+  function decorateAuthService(authService) {
+    return Object.freeze(
+      Object.defineProperties(Object.create(authService), {
+        register: {
+          enumerable: true,
+          value: async function register(input) {
+            const result = await authService.register(input);
+            await runRegisterHook({ hook: registerHook, result, logger });
+            return result;
+          }
+        },
+        // A first sign-in through a provider creates the user the way register does.
+        oauthComplete: {
+          enumerable: true,
+          value: async function oauthComplete(input, request) {
+            const result = await authService.oauthComplete(input, request);
+            if (result.registered === true) {
+              await runRegisterHook({ hook: registerHook, result, logger });
+            }
+            return result;
+          }
+        }
+      })
+    );
+  }
+
   return Object.freeze({
     decoratorId: String(decoratorId || registerHook.hookId || "auth.local.registerHook"),
     order: Number.isFinite(order) ? Number(order) : 0,
-    /** @param {import("@jskit-ai/auth-core/server/types").AuthService} authService */
-    decorateAuthService(authService) {
-      return Object.freeze(
-        Object.defineProperties(Object.create(authService), {
-          register: {
-            enumerable: true,
-            value: async function register(input) {
-              const result = await authService.register(input);
-              await runRegisterHook({ hook: registerHook, result, logger });
-              return result;
-            }
-          },
-          // A first sign-in through a provider creates the user the way register does.
-          oauthComplete: {
-            enumerable: true,
-            value: async function oauthComplete(input, request) {
-              const result = await authService.oauthComplete(input, request);
-              if (result.registered === true) {
-                await runRegisterHook({ hook: registerHook, result, logger });
-              }
-              return result;
-            }
-          }
-        })
-      );
-    }
+    decorateAuthService
   });
 }
 

@@ -25,14 +25,19 @@ const everyoneSignedOut = Object.freeze({
  */
 function createAuthPolicy({ authService, extensions, env }) {
   const unsafeMethods = parseList(env.AUTH_CSRF_UNSAFE_METHODS);
+
+  function resolveActor(request) {
+    return authService.authenticateRequest(request);
+  }
+
+  function resolveContext(input) {
+    return extensions.resolvePolicyContext(input);
+  }
+
   return Object.freeze({
-    resolveActor(request) {
-      return authService.authenticateRequest(request);
-    },
+    resolveActor,
     hasPermission: defaultHasPermission,
-    resolveContext(input) {
-      return extensions.resolvePolicyContext(input);
-    },
+    resolveContext,
     options: Object.freeze({
       // The plugin resolves both defaults: NODE_ENV not production, and the /api/ prefix.
       nodeEnv: env.NODE_ENV,

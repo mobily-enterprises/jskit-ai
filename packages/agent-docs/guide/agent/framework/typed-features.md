@@ -442,7 +442,7 @@ return { discover() { … }, async create() { … } };
 A caller can replace a member, inline methods are anonymous to the map, and
 the shape is not fixed. Name the inner functions and return
 `Object.freeze({ discover, create })`. Freeze action definitions and lists
-too.
+too. `jskit/frozen-factory-result` reports the factory's result.
 
 ### The same indexed type spelled out at every use
 
@@ -778,6 +778,7 @@ held to the rules from the start.
 | `jskit/named-repeated-type` | a `ReturnType<…>` or `X["y"]` JSDoc type written in two or more files of a package |
 | `jskit/action-execute-shape` | an `execute` that is not one arrow making one call: a body, `execute: helper(…)`, or a built result |
 | `jskit/no-factory-spread` | a `create*()` result spread into a factory's API or a token value |
+| `jskit/frozen-factory-result` | a `create*` result that is not frozen, or a member defined inline in it |
 | `max-lines`, `max-lines-per-function` | files over 750 lines, functions over 600 |
 
 The rules see shapes, not intent: what they cannot see under

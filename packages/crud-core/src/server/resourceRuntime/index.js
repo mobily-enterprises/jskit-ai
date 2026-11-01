@@ -598,37 +598,51 @@ function createCrudResourceRuntime(resource = {}, knex, repositoryOptions = {}) 
   const runtime = createCompiledCrudRepositoryRuntime(resource, repositoryOptions);
   const withTransaction = createWithTransaction(knex);
 
+  async function list(query = {}, callOptions = {}) {
+    return listRecords(runtime, knex, query, callOptions);
+  }
+
+  async function findById(recordId, callOptions = {}) {
+    return findRecordById(runtime, knex, recordId, callOptions);
+  }
+
+  async function listByIds(ids = [], callOptions = {}) {
+    return listRecordsByIds(runtime, knex, ids, callOptions);
+  }
+
+  async function listByForeignIds(ids = [], foreignKey = "", callOptions = {}) {
+    const normalizedForeignKey = normalizeText(foreignKey);
+    if (!normalizedForeignKey) {
+      throw new TypeError(`${runtime.context || "crudRepository"} listByForeignIds requires foreignKey.`);
+    }
+
+    return listRecordsByIds(runtime, knex, ids, {
+      ...callOptions,
+      valueKey: normalizedForeignKey
+    });
+  }
+
+  async function create(payload = {}, callOptions = {}) {
+    return createRecord(runtime, knex, payload, callOptions);
+  }
+
+  async function updateById(recordId, patch = {}, callOptions = {}) {
+    return updateRecordById(runtime, knex, recordId, patch, callOptions);
+  }
+
+  async function deleteById(recordId, callOptions = {}) {
+    return deleteRecordById(runtime, knex, recordId, callOptions);
+  }
+
   return Object.freeze({
     withTransaction,
-    async list(query = {}, callOptions = {}) {
-      return listRecords(runtime, knex, query, callOptions);
-    },
-    async findById(recordId, callOptions = {}) {
-      return findRecordById(runtime, knex, recordId, callOptions);
-    },
-    async listByIds(ids = [], callOptions = {}) {
-      return listRecordsByIds(runtime, knex, ids, callOptions);
-    },
-    async listByForeignIds(ids = [], foreignKey = "", callOptions = {}) {
-      const normalizedForeignKey = normalizeText(foreignKey);
-      if (!normalizedForeignKey) {
-        throw new TypeError(`${runtime.context || "crudRepository"} listByForeignIds requires foreignKey.`);
-      }
-
-      return listRecordsByIds(runtime, knex, ids, {
-        ...callOptions,
-        valueKey: normalizedForeignKey
-      });
-    },
-    async create(payload = {}, callOptions = {}) {
-      return createRecord(runtime, knex, payload, callOptions);
-    },
-    async updateById(recordId, patch = {}, callOptions = {}) {
-      return updateRecordById(runtime, knex, recordId, patch, callOptions);
-    },
-    async deleteById(recordId, callOptions = {}) {
-      return deleteRecordById(runtime, knex, recordId, callOptions);
-    }
+    list,
+    findById,
+    listByIds,
+    listByForeignIds,
+    create,
+    updateById,
+    deleteById
   });
 }
 

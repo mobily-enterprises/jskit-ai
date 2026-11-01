@@ -28,58 +28,57 @@ function createWorkspaceActionContextContributor({
   const workspaceMembershipOptionalSurfaceIdSet = new Set(workspaceMembershipOptionalSurfaceIds);
   const workspaceSurfaceIdSet = new Set(workspaceSurfaceIds);
 
-  return Object.freeze({
-    contributorId,
-    async contribute({ definition = null, input, context } = {}) {
-      const payload = normalizeObject(input);
-      if (!Object.hasOwn(payload, "workspaceSlug")) {
-        return {};
-      }
-
-      const request = resolveRequest(context);
-      const actionSurfaces = Array.isArray(definition?.surfaces) ? definition.surfaces : [];
-      const hasWorkspaceActionSurface = actionSurfaces.some((surfaceId) => workspaceSurfaceIdSet.has(surfaceId));
-      const routeSurfaceId = normalizeSurfaceId(request?.routeOptions?.config?.surface);
-      const activeSurfaceId = routeSurfaceId || normalizeSurfaceId(context?.surface);
-      const hasWorkspaceSurface = workspaceSurfaceIdSet.has(routeSurfaceId);
-      const routeVisibilityInput =
-        context?.routeVisibility ?? request?.routeOptions?.config?.visibility ?? ROUTE_VISIBILITY_PUBLIC;
-      const routeVisibility = checkRouteVisibility(routeVisibilityInput);
-      const hasWorkspaceRouteVisibility = WORKSPACE_VISIBILITY_ACTION_CONTEXT_SET.has(routeVisibility);
-      if (!hasWorkspaceActionSurface && !hasWorkspaceRouteVisibility && !hasWorkspaceSurface) {
-        return {};
-      }
-
-      const resolveOptions = { request };
-      if (workspaceMembershipOptionalSurfaceIdSet.has(activeSurfaceId)) {
-        resolveOptions.requireMembership = false;
-      }
-
-      const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(
-        resolveActionUser(context, payload),
-        payload.workspaceSlug,
-        resolveOptions
-      );
-
-      const contribution = {
-        requestMeta: {
-          resolvedWorkspaceContext
-        }
-      };
-
-      if (!context?.workspace) {
-        contribution.workspace = resolvedWorkspaceContext.workspace;
-      }
-      if (!context?.membership) {
-        contribution.membership = resolvedWorkspaceContext.membership;
-      }
-      if (!Array.isArray(context?.permissions) || context.permissions.length < 1) {
-        contribution.permissions = resolvedWorkspaceContext.permissions;
-      }
-
-      return contribution;
+  async function contribute({ definition = null, input, context } = {}) {
+    const payload = normalizeObject(input);
+    if (!Object.hasOwn(payload, "workspaceSlug")) {
+      return {};
     }
-  });
+
+    const request = resolveRequest(context);
+    const actionSurfaces = Array.isArray(definition?.surfaces) ? definition.surfaces : [];
+    const hasWorkspaceActionSurface = actionSurfaces.some((surfaceId) => workspaceSurfaceIdSet.has(surfaceId));
+    const routeSurfaceId = normalizeSurfaceId(request?.routeOptions?.config?.surface);
+    const activeSurfaceId = routeSurfaceId || normalizeSurfaceId(context?.surface);
+    const hasWorkspaceSurface = workspaceSurfaceIdSet.has(routeSurfaceId);
+    const routeVisibilityInput =
+      context?.routeVisibility ?? request?.routeOptions?.config?.visibility ?? ROUTE_VISIBILITY_PUBLIC;
+    const routeVisibility = checkRouteVisibility(routeVisibilityInput);
+    const hasWorkspaceRouteVisibility = WORKSPACE_VISIBILITY_ACTION_CONTEXT_SET.has(routeVisibility);
+    if (!hasWorkspaceActionSurface && !hasWorkspaceRouteVisibility && !hasWorkspaceSurface) {
+      return {};
+    }
+
+    const resolveOptions = { request };
+    if (workspaceMembershipOptionalSurfaceIdSet.has(activeSurfaceId)) {
+      resolveOptions.requireMembership = false;
+    }
+
+    const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(
+      resolveActionUser(context, payload),
+      payload.workspaceSlug,
+      resolveOptions
+    );
+
+    const contribution = {
+      requestMeta: {
+        resolvedWorkspaceContext
+      }
+    };
+
+    if (!context?.workspace) {
+      contribution.workspace = resolvedWorkspaceContext.workspace;
+    }
+    if (!context?.membership) {
+      contribution.membership = resolvedWorkspaceContext.membership;
+    }
+    if (!Array.isArray(context?.permissions) || context.permissions.length < 1) {
+      contribution.permissions = resolvedWorkspaceContext.permissions;
+    }
+
+    return contribution;
+  }
+
+  return Object.freeze({ contributorId, contribute });
 }
 
 export { createWorkspaceActionContextContributor };

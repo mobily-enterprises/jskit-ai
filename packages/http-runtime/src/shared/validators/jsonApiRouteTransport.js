@@ -221,6 +221,149 @@ function createJsonApiResourceRouteTransport({
     return documentOptions;
   }
 
+  function response(payload, context = {}) {
+    if (normalizedSuccessKind === "no-content" || Number(context?.statusCode || 200) === 204) {
+      return undefined;
+    }
+
+    const result = assertJsonApiSuccessResult(payload);
+
+    if (isJsonApiDocumentResult(result)) {
+      const document = normalizeJsonApiDocument(result.value);
+      if (document.kind === "unknown") {
+        throw createJsonApiTransportError(
+          500,
+          "JSON:API document result must contain a valid JSON:API document.",
+          "jsonapi_document_result_invalid"
+        );
+      }
+
+      if (normalizedSuccessKind === "collection" && document.kind !== "collection") {
+        throw createJsonApiTransportError(
+          500,
+          "JSON:API collection route requires a collection document result.",
+          "jsonapi_document_result_kind_mismatch"
+        );
+      }
+
+      if (
+        (normalizedSuccessKind === "record" || normalizedSuccessKind === "nullable-record") &&
+        document.kind !== "resource"
+      ) {
+        throw createJsonApiTransportError(
+          500,
+          "JSON:API record route requires a resource document result.",
+          "jsonapi_document_result_kind_mismatch"
+        );
+      }
+
+      if (normalizedSuccessKind === "meta" && document.kind !== "meta") {
+        throw createJsonApiTransportError(
+          500,
+          "JSON:API meta route requires a meta-only document result.",
+          "jsonapi_document_result_kind_mismatch"
+        );
+      }
+
+      return result.value;
+    }
+
+    if (normalizedSuccessKind === "meta") {
+      if (isJsonApiMetaResult(result)) {
+        return createJsonApiDocument({
+          meta: result.value
+        });
+      }
+
+      throw createJsonApiTransportError(
+        500,
+        "JSON:API meta route requires a meta result.",
+        "jsonapi_meta_result_missing"
+      );
+    }
+
+    if (!isJsonApiDataResult(result)) {
+      throw createJsonApiTransportError(
+        500,
+        "JSON:API resource route requires a data or document result.",
+        "jsonapi_success_result_kind_invalid"
+      );
+    }
+
+    const sourcePayload = result.value;
+
+    if (normalizedSuccessKind === "collection") {
+      const items = normalizeArray(resolveCollectionItems(sourcePayload, context));
+      const documentOptions = buildDocumentOptions(
+        sourcePayload,
+        context,
+        items.map((entry) => buildResourceObject(entry, context)),
+        resolveCollectionMeta
+      );
+
+      return createJsonApiDocument(documentOptions);
+    }
+
+    if (sourcePayload == null) {
+      if (normalizedSuccessKind === "nullable-record") {
+        return createJsonApiDocument({
+          data: null
+        });
+      }
+
+      throw createJsonApiTransportError(500, "JSON:API resource response requires a record payload.", "jsonapi_record_missing");
+    }
+
+    const documentOptions = buildDocumentOptions(
+      sourcePayload,
+      context,
+      buildResourceObject(sourcePayload, context),
+      resolveRecordDocumentMeta
+    );
+
+    return createJsonApiDocument(documentOptions);
+  }
+
+  // The kernel error handler decides what is exposed; params and messageCode come
+  // from it, and each field or Ajv issue carries its own code.
+  function errorDocument(error, {
+    statusCode = 500,
+    code = "",
+    message = error?.message,
+    exposeDetails = true,
+    params = {},
+    messageCode = "",
+    messageParams = {}
+  } = {}) {
+    const fieldErrors = !exposeDetails ? {} : isRecord(error?.fieldErrors)
+      ? error.fieldErrors
+      : isRecord(error?.details?.fieldErrors)
+        ? error.details.fieldErrors
+        : {};
+    const fieldErrorCodes = !exposeDetails ? {} : isRecord(error?.fieldErrorCodes)
+      ? error.fieldErrorCodes
+      : isRecord(error?.details?.fieldErrorCodes)
+        ? error.details.fieldErrorCodes
+        : {};
+    const validationIssues = exposeDetails && Array.isArray(error?.validation) ? error.validation : [];
+
+    return createJsonApiErrorDocumentFromFailure({
+      statusCode,
+      code,
+      message,
+      params,
+      messageCode,
+      messageParams,
+      transactionOutcome: error?.transactionOutcome,
+      fieldErrors,
+      fieldErrorCodes,
+      validationIssues,
+      validationIssueCodes: validationIssues.map((issue) => resolveValidationIssueCode(issue)),
+      validationContext: String(error?.validationContext || "").trim(),
+      pointerPrefix
+    });
+  }
+
   return Object.freeze({
     kind: "jsonapi-resource",
     contentType: JSON_API_CONTENT_TYPE,
@@ -266,147 +409,8 @@ function createJsonApiResourceRouteTransport({
         });
       }
     },
-    response(payload, context = {}) {
-      if (normalizedSuccessKind === "no-content" || Number(context?.statusCode || 200) === 204) {
-        return undefined;
-      }
-
-      const result = assertJsonApiSuccessResult(payload);
-
-      if (isJsonApiDocumentResult(result)) {
-        const document = normalizeJsonApiDocument(result.value);
-        if (document.kind === "unknown") {
-          throw createJsonApiTransportError(
-            500,
-            "JSON:API document result must contain a valid JSON:API document.",
-            "jsonapi_document_result_invalid"
-          );
-        }
-
-        if (normalizedSuccessKind === "collection" && document.kind !== "collection") {
-          throw createJsonApiTransportError(
-            500,
-            "JSON:API collection route requires a collection document result.",
-            "jsonapi_document_result_kind_mismatch"
-          );
-        }
-
-        if (
-          (normalizedSuccessKind === "record" || normalizedSuccessKind === "nullable-record") &&
-          document.kind !== "resource"
-        ) {
-          throw createJsonApiTransportError(
-            500,
-            "JSON:API record route requires a resource document result.",
-            "jsonapi_document_result_kind_mismatch"
-          );
-        }
-
-        if (normalizedSuccessKind === "meta" && document.kind !== "meta") {
-          throw createJsonApiTransportError(
-            500,
-            "JSON:API meta route requires a meta-only document result.",
-            "jsonapi_document_result_kind_mismatch"
-          );
-        }
-
-        return result.value;
-      }
-
-      if (normalizedSuccessKind === "meta") {
-        if (isJsonApiMetaResult(result)) {
-          return createJsonApiDocument({
-            meta: result.value
-          });
-        }
-
-        throw createJsonApiTransportError(
-          500,
-          "JSON:API meta route requires a meta result.",
-          "jsonapi_meta_result_missing"
-        );
-      }
-
-      if (!isJsonApiDataResult(result)) {
-        throw createJsonApiTransportError(
-          500,
-          "JSON:API resource route requires a data or document result.",
-          "jsonapi_success_result_kind_invalid"
-        );
-      }
-
-      const sourcePayload = result.value;
-
-      if (normalizedSuccessKind === "collection") {
-        const items = normalizeArray(resolveCollectionItems(sourcePayload, context));
-        const documentOptions = buildDocumentOptions(
-          sourcePayload,
-          context,
-          items.map((entry) => buildResourceObject(entry, context)),
-          resolveCollectionMeta
-        );
-
-        return createJsonApiDocument(documentOptions);
-      }
-
-      if (sourcePayload == null) {
-        if (normalizedSuccessKind === "nullable-record") {
-          return createJsonApiDocument({
-            data: null
-          });
-        }
-
-        throw createJsonApiTransportError(500, "JSON:API resource response requires a record payload.", "jsonapi_record_missing");
-      }
-
-      const documentOptions = buildDocumentOptions(
-        sourcePayload,
-        context,
-        buildResourceObject(sourcePayload, context),
-        resolveRecordDocumentMeta
-      );
-
-      return createJsonApiDocument(documentOptions);
-    },
-    // The kernel error handler decides what is exposed; params and messageCode come
-    // from it, and each field or Ajv issue carries its own code.
-    error(error, {
-      statusCode = 500,
-      code = "",
-      message = error?.message,
-      exposeDetails = true,
-      params = {},
-      messageCode = "",
-      messageParams = {}
-    } = {}) {
-      const fieldErrors = !exposeDetails ? {} : isRecord(error?.fieldErrors)
-        ? error.fieldErrors
-        : isRecord(error?.details?.fieldErrors)
-          ? error.details.fieldErrors
-          : {};
-      const fieldErrorCodes = !exposeDetails ? {} : isRecord(error?.fieldErrorCodes)
-        ? error.fieldErrorCodes
-        : isRecord(error?.details?.fieldErrorCodes)
-          ? error.details.fieldErrorCodes
-          : {};
-      const validationIssues = exposeDetails && Array.isArray(error?.validation) ? error.validation : [];
-
-      return createJsonApiErrorDocumentFromFailure({
-        statusCode,
-        code,
-        message,
-        params,
-        messageCode,
-        messageParams,
-        transactionOutcome: error?.transactionOutcome,
-        fieldErrors,
-        fieldErrorCodes,
-        validationIssues,
-        validationIssueCodes: validationIssues.map((issue) => resolveValidationIssueCode(issue)),
-        validationContext: String(error?.validationContext || "").trim(),
-        pointerPrefix
-      });
-    }
+    response,
+    error: errorDocument
   });
 }
 

@@ -92,72 +92,18 @@ function createWorkspaceBootstrapContributor({
   workspaceInvitationsEnabled,
   tenancyProfile
 }) {
-  return Object.freeze({
-    async contribute({ request = null, query = {}, payload = {} } = {}) {
-      const inheritedAppState = payload?.app && typeof payload.app === "object" ? payload.app : {};
-      const inheritedFeatures =
-        inheritedAppState.features && typeof inheritedAppState.features === "object" ? inheritedAppState.features : {};
-      const normalizedUserId = normalizeRecordId(
-        payload?.session?.authenticated === true ? payload?.session?.userId : null,
-        { fallback: null }
-      );
-      const normalizedWorkspaceSlug = resolveBootstrapWorkspaceSlug({ query, request });
-      if (!normalizedUserId) {
-        if (!normalizedWorkspaceSlug || tenancyProfile.mode === TENANCY_MODE_NONE) {
-          return {};
-        }
-
-        return {
-          tenancy: tenancyProfile,
-          app: {
-            ...inheritedAppState,
-            features: {
-              ...inheritedFeatures,
-              workspaceSwitching: normalizeLowerText(tenancyProfile.mode) !== TENANCY_MODE_NONE,
-              workspaceInvites: workspaceInvitationsEnabled === true
-            }
-          },
-          requestedWorkspace: createRequestedWorkspacePayload(
-            normalizedWorkspaceSlug,
-            REQUESTED_WORKSPACE_STATUS_UNAUTHENTICATED
-          )
-        };
-      }
-
-      const latestProfile = await userProfilesRepository.findById(normalizedUserId);
-      if (!latestProfile) {
+  async function contribute({ request = null, query = {}, payload = {} } = {}) {
+    const inheritedAppState = payload?.app && typeof payload.app === "object" ? payload.app : {};
+    const inheritedFeatures =
+      inheritedAppState.features && typeof inheritedAppState.features === "object" ? inheritedAppState.features : {};
+    const normalizedUserId = normalizeRecordId(
+      payload?.session?.authenticated === true ? payload?.session?.userId : null,
+      { fallback: null }
+    );
+    const normalizedWorkspaceSlug = resolveBootstrapWorkspaceSlug({ query, request });
+    if (!normalizedUserId) {
+      if (!normalizedWorkspaceSlug || tenancyProfile.mode === TENANCY_MODE_NONE) {
         return {};
-      }
-
-      const pendingInvites =
-        workspaceInvitationsEnabled
-          ? await workspacePendingInvitationsService.listPendingInvitesForUser(latestProfile, {
-              context: {
-                actor: latestProfile
-              }
-            })
-          : [];
-      const workspaces = await workspaceService.listWorkspacesForUser(latestProfile, { request });
-      let workspaceContext = null;
-      let requestedWorkspace = null;
-      if (normalizedWorkspaceSlug && tenancyProfile.mode !== TENANCY_MODE_NONE) {
-        try {
-          workspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(
-            latestProfile,
-            normalizedWorkspaceSlug,
-            { request }
-          );
-          requestedWorkspace = createRequestedWorkspacePayload(
-            normalizedWorkspaceSlug,
-            REQUESTED_WORKSPACE_STATUS_RESOLVED
-          );
-        } catch (error) {
-          const requestedWorkspaceStatus = resolveRequestedWorkspaceStatusFromError(error);
-          if (!requestedWorkspaceStatus) {
-            throw error;
-          }
-          requestedWorkspace = createRequestedWorkspacePayload(normalizedWorkspaceSlug, requestedWorkspaceStatus);
-        }
       }
 
       return {
@@ -170,25 +116,79 @@ function createWorkspaceBootstrapContributor({
             workspaceInvites: workspaceInvitationsEnabled === true
           }
         },
-        workspaces: [...workspaces],
-        pendingInvites,
-        activeWorkspace: workspaceContext
-          ? mapWorkspaceSummary(workspaceContext.workspace, {
-              roleSid: workspaceContext.membership?.roleSid,
-              status: workspaceContext.membership?.status
-            })
-          : null,
-        membership: mapMembershipSummary(workspaceContext?.membership, workspaceContext?.workspace),
-        requestedWorkspace,
-        permissions: workspaceContext ? [...workspaceContext.permissions] : [],
-        workspaceSettings: workspaceContext
-          ? mapWorkspaceSettingsPublic(workspaceContext.workspaceSettings, {
-              workspaceInvitationsEnabled
-            })
-          : null
+        requestedWorkspace: createRequestedWorkspacePayload(
+          normalizedWorkspaceSlug,
+          REQUESTED_WORKSPACE_STATUS_UNAUTHENTICATED
+        )
       };
     }
-  });
+
+    const latestProfile = await userProfilesRepository.findById(normalizedUserId);
+    if (!latestProfile) {
+      return {};
+    }
+
+    const pendingInvites =
+      workspaceInvitationsEnabled
+        ? await workspacePendingInvitationsService.listPendingInvitesForUser(latestProfile, {
+            context: {
+              actor: latestProfile
+            }
+          })
+        : [];
+    const workspaces = await workspaceService.listWorkspacesForUser(latestProfile, { request });
+    let workspaceContext = null;
+    let requestedWorkspace = null;
+    if (normalizedWorkspaceSlug && tenancyProfile.mode !== TENANCY_MODE_NONE) {
+      try {
+        workspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(
+          latestProfile,
+          normalizedWorkspaceSlug,
+          { request }
+        );
+        requestedWorkspace = createRequestedWorkspacePayload(
+          normalizedWorkspaceSlug,
+          REQUESTED_WORKSPACE_STATUS_RESOLVED
+        );
+      } catch (error) {
+        const requestedWorkspaceStatus = resolveRequestedWorkspaceStatusFromError(error);
+        if (!requestedWorkspaceStatus) {
+          throw error;
+        }
+        requestedWorkspace = createRequestedWorkspacePayload(normalizedWorkspaceSlug, requestedWorkspaceStatus);
+      }
+    }
+
+    return {
+      tenancy: tenancyProfile,
+      app: {
+        ...inheritedAppState,
+        features: {
+          ...inheritedFeatures,
+          workspaceSwitching: normalizeLowerText(tenancyProfile.mode) !== TENANCY_MODE_NONE,
+          workspaceInvites: workspaceInvitationsEnabled === true
+        }
+      },
+      workspaces: [...workspaces],
+      pendingInvites,
+      activeWorkspace: workspaceContext
+        ? mapWorkspaceSummary(workspaceContext.workspace, {
+            roleSid: workspaceContext.membership?.roleSid,
+            status: workspaceContext.membership?.status
+          })
+        : null,
+      membership: mapMembershipSummary(workspaceContext?.membership, workspaceContext?.workspace),
+      requestedWorkspace,
+      permissions: workspaceContext ? [...workspaceContext.permissions] : [],
+      workspaceSettings: workspaceContext
+        ? mapWorkspaceSettingsPublic(workspaceContext.workspaceSettings, {
+            workspaceInvitationsEnabled
+          })
+        : null
+    };
+  }
+
+  return Object.freeze({ contribute });
 }
 
 export { createWorkspaceBootstrapContributor };

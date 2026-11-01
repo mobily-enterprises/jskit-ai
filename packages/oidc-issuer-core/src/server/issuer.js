@@ -161,33 +161,30 @@ async function createOidcIssuer({
     done();
   }
 
-  return Object.freeze({
-    config,
-    hub,
-    async mount(app) {
-      // Hub pages are never framed. Development keeps the app's own pages
-      // frameable so an editor's preview pane can show them.
-      app.addHook("onRequest", async (request, reply) => {
-        if (config.isProduction || isHubPath(request.url)) {
-          reply.raw.setHeader("x-frame-options", "DENY");
-          reply.raw.setHeader("content-security-policy", "frame-ancestors 'none'");
-        }
-      });
-      await app.register(protocolRoutes);
-      await app.register((instance, _options, done) => {
-        registerHubRoutes(instance, hub);
-        done();
-      });
-      timer = setInterval(hub.maintain, MAINTENANCE_INTERVAL_MS);
-      timer.unref();
-    },
-    maintain: hub.maintain,
-    rotateSigningKey: hub.rotateSigningKey,
-    async close() {
-      if (timer) clearInterval(timer);
-      timer = null;
-    }
-  });
+  async function mount(app) {
+    // Hub pages are never framed. Development keeps the app's own pages
+    // frameable so an editor's preview pane can show them.
+    app.addHook("onRequest", async (request, reply) => {
+      if (config.isProduction || isHubPath(request.url)) {
+        reply.raw.setHeader("x-frame-options", "DENY");
+        reply.raw.setHeader("content-security-policy", "frame-ancestors 'none'");
+      }
+    });
+    await app.register(protocolRoutes);
+    await app.register((instance, _options, done) => {
+      registerHubRoutes(instance, hub);
+      done();
+    });
+    timer = setInterval(hub.maintain, MAINTENANCE_INTERVAL_MS);
+    timer.unref();
+  }
+
+  async function close() {
+    if (timer) clearInterval(timer);
+    timer = null;
+  }
+
+  return Object.freeze({ config, hub, mount, maintain: hub.maintain, rotateSigningKey: hub.rotateSigningKey, close });
 }
 
 export { HUB_GLOBAL_PATHS, createOidcIssuer };

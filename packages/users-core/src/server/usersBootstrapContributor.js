@@ -54,62 +54,62 @@ function createAnonymousBootstrapPayload({ surfaceAccess = {} }) {
  * @param {import("@jskit-ai/auth-core/server/types").AuthService} dependencies.authService
  */
 function createUsersBootstrapContributor({ userProfilesRepository, userSettingsRepository, authService }) {
-  return Object.freeze({
-    async contribute({ request, reply, payload: existingPayload }) {
-      const authResult = await request.executeAction({
-        actionId: "auth.session.read"
+  async function contribute({ request, reply, payload: existingPayload }) {
+    const authResult = await request.executeAction({
+      actionId: "auth.session.read"
+    });
+
+    if (authResult?.clearSession === true) {
+      authService.clearSessionCookies(reply);
+    }
+    if (authResult?.session) {
+      authService.writeSessionCookies(reply, authResult.session);
+    }
+    if (authResult?.transientFailure === true) {
+      throw new AppError(503, "Authentication service temporarily unavailable. Please retry.", {
+        code: "users.bootstrap.authUnavailable"
       });
+    }
 
-      if (authResult?.clearSession === true) {
-        authService.clearSessionCookies(reply);
-      }
-      if (authResult?.session) {
-        authService.writeSessionCookies(reply, authResult.session);
-      }
-      if (authResult?.transientFailure === true) {
-        throw new AppError(503, "Authentication service temporarily unavailable. Please retry.", {
-          code: "users.bootstrap.authUnavailable"
-        });
-      }
+    const normalizedUser = authResult?.authenticated === true ? authResult?.actor || null : null;
+    const inheritedSurfaceAccess = normalizeObject(existingPayload.surfaceAccess);
+    let payload = createAnonymousBootstrapPayload({
+      surfaceAccess: inheritedSurfaceAccess
+    });
 
-      const normalizedUser = authResult?.authenticated === true ? authResult?.actor || null : null;
-      const inheritedSurfaceAccess = normalizeObject(existingPayload.surfaceAccess);
-      let payload = createAnonymousBootstrapPayload({
-        surfaceAccess: inheritedSurfaceAccess
-      });
+    if (normalizedUser) {
+      const latestProfile = (await userProfilesRepository.findById(normalizedUser.id)) || normalizedUser;
+      const userSettings = await userSettingsRepository.ensureForUserId(latestProfile.id);
 
-      if (normalizedUser) {
-        const latestProfile = (await userProfilesRepository.findById(normalizedUser.id)) || normalizedUser;
-        const userSettings = await userSettingsRepository.ensureForUserId(latestProfile.id);
-
-        payload = {
-          session: {
-            authenticated: true,
-            userId: latestProfile.id
-          },
-          profile: {
-            displayName: latestProfile.displayName,
-            email: latestProfile.email,
-            avatar: accountAvatarFormatter(latestProfile, userSettings)
-          },
-          app: {},
-          surfaceAccess: inheritedSurfaceAccess,
-          userSettings: formatUserSettingsSection(USER_SETTINGS_BOOTSTRAP_KEYS, userSettings),
-          requestMeta: {
-            hasRequest: true
-          }
-        };
-      }
-
-      return {
-        ...payload,
+      payload = {
         session: {
-          ...payload.session,
-          ...getOAuthProviderCatalogPayload(authService)
+          authenticated: true,
+          userId: latestProfile.id
+        },
+        profile: {
+          displayName: latestProfile.displayName,
+          email: latestProfile.email,
+          avatar: accountAvatarFormatter(latestProfile, userSettings)
+        },
+        app: {},
+        surfaceAccess: inheritedSurfaceAccess,
+        userSettings: formatUserSettingsSection(USER_SETTINGS_BOOTSTRAP_KEYS, userSettings),
+        requestMeta: {
+          hasRequest: true
         }
       };
     }
-  });
+
+    return {
+      ...payload,
+      session: {
+        ...payload.session,
+        ...getOAuthProviderCatalogPayload(authService)
+      }
+    };
+  }
+
+  return Object.freeze({ contribute });
 }
 
 export { createUsersBootstrapContributor };

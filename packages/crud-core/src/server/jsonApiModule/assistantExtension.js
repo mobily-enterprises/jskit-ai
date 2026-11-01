@@ -369,18 +369,16 @@ function createCrudAssistantExtension(resource, namespace, operation) {
         ? `Update a ${namespace} record.`
         : `Delete a ${namespace} record.`;
 
-  return Object.freeze({
-    description: actionLabel,
-    output,
-    transformResult(result, context) {
-      return transformCrudAssistantResult(operation, result, {
-        ...context,
-        resource,
-        relationshipEntries,
-        lookupContainerKey
-      });
-    }
-  });
+  function transformResult(result, context) {
+    return transformCrudAssistantResult(operation, result, {
+      ...context,
+      resource,
+      relationshipEntries,
+      lookupContainerKey
+    });
+  }
+
+  return Object.freeze({ description: actionLabel, output, transformResult });
 }
 
 export {

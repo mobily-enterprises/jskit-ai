@@ -47,15 +47,14 @@ function createMailer({ mail, logger, isProduction, fetchImpl = globalThis.fetch
     }
   }
 
-  return Object.freeze({
-    configured: Boolean(mail.from && (mail.resendApiKey || mail.smtpUrl)),
-    async send(message) {
-      if (mail.from && mail.resendApiKey) return sendWithResend(message);
-      if (mail.from && mail.smtpUrl) return sendWithSmtp(message);
-      if (isProduction) throw new Error("The hub has no email sender.");
-      logger.info({ to: message.to, subject: message.subject }, `Accounts hub email (not sent: no sender configured)\n${message.text}`);
-    }
-  });
+  async function send(message) {
+    if (mail.from && mail.resendApiKey) return sendWithResend(message);
+    if (mail.from && mail.smtpUrl) return sendWithSmtp(message);
+    if (isProduction) throw new Error("The hub has no email sender.");
+    logger.info({ to: message.to, subject: message.subject }, `Accounts hub email (not sent: no sender configured)\n${message.text}`);
+  }
+
+  return Object.freeze({ configured: Boolean(mail.from && (mail.resendApiKey || mail.smtpUrl)), send });
 }
 
 export { composeMessage, createMailer };

@@ -20,23 +20,26 @@ function createProviderLogger(loggerLike = null, { debugEnabled = false, debugMe
   const logger = asLogger(loggerLike);
   const resolvedDebugMethod = String(debugMethod || "info").trim() || "info";
 
-  return Object.freeze({
-    debug: (...args) => {
-      if (debugEnabled !== true) {
-        return;
-      }
-      callLoggerMethod(logger, resolvedDebugMethod, "info", args);
-    },
-    info: (...args) => {
-      callLoggerMethod(logger, "info", "info", args);
-    },
-    warn: (...args) => {
-      callLoggerMethod(logger, "warn", "warn", args);
-    },
-    error: (...args) => {
-      callLoggerMethod(logger, "error", "error", args);
+  function debug(...args) {
+    if (debugEnabled !== true) {
+      return;
     }
-  });
+    callLoggerMethod(logger, resolvedDebugMethod, "info", args);
+  }
+
+  function info(...args) {
+    callLoggerMethod(logger, "info", "info", args);
+  }
+
+  function warn(...args) {
+    callLoggerMethod(logger, "warn", "warn", args);
+  }
+
+  function error(...args) {
+    callLoggerMethod(logger, "error", "error", args);
+  }
+
+  return Object.freeze({ debug, info, warn, error });
 }
 
 export { createProviderLogger };

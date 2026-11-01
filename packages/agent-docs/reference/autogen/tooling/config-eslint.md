@@ -102,6 +102,12 @@ Exports
 Local functions
 - `allowLines(comment)`
 
+### `plugin/rules/frozenFactoryResult.js`
+Exports
+- `frozenFactoryResult`
+Local functions
+- `memberName(property)`
+
 ### `plugin/rules/jsdocDescriptionInside.js`
 Exports
 - `jsdocDescriptionInside`
