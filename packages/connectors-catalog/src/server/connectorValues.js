@@ -19,6 +19,12 @@ const isText = (value) => typeof value === "string" && value.length > 0;
 const isUuid = (value) => typeof value === "string" && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/iu.test(value);
 
 /**
+ * A response record that carries a string `id`.
+ * @param {any} value
+ */
+const hasStringId = (value) => typeof value?.id === "string";
+
+/**
  * A response whose `data` is a list.
  * @param {any} result
  */
@@ -30,4 +36,4 @@ const hasDataList = (result) => Array.isArray(result?.data);
  */
 const accountOrigin = (settings) => new URL(settings.accountUrl).origin;
 
-export { isCount, isText, isUuid, hasDataList, accountOrigin };
+export { isCount, isText, isUuid, hasStringId, hasDataList, accountOrigin };

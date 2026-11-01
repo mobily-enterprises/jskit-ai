@@ -205,6 +205,7 @@ Exports
 - `isCount(value)`
 - `isText(value)`
 - `isUuid(value)`
+- `hasStringId(value)`
 - `hasDataList(result)`
 - `accountOrigin(settings)`
 
@@ -341,7 +342,6 @@ Local functions
 Exports
 - `googleDriveProvider`
 Local functions
-- `validFile(value)`
 - `validBytes(value)`
 - `url(fileId, query = {}, suffix = "")`
 
@@ -459,7 +459,6 @@ Exports
 - `lexwareProvider`
 Local functions
 - `pageResult(result)`
-- `resourceResult(result)`
 
 ### `src/server/lightspeed.js`
 Exports
@@ -536,8 +535,7 @@ Local functions
 Exports
 - `microsoftOutlookProvider`
 Local functions
-- `resource(value)`
-- `operation(scopes, fields, destination, validateResult = resource)`
+- `operation(scopes, fields, destination, validateResult = hasStringId)`
 - `url(path)`
 
 ### `src/server/microsoft-powerpoint.js`

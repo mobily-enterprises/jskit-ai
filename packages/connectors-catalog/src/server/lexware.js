@@ -1,5 +1,6 @@
 import { createSchema } from "json-rest-schema";
 import { lexwareDefinition } from "../shared/tokens.js";
+import { hasStringId } from "./connectorValues.js";
 import { jsonOperation, validatedOperation } from "./jsonOperation.js";
 
 const id = { type: "string", required: true, validator: value => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(value) || "Use a Lexware resource UUID." };
@@ -8,7 +9,6 @@ const date = { type: "string", required: true, validator: value => /^\d{4}-\d{2}
 const paging = { page: { type: "integer", min: 0, max: 100000, defaultTo: 0 }, size: { type: "integer", min: 1, max: 250, defaultTo: 25 } };
 const pageResult = result => Array.isArray(result?.content) && typeof result.first === "boolean" && typeof result.last === "boolean" &&
   ["totalPages", "totalElements", "numberOfElements", "number"].every(field => Number.isInteger(result[field]) && result[field] >= 0) && Number.isInteger(result.size) && result.size > 0;
-const resourceResult = result => typeof result?.id === "string";
 const line = createSchema({
   name: { ...text, required: true }, description: { ...text, maxLength: 5000 },
   quantity: { type: "number", required: true, min: 0.000001, max: 1000000 },
@@ -26,7 +26,7 @@ const lexwareProvider = Object.freeze({
       ...paging, customer: { type: "boolean" }, vendor: { type: "boolean" }
     }, pageResult),
     ...Object.fromEntries(["contacts", "articles", "invoices", "vouchers"].map(resource => [
-      `${resource}.get`, validatedOperation({ id }, ({ id }) => ({ method: "GET", url: `https://api.lexware.io/v1/${resource}/${id}` }), resourceResult)
+      `${resource}.get`, validatedOperation({ id }, ({ id }) => ({ method: "GET", url: `https://api.lexware.io/v1/${resource}/${id}` }), hasStringId)
     ])),
     "articles.list": jsonOperation("https://api.lexware.io/v1/articles", {
       ...paging, articleNumber: text, gtin: text, type: { type: "string", enum: ["PRODUCT", "SERVICE"] }
@@ -48,7 +48,7 @@ const lexwareProvider = Object.freeze({
       body: { ...other, voucherDate, address: { contactId },
         lineItems: lineItems.map(({ netAmount, taxRatePercentage, ...item }) => ({ ...item, type: "custom", unitPrice: { currency: "EUR", netAmount, taxRatePercentage } })),
         totalPrice: { currency: "EUR" }, taxConditions: { taxType: "net" }, shippingConditions: { shippingDate, shippingType } }
-    }), resourceResult)
+    }), hasStringId)
   }
 });
 export { lexwareProvider };

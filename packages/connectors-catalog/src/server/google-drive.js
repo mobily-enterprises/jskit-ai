@@ -2,11 +2,11 @@ import { randomUUID } from "node:crypto";
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { googleDriveDefinition } from "../shared/google.js";
 import { googleOperation, googleRead, googleProvider, inputInvalid, pageToken } from "./google.js";
+import { hasStringId } from "./connectorValues.js";
 const origin = "https://www.googleapis.com";
 const fileId = { type: "string", required: true, minLength: 1, maxLength: 1024, validator: value => /^[A-Za-z0-9_-]+$/.test(value) || "Use a Drive file ID, not a URL." };
 const contentScopes = ["drive", "drive.file", "drive.readonly"];
 const writeScopes = ["drive", "drive.file"];
-const validFile = value => typeof value?.id === "string";
 const validBytes = value => typeof value?.bodyBase64 === "string" && Number.isInteger(value.size) && typeof value.contentType === "string";
 const fields = "id,name,mimeType,parents,size,trashed,webViewLink,capabilities,exportLinks";
 function url(fileId, query = {}, suffix = "") {
@@ -15,14 +15,14 @@ function url(fileId, query = {}, suffix = "") {
   return address.href;
 }
 const baseProvider = googleProvider(googleDriveDefinition, origin, "files.list", {
-  "files.get": googleRead([...contentScopes, "drive.metadata", "drive.metadata.readonly"], { fileId }, ({ fileId }) => ({ url: url(fileId, { supportsAllDrives: true, fields }) }), validFile),
+  "files.get": googleRead([...contentScopes, "drive.metadata", "drive.metadata.readonly"], { fileId }, ({ fileId }) => ({ url: url(fileId, { supportsAllDrives: true, fields }) }), hasStringId),
   "files.download": googleRead(contentScopes, { fileId }, ({ fileId }) => ({ url: url(fileId, { supportsAllDrives: true, alt: "media" }) }), validBytes),
   "files.export": googleRead(contentScopes, { fileId, mimeType: { type: "string", required: true, minLength: 1, maxLength: 200 } }, ({ fileId, mimeType }) => ({ url: url(fileId, { mimeType }, "/export") }), validBytes),
-  "files.create": googleOperation(writeScopes, { name: { type: "string", required: true, minLength: 1, maxLength: 1024 }, parentId: { ...fileId, required: false }, folder: { type: "boolean", defaultTo: false } }, ({ name, parentId, folder }) => ({ method: "POST", url: url(undefined, { supportsAllDrives: true, fields }), body: { name, ...(parentId ? { parents: [parentId] } : {}), ...(folder ? { mimeType: "application/vnd.google-apps.folder" } : {}) } }), validFile),
+  "files.create": googleOperation(writeScopes, { name: { type: "string", required: true, minLength: 1, maxLength: 1024 }, parentId: { ...fileId, required: false }, folder: { type: "boolean", defaultTo: false } }, ({ name, parentId, folder }) => ({ method: "POST", url: url(undefined, { supportsAllDrives: true, fields }), body: { name, ...(parentId ? { parents: [parentId] } : {}), ...(folder ? { mimeType: "application/vnd.google-apps.folder" } : {}) } }), hasStringId),
   "files.update": googleOperation([...writeScopes, "drive.metadata"], { fileId, name: { type: "string", minLength: 1, maxLength: 1024 }, description: { type: "string", maxLength: 16384 }, trashed: { type: "boolean" } }, ({ fileId, ...body }) => {
     if (!Object.keys(body).length) throw inputInvalid("Supply a name, description or trashed value.", { messageCode: "connectors.googleDrive.metadataChangeRequired" });
     return { method: "PATCH", url: url(fileId, { supportsAllDrives: true, fields }), body };
-  }, validFile),
+  }, hasStringId),
   "files.upload": googleOperation(writeScopes, {
     fileId: { ...fileId, required: false }, name: { type: "string", required: true, minLength: 1, maxLength: 1024 },
     parentId: { ...fileId, required: false }, contentType: { type: "string", required: true, minLength: 3, maxLength: 200 },
@@ -39,7 +39,7 @@ const baseProvider = googleProvider(googleDriveDefinition, origin, "files.list",
     const metadata = { name, ...(parentId ? { parents: [parentId] } : {}) };
     const body = Buffer.concat([Buffer.from(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: ${contentType}\r\n\r\n`), data, Buffer.from(`\r\n--${boundary}--\r\n`)]);
     return { method: fileId ? "PATCH" : "POST", url: url(fileId, { uploadType: "multipart", supportsAllDrives: true, fields }).replace("/drive/v3/", "/upload/drive/v3/"), headers: { "Content-Type": `multipart/related; boundary=${boundary}` }, body };
-  }, validFile),
+  }, hasStringId),
   "files.list": googleRead(["drive", "drive.file", "drive.metadata", "drive.metadata.readonly", "drive.readonly", "drive.meet.readonly", "drive.photos.readonly"], {
     pageToken, pageSize: { type: "integer", min: 1, max: 1000, defaultTo: 100 },
     q: { type: "string", maxLength: 8192 },

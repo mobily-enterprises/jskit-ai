@@ -2,6 +2,7 @@ import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { microsoftOutlookDefinition } from "../shared/microsoft.js";
+import { hasStringId } from "./connectorValues.js";
 import { graphRead, microsoftProvider, pageSize } from "./microsoft.js";
 
 const id = { type: "string", required: true, minLength: 1, maxLength: 2048,
@@ -9,8 +10,7 @@ const id = { type: "string", required: true, minLength: 1, maxLength: 2048,
 const text = { type: "string", required: true, minLength: 1, maxLength: 100000, noTrim: true };
 const instant = { type: "string", required: true, maxLength: 30,
   validator: value => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u.test(value) && Number.isFinite(Date.parse(value)) || "Use a UTC ISO timestamp ending in Z." };
-const resource = value => typeof value?.id === "string";
-function operation(scopes, fields, destination, validateResult = resource) {
+function operation(scopes, fields, destination, validateResult = hasStringId) {
   const schema = createSchema(fields);
   return { scopes, validateResult, request(input) {
     return destination(validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 }));
@@ -19,9 +19,9 @@ function operation(scopes, fields, destination, validateResult = resource) {
 const url = path => `https://graph.microsoft.com/v1.0/me${path}`;
 
 const base = microsoftProvider(microsoftOutlookDefinition, "common", "folders.list", {
-  "messages.get": operation(["Mail.Read"], { messageId: id }, ({ messageId }) => ({ method: "GET", url: url(`/messages/${encodeURIComponent(messageId)}`), headers: { Prefer: 'outlook.body-content-type="text"' } }), value => resource(value) && typeof value.body?.content === "string"),
+  "messages.get": operation(["Mail.Read"], { messageId: id }, ({ messageId }) => ({ method: "GET", url: url(`/messages/${encodeURIComponent(messageId)}`), headers: { Prefer: 'outlook.body-content-type="text"' } }), value => hasStringId(value) && typeof value.body?.content === "string"),
   "attachments.list": graphRead("Mail.Read", { messageId: id }, ({ messageId }) => ({ pathname: `/me/messages/${encodeURIComponent(messageId)}/attachments` })),
-  "attachments.get": operation(["Mail.Read"], { messageId: id, attachmentId: id }, ({ messageId, attachmentId }) => ({ method: "GET", url: url(`/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(attachmentId)}`) }), value => resource(value) && value["@odata.type"] === "#microsoft.graph.fileAttachment" && typeof value.contentBytes === "string" && value.contentBytes.length <= 6666668),
+  "attachments.get": operation(["Mail.Read"], { messageId: id, attachmentId: id }, ({ messageId, attachmentId }) => ({ method: "GET", url: url(`/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(attachmentId)}`) }), value => hasStringId(value) && value["@odata.type"] === "#microsoft.graph.fileAttachment" && typeof value.contentBytes === "string" && value.contentBytes.length <= 6666668),
   "messages.setRead": operation(["Mail.ReadWrite"], { messageId: id, isRead: { type: "boolean", required: true } }, ({ messageId, isRead }) => ({ method: "PATCH", url: url(`/messages/${encodeURIComponent(messageId)}`), body: { isRead } })),
   "messages.move": operation(["Mail.ReadWrite"], { messageId: id, destinationId: id }, ({ messageId, destinationId }) => ({ method: "POST", url: url(`/messages/${encodeURIComponent(messageId)}/move`), body: { destinationId } })),
   "messages.send": operation(["Mail.Send"], {
