@@ -130,7 +130,8 @@ export function createConversationStorage({ readRecord, writeRecord, deleteRecor
 
   // Saved records are shared and never changed in place. A transaction copies
   // the turn map and each turn it changes, then commits that new record.
-  // Adapter fields the transaction does not manage are carried unchanged.
+  // Adapter fields the transaction does not manage are carried unchanged. The
+  // record's optional `summary` is { text, throughTurnId }, written by compaction.
   function transaction(saved) {
     const { index: _index, ...draft } = saved;
     const added = new Map();
@@ -157,6 +158,24 @@ export function createConversationStorage({ readRecord, writeRecord, deleteRecor
       return { ...draft, index };
     }
     const turns = () => draft.turns;
+    function readTurn(id) {
+      const turn = turns().get(id);
+      if (!turn) return null;
+      const find = (role) => turn.messages.find((message) => message.role === role) || null;
+      const thinking = turn.messages.filter((message) => message.role === "thinking");
+      const commentary = turn.messages.filter((message) => message.role === "commentary");
+      // Native continuations (for example Claude background-task notifications)
+      // can add later replies to the same request turn. Every saved reply stays
+      // in the ordered message list; the latest one still closes it.
+      const replies = turn.messages.filter((message) => message.role === "assistant");
+      const activity = [...thinking, ...commentary, ...replies.slice(0, -1)].sort((a, b) => a.at.localeCompare(b.at));
+      const system = find("system"), user = find("user"), assistant = find("assistant");
+      return structuredClone({
+        turnId: id, user, assistant, thinking, commentary,
+        ...(system ? { system } : {}), ...(turn.metadata ? { metadata: turn.metadata } : {}),
+        messages: [system, user, ...activity, replies.at(-1)].filter(Boolean)
+      });
+    }
     function messageTurnId(id) {
       if (!id) return "";
       const turnId = added.get(id) ?? conversationMessageIndex(saved).get(id);
@@ -180,23 +199,20 @@ export function createConversationStorage({ readRecord, writeRecord, deleteRecor
         async hasMessage(id) { return Boolean(messageTurnId(id)); },
         // Optional transaction extension: the turn holding this message ID.
         async findMessageTurnId(id) { return messageTurnId(id); },
-        async readTurn(id) {
-          const turn = turns().get(id);
-          if (!turn) return null;
-          const find = (role) => turn.messages.find((message) => message.role === role) || null;
-          const thinking = turn.messages.filter((message) => message.role === "thinking");
-          const commentary = turn.messages.filter((message) => message.role === "commentary");
-          // Native continuations (for example Claude background-task notifications)
-          // can add later replies to the same request turn. Every saved reply stays
-          // in the ordered message list; the latest one still closes it.
-          const replies = turn.messages.filter((message) => message.role === "assistant");
-          const activity = [...thinking, ...commentary, ...replies.slice(0, -1)].sort((a, b) => a.at.localeCompare(b.at));
-          const system = find("system"), user = find("user"), assistant = find("assistant");
-          return structuredClone({
-            turnId: id, user, assistant, thinking, commentary,
-            ...(system ? { system } : {}), ...(turn.metadata ? { metadata: turn.metadata } : {}),
-            messages: [system, user, ...activity, replies.at(-1)].filter(Boolean)
-          });
+        async readTurn(id) { return readTurn(id); },
+        // The turns after `turnId`, in order ("" is all of them).
+        async readTurnsAfter(turnId) {
+          const ids = [...turns().keys()];
+          const start = turnId ? ids.indexOf(turnId) + 1 : 0;
+          if (!start && turnId) throw new Error("The conversation turn does not exist.");
+          return ids.slice(start).map(readTurn);
+        },
+        // The compaction summary: its text and the last turn it covers.
+        async readSummary() { return draft.summary ? structuredClone(draft.summary) : null; },
+        async writeSummary({ text, throughTurnId }) {
+          if (typeof text !== "string" || !text.trim()) throw new TypeError("A conversation summary requires text.");
+          if (!turns().get(throughTurnId)) throw new Error("The conversation turn does not exist.");
+          draft.summary = { text, throughTurnId };
         },
         async appendMessage(id, { turnMetadata, ...message }) {
           const turn = ownTurn(id);

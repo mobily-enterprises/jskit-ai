@@ -26,10 +26,13 @@ export function createFileConversationStorage({ directory } = {}) {
           typeof entry[0] !== "string" || !entry[0] || !Array.isArray(entry[1]?.messages) ||
           entry[1].messages.some((message) => !message || typeof message.role !== "string" ||
             typeof message.text !== "string" || typeof message.at !== "string")) ||
-        new Set(document.turns.map(([turnId]) => turnId)).size !== document.turns.length) {
+        new Set(document.turns.map(([turnId]) => turnId)).size !== document.turns.length ||
+        (document.summary !== undefined && (typeof document.summary?.text !== "string" ||
+          !document.turns.some(([turnId]) => turnId === document.summary.throughTurnId)))) {
       throw new Error("Conversation storage has an unsupported or damaged format. Restore it from a backup before writing.");
     }
-    return { turns: new Map(document.turns), metadata: document.metadata || {} };
+    return { turns: new Map(document.turns), metadata: document.metadata || {},
+      ...(document.summary ? { summary: document.summary } : {}) };
   }
 
   return createConversationStorage({
@@ -45,10 +48,10 @@ export function createFileConversationStorage({ directory } = {}) {
         throw error;
       }
     },
-    async writeRecord(id, { turns, metadata }) {
+    async writeRecord(id, { turns, metadata, summary }) {
       // Serialize before touching the filesystem: failed transactions cannot
       // replace the last saved conversation or leave a partial document.
-      const body = JSON.stringify({ version: 1, scope: id, metadata, turns: [...turns] });
+      const body = JSON.stringify({ version: 1, scope: id, metadata, turns: [...turns], ...(summary ? { summary } : {}) });
       await mkdir(root, { recursive: true, mode: 0o700 });
       const path = filename(id);
       const temporary = `${path}.${randomUUID()}.tmp`;
