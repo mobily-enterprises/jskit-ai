@@ -4,6 +4,7 @@ import {
   attachDeferredAuthService,
   createDeferredAuthService
 } from "@jskit-ai/auth-core/server/deferredAuthService";
+import { noAppProfiles } from "@jskit-ai/auth-core/server/noAppProfiles";
 import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
@@ -97,6 +98,7 @@ const AuthLocalProvider = defineProvider({
   optional: {
     backend: "auth.local.backend",
     passwordStrategy: "auth.local.password-strategy",
+    profileProjector: "auth.profile.projector",
     recoverySender: "auth.local.recovery-sender"
   },
   provides: {
@@ -113,19 +115,21 @@ const AuthLocalProvider = defineProvider({
    * @param {import("@jskit-ai/auth-core/server/types").AuthExtensions} dependencies.extensions
    * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
    * @param {object} [dependencies.passwordStrategy]
+   * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector | null} dependencies.profileProjector The `auth.profile.projector`, when one is installed.
    * @param {(delivery: { email: string, recoveryUrl: string }) => Promise<void>} [dependencies.recoverySender]
    */
   boot(dependencies, { outputs }) {
-    const { appRoot, backend, env, extensions, logger, passwordStrategy, recoverySender = null } = dependencies;
+    const { appRoot, backend, env, extensions, logger, passwordStrategy, profileProjector, recoverySender = null } = dependencies;
     const config = resolveConfig({ appRoot, backend, env, logger, recoverySender });
     const baseService = createLocalAuthService({
       backend: backend || createLocalFileBackend({ storeDir: config.storeDir }),
       config,
-      profileProjector: extensions.resolveProfileProjector(),
+      profileProjector: profileProjector ?? noAppProfiles,
       passwordStrategy,
       recoverySender,
       invitationContextResolver: extensions.resolveInvitationContextResolver()
     });
+    // readable-check: allow setter-seam - deferred until boot: auth.service is built after every setup has registered its auth extensions, and those setups already receive it
     attachDeferredAuthService(outputs.authService, extensions.decorateService(baseService));
   }
 });

@@ -12,6 +12,7 @@
     "./server/providers/AuthPolicyProvider": "./src/server/providers/AuthPolicyProvider.js",
     "./server/actions/authActions": "./src/server/actions/authActions.js",
     "./server/authExtensions": "./src/server/authExtensions.js",
+    "./server/noAppProfiles": "./src/server/noAppProfiles.js",
     "./server/authPolicyContextResolverRegistry": "./src/server/authPolicyContextResolverRegistry.js",
     "./server/authServiceDecoratorRegistry": "./src/server/authServiceDecoratorRegistry.js",
     "./server/authActor": "./src/server/authActor.js",

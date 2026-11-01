@@ -5,6 +5,8 @@ import path from "node:path";
 import test from "node:test";
 import { catalogMessage, formatMessage, mergeCatalogs, messageKeyForCode } from "@jskit-ai/kernel/shared/i18n";
 import authCoreEnglish from "@jskit-ai/auth-core/locales/en.json" with { type: "json" };
+import { invitationAsGiven } from "@jskit-ai/auth-core/server/authExtensions";
+import { noAppProfiles } from "@jskit-ai/auth-core/server/noAppProfiles";
 import localEnglish from "../locales/en.json" with { type: "json" };
 import { createLocalAuthService, createLocalFileBackend } from "../src/server/lib/index.js";
 
@@ -30,6 +32,8 @@ async function createService(config = {}) {
   const storeDir = await fs.mkdtemp(path.join(os.tmpdir(), "jskit-auth-local-coded-"));
   return createLocalAuthService({
     backend: createLocalFileBackend({ storeDir }),
+    invitationContextResolver: invitationAsGiven,
+    profileProjector: noAppProfiles,
     config: {
       sessionSecret: "coded-texts-secret",
       nodeEnv: "test",

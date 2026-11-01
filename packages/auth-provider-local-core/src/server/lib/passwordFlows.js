@@ -19,7 +19,7 @@ const RECOVERY_TOKEN_TTL_SECONDS = 60 * 60;
  * @param {ReturnType<typeof import("../providers/AuthLocalProvider.js").resolveConfig>} dependencies.config
  * @param {boolean} dependencies.isProduction
  * @param {ReturnType<typeof import("./passwords.js").normalizePasswordStrategy>} dependencies.passwords
- * @param {AuthProfileProjector | null} dependencies.profileProjector
+ * @param {AuthProfileProjector} dependencies.profileProjector
  * @param {boolean} dependencies.recoveryEnabled
  * @param {((delivery: { email: string, recoveryUrl: string }) => Promise<void>) | null} dependencies.recoverySender The `auth.local.recovery-sender`, when one is installed.
  * @param {ReturnType<typeof import("./sessions.js").createLocalSessions>} dependencies.sessions

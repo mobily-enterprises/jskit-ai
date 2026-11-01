@@ -5,7 +5,8 @@ import path from "node:path";
 import test from "node:test";
 import { createActionProvider } from "@jskit-ai/kernel/server/actions";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
-import { createAuthExtensions } from "@jskit-ai/auth-core/server/authExtensions";
+import { createAuthExtensions, invitationAsGiven } from "@jskit-ai/auth-core/server/authExtensions";
+import { noAppProfiles } from "@jskit-ai/auth-core/server/noAppProfiles";
 import { DEV_AUTH_SECRET_HEADER } from "@jskit-ai/auth-core/server/devAuth";
 import { AuthFeature } from "@jskit-ai/auth-core/server/providers/AuthFeature";
 import { AuthLocalProvider } from "../src/server/providers/AuthLocalProvider.js";
@@ -92,12 +93,6 @@ async function createStartedApp({
     debug() {}
   };
   if (typeof configureExtensions === "function") configureExtensions(extensions, runtimeLogger);
-  if (profileProjector) {
-    extensions.registerProfileProjector({
-      projectorId: "test.profile",
-      ...profileProjector
-    });
-  }
   if (invitationContextResolver) {
     extensions.registerInvitationContextResolver({
       resolverId: "test.invitation",
@@ -130,6 +125,7 @@ async function createStartedApp({
     "runtime.logger": runtimeLogger,
     "auth.extensions": extensions,
     "auth.local.backend": backend,
+    ...(profileProjector ? { "auth.profile.projector": profileProjector } : {}),
     ...(passwordStrategy ? { "auth.local.password-strategy": passwordStrategy } : {}),
     ...(recoverySender !== null ? { "auth.local.recovery-sender": recoverySender } : {}),
   };
@@ -623,6 +619,8 @@ test("local auth login verifies password and creates session in one backend tran
     }
   };
   const authService = createLocalAuthService({
+    invitationContextResolver: invitationAsGiven,
+    profileProjector: noAppProfiles,
     backend: wrappedBackend,
     config: {
       sessionSecret: "test-secret",
@@ -646,6 +644,8 @@ test("local auth service accepts a custom stored-password format", async () => {
   const passwordRecords = [];
   const sessions = [];
   const authService = createLocalAuthService({
+    invitationContextResolver: invitationAsGiven,
+    profileProjector: noAppProfiles,
     backend: {
       async withTransaction(callback) {
         return callback({
@@ -1015,6 +1015,9 @@ test("local auth provider projects app profile when auth.profile.projector is in
   const projectedProfiles = [];
   const { authService } = await createStartedApp({
     profileProjector: {
+      async findByIdentity() {
+        return null;
+      },
       async syncIdentityProfile(profile) {
         projectedProfiles.push(profile);
         return {
@@ -1058,6 +1061,9 @@ test("local auth provider passes resolved invitation context into profile projec
       }
     },
     profileProjector: {
+      async findByIdentity() {
+        return null;
+      },
       async syncIdentityProfile(profile, options) {
         projectionCalls.push({ profile, options });
         return {

@@ -50,6 +50,7 @@ Local functions
 ### `src/server/authExtensions.js`
 Exports
 - `createAuthExtensions()`
+- `invitationAsGiven`
 - `mergePolicyContexts(contexts = [])`
 Local functions
 - `normalizeOrderedExtension(value, { idField, method, label } = {})`
@@ -97,6 +98,7 @@ Exports
 - `DEV_AUTH_SECRET_HEADER`
 - `ensureDevAuthExchangeAvailable(policy = {}, request = null)`
 - `ensureDevAuthRuntimeAvailable(policy = {}, request = null)`
+- `isDevAuthBootstrapEnabled(policy)`
 - `isLocalDevAuthRequest(request)`
 - `resolveDevAuthPolicy({ enabled = false, nodeEnv = "development", secret = "" } = {})`
 - `resolveDevAuthPolicyFromEnv(env = {})`
@@ -185,6 +187,10 @@ Exports
 - `normalizeMembershipForAccess(membershipLike)`
 - `normalizePermissions(value)`
 - `createMembershipIndexes(memberships)`
+
+### `src/server/noAppProfiles.js`
+Exports
+- `noAppProfiles`
 
 ### `src/server/providers/AuthAccessProvider.js`
 Exports

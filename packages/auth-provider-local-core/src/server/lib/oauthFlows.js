@@ -22,7 +22,7 @@ const OAUTH_REDIRECT_PATH = "/auth/login";
  * @param {boolean} dependencies.isProduction
  * @param {boolean} dependencies.oauthEnabled
  * @param {Map<string, ReturnType<typeof import("../providers/AuthLocalProvider.js").resolveConfig>["oauthProviders"][number]>} dependencies.oauthProvidersById
- * @param {AuthProfileProjector | null} dependencies.profileProjector
+ * @param {AuthProfileProjector} dependencies.profileProjector
  * @param {ReturnType<typeof import("./securityStatus.js").createLocalSecurityStatus>} dependencies.securityStatus
  * @param {ReturnType<typeof import("./sessions.js").createLocalSessions>} dependencies.sessions
  */

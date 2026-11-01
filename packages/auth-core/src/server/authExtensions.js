@@ -41,10 +41,21 @@ function mergePolicyContexts(contexts = []) {
   return Object.keys(merged).length > 0 ? Object.freeze(merged) : null;
 }
 
+/**
+ * The invitation context resolver when no feature registers one: an invitation
+ * keeps the token and source it arrived with.
+ * @type {import("./types.js").AuthInvitationContextResolver}
+ */
+const invitationAsGiven = Object.freeze({
+  resolverId: "auth.invitation.as-given",
+  async resolveInvitationContext({ token, source }) {
+    return { token, source };
+  }
+});
+
 function createAuthExtensions() {
   const serviceDecorators = [];
   const policyContextResolvers = [];
-  const profileProjectors = [];
   const invitationContextResolvers = [];
   const ids = new Set();
   let sealed = false;
@@ -75,14 +86,7 @@ function createAuthExtensions() {
     });
   }
 
-  function registerProfileProjector(extension) {
-    return register(profileProjectors, extension, {
-      idField: "projectorId",
-      method: "syncIdentityProfile",
-      label: "Auth profile projector"
-    });
-  }
-
+  // readable-check: allow setter-seam - cycle: workspaces.integrations requires auth.service
   function registerInvitationContextResolver(extension) {
     return register(invitationContextResolvers, extension, {
       idField: "resolverId",
@@ -91,21 +95,13 @@ function createAuthExtensions() {
     });
   }
 
-  function resolveSingle(collection, label) {
-    sealed = true;
-    const entries = ordered(collection);
-    if (entries.length > 1) {
-      throw new Error(`${label} is ambiguous: ${entries.map((entry) => entry.projectorId || entry.resolverId).join(", ")}.`);
-    }
-    return entries[0] || null;
-  }
-
-  function resolveProfileProjector() {
-    return resolveSingle(profileProjectors, "Auth profile projector");
-  }
-
   function resolveInvitationContextResolver() {
-    return resolveSingle(invitationContextResolvers, "Auth invitation context resolver");
+    sealed = true;
+    const entries = ordered(invitationContextResolvers);
+    if (entries.length > 1) {
+      throw new Error(`Auth invitation context resolver is ambiguous: ${entries.map((entry) => entry.resolverId).join(", ")}.`);
+    }
+    return entries[0] || invitationAsGiven;
   }
 
   function decorateService(authService) {
@@ -134,7 +130,6 @@ function createAuthExtensions() {
       sealed,
       serviceDecoratorIds: Object.freeze(ordered(serviceDecorators).map((entry) => entry.decoratorId)),
       policyContextResolverIds: Object.freeze(ordered(policyContextResolvers).map((entry) => entry.resolverId)),
-      profileProjectorIds: Object.freeze(ordered(profileProjectors).map((entry) => entry.projectorId)),
       invitationContextResolverIds: Object.freeze(ordered(invitationContextResolvers).map((entry) => entry.resolverId))
     });
   }
@@ -142,15 +137,13 @@ function createAuthExtensions() {
   const api = Object.freeze({
     registerServiceDecorator,
     registerPolicyContextResolver,
-    registerProfileProjector,
     registerInvitationContextResolver,
     decorateService,
     resolvePolicyContext,
-    resolveProfileProjector,
     resolveInvitationContextResolver,
     diagnostics
   });
   return api;
 }
 
-export { createAuthExtensions, mergePolicyContexts };
+export { createAuthExtensions, invitationAsGiven, mergePolicyContexts };

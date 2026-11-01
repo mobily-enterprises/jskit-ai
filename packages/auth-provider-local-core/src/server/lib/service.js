@@ -1,5 +1,6 @@
 import { normalizeAuthCapabilities } from "@jskit-ai/auth-core/shared/authCapabilities";
 import { assertDevAuthPolicy, resolveDevAuthPolicy } from "@jskit-ai/auth-core/server/devAuth";
+import { noAppProfiles } from "@jskit-ai/auth-core/server/noAppProfiles";
 import { throwUnsupportedAuthOperation } from "@jskit-ai/auth-core/server/unsupportedOperation";
 import { createLocalAccounts } from "./accounts.js";
 import { PROVIDER_ID } from "./authPayloads.js";
@@ -17,9 +18,9 @@ import { createLocalSessions } from "./sessions.js";
  * @param {object} dependencies
  * @param {import("../types.js").AuthLocalBackend} dependencies.backend
  * @param {ReturnType<typeof import("../providers/AuthLocalProvider.js").resolveConfig>} dependencies.config
- * @param {AuthProfileProjector | null} [dependencies.profileProjector]
+ * @param {AuthProfileProjector} dependencies.profileProjector The `auth.profile.projector`, or noAppProfiles.
  * @param {object | null} [dependencies.passwordStrategy] The `auth.local.password-strategy`, when one is installed.
- * @param {import("@jskit-ai/auth-core/server/types").AuthInvitationContextResolver | null} [dependencies.invitationContextResolver]
+ * @param {import("@jskit-ai/auth-core/server/types").AuthInvitationContextResolver} dependencies.invitationContextResolver
  * @param {((delivery: { email: string, recoveryUrl: string }) => Promise<void>) | null} [dependencies.recoverySender] The `auth.local.recovery-sender`, when one is installed.
  */
 function createLocalAuthService({
@@ -50,7 +51,7 @@ function createLocalAuthService({
     nodeEnv: config.nodeEnv
   });
   assertDevAuthPolicy(devAuth);
-  const profileProjectionEnabled = Boolean(profileProjector);
+  const appProfileProjection = profileProjector !== noAppProfiles;
   const recoveryDelivery = recoverySender
     ? "email"
     : isProduction
@@ -91,13 +92,14 @@ function createLocalAuthService({
       },
       securityStatus: true,
       signOutOtherSessions: true,
-      appProfileProjection: profileProjectionEnabled,
+      appProfileProjection,
       devLoginAs: devAuth.enabled === true && devAuth.isProduction !== true
     }
   });
 
-  const sessions = createLocalSessions({ backend, config, devAuth, isProduction, profileProjector });
+  const sessions = createLocalSessions({ appProfileProjection, backend, config, devAuth, isProduction, profileProjector });
   const accounts = createLocalAccounts({
+    appProfileProjection,
     backend,
     devAuth,
     invitationContextResolver,

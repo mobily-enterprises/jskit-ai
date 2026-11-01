@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createHash } from "node:crypto";
+import { invitationAsGiven } from "../../auth-core/src/server/authExtensions.js";
+import { noAppProfiles } from "../../auth-core/src/server/noAppProfiles.js";
 import { createLocalAuthService, createLocalFileBackend } from "../../auth-provider-local-core/src/server/lib/index.js";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -83,6 +85,8 @@ test("documented application wiring sends auth recovery through the Resend adapt
   const sender = createRecoverySender({ connections: service, context, integrationId: "mail", from: input.from });
   const auth = createLocalAuthService({
     backend: createLocalFileBackend({ storeDir: path.join(directory, "auth") }),
+    invitationContextResolver: invitationAsGiven,
+    profileProjector: noAppProfiles,
     config: { nodeEnv: "test", sessionSecret: "fixture-session-secret",
       appPublicUrl: "https://app.example.com", recoveryDevOutput: "response" },
     recoverySender: sender

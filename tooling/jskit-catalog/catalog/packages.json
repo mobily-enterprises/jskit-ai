@@ -3045,10 +3045,10 @@
           "provides": [
             "users.core",
             "users.identity",
-            "users.extensions"
+            "users.extensions",
+            "auth.profile.projector"
           ],
           "requires": [
-            "auth.extensions",
             "auth.service",
             "runtime.actions",
             "runtime.bootstrap",

@@ -17,7 +17,7 @@ Use this on demand; do not load the full index at startup.
 ### `src/server/lib/accounts.js`
 Exports
 - `NO_PASSWORD`
-- `createLocalAccounts({ backend, devAuth, invitationContextResolver, passwords, profileProjector, sessions })`
+- `createLocalAccounts({ appProfileProjection, backend, devAuth, invitationContextResolver, passwords, profileProjector, sessions })`
 - `hasPassword(user)`
 - `normalizeDisplayName(value, email)`
 - `validateEmailInput(email)`
@@ -34,7 +34,7 @@ Exports
 - `PROVIDER_ID`
 - `buildAuthPayload({ user, session, profileProjector, profileOptions = {} })`
 - `buildAuthResult({ user, session, appProfile })`
-- `buildSessionAuthPayload({ devAuth, profileProjector, request, session, user, syncProfile = true })`
+- `buildSessionAuthPayload({ appProfileProjection, devAuth, profileProjector, request, session, user, syncProfile = true })`
 - `findExistingAppProfile(user, profileProjector)`
 - `isAuthenticatingSession(session)`
 - `type AuthProfileProjector`
@@ -43,7 +43,6 @@ Local functions
 - `isDevAuthSession(session)`
 - `buildProfile(user)`
 - `buildActor(user, profile = null)`
-- `requireProfileResult(profile, methodName)`
 
 ### `src/server/lib/fileBackend.js`
 Exports
@@ -140,9 +139,8 @@ Exports
 Exports
 - `RECOVERY_TOKEN_COOKIE_NAME`
 - `cookieOptions(isProduction, maxAge)`
-- `createLocalSessions({ backend, config, devAuth, isProduction, profileProjector })`
+- `createLocalSessions({ appProfileProjection, backend, config, devAuth, isProduction, profileProjector })`
 - `safeRequestCookies(request)`
-- `type AuthProfileProjector`
 Local functions
 - `nowSeconds()`
 - `unauthenticatedAuthResult(clearSession = false)`
@@ -184,7 +182,7 @@ Exports
 - `APP_URL`
 - `ATTEMPT_COOKIE`
 - `approveAtProvider(service, { provider = "google", returnTo = "/home", cookies = {}, link = false } = {})`
-- `createService({ backend, oauthProviders, profileProjector = null })`
+- `createService({ backend, oauthProviders, profileProjector = noAppProfiles })`
 - `oidcProviderEntry(issuer, { id = "google", label = "Google" } = {})`
 - `sessionCookies(session)`
 - `startFakeGitHub({ user = { id: 4242, login: "ada", name: "Ada Lovelace" }, emails } = {})`

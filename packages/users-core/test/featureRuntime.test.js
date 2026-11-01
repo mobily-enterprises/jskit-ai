@@ -3,7 +3,6 @@ import test from "node:test";
 import { createActionProvider } from "@jskit-ai/kernel/server/actions";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { createBootstrapRuntime } from "@jskit-ai/kernel/server/runtime";
-import { createAuthExtensions } from "@jskit-ai/auth-core/server/authExtensions";
 import { UsersExtensionsProvider } from "../src/server/UsersExtensionsProvider.js";
 import { UsersFeature } from "../src/server/UsersFeature.js";
 import { UsersIdentityProvider } from "../src/server/UsersIdentityProvider.js";
@@ -25,25 +24,26 @@ function createJsonRestApiFixture() {
 test("UsersFeature assembles account behavior through explicit capabilities", async () => {
   const routes = [];
   const bootstrap = createBootstrapRuntime();
-  const authExtensions = createAuthExtensions();
   const jsonRestApi = createJsonRestApiFixture();
   let users = null;
   let actionCatalogue = null;
+  let profileProjector = null;
   const probe = defineProvider({
     id: "test.users.probe",
     requires: {
       actions: "runtime.actions",
+      projector: "auth.profile.projector",
       usersCapability: "users.core"
     },
-    setup({ actions, usersCapability }) {
+    setup({ actions, projector, usersCapability }) {
       actionCatalogue = actions;
+      profileProjector = projector;
       users = usersCapability;
       return {};
     }
   });
   const runtime = createCapabilityRuntime({
     inputs: {
-      "auth.extensions": authExtensions,
       "auth.service": {},
       "runtime.bootstrap": bootstrap,
       "runtime.http": {
@@ -73,5 +73,6 @@ test("UsersFeature assembles account behavior through explicit capabilities", as
   assert.equal(routes.includes("POST /api/settings/security/change-password"), true);
   assert.equal(actionCatalogue.listDefinitions().length, 11);
   assert.deepEqual(bootstrap.diagnostics().contributorIds, ["users.bootstrap"]);
-  assert.equal(authExtensions.resolveProfileProjector().projectorId, "users.profile");
+  assert.equal(typeof profileProjector.syncIdentityProfile, "function");
+  assert.equal(typeof profileProjector.findByIdentity, "function");
 });

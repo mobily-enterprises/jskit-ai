@@ -104,25 +104,20 @@ function normalizeInvitationInput(value = null) {
  * @param {object} dependencies
  * @param {import("../types.js").AuthLocalBackend} dependencies.backend
  * @param {ReturnType<typeof import("@jskit-ai/auth-core/server/devAuth").resolveDevAuthPolicy>} dependencies.devAuth
- * @param {import("@jskit-ai/auth-core/server/types").AuthInvitationContextResolver | null} dependencies.invitationContextResolver
+ * @param {import("@jskit-ai/auth-core/server/types").AuthInvitationContextResolver} dependencies.invitationContextResolver
  * @param {ReturnType<typeof import("./passwords.js").normalizePasswordStrategy>} dependencies.passwords
- * @param {AuthProfileProjector | null} dependencies.profileProjector
+ * @param {AuthProfileProjector} dependencies.profileProjector
+ * @param {boolean} dependencies.appProfileProjection True when the application keeps profiles.
  * @param {ReturnType<typeof import("./sessions.js").createLocalSessions>} dependencies.sessions
  */
-function createLocalAccounts({ backend, devAuth, invitationContextResolver, passwords, profileProjector, sessions }) {
+function createLocalAccounts({ appProfileProjection, backend, devAuth, invitationContextResolver, passwords, profileProjector, sessions }) {
   async function resolveProfileOptionsForRegistration(input = {}, { email } = {}) {
     const invitation = normalizeInvitationInput(input.invitation);
     if (!invitation) {
       return {};
     }
 
-    let resolvedInvitation = invitation;
-    if (invitationContextResolver) {
-      resolvedInvitation = await invitationContextResolver.resolveInvitationContext({
-        ...invitation,
-        email
-      });
-    }
+    const resolvedInvitation = await invitationContextResolver.resolveInvitationContext({ ...invitation, email });
 
     return {
       source: resolvedInvitation?.source || "workspace-invite",
@@ -200,7 +195,7 @@ function createLocalAccounts({ backend, devAuth, invitationContextResolver, pass
         throw devLoginAsUserNotFound({ email, userId });
       }
       const appProfile = await findExistingAppProfile(user, profileProjector);
-      if (profileProjector && !appProfile) {
+      if (appProfileProjection && !appProfile) {
         throw devLoginAsUserNotFound({ email, userId });
       }
       const session = await sessions.createSessionForUser(tx, user, {

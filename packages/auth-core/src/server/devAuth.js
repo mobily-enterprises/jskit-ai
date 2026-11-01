@@ -73,6 +73,14 @@ function resolveDevAuthPolicyFromEnv(env = {}) {
   });
 }
 
+/**
+ * True when dev sign-in as another user is on: enabled, outside production.
+ * @param {ReturnType<typeof resolveDevAuthPolicy>} policy
+ */
+function isDevAuthBootstrapEnabled(policy) {
+  return policy.enabled && !policy.isProduction;
+}
+
 function assertDevAuthPolicy(policy = {}) {
   if (!policy.enabled) {
     return;
@@ -123,6 +131,7 @@ export {
   DEV_AUTH_SECRET_HEADER,
   ensureDevAuthExchangeAvailable,
   ensureDevAuthRuntimeAvailable,
+  isDevAuthBootstrapEnabled,
   isLocalDevAuthRequest,
   resolveDevAuthPolicy,
   resolveDevAuthPolicyFromEnv

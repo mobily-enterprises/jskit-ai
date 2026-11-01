@@ -9,7 +9,6 @@ const RECOVERY_TOKEN_COOKIE_NAME = "jskit_local_recovery_token";
 const ACCESS_TTL_SECONDS = 15 * 60;
 const REFRESH_TTL_SECONDS = 60 * 60 * 24 * 30;
 
-/** @typedef {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} AuthProfileProjector */
 
 function nowSeconds() {
   return Math.floor(Date.now() / 1000);
@@ -83,9 +82,10 @@ function buildSessionPayload({ user, session, refreshToken, secret }) {
  * @param {ReturnType<typeof import("../providers/AuthLocalProvider.js").resolveConfig>} dependencies.config
  * @param {ReturnType<typeof import("@jskit-ai/auth-core/server/devAuth").resolveDevAuthPolicy>} dependencies.devAuth
  * @param {boolean} dependencies.isProduction
- * @param {AuthProfileProjector | null} dependencies.profileProjector
+ * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} dependencies.profileProjector
+ * @param {boolean} dependencies.appProfileProjection True when the application keeps profiles.
  */
-function createLocalSessions({ backend, config, devAuth, isProduction, profileProjector }) {
+function createLocalSessions({ appProfileProjection, backend, config, devAuth, isProduction, profileProjector }) {
   // Production cookies are Secure, so they are also host-only __Host- cookies.
   const ACCESS_TOKEN_COOKIE = hostOnlyCookieName(ACCESS_TOKEN_COOKIE_NAME, isProduction);
   const REFRESH_TOKEN_COOKIE = hostOnlyCookieName(REFRESH_TOKEN_COOKIE_NAME, isProduction);
@@ -147,6 +147,7 @@ function createLocalSessions({ backend, config, devAuth, isProduction, profilePr
         });
         if (resolved && isAuthenticatingSession(resolved.session)) {
           const authPayload = await buildSessionAuthPayload({
+            appProfileProjection,
             devAuth,
             profileProjector,
             request,
@@ -183,6 +184,7 @@ function createLocalSessions({ backend, config, devAuth, isProduction, profilePr
     }
 
     const authPayload = await buildSessionAuthPayload({
+      appProfileProjection,
       devAuth,
       profileProjector,
       request,

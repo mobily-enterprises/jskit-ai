@@ -20,21 +20,22 @@
  */
 
 /**
- * The profile projector an application registers on `auth.extensions`; an
- * auth provider reads it once with resolveProfileProjector(), which answers
- * null when none is registered.
+ * The `auth.profile.projector` capability: the application's profiles of the
+ * identities that sign in. An auth provider without one uses noAppProfiles
+ * (`@jskit-ai/auth-core/server/noAppProfiles`), which keeps none.
  * @typedef {object} AuthProfileProjector
- * @property {string} projectorId
- * @property {(profile: object, options?: object) => Promise<object>} syncIdentityProfile
- *   Creates or updates the application's profile of a signed-in identity and answers it.
- * @property {(identity: object, options?: object) => Promise<object | null>} [findByIdentity]
- *   Answers the existing profile without synchronizing it; dev auth impersonation needs it.
+ * @property {(profile: object, options?: object) => Promise<object | null>} syncIdentityProfile
+ *   Creates or updates the application's profile of a signed-in identity and answers it,
+ *   or null when the application keeps no profiles.
+ * @property {(identity: object, options?: object) => Promise<object | null>} findByIdentity
+ *   Answers the existing profile without synchronizing it, or null when there is none.
  */
 
 /**
  * The invitation context resolver an application registers on
  * `auth.extensions`; an auth provider reads it once with
- * resolveInvitationContextResolver(), which answers null when none is registered.
+ * resolveInvitationContextResolver(), which answers invitationAsGiven when none
+ * is registered.
  * @typedef {object} AuthInvitationContextResolver
  * @property {string} resolverId
  * @property {(invitation: { token: string, source: string, email: string }) => Promise<object>} resolveInvitationContext

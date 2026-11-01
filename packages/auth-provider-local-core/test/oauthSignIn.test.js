@@ -67,7 +67,7 @@ function createUsersProfileSync() {
   return { profileProjector, profiles, provisioned };
 }
 
-async function googleSetup(t, { account, profileProjector = null } = {}) {
+async function googleSetup(t, { account, profileProjector } = {}) {
   const issuer = await startOidcProvider({ account });
   t.after(() => issuer.close());
   const backend = await fileBackend();

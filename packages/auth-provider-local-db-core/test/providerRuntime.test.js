@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
+import { invitationAsGiven } from "@jskit-ai/auth-core/server/authExtensions";
+import { noAppProfiles } from "@jskit-ai/auth-core/server/noAppProfiles";
 import { AuthExtensionsProvider } from "@jskit-ai/auth-core/server/providers/AuthExtensionsProvider";
 import { createLocalAuthService, hashPassword } from "@jskit-ai/auth-provider-local-core/server/lib/index";
 import { AuthLocalProvider } from "@jskit-ai/auth-provider-local-core/server/providers/AuthLocalProvider";
@@ -153,6 +155,8 @@ function createService(backend, options = {}) {
   } = options;
   return createLocalAuthService({
     backend,
+    invitationContextResolver: invitationAsGiven,
+    profileProjector: noAppProfiles,
     config: {
       nodeEnv: "test",
       sessionSecret: "test-secret",
@@ -446,6 +450,9 @@ test("local auth DB backend still supports lazy profile projection", async () =>
   let projectionCalls = 0;
   const authService = createService(backend, {
     profileProjector: {
+      async findByIdentity() {
+        return null;
+      },
       async syncIdentityProfile(profile) {
         projectionCalls += 1;
         return {

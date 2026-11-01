@@ -20,6 +20,9 @@ const AuthOidcProvider = defineProvider({
     fastify: "runtime.fastify",
     logger: "runtime.logger"
   },
+  optional: {
+    profileProjector: "auth.profile.projector"
+  },
   provides: {
     authService: "auth.service"
   },
@@ -34,8 +37,9 @@ const AuthOidcProvider = defineProvider({
    * @param {import("@jskit-ai/auth-core/server/types").AuthExtensions} dependencies.extensions
    * @param {import("@jskit-ai/kernel/server/types").RuntimeFastify} dependencies.fastify
    * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
+   * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector | null} dependencies.profileProjector The `auth.profile.projector`, when one is installed.
    */
-  async boot({ appRoot, database, env, extensions, fastify, logger }, { outputs }) {
+  async boot({ appRoot, database, env, extensions, fastify, logger, profileProjector }, { outputs }) {
     const config = resolveOidcConfig({ env, appRoot });
     const store = createOidcStore({ knex: database.knex });
     const issuer = createIssuerClient({ config, store, logger });
@@ -43,7 +47,7 @@ const AuthOidcProvider = defineProvider({
       config,
       store,
       issuer,
-      profileProjector: extensions.resolveProfileProjector(),
+      profileProjector,
       logger
     });
     attachDeferredAuthService(outputs.authService, extensions.decorateService(baseService));

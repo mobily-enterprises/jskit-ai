@@ -49,60 +49,40 @@ function buildAuthResult({ user, session, appProfile }) {
   });
 }
 
-function requireProfileResult(profile, methodName) {
-  if (!profile || typeof profile !== "object") {
-    throw new Error(`auth.profile.projector.${methodName}() must return a profile object.`);
-  }
-  return profile;
-}
-
 /**
  * @param {object} input
  * @param {object} input.user
  * @param {object | null} input.session
- * @param {AuthProfileProjector | null} input.profileProjector
+ * @param {AuthProfileProjector} input.profileProjector
  * @param {object} [input.profileOptions]
  */
 async function buildAuthPayload({ user, session, profileProjector, profileOptions = {} }) {
-  const appProfile = profileProjector
-    ? requireProfileResult(
-        await profileProjector.syncIdentityProfile(buildProfile(user), profileOptions),
-        "syncIdentityProfile"
-      )
-    : null;
+  const appProfile = await profileProjector.syncIdentityProfile(buildProfile(user), profileOptions);
   return buildAuthResult({ user, session, appProfile });
 }
 
 /**
  * @param {object} user
- * @param {AuthProfileProjector | null} profileProjector
+ * @param {AuthProfileProjector} profileProjector
  */
-async function findExistingAppProfile(user, profileProjector) {
-  if (!profileProjector) {
-    return null;
-  }
-  // readable-check: allow method-probe - optional operation: findByIdentity is an optional profile projector operation
-  if (typeof profileProjector.findByIdentity !== "function") {
-    throw new Error(
-      "auth.profile.projector.findByIdentity() is required for dev auth impersonation and profile lookups without sync."
-    );
-  }
-  const profile = await profileProjector.findByIdentity(buildProfile(user));
-  return profile ? requireProfileResult(profile, "findByIdentity") : null;
+function findExistingAppProfile(user, profileProjector) {
+  return profileProjector.findByIdentity(buildProfile(user));
 }
 
-// A dev session, or a caller that asks only who is signed in (syncProfile:
-// false), reads the existing app profile instead of synchronizing it.
 /**
+ * A dev session, or a caller that asks only who is signed in (syncProfile:
+ * false), reads the existing app profile instead of synchronizing it. When the
+ * application keeps profiles, a user without one is not signed in.
  * @param {object} input
+ * @param {boolean} input.appProfileProjection True when the application keeps profiles.
  * @param {object} input.devAuth
- * @param {AuthProfileProjector | null} input.profileProjector
+ * @param {AuthProfileProjector} input.profileProjector
  * @param {object} input.request
  * @param {object} input.session
  * @param {object} input.user
  * @param {boolean} [input.syncProfile]
  */
-async function buildSessionAuthPayload({ devAuth, profileProjector, request, session, user, syncProfile = true }) {
+async function buildSessionAuthPayload({ appProfileProjection, devAuth, profileProjector, request, session, user, syncProfile = true }) {
   const devSession = isDevAuthSession(session);
   if (!devSession && syncProfile) {
     return buildAuthPayload({ user, session: null, profileProjector });
@@ -115,7 +95,7 @@ async function buildSessionAuthPayload({ devAuth, profileProjector, request, ses
     }
   }
   const appProfile = await findExistingAppProfile(user, profileProjector);
-  return profileProjector && !appProfile
+  return appProfileProjection && !appProfile
     ? null
     : buildAuthResult({ user, session: null, appProfile });
 }

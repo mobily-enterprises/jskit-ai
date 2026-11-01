@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import http from "node:http";
 import { once } from "node:events";
 import { followAuthorization, startMockIssuer } from "../../auth-provider-oidc-core/test-support/mockIssuer.js";
+import { invitationAsGiven } from "@jskit-ai/auth-core/server/authExtensions";
+import { noAppProfiles } from "@jskit-ai/auth-core/server/noAppProfiles";
 import { createLocalAuthService } from "../src/server/lib/service.js";
 
 const APP_URL = "http://localhost:5173";
@@ -117,9 +119,10 @@ function oidcProviderEntry(issuer, { id = "google", label = "Google" } = {}) {
   return { id, label, ...CLIENT, issuer: issuer.issuer };
 }
 
-function createService({ backend, oauthProviders, profileProjector = null }) {
+function createService({ backend, oauthProviders, profileProjector = noAppProfiles }) {
   return createLocalAuthService({
     backend,
+    invitationContextResolver: invitationAsGiven,
     profileProjector,
     config: {
       sessionSecret: "oauth-test-session-secret",

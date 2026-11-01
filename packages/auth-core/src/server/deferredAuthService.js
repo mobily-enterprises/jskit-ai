@@ -1,3 +1,4 @@
+// readable-check: allow module-registry - deferred until boot: auth.service is built after every setup has registered its auth extensions, and those setups already receive it
 const attachByHandle = new WeakMap();
 
 function createDeferredAuthService() {

@@ -11,20 +11,19 @@ import { createUsersIdentity } from "./usersIdentity.js";
 const UsersIdentityProvider = defineProvider({
   id: "users.identity",
   requires: {
-    authExtensions: "auth.extensions",
     extensions: "users.extensions",
     jsonRestApi: "runtime.json-rest-api"
   },
   provides: {
-    identity: "users.identity"
+    identity: "users.identity",
+    profileProjector: "auth.profile.projector"
   },
   /**
    * @param {object} capabilities
-   * @param {import("@jskit-ai/auth-core/server/types").AuthExtensions} capabilities.authExtensions
    * @param {import("./types.js").UsersExtensions} capabilities.extensions
    * @param {import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi} capabilities.jsonRestApi
    */
-  async setup({ authExtensions, extensions, jsonRestApi }) {
+  async setup({ extensions, jsonRestApi }) {
     const scopeOptions = {
       writeSerializers: { "datetime-utc": toDatabaseDateTimeUtc }
     };
@@ -39,11 +38,7 @@ const UsersIdentityProvider = defineProvider({
       createJsonRestResourceScopeOptions(userSettingsResource, scopeOptions)
     );
     const identity = createUsersIdentity({ jsonRestApi, extensions });
-    authExtensions.registerProfileProjector({
-      projectorId: "users.profile",
-      ...identity.profileProjector
-    });
-    return { identity };
+    return { identity, profileProjector: identity.profileProjector };
   }
 });
 
