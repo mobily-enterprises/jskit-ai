@@ -3,7 +3,7 @@ import { AppError, createValidationError } from "@jskit-ai/kernel/server/runtime
 import { normalizeObject, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveWorkspaceSlug } from "@jskit-ai/assistant-core/server";
 import { conversationAttachmentIds } from "@jskit-ai/assistant-core/server/conversation";
-import { ASSISTANT_STREAM_EVENT_TYPES, MAX_HISTORY_MESSAGES, MAX_INPUT_CHARS, isAssistantProgressOnlyText } from "@jskit-ai/assistant-core/shared";
+import { ASSISTANT_STREAM_EVENT_TYPES, MAX_INPUT_CHARS } from "@jskit-ai/assistant-core/shared";
 import { errorMessageFields, exposedAppErrorDetails, errorStatus } from "../support/assistantErrors.js";
 import { requireAssistantSurface } from "../support/assistantSurface.js";
 import { ASSISTANT_STREAM_WRITER_METHODS } from "../support/assistantStreamWriter.js";
@@ -12,31 +12,6 @@ const CLOCK_INSTRUCTION = "For current or relative date and time questions, firs
 
 function normalizeConversationId(value) {
   return normalizeRecordId(value, { fallback: null });
-}
-
-function normalizeHistory(history = []) {
-  const source = Array.isArray(history) ? history : [];
-  return source
-    .slice(0, MAX_HISTORY_MESSAGES)
-    .map((entry) => {
-      const item = normalizeObject(entry);
-      const role = normalizeText(item.role).toLowerCase();
-      if (role !== "user" && role !== "assistant") {
-        return null;
-      }
-
-      const content = normalizeText(item.content).slice(0, MAX_INPUT_CHARS);
-      if (!content || (role === "assistant" && isAssistantProgressOnlyText(content))) {
-        return null;
-      }
-
-      return {
-        role,
-        content,
-        attachmentIds: role === "user" ? item.attachmentIds : []
-      };
-    })
-    .filter(Boolean);
 }
 
 function normalizeStreamInput(payload = {}) {
@@ -58,8 +33,7 @@ function normalizeStreamInput(payload = {}) {
     messageId,
     conversationId: normalizeConversationId(source.conversationId),
     input,
-    attachmentIds: source.attachmentIds,
-    history: normalizeHistory(source.history)
+    attachmentIds: source.attachmentIds
   };
 }
 
@@ -335,7 +309,6 @@ function createChatService({
         resolvedAttachments.push({ attachmentIds: [...attachmentIds], files });
       }
       await prepareAttachments(source.attachmentIds);
-      for (const message of source.history) await prepareAttachments(message.attachmentIds);
       const toolSet = serviceToolCatalog.resolveToolSet(assistantContext);
       const customSystemPrompt = await assistantConfigService.resolveSystemPrompt(
         assistantSurface, workspace, { surface: assistantSurface.targetSurfaceId },
@@ -346,7 +319,7 @@ function createChatService({
         workspaceSlug: resolveWorkspaceSlug(assistantContext, payload), customSystemPrompt
       }), ...(request.integrationId ? { integrationId: request.integrationId } : {}) };
       const runtimeContext = { ...assistantContext, assistantRequest: {
-        conversation, workspace, history: source.history, resolvedAttachments
+        conversation, workspace, resolvedAttachments
       } };
       const handle = await openConversationTurn(conversationId, async () => {
         try { return await conversationRuntime.open({ id: conversationId, context: runtimeContext, configuration }); }

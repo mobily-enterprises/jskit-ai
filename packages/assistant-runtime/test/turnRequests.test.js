@@ -27,7 +27,7 @@ async function database(t) {
 }
 
 const scope = { actorUserId: "1", surfaceId: "assistant", workspaceId: null };
-const request = { messageId: "message-1", input: "Do this once.", history: [] };
+const request = { messageId: "message-1", input: "Do this once." };
 
 test("migration preserves existing claims and database uniqueness arbitrates independent connections", async t => {
   const { db, connect } = await database(t);

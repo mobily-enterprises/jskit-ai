@@ -1,7 +1,5 @@
 import { normalizeObject, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
-  MAX_HISTORY_MESSAGES,
-  MAX_INPUT_CHARS,
   isAssistantProgressOnlyText,
   parseJsonObject
 } from "@jskit-ai/assistant-core/shared";
@@ -47,36 +45,6 @@ function buildId(prefix = "id") {
 
 function normalizeToolName(value) {
   return normalizeText(value) || "tool";
-}
-
-function buildHistory(messages) {
-  const normalizedHistory = (Array.isArray(messages) ? messages : [])
-    .filter((message) => {
-      if (!message || typeof message !== "object") {
-        return false;
-      }
-      if (message.kind !== "chat") {
-        return false;
-      }
-      if (message.role !== "user" && message.role !== "assistant") {
-        return false;
-      }
-      if (normalizeText(message.status).toLowerCase() !== "done") {
-        return false;
-      }
-      const text = normalizeText(message.text);
-      if (!text) {
-        return false;
-      }
-      return message.role !== "assistant" || !isAssistantProgressOnlyText(text);
-    })
-    .map((message) => ({
-      role: message.role,
-      content: String(message.text || "").slice(0, MAX_INPUT_CHARS),
-      ...(message.role === "user" && message.attachments?.length ? { attachmentIds: message.attachments.map(file => file.attachmentId) } : {})
-    }));
-
-  return normalizedHistory.slice(-MAX_HISTORY_MESSAGES);
 }
 
 function interruptPendingToolEvents(toolEvents) {
@@ -179,7 +147,6 @@ function mapTranscriptEntriesToAssistantState(entries) {
 }
 
 export {
-  buildHistory,
   buildId,
   interruptPendingToolEvents,
   mapTranscriptEntriesToAssistantState,

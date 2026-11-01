@@ -141,7 +141,7 @@ test("historical SQL projection preserves exact rows and blocks ambiguous histor
   assert.deepEqual((await f.storage.preflight(interrupted.id)).issues, [{ code: "unconfirmed_historical_tool", rowIds: [call.id] }]);
 });
 
-test("the SQL facade uses common inference and durable tool rows while supplied history stays request context", async t => {
+test("the SQL facade uses common inference and durable tool rows, and the model's history is the conversation's saved rows", async t => {
   const f = await fixture(t);
   const conversation = await f.conversation();
   await f.messagesRepository.create({ conversationId: conversation.id, role: "user", clientMessageSid: "previous", contentText: "Canonical history outside the selected context" });
@@ -181,7 +181,7 @@ test("the SQL facade uses common inference and durable tool rows while supplied 
       assistantSurfaces: { assistant: { settingsSurfaceId: "assistant", configScope: "global" } } } };
   const service = createChatService(dependencies);
   const input = { targetSurfaceId: "assistant", conversationId: conversation.id, messageId: "order/42:review", input: "Read the record",
-    integrationId: "allowed-choice", history: [{ role: "user", content: "Selected request context only" }] };
+    integrationId: "allowed-choice" };
   const options = { context: { actor: { id: "1" } }, streamWriter: Object.fromEntries(
     ["sendMeta", "sendAssistantDelta", "sendAssistantMessage", "sendToolCall", "sendToolResult", "sendError", "sendDone"]
       .map(name => [name, event => events.push({ name, event })])) };
@@ -189,26 +189,24 @@ test("the SQL facade uses common inference and durable tool rows while supplied 
   assert.equal(executions, 1);
   assert.equal(requests.length, 2);
   assert.equal(resolved.every(value => value.surface === "assistant" && value.integrationId === "allowed-choice" && value.actor === "1"), true);
-  assert.equal(requests[0].some(message => message.content === "Selected request context only"), true);
-  assert.equal(requests[0].some(message => message.content === "Canonical history outside the selected context"), false);
+  assert.deepEqual(requests[0].slice(1, 3), [{ role: "user", content: "Canonical history outside the selected context" },
+    { role: "assistant", content: "Previous saved answer" }], "The model reads the conversation's saved history, not the browser's");
   assert.deepEqual(JSON.parse(requests[1].find(message => message.role === "tool").content), { found: 1 },
     "The model receives the original action result body, while its durable receipt keeps the full envelope");
   const saved = await rows(f.db);
   assert.equal(saved.messages.filter(row => row.kind === "tool_call").length, 1);
   assert.equal(saved.messages.filter(row => row.kind === "tool_result").length, 1);
   assert.equal(saved.messages.filter(row => row.client_message_sid === input.messageId).length, 1);
-  assert.equal(saved.messages.some(row => row.content_text === "Selected request context only"), false);
-  assert.doesNotMatch(saved.conversations[0].metadata_json, /Selected request context only/);
   assert.doesNotMatch(saved.messages.find(row => row.client_message_sid === input.messageId).metadata_json, /applicationTools/);
   const claimed = await f.db("assistant_turn_requests").first();
   assert.equal(claimed.status, "completed");
-  assert.equal(JSON.parse(claimed.request_json).history[0].content, "Selected request context only");
+  assert.equal(Object.hasOwn(JSON.parse(claimed.request_json), "history"), false);
   assert.equal(events.at(-1).name, "sendDone");
   assert.equal((await service.streamChat(input, options)).status, "completed");
   assert.equal(requests.length, 2, "The original SQL claim replays without inference or duplicate effects");
-  for (const change of [{ actor: { id: "2" } }, { surface: "other" }, { assistantRequest: { conversation, workspace: { id: "77" }, history: [] } }]) {
+  for (const change of [{ actor: { id: "2" } }, { surface: "other" }, { assistantRequest: { conversation, workspace: { id: "77" } } }]) {
     await assert.rejects(runtime.open({ id: conversation.id,
-      context: { actor: { id: "1" }, surface: "assistant", assistantRequest: { conversation, workspace: null, history: [] }, ...change } }),
+      context: { actor: { id: "1" }, surface: "assistant", assistantRequest: { conversation, workspace: null }, ...change } }),
     { code: "conversation_forbidden" });
   }
 });
@@ -237,7 +235,7 @@ test("the SQL facade replays historical inspection failures with their exact pub
     appConfig: { surfaceDefinitions: { assistant: { enabled: true, requiresWorkspace: false } },
       assistantSurfaces: { assistant: { settingsSurfaceId: "assistant", configScope: "global" } } } };
   const input = { targetSurfaceId: "assistant", conversationId: conversation.id,
-    messageId: "inspect-legacy-history", input: "Continue", history: [] };
+    messageId: "inspect-legacy-history", input: "Continue" };
   const events = [];
   const options = { context: { actor: { id: "1" } }, streamWriter: Object.fromEntries(
     ["sendMeta", "sendAssistantDelta", "sendAssistantMessage", "sendToolCall", "sendToolResult", "sendError", "sendDone"]
@@ -268,7 +266,7 @@ test("the SQL facade replays historical inspection failures with their exact pub
   const oldFailure = { message: "Previously recorded failure", status: 409 };
   const oldInput = { ...input, messageId: "old-failure-receipt" };
   const oldClaim = await turnRequests.claim({ actorUserId: "1", surfaceId: "assistant", workspaceId: null },
-    { conversationId: conversation.id, messageId: oldInput.messageId, input: oldInput.input, history: [], integrationId: "" });
+    { conversationId: conversation.id, messageId: oldInput.messageId, input: oldInput.input, integrationId: "" });
   await turnRequests.update(oldClaim, { failure: oldFailure }, "failed");
   await assert.rejects(restarted.streamChat(oldInput, options), error => {
     assert.equal(error.status, oldFailure.status);
@@ -477,7 +475,6 @@ test("a long conversation's rows are read once, then each write appends its rows
   const write = await measure(() => appendTurn("after-300"));
   assert.equal(write.result, "000301");
   assert.deepEqual(write.queries.filter(readsWholeConversation), []);
-  if (process.env.SHOW_QUERIES) console.log(JSON.stringify({ write: write.queries }, null, 1));
   assert.ok(write.queries.length <= 12, `A write issues a constant number of queries, not one per stored row (${write.queries.length})`);
   const read = await measure(() => cold.storage.read(conversation.id, transaction => transaction.readTurn("000301")));
   assert.equal(read.result.user.text, "One more");

@@ -22,7 +22,6 @@ import { usePagedCollection } from "@jskit-ai/http-web/client/composables/usePag
 import { useSurfaceRouteContext } from "@jskit-ai/shell-web/client/navigation/useSurfaceRouteContext";
 import { resolveAssistantRuntimeRoute, resolveAssistantSurfaceConfig } from "../../shared/assistantSurfaces.js";
 import {
-  buildHistory,
   buildId,
   interruptPendingToolEvents,
   mapTranscriptEntriesToAssistantState,
@@ -429,8 +428,7 @@ function useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } 
         input: message,
         ...(parsedConversationId ? { conversationId: parsedConversationId } : {}),
         ...(attachments.length ? { attachmentIds: attachments.map(file => file.attachmentId) } : {}),
-        ...(toValue(integrationId) ? { integrationId: toValue(integrationId) } : {}),
-        history: buildHistory(messages.value)
+        ...(toValue(integrationId) ? { integrationId: toValue(integrationId) } : {})
       }
     };
     if (!payload.message) return false;

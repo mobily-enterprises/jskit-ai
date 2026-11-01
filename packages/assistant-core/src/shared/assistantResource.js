@@ -7,7 +7,6 @@ import {
 import { ASSISTANT_ATTACHMENT_ID_MAX_LENGTH, ASSISTANT_ATTACHMENT_MAX_ITEMS } from "./conversation/attachments.js";
 
 const MAX_INPUT_CHARS = 8000;
-const MAX_HISTORY_MESSAGES = 20;
 const MAX_PAGE_SIZE = 200;
 const MAX_MESSAGE_PAGE_SIZE = 500;
 
@@ -15,21 +14,6 @@ const attachmentIdsField = {
   type: "array", required: false, maxItems: ASSISTANT_ATTACHMENT_MAX_ITEMS,
   items: { type: "string", minLength: 1, maxLength: ASSISTANT_ATTACHMENT_ID_MAX_LENGTH }
 };
-const historyMessageSchema = createSchema({
-  attachmentIds: attachmentIdsField,
-  role: {
-    type: "string",
-    required: true,
-    enum: ["user", "assistant"]
-  },
-  content: {
-    type: "string",
-    required: true,
-    minLength: 1,
-    maxLength: MAX_INPUT_CHARS
-  }
-});
-
 const clientContextSchema = createSchema({
   locale: {
     type: "string",
@@ -63,12 +47,6 @@ const chatStreamBodySchema = createSchema({
     required: true,
     minLength: 1,
     maxLength: MAX_INPUT_CHARS
-  },
-  history: {
-    type: "array",
-    required: false,
-    maxItems: MAX_HISTORY_MESSAGES,
-    items: historyMessageSchema
   },
   clientContext: {
     type: "object",
@@ -312,7 +290,6 @@ const assistantResource = defineResource({
 
 export {
   MAX_INPUT_CHARS,
-  MAX_HISTORY_MESSAGES,
   MAX_MESSAGE_PAGE_SIZE,
   attachmentIdsField,
   assistantResource,
