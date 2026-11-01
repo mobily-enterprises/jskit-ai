@@ -1,8 +1,11 @@
 import { createActionRegistry } from "./registry.js";
+import { registerActionContributor } from "./actionDefinitions.js";
+import { noActionPolicy } from "./actionPolicy.js";
 import { isRecord } from "../../shared/support/normalize.js";
 import { createEventRuntime } from "../runtime/eventRuntime.js";
 import { silentLogger } from "../runtime/logger.js";
 
+/** @typedef {import("../types.js").ActionPolicy} ActionPolicy */
 /** @typedef {import("../types.js").RuntimeEvents} RuntimeEvents */
 /** @typedef {import("../types.js").RuntimeLogger} RuntimeLogger */
 
@@ -20,15 +23,17 @@ function normalizeRegistration(value) {
  * @param {object} [dependencies]
  * @param {RuntimeEvents} [dependencies.events] Publishes the events an action declares; without one they reach an event runtime of the catalogue's own, which nothing listens to.
  * @param {RuntimeLogger} [dependencies.logger] Logs each execution at debug level; without one nothing is logged.
+ * @param {ActionPolicy} [dependencies.policy] The application's rule for every action; without one, each action runs as declared.
  */
-function createActionCatalogue({ events = createEventRuntime(), logger = silentLogger } = {}) {
+function createActionCatalogue({ events = createEventRuntime(), logger = silentLogger, policy = noActionPolicy } = {}) {
   const contributors = [];
   const contextContributors = [];
   const contextContributorIds = new Set();
   let registry = createActionRegistry({
     contributors,
     events,
-    logger
+    logger,
+    policy
   });
   let sealed = false;
 
@@ -36,14 +41,15 @@ function createActionCatalogue({ events = createEventRuntime(), logger = silentL
     if (sealed) {
       throw new Error("Action catalogue registration is closed after discovery or execution begins.");
     }
-    const nextContributors = [...contributors, normalizeRegistration(contributor)];
+    const registered = registerActionContributor(normalizeRegistration(contributor), policy);
     const nextRegistry = createActionRegistry({
-      contributors: nextContributors,
+      contributors: [...contributors, registered],
       events,
-      logger
+      logger,
+      policy
     });
 
-    contributors.push(contributor);
+    contributors.push(registered);
     registry = nextRegistry;
     return api;
   }

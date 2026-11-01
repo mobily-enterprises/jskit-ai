@@ -211,6 +211,10 @@ const AppInviteAcceptanceFeature = defineFeature({
   `execute: ({ workspaceSlug, ...payload }, context) => service.update(workspaceSlug, payload, { context })`.
 - CRUD custom actions keep the declaration's own
   `execute({ input, context, service })` contract, written as a one-line arrow.
+- A rule every action of an application obeys (who may run it, which record
+  it acts within, the scope it runs in) is data each definition declares in
+  `extensions`, applied by the application's one [action policy](#the-action-policy).
+  It is never a helper that wraps each definition.
 
 ```js
 // before: auth-core
@@ -219,6 +223,49 @@ execute: async (input, context) => logoutOutcome(await authService.logout(requir
 // after: logout() answers { ok, clearSession } itself
 execute: (input, context) => authService.logout(resolveRequest(context))
 ```
+
+#### The action policy
+
+An application supplies its rule once, as the optional `runtime.actions.policy`
+capability. The kernel's action provider resolves it with a named default:
+without a policy, each action is registered as declared and runs its own
+`execute`. The policy has two members, because a rule meets an action twice:
+
+- `input(definition)` runs once per action, when it is registered, with the
+  action as declared. It returns the input schema the action is validated and
+  listed with, so assistants and automation see the fields the rule adds or
+  removes before anything runs.
+- `execute({ definition, input, context, run })` runs for every execution,
+  after the kernel's channel, surface, permission, input and idempotency
+  checks. It receives the action as declared and the validated input, and
+  calls `run(input, context)` with what the action should receive. Because it
+  calls `run` itself, it can refuse, adjust the input or the context, or run
+  the action inside a scope, such as an `AsyncLocalStorage` context.
+
+That is the smallest shape that covers such a rule. A context contributor runs
+before validation and can only add context. A wrapper per definition can do
+everything, but each definition's `execute` is then the wrapper's, so neither
+a reader nor the code map sees the call it makes. With the policy, every
+definition stays a plain frozen literal, read as written.
+
+```js
+// before: every definition wrapped, so its execute is the helper's
+withRecordScope({ id: "notes.update", …, execute: (input) => notes.update(input) }, { ownerOnly: true })
+
+// after: the definition declares its rule as data, and the policy applies it
+Object.freeze({ id: "notes.update", …, extensions: { records: OWNER_ONLY }, execute: (input) => notes.update(input) })
+
+const RecordScopePolicyProvider = defineProvider({
+  id: "app.action-policy",
+  provides: { policy: "runtime.actions.policy" },
+  setup: () => ({ policy: recordScopePolicy })
+});
+```
+
+The policy comes from a provider, not a feature: a feature requires
+`runtime.actions`, which would close a cycle with the action provider. The
+policy passes every action whose `extensions` it does not recognise straight
+to `run`, so the rule never touches another package's actions.
 
 ### 6. Methods take the validated input as it is
 
@@ -364,7 +411,10 @@ execute: (input, context) => service.update(withoutRouteKeys(input), { context }
 ```
 
 Actions made by one helper share one `execute`, so neither a reader nor the
-map can tell which service each reaches. A body moves service logic into the
+map can tell which service each reaches. A helper that wraps every definition
+with the same application rule is the same mistake at a larger scale: the
+definition declares the rule's options in `extensions`, and the application's
+[action policy](#the-action-policy) applies them. A body moves service logic into the
 action, and a stripping helper reshapes input the schema already validated.
 Write each definition literally and frozen, with a constant id and
 `execute: (input, context) => service.method(input, { context })`. The service

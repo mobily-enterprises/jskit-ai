@@ -577,7 +577,8 @@ Exports
 
 ### `server/actions/actionCatalogue.js`
 Exports
-- `createActionCatalogue({ events = createEventRuntime(), logger = silentLogger } = {})`
+- `createActionCatalogue({ events = createEventRuntime(), logger = silentLogger, policy = noActionPolicy } = {})`
+- `type ActionPolicy`
 - `type RuntimeEvents`
 - `type RuntimeLogger`
 Local functions
@@ -594,8 +595,11 @@ Exports
 - `createActionRuntimeError(status, message, options = {})`
 - `normalizeActionDefinition(definition, { contributorId = "", contributorDomain = "" } = {})`
 - `normalizeActionContributor(contributor)`
+- `registerActionContributor(contributor, policy)`
 - `createActionVersionKey(actionId, version)`
 - `__testables`
+- `type ActionDefinition`
+- `type ActionPolicy`
 Local functions
 - `normalizeActionDomain(value, { context = "domain", errorCode = "ACTION_DEFINITION_INVALID" } = {})`
 - `normalizeStringArray(value, fieldName)`
@@ -603,6 +607,7 @@ Local functions
 - `normalizeActionPermission(permission, actionId)`
 - `normalizeActionExtensions(value)`
 - `normalizeActionEvents(value, actionId)`
+- `withPolicyInput(declared, policy)`
 
 ### `server/actions/actionEvents.js`
 Exports
@@ -613,6 +618,10 @@ Local functions
 - `resolveEventScope(context = {})`
 - `resolveValue(value, execution)`
 - `normalizeRealtime(value, execution)`
+
+### `server/actions/actionPolicy.js`
+Exports
+- `noActionPolicy`
 
 ### `server/actions/actionProvider.js`
 Exports
@@ -639,7 +648,9 @@ Exports
 
 ### `server/actions/pipeline.js`
 Exports
-- `executeActionPipeline({ definition, input, context, deps = {}, events, logger })`
+- `executeActionPipeline({ definition, declared, input, context, deps = {}, events, logger, policy })`
+- `type ActionDefinition`
+- `type ActionPolicy`
 - `type RuntimeEvents`
 - `type RuntimeLogger`
 Local functions
@@ -659,11 +670,12 @@ Local functions
 
 ### `server/actions/registry.js`
 Exports
-- `createActionRegistry({ contributors = [], events, logger })`
+- `createActionRegistry({ contributors, events, logger, policy })`
+- `type ActionPolicy`
 - `type RuntimeEvents`
 - `type RuntimeLogger`
+- `type RegisteredActionContributor`
 Local functions
-- `normalizeContributors(contributors)`
 - `buildDefinitionIndex(contributors)`
 - `normalizeRequestedVersion(version)`
 - `resolveActionDefinition(index, actionId, version)`
@@ -1021,6 +1033,7 @@ Local functions
 ### `server/types.js`
 Exports
 - `type ActionCatalogue`
+- `type ActionDefinition`
 - `type RuntimeBootstrap`
 - `type RuntimeEvents`
 - `type RuntimeHttp`
@@ -1030,6 +1043,8 @@ Exports
 - `type RuntimeEnv`
 - `type RuntimeFastify`
 - `type RuntimeLogger`
+- `type ActionPolicy`
+- `type ActionPolicyExecution`
 
 ### _testable
 

@@ -1,25 +1,25 @@
 import {
   createActionRuntimeError,
-  normalizeActionContributor,
   createActionVersionKey
 } from "./actionDefinitions.js";
 import { executeActionPipeline } from "./pipeline.js";
 
+/** @typedef {import("../types.js").ActionPolicy} ActionPolicy */
 /** @typedef {import("../types.js").RuntimeEvents} RuntimeEvents */
 /** @typedef {import("../types.js").RuntimeLogger} RuntimeLogger */
+/** @typedef {ReturnType<typeof import("./actionDefinitions.js").registerActionContributor>} RegisteredActionContributor */
 
-function normalizeContributors(contributors) {
-  const source = Array.isArray(contributors) ? contributors : [];
-  return source.map((entry) => normalizeActionContributor(entry));
-}
-
+/**
+ * @param {ReadonlyArray<RegisteredActionContributor>} contributors
+ */
 function buildDefinitionIndex(contributors) {
   const definitions = [];
   const byVersionKey = new Map();
   const byActionId = new Map();
+  const declaredByDefinition = new Map();
 
   for (const contributor of contributors) {
-    for (const definition of contributor.actions) {
+    for (const { definition, declared } of contributor.actions) {
       const versionKey = createActionVersionKey(definition.id, definition.version);
       if (byVersionKey.has(versionKey)) {
         const existing = byVersionKey.get(versionKey);
@@ -33,6 +33,7 @@ function buildDefinitionIndex(contributors) {
       }
 
       byVersionKey.set(versionKey, definition);
+      declaredByDefinition.set(definition, declared);
       definitions.push(definition);
 
       if (!byActionId.has(definition.id)) {
@@ -49,7 +50,8 @@ function buildDefinitionIndex(contributors) {
   return {
     definitions: Object.freeze(definitions),
     byVersionKey,
-    byActionId
+    byActionId,
+    declaredByDefinition
   };
 }
 
@@ -120,27 +122,30 @@ function resolveActionDefinition(index, actionId, version) {
 
 /**
  * @param {object} dependencies
- * @param {ReadonlyArray<object>} [dependencies.contributors]
+ * @param {ReadonlyArray<RegisteredActionContributor>} dependencies.contributors
  * @param {RuntimeEvents} dependencies.events
  * @param {RuntimeLogger} dependencies.logger
+ * @param {ActionPolicy} dependencies.policy
  */
 function createActionRegistry({
-  contributors = [],
+  contributors,
   events,
-  logger
+  logger,
+  policy
 }) {
-  const normalizedContributors = normalizeContributors(contributors);
-  const index = buildDefinitionIndex(normalizedContributors);
+  const index = buildDefinitionIndex(contributors);
 
   async function execute({ actionId, version = null, input = {}, context = {}, deps = {} } = {}) {
     const definition = resolveActionDefinition(index, actionId, version);
     return executeActionPipeline({
       definition,
+      declared: index.declaredByDefinition.get(definition),
       input,
       context,
       deps,
       events,
-      logger
+      logger,
+      policy
     });
   }
 
@@ -159,11 +164,13 @@ function createActionRegistry({
 
     return executeActionPipeline({
       definition,
+      declared: index.declaredByDefinition.get(definition),
       input,
       context,
       deps,
       events,
-      logger
+      logger,
+      policy
     });
   }
 

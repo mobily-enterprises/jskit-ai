@@ -3,7 +3,18 @@ import test from "node:test";
 import { createSchema } from "json-rest-schema";
 
 import { createActionRegistry } from "./registry.js";
+import { registerActionContributor } from "./actionDefinitions.js";
+import { noActionPolicy } from "./actionPolicy.js";
 import { silentLogger } from "../runtime/logger.js";
+
+// A registry of contributors registered as the catalogue registers them, without a policy.
+function createRegistry({ contributors, ...dependencies }) {
+  return createActionRegistry({
+    ...dependencies,
+    policy: noActionPolicy,
+    contributors: contributors.map((contributor) => registerActionContributor(contributor, noActionPolicy))
+  });
+}
 
 function createPassThroughSchema() {
   return createSchema({});
@@ -12,7 +23,7 @@ function createPassThroughSchema() {
 test("action registry executes latest version by default", async () => {
   const calls = [];
 
-  const registry = createActionRegistry({
+  const registry = createRegistry({
     logger: silentLogger,
     contributors: [
       {
@@ -73,7 +84,7 @@ test("action registry executes latest version by default", async () => {
 });
 
 test("action registry validates action input with a single schema contract", async () => {
-  const registry = createActionRegistry({
+  const registry = createRegistry({
     logger: silentLogger,
     contributors: [
       {
@@ -133,7 +144,7 @@ test("action registry validates action input with a single schema contract", asy
 test("action registry fails startup on duplicate action id + version", () => {
   assert.throws(
     () =>
-      createActionRegistry({
+      createRegistry({
         logger: silentLogger,
         contributors: [
           {
@@ -185,7 +196,7 @@ test("action registry fails startup on duplicate action id + version", () => {
 });
 
 test("action registry rejects invalid version requests", async () => {
-  const registry = createActionRegistry({
+  const registry = createRegistry({
     logger: silentLogger,
     contributors: [
       {
@@ -233,7 +244,7 @@ test("action registry rejects invalid version requests", async () => {
 });
 
 test("action registry ignores unknown extra fields", async () => {
-  const registry = createActionRegistry({
+  const registry = createRegistry({
     logger: silentLogger,
     contributors: [
       {
@@ -270,7 +281,7 @@ test("action registry ignores unknown extra fields", async () => {
 });
 
 test("action registry enforces action-level permissions", async () => {
-  const registry = createActionRegistry({
+  const registry = createRegistry({
     logger: silentLogger,
     contributors: [
       {
@@ -330,7 +341,7 @@ test("action registry enforces action-level permissions", async () => {
 });
 
 function createSingleActionRegistry(action, options = {}) {
-  return createActionRegistry({
+  return createRegistry({
     logger: silentLogger,
     ...options,
     contributors: [

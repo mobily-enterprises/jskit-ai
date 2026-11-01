@@ -3,6 +3,9 @@ import { isRecord as isPlainObject, normalizePositiveInteger, normalizeText } fr
 import { normalizePermissionList } from "../../shared/support/permissions.js";
 import { ARCHITECTURE_ID_PATTERN } from "../../shared/capabilities/defineProvider.js";
 
+/** @typedef {import("../types.js").ActionDefinition} ActionDefinition */
+/** @typedef {import("../types.js").ActionPolicy} ActionPolicy */
+
 const ACTION_KINDS = Object.freeze(["query", "command", "stream"]);
 const ACTION_IDEMPOTENCY_POLICIES = Object.freeze(["none", "optional", "required", "domain_native"]);
 const ACTION_PERMISSION_REQUIRE_MODES = Object.freeze(["none", "authenticated", "all", "any"]);
@@ -271,6 +274,45 @@ function normalizeActionContributor(contributor) {
   });
 }
 
+/**
+ * The definition an action is registered with: as declared, with the input the
+ * policy returns, checked like a declared input.
+ * @param {ActionDefinition} declared
+ * @param {ActionPolicy} policy
+ */
+function withPolicyInput(declared, policy) {
+  const input = policy.input(declared);
+  if (input === declared.input) {
+    return declared;
+  }
+
+  return Object.freeze({
+    ...declared,
+    input: normalizeActionSchema(input, "input", {
+      required: true,
+      defaultMode: "patch"
+    })
+  });
+}
+
+/**
+ * A contributor as the catalogue registers it, once: each action normalized as
+ * its feature declared it, and the definition it is registered with.
+ * @param {object} contributor
+ * @param {ActionPolicy} policy
+ */
+function registerActionContributor(contributor, policy) {
+  const { contributorId, domain, actions } = normalizeActionContributor(contributor);
+  return Object.freeze({
+    contributorId,
+    domain,
+    actions: Object.freeze(actions.map((declared) => Object.freeze({
+      declared,
+      definition: withPolicyInput(declared, policy)
+    })))
+  });
+}
+
 function createActionVersionKey(actionId, version) {
   return `${normalizeText(actionId)}@v${normalizePositiveInteger(version, { fallback: 1 })}`;
 }
@@ -285,6 +327,7 @@ export {
   createActionRuntimeError,
   normalizeActionDefinition,
   normalizeActionContributor,
+  registerActionContributor,
   createActionVersionKey,
   __testables
 };

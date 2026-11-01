@@ -2,6 +2,7 @@
 // seeds, for features that require them.
 
 /** @typedef {ReturnType<typeof import("./actions/actionCatalogue.js").createActionCatalogue>} ActionCatalogue */
+/** @typedef {ReturnType<typeof import("./actions/actionDefinitions.js").normalizeActionDefinition>} ActionDefinition An action as the catalogue holds it, normalized from its feature's definition. */
 /** @typedef {ReturnType<typeof import("./runtime/bootstrapRuntime.js").createBootstrapRuntime>} RuntimeBootstrap */
 /** @typedef {ReturnType<typeof import("./runtime/eventRuntime.js").createEventRuntime>} RuntimeEvents */
 /** @typedef {ReturnType<typeof import("./http/capabilityHttpRuntime.js").createCapabilityHttpRuntime>} RuntimeHttp */
@@ -19,6 +20,26 @@
  * @property {(...args: any[]) => void} info
  * @property {(...args: any[]) => void} warn
  * @property {(...args: any[]) => void} error
+ */
+
+/**
+ * An application's rule for every action it registers, supplied once as the
+ * optional `runtime.actions.policy` capability. Actions declare the data the
+ * rule reads in their `extensions`; the policy turns it into behaviour, so no
+ * definition is wrapped by a helper. Without a policy, each action is
+ * registered with the input it declares and runs its own `execute`.
+ * @typedef {object} ActionPolicy
+ * @property {(definition: ActionDefinition) => ActionDefinition["input"]} input Called once per action, at registration, with the action as declared: returns the input schema the action is validated and listed with.
+ * @property {(execution: ActionPolicyExecution) => unknown} execute Called for every execution, after the channel, surface, permission, input and idempotency checks: runs the action through `execution.run`, with the input and context it should receive, inside any scope it needs.
+ */
+
+/**
+ * One execution, as the action policy receives it.
+ * @typedef {object} ActionPolicyExecution
+ * @property {ActionDefinition} definition The action as its feature declared it, before the policy's input.
+ * @property {Record<string, any>} input The input, validated against the policy's input schema.
+ * @property {Record<string, any>} context The execution context.
+ * @property {(input: Record<string, any>, context: Record<string, any>) => unknown} run Calls the action's own execute with this input and context, and returns its result.
  */
 
 export {};

@@ -8,6 +8,8 @@ import {
 import { ensureIdempotencyKeyIfRequired } from "./idempotency.js";
 import { normalizeExecutionContext } from "./executionContext.js";
 
+/** @typedef {import("../types.js").ActionDefinition} ActionDefinition */
+/** @typedef {import("../types.js").ActionPolicy} ActionPolicy */
 /** @typedef {import("../types.js").RuntimeEvents} RuntimeEvents */
 /** @typedef {import("../types.js").RuntimeLogger} RuntimeLogger */
 
@@ -49,20 +51,24 @@ function logActionExecution(logger, { definition, context, outcome, startedAt, e
 
 /**
  * @param {object} execution
- * @param {any} execution.definition A normalized action definition.
+ * @param {ActionDefinition} execution.definition The action as registered, with the policy's input.
+ * @param {ActionDefinition} execution.declared The action as its feature declared it.
  * @param {unknown} execution.input
  * @param {unknown} execution.context
  * @param {object} [execution.deps]
  * @param {RuntimeEvents} execution.events
  * @param {RuntimeLogger} execution.logger
+ * @param {ActionPolicy} execution.policy
  */
 async function executeActionPipeline({
   definition,
+  declared,
   input,
   context,
   deps = {},
   events,
-  logger
+  logger,
+  policy
 }) {
   const normalizedContext = normalizeExecutionContext(context);
   const startedAt = Date.now();
@@ -75,7 +81,12 @@ async function executeActionPipeline({
     const normalizedInput = await normalizeActionInput(definition, input);
     ensureIdempotencyKeyIfRequired(definition, normalizedContext);
 
-    const executionResult = await definition.execute(normalizedInput, normalizedContext, deps);
+    const executionResult = await policy.execute(Object.freeze({
+      definition: declared,
+      input: normalizedInput,
+      context: normalizedContext,
+      run: (policyInput, policyContext) => definition.execute(policyInput, policyContext, deps)
+    }));
     const normalizedResult = await normalizeActionOutput(definition, executionResult);
 
     await publishActionEvents(events, definition.events, Object.freeze({

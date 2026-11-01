@@ -89,6 +89,9 @@ data (input, record, list, options bag) is not one.
   - A key the service must not see is destructured in the parameter list:
     `execute: ({ workspaceSlug, ...payload }, context) => service.update(workspaceSlug, payload, { context })`.
   - CRUD custom actions keep `execute: ({ input, context, service }) => service.method(...)`.
+  - A wrapper that applies one application rule to every definition becomes
+    data in each definition's `extensions` and one `runtime.actions.policy`
+    the application provides.
 - `ActionSpecifications`, `run(service, input, context)`, `build<Name>Actions` mapper, positional `create<Name>Actions(service)`
   - Replace them with one `create<Name>Actions({ <service> })` whose
     definitions call the service in `execute`. Keep each id a string literal or

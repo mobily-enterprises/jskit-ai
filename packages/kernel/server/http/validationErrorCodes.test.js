@@ -8,6 +8,7 @@ import { catalogMessage, formatMessage, messageKeyForCode } from "../../shared/i
 import { recordIdParamsValidator, resolveValidationIssueCode } from "../../shared/validators/index.js";
 import { AppError } from "../runtime/errors.js";
 import { createActionRegistry } from "../actions/registry.js";
+import { noActionPolicy } from "../actions/actionPolicy.js";
 import { ensureIdempotencyKeyIfRequired } from "../actions/idempotency.js";
 import { registerSurfaceRequestConstraint } from "../platform/surfaceRuntime.js";
 import { registerApiErrorHandler } from "./errorHandling.js";
@@ -246,7 +247,7 @@ test("every error class leaving the API has a code and params", async (t) => {
 });
 
 test("the kernel's own errors and statuses render their English from the catalog", async (t) => {
-  const registry = createActionRegistry({});
+  const registry = createActionRegistry({ contributors: [], policy: noActionPolicy });
   const actionFailures = [
     () => registry.getDefinition(""),
     () => registry.getDefinition("contacts.list", 0),
