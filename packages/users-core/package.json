@@ -80,16 +80,32 @@
       "apiSummary": {
         "surfaces": [
           {
-            "subpath": "./server",
-            "summary": "Exports the explicit users feature, account services, repositories, actions, and extension API."
+            "subpath": "./server/UsersFeature",
+            "summary": "Exports UsersFeature, which provides users.core: the account settings, profile, avatar and security services, their actions and routes, and the users bootstrap."
           },
           {
-            "subpath": "./shared",
-            "summary": "Exports shared users settings resources and defaults."
+            "subpath": "./server/UsersIdentityProvider",
+            "summary": "Exports UsersIdentityProvider, which provides users.identity (the user profile and settings repositories) and auth.profile.projector."
           },
           {
-            "subpath": "./client",
-            "summary": "Exports no runtime API today (reserved client entrypoint)."
+            "subpath": "./server/usersExtensions",
+            "summary": "Exports createUsersExtensions, the users.extensions registry of profile synchronization lifecycle contributors."
+          },
+          {
+            "subpath": "./server/resolveActionUser",
+            "summary": "Exports resolveActionUser, which reads an action's signed-in user."
+          },
+          {
+            "subpath": "./shared/resources/userProfileResource",
+            "summary": "Exports the shared user profile resource."
+          },
+          {
+            "subpath": "./shared/resources/userSettingsResource",
+            "summary": "Exports the shared user settings resource."
+          },
+          {
+            "subpath": "./shared/settings",
+            "summary": "Exports the users settings defaults."
           },
           {
             "subpath": "./server/types",
@@ -99,7 +115,8 @@
         "capabilities": [
           "users.core",
           "users.identity",
-          "users.extensions"
+          "users.extensions",
+          "auth.profile.projector"
         ]
       },
       "server": {

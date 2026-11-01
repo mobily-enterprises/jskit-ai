@@ -89,8 +89,28 @@
       "apiSummary": {
         "surfaces": [
           {
-            "subpath": "./server",
-            "summary": "Exports the explicit workspace feature, integrations, services, repositories, actions, and routes."
+            "subpath": "./server/WorkspacesFeature",
+            "summary": "Exports WorkspacesFeature, which provides workspaces.core (directory, members, pending invitations and settings services, their actions and routes), and the optional tokens' defaults."
+          },
+          {
+            "subpath": "./server/WorkspacesIntegrationsProvider",
+            "summary": "Exports WorkspacesIntegrationsProvider, which adds workspace context, visibility, provisioning, realtime audiences and invitation context to auth, users and actions."
+          },
+          {
+            "subpath": "./server/validators/routeParamsValidator",
+            "summary": "Exports the workspaceSlug route params validator."
+          },
+          {
+            "subpath": "./server/support/workspaceRouteInput",
+            "summary": "Exports the action input a workspace route's params give."
+          },
+          {
+            "subpath": "./server/support/workspaceCrud",
+            "summary": "Exports WORKSPACE_CRUD_SCOPE and workspaceIdFromContext, the workspace scope of CRUD resources."
+          },
+          {
+            "subpath": "./server/support/workspaceRoutePaths",
+            "summary": "Exports the workspace route base path and resolveWorkspaceRoutePath."
           },
           {
             "subpath": "./server/types",

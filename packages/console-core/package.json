@@ -58,16 +58,12 @@
       "apiSummary": {
         "surfaces": [
           {
-            "subpath": "./server",
-            "summary": "Exports the explicit Console feature with owner access, settings actions, bootstrap, and routes."
+            "subpath": "./server/ConsoleFeature",
+            "summary": "Exports ConsoleFeature, which provides console.core: owner access, the console settings actions and routes, and the console bootstrap."
           },
           {
-            "subpath": "./shared",
+            "subpath": "./shared/resources/consoleSettingsResource",
             "summary": "Exports the shared console settings resource contract."
-          },
-          {
-            "subpath": "./client",
-            "summary": "Exports no runtime API today (reserved client entrypoint)."
           },
           {
             "subpath": "./server/types",
