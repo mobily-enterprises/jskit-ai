@@ -30,7 +30,7 @@ const OidcIssuerProvider = defineProvider({
     await outputs.issuer.mount(fastify);
   },
   async shutdown(_dependencies, { outputs }) {
-    await outputs.issuer?.close();
+    await outputs.issuer.close();
   }
 });
 

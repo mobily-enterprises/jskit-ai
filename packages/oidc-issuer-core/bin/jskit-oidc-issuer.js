@@ -17,7 +17,7 @@ Run from the hub application's folder; it reads the same .env and database setti
 
 function loadDotEnv() {
   try {
-    process.loadEnvFile?.(".env");
+    process.loadEnvFile(".env");
   } catch (error) {
     if (error?.code !== "ENOENT") throw error;
   }
