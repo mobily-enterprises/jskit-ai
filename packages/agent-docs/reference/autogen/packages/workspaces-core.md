@@ -137,6 +137,7 @@ Exports
 - `workspaceIdFromContext(context = {})`
 Local functions
 - `workspaceCrudScopeInput(request)`
+- `workspaceScopeOwnerId(visibilityContext)`
 
 ### `src/server/support/workspaceInvitationsPolicy.js`
 Exports

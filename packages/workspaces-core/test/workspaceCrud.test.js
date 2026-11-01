@@ -26,8 +26,18 @@ test("workspaceIdFromContext reads the context's workspace, then the resolved on
   assert.equal(workspaceIdFromContext({ ...all, workspace: null }), "2");
   assert.equal(workspaceIdFromContext({ visibilityContext: all.visibilityContext, scopeValues: all.scopeValues }), "3");
   assert.equal(workspaceIdFromContext({ scopeValues: { workspaceId: 4 } }), "4");
+  assert.equal(workspaceIdFromContext({ visibilityContext: { visibility: "workspace_user", scopeKind: "workspace_user", scopeOwnerId: "5" } }), "5");
+  assert.equal(workspaceIdFromContext({ visibilityContext: { visibility: "workspace", scopeOwnerId: "6" } }), "6");
   assert.equal(workspaceIdFromContext({}), null);
   assert.equal(workspaceIdFromContext(), null);
+});
+
+test("workspaceIdFromContext ignores the owner of a visibility scope that is not a workspace's", () => {
+  const scopeValues = { workspaceId: "4" };
+  assert.equal(workspaceIdFromContext({ visibilityContext: { visibility: "user", scopeOwnerId: "9" }, scopeValues }), "4");
+  assert.equal(workspaceIdFromContext({ visibilityContext: { visibility: "public", scopeOwnerId: "9" } }), null);
+  assert.equal(workspaceIdFromContext({ visibilityContext: { visibility: "workspace", scopeKind: "team", scopeOwnerId: "9" } }), null);
+  assert.equal(workspaceIdFromContext({ visibilityContext: null, scopeValues }), "4");
 });
 
 test("workspace route paths live under /api/w/:workspaceSlug", () => {
