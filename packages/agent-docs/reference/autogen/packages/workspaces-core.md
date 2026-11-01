@@ -73,7 +73,6 @@ Local functions
 Exports
 - `buildWorkspaceName(user = {})`
 - `createService({ tenancyProfile, roleCatalog, personalWorkspaceName, workspacesRepository, workspaceMembershipsRepository, workspaceSettingsRepository })`
-- `type WorkspaceContextService`
 Local functions
 - `toSlugPart(value)`
 - `buildWorkspaceBaseSlug(user = {})`
@@ -153,7 +152,10 @@ Exports
 ### `src/server/types.js`
 Exports
 - `type WorkspacesCore`
+- `type WorkspaceDirectoryService`
 - `type WorkspaceMembersService`
+- `type WorkspacePendingInvitationsService`
+- `type WorkspaceSettingsService`
 - `type WorkspacesRepository`
 - `type WorkspaceMembershipsRepository`
 - `type WorkspaceInvitesRepository`
@@ -236,7 +238,6 @@ Local functions
 ### `src/server/workspacePendingInvitations/workspacePendingInvitationsService.js`
 Exports
 - `createService({ workspaceInvitesRepository, workspaceMembershipsRepository, roleCatalog, acceptanceParticipant })`
-- `type WorkspacePendingInvitationsService`
 
 ### `src/server/workspaceSettings/workspaceSettingsActions.js`
 Exports
@@ -255,7 +256,6 @@ Exports
 ### `src/server/workspaceSettings/workspaceSettingsService.js`
 Exports
 - `createService({ workspaceSettingsRepository, workspaceInvitationsEnabled, roleCatalog })`
-- `type WorkspaceSettingsService`
 
 ### `src/server/WorkspacesFeature.js`
 Exports

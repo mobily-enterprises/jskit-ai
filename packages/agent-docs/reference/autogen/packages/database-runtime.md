@@ -124,6 +124,7 @@ Exports
 - `DEFAULT_VISIBILITY_COLUMNS`
 - `applyVisibility`
 - `applyVisibilityOwners`
+- `resolveTransaction`
 - `resolveQueryOptions`
 - `resolveRepoClient`
 - `applyForUpdate`
@@ -142,6 +143,7 @@ Exports
 
 ### `src/shared/repositoryOptions.js`
 Exports
+- `resolveTransaction(options)`
 - `resolveQueryOptions(options = {})`
 - `resolveRepoClient(dbClient, options = {})`
 - `applyForUpdate(query, options = {})`

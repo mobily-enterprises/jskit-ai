@@ -150,6 +150,8 @@ Exports
 - `isJsonApiDataResult`
 - `isJsonApiDocumentResult`
 - `isJsonApiMetaResult`
+- `jsonApiResultValue`
+- `simplifyJsonApiResult`
 - `unwrapJsonApiResult`
 - `JSON_API_QUERY_PAGE_CURSOR_KEY`
 - `JSON_API_QUERY_PAGE_LIMIT_KEY`
@@ -239,6 +241,8 @@ Exports
 - `isJsonApiDataResult(value)`
 - `isJsonApiDocumentResult(value)`
 - `isJsonApiMetaResult(value)`
+- `jsonApiResultValue(value)`
+- `simplifyJsonApiResult(result)`
 - `unwrapJsonApiResult(value)`
 Local functions
 - `normalizeJsonApiResultKind(kind = "")`

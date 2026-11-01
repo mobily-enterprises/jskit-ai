@@ -591,6 +591,8 @@ Local functions
 
 ### `server/actions/actionContributorHelpers.js`
 Exports
+- `resolveActor(context, request)`
+- `resolveActorId(context, request)`
 - `resolveRequest(context)`
 - `emptyInputValidator`
 

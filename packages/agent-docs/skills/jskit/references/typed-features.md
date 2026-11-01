@@ -52,8 +52,12 @@ makes the destination depend on what ran before.
   package that owns it: no repeated `ReturnType<typeof createX>` and no
   repeated `X["y"]`. Knex is `RuntimeKnex`, a Knex transaction
   `RuntimeKnexTransaction` and a query `RuntimeKnexQueryBuilder`, a router
-  `RuntimeRouter`, a logger `RuntimeLogger`, the workspace members service
-  `WorkspaceMembersService`. Import a type from its owner, never re-alias it
+  `RuntimeRouter`, a logger `RuntimeLogger`. The workspace services are
+  `WorkspaceDirectoryService`, `WorkspaceMembersService`,
+  `WorkspacePendingInvitationsService` and `WorkspaceSettingsService`, the
+  console's access service `ConsoleService`, a CRUD feature's parts
+  `CrudService` and `CrudRepository`, and a lifecycle hook's argument
+  `CrudLifecycleContext`. Import a type from its owner, never re-alias it
   through another module.
 - Never hand-write an interface for a token with one implementation. Only a
   token with several implementations (`auth.service`) is a hand-written
@@ -788,6 +792,26 @@ function createRepository({ api }) {
   return Object.freeze({ findByUserId, ensureForUserId, updatePreferences });
 }
 ```
+
+The facts a call's options and context carry each have one reader, at their
+owner, instead of a copy per package:
+
+- the call's transaction: `resolveTransaction(options)`, or the client to
+  query through, `resolveRepoClient(knex, options)`
+  (`@jskit-ai/database-runtime/shared`);
+- what a service hands its repository, `{ trx, context }`:
+  `repositoryCallOptions(options)` (`@jskit-ai/crud-core/server/jsonApiService`);
+- the signed-in user: `resolveActor(context)` and `resolveActorId(context)`
+  (`@jskit-ai/kernel/server/actions/actionContributorHelpers`), the context's
+  actor, else the request's user, as auth's own route visibility reads it;
+- a service or action result's records: `simplifyJsonApiResult(result)`, and
+  the document it carries, `jsonApiResultValue(result)`
+  (`@jskit-ai/http-runtime/shared`);
+- a create event's record id: `resolveCrudJsonApiEntityIdFromResult`
+  (`@jskit-ai/crud-core/server/serviceEvents`), from the JSON:API document
+  result a CRUD service or action returns;
+- a workspace CRUD call's workspace: `workspaceIdFromContext(context)`
+  (`@jskit-ai/workspaces-core/server/support/workspaceCrud`).
 
 ### Following the call
 

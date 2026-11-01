@@ -141,9 +141,12 @@ per-operation `before`, `execute`, and `after` phases share one repository
 transaction for create, update, and delete. An `execute` hook receives
 `standard(nextInput)` so it can retain the framework write while adjusting its
 input or coordinating other repository work. `afterCommit` runs only after the
-mutation transaction succeeds. Put durable external delivery behind an outbox
-written inside the transaction; do not make an email or webhook the arbiter of
-whether an already-committed request appears successful.
+mutation transaction succeeds. A hook's argument is `CrudLifecycleContext` from
+`@jskit-ai/crud-core/server/types`; type a lifecycle declared apart from its
+feature with `CrudOperationLifecycle`, whose type arguments are the decorated
+service and repository its hooks call. Put durable external delivery behind an
+outbox written inside the transaction; do not make an email or webhook the
+arbiter of whether an already-committed request appears successful.
 
 Declare resource-related non-CRUD commands in `actions`. Each named action has
 a normal JSKIT input, permission, audit, events, and `execute({ input, context,

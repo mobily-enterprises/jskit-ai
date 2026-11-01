@@ -113,6 +113,7 @@ Local functions
 ### `src/server/jsonApiModule/service.js`
 Exports
 - `createCrudJsonApiService({ repository })`
+- `repositoryCallOptions(options = {})`
 Local functions
 - `requireDocument(document = null)`
 
@@ -359,6 +360,9 @@ Exports
 - `type CrudScope`
 - `type CrudResourceApi`
 - `type CrudCustomActionInvocation`
+- `type CrudLifecycleContext`
+- `type CrudLifecycleHooks`
+- `type CrudOperationLifecycle`
 - `type CrudRecordRepository`
 - `type CrudServiceRuntime`
 
