@@ -36,6 +36,14 @@ Local functions
 - `emptyEnvironment()`
 - `normalizedSegment(value)`
 
+### `src/calls/external.js`
+Exports
+- `NODE_GLOBALS`
+- `createExternalValues({ checker, symbols, fileOf })`
+- `isComponentFile(file)`
+Local functions
+- `isNullish(expression)`
+
 ### `src/calls/features.js`
 Exports
 - `bindFeatures({ calls, symbols, evaluator })`
@@ -89,8 +97,6 @@ Exports
 Local functions
 - `weakerVia(left, right)`
 - `isAnyType(type)`
-- `isComponentFile(file)`
-- `isNullish(expression)`
 - `compatibleSides(left, right)`
 - `libraryMemberNames(program)`
 - `constructorOf(implementation)`
