@@ -2,6 +2,13 @@
 
 /** @typedef {ReturnType<typeof import("./workspacesRuntime.js").createWorkspacesRuntime>} WorkspacesCore */
 
+/** @typedef {ReturnType<typeof import("./common/repositories/workspacesRepository.js").createRepository>} WorkspacesRepository */
+/** @typedef {ReturnType<typeof import("./common/repositories/workspaceMembershipsRepository.js").createRepository>} WorkspaceMembershipsRepository */
+/** @typedef {ReturnType<typeof import("./common/repositories/workspaceInvitesRepository.js").createRepository>} WorkspaceInvitesRepository */
+/** @typedef {ReturnType<typeof import("./workspaceSettings/workspaceSettingsRepository.js").createRepository>} WorkspaceSettingsRepository */
+/** @typedef {ReturnType<typeof import("../shared/roles.js").createWorkspaceRoleCatalog>} WorkspaceRoleCatalog */
+/** @typedef {ReturnType<typeof import("../shared/tenancyProfile.js").resolveTenancyProfile>} WorkspaceTenancyProfile */
+
 /**
  * The `workspaces.invite-mailer` capability: a feature that provides it sends
  * workspace invitation email. Its result is the delivery outcome; the status
@@ -11,8 +18,23 @@
  */
 
 /**
- * Renders an invitation email's `{ subject, text, html }`.
+ * The `workspaces.invite-email-template` capability: renders an invitation
+ * email's `{ subject, text, html }`.
  * @typedef {(input: { email: string, inviteUrl: string, workspace: object, inviter: object | null, roleSid: string, roleLabel?: string, expiresAt: string, locale: string, t: (key: string, params?: object) => string }) => object | Promise<object>} WorkspaceInviteEmailTemplate
+ */
+
+/**
+ * The `workspaces.invite-acceptance-participant` capability: the application's
+ * writes for an accepted invitation. It runs after the membership is activated,
+ * inside the uncommitted acceptance transaction (`trx`), and a failure rolls the
+ * acceptance back.
+ * @typedef {(acceptance: { invite: object, user: object }, options: { trx: unknown, context?: object }) => Promise<void>} WorkspaceInviteAcceptanceParticipant
+ */
+
+/**
+ * The `workspaces.personal-workspace-name` capability: names the personal
+ * workspace provisioned for a user. An empty name falls back to the default.
+ * @typedef {(user: object) => string} PersonalWorkspaceName
  */
 
 export {};

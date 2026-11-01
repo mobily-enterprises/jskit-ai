@@ -56,6 +56,8 @@ function createFixture() {
   };
 
   const service = createService({
+    workspaceInvitationsEnabled: true,
+    i18n: createWorkspacesServerI18n(),
     workspaceMembershipsRepository: {
       async listActiveByWorkspaceId(workspaceId) {
         assert.equal(Number(workspaceId), 7);
@@ -114,6 +116,8 @@ test("workspaceMembersService.createInvite uses configured inviteExpiresInMs", a
   const expiresAtValues = [];
   let savedInvite;
   const service = createService({
+    workspaceInvitationsEnabled: true,
+    i18n: createWorkspacesServerI18n(),
     workspaceMembershipsRepository: {
       async listActiveByWorkspaceId() {
         return [];
@@ -180,6 +184,8 @@ test("workspaceMembersService.createInvite sends generated invite URLs through t
   const mailerCalls = [];
   let savedInvite;
   const service = createService({
+    workspaceInvitationsEnabled: true,
+    i18n: createWorkspacesServerI18n(),
     workspaceMembershipsRepository: {
       async listActiveByWorkspaceId() {
         return [];
@@ -272,6 +278,8 @@ test("workspaceMembersService.createInvite sends generated invite URLs through t
 test("workspaceMembersService.revokeInvite returns the revoked invite id", async () => {
   let revokedInviteId = 0;
   const service = createService({
+    workspaceInvitationsEnabled: true,
+    i18n: createWorkspacesServerI18n(),
     workspaceMembershipsRepository: {
       async listActiveByWorkspaceId() {
         return [];
@@ -325,6 +333,7 @@ test("workspaceMembersService.revokeInvite returns the revoked invite id", async
 
 test("workspaceMembersService rejects invite operations when invitations are disabled", async () => {
   const service = createService({
+    i18n: createWorkspacesServerI18n(),
     workspaceMembershipsRepository: {
       async listActiveByWorkspaceId() {
         return [];
@@ -449,6 +458,8 @@ test("workspaceMembersService.removeMember marks membership revoked and returns 
     avatarUrl: ""
   };
   const service = createService({
+    workspaceInvitationsEnabled: true,
+    i18n: createWorkspacesServerI18n(),
     workspaceMembershipsRepository: {
       async listActiveByWorkspaceId(workspaceId) {
         assert.equal(Number(workspaceId), 7);
@@ -522,6 +533,8 @@ test("workspaceMembersService.removeMember rejects removing the owner", async ()
     avatarUrl: ""
   };
   const service = createService({
+    workspaceInvitationsEnabled: true,
+    i18n: createWorkspacesServerI18n(),
     workspaceMembershipsRepository: {
       async listActiveByWorkspaceId() {
         return [];
@@ -574,6 +587,7 @@ test("workspaceMembersService.removeMember rejects removing the owner", async ()
 function createMailingService({ accounts = {}, appRoot = "", mailer } = {}) {
   let savedInvite;
   return createService({
+    workspaceInvitationsEnabled: true,
     workspaceMembershipsRepository: {
       async listActiveByWorkspaceId() {
         return [];

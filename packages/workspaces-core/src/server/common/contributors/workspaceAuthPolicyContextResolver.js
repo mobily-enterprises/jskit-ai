@@ -4,14 +4,10 @@ import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 /**
  * @param {object} dependencies
  * @param {import("../services/workspaceContextService.js").WorkspaceContextService} dependencies.workspaceService
- * @param {string[]} [dependencies.workspaceMembershipOptionalSurfaceIds]
+ * @param {string[]} dependencies.workspaceMembershipOptionalSurfaceIds The surfaces' normalized ids.
  */
-function createWorkspaceAuthPolicyContextResolver({ workspaceService, workspaceMembershipOptionalSurfaceIds = [] }) {
-  const membershipOptionalSurfaceIds = new Set(
-    (Array.isArray(workspaceMembershipOptionalSurfaceIds) ? workspaceMembershipOptionalSurfaceIds : [])
-      .map((entry) => normalizeSurfaceId(entry))
-      .filter(Boolean)
-  );
+function createWorkspaceAuthPolicyContextResolver({ workspaceService, workspaceMembershipOptionalSurfaceIds }) {
+  const membershipOptionalSurfaceIds = new Set(workspaceMembershipOptionalSurfaceIds);
 
   return async function resolveWorkspaceAuthPolicyContext({ request, actor, meta } = {}) {
     const contextPolicy = normalizeText(meta?.contextPolicy || "none").toLowerCase() || "none";

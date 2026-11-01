@@ -1,26 +1,16 @@
 import { createJsonApiResourceRouteContract } from "@jskit-ai/http-runtime/shared/validators/jsonApiRouteTransport";
 import { WORKSPACE_SETTINGS_TRANSPORT } from "../../shared/jsonApiTransports.js";
 import { workspaceSettingsResource } from "../../shared/resources/workspaceSettingsResource.js";
+import { resolveWorkspaceRecordId } from "../common/support/workspaceRecordId.js";
 import { resolveWorkspaceRoutePath } from "../common/support/workspaceRoutePaths.js";
 import { workspaceSlugParamsValidator } from "../common/validators/routeParamsValidator.js";
 import { resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig } from "../support/workspaceActionSurfaces.js";
 
-function resolveWorkspaceSettingsRecordId(record = {}, context = {}) {
-  const workspaceId = record?.workspace?.id;
-  if (workspaceId != null && String(workspaceId).trim()) {
-    return workspaceId;
-  }
-
-  const workspaceSlug = context?.request?.params?.workspaceSlug;
-  if (workspaceSlug != null && String(workspaceSlug).trim()) {
-    return workspaceSlug;
-  }
-
-  throw new Error("Workspace settings JSON:API response requires workspace id.");
-}
-
-/** @param {import("@jskit-ai/kernel/server/types").RuntimeRouter} router */
-function registerWorkspaceSettingsRoutes(router, { config = {} } = {}) {
+/**
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeRouter} router
+ * @param {{ config: import("@jskit-ai/kernel/server/types").RuntimeConfig }} options
+ */
+function registerWorkspaceSettingsRoutes(router, { config }) {
   const workspaceRouteSurfaceId = resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig(config);
 
   router.register(
@@ -39,7 +29,7 @@ function registerWorkspaceSettingsRoutes(router, { config = {} } = {}) {
         ...WORKSPACE_SETTINGS_TRANSPORT,
         output: workspaceSettingsResource.operations.view.output,
         outputKind: "record",
-        getRecordId: resolveWorkspaceSettingsRecordId
+        getRecordId: resolveWorkspaceRecordId
       })
     },
     async function (request, reply) {
@@ -70,7 +60,7 @@ function registerWorkspaceSettingsRoutes(router, { config = {} } = {}) {
         body: workspaceSettingsResource.operations.patch.body,
         output: workspaceSettingsResource.operations.patch.output,
         outputKind: "record",
-        getRecordId: resolveWorkspaceSettingsRecordId,
+        getRecordId: resolveWorkspaceRecordId,
         includeValidation400: true
       })
     },

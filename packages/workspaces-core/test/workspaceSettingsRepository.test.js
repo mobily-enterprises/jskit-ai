@@ -115,6 +115,8 @@ function createWorkspaceSettingsApiStub(rowOverrides = {}) {
 test("workspaceSettingsRepository.findByWorkspaceId returns the canonical workspace-settings row", async () => {
   const { api, DEFAULT_WORKSPACE_THEME, STUB_CREATED_AT } = createWorkspaceSettingsApiStub();
   const repository = createRepository({
+    defaultInvitesEnabled: true,
+    defaultColorSettings: {},
     api
   });
 
@@ -139,6 +141,8 @@ test("workspaceSettingsRepository.findByWorkspaceId returns the canonical worksp
 test("workspaceSettingsRepository.updateSettingsByWorkspaceId updates invitesEnabled only", async () => {
   const { api, state } = createWorkspaceSettingsApiStub();
   const repository = createRepository({
+    defaultInvitesEnabled: true,
+    defaultColorSettings: {},
     api
   });
 
@@ -154,6 +158,8 @@ test("workspaceSettingsRepository.ensureForWorkspaceId delegates defaults to the
   const { api, state, DEFAULT_WORKSPACE_THEME } = createWorkspaceSettingsApiStub();
   state.row = null;
   const repository = createRepository({
+    defaultInvitesEnabled: true,
+    defaultColorSettings: {},
     api
   });
 
@@ -185,6 +191,7 @@ test("workspaceSettingsRepository.ensureForWorkspaceId starts new workspaces fro
   const { api, state, DEFAULT_WORKSPACE_THEME } = createWorkspaceSettingsApiStub();
   state.row = null;
   const repository = createRepository({
+    defaultInvitesEnabled: true,
     api,
     defaultColorSettings: {
       lightPrimaryColor: "#1C1C1C",
@@ -203,6 +210,8 @@ test("workspaceSettingsRepository.ensureForWorkspaceId starts new workspaces fro
 test("workspaceSettingsRepository.updateSettingsByWorkspaceId updates workspace settings fields", async () => {
   const { api, state } = createWorkspaceSettingsApiStub();
   const repository = createRepository({
+    defaultInvitesEnabled: true,
+    defaultColorSettings: {},
     api
   });
 
@@ -218,6 +227,8 @@ test("workspaceSettingsRepository can be constructed without validating app conf
   const { api } = createWorkspaceSettingsApiStub();
 
   const repository = createRepository({
+    defaultInvitesEnabled: true,
+    defaultColorSettings: {},
     api
   });
 

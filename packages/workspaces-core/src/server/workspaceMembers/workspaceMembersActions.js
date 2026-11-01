@@ -1,7 +1,7 @@
 import { workspaceInviteAssistantOutput } from "../../shared/resources/workspaceAssistantOutputs.js";
 import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
 import { resolveWorkspace } from "../support/resolveWorkspace.js";
-import { resolveActionUser } from "../common/support/resolveActionUser.js";
+import { resolveActionUser } from "@jskit-ai/users-core/server/resolveActionUser";
 import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
 import {
   INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE,

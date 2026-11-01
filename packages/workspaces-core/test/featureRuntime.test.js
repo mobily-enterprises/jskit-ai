@@ -5,7 +5,7 @@ import { createActionProvider } from "@jskit-ai/kernel/server/actions";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { createBootstrapRuntime } from "@jskit-ai/kernel/server/runtime";
 import { createUsersExtensions } from "@jskit-ai/users-core/server/usersExtensions";
-import { WorkspacesFeature, createWorkspacesRuntime, unconfiguredWorkspaceInviteMailer } from "../src/server/WorkspacesFeature.js";
+import { WorkspacesFeature, createWorkspacesRuntime } from "../src/server/WorkspacesFeature.js";
 import { WorkspacesIntegrationsProvider } from "../src/server/WorkspacesIntegrationsProvider.js";
 
 function createJsonRestApiFixture() {
@@ -66,7 +66,6 @@ test("WorkspacesFeature assembles workspace behavior and explicit integrations",
     setup({ actions, workspaceCapability }) {
       actionCatalogue = actions;
       workspaces = workspaceCapability;
-      workspaceCapability.services.pendingInvitations.registerAcceptanceParticipant(async () => {});
       return {};
     }
   });
@@ -114,8 +113,6 @@ test("WorkspacesFeature assembles workspace behavior and explicit integrations",
   assert.equal(typeof workspaces.services.directory.resolveWorkspaceContextForUserBySlug, "function");
   assert.equal(typeof workspaces.services.members.prepareInvite, "function");
   assert.equal(typeof workspaces.services.members.sendInvite, "function");
-  assert.throws(() => workspaces.services.pendingInvitations.registerAcceptanceParticipant(null), /must be a function/);
-  assert.throws(() => workspaces.services.pendingInvitations.registerAcceptanceParticipant(async () => {}), /already registered/);
   assert.equal(routes.includes("POST /api/workspaces"), true);
   assert.equal(routes.includes("GET /api/workspace/invitations/resolve"), true);
   assert.equal(actionCatalogue.listDefinitions().length, 16);
@@ -168,21 +165,5 @@ test("workspace settings color defaults must be hex colors", () => {
   assert.throws(
     () => createWorkspacesRuntime({ config, env: {}, jsonRestApi }),
     /runtime\.config\.workspaceSettings\.defaults\.lightPrimaryColor must be a hex color/
-  );
-});
-
-test("a config invite mailer is refused, naming the capability that replaces it", () => {
-  const config = runtimeConfig();
-  config.workspaceInviteMailer = { async sendWorkspaceInvite() { return { status: "sent" }; } };
-
-  assert.throws(
-    () => createWorkspacesRuntime({
-      config,
-      env: {},
-      inviteMailer: unconfiguredWorkspaceInviteMailer,
-      jsonRestApi: createJsonRestApiFixture(),
-      users: { repositories: { userProfiles: {}, userSettings: {} } }
-    }),
-    /runtime\.config\.workspaceInviteMailer is no longer read: provide the invite mailer as the "workspaces\.invite-mailer" capability/
   );
 });

@@ -1,6 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createService } from "../src/server/common/services/workspaceContextService.js";
+import { buildWorkspaceName, createService } from "../src/server/common/services/workspaceContextService.js";
+import { createWorkspaceRoleCatalog } from "../src/shared/roles.js";
+import { resolveTenancyProfile } from "../src/shared/tenancyProfile.js";
+
+// The service receives what the workspaces feature resolves from its config.
+function resolvedSettings(appConfig) {
+  return {
+    tenancyProfile: resolveTenancyProfile(appConfig),
+    roleCatalog: createWorkspaceRoleCatalog(appConfig),
+    personalWorkspaceName: appConfig.personalWorkspaceName ?? buildWorkspaceName
+  };
+}
 
 function createRoleCatalog() {
   return {
@@ -70,12 +81,12 @@ function createWorkspaceServiceFixture({
   }
 
   const service = createService({
-    appConfig: {
+    ...resolvedSettings({
       tenancyMode,
       tenancyPolicy,
       personalWorkspaceName,
       roleCatalog: roleCatalog && typeof roleCatalog === "object" ? { ...roleCatalog } : roleCatalog
-    },
+    }),
     workspacesRepository: {
       async findBySlug(slug) {
         const normalizedSlug = String(slug || "").trim().toLowerCase();
@@ -484,10 +495,10 @@ test("workspaceService.resolveWorkspaceContextForUserBySlug grants owner access 
   let membershipRecord = null;
 
   const service = createService({
-    appConfig: {
+    ...resolvedSettings({
       tenancyMode: "personal",
       roleCatalog: createRoleCatalog()
-    },
+    }),
     workspacesRepository: {
       async findBySlug(slug) {
         if (String(slug) !== "tonymobily") {
@@ -552,10 +563,10 @@ test("workspaceService.resolveWorkspaceContextForUserBySlug grants owner access 
 
 test("workspaceService.resolveWorkspaceContextForUserBySlug can resolve an existing workspace without membership", async () => {
   const service = createService({
-    appConfig: {
+    ...resolvedSettings({
       tenancyMode: "personal",
       roleCatalog: createRoleCatalog()
-    },
+    }),
     workspacesRepository: {
       async findBySlug() {
         return {

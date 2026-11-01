@@ -5,7 +5,6 @@ import { resolveInviteTokenHash, buildInviteToken, hashInviteToken } from "@jski
 import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import { AppError, createValidationError } from "@jskit-ai/kernel/server/runtime/errors";
 import { OWNER_ROLE_ID, cloneWorkspaceRoleCatalog } from "../../shared/roles.js";
-import { createWorkspacesServerI18n } from "../i18n.js";
 
 const DEFAULT_LOCALE = "en";
 
@@ -17,43 +16,37 @@ function roleNotAssignableError() {
 
 /**
  * @param {object} dependencies
- * @param {ReturnType<typeof import("../common/repositories/workspaceMembershipsRepository.js").createRepository>} dependencies.workspaceMembershipsRepository
- * @param {ReturnType<typeof import("../common/repositories/workspaceInvitesRepository.js").createRepository>} dependencies.workspaceInvitesRepository
+ * @param {import("../types.js").WorkspaceMembershipsRepository} dependencies.workspaceMembershipsRepository
+ * @param {import("../types.js").WorkspaceInvitesRepository} dependencies.workspaceInvitesRepository
  * @param {number} dependencies.inviteExpiresInMs
- * @param {ReturnType<typeof import("../../shared/roles.js").createWorkspaceRoleCatalog>} dependencies.roleCatalog
- * @param {boolean} [dependencies.workspaceInvitationsEnabled]
+ * @param {import("../types.js").WorkspaceRoleCatalog} dependencies.roleCatalog
+ * @param {boolean} dependencies.workspaceInvitationsEnabled
  * @param {(invite: { token: string, invite: object, workspace: object }) => string} dependencies.inviteUrlBuilder
  * @param {import("../types.js").WorkspaceInviteMailer} dependencies.workspaceInviteMailer
  * @param {import("../types.js").WorkspaceInviteEmailTemplate} dependencies.workspaceInviteEmailTemplate
- * @param {ReturnType<typeof createWorkspacesServerI18n>} [dependencies.i18n]
- * @param {import("@jskit-ai/users-core/server/types").UsersCore["repositories"]["userProfiles"]} dependencies.userProfilesRepository
- * @param {import("@jskit-ai/users-core/server/types").UsersCore["repositories"]["userSettings"]} dependencies.userSettingsRepository
+ * @param {ReturnType<typeof import("../i18n.js").createWorkspacesServerI18n>} dependencies.i18n
+ * @param {import("@jskit-ai/users-core/server/types").UserProfilesRepository} dependencies.userProfilesRepository
+ * @param {import("@jskit-ai/users-core/server/types").UserSettingsRepository} dependencies.userSettingsRepository
  */
 function createService({
   workspaceMembershipsRepository,
   workspaceInvitesRepository,
   inviteExpiresInMs,
   roleCatalog,
-  workspaceInvitationsEnabled = true,
+  workspaceInvitationsEnabled,
   inviteUrlBuilder,
   workspaceInviteMailer,
   workspaceInviteEmailTemplate,
-  i18n = createWorkspacesServerI18n(),
+  i18n,
   userProfilesRepository,
   userSettingsRepository
 }) {
-  const resolvedInviteExpiresInMs = Number(inviteExpiresInMs);
-  if (!Number.isInteger(resolvedInviteExpiresInMs) || resolvedInviteExpiresInMs < 1) {
-    throw new Error("workspaceMembersService requires inviteExpiresInMs.");
-  }
-
   const assignableRoleIds = Array.isArray(roleCatalog.assignableRoleIds)
     ? [...roleCatalog.assignableRoleIds]
     : [];
-  const resolvedWorkspaceInvitationsEnabled = workspaceInvitationsEnabled === true;
 
   function ensureWorkspaceInvitationsEnabled() {
-    if (resolvedWorkspaceInvitationsEnabled) {
+    if (workspaceInvitationsEnabled) {
       return;
     }
     throw new AppError(403, "Workspace invitations are disabled.", { code: "workspaces.invite.disabled" });
@@ -104,8 +97,10 @@ function createService({
     };
   }
 
-  // A mailer's delivery outcome; the status defaults to "sent".
-  /** @param {unknown} value */
+  /**
+   * A mailer's delivery outcome; the status defaults to "sent".
+   * @param {unknown} value
+   */
   function normalizeInviteDeliveryResult(value) {
     /** @type {{ status?: string, message?: string, messageCode?: string, messageParams?: object, providerMessageId?: string }} */
     const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -284,7 +279,7 @@ function createService({
 
     const token = buildInviteToken();
     const tokenHash = hashInviteToken(token);
-    const expiresAt = new Date(Date.now() + resolvedInviteExpiresInMs).toISOString();
+    const expiresAt = new Date(Date.now() + inviteExpiresInMs).toISOString();
     await workspaceInvitesRepository.lockWorkspaceForInvitations(workspace.id, options);
     await workspaceInvitesRepository.expirePendingByWorkspaceIdAndEmail(workspace.id, email, options);
     const createdInvite = await workspaceInvitesRepository.insert(

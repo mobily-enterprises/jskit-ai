@@ -11,7 +11,9 @@ import { createRepository as invitesRepository } from "../../src/server/common/r
 import { createRepository as membershipsRepository } from "../../src/server/common/repositories/workspaceMembershipsRepository.js";
 import { createRepository as workspacesRepository } from "../../src/server/common/repositories/workspacesRepository.js";
 import { createService as membersService } from "../../src/server/workspaceMembers/workspaceMembersService.js";
+import { createWorkspacesServerI18n } from "../../src/server/i18n.js";
 import { createService as pendingService } from "../../src/server/workspacePendingInvitations/workspacePendingInvitationsService.js";
+import { noInviteAcceptanceParticipant } from "../../src/server/workspacePendingInvitations/noInviteAcceptanceParticipant.js";
 import { createWorkspacePendingInvitationsActions } from "../../src/server/workspacePendingInvitations/workspacePendingInvitationsActions.js";
 import { createWorkspaceInviteUrlBuilder } from "../../src/server/workspaceMembers/workspaceInviteUrls.js";
 import { renderDefaultWorkspaceInviteEmail } from "../../src/server/workspaceMembers/defaultWorkspaceInviteEmail.js";
@@ -80,6 +82,8 @@ export async function verifyInvitationTransactions(t, db) {
     const events = [];
     let failDelivery = false;
     const members = membersService({
+      workspaceInvitationsEnabled: true,
+      i18n: createWorkspacesServerI18n(),
       workspaceInvitesRepository: inviteRepository, workspaceMembershipsRepository: memberships,
       inviteExpiresInMs: 3600000, roleCatalog,
       workspaceInviteMailer: mailer ? { async sendWorkspaceInvite(message, options) {
@@ -96,7 +100,12 @@ export async function verifyInvitationTransactions(t, db) {
       inviteUrlBuilder: createWorkspaceInviteUrlBuilder(),
       workspaceInviteEmailTemplate: renderDefaultWorkspaceInviteEmail
     });
-    const pending = pendingService({ workspaceInvitesRepository: inviteRepository, workspaceMembershipsRepository: memberships, roleCatalog: createWorkspaceRoleCatalog() });
+    // Each test chooses the application's acceptance participant.
+    let participant = noInviteAcceptanceParticipant;
+    const pending = pendingService({
+      workspaceInvitesRepository: inviteRepository, workspaceMembershipsRepository: memberships, roleCatalog: createWorkspaceRoleCatalog(),
+      acceptanceParticipant: (...args) => participant(...args)
+    });
     const options = { context: { actor: user, channel: "api", permissions: ["workspace.members.invite"] } };
     const payload = { email: user.email, roleSid: "member" };
     const actions = createActionCatalogue({ events: { async publish(event) { events.push(event); } } });
@@ -151,7 +160,8 @@ export async function verifyInvitationTransactions(t, db) {
       assert.equal(events.length, 0);
     }
     return { user, owner, workspace, draftId, draft, invitation, assertUnlinked, members, pending, redeem, events,
-      delivered, options, payload, prepareOnce, applyAssociation, failDelivery() { failDelivery = true; } };
+      delivered, options, payload, prepareOnce, applyAssociation, failDelivery() { failDelivery = true; },
+      participate(fn) { participant = fn; } };
   }
 
   await t.test("ordinary creation commits before controlled delivery and built-in acceptance", async () => {
@@ -169,7 +179,7 @@ export async function verifyInvitationTransactions(t, db) {
     const f = await fixture({ mailer: false });
     const created = (await f.members.createInvite(f.workspace, f.owner, f.payload)).value;
     assert.equal(created.inviteDelivery.status, "mailer_unconfigured");
-    f.pending.registerAcceptanceParticipant(f.applyAssociation);
+    f.participate(f.applyAssociation);
     await f.redeem(created);
     assert.equal((await f.invitation(created)).status, "accepted");
     assert.equal((await f.draft()).user_id, null);
@@ -197,7 +207,7 @@ export async function verifyInvitationTransactions(t, db) {
       ...receipt, email: "other@example.test", roleSid: "owner", inviteUrl: "https://untrusted.example"
     });
     assert.equal(sent.createdInviteId, prepared.createdInviteId);
-    f.pending.registerAcceptanceParticipant(f.applyAssociation);
+    f.participate(f.applyAssociation);
     await f.redeem(sent);
     const linked = await f.draft();
     assert.equal(String(linked.user_id), f.user.id);
@@ -209,7 +219,7 @@ export async function verifyInvitationTransactions(t, db) {
   await t.test("participant failure rolls back membership, identity, training, scopes, audit and status", async () => {
     const f = await fixture();
     const prepared = await f.prepareOnce();
-    f.pending.registerAcceptanceParticipant(async (...args) => {
+    f.participate(async (...args) => {
       await f.applyAssociation(...args);
       throw new Error("Controlled audit failure");
     });
@@ -228,7 +238,7 @@ export async function verifyInvitationTransactions(t, db) {
     } } });
     const prepared = await f.prepareOnce();
     await memberships.upsertMembership(f.workspace.id, f.user.id, { roleSid: "existing-role", status: "revoked" });
-    f.pending.registerAcceptanceParticipant(f.applyAssociation);
+    f.participate(f.applyAssociation);
     await assert.rejects(f.redeem(prepared), /final status failure/);
     const previous = await memberships.findByWorkspaceIdAndUserId(f.workspace.id, f.user.id);
     assert.equal(previous.roleSid, "existing-role");
@@ -243,7 +253,7 @@ export async function verifyInvitationTransactions(t, db) {
   await t.test("acceptance completion failure reports committed and retains all accepted writes", async () => {
     const f = await fixture();
     const prepared = await f.prepareOnce();
-    f.pending.registerAcceptanceParticipant(f.applyAssociation);
+    f.participate(f.applyAssociation);
     failCompletionForMethod = "patch";
     try {
       await assert.rejects(f.redeem(prepared), (error) => error.transactionOutcome === "committed");
@@ -292,7 +302,7 @@ export async function verifyInvitationTransactions(t, db) {
           : { review_state: state };
       await db("test_invitation_drafts").where({ id: f.draftId }).update(patch);
       const before = await f.draft();
-      f.pending.registerAcceptanceParticipant(f.applyAssociation);
+      f.participate(f.applyAssociation);
       await assert.rejects(f.redeem(prepared), (error) => error.transactionOutcome === "rolledBack");
       assert.deepEqual(await f.draft(), before);
       assert.equal(await memberships.findByWorkspaceIdAndUserId(f.workspace.id, f.user.id), null);
@@ -309,9 +319,10 @@ export async function verifyInvitationTransactions(t, db) {
       if (state === "revoked") await f.members.revokeInvite(f.workspace, prepared.createdInviteId);
       if (state === "accepted") await f.redeem(prepared);
       let called = false;
-      // The earlier acceptance closed registration on the original service.
-      const pending = pendingService({ workspaceInvitesRepository: invites, workspaceMembershipsRepository: memberships, roleCatalog: createWorkspaceRoleCatalog() });
-      pending.registerAcceptanceParticipant(async () => { called = true; });
+      const pending = pendingService({
+        workspaceInvitesRepository: invites, workspaceMembershipsRepository: memberships, roleCatalog: createWorkspaceRoleCatalog(),
+        acceptanceParticipant: async () => { called = true; }
+      });
       const membershipBefore = await memberships.findByWorkspaceIdAndUserId(f.workspace.id, f.user.id);
       await assert.rejects(pending.acceptInviteByToken({
         user: state === "unauthenticated" ? null : state === "wrong-email" ? f.owner : f.user,
@@ -327,7 +338,7 @@ export async function verifyInvitationTransactions(t, db) {
     const f = await fixture();
     const prepared = await f.prepareOnce();
     let called = false;
-    f.pending.registerAcceptanceParticipant(async () => { called = true; });
+    f.participate(async () => { called = true; });
     await assert.rejects(f.redeem(prepared, "accept", f.owner, { user: f.user, personId: f.draftId, roleSid: "owner" }));
     assert.equal(called, false);
     await f.assertUnlinked(prepared);
@@ -433,7 +444,7 @@ export async function verifyInvitationTransactions(t, db) {
         const f = await fixture({ inviteRepository: repository });
         const prepared = await f.prepareOnce();
         let participation = 0;
-        f.pending.registerAcceptanceParticipant(async (...args) => { participation++; await f.applyAssociation(...args); });
+        f.participate(async (...args) => { participation++; await f.applyAssociation(...args); });
         const compete = () => competitor === "accept" || competitor === "refuse" ? f.redeem(prepared, competitor)
           : competitor === "revoke" ? f.members.revokeInvite(f.workspace, prepared.createdInviteId)
             : f.members.createInvite(f.workspace, f.owner, f.payload);

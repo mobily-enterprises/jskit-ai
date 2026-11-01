@@ -7,26 +7,16 @@ import {
   WORKSPACES_COLLECTION_TRANSPORT,
   WORKSPACES_TRANSPORT
 } from "../../shared/jsonApiTransports.js";
+import { resolveWorkspaceRecordId } from "../common/support/workspaceRecordId.js";
 import { resolveWorkspaceRoutePath } from "../common/support/workspaceRoutePaths.js";
 import { workspaceSlugParamsValidator } from "../common/validators/routeParamsValidator.js";
 import { resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig } from "../support/workspaceActionSurfaces.js";
 
-function resolveWorkspaceRecordId(record = {}, context = {}) {
-  const workspaceId = record?.workspace?.id ?? record?.id;
-  if (workspaceId != null && String(workspaceId).trim()) {
-    return workspaceId;
-  }
-
-  const workspaceSlug = context?.request?.params?.workspaceSlug;
-  if (workspaceSlug != null && String(workspaceSlug).trim()) {
-    return workspaceSlug;
-  }
-
-  throw new Error("Workspace JSON:API response requires workspace id.");
-}
-
-/** @param {import("@jskit-ai/kernel/server/types").RuntimeRouter} router */
-function registerWorkspaceDirectoryRoutes(router, { config = {}, workspaceSelfCreateEnabled = false } = {}) {
+/**
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeRouter} router
+ * @param {{ config: import("@jskit-ai/kernel/server/types").RuntimeConfig, workspaceSelfCreateEnabled: boolean }} options
+ */
+function registerWorkspaceDirectoryRoutes(router, { config, workspaceSelfCreateEnabled }) {
   const workspaceRouteSurfaceId = resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig(config);
 
   if (workspaceSelfCreateEnabled) {

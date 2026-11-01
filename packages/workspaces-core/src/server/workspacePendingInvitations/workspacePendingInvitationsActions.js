@@ -5,7 +5,7 @@ import {
 import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
 import { workspacePendingInvitationsResource } from "../../shared/resources/workspacePendingInvitationsResource.js";
 import { createInviteDecisionEvents } from "../common/support/realtimeServiceEvents.js";
-import { resolveActionUser } from "../common/support/resolveActionUser.js";
+import { resolveActionUser } from "@jskit-ai/users-core/server/resolveActionUser";
 
 const WORKSPACE_INVITE_DECISION_EVENTS = createInviteDecisionEvents();
 

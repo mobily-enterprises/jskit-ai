@@ -1,11 +1,8 @@
-import {
-  emptyInputValidator,
-  resolveRequest
-} from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
+import { emptyInputValidator } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
 import { workspaceResource } from "../../shared/resources/workspaceResource.js";
 import { workspaceSlugParamsValidator } from "../common/validators/routeParamsValidator.js";
-import { resolveActionUser } from "../common/support/resolveActionUser.js";
+import { resolveActionUser } from "@jskit-ai/users-core/server/resolveActionUser";
 
 function workspaceAssistantSummary({ id, slug, name, ownerUserId, avatarUrl }) {
   return { id, slug, name, ownerUserId, avatarUrl };
@@ -44,7 +41,7 @@ function createWorkspaceDirectoryActions({ workspaceService }) {
       execute: (input, context) => workspaceService.createWorkspaceForAuthenticatedUser(
         resolveActionUser(context, input),
         input,
-        { request: resolveRequest(context), context }
+        { context }
       )
     }),
     Object.freeze({
@@ -72,7 +69,7 @@ function createWorkspaceDirectoryActions({ workspaceService }) {
       idempotency: "none",
       execute: (input, context) => workspaceService.listWorkspacesForAuthenticatedUser(
         resolveActionUser(context, input),
-        { request: resolveRequest(context), context }
+        { context }
       )
     }),
     Object.freeze({
@@ -98,7 +95,7 @@ function createWorkspaceDirectoryActions({ workspaceService }) {
       execute: (input, context) => workspaceService.getWorkspaceForAuthenticatedUser(
         resolveActionUser(context, input),
         input.workspaceSlug,
-        { request: resolveRequest(context), context }
+        { context }
       )
     }),
     Object.freeze({
@@ -121,13 +118,11 @@ function createWorkspaceDirectoryActions({ workspaceService }) {
         }
       },
       idempotency: "optional",
-      // The repository writes every field of the patch, so the slug that names
-      // the workspace stays out of it.
-      execute: ({ workspaceSlug, ...patch }, context) => workspaceService.updateWorkspaceForAuthenticatedUser(
-        resolveActionUser(context, patch),
-        workspaceSlug,
-        patch,
-        { request: resolveRequest(context), context }
+      execute: (input, context) => workspaceService.updateWorkspaceForAuthenticatedUser(
+        resolveActionUser(context, input),
+        input.workspaceSlug,
+        input,
+        { context }
       )
     })
   ]);

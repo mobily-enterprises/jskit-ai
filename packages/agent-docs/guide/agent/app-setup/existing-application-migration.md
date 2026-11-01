@@ -237,8 +237,8 @@ Invitation creation, acceptance and refusal now own their managed transactions:
 - Replace `members.createInvite(..., { trx })` with
   `members.prepareInvite(..., { trx })`, save the application association/receipt,
   commit, then call `members.sendInvite(...)` without `trx`.
-- Move related acceptance writes into
-  `pendingInvitations.registerAcceptanceParticipant(fn)` during feature setup.
+- Move related acceptance writes into a function provided as the
+  `workspaces.invite-acceptance-participant` capability.
   Acceptance/refusal reject borrowed transactions; revocation can still join one.
 - Terminal repository transitions reject accepted/revoked invitations. Mailer
   exceptions return a fixed message to keep tokens out of provider diagnostics.

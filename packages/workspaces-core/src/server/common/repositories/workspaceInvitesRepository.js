@@ -79,10 +79,6 @@ function normalizeInviteWithWorkspace(payload = {}) {
 
 /** @param {{ api: import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi }} dependencies */
 function createRepository({ api }) {
-  if (!api?.resources?.workspaceInvites) {
-    throw new TypeError("workspaceInvitesRepository requires json-rest-api workspaceInvites resource.");
-  }
-
   const withTransaction = (work) => retryDeadlocks(() => api.transaction(work));
 
   async function queryInvites(filters = {}, options = {}, { includeWorkspace = false } = {}) {

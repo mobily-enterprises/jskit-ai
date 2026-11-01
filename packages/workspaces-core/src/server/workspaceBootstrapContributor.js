@@ -1,9 +1,6 @@
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeLowerText } from "@jskit-ai/kernel/shared/support/normalize";
-import {
-  TENANCY_MODE_NONE,
-  resolveTenancyProfile
-} from "../shared/tenancyProfile.js";
+import { TENANCY_MODE_NONE } from "../shared/tenancyProfile.js";
 import {
   mapMembershipSummary,
   mapWorkspaceSettingsPublic,
@@ -80,42 +77,22 @@ function resolveRequestedWorkspaceStatusFromError(error) {
   return "";
 }
 
-function resolveBootstrapTenancyProfile(tenancyProfile = null, appConfig = {}) {
-  const fallback = resolveTenancyProfile(appConfig);
-  return Object.freeze({
-    mode: fallback.mode,
-    workspace: Object.freeze({
-      enabled: fallback.workspace.enabled === true,
-      autoProvision: fallback.workspace.autoProvision === true,
-      allowSelfCreate: fallback.workspace.allowSelfCreate === true,
-      slugPolicy: fallback.workspace.slugPolicy
-    })
-  });
-}
-
 /**
  * @param {object} dependencies
  * @param {import("./common/services/workspaceContextService.js").WorkspaceContextService} dependencies.workspaceService
  * @param {import("./workspacePendingInvitations/workspacePendingInvitationsService.js").WorkspacePendingInvitationsService} dependencies.workspacePendingInvitationsService
- * @param {import("@jskit-ai/users-core/server/types").UsersCore["repositories"]["userProfiles"]} dependencies.userProfilesRepository
- * @param {boolean} [dependencies.workspaceInvitationsEnabled]
- * @param {import("@jskit-ai/kernel/server/types").RuntimeConfig} [dependencies.appConfig]
- * @param {object | null} [dependencies.tenancyProfile]
+ * @param {import("@jskit-ai/users-core/server/types").UserProfilesRepository} dependencies.userProfilesRepository
+ * @param {boolean} dependencies.workspaceInvitationsEnabled
+ * @param {import("./types.js").WorkspaceTenancyProfile} dependencies.tenancyProfile
  */
 function createWorkspaceBootstrapContributor({
   workspaceService,
   workspacePendingInvitationsService,
   userProfilesRepository,
-  workspaceInvitationsEnabled = false,
-  appConfig = {},
-  tenancyProfile = null
+  workspaceInvitationsEnabled,
+  tenancyProfile
 }) {
-  const contributorId = "users.workspace.bootstrap";
-  const resolvedTenancyProfile = resolveBootstrapTenancyProfile(tenancyProfile, appConfig);
-
   return Object.freeze({
-    contributorId,
-    order: 200,
     async contribute({ request = null, query = {}, payload = {} } = {}) {
       const inheritedAppState = payload?.app && typeof payload.app === "object" ? payload.app : {};
       const inheritedFeatures =
@@ -126,17 +103,17 @@ function createWorkspaceBootstrapContributor({
       );
       const normalizedWorkspaceSlug = resolveBootstrapWorkspaceSlug({ query, request });
       if (!normalizedUserId) {
-        if (!normalizedWorkspaceSlug || resolvedTenancyProfile.mode === TENANCY_MODE_NONE) {
+        if (!normalizedWorkspaceSlug || tenancyProfile.mode === TENANCY_MODE_NONE) {
           return {};
         }
 
         return {
-          tenancy: resolvedTenancyProfile,
+          tenancy: tenancyProfile,
           app: {
             ...inheritedAppState,
             features: {
               ...inheritedFeatures,
-              workspaceSwitching: normalizeLowerText(resolvedTenancyProfile.mode) !== TENANCY_MODE_NONE,
+              workspaceSwitching: normalizeLowerText(tenancyProfile.mode) !== TENANCY_MODE_NONE,
               workspaceInvites: workspaceInvitationsEnabled === true
             }
           },
@@ -163,7 +140,7 @@ function createWorkspaceBootstrapContributor({
       const workspaces = await workspaceService.listWorkspacesForUser(latestProfile, { request });
       let workspaceContext = null;
       let requestedWorkspace = null;
-      if (normalizedWorkspaceSlug && resolvedTenancyProfile.mode !== TENANCY_MODE_NONE) {
+      if (normalizedWorkspaceSlug && tenancyProfile.mode !== TENANCY_MODE_NONE) {
         try {
           workspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(
             latestProfile,
@@ -184,12 +161,12 @@ function createWorkspaceBootstrapContributor({
       }
 
       return {
-        tenancy: resolvedTenancyProfile,
+        tenancy: tenancyProfile,
         app: {
           ...inheritedAppState,
           features: {
             ...inheritedFeatures,
-            workspaceSwitching: normalizeLowerText(resolvedTenancyProfile.mode) !== TENANCY_MODE_NONE,
+            workspaceSwitching: normalizeLowerText(tenancyProfile.mode) !== TENANCY_MODE_NONE,
             workspaceInvites: workspaceInvitationsEnabled === true
           }
         },

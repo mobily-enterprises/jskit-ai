@@ -9,12 +9,12 @@ import { cloneWorkspaceRoleCatalog } from "../../shared/roles.js";
 
 /**
  * @param {object} dependencies
- * @param {ReturnType<typeof import("./workspaceSettingsRepository.js").createRepository>} dependencies.workspaceSettingsRepository
- * @param {boolean} [dependencies.workspaceInvitationsEnabled]
- * @param {ReturnType<typeof import("../../shared/roles.js").createWorkspaceRoleCatalog>} dependencies.roleCatalog
+ * @param {import("../types.js").WorkspaceSettingsRepository} dependencies.workspaceSettingsRepository
+ * @param {boolean} dependencies.workspaceInvitationsEnabled
+ * @param {import("../types.js").WorkspaceRoleCatalog} dependencies.roleCatalog
  */
-function createService({ workspaceSettingsRepository, workspaceInvitationsEnabled = true, roleCatalog }) {
-  const invitesAvailable = workspaceInvitationsEnabled === true;
+function createService({ workspaceSettingsRepository, workspaceInvitationsEnabled, roleCatalog }) {
+  const invitesAvailable = workspaceInvitationsEnabled;
 
   async function readWorkspaceSettings(workspace, options = {}) {
     const settingsRecord = await workspaceSettingsRepository.ensureForWorkspaceId(workspace.id, {

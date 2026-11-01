@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { encodeInviteTokenHash } from "@jskit-ai/auth-core/shared/inviteTokens";
 import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import { createService } from "../src/server/workspacePendingInvitations/workspacePendingInvitationsService.js";
+import { noInviteAcceptanceParticipant } from "../src/server/workspacePendingInvitations/noInviteAcceptanceParticipant.js";
 import { createWorkspaceRoleCatalog } from "../src/shared/roles.js";
 
 function createFixture({
@@ -56,7 +57,8 @@ function createFixture({
         });
       }
     },
-    roleCatalog: createWorkspaceRoleCatalog()
+    roleCatalog: createWorkspaceRoleCatalog(),
+    acceptanceParticipant: noInviteAcceptanceParticipant
   });
 
   return {
@@ -332,16 +334,6 @@ test("redeemInviteByToken accepts on an accept decision and refuses on any other
   }
 });
 
-test("participant registration rejects invalid, duplicate and late registration", async () => {
-  const { service } = createFixture();
-  assert.throws(() => service.registerAcceptanceParticipant(null), /must be a function/);
-  service.registerAcceptanceParticipant(async () => {});
-  assert.throws(() => service.registerAcceptanceParticipant(async () => {}), /already registered/);
-  const { service: late } = createFixture();
-  await assert.rejects(late.acceptInviteByToken(), /Authentication required/);
-  assert.throws(() => late.registerAcceptanceParticipant(async () => {}), /registration is closed/);
-});
-
 for (const transactionOutcome of ["committed", "unknown", "rolledBack"]) {
   test(`acceptance preserves a ${transactionOutcome} managed completion failure`, async () => {
     const cause = new Error("Completion failed");
@@ -356,7 +348,8 @@ for (const transactionOutcome of ["committed", "unknown", "rolledBack"]) {
         }
       },
       workspaceMembershipsRepository: {},
-      roleCatalog: createWorkspaceRoleCatalog()
+      roleCatalog: createWorkspaceRoleCatalog(),
+      acceptanceParticipant: noInviteAcceptanceParticipant
     });
     await assert.rejects(service.acceptInviteByToken({ user: { id: "1", email: "a@example.test" }, token: "valid-token" }),
       (error) => error === failure && error.cause === cause);

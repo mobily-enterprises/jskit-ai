@@ -7,6 +7,7 @@ import {
   WORKSPACE_ROLE_CATALOG_TRANSPORT
 } from "../../shared/jsonApiTransports.js";
 import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
+import { resolveWorkspaceRecordId } from "../common/support/workspaceRecordId.js";
 import { resolveWorkspaceRoutePath } from "../common/support/workspaceRoutePaths.js";
 import {
   routeParamsValidator,
@@ -14,22 +15,11 @@ import {
 } from "../common/validators/routeParamsValidator.js";
 import { resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig } from "../support/workspaceActionSurfaces.js";
 
-function resolveWorkspaceAggregateRecordId(record = {}, context = {}) {
-  const workspaceId = record?.workspace?.id;
-  if (workspaceId != null && String(workspaceId).trim()) {
-    return workspaceId;
-  }
-
-  const workspaceSlug = context?.request?.params?.workspaceSlug;
-  if (workspaceSlug != null && String(workspaceSlug).trim()) {
-    return workspaceSlug;
-  }
-
-  throw new Error("Workspace JSON:API response requires workspace id.");
-}
-
-/** @param {import("@jskit-ai/kernel/server/types").RuntimeRouter} router */
-function registerWorkspaceMembersRoutes(router, { config = {}, workspaceInvitationsEnabled = false } = {}) {
+/**
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeRouter} router
+ * @param {{ config: import("@jskit-ai/kernel/server/types").RuntimeConfig, workspaceInvitationsEnabled: boolean }} options
+ */
+function registerWorkspaceMembersRoutes(router, { config, workspaceInvitationsEnabled }) {
   const workspaceRouteSurfaceId = resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig(config);
 
   router.register(
@@ -49,7 +39,7 @@ function registerWorkspaceMembersRoutes(router, { config = {}, workspaceInvitati
         ...WORKSPACE_ROLE_CATALOG_TRANSPORT,
         output: workspaceMembersResource.operations.rolesList.output,
         outputKind: "record",
-        getRecordId: resolveWorkspaceAggregateRecordId
+        getRecordId: resolveWorkspaceRecordId
       })
     },
     async function (request, reply) {
@@ -80,7 +70,7 @@ function registerWorkspaceMembersRoutes(router, { config = {}, workspaceInvitati
         ...WORKSPACE_MEMBERS_TRANSPORT,
         output: workspaceMembersResource.operations.membersList.output,
         outputKind: "record",
-        getRecordId: resolveWorkspaceAggregateRecordId
+        getRecordId: resolveWorkspaceRecordId
       })
     },
     async function (request, reply) {
@@ -112,7 +102,7 @@ function registerWorkspaceMembersRoutes(router, { config = {}, workspaceInvitati
         body: workspaceMembersResource.operations.updateMemberRole.body,
         output: workspaceMembersResource.operations.updateMemberRole.output,
         outputKind: "record",
-        getRecordId: resolveWorkspaceAggregateRecordId,
+        getRecordId: resolveWorkspaceRecordId,
         includeValidation400: true
       })
     },
@@ -146,7 +136,7 @@ function registerWorkspaceMembersRoutes(router, { config = {}, workspaceInvitati
         ...WORKSPACE_MEMBERS_TRANSPORT,
         output: workspaceMembersResource.operations.removeMember.output,
         outputKind: "record",
-        getRecordId: resolveWorkspaceAggregateRecordId
+        getRecordId: resolveWorkspaceRecordId
       })
     },
     async function (request, reply) {
@@ -179,7 +169,7 @@ function registerWorkspaceMembersRoutes(router, { config = {}, workspaceInvitati
           ...WORKSPACE_INVITES_TRANSPORT,
           output: workspaceMembersResource.operations.invitesList.output,
           outputKind: "record",
-          getRecordId: resolveWorkspaceAggregateRecordId
+          getRecordId: resolveWorkspaceRecordId
         })
       },
       async function (request, reply) {
@@ -211,7 +201,7 @@ function registerWorkspaceMembersRoutes(router, { config = {}, workspaceInvitati
           body: workspaceMembersResource.operations.createInvite.body,
           output: workspaceMembersResource.operations.createInvite.output,
           outputKind: "record",
-          getRecordId: resolveWorkspaceAggregateRecordId,
+          getRecordId: resolveWorkspaceRecordId,
           includeValidation400: true
         })
       },
@@ -245,7 +235,7 @@ function registerWorkspaceMembersRoutes(router, { config = {}, workspaceInvitati
           ...WORKSPACE_INVITES_TRANSPORT,
           output: workspaceMembersResource.operations.revokeInvite.output,
           outputKind: "record",
-          getRecordId: resolveWorkspaceAggregateRecordId
+          getRecordId: resolveWorkspaceRecordId
         })
       },
       async function (request, reply) {

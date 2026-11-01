@@ -56,13 +56,23 @@ config.tenancyPolicy = {
 Provisioning runs in the users profile-sync lifecycle after registration and
 sign-in. The first run creates the personal workspace, its owner membership and
 its settings; later runs reuse it. The default name is the user's display name,
-or email, followed by "'s Workspace". Set `personalWorkspaceName` in
-`config/server.js` to choose another; it receives the synchronized profile
-(`id`, `displayName`, `email`, `username`), and an empty result keeps the default:
+or email, followed by "'s Workspace". To choose another, provide the
+`workspaces.personal-workspace-name` capability from an application feature. It
+receives the synchronized profile (`id`, `displayName`, `email`, `username`), and
+an empty result keeps the default:
 
 ```js
-// config/server.js
-config.personalWorkspaceName = (user) => `${user.displayName || user.email}'s home`;
+import { defineFeature } from "@jskit-ai/kernel/server/features";
+
+const AppPersonalWorkspaceNameFeature = defineFeature({
+  id: "app.personal-workspace-name",
+  provides: {
+    personalWorkspaceName: "workspaces.personal-workspace-name"
+  },
+  setup() {
+    return { personalWorkspaceName: (user) => `${user.displayName || user.email}'s home` };
+  }
+});
 ```
 
 ### Development sign-in
@@ -170,9 +180,11 @@ const InviteMailerProvider = defineProvider({
 });
 ```
 
-`workspaceInviteEmailTemplate` is an optional function that renders that inner
-message; it receives `{ email, inviteUrl, workspace, inviter, roleSid,
-roleLabel, expiresAt }` (`roleLabel` only when configured). Invitation links use `/invite/:token` unless
+The optional `workspaces.invite-email-template` capability is a function that
+renders that inner message; it receives `{ email, inviteUrl, workspace, inviter,
+roleSid, roleLabel, expiresAt, locale, t }` (`roleLabel` only when configured).
+Provide it from an application feature, as for the mailer; without it the
+built-in template renders the message. Invitation links use `/invite/:token` unless
 `workspaceInvitations.invitePath` names another path. The
 `workspaces/workspace-server` pattern includes an example renderer.
 
@@ -266,7 +278,7 @@ authorization and role checks. Do not pass arbitrary HTTP input as options.
 | `workspaces.services.members.prepareInvite(workspace, actor, payload, options)` | Requires a managed `options.trx`. Validates the invitation role, replaces pending invitations for that workspace/email, and returns `{ createdInviteId, inviteTokenPreview }`. Never sends. |
 | `workspaces.services.members.sendInvite(workspace, actor, prepared, options)` | Requires no `options.trx`. Reloads the committed pending invitation and workspace display data, validates expiry and token correspondence, and sends that invitation without replacement. |
 | `workspaces.services.members.createInvite(workspace, actor, payload, options)` | Owns preparation and commit, then calls `sendInvite`, and answers with `sendInvite`'s result as JSON:API data (`returnJsonApiData`, read it from `.value`), as the invite action sends it. Rejects `options.trx`. |
-| `workspaces.services.pendingInvitations.registerAcceptanceParticipant(fn)` | Registers one application callback receiving `({ invite, user }, options)`. Invalid, duplicate and late registration reject. |
+| `workspaces.invite-acceptance-participant` (optional capability) | One application function receiving `({ invite, user }, options)` inside the acceptance transaction. Without it, acceptance activates the membership only. |
 
 `sendInvite` accepts `{ createdInviteId, inviteTokenPreview }` from preparation or
 only `{ createdInviteId }` for a later attempt. The latter uses JSKIT's existing
@@ -279,30 +291,34 @@ diagnostics and administrative receipts; save the invitation ID in the receipt.
 
 ### Preparation, association, commit and controlled delivery
 
-Declare `workspaces: "workspaces.core"` in the application's feature `requires`.
-In this example, `reviewedPeople`, `people`, `scopes` and `audit` are application
-services. Each forwards the supplied transaction to its repositories.
+The acceptance participant comes from a small application feature that provides
+`workspaces.invite-acceptance-participant` and requires only what its writes need.
+It cannot require `workspaces.core`, which receives it. In this example,
+`reviewedPeople`, `people`, `scopes` and `audit` are application services. Each
+forwards the supplied transaction to its repositories.
 
 ```js
-// During application Feature.setup, before serving requests:
-const { members, pendingInvitations } = workspaces.services;
+// An application feature providing "workspaces.invite-acceptance-participant":
+setup: ({ reviewedPeople, people, scopes, audit }) => ({
+  inviteAcceptanceParticipant: async ({ invite, user }, options) => {
+    // Resolve from the exact validated invitation, never a client person ID.
+    const association = await reviewedPeople.resolveInvitation(invite.id, options);
+    if (association.kind === "ordinary") return;
+    await reviewedPeople.requireCurrentReview(association, {
+      workspaceId: invite.workspaceId,
+      user,
+      roleSid: invite.roleSid
+    }, options);
+    await people.linkAccountAndTraining(association.personId, user.id, options);
+    await scopes.applyReviewedAccess(association, user.id, options);
+    await audit.recordInvitationAcceptance(association, user.id, options);
+  }
+})
+
+// Inside an authorized application command, in a feature that requires
+// workspaces: "workspaces.core":
+const { members } = workspaces.services;
 const invites = workspaces.repositories.workspaceInvites;
-
-pendingInvitations.registerAcceptanceParticipant(async ({ invite, user }, options) => {
-  // Resolve from the exact validated invitation, never a client person ID.
-  const association = await reviewedPeople.resolveInvitation(invite.id, options);
-  if (association.kind === "ordinary") return;
-  await reviewedPeople.requireCurrentReview(association, {
-    workspaceId: invite.workspaceId,
-    user,
-    roleSid: invite.roleSid
-  }, options);
-  await people.linkAccountAndTraining(association.personId, user.id, options);
-  await scopes.applyReviewedAccess(association, user.id, options);
-  await audit.recordInvitationAcceptance(association, user.id, options);
-});
-
-// Inside an authorized application command:
 const prepared = await invites.withTransaction(async (trx) => {
   const options = { trx, context };
   // Match acceptance's order: workspace, then application draft/receipt rows.
@@ -425,9 +441,9 @@ npm run verify
 ```
 
 Run the application's `npm run jskit:update`, restart its backend and verify that
-`members.prepareInvite`, `members.sendInvite` and
-`pendingInvitations.registerAcceptanceParticipant` are functions on the installed
-`workspaces.core` capability. The first release containing this contract pairs
+`members.prepareInvite` and `members.sendInvite` are functions on the installed
+`workspaces.core` capability, and that the application feature providing
+`workspaces.invite-acceptance-participant` is installed. The first release containing this contract pairs
 `@jskit-ai/workspaces-core@0.1.198`, `@jskit-ai/jskit-catalog@0.1.245` and
 `@jskit-ai/agent-docs@0.1.192`. Upgrade the coordinated dependency graph, then run
 the application's identity, training, permission, privacy and browser tests.

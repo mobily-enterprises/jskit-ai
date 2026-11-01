@@ -7,6 +7,8 @@ import { workspaceMembersResource } from "../src/shared/resources/workspaceMembe
 import { workspaceSettingsResource, WORKSPACE_SETTINGS_FIELD_KEYS } from "../src/shared/resources/workspaceSettingsResource.js";
 import { workspacePendingInvitationsResource } from "../src/shared/resources/workspacePendingInvitationsResource.js";
 import { createService as createMembersService } from "../src/server/workspaceMembers/workspaceMembersService.js";
+import { createWorkspacesServerI18n } from "../src/server/i18n.js";
+import { noInviteAcceptanceParticipant } from "../src/server/workspacePendingInvitations/noInviteAcceptanceParticipant.js";
 import { createService as createSettingsService } from "../src/server/workspaceSettings/workspaceSettingsService.js";
 import { createService as createPendingService } from "../src/server/workspacePendingInvitations/workspacePendingInvitationsService.js";
 import { renderDefaultWorkspaceInviteEmail } from "../src/server/workspaceMembers/defaultWorkspaceInviteEmail.js";
@@ -61,6 +63,8 @@ test("missing, whitespace and non-string labels retain the original descriptor s
 test("Members and Invitations response validation preserves labels and saved role IDs", async () => {
   let savedRole = "worker";
   const service = createMembersService({
+    workspaceInvitationsEnabled: true,
+    i18n: createWorkspacesServerI18n(),
     roleCatalog: catalog,
     inviteExpiresInMs: 60_000,
     workspaceMembershipsRepository: {
@@ -92,6 +96,7 @@ test("Members and Invitations response validation preserves labels and saved rol
 
 test("Workspace Settings response validation preserves configured labels", async () => {
   const service = createSettingsService({
+    workspaceInvitationsEnabled: true,
     roleCatalog: catalog,
     workspaceSettingsRepository: {
       async ensureForWorkspaceId() {
@@ -111,6 +116,7 @@ test("pending and resolved invitation responses derive labels while acceptance s
   const invite = { id: "10", workspaceId: "7", workspaceSlug: "example", workspaceName: "Example", roleSid: "safety_manager", status: "pending", email: "person@example.com", expiresAt: "2099-01-01T00:00:00.000Z", tokenHash };
   let membership;
   const service = createPendingService({
+    acceptanceParticipant: noInviteAcceptanceParticipant,
     roleCatalog: catalog,
     workspaceInvitesRepository: {
       async listPendingByEmail() { return [invite]; },

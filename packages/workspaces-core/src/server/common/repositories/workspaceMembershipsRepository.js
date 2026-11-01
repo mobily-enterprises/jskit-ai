@@ -59,10 +59,6 @@ function normalizeMemberSummaryRow(row) {
 
 /** @param {{ api: import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi }} dependencies */
 function createRepository({ api }) {
-  if (!api?.resources?.workspaceMemberships) {
-    throw new TypeError("workspaceMembershipsRepository requires json-rest-api workspaceMemberships resource.");
-  }
-
   const withTransaction = (work) => retryDeadlocks(() => api.transaction(work));
 
   async function queryMemberships(filters = {}, options = {}, { include = [] } = {}) {

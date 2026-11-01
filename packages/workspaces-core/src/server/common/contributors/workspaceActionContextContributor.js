@@ -1,3 +1,4 @@
+import { resolveRequest } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import {
@@ -6,43 +7,26 @@ import {
   ROUTE_VISIBILITY_WORKSPACE,
   ROUTE_VISIBILITY_WORKSPACE_USER
 } from "@jskit-ai/kernel/shared/support/visibility";
-import { resolveActionUser } from "../support/resolveActionUser.js";
+import { resolveActionUser } from "@jskit-ai/users-core/server/resolveActionUser";
 const WORKSPACE_VISIBILITY_ACTION_CONTEXT_SET = new Set([
   ROUTE_VISIBILITY_WORKSPACE,
   ROUTE_VISIBILITY_WORKSPACE_USER
 ]);
 
-function normalizeWorkspaceSurfaceIds(surfaceIds = []) {
-  const source = Array.isArray(surfaceIds) ? surfaceIds : [];
-  const normalized = new Set();
-
-  for (const entry of source) {
-    const surfaceId = normalizeSurfaceId(entry);
-    if (!surfaceId) {
-      continue;
-    }
-    normalized.add(surfaceId);
-  }
-
-  return normalized;
-}
-
 /**
  * @param {object} dependencies
  * @param {import("../services/workspaceContextService.js").WorkspaceContextService} dependencies.workspaceService
- * @param {string[]} [dependencies.workspaceMembershipOptionalSurfaceIds]
- * @param {string[]} [dependencies.workspaceSurfaceIds]
+ * @param {string[]} dependencies.workspaceMembershipOptionalSurfaceIds The surfaces' normalized ids.
+ * @param {string[]} dependencies.workspaceSurfaceIds The surfaces' normalized ids.
  */
 function createWorkspaceActionContextContributor({
   workspaceService,
-  workspaceMembershipOptionalSurfaceIds = [],
-  workspaceSurfaceIds = []
+  workspaceMembershipOptionalSurfaceIds,
+  workspaceSurfaceIds
 }) {
   const contributorId = "workspaces.context";
-  const workspaceMembershipOptionalSurfaceIdSet = normalizeWorkspaceSurfaceIds(
-    workspaceMembershipOptionalSurfaceIds
-  );
-  const workspaceSurfaceIdSet = normalizeWorkspaceSurfaceIds(workspaceSurfaceIds);
+  const workspaceMembershipOptionalSurfaceIdSet = new Set(workspaceMembershipOptionalSurfaceIds);
+  const workspaceSurfaceIdSet = new Set(workspaceSurfaceIds);
 
   return Object.freeze({
     contributorId,
@@ -52,7 +36,7 @@ function createWorkspaceActionContextContributor({
         return {};
       }
 
-      const request = context?.requestMeta?.request || null;
+      const request = resolveRequest(context);
       const actionSurfaces = Array.isArray(definition?.surfaces) ? definition.surfaces : [];
       const hasWorkspaceActionSurface = actionSurfaces.some((surfaceId) => workspaceSurfaceIdSet.has(surfaceId));
       const routeSurfaceId = normalizeSurfaceId(request?.routeOptions?.config?.surface);

@@ -56,6 +56,9 @@ const workspacePatchBodySchema = createSchema({
   }
 });
 
+// The fields a workspace patch may change.
+const WORKSPACE_PATCH_FIELD_KEYS = Object.freeze(["name", "avatarUrl"]);
+
 const workspaceListItemOutputValidator = createSchemaDefinition(workspaceListItemSchema, "replace");
 
 const resource = defineCrudResource({
@@ -146,4 +149,4 @@ const resource = defineCrudResource({
 });
 
 export { resource as workspaceResource };
-export { workspaceListItemOutputValidator };
+export { WORKSPACE_PATCH_FIELD_KEYS, workspaceListItemOutputValidator };

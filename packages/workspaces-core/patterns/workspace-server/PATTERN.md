@@ -24,8 +24,8 @@ Choose workspace creation policy, roles, invitation policy, expiry, email copy,
 member permissions, personal-workspace behavior, and surface access rules.
 
 In `workspaces` mode, `tenancyPolicy.workspace.autoProvision: true` gives every
-user a personal workspace in addition to shared ones; the server config function
-`personalWorkspaceName(user)` names it. `workspaceSettings.defaults` sets
+user a personal workspace in addition to shared ones; the optional
+`workspaces.personal-workspace-name` capability, a function of the user, names it. `workspaceSettings.defaults` sets
 `invitesEnabled` and the colours (`lightPrimaryColor`, `darkPrimaryColor` and
 the other palette fields) that new workspaces start with.
 
@@ -63,16 +63,16 @@ catalogue entries. Updating labels requires no database migration.
 
 ## Transactional invitation participation
 
-Through `workspaces.core`, register one callback during feature setup with
-`workspaces.services.pendingInvitations.registerAcceptanceParticipant(fn)`.
-The built-in `workspace.invite.redeem` action invokes
-`fn({ invite, user }, { trx, context })` after validating the recipient, state and
-expiry and activating membership in the uncommitted transaction. Forward `trx`
-to every application owner and propagate failures. JSKIT marks accepted and
-commits after the callback succeeds. Keep external effects out of the callback.
-Registration rejects non-functions, duplicates and calls after acceptance/refusal
-begins. Allow ordinary invitations; reject stale, revoked, conflicting or
-unexpectedly missing application associations.
+Provide one function as the optional `workspaces.invite-acceptance-participant`
+capability, from a small application feature that requires only what its writes
+need (it cannot require `workspaces.core`, which receives it). The built-in
+`workspace.invite.redeem` action invokes `fn({ invite, user }, { trx, context })`
+after validating the recipient, state and expiry and activating membership in the
+uncommitted transaction. Forward `trx` to every application owner and propagate
+failures. JSKIT marks accepted and commits after the function succeeds. Keep
+external effects out of it. Without the capability, acceptance activates the
+membership only. Allow ordinary invitations; reject stale, revoked, conflicting
+or unexpectedly missing application associations.
 
 Use `members.prepareInvite(workspace, actor,
 payload, { trx, context })` in `repositories.workspaceInvites.withTransaction`

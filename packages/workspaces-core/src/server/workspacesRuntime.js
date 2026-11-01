@@ -15,7 +15,6 @@ import { createRepository as createWorkspaceMembershipsRepository } from "./comm
 import { createRepository as createWorkspacesRepository } from "./common/repositories/workspacesRepository.js";
 import { createService as createWorkspaceService } from "./common/services/workspaceContextService.js";
 import { createWorkspacesServerI18n } from "./i18n.js";
-import { renderDefaultWorkspaceInviteEmail } from "./workspaceMembers/defaultWorkspaceInviteEmail.js";
 import { createWorkspaceInviteUrlBuilder } from "./workspaceMembers/workspaceInviteUrls.js";
 import { createService as createWorkspaceMembersService } from "./workspaceMembers/workspaceMembersService.js";
 import { createService as createWorkspacePendingInvitationsService } from "./workspacePendingInvitations/workspacePendingInvitationsService.js";
@@ -56,26 +55,6 @@ function requireWorkspaceColorDefaults(defaults) {
   return colors;
 }
 
-// The invite mailer arrives as the `workspaces.invite-mailer` capability. Config
-// once carried it, so a config mailer is refused rather than silently unused.
-function rejectConfigInviteMailer(config) {
-  if (config.workspaceInviteMailer !== undefined) {
-    throw new TypeError(
-      "runtime.config.workspaceInviteMailer is no longer read: provide the invite mailer as the " +
-        '"workspaces.invite-mailer" capability from an application provider instead.'
-    );
-  }
-}
-
-function resolveInviteEmailTemplate(config) {
-  const template =
-    config.workspaceInviteEmailTemplate ||
-    config.workspaceInviteEmailRenderer ||
-    config.workspaceInvitations?.emailTemplate ||
-    config.workspaceInvitations?.emailRenderer;
-  return typeof template === "function" ? template : renderDefaultWorkspaceInviteEmail;
-}
-
 /** @param {import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi} jsonRestApi */
 async function installWorkspaceResources(jsonRestApi) {
   const scopeOptions = { writeSerializers: { "datetime-utc": toDatabaseDateTimeUtc } };
@@ -101,21 +80,33 @@ async function installWorkspaceResources(jsonRestApi) {
   );
 }
 
-// The `workspaces.core` capability: the workspace repositories and services,
-// built from the runtime config.
 /**
+ * The `workspaces.core` capability: the workspace repositories and services,
+ * built from the runtime config.
  * @param {object} dependencies
  * @param {import("@jskit-ai/kernel/server/types").RuntimeAppRoot} dependencies.appRoot
  * @param {import("@jskit-ai/kernel/server/types").RuntimeConfig} dependencies.config
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} dependencies.env
  * @param {import("./types.js").WorkspaceInviteMailer} dependencies.inviteMailer
+ * @param {import("./types.js").WorkspaceInviteEmailTemplate} dependencies.inviteEmailTemplate
+ * @param {import("./types.js").WorkspaceInviteAcceptanceParticipant} dependencies.inviteAcceptanceParticipant
+ * @param {import("./types.js").PersonalWorkspaceName} dependencies.personalWorkspaceName
  * @param {import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi} dependencies.jsonRestApi
  * @param {import("@jskit-ai/users-core/server/types").UsersCore} dependencies.users
  */
-function createWorkspacesRuntime({ appRoot, config, env, inviteMailer, jsonRestApi, users }) {
-  rejectConfigInviteMailer(config);
+function createWorkspacesRuntime({
+  appRoot,
+  config,
+  env,
+  inviteMailer,
+  inviteEmailTemplate,
+  inviteAcceptanceParticipant,
+  personalWorkspaceName,
+  jsonRestApi,
+  users
+}) {
   const tenancyProfile = resolveTenancyProfile(config);
-  const invitationsPolicy = resolveWorkspaceInvitationsPolicy({ config, appConfig: config, tenancyProfile });
+  const invitationsPolicy = resolveWorkspaceInvitationsPolicy({ appConfig: config, tenancyProfile });
   const invitationsEnabled = invitationsPolicy.enabled === true;
   const roleCatalog = createWorkspaceRoleCatalog(config);
   const workspaceSettingsRepository = createWorkspaceSettingsRepository({
@@ -130,7 +121,9 @@ function createWorkspacesRuntime({ appRoot, config, env, inviteMailer, jsonRestA
   const workspaceMembershipsRepository = createWorkspaceMembershipsRepository({ api: jsonRestApi });
   const workspaceInvitesRepository = createWorkspaceInvitesRepository({ api: jsonRestApi });
   const workspaceService = createWorkspaceService({
-    appConfig: config,
+    tenancyProfile,
+    roleCatalog,
+    personalWorkspaceName,
     workspacesRepository,
     workspaceMembershipsRepository,
     workspaceSettingsRepository
@@ -138,7 +131,8 @@ function createWorkspacesRuntime({ appRoot, config, env, inviteMailer, jsonRestA
   const workspacePendingInvitationsService = createWorkspacePendingInvitationsService({
     workspaceInvitesRepository,
     workspaceMembershipsRepository,
-    roleCatalog
+    roleCatalog,
+    acceptanceParticipant: inviteAcceptanceParticipant
   });
   const workspaceMembersService = createWorkspaceMembersService({
     workspaceMembershipsRepository,
@@ -151,7 +145,7 @@ function createWorkspacesRuntime({ appRoot, config, env, inviteMailer, jsonRestA
     workspaceInvitationsEnabled: invitationsEnabled,
     inviteUrlBuilder: createWorkspaceInviteUrlBuilder({ appConfig: config, env }),
     workspaceInviteMailer: inviteMailer,
-    workspaceInviteEmailTemplate: resolveInviteEmailTemplate(config),
+    workspaceInviteEmailTemplate: inviteEmailTemplate,
     i18n: createWorkspacesServerI18n({ appRoot }),
     userProfilesRepository: users.repositories.userProfiles,
     userSettingsRepository: users.repositories.userSettings

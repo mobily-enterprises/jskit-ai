@@ -1,33 +1,25 @@
-import {
-  TENANCY_MODE_NONE,
-  TENANCY_MODE_PERSONAL,
-  normalizeTenancyMode
-} from "../../shared/tenancyMode.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { TENANCY_MODE_PERSONAL } from "../../shared/tenancyMode.js";
 
-function normalizeWorkspaceInvitationsConfig(appConfig = {}) {
-  const source = appConfig && typeof appConfig === "object" && !Array.isArray(appConfig)
-    ? appConfig.workspaceInvitations
-    : null;
-  const normalizedSource = source && typeof source === "object" && !Array.isArray(source)
-    ? source
-    : {};
+/** @param {import("@jskit-ai/kernel/server/types").RuntimeConfig} appConfig */
+function normalizeWorkspaceInvitationsConfig(appConfig) {
+  const source = isRecord(appConfig.workspaceInvitations) ? appConfig.workspaceInvitations : {};
 
   return Object.freeze({
-    enabled: normalizedSource.enabled !== false,
-    allowInPersonalMode: normalizedSource.allowInPersonalMode !== false
+    enabled: source.enabled !== false,
+    allowInPersonalMode: source.allowInPersonalMode !== false
   });
 }
 
-function resolveWorkspaceInvitationsPolicy({
-  appConfig = {},
-  tenancyProfile = null
-} = {}) {
+/**
+ * @param {object} options
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeConfig} options.appConfig
+ * @param {import("../types.js").WorkspaceTenancyProfile} options.tenancyProfile
+ */
+function resolveWorkspaceInvitationsPolicy({ appConfig, tenancyProfile }) {
   const config = normalizeWorkspaceInvitationsConfig(appConfig);
-  const normalizedTenancyProfile = tenancyProfile && typeof tenancyProfile === "object"
-    ? tenancyProfile
-    : {};
-  const tenancyMode = normalizeTenancyMode(normalizedTenancyProfile.mode || appConfig?.tenancyMode);
-  const workspaceEnabled = normalizedTenancyProfile?.workspace?.enabled === true || tenancyMode !== TENANCY_MODE_NONE;
+  const tenancyMode = tenancyProfile.mode;
+  const workspaceEnabled = tenancyProfile.workspace.enabled === true;
   const enabledForTenancyMode = tenancyMode !== TENANCY_MODE_PERSONAL || config.allowInPersonalMode === true;
   const enabled = config.enabled === true && workspaceEnabled && enabledForTenancyMode;
 
@@ -39,7 +31,4 @@ function resolveWorkspaceInvitationsPolicy({
   });
 }
 
-export {
-  normalizeWorkspaceInvitationsConfig,
-  resolveWorkspaceInvitationsPolicy
-};
+export { resolveWorkspaceInvitationsPolicy };

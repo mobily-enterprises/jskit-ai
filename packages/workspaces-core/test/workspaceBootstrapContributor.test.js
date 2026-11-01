@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createWorkspaceBootstrapContributor } from "../src/server/workspaceBootstrapContributor.js";
+import { resolveTenancyProfile } from "../src/shared/tenancyProfile.js";
 
 function createAuthenticatedProfile(overrides = {}) {
   return {
@@ -41,9 +42,9 @@ test("workspace bootstrap contributor passes actor context to pending invites se
       }
     },
     workspaceInvitationsEnabled: true,
-    appConfig: {
+    tenancyProfile: resolveTenancyProfile({
       tenancyMode: "workspaces"
-    }
+    })
   });
 
   await contributor.contribute({
@@ -84,9 +85,9 @@ test("workspace bootstrap contributor resolves workspace slug from bootstrap que
       }
     },
     workspaceInvitationsEnabled: true,
-    appConfig: {
+    tenancyProfile: resolveTenancyProfile({
       tenancyMode: "workspaces"
-    }
+    })
   });
 
   const payload = await contributor.contribute({
@@ -129,9 +130,9 @@ test("workspace bootstrap contributor reports unauthenticated requested workspac
       }
     },
     workspaceInvitationsEnabled: true,
-    appConfig: {
+    tenancyProfile: resolveTenancyProfile({
       tenancyMode: "workspaces"
-    }
+    })
   });
 
   const payload = await contributor.contribute({

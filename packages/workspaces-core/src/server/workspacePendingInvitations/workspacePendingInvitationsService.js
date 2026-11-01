@@ -7,38 +7,22 @@ import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 
 /**
  * @param {object} dependencies
- * @param {ReturnType<typeof import("../common/repositories/workspaceInvitesRepository.js").createRepository>} dependencies.workspaceInvitesRepository
- * @param {ReturnType<typeof import("../common/repositories/workspaceMembershipsRepository.js").createRepository>} dependencies.workspaceMembershipsRepository
- * @param {ReturnType<typeof import("../../shared/roles.js").createWorkspaceRoleCatalog>} dependencies.roleCatalog
+ * @param {import("../types.js").WorkspaceInvitesRepository} dependencies.workspaceInvitesRepository
+ * @param {import("../types.js").WorkspaceMembershipsRepository} dependencies.workspaceMembershipsRepository
+ * @param {import("../types.js").WorkspaceRoleCatalog} dependencies.roleCatalog
+ * @param {import("../types.js").WorkspaceInviteAcceptanceParticipant} dependencies.acceptanceParticipant
  */
-function createService({ workspaceInvitesRepository, workspaceMembershipsRepository, roleCatalog }) {
-  let acceptanceParticipant = null;
-  let registrationClosed = false;
-
+function createService({ workspaceInvitesRepository, workspaceMembershipsRepository, roleCatalog, acceptanceParticipant }) {
   function roleLabelMetadata(roleSid) {
     const role = roleCatalog.roles.find((entry) => entry.id === (normalizeLowerText(roleSid || "member") || "member"));
     const label = typeof role?.label === "string" ? role.label.trim() : "";
     return label ? { roleLabel: label } : {};
   }
 
-  function registerAcceptanceParticipant(participant) {
-    if (typeof participant !== "function") {
-      throw new TypeError("Acceptance participant must be a function.");
-    }
-    if (acceptanceParticipant) {
-      throw new Error("An invitation acceptance participant is already registered.");
-    }
-    if (registrationClosed) {
-      throw new Error("Invitation acceptance participant registration is closed.");
-    }
-    acceptanceParticipant = participant;
-  }
-
   async function withInviteTransaction(user, token, options, work) {
     if (options.trx) {
       throw new TypeError("Invitation acceptance/refusal owns its transaction; use the acceptance participant for related writes.");
     }
-    registrationClosed = true;
     // Locate outside the transaction to avoid a stale MySQL repeatable-read
     // snapshot. The callback validates again under the workspace/invite locks.
     const initial = await requirePendingInviteForUserByToken(user, token, options);
@@ -275,13 +259,11 @@ function createService({ workspaceInvitesRepository, workspaceMembershipsReposit
         { roleSid: resolvedInvite.invite.roleSid, status: "active" },
         transactionOptions
       );
-      if (acceptanceParticipant) {
-        // Repository locking options stay internal to this service.
-        await acceptanceParticipant({
-          invite: Object.freeze({ ...resolvedInvite.invite }),
-          user: Object.freeze({ ...resolvedInvite.user })
-        }, Object.freeze({ ...options, trx: transactionOptions.trx }));
-      }
+      // Repository locking options stay internal to this service.
+      await acceptanceParticipant({
+        invite: Object.freeze({ ...resolvedInvite.invite }),
+        user: Object.freeze({ ...resolvedInvite.user })
+      }, Object.freeze({ ...options, trx: transactionOptions.trx }));
       await workspaceInvitesRepository.markAcceptedById(resolvedInvite.invite.id, transactionOptions);
       return { decision: "accepted", workspaceId };
     });
@@ -312,7 +294,6 @@ function createService({ workspaceInvitesRepository, workspaceMembershipsReposit
   }
 
   return Object.freeze({
-    registerAcceptanceParticipant,
     resolveInviteByToken,
     resolveInviteContextForAuth,
     listPendingInvitesForUser,

@@ -25,7 +25,7 @@ function workspaceSlugPayload(execution = {}) {
 
 const INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE = Object.freeze({
   preset: "event_scope",
-  /** @param {{ knex: import("knex").Knex, event: { entityId?: unknown } }} input */
+  /** @param {{ knex: import("@jskit-ai/database-runtime/server/types").RuntimeKnex, event: { entityId?: unknown } }} input */
   async userQuery({ knex, event }) {
     const inviteId = normalizeRecordId(event?.entityId, { fallback: null });
     if (!inviteId) return [];

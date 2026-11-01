@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { resolveTenancyProfile } from "../src/shared/tenancyProfile.js";
-import { registerWorkspaceDirectoryRoutes } from "../src/server/workspaceDirectory/bootWorkspaceDirectoryRoutes.js";
-import { registerWorkspaceMembersRoutes } from "../src/server/workspaceMembers/bootWorkspaceMembers.js";
-import { registerWorkspacePendingInvitationsRoutes } from "../src/server/workspacePendingInvitations/bootWorkspacePendingInvitations.js";
-import { registerWorkspaceSettingsRoutes } from "../src/server/workspaceSettings/bootWorkspaceSettings.js";
+import { registerWorkspaceDirectoryRoutes } from "../src/server/workspaceDirectory/workspaceDirectoryRoutes.js";
+import { registerWorkspaceMembersRoutes } from "../src/server/workspaceMembers/workspaceMembersRoutes.js";
+import { registerWorkspacePendingInvitationsRoutes } from "../src/server/workspacePendingInvitations/workspacePendingInvitationsRoutes.js";
+import { registerWorkspaceSettingsRoutes } from "../src/server/workspaceSettings/workspaceSettingsRoutes.js";
 
 function createReplyDouble() {
   return {

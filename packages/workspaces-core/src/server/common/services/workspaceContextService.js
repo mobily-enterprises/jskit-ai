@@ -1,14 +1,8 @@
-import { createHash } from "node:crypto";
 import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
+import { pickOwnProperties } from "@jskit-ai/kernel/shared/support";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import {
-  TENANCY_MODE_NONE,
-  resolveTenancyProfile
-} from "../../../shared/tenancyProfile.js";
-import {
-  resolveRolePermissions,
-  createWorkspaceRoleCatalog
-} from "../../../shared/roles.js";
+import { WORKSPACE_PATCH_FIELD_KEYS } from "../../../shared/resources/workspaceResource.js";
+import { TENANCY_MODE_NONE } from "../../../shared/tenancyProfile.js";
 import {
   mapWorkspaceSummary
 } from "../formatters/workspaceFormatter.js";
@@ -39,6 +33,11 @@ function buildWorkspaceBaseSlug(user = {}) {
   return "workspace";
 }
 
+/**
+ * The `workspaces.personal-workspace-name` default: the user's display name or
+ * email, followed by "'s Workspace".
+ * @type {import("../../types.js").PersonalWorkspaceName}
+ */
 function buildWorkspaceName(user = {}) {
   const displayName = normalizeText(user.displayName);
   if (displayName) {
@@ -51,13 +50,14 @@ function buildWorkspaceName(user = {}) {
   return "Workspace";
 }
 
-function buildPermissionsFromMembership(membership, appConfig = {}) {
-  const roleSid = normalizeLowerText(membership?.roleSid || "member");
-  return resolveRolePermissions(roleSid, appConfig);
-}
-
-function hashInviteToken(token) {
-  return createHash("sha256").update(normalizeText(token)).digest("hex");
+/**
+ * @param {{ roleSid?: string }} membership
+ * @param {import("../../types.js").WorkspaceRoleCatalog} roleCatalog
+ */
+function buildPermissionsFromMembership(membership, roleCatalog) {
+  const roleSid = normalizeLowerText(membership.roleSid || "member");
+  const role = roleCatalog.roles.find((entry) => entry.id === roleSid);
+  return role ? [...role.permissions] : [];
 }
 
 function normalizeWorkspaceCreationInput(payload = {}) {
@@ -70,18 +70,24 @@ function normalizeWorkspaceCreationInput(payload = {}) {
 
 /**
  * @param {object} dependencies
- * @param {import("@jskit-ai/kernel/server/types").RuntimeConfig} dependencies.appConfig
- * @param {ReturnType<typeof import("../repositories/workspacesRepository.js").createRepository>} dependencies.workspacesRepository
- * @param {ReturnType<typeof import("../repositories/workspaceMembershipsRepository.js").createRepository>} dependencies.workspaceMembershipsRepository
- * @param {ReturnType<typeof import("../../workspaceSettings/workspaceSettingsRepository.js").createRepository>} dependencies.workspaceSettingsRepository
+ * @param {import("../../types.js").WorkspaceTenancyProfile} dependencies.tenancyProfile
+ * @param {import("../../types.js").WorkspaceRoleCatalog} dependencies.roleCatalog
+ * @param {import("../../types.js").PersonalWorkspaceName} dependencies.personalWorkspaceName
+ * @param {import("../../types.js").WorkspacesRepository} dependencies.workspacesRepository
+ * @param {import("../../types.js").WorkspaceMembershipsRepository} dependencies.workspaceMembershipsRepository
+ * @param {import("../../types.js").WorkspaceSettingsRepository} dependencies.workspaceSettingsRepository
  */
-function createService({ appConfig, workspacesRepository, workspaceMembershipsRepository, workspaceSettingsRepository }) {
-  const resolvedTenancyProfile = resolveTenancyProfile(appConfig);
-  const resolvedTenancyMode = resolvedTenancyProfile.mode;
-  const workspacePolicy = resolvedTenancyProfile.workspace;
-  const personalWorkspaceName =
-    // readable-check: allow method-probe - data: the application's config may name a personalWorkspaceName hook
-    typeof appConfig.personalWorkspaceName === "function" ? appConfig.personalWorkspaceName : null;
+function createService({
+  tenancyProfile,
+  roleCatalog,
+  personalWorkspaceName,
+  workspacesRepository,
+  workspaceMembershipsRepository,
+  workspaceSettingsRepository
+}) {
+  const resolvedTenancyMode = tenancyProfile.mode;
+  const workspacePolicy = tenancyProfile.workspace;
+
   async function ensureUniqueWorkspaceSlug(baseSlug, options = {}) {
     let suffix = 0;
     while (suffix < 1000) {
@@ -119,7 +125,7 @@ function createService({ appConfig, workspacesRepository, workspaceMembershipsRe
     const inserted = await workspacesRepository.insert(
       {
         slug,
-        name: normalizeText(personalWorkspaceName?.(user)) || buildWorkspaceName(user),
+        name: normalizeText(personalWorkspaceName(user)) || buildWorkspaceName(user),
         ownerUserId: normalizedUserId,
         isPersonal: true,
         avatarUrl: ""
@@ -143,7 +149,6 @@ function createService({ appConfig, workspacesRepository, workspaceMembershipsRe
     }
 
     const list = await workspacesRepository.listForUserId(normalizedUserId, options);
-    const roleCatalog = createWorkspaceRoleCatalog(appConfig);
     const accessible = list
       .map((entry) => mapWorkspaceSummary(
         entry,
@@ -215,8 +220,10 @@ function createService({ appConfig, workspacesRepository, workspaceMembershipsRe
     return returnJsonApiData(workspaceContext.workspace);
   }
 
-  async function updateWorkspaceForAuthenticatedUser(user, workspaceSlug, patch = {}, options = {}) {
+  /** The repository writes every field it receives, so only the patchable fields go to it. */
+  async function updateWorkspaceForAuthenticatedUser(user, workspaceSlug, input, options = {}) {
     const workspaceContext = await resolveWorkspaceContextForUserBySlug(user, workspaceSlug, options);
+    const patch = pickOwnProperties(input, WORKSPACE_PATCH_FIELD_KEYS);
     return returnJsonApiData(await workspacesRepository.updateById(workspaceContext.workspace.id, patch, options));
   }
 
@@ -265,7 +272,7 @@ function createService({ appConfig, workspacesRepository, workspaceMembershipsRe
     }
 
     const workspaceSettings = await ensureWorkspaceSettingsForWorkspace(workspace, options);
-    const permissions = membership ? buildPermissionsFromMembership(membership, appConfig) : [];
+    const permissions = membership ? buildPermissionsFromMembership(membership, roleCatalog) : [];
 
     return {
       workspace,
@@ -279,7 +286,6 @@ function createService({ appConfig, workspacesRepository, workspaceMembershipsRe
     toSlugPart,
     buildWorkspaceName,
     buildWorkspaceBaseSlug,
-    hashInviteToken,
     ensurePersonalWorkspaceForUser,
     ensureProvisionedWorkspaceForAuthenticatedUser,
     createWorkspaceForAuthenticatedUser,
@@ -293,4 +299,4 @@ function createService({ appConfig, workspacesRepository, workspaceMembershipsRe
 
 /** @typedef {ReturnType<typeof createService>} WorkspaceContextService */
 
-export { createService };
+export { buildWorkspaceName, createService };
