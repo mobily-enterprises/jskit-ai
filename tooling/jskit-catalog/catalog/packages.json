@@ -4857,7 +4857,9 @@
       "examplePath": "patterns/workspace-server/example",
       "files": [
         "config/roles.js",
-        "packages/main/src/server/email/workspaceInviteEmail.js"
+        "packages/main/src/server/email/workspaceInviteEmail.js",
+        "packages/main/src/server/email/workspaceInviteMailer.js",
+        "packages/main/src/server/WorkspaceInvitationsFeature.js"
       ]
     },
     {

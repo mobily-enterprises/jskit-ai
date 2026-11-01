@@ -57,3 +57,15 @@ test("workspaces-core publishes an app-owned editable workspace invite email pat
   assert.match(source, /inviteUrl/);
   assert.deepEqual(packageMetadata.migrations, { directories: ["migrations"] });
 });
+
+test("workspaces-core's pattern provides the invite email and mailer from one application feature", async () => {
+  const source = await readFile(
+    path.join(PACKAGE_DIR, "patterns", "workspace-server", "example", "packages", "main", "src", "server", "WorkspaceInvitationsFeature.js"),
+    "utf8"
+  );
+
+  assert.match(source, /inviteEmailTemplate: "workspaces\.invite-email-template"/);
+  assert.match(source, /inviteMailer: "workspaces\.invite-mailer"/);
+  assert.match(source, /inviteEmailTemplate: renderWorkspaceInviteEmail/);
+  assert.match(source, /inviteMailer: createWorkspaceInviteMailer\(\{ env \}\)/);
+});

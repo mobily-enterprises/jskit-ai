@@ -445,4 +445,12 @@ Exports
 
 ### `patterns/workspace-server/example/packages/main/src/server/email/workspaceInviteEmail.js`
 Exports
-- `renderWorkspaceInviteEmail({ inviteUrl = "", workspace, inviter = null, roleSid = "member", expiresAt = "" } = {})`
+- `renderWorkspaceInviteEmail({ inviteUrl, workspace, inviter, roleSid, roleLabel, expiresAt })`
+
+### `patterns/workspace-server/example/packages/main/src/server/email/workspaceInviteMailer.js`
+Exports
+- `createWorkspaceInviteMailer({ env })`
+
+### `patterns/workspace-server/example/packages/main/src/server/WorkspaceInvitationsFeature.js`
+Exports
+- `WorkspaceInvitationsFeature`

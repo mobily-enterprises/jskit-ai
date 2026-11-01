@@ -91,8 +91,8 @@ exception, or the normalized mailer result. Persistence is unchanged by delivery
 failure. A provider may accept a message before failing; the application owns
 receipts and retries. Keep tokens/URLs out of logs and use controlled mailers in tests.
 
-`createInvite`, acceptance and refusal now own managed transactions and reject
-borrowed `options.trx`. Use preparation followed by delivery after commit for
+`createInvite`, acceptance and refusal own their managed transactions and
+reject a borrowed `options.trx`. Use preparation followed by delivery after commit for
 transactional creation; put related acceptance writes in the participant. Revocation may join
 a managed transaction. Raw Knex/savepoint transactions cannot own resource
 writes. Invitation mutations lock workspace then invitation rows, revalidate
@@ -115,9 +115,34 @@ authorization, identity/training linking, scope eligibility and required audit.
 
 ## Example files
 
-`example/config/roles.js` is a concrete role catalogue.
-`example/packages/main/src/server/email/workspaceInviteEmail.js` demonstrates an
-app-owned invitation renderer. Compose both through normal application config.
+`example/config/roles.js` is a concrete role catalogue, set as the
+application's `roleCatalog` config.
+
+The invitation email comes from two optional `workspaces.core` capabilities,
+which one small application feature provides:
+`example/packages/main/src/server/WorkspaceInvitationsFeature.js`.
+
+```js
+provides: {
+  inviteEmailTemplate: "workspaces.invite-email-template",
+  inviteMailer: "workspaces.invite-mailer"
+},
+setup({ env }) {
+  return {
+    inviteEmailTemplate: renderWorkspaceInviteEmail,
+    inviteMailer: createWorkspaceInviteMailer({ env })
+  };
+}
+```
+
+- `email/workspaceInviteEmail.js` is the renderer, a
+  `WorkspaceInviteEmailTemplate` returning `{ subject, text, html }`.
+- `email/workspaceInviteMailer.js` is the mailer, a `WorkspaceInviteMailer`
+  whose `sendWorkspaceInvite` sends the rendered message over SMTP.
+
+Without a renderer, workspaces-core uses its built-in email; without a mailer,
+invitations are created and their delivery reports `mailer_unconfigured`. The
+feature must not require `workspaces.core`, which receives both.
 
 ## Variation points
 
