@@ -8,6 +8,7 @@ import { aliases, mdi } from "vuetify/iconsets/mdi-svg";
 import "vuetify/styles";
 import App from "./App.vue";
 import { createWebPlacementRuntime } from "../../../shell-web/src/client/placement/runtime.js";
+import { silentLogger } from "@jskit-ai/kernel/shared/support/silentLogger";
 
 globalThis.__JSKIT_CLIENT_APP_CONFIG__ = {
   surfaceDefinitions: { admin: { requiresWorkspace: true }, console: { requiresWorkspace: false } },
@@ -18,7 +19,7 @@ globalThis.__JSKIT_CLIENT_APP_CONFIG__ = {
 };
 const router = createRouter({ history: createWebHistory(), routes: [{ path: "/:pathMatch(.*)*", component: App }] });
 const app = createApp(App);
-const placement = createWebPlacementRuntime({ components: new Map() });
+const placement = createWebPlacementRuntime({ components: new Map(), logger: silentLogger });
 placement.setContext({ user: { id: "1" }, surfaceConfig: {
   defaultSurfaceId: "admin",
   surfacesById: { admin: { id: "admin", routeBase: "/", requiresWorkspace: false } }

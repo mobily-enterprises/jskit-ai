@@ -8,6 +8,7 @@ import {
   shellScrollBehavior
 } from "./shellBootstrap.js";
 import { getClientAppConfig } from "./appConfig.js";
+import { silentLogger } from "../shared/support/silentLogger.js";
 
 function createSurfaceRuntimeFixture() {
   return createSurfaceRuntime({
@@ -119,7 +120,8 @@ test("shellScrollBehavior opens new screens at the top and keeps in-page changes
 
 test("createClientBootstrapLogger enables debug from env flag", () => {
   const logger = createClientBootstrapLogger({
-    env: { VITE_JSKIT_CLIENT_DEBUG: "1" }
+    env: { VITE_JSKIT_CLIENT_DEBUG: "1" },
+    logger: silentLogger
   });
 
   assert.equal(typeof logger.info, "function");
@@ -143,7 +145,7 @@ test("bootstrapClientShellApp hands hooks and modules one logger that carries it
       createApp: () => ({ use() {}, mount() {} }),
       router,
       surfaceRuntime: createSurfaceRuntimeFixture(),
-      logger: { info() {}, warn() {}, error() {} },
+      logger: silentLogger,
       debugEnabled,
       bootClientModules: async ({ logger }) => {
         seenLoggers.push(logger);
@@ -246,7 +248,8 @@ test("bootstrapClientShellApp boots modules, reinstalls fallback route, and moun
         logs.push({ payload, message });
       },
       warn() {},
-      error() {}
+      error() {},
+      debug() {}
     },
     onAfterModulesBootstrapped(context) {
       calls.push(`after:${context.clientBootstrap.routeCount}`);
@@ -284,7 +287,7 @@ test("bootstrapClientShellApp installs the app's vue-i18n once and translates JS
       createApp: () => ({ use(plugin) { used.push(plugin); }, mount() {} }),
       router: { addRoute() {}, getRoutes: () => [], async isReady() {} },
       surfaceRuntime: createSurfaceRuntimeFixture(),
-      logger: { info() {}, warn() {}, error() {} },
+      logger: silentLogger,
       appPlugins,
       i18n,
       bootClientModules: async () => ({})

@@ -10,6 +10,7 @@ import { SHELL_WEB_ERROR_RUNTIME_KEY } from "../src/client/error/inject.js";
 import { createDefaultMaterialErrorPresenters } from "../src/client/error/presenters.js";
 import { createErrorPresentationStore } from "../src/client/error/store.js";
 import { useShellErrorPresentationStore } from "../src/client/stores/useShellErrorPresentationStore.js";
+import { silentLogger } from "@jskit-ai/kernel/shared/support/silentLogger";
 
 const componentUrl = new URL("../src/client/components/ShellErrorHost.vue", import.meta.url).href;
 const hooks = registerHooks({
@@ -43,7 +44,8 @@ function fixture(t) {
   const store = createErrorPresentationStore();
   const runtime = createErrorRuntime({
     presenters: createDefaultMaterialErrorPresenters({ store }),
-    defaultPresenterId: "material.snackbar"
+    defaultPresenterId: "material.snackbar",
+    logger: silentLogger
   });
   const app = renderer.createApp(ShellErrorHost);
   const pinia = createPinia();

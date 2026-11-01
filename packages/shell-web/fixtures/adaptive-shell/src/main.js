@@ -20,6 +20,7 @@ import { createErrorRuntime } from "../../../src/client/error/runtime.js";
 import { createDefaultMaterialErrorPresenters } from "../../../src/client/error/presenters.js";
 import { createErrorPresentationStore } from "../../../src/client/error/store.js";
 import { useShellErrorPresentationStore } from "../../../src/client/stores/useShellErrorPresentationStore.js";
+import { silentLogger } from "@jskit-ai/kernel/shared/support/silentLogger";
 
 const COMPONENTS = new Map([
   ["fixture.menu-link", ShellMenuLinkItem],
@@ -97,7 +98,7 @@ const placementTopology = [
   }
 ];
 
-const placementRuntime = createWebPlacementRuntime({ components: COMPONENTS });
+const placementRuntime = createWebPlacementRuntime({ components: COMPONENTS, logger: silentLogger });
 placementRuntime.replacePlacements(placements);
 placementRuntime.replacePlacementTopology(placementTopology);
 placementRuntime.setContext({
@@ -190,7 +191,8 @@ app.provide(SHELL_WEB_PLACEMENT_RUNTIME_KEY, placementRuntime);
 const errorStore = createErrorPresentationStore();
 const errorRuntime = createErrorRuntime({
   presenters: createDefaultMaterialErrorPresenters({ store: errorStore }),
-  defaultPresenterId: "material.snackbar"
+  defaultPresenterId: "material.snackbar",
+  logger: silentLogger
 });
 useShellErrorPresentationStore(pinia).attachRuntimeStore(errorStore);
 app.provide(SHELL_WEB_ERROR_RUNTIME_KEY, errorRuntime);

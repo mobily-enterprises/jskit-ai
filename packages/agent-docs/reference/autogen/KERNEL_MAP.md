@@ -166,6 +166,10 @@ Exports
 Local functions
 - `normalizePlacementRenderers(value = {})`
 
+### `support/silentLogger.js`
+Exports
+- `silentLogger`
+
 ### `support/sorting.js`
 Exports
 - `sortStrings(values = [])`

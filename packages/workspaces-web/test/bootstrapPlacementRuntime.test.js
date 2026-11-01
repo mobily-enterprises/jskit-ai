@@ -10,6 +10,7 @@ import {
   WORKSPACE_BOOTSTRAP_STATUS_UNAUTHENTICATED,
   createBootstrapPlacementRuntime
 } from "../src/client/runtime/bootstrapPlacementRuntime.js";
+import { silentLogger } from "@jskit-ai/kernel/shared/support/silentLogger";
 
 const SHELL_GUARD_EVALUATOR_KEY = "__JSKIT_WEB_SHELL_GUARD_EVALUATOR__";
 
@@ -196,7 +197,8 @@ function createTestRuntime({
     bootstrapRuntime,
     realtime: socket ? { socket } : null,
     router,
-    vueApp
+    vueApp,
+    logger: silentLogger
   });
 }
 

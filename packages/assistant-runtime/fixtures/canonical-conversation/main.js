@@ -10,12 +10,13 @@ import { createWebPlacementRuntime } from "../../../shell-web/src/client/placeme
 import { createFixtureSocket } from "./socket.js";
 import { assistantHttpClient, createAssistantApi } from "@jskit-ai/assistant-core/client";
 import { configureAssistantConversations, useAssistantConversation } from "../../src/client/composables/useAssistantConversation.js";
+import { silentLogger } from "@jskit-ai/kernel/shared/support/silentLogger";
 
 globalThis.__JSKIT_CLIENT_APP_CONFIG__ = {
   surfaceDefinitions: { home: { requiresWorkspace: false } },
   assistantSurfaces: { home: { settingsSurfaceId: "home", configScope: "global" } }
 };
-const placement = createWebPlacementRuntime({ components: new Map() });
+const placement = createWebPlacementRuntime({ components: new Map(), logger: silentLogger });
 placement.setContext({ user: { id: "42" }, surfaceConfig: {
   defaultSurfaceId: "home", surfacesById: { home: { id: "home", routeBase: "/", requiresWorkspace: false } }
 } });

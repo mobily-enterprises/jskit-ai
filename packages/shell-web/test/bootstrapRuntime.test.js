@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createBootstrapPayloadHandlerRegistry } from "../src/client/bootstrap/bootstrapPayloadHandlerRegistry.js";
 import { createShellBootstrapRuntime } from "../src/client/runtime/bootstrapRuntime.js";
+import { silentLogger } from "@jskit-ai/kernel/shared/support/silentLogger";
 
 function createPlacementRuntime(initialContext = {}) {
   let context = Object.freeze({ ...initialContext });
@@ -100,7 +101,8 @@ test("shell bootstrap runtime refreshes /api/bootstrap on init and applies regis
           return payload;
         }
       };
-    }
+    },
+    logger: silentLogger
   });
 
   await runtime.initialize();

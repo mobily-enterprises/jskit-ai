@@ -109,7 +109,7 @@ function registerClientModuleRoutes({
   surfaceMode,
   seenRoutePaths,
   seenRouteNames,
-  logger = null,
+  logger,
   source = "module",
   packageMetadataRouteDeclarations = null
 } = {}) {
@@ -317,7 +317,7 @@ function resolvePackageMetadataClientRoutes({
   packageId,
   packageMetadataUiRoutes = [],
   routeComponents = {},
-  logger = null
+  logger
 } = {}) {
   const normalizedPackageId = normalizePackageId(packageId);
   const packageMetadataRoutes = normalizePackageMetadataUiRoutes(packageMetadataUiRoutes);
@@ -479,7 +479,7 @@ async function bootClientModules({
   surfaceRuntime,
   surfaceMode,
   env,
-  logger = console
+  logger
 } = {}) {
   if (!router || typeof router.addRoute !== "function") {
     throw new TypeError("bootClientModules requires router.addRoute().");

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { definePlacement } from "../src/client/placement/validators.js";
 import { createWebPlacementRuntime } from "../src/client/placement/runtime.js";
+import { silentLogger } from "@jskit-ai/kernel/shared/support/silentLogger";
 
 function createComponentsStub({ tokens = {} } = {}) {
   return {
@@ -61,7 +62,7 @@ test("web placement runtime resolves semantic targets through topology variants"
     }
   });
 
-  const runtime = createWebPlacementRuntime({ components });
+  const runtime = createWebPlacementRuntime({ components, logger: silentLogger });
   runtime.replacePlacementTopology([
     semanticTopologyEntry({
       id: "shell.primary-nav",
@@ -109,7 +110,7 @@ test("web placement runtime accepts append-only topology objects", () => {
     }
   });
 
-  const runtime = createWebPlacementRuntime({ components });
+  const runtime = createWebPlacementRuntime({ components, logger: silentLogger });
   runtime.replacePlacementTopology({
     placements: [
       semanticTopologyEntry({
@@ -148,7 +149,7 @@ test("web placement runtime filters by surface/host/position, resolves component
     }
   });
 
-  const runtime = createWebPlacementRuntime({ components });
+  const runtime = createWebPlacementRuntime({ components, logger: silentLogger });
   runtime.replacePlacements([
     definePlacement({
       id: "test.menu",
@@ -196,7 +197,7 @@ test("web placement runtime preserves source order when placements share the sam
     }
   });
 
-  const runtime = createWebPlacementRuntime({ components });
+  const runtime = createWebPlacementRuntime({ components, logger: silentLogger });
   runtime.replacePlacements([
     definePlacement({
       id: "test.beta",
@@ -233,7 +234,8 @@ test("web placement runtime applies context contributors and placement when() pr
     components,
     contextContributors: [
       () => ({ auth: { authenticated: true } })
-    ]
+    ],
+    logger: silentLogger
   });
   runtime.replacePlacements([
     definePlacement({
@@ -269,7 +271,8 @@ test("web placement runtime uses runtime context and local context overrides con
     components,
     contextContributors: [
       () => ({ auth: { authenticated: false } })
-    ]
+    ],
+    logger: silentLogger
   });
   runtime.replacePlacements([
     definePlacement({
@@ -304,7 +307,7 @@ test("web placement runtime uses runtime context and local context overrides con
 
 test("web placement runtime notifies subscribers on placement and context updates", () => {
   const components = createComponentsStub();
-  const runtime = createWebPlacementRuntime({ components });
+  const runtime = createWebPlacementRuntime({ components, logger: silentLogger });
   const events = [];
   const unsubscribe = runtime.subscribe((event) => {
     events.push(event.type);
@@ -329,7 +332,7 @@ test("web placement runtime notifies subscribers on placement and context update
 
 test("web placement runtime rejects duplicate placement ids", () => {
   const components = createComponentsStub();
-  const runtime = createWebPlacementRuntime({ components });
+  const runtime = createWebPlacementRuntime({ components, logger: silentLogger });
 
   assert.throws(() => {
     runtime.replacePlacements([
@@ -468,7 +471,7 @@ test("web placement runtime follows explicit surface targeting without role indi
       "component.admin": () => null
     }
   });
-  const runtime = createWebPlacementRuntime({ components });
+  const runtime = createWebPlacementRuntime({ components, logger: silentLogger });
   runtime.replacePlacements([
     definePlacement({
       id: "global.banner",

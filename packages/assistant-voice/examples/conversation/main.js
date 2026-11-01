@@ -42,7 +42,7 @@ const router = createRouter({ history: createWebHistory(), routes: [{ path: "/:p
 app.use(pinia).use(VueQueryPlugin, { queryClient }).use(router)
   .use(createVuetify({ components, directives, icons: { defaultSet: "mdi", aliases, sets: { mdi } } }));
 const modules = await bootClientModules({
-  app, pinia, queryClient, router, env: import.meta.env, surfaceMode: "home",
+  app, pinia, queryClient, router, env: import.meta.env, surfaceMode: "home", logger: console,
   surfaceRuntime: createSurfaceRuntime({ defaultSurfaceId: "home", surfaces: appConfig.surfaceDefinitions }),
   clientModules: [
     { packageId: "@jskit-ai/shell-web", module: { ShellWebClientProvider },

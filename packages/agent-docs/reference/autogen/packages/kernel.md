@@ -210,6 +210,10 @@ Exports
 Local functions
 - `normalizePlacementRenderers(value = {})`
 
+### `shared/support/silentLogger.js`
+Exports
+- `silentLogger`
+
 ### `shared/support/sorting.js`
 Exports
 - `sortStrings(values = [])`
@@ -474,12 +478,12 @@ Exports
 
 ### `client/logging.js`
 Exports
-- `createStructuredLogger(logger = console)`
+- `createStructuredLogger(logger)`
 - `summarizeRouterRoutes(router)`
 
 ### `client/moduleBootstrap.js`
 Exports
-- `bootClientModules({ clientModules = [], app, pinia = null, queryClient = null, router, surfaceRuntime, surfaceMode, env, logger = console } = {})`
+- `bootClientModules({ clientModules = [], app, pinia = null, queryClient = null, router, surfaceRuntime, surfaceMode, env, logger } = {})`
 Local functions
 - `normalizePackageId(value)`
 - `toRouteSnapshot(route)`
@@ -487,12 +491,12 @@ Local functions
 - `normalizeRoute(route, { packageId, index })`
 - `normalizeRouteList(routes, { packageId })`
 - `toVueRouteRecord(route)`
-- `registerClientModuleRoutes({ packageId, routes = [], router, surfaceRuntime, surfaceMode, seenRoutePaths, seenRouteNames, logger = null, source = "module", packageMetadataRouteDeclarations = null } = {})`
+- `registerClientModuleRoutes({ packageId, routes = [], router, surfaceRuntime, surfaceMode, seenRoutePaths, seenRouteNames, logger, source = "module", packageMetadataRouteDeclarations = null } = {})`
 - `resolvePackageMetadataProviders(moduleNamespace, packageId, packageMetadataClientProviders = [])`
 - `resolveModuleProviders(moduleNamespace, packageId, packageMetadataClientProviders = [])`
 - `buildPackageMetadataRouteDeclarationIndex({ packageId, packageMetadataUiRoutes = [] } = {})`
 - `assertRoutesDeclaredInPackageMetadata({ packageId, source, normalizedRoutes = [], packageMetadataRouteDeclarations = null } = {})`
-- `resolvePackageMetadataClientRoutes({ packageId, packageMetadataUiRoutes = [], routeComponents = {}, logger = null } = {})`
+- `resolvePackageMetadataClientRoutes({ packageId, packageMetadataUiRoutes = [], routeComponents = {}, logger } = {})`
 - `normalizeClientModuleEntries(clientModules)`
 - `createClientRuntime({ profile = "client", providers = [], app, pinia = null, queryClient = null, router, env, logger, surfaceRuntime, surfaceMode } = {})`
 
@@ -513,10 +517,11 @@ Local functions
 Exports
 - `shellScrollBehavior(to, from, savedPosition)`
 - `resolveClientBootstrapDebugEnabled({ env = {}, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG" } = {})`
-- `createClientBootstrapLogger({ env = {}, logger = console, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG" } = {})`
+- `createClientBootstrapLogger({ env = {}, logger, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG" })`
 - `createSurfaceShellRouter({ createRouter, history, routes = [], surfaceRuntime, surfaceMode, fallbackRoute = null, notFoundComponent = null, guard = false, scrollBehavior = shellScrollBehavior } = {})`
-- `bootstrapClientShellApp({ createApp, rootComponent, appConfig = {}, appPlugins = [], i18n = null, pinia = null, queryClient = null, router, bootClientModules, surfaceRuntime, surfaceMode, env = {}, fallbackRoute = null, logger = console, createBootstrapLogger = null, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG", debugMessage = "Client modules bootstrapped before router install.", onAfterModulesBootstrapped = null, onAfterRouterReady = null, mountSelector = "#app" } = {})`
+- `bootstrapClientShellApp({ createApp, rootComponent, appConfig = {}, appPlugins = [], i18n = null, pinia = null, queryClient = null, router, bootClientModules, surfaceRuntime, surfaceMode, env = {}, fallbackRoute = null, // The browser console is the application's logger unless it passes its own. logger = console, createBootstrapLogger = createClientBootstrapLogger, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG", debugMessage = "Client modules bootstrapped before router install.", onAfterModulesBootstrapped = null, onAfterRouterReady = null, mountSelector = "#app" } = {})`
 Local functions
+- `ignoreDebug()`
 - `installAppPlugins(app, appPlugins = [])`
 - `isSurfaceRootRecord(record)`
 - `staysOnSamePage(to, from)`

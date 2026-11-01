@@ -18,12 +18,23 @@ function resolveClientBootstrapDebugEnabled({
   return String(env[debugEnvKey] || "").trim() === "1";
 }
 
+function ignoreDebug() {}
+
+/**
+ * The bootstrap logger: the application's logger, with debug output on when
+ * debugEnabled, or the debugEnvKey flag in env, says so.
+ * @param {object} options
+ * @param {Record<string, any>} [options.env]
+ * @param {import("../server/types.js").RuntimeLogger} options.logger
+ * @param {boolean} [options.debugEnabled]
+ * @param {string} [options.debugEnvKey]
+ */
 function createClientBootstrapLogger({
   env = {},
-  logger = console,
+  logger,
   debugEnabled = undefined,
   debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG"
-} = {}) {
+}) {
   const baseLogger = createStructuredLogger(logger);
   const isDebugEnabled = resolveClientBootstrapDebugEnabled({
     env,
@@ -34,7 +45,7 @@ function createClientBootstrapLogger({
     info: baseLogger.info,
     warn: baseLogger.warn,
     error: baseLogger.error,
-    debug: isDebugEnabled ? baseLogger.info : () => {},
+    debug: isDebugEnabled ? baseLogger.info : ignoreDebug,
     isDebugEnabled
   });
 }
@@ -152,8 +163,9 @@ async function bootstrapClientShellApp({
   surfaceMode,
   env = {},
   fallbackRoute = null,
+  // The browser console is the application's logger unless it passes its own.
   logger = console,
-  createBootstrapLogger = null,
+  createBootstrapLogger = createClientBootstrapLogger,
   debugEnabled = undefined,
   debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG",
   debugMessage = "Client modules bootstrapped before router install.",
@@ -187,21 +199,12 @@ async function bootstrapClientShellApp({
   }
   setClientAppConfig(appConfig);
 
-  const resolvedLogger =
-    typeof createBootstrapLogger === "function"
-      ? createBootstrapLogger({
-          env,
-          logger,
-          debugEnabled,
-          debugEnvKey
-        })
-      : createClientBootstrapLogger({
-          env,
-          logger,
-          debugEnabled,
-          debugEnvKey
-        });
-  const bootstrapLogger = createStructuredLogger(resolvedLogger);
+  const bootstrapLogger = createStructuredLogger(createBootstrapLogger({
+    env,
+    logger,
+    debugEnabled,
+    debugEnvKey
+  }));
 
   const clientBootstrap = await bootClientModules({
     app,

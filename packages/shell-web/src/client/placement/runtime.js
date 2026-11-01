@@ -25,7 +25,6 @@ function ensureArray(value) {
 
 const PLACEMENT_DEBUG_PREFIX = "[placement-debug]";
 const PLACEMENT_DEBUG_FLAG = "__JSKIT_PLACEMENT_DEBUG__";
-const NOOP = () => {};
 
 function isPlacementDebugEnabled() {
   if (typeof globalThis !== "object" || !globalThis) {
@@ -47,24 +46,6 @@ function debugLog(message, payload = null) {
   const terminalPayload = explodePayload(payload, DEFAULT_DEBUG_DEPTH);
   const rendered = JSON.stringify(terminalPayload, null, 2);
   console.log(`${PLACEMENT_DEBUG_PREFIX} ${message}\n${rendered}`);
-}
-
-function createRuntimeLogger(logger) {
-  const runtimeLogger = isRecord(logger) ? logger : {};
-  let warn = NOOP;
-  let error = NOOP;
-
-  if (typeof runtimeLogger.warn === "function") {
-    warn = runtimeLogger.warn.bind(runtimeLogger);
-  }
-  if (typeof runtimeLogger.error === "function") {
-    error = runtimeLogger.error.bind(runtimeLogger);
-  }
-
-  return Object.freeze({
-    warn,
-    error
-  });
 }
 
 function normalizePlacementList(placements, context = {}) {
@@ -318,12 +299,17 @@ function shouldIncludePlacement(placement, placementContext, logger) {
   }
 }
 
-function createWebPlacementRuntime({ components, contextContributors = [], logger = null } = {}) {
+/**
+ * @param {object} options
+ * @param {Map<string, any> | { has: Function, get: Function }} options.components
+ * @param {Function[]} [options.contextContributors]
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} options.logger
+ */
+function createWebPlacementRuntime({ components, contextContributors = [], logger }) {
   if (!components || typeof components.has !== "function" || typeof components.get !== "function") {
     throw new Error("createWebPlacementRuntime requires a client component registry.");
   }
 
-  const runtimeLogger = createRuntimeLogger(logger);
   const missingTokens = new Set();
   const invalidComponentTokens = new Set();
   const failedTokens = new Set();
@@ -349,7 +335,7 @@ function createWebPlacementRuntime({ components, contextContributors = [], logge
           })
         );
       } catch (error) {
-        runtimeLogger.warn(
+        logger.warn(
           {
             error: String(error?.message || error || "unknown error")
           },
@@ -447,7 +433,7 @@ function createWebPlacementRuntime({ components, contextContributors = [], logge
           ...baseContext
         }
       },
-      runtimeLogger
+      logger
     );
     const placementContext = {
       ...contextFromContributors,
@@ -490,7 +476,7 @@ function createWebPlacementRuntime({ components, contextContributors = [], logge
         });
         continue;
       }
-      if (!shouldIncludePlacement(renderablePlacement, placementContext, runtimeLogger)) {
+      if (!shouldIncludePlacement(renderablePlacement, placementContext, logger)) {
         debugLog("getPlacements:skip-when", {
           placementId: renderablePlacement.id
         });
@@ -500,7 +486,7 @@ function createWebPlacementRuntime({ components, contextContributors = [], logge
       const component = resolvePlacementComponent(
         components,
         renderablePlacement,
-        runtimeLogger,
+        logger,
         missingTokens,
         invalidComponentTokens,
         failedTokens

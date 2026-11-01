@@ -203,10 +203,9 @@ Exports
 
 ### `src/client/error/runtime.js`
 Exports
-- `createErrorRuntime({ presenters = [], policy = null, defaultPresenterId = "", moduleDefaultPresenterId = "", logger = null } = {})`
+- `createErrorRuntime({ presenters = [], policy = null, defaultPresenterId = "", moduleDefaultPresenterId = "", logger })`
 - `normalizeErrorEvent(rawEvent = {})`
 Local functions
-- `createRuntimeLogger(logger = null)`
 - `freezeParams(params)`
 - `messageCodeFields(source = {}, fallback = {})`
 - `normalizePolicyDecision(policyDecision = {}, event = {})`
@@ -322,13 +321,11 @@ Exports
 
 ### `src/client/placement/runtime.js`
 Exports
-- `createWebPlacementRuntime({ components, contextContributors = [], logger = null } = {})`
+- `createWebPlacementRuntime({ components, contextContributors = [], logger })`
 Local functions
 - `ensureArray(value)`
-- `NOOP()`
 - `isPlacementDebugEnabled()`
 - `debugLog(message, payload = null)`
-- `createRuntimeLogger(logger)`
 - `normalizePlacementList(placements, context = {})`
 - `normalizeTopologyList(topology, context = {})`
 - `matchesSurface(placementSurfaces, requestedSurface)`

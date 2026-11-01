@@ -9,6 +9,7 @@ import { createErrorPresentationStore } from "../src/client/error/store.js";
 import { createDefaultMaterialErrorPresenters } from "../src/client/error/presenters.js";
 import { requestRecoveryMessage } from "../src/client/requestRecovery/runtime.js";
 import { resolveShellDrawerToggleLabel } from "../src/client/support/drawerPresentation.js";
+import { silentLogger } from "@jskit-ai/kernel/shared/support/silentLogger";
 
 // A test language with every shell key translated, plus the kernel code used below.
 function testLanguageMessages() {
@@ -40,7 +41,8 @@ function createStoreRuntime() {
   const store = createErrorPresentationStore();
   const runtime = createErrorRuntime({
     presenters: createDefaultMaterialErrorPresenters({ store }),
-    moduleDefaultPresenterId: "material.snackbar"
+    moduleDefaultPresenterId: "material.snackbar",
+    logger: silentLogger
   });
   return { store, runtime };
 }
@@ -102,7 +104,7 @@ test("presented client errors keep their messageCode from the cause", () => {
 test("a module that fails to load is reported with the kernel's sentence code", async () => {
   const { createShellAsyncModuleRecoveryRuntime } = await import("../src/client/asyncModuleRecovery/runtime.js");
   const reports = [];
-  const runtime = createShellAsyncModuleRecoveryRuntime({ errorRuntime: { report: (entry) => reports.push(entry) } });
+  const runtime = createShellAsyncModuleRecoveryRuntime({ errorRuntime: { report: (entry) => reports.push(entry) }, logger: silentLogger });
   runtime.notify(new TypeError("Failed to fetch dynamically imported module: /src/x.js"));
   assert.equal(reports.length, 1);
   assert.equal(reports[0].message, "App module did not download. The app may have been updated, or the network request failed.");

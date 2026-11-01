@@ -51,6 +51,7 @@
     "./shared/support/listenerSet": "./shared/support/listenerSet.js",
     "./shared/support/shellLayoutTargets": "./shared/support/shellLayoutTargets.js",
     "./shared/support/providerLogger": "./shared/support/providerLogger.js",
+    "./shared/support/silentLogger": "./shared/support/silentLogger.js",
     "./shared/support/returnToPath": "./shared/support/returnToPath.js",
     "./shared/support/visibility": "./shared/support/visibility.js",
     "./shared/support/linkPath": "./shared/support/linkPath.js",

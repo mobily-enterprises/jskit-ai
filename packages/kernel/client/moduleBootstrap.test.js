@@ -3,6 +3,7 @@ import test from "node:test";
 import { defineProvider } from "../shared/capabilities/index.js";
 import { createSurfaceRuntime } from "../shared/surface/runtime.js";
 import { bootClientModules } from "./moduleBootstrap.js";
+import { silentLogger } from "../shared/support/silentLogger.js";
 
 function createRouterStub() {
   const routes = [];
@@ -57,7 +58,7 @@ test("bootClientModules registers global routes regardless of surface mode", asy
     router,
     surfaceRuntime,
     surfaceMode: "admin",
-    logger: { info() {}, warn() {}, error() {} }
+    logger: silentLogger
   });
 
   assert.equal(result.routeResults.length, 1);
@@ -98,7 +99,7 @@ test("bootClientModules filters surface routes by mode", async () => {
     router,
     surfaceRuntime,
     surfaceMode: "admin",
-    logger: { info() {}, warn() {}, error() {} }
+    logger: silentLogger
   });
 
   assert.equal(result.routeResults.length, 1);
@@ -209,7 +210,7 @@ test("bootClientModules registers packageMetadata and clientRoutes with provider
     router,
     surfaceRuntime,
     surfaceMode: "all",
-    logger: { info() {}, warn() {}, error() {} }
+    logger: silentLogger
   });
 
   assert.deepEqual(events, ["setup", "boot"]);
@@ -254,7 +255,7 @@ test("bootClientModules does not auto-discover providers from module exports", a
     router,
     surfaceRuntime,
     surfaceMode: "all",
-    logger: { info() {}, warn() {}, error() {} }
+    logger: silentLogger
   });
 
   assert.equal(result.providerCount, 0);
@@ -285,7 +286,7 @@ test("bootClientModules rejects clientRoutes without components", async () => {
       router,
       surfaceRuntime,
       surfaceMode: "all",
-      logger: { info() {}, warn() {}, error() {} }
+      logger: silentLogger
     }),
     /Client route "auth.login" from @example\/missing requires component\./
   );
@@ -329,7 +330,7 @@ test("bootClientModules rejects non-declared global clientRoutes", async () => {
       router,
       surfaceRuntime,
       surfaceMode: "all",
-      logger: { info() {}, warn() {}, error() {} }
+      logger: silentLogger
     }),
     /must be declared in metadata\.ui\.routes/
   );
@@ -361,7 +362,7 @@ test("bootClientModules allows non-declared surface clientRoutes", async () => {
     router,
     surfaceRuntime,
     surfaceMode: "admin",
-    logger: { info() {}, warn() {}, error() {} }
+    logger: silentLogger
   });
 
   assert.equal(result.routeCount, 1);
@@ -401,7 +402,7 @@ test("bootClientModules loads client providers declared in packageMetadataClient
     router,
     surfaceRuntime,
     surfaceMode: "all",
-    logger: { info() {}, warn() {}, error() {} }
+    logger: silentLogger
   });
 
   assert.deepEqual(events, ["setup", "boot"]);
@@ -428,7 +429,7 @@ test("bootClientModules throws when packageMetadataClientProviders export is mis
       router,
       surfaceRuntime,
       surfaceMode: "all",
-      logger: { info() {}, warn() {}, error() {} }
+      logger: silentLogger
     }),
     /packageMetadata provider export "MissingProvider" must be a capability provider/
   );

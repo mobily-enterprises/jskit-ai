@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createDefaultErrorPolicy } from "../src/client/error/policy.js";
 import { createErrorRuntime } from "../src/client/error/runtime.js";
+import { silentLogger } from "@jskit-ai/kernel/shared/support/silentLogger";
 
 function createPresenter(id, {
   channels = ["snackbar", "banner", "dialog"],
@@ -47,7 +48,8 @@ test("error runtime treats resource load errors as silent by default", () => {
     presenters: [
       createPresenter("module.presenter", { calls })
     ],
-    moduleDefaultPresenterId: "module.presenter"
+    moduleDefaultPresenterId: "module.presenter",
+    logger: silentLogger
   });
 
   const result = runtime.report({
@@ -75,7 +77,8 @@ test("error runtime prefers policy presenter over app and module defaults", () =
       createPresenter("app.presenter", { calls }),
       createPresenter("policy.presenter", { calls })
     ],
-    moduleDefaultPresenterId: "module.presenter"
+    moduleDefaultPresenterId: "module.presenter",
+    logger: silentLogger
   });
 
   runtime.configure({
@@ -104,7 +107,8 @@ test("error runtime uses app default presenter when policy omits presenter", () 
       createPresenter("module.presenter", { calls }),
       createPresenter("app.presenter", { calls })
     ],
-    moduleDefaultPresenterId: "module.presenter"
+    moduleDefaultPresenterId: "module.presenter",
+    logger: silentLogger
   });
 
   runtime.configure({
@@ -135,7 +139,8 @@ test("error runtime falls back to module default presenter", () => {
     policy: () => ({
       channel: "snackbar",
       message: "Module default"
-    })
+    }),
+    logger: silentLogger
   });
 
   const result = runtime.report({
@@ -153,7 +158,8 @@ test("error runtime fails fast when module default presenter is unresolved", () 
     () =>
       createErrorRuntime({
         presenters: [createPresenter("registered.presenter")],
-        moduleDefaultPresenterId: "missing.presenter"
+        moduleDefaultPresenterId: "missing.presenter",
+        logger: silentLogger
       }),
     /Module default error presenter "missing.presenter" is not registered/,
   );
@@ -162,7 +168,8 @@ test("error runtime fails fast when module default presenter is unresolved", () 
 test("error runtime fails fast when app default presenter is unresolved", () => {
   const runtime = createErrorRuntime({
     presenters: [createPresenter("module.presenter")],
-    moduleDefaultPresenterId: "module.presenter"
+    moduleDefaultPresenterId: "module.presenter",
+    logger: silentLogger
   });
 
   assert.throws(
@@ -179,7 +186,8 @@ test("error runtime throws when policy presenter is unknown", () => {
       channel: "dialog",
       presenterId: "missing.presenter",
       message: "failure"
-    })
+    }),
+    logger: silentLogger
   });
 
   assert.throws(
@@ -194,7 +202,8 @@ test("error runtime falls back to a channel-compatible presenter when default pr
       createPresenter("module.presenter"),
       createPresenter("app.presenter", { channels: ["banner"] })
     ],
-    moduleDefaultPresenterId: "module.presenter"
+    moduleDefaultPresenterId: "module.presenter",
+    logger: silentLogger
   });
 
   runtime.configure({
@@ -215,7 +224,8 @@ test("error runtime throws when no presenter supports channel", () => {
       createPresenter("module.presenter", { channels: ["snackbar"] }),
       createPresenter("app.presenter", { channels: ["banner"] })
     ],
-    moduleDefaultPresenterId: "module.presenter"
+    moduleDefaultPresenterId: "module.presenter",
+    logger: silentLogger
   });
 
   runtime.configure({
@@ -238,7 +248,8 @@ test("error runtime honours an explicit persist on any channel and defaults by c
   const store = createErrorPresentationStore({ now: () => 1000 });
   const runtime = createErrorRuntime({
     presenters: createDefaultMaterialErrorPresenters({ store }),
-    moduleDefaultPresenterId: "material.snackbar"
+    moduleDefaultPresenterId: "material.snackbar",
+    logger: silentLogger
   });
 
   const persistentSnackbar = runtime.report({ message: "Keep me", channel: "snackbar", persist: true });

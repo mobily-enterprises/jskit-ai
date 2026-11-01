@@ -1,8 +1,8 @@
 export type ClientLogger = {
-  info?: (...args: any[]) => void;
-  warn?: (...args: any[]) => void;
-  error?: (...args: any[]) => void;
-  debug?: (...args: any[]) => void;
+  info: (...args: any[]) => void;
+  warn: (...args: any[]) => void;
+  error: (...args: any[]) => void;
+  debug: (...args: any[]) => void;
   isDebugEnabled?: boolean;
 };
 
@@ -60,10 +60,10 @@ export function bootstrapClientShellApp(options?: {
   env?: Record<string, any>;
   fallbackRoute?: any;
   logger?: ClientLogger;
-  /** Its isDebugEnabled decides whether bootstrap builds debug payloads; without it, a debug method means enabled. */
+  /** Its isDebugEnabled decides whether bootstrap builds debug payloads; without it, debug is enabled. */
   createBootstrapLogger?: (options: {
     env?: Record<string, any>;
-    logger?: ClientLogger;
+    logger: ClientLogger;
     debugEnabled?: boolean;
     debugEnvKey?: string;
   }) => ClientLogger;

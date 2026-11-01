@@ -14,14 +14,6 @@ import { useJskitText } from "../i18n.js";
 
 const { t } = useJskitText();
 
-function createRuntimeLogger(logger = null) {
-  const source = isRecord(logger) ? logger : null;
-  return Object.freeze({
-    warn: typeof source?.warn === "function" ? source.warn.bind(source) : () => {},
-    error: typeof source?.error === "function" ? source.error.bind(source) : () => {}
-  });
-}
-
 function freezeParams(params) {
   return Object.freeze(isRecord(params) ? { ...params } : {});
 }
@@ -126,14 +118,21 @@ function normalizePresenter(candidate = {}) {
   });
 }
 
+/**
+ * @param {object} options
+ * @param {object[]} [options.presenters]
+ * @param {Function | null} [options.policy]
+ * @param {string} [options.defaultPresenterId]
+ * @param {string} [options.moduleDefaultPresenterId]
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} options.logger
+ */
 function createErrorRuntime({
   presenters = [],
   policy = null,
   defaultPresenterId = "",
   moduleDefaultPresenterId = "",
-  logger = null
-} = {}) {
-  const runtimeLogger = createRuntimeLogger(logger);
+  logger
+}) {
   const byPresenterId = new Map();
   const listeners = new Set();
   const subscribe = createListenerSubscription(listeners);
@@ -212,7 +211,7 @@ function createErrorRuntime({
       try {
         listener(payload);
       } catch (error) {
-        runtimeLogger.warn(
+        logger.warn(
           {
             error: String(error?.message || error || "unknown error")
           },
@@ -286,7 +285,7 @@ function createErrorRuntime({
         })
       );
     } catch (error) {
-      runtimeLogger.error(
+      logger.error(
         {
           source: event.source,
           error: String(error?.message || error || "unknown error")
