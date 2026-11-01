@@ -163,6 +163,7 @@ async function validateProviderList(packageRecord, side) {
 async function validateMigrations(packageRecord, migrationOwners) {
   const { packageJson, packageRoot } = packageRecord;
   const directories = packageJson.jskit?.migrations?.directories;
+  validateMigrationsAfter(packageJson);
   if (typeof directories === "undefined") {
     return;
   }
@@ -183,6 +184,27 @@ async function validateMigrations(packageRecord, migrationOwners) {
         path.posix.join(relativeDirectory, "constraints"),
         migrationOwners
       );
+    }
+  }
+}
+
+// jskit.migrations.after names packages whose migrations the package's own follow; see
+// knexMigrationConfig.js. A catalog package depends on each of them.
+function validateMigrationsAfter(packageJson) {
+  const after = packageJson.jskit?.migrations?.after;
+  if (typeof after === "undefined") {
+    return;
+  }
+  if (typeof packageJson.jskit.migrations.directories === "undefined") {
+    throw new Error(`${packageJson.name}#jskit.migrations.after needs jskit.migrations.directories.`);
+  }
+  for (const prerequisite of requireStringArray(after, `${packageJson.name}#jskit.migrations.after`)) {
+    if (prerequisite === packageJson.name) {
+      throw new Error(`${packageJson.name}#jskit.migrations.after names the package itself.`);
+    }
+    if (!Object.hasOwn(packageJson.dependencies || {}, prerequisite) &&
+      !Object.hasOwn(packageJson.peerDependencies || {}, prerequisite)) {
+      throw new Error(`${packageJson.name}#jskit.migrations.after names ${prerequisite}, which it does not depend on.`);
     }
   }
 }

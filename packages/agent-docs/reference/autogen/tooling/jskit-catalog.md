@@ -142,5 +142,6 @@ Local functions
 - `requireArchitectureId(value, label)`
 - `validateCapabilityMap(value, label)`
 - `validateProviderDefinition(value, label)`
+- `validateMigrationsAfter(packageJson)`
 - `validateMigrationDirectory(packageName, absoluteDirectory, relativeDirectory, migrationOwners)`
 - `validatePackage(packageRecord, localVersions, migrationOwners)`

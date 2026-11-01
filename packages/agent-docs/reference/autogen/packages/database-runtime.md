@@ -47,6 +47,8 @@ Exports
 - `discoverPackageMigrationDirectories({ appRoot = process.cwd() } = {})`
 Local functions
 - `directoryExists(directory)`
+- `migrationsAfterOf({ packageId, packageMetadata }, installedPackageIds)`
+- `orderPackageMigrationDirectories(directories, packageIdOf, afterOf)`
 - `packageConstraintDirectoriesOf(packageMigrationDirectories)`
 
 ### `src/server/providers/DatabaseProvider.js`

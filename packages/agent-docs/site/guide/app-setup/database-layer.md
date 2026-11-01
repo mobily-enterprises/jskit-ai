@@ -117,6 +117,26 @@ A `constraints/` subdirectory of a declared directory, such as
 `migrations/constraints/`, holds the package's constraints migrations; it runs
 later, as described below.
 
+A package whose table migrations use another package's tables names that
+package in `after`, and its migrations, and its constraints, then run after
+that package's:
+
+```json
+{
+  "jskit": {
+    "migrations": {
+      "directories": ["migrations"],
+      "after": ["@jskit-ai/users-core"]
+    }
+  }
+}
+```
+
+Each name in `after` must be another installed JSKIT package; a name that is
+not installed, the package's own name, or packages that each name the other
+stop discovery with an error. A named package without migrations orders
+nothing.
+
 Names must remain unique across the effective migration directories. Preserve
 the basename when relocating a migration: Knex records that name in its ledger.
 Do not rename it to force execution or edit an already-applied migration's body;
@@ -128,7 +148,9 @@ changed schema behavior requires a new migration.
 pending migrations in this order, using the default `migrationsDirectory`:
 
 1. Discovered package migration directories, sorted by their absolute paths
-   using `localeCompare`.
+   using `localeCompare`, except that a package's directories follow those of
+   every package its `after` names, which follow theirs in turn, each in the
+   order listed. Without `after` the path order is unchanged.
 2. Application `migrations/`.
 3. The `constraints/` subdirectory of each discovered package migration
    directory that has one, in the same order.
@@ -136,8 +158,9 @@ pending migrations in this order, using the default `migrationsDirectory`:
 
 Knex sorts filenames within each directory, not across the whole graph; see
 its [`sortDirsSeparately` option](https://knexjs.org/guide/migrations.html#migration-api).
-Package discovery does not topologically order tables or foreign keys. A newer
-timestamp in an earlier package still runs before every file in a later package.
+Package discovery does not read tables or foreign keys; only `after` changes
+the package order. A newer timestamp in an earlier package still runs before
+every file in a later package.
 Inspect the effective `knexfile.js` configuration if the app customizes it.
 
 Every package table exists before the application's own migrations run, so a
@@ -154,8 +177,9 @@ reference a table that may belong to the application, such as `users`; for
 example, `@jskit-ai/assistant-runtime` adds its `users` and `workspaces` keys
 from `migrations/constraints/`. Similarly, a `pet_notes.product_id` column can be
 added by the pet-notes package, but its foreign key to the products package's
-`products.id` belongs in a constraints phase. Do not rely on today's
-package-directory order to make a cross-package reference work.
+`products.id` belongs in a constraints phase. Do not rely on the
+package-directory path order to make a cross-package reference work; when a
+package's table migrations need another package's table, declare `after`.
 
 Until `@jskit-ai/database-runtime` 0.1.252, root `migrations/` ran before the
 package directories, so a fresh database failed on any application migration

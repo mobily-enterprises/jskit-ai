@@ -61,12 +61,88 @@ async function directoryExists(directory) {
   }
 }
 
+/**
+ * A package's `jskit.migrations.after`: the installed JSKIT packages whose
+ * migrations its own follow, or none.
+ * @param {{ packageId: string, packageMetadata: Record<string, any> }} installedPackage
+ * @param {ReadonlySet<string>} installedPackageIds
+ */
+function migrationsAfterOf({ packageId, packageMetadata }, installedPackageIds) {
+  const { directories, after: declared } = packageMetadata.migrations ?? {};
+  if (declared === undefined) {
+    return [];
+  }
+  if (directories === undefined) {
+    throw new TypeError(`${packageId} package.json#jskit.migrations.after needs jskit.migrations.directories.`);
+  }
+  if (!Array.isArray(declared) || declared.some((entry) => typeof entry !== "string" || !entry.trim())) {
+    throw new TypeError(`${packageId} package.json#jskit.migrations.after must be an array of package names.`);
+  }
+  const after = declared.map((entry) => entry.trim());
+  for (const prerequisite of after) {
+    if (prerequisite === packageId) {
+      throw new TypeError(`${packageId} package.json#jskit.migrations.after names the package itself.`);
+    }
+    if (!installedPackageIds.has(prerequisite)) {
+      throw new Error(
+        `${packageId} package.json#jskit.migrations.after names ${prerequisite}, which is not an installed JSKIT package.`
+      );
+    }
+  }
+  return after;
+}
+
+/**
+ * Package migration directories in path order, except that a directory of a
+ * package whose `jskit.migrations.after` names other packages runs after all of
+ * their directories. With no `after` the path order is unchanged.
+ * @param {readonly string[]} directories
+ * @param {ReadonlyMap<string, string>} packageIdOf the package that declares each directory
+ * @param {ReadonlyMap<string, readonly string[]>} afterOf each package's `after`
+ */
+function orderPackageMigrationDirectories(directories, packageIdOf, afterOf) {
+  const directoriesOf = new Map();
+  for (const directory of directories) {
+    const packageId = packageIdOf.get(directory);
+    directoriesOf.set(packageId, [...(directoriesOf.get(packageId) || []), directory]);
+  }
+  const ordered = [];
+  const states = new Map();
+
+  function visit(directory, ancestry) {
+    const packageId = packageIdOf.get(directory);
+    if (states.get(directory) === "ordered") {
+      return;
+    }
+    if (states.get(directory) === "visiting") {
+      throw new Error(`Package migrations cannot each run after the other: ${[...ancestry, packageId].join(" -> ")}.`);
+    }
+    states.set(directory, "visiting");
+    for (const prerequisite of afterOf.get(packageId) || []) {
+      for (const prerequisiteDirectory of directoriesOf.get(prerequisite) || []) {
+        visit(prerequisiteDirectory, [...ancestry, packageId]);
+      }
+    }
+    states.set(directory, "ordered");
+    ordered.push(directory);
+  }
+
+  for (const directory of directories) {
+    visit(directory, []);
+  }
+  return ordered;
+}
+
 async function discoverPackageMigrationDirectories({ appRoot = process.cwd() } = {}) {
   const normalizedAppRoot = path.resolve(appRoot);
-  const directories = [];
+  const installedPackages = await discoverInstalledPackages({ appRoot: normalizedAppRoot });
+  const installedPackageIds = new Set(installedPackages.map(({ packageId }) => packageId));
+  const packageIdOf = new Map();
+  const afterOf = new Map();
 
-  for (const installedPackage of await discoverInstalledPackages({ appRoot: normalizedAppRoot })) {
+  for (const installedPackage of installedPackages) {
     const declaredDirectories = installedPackage.packageMetadata?.migrations?.directories;
+    afterOf.set(installedPackage.packageId, migrationsAfterOf(installedPackage, installedPackageIds));
     if (typeof declaredDirectories === "undefined") {
       continue;
     }
@@ -100,11 +176,14 @@ async function discoverPackageMigrationDirectories({ appRoot = process.cwd() } =
           `${installedPackage.packageId} declares a missing package migration directory: ${relativeDirectory}.`
         );
       }
-      directories.push(absoluteDirectory);
+      if (!packageIdOf.has(absoluteDirectory)) {
+        packageIdOf.set(absoluteDirectory, installedPackage.packageId);
+      }
     }
   }
 
-  return Object.freeze([...new Set(directories)].sort((left, right) => left.localeCompare(right)));
+  const pathOrder = [...packageIdOf.keys()].sort((left, right) => left.localeCompare(right));
+  return Object.freeze(orderPackageMigrationDirectories(pathOrder, packageIdOf, afterOf));
 }
 
 /**

@@ -118,6 +118,34 @@ test("migration verification imports every migration and requires reversible ent
   });
 });
 
+test("migration verification requires after to name packages the package depends on, beside its directories", async () => {
+  await withTempPackage(async (packageRoot) => {
+    await mkdir(path.join(packageRoot, "migrations"));
+    await writeFile(
+      path.join(packageRoot, "migrations", "example_initial.cjs"),
+      "exports.up = async function up() {}; exports.down = async function down() {};\n",
+      "utf8"
+    );
+    const withAfter = (migrations, dependencies = { "@jskit-ai/users-core": "1.0.0" }) => {
+      const record = packageRecord(packageRoot);
+      record.packageJson.dependencies = dependencies;
+      record.packageJson.jskit.migrations = migrations;
+      return record;
+    };
+
+    await validateMigrations(withAfter({ directories: ["migrations"], after: ["@jskit-ai/users-core"] }), new Map());
+    const failures = [
+      [withAfter({ directories: ["migrations"], after: ["@jskit-ai/workspaces-core"] }), /names @jskit-ai\/workspaces-core, which it does not depend on/u],
+      [withAfter({ directories: ["migrations"], after: ["@jskit-ai/example"] }), /after names the package itself/u],
+      [withAfter({ directories: ["migrations"], after: "@jskit-ai/users-core" }), /after must be an array of non-empty strings/u],
+      [withAfter({ after: ["@jskit-ai/users-core"] }), /after needs jskit\.migrations\.directories/u]
+    ];
+    for (const [record, message] of failures) {
+      await assert.rejects(validateMigrations(record, new Map()), message);
+    }
+  });
+});
+
 test("catalog capability verification accepts kernel inputs and rejects an unprovided requirement", () => {
   const packages = [
     {

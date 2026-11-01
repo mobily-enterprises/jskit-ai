@@ -189,3 +189,158 @@ test("a package constraints migration references the application's users table o
     { table: "users", from: "user_id", to: "id" }
   ]);
 });
+
+// An app whose node_modules hold the given JSKIT packages, each with its migration directories.
+async function createAppWithPackages(context, packages) {
+  const appRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-migrations-after-"));
+  context.after(() => rm(appRoot, { recursive: true, force: true }));
+  await writeFile(path.join(appRoot, "package.json"), JSON.stringify({
+    dependencies: Object.fromEntries(packages.map(({ name }) => [name, "1.0.0"]))
+  }));
+  const directoryOf = {};
+  for (const { name, migrations, files = {} } of packages) {
+    const packageRoot = path.join(appRoot, "node_modules", ...name.split("/"));
+    await mkdir(packageRoot, { recursive: true });
+    await writeFile(path.join(packageRoot, "package.json"), JSON.stringify({
+      name,
+      version: "1.0.0",
+      jskit: { kind: "runtime", ...(migrations ? { migrations } : {}) }
+    }));
+    for (const directory of migrations?.directories || []) {
+      await mkdir(path.join(packageRoot, directory), { recursive: true });
+      directoryOf[`${name}:${directory}`] = path.join(packageRoot, directory);
+    }
+    for (const [file, source] of Object.entries(files)) {
+      await mkdir(path.dirname(path.join(packageRoot, file)), { recursive: true });
+      await writeFile(path.join(packageRoot, file), source);
+    }
+  }
+  return { appRoot, directoryOf };
+}
+
+test("without jskit.migrations.after, package migration directories keep their path order", async (context) => {
+  const { appRoot, directoryOf } = await createAppWithPackages(context, [
+    { name: "@example/units-core", migrations: { directories: ["migrations"] } },
+    { name: "@example/assets-core", migrations: { directories: ["migrations", "reference"] } },
+    { name: "@example/plain-core" }
+  ]);
+  assert.deepEqual(await discoverPackageMigrationDirectories({ appRoot }), [
+    directoryOf["@example/assets-core:migrations"],
+    directoryOf["@example/assets-core:reference"],
+    directoryOf["@example/units-core:migrations"]
+  ]);
+});
+
+test("a package's migrations and constraints run after those of the packages its jskit.migrations.after names", async (context) => {
+  const { appRoot, directoryOf } = await createAppWithPackages(context, [
+    {
+      name: "@example/assets-core",
+      migrations: { directories: ["migrations", "reference"], after: ["@example/units-core", "@example/plain-core"] },
+      files: { "migrations/constraints/assets_units.cjs": "exports.up = async () => {};\n" }
+    },
+    { name: "@example/notes-core", migrations: { directories: ["migrations"] } },
+    {
+      name: "@example/units-core",
+      migrations: { directories: ["migrations"] },
+      files: { "migrations/constraints/units_users.cjs": "exports.up = async () => {};\n" }
+    },
+    { name: "@example/plain-core" }
+  ]);
+  const packageDirectories = [
+    directoryOf["@example/units-core:migrations"],
+    directoryOf["@example/assets-core:migrations"],
+    directoryOf["@example/assets-core:reference"],
+    directoryOf["@example/notes-core:migrations"]
+  ];
+  assert.deepEqual(await discoverPackageMigrationDirectories({ appRoot }), packageDirectories);
+  const { migrations } = await createKnexMigrationConfigFromApp({ client: "mysql2", environment: connectionEnvironment, appRoot });
+  assert.deepEqual(migrations.directory, [
+    ...packageDirectories,
+    path.join(appRoot, "migrations"),
+    path.join(directoryOf["@example/units-core:migrations"], "constraints"),
+    path.join(directoryOf["@example/assets-core:migrations"], "constraints"),
+    path.join(appRoot, "migrations", "constraints")
+  ]);
+});
+
+test("after is followed depth first, each prerequisite in the order it is listed", async (context) => {
+  const { appRoot, directoryOf } = await createAppWithPackages(context, [
+    { name: "@example/a-core", migrations: { directories: ["migrations"], after: ["@example/d-core", "@example/c-core"] } },
+    { name: "@example/b-core", migrations: { directories: ["migrations"] } },
+    { name: "@example/c-core", migrations: { directories: ["migrations"], after: ["@example/e-core"] } },
+    { name: "@example/d-core", migrations: { directories: ["migrations"] } },
+    { name: "@example/e-core", migrations: { directories: ["migrations"] } }
+  ]);
+  assert.deepEqual(await discoverPackageMigrationDirectories({ appRoot }), [
+    "@example/d-core", "@example/e-core", "@example/c-core", "@example/a-core", "@example/b-core"
+  ].map((name) => directoryOf[`${name}:migrations`]));
+});
+
+test("a fresh database runs a package's migrations after the package whose table they use", async (context) => {
+  const { appRoot } = await createAppWithPackages(context, [
+    {
+      name: "@example/assets-core",
+      migrations: { directories: ["migrations"], after: ["@example/units-core"] },
+      files: {
+        "migrations/assets_initial.cjs": [
+          "exports.up = async (knex) => {",
+          "  await knex.schema.createTable(\"assets\", (table) => table.integer(\"unit_id\").references(\"id\").inTable(\"units\"));",
+          "  await knex(\"assets\").insert({ unit_id: (await knex(\"units\").first(\"id\")).id });",
+          "};",
+          "exports.down = () => {};",
+          ""
+        ].join("\n")
+      }
+    },
+    {
+      name: "@example/units-core",
+      migrations: { directories: ["migrations"] },
+      files: {
+        "migrations/units_initial.cjs": [
+          "exports.up = async (knex) => {",
+          "  await knex.schema.createTable(\"units\", (table) => table.increments(\"id\"));",
+          "  await knex(\"units\").insert({ id: 1 });",
+          "};",
+          "exports.down = () => {};",
+          ""
+        ].join("\n")
+      }
+    }
+  ]);
+  await mkdir(path.join(appRoot, "migrations", "constraints"), { recursive: true });
+  const { migrations } = await createKnexMigrationConfigFromApp({ client: "pg", environment: connectionEnvironment, appRoot });
+  const knex = knexFactory({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true, migrations });
+  context.after(() => knex.destroy());
+
+  await knex.migrate.latest();
+  assert.deepEqual(await knex("knex_migrations").orderBy("id").pluck("name"), ["units_initial.cjs", "assets_initial.cjs"]);
+  assert.deepEqual(await knex("assets").pluck("unit_id"), [1]);
+});
+
+test("packages whose migrations each name the other in after are rejected with the cycle", async (context) => {
+  const { appRoot } = await createAppWithPackages(context, [
+    { name: "@example/a-core", migrations: { directories: ["migrations"], after: ["@example/b-core"] } },
+    { name: "@example/b-core", migrations: { directories: ["migrations"], after: ["@example/a-core"] } }
+  ]);
+  await assert.rejects(
+    () => discoverPackageMigrationDirectories({ appRoot }),
+    /Package migrations cannot each run after the other: @example\/a-core -> @example\/b-core -> @example\/a-core\./
+  );
+});
+
+test("jskit.migrations.after names other installed JSKIT packages, beside the package's directories", async (context) => {
+  const cases = [
+    [{ directories: ["migrations"], after: ["@example/missing-core"] }, /names @example\/missing-core, which is not an installed JSKIT package/],
+    [{ directories: ["migrations"], after: ["@example/a-core"] }, /after names the package itself/],
+    [{ directories: ["migrations"], after: "@example/b-core" }, /after must be an array of package names/],
+    [{ directories: ["migrations"], after: [" "] }, /after must be an array of package names/],
+    [{ after: ["@example/b-core"] }, /after needs jskit\.migrations\.directories/]
+  ];
+  for (const [migrations, message] of cases) {
+    const { appRoot } = await createAppWithPackages(context, [
+      { name: "@example/a-core", migrations },
+      { name: "@example/b-core", migrations: { directories: ["migrations"] } }
+    ]);
+    await assert.rejects(() => discoverPackageMigrationDirectories({ appRoot }), message);
+  }
+});
