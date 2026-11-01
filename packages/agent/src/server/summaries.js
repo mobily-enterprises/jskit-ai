@@ -59,6 +59,7 @@ export function transcriptText(modelMessages, { named = false } = {}) {
       if (part.type === "text") lines.push(`${label}: ${part.text}`);
       else if (part.type === "image") lines.push(`${label}: [a picture]`);
       else if (part.type === "tool-call") lines.push(`Bot used ${part.toolName}(${clip(part.input ?? part.args ?? {}, 400)})`);
+      // readable-check: allow no-dual-shape - data: a tool result's output is { type, value } in model messages and the bare value in transcripts stored before that
       else if (part.type === "tool-result") lines.push(`Result of ${part.toolName}: ${clip(part.output?.value ?? part.output ?? part.result, 800)}`);
     }
   }

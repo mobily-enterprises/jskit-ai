@@ -15,10 +15,10 @@ export function checkTexts(app) {
 // --- Stopping short: a short reply that ends by announcing its next step, with no result.
 const ANNOUNCES_NEXT = /(?:\b(?:let me|let's|I'll|I will|I'm going to|now I'll|next,? I'll|one moment|give me a (?:moment|second|sec)|just a (?:moment|second|sec))\b[^.!?\n]{0,160}[.…:>]*|\bfirst\.)\s*$/iu;
 const REPORTS_RESULT = /\b(?:done|here(?:'s| is| are)|saved|I've|I have|made|ready|finished|let me know|if you(?:'d)? (?:like|want)|say the word)\b/iu;
-// A plan of a paragraph or two counts too ("…then verify it before switching it in.").
+/** A plan of a paragraph or two counts too ("…then verify it before switching it in."). */
 export const stoppedShort = (text) => text.length < 600 && ANNOUNCES_NEXT.test(text) && !REPORTS_RESULT.test(text);
 
-// A reply's steps without its closing words, to carry on from.
+/** A reply's steps without its closing words, to carry on from. */
 export function withoutClosingWords(transcript) {
   const last = transcript.at(-1);
   const saidOnly = last?.role === "assistant" && (typeof last.content === "string" || last.content.every((part) => part.type === "text"));
@@ -31,8 +31,10 @@ export function withoutClosingWords(transcript) {
 export const LEAKED_MARKUP = /<[｜|]{1,2}[^<>\n]{0,80}?[｜|]{1,2}>|｜DSML｜|<\/?(?:invoke|parameter|tool_call|function_calls|tools|ds_safety)\b|<budget:/u;
 const CJK = /[㐀-鿿豈-﫿]/gu;
 
-// The reply as people may see it: the markup and what it wraps taken out. After one of DeepSeek's
-// tokens, the rest of that line goes too when it's in a script the reply otherwise isn't in.
+/**
+ * The reply as people may see it: the markup and what it wraps taken out. After one of DeepSeek's
+ * tokens, the rest of that line goes too when it's in a script the reply otherwise isn't in.
+ */
 export function withoutMarkup(text) {
   const source = String(text || "");
   if (!LEAKED_MARKUP.test(source)) return source;
@@ -62,7 +64,7 @@ export function withoutMarkup(text) {
 const CLAIMS_ACTION = /\b(?:I(?:'ve| have)?|it's|it is|they're|they are|all|both|now|done|is|are|was|were)\b[^.!?\n]{0,60}\b(?:created|made|saved|sent|added|updated|changed|removed|deleted|moved|renamed|booked|scheduled|set up|attached|uploaded|published|installed|fixed|written|wrote|built|drafted|replied|invited|cancelled|archived|forwarded)\b/iu;
 export const reportsActions = (text) => CLAIMS_ACTION.test(String(text || ""));
 
-// What a reply's tools did, briefly, from its transcript and the app's own records of it.
+/** What a reply's tools did, briefly, from its transcript and the app's own records of it. */
 export function toolRecord(transcript = [], events = [], app = "The app") {
   const brief = (value, size = 240) => {
     const text = typeof value === "string" ? value : JSON.stringify(value ?? "");
@@ -72,6 +74,7 @@ export function toolRecord(transcript = [], events = [], app = "The app") {
   for (const message of transcript) {
     for (const part of Array.isArray(message.content) ? message.content : []) {
       if (part.type === "tool-call") lines.push(`called ${part.toolName}(${brief(part.input ?? part.args ?? {})})`);
+      // readable-check: allow no-dual-shape - data: a tool result's output is { type, value } in model messages and the bare value in transcripts stored before that
       if (part.type === "tool-result") lines.push(`  ${part.toolName} answered: ${brief(part.output?.value ?? part.output ?? part.result)}`);
     }
   }

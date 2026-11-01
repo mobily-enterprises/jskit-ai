@@ -62,6 +62,7 @@ export function clipOldResult(message) {
     ...message,
     content: message.content.map((part) => {
       if (part.type !== "tool-result") return part;
+      // readable-check: allow no-dual-shape - data: a tool result's output is { type, value } in model messages and the bare value in transcripts stored before that
       const text = typeof part.output?.value === "string" ? part.output.value : JSON.stringify(part.output?.value ?? part.output ?? null);
       return text.length > OLD_RESULT_CHARS ? { ...part, output: { type: "text", value: `${text.slice(0, OLD_RESULT_CHARS)}… [the rest of this result is no longer shown]` } } : part;
     })

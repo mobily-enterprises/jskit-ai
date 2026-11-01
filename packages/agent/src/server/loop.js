@@ -7,17 +7,19 @@ import { modelTools } from "./tool.js";
 // How long one reply may run before it stops and reports (AGENT_REPLY_MINUTES, default 15).
 export const REPLY_DEADLINE_MS = (Number(process.env.AGENT_REPLY_MINUTES) || 15) * 60 * 1000;
 
-// The agent loop: call the model, run the tools it asks for, feed the results back, until it
-// answers without a tool call, runs out of steps or reaches its deadline. Every step reasons; old
-// tool results give way inside a long turn; each finished step can be saved. A reply always ends
-// with a message: one that stops early ends with the model's own account of where it got to.
-//
-// `history` is the conversation as model messages. The summary, the state note and any other
-// system messages in it go into the system prompt, after the instructions, in that order.
-// Returns { text, transcript, unfinished? }; `unfinished` (out of steps or time) means the job can
-// carry on from here. With `onText(text)` the reply streams: each step's words so far, as they
-// come. `onStep(step)` hears each finished step. Aborting `signal` (the person pressed Stop, or a
-// tool's outcome is unknown) ends the run at once with the signal's reason, without an account.
+/**
+ * The agent loop: call the model, run the tools it asks for, feed the results back, until it
+ * answers without a tool call, runs out of steps or reaches its deadline. Every step reasons; old
+ * tool results give way inside a long turn; each finished step can be saved. A reply always ends
+ * with a message: one that stops early ends with the model's own account of where it got to.
+ *
+ * `history` is the conversation as model messages. The summary, the state note and any other
+ * system messages in it go into the system prompt, after the instructions, in that order.
+ * Returns { text, transcript, unfinished? }; `unfinished` (out of steps or time) means the job can
+ * carry on from here. With `onText(text)` the reply streams: each step's words so far, as they
+ * come. `onStep(step)` hears each finished step. Aborting `signal` (the person pressed Stop, or a
+ * tool's outcome is unknown) ends the run at once with the signal's reason, without an account.
+ */
 export async function runLoop({
   model, name, instructions, history, tools = {}, summary = "", state = "", maxSteps,
   onSteps = null, onStep = null, onText = null, signal = null, carriesOn = false, quietIfEmpty = false, clean = stripNotes,
@@ -84,7 +86,7 @@ export async function runLoop({
   return { text, transcript, ...(resumable ? { unfinished: stopped } : {}) };
 }
 
-// A streamed run: each step's words go to `onText` as they come; the result is read at the end.
+/** A streamed run: each step's words go to `onText` as they come; the result is read at the end. */
 async function streamed(call, onText) {
   const stream = streamText({ ...call, onError: () => {} });
   let text = "";
@@ -96,15 +98,19 @@ async function streamed(call, onText) {
   return { finishReason: await stream.finishReason, text: await stream.text };
 }
 
-// The system prompt as each format takes it: one message in the OpenAI style, parts joined by a
-// blank line; separate blocks in the Anthropic format.
+/**
+ * The system prompt as each format takes it: one message in the OpenAI style, parts joined by a
+ * blank line; separate blocks in the Anthropic format.
+ */
 function systemPrompt(model, parts) {
   const present = parts.filter(Boolean);
   return String(model.provider || "").startsWith("anthropic") ? present.map((content) => ({ role: "system", content })) : present.join("\n\n");
 }
 
-// A reply's stored transcript keeps its tool calls and results; reasoning and provider
-// bookkeeping are dropped.
+/**
+ * A reply's stored transcript keeps its tool calls and results; reasoning and provider
+ * bookkeeping are dropped.
+ */
 export function cleanTranscript(messages = []) {
   return messages.map((message) => ({
     role: message.role,
@@ -114,8 +120,10 @@ export function cleanTranscript(messages = []) {
   }));
 }
 
-// The words of a reply: each step's text a paragraph, leaving out a step that repeats an earlier
-// one's opening, or says again in other words what a later one says (the later one is the answer).
+/**
+ * The words of a reply: each step's text a paragraph, leaving out a step that repeats an earlier
+ * one's opening, or says again in other words what a later one says (the later one is the answer).
+ */
 function replyText(transcript) {
   const opening = (text) => text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim().slice(0, 60);
   return transcript
@@ -128,7 +136,7 @@ function replyText(transcript) {
     .join("\n\n");
 }
 
-// What the steps did, briefly, for the account of a reply that stopped early.
+/** What the steps did, briefly, for the account of a reply that stopped early. */
 function stepLog(steps) {
   const brief = (value) => {
     const text = typeof value === "string" ? value : JSON.stringify(value ?? "");
