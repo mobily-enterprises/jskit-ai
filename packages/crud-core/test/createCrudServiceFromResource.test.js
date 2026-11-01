@@ -63,24 +63,6 @@ function createRepositoryDouble(overrides = {}) {
   };
 }
 
-test("createCrudServiceFromResource builds default service events", () => {
-  const { baseServiceEvents } = createCrudServiceFromResource({
-    namespace: "contacts"
-  });
-
-  assert.equal(baseServiceEvents.createRecord[0].realtime.event, "contacts.record.changed");
-  assert.equal(baseServiceEvents.updateRecord[0].realtime.event, "contacts.record.changed");
-  assert.equal(baseServiceEvents.deleteRecord[0].realtime.event, "contacts.record.changed");
-});
-
-test("createCrudServiceFromResource normalizes namespace for realtime event names", () => {
-  const { baseServiceEvents } = createCrudServiceFromResource({
-    namespace: "customer-orders"
-  });
-
-  assert.equal(baseServiceEvents.createRecord[0].realtime.event, "customer_orders.record.changed");
-});
-
 test("createCrudServiceFromResource delegates service methods and applies 404 semantics", async () => {
   const { createBaseService } = createCrudServiceFromResource({
     namespace: "contacts"

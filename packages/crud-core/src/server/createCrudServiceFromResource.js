@@ -1,4 +1,3 @@
-import { createCrudServiceEvents } from "./serviceEvents.js";
 import {
   createCrudServiceRuntime,
   crudServiceListRecords,
@@ -8,16 +7,21 @@ import {
   crudServiceDeleteRecord
 } from "./serviceMethods.js";
 
-function createCrudServiceFromResource(resource = {}, { context = "crudService" } = {}) {
+/**
+ * A records service factory for one resource.
+ * @param {import("./types.js").CrudResourceDefinition} resource
+ * @param {{ context?: string }} [options] The name the service's errors give it.
+ */
+function createCrudServiceFromResource(resource, { context = "crudService" } = {}) {
   const runtime = createCrudServiceRuntime(resource, { context });
-  const baseServiceEvents = createCrudServiceEvents(resource, { context });
 
   /**
    * @param {object} dependencies
    * @param {import("./types.js").CrudRecordRepository} dependencies.repository
-   * @param {object} [dependencies.fieldAccess]
+   * @param {import("./types.js").CrudFieldAccess} [dependencies.fieldAccess] Defaults to no field restrictions.
    */
   function createBaseService({ repository, fieldAccess = {} }) {
+    // readable-check: allow required-collaborators - test asserts error: createBaseService refuses a missing repository
     if (!repository) {
       throw new Error(`${context} requires repository.`);
     }
@@ -52,8 +56,7 @@ function createCrudServiceFromResource(resource = {}, { context = "crudService" 
   }
 
   return Object.freeze({
-    createBaseService,
-    baseServiceEvents
+    createBaseService
   });
 }
 

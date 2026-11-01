@@ -16,7 +16,7 @@ Use this on demand; do not load the full index at startup.
 
 ### `src/server/createCrudServiceFromResource.js`
 Exports
-- `createCrudServiceFromResource(resource = {}, { context = "crudService" } = {})`
+- `createCrudServiceFromResource(resource, { context = "crudService" } = {})`
 
 ### `src/server/createHooksToCollectChildren.js`
 Exports
@@ -333,13 +333,7 @@ Local functions
 
 ### `src/server/serviceEvents.js`
 Exports
-- `createCrudServiceEvents(resource, { context = "crudService" } = {})`
-- `createCrudJsonApiServiceEvents(namespace = "", { context = "createCrudJsonApiServiceEvents" } = {})`
-- `resolveCrudEntityIdFromArgs({ args = [] } = {})`
-- `resolveCrudEntityIdFromResult({ result } = {})`
 - `resolveCrudJsonApiEntityIdFromResult({ result } = {})`
-Local functions
-- `normalizeCrudEventEntityId(value = null)`
 
 ### `src/server/serviceMethods.js`
 Exports
@@ -366,6 +360,7 @@ Exports
 - `type CrudOperationLifecycle`
 - `type CrudRecordRepository`
 - `type CompiledCrudRepositoryRuntime`
+- `type CrudFieldAccess`
 - `type CrudServiceRuntime`
 
 ### patterns

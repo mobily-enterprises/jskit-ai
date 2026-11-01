@@ -128,6 +128,17 @@
  */
 
 /**
+ * A records service's field access policy: the fields a call may read and
+ * write (a list, a set, "*", or a function of the call that returns one), and
+ * whether a write to another field throws or is stripped.
+ * createFieldAccessForRoleMatrix builds one from a role matrix.
+ * @typedef {object} CrudFieldAccess
+ * @property {unknown} [readable]
+ * @property {unknown} [writable]
+ * @property {"throw" | "strip"} [writeMode]
+ */
+
+/**
  * The resource, namespace and field access a CRUD service's methods share.
  * @typedef {ReturnType<typeof import("./serviceMethods.js").createCrudServiceRuntime>} CrudServiceRuntime
  */
