@@ -15,6 +15,9 @@ new RuleTester().run("jskit/allow-comment-form", allowCommentForm, {
     "// readable-check: allow method-probe - filled by the editor repository; convert with its supplier\nstore.setProvider(provider);",
     "// readable-check: allow method-probe - cross-repository slot editor.session-preparation\nif (typeof preparation.run === \"function\") {}",
     "/* readable-check: allow method-probe - data: a route definition may omit its schema */\nif (typeof route.schema === \"object\") {}",
+    "// readable-check: allow dependency-default - data: an absent list of providers has none\nfunction build({ providers = [] } = {}) { return providers; }",
+    "// readable-check: allow method-probe - data: a route definition may omit its handler\nconst handler = typeof route.handler === \"function\" ? route.handler : null;",
+    "const routes = []; // readable-check: allow no-dual-shape - data: a route list or one route\nfunction read() {}",
     "// The vocabulary: \"// readable-check: allow <rule> - <reason>\".\nconst x = 1;",
     "const source = \"// readable-check: allow method-probe - anything\";"
   ],
@@ -54,6 +57,18 @@ new RuleTester().run("jskit/allow-comment-form", allowCommentForm, {
     {
       code: "// readable-check: allow method-probe - input validation: TODO remove once the store is split\nif (typeof store.read !== \"function\") {}",
       errors: [{ messageId: "citesStatus" }]
+    },
+    {
+      code: "// readable-check: allow duplicate-helper - data: the same small text helper as the sibling module\nfunction toLabel(value) { return String(value); }",
+      errors: [{ messageId: "dataOnFunction", line: 1 }]
+    },
+    {
+      code: "// readable-check: allow duplicate-helper - data: a shared formatter\nexport const format = (value) => String(value);",
+      errors: [{ messageId: "dataOnFunction" }]
+    },
+    {
+      code: "const helpers = {\n  // readable-check: allow duplicate-helper - data: a lookup helper\n  find(id) { return id; }\n};",
+      errors: [{ messageId: "dataOnFunction", line: 2 }]
     },
     {
       code: "// readable-check: allow method-probe: the router may be absent\nif (typeof router.register !== \"function\") {}",

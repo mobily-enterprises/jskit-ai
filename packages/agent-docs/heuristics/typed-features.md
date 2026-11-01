@@ -144,7 +144,7 @@ is true of the code, never the state of a project or its tests
 | Reason prefix | The exception |
 | --- | --- |
 | `input validation:` | a public library entry point checks a value an application passes it, and refuses a wrong one with its own error |
-| `data:` | probes data (a route definition, a transport, a parsed record), not a collaborator |
+| `data:` | probes or defaults data (a route definition, a transport, a parsed record, an options list), not a collaborator; never a function itself, such as a repeated helper |
 | `platform object:` | probes a host or library object reached internally, such as `Headers`, a fetch `Response` or a Knex transaction (`platform object: a Knex transaction`) |
 | `optional operation:` | calls a contract method that some real implementer lacks, which the contract marks optional |
 | `safety invariant: <what goes wrong>` | keeps a guard that protects an internal invariant, saying what goes wrong without it; the retired `test asserts error:` is reported |

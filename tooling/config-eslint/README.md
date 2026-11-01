@@ -74,7 +74,7 @@ code that does not:
 | `jskit/no-module-registry` | a module-level `register<Name>()` that writes module state |
 | `jskit/one-line-action` | `input = {}`, `input \|\| {}` or `input?.` in an action's `execute` or an actions file; an `async` `execute`; an action definition, or a list of them, that is neither `Object.freeze`d nor inside the kernel's `deepFreeze(…)` |
 | `jskit/no-duplicate-helper` | a small top-level helper, a function or a `const` arrow, that repeats one in another file of the package's server code (a named no-op is not a helper) |
-| `jskit/allow-comment-form` | a `readable-check: allow` comment whose reason has no fixed prefix, cites tests, or cites the state of a project |
+| `jskit/allow-comment-form` | a `readable-check: allow` comment whose reason has no fixed prefix, cites tests, cites the state of a project, or gives `data:` for a function (a parameter default's `dependency-default` / `required-collaborators` reason aside) |
 | `jskit/jsdoc-description-inside` | a `//` line comment directly above a `/** */` block, whose description belongs inside it |
 | `jskit/no-dual-shape` | a value accepted in two shapes: `x.service \|\| x`, `x?.value ?? x`, `x.service ? x.service : x` |
 | `jskit/named-repeated-type` | a `ReturnType<…>` or indexed JSDoc type (`X["y"]`) written in two or more files of a package, instead of named once in its `types.js` |
@@ -116,7 +116,7 @@ code, never the state of a project:
 | Reason prefix | The exception |
 | --- | --- |
 | `input validation:` | checks a value its caller passes and refuses a wrong one with its own error |
-| `data:` | probes data (a route definition, a transport, a parsed record), not a collaborator |
+| `data:` | probes or defaults data (a route definition, a transport, a parsed record, an options list), not a collaborator; never a function itself, such as a repeated helper |
 | `platform object:` | probes a platform or library object whose implementations differ, such as `Headers` |
 | `optional operation:` | calls an operation the collaborator's type marks optional |
 | `safety invariant: <what goes wrong>` | keeps a guard that protects an internal invariant, saying what goes wrong without it (the retired `test asserts error:` is reported) |

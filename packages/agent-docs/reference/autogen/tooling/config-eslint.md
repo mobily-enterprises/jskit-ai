@@ -108,6 +108,8 @@ Local functions
 Exports
 - `allowCommentForm`
 Local functions
+- `holdsFunction(node)`
+- `excusedNode(sourceCode, comment)`
 - `allowLines(comment)`
 
 ### `plugin/rules/frozenFactoryResult.js`

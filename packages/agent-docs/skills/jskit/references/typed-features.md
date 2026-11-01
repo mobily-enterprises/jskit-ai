@@ -876,7 +876,7 @@ indentation. Its `eslint --fix` output is already formatted.
 | `jskit/no-module-registry` | a module-level `register<Name>()` that writes module state |
 | `jskit/one-line-action` | `input = {}`, `input \|\| {}` or `input?.` in an action, an `async` `execute`, and a definition that is not frozen |
 | `jskit/no-duplicate-helper` | a small helper, function or arrow, repeated in another file of the package |
-| `jskit/allow-comment-form` | a `readable-check: allow` reason without a prefix from the table below, or one that cites tests or the state of a project |
+| `jskit/allow-comment-form` | a `readable-check: allow` reason without a prefix from the table below, one that cites tests or the state of a project, or a `data:` reason on a function (a parameter default's `dependency-default` / `required-collaborators` reason aside) |
 | `jskit/jsdoc-description-inside` | a `//` description directly above a `/** */` block |
 | `jskit/no-dual-shape` | a value accepted in two shapes, `x.service \|\| x` or `x?.value ?? x` |
 | `jskit/named-repeated-type` | a `ReturnType<…>` or `X["y"]` JSDoc type written in two or more files of a package |
@@ -897,7 +897,7 @@ and says what is true of the code, never the state of a project or its tests:
 | Reason prefix | The exception |
 | --- | --- |
 | `input validation:` | a public library entry point checks a value an application passes it, and refuses a wrong one with its own error |
-| `data:` | probes data (a route definition, a transport, a parsed record), not a collaborator |
+| `data:` | probes or defaults data (a route definition, a transport, a parsed record, an options list), not a collaborator; it never excuses a function itself, such as a repeated helper |
 | `platform object:` | probes a host or library object reached internally, such as `Headers`, a fetch `Response` or a Knex transaction (`platform object: a Knex transaction`) |
 | `optional operation:` | calls a contract method that some real implementer lacks, which the contract marks optional |
 | `safety invariant: <what goes wrong>` | keeps a guard that protects an internal invariant, saying what goes wrong without it; the retired `test asserts error:` is reported |
