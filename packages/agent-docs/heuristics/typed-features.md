@@ -37,7 +37,7 @@ data (input, record, list, options bag) is not one.
   - Keep a default that is the production implementation (a clock,
     `globalThis.fetch`) and an options bag whose fields are optional by
     contract (`options = {}` with `trx` where callers may omit it).
-- `fetchImpl = null`, `x || null`, `options.x || default` below the feature, a default or check that appears twice
+- `fetchImpl = null`, `x || null`, `options.x || default` below the feature, a default or check that appears twice, `options?.` or `options || {}` after `options = {}` (`jskit/no-optional-after-default`)
   - Resolve the default once, at the feature or the public entry point, and
     pass the resolved value down as required. Delete the second default and
     the re-check of what the provider validated.

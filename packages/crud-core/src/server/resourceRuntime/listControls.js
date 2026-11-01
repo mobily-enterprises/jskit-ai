@@ -104,11 +104,11 @@ function normalizeListOrderBy(orderBy = [], { idColumn = "id" } = {}) {
 }
 
 function resolveListRuntimeConfig(list = {}, fallbackSearchColumns = [], { idColumn = "id" } = {}) {
-  const parsedMaxLimit = Number(list?.maxLimit);
+  const parsedMaxLimit = Number(list.maxLimit);
   const normalizedMaxLimit = Number.isInteger(parsedMaxLimit) && parsedMaxLimit > 0
     ? parsedMaxLimit
     : MAX_LIST_LIMIT;
-  const normalizedDefaultLimit = normalizeCrudListLimit(list?.defaultLimit, {
+  const normalizedDefaultLimit = normalizeCrudListLimit(list.defaultLimit, {
     fallback: DEFAULT_LIST_LIMIT,
     max: normalizedMaxLimit
   });
@@ -116,8 +116,8 @@ function resolveListRuntimeConfig(list = {}, fallbackSearchColumns = [], { idCol
   return Object.freeze({
     defaultLimit: normalizedDefaultLimit,
     maxLimit: normalizedMaxLimit,
-    searchColumns: normalizeSearchColumns(list?.searchColumns, fallbackSearchColumns),
-    orderBy: normalizeListOrderBy(list?.orderBy, { idColumn })
+    searchColumns: normalizeSearchColumns(list.searchColumns, fallbackSearchColumns),
+    orderBy: normalizeListOrderBy(list.orderBy, { idColumn })
   });
 }
 

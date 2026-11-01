@@ -208,7 +208,7 @@ function normalizeJsonRestList(value) {
     .filter(Boolean);
 }
 
-function resolveJsonRestCollectionRelationships(resource = {}) {
+function resolveJsonRestCollectionRelationships(resource) {
   const resourceSchema = normalizeJsonRestObject(resource?.schema);
   const relationships = {};
 
@@ -244,9 +244,9 @@ function normalizeJsonRestQueryField(fieldName = "", fieldDefinition = {}, proje
   const normalizedFieldName = normalizeJsonRestText(fieldName);
   const sourceProjection = isPlainJsonRestObject(projectionDefinition)
     ? projectionDefinition
-    : isPlainJsonRestObject(fieldDefinition?.storage?.queryProjection)
+    : isPlainJsonRestObject(fieldDefinition.storage?.queryProjection)
       ? fieldDefinition.storage.queryProjection
-      : isPlainJsonRestObject(fieldDefinition?.queryProjection)
+      : isPlainJsonRestObject(fieldDefinition.queryProjection)
         ? fieldDefinition.queryProjection
         : null;
   if (!normalizedFieldName || !sourceProjection) {
@@ -335,7 +335,7 @@ function applyJsonRestQueryFields(scopeOptions = {}, extraQueryFields = {}) {
   }
 }
 
-function resolveJsonRestDefaultExcludedFields(resource = {}) {
+function resolveJsonRestDefaultExcludedFields(resource) {
   const defaultExclude = resource?.contract?.response?.defaultExclude;
   if (defaultExclude == null) {
     return [];

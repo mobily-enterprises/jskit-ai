@@ -38,7 +38,7 @@ function rewriteEmbeddedTransportSchemaRefs(value, {
   return rewritten;
 }
 
-function createEmbeddableTransportSchemaDocument(schemaDocument = {}, rootDefinitionName = "TransportSchema") {
+function createEmbeddableTransportSchemaDocument(schemaDocument, rootDefinitionName = "TransportSchema") {
   const {
     $schema: _jsonSchemaDraft,
     definitions: sourceDefinitions = {},

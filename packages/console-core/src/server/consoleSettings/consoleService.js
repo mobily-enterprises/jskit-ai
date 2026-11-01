@@ -24,7 +24,7 @@ function createService({ consoleSettingsRepository }) {
   }
 
   async function requireConsoleOwner(context = {}, options = {}) {
-    const actorUserId = normalizeRecordId(context?.actor?.id, { fallback: null });
+    const actorUserId = normalizeRecordId(context.actor?.id, { fallback: null });
     if (!actorUserId) {
       throw new AppError(401, "Authentication required.", { code: "console.owner.authenticationRequired" });
     }

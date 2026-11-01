@@ -38,7 +38,7 @@ async function normalizeRepositoryInputPayload(
   try {
     const nextPayload = validateSchemaPayload(input, normalizedPayload, {
       phase: "input",
-      context: `${runtime?.context || "crudRepository"} operations.${operationKey}.body`
+      context: `${runtime.context || "crudRepository"} operations.${operationKey}.body`
     });
     return normalizeObject(nextPayload);
   } catch (error) {
@@ -54,7 +54,7 @@ async function normalizeRepositoryOutputRecord(runtime = {}, record = {}, { oper
   try {
     return validateSchemaPayload(runtime.output, record, {
       phase: "output",
-      context: `${runtime?.context || "crudRepository"} operations.view.output`
+      context: `${runtime.context || "crudRepository"} operations.view.output`
     });
   } catch (error) {
     const explicitFieldErrors = extractExplicitFieldErrors(error);
@@ -63,11 +63,11 @@ async function normalizeRepositoryOutputRecord(runtime = {}, record = {}, { oper
         .map(([field, message]) => `${field}: ${message}`)
         .join(", ");
       throw new TypeError(
-        `${runtime?.context || "crudRepository"} ${operation} output validation failed: ${detailMessage}.`
+        `${runtime.context || "crudRepository"} ${operation} output validation failed: ${detailMessage}.`
       );
     }
     throw new TypeError(
-      `${runtime?.context || "crudRepository"} ${operation} output validation failed: ${String(error?.message || "Invalid value.")}.`
+      `${runtime.context || "crudRepository"} ${operation} output validation failed: ${String(error?.message || "Invalid value.")}.`
     );
   }
 }

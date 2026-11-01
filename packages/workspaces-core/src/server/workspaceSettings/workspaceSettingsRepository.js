@@ -44,10 +44,10 @@ function createRepository({ api, defaultInvitesEnabled, defaultColorSettings }) 
           queryParams: {
             filters
           },
-          transaction: options?.trx || null,
+          transaction: options.trx || null,
           format: "plain"
         },
-        createJsonRestContext(options?.context || null)
+        createJsonRestContext(options.context || null)
       )
     );
 
@@ -84,12 +84,12 @@ function createRepository({ api, defaultInvitesEnabled, defaultColorSettings }) 
           ),
           format: "plain",
           returning: "full",
-          transaction: options?.trx || null
+          transaction: options.trx || null
         },
-        createJsonRestContext(options?.context || null)
+        createJsonRestContext(options.context || null)
       );
     } catch (error) {
-      if (options?.trx || error?.transactionOutcome !== "rolledBack" || !isDuplicateEntryError(error)) {
+      if (options.trx || error?.transactionOutcome !== "rolledBack" || !isDuplicateEntryError(error)) {
         throw error;
       }
     }
@@ -120,9 +120,9 @@ function createRepository({ api, defaultInvitesEnabled, defaultColorSettings }) 
         },
         format: "plain",
         returning: "full",
-        transaction: options?.trx || null
+        transaction: options.trx || null
       },
-      createJsonRestContext(options?.context || null)
+      createJsonRestContext(options.context || null)
     );
 
     return findByWorkspaceId(normalizedWorkspaceId, options);

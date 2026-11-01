@@ -71,8 +71,8 @@ Local functions
 - `addMinutes(date, minutes)`
 - `startOfUtcDay(date)`
 - `requireActor(context, input)`
-- `requireWorkspaceSlug(input = {})`
-- `requireGateKey(input = {})`
+- `requireWorkspaceSlug(input)`
+- `requireGateKey(input)`
 - `formatRule(rule = null)`
 - `formatProviderConfig(record = null)`
 - `formatWatchSession(record = null)`

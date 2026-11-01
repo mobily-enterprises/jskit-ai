@@ -54,7 +54,7 @@ function deriveSurfaceRouteBaseFromPagesRoot(pagesRootLike) {
 }
 
 function createSurfaceRegistry(options = {}) {
-  const rawSurfaces = options?.surfaces;
+  const rawSurfaces = options.surfaces;
   if (!rawSurfaces || typeof rawSurfaces !== "object") {
     throw new Error("createSurfaceRegistry requires a surfaces object.");
   }
@@ -94,7 +94,7 @@ function createSurfaceRegistry(options = {}) {
 
   const SURFACE_REGISTRY = Object.freeze(Object.fromEntries(normalizedEntries));
   const fallbackSurfaceId = normalizedEntries[0][0];
-  const requestedDefaultSurfaceId = normalizeSurfaceId(options?.defaultSurfaceId);
+  const requestedDefaultSurfaceId = normalizeSurfaceId(options.defaultSurfaceId);
   const DEFAULT_SURFACE_ID = SURFACE_REGISTRY[requestedDefaultSurfaceId]
     ? requestedDefaultSurfaceId
     : fallbackSurfaceId;

@@ -1,6 +1,6 @@
 function renderWorkspaceInviteEmail({
   inviteUrl = "",
-  workspace = {},
+  workspace,
   inviter = null,
   roleSid = "member",
   expiresAt = ""

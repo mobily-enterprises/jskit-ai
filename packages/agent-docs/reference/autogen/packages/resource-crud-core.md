@@ -25,7 +25,7 @@ Exports
 - `resolveCrudFieldSchemaProperties(value, { context = "crud resource field definitions" } = {})`
 - `normalizeCrudFieldStorageConfig(fieldDefinition = {}, { context = "crud field storage", fieldKey = "" } = {})`
 - `buildCrudOperationSchemaFields(fields = {}, operationName = "")`
-- `buildCrudFieldContractMap(resource = {}, { context = "crud resource field contract" } = {})`
+- `buildCrudFieldContractMap(resource, { context = "crud resource field contract" } = {})`
 - `resolveCrudFieldContractEntry(resource = {}, fieldKey = "", options = {})`
 Local functions
 - `cloneStructuredFieldMetadata(value = {})`
@@ -141,7 +141,7 @@ Exports
 - `resolveCrudParentFilterFieldKeyFromRouteParam(resource = {}, routeParamKey = "")`
 Local functions
 - `resolveCrudLookupFieldEntries(resource = {}, { allowKeys = [] } = {})`
-- `resolveCrudLookupCreateSchemaKeys(resource = {})`
+- `resolveCrudLookupCreateSchemaKeys(resource)`
 
 ### `src/shared/crudNamespaceSupport.js`
 Exports
@@ -154,8 +154,8 @@ Exports
 - `defineCrudResource(resource = {})`
 Local functions
 - `createCrudRecordIdFieldDefinition()`
-- `resolveConfiguredLookupContainerKey(resource = {})`
-- `resolveFieldEntries(resource = {}, operationName = "output")`
+- `resolveConfiguredLookupContainerKey(resource)`
+- `resolveFieldEntries(resource, operationName = "output")`
 - `createDerivedCrudRecordOutputDefinition(resource = {})`
 - `createDerivedCrudBodyDefinition(resource = {}, operationName = "patch", bodyMode = "patch")`
 - `createCrudDeleteOutputDefinition()`

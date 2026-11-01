@@ -71,9 +71,9 @@ function normalizeInviteWithWorkspace(payload = {}) {
 
   return {
     ...invite,
-    workspaceSlug: payload?.workspace?.slug ? normalizeText(payload.workspace.slug) : undefined,
-    workspaceName: payload?.workspace?.name ? normalizeText(payload.workspace.name) : undefined,
-    workspaceAvatarUrl: payload?.workspace?.avatarUrl ? normalizeText(payload.workspace.avatarUrl) : undefined
+    workspaceSlug: payload.workspace?.slug ? normalizeText(payload.workspace.slug) : undefined,
+    workspaceName: payload.workspace?.name ? normalizeText(payload.workspace.name) : undefined,
+    workspaceAvatarUrl: payload.workspace?.avatarUrl ? normalizeText(payload.workspace.avatarUrl) : undefined
   };
 }
 
@@ -127,10 +127,10 @@ function createRepository({ api }) {
             filters,
             ...(includeWorkspace ? { include: ["workspace"] } : {})
           },
-          transaction: options?.trx || null,
+          transaction: options.trx || null,
           format: "plain"
         },
-        createJsonRestContext(options?.context || null)
+        createJsonRestContext(options.context || null)
       )
     );
   }
@@ -261,14 +261,14 @@ function createRepository({ api }) {
           },
           format: "plain",
           returning: "full",
-          transaction: options?.trx || null
+          transaction: options.trx || null
         },
-        createJsonRestContext(options?.context || null)
+        createJsonRestContext(options.context || null)
       );
 
       return normalizeInviteRecord(created);
     } catch (error) {
-      if (options?.trx || error?.transactionOutcome !== "rolledBack" || !isDuplicateEntryError(error)) {
+      if (options.trx || error?.transactionOutcome !== "rolledBack" || !isDuplicateEntryError(error)) {
         throw error;
       }
     }
@@ -319,9 +319,9 @@ function createRepository({ api }) {
           },
           format: "plain",
           returning: "full",
-          transaction: options?.trx || null
+          transaction: options.trx || null
         },
-        createJsonRestContext(options?.context || null)
+        createJsonRestContext(options.context || null)
       );
     }
   }

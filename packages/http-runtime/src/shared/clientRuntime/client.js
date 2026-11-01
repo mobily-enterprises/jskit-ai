@@ -108,14 +108,14 @@ function createHttpClient(options = {}) {
   const configuredResolveRequestUrl =
     typeof options.resolveRequestUrl === "function" ? options.resolveRequestUrl : null;
   const unsafeMethods = resolveUnsafeMethods(options.unsafeMethods);
-  const hooks = options?.hooks && typeof options.hooks === "object" ? options.hooks : {};
+  const hooks = options.hooks && typeof options.hooks === "object" ? options.hooks : {};
 
   const csrf = {
-    enabled: options?.csrf?.enabled !== false,
-    sessionPath: String(options?.csrf?.sessionPath || "/api/session"),
-    headerName: String(options?.csrf?.headerName || "csrf-token"),
-    tokenField: String(options?.csrf?.tokenField || "csrfToken"),
-    retryableErrorCodes: Array.isArray(options?.csrf?.retryableErrorCodes)
+    enabled: options.csrf?.enabled !== false,
+    sessionPath: String(options.csrf?.sessionPath || "/api/session"),
+    headerName: String(options.csrf?.headerName || "csrf-token"),
+    tokenField: String(options.csrf?.tokenField || "csrfToken"),
+    retryableErrorCodes: Array.isArray(options.csrf?.retryableErrorCodes)
       ? options.csrf.retryableErrorCodes
       : DEFAULT_RETRYABLE_CSRF_ERROR_CODES
   };
@@ -147,7 +147,7 @@ function createHttpClient(options = {}) {
     try {
       response = await activeFetch(requestUrl, {
         method: "GET",
-        credentials: String(options?.credentials || "same-origin"),
+        credentials: String(options.credentials || "same-origin"),
         signal
       });
     } catch (cause) {
@@ -318,7 +318,7 @@ function createHttpClient(options = {}) {
     }
 
     const config = {
-      credentials: String(options?.credentials || "same-origin"),
+      credentials: String(options.credentials || "same-origin"),
       ...forwardedRequestOptions,
       method,
       headers
@@ -640,9 +640,9 @@ function createHttpClient(options = {}) {
 
       if (shouldParseAsNdjson) {
         await readNdjsonStream(result.response, handlers);
-      } else if (typeof handlers?.onEvent === "function" && Object.keys(result.data).length > 0) {
+      } else if (typeof handlers.onEvent === "function" && Object.keys(result.data).length > 0) {
         handlers.onEvent(result.data);
-      } else if (typeof handlers?.onEvent === "function" && typeof result.response?.text === "function") {
+      } else if (typeof handlers.onEvent === "function" && typeof result.response?.text === "function") {
         const rawText = await result.response.text().catch(() => "");
         for (const line of String(rawText || "").split(/\r?\n/g)) {
           emitNdjsonLine(line, handlers);

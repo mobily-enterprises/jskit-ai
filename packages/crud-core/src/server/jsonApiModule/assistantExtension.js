@@ -195,7 +195,7 @@ function projectCrudAssistantReadRecord(record, {
   return projectedRecord;
 }
 
-function createCrudAssistantResultProjection(input, resource = {}, relationshipEntries = []) {
+function createCrudAssistantResultProjection(input, resource, relationshipEntries = []) {
   const primaryType = String(resource?.namespace || "").trim();
   const fieldsets = normalizeJsonApiFieldsets(input.fields, {
     primaryType

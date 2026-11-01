@@ -4,13 +4,13 @@
  * @param {{ id?: unknown, workspace?: { id?: unknown } }} record
  * @param {{ request?: { params?: { workspaceSlug?: unknown } } }} context
  */
-function resolveWorkspaceRecordId(record = {}, context = {}) {
+function resolveWorkspaceRecordId(record, context = {}) {
   const workspaceId = record?.workspace?.id ?? record?.id;
   if (workspaceId != null && String(workspaceId).trim()) {
     return workspaceId;
   }
 
-  const workspaceSlug = context?.request?.params?.workspaceSlug;
+  const workspaceSlug = context.request?.params?.workspaceSlug;
   if (workspaceSlug != null && String(workspaceSlug).trim()) {
     return workspaceSlug;
   }

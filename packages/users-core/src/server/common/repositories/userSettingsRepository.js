@@ -65,10 +65,10 @@ function createRepository({ api }) {
           queryParams: {
             filters
           },
-          transaction: options?.trx || null,
+          transaction: options.trx || null,
           format: "plain"
         },
-        createJsonRestContext(options?.context || null)
+        createJsonRestContext(options.context || null)
       )
     );
 
@@ -103,12 +103,12 @@ function createRepository({ api }) {
           data: createDefaultUserSettingsCreatePayload(normalizedUserId),
           format: "plain",
           returning: "full",
-          transaction: options?.trx || null
+          transaction: options.trx || null
         },
-        createJsonRestContext(options?.context || null)
+        createJsonRestContext(options.context || null)
       );
     } catch (error) {
-      if (options?.trx || error?.transactionOutcome !== "rolledBack" || !isDuplicateEntryError(error)) {
+      if (options.trx || error?.transactionOutcome !== "rolledBack" || !isDuplicateEntryError(error)) {
         throw error;
       }
     }
@@ -139,9 +139,9 @@ function createRepository({ api }) {
         },
         format: "plain",
         returning: "full",
-        transaction: options?.trx || null
+        transaction: options.trx || null
       },
-      createJsonRestContext(options?.context || null)
+      createJsonRestContext(options.context || null)
     );
 
     return findByUserId(normalizedUserId, options);

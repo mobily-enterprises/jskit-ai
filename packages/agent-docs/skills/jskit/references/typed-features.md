@@ -487,6 +487,10 @@ function createActionCatalogue({ events = createEventRuntime() } = {}) {
 Two defaults can disagree, and a second validation of what the provider
 already checked suggests the value can still be wrong. Resolve once, at the
 feature or the public entry point; below that, destructure and use.
+`function list(options = {}) { options?.trx || knex }` guards a value its own
+default already supplied; `jskit/no-optional-after-default` reports the `?.`
+and a second `options || {}`. A parameter that may arrive as `null` takes no
+default and keeps its `?.`.
 
 ### One probe kind, several treatments
 
@@ -774,6 +778,7 @@ held to the rules from the start.
 | `jskit/action-execute-shape` | an `execute` that is not one arrow making one call: a body, `execute: helper(…)`, or a built result |
 | `jskit/no-factory-spread` | a `create*()` result spread into a factory's API or a token value |
 | `jskit/frozen-factory-result` | a `create*` result that is not frozen, or a member defined inline in it |
+| `jskit/no-optional-after-default` | `options?.` or a second `options || {}` on a parameter that has a default |
 | `max-lines`, `max-lines-per-function` | files over 750 lines, functions over 600 |
 
 The rules see shapes, not intent: what they cannot see under

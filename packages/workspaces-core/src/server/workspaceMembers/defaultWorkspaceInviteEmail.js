@@ -19,7 +19,7 @@ function escapeHtml(value = "") {
 // translated fragment, parameters included, is escaped before it enters the HTML.
 function renderDefaultWorkspaceInviteEmail({
   inviteUrl = "",
-  workspace = {},
+  workspace,
   inviter = null,
   roleSid = "member",
   roleLabel = "",

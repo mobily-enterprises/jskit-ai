@@ -19,7 +19,7 @@ function resolveCrudEntityIdFromArgs({ args = [] } = {}) {
   return normalizeCrudEventEntityId(args[0]);
 }
 
-function createCrudServiceEvents(resource = {}, { context = "crudService" } = {}) {
+function createCrudServiceEvents(resource, { context = "crudService" } = {}) {
   const namespace = requireCrudNamespace(resource?.namespace, { context: `${context} resource.namespace` });
   const recordChangedEventName = resolveCrudRecordChangedEvent(namespace);
 

@@ -11,7 +11,7 @@ const WORKSPACE_SLUG_POLICY_IMMUTABLE_USERNAME = "immutable_username";
 const WORKSPACE_SLUG_POLICY_USER_SELECTED = "user_selected";
 
 function resolveWorkspacePolicyOverrides(appConfig = {}) {
-  const tenancyPolicy = isRecord(appConfig?.tenancyPolicy) ? appConfig.tenancyPolicy : {};
+  const tenancyPolicy = isRecord(appConfig.tenancyPolicy) ? appConfig.tenancyPolicy : {};
   const workspacePolicy = isRecord(tenancyPolicy.workspace) ? tenancyPolicy.workspace : {};
 
   return Object.freeze({
@@ -48,7 +48,7 @@ function resolveWorkspacePolicy(mode, overrides = {}) {
 }
 
 function resolveTenancyProfile(appConfig = {}) {
-  const mode = normalizeTenancyMode(appConfig?.tenancyMode);
+  const mode = normalizeTenancyMode(appConfig.tenancyMode);
   const workspacePolicyOverrides = resolveWorkspacePolicyOverrides(appConfig);
 
   return Object.freeze({

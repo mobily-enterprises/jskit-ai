@@ -67,9 +67,9 @@ function resolveDevAuthPolicy({
 
 function resolveDevAuthPolicyFromEnv(env = {}) {
   return resolveDevAuthPolicy({
-    enabled: env?.AUTH_DEV_BYPASS_ENABLED,
-    nodeEnv: env?.NODE_ENV,
-    secret: env?.AUTH_DEV_BYPASS_SECRET
+    enabled: env.AUTH_DEV_BYPASS_ENABLED,
+    nodeEnv: env.NODE_ENV,
+    secret: env.AUTH_DEV_BYPASS_SECRET
   });
 }
 

@@ -100,7 +100,7 @@ Local functions
 
 ### `src/server/common/support/workspaceRecordId.js`
 Exports
-- `resolveWorkspaceRecordId(record = {}, context = {})`
+- `resolveWorkspaceRecordId(record, context = {})`
 
 ### `src/server/common/support/workspaceRoutePaths.js`
 Exports
@@ -178,7 +178,7 @@ Exports
 
 ### `src/server/workspaceMembers/defaultWorkspaceInviteEmail.js`
 Exports
-- `renderDefaultWorkspaceInviteEmail({ inviteUrl = "", workspace = {}, inviter = null, roleSid = "member", roleLabel = "", expiresAt = "", t = english } = {})`
+- `renderDefaultWorkspaceInviteEmail({ inviteUrl = "", workspace, inviter = null, roleSid = "member", roleLabel = "", expiresAt = "", t = english } = {})`
 Local functions
 - `english(key, params)`
 - `escapeHtml(value = "")`
@@ -223,7 +223,7 @@ Exports
 - `registerWorkspacePendingInvitationsRoutes(router)`
 Local functions
 - `resolveAuthenticatedUserRecordId(_record, context = {})`
-- `resolveInviteResolutionRecordId(record = {})`
+- `resolveInviteResolutionRecordId(record)`
 
 ### `src/server/workspacePendingInvitations/workspacePendingInvitationsService.js`
 Exports
@@ -437,4 +437,4 @@ Exports
 
 ### `patterns/workspace-server/example/packages/main/src/server/email/workspaceInviteEmail.js`
 Exports
-- `renderWorkspaceInviteEmail({ inviteUrl = "", workspace = {}, inviter = null, roleSid = "member", expiresAt = "" } = {})`
+- `renderWorkspaceInviteEmail({ inviteUrl = "", workspace, inviter = null, roleSid = "member", expiresAt = "" } = {})`

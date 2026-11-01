@@ -1,6 +1,6 @@
 import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 
-function buildSettingsResponse(record = {}) {
+function buildSettingsResponse(record) {
   return {
     settings: {
       ...(record?.settings && typeof record.settings === "object" ? record.settings : {})

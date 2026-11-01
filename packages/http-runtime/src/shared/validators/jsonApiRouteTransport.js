@@ -222,7 +222,7 @@ function createJsonApiResourceRouteTransport({
   }
 
   function response(payload, context = {}) {
-    if (normalizedSuccessKind === "no-content" || Number(context?.statusCode || 200) === 204) {
+    if (normalizedSuccessKind === "no-content" || Number(context.statusCode || 200) === 204) {
       return undefined;
     }
 

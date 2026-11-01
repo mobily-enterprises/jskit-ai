@@ -42,7 +42,7 @@ function requireCrudRecordId(value, { context = "crudRepository" } = {}) {
 }
 
 function resolveCrudRepositoryCall(runtime, knex, callOptions = {}) {
-  const client = callOptions?.trx || knex;
+  const client = callOptions.trx || knex;
   const tableName = requireCrudTableName(runtime.repositoryOptions?.tableName ?? runtime.defaults?.tableName, {
     context: runtime.context || "crudRepository"
   });
@@ -60,7 +60,7 @@ function resolveCrudRepositoryCall(runtime, knex, callOptions = {}) {
 }
 
 function applyCrudRepositoryReadLock(dbQuery, callOptions = {}) {
-  if (callOptions?.forUpdate === true) {
+  if (callOptions.forUpdate === true) {
     return dbQuery.forUpdate();
   }
 
@@ -69,7 +69,7 @@ function applyCrudRepositoryReadLock(dbQuery, callOptions = {}) {
 
 async function listRecords(runtime, knex, query = {}, callOptions = {}) {
   const { client, tableName, idColumn, visible } = resolveCrudRepositoryCall(runtime, knex, callOptions);
-  const normalizedLimit = normalizeCrudListLimit(query?.limit, {
+  const normalizedLimit = normalizeCrudListLimit(query.limit, {
     fallback: runtime.list.defaultLimit,
     max: runtime.list.maxLimit
   });
@@ -84,9 +84,9 @@ async function listRecords(runtime, knex, query = {}, callOptions = {}) {
 
   dbQuery = applyCrudListQueryFilters(dbQuery, {
     idColumn,
-    cursor: query?.cursor,
+    cursor: query.cursor,
     applyCursor: usesOrderedListCursor !== true,
-    q: query?.q,
+    q: query.q,
     searchColumns: runtime.list.searchColumns,
     parentFilters: query,
     parentFilterColumns: runtime.mapping.parentFilterColumns
@@ -94,7 +94,7 @@ async function listRecords(runtime, knex, query = {}, callOptions = {}) {
   if (usesOrderedListCursor) {
     dbQuery = applyOrderedListCursorFilter(dbQuery, {
       orderBy: runtime.list.orderBy,
-      cursor: query?.cursor
+      cursor: query.cursor
     });
   }
 
@@ -162,7 +162,7 @@ async function listRecords(runtime, knex, query = {}, callOptions = {}) {
     ...runtime.lookup,
     context: runtime.context
   }, {
-    include: callOptions?.include,
+    include: callOptions.include,
     mode: "list",
     repositoryOptions: runtime.repositoryOptions,
     callOptions
@@ -252,7 +252,7 @@ async function findRecordById(runtime, knex, recordId, callOptions = {}) {
     ...runtime.lookup,
     context: runtime.context
   }, {
-    include: callOptions?.include,
+    include: callOptions.include,
     mode: "view",
     repositoryOptions: runtime.repositoryOptions,
     callOptions
@@ -264,7 +264,7 @@ async function findRecordById(runtime, knex, recordId, callOptions = {}) {
 async function listRecordsByIds(runtime, knex, ids = [], callOptions = {}) {
   const { client, tableName, visible } = resolveCrudRepositoryCall(runtime, knex, callOptions);
   const actionContextBase = createCrudRepositoryActionContextBase(runtime, callOptions);
-  const lookupValueKey = normalizeText(callOptions?.valueKey) || "id";
+  const lookupValueKey = normalizeText(callOptions.valueKey) || "id";
   if (!runtime.mapping.outputKeys.includes(lookupValueKey)) {
     throw new TypeError(
       `${runtime.context || "crudRepository"} listByIds requires valueKey "${lookupValueKey}" to exist in output schema.`
@@ -354,7 +354,7 @@ async function listRecordsByIds(runtime, knex, ids = [], callOptions = {}) {
     }));
   }
 
-  const lookupInclude = callOptions?.include === undefined ? "none" : callOptions.include;
+  const lookupInclude = callOptions.include === undefined ? "none" : callOptions.include;
   return hydrateCrudLookupRecords(records, {
     ...runtime.lookup,
     context: runtime.context

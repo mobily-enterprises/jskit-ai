@@ -3,7 +3,7 @@ import { normalizeObject, normalizeOpaqueId, normalizeText } from "../../shared/
 const ENTITY_CHANGE_OPERATIONS = new Set(["created", "updated", "deleted"]);
 
 function resolveContextScope(context = {}) {
-  const sourceScope = normalizeObject(context?.scope || context?.requestMeta?.scope || context?.request?.scope);
+  const sourceScope = normalizeObject(context.scope || context.requestMeta?.scope || context.request?.scope);
   const kind = normalizeText(sourceScope.kind).toLowerCase();
   if (!kind) {
     return null;

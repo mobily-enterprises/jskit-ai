@@ -99,7 +99,7 @@ function encodeJsonApiResourceQuery(query, transport = null) {
   });
 }
 
-function createIncludedResourceIndex(document = {}) {
+function createIncludedResourceIndex(document) {
   const index = new Map();
 
   for (const resource of normalizeArray(document?.included)) {
@@ -202,7 +202,7 @@ function simplifyResourceObject(resource = {}, options = {}) {
   return simplified;
 }
 
-function assertPrimaryDataType(resource = {}, expectedType = "") {
+function assertPrimaryDataType(resource, expectedType = "") {
   const normalizedExpectedType = normalizeText(expectedType);
   if (!normalizedExpectedType) {
     return;
@@ -216,12 +216,12 @@ function assertPrimaryDataType(resource = {}, expectedType = "") {
 
 function resolveCollectionPageMeta(document = {}) {
   const nextCursor = normalizeText(
-    document?.meta?.page?.nextCursor || document?.meta?.pagination?.cursor?.next
+    document.meta?.page?.nextCursor || document.meta?.pagination?.cursor?.next
   );
   return {
     nextCursor: nextCursor || null,
-    ...(isRecord(document?.meta) ? { meta: document.meta } : {}),
-    ...(isRecord(document?.links) ? { links: document.links } : {})
+    ...(isRecord(document.meta) ? { meta: document.meta } : {}),
+    ...(isRecord(document.links) ? { links: document.links } : {})
   };
 }
 

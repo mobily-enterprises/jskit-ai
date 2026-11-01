@@ -136,7 +136,7 @@ function resolveCrudLookupFieldEntries(resource = {}, { allowKeys = [] } = {}) {
   return Object.freeze(keys);
 }
 
-function resolveCrudLookupCreateSchemaKeys(resource = {}) {
+function resolveCrudLookupCreateSchemaKeys(resource) {
   return Object.freeze(
     Object.keys(
       resolveCrudFieldSchemaProperties(resource?.operations?.create?.body, {

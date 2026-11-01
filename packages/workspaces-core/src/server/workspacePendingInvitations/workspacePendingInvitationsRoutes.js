@@ -8,7 +8,7 @@ import {
 } from "../../shared/jsonApiTransports.js";
 
 function resolveAuthenticatedUserRecordId(_record, context = {}) {
-  const userId = context?.request?.user?.id;
+  const userId = context.request?.user?.id;
   if (userId != null && String(userId).trim()) {
     return userId;
   }
@@ -16,7 +16,7 @@ function resolveAuthenticatedUserRecordId(_record, context = {}) {
   throw new Error("JSON:API response requires request.user.id.");
 }
 
-function resolveInviteResolutionRecordId(record = {}) {
+function resolveInviteResolutionRecordId(record) {
   const recordId = record?.id || record?.token;
   if (recordId != null && String(recordId).trim()) {
     return recordId;

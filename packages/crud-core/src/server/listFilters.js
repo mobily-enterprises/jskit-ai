@@ -79,7 +79,7 @@ function createCrudListFilters(definitions = {}, { columns = {}, apply = {} } = 
 
       const value = normalized[filter.key];
       // readable-check: allow method-probe - input validation: apply holds an application's optional custom filters; other filters use the default
-      const customApply = typeof apply?.[filter.key] === "function"
+      const customApply = typeof apply[filter.key] === "function"
         ? apply[filter.key]
         : null;
       if (customApply) {

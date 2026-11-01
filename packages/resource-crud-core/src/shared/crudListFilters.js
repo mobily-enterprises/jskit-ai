@@ -128,7 +128,7 @@ function resolveCrudListFilterOptionLabel(definition = {}, value = "", { fallbac
     return normalizeText(fallback);
   }
 
-  const options = Array.isArray(definition?.options) ? definition.options : [];
+  const options = Array.isArray(definition.options) ? definition.options : [];
   const optionLabel = options.find((entry) => entry?.value === normalizedValue)?.label;
   return normalizeText(optionLabel) || normalizeText(fallback) || normalizedValue;
 }

@@ -30,7 +30,7 @@ function readOwnValue(source = {}, key = "") {
   };
 }
 
-function resolveLookupContainer(record = {}, lookupContainerKey = "") {
+function resolveLookupContainer(record, lookupContainerKey = "") {
   const normalizedLookupContainerKey = String(lookupContainerKey || "").trim();
   if (!normalizedLookupContainerKey || !isRecord(record?.[normalizedLookupContainerKey])) {
     return {};
@@ -204,7 +204,7 @@ function createRequestRelationshipMapper(definition = null) {
   };
 }
 
-function resolveLookupContainerKey(resource = {}) {
+function resolveLookupContainerKey(resource) {
   return String(resource?.contract?.lookup?.containerKey || "").trim();
 }
 
@@ -305,7 +305,7 @@ function createLookupIncludedResolver(definition = null, {
     return null;
   }
 
-  return function getIncluded(payload = {}) {
+  return function getIncluded(payload) {
     const sourceRecords = Array.isArray(payload)
       ? payload
       : Array.isArray(payload?.items)
@@ -402,12 +402,12 @@ function createCrudJsonApiRouteContracts({
         recordIdParamsValidator
       ])
     : recordIdParamsValidator;
-  const routeType = resource?.namespace;
-  const viewOutput = resource?.operations?.view?.output;
-  const createBody = operationInputs.create || resource?.operations?.create?.body;
-  const createOutput = resource?.operations?.create?.output;
-  const patchBody = operationInputs.update || resource?.operations?.patch?.body;
-  const patchOutput = resource?.operations?.patch?.output;
+  const routeType = resource.namespace;
+  const viewOutput = resource.operations?.view?.output;
+  const createBody = operationInputs.create || resource.operations?.create?.body;
+  const createOutput = resource.operations?.create?.output;
+  const patchBody = operationInputs.update || resource.operations?.patch?.body;
+  const patchOutput = resource.operations?.patch?.output;
   const outputAttributeExcludeKeys = resolveOutputAttributeExcludeKeys(resource);
   const lookupContainerKey = resolveLookupContainerKey(resource);
   const viewOutputRelationships = resolveJsonApiRelationshipEntries(viewOutput);

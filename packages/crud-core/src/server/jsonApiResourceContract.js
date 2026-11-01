@@ -70,7 +70,7 @@ function resolveJsonApiRelationshipEntries(definition = null) {
   return Object.freeze(entries);
 }
 
-function resolveJsonApiFieldsetContract(resource = {}) {
+function resolveJsonApiFieldsetContract(resource) {
   const primaryType = normalizeText(resource?.namespace);
   const relationshipEntries = resolveJsonApiRelationshipEntries(resource?.operations?.view?.output);
   const lookupContainerKey = normalizeText(resource?.contract?.lookup?.containerKey);

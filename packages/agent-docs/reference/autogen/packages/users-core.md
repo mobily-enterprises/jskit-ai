@@ -87,7 +87,7 @@ Exports
 - `accountAvatarFormatter(profile, settings)`
 Local functions
 - `createGravatarUrl(email, size = 64)`
-- `createUploadedAvatarUrl(profile = {})`
+- `createUploadedAvatarUrl(profile)`
 
 ### `src/server/common/formatters/accountSecurityStatusFormatter.js`
 Exports

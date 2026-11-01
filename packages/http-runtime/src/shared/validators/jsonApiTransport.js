@@ -348,7 +348,7 @@ function escapeJsonPointerSegment(value = "") {
     .replace(/\//g, "~1");
 }
 
-function resolveValidationFieldName(issue = {}) {
+function resolveValidationFieldName(issue) {
   const pathParts = String(issue?.instancePath || "")
     .split("/")
     .filter(Boolean);
@@ -365,7 +365,7 @@ function resolveJsonApiValidationSource(issue = {}, validationContext = "") {
     return fieldName ? Object.freeze({ parameter: fieldName }) : undefined;
   }
 
-  const instancePath = String(issue?.instancePath || "").trim();
+  const instancePath = String(issue.instancePath || "").trim();
   if (!instancePath && !fieldName) {
     return undefined;
   }

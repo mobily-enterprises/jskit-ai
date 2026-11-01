@@ -124,7 +124,7 @@ function createService({ userProfilesRepository, resolveLifecycleContributors, u
       return synchronizedProfile;
     };
 
-    if (options?.trx) {
+    if (options.trx) {
       return runSync(options.trx);
     }
 

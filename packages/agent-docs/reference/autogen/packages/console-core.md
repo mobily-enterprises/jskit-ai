@@ -58,7 +58,7 @@ Exports
 - `createService({ consoleSettingsRepository, consoleService })`
 - `type ConsoleSettingsService`
 Local functions
-- `buildSettingsResponse(record = {})`
+- `buildSettingsResponse(record)`
 
 ### `src/server/types.js`
 Exports

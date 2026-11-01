@@ -107,7 +107,7 @@ function normalizeLookupMaxDepth(value) {
   return Math.min(parsed, MAX_LOOKUP_MAX_DEPTH);
 }
 
-function resolveLookupRuntimeDefaults(resource = {}) {
+function resolveLookupRuntimeDefaults(resource) {
   const lookupContract = resource?.contract?.lookup;
   if (
     lookupContract !== undefined &&
@@ -158,8 +158,8 @@ function createCrudLookupRuntime(resource = {}, { outputKeys = [] } = {}) {
     context: "crud lookup runtime container key"
   });
   const namespace =
-    normalizeCrudLookupNamespace(resource?.namespace) ||
-    normalizeCrudLookupNamespace(resource?.apiPath);
+    normalizeCrudLookupNamespace(resource.namespace) ||
+    normalizeCrudLookupNamespace(resource.apiPath);
   const defaults = resolveLookupRuntimeDefaults(resource);
 
   return {
@@ -250,7 +250,7 @@ function resolveChildIncludeFromPaths(paths = []) {
   return [...pathKeys].join(",");
 }
 
-function shouldHydrateByMode(entry = {}, mode = "list") {
+function shouldHydrateByMode(entry, mode = "list") {
   const relation = entry?.relation || {};
   if (mode === "view") {
     return relation.hydrateOnView !== false;
@@ -269,7 +269,7 @@ function buildLookupHydrationPlan(
   } = {}
 ) {
   const includePaths = normalizeIncludePaths(include, {
-    defaultInclude: runtime?.defaultInclude
+    defaultInclude: runtime.defaultInclude
   });
   if (includePaths.length < 1) {
     return {
@@ -278,7 +278,7 @@ function buildLookupHydrationPlan(
     };
   }
 
-  const entries = Array.isArray(runtime?.entries) ? runtime.entries : [];
+  const entries = Array.isArray(runtime.entries) ? runtime.entries : [];
   if (entries.length < 1) {
     const wildcardOnlyInclude =
       includePaths.length > 0 &&
@@ -305,7 +305,7 @@ function buildLookupHydrationPlan(
       return;
     }
 
-    const relationNamespace = normalizeCrudLookupNamespace(entry?.relation?.namespace);
+    const relationNamespace = normalizeCrudLookupNamespace(entry.relation?.namespace);
     if (relationNamespace && skippedNamespaces instanceof Set && skippedNamespaces.has(relationNamespace)) {
       return;
     }
@@ -322,7 +322,7 @@ function buildLookupHydrationPlan(
     }
   }
 
-  const entryByKey = runtime?.byKey && typeof runtime.byKey === "object" ? runtime.byKey : {};
+  const entryByKey = runtime.byKey && typeof runtime.byKey === "object" ? runtime.byKey : {};
   for (const pathSegments of includePaths) {
     if (!Array.isArray(pathSegments) || pathSegments.length < 1) {
       continue;
@@ -352,7 +352,7 @@ function buildLookupHydrationPlan(
 }
 
 function resolveLookupResolver(repositoryOptions = {}, callOptions = {}, { context = "crudRepository" } = {}) {
-  const resolver = callOptions?.resolveLookup || repositoryOptions?.resolveLookup;
+  const resolver = callOptions.resolveLookup || repositoryOptions.resolveLookup;
   if (typeof resolver !== "function") {
     throw new TypeError(`${context} requires resolveLookup(relation) to hydrate lookups.`);
   }
@@ -361,10 +361,10 @@ function resolveLookupResolver(repositoryOptions = {}, callOptions = {}, { conte
 
 function resolveLookupDepthRuntime(runtime = {}, repositoryOptions = {}, callOptions = {}) {
   const maxDepth = normalizeLookupMaxDepth(
-    callOptions?.lookupMaxDepth ?? repositoryOptions?.lookupMaxDepth ?? runtime?.maxDepth
+    callOptions.lookupMaxDepth ?? repositoryOptions.lookupMaxDepth ?? runtime.maxDepth
   );
 
-  const parsedDepth = Number(callOptions?.lookupDepth);
+  const parsedDepth = Number(callOptions.lookupDepth);
   const depth = Number.isInteger(parsedDepth) && parsedDepth >= 0 ? parsedDepth : 0;
 
   return {
@@ -374,7 +374,7 @@ function resolveLookupDepthRuntime(runtime = {}, repositoryOptions = {}, callOpt
 }
 
 function buildLookupGroupKey(relation = {}) {
-  if (relation?.kind === "collection") {
+  if (relation.kind === "collection") {
     return `collection::${relation.namespace}::${relation.foreignKey}::${relation.parentValueKey}`;
   }
   return `lookup::${relation.namespace}::${relation.valueKey}`;
@@ -396,7 +396,7 @@ function normalizeLookupRelationValues(records = [], entries = [], childIncludeB
 
     const group = byGroup.get(groupKey);
     group.entries.push(entry);
-    group.childIncludes.add(normalizeText(childIncludeByKey?.[entry.key]) || "none");
+    group.childIncludes.add(normalizeText(childIncludeByKey[entry.key]) || "none");
   }
 
   for (const group of byGroup.values()) {
@@ -421,7 +421,7 @@ function normalizeLookupRelationValues(records = [], entries = [], childIncludeB
 }
 
 function resolveGroupChildInclude(group = {}) {
-  const sourceIncludes = group?.childIncludes instanceof Set ? [...group.childIncludes] : [];
+  const sourceIncludes = group.childIncludes instanceof Set ? [...group.childIncludes] : [];
   const includeSet = new Set();
   let includeAll = false;
 
@@ -466,12 +466,12 @@ function normalizeLookup(provider, relation = {}, { context = "crudRepository" }
 }
 
 function resolveLookupVisibilityContext(
-  provider = {},
+  provider,
   relation = {},
   callOptions = {},
   { context = "crudRepository" } = {}
 ) {
-  const parentVisibilityContext = normalizeVisibilityContext(callOptions?.visibilityContext);
+  const parentVisibilityContext = normalizeVisibilityContext(callOptions.visibilityContext);
   const lookupOwnershipFilter = normalizeLookupOwnershipFilter(provider?.ownershipFilter, {
     context: `${context} lookup ownershipFilter`
   });
@@ -482,7 +482,7 @@ function resolveLookupVisibilityContext(
         `${context} lookup "${relation.namespace}" must declare ownershipFilter when parent visibility is "${parentVisibilityContext.visibility}".`
       );
     }
-    return callOptions?.visibilityContext;
+    return callOptions.visibilityContext;
   }
 
   const nextVisibilityContext = {
@@ -540,13 +540,13 @@ function resolveLookupVisitedNamespaces(runtime = {}, callOptions = {}) {
     namespaces.push(normalized);
   }
 
-  const sourceVisitedNamespaces = Array.isArray(callOptions?.lookupVisitedNamespaces)
+  const sourceVisitedNamespaces = Array.isArray(callOptions.lookupVisitedNamespaces)
     ? callOptions.lookupVisitedNamespaces
     : [];
   for (const namespace of sourceVisitedNamespaces) {
     appendNamespace(namespace);
   }
-  appendNamespace(runtime?.namespace);
+  appendNamespace(runtime.namespace);
 
   return namespaces;
 }
@@ -571,14 +571,14 @@ async function hydrateCrudLookupRecords(
     return sourceRecords;
   }
 
-  const lookupContainerKey = normalizeCrudLookupContainerKey(runtime?.containerKey, {
-    context: `${runtime?.context || "crudRepository"} lookup runtime container key`
+  const lookupContainerKey = normalizeCrudLookupContainerKey(runtime.containerKey, {
+    context: `${runtime.context || "crudRepository"} lookup runtime container key`
   });
   const visitedNamespaces = resolveLookupVisitedNamespaces(runtime, callOptions);
 
   const lookupPlan = buildLookupHydrationPlan(runtime, include, {
     mode,
-    context: runtime?.context || "crudRepository",
+    context: runtime.context || "crudRepository",
     includeWasExplicit: normalizeText(include).length > 0,
     skippedNamespaces: new Set(visitedNamespaces)
   });
@@ -588,7 +588,7 @@ async function hydrateCrudLookupRecords(
   }
 
   const resolveLookup = resolveLookupResolver(repositoryOptions, callOptions, {
-    context: runtime?.context || "crudRepository"
+    context: runtime.context || "crudRepository"
   });
 
   const relationGroups = normalizeLookupRelationValues(sourceRecords, selectedEntries, lookupPlan.childIncludeByKey);
@@ -600,14 +600,14 @@ async function hydrateCrudLookupRecords(
     }
 
     const provider = normalizeLookup(resolveLookup(group.relation), group.relation, {
-      context: runtime?.context || "crudRepository"
+      context: runtime.context || "crudRepository"
     });
     const childVisibilityContext = resolveLookupVisibilityContext(
       provider,
       group.relation,
       callOptions,
       {
-        context: runtime?.context || "crudRepository"
+        context: runtime.context || "crudRepository"
       }
     );
     const childInclude = resolveGroupChildInclude(group);

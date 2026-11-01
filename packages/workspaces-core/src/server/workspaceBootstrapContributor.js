@@ -93,11 +93,11 @@ function createWorkspaceBootstrapContributor({
   tenancyProfile
 }) {
   async function contribute({ request = null, query = {}, payload = {} } = {}) {
-    const inheritedAppState = payload?.app && typeof payload.app === "object" ? payload.app : {};
+    const inheritedAppState = payload.app && typeof payload.app === "object" ? payload.app : {};
     const inheritedFeatures =
       inheritedAppState.features && typeof inheritedAppState.features === "object" ? inheritedAppState.features : {};
     const normalizedUserId = normalizeRecordId(
-      payload?.session?.authenticated === true ? payload?.session?.userId : null,
+      payload.session?.authenticated === true ? payload.session?.userId : null,
       { fallback: null }
     );
     const normalizedWorkspaceSlug = resolveBootstrapWorkspaceSlug({ query, request });

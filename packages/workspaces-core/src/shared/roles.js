@@ -65,11 +65,11 @@ function listConfiguredRoleIds(appConfig = {}) {
 }
 
 function resolveConfiguredDefaultInviteRole(appConfig = {}) {
-  return normalizeRoleId(appConfig?.roleCatalog?.workspace?.defaultInviteRole);
+  return normalizeRoleId(appConfig.roleCatalog?.workspace?.defaultInviteRole);
 }
 
 function normalizeConfiguredRoles(appConfig = {}) {
-  const roleCatalog = asRecord(appConfig?.roleCatalog);
+  const roleCatalog = asRecord(appConfig.roleCatalog);
   const configuredRoles = asRecord(roleCatalog.roles);
   const normalizedRoles = {};
 

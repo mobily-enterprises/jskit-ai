@@ -20,7 +20,7 @@ Exports
 - `defineResource(resource = {})`
 - `normalizeSchemaDefinitionLike(value, { context = "schema definition", defaultMode = "patch" } = {})`
 Local functions
-- `resolveDefaultOperationSchemaMode(sectionName, operation = {})`
+- `resolveDefaultOperationSchemaMode(sectionName, operation)`
 - `normalizeOperationDefinition(operationName, operation = null, resourceMessages = null)`
 - `normalizeResourceOperations(operations = null, resourceMessages = null)`
 - `requireResourceNamespace(value, { context = "defineResource resource.namespace" } = {})`

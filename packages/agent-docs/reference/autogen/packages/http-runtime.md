@@ -86,10 +86,10 @@ Exports
 Local functions
 - `normalizeTransportKind(transport = null)`
 - `defaultEncodeAttributes(body = {})`
-- `createIncludedResourceIndex(document = {})`
+- `createIncludedResourceIndex(document)`
 - `simplifyRelationshipResource(linkage = {}, options = {})`
 - `simplifyResourceObject(resource = {}, options = {})`
-- `assertPrimaryDataType(resource = {}, expectedType = "")`
+- `assertPrimaryDataType(resource, expectedType = "")`
 - `resolveCollectionPageMeta(document = {})`
 - `decodeJsonApiErrorFields(payload = {})`
 
@@ -275,7 +275,7 @@ Local functions
 - `normalizeJsonApiMeta(value)`
 - `normalizeJsonApiErrors(value)`
 - `escapeJsonPointerSegment(value = "")`
-- `resolveValidationFieldName(issue = {})`
+- `resolveValidationFieldName(issue)`
 - `resolveJsonApiValidationSource(issue = {}, validationContext = "")`
 - `createJsonApiErrorMeta({ transactionOutcome, params, messageCode, messageParams, fieldErrorCode })`
 - `simplifyJsonApiResourceObject(resource = {})`
@@ -294,4 +294,4 @@ Exports
 ### `src/shared/validators/transportSchemaEmbedding.js`
 Exports
 - `rewriteEmbeddedTransportSchemaRefs(value, { rootRef = "#", definitionRefByName = {} } = {})`
-- `createEmbeddableTransportSchemaDocument(schemaDocument = {}, rootDefinitionName = "TransportSchema")`
+- `createEmbeddableTransportSchemaDocument(schemaDocument, rootDefinitionName = "TransportSchema")`

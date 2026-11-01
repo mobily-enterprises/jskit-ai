@@ -164,6 +164,14 @@ Exports
 Local functions
 - `moduleBindings(program)`
 
+### `plugin/rules/noOptionalAfterDefault.js`
+Exports
+- `noOptionalAfterDefault`
+Local functions
+- `isPresentDefault(node)`
+- `defaultedNames(pattern, found = [])`
+- `compactText(sourceCode, node)`
+
 ### `plugin/rules/noSlotSetter.js`
 Exports
 - `noSlotSetter`

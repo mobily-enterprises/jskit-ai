@@ -65,7 +65,7 @@ function resolveSchemaDefinitionMode(schemaDefinition = null, {
 
 function resolveSchemaDefinitionTransportSchema(schemaDefinition = null, options = {}) {
   const schema = requireJsonRestSchemaInstance(schemaDefinition, {
-    context: `${options?.context || "schema definition"}.schema`
+    context: `${options.context || "schema definition"}.schema`
   });
   const mode = resolveSchemaDefinitionMode(schemaDefinition, options);
   return schema.toJsonSchema({ mode });

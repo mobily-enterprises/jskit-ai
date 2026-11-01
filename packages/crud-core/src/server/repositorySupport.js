@@ -81,7 +81,7 @@ function resolveColumnName(fieldKey, overrides = {}) {
     return "";
   }
 
-  const overrideValue = String(overrides?.[normalizedKey] || "").trim();
+  const overrideValue = String(overrides[normalizedKey] || "").trim();
   if (overrideValue) {
     return overrideValue;
   }
@@ -103,7 +103,7 @@ function buildRepositoryColumnMetadata({
     .filter(Boolean);
 
   const deriveMapping = (key) => {
-    if (fieldStorageByKey?.[key] !== CRUD_FIELD_STORAGE_COLUMN) {
+    if (fieldStorageByKey[key] !== CRUD_FIELD_STORAGE_COLUMN) {
       return null;
     }
     const column = resolveColumnName(key, columnOverrides);
@@ -156,7 +156,7 @@ function requireFieldDefinitions(definition, {
   return properties;
 }
 
-function resolveFieldDefinitionType(definition = {}) {
+function resolveFieldDefinitionType(definition) {
   return normalizeText(definition?.type).toLowerCase();
 }
 
@@ -174,7 +174,7 @@ function definitionIncludesRecordIdType(definition = {}) {
     return true;
   }
 
-  return type === "string" && normalizeText(definition?.pattern) === RECORD_ID_PATTERN;
+  return type === "string" && normalizeText(definition.pattern) === RECORD_ID_PATTERN;
 }
 
 function deriveRepositoryMappingFromResource(resource = {}, { context = "crudRepository" } = {}) {

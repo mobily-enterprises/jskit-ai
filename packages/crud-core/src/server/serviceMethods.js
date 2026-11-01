@@ -5,7 +5,7 @@ import { requireCrudNamespace } from "@jskit-ai/resource-crud-core/shared/crudNa
 import { createCrudFieldAccessRuntime } from "./fieldAccess.js";
 
 function createCrudServiceRuntime(resource = {}, { context = "crudService" } = {}) {
-  const namespace = requireCrudNamespace(resource?.namespace, { context: `${context} resource.namespace` });
+  const namespace = requireCrudNamespace(resource.namespace, { context: `${context} resource.namespace` });
   const fieldAccessRuntime = createCrudFieldAccessRuntime(resource, { context });
 
   return Object.freeze({
@@ -33,7 +33,7 @@ function splitCrudListRepositoryCall(query = {}, options = {}) {
       ? options
       : {
           ...options,
-          include: options?.include === undefined ? normalizedInclude : options.include
+          include: options.include === undefined ? normalizedInclude : options.include
         }
   };
 }
@@ -49,7 +49,7 @@ async function crudServiceListRecords(runtime, repository, fieldAccess = {}, que
     action: "list",
     query,
     options,
-    context: options?.context
+    context: options.context
   });
 }
 
@@ -67,7 +67,7 @@ async function crudServiceGetRecord(runtime, repository, fieldAccess = {}, recor
     action: "view",
     recordId,
     options,
-    context: options?.context
+    context: options.context
   });
 }
 
@@ -80,7 +80,7 @@ async function crudServiceCreateRecord(runtime, repository, fieldAccess = {}, pa
     action: "create",
     payload,
     options,
-    context: options?.context
+    context: options.context
   });
   const record = await repository.create(writablePayload, options);
   if (!record) {
@@ -89,7 +89,7 @@ async function crudServiceCreateRecord(runtime, repository, fieldAccess = {}, pa
   return runtime.fieldAccessRuntime.filterReadableRecord(record, fieldAccess, {
     action: "create",
     options,
-    context: options?.context
+    context: options.context
   });
 }
 
@@ -108,7 +108,7 @@ async function crudServiceUpdateRecord(runtime, repository, fieldAccess = {}, re
     recordId,
     payload,
     options,
-    context: options?.context,
+    context: options.context,
     existingRecord
   });
 
@@ -123,7 +123,7 @@ async function crudServiceUpdateRecord(runtime, repository, fieldAccess = {}, re
     action: "update",
     recordId,
     options,
-    context: options?.context
+    context: options.context
   });
 }
 

@@ -132,9 +132,9 @@ function createJsonApiFieldsetsQueryValidator({ resource = {} } = {}) {
 }
 
 function resolveCrudListUsesOrderedCursor(list = {}) {
-  const entries = Array.isArray(list?.orderBy)
+  const entries = Array.isArray(list.orderBy)
     ? list.orderBy
-    : list?.orderBy == null
+    : list.orderBy == null
       ? []
       : [list.orderBy];
 
@@ -213,12 +213,12 @@ function createStandardCrudListQueryValidators({
 } = {}) {
   const resolvedListFilterQueryValidator =
     listFilterQueryValidator
-    ?? resource?.contract?.listFilters?.queryValidator
+    ?? resource.contract?.listFilters?.queryValidator
     ?? null;
 
   return [
     createCrudCursorPaginationQueryValidator({
-      orderBy: resource?.defaultSort
+      orderBy: resource.defaultSort
     }),
     searchQueryValidator,
     createCrudParentFilterQueryValidator(resource),

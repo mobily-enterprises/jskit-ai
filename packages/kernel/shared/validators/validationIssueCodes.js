@@ -33,7 +33,7 @@ const VALIDATION_ISSUE_CODES = new Map([
 
 // { code, params } for one Ajv issue, or null when its sentence has no code.
 function resolveValidationIssueCode(issue = {}) {
-  const code = VALIDATION_ISSUE_CODES.get(issue?.keyword);
+  const code = VALIDATION_ISSUE_CODES.get(issue.keyword);
   if (!code) {
     return null;
   }

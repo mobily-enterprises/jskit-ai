@@ -141,10 +141,10 @@ function normalizeRoutesBySurfaceBoundaries(routeList = [], { surfaceRuntime } =
 
 
 function createSurfaceRuntime(options = {}) {
-  const allMode = normalizeSurfaceId(options?.allMode || "all") || "all";
+  const allMode = normalizeSurfaceId(options.allMode || "all") || "all";
   const registry = createSurfaceRegistry({
-    surfaces: isRecord(options?.surfaces) ? options.surfaces : {},
-    defaultSurfaceId: options?.defaultSurfaceId
+    surfaces: isRecord(options.surfaces) ? options.surfaces : {},
+    defaultSurfaceId: options.defaultSurfaceId
   });
   const { SURFACE_REGISTRY, DEFAULT_SURFACE_ID } = registry;
   const surfaceDefinitions = registry.listSurfaceDefinitions();
@@ -152,7 +152,7 @@ function createSurfaceRuntime(options = {}) {
   const enabledSurfaceIds = surfaceDefinitions.filter((definition) => definition.enabled).map((definition) => definition.id);
 
   const pathHelpers = createSurfacePathHelpers({
-    apiBasePath: options?.apiBasePath,
+    apiBasePath: options.apiBasePath,
     defaultSurfaceId: DEFAULT_SURFACE_ID,
     surfaceDefinitions
   });

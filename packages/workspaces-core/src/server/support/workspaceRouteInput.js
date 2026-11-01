@@ -1,7 +1,7 @@
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 function readWorkspaceSlugFromRouteParams(params = {}) {
-  const workspaceSlug = normalizeText(params?.workspaceSlug).toLowerCase();
+  const workspaceSlug = normalizeText(params.workspaceSlug).toLowerCase();
   return workspaceSlug || "";
 }
 

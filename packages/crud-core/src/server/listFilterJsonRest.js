@@ -204,7 +204,7 @@ function buildJsonRestCustomFilterSearchSchemaEntry(filter = {}, customApply = n
 }
 
 function resolveCrudListFilterEntries(value = {}) {
-  if (isPlainObject(value?.filters)) {
+  if (isPlainObject(value.filters)) {
     return Object.values(normalizeObject(value.filters));
   }
 
@@ -218,7 +218,7 @@ function createCrudListFilterJsonRestSearchSchema(runtime = {}, { columns = {}, 
 
   for (const filter of filterEntries) {
     // readable-check: allow method-probe - input validation: apply holds an application's optional custom filters; other filters use the default
-    const customApply = typeof apply?.[filter.key] === "function" ? apply[filter.key] : null;
+    const customApply = typeof apply[filter.key] === "function" ? apply[filter.key] : null;
     if (customApply) {
       schema[filter.queryKey] = buildJsonRestCustomFilterSearchSchemaEntry(filter, customApply);
       continue;
@@ -290,7 +290,7 @@ function addJsonRestFilterValue(target = {}, filter = {}, value) {
 
 function normalizeCrudListFilterJsonRestQuery(runtime = {}, query = {}) {
   const source = normalizeObjectInput(query);
-  const filterEntries = Object.values(normalizeObject(runtime?.filters));
+  const filterEntries = Object.values(normalizeObject(runtime.filters));
   const filterQueryKeys = new Set(filterEntries.map((filter) => filter.queryKey));
   const parsedFilters = runtime.parseQuery(source);
   const normalized = {};

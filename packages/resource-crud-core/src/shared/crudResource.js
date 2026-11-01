@@ -78,11 +78,11 @@ function createCrudRecordIdFieldDefinition() {
 
 // Only an explicitly configured container key adds a lookup field to the derived output;
 // unlike crudLookup.js resolveCrudLookupContainerKey, the default "lookups" key is not applied.
-function resolveConfiguredLookupContainerKey(resource = {}) {
+function resolveConfiguredLookupContainerKey(resource) {
   return normalizeText(resource?.contract?.lookup?.containerKey);
 }
 
-function resolveFieldEntries(resource = {}, operationName = "output") {
+function resolveFieldEntries(resource, operationName = "output") {
   return buildCrudOperationSchemaFields(resource?.schema, operationName);
 }
 
@@ -165,7 +165,7 @@ function requireCrudOperationSpec(operationName = "") {
 }
 
 function resolveCrudOperationNames(resource = {}) {
-  const configuredOperations = Array.isArray(resource?.crudOperations)
+  const configuredOperations = Array.isArray(resource.crudOperations)
     ? resource.crudOperations
     : DEFAULT_CRUD_OPERATION_NAMES;
   const names = [];
@@ -310,10 +310,10 @@ function createCrudOperationDefinition(operationName, {
 }
 
 function createDefaultCrudOperations(resource = {}) {
-  const namespace = requireCrudNamespace(resource?.namespace, {
+  const namespace = requireCrudNamespace(resource.namespace, {
     context: "createDefaultCrudOperations resource.namespace"
   });
-  const crudConfig = normalizeObject(resource?.crud);
+  const crudConfig = normalizeObject(resource.crud);
   const resolveRecordOutputDefinition = createCrudRecordOutputDefinitionResolver(resource, crudConfig);
   const operations = {};
 

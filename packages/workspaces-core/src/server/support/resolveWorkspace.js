@@ -9,10 +9,10 @@ import { normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
  */
 function resolveWorkspace(context = {}, input = {}) {
   const payload = normalizeObject(input);
-  const requestMeta = normalizeObject(context?.requestMeta);
+  const requestMeta = normalizeObject(context.requestMeta);
   const resolvedWorkspaceContext = normalizeObject(requestMeta.resolvedWorkspaceContext);
 
-  return payload.workspace || resolvedWorkspaceContext.workspace || context?.workspace || resolveRequest(context)?.workspace || null;
+  return payload.workspace || resolvedWorkspaceContext.workspace || context.workspace || resolveRequest(context)?.workspace || null;
 }
 
 export { resolveWorkspace };

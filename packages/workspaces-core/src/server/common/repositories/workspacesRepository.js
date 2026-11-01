@@ -39,10 +39,10 @@ function createRepository({ api }) {
           queryParams: {
             filters
           },
-          transaction: options?.trx || null,
+          transaction: options.trx || null,
           format: "plain"
         },
-        createJsonRestContext(options?.context || null)
+        createJsonRestContext(options.context || null)
       )
     );
 
@@ -82,10 +82,10 @@ function createRepository({ api }) {
               isPersonal: true
             }
           },
-          transaction: options?.trx || null,
+          transaction: options.trx || null,
           format: "plain"
         },
-        createJsonRestContext(options?.context || null)
+        createJsonRestContext(options.context || null)
       )
     );
 
@@ -127,14 +127,14 @@ function createRepository({ api }) {
           },
           format: "plain",
           returning: "full",
-          transaction: options?.trx || null
+          transaction: options.trx || null
         },
-        createJsonRestContext(options?.context || null)
+        createJsonRestContext(options.context || null)
       );
 
       return normalizeWorkspaceRecord(created);
     } catch (error) {
-      if (options?.trx || error?.transactionOutcome !== "rolledBack" || !isDuplicateEntryError(error)) {
+      if (options.trx || error?.transactionOutcome !== "rolledBack" || !isDuplicateEntryError(error)) {
         throw error;
       }
       if (!Object.hasOwn(createPayload, "slug")) {
@@ -171,9 +171,9 @@ function createRepository({ api }) {
         data: workspacePatch,
         format: "plain",
         returning: "full",
-        transaction: options?.trx || null
+        transaction: options.trx || null
       },
-      createJsonRestContext(options?.context || null)
+      createJsonRestContext(options.context || null)
     );
 
     return normalizeWorkspaceRecord(updated);
@@ -195,10 +195,10 @@ function createRepository({ api }) {
             },
             include: ["workspace"]
           },
-          transaction: options?.trx || null,
+          transaction: options.trx || null,
           format: "plain"
         },
-        createJsonRestContext(options?.context || null)
+        createJsonRestContext(options.context || null)
       )
     );
 

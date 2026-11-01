@@ -31,16 +31,16 @@ function registerJsonApiContentTypeParser(fastify) {
 }
 
 function hasHeaderValue(headers = {}, key = "") {
-  return String(headers?.[key] ?? "").trim().length > 0;
+  return String(headers[key] ?? "").trim().length > 0;
 }
 
 function hasRequestBody(headers = {}) {
-  const transferEncoding = String(headers?.["transfer-encoding"] ?? "").trim();
+  const transferEncoding = String(headers["transfer-encoding"] ?? "").trim();
   if (transferEncoding) {
     return true;
   }
 
-  const contentLengthHeader = String(headers?.["content-length"] ?? "").trim();
+  const contentLengthHeader = String(headers["content-length"] ?? "").trim();
   if (!contentLengthHeader) {
     return false;
   }

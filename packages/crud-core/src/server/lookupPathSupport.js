@@ -54,7 +54,7 @@ function resolveCrudLookupToken(namespace = "", { context = "crudLookup" } = {})
   return `lookup.${tokenPart}`;
 }
 
-function resolveCrudLookupNamespaceFromRelation(relation = {}, { context = "crudLookup" } = {}) {
+function resolveCrudLookupNamespaceFromRelation(relation, { context = "crudLookup" } = {}) {
   const normalizedNamespace =
     normalizeCrudLookupNamespace(relation?.namespace) ||
     normalizeCrudLookupNamespace(relation?.apiPath);

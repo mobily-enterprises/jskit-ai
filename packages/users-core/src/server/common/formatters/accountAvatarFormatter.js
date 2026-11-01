@@ -10,7 +10,7 @@ function createGravatarUrl(email, size = 64) {
   return `https://www.gravatar.com/avatar/${hash}?d=mp&s=${Number(size) || 64}`;
 }
 
-function createUploadedAvatarUrl(profile = {}) {
+function createUploadedAvatarUrl(profile) {
   const storageKey = String(profile?.avatarStorageKey || "").trim();
   if (!storageKey) {
     return null;

@@ -31,7 +31,7 @@ function normalizeSchemaDefinitionLike(value, {
   return normalizeSingleSchemaDefinition(definition, { context, defaultMode });
 }
 
-function resolveDefaultOperationSchemaMode(sectionName, operation = {}) {
+function resolveDefaultOperationSchemaMode(sectionName, operation) {
   const normalizedSectionName = normalizeText(sectionName).toLowerCase();
   if (normalizedSectionName === "output") {
     return "replace";

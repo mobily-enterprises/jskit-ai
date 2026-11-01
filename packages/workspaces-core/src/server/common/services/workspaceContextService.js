@@ -228,7 +228,7 @@ function createService({
   }
 
   async function resolveWorkspaceContextForUserBySlug(user, workspaceSlug, options = {}) {
-    const requireMembership = options?.requireMembership !== false;
+    const requireMembership = options.requireMembership !== false;
     const normalizedUserId = normalizeRecordId(user?.id, { fallback: null });
     if (!normalizedUserId) {
       throw new AppError(401, "Authentication required.", { code: "workspaces.auth.required" });

@@ -36,11 +36,11 @@ Local functions
 - `normalizeJsonRestFilterValue(value)`
 - `normalizeJsonRestObject(value)`
 - `normalizeJsonRestList(value)`
-- `resolveJsonRestCollectionRelationships(resource = {})`
+- `resolveJsonRestCollectionRelationships(resource)`
 - `normalizeJsonRestQueryField(fieldName = "", fieldDefinition = {}, projectionDefinition = null)`
 - `isJsonRestVirtualField(fieldDefinition = null)`
 - `applyJsonRestQueryFields(scopeOptions = {}, extraQueryFields = {})`
-- `resolveJsonRestDefaultExcludedFields(resource = {})`
+- `resolveJsonRestDefaultExcludedFields(resource)`
 - `applyJsonRestDefaultExclusions(scopeOptions = {}, resource = {})`
 - `isJsonRestSparseFieldError(error = null)`
 

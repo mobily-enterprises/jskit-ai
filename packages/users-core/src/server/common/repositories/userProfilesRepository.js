@@ -181,10 +181,10 @@ function createRepository({ api }) {
           queryParams: {
             filters
           },
-          transaction: options?.trx || null,
+          transaction: options.trx || null,
           format: "plain"
         },
-        createJsonRestContext(options?.context || null)
+        createJsonRestContext(options.context || null)
       )
     );
 
@@ -241,9 +241,9 @@ function createRepository({ api }) {
         },
         format: "plain",
         returning: "full",
-        transaction: options?.trx || null
+        transaction: options.trx || null
       },
-      createJsonRestContext(options?.context || null)
+      createJsonRestContext(options.context || null)
     );
 
     return normalizeProfileRecord(updated);
@@ -266,9 +266,9 @@ function createRepository({ api }) {
         },
         format: "plain",
         returning: "full",
-        transaction: options?.trx || null
+        transaction: options.trx || null
       },
-      createJsonRestContext(options?.context || null)
+      createJsonRestContext(options.context || null)
     );
 
     return normalizeProfileRecord(updated);
@@ -291,9 +291,9 @@ function createRepository({ api }) {
         },
         format: "plain",
         returning: "full",
-        transaction: options?.trx || null
+        transaction: options.trx || null
       },
-      createJsonRestContext(options?.context || null)
+      createJsonRestContext(options.context || null)
     );
 
     return normalizeProfileRecord(updated);
@@ -319,7 +319,7 @@ function createRepository({ api }) {
     const executeUpsert = async (trx) => {
       const existing = await findByIdentity(identity, {
         trx,
-        context: options?.context || null
+        context: options.context || null
       });
 
       if (existing) {
@@ -345,7 +345,7 @@ function createRepository({ api }) {
             returning: "full",
             transaction: trx
           },
-          createJsonRestContext(options?.context || null)
+          createJsonRestContext(options.context || null)
         );
 
         return normalizeProfileRecord(updated);
@@ -371,26 +371,26 @@ function createRepository({ api }) {
           returning: "full",
           transaction: trx
         },
-        createJsonRestContext(options?.context || null)
+        createJsonRestContext(options.context || null)
       );
 
       return normalizeProfileRecord(created);
     };
 
     try {
-      return await (options?.trx ? executeUpsert(options.trx) : withTransaction(executeUpsert));
+      return await (options.trx ? executeUpsert(options.trx) : withTransaction(executeUpsert));
     } catch (error) {
       if (["pending", "rolledBack"].includes(error?.transactionOutcome) && duplicateTargetsEmail(error)) {
         throw createDuplicateEmailConflictError(error);
       }
       // A failed participant cannot recover inside the caller's transaction.
-      if (options?.trx || error?.transactionOutcome !== "rolledBack" || !isDuplicateEntryError(error)) {
+      if (options.trx || error?.transactionOutcome !== "rolledBack" || !isDuplicateEntryError(error)) {
         throw error;
       }
       if (duplicateTargetsUsername(error)) {
         throw error;
       }
-      const existing = await findByIdentity(identity, { context: options?.context || null });
+      const existing = await findByIdentity(identity, { context: options.context || null });
       if (existing) {
         return existing;
       }

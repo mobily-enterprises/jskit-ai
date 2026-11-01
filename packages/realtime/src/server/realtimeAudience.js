@@ -31,18 +31,18 @@ function roomForWorkspaceUser(workspaceId, userId) {
 }
 
 function resolveScopeWorkspaceId(scope = {}) {
-  const kind = normalizeText(scope?.kind).toLowerCase();
+  const kind = normalizeText(scope.kind).toLowerCase();
   if (kind === "workspace") return normalizeRecordId(scope.id, { fallback: null });
   if (kind === "workspace_user") {
     return normalizeRecordId(scope.workspaceId || scope.id, { fallback: null });
   }
-  return normalizeRecordId(scope?.workspaceId, { fallback: null });
+  return normalizeRecordId(scope.workspaceId, { fallback: null });
 }
 
 function resolveScopeUserId(scope = {}) {
-  const kind = normalizeText(scope?.kind).toLowerCase();
+  const kind = normalizeText(scope.kind).toLowerCase();
   if (kind === "user") return normalizeRecordId(scope.id, { fallback: null });
-  return normalizeRecordId(scope?.userId, { fallback: null });
+  return normalizeRecordId(scope.userId, { fallback: null });
 }
 
 /**
@@ -50,7 +50,7 @@ function resolveScopeUserId(scope = {}) {
  * "workspace_user" }) to its Socket.IO room; null when the scope names no room.
  */
 function roomForScope(scope = {}) {
-  const kind = normalizeText(scope?.kind).toLowerCase();
+  const kind = normalizeText(scope.kind).toLowerCase();
   const workspaceId = resolveScopeWorkspaceId(scope);
   const userId = resolveScopeUserId(scope);
   if (kind === "workspace" && workspaceId) return roomForWorkspace(workspaceId);

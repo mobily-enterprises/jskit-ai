@@ -38,13 +38,13 @@ function createWorkspaceInviteUrlBuilder({
   appConfig = {},
   env = {}
 } = {}) {
-  const inviteConfig = appConfig?.workspaceInvitations && typeof appConfig.workspaceInvitations === "object"
+  const inviteConfig = appConfig.workspaceInvitations && typeof appConfig.workspaceInvitations === "object"
     ? appConfig.workspaceInvitations
     : {};
   const baseUrl = normalizeBaseUrl(
     inviteConfig.inviteBaseUrl ||
       inviteConfig.baseUrl ||
-      appConfig?.appPublicUrl ||
+      appConfig.appPublicUrl ||
       env.APP_PUBLIC_URL ||
       ""
   );

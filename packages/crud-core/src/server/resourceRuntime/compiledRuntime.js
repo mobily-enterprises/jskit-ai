@@ -67,7 +67,7 @@ function normalizeCrudVirtualFieldHandlers(
   { context = "crudRepository" } = {}
 ) {
   const expectedKeys = new Set(
-    (Array.isArray(repositoryMapping?.virtualOutputKeys) ? repositoryMapping.virtualOutputKeys : [])
+    (Array.isArray(repositoryMapping.virtualOutputKeys) ? repositoryMapping.virtualOutputKeys : [])
       .map((key) => normalizeText(key))
       .filter(Boolean)
   );
@@ -129,7 +129,7 @@ function normalizeCrudVirtualFieldHandlers(
   return Object.freeze(normalizedHandlers);
 }
 
-function resolveRecordOutputValidator(resource = {}, { context = "crudRepository" } = {}) {
+function resolveRecordOutputValidator(resource, { context = "crudRepository" } = {}) {
   const output = resource?.operations?.view?.output;
   if (!output || typeof output !== "object" || Array.isArray(output)) {
     throw new TypeError(`${context} requires operations.view.output.`);
@@ -145,7 +145,7 @@ function resolveRecordOutputValidator(resource = {}, { context = "crudRepository
   return output;
 }
 
-function resolveOperationBodyValidator(resource = {}, operationKey = "", { context = "crudRepository" } = {}) {
+function resolveOperationBodyValidator(resource, operationKey = "", { context = "crudRepository" } = {}) {
   const body = resource?.operations?.[operationKey]?.body;
   if (body == null) {
     return null;

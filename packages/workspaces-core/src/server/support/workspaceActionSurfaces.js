@@ -24,7 +24,7 @@ function resolveWorkspaceSurfaceIdsFromAppConfig(appConfig = {}) {
 }
 
 function resolveWorkspaceMembershipOptionalSurfaceIdsFromAppConfig(appConfig = {}) {
-  const policies = isRecord(appConfig?.surfaceAccessPolicies) ? appConfig.surfaceAccessPolicies : {};
+  const policies = isRecord(appConfig.surfaceAccessPolicies) ? appConfig.surfaceAccessPolicies : {};
 
   return resolveSurfaceIdsFromAppConfig(appConfig, (definition) => {
     if (definition.requiresWorkspace !== true) {
@@ -40,7 +40,7 @@ function resolveWorkspaceMembershipOptionalSurfaceIdsFromAppConfig(appConfig = {
 }
 
 function resolveSurfaceIdsFromAppConfig(appConfig = {}, predicate) {
-  const source = isRecord(appConfig?.surfaceDefinitions) ? appConfig.surfaceDefinitions : {};
+  const source = isRecord(appConfig.surfaceDefinitions) ? appConfig.surfaceDefinitions : {};
   const resolved = [];
 
   for (const [key, value] of Object.entries(source)) {
@@ -99,7 +99,7 @@ function resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig(appConfig = {}) {
   const workspaceSurfaceSet = new Set(workspaceSurfaceIds);
 
   const resolvedSurfaceId = resolveDefaultWorkspaceSurfaceId({
-    defaultSurfaceId: appConfig?.surfaceDefaultId,
+    defaultSurfaceId: appConfig.surfaceDefaultId,
     workspaceSurfaceIds,
     surfaceRequiresWorkspace(surfaceId) {
       return workspaceSurfaceSet.has(surfaceId);
@@ -109,7 +109,7 @@ function resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig(appConfig = {}) {
   return (
     normalizeSurfaceId(resolvedSurfaceId) ||
     normalizeSurfaceId(workspaceSurfaceIds[0]) ||
-    normalizeSurfaceId(appConfig?.surfaceDefaultId) ||
+    normalizeSurfaceId(appConfig.surfaceDefaultId) ||
     ""
   );
 }

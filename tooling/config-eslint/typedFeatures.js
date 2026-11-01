@@ -27,6 +27,7 @@ function typedFeaturesRules(severity) {
     "jskit/action-execute-shape": severity,
     "jskit/no-factory-spread": severity,
     "jskit/frozen-factory-result": severity,
+    "jskit/no-optional-after-default": severity,
     "max-lines": [severity, { max: 750 }],
     "max-lines-per-function": [severity, { max: 600, IIFEs: true }]
   });

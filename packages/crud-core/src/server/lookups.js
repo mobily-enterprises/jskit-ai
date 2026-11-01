@@ -28,7 +28,7 @@ function createCrudLookup(repository, { context = "crudLookup", ownershipFilter 
   );
 
   async function listByIds(ids = [], options = {}) {
-    const include = options?.include === undefined ? "none" : options.include;
+    const include = options.include === undefined ? "none" : options.include;
     return repository.listByIds(ids, {
       ...options,
       include

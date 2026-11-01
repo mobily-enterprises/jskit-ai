@@ -91,7 +91,7 @@ function normalizeCrudFieldStorageConfig(
 ) {
   const normalizedFieldKey = normalizeText(fieldKey);
   const actualField = normalizeText(fieldDefinition.actualField);
-  const storage = fieldDefinition?.storage;
+  const storage = fieldDefinition.storage;
 
   if (storage === undefined || storage === null) {
     return Object.freeze({
@@ -211,7 +211,7 @@ function mergeFieldContractEntry(target, source, { context = "crud field contrac
   return next;
 }
 
-function buildCrudFieldContractMap(resource = {}, { context = "crud resource field contract" } = {}) {
+function buildCrudFieldContractMap(resource, { context = "crud resource field contract" } = {}) {
   const sections = [
     resolveCrudFieldSchemaProperties(resource?.operations?.view?.output, {
       context: `${context}.operations.view.output`

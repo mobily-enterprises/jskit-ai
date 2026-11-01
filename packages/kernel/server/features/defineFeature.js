@@ -98,7 +98,7 @@ function defineFeature({
   boot = null,
   shutdown = null
 } = {}) {
-  if (Object.hasOwn(requires || {}, "actionCatalogue") || Object.hasOwn(optional || {}, "actionCatalogue")) {
+  if (Object.hasOwn(requires, "actionCatalogue") || Object.hasOwn(optional, "actionCatalogue")) {
     throw new TypeError("Feature dependencies reserve the local name actionCatalogue.");
   }
   if (typeof setup !== "function") {
@@ -106,7 +106,7 @@ function defineFeature({
   }
 
   const actionFactory = normalizeActionFactory(actions, String(id || ""));
-  const expectedOutputNames = Object.keys(provides || {});
+  const expectedOutputNames = Object.keys(provides);
 
   return defineProvider({
     id,

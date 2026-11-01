@@ -38,7 +38,7 @@ async function resolveFieldSet(resolver, input = {}, { context = "crudFieldAcces
 }
 
 function resolveWriteMode(fieldAccess = {}, { context = "crudFieldAccess" } = {}) {
-  const writeMode = normalizeText(fieldAccess?.writeMode || "throw").toLowerCase();
+  const writeMode = normalizeText(fieldAccess.writeMode || "throw").toLowerCase();
   if (writeMode === "throw" || writeMode === "strip") {
     return writeMode;
   }
@@ -46,7 +46,7 @@ function resolveWriteMode(fieldAccess = {}, { context = "crudFieldAccess" } = {}
   throw new TypeError(`${context} fieldAccess.writeMode must be "throw" or "strip".`);
 }
 
-function buildOutputFieldRules(resource = {}) {
+function buildOutputFieldRules(resource) {
   const outputProperties = resolveCrudFieldSchemaProperties(resource?.operations?.view?.output, {
     context: "crudFieldAccess resource.operations.view.output"
   });
@@ -79,12 +79,12 @@ function buildOutputFieldRules(resource = {}) {
   });
 }
 
-function resolveRoleFromFieldAccessInput(input = {}) {
+function resolveRoleFromFieldAccessInput(input) {
   const role = normalizeText(input?.context?.auth?.role).toLowerCase();
   return role || "default";
 }
 
-function resolveActionFromFieldAccessInput(input = {}) {
+function resolveActionFromFieldAccessInput(input) {
   const action = normalizeText(input?.action).toLowerCase();
   return action || "*";
 }
@@ -192,7 +192,7 @@ function createCrudFieldAccessRuntime(resource = {}, { context = "crudFieldAcces
 
   async function resolveReadableAllowedFields(fieldAccess = {}, input = {}) {
     const allowedFields = await resolveFieldSet(
-      fieldAccess?.readable,
+      fieldAccess.readable,
       input,
       {
         context,
@@ -211,7 +211,7 @@ function createCrudFieldAccessRuntime(resource = {}, { context = "crudFieldAcces
 
   async function enforceWritablePayload(payload = {}, fieldAccess = {}, input = {}) {
     const allowedFields = await resolveFieldSet(
-      fieldAccess?.writable,
+      fieldAccess.writable,
       input,
       {
         context,

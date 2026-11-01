@@ -23,7 +23,7 @@ Exports
 - `createHooksToCollectChildren(options = {})`
 Local functions
 - `normalizeOwnerKey(value)`
-- `readParentId(record = {})`
+- `readParentId(record)`
 - `toDefaultChildCallOptions({ callOptions = {} } = {})`
 - `resolveListChildrenHandler(options = {}, { context = "createHooksToCollectChildren" } = {})`
 - `resolveGetChildOwnerId(options = {}, { context = "createHooksToCollectChildren" } = {})`
@@ -64,9 +64,9 @@ Local functions
 - `normalizeFieldSet(value, { context = "crudFieldAccess", label = "field list" } = {})`
 - `resolveFieldSet(resolver, input = {}, { context = "crudFieldAccess", label = "field list" } = {})`
 - `resolveWriteMode(fieldAccess = {}, { context = "crudFieldAccess" } = {})`
-- `buildOutputFieldRules(resource = {})`
-- `resolveRoleFromFieldAccessInput(input = {})`
-- `resolveActionFromFieldAccessInput(input = {})`
+- `buildOutputFieldRules(resource)`
+- `resolveRoleFromFieldAccessInput(input)`
+- `resolveActionFromFieldAccessInput(input)`
 - `resolveOperationPolicyValue(operationPolicy, input = {}, action = "*")`
 - `resolveRoleMatrixPolicy(matrix = {}, operation = "readable", input = {})`
 - `applyReadableFieldPolicyToRecord(record, allowedFields, outputRules = null, { context = "crudFieldAccess" } = {})`
@@ -93,7 +93,7 @@ Local functions
 - `projectCrudAssistantRecordFields(record, selectedFields = null, { preserveKeys = [] } = {})`
 - `projectCrudAssistantLookupValue(value, selectedFields = null)`
 - `projectCrudAssistantReadRecord(record, { lookupContainerKey = "", primaryFields = null, relatedFieldsByLookupKey = new Map() } = {})`
-- `createCrudAssistantResultProjection(input, resource = {}, relationshipEntries = [])`
+- `createCrudAssistantResultProjection(input, resource, relationshipEntries = [])`
 - `projectCrudAssistantReadResult(result, projection = null, { lookupContainerKey = "" } = {})`
 - `transformCrudAssistantResult(operation, result, { input = {}, resource, relationshipEntries = [], lookupContainerKey = "" } = {})`
 - `createCrudAssistantReadDescription({ fieldsetContract, lookupContainerKey = "", namespace = "", operation = "list" } = {})`
@@ -118,7 +118,7 @@ Local functions
 
 ### `src/server/jsonApiResourceContract.js`
 Exports
-- `resolveJsonApiFieldsetContract(resource = {})`
+- `resolveJsonApiFieldsetContract(resource)`
 - `resolveJsonApiRelationshipEntries(definition = null)`
 - `resolveSchemaFieldDefinitions(definition = null)`
 
@@ -188,7 +188,7 @@ Exports
 - `normalizeCrudLookupNamespace`
 - `normalizeLookupOwnershipFilter(value, { context })`
 - `requireCrudLookupNamespace(value = "", { context = "crudLookup" } = {})`
-- `resolveCrudLookupNamespaceFromRelation(relation = {}, { context = "crudLookup" } = {})`
+- `resolveCrudLookupNamespaceFromRelation(relation, { context = "crudLookup" } = {})`
 - `resolveCrudLookupToken(namespace = "", { context = "crudLookup" } = {})`
 
 ### `src/server/lookups.js`
@@ -218,7 +218,7 @@ Exports
 Local functions
 - `resolveOptionalFieldDefinitions(definition, options = {})`
 - `requireFieldDefinitions(definition, { context = "crudRepository", schemaLabel = "schema definition", defaultMode = "patch" } = {})`
-- `resolveFieldDefinitionType(definition = {})`
+- `resolveFieldDefinitionType(definition)`
 - `definitionIncludesStringType(definition = {})`
 - `definitionIncludesDateTimeType(definition = {})`
 - `definitionIncludesRecordIdType(definition = {})`
@@ -230,8 +230,8 @@ Local functions
 - `requireCrudRepositoryOptions(value = {}, { context = "crudRepository" } = {})`
 - `resolveRepositoryDefaults(resource = {}, repositoryMapping = {}, { context = "crudRepository" } = {})`
 - `normalizeCrudVirtualFieldHandlers(virtualFields = {}, repositoryMapping = {}, { context = "crudRepository" } = {})`
-- `resolveRecordOutputValidator(resource = {}, { context = "crudRepository" } = {})`
-- `resolveOperationBodyValidator(resource = {}, operationKey = "", { context = "crudRepository" } = {})`
+- `resolveRecordOutputValidator(resource, { context = "crudRepository" } = {})`
+- `resolveOperationBodyValidator(resource, operationKey = "", { context = "crudRepository" } = {})`
 - `normalizeCrudRepositoryOperationStage(stage = null, stageLabel = "", { context = "crudRepository" } = {})`
 - `normalizeCrudRepositoryOperationConfig(config = {}, operationKey = "", { context = "crudRepository" } = {})`
 - `normalizeCrudRepositoryOperations(sourceOperations = {}, { context = "crudRepository" } = {})`
@@ -278,11 +278,11 @@ Local functions
 - `normalizeLookupRelationEntry(entry = {}, outputKeys = new Set())`
 - `normalizeLookupDefaultInclude(value)`
 - `normalizeLookupMaxDepth(value)`
-- `resolveLookupRuntimeDefaults(resource = {})`
+- `resolveLookupRuntimeDefaults(resource)`
 - `normalizeLookupIdentifier(value)`
 - `normalizeIncludePaths(include, { defaultInclude = DEFAULT_LOOKUP_INCLUDE } = {})`
 - `resolveChildIncludeFromPaths(paths = [])`
-- `shouldHydrateByMode(entry = {}, mode = "list")`
+- `shouldHydrateByMode(entry, mode = "list")`
 - `buildLookupHydrationPlan(runtime = {}, include, { mode = "list", context = "crudRepository", includeWasExplicit = false, skippedNamespaces = new Set() } = {})`
 - `resolveLookupResolver(repositoryOptions = {}, callOptions = {}, { context = "crudRepository" } = {})`
 - `resolveLookupDepthRuntime(runtime = {}, repositoryOptions = {}, callOptions = {})`
@@ -290,7 +290,7 @@ Local functions
 - `normalizeLookupRelationValues(records = [], entries = [], childIncludeByKey = {})`
 - `resolveGroupChildInclude(group = {})`
 - `normalizeLookup(provider, relation = {}, { context = "crudRepository" } = {})`
-- `resolveLookupVisibilityContext(provider = {}, relation = {}, callOptions = {}, { context = "crudRepository" } = {})`
+- `resolveLookupVisibilityContext(provider, relation = {}, callOptions = {}, { context = "crudRepository" } = {})`
 - `buildLookupRecordMap(records = [], valueKey = "")`
 - `buildLookupCollectionMap(records = [], foreignKey = "")`
 - `resolveLookupVisitedNamespaces(runtime = {}, callOptions = {})`
@@ -317,14 +317,14 @@ Exports
 - `resolveJsonApiRelationshipEntries`
 Local functions
 - `readOwnValue(source = {}, key = "")`
-- `resolveLookupContainer(record = {}, lookupContainerKey = "")`
+- `resolveLookupContainer(record, lookupContainerKey = "")`
 - `resolveRelationshipValueSource(record = {}, entry = {}, { lookupContainerKey = "", preferLookup = false } = {})`
 - `normalizeRelationshipIdentifierId(value = null)`
 - `createRelationshipIdentifier(entry = {}, value = null)`
 - `createRecordAttributesResolver(definition = null, { excludeKeys = [] } = {})`
 - `createRecordRelationshipsResolver(definition = null, { lookupContainerKey = "" } = {})`
 - `createRequestRelationshipMapper(definition = null)`
-- `resolveLookupContainerKey(resource = {})`
+- `resolveLookupContainerKey(resource)`
 - `resolveOutputAttributeExcludeKeys(resource = {})`
 - `normalizeIncludedLookupRecord(source = null, fallbackId = null)`
 - `appendIncludedRelationshipResource({ included = [], seen = new Set(), entry = {}, lookupRecord = null, fallbackId = null } = {})`
@@ -332,7 +332,7 @@ Local functions
 
 ### `src/server/serviceEvents.js`
 Exports
-- `createCrudServiceEvents(resource = {}, { context = "crudService" } = {})`
+- `createCrudServiceEvents(resource, { context = "crudService" } = {})`
 - `createCrudJsonApiServiceEvents(namespace = "", { context = "createCrudJsonApiServiceEvents" } = {})`
 - `resolveCrudEntityIdFromArgs({ args = [] } = {})`
 - `resolveCrudEntityIdFromResult({ result } = {})`

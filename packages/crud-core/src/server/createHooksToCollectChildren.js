@@ -18,7 +18,7 @@ function normalizeOwnerKey(value) {
   return String(value).trim();
 }
 
-function readParentId(record = {}) {
+function readParentId(record) {
   return record?.id;
 }
 
@@ -113,7 +113,7 @@ function resolveChildrenContainerKey(hookContext = {}, options = {}) {
     return explicitContainerKey;
   }
 
-  const runtimeContainerKey = normalizeText(hookContext?.runtime?.lookup?.containerKey);
+  const runtimeContainerKey = normalizeText(hookContext.runtime?.lookup?.containerKey);
   if (runtimeContainerKey) {
     return runtimeContainerKey;
   }
@@ -168,7 +168,7 @@ function createHooksToCollectChildren(options = {}) {
   const stateMapKey = options.stateMapKey || Symbol(`crud.children.${childKey}`);
   const attachToLookupContainer = options.attachToLookupContainer !== false;
 
-  function attachChildrenToRecord(record = {}, children = [], hookContext = {}) {
+  function attachChildrenToRecord(record, children = [], hookContext = {}) {
     if (!attachToLookupContainer) {
       return {
         ...record,
@@ -208,7 +208,7 @@ function createHooksToCollectChildren(options = {}) {
       ownerIds.push(ownerId);
     }
 
-    const state = ctx?.state && typeof ctx.state === "object" ? ctx.state : null;
+    const state = ctx.state && typeof ctx.state === "object" ? ctx.state : null;
     if (!state) {
       throw new TypeError(`${context} requires ctx.state object.`);
     }
@@ -254,7 +254,7 @@ function createHooksToCollectChildren(options = {}) {
       return record;
     }
 
-    const state = ctx?.state && typeof ctx.state === "object" ? ctx.state : null;
+    const state = ctx.state && typeof ctx.state === "object" ? ctx.state : null;
     const childrenByOwnerKey = state ? state[stateMapKey] : null;
     const ownerKey = normalizeCollectionOwnerKey(getParentId(record, ctx));
     const children = ownerKey && childrenByOwnerKey instanceof Map

@@ -5,7 +5,7 @@ function applyCrudRepositoryVirtualProjections(
   runtime = {},
   { knex, tableName } = {}
 ) {
-  const virtualFields = Array.isArray(runtime?.virtualFields) ? runtime.virtualFields : [];
+  const virtualFields = Array.isArray(runtime.virtualFields) ? runtime.virtualFields : [];
   if (virtualFields.length < 1) {
     return dbQuery;
   }

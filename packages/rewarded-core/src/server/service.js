@@ -63,7 +63,7 @@ function requireActor(context, input) {
   return actor;
 }
 
-function requireWorkspaceSlug(input = {}) {
+function requireWorkspaceSlug(input) {
   const workspaceSlug = normalizeText(input?.workspaceSlug).toLowerCase();
   if (!workspaceSlug) {
     throw new AppError(400, "workspaceSlug is required.", { code: "rewarded.request.workspaceSlugRequired" });
@@ -71,7 +71,7 @@ function requireWorkspaceSlug(input = {}) {
   return workspaceSlug;
 }
 
-function requireGateKey(input = {}) {
+function requireGateKey(input) {
   const gateKey = normalizeGateKey(input?.gateKey);
   if (!gateKey) {
     throw new AppError(400, "gateKey is required.", { code: "rewarded.request.gateKeyRequired" });

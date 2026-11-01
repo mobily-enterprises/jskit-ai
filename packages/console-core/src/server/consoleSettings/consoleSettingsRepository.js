@@ -34,12 +34,12 @@ function createRepository({ knex }) {
   }
 
   async function getSingleton(options = {}) {
-    const client = options?.trx || knex;
+    const client = options.trx || knex;
     return mapSingletonRow(await readSingleton(client));
   }
 
   async function ensureOwnerUserId(userId, options = {}) {
-    const client = options?.trx || knex;
+    const client = options.trx || knex;
     const candidateOwnerUserId = normalizeKernelRecordId(userId, { fallback: null });
     if (!candidateOwnerUserId) {
       throw new TypeError("consoleSettingsRepository.ensureOwnerUserId requires a positive user id.");
@@ -67,7 +67,7 @@ function createRepository({ knex }) {
   }
 
   async function updateSingleton(patch, options = {}) {
-    const client = options?.trx || knex;
+    const client = options.trx || knex;
     const dbPatch = {
       updated_at: nowDb()
     };
