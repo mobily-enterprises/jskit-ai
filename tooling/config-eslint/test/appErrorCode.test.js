@@ -37,7 +37,22 @@ new RuleTester().run("jskit/app-error-code", appErrorCode, {
     ].join("\n"),
     "class LockedError extends ConflictError {}\nthrow new LockedError(\"The invoice is locked.\", { code: \"billing.invoice.locked\" });",
     "class SessionError extends AppError {\n  constructor(message, { code }) { super(401, message, { code }); }\n}\nthrow new SessionError(\"Session refresh required.\", { code: \"realtime.session.refresh\" });",
-    "// readable-check: allow app-error-code - data: the code comes from the provider's refusal\nthrow new AppError(502, \"The provider refused.\");"
+    "// readable-check: allow app-error-code - data: the code comes from the provider's refusal\nthrow new AppError(502, \"The provider refused.\");",
+    [
+      "class ApprovalError extends AppError {",
+      "  constructor(message, { approval, ...options }) {",
+      "    super(403, message, options);",
+      "    this.approval = approval;",
+      "  }",
+      "}",
+      "throw new ApprovalError(\"Ask your admin to approve the app.\", { approval: link, code: \"connections.approval.required\" });"
+    ].join("\n"),
+    [
+      "class ApprovalError extends AppError {",
+      "  constructor(message, { approval, ...options }) { super(403, message, { ...options, details: { approval } }); }",
+      "}",
+      "throw new ApprovalError(\"Ask your admin to approve the app.\", { approval: link, code: \"connections.approval.required\" });"
+    ].join("\n")
   ],
   invalid: [
     {
@@ -76,6 +91,27 @@ new RuleTester().run("jskit/app-error-code", appErrorCode, {
     {
       code: "class SessionError extends AppError {\n  constructor(message, { code } = {}) { super(401, message, { code }); }\n}\nthrow new SessionError(\"Session refresh required.\", {});",
       errors: [{ messageId: "missingCode", data: { name: "SessionError" }, line: 4 }]
+    },
+    {
+      code: [
+        "class ApprovalError extends AppError {",
+        "  constructor(message, { approval, ...options }) {",
+        "    super(403, message, options);",
+        "    this.approval = approval;",
+        "  }",
+        "}",
+        "throw new ApprovalError(\"Ask your admin to approve the app.\", { approval: link });"
+      ].join("\n"),
+      errors: [{ messageId: "missingCode", data: { name: "ApprovalError" }, line: 7 }]
+    },
+    {
+      code: [
+        "class ApprovalError extends AppError {",
+        "  constructor(message, { approval, ...options }) { super(403, message); }",
+        "}",
+        "throw new ApprovalError(\"Ask your admin to approve the app.\", { approval: link, code: \"connections.approval.required\" });"
+      ].join("\n"),
+      errors: [{ messageId: "missingCode", data: { name: "ApprovalError" }, line: 4 }]
     },
     {
       code: [

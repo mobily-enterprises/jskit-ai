@@ -29,12 +29,37 @@ function parameterIndex(parameters, name) {
   return parameters.findIndex((parameter) => (parameter.type === "AssignmentPattern" ? parameter.left : parameter).name === name);
 }
 
-// The parameter that holds a call's options: one named `options`, or one that destructures `code` (`{ code }`).
-function optionsIndex(parameters) {
+// The constructor's `super(…)` call, made as a statement of its own.
+function superCall(constructor) {
+  const statement = constructor?.value.body.body.find((member) => member.type === "ExpressionStatement" &&
+    member.expression.type === "CallExpression" && member.expression.callee.type === "Super");
+  return statement?.expression ?? null;
+}
+
+// Whether a destructured parameter's rest element (`{ approval, ...options }`) reaches `super` as the options it passes
+// on, as they are (`options`) or spread (`{ ...options, details }`). The caller's code is then among them.
+function forwardsRest(target, superOptions) {
+  const rest = target.type === "ObjectPattern" ? target.properties.find((property) => property.type === "RestElement") : null;
+  const name = rest?.argument.type === "Identifier" ? rest.argument.name : "";
+  if (!name || !superOptions) {
+    return false;
+  }
+  if (superOptions.type === "Identifier") {
+    return superOptions.name === name;
+  }
+  return superOptions.type === "ObjectExpression" && superOptions.properties.some((property) => property.type === "SpreadElement" &&
+    property.argument.type === "Identifier" && property.argument.name === name);
+}
+
+// The parameter that holds a call's options: one named `options`, one that destructures `code` (`{ code }`), or one
+// whose rest element the constructor forwards to `super` as its options (`superOptions`, the argument `super` takes
+// them in).
+function optionsIndex(parameters, superOptions) {
   return parameters.findIndex((parameter) => {
     const target = parameter.type === "AssignmentPattern" ? parameter.left : parameter;
     return target.name === "options" ||
-      (target.type === "ObjectPattern" && target.properties.some((property) => property.type === "Property" && keyName(property) === "code"));
+      (target.type === "ObjectPattern" && target.properties.some((property) => property.type === "Property" && keyName(property) === "code")) ||
+      forwardsRest(target, superOptions);
   });
 }
 
@@ -60,7 +85,7 @@ function localErrorClasses(program, sourceCode) {
       classes.set(name, {
         ownCode: setsOwnCode(declaration.body, sourceCode) || parent.ownCode,
         code: parameters ? parameterIndex(parameters, "code") : parent.code,
-        options: parameters ? optionsIndex(parameters) : parent.options
+        options: parameters ? optionsIndex(parameters, superCall(constructor)?.arguments[parent.options] ?? null) : parent.options
       });
       grew = true;
     }

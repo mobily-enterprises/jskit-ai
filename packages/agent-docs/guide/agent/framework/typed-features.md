@@ -720,9 +720,11 @@ sentence, and `params` for the values in it.**
 - Where callers branch on a shared code, keep it and add a `messageCode` (and
   `messageParams`) per sentence. Input validation that carries per-field
   `details` may share one code.
-- An error class extends `AppError` and gives each refusal its own code. A
-  project's coded builder, such as `billingError(message, code)`, is fine when
-  every call passes its own code. A function converting a caught error is
+- An error class extends `AppError` and gives each refusal its own code. One
+  that takes extra fields destructures them and forwards the rest to `super`
+  (`constructor(message, { approval, ...options })`), so each construction
+  passes its own code. A project's coded builder, such as
+  `billingError(message, code)`, is fine when every call passes its own code. A function converting a caught error is
   `to<What>Error(error, …)`; one returning refusal text is `*Message`.
 - The kernel's `NotFoundError`, `ConflictError` and `DomainError` default to
   one shared code, so each call passes its own.
