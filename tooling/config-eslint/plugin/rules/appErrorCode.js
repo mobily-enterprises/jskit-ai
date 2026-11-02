@@ -29,6 +29,15 @@ function parameterIndex(parameters, name) {
   return parameters.findIndex((parameter) => (parameter.type === "AssignmentPattern" ? parameter.left : parameter).name === name);
 }
 
+// The parameter that holds a call's options: one named `options`, or one that destructures `code` (`{ code }`).
+function optionsIndex(parameters) {
+  return parameters.findIndex((parameter) => {
+    const target = parameter.type === "AssignmentPattern" ? parameter.left : parameter;
+    return target.name === "options" ||
+      (target.type === "ObjectPattern" && target.properties.some((property) => property.type === "Property" && keyName(property) === "code"));
+  });
+}
+
 // The error classes this module declares over a kernel error class, by name: whether each fixes its own code, and
 // where a call passes a code (a `code` parameter) or the options that hold one. A class without a constructor takes
 // its parent's arguments.
@@ -51,7 +60,7 @@ function localErrorClasses(program, sourceCode) {
       classes.set(name, {
         ownCode: setsOwnCode(declaration.body, sourceCode) || parent.ownCode,
         code: parameters ? parameterIndex(parameters, "code") : parent.code,
-        options: parameters ? parameterIndex(parameters, "options") : parent.options
+        options: parameters ? optionsIndex(parameters) : parent.options
       });
       grew = true;
     }

@@ -130,6 +130,7 @@ Local functions
 - `hasSpread(node)`
 - `setsOwnCode(classBody, sourceCode)`
 - `parameterIndex(parameters, name)`
+- `optionsIndex(parameters)`
 - `localErrorClasses(program, sourceCode)`
 - `passesCode(node, { code, options })`
 - `literalText(node)`

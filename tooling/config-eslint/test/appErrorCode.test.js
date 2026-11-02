@@ -36,6 +36,7 @@ new RuleTester().run("jskit/app-error-code", appErrorCode, {
       "throw new SignInError(\"Sign in to continue.\", \"realtime.auth.required\");"
     ].join("\n"),
     "class LockedError extends ConflictError {}\nthrow new LockedError(\"The invoice is locked.\", { code: \"billing.invoice.locked\" });",
+    "class SessionError extends AppError {\n  constructor(message, { code }) { super(401, message, { code }); }\n}\nthrow new SessionError(\"Session refresh required.\", { code: \"realtime.session.refresh\" });",
     "// readable-check: allow app-error-code - data: the code comes from the provider's refusal\nthrow new AppError(502, \"The provider refused.\");"
   ],
   invalid: [
@@ -71,6 +72,10 @@ new RuleTester().run("jskit/app-error-code", appErrorCode, {
     {
       code: "class LockedError extends ConflictError {}\nthrow new LockedError(\"The invoice is locked.\");",
       errors: [{ messageId: "missingCode", data: { name: "LockedError" }, line: 2 }]
+    },
+    {
+      code: "class SessionError extends AppError {\n  constructor(message, { code } = {}) { super(401, message, { code }); }\n}\nthrow new SessionError(\"Session refresh required.\", {});",
+      errors: [{ messageId: "missingCode", data: { name: "SessionError" }, line: 4 }]
     },
     {
       code: [
