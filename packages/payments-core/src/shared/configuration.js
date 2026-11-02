@@ -3,17 +3,31 @@ import schema from "../../contracts/configuration.schema.json" with { type: "jso
 
 const validate = new Ajv({ allErrors: true, strict: true }).compile(schema);
 
-// Each JSKIT field error also has a code and params; the error's messageCode names its sentence.
-function configurationError(message, fieldErrors, { messageCode, messageParams = {} }) {
-  return Object.assign(new Error(message), {
-    code: "payment_configuration_invalid", statusCode: 422, fieldErrors, messageCode, messageParams
-  });
+/**
+ * A refused payment configuration: every field error has its path, English
+ * message, code and params, and the error's messageCode names its own sentence.
+ */
+class PaymentConfigurationError extends Error {
+  /**
+   * @param {string} message
+   * @param {Array<{ path: string, message: string, code?: string, params?: Record<string, unknown> }>} fieldErrors
+   * @param {{ messageCode: string, messageParams?: Record<string, unknown> }} translation
+   */
+  constructor(message, fieldErrors, { messageCode, messageParams = {} }) {
+    super(message);
+    this.name = "PaymentConfigurationError";
+    this.code = "payment_configuration_invalid";
+    this.statusCode = 422;
+    this.fieldErrors = fieldErrors;
+    this.messageCode = messageCode;
+    this.messageParams = messageParams;
+  }
 }
 
 function validatePaymentConfiguration(document) {
   const value = document?.extensions?.payments;
   if (!validate(value)) {
-    throw configurationError("Check the application's payment configuration.",
+    throw new PaymentConfigurationError("Check the application's payment configuration.",
       validate.errors.map(({ instancePath, message }) => ({ path: `extensions.payments${instancePath}`, message })),
       { messageCode: "payments.configuration.invalid" });
   }
@@ -42,7 +56,7 @@ function validatePaymentConfiguration(document) {
       }
     }
   }
-  if (fieldErrors.length) throw configurationError(fieldErrors[0].message, fieldErrors, {
+  if (fieldErrors.length) throw new PaymentConfigurationError(fieldErrors[0].message, fieldErrors, {
     messageCode: fieldErrors[0].code, messageParams: fieldErrors[0].params
   });
   // The validated declaration is JSON data; callers may supply reactive proxies.
