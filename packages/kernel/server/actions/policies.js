@@ -14,22 +14,14 @@ function schemaFieldErrorDetails(error) {
 }
 
 /**
- * @param {object} error
- * @param {number} [error.status]
- * @param {string} [error.message]
- * @param {string} [error.code]
- * @param {object} [error.details]
- * @param {unknown} [error.cause]
+ * A refused action input: its field errors, or the validator's own words, in details.
+ * @param {object} failure
+ * @param {object} failure.details
+ * @param {unknown} failure.cause
  */
-function buildActionValidationError({
-  status = 400,
-  message = "Validation failed.",
-  code = "ACTION_VALIDATION_FAILED",
-  details,
-  cause
-}) {
-  return new ActionRuntimeError(status, message, {
-    code,
+function buildActionValidationError({ details, cause }) {
+  return new ActionRuntimeError(400, "Validation failed.", {
+    code: "ACTION_VALIDATION_FAILED",
     details,
     cause
   });
@@ -140,34 +132,8 @@ async function normalizeActionOutput(definition, output) {
       context: `Action ${definition.id} output`
     });
   } catch (error) {
-    if (isRecord(error?.fieldErrors) || isRecord(error?.details?.fieldErrors)) {
-      throw buildActionValidationError({
-        status: 500,
-        message: "Action output validation failed.",
-        code: "ACTION_OUTPUT_VALIDATION_FAILED",
-        details: schemaFieldErrorDetails(error),
-        cause: error
-      });
-    }
-    if (error?.code === "ACTION_VALIDATION_FAILED") {
-      throw buildActionValidationError({
-        status: 500,
-        message: "Action output validation failed.",
-        code: "ACTION_OUTPUT_VALIDATION_FAILED",
-        details: error.details,
-        cause: error
-      });
-    }
-
-    throw buildActionValidationError({
-      status: 500,
-      message: "Action output validation failed.",
-      code: "ACTION_OUTPUT_VALIDATION_FAILED",
-      details: {
-        error: String(error?.message || "Invalid output.")
-      },
-      cause: error
-    });
+    // Output the action itself produced is a server fault: a hidden internal failure, with the validator's findings as its cause.
+    throw new Error("Action output validation failed.", { cause: error });
   }
 }
 

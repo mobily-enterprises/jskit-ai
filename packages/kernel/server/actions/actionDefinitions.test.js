@@ -159,7 +159,6 @@ test("normalizeActionDefinition refuses a definition that declares idempotency",
       execute: async () => ({})
     }),
     {
-      code: "ACTION_DEFINITION_INVALID",
       message: "Action definition \"demo.notes.create\" declares idempotency. Action definitions no longer declare idempotency."
     }
   );
@@ -258,6 +257,6 @@ test("normalizeActionDefinition validates domains with the architecture id patte
   };
   assert.equal(normalizeActionDefinition({ ...base, domain: " Demo.Status " }).domain, "demo.status");
   assert.throws(() => normalizeActionDefinition({ ...base, domain: "1demo" }), {
-    code: "ACTION_DEFINITION_INVALID"
+    message: /domain must match/
   });
 });

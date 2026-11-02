@@ -19,7 +19,6 @@
       "ACTION_ID_REQUIRED": "Validation failed.",
       "ACTION_STREAM_KIND_REQUIRED": "Validation failed.",
       "ACTION_VERSION_INVALID": "Validation failed.",
-      "ACTION_OUTPUT_VALIDATION_FAILED": "Action output validation failed.",
       "unsupported_media_type": "Content-Type must be {contentType}."
     },
     "kernel": {

@@ -68,7 +68,7 @@ test("action output validation preserves valid json-rest-schema output", async (
 
   await assert.rejects(
     () => normalizeActionOutput(definition, { ok: 2 }),
-    (error) => error?.code === "ACTION_OUTPUT_VALIDATION_FAILED"
+    (error) => error.message === "Action output validation failed." && error.code === undefined && Boolean(error.cause)
   );
 
   const result = await normalizeActionOutput(definition, { ok: true });

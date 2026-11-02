@@ -33,21 +33,13 @@ class ActionRuntimeError extends Error {
   }
 }
 
-function normalizeActionDomain(value, { context = "domain", errorCode = "ACTION_DEFINITION_INVALID" } = {}) {
+function normalizeActionDomain(value, { context = "domain" } = {}) {
   const domain = normalizeText(value).toLowerCase();
   if (!domain) {
-    throw new ActionRuntimeError(500, `${context} is required.`, {
-      code: errorCode
-    });
+    throw new Error(`${context} is required.`);
   }
   if (!ARCHITECTURE_ID_PATTERN.test(domain)) {
-    throw new ActionRuntimeError(
-      500,
-      `${context} must match ${ARCHITECTURE_ID_PATTERN.toString()} (lowercase letters, digits, _, -, .).`,
-      {
-        code: errorCode
-      }
-    );
+    throw new Error(`${context} must match ${ARCHITECTURE_ID_PATTERN.toString()} (lowercase letters, digits, _, -, .).`);
   }
 
   return domain;
@@ -60,9 +52,7 @@ function normalizeStringArray(value, fieldName) {
   );
 
   if (normalized.length < 1) {
-    throw new ActionRuntimeError(500, `Action definition ${fieldName} must include at least one value.`, {
-      code: "ACTION_DEFINITION_INVALID"
-    });
+    throw new Error(`Action definition ${fieldName} must include at least one value.`);
   }
 
   return normalized;
@@ -74,21 +64,15 @@ function normalizeActionSchema(value, fieldName, { required = false, defaultMode
       return null;
     }
 
-    throw new ActionRuntimeError(500, `Action definition ${fieldName} is required.`, {
-      code: "ACTION_DEFINITION_INVALID"
-    });
+    throw new Error(`Action definition ${fieldName} is required.`);
   }
 
   if (Array.isArray(value)) {
-    throw new ActionRuntimeError(500, `Action definition ${fieldName} must be a single schema definition.`, {
-      code: "ACTION_DEFINITION_INVALID"
-    });
+    throw new Error(`Action definition ${fieldName} must be a single schema definition.`);
   }
 
   if (!isPlainObject(value)) {
-    throw new ActionRuntimeError(500, `Action definition ${fieldName} must be a json-rest-schema schema definition.`, {
-      code: "ACTION_DEFINITION_INVALID"
-    });
+    throw new Error(`Action definition ${fieldName} must be a json-rest-schema schema definition.`);
   }
 
   try {
@@ -97,9 +81,7 @@ function normalizeActionSchema(value, fieldName, { required = false, defaultMode
       defaultMode
     });
   } catch (error) {
-    throw new ActionRuntimeError(500, error?.message || `Action definition ${fieldName} is invalid.`, {
-      code: "ACTION_DEFINITION_INVALID"
-    });
+    throw new Error(error?.message || `Action definition ${fieldName} is invalid.`);
   }
 }
 
@@ -114,24 +96,12 @@ function normalizeActionPermission(permission, actionId) {
   }
 
   if (!isPlainObject(permission)) {
-    throw new ActionRuntimeError(
-      500,
-      `Action definition \"${actionId}\" permission must be an object when provided.`,
-      {
-        code: "ACTION_DEFINITION_INVALID"
-      }
-    );
+    throw new Error(`Action definition \"${actionId}\" permission must be an object when provided.`);
   }
 
   const requireMode = normalizeText(permission.require || "authenticated").toLowerCase();
   if (!ACTION_PERMISSION_REQUIRE_SET.has(requireMode)) {
-    throw new ActionRuntimeError(
-      500,
-      `Action definition \"${actionId}\" permission.require must be one of: ${ACTION_PERMISSION_REQUIRE_MODES.join(", ")}.`,
-      {
-        code: "ACTION_DEFINITION_INVALID"
-      }
-    );
+    throw new Error(`Action definition \"${actionId}\" permission.require must be one of: ${ACTION_PERMISSION_REQUIRE_MODES.join(", ")}.`);
   }
 
   return Object.freeze({
@@ -148,9 +118,7 @@ function normalizeActionExtensions(value) {
   }
 
   if (!isPlainObject(value)) {
-    throw new ActionRuntimeError(500, "Action definition extensions must be an object when provided.", {
-      code: "ACTION_DEFINITION_INVALID"
-    });
+    throw new Error("Action definition extensions must be an object when provided.");
   }
 
   return Object.freeze({
@@ -161,18 +129,12 @@ function normalizeActionExtensions(value) {
 function normalizeActionEvents(value, actionId) {
   if (value == null) return Object.freeze([]);
   if (!Array.isArray(value)) {
-    throw new ActionRuntimeError(500, `Action definition "${actionId}" events must be an array.`, {
-      code: "ACTION_DEFINITION_INVALID"
-    });
+    throw new Error(`Action definition "${actionId}" events must be an array.`);
   }
   return Object.freeze(value.map((builder, index) => {
     // readable-check: allow method-probe - input validation: each of an action definition's event builders must be a function
     if (typeof builder !== "function") {
-      throw new ActionRuntimeError(
-        500,
-        `Action definition "${actionId}" events[${index}] must be a function.`,
-        { code: "ACTION_DEFINITION_INVALID" }
-      );
+      throw new Error(`Action definition "${actionId}" events[${index}] must be a function.`);
     }
     return builder;
   }));
@@ -183,44 +145,31 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
 
   const id = normalizeText(source.id);
   if (!id) {
-    throw new ActionRuntimeError(500, "Action definition id is required.", {
-      code: "ACTION_DEFINITION_INVALID"
-    });
+    throw new Error("Action definition id is required.");
   }
 
   const version = normalizePositiveInteger(source.version, {
     fallback: 1
   });
   const domain = normalizeActionDomain(source.domain || contributorDomain, {
-    context: `Action definition \"${id}\" domain`,
-    errorCode: "ACTION_DEFINITION_INVALID"
+    context: `Action definition \"${id}\" domain`
   });
 
   const kind = normalizeText(source.kind || "command").toLowerCase();
   if (!ACTION_KIND_SET.has(kind)) {
-    throw new ActionRuntimeError(500, `Action definition \"${id}\" has unsupported kind \"${kind}\".`, {
-      code: "ACTION_DEFINITION_INVALID"
-    });
+    throw new Error(`Action definition \"${id}\" has unsupported kind \"${kind}\".`);
   }
 
   const channels = normalizeStringArray(source.channels, "channels");
   const surfaces = normalizeStringArray(source.surfaces, "surfaces");
 
   if (Object.hasOwn(source, "idempotency")) {
-    throw new ActionRuntimeError(
-      500,
-      `Action definition \"${id}\" declares idempotency. Action definitions no longer declare idempotency.`,
-      {
-        code: "ACTION_DEFINITION_INVALID"
-      }
-    );
+    throw new Error(`Action definition \"${id}\" declares idempotency. Action definitions no longer declare idempotency.`);
   }
 
   // readable-check: allow method-probe - input validation: an application's action definition must have execute()
   if (typeof source.execute !== "function") {
-    throw new ActionRuntimeError(500, `Action definition \"${id}\" execute handler is required.`, {
-      code: "ACTION_DEFINITION_INVALID"
-    });
+    throw new Error(`Action definition \"${id}\" execute handler is required.`);
   }
 
   return Object.freeze({
@@ -246,14 +195,11 @@ function normalizeActionContributor(contributor) {
   const source = contributor && typeof contributor === "object" ? contributor : {};
   const contributorId = normalizeText(source.contributorId);
   if (!contributorId) {
-    throw new ActionRuntimeError(500, "Action contributor contributorId is required.", {
-      code: "ACTION_CONTRIBUTOR_INVALID"
-    });
+    throw new Error("Action contributor contributorId is required.");
   }
 
   const domain = normalizeActionDomain(source.domain, {
-    context: `Action contributor \"${contributorId}\" domain`,
-    errorCode: "ACTION_CONTRIBUTOR_INVALID"
+    context: `Action contributor \"${contributorId}\" domain`
   });
 
   const sourceActions = Array.isArray(source.actions) ? source.actions : [];

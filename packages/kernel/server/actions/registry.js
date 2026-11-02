@@ -20,13 +20,7 @@ function buildDefinitionIndex(contributors) {
       const versionKey = toActionVersionKey(definition.id, definition.version);
       if (byVersionKey.has(versionKey)) {
         const existing = byVersionKey.get(versionKey);
-        throw new ActionRuntimeError(
-          500,
-          `Action definition \"${versionKey}\" is duplicated between contributors \"${existing.contributorId}\" and \"${contributor.contributorId}\".`,
-          {
-            code: "ACTION_DEFINITION_DUPLICATE"
-          }
-        );
+        throw new Error(`Action definition \"${versionKey}\" is duplicated between contributors \"${existing.contributorId}\" and \"${contributor.contributorId}\".`);
       }
 
       byVersionKey.set(versionKey, definition);
