@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createTool } from "@jskit-ai/agent/server";
+import { assertCallbacks, createTool } from "@jskit-ai/agent/server";
 import { NO_NOTICES } from "./notices.js";
 
 // Goals and goal rounds, after DeepSeek Harness (MIT; P3–P5 in @jskit-ai/agent's
@@ -69,7 +69,8 @@ export function goalTools(operations) {
  * reply slot (runs.claim); `record(row, { text, detail })` shows an event line; `notify(row, event)`
  * tells open pages; `owner(row)` extra columns for a new goal; `spent(goal)` what the job has cost
  * so far; `track(goal, work)` meters it; `background(work)` keeps a round going after the turn
- * that queued it. Without `notices`, each server finds due rounds on its own timer.
+ * that queued it. Each optional hook is a function, or left out for its named default. Without
+ * `notices`, each server finds due rounds on its own timer.
  * @param {object} dependencies
  * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} dependencies.knex
  * @param {import("./types.js").AgentRuns} dependencies.runs
@@ -104,6 +105,7 @@ export function createGoals({
   track = runUnmetered,
   background = leaveRunning
 }) {
+  assertCallbacks("createGoals", { notify, owner, spent, track, background });
   const channelNotices = notices ?? NO_NOTICES;
   const wake = () => channelNotices.publish(channel, "all", {}).catch(() => {});
   const openGoal = (conversationId) => knex(table).where({ conversation_id: conversationId }).whereIn("status", OPEN).first();

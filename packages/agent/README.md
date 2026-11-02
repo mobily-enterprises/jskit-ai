@@ -153,6 +153,10 @@ What the person writes during a reply reaches the model **with its next tool res
 - **Limits, said plainly in the chat:** 24 rounds, and a **cost limit per job**,
   `AGENT_JOB_COST_USD` (default 5 dollars, 0 for none).
 - **Stop:** aborting `signal` ends the run at once with the signal's reason.
+- **Callbacks checked on entry:** each callback option (`onSteps`, `onStep`, `throwIf`,
+  `onCompacting`, and agent-runtime's goal and summary hooks) is a function, or left out for its
+  named default. Anything else, `null` included, fails at once with a TypeError naming the option,
+  instead of inside a step callback, where the AI SDK drops the error.
 
 ## 9. Truthful replies
 

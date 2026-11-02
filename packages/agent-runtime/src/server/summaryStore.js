@@ -1,4 +1,4 @@
-import { SUMMARY_LIMITS, cutPoint, estimateTokens, transcriptText, writeSummary } from "@jskit-ai/agent/server";
+import { SUMMARY_LIMITS, assertCallbacks, cutPoint, estimateTokens, transcriptText, writeSummary } from "@jskit-ai/agent/server";
 import { NO_NOTICES } from "./notices.js";
 
 /**
@@ -19,7 +19,8 @@ import { NO_NOTICES } from "./notices.js";
  * (only needed before its first summary), the app's way of turning messages into model messages, and
  * whether people's lines carry their names (groups and rooms). `track(conversationId, work)` meters
  * the summary to whoever the conversation belongs to. `summarize({ previous, text })` may replace
- * the model call. Without `notices`, each server finds queued conversations on its own timer.
+ * the model call. `track` and `summarize` are functions, or left out for their defaults. Without
+ * `notices`, each server finds queued conversations on its own timer.
  * @param {object} dependencies
  * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} dependencies.knex
  * @param {import("ai").LanguageModel} [dependencies.model]
@@ -37,13 +38,14 @@ export function createSummaries({
   model,
   app = "the app",
   history,
-  track = (_conversationId, work) => work(),
+  track = runSummaryUnmetered,
   notices,
   tables = { summaries: "agent_summaries", queue: "agent_summary_queue" },
   channel = "agent-summaries",
   summarize = (input) => writeSummary({ model, app, ...input, limits }),
   limits = SUMMARY_LIMITS
 }) {
+  assertCallbacks("createSummaries", { track, summarize });
   const channelNotices = notices ?? NO_NOTICES;
 
   async function latest(conversationId) {
@@ -185,4 +187,9 @@ export function createSummaries({
     runOne,
     start
   });
+}
+
+/** Runs a summary's work without metering it. */
+function runSummaryUnmetered(_conversationId, work) {
+  return work();
 }

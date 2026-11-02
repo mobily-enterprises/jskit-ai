@@ -85,7 +85,9 @@ Exports
 
 ### `src/server/summaryStore.js`
 Exports
-- `createSummaries({ knex, model, app = "the app", history, track = (_conversationId, work) => work(), notices, tables = { summaries: "agent_summaries", queue: "agent_summary_queue" }, channel = "agent-summaries", summarize = (input) => writeSummary({ model, app, ...input, limits }), limits = SUMMARY_LIMITS })`
+- `createSummaries({ knex, model, app = "the app", history, track = runSummaryUnmetered, notices, tables = { summaries: "agent_summaries", queue: "agent_summary_queue" }, channel = "agent-summaries", summarize = (input) => writeSummary({ model, app, ...input, limits }), limits = SUMMARY_LIMITS })`
+Local functions
+- `runSummaryUnmetered(_conversationId, work)`
 
 ### `src/server/tools/ask.js`
 Exports

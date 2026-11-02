@@ -1,4 +1,5 @@
 import { generateText, stepCountIs, streamText } from "ai";
+import { assertCallbacks } from "./callbacks.js";
 import { LOOP_OUTPUT_TOKENS, MODEL_RETRIES, REASONING, generateOnce } from "./model.js";
 import { TURN_LIMITS, summaryNote, trimOldResults } from "./context.js";
 import { sameGist, stripNotes } from "./text.js";
@@ -21,13 +22,15 @@ export const REPLY_DEADLINE_MS = (Number(process.env.AGENT_REPLY_MINUTES) || 15)
  * come. `onStep(step)` hears each finished step. Aborting `signal` (the person pressed Stop, or a
  * tool's outcome is unknown) ends the run at once with the signal's reason, without an account.
  * When `throwIf(error, steps)` says so, a failed call ends the run with its error instead of an
- * account (an app that shows errors itself, when nothing was done yet).
+ * account (an app that shows errors itself, when nothing was done yet). Each callback option is a
+ * function, or left out for its named default; anything else is refused with a TypeError naming it.
  */
 export async function runLoop({
   model, name, instructions, history, tools = {}, summary = "", state = "", maxSteps,
   onSteps = saveNoSteps, onStep = ignoreStep, onText = null, signal = null, carriesOn = false, quietIfEmpty = false, clean = stripNotes, throwIf = neverThrow,
   reasoning = REASONING.on, maxOutputTokens = LOOP_OUTPUT_TOKENS, turnLimits = TURN_LIMITS, deadlineMs = REPLY_DEADLINE_MS
 }) {
+  assertCallbacks("runLoop", { onSteps, onStep, clean, throwIf });
   const messages = [...history];
   // A transcript cut mid-way must not start with a tool result.
   while (messages.length && messages[0].role === "tool") messages.shift();
