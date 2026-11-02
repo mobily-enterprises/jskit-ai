@@ -234,12 +234,9 @@ test("requireRewardedUnlock fails closed when the rewarded service returns an in
       }
     ),
     (error) => {
-      assert.equal(error.statusCode, 503);
-      assert.equal(error.code, "rewarded_gate_state_invalid");
-      assert.deepEqual(error.details.rewardedGate, {
-        gateKey: "progress-logging",
-        workspaceSlug: "alpha"
-      });
+      assert.equal(error.message, "Rewarded gate returned an invalid state.");
+      assert.equal(error.statusCode, undefined);
+      assert.equal(error.code, undefined);
       return true;
     }
   );
@@ -265,8 +262,9 @@ test("requireRewardedUnlock fails closed when a non-blocking gate state has no e
       }
     ),
     (error) => {
-      assert.equal(error.statusCode, 503);
-      assert.equal(error.code, "rewarded_gate_state_invalid");
+      assert.equal(error.message, "Rewarded gate returned an invalid state.");
+      assert.equal(error.statusCode, undefined);
+      assert.equal(error.code, undefined);
       return true;
     }
   );

@@ -5,8 +5,7 @@
       "rewarded_cooldown_active": "Rewarded unlock is cooling down.",
       "rewarded_daily_limit_reached": "Rewarded unlock limit reached.",
       "rewarded_not_configured": "Rewarded gate is not configured.",
-      "rewarded_unlock_blocked": "Rewarded unlock is required before this action can continue.",
-      "rewarded_gate_state_invalid": "Rewarded gate returned an invalid state."
+      "rewarded_unlock_blocked": "Rewarded unlock is required before this action can continue."
     },
     "rewarded": {
       "auth": {

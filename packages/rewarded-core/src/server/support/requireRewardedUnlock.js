@@ -68,12 +68,7 @@ function assertWellFormedGateState(gateState) {
     }
   }
 
-  throw new AppError(503, "Rewarded gate returned an invalid state.", {
-    code: "rewarded_gate_state_invalid",
-    details: {
-      rewardedGate: gateState
-    }
-  });
+  throw new Error("Rewarded gate returned an invalid state.");
 }
 
 function isConfigurationBypassAllowed(gateState, requireConfigured) {

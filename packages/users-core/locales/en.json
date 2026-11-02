@@ -5,8 +5,7 @@
         "notFound": "User profile was not found."
       },
       "avatar": {
-        "notFound": "Avatar not found.",
-        "uploadResultMissing": "Avatar upload completed without a profile result."
+        "notFound": "Avatar not found."
       },
       "security": {
         "passwordConfirmationMismatch": "Password confirmation does not match.",

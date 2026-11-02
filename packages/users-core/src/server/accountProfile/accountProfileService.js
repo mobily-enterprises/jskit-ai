@@ -63,9 +63,7 @@ function createService({ userSettingsRepository, userProfilesRepository, authSer
     const result = await avatarService.uploadForUser(user, avatarUpload);
     const profile = result?.profile || null;
     if (!profile) {
-      throw new AppError(500, "Avatar upload completed without a profile result.", {
-        code: "users.avatar.uploadResultMissing"
-      });
+      throw new Error("Avatar upload completed without a profile result.");
     }
 
     const settings = await userSettingsRepository.ensureForUserId(profile.id);
