@@ -10,7 +10,7 @@ import { serial } from "./conversationEvents.js";
  * Sending a message: its validation, its admission into the conversation queue, and the
  * turn it starts or the running turn it steers.
  * @param {object} dependencies
- * @param {import("./storage.js").ReentrantConversationStorage | null} dependencies.storage
+ * @param {import("../types.js").ReentrantConversationStorage | null} dependencies.storage
  * @param {import("./conversationEvents.js").ConversationEvents} dependencies.events
  * @param {import("./conversationReads.js").ConversationReads} dependencies.reads
  * @param {import("./conversationTurns.js").ConversationTurns} dependencies.turns

@@ -7,9 +7,9 @@ import { submittedMessage } from "./conversationRecords.js";
  * What an open conversation reads: its capabilities, transcript, saved state and the
  * snapshot a reader sees.
  * @param {object} dependencies
- * @param {import("./storage.js").ReentrantConversationStorage | null} dependencies.storage
- * @param {import("./transcript.js").ConversationTranscript | null} dependencies.transcript
- * @param {import("./streams.js").ConversationStreams} dependencies.streams
+ * @param {import("../types.js").ReentrantConversationStorage | null} dependencies.storage
+ * @param {import("../types.js").ConversationTranscript | null} dependencies.transcript
+ * @param {import("../types.js").ConversationStreams} dependencies.streams
  * @param {import("./provider.js").ConversationProviderFactory} dependencies.providers
  * @param {import("../types.js").ConversationAttachments | undefined} dependencies.attachments
  * @param {boolean} dependencies.completedEnvelope

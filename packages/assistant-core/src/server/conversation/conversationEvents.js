@@ -19,8 +19,8 @@ function serial(entry, callback) {
  * @param {object} dependencies
  * @param {import("../types.js").ConversationAuthorize} dependencies.authorize
  * @param {() => boolean} dependencies.isClosed Whether the runtime has closed.
- * @param {import("./storage.js").ReentrantConversationStorage | null} dependencies.storage
- * @param {import("./streams.js").ConversationStreams} dependencies.streams
+ * @param {import("../types.js").ReentrantConversationStorage | null} dependencies.storage
+ * @param {import("../types.js").ConversationStreams} dependencies.streams
  * @param {boolean} dependencies.completedEnvelope
  */
 function createConversationEvents({ authorize, isClosed, storage, streams, completedEnvelope }) {

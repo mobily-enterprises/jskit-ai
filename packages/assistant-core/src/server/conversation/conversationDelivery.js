@@ -11,8 +11,8 @@ import { pendingSuccessor, retainedSegments, submittedMessage } from "./conversa
  * sends a message with the history its engine has not seen, and recovery of a message
  * whose delivery is unconfirmed.
  * @param {object} dependencies
- * @param {import("./storage.js").ReentrantConversationStorage | null} dependencies.storage
- * @param {import("./transcript.js").ConversationTranscript | null} dependencies.transcript
+ * @param {import("../types.js").ReentrantConversationStorage | null} dependencies.storage
+ * @param {import("../types.js").ConversationTranscript | null} dependencies.transcript
  * @param {import("./conversationEvents.js").ConversationEvents} dependencies.events
  * @param {import("./conversationReads.js").ConversationReads} dependencies.reads
  * @param {import("../types.js").ConversationLimits} dependencies.limits

@@ -13,8 +13,8 @@ const HISTORY_FILE_MESSAGES = 20;
  * Running one admitted turn: its provider run or native delivery, steering, application
  * tools, native checkpoints, and the progress it saves when it settles.
  * @param {object} dependencies
- * @param {import("./storage.js").ReentrantConversationStorage | null} dependencies.storage
- * @param {import("./streams.js").ConversationStreams} dependencies.streams
+ * @param {import("../types.js").ReentrantConversationStorage | null} dependencies.storage
+ * @param {import("../types.js").ConversationStreams} dependencies.streams
  * @param {import("./conversationEvents.js").ConversationEvents} dependencies.events
  * @param {import("./conversationReads.js").ConversationReads} dependencies.reads
  * @param {import("./conversationDelivery.js").ConversationDelivery} dependencies.delivery

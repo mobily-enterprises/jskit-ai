@@ -297,6 +297,10 @@ async function fetchAnthropicMessage({
   }
 }
 
+/**
+ * An assistant client for Anthropic's Messages API, or a disabled client without a key.
+ * @param {{ enabled?: boolean, apiKey?: string, baseUrl?: string, model?: string, timeoutMs?: number }} [options]
+ */
 function createAnthropicClient({
   enabled = true,
   apiKey = "",
@@ -343,15 +347,18 @@ function createAnthropicClient({
     providerId: "anthropic", sdkPackage: "@ai-sdk/anthropic", apiKey: normalizedApiKey,
     model: normalizedModel, baseURL: `${normalizedBaseUrl}/v1`
   }, { timeoutMs, maxOutputTokens: DEFAULT_ANTHROPIC_MAX_OUTPUT_LIMIT });
+
+  function createChatCompletionStream(input) {
+    return streaming.createChatCompletionStream({ temperature: 0.2, ...input });
+  }
+
   return Object.freeze({
     enabled: true,
     provider: "anthropic",
     defaultModel: normalizedModel,
     model: streaming.model,
     createChatCompletion: createCompletion,
-    createChatCompletionStream(input) {
-      return streaming.createChatCompletionStream({ temperature: 0.2, ...input });
-    }
+    createChatCompletionStream
   });
 }
 

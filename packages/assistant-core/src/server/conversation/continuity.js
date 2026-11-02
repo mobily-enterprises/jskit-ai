@@ -15,10 +15,32 @@ export function conversationMessageVersion(message, { includeData = false } = {}
   })).digest("hex");
 }
 
-/** Keep native delivery and its history cursor in the same durable record. */
-export function createConversationChangeover({ state, transcript, agent, identity, presentation = {}, log = () => {},
+// A changeover whose owner keeps no delivery log.
+function logNothing() {}
+
+/**
+ * Keep native delivery and its history cursor in the same durable record.
+ * @param {object} options
+ * @param {{ read(): Promise<object | null>, write(value: object): Promise<void>,
+ *   transaction?(callback: (transaction: object) => Promise<void>): Promise<void> }} options.state
+ *   The saved delivery record, and the transaction that releases a replaced binding.
+ * @param {{ hasMessage(messageId: string): Promise<boolean>, writeUserMessage(message: object): Promise<void> }} [options.transcript]
+ *   The conversation's own transcript, for messages delivered natively.
+ * @param {{ closeSession?(): Promise<{ ok: boolean, error?: string }>, sendMessage?(input: object): Promise<object>,
+ *   inspectMessageAdmission?(request: { messageId: string }): Promise<object> }} [options.agent] The native engine's session.
+ * @param {{ inspect(expectedId: string): Promise<object> }} [options.identity] The native predecessor's identity.
+ * @param {object} [options.presentation] How history is rendered for the native engine.
+ * @param {(event: object) => void} [options.log] Receives each delivery event.
+ * @param {boolean} [options.captureContext]
+ * @param {boolean} [options.applicationMessages]
+ * @param {number} [options.maximumInitialMessages]
+ * @param {number} [options.maximumInitialMessageCharacters]
+ * @param {number | ((request: object) => Promise<number>)} [options.maximumHistoryBytes]
+ */
+export function createConversationChangeover({ state, transcript, agent, identity, presentation = {}, log = logNothing,
   captureContext = false, applicationMessages = false, maximumInitialMessages = 30,
   maximumInitialMessageCharacters = Infinity, maximumHistoryBytes = Infinity }) {
+  // readable-check: allow method-probe - input validation: the history budget is a byte count or a resolver of one
   if (typeof maximumHistoryBytes !== "function" && maximumHistoryBytes !== Infinity &&
       (!Number.isSafeInteger(maximumHistoryBytes) || maximumHistoryBytes < 1) ||
       maximumInitialMessages === Infinity && maximumHistoryBytes === Infinity) {
@@ -297,6 +319,7 @@ export function createConversationChangeover({ state, transcript, agent, identit
             (!threadId || threadId === replacement.previous.conversationId)) {
           throw new Error("Native replacement must use a fresh successor before sending its briefing.");
         }
+        // readable-check: allow optional-call - optional operation: a native caller's input may carry its own prompt-sending callback
         await input.onPromptSending?.({ threadId, displayAttachments, turnMetadata });
         pending.threadId = threadId;
         pending.displayAttachments = displayAttachments || pending.displayAttachments;
@@ -305,6 +328,7 @@ export function createConversationChangeover({ state, transcript, agent, identit
         await persist();
       },
       onPromptRejected: async () => {
+        // readable-check: allow optional-call - optional operation: a native caller's input may carry its own prompt-rejected callback
         await input.onPromptRejected?.();
         pending.attempted = false;
         await persist();
@@ -329,7 +353,19 @@ export function createConversationChangeover({ state, transcript, agent, identit
     return true;
   }
 
-  return { readState, remember, replace, send, discard };
+  return Object.freeze({
+
+    readState,
+
+    remember,
+
+    replace,
+
+    send,
+
+    discard
+
+  });
 }
 
 function writtenMessages(history, native = false) {

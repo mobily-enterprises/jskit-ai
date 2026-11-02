@@ -1,4 +1,7 @@
-/** Transient provider output. Applications own scope, admission and final persistence. */
+/**
+ * Transient provider output. Applications own scope, admission and final persistence.
+ * @param {{ clock?: () => Date }} [options]
+ */
 export function createConversationStreams({ clock = () => new Date() } = {}) {
   const streams = new Map();
   let revision = 0;
@@ -77,5 +80,15 @@ export function createConversationStreams({ clock = () => new Date() } = {}) {
     return read(scope);
   }
 
-  return { read, update, complete, clear };
+  return Object.freeze({
+
+    read,
+
+    update,
+
+    complete,
+
+    clear
+
+  });
 }

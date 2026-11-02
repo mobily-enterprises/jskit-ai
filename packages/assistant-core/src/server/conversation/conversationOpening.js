@@ -10,9 +10,9 @@ import { failure, stateErrorFields } from "./conversationRefusals.js";
  * How an entry becomes usable: its saved runtime state is checked or created, and its
  * engine's provider is opened over the current native binding.
  * @param {object} dependencies
- * @param {import("./storage.js").ReentrantConversationStorage | null} dependencies.storage
- * @param {import("./transcript.js").ConversationTranscript | null} dependencies.transcript
- * @param {import("./streams.js").ConversationStreams} dependencies.streams
+ * @param {import("../types.js").ReentrantConversationStorage | null} dependencies.storage
+ * @param {import("../types.js").ConversationTranscript | null} dependencies.transcript
+ * @param {import("../types.js").ConversationStreams} dependencies.streams
  * @param {import("./provider.js").ConversationProviderFactory} dependencies.providers
  * @param {import("./conversationEvents.js").ConversationEvents} dependencies.events
  * @param {import("./conversationReads.js").ConversationReads} dependencies.reads

@@ -12,8 +12,8 @@ import { serial } from "./conversationEvents.js";
  * A completed native response handed to the application worker: its verified text, and
  * either the plain reply it publishes or the one application operation it runs.
  * @param {object} dependencies
- * @param {import("./storage.js").ReentrantConversationStorage | null} dependencies.storage
- * @param {import("./transcript.js").ConversationTranscript | null} dependencies.transcript
+ * @param {import("../types.js").ReentrantConversationStorage | null} dependencies.storage
+ * @param {import("../types.js").ConversationTranscript | null} dependencies.transcript
  * @param {import("./conversationEvents.js").ConversationEvents} dependencies.events
  * @param {import("../types.js").ServiceToolCatalog | null} dependencies.catalog
  * @param {() => boolean} dependencies.isClosed Whether the runtime has closed.

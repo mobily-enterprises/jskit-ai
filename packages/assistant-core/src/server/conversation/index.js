@@ -12,6 +12,6 @@ export { normalizeConversationConfiguration } from "./configuration.js";
 export { upgradeConversationRuntimeState, prepareConversationRuntimeCopy } from "./runtimeStateUpgrade.js";
 export { createConversationHookBridge } from "./hookBridge.js";
 export { nativeConversationStoragePolicy } from "./nativeStorage.js";
-export { createConversationProcessIdentity } from "./localExecution.js";
+export { createConversationProcessIdentity } from "./processIdentity.js";
 export { validateConversationOutputSchema } from "./structuredOutput.js";
 export { conversationAttachmentIds } from "./attachments.js";

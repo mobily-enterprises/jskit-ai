@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { test } from "node:test";
-import { createConversationProcessIdentity } from "../src/server/conversation/localExecution.js";
+import { createConversationProcessIdentity } from "../src/server/conversation/processIdentity.js";
 
 const TOKEN_ENV = "JSKIT_EXECUTION_RUNTIME_TOKEN";
 const HASH_ENV = "JSKIT_EXECUTION_COMMAND_HASH";

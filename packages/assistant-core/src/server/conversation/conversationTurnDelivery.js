@@ -15,8 +15,8 @@ import { deliveryFailure, failure } from "./conversationRefusals.js";
  * @param {object} dependencies.bindingOwner The provider binding the turn started under.
  * @param {Map<string, () => Promise<void>>} dependencies.rejectionSaves The failed saves of a definite rejection, by message id.
  * @param {(request: any, seen: any, options?: { nativeDelivery?: boolean, conversationTurn?: any }) => Promise<void>} dependencies.admit Admits a request of this turn.
- * @param {import("./storage.js").ReentrantConversationStorage | null} dependencies.storage
- * @param {import("./streams.js").ConversationStreams} dependencies.streams
+ * @param {import("../types.js").ReentrantConversationStorage | null} dependencies.storage
+ * @param {import("../types.js").ConversationStreams} dependencies.streams
  * @param {import("./conversationEvents.js").ConversationEvents} dependencies.events
  * @param {import("./conversationReads.js").ConversationReads} dependencies.reads
  * @param {import("./conversationDelivery.js").ConversationDelivery} dependencies.delivery

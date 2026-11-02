@@ -7,6 +7,7 @@ export function createConversationOperationLease() {
   const idle = new Promise((resolve) => {
     resolveIdle = resolve;
   });
+  // readable-check: allow unfrozen-result - data: a lease counts its running operations in place
   return {
     idle,
     operations: 0,
@@ -29,10 +30,13 @@ export function finishConversationOperation(lease, participant) {
   }
 }
 
-/** Nested native store operations share the host's current transaction. The
+/**
+ * Nested native store operations share the host's current transaction. The
  * supplied storage remains the only writer queue and commit/rollback owner.
+ * @param {import("../types.js").ConversationStorage} storage
  */
 export function createReentrantConversationStorage(storage) {
+  // readable-check: allow method-probe - input validation: the application's storage adapter must offer read and write
   if (typeof storage?.read !== "function" || typeof storage?.write !== "function") {
     throw new TypeError("Conversation storage requires read(scope, callback) and write(scope, callback).");
   }
@@ -52,26 +56,31 @@ export function createReentrantConversationStorage(storage) {
     }
   }
 
+  function read(scope, operation) {
+    const context = inherited(scope);
+    return context ? participate(context, operation) : storage.read(scope, operation);
+  }
+
+  function write(scope, operation) {
+    const context = inherited(scope);
+    if (context) return participate(context, operation);
+    return storage.write(scope, async transaction => {
+      const lease = createConversationOperationLease();
+      const participant = beginConversationOperation(lease);
+      try {
+        return await mutationContext.run({ scope, transaction, lease, participant }, () => operation(transaction));
+      } finally {
+        finishConversationOperation(lease, participant);
+        await lease.idle;
+      }
+    });
+  }
+
   return Object.freeze({
     ...storage,
-    read(scope, operation) {
-      const context = inherited(scope);
-      return context ? participate(context, operation) : storage.read(scope, operation);
-    },
-    write(scope, operation) {
-      const context = inherited(scope);
-      if (context) return participate(context, operation);
-      return storage.write(scope, async transaction => {
-        const lease = createConversationOperationLease();
-        const participant = beginConversationOperation(lease);
-        try {
-          return await mutationContext.run({ scope, transaction, lease, participant }, () => operation(transaction));
-        } finally {
-          finishConversationOperation(lease, participant);
-          await lease.idle;
-        }
-      });
-    },
+    read,
+    write,
+    // readable-check: allow method-probe - optional operation: a storage adapter may also delete a conversation
     ...(typeof storage.deleteConversation === "function"
       ? { deleteConversation: scope => storage.deleteConversation(scope) } : {})
   });
@@ -102,11 +111,17 @@ function conversationMessageIndex(record) {
   return record.index;
 }
 
-/** Transaction implementation for single-writer record adapters. This serializes
+/**
+ * Transaction implementation for single-writer record adapters. This serializes
  * one instance's writes; a database with multiple writers must also hold its own
  * transaction/lock across readRecord and writeRecord, or implement read/write directly.
  * An adapter may supply recordVersion(id), a cheap token that changes whenever
  * the saved record changes; the parsed record is then reused until it changes.
+ * @param {object} adapter
+ * @param {(id: string) => Promise<{ turns: Map<string, object>, metadata: object, summary?: object }>} adapter.readRecord
+ * @param {(id: string, record: object, view: object) => Promise<void>} adapter.writeRecord
+ * @param {(id: string) => Promise<void>} adapter.deleteRecord
+ * @param {(id: string) => Promise<unknown>} [adapter.recordVersion]
  */
 export function createConversationStorage({ readRecord, writeRecord, deleteRecord, recordVersion }) {
   const pending = new Map();
@@ -118,6 +133,7 @@ export function createConversationStorage({ readRecord, writeRecord, deleteRecor
   }
 
   async function readSaved(id) {
+    // readable-check: allow method-probe - optional operation: an adapter without recordVersion reads its record every time
     if (typeof recordVersion !== "function") return readRecord(id);
     const version = await recordVersion(id);
     const cached = cache.get(id);
@@ -250,6 +266,7 @@ export function createConversationStorage({ readRecord, writeRecord, deleteRecor
       else {
         const record = draft.record();
         await writeRecord(id, record, draft.view);
+        // readable-check: allow method-probe - optional operation: an adapter without recordVersion keeps no cached record
         const version = typeof recordVersion === "function" ? await recordVersion(id) : null;
         if (version != null) cache.set(id, { version, record });
       }
@@ -261,15 +278,23 @@ export function createConversationStorage({ readRecord, writeRecord, deleteRecor
     finally { if (pending.get(id) === settled) pending.delete(id); }
   }
 
+  async function read(scope, callback) {
+    const id = key(scope);
+    await pending.get(id);
+    return callback(transaction(await readSaved(id)).view);
+  }
+
+  async function deleteConversation(scope) {
+    await write(scope, async () => {}, true);
+  }
+
   return Object.freeze({
+
     write,
-    async read(scope, callback) {
-      const id = key(scope);
-      await pending.get(id);
-      return callback(transaction(await readSaved(id)).view);
-    },
-    async deleteConversation(scope) {
-      await write(scope, async () => {}, true);
-    }
+
+    read,
+
+    deleteConversation
+
   });
 }

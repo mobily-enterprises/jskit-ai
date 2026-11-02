@@ -8,7 +8,7 @@ import { serial } from "./conversationEvents.js";
  * reused, and the handle's operations are bound to that entry and caller context.
  * @param {object} dependencies
  * @param {Map<string, any>} dependencies.entries The open conversations, by namespace or id.
- * @param {import("./storage.js").ReentrantConversationStorage | null} dependencies.storage
+ * @param {import("../types.js").ReentrantConversationStorage | null} dependencies.storage
  * @param {import("../types.js").ConversationHost | undefined} dependencies.defaultHost
  * @param {import("./conversationEvents.js").ConversationEvents} dependencies.events
  * @param {import("./conversationReads.js").ConversationReads} dependencies.reads

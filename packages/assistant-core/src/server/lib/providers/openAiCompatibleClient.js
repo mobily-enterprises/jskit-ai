@@ -9,6 +9,11 @@ import {
   normalizeTimeoutMs
 } from "./common.js";
 
+/**
+ * An assistant client for an OpenAI-compatible chat completions API, or a disabled client without a key.
+ * @param {{ enabled?: boolean, apiKey?: string, baseUrl?: string, model?: string, defaultModel?: string, provider?: string,
+ *   timeoutMs?: number }} [options]
+ */
 function createOpenAiCompatibleClient({
   enabled = true,
   apiKey = "",
@@ -39,6 +44,32 @@ function createOpenAiCompatibleClient({
   });
 
   const baseURL = normalizedBaseUrl || undefined;
+
+  async function createChatCompletion({ messages = [], tools = [], temperature = 0, signal } = {}) {
+    const requestPayload = {
+      model: normalizedModel,
+      messages,
+      ...(Array.isArray(tools) && tools.length > 0 ? { tools } : {}),
+      temperature,
+      stream: false
+    };
+
+    return client.chat.completions.create(requestPayload, signal ? { signal } : undefined);
+  }
+
+  async function createChatCompletionStream({ messages = [], tools = [], signal, temperature = 0.2 } = {}) {
+    return client.chat.completions.create(
+      {
+        model: normalizedModel,
+        messages,
+        tools,
+        temperature,
+        stream: true
+      },
+      signal ? { signal } : undefined
+    );
+  }
+
   return Object.freeze({
     enabled: true,
     provider: normalizedProvider,
@@ -47,29 +78,8 @@ function createOpenAiCompatibleClient({
     model: normalizedProvider === "deepseek"
       ? chatModel({ apiKey: normalizedApiKey, model: normalizedModel, baseURL })
       : createOpenAI({ apiKey: normalizedApiKey, baseURL }).chat(normalizedModel),
-    async createChatCompletion({ messages = [], tools = [], temperature = 0, signal } = {}) {
-      const requestPayload = {
-        model: normalizedModel,
-        messages,
-        ...(Array.isArray(tools) && tools.length > 0 ? { tools } : {}),
-        temperature,
-        stream: false
-      };
-
-      return client.chat.completions.create(requestPayload, signal ? { signal } : undefined);
-    },
-    async createChatCompletionStream({ messages = [], tools = [], signal, temperature = 0.2 } = {}) {
-      return client.chat.completions.create(
-        {
-          model: normalizedModel,
-          messages,
-          tools,
-          temperature,
-          stream: true
-        },
-        signal ? { signal } : undefined
-      );
-    }
+    createChatCompletion,
+    createChatCompletionStream
   });
 }
 

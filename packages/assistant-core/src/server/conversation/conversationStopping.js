@@ -7,8 +7,8 @@ const MAX_CANCELLED_MESSAGES = 100;
  * Stopping work in an open conversation: stopping its turn, cancelling one message, retrying
  * a failed save, and disposing or retiring its entry.
  * @param {object} dependencies
- * @param {import("./storage.js").ReentrantConversationStorage | null} dependencies.storage
- * @param {import("./streams.js").ConversationStreams} dependencies.streams
+ * @param {import("../types.js").ReentrantConversationStorage | null} dependencies.storage
+ * @param {import("../types.js").ConversationStreams} dependencies.streams
  * @param {Map<string, any>} dependencies.entries The open conversations, by namespace or id.
  * @param {import("./conversationEvents.js").ConversationEvents} dependencies.events
  * @param {import("./conversationReads.js").ConversationReads} dependencies.reads

@@ -12,7 +12,7 @@ import { pendingSuccessor, retainedSegments } from "./conversationRecords.js";
  * Replacing an open conversation's native conversation: a renewal, an engine or model change,
  * or a selection, with its continuity briefing and the predecessor it retains.
  * @param {object} dependencies
- * @param {import("./storage.js").ReentrantConversationStorage | null} dependencies.storage
+ * @param {import("../types.js").ReentrantConversationStorage | null} dependencies.storage
  * @param {import("./provider.js").ConversationProviderFactory} dependencies.providers
  * @param {import("./conversationEvents.js").ConversationEvents} dependencies.events
  * @param {import("./conversationReads.js").ConversationReads} dependencies.reads
