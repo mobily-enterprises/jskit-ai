@@ -195,6 +195,8 @@ Exports
 - `createService({ workspaceMembershipsRepository, workspaceInvitesRepository, inviteExpiresInMs, roleCatalog, workspaceInvitationsEnabled, inviteUrlBuilder, workspaceInviteMailer, workspaceInviteEmailTemplate, i18n, userProfilesRepository, userSettingsRepository })`
 Local functions
 - `roleNotAssignableError()`
+- `memberUserIdRequiredError()`
+- `inviteIdRequiredError()`
 
 ### `src/server/workspacePendingInvitations/noInviteAcceptanceParticipant.js`
 Exports

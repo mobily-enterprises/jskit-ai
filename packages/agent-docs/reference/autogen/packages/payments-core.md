@@ -96,8 +96,6 @@ Exports
 ### `src/shared/configuration.js`
 Exports
 - `validatePaymentConfiguration(document)`
-Local functions
-- `configurationError(message, fieldErrors, { messageCode, messageParams = {} })`
 
 ### migrations
 

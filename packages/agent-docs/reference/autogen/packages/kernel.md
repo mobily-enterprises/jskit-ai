@@ -609,7 +609,7 @@ Exports
 - `type ActionDefinition`
 - `type ActionPolicy`
 Local functions
-- `normalizeActionDomain(value, { context = "domain", errorCode = "ACTION_DEFINITION_INVALID" } = {})`
+- `normalizeActionDomain(value, { context = "domain" } = {})`
 - `normalizeStringArray(value, fieldName)`
 - `normalizeActionSchema(value, fieldName, { required = false, defaultMode = "" } = {})`
 - `normalizeActionPermission(permission, actionId)`
@@ -673,7 +673,7 @@ Exports
 - `normalizeActionOutput(definition, output)`
 Local functions
 - `schemaFieldErrorDetails(error)`
-- `buildActionValidationError({ status = 400, message = "Validation failed.", code = "ACTION_VALIDATION_FAILED", details, cause })`
+- `buildActionValidationError({ details, cause })`
 
 ### `server/actions/registry.js`
 Exports

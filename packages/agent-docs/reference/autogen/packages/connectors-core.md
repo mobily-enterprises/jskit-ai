@@ -46,6 +46,7 @@ Exports
 Exports
 - `ConnectorError`
 - `providerError(error)`
+- `providerStatusError(status)`
 
 ### `src/server/fileConnectionStore.js`
 Exports
@@ -61,6 +62,7 @@ Exports
 - `createConnectionService`
 - `createEnvironmentReferenceResolver`
 - `ConnectorError`
+- `providerStatusError`
 - `createConnectorsFeature`
 
 ### `src/server/knexConnectionStore.js`
