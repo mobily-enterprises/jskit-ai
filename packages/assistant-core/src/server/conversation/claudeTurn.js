@@ -9,7 +9,7 @@ import { claudeApplicationToolResponse } from "./claudeTools.js";
 import { normalizeNullableText } from "./normalize.js";
 import { createClaudeConversationAdapter } from "./providers/claude.js";
 
-function failure(message, code = "assistant_claude_turn_failed") {
+function failure(message, { code = "assistant_claude_turn_failed" } = {}) {
   return Object.assign(new Error(message), { code });
 }
 
@@ -74,7 +74,7 @@ export async function waitForClaudeConversationTurn(conversation, input = {}, {
     return await Promise.race([entry.completion.promise, new Promise((_, reject) => {
       timer = setTimeout(() => {
         timedOut = true;
-        reject(createError("Claude did not finish within the time limit."));
+        reject(createError("Claude did not finish within the time limit.", { code: "conversation_claude_turn_timeout" }));
       }, timeoutMs);
     })]);
   } catch (failure) {
@@ -98,30 +98,34 @@ export async function runClaudeRenewalTurn(conversation, {
   const entry = conversation.state;
   if ((expectedThreadId && expectedThreadId !== entry.id) ||
       (requireFreshHistory && forbiddenThreadId === entry.id)) {
-    throw createError("The Claude renewal conversation does not match the expected native history.");
+    throw createError("The Claude renewal conversation does not match the expected native history.", { code: "conversation_claude_renewal_history_mismatch" });
   }
   const history = await conversation.readHistory();
-  if (requireFreshHistory && history.userIds.some((id) => id !== uuid)) throw createError("The successor Claude conversation already contains unrelated messages.");
+  if (requireFreshHistory && history.userIds.some((id) => id !== uuid)) {
+    throw createError("The successor Claude conversation already contains unrelated messages.", { code: "conversation_claude_renewal_unrelated_history" });
+  }
   const accepted = history.userIds.includes(uuid);
   let result;
   try {
     if (accepted) {
       if (entry.turn?.id === uuid && entry.turn.active && entry.process) {
         result = await conversation.wait({ conversationId: entry.id, timeoutMs });
-        if (result.status !== "completed") throw createError(result.error || "Claude did not complete the renewal turn.", failedCode);
+        if (result.status !== "completed") throw createError(result.error || "Claude did not complete the renewal turn.", { code: failedCode });
       } else {
         if (entry.turn?.id !== uuid || entry.turn.state !== "completed" || entry.turn.active) {
-          throw createError("The accepted Claude renewal turn has no confirmed completion; it will not be submitted again.", unreadableCode);
+          throw createError("The accepted Claude renewal turn has no confirmed completion; it will not be submitted again.", { code: unreadableCode });
         }
         result = { text: history.messages.filter((message) => message.userId === uuid && message.role === "assistant").map((message) => message.text).join("\n"),
           threadId: entry.id, turnId: uuid, reconciled: true };
-        if (!result.text) throw createError("The accepted Claude renewal turn has no readable result; it will not be submitted again.", unreadableCode);
+        if (!result.text) throw createError("The accepted Claude renewal turn has no readable result; it will not be submitted again.", { code: unreadableCode });
       }
     } else {
-      if (entry.turn?.active && entry.process) throw createError("Stop the current turn before renewing this conversation.");
+      if (entry.turn?.active && entry.process) {
+        throw createError("Stop the current turn before renewing this conversation.", { code: "conversation_claude_renewal_turn_active" });
+      }
       await conversation.send({ message: prompt, messageId: clientMessageId, outputSchema }, { renewal: true });
       result = await conversation.wait({ conversationId: entry.id, timeoutMs });
-      if (result.status !== "completed") throw createError(result.error || "Claude did not complete the renewal turn.", failedCode);
+      if (result.status !== "completed") throw createError(result.error || "Claude did not complete the renewal turn.", { code: failedCode });
     }
     return { ...result, clientMessageId,
       freshThread: history.userIds.length === 0, processExitProof: await conversation.stop() };
@@ -184,7 +188,10 @@ export function createClaudeConversationGoals({ conversationId, readHistory, rea
   return Object.freeze({ read, update });
 }
 
-/** The original retained entry and command owner; hosts supply authorized storage and message effects. */
+/**
+ * The original retained entry and command owner; hosts supply authorized storage and message effects.
+ * Every refusal is built by `createError(message, { code })`, each with its own `conversation_claude_*` code.
+ */
 export function createClaudeConversationOwner({
   configRoot, store, preparation, process, onEvent, createError = failure,
   disconnectedMessage = "Claude was interrupted when the application disconnected."
@@ -253,7 +260,10 @@ export function createClaudeConversationOwner({
   function savedState(saved, conversationId) {
     if (!saved) return {};
     try { return JSON.parse(saved); }
-    catch { throw createError(`The saved Claude conversation ${conversationId} is unreadable. Restore its saved conversation state.`); }
+    catch {
+      throw createError(`The saved Claude conversation ${conversationId} is unreadable. Restore its saved conversation state.`,
+        { code: "conversation_claude_saved_state_unreadable" });
+    }
   }
 
   async function open(context, { conversationId = "", mainId, create = false,
@@ -274,7 +284,7 @@ export function createClaudeConversationOwner({
     }
     let saved = store.read(context, id);
     if (saved && typeof saved.then === "function") saved = await saved;
-    if (!main && !saved && !create && !recoveringCleanup) throw createError("This Claude conversation is unavailable.");
+    if (!main && !saved && !create && !recoveringCleanup) throw createError("This Claude conversation is unavailable.", { code: "conversation_claude_unavailable" });
     const state = savedState(saved, id);
     const entry = { id, key, main, persistent: state.persistent === true, context, process: null, startupCleanup: null,
       executionId: state.executionId || (recoveringCleanup ? cleanupExecutionId : ""), preparationRevision: 0,
@@ -289,10 +299,12 @@ export function createClaudeConversationOwner({
       if (retained && (retained.threadId !== id || typeof retained.objective !== "string" ||
           !retained.objective.trim() || !Number.isFinite(retained.createdAt) || retained.status !== status ||
           status === "blocked" && (typeof retained.reason !== "string" || !retained.reason.trim() || retained.reason.length > 1000))) {
-        throw createError("The retained Claude goal is invalid. Restore its saved conversation state.");
+        throw createError("The retained Claude goal is invalid. Restore its saved conversation state.", { code: "conversation_claude_retained_goal_invalid" });
       }
     }
-    if (entry.pausedGoal && entry.blockedGoal) throw createError("The saved Claude goal cannot be both paused and blocked.");
+    if (entry.pausedGoal && entry.blockedGoal) {
+      throw createError("The saved Claude goal cannot be both paused and blocked.", { code: "conversation_claude_retained_goal_conflict" });
+    }
     entry.nativeTurn = createClaudeConversationTurn({ conversationId: id, entry, bound,
       onEvent: event => onEvent(entry, event),
       process: {
@@ -349,7 +361,7 @@ export function createClaudeConversationOwner({
         stop: (entry, reason) => entry.nativeTurn.stopProcess(reason, { preparing: true }), save: saveAccount });
     } catch (failure) {
       if (failure.code !== "claude_account_changed") throw failure;
-      throw createError(failure.message, account.changedCode || failure.code);
+      throw createError(failure.message, { code: account.changedCode || failure.code });
     }
   }
 
@@ -370,12 +382,12 @@ export function createClaudeConversationOwner({
     const revision = entry.preparationRevision;
     const application = preparation.checkConfiguration?.(entry, input);
     if (entry.disposed || closing || closingSessions.has(entry.context.key) || application?.sessionClosing) {
-      throw createError("This session is closing.");
+      throw createError("This session is closing.", { code: "conversation_claude_session_closing" });
     }
     if (preparation.account) await bindAccount(entry);
     const configuration = await preparation.configuration(entry, input);
     if (revision !== entry.preparationRevision || entry.disposed || closing || closingSessions.has(entry.context.key)) {
-      throw createError("Claude preparation was stopped while this session was closing or changing.");
+      throw createError("Claude preparation was stopped while this session was closing or changing.", { code: "conversation_claude_preparation_stopped" });
     }
     return entry.nativeTurn.prepare(configuration);
   }
@@ -392,15 +404,17 @@ export function createClaudeConversationOwner({
     if (!Number.isSafeInteger(usedTokens) || usedTokens < 0 ||
         !Number.isSafeInteger(maximum) || maximum < 1 ||
         !Number.isSafeInteger(threshold) || threshold < 1 || typeof usage.model !== "string" || !usage.model) {
-      throw createError("Claude's current context usage is unavailable.");
+      throw createError("Claude's current context usage is unavailable.", { code: "conversation_claude_context_usage_unavailable" });
     }
     return { model: usage.model, usedTokens,
       windowTokens: usage.isAutoCompactEnabled === false ? maximum : Math.min(maximum, threshold) };
   }
 
   async function stopForTerminal(entry, application) {
-    if (entry.turn?.active) throw createError("Stop the current turn before opening the Claude Code terminal.");
-    if (closing || closingSessions.has(entry.context.key) || application?.sessionClosing) throw createError("This session is closing.");
+    if (entry.turn?.active) throw createError("Stop the current turn before opening the Claude Code terminal.", { code: "conversation_claude_terminal_turn_active" });
+    if (closing || closingSessions.has(entry.context.key) || application?.sessionClosing) {
+      throw createError("This session is closing.", { code: "conversation_claude_session_closing" });
+    }
     await bindAccount(entry);
     await entry.nativeTurn.stopProcess();
   }
@@ -421,7 +435,7 @@ export function createClaudeConversationOwner({
     const revision = entry.preparationRevision;
     const assertPreparing = () => {
       if (revision !== entry.preparationRevision || entry.disposed || closing || closingSessions.has(context.key)) {
-        throw createError("Claude preparation was stopped while this session was closing or changing.");
+        throw createError("Claude preparation was stopped while this session was closing or changing.", { code: "conversation_claude_preparation_stopped" });
       }
     };
     assertPreparing();
@@ -467,7 +481,7 @@ export function createClaudeConversationOwner({
         if (local?.processToken === processToken) {
           if (frame.type === "result" && frame.user_message_uuid === local.id) {
             if (frame.local_command === local.name && frame.is_error !== true && frame.subtype === "success") local.resolve();
-            else local.reject(createError(local.failureMessage));
+            else local.reject(createError(local.failureMessage, { code: local.failureCode }));
           }
           return;
         }
@@ -554,11 +568,11 @@ export function createClaudeConversationOwner({
     if (entry.pausedGoal || entry.blockedGoal) {
       try {
         const id = await runLocalCommand(entry, "/goal clear", { name: "goal", timeoutMs: 30_000,
-          failureMessage: "Claude could not suspend its retained goal checker.",
-          timeoutMessage: "Claude timed out suspending its retained goal checker." });
+          failureMessage: "Claude could not suspend its retained goal checker.", failureCode: "conversation_claude_goal_suspend_failed",
+          timeoutMessage: "Claude timed out suspending its retained goal checker.", timeoutCode: "conversation_claude_goal_suspend_timeout" });
         const cleared = await readHistory(entry);
         if (cleared.goal || cleared.goalCommandId !== id) {
-          throw createError("Claude has not saved the retained goal's native clear receipt.");
+          throw createError("Claude has not saved the retained goal's native clear receipt.", { code: "conversation_claude_goal_clear_unconfirmed" });
         }
         assertPreparing();
       } catch (error) {
@@ -569,12 +583,12 @@ export function createClaudeConversationOwner({
     return entry.process;
   }
 
-  async function runLocalCommand(entry, command, { name, timeoutMs, failureMessage, timeoutMessage }) {
+  async function runLocalCommand(entry, command, { name, timeoutMs, failureMessage, failureCode, timeoutMessage, timeoutCode }) {
     const completion = Promise.withResolvers();
     completion.promise.catch(() => {});
-    const local = { ...completion, id: randomUUID(), name, failureMessage, processToken: entry.processToken };
+    const local = { ...completion, id: randomUUID(), name, failureMessage, failureCode, processToken: entry.processToken };
     entry.localCommand = local;
-    const timer = setTimeout(() => completion.reject(createError(timeoutMessage)), timeoutMs);
+    const timer = setTimeout(() => completion.reject(createError(timeoutMessage, { code: timeoutCode })), timeoutMs);
     try {
       await entry.process.client.send(command, { messageId: local.id, sessionId: entry.id });
       await completion.promise;
@@ -596,8 +610,8 @@ export function createClaudeConversationOwner({
     await ensureProcess(entry, input);
     input.signal?.throwIfAborted();
     await runLocalCommand(entry, "/compact", { name: "compact", timeoutMs: 15 * 60_000,
-      failureMessage: "Claude could not summarise its context.",
-      timeoutMessage: "Claude timed out summarising its context." });
+      failureMessage: "Claude could not summarise its context.", failureCode: "conversation_claude_compact_failed",
+      timeoutMessage: "Claude timed out summarising its context.", timeoutCode: "conversation_claude_compact_timeout" });
   }
 
   async function send(entry, ...args) {
@@ -608,7 +622,7 @@ export function createClaudeConversationOwner({
 
   async function dispatchPrompt(entry, input = {}, { renewal = false, command, applicationCommand } = {}) {
     const message = command ? input.text : text(input.message || input.prompt);
-    if (!command && !message) throw createError("Enter a message for Claude.");
+    if (!command && !message) throw createError("Enter a message for Claude.", { code: "conversation_claude_message_required" });
     const context = entry.context;
     const messageId = command ? input.messageId : text(input.messageId) || randomUUID();
     const uuid = claudeNativeMessageId(messageId);
@@ -644,7 +658,9 @@ export function createClaudeConversationOwner({
     deliveryTiming?.("process-ready");
     if (command && !command.steering) command.signal.throwIfAborted();
     const steering = command ? command.steering === true : Boolean(entry.turn?.active);
-    if (input.signal?.aborted) throw Object.assign(createError("The goal command was stopped before delivery."), { delivery: "not-sent" });
+    if (input.signal?.aborted) {
+      throw Object.assign(createError("The goal command was stopped before delivery.", { code: "conversation_claude_command_stopped" }), { delivery: "not-sent" });
+    }
     if (steering) {
       if (command) {
         await command.beforeDispatch({ threadId: entry.id });
@@ -734,7 +750,9 @@ export function createClaudeConversationOwner({
     try {
       if (command) command.attempted = true;
       else await input.onPromptSending?.({ threadId: entry.id, displayAttachments: input.displayAttachments, turnMetadata: actorMetadata });
-      if (input.signal?.aborted) throw Object.assign(createError("The goal command was stopped before delivery."), { delivery: "not-sent" });
+      if (input.signal?.aborted) {
+        throw Object.assign(createError("The goal command was stopped before delivery.", { code: "conversation_claude_command_stopped" }), { delivery: "not-sent" });
+      }
       await entry.nativeTurn.send(command ? entry.process.client : native.client, command ? preparation.message(entry, input) : prompt,
         { messageId: uuid, accept, steer: steering, ...(command ? { timeoutMs: command.timeoutMs } : {}) });
     } catch (error) {
@@ -746,7 +764,9 @@ export function createClaudeConversationOwner({
 
   async function startTurn(entry, input = {}) {
     entry.persistent ||= input.persistent === true;
-    if (entry.turn?.active && entry.process && input.steer !== true) throw createError("This conversation is still working.");
+    if (entry.turn?.active && entry.process && input.steer !== true) {
+      throw createError("This conversation is still working.", { code: "conversation_claude_still_working" });
+    }
     await send(entry, input);
     return { ...entry.nativeTurn.readResult(), ok: true, started: true };
   }
@@ -812,7 +832,7 @@ export function createClaudeConversationOwner({
         const saved = application.saved;
         const active = hasActiveConversation(binding);
         if (saved?.executionId || active || application.terminalRunning) {
-          throw createError("Stop the saved Claude process and its terminal before retiring native history.");
+          throw createError("Stop the saved Claude process and its terminal before retiring native history.", { code: "conversation_claude_history_retire_busy" });
         }
       }
     });
@@ -1854,7 +1874,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
         steeringClient = client;
       }
       const timer = setTimeout(() => admitted.reject(Object.assign(
-        failure("Claude has not acknowledged this prompt. Its delivery is uncertain.", "assistant_claude_admission_unknown"),
+        failure("Claude has not acknowledged this prompt. Its delivery is uncertain.", { code: "assistant_claude_admission_unknown" }),
         { delivery: "uncertain" }
       )), timeoutMs);
       admissions.set(uuid, { ...admitted, accept, timer, receiptOwner });

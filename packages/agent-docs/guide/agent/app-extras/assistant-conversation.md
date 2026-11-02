@@ -3582,6 +3582,12 @@ facilities before inspecting its own native state. Its history-idle query reads
 that same state; the host separately checks durable process receipts and actual
 terminal activity. No second activity cache or restoration loop is required.
 
+The application that creates the owner may pass its own error builder as
+`createError(message, { code })`. Every refusal the owner raises passes its own
+code, such as `conversation_claude_session_closing` or
+`conversation_claude_message_required`, so the builder forwards that code
+instead of giving every refusal the same one.
+
 The owner serializes preparation with native controls and preserves the original
 control-interrupt followed by mandatory process drain. A failed drain stays an
 error. The host retains execution policy, durable cleanup and publication at

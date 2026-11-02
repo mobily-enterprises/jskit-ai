@@ -664,6 +664,19 @@ test("renewal refuses changed or unrelated successor history before native work 
   assert.match(f.events.at(-1)[1], /will not be submitted again/);
 });
 
+test("a refusal hands the caller's createError its message and its own code", async () => {
+  const createError = (message, { code }) => Object.assign(new Error(message), { code, builtByCaller: true });
+  const f = renewalFixture();
+  await assert.rejects(runClaudeRenewalTurn(f.conversation, { ...f.input, expectedThreadId: "different" }, { createError }),
+    { message: /expected native history/, code: "conversation_claude_renewal_history_mismatch", builtByCaller: true });
+  f.history.userIds.push("unrelated");
+  await assert.rejects(runClaudeRenewalTurn(f.conversation, { ...f.input, requireFreshHistory: true }, { createError }),
+    { message: /unrelated messages/, code: "conversation_claude_renewal_unrelated_history", builtByCaller: true });
+  const state = { process: {}, turn: { active: true }, completion: Promise.withResolvers() };
+  await assert.rejects(waitForClaudeConversationTurn({ state, async interrupt() {} }, {}, { defaultTimeoutMs: 5, createError }),
+    { message: /within the time limit/, code: "conversation_claude_turn_timeout", builtByCaller: true });
+});
+
 test("renewal dispatches once with the original schema and waits before confirmed cleanup", async () => {
   const f = renewalFixture();
   const outputSchema = { type: "object" };
