@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeNullableText } from "./normalize.js";
-import { copyCodexProviderHome } from "./codexProviderHome.js";
+import { copyCodexProviderHome } from "./codexConfiguration.js";
 import { codexDisabledProcessFeatureArguments } from "./codexHomeStorage.js";
 import {
   CODEX_APP_SERVER_DESKTOP_BUS_ENV_NAMES, CODEX_APP_SERVER_ENDPOINT_STATUS, CODEX_APP_SERVER_EXECUTION_MODES,
@@ -37,10 +37,19 @@ function tomlInlineValue(value) {
  * @param {import("./codexRuntime.js").CodexRuntimeCredentials} dependencies.credentials
  * @param {import("./codexRuntime.js").CodexProcessIdentity} dependencies.processIdentity
  * @param {import("./codexRuntimeStop.js").CodexRuntimeStop} dependencies.stop
- * @param {ReturnType<typeof import("./codexRuntimeStatus.js").createCodexAppServerRuntimeStatus>} dependencies.status
+ * @param {(endpoint: string, options: object) => Promise<{ status: string }>} dependencies.endpointStatus
+ * @param {(endpoint: string, options: object) => Promise<boolean>} dependencies.waitForServer
  * @param {import("./codexRuntime.js").CodexRuntimeSettings} dependencies.settings
  */
-export function createCodexAppServerProcessStart({ execution, credentials, processIdentity, stop, status, settings }) {
+export function createCodexAppServerProcessStart({
+  execution,
+  credentials,
+  processIdentity,
+  stop,
+  endpointStatus: codexAppServerEndpointStatus,
+  waitForServer: waitForCodexAppServer,
+  settings
+}) {
   const {
     commandHookCommand,
     errorPrefix,
@@ -59,8 +68,6 @@ export function createCodexAppServerProcessStart({ execution, credentials, proce
   const currentCodexAuthStateSignature = credentials.generation;
   const assertCodexAuthGenerationCurrent = credentials.assertCurrent;
   const cleanupFailedCodexAppServerStart = stop.cleanupFailedStart;
-  const codexAppServerEndpointStatus = status.endpointStatus;
-  const waitForCodexAppServer = status.waitForServer;
 
   function codexAppServerSessionCommandHookConfig() {
     return `hooks.PreToolUse=${tomlInlineValue(codexCommandHookDefinition(commandHookCommand))}`;

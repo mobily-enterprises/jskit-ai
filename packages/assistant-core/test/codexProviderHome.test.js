@@ -7,7 +7,7 @@ import {
   codexProviderCatalogPath,
   codexProviderFileConfiguration,
   copyCodexProviderHome
-} from "../src/server/conversation/codexProviderHome.js";
+} from "../src/server/conversation/codexConfiguration.js";
 
 const provider = {
   id: "fixture",

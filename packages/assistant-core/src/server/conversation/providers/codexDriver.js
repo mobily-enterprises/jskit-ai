@@ -8,7 +8,7 @@ import { CodexAppServerAgentProvider, codexLocalImageInput, ensureCodexAppServer
   assertCodexApplicationToolSchemaIdentity, inspectCodexAppServerMessageAdmission, retireCodexConversationHistory } from "../codexProvider.js";
 import { createCodexAppServerProviderOwner } from "../codexProviderOwner.js";
 import { codexAuthOutputRequiresReconnect } from "../codexAccountReader.js";
-import { codexProviderConfiguration } from "../codexProviderHome.js";
+import { codexProviderConfiguration } from "../codexConfiguration.js";
 import { codexToolFreeConfiguration } from "../codexIsolation.js";
 import { nativeAiProvider, nativeAiModel } from "../../../shared/nativeProviders.js";
 import { createCodexAppServerRunOwner, codexAppServerTurnState, codexAppServerFrozenTurnInterruptResponse } from "../codexTurn.js";
