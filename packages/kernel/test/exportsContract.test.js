@@ -39,6 +39,8 @@ const EXPORTED_UNUSED_ALLOWLIST = new Set([
   "./server/http",
   // Types of the kernel's capabilities, for the features that require them.
   "./server/types",
+  // Types of the kernel's client capabilities, for the client providers that require them.
+  "./client/types",
   // silentLogger, for applications whose callers may omit a logger.
   "./server/runtime/logger"
 ]);
