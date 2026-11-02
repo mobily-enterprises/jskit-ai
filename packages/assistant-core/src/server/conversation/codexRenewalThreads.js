@@ -1,10 +1,7 @@
 import { normalizeNullableText as normalizeAgentText } from "./normalize.js";
 import { codexAppServerProjectHookTrustConfig, codexAppServerTextHasControlCharacters } from "./codexConfiguration.js";
-import {
-  codexAppServerRequestIsInvalid,
-  CODEX_APP_SERVER_THREAD_INVENTORY_ID_MAX_LENGTH,
-  CODEX_APP_SERVER_THREAD_INVENTORY_MAX_COUNT
-} from "./codexProvider.js";
+import { codexAppServerRequestIsInvalid } from "./codexProviderThreads.js";
+import { CODEX_APP_SERVER_THREAD_INVENTORY_ID_MAX_LENGTH, CODEX_APP_SERVER_THREAD_INVENTORY_MAX_COUNT } from "./codexProviderInventories.js";
 
 // Renewal thread operations: resume the exact retained thread, or prove a
 // genuinely fresh successor thread for one renewal operation.

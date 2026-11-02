@@ -10,14 +10,8 @@ import {
   codexAppServerMessageDisplayText,
   codexPromptInputFromRequest
 } from "./codexTurnState.js";
-import {
-  codexAppServerRequestIsInvalid,
-  codexAppServerThreadIsMissing,
-  codexLocalImageInput,
-  ensureCodexAppServerThread,
-  codexAppServerDeliveredTurn,
-  sendCodexAppServerPrompt
-} from "./codexProvider.js";
+import { codexAppServerRequestIsInvalid, codexAppServerThreadIsMissing, ensureCodexAppServerThread } from "./codexProviderThreads.js";
+import { codexLocalImageInput, codexAppServerDeliveredTurn, sendCodexAppServerPrompt } from "./codexProviderTurns.js";
 import crypto from "node:crypto";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 

@@ -1,6 +1,6 @@
 import { codexAppServerTurnStatusIsSuccessfulComplete, codexAppServerTurnStatusIsProviderFailure, codexAppServerErrorMessage } from "./codexTurnState.js";
 import { createCodexAppServerDetachedTurnWatcher, waitForCodexAppServerTurn } from "./codexDetachedTurn.js";
-import { codexAppServerDeliveredTurn, sendCodexAppServerPrompt } from "./codexProvider.js";
+import { codexAppServerDeliveredTurn, sendCodexAppServerPrompt } from "./codexProviderTurns.js";
 import { resumeExactCodexAppServerThread, startFreshCodexAppServerThread } from "./codexRenewalThreads.js";
 import { codexAppServerProviderTurnId, inspectCodexAppServerRenewalThread } from "./codexEvents.js";
 

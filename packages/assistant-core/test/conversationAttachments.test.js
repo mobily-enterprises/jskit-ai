@@ -2,7 +2,7 @@ import { useAssistantAttachments } from "../src/client/conversation/useAssistant
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createConversationRuntime, createMemoryConversationStorage } from "../src/server/conversation/index.js";
-import { codexLocalImageInput, codexTurnInput } from "../src/server/conversation/codexProvider.js";
+import { codexLocalImageInput, codexTurnInput } from "../src/server/conversation/codexProviderTurns.js";
 import { conversationAttachmentIds, createConversationAttachmentReader } from "../src/server/conversation/attachments.js";
 import { attachmentIdsField } from "../src/shared/index.js";
 import { ASSISTANT_ATTACHMENT_MAX_ITEMS as CLIENT_ATTACHMENT_MAX_ITEMS } from "../src/client/conversation/useAssistantAttachments.js";

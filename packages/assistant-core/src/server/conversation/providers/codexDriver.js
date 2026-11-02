@@ -4,8 +4,15 @@ import path from "node:path";
 import { open, realpath } from "node:fs/promises";
 import { CODEX_APP_SERVER_DESKTOP_BUS_ENV_NAMES, codexCommandHookDefinition } from "../codexProcess.js";
 import { createCodexAppServerRuntime } from "../codexRuntime.js";
-import { CodexAppServerAgentProvider, codexLocalImageInput, ensureCodexAppServerThread, codexApplicationToolConfiguration,
-  assertCodexApplicationToolSchemaIdentity, inspectCodexAppServerMessageAdmission, retireCodexConversationHistory } from "../codexProvider.js";
+import { CodexAppServerAgentProvider } from "../codexProvider.js";
+import { codexLocalImageInput } from "../codexProviderTurns.js";
+import {
+  ensureCodexAppServerThread,
+  codexApplicationToolConfiguration,
+  assertCodexApplicationToolSchemaIdentity,
+  inspectCodexAppServerMessageAdmission,
+  retireCodexConversationHistory
+} from "../codexProviderThreads.js";
 import { createCodexAppServerProviderOwner } from "../codexProviderOwner.js";
 import { codexAuthOutputRequiresReconnect } from "../codexAccountReader.js";
 import { codexProviderConfiguration } from "../codexConfiguration.js";

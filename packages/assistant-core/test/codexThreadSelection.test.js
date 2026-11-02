@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ensureCodexAppServerThread } from "../src/server/conversation/codexProvider.js";
+import { ensureCodexAppServerThread } from "../src/server/conversation/codexProviderThreads.js";
 
 test("retained Codex selection awaits observation before resume and identity publication before return", async () => {
   const calls = [];

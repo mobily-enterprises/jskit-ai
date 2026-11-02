@@ -68,7 +68,7 @@ import {
 } from "./codexHelperExecution.js";
 export { sendPreparedCodexAppServerHelperTurn } from "./codexHelperExecution.js";
 import { createCodexHelperThreadLifecycle } from "./codexHelperThreads.js";
-export { codexAppServerThreadIsMissing } from "./codexProvider.js";
+export { codexAppServerThreadIsMissing } from "./codexProviderThreads.js";
 
 export function createCodexAppServerRunOwner({
   namespace = normalizeCodexRunText,

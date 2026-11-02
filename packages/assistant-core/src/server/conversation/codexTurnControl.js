@@ -9,7 +9,7 @@ import {
   codexAppServerInterruptUnavailableResponse,
   codexAppServerFrozenTurnInterruptResponse
 } from "./codexTurnState.js";
-import { codexAppServerRequestIsInvalid } from "./codexProvider.js";
+import { codexAppServerRequestIsInvalid } from "./codexProviderThreads.js";
 import { codexAppServerThreadTurnId } from "./codexEvents.js";
 
 // Original user Stop control, including preflight and bounded successor races.

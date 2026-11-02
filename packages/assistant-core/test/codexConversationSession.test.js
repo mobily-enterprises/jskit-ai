@@ -2671,7 +2671,7 @@ test("held lifecycle catalogue rejection preserves a newer same-runtime tail and
 // schemas, tool-call framing, transcript store and run owner. Public Main's
 // identity/authority/readiness composition is a separate adoption prerequisite.
 import { createCodexAppServerRunOwner, codexAppServerTurnState } from "../src/server/conversation/codexTurn.js";
-import { codexApplicationToolConfiguration, ensureCodexAppServerThread } from "../src/server/conversation/codexProvider.js";
+import { codexApplicationToolConfiguration, ensureCodexAppServerThread } from "../src/server/conversation/codexProviderThreads.js";
 import { createServiceToolCatalog } from "../src/server/lib/serviceToolCatalog.js";
 
 async function boundCodexToolsFixture(t, options = {}) {
