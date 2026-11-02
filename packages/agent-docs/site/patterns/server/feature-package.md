@@ -59,12 +59,12 @@ questionnaire.
   `X | null` only in `setup()`; what `setup()` builds receives it as required.
 - One `create<Name>Actions({ <api> })` per feature, destructured, in
   `<name>Actions.js`, creates its actions and closes over the feature APIs they
-  need; an inline `actions()` array becomes an unexported
-  `create<Name>Actions()` in the same file. Every definition and the list are
-  frozen. Each id is a string literal or a module-level constant, and
-  `execute: (input, context) => api.method(input, { context })` is one call,
-  without `async`, a body, an envelope or a helper that builds or strips it.
-  Actions never resolve arbitrary dependencies at execution time.
+  need. Every definition and the list are frozen. Each definition spreads one
+  frozen constant of the fields its kind shares (`version`, `kind`,
+  `channels`, `surfaces`) first. Each id is a string literal or a module-level
+  constant, and `execute: (input, context) => api.method(input, { context })`
+  is one call, without `async`, a body, an envelope or a helper that builds or
+  strips it. Actions never resolve arbitrary dependencies at execution time.
 - Methods take the validated input as it is: no `input = {}` default, no
   `input?.x` and no second normalization of fields the input schema already
   checked. An options bag whose fields are optional by contract
@@ -112,7 +112,8 @@ small-feature boundary:
 - `src/server/bookingAvailability.js` names the slot's default,
   `everyScopeOpen`;
 - `src/server/bookingEngineActions.js` creates its one-line, frozen actions
-  with `createBookingEngineActions({ bookingEngine })`;
+  with `createBookingEngineActions({ bookingEngine })`, each spreading the
+  shared `BOOKING_QUERY` fields first;
 - `src/server/types.js` declares `BookingEngine` and
   `BookingEngineAvailability`, exported as `./server/types`.
 
@@ -141,23 +142,25 @@ const SeasonalAvailabilityFeature = defineFeature({
 });
 ```
 
-`example/variations/AvailabilityEngineFeature.js` and
+`example/variations/AvailabilityEngineFeature.js`,
+`example/variations/availabilityEngineActions.js` and
 `example/variations/orchestratorService.js` show the repository-free lane.
-`example/variations/InvoiceRollupFeature.js` and
+`example/variations/InvoiceRollupFeature.js`,
+`example/variations/invoiceRollupActions.js` and
 `example/variations/customKnexRepository.js` show the explicit custom
 persistence lane. `example/variations/types.js` declares the
 `AvailabilityEngine` and `InvoiceRollup` types.
 
-The [typed features guide](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/site/guide/framework/typed-features.md)
-explains each rule with a complete feature, and its
-[common mistakes](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/site/guide/framework/typed-features.md#common-mistakes)
-list what still goes wrong in code that passes the lint rules.
+The [typed features guide](https://mobily-enterprises.github.io/jskit-ai/guide/framework/typed-features)
+explains each rule this example follows, with a good and a bad example, and
+`npm run lint` checks the ones a machine can see.
 
 ## Variation points
 
 Rename the package, capability id, actions, validators, and domain methods.
-Select the correct channels and surfaces in `actionDefaults`, overriding them
-only for exceptional actions. Add a service when orchestration is shared or
+Select the channels and surfaces in the shared-field constant each definition
+spreads first; a kind of action whose values differ gets a constant of its
+own. Add a service when orchestration is shared or
 stateful. Add a repository only when the feature owns persistence. Replace the
 illustrative status query with narrow product language before shipping.
 

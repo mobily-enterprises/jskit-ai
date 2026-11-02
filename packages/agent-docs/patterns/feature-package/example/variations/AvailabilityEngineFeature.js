@@ -1,20 +1,6 @@
 import { defineFeature } from "@jskit-ai/kernel/server/features";
-import { emptyInputValidator } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
-import { createService } from "./orchestratorService.js";
-
-/** @param {{ availabilityEngine: import("./types.js").AvailabilityEngine }} dependencies */
-function createAvailabilityEngineActions({ availabilityEngine }) {
-  return Object.freeze([
-    Object.freeze({
-      id: "availability.status.read",
-      version: 1,
-      kind: "query",
-      input: emptyInputValidator,
-      output: null,
-      execute: (input) => availabilityEngine.getStatus(input)
-    })
-  ]);
-}
+import { createAvailabilityEngineActions } from "./availabilityEngineActions.js";
+import { createAvailabilityEngine } from "./orchestratorService.js";
 
 const AvailabilityEngineFeature = defineFeature({
   id: "feature.availability-engine",
@@ -22,12 +8,8 @@ const AvailabilityEngineFeature = defineFeature({
   provides: {
     availabilityEngine: "feature.availability-engine"
   },
-  actionDefaults: {
-    channels: ["api", "assistant", "internal"],
-    surfaces: ["app"]
-  },
   setup() {
-    return { availabilityEngine: createService() };
+    return { availabilityEngine: createAvailabilityEngine() };
   },
   actions({ availabilityEngine }) {
     return createAvailabilityEngineActions({ availabilityEngine });

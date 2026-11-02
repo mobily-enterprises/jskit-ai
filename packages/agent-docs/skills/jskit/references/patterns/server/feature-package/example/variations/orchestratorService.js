@@ -1,5 +1,5 @@
 /** The availability engine: orchestration with no persistence of its own. */
-function createService() {
+function createAvailabilityEngine() {
   async function getStatus(input) {
     return {
       ok: true,
@@ -25,4 +25,4 @@ function createService() {
   });
 }
 
-export { createService };
+export { createAvailabilityEngine };

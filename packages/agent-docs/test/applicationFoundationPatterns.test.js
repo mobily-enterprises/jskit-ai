@@ -228,6 +228,8 @@ test("foundation agent instructions point to public framework docs without requi
     /https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/guide\/framework\/ui-operations#browser-verification/u
   );
   assert.match(minimalAgents, /prefer that version-matched package-owned copy/u);
+  assert.match(minimalAgents, /https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/guide\/framework\/typed-features`/u);
+  assert.match(minimalAgents, /`npm run lint` checks its rules/u);
   assert.match(minimalAgents, /Do not install an unrelated runtime package only to read documentation/u);
   assert.match(minimalAgents, /Keep `BROWSER_TEST_DB_NAME` distinct from disposable `TEST_DB_NAME`/u);
   assert.match(minimalAgents, /Keep verification output small/u);
@@ -278,7 +280,7 @@ test("shell foundation reuses the shell-web application shell and the minimal fo
   }
 });
 
-test("foundation lint configurations hold server code to typed features as errors", async () => {
+test("foundation lint configurations hold server code to typed features and all code to the size limits as errors", async () => {
   const probe = "export function createReader({ store } = {}) {\n  return () => store.read?.();\n}\n";
   for (const patternName of FOUNDATION_NAMES) {
     const exampleRoot = path.join(PATTERNS_ROOT, patternName, "example");
@@ -292,10 +294,16 @@ test("foundation lint configurations hold server code to typed features as error
       assert.ok(findings.every((message) => message.severity === 2), `${patternName} only warns on ${relativePath}.`);
     }
 
-    const results = await eslint.lintFiles(["server.js", "server/**/*.js", "bin/**/*.js"]);
+    const longModule = Array.from({ length: 751 }, (_, index) => `export const value${index} = ${index};`).join("\n");
+    for (const relativePath of ["src/components/LongTable.js", "packages/main/src/client/longTable.js", "bin/long.js"]) {
+      const [result] = await eslint.lintText(`${longModule}\n`, { filePath: path.join(exampleRoot, relativePath) });
+      assert.ok(result.messages.some((message) => message.ruleId === "max-lines" && message.severity === 2), `${patternName} lets ${relativePath} grow.`);
+    }
+
+    const results = await eslint.lintFiles(["server.js", "server/**/*.js", "bin/**/*.js", "config/**/*.js", "src/**/*.{js,vue}", "packages/**/*.js"]);
     const findings = results.flatMap((result) => result.messages.map((message) => (
       `${path.relative(exampleRoot, result.filePath)}:${message.line} ${message.ruleId || "parse"}`
     )));
-    assert.deepEqual(findings, [], `${patternName} server code breaks its own lint configuration.`);
+    assert.deepEqual(findings, [], `${patternName} breaks its own lint configuration.`);
   }
 });

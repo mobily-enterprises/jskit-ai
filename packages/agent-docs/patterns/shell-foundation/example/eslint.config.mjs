@@ -1,4 +1,16 @@
-import { baseConfig, nodeConfig, typedFeaturesConfig, vueConfig, webConfig } from "@jskit-ai/config-eslint/server";
+import {
+  baseConfig,
+  formatterConfig,
+  nodeConfig,
+  sizeLimitsConfig,
+  typedFeaturesConfig,
+  vueConfig,
+  webConfig
+} from "@jskit-ai/config-eslint/server";
+
+// The checks of https://mobily-enterprises.github.io/jskit-ai/guide/framework/typed-features, as errors.
+const SERVER_SOURCES = ["packages/*/src/server/**", "packages/*/src/shared/**", "server/**", "server.js"];
+const HAND_WRITTEN_SOURCES = ["packages/*/src/**", "src/**", "config/**", "server/**", "server.js", "bin/**"];
 
 export default [
   {
@@ -13,9 +25,10 @@ export default [
     }
   },
   ...baseConfig,
-  // Server code follows JSKIT's typed features from the start.
-  ...typedFeaturesConfig(["packages/*/src/server/**", "server/**", "server.js"]),
+  ...typedFeaturesConfig(SERVER_SOURCES),
+  ...sizeLimitsConfig(HAND_WRITTEN_SOURCES),
   ...vueConfig,
   ...webConfig,
-  ...nodeConfig
+  ...nodeConfig,
+  ...formatterConfig([...SERVER_SOURCES, "config/**", "bin/**"])
 ];

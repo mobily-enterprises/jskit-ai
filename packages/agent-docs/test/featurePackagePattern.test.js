@@ -103,7 +103,8 @@ test("the feature package example shows each typed-features shape", async () => 
   assert.match(engine, /return Object\.freeze\(\{ readStatus \}\);/u);
   assert.match(actions, /function createBookingEngineActions\(\{ bookingEngine \}\)/u);
   assert.match(actions, /execute: \(input, context\) => bookingEngine\.readStatus\(input, \{ context \}\)/u);
-  assert.match(actions, /return Object\.freeze\(\[\s+Object\.freeze\(\{/u);
+  assert.match(actions, /return Object\.freeze\(\[\s+Object\.freeze\(\{\s+\.\.\.BOOKING_QUERY,\s+id: ACTION_GET_STATUS,/u);
+  assert.match(actions, /const BOOKING_QUERY = Object\.freeze\(\{/u);
 
   const exampleSource = (await Promise.all(
     (await collectFiles(path.join(patternRoot, "example")))
@@ -111,5 +112,6 @@ test("the feature package example shows each typed-features shape", async () => 
       .map((file) => readFile(file, "utf8"))
   )).join("\n");
   assert.doesNotMatch(exampleSource, /async execute|execute: async|\?\.\w+\?\.\(|= null[,)}]/u);
+  assert.doesNotMatch(exampleSource, /actionDefaults/u, "Shared action fields come from a constant each definition spreads.");
   assert.doesNotMatch(exampleSource, /^\/\/ .*\n(?:async )?function /mu, "A description sits in a // line above a function.");
 });
