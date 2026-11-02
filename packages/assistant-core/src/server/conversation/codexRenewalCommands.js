@@ -2,7 +2,7 @@ import { codexAppServerTurnStatusIsSuccessfulComplete, codexAppServerTurnStatusI
 import { createCodexAppServerDetachedTurnWatcher, waitForCodexAppServerTurn } from "./codexDetachedTurn.js";
 import { codexAppServerDeliveredTurn, sendCodexAppServerPrompt } from "./codexProvider.js";
 import { resumeExactCodexAppServerThread, startFreshCodexAppServerThread } from "./codexRenewalThreads.js";
-import { codexAppServerProviderTurnId, inspectCodexAppServerRenewalThread } from "./codexEvents.js";
+import { codexAppServerProviderTurnId, inspectCodexAppServerRenewalThread } from "./codexThreadSnapshot.js";
 
 // Private composition of unchanged operations from the original run owner.
 export function createCodexRenewalCommands({

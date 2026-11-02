@@ -3,7 +3,17 @@ import { CODEX_APP_SERVER_DETACHED_TURN_TIMEOUT_MS, createCodexAppServerDetached
 import { assertCodexAppServerHelperAccountIdentity, readCodexAppServerAccountIdentity, sendPreparedCodexAppServerHelperTurn } from "./codexHelperExecution.js";
 import { codexAppServerDeliveredTurn, codexAppServerRequestIsInvalid, codexAppServerThreadHasReadableHistory, codexAppServerThreadIsMissing, codexLocalImageInput, sendCodexAppServerPrompt } from "./codexProvider.js";
 import { codexAppServerProjectHookTrustConfig, readCodexToolFreeConfiguration } from "./codexConfiguration.js";
-import { codexAppServerAssistantItemText, codexAppServerContentText, classifyCodexAppServerEvent, codexAppServerNotificationThreadId, codexAppServerNotificationTurnId, codexAppServerNotificationTurnStatus, codexAppServerThreadRawValue, codexAppServerProviderThreadAssistantSegments, codexAppServerProviderTurnId, codexAppServerProviderTurnStatus, codexAppServerProviderTurnItems, codexAppServerProviderTurnClientIds, codexAppServerThreadTurnId, codexAppServerThreadError } from "./codexEvents.js";
+import { codexAppServerAssistantItemText, codexAppServerContentText, classifyCodexAppServerEvent, codexAppServerNotificationThreadId, codexAppServerNotificationTurnId, codexAppServerNotificationTurnStatus } from "./codexEvents.js";
+import {
+  codexAppServerProviderThreadAssistantSegments,
+  codexAppServerThreadRawValue,
+  codexAppServerProviderTurnId,
+  codexAppServerProviderTurnStatus,
+  codexAppServerProviderTurnItems,
+  codexAppServerProviderTurnClientIds,
+  codexAppServerThreadTurnId,
+  codexAppServerThreadError
+} from "./codexThreadSnapshot.js";
 
 // Internal command facet of the original run owner; the same native conversation
 // and turn-start collections retain their original lifetime and public references.

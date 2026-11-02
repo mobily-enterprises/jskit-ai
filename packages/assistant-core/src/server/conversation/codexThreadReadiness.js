@@ -5,7 +5,7 @@ import {
   normalizeCodexRunText
 } from "./codexTurnState.js";
 import { codexAppServerThreadIsMissing, ensureCodexAppServerThread } from "./codexProvider.js";
-import { codexAppServerThreadRawValue, codexAppServerThreadTurnId } from "./codexEvents.js";
+import { codexAppServerThreadRawValue, codexAppServerThreadTurnId } from "./codexThreadSnapshot.js";
 
 // Native thread readiness, loaded-thread restoration and reconciliation drain.
 // Its one Map lives as long as the run owner and is shared with shutdown.

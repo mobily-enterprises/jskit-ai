@@ -17,11 +17,7 @@ import {
   codexAppServerTurnKey,
   CODEX_APP_SERVER_RUN_STATE
 } from "./codexTurnState.js";
-import {
-  codexAppServerProviderTurnForOperation,
-  codexAppServerThreadTurnId,
-  codexAppServerThreadError
-} from "./codexEvents.js";
+import { codexAppServerProviderTurnForOperation, codexAppServerThreadTurnId, codexAppServerThreadError } from "./codexThreadSnapshot.js";
 
 // Original active/finalizing recovery, provider activity and completion decisions.
 // Timers and receipts remain owned by the shared journal/output/settlement instances.

@@ -12,12 +12,8 @@ import {
   codexAppServerErrorMessage
 } from "./codexTurnState.js";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
-import {
-  codexAppServerStatusFromValue,
-  codexAppServerThreadRawValue,
-  codexAppServerThreadTurnId,
-  codexAppServerThreadError
-} from "./codexEvents.js";
+import { codexAppServerStatusFromValue } from "./codexEvents.js";
+import { codexAppServerThreadRawValue, codexAppServerThreadTurnId, codexAppServerThreadError } from "./codexThreadSnapshot.js";
 
 // Native thread snapshot reconciliation; it holds no state of its own.
 export function createCodexThreadStatus({ journal, settlement, recovery, output, createRuntime, turnState, turnOutcomes, debugLog, debugError }) {

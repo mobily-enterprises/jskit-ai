@@ -1,6 +1,14 @@
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeNullableText } from "./normalize.js";
-import { classifyCodexAppServerEvent, codexAppServerNotificationParams, codexAppServerNotificationThreadId, codexAppServerNotificationTurnId, codexAppServerNotificationTurnStatus, codexAppServerNotificationError, codexAppServerStatusFromValue, codexAppServerProviderThreadAssistantSegments, codexAppServerProviderTurnId, codexAppServerProviderTurnStatus, codexAppServerProviderTurnForOperation, codexAppServerProviderTurnText, codexAppServerProviderTurnError } from "./codexEvents.js";
+import { classifyCodexAppServerEvent, codexAppServerNotificationParams, codexAppServerNotificationThreadId, codexAppServerNotificationTurnId, codexAppServerNotificationTurnStatus, codexAppServerNotificationError, codexAppServerStatusFromValue } from "./codexEvents.js";
+import {
+  codexAppServerProviderThreadAssistantSegments,
+  codexAppServerProviderTurnId,
+  codexAppServerProviderTurnStatus,
+  codexAppServerProviderTurnForOperation,
+  codexAppServerProviderTurnText,
+  codexAppServerProviderTurnError
+} from "./codexThreadSnapshot.js";
 import { codexAppServerTurnStatusIsProviderFailure, codexAppServerTurnStatusIsSuccessfulComplete } from "./codexTurnState.js";
 
 const CODEX_APP_SERVER_DETACHED_TURN_TIMEOUT_MS = 180_000;

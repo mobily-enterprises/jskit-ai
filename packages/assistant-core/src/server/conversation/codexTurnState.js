@@ -1,6 +1,7 @@
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeNullableText } from "./normalize.js";
-import { codexAppServerStatusFromValue, codexAppServerThreadRawValue } from "./codexEvents.js";
+import { codexAppServerStatusFromValue } from "./codexEvents.js";
+import { codexAppServerThreadRawValue } from "./codexThreadSnapshot.js";
 
 function codexAppServerTurnStatusIsActive(status = "") {
   return normalizeNullableText(status) === "inProgress";

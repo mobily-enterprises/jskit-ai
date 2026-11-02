@@ -20,9 +20,9 @@ import {
   codexAppServerNotificationEventPayload,
   codexAppServerNotificationItem,
   codexAppServerNotificationItemId,
-  codexAppServerNotificationTurnId,
-  codexAppServerProviderThreadAssistantSegments
+  codexAppServerNotificationTurnId
 } from "./codexEvents.js";
+import { codexAppServerProviderThreadAssistantSegments } from "./codexThreadSnapshot.js";
 
 // Native output, reasoning persistence and exact-result identity.
 // One instance belongs to each retained run owner; its state is shared by reference.
