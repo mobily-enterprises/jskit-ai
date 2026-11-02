@@ -4,7 +4,6 @@ import {
   applyWorkspaceScope,
   normalizeDbWorkspaceId,
   normalizeInputRecordId,
-  normalizeWorkspaceId,
   parseJsonObject,
   resolveInsertedId,
   stringifyJsonObject,
@@ -55,10 +54,8 @@ async function resolveNextSequence(client, conversationId) {
   return maxSeq + 1;
 }
 
+/** @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} knex */
 function createRepository(knex) {
-  if (!knex || typeof knex !== "function") {
-    throw new Error("createMessagesRepository requires knex client.");
-  }
   const withTransaction = createWithTransaction(knex);
 
   async function findById(messageId, options = {}) {
@@ -67,7 +64,7 @@ function createRepository(knex) {
       return null;
     }
 
-    const client = options?.trx || knex;
+    const client = options.trx || knex;
     const row = await client(assistantRuntimeConfig.messagesTable)
       .where({ id: normalizedMessageId })
       .first();
@@ -76,7 +73,7 @@ function createRepository(knex) {
   }
 
   async function create(payload = {}, options = {}) {
-    const client = options?.trx || knex;
+    const client = options.trx || knex;
     const conversationId = normalizeInputRecordId(payload.conversationId);
     if (!conversationId) {
       throw new TypeError("messagesRepository.create requires conversationId.");
@@ -86,7 +83,7 @@ function createRepository(knex) {
     const seq = Number.isInteger(providedSeq) && providedSeq > 0 ? providedSeq : (await resolveNextSequence(client, conversationId));
     const insertResult = await client(assistantRuntimeConfig.messagesTable).insert({
       conversation_id: conversationId,
-      workspace_id: normalizeWorkspaceId(payload.workspaceId),
+      workspace_id: normalizeInputRecordId(payload.workspaceId),
       seq,
       role: normalizeText(payload.role).toLowerCase(),
       kind: normalizeText(payload.kind).toLowerCase() || "chat",
@@ -112,7 +109,7 @@ function createRepository(knex) {
       return 0;
     }
 
-    const client = options?.trx || knex;
+    const client = options.trx || knex;
     const query = client(assistantRuntimeConfig.messagesTable).where({
       conversation_id: normalizedConversationId
     });
@@ -126,7 +123,7 @@ function createRepository(knex) {
   async function updateById(messageId, patch = {}, options = {}) {
     const id = normalizeInputRecordId(messageId);
     if (!id) return null;
-    const client = options?.trx || knex;
+    const client = options.trx || knex;
     const update = {};
     if (Object.hasOwn(patch, "contentText")) update.content_text = patch.contentText == null ? null : String(patch.contentText);
     if (Object.hasOwn(patch, "metadata")) update.metadata_json = stringifyJsonObject(patch.metadata);
@@ -140,7 +137,7 @@ function createRepository(knex) {
       return [];
     }
 
-    const client = options?.trx || knex;
+    const client = options.trx || knex;
     const { page, pageSize } = normalizePagination(pagination);
     const offset = (page - 1) * pageSize;
 
@@ -160,7 +157,7 @@ function createRepository(knex) {
   async function lastSequence(conversationId, options = {}) {
     const normalizedConversationId = normalizeInputRecordId(conversationId);
     if (!normalizedConversationId) return 0;
-    return (await resolveNextSequence(options?.trx || knex, normalizedConversationId)) - 1;
+    return (await resolveNextSequence(options.trx || knex, normalizedConversationId)) - 1;
   }
 
   async function transaction(callback) {

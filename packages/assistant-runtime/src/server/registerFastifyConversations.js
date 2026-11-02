@@ -9,14 +9,22 @@ import { AssistantFeature } from "./AssistantProvider.js";
  * The caller owns runtime creation/storage and authentication. This registration
  * owns its HTTP/realtime hosting and shuts it down before Fastify closes.
  * JSKIT applications register AssistantFeature on their existing host instead.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeFastify} app
+ * @param {object} options
+ * @param {import("./types.js").ConversationRuntime} options.runtime
+ * @param {Record<string, any>} options.config
+ * @param {(request: object) => Promise<object | null> | object | null} options.authenticate
+ * @param {(bootstrap: { request: object, context: object }) => object} [options.bootstrap]
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} options.env The application's environment, usually process.env.
  */
 async function registerFastifyConversations(app, {
   runtime,
   config,
   authenticate,
   bootstrap,
-  env = process.env
+  env
 } = {}) {
+  // readable-check: allow method-probe - input validation: an application hands over its conversation runtime and authentication
   if (typeof runtime?.open !== "function" || typeof authenticate !== "function" ||
       !config || typeof config !== "object" || Array.isArray(config)) {
     throw new TypeError("Fastify conversations require runtime, config and authenticate(request).");
@@ -30,7 +38,11 @@ async function registerFastifyConversations(app, {
   }
   const AccessProvider = defineProvider({
     id: "assistant.fastify.access",
-    requires: { http: "runtime.http", bootstrap: "runtime.bootstrap", actions: "runtime.actions" },
+    requires: {
+      http: "runtime.http",
+      bootstrap: "runtime.bootstrap",
+      actions: "runtime.actions"
+    },
     provides: { access: "assistant.conversation.access" },
     setup({ http, bootstrap: bootstrapRuntime, actions }) {
       actions.registerContextContributor({

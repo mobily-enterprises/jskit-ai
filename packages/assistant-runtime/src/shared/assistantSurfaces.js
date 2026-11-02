@@ -17,7 +17,7 @@ function defineAssistantSurface(surfaceId, { pagesRoot = "", requiresWorkspace =
   });
 }
 
-function resolveSurfaceDefinitions(appConfig = {}) {
+function resolveSurfaceDefinitions(appConfig) {
   const source = normalizeObject(appConfig?.surfaceDefinitions);
   const resolved = {};
 
@@ -38,7 +38,7 @@ function resolveSurfaceDefinitions(appConfig = {}) {
   return Object.freeze(resolved);
 }
 
-function resolveAssistantSurfacesConfig(appConfig = {}) {
+function resolveAssistantSurfacesConfig(appConfig) {
   const source = normalizeObject(appConfig?.assistantSurfaces);
   const resolved = {};
 

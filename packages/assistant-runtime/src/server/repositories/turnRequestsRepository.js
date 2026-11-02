@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { assistantRuntimeConfig } from "../../shared/assistantRuntimeConfig.js";
 
+/** @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} knex */
 function createRepository(knex) {
   const table = assistantRuntimeConfig.turnRequestsTable;
 
@@ -29,7 +30,11 @@ function createRepository(knex) {
     if (!changed) throw new Error("Assistant request ownership was lost.");
   }
 
-  return Object.freeze({ find, claim, update });
+  return Object.freeze({
+    find,
+    claim,
+    update
+  });
 }
 
 export { createRepository };

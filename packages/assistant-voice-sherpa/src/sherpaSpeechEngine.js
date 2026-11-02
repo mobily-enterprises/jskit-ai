@@ -26,6 +26,21 @@ function runtimeValue(runtime, key) {
   return String(typeof value === "function" ? value.call(runtime) : value || "");
 }
 
+/** A listener that does not follow the recognized words ignores them. */
+function ignoreRecognizedText() {}
+
+/**
+ * The native Sherpa speech engine of a voice host: streaming recognition, and
+ * synthesis in a worker process per voice model.
+ * @param {object} [options]
+ * @param {string} [options.modelsRoot]
+ * @param {Record<string, any>} [options.configuration]
+ * @param {number} [options.recognizerActivePaths]
+ * @param {number} [options.recognizerThreads]
+ * @param {any} [options.sherpa] The sherpa-onnx-node module, when not the installed one.
+ * @param {typeof createSynthesisProcess} [options.createSynthesizer]
+ * @param {number} [options.synthesizerThreads]
+ */
 async function createSherpaSpeechEngine({
   modelsRoot = "",
   configuration = {},
@@ -166,7 +181,14 @@ async function createSherpaSpeechEngine({
     return normalizeRecognizedText(recognizer.getResult(stream)?.text, recognitionVocabulary);
   }
 
-  function createListeningSession({ onPartial = () => null, onEndpoint = () => null, continuous = false } = {}) {
+  /**
+   * One recording's recognition.
+   * @param {object} [options]
+   * @param {(text: string) => void} [options.onPartial] Called with the words so far whenever they change.
+   * @param {(text: string) => void} [options.onEndpoint] Called when a continuous recording's speaker pauses after words.
+   * @param {boolean} [options.continuous]
+   */
+  function createListeningSession({ onPartial = ignoreRecognizedText, onEndpoint = ignoreRecognizedText, continuous = false } = {}) {
     const stream = recognizer.createStream();
     let acceptedSamples = 0;
     let closed = false;
@@ -231,13 +253,19 @@ async function createSherpaSpeechEngine({
       return latestText;
     }
 
+    function isEndpoint() {
+      return !closed && recognizer.isEndpoint(stream);
+    }
+
+    function cancel() {
+      closed = true;
+    }
+
     return Object.freeze({
       acceptPcm,
       reset,
-      isEndpoint: () => !closed && recognizer.isEndpoint(stream),
-      cancel() {
-        closed = true;
-      },
+      isEndpoint,
+      cancel,
       finish,
       get acceptedSamples() {
         return acceptedSamples;
@@ -273,14 +301,16 @@ async function createSherpaSpeechEngine({
     return true;
   }
 
+  async function close() {
+    closed = true;
+    const loading = replacement;
+    await synthesizer?.close();
+    if (loading) await (await loading.catch(() => null))?.close();
+  }
+
   return Object.freeze({
     createListeningSession,
-    async close() {
-      closed = true;
-      const loading = replacement;
-      await synthesizer?.close();
-      if (loading) await (await loading.catch(() => null))?.close();
-    },
+    close,
     defaultVoice,
     voices: Object.freeze(voices.map(voice => Object.freeze({ ...voice }))),
     runtime: Object.freeze({

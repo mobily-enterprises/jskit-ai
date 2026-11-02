@@ -6,7 +6,7 @@ import {
   normalizeTimeoutMs
 } from "@jskit-ai/assistant-core/server";
 
-function resolveAssistantServerConfigMap(appConfig = {}) {
+function resolveAssistantServerConfigMap(appConfig) {
   const source = normalizeObject(appConfig?.assistantServer);
   const resolved = {};
 

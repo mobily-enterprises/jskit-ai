@@ -12,6 +12,7 @@ const MAX_MESSAGES_PAGE_SIZE = 500;
 const MAX_CONVERSATION_TITLE_LENGTH = 80;
 
 function resolveWorkspaceId(workspace, { required = false } = {}) {
+  // readable-check: allow no-dual-shape - data: the workspace scope resolves the workspace from the action input or context, which may carry the record or its id
   const workspaceId = normalizeRecordId(workspace?.id || workspace, { fallback: null });
   if (!workspaceId && required) {
     throw new AppError(409, "Workspace selection required.", { code: "assistant.runtime.workspace.selectionRequired" });
@@ -62,7 +63,7 @@ function isDefaultConversationTitle(value) {
   return normalizeText(value).toLowerCase() === DEFAULT_CONVERSATION_TITLE.toLowerCase();
 }
 
-function requireAssistantSurface(assistantSurface = {}) {
+function requireAssistantSurface(assistantSurface) {
   const targetSurfaceId = normalizeSurfaceId(assistantSurface?.targetSurfaceId);
   if (!targetSurfaceId) {
     throw new TypeError("assistant transcript service requires assistantSurface.targetSurfaceId.");
@@ -74,11 +75,17 @@ function requireAssistantSurface(assistantSurface = {}) {
   });
 }
 
-function createTranscriptService({ conversationsRepository, messagesRepository } = {}) {
-  if (!conversationsRepository || !messagesRepository) {
-    throw new Error("createTranscriptService requires conversationsRepository and messagesRepository.");
-  }
+/** @typedef {import("../types.js").ConversationsRepository} ConversationsRepository */
+/** @typedef {import("../types.js").MessagesRepository} MessagesRepository */
 
+/**
+ * A user's conversations on an assistant surface and their messages, in the
+ * package's own tables.
+ * @param {object} dependencies
+ * @param {ConversationsRepository} dependencies.conversationsRepository
+ * @param {MessagesRepository} dependencies.messagesRepository
+ */
+function createTranscriptService({ conversationsRepository, messagesRepository }) {
   function resolveExpectedWorkspaceId(assistantSurface, workspace) {
     const resolvedAssistantSurface = requireAssistantSurface(assistantSurface);
     return resolveWorkspaceId(workspace, {

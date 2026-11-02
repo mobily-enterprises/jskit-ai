@@ -99,6 +99,9 @@ const CACHED_ROWS = 50_000;
  * random revision under the conversation lock, so a save by another server makes the
  * next access read the rows again, as does a row inserted without this storage; the
  * cache takes a save only after its transaction commits.
+ * @param {object} dependencies
+ * @param {import("./types.js").ConversationsRepository} dependencies.conversationsRepository
+ * @param {import("./types.js").MessagesRepository} dependencies.messagesRepository
  */
 function createSqlConversationStorage({ conversationsRepository, messagesRepository }) {
   const cache = new Map();
@@ -237,15 +240,25 @@ function createSqlConversationStorage({ conversationsRepository, messagesReposit
     }
   }
 
+  function read(id, operation) {
+    return access(id, operation, false);
+  }
+
+  function write(id, operation) {
+    return access(id, operation, true);
+  }
+
+  function preflight(id) {
+    return conversationsRepository.transaction(async trx => {
+      const { rows, projection } = await load(id, trx);
+      return { conversationId: id, rowCount: rows.length, issues: projection.issues };
+    });
+  }
+
   return Object.freeze({
-    read: (id, operation) => access(id, operation, false),
-    write: (id, operation) => access(id, operation, true),
-    preflight(id) {
-      return conversationsRepository.transaction(async trx => {
-        const { rows, projection } = await load(id, trx);
-        return { conversationId: id, rowCount: rows.length, issues: projection.issues };
-      });
-    }
+    read,
+    write,
+    preflight
   });
 }
 

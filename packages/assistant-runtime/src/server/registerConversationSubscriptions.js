@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { resolveActorId } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { attachDirectRequestActionExecutor } from "@jskit-ai/kernel/server/http";
 import { AppError } from "@jskit-ai/kernel/server/runtime";
+import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { actionIds } from "./actionIds.js";
 import { resolveRouteRequestState } from "./support/assistantRouteContext.js";
 import { errorMessageFields, errorStatus } from "./support/assistantErrors.js";
@@ -33,14 +34,34 @@ function subscriptionError(error) {
   };
 }
 
-// Register one conversation subscription owner per shared realtime runtime.
-// A host may select its fixed action/request policy at composition; clients
-// never choose either. The selected action remains the authorization boundary.
-function registerConversationSubscriptions({ realtime, events, actions, config = {}, logger = null, workspaceScopeSupport = null,
+/** A subscription without diagnostics has none to release. */
+function releaseNoDiagnostics() {}
+
+/** A subscription whose observer is not attached yet has nothing to detach. */
+function detachNoObserver() {}
+
+/**
+ * Register one conversation subscription owner per shared realtime runtime.
+ * A host may select its fixed action/request policy at composition; clients
+ * never choose either. The selected action remains the authorization boundary.
+ * @param {object} dependencies
+ * @param {import("@jskit-ai/realtime/server/types").RuntimeRealtime} dependencies.realtime
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeEvents} dependencies.events
+ * @param {import("@jskit-ai/kernel/server/types").ActionCatalogue} dependencies.actions
+ * @param {Record<string, any>} [dependencies.config]
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} [dependencies.logger]
+ * @param {import("./types.js").WorkspaceScopeSupport | null} [dependencies.workspaceScopeSupport]
+ * @param {string} [dependencies.subscribeActionId]
+ * @param {"authenticated" | "host"} [dependencies.requestPolicy]
+ * @param {boolean} [dependencies.diagnostics]
+ */
+function registerConversationSubscriptions({ realtime, events, actions, config = {}, logger = silentLogger, workspaceScopeSupport = null,
   subscribeActionId = actionIds.conversationSubscribe, requestPolicy = "authenticated", diagnostics = false } = {}) {
+  // readable-check: allow method-probe - input validation: an application hands over its realtime connection and event runtime
   if (typeof realtime?.onConnection !== "function" || typeof events?.publish !== "function") {
     throw new TypeError("Conversation subscriptions require the shared realtime connection and event runtime.");
   }
+  // readable-check: allow method-probe - input validation: an application hands over its action catalogue
   if (typeof actions?.execute !== "function" || typeof actions?.getDefinition !== "function") {
     throw new TypeError("Conversation subscriptions require the assistant action catalogue.");
   }
@@ -60,10 +81,10 @@ function registerConversationSubscriptions({ realtime, events, actions, config =
       const subscription = subscriptions.get(subscriptionId);
       if (!subscription) return;
       subscriptions.delete(subscriptionId);
-      subscription.diagnosticRelease?.(reason);
+      subscription.diagnosticRelease(reason);
       clearTimeout(subscription.timer);
       subscription.pending.clear();
-      subscription.release?.();
+      subscription.release();
     }
 
     async function subscribe(input, acknowledge) {
@@ -84,7 +105,7 @@ function registerConversationSubscriptions({ realtime, events, actions, config =
         if (!diagnostics) return;
         const now = performance.now();
         try {
-          logger?.warn?.(stageRecord(stageName, fields, now), "Assistant conversation subscription diagnostic.");
+          logger.warn(stageRecord(stageName, fields, now), "Assistant conversation subscription diagnostic.");
         } catch { /* Diagnostics never change admission or cleanup. */ }
       }
       function onStage(next, fields = {}) {
@@ -94,7 +115,7 @@ function registerConversationSubscriptions({ realtime, events, actions, config =
         try {
           const slowOutcome = now - startedAt >= 5_000 && ["acknowledgement", "abandoned"].includes(next);
           const level = diagnostics || next === "failed" || slowOutcome ? "warn" : "info";
-          logger?.[level]?.(stageRecord(next, fields, now), "Assistant conversation subscription stage");
+          logger[level](stageRecord(next, fields, now), "Assistant conversation subscription stage");
         } catch { /* Diagnostics must not change conversation admission or cleanup. */ }
         stage = next;
         stageStartedAt = now;
@@ -102,7 +123,8 @@ function registerConversationSubscriptions({ realtime, events, actions, config =
       try {
         subscriptionId = requireSubscriptionId(input);
         release(subscriptionId, "replacement");
-        subscription = { pending: new Map(), revision: 0, epoch: randomUUID(), queue: Promise.resolve() };
+        subscription = { pending: new Map(), revision: 0, epoch: randomUUID(), queue: Promise.resolve(),
+          diagnosticRelease: releaseNoDiagnostics, release: detachNoObserver };
         subscriptions.set(subscriptionId, subscription);
         if (diagnostics) {
           subscription.diagnosticRelease = reason => {
@@ -110,7 +132,7 @@ function registerConversationSubscriptions({ realtime, events, actions, config =
             diagnostic("released", { reason });
           };
           diagnosticTimer = setTimeout(() => diagnostic("pending", { acknowledgementBudgetMs: 10_000 }), 10_000);
-          diagnosticTimer.unref?.();
+          diagnosticTimer.unref();
         }
         const current = () => !closed && socket.connected && subscriptions.get(subscriptionId) === subscription;
         onStage("authentication");

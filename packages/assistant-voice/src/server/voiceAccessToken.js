@@ -60,7 +60,10 @@ function verifyVoiceAccessToken(token = "", { key } = {}) {
   ) {
     return null;
   }
-  return Object.freeze({ tenant, version });
+  return Object.freeze({
+    tenant,
+    version
+  });
 }
 
 function bearerVoiceAccessToken(headers = {}) {

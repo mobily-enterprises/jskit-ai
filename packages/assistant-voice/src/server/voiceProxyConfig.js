@@ -49,7 +49,11 @@ function resolveVoiceProxyConfig({ endpoint: value = "", accessTokenFile = "" } 
   const endpoint = voiceEndpoint(value);
   const tokenFile = String(accessTokenFile || "").trim();
   if (!endpoint && !tokenFile) {
-    return Object.freeze({ available: false, endpoint: "", token: "" });
+    return Object.freeze({
+      available: false,
+      endpoint: "",
+      token: ""
+    });
   }
   if (!endpoint || !tokenFile) {
     throw new Error(

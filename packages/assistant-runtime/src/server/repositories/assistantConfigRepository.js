@@ -1,19 +1,11 @@
-import { normalizeDbRecordId, createWithTransaction } from "@jskit-ai/database-runtime/shared";
+import { createWithTransaction } from "@jskit-ai/database-runtime/shared";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
-import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { resolveInsertedId } from "./repositoryPersistenceUtils.js";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeDbWorkspaceId, normalizeInputRecordId, resolveInsertedId } from "./repositoryPersistenceUtils.js";
 import { assistantRuntimeConfig } from "../../shared/assistantRuntimeConfig.js";
 
 function normalizeTargetSurfaceId(value = "") {
   return normalizeSurfaceId(value);
-}
-
-function normalizeWorkspaceId(value) {
-  return normalizeRecordId(value, { fallback: null });
-}
-
-function normalizeWorkspaceDbId(value) {
-  return normalizeDbRecordId(value, { fallback: null });
 }
 
 function buildScopeKey(targetSurfaceId, workspaceId = null) {
@@ -21,7 +13,7 @@ function buildScopeKey(targetSurfaceId, workspaceId = null) {
   if (!normalizedTargetSurfaceId) {
     throw new TypeError("assistantConfigRepository requires targetSurfaceId.");
   }
-  const normalizedWorkspaceId = normalizeWorkspaceId(workspaceId);
+  const normalizedWorkspaceId = normalizeInputRecordId(workspaceId);
   if (normalizedWorkspaceId) {
     return `${normalizedTargetSurfaceId}:workspace:${normalizedWorkspaceId}`;
   }
@@ -33,7 +25,7 @@ function mapConfigRow(row = {}) {
   return {
     targetSurfaceId: normalizeTargetSurfaceId(row.target_surface_id),
     scopeKey: normalizeText(row.scope_key),
-    workspaceId: normalizeWorkspaceDbId(row.workspace_id),
+    workspaceId: normalizeDbWorkspaceId(row.workspace_id),
     settings: {
       systemPrompt: String(row.system_prompt || "")
     }
@@ -45,7 +37,7 @@ function createDefaultRecord({ targetSurfaceId = "", workspaceId = null } = {}) 
   if (!normalizedTargetSurfaceId) {
     throw new TypeError("assistantConfigRepository requires targetSurfaceId.");
   }
-  const normalizedWorkspaceId = normalizeWorkspaceId(workspaceId);
+  const normalizedWorkspaceId = normalizeInputRecordId(workspaceId);
 
   return {
     targetSurfaceId: normalizedTargetSurfaceId,
@@ -57,14 +49,12 @@ function createDefaultRecord({ targetSurfaceId = "", workspaceId = null } = {}) 
   };
 }
 
+/** @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} knex */
 function createRepository(knex) {
-  if (!knex || typeof knex !== "function") {
-    throw new Error("createAssistantConfigRepository requires knex client.");
-  }
   const withTransaction = createWithTransaction(knex);
 
   async function findByScope({ targetSurfaceId = "", workspaceId = null } = {}, options = {}) {
-    const client = options?.trx || knex;
+    const client = options.trx || knex;
     const defaultRecord = createDefaultRecord({
       targetSurfaceId,
       workspaceId
@@ -80,7 +70,7 @@ function createRepository(knex) {
   }
 
   async function upsertByScope({ targetSurfaceId = "", workspaceId = null, patch = {} } = {}, options = {}) {
-    const client = options?.trx || knex;
+    const client = options.trx || knex;
     const defaultRecord = createDefaultRecord({
       targetSurfaceId,
       workspaceId
@@ -88,7 +78,7 @@ function createRepository(knex) {
     const existing = await findByScope(defaultRecord, {
       trx: client
     });
-    const nextSystemPrompt = Object.hasOwn(patch || {}, "systemPrompt")
+    const nextSystemPrompt = Object.hasOwn(patch, "systemPrompt")
       ? String(patch.systemPrompt || "")
       : String(existing?.settings?.systemPrompt || defaultRecord.settings.systemPrompt);
     const now = new Date();

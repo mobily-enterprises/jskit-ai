@@ -80,40 +80,44 @@ function createBoundedSerialQueue({ maximumQueued = 4 } = {}) {
     }
   };
 
-  return Object.freeze({
-    close() {
-      closed = true;
-      const error = Object.assign(new Error("Voice speech queue is shutting down."), {
-        code: "voice_queue_closed", messageCode: "assistant.voice.daemon.queueClosing", messageParams: {}
+  function close() {
+    closed = true;
+    const error = Object.assign(new Error("Voice speech queue is shutting down."), {
+      code: "voice_queue_closed", messageCode: "assistant.voice.daemon.queueClosing", messageParams: {}
+    });
+    for (const entry of pending.splice(0)) {
+      entry.reject(error);
+    }
+  }
+
+  function run(operation) {
+    if (closed) {
+      const error = Object.assign(new Error("Voice speech queue is unavailable."), {
+        code: "voice_queue_closed", messageCode: "assistant.voice.daemon.queueUnavailable", messageParams: {}
       });
-      for (const entry of pending.splice(0)) {
-        entry.reject(error);
-      }
-    },
+      return Promise.reject(error);
+    }
+    if (typeof operation !== "function") {
+      return Promise.reject(new TypeError("Voice speech queue requires an operation."));
+    }
+    if (pending.length >= maximumQueued) {
+      const error = Object.assign(new Error("Voice speech capacity is currently busy. Try again shortly."), {
+        code: "voice_busy", messageCode: "assistant.voice.daemon.capacityBusy", messageParams: {}
+      });
+      return Promise.reject(error);
+    }
+    return new Promise((resolve, reject) => {
+      pending.push({ operation, reject, resolve });
+      void drain();
+    });
+  }
+
+  return Object.freeze({
+    close,
     get depth() {
       return pending.length + (running ? 1 : 0);
     },
-    run(operation) {
-      if (closed) {
-        const error = Object.assign(new Error("Voice speech queue is unavailable."), {
-          code: "voice_queue_closed", messageCode: "assistant.voice.daemon.queueUnavailable", messageParams: {}
-        });
-        return Promise.reject(error);
-      }
-      if (typeof operation !== "function") {
-        return Promise.reject(new TypeError("Voice speech queue requires an operation."));
-      }
-      if (pending.length >= maximumQueued) {
-        const error = Object.assign(new Error("Voice speech capacity is currently busy. Try again shortly."), {
-          code: "voice_busy", messageCode: "assistant.voice.daemon.capacityBusy", messageParams: {}
-        });
-        return Promise.reject(error);
-      }
-      return new Promise((resolve, reject) => {
-        pending.push({ operation, reject, resolve });
-        void drain();
-      });
-    }
+    run
   });
 }
 
@@ -135,10 +139,60 @@ function writeJsonResponse(response, statusCode, payload) {
   response.end(body);
 }
 
+/**
+ * A speech engine's recognition of one recording.
+ * @typedef {object} VoiceRecognizer
+ * @property {(frame: Buffer) => string} acceptPcm Recognizes a slice of 16 kHz PCM and answers the words so far.
+ * @property {() => string} finish Ends the recording and answers its final words.
+ * @property {() => string} reset Starts the next utterance of a continuous recording and answers the last one's words.
+ * @property {() => boolean} isEndpoint Whether the speaker has paused at the end of an utterance.
+ * @property {() => void} cancel Drops the recording.
+ * @property {number} acceptedSamples The samples recognized so far.
+ */
+
+/**
+ * The speech engine a voice host runs: its recognition, synthesis and voices.
+ * @typedef {object} VoiceSpeechEngine
+ * @property {(options: { continuous: boolean, onPartial: (text: string) => void, onEndpoint: (text: string) => void }) => VoiceRecognizer} createListeningSession
+ * @property {(text: string, options: { onAudio: (frame: Uint8Array) => void, signal: AbortSignal, voiceId: string }) => Promise<{ sampleRate?: number }>} synthesize
+ * @property {() => Promise<unknown>} warmup Loads the models before the host accepts connections.
+ * @property {number} sampleRate
+ * @property {number} [synthesisTimeoutMs] How long one phrase's synthesis may take, when longer than the protocol's default.
+ * @property {{ id: string, label: string, language?: string }[]} [voices]
+ * @property {string} [defaultVoice]
+ */
+
+/**
+ * The principal a request's access token names. Each of its ids has its own
+ * connection quota.
+ * @typedef {{ tenant: string, parentTenant?: string }} VoicePrincipal
+ */
+
+/** A host without extra HTTP routes answers no request itself, so it falls through to 404. */
+function answerNoHostRoute() {
+  return false;
+}
+
+/**
+ * A voice host: an HTTP server whose WebSocket connections recognize the speaker's
+ * words and speak the answer, with the health and voice-catalogue routes.
+ * @param {object} options
+ * @param {Buffer | string} [options.accessKey] The key that signs voice access tokens, when authorize is the default.
+ * @param {(token: string, request: import("node:http").IncomingMessage) => VoicePrincipal | null} [options.authorize]
+ * @param {(request: import("node:http").IncomingMessage, response: import("node:http").ServerResponse) => boolean | Promise<boolean>} [options.handleRequest] The host's own HTTP routes; true when it answered.
+ * @param {VoiceSpeechEngine} options.engine
+ * @param {string} [options.host]
+ * @param {number} [options.idleTimeoutMs]
+ * @param {{ warn: (fields: object, message: string) => void }} [options.logger]
+ * @param {number} [options.maximumConnections]
+ * @param {number} [options.maximumConnectionsPerTenant]
+ * @param {number} [options.maximumQueuedSpeech]
+ * @param {number} [options.port]
+ */
 function createVoiceDaemon({
   accessKey,
   authorize = token => verifyVoiceAccessToken(token, { key: accessKey }),
-  handleRequest = null,
+  handleRequest = answerNoHostRoute,
   engine,
   host = "127.0.0.1",
   idleTimeoutMs = 90_000,
@@ -147,11 +201,13 @@ function createVoiceDaemon({
   maximumConnectionsPerTenant = 2,
   maximumQueuedSpeech = 4,
   port = 3092
-} = {}) {
+}) {
+  // readable-check: allow method-probe - input validation: an application hands over the speech engine its host runs
   if (!engine || typeof engine.createListeningSession !== "function" || typeof engine.synthesize !== "function") {
     throw new TypeError("createVoiceDaemon requires a speech engine.");
   }
-  if (typeof authorize !== "function" || (handleRequest !== null && typeof handleRequest !== "function")) throw new TypeError("Voice host authorization and request handlers must be functions.");
+  // readable-check: allow method-probe - input validation: an application hands over its own authorization and routes
+  if (typeof authorize !== "function" || typeof handleRequest !== "function") throw new TypeError("Voice host authorization and request handlers must be functions.");
   const tenantConnections = new Map();
   const sockets = new Set();
   const principals = new WeakMap();
@@ -188,7 +244,7 @@ function createVoiceDaemon({
         writeJsonResponse(response, 200, voiceCatalogue());
         return;
       }
-      if (await handleRequest?.(request, response)) return;
+      if (await handleRequest(request, response)) return;
       writeJsonResponse(response, 404, { ok: false });
     } catch {
       if (!response.headersSent) writeJsonResponse(response, 500, { ok: false, error: "Voice host request failed." });
@@ -227,7 +283,7 @@ function createVoiceDaemon({
   function revokeTenant(tenant) {
     for (const socket of sockets) {
       if (quotaKeys(principals.get(socket)).includes(tenant)) {
-        principals.get(socket).cancel?.();
+        principals.get(socket).cancel();
         sendJson(socket, "error", { code: "voice_access_revoked", message: "This application's voice access was revoked." });
         socket.close(1008, "Voice access was revoked");
       }
@@ -244,7 +300,7 @@ function createVoiceDaemon({
 
     const cancelListening = () => {
       clearImmediate(listening?.decodeTimer);
-      listening?.recognizer?.cancel?.();
+      if (listening) listening.recognizer.cancel();
       listening = null;
     };
     const cancelSpeaking = () => {
@@ -260,7 +316,7 @@ function createVoiceDaemon({
       }
       socket.close(1000, "Voice connection idle");
     }, Math.min(idleTimeoutMs, 15_000));
-    idleTimer.unref?.();
+    idleTimer.unref();
 
     const failMessage = (error) => {
       invalidMessages += 1;
@@ -518,7 +574,7 @@ function createVoiceDaemon({
       releaseConnection(socket);
     });
     socket.once("error", (error) => {
-      logger?.warn?.({ error: String(error?.message || error), tenantId }, "Voice WebSocket failed.");
+      logger.warn({ error: String(error?.message || error), tenantId }, "Voice WebSocket failed.");
     });
     sendJson(socket, "voice.ready", {
       inputSampleRate: VOICE_INPUT_SAMPLE_RATE,
@@ -553,7 +609,7 @@ function createVoiceDaemon({
     if (ready) {
       return address();
     }
-    await engine.warmup?.();
+    await engine.warmup();
     await new Promise((resolve, reject) => {
       const fail = (error) => {
         server.off("listening", listen);
@@ -600,17 +656,19 @@ function createVoiceDaemon({
     });
   }
 
+  function metrics() {
+    return Object.freeze({
+      connections: sockets.size,
+      queueDepth: speechQueue.depth,
+      tenants: tenantConnections.size
+    });
+  }
+
   return Object.freeze({
     address,
     close,
     revokeTenant,
-    metrics() {
-      return Object.freeze({
-        connections: sockets.size,
-        queueDepth: speechQueue.depth,
-        tenants: tenantConnections.size
-      });
-    },
+    metrics,
     start
   });
 }
