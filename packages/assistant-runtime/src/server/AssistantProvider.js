@@ -42,10 +42,10 @@ const AssistantFeature = defineFeature({
   requires: {
     config: "runtime.config",
     env: "runtime.env",
-    http: "runtime.http"
+    http: "runtime.http",
+    logger: "runtime.logger"
   },
   optional: {
-    logger: "runtime.logger",
     conversationRuntime: "assistant.conversations",
     conversationAccess: "assistant.conversation.access",
     assistantConfigService: "assistant.settings",

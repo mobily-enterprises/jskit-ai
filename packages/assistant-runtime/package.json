@@ -40,7 +40,8 @@
         "runtime.config",
         "runtime.env",
         "runtime.http",
-        "runtime.http-web"
+        "runtime.http-web",
+        "runtime.logger"
       ]
     },
     "runtime": {
