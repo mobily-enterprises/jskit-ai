@@ -255,7 +255,7 @@ Local functions
 - `validateEmail(rawEmail)`
 - `checkConfirmPassword(rawPassword, rawConfirmPassword)`
 - `buildFieldErrors(entries = [])`
-- `buildEmailPasswordInput(payload = {}, { passwordValidator } = {})`
+- `buildEmailPasswordInput(payload, { passwordValidator })`
 
 ### `src/shared/authApi.js`
 Exports
