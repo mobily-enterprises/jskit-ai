@@ -18,6 +18,18 @@ function roleNotAssignableError() {
   });
 }
 
+function memberUserIdRequiredError() {
+  return createValidationError({
+    memberUserId: { code: "workspaces.member.userIdRequired", message: "Member user id is required." }
+  });
+}
+
+function inviteIdRequiredError() {
+  return createValidationError({
+    inviteId: { code: "workspaces.invite.idRequired", message: "Invite id is required." }
+  });
+}
+
 /**
  * @param {object} dependencies
  * @param {import("../types.js").WorkspaceMembershipsRepository} dependencies.workspaceMembershipsRepository
@@ -198,7 +210,7 @@ function createService({
     const memberUserId = normalizeRecordId(payload.memberUserId, { fallback: null });
     const roleSid = normalizeLowerText(payload.roleSid || "");
     if (!memberUserId) {
-      throw new AppError(400, "Validation failed.", { code: "validation_failed" });
+      throw memberUserIdRequiredError();
     }
     if (!assignableRoleIds.includes(roleSid)) {
       throw roleNotAssignableError();
@@ -228,7 +240,7 @@ function createService({
   async function removeMember(workspace, payload, options = {}) {
     const memberUserId = normalizeRecordId(payload.memberUserId, { fallback: null });
     if (!memberUserId) {
-      throw new AppError(400, "Validation failed.", { code: "validation_failed" });
+      throw memberUserIdRequiredError();
     }
 
     const existingMembership = await workspaceMembershipsRepository.findByWorkspaceIdAndUserId(workspace.id, memberUserId, options);
@@ -363,7 +375,7 @@ function createService({
     ensureWorkspaceInvitationsEnabled();
     const normalizedInviteId = normalizeRecordId(inviteId, { fallback: null });
     if (!normalizedInviteId) {
-      throw new AppError(400, "Validation failed.", { code: "validation_failed" });
+      throw inviteIdRequiredError();
     }
 
     const revoke = async (trx) => {

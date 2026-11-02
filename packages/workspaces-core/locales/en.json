@@ -8,7 +8,6 @@
         "invalidPayload": "Invalid authenticated user payload."
       },
       "workspace": {
-        "slugUnavailable": "Unable to generate unique workspace slug.",
         "creationDisabled": "Workspace creation is disabled for this tenancy mode.",
         "contextDisabled": "Workspace context is disabled.",
         "slugRequired": "workspaceSlug is required.",
@@ -17,6 +16,7 @@
       },
       "member": {
         "roleNotAssignable": "Role is not assignable.",
+        "userIdRequired": "Member user id is required.",
         "notFound": "Member not found.",
         "ownerRoleLocked": "Cannot change workspace owner role.",
         "ownerNotRemovable": "Cannot remove workspace owner."
@@ -24,6 +24,7 @@
       "invite": {
         "disabled": "Workspace invitations are disabled.",
         "notFound": "Invite not found.",
+        "idRequired": "Invite id is required.",
         "notFoundOrHandled": "Invite not found or already handled.",
         "invitationNotFoundOrHandled": "Invitation not found or already handled.",
         "workspaceMissing": "Invitation workspace no longer exists.",

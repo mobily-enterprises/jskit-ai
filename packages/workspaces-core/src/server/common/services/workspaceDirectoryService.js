@@ -78,7 +78,7 @@ function createService({
         return candidate;
       }
     }
-    throw new AppError(500, "Unable to generate unique workspace slug.", { code: "workspaces.workspace.slugUnavailable" });
+    throw new Error("Unable to generate unique workspace slug.");
   }
 
   async function ensureWorkspaceSettingsForWorkspace(workspace, options = {}) {
