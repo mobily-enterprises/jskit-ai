@@ -2,7 +2,7 @@ import { normalizeObjectInput } from "../../shared/validators/inputNormalization
 
 export class AppError extends Error {
   constructor(status, message, options = {}) {
-    super(message);
+    super(message, options.cause === undefined ? undefined : { cause: options.cause });
     this.name = "AppError";
     this.status = Number(status) || 500;
     this.statusCode = this.status;
