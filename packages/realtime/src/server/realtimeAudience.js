@@ -1,3 +1,4 @@
+import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 /** @typedef {import("@jskit-ai/auth-core/server/types").AuthService} AuthService */
@@ -309,22 +310,28 @@ function realtimeAuthenticationRequired(authService) {
 }
 
 /**
- * The kernel's code for this English, so a client can show it in the user's
- * language: as the error's code for a host's action boundary, and in its data
- * for a refused Socket.IO handshake.
+ * A refused realtime caller. The code lets a client show the English in the
+ * user's language: as the error's code at a host's action boundary, and in its
+ * data, which Socket.IO sends with a refused handshake.
  */
+class RealtimeAuthenticationError extends AppError {
+  /**
+   * @param {string} message
+   * @param {string} code
+   */
+  constructor(message, code) {
+    super(401, message, { code });
+    this.name = "RealtimeAuthenticationError";
+    this.data = Object.freeze({ code });
+  }
+}
+
 function authenticationRequiredError() {
-  return Object.assign(new Error("Authentication required."), {
-    statusCode: 401,
-    code: "AUTHENTICATION_REQUIRED",
-    data: Object.freeze({ code: "AUTHENTICATION_REQUIRED" })
-  });
+  return new RealtimeAuthenticationError("Authentication required.", "AUTHENTICATION_REQUIRED");
 }
 
 function sessionRefreshRequiredError() {
-  const error = new Error("Session refresh required.");
-  error.data = Object.freeze({ code: "SESSION_REFRESH_REQUIRED" });
-  return error;
+  return new RealtimeAuthenticationError("Session refresh required.", "SESSION_REFRESH_REQUIRED");
 }
 
 function rememberSocketActorId(socket, actorId) {
