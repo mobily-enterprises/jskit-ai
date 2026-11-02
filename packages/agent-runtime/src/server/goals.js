@@ -100,9 +100,9 @@ export function createGoals({
   record,
   notify = notifyNoPages,
   owner = noOwnerColumns,
-  spent = async () => 0,
-  track = (_goal, work) => work(),
-  background = (work) => work
+  spent = nothingSpent,
+  track = runUnmetered,
+  background = leaveRunning
 }) {
   const channelNotices = notices ?? NO_NOTICES;
   const wake = () => channelNotices.publish(channel, "all", {}).catch(() => {});
@@ -289,6 +289,21 @@ export function createGoals({
 }
 
 async function notifyNoPages() {}
+
+/** A job whose cost nobody meters has spent nothing. */
+async function nothingSpent() {
+  return 0;
+}
+
+/** Runs a goal round's work without metering it. */
+function runUnmetered(_goal, work) {
+  return work();
+}
+
+/** Leaves a round's work running in this process after the turn that queued it. */
+function leaveRunning(work) {
+  return work;
+}
 
 function noOwnerColumns() {
   return {};

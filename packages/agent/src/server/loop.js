@@ -15,8 +15,9 @@ export const REPLY_DEADLINE_MS = (Number(process.env.AGENT_REPLY_MINUTES) || 15)
  *
  * `history` is the conversation as model messages. The summary, the state note and any other
  * system messages in it go into the system prompt, after the instructions, in that order.
- * Returns { text, transcript, unfinished? }; `unfinished` (out of steps or time) means the job can
- * carry on from here. With `onText(text)` the reply streams: each step's words so far, as they
+ * Returns { text, transcript, unfinished?, account? }; `unfinished` (out of steps or time) means the
+ * job can carry on from here, and `account` is the account the reply ends with, when it ends with
+ * one, so a check that sends a reply back can leave the engine's own words alone. With `onText(text)` the reply streams: each step's words so far, as they
  * come. `onStep(step)` hears each finished step. Aborting `signal` (the person pressed Stop, or a
  * tool's outcome is unknown) ends the run at once with the signal's reason, without an account.
  * When `throwIf(error, steps)` says so, a failed call ends the run with its error instead of an
@@ -24,7 +25,7 @@ export const REPLY_DEADLINE_MS = (Number(process.env.AGENT_REPLY_MINUTES) || 15)
  */
 export async function runLoop({
   model, name, instructions, history, tools = {}, summary = "", state = "", maxSteps,
-  onSteps = null, onStep = null, onText = null, signal = null, carriesOn = false, quietIfEmpty = false, clean = stripNotes, throwIf = null,
+  onSteps = saveNoSteps, onStep = ignoreStep, onText = null, signal = null, carriesOn = false, quietIfEmpty = false, clean = stripNotes, throwIf = neverThrow,
   reasoning = REASONING.on, maxOutputTokens = LOOP_OUTPUT_TOKENS, turnLimits = TURN_LIMITS, deadlineMs = REPLY_DEADLINE_MS
 }) {
   const messages = [...history];
@@ -61,14 +62,14 @@ export async function runLoop({
       onStepFinish: async (step) => {
         done.push(step);
         generated.push(...(step.response?.messages || []));
-        if (onStep) await onStep(step);
-        if (onSteps) await onSteps(cleanTranscript(generated)).catch((error) => console.error(`Saving ${name}'s steps: ${error?.message || error}`));
+        await onStep(step);
+        await onSteps(cleanTranscript(generated)).catch((error) => console.error(`Saving ${name}'s steps: ${error?.message || error}`));
       }
     };
     result = onText ? await streamed(call, onText) : await generateText(call);
   } catch (error) {
     if (signal?.aborted) throw signal.reason ?? error;
-    if (throwIf?.(error, done)) throw error;
+    if (throwIf(error, done)) throw error;
     stopped = deadline.signal.aborted ? "it was taking too long" : "something went wrong on my side";
     console.error(`${name}'s reply stopped: ${error?.message || error}`);
   } finally {
@@ -81,12 +82,24 @@ export async function runLoop({
   if (result && deadline.signal.aborted) stopped = "it was taking too long";
   const resumable = Boolean(outOfSteps || deadline.signal.aborted);
   // One that may only chime in (a group follow-up) may say nothing at all.
+  let account = "";
   if (stopped || (!text && !quietIfEmpty)) {
-    const account = await sumUp({ model, name, conversation, steps: done, reason: stopped || "I didn't write anything at the end", carriesOn: carriesOn && resumable, clean });
+    account = await sumUp({ model, name, conversation, steps: done, reason: stopped || "I didn't write anything at the end", carriesOn: carriesOn && resumable, clean });
     text = [text, account].filter(Boolean).join("\n\n");
     transcript.push({ role: "assistant", content: account });
   }
-  return { text, transcript, ...(resumable ? { unfinished: stopped } : {}) };
+  return { text, transcript, ...(resumable ? { unfinished: stopped } : {}), ...(account ? { account } : {}) };
+}
+
+/** A run whose steps nobody saves. */
+async function saveNoSteps() {}
+
+/** A run whose finished steps nobody hears. */
+function ignoreStep() {}
+
+/** A run whose failed call always ends with an account, never with its error. */
+function neverThrow() {
+  return false;
 }
 
 /** A streamed run: each step's words go to `onText` as they come; the result is read at the end. */

@@ -40,7 +40,7 @@ Exports
 
 ### `src/server/environmentReferences.js`
 Exports
-- `createEnvironmentReferenceResolver(env = process.env)`
+- `createEnvironmentReferenceResolver(env)`
 
 ### `src/server/errors.js`
 Exports

@@ -57,4 +57,6 @@ test("a wrong secret, an unknown account or a disabled exchange is refused", asy
   assert.equal(unknown.statusCode, 404);
   const disabled = await executePreviewIdentityRequest(request({ type: "email", value: "ada@example.test" }), { env: {} });
   assert.equal(disabled.code, "preview_identity_disabled");
+  await assert.rejects(executePreviewIdentityRequest(request({ type: "email", value: "ada@example.test" }), {}),
+    /requires the hub's environment/u);
 });

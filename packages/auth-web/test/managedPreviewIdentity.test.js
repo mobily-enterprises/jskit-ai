@@ -98,6 +98,15 @@ test("managed preview identity signs out before selecting an existing applicatio
   assert.equal(JSON.parse(calls[2].options.body).email, "ada@example.com");
 });
 
+test("managed preview identity requires the application's environment instead of reporting a disabled exchange", async () => {
+  await assert.rejects(executeManagedPreviewIdentityRequest({
+    operation: "logout",
+    protocol: HOST_PROTOCOL,
+    requestId: "request-env",
+    target: { origin: "http://localhost:3000" }
+  }, { ...HOST_OPTIONS, fetchImpl: async () => assert.fail("fetch must not run") }), /requires the application's environment/u);
+});
+
 test("managed preview identity rejects a disabled or non-local exchange", async () => {
   const disabled = await executeManagedPreviewIdentityRequest({
     operation: "logout",

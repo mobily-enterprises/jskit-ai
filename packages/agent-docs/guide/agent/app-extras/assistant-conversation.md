@@ -2450,7 +2450,8 @@ A finished reply gets the engine's checks. Each sends it back once to carry on f
 its own steps: raw markup (nothing in it ran), a reply that stops at announcing
 its next step, and, when neither ran, a claimed action that the reply's own
 actions do not support (one short model call compares them). The completion
-metadata names the check as `check`.
+metadata names the check as `check`. A reply that ends with the engine's own
+account of where it got to is never sent back as stopping short.
 
 A reply runs at most `limits.maxSteps` steps (default 40, the engine's limit for
 work with app tools). Out of steps, or past the engine's 15-minute reply deadline,

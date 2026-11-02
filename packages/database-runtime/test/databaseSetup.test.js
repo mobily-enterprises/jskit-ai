@@ -47,7 +47,7 @@ test("runDatabaseSetup migrates before one explicit app seed transaction", async
 test("runDatabaseSetup supports applications with no seed operation", async () => {
   const { calls, knex } = fakeKnex({ migrationResult: [0, []] });
 
-  assert.deepEqual(await runDatabaseSetup({ knex }), {
+  assert.deepEqual(await runDatabaseSetup({ knex, environment: {} }), {
     batch: 0,
     migrations: [],
     seeded: false
@@ -58,7 +58,13 @@ test("runDatabaseSetup supports applications with no seed operation", async () =
 test("runDatabaseSetup rejects a non-function seed", async () => {
   const { knex } = fakeKnex();
   await assert.rejects(
-    () => runDatabaseSetup({ knex, seed: "seed" }),
+    () => runDatabaseSetup({ knex, seed: "seed", environment: {} }),
     /seed must be a function/u
   );
+});
+
+test("runDatabaseSetup requires the application's environment", async () => {
+  const { calls, knex } = fakeKnex();
+  await assert.rejects(() => runDatabaseSetup({ knex, seed() {} }), /requires the application's environment/u);
+  assert.deepEqual(calls, [], "Nothing is migrated");
 });

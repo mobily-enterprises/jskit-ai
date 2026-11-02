@@ -369,6 +369,12 @@ must have a documented exclusion or a description, output contract, result adapt
 and execution fixture. Application-defined automation actions require the same
 review; automation capability alone does not mean model exposure is safe.
 
+An application test that checks which actions a surface's assistant offers, or
+calls them as the assistant would, builds the catalogue the runtime builds:
+`createSurfaceAwareToolCatalog(actions, { appConfig })` from
+`@jskit-ai/assistant-runtime/server`, with the application's `runtime.actions`
+and its server configuration. Each call names its surface in `context.surface`.
+
 Generated list and view actions use JSON:API query shapes directly. `include`
 is a comma-separated string, and `fields` is keyed by resource type:
 

@@ -11,7 +11,7 @@ import { createAiConnectionResolver } from "@jskit-ai/connectors-catalog/server/
  * @param {(parameters: object) => unknown} dependencies.createModel The application's SDK model factory.
  */
 export function createConfiguredAiModel({ configuration, authorize,
-  resolveReference = createEnvironmentReferenceResolver(), createModel }) {
+  resolveReference = createEnvironmentReferenceResolver(process.env), createModel }) {
   const connections = createAiConnectionResolver({ configuration, authorize, resolveReference });
   return async ({ context, integrationId }) => {
     const parameters = await connections.resolve({ context, integrationId });

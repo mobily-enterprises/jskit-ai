@@ -43,8 +43,9 @@ or not anyone asked for it. Adding authentication adds both parts from the
 `auth/auth-surface` pattern:
 
 - the committed, executable `tools/preview-identity` from its example, which
-  passes `runManagedPreviewIdentityCommand` the preview host's protocol id and
-  the hostnames, besides loopback, that the host serves the app on;
+  passes `runManagedPreviewIdentityCommand` the preview host's protocol id, the
+  hostnames, besides loopback, that the host serves the app on, and the process
+  environment;
 - its declaration to the preview host in the form that host reads (for a host
   that reads the web `Outputs` target, the pattern's `#### Preview identity`
   block: Command `tools/preview-identity`, the same protocol id, Identity types

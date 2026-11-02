@@ -21,6 +21,17 @@ function requireContextSurfaceId(context = {}) {
   throw new Error("assistant surface-aware tool catalog requires context.surface.");
 }
 
+/**
+ * The assistant's tool catalogue over an application's actions, resolved per surface. Each surface
+ * offers the actions its `assistantServer` configuration leaves in (its barred action ids and
+ * skipped prefixes taken out), and every call names its surface in `context.surface`. The assistant
+ * runtime builds its catalogue this way; an application test builds one the same way to see the
+ * tools a surface offers and to call them.
+ * @param {import("@jskit-ai/kernel/server/types").ActionCatalogue} actions The application's actions (`runtime.actions`).
+ * @param {object} [options]
+ * @param {Record<string, any>} [options.appConfig] The server configuration that holds `assistantServer`.
+ * @param {typeof createServiceToolCatalog} [options.createCatalog]
+ */
 function createSurfaceAwareToolCatalog(actions, { appConfig = {}, createCatalog = createServiceToolCatalog } = {}) {
   if (!actions || typeof actions.listDefinitions !== "function") {
     throw new Error("createSurfaceAwareToolCatalog requires runtime.actions.");

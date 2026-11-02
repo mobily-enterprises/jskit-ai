@@ -96,7 +96,7 @@ export function cutPoint(messages, sizes, limits = SUMMARY_LIMITS) {
 // (the summary, how many messages it covers, and a fingerprint of them, so a history that
 // changed underneath is summarised afresh). `onCompacting()` hears when it starts. A store that
 // keeps only the messages after its summary passes that summary as `previous`.
-export async function compactMessages({ model, app = "the app", messages, saved = null, previous = "", limits = SUMMARY_LIMITS, summarize = (input) => writeSummary({ model, app, ...input, limits }), onCompacting = () => {} }) {
+export async function compactMessages({ model, app = "the app", messages, saved = null, previous = "", limits = SUMMARY_LIMITS, summarize = (input) => writeSummary({ model, app, ...input, limits }), onCompacting = ignoreCompacting }) {
   const fingerprint = (count) => createHash("sha256").update(JSON.stringify(messages.slice(0, count))).digest("hex");
   let covers = saved && saved.covers <= messages.length && saved.check === fingerprint(saved.covers) ? saved.covers : 0;
   let summary = covers ? saved.summary : previous;
@@ -122,3 +122,6 @@ export async function compactMessages({ model, app = "the app", messages, saved 
   }
   return { summary, messages: messages.slice(covers), saved: covers ? { summary, covers, check: fingerprint(covers) } : null };
 }
+
+/** Compacting that nobody needs to hear about. */
+function ignoreCompacting() {}

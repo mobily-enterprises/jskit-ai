@@ -6,5 +6,6 @@ import { runManagedPreviewIdentityCommand } from "@jskit-ai/auth-web/server/mana
 // serves the application on, as that host documents them.
 process.exitCode = await runManagedPreviewIdentityCommand({
   protocol: "jskit.preview-identity.command.v1",
-  localHostnames: []
+  localHostnames: [],
+  env: process.env
 });

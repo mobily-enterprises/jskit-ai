@@ -22,8 +22,8 @@ Local functions
 
 ### `src/server/databaseSetup.js`
 Exports
-- `prepareDatabaseFromApp({ client, appRoot = process.cwd(), environment = process.env, migrationsDirectory = "migrations", seed } = {})`
-- `runDatabaseSetup({ knex, seed, appRoot = process.cwd(), environment = process.env })`
+- `prepareDatabaseFromApp({ client, appRoot = process.cwd(), environment, migrationsDirectory = "migrations", seed })`
+- `runDatabaseSetup({ knex, seed, appRoot = process.cwd(), environment })`
 Local functions
 - `normalizeMigrationResult(result)`
 
@@ -42,8 +42,8 @@ Exports
 
 ### `src/server/knexMigrationConfig.js`
 Exports
-- `createKnexMigrationConfig({ client, environment = process.env, appRoot = process.cwd(), migrationsDirectory = "migrations", // readable-check: allow dependency-default - data: a list of directory paths, not a collaborator packageMigrationDirectories = [], // readable-check: allow dependency-default - data: a list of directory paths, not a collaborator packageConstraintDirectories = [] } = {})`
-- `createKnexMigrationConfigFromApp(options = {})`
+- `createKnexMigrationConfig({ client, environment, appRoot = process.cwd(), migrationsDirectory = "migrations", // readable-check: allow dependency-default - data: a list of directory paths, not a collaborator packageMigrationDirectories = [], // readable-check: allow dependency-default - data: a list of directory paths, not a collaborator packageConstraintDirectories = [] })`
+- `createKnexMigrationConfigFromApp(options)`
 - `discoverPackageMigrationDirectories({ appRoot = process.cwd() } = {})`
 Local functions
 - `directoryExists(directory)`

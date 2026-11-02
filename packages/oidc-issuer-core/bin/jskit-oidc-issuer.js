@@ -28,7 +28,7 @@ function loadDotEnv() {
 }
 
 async function withKnex(work) {
-  const config = await createKnexMigrationConfigFromApp({ client: process.env.DB_CLIENT || "mysql2" });
+  const config = await createKnexMigrationConfigFromApp({ client: process.env.DB_CLIENT || "mysql2", environment: process.env });
   const knex = createKnex({ client: config.client, connection: config.connection });
   try {
     return await work(knex);
@@ -53,7 +53,7 @@ function previewIdentityHost(args) {
 async function main(argv) {
   const [command, ...rest] = argv;
   if (command === "preview-identity") {
-    return runPreviewIdentityCommand(previewIdentityHost(rest));
+    return runPreviewIdentityCommand({ ...previewIdentityHost(rest), env: process.env });
   }
   loadDotEnv();
   if (command === "keys" && rest[0] === "rotate") {

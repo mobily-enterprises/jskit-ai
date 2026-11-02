@@ -8,25 +8,28 @@ import {
 import { resolveKnexConnectionFromEnvironment } from "../shared/databaseConnection.js";
 
 /**
- * @param {object} [options]
+ * The Knex configuration for migrating the database the application's environment names.
+ * @param {object} options
  * @param {string} options.client The dialect id: "mysql2" or "pg".
- * @param {NodeJS.ProcessEnv} [options.environment]
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} options.environment The application's environment, such as `process.env`.
  * @param {string} [options.appRoot]
  * @param {string} [options.migrationsDirectory]
  * @param {readonly string[]} [options.packageMigrationDirectories]
  * @param {readonly string[]} [options.packageConstraintDirectories]
  */
-// readable-check: allow dependency-default - data: plain options (a dialect id and directory paths), not collaborators
 function createKnexMigrationConfig({
   client,
-  environment = process.env,
+  environment,
   appRoot = process.cwd(),
   migrationsDirectory = "migrations",
   // readable-check: allow dependency-default - data: a list of directory paths, not a collaborator
   packageMigrationDirectories = [],
   // readable-check: allow dependency-default - data: a list of directory paths, not a collaborator
   packageConstraintDirectories = []
-} = {}) {
+}) {
+  if (!environment) {
+    throw new TypeError("createKnexMigrationConfig requires the application's environment, such as process.env.");
+  }
   const dialectId = normalizeDatabaseClient(client);
   const resolvedMigrationsDirectory = path.resolve(appRoot, migrationsDirectory);
 
@@ -203,10 +206,12 @@ async function packageConstraintDirectoriesOf(packageMigrationDirectories) {
 }
 
 /**
+ * The Knex migration configuration of an application: its own migrations and those of every
+ * installed JSKIT package that declares some.
  * @param {Omit<Parameters<typeof createKnexMigrationConfig>[0],
- *   "packageMigrationDirectories" | "packageConstraintDirectories">} [options]
+ *   "packageMigrationDirectories" | "packageConstraintDirectories">} options
  */
-async function createKnexMigrationConfigFromApp(options = {}) {
+async function createKnexMigrationConfigFromApp(options) {
   const appRoot = path.resolve(options.appRoot || process.cwd());
   const packageMigrationDirectories = await discoverPackageMigrationDirectories({ appRoot });
   return createKnexMigrationConfig({

@@ -77,3 +77,8 @@ test("surface-aware tool catalog applies per-surface skip and barred configurati
     skipActionPrefixes: ["assistant.", "demo.admin."]
   });
 });
+
+test("an application reaches the surface-aware tool catalog through the package's server entry", async () => {
+  const server = await import("@jskit-ai/assistant-runtime/server");
+  assert.equal(server.createSurfaceAwareToolCatalog, createSurfaceAwareToolCatalog);
+});

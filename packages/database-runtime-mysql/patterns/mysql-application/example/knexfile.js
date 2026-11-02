@@ -8,4 +8,4 @@ try {
   }
 }
 
-export default await createKnexMigrationConfigFromApp({ client: "mysql2" });
+export default await createKnexMigrationConfigFromApp({ client: "mysql2", environment: process.env });

@@ -187,6 +187,18 @@ test("at the step limit the reply ends with the engine's account of where it got
   assert.deepEqual(result, { metadata: { unfinished: "I reached the most steps I take in one go" } });
 });
 
+test("the engine's own account ends the reply and is not sent back as stopping short", async () => {
+  // An empty answer to the account call leaves the engine's fallback account, which ends "…and I'll pick it up…".
+  const f = fixture({ limits: { maxSteps: 2 }, reply: () => ({ call: "action_execute" }), once: () => "" });
+  const result = await f.run();
+  assert.equal(f.executions.length, 2, "No second pass runs more actions after the step limit");
+  assert.equal(f.streamed.some(body => lastText(body) === CHECKS.stoppedShort), false);
+  const answers = f.messages.filter(message => message.complete && message.role === "assistant");
+  assert.equal(answers.length, 1);
+  assert.match(answers[0].text, /^I stopped before finishing, because I reached the most steps I take in one go\. Ask me to carry on/u);
+  assert.deepEqual(result, { metadata: { unfinished: "I reached the most steps I take in one go" } });
+});
+
 test("a provider failure before anything was done is the reply's error, after the engine's retries", async () => {
   const f = fixture({ failure: () => new Response('{"error":{"message":"Capacity unavailable"}}',
     { status: 429, headers: { "content-type": "application/json", "retry-after-ms": "0" } }) });
