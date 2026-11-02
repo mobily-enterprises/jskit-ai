@@ -894,7 +894,7 @@ for (const change of ["model", "effort"]) {
     if (change === "model") model = "other-model";
     const selection = { operationId: `fresh-${change}`, expectedSegmentId: before.segmentId, engine: "opencode",
       configuration: { ...configuration, model, effort: change === "effort" ? "high" : "low" }, retireNative: true };
-    await assert.rejects(f.conversation.select({ ...selection, retireNative: "yes" }), { code: "conversation_invalid_replacement" });
+    await assert.rejects(f.conversation.select({ ...selection, retireNative: "yes" }), { code: "conversation_replacement_request_invalid" });
     assert.deepEqual(await f.binding(), original);
     const selected = await f.conversation.select(selection);
     assert.notEqual(selected.segmentId, before.segmentId);

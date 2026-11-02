@@ -1,3 +1,4 @@
+import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { setTimeout as delay } from "node:timers/promises";
 import { openCodeAssistantMessageText as assistantMessageText } from "./openCodeClient.js";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
@@ -85,11 +86,9 @@ async function consumeOpenCodeEvents(client, conversationId, {
       await onEvent(summary, event);
     }
   }
-  const error = new Error("OpenCode's event connection ended before observation was closed.");
-  error.code = "assistant_opencode_observation_lost";
-  error.details = {};
-  error.statusCode = 503;
-  throw error;
+  throw new AppError(503, "OpenCode's event connection ended before observation was closed.", {
+    code: "assistant_opencode_observation_lost", details: {}
+  });
 }
 
 export function observeOpenCodeEvents(client, conversationId, {
@@ -115,9 +114,9 @@ export function observeOpenCodeEvents(client, conversationId, {
     completion: events,
     readFailure: () => eventFailure,
     waitUntilReady({ timeoutMs = OPENCODE_EVENT_READY_TIMEOUT_MS, timeoutError } = {}) {
-      const timeout = setTimeout(() => eventReady.reject(timeoutError || Object.assign(
-        new Error("OpenCode's event connection did not become ready."),
-        { code: "assistant_opencode_events_timeout", details: {}, statusCode: 504 }
+      const timeout = setTimeout(() => eventReady.reject(timeoutError || new AppError(504,
+        "OpenCode's event connection did not become ready.",
+        { code: "assistant_opencode_events_timeout", details: {} }
       )), timeoutMs);
       void eventReady.promise.then(() => clearTimeout(timeout), () => clearTimeout(timeout));
       return eventReady.promise;
@@ -518,10 +517,10 @@ export async function runOpenCodeConversationTurn(client, conversationId, input 
   completeResult, close
 } = {}) {
   const { inputMessageId, readError,
-    createError = (reason, message, details) => Object.assign(new Error(message ||
-      (reason === "unreadable" ? "The exact OpenCode turn did not produce a readable result." : "OpenCode did not finish the turn.")),
-      { code: `assistant_opencode_turn_${reason}`, details,
-        statusCode: ["thread_mismatch", "fresh_thread_required", "unrelated_history"].includes(reason) ? 409 : 502 })
+    createError = (reason, message, details) => new AppError(
+      ["thread_mismatch", "fresh_thread_required", "unrelated_history"].includes(reason) ? 409 : 502,
+      message || (reason === "unreadable" ? "The exact OpenCode turn did not produce a readable result." : "OpenCode did not finish the turn."),
+      { code: `assistant_opencode_turn_${reason}`, details })
   } = input;
   if (
     (expectedThreadId && expectedThreadId !== conversationId) ||

@@ -382,6 +382,7 @@ Exports
 - `createClaudeConversationTurn({ conversationId, onEvent = async () => {}, process, entry, bound = false } = {})`
 Local functions
 - `failure(message, code = "assistant_claude_turn_failed")`
+- `steeringRefusal(message, { messageCode, finished })`
 - `now()`
 - `hasPendingClaudeStartup(entry)`
 - `nativeWorkSettled(entry)`

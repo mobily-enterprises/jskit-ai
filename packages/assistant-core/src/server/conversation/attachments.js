@@ -1,9 +1,10 @@
+import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import path from "node:path";
 import { ASSISTANT_ATTACHMENT_ID_MAX_LENGTH, ASSISTANT_ATTACHMENT_MAX_ITEMS, conversationAttachmentManifest } from "../../shared/conversation/attachments.js";
 
 // messageCode names the sentence; the shared code stays for callers.
 function invalid(message, { messageCode, messageParams = {} }) {
-  return Object.assign(new Error(message), { code: "conversation_invalid_attachments", statusCode: 400, messageCode, messageParams });
+  return new AppError(400, message, { code: "conversation_invalid_attachments", messageCode, messageParams });
 }
 
 export function conversationAttachmentIds(value = []) {
@@ -23,8 +24,8 @@ export function createConversationAttachmentReader({ attachments, context, conve
   return async references => {
     if (!references?.length) return { attachments: [], content: [], localFiles: [], attachmentManifest: "" };
     if (typeof attachments?.resolve !== "function") {
-      throw Object.assign(new Error("File attachments are not configured for this conversation."), { code: "conversation_unsupported", statusCode: 400,
-        messageCode: "assistant.conversation.attachmentsNotConfigured", messageParams: {} });
+      throw new AppError(400, "File attachments are not configured for this conversation.", { code: "conversation_attachments_not_configured",
+        messageCode: "assistant.conversation.attachmentsNotConfigured" });
     }
     const receipts = [];
     const content = [];

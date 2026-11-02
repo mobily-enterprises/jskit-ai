@@ -1,3 +1,4 @@
+import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { createHash } from "node:crypto";
 import { isCompletedEnvelopeTurn } from "./transcript.js";
 
@@ -72,7 +73,7 @@ export function createConversationChangeover({ state, transcript, agent, identit
 
   async function replace({ engineId, messages, operationId, expectedId, handover }) {
     const fail = (message, translation = {}) => {
-      throw Object.assign(new Error(message), { code: replacementUnavailableCode, statusCode: 409 }, translation);
+      throw new AppError(409, message, { code: replacementUnavailableCode, ...translation });
     };
     const value = await readState({ engineId, messages });
     let replacement = value.replacement;

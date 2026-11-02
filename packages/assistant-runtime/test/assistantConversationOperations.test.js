@@ -396,7 +396,7 @@ test("declared conversation data keeps the authored target without becoming auth
   assert.equal(repeated.payload.turnId, accepted.payload.turnId);
   await assert.rejects(f.invoke("POST", "/messages", { body: { ...input,
     data: { ...data, focus: { projectSlug: "new-project" } }
-  } }), { code: "conversation_message_conflict" });
+  } }), { code: "conversation_message_id_content_conflict" });
   assert.equal(f.requests.length, 1, "Retargeting a captured message cannot dispatch it again");
 });
 
@@ -407,7 +407,7 @@ test("goal operations retain capabilities and cannot forward native host or atta
   assert.equal(absentGoal.status, 204, "An absent native goal uses the client's existing no-content response contract");
   await assert.rejects(f.invoke("POST", "/goal", { body: {
     action: "set", messageId: "goal-one", expectedSegmentId: "current", objective: "Do this"
-  } }), { code: "conversation_unsupported" });
+  } }), { code: "conversation_goals_unsupported" });
   assert.equal(f.requests.length, 0, "An unsupported goal never starts inference");
 
   const calls = [];
@@ -497,7 +497,7 @@ test("declared replacement keeps application policy and exact predecessor author
     await assert.rejects(call({ replacement: { ...replacement, ...extra } }), { code: "ACTION_VALIDATION_FAILED" });
   }
   await assert.rejects(call({ replacement: { ...replacement, expectedSegmentId: "stale-predecessor" } }),
-    { code: "conversation_replacement_conflict" });
+    { code: "conversation_predecessor_changed" });
   const replaced = await call({ replacement, engine: "codex", host: { nativeTools: true }, context: { forged: true } });
   assert.equal(replaced.status, 200);
   assert.equal(replaced.payload.operationId, replacement.operationId);

@@ -1,3 +1,4 @@
+import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { open, realpath } from "node:fs/promises";
 import { isUtf8 } from "node:buffer";
 import { createServer } from "node:http";
@@ -19,7 +20,7 @@ const HOP_HEADERS = ["connection", "keep-alive", "proxy-authenticate", "proxy-au
   "te", "trailer", "transfer-encoding", "upgrade"];
 
 function unsupportedHistory(message) {
-  return Object.assign(new Error(message), { statusCode: 422 });
+  return new AppError(422, message, { code: "assistant_codex_history_unsupported" });
 }
 
 // A historical tool result as user content parts: text or images only.
@@ -114,10 +115,10 @@ function translateCodexHistory(body, destination = "openai") {
 }
 
 function compactionHistoryError(reason, statusCode = 422) {
-  return Object.assign(new Error(
+  return new AppError(statusCode,
     `Codex cannot safely send this compacted conversation to the selected model: ${reason} ` +
-    "Continue with the previous model or start a new conversation. Saved history has not been changed."
-  ), { statusCode });
+    "Continue with the previous model or start a new conversation. Saved history has not been changed.",
+    { code: statusCode === 413 ? "assistant_codex_compacted_history_too_large" : "assistant_codex_compacted_history_unsafe" });
 }
 
 function retainedUserRecord(item) {
@@ -352,7 +353,7 @@ async function startCodexHistoryAdapter({ token, codexHome, readHistoryPath, fet
         let size = 0;
         for await (const chunk of request) {
           size += chunk.length;
-          if (size > maxRequestBytes) throw Object.assign(new Error("Codex history exceeds the adapter request limit."), { statusCode: 413 });
+          if (size > maxRequestBytes) throw new AppError(413, "Codex history exceeds the adapter request limit.", { code: "assistant_codex_history_request_too_large" });
           chunks.push(chunk);
         }
         let raw = Buffer.concat(chunks);
@@ -363,7 +364,7 @@ async function startCodexHistoryAdapter({ token, codexHome, readHistoryPath, fet
           else if (encoding && encoding !== "identity") throw new Error("Unsupported encoding");
           body = JSON.parse(raw.toString("utf8"));
         } catch {
-          throw Object.assign(new Error("Codex sent an unreadable or oversized history request."), { statusCode: 400 });
+          throw new AppError(400, "Codex sent an unreadable or oversized history request.", { code: "assistant_codex_history_request_unreadable" });
         }
         if (!historyPath && nativeAiProvider(destination) && Array.isArray(body?.input) && body.input.some(item => item?.type === "compaction")) {
           // An exclusively owned conversation can resolve its current native

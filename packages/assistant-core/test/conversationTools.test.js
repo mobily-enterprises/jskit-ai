@@ -753,7 +753,7 @@ test("bound admission current guard fences a held host effect after steering or 
   await f.conversation.send({ messageId: "guard-steer", text: "A new instruction.", steer: true });
   await f.currentCommand(1);
   boundary.resolve();
-  await assert.rejects(held, { code: "conversation_tool_request_retired" });
+  await assert.rejects(held, { code: "conversation_application_tool_message_stale" });
   await f.tools().execute({ id: "guard-contract", name: "assistant_action_contract",
     arguments: JSON.stringify({ actionId: "numbers.add", version: 1 }) });
   const current = f.observed.mappings.at(-1).admission;
@@ -761,7 +761,7 @@ test("bound admission current guard fences a held host effect after steering or 
   assert.equal(current.messageId, "guard-steer");
   f.finish.resolve();
   await f.conversation.wait();
-  assert.throws(() => current.assertCurrent(), { code: "conversation_tool_request_retired" });
+  assert.throws(() => current.assertCurrent(), { code: "conversation_application_tool_message_stale" });
   assert.equal(f.observed.executions.length, 1, "Inspecting current authority must not dispatch or repeat work");
 });
 
@@ -847,7 +847,7 @@ test("bound admission completion guard retains only its latest successful native
       const original = f.observed.mappings[0].admission;
       assert.equal(typeof original.assertCompletionCurrent, "function");
       assert.equal(JSON.parse(JSON.stringify(original)).assertCompletionCurrent, undefined);
-      assert.throws(() => original.assertCompletionCurrent(), { code: "conversation_tool_request_retired" },
+      assert.throws(() => original.assertCompletionCurrent(), { code: "conversation_native_completion_message_stale" },
         "A working native turn cannot authorize completion");
       if (boundary === "stopped") {
         await f.conversation.cancel();
@@ -860,16 +860,16 @@ test("bound admission completion guard retains only its latest successful native
       }
       f.finish.resolve();
       await f.conversation.wait();
-      assert.throws(() => original.assertCurrent(), { code: "conversation_tool_request_retired" },
+      assert.throws(() => original.assertCurrent(), { code: "conversation_application_tool_message_stale" },
         "Native settlement never restores live tool authority");
       if (boundary === "steered") {
-        assert.throws(() => original.assertCompletionCurrent(), { code: "conversation_tool_request_retired" });
+        assert.throws(() => original.assertCompletionCurrent(), { code: "conversation_native_completion_message_stale" });
         return;
       }
       original.assertCompletionCurrent();
       if (boundary === "closed") {
         await f.runtime.close();
-        assert.throws(() => original.assertCompletionCurrent(), { code: "conversation_tool_request_retired" });
+        assert.throws(() => original.assertCompletionCurrent(), { code: "conversation_native_completion_message_stale" });
       } else if (boundary === "rejected-successor") {
         f.binding.prepareInput = async () => { throw new Error("The newer input was rejected before native dispatch."); };
         await assert.rejects(f.conversation.send({ messageId: "unaccepted-successor", text: "Never admitted." }),
@@ -886,7 +886,7 @@ test("bound admission completion guard retains only its latest successful native
         const receipt = await f.conversation.send({ messageId: "recovered-successor", text: "An original recovered native receipt." });
         assert.equal(receipt.recovered, true);
         await f.conversation.wait();
-        assert.throws(() => original.assertCompletionCurrent(), { code: "conversation_tool_request_retired" },
+        assert.throws(() => original.assertCompletionCurrent(), { code: "conversation_native_completion_message_stale" },
           "Verified recovered admission also retires the previous completion receipt");
       } else if (boundary.startsWith("successor-")) {
         const gate = Promise.withResolvers();
@@ -899,11 +899,11 @@ test("bound admission completion guard retains only its latest successful native
           await f.conversation.send({ messageId: "accepted-successor", text: "A genuinely accepted later input." });
           await f.currentCommand(1);
           if (boundary === "successor-active") {
-            assert.throws(() => original.assertCompletionCurrent(), { code: "conversation_tool_request_retired" });
+            assert.throws(() => original.assertCompletionCurrent(), { code: "conversation_native_completion_message_stale" });
             gate.resolve();
           }
           await f.conversation.wait();
-          assert.throws(() => original.assertCompletionCurrent(), { code: "conversation_tool_request_retired" },
+          assert.throws(() => original.assertCompletionCurrent(), { code: "conversation_native_completion_message_stale" },
             "A later accepted receipt stays current after its active slot clears");
         } finally { gate.resolve(); }
       }

@@ -71,7 +71,7 @@ test("renewal preserves logical history and receipts while subsequent inference 
   const retry = await f.conversation.replace(operation);
   assert.equal(retry.duplicate, true);
   assert.equal(retry.segmentId, result.segmentId);
-  await assert.rejects(f.conversation.replace({ ...operation, briefing: "Different" }), { code: "conversation_replacement_conflict" });
+  await assert.rejects(f.conversation.replace({ ...operation, briefing: "Different" }), { code: "conversation_replacement_operation_conflict" });
 });
 
 test("completed historical branch markers retain history filtering and admission receipts", async t => {
@@ -105,8 +105,8 @@ test("unfinished historical Undo operations require offline inspection without c
     saved.runtime.replacement = { request: { ...operation, operation: "replace" }, reason: "renewal", engine: "api",
       configuration, segmentId: "historical-successor", seen: {}, ...patch };
     await f.storage.write("one", transaction => transaction.writeMetadata(saved));
-    await assert.rejects(f.conversation.replace(operation), { code: "conversation_rewind_inspection_required" });
-    await assert.rejects(f.runtime().open({ id: "one" }), { code: "conversation_rewind_inspection_required" });
+    await assert.rejects(f.conversation.replace(operation), { code: "conversation_rewind_inspection_before_replace" });
+    await assert.rejects(f.runtime().open({ id: "one" }), { code: "conversation_rewind_inspection_before_open" });
     assert.deepEqual(await f.storage.read("one", transaction => transaction.readMetadata()), saved);
     assert.equal((await f.conversation.read()).conversationLog.length, 1);
     assert.equal(f.requests.length, 1);
@@ -120,8 +120,8 @@ test("an interrupted replacement blocks sending and resumes exactly once after a
   f.state.failCommit = true;
   await assert.rejects(f.conversation.replace(operation), /Storage offline/);
   assert.equal((await f.conversation.read()).status, "replacement-pending");
-  await assert.rejects(f.conversation.send({ text: "Too early", messageId: "early" }), { code: "conversation_replacement_pending" });
-  await assert.rejects(f.conversation.configure({ systemPrompt: "Too early" }), { code: "conversation_replacement_pending" });
+  await assert.rejects(f.conversation.send({ text: "Too early", messageId: "early" }), { code: "conversation_replacement_pending_before_send" });
+  await assert.rejects(f.conversation.configure({ systemPrompt: "Too early" }), { code: "conversation_replacement_pending_before_settings" });
   await f.first.close();
   f.state.failCommit = false;
   const resumed = await f.runtime().open({ id: "one" });
@@ -137,11 +137,11 @@ test("an interrupted replacement blocks sending and resumes exactly once after a
 test("invalid, stale and forbidden replacement requests do not alter the conversation", async t => {
   const f = await fixture(t);
   const operation = await f.replacement();
-  await assert.rejects(f.conversation.replace({ ...operation, expectedSegmentId: "stale" }), { code: "conversation_replacement_conflict" });
-  await assert.rejects(f.conversation.replace({ ...operation, reason: "rewind" }), { code: "conversation_invalid_replacement" });
-  await assert.rejects(f.conversation.replace({ ...operation, reason: "rewind", throughTurnId: "missing" }), { code: "conversation_invalid_replacement" });
-  await assert.rejects(f.conversation.replace({ ...operation, reason: "rewind", throughTurnId: null }), { code: "conversation_invalid_replacement" });
-  await assert.rejects(f.conversation.replace({ ...operation, throughTurnId: null }), { code: "conversation_invalid_replacement" });
+  await assert.rejects(f.conversation.replace({ ...operation, expectedSegmentId: "stale" }), { code: "conversation_predecessor_changed" });
+  await assert.rejects(f.conversation.replace({ ...operation, reason: "rewind" }), { code: "conversation_replacement_request_invalid" });
+  await assert.rejects(f.conversation.replace({ ...operation, reason: "rewind", throughTurnId: "missing" }), { code: "conversation_replacement_request_invalid" });
+  await assert.rejects(f.conversation.replace({ ...operation, reason: "rewind", throughTurnId: null }), { code: "conversation_replacement_request_invalid" });
+  await assert.rejects(f.conversation.replace({ ...operation, throughTurnId: null }), { code: "conversation_replacement_request_invalid" });
   await assert.rejects(f.conversation.replace({ ...operation, engine: "missing" }), /does not yet support/);
   f.state.allowed = false;
   await assert.rejects(f.conversation.replace(operation), { code: "conversation_forbidden" });
@@ -167,7 +167,7 @@ test("host scope belongs to a conversation and cannot be changed through another
   const host = { workdir: "/application/one", env: { HOME: "/accounts/one" } };
   const one = await f.first.open({ id: "scoped-one", host, configuration });
   const two = await f.first.open({ id: "scoped-two", host: { workdir: "/application/two" }, configuration });
-  await assert.rejects(f.first.open({ id: "scoped-one", host: { workdir: "/application/other" } }), { code: "conversation_host_mismatch" });
+  await assert.rejects(f.first.open({ id: "scoped-one", host: { workdir: "/application/other" } }), { code: "conversation_host_scope_mismatch" });
   await one.send({ messageId: "one", text: "One" });
   await two.send({ messageId: "two", text: "Two" });
   assert.equal((await one.wait()).conversationLog.length, 1);
@@ -196,7 +196,7 @@ test("interrupted OpenCode integration selection retries the original fresh bind
   assert.notEqual(pending.runtime.replacement.binding.directory, metadata.runtime.binding.directory);
   assert.equal((await f.conversation.read()).status, "replacement-pending");
   await assert.rejects(f.conversation.send({ messageId: "premature", text: "Too early" }),
-    { code: "conversation_replacement_pending" });
+    { code: "conversation_replacement_pending_before_send" });
   await f.first.close();
   f.state.failCommit = false;
   const reopened = await f.runtime().open({ id: "one" });
@@ -230,7 +230,7 @@ test("interrupted fresh native selection retains its consumer policy and success
   assert.notEqual(pending.runtime.replacement.binding.directory, original.runtime.binding.directory);
   assert.equal((await f.conversation.read()).status, "replacement-pending");
   await assert.rejects(f.conversation.send({ messageId: "too-early", text: "Wait for the change" }),
-    { code: "conversation_replacement_pending" });
+    { code: "conversation_replacement_pending_before_send" });
   await f.first.close();
   f.state.failCommit = false;
   const reopened = await f.runtime().open({ id: "one" });

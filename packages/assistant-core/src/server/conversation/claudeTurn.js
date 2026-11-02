@@ -1,3 +1,4 @@
+import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { createHash, randomUUID } from "node:crypto";
 import { AsyncLocalStorage } from "node:async_hooks";
 import path from "node:path";
@@ -10,6 +11,14 @@ import { createClaudeConversationAdapter } from "./providers/claude.js";
 
 function failure(message, code = "assistant_claude_turn_failed") {
   return Object.assign(new Error(message), { code });
+}
+
+// Input for a turn that already finished is the caller's refusal; input that
+// meets a stopping turn stays an internal turn failure.
+function steeringRefusal(message, { messageCode, finished }) {
+  return finished
+    ? new AppError(409, message, { code: "conversation_steer_turn_finished", messageCode })
+    : Object.assign(failure(message), { messageCode, messageParams: {} });
 }
 
 const text = normalizeNullableText;
@@ -127,9 +136,8 @@ export async function runClaudeRenewalTurn(conversation, {
 export function createClaudeConversationGoals({ conversationId, readHistory, readState, interrupt, send, readRetainedGoal, saveRetainedGoal }) {
   // These checks run before interrupt/send. Native execution and receipt
   // failures keep their own codes and must not be treated as safe rejections.
-  const goalError = (message, { messageCode }) => Object.assign(failure(message, "conversation_invalid_goal"), {
-    statusCode: 400, delivery: "not-sent", messageCode, messageParams: {}
-  });
+  const goalError = (message, { messageCode }) => Object.assign(
+    new AppError(400, message, { code: "conversation_invalid_goal", messageCode }), { delivery: "not-sent" });
 
   async function read(history = null) {
     const { goal = null } = history || await readHistory();
@@ -582,8 +590,8 @@ export function createClaudeConversationOwner({
   async function compactContext(entry, input = {}) {
     input.signal?.throwIfAborted();
     if (entry.turn?.active || entry.nativeTurn.read().active) {
-      throw Object.assign(createError("Claude is still working. Wait for it to finish before freeing its context."), { statusCode: 409,
-        messageCode: "assistant.claude.compactWhileWorking", messageParams: {} });
+      throw new AppError(409, "Claude is still working. Wait for it to finish before freeing its context.", {
+        code: "assistant_claude_compact_while_working", messageCode: "assistant.claude.compactWhileWorking" });
     }
     await ensureProcess(entry, input);
     input.signal?.throwIfAborted();
@@ -1068,9 +1076,9 @@ export function createClaudeConversationOwner({
           break;
         }
         if (operations?.signal?.aborted) throw operations.signal.reason;
-        if (Date.now() >= deadline) throw Object.assign(failure(
+        if (Date.now() >= deadline) throw Object.assign(new AppError(503,
           "Claude accepted the goal command, but its goal attachment is not available yet. Check its original receipt before trying again.",
-          "assistant_claude_goal_attachment_pending"), { delivery: "accepted", statusCode: 503 });
+          { code: "assistant_claude_goal_attachment_pending" }), { delivery: "accepted" });
         await delay(Math.min(250, Math.max(1, deadline - Date.now())), undefined, { signal: operations?.signal });
       }
     }
@@ -1828,12 +1836,10 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
       clearFinalAssistantResult();
     },
     async send(client, message, { messageId: uuid, accept, timeoutMs = 30_000, steer = false } = {}) {
-      if (!active || stopped || cancelling) throw Object.assign(
-        failure("Claude has no active turn for this message.", !active && !stopped && !cancelling
-          ? "conversation_steer_turn_finished" : "assistant_claude_turn_failed"),
-        { delivery: "not-sent", messageCode: "assistant.claude.noActiveTurn", messageParams: {},
-          ...(!active && !stopped && !cancelling ? { statusCode: 409 } : {}) }
-      );
+      if (!active || stopped || cancelling) {
+        throw Object.assign(steeringRefusal("Claude has no active turn for this message.", {
+          messageCode: "assistant.claude.noActiveTurn", finished: !active && !stopped && !cancelling }), { delivery: "not-sent" });
+      }
       if (!uuid || typeof accept !== "function" || admissions.has(uuid)) throw new TypeError("A distinct message id and admission writer are required.");
       clearFinalAssistantResult();
       acceptedInput = null;
@@ -1866,9 +1872,9 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
     async prepareSteering() {
       if (!active || cancelling) {
         const completed = !active && !stopped && !cancelling && outcome?.status === "completed";
-        throw Object.assign(failure("This Claude turn cannot accept steering now.", completed
-          ? "conversation_steer_turn_finished" : "assistant_claude_turn_failed"),
-        { delivery: "not-sent", messageCode: "assistant.claude.steeringUnavailable", messageParams: {}, ...(completed ? { statusCode: 409 } : {}) });
+        throw Object.assign(steeringRefusal("This Claude turn cannot accept steering now.", {
+          messageCode: "assistant.claude.steeringUnavailable", finished: completed }),
+          { delivery: "not-sent" });
       }
       // Claude Code acknowledges streamed input as queued and folds it into the
       // running turn after the current tool call, or starts it once the main

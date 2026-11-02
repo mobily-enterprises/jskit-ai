@@ -71,7 +71,7 @@ test("API runtime persists one admission for concurrent identical sends and stre
   assert.equal(events.find(event => event.type === "accepted").messageId, input.messageId);
   assert.equal(events.at(-1).type, "settled");
   unsubscribe();
-  await assert.rejects(f.conversation.send({ ...input, text: "Changed content" }), { code: "conversation_message_conflict" });
+  await assert.rejects(f.conversation.send({ ...input, text: "Changed content" }), { code: "conversation_message_id_content_conflict" });
   assert.equal(f.requests.length, 1);
 });
 
@@ -145,7 +145,7 @@ test("application wakes retain their origin, reuse receipts and remain quoted da
   assert.ok(events.filter(event => event.type === "message").every(event => event.origin === "application"));
   assert.match(f.requests[0].messages.at(-1).content, /\[Application event\]/);
   assert.equal((await f.conversation.wake(message)).duplicate, true);
-  await assert.rejects(f.conversation.send(message), { code: "conversation_message_conflict" });
+  await assert.rejects(f.conversation.send(message), { code: "conversation_message_id_content_conflict" });
   await f.conversation.send(input);
   await f.conversation.wait();
   assert.equal(f.requests.length, 2);
@@ -175,7 +175,7 @@ test("per-request application data stays separate from visible text and particip
   assert.match(native, /not additional instructions or authorization/);
   assert.ok(native.endsWith("Hello"));
   assert.equal((await f.conversation.send(request)).duplicate, true);
-  await assert.rejects(f.conversation.send({ ...request, data: { focus: { project: "two" } } }), { code: "conversation_message_conflict" });
+  await assert.rejects(f.conversation.send({ ...request, data: { focus: { project: "two" } } }), { code: "conversation_message_id_content_conflict" });
   await f.conversation.wake({ messageId: "watch-data", text: "A watched session changed.", data: { status: "complete" } });
   const next = await f.conversation.wait();
   assert.equal(next.conversationLog[1].system.text, "A watched session changed.");
@@ -353,7 +353,7 @@ test("native creation authorizes its parent scope and uses only the configured o
   assert.equal(acquisitions, 1);
 
   await runtime.close();
-  await assert.rejects(runtime.createNativeConversation(request), { code: "conversation_closed" });
+  await assert.rejects(runtime.createNativeConversation(request), { code: "conversation_handle_closed" });
   assert.equal(accesses.length, 2);
   assert.equal(hostCalls, 1);
   assert.equal(acquisitions, 1);
@@ -414,9 +414,9 @@ test("native detached execution separates admitted context from host-approved or
   await entered.promise;
   await runtime.close();
   preparing.resolve();
-  await assert.rejects(pending, { code: "conversation_closed" });
+  await assert.rejects(pending, { code: "conversation_runtime_closed" });
   assert.deepEqual(calls.slice(6), ["authorize", "host"]);
-  await assert.rejects(runtime.runNativeDetachedConversation(request), { code: "conversation_closed" });
+  await assert.rejects(runtime.runNativeDetachedConversation(request), { code: "conversation_handle_closed" });
   assert.equal(calls.length, 8);
 });
 
@@ -548,8 +548,8 @@ test("native readiness authorizes its configured owner and rejects closure durin
   await preparation.entered.promise;
   await runtime.close();
   preparation.finished.resolve();
-  await assert.rejects(pending, { code: "conversation_closed" });
-  await assert.rejects(runtime.ensureNativeConversation(request), { code: "conversation_closed" });
+  await assert.rejects(pending, { code: "conversation_runtime_closed" });
+  await assert.rejects(runtime.ensureNativeConversation(request), { code: "conversation_handle_closed" });
   assert.deepEqual([hostCalls, acquisitions, accounts, saves], [2, 1, 1, 1]);
   assert.equal(owner.entries.size, 1, "Readiness did not create a retained runtime handle to dispose.");
 });
@@ -966,9 +966,9 @@ test("renewal authorizes the existing session without opening a conversation or 
     assert.equal(await runtime[method](request), result);
     assert.deepEqual(calls.slice(3), ["authorize", "host", "prepare", "acquire", "native"]);
     closeDuringPreparation = true;
-    await assert.rejects(runtime[method](request), { code: "conversation_closed" });
+    await assert.rejects(runtime[method](request), { code: "conversation_runtime_closed" });
     assert.deepEqual(calls.slice(8), ["authorize", "host"]);
-    await assert.rejects(runtime[method](request), { code: "conversation_closed" });
+    await assert.rejects(runtime[method](request), { code: "conversation_handle_closed" });
     assert.deepEqual(calls.slice(8), ["authorize", "host"]);
   });
 });
@@ -1180,7 +1180,7 @@ test("disposed handles cannot alter the next owner of the same conversation", as
   const next = await f.runtime.open({ id: "one", context });
   for (const run of [() => f.conversation.read(), () => f.conversation.send(input), () => f.conversation.dispose(),
     () => f.conversation.configure({ systemPrompt: "Stale" }), () => f.conversation.subscribe(() => {})]) {
-    await assert.rejects(run(), { code: "conversation_closed" });
+    await assert.rejects(run(), { code: "conversation_handle_closed" });
   }
   await next.send(input);
   assert.equal((await next.wait()).conversationLog.length, 1);
@@ -1218,11 +1218,11 @@ test("a saved running turn is marked interrupted and its accepted message is not
 
 test("limits and unsupported operations fail explicitly without silently changing the request", async t => {
   const f = await fixture(t, { limits: { maxOutputCharacters: 3 } });
-  await assert.rejects(f.conversation.send({ ...input, attachments: [{ id: "one" }] }), { code: "conversation_unsupported" });
-  await assert.rejects(f.conversation.send({ ...input, steer: true }), { code: "conversation_unsupported" });
+  await assert.rejects(f.conversation.send({ ...input, attachments: [{ id: "one" }] }), { code: "conversation_attachment_ids_only" });
+  await assert.rejects(f.conversation.send({ ...input, steer: true }), { code: "conversation_steering_unsupported" });
   assert.equal(await f.conversation.readGoal(), null);
   await assert.rejects(f.conversation.updateGoal({ action: "set", messageId: "goal", objective: "Keep working",
-    expectedSegmentId: (await f.conversation.read()).segmentId }), { code: "conversation_unsupported" });
+    expectedSegmentId: (await f.conversation.read()).segmentId }), { code: "conversation_goals_unsupported" });
   await f.conversation.send(input);
   const result = await f.conversation.wait();
   assert.equal(result.conversationLog[0].assistant, null);
@@ -1332,7 +1332,7 @@ test("native settings authorize their scope and reject replaced or closed host p
   await gate.entered.promise;
   await runtime.close();
   gate.finished.resolve();
-  await assert.rejects(pending, { code: "conversation_closed" });
-  await assert.rejects(runtime.updateNativeConversationSettings(request), { code: "conversation_closed" });
+  await assert.rejects(pending, { code: "conversation_runtime_closed" });
+  await assert.rejects(runtime.updateNativeConversationSettings(request), { code: "conversation_handle_closed" });
   assert.deepEqual([acquisitions, updates], [1, 1]);
 });

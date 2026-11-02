@@ -1,3 +1,4 @@
+import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { createConversationProviderFactory } from "./provider.js";
 import { createConversationDeliveryTiming, normalizeConversationDeliveryHostStages } from "./deliveryTiming.js";
 import { normalizeConversationConfiguration } from "./configuration.js";
@@ -22,10 +23,13 @@ import { conversationAttachmentManifest } from "../../shared/conversation/attach
 import { createConversationChangeover, conversationContinuity, conversationHistoryVersions,
   conversationMessageIdentity, conversationMessageVersion, conversationNativeMessages, conversationRequestText } from "./continuity.js";
 
-// code stays the value callers branch on; messageCode names this sentence so a
-// client can show it in the user's language.
+/**
+ * A refusal for the caller. code is its own value, or one a client branches on
+ * shared with other sentences; messageCode names this sentence so a client can
+ * show it in the user's language.
+ */
 function failure(message, code, statusCode = 409, { messageCode, messageParams } = {}) {
-  return Object.assign(new Error(message), { code, statusCode }, messageCode ? { messageCode, messageParams: messageParams || {} } : {});
+  return new AppError(statusCode, message, { code, ...(messageCode ? { messageCode, messageParams } : {}) });
 }
 
 // The newest messages cancelled in one open conversation, refused if sent again.
@@ -139,14 +143,14 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
   // Send and its immediate admission share one authorization. Dispatch,
   // receipt admission and every other operation authorize again.
   async function access(context, id, operation, entry, grant) {
-    if (closed || entry?.disposed) throw failure("This conversation handle is closed.", "conversation_closed", 409, { messageCode: "assistant.conversation.handleClosed" });
+    if (closed || entry?.disposed) throw failure("This conversation handle is closed.", "conversation_handle_closed", 409, { messageCode: "assistant.conversation.handleClosed" });
     if (!grant?.has(operation)) {
       if (!await authorize({ context, conversationId: id, operation })) {
         throw failure("This conversation is not available to this identity.", "conversation_forbidden", 403);
       }
       grant?.add(operation);
     }
-    if (closed || entry?.disposed) throw failure("This conversation handle is closed.", "conversation_closed", 409, { messageCode: "assistant.conversation.handleClosed" });
+    if (closed || entry?.disposed) throw failure("This conversation handle is closed.", "conversation_handle_closed", 409, { messageCode: "assistant.conversation.handleClosed" });
   }
 
   function serial(entry, callback) {
@@ -240,7 +244,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
   function readTranscriptPage(entry, query) {
     if (!entry.conversation) return transcript.readConversationLogPage(entry.id, { ...query, presentation: completedEnvelope });
     if (typeof entry.conversation.transcript.readConversationLogPage !== "function") {
-      throw failure("This conversation does not supply paged history.", "conversation_unsupported", 400, { messageCode: "assistant.conversation.pagedHistoryUnsupported" });
+      throw failure("This conversation does not supply paged history.", "conversation_paged_history_unsupported", 400, { messageCode: "assistant.conversation.pagedHistoryUnsupported" });
     }
     return entry.conversation.transcript.readConversationLogPage(query);
   }
@@ -564,18 +568,18 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     if (entry.conversation) {
       entry.applicationTools = boundApplicationTools(entry.conversation);
       entry.engine = entry.conversation.engine;
-      if (requestedEngine && requestedEngine !== entry.engine) throw failure("The selected native engine changed.", "conversation_engine_mismatch", 409, { messageCode: "assistant.conversation.engineChanged" });
+      if (requestedEngine && requestedEngine !== entry.engine) throw failure("The selected native engine changed.", "conversation_engine_changed", 409, { messageCode: "assistant.conversation.engineChanged" });
       entry.driver = createDriver(entry.engine, entry.host);
       if (entry.conversation.commands) return;
       if (entry.conversation.native?.scoped) {
         entry.provider = await providers.open(entry.driver, { conversation: entry.conversation });
-        if (entry.disposed) throw failure("This conversation handle is disposed.", "conversation_closed", 409, { messageCode: "assistant.conversation.handleDisposed" });
+        if (entry.disposed) throw failure("This conversation handle is disposed.", "conversation_handle_disposed", 409, { messageCode: "assistant.conversation.handleDisposed" });
         return;
       }
       const state = await readState(entry);
-      if (entry.disposed) throw failure("This conversation handle is disposed.", "conversation_closed", 409, { messageCode: "assistant.conversation.handleDisposed" });
+      if (entry.disposed) throw failure("This conversation handle is disposed.", "conversation_handle_disposed", 409, { messageCode: "assistant.conversation.handleDisposed" });
       entry.provider = await openProvider(entry, entry.driver, state.binding, state.segmentId);
-      if (entry.disposed) throw failure("This conversation handle is disposed.", "conversation_closed", 409, { messageCode: "assistant.conversation.handleDisposed" });
+      if (entry.disposed) throw failure("This conversation handle is disposed.", "conversation_handle_disposed", 409, { messageCode: "assistant.conversation.handleDisposed" });
       return;
     }
     const binding = await storage.write(entry.id, async transaction => {
@@ -585,7 +589,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       const metadata = await transaction.readMetadata();
       entry.engine = metadata.runtime?.engine || requestedEngine || defaultEngine;
       if (completedEnvelope && !["codex", "claude", "opencode"].includes(entry.engine)) {
-        throw failure("Completed envelopes require a runtime-owned native conversation.", "conversation_unsupported", 400, { messageCode: "assistant.conversation.completedEnvelopesNeedNativeOwner" });
+        throw failure("Completed envelopes require a runtime-owned native conversation.", "conversation_completed_envelopes_need_native_owner", 400, { messageCode: "assistant.conversation.completedEnvelopesNeedNativeOwner" });
       }
       if (configuration) configuration = normalizeConversationConfiguration(configuration, { engine: entry.engine, defaultIntegrationId });
       const driver = entry.driver = createDriver(entry.engine, entry.host);
@@ -594,9 +598,9 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
           throw failure("This conversation needs its offline runtime-state upgrade before it can be opened. Its saved requests were not replayed or changed.", "conversation_storage_version");
         }
         if (hasUnfinishedConversationRewind(metadata.runtime)) {
-          throw failure("This conversation has an unfinished Undo operation from an earlier runtime. Inspect its saved native and local history offline before opening it; no history was changed.", "conversation_rewind_inspection_required", 409, { messageCode: "assistant.conversation.rewindInspectionBeforeOpen" });
+          throw failure("This conversation has an unfinished Undo operation from an earlier runtime. Inspect its saved native and local history offline before opening it; no history was changed.", "conversation_rewind_inspection_before_open", 409, { messageCode: "assistant.conversation.rewindInspectionBeforeOpen" });
         }
-        if (requestedEngine && requestedEngine !== entry.engine) throw failure("Use replace() to change this conversation's engine.", "conversation_engine_mismatch", 409, { messageCode: "assistant.conversation.useReplaceForEngine" });
+        if (requestedEngine && requestedEngine !== entry.engine) throw failure("Use replace() to change this conversation's engine.", "conversation_use_replace_for_engine", 409, { messageCode: "assistant.conversation.useReplaceForEngine" });
         driver.validateConfiguration(metadata.runtime.configuration);
         if (configuration && !isDeepStrictEqual(configuration, metadata.runtime.configuration)) {
           throw failure("Use configure() to change a saved conversation's settings.", "conversation_configuration_mismatch");
@@ -651,7 +655,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
 
   async function prepareCompletedResponse(entry, context, { messageId, turnId } = {}, { signal, toolSet } = {}) {
     if (!completedEnvelope || entry.conversation || !["codex", "claude", "opencode"].includes(entry.engine)) {
-      throw failure("This conversation does not own completed envelopes.", "conversation_unsupported", 400, { messageCode: "assistant.conversation.completedEnvelopesNotOwned" });
+      throw failure("This conversation does not own completed envelopes.", "conversation_completed_envelopes_not_owned", 400, { messageCode: "assistant.conversation.completedEnvelopesNotOwned" });
     }
     if (typeof messageId !== "string" || !messageId || typeof turnId !== "string" || !turnId || !(signal instanceof AbortSignal)) {
       throw new TypeError("Completed responses require their exact receipt and the application worker signal.");
@@ -667,7 +671,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
 
     async function exact(transaction, { retry = false } = {}) {
       if (closed || entry.disposed || entry.bindingOwner !== owner || entry.segmentId !== segmentId || entry.engine !== engine) {
-        throw failure("The completed response owner changed.", "conversation_tool_request_retired", 409, { messageCode: "assistant.conversation.responseOwnerChanged" });
+        throw failure("The completed response owner changed.", "conversation_response_owner_changed", 409, { messageCode: "assistant.conversation.responseOwnerChanged" });
       }
       if (entry.active) throw failure("Wait for the native response to finish.", "conversation_busy", 409, { messageCode: "assistant.conversation.waitForNativeResponse" });
       if (entry.executionFailure) throw entry.executionFailure;
@@ -681,13 +685,13 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
           authored.origin !== "application" || saved?.completedEnvelope !== true || saved.engine !== engine ||
           saved.segmentId !== segmentId || saved.status !== "complete" || saved.supersededBy ||
           typeof turn.assistant?.text !== "string" || !turn.assistant.text || !turn.assistant.messageId) {
-        throw failure("The completed response has no current verified receipt.", "conversation_completed_response_unavailable", 409, { messageCode: "assistant.conversation.completedResponseNoReceipt" });
+        throw failure("The completed response has no current verified receipt.", "conversation_completed_response_no_receipt", 409, { messageCode: "assistant.conversation.completedResponseNoReceipt" });
       }
       const turnIds = await transaction.listTurnIds();
       for (const id of turnIds.slice(turnIds.indexOf(turnId) + 1)) {
         const later = await transaction.readTurn(id);
         if (later.metadata?.runtime?.segmentId === segmentId && later.metadata.runtime.completedEnvelope === true) {
-          throw failure("A newer completed response owns this worker.", "conversation_tool_request_retired", 409, { messageCode: "assistant.conversation.newerResponseOwnsWorker" });
+          throw failure("A newer completed response owns this worker.", "conversation_newer_response_owns_worker", 409, { messageCode: "assistant.conversation.newerResponseOwnsWorker" });
         }
       }
       // These verified process references may refresh on cold inspection;
@@ -695,19 +699,19 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       const { codexAppServerRun: run, executionId, processDirectory, ...binding } = runtime.binding;
       if (engine === "codex" && (!saved.nativeTurnId || run?.outerTurnId !== messageId ||
           run.providerThreadId !== binding.threadId || run.providerTurnId !== saved.nativeTurnId || run.active || run.state !== "completed")) {
-        throw failure("The completed response has no exact native turn receipt.", "conversation_completed_response_unavailable", 409, { messageCode: "assistant.conversation.completedResponseNoTurnReceipt" });
+        throw failure("The completed response has no exact native turn receipt.", "conversation_completed_response_no_turn_receipt", 409, { messageCode: "assistant.conversation.completedResponseNoTurnReceipt" });
       }
       if (engine === "claude" && typeof saved.nativeToolAttempt !== "boolean") {
-        throw failure("The completed Claude response has no native tool-attempt evidence.", "conversation_completed_response_unavailable", 409, { messageCode: "assistant.conversation.completedClaudeNoToolEvidence" });
+        throw failure("The completed Claude response has no native tool-attempt evidence.", "conversation_completed_claude_no_tool_evidence", 409, { messageCode: "assistant.conversation.completedClaudeNoToolEvidence" });
       }
       const calls = turn.metadata.applicationTools || [];
       if (!Array.isArray(calls) || calls.length > 1 || calls.some(call => call.id !== toolCallId)) {
-        throw failure("This response already belongs to a different application operation.", "conversation_tool_receipt_conflict", 409, { messageCode: "assistant.conversation.responseOtherOperation" });
+        throw failure("This response already belongs to a different application operation.", "conversation_response_other_operation", 409, { messageCode: "assistant.conversation.responseOtherOperation" });
       }
       const identity = { configuration: runtime.configuration, binding, assistant: turn.assistant,
         nativeTurnId: saved.nativeTurnId, ...(engine === "claude" ? { nativeToolAttempt: saved.nativeToolAttempt } : {}) };
       if (captured && !isDeepStrictEqual(captured, identity)) {
-        throw failure("The completed response identity changed.", "conversation_tool_request_retired", 409, { messageCode: "assistant.conversation.responseIdentityChanged" });
+        throw failure("The completed response identity changed.", "conversation_response_identity_changed", 409, { messageCode: "assistant.conversation.responseIdentityChanged" });
       }
       return { runtime, turn, calls, identity };
     }
@@ -723,7 +727,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       await access(context, entry.id, "tool", entry);
       if (!observation?.accepted || observation.recoveryLimitation || observation.conversationTurn &&
           observation.conversationTurn.turnId !== turnId || engine === "codex" && observation.nativeTurnId !== saved.turn.metadata.runtime.nativeTurnId) {
-        throw failure("The native owner could not verify this response association.", "conversation_completed_response_unavailable", 409, { messageCode: "assistant.conversation.responseAssociationUnverified" });
+        throw failure("The native owner could not verify this response association.", "conversation_response_association_unverified", 409, { messageCode: "assistant.conversation.responseAssociationUnverified" });
       }
       // Canonical successful completion owns the exact final, including a
       // StructuredOutput carrier whose native history may contain only commentary.
@@ -746,27 +750,27 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
             signal.throwIfAborted();
             const decoded = readAssistantResponseEnvelope(saved.turn.assistant.text);
             if (decoded.kind !== "reply" || saved.turn.metadata.runtime.nativeToolAttempt === true || saved.calls.length) {
-              throw failure("This completed response does not own a plain reply.", "conversation_tool_receipt_conflict", 409, { messageCode: "assistant.conversation.completedResponseNoPlainReply" });
+              throw failure("This completed response does not own a plain reply.", "conversation_completed_response_no_plain_reply", 409, { messageCode: "assistant.conversation.completedResponseNoPlainReply" });
             }
             const text = decoded.text.trim();
             const target = await transaction.readTurn(input.turnId);
             if (!text || input.turnId === turnId || !target || isCompletedEnvelopeTurn(target) ||
                 target.metadata?.runtime?.engine || !(target.user || target.system) || saved.runtime.lastEngine !== engine ||
                 !saved.runtime.seen || typeof saved.runtime.seen !== "object" || Array.isArray(saved.runtime.seen)) {
-              throw failure("The completed reply has no current plain authored target.", "conversation_tool_receipt_conflict", 409, { messageCode: "assistant.conversation.completedReplyNoTarget" });
+              throw failure("The completed reply has no current plain authored target.", "conversation_completed_reply_no_target", 409, { messageCode: "assistant.conversation.completedReplyNoTarget" });
             }
             const assistantId = conversationMessageIdentity(input.turnId, { role: "assistant" });
             const published = saved.turn.metadata.runtime.publishedReplyTurnId;
             if (published !== undefined) {
               if (published !== input.turnId || !target.assistant || target.assistant.text !== text ||
                   saved.runtime.seen[assistantId] !== conversationMessageVersion(target.assistant, { includeData: true })) {
-                throw failure("The published reply target or text changed.", "conversation_tool_receipt_conflict", 409, { messageCode: "assistant.conversation.publishedReplyChanged" });
+                throw failure("The published reply target or text changed.", "conversation_published_reply_changed", 409, { messageCode: "assistant.conversation.publishedReplyChanged" });
               }
               signal.throwIfAborted();
               return target;
             }
             if (target.assistant || Object.hasOwn(saved.runtime.seen, assistantId)) {
-              throw failure("This plain reply target already has unassociated content or consumption.", "conversation_tool_receipt_conflict", 409, { messageCode: "assistant.conversation.replyTargetUsed" });
+              throw failure("This plain reply target already has unassociated content or consumption.", "conversation_reply_target_used", 409, { messageCode: "assistant.conversation.replyTargetUsed" });
             }
             // The runtime transcript uses this same reentrant wrapper: its
             // original upsert joins this draft rather than starting a second write.
@@ -783,10 +787,10 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       },
       tools: { execute(input, options = {}) {
         return serial(entry, async () => {
-          if (input?.id !== toolCallId) throw failure("The operation has a different completed response identity.", "conversation_tool_receipt_conflict", 409, { messageCode: "assistant.conversation.operationResponseIdentity" });
+          if (input?.id !== toolCallId) throw failure("The operation has a different completed response identity.", "conversation_operation_response_identity", 409, { messageCode: "assistant.conversation.operationResponseIdentity" });
           const saved = await inspect();
           if (saved.turn.metadata.runtime.publishedReplyTurnId !== undefined) {
-            throw failure("This completed response already published its plain reply.", "conversation_tool_receipt_conflict", 409, { messageCode: "assistant.conversation.plainReplyPublished" });
+            throw failure("This completed response already published its plain reply.", "conversation_plain_reply_published", 409, { messageCode: "assistant.conversation.plainReplyPublished" });
           }
           const workerSignal = options.signal && options.signal !== signal ? AbortSignal.any([signal, options.signal]) : signal;
           workerSignal.throwIfAborted();
@@ -799,7 +803,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
               if (calls.length !== 1 || next?.id !== toolCallId || previous &&
                   (previous.name !== next.name || previous.arguments !== next.arguments ||
                     previous.status !== "running" && next.status === "running")) {
-                throw failure("The saved response operation changed.", "conversation_tool_receipt_conflict", 409, { messageCode: "assistant.conversation.savedOperationChanged" });
+                throw failure("The saved response operation changed.", "conversation_saved_operation_changed", 409, { messageCode: "assistant.conversation.savedOperationChanged" });
               }
               await saveTools(entry, transaction, request, calls);
             });
@@ -869,7 +873,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
             assertCurrent() {
               active.controller.signal.throwIfAborted();
               if (entry.active !== active || current !== request || !request.accepted || request.finished) {
-                throw failure("This application tool's admitted message is no longer current.", "conversation_tool_request_retired", 409, { messageCode: "assistant.conversation.applicationToolMessageStale" });
+                throw failure("This application tool's admitted message is no longer current.", "conversation_application_tool_message_stale", 409, { messageCode: "assistant.conversation.applicationToolMessageStale" });
               }
             },
             ...(entry.conversation ? { assertCompletionCurrent() {
@@ -878,7 +882,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
                   !active.finishing || active.timedOut || problem || toolFailure || entry.executionFailure || entry.storageFailure ||
                   current !== request || !request.accepted || entry.lastAcceptedRequest !== request ||
                   entry.active && entry.active !== active) {
-                throw failure("This native completion's admitted message is no longer current.", "conversation_tool_request_retired", 409, { messageCode: "assistant.conversation.nativeCompletionMessageStale" });
+                throw failure("This native completion's admitted message is no longer current.", "conversation_native_completion_message_stale", 409, { messageCode: "assistant.conversation.nativeCompletionMessageStale" });
               }
             } } : {}) }));
         } } : {}),
@@ -1135,7 +1139,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         if (request.operation === "steer" && !request.steering) throw Object.assign(failure("There is no active native turn to steer. Send a new message.", "conversation_steer_turn_finished", 409, { messageCode: "assistant.conversation.noActiveTurnToSteer" }), { delivery: "not-sent" });
         if ((input.contextText || "").length > maximumContinuity) throw new Error("Conversation updates exceed the configured history budget. Renew the context with a continuity briefing before continuing.");
         if (request.input.goal && input.contextText) {
-          throw failure("Send a chat message to deliver the saved continuity briefing before starting a native terminal or goal.", "conversation_replacement_briefing_pending", 409, { messageCode: "assistant.conversation.briefingBeforeTerminal" });
+          throw failure("Send a chat message to deliver the saved continuity briefing before starting a native terminal or goal.", "conversation_briefing_before_terminal", 409, { messageCode: "assistant.conversation.briefingBeforeTerminal" });
         }
         const readAttachments = attachmentReader(request);
         // The bound host has already resolved its original attachment records;
@@ -1148,7 +1152,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         request.deliveryTiming?.("input-prepared");
         const localFiles = [...contextFiles.localFiles, ...files.localFiles];
         if (request.input.goal && localFiles.length) {
-          throw failure("Native goals require extracted text or supported image bytes for attachments.", "conversation_unsupported", 400, { messageCode: "assistant.conversation.goalAttachmentContentUnsupported" });
+          throw failure("Native goals require extracted text or supported image bytes for attachments.", "conversation_goal_attachment_content_unsupported", 400, { messageCode: "assistant.conversation.goalAttachmentContentUnsupported" });
         }
         attachmentManifest = conversationAttachmentManifest(localFiles);
         request.input.attachments = files.attachments;
@@ -1374,7 +1378,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
             if (entry.disposed || entry.active !== active || current !== initial || !initial.accepted || initial.finished || initial.sealed ||
                 entry.bindingOwner !== bindingOwner || entry.segmentId !== segmentId ||
                 messageId !== initial.input.messageId || threadId !== initial.nativeThreadId) {
-              throw failure("The native tool observation belongs to a retired response.", "conversation_tool_request_retired", 409, { messageCode: "assistant.conversation.toolObservationRetired" });
+              throw failure("The native tool observation belongs to a retired response.", "conversation_tool_observation_retired", 409, { messageCode: "assistant.conversation.toolObservationRetired" });
             }
             if (!completedToolSet.byName.has(name)) return;
             await storage.write(entry.id, async transaction => {
@@ -1386,7 +1390,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
                   saved?.engine !== engine || saved.segmentId !== segmentId || saved.completedEnvelope !== true ||
                   typeof saved.nativeToolAttempt !== "boolean" || saved.status !== "running" || saved.supersededBy ||
                   entry.active !== active || current !== initial || initial.finished || initial.sealed || active.controller.signal.aborted) {
-                throw failure("The native tool observation lost its exact admitted receipt.", "conversation_tool_request_retired", 409, { messageCode: "assistant.conversation.toolObservationReceiptLost" });
+                throw failure("The native tool observation lost its exact admitted receipt.", "conversation_tool_observation_receipt_lost", 409, { messageCode: "assistant.conversation.toolObservationReceiptLost" });
               }
               await transaction.updateTurnMetadata(initial.turnId, { runtime: { ...saved, nativeToolAttempt: true } });
             });
@@ -1565,7 +1569,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     try {
       await access(context, entry.id, goal ? "goal" : input?.steer === true ? "steer" : origin === "application" ? "wake" : "send", entry, grant);
       if (entry.conversation?.commands) {
-        if (origin !== "user" || goal) throw failure("This conversation supports its original application Send operation.", "conversation_unsupported", 400, { messageCode: "assistant.conversation.originalSendOnly" });
+        if (origin !== "user" || goal) throw failure("This conversation supports its original application Send operation.", "conversation_original_send_only", 400, { messageCode: "assistant.conversation.originalSendOnly" });
         return entry.conversation.commands.send(input, context);
       }
       if (entry.conversation?.native?.scoped) return entry.provider.sendNative({ input, context });
@@ -1614,10 +1618,10 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         typeof input.text !== "string" || !input.text.trim() && !attachmentIds.length || input.text.length > maximumInput) {
       throw failure("Bounded text or attachment IDs and a stable messageId are required.", "conversation_invalid_message", 400, { messageCode: "assistant.conversation.messageContentRequired" });
     }
-    if (!originalInput && input.attachments?.length) throw failure("Supply attachmentIds; only the application's resolver can supply file content.", "conversation_unsupported", 400, { messageCode: "assistant.conversation.attachmentIdsOnly" });
-    if (attachmentIds.length && !capabilities(entry).attachments) throw failure("File attachments are not configured for this conversation.", "conversation_unsupported", 400, { messageCode: "assistant.conversation.attachmentsNotConfigured" });
+    if (!originalInput && input.attachments?.length) throw failure("Supply attachmentIds; only the application's resolver can supply file content.", "conversation_attachment_ids_only", 400, { messageCode: "assistant.conversation.attachmentIdsOnly" });
+    if (attachmentIds.length && !capabilities(entry).attachments) throw failure("File attachments are not configured for this conversation.", "conversation_attachments_not_configured", 400, { messageCode: "assistant.conversation.attachmentsNotConfigured" });
     if (input.steer !== undefined && typeof input.steer !== "boolean") throw failure("steer must be a boolean.", "conversation_invalid_message", 400, { messageCode: "assistant.conversation.steerNotBoolean" });
-    if (input.steer && !entry.driver.capabilities.steering) throw failure("This connection does not support steering.", "conversation_unsupported", 400, { messageCode: "assistant.conversation.steeringUnsupported" });
+    if (input.steer && !entry.driver.capabilities.steering) throw failure("This connection does not support steering.", "conversation_steering_unsupported", 400, { messageCode: "assistant.conversation.steeringUnsupported" });
     let data;
     if (input.data !== undefined) {
       try {
@@ -1637,8 +1641,8 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     if (goal && goal.expectedSegmentId !== entry.segmentId) throw failure("The conversation changed before this goal command was sent.", "conversation_goal_changed", 409, { messageCode: "assistant.conversation.goalConversationChanged" });
     const pending = entry.active?.requests.get(message.messageId);
     if (pending && entry.engine !== "api" && !pending.admissionSettled) {
-      if (suppliedExclusions && !isDeepStrictEqual(pending.excludedMessageIds || [], suppliedExclusions)) throw failure("This messageId already belongs to different native history exclusions.", "conversation_message_conflict", 409, { messageCode: "assistant.conversation.messageIdExclusionsConflict" });
-      if (!entry.conversation && !sameRequest(pending.input, message)) throw failure("This messageId already belongs to different content.", "conversation_message_conflict", 409, { messageCode: "assistant.conversation.messageIdContentConflict" });
+      if (suppliedExclusions && !isDeepStrictEqual(pending.excludedMessageIds || [], suppliedExclusions)) throw failure("This messageId already belongs to different native history exclusions.", "conversation_message_id_exclusions_conflict", 409, { messageCode: "assistant.conversation.messageIdExclusionsConflict" });
+      if (!entry.conversation && !sameRequest(pending.input, message)) throw failure("This messageId already belongs to different content.", "conversation_message_id_content_conflict", 409, { messageCode: "assistant.conversation.messageIdContentConflict" });
       return { promise: pending.admission.promise };
     }
     const existing = await findSubmittedTurn(entry, message.messageId);
@@ -1649,13 +1653,13 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     if (existing) {
       const previous = submittedMessage(existing);
       if (!entry.conversation && !sameRequest(previous, message)) {
-        throw failure("This messageId already belongs to different content.", "conversation_message_conflict", 409, { messageCode: "assistant.conversation.messageIdContentConflict" });
+        throw failure("This messageId already belongs to different content.", "conversation_message_id_content_conflict", 409, { messageCode: "assistant.conversation.messageIdContentConflict" });
       }
       if (!entry.conversation && !nativePending) return { receipt: { status: "accepted", messageId: message.messageId, turnId: existing.turnId, origin, duplicate: true } };
     }
     if (pending && !entry.conversation) {
-      if (!sameRequest(pending.input, message)) throw failure("This messageId already belongs to different content.", "conversation_message_conflict", 409, { messageCode: "assistant.conversation.messageIdContentConflict" });
-      if (suppliedExclusions && !isDeepStrictEqual(pending.excludedMessageIds || [], suppliedExclusions)) throw failure("This messageId already belongs to different native history exclusions.", "conversation_message_conflict", 409, { messageCode: "assistant.conversation.messageIdExclusionsConflict" });
+      if (!sameRequest(pending.input, message)) throw failure("This messageId already belongs to different content.", "conversation_message_id_content_conflict", 409, { messageCode: "assistant.conversation.messageIdContentConflict" });
+      if (suppliedExclusions && !isDeepStrictEqual(pending.excludedMessageIds || [], suppliedExclusions)) throw failure("This messageId already belongs to different native history exclusions.", "conversation_message_id_exclusions_conflict", 409, { messageCode: "assistant.conversation.messageIdExclusionsConflict" });
       return { promise: pending.admission.promise };
     }
     const working = entry.active;
@@ -1696,7 +1700,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     // The bound state was read above unless this is an API conversation.
     try { configuration = entry.conversation ? (nativeState || await readState(entry)).configuration : await storage.write(entry.id, async transaction => {
       const metadata = await transaction.readMetadata();
-      if (metadata.runtime.replacement) throw failure("Finish the pending native replacement before sending another message.", "conversation_replacement_pending", 409, { messageCode: "assistant.conversation.replacementPendingBeforeSend" });
+      if (metadata.runtime.replacement) throw failure("Finish the pending native replacement before sending another message.", "conversation_replacement_pending_before_send", 409, { messageCode: "assistant.conversation.replacementPendingBeforeSend" });
       if (retainedSegments(metadata.runtime).some(segment => segment.segmentId !== entry.segmentId && segment.request?.messageId === message.messageId)) {
         throw failure("This message has uncertain delivery in a retained conversation. Select that engine and check its receipt before submitting it again.", "conversation_delivery_uncertain", 409, { messageCode: "assistant.conversation.retainedDeliveryUncertain" });
       }
@@ -1706,9 +1710,9 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         }
         if (entry.engine === "api") throw failure("The previous submission has uncertain delivery. It will not be resent automatically.", "conversation_delivery_uncertain", 409, { messageCode: "assistant.conversation.previousSubmissionUncertain" });
         if (metadata.runtime.request.messageId === message.messageId) {
-          if (!sameRequest(metadata.runtime.request, message)) throw failure("This messageId already belongs to different content.", "conversation_message_conflict", 409, { messageCode: "assistant.conversation.messageIdContentConflict" });
+          if (!sameRequest(metadata.runtime.request, message)) throw failure("This messageId already belongs to different content.", "conversation_message_id_content_conflict", 409, { messageCode: "assistant.conversation.messageIdContentConflict" });
           if (suppliedExclusions && !isDeepStrictEqual(metadata.runtime.request.excludedMessageIds || [], suppliedExclusions)) {
-            throw failure("This messageId already belongs to different native history exclusions.", "conversation_message_conflict", 409, { messageCode: "assistant.conversation.messageIdExclusionsConflict" });
+            throw failure("This messageId already belongs to different native history exclusions.", "conversation_message_id_exclusions_conflict", 409, { messageCode: "assistant.conversation.messageIdExclusionsConflict" });
           }
           requestAt = metadata.runtime.request.at;
         }
@@ -1816,7 +1820,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
   async function updateGoal(entry, context, input, representation, retryFinishedTurn = true) {
     await access(context, entry.id, "goal", entry);
     context?.signal?.throwIfAborted();
-    if (!capabilities(entry).goals) throw failure("This connection does not support native goals.", "conversation_unsupported", 400, { messageCode: "assistant.conversation.goalsUnsupported" });
+    if (!capabilities(entry).goals) throw failure("This connection does not support native goals.", "conversation_goals_unsupported", 400, { messageCode: "assistant.conversation.goalsUnsupported" });
     if (representation === "native") {
       const { operation } = await serial(entry, async () => {
         await access(context, entry.id, "goal", entry);
@@ -1840,7 +1844,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     const goal = { action: input.action, expectedSegmentId: input.expectedSegmentId, expectedGoalId: input.expectedGoalId || null };
     if (starting) {
       if (input.action === "set") {
-        if (input.tokenBudget != null && !entry.driver.capabilities.goalBudgets) throw failure("This connection does not support goal token budgets.", "conversation_unsupported", 400, { messageCode: "assistant.conversation.goalTokenBudgetsUnsupported" });
+        if (input.tokenBudget != null && !entry.driver.capabilities.goalBudgets) throw failure("This connection does not support goal token budgets.", "conversation_goal_token_budgets_unsupported", 400, { messageCode: "assistant.conversation.goalTokenBudgetsUnsupported" });
         if (typeof input.objective !== "string" || !input.objective.trim() || input.objective.length > 4000 ||
             input.tokenBudget != null && (!Number.isSafeInteger(input.tokenBudget) || input.tokenBudget < 1)) {
           throw failure("A bounded objective and optional positive token budget are required.", "conversation_invalid_goal", 400, { messageCode: "assistant.conversation.goalObjectiveInvalid" });
@@ -1851,13 +1855,13 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     }
     if (!starting && !input.expectedGoalId) throw failure("Select the goal to stop.", "conversation_invalid_goal", 400, { messageCode: "assistant.conversation.goalToStopRequired" });
     const delivery = entry.driver.capabilities.goalCommands?.[input.action]?.delivery;
-    if (!["message", "control"].includes(delivery)) throw failure("This connection does not support that goal command.", "conversation_unsupported", 400, { messageCode: "assistant.conversation.goalCommandUnsupported" });
+    if (!["message", "control"].includes(delivery)) throw failure("This connection does not support that goal command.", "conversation_goal_command_unsupported", 400, { messageCode: "assistant.conversation.goalCommandUnsupported" });
     const messageCommand = delivery === "message";
     if (messageCommand && (typeof input.messageId !== "string" || !/^[\w-]{1,128}$/u.test(input.messageId))) {
       throw failure("A stable messageId is required for this goal command.", "conversation_invalid_message", 400, { messageCode: "assistant.conversation.goalMessageIdRequired" });
     }
     if (conversationAttachmentIds(input.attachmentIds).length || input.attachments?.length) {
-      throw failure("This engine's native goal commands do not accept attachments.", "conversation_unsupported", 400, { messageCode: "assistant.conversation.goalAttachmentsUnsupported" });
+      throw failure("This engine's native goal commands do not accept attachments.", "conversation_goal_attachments_unsupported", 400, { messageCode: "assistant.conversation.goalAttachmentsUnsupported" });
     }
     const result = await serial(entry, async () => {
       await access(context, entry.id, "goal", entry);
@@ -1872,7 +1876,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         const history = await readTranscript(entry);
         const existing = history.find(turn => submittedMessage(turn)?.messageId === input.messageId);
         if (existing) {
-          if (!entry.conversation && !isDeepStrictEqual(submittedMessage(existing).goal, goal)) throw failure("This messageId already belongs to different content.", "conversation_message_conflict", 409, { messageCode: "assistant.conversation.messageIdContentConflict" });
+          if (!entry.conversation && !isDeepStrictEqual(submittedMessage(existing).goal, goal)) throw failure("This messageId already belongs to different content.", "conversation_message_id_content_conflict", 409, { messageCode: "assistant.conversation.messageIdContentConflict" });
           return { receipt: { status: "accepted", messageId: input.messageId, turnId: existing.turnId, origin: "user", duplicate: true } };
         }
       }
@@ -1885,7 +1889,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         throw failure("A goal command from an earlier runtime has unresolved delivery. Inspect its saved state before changing the goal.", "conversation_delivery_uncertain", 409, { messageCode: "assistant.conversation.earlierGoalCommandUnresolved" });
       }
       if (starting && (metadata.runtime.replacement || !entry.conversation && pendingSuccessor(metadata.runtime) || metadata.runtime.lastEngine !== entry.engine)) {
-        throw failure("Send a message to catch this AI up before starting or resuming its goal.", "conversation_replacement_briefing_pending", 409, { messageCode: "assistant.conversation.briefingBeforeGoal" });
+        throw failure("Send a message to catch this AI up before starting or resuming its goal.", "conversation_briefing_before_goal", 409, { messageCode: "assistant.conversation.briefingBeforeGoal" });
       }
       // Definitions keep native thread discovery stable. A control has no
       // admitted request, application-tool actor or executor of its own.
@@ -1977,7 +1981,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       return { ...receipt, recovered: result.recovered === true };
     }
     const metadata = { runtime: await readState(entry) };
-    if (metadata.runtime.replacement) throw failure("Finish the native replacement before recovering output.", "conversation_replacement_pending", 409, { messageCode: "assistant.conversation.replacementPendingBeforeRecovery" });
+    if (metadata.runtime.replacement) throw failure("Finish the native replacement before recovering output.", "conversation_replacement_pending_before_recovery", 409, { messageCode: "assistant.conversation.replacementPendingBeforeRecovery" });
     const savedRequests = [...metadata.runtime.predecessors, metadata.runtime].filter(segment => segment.request?.messageId === messageId);
     if (!existing && savedRequests.length && savedRequests.every(segment =>
       ["codex", "claude", "opencode"].includes(segment.engine) && segment.request.attempted === false && !segment.request.inspectionOnly &&
@@ -2020,7 +2024,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       await storage.write(entry.id, async transaction => {
         const current = await transaction.readMetadata();
         if (current.runtime.segmentId !== entry.segmentId || current.runtime.replacement) {
-          throw failure("Finish the native replacement before recovering output.", "conversation_replacement_pending", 409, { messageCode: "assistant.conversation.replacementPendingBeforeRecovery" });
+          throw failure("Finish the native replacement before recovering output.", "conversation_replacement_pending_before_recovery", 409, { messageCode: "assistant.conversation.replacementPendingBeforeRecovery" });
         }
         const exact = await transaction.readTurn(saved.turnId);
         const { error: _previousError, ...runtime } = exact.metadata.runtime;
@@ -2036,7 +2040,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     }
     const recovered = await storage.write(entry.id, async transaction => {
       const current = await transaction.readMetadata();
-      if (current.runtime.segmentId !== entry.segmentId || current.runtime.replacement) throw failure("Finish the native replacement before recovering output.", "conversation_replacement_pending", 409, { messageCode: "assistant.conversation.replacementPendingBeforeRecovery" });
+      if (current.runtime.segmentId !== entry.segmentId || current.runtime.replacement) throw failure("Finish the native replacement before recovering output.", "conversation_replacement_pending_before_recovery", 409, { messageCode: "assistant.conversation.replacementPendingBeforeRecovery" });
       const native = { ...observation, messageId };
       const results = [];
       const id = messageId;
@@ -2156,13 +2160,13 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
 
   async function replace(entry, context, input, selection = false, representation) {
     const operation = selection ? "select" : "replace";
-    if (completedEnvelope && input?.engine === "api") throw failure("Completed envelopes require a native engine.", "conversation_unsupported", 400, { messageCode: "assistant.conversation.completedEnvelopesNeedNativeEngine" });
+    if (completedEnvelope && input?.engine === "api") throw failure("Completed envelopes require a native engine.", "conversation_completed_envelopes_need_native_engine", 400, { messageCode: "assistant.conversation.completedEnvelopesNeedNativeEngine" });
     await access(context, entry.id, operation, entry);
     if (entry.conversation?.commands) {
-      if (!selection) throw failure("This conversation retains its original replacement policy.", "conversation_unsupported", 400, { messageCode: "assistant.conversation.replacementPolicyRetained" });
+      if (!selection) throw failure("This conversation retains its original replacement policy.", "conversation_replacement_policy_retained", 400, { messageCode: "assistant.conversation.replacementPolicyRetained" });
       return entry.conversation.commands.select(input, context);
     }
-    if (entry.conversation?.native?.scoped) throw failure("This scoped conversation retains its original selected profile.", "conversation_unsupported", 409, { messageCode: "assistant.conversation.selectedProfileRetained" });
+    if (entry.conversation?.native?.scoped) throw failure("This scoped conversation retains its original selected profile.", "conversation_selected_profile_retained", 409, { messageCode: "assistant.conversation.selectedProfileRetained" });
     const keys = selection ? ["operationId", "expectedSegmentId", "engine", "configuration", "retireNative"]
       : ["operationId", "expectedSegmentId", "reason", "engine", "configuration", "briefing"];
     if (!input || !/^[\w-]{1,128}$/u.test(input.operationId || "") || typeof input.expectedSegmentId !== "string" ||
@@ -2170,7 +2174,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         input.briefing !== undefined && typeof input.briefing !== "string" ||
         input.retireNative !== undefined && typeof input.retireNative !== "boolean" ||
         Object.keys(input).some(key => !keys.includes(key))) {
-      throw failure("Replacement needs an operationId, exact predecessor segment, and an engine-change, model-change or renewal reason.", "conversation_invalid_replacement", 400, { messageCode: "assistant.conversation.replacementRequestInvalid" });
+      throw failure("Replacement needs an operationId, exact predecessor segment, and an engine-change, model-change or renewal reason.", "conversation_replacement_request_invalid", 400, { messageCode: "assistant.conversation.replacementRequestInvalid" });
     }
     if (entry.active) throw failure("Stop the current turn before replacing its native conversation.", "conversation_busy", 409, { messageCode: "assistant.conversation.stopBeforeReplace" });
     if (entry.storageFailure) throw entry.storageFailure;
@@ -2179,12 +2183,12 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       const saved = await entry.conversation.state.read();
       const retry = saved?.replacement?.operationId === input.operationId;
       let nativeResult;
-      if (state.segmentId !== input.expectedSegmentId && !retry) throw failure("The native predecessor has changed. Read the conversation before replacing it.", "conversation_replacement_conflict", 409, { messageCode: "assistant.conversation.predecessorChanged" });
+      if (state.segmentId !== input.expectedSegmentId && !retry) throw failure("The native predecessor has changed. Read the conversation before replacing it.", "conversation_predecessor_changed", 409, { messageCode: "assistant.conversation.predecessorChanged" });
       if (selection) {
-        if (!entry.conversation.selection?.write) throw failure("This host requires its authorized assistant selection operation.", "conversation_unsupported", 409, { messageCode: "assistant.conversation.hostSelectionRequired" });
+        if (!entry.conversation.selection?.write) throw failure("This host requires its authorized assistant selection operation.", "conversation_host_selection_required", 409, { messageCode: "assistant.conversation.hostSelectionRequired" });
         await entry.conversation.selection.write(input, context);
       } else {
-        if (!input.briefing?.trim()) throw failure("Native replacement requires a continuity briefing.", "conversation_invalid_replacement", 400, { messageCode: "assistant.conversation.replacementBriefingRequired" });
+        if (!input.briefing?.trim()) throw failure("Native replacement requires a continuity briefing.", "conversation_replacement_briefing_required", 400, { messageCode: "assistant.conversation.replacementBriefingRequired" });
         const replacement = createConversationChangeover({ state: entry.conversation.state,
           identity: entry.conversation.identity, presentation: entry.conversation.presentation,
           agent: { async closeSession() { await entry.provider.dispose({ changeover: true, forgetConversationBinding: true }); return { ok: true }; } } });
@@ -2216,18 +2220,18 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     else if (request.configuration) request.configuration = normalizeConversationConfiguration(request.configuration);
     let state = (await readState(entry));
     if (hasUnfinishedConversationRewind(state)) {
-      throw failure("This conversation has an unfinished Undo operation from an earlier runtime. Inspect its saved native and local history offline before replacing it; no history was changed.", "conversation_rewind_inspection_required", 409, { messageCode: "assistant.conversation.rewindInspectionBeforeReplace" });
+      throw failure("This conversation has an unfinished Undo operation from an earlier runtime. Inspect its saved native and local history offline before replacing it; no history was changed.", "conversation_rewind_inspection_before_replace", 409, { messageCode: "assistant.conversation.rewindInspectionBeforeReplace" });
     }
     const completed = state.predecessors.find(item => item.replacement?.operationId === input.operationId);
     if (completed) {
-      if (!isDeepStrictEqual(completed.replacement, request)) throw failure("This replacement operationId already belongs to another request.", "conversation_replacement_conflict", 409, { messageCode: "assistant.conversation.replacementOperationConflict" });
+      if (!isDeepStrictEqual(completed.replacement, request)) throw failure("This replacement operationId already belongs to another request.", "conversation_replacement_operation_conflict", 409, { messageCode: "assistant.conversation.replacementOperationConflict" });
       return { operationId: input.operationId, segmentId: completed.successorId, duplicate: true };
     }
     let pending = state.replacement;
-    if (pending && !isDeepStrictEqual(pending.request, request)) throw failure("Retry the unfinished native replacement before starting another one.", "conversation_replacement_pending", 409, { messageCode: "assistant.conversation.replacementUnfinished" });
-    if (state.segmentId !== input.expectedSegmentId) throw failure("The native predecessor has changed. Read the conversation before replacing it.", "conversation_replacement_conflict", 409, { messageCode: "assistant.conversation.predecessorChanged" });
+    if (pending && !isDeepStrictEqual(pending.request, request)) throw failure("Retry the unfinished native replacement before starting another one.", "conversation_replacement_unfinished", 409, { messageCode: "assistant.conversation.replacementUnfinished" });
+    if (state.segmentId !== input.expectedSegmentId) throw failure("The native predecessor has changed. Read the conversation before replacing it.", "conversation_predecessor_changed", 409, { messageCode: "assistant.conversation.predecessorChanged" });
     if (!selection && retainedSegments(state).some(segment => segment.request)) throw failure("Resolve pending delivery before replacing native history. Another engine may be selected while its receipt stays pending.", "conversation_delivery_uncertain", 409, { messageCode: "assistant.conversation.pendingDeliveryBeforeReplace" });
-    if (!selection && !pending && pendingSuccessor(state)) throw failure("Deliver the previous replacement's briefing before replacing native history again.", "conversation_replacement_briefing_pending", 409, { messageCode: "assistant.conversation.briefingBeforeReplacement" });
+    if (!selection && !pending && pendingSuccessor(state)) throw failure("Deliver the previous replacement's briefing before replacing native history again.", "conversation_briefing_before_replacement", 409, { messageCode: "assistant.conversation.briefingBeforeReplacement" });
     if (entry.executionFailure && !pending) throw entry.executionFailure;
     const engine = pending?.engine || input.engine || state.engine;
     const configuration = pending?.configuration || (input.configuration
@@ -2280,7 +2284,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         const metadata = await transaction.readMetadata();
         if (metadata.runtime.segmentId !== input.expectedSegmentId || metadata.runtime.replacement &&
             !isDeepStrictEqual(metadata.runtime.replacement.request, request)) {
-          throw failure("The saved replacement changed before it could be written.", "conversation_replacement_conflict", 409, { messageCode: "assistant.conversation.replacementChangedBeforeWrite" });
+          throw failure("The saved replacement changed before it could be written.", "conversation_replacement_changed_before_write", 409, { messageCode: "assistant.conversation.replacementChangedBeforeWrite" });
         }
         metadata.runtime.replacement = pending;
         await transaction.writeMetadata(metadata);
@@ -2313,12 +2317,12 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
           const metadata = await transaction.readMetadata();
           state = metadata.runtime;
           if (state.segmentId !== input.expectedSegmentId || !isDeepStrictEqual(state.replacement?.request, request)) {
-            throw failure("The saved replacement changed before its binding was released.", "conversation_replacement_conflict", 409, { messageCode: "assistant.conversation.replacementChangedBeforeRelease" });
+            throw failure("The saved replacement changed before its binding was released.", "conversation_replacement_changed_before_release", 409, { messageCode: "assistant.conversation.replacementChangedBeforeRelease" });
           }
           await callback({
             async releaseBinding(replacement) {
               if (replacement && conversationNativeIdentity(state) !== replacement.previous.conversationId) {
-                throw failure("The native predecessor identity changed before its binding was released.", "conversation_replacement_conflict", 409, { messageCode: "assistant.conversation.predecessorChangedBeforeRelease" });
+                throw failure("The native predecessor identity changed before its binding was released.", "conversation_predecessor_changed_before_release", 409, { messageCode: "assistant.conversation.predecessorChangedBeforeRelease" });
               }
               releaseConversationRuntimeBinding(state, pending, request, engine);
             },
@@ -2345,7 +2349,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
           async inspect(expectedId) {
             const { runtime } = await storage.read(entry.id, transaction => transaction.readMetadata());
             if (runtime.segmentId !== input.expectedSegmentId || conversationNativeIdentity(runtime) !== expectedId) {
-              throw failure("The native predecessor identity changed or is incomplete.", "conversation_replacement_conflict", 409, { messageCode: "assistant.conversation.predecessorIncomplete" });
+              throw failure("The native predecessor identity changed or is incomplete.", "conversation_predecessor_incomplete", 409, { messageCode: "assistant.conversation.predecessorIncomplete" });
             }
             return { bindingNames: ["binding"], previous: { engineId: runtime.engine, conversationId: expectedId } };
           }
@@ -2397,39 +2401,39 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     // Internal host composition uses its existing admission/write lease. These
     // original coordinators share the scoped owner and introduce no entry or queue.
     async projectStoredPersistentConversation(options) {
-      if (closed) throw failure("This conversation runtime is closed.", "conversation_closed", 409, { messageCode: "assistant.conversation.runtimeClosed" });
+      if (closed) throw failure("This conversation runtime is closed.", "conversation_runtime_closed", 409, { messageCode: "assistant.conversation.runtimeClosed" });
       return projectStoredPersistentConversation(options);
     },
     async readPersistentConversation(options) {
-      if (closed) throw failure("This conversation runtime is closed.", "conversation_closed", 409, { messageCode: "assistant.conversation.runtimeClosed" });
+      if (closed) throw failure("This conversation runtime is closed.", "conversation_runtime_closed", 409, { messageCode: "assistant.conversation.runtimeClosed" });
       return readPersistentConversation(options);
     },
     async startPersistentConversationTurn(options) {
-      if (closed) throw failure("This conversation runtime is closed.", "conversation_closed", 409, { messageCode: "assistant.conversation.runtimeClosed" });
+      if (closed) throw failure("This conversation runtime is closed.", "conversation_runtime_closed", 409, { messageCode: "assistant.conversation.runtimeClosed" });
       return startPersistentConversationTurn(options);
     },
     async inspectPersistentConversationAdmission(options) {
-      if (closed) throw failure("This conversation runtime is closed.", "conversation_closed", 409, { messageCode: "assistant.conversation.runtimeClosed" });
+      if (closed) throw failure("This conversation runtime is closed.", "conversation_runtime_closed", 409, { messageCode: "assistant.conversation.runtimeClosed" });
       return inspectPersistentConversationAdmission(options);
     },
     async preparePersistentConversationChangeover(options) {
-      if (closed) throw failure("This conversation runtime is closed.", "conversation_closed", 409, { messageCode: "assistant.conversation.runtimeClosed" });
+      if (closed) throw failure("This conversation runtime is closed.", "conversation_runtime_closed", 409, { messageCode: "assistant.conversation.runtimeClosed" });
       return preparePersistentConversationChangeover(options);
     },
     async inspectPersistentConversationDelivery(options) {
-      if (closed) throw failure("This conversation runtime is closed.", "conversation_closed", 409, { messageCode: "assistant.conversation.runtimeClosed" });
+      if (closed) throw failure("This conversation runtime is closed.", "conversation_runtime_closed", 409, { messageCode: "assistant.conversation.runtimeClosed" });
       return inspectPersistentConversationDelivery(options);
     },
     async stopPersistentConversation(options) {
-      if (closed) throw failure("This conversation runtime is closed.", "conversation_closed", 409, { messageCode: "assistant.conversation.runtimeClosed" });
+      if (closed) throw failure("This conversation runtime is closed.", "conversation_runtime_closed", 409, { messageCode: "assistant.conversation.runtimeClosed" });
       return stopPersistentConversation(options);
     },
     async deletePersistentConversation(options) {
-      if (closed) throw failure("This conversation runtime is closed.", "conversation_closed", 409, { messageCode: "assistant.conversation.runtimeClosed" });
+      if (closed) throw failure("This conversation runtime is closed.", "conversation_runtime_closed", 409, { messageCode: "assistant.conversation.runtimeClosed" });
       return deletePersistentConversation(options);
     },
     async runScopedTurn(options = {}) {
-      if (closed) throw failure("This conversation runtime is closed.", "conversation_closed", 409, { messageCode: "assistant.conversation.runtimeClosed" });
+      if (closed) throw failure("This conversation runtime is closed.", "conversation_runtime_closed", 409, { messageCode: "assistant.conversation.runtimeClosed" });
       if (["createEphemeralConversation", "startEphemeralConversationTurn", "waitForEphemeralConversationTurn", "stopEphemeralConversation"]
         .some(name => typeof options.operations?.[name] !== "function")) {
         throw new TypeError("A scoped turn requires its existing admitted conversation operations.");
@@ -2492,7 +2496,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         throw new TypeError("Native renewal requires a configured conversation host.");
       }
       const prepared = await defaultHost.conversation({ id, context, input, operation: "generateRenewalHandover" });
-      if (closed) throw failure("This conversation runtime is closed.", "conversation_closed", 409, { messageCode: "assistant.conversation.runtimeClosed" });
+      if (closed) throw failure("This conversation runtime is closed.", "conversation_runtime_closed", 409, { messageCode: "assistant.conversation.runtimeClosed" });
       if (prepared?.sessionId !== id || !["codex", "claude", "opencode"].includes(prepared.engine) || !prepared.native ||
           !Object.hasOwn(prepared, "input") || !Object.hasOwn(prepared, "context")) {
         throw new TypeError("Native renewal requires its authorized host preparation.");
@@ -2507,7 +2511,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         throw new TypeError("Native renewal requires a configured conversation host.");
       }
       const prepared = await defaultHost.conversation({ id, context, input, operation: "seedRenewalHandover" });
-      if (closed) throw failure("This conversation runtime is closed.", "conversation_closed", 409, { messageCode: "assistant.conversation.runtimeClosed" });
+      if (closed) throw failure("This conversation runtime is closed.", "conversation_runtime_closed", 409, { messageCode: "assistant.conversation.runtimeClosed" });
       if (prepared?.sessionId !== id || !["codex", "claude", "opencode"].includes(prepared.engine) || !prepared.native ||
           !Object.hasOwn(prepared, "input") || !Object.hasOwn(prepared, "context")) {
         throw new TypeError("Native renewal requires its authorized host preparation.");
@@ -2517,16 +2521,16 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     async updateNativeConversationSettings({ id, context, input = {} } = {}) {
       if (typeof id !== "string" || !id.trim()) throw new TypeError("A conversation id is required.");
       await access(context, id, "configure");
-      if (closed) throw failure("This conversation runtime is closed.", "conversation_closed", 409, { messageCode: "assistant.conversation.runtimeClosed" });
+      if (closed) throw failure("This conversation runtime is closed.", "conversation_runtime_closed", 409, { messageCode: "assistant.conversation.runtimeClosed" });
       const prepared = await defaultHost?.conversation?.({ id, context, input, operation: "updateSettings" });
       if (prepared?.sessionId !== id || !prepared.native || !Object.hasOwn(prepared, "context")) {
         throw new TypeError("Native settings require their authorized host preparation.");
       }
       const driver = createDriver(prepared.engine, defaultHost);
       if (typeof driver.updateConversationSettings !== "function") {
-        throw failure("This provider does not support live native settings.", "conversation_unsupported", 409, { messageCode: "assistant.conversation.liveSettingsUnsupported" });
+        throw failure("This provider does not support live native settings.", "conversation_live_settings_unsupported", 409, { messageCode: "assistant.conversation.liveSettingsUnsupported" });
       }
-      if (closed) throw failure("This conversation runtime is closed.", "conversation_closed", 409, { messageCode: "assistant.conversation.runtimeClosed" });
+      if (closed) throw failure("This conversation runtime is closed.", "conversation_runtime_closed", 409, { messageCode: "assistant.conversation.runtimeClosed" });
       return driver.updateConversationSettings({ ...prepared, input });
     },
     // Readiness uses the same authorized host and original native owner without
@@ -2538,7 +2542,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         throw new TypeError("Native conversation readiness requires a configured conversation host.");
       }
       const prepared = await defaultHost.conversation({ id, context, operation: "ensure" });
-      if (closed) throw failure("This conversation runtime is closed.", "conversation_closed", 409, { messageCode: "assistant.conversation.runtimeClosed" });
+      if (closed) throw failure("This conversation runtime is closed.", "conversation_runtime_closed", 409, { messageCode: "assistant.conversation.runtimeClosed" });
       if (prepared?.sessionId !== id || !["codex", "claude", "opencode"].includes(prepared.engine) ||
           !prepared.native || !Object.hasOwn(prepared, "context")) {
         throw new TypeError("Native conversation readiness requires its authorized host preparation.");
@@ -2558,7 +2562,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         throw new TypeError("Native conversation creation requires a configured conversation host.");
       }
       const prepared = await defaultHost.conversation({ id, context, input, operation: "create" });
-      if (closed) throw failure("This conversation runtime is closed.", "conversation_closed", 409, { messageCode: "assistant.conversation.runtimeClosed" });
+      if (closed) throw failure("This conversation runtime is closed.", "conversation_runtime_closed", 409, { messageCode: "assistant.conversation.runtimeClosed" });
       if (prepared?.sessionId !== id || !["codex", "claude", "opencode"].includes(prepared.engine) || !prepared.native ||
           !Object.hasOwn(prepared, "input") || !Object.hasOwn(prepared, "context")) {
         throw new TypeError("Native conversation creation requires its authorized host preparation.");
@@ -2573,7 +2577,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       }
       const prepared = await defaultHost.conversation({ id, context, input,
         ...(options === undefined ? {} : { options }), operation: "runDetachedConversation" });
-      if (closed) throw failure("This conversation runtime is closed.", "conversation_closed", 409, { messageCode: "assistant.conversation.runtimeClosed" });
+      if (closed) throw failure("This conversation runtime is closed.", "conversation_runtime_closed", 409, { messageCode: "assistant.conversation.runtimeClosed" });
       if (prepared?.sessionId !== id || !["codex", "claude", "opencode"].includes(prepared.engine) || !prepared.native ||
           !Object.hasOwn(prepared, "input") || !Object.hasOwn(prepared, "context") || !Object.hasOwn(prepared, "options")) {
         throw new TypeError("Native detached execution requires its authorized host preparation.");
@@ -2586,7 +2590,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       const selectedHost = host || defaultHost;
       const conversation = selectedHost?.conversation ? await selectedHost.conversation({ id, context }) : null;
       if (completedEnvelope && (conversation || representation !== "canonical")) {
-        throw failure("Completed envelopes require runtime-owned canonical storage.", "conversation_unsupported", 400, { messageCode: "assistant.conversation.completedEnvelopesNeedStorage" });
+        throw failure("Completed envelopes require runtime-owned canonical storage.", "conversation_completed_envelopes_need_storage", 400, { messageCode: "assistant.conversation.completedEnvelopesNeedStorage" });
       }
       if (conversation && !persistCommentary) {
         throw new TypeError("Transient commentary requires a runtime-owned transcript; supplied conversations retain their host's policy.");
@@ -2640,9 +2644,9 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         });
       }
       await entry.initializing;
-      if (entry.disposed) throw failure("This conversation handle is disposed.", "conversation_closed", 409, { messageCode: "assistant.conversation.handleDisposed" });
-      if (host && !isDeepStrictEqual(host, entry.host)) throw failure("This open conversation already belongs to another host scope. Dispose its handle before reopening it on the original host.", "conversation_host_mismatch", 409, { messageCode: "assistant.conversation.hostScopeMismatch" });
-      if (engine && engine !== entry.engine) throw failure("Use replace() to change this conversation's engine.", "conversation_engine_mismatch", 409, { messageCode: "assistant.conversation.useReplaceForEngine" });
+      if (entry.disposed) throw failure("This conversation handle is disposed.", "conversation_handle_disposed", 409, { messageCode: "assistant.conversation.handleDisposed" });
+      if (host && !isDeepStrictEqual(host, entry.host)) throw failure("This open conversation already belongs to another host scope. Dispose its handle before reopening it on the original host.", "conversation_host_scope_mismatch", 409, { messageCode: "assistant.conversation.hostScopeMismatch" });
+      if (engine && engine !== entry.engine) throw failure("Use replace() to change this conversation's engine.", "conversation_use_replace_for_engine", 409, { messageCode: "assistant.conversation.useReplaceForEngine" });
       if (configuration) {
         const metadata = { runtime: await readState(entry) };
         const supplied = entry.conversation ? configuration
@@ -2678,7 +2682,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         },
         async wait(input) {
           await access(context, id, "read", entry);
-          if (entry.conversation?.commands) throw failure("This conversation uses its original read and subscription operations.", "conversation_unsupported", 400, { messageCode: "assistant.conversation.originalReadOnly" });
+          if (entry.conversation?.commands) throw failure("This conversation uses its original read and subscription operations.", "conversation_original_read_only", 400, { messageCode: "assistant.conversation.originalReadOnly" });
           if (entry.conversation?.native?.scoped) return entry.provider.waitNative({ input, context });
           await entry.pending;
           await entry.active?.done;
@@ -2692,7 +2696,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
           await access(context, id, "cancel", entry);
           if (entry.conversation?.commands) {
             if (typeof entry.conversation.commands.cancelDelivery !== "function") {
-              throw failure("This conversation cannot cancel one message.", "conversation_unsupported", 400,
+              throw failure("This conversation cannot cancel one message.", "conversation_message_cancel_unsupported", 400,
                 { messageCode: "assistant.conversation.messageCancelUnsupported" });
             }
             return entry.conversation.commands.cancelDelivery({ messageId }, context);
@@ -2715,19 +2719,19 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         },
         async configure(patch) {
           await access(context, id, "configure", entry);
-          if (entry.conversation?.commands) throw failure("Use the conversation's authorized selection operation.", "conversation_unsupported", 400, { messageCode: "assistant.conversation.authorizedSelectionRequired" });
+          if (entry.conversation?.commands) throw failure("Use the conversation's authorized selection operation.", "conversation_authorized_selection_required", 400, { messageCode: "assistant.conversation.authorizedSelectionRequired" });
           return serial(entry, async () => {
             await access(context, id, "configure", entry);
             if (entry.active) throw failure("Stop the current turn before changing its settings.", "conversation_busy", 409, { messageCode: "assistant.conversation.stopBeforeSettings" });
             if (entry.storageFailure) throw entry.storageFailure;
             if (entry.executionFailure) throw entry.executionFailure;
             if (entry.conversation) {
-              if (!entry.conversation.selection?.write) throw failure("This host requires its authorized assistant selection operation.", "conversation_unsupported", 409, { messageCode: "assistant.conversation.hostSelectionRequired" });
+              if (!entry.conversation.selection?.write) throw failure("This host requires its authorized assistant selection operation.", "conversation_host_selection_required", 409, { messageCode: "assistant.conversation.hostSelectionRequired" });
               return entry.conversation.selection.write({ configuration: patch }, context);
             }
             return storage.write(id, async transaction => {
               const metadata = await transaction.readMetadata();
-              if (metadata.runtime.replacement) throw failure("Finish the pending native replacement before changing settings.", "conversation_replacement_pending", 409, { messageCode: "assistant.conversation.replacementPendingBeforeSettings" });
+              if (metadata.runtime.replacement) throw failure("Finish the pending native replacement before changing settings.", "conversation_replacement_pending_before_settings", 409, { messageCode: "assistant.conversation.replacementPendingBeforeSettings" });
               if (metadata.runtime.request && (entry.engine === "api" || metadata.runtime.request.attempted || metadata.runtime.request.inspectionOnly)) {
                 throw failure("Resolve uncertain delivery before changing settings.", "conversation_delivery_uncertain", 409, { messageCode: "assistant.conversation.deliveryUncertainBeforeSettings" });
               }
@@ -2743,7 +2747,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         },
         async subscribe(listener) {
           await access(context, id, "subscribe", entry);
-          if (entry.conversation?.native?.scoped) throw failure("This scoped conversation retains its original event delivery.", "conversation_unsupported", 409, { messageCode: "assistant.conversation.eventDeliveryRetained" });
+          if (entry.conversation?.native?.scoped) throw failure("This scoped conversation retains its original event delivery.", "conversation_event_delivery_retained", 409, { messageCode: "assistant.conversation.eventDeliveryRetained" });
           if (typeof listener !== "function") throw new TypeError("A conversation listener is required.");
           const subscription = { context, listener };
           entry.listeners.add(subscription);
@@ -2909,7 +2913,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       const entry = entries.get(namespace);
       if (!entry || entry.disposed) return cleanupUnopened();
       if (entry.id !== sessionId || !entry.conversation) {
-        throw failure("Native cleanup requires its original bound conversation.", "conversation_host_mismatch", 409, { messageCode: "assistant.conversation.cleanupNeedsOriginalConversation" });
+        throw failure("Native cleanup requires its original bound conversation.", "conversation_cleanup_needs_original_conversation", 409, { messageCode: "assistant.conversation.cleanupNeedsOriginalConversation" });
       }
       await authorizeCleanup();
       const retained = await serial(entry, async () => {

@@ -1,24 +1,20 @@
+import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { codexAppServerDeliveredTurn, deleteCodexAppServerThread } from "./codexProvider.js";
 import { CODEX_HELPER_THREAD_LIFECYCLES } from "./codexHelperThreadLedger.js";
 import { codexAppServerErrorMessage as errorMessage, normalizeCodexRunText as normalizeText } from "./codexTurnState.js";
 
 export function createCodexHelperOwnershipError({ applicationName = "Application", errorPrefix = "" } = {}) {
   return function codexAppServerHelperOwnershipError(message = "", details = {}) {
-    const error = new Error(
-      normalizeText(message) ||
-      `${applicationName} could not prove ownership of a persisted low-cost assistant thread.`
+    const retryable = details.retryable !== false;
+    const error = new AppError(409,
+      normalizeText(message) || `${applicationName} could not prove ownership of a persisted low-cost assistant thread.`,
+      {
+        code: `${errorPrefix}codex_helper_ownership_blocked`,
+        details: { ...details, retryable },
+        ...(normalizeText(message) ? {} : { messageCode: "assistant.codex.helperOwnershipBlocked", messageParams: { applicationName } })
+      }
     );
-    error.code = `${errorPrefix}codex_helper_ownership_blocked`;
-    error.statusCode = 409;
-    if (!normalizeText(message)) {
-      error.messageCode = "assistant.codex.helperOwnershipBlocked";
-      error.messageParams = { applicationName };
-    }
-    error.retryable = details.retryable !== false;
-    error.details = {
-      ...details,
-      retryable: error.retryable
-    };
+    error.retryable = retryable;
     return error;
   };
 }

@@ -128,7 +128,7 @@ test("runtime normalizes destination settings and retains file-backed selection 
   conversation = await second.open({ id: "one" });
   assert.equal((await conversation.select(selection)).duplicate, true);
   await assert.rejects(conversation.select({ ...selection, configuration: { ...selection.configuration, model: "changed-model" } }),
-    { code: "conversation_replacement_conflict" });
+    { code: "conversation_replacement_operation_conflict" });
   const replacement = { operationId: "api", expectedSegmentId: selected.segmentId, reason: "engine-change", engine: "api",
     configuration: { systemPrompt: "API instructions.", integrationId: undefined, model: undefined, effort: undefined } };
   await conversation.replace(replacement);
@@ -140,7 +140,7 @@ test("runtime normalizes destination settings and retains file-backed selection 
   conversation = await f.runtime({ defaultIntegrationId: "later-default" }).open({ id: "one" });
   assert.equal((await conversation.replace(replacement)).duplicate, true);
   await assert.rejects(conversation.replace({ ...replacement, configuration: { ...replacement.configuration, integrationId: "changed" } }),
-    { code: "conversation_replacement_conflict" });
+    { code: "conversation_replacement_operation_conflict" });
   assert.deepEqual((await conversation.read()).configuration, { systemPrompt: "API instructions.", integrationId: "next-default" });
   assert.deepEqual((await conversation.read()).conversationLog, []);
 });
@@ -166,7 +166,7 @@ test("file-backed pending replacement keeps its admitted configuration across a 
   await first.close();
   const resumed = await f.runtime({ defaultIntegrationId: "later-default" }).open({ id: "one" });
   await assert.rejects(resumed.replace({ ...input, configuration: { ...input.configuration, systemPrompt: "Different instructions." } }),
-    { code: "conversation_replacement_pending" });
+    { code: "conversation_replacement_unfinished" });
   assert.deepEqual(await f.storage.read("one", transaction => transaction.readMetadata()), saved);
   await resumed.replace(input);
   assert.deepEqual((await resumed.read()).configuration, { systemPrompt: "Replacement instructions.", integrationId: "assistant" });
@@ -197,5 +197,5 @@ test("file-backed OpenCode selections keep compatible bindings and reserve a fre
   assert.equal((await reopened.select(selection)).duplicate, true);
   assert.deepEqual(await f.storage.read("open-code", tx => tx.readMetadata()), saved);
   await assert.rejects(reopened.select({ ...selection, configuration: { ...selection.configuration, integrationId: "different" } }),
-    { code: "conversation_replacement_conflict" });
+    { code: "conversation_replacement_operation_conflict" });
 });

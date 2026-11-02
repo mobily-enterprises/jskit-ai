@@ -2344,7 +2344,7 @@ test("Codex retries retain their frozen local file manifest and cannot retarget 
 test("Codex goal controls reject local attachments before native work", async t => {
   const f = await fixture(t, { attachments: { resolve: nativeAttachmentResolver } });
   await assert.rejects(f.conversation.updateGoal({ action: "set", messageId: "local-goal", objective: "Inspect the files",
-    attachmentIds: ["image", "file"], expectedSegmentId: (await f.conversation.read()).segmentId }), { code: "conversation_unsupported" });
+    attachmentIds: ["image", "file"], expectedSegmentId: (await f.conversation.read()).segmentId }), { code: "conversation_goal_attachments_unsupported" });
   assert.equal((await f.conversation.read()).conversationLog.length, 0);
   await assert.rejects(readFile(path.join(f.directory, "trace.jsonl")), { code: "ENOENT" });
 });
@@ -3259,7 +3259,7 @@ for (const ending of ["steer", "close"]) test(`transient native completion decli
     const closing = runtime.close();
     releaseAuthorization.resolve();
     await closing;
-    await assert.rejects(conversation.read(), { code: "conversation_closed" });
+    await assert.rejects(conversation.read(), { code: "conversation_handle_closed" });
   }
   assert.equal(events.some(event => event.type === "message" && event.status === "complete" &&
     event.role === "commentary" && event.text === "Checking the numbers."), false,

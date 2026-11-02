@@ -97,7 +97,7 @@ test("saved persistent history projects receipts and pages without native observ
   assert.equal(result.page.conversationLog[0].user.receipt, false);
   assert.deepEqual(calls.map(([kind]) => kind), ["log", "page"]);
   await runtime.close();
-  await assert.rejects(runtime.projectStoredPersistentConversation(options), { code: "conversation_closed" });
+  await assert.rejects(runtime.projectStoredPersistentConversation(options), { code: "conversation_runtime_closed" });
 });
 
 test("a standalone Claude consumer reuses, updates and replaces processes without changing native history", async () => {
@@ -725,8 +725,8 @@ test("a deleted logical conversation retires its open entry without opening anot
     const handle = await runtime.open({ id: "session", context: { chat: "one" } });
     await handle.subscribe(() => {});
     assert.deepEqual(await runtime.retireOpenConversation({ namespace: "temporary-one", sessionId: "session" }), { retired: true });
-    await assert.rejects(handle.read(), { code: "conversation_closed" });
-    await assert.rejects(handle.subscribe(() => {}), { code: "conversation_closed" });
+    await assert.rejects(handle.read(), { code: "conversation_handle_closed" });
+    await assert.rejects(handle.subscribe(() => {}), { code: "conversation_handle_closed" });
     assert.deepEqual(await runtime.retireOpenConversation({ namespace: "temporary-one", sessionId: "session" }), { retired: false },
       "an absent entry is already retired; nothing is opened to retire it");
     assert.deepEqual(await runtime.retireOpenConversation({ namespace: "temporary-two", sessionId: "session" }), { retired: false });

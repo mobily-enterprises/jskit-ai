@@ -1,3 +1,4 @@
+import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { requireAuth } from "@jskit-ai/kernel/server/runtime";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { normalizePositiveInteger, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
@@ -283,11 +284,7 @@ function serializedByteLength(value) {
 }
 
 function createToolError(status, code, message) {
-  const error = new Error(message);
-  error.status = status;
-  error.statusCode = status;
-  error.code = code;
-  return error;
+  return new AppError(status, message, { code });
 }
 
 function ensureSerializedSize(value, maxBytes, { code = "assistant_tool_result_too_large", label = "Tool result" } = {}) {

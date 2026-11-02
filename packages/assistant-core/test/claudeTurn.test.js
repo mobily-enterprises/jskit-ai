@@ -1618,7 +1618,7 @@ for (const tools of [true, false]) test(`Claude supplied common runtime checkpoi
   assert.equal(typeof f.entry.command.finishIfCurrent, "function");
   if (tools) {
     await f.loadContract();
-    assert.throws(() => f.admissions.at(-1).assertCompletionCurrent(), { code: "conversation_tool_request_retired" });
+    assert.throws(() => f.admissions.at(-1).assertCompletionCurrent(), { code: "conversation_native_completion_message_stale" });
   } else assert.equal(f.entry.command.tools, undefined);
   await f.frame({ type: "result", subtype: "success", result: "Where would you try the application?", uuid: "question-final" });
   await f.conversation.wait();
@@ -1655,7 +1655,7 @@ for (const worker of [false, true]) test(`Claude supplied common completion join
     await new Promise(resolve => setImmediate(resolve));
   }
   await f.loadContract("successor-contract");
-  assert.throws(() => first.assertCompletionCurrent(), { code: "conversation_tool_request_retired" });
+  assert.throws(() => first.assertCompletionCurrent(), { code: "conversation_native_completion_message_stale" });
   await f.frame({ type: "result", subtype: "success", result: "The successor question", uuid: "successor-final" });
   if (worker) {
     assert.equal(f.checkpoints.length, 0, "Foreground completion cannot checkpoint live background work");
@@ -1668,7 +1668,7 @@ for (const worker of [false, true]) test(`Claude supplied common completion join
   assert.equal(f.checkpoints.length, 1);
   assert.equal(f.checkpoints[0].final.inputMessageId, claudeNativeMessageId("common-successor"));
   assert.equal(f.checkpoints[0].admission.messageId, "common-successor");
-  assert.throws(() => first.assertCompletionCurrent(), { code: "conversation_tool_request_retired" });
+  assert.throws(() => first.assertCompletionCurrent(), { code: "conversation_native_completion_message_stale" });
 });
 
 for (const preceding of [null, "task_updated", "background_tasks_changed"])
@@ -1741,7 +1741,7 @@ for (const cancelled of [false, true]) test(`Claude supplied native settlement r
     assert.equal(f.entry.nativeTurn.read().active, false);
     assert.equal(f.entry.turn.active, true);
     assert.equal(f.checkpoints.length, 0, "Native queue does not await the reserved common admission");
-    assert.throws(() => first.assertCompletionCurrent(), { code: "conversation_tool_request_retired" });
+    assert.throws(() => first.assertCompletionCurrent(), { code: "conversation_native_completion_message_stale" });
     if (cancelled) cancellation = f.conversation.cancel();
   } finally { held.resolve(); }
   await cancellation;

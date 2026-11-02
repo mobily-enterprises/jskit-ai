@@ -222,8 +222,8 @@ test("native replacement saves preparation before close and retries the same ine
   assert.equal(successor.binding.sent, false);
   assert.equal(successor.binding.executionId, "");
   assert.equal(nativeIds.size, 1, "Opening a successor handle must not start a native process");
-  await assert.rejects(f.conversation.send({ messageId: "early", text: "Too early" }), { code: "conversation_replacement_pending" });
-  await assert.rejects(f.conversation.replace({ ...operation, briefing: "Changed" }), { code: "conversation_replacement_pending" });
+  await assert.rejects(f.conversation.send({ messageId: "early", text: "Too early" }), { code: "conversation_replacement_pending_before_send" });
+  await assert.rejects(f.conversation.replace({ ...operation, briefing: "Changed" }), { code: "conversation_replacement_unfinished" });
   await f.first.close();
   failCommit = false;
   const resumed = await f.runtime().open({ id: "conversation" });
@@ -1177,7 +1177,7 @@ test("Claude native goal commands use ordinary admission, pause retains the goal
   const goal = await f.conversation.readGoal();
   assert.equal(goal.status, "active");
   assert.equal((await f.conversation.updateGoal(start)).duplicate, true);
-  await assert.rejects(f.conversation.updateGoal({ ...start, objective: "Different" }), { code: "conversation_message_conflict" });
+  await assert.rejects(f.conversation.updateGoal({ ...start, objective: "Different" }), { code: "conversation_message_id_content_conflict" });
   const action = { expectedSegmentId: segmentId, expectedGoalId: goal.id };
   await assert.rejects(f.conversation.updateGoal({ ...action, action: "pause", expectedGoalId: "old-goal" }), /goal changed/u);
   await assert.rejects(f.conversation.updateGoal({ ...action, action: "cancel" }), /messageId/u);
@@ -1245,7 +1245,7 @@ test("Claude rejects reserved goals and waits for ordinary Send to deliver a rep
   await f.conversation.replace({ operationId: "renew-goal", reason: "renewal", expectedSegmentId: state.segmentId });
   state = await f.conversation.read();
   const goal = { action: "set", objective: "Tests pass", messageId: "goal-after-renewal", expectedSegmentId: state.segmentId };
-  await assert.rejects(f.conversation.updateGoal(goal), { code: "conversation_replacement_briefing_pending" });
+  await assert.rejects(f.conversation.updateGoal(goal), { code: "conversation_briefing_before_goal" });
   await f.conversation.wait();
   assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
   await f.conversation.send({ messageId: "catch-up", text: "Continue" });
@@ -2374,7 +2374,7 @@ test("completed Claude native-tool tracking propagates its receipt write failure
     assert.equal(saved.metadata.runtime.nativeToolAttempt, false);
     assert.equal(attempts, 1, "The awaited native callback does not swallow or repeat a failed receipt write");
     await assert.rejects(f.prepare({ messageId: receipt.messageId, turnId: receipt.turnId }),
-      error => error.code === "conversation_completed_response_unavailable");
+      error => error.code === "conversation_completed_response_no_receipt");
     assert.equal(f.effects(), 0);
   } finally { await f.close(); }
 });
@@ -2489,7 +2489,7 @@ test("completed Claude retained wake exclusions cannot change on a same-ID retry
     assert.deepEqual(retained.runtime.request.seen, before.runtime.request.seen);
     assert.equal(retained.runtime.request.message, before.runtime.request.message);
     await assert.rejects(f.conversation.wake({ messageId: "lost-exclusions", text: "lost" }, options),
-      error => error.code === "conversation_message_conflict");
+      error => error.code === "conversation_message_id_exclusions_conflict");
     assert.deepEqual((await f.storage.read("conversation", tx => tx.readMetadata())).runtime.request, retained.runtime.request);
     assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
     await assert.rejects(f.conversation.wake({ messageId: "different-exclusions", text: "Read a number" }, { excludedMessageIds: ["batch-a"] }),
@@ -2503,7 +2503,7 @@ test("completed Claude retained wake exclusions cannot change on a same-ID retry
     });
     const old = await f.storage.read("conversation", tx => tx.readMetadata());
     await assert.rejects(f.conversation.wake({ messageId: "old-exclusions", text: "Read a number" }, { excludedMessageIds: ["batch-a"] }),
-      error => error.code === "conversation_message_conflict");
+      error => error.code === "conversation_message_id_exclusions_conflict");
     assert.deepEqual((await f.storage.read("conversation", tx => tx.readMetadata())).runtime.request, old.runtime.request);
     assert.equal(f.effects(), 0);
   } finally { await f.close(); }
@@ -2661,8 +2661,12 @@ test("completed Claude prepared reply refuses foreign targets, existing finals a
     });
     const prepared = await f.prepare(receipt);
     const before = await f.storage.read("conversation", tx => tx.readMetadata());
-    for (const turnId of ["missing", receipt.turnId, populated.turnId, consumed.turnId, owned.turnId]) {
-      await assert.rejects(prepared.publishReply({ turnId }), error => error.code === "conversation_tool_receipt_conflict");
+    for (const [turnId, code] of [
+      ["missing", "conversation_completed_reply_no_target"], [receipt.turnId, "conversation_completed_reply_no_target"],
+      [populated.turnId, "conversation_reply_target_used"], [consumed.turnId, "conversation_reply_target_used"],
+      [owned.turnId, "conversation_completed_reply_no_target"]
+    ]) {
+      await assert.rejects(prepared.publishReply({ turnId }), error => error.code === code);
     }
     assert.equal((await f.storage.read("conversation", tx => tx.readTurn(populated.turnId))).assistant.text, "Unassociated final");
     assert.equal((await f.storage.read("conversation", tx => tx.readTurn(consumed.turnId))).assistant, null);

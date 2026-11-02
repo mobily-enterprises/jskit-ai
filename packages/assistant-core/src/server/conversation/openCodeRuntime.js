@@ -1,3 +1,4 @@
+import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import {
   OPENCODE_INTERRUPT_TIMEOUT_MS, waitForOpenCodeFinalResponse, openCodeLastAssistantResult, inspectOpenCodeMessageAdmission, observeOpenCodeEvents,
   openCodeMessageRows, openCodeRowsForInput, readOpenCodeMessagesUntil, openCodePersistentConversationMessages, openCodeStructuredOutput, projectOpenCodeConversationMessages, waitForOpenCodeMessages, steerOpenCodeTurn, dispatchOpenCodeTurn, observeOpenCodeTurnCompletion, runOpenCodeConversationTurn
@@ -218,8 +219,8 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope, storageI
     const stopping = (async () => {
       const proof = startup ? await startup.retryCleanup() : await target.server.stop();
       if (proof?.exited !== true) {
-        throw Object.assign(new Error("OpenCode process exit could not be verified."), {
-          code: "assistant_opencode_stop_unverified", details: {}, statusCode: 503
+        throw new AppError(503, "OpenCode process exit could not be verified.", {
+          code: "assistant_opencode_stop_unverified", details: {}
         });
       }
       if (sharedProcess === target) sharedProcess = null;
@@ -277,8 +278,8 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope, storageI
       else await (state.idle ||= Promise.withResolvers()).promise;
     } catch (error) {
       if (sharedProcess !== shared) return;
-      throw Object.assign(new Error("OpenCode could not load the changed AI connection for this work. Send your message again."), {
-        cause: error, code: "assistant_opencode_connection_reload_failed", details: {}, statusCode: 503
+      throw new AppError(503, "OpenCode could not load the changed AI connection for this work. Send your message again.", {
+        cause: error, code: "assistant_opencode_connection_reload_failed", details: {}
       });
     }
   }
@@ -967,8 +968,8 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope, storageI
     // A new native turn starts only on its directory's current credentials.
     while (!tracked.active && !directoryCurrent(target.workdir)) await waitForDirectory(target.workdir);
     if (tracked.active) {
-      throw Object.assign(new Error("This conversation is still working."), {
-        code: "assistant_opencode_conversation_busy", details: {}, statusCode: 409
+      throw new AppError(409, "This conversation is still working.", {
+        code: "assistant_opencode_conversation_busy", details: {}
       });
     }
     tracked.active = true;
@@ -1064,16 +1065,16 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope, storageI
           signal: AbortSignal.timeout(OPENCODE_INTERRUPT_TIMEOUT_MS)
         }) : null;
         if (confirmed !== true || status && status.type !== "idle") {
-          throw Object.assign(new Error("OpenCode did not confirm Stop. Try Stop again."), {
-            code: "assistant_opencode_interrupt_unconfirmed", details: {}, statusCode: 502
+          throw new AppError(502, "OpenCode did not confirm Stop. Try Stop again.", {
+            code: "assistant_opencode_interrupt_unconfirmed", details: {}
           });
         }
       }
     } catch (error) {
       if (persistent && error.statusCode === 404) return { conversationId, ok: true, stopped: true };
       if (error?.name === "TimeoutError") {
-        throw Object.assign(new Error("OpenCode did not confirm Stop within 5 seconds. Try Stop again."), {
-          code: "assistant_opencode_interrupt_timeout", details: {}, statusCode: 504
+        throw new AppError(504, "OpenCode did not confirm Stop within 5 seconds. Try Stop again.", {
+          code: "assistant_opencode_interrupt_timeout", details: {}
         });
       }
       throw error;
@@ -1418,9 +1419,9 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope, storageI
         // Match the native latest-user order, including its ID tie-breaker.
         if (!Number.isFinite(created) || !Number.isFinite(recoveryCreated) ||
             !(created > recoveryCreated || (created === recoveryCreated && message.id > recoveryReceipt.id))) {
-          throw Object.assign(new Error(
-            "OpenCode could not confirm that the new input follows its final-answer recovery. The admitted message was not resent."
-          ), { code: "assistant_opencode_observation_lost", details: {}, statusCode: 503 });
+          throw new AppError(503,
+            "OpenCode could not confirm that the new input follows its final-answer recovery. The admitted message was not resent.",
+            { code: "assistant_opencode_observation_lost", details: {} });
         }
       } catch (error) {
         recoveryObservationError = error;
@@ -1850,15 +1851,15 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope, storageI
         signal: AbortSignal.timeout(OPENCODE_INTERRUPT_TIMEOUT_MS)
       });
       if (confirmed !== true) {
-        throw Object.assign(new Error("OpenCode did not confirm Stop. Try Stop again."), {
-          code: "assistant_opencode_interrupt_unconfirmed", details: {}, statusCode: 502
+        throw new AppError(502, "OpenCode did not confirm Stop. Try Stop again.", {
+          code: "assistant_opencode_interrupt_unconfirmed", details: {}
         });
       }
     } catch (error) {
       if (turn) turn.interruptRequested = false;
       if (error?.name === "TimeoutError") {
-        throw Object.assign(new Error("OpenCode did not confirm Stop within 5 seconds. Try Stop again."), {
-          code: "assistant_opencode_interrupt_timeout", details: {}, statusCode: 504
+        throw new AppError(504, "OpenCode did not confirm Stop within 5 seconds. Try Stop again.", {
+          code: "assistant_opencode_interrupt_timeout", details: {}
         });
       }
       throw error;

@@ -154,7 +154,7 @@ test("authorized image bytes reach the API once and only safe receipts enter sto
   assert.doesNotMatch(JSON.stringify(state), /privatePath|private\/upload|iVBOR/);
   assert.equal((await f.conversation.send(input)).duplicate, true);
   assert.equal(f.reads.length, 1, "An accepted retry returns its receipt without rereading files or resending");
-  await assert.rejects(f.conversation.send({ ...input, attachmentIds: ["different"] }), { code: "conversation_message_conflict" });
+  await assert.rejects(f.conversation.send({ ...input, attachmentIds: ["different"] }), { code: "conversation_message_id_content_conflict" });
 });
 
 test("API history and continuity reauthorize files after reopen and renewal", async t => {
@@ -214,7 +214,7 @@ test("invalid IDs and caller-supplied attachment content do not reach the resolv
   for (const attachmentIds of [null, "picture", [""], ["picture", "picture"], [{}], Array.from({ length: 11 }, (_, i) => String(i))]) {
     await assert.rejects(f.conversation.send({ ...input, attachmentIds }), { code: "conversation_invalid_attachments" });
   }
-  await assert.rejects(f.conversation.send({ ...input, attachments: [resolution()] }), { code: "conversation_unsupported" });
+  await assert.rejects(f.conversation.send({ ...input, attachments: [resolution()] }), { code: "conversation_attachment_ids_only" });
   assert.equal(f.reads.length, 0);
   assert.equal(f.requests.length, 0);
 });

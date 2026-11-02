@@ -91,7 +91,7 @@ as not sent with `conversation_message_cancelled`. It also stops a submission
 that holds the message, and afterwards discards its unconfirmed request or
 pending native attempt. A message already accepted stays history. An
 application conversation provides this as `cancelDelivery({ messageId })`;
-without it the operation answers `conversation_unsupported`. Browser inputs cannot set the actor,
+without it the operation answers `conversation_message_cancel_unsupported`. Browser inputs cannot set the actor,
 native host or engine context.
 `readConversation(id, { beforeTurnId, limit, signal })` optionally requests an
 earlier or bounded page through the same authenticated GET. Its query contains

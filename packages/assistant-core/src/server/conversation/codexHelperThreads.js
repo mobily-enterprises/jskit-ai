@@ -1,3 +1,4 @@
+import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import crypto from "node:crypto";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { createCodexHelperOwnershipError, prepareDetachedCodexHelperThread } from "./codexHelperExecution.js";
@@ -68,13 +69,10 @@ export function createCodexHelperThreadLifecycle({
   }
 
   function codexAppServerHelperThreadUnavailableError(threadId = "") {
-    const error = new Error(
-      "This low-cost assistant thread is no longer available. Start the background task again instead of reusing another assistant conversation."
+    const error = new AppError(409,
+      "This low-cost assistant thread is no longer available. Start the background task again instead of reusing another assistant conversation.",
+      { code: `${errorPrefix}codex_helper_thread_unavailable`, messageCode: "assistant.codex.helperThreadUnavailable" }
     );
-    error.code = `${errorPrefix}codex_helper_thread_unavailable`;
-    error.statusCode = 409;
-    error.messageCode = "assistant.codex.helperThreadUnavailable";
-    error.messageParams = {};
     error.threadId = normalizeText(threadId);
     return error;
   }
@@ -351,22 +349,23 @@ export function createCodexHelperThreadLifecycle({
   }
 
   function codexAppServerHelperThreadCleanupError(record = {}, error = null, interruptError = null) {
-    const failure = new Error(
-      `${applicationName} could not retire a low-cost assistant thread. Retry cleanup before shutting down its Codex provider.`
+    const failure = new AppError(503,
+      `${applicationName} could not retire a low-cost assistant thread. Retry cleanup before shutting down its Codex provider.`,
+      {
+        code: `${errorPrefix}codex_helper_thread_cleanup_failed`,
+        details: {
+          cleanupError: errorMessage(error, "Codex helper thread deletion failed."),
+          ...(interruptError
+            ? { interruptError: errorMessage(interruptError, "Codex helper turn interruption failed.") }
+            : {}),
+          retryable: true,
+          sessionId: normalizeText(record.sessionId),
+          threadId: normalizeText(record.threadId),
+          turnId: normalizeText(record.turnId)
+        }
+      }
     );
-    failure.code = `${errorPrefix}codex_helper_thread_cleanup_failed`;
-    failure.statusCode = 503;
     failure.retryable = true;
-    failure.details = {
-      cleanupError: errorMessage(error, "Codex helper thread deletion failed."),
-      ...(interruptError
-        ? { interruptError: errorMessage(interruptError, "Codex helper turn interruption failed.") }
-        : {}),
-      retryable: true,
-      sessionId: normalizeText(record.sessionId),
-      threadId: normalizeText(record.threadId),
-      turnId: normalizeText(record.turnId)
-    };
     return failure;
   }
 
@@ -473,16 +472,11 @@ export function createCodexHelperThreadLifecycle({
     if (result.ok !== false) {
       return result;
     }
-    const failure = new Error(
-      `${applicationName} could not retire every low-cost assistant thread. Retry cleanup before shutting down Codex.`
+    const failure = new AppError(503,
+      `${applicationName} could not retire every low-cost assistant thread. Retry cleanup before shutting down Codex.`,
+      { code: `${errorPrefix}codex_helper_thread_cleanup_failed`, details: { failed: result.failed, retryable: true } }
     );
-    failure.code = `${errorPrefix}codex_helper_thread_cleanup_failed`;
-    failure.statusCode = 503;
     failure.retryable = true;
-    failure.details = {
-      failed: result.failed,
-      retryable: true
-    };
     throw failure;
   }
 

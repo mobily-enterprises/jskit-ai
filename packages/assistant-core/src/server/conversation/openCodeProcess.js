@@ -1,3 +1,4 @@
+import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { randomBytes } from "node:crypto";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import net from "node:net";
@@ -342,12 +343,10 @@ export async function createOpenCodeServerProcess({
 }
 
 function openCodeZenCatalogError(cause = null) {
-  const error = new Error("OpenCode Zen's current model list could not be read. Try again.", {
-    cause
+  const error = new AppError(503, "OpenCode Zen's current model list could not be read. Try again.", {
+    cause, code: "assistant_opencode_zen_catalog_unavailable"
   });
-  error.code = "assistant_opencode_zen_catalog_unavailable";
   error.retryable = true;
-  error.statusCode = 503;
   return error;
 }
 
@@ -500,10 +499,10 @@ export async function verifyOpenCodeApiKey({
         timeout: OPENCODE_VERIFY_TIMEOUT_MS
       });
     } catch {
-      const error = new Error("OpenCode API-key verification could not run.");
-      error.code = "assistant_opencode_key_verification_unavailable";
+      const error = new AppError(503, "OpenCode API-key verification could not run.", {
+        code: "assistant_opencode_key_verification_unavailable"
+      });
       error.retryable = true;
-      error.statusCode = 503;
       throw error;
     }
     if (result?.ok !== true) {
@@ -512,14 +511,14 @@ export async function verifyOpenCodeApiKey({
         result?.retryable === true ||
         Boolean(text(result?.code)) ||
         (Number.isSafeInteger(exitCode) && exitCode !== 1);
-      const error = new Error(unavailable
-        ? "OpenCode API-key verification could not run."
-        : "OpenCode rejected the API-key verification request.");
-      error.code = unavailable
-        ? "assistant_opencode_key_verification_unavailable"
-        : "assistant_opencode_key_verification_failed";
+      const error = unavailable
+        ? new AppError(503, "OpenCode API-key verification could not run.", {
+          code: "assistant_opencode_key_verification_unavailable"
+        })
+        : new AppError(422, "OpenCode rejected the API-key verification request.", {
+          code: "assistant_opencode_key_verification_failed"
+        });
       error.retryable = unavailable;
-      error.statusCode = unavailable ? 503 : 422;
       throw error;
     }
     return Object.freeze({ ok: true });
