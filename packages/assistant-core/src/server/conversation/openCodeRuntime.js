@@ -42,7 +42,7 @@ function openCodeCredentialFailure(value = "") {
   );
 }
 
-function openCodeProviderApiFailure(error = {}) {
+function openCodeProviderApiFailure(error) {
   return text(error?.name) === "APIError";
 }
 
@@ -119,7 +119,7 @@ export function openCodeModel(selection = {}, executionProfile = null) {
   };
 }
 
-export function sameOpenCodeSelection(left = {}, right = {}) {
+export function sameOpenCodeSelection(left, right) {
   return ["agentId", "modelId", "modelProviderId", "variantId"]
     .every((name) => text(left?.[name]) === text(right?.[name]));
 }

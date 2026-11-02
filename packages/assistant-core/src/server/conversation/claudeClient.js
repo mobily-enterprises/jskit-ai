@@ -61,7 +61,31 @@ async function* readClaudeJsonFrames(stream, { maxFrameBytes = CLAUDE_JSON_MAX_F
   if (length && !allowIncompleteTail) throw claudeProtocolError("Claude JSON stream ended in an incomplete frame.");
 }
 
-function createClaudeJsonClient({ stream, onEvent = async () => {}, onControlRequest, onFailure = async () => {}, timeoutMs = 30_000 } = {}) {
+/** A Claude connection whose owner keeps no native events. */
+async function ignoreClaudeFrame() {}
+
+/** A Claude connection whose owner keeps no record of its failure. */
+async function ignoreClaudeFailure() {}
+
+/** A control request whose caller follows none of its stages. */
+function reportNoProgress() {}
+
+/**
+ * The Claude Code CLI's JSON stream: ordered native events, control requests both ways and user messages.
+ * @param {object} options
+ * @param {import("node:stream").Duplex} options.stream
+ * @param {(frame: Record<string, any>) => Promise<unknown>} [options.onEvent]
+ * @param {(request: Record<string, any>, context: { signal: AbortSignal }) => Promise<unknown>} [options.onControlRequest]
+ * @param {(error: Error) => Promise<unknown>} [options.onFailure]
+ * @param {number} [options.timeoutMs]
+ */
+function createClaudeJsonClient({
+  stream,
+  onEvent = ignoreClaudeFrame,
+  onControlRequest,
+  onFailure = ignoreClaudeFailure,
+  timeoutMs = 30_000
+}) {
   const requests = new Map();
   const incoming = new Map();
   let failure = null;
@@ -106,8 +130,9 @@ function createClaudeJsonClient({ stream, onEvent = async () => {}, onControlReq
   async function request(request, options = {}) {
     if (failure || closed) throw failure || claudeProtocolError("Claude connection is closed.");
     const requestId = randomUUID();
+    const { onProgress = reportNoProgress } = options;
     function progress(stage) {
-      try { options.onProgress?.(stage); }
+      try { onProgress(stage); }
       catch { /* Diagnostic observers cannot change protocol completion. */ }
     }
     let timer;
@@ -212,27 +237,53 @@ function createClaudeJsonClient({ stream, onEvent = async () => {}, onControlReq
   // unhandled rejection if their failure callback itself fails.
   void completion.catch(() => {});
 
+  /** Whether the CLI announced targeted Send now. */
+  function sendNowSupported() {
+    return supportsSendNow;
+  }
+
+  /** The protocol handshake, with the host's hooks. */
+  function initialize({ hooks } = {}, options) {
+    return request({ subtype: "initialize", ...(hooks ? { hooks } : {}) }, options);
+  }
+
+  /** Stops the current native turn. */
+  function interrupt() {
+    return request({ subtype: "interrupt" });
+  }
+
+  /** Settles every control request the CLI sent. */
+  function whenRequestsIdle() {
+    return Promise.all([...incoming.values()].map(pending => pending.done));
+  }
+
+  /** Writes one user message, optionally delivered at once with targeted Send now. */
+  async function send(message, { messageId = randomUUID(), sessionId = "", sendNow = false } = {}) {
+    // Older CLIs treat this control as a plain Stop, cancelling background
+    // workers. Require the native capability before writing either frame.
+    if (sendNow && !supportsSendNow) throw Object.assign(
+      claudeProtocolError("This Claude version does not support targeted Send now."), { delivery: "not-sent" }
+    );
+    await write({ type: "user", uuid: messageId, session_id: sessionId,
+      parent_tool_use_id: null, message: { role: "user", content: message } });
+    if (sendNow) await request({ subtype: "interrupt", send_now: true, message_uuid: messageId });
+  }
+
+  /** Closes the connection; pending requests fail. */
+  function close() {
+    closed = true;
+    fail(claudeProtocolError("Claude connection was closed."));
+  }
+
   return Object.freeze({
     completion,
-    supportsSendNow: () => supportsSendNow,
-    initialize: ({ hooks } = {}, options) => request({ subtype: "initialize", ...(hooks ? { hooks } : {}) }, options),
-    interrupt: () => request({ subtype: "interrupt" }),
+    supportsSendNow: sendNowSupported,
+    initialize,
+    interrupt,
     request,
-    whenRequestsIdle: () => Promise.all([...incoming.values()].map(pending => pending.done)),
-    async send(message, { messageId = randomUUID(), sessionId = "", sendNow = false } = {}) {
-      // Older CLIs treat this control as a plain Stop, cancelling background
-      // workers. Require the native capability before writing either frame.
-      if (sendNow && !supportsSendNow) throw Object.assign(
-        claudeProtocolError("This Claude version does not support targeted Send now."), { delivery: "not-sent" }
-      );
-      await write({ type: "user", uuid: messageId, session_id: sessionId,
-        parent_tool_use_id: null, message: { role: "user", content: message } });
-      if (sendNow) await request({ subtype: "interrupt", send_now: true, message_uuid: messageId });
-    },
-    close() {
-      closed = true;
-      fail(claudeProtocolError("Claude connection was closed."));
-    }
+    whenRequestsIdle,
+    send,
+    close
   });
 }
 

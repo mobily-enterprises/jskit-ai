@@ -6,7 +6,8 @@ import { isDeepStrictEqual } from "node:util";
 import { createLocalConversationExecution } from "../localExecution.js";
 import { createOpenCodeConversationServer, openCodeConversationAgent } from "../openCodeProcess.js";
 import { createOpenCodeSharedRuntime, ensureOpenCodeSession, openCodeServerForDirectory } from "../openCodeRuntime.js";
-import { openCodeAssistantMessageText, retireOpenCodeConversationHistory } from "../openCodeClient.js";
+import { openCodeAssistantMessageText } from "../openCodeClient.js";
+import { retireOpenCodeConversationHistory } from "../openCodeNativeHistory.js";
 import { inspectOpenCodeMessageAdmission, observeOpenCodeEvents, openCodeRowsForInput,
   openCodeDetachedPrompt, openCodeStructuredOutput, readOpenCodeMessagesUntil } from "../openCodeTurn.js";
 import { createOpenCodeToolBridge } from "../openCodeTools.js";

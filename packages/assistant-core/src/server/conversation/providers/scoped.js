@@ -1,11 +1,18 @@
 import { normalizeNullableText } from "../normalize.js";
 import { createConversationChangeover } from "../continuity.js";
 
+/** A scoped turn whose caller follows no thread or turn events. */
+function ignoreScopedEvent() {}
+
+/** A persistent turn whose caller keeps no record of a rejected prompt. */
+function ignorePromptRejection() {}
+
 // The host retains profile authority and durable parent receipts. This original
 // coordinator uses its admitted operations before and after native creation.
 export async function runScopedConversationTurn({ operations, scope = {}, input = {}, context: options = {},
   executionProfile: profileSnapshot } = {}) {
   const request = { ...input, ephemeral: true, message: input.prompt || input.message };
+  const { onEvent = ignoreScopedEvent } = options;
   options.signal?.throwIfAborted();
   let conversationId = normalizeNullableText(input.conversationId || input.threadId);
   if (!conversationId) {
@@ -16,12 +23,12 @@ export async function runScopedConversationTurn({ operations, scope = {}, input 
   }
   // Await ownership before starting: Stop or a failed parent write must not
   // leave an unidentified native turn running.
-  await options.onEvent?.({ type: "thread", threadId: conversationId });
+  await onEvent({ type: "thread", threadId: conversationId });
   options.signal?.throwIfAborted();
   const started = await operations.startEphemeralConversationTurn(scope, { ...request, conversationId }, options);
   if (started?.ok === false) return { ...started, threadId: conversationId };
   const runId = normalizeNullableText(started.runId);
-  await options.onEvent?.({ type: "turn", threadId: conversationId, turnId: runId, status: started.status });
+  await onEvent({ type: "turn", threadId: conversationId, turnId: runId, status: started.status });
   if (options.signal?.aborted) {
     const stopped = await operations.stopEphemeralConversation(scope, { ...request, conversationId, runId }, options);
     if (stopped?.ok === false) return { ...stopped, threadId: conversationId, turnId: runId };
@@ -76,27 +83,65 @@ export function unsupportedScopedConversation() {
 }
 
 /**
+ * One engine's native owner call for a scoped conversation.
+ * @typedef {(input: Record<string, any>, context: Record<string, any>) => Promise<any>} ScopedNativeCall
+ */
+
+/**
  * Driver handle for an original scoped conversation. Each engine supplies its
  * native owner calls; every call receives input bound to `conversationId`.
  * `disposeOpening` releases the opening without deleting the native conversation.
+ * @param {object} owner
+ * @param {string} owner.conversationId
+ * @param {ScopedNativeCall} owner.sendNative
+ * @param {ScopedNativeCall} owner.readNative
+ * @param {ScopedNativeCall} owner.waitNative
+ * @param {ScopedNativeCall} owner.cancel
+ * @param {ScopedNativeCall} owner.deleteConversation
+ * @param {() => Promise<any>} owner.disposeOpening
  */
 export function createScopedConversationHandle({ conversationId, sendNative, readNative, waitNative, cancel,
   deleteConversation, disposeOpening }) {
   const inputFor = scopedConversationInput(conversationId);
+
+  /** Sends to the native conversation. */
+  async function sendScoped({ input, context }) {
+    return sendNative(inputFor(input), context);
+  }
+
+  /** Reads the native conversation. */
+  async function readScoped({ input, context }) {
+    return readNative(inputFor(input), context);
+  }
+
+  /** Waits for the native conversation's turn. */
+  async function waitScoped({ input, context }) {
+    return waitNative(inputFor(input), context);
+  }
+
+  /** Stops the native conversation's turn. */
+  async function cancelScoped({ input, context }) {
+    return cancel(inputFor(input), context);
+  }
+
+  /** Deletes the conversation when given its input, or releases only the opening. */
+  async function dispose(options) {
+    if (options) return deleteConversation(inputFor(options.input), options.context);
+    const result = await disposeOpening();
+    if (result?.ok === false) throw Object.assign(new Error(result.error || "Scoped cleanup could not be confirmed."), result);
+    return result;
+  }
+
   return Object.freeze({
     capabilities: SCOPED_CONVERSATION_CAPABILITIES,
-    sendNative: async ({ input, context }) => sendNative(inputFor(input), context),
-    readNative: async ({ input, context }) => readNative(inputFor(input), context),
-    waitNative: async ({ input, context }) => waitNative(inputFor(input), context),
-    cancel: async ({ input, context }) => cancel(inputFor(input), context),
-    readGoal: unsupportedScopedConversation, updateGoal: unsupportedScopedConversation,
+    sendNative: sendScoped,
+    readNative: readScoped,
+    waitNative: waitScoped,
+    cancel: cancelScoped,
+    readGoal: unsupportedScopedConversation,
+    updateGoal: unsupportedScopedConversation,
     inspectAdmission: unsupportedScopedConversation,
-    async dispose(options) {
-      if (options) return deleteConversation(inputFor(options.input), options.context);
-      const result = await disposeOpening();
-      if (result?.ok === false) throw Object.assign(new Error(result.error || "Scoped cleanup could not be confirmed."), result);
-      return result;
-    }
+    dispose
   });
 }
 
@@ -283,10 +328,11 @@ export async function startPersistentConversationTurn(options) {
     runId: steering ? previous.runId : "",
     error: ""
   });
+  const { onEvent: forwardEvent = ignoreScopedEvent } = context;
   try {
     const result = requireSuccess(await operations.startConversationTurn(sessionId,
       records.input(record, { ...input, ...prepared.input, steer: steering }), { ...context, attachmentsPrepared: true,
-        onEvent(event) { streamMessage(options, context, record, event); return context.onEvent?.(event); }
+        onEvent(event) { streamMessage(options, context, record, event); return forwardEvent(event); }
       }));
     if (receipts.afterAdmission(input)) await writeReceipt();
     await records.bind(context, record, { runId: result.runId, status: result.status || "inProgress", draft: "", attachments: [] },
@@ -299,7 +345,8 @@ export async function startPersistentConversationTurn(options) {
     // its authored row, but restore the admitted identity before reconciliation.
     if (notSent) {
       record = await records.save(context, record, priorInput);
-      await input.onPromptRejected?.();
+      const { onPromptRejected = ignorePromptRejection } = input;
+      await onPromptRejected();
     }
     const observed = await readPersistentConversation({ ...options, context, record });
     if (!notSent && observed.admitted) {

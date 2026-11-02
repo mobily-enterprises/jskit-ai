@@ -1,12 +1,18 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { setTimeout as delay } from "node:timers/promises";
 import { openCodeAssistantMessageText as assistantMessageText } from "./openCodeClient.js";
-import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeNullableText } from "./normalize.js";
 
 const text = normalizeNullableText;
 export const OPENCODE_INTERRUPT_TIMEOUT_MS = 5_000;
 const OPENCODE_EVENT_READY_TIMEOUT_MS = 120_000;
+
+/** A final-answer recovery whose caller keeps no projection of the reasoning-only completion. */
+function recoverWithoutProjection() {}
+
+/** A detached turn whose caller keeps no state after observation closes. */
+function ignoreObservationClose() {}
 
 export function openCodeDetachedPrompt(input = {}) {
   const prompt = text(input.prompt || input.message);
@@ -27,15 +33,14 @@ export function openCodeStructuredOutput(value = "") {
   return match ? match[1].trim() : original;
 }
 
-const record = value => isRecord(value) ? value : {};
 
 function openCodeEventSummary(event = {}) {
-  const payload = record(event.data);
-  const properties = record(payload.properties);
-  const data = Object.keys(properties).length ? properties : record(payload.data);
-  const info = record(data.info);
-  const part = record(data.part);
-  const model = record(info.model || data.model);
+  const payload = normalizeObject(event.data);
+  const properties = normalizeObject(payload.properties);
+  const data = Object.keys(properties).length ? properties : normalizeObject(payload.data);
+  const info = normalizeObject(data.info);
+  const part = normalizeObject(data.part);
+  const model = normalizeObject(info.model || data.model);
   return {
     agent: text(info.agent || data.agent),
     at: Number(data.timestamp || part.time?.start || part.time?.created) || Date.now(),
@@ -65,7 +70,7 @@ function openCodeEventSummary(event = {}) {
 }
 
 async function consumeOpenCodeEvents(client, conversationId, {
-  eventStartedAt = null, onEvent = null, onError = null, onReady = null,
+  eventStartedAt = null, onEvent = null, onError = null, onReady,
   readError = openCodeMessageError, signal
 } = {}) {
   for await (const event of client.events(conversationId, { onReady, signal })) {
@@ -77,7 +82,7 @@ async function consumeOpenCodeEvents(client, conversationId, {
       text(event.data?.properties?.sessionID) === conversationId &&
       typeof onError === "function"
     ) {
-      const failure = record(event.data?.properties?.error);
+      const failure = normalizeObject(event.data?.properties?.error);
       onError(Object.assign(new Error(readError({ error: failure }) || "OpenCode turn failed."), {
         name: text(failure.name) || "Error"
       }));
@@ -128,7 +133,7 @@ export function observeOpenCodeEvents(client, conversationId, {
   };
 }
 
-export function openCodeMessageError(message = {}) {
+export function openCodeMessageError(message) {
   return text(message?.error?.message || message?.error?.data?.message || message?.error?.name || message?.error);
 }
 
@@ -395,7 +400,7 @@ export async function waitForOpenCodeMessages(client, conversationId = "", input
 }
 
 export async function waitForOpenCodeFinalResponse(client, conversationId, turn, {
-  agent, model, recoveryMessageId, beforeRecovery = null, ...options
+  agent, model, recoveryMessageId, beforeRecovery = recoverWithoutProjection, ...options
 } = {}) {
   const waitForCompletion = async () => {
     for (;;) {
@@ -418,7 +423,7 @@ export async function waitForOpenCodeFinalResponse(client, conversationId, turn,
     // Work around https://github.com/anomalyco/opencode/issues/37073. Some
     // reasoning models complete successfully without a user-facing text part.
     if (turn.interruptRequested || completion.result?.error || text(completion.result?.text)) return completion;
-    await beforeRecovery?.(completion);
+    await beforeRecovery(completion);
     const admission = turn.admission;
     await admission?.promise;
     options.signal?.throwIfAborted();
@@ -474,7 +479,7 @@ export async function waitForOpenCodeFinalResponse(client, conversationId, turn,
 // Production detached-turn lifetime. Applications project the completed native
 // result before observation is closed, then publish/checkpoint their own state.
 export async function observeOpenCodeTurnCompletion(runtime, target, conversationId, turn, {
-  events, signal, timeoutMs, finalResponse, projectResult = value => value, afterClose, ...waitOptions
+  events, signal, timeoutMs, finalResponse, projectResult = value => value, afterClose = ignoreObservationClose, ...waitOptions
 } = {}) {
   const turnAbort = turn.abortController;
   let stopped = true;
@@ -506,7 +511,7 @@ export async function observeOpenCodeTurnCompletion(runtime, target, conversatio
       turn.active = !stopped;
       turn.mayBeRunning = !stopped;
     }
-    await afterClose?.({ stopped, outcome });
+    await afterClose({ stopped, outcome });
   }
 }
 

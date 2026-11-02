@@ -1,6 +1,16 @@
-/** OpenCode's native system lane is rebuilt for each inference, without a chat message. */
-export function createOpenCodeConversationAdapter({ resolveInstructions } = {}) {
-  if (typeof resolveInstructions !== "function") throw new TypeError("OpenCode requires an instruction resolver.");
+/**
+ * A native conversation's instruction source: its text, an optional identity that keeps it cached, and where it goes.
+ * @typedef {object} OpenCodeInstructionSource
+ * @property {() => string | Promise<string>} read
+ * @property {string} [identity]
+ * @property {"append" | "replace"} [placement]
+ */
+
+/**
+ * OpenCode's native system lane is rebuilt for each inference, without a chat message.
+ * @param {{ resolveInstructions: (id: string) => Promise<OpenCodeInstructionSource | null | undefined> }} dependencies
+ */
+export function createOpenCodeConversationAdapter({ resolveInstructions }) {
   const contexts = new Map();
   const contributions = new WeakMap();
 
@@ -9,6 +19,7 @@ export function createOpenCodeConversationAdapter({ resolveInstructions } = {}) 
     if (!id) return;
     const source = await resolveInstructions(id);
     if (!source) return;
+    // readable-check: allow method-probe - input validation: the instruction source a host resolves for a native conversation
     if ((source.identity !== undefined && (typeof source.identity !== "string" || !source.identity)) || typeof source.read !== "function" ||
         ![undefined, "append", "replace"].includes(source.placement)) {
       throw new TypeError("Conversation instructions require read() and an optional non-empty identity.");
@@ -45,5 +56,20 @@ export function createOpenCodeConversationAdapter({ resolveInstructions } = {}) 
     if (id) contexts.delete(id);
   }
 
-  return Object.freeze({ transformSystem, event, invalidate: (id) => contexts.delete(id), close: () => contexts.clear() });
+  /** Forgets one conversation's cached instructions. */
+  function invalidate(id) {
+    return contexts.delete(id);
+  }
+
+  /** Forgets every cached instruction. */
+  function close() {
+    return contexts.clear();
+  }
+
+  return Object.freeze({
+    transformSystem,
+    event,
+    invalidate,
+    close
+  });
 }

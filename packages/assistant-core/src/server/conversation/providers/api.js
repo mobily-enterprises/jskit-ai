@@ -25,6 +25,9 @@ const PROGRESS_LIMIT = "Application tool progress text exceeds the configured AP
 // durable receipt keeps its full ok/result/error envelope in common storage.
 const toolOutput = result => result.ok ? result.result ?? null : { error: result.error };
 
+/** A turn whose caller follows no phase events. */
+function ignoreEvent() {}
+
 // The engine's state note: what the system knows for certain this turn. It carries
 // the time, so no turn needs an extra action to learn it.
 function stateNote() {
@@ -101,7 +104,7 @@ export function createApiConversationDriver({ connections, apiClientFactory, fet
     // `summary` is the stored summary of the turns before `history`; `saveSummary`
     // stores a new one, so the next turn reads only the turns after it.
     async run({ configuration, context, input, history, requestHistory, continuity, tools, signal, accept, beforeDispatch,
-      onMessage, onEvent, summary = "", saveSummary }) {
+      onMessage, onEvent = ignoreEvent, summary = "", saveSummary }) {
       const { createAiConnectionClient } = await import("../../lib/aiConnectionClient.js");
       // A broken receipt, a lost authorization or a limit ends the reply with its
       // own error: the engine ends at once with an aborted signal's reason.
@@ -165,11 +168,15 @@ export function createApiConversationDriver({ connections, apiClientFactory, fet
           return await tools.execute(call);
         } catch (error) { throw fail(error); }
       }
+      /** One engine tool call, recorded under its step, with the model-facing result. */
+      function runEngineTool(name, value, { toolCallId }) {
+        return runTool({
+          id: `reply-${step + 1}:${toolCallId}`, name, arguments: JSON.stringify(value ?? {}) }).then(toolOutput);
+      }
       const engineTools = Object.fromEntries((tools?.schemas || []).map(({ function: tool }) => {
         // The engine's copy of the frozen definition is the one its repeat reminder wraps.
         const engineTool = createTool(Object.freeze({ id: tool.name, description: tool.description, parameters: tool.parameters,
-          execute: (value, { toolCallId }) => runTool({
-            id: `reply-${step + 1}:${toolCallId}`, name: tool.name, arguments: JSON.stringify(value ?? {}) }).then(toolOutput) }));
+          execute: (value, options) => runEngineTool(tool.name, value, options) }));
         remindOnRepeat(engineTool, repeats);
         return [tool.name, engineTool];
       }));
@@ -183,7 +190,7 @@ export function createApiConversationDriver({ connections, apiClientFactory, fet
         let started = false;
         try {
           const compacted = await compactMessages({ model, app: APP, messages: recorded, previous: summary, limits: window.summaries,
-            onCompacting: async () => { started = true; await onEvent?.({ type: "phase", phase: "compacting" }); } });
+            onCompacting: async () => { started = true; await onEvent({ type: "phase", phase: "compacting" }); } });
           if (compacted.saved) {
             // The summary ends where a turn starts.
             let covered = 0;
@@ -202,7 +209,7 @@ export function createApiConversationDriver({ connections, apiClientFactory, fet
           // The engine's last-resort cut below still keeps the reply within its window.
           console.error(`Compacting a conversation: ${error?.message || error}`);
         }
-        if (started) await onEvent?.({ type: "phase", phase: "working" });
+        if (started) await onEvent({ type: "phase", phase: "working" });
       }
       const messages = withinBudget([...(continuity ? [{ role: "user", content: continuity }] : []), ...recorded, request], window.history);
 

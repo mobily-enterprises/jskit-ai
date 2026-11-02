@@ -13,15 +13,31 @@ const statusReads = new Map();
 const STATUS_RETRY_MS = 30_000;
 const CLAUDE_EXIT_WAIT_MS = 5_000;
 
+/** A Claude process whose caller records no execution identity. */
+function ignoreProcessStart() {}
+
+/** A Claude process whose caller keeps no state after its connection fails. */
+function ignoreProcessFailure() {}
+
+/** Account queries outside a conversation owner borrow no running process. */
+function noOwnedProcesses() {
+  return [];
+}
+
+/** Account queries outside a conversation owner never close for reconnection. */
+function neverClosing() {
+  return false;
+}
+
 /** Person-facing cause for a Claude process that ended without being stopped. */
 export function claudeUnexpectedExitMessage(processExit = {}) {
   const resume = "The conversation so far is saved; send a message to continue.";
-  if (Number(processExit?.taskLimit?.count) > 0) {
+  if (Number(processExit.taskLimit?.count) > 0) {
     return "Claude stopped unexpectedly: the server refused to create more processes or threads for it " +
       `(process/thread limit reached). ${resume}`;
   }
-  if (processExit?.signal) return `Claude stopped unexpectedly: it was terminated by ${processExit.signal}. ${resume}`;
-  if (Number.isInteger(processExit?.code)) {
+  if (processExit.signal) return `Claude stopped unexpectedly: it was terminated by ${processExit.signal}. ${resume}`;
+  if (Number.isInteger(processExit.code)) {
     return `Claude stopped unexpectedly with exit code ${processExit.code}. ${resume}`;
   }
   return `Claude stopped unexpectedly. ${resume}`;
@@ -38,10 +54,21 @@ async function fileRevision(file) {
   }
 }
 
+/**
+ * The CLI's own account status, cached until its credentials change.
+ * @param {object} options
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} options.env
+ * @param {{ home: string, ok?: boolean, error?: string }} [options.credentialHome]
+ * @param {string} [options.command]
+ * @param {(request: Record<string, any>) => Promise<Record<string, any>>} options.commandRunner
+ * @param {AbortSignal} [options.signal]
+ */
 export async function readClaudeCodeAuthStatus({
-  env = process.env, credentialHome = { home: env.HOME || homedir() }, command = "claude", commandRunner, signal
-} = {}) {
-  if (credentialHome?.ok === false) return { loggedIn: false, error: credentialHome.error };
+  env, credentialHome = { home: env.HOME || homedir() }, command = "claude", commandRunner, signal
+}) {
+  if (!env) throw new TypeError("readClaudeCodeAuthStatus requires the application's environment, such as process.env.");
+  if (credentialHome.ok === false) return { loggedIn: false, error: credentialHome.error };
+  // readable-check: allow method-probe - input validation: the capture runner a host hands the account status read
   if (typeof commandRunner !== "function") throw new TypeError("Claude account status requires its host capture runner.");
   const configRoot = env.CLAUDE_CONFIG_DIR || path.join(credentialHome.home, ".claude");
   // Inspect file metadata only. Claude still owns reading and validating credentials.
@@ -142,6 +169,7 @@ export async function verifyClaudeProviderKey(provider, apiKey, fetchImpl) {
     throw new Error(`${provider.label} could not be reached through Claude Code. Your previous connection is unchanged; try again.`);
   }
   if (!response.ok) {
+    // readable-check: allow optional-call - platform object: another fetch implementation's Response may lack a readable body
     await response.body?.cancel?.();
     throw new Error(response.status === 401 || response.status === 403
       ? `${provider.label} rejected this key. Check the key and the required account plan.`
@@ -287,8 +315,20 @@ export function claudeCatalogueModels(initialization) {
  * usage is shared by `accountIdentity` with every other owner in the process, so
  * that identity names exactly one Claude account. `configRoot` is the account's
  * Claude configuration directory, whose credentials the model list follows.
+ * @param {object} options
+ * @param {(request: { signal: AbortSignal, purpose: string }) => Promise<ClaudeCodeProcess>} options.createProcess
+ * @param {(context: Record<string, any>) => Promise<string>} options.accountIdentity
+ * @param {string} options.configRoot
+ * @param {() => Iterable<{ process: ClaudeCodeProcess | null, stopping?: unknown, accountIdentity: string }>} [options.processes]
+ * @param {() => boolean} [options.isClosing]
  */
-export function createClaudeAccountQueries({ createProcess, accountIdentity, configRoot, processes = () => [], isClosing = () => false }) {
+export function createClaudeAccountQueries({
+  createProcess,
+  accountIdentity,
+  configRoot,
+  processes = noOwnedProcesses,
+  isClosing = neverClosing
+}) {
   const error = message => Object.assign(new Error(message), { code: "claude_account_query_failed" });
   const accountProcessStops = new Set();
   const accountReads = new Set();
@@ -349,112 +389,141 @@ export function createClaudeAccountQueries({ createProcess, accountIdentity, con
       fileRevision(command)]));
   }
 
-  return Object.freeze({
-    async readCatalogue(context) {
-      const expectedRevision = revision;
+  async function readCatalogue(context) {
+    const expectedRevision = revision;
+    assertCurrent(expectedRevision);
+    const identity = await accountIdentity(context);
+    assertCurrent(expectedRevision);
+    // An answer is kept until its account, credentials or executable change, so
+    // reading it again starts no Claude.
+    const kept = catalog?.identity === identity ? catalog : null;
+    if (kept && kept.revision === await catalogueRevision(kept.command)) {
       assertCurrent(expectedRevision);
-      const identity = await accountIdentity(context);
-      assertCurrent(expectedRevision);
-      // An answer is kept until its account, credentials or executable change, so
-      // reading it again starts no Claude.
-      const kept = catalog?.identity === identity ? catalog : null;
-      if (kept && kept.revision === await catalogueRevision(kept.command)) {
-        assertCurrent(expectedRevision);
-        return kept.value;
-      }
-      if (!catalogStarts.has(identity)) catalogStarts.set(identity, (async () => {
-        // A conversation's process answers with what it knew when it started, so
-        // the list comes from a Claude started for this read.
-        const { value, command } = await readAccountProcess(identity, expectedRevision, "catalogue",
-          async (native) => ({ value: await native.initialization, command: native.command }));
-        const answered = await catalogueRevision(command);
-        if (identity !== await accountIdentity(context)) throw error("The signed-in Claude account changed. Refresh the model list.");
-        assertCurrent(expectedRevision);
-        catalog = { identity, command, revision: answered, value };
-        return value;
-      })().finally(() => { catalogStarts.delete(identity); }));
-      return catalogStarts.get(identity);
-    },
-    async readPlanUsage(context) {
-      const expectedRevision = revision;
-      assertCurrent(expectedRevision);
-      const identity = await accountIdentity(context);
-      assertCurrent(expectedRevision);
-      // One reading per account, whichever owner asks; a started process is stopped after its read.
-      let usage = planUsageReads.get(identity);
-      if (!usage) {
-        usage = { liveReadAt: -Infinity, temporaryReadAt: -Infinity, reading: null, pending: null };
-        planUsageReads.set(identity, usage);
-      }
-      usageAccounts.add(identity);
-      if (usage.pending) return usage.pending;
-      const live = Boolean(ownedProcess(identity));
-      const liveDue = live && Date.now() - usage.liveReadAt >= PLAN_USAGE_LIVE_READ_MS;
-      // A one-shot Claude starts only when neither a verified reading nor a one-shot
-      // read is from the last idle interval.
-      const temporaryDue = () => Date.now() - Math.max(usage.temporaryReadAt, usage.reading?.checkedAt ?? -Infinity) >=
-        PLAN_USAGE_IDLE_READ_MS;
-      if (!liveDue && (live || !temporaryDue())) return presentPlanUsage(usage.reading);
-      const pending = (async () => {
-        // A live process's held endpoint read is its own, so a fresh one-shot Claude
-        // may still reach the endpoint when the live answer cannot prove it is current.
-        for (const borrow of liveDue ? [true, false] : [false]) {
-          if (!borrow && !temporaryDue()) break;
-          usage[borrow ? "liveReadAt" : "temporaryReadAt"] = Date.now();
-          let value;
-          try {
-            value = await readAccountProcess(identity, expectedRevision, "usage", (native) => native.client.request(
-              { subtype: "get_usage", skip_behaviors: true }), { borrow });
-          } catch (cause) {
-            if (borrow || !liveDue) throw cause;
-            assertCurrent(expectedRevision);
-            break;
-          }
-          if (identity !== await accountIdentity(context)) return { status: "unavailable", windows: [] };
-          assertCurrent(expectedRevision);
-          // An answer that cannot prove it is current keeps the last verified reading.
-          if (claudePlanUsageVerified(value)) {
-            usage.reading = { ...claudePlanUsage(value), identity };
-            break;
-          }
-        }
-        return presentPlanUsage(usage.reading);
-      })().finally(() => {
-        usageReads.delete(pending);
-        if (usage.pending === pending) usage.pending = null;
-      });
-      // Requests that arrive while the account is read share that read.
-      usage.pending = pending;
-      usageReads.add(pending);
-      return pending;
-    },
-    // A native usage change lets the next request read again without hiding the last reading.
-    invalidateUsage() {
-      for (const identity of usageAccounts) {
-        const usage = planUsageReads.get(identity);
-        if (usage) usage.liveReadAt = -Infinity;
-      }
-    },
-    async invalidate() {
-      revision++;
-      // Dropped at once: a read started before this cannot store its answer.
-      catalog = null;
-      for (const controller of accountReads) controller.abort(error("Claude account query was cancelled for reconnection."));
-      await Promise.allSettled([...catalogStarts.values(), ...usageReads]);
-      // The account changed: the next request for an account this owner used reads again.
-      for (const identity of usageAccounts) planUsageReads.delete(identity);
-      usageAccounts.clear();
-      for (const native of accountProcessStops) await stopAccountProcess(native);
+      return kept.value;
     }
+    if (!catalogStarts.has(identity)) catalogStarts.set(identity, (async () => {
+      // A conversation's process answers with what it knew when it started, so
+      // the list comes from a Claude started for this read.
+      const { value, command } = await readAccountProcess(identity, expectedRevision, "catalogue",
+        async (native) => ({ value: await native.initialization, command: native.command }));
+      const answered = await catalogueRevision(command);
+      if (identity !== await accountIdentity(context)) throw error("The signed-in Claude account changed. Refresh the model list.");
+      assertCurrent(expectedRevision);
+      catalog = { identity, command, revision: answered, value };
+      return value;
+    })().finally(() => { catalogStarts.delete(identity); }));
+    return catalogStarts.get(identity);
+  }
+
+  async function readPlanUsage(context) {
+    const expectedRevision = revision;
+    assertCurrent(expectedRevision);
+    const identity = await accountIdentity(context);
+    assertCurrent(expectedRevision);
+    // One reading per account, whichever owner asks; a started process is stopped after its read.
+    let usage = planUsageReads.get(identity);
+    if (!usage) {
+      usage = { liveReadAt: -Infinity, temporaryReadAt: -Infinity, reading: null, pending: null };
+      planUsageReads.set(identity, usage);
+    }
+    usageAccounts.add(identity);
+    if (usage.pending) return usage.pending;
+    const live = Boolean(ownedProcess(identity));
+    const liveDue = live && Date.now() - usage.liveReadAt >= PLAN_USAGE_LIVE_READ_MS;
+    // A one-shot Claude starts only when neither a verified reading nor a one-shot
+    // read is from the last idle interval.
+    const temporaryDue = () => Date.now() - Math.max(usage.temporaryReadAt, usage.reading?.checkedAt ?? -Infinity) >=
+      PLAN_USAGE_IDLE_READ_MS;
+    if (!liveDue && (live || !temporaryDue())) return presentPlanUsage(usage.reading);
+    const pending = (async () => {
+      // A live process's held endpoint read is its own, so a fresh one-shot Claude
+      // may still reach the endpoint when the live answer cannot prove it is current.
+      for (const borrow of liveDue ? [true, false] : [false]) {
+        if (!borrow && !temporaryDue()) break;
+        usage[borrow ? "liveReadAt" : "temporaryReadAt"] = Date.now();
+        let value;
+        try {
+          value = await readAccountProcess(identity, expectedRevision, "usage", (native) => native.client.request(
+            { subtype: "get_usage", skip_behaviors: true }), { borrow });
+        } catch (cause) {
+          if (borrow || !liveDue) throw cause;
+          assertCurrent(expectedRevision);
+          break;
+        }
+        if (identity !== await accountIdentity(context)) return { status: "unavailable", windows: [] };
+        assertCurrent(expectedRevision);
+        // An answer that cannot prove it is current keeps the last verified reading.
+        if (claudePlanUsageVerified(value)) {
+          usage.reading = { ...claudePlanUsage(value), identity };
+          break;
+        }
+      }
+      return presentPlanUsage(usage.reading);
+    })().finally(() => {
+      usageReads.delete(pending);
+      if (usage.pending === pending) usage.pending = null;
+    });
+    // Requests that arrive while the account is read share that read.
+    usage.pending = pending;
+    usageReads.add(pending);
+    return pending;
+  }
+
+  /** A native usage change lets the next request read again without hiding the last reading. */
+  function invalidateUsage() {
+    for (const identity of usageAccounts) {
+      const usage = planUsageReads.get(identity);
+      if (usage) usage.liveReadAt = -Infinity;
+    }
+  }
+
+  async function invalidate() {
+    revision++;
+    // Dropped at once: a read started before this cannot store its answer.
+    catalog = null;
+    for (const controller of accountReads) controller.abort(error("Claude account query was cancelled for reconnection."));
+    await Promise.allSettled([...catalogStarts.values(), ...usageReads]);
+    // The account changed: the next request for an account this owner used reads again.
+    for (const identity of usageAccounts) planUsageReads.delete(identity);
+    usageAccounts.clear();
+    for (const native of accountProcessStops) await stopAccountProcess(native);
+  }
+
+  return Object.freeze({
+    readCatalogue,
+    readPlanUsage,
+    invalidateUsage,
+    invalidate
   });
 }
 
-/** Native startup and handshake; an execution host owns processes and their identity. */
+/**
+ * @typedef {Awaited<ReturnType<typeof createClaudeCodeProcess>>} ClaudeCodeProcess
+ */
+
+/**
+ * Native startup and handshake; an execution host owns processes and their identity.
+ * @param {object} options
+ * @param {string} [options.command]
+ * @param {import("./openCodeProcess.js").ConversationExecution} [options.execution]
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} options.env
+ * @param {string} [options.workdir]
+ * @param {(frame: Record<string, any>) => Promise<unknown>} [options.onEvent]
+ * @param {(request: Record<string, any>, context: { signal: AbortSignal }) => Promise<unknown>} [options.onControlRequest]
+ * @param {(error: Error) => unknown} [options.onFailure]
+ * @param {(executionId: string, stop: () => Promise<Record<string, any>>) => unknown} [options.onStarted]
+ * @param {object} [options.executionLimits]
+ * @param {AbortSignal} [options.signal]
+ * @param {Record<string, any>} [options.commandWrapper]
+ * @param {number} [options.initializationTimeoutMs]
+ * @param {(stage: string) => void} [options.onInitializationProgress]
+ */
 export async function createClaudeCodeProcess({
-  command = "claude", execution = createLocalConversationExecution(), env = process.env,
-  workdir, onEvent, onControlRequest, onFailure, onStarted, executionLimits, signal, commandWrapper,
-  initializationTimeoutMs = 30_000, onInitializationProgress, ...options
-} = {}) {
+  command = "claude", execution = createLocalConversationExecution(), env,
+  workdir, onEvent, onControlRequest, onFailure = ignoreProcessFailure, onStarted = ignoreProcessStart, executionLimits, signal,
+  commandWrapper, initializationTimeoutMs = 30_000, onInitializationProgress, ...options
+}) {
+  if (!env) throw new TypeError("createClaudeCodeProcess requires the application's environment, such as process.env.");
   if (commandWrapper !== undefined) validateCommandWrapper(commandWrapper);
   const environment = { ...env, DISABLE_AUTOUPDATER: "1" };
   for (const name of ["DBUS_SESSION_BUS_ADDRESS", "DBUS_STARTER_ADDRESS", "DBUS_STARTER_BUS_TYPE",
@@ -479,7 +548,7 @@ export async function createClaudeCodeProcess({
     signal?.throwIfAborted();
     native = await execution.start({ command, args: claudeCodeArguments(options), cwd: workdir,
       env: environment, stream: true, limits: executionLimits });
-    await onStarted?.(native.id, stop);
+    await onStarted(native.id, stop);
     signal?.throwIfAborted();
     const stream = Duplex.from({ readable: native.stdout, writable: native.stdin });
     // A lost stream usually means the process ended. Its exit details arrive
@@ -489,11 +558,11 @@ export async function createClaudeCodeProcess({
       if (failure?.code === "assistant_claude_observation_lost" && exited && !stopped && !stopping) {
         const processExit = failure.processExit || await Promise.race([
           exited.catch(() => null),
-          new Promise((resolve) => setTimeout(resolve, CLAUDE_EXIT_WAIT_MS, null).unref?.())
+          new Promise((resolve) => setTimeout(resolve, CLAUDE_EXIT_WAIT_MS, null).unref())
         ]);
         if (processExit) Object.assign(failure, { processExit, message: claudeUnexpectedExitMessage(processExit) });
       }
-      return onFailure?.(failure);
+      return onFailure(failure);
     };
     client = createClaudeJsonClient({ stream, onEvent, onFailure: describeFailure,
       onControlRequest(request, context) {
@@ -525,7 +594,13 @@ export async function createClaudeCodeProcess({
     }, error => {
       if (!stopped && !stopping) stream.destroy(error);
     });
-    return { client, initialization, executionId: native.id, command, stop };
+    return Object.freeze({
+      client,
+      initialization,
+      executionId: native.id,
+      command,
+      stop
+    });
   } catch (error) {
     // A rejected start may already own an execution and its cleanup proof.
     // Only a returned native handle transfers that cleanup to this owner.
