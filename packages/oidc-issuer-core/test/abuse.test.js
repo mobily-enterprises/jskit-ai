@@ -63,7 +63,7 @@ test("14. a common password is refused at registration and at change", async () 
     body: { currentPassword: "an uncommon passphrase", newPassword: "iloveyou1" }
   });
   assert.equal(changed.status, 400);
-  assert.equal((await changed.json()).error, "password_rejected");
+  assert.equal((await changed.json()).error, "password_too_common");
 });
 
 test("14. recovery emails are limited to 5 an hour per address", async () => {

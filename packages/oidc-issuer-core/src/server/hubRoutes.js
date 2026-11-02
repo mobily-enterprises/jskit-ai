@@ -292,7 +292,7 @@ function registerSignInRoutes(app, hub, support) {
 
   app.post("/hub/api/email/confirm", async (request) => {
     const used = await emailTokens.consume(request.body?.token, "confirm");
-    if (!used) throw new HubError(410, "link_expired", "This link has expired or was already used. Send a new one from your account.");
+    if (!used) throw new HubError(410, "confirm_link_expired", "This link has expired or was already used. Send a new one from your account.");
     const account = await accounts.markEmailVerified(used.accountId);
     return { account: accountView(account) };
   });
@@ -319,7 +319,7 @@ function registerSignInRoutes(app, hub, support) {
   app.post("/hub/api/recovery/finish", async (request, reply) => {
     const password = String(request.body?.password ?? "");
     const used = await emailTokens.consume(request.body?.token, "recovery");
-    if (!used) throw new HubError(410, "link_expired", "This link has expired or was already used. Ask for a new one.");
+    if (!used) throw new HubError(410, "recovery_link_expired", "This link has expired or was already used. Ask for a new one.");
     await accounts.setPassword(used.accountId, password);
     const account = await accounts.markEmailVerified(used.accountId);
     await endEverySession(account.id);
@@ -483,7 +483,7 @@ function registerGoogleRoutes(app, hub, support) {
   async function pendingGoogleLink(request) {
     const id = cookies(request)[GOOGLE_LINK_COOKIE];
     const link = id ? await googleLinks.find(id) : null;
-    if (!link) throw new HubError(410, "link_expired", "This Google connection has expired. Continue with Google again.");
+    if (!link) throw new HubError(410, "google_connection_expired", "This Google connection has expired. Continue with Google again.");
     return { id, link, account: await accounts.findById(link.accountId) };
   }
 
@@ -515,7 +515,7 @@ function registerGoogleRoutes(app, hub, support) {
 
   app.post("/hub/api/google/link/finish", async (request, reply) => {
     const used = await emailTokens.consume(request.body?.token, "google-link");
-    if (!used) throw new HubError(410, "link_expired", "This link has expired or was already used. Continue with Google again.");
+    if (!used) throw new HubError(410, "google_link_expired", "This link has expired or was already used. Continue with Google again.");
     if (await accounts.findByGoogleSub(used.payload.googleSub)) {
       throw new HubError(409, "google_taken", "This Google account is already connected to another account.");
     }

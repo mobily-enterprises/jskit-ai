@@ -14,11 +14,16 @@ function isCommonPassword(password) {
   return commonPasswords.has(String(password).toLowerCase());
 }
 
+/**
+ * Why a password is refused, as its own code and English, or null when it is acceptable.
+ * @param {unknown} password
+ * @returns {{ code: string, message: string } | null}
+ */
 function passwordProblem(password) {
   const value = String(password ?? "");
-  if (value.length < PASSWORD_MIN_LENGTH) return "Use at least 8 characters.";
-  if (value.length > PASSWORD_MAX_LENGTH) return "Use at most 128 characters.";
-  if (isCommonPassword(value)) return "That password is too common. Choose one that is harder to guess.";
+  if (value.length < PASSWORD_MIN_LENGTH) return { code: "password_too_short", message: "Use at least 8 characters." };
+  if (value.length > PASSWORD_MAX_LENGTH) return { code: "password_too_long", message: "Use at most 128 characters." };
+  if (isCommonPassword(value)) return { code: "password_too_common", message: "That password is too common. Choose one that is harder to guess." };
   return null;
 }
 
@@ -118,7 +123,7 @@ function createAccountStore({ knex, now }) {
     }
     if (password !== null) {
       const problem = passwordProblem(password);
-      if (problem) throw new AccountError("password_rejected", problem);
+      if (problem) throw new AccountError(problem.code, problem.message);
     }
     if (await rowByEmail(normalizedEmail)) {
       throw new AccountError("email_taken", "This email already has an account. Sign in, or reset its password.", 409);
@@ -172,7 +177,7 @@ function createAccountStore({ knex, now }) {
 
   async function setPassword(id, password) {
     const problem = passwordProblem(password);
-    if (problem) throw new AccountError("password_rejected", problem);
+    if (problem) throw new AccountError(problem.code, problem.message);
     return update(id, { ...passwordColumns(await hashPassword(password)), failed_logins: 0 });
   }
 
