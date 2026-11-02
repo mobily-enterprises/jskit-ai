@@ -47,6 +47,10 @@ export default [
     "packages/connectors-core/src/server/**",
     "packages/connector-google-calendar/src/server/**",
     "packages/connectors-catalog/src/server/**",
+    "packages/assistant-core/src/server/**",
+    "packages/assistant-runtime/src/server/**",
+    "packages/assistant-voice/src/server/**",
+    "packages/assistant-voice-sherpa/src/**",
     "packages/kernel/shared/**",
     "packages/http-runtime/src/shared/**",
     "packages/database-runtime/src/shared/**",
@@ -64,11 +68,13 @@ export default [
     "packages/rewarded-web/src/shared/**",
     "packages/connectors-core/src/shared/**",
     "packages/connector-google-calendar/src/shared/**",
-    "packages/connectors-catalog/src/shared/**"
+    "packages/connectors-catalog/src/shared/**",
+    "packages/assistant-core/src/shared/**",
+    "packages/assistant-runtime/src/shared/**",
+    "packages/assistant-voice/src/shared/**"
   ]),
-  // Every other hand-written file stays under 750 lines and every function under 600. The assistant packages are
-  // outside these limits, as they are outside the typed-features list above.
-  ...sizeLimitsConfig(["packages/**", "tooling/**", "scripts/**"], { ignores: ["packages/assistant-*/**"] }),
+  // Every other hand-written file stays under 750 lines and every function under 600.
+  ...sizeLimitsConfig(["packages/**", "tooling/**", "scripts/**"]),
   ...webConfig,
   ...nodeConfig,
   ...vueConfig,
