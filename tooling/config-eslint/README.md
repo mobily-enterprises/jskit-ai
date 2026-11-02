@@ -4,20 +4,30 @@ Shared flat ESLint presets for JSKIT projects.
 
 ```js
 // eslint.config.mjs
-import { baseConfig, nodeConfig, typedFeaturesConfig, vueConfig, webConfig } from "@jskit-ai/config-eslint/server";
+import { baseConfig, formatterConfig, nodeConfig, sizeLimitsConfig, typedFeaturesConfig, vueConfig, webConfig } from "@jskit-ai/config-eslint/server";
+
+const SERVER_SOURCES = ["packages/*/src/server/**", "packages/*/src/shared/**", "server/**", "server.js"];
+const HAND_WRITTEN_SOURCES = ["packages/*/src/**", "src/**", "config/**", "server/**", "server.js", "bin/**"];
 
 export default [
   ...baseConfig,
+  ...typedFeaturesConfig(SERVER_SOURCES),
+  ...sizeLimitsConfig(HAND_WRITTEN_SOURCES),
   ...vueConfig,
   ...webConfig,
   ...nodeConfig,
-  // Packages already converted to typed features keep following them.
-  ...typedFeaturesConfig(["packages/billing/src/server/**"])
+  ...formatterConfig([...SERVER_SOURCES, "config/**", "bin/**"])
 ];
 ```
 
 - `baseConfig`: ESLint's recommended rules, JSKIT's import policy and, as
-  warnings on `**/src/server/**`, the typed-features rules below.
+  warnings on `**/src/server/**`, the typed-features rules.
+- `typedFeaturesConfig(globs)`: the typed-features rules and the size limits,
+  as errors, for the server and shared code the globs select.
+- `sizeLimitsConfig(globs)`: files under 750 lines and functions under 600, as
+  errors, for every hand-written file the globs select, client code and Vue
+  components included.
+- `formatterConfig(globs)`: the formatter.
 - `nodeConfig`, `webConfig`: Node and browser globals.
 - `vueConfig`: `eslint-plugin-vue`'s recommended rules.
 
@@ -62,35 +72,26 @@ re-indented in the same run.
 
 ## Typed features
 
-A feature receives every collaborator through its declared capabilities, typed
-where it is received and required, never probed. The `jskit` plugin reports
-code that does not:
+The `jskit` plugin checks the rules of the
+[typed features guide](https://mobily-enterprises.github.io/jskit-ai/guide/framework/typed-features),
+the one place JSKIT explains how server code is written. Its
+[lint rules table](https://mobily-enterprises.github.io/jskit-ai/guide/framework/typed-features#lint-rules)
+lists what each rule reports, every finding ends with a link to the section
+that explains it, and its
+[exceptions](https://mobily-enterprises.github.io/jskit-ai/guide/framework/typed-features#exceptions)
+give the `readable-check: allow` comment and its reason prefixes.
 
-| Rule | Reports |
-|---|---|
-| `jskit/typed-dependencies` | a `create*`/`build*` factory or constructor that receives collaborators without a JSDoc `@param` type |
-| `jskit/required-collaborators` | a collaborator defaulted to nothing (`null`, `{}`, a no-op), a `typeof x.y === "function"` probe, an `x.y?.()` call |
-| `jskit/no-slot-setter` | a returned `set<Name>()` that fills a slot after construction, or a call that fills one |
-| `jskit/no-module-registry` | a module-level `register<Name>()` that writes module state |
-| `jskit/one-line-action` | `input = {}`, `input \|\| {}` or `input?.` in an action's `execute` or an actions file; an `async` `execute`; an action definition, or a list of them, that is neither `Object.freeze`d nor inside the kernel's `deepFreeze(…)` |
-| `jskit/no-duplicate-helper` | a small top-level helper, a function or a `const` arrow, that repeats one in another file of the package's server code (a named no-op is not a helper) |
-| `jskit/allow-comment-form` | a `readable-check: allow` comment whose reason has no fixed prefix, cites tests, cites the state of a project, or gives `data:` for a function (a parameter default's `dependency-default` / `required-collaborators` reason aside) |
-| `jskit/jsdoc-description-inside` | a `//` line comment directly above a `/** */` block, whose description belongs inside it |
-| `jskit/no-dual-shape` | a value accepted in two shapes: `x.service \|\| x`, `x?.value ?? x`, `x.service ? x.service : x` |
-| `jskit/named-repeated-type` | a `ReturnType<…>` or indexed JSDoc type (`X["y"]`) written in two or more files of a package, instead of named once in its `types.js` |
-| `jskit/action-execute-shape` | an action's `execute` that is not one expression-bodied arrow making one call: a method or block body, a helper-built `execute: helper(…)`, a bare reference, or a body that builds a result or makes a second call |
-| `jskit/no-factory-spread` | a `create*()` result spread into a factory's frozen API or a `setup()` token value; a `decorateService`/`decorateRepository` may spread the CRUD service or repository, and data may be spread |
-| `jskit/no-optional-after-default` | `x?.` or a second `x || {}` / `x ?? []` on a parameter that already has a present default (`options = {}`, `{ env = {} } = {}`, `items = []`, `name = ""`), so the value is never absent where it is read; a parameter that may be null takes no default and keeps its `?.` |
-| `jskit/frozen-factory-result` | a `create*` factory that returns behaviour in an object that is not `Object.freeze`d, or defines a member inline (a method or function expression) instead of naming an inner function; a factory returning plain data and an action definition are left alone |
-| `jskit/one-property-per-line` | two properties on one line in the `Object.freeze({ … })` a `return` statement returns, or in the `requires`, `optional` or `provides` map of a `defineFeature`/`defineProvider` call; `eslint --fix` breaks the object after `{`, after each `,` and before `}` |
-| `max-lines`, `max-lines-per-function` | files over 750 lines, functions over 600 |
+`baseConfig` reports the rules as warnings, so adopting a new version does not
+fail a build. `typedFeaturesConfig(globs)` makes them errors for the globs you
+list; an existing application adds each package as it converts it. The rules
+cover every module a capability value is built from, so list a package's
+shared modules too (`packages/billing/src/shared/**`). Test files and `test`,
+`tests`, `client`, `components` and `pages` directories are not checked.
 
-`baseConfig` reports them as warnings, so adopting a new version does not fail
-a build. `typedFeaturesConfig(globs)` makes them errors for the globs you list:
-add each package as you convert it. The rules cover every module a capability
-value is built from, so list a package's shared modules too
-(`packages/billing/src/shared/**`). Test files and `test`, `tests`, `client`,
-`components` and `pages` directories are not checked.
+`sizeLimitsConfig(globs, { ignores })` holds the rest of the hand-written code
+to the size limits; tests are not checked, and `ignores` leaves generated
+output alone. A generated or static data module is exempt through its first
+line, `/* eslint-disable max-lines -- data: <how it is produced> */`.
 
 `one-line-action` leaves CRUD custom actions' `execute({ input, service, … })`
 alone, also when it takes only part of that object (`({ service, context })`):
@@ -99,32 +100,6 @@ that is the CRUD declaration's own contract. `no-duplicate-helper` and
 pattern's example application (an `example` directory beside a `PATTERN.md`)
 as a package of its own, skip `templates` and `patterns` directories inside a
 package, and leave the agent skill bundle's generated copies under
-`skills/jskit/references/patterns` to their sources.
-
-A justified exception carries a comment on the line before it, naming the rule
-(`one-line-action`) or the finding (`input-fallback`, `async-execute`,
-`unfrozen-action`):
-
-```js
-// readable-check: allow setter-seam - cycle: terminals requires database tools
-setProvider(next) { provider = next; }
-```
-
-The reason starts with one of these prefixes and says what is true of the
-code, never the state of a project:
-
-| Reason prefix | The exception |
-| --- | --- |
-| `input validation:` | checks a value its caller passes and refuses a wrong one with its own error |
-| `data:` | probes or defaults data (a route definition, a transport, a parsed record, an options list), not a collaborator; never a function itself, such as a repeated helper |
-| `platform object:` | probes a platform or library object whose implementations differ, such as `Headers` |
-| `optional operation:` | calls an operation the collaborator's type marks optional |
-| `safety invariant: <what goes wrong>` | keeps a guard that protects an internal invariant, saying what goes wrong without it (the retired `test asserts error:` is reported) |
-| `not a slot:` | matched a name that fills no slot |
-| `cycle: <supplier> requires <owner>` | keeps a setter because the slot's supplier requires its owner |
-| `deferred until boot: <reason>` | keeps a capability handed out at setup and filled in `boot()`, such as the deferred `auth.service` |
-| `filled by <repository>; convert with its supplier` | keeps a setter that another repository's code calls |
-| `cross-repository slot <token>` | keeps a probe for a token another repository supplies |
-
-The two size limits are ESLint's own rules; excuse them with
-`// eslint-disable-next-line max-lines-per-function -- <reason>`.
+`skills/jskit/references/patterns` to their sources. `app-error-code` follows
+the error classes a module declares, and compares codes and sentences within
+one module.

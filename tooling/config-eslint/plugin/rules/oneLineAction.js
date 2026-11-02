@@ -45,7 +45,7 @@ const oneLineAction = Object.freeze({
     asyncExecute: "An action's execute is async. Return the one service call's result: execute: (input, context) => service.method(…).",
     unfrozenAction: "This action definition is not frozen. Wrap it in Object.freeze({ … }).",
     unfrozenActions: "This list of action definitions is not frozen. Wrap it in Object.freeze([ … ])."
-  }),
+  }, "one-line-execute"),
   create(context) {
     const report = createReporter(context, "one-line-action");
     const actionsFile = isActionsFile(context.filename);

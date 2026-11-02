@@ -1,5 +1,5 @@
 import vueI18n from "@intlify/eslint-plugin-vue-i18n";
-import { baseConfig, nodeConfig, typedFeaturesConfig, vueConfig, webConfig } from "./tooling/config-eslint/index.js";
+import { baseConfig, nodeConfig, sizeLimitsConfig, typedFeaturesConfig, vueConfig, webConfig } from "./tooling/config-eslint/index.js";
 
 export default [
   {
@@ -66,6 +66,9 @@ export default [
     "packages/connector-google-calendar/src/shared/**",
     "packages/connectors-catalog/src/shared/**"
   ]),
+  // Every other hand-written file stays under 750 lines and every function under 600. The assistant packages are
+  // outside these limits, as they are outside the typed-features list above.
+  ...sizeLimitsConfig(["packages/**", "tooling/**", "scripts/**"], { ignores: ["packages/assistant-*/**"] }),
   ...webConfig,
   ...nodeConfig,
   ...vueConfig,

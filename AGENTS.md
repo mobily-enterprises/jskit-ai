@@ -98,6 +98,7 @@ When asked to create or refresh distributed agent docs:
 
 ## JSKIT Patterns
 
+- Server code (a feature, provider, action, service, repository, route, error or test) follows the one guide, `packages/agent-docs/site/guide/framework/typed-features.md`. `npm run lint` checks its rules with `@jskit-ai/config-eslint`, and each finding links its section. A new rule goes into that guide and, when a machine can see it, that plugin, with a passing and a failing fixture; never as a bullet here.
 - `packages/agent-docs/heuristics/INDEX.md` is the keyword index for recurring JSKIT implementation heuristics and workflow traps.
 - When a request involves JSKIT UI, routing, surfaces, CRUDs, filters, placements, live actions, or similar implementation details, scan the heuristics index for matching keywords and read only the relevant heuristic files.
 - Prefer the highest-level existing JSKIT client composable that fits, especially `useCrudListScreen()`, `useCrudViewScreen()`, `useCrudAddEditScreen()`, `useCrudList()`, `useCrudView()`, `useCrudAddEdit()`, `useList()`, `useView()`, `useAddEdit()`, `useCommand()`, and `useEndpointResource()`, instead of inventing custom local request helpers or bespoke command flows.

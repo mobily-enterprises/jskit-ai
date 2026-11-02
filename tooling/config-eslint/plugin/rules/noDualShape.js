@@ -30,7 +30,7 @@ function dualShape(sourceCode, member, fallback) {
 const noDualShape = Object.freeze({
   meta: ruleMeta("Disallow accepting a value in two shapes, such as x.service || x.", {
     dualShape: "{{expression}} accepts {{whole}} in two shapes. Accept one: read {{member}}, or use {{whole}} as it is, and give test doubles the real shape."
-  }),
+  }, "one-shape-per-value"),
   create(context) {
     const sourceCode = context.sourceCode;
     const report = createReporter(context, "no-dual-shape");

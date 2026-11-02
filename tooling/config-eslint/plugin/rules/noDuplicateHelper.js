@@ -71,7 +71,7 @@ function compareCopies(left, right) {
 const noDuplicateHelper = Object.freeze({
   meta: ruleMeta("Disallow a small top-level helper, function or arrow, that repeats one in another file of the same package.", {
     duplicateHelper: "{{name}}() repeats {{first}}. Keep one copy in the package and import it."
-  }),
+  }, "one-helper-per-package"),
   create(context) {
     const sourceCode = context.sourceCode;
     const report = createReporter(context, "no-duplicate-helper");

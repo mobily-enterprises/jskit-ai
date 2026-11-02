@@ -175,51 +175,75 @@ test("the JSKIT skill points at the bundled typed-features guide and heuristic",
   assert.match(heuristicsIndex, /\(\.\/typed-features\.md\)/u);
 });
 
-test("the typed-features guide states its rules and common mistakes as headings", async () => {
-  const guide = await readFile(path.join(packageRoot, "site/guide/framework/typed-features.md"), "utf8");
-  const headings = (level) => [...guide.matchAll(new RegExp(`^${"#".repeat(level)} (.+)$`, "gmu"))].map((match) => match[1]);
-  const section = (title) => guide.slice(guide.indexOf(`## ${title}\n`), guide.indexOf("\n## ", guide.indexOf(`## ${title}\n`) + 1));
+// The anchor VitePress gives a plain-words heading: lower case, each run of other characters one hyphen.
+function headingAnchor(heading) {
+  return heading.toLowerCase().replace(/[^a-z0-9]+/gu, "-").replace(/^-+|-+$/gu, "");
+}
 
-  assert.deepEqual(headings(2), ["The rule", "Rules", "Common mistakes", "One feature end to end", "Checks"]);
-  assert.deepEqual([...section("Rules").matchAll(/^### (.+)$/gmu)].map((match) => match[1]), [
-    "1. A provided capability exports its type",
-    "2. A received collaborator is typed where it is received",
-    "3. Collaborators are required",
-    "4. Extension slots are optional capabilities",
-    "5. Actions are one line",
-    "6. Methods take the validated input as it is",
-    "7. One request-context form per package",
-    "8. Factory results are frozen, with named members",
-    "9. One copy of each helper, concern-sized files",
-    "10. Names and comments"
+function guideSections(guide) {
+  return guide.split(/^## /mu).slice(1).map((chunk) => ({
+    title: chunk.split("\n")[0],
+    body: chunk,
+    rules: chunk.split(/^### /mu).slice(1).map((rule) => ({ title: rule.split("\n")[0], body: rule }))
+  }));
+}
+
+test("the typed-features guide gives each rule what, why and good and bad code", async () => {
+  const guide = await readFile(path.join(packageRoot, "site/guide/framework/typed-features.md"), "utf8");
+  const sections = guideSections(guide);
+  assert.deepEqual(sections.map((section) => section.title), [
+    "The rule",
+    "Features",
+    "Actions",
+    "Services and repositories",
+    "Errors",
+    "Tests",
+    "Files and layout",
+    "Checks",
+    "A whole feature"
   ]);
-  const mistakes = [...section("Common mistakes").matchAll(/^### (.+)$/gmu)].map((match) => match[1]);
-  for (const mistake of [
-    "A collaborator accepted in two shapes \"for tests\"",
-    "A probe on a collaborator that is always present",
-    "An action built by a helper, given a body, or stripped by a helper",
-    "A hand-written `(...args: any[]) => Promise<any>` interface",
-    "Spreading an in-package factory into a token value",
-    "`= {}` on contract operations",
-    "Input re-parsed after the schema validated it",
-    "Several request-context forms in one package",
-    "Unfrozen results",
-    "The same indexed type spelled out at every use",
-    "A guard or comment that cites tests"
-  ]) {
-    assert.ok(mistakes.includes(mistake), `Common mistakes lacks "${mistake}".`);
+  const rules = sections.filter((section) => !["The rule", "Checks", "A whole feature"].includes(section.title)).flatMap((section) => section.rules);
+  assert.ok(rules.length >= 30, "The guide lost rules.");
+  for (const rule of rules) {
+    assert.match(rule.body, /^\*\*[^*]/mu, `"${rule.title}" does not state what to do in bold.`);
+    assert.match(rule.body, /^Why: \S/mu, `"${rule.title}" has no one-line why.`);
+    assert.match(rule.body, /^(?:\/\/ )?good\b[\s\S]+^(?:\/\/ )?bad\b/mu, `"${rule.title}" has no good and bad example.`);
   }
-  for (const rule of section("Rules").split(/^### /mu).slice(1)) {
-    assert.match(rule, /\/\/ before[^\n]*\n[\s\S]+\/\/ after/u, `Rule "${rule.split("\n")[0]}" has no before and after.`);
-  }
+  assert.doesNotMatch(guide, /\b(?:before|after):|console-core's|was converted|the port\b/iu, "The guide narrates history.");
+  const checks = sections.find((section) => section.title === "Checks").body;
   for (const prefix of ["input validation:", "data:", "platform object:", "optional operation:", "safety invariant: <what goes wrong>", "not a slot:", "deferred until boot: <reason>", "cycle: <supplier> requires <owner>"]) {
-    assert.ok(section("Checks").includes(`| \`${prefix}\``), `Checks lacks the ${prefix} prefix.`);
+    assert.ok(checks.includes(`| \`${prefix}\``), `Checks lacks the ${prefix} prefix.`);
   }
-  assert.match(section("Checks"), /platform object: a Knex transaction/u);
+  assert.match(checks, /platform object: a Knex transaction/u);
 });
 
-test("the typed-features heuristic maps the common mistakes to their fixes", async () => {
+test("every typed-features lint rule links a guide section and is listed in its checks", async () => {
+  const { jskitPlugin } = await import("@jskit-ai/config-eslint/server");
+  const guide = await readFile(path.join(packageRoot, "site/guide/framework/typed-features.md"), "utf8");
+  const anchors = new Set([...guide.matchAll(/^#{2,3} (.+)$/gmu)].map((match) => headingAnchor(match[1])));
+  const lintTable = guide.slice(guide.indexOf("### Lint rules"), guide.indexOf("### Exceptions"));
+  for (const [name, rule] of Object.entries(jskitPlugin.rules)) {
+    const url = rule.meta.docs.url;
+    assert.match(url, /^https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/guide\/framework\/typed-features#/u, name);
+    const anchor = url.split("#")[1];
+    assert.ok(anchors.has(anchor), `jskit/${name} links #${anchor}, which no heading has.`);
+    assert.ok(lintTable.includes(`| \`jskit/${name}\` |`), `The lint rules table lacks jskit/${name}.`);
+    assert.ok(lintTable.includes(`(#${anchor})`), `The lint rules table does not send jskit/${name} to #${anchor}.`);
+    for (const message of Object.values(rule.meta.messages)) {
+      assert.ok(message.endsWith(` See ${url}`), `A jskit/${name} message does not end with its guide link.`);
+    }
+  }
+});
+
+test("the typed-features heuristic sends each keyword to a guide section", async () => {
+  const guide = await readFile(path.join(packageRoot, "site/guide/framework/typed-features.md"), "utf8");
+  const anchors = new Set([...guide.matchAll(/^#{2,3} (.+)$/gmu)].map((match) => headingAnchor(match[1])));
   const heuristic = await readFile(path.join(packageRoot, "heuristics/typed-features.md"), "utf8");
+  const links = [...heuristic.matchAll(/\(\.\.\/site\/guide\/framework\/typed-features\.md#([^)]+)\)/gu)].map((match) => match[1]);
+  assert.ok(links.length >= 30, "The heuristic lost its keyword map.");
+  for (const anchor of links) {
+    assert.ok(anchors.has(anchor), `The heuristic links #${anchor}, which no heading has.`);
+  }
   for (const keyword of [
     "`capability.service || capability`",
     "`async execute`",
@@ -231,10 +255,13 @@ test("the typed-features heuristic maps the common mistakes to their fixes", asy
     "`X | null`",
     "`deferred until boot: <reason>`",
     "`optional operation:` on a method every implementer has",
-    "(../site/guide/framework/typed-features.md#common-mistakes)"
+    "`env = process.env`",
+    "`idempotency:`",
+    "`Object.assign(new Error(…), { statusCode })`"
   ]) {
     assert.ok(heuristic.includes(keyword), `The heuristic lacks ${keyword}.`);
   }
+  assert.doesNotMatch(heuristic, /^\| Reason prefix/mu, "The heuristic copies the guide's exceptions table.");
 });
 
 test("JSKIT guidance does not assume a project blueprint or page generator", async () => {

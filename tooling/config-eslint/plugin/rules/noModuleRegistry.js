@@ -24,7 +24,7 @@ function moduleBindings(program) {
 const noModuleRegistry = Object.freeze({
   meta: ruleMeta("Disallow module-level register<Name>() functions that write module state.", {
     moduleRegistry: "{{name}}() writes module state. Supply its entries through a capability instead of a module-level registry."
-  }),
+  }, "owned-state"),
   create(context) {
     const sourceCode = context.sourceCode;
     const report = createReporter(context, "no-module-registry");

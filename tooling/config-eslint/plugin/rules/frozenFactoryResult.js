@@ -9,7 +9,7 @@ const frozenFactoryResult = Object.freeze({
   meta: ruleMeta("Require create* factories to return a frozen object of named functions.", {
     unfrozenResult: "{{factory}}() returns an object that is not frozen. Return Object.freeze({ … }) of named functions.",
     inlineMember: "{{factory}}() defines {{member}} inline in its result. Define a named function and list it in Object.freeze({ … })."
-  }),
+  }, "frozen-results"),
   create(context) {
     const sourceCode = context.sourceCode;
     const report = createReporter(context, "frozen-factory-result");

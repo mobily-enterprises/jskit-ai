@@ -2,17 +2,20 @@
 
 ---
 title: Typed features
-description: Server features whose collaborators arrive through declared capabilities, typed where they are received and required, never probed.
+description: How JSKIT server code is written, rule by rule with a good and a bad example, and the lint rules that check it.
 ---
 
 # Typed features
 
-Read this page before writing a server feature, provider, action, service or
-repository. The [rules](#rules) say how JSKIT server code is written, each with
-a before and after from JSKIT's own packages. [Common mistakes](#common-mistakes)
-lists what code that passes the lint rules still gets wrong. The
-[worked example](#one-feature-end-to-end) follows one feature from route to
-storage.
+Read this page before writing or reviewing JSKIT server code: a feature,
+provider, action, service, repository, route, error or test. Each rule says
+what to do, why in one line, and shows good and bad code. `npm run lint`
+reports the rules a machine can see ([checks](#checks)); the others are
+checked by reading. The `server/feature-package` pattern in the
+[source pattern library](/patterns/) is the smallest complete feature to copy.
+
+The [typed features heuristic](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/heuristics/typed-features.md)
+maps keywords and lint findings to the section that fixes them.
 
 ## The rule
 
@@ -21,896 +24,1025 @@ storage.
 > so each call has exactly one visible destination for a reader and for the
 > code map.
 
-A *collaborator* is an object or function with behaviour that code calls: a
-service, store, repository, runtime, router, publisher, catalogue or clock.
-Plain data (an input, a record, a list, an options bag) is not one.
+- A **capability** is a value a feature `provides`, `requires` or may use
+  (`optional`), named by a **token** such as `"feature.invoices"`.
+- A **collaborator** is an object or function with behaviour that code calls:
+  a service, store, repository, runtime, router, publisher, catalogue, logger
+  or clock. Plain data (an input, a record, a list, an options bag) is not one.
+- A **slot** is a place that holds one value someone else supplies.
+- A **refusal** is an error meant for the caller: bad input, not found,
+  forbidden, conflict.
 
-Typed features keep JSKIT's structure: `defineFeature()` and `defineProvider()`
-with `requires`, `optional` and `provides`; named actions with input schemas;
-route tables that name action ids; `create*` factories that return frozen
-objects of named functions; and the CRUD declaration
-`defineCrudJsonApiFeature()`. They fix only how dependencies are received and
-spelled.
+Following a call then takes one step: the parameter names its type, the type
+names its file. The architecture inspector's code map takes the same step, so
+it reports the call as exact instead of guessing from the method name.
 
-A call such as `accountPreferencesService.updatePreferences(...)` then has one
-destination a reader opens in one step: the parameter names its type, and the
-type is `ReturnType<typeof createService>` of one file. The architecture
-inspector's code map takes the same step through the TypeScript checker, so it
-reports the call as exact instead of guessing from the method name. Every habit
-the rules forbid breaks that step. A probe or an absent default gives the call
-a second, invisible outcome. A slot filled later, or a module-level registry,
-makes the destination depend on what ran before.
+## Features
 
-## Rules
+### Feature files
 
-### 1. A provided capability exports its type
+**A `defineFeature` lives in `<Name>Feature.js`, its keys in one order, one
+per line: `id, domain, requires, optional, provides, setup, actions, boot,
+shutdown`.** A `defineProvider` lives in `<Name>Provider.js`.
 
-- A named `create<Name>` factory builds the value of each provided token, in a
-  module of its own (`<name>Runtime.js`, `bookingEngine.js`), never inline in
-  `setup()` or in the feature file.
-- `src/server/types.js` (`server/types.js` in the kernel) holds one `@typedef`
-  per token, derived from that factory and named after the token in PascalCase
-  (`feature.invoice-rollup` → `InvoiceRollup`). The package exports it as
-  `./server/types`. Each token gets its own name, even when it aliases another
-  type (`AppBooks` is crud-core's `CrudResourceApi`).
-- A type used in two or more files is named once, in the `types.js` of the
-  package that owns it: no repeated `ReturnType<typeof createX>` and no
-  repeated `X["y"]`. Knex is `RuntimeKnex`, a Knex transaction
-  `RuntimeKnexTransaction` and a query `RuntimeKnexQueryBuilder`, a router
-  `RuntimeRouter`, a logger `RuntimeLogger`. The workspace services are
-  `WorkspaceDirectoryService`, `WorkspaceMembersService`,
-  `WorkspacePendingInvitationsService` and `WorkspaceSettingsService`, the
-  console's access service `ConsoleService`, a CRUD feature's parts
-  `CrudService` and `CrudRepository`, and a lifecycle hook's argument
-  `CrudLifecycleContext`. Import a type from its owner, never re-alias it
-  through another module.
-- Never hand-write an interface for a token with one implementation. Only a
-  token with several implementations (`auth.service`) is a hand-written
-  contract, in its owning package, with optional operations as optional
-  properties. A JSDoc `import("…")` is a type-only reference, so a package
-  cycle is no reason to hand-write a type.
+- `setup` builds each provided value with a named `create<Name>` factory from
+  a module of its own, never inline.
+- `actions` is a method that returns `create<Name>Actions({ … })`.
+- The hooks take `capabilities`, destructured and typed.
+
+Why: every feature reads the same way, top to bottom.
 
 ```js
-// before: each consumer spells the repository's type out
- * @param {ReturnType<typeof import("./consoleSettingsRepository.js").createRepository>} dependencies.consoleSettingsRepository
-
-// after: console-core's types.js names it once
-/** @typedef {ReturnType<typeof import("./consoleSettings/consoleSettingsRepository.js").createRepository>} ConsoleSettingsRepository */
- * @param {import("../types.js").ConsoleSettingsRepository} dependencies.consoleSettingsRepository
-```
-
-### 2. A received collaborator is typed where it is received
-
-- Destructure collaborators in the signature and type them with a JSDoc
-  `@param`. Never take `create<Name>(dependencies)` and read
-  `dependencies.x` in the body.
-- Every factory, constructor, hook and helper that calls a collaborator is
-  typed: `setup()`, `boot()` and `shutdown()` hooks, route registrars,
-  formatters, repository helpers and helpers that take a collaborator
-  positionally. A hook that only passes capabilities on needs no type.
-- Pure helpers (error mappers, id builders, validators) are imported, never
-  passed in.
-- A description sits inside the `/** */` block, before its tags, never in a
-  `//` line above it.
-- An optional token is typed `X | null` only at the hook that receives it. The
-  hook resolves its named default there, so `null` never flows deeper.
-
-```js
-// before: console-core's settings repository
-/** @param {import("knex").Knex} knex */
-function createRepository(knex) {
-  if (typeof knex !== "function") {
-    throw new TypeError("consoleSettingsRepository requires knex.");
-  }
-
-// after
-/** @param {{ knex: import("@jskit-ai/database-runtime/server/types").RuntimeKnex }} dependencies */
-function createRepository({ knex }) {
-```
-
-### 3. Collaborators are required
-
-- No `= null`, `= {}` or no-op default on a collaborator or on the
-  dependencies object; no `typeof dependency.method === "function"` probe; no
-  `dependency?.method?.()`; no "requires x" guard. The capability runtime
-  refuses to start without a required token.
-- A package's manifest (`jskit.capabilities` in its `package.json`) provides
-  exactly what its server providers provide, client capabilities aside, and
-  requires every capability they require, apart from the kernel's own
-  (`runtime.actions`, events, HTTP and the bootstrap) and its own. Boot refuses
-  a package whose manifest disagrees. A manifest requirement no provider has,
-  such as the database its migrations need, is logged as an install-time one.
-- A default that is the production implementation stays:
-  `fetchImpl = globalThis.fetch`, `now = Date.now`.
-- Resolve each default once, at the feature or at the public entry point.
-  Below that, destructure and use: no second default, no `options.x || null`,
-  no re-check of what the provider already validated.
-- "Optional operation" means some real implementer lacks the method. An
-  operation every implementer has, including one that refuses when a feature
-  is switched off, is required in the contract and never probed.
-- A collaborator has one shape. Never accept `capability.service || capability`.
-- The logger is required, typed `RuntimeLogger`. Only where a real caller may
-  omit it does it default to the kernel's `silentLogger`
-  (`@jskit-ai/kernel/server/runtime/logger`). Never `logger = null` with
-  `if (!logger) return`, and never `logger = console`.
-- A per-call callback in an options bag is data: resolve it once with a named
-  no-op default, `const { onProgress = reportNoProgress } = options`.
-- A public entry point that validates what an application passed it, such as
-  `defineFeature()` checking a definition, is input validation and stays.
-
-```js
-// before: users-core probed an operation every auth provider implements
-async function changePassword(request, user, payload, options = {}) {
-  // readable-check: allow method-probe - optional operation: changePassword is an optional auth.service operation
-  if (typeof authService.changePassword !== "function") {
-    throw new AppError(501, "Password change is not available.", { code: "users.security.passwordChangeUnavailable" });
-  }
-
-// after
-async function changePassword(request, user, payload) {
-```
-
-```js
-// before: the OIDC issuer client defaulted fetch to nothing and branched on it
-function createIssuerClient({ config, store, logger, fetchImpl = null, now = Date.now }) {
-  const requestOptions = { ...(fetchImpl ? { [client.customFetch]: fetchImpl } : {}) };
-
-// after
-function createIssuerClient({ config, store, logger, fetchImpl = globalThis.fetch, now = Date.now }) {
-  const requestOptions = { [client.customFetch]: fetchImpl };
-```
-
-### 4. Extension slots are optional capabilities
-
-- A slot is an `optional` token whose default the declaring package names and
-  the receiving hook resolves once, with `??`.
-- Anything that holds one value is a slot, whatever it is called
-  (`register*`, `attach*`, `set*`), and so is module state filled after
-  construction (a `let` or an exported `WeakMap` written in `boot()`). The
-  capability owns its state: build it in `setup()`, start it in `boot()`, stop
-  it in `shutdown()` without `?.`.
-- Catalogues stay catalogues: routes on `http.router`, contributors on
-  `runtime.bootstrap`, listeners on `runtime.events`, actions and placements.
-- When the slot's supplier requires the slot's owner, the two form a cycle.
-  Split the part of the owner the supplier needs into its own feature. Until
-  then the setter stays, with a `cycle:` comment, and the slot may be typed
-  `X | null` while it carries it.
-
-```js
-// before: workspaces-core's pending invitations held a registered callback
-let acceptanceParticipant = null;
-function registerAcceptanceParticipant(participant) { acceptanceParticipant = participant; }
-...
-if (acceptanceParticipant) {
-  await acceptanceParticipant({ invite, user }, { trx });
-}
-
-// after: WorkspacesFeature declares the slot and resolves it once
-optional: {
-  inviteAcceptanceParticipant: "workspaces.invite-acceptance-participant"
-},
-...
-inviteAcceptanceParticipant: inviteAcceptanceParticipant ?? noInviteAcceptanceParticipant,
-...
-await acceptanceParticipant({ invite, user }, { trx });
-```
-
-A package fills the slot by providing the token from a small feature that
-requires only what its value needs:
-
-```js
-const AppInviteAcceptanceFeature = defineFeature({
-  id: "app.invite-acceptance",
-  provides: { inviteAcceptanceParticipant: "workspaces.invite-acceptance-participant" },
-  setup: () => ({ inviteAcceptanceParticipant: linkAcceptedMember })
-});
-```
-
-### 5. Actions are one line
-
-- One `create<Name>Actions({ <service> })` per feature, destructured, in
-  `<name>Actions.js` (or the package's own `actions.js`). Actions that belong
-  to another concern live in a file named after it. An inline `actions()`
-  array becomes an unexported `create<Name>Actions()` in the same file.
-- Every definition and the list are `Object.freeze`d. Each id is a string
-  literal or a module-level string constant.
-- `execute: (input, context) => service.method(…)` makes exactly one call: no
-  `async` or `await`, no method body, no envelope built in the action (the
-  service returns the final result, its JSON:API document included), no
-  helper that builds the action or its `execute`, no helper that strips the
-  input, no input rebuilt.
-- A key the service ignores is passed through with `input`. A key that must
-  not reach the service is destructured in the parameter list, still one
-  expression with one call:
-  `execute: ({ workspaceSlug, ...payload }, context) => service.update(workspaceSlug, payload, { context })`.
-- CRUD custom actions keep the declaration's own
-  `execute({ input, context, service })` contract, written as a one-line arrow.
-- An action's input is strict. With no `mode`, it is validated in create mode:
-  the schema's required fields are enforced and its defaults applied. Only an
-  action that updates part of a record declares `mode: "patch"`; a command
-  (start, invite, run, connect) never does. A CRUD custom action's input
-  follows the same rule, with or without a scope.
-- An action declares no idempotency policy; the kernel refuses the field. An
-  action that must tolerate a repeated request handles it in its own domain
-  (a unique key, an upsert, a state check) and says so in a comment where
-  that is not obvious.
-- A rule every action of an application obeys (who may run it, which record
-  it acts within, the scope it runs in) is data each definition declares in
-  `extensions`, applied by the application's one [action policy](#the-action-policy).
-  It is never a helper that wraps each definition.
-
-```js
-// before: auth-core
-execute: async (input, context) => logoutOutcome(await authService.logout(requireRequestContext(context, "auth.logout")))
-
-// after: logout() answers { ok, clearSession } itself
-execute: (input, context) => authService.logout(resolveRequest(context))
-```
-
-#### The action policy
-
-An application supplies its rule once, as the optional `runtime.actions.policy`
-capability. The kernel's action provider resolves it with a named default:
-without a policy, each action is registered as declared and runs its own
-`execute`. The policy has two members, because a rule meets an action twice:
-
-- `input(definition)` runs once per action, when it is registered, with the
-  action as declared. It returns the input schema the action is validated and
-  listed with, so assistants and automation see the fields the rule adds or
-  removes before anything runs.
-- `execute({ definition, input, context, run })` runs for every execution,
-  after the kernel's channel, surface, permission and input checks. It
-  receives the action as declared and the validated input, and
-  calls `run(input, context)` with what the action should receive. Because it
-  calls `run` itself, it can refuse, adjust the input or the context, or run
-  the action inside a scope, such as an `AsyncLocalStorage` context.
-
-That is the smallest shape that covers such a rule. A context contributor runs
-before validation and can only add context. A wrapper per definition can do
-everything, but each definition's `execute` is then the wrapper's, so neither
-a reader nor the code map sees the call it makes. With the policy, every
-definition stays a plain frozen literal, read as written.
-
-```js
-// before: every definition wrapped, so its execute is the helper's
-withRecordScope({ id: "notes.update", …, execute: (input) => notes.update(input) }, { ownerOnly: true })
-
-// after: the definition declares its rule as data, and the policy applies it
-Object.freeze({ id: "notes.update", …, extensions: { records: OWNER_ONLY }, execute: (input) => notes.update(input) })
-
-const RecordScopePolicyProvider = defineProvider({
-  id: "app.action-policy",
-  provides: { policy: "runtime.actions.policy" },
-  setup: () => ({ policy: recordScopePolicy })
-});
-```
-
-The policy comes from a provider, not a feature: a feature requires
-`runtime.actions`, which would close a cycle with the action provider. The
-policy passes every action whose `extensions` it does not recognise straight
-to `run`, so the rule never touches another package's actions.
-
-### 6. Methods take the validated input as it is
-
-- A service method that only actions call has no `input = {}`,
-  `payload = {}` or `options = {}`, and never reads `input?.x`.
-- A contract operation that other callers reach too drops `= {}` and `?.` as
-  well, since the contract types its input; it still validates what the
-  contract receives.
-- No second parse of fields the schema validated: destructure with the
-  schema's absent value, `{ name, originId = "" }`. Turn `input.x || d` into
-  `{ x = d }` only when the schema rejects null and empty values for `x`.
-- An options bag whose fields are optional by contract keeps its default where
-  callers may omit it, as a repository's `options = {}` with `trx` does.
-
-```js
-// before: console-core's settings service
-async function updateSettings(input, options = {}) {
-  await consoleService.requireConsoleOwner(options?.context, options);
-
-// after: its actions always pass { context }
-async function updateSettings(input, { context }) {
-  await consoleService.requireConsoleOwner(context);
-```
-
-### 7. One request-context form per package
-
-The expression that reads the request, the actor or the workspace from an
-action context lives behind one helper per package, and every action passes
-the context the same way. Variants with `?.` or `|| null` count as different
-forms. The kernel's `resolveRequest(context)` reads the request, and
-`resolveActor(context)` / `resolveActorId(context)` read the signed-in user
-(`resolveActorId(null, request)` where only the request is held); never
-`context.actor?.id` or `request.user?.id` by hand. A method that takes both
-the input and the request takes `(input, request)`.
-
-```js
-// before: auth-core read the request two ways, and passed it first or second
-execute: (input, context) => authService.oauthStart(input, resolveRequest(context))
-execute: (input, context) => authService.resetPassword(requireRequestContext(context, "auth.password.reset"), input)
-
-// after
-execute: (input, context) => authService.resetPassword(input, resolveRequest(context))
-```
-
-### 8. Factory results are frozen, with named members
-
-- Every `create*` returns `Object.freeze({ … })` of named inner functions, not
-  an object of inline methods.
-- A factory exposes another factory's functions by name
-  (`logout: sessions.logout`), never by spreading it. Spreading is for a
-  `decorateService` or `decorateRepository` over the JSKIT CRUD service or
-  repository only, whose members are the contract's.
-
-```js
-// before: connectors-catalog's Google Ads Search service
-return {
-  async discover(id) { … },
-  async create(reviewId) { … },
-  pause: (id) => invoke("campaigns.setStatus", …)
-};
-
-// after
-async function discover(id) { … }
-async function create(reviewId) { … }
-...
-return Object.freeze({ discover, targets, preview, create, createConversion, campaign, launch, pause, report });
-```
-
-### 9. One copy of each helper, concern-sized files
-
-- Each pure helper, function or arrow, exists once per package and is
-  imported. Workspaces-core's three record-id resolvers became one
-  `common/support/workspaceRecordId.js`, and its copy of users-core's
-  `resolveActionUser` became an import of
-  `@jskit-ai/users-core/server/resolveActionUser`.
-- A helper the kernel owns is imported from it, never copied. A value as
-  trimmed text where only `null` and `undefined` are empty (0 and false keep
-  their text) is `toText(value)`; `normalizeText(value)` treats every falsy
-  value as empty (`@jskit-ai/kernel/shared/support/normalize`).
-- Files stay under 750 lines and functions under 600, one concern per factory.
-- These rules cover every module a capability value is built from, `src/shared`
-  modules included.
-
-```js
-// before: workspaces-core's settings, directory and members routes each defined one
-function resolveWorkspaceSettingsRecordId(record = {}, context = {}) {
-
-// after: each route file imports the one copy
-import { resolveWorkspaceRecordId } from "../common/support/workspaceRecordId.js";
-```
-
-### 10. Names and comments
-
-- Factories and action creators are `create*`; `build*` names a pure data
-  builder (`buildQueryFields`).
-- A file is named for what it holds: `<Name>Feature.js` for a `defineFeature`,
-  `<Name>Provider.js` for a `defineProvider`, `<name>Runtime.js`,
-  `<name>Actions.js`, `<name>Routes.js`. Sibling factories are named alike
-  (`createSupabaseSessions`, `createSupabaseOAuthFlows`,
-  `createSupabaseAccountFlows`). Auth-core's `auth.contributor.js` became
-  `authActions.js`; console-core's `bootConsoleSettingsRoutes.js` became
-  `consoleSettingsRoutes.js`.
-- Comments describe the code. None narrates history ("was", "now", "until X
-  is converted"), and no shim stays behind for a removed option.
-- No dead probes, and no blank first line left where a guard was removed.
-
-```js
-// before: workspaces-core's route registrars lived in boot*.js files
-import { registerWorkspaceSettingsRoutes } from "./workspaceSettings/bootWorkspaceSettings.js";
-
-// after
-import { registerWorkspaceSettingsRoutes } from "./workspaceSettings/workspaceSettingsRoutes.js";
-```
-
-## Common mistakes
-
-Each of these breaks the one-step reading the rules protect. A lint rule
-reports some of their shapes, named in each; the rest pass the rules or hide
-behind an allow comment, and are checked by reading.
-
-### A collaborator accepted in two shapes "for tests"
-
-```js
-const audits = auditsCapability.service || auditsCapability; // tests pass the bare service
-```
-
-The type promises one shape, production takes one branch and the tests take
-the other, so a reader follows two and the code map guesses. Read `.service`
-on a CRUD capability, use a feature capability as it is, and give the test
-double the real shape: `{ service: auditsDouble }`. `jskit/no-dual-shape`
-reports the fallback.
-
-### A probe on a collaborator that is always present
-
-```js
-// readable-check: allow method-probe - optional operation: a repository may lack withTransaction
-if (typeof repository.withTransaction !== "function") return work();
-```
-
-When every implementer has the method, the reason is untrue and the fallback
-is dead code that a test may even pin. "Optional operation" is for a contract
-method some real implementer lacks. Call the method, make it required in the
-contract, and delete the fallback with any test that only pins it.
-
-### An action built by a helper, given a body, or stripped by a helper
-
-```js
-execute: streamAction((input, context) => assistant.streamAnswer(input, context))
-async execute(input, context) { const result = await service.read(input); return { data: result }; }
-execute: (input, context) => service.update(withoutRouteKeys(input), { context })
-```
-
-Actions made by one helper share one `execute`, so neither a reader nor the
-map can tell which service each reaches. A helper that wraps every definition
-with the same application rule is the same mistake at a larger scale: the
-definition declares the rule's options in `extensions`, and the application's
-[action policy](#the-action-policy) applies them. A body moves service logic into the
-action, and a stripping helper reshapes input the schema already validated.
-Write each definition literally and frozen, with a constant id and
-`execute: (input, context) => service.method(input, { context })`. The service
-returns the final result and destructures what it uses.
-`jskit/action-execute-shape` reports a body and a helper-built `execute`.
-
-### A hand-written `(...args: any[]) => Promise<any>` interface
-
-```js
-/** @typedef {{ createInvoice: (...args: any[]) => Promise<any> }} InvoiceWrites */
-```
-
-A type literal of `any` members turns exact calls into guesses, because the
-inspector does not follow property signatures, and it drifts from the real
-service. Name the owner's type,
-`import("@local/invoices/server/types").InvoicesService`. A package cycle is no
-reason: a JSDoc `import("…")` is type-only. Hand-write a contract only for a
-token with several implementations, or for a JSKIT token that has no type yet,
-named once.
-
-### Spreading an in-package factory into a token value
-
-```js
-return { invoices: Object.freeze({ ...createInvoiceReads(dependencies), ...createInvoiceWrites(dependencies) }) };
-```
-
-The members have no visible origin, so a reader opens every factory to find
-one, and a later spread silently replaces an earlier member. Build each
-factory once and name each member: `listInvoices: reads.listInvoices`.
-`jskit/no-factory-spread` reports the spread.
-
-### `= {}` on contract operations
-
-```js
-async function createDocument(payload = {}, options = {}) {
-async function queryDocuments(query = {}, options = {}) {
-```
-
-No caller passes nothing, and the contract already types the input, so the
-default only hides a wrong call. Write `createDocument(payload, options)` and
-keep validating what the contract receives.
-
-### Input re-parsed after the schema validated it
-
-```js
-const name = String(input.name || "").trim();
-const ids = normalizeOrderedIds(input.ids);
-```
-
-Two validators drift apart, and the service seems to accept values the action
-refuses. Destructure with the schema's absent value. Domain invariants stay
-with their owner: a store still rejects an invalid label.
-
-### Several request-context forms in one package
-
-```js
-context?.actor?.id
-options.context.actor.id
-actorId(options?.context) || null
-```
-
-Each form treats an absent actor differently, so one action behaves
-differently depending on the path it takes. Read the actor with the kernel's
-`resolveActorId(context)` or `resolveActor(context)`, as the feature package
-pattern's engine does, and pass the context from actions one way.
-
-### Unfrozen results
-
-```js
-return { discover() { … }, async create() { … } };
-```
-
-A caller can replace a member, inline methods are anonymous to the map, and
-the shape is not fixed. Name the inner functions and return
-`Object.freeze({ discover, create })`. Freeze action definitions and lists
-too. `jskit/frozen-factory-result` reports the factory's result.
-
-### The same indexed type spelled out at every use
-
-```js
-@param {import("@jskit-ai/crud-core/server/types").CrudResourceApi["service"]} contacts
-@param {import("@jskit-ai/database-runtime/server/types").RuntimeDatabase["knex"]} knex
-```
-
-Every copy must change together, and the type has no home a reader can find.
-Name it once in the owner's `types.js` (`ContactsService`, crud-core's
-`CrudService` and `CrudRepository`, `RuntimeKnex`) and import that name.
-`jskit/named-repeated-type` reports a `ReturnType<…>` or indexed type spelled
-out in two or more files of one package.
-
-### A guard or comment that cites tests
-
-```js
-// readable-check: allow method-probe - tests build the workflow without the invoices service
-await trx?.commit?.(); // the test double has no commit
-```
-
-Production code shaped around a test double keeps a shape no real caller
-uses, and its comment describes the tests instead of the code. Complete the
-double with the real shape, or the method with its neutral value, and delete
-the guard. An allow reason describes the code, with a prefix from the
-vocabulary under [checks](#checks); `jskit/allow-comment-form` reports one
-that cites tests.
-
-### `null` flowing below the receiving hook
-
-```js
-setup({ fetchImpl = null }) { return { jobs: createJobs({ fetchImpl }) }; }
-// three factories down: if (fetchImpl) { … } else { … }
-```
-
-Every level then carries a branch for a value that is resolved once. Make the
-value an optional token, resolve it at the hook to a named default, and pass
-the result down as required.
-
-### A default resolved twice, or a check repeated
-
-```js
-setup({ events }) { return { actions: createActionCatalogue({ events: events || createEventRuntime() }) }; }
-function createActionCatalogue({ events = createEventRuntime() } = {}) {
-```
-
-Two defaults can disagree, and a second validation of what the provider
-already checked suggests the value can still be wrong. Resolve once, at the
-feature or the public entry point; below that, destructure and use.
-`function list(options = {}) { options?.trx || knex }` guards a value its own
-default already supplied; `jskit/no-optional-after-default` reports the `?.`
-and a second `options || {}`. A parameter that may arrive as `null` takes no
-default and keeps its `?.`.
-
-### One probe kind, several treatments
-
-The same guard, such as checking that an option is a Knex transaction, is
-labelled `input validation:` in one file, `data:` in another and nothing in a
-third. One kind of probe gets one comment, worded the same everywhere
-(`platform object: a Knex transaction`), whether or not a rule reports it.
-
-## One feature end to end
-
-The account preferences of `@jskit-ai/users-core` follow every rule. One
-request travels through every layer:
-
-```text
-PATCH /api/settings/preferences
-  -> action "settings.preferences.update"
-  -> AccountPreferencesService.updatePreferences()
-  -> UserSettingsRepository.updatePreferences()
-```
-
-The excerpts below are shortened to the lines that show the style.
-
-### Types the package provides
-
-`src/server/types.js` names the type of each capability the package provides,
-and the repositories its services share:
-
-```js
-// The types of the users capabilities, for features that require them.
-
-/** @typedef {ReturnType<typeof import("./usersRuntime.js").createUsersRuntime>} UsersCore */
-/** @typedef {ReturnType<typeof import("./usersExtensions.js").createUsersExtensions>} UsersExtensions */
-/** @typedef {ReturnType<typeof import("./usersIdentity.js").createUsersIdentity>} UsersIdentity */
-
-/**
- * The users' settings repository, as the account services receive it.
- * @typedef {ReturnType<typeof import("./common/repositories/userSettingsRepository.js").createRepository>} UserSettingsRepository
- */
-
-export {};
-```
-
-`package.json` exports it, so code in another package that requires the
-capability names its type:
-
-```json
-{
-  "exports": {
-    "./server/types": "./src/server/types.js"
-  }
-}
-```
-
-```js
-/**
- * A service of an application package whose feature requires `users: "users.core"`.
- * @param {{ users: import("@jskit-ai/users-core/server/types").UsersCore }} dependencies
- */
-function createWelcomeService({ users }) {
-  // `users.services.accountPreferences` has one known type here.
-}
-```
-
-The generated package inventory lists each typedef of a module as
-`type <Name>`.
-
-### The feature
-
-The feature declares what it requires and provides. `setup()` builds the
-runtime with the factory in `usersRuntime.js`, registers the routes and a
-bootstrap contributor, and types its parameter because it calls
-`bootstrap.register()`. `actions()` creates the actions from the services
-`setup()` built:
-
-```js
-import { createUsersRuntime } from "./usersRuntime.js";
-
-const UsersFeature = defineFeature({
-  id: "users.core",
+// good
+const InvoicesFeature = defineFeature({
+  id: "feature.invoices",
   requires: {
-    authService: "auth.service",
-    bootstrap: "runtime.bootstrap",
-    http: "runtime.http",
-    identity: "users.identity",
-    storage: "runtime.storage",
-    uploads: "runtime.uploads"
+    database: "runtime.database"
   },
   provides: {
-    users: "users.core"
+    invoices: "feature.invoices"
   },
-  /**
-   * @param {object} capabilities
-   * @param {import("@jskit-ai/auth-core/server/types").AuthService} capabilities.authService
-   * @param {import("@jskit-ai/kernel/server/types").RuntimeBootstrap} capabilities.bootstrap
-   * @param {import("@jskit-ai/kernel/server/types").RuntimeHttp} capabilities.http
-   * @param {import("./types.js").UsersIdentity} capabilities.identity
-   * @param {import("@jskit-ai/storage-runtime/server/types").RuntimeStorage} capabilities.storage
-   * @param {import("@jskit-ai/uploads-runtime/server/types").RuntimeUploads} capabilities.uploads
-   */
-  setup({ authService, bootstrap, http, identity, storage, uploads }) {
-    const users = createUsersRuntime({ authService, identity, storage });
-    registerAccountProfileRoutes(http.router, {
-      accountProfileService: users.services.accountProfile,
-      authService,
-      uploads
-    });
-    registerAccountPreferencesRoutes(http.router);
-    bootstrap.register({
-      id: "users.bootstrap",
-      order: 100,
-      contribute: createUsersBootstrapContributor({
-        authService,
-        userProfilesRepository: users.repositories.userProfiles,
-        userSettingsRepository: users.repositories.userSettings
-      }).contribute
-    });
-    return { users };
+  /** @param {{ database: import("@jskit-ai/database-runtime/server/types").RuntimeDatabase }} capabilities */
+  setup({ database }) {
+    return { invoices: createInvoices({ knex: database.knex }) };
   },
-  actions({ users }) {
-    return Object.freeze([
-      ...createAccountProfileActions({ accountProfileService: users.services.accountProfile }),
-      ...createAccountPreferencesActions({ accountPreferencesService: users.services.accountPreferences })
-    ]);
+  actions({ invoices }) {
+    return createInvoiceActions({ invoices });
   }
 });
+
+// bad: the value built inline, the actions an inline array
+setup: ({ database }) => ({ invoices: { list: () => database.knex("invoices") } }),
+actions: ({ invoices }) => [{ id: "invoices.list", execute: () => invoices.list() }]
 ```
 
-### The route table
+### Capability types
 
-`accountPreferencesRoutes.js` names the action a route runs; the transport
-contract comes from the shared resource:
+**Each provided token has one `@typedef` in its package's `src/server/types.js`,
+exported as `./server/types`. A type used in two or more files is named once
+there.**
+
+- Derive it from the factory, `ReturnType<typeof createInvoices>`, and name it
+  after the token in PascalCase (`feature.invoices` is `Invoices`). Each token
+  gets its own name, even when it aliases another type.
+- Import a type from the package that owns it; never re-alias it through
+  another module. A JSDoc `import("…")` is type-only, so a package cycle is no
+  reason to hand-write one.
+- Hand-write a contract only for a token with several implementations (such as
+  `auth.service`), in its owning package, with optional operations marked
+  optional.
+- JSKIT's names: `RuntimeKnex`, `RuntimeKnexTransaction`,
+  `RuntimeKnexQueryBuilder`, `RuntimeRouter`, `RuntimeLogger`, `RuntimeEnv`,
+  `CrudService`, `CrudRepository`.
+
+Why: a typed parameter tells a reader and the code map which file a call
+reaches.
 
 ```js
-/** @param {import("@jskit-ai/kernel/server/types").RuntimeRouter} router */
-function registerAccountPreferencesRoutes(router) {
-  router.register(
-    "PATCH",
-    "/api/settings/preferences",
-    {
-      auth: "required",
-      ...createJsonApiResourceRouteContract({
-        requestType: "user-preferences",
-        responseType: "user-settings",
-        body: userSettingsResource.operations.preferencesUpdate.body,
-        output: userSettingsResource.operations.view.output,
-        outputKind: "record",
-        getRecordId: resolveAccountSettingsResourceId,
-        includeValidation400: true
-      })
-    },
-    async function (request, reply) {
-      const response = await request.executeAction({
-        actionId: "settings.preferences.update",
-        input: request.input.body
-      });
-      reply.code(200).send(response);
-    }
-  );
+// good: src/server/types.js
+/** @typedef {ReturnType<typeof import("./invoices.js").createInvoices>} Invoices */
+export {};
+// a consumer in another package
+/** @param {{ invoices: import("@local/invoices/server/types").Invoices }} dependencies */
+
+// bad: spelled out at every use, or a hand-written interface of `any`
+/** @param {{ invoices: ReturnType<typeof import("../../invoices/src/server/invoices.js").createInvoices> }} dependencies */
+/** @typedef {{ list: (...args: any[]) => Promise<any> }} InvoiceReads */
+```
+
+### Typed collaborators
+
+**Every factory, constructor, hook and helper that calls a collaborator
+destructures it in its signature and types it with a JSDoc `@param`.**
+
+- That includes `setup()`, `boot()` and `shutdown()`, route registrars,
+  formatters and repository helpers. A hook that only passes capabilities on
+  needs no type.
+- Pure helpers (validators, mappers, id builders) are imported, never passed
+  in.
+
+Why: the type is what turns a call into one step.
+
+```js
+// good
+/**
+ * The invoices the feature provides.
+ * @param {{ knex: import("@jskit-ai/database-runtime/server/types").RuntimeKnex }} dependencies
+ */
+function createInvoices({ knex }) {
+
+// bad: untyped, read from a bag in the body
+function createInvoices(dependencies) {
+  const knex = dependencies.knex;
+```
+
+### Required collaborators
+
+**A collaborator is required: no `= null`, `= {}` or no-op default, no `typeof
+x.method === "function"` probe, no `x?.method?.()` and no "x is required"
+guard.**
+
+- A default that is the production implementation stays: `fetchImpl =
+  globalThis.fetch`, `now = Date.now`. One clock per factory.
+- An *optional operation* is a contract method some real implementer lacks.
+  An operation every implementer has, including one that refuses while its
+  feature is switched off, is required and never probed.
+- A per-call callback in an options bag is data: resolve it once with a named
+  no-op, `const { onProgress = reportNoProgress } = options`.
+- A public entry point that checks what an application hands it, such as
+  `defineFeature()` checking a definition, is input validation and stays, with
+  its [exception comment](#exceptions).
+
+Why: the capability runtime already refuses to start without a required
+token; a probe gives each call a second, invisible outcome.
+
+```js
+// good
+function createReminders({ mailer, now = Date.now }) {
+  async function send(invoice) {
+    await mailer.send(invoice.email, { sentAt: now() });
+  }
+
+// bad
+function createReminders({ mailer = null, onSent }) {
+  async function send(invoice) {
+    if (typeof mailer?.send !== "function") return;
+    await mailer.send(invoice.email);
+    onSent?.(invoice);
+  }
+```
+
+### One shape per value
+
+**A value arrives in one shape. Never accept `capability.service ||
+capability` or `x?.value ?? x`.**
+
+Why: production takes one branch and the tests take the other, so a reader
+follows two.
+
+```js
+// good: a CRUD capability's service, and a test double with the same shape
+const audits = auditsCapability.service;
+createAuditing({ auditsCapability: { service: auditsDouble } });
+
+// bad
+const audits = auditsCapability.service || auditsCapability;
+```
+
+### Environment from the caller
+
+**Code reads the environment its caller passes, typed `RuntimeEnv`. Only the
+application's entry point reads `process.env`, and passes it on.**
+
+- A third-party client is a named default resolved once in the factory that
+  owns it: `mailClient = createMailClient(config)`.
+- An application loads `.env` once per process, in one module every entry
+  point calls.
+
+Why: a function that falls back to the process environment hides a caller
+that forgot to pass one, and every test inherits the developer's shell.
+
+```js
+// good
+/** @param {{ env: import("@jskit-ai/kernel/server/types").RuntimeEnv }} options */
+function createMailer({ env }) {
+// server.js, the entry point
+const mailer = createMailer({ env: resolveRuntimeEnv() });
+
+// bad
+function createMailer({ env = process.env } = {}) {
+```
+
+### Optional tokens
+
+**A slot is an `optional` token with a named default, resolved once in
+`setup()` with `??`.**
+
+- The declaring package names the default beside the slot's type
+  (`sequentialNumbering`).
+- `X | null` appears only at the receiving hook; what `setup()` builds
+  receives the value as required. A disabled implementation is a named value
+  (`DISABLED_MAILER`), never `null`.
+- Anything that holds one value is a slot, however it is named (`set*`,
+  `register*`, `attach*`). Catalogues stay catalogues: routes on
+  `http.router`, contributors on `runtime.bootstrap`, listeners on
+  `runtime.events`, actions and placements.
+- When the slot's supplier requires the slot's owner, the two form a cycle.
+  Split the part of the owner the supplier needs into its own feature. Until
+  then the setter stays, with a `cycle:` [exception comment](#exceptions), and
+  is cleared at shutdown.
+
+Why: a slot filled later makes a call's destination depend on what ran
+before.
+
+```js
+// good: the owner declares the slot and resolves it once
+optional: {
+  numbering: "feature.invoices.numbering"
+},
+/** @param {{ numbering: import("./types.js").InvoiceNumbering | null }} capabilities */
+setup({ numbering }) {
+  return { invoices: createInvoices({ numbering: numbering ?? sequentialNumbering }) };
+},
+// another package fills it by providing the token
+const YearlyNumberingFeature = defineFeature({
+  id: "feature.yearly-numbering",
+  provides: {
+    numbering: "feature.invoices.numbering"
+  },
+  setup: () => ({ numbering: yearlyNumber })
+});
+
+// bad
+let numbering = sequentialNumbering;
+function setNumbering(next) {
+  numbering = next;
 }
 ```
 
-### The actions
+### Owned state
 
-`accountPreferencesActions.js` receives the typed service and returns frozen
-definitions. The action validates its input once, against the resource's
-schema, and its `execute` is one call:
+**A capability owns its state: built in `setup()`, started in `boot()`,
+stopped in `shutdown()`. No module-level registry, and no module state
+filled after construction.**
+
+- A private memo cache that nothing fills after construction is fine, and so
+  is a private concurrency guard over a process-wide resource, with a comment
+  saying so.
+- No late-bound closures between two tokens of one feature: the consumer
+  requires the other token.
+
+Why: module state is shared by every runtime in the process and outlives
+`shutdown()`.
 
 ```js
-/** @param {{ accountPreferencesService: import("./accountPreferencesService.js").AccountPreferencesService }} dependencies */
-function createAccountPreferencesActions({ accountPreferencesService }) {
+// good
+setup() {
+  return { jobs: createJobQueue() };
+},
+boot({ jobs }) {
+  jobs.start();
+},
+
+// bad
+const handlers = new Map();
+export function registerHandler(name, handler) {
+  handlers.set(name, handler);
+}
+```
+
+### Shutdown mirrors setup
+
+**`shutdown()` takes the same early returns as `setup()` and releases exactly
+what `setup()` registered, with no `?.()` or `?? []` guard.**
+
+- When a `register()` returns its release, keep it and call it at shutdown.
+
+Why: a guarded release hides a setup that never ran, or one that ran twice.
+
+```js
+// good
+setup({ events }) {
+  if (!config.remindersEnabled) return {};
+  return { reminders: createReminders({ events }) };
+},
+shutdown({ reminders }) {
+  if (!config.remindersEnabled) return;
+  return reminders.stop();
+}
+
+// bad
+shutdown({ reminders }) {
+  return reminders?.stop?.();
+}
+```
+
+### Loggers
+
+**The logger is required, typed `RuntimeLogger`, and called pino-style:
+`logger.warn({ error, ...fields }, "Sentence.")`.**
+
+- Only where a real caller may omit it does it default to the kernel's
+  `silentLogger` (`@jskit-ai/kernel/server/runtime/logger`). Never `logger =
+  null` with `if (!logger) return`, and never `logger = console`.
+- The foundations' logger options serialize `error` like `err`, so the message
+  and stack are kept.
+
+Why: one shape keeps every log line searchable by its fields.
+
+```js
+// good
+logger.warn({ error, invoiceId }, "The reminder failed; the next run retries it.");
+
+// bad
+logger?.warn?.(`Reminder failed: ${error.message}`);
+```
+
+## Actions
+
+### Action creators
+
+**A feature's actions come from one `create<Name>Actions({ <capability> })`,
+destructured, in `<name>Actions.js`. Each definition is a frozen literal
+inside it, and so is the list.**
+
+- Each id is a string literal or an `ACTION_*` module constant, exported for
+  the routes that run it.
+- Actions of another concern live in a file named after that concern.
+- The capability keeps the provider's name (`invoices`, not
+  `invoicesService`); only a second version of one capability gets a role name
+  (`unauditedInvoices`).
+
+Why: a reader finds every action, and the method it reaches, in one place.
+
+```js
+// good
+const ACTION_LIST_INVOICES = "invoices.list";
+
+/** @param {{ invoices: import("./types.js").Invoices }} dependencies */
+function createInvoiceActions({ invoices }) {
   return Object.freeze([
     Object.freeze({
-      id: "settings.preferences.update",
-      version: 1,
-      kind: "command",
-      channels: ["api", "automation", "internal"],
-      surfaces: ["*"],
-      permission: { require: "authenticated" },
-      input: userSettingsResource.operations.preferencesUpdate.body,
-      output: null,
-      events: ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS,
-      execute: (input, context) => accountPreferencesService.updatePreferences(
-        resolveRequest(context),
-        resolveActionUser(context, input),
-        input
-      )
+      ...QUERY_ACTION,
+      id: ACTION_LIST_INVOICES,
+      input: listInvoicesInput,
+      execute: (input, context) => invoices.list(input, { context })
     })
   ]);
 }
+
+export { ACTION_LIST_INVOICES, createInvoiceActions };
+
+// bad: positional, and built by a helper
+function createInvoiceActions(invoices) {
+  return [queryAction("invoices.list", invoices.list)];
+}
 ```
 
-The action holds the service it was created with, and the inspector finds it
-by its literal id.
+### One-line execute
 
-### The typed service
+**`execute: (input, context) => service.method(…)` makes exactly one call:
+no `async` or `await`, no body, no envelope, no helper that builds or strips
+it, and no `input || {}`.**
 
-The service names the type of each repository it receives, from the package's
-`types.js`, and the contract of `auth.service`. It has no defaults and no
-guards, its method takes the validated payload as it is, and it returns the
-JSON:API document the route sends:
+- The service returns the final result, its JSON:API document included.
+- A key that must not reach the service is destructured in the parameters:
+  `execute: ({ workspaceSlug, ...changes }, context) => invoices.update(changes, { context })`.
+- Flags go into the input or the context, never into a third argument.
+- A CRUD custom action keeps its declaration's own
+  `execute: ({ input, context, service }) => service.method(…)`, and its map
+  key names it; never write an id equal to the default crud-core builds.
+
+Why: each action shows the one method it reaches.
 
 ```js
+// good
+execute: (input, context) => invoices.send(input, { context })
+
+// bad
+execute: async (input = {}, context) => {
+  const invoice = await invoices.send(input || {}, { context });
+  return { data: invoice };
+}
+```
+
+### Shared action fields
+
+**Fields many actions share (`version`, `kind`, `channels`, `surfaces`) come
+from one frozen constant per kind, spread first into each literal. The other
+keys follow in this order: `id, input, output, permission, events, execute`.**
+
+- An application keeps one query and one command constant in its shared
+  package; a package defines its own only when its values differ.
+- An empty `events` is left out.
+
+Why: each literal reads complete, and one edit changes every action's
+channels.
+
+```js
+// good
+const QUERY_ACTION = Object.freeze({
+  version: 1,
+  kind: "query",
+  channels: ["api", "automation", "internal"],
+  surfaces: ["app"]
+});
+
+// bad: half the fields in the feature's actionDefaults, half in each literal
+defineFeature({ actionDefaults: { channels: ["api"] }, … });
+Object.freeze({ id: ACTION_LIST_INVOICES, kind: "query", … });
+```
+
+### Strict action inputs
+
+**An action's input is validated in create mode, the default: `required` is
+enforced and defaults are applied. Only an action that updates part of a
+record declares `mode: "patch"`; a command never does.**
+
+- Patch mode skips `required`, so a service keeps its guard for a field a
+  patch input lists as required.
+
+Why: a command whose required field is never enforced reaches the service
+without it.
+
+```js
+// good
+input: { schema: sendInvoiceSchema }                  // a command: invoiceId is enforced
+input: { schema: invoiceChangesSchema, mode: "patch" } // a partial update
+
+// bad: a command in patch mode, so its required invoiceId is never enforced
+input: { schema: sendInvoiceSchema, mode: "patch" }
+```
+
+### No idempotency
+
+**An action declares no idempotency; the kernel refuses the field at startup.
+An action that must tolerate a repeated request handles it in its own domain
+(a unique key, an upsert, a state check) and says so in a comment where that
+is not obvious.**
+
+Why: a label nothing enforces promises a guarantee nobody keeps.
+
+```js
+// good: the service returns an invoice that is already sent unchanged
+execute: (input, context) => invoices.send(input, { context })
+
+// bad
+idempotency: "optional",
+```
+
+### The action policy
+
+**A rule every action of an application obeys (who may run it, the record it
+acts within, the scope it runs in) is data in each definition's
+`extensions`, applied by the application's one `runtime.actions.policy`.
+Never a helper that wraps every definition.**
+
+- `input(definition)` runs once, when the action is registered, and returns
+  the input schema the action is validated and listed with.
+- `execute({ definition, input, context, run })` runs on every execution,
+  after the kernel's channel, surface, permission and input checks, and calls
+  `run(input, context)` with what the action should receive. It can refuse,
+  adjust the input or context, or run the action inside a scope.
+- The policy comes from a provider (a feature requires `runtime.actions`,
+  which would close a cycle), and passes every action whose `extensions` it
+  does not recognise straight to `run`.
+
+Why: a wrapper makes every definition's `execute` the wrapper's, so neither a
+reader nor the code map sees the call it makes.
+
+```js
+// good
+Object.freeze({ ...COMMAND_ACTION, id: ACTION_UPDATE_NOTE, extensions: { records: OWNER_ONLY }, execute: (input) => notes.update(input) })
+const RecordScopePolicyProvider = defineProvider({
+  id: "app.action-policy",
+  provides: {
+    policy: "runtime.actions.policy"
+  },
+  setup: () => ({ policy: recordScopePolicy })
+});
+
+// bad
+withRecordScope({ id: ACTION_UPDATE_NOTE, …, execute: (input) => notes.update(input) }, { ownerOnly: true })
+```
+
+### Request context
+
+**A package reads the request, the actor and the workspace from an action
+context one way, through the kernel's readers, and its actions pass the
+context one way.**
+
+- `resolveRequest(context)`, `resolveActor(context)` and
+  `resolveActorId(context)`, from
+  `@jskit-ai/kernel/server/actions/actionContributorHelpers`.
+- The workspace comes from the context only. A record's workspace may be
+  checked against it, never used as a fallback.
+- `?.` and `|| null` variants count as different forms.
+
+Why: each form treats an absent actor differently, so one action behaves
+differently depending on its path.
+
+```js
+// good
+const actorId = resolveActorId(context);
+
+// bad
+const actorId = context?.actor?.id || options.context?.user?.id || null;
+```
+
+## Services and repositories
+
+### Validated input as is
+
+**A method that receives an action's validated input takes it as it is: no
+`input = {}`, no `input?.x` and no second parse of what the schema checked.**
+
+- Destructure with the schema's absent value: `{ name, note = "" }`.
+- A contract operation other callers reach drops `= {}` and `?.` too, since
+  the contract types its input, and still validates what it receives.
+
+Why: two validators drift apart, and the service seems to accept values the
+action refuses.
+
+```js
+// good
+async function rename({ invoiceId, name }, { context }) {
+
+// bad
+async function rename(input = {}, options = {}) {
+  const name = String(input?.name || "").trim();
+```
+
+### Options and defaults
+
+**Resolve each default once, at the feature or the public entry point; below
+it, destructure and use.**
+
+- An options bag whose fields are optional by contract keeps `options = {}`,
+  with no `?.` or second `|| {}` on it. Pass it on as `options`, or
+  `{ ...options, trx }` inside a transaction.
+- A parameter or bag no caller passes is dropped and its values written in
+  place. A helper's argument takes no default unless a real caller omits it,
+  and a default never comes before a required parameter.
+- Two behaviours are two methods: no boolean mode parameter and no `skip*`
+  flag. A construction-time setting, and a boolean that is column data
+  (`setArchived({ archived })` behind `archive` and `restore`), are fine.
+
+Why: a value with two defaults has two meanings, and a mode flag hides a
+second method inside the first.
+
+```js
+// good
+async function list(query, options = {}) {
+  return resolveRepoClient(knex, options)("invoices").where(query);
+}
+
+// bad
+async function list(query = {}, options = {}) {
+  const client = options?.trx || knex;
+}
+async function save(invoice, skipAudit = false) {
+```
+
+### Frozen results
+
+**Every `create*` returns `Object.freeze({ … })` of named inner functions.
+Action definitions and their lists are frozen too.**
+
+Why: a caller cannot replace a member, and each member has a name the code
+map shows.
+
+```js
+// good
+function createInvoices({ knex }) {
+  async function list(query) { … }
+  async function send(input, options) { … }
+  return Object.freeze({
+    list,
+    send
+  });
+}
+
+// bad
+return { list(query) { … }, send: async (input) => { … } };
+```
+
+### Named members
+
+**A factory exposes another factory's functions by name, never by spreading
+its result.**
+
+- Spreading is for a `decorateService` or `decorateRepository` over the JSKIT
+  CRUD service or repository, whose members are the contract's, and for data.
+
+Why: a spread hides where a member comes from, and a later spread silently
+replaces an earlier member.
+
+```js
+// good
+return Object.freeze({
+  list: reads.list,
+  send: writes.send
+});
+
+// bad
+return Object.freeze({ ...createInvoiceReads(dependencies), ...createInvoiceWrites(dependencies) });
+```
+
+### One helper per package
+
+**Each pure helper exists once per package and is imported. A helper the
+kernel owns is imported from it. A non-pure check two packages make the same
+way (is this user an operator) is a member of its owner's capability.**
+
+- The kernel's `@jskit-ai/kernel/shared/support/normalize` holds
+  `normalizeText` (every falsy value is empty), `toText` (only `null` and
+  `undefined` are), `isRecord` and their siblings; check each call site's
+  meaning of 0 and false before replacing a copy.
+- A helper two packages of an application use lives in its shared package,
+  never inside one of them.
+
+Why: copies drift, and the next reader cannot tell which one is right.
+
+```js
+// good
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+
+// bad: a third copy, with its own idea of empty
+function normalizeText(value) {
+  return String(value || "").trim();
+}
+```
+
+### One reader per fact
+
+**A fact that a call's options or context carry is read through its owner's
+helper, never by hand.**
+
+| Fact | Reader |
+| --- | --- |
+| the call's transaction, or the client to query through | `resolveTransaction(options)`, `resolveRepoClient(knex, options)` (`@jskit-ai/database-runtime/shared`) |
+| what a service hands its repository | `repositoryCallOptions(options)` (`@jskit-ai/crud-core/server/jsonApiService`), only at the repository call |
+| the signed-in user | `resolveActor(context)`, `resolveActorId(context)` |
+| a tagged result's records, or its document | `simplifyJsonApiResult(result)`, `jsonApiResultValue(result)` (`@jskit-ai/http-runtime/shared`) |
+| a collection's next-page cursor | `jsonApiNextCursor(document)` (`@jskit-ai/http-runtime/shared`) |
+| a created record's id | `resolveCrudJsonApiEntityIdFromResult(result)` (`@jskit-ai/crud-core/server/serviceEvents`) |
+| a CRUD record change's event | `buildCrudRecordChangedEvent({ namespace, operation, entityId, audience })` (`@jskit-ai/crud-core/server/serviceEvents`) |
+| the workspace a request asks for, before any action context | `requestedWorkspaceScope(request)` (`@jskit-ai/workspaces-core/server/support/workspaceRouteInput`) |
+| a context's workspace id | `resolveWorkspaceScopeValue(context)` (`@jskit-ai/json-rest-api-core/server/jsonRestApiHost`) |
+
+Why: each hand-written copy treats a missing value its own way.
+
+```js
+// good
+const trx = resolveTransaction(options);
+
+// bad
+const trx = options?.trx || options?.transaction || null;
+```
+
+### Routes
+
+**A route does HTTP work only (status, cookies, redirects) and runs an action
+for anything that reads or writes the domain.**
+
+- Registration lives in `registerRoutes.js`, or in `<concern>Routes.js`
+  exporting `register<Concern>Routes` when there are several.
+- One handler shape: a named async function that sends what
+  `request.executeAction({ actionId: ACTION_X, input })` returns.
+- A route that bypasses actions (a provider's callback) gets its own named
+  registrar. Summaries are sentences.
+
+Why: an action is the one place a domain operation's policy, input and
+events are declared.
+
+```js
+// good
+router.register("POST", "/api/invoices/:invoiceId/send", { auth: "required", meta: { summary: "Sends an invoice." } },
+  async function sendInvoice(request, reply) {
+    reply.code(200).send(await request.executeAction({ actionId: ACTION_SEND_INVOICE, input: request.input.params }));
+  });
+
+// bad: the route reads storage itself
+router.register("GET", "/api/invoices", {}, async (request, reply) => reply.send(await knex("invoices")));
+```
+
+## Errors
+
+### Refusals carry their own code
+
+**A refusal is `new AppError(status, message, { code, params })`, or a
+subclass of `AppError`, with a code of its own: one code per distinct
+sentence, and `params` for the values in it.**
+
+- One code convention per package (`billing.invoice.notFound`); codes are
+  stable and never numbered.
+- Where callers branch on a shared code, keep it and add a `messageCode` (and
+  `messageParams`) per sentence. Input validation that carries per-field
+  `details` may share one code.
+- An error class extends `AppError` and gives each refusal its own code. A
+  project's coded builder, such as `billingError(message, code)`, is fine when
+  every call passes its own code. A function converting a caught error is
+  `to<What>Error(error, …)`; one returning refusal text is `*Message`.
+- The kernel's `NotFoundError`, `ConflictError` and `DomainError` default to
+  one shared code, so each call passes its own.
+
+Why: a client tells refusals apart by their code and shows each in the
+user's language ([translation](/guide/framework/translation)).
+
+```js
+// good
+throw new AppError(409, "The invoice is already sent.", { code: "billing.invoice.alreadySent" });
+throw new AppError(422, "The note is too long.", { code: "billing.note.tooLong", params: { max: 500 } });
+
+// bad
+throw new AppError(409, "The invoice is already sent.");
+throw new NotFoundError("Invoice not found.");
+```
+
+### Internal failures are plain errors
+
+**An internal invariant or an unexpected failure is `throw new Error(message)`.
+The caller sees "Internal server error." and the message stays in the log.**
+
+- JSKIT's HTTP handler shows an `AppError`'s message at any status, so an
+  `AppError` at 5xx is only for a failure the caller can act on.
+
+Why: an internal failure dressed as a refusal leaks its details and promises
+the caller a fix it cannot make.
+
+```js
+// good
+throw new Error(`Invoice ${invoiceId} has no ledger entry.`);
+
+// bad
+throw new AppError(500, `Invoice ${invoiceId} has no ledger entry.`, { code: "billing.ledger.missing" });
+```
+
+### One construction per error
+
+**An error gets its status and code when it is constructed, never patched on
+afterwards.**
+
+Why: a patched `Error` is neither a coded refusal nor a hidden failure, and
+the next edit drops the patch.
+
+```js
+// good
+throw new AppError(404, "Invoice was not found.", { code: "billing.invoice.notFound" });
+
+// bad
+throw Object.assign(new Error("Invoice was not found."), { statusCode: 404 });
+```
+
+### Failures are logged, not swallowed
+
+**A best-effort `.catch` around a collaborator call logs the error and
+carries on.**
+
+- A silent catch stays only for cleanup on platform objects
+  (`response.body.cancel()`), for queue tails whose error reaches the queued
+  caller, and for client best effort, each with a short comment saying so.
+
+Why: `() => {}` hides a wiring `TypeError` along with the failure.
+
+```js
+// good
+publisher.publish(event).catch((error) => logger.warn({ error, eventId: event.id }, "Publishing failed; the record is saved."));
+
+// bad
+publisher.publish(event).catch(() => {});
+```
+
+## Tests
+
+### Doubles use documented seams
+
+**A test double replaces an owner only through its documented seams (an
+injected collaborator, a provider client, an option), with the real shape.
+It never copies an internal protocol such as an id format or a stream
+frame.**
+
+- Complete a double with the method the code calls, returning its neutral
+  value; never shape production code around a double.
+
+Why: a double that mirrors internals pins them, so the test breaks on a
+refactor and passes on a real bug.
+
+```js
+// good
+const invoices = createInvoices({ knex, mailer: { send: async () => ({ accepted: true }) } });
+
+// bad: production code that exists for the double
+if (typeof mailer.send !== "function") return;
+```
+
+### Tests are not callers
+
+**A parameter, option or default that only tests pass, or a method only test
+doubles lack, is no reason to keep it: drop the seam and complete the
+double.**
+
+- One named clock per factory (`now = Date.now`) is a platform default, not a
+  test seam.
+
+Why: a seam kept for tests is a shape no real caller uses, and a reader
+cannot tell it apart from one that matters.
+
+```js
+// good
+function createReminders({ mailer, now = Date.now }) {
+
+// bad
+function createReminders({ mailer, now = Date.now, skipDelay = false, testHooks = {} }) {
+```
+
+### No test-only exports
+
+**A module exports only what other production modules import; an actions
+file exports its creator and its `ACTION_*` ids. Tests reach everything else
+through the feature, and pure helpers through `__testables`.**
+
+- `__testables` holds pure helpers only, never one that touches a
+  collaborator or reads request facts.
+
+Why: a test-only export widens the module's API and invites production
+callers.
+
+```js
+// good
+const __testables = Object.freeze({ nextInvoiceNumber });
+export { createInvoices, __testables };
+
+// bad
+export function resetInvoiceCacheForTests() {
+  cache.clear();
+}
+```
+
+## Files and layout
+
+### Size limits
+
+**Files stay under 750 lines and functions under 600, in all hand-written
+code: server, shared, client (`.vue` and `.js`) and scripts. One concern per
+factory.**
+
+Why: a reader holds one concern at a time; a 2,000-line closure holds ten.
+
+```text
+good: invoices.js (list, send), invoiceNumbering.js, invoiceReminders.js
+bad:  invoices.js, 1,900 lines: listing, sending, numbering, reminders and PDF rendering
+```
+
+### Data modules
+
+**A generated or static data module (a catalogue, a lookup table) is not
+code. It is exempt from the size limits, and its first line says it is data
+and how it is produced.**
+
+Why: the limits measure code a person reads; a table is scanned, not read.
+
+```js
+// good
+/* eslint-disable max-lines -- data: the country list, generated by scripts/build-countries.mjs */
+
+// bad: a module of functions excused as data
+/* eslint-disable max-lines -- data: invoice helpers */
+```
+
+### Formatter
+
+**An application has one formatter config, `formatterConfig(globs)`: width
+140, semicolons, double quotes, no trailing commas, one property per line in
+an object that spans lines, braces once an `if` spans lines.** `eslint --fix`
+applies it.
+
+- A returned frozen result and a `requires`, `optional` or `provides` map put
+  each property on its own line. A short leaf literal of at most three scalar
+  properties (`{ type: "string", required: true }`) may stay on one line.
+- Long prose stays inline in its string or template; never split a sentence
+  across `+` to fit the width.
+
+Why: one layout lets a diff show only what changed.
+
+```js
+// good
+return Object.freeze({
+  list,
+  send
+});
+
+// bad
+return Object.freeze({ list, send });
+```
+
+### Names
+
+**Factories and action creators are `create*`; a pure value builder is
+`build*` or `to*`; a domain operation that creates a thing keeps `create*`
+(`createInvoice`). Files are named for what they hold: `<Name>Feature.js`,
+`<Name>Provider.js`, `<name>Runtime.js`, `<name>Actions.js`,
+`<name>Routes.js`, `types.js`.**
+
+- Sibling factories are named alike (`createInvoiceReads`,
+  `createInvoiceWrites`). An error builder keeps its `*Error` suffix.
+
+Why: a name says what a call returns before anyone opens the file.
+
+```js
+// good
+function buildInvoiceTotals(lines) {
+
+// bad: a pure builder named like a factory
+function createInvoiceTotals(lines) {
+```
+
+### Comments
+
+**A function's description is a `/** … */` block, with the description
+inside it. Comments describe the code, never its history or its tests.**
+
+- A single-factory file puts its description in the factory's JSDoc, not in a
+  `//` file header.
+- No "was", "now" or "until X is converted", no dead probes, and no shim left
+  for a removed option.
+
+Why: a comment that narrates history is wrong the day after it is written.
+
+```js
+// good
 /**
- * A signed-in user's display and regional preferences.
- * @param {object} dependencies
- * @param {import("../types.js").UserSettingsRepository} dependencies.userSettingsRepository
- * @param {import("../types.js").UserProfilesRepository} dependencies.userProfilesRepository
- * @param {import("@jskit-ai/auth-core/server/types").AuthService} dependencies.authService
+ * Sends an invoice; a repeated send returns it unchanged.
+ * @param {{ invoiceId: string }} input
  */
-function createService({ userSettingsRepository, userProfilesRepository, authService }) {
-  async function updatePreferences(request, user, payload) {
-    const profile = await resolveUserProfile(userProfilesRepository, user);
-    if (!profile) {
-      throw new AppError(404, "User profile was not found.", { code: "users.profile.notFound" });
-    }
 
-    const settings = await userSettingsRepository.updatePreferences(profile.id, payload);
-    const securityStatus = await resolveSecurityStatus(authService, request);
-
-    return returnJsonApiData(accountSettingsResponseFormatter({ profile, settings, securityStatus, authService }));
-  }
-
-  return Object.freeze({ updatePreferences });
-}
-
-/** @typedef {ReturnType<typeof createService>} AccountPreferencesService */
+// bad
+// Sends an invoice (moved here from billing.js)
+/** @param {{ invoiceId: string }} input */
 ```
-
-### The repository
-
-The repository receives the JSON REST API it persists through, typed by its
-owner. Its options bag, whose `trx` and `context` are optional by contract,
-keeps a default:
-
-```js
-/** @param {{ api: import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi }} dependencies */
-function createRepository({ api }) {
-  async function updatePreferences(userId, patch, options = {}) {
-    return patchUserSettings(userId, patch, options);
-  }
-
-  return Object.freeze({ findByUserId, ensureForUserId, updatePreferences });
-}
-```
-
-The facts a call's options and context carry each have one reader, at their
-owner, instead of a copy per package:
-
-- the call's transaction: `resolveTransaction(options)`, or the client to
-  query through, `resolveRepoClient(knex, options)`
-  (`@jskit-ai/database-runtime/shared`);
-- what a service hands its repository, `{ trx, context }`:
-  `repositoryCallOptions(options)` (`@jskit-ai/crud-core/server/jsonApiService`);
-- the signed-in user: `resolveActor(context)` and `resolveActorId(context)`
-  (`@jskit-ai/kernel/server/actions/actionContributorHelpers`), the context's
-  actor, else the request's user, as auth's own route visibility reads it;
-- a service or action result's records: `simplifyJsonApiResult(result)`, and
-  the document it carries, `jsonApiResultValue(result)`
-  (`@jskit-ai/http-runtime/shared`). Both read only a tagged result
-  (`returnJsonApiDocument`, `returnJsonApiData` or `returnJsonApiMeta`) and
-  throw on anything else;
-- a collection document's next-page cursor: `jsonApiNextCursor(document)`
-  (`@jskit-ai/http-runtime/shared`), from `meta.pagination.cursor.next`, the
-  one shape json-rest-api and the route transport both write;
-- a create event's record id: `resolveCrudJsonApiEntityIdFromResult`
-  (`@jskit-ai/crud-core/server/serviceEvents`), from the tagged JSON:API
-  result a CRUD service or action returns (a document result's `data.id` or a
-  data result's record `id`);
-- a CRUD record mutation's event: `buildCrudRecordChangedEvent({ namespace,
-  operation, entityId, audience })` (`@jskit-ai/crud-core/server/serviceEvents`),
-  the entity change crud-core's own create, update and delete actions announce;
-- the workspace a request asks for before any action context exists, as in
-  an auth service decorator: `requestedWorkspaceScope(request)`
-  (`@jskit-ai/workspaces-core/server/support/workspaceRouteInput`), from the
-  route's `workspaceSlug` param or the bootstrap request's query, never by
-  matching the URL;
-- a context's workspace id: `resolveWorkspaceScopeValue(context)`
-  (`@jskit-ai/json-rest-api-core/server/jsonRestApiHost`), from the context's
-  workspace, the resolved one, the request's, a workspace visibility owner or
-  the `workspaceId` scope value; it throws when they name two workspaces.
-
-### Following the call
-
-From the route, each step is one jump:
-
-1. `request.executeAction({ actionId: "settings.preferences.update" })` reaches
-   the action with that literal id.
-2. Its `execute` calls `accountPreferencesService.updatePreferences()`;
-   `AccountPreferencesService` is `ReturnType<typeof createService>`, so the
-   call reaches that function in `accountPreferencesService.js`.
-3. `userSettingsRepository.updatePreferences()` is typed by
-   `UserSettingsRepository`, so it reaches `userSettingsRepository.js`, the
-   storage boundary.
-
-The `server/feature-package` pattern in the
-[source pattern library](/patterns/) is the smallest feature to copy: a `types.js`, a typed engine, an optional token with
-a named default, the kernel's `resolveActorId(context)` for who asked and a
-`bookingEngineActions.js` of one-line frozen actions.
 
 ## Checks
 
-`@jskit-ai/config-eslint` reports code that breaks the rules, as warnings on
-`**/src/server/**` in `baseConfig`. `typedFeaturesConfig(globs)` makes them
-errors for the globs an application lists. The application foundations list
-`packages/*/src/server/**`, `server/**` and `server.js`, so new server code is
-held to the rules from the start. `formatterConfig(globs)`, from the same
-package, is an application's one formatter config: width 140, semicolons,
-double quotes, no trailing commas, one property per line once an object's
-properties span lines, braced blocks on their own lines and two-space
-indentation. Its `eslint --fix` output is already formatted.
+### Running the checks
 
-| Rule | Reports |
-| --- | --- |
-| `jskit/typed-dependencies` | a factory or constructor that receives collaborators, in its signature or by destructuring them in its body, without a JSDoc `@param` type |
-| `jskit/required-collaborators` | an absent default, a `typeof` probe, an optional call |
-| `jskit/no-slot-setter` | a `set<Name>()` that fills a slot after construction |
-| `jskit/no-module-registry` | a module-level `register<Name>()` that writes module state |
-| `jskit/one-line-action` | `input = {}`, `input \|\| {}` or `input?.` in an action, an `async` `execute`, and a definition that is not frozen |
-| `jskit/no-duplicate-helper` | a small helper, function or arrow, repeated in another file of the package |
-| `jskit/allow-comment-form` | a `readable-check: allow` reason without a prefix from the table below, one that cites tests or the state of a project, or a `data:` reason on a function (a parameter default's `dependency-default` / `required-collaborators` reason aside) |
-| `jskit/jsdoc-description-inside` | a `//` description directly above a `/** */` block |
-| `jskit/no-dual-shape` | a value accepted in two shapes, `x.service \|\| x` or `x?.value ?? x` |
-| `jskit/named-repeated-type` | a `ReturnType<…>` or `X["y"]` JSDoc type written in two or more files of a package |
-| `jskit/action-execute-shape` | an `execute` that is not one arrow making one call: a body, `execute: helper(…)`, or a built result |
-| `jskit/no-factory-spread` | a `create*()` result spread into a factory's API or a token value |
-| `jskit/frozen-factory-result` | a `create*` result that is not frozen, or a member defined inline in it |
-| `jskit/no-optional-after-default` | `options?.` or a second `options || {}` on a parameter that has a default |
-| `jskit/one-property-per-line` | two properties on one line in a returned `Object.freeze({ … })` or a feature's `requires` / `optional` / `provides` map (`eslint --fix` splits them) |
-| `max-lines`, `max-lines-per-function` | files over 750 lines, functions over 600 |
+`npm run lint` runs ESLint with `@jskit-ai/config-eslint`, and `npm run
+verify` runs `jskit check` (the package graph), lint, the tests and the
+build. The foundations' `eslint.config.mjs` already holds a new
+application's code to every check:
 
-The rules see shapes, not intent: what they cannot see under
-[common mistakes](#common-mistakes) is checked by reading.
+```js
+import { baseConfig, formatterConfig, nodeConfig, sizeLimitsConfig, typedFeaturesConfig, vueConfig, webConfig } from "@jskit-ai/config-eslint/server";
 
-A justified exception carries a `// readable-check: allow <rule> - <reason>`
-comment on the line before it. The reason starts with one of these prefixes
-and says what is true of the code, never the state of a project or its tests:
+const SERVER_SOURCES = ["packages/*/src/server/**", "packages/*/src/shared/**", "server/**", "server.js"];
+const HAND_WRITTEN_SOURCES = ["packages/*/src/**", "src/**", "config/**", "server/**", "server.js", "bin/**"];
+
+export default [
+  ...baseConfig,
+  ...typedFeaturesConfig(SERVER_SOURCES),
+  ...sizeLimitsConfig(HAND_WRITTEN_SOURCES),
+  ...vueConfig,
+  ...webConfig,
+  ...nodeConfig,
+  ...formatterConfig([...SERVER_SOURCES, "config/**", "bin/**"])
+];
+```
+
+- `typedFeaturesConfig(globs)` makes every `jskit/*` rule and the size limits
+  errors for the server and shared code the globs select (tests and client
+  directories excluded).
+- `sizeLimitsConfig(globs)` holds the rest of the hand-written code, client
+  code included, to the size limits.
+- `formatterConfig(globs)` is the formatter.
+- `baseConfig` reports the `jskit/*` rules as warnings on any
+  `**/src/server/**`, so an existing application sees them before it lists a
+  package; it lists each package as it converts it.
+
+Every finding ends with a link to the section of this page that explains it.
+
+### Lint rules
+
+| Rule | Reports | Section |
+| --- | --- | --- |
+| `jskit/typed-dependencies` | a factory or constructor that receives collaborators without a JSDoc `@param` type | [Typed collaborators](#typed-collaborators) |
+| `jskit/required-collaborators` | an absent default on a collaborator, a `typeof … === "function"` probe, an optional call (`x.y?.()`, `received?.()`, `receivedService?.y()`) | [Required collaborators](#required-collaborators) |
+| `jskit/no-dual-shape` | a value accepted in two shapes, `x.service \|\| x` or `x?.value ?? x` | [One shape per value](#one-shape-per-value) |
+| `jskit/no-env-default` | `env = process.env`, `env \|\| process.env`, `env ?? process.env` | [Environment from the caller](#environment-from-the-caller) |
+| `jskit/no-slot-setter` | a `set<Name>()` that fills a slot after construction | [Optional tokens](#optional-tokens) |
+| `jskit/no-module-registry` | a module-level `register<Name>()` that writes module state | [Owned state](#owned-state) |
+| `jskit/named-repeated-type` | a `ReturnType<…>` or `X["y"]` JSDoc type written in two or more files of a package | [Capability types](#capability-types) |
+| `jskit/action-creator` | an action definition outside a `create<Name>Actions` creator, or a creator that takes its capabilities positionally | [Action creators](#action-creators) |
+| `jskit/action-execute-shape` | an `execute` that is not one arrow making one call: a body, `execute: helper(…)`, a built result | [One-line execute](#one-line-execute) |
+| `jskit/one-line-action` | `input = {}`, `input \|\| {}` or `input?.` in an action, an `async` `execute`, an unfrozen definition or list | [One-line execute](#one-line-execute) |
+| `jskit/no-idempotency` | an `idempotency` field on an action definition or its shared-field constant | [No idempotency](#no-idempotency) |
+| `jskit/no-optional-after-default` | `options?.` or a second `options \|\| {}` on a parameter that has a default | [Options and defaults](#options-and-defaults) |
+| `jskit/frozen-factory-result` | a `create*` result that is not frozen, or a member defined inline in it | [Frozen results](#frozen-results) |
+| `jskit/no-factory-spread` | a `create*()` result spread into a factory's API or a token value | [Named members](#named-members) |
+| `jskit/no-duplicate-helper` | a small helper, function or arrow, repeated in another file of the package | [One helper per package](#one-helper-per-package) |
+| `jskit/app-error-code` | an `AppError`, `DomainError`, `ConflictError` or `NotFoundError` (or a subclass the module declares) without its own code, and one code naming two sentences in a module | [Refusals carry their own code](#refusals-carry-their-own-code) |
+| `jskit/no-patched-error` | `Object.assign(new Error(…), { statusCode })`, or an error builder's result given its status afterwards | [One construction per error](#one-construction-per-error) |
+| `jskit/no-test-only-export` | an export whose name says only tests use it (`…ForTests`, `__reset…`; `__testables` aside) | [No test-only exports](#no-test-only-exports) |
+| `jskit/one-property-per-line` | two properties on one line in a returned `Object.freeze({ … })` or a `requires` / `optional` / `provides` map (`eslint --fix` splits them) | [Formatter](#formatter) |
+| `jskit/jsdoc-description-inside` | a `//` description directly above a `/** */` block | [Comments](#comments) |
+| `jskit/allow-comment-form` | a `readable-check: allow` reason without a prefix from the table below, or one that cites tests or the state of a project | [Exceptions](#exceptions) |
+| `max-lines`, `max-lines-per-function` | files over 750 lines, functions over 600 | [Size limits](#size-limits) |
+
+The rules see shapes, not intent. Feature files, owned state beyond
+registries, shutdown, loggers, shared action fields, strict inputs, the action
+policy, request context, validated input, one reader per fact, routes,
+internal failures, swallowed failures, test doubles, tests as callers, data
+modules and names are checked by reading.
+
+### Exceptions
+
+A justified exception carries a comment on the line before it, naming the
+rule or the finding, with a reason that says what is true of the code, never
+the state of a project or its tests:
+
+```js
+// readable-check: allow method-probe - input validation: an application supplies the serializer builder
+if (typeof buildSerializer !== "function") {
+```
 
 | Reason prefix | The exception |
 | --- | --- |
@@ -927,8 +1059,28 @@ and says what is true of the code, never the state of a project or its tests:
 
 One kind of probe gets one prefix and one wording everywhere, and a bare
 `typeof x` guard of that kind carries the same comment even where no rule
-reports it.
+reports it. The size limits are ESLint's own rules: excuse them with
+`// eslint-disable-next-line max-lines-per-function -- <reason>`, or a data
+module's header.
 
-The [typed features
-heuristic](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/heuristics/typed-features.md)
-maps each finding and keyword to its fix.
+## A whole feature
+
+The `server/feature-package` pattern is a complete feature that passes every
+check. Its layout:
+
+```text
+packages/booking-engine/
+  package.json                  exports ./server/types; lists the capability it provides
+  src/server/
+    types.js                    BookingEngine, BookingEngineAvailability
+    BookingEngineFeature.js     optional slot, provided engine, setup, actions
+    bookingEngine.js            createBookingEngine({ availability }): frozen named functions
+    bookingAvailability.js      everyScopeOpen, the slot's named default
+    bookingEngineActions.js     BOOKING_QUERY and createBookingEngineActions({ bookingEngine })
+    inputSchemas.js             the actions' input validators
+```
+
+Following a call takes one step each time: a route names
+`ACTION_GET_STATUS`; that action's `execute` calls `bookingEngine.readStatus`;
+`BookingEngine` is `ReturnType<typeof createBookingEngine>`, so the call
+reaches `bookingEngine.js`.

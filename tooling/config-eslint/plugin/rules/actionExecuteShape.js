@@ -49,7 +49,7 @@ const actionExecuteShape = Object.freeze({
     blockBody: "The execute of action {{action}} has a body. Move the work into the service and make execute one call: (input, context) => service.method(input, { context }).",
     notArrow: "The execute of action {{action}} is not an arrow. Write execute: (input, context) => service.method(input, { context }).",
     notOneCall: "The execute of action {{action}} does not make exactly one call. Return what one service method returns: (input, context) => service.method(input, { context })."
-  }),
+  }, "one-line-execute"),
   create(context) {
     const sourceCode = context.sourceCode;
     const report = createReporter(context, "action-execute-shape");
