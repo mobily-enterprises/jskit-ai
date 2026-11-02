@@ -16,8 +16,21 @@ export function normalizeConversationDeliveryHostStages(hostStages = []) {
   return Object.freeze([...new Set(hostStages)]);
 }
 
-// Observer results are never awaited and failures cannot change delivery.
-export function createConversationDeliveryTiming({ engine, conversationId, messageId, report, hostStages = [],
+/**
+ * Records how long one message's delivery spends in each stage. Observer results are never
+ * awaited and failures cannot change delivery.
+ * @param {object} options
+ * @param {string} options.engine
+ * @param {string} options.conversationId
+ * @param {string | undefined} options.messageId
+ * @param {import("../types.js").ConversationDeliveryTimingObserver | undefined} options.report Receives each stage; without one nothing is recorded.
+ * @param {readonly string[]} [options.hostStages] The host's own preparation stages.
+ * @param {() => number} [options.clock]
+ * @returns {(stage: string) => void}
+ */
+export function createConversationDeliveryTiming({ engine, conversationId, messageId, report,
+  // readable-check: allow dependency-default - data: the host's stage names, and a host without its own stages has none
+  hostStages = [],
   clock = () => performance.now() }) {
   const startedAt = clock();
   let previousAt = startedAt;
@@ -35,3 +48,6 @@ export function createConversationDeliveryTiming({ engine, conversationId, messa
     catch { /* Instrumentation never changes admission or provider work. */ }
   };
 }
+
+/** The delivery timing of a request that records none, such as a goal's message command. */
+export function recordNoDeliveryTiming() {}
