@@ -4,9 +4,9 @@ import path from "node:path";
 import { CodexAppServerJsonRpcClient } from "./codexClient.js";
 import { releaseSupersededCodexRuntime } from "./codexProviderOwner.js";
 import {
-  createCodexAccountReader, codexAuthOutputRequiresReconnect, codexAppServerProjectHookTrustConfig,
-  codexAppServerTextHasControlCharacters, CODEX_APP_SERVER_ACCOUNT_ID_MAX_LENGTH
-} from "./codexConfiguration.js";
+  createCodexAccountReader, codexAuthOutputRequiresReconnect, CODEX_APP_SERVER_ACCOUNT_ID_MAX_LENGTH
+} from "./codexAccountReader.js";
+import { codexAppServerProjectHookTrustConfig, codexAppServerTextHasControlCharacters } from "./codexConfiguration.js";
 import {
   CODEX_APP_SERVER_PROCESS_STATE, CODEX_APP_SERVER_TRANSPORT,
   codexAppServerExecutionMode, codexAppServerHelperWorkspaceDir, codexAppServerIsHelper,

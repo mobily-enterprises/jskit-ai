@@ -6,7 +6,9 @@ import { CODEX_APP_SERVER_DESKTOP_BUS_ENV_NAMES, codexCommandHookDefinition, cre
 import { CodexAppServerAgentProvider, codexLocalImageInput, ensureCodexAppServerThread, codexApplicationToolConfiguration,
   assertCodexApplicationToolSchemaIdentity, inspectCodexAppServerMessageAdmission, retireCodexConversationHistory } from "../codexProvider.js";
 import { createCodexAppServerProviderOwner } from "../codexProviderOwner.js";
-import { codexAuthOutputRequiresReconnect, codexProviderConfiguration, codexToolFreeConfiguration } from "../codexConfiguration.js";
+import { codexAuthOutputRequiresReconnect } from "../codexAccountReader.js";
+import { codexProviderConfiguration } from "../codexProviderHome.js";
+import { codexToolFreeConfiguration } from "../codexIsolation.js";
 import { nativeAiProvider, nativeAiModel } from "../../../shared/nativeProviders.js";
 import { createCodexAppServerRunOwner, codexAppServerTurnState, codexAppServerFrozenTurnInterruptResponse } from "../codexTurn.js";
 import { createLocalConversationExecution } from "../localExecution.js";

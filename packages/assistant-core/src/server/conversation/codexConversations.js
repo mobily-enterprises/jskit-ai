@@ -2,7 +2,8 @@ import { codexAppServerTurnStatusIsSuccessfulComplete, codexAppServerTurnStatusI
 import { CODEX_APP_SERVER_DETACHED_TURN_TIMEOUT_MS, createCodexAppServerDetachedTurnWatcher } from "./codexDetachedTurn.js";
 import { assertCodexAppServerHelperAccountIdentity, readCodexAppServerAccountIdentity, sendPreparedCodexAppServerHelperTurn } from "./codexHelperExecution.js";
 import { codexAppServerDeliveredTurn, codexAppServerRequestIsInvalid, codexAppServerThreadHasReadableHistory, codexAppServerThreadIsMissing, codexLocalImageInput, sendCodexAppServerPrompt } from "./codexProvider.js";
-import { codexAppServerProjectHookTrustConfig, readCodexToolFreeConfiguration } from "./codexConfiguration.js";
+import { codexAppServerProjectHookTrustConfig } from "./codexConfiguration.js";
+import { readCodexToolFreeConfiguration } from "./codexIsolation.js";
 import { codexAppServerAssistantItemText, codexAppServerContentText, classifyCodexAppServerEvent, codexAppServerNotificationThreadId, codexAppServerNotificationTurnId, codexAppServerNotificationTurnStatus, codexAppServerThreadRawValue, codexAppServerProviderThreadAssistantSegments, codexAppServerProviderTurnId, codexAppServerProviderTurnStatus, codexAppServerProviderTurnItems, codexAppServerProviderTurnClientIds, codexAppServerThreadTurnId, codexAppServerThreadError } from "./codexEvents.js";
 
 // Internal command facet of the original run owner; the same native conversation

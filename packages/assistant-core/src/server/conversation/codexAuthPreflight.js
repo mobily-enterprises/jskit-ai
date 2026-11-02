@@ -1,5 +1,5 @@
 import path from "node:path";
-import { codexAuthOutputRequiresReconnect } from "./codexConfiguration.js";
+import { codexAuthOutputRequiresReconnect } from "./codexAccountReader.js";
 import {
   assertExistingDirectory, codexAppServerCommandBaseEnv, codexAppServerCredentialHome,
   codexAppServerProcessCwd, ensureWritablePrivateDirectory

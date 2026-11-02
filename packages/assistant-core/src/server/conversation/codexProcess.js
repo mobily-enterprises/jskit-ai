@@ -10,7 +10,8 @@ import { CodexAppServerJsonRpcClient, socketPathFromCodexAppServerEndpoint } fro
 import { createConversationProcessIdentity } from "./localExecution.js";
 import { isRecord, normalizePositiveInteger } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeNullableText } from "./normalize.js";
-import { copyCodexProviderHome, prepareCodexModelCatalog } from "./codexConfiguration.js";
+import { prepareCodexModelCatalog } from "./codexConfiguration.js";
+import { copyCodexProviderHome } from "./codexProviderHome.js";
 import { codexDisabledProcessFeatureArguments } from "./codexHomeStorage.js";
 import { startCodexHistoryAdapter } from "./codexHistoryAdapter.js";
 
