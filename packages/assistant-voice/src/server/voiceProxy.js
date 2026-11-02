@@ -52,6 +52,7 @@ async function readVoiceCatalogue(config, { fetchImpl = fetch } = {}) {
     if (!Array.isArray(catalogue.voices) || typeof catalogue.defaultVoice !== "string") throw new Error("Invalid voice catalogue.");
     return catalogue;
   } catch (cause) {
+    // readable-check: allow patched-error - safety invariant: a speech-service failure is a plain 503 error, which the HTTP error handler answers without its text, like every server failure
     throw Object.assign(new Error("Speaking voices could not load. Check the speech service and retry."), {
       code: "voice_unavailable", statusCode: 503, cause,
       messageCode: "assistant.voice.proxy.voicesUnavailable", messageParams: {}
@@ -79,9 +80,10 @@ function sendSocketError(socket, code, message, { params, messageCode, messagePa
 function registerVoiceProxyRoute(fastify, {
   proxyConfig,
   route,
-  authorize = null,
+  authorize,
   WebSocketCtor = WebSocket
 } = {}) {
+  // readable-check: allow method-probe - platform object: the application's Fastify instance registers the proxy route
   if (!fastify || typeof fastify.get !== "function") {
     throw new TypeError("registerVoiceProxyRoute requires Fastify get().");
   }

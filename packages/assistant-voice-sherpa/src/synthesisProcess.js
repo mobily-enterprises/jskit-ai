@@ -2,6 +2,9 @@ import { fork } from "node:child_process";
 
 export const SYNTHESIS_REQUEST_TIMEOUT_MS = 60_000;
 
+/** A request that streams no audio, like loading a model, ignores audio frames. */
+function ignoreAudio() {}
+
 // Sherpa's Node API has no explicit model disposal. Process exit releases both
 // the model and ONNX's native arenas before another voice is loaded.
 export async function createSynthesisProcess(configuration, {
@@ -32,7 +35,7 @@ export async function createSynthesisProcess(configuration, {
   child.on("message", message => {
     if (!pending) return;
     if (message.type === "audio") {
-      try { pending.onAudio?.(message.pcm); } catch (error) { settle(error); }
+      try { pending.onAudio(message.pcm); } catch (error) { settle(error); }
     } else if (message.type === "error") settle(new Error(message.message));
     else if (message.type === "result") settle(null, message.result);
   });
@@ -44,7 +47,7 @@ export async function createSynthesisProcess(configuration, {
     await exited;
   }
 
-  function request(type, fields, onAudio) {
+  function request(type, fields, onAudio = ignoreAudio) {
     if (stopped) return Promise.reject(new Error("Speech worker is unavailable."));
     if (pending) return Promise.reject(new Error("Speech synthesis is already running."));
     return new Promise((resolve, reject) => {
@@ -60,27 +63,28 @@ export async function createSynthesisProcess(configuration, {
     signal?.throwIfAborted();
     const metadata = await request("load", { configuration, outputSampleRate });
     signal?.throwIfAborted();
+    async function synthesize(text, { speakerId, speed = 1, onAudio = ignoreAudio, signal } = {}) {
+      let samples = 0;
+      const abort = () => { void close(); };
+      if (signal?.aborted) return { cancelled: true, sampleRate: metadata.sampleRate, samples };
+      signal?.addEventListener("abort", abort, { once: true });
+      try {
+        await request("synthesize", { text, speakerId, speed }, frame => {
+          if (signal?.aborted) return;
+          samples += frame.byteLength / 2;
+          onAudio(frame);
+        });
+      } catch (error) {
+        await close();
+        if (!signal?.aborted) throw error;
+      } finally { signal?.removeEventListener("abort", abort); }
+      return { cancelled: Boolean(signal?.aborted), sampleRate: metadata.sampleRate, samples };
+    }
     return Object.freeze({
       ...metadata,
       get running() { return !stopped; },
       close,
-      async synthesize(text, { speakerId, speed = 1, onAudio = () => null, signal } = {}) {
-        let samples = 0;
-        const abort = () => { void close(); };
-        if (signal?.aborted) return { cancelled: true, sampleRate: metadata.sampleRate, samples };
-        signal?.addEventListener("abort", abort, { once: true });
-        try {
-          await request("synthesize", { text, speakerId, speed }, frame => {
-            if (signal?.aborted) return;
-            samples += frame.byteLength / 2;
-            onAudio(frame);
-          });
-        } catch (error) {
-          await close();
-          if (!signal?.aborted) throw error;
-        } finally { signal?.removeEventListener("abort", abort); }
-        return { cancelled: Boolean(signal?.aborted), sampleRate: metadata.sampleRate, samples };
-      }
+      synthesize
     });
   } catch (error) {
     await close();

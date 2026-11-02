@@ -104,15 +104,28 @@ function parseVoiceClientControl(raw = "") {
         { sampleRate: VOICE_INPUT_SAMPLE_RATE }
       );
     }
-    return Object.freeze({ sampleRate, turnId, type, ...(input.continuous === true ? { continuous: true } : {}) });
+    return Object.freeze({
+      sampleRate,
+      turnId,
+      type,
+      ...(input.continuous === true ? { continuous: true } : {})
+    });
   }
   if (type === "speak.stop-after") {
     if (!Number.isSafeInteger(input.segmentIndex) || input.segmentIndex < 0) throw voiceProtocolError("voice_segment_invalid", "Choose the current spoken phrase.");
-    return Object.freeze({ type, turnId, segmentIndex: input.segmentIndex });
+    return Object.freeze({
+      type,
+      turnId,
+      segmentIndex: input.segmentIndex
+    });
   }
   if (type === "listen.commit" || type === "listen.discard") {
     if (!Number.isSafeInteger(input.revision) || input.revision < 1) throw voiceProtocolError("voice_revision_invalid", "Choose the current recognized utterance.");
-    return Object.freeze({ type, turnId, revision: input.revision });
+    return Object.freeze({
+      type,
+      turnId,
+      revision: input.revision
+    });
   }
   if (type === "speak.start" || type === "speak.append") {
     if (input.voiceId !== undefined && (type !== "speak.start" || typeof input.voiceId !== "string" || !VOICE_ID_PATTERN.test(input.voiceId))) {
@@ -128,9 +141,18 @@ function parseVoiceClientControl(raw = "") {
         { maximum: VOICE_MAX_SPEECH_TEXT_CHARACTERS }
       );
     }
-    return Object.freeze({ text, turnId, type, ...(input.stream === true ? { stream: true } : {}), ...(input.voiceId ? { voiceId: input.voiceId } : {}) });
+    return Object.freeze({
+      text,
+      turnId,
+      type,
+      ...(input.stream === true ? { stream: true } : {}),
+      ...(input.voiceId ? { voiceId: input.voiceId } : {})
+    });
   }
-  return Object.freeze({ turnId, type });
+  return Object.freeze({
+    turnId,
+    type
+  });
 }
 
 function assertVoiceAudioFrame(frame = null) {
