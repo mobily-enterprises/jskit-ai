@@ -317,9 +317,9 @@ function realtimeAuthenticationRequired(authService) {
 class RealtimeAuthenticationError extends AppError {
   /**
    * @param {string} message
-   * @param {string} code
+   * @param {{ code: string }} options
    */
-  constructor(message, code) {
+  constructor(message, { code }) {
     super(401, message, { code });
     this.name = "RealtimeAuthenticationError";
     this.data = Object.freeze({ code });
@@ -327,11 +327,11 @@ class RealtimeAuthenticationError extends AppError {
 }
 
 function authenticationRequiredError() {
-  return new RealtimeAuthenticationError("Authentication required.", "AUTHENTICATION_REQUIRED");
+  return new RealtimeAuthenticationError("Authentication required.", { code: "AUTHENTICATION_REQUIRED" });
 }
 
 function sessionRefreshRequiredError() {
-  return new RealtimeAuthenticationError("Session refresh required.", "SESSION_REFRESH_REQUIRED");
+  return new RealtimeAuthenticationError("Session refresh required.", { code: "SESSION_REFRESH_REQUIRED" });
 }
 
 function rememberSocketActorId(socket, actorId) {

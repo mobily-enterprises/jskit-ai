@@ -1421,7 +1421,7 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope, storageI
             !(created > recoveryCreated || (created === recoveryCreated && message.id > recoveryReceipt.id))) {
           throw new AppError(503,
             "OpenCode could not confirm that the new input follows its final-answer recovery. The admitted message was not resent.",
-            { code: "assistant_opencode_observation_lost", details: {} });
+            { code: "assistant_opencode_recovery_order_unconfirmed", details: {} });
         }
       } catch (error) {
         recoveryObservationError = error;
