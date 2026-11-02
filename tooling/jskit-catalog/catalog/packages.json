@@ -154,6 +154,10 @@
               {
                 "subpath": "./server",
                 "summary": "Saved runs and their resumer, goal rounds, background summaries, planning notes, the default coding tools and their executors."
+              },
+              {
+                "subpath": "./server/types",
+                "summary": "Types of the runs, goals, commands, notices and executors the server parts build or receive, for code that receives them."
               }
             ],
             "capabilities": []
