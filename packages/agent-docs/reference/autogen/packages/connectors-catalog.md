@@ -33,7 +33,7 @@ Exports
 
 ### `src/server/ai.js`
 Exports
-- `createAiConnectionResolver({ configuration, authorize, resolveReference = createEnvironmentReferenceResolver() })`
+- `createAiConnectionResolver({ configuration, authorize, resolveReference = createEnvironmentReferenceResolver(process.env) })`
 
 ### `src/server/airtable.js`
 Exports
@@ -1337,11 +1337,11 @@ Exports
 
 ### `patterns/ai-connections/example/ai-model.js`
 Exports
-- `createConfiguredAiModel({ configuration, authorize, resolveReference = createEnvironmentReferenceResolver(), createModel })`
+- `createConfiguredAiModel({ configuration, authorize, resolveReference = createEnvironmentReferenceResolver(process.env), createModel })`
 
 ### `patterns/ai-connections/example/perplexity-answer.js`
 Exports
-- `createPerplexityAnswers({ configuration, authorize, createClient, resolveReference = createEnvironmentReferenceResolver() })`
+- `createPerplexityAnswers({ configuration, authorize, createClient, resolveReference = createEnvironmentReferenceResolver(process.env) })`
 
 ### `patterns/api-key-connection/example/connections.js`
 Exports

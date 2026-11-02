@@ -11,7 +11,7 @@ import { aiCatalogue, aiDefinition, getAiModel } from "../shared/ai.js";
  * @param {import("@jskit-ai/connectors-core/server/types").ResolveReference} [options.resolveReference]
  *   Reads `env:NAME` references from the environment unless the application resolves its own.
  */
-function createAiConnectionResolver({ configuration, authorize, resolveReference = createEnvironmentReferenceResolver() }) {
+function createAiConnectionResolver({ configuration, authorize, resolveReference = createEnvironmentReferenceResolver(process.env) }) {
   // readable-check: allow method-probe - input validation: the application passes its access policy
   if (typeof authorize !== "function") throw new TypeError("AI connections require application authorization.");
   const config = validateIntegrationConfiguration(configuration, { providers: [aiDefinition], allowUnknownProviders: true });

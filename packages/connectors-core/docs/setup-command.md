@@ -14,7 +14,7 @@ time limit.
 
 The script loads the application's existing configuration and server composition.
 Resolve administrator references from its existing Env using
-`createEnvironmentReferenceResolver()`. Use an application-owned store whose
+`createEnvironmentReferenceResolver(process.env)`. Use an application-owned store whose
 identity includes the environment. Keep runtime data outside source and release
 snapshots. The script's operator context must be established by the application;
 never accept applicationId, subjectId or administrator privileges from stdin.

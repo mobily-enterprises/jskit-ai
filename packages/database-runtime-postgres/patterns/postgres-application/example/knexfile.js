@@ -8,4 +8,4 @@ try {
   }
 }
 
-export default await createKnexMigrationConfigFromApp({ client: "pg" });
+export default await createKnexMigrationConfigFromApp({ client: "pg", environment: process.env });

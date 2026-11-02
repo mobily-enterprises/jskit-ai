@@ -50,7 +50,7 @@ function parseJsonBody(buffer) {
  * `mount(app)` registers everything on a Fastify instance.
  * @param {object} dependencies
  * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} dependencies.knex
- * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} [dependencies.env]
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} dependencies.env
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
  * @param {import("./types.js").HubMailer} [dependencies.mailer] Sends the hub's emails instead of the configured sender.
  * @param {import("./types.js").HubClock} [dependencies.now]
@@ -60,7 +60,7 @@ function parseJsonBody(buffer) {
  */
 async function createOidcIssuer({
   knex,
-  env = process.env,
+  env,
   logger,
   mailer,
   now = systemClock,

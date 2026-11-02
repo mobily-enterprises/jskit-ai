@@ -152,7 +152,7 @@ Exports
 ### `src/server/issuer.js`
 Exports
 - `HUB_GLOBAL_PATHS`
-- `createOidcIssuer({ knex, env = process.env, logger, mailer, now = systemClock, appRoot = "", googleEndpoints = GOOGLE_ENDPOINTS, fetchImpl = globalThis.fetch })`
+- `createOidcIssuer({ knex, env, logger, mailer, now = systemClock, appRoot = "", googleEndpoints = GOOGLE_ENDPOINTS, fetchImpl = globalThis.fetch })`
 Local functions
 - `isHubPath(url)`
 - `bearerToken(request)`
@@ -177,8 +177,8 @@ Local functions
 ### `src/server/previewIdentity.js`
 Exports
 - `DEFAULT_PREVIEW_IDENTITY_PROTOCOL`
-- `executePreviewIdentityRequest(request, { env = process.env, fetchImpl = globalThis.fetch, protocol = DEFAULT_PREVIEW_IDENTITY_PROTOCOL, localHostnames = [] } = {})`
-- `runPreviewIdentityCommand({ env = process.env, fetchImpl = globalThis.fetch, stdin = process.stdin, stdout = process.stdout, protocol = DEFAULT_PREVIEW_IDENTITY_PROTOCOL, localHostnames = [] } = {})`
+- `executePreviewIdentityRequest(request, { env, fetchImpl = globalThis.fetch, protocol = DEFAULT_PREVIEW_IDENTITY_PROTOCOL, localHostnames = [] })`
+- `runPreviewIdentityCommand({ env, fetchImpl = globalThis.fetch, stdin = process.stdin, stdout = process.stdout, protocol = DEFAULT_PREVIEW_IDENTITY_PROTOCOL, localHostnames = [] })`
 Local functions
 - `failure(protocol, requestId, code, message, statusCode = 400)`
 - `readInput(stream)`

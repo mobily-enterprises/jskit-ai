@@ -287,18 +287,21 @@ async function login(fetchImpl, targetOrigin, identity, secret, session) {
  * exchange. The preview host names the protocol id and any hostnames, besides
  * loopback, that it serves the application on.
  * @param {Record<string, any>} value The command's request, which is validated here.
- * @param {object} [options]
- * @param {Record<string, string | undefined>} [options.env]
+ * @param {object} options
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} options.env The application's environment, such as `process.env`.
  * @param {typeof fetch} [options.fetchImpl]
  * @param {string} [options.protocol] The protocol id requests carry and responses echo.
  * @param {RegExp[]} [options.localHostnames] Hostnames, besides loopback, the application is served on.
  */
 async function executeManagedPreviewIdentityRequest(value, {
-  env = process.env,
+  env,
   fetchImpl = globalThis.fetch,
   protocol = DEFAULT_PREVIEW_IDENTITY_PROTOCOL,
   localHostnames = []
-} = {}) {
+}) {
+  if (!env) {
+    throw new TypeError("executeManagedPreviewIdentityRequest requires the application's environment, such as process.env.");
+  }
   let requestId = String(value?.requestId || "").trim();
   try {
     const request = normalizeRequest(value, { protocol, localHostnames });
@@ -355,8 +358,8 @@ async function executeManagedPreviewIdentityRequest(value, {
 
 /**
  * Reads one request from stdin and writes its response to stdout.
- * @param {object} [options]
- * @param {Record<string, string | undefined>} [options.env]
+ * @param {object} options
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} options.env The application's environment, such as `process.env`.
  * @param {typeof fetch} [options.fetchImpl]
  * @param {AsyncIterable<string | Buffer>} [options.stdin]
  * @param {{ write(text: string): unknown }} [options.stdout]
@@ -364,13 +367,13 @@ async function executeManagedPreviewIdentityRequest(value, {
  * @param {RegExp[]} [options.localHostnames] Hostnames, besides loopback, the application is served on.
  */
 async function runManagedPreviewIdentityCommand({
-  env = process.env,
+  env,
   fetchImpl = globalThis.fetch,
   stdin = process.stdin,
   stdout = process.stdout,
   protocol = DEFAULT_PREVIEW_IDENTITY_PROTOCOL,
   localHostnames = []
-} = {}) {
+}) {
   let request;
   try {
     request = await readCommandInput(stdin);

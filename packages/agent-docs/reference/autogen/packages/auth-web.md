@@ -289,8 +289,8 @@ Exports
 ### `src/server/managedPreviewIdentity.js`
 Exports
 - `DEFAULT_PREVIEW_IDENTITY_PROTOCOL`
-- `executeManagedPreviewIdentityRequest(value, { env = process.env, fetchImpl = globalThis.fetch, protocol = DEFAULT_PREVIEW_IDENTITY_PROTOCOL, localHostnames = [] } = {})`
-- `runManagedPreviewIdentityCommand({ env = process.env, fetchImpl = globalThis.fetch, stdin = process.stdin, stdout = process.stdout, protocol = DEFAULT_PREVIEW_IDENTITY_PROTOCOL, localHostnames = [] } = {})`
+- `executeManagedPreviewIdentityRequest(value, { env, fetchImpl = globalThis.fetch, protocol = DEFAULT_PREVIEW_IDENTITY_PROTOCOL, localHostnames = [] })`
+- `runManagedPreviewIdentityCommand({ env, fetchImpl = globalThis.fetch, stdin = process.stdin, stdout = process.stdout, protocol = DEFAULT_PREVIEW_IDENTITY_PROTOCOL, localHostnames = [] })`
 Local functions
 - `commandError(message, code = "jskit_managed_preview_identity_failed", details = {})`
 - `response(protocol, requestId, values)`

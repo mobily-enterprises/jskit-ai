@@ -54,10 +54,12 @@ application file is small:
 import { createKnexMigrationConfigFromApp } from
   "@jskit-ai/database-runtime/server/knexMigrationConfig";
 
-export default await createKnexMigrationConfigFromApp({ client: "mysql2" });
+export default await createKnexMigrationConfigFromApp({ client: "mysql2", environment: process.env });
 ```
 
-Use `client: "pg"` for PostgreSQL. The complete examples are in:
+Use `client: "pg"` for PostgreSQL. The environment is always passed: JSKIT reads
+the connection values from what the application gives it, never from
+`process.env` on its own. The complete examples are in:
 
 - `database/mysql-application`
 - `database/postgres-application`

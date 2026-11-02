@@ -174,7 +174,7 @@ const protection = createCredentialProtection({
 const store = createFileConnectionStore({ directory: process.env.CONNECTOR_STATE_DIRECTORY, protection });
 const connections = createConnectionService({
   configuration, providers, store,
-  resolveReference: createEnvironmentReferenceResolver(),
+  resolveReference: createEnvironmentReferenceResolver(process.env),
   authorize: applicationConnectionPolicy
 });
 

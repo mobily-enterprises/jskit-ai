@@ -19,14 +19,17 @@ function normalizeMigrationResult(result) {
  * Migrates the database an application's Knex instance reaches, then runs its seed, if any, in one transaction.
  * @param {object} options
  * @param {import("./types.js").RuntimeKnex} options.knex
- * @param {(context: { knex: import("./types.js").RuntimeKnexTransaction, appRoot: string, environment: NodeJS.ProcessEnv }) => unknown} [options.seed]
+ * @param {(context: { knex: import("./types.js").RuntimeKnexTransaction, appRoot: string, environment: import("@jskit-ai/kernel/server/types").RuntimeEnv }) => unknown} [options.seed]
  * @param {string} [options.appRoot]
- * @param {NodeJS.ProcessEnv} [options.environment]
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} options.environment The application's environment, such as `process.env`.
  */
-async function runDatabaseSetup({ knex, seed, appRoot = process.cwd(), environment = process.env }) {
+async function runDatabaseSetup({ knex, seed, appRoot = process.cwd(), environment }) {
   // readable-check: allow method-probe - input validation: the application passes its own Knex instance
   if (typeof knex !== "function" || typeof knex.transaction !== "function") {
     throw new TypeError("runDatabaseSetup requires the application's Knex instance.");
+  }
+  if (!environment) {
+    throw new TypeError("runDatabaseSetup requires the application's environment, such as process.env.");
   }
   // readable-check: allow method-probe - input validation: the application may pass its own seed
   if (seed != null && typeof seed !== "function") {
@@ -56,20 +59,22 @@ async function runDatabaseSetup({ knex, seed, appRoot = process.cwd(), environme
 }
 
 /**
- * @param {object} [options]
+ * Migrates the database the application's environment names, with the application's and its
+ * installed packages' migrations, then runs its seed, if any.
+ * @param {object} options
  * @param {string} options.client The dialect id: "mysql2" or "pg".
  * @param {string} [options.appRoot]
- * @param {NodeJS.ProcessEnv} [options.environment]
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} options.environment The application's environment, such as `process.env`.
  * @param {string} [options.migrationsDirectory]
  * @param {Parameters<typeof runDatabaseSetup>[0]["seed"]} [options.seed]
  */
 async function prepareDatabaseFromApp({
   client,
   appRoot = process.cwd(),
-  environment = process.env,
+  environment,
   migrationsDirectory = "migrations",
   seed
-} = {}) {
+}) {
   const normalizedAppRoot = path.resolve(appRoot);
   const config = await createKnexMigrationConfigFromApp({
     client,

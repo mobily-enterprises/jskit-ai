@@ -13,7 +13,7 @@ import { perplexityProvider } from "@jskit-ai/connectors-catalog/server/perplexi
  * @param {import("@jskit-ai/connectors-core/server/types").ResolveReference} [dependencies.resolveReference]
  */
 export function createPerplexityAnswers({ configuration, authorize, createClient,
-  resolveReference = createEnvironmentReferenceResolver() }) {
+  resolveReference = createEnvironmentReferenceResolver(process.env) }) {
   // readable-check: allow method-probe - input validation: the application passes its access policy and its SDK client factory
   if (typeof authorize !== "function" || typeof createClient !== "function") {
     throw new TypeError("Supply application authorization and its native client factory.");

@@ -43,18 +43,21 @@ function localOrigin(value, localHostnames) {
  * caller and is absent in production. The preview host names the protocol id
  * and any hostnames, besides loopback, that it serves the hub on.
  * @param {Record<string, any>} request The command's request, which is validated here.
- * @param {object} [options]
- * @param {Record<string, string | undefined>} [options.env]
+ * @param {object} options
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} options.env The hub's environment, such as `process.env`.
  * @param {typeof fetch} [options.fetchImpl]
  * @param {string} [options.protocol] The protocol id requests carry and responses echo.
  * @param {RegExp[]} [options.localHostnames] Hostnames, besides loopback, the hub is served on.
  */
 async function executePreviewIdentityRequest(request, {
-  env = process.env,
+  env,
   fetchImpl = globalThis.fetch,
   protocol = DEFAULT_PREVIEW_IDENTITY_PROTOCOL,
   localHostnames = []
-} = {}) {
+}) {
+  if (!env) {
+    throw new TypeError("executePreviewIdentityRequest requires the hub's environment, such as process.env.");
+  }
   const requestId = String(request?.requestId || "");
   if (request?.protocol !== protocol || !requestId || !["login-as", "logout"].includes(request.operation)) {
     return failure(protocol, requestId, "preview_identity_request_invalid", "The preview identity request is invalid.");
@@ -107,8 +110,8 @@ async function executePreviewIdentityRequest(request, {
 
 /**
  * Reads one request from stdin and writes its response to stdout.
- * @param {object} [options]
- * @param {Record<string, string | undefined>} [options.env]
+ * @param {object} options
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} options.env The hub's environment, such as `process.env`.
  * @param {typeof fetch} [options.fetchImpl]
  * @param {AsyncIterable<string | Buffer>} [options.stdin]
  * @param {{ write(text: string): unknown }} [options.stdout]
@@ -116,13 +119,13 @@ async function executePreviewIdentityRequest(request, {
  * @param {RegExp[]} [options.localHostnames] Hostnames, besides loopback, the hub is served on.
  */
 async function runPreviewIdentityCommand({
-  env = process.env,
+  env,
   fetchImpl = globalThis.fetch,
   stdin = process.stdin,
   stdout = process.stdout,
   protocol = DEFAULT_PREVIEW_IDENTITY_PROTOCOL,
   localHostnames = []
-} = {}) {
+}) {
   let request = null;
   try {
     request = await readInput(stdin);

@@ -43,6 +43,13 @@ test("createKnexMigrationConfig fixes PostgreSQL without requiring DB_CLIENT", (
   assert.equal(config.connection.port, 5432);
 });
 
+test("createKnexMigrationConfig requires the application's environment instead of reading DB_* from nothing", () => {
+  assert.throws(
+    () => createKnexMigrationConfig({ client: "mysql2", appRoot: "/srv/catalogue" }),
+    /requires the application's environment/u
+  );
+});
+
 test("installed package migrations run from their owning packages without copied projections", async (context) => {
   const appRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-package-migrations-"));
   context.after(async () => {

@@ -45,7 +45,7 @@ as input validation when it is composed, so a missing one fails there instead of
 on the first answer. `authorize` and `resolveReference` are typed with
 `ConnectorAuthorize` and `ResolveReference` from
 `@jskit-ai/connectors-core/server/types`. Only the production
-`resolveReference = createEnvironmentReferenceResolver()` stays as a default, in
+`resolveReference = createEnvironmentReferenceResolver(process.env)` stays as a default, in
 both compositions. A server feature that uses it follows
 [typed features](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/site/guide/framework/typed-features.md).
 

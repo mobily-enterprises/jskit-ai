@@ -38,7 +38,10 @@ decisions, not framework questions.
 ## Framework APIs
 
 Use `createKnexMigrationConfigFromApp()` from
-`@jskit-ai/database-runtime/server/knexMigrationConfig`. The running JSKIT
+`@jskit-ai/database-runtime/server/knexMigrationConfig`, and
+`prepareDatabaseFromApp()` from `@jskit-ai/database-runtime/server/databaseSetup`.
+Both take the dialect and the application's environment
+(`environment: process.env`), which they never read on their own. The running JSKIT
 application automatically selects the sole installed database driver, while
 Knex discovers package-owned migrations from the installed dependency graph.
 

@@ -42,6 +42,9 @@ the preview host knows, as that host documents them:
 - `localHostnames`: the hostname patterns, besides loopback, that the host
   serves the preview application on (none by default).
 
+It also passes the process environment as `env`, where the host supplies the
+two exchange values per run.
+
 Declare the executable to the host in the form the host reads. A host that
 reads the project's web `Outputs` target takes this block, with the same
 protocol id the executable passes:
