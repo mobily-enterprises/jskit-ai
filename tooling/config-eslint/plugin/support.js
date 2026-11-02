@@ -82,6 +82,23 @@ function isActionDefinition(object) {
   return keys.has("id") && keys.has("execute");
 }
 
+// The keys only a JSKIT action definition holds beside `id` and `execute`; an agent tool has `inputSchema` instead.
+// A shared-field constant spread into the literal counts as one.
+const ACTION_ONLY_KEYS = new Set(["input", "kind", "version", "channels", "surfaces", "permission"]);
+
+// An action definition a feature writes, as opposed to an agent tool or a catalogue's normalized copy of a
+// definition (`execute: source.execute`).
+function isWrittenActionDefinition(object) {
+  if (!isActionDefinition(object)) {
+    return false;
+  }
+  const execute = object.properties.find((property) => keyName(property) === "execute");
+  if (execute.value?.type === "MemberExpression" && !execute.value.computed && execute.value.property.name === "execute") {
+    return false;
+  }
+  return object.properties.some((property) => property.type === "SpreadElement" || ACTION_ONLY_KEYS.has(keyName(property)));
+}
+
 function isFreezeCall(node) {
   return node?.type === "CallExpression" && node.callee.type === "MemberExpression" &&
     node.callee.object.name === "Object" && node.callee.property.name === "freeze";
@@ -241,29 +258,62 @@ function compactText(sourceCode, node) {
   return sourceCode.getText(node).replace(/\s+/gu, " ");
 }
 
-function ruleMeta(description, messages) {
+// The typed-features guide. Each rule's section explains it with a good and a bad example.
+const GUIDE_URL = "https://mobily-enterprises.github.io/jskit-ai/guide/framework/typed-features";
+
+/**
+ * A rule's meta: its description, its messages, each ending with a link to the guide section that explains the rule,
+ * and that link as its docs URL.
+ * @param {string} description
+ * @param {Record<string, string>} messages
+ * @param {string} section The guide heading's anchor, such as "required-collaborators".
+ */
+function ruleMeta(description, messages, section) {
+  const url = `${GUIDE_URL}#${section}`;
   return {
     type: "suggestion",
-    docs: { description },
+    docs: { description, url },
     schema: [],
-    messages
+    messages: Object.fromEntries(Object.entries(messages).map(([id, text]) => [id, `${text} See ${url}`]))
   };
 }
 
+// The function that receives a name as a parameter (destructured or not), where a node stands, or null when the name
+// is not a parameter there.
+function receivingFunction(context, node, name) {
+  for (let scope = context.sourceCode.getScope(node); scope; scope = scope.upper) {
+    const variable = scope.set.get(name);
+    if (variable) {
+      return variable.defs.find((definition) => definition.type === "Parameter")?.node || null;
+    }
+  }
+  return null;
+}
+
+// Whether a create*/build* factory or a class constructor: the functions that receive collaborators.
+function isFactory(fn) {
+  return FACTORY_NAME.test(functionName(fn)) || isConstructor(fn);
+}
+
 export {
+  GUIDE_URL,
   compactText,
   createReporter,
   deepFreezeNames,
   factoryDependencies,
   followsOptionalLink,
+  functionName,
   functionSite,
   isActionDefinition,
   isActionExecute,
   isActionsFile,
   isFreezeCall,
   isFrozenValue,
+  isFactory,
   isInAction,
+  isWrittenActionDefinition,
   keyName,
+  receivingFunction,
   ruleMeta,
   walk
 };

@@ -12,7 +12,7 @@ function startsItsLine(lines, comment) {
 const jsdocDescriptionInside = Object.freeze({
   meta: ruleMeta("Require a JSDoc block's description inside the block, not in a line comment above it.", {
     descriptionOutside: "This // comment describes the JSDoc block below it. Move the description inside the /** */ block."
-  }),
+  }, "comments"),
   create(context) {
     const sourceCode = context.sourceCode;
     const lines = sourceCode.lines;

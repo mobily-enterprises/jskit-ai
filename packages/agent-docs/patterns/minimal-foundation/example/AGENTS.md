@@ -8,6 +8,14 @@ Framework references:
 - `https://mobily-enterprises.github.io/jskit-ai/guide/`
 - `https://mobily-enterprises.github.io/jskit-ai/patterns/`
 
+Before writing or reviewing server code (a feature, provider, action, service,
+repository, route, error or test), read the typed features guide at
+`https://mobily-enterprises.github.io/jskit-ai/guide/framework/typed-features`.
+`npm run lint` checks its rules, and each finding links the section that
+explains it; `npm run verify` adds the package graph, tests and build. Fix a
+finding in the code; excuse one only with the guide's `readable-check: allow`
+comment and reason prefix.
+
 Before implementation, read the narrow relevant source pattern completely. If
 its owner package is installed, prefer that version-matched package-owned copy.
 Do not install an unrelated runtime package only to read documentation.

@@ -59,7 +59,7 @@ const onePropertyPerLine = Object.freeze({
   meta: {
     ...ruleMeta("Require one property per line in frozen results and in feature and provider token maps.", {
       sharedLine: "{{place}} has two properties on line {{line}}. Put each property on its own line."
-    }),
+    }, "formatter"),
     fixable: "whitespace"
   },
   create(context) {

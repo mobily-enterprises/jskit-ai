@@ -138,9 +138,10 @@ the English `message`:
   `messageParams` for the exact sentence.
 
 The client translates a code only when the English the server sent is JSKIT's
-English for that code. An app's own sentence under a shared code (for example
-`throw new NotFoundError("Contact not found.")`) is shown exactly as written, and
-so is any text whose code has no catalog entry.
+English for that code. An app's own sentence under JSKIT's shared code is shown
+exactly as written, and so is any text whose code has no catalog entry. That is
+why each refusal an app throws
+[carries its own code](/guide/framework/typed-features#refusals-carry-their-own-code).
 
 App code that shows errors uses the same helper JSKIT's components use:
 

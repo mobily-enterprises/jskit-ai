@@ -74,9 +74,13 @@ not convert those choices into a generator questionnaire.
   `shared/surface/paths`. `server/lib/envFile.js` loads `.env` once per process
   for every entry point. `server/lib/loggerOptions.js` gives Fastify's logger
   pino's error serializer under `error` as well as `err`, so
-  `logger.error({ error }, "...")` keeps the error's message and stack. `eslint.config.mjs` applies
-  `typedFeaturesConfig(["packages/*/src/server/**", "server/**", "server.js"])`,
-  so lint reports server code that breaks these rules as errors.
+  `logger.error({ error }, "...")` keeps the error's message and stack. `eslint.config.mjs` holds
+  server and shared code to every typed-features rule (`typedFeaturesConfig`),
+  all hand-written code, client code included, to the size limits
+  (`sizeLimitsConfig`), and server, config and script code to the formatter
+  (`formatterConfig`), all as errors, so `npm run lint` reports code that
+  breaks the
+  [typed features guide](https://mobily-enterprises.github.io/jskit-ai/guide/framework/typed-features).
 
 ## Framework APIs
 

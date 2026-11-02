@@ -124,7 +124,7 @@ const typeKeysOf = createSourceMemo((text, file) => {
 const namedRepeatedType = Object.freeze({
   meta: ruleMeta("Disallow spelling out the same ReturnType<…> or indexed JSDoc type in several files of a package.", {
     repeatedType: "{{type}} is also written in {{other}}. Name it once in the package's types.js and import that name."
-  }),
+  }, "capability-types"),
   create(context) {
     const sourceCode = context.sourceCode;
     const report = createReporter(context, "named-repeated-type");

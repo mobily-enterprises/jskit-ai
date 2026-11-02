@@ -20,7 +20,12 @@ new RuleTester().run("jskit/required-collaborators", requiredCollaborators, {
     "// readable-check: allow method-probe - an application slot\nif (typeof router.register !== \"function\") {}",
     "// readable-check: allow required-collaborators - an application slot\nservice.read?.();",
     "function createReader(dependencies) {\n  const { store } = dependencies;\n  return () => store.read();\n}",
-    "function createClock(options = {}) {\n  const { now = Date.now, logger = console } = options;\n  logger.info(now());\n}"
+    "function createClock(options = {}) {\n  const { now = Date.now, logger = console } = options;\n  logger.info(now());\n}",
+    "function format(value) { return value?.trim(); }",
+    "function createLabel(title = null) { return title; }",
+    "function createReader(store, label = \"\") { return () => store.read(label); }",
+    "function readAll(options) { return options?.limit; }",
+    "// readable-check: allow method-probe - input validation: defineThing refuses a definition without a run function\nfunction defineThing(run) { if (typeof run !== \"function\") throw new TypeError(\"run is required.\"); }"
   ],
   invalid: [
     {
@@ -62,6 +67,26 @@ new RuleTester().run("jskit/required-collaborators", requiredCollaborators, {
     {
       code: "function createReader(dependencies) {\n  const { store = null, label = \"\" } = dependencies;\n  return () => store.read(label);\n}",
       errors: [{ messageId: "collaboratorDefault", data: { name: "store", fallback: "null" }, line: 2 }]
+    },
+    {
+      code: "function createReader({ store, onRead }) { return () => onRead?.(store.read()); }",
+      errors: [{ messageId: "optionalCall", data: { callee: "onRead" } }]
+    },
+    {
+      code: "function createReader({ clock }) { return () => (typeof clock === \"function\" ? clock() : 0); }",
+      errors: [{ messageId: "methodProbe", data: { probe: "clock" } }]
+    },
+    {
+      code: "function readAll(store) { return store?.readAll(); }",
+      errors: [{ messageId: "optionalLink", data: { callee: "store?.readAll" } }]
+    },
+    {
+      code: "function createReader(store, logger = null) { return () => { logger.info(\"read\"); return store.read(); }; }",
+      errors: [{ messageId: "collaboratorDefault", data: { name: "logger", fallback: "null" } }]
+    },
+    {
+      code: "class Reader { constructor(store, onRead = () => {}) { this.read = () => onRead(store.read()); } }",
+      errors: [{ messageId: "collaboratorDefault", data: { name: "onRead", fallback: "() => {}" } }]
     }
   ]
 });

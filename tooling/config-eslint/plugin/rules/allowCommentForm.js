@@ -104,7 +104,7 @@ const allowCommentForm = Object.freeze({
     citesTests: "\"{{reason}}\" cites tests. Describe the code; a guard that protects an internal invariant says what goes wrong without it under safety invariant:.",
     citesStatus: "\"{{reason}}\" cites the state of a project. Describe what is true of the code.",
     dataOnFunction: "\"{{reason}}\" excuses a function with data:, which is only for data. Give the function's real reason, or remove its duplicate."
-  }),
+  }, "exceptions"),
   create(context) {
     return {
       Program() {

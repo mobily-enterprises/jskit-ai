@@ -110,10 +110,9 @@ function buildFieldErrors(entries = []) {
   return { fieldErrors, fieldErrorCodes };
 }
 
-function buildEmailPasswordInput(payload = {}, { passwordValidator } = {}) {
+function buildEmailPasswordInput(payload, { passwordValidator }) {
   const emailCheck = validateEmail(payload.email);
-  const resolvePassword = typeof passwordValidator === "function" ? passwordValidator : registerPassword;
-  const passwordCheck = resolvePassword(payload.password);
+  const passwordCheck = passwordValidator(payload.password);
 
   return {
     email: emailCheck.email,

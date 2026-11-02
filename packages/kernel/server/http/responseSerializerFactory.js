@@ -38,6 +38,7 @@ function schemaCacheKey(schema) {
  * Custom compilers that depend on route metadata should remain unwrapped.
  */
 function createCachedResponseSerializerFactory(buildSerializer) {
+  // readable-check: allow method-probe - input validation: an application supplies the serializer builder
   if (typeof buildSerializer !== "function") {
     throw new TypeError("createCachedResponseSerializerFactory requires a serializer builder.");
   }

@@ -42,6 +42,7 @@ Exports
 - `nodeConfig`
 - `webConfig`
 - `vueConfig`
+- `sizeLimitsConfig`
 - `typedFeaturesConfig`
 - `formatterConfig`
 - `jskitPlugin`
@@ -52,9 +53,12 @@ Exports
 
 ### `typedFeatures.js`
 Exports
+- `sizeLimitsConfig(files, { ignores = [] } = {})`
 - `typedFeaturesConfig(files, severity = "error")`
 Local functions
+- `sizeLimitRules(severity)`
 - `typedFeaturesRules(severity)`
+- `requireGlobs(name, files)`
 
 ### `vue.js`
 Exports
@@ -96,6 +100,12 @@ Exports
 Local functions
 - `isPackageDirectory(directory)`
 
+### `plugin/rules/actionCreator.js`
+Exports
+- `actionCreator`
+Local functions
+- `isCrudCustomAction(definition)`
+
 ### `plugin/rules/actionExecuteShape.js`
 Exports
 - `actionExecuteShape`
@@ -111,6 +121,19 @@ Local functions
 - `holdsFunction(node)`
 - `excusedNode(sourceCode, comment)`
 - `allowLines(comment)`
+
+### `plugin/rules/appErrorCode.js`
+Exports
+- `appErrorCode`
+Local functions
+- `objectHasKey(node, name)`
+- `hasSpread(node)`
+- `setsOwnCode(classBody, sourceCode)`
+- `parameterIndex(parameters, name)`
+- `optionsIndex(parameters)`
+- `localErrorClasses(program, sourceCode)`
+- `passesCode(node, { code, options })`
+- `literalText(node)`
 
 ### `plugin/rules/frozenFactoryResult.js`
 Exports
@@ -150,6 +173,12 @@ Local functions
 - `comparisonRoot(file, packageDirectory)`
 - `compareCopies(left, right)`
 
+### `plugin/rules/noEnvDefault.js`
+Exports
+- `noEnvDefault`
+Local functions
+- `isProcessEnv(node)`
+
 ### `plugin/rules/noFactorySpread.js`
 Exports
 - `noFactorySpread`
@@ -158,6 +187,10 @@ Local functions
 - `factoryCall(sourceCode, argument)`
 - `spreadFactory(sourceCode, argument)`
 - `returnedApi(sourceCode, object)`
+
+### `plugin/rules/noIdempotency.js`
+Exports
+- `noIdempotency`
 
 ### `plugin/rules/noModuleRegistry.js`
 Exports
@@ -172,9 +205,22 @@ Local functions
 - `isPresentDefault(node)`
 - `defaultedNames(pattern, found = [])`
 
+### `plugin/rules/noPatchedError.js`
+Exports
+- `noPatchedError`
+Local functions
+- `calleeName(node)`
+- `isConstructedError(node)`
+
 ### `plugin/rules/noSlotSetter.js`
 Exports
 - `noSlotSetter`
+
+### `plugin/rules/noTestOnlyExport.js`
+Exports
+- `noTestOnlyExport`
+Local functions
+- `exportedNames(node)`
 
 ### `plugin/rules/oneLineAction.js`
 Exports
@@ -195,6 +241,8 @@ Local functions
 ### `plugin/rules/requiredCollaborators.js`
 Exports
 - `requiredCollaborators`
+Local functions
+- `positionalCollaboratorDefaults(fn, visitorKeys)`
 
 ### `plugin/rules/typedDependencies.js`
 Exports
@@ -204,23 +252,27 @@ Local functions
 
 ### `plugin/support.js`
 Exports
+- `GUIDE_URL`
 - `compactText(sourceCode, node)`
 - `createReporter(context, ruleName)`
 - `deepFreezeNames(program)`
 - `factoryDependencies(fn, sourceCode)`
 - `followsOptionalLink(node)`
+- `functionName(fn)`
 - `functionSite(fn)`
 - `isActionDefinition(object)`
 - `isActionExecute(node, owner)`
 - `isActionsFile(filename)`
 - `isFreezeCall(node)`
 - `isFrozenValue(node, deepFreezing)`
+- `isFactory(fn)`
 - `isInAction(context, node)`
+- `isWrittenActionDefinition(object)`
 - `keyName(property)`
-- `ruleMeta(description, messages)`
+- `receivingFunction(context, node, name)`
+- `ruleMeta(description, messages, section)`
 - `walk(node, visitorKeys, visit)`
 Local functions
-- `functionName(fn)`
 - `isConstructor(fn)`
 - `collaboratorNames(fn, names, visitorKeys)`
 - `bodyDestructuring(fn, parameterName)`

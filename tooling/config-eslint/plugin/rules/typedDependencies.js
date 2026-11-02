@@ -13,7 +13,7 @@ function hasParamJsdoc(sourceCode, node) {
 const typedDependencies = Object.freeze({
   meta: ruleMeta("Require a JSDoc @param type on every factory or constructor that receives collaborators.", {
     untypedDependencies: "{{name}} receives untyped collaborators ({{collaborators}}). Name each owner's type in a JSDoc @param."
-  }),
+  }, "typed-collaborators"),
   create(context) {
     const sourceCode = context.sourceCode;
     const report = createReporter(context, "typed-dependencies");

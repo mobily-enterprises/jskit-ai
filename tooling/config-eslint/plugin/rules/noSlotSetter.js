@@ -11,7 +11,7 @@ const SLOT_SETTER_CALL = /(Provider|Resolver|Observer|Owner|Preparation|Complete
 const noSlotSetter = Object.freeze({
   meta: ruleMeta("Disallow set<Name>() functions that fill an extension slot after construction.", {
     setterSeam: "{{setter}}() fills a slot after construction. Declare the slot as an optional capability with a named default."
-  }),
+  }, "optional-tokens"),
   create(context) {
     const sourceCode = context.sourceCode;
     const report = createReporter(context, "no-slot-setter");

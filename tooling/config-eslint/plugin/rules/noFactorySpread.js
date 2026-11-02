@@ -66,7 +66,7 @@ function returnedApi(sourceCode, object) {
 const noFactorySpread = Object.freeze({
   meta: ruleMeta("Disallow spreading another factory's result into a factory's API or a token value.", {
     factorySpread: "{{owner}}() spreads {{factory}} into its result. Build the factory once and name each member it exposes."
-  }),
+  }, "named-members"),
   create(context) {
     const sourceCode = context.sourceCode;
     const report = createReporter(context, "no-factory-spread");

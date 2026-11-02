@@ -50,7 +50,7 @@ const noOptionalAfterDefault = Object.freeze({
   meta: ruleMeta("Disallow optional chaining or a second default on a parameter that already has a default.", {
     optionalAfterDefault: "{{name}} defaults to {{fallback}}, so {{use}} guards a value that is never absent. Use {{name}} directly.",
     defaultAfterDefault: "{{name}} defaults to {{fallback}}, so {{use}} defaults it twice. Use {{name}} directly."
-  }),
+  }, "options-and-defaults"),
   create(context) {
     const sourceCode = context.sourceCode;
     const report = createReporter(context, "no-optional-after-default");

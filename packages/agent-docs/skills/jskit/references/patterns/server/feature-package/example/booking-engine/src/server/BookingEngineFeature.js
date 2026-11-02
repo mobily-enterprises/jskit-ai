@@ -12,10 +12,6 @@ const BookingEngineFeature = defineFeature({
   provides: {
     bookingEngine: "feature.booking-engine"
   },
-  actionDefaults: {
-    channels: ["api", "assistant", "internal"],
-    surfaces: ["app"]
-  },
   /** @param {{ availability: import("./types.js").BookingEngineAvailability | null }} capabilities */
   setup({ availability }) {
     return { bookingEngine: createBookingEngine({ availability: availability ?? everyScopeOpen }) };

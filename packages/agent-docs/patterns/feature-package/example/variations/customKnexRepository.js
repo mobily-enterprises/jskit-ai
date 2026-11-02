@@ -4,7 +4,7 @@ import { createWithTransaction } from "@jskit-ai/database-runtime/shared";
  * The invoice rollup's persistence: a reviewed custom Knex repository.
  * @param {{ knex: import("@jskit-ai/database-runtime/server/types").RuntimeKnex }} dependencies
  */
-function createRepository({ knex }) {
+function createInvoiceRollup({ knex }) {
   const withTransaction = createWithTransaction(knex);
 
   async function getStatus(input, options = {}) {
@@ -37,4 +37,4 @@ function createRepository({ knex }) {
   });
 }
 
-export { createRepository };
+export { createInvoiceRollup };

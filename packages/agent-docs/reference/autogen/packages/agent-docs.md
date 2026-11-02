@@ -40,25 +40,31 @@ Exports
 - `type BookingEngine`
 - `type BookingEngineAvailability`
 
+### `patterns/feature-package/example/variations/availabilityEngineActions.js`
+Exports
+- `ACTION_GET_AVAILABILITY_STATUS`
+- `createAvailabilityEngineActions({ availabilityEngine })`
+
 ### `patterns/feature-package/example/variations/AvailabilityEngineFeature.js`
 Exports
 - `AvailabilityEngineFeature`
-Local functions
-- `createAvailabilityEngineActions({ availabilityEngine })`
 
 ### `patterns/feature-package/example/variations/customKnexRepository.js`
 Exports
-- `createRepository({ knex })`
+- `createInvoiceRollup({ knex })`
+
+### `patterns/feature-package/example/variations/invoiceRollupActions.js`
+Exports
+- `ACTION_GET_ROLLUP_STATUS`
+- `createInvoiceRollupActions({ invoiceRollup })`
 
 ### `patterns/feature-package/example/variations/InvoiceRollupFeature.js`
 Exports
 - `InvoiceRollupFeature`
-Local functions
-- `createInvoiceRollupActions({ invoiceRollup })`
 
 ### `patterns/feature-package/example/variations/orchestratorService.js`
 Exports
-- `createService()`
+- `createAvailabilityEngine()`
 
 ### `patterns/feature-package/example/variations/types.js`
 Exports

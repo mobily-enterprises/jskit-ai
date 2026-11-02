@@ -1,35 +1,68 @@
-import { compactText, createReporter, factoryDependencies, ruleMeta } from "../support.js";
+import { compactText, createReporter, factoryDependencies, isFactory, receivingFunction, ruleMeta, walk } from "../support.js";
 
 // A default that makes a collaborator absent: null, undefined, {}, [] or a no-op.
 // A default that is the production implementation (a clock, the global fetch)
 // is fine.
 const ABSENT_DEFAULT = /^(null|undefined|\{\}|\[\]|(async\s*)?\(\)\s*=>\s*(null|undefined|\{\s*\}|\(\{\s*\}\)|\[\]))$/u;
 const FUNCTION_TYPES = new Set(["ArrowFunctionExpression", "FunctionExpression"]);
+// A received name that says it is a collaborator, so `x?.method()` on it probes a collaborator, not data.
+const COLLABORATOR_NAME = /(service|store|repository|runtime|router|publisher|catalogue|registry|provider|manager|client|broker|gateway|resolver|engine|logger)$/iu;
+
+// The positional parameters a create*/build* factory or constructor calls, or calls a method on, with a default:
+// `function createReader(store, logger = null)`.
+function positionalCollaboratorDefaults(fn, visitorKeys) {
+  const defaults = fn.params.filter((parameter) => parameter.type === "AssignmentPattern" && parameter.left.type === "Identifier");
+  if (!defaults.length) {
+    return [];
+  }
+  const called = new Set();
+  walk(fn.body, visitorKeys, (node) => {
+    if (node.type !== "CallExpression") {
+      return;
+    }
+    const callee = node.callee.type === "MemberExpression" ? node.callee.object : node.callee;
+    if (callee.type === "Identifier") {
+      called.add(callee.name);
+    }
+  });
+  return defaults.filter((parameter) => called.has(parameter.left.name) || FUNCTION_TYPES.has(parameter.right.type));
+}
 
 // Collaborators are required: no absent default, no `typeof x.y === "function"`
-// probe and no `x?.y?.()` call. The capability runtime already refuses to start
-// without a required token.
+// probe and no `x?.y?.()` call. A received value is not probed either: no
+// `received?.()`, no `receivedService?.method()`, and no `typeof x === "function"`
+// on a collaborator a factory receives.
+// The capability runtime already refuses to start without a required token.
 const requiredCollaborators = Object.freeze({
   meta: ruleMeta("Require collaborators instead of defaulting, probing or optionally calling them.", {
     dependenciesDefault: "{{name}}'s dependencies default to {{fallback}}, which hides a missing collaborator. Require them.",
     collaboratorDefault: "{{name}} = {{fallback}} makes a collaborator absent. Require it.",
     methodProbe: "typeof {{probe}} probes a collaborator. Require it and call it.",
-    optionalCall: "{{callee}}?.() calls a collaborator that may be absent. Require it and call it."
-  }),
+    optionalCall: "{{callee}}?.() calls a collaborator that may be absent. Require it and call it.",
+    optionalLink: "{{callee}}() calls a collaborator that may be absent. Require it and call it."
+  }, "required-collaborators"),
   create(context) {
     const sourceCode = context.sourceCode;
     const report = createReporter(context, "required-collaborators");
     function checkDefaults(fn) {
       const dependencies = factoryDependencies(fn, sourceCode);
+      if (isFactory(fn)) {
+        for (const parameter of positionalCollaboratorDefaults(fn, sourceCode.visitorKeys)) {
+          const fallback = compactText(sourceCode, parameter.right);
+          if (parameter !== dependencies?.first && ABSENT_DEFAULT.test(fallback)) {
+            report(parameter, "dependency-default", "collaboratorDefault", { name: parameter.left.name, fallback: fallback.slice(0, 40) });
+          }
+        }
+      }
       if (!dependencies) {
         return;
       }
-      const { name, first, pattern, collaborators } = dependencies;
+      const { first, pattern, collaborators } = dependencies;
       // `= {}` on the whole object is fine when every property has its own
       // default (an options bag); otherwise it hides a missing collaborator.
       const everyPropertyDefaulted = pattern.properties.every((property) => property.type === "Property" && property.value.type === "AssignmentPattern");
       if (first.type === "AssignmentPattern" && !everyPropertyDefaulted) {
-        report(first, "dependency-default", "dependenciesDefault", { name, fallback: sourceCode.getText(first.right) });
+        report(first, "dependency-default", "dependenciesDefault", { name: dependencies.name, fallback: sourceCode.getText(first.right) });
       }
       for (const property of pattern.properties) {
         if (property.type !== "Property" || property.value.type !== "AssignmentPattern" || property.value.left.type !== "Identifier") {
@@ -58,13 +91,20 @@ const requiredCollaborators = Object.freeze({
           return;
         }
         const argument = probe.argument.type === "ChainExpression" ? probe.argument.expression : probe.argument;
-        if (argument.type === "MemberExpression") {
+        const receiver = argument.type === "Identifier" ? receivingFunction(context, node, argument.name) : null;
+        if (argument.type === "MemberExpression" || (receiver && isFactory(receiver))) {
           report(node, "method-probe", "methodProbe", { probe: sourceCode.getText(probe.argument) });
         }
       },
       CallExpression(node) {
-        if (node.optional && node.callee.type === "MemberExpression") {
-          report(node, "optional-call", "optionalCall", { callee: sourceCode.getText(node.callee) });
+        const callee = node.callee;
+        const optionalReceived = (identifier) => identifier.type === "Identifier" && Boolean(receivingFunction(context, node, identifier.name));
+        if (node.optional && (callee.type === "MemberExpression" || optionalReceived(callee))) {
+          report(node, "optional-call", "optionalCall", { callee: sourceCode.getText(callee) });
+          return;
+        }
+        if (callee.type === "MemberExpression" && callee.optional && optionalReceived(callee.object) && COLLABORATOR_NAME.test(callee.object.name)) {
+          report(node, "optional-call", "optionalLink", { callee: sourceCode.getText(callee) });
         }
       }
     };
