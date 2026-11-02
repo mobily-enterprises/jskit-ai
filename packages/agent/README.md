@@ -162,7 +162,7 @@ Each check below can send a reply back **once**, carrying on from its own steps
 | Check | Catches |
 |---|---|
 | **Raw markup** (`LEAKED_MARKUP`) | a tool call written as text, DeepSeek's tokens (`<｜begin▁of▁sentence｜>`), budget and safety tags |
-| **Stopped short** (`stoppedShort`) | a reply under 600 characters that ends by announcing its next step; any agent with tools, groups too (with a goal active, its round carries on instead) |
+| **Stopped short** (`stoppedShort`) | a reply under 600 characters that ends by announcing its next step; any agent with tools, groups too (with a goal active, its round carries on instead). A reply that ends with the loop's own account (`account` in its result) is left alone: the account says where it got to |
 | **Claimed files** | "attached below" with no file sent (the app's check, by words) |
 | **Unsupported claims** (`unsupportedClaims`) | a reply that reports actions is compared with what its tools actually did (`toolRecord`), in one short call; "emailed it to Sam" with no email is sent back |
 

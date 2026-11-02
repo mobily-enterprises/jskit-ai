@@ -254,7 +254,7 @@ export function createApiConversationDriver({ connections, apiClientFactory, fet
         return result;
       };
 
-      let { text, transcript, unfinished } = await pass(messages);
+      let { text, transcript, unfinished, account } = await pass(messages);
       // A check sends the reply back once, carrying on from its own steps.
       let check = "";
       async function carryOn(name, note) {
@@ -266,7 +266,8 @@ export function createApiConversationDriver({ connections, apiClientFactory, fet
       }
       const working = Object.keys(engineTools).length > 0;
       if (working && LEAKED_MARKUP.test(text)) await carryOn("markup", CHECKS.markup);
-      else if (working && stoppedShort(text.trim())) await carryOn("stoppedShort", CHECKS.stoppedShort);
+      // The engine's own account of a reply that stopped early already says where it got to.
+      else if (working && !account && stoppedShort(text.trim())) await carryOn("stoppedShort", CHECKS.stoppedShort);
       if (!check && working && reportsActions(text)) {
         const claims = await unsupportedClaims({ model, reply: text, record: toolRecord(transcript, [], APP) });
         stopped.throwIfAborted();
