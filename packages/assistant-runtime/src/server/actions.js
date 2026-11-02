@@ -6,13 +6,12 @@ import {
   deepFreeze
 } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
-import { AppError } from "@jskit-ai/kernel/server/runtime";
 import {
   assistantResource
 } from "@jskit-ai/assistant-core/shared";
 import { actionIds } from "./actionIds.js";
 import { createAssistantSettingsActions } from "./createAssistantSettingsActions.js";
-import { requireAssistantSurface } from "./support/assistantSurface.js";
+import { createConversationOperations } from "./conversationOperations.js";
 import {
   assistantConversationIdInputValidator,
   assistantConversationGoalBodyValidator,
@@ -28,6 +27,13 @@ import {
   resolveAssistantSurfaceConfig,
   resolveAssistantSurfacesConfig
 } from "../shared/assistantSurfaces.js";
+
+/** @typedef {import("./types.js").AssistantConfigService} AssistantConfigService */
+/** @typedef {import("./types.js").ChatService} ChatService */
+/** @typedef {import("./types.js").ConversationAccess} ConversationAccess */
+/** @typedef {import("./types.js").ConversationRuntime} ConversationRuntime */
+/** @typedef {import("./types.js").WorkspaceScopeSupport} WorkspaceScopeSupport */
+/** @typedef {ReturnType<typeof createConversationOperations>} ConversationOperations */
 
 const runtimeConversationsListQueryInputValidator = deepFreeze({
   schema: createSchema({
@@ -103,28 +109,49 @@ const conversationReadInputValidator = composeSchemaDefinitions(
   { mode: "create", context: "assistant-runtime conversation read action input" }
 );
 
-function createConversationActions({ conversationRuntime, conversationDataSchema, conversationConfigurationSchema,
-  conversationSelectionSchema, conversationReplacementSchema, config, runtimeSurfaces, workspaceScopeSupport }) {
+/**
+ * The JSON:API documents the transcript actions answer with.
+ * @param {{ chatService: ChatService }} dependencies
+ */
+function createTranscriptDocuments({ chatService }) {
+  async function listConversations(input, context) {
+    return returnJsonApiData(await chatService.listConversations(input.query, {
+      context,
+      input
+    }));
+  }
+
+  async function listConversationMessages(input, context) {
+    return returnJsonApiData(await chatService.getConversationMessages(input.conversationId, input.query, {
+      context,
+      input
+    }));
+  }
+
+  return Object.freeze({
+    listConversations,
+    listConversationMessages
+  });
+}
+
+/**
+ * @param {object} dependencies
+ * @param {ConversationOperations} dependencies.conversationOperations
+ * @param {object | null} dependencies.conversationDataSchema
+ * @param {object | null} dependencies.conversationConfigurationSchema
+ * @param {object | null} dependencies.conversationSelectionSchema
+ * @param {object | null} dependencies.conversationReplacementSchema
+ * @param {string[]} dependencies.runtimeSurfaces
+ */
+function createConversationActions({ conversationOperations, conversationDataSchema, conversationConfigurationSchema,
+  conversationSelectionSchema, conversationReplacementSchema, runtimeSurfaces }) {
   const conversationSendInputValidator = composeSchemaDefinitions(
     [conversationInputValidator, conversationSendBodyValidator(conversationDataSchema)],
     { mode: "create", context: "assistant-runtime conversation send action input" }
   );
-  async function openConversation(input, context) {
-    const assistantSurface = requireAssistantSurface(config, input.targetSurfaceId);
-    let conversationContext = context;
-    if (assistantSurface.runtimeSurfaceRequiresWorkspace) {
-      if (typeof workspaceScopeSupport?.resolveWorkspace !== "function") {
-        throw new Error("Assistant conversation actions require workspace server scope support.");
-      }
-      const workspace = workspaceScopeSupport.resolveWorkspace(context, { workspaceSlug: input.workspaceSlug });
-      if (!workspace?.id) throw new AppError(409, "Workspace selection required.", { code: "assistant.runtime.workspace.selectionRequired" });
-      conversationContext = { ...context, workspace };
-    }
-    return conversationRuntime.open({ id: input.conversationId, context: conversationContext });
-  }
 
-  return [
-    {
+  return Object.freeze([
+    Object.freeze({
       id: actionIds.conversationRead,
       version: 1,
       kind: "query",
@@ -133,16 +160,9 @@ function createConversationActions({ conversationRuntime, conversationDataSchema
       permission: { require: "authenticated" },
       input: conversationReadInputValidator,
       output: null,
-      async execute(input, context) {
-        const conversation = await openConversation(input, context);
-        const options = {};
-        for (const key of ["beforeTurnId", "limit"]) {
-          if (Object.hasOwn(input, key)) options[key] = input[key];
-        }
-        return Object.keys(options).length ? conversation.read(options) : conversation.read();
-      }
-    },
-    {
+      execute: (input, context) => conversationOperations.read(input, context)
+    }),
+    Object.freeze({
       id: actionIds.conversationSend,
       version: 1,
       kind: "command",
@@ -151,18 +171,9 @@ function createConversationActions({ conversationRuntime, conversationDataSchema
       permission: { require: "authenticated" },
       input: conversationSendInputValidator,
       output: null,
-      async execute(input, context) {
-        const conversation = await openConversation(input, context);
-        return conversation.send({
-          messageId: input.messageId,
-          text: input.text,
-          ...(conversationDataSchema && Object.hasOwn(input, "data") ? { data: input.data } : {}),
-          ...(Object.hasOwn(input, "attachmentIds") ? { attachmentIds: input.attachmentIds } : {}),
-          ...(Object.hasOwn(input, "steer") ? { steer: input.steer } : {})
-        });
-      }
-    },
-    {
+      execute: (input, context) => conversationOperations.send(input, context)
+    }),
+    Object.freeze({
       id: actionIds.conversationCancel,
       version: 1,
       kind: "command",
@@ -171,12 +182,9 @@ function createConversationActions({ conversationRuntime, conversationDataSchema
       permission: { require: "authenticated" },
       input: conversationInputValidator,
       output: null,
-      async execute(input, context) {
-        const conversation = await openConversation(input, context);
-        return conversation.cancel();
-      }
-    },
-    {
+      execute: (input, context) => conversationOperations.cancel(input, context)
+    }),
+    Object.freeze({
       id: actionIds.conversationSubscribe,
       version: 1,
       kind: "query",
@@ -185,28 +193,9 @@ function createConversationActions({ conversationRuntime, conversationDataSchema
       permission: { require: "authenticated" },
       input: conversationInputValidator,
       output: null,
-      async execute(input, context, deps) {
-        if (typeof deps?.onEvent !== "function" || typeof deps?.onRelease !== "function") {
-          throw new TypeError("Conversation subscriptions require their server-owned event and cleanup callbacks.");
-        }
-        if (deps.isCurrent?.() === false) return null;
-        deps.onStage?.("conversation-open");
-        const conversation = await openConversation(input, context);
-        if (deps.isCurrent?.() === false) return null;
-        deps.onStage?.("observer-attach");
-        const release = await conversation.subscribe(deps.onEvent);
-        try {
-          deps.onRelease(release);
-          if (deps.isCurrent?.() === false) return null;
-          deps.onStage?.("snapshot-read");
-          return await conversation.read();
-        } catch (error) {
-          release();
-          throw error;
-        }
-      }
-    },
-    {
+      execute: (input, context, deps) => conversationOperations.subscribe(input, context, deps)
+    }),
+    Object.freeze({
       id: actionIds.conversationInspectDelivery,
       version: 1,
       kind: "command",
@@ -215,12 +204,9 @@ function createConversationActions({ conversationRuntime, conversationDataSchema
       permission: { require: "authenticated" },
       input: conversationDeliveryInputValidator,
       output: null,
-      async execute(input, context) {
-        const conversation = await openConversation(input, context);
-        return conversation.inspectDelivery({ messageId: input.messageId });
-      }
-    },
-    {
+      execute: (input, context) => conversationOperations.inspectDelivery(input, context)
+    }),
+    Object.freeze({
       id: actionIds.conversationCancelDelivery,
       version: 1,
       kind: "command",
@@ -229,12 +215,9 @@ function createConversationActions({ conversationRuntime, conversationDataSchema
       permission: { require: "authenticated" },
       input: conversationDeliveryInputValidator,
       output: null,
-      async execute(input, context) {
-        const conversation = await openConversation(input, context);
-        return conversation.cancelDelivery({ messageId: input.messageId });
-      }
-    },
-    {
+      execute: (input, context) => conversationOperations.cancelDelivery(input, context)
+    }),
+    Object.freeze({
       id: actionIds.conversationGoalRead,
       version: 1,
       kind: "query",
@@ -243,11 +226,9 @@ function createConversationActions({ conversationRuntime, conversationDataSchema
       permission: { require: "authenticated" },
       input: conversationInputValidator,
       output: null,
-      async execute(input, context) {
-        return (await openConversation(input, context)).readGoal();
-      }
-    },
-    {
+      execute: (input, context) => conversationOperations.readGoal(input, context)
+    }),
+    Object.freeze({
       id: actionIds.conversationGoalUpdate,
       version: 1,
       kind: "command",
@@ -258,16 +239,9 @@ function createConversationActions({ conversationRuntime, conversationDataSchema
         mode: "replace", context: "assistant-runtime conversation goal action input"
       }),
       output: null,
-      async execute(input, context) {
-        const conversation = await openConversation(input, context);
-        const goal = { action: input.action, expectedSegmentId: input.expectedSegmentId };
-        for (const key of ["expectedGoalId", "messageId", "objective", "tokenBudget", "attachmentIds"]) {
-          if (Object.hasOwn(input, key)) goal[key] = input[key];
-        }
-        return conversation.updateGoal(goal);
-      }
-    },
-    ...(conversationConfigurationSchema ? [{
+      execute: (input, context) => conversationOperations.updateGoal(input, context)
+    }),
+    ...(conversationConfigurationSchema ? Object.freeze([Object.freeze({
       id: actionIds.conversationConfigure,
       version: 1,
       kind: "command",
@@ -278,11 +252,9 @@ function createConversationActions({ conversationRuntime, conversationDataSchema
         mode: "replace", context: "assistant-runtime declared conversation configuration"
       }),
       output: null,
-      async execute(input, context) {
-        return (await openConversation(input, context)).configure(input.configuration);
-      }
-    }] : []),
-    ...(conversationSelectionSchema ? [{
+      execute: (input, context) => conversationOperations.configure(input, context)
+    })]) : []),
+    ...(conversationSelectionSchema ? Object.freeze([Object.freeze({
       id: actionIds.conversationSelect,
       version: 1,
       kind: "command",
@@ -293,11 +265,9 @@ function createConversationActions({ conversationRuntime, conversationDataSchema
         mode: "replace", context: "assistant-runtime declared conversation selection"
       }),
       output: null,
-      async execute(input, context) {
-        return (await openConversation(input, context)).select(input.selection);
-      }
-    }] : []),
-    ...(conversationReplacementSchema ? [{
+      execute: (input, context) => conversationOperations.select(input, context)
+    })]) : []),
+    ...(conversationReplacementSchema ? Object.freeze([Object.freeze({
       id: actionIds.conversationReplace,
       version: 1,
       kind: "command",
@@ -308,40 +278,56 @@ function createConversationActions({ conversationRuntime, conversationDataSchema
         mode: "replace", context: "assistant-runtime declared conversation replacement"
       }),
       output: null,
-      async execute(input, context) {
-        return (await openConversation(input, context)).replace(input.replacement);
-      }
-    }] : [])
-  ];
+      execute: (input, context) => conversationOperations.replace(input, context)
+    })]) : [])
+  ]);
 }
 
+/**
+ * The assistant's actions: over a conversation runtime the application supplies, its
+ * conversation actions (wrapped by the host's access owner when it supplies one) and
+ * the settings actions when it supplies a settings service; otherwise the chat stream,
+ * transcript and settings actions of the package's own tables. A configuration
+ * without a runtime and a settings surface has none.
+ * @param {object} dependencies
+ * @param {AssistantConfigService | null} dependencies.assistantConfigService
+ * @param {ChatService} [dependencies.chatService] The chat service of the package's own tables, without a conversation runtime.
+ * @param {ConversationRuntime | null} dependencies.conversationRuntime
+ * @param {ConversationAccess | null} dependencies.conversationAccess
+ * @param {object | null} dependencies.conversationDataSchema
+ * @param {object | null} dependencies.conversationConfigurationSchema
+ * @param {object | null} dependencies.conversationSelectionSchema
+ * @param {object | null} dependencies.conversationReplacementSchema
+ * @param {WorkspaceScopeSupport | null} dependencies.workspaceScopeSupport
+ * @param {Record<string, any>} dependencies.config
+ */
 function createAssistantActions({
   assistantConfigService,
   chatService,
-  conversationRuntime = null,
-  conversationAccess = null,
-  conversationDataSchema = null,
-  conversationConfigurationSchema = null,
-  conversationSelectionSchema = null,
-  conversationReplacementSchema = null,
-  workspaceScopeSupport = null,
-  config = {}
-} = {}) {
-  if (conversationRuntime && typeof conversationRuntime.open !== "function") {
-    throw new TypeError("Assistant conversation actions require conversationRuntime.open().");
-  }
-  if (!conversationRuntime && (!assistantConfigService || !chatService)) {
-    throw new TypeError("createAssistantActions requires assistantConfigService and chatService.");
-  }
+  conversationRuntime,
+  conversationAccess,
+  conversationDataSchema,
+  conversationConfigurationSchema,
+  conversationSelectionSchema,
+  conversationReplacementSchema,
+  workspaceScopeSupport,
+  config
+}) {
   const configuredSurfaces = configuredAssistantSurfaces(config);
   const runtimeSurfaces = [...new Set(configuredSurfaces.map((entry) => entry.targetSurfaceId))];
   const settingsSurfaces = [...new Set(configuredSurfaces.map((entry) => entry.settingsSurfaceId))];
   if (runtimeSurfaces.length === 0 || settingsSurfaces.length === 0) return [];
 
   if (conversationRuntime) {
+    const conversationOperations = createConversationOperations({
+      conversationRuntime,
+      config,
+      workspaceScopeSupport,
+      conversationDataSchema
+    });
     const conversationActions = createConversationActions({
-      conversationRuntime, conversationDataSchema, conversationConfigurationSchema, conversationSelectionSchema, conversationReplacementSchema,
-      config, runtimeSurfaces, workspaceScopeSupport
+      conversationOperations, conversationDataSchema, conversationConfigurationSchema, conversationSelectionSchema, conversationReplacementSchema,
+      runtimeSurfaces
     });
     return Object.freeze([
       ...conversationActions.map((definition) => {
@@ -356,62 +342,51 @@ function createAssistantActions({
     ]);
   }
 
+  const transcriptDocuments = createTranscriptDocuments({ chatService });
   return Object.freeze([
-  {
-    id: actionIds.chatStream,
-    version: 1,
-    kind: "stream",
-    channels: ["api", "internal"],
-    surfaces: runtimeSurfaces,
-    permission: {
-      require: "authenticated"
-    },
-    input: runtimeChatStreamInputValidator,
-    async execute(input, context, deps) {
-      return chatService.streamChat(input, {
+    Object.freeze({
+      id: actionIds.chatStream,
+      version: 1,
+      kind: "stream",
+      channels: ["api", "internal"],
+      surfaces: runtimeSurfaces,
+      permission: {
+        require: "authenticated"
+      },
+      input: runtimeChatStreamInputValidator,
+      execute: (input, context, deps) => chatService.streamChat(input, {
         context,
         streamWriter: deps.streamWriter,
         abortSignal: deps.abortSignal
-      });
-    }
-  },
-  {
-    id: actionIds.conversationsList,
-    version: 1,
-    kind: "query",
-    channels: ["api", "internal"],
-    surfaces: runtimeSurfaces,
-    permission: {
-      require: "authenticated"
-    },
-    input: runtimeConversationsListInputValidator,
-    output: null,
-    async execute(input, context) {
-      return returnJsonApiData(await chatService.listConversations(input.query, {
-        context,
-        input
-      }));
-    }
-  },
-  {
-    id: actionIds.conversationMessagesList,
-    version: 1,
-    kind: "query",
-    channels: ["api", "internal"],
-    surfaces: runtimeSurfaces,
-    permission: {
-      require: "authenticated"
-    },
-    input: runtimeConversationMessagesListInputValidator,
-    output: null,
-    async execute(input, context) {
-      return returnJsonApiData(await chatService.getConversationMessages(input.conversationId, input.query, {
-        context,
-        input
-      }));
-    }
-  },
-  ...createAssistantSettingsActions({ assistantConfigService, settingsSurfaces })
+      })
+    }),
+    Object.freeze({
+      id: actionIds.conversationsList,
+      version: 1,
+      kind: "query",
+      channels: ["api", "internal"],
+      surfaces: runtimeSurfaces,
+      permission: {
+        require: "authenticated"
+      },
+      input: runtimeConversationsListInputValidator,
+      output: null,
+      execute: (input, context) => transcriptDocuments.listConversations(input, context)
+    }),
+    Object.freeze({
+      id: actionIds.conversationMessagesList,
+      version: 1,
+      kind: "query",
+      channels: ["api", "internal"],
+      surfaces: runtimeSurfaces,
+      permission: {
+        require: "authenticated"
+      },
+      input: runtimeConversationMessagesListInputValidator,
+      output: null,
+      execute: (input, context) => transcriptDocuments.listConversationMessages(input, context)
+    }),
+    ...createAssistantSettingsActions({ assistantConfigService, settingsSurfaces })
   ]);
 }
 

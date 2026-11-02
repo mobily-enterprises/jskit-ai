@@ -11,60 +11,89 @@ import { createTranscriptService } from "./services/transcriptService.js";
 import { resolveAssistantAiConfig, resolveAssistantServerConfig } from "./support/assistantServerConfig.js";
 import { createSurfaceAwareToolCatalog } from "./support/createSurfaceAwareToolCatalog.js";
 
+/** @typedef {import("./types.js").AssistantAttachments} AssistantAttachments */
+/** @typedef {import("./types.js").AssistantAiClientFactory} AssistantAiClientFactory */
+/** @typedef {import("./types.js").AssistantConfigRepository} AssistantConfigRepository */
+/** @typedef {import("./types.js").ConversationsRepository} ConversationsRepository */
+/** @typedef {import("./types.js").MessagesRepository} MessagesRepository */
+/** @typedef {import("./types.js").TurnRequestsRepository} TurnRequestsRepository */
+/** @typedef {import("./types.js").SurfaceAwareToolCatalog} SurfaceAwareToolCatalog */
+/** @typedef {import("@jskit-ai/connectors-catalog/server/types").AiConnectionResolver} AiConnectionResolver */
+
+/**
+ * The AI client of each assistant surface: the authorized connection its
+ * configuration names, or one client per surface built from its configuration.
+ * @param {{ appConfig?: Record<string, any>, env?: Record<string, string | undefined>, aiConnections?: AiConnectionResolver | null }} config
+ */
 function createAssistantAiClientFactory(config = {}) {
   const appConfig = normalizeObject(config.appConfig);
   const env = normalizeObject(config.env);
   const cache = new Map();
 
-  return Object.freeze({
-    async resolveClient(targetSurfaceId = "", { context, integrationId } = {}) {
-      const normalizedTargetSurfaceId = normalizeText(targetSurfaceId).toLowerCase();
-      if (!normalizedTargetSurfaceId) {
-        throw new Error("assistant.ai.client.factory.resolveClient requires targetSurfaceId.");
-      }
-
-      const surfaceConfig = resolveAssistantServerConfig(appConfig, normalizedTargetSurfaceId);
-      if (surfaceConfig.aiIntegrationId) {
-        const selected = integrationId || surfaceConfig.aiIntegrationId;
-        if (![surfaceConfig.aiIntegrationId, ...surfaceConfig.aiIntegrationIds].includes(selected)) {
-          throw new AppError(403, "This AI connection is not available in this assistant.", { code: "assistant.runtime.connection.unavailable" });
-        }
-        if (!config.aiConnections?.resolve) throw new Error("The assistant requires an authorized AI connection resolver.");
-        const connection = await config.aiConnections.resolve({ context, integrationId: selected });
-        return createAiConnectionClient(connection, { timeoutMs: surfaceConfig.timeoutMs });
-      }
-      if (integrationId) throw new AppError(403, "This assistant does not allow selecting an AI connection.", {
-        code: "assistant.runtime.connection.selectionNotAllowed"
-      });
-
-      if (cache.has(normalizedTargetSurfaceId)) {
-        return cache.get(normalizedTargetSurfaceId);
-      }
-
-      const assistantAiConfig = resolveAssistantAiConfig(
-        {
-          appConfig,
-          env
-        },
-        normalizedTargetSurfaceId
-      );
-      const client = createAiClient(assistantAiConfig.ai);
-      cache.set(normalizedTargetSurfaceId, client);
-      return client;
+  async function resolveClient(targetSurfaceId = "", { context, integrationId } = {}) {
+    const normalizedTargetSurfaceId = normalizeText(targetSurfaceId).toLowerCase();
+    if (!normalizedTargetSurfaceId) {
+      throw new Error("assistant.ai.client.factory.resolveClient requires targetSurfaceId.");
     }
+
+    const surfaceConfig = resolveAssistantServerConfig(appConfig, normalizedTargetSurfaceId);
+    if (surfaceConfig.aiIntegrationId) {
+      const selected = integrationId || surfaceConfig.aiIntegrationId;
+      if (![surfaceConfig.aiIntegrationId, ...surfaceConfig.aiIntegrationIds].includes(selected)) {
+        throw new AppError(403, "This AI connection is not available in this assistant.", { code: "assistant.runtime.connection.unavailable" });
+      }
+      if (!config.aiConnections?.resolve) throw new Error("The assistant requires an authorized AI connection resolver.");
+      const connection = await config.aiConnections.resolve({ context, integrationId: selected });
+      return createAiConnectionClient(connection, { timeoutMs: surfaceConfig.timeoutMs });
+    }
+    if (integrationId) throw new AppError(403, "This assistant does not allow selecting an AI connection.", {
+      code: "assistant.runtime.connection.selectionNotAllowed"
+    });
+
+    if (cache.has(normalizedTargetSurfaceId)) {
+      return cache.get(normalizedTargetSurfaceId);
+    }
+
+    const assistantAiConfig = resolveAssistantAiConfig(
+      {
+        appConfig,
+        env
+      },
+      normalizedTargetSurfaceId
+    );
+    const client = createAiClient(assistantAiConfig.ai);
+    cache.set(normalizedTargetSurfaceId, client);
+    return client;
+  }
+
+  return Object.freeze({
+    resolveClient
   });
 }
 
+/**
+ * The assistant over the package's own SQL tables: its repositories, the chat,
+ * settings and transcript services, the AI client factory and the tool catalogue.
+ * @param {object} dependencies
+ * @param {import("@jskit-ai/kernel/server/types").ActionCatalogue} dependencies.actionCatalogue
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeConfig} dependencies.config
+ * @param {import("@jskit-ai/console-core/server/types").ConsoleCore | null} dependencies.consoleRuntime
+ * @param {{ config: AssistantConfigRepository, conversations: ConversationsRepository, messages: MessagesRepository, turnRequests: TurnRequestsRepository }} dependencies.repositories
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} dependencies.env
+ * @param {AiConnectionResolver | null} dependencies.aiConnections
+ * @param {AssistantAttachments | null} dependencies.attachments
+ * @param {import("@jskit-ai/workspaces-core/server/types").WorkspacesCore | null} dependencies.workspaces
+ */
 function createAssistantRuntime({
   actionCatalogue,
   config,
   consoleRuntime,
-  repositories = {},
+  repositories,
   env,
   aiConnections,
   attachments,
   workspaces
-} = {}) {
+}) {
   const {
     config: assistantConfigRepository,
     conversations: conversationsRepository,
@@ -109,8 +138,16 @@ function createAssistantRuntime({
   });
 }
 
-// Internal SQL composition: the existing facade supplies the authenticated action
-// context; the model's history is the conversation's saved history, never the browser's.
+/**
+ * Internal SQL composition: the existing facade supplies the authenticated action
+ * context; the model's history is the conversation's saved history, never the browser's.
+ * @param {object} dependencies
+ * @param {ConversationsRepository} dependencies.conversationsRepository
+ * @param {MessagesRepository} dependencies.messagesRepository
+ * @param {AssistantAiClientFactory} dependencies.aiClientFactory
+ * @param {SurfaceAwareToolCatalog} dependencies.toolCatalog
+ * @param {AssistantAttachments | null} [dependencies.attachments]
+ */
 function createAssistantConversationRuntime({ conversationsRepository, messagesRepository, aiClientFactory, toolCatalog, attachments }) {
   return createConversationRuntime({
     storage: createSqlConversationStorage({ conversationsRepository, messagesRepository }),
@@ -119,6 +156,7 @@ function createAssistantConversationRuntime({ conversationsRepository, messagesR
       if (!request || request.conversation.id !== conversationId) return false;
       return Boolean(await conversationsRepository.findByIdForActorScope(conversationId, {
         actorUserId: normalizeRecordId(resolveActor(context)?.id, { fallback: null }), surfaceId: context.surface,
+        // readable-check: allow no-dual-shape - data: the workspace scope resolves the workspace from the action input or context, which may carry the record or its id
         workspaceId: normalizeRecordId(request.workspace?.id || request.workspace, { fallback: null })
       }));
     },

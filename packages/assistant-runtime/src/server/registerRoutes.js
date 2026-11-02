@@ -86,7 +86,7 @@ function buildChatStreamActionInput(routeInput = {}, requestBody = {}) {
   return actionInput;
 }
 
-function resolveAssistantConversationMessagesRecordId(record = {}) {
+function resolveAssistantConversationMessagesRecordId(record) {
   const conversationId = String(record?.conversation?.id || "").trim();
   if (!conversationId) {
     throw new Error("Assistant conversation messages JSON:API response requires conversation.id.");
@@ -154,6 +154,7 @@ function registerRuntimeRoutes(
         setNdjsonHeaders(reply);
         reply.code(200);
         reply.hijack();
+        // readable-check: allow method-probe - platform object: a Fastify reply's raw response may lack flushHeaders()
         if (typeof reply.raw.flushHeaders === "function") {
           reply.raw.flushHeaders();
         }
@@ -496,9 +497,11 @@ function registerRoutes(router, {
   conversationReplacementSchema = null,
   assistantConfigService = null
 } = {}) {
+  // readable-check: allow method-probe - input validation: an application hands over the router its routes register on
   if (!router || typeof router.register !== "function") {
     throw new Error("registerRoutes requires an HTTP router.");
   }
+  // readable-check: allow method-probe - input validation: an application hands over its conversation runtime
   if (conversationRuntime && typeof conversationRuntime.open !== "function") {
     throw new TypeError("Assistant conversation routes require conversationRuntime.open().");
   }

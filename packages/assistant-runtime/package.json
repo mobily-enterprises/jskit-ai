@@ -10,6 +10,7 @@
     "./shared": "./src/shared/index.js",
     "./server/actionIds": "./src/server/actionIds.js",
     "./server": "./src/server/index.js",
+    "./server/types": "./src/server/types.js",
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
@@ -96,6 +97,10 @@
           {
             "subpath": "./server",
             "summary": "Provides conversation routes, authorized shared realtime subscriptions, explicit Fastify hosting shorthand, optional database integration and the per-surface assistant tool catalogue."
+          },
+          {
+            "subpath": "./server/types",
+            "summary": "Type of the assistant.runtime capability, and the contracts of the optional capabilities it reads."
           }
         ],
         "capabilities": [

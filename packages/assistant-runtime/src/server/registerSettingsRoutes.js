@@ -9,7 +9,7 @@ import { actionIds } from "./actionIds.js";
 import { assistantSurfaceRouteParamsValidator } from "./inputSchemas.js";
 import { requireWorkspaceAssistantRouteParams, resolveRouteRequestState } from "./support/assistantRouteContext.js";
 
-function resolveAssistantSettingsRecordId(record = {}) {
+function resolveAssistantSettingsRecordId(record) {
   const scopeKey = String(record?.scopeKey || "").trim();
   if (!scopeKey) {
     throw new Error("Assistant settings JSON:API response requires scopeKey.");

@@ -2,22 +2,24 @@ import { AppError, requireAuth } from "@jskit-ai/kernel/server/runtime";
 import { normalizeObject, normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { requireAssistantSurface } from "../support/assistantSurface.js";
 
+/** @typedef {import("../types.js").AssistantConfigRepository} AssistantConfigRepository */
+/** @typedef {import("../types.js").WorkspaceScopeSupport} WorkspaceScopeSupport */
+
+/**
+ * An assistant surface's saved settings: who may read and change them, and the
+ * system prompt they give the surface's conversations.
+ * @param {object} dependencies
+ * @param {AssistantConfigRepository} dependencies.assistantConfigRepository
+ * @param {import("@jskit-ai/console-core/server/types").ConsoleService | null} dependencies.consoleService The console access service, when the console is installed.
+ * @param {Record<string, any>} dependencies.appConfig
+ * @param {WorkspaceScopeSupport | null} dependencies.workspaceScopeSupport
+ */
 function createService({
   assistantConfigRepository,
-  consoleService = null,
-  appConfig = {},
-  workspaceScopeSupport = null
-} = {}) {
-  if (!assistantConfigRepository || typeof assistantConfigRepository.findByScope !== "function") {
-    throw new Error("assistantConfigService requires assistantConfigRepository.findByScope().");
-  }
-  if (typeof assistantConfigRepository.upsertByScope !== "function") {
-    throw new Error("assistantConfigService requires assistantConfigRepository.upsertByScope().");
-  }
-  if (typeof assistantConfigRepository.createDefaultRecord !== "function") {
-    throw new Error("assistantConfigService requires assistantConfigRepository.createDefaultRecord().");
-  }
-
+  consoleService,
+  appConfig,
+  workspaceScopeSupport
+}) {
   async function requireSettingsAccess(assistantSurface, context = {}, { mode = "read" } = {}) {
     requireAuth({ context }, {
       require: "authenticated"
@@ -43,7 +45,7 @@ function createService({
       return;
     }
 
-    if (!consoleService || typeof consoleService.requireConsoleOwner !== "function") {
+    if (!consoleService) {
       throw new Error("assistantConfigService requires consoleService.requireConsoleOwner() for console-owner settings surfaces.");
     }
 
@@ -55,7 +57,7 @@ function createService({
       return null;
     }
 
-    if (!workspaceScopeSupport || typeof workspaceScopeSupport.resolveWorkspace !== "function") {
+    if (!workspaceScopeSupport) {
       throw new Error("assistant.config.service requires workspace server scope support for workspace-scoped settings.");
     }
 
@@ -69,12 +71,12 @@ function createService({
   }
 
   async function getSettings(input = {}, options = {}) {
-    const assistantSurface = requireAssistantSurface(appConfig, input?.targetSurfaceId);
-    await requireSettingsAccess(assistantSurface, options?.context, {
+    const assistantSurface = requireAssistantSurface(appConfig, input.targetSurfaceId);
+    await requireSettingsAccess(assistantSurface, options.context, {
       mode: "read"
     });
 
-    const workspaceId = resolveConfigWorkspaceId(assistantSurface, null, input, options?.context);
+    const workspaceId = resolveConfigWorkspaceId(assistantSurface, null, input, options.context);
     const existing = await assistantConfigRepository.findByScope({
       targetSurfaceId: assistantSurface.targetSurfaceId,
       workspaceId
@@ -87,12 +89,12 @@ function createService({
   }
 
   async function updateSettings(input = {}, patch = {}, options = {}) {
-    const assistantSurface = requireAssistantSurface(appConfig, input?.targetSurfaceId);
-    await requireSettingsAccess(assistantSurface, options?.context, {
+    const assistantSurface = requireAssistantSurface(appConfig, input.targetSurfaceId);
+    await requireSettingsAccess(assistantSurface, options.context, {
       mode: "write"
     });
 
-    const workspaceId = resolveConfigWorkspaceId(assistantSurface, null, input, options?.context);
+    const workspaceId = resolveConfigWorkspaceId(assistantSurface, null, input, options.context);
     const normalizedPatch = normalizeObject(patch);
 
     return assistantConfigRepository.upsertByScope({
@@ -102,7 +104,7 @@ function createService({
     });
   }
 
-  async function resolveSystemPrompt(assistantSurface, workspace = null, _options = {}, serviceOptions = {}) {
+  async function resolveSystemPrompt(assistantSurface, workspace = null, _options = {}, serviceOptions) {
     const resolvedAssistantSurface = requireAssistantSurface(appConfig, assistantSurface?.targetSurfaceId);
     const workspaceId = resolveConfigWorkspaceId(
       resolvedAssistantSurface,

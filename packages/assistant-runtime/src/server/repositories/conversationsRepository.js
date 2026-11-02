@@ -5,7 +5,6 @@ import {
   applyWorkspaceScope,
   normalizeDbWorkspaceId,
   normalizeInputRecordId,
-  normalizeWorkspaceId,
   parseJsonObject,
   resolveInsertedId,
   stringifyJsonObject,
@@ -58,10 +57,8 @@ function createConversationBaseQuery(client) {
   return client(`${assistantRuntimeConfig.conversationsTable} as c`).select("c.*");
 }
 
+/** @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} knex */
 function createRepository(knex) {
-  if (!knex || typeof knex !== "function") {
-    throw new Error("createConversationsRepository requires knex client.");
-  }
   const withTransaction = createWithTransaction(knex);
 
   async function findById(conversationId, options = {}) {
@@ -70,7 +67,7 @@ function createRepository(knex) {
       return null;
     }
 
-    const client = options?.trx || knex;
+    const client = options.trx || knex;
     if (options.forUpdate === true) {
       if (!options.trx) throw new TypeError("Locking a conversation requires its database transaction.");
       // Acquire the write reservation before reading, including SQLite where
@@ -96,7 +93,7 @@ function createRepository(knex) {
       return null;
     }
 
-    const client = options?.trx || knex;
+    const client = options.trx || knex;
     if (options.forUpdate === true) await findById(normalizedConversationId, options);
     const query = createConversationBaseQuery(client)
       .where("c.id", normalizedConversationId)
@@ -109,11 +106,11 @@ function createRepository(knex) {
   }
 
   async function create(payload = {}, options = {}) {
-    const client = options?.trx || knex;
+    const client = options.trx || knex;
     const now = new Date();
     const surfaceId = normalizeRequiredSurfaceId(payload.surfaceId);
     const insertResult = await client(assistantRuntimeConfig.conversationsTable).insert({
-      workspace_id: normalizeWorkspaceId(payload.workspaceId),
+      workspace_id: normalizeInputRecordId(payload.workspaceId),
       created_by_user_id: normalizeInputRecordId(payload.createdByUserId),
       title: normalizeText(payload.title) || DEFAULT_CONVERSATION_TITLE,
       status: normalizeText(payload.status).toLowerCase() || "active",
@@ -143,7 +140,7 @@ function createRepository(knex) {
       return null;
     }
 
-    const client = options?.trx || knex;
+    const client = options.trx || knex;
     const updatePatch = {};
 
     if (Object.hasOwn(patch, "title")) {
@@ -187,7 +184,7 @@ function createRepository(knex) {
   async function readTranscriptState(conversationId, options = {}) {
     const id = normalizeInputRecordId(conversationId);
     if (!id) return null;
-    const client = options?.trx || knex;
+    const client = options.trx || knex;
     const row = await client(assistantRuntimeConfig.conversationsTable).where({ id })
       .first("summary_text", "summary_through_turn_id", "transcript_revision");
     if (!row) return null;
@@ -201,7 +198,7 @@ function createRepository(knex) {
   async function writeTranscriptState(conversationId, { revision, summary }, options = {}) {
     const id = normalizeInputRecordId(conversationId);
     if (!id) throw new TypeError("writeTranscriptState requires conversationId.");
-    const client = options?.trx || knex;
+    const client = options.trx || knex;
     await client(assistantRuntimeConfig.conversationsTable).where({ id }).update({
       transcript_revision: revision,
       summary_text: summary ? summary.text : null,
@@ -222,7 +219,7 @@ function createRepository(knex) {
       };
     }
 
-    const client = options?.trx || knex;
+    const client = options.trx || knex;
     const { cursor, limit } = normalizeCursorPagination(pagination);
     let query = createConversationBaseQuery(client)
       .where("c.created_by_user_id", normalizedActorUserId)

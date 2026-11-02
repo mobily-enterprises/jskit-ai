@@ -3,10 +3,6 @@ import { normalizeDbRecordId } from "@jskit-ai/database-runtime/shared/repositor
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { parseJsonObject } from "@jskit-ai/assistant-core/shared";
 
-function normalizeWorkspaceId(value) {
-  return normalizeRecordId(value, { fallback: null });
-}
-
 function normalizeDbWorkspaceId(value) {
   return normalizeDbRecordId(value, { fallback: null });
 }
@@ -16,7 +12,7 @@ function normalizeInputRecordId(value) {
 }
 
 function applyWorkspaceScope(query, columnName, workspaceId) {
-  const normalizedWorkspaceId = normalizeWorkspaceId(workspaceId);
+  const normalizedWorkspaceId = normalizeInputRecordId(workspaceId);
   if (normalizedWorkspaceId) {
     return query.where(columnName, normalizedWorkspaceId);
   }
@@ -54,7 +50,6 @@ export {
   applyWorkspaceScope,
   normalizeDbWorkspaceId,
   normalizeInputRecordId,
-  normalizeWorkspaceId,
   parseJsonObject,
   stringifyJsonObject,
   toIso,

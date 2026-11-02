@@ -12,7 +12,7 @@ function buildCatalogOptions(appConfig = {}, surfaceId = "") {
   });
 }
 
-function requireContextSurfaceId(context = {}) {
+function requireContextSurfaceId(context) {
   const surfaceId = normalizeSurfaceId(context?.surface);
   if (surfaceId) {
     return surfaceId;
@@ -33,6 +33,7 @@ function requireContextSurfaceId(context = {}) {
  * @param {typeof createServiceToolCatalog} [options.createCatalog]
  */
 function createSurfaceAwareToolCatalog(actions, { appConfig = {}, createCatalog = createServiceToolCatalog } = {}) {
+  // readable-check: allow method-probe - input validation: an application hands over its action catalogue
   if (!actions || typeof actions.listDefinitions !== "function") {
     throw new Error("createSurfaceAwareToolCatalog requires runtime.actions.");
   }
@@ -51,27 +52,33 @@ function createSurfaceAwareToolCatalog(actions, { appConfig = {}, createCatalog 
     return nextCatalog;
   }
 
+  function resolveToolSet(context = {}, options) {
+    const surfaceId = requireContextSurfaceId(context);
+    return resolveCatalog(surfaceId).resolveToolSet(context, options);
+  }
+
+  function toOpenAiToolSchema(tool) {
+    if (!schemaCatalog) {
+      schemaCatalog = createCatalog(actions, buildCatalogOptions(normalizedAppConfig, ""));
+    }
+
+    return schemaCatalog.toOpenAiToolSchema(tool);
+  }
+
+  function executeToolCall(payload = {}) {
+    const context = payload.context && typeof payload.context === "object" ? payload.context : {};
+    const surfaceId = requireContextSurfaceId(context);
+    return resolveCatalog(surfaceId).executeToolCall(payload);
+  }
+
   return Object.freeze({
     get limits() {
       if (!schemaCatalog) schemaCatalog = createCatalog(actions, buildCatalogOptions(normalizedAppConfig, ""));
       return schemaCatalog.limits;
     },
-    resolveToolSet(context = {}, options) {
-      const surfaceId = requireContextSurfaceId(context);
-      return resolveCatalog(surfaceId).resolveToolSet(context, options);
-    },
-    toOpenAiToolSchema(tool) {
-      if (!schemaCatalog) {
-        schemaCatalog = createCatalog(actions, buildCatalogOptions(normalizedAppConfig, ""));
-      }
-
-      return schemaCatalog.toOpenAiToolSchema(tool);
-    },
-    executeToolCall(payload = {}) {
-      const context = payload?.context && typeof payload.context === "object" ? payload.context : {};
-      const surfaceId = requireContextSurfaceId(context);
-      return resolveCatalog(surfaceId).executeToolCall(payload);
-    }
+    resolveToolSet,
+    toOpenAiToolSchema,
+    executeToolCall
   });
 }
 

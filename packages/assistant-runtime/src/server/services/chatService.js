@@ -11,10 +11,6 @@ import { ASSISTANT_STREAM_WRITER_METHODS } from "../support/assistantStreamWrite
 
 const CLOCK_INSTRUCTION = "For current or relative date and time questions, use the current time in the system's state note, or an available authoritative workspace clock action for another time zone; never infer the current date or time from model knowledge.";
 
-function normalizeConversationId(value) {
-  return normalizeRecordId(value, { fallback: null });
-}
-
 function normalizeStreamInput(payload = {}) {
   const source = normalizeObject(payload);
   const messageId = normalizeText(source.messageId);
@@ -32,13 +28,14 @@ function normalizeStreamInput(payload = {}) {
 
   return {
     messageId,
-    conversationId: normalizeConversationId(source.conversationId),
+    conversationId: normalizeRecordId(source.conversationId, { fallback: null }),
     input,
     attachmentIds: source.attachmentIds
   };
 }
 
 function hasStreamWriter(streamWriter) {
+  // readable-check: allow method-probe - input validation: a chat stream's caller hands its stream writer with each call
   return ASSISTANT_STREAM_WRITER_METHODS.every(name => typeof streamWriter?.[name] === "function");
 }
 
@@ -85,7 +82,12 @@ function buildToolContractLine(toolDescriptor = {}) {
   return `${name}: input=${toCompactJson(inputSchema)} output=${toCompactJson(outputSchema, "null")}`;
 }
 
-function buildSystemPrompt({ targetSurfaceId = "", toolDescriptors = [], workspaceSlug = "", customSystemPrompt = "" } = {}) {
+/**
+ * The system prompt of a surface's turn: the surface, its workspace, the tools it
+ * offers and the surface's own instructions.
+ * @param {{ targetSurfaceId?: string, toolDescriptors: Array<{ name: string, parameters?: unknown, outputSchema?: unknown }>, workspaceSlug?: string, customSystemPrompt?: string }} prompt
+ */
+function buildSystemPrompt({ targetSurfaceId = "", toolDescriptors, workspaceSlug = "", customSystemPrompt = "" }) {
   const toolSummary = toolDescriptors.length > 0
     ? `Available tools: ${toolDescriptors.map((entry) => entry.name).join(", ")}.`
     : "No tools are currently available for this user/session.";
@@ -136,6 +138,29 @@ function buildAssistantActionContext(context = {}, assistantSurface = {}) {
   };
 }
 
+/** @typedef {import("../types.js").AssistantAiClientFactory} AssistantAiClientFactory */
+/** @typedef {import("../types.js").AssistantAttachments} AssistantAttachments */
+/** @typedef {import("../types.js").AssistantConfigService} AssistantConfigService */
+/** @typedef {import("../types.js").ConversationRuntime} ConversationRuntime */
+/** @typedef {import("../types.js").SurfaceAwareToolCatalog} SurfaceAwareToolCatalog */
+/** @typedef {import("../types.js").TranscriptService} TranscriptService */
+/** @typedef {import("../types.js").TurnRequestsRepository} TurnRequestsRepository */
+/** @typedef {import("../types.js").WorkspaceScopeSupport} WorkspaceScopeSupport */
+
+/**
+ * The chat stream and transcripts of the package's own tables. Each chat turn is
+ * recorded once per message id, so a repeated request replays its saved outcome.
+ * @param {object} dependencies
+ * @param {ConversationRuntime} dependencies.conversationRuntime
+ * @param {AssistantAiClientFactory} dependencies.aiClientFactory
+ * @param {TurnRequestsRepository} dependencies.turnRequests
+ * @param {AssistantAttachments | null} [dependencies.attachments]
+ * @param {TranscriptService} dependencies.transcriptService
+ * @param {SurfaceAwareToolCatalog} dependencies.serviceToolCatalog
+ * @param {AssistantConfigService} dependencies.assistantConfigService
+ * @param {Record<string, any>} dependencies.appConfig
+ * @param {WorkspaceScopeSupport | null} [dependencies.workspaceScopeSupport]
+ */
 function createChatService({
   conversationRuntime,
   aiClientFactory,
@@ -144,21 +169,15 @@ function createChatService({
   transcriptService,
   serviceToolCatalog,
   assistantConfigService,
-  appConfig = {},
-  workspaceScopeSupport = null
-} = {}) {
-  if (!aiClientFactory || typeof aiClientFactory.resolveClient !== "function" || !turnRequests || !transcriptService || !serviceToolCatalog || !assistantConfigService) {
-    throw new Error(
-      "createChatService requires aiClientFactory.resolveClient(), turnRequests, transcriptService, serviceToolCatalog, and assistantConfigService."
-    );
-  }
-
+  appConfig,
+  workspaceScopeSupport
+}) {
   function resolveRuntimeWorkspace(assistantSurface, context = {}, input = {}) {
     if (assistantSurface?.runtimeSurfaceRequiresWorkspace !== true) {
       return null;
     }
 
-    if (!workspaceScopeSupport || typeof workspaceScopeSupport.resolveWorkspace !== "function") {
+    if (!workspaceScopeSupport) {
       throw new Error("assistant.chat.service requires workspace server scope support for workspace-scoped assistant surfaces.");
     }
 
@@ -219,7 +238,7 @@ function createChatService({
   }
 
   async function streamChat(payload = {}, options = {}) {
-    const assistantSurface = requireAssistantSurface(appConfig, payload?.targetSurfaceId);
+    const assistantSurface = requireAssistantSurface(appConfig, payload.targetSurfaceId);
     const context = normalizeObject(options.context);
     const assistantContext = buildAssistantActionContext(context, assistantSurface);
     const workspace = resolveRuntimeWorkspace(assistantSurface, assistantContext, payload);
@@ -229,6 +248,7 @@ function createChatService({
     if (!actorUserId) throw new AppError(401, "Authentication required.", { code: "assistant.runtime.authenticationRequired" });
     if (!hasStreamWriter(options.streamWriter)) throw new Error("assistant.chat.stream requires streamWriter methods.");
     const scope = { actorUserId, surfaceId: assistantSurface.targetSurfaceId,
+      // readable-check: allow no-dual-shape - data: the workspace scope resolves the workspace from the action input or context, which may carry the record or its id
       workspaceId: normalizeRecordId(workspace?.id || workspace, { fallback: null }) };
     const request = { ...source, integrationId: normalizeText(payload.integrationId) };
     const existing = await turnRequests.find(scope, source.messageId);
@@ -271,7 +291,6 @@ function createChatService({
     return result;
 
     async function executeTurn() {
-      if (typeof conversationRuntime?.open !== "function") throw new TypeError("Assistant streaming requires its common conversation runtime.");
       const conversationResult = await transcriptService.createConversationForTurn(
         assistantSurface,
         workspace,
@@ -412,7 +431,7 @@ function createChatService({
   }
 
   async function listConversations(query = {}, options = {}) {
-    const assistantSurface = requireAssistantSurface(appConfig, options?.input?.targetSurfaceId);
+    const assistantSurface = requireAssistantSurface(appConfig, options.input?.targetSurfaceId);
     const context = normalizeObject(options.context);
     const assistantContext = buildAssistantActionContext(context, assistantSurface);
     const workspace = resolveRuntimeWorkspace(assistantSurface, assistantContext, options.input || {});
@@ -422,7 +441,7 @@ function createChatService({
   }
 
   async function getConversationMessages(conversationId, query = {}, options = {}) {
-    const assistantSurface = requireAssistantSurface(appConfig, options?.input?.targetSurfaceId);
+    const assistantSurface = requireAssistantSurface(appConfig, options.input?.targetSurfaceId);
     const context = normalizeObject(options.context);
     const assistantContext = buildAssistantActionContext(context, assistantSurface);
     const workspace = resolveRuntimeWorkspace(assistantSurface, assistantContext, options.input || {});
@@ -438,8 +457,12 @@ function createChatService({
     );
   }
 
+  function close() {
+    return conversationRuntime.close();
+  }
+
   return Object.freeze({
-    close: () => conversationRuntime?.close(),
+    close,
     streamChat,
     listConversations,
     getConversationMessages
