@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { assertCodexAuthPreflightReady } from "../src/server/conversation/codexAuthPreflight.js";
-import { createCodexAppServerRuntime } from "../src/server/conversation/codexProcess.js";
+import { createCodexAppServerRuntime } from "../src/server/conversation/codexRuntime.js";
 
 /** Starts a runtime whose execution host records the launch and reports failure. */
 async function launchRequest(t, configuration, executionMode = "interactive") {

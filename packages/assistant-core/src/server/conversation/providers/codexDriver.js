@@ -2,7 +2,8 @@ import { jsonHash as hash } from "../normalize.js";
 import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { open, realpath } from "node:fs/promises";
-import { CODEX_APP_SERVER_DESKTOP_BUS_ENV_NAMES, codexCommandHookDefinition, createCodexAppServerRuntime } from "../codexProcess.js";
+import { CODEX_APP_SERVER_DESKTOP_BUS_ENV_NAMES, codexCommandHookDefinition } from "../codexProcess.js";
+import { createCodexAppServerRuntime } from "../codexRuntime.js";
 import { CodexAppServerAgentProvider, codexLocalImageInput, ensureCodexAppServerThread, codexApplicationToolConfiguration,
   assertCodexApplicationToolSchemaIdentity, inspectCodexAppServerMessageAdmission, retireCodexConversationHistory } from "../codexProvider.js";
 import { createCodexAppServerProviderOwner } from "../codexProviderOwner.js";
