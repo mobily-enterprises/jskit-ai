@@ -421,7 +421,7 @@
               },
               {
                 "subpath": "./server",
-                "summary": "Provides conversation routes, authorized shared realtime subscriptions, explicit Fastify hosting shorthand and optional database integration."
+                "summary": "Provides conversation routes, authorized shared realtime subscriptions, explicit Fastify hosting shorthand, optional database integration and the per-surface assistant tool catalogue."
               }
             ],
             "capabilities": [

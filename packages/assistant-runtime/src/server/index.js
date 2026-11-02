@@ -4,3 +4,4 @@ export { assistantConversationGoalBodyValidator } from "./inputSchemas.js";
 export { registerRoutes as registerAssistantRoutes } from "./registerRoutes.js";
 export { registerConversationSubscriptions } from "./registerConversationSubscriptions.js";
 export { registerFastifyConversations } from "./registerFastifyConversations.js";
+export { createSurfaceAwareToolCatalog } from "./support/createSurfaceAwareToolCatalog.js";

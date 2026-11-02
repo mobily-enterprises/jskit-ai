@@ -19,7 +19,7 @@ Main exports by subpath:
 
 | Subpath | Provides |
 | --- | --- |
-| `@jskit-ai/assistant-runtime/server` | `AssistantFeature`, `createAssistantActions`, `registerAssistantRoutes`, `registerConversationSubscriptions`, `registerFastifyConversations` |
+| `@jskit-ai/assistant-runtime/server` | `AssistantFeature`, `createAssistantActions`, `registerAssistantRoutes`, `registerConversationSubscriptions`, `registerFastifyConversations`, `createSurfaceAwareToolCatalog` |
 | `@jskit-ai/assistant-runtime/server/actionIds` | Assistant action identifiers |
 | `@jskit-ai/assistant-runtime/client` | `AssistantConversationClientElement`, `AssistantSurfaceClientElement`, `AssistantSettingsClientElement`, `useAssistantConversation`, `configureAssistantConversations` |
 | `@jskit-ai/assistant-runtime/shared` | Assistant surface configuration helpers |

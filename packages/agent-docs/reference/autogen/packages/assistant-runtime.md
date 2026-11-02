@@ -157,6 +157,7 @@ Exports
 - `registerAssistantRoutes`
 - `registerConversationSubscriptions`
 - `registerFastifyConversations`
+- `createSurfaceAwareToolCatalog`
 
 ### `src/server/inputSchemas.js`
 Exports
