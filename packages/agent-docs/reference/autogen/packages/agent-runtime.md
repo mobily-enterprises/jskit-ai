@@ -26,10 +26,13 @@ Local functions
 Exports
 - `roundPrompt(goal)`
 - `goalTools(operations)`
-- `createGoals({ knex, runs, table = "agent_goals", channel = "agent-goals", notices, limits = GOAL_LIMITS, find, respond, claim, record, notify = notifyNoPages, owner = noOwnerColumns, spent = async () => 0, track = (_goal, work) => work(), background = (work) => work })`
+- `createGoals({ knex, runs, table = "agent_goals", channel = "agent-goals", notices, limits = GOAL_LIMITS, find, respond, claim, record, notify = notifyNoPages, owner = noOwnerColumns, spent = nothingSpent, track = runUnmetered, background = leaveRunning })`
 - `GOAL_LIMITS`
 Local functions
 - `notifyNoPages()`
+- `nothingSpent()`
+- `runUnmetered(_goal, work)`
+- `leaveRunning(work)`
 - `noOwnerColumns()`
 
 ### `src/server/index.js`
@@ -53,6 +56,7 @@ Exports
 - `createCommands`
 - `commandTools`
 - `COMMAND_LIMITS`
+- `askInReplyTools`
 - `askTools`
 - `gvisorExecutor`
 - `localExecutor`
@@ -85,7 +89,8 @@ Exports
 
 ### `src/server/tools/ask.js`
 Exports
-- `askTools({ post = null } = {})`
+- `askTools({ post })`
+- `askInReplyTools()`
 
 ### `src/server/tools/commands.js`
 Exports

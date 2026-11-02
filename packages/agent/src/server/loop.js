@@ -25,7 +25,7 @@ export const REPLY_DEADLINE_MS = (Number(process.env.AGENT_REPLY_MINUTES) || 15)
  */
 export async function runLoop({
   model, name, instructions, history, tools = {}, summary = "", state = "", maxSteps,
-  onSteps = null, onStep = null, onText = null, signal = null, carriesOn = false, quietIfEmpty = false, clean = stripNotes, throwIf = null,
+  onSteps = saveNoSteps, onStep = ignoreStep, onText = null, signal = null, carriesOn = false, quietIfEmpty = false, clean = stripNotes, throwIf = neverThrow,
   reasoning = REASONING.on, maxOutputTokens = LOOP_OUTPUT_TOKENS, turnLimits = TURN_LIMITS, deadlineMs = REPLY_DEADLINE_MS
 }) {
   const messages = [...history];
@@ -62,14 +62,14 @@ export async function runLoop({
       onStepFinish: async (step) => {
         done.push(step);
         generated.push(...(step.response?.messages || []));
-        if (onStep) await onStep(step);
-        if (onSteps) await onSteps(cleanTranscript(generated)).catch((error) => console.error(`Saving ${name}'s steps: ${error?.message || error}`));
+        await onStep(step);
+        await onSteps(cleanTranscript(generated)).catch((error) => console.error(`Saving ${name}'s steps: ${error?.message || error}`));
       }
     };
     result = onText ? await streamed(call, onText) : await generateText(call);
   } catch (error) {
     if (signal?.aborted) throw signal.reason ?? error;
-    if (throwIf?.(error, done)) throw error;
+    if (throwIf(error, done)) throw error;
     stopped = deadline.signal.aborted ? "it was taking too long" : "something went wrong on my side";
     console.error(`${name}'s reply stopped: ${error?.message || error}`);
   } finally {
@@ -89,6 +89,17 @@ export async function runLoop({
     transcript.push({ role: "assistant", content: account });
   }
   return { text, transcript, ...(resumable ? { unfinished: stopped } : {}), ...(account ? { account } : {}) };
+}
+
+/** A run whose steps nobody saves. */
+async function saveNoSteps() {}
+
+/** A run whose finished steps nobody hears. */
+function ignoreStep() {}
+
+/** A run whose failed call always ends with an account, never with its error. */
+function neverThrow() {
+  return false;
 }
 
 /** A streamed run: each step's words go to `onText` as they come; the result is read at the end. */

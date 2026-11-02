@@ -7,5 +7,5 @@ export { planningTools, planningNotes, currentTodos, PLANNING_TABLES } from "./p
 export { defaultTools } from "./tools/defaults.js";
 export { fileTools, inWorkspace, FILE_LIMITS } from "./tools/files.js";
 export { createCommands, commandTools, COMMAND_LIMITS } from "./tools/commands.js";
-export { askTools } from "./tools/ask.js";
+export { askInReplyTools, askTools } from "./tools/ask.js";
 export { gvisorExecutor, localExecutor, GVISOR } from "./executors.js";

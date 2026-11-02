@@ -16,7 +16,7 @@ itself, and why it works as it does, is in `@jskit-ai/agent`'s README.
 | Commands in the workspace; one still running carries on in the background, its whole output a file | `createCommands`, `commandTools` | `agent_commands` |
 | Where commands run: gVisor (`runsc`), or a local process for development | `gvisorExecutor`, `localExecutor` | — |
 | Files: list, find, search, read in parts, write and edit, never outside the workspace | `fileTools`, `inWorkspace` | — |
-| Asking the person, as a card with answers to pick from | `askTools` | — |
+| Asking the person: a card with answers to pick from, or in the reply where the chat shows no cards | `askTools`, `askInReplyTools` | — |
 | All of these tools for one turn, each left out when what it needs isn't given | `defaultTools` | — |
 
 `migrations/agent_initial.cjs` creates the tables. Each factory takes the names it uses, so an app
