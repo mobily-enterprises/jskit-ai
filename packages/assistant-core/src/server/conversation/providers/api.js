@@ -57,12 +57,24 @@ function turnMessages(turn) {
   ];
 }
 
-/** Direct API inference runs on the agent engine with the same authorized connection catalogue as other JSKIT services. */
+/**
+ * Direct API inference runs on the agent engine with the same authorized connection catalogue as other JSKIT services.
+ * The application passes the conversation runtime its authorized AI connection resolver, or its own API client factory.
+ * @param {object} dependencies
+ * @param {{ resolve(request: { context: object, integrationId: string }): Promise<object> }} [dependencies.connections]
+ * @param {{ resolveClient(request: { context: object, configuration: object }): Promise<{ enabled: boolean, model: object, defaultModel: string }> }} [dependencies.apiClientFactory]
+ * @param {typeof fetch} [dependencies.fetch]
+ * @param {Record<string, number>} [dependencies.limits]
+ */
 export function createApiConversationDriver({ connections, apiClientFactory, fetch, limits = {} }) {
-  if (apiClientFactory !== undefined && typeof apiClientFactory?.resolveClient !== "function") {
+  // readable-check: allow method-probe - input validation: the API client factory an application passes the conversation runtime
+  if (apiClientFactory !== undefined && (!apiClientFactory || typeof apiClientFactory.resolveClient !== "function")) {
     throw new TypeError("An API client factory requires resolveClient({ context, configuration }).");
   }
-  if (!apiClientFactory && typeof connections?.resolve !== "function") throw new TypeError("API conversations require an authorized AI connection resolver.");
+  // readable-check: allow method-probe - input validation: the AI connection resolver an application passes the conversation runtime
+  if (!apiClientFactory && (!connections || typeof connections.resolve !== "function")) {
+    throw new TypeError("API conversations require an authorized AI connection resolver.");
+  }
   const maximumOutput = limits.maxOutputCharacters ?? 64_000;
   const maximumToolProgress = limits.maxApiToolProgressCharacters;
   // The runtime ends a turn with an error past its application action-call limit (32 by
