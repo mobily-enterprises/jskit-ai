@@ -34,18 +34,9 @@ function createSupabaseProfileMirror({ config, profiles }) {
   const { projector } = profiles;
 
   function requireSynchronizedProfile(profile) {
-    try {
-      return requireAuthenticatedProfile(profile, {
-        context: "authentication profile"
-      });
-    } catch (error) {
-      if (error instanceof AppError) {
-        throw new AppError(500, "Authentication profile synchronization failed. Please retry.", {
-          code: "auth.supabase.profile.syncFailed"
-        });
-      }
-      throw error;
-    }
+    return requireAuthenticatedProfile(profile, {
+      context: "authentication profile"
+    });
   }
 
   function buildNormalizedIdentityKey(identityLike) {
@@ -122,7 +113,7 @@ function createSupabaseProfileMirror({ config, profiles }) {
     const email = normalizeEmail(supabaseUser?.email || fallbackEmail);
 
     if (!supabaseUserId || !email) {
-      throw new AppError(500, "Auth provider user payload is missing required fields.", { code: "auth.supabase.profile.payloadIncomplete" });
+      throw new Error("Auth provider user payload is missing required fields.");
     }
 
     return syncProfileMirror({

@@ -1,5 +1,4 @@
 import { createSchema } from "json-rest-schema";
-import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
 
 const authenticatedProfileSchema = createSchema({
@@ -69,7 +68,7 @@ function requireAuthenticatedProfile(profileLike, { context = "authenticated pro
 
   const { validatedObject, errors } = authenticatedProfileSchema.create(candidate);
   if (Object.keys(errors).length > 0) {
-    throw new AppError(500, `${context} is invalid.`, { code: "auth.supabase.profile.invalid", params: { context } });
+    throw new Error(`${context} is invalid.`);
   }
 
   return validatedObject;

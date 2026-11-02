@@ -200,7 +200,7 @@ function createSupabasePasswordFlows({ config, clients, sessions, profileMirror,
 
     const email = normalizeEmail(sessionResponse.data.user?.email || "");
     if (!email) {
-      throw new AppError(500, "Authenticated user email could not be resolved.", { code: "auth.supabase.session.emailUnresolved" });
+      throw new Error("Authenticated user email could not be resolved.");
     }
 
     if (requireCurrentPassword) {
@@ -257,9 +257,7 @@ function createSupabasePasswordFlows({ config, clients, sessions, profileMirror,
     const passwordMethod = findAuthMethodById(current.authMethodsStatus, AUTH_METHOD_PASSWORD_ID);
 
     if (!passwordMethod) {
-      throw new AppError(500, "Password method configuration could not be resolved.", {
-        code: "auth.supabase.methods.passwordUnresolved"
-      });
+      throw new Error("Password method configuration could not be resolved.");
     }
 
     if (payload.enabled && !passwordMethod.configured) {

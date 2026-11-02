@@ -107,9 +107,7 @@ function ensureDevAuthRuntimeAvailable(policy = {}, request = null) {
     throw new AppError(404, "Not found.", { code: "auth.dev.unavailable" });
   }
   if (!policy.secret) {
-    throw new AppError(500, "AUTH_DEV_BYPASS_SECRET is required when AUTH_DEV_BYPASS_ENABLED=true.", {
-      code: "auth.dev.secretMissing"
-    });
+    throw new Error("AUTH_DEV_BYPASS_SECRET is required when AUTH_DEV_BYPASS_ENABLED=true.");
   }
   if (!isLocalDevAuthRequest(request)) {
     throw new AppError(403, "Dev auth bootstrap is only available from localhost.", { code: "auth.dev.localhostOnly" });

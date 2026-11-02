@@ -87,7 +87,7 @@ test("Supabase field errors carry codes whose English is the field message", asy
   }), (error) => assertCoded(error, "validation_failed").details.fieldErrorCodes.email.code === "auth.dev.userNotFound");
 });
 
-test("an invalid authenticated profile names its context through params", () => {
+test("an invalid authenticated profile is an internal failure naming its context", () => {
   assert.throws(() => requireAuthenticatedProfile({}, { context: "authentication profile" }),
-    (error) => Boolean(assertCoded(error, "auth.supabase.profile.invalid")));
+    (error) => error.message === "authentication profile is invalid." && error.code === undefined);
 });

@@ -16,7 +16,6 @@
       },
       "dev": {
         "unavailable": "Not found.",
-        "secretMissing": "AUTH_DEV_BYPASS_SECRET is required when AUTH_DEV_BYPASS_ENABLED=true.",
         "localhostOnly": "Dev auth bootstrap is only available from localhost.",
         "exchangeUnauthorized": "Dev auth exchange is not authorized.",
         "userRequired": "Provide a user id or email.",

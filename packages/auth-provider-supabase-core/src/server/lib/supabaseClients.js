@@ -1,5 +1,4 @@
 import { createClient } from "@supabase/supabase-js";
-import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { buildSupabaseServerClientOptions } from "./supabaseClientOptions.js";
 
 /**
@@ -11,7 +10,7 @@ function createSupabaseClients(config) {
   /** Refuses the operation when the app names no Supabase project. */
   function ensureConfigured() {
     if (!config.configured) {
-      throw new AppError(500, "Auth provider is not configured.", { code: "auth.supabase.config.missing" });
+      throw new Error("Auth provider is not configured.");
     }
   }
 

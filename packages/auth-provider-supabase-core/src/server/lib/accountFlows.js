@@ -1,4 +1,3 @@
-import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { AUTH_TEXTS, authFieldError, createAuthError } from "@jskit-ai/auth-core/server/authTexts";
 import { authRegisterBodyValidator } from "@jskit-ai/auth-core/shared/commands/authRegisterCommand";
 import { authRegisterConfirmationResendBodyValidator } from "@jskit-ai/auth-core/shared/commands/authRegisterConfirmationResendCommand";
@@ -108,7 +107,7 @@ function createSupabaseAccountFlows({ config, clients, sessions, profileMirror, 
     }
 
     if (!response.data?.user) {
-      throw new AppError(500, "Supabase sign-up did not return a user.", { code: "auth.supabase.register.noUser" });
+      throw new Error("Supabase sign-up did not return a user.");
     }
 
     const profile = await profileMirror.syncProfileFromSupabaseUser(response.data.user, parsed.email);

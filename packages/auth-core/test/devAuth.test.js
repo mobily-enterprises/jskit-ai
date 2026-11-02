@@ -112,7 +112,8 @@ test("dev auth refusals carry their own codes", () => {
     return null;
   };
   assert.equal(codeOf(() => ensureDevAuthRuntimeAvailable(resolveDevAuthPolicy(), createRequest())), "auth.dev.unavailable");
-  assert.equal(codeOf(() => ensureDevAuthRuntimeAvailable(enabledPolicy({ secret: "" }), createRequest())), "auth.dev.secretMissing");
+  assert.throws(() => ensureDevAuthRuntimeAvailable(enabledPolicy({ secret: "" }), createRequest()), (error) =>
+    error.message === "AUTH_DEV_BYPASS_SECRET is required when AUTH_DEV_BYPASS_ENABLED=true." && error.code === undefined);
   assert.equal(
     codeOf(() => ensureDevAuthRuntimeAvailable(enabledPolicy(), createRequest({ host: "example.com" }))),
     "auth.dev.localhostOnly"

@@ -1,4 +1,3 @@
-import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { normalizeEmail } from "@jskit-ai/auth-core/server/utils";
 import { normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
 import { SUPABASE_PROVIDER_ID } from "./profileMirror.js";
@@ -48,9 +47,7 @@ const PROVIDER_MODE_USER_SETTINGS = Object.freeze({
     return { passwordSignInEnabled: true, passwordSetupRequired: false };
   },
   async updatePasswordSignInEnabled() {
-    throw new AppError(500, "Password sign-in settings repository is not configured.", {
-      code: "auth.supabase.config.passwordSettingsMissing"
-    });
+    throw new Error("Password sign-in settings repository is not configured.");
   },
   async updatePasswordSetupRequired() {}
 });
