@@ -1,7 +1,7 @@
 import { importPKCS8, SignJWT } from "jose";
 import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
-import { ConnectorError } from "@jskit-ai/connectors-core/server";
+import { ConnectorError, providerStatusError } from "@jskit-ai/connectors-core/server";
 import { firebaseCloudMessagingDefinition, firebaseMessagingScope, firebaseProjectId } from "../shared/firebase-cloud-messaging.js";
 import { jsonOperation } from "./jsonOperation.js";
 
@@ -99,7 +99,7 @@ const firebaseCloudMessagingProvider = Object.freeze({
       if (response.status === 400) {
         throw new ConnectorError("connector_message_invalid", "Firebase rejected the message or target. Do not delete a registration unless the payload is known to be valid.", { statusCode: 422, messageCode: "connectors.firebaseCloudMessaging.rejectedMessageTargetDoNot" });
       }
-      throw Object.assign(new Error("Firebase message request failed."), { status: response.status });
+      throw providerStatusError(response.status);
     }
     if (!receipt(result) || !result.name.startsWith(`projects/${settings.projectId}/messages/`)) {
       throw new ConnectorError("connector_response_invalid", "Firebase returned an unexpected message receipt.", { statusCode: 502, messageCode: "connectors.firebaseCloudMessaging.returnedUnexpectedMessageReceipt" });

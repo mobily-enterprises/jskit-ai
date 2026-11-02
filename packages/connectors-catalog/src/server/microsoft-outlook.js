@@ -1,6 +1,6 @@
 import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
-import { ConnectorError } from "@jskit-ai/connectors-core/server";
+import { ConnectorError, providerStatusError } from "@jskit-ai/connectors-core/server";
 import { microsoftOutlookDefinition } from "../shared/microsoft.js";
 import { hasStringId } from "./connectorValues.js";
 import { graphRead, microsoftProvider, pageSize } from "./microsoft.js";
@@ -51,7 +51,7 @@ const microsoftOutlookProvider = Object.freeze({ ...base,
     if (new URL(address).pathname !== "/v1.0/me/sendMail") return request(address, options);
     const response = await fetchImpl(address, { ...options, body: JSON.stringify(options.body), headers: { ...options.headers, "Content-Type": "application/json" }, credentials: "omit", redirect: "error" });
     await response.body?.cancel();
-    if (response.status !== 202) throw Object.assign(new Error("Outlook did not accept the message."), { status: response.ok ? 502 : response.status });
+    if (response.status !== 202) throw providerStatusError(response.status);
     return { accepted: true };
   }
 });

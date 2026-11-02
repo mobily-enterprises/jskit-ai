@@ -1,6 +1,6 @@
 import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
-import { ConnectorError } from "@jskit-ai/connectors-core/server";
+import { ConnectorError, providerStatusError } from "@jskit-ai/connectors-core/server";
 import { elevenlabsDefinition } from "../shared/tokens.js";
 import { jsonOperation } from "./jsonOperation.js";
 
@@ -36,7 +36,7 @@ const elevenlabsProvider = Object.freeze({
     if (!new URL(url).pathname.startsWith("/v1/text-to-speech/")) return request(url, options);
     const response = await fetchImpl(url, { ...options, body: JSON.stringify(options.body),
       headers: { ...options.headers, "Content-Type": "application/json", Accept: "audio/*" }, credentials: "omit", redirect: "error" });
-    if (!response.ok) { await response.body?.cancel(); throw Object.assign(new Error("ElevenLabs speech request failed."), { status: response.status }); }
+    if (!response.ok) { await response.body?.cancel(); throw providerStatusError(response.status); }
     const contentType = response.headers.get("content-type")?.split(";")[0] || "application/octet-stream";
     if (!contentType.startsWith("audio/") && contentType !== "application/octet-stream") {
       await response.body?.cancel(); throw new ConnectorError("connector_response_invalid", "ElevenLabs did not return audio.", { statusCode: 502, messageCode: "connectors.elevenlabs.didNotReturnAudio" });

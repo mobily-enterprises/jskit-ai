@@ -1,6 +1,6 @@
 import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
-import { ConnectorError } from "@jskit-ai/connectors-core/server";
+import { ConnectorError, providerStatusError } from "@jskit-ai/connectors-core/server";
 import { microsoftOneNoteDefinition } from "../shared/microsoft.js";
 import { graphRead, microsoftProvider, pageSize } from "./microsoft.js";
 import { hasStringId } from "./connectorValues.js";
@@ -38,7 +38,7 @@ const microsoftOneNoteProvider = Object.freeze({ ...base,
     const create = new Headers(options.headers).get("content-type") === "text/html";
     if (!content && !create) return request(address, options);
     const response = await fetchImpl(address, { ...options, credentials: "omit", redirect: "error" });
-    if (!response.ok) { await response.body?.cancel(); throw Object.assign(new Error("OneNote request failed."), { status: response.status }); }
+    if (!response.ok) { await response.body?.cancel(); throw providerStatusError(response.status); }
     if (create) return response.json();
     const reader = response.body?.getReader(); const chunks = []; let size = 0;
     if (reader) try { while (true) {

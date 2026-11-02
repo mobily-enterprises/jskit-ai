@@ -1,6 +1,6 @@
 import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
-import { ConnectorError } from "@jskit-ai/connectors-core/server";
+import { ConnectorError, providerStatusError } from "@jskit-ai/connectors-core/server";
 import { granolaDefinition } from "../shared/granola.js";
 import { jsonOperation } from "./jsonOperation.js";
 import { mcpOperations, exchangeMcp } from "./mcpTransport.js";
@@ -68,7 +68,7 @@ const granolaApiProvider = Object.freeze({
     const response = await fetchImpl(address, { ...options, credentials: "omit" });
     if (response.status === 404) throw new ConnectorError("connector_resource_not_found", "The Granola note is unavailable, inaccessible or still being processed.", { statusCode: 404, messageCode: "connectors.granola.noteUnavailable" });
     if (response.status === 413) throw new ConnectorError("connector_response_too_large", "Read the transcript in pages with transcripts.list.", { statusCode: 413, messageCode: "connectors.granola.readTranscriptPagesTranscriptsList" });
-    if (!response.ok) throw Object.assign(new Error("Granola request failed."), { status: response.status });
+    if (!response.ok) throw providerStatusError(response.status);
     let value;
     try { value = await response.json(); } catch { /* checked below */ }
     if (response.status !== 200 || !value || typeof value !== "object" || value.error) {

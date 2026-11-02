@@ -1,4 +1,4 @@
-import { ConnectorError } from "@jskit-ai/connectors-core/server";
+import { ConnectorError, providerStatusError } from "@jskit-ai/connectors-core/server";
 import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { microsoftOneDriveDefinition } from "../shared/microsoft.js";
@@ -50,7 +50,7 @@ const microsoftOneDriveProvider = Object.freeze({ ...base,
     const response = await fetchImpl(address, { ...options, credentials: "omit", redirect: "error" });
     if (!response.ok) {
       await response.body?.cancel();
-      throw Object.assign(new Error("OneDrive upload failed; inspect the folder before retrying."), { status: response.status });
+      throw providerStatusError(response.status);
     }
     return response.json();
   }

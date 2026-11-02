@@ -1,4 +1,4 @@
-import { ConnectorError } from "@jskit-ai/connectors-core/server";
+import { ConnectorError, providerStatusError } from "@jskit-ai/connectors-core/server";
 import { apifyDefinition } from "../shared/tokens.js";
 import { jsonOperation, validatedOperation } from "./jsonOperation.js";
 
@@ -13,7 +13,7 @@ const apifyProvider = Object.freeze({
     const response = await fetchImpl(url, { ...options, credentials: "omit", redirect: "error" });
     if (!response.ok) {
       await response.body?.cancel();
-      throw Object.assign(new Error("Apify storage request failed."), { status: response.status });
+      throw providerStatusError(response.status);
     }
     const reader = response.body?.getReader();
     const chunks = [];

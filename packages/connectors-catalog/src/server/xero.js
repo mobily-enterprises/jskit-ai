@@ -1,6 +1,6 @@
 import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
-import { ConnectorError } from "@jskit-ai/connectors-core/server";
+import { ConnectorError, providerStatusError } from "@jskit-ai/connectors-core/server";
 import { xeroDefinition } from "../shared/xero.js";
 import { jsonOperation } from "./jsonOperation.js";
 import { isUuid } from "../shared/uuid.js";
@@ -354,7 +354,7 @@ const xeroProvider = Object.freeze({
         headers: { ...options.headers, Accept: downloading ? "application/octet-stream" : "application/json" } });
       if (!response.ok) {
         await response.body?.cancel();
-        throw Object.assign(new Error("Xero attachment request failed."), { status: response.status });
+        throw providerStatusError(response.status);
       }
       const reader = response.body?.getReader(); const chunks = []; let size = 0;
       if (reader) try {

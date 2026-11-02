@@ -1,4 +1,4 @@
-import { ConnectorError } from "@jskit-ai/connectors-core/server";
+import { ConnectorError, providerStatusError } from "@jskit-ai/connectors-core/server";
 import { snowflakeDefinition } from "../shared/snowflake.js";
 import { jsonOperation } from "./jsonOperation.js";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
@@ -90,7 +90,7 @@ const snowflakeProvider = Object.freeze({
     const url = new URL(address);
     const sql = url.pathname.startsWith("/api/v2/statements");
     if (sql && response.status === 422) throw new ConnectorError("connector_operation_rejected", "Snowflake rejected the statement. Inspect query history with the authorized role.", { statusCode: 422, messageCode: "connectors.snowflake.rejectedStatementInspectQueryHistory" });
-    if (!response.ok) throw Object.assign(new Error("Snowflake request failed."), { status: response.status });
+    if (!response.ok) throw providerStatusError(response.status);
     const reader = response.body?.getReader();
     const chunks = [];
     let size = 0;

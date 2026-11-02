@@ -1,13 +1,9 @@
-import { ConnectorError } from "@jskit-ai/connectors-core/server";
+import { ConnectorError, providerStatusError } from "@jskit-ai/connectors-core/server";
 import { telegramDefinition } from "../shared/tokens.js";
 import { jsonOperation } from "./jsonOperation.js";
 
 function telegramResult(response, validate) {
-  if (response?.ok === false) {
-    const error = new Error("Telegram rejected the operation.");
-    error.status = response.error_code;
-    throw error;
-  }
+  if (response?.ok === false) throw providerStatusError(Number(response.error_code));
   return response?.ok === true && validate(response.result);
 }
 

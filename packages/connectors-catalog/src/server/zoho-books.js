@@ -1,6 +1,6 @@
 import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
-import { ConnectorError } from "@jskit-ai/connectors-core/server";
+import { ConnectorError, providerStatusError } from "@jskit-ai/connectors-core/server";
 import { zohoBooksDefinition, zohoBooksOrganizationField } from "../shared/zoho-books.js";
 import { isZohoId, zohoRegions } from "../shared/zoho.js";
 import { jsonOperation } from "./jsonOperation.js";
@@ -57,7 +57,7 @@ const zohoBooksProvider = Object.freeze({
     const response = await fetchImpl(address, { ...options, headers, credentials: "omit" });
     if (!response.ok) {
       if (response.status === 404) throw new ConnectorError("connector_resource_not_found", "This Books resource is not available.", { statusCode: 404, messageCode: "connectors.zohoBooks.resourceNotAvailable" });
-      throw Object.assign(new Error("Zoho Books request failed."), { status: response.status });
+      throw providerStatusError(response.status);
     }
     let value;
     try { value = await response.json(); } catch { /* validated below */ }

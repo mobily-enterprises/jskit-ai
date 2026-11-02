@@ -1,6 +1,6 @@
 import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
-import { ConnectorError } from "@jskit-ai/connectors-core/server";
+import { ConnectorError, providerStatusError } from "@jskit-ai/connectors-core/server";
 import { salesforceDefinition } from "../shared/salesforce.js";
 import { jsonOperation } from "./jsonOperation.js";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
@@ -70,7 +70,7 @@ const salesforceProvider = Object.freeze({
       if (code === "INVALID_QUERY_LOCATOR") throw new ConnectorError("connector_cursor_expired", "Start the Salesforce query again; its result cursor is no longer valid.", { statusCode: 410, messageCode: "connectors.salesforce.startQueryAgainResultCursor" });
       if (response.status === 404) throw new ConnectorError("connector_resource_not_found", "This Salesforce resource is not available.", { statusCode: 404, messageCode: "connectors.shared.resourceUnavailable", messageParams: { provider: "Salesforce" } });
       if (response.status === 400) throw new ConnectorError("connector_query_invalid", "Salesforce rejected the query or object. Check its API names and the user's permissions.", { statusCode: 422, messageCode: "connectors.salesforce.rejectedQueryObjectCheckApi" });
-      throw Object.assign(new Error("Salesforce request failed."), { status: response.status });
+      throw providerStatusError(response.status);
     }
     if (response.status !== 200 || !isRecord(value)) throw new ConnectorError("connector_response_invalid", "Salesforce returned an unexpected response.", { statusCode: 502, messageCode: "connectors.shared.unexpectedResponse", messageParams: { provider: "Salesforce" } });
     const url = new URL(address);

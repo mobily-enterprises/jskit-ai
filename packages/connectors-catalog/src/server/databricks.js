@@ -1,4 +1,4 @@
-import { ConnectorError } from "@jskit-ai/connectors-core/server";
+import { ConnectorError, providerStatusError } from "@jskit-ai/connectors-core/server";
 import { databricksDefinition } from "../shared/databricks.js";
 import { jsonOperation } from "./jsonOperation.js";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
@@ -41,7 +41,7 @@ const databricksProvider = Object.freeze({
     const url = new URL(address);
     // An empty jobs list is {}, but JSON null or an unparseable body is not a verified list.
     const response = await fetchImpl(address, { ...options, credentials: "omit" });
-    if (!response.ok) throw Object.assign(new Error("Databricks request failed."), { status: response.status });
+    if (!response.ok) throw providerStatusError(response.status);
     let result;
     try { result = await response.json(); } catch { /* checked below */ }
     if (response.status !== 200 || !isRecord(result) || result.error_code || result.error ||

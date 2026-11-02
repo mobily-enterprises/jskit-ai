@@ -1,6 +1,6 @@
 import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
-import { ConnectorError } from "@jskit-ai/connectors-core/server";
+import { ConnectorError, providerStatusError } from "@jskit-ai/connectors-core/server";
 import { googleAdsSearchOperations } from "./google-ads-search.js";
 import { googleAdsDefinition } from "../shared/google-ads.js";
 import { googleProvider, googleRead } from "./google.js";
@@ -68,7 +68,7 @@ const googleAdsProvider = Object.freeze({
       }
       if (response.status === 400) throw new ConnectorError("connector_input_invalid", "Google Ads rejected the operation. Check campaign fields, policy requirements and account permissions.", { statusCode: 422, messageCode: "connectors.googleAds.rejectedOperationCheckCampaignFields" });
       if (response.status === 404) throw new ConnectorError("connector_resource_not_found", "This Google Ads resource is unavailable.", { statusCode: 404, messageCode: "connectors.googleAds.resourceUnavailable" });
-      throw Object.assign(new Error("Google Ads request failed."), { status: response.ok ? 502 : response.status });
+      throw providerStatusError(response.status);
     }
     if (response.status !== 200 || !isRecord(value)) throw new ConnectorError("connector_response_invalid", "Google Ads returned an unexpected response.", { statusCode: 502, messageCode: "connectors.shared.unexpectedResponse", messageParams: { provider: "Google Ads" } });
     return value;

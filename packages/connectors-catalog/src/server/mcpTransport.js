@@ -1,6 +1,6 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { ConnectorError } from "@jskit-ai/connectors-core/server";
+import { ConnectorError, providerStatusError } from "@jskit-ai/connectors-core/server";
 import { jsonOperation } from "./jsonOperation.js";
 
 function mcpOperations(endpoint) {
@@ -43,9 +43,7 @@ async function exchangeMcp(endpoint, { headers, signal, body }, { fetchImpl }) {
       const response = await fetchImpl(address, { ...init, headers: requestHeaders, credentials: "omit", redirect: "error", signal: requestSignal });
       if (!response.ok && !(response.status === 405 && ["GET", "DELETE"].includes(init.method))) {
         await response.body?.cancel();
-        const error = new Error("MCP request failed.");
-        error.statusCode = response.status;
-        throw error;
+        throw providerStatusError(response.status);
       }
       return response;
     }

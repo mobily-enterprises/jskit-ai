@@ -1,4 +1,4 @@
-import { ConnectorError } from "@jskit-ai/connectors-core/server";
+import { ConnectorError, providerStatusError } from "@jskit-ai/connectors-core/server";
 import { linkedinDefinition } from "../shared/linkedin.js";
 import { jsonOperation } from "./jsonOperation.js";
 
@@ -54,7 +54,7 @@ const linkedinProvider = Object.freeze({
         specificContent: { "com.linkedin.ugc.ShareContent": { shareCommentary: { text: options.body.text }, shareMediaCategory: "NONE" } },
         visibility: { "com.linkedin.ugc.MemberNetworkVisibility": options.body.visibility } }) });
     await response.body?.cancel();
-    if (!response.ok) throw Object.assign(new Error("LinkedIn publishing failed."), { status: response.status });
+    if (!response.ok) throw providerStatusError(response.status);
     if (response.status !== 201) throw new ConnectorError("connector_response_invalid", "LinkedIn did not confirm post creation.", { statusCode: 502, messageCode: "connectors.linkedin.didNotConfirmPostCreation" });
     return { id: response.headers.get("x-restli-id") };
   },

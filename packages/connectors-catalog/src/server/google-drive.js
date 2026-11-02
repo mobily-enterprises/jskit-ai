@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { ConnectorError } from "@jskit-ai/connectors-core/server";
+import { ConnectorError, providerStatusError } from "@jskit-ai/connectors-core/server";
 import { googleDriveDefinition } from "../shared/google.js";
 import { googleOperation, googleRead, googleProvider, inputInvalid, pageToken } from "./google.js";
 import { hasStringId } from "./connectorValues.js";
@@ -56,7 +56,7 @@ const googleDriveProvider = Object.freeze({ ...baseProvider,
     const download = target.searchParams.get("alt") === "media" || target.pathname.endsWith("/export");
     if (!upload && !download) return request(address, options);
     const response = await fetchImpl(address, { ...options, credentials: "omit", redirect: "error" });
-    if (!response.ok) { await response.body?.cancel(); throw Object.assign(new Error("Google Drive transfer failed."), { status: response.status }); }
+    if (!response.ok) { await response.body?.cancel(); throw providerStatusError(response.status); }
     const chunks = []; let size = 0;
     const reader = response.body?.getReader();
     if (reader) try { while (true) {

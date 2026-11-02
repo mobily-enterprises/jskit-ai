@@ -1,6 +1,6 @@
 import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
-import { ConnectorError } from "@jskit-ai/connectors-core/server";
+import { ConnectorError, providerStatusError } from "@jskit-ai/connectors-core/server";
 import { isZohoId } from "../shared/zoho.js";
 import { zohoCrmDefinition, zohoCrmRegions } from "../shared/zoho-crm.js";
 import { jsonOperation } from "./jsonOperation.js";
@@ -73,7 +73,7 @@ const zohoCrmProvider = Object.freeze({
     if (!response.ok) {
       if (response.status === 404) throw new ConnectorError("connector_resource_not_found", "This CRM resource is not available.", { statusCode: 404, messageCode: "connectors.zohoCrm.resourceNotAvailable" });
       // The shared runtime maps HTTP status without exposing provider response text.
-      throw Object.assign(new Error("Zoho CRM request failed."), { status: response.status });
+      throw providerStatusError(response.status);
     }
     if (response.status !== 200 || !value || value.status === "error" || value.code) {
       throw new ConnectorError("connector_response_invalid", "Zoho CRM returned an unexpected response.", { statusCode: 502, messageCode: "connectors.shared.unexpectedResponse", messageParams: { provider: "Zoho CRM" } });
