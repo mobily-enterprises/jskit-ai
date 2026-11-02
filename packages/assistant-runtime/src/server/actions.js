@@ -110,28 +110,29 @@ const conversationReadInputValidator = composeSchemaDefinitions(
 );
 
 /**
- * The JSON:API documents the transcript actions answer with.
- * @param {{ chatService: ChatService }} dependencies
+ * The JSON:API document of a surface's conversations.
+ * @param {ChatService} chatService
+ * @param {object} input
+ * @param {object} context
  */
-function createTranscriptDocuments({ chatService }) {
-  async function listConversations(input, context) {
-    return returnJsonApiData(await chatService.listConversations(input.query, {
-      context,
-      input
-    }));
-  }
+async function listConversationsDocument(chatService, input, context) {
+  return returnJsonApiData(await chatService.listConversations(input.query, {
+    context,
+    input
+  }));
+}
 
-  async function listConversationMessages(input, context) {
-    return returnJsonApiData(await chatService.getConversationMessages(input.conversationId, input.query, {
-      context,
-      input
-    }));
-  }
-
-  return Object.freeze({
-    listConversations,
-    listConversationMessages
-  });
+/**
+ * The JSON:API document of one conversation's messages.
+ * @param {ChatService} chatService
+ * @param {object} input
+ * @param {object} context
+ */
+async function listConversationMessagesDocument(chatService, input, context) {
+  return returnJsonApiData(await chatService.getConversationMessages(input.conversationId, input.query, {
+    context,
+    input
+  }));
 }
 
 /**
@@ -342,7 +343,6 @@ function createAssistantActions({
     ]);
   }
 
-  const transcriptDocuments = createTranscriptDocuments({ chatService });
   return Object.freeze([
     Object.freeze({
       id: actionIds.chatStream,
@@ -371,7 +371,7 @@ function createAssistantActions({
       },
       input: runtimeConversationsListInputValidator,
       output: null,
-      execute: (input, context) => transcriptDocuments.listConversations(input, context)
+      execute: (input, context) => listConversationsDocument(chatService, input, context)
     }),
     Object.freeze({
       id: actionIds.conversationMessagesList,
@@ -384,7 +384,7 @@ function createAssistantActions({
       },
       input: runtimeConversationMessagesListInputValidator,
       output: null,
-      execute: (input, context) => transcriptDocuments.listConversationMessages(input, context)
+      execute: (input, context) => listConversationMessagesDocument(chatService, input, context)
     }),
     ...createAssistantSettingsActions({ assistantConfigService, settingsSurfaces })
   ]);

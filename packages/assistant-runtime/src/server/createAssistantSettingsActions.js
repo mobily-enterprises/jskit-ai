@@ -30,26 +30,27 @@ const settingsUpdateInputValidator = composeSchemaDefinitions(
 );
 
 /**
- * The JSON:API documents the settings actions answer with.
- * @param {{ assistantConfigService: AssistantConfigService }} dependencies
+ * The JSON:API document of a surface's assistant settings.
+ * @param {AssistantConfigService} assistantConfigService
+ * @param {object} input
+ * @param {object} context
  */
-function createSettingsDocuments({ assistantConfigService }) {
-  async function readSettings(input, context) {
-    return returnJsonApiData(await assistantConfigService.getSettings(input, {
-      context
-    }));
-  }
+async function readSettingsDocument(assistantConfigService, input, context) {
+  return returnJsonApiData(await assistantConfigService.getSettings(input, {
+    context
+  }));
+}
 
-  async function updateSettings(input, context) {
-    return returnJsonApiData(await assistantConfigService.updateSettings(input, input.patch, {
-      context
-    }));
-  }
-
-  return Object.freeze({
-    readSettings,
-    updateSettings
-  });
+/**
+ * The JSON:API document of a surface's assistant settings after the input's patch.
+ * @param {AssistantConfigService} assistantConfigService
+ * @param {object} input
+ * @param {object} context
+ */
+async function updateSettingsDocument(assistantConfigService, input, context) {
+  return returnJsonApiData(await assistantConfigService.updateSettings(input, input.patch, {
+    context
+  }));
 }
 
 /**
@@ -59,7 +60,6 @@ function createSettingsDocuments({ assistantConfigService }) {
  * @param {string[]} dependencies.settingsSurfaces
  */
 function createAssistantSettingsActions({ assistantConfigService, settingsSurfaces }) {
-  const settingsDocuments = createSettingsDocuments({ assistantConfigService });
   return Object.freeze([
     Object.freeze({
       id: actionIds.settingsRead,
@@ -77,7 +77,7 @@ function createAssistantSettingsActions({ assistantConfigService, settingsSurfac
           exclude: "Assistant self-configuration is disabled; use the authenticated assistant settings screen."
         }
       },
-      execute: (input, context) => settingsDocuments.readSettings(input, context)
+      execute: (input, context) => readSettingsDocument(assistantConfigService, input, context)
     }),
     Object.freeze({
       id: actionIds.settingsUpdate,
@@ -95,7 +95,7 @@ function createAssistantSettingsActions({ assistantConfigService, settingsSurfac
           exclude: "Assistant self-configuration is disabled; use the authenticated assistant settings screen."
         }
       },
-      execute: (input, context) => settingsDocuments.updateSettings(input, context)
+      execute: (input, context) => updateSettingsDocument(assistantConfigService, input, context)
     })
   ]);
 }

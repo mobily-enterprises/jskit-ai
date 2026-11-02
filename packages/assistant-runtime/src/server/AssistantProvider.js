@@ -42,6 +42,7 @@ const AssistantFeature = defineFeature({
   requires: {
     config: "runtime.config",
     env: "runtime.env",
+    events: "runtime.events",
     http: "runtime.http",
     logger: "runtime.logger"
   },
@@ -51,7 +52,6 @@ const AssistantFeature = defineFeature({
     assistantConfigService: "assistant.settings",
     database: "runtime.database",
     realtime: "runtime.realtime",
-    events: "runtime.events",
     aiConnections: "integrations.ai",
     attachments: "assistant.attachments",
     consoleRuntime: "console.core",

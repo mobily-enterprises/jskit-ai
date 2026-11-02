@@ -39,6 +39,7 @@
         "runtime.actions",
         "runtime.config",
         "runtime.env",
+        "runtime.events",
         "runtime.http",
         "runtime.http-web",
         "runtime.logger"
