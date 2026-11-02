@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { lstat, realpath } from "node:fs/promises";
 import path from "node:path";
 import { CodexAppServerJsonRpcClient } from "./codexClient.js";
-import { releaseSupersededCodexRuntime } from "./codexProviderOwner.js";
+import { releaseSupersededCodexRuntime } from "./codexRuntimeInventory.js";
 import {
   createCodexAccountReader, codexAuthOutputRequiresReconnect, CODEX_APP_SERVER_ACCOUNT_ID_MAX_LENGTH
 } from "./codexAccountReader.js";
@@ -2305,8 +2305,5 @@ export {
   codexCliResumeCommand, codexLocalImageInput, codexTextInput, codexTurnInput, shellQuote,
   exportCodexNativeHistory, retireCodexConversationHistory, readCodexNativeGoal
 };
-export {
-  createCodexAppServerProviderOwner,
-  codexAppServerOwnedRuntimeKey,
-  codexAppServerRuntimeStopWasVerified
-} from "./codexProviderOwner.js";
+export { createCodexAppServerProviderOwner } from "./codexProviderOwner.js";
+export { codexAppServerOwnedRuntimeKey, codexAppServerRuntimeStopWasVerified } from "./codexRuntimeInventory.js";

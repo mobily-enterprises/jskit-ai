@@ -6,7 +6,8 @@ import path from "node:path";
 import test from "node:test";
 import { CodexAppServerAgentProvider, ensureCodexAppServerThread } from "../src/server/conversation/codexProvider.js";
 import { writeCodexAppServerMetadata } from "../src/server/conversation/codexProcess.js";
-import { createCodexAppServerProviderOwner, codexAppServerOwnedRuntimeKey, releaseSupersededCodexRuntime } from "../src/server/conversation/codexProviderOwner.js";
+import { createCodexAppServerProviderOwner } from "../src/server/conversation/codexProviderOwner.js";
+import { codexAppServerOwnedRuntimeKey, releaseSupersededCodexRuntime } from "../src/server/conversation/codexRuntimeInventory.js";
 import { createCodexProviderSelection } from "../src/server/conversation/codexProviderSelection.js";
 import { createCodexRuntimeLifecycle } from "../src/server/conversation/codexRuntimeLifecycle.js";
 

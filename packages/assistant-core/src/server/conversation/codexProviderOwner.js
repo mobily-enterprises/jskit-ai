@@ -1,117 +1,21 @@
 import path from "node:path";
-import { stat } from "node:fs/promises";
 import { CodexAppServerAgentProvider } from "./codexProvider.js";
 import { codexAppServerProjectHookTrustConfig } from "./codexConfiguration.js";
+import { createCodexRuntimeModelCatalog } from "./codexModelCatalog.js";
+import { createCodexProviderInvalidation } from "./codexProviderInvalidation.js";
+import { createCodexProviderRelease } from "./codexProviderRelease.js";
 import {
-  CODEX_APP_SERVER_PROCESS_STATE,
-  readCodexAppServerMetadata,
-  removeCodexAppServerRuntimeDir
-} from "./codexProcess.js";
+  codexAppServerOwnedRuntimeKey,
+  codexAppServerOwnedRuntimes,
+  codexAppServerProviders,
+  codexAppServerRuntimeStopWasVerified,
+  codexAppServerStaleRuntimes,
+  providerRecords,
+  runningNativeThreads,
+  runtimePeers,
+  withRuntimeLifecycle
+} from "./codexRuntimeInventory.js";
 import { normalizeCodexRunText as normalizeText } from "./codexTurnState.js";
-
-// Moved from Vibe64's codexTerminal provider owner. Caller-local provider keys
-// are grouped without duplicating the inventory. Recovery and sharing always
-// inspect the complete inventory by native runtime identity.
-const codexAppServerProviders = new Map();
-const codexAppServerOwnedRuntimes = new Map();
-const codexAppServerRuntimeLifecycles = new Map();
-// Runtimes an account change left running a turn, by native runtime identity.
-const codexAppServerStaleRuntimes = new Map();
-
-export function codexAppServerOwnedRuntimeKey(providerKey = "", providerOptions = {}) {
-  const runtimeDir = normalizeText(providerOptions?.runtimeDir);
-  return runtimeDir
-    ? `runtime:${path.resolve(runtimeDir)}`
-    : `provider:${normalizeText(providerKey)}`;
-}
-
-function withRuntimeLifecycle(runtimeKey, operation) {
-  const previous = codexAppServerRuntimeLifecycles.get(runtimeKey) || Promise.resolve();
-  const run = previous.catch(() => null).then(operation);
-  const tail = run.catch(() => null).finally(() => {
-    if (codexAppServerRuntimeLifecycles.get(runtimeKey) === tail) {
-      codexAppServerRuntimeLifecycles.delete(runtimeKey);
-    }
-  });
-  codexAppServerRuntimeLifecycles.set(runtimeKey, tail);
-  return run;
-}
-
-// A session recorded a new runtime directory (a new sign-in gets its own), so
-// its previous one is no longer used. It goes once its runtime has verifiably
-// stopped; a stale runtime still finishing its turn drops it when it stops.
-// Helper cleanup treats an absent directory as retired, which is also what it
-// does with a previous sign-in's runtime it finds stopped.
-export function releaseSupersededCodexRuntime(runtimeDir = "") {
-  const runtimeKey = codexAppServerOwnedRuntimeKey("", { runtimeDir });
-  return withRuntimeLifecycle(runtimeKey, async () => {
-    const stale = codexAppServerStaleRuntimes.get(runtimeKey);
-    if (stale) {
-      stale.superseded = true;
-      return { deferred: true, removed: false };
-    }
-    if (codexAppServerOwnedRuntimes.has(runtimeKey) || runtimePeers(runtimeKey).length) {
-      return { removed: false };
-    }
-    const metadata = await readCodexAppServerMetadata(runtimeDir);
-    if (metadata?.processState !== CODEX_APP_SERVER_PROCESS_STATE.STOPPED || !metadata.processExitVerifiedAt) {
-      return { removed: false };
-    }
-    return { removed: await removeCodexAppServerRuntimeDir(runtimeDir) };
-  });
-}
-
-export function codexAppServerRuntimeStopWasVerified(result = {}) {
-  return result?.stopped === true ||
-    result?.processExitVerified === true ||
-    result?.runtimeDirRemoved === true;
-}
-
-export async function directoryExists(filePath = "") {
-  try {
-    return (await stat(filePath)).isDirectory();
-  } catch (error) {
-    if (error?.code === "ENOENT" || error?.code === "ENOTDIR") {
-      return false;
-    }
-    throw error;
-  }
-}
-
-function* providerRecords() {
-  for (const records of codexAppServerProviders.values()) yield* records.values();
-}
-
-// Every owner's provider records on one native runtime.
-function runtimePeers(runtimeKey) {
-  return [...providerRecords()].filter(record =>
-    codexAppServerOwnedRuntimeKey(record.providerKey, record.providerOptions) === runtimeKey);
-}
-
-function nativeRequest(client, method, params) {
-  return client.request(method, params, { signal: AbortSignal.timeout(5_000) });
-}
-
-// The loaded threads of one native runtime that have a running turn, read from
-// the runtime itself so Temporary, Main and native terminal turns all count.
-async function runningNativeThreads(peers) {
-  const client = peers.find(record => record.provider.client?.isOpen?.())?.provider.client;
-  if (!client) return [];
-  const running = [];
-  const seen = new Set();
-  let cursor;
-  do {
-    const page = await nativeRequest(client, "thread/loaded/list", { limit: 100, ...(cursor ? { cursor } : {}) });
-    for (const threadId of Array.isArray(page?.data) ? page.data : []) {
-      const { thread } = await nativeRequest(client, "thread/read", { threadId, includeTurns: false });
-      if ((typeof thread?.status === "string" ? thread.status : thread?.status?.type) === "active") running.push(threadId);
-    }
-    cursor = page?.nextCursor;
-    if (cursor && seen.has(cursor)) throw new Error("Codex's loaded-thread inventory did not finish.");
-    if (cursor) seen.add(cursor);
-  } while (cursor);
-  return running;
-}
 
 /** Internal consumer view of the one native provider owner, not a server per view. */
 export function createCodexAppServerProviderOwner({
@@ -135,7 +39,6 @@ export function createCodexAppServerProviderOwner({
   let codexAppServerProviderLifecycle = Promise.resolve();
   let closing = false;
   let runtimeLifecycle = null;
-  let codexAppServerChatModelCatalog = null;
   // Providers borrowed by work that is not a conversation, terminal or helper.
   const transientReleases = new Map();
 
@@ -156,6 +59,15 @@ export function createCodexAppServerProviderOwner({
       }
     }
   };
+
+  const modelCatalog = createCodexRuntimeModelCatalog({ withLifecycle, assertOpen, acquireRuntime, stopOwnedRuntime, forgetOwnedRuntime });
+  const invalidation = createCodexProviderInvalidation({
+    inScope, withLifecycle, forgetModelCatalog: modelCatalog.forget, exitUnverifiedCode, debugLog, debugError
+  });
+  const sessionRelease = createCodexProviderRelease({
+    records, providers, providerOwners, ownedRuntimes, withLifecycle, runtimeIsShared, forgetOwnedRuntime, closeProvider,
+    requiredStopCode, exitUnverifiedCode, runtimeCloseError, debugLog, debugError
+  });
 
   function attachRuntimeLifecycle(lifecycle) {
     if (runtimeLifecycle && runtimeLifecycle !== lifecycle) {
@@ -376,7 +288,7 @@ export function createCodexAppServerProviderOwner({
         if (transientReleases.get(providerKey) !== release || release.users > 0) return;
         transientReleases.delete(providerKey);
         if (closing) return;
-        stopCachedProvider(providerKey).catch(error => debugLog("appServerRuntime.transientRelease.error", {
+        sessionRelease.stopCachedProvider(providerKey).catch(error => debugLog("appServerRuntime.transientRelease.error", {
           error: debugError(error), providerKey
         }));
       }, transientIdleMs);
@@ -468,7 +380,7 @@ export function createCodexAppServerProviderOwner({
       }
       if (!context.closing && mainThreadId) await provider.failObservation(error);
       if (!context.closing && !provider.observationFailure) {
-        await stopProvider(context.providerKey, providerOptions, {
+        await sessionRelease.stopProvider(context.providerKey, providerOptions, {
           get runtimeHost() { return context.runtimeHost; }
         });
       }
@@ -542,327 +454,6 @@ export function createCodexAppServerProviderOwner({
     };
   }
 
-  async function stopCachedProviderUnlocked(providerKey = "", {
-    preserveProcessExitProof = false,
-    requireStopped = false
-  } = {}) {
-    const normalizedProviderKey = normalizeText(providerKey);
-    const provider = providers.get(normalizedProviderKey);
-    if (!provider) {
-      closeProvider(normalizedProviderKey);
-      return {
-        providerKey: normalizedProviderKey,
-        stopped: false
-      };
-    }
-    await records.get(normalizedProviderKey)?.resources?.retire?.(provider);
-    const sharedProcessRetained = runtimeIsShared(
-      normalizedProviderKey, providerOwners.get(normalizedProviderKey)?.providerOptions
-    );
-    if (sharedProcessRetained) {
-      closeProvider(normalizedProviderKey);
-      return {
-        providerKey: normalizedProviderKey,
-        sessionDetached: true,
-        sharedProcessRetained: true,
-        stopped: false
-      };
-    }
-    if (typeof provider.stopRuntime !== "function") {
-      closeProvider(normalizedProviderKey);
-      throw new Error("Codex app-server provider must implement stopRuntime().");
-    }
-    let providerStoppedRuntime = false;
-    try {
-      const stoppedRuntime = await provider.stopRuntime({
-        preserveProcessExitProof: preserveProcessExitProof || requireStopped
-      });
-      providerStoppedRuntime = codexAppServerRuntimeStopWasVerified(stoppedRuntime);
-      if (requireStopped && !providerStoppedRuntime) {
-        const error = new Error("Codex app-server process exit could not be verified.");
-        error.code = requiredStopCode;
-        error.retryable = true;
-        throw error;
-      }
-      if (providerStoppedRuntime) {
-        forgetOwnedRuntime(provider);
-      }
-      return {
-        ...(stoppedRuntime && typeof stoppedRuntime === "object" ? stoppedRuntime : {}),
-        providerKey: normalizedProviderKey,
-        stopped: providerStoppedRuntime
-      };
-    } finally {
-      closeProvider(normalizedProviderKey, {
-        closeProvider: !providerStoppedRuntime
-      });
-    }
-  }
-
-  function stopCachedProvider(providerKey = "", options = {}) {
-    return withLifecycle(
-      () => stopCachedProviderUnlocked(providerKey, options),
-      normalizeText(providerKey)
-    );
-  }
-
-  function runtimeExitUnverifiedError(providerKey = "") {
-    const error = new Error("Codex app-server process exit could not be verified.");
-    error.code = exitUnverifiedCode;
-    error.providerKey = normalizeText(providerKey);
-    error.retryable = true;
-    return error;
-  }
-
-  async function stopPreparedRuntime(context) {
-    const { runtime, parameters } = context.runtimeHost;
-    return runtime.stop(parameters);
-  }
-
-  async function stopProvider(providerKey, providerOptions, context = {}) {
-    const { preserveProcessExitProof = false, requireStopped = false } = context;
-    const provider = providers.get(providerKey);
-    if (!provider) {
-      if (runtimeIsShared(providerKey, providerOptions)) {
-        return {
-          providerKey,
-          sessionDetached: true,
-          sharedProcessRetained: true,
-          stopped: false
-        };
-      }
-      const stoppedRuntime = await stopPreparedRuntime(context);
-      const stopped = codexAppServerRuntimeStopWasVerified(stoppedRuntime);
-      if (requireStopped && !stopped) {
-        throw runtimeExitUnverifiedError(providerKey);
-      }
-      return {
-        ...(Boolean(stoppedRuntime && typeof stoppedRuntime === "object" && !Array.isArray(stoppedRuntime)) ? stoppedRuntime : {}),
-        providerKey,
-        stopped
-      };
-    }
-    return stopCachedProvider(providerKey, {
-      preserveProcessExitProof,
-      requireStopped
-    });
-  }
-
-  async function stopThreadBeforeRelease(providerKey, provider, threadId) {
-    try {
-      await provider.stopThreadForObservationLoss(threadId, "");
-    } catch (error) {
-      // If other sessions retain the shared process, closing this
-      // socket alone is not proof that its native goal/work stopped.
-      const shared = runtimeIsShared(
-        providerKey, providerOwners.get(providerKey)?.providerOptions
-      );
-      if (shared) throw error;
-      // The caller's existing shutdown must instead prove process exit.
-    }
-  }
-
-  function readModelCatalog({
-    prepareProviderOptions,
-    providerFactory,
-    resources = null,
-    signal = null,
-    cacheMs = 30_000
-  } = {}) {
-    return withLifecycle(async () => {
-      assertOpen();
-      signal?.throwIfAborted();
-      const providerOptions = await prepareProviderOptions();
-      return withRuntimeLifecycle(codexAppServerOwnedRuntimeKey("", providerOptions), async () => {
-        const existing = codexAppServerOwnedRuntimes.get(
-          codexAppServerOwnedRuntimeKey("", providerOptions)
-        );
-        const provider = existing?.provider || providerFactory(providerOptions);
-        let runtime = null;
-        let catalog = null;
-        let identity = "";
-        try {
-          assertOpen();
-          identity = JSON.stringify(await provider.currentRuntimeInfo());
-          signal?.throwIfAborted();
-          if (codexAppServerChatModelCatalog?.identity === identity &&
-              codexAppServerChatModelCatalog.expiresAt > Date.now()) {
-            return codexAppServerChatModelCatalog.value;
-          }
-          if (!existing?.provider) {
-            runtime = await acquireRuntime({
-              operation: () => provider.ensureRuntime(),
-              provider,
-              providerOptions
-            });
-          }
-          catalog = await provider.listModels({ includeHidden: false, limit: 100 }, { signal });
-        } finally {
-          if (!existing?.provider) {
-            try {
-              if ((runtime || provider.runtime)?.reused === false) {
-                await stopOwnedRuntime({ provider, resources });
-              } else {
-                forgetOwnedRuntime(provider);
-              }
-            } finally {
-              provider.close();
-            }
-          }
-        }
-        codexAppServerChatModelCatalog = {
-          expiresAt: Date.now() + cacheMs,
-          identity,
-          value: catalog
-        };
-        return catalog;
-      });
-    });
-  }
-
-  async function invalidateProviderThreads(modelProviderId, includeOwned, toolHomeSource) {
-    const groups = new Map();
-    const inventory = [...providerRecords()];
-    if (includeOwned) for (const record of codexAppServerOwnedRuntimes.values()) {
-      if (!inventory.some(candidate => candidate.provider === record.provider)) inventory.push(record);
-    }
-    for (const record of inventory) {
-      if (!inScope(record)) continue;
-      const key = codexAppServerOwnedRuntimeKey(record.providerKey, record.providerOptions);
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(record);
-    }
-    const results = [], failed = [];
-    for (const [runtimeKey, peers] of groups) {
-      try {
-        await withRuntimeLifecycle(runtimeKey, async () => {
-          const available = peers.filter(record => record.provider.client?.isOpen());
-          if (!available.length) {
-            if (peers.some(record => record.provider.runtime || record.provider.runtimeStopOwner ||
-                codexAppServerOwnedRuntimes.get(runtimeKey)?.provider === record.provider)) {
-              throw new Error("Codex's existing control connection is unavailable. Restore it before changing this provider connection.");
-            }
-            return;
-          }
-          const request = (record, method, params) => {
-            const client = record.provider.client;
-            if (!client?.isOpen()) throw new Error("Codex's control connection closed during provider retirement. Restore it and retry.");
-            return client.request(method, params, { signal: AbortSignal.timeout(5_000) });
-          };
-          const selectedHome = normalizeText(toolHomeSource);
-          const dedicated = Boolean(selectedHome && peers.some(record =>
-            normalizeText(record.providerOptions.toolHomeSource) === selectedHome));
-          if (dedicated && peers.some(record => normalizeText(record.providerOptions.toolHomeSource) !== selectedHome)) {
-            throw new Error("Codex's provider credential home has other native consumers. Close its native terminal/helper and retry; unrelated runtimes remain running.");
-          }
-          const inspector = available[0], candidates = new Set(), seen = new Set();
-          let cursor;
-          do {
-            const page = await request(inspector, "thread/loaded/list", { limit: 100, ...(cursor ? { cursor } : {}) });
-            if (!Array.isArray(page?.data)) throw new Error("Codex returned an invalid loaded-thread inventory. Restore its connection before retrying.");
-            for (const id of page.data) {
-              if (typeof id !== "string" || !id) throw new Error("Codex returned an invalid loaded-thread identity.");
-              candidates.add(id);
-            }
-            cursor = page.nextCursor;
-            if (cursor && (typeof cursor !== "string" || seen.has(cursor) || seen.size >= 100)) throw new Error("Codex's loaded-thread inventory did not finish.");
-            if (cursor) seen.add(cursor);
-          } while (cursor);
-          for (const { provider } of peers) for (const [id, binding] of provider.threadEnvironments || []) {
-            if (dedicated || binding.params?.modelProvider === modelProviderId) candidates.add(id);
-          }
-          const threadIds = [];
-          for (const id of candidates) {
-            const { thread } = await request(inspector, "thread/read", { threadId: id, includeTurns: false });
-            if (!thread || thread.id !== id || typeof thread.modelProvider !== "string" || !thread.modelProvider ||
-                !(typeof thread.status === "string" ? thread.status : thread.status?.type)) {
-              throw new Error("Codex returned an untrustworthy thread/provider inventory. Restore its connection before changing credentials.");
-            }
-            if (dedicated && thread.modelProvider !== modelProviderId) {
-              throw new Error("Codex's provider credential home retains another provider thread. Close its native terminal/helper and retry; unrelated threads remain running.");
-            }
-            if (thread.modelProvider === modelProviderId) threadIds.push(id);
-          }
-          if (!threadIds.length && !dedicated) return;
-          const error = Object.assign(new Error("This Codex provider connection changed. Work is stopped; use Send or Resume after reconnecting."), {
-            code: "codex_provider_connection_changed"
-          });
-          for (const { provider } of peers) for (const threadId of threadIds) provider.conversationRuntime?.invalidateThread(threadId);
-          await Promise.allSettled(peers.flatMap(({ provider }) => threadIds
-            .map(id => provider.threadEnvironmentTasks?.get(id)).filter(Boolean)));
-          // The same observation journal retains selected stop ownership. Peers
-          // with other threads must keep their admission and active work intact.
-          for (const record of available) await record.observation?.prepare({ provider: record.provider, error, threadIds });
-          for (const threadId of threadIds) {
-            await inspector.provider.stopThreadForObservationLoss(threadId);
-            for (const record of available) {
-              const detached = await request(record, "thread/unsubscribe", { threadId });
-              if (!["unsubscribed", "notSubscribed", "notLoaded"].includes(detached?.status)) throw new Error("Codex did not confirm selected-thread detachment.");
-            }
-            const { thread } = await request(inspector, "thread/read", { threadId, includeTurns: false });
-            if ((typeof thread?.status === "string" ? thread.status : thread?.status?.type) !== "notLoaded") {
-              throw new Error("Close the native Codex terminal using this provider, then retry changing its connection. Another subscriber retained the selected thread; the shared server and other conversations remain running.");
-            }
-          }
-          if (dedicated) {
-            // A curated default also lives in this exact isolated helper's
-            // native config cache. Reuse verified retirement only after proving
-            // every loaded/cached thread belongs to the selected provider.
-            const owned = codexAppServerOwnedRuntimes.get(runtimeKey);
-            if (!owned || !peers.some(record => record.provider === owned.provider)) {
-              throw new Error("Codex's dedicated provider runtime ownership cannot be verified. Restore its control connection and retry.");
-            }
-            await owned.scope.stopOwnedRuntime(owned, { cached: false, preserveProcessExitProof: true, requireVerifiedExit: true });
-          }
-          for (const record of available) await record.observation?.complete({ provider: record.provider, error, threadIds, sharedStop: dedicated });
-          if (dedicated) for (const record of peers) record.scope.closeProvider(record.providerKey);
-          results.push({ runtimeKey, threadIds, stopped: true, sharedProcessRetained: !dedicated,
-            ...(dedicated ? { dedicatedRuntimeRetired: true } : {}) });
-        });
-      } catch (error) {
-        failed.push({ runtimeKey, error: error.message, retryable: true });
-      }
-    }
-    return { ok: failed.length === 0, failed, results, providerCount: results.length, stopped: results.reduce((sum, result) => sum + result.threadIds.length, 0) };
-  }
-
-  // A runtime with a running turn keeps the credentials it started with until
-  // that turn ends. Its active goals are paused so it starts no further turn;
-  // retireStaleRuntime stops it once it is idle. Any other runtime returns
-  // null and stops at once, like an idle one.
-  async function deferBusyRuntime(runtimeKey, peers) {
-    let running;
-    try {
-      running = await runningNativeThreads(peers);
-    } catch (error) {
-      // An unreadable runtime cannot show a running turn.
-      debugLog("appServerRuntime.staleInspection.error", { error: debugError(error), runtimeKey });
-      return null;
-    }
-    // Nor can one whose control connection closed while it was read.
-    const client = peers.find(record => record.provider.client?.isOpen?.())?.provider.client;
-    if (!running.length || !client) return null;
-    const pausedGoals = [];
-    for (const threadId of running) {
-      try {
-        const { goal } = await nativeRequest(client, "thread/goal/get", { threadId });
-        if (goal?.status !== "active") continue;
-        const result = await nativeRequest(client, "thread/goal/set", { threadId, status: "paused" });
-        if (result?.goal?.status !== "paused") throw new Error("Codex did not confirm that the goal was paused.");
-        pausedGoals.push(threadId);
-      } catch (error) {
-        debugLog("appServerRuntime.staleGoalPause.error", { error: debugError(error), runtimeKey, threadId });
-      }
-    }
-    for (const peer of peers) peer.provider.markStale?.();
-    const stale = {
-      runtimeKey, threadIds: running, pausedGoals, retiring: null,
-      providerKeys: peers.map(peer => peer.providerKey)
-    };
-    codexAppServerStaleRuntimes.set(runtimeKey, stale);
-    return stale;
-  }
-
   // Stops a stale runtime once no loaded thread is running, through the same
   // verified stop an idle runtime gets at the account change.
   function retireStaleRuntime(runtimeKey = "") {
@@ -897,206 +488,6 @@ export function createCodexAppServerProviderOwner({
     return retiring;
   }
 
-  async function invalidateRuntimes({
-    deferBusy = false,
-    includeOwned = false,
-    requireVerifiedExit = false,
-    stopOwnedRuntimes = false,
-    toolHomeSource = "",
-    modelProviderId = ""
-  } = {}) {
-    if (modelProviderId) return withLifecycle(() => invalidateProviderThreads(modelProviderId, includeOwned, toolHomeSource));
-    codexAppServerChatModelCatalog = null;
-    const normalizedToolHomeSource = normalizeText(toolHomeSource);
-    const ownedRecordsByProvider = new Map(
-      [...codexAppServerOwnedRuntimes.values()].filter(inScope).map((record) => [record.provider, record])
-    );
-    const targets = [...providerRecords()]
-      .filter(record => inScope(record) && (!normalizedToolHomeSource ||
-        normalizeText(record.providerOptions.toolHomeSource) === normalizedToolHomeSource))
-      .map(record => ({
-        ...record,
-        kind: "cached",
-        record: ownedRecordsByProvider.get(record.provider) || null
-      }));
-    const targetedProviders = new Set(targets.map((target) => target.provider));
-    if (includeOwned) {
-      for (const record of codexAppServerOwnedRuntimes.values()) {
-        if (!inScope(record) || targetedProviders.has(record.provider)) {
-          continue;
-        }
-        const recordToolHomeSource = normalizeText(
-          record.providerOptions?.toolHomeSource
-        );
-        if (
-          normalizedToolHomeSource &&
-          recordToolHomeSource !== normalizedToolHomeSource
-        ) {
-          continue;
-        }
-        targets.push({
-          ...record,
-          kind: "owned",
-          provider: record.provider,
-          providerKey: record.providerKey,
-          record
-        });
-        targetedProviders.add(record.provider);
-      }
-    }
-    targets.sort((left, right) => Number(Boolean(left.record)) - Number(Boolean(right.record)));
-    const failed = [];
-    const results = [];
-    const deferred = [];
-    if (deferBusy) {
-      const groups = new Map();
-      for (const target of targets) {
-        const runtimeKey = codexAppServerOwnedRuntimeKey(target.providerKey, target.providerOptions);
-        if (!groups.has(runtimeKey)) groups.set(runtimeKey, []);
-        groups.get(runtimeKey).push(target);
-      }
-      for (const [runtimeKey, peers] of groups) {
-        if (codexAppServerStaleRuntimes.has(runtimeKey)) {
-          deferred.push(codexAppServerStaleRuntimes.get(runtimeKey));
-        } else {
-          const stale = await withRuntimeLifecycle(runtimeKey, () => deferBusyRuntime(runtimeKey, peers));
-          if (!stale) continue;
-          deferred.push(stale);
-        }
-        for (const peer of peers) {
-          targets.splice(targets.indexOf(peer), 1);
-          results.push({ providerKey: peer.providerKey, deferred: true, stopped: false });
-        }
-      }
-    }
-    for (const target of targets) {
-      if (!target.resources?.invalidation) continue;
-      const error = Object.assign(new Error("Codex's native runtime was invalidated."), {
-        code: "codex_runtime_invalidated"
-      });
-      target.invalidation = { error };
-      try {
-        if (await target.resources.invalidation.prepare({ provider: target.provider, error }) === false) {
-          delete target.invalidation;
-        }
-      } catch (preparationError) {
-        target.invalidation.preparationError = preparationError;
-      }
-    }
-    for (const target of targets) {
-      const preserveProcessExitProof = target.preserveProcessExitProof === true;
-      try {
-        const result = stopOwnedRuntimes && target.record
-          ? await target.scope.stopOwnedRuntime({
-              ...(target.record || {}),
-              provider: target.provider,
-              providerKey: target.providerKey
-            }, {
-              cached: target.kind === "cached",
-              preserveProcessExitProof,
-              requireVerifiedExit
-            })
-          : await target.scope.stopCachedProvider(target.providerKey, {
-              preserveProcessExitProof,
-              requireStopped: stopOwnedRuntimes && target.record != null
-            });
-        if (
-          requireVerifiedExit &&
-          target.record &&
-          !codexAppServerRuntimeStopWasVerified(result)
-        ) {
-          throw Object.assign(new Error("Codex app-server process exit could not be verified."), {
-            code: exitUnverifiedCode, providerKey: target.providerKey, retryable: true
-          });
-        }
-        target.stopResult = result;
-        results.push(result);
-      } catch (error) {
-        target.stopError = error;
-        failed.push({
-          code: normalizeText(error?.code),
-          error: String(error?.message || "Codex app-server runtime invalidation failed."),
-          providerKey: target.providerKey,
-          retryable: error?.retryable === true
-        });
-      }
-    }
-    for (const target of targets) {
-      if (!target.invalidation) continue;
-      const runtimeKey = codexAppServerOwnedRuntimeKey(target.providerKey, target.providerOptions);
-      const peers = targets.filter(peer =>
-        codexAppServerOwnedRuntimeKey(peer.providerKey, peer.providerOptions) === runtimeKey);
-      const proof = peers.find(peer => codexAppServerRuntimeStopWasVerified(peer.stopResult));
-      const stopped = proof
-        ? { status: "fulfilled", value: proof.stopResult }
-        : { status: "rejected", reason: peers.find(peer => peer.stopError)?.stopError ||
-          Object.assign(new Error("Codex app-server process exit could not be verified."), {
-            code: exitUnverifiedCode, providerKey: target.providerKey, retryable: true
-          }) };
-      try {
-        await target.resources.invalidation.complete({
-          provider: target.provider, ...target.invalidation, stopped
-        });
-        if (target.invalidation.preparationError) throw target.invalidation.preparationError;
-        if (stopped.status === "rejected") throw stopped.reason;
-      } catch (error) {
-        failed.push({
-          code: normalizeText(error?.code),
-          error: String(error?.message || "Codex app-server invalidation could not be recorded."),
-          providerKey: target.providerKey,
-          retryable: true
-        });
-      }
-    }
-    const stopped = results.filter((result) => result.stopped).length;
-    return {
-      deferred: deferred.map(({ runtimeKey, providerKeys, threadIds, pausedGoals }) =>
-        ({ runtimeKey, providerKeys: [...providerKeys], threadIds: [...threadIds], pausedGoals: [...pausedGoals] })),
-      failed,
-      ok: failed.length === 0,
-      providerCount: targets.length + deferred.reduce((sum, stale) => sum + stale.providerKeys.length, 0),
-      results,
-      stopped
-    };
-  }
-
-  async function suspendUnobservedProvider(record, error) {
-    const targets = [record];
-    let sharedStop = false;
-    try {
-      const threads = await record.observation.prepare({ provider: record.provider, error });
-      if (!threads.size) throw new Error("The unobserved Codex thread could not be identified.");
-      for (const [threadId, turnId] of threads) {
-        await record.provider.stopThreadForObservationLoss(threadId, turnId);
-      }
-    } catch {
-      sharedStop = true;
-      const runtimeKey = codexAppServerOwnedRuntimeKey(record.providerKey, record.providerOptions);
-      for (const peer of providerRecords()) {
-        if (peer !== record && codexAppServerOwnedRuntimeKey(peer.providerKey, peer.providerOptions) === runtimeKey) {
-          peer.provider.observationFailure = error;
-          targets.push(peer);
-        }
-      }
-      // Preserve the original ordering and failure policy: attempt every durable
-      // barrier before native stop; a storage failure cannot leave work running.
-      for (const target of targets) {
-        try {
-          await target.observation.barrier({ provider: target.provider, error });
-        } catch (failure) {
-          target.scope.reportRecoveryEvent(target, "persistenceFailed", failure);
-        }
-      }
-      const owned = codexAppServerOwnedRuntimes.get(runtimeKey) || record;
-      await owned.scope.stopOwnedRuntime(owned, { preserveProcessExitProof: true, requireVerifiedExit: true });
-    }
-    for (const target of targets) {
-      // Each adapter retains its original persistence/publication order. It can
-      // release this provider only after its stopped state is durable.
-      await target.observation.complete({ provider: target.provider, error, sharedStop });
-    }
-  }
-
   function reportRecoveryEvent(record, event, error) {
     onRecoveryEvent(record.owner, event, error);
   }
@@ -1107,7 +498,7 @@ export function createCodexAppServerProviderOwner({
     assertOpen();
     if (!record.observationStop || record.observationStop.error !== error) {
       reportRecoveryEvent(record, "lost", error);
-      const stop = { error, promise: suspendUnobservedProvider(record, error) };
+      const stop = { error, promise: invalidation.suspendUnobservedProvider(record, error) };
       record.observationStop = stop;
       const tracked = stop.promise.catch(failure => {
         reportRecoveryEvent(record, "stopFailed", failure);
@@ -1123,294 +514,6 @@ export function createCodexAppServerProviderOwner({
   function pendingRecovery(providerKey, provider) {
     const record = records.get(providerKey);
     return record && record.provider === provider ? record.observationStop?.promise || null : null;
-  }
-
-  async function stopProvidersForProject({
-    preserveProcessExitProof = false,
-    projectContextRoot = "",
-    reason = "",
-  } = {}, { managed, keyFields, helperThreads, sessionKeyPrefix = "" }) {
-    const normalizedProjectContextRoot = normalizeText(projectContextRoot);
-    if (!normalizedProjectContextRoot) {
-      return {
-        failed: [],
-        ok: true,
-        projectContextRoot: normalizedProjectContextRoot,
-        providerCount: 0,
-        reason: normalizeText(reason),
-        results: [],
-        stopped: 0
-      };
-    }
-    const helperProviders = new Set(
-      helperThreads.records({
-        projectContextRoot: normalizedProjectContextRoot
-      }).map((record) => record.provider)
-    );
-    // Main threads name their project; every other provider of the project's
-    // sessions (Temporary chats, reads) is found by its session key.
-    const providerKeys = [...providers.keys()]
-      .filter((providerKey) => {
-        const current = managed.get(providerKey);
-        return normalizeText(current?.projectContext?.targetRoot) === normalizedProjectContextRoot ||
-          helperProviders.has(providers.get(providerKey)) ||
-          Boolean(sessionKeyPrefix && normalizeText(providerOwners.get(providerKey)?.sessionKey).startsWith(sessionKeyPrefix));
-      });
-    const failed = [];
-    const results = [];
-    for (const providerKey of providerKeys) {
-      try {
-        const fields = keyFields(providerKey);
-        results.push(await stopCachedProvider(providerKey, {
-          preserveProcessExitProof: Boolean(
-            preserveProcessExitProof &&
-            fields.sessionId &&
-            fields.executionMode !== "helper"
-          )
-        }));
-      } catch (error) {
-        failed.push({
-          code: normalizeText(error?.code),
-          error: normalizeText(error?.error || error?.message || error) || runtimeCloseError,
-          providerKey,
-          retryable: error?.retryable === true
-        });
-      }
-    }
-    const stopped = results.filter((result) => result.stopped).length;
-    debugLog("appServerRuntime.closeProject.done", {
-      failedCount: failed.length,
-      providerCount: providerKeys.length,
-      projectContextRoot: normalizedProjectContextRoot,
-      reason: normalizeText(reason),
-      stopped
-    });
-    return {
-      failed,
-      ok: failed.length === 0,
-      projectContextRoot: normalizedProjectContextRoot,
-      providerCount: providerKeys.length,
-      reason: normalizeText(reason),
-      results,
-      stopped
-    };
-  }
-
-  async function stopCachedProvidersForSession(sessionKey = "", options = {}) {
-    if (!sessionKey) {
-      return {
-        failed: [],
-        ok: true,
-        providerCount: 0,
-        results: [],
-        stopped: 0
-      };
-    }
-    const providerKeys = [...providers.keys()]
-      .filter((providerKey) => (
-        providerOwners.get(providerKey)?.sessionKey === sessionKey
-      ));
-    const failed = [];
-    const results = [];
-    for (const providerKey of providerKeys) {
-      try {
-        results.push(await stopCachedProvider(providerKey, options));
-      } catch (error) {
-        failed.push({
-          code: normalizeText(error?.code),
-          error: normalizeText(error?.error || error?.message || error) || runtimeCloseError,
-          providerKey,
-          retryable: error?.retryable === true
-        });
-      }
-    }
-    return {
-      failed,
-      ok: failed.length === 0,
-      providerCount: providerKeys.length,
-      results,
-      stopped: results.filter((result) => result.stopped).length
-    };
-  }
-
-  function drainThreadEnvironmentTasks(sessionKey) {
-    return Promise.all([...providers.entries()]
-      .filter(([key]) => providerOwners.get(key)?.sessionKey === sessionKey)
-      .flatMap(([, provider]) => [...(provider.threadEnvironmentTasks?.values() || [])])
-      .map((task) => task.catch(() => null)));
-  }
-
-  async function stopPersistedRuntime({ runtime, parameters }, runtimeDir) {
-    const result = await runtime.stop(parameters);
-
-    return {
-      ...result,
-      runtimeDirExists: await directoryExists(runtimeDir),
-      verifiedStopped: result?.stopped === true ||
-        result?.processExitVerified === true ||
-        result?.runtimeDirRemoved === true
-    };
-  }
-
-  function sessionExitProof(sessionKey, context) {
-    const { cachedProviders, persistedRuntime } = context;
-    const noRuntimeAcquired = cachedProviders.providerCount === 0 &&
-      !context.hasRuntime &&
-      !context.threadId &&
-      ![...ownedRuntimes.values()].some((record) => record.sessionKey === sessionKey);
-    const cachedRuntimeExitVerified = cachedProviders.providerCount > 0 &&
-      cachedProviders.results.length === cachedProviders.providerCount &&
-      cachedProviders.results.every((result) => (
-        result?.stopped === true ||
-        (result?.sessionDetached === true && result?.sharedProcessRetained === true)
-      ));
-    const persistedRuntimeExitVerified = persistedRuntime?.verifiedStopped === true ||
-      (
-        persistedRuntime?.sessionDetached === true &&
-        persistedRuntime?.sharedProcessRetained === true
-      );
-    return { noRuntimeAcquired, cachedRuntimeExitVerified, persistedRuntimeExitVerified };
-  }
-
-  async function unsubscribeSessionThread(sessionKey, sessionId, session) {
-    if (!sessionId) {
-      return { ok: true, sessionId, status: "notSubscribed" };
-    }
-    const { providerOptions, workdir, threadId } = session.unsubscribeParameters;
-    if (!threadId) {
-      return { ok: true, providerOptions, sessionId, status: "notSubscribed" };
-    }
-    // The existing record carries the workdir captured in its provider key.
-    // Never prepare new controls while releasing a retained connection.
-    const provider = [...records.values()].find(record =>
-      record.owner.sessionKey === sessionKey && record.owner.workdir === normalizeText(workdir))?.provider;
-    if (!provider || typeof provider.unsubscribeThread !== "function") {
-      return { ok: true, providerOptions, sessionId, status: "notSubscribed" };
-    }
-    const result = await provider.unsubscribeThread(threadId);
-    debugLog("appServerThread.unsubscribe.done", {
-      sessionId,
-      status: normalizeText(result?.status),
-      threadId
-    });
-    return {
-      ok: true,
-      providerOptions,
-      result,
-      sessionId,
-      status: normalizeText(result?.status) || "unsubscribed",
-      threadId
-    };
-  }
-
-  async function stopPersistedSessionRuntime(session) {
-    const host = session.persistedRuntimeHost;
-    if (!host) return { stopped: false };
-    return stopPersistedRuntime(host, host.runtimeDir);
-  }
-
-  async function releasePersistedRuntimeProof(runtimeOptions, session) {
-    // Session closure already detached this participant. Its archived runtime
-    // path may now belong to the successor or another live conversation.
-    // Releasing the old proof must not stop or delete that shared process.
-    if (runtimeIsShared("", runtimeOptions)) {
-      return { sharedProcessRetained: true };
-    }
-    const existed = await directoryExists(runtimeOptions.runtimeDir);
-    if (!existed) return { existed };
-    const result = await stopPersistedSessionRuntime(session);
-    return { existed, result };
-  }
-
-  function releasePreparedRuntimeProof(preparation) {
-    return withLifecycle(async () => {
-      const prepared = preparation.read();
-      if (Object.hasOwn(prepared, "value")) return prepared.value;
-      return withRuntimeLifecycle(codexAppServerOwnedRuntimeKey("", prepared.runtimeOptions), async () => {
-        const evidence = await releasePersistedRuntimeProof(prepared.runtimeOptions, prepared);
-        return prepared.complete(evidence);
-      });
-    });
-  }
-
-  async function releaseSession(sessionKey, context) {
-    const { sessionId, runOwner, session } = context;
-    if (context.changeover) {
-      const threadId = session.threadId;
-      for (const [key, provider] of providers) {
-        if (!threadId || providerOwners.get(key)?.sessionKey !== sessionKey) continue;
-        await stopThreadBeforeRelease(key, provider, threadId);
-      }
-    }
-    let exitFailure = null;
-    try {
-      const unsubscribeResult = await unsubscribeSessionThread(sessionKey, sessionId, session);
-      session.providerOptions = unsubscribeResult?.providerOptions || session.providerOptions;
-    } catch (error) {
-      debugLog("appServerThread.unsubscribe.error", {
-        error: debugError(error),
-        sessionId
-      });
-    } finally {
-      await runOwner.notificationQueue.drain(sessionId);
-      const cachedProviders = await stopCachedProvidersForSession(sessionId ? sessionKey : "", {
-        preserveProcessExitProof: context.preserveProcessExitProof,
-        requireStopped: context.requireStopped
-      });
-      if (cachedProviders.ok === false) {
-        debugLog("appServerRuntime.closeSession.cached.error", {
-          failed: cachedProviders.failed,
-          sessionId
-        });
-      }
-      let persistedRuntime = null;
-      if (session.exists) {
-        persistedRuntime = cachedProviders.stopped > 0
-          ? {
-              stopped: true,
-              verifiedStopped: true
-            }
-          : runtimeIsShared("", session.providerOptions || {})
-          ? {
-              sessionDetached: true,
-              sharedProcessRetained: true,
-              stopped: false,
-              verifiedStopped: false
-            }
-          : session.hasRuntime
-            ? await stopPersistedSessionRuntime(session)
-            : {
-                stopped: false,
-                verifiedStopped: false
-              };
-        debugLog("appServerRuntime.closeSession.persisted.done", {
-          removed: persistedRuntime?.removed === true,
-          runtimeDirRemoved: persistedRuntime?.runtimeDirRemoved === true,
-          sessionId,
-          stopped: persistedRuntime?.removed === true || persistedRuntime?.runtimeDirRemoved === true
-        });
-      }
-      if (session.requiresExitProof) {
-        // A fresh session with no acquired native owner needs no process proof.
-        // Losing a cache or recorded runtime does not make it a fresh session.
-        const { noRuntimeAcquired, cachedRuntimeExitVerified, persistedRuntimeExitVerified } =
-          sessionExitProof(sessionKey, {
-            cachedProviders,
-            persistedRuntime,
-            get hasRuntime() { return session.hasRuntime; },
-            get threadId() { return session.threadId; }
-          });
-        if (cachedProviders.failed.length > 0 ||
-            (!noRuntimeAcquired && !cachedRuntimeExitVerified && !persistedRuntimeExitVerified)) {
-          exitFailure = {
-            cachedFailures: cachedProviders.failed,
-            cachedRuntimeExitVerified,
-            persistedRuntime: persistedRuntime || null
-          };
-        }
-      }
-    }
-    return { exitFailure };
   }
 
   // A borrowed provider (a read, storage work or a Temporary chat) is not the
@@ -1437,21 +540,58 @@ export function createCodexAppServerProviderOwner({
     return { status: "unavailable", goal: null };
   }
 
+  function isHeld(providerKey) {
+    return (transientReleases.get(normalizeText(providerKey))?.users || 0) > 0;
+  }
+
+  // The exported ways to reach a provider for real use claim it first.
+  function acquireClaimedRuntime(options) {
+    claimTransient(options?.providerKey);
+    return acquireRuntime(options);
+  }
+
+  function createClaimedProvider(options) {
+    claimTransient(options?.providerKey);
+    return createProvider(options);
+  }
+
+  function claimedProviderForSession(context) {
+    claimTransient(context.providerKey);
+    return providerForSession(context);
+  }
+
+  function beginShutdown() {
+    closing = true;
+    for (const release of transientReleases.values()) clearTimeout(release.timer);
+    transientReleases.clear();
+  }
+
   const api = Object.freeze({
     providers, providerOwners, ownedRuntimes, lifecycleTasks, runtimeAcquisitions,
-    isHeld: providerKey => (transientReleases.get(normalizeText(providerKey))?.users || 0) > 0,
+    isHeld,
     withLifecycle, runtimeIsShared, rememberOwnedRuntime, forgetOwnedRuntime, attachRuntimeLifecycle,
-    acquireRuntime: options => { claimTransient(options?.providerKey); return acquireRuntime(options); },
-    createProvider: options => { claimTransient(options?.providerKey); return createProvider(options); },
-    providerForSession: context => { claimTransient(context.providerKey); return providerForSession(context); },
-    createNativeProvider, ensureSession, borrowSession, withTransientSession, holdProvider, retireAndCloseProvider, closeProvider, stopOwnedRuntime, stopCachedProvider, stopProvider, stopThreadBeforeRelease, readModelCatalog, invalidateRuntimes, recover,
-    reportRecoveryEvent, pendingRecovery, readSessionGoal, readPlanUsage, stopCachedProvidersForSession, stopProvidersForProject, drainThreadEnvironmentTasks, stopPersistedRuntime, sessionExitProof,
-    unsubscribeSessionThread, releasePersistedRuntimeProof, releasePreparedRuntimeProof, releaseSession, retireStaleRuntime,
-    beginShutdown() {
-      closing = true;
-      for (const release of transientReleases.values()) clearTimeout(release.timer);
-      transientReleases.clear();
-    }
+    acquireRuntime: acquireClaimedRuntime,
+    createProvider: createClaimedProvider,
+    providerForSession: claimedProviderForSession,
+    createNativeProvider, ensureSession, borrowSession, withTransientSession, holdProvider, retireAndCloseProvider, closeProvider,
+    stopOwnedRuntime,
+    stopCachedProvider: sessionRelease.stopCachedProvider,
+    stopProvider: sessionRelease.stopProvider,
+    stopThreadBeforeRelease: sessionRelease.stopThreadBeforeRelease,
+    readModelCatalog: modelCatalog.read,
+    invalidateRuntimes: invalidation.invalidateRuntimes,
+    recover, reportRecoveryEvent, pendingRecovery, readSessionGoal, readPlanUsage,
+    stopCachedProvidersForSession: sessionRelease.stopCachedProvidersForSession,
+    stopProvidersForProject: sessionRelease.stopProvidersForProject,
+    drainThreadEnvironmentTasks: sessionRelease.drainThreadEnvironmentTasks,
+    stopPersistedRuntime: sessionRelease.stopPersistedRuntime,
+    sessionExitProof: sessionRelease.sessionExitProof,
+    unsubscribeSessionThread: sessionRelease.unsubscribeSessionThread,
+    releasePersistedRuntimeProof: sessionRelease.releasePersistedRuntimeProof,
+    releasePreparedRuntimeProof: sessionRelease.releasePreparedRuntimeProof,
+    releaseSession: sessionRelease.releaseSession,
+    retireStaleRuntime,
+    beginShutdown
   });
   return api;
 }
