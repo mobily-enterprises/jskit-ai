@@ -1116,7 +1116,7 @@ Exports
 - `codexAppServerPendingUserMessageClientIds(run)`
 - `codexAppServerPendingUserMessageOwnership(run, clientId = "")`
 - `codexAppServerProcessedResultEvent(session = {}, threadId = "", turnId = "")`
-- `codexAppServerTurnStateFromAgentRun(run = {}, normalizeRunState = normalizeCodexAppServerRunState)`
+- `codexAppServerTurnStateFromAgentRun(run, normalizeRunState = normalizeCodexAppServerRunState)`
 - `codexAppServerTurnState(session = {}, normalizeRunState = normalizeCodexAppServerRunState)`
 - `codexAppServerTurnOwnsActiveGoal(turn = {}, threadId = "")`
 - `codexAppServerTurnMatches(turn = {}, threadId = "", turnId = "")`
@@ -1154,6 +1154,8 @@ Exports
 - `CODEX_APP_SERVER_RESULT_PROCESSED_EVENT`
 - `CODEX_AGENT_PROVIDER`
 - `CODEX_APP_SERVER_ACTIVE_RUN_STATES`
+Local functions
+- `codexAppServerIdleTurnState()`
 
 ### `src/server/conversation/commandHook.js`
 Exports
