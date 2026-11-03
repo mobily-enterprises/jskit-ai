@@ -33,6 +33,7 @@ import {
 } from "../support/conversationRestoreSupport.js";
 import { useWorkspaceWebScopeSupport } from "../support/workspaceScopeSupport.js";
 import { useJskitText } from "../i18n.js";
+import { failureMessage } from "../support/conversationFailures.js";
 
 const DEFAULT_STREAM_TIMEOUT_MS = 120_000;
 const DEFAULT_HISTORY_PAGE_SIZE = 20;
@@ -117,14 +118,6 @@ function formatConversationStartedAt(value) {
   const { formatDateTime, t } = useJskitText();
   const source = normalizeText(value);
   return (source && formatDateTime(source)) || t("jskit.assistant.runtime.conversation.startedAtUnknown");
-}
-
-/**
- * A failure or stream error event in the active language when its code is JSKIT's; otherwise its message as sent.
- * @param {any} failure
- */
-function failureText(failure) {
-  return failure?.message ? normalizeText(useJskitText().serverMessage(failure)) : "";
 }
 
 function resolveRuntimePolicy() {
@@ -399,7 +392,7 @@ function useAssistantRuntime({ api, surfaceId = "", integrationId = "" }) {
         writeStoredActiveConversationId(scope, "");
       }
       if (!input.value) input.value = previousDraft;
-      setRuntimeError(failureText(loadError) || t("jskit.assistant.runtime.history.conversationLoadFailed"));
+      setRuntimeError(normalizeText(failureMessage(loadError)) || t("jskit.assistant.runtime.history.conversationLoadFailed"));
     } finally {
       if (version === restoreVersion) isRestoringConversation.value = false;
     }
@@ -576,11 +569,11 @@ function useAssistantRuntime({ api, surfaceId = "", integrationId = "" }) {
 
             if (eventType === ASSISTANT_STREAM_EVENT_TYPES.ERROR) {
               if (!accepted) {
-                admissionError = failureText(event) || t("jskit.assistant.runtime.request.failed");
+                admissionError = normalizeText(failureMessage(event)) || t("jskit.assistant.runtime.request.failed");
                 return;
               }
               setRuntimeError(
-                failureText(event) || t("jskit.assistant.runtime.request.failed"),
+                normalizeText(failureMessage(event)) || t("jskit.assistant.runtime.request.failed"),
                 "assistant.runtime:stream-event-error"
               );
               updateMessage(assistantMessageId, {
@@ -625,7 +618,7 @@ function useAssistantRuntime({ api, surfaceId = "", integrationId = "" }) {
           status: "canceled"
         });
       } else {
-        setRuntimeError(failureText(streamError) || t("jskit.assistant.runtime.request.failed"));
+        setRuntimeError(normalizeText(failureMessage(streamError)) || t("jskit.assistant.runtime.request.failed"));
         updateMessage(assistantMessageId, {
           status: "error"
         });

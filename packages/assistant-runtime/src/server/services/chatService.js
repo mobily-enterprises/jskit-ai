@@ -7,7 +7,6 @@ import { conversationAttachmentIds } from "@jskit-ai/assistant-core/server/conve
 import { ASSISTANT_STREAM_EVENT_TYPES, MAX_INPUT_CHARS } from "@jskit-ai/assistant-core/shared";
 import { errorMessageFields, exposedAppErrorDetails, errorStatus } from "../support/assistantErrors.js";
 import { requireAssistantSurface } from "../support/assistantSurface.js";
-import { ASSISTANT_STREAM_WRITER_METHODS } from "../support/assistantStreamWriter.js";
 
 const CLOCK_INSTRUCTION = "For current or relative date and time questions, use the current time in the system's state note, or an available authoritative workspace clock action for another time zone; never infer the current date or time from model knowledge.";
 
@@ -32,11 +31,6 @@ function normalizeStreamInput(payload = {}) {
     input,
     attachmentIds: source.attachmentIds
   };
-}
-
-function hasStreamWriter(streamWriter) {
-  // readable-check: allow method-probe - input validation: a chat stream's caller hands its stream writer with each call
-  return ASSISTANT_STREAM_WRITER_METHODS.every(name => typeof streamWriter?.[name] === "function");
 }
 
 // A saved failure keeps its translation fields, except where the kernel would
@@ -237,7 +231,13 @@ function createChatService({
     await turns.releasing;
   }
 
-  async function streamChat(payload = {}, options = {}) {
+  /**
+   * Streams one chat turn through its writer, or replays the saved turn with the same message id.
+   * @param {object} payload The validated chat stream input.
+   * @param {{ context: object, streamWriter: import("../support/assistantStreamWriter.js").AssistantStreamWriter,
+   *   abortSignal?: AbortSignal }} options
+   */
+  async function streamChat(payload, options) {
     const assistantSurface = requireAssistantSurface(appConfig, payload.targetSurfaceId);
     const context = normalizeObject(options.context);
     const assistantContext = buildAssistantActionContext(context, assistantSurface);
@@ -246,7 +246,6 @@ function createChatService({
     const actor = resolveActor(context);
     const actorUserId = normalizeRecordId(actor?.id, { fallback: null });
     if (!actorUserId) throw new AppError(401, "Authentication required.", { code: "assistant.runtime.authenticationRequired" });
-    if (!hasStreamWriter(options.streamWriter)) throw new Error("assistant.chat.stream requires streamWriter methods.");
     const scope = { actorUserId, surfaceId: assistantSurface.targetSurfaceId,
       // readable-check: allow no-dual-shape - data: the workspace scope resolves the workspace from the action input or context, which may carry the record or its id
       workspaceId: normalizeRecordId(workspace?.id || workspace, { fallback: null }) };
@@ -323,7 +322,7 @@ function createChatService({
             code: "assistant.runtime.attachments.notConfigured"
           });
         }
-        // Preserve the facade's existing pre-admission authorization order.
+        // Attachments are authorized before admission, as the facade orders it.
         // Only these server-resolved materials reach the common file reader.
         const files = await attachments.resolve({ attachmentIds, context: assistantContext, workspace, conversation });
         resolvedAttachments.push({ attachmentIds: [...attachmentIds], files });

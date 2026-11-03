@@ -5,10 +5,10 @@ import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared
 import { AssistantFeature } from "./AssistantProvider.js";
 
 /**
- * Configure the existing conversation feature in a plain Fastify application.
+ * Hosts the conversation feature in a plain Fastify application.
  * The caller owns runtime creation/storage and authentication. This registration
  * owns its HTTP/realtime hosting and shuts it down before Fastify closes.
- * JSKIT applications register AssistantFeature on their existing host instead.
+ * JSKIT applications register AssistantFeature on their own host instead.
  * @param {import("@jskit-ai/kernel/server/types").RuntimeFastify} app
  * @param {object} options
  * @param {import("./types.js").ConversationRuntime} options.runtime

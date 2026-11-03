@@ -67,14 +67,10 @@ function createConversationOperations({ conversationRuntime, config, workspaceSc
    * snapshot. The caller's callbacks come with each call.
    * @param {object} input
    * @param {object} context
-   * @param {{ onEvent: Function, onRelease: Function, isCurrent?: () => boolean, onStage?: (stage: string) => void }} deps
+   * @param {{ onEvent: (event: object) => void, onRelease: (release: () => void) => void, isCurrent?: () => boolean,
+   *   onStage?: (stage: string) => void }} deps
    */
-  async function subscribe(input, context, deps) {
-    // readable-check: allow method-probe - input validation: a subscription's caller hands its event and cleanup callbacks with each call
-    if (typeof deps?.onEvent !== "function" || typeof deps?.onRelease !== "function") {
-      throw new TypeError("Conversation subscriptions require their server-owned event and cleanup callbacks.");
-    }
-    const { onEvent, onRelease, isCurrent = alwaysCurrent, onStage = ignoreStage } = deps;
+  async function subscribe(input, context, { onEvent, onRelease, isCurrent = alwaysCurrent, onStage = ignoreStage }) {
     if (isCurrent() === false) return null;
     onStage("conversation-open");
     const conversation = await openConversation(input, context);

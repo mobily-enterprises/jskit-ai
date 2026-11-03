@@ -203,7 +203,7 @@ function createVoiceDaemon({
   port = 3092
 }) {
   // readable-check: allow method-probe - input validation: an application hands over the speech engine its host runs
-  if (!engine || typeof engine.createListeningSession !== "function" || typeof engine.synthesize !== "function") {
+  if (!engine || typeof engine.createListeningSession !== "function" || typeof engine.synthesize !== "function" || typeof engine.warmup !== "function") {
     throw new TypeError("createVoiceDaemon requires a speech engine.");
   }
   // readable-check: allow method-probe - input validation: an application hands over its own authorization and routes
