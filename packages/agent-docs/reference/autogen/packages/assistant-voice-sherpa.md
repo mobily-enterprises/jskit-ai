@@ -37,11 +37,15 @@ Exports
 - `positiveActivePathCount(value, fallback = 16)`
 - `positiveThreadCount(value, fallback = 1)`
 - `runtimeValue(runtime, key)`
+Local functions
+- `ignoreRecognizedText()`
 
 ### `src/synthesisProcess.js`
 Exports
 - `createSynthesisProcess(configuration, { outputSampleRate, signal = null, workerUrl = new URL("./synthesisWorker.js", import.meta.url) } = {})`
 - `SYNTHESIS_REQUEST_TIMEOUT_MS`
+Local functions
+- `ignoreAudio()`
 
 ### `src/synthesisWorker.js`
 Exports

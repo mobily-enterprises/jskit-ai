@@ -16,8 +16,21 @@ Use this on demand; do not load the full index at startup.
 
 ### `src/client/audioCapture.js`
 Exports
-- `createMicrophoneCapture({ onLevel, onPcm, targetSampleRate = 16_000 } = {})`
+- `createMicrophoneCapture({ onLevel = ignoreLevel, onPcm = ignorePcm, targetSampleRate = 16_000 } = {})`
 - `float32ToPcm16ArrayBuffer(samples)`
+Local functions
+- `ignoreLevel()`
+- `ignorePcm()`
+- `noFlushPending()`
+
+### `src/client/browser.js`
+Exports
+- `audioContextConstructor()`
+- `createVoiceTurnId(prefix = "turn")`
+- `followMediaQuery(query, listener)`
+- `listenToDocument(type, listener)`
+- `listenToPage(type, listener)`
+- `pageVisible()`
 
 ### `src/client/ConversationDialog.vue`
 Exports
@@ -57,9 +70,27 @@ Exports
 - `useVoiceAvatar`
 - `VoiceAvatar`
 
+### `src/client/types.js`
+Exports
+- `type VoiceConversationController`
+- `type VoiceSession`
+- `type VoiceTransport`
+- `type VoiceSpeech`
+- `type MicrophoneCapture`
+- `type VoicePlaybackEvent`
+- `type VoiceOutputPlayback`
+- `type VoiceConversationMessage`
+- `type VoiceConversationState`
+- `type VoiceNarration`
+- `type VoiceTranscript`
+- `type VoiceConversationBinding`
+- `type VoiceHeldRecording`
+
 ### `src/client/voiceAvatar.js`
 Exports
 - `useVoiceAvatar(props)`
+Local functions
+- `notFollowing()`
 
 ### `src/client/VoiceAvatar.vue`
 Exports
@@ -71,13 +102,14 @@ Exports
 
 ### `src/client/voiceConversation.js`
 Exports
-- `useVoiceConversation(binding, { socketUrl, createTransport = useVoiceTransport } = {})`
+- `useVoiceConversation(binding, { socketUrl, createTransport = useVoiceTransport })`
 
 ### `src/client/VoiceConversation.vue`
 Exports
 - None
 Local functions
 - `isAtBottom(element)`
+- `followCaption(target, following)`
 
 ### `src/client/VoiceConversationControls.vue`
 Exports
@@ -98,7 +130,9 @@ Local functions
 
 ### `src/client/voiceLauncher.js`
 Exports
-- `useVoiceLauncher({ open, enabled = true, onTap = null, onError = () => {} })`
+- `useVoiceLauncher({ open, enabled = true, onTap, onError = ignoreLauncherError })`
+Local functions
+- `ignoreLauncherError()`
 
 ### `src/client/voicePlayback.js`
 Exports
@@ -107,17 +141,25 @@ Exports
 - `pcm16ArrayBufferToFloat32(buffer)`
 - `visemeCueAtTime(segments = [], currentTime = 0)`
 
+### `src/client/voiceReplies.js`
+Exports
+- `useVoiceReplies({ binding, voice, readAloud, error, starting, capturing, speechActive, narrationPageVisible, hiddenNarrationPage, closed })`
+
 ### `src/client/VoiceSpeakingVoiceSelect.vue`
 Exports
 - None
 Local functions
 - `selectVoice(value)`
 
+### `src/client/voiceSpeech.js`
+Exports
+- `useVoiceSpeech({ connect, sendControl, isConnected, enabled, selectedVoice, onPlayback, fail })`
+
 ### `src/client/voiceTransport.js`
 Exports
-- `createVoiceTurnId(prefix = "turn")`
-- `useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnListen = false, autoReconnect = false, voiceId = "", onPlayback } = {})`
+- `useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnListen = false, autoReconnect = false, voiceId = "", onPlayback = ignorePlayback })`
 Local functions
+- `ignorePlayback()`
 - `resolveWebSocketUrl(value)`
 
 ### `src/server/index.js`
@@ -146,19 +188,23 @@ Local functions
 ### `src/server/voiceDaemon.js`
 Exports
 - `createBoundedSerialQueue({ maximumQueued = 4 } = {})`
-- `createVoiceDaemon({ accessKey, authorize = token => verifyVoiceAccessToken(token, { key: accessKey }), handleRequest = null, engine, host = "127.0.0.1", idleTimeoutMs = 90_000, logger = console, maximumConnections = 8, maximumConnectionsPerTenant = 2, maximumQueuedSpeech = 4, port = 3092 } = {})`
+- `createVoiceDaemon({ accessKey, authorize = token => verifyVoiceAccessToken(token, { key: accessKey }), handleRequest = answerNoHostRoute, engine, host = "127.0.0.1", idleTimeoutMs = 90_000, logger = console, maximumConnections = 8, maximumConnectionsPerTenant = 2, maximumQueuedSpeech = 4, port = 3092 })`
 - `sendJson(socket, type, fields = {})`
 - `voiceDaemonError(error, fallback = { message: "Voice operation failed.", messageCode: "assistant.voice.daemon.operationFailed" })`
+- `type VoiceRecognizer`
+- `type VoiceSpeechEngine`
+- `type VoicePrincipal`
 Local functions
 - `sendPcm(socket, audio = Buffer.alloc(0))`
 - `requestPathname(request = {})`
 - `writeJsonResponse(response, statusCode, payload)`
+- `answerNoHostRoute()`
 
 ### `src/server/voiceProxy.js`
 Exports
 - `closeSocket(socket, code, reason)`
 - `readVoiceCatalogue(config, { fetchImpl = fetch } = {})`
-- `registerVoiceProxyRoute(fastify, { proxyConfig, route, authorize = null, WebSocketCtor = WebSocket } = {})`
+- `registerVoiceProxyRoute(fastify, { proxyConfig, route, authorize, WebSocketCtor = WebSocket } = {})`
 Local functions
 - `proxyCloseCode(code)`
 - `proxyCloseReason(reason)`

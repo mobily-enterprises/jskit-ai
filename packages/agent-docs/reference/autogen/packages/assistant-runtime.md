@@ -16,7 +16,10 @@ Use this on demand; do not load the full index at startup.
 
 ### `src/client/components/AssistantConversationClientElement.vue`
 Exports
-- None
+- `type AssistantApi`
+- `type AssistantAttachments`
+- `type AssistantSuggestions`
+- `type AssistantModelChoices`
 
 ### `src/client/components/AssistantSettingsClientElement.vue`
 Exports
@@ -28,7 +31,9 @@ Local functions
 
 ### `src/client/components/AssistantSurfaceClientElement.vue`
 Exports
-- None
+- `type AssistantConversationAdapter`
+- `type AssistantAttachments`
+- `type AssistantSuggestions`
 Local functions
 - `submitMessage({ attachments = [], retryMessageId = "" })`
 - `conversationTitle(entry, fallbackKey)`
@@ -36,40 +41,65 @@ Local functions
 - `selectConversation(entry)`
 - `startNewConversation()`
 
+### `src/client/composables/conversationGoal.js`
+Exports
+- `createConversationGoal({ api, identity, readers, goalReadEnabled, current, active, available, accessDenied, snapshot, delivery, submitRequest, receiveError, reloadSubscription })`
+
+### `src/client/composables/conversationHistory.js`
+Exports
+- `createConversationHistory({ api, identity, snapshot, current, listening, available, receiveError })`
+Local functions
+- `compareTurnIds(left, right)`
+- `ignoreLoadResult()`
+
+### `src/client/composables/conversationRuntime.js`
+Exports
+- `authoredRequest(payload, { attachmentIds, steer })`
+- `createConversationRuntime({ identity, api, socket, actorKey, placement, readers, retain, queueWhileSending, deferWhileWorking, admitWhileWorking, draftStorage, application, goalReadEnabled })`
+- `isQuestionConfiguration(value)`
+- `resolveWorkingPolicy(snapshot, { deferWhileWorking, admitWhileWorking })`
+- `text(value)`
+Local functions
+- `draftAfterAcceptedSubmission(currentDraft, submittedDraft)`
+
 ### `src/client/composables/useAssistantConversation.js`
 Exports
-- `configureAssistantConversations(app, { actorKey, api = null, request, clearDraftOn = "dispatch" } = {})`
+- `configureAssistantConversations(app, { actorKey, api, request = assistantHttpClient.request, clearDraftOn = "dispatch" } = {})`
 - `useAssistantConversation(options)`
 - `useAssistantConversationFactory(options = {})`
+- `type AssistantApi`
+- `type TextOption`
+- `type ConversationDefaults`
+- `type BoundedTask`
+- `type ConversationBindingOptions`
+- `type ConversationBindingSetup`
 Local functions
-- `text(value)`
-- `failureMessage(failure, fallback = "")`
-- `resultError(result)`
 - `stateError(state)`
-- `compareTurnIds(left, right)`
-- `isQuestionConfiguration(value)`
+- `alwaysCurrent()`
+- `ignoreSubmit()`
+- `ignoreAcceptance()`
+- `ignoreResult()`
 - `questionsAnswered(prompts)`
-- `authoredRequest(payload, { attachmentIds, steer })`
-- `draftAfterAcceptedSubmission(currentDraft = "", submittedDraft = "")`
-- `resolveWorkingPolicy(snapshot, { deferWhileWorking, admitWhileWorking })`
-- `createConversation(identity, { api, socket, actorKey, placement, readers, queueWhileSending, deferWhileWorking, admitWhileWorking, draftStorage, application, goalReadEnabled })`
-- `useBoundedTask({ command, endpoint, scope, input, result, onResult }, { active, data, presentation })`
-- `conversationBindingSetup({ socket, boundedTask = null } = {})`
-- `createConversationBinding({ conversationId, endpoint = "", surfaceId = "", hostSurfaceId = "", workspaceSlug, actorKey: suppliedActorKey, api: suppliedApi = null, socket: suppliedSocket = null, active = true, onEvent, clearDraftOn: suppliedClearDraftOn, queueWhileSending, deferWhileWorking = false, admitWhileWorking = false, draftWhileLoading = false, draftStorage = null, application = null, boundedTask = null, data, attachments = null, suggestions = null, models = null, questions = null, goal = null, presentation = {} } = {}, setup)`
+- `formatsAnswers(prompts)`
+- `useBoundedTask({ command, endpoint, scope, input, result, onResult = ignoreResult }, { active, data, presentation })`
+- `conversationBindingSetup({ socket, boundedTask })`
+- `createConversationBinding({ conversationId, endpoint = "", surfaceId = "", hostSurfaceId = "", workspaceSlug, actorKey: suppliedActorKey, api: suppliedApi, socket: suppliedSocket, active = true, onEvent, clearDraftOn: suppliedClearDraftOn, queueWhileSending, deferWhileWorking = false, admitWhileWorking = false, draftWhileLoading = false, draftStorage, application, boundedTask, data, attachments, suggestions, models, questions, goal, presentation }, setup)`
 
 ### `src/client/composables/useAssistantRuntime.js`
 Exports
-- `useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } = {})`
+- `useAssistantRuntime({ api, surfaceId = "", integrationId = "" })`
+- `type RuntimeScope`
 Local functions
-- `toNonNegativeInteger(value, fallback = 0)`
-- `buildScopeStorageKey(scope = {})`
-- `readStoredActiveConversationId(scope = {})`
-- `writeStoredActiveConversationId(scope = {}, conversationId)`
+- `toNonNegativeInteger(value, fallback)`
+- `buildScopeStorageKey(scope)`
+- `browserSessionStorage()`
+- `readStoredActiveConversationId(scope)`
+- `writeStoredActiveConversationId(scope, conversationId)`
 - `normalizeConversationStatus(value)`
 - `formatConversationStartedAt(value)`
 - `failureText(failure)`
 - `resolveRuntimePolicy()`
-- `createRuntimeApi({ overrideApi = null, resolveBasePath, resolveSurfaceId = null } = {})`
+- `ignoreAcceptance()`
 
 ### `src/client/i18n.js`
 Exports
@@ -90,22 +120,24 @@ Exports
 Exports
 - `AssistantClientProvider`
 
-### `src/client/support/accessDenied.js`
-Exports
-- `isAccessDenied(error)`
-
 ### `src/client/support/assistantRuntimeState.js`
 Exports
-- `buildId(prefix = "id")`
+- `buildId(prefix)`
 - `interruptPendingToolEvents(toolEvents)`
 - `mapTranscriptEntriesToAssistantState(entries)`
 - `mapAssistantConversationTurns(messages, toolEvents = [], { showToolActivity = true } = {})`
 - `normalizeToolName(value)`
 - `toolStatusText(status)`
 
+### `src/client/support/conversationFailures.js`
+Exports
+- `failureMessage(failure, fallback = "")`
+- `isAccessDenied(error)`
+- `resultError(result)`
+
 ### `src/client/support/conversationRestoreSupport.js`
 Exports
-- `loadConversationTranscript({ fetchPage, pageSize = DEFAULT_RESTORE_MESSAGES_PAGE_SIZE, maxEntries = DEFAULT_RESTORE_MESSAGES_MAX_ENTRIES } = {})`
+- `loadConversationTranscript({ fetchPage, pageSize = DEFAULT_RESTORE_MESSAGES_PAGE_SIZE, maxEntries = DEFAULT_RESTORE_MESSAGES_MAX_ENTRIES })`
 - `resolveConversationRestorePolicy({ pageSize, maxEntries } = {})`
 Local functions
 - `normalizeBoundedPositiveInteger(value, fallback, maximum)`
@@ -113,16 +145,27 @@ Local functions
 
 ### `src/client/support/subscribeAssistantConversation.js`
 Exports
-- `subscribeAssistantConversation({ socket, conversationId, targetSurfaceId, hostSurfaceId, workspaceSlug, read, onState, onEvent = () => {}, onError = () => {} } = {})`
+- `subscribeAssistantConversation({ socket, conversationId, targetSurfaceId, hostSurfaceId, workspaceSlug, read, onState, onEvent = ignoreConversationEvent, onError = ignoreSubscriptionError })`
 - `refreshedHistoryPages`
-- `patchLoadedHistoryPages(pages = [], patch)`
+- `patchLoadedHistoryPages(pages, patch)`
+Local functions
+- `ignoreConversationEvent()`
+- `ignoreSubscriptionError()`
 
 ### `src/client/support/workspaceScopeSupport.js`
 Exports
-- `EMPTY_WORKSPACE_WEB_SCOPE_SUPPORT`
-- `WORKSPACES_WEB_SCOPE_SUPPORT_INJECTION_KEY`
-- `isWorkspaceWebScopeSupport(value)`
-- `useWorkspaceWebScopeSupport({ required = false } = {})`
+- `useWorkspaceWebScopeSupport()`
+
+### `src/client/types.js`
+Exports
+- `type RealtimeSocket`
+- `type SurfaceRouteContext`
+- `type PlacementRuntime`
+- `type WorkspaceScopeSupport`
+- `type ConversationIdentity`
+- `type ConversationReader`
+- `type ConversationSubscription`
+- `type ConversationRuntime`
 
 ### `src/server/actionIds.js`
 Exports
@@ -130,24 +173,66 @@ Exports
 
 ### `src/server/actions.js`
 Exports
-- `createAssistantActions({ assistantConfigService, chatService, conversationRuntime = null, conversationAccess = null, conversationDataSchema = null, conversationConfigurationSchema = null, conversationSelectionSchema = null, conversationReplacementSchema = null, workspaceScopeSupport = null, config = {} } = {})`
+- `createAssistantActions({ assistantConfigService, chatService, conversationRuntime, conversationAccess, conversationDataSchema, conversationConfigurationSchema, conversationSelectionSchema, conversationReplacementSchema, workspaceScopeSupport, config })`
+- `type AssistantConfigService`
+- `type ChatService`
+- `type ConversationAccess`
+- `type ConversationRuntime`
+- `type WorkspaceScopeSupport`
+- `type ConversationOperations`
 Local functions
 - `configuredAssistantSurfaces(config = {})`
-- `createConversationActions({ conversationRuntime, conversationDataSchema, conversationConfigurationSchema, conversationSelectionSchema, conversationReplacementSchema, config, runtimeSurfaces, workspaceScopeSupport })`
+- `listConversationsDocument(chatService, input, context)`
+- `listConversationMessagesDocument(chatService, input, context)`
+- `createConversationActions({ conversationOperations, conversationDataSchema, conversationConfigurationSchema, conversationSelectionSchema, conversationReplacementSchema, runtimeSurfaces })`
 
 ### `src/server/AssistantProvider.js`
 Exports
 - `AssistantFeature`
+- `type AssistantRuntime`
+- `type ConversationAccess`
+- `type ConversationRuntime`
+- `type ActionCatalogue`
+Local functions
+- `releaseNoSubscriptions()`
+- `assertConversationAccess(conversationAccess, conversationRuntime)`
+
+### `src/server/conversationOperations.js`
+Exports
+- `createConversationOperations({ conversationRuntime, config, workspaceScopeSupport, conversationDataSchema })`
+- `type ConversationRuntime`
+- `type WorkspaceScopeSupport`
+Local functions
+- `alwaysCurrent()`
+- `ignoreStage()`
 
 ### `src/server/createAssistantRuntime.js`
 Exports
 - `createAssistantAiClientFactory(config = {})`
-- `createAssistantRuntime({ actionCatalogue, config, consoleRuntime, repositories = {}, env, aiConnections, attachments, workspaces } = {})`
+- `createAssistantRuntime({ actionCatalogue, config, consoleRuntime, repositories, env, aiConnections, attachments, workspaces })`
 - `createAssistantConversationRuntime({ conversationsRepository, messagesRepository, aiClientFactory, toolCatalog, attachments })`
+- `type AssistantAttachments`
+- `type AssistantAiClientFactory`
+- `type AssistantConfigRepository`
+- `type ConversationsRepository`
+- `type MessagesRepository`
+- `type TurnRequestsRepository`
+- `type SurfaceAwareToolCatalog`
+- `type AiConnectionResolver`
 
 ### `src/server/createAssistantSettingsActions.js`
 Exports
 - `createAssistantSettingsActions({ assistantConfigService, settingsSurfaces })`
+- `type AssistantConfigService`
+Local functions
+- `readSettingsDocument(assistantConfigService, input, context)`
+- `updateSettingsDocument(assistantConfigService, input, context)`
+
+### `src/server/hostedAssistant.js`
+Exports
+- `createHostedAssistant({ conversationRuntime, assistantConfigService })`
+- `type ConversationRuntime`
+- `type AssistantConfigService`
 
 ### `src/server/index.js`
 Exports
@@ -175,14 +260,16 @@ Exports
 
 ### `src/server/registerConversationSubscriptions.js`
 Exports
-- `registerConversationSubscriptions({ realtime, events, actions, config = {}, logger = null, workspaceScopeSupport = null, subscribeActionId = actionIds.conversationSubscribe, requestPolicy = "authenticated", diagnostics = false } = {})`
+- `registerConversationSubscriptions({ realtime, events, actions, config = {}, logger = silentLogger, workspaceScopeSupport = null, subscribeActionId = actionIds.conversationSubscribe, requestPolicy = "authenticated", diagnostics = false } = {})`
 Local functions
 - `requireSubscriptionId(input)`
 - `subscriptionError(error)`
+- `releaseNoDiagnostics()`
+- `detachNoObserver()`
 
 ### `src/server/registerFastifyConversations.js`
 Exports
-- `registerFastifyConversations(app, { runtime, config, authenticate, bootstrap, env = process.env } = {})`
+- `registerFastifyConversations(app, { runtime, config, authenticate, bootstrap, env } = {})`
 
 ### `src/server/registerRoutes.js`
 Exports
@@ -190,7 +277,7 @@ Exports
 Local functions
 - `sendPreStreamErrorResponse(reply, error)`
 - `buildChatStreamActionInput(routeInput = {}, requestBody = {})`
-- `resolveAssistantConversationMessagesRecordId(record = {})`
+- `resolveAssistantConversationMessagesRecordId(record)`
 - `registerRuntimeRoutes(router, resolveCurrentAppConfig, { requiresWorkspace = false, workspaceScopeSupport = null } = {})`
 - `registerConversationRoutes(router, resolveCurrentAppConfig, { requiresWorkspace = false, workspaceScopeSupport = null, conversationDataSchema = null, conversationConfigurationSchema = null, conversationSelectionSchema = null, conversationReplacementSchema = null } = {})`
 
@@ -198,15 +285,13 @@ Local functions
 Exports
 - `registerSettingsRoutes(router, resolveCurrentAppConfig, { requiresWorkspace = false, workspaceScopeSupport = null } = {})`
 Local functions
-- `resolveAssistantSettingsRecordId(record = {})`
+- `resolveAssistantSettingsRecordId(record)`
 
 ### `src/server/repositories/assistantConfigRepository.js`
 Exports
 - `createRepository(knex)`
 Local functions
 - `normalizeTargetSurfaceId(value = "")`
-- `normalizeWorkspaceId(value)`
-- `normalizeWorkspaceDbId(value)`
 - `buildScopeKey(targetSurfaceId, workspaceId = null)`
 - `mapConfigRow(row = {})`
 - `createDefaultRecord({ targetSurfaceId = "", workspaceId = null } = {})`
@@ -233,7 +318,6 @@ Exports
 - `applyWorkspaceScope(query, columnName, workspaceId)`
 - `normalizeDbWorkspaceId(value)`
 - `normalizeInputRecordId(value)`
-- `normalizeWorkspaceId(value)`
 - `parseJsonObject`
 - `stringifyJsonObject(value)`
 - `toIso(value)`
@@ -245,13 +329,22 @@ Exports
 
 ### `src/server/services/assistantConfigService.js`
 Exports
-- `createService({ assistantConfigRepository, consoleService = null, appConfig = {}, workspaceScopeSupport = null } = {})`
+- `createService({ assistantConfigRepository, consoleService, appConfig, workspaceScopeSupport })`
+- `type AssistantConfigRepository`
+- `type WorkspaceScopeSupport`
 
 ### `src/server/services/chatService.js`
 Exports
-- `createChatService({ conversationRuntime, aiClientFactory, turnRequests, attachments, transcriptService, serviceToolCatalog, assistantConfigService, appConfig = {}, workspaceScopeSupport = null } = {})`
+- `createChatService({ conversationRuntime, aiClientFactory, turnRequests, attachments, transcriptService, serviceToolCatalog, assistantConfigService, appConfig, workspaceScopeSupport })`
+- `type AssistantAiClientFactory`
+- `type AssistantAttachments`
+- `type AssistantConfigService`
+- `type ConversationRuntime`
+- `type SurfaceAwareToolCatalog`
+- `type TranscriptService`
+- `type TurnRequestsRepository`
+- `type WorkspaceScopeSupport`
 Local functions
-- `normalizeConversationId(value)`
 - `normalizeStreamInput(payload = {})`
 - `hasStreamWriter(streamWriter)`
 - `savedMessageFields(error)`
@@ -259,20 +352,22 @@ Local functions
 - `isAbortError(error)`
 - `toCompactJson(value, fallback = "{}")`
 - `buildToolContractLine(toolDescriptor = {})`
-- `buildSystemPrompt({ targetSurfaceId = "", toolDescriptors = [], workspaceSlug = "", customSystemPrompt = "" } = {})`
+- `buildSystemPrompt({ targetSurfaceId = "", toolDescriptors, workspaceSlug = "", customSystemPrompt = "" })`
 - `buildAssistantActionContext(context = {}, assistantSurface = {})`
 
 ### `src/server/services/transcriptService.js`
 Exports
-- `createTranscriptService({ conversationsRepository, messagesRepository } = {})`
+- `createTranscriptService({ conversationsRepository, messagesRepository })`
 - `deriveConversationTitleFromMessage(contentText)`
 - `isDefaultConversationTitle(value)`
+- `type ConversationsRepository`
+- `type MessagesRepository`
 Local functions
 - `resolveWorkspaceId(workspace, { required = false } = {})`
 - `resolveActorUserId(user, { required = false } = {})`
 - `normalizePagination(pagination = {}, { defaultPageSize = DEFAULT_PAGE_SIZE, maxPageSize = MAX_PAGE_SIZE } = {})`
 - `normalizeCursorPagination(query = {}, { defaultLimit = DEFAULT_PAGE_SIZE, maxLimit = MAX_PAGE_SIZE } = {})`
-- `requireAssistantSurface(assistantSurface = {})`
+- `requireAssistantSurface(assistantSurface)`
 
 ### `src/server/sqlConversationStorage.js`
 Exports
@@ -302,7 +397,7 @@ Local functions
 
 ### `src/server/support/assistantServerConfig.js`
 Exports
-- `resolveAssistantServerConfigMap(appConfig = {})`
+- `resolveAssistantServerConfigMap(appConfig)`
 - `resolveAssistantServerConfig(appConfig = {}, targetSurfaceId = "")`
 - `resolveAssistantAiConfig({ appConfig = {}, env = {} } = {}, targetSurfaceId = "")`
 Local functions
@@ -321,7 +416,26 @@ Exports
 - `createSurfaceAwareToolCatalog(actions, { appConfig = {}, createCatalog = createServiceToolCatalog } = {})`
 Local functions
 - `buildCatalogOptions(appConfig = {}, surfaceId = "")`
-- `requireContextSurfaceId(context = {})`
+- `requireContextSurfaceId(context)`
+
+### `src/server/types.js`
+Exports
+- `type HostedAssistant`
+- `type DatabaseAssistant`
+- `type AssistantRuntime`
+- `type ConversationRuntime`
+- `type AssistantConfigService`
+- `type ChatService`
+- `type TranscriptService`
+- `type AssistantAiClientFactory`
+- `type SurfaceAwareToolCatalog`
+- `type AssistantConfigRepository`
+- `type ConversationsRepository`
+- `type MessagesRepository`
+- `type TurnRequestsRepository`
+- `type WorkspaceScopeSupport`
+- `type ConversationAccess`
+- `type AssistantAttachments`
 
 ### `src/shared/assistantRuntimeConfig.js`
 Exports
@@ -334,8 +448,8 @@ Exports
 - `normalizeAssistantConfigScope(value = "")`
 - `resolveAssistantRuntimeRoute(surface, workspaceSlug = "")`
 - `resolveAssistantSurfaceConfig(appConfig = {}, targetSurfaceId = "")`
-- `resolveAssistantSurfacesConfig(appConfig = {})`
-- `resolveSurfaceDefinitions(appConfig = {})`
+- `resolveAssistantSurfacesConfig(appConfig)`
+- `resolveSurfaceDefinitions(appConfig)`
 
 ### `src/shared/conversationRealtime.js`
 Exports
