@@ -40,7 +40,7 @@ function mapAssistantConversationTurns(messages, toolEvents = [], { showToolActi
  * @param {string} prefix
  */
 function buildId(prefix) {
-  // readable-check: allow platform-probe - platform object: crypto.randomUUID exists only in a secure browser context
+  // readable-check: allow method-probe - platform object: crypto.randomUUID exists only in a secure browser context
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return `${prefix}_${crypto.randomUUID()}`;
   }

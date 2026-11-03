@@ -149,6 +149,7 @@ function formatsAnswers(prompts) {
 function useBoundedTask({ command, endpoint, scope, input, result, onResult = ignoreResult }, { active, data, presentation }) {
   // readable-check: allow method-probe - input validation: an application hands the binding its bounded task
   if (typeof command?.run !== "function" || !("isRunning" in command) ||
+      // readable-check: allow method-probe - input validation: an application hands the binding its bounded task
       typeof input !== "function" || typeof result !== "function") {
     throw new TypeError("boundedTask requires its command and input/result mappings.");
   }
@@ -279,10 +280,15 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
     const route = resolveAssistantRuntimeRoute(surface, toValue(workspaceSlug) === undefined
       ? workspaceScope.readRouteScope(routeContext).workspaceSlug : text(workspaceSlug));
     const actor = toValue(actorKey);
-    return Object.freeze({ conversationId: text(conversationId), targetSurfaceId: target, hostSurfaceId: host || target,
-      workspaceSlug: route.workspaceSlug, configured: route.configured,
+    return Object.freeze({
+      conversationId: text(conversationId),
+      targetSurfaceId: target,
+      hostSurfaceId: host || target,
+      workspaceSlug: route.workspaceSlug,
+      configured: route.configured,
       actorKey: actor === undefined ? String(routeContext.placementContext.value?.user?.id || "") : text(actor),
-      endpoint: text(endpoint) || route.endpoint });
+      endpoint: text(endpoint) || route.endpoint
+    });
   });
   // The original composer owns input before a conversation ID is available.
   // It is scoped to the real actor/surface/workspace, never a placeholder ID.

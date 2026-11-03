@@ -62,7 +62,6 @@ function buildScopeStorageKey(scope) {
 
 /** The browser's session storage, or none outside a browser or where the browser has none. */
 function browserSessionStorage() {
-  // readable-check: allow platform-probe - platform object: window exists only in a browser
   return typeof window === "undefined" ? null : window.sessionStorage || null;
 }
 
