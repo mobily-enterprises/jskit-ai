@@ -1,3 +1,4 @@
+import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { createConversationSystemPrompt } from "../systemPrompt.js";
 
 /**
@@ -44,7 +45,12 @@ export function createClaudeConversationAdapter({ getProcess, isActive, startPro
       const canUpdate = getProcess() && installedPrompt === systemPrompt && installedMode === instructionMode &&
         liveUpdateIdentity !== undefined && updateIdentity === liveUpdateIdentity;
       if (getProcess() && isActive() && !canUpdate && !instructions.isCurrent({ systemPrompt, contextIdentity })) {
-        throw new Error("Stop the current Claude turn before changing its settings.");
+        // Steering never gets here: it keeps the running installation. This is an
+        // explicit settings or command preparation while work is running.
+        throw new AppError(409, "Stop the current Claude turn before changing its settings.", {
+          code: "conversation_claude_settings_change_while_working",
+          messageCode: "assistant.claude.settingsChangeWhileWorking"
+        });
       }
       return instructions.ensure({
         systemPrompt,

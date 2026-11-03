@@ -949,6 +949,36 @@ test("Claude status retains active instructions and applies changed guidance onc
   assert.equal(f.processes.length, 2, "Idle readiness installs the changed instructions");
 });
 
+// A repair chat edits the project's Genesis files while it works, so its
+// composed instructions change mid-turn. A message typed then is steering.
+for (const main of [true, false]) test(`Claude steering keeps the running instructions after guidance changed mid-turn and idle admission applies them, main=${main}`, async t => {
+  const f = await publishedClaudeFixture(t);
+  const entry = main ? f.entry : await f.owner.open(f.context, {
+    conversationId: "87654321-4321-4321-8321-cba987654321", mainId: f.conversationId, create: true
+  });
+  assert.equal(entry.main, main);
+  await f.owner.startTurn(entry, { message: "Repair the setup", messageId: "repair", persistent: true });
+  const running = entry.process;
+  f.behavior.systemPrompt = "Guidance the repair changed during its own turn.";
+  const steered = await f.owner.startTurn(entry, { message: "The saved version already has this", messageId: "midturn", steer: true });
+  assert.deepEqual([steered.ok, entry.nativeTurn.read().active], [true, true]);
+  assert.equal(entry.process, running, "the steer keeps the running process and its instructions");
+  assert.equal(f.processes.length, 1);
+  assert.equal(f.behavior.nativeInputs.at(-1), "The saved version already has this", "the steer reached the running Claude");
+  await entry.process.options.onEvent({ session_id: entry.id, type: "result", subtype: "success", result: "Done" });
+  await f.owner.startTurn(entry, { message: "Next request", messageId: "next" });
+  assert.equal(f.processes.length, 2, "the next idle admission installs the changed guidance");
+});
+
+test("an explicit Claude settings change while work runs is refused with its own code", async t => {
+  const f = await publishedClaudeFixture(t);
+  await f.send();
+  await assert.rejects(f.entry.nativeTurn.prepare({ systemPrompt: "Changed guidance", settings: {}, model: "sonnet" }), error =>
+    error.code === "conversation_claude_settings_change_while_working" && error.statusCode === 409 &&
+    error.messageCode === "assistant.claude.settingsChangeWhileWorking");
+  assert.equal(f.processes.length, 1);
+});
+
 test("Claude active status keeps a running turn across an account change; idle admission applies it", async t => {
   const f = await publishedClaudeFixture(t);
   await f.send();

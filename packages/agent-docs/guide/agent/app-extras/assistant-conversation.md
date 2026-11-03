@@ -3597,8 +3597,11 @@ Preparation uses the current system prompt, context identity, instruction mode,
 settings and model. Complete dedicated contexts replace native instructions;
 append mode retains native coding defaults. Compatible live updates install
 native flag settings before selecting a model. Failed controls retire the
-process; active incompatible updates are rejected without invalidating ordinary
-steering. Lost instruction installations are invalidated before new work.
+process; active incompatible updates are rejected with
+`conversation_claude_settings_change_while_working` without invalidating ordinary
+steering. Ordinary steering never prepares instructions: in every conversation it
+keeps the running installation, and changed instructions apply at the next idle
+admission. Lost instruction installations are invalidated before new work.
 
 The same owner prepares instruction flags for an explicitly opened native
 terminal. The flags disable Claude's native system-prompt snapshot so resumed

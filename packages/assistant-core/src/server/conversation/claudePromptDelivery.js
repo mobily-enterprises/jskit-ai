@@ -56,9 +56,11 @@ export function createClaudePromptDelivery({
     }
     let native;
     try {
-      if (!command && entry.main && entry.turn?.active && entry.process) {
-        // Main steering keeps the active instruction installation, just like
-        // command steering. Refresh guidance on the next idle admission.
+      if (!command && entry.turn?.active && entry.process) {
+        // Steering keeps the active instruction installation, just like command
+        // steering, in Main and in every other conversation: guidance changed
+        // by the running work (a repair editing the project's Genesis files)
+        // applies at the next idle admission and never refuses the message.
         // Account replacement must still confirm cleanup before any new send.
         if (preparation.account) await bindAccount(entry);
         native = entry.process || await ensureProcess(entry, input);

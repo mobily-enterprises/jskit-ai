@@ -333,6 +333,7 @@
         "compactWhileWorking": "Claude is still working. Wait for it to finish before freeing its context.",
         "noActiveTurn": "Claude has no active turn for this message.",
         "steeringUnavailable": "This Claude turn cannot accept steering now.",
+        "settingsChangeWhileWorking": "Stop the current Claude turn before changing its settings.",
         "notConnected": "Claude Code is not connected.",
         "accountStatusInvalid": "Claude Code returned an invalid account status."
       },

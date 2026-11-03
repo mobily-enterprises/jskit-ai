@@ -126,10 +126,13 @@ the names of their own preparation marks through `hostDeliveryStages`; the
 runtime knows none of them. Observer work does not block dispatch or alter saved
 conversation data.
 
-Claude status reads and ordinary Main steering retain the active process's instruction installation;
-changed host guidance is applied at the next idle admission. Account identity is
+Claude status reads and ordinary steering, in Main and in every other
+conversation, retain the active process's instruction installation; changed host
+guidance, including Genesis files a repair edits during its own turn, is applied
+at the next idle admission and never refuses a mid-turn message. Account identity is
 checked before delivery and by idle status reads; a status read during a running
-turn keeps that turn on its account. Explicit settings changes retain their guards.
+turn keeps that turn on its account. Explicit settings changes retain their guards
+and refuse with `conversation_claude_settings_change_while_working`.
 
 When a Claude process ends without being stopped, its stream failure waits up to
 five seconds for the execution host's exit report. The person-facing failure then
