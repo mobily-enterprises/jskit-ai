@@ -1,10 +1,13 @@
 import { DEV_AUTH_SECRET_HEADER } from "@jskit-ai/auth-core/server/devAuth";
 import { AUTH_PATHS } from "@jskit-ai/auth-core/shared/authPaths";
 
-const DEFAULT_LOCAL_BASE_URL = "http://127.0.0.1:4173";
+function defaultLocalBaseUrl() {
+  const port = String(process.env.PLAYWRIGHT_PORT || "").trim() || "4173";
+  return `http://127.0.0.1:${port}`;
+}
 
 function resolveLocalBaseUrl(value) {
-  const baseUrl = String(value || DEFAULT_LOCAL_BASE_URL).trim().replace(/\/+$/u, "");
+  const baseUrl = String(value || defaultLocalBaseUrl()).trim().replace(/\/+$/u, "");
   let url;
   try {
     url = new URL(baseUrl);
@@ -42,7 +45,7 @@ async function loginAsExistingUser(page, {
   email = "",
   userId = "",
   secret = process.env.AUTH_DEV_BYPASS_SECRET,
-  baseURL = process.env.PLAYWRIGHT_BASE_URL || DEFAULT_LOCAL_BASE_URL
+  baseURL = process.env.PLAYWRIGHT_BASE_URL || defaultLocalBaseUrl()
 } = {}) {
   const context = page?.context?.();
   if (!context?.request) {

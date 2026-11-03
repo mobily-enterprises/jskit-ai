@@ -143,6 +143,12 @@ test("foundation browser configurations reuse the development launcher or the ma
       assert.equal(config.command, baseURL ? undefined : "npm run develop");
       assert.equal(config.baseURL, baseURL || "http://127.0.0.1:4173");
     }
+
+    const { stdout } = await execFileAsync(process.execPath, ["--input-type=module", "--eval", `
+      const { default: config } = await import(${JSON.stringify(configPath)});
+      console.log(JSON.stringify({ port: config.webServer?.env?.PORT, baseURL: config.use.baseURL }));
+    `], { env: { ...process.env, PLAYWRIGHT_BASE_URL: "", PLAYWRIGHT_PORT: "4183" } });
+    assert.deepEqual(JSON.parse(stdout), { port: "4183", baseURL: "http://127.0.0.1:4183" });
   }
 });
 

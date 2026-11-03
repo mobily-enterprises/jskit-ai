@@ -20,7 +20,23 @@ function createResponse({ status = 200, body = {} } = {}) {
   };
 }
 
-test("local Playwright login exchanges CSRF and the private secret in the page context", async () => {
+function setPlaywrightEnv(context, env) {
+  const names = ["PLAYWRIGHT_BASE_URL", "PLAYWRIGHT_PORT"];
+  const previous = names.map((name) => [name, process.env[name]]);
+  context.after(() => {
+    for (const [name, value] of previous) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  });
+  for (const name of names) {
+    if (env[name] === undefined) delete process.env[name];
+    else process.env[name] = env[name];
+  }
+}
+
+test("local Playwright login exchanges CSRF and the private secret in the page context", async (context) => {
+  setPlaywrightEnv(context, {});
   const calls = [];
   const request = {
     async get(url) {
@@ -63,6 +79,33 @@ test("local Playwright login exchanges CSRF and the private secret in the page c
         }
       }
     }
+  ]);
+});
+
+test("local Playwright login follows PLAYWRIGHT_PORT when no base URL is given", async (context) => {
+  const urls = [];
+  const request = {
+    async get(url) {
+      urls.push(url);
+      return createResponse({ body: { csrfToken: "csrf-test" } });
+    },
+    async post(url) {
+      urls.push(url);
+      return createResponse({ body: { ok: true, userId: "7" } });
+    }
+  };
+  const page = {
+    context() {
+      return { request };
+    }
+  };
+  setPlaywrightEnv(context, { PLAYWRIGHT_PORT: "4183" });
+
+  await loginAsExistingUser(page, { email: "ada@example.com", secret: "private-test-secret" });
+
+  assert.deepEqual(urls, [
+    "http://127.0.0.1:4183/api/session",
+    "http://127.0.0.1:4183/api/dev-auth/login-as"
   ]);
 });
 

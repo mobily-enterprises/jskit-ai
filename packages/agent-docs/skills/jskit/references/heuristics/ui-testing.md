@@ -26,6 +26,7 @@ Rules:
   reach the form before reload, then assert the original list URL; direct entry
   checks the configured fallback separately. Do not replace this wait with sleeps.
 - A managed runner supplies `PLAYWRIGHT_BASE_URL`. When it is set, JSKIT does not start another app server.
+- Otherwise the config starts the app on `PLAYWRIGHT_PORT`, 4173 by default. A runner that shares a machine between runs sets a free port for each run; with one fixed port, a second run would wait for it or reuse another run's server.
 - A managed runner may supply an authenticated context through `PLAYWRIGHT_STORAGE_STATE`. Treat that file as a temporary secret: do not commit it, print it, or retain it after the run.
 - Do not install a browser when the environment provides a managed browser runner.
 - Shared CRUD lists retain both card and table markup and hide the inactive
