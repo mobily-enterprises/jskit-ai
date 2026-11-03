@@ -92,17 +92,23 @@ const FIELD_ERRORS = Object.freeze({
   clientId: { code: "connectors.configuration.clientId", message: "Check this provider's client identifier." },
   requiredScopes: { code: "connectors.configuration.requiredScopes", message: "Include this provider's required permissions." },
   scopeUnsupported: { code: "connectors.configuration.scopeUnsupported", message: "A selected permission is not supported by this provider configuration." },
-  scopeRequired: { code: "connectors.configuration.scopeRequired", message: "Select at least one permission." }
+  scopeRequired: { code: "connectors.configuration.scopeRequired", message: "Select at least one permission." },
+  secretReference: { code: "connectors.configuration.secretReference", message: "Use a reference such as env:VARIABLE_NAME." }
 });
 
-// A schema validation error's field errors with the codes the validator gave them.
+// A schema validation error's field errors with the codes the validator gave them. A
+// credential reference that fails secretReference's pattern says what a reference looks like.
 function schemaFieldErrors(error, fallback, prefix = "") {
   const messages = {};
   const codes = {};
   for (const [field, message] of Object.entries(error.fieldErrors || fallback)) {
-    messages[`${prefix}${field}`] = message;
     const coded = error.fieldErrorCodes?.[field];
-    if (coded) codes[`${prefix}${field}`] = coded;
+    if (coded?.code === "kernel.validation.field.pattern" && coded.params.pattern === secretReference.pattern) {
+      messages[`${prefix}${field}`] = FIELD_ERRORS.secretReference;
+    } else {
+      messages[`${prefix}${field}`] = message;
+      if (coded) codes[`${prefix}${field}`] = coded;
+    }
   }
   return { messages, codes };
 }

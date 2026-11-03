@@ -12,6 +12,8 @@ import { googleCalendarProvider } from "../../connector-google-calendar/src/serv
 import { createConnectionService, createConnectorsFeature, createEnvironmentReferenceResolver } from "../src/server/index.js";
 import { integrationsSchema, parseIntegrationConfiguration, validateIntegrationConfiguration } from "../src/shared/configuration.js";
 import { clickhouseProvider } from "../../connectors-catalog/src/server/clickhouse.js";
+import { algoliaDefinition } from "../../connectors-catalog/src/shared/algolia.js";
+import { firebaseCloudMessagingDefinition, firebaseMessagingScope } from "../../connectors-catalog/src/shared/firebase-cloud-messaging.js";
 
 const listScope = "https://www.googleapis.com/auth/calendar.calendarlist.readonly";
 const eventsScope = "https://www.googleapis.com/auth/calendar.events.readonly";
@@ -487,6 +489,44 @@ test("reference fields reject pasted web URLs while preserving environment and c
     input.registrations.google.clientSecretRef = value;
     assert.equal(validateIntegrationConfiguration(input, { providers: [googleCalendarProvider] }).registrations.google.clientSecretRef, value);
   }
+});
+
+function assertReferenceFieldError(input, providers, field) {
+  assert.throws(() => validateIntegrationConfiguration(input, { providers }), (error) => {
+    assert.equal(error.fieldErrors[field], "Use a reference such as env:VARIABLE_NAME.", field);
+    assert.deepEqual(error.fieldErrorCodes[field], { code: "connectors.configuration.secretReference", params: {} }, field);
+    return true;
+  });
+}
+
+test("a secretRef that is not a reference says to use a reference such as env:VARIABLE_NAME", () => {
+  for (const value of ["https://x", "plain"]) {
+    assertReferenceFieldError(databaseConfiguration({ method: "api-key", secretRef: value }), [clickhouseProvider], "integrations.database.authentication.secretRef");
+  }
+});
+
+test("a registration clientSecretRef that is not a reference says to use a reference such as env:VARIABLE_NAME", () => {
+  for (const value of ["https://x", "plain"]) {
+    const input = configuration();
+    input.registrations.google.clientSecretRef = value;
+    assertReferenceFieldError(input, [googleCalendarProvider], "registrations.google.clientSecretRef");
+  }
+});
+
+test("a provider setting's reference says the same, while its other pattern failures keep the kernel's sentence", () => {
+  const input = { schemaVersion: 1, registrations: {}, integrations: {
+    search: { provider: "algolia", accountMode: "shared", scopes: [], authentication: { method: "api-key", secretRef: "env:ALGOLIA_KEY" },
+      settings: { applicationId: "APP1", publicApiKeyRef: "raw-search-key" } },
+    push: { provider: "firebase-cloud-messaging", accountMode: "shared", scopes: [firebaseMessagingScope], authentication: { method: "service-account", secretRef: "env:FCM" },
+      settings: { projectId: "push-project", clientMode: "web", apiKey: "not-a-key" } }
+  } };
+  const providers = [algoliaDefinition, firebaseCloudMessagingDefinition];
+  assertReferenceFieldError(input, providers, "integrations.search.settings.publicApiKeyRef");
+  assert.throws(() => validateIntegrationConfiguration(input, { providers }), (error) => {
+    assert.equal(error.fieldErrors["integrations.push.settings.apiKey"], "Value does not match the required pattern.");
+    assert.equal(error.fieldErrorCodes["integrations.push.settings.apiKey"].code, "kernel.validation.field.pattern");
+    return true;
+  });
 });
 
 test("the exported configuration contract enforces reference constraints for every credential field", async (t) => {

@@ -27,6 +27,7 @@
         "schemaVersionUnsupported": "Use numeric schemaVersion 1; other versions require an explicit migration.",
         "scopeRequired": "Select at least one permission.",
         "scopeUnsupported": "A selected permission is not supported by this provider configuration.",
+        "secretReference": "Use a reference such as env:VARIABLE_NAME.",
         "serviceAccountPerUser": "A service account cannot connect as each app user.",
         "serviceAccountRegistration": "Service-account credentials do not use a browser OAuth registration.",
         "stableName": "Use a stable lowercase name containing letters, digits and hyphens.",
