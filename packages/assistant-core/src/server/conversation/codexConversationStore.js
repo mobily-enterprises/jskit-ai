@@ -3,8 +3,8 @@ import { createReentrantConversationStorage } from "./storage.js";
 import { isCompletedEnvelopeTurn } from "./transcript.js";
 import { conversationAgentRunRecord, conversationAgentRunEvent } from "./agentRun.js";
 
-/** @typedef {ReturnType<typeof import("./transcript.js").createConversationTranscript>} ConversationTranscript */
-/** @typedef {ReturnType<typeof import("./streams.js").createConversationStreams>} ConversationStreams */
+/** @typedef {import("../types.js").ConversationTranscript} ConversationTranscript */
+/** @typedef {import("../types.js").ConversationStreams} ConversationStreams */
 
 /**
  * The native run occupies its bound conversation segment. Reading a binding without a run never constructs
