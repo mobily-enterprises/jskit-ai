@@ -219,12 +219,20 @@ test("the typed-features guide gives each rule what, why and good and bad code",
 
 test("every typed-features lint rule links a guide section and is listed in its checks", async () => {
   const { jskitPlugin } = await import("@jskit-ai/config-eslint/server");
-  const guide = await readFile(path.join(packageRoot, "site/guide/framework/typed-features.md"), "utf8");
-  const anchors = new Set([...guide.matchAll(/^#{2,3} (.+)$/gmu)].map((match) => headingAnchor(match[1])));
-  const lintTable = guide.slice(guide.indexOf("### Lint rules"), guide.indexOf("### Exceptions"));
+  // Server rules link the typed-features guide; the client-only rules link the client-features guide.
+  const pages = {};
+  for (const page of ["typed-features", "client-features"]) {
+    const guide = await readFile(path.join(packageRoot, `site/guide/framework/${page}.md`), "utf8");
+    pages[page] = {
+      anchors: new Set([...guide.matchAll(/^#{2,3} (.+)$/gmu)].map((match) => headingAnchor(match[1]))),
+      lintTable: guide.slice(guide.indexOf("### Lint rules"), guide.indexOf("### Exceptions"))
+    };
+  }
   for (const [name, rule] of Object.entries(jskitPlugin.rules)) {
     const url = rule.meta.docs.url;
-    assert.match(url, /^https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/guide\/framework\/typed-features#/u, name);
+    const [, page] = url.match(/^https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/guide\/framework\/(typed-features|client-features)#/u) || [];
+    assert.ok(page, `jskit/${name} links ${url}, which is neither guide.`);
+    const { anchors, lintTable } = pages[page];
     const anchor = url.split("#")[1];
     assert.ok(anchors.has(anchor), `jskit/${name} links #${anchor}, which no heading has.`);
     assert.ok(lintTable.includes(`| \`jskit/${name}\` |`), `The lint rules table lacks jskit/${name}.`);
@@ -262,6 +270,55 @@ test("the typed-features heuristic sends each keyword to a guide section", async
     assert.ok(heuristic.includes(keyword), `The heuristic lacks ${keyword}.`);
   }
   assert.doesNotMatch(heuristic, /^\| Reason prefix/mu, "The heuristic copies the guide's exceptions table.");
+});
+
+test("the client-features guide gives each rule what, why and good and bad code, simplicity first", async () => {
+  const guide = await readFile(path.join(packageRoot, "site/guide/framework/client-features.md"), "utf8");
+  const sections = guideSections(guide);
+  assert.deepEqual(sections.map((section) => section.title), [
+    "The rule",
+    "Simplicity",
+    "Types and collaborators",
+    "Components",
+    "Composables",
+    "Helpers and sizes",
+    "Checks"
+  ]);
+  assert.equal(sections[1].rules[0].title, "Simple to reason about");
+  const rules = sections.filter((section) => !["The rule", "Checks"].includes(section.title)).flatMap((section) => section.rules);
+  assert.ok(rules.length >= 15, "The client guide lost rules.");
+  for (const rule of rules) {
+    assert.match(rule.body, /^\*\*[^*]/mu, `"${rule.title}" does not state what to do in bold.`);
+    assert.match(rule.body, /^Why: \S/mu, `"${rule.title}" has no one-line why.`);
+    assert.match(rule.body, /^(?:\/\/ |<!-- )?good\b[\s\S]+^(?:\/\/ |<!-- )?bad\b/mu, `"${rule.title}" has no good and bad example.`);
+  }
+  assert.doesNotMatch(guide, /\b(?:before|after):|was converted|the port\b/iu, "The guide narrates history.");
+  const checks = sections.find((section) => section.title === "Checks").body;
+  for (const placement of ["shared resource:", "<!-- readable-check: allow optional-call - optional operation:", "input validation: <the shapes>"]) {
+    assert.ok(checks.includes(placement), `Checks lacks ${placement}.`);
+  }
+  const typedFeatures = await readFile(path.join(packageRoot, "site/guide/framework/typed-features.md"), "utf8");
+  assert.ok(typedFeatures.includes("| `shared resource:` |"), "The typed-features exceptions lack shared resource:.");
+  assert.ok(typedFeatures.includes("](/guide/framework/client-features)"), "The typed-features guide does not send client code to its page.");
+});
+
+test("the client-features heuristic sends each keyword to a guide section and is bundled with its guide", async () => {
+  const guide = await readFile(path.join(packageRoot, "site/guide/framework/client-features.md"), "utf8");
+  const anchors = new Set([...guide.matchAll(/^#{2,3} (.+)$/gmu)].map((match) => headingAnchor(match[1])));
+  const heuristic = await readFile(path.join(packageRoot, "heuristics/client-features.md"), "utf8");
+  const links = [...heuristic.matchAll(/\(\.\.\/site\/guide\/framework\/client-features\.md#([^)]+)\)/gu)].map((match) => match[1]);
+  assert.ok(links.length >= 15, "The client heuristic lost its keyword map.");
+  for (const anchor of links) {
+    assert.ok(anchors.has(anchor), `The client heuristic links #${anchor}, which no heading has.`);
+  }
+  assert.match(heuristic, /Simple to reason about comes first/u);
+  const skill = await readFile(path.join(packageRoot, "skills/jskit/SKILL.md"), "utf8");
+  assert.match(skill, /heuristic; client code, \[client features\]\(references\/client-features\.md\)/u);
+  const bundled = await readFile(path.join(packageRoot, "skills/jskit/references/client-features.md"), "utf8");
+  assert.ok(bundled.includes("](heuristics/client-features.md)"), "The bundled client guide does not link its heuristic.");
+  await access(path.join(packageRoot, "skills/jskit/references/heuristics/client-features.md"));
+  const guideIndex = await readFile(path.join(packageRoot, "site/guide/index.md"), "utf8");
+  assert.match(guideIndex, /\[Client features\]\(\/guide\/framework\/client-features\): read before writing any\s+composable/u);
 });
 
 test("JSKIT guidance does not assume a project blueprint or page generator", async () => {

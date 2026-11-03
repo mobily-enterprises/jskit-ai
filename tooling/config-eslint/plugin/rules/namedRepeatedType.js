@@ -1,6 +1,6 @@
 import path from "node:path";
-import { createSourceMemo, isGeneratedMirror, packageRootOf, packageSourceFiles, toPosixPath } from "../packageSources.js";
-import { createReporter, ruleMeta } from "../support.js";
+import { clientSourceFiles, createSourceMemo, isGeneratedMirror, packageRootOf, packageSourceFiles, toPosixPath } from "../packageSources.js";
+import { createReporter, isClientLint, ruleMeta } from "../support.js";
 
 // The JSDoc tags whose braces hold a type.
 const TYPE_TAG = /@(?:param|arg|argument|type|typedef|returns?|property|prop|satisfies|this|yields|throws|callback|template)\s*\{/gu;
@@ -120,7 +120,8 @@ const typeKeysOf = createSourceMemo((text, file) => {
 }, new Set());
 
 // A type used in two or more files of a package is named once, in its types.js,
-// and imported by that name: every copy must otherwise change together.
+// and imported by that name: every copy must otherwise change together. Client
+// code is compared with the whole package, Vue components included.
 const namedRepeatedType = Object.freeze({
   meta: ruleMeta("Disallow spelling out the same ReturnType<…> or indexed JSDoc type in several files of a package.", {
     repeatedType: "{{type}} is also written in {{other}}. Name it once in the package's types.js and import that name."
@@ -144,7 +145,9 @@ const namedRepeatedType = Object.freeze({
         const keyed = own.map((type) => ({ ...type, key: typeKey(type.text, file, imports) }));
         const wanted = new Set(keyed.map((type) => type.key));
         const firstOtherFile = new Map();
-        for (const other of packageSourceFiles(packageRootOf(file)).sort()) {
+        const packageDirectory = packageRootOf(file);
+        const others = isClientLint(context) ? clientSourceFiles(packageDirectory) : packageSourceFiles(packageDirectory);
+        for (const other of others.sort()) {
           if (other === file) {
             continue;
           }

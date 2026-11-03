@@ -5,6 +5,38 @@ import { isFreezeCall } from "./support.js";
 
 const CREATE_NAME = /^create[A-Z]/u;
 const FUNCTION_TYPES = new Set(["ArrowFunctionExpression", "FunctionExpression", "FunctionDeclaration"]);
+// Vue's calls that make reactive state. A value holding their results must stay extensible: reactive() returns a
+// frozen object unproxied, so its refs stop unwrapping, and proxyRefs() (which Vue also applies to a setup() result
+// and to defineExpose()) throws reading a ref of a frozen object.
+const VUE_STATE_CALLS = new Set([
+  "ref", "shallowRef", "computed", "reactive", "shallowReactive", "readonly", "shallowReadonly", "toRef", "toRefs",
+  "customRef", "useTemplateRef", "useModel", "defineModel"
+]);
+
+// Whether a call makes Vue reactive state.
+function isVueStateCall(node) {
+  return node?.type === "CallExpression" && node.callee.type === "Identifier" && VUE_STATE_CALLS.has(node.callee.name);
+}
+
+// Whether a function makes Vue reactive state anywhere in its body: a composable or a client runtime, whose result
+// callers may hand to reactive() or proxyRefs().
+function makesVueState(sourceCode, fn) {
+  let found = false;
+  const visit = (node) => {
+    if (found || !node || typeof node.type !== "string") {
+      return;
+    }
+    if (isVueStateCall(node)) {
+      found = true;
+      return;
+    }
+    for (const key of sourceCode.visitorKeys[node.type] || []) {
+      [node[key]].flat().forEach(visit);
+    }
+  };
+  visit(fn.body);
+  return found;
+}
 
 // The name a function is defined under: its own, its variable's, its property's
 // or the member it is assigned to.
@@ -116,12 +148,15 @@ function returnsOnlyData(sourceCode, fn) {
 export {
   CREATE_NAME,
   FUNCTION_TYPES,
+  VUE_STATE_CALLS,
   definedName,
   definitionOf,
   enclosingFunction,
   holdsBehaviour,
   isInlineFunction,
+  isVueStateCall,
   localFunction,
+  makesVueState,
   returnedFrom,
   returnsOnlyData
 };
