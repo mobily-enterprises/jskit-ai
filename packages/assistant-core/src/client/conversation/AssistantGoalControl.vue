@@ -8,17 +8,19 @@ const STATUS_KEYS = Object.freeze({
   usageLimited: "jskit.assistant.goal.usageLimited", budgetLimited: "jskit.assistant.goal.budgetLimited", complete: "jskit.assistant.goal.complete"
 });
 
-const props = defineProps({ state: { type: Object, default: null } });
+const props = defineProps({
+  state: { type: /** @type {import("vue").PropType<import("../types.js").AssistantGoalState>} */ (Object), required: true }
+});
 const open = ref(false);
 const objective = ref("");
 const tokenBudget = ref("");
 const now = ref(Date.now());
-const goal = computed(() => props.state?.loading || props.state?.available === false ? null : props.state?.goal);
+const goal = computed(() => props.state.loading || props.state.available === false ? null : props.state.goal);
 const running = computed(() => goal.value?.status === "active");
-const working = computed(() => running.value && props.state?.working === true);
+const working = computed(() => running.value && props.state.working === true);
 // A Start stays Starting… until the server's goal shows it, even while closed.
-const starting = computed(() => props.state?.action === "set");
-const label = computed(() => props.state?.loading ? t("jskit.assistant.goal.loading") : props.state?.available === false ? t("jskit.assistant.goal.unavailable")
+const starting = computed(() => props.state.action === "set");
+const label = computed(() => props.state.loading ? t("jskit.assistant.goal.loading") : props.state.available === false ? t("jskit.assistant.goal.unavailable")
   : starting.value ? t("jskit.assistant.goal.starting")
     : t(Object.hasOwn(STATUS_KEYS, goal.value?.status ?? "") ? STATUS_KEYS[goal.value.status] : "jskit.assistant.goal.set"));
 const nativeElapsed = computed(() => Number.isFinite(goal.value?.elapsedSeconds));
@@ -43,18 +45,19 @@ const elapsed = computed(() => {
   const minutes = Math.floor(total / 60);
   return minutes < 60 ? `${minutes}:${seconds}` : `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}:${seconds}`;
 });
-const canSet = computed(() => !props.state?.loading && props.state?.available !== false && typeof props.state?.set === "function" && (!goal.value || goal.value.status === "complete"));
-const validBudget = computed(() => props.state?.tokenBudgetSupported === false || tokenBudget.value === "" || (Number.isSafeInteger(Number(tokenBudget.value)) && Number(tokenBudget.value) > 0));
+// readable-check: allow method-probe - optional operation: a goal state without set() does not allow starting a goal, so Start stays disabled
+const canSet = computed(() => !props.state.loading && props.state.available !== false && typeof props.state.set === "function" && (!goal.value || goal.value.status === "complete"));
+const validBudget = computed(() => props.state.tokenBudgetSupported === false || tokenBudget.value === "" || (Number.isSafeInteger(Number(tokenBudget.value)) && Number(tokenBudget.value) > 0));
 let timer;
-onMounted(() => watch(() => [props.state?.enabled, clockRunning.value, goal.value?.elapsedSeconds, goal.value?.sampledAt, createdAt.value], () => {
+onMounted(() => watch(() => [props.state.enabled, clockRunning.value, goal.value?.elapsedSeconds, goal.value?.sampledAt, createdAt.value], () => {
   clearInterval(timer);
   now.value = Date.now();
-  if (props.state?.enabled !== false && clockRunning.value) {
+  if (props.state.enabled !== false && clockRunning.value) {
     timer = setInterval(() => { now.value = Date.now(); }, 1000);
   }
 }, { immediate: true, flush: "sync" }));
 onScopeDispose(() => clearInterval(timer));
-watch(() => props.state?.enabled, enabled => { if (enabled === false) open.value = false; });
+watch(() => props.state.enabled, enabled => { if (enabled === false) open.value = false; });
 async function setGoal() {
   if (!canSet.value || props.state.pending || !objective.value.trim() || !validBudget.value) return;
   const result = await props.state.set({ objective: objective.value.trim(), ...(props.state.tokenBudgetSupported === false || tokenBudget.value === "" ? {} : { tokenBudget: Number(tokenBudget.value) }) });

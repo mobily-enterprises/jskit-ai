@@ -3,8 +3,19 @@
 const CANNOT_SEND_YET = "Your words are in the chat box, but this conversation cannot send yet.";
 const submissionError = (message, { messageCode }) => Object.assign(new Error(message), { messageCode, messageParams: {} });
 
-/** A companion's text enters the same draft and send action as keyboard input. */
-export function createAssistantTextSubmission({ getState, setDraft, submit, afterDraftChange = async () => {} }) {
+/** Without an afterDraftChange, the composer's state is read again as soon as the draft is written. */
+async function readStateAtOnce() {}
+
+/**
+ * A companion's text enters the same draft and send action as keyboard input.
+ * @param {{
+ *   getState: () => { active: boolean, canSend: boolean, draft: string, id: unknown, turnActive?: boolean },
+ *   setDraft: (draft: string) => void,
+ *   submit: () => unknown,
+ *   afterDraftChange?: () => Promise<void>
+ * }} composer
+ */
+export function createAssistantTextSubmission({ getState, setDraft, submit, afterDraftChange = readStateAtOnce }) {
   let revision = 0;
   return async function submitText(text, { sendImmediately = true, signal, timeoutMs = 2000 } = {}) {
     const request = ++revision;

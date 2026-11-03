@@ -1,4 +1,5 @@
 import { appendQueryString } from "@jskit-ai/kernel/shared/support";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { encodeJsonApiResourceQueryObject } from "@jskit-ai/http-runtime/shared";
 import {
   ASSISTANT_CONVERSATIONS_TRANSPORT,
@@ -8,8 +9,6 @@ import {
   ASSISTANT_STREAM_EVENT_TYPES,
   normalizeAssistantStreamEventType
 } from "../../shared/index.js";
-
-const isRecord = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
 
 // A stream error event keeps its code and English message, plus the params and
 // messageCode useJskitText().serverMessage(error) needs to show it in the active language.
@@ -60,8 +59,8 @@ function normalizeSurfaceHeaderValue(value) {
   return String(value || "").trim().toLowerCase();
 }
 
-function resolveAssistantRequestHeaders(resolveSurfaceId) {
-  if (typeof resolveSurfaceId !== "function") {
+function resolveAssistantRequestHeaders(resolveSurfaceId, sendsSurface) {
+  if (!sendsSurface) {
     return null;
   }
 
@@ -88,15 +87,33 @@ function resolveRequiredBasePath(resolveBasePath) {
   return resolved;
 }
 
-function createAssistantApi({ request, requestStream, resolveBasePath, resolveSurfaceId = null } = {}) {
+/** Ignores a stream event when the caller passed no onEvent. */
+function ignoreStreamEvent() {}
+
+/**
+ * The assistant's HTTP API for one application: its conversations, their messages and goals, its chat stream and its
+ * settings, all under the base path `resolveBasePath()` returns.
+ * @param {{
+ *   request: (url: string, options: object) => Promise<any>,
+ *   requestStream?: (url: string, options: object, handlers: object) => Promise<void>,
+ *   resolveBasePath: () => string,
+ *   resolveSurfaceId?: (() => string) | null
+ * }} transport
+ */
+function createAssistantApi({ request, requestStream, resolveBasePath, resolveSurfaceId }) {
+  // readable-check: allow method-probe - input validation: an application builds its API with the request() it sends through
   if (typeof request !== "function") {
     throw new Error("createAssistantApi requires request().");
   }
+  // readable-check: allow method-probe - optional operation: an API built without requestStream has no chat stream, so streamChat() rejects
+  const streams = typeof requestStream === "function";
+  // readable-check: allow method-probe - optional operation: an API built without resolveSurfaceId sends no surface header
+  const sendsSurface = typeof resolveSurfaceId === "function";
 
   function requestConversation(conversationId, suffix, options) {
     const basePath = resolveRequiredBasePath(resolveBasePath);
     const encodedId = encodeURIComponent(String(conversationId || "").trim());
-    const headers = resolveAssistantRequestHeaders(resolveSurfaceId);
+    const headers = resolveAssistantRequestHeaders(resolveSurfaceId, sendsSurface);
     return request(`${basePath}/conversations/${encodedId}${suffix}`, {
       ...options,
       ...(headers ? { headers } : {})
@@ -168,11 +185,11 @@ function createAssistantApi({ request, requestStream, resolveBasePath, resolveSu
       });
     },
 
-    async streamChat(payload, { signal, onEvent, onMalformedLine, rejectOnErrorEvent = true } = {}) {
-      if (typeof requestStream !== "function") throw new TypeError("streamChat requires requestStream().");
+    async streamChat(payload, { signal, onEvent = ignoreStreamEvent, onMalformedLine, rejectOnErrorEvent = true } = {}) {
+      if (!streams) throw new TypeError("streamChat requires requestStream().");
       const basePath = resolveRequiredBasePath(resolveBasePath);
       let streamEventError = null;
-      const requestHeaders = resolveAssistantRequestHeaders(resolveSurfaceId);
+      const requestHeaders = resolveAssistantRequestHeaders(resolveSurfaceId, sendsSurface);
 
       const streamHandlers = {
         onEvent(event) {
@@ -181,9 +198,7 @@ function createAssistantApi({ request, requestStream, resolveBasePath, resolveSu
             streamEventError = buildStreamEventError(event);
           }
 
-          if (typeof onEvent === "function") {
-            onEvent(event);
-          }
+          onEvent(event);
         }
       };
 
@@ -212,7 +227,7 @@ function createAssistantApi({ request, requestStream, resolveBasePath, resolveSu
     listConversations(query = {}) {
       const basePath = resolveRequiredBasePath(resolveBasePath);
       const params = createAssistantQueryParams(query, ASSISTANT_CONVERSATIONS_TRANSPORT);
-      const requestHeaders = resolveAssistantRequestHeaders(resolveSurfaceId);
+      const requestHeaders = resolveAssistantRequestHeaders(resolveSurfaceId, sendsSurface);
 
       return request(
         appendQueryString(`${basePath}/conversations`, params.toString()),
@@ -227,7 +242,7 @@ function createAssistantApi({ request, requestStream, resolveBasePath, resolveSu
       const basePath = resolveRequiredBasePath(resolveBasePath);
       const encodedConversationId = encodeURIComponent(String(conversationId || "").trim());
       const params = createAssistantQueryParams(query, ASSISTANT_CONVERSATION_MESSAGES_TRANSPORT);
-      const requestHeaders = resolveAssistantRequestHeaders(resolveSurfaceId);
+      const requestHeaders = resolveAssistantRequestHeaders(resolveSurfaceId, sendsSurface);
 
       return request(
         appendQueryString(`${basePath}/conversations/${encodedConversationId}/messages`, params.toString()),
@@ -240,7 +255,7 @@ function createAssistantApi({ request, requestStream, resolveBasePath, resolveSu
 
     getSettings() {
       const basePath = resolveRequiredBasePath(resolveBasePath);
-      const requestHeaders = resolveAssistantRequestHeaders(resolveSurfaceId);
+      const requestHeaders = resolveAssistantRequestHeaders(resolveSurfaceId, sendsSurface);
 
       return request(
         `${basePath}/settings`,
@@ -253,7 +268,7 @@ function createAssistantApi({ request, requestStream, resolveBasePath, resolveSu
 
     updateSettings(payload = {}) {
       const basePath = resolveRequiredBasePath(resolveBasePath);
-      const requestHeaders = resolveAssistantRequestHeaders(resolveSurfaceId);
+      const requestHeaders = resolveAssistantRequestHeaders(resolveSurfaceId, sendsSurface);
 
       return request(
         `${basePath}/settings`,

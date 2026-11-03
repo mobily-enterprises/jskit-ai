@@ -36,8 +36,11 @@ function unmatchedOptimisticMessages(turns = [], optimisticMessages = [], { rece
   });
 }
 
-// One delivery state per conversation. The caller owns transport and receipts;
-// the shared assistant element renders pending, failed and uncertain turns.
+/**
+ * One delivery state per conversation. The caller owns transport and receipts; the shared assistant element renders
+ * pending, failed and uncertain turns. A delivery made without `deliver` takes one with each `send()`.
+ * @param {{ deliver?: (payload: object) => unknown }} [options]
+ */
 function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
   const state = reactive({ messages: [], sending: false });
   const acceptanceCallbacks = new WeakMap();

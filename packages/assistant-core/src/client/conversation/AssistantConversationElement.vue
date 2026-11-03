@@ -39,10 +39,11 @@
     </section>
     <AssistantTranscript
       v-bind="conversation" :preview-message="adapter.conversation.previewMessage || null" :working="working" class="assistant-conversation__transcript"
-      @load-more="adapter.actions?.loadMore?.($event)" @reload="adapter.actions?.reload?.()"
+      @load-more="adapter.actions?.loadMore && adapter.actions.loadMore($event)"
+      @reload="adapter.actions?.reload && adapter.actions.reload()"
       @resend-turn="resend($event)" @cancel-turn="cancel($event)"
-      @check-delivery="adapter.actions?.checkDelivery?.($event)"
-      @edit-turn="edit($event)" @link-click="adapter.actions?.openLink?.($event)"
+      @check-delivery="adapter.actions?.checkDelivery && adapter.actions.checkDelivery($event)"
+      @edit-turn="edit($event)" @link-click="adapter.actions?.openLink && adapter.actions.openLink($event)"
     >
       <template v-for="name in transcriptSlots" #[name]="scope"><slot :name="name" v-bind="scope" /></template>
       <template #user-message-actions="scope">
@@ -96,9 +97,11 @@
         @submit="submit" @tab-to-submit="delivery?.focus()"
         @focus="adapter.suggestions?.focus()" @blur="adapter.suggestions?.blur()"
         @escape="dismissSuggestions"
-        @dragenter="attachmentEvent('handleDragEnter', $event)" @dragover="attachmentEvent('handleDragOver', $event)"
-        @dragleave="attachmentEvent('handleDragLeave', $event)" @drop="attachmentEvent('handleDrop', $event)"
-        @paste="attachmentEvent('handlePaste', $event)"
+        @dragenter="attachmentsEnabled && adapter.attachments.handleDragEnter($event)"
+        @dragover="attachmentsEnabled && adapter.attachments.handleDragOver($event)"
+        @dragleave="attachmentsEnabled && adapter.attachments.handleDragLeave($event)"
+        @drop="attachmentsEnabled && adapter.attachments.handleDrop($event)"
+        @paste="attachmentsEnabled && adapter.attachments.handlePaste($event)"
       >
         <template v-if="attachmentsEnabled" #attachments>
           <input ref="fileInput" hidden multiple type="file" :accept="adapter.attachments.accept" :disabled="!adapter.attachments.canAddFiles" @change="attachSelectedFiles">
@@ -121,8 +124,10 @@
           <AssistantComposerActions ref="delivery" :state="{ ...adapter.composer, pending, canSend }" @submit="submit" @stop="stop">
             <AssistantModelControl
               v-if="adapter.models && adapter.models.enabled !== false" v-model="modelsOpen" v-bind="adapter.models"
-              @select-provider="adapter.models.selectProvider?.($event)" @select-model="adapter.models.selectModel?.($event)"
-              @select-variant="adapter.models.selectVariant?.($event)" @apply="applyModel" @reload="adapter.models.reload?.()"
+              @select-provider="adapter.models.selectProvider && adapter.models.selectProvider($event)"
+              @select-model="adapter.models.selectModel && adapter.models.selectModel($event)"
+              @select-variant="adapter.models.selectVariant && adapter.models.selectVariant($event)"
+              @apply="applyModel" @reload="adapter.models.reload && adapter.models.reload()"
             />
             <v-btn
               v-if="attachmentsEnabled" :aria-label="t('jskit.assistant.chat.attachFiles')" :title="t('jskit.assistant.chat.attachFiles')" size="small" variant="text" :icon="mdiPaperclip"
@@ -167,7 +172,7 @@ import { useJskitText } from "../i18n.js";
 
 const { t } = useJskitText();
 const props = defineProps({
-  adapter: { type: Object, required: true },
+  adapter: { type: /** @type {import("vue").PropType<import("../types.js").AssistantConversationAdapter>} */ (Object), required: true },
   avatarSize: { type: String, default: "compact", validator: (value) => ["hidden", "compact", "standard", "large"].includes(value) },
   label: { type: String, default: undefined },
   configuration: { type: Object, default: () => ({}) },
@@ -267,7 +272,7 @@ const conversation = computed(() => {
   const previews = Array.isArray(previewMessages) ? previewMessages : previewMessage ? [previewMessage] : [];
   for (const preview of previews) {
     const messageId = String(preview?.messageId || preview?.id || "").trim();
-    const localDelivery = messageId && props.adapter.delivery?.find?.(messageId);
+    const localDelivery = messageId && props.adapter.delivery?.find(messageId);
     if ((!localDelivery || localDelivery.status === "failed") && preview?.actions?.send) {
       // Keep one unadmitted bubble and its real status until explicit Edit/discard.
       // A receipt:false user row is not acknowledgement of the pending words.
@@ -343,9 +348,6 @@ function edit(id) {
   const draft = props.adapter.delivery?.edit(id, props.adapter.composer?.draft || "");
   if (draft != null) { props.adapter.actions.setDraft(draft); input.value?.focus(); }
 }
-function attachmentEvent(method, event) {
-  if (attachmentsEnabled.value) return props.adapter.attachments[method]?.(event);
-}
 function attachSelectedFiles(event) {
   const files = Array.from(event.target.files || []);
   event.target.value = "";
@@ -396,8 +398,8 @@ function stop() {
   return props.adapter.actions.stop();
 }
 function updateConfiguration(value) {
-  if (props.configurationMode !== "editable" || pending.value) return;
-  return props.adapter.actions?.updateConfiguration?.(value);
+  if (props.configurationMode !== "editable" || pending.value || !props.adapter.actions?.updateConfiguration) return;
+  return props.adapter.actions.updateConfiguration(value);
 }
 defineExpose({ focus: () => input.value?.focus(), submit, stop });
 </script>
