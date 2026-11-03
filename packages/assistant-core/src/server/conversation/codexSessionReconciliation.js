@@ -2,8 +2,8 @@ import { codexAppServerErrorMessage as errorMessage } from "./codexTurnState.js"
 import { isRecord, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 /**
- * Original batch restoration, prune and startup unsubscribe. The run owner's
- * existing lifecycle and per-thread readiness retain all state and coordination.
+ * Batch restoration, pruning and the startup unsubscribe. The run owner's
+ * lifecycle and per-thread readiness hold all state and coordination.
  * @param {object} dependencies
  * @param {object} dependencies.readiness
  * @param {(sessionId: string, context: object) => Promise<object>} dependencies.recoverSessionObservationLoss

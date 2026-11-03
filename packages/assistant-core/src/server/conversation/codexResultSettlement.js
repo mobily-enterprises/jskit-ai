@@ -14,27 +14,7 @@ import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
  * @param {import("./codexTurn.js").CodexTurnStateReader} dependencies.turnState
  */
 export function createCodexResultSettlement({ journal, output, createRuntime, publish, debugLog, debugError, turnState }) {
-  const {
-    processedTurns: codexAppServerProcessedTurns,
-    completedTurns: codexAppServerCompletedTurns,
-    agentRunPatch,
-    markTurnIdle: markCodexAppServerTurnIdle,
-    turnResultWasProcessed: codexAppServerTurnResultWasProcessed,
-    turnWasCompleted: codexAppServerTurnWasCompleted,
-    runInputSource: codexAppServerRunInputSource,
-    clearFinalizingTimer: clearCodexAppServerFinalizingTimer,
-    agentRunRealtimePayload: codexAppServerAgentRunRealtimePayload,
-    clearActiveTimer: clearCodexAppServerActiveTimer
-  } = journal;
-  const {
-    finalizedTurns: codexAppServerFinalizedTurns,
-    resultFinalizationKey: codexAppServerResultFinalizationKey,
-    cleanupUntrackedTurn: cleanupCodexAppServerUntrackedTurn,
-    submitAssistantResult: submitCodexAppServerAssistantResult,
-    flushReasoningPersist: flushCodexAppServerReasoningPersist,
-    readFinalAssistantResult: readCodexAppServerFinalAssistantResult,
-    persistAssistantReply: persistCodexAppServerAssistantReply
-  } = output;
+  const { agentRunPatch } = journal;
   const codexAppServerResultFinalizations = new Map();
 
   async function recordCodexAppServerProcessedResult(runtime, sessionId = "", threadId = "", turnId = "", result = {}) {
@@ -60,14 +40,14 @@ export function createCodexResultSettlement({ journal, output, createRuntime, pu
     const normalizedSessionId = normalizeText(sessionId);
     const normalizedThreadId = normalizeText(threadId);
     const normalizedTurnId = normalizeText(turnId);
-    const key = codexAppServerResultFinalizationKey(normalizedSessionId, normalizedThreadId, normalizedTurnId);
+    const key = output.resultFinalizationKey(normalizedSessionId, normalizedThreadId, normalizedTurnId);
     const runtime = await createRuntime();
     const session = await runtime.getSession(normalizedSessionId);
     const turn = turnState(session);
     if (!codexAppServerTurnCanReceiveProviderCompletion(turn, normalizedThreadId, normalizedTurnId)) {
-      codexAppServerProcessedTurns.delete(key);
-      codexAppServerFinalizedTurns.add(key);
-      cleanupCodexAppServerUntrackedTurn(normalizedThreadId, normalizedTurnId);
+      journal.processedTurns.delete(key);
+      output.finalizedTurns.add(key);
+      output.cleanupUntrackedTurn(normalizedThreadId, normalizedTurnId);
       debugLog("appServerAgentResult.processedSettlementStale", {
         currentState: turn.state,
         currentStatus: turn.status,
@@ -82,14 +62,14 @@ export function createCodexResultSettlement({ journal, output, createRuntime, pu
         reason: "stale_turn_state"
       };
     }
-    await markCodexAppServerTurnIdle(normalizedSessionId, {
+    await journal.markTurnIdle(normalizedSessionId, {
       status,
       threadId: normalizedThreadId,
       turnId: normalizedTurnId
     });
-    codexAppServerProcessedTurns.delete(key);
-    codexAppServerFinalizedTurns.add(key);
-    cleanupCodexAppServerUntrackedTurn(normalizedThreadId, normalizedTurnId);
+    journal.processedTurns.delete(key);
+    output.finalizedTurns.add(key);
+    output.cleanupUntrackedTurn(normalizedThreadId, normalizedTurnId);
     return result;
   }
 
@@ -100,7 +80,7 @@ export function createCodexResultSettlement({ journal, output, createRuntime, pu
     const normalizedSessionId = normalizeText(sessionId);
     const normalizedThreadId = normalizeText(threadId);
     const normalizedTurnId = normalizeText(turnId);
-    const key = codexAppServerResultFinalizationKey(normalizedSessionId, normalizedThreadId, normalizedTurnId);
+    const key = output.resultFinalizationKey(normalizedSessionId, normalizedThreadId, normalizedTurnId);
     if (!normalizedSessionId || !normalizedThreadId || !normalizedTurnId) {
       return {
         ok: false,
@@ -108,7 +88,7 @@ export function createCodexResultSettlement({ journal, output, createRuntime, pu
         reason: "missing_turn"
       };
     }
-    if (codexAppServerProcessedTurns.has(key)) {
+    if (journal.processedTurns.has(key)) {
       return settleCodexAppServerProcessedTurn(
         normalizedSessionId,
         normalizedThreadId,
@@ -118,7 +98,7 @@ export function createCodexResultSettlement({ journal, output, createRuntime, pu
         }
       );
     }
-    if (codexAppServerFinalizedTurns.has(key)) {
+    if (output.finalizedTurns.has(key)) {
       return {
         ok: true,
         processed: true,
@@ -139,7 +119,7 @@ export function createCodexResultSettlement({ journal, output, createRuntime, pu
         normalizedTurnId
       );
       if (processedEvent) {
-        codexAppServerProcessedTurns.add(key);
+        journal.processedTurns.add(key);
         return settleCodexAppServerProcessedTurn(
           normalizedSessionId,
           normalizedThreadId,
@@ -162,8 +142,8 @@ export function createCodexResultSettlement({ journal, output, createRuntime, pu
         };
       }
       if (!codexAppServerTurnCanReceiveProviderCompletion(turn, normalizedThreadId, normalizedTurnId)) {
-        codexAppServerFinalizedTurns.add(key);
-        cleanupCodexAppServerUntrackedTurn(normalizedThreadId, normalizedTurnId);
+        output.finalizedTurns.add(key);
+        output.cleanupUntrackedTurn(normalizedThreadId, normalizedTurnId);
         debugLog("appServerAgentResult.stale", {
           currentState: turn.state,
           currentStatus: turn.status,
@@ -179,7 +159,7 @@ export function createCodexResultSettlement({ journal, output, createRuntime, pu
           reason: "stale_turn_state"
         };
       }
-      const result = await submitCodexAppServerAssistantResult(
+      const result = await output.submitAssistantResult(
         normalizedSessionId,
         normalizedThreadId,
         normalizedTurnId,
@@ -188,7 +168,7 @@ export function createCodexResultSettlement({ journal, output, createRuntime, pu
         }
       );
       if (result?.processed) {
-        codexAppServerProcessedTurns.add(key);
+        journal.processedTurns.add(key);
         await recordCodexAppServerProcessedResult(
           runtime,
           normalizedSessionId,
@@ -237,7 +217,7 @@ export function createCodexResultSettlement({ journal, output, createRuntime, pu
     }
     const runtime = await createRuntime();
     const session = await runtime.getSession(sessionId);
-    return codexAppServerTurnResultWasProcessed(session, threadId, turnId)
+    return journal.turnResultWasProcessed(session, threadId, turnId)
       ? result
       : {
           ...result,
@@ -280,7 +260,7 @@ export function createCodexResultSettlement({ journal, output, createRuntime, pu
         };
         return currentSession;
       }
-      if (codexAppServerTurnWasCompleted(currentSession, normalizedThreadId, normalizedTurnId)) {
+      if (journal.turnWasCompleted(currentSession, normalizedThreadId, normalizedTurnId)) {
         outcome = {
           ok: true,
           processed: false,
@@ -309,7 +289,7 @@ export function createCodexResultSettlement({ journal, output, createRuntime, pu
         turnId: normalizedTurnId,
         updatedAt
       });
-      const currentInputSource = codexAppServerRunInputSource(codexAppServerAgentRun(currentSession));
+      const currentInputSource = journal.runInputSource(codexAppServerAgentRun(currentSession));
       if (currentInputSource) {
         runPatch.inputSource = currentInputSource;
       }
@@ -340,35 +320,35 @@ export function createCodexResultSettlement({ journal, output, createRuntime, pu
       return outcome;
     }
 
-    clearCodexAppServerFinalizingTimer(
+    journal.clearFinalizingTimer(
       normalizedSessionId,
       normalizedThreadId,
       previousTurnId
     );
-    codexAppServerCompletedTurns.add(codexAppServerTurnKey(
+    journal.completedTurns.add(codexAppServerTurnKey(
       normalizedThreadId,
       previousTurnId
     ));
-    const previousResultKey = codexAppServerResultFinalizationKey(
+    const previousResultKey = output.resultFinalizationKey(
       normalizedSessionId,
       normalizedThreadId,
       previousTurnId
     );
-    codexAppServerProcessedTurns.delete(previousResultKey);
-    codexAppServerFinalizedTurns.add(previousResultKey);
+    journal.processedTurns.delete(previousResultKey);
+    output.finalizedTurns.add(previousResultKey);
     try {
-      await flushCodexAppServerReasoningPersist(
+      await output.flushReasoningPersist(
         normalizedSessionId,
         normalizedThreadId,
         previousTurnId
       );
-      const previousAssistantResult = readCodexAppServerFinalAssistantResult(
+      const previousAssistantResult = output.readFinalAssistantResult(
         normalizedSessionId,
         normalizedThreadId,
         previousTurnId
       );
       if (previousAssistantResult?.text) {
-        await persistCodexAppServerAssistantReply(
+        await output.persistAssistantReply(
           runtime,
           normalizedSessionId,
           previousAssistantResult
@@ -383,9 +363,9 @@ export function createCodexResultSettlement({ journal, output, createRuntime, pu
         turnId: normalizedTurnId
       });
     }
-    cleanupCodexAppServerUntrackedTurn(normalizedThreadId, previousTurnId);
+    output.cleanupUntrackedTurn(normalizedThreadId, previousTurnId);
     await publish(normalizedSessionId, {
-      payload: codexAppServerAgentRunRealtimePayload(runPatch),
+      payload: journal.agentRunRealtimePayload(runPatch),
       reason: "codex-app-server-turn-active",
       session: updatedSession
     });
@@ -396,7 +376,7 @@ export function createCodexResultSettlement({ journal, output, createRuntime, pu
       threadId: normalizedThreadId,
       turnId: normalizedTurnId
     });
-    clearCodexAppServerActiveTimer(normalizedSessionId);
+    journal.clearActiveTimer(normalizedSessionId);
     return outcome;
   }
 

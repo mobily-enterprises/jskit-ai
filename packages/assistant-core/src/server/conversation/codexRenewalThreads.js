@@ -214,7 +214,7 @@ export async function resumeExactCodexAppServerThread({
   });
 }
 
-/** Preserve the original baseline → create/adopt → durable identity → first-read order. */
+/** Starts a thread in order: baseline, create or adopt, durable identity, first read. */
 export async function startFreshCodexAppServerThread({
   provider,
   settings,

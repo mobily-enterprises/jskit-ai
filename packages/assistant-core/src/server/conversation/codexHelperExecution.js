@@ -74,22 +74,11 @@ export async function sendPreparedCodexAppServerHelperTurn(provider, prepared, h
   });
 }
 
-// One invocation retains its original mutable record while the shared ownership
-// facet retains all durable state, locks and cross-operation coordination.
+// One invocation holds its own mutable record; the shared owner holds all
+// durable state, locks and cross-operation coordination.
 export async function prepareDetachedCodexHelperThread(owner, scope, preparation, {
   applicationName = "Application"
 } = {}) {
-  const {
-    withProjectOperation: withCodexAppServerHelperProjectOperation,
-    remember: rememberCodexAppServerHelperThread,
-    update: updateCodexAppServerHelperThread,
-    remove: removeCodexAppServerHelperThread,
-    retire: retireCodexAppServerHelperThread,
-    ownershipError: codexAppServerHelperOwnershipError,
-    cleanupError: codexAppServerHelperThreadCleanupError,
-    key: codexAppServerHelperThreadKey,
-    turnStarts: codexAppServerHelperTurnStarts
-  } = owner;
   const {
     executionProfile, onRetired, projectRuntimeRoot, provider, sessionId,
     requestedThreadId, workdir
@@ -106,7 +95,7 @@ export async function prepareDetachedCodexHelperThread(owner, scope, preparation
     sessionId = "",
     workdir = ""
   } = {}) {
-    return withCodexAppServerHelperProjectOperation(projectRuntimeRoot, async () => {
+    return owner.withProjectOperation(projectRuntimeRoot, async () => {
       const projectContextRoot = normalizeText(scope.projectContextRoot);
       let thread = null;
       try {
@@ -122,7 +111,7 @@ export async function prepareDetachedCodexHelperThread(owner, scope, preparation
           error?.codexAppServerHelperThreadCleanupRequired === true &&
           failedThreadId
         ) {
-          await rememberCodexAppServerHelperThread({
+          await owner.remember({
             executionProfile,
             lifecycle: CODEX_HELPER_THREAD_LIFECYCLES.CLEANUP_REQUIRED,
             projectContextRoot,
@@ -140,7 +129,7 @@ export async function prepareDetachedCodexHelperThread(owner, scope, preparation
         throw new Error("Codex app-server did not return a helper thread id.");
       }
       try {
-        const record = await rememberCodexAppServerHelperThread({
+        const record = await owner.remember({
           executionProfile,
           lifecycle: CODEX_HELPER_THREAD_LIFECYCLES.STARTING_TURN,
           onRetired,
@@ -156,7 +145,7 @@ export async function prepareDetachedCodexHelperThread(owner, scope, preparation
         try {
           await deleteCodexAppServerThread({ provider, threadId });
         } catch (cleanupError) {
-          const failure = codexAppServerHelperOwnershipError(
+          const failure = owner.ownershipError(
             `${applicationName} could not persist or retire a newly created low-cost assistant thread.`,
             {
               cleanupError: errorMessage(cleanupError),
@@ -175,7 +164,7 @@ export async function prepareDetachedCodexHelperThread(owner, scope, preparation
 
   if (requestedThreadId) {
     try {
-      helperThreadRecord = await updateCodexAppServerHelperThread(
+      helperThreadRecord = await owner.update(
         helperThreadRecord,
         {
           lifecycle: CODEX_HELPER_THREAD_LIFECYCLES.STARTING_TURN,
@@ -192,30 +181,30 @@ export async function prepareDetachedCodexHelperThread(owner, scope, preparation
     } catch (error) {
       if (error?.codexAppServerHelperThreadRetired === true) {
         try {
-          await removeCodexAppServerHelperThread(helperThreadRecord);
+          await owner.remove(helperThreadRecord);
         } catch (ledgerError) {
-          throw codexAppServerHelperThreadCleanupError(
+          throw owner.cleanupError(
             helperThreadRecord,
             ledgerError
           );
         }
       } else if (error?.codexAppServerHelperThreadCleanupRequired === true) {
         try {
-          helperThreadRecord = await updateCodexAppServerHelperThread(
+          helperThreadRecord = await owner.update(
             helperThreadRecord,
             {
               lifecycle: CODEX_HELPER_THREAD_LIFECYCLES.CLEANUP_REQUIRED
             }
           );
         } catch (ledgerError) {
-          throw codexAppServerHelperThreadCleanupError(
+          throw owner.cleanupError(
             helperThreadRecord,
             ledgerError
           );
         }
       } else {
         try {
-          await retireCodexAppServerHelperThread(helperThreadRecord);
+          await owner.retire(helperThreadRecord);
         } catch (cleanupError) {
           cleanupError.cause = error;
           throw cleanupError;
@@ -242,7 +231,7 @@ export async function prepareDetachedCodexHelperThread(owner, scope, preparation
     if (!helperThreadRecord) {
       return;
     }
-    await retireCodexAppServerHelperThread(helperThreadRecord);
+    await owner.retire(helperThreadRecord);
   };
 
   async function dispatch(threadId, failDispatch) {
@@ -251,13 +240,13 @@ export async function prepareDetachedCodexHelperThread(owner, scope, preparation
     let status = "";
     let helperTurnStart = null;
     try {
-      const helperThreadKey = codexAppServerHelperThreadKey(helperThreadRecord);
+      const helperThreadKey = owner.key(helperThreadRecord);
       helperTurnStart = (async () => {
         const currentDelivery = await sendPreparedCodexAppServerHelperTurn(
           provider, preparation.turn(threadId), preparation.isolation
         );
         const { turnId: currentTurnId, status: currentStatus } = codexAppServerDeliveredTurn(currentDelivery);
-        helperThreadRecord = await updateCodexAppServerHelperThread(
+        helperThreadRecord = await owner.update(
           helperThreadRecord,
           {
             lifecycle: CODEX_HELPER_THREAD_LIFECYCLES.ACTIVE,
@@ -270,15 +259,15 @@ export async function prepareDetachedCodexHelperThread(owner, scope, preparation
           turnId: currentTurnId
         };
       })();
-      codexAppServerHelperTurnStarts.set(helperThreadKey, helperTurnStart);
+      owner.turnStarts.set(helperThreadKey, helperTurnStart);
       ({ delivery, status, turnId } = await helperTurnStart);
     } catch (error) {
       await failDispatch(error);
     } finally {
       if (helperTurnStart) {
-        const helperThreadKey = codexAppServerHelperThreadKey(helperThreadRecord);
-        if (codexAppServerHelperTurnStarts.get(helperThreadKey) === helperTurnStart) {
-          codexAppServerHelperTurnStarts.delete(helperThreadKey);
+        const helperThreadKey = owner.key(helperThreadRecord);
+        if (owner.turnStarts.get(helperThreadKey) === helperTurnStart) {
+          owner.turnStarts.delete(helperThreadKey);
         }
       }
     }
@@ -287,13 +276,13 @@ export async function prepareDetachedCodexHelperThread(owner, scope, preparation
 
   async function complete() {
     try {
-      helperThreadRecord = await updateCodexAppServerHelperThread(helperThreadRecord, {
+      helperThreadRecord = await owner.update(helperThreadRecord, {
         lifecycle: CODEX_HELPER_THREAD_LIFECYCLES.READY,
         turnId: ""
       });
     } catch (error) {
       try {
-        await retireCodexAppServerHelperThread(helperThreadRecord);
+        await owner.retire(helperThreadRecord);
       } catch (cleanupError) {
         cleanupError.cause = error;
         throw cleanupError;

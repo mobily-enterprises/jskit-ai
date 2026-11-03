@@ -1,7 +1,7 @@
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 /**
- * Cleanup of the existing run/provider/Helper owners. The application keeps
+ * Cleanup of the run, provider and Helper owners. The application keeps
  * its authority and storage projections; all native coordination stays here:
  * one closure per session key (shared with the runtime lifecycle, which drains
  * them on shutdown) and the private record of which closures are restricted.

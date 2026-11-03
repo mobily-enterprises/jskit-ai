@@ -34,11 +34,6 @@ export function createCodexObservationControl({
   errorPrefix
 }) {
   const { codexAppServerConversations } = conversations;
-  const { readAgentRunForSession: readCodexAppServerAgentRunForSession } = output;
-  const {
-    agentRunRealtimePayload: codexAppServerAgentRunRealtimePayload,
-    clearActiveTimer: clearCodexAppServerActiveTimer
-  } = journal;
 
   function assertCodexAppServerThreadCanResume(run, threadId) {
     if (run?.providerThreadId === threadId && run.providerStatus === "observation_lost") {
@@ -101,7 +96,7 @@ export function createCodexObservationControl({
         if (managed.threadId && (!threadIds || threadIds.includes(managed.threadId))) {
           const runtime = await createRuntime();
           stoppedRun = await runtime.store.mutateSession(sessionId, async () => {
-            const run = await readCodexAppServerAgentRunForSession(runtime.store, sessionId);
+            const run = await output.readAgentRunForSession(runtime.store, sessionId);
             if (run?.providerThreadId !== managed.threadId || run.providerStatus !== "observation_lost") return null;
             const stopped = await runtime.store.writeAgentRunEvent(sessionId, CODEX_APP_SERVER_AGENT_RUN_ID, {
               event: { kind: "codex-observation-stopped", state: CODEX_APP_SERVER_RUN_STATE.INTERRUPTED },
@@ -129,7 +124,7 @@ export function createCodexObservationControl({
         }
         if (stoppedRun) {
           await publish(sessionId, {
-            payload: { ...codexAppServerAgentRunRealtimePayload(stoppedRun), conversationStream },
+            payload: { ...journal.agentRunRealtimePayload(stoppedRun), conversationStream },
             reason: "codex-observation-stopped"
           });
         }
@@ -159,7 +154,7 @@ export function createCodexObservationControl({
     if (!codexAppServerTurnStatusIsSuccessfulComplete(status)) return current;
 
     const stoppedRun = await runtime.store.mutateSession(sessionId, async () => {
-      const latest = await readCodexAppServerAgentRunForSession(runtime.store, sessionId);
+      const latest = await output.readAgentRunForSession(runtime.store, sessionId);
       if (JSON.stringify(latest) !== JSON.stringify(codexAppServerAgentRun(current))) return null;
       return runtime.store.writeAgentRunEvent(sessionId, CODEX_APP_SERVER_AGENT_RUN_ID, {
         event: { kind: "codex-observation-stop-recovered", message: "Codex confirmed that the conversation is stopped." },
@@ -173,10 +168,10 @@ export function createCodexObservationControl({
       });
     });
     if (stoppedRun) {
-      clearCodexAppServerActiveTimer(sessionId);
+      journal.clearActiveTimer(sessionId);
       await publish(sessionId, {
         payload: {
-          ...codexAppServerAgentRunRealtimePayload(stoppedRun),
+          ...journal.agentRunRealtimePayload(stoppedRun),
           conversationStream: runtime.store.clearConversationStream(sessionId)
         },
         reason: "codex-observation-stop-recovered"

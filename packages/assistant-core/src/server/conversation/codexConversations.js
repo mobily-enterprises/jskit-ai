@@ -438,8 +438,8 @@ export function createCodexConversationCommands({
             ok: false,
           };
         }
-        // Do not evaluate native preparation until the original duplicate/active
-        // checks and Helper isolation capability checks have run.
+        // Native preparation runs only after the duplicate and active-turn
+        // checks and the Helper isolation capability checks.
         return startPreparedCodexAppServerConversationTurn(sessionId, input, {
           executionProfile: execution.executionProfile,
           helperIsolation: conversationPreparation.isolation,

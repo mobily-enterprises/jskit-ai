@@ -81,7 +81,6 @@ export function createCodexHelperThreadLifecycle({
 }) {
   const codexAppServerProviders = providerOwner.providers;
   const {
-    createCodexHelperThreadLedger: codexHelperThreadLedgerFactory,
     defineCodexHelperThreadRecord
   } = ledgerOwner;
   const codexAppServerHelperThreads = new Map();
@@ -192,7 +191,7 @@ export function createCodexHelperThreadLifecycle({
     const normalizedProjectRuntimeRoot = normalizeText(projectRuntimeRoot);
     let ledger = codexAppServerHelperThreadLedgers.get(normalizedProjectRuntimeRoot);
     if (!ledger) {
-      ledger = codexHelperThreadLedgerFactory({
+      ledger = ledgerOwner.createCodexHelperThreadLedger({
         projectRuntimeRoot: normalizedProjectRuntimeRoot
       });
       codexAppServerHelperThreadLedgers.set(normalizedProjectRuntimeRoot, ledger);

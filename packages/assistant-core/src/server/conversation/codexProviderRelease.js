@@ -156,7 +156,7 @@ export function createCodexProviderRelease({
         providerKey, providerOwners.get(providerKey)?.providerOptions
       );
       if (shared) throw error;
-      // The caller's existing shutdown must instead prove process exit.
+      // The caller's own shutdown proves process exit instead.
     }
   }
 

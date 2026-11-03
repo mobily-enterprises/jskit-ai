@@ -41,7 +41,7 @@ export function createCodexMessageCommands({
   observer,
   delivery,
   promptDispatch,
-  promptDeliveries: codexAppServerPromptDeliveries,
+  promptDeliveries,
   createRuntime,
   debugError,
   debugLog,
@@ -56,34 +56,11 @@ export function createCodexMessageCommands({
   turnState
 }) {
   const {
-    submitAssistantResult: submitCodexAppServerAssistantResult
-  } = output;
-  const {
-    claimMessageStart: claimCodexAppServerMessageStart,
-    markTurnIdle: markCodexAppServerTurnIdle
-  } = journal;
-  const {
-    markTurnActive: markCodexAppServerTurnActive
-  } = recovery;
-  const {
-    reconcileThreadStatus: reconcileCodexAppServerThreadStatus
-  } = threadStatus;
-  const {
     codexAppServerMessageContext,
     codexAppServerSessionObserverOptions,
     sessionConnection,
     rememberManagedSession
   } = selection;
-  const {
-    subscribeEvents: subscribeCodexAppServerEvents
-  } = observer;
-  const {
-    writeDeliveredUserMessage: writeCodexAppServerDeliveredUserMessage
-  } = delivery;
-  const {
-    startTurn: startCodexAppServerTurn,
-    steerTurn: steerCodexAppServerTurn
-  } = promptDispatch;
 
   async function selectCodexAppServerMessageTurn(sessionId, { messageId = "", startedAt = Date.now() } = {}, context = {}) {
     if (providerSessions) context = codexAppServerMessageContext(sessionId, context);
@@ -93,7 +70,7 @@ export function createCodexMessageCommands({
     if (
       turn.state === "starting" &&
       !turn.turnId &&
-      !codexAppServerPromptDeliveries.has(namespace(sessionId))
+      !promptDeliveries.has(namespace(sessionId))
     ) {
       const abandonedClaim = await recoverAdmission(
         runtime,
@@ -109,7 +86,7 @@ export function createCodexMessageCommands({
           code: `${errorPrefix}codex_observation_lost`
         });
       }
-      const recovered = await submitCodexAppServerAssistantResult(sessionId, turn.threadId, turn.turnId, { recoverFromProvider: true });
+      const recovered = await output.submitAssistantResult(sessionId, turn.threadId, turn.turnId, { recoverFromProvider: true });
       if (recovered.reason === "error") throw new Error(recovered.error);
       return { value: codexAppServerMessageRequiresNewTurn({ reason: "observation_lost", threadId: turn.threadId, turnId: turn.turnId }), session: currentSession };
     }
@@ -143,7 +120,7 @@ export function createCodexMessageCommands({
       sessionId
     });
     try {
-      await reconcileCodexAppServerThreadStatus(sessionId, provider, threadId, {
+      await threadStatus.reconcileThreadStatus(sessionId, provider, threadId, {
         source: "message_delivery"
       });
     } catch (error) {
@@ -225,7 +202,7 @@ export function createCodexMessageCommands({
       const thread = await ensureCodexAppServerThread({
         ...(source.preparation || facility.preparation(currentSession)),
         ...(preparation.applicationTools ? { applicationTools: preparation.applicationTools, providerReady: preparation.providerReady } : {}),
-        observeThread: threadId => subscribeCodexAppServerEvents(sessionId, provider, threadId, observerOptions),
+        observeThread: threadId => observer.subscribeEvents(sessionId, provider, threadId, observerOptions),
         provider,
         workdir: source.workdir ?? workdir
       });
@@ -249,7 +226,7 @@ export function createCodexMessageCommands({
         durationMs: Date.now() - startedAt, messageId, sessionId, stage: "startup-ready"
       });
       if (!Object.hasOwn(facility, "failureThreadId")) prepared.activeThreadId = thread.threadId;
-      subscribeCodexAppServerEvents(sessionId, provider, thread.threadId, observerOptions);
+      observer.subscribeEvents(sessionId, provider, thread.threadId, observerOptions);
       if (connection) {
         rememberManagedSession(sessionId, providerOptions, {
           executionRoot: prepared.executionRoot, workdir: prepared.workdir, threadId: thread.threadId
@@ -258,8 +235,8 @@ export function createCodexMessageCommands({
       if (facility.ready) await facility.ready();
       return { preparedSession, provider, providerAlreadyAvailable, providerOptions, thread, ...settings };
     } finally {
-      // Standalone preparation historically retained the exact binding on
-      // failure as well as success; Main records it after the startup gate.
+      // Standalone preparation keeps the exact binding on failure as well as
+      // success; Main records it after the startup gate.
       if (Object.hasOwn(facility, "failureThreadId")) prepared.activeThreadId = facility.failureThreadId;
     }
   }
@@ -294,7 +271,7 @@ export function createCodexMessageCommands({
       sessionId
     });
 
-    const claim = await claimCodexAppServerMessageStart(runtime, sessionId, messageId);
+    const claim = await journal.claimCodexAppServerMessageStart(runtime, sessionId, messageId);
     if (!claim?.claimed) {
       debugLog("appServerPrompt.claimObserved", {
         code: String(claim?.response?.value?.code || ""),
@@ -310,7 +287,7 @@ export function createCodexMessageCommands({
 
     const normalizedSessionId = normalizeText(sessionId);
     const promptDeliveryKey = namespace(normalizedSessionId);
-    codexAppServerPromptDeliveries.add(promptDeliveryKey);
+    promptDeliveries.add(promptDeliveryKey);
     const prepared = {
       ...context, agentSettings, actorContext, messageId, userRequest, startedAt,
       activeThreadId: ""
@@ -320,12 +297,12 @@ export function createCodexMessageCommands({
     try {
       Object.assign(prepared, await prepareCodexAppServerMessageThread(sessionId, input, prepared, prepare));
       const { provider, providerAlreadyAvailable, thread } = prepared;
-      await markCodexAppServerTurnActive(sessionId, {
+      await recovery.markTurnActive(sessionId, {
         status: "starting",
         threadId: thread.threadId
       });
       const prompt = await prepare.prepareMessage(input, prepared, { starting: true });
-      const started = await startCodexAppServerTurn(sessionId, input, {
+      const started = await promptDispatch.startTurn(sessionId, input, {
         runtime, provider, threadId: thread.threadId, messageId, renderedPrompt: prompt.renderedPrompt, turnMetadata,
         preparedInput: options.preparedInput,
         get turnSettings() { return prompt.turnSettings; }
@@ -353,7 +330,7 @@ export function createCodexMessageCommands({
       }, session: currentSession, nativeIdentity: { threadId: thread.threadId, turnId: deliveredTurnId } };
     } catch (error) {
       if (!turnFailureHandled) {
-        await markCodexAppServerTurnIdle(sessionId, {
+        await journal.markTurnIdle(sessionId, {
           error: codexAppServerErrorMessage(error, "Codex app-server prompt delivery failed."),
           status: "failed",
           threadId: prepared.activeThreadId
@@ -361,7 +338,7 @@ export function createCodexMessageCommands({
       }
       return await prepare.finishMessage(input, prepared, { error });
     } finally {
-      codexAppServerPromptDeliveries.delete(promptDeliveryKey);
+      promptDeliveries.delete(promptDeliveryKey);
     }
   }
 
@@ -413,7 +390,7 @@ export function createCodexMessageCommands({
     const policy = await prepare.prepareMessage(input, prepared, { starting: false, selected });
     if (policy) return policy;
     const clientUserMessageId = messageId || `${messageIdPrefix}${crypto.randomUUID()}`;
-    return steerCodexAppServerTurn(sessionId, input, {
+    return promptDispatch.steerTurn(sessionId, input, {
       runtime, provider, threadId, turnId, message, displayMessage, messageId, clientUserMessageId, turnMetadata,
       preparedInput: options.preparedInput
     });
@@ -441,15 +418,15 @@ export function createCodexMessageCommands({
       actorContext: options.actorContext || null,
       preparedInput: options.preparedInput
     }, prepare);
-    // The original unavailable-worktree return starts its policy operation,
-    // releases the prompt marker in finally, then awaits the returned value.
+    // An unavailable-worktree result starts its policy operation, releases
+    // the prompt marker in finally, and then this awaits the returned value.
     started.value = await started.value;
     if (started.value?.ok === false || started.value?.delivered === false) {
       return started;
     }
     const runtime = await createRuntime(sessionId);
     const displayMessage = codexAppServerMessageDisplayText(input, message);
-    const conversationTurn = await writeCodexAppServerDeliveredUserMessage(
+    const conversationTurn = await delivery.writeDeliveredUserMessage(
       runtime,
       sessionId,
       displayMessage || message,

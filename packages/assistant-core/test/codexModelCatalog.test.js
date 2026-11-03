@@ -111,8 +111,8 @@ function liveCatalogFixture() {
   return { calls, captures, provider, readCatalog };
 }
 
-// These two cases carry the original public lifecycle assertions. Their public
-// counterparts retain host acquisition, restoration and application integration.
+// Helper model discovery per connection generation. Host acquisition,
+// restoration and application integration belong to the application's tests.
 test("helper model discovery uses one live provider catalog per connection generation", async () => {
   const { calls, provider, readCatalog } = liveCatalogFixture();
   const first = await readCatalog(provider);
@@ -281,8 +281,7 @@ function chatCatalogFixture(t, { resources = null } = {}) {
   return { owner, captures, readCatalog, retainProvider };
 }
 
-// Carried from the original public chat catalog tests. Only the application
-// controller fixture becomes the existing native provider owner.
+// Chat model discovery through a native provider owner.
 test("chat model discovery reuses a resident provider without closing it", async t => {
   const { captures, readCatalog, retainProvider } = chatCatalogFixture(t);
   await retainProvider();

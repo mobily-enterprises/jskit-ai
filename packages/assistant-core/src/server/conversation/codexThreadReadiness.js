@@ -34,23 +34,11 @@ export function createCodexThreadReadiness({
     ensureSessionProvider,
     rememberManagedSession
   } = selection;
-  const {
-    eventSubscriptionKey: codexAppServerEventSubscriptionKey,
-    eventSubscriptionIsCurrent: codexAppServerEventSubscriptionIsCurrent,
-    subscribeEvents: subscribeCodexAppServerEvents
-  } = observer;
-  const {
-    reconcileThreadStatus: reconcileCodexAppServerThreadStatus,
-    reconcileLoadedThreadStatus: reconcileCodexAppServerLoadedThreadStatus
-  } = threadStatus;
-  const {
-    recoverActiveTurn: recoverCodexAppServerActiveTurn
-  } = recovery;
 
   async function ensureCodexAppServerThreadReady(sessionId, context, preparation) {
     const { runtime, session, workdir } = context;
     // Runtime recovery may await a disconnect callback that writes session
-    // state. This acquisition stays outside the original startup gate.
+    // state. This acquisition stays outside the startup gate.
     const activeProvider = await ensureCodexAppServerProviderForActiveTurn(session, preparation.managedIdentity);
     let providerOptions = activeProvider?.providerOptions;
     if (!providerOptions) {
@@ -61,19 +49,19 @@ export function createCodexThreadReadiness({
     const { currentSession: preparedSession, thread } = await preparation.gate(async currentSession => {
       const thread = await ensureCodexAppServerThread({
         ...preparation.preparation(currentSession),
-        observeThread: threadId => subscribeCodexAppServerEvents(sessionId, provider, threadId,
+        observeThread: threadId => observer.subscribeEvents(sessionId, provider, threadId,
           codexAppServerSessionObserverOptions(sessionId, providerOptions)),
         provider,
         workdir
       });
       return { currentSession, thread };
     });
-    subscribeCodexAppServerEvents(sessionId, provider, thread.threadId,
+    observer.subscribeEvents(sessionId, provider, thread.threadId,
       codexAppServerSessionObserverOptions(sessionId, providerOptions));
     rememberManagedSession(sessionId, providerOptions, {
       executionRoot: context.executionRoot, workdir: context.workdir, threadId: thread.threadId
     });
-    await reconcileCodexAppServerThreadStatus(sessionId, provider, thread.threadId, {
+    await threadStatus.reconcileThreadStatus(sessionId, provider, thread.threadId, {
       failUnconfirmedTrackedTurn: true,
       observeLatestTurn: true,
       requireTrackedTurn: true,
@@ -82,7 +70,7 @@ export function createCodexThreadReadiness({
     const ready = await preparation.ready(preparedSession);
     let currentSession = await runtime.getSession(sessionId);
     if (turnState(currentSession).state === "starting") {
-      currentSession = await recoverCodexAppServerActiveTurn(sessionId, {
+      currentSession = await recovery.recoverActiveTurn(sessionId, {
         provider,
         retryOnError: false,
         runtime
@@ -231,25 +219,25 @@ export function createCodexThreadReadiness({
       if (controls?.recovered) providerThread = await codexAppServerReadThreadStatus(provider, threadId);
     } catch (error) {
       current.assertCurrent(session);
-      // Retain the existing stop owner and its visible recovery state. Do not
+      // The stop owner keeps its visible recovery state. This does not
       // spend automatic goal turns or repeatedly probe a known failed binding.
       void Promise.resolve(provider.failObservation(error)).catch(() => null);
       throw error;
     }
     current.assertCurrent(session);
     const nativeStatus = codexAppServerThreadRawValue(providerThread).status;
-    const subscriptionKey = codexAppServerEventSubscriptionKey(
+    const subscriptionKey = observer.eventSubscriptionKey(
       providerKey,
       threadId
     );
-    const subscriptionIsCurrent = codexAppServerEventSubscriptionIsCurrent(subscriptionKey, provider);
+    const subscriptionIsCurrent = observer.eventSubscriptionIsCurrent(subscriptionKey, provider);
     if (!reconnect && (
       nativeStatus === "notLoaded" || nativeStatus?.type === "notLoaded" || !subscriptionIsCurrent
     )) {
       return { ok: true, requiresPreparation: true };
     }
     if (!subscriptionIsCurrent) {
-      subscribeCodexAppServerEvents(
+      observer.subscribeEvents(
         sessionId,
         provider,
         threadId,
@@ -258,7 +246,7 @@ export function createCodexThreadReadiness({
       await provider.resumeThread(threadId, {
         cwd: normalizeText(connection.workdir)
       });
-      return reconcileCodexAppServerLoadedThreadStatus(
+      return threadStatus.reconcileLoadedThreadStatus(
         sessionId,
         provider,
         threadId,
@@ -284,7 +272,7 @@ export function createCodexThreadReadiness({
       )) ||
       (!providerIsActive && trackedTurn.active)
     ) {
-      return reconcileCodexAppServerThreadStatus(
+      return threadStatus.reconcileThreadStatus(
         sessionId,
         provider,
         threadId,
@@ -327,7 +315,7 @@ export function createCodexThreadReadiness({
     const { runtime, provider, providerKey, threadId } = context;
     const loadedThreadIds = await codexAppServerLoadedThreadIds(provider);
     if (!loadedThreadIds?.has(threadId)) return null;
-    const subscription = subscribeCodexAppServerEvents(
+    const subscription = observer.subscribeEvents(
       sessionId,
       provider,
       threadId,
@@ -338,7 +326,7 @@ export function createCodexThreadReadiness({
       await provider.resumeThread(threadId, context.resumeOptions);
     }
     context.remember();
-    await reconcileCodexAppServerLoadedThreadStatus(
+    await threadStatus.reconcileLoadedThreadStatus(
       sessionId,
       provider,
       threadId,
@@ -354,7 +342,7 @@ export function createCodexThreadReadiness({
     });
     let loadedSession = await runtime.getSession(sessionId);
     if (turnState(loadedSession).state === "starting") {
-      loadedSession = await recoverCodexAppServerActiveTurn(sessionId, {
+      loadedSession = await recovery.recoverActiveTurn(sessionId, {
         provider,
         retryOnError: false,
         runtime

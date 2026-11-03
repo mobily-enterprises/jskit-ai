@@ -304,8 +304,8 @@ export function createCodexAppServerProviderOwner({
       for (const [threadId, binding] of provider.threadEnvironments || []) {
         const boundEnv = binding.params.config?.shell_environment_policy?.set || {};
         if (!Object.entries(boundEnv).some(([key, value]) => key.endsWith("_COMMAND_SOCKET") && value === event.socketPath)) continue;
-        // Keep listener replacement and rejected command recovery on the
-        // provider's original per-thread operation.
+        // Listener replacement and rejected command recovery stay on the
+        // provider's per-thread operation that is already running.
         if (provider.threadEnvironmentTasks?.has(threadId)) continue;
         void prepared.runInContext(() => provider.ensureThreadControls(threadId))
           .catch(error => provider.failObservation(error))

@@ -32,30 +32,15 @@ export function createCodexPromptDispatch({
   steerFailedCode,
   turnState
 }) {
-  const { splitReasoningTurn: splitCodexAppServerReasoningTurn } = output;
-  const {
-    markTurnIdle: markCodexAppServerTurnIdle,
-    writeUserMessageOwnership: writeCodexAppServerUserMessageOwnership
-  } = journal;
-  const {
-    stopTurnWithProviderFailure: stopCodexAppServerTurnWithProviderFailure,
-    completeTurn: completeCodexAppServerTurn,
-    markTurnActive: markCodexAppServerTurnActive
-  } = recovery;
-  const { reconcileThreadStatus: reconcileCodexAppServerThreadStatus } = threadStatus;
-  const {
-    writeDeliveredUserMessage: writeCodexAppServerDeliveredUserMessage,
-    pendingUserMessage: pendingCodexAppServerUserMessage
-  } = delivery;
 
   async function startCodexAppServerTurn(sessionId, input = {}, context = {}) {
     const { runtime, provider, threadId, messageId, renderedPrompt, turnMetadata } = context;
     const { onPromptSending = notifyNoPromptSending, onPromptRejected = notifyNoPromptRejected } = input;
     let providerFailure = "";
-    let delivery = null;
+    let nativeDelivery = null;
     const promptSessionId = normalizeText(sessionId);
     const clientUserMessageId = messageId;
-    await writeCodexAppServerUserMessageOwnership(runtime.store, sessionId, clientUserMessageId, {
+    await journal.writeUserMessageOwnership(runtime.store, sessionId, clientUserMessageId, {
       eventKind: "codex-app-server-user-message-owned",
       owned: true
     });
@@ -68,32 +53,32 @@ export function createCodexPromptDispatch({
         provider,
         threadId
       }, context);
-      const receipt = pendingCodexAppServerUserMessage(promptSessionId, clientUserMessageId)?.receipt;
+      const receipt = delivery.pendingUserMessage(promptSessionId, clientUserMessageId)?.receipt;
       // An exact, persisted user-message receipt confirms delivery too.
       // Finish bookkeeping once; a late RPC reply must not hold admission
       // or change a turn that has already continued or completed.
-      delivery = receipt
+      nativeDelivery = receipt
         ? await Promise.race([response, receipt.promise.then((turn) => ({ turn }))])
         : await response;
     } catch (error) {
       if (Number.isInteger(error?.code) && error.code < 0) await onPromptRejected();
-      await writeCodexAppServerUserMessageOwnership(runtime.store, sessionId, clientUserMessageId, {
+      await journal.writeUserMessageOwnership(runtime.store, sessionId, clientUserMessageId, {
         eventKind: "codex-app-server-user-message-released",
         owned: false
       });
-      await markCodexAppServerTurnIdle(sessionId, {
+      await journal.markTurnIdle(sessionId, {
         error: codexAppServerErrorMessage(error, "Codex app-server prompt delivery failed."),
         status: "failed",
         threadId: threadId
       });
       return { error, turnFailureHandled: true };
     }
-    const { turnId: deliveredTurnId, status: deliveredTurnStatus } = codexAppServerDeliveredTurn(delivery);
+    const { turnId: deliveredTurnId, status: deliveredTurnStatus } = codexAppServerDeliveredTurn(nativeDelivery);
     if (!deliveredTurnId) {
       throw new Error("Codex app-server accepted the prompt without returning a turn id.");
     }
-    pendingCodexAppServerUserMessage(promptSessionId, clientUserMessageId)?.onNativeReceipt();
-    await markCodexAppServerTurnActive(sessionId, {
+    delivery.pendingUserMessage(promptSessionId, clientUserMessageId)?.onNativeReceipt();
+    await recovery.markTurnActive(sessionId, {
       requireTrackedTurn: true,
       status: "inProgress",
       threadId: threadId,
@@ -101,12 +86,12 @@ export function createCodexPromptDispatch({
     });
     if (codexAppServerTurnStatusIsProviderFailure(deliveredTurnStatus)) {
       providerFailure = `Codex turn ${deliveredTurnStatus}.`;
-      await stopCodexAppServerTurnWithProviderFailure(sessionId, threadId, deliveredTurnId, {
+      await recovery.stopTurnWithProviderFailure(sessionId, threadId, deliveredTurnId, {
         provider,
         status: deliveredTurnStatus
       });
     } else if (codexAppServerTurnStatusIsSuccessfulComplete(deliveredTurnStatus)) {
-      const completion = await completeCodexAppServerTurn(sessionId, threadId, deliveredTurnId, {
+      const completion = await recovery.completeTurn(sessionId, threadId, deliveredTurnId, {
         provider,
         status: deliveredTurnStatus
       });
@@ -114,14 +99,14 @@ export function createCodexPromptDispatch({
         providerFailure = normalizeText(completion.error) || "Codex completed, but its response could not be processed.";
       }
     }
-    return { delivery, deliveredTurnId, providerFailure };
+    return { delivery: nativeDelivery, deliveredTurnId, providerFailure };
   }
 
   async function steerCodexAppServerTurn(sessionId, input = {}, context = {}) {
     const { runtime, provider, threadId, turnId, message, displayMessage, messageId, clientUserMessageId, turnMetadata } = context;
     const { onPromptSending = notifyNoPromptSending, onPromptRejected = notifyNoPromptRejected } = input;
     let currentSession;
-    await writeCodexAppServerUserMessageOwnership(runtime.store, sessionId, clientUserMessageId, {
+    await journal.writeUserMessageOwnership(runtime.store, sessionId, clientUserMessageId, {
       eventKind: "codex-app-server-user-message-owned",
       owned: true
     });
@@ -132,11 +117,11 @@ export function createCodexPromptDispatch({
       turnId
     });
     async function recoverAfterSteerFailure(error = null) {
-      await writeCodexAppServerUserMessageOwnership(runtime.store, sessionId, clientUserMessageId, {
+      await journal.writeUserMessageOwnership(runtime.store, sessionId, clientUserMessageId, {
         eventKind: "codex-app-server-user-message-released",
         owned: false
       });
-      await reconcileCodexAppServerThreadStatus(sessionId, provider, threadId, {
+      await threadStatus.reconcileThreadStatus(sessionId, provider, threadId, {
         source: "message_delivery_steer_race"
       }).catch(() => null);
       currentSession = await runtime.getSession(sessionId);
@@ -179,7 +164,7 @@ export function createCodexPromptDispatch({
           clientUserMessageId
         }
       );
-      const receipt = pendingCodexAppServerUserMessage(sessionId, clientUserMessageId)?.receipt;
+      const receipt = delivery.pendingUserMessage(sessionId, clientUserMessageId)?.receipt;
       result = receipt ? await Promise.race([response, receipt.promise]) : await response;
     } catch (error) {
       if (Number.isInteger(error?.code) && error.code < 0) await onPromptRejected();
@@ -217,8 +202,8 @@ export function createCodexPromptDispatch({
         turnId
       } };
     }
-    pendingCodexAppServerUserMessage(sessionId, clientUserMessageId)?.onNativeReceipt();
-    const conversationTurn = await writeCodexAppServerDeliveredUserMessage(
+    delivery.pendingUserMessage(sessionId, clientUserMessageId)?.onNativeReceipt();
+    const conversationTurn = await delivery.writeDeliveredUserMessage(
       runtime,
       sessionId,
       displayMessage || message,
@@ -227,7 +212,7 @@ export function createCodexPromptDispatch({
       input.displayAttachments,
       { threadId, turnId }
     );
-    splitCodexAppServerReasoningTurn(threadId, turnId);
+    output.splitReasoningTurn(threadId, turnId);
     currentSession = await runtime.getSession(sessionId);
     debugLog("appServerMessage.activeTurn.done", {
       conversationTurnId: normalizeText(conversationTurn?.turnId || conversationTurn?.id),

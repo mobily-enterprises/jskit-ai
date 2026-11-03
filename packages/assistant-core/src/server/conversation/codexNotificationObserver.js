@@ -52,25 +52,6 @@ export function createCodexNotificationObserver({
   onNotificationSignal,
   turnStateFromAgentRun
 }) {
-  const { resolveTurnId: resolveCodexAppServerTurnId } = journal;
-  const {
-    recoverFinalizingTurn: recoverCodexAppServerFinalizingTurn,
-    markTurnActive: markCodexAppServerTurnActive,
-    markProviderTurnActive: markCodexAppServerProviderTurnActive,
-    stopTurnWithProviderFailure: stopCodexAppServerTurnWithProviderFailure,
-    completeTurn: completeCodexAppServerTurn
-  } = recovery;
-  const { reconcileThreadStatus: reconcileCodexAppServerThreadStatus } = threadStatus;
-  const {
-    readAgentRunForSession: readCodexAppServerAgentRunForSession,
-    recordReasoningForSession: recordCodexAppServerReasoningForSession,
-    writeStream: writeCodexAppServerStream,
-    recordFinalAssistantResult: recordCodexAppServerFinalAssistantResult,
-    writeLiveProgress: writeCodexAppServerLiveProgress,
-    mirrorTerminalAssistantMessage: mirrorCodexAppServerTerminalAssistantMessage
-  } = output;
-  const { mirrorTerminalUserMessage: mirrorCodexAppServerTerminalUserMessage } = delivery;
-  const { run: runCodexAppServerNotificationTask } = notificationQueue;
   const CODEX_APP_SERVER_GOAL_STATUSES = new Set([
     "active", "blocked", "budgetLimited", "complete", "paused", "usageLimited"
   ]);
@@ -97,11 +78,11 @@ export function createCodexNotificationObserver({
   }
 
   function queueCodexAppServerReasoning(context, notification) {
-    return notificationQueue.reasoning(context, notification, recordCodexAppServerReasoningForSession);
+    return notificationQueue.reasoning(context, notification, output.recordReasoningForSession);
   }
 
   function queueCodexAppServerStream(context, classification) {
-    return notificationQueue.stream(context, classification, writeCodexAppServerStream);
+    return notificationQueue.stream(context, classification, output.writeStream);
   }
 
   async function reconcileCodexAppServerGoalUpdated(
@@ -116,7 +97,7 @@ export function createCodexNotificationObserver({
     const goalStatus = normalizeText(notification.params?.goal?.status);
     const goalCleared = notification.method === "thread/goal/cleared";
     const runtime = await createRuntime();
-    let run = await readCodexAppServerAgentRunForSession(
+    let run = await output.readAgentRunForSession(
       runtime.store,
       normalizedSessionId
     );
@@ -152,7 +133,7 @@ export function createCodexNotificationObserver({
           providerGoalUpdatedAt: updatedAt
         }
       });
-      run = await readCodexAppServerAgentRunForSession(
+      run = await output.readAgentRunForSession(
         runtime.store,
         normalizedSessionId
       );
@@ -179,7 +160,7 @@ export function createCodexNotificationObserver({
       turn.threadId === normalizedThreadId &&
       (!notificationTurnId || turn.turnId === notificationTurnId)
     ) {
-      return recoverCodexAppServerFinalizingTurn(
+      return recovery.recoverFinalizingTurn(
         normalizedSessionId,
         normalizedThreadId,
         turn.turnId,
@@ -188,7 +169,7 @@ export function createCodexNotificationObserver({
         }
       );
     }
-    return reconcileCodexAppServerThreadStatus(
+    return threadStatus.reconcileThreadStatus(
       normalizedSessionId,
       provider,
       normalizedThreadId,
@@ -221,18 +202,18 @@ export function createCodexNotificationObserver({
     }
     // A new observer cannot confirm a previously active phase. Fresh native
     // events restore it; a stored phase alone must not animate activity.
-    runCodexAppServerNotificationTask({ projectContext, provider, sessionId: normalizedSessionId, sessionKey }, async () => {
+    notificationQueue.run({ projectContext, provider, sessionId: normalizedSessionId, sessionKey }, async () => {
       const store = await createStore(normalizedSessionId);
-      const run = await readCodexAppServerAgentRunForSession(store, normalizedSessionId);
+      const run = await output.readAgentRunForSession(store, normalizedSessionId);
       if (!run?.providerPhase || run.providerThreadId !== normalizedThreadId) return;
-      await markCodexAppServerTurnActive(normalizedSessionId, {
+      await recovery.markTurnActive(normalizedSessionId, {
         phase: "", requireTrackedTurn: true,
         threadId: normalizedThreadId, turnId: run.providerTurnId
       });
     });
     const onNotification = (notification = {}) => {
-      const runProviderFailure = (context, turnId, status) => runCodexAppServerNotificationTask(context, () =>
-        stopCodexAppServerTurnWithProviderFailure(normalizedSessionId, normalizedThreadId, turnId, {
+      const runProviderFailure = (context, turnId, status) => notificationQueue.run(context, () =>
+        recovery.stopTurnWithProviderFailure(normalizedSessionId, normalizedThreadId, turnId, {
           error: codexAppServerNotificationError(notification),
           provider,
           status,
@@ -241,7 +222,7 @@ export function createCodexNotificationObserver({
         }));
       const method = normalizeText(notification.method);
       if (method === "account/rateLimits/updated" || method === "account/updated") {
-        runCodexAppServerNotificationTask({ method, projectContext, provider, sessionId: normalizedSessionId, sessionKey }, () =>
+        notificationQueue.run({ method, projectContext, provider, sessionId: normalizedSessionId, sessionKey }, () =>
           publish(normalizedSessionId, { reason: "codex-plan-usage" }));
         return;
       }
@@ -259,7 +240,7 @@ export function createCodexNotificationObserver({
         turnId: codexAppServerNotificationTurnId(notification)
       };
       if (method === "thread/tokenUsage/updated") {
-        runCodexAppServerNotificationTask(notificationContext, async () => {
+        notificationQueue.run(notificationContext, async () => {
           const store = await createStore(normalizedSessionId);
           return onNotificationSignal("usage", {
             store, sessionId: normalizedSessionId, threadId: normalizedThreadId, notification
@@ -269,10 +250,10 @@ export function createCodexNotificationObserver({
       const classification = classifyCodexAppServerEvent(notification);
       if (classification.kind === "provider_error" && classification.text &&
           codexAppServerNotificationParams(notification).willRetry !== true) {
-        runCodexAppServerNotificationTask(notificationContext, async () => {
+        notificationQueue.run(notificationContext, async () => {
           return onNotificationSignal("provider_error", {
             sessionId: normalizedSessionId, threadId: normalizedThreadId, provider,
-            turnId: await resolveCodexAppServerTurnId(normalizedSessionId, normalizedThreadId,
+            turnId: await journal.resolveTurnId(normalizedSessionId, normalizedThreadId,
               codexAppServerNotificationTurnId(notification)),
             error: classification.text
           });
@@ -289,14 +270,14 @@ export function createCodexNotificationObserver({
       const retrying = classification.phase === "retrying";
       if (!hookOwned &&
           (retrying || method === "item/started" || method === "item/completed" && ["contextCompaction", "reasoning"].includes(itemType))) {
-        runCodexAppServerNotificationTask(notificationContext, async () => {
+        notificationQueue.run(notificationContext, async () => {
           const phase = retrying ? "retrying" : method === "item/started"
             ? ({ contextCompaction: "compacting", reasoning: "reasoning" })[itemType] || ""
             : "";
           const store = await createStore(normalizedSessionId);
-          const run = await readCodexAppServerAgentRunForSession(store, normalizedSessionId);
+          const run = await output.readAgentRunForSession(store, normalizedSessionId);
           if (normalizeText(run?.providerPhase) === phase) return;
-          return markCodexAppServerTurnActive(normalizedSessionId, {
+          return recovery.markTurnActive(normalizedSessionId, {
             phase, requireTrackedTurn: true,
             threadId: normalizedThreadId,
             turnId: codexAppServerNotificationTurnId(notification)
@@ -304,7 +285,7 @@ export function createCodexNotificationObserver({
         });
       }
       if (contextRefreshReason) {
-        runCodexAppServerNotificationTask(notificationContext, () => {
+        notificationQueue.run(notificationContext, () => {
           return onNotificationSignal("context_refresh", {
             sessionId: normalizedSessionId, threadId: normalizedThreadId,
             notification, reason: contextRefreshReason
@@ -312,14 +293,14 @@ export function createCodexNotificationObserver({
         });
       }
       if (method === "thread/goal/cleared") {
-        runCodexAppServerNotificationTask(notificationContext, async () => {
+        notificationQueue.run(notificationContext, async () => {
           await reconcileCodexAppServerGoalUpdated(normalizedSessionId, provider, normalizedThreadId, notification);
           await publish(normalizedSessionId, { reason: "codex-goal", nativeGoal: { threadId: normalizedThreadId, goal: null } });
         });
         return;
       }
       if (method === "thread/goal/updated") {
-        runCodexAppServerNotificationTask(notificationContext, async () => {
+        notificationQueue.run(notificationContext, async () => {
           await publish(normalizedSessionId, { reason: "codex-goal", nativeGoal: { threadId: normalizedThreadId, goal: notification.params.goal } });
           return reconcileCodexAppServerGoalUpdated(
             normalizedSessionId,
@@ -343,8 +324,8 @@ export function createCodexNotificationObserver({
       if (classification.kind === "final_assistant_result") {
         const event = codexAppServerNotificationEvent(notification);
         const payload = codexAppServerNotificationEventPayload(notification, event);
-        runCodexAppServerNotificationTask(notificationContext, () => {
-          return recordCodexAppServerFinalAssistantResult({
+        notificationQueue.run(notificationContext, () => {
+          return output.recordFinalAssistantResult({
             itemId: classification.itemId,
             notification,
             sessionId: normalizedSessionId,
@@ -371,28 +352,28 @@ export function createCodexNotificationObserver({
         if (hookOwned) {
           return;
         }
-        runCodexAppServerNotificationTask(notificationContext, () => {
-          return writeCodexAppServerLiveProgress(normalizedSessionId, normalizedThreadId, notification);
+        notificationQueue.run(notificationContext, () => {
+          return output.writeLiveProgress(normalizedSessionId, normalizedThreadId, notification);
         });
       }
       if (method === "item/completed") {
         const item = codexAppServerNotificationItem(notification);
         if (normalizeText(item?.type) === "userMessage") {
-          runCodexAppServerNotificationTask(notificationContext, () => {
-            return mirrorCodexAppServerTerminalUserMessage(normalizedSessionId, normalizedThreadId, notification);
+          notificationQueue.run(notificationContext, () => {
+            return delivery.mirrorTerminalUserMessage(normalizedSessionId, normalizedThreadId, notification);
           });
           return;
         }
         if (codexAppServerAssistantItemText(item)) {
-          runCodexAppServerNotificationTask(notificationContext, () => {
-            return mirrorCodexAppServerTerminalAssistantMessage(normalizedSessionId, normalizedThreadId, notification);
+          notificationQueue.run(notificationContext, () => {
+            return output.mirrorTerminalAssistantMessage(normalizedSessionId, normalizedThreadId, notification);
           });
           return;
         }
       }
       if (method === "turn/started") {
         codexAppServerAutomaticHookThreads.delete(normalizedThreadId);
-        runCodexAppServerNotificationTask(notificationContext, () => markCodexAppServerProviderTurnActive(normalizedSessionId, {
+        notificationQueue.run(notificationContext, () => recovery.markProviderTurnActive(normalizedSessionId, {
           source: "turn_started",
           status: codexAppServerNotificationTurnStatus(notification) || "inProgress",
           threadId: normalizedThreadId,
@@ -409,8 +390,8 @@ export function createCodexNotificationObserver({
           return;
         }
         if (codexAppServerTurnStatusIsSuccessfulComplete(status)) {
-          runCodexAppServerNotificationTask(notificationContext, () => {
-            return completeCodexAppServerTurn(normalizedSessionId, normalizedThreadId, turnId, {
+          notificationQueue.run(notificationContext, () => {
+            return recovery.completeTurn(normalizedSessionId, normalizedThreadId, turnId, {
               provider,
               status
             });
@@ -421,13 +402,13 @@ export function createCodexNotificationObserver({
       if (method === "thread/status/changed") {
         const status = codexAppServerNotificationTurnStatus(notification);
         if (codexAppServerTurnStatusIsActive(status)) {
-          runCodexAppServerNotificationTask(notificationContext, async () => {
-            const turnId = await resolveCodexAppServerTurnId(
+          notificationQueue.run(notificationContext, async () => {
+            const turnId = await journal.resolveTurnId(
               normalizedSessionId,
               normalizedThreadId,
               codexAppServerNotificationTurnId(notification)
             );
-            await markCodexAppServerProviderTurnActive(normalizedSessionId, {
+            await recovery.markProviderTurnActive(normalizedSessionId, {
               source: "thread_status_changed",
               status,
               threadId: normalizedThreadId,
@@ -443,13 +424,13 @@ export function createCodexNotificationObserver({
           return;
         }
         if (codexAppServerTurnStatusIsSuccessfulComplete(status)) {
-          runCodexAppServerNotificationTask(notificationContext, async () => {
-            const resolvedTurnId = await resolveCodexAppServerTurnId(
+          notificationQueue.run(notificationContext, async () => {
+            const resolvedTurnId = await journal.resolveTurnId(
               normalizedSessionId,
               normalizedThreadId,
               turnId
             );
-            return completeCodexAppServerTurn(normalizedSessionId, normalizedThreadId, resolvedTurnId, {
+            return recovery.completeTurn(normalizedSessionId, normalizedThreadId, resolvedTurnId, {
               provider,
               status
             });

@@ -345,8 +345,8 @@ export function createCodexProviderInvalidation({ inScope, withLifecycle, forget
           targets.push(peer);
         }
       }
-      // Preserve the original ordering and failure policy: attempt every durable
-      // barrier before native stop; a storage failure cannot leave work running.
+      // Every durable barrier is attempted before the native stop; a storage
+      // failure cannot leave work running.
       for (const target of targets) {
         try {
           await target.observation.barrier({ provider: target.provider, error });
@@ -358,8 +358,8 @@ export function createCodexProviderInvalidation({ inScope, withLifecycle, forget
       await owned.scope.stopOwnedRuntime(owned, { preserveProcessExitProof: true, requireVerifiedExit: true });
     }
     for (const target of targets) {
-      // Each adapter retains its original persistence/publication order. It can
-      // release this provider only after its stopped state is durable.
+      // Each adapter persists, then publishes. It can release this provider
+      // only after its stopped state is durable.
       await target.observation.complete({ provider: target.provider, error, sharedStop });
     }
   }

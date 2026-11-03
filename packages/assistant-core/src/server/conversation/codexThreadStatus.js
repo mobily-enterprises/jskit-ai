@@ -17,17 +17,6 @@ import { codexAppServerThreadRawValue, codexAppServerThreadTurnId, codexAppServe
  * @param {import("./codexTurn.js").CodexDebugError} dependencies.debugError
  */
 export function createCodexThreadStatus({ journal, settlement, recovery, output, createRuntime, turnState, turnOutcomes, debugLog, debugError }) {
-  const { turnResultWasProcessed: codexAppServerTurnResultWasProcessed } = journal;
-  const {
-    finalizeAssistantResult: finalizeCodexAppServerAssistantResult,
-    adoptSuccessorTurn: adoptCodexAppServerSuccessorTurn
-  } = settlement;
-  const {
-    stopTurnWithProviderFailure: stopCodexAppServerTurnWithProviderFailure,
-    markProviderTurnActive: markCodexAppServerProviderTurnActive,
-    completeTurn: completeCodexAppServerTurn
-  } = recovery;
-  const { reconcileObservedTurnItems: reconcileCodexAppServerObservedTurnItems } = output;
 
   function codexAppServerReadyTurnFailureMessage(reason = "", error = "") {
     const detail = normalizeText(error);
@@ -67,7 +56,7 @@ export function createCodexThreadStatus({ journal, settlement, recovery, output,
         reason: "missing_tracked_turn"
       };
     }
-    return stopCodexAppServerTurnWithProviderFailure(
+    return recovery.stopTurnWithProviderFailure(
       normalizedSessionId,
       normalizedThreadId,
       normalizedTurnId,
@@ -119,13 +108,13 @@ export function createCodexThreadStatus({ journal, settlement, recovery, output,
     }
     if (
       trackedProviderTurn?.state === "finalizing" &&
-      codexAppServerTurnResultWasProcessed(
+      journal.turnResultWasProcessed(
         session,
         trackedProviderTurn.threadId,
         trackedProviderTurn.turnId
       )
     ) {
-      await finalizeCodexAppServerAssistantResult(
+      await settlement.finalizeAssistantResult(
         normalizedSessionId,
         trackedProviderTurn.threadId,
         trackedProviderTurn.turnId,
@@ -216,7 +205,7 @@ export function createCodexThreadStatus({ journal, settlement, recovery, output,
       turnId &&
       codexAppServerTurnCanAdoptSuccessor(trackedProviderTurn, statusThreadId, turnId)
     ) {
-      const adoption = await adoptCodexAppServerSuccessorTurn(normalizedSessionId, {
+      const adoption = await settlement.adoptSuccessorTurn(normalizedSessionId, {
         previousTurnId: trackedProviderTurn.turnId,
         source: normalizeText(source) || "thread_status",
         status: "inProgress",
@@ -251,7 +240,7 @@ export function createCodexThreadStatus({ journal, settlement, recovery, output,
           status
         };
       }
-      await markCodexAppServerProviderTurnActive(normalizedSessionId, {
+      await recovery.markProviderTurnActive(normalizedSessionId, {
         observedRun: codexAppServerTurnStatusIsActive(codexAppServerStatusFromValue(
           codexAppServerThreadRawValue(thread).status || thread.status
         )) ? codexAppServerAgentRun(session) : null,
@@ -260,7 +249,7 @@ export function createCodexThreadStatus({ journal, settlement, recovery, output,
         threadId: statusThreadId,
         turnId
       });
-      await reconcileCodexAppServerObservedTurnItems(
+      await output.reconcileObservedTurnItems(
         normalizedSessionId,
         statusThreadId,
         thread?.observedTurn,
@@ -280,7 +269,7 @@ export function createCodexThreadStatus({ journal, settlement, recovery, output,
       const currentSession = await runtime.getSession(normalizedSessionId);
       const currentTurn = turnState(currentSession);
       if (!currentTurn.active && normalizeText(currentTurn.turnId) !== turnId) {
-        await markCodexAppServerProviderTurnActive(normalizedSessionId, {
+        await recovery.markProviderTurnActive(normalizedSessionId, {
           inputSource: "terminal",
           source: normalizeText(source) || "thread_snapshot",
           status: "inProgress",
@@ -294,7 +283,7 @@ export function createCodexThreadStatus({ journal, settlement, recovery, output,
         statusThreadId,
         turnId
       )) {
-        await reconcileCodexAppServerObservedTurnItems(
+        await output.reconcileObservedTurnItems(
           normalizedSessionId,
           statusThreadId,
           thread.observedTurn,
@@ -310,13 +299,13 @@ export function createCodexThreadStatus({ journal, settlement, recovery, output,
       };
     }
     if (codexAppServerTurnStatusIsProviderFailure(status)) {
-      await stopCodexAppServerTurnWithProviderFailure(normalizedSessionId, statusThreadId, completedTurnId, {
+      await recovery.stopTurnWithProviderFailure(normalizedSessionId, statusThreadId, completedTurnId, {
         error: codexAppServerThreadError(thread),
         provider,
         status
       });
     } else if (codexAppServerTurnStatusIsSuccessfulComplete(status)) {
-      await completeCodexAppServerTurn(normalizedSessionId, statusThreadId, completedTurnId, {
+      await recovery.completeTurn(normalizedSessionId, statusThreadId, completedTurnId, {
         status,
         verifyInactive: false
       });
