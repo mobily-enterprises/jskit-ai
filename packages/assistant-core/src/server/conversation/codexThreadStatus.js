@@ -15,7 +15,19 @@ import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { codexAppServerStatusFromValue } from "./codexEvents.js";
 import { codexAppServerThreadRawValue, codexAppServerThreadTurnId, codexAppServerThreadError } from "./codexThreadSnapshot.js";
 
-// Native thread snapshot reconciliation; it holds no state of its own.
+/**
+ * Native thread snapshot reconciliation; it holds no state of its own.
+ * @param {object} dependencies
+ * @param {import("./codexRunJournal.js").CodexRunJournal} dependencies.journal
+ * @param {import("./codexResultSettlement.js").CodexResultSettlement} dependencies.settlement
+ * @param {import("./codexTurnRecovery.js").CodexTurnRecovery} dependencies.recovery
+ * @param {import("./codexOutput.js").CodexAppServerOutput} dependencies.output
+ * @param {import("./codexTurn.js").CodexCreateRuntime} dependencies.createRuntime
+ * @param {import("./codexTurn.js").CodexTurnStateReader} dependencies.turnState
+ * @param {import("./codexTurn.js").CodexTurnOutcomes} dependencies.turnOutcomes
+ * @param {import("./codexTurn.js").CodexDebugLog} dependencies.debugLog
+ * @param {import("./codexTurn.js").CodexDebugError} dependencies.debugError
+ */
 export function createCodexThreadStatus({ journal, settlement, recovery, output, createRuntime, turnState, turnOutcomes, debugLog, debugError }) {
   const { turnResultWasProcessed: codexAppServerTurnResultWasProcessed } = journal;
   const {
@@ -153,7 +165,7 @@ export function createCodexThreadStatus({ journal, settlement, recovery, output,
       });
     }
 
-    if (typeof provider?.readThreadStatus !== "function") {
+    if (!provider) {
       if (shouldFailUnconfirmed) {
         return failCodexAppServerTrackedReadyTurn(normalizedSessionId, trackedProviderTurn, {
           reason: "provider_unreadable"
@@ -342,9 +354,10 @@ export function createCodexThreadStatus({ journal, settlement, recovery, output,
     });
   }
 
-
-  return {
+  return Object.freeze({
     reconcileThreadStatus: reconcileCodexAppServerThreadStatus,
     reconcileLoadedThreadStatus: reconcileCodexAppServerLoadedThreadStatus
-  };
+  });
 }
+
+/** @typedef {ReturnType<typeof createCodexThreadStatus>} CodexThreadStatus */

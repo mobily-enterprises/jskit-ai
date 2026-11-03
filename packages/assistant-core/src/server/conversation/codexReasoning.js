@@ -1,8 +1,16 @@
 import { normalizeCodexRunText, codexAppServerTurnCanReceiveProviderActivity, codexAppServerTurnKey } from "./codexTurnState.js";
 import { codexAppServerContentText, codexAppServerNotificationItem, codexAppServerOutputOwnerTurnId, codexAppServerNotificationParams, codexAppServerNotificationTurnId } from "./codexEvents.js";
 
-// Original per-turn reasoning channels, persistence queue and cleanup.
-// The containing output instance shares these exact Maps with its run owner.
+/**
+ * Per-turn reasoning channels, their persistence queue and cleanup. The output owner that builds it shares these Maps
+ * with its run owner.
+ * @param {object} dependencies
+ * @param {import("./codexTurn.js").CodexCreateStore} dependencies.createStore
+ * @param {import("./codexTurn.js").CodexPublish} dependencies.publish
+ * @param {import("./codexTurn.js").CodexAgentRunTurnStateReader} dependencies.turnStateFromAgentRun
+ * @param {import("./codexTurn.js").CodexDebugLog} dependencies.debugLog
+ * @param {(store: object, sessionId?: string) => Promise<object | null>} dependencies.readCodexAppServerAgentRunForSession
+ */
 export function createCodexAppServerReasoning({
   createStore,
   publish,
@@ -302,7 +310,7 @@ export function createCodexAppServerReasoning({
     return true;
   }
 
-  return {
+  return Object.freeze({
     reasoningTurns: codexAppServerReasoningTurns,
     reasoningPersistQueues: codexAppServerReasoningPersistQueues,
     recordReasoningForSession: recordCodexAppServerReasoningForSession,
@@ -310,5 +318,5 @@ export function createCodexAppServerReasoning({
     flushReasoningPersist: flushCodexAppServerReasoningPersist,
     cleanupReasoningTurn: cleanupCodexAppServerReasoningTurn,
     splitReasoningTurn: splitCodexAppServerReasoningTurn
-  };
+  });
 }

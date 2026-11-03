@@ -24,8 +24,25 @@ import {
   codexAppServerNotificationUsageLimitExceeded
 } from "./codexEvents.js";
 
-// Native notification routing, goal updates and provider-generation subscriptions.
-// Ordering belongs to the notification queue; state belongs to the operation owners.
+/**
+ * Native notification routing, goal updates and provider-generation subscriptions. Ordering belongs to the
+ * notification queue; state belongs to the operation owners.
+ * @param {object} dependencies
+ * @param {import("./codexRunJournal.js").CodexRunJournal} dependencies.journal
+ * @param {import("./codexTurnRecovery.js").CodexTurnRecovery} dependencies.recovery
+ * @param {import("./codexThreadStatus.js").CodexThreadStatus} dependencies.threadStatus
+ * @param {import("./codexOutput.js").CodexAppServerOutput} dependencies.output
+ * @param {import("./codexMessageDelivery.js").CodexAppServerMessageDelivery} dependencies.delivery
+ * @param {import("./codexNotificationQueue.js").CodexAppServerNotificationQueue} dependencies.notificationQueue
+ * @param {import("./codexTurn.js").CodexSessionNamespace} dependencies.namespace
+ * @param {import("./codexTurn.js").CodexCreateRuntime} dependencies.createRuntime
+ * @param {import("./codexTurn.js").CodexCreateStore} dependencies.createStore
+ * @param {import("./codexTurn.js").CodexPublish} dependencies.publish
+ * @param {import("./codexTurn.js").CodexCaptureContext} dependencies.captureContext
+ * @param {import("./codexTurn.js").CodexDebugLog} dependencies.debugLog
+ * @param {(kind: string, details: object) => Promise<unknown>} dependencies.onNotificationSignal
+ * @param {import("./codexTurn.js").CodexAgentRunTurnStateReader} dependencies.turnStateFromAgentRun
+ */
 export function createCodexNotificationObserver({
   journal,
   recovery,
@@ -82,7 +99,7 @@ export function createCodexNotificationObserver({
 
   function unsubscribeCodexAppServerEventSubscription(key = "") {
     const record = codexAppServerEventSubscriptions.get(key);
-    record?.unsubscribe?.();
+    record?.unsubscribe();
     codexAppServerEventSubscriptions.delete(key);
   }
 
@@ -192,7 +209,7 @@ export function createCodexNotificationObserver({
   function subscribeCodexAppServerEvents(sessionId = "", provider = null, threadId = "", options = {}) {
     const normalizedSessionId = normalizeCodexRunText(sessionId);
     const normalizedThreadId = normalizeCodexRunText(threadId);
-    if (!normalizedSessionId || !normalizedThreadId || typeof provider?.subscribe !== "function") {
+    if (!normalizedSessionId || !normalizedThreadId || !provider) {
       throw new Error("Codex thread observation requires a session, thread and provider subscription.");
     }
     const projectContext = captureContext();
@@ -467,7 +484,7 @@ export function createCodexNotificationObserver({
     };
   }
 
-  return {
+  return Object.freeze({
     eventSubscriptions: codexAppServerEventSubscriptions,
     automaticHookThreads: codexAppServerAutomaticHookThreads,
     eventSubscriptionKey: codexAppServerEventSubscriptionKey,
@@ -475,5 +492,7 @@ export function createCodexNotificationObserver({
     unsubscribeEventSubscription: unsubscribeCodexAppServerEventSubscription,
     reconcileGoalUpdated: reconcileCodexAppServerGoalUpdated,
     subscribeEvents: subscribeCodexAppServerEvents
-  };
+  });
 }
+
+/** @typedef {ReturnType<typeof createCodexNotificationObserver>} CodexNotificationObserver */

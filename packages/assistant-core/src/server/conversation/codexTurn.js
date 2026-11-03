@@ -2,6 +2,7 @@ import { createCodexSessionReconciliation } from "./codexSessionReconciliation.j
 import { createCodexRuntimeLifecycle } from "./codexRuntimeLifecycle.js";
 import { createCodexSessionCleanup } from "./codexSessionCleanup.js";
 import { createCodexMessageCommands } from "./codexMessageCommands.js";
+import { createCodexPromptDispatch } from "./codexPromptDispatch.js";
 import { createCodexTurnControl } from "./codexTurnControl.js";
 import { createCodexObservationControl } from "./codexObservationControl.js";
 import { createCodexThreadReadiness } from "./codexThreadReadiness.js";
@@ -70,48 +71,162 @@ export { sendPreparedCodexAppServerHelperTurn } from "./codexHelperExecution.js"
 import { createCodexHelperThreadLifecycle } from "./codexHelperThreads.js";
 export { codexAppServerThreadIsMissing } from "./codexProvider.js";
 
+/** @typedef {(sessionId: string) => string} CodexSessionNamespace */
+/** @typedef {(event: string, details?: object) => void} CodexDebugLog */
+/** @typedef {(error: unknown) => string} CodexDebugError */
+/** @typedef {() => Promise<any>} CodexCreateRuntime */
+/** @typedef {() => Promise<any>} CodexCreateStore */
+/** @typedef {(sessionId: string, event: object) => Promise<unknown>} CodexPublish */
+/** @typedef {(session: object) => ReturnType<typeof codexAppServerTurnState>} CodexTurnStateReader */
+/** @typedef {(run: object) => ReturnType<typeof codexAppServerTurnStateFromAgentRun>} CodexAgentRunTurnStateReader */
+/** @typedef {() => unknown} CodexCaptureContext */
+/** @typedef {(context: unknown, operation: () => any) => any} CodexRunInContext */
+/** @typedef {typeof CODEX_TURN_OUTCOMES} CodexTurnOutcomes */
+/** @typedef {ReturnType<typeof createCodexProviderSelection>} CodexProviderSelection */
+/** @typedef {ReturnType<typeof import("./codexProviderOwner.js").createCodexAppServerProviderOwner>} CodexProviderOwner */
+/** @typedef {(runtime: any, session: object, options: object) => Promise<any>} CodexAdmissionRecovery */
+/** @typedef {(sessionId: string, input: object) => Promise<unknown>} CodexCheckpoint */
+
+/**
+ * The application hooks that add metadata to the turns a run writes.
+ * @typedef {object} CodexMessageMetadataHooks
+ * @property {(actorContext: unknown) => unknown} actor Metadata for the person who sent a message.
+ * @property {(store: any, sessionId: string, metadata: object) => unknown} delivered Metadata of a delivered message.
+ * @property {(store: any, sessionId: string) => unknown} terminal Metadata of a turn written after the run stopped.
+ */
+
+/**
+ * The managed provider sessions of an application that owns its provider processes.
+ * @typedef {object} CodexProviderSessions
+ * @property {CodexProviderOwner} owner
+ * @property {Map<string, any>} [managed]
+ * @property {Function} [context]
+ * @property {Function} [keyFields]
+ * @property {Function} [connectionPolicy]
+ * @property {Function} [outputContext]
+ * @property {Function} [assertOpen]
+ */
+
+const CODEX_TURN_OUTCOMES = Object.freeze({
+  PROVIDER_FAILURE: "provider_failure",
+  RESPONSE_DELIVERY_FAILURE: "response_delivery_failure",
+  SERVICE_RESTART: "service_restart",
+  USER_CANCELLED: "user_cancelled",
+  CONTROL_RECONFIGURATION: "control_reconfiguration",
+  INTERRUPTED: "interrupted"
+});
+
+function ignoreDebugLog() {}
+
+async function answerNothing() {
+  return null;
+}
+
+function captureNoContext() {
+  return null;
+}
+
+function addNoMessageMetadata() {
+  return null;
+}
+
+function keepDeliveredMessageMetadata(_store, _sessionId, metadata) {
+  return metadata;
+}
+
+function codexResultDeliveryFailureMessage({ error = "" } = {}) {
+  const detail = normalizeCodexRunText(error);
+  if (!detail) return "Codex app-server finished this turn, but the assistant result text was not received.";
+  const punctuation = [".", "!", "?"].some(character => detail.endsWith(character)) ? "" : ".";
+  return "Codex completed, but its response could not be processed: " + detail + punctuation;
+}
+
+function runInNoContext(_context, operation) {
+  return operation();
+}
+
+/**
+ * Builds the run owner of one application's Codex turns: messages, turns, recovery, output, conversations and
+ * goals over one session store. Every hook without a value does nothing.
+ * @param {object} options
+ * @param {CodexSessionNamespace} [options.namespace]
+ * @param {(state: unknown) => string} [options.normalizeRunState]
+ * @param {CodexDebugLog} [options.debugLog]
+ * @param {CodexDebugError} [options.debugError]
+ * @param {CodexCreateRuntime} options.createRuntime
+ * @param {CodexCreateStore} options.createStore
+ * @param {CodexPublish} [options.publish]
+ * @param {(input: { sessionId: string, runtime: any, session: object }) => Promise<any>} [options.acquireProvider]
+ * @param {CodexProviderSessions} [options.providerSessions] Absent when the provider is acquired per call.
+ * @param {{ message: string, code?: string, retryable?: boolean }} [options.serverClosingError]
+ * @param {object} [options.helperThreads] The helper thread ledger options, when the application runs helpers.
+ * @param {number} [options.modelCatalogCacheMs]
+ * @param {object} [options.conversationPreparation] Absent when the application starts no scoped conversations.
+ * @param {string} [options.storeReadError]
+ * @param {string} [options.sessionIdRequiredError]
+ * @param {string} [options.turnClaimsUnsupportedError]
+ * @param {string} [options.turnAlreadyRunningError]
+ * @param {string} [options.messageIdPrefix]
+ * @param {object} [options.idlePublishPayload]
+ * @param {CodexCheckpoint} [options.checkpoint]
+ * @param {Partial<CodexMessageMetadataHooks>} [options.messageMetadata]
+ * @param {boolean} [options.persistCommentary]
+ * @param {string} [options.deliveryStateMetadataKey]
+ * @param {(session: object) => boolean} [options.hasRuntime]
+ * @param {CodexAdmissionRecovery} [options.recoverAdmission]
+ * @param {(session: object, run: object) => boolean} [options.admissionTaskFinished]
+ * @param {(...details: any[]) => Promise<unknown>} [options.outcomeNotice]
+ * @param {(details: { error?: string }) => string} [options.resultDeliveryFailureMessage]
+ * @param {string} [options.orphanedPromptMessage]
+ * @param {(kind: string, details: object) => Promise<unknown>} [options.onNotificationSignal]
+ * @param {CodexCaptureContext} [options.captureContext]
+ * @param {CodexRunInContext} [options.runInContext]
+ * @param {(sessionId: string, input: { threadId: string }) => Promise<unknown>} [options.continueGoalAfterAccountChange]
+ *   Resumes a goal an account change paused, once the previous account's runtime has stopped. Without it the goal
+ *   stays paused for the person to resume.
+ * @param {import("./codexNotificationQueue.js").CodexAppServerNotificationQueue} [options.notificationQueue]
+ * @param {number} [options.activeReconcileMs]
+ * @param {number} [options.finalizingGraceMs]
+ * @param {boolean} [options.finalizingGraceAfterHistoryRead]
+ * @param {number} [options.failureDetailGraceMs]
+ * @param {string} [options.steerFailedCode]
+ * @param {string} [options.interruptFailedCode]
+ * @param {string} [options.errorPrefix]
+ */
 export function createCodexAppServerRunOwner({
   namespace = normalizeCodexRunText,
   normalizeRunState = normalizeCodexAppServerRunState,
-  debugLog = () => {},
+  debugLog = ignoreDebugLog,
   debugError = error => normalizeCodexRunText(error?.message || error),
   createRuntime,
   createStore,
-  publish = async () => null,
-  acquireProvider = async () => null,
-  providerSessions = null,
-  serverClosingError = null,
+  publish = answerNothing,
+  acquireProvider = answerNothing,
+  providerSessions,
+  serverClosingError,
   helperThreads = null,
   modelCatalogCacheMs = 30_000,
-  conversationPreparation = null,
+  conversationPreparation,
   storeReadError = "The session store does not support agent-run reads.",
   sessionIdRequiredError = "A session ID is required.",
   turnClaimsUnsupportedError = "The session runtime does not support Codex turn claims.",
   turnAlreadyRunningError = "Codex is already working on this session.",
   messageIdPrefix = "codex:",
-  idlePublishPayload = null,
-  checkpoint = async () => null,
+  idlePublishPayload,
+  checkpoint = answerNothing,
   messageMetadata = {},
   persistCommentary = true,
   deliveryStateMetadataKey = "assistant_delivery",
   hasRuntime = () => true,
-  recoverAdmission = null,
+  recoverAdmission,
   admissionTaskFinished = () => false,
-  outcomeNotice = async () => null,
-  resultDeliveryFailureMessage = ({ error = "" } = {}) => {
-    const detail = normalizeCodexRunText(error);
-    if (!detail) return "Codex app-server finished this turn, but the assistant result text was not received.";
-    const punctuation = [".", "!", "?"].some(character => detail.endsWith(character)) ? "" : ".";
-    return "Codex completed, but its response could not be processed: " + detail + punctuation;
-  },
+  outcomeNotice = answerNothing,
+  resultDeliveryFailureMessage = codexResultDeliveryFailureMessage,
   orphanedPromptMessage = "The application restarted before Codex confirmed the message. Your message is safe; retry it.",
-  onNotificationSignal = async () => null,
-  captureContext = () => null,
-  runInContext = (_context, operation) => operation(),
-  // Resumes a goal an account change paused, once the previous account's
-  // runtime has stopped: `(sessionId, { threadId })`. Without it the goal stays
-  // paused for the person to resume.
-  continueGoalAfterAccountChange = null,
+  onNotificationSignal = answerNothing,
+  captureContext = captureNoContext,
+  runInContext = runInNoContext,
+  continueGoalAfterAccountChange,
   notificationQueue = null,
   activeReconcileMs = 2000,
   finalizingGraceMs = 10000,
@@ -120,7 +235,7 @@ export function createCodexAppServerRunOwner({
   steerFailedCode = "codex_turn_steer_failed",
   interruptFailedCode = "codex_turn_interrupt_failed",
   errorPrefix = ""
-} = {}) {
+}) {
   if (typeof persistCommentary !== "boolean") throw new TypeError("Invalid Codex commentary persistence policy.");
   if (!Number.isSafeInteger(finalizingGraceMs) || finalizingGraceMs < 1) {
     throw new TypeError("Invalid Codex finalizing grace.");
@@ -135,14 +250,13 @@ export function createCodexAppServerRunOwner({
     providerSessions = { ...providerSessions, managed: providerSessions.managed || new Map() };
   }
   const liveProgressMaxLength = 320;
-  const turnOutcomes = {
-    PROVIDER_FAILURE: "provider_failure",
-    RESPONSE_DELIVERY_FAILURE: "response_delivery_failure",
-    SERVICE_RESTART: "service_restart",
-    USER_CANCELLED: "user_cancelled",
-    CONTROL_RECONFIGURATION: "control_reconfiguration",
-    INTERRUPTED: "interrupted"
-  };
+  const turnOutcomes = CODEX_TURN_OUTCOMES;
+  /** @type {CodexMessageMetadataHooks} */
+  const messageMetadataHooks = Object.freeze({
+    actor: messageMetadata.actor || addNoMessageMetadata,
+    delivered: messageMetadata.delivered || keepDeliveredMessageMetadata,
+    terminal: messageMetadata.terminal || addNoMessageMetadata
+  });
   const snapshotRecoveryItemLimit = 25;
   const helperOwnershipError = createCodexHelperOwnershipError({ errorPrefix });
   const helperLifecycle = helperThreads ? createCodexHelperThreadLifecycle({
@@ -194,7 +308,7 @@ export function createCodexAppServerRunOwner({
     liveProgressMaxLength,
     persistCommentary,
     storeReadError,
-    messageMetadata,
+    messageMetadata: messageMetadataHooks,
     snapshotRecoveryItemLimit
   });
 
@@ -217,6 +331,7 @@ export function createCodexAppServerRunOwner({
     admissionTaskFinished,
     orphanedPromptMessage
   });
+  const admissionRecovery = recoverAdmission || codexRunJournal.recoverAbandonedPromptClaim;
 
   const codexResultSettlement = createCodexResultSettlement({
     journal: codexRunJournal,
@@ -248,7 +363,7 @@ export function createCodexAppServerRunOwner({
     failureDetailGraceMs,
     notificationQueue: codexAppServerNotificationQueue,
     hasRuntime,
-    recoverAdmission,
+    recoverAdmission: admissionRecovery,
     turnOutcomes,
     outcomeNotice,
     resultDeliveryFailureMessage
@@ -269,7 +384,7 @@ export function createCodexAppServerRunOwner({
   const codexMessageDelivery = createCodexAppServerMessageDelivery({
     namespace,
     publish,
-    messageMetadata,
+    messageMetadata: messageMetadataHooks,
     createStore,
     turnStateFromAgentRun,
     deliveryStateMetadataKey,
@@ -349,6 +464,18 @@ export function createCodexAppServerRunOwner({
     turnState
   });
 
+  const codexPromptDispatch = createCodexPromptDispatch({
+    output: codexAppServerOutput,
+    journal: codexRunJournal,
+    recovery: codexTurnRecovery,
+    threadStatus: codexThreadStatus,
+    delivery: codexMessageDelivery,
+    debugError,
+    debugLog,
+    steerFailedCode,
+    turnState
+  });
+
   const codexMessageCommands = createCodexMessageCommands({
     output: codexAppServerOutput,
     journal: codexRunJournal,
@@ -357,16 +484,17 @@ export function createCodexAppServerRunOwner({
     selection: codexProviderSelection,
     observer: codexNotificationObserver,
     delivery: codexMessageDelivery,
+    promptDispatch: codexPromptDispatch,
     promptDeliveries: codexAppServerPromptDeliveries,
     createRuntime,
     debugError,
     debugLog,
     errorPrefix,
     messageIdPrefix,
-    messageMetadata,
+    messageMetadata: messageMetadataHooks,
     namespace,
     providerSessions,
-    recoverAdmission,
+    recoverAdmission: admissionRecovery,
     steerFailedCode,
     turnAlreadyRunningError,
     turnState
@@ -495,8 +623,8 @@ export function createCodexAppServerRunOwner({
     recoverObservationLoss: codexObservationControl.recoverObservationLoss,
     runRenewalHandover: codexRenewalCommands.runCodexAppServerRenewalHandover,
     runRenewalSeed: codexRenewalCommands.runCodexAppServerRenewalSeed,
-    startTurn: codexMessageCommands.startTurn,
-    steerTurn: codexMessageCommands.steerTurn,
+    startTurn: codexPromptDispatch.startTurn,
+    steerTurn: codexPromptDispatch.steerTurn,
     prepareGoalContext: codexGoalCommands.prepareCodexAppServerGoalContext,
     validateGoalInput: codexGoalCommands.validateCodexAppServerGoalInput,
     updateGoal: codexGoalCommands.updateCodexAppServerGoal,

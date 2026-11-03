@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeNullableText } from "./normalize.js";
 import { codexAppServerStatusFromValue } from "./codexEvents.js";
@@ -37,6 +38,12 @@ function codexAppServerThreadStatus(thread = {}) {
   return liveStatus;
 }
 
+/**
+ * Reads a native thread's status, and with observeLatestTurn its latest turn too.
+ * @param {import("./codexProvider.js").CodexAppServerAgentProvider | null} provider
+ * @param {string} threadId
+ * @param {{ observeLatestTurn?: boolean }} [options]
+ */
 async function codexAppServerReadThreadStatus(provider = null, threadId = "", {
   observeLatestTurn = false
 } = {}) {
@@ -44,9 +51,9 @@ async function codexAppServerReadThreadStatus(provider = null, threadId = "", {
   if (!normalizedThreadId) {
     return null;
   }
-  if (typeof provider?.readThreadStatus === "function") {
+  if (provider) {
     const thread = await provider.readThreadStatus(normalizedThreadId);
-    if (!observeLatestTurn || typeof provider?.listThreadTurns !== "function") {
+    if (!observeLatestTurn) {
       return thread;
     }
     const response = await provider.listThreadTurns(normalizedThreadId, {
@@ -55,7 +62,7 @@ async function codexAppServerReadThreadStatus(provider = null, threadId = "", {
       sortDirection: "desc"
     });
     const observedTurn = Array.isArray(response?.data) ? response.data[0] : null;
-    if (provider.isControlProbeTurn?.(normalizedThreadId, observedTurn?.id)) return thread;
+    if (provider.isControlProbeTurn(normalizedThreadId, observedTurn?.id)) return thread;
     return isRecord(observedTurn)
       ? {
           ...thread,
@@ -100,7 +107,7 @@ function normalizeCodexRunText(value) {
   return String(value || "").trim();
 }
 
-function codexAppServerRunInputSource(run = {}) {
+function codexAppServerRunInputSource(run) {
   return normalizeCodexRunText(run?.inputSource);
 }
 
@@ -127,14 +134,14 @@ export function codexAppServerAgentRun(session = {}) {
   return runs.find((run) => normalizeCodexRunText(run?.id) === CODEX_APP_SERVER_AGENT_RUN_ID) || null;
 }
 
-export function codexAppServerPendingUserMessageClientIds(run = {}) {
+export function codexAppServerPendingUserMessageClientIds(run) {
   const ids = run?.pendingUserMessageClientIds;
   return (Array.isArray(ids) ? ids : [])
     .map((id) => normalizeCodexRunText(id))
     .filter(Boolean);
 }
 
-export function codexAppServerPendingUserMessageOwnership(run = {}, clientId = "") {
+export function codexAppServerPendingUserMessageOwnership(run, clientId = "") {
   const pendingClientIds = codexAppServerPendingUserMessageClientIds(run);
   const normalizedClientId = normalizeCodexRunText(clientId);
   const ownedClientId = normalizedClientId
@@ -300,6 +307,29 @@ export function codexAppServerTurnCanAdoptSuccessor(turn = {}, threadId = "", tu
 
 export function codexAppServerTurnKey(threadId = "", turnId = "") {
   return `${normalizeCodexRunText(threadId)}:${normalizeCodexRunText(turnId)}`;
+}
+
+// Identity of a native conversation message, derived from its thread, turn, role and text.
+export function codexAppServerConversationMessageId(
+  threadId = "",
+  turnId = "",
+  role = "",
+  text = ""
+) {
+  const normalizedText = normalizeCodexRunText(text);
+  const normalizedThreadId = normalizeCodexRunText(threadId);
+  if (!normalizedText || !normalizedThreadId) {
+    return "";
+  }
+  const digest = crypto.createHash("sha256")
+    .update([
+      normalizedThreadId,
+      normalizeCodexRunText(turnId) || "*",
+      normalizeCodexRunText(role),
+      normalizedText
+    ].join("\u0000"))
+    .digest("hex");
+  return `codex-${digest}`;
 }
 
 // Identity of a native outer turn. Terminal turns and persistent-conversation

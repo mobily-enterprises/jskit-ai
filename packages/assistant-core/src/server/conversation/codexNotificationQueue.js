@@ -1,12 +1,21 @@
 import { normalizeCodexRunText } from "./codexTurnState.js";
 
-// Per-session ordered notification tasks. Coalesces only fragments still
-// waiting behind a running write; running batches are never merged or delayed.
+function ignoreNotificationTaskError() {}
+
+/**
+ * Per-session ordered notification tasks. Coalesces only fragments still
+ * waiting behind a running write; running batches are never merged or delayed.
+ * @param {object} [options]
+ * @param {import("./codexTurn.js").CodexSessionNamespace} [options.namespace]
+ * @param {() => boolean} [options.isClosing]
+ * @param {import("./codexTurn.js").CodexRunInContext} [options.runInContext]
+ * @param {(error: unknown, context: object) => void} [options.reportError]
+ */
 export function createCodexAppServerNotificationQueue({
   namespace = normalizeCodexRunText,
   isClosing = () => false,
   runInContext = (_context, operation) => operation(),
-  reportError = () => {}
+  reportError = ignoreNotificationTaskError
 } = {}) {
   const codexAppServerNotificationTasks = new Map();
   const codexAppServerPendingStreams = new Map();
@@ -28,7 +37,7 @@ export function createCodexAppServerNotificationQueue({
       .catch(() => null)
       .then(() => runInContext(context.projectContext, operation))
       .catch((error) => {
-        context.provider?.failObservation?.(error);
+        context.provider?.failObservation(error);
         reportError(error, context);
       });
     codexAppServerNotificationTasks.set(taskSessionKey, task);
@@ -98,7 +107,7 @@ export function createCodexAppServerNotificationQueue({
     codexAppServerPendingReasoning.set(context.sessionKey, batch);
   }
 
-  return {
+  return Object.freeze({
     tasks: codexAppServerNotificationTasks,
     pendingStreams: codexAppServerPendingStreams,
     pendingReasoning: codexAppServerPendingReasoning,
@@ -107,5 +116,7 @@ export function createCodexAppServerNotificationQueue({
     captureDrain: captureCodexAppServerNotificationDrain,
     stream: queueCodexAppServerStream,
     reasoning: queueCodexAppServerReasoning
-  };
+  });
 }
+
+/** @typedef {ReturnType<typeof createCodexAppServerNotificationQueue>} CodexAppServerNotificationQueue */

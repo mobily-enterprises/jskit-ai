@@ -1,6 +1,17 @@
 import { CODEX_APP_SERVER_AGENT_RUN_ID } from "./codexTurnState.js";
 
-// Private composition of unchanged operations from the original run owner.
+/**
+ * The run owner's native goal commands: preparing a goal's context, validating its input and updating it.
+ * @param {object} dependencies
+ * @param {import("./codexConversations.js").CodexConversationCommands["codexAppServerConversationContext"]} dependencies.conversationContext
+ * @param {import("./codexThreadReadiness.js").CodexThreadReadiness["ensureThreadReady"]} dependencies.ensureThreadReady
+ * @param {import("./codexTurn.js").CodexPublish} dependencies.publish
+ * @param {import("./codexOutput.js").CodexAppServerOutput["readAgentRunForSession"]} dependencies.readCodexAppServerAgentRunForSession
+ * @param {import("./codexNotificationObserver.js").CodexNotificationObserver["reconcileGoalUpdated"]} dependencies.reconcileCodexAppServerGoalUpdated
+ * @param {import("./codexOutput.js").CodexAppServerOutput["submitAssistantResult"]} dependencies.submitCodexAppServerAssistantResult
+ * @param {import("./codexNotificationObserver.js").CodexNotificationObserver["subscribeEvents"]} dependencies.subscribeCodexAppServerEvents
+ * @param {import("./codexTurn.js").CodexTurnStateReader} dependencies.turnState
+ */
 export function createCodexGoalCommands({
   conversationContext,
   ensureThreadReady,
@@ -120,10 +131,9 @@ export function createCodexGoalCommands({
     return { ok: true, status: "available", threadId, goal: result.goal || null };
   }
 
-
-  return {
+  return Object.freeze({
     prepareCodexAppServerGoalContext,
     validateCodexAppServerGoalInput,
     updateCodexAppServerGoal
-  };
+  });
 }

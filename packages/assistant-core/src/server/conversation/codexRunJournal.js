@@ -21,8 +21,44 @@ import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 const CODEX_APP_SERVER_PROMPT_CLAIM_GRACE_MS = 15000;
 
-// Original native run claims, guarded journal writes and status retirement.
-// The containing run owner shares these exact Sets and Maps by reference.
+function terminalCodexAppServerAgentRunState(status = "") {
+  const normalizedStatus = normalizeCodexRunText(status);
+  if (normalizedStatus === "interrupted") {
+    return CODEX_APP_SERVER_RUN_STATE.INTERRUPTED;
+  }
+  if (normalizedStatus === "failed") {
+    return CODEX_APP_SERVER_RUN_STATE.FAILED;
+  }
+  return CODEX_APP_SERVER_RUN_STATE.COMPLETED;
+}
+
+function codexAppServerDateValueMs(value = "") {
+  const parsed = Date.parse(normalizeCodexRunText(value));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+/**
+ * Native run claims, guarded journal writes and status retirement. The containing run owner shares these exact Sets
+ * and Maps by reference.
+ * @param {object} dependencies
+ * @param {import("./codexTurn.js").CodexSessionNamespace} dependencies.namespace
+ * @param {(state: unknown) => string} dependencies.normalizeRunState
+ * @param {import("./codexTurn.js").CodexTurnStateReader} dependencies.turnState
+ * @param {import("./codexTurn.js").CodexCreateRuntime} dependencies.createRuntime
+ * @param {import("./codexTurn.js").CodexPublish} dependencies.publish
+ * @param {(sessionId: string, input: object) => Promise<unknown>} dependencies.checkpoint
+ * @param {import("./codexTurn.js").CodexDebugLog} dependencies.debugLog
+ * @param {import("./codexOutput.js").CodexAppServerOutput} dependencies.output
+ * @param {string} dependencies.messageIdPrefix
+ * @param {string} dependencies.sessionIdRequiredError
+ * @param {string} dependencies.turnClaimsUnsupportedError
+ * @param {string} dependencies.turnAlreadyRunningError
+ * @param {string} dependencies.errorPrefix
+ * @param {object} [dependencies.idlePublishPayload]
+ * @param {number} dependencies.finalizingGraceMs
+ * @param {(session: object, run: object) => boolean} dependencies.admissionTaskFinished
+ * @param {string} dependencies.orphanedPromptMessage
+ */
 export function createCodexRunJournal({
   namespace,
   normalizeRunState,
@@ -127,6 +163,7 @@ export function createCodexRunJournal({
         } }
       };
     }
+    // readable-check: allow method-probe - input validation: the application's session runtime must support turn claims before a message claims one
     if (typeof runtime?.store?.mutateSession !== "function" || typeof runtime?.getSession !== "function") {
       throw new Error(turnClaimsUnsupportedError);
     }
@@ -171,9 +208,7 @@ export function createCodexRunJournal({
     let wrote = false;
     let stale = null;
     const updatedSession = await runtime.store.mutateSession(normalizedSessionId, async () => {
-      const currentSession = typeof runtime?.getSession === "function"
-        ? await runtime.getSession(normalizedSessionId).catch(() => null)
-        : null;
+      const currentSession = await runtime.getSession(normalizedSessionId).catch(() => null);
       const identity = runIdentityForPatch(currentSession || {}, {
         threadId,
         turnId
@@ -284,17 +319,6 @@ export function createCodexRunJournal({
         codexAppServerFinalizingTimers.delete(key);
       }
     }
-  }
-
-  function terminalCodexAppServerAgentRunState(status = "") {
-    const normalizedStatus = normalizeCodexRunText(status);
-    if (normalizedStatus === "interrupted") {
-      return CODEX_APP_SERVER_RUN_STATE.INTERRUPTED;
-    }
-    if (normalizedStatus === "failed") {
-      return CODEX_APP_SERVER_RUN_STATE.FAILED;
-    }
-    return CODEX_APP_SERVER_RUN_STATE.COMPLETED;
   }
 
   function codexAppServerAgentRunRealtimePayload(runPatch = {}) {
@@ -445,11 +469,6 @@ export function createCodexRunJournal({
     return normalizeCodexRunText(turnId) || await currentCodexAppServerTurnId(sessionId, threadId);
   }
 
-  function codexAppServerDateValueMs(value = "") {
-    const parsed = Date.parse(normalizeCodexRunText(value));
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-
   function codexAppServerFinalizingExpired(turn = {}, nowMs = Date.now()) {
     if (normalizeCodexRunText(turn.state) !== "finalizing") {
       return false;
@@ -577,7 +596,7 @@ export function createCodexRunJournal({
 
   async function recoverAbandonedCodexAppServerPromptClaim(runtime, session = {}, options = {}) {
     const run = abandonedCodexAppServerPromptClaim(session, options);
-    if (!run || !session?.sessionId || typeof runtime?.store?.writeAgentRunEvent !== "function") {
+    if (!run || !session.sessionId) {
       return {
         recovered: false,
         session
@@ -611,7 +630,7 @@ export function createCodexRunJournal({
     };
   }
 
-  return {
+  return Object.freeze({
     completedTurns: codexAppServerCompletedTurns,
     processedTurns: codexAppServerProcessedTurns,
     activeTimers: codexAppServerActiveTimers,
@@ -636,5 +655,7 @@ export function createCodexRunJournal({
     writeUserMessageOwnership: writeCodexAppServerUserMessageOwnership,
     recoverAbandonedPromptClaim: recoverAbandonedCodexAppServerPromptClaim,
     failOrphanedPromptDelivery: failOrphanedCodexAppServerPromptDelivery
-  };
+  });
 }
+
+/** @typedef {ReturnType<typeof createCodexRunJournal>} CodexRunJournal */

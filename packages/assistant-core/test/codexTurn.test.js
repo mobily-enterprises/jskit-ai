@@ -342,7 +342,7 @@ function runFixture(initial = {}) {
 test("native run claims retain the original lock/read/write/read sequence and clear former goal ownership", async () => {
   const f = runFixture({ state: "completed", providerGoalStatus: "active", providerGoalThreadId: "old-thread",
     providerGoalUpdatedAt: "old-goal-time", pendingUserMessageClientIds: ["old-message"] });
-  const owner = createCodexAppServerRunOwner();
+  const owner = createCodexAppServerRunOwner({});
   const result = await owner.claimTurnStart(f.runtime, " session-1 ", " request-2 ");
   assert.equal(result.claimed, true);
   const run = result.session.agentRuns[0];
@@ -362,7 +362,7 @@ test("native run claims retain the original lock/read/write/read sequence and cl
 
 test("the moved native run guard preserves Stop when an earlier provider read resolves", async () => {
   const f = runFixture();
-  const owner = createCodexAppServerRunOwner();
+  const owner = createCodexAppServerRunOwner({});
   const observedRun = f.read();
   await owner.writeAgentRun(f.runtime, "session-1", { runState: CODEX_APP_SERVER_RUN_STATE.INTERRUPTED,
     status: "interrupted", threadId: "thread-1", turnId: "turn-1", publishReason: "codex-app-server-turn-interrupted" });
@@ -386,7 +386,7 @@ test("native recovery requires the exact stopped revision and keeps its original
   for (const state of ["failed", "interrupted"]) {
     const f = runFixture({ state, providerStatus: state });
     const observedRun = f.read();
-    const result = await createCodexAppServerRunOwner().writeAgentRun(f.runtime, "session-1", { observedRun,
+    const result = await createCodexAppServerRunOwner({}).writeAgentRun(f.runtime, "session-1", { observedRun,
       runState: CODEX_APP_SERVER_RUN_STATE.ACTIVE, status: "inProgress", threadId: "thread-1", turnId: "turn-1",
       updatedAt: "2026-10-01T01:00:00.000Z" });
     assert.equal(result.wrote, true);
@@ -422,7 +422,7 @@ test("durable processed results and observation loss prevent revival of an exact
 
 test("native phase changes require the current exact turn and retain its active start", async () => {
   const f = runFixture({ providerPhase: "reasoning" });
-  const owner = createCodexAppServerRunOwner();
+  const owner = createCodexAppServerRunOwner({});
   for (const turnId of ["", "foreign-turn"]) {
     assert.equal((await owner.writeAgentRun(f.runtime, "session-1", { phase: "compacting",
       runState: CODEX_APP_SERVER_RUN_STATE.ACTIVE, status: "inProgress", threadId: "thread-1", turnId })).wrote, false);
@@ -437,7 +437,7 @@ test("native phase changes require the current exact turn and retain its active 
 test("a settling write for a predecessor turn cannot end the active successor run", async () => {
   for (const state of ["active", "finalizing", "starting"]) {
     const f = runFixture({ state, providerTurnId: "successor" });
-    const owner = createCodexAppServerRunOwner();
+    const owner = createCodexAppServerRunOwner({});
     const successor = f.read();
     for (const runState of [CODEX_APP_SERVER_RUN_STATE.COMPLETED, CODEX_APP_SERVER_RUN_STATE.FAILED,
       CODEX_APP_SERVER_RUN_STATE.INTERRUPTED]) {
@@ -540,7 +540,7 @@ test("the run owner's session closures are the ones its runtime lifecycle drains
 });
 
 test("the run owner exposes only operations its consumers use, not facet recovery state", () => {
-  const owner = createCodexAppServerRunOwner();
+  const owner = createCodexAppServerRunOwner({});
   for (const internal of ["completedTurns", "automaticHookThreads", "conversationTurnStarts", "reasoningPersistQueues",
     "threadReconciliations", "reasoningTurns", "finalAssistantResults", "mirroredTerminalItems", "clearActiveTimer",
     "clearFinalizingTimer", "adoptSuccessorTurn", "markTurnActive", "markTurnFinalizing", "checkManagedConnection"]) {
@@ -770,7 +770,9 @@ async function outputFixture({ persistCommentary } = {}) {
         nextCursor: offset + 1 < f.history.length ? String(offset + 1) : null };
     },
     async resumeThread() { throw new Error("History recovery must not resume native work"); },
-    async startTurn() { throw new Error("History reads must not resend the prompt"); }
+    async startTurn() { throw new Error("History reads must not resend the prompt"); },
+    isControlProbeTurn: () => false,
+    interruptionOutcome: () => ""
   };
   f.store = store;
   f.provider = provider;
@@ -1719,7 +1721,8 @@ test("original dispatch start waits for a persisted receipt and ignores its late
   const receipt = Promise.withResolvers();
   f.run = { ...f.run, state: "starting", providerTurnId: "", outerTurnId: messageId };
   f.owner.pendingUserMessages.set(`${context.promptDeliveryKey}\0${messageId}`, {
-    text: context.displayMessage, turnMetadata: context.turnMetadata, receipt
+    text: context.displayMessage, turnMetadata: context.turnMetadata, receipt,
+    onNativeReceipt() {}, onReceiptPersisted() {}
   });
   let rpcReplies = 0;
   let returned = false;
@@ -1804,7 +1807,8 @@ test("original dispatch steering persists the authored receipt while its exact n
   const acknowledgement = Promise.withResolvers();
   f.owner.pendingUserMessages.set(`${context.promptDeliveryKey}\0${context.messageId}`, {
     text: context.displayMessage, turnMetadata: context.turnMetadata,
-    attachments: [{ id: "diagram", name: "Diagram" }], receipt
+    attachments: [{ id: "diagram", name: "Diagram" }], receipt,
+    onNativeReceipt() {}, onReceiptPersisted() {}
   });
   let rpcReplies = 0;
   f.provider.steerTurn = async (threadId, turnId, input, params) => {
@@ -2204,7 +2208,8 @@ test("original authorized input supports an attachment-only receipt through the 
   const acknowledgement = Promise.withResolvers();
   f.run = { ...f.run, state: "starting", providerTurnId: "" };
   f.owner.pendingUserMessages.set(`${context.promptDeliveryKey}\0${context.messageId}`, {
-    text: "", attachments, turnMetadata: context.turnMetadata, receipt
+    text: "", attachments, turnMetadata: context.turnMetadata, receipt,
+    onNativeReceipt() {}, onReceiptPersisted() {}
   });
   f.provider.sendTurn = async (threadId, input, params) => {
     assert.equal(threadId, f.threadId);
@@ -3124,7 +3129,8 @@ test("native receipt keeps admitted application data with the original authored 
   f.run = { ...f.run, state: "starting", providerTurnId: "", pendingUserMessageClientIds: [messageId] };
   const receipt = Promise.withResolvers();
   f.owner.pendingUserMessages.set(`project:${f.sessionId}\0${messageId}`, {
-    text: "These are my actual words.", attachments: [], authoredInput: { messageId, data }, receipt
+    text: "These are my actual words.", attachments: [], authoredInput: { messageId, data }, receipt,
+    onNativeReceipt() {}, onReceiptPersisted() {}
   });
   f.observe();
   f.emit(f.receipt(messageId, "Prepared model context must not replace authored words"));
@@ -3169,7 +3175,8 @@ test("native receipt does not borrow application data from another authored iden
   const receipt = Promise.withResolvers();
   f.owner.pendingUserMessages.set(`project:${f.sessionId}\0${messageId}`, {
     text: "Unassociated actual words.", attachments: [],
-    authoredInput: { messageId: "other-message", data: { association: "foreign" } }, receipt
+    authoredInput: { messageId: "other-message", data: { association: "foreign" } }, receipt,
+    onNativeReceipt() {}, onReceiptPersisted() {}
   });
   f.observe();
   f.emit(f.receipt(messageId));

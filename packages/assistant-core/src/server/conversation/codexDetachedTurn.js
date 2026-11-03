@@ -38,10 +38,33 @@ function codexAppServerTurnTokenUsage(notification = {}) {
   return Object.keys(snapshot).length ? Object.freeze(snapshot) : null;
 }
 
-function createCodexAppServerDetachedTurnWatcher(provider = null, threadId = "", {
+/**
+ * The provider methods a detached turn watcher reads.
+ * @typedef {Pick<import("./codexProvider.js").CodexAppServerAgentProvider,
+ *   "subscribe" | "readThread" | "isAvailable" | "currentConnectionGeneration">} CodexDetachedTurnProvider
+ */
+
+/**
+ * The observer told about each classified notification of the watched turn.
+ * @typedef {(classification: object, notification: object) => void} CodexDetachedTurnEventObserver
+ */
+
+function ignoreCodexDetachedTurnEvent() {}
+
+/**
+ * Watches one native turn of a thread until it completes, fails or times out.
+ * @param {CodexDetachedTurnProvider} provider
+ * @param {string} threadId
+ * @param {object} [options]
+ * @param {boolean} [options.includeThreadHistory]
+ * @param {boolean} [options.allowEmptyResponse]
+ * @param {CodexDetachedTurnEventObserver} [options.onEvent]
+ * @param {number} [options.timeoutMs]
+ */
+function createCodexAppServerDetachedTurnWatcher(provider, threadId = "", {
   includeThreadHistory = true,
   allowEmptyResponse = false,
-  onEvent = null,
+  onEvent = ignoreCodexDetachedTurnEvent,
   timeoutMs = CODEX_APP_SERVER_DETACHED_TURN_TIMEOUT_MS
 } = {}) {
   const normalizedThreadId = normalizeNullableText(threadId);
@@ -87,8 +110,8 @@ function createCodexAppServerDetachedTurnWatcher(provider = null, threadId = "",
     rejectWaiter?.(error);
   }
 
-  function emitWatcherEvent(classification = {}, notification) {
-    if (typeof onEvent !== "function" || !classification?.kind) {
+  function emitWatcherEvent(classification, notification) {
+    if (!classification.kind) {
       return;
     }
     onEvent({
@@ -102,8 +125,7 @@ function createCodexAppServerDetachedTurnWatcher(provider = null, threadId = "",
     if (
       !includeThreadHistory ||
       !normalizedThreadId ||
-      !targetTurnId ||
-      typeof provider?.readThread !== "function"
+      !targetTurnId
     ) {
       return {
         status: "",
@@ -173,104 +195,101 @@ function createCodexAppServerDetachedTurnWatcher(provider = null, threadId = "",
     return !targetTurnId || !notificationTurnId || notificationTurnId === targetTurnId;
   }
 
-  return {
-    async completeNow(status = "completed") {
-      await finishFromCompletion(status);
-    },
-    failNow(error) {
-      fail(error);
-    },
-    failAfterDetailGrace(error) {
-      failAfterDetailGrace(error);
-    },
-    setTurnId(turnId = "") {
-      targetTurnId = normalizeNullableText(turnId);
-      if (pendingFailure) {
-        failAfterDetailGrace(pendingFailure);
-        return;
-      }
-      if (pendingCompletionStatus) {
-        const status = pendingCompletionStatus;
-        pendingCompletionStatus = "";
-        void finishFromCompletion(status);
-      }
-    },
-    wait() {
-      if (settled) {
-        return Promise.reject(new Error("Codex app-server detached turn watcher was already settled."));
-      }
-      return new Promise((resolve, reject) => {
-        resolveWaiter = resolve;
-        rejectWaiter = reject;
-        if (timeoutMs > 0) {
-          timeout = setTimeout(() => {
-            fail(new Error("Timed out waiting for Codex app-server response."));
-          }, timeoutMs);
-        } else {
-          // Interactive repair turns may take longer than bounded helper jobs.
-          // Retain their watcher until completion, interruption, or connection loss.
-          const generation = provider?.currentConnectionGeneration?.();
-          connectionCheck = setInterval(() => {
-            if (provider?.isAvailable?.() === false ||
-              provider?.currentConnectionGeneration?.() !== generation) {
-              fail(new Error("Connection to Codex was lost while the temporary AI was working."));
-            }
-          }, 1000);
-          connectionCheck.unref?.();
-        }
-        unsubscribe = typeof provider?.subscribe === "function"
-          ? provider.subscribe((notification = {}) => {
-              if (!notificationMatches(notification)) {
-                return;
-              }
-              usage = codexAppServerTurnTokenUsage(notification) || usage;
-              const classification = classifyCodexAppServerEvent(notification);
-              emitWatcherEvent(classification, notification);
-              if (
-                classification.kind === "provider_error" &&
-                classification.text &&
-                codexAppServerNotificationParams(notification).willRetry !== true
-              ) {
-                const error = new Error(classification.text);
-                if (!targetTurnId) {
-                  pendingFailure = error;
-                  return;
-                }
-                fail(error);
-                return;
-              }
-              if (classification.kind === "final_assistant_result" && classification.text) {
-                finalText = classification.text;
-                if (pendingCompletionStatus && targetTurnId) {
-                  const status = pendingCompletionStatus;
-                  pendingCompletionStatus = "";
-                  clearTimeout(failureDetailTimeout);
-                  failureDetailTimeout = null;
-                  void finishFromCompletion(status);
-                }
-              }
-              const method = normalizeNullableText(notification.method);
-              if (method !== "turn/completed" && method !== "thread/status/changed") {
-                return;
-              }
-              const status = codexAppServerNotificationTurnStatus(notification) || "completed";
-              if (codexAppServerTurnStatusIsProviderFailure(status)) {
-                const error = new Error(codexAppServerNotificationError(notification) || `Codex app-server turn ${status}.`);
-                if (!targetTurnId) {
-                  pendingFailure = error;
-                  return;
-                }
-                failAfterDetailGrace(error);
-                return;
-              }
-              if (codexAppServerTurnStatusIsSuccessfulComplete(status)) {
-                void finishFromCompletion(status);
-              }
-            })
-          : null;
-      });
+  function setTurnId(turnId = "") {
+    targetTurnId = normalizeNullableText(turnId);
+    if (pendingFailure) {
+      failAfterDetailGrace(pendingFailure);
+      return;
     }
-  };
+    if (pendingCompletionStatus) {
+      const status = pendingCompletionStatus;
+      pendingCompletionStatus = "";
+      void finishFromCompletion(status);
+    }
+  }
+
+  function wait() {
+    if (settled) {
+      return Promise.reject(new Error("Codex app-server detached turn watcher was already settled."));
+    }
+    return new Promise((resolve, reject) => {
+      resolveWaiter = resolve;
+      rejectWaiter = reject;
+      if (timeoutMs > 0) {
+        timeout = setTimeout(() => {
+          fail(new Error("Timed out waiting for Codex app-server response."));
+        }, timeoutMs);
+      } else {
+        // Interactive repair turns may take longer than bounded helper jobs.
+        // Retain their watcher until completion, interruption, or connection loss.
+        const generation = provider.currentConnectionGeneration();
+        connectionCheck = setInterval(() => {
+          if (provider.isAvailable() === false ||
+            provider.currentConnectionGeneration() !== generation) {
+            fail(new Error("Connection to Codex was lost while the temporary AI was working."));
+          }
+        }, 1000);
+        connectionCheck.unref();
+      }
+      unsubscribe = provider.subscribe((notification = {}) => {
+        if (!notificationMatches(notification)) {
+          return;
+        }
+        usage = codexAppServerTurnTokenUsage(notification) || usage;
+        const classification = classifyCodexAppServerEvent(notification);
+        emitWatcherEvent(classification, notification);
+        if (
+          classification.kind === "provider_error" &&
+          classification.text &&
+          codexAppServerNotificationParams(notification).willRetry !== true
+        ) {
+          const error = new Error(classification.text);
+          if (!targetTurnId) {
+            pendingFailure = error;
+            return;
+          }
+          fail(error);
+          return;
+        }
+        if (classification.kind === "final_assistant_result" && classification.text) {
+          finalText = classification.text;
+          if (pendingCompletionStatus && targetTurnId) {
+            const status = pendingCompletionStatus;
+            pendingCompletionStatus = "";
+            clearTimeout(failureDetailTimeout);
+            failureDetailTimeout = null;
+            void finishFromCompletion(status);
+          }
+        }
+        const method = normalizeNullableText(notification.method);
+        if (method !== "turn/completed" && method !== "thread/status/changed") {
+          return;
+        }
+        const status = codexAppServerNotificationTurnStatus(notification) || "completed";
+        if (codexAppServerTurnStatusIsProviderFailure(status)) {
+          const error = new Error(codexAppServerNotificationError(notification) || `Codex app-server turn ${status}.`);
+          if (!targetTurnId) {
+            pendingFailure = error;
+            return;
+          }
+          failAfterDetailGrace(error);
+          return;
+        }
+        if (codexAppServerTurnStatusIsSuccessfulComplete(status)) {
+          void finishFromCompletion(status);
+        }
+      });
+    });
+  }
+
+  return Object.freeze({
+    completeNow: finishFromCompletion,
+    failNow: fail,
+    failAfterDetailGrace,
+    // readable-check: allow setter-seam - not a slot: setTurnId records the turn identity that startup acknowledges after wait() has subscribed
+    setTurnId,
+    wait
+  });
 }
 
 function codexAppServerTurnError(reason, details = {}, providerMessage = "") {
@@ -284,6 +303,15 @@ function codexAppServerTurnError(reason, details = {}, providerMessage = "") {
   return error;
 }
 
+/**
+ * Waits for an already started native turn and returns its final answer.
+ * @param {CodexDetachedTurnProvider} provider
+ * @param {string} threadId
+ * @param {object | null} turn
+ * @param {object} [options]
+ * @param {number} [options.timeoutMs]
+ * @param {typeof codexAppServerTurnError} [options.createError]
+ */
 async function waitForCodexAppServerTurn(provider, threadId = "", turn = null, {
   timeoutMs = CODEX_APP_SERVER_DETACHED_TURN_TIMEOUT_MS,
   createError = codexAppServerTurnError
@@ -321,7 +349,7 @@ async function waitForCodexAppServerTurn(provider, threadId = "", turn = null, {
   void pending.catch(() => null);
   if (codexAppServerTurnStatusIsSuccessfulComplete(status)) {
     await watcher.completeNow(status);
-  } else if (typeof provider?.readThread === "function") {
+  } else {
     const latestThread = await provider.readThread(normalizedThreadId);
     const latestTurn = codexAppServerProviderTurnForOperation(latestThread, { turnId });
     const latestStatus = codexAppServerProviderTurnStatus(latestTurn || {});
@@ -338,4 +366,9 @@ async function waitForCodexAppServerTurn(provider, threadId = "", turn = null, {
   return pending;
 }
 
-export { CODEX_APP_SERVER_DETACHED_TURN_TIMEOUT_MS, createCodexAppServerDetachedTurnWatcher, waitForCodexAppServerTurn };
+export {
+  CODEX_APP_SERVER_DETACHED_TURN_TIMEOUT_MS,
+  createCodexAppServerDetachedTurnWatcher,
+  ignoreCodexDetachedTurnEvent,
+  waitForCodexAppServerTurn
+};
