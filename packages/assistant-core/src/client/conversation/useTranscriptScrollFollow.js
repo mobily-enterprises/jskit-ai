@@ -244,7 +244,7 @@ function useTranscriptScrollFollow({ props, displayEntries, isWorking, bodyEleme
     liveScrollFrame = 0;
   }
 
-  function updateLatestFollowFromScroll(event = {}) {
+  function updateLatestFollowFromScroll(event) {
     if (props.retainWhenHidden && !props.visible) {
       return;
     }

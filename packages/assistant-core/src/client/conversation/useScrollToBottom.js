@@ -62,7 +62,7 @@ function useScrollToBottom({
     clearScheduledTimers();
   }
 
-  function scrollNow(options = {}) {
+  function scrollNow(options) {
     if (disposed || !isEnabled()) {
       return;
     }

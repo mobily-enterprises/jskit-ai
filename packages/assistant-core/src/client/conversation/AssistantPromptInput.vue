@@ -177,7 +177,7 @@ const textareaAriaLabel = computed(() => (
 
 const { preserveHeightForNextModelValue, queueResizeTextarea, releasePreservedHeight } = useTextareaAutoGrow(props, textareaRef);
 
-function handleTextareaInput(event = {}) {
+function handleTextareaInput(event) {
   releasePreservedHeight();
   emit("input-activity");
   emit("update:modelValue", String(event?.target?.value || ""));

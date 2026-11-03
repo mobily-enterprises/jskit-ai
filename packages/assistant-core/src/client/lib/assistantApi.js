@@ -120,166 +120,182 @@ function createAssistantApi({ request, requestStream, resolveBasePath, resolveSu
     });
   }
 
-  return Object.freeze({
-    readConversation(conversationId, { signal, beforeTurnId, limit } = {}) {
-      const params = new URLSearchParams();
-      appendQueryParam(params, "beforeTurnId", beforeTurnId);
-      appendQueryParam(params, "limit", limit);
-      return requestConversation(conversationId, params.size ? `?${params}` : "", { method: "GET", signal });
-    },
+  function readConversation(conversationId, { signal, beforeTurnId, limit } = {}) {
+    const params = new URLSearchParams();
+    appendQueryParam(params, "beforeTurnId", beforeTurnId);
+    appendQueryParam(params, "limit", limit);
+    return requestConversation(conversationId, params.size ? `?${params}` : "", { method: "GET", signal });
+  }
 
-    sendConversationMessage(conversationId, payload, { signal } = {}) {
-      return requestConversation(conversationId, "/messages", {
-        method: "POST", signal,
-        body: {
-          messageId: payload.messageId,
-          text: payload.text,
-          ...(Object.hasOwn(payload, "data") ? { data: payload.data } : {}),
-          ...(Object.hasOwn(payload, "attachmentIds") ? { attachmentIds: payload.attachmentIds } : {}),
-          ...(Object.hasOwn(payload, "steer") ? { steer: payload.steer } : {})
-        }
-      });
-    },
-
-    cancelConversation(conversationId, { signal } = {}) {
-      return requestConversation(conversationId, "/cancel", { method: "POST", signal });
-    },
-
-    inspectConversationDelivery(conversationId, messageId, { signal } = {}) {
-      const encodedMessageId = encodeURIComponent(String(messageId || "").trim());
-      return requestConversation(conversationId, `/deliveries/${encodedMessageId}/inspect`, { method: "POST", signal });
-    },
-
-    cancelConversationDelivery(conversationId, messageId, { signal } = {}) {
-      const encodedMessageId = encodeURIComponent(String(messageId || "").trim());
-      return requestConversation(conversationId, `/deliveries/${encodedMessageId}/cancel`, { method: "POST", signal });
-    },
-
-    readConversationGoal(conversationId, { signal } = {}) {
-      return requestConversation(conversationId, "/goal", { method: "GET", signal });
-    },
-
-    updateConversationGoal(conversationId, payload, { signal } = {}) {
-      const body = {};
-      for (const key of ["action", "expectedSegmentId", "expectedGoalId", "messageId", "objective", "tokenBudget", "attachmentIds"]) {
-        if (Object.hasOwn(payload, key)) body[key] = payload[key];
+  function sendConversationMessage(conversationId, payload, { signal } = {}) {
+    return requestConversation(conversationId, "/messages", {
+      method: "POST", signal,
+      body: {
+        messageId: payload.messageId,
+        text: payload.text,
+        ...(Object.hasOwn(payload, "data") ? { data: payload.data } : {}),
+        ...(Object.hasOwn(payload, "attachmentIds") ? { attachmentIds: payload.attachmentIds } : {}),
+        ...(Object.hasOwn(payload, "steer") ? { steer: payload.steer } : {})
       }
-      return requestConversation(conversationId, "/goal", { method: "POST", signal, body });
-    },
+    });
+  }
 
-    configureConversation(conversationId, configuration, { signal } = {}) {
-      return requestConversation(conversationId, "/configuration", {
-        method: "PATCH", signal, body: { configuration }
-      });
-    },
+  function cancelConversation(conversationId, { signal } = {}) {
+    return requestConversation(conversationId, "/cancel", { method: "POST", signal });
+  }
 
-    selectConversation(conversationId, selection, { signal } = {}) {
-      return requestConversation(conversationId, "/selection", {
-        method: "POST", signal, body: { selection }
-      });
-    },
+  function inspectConversationDelivery(conversationId, messageId, { signal } = {}) {
+    const encodedMessageId = encodeURIComponent(String(messageId || "").trim());
+    return requestConversation(conversationId, `/deliveries/${encodedMessageId}/inspect`, { method: "POST", signal });
+  }
 
-    replaceConversation(conversationId, replacement, { signal } = {}) {
-      return requestConversation(conversationId, "/replacement", {
-        method: "POST", signal, body: { replacement }
-      });
-    },
+  function cancelConversationDelivery(conversationId, messageId, { signal } = {}) {
+    const encodedMessageId = encodeURIComponent(String(messageId || "").trim());
+    return requestConversation(conversationId, `/deliveries/${encodedMessageId}/cancel`, { method: "POST", signal });
+  }
 
-    async streamChat(payload, { signal, onEvent = ignoreStreamEvent, onMalformedLine, rejectOnErrorEvent = true } = {}) {
-      if (!streams) throw new TypeError("streamChat requires requestStream().");
-      const basePath = resolveRequiredBasePath(resolveBasePath);
-      let streamEventError = null;
-      const requestHeaders = resolveAssistantRequestHeaders(resolveSurfaceId, sendsSurface);
+  function readConversationGoal(conversationId, { signal } = {}) {
+    return requestConversation(conversationId, "/goal", { method: "GET", signal });
+  }
 
-      const streamHandlers = {
-        onEvent(event) {
-          const eventType = normalizeAssistantStreamEventType(event?.type, "");
-          if (rejectOnErrorEvent && eventType === ASSISTANT_STREAM_EVENT_TYPES.ERROR && !streamEventError) {
-            streamEventError = buildStreamEventError(event);
-          }
-
-          onEvent(event);
-        }
-      };
-
-      if (typeof onMalformedLine === "function") {
-        streamHandlers.onMalformedLine = (line, parseError) => {
-          onMalformedLine(line, parseError);
-        };
-      }
-
-      await requestStream(
-        `${basePath}/chat/stream`,
-        {
-          method: "POST",
-          ...(requestHeaders ? { headers: requestHeaders } : {}),
-          body: payload,
-          signal
-        },
-        streamHandlers
-      );
-
-      if (streamEventError) {
-        throw streamEventError;
-      }
-    },
-
-    listConversations(query = {}) {
-      const basePath = resolveRequiredBasePath(resolveBasePath);
-      const params = createAssistantQueryParams(query, ASSISTANT_CONVERSATIONS_TRANSPORT);
-      const requestHeaders = resolveAssistantRequestHeaders(resolveSurfaceId, sendsSurface);
-
-      return request(
-        appendQueryString(`${basePath}/conversations`, params.toString()),
-        {
-          ...(requestHeaders ? { headers: requestHeaders } : {}),
-          transport: ASSISTANT_CONVERSATIONS_TRANSPORT
-        }
-      );
-    },
-
-    getConversationMessages(conversationId, query = {}) {
-      const basePath = resolveRequiredBasePath(resolveBasePath);
-      const encodedConversationId = encodeURIComponent(String(conversationId || "").trim());
-      const params = createAssistantQueryParams(query, ASSISTANT_CONVERSATION_MESSAGES_TRANSPORT);
-      const requestHeaders = resolveAssistantRequestHeaders(resolveSurfaceId, sendsSurface);
-
-      return request(
-        appendQueryString(`${basePath}/conversations/${encodedConversationId}/messages`, params.toString()),
-        {
-          ...(requestHeaders ? { headers: requestHeaders } : {}),
-          transport: ASSISTANT_CONVERSATION_MESSAGES_TRANSPORT
-        }
-      );
-    },
-
-    getSettings() {
-      const basePath = resolveRequiredBasePath(resolveBasePath);
-      const requestHeaders = resolveAssistantRequestHeaders(resolveSurfaceId, sendsSurface);
-
-      return request(
-        `${basePath}/settings`,
-        {
-          ...(requestHeaders ? { headers: requestHeaders } : {}),
-          transport: ASSISTANT_SETTINGS_TRANSPORT
-        }
-      );
-    },
-
-    updateSettings(payload = {}) {
-      const basePath = resolveRequiredBasePath(resolveBasePath);
-      const requestHeaders = resolveAssistantRequestHeaders(resolveSurfaceId, sendsSurface);
-
-      return request(
-        `${basePath}/settings`,
-        {
-          method: "PATCH",
-          ...(requestHeaders ? { headers: requestHeaders } : {}),
-          body: payload,
-          transport: ASSISTANT_SETTINGS_UPDATE_TRANSPORT
-        }
-      );
+  function updateConversationGoal(conversationId, payload, { signal } = {}) {
+    const body = {};
+    for (const key of ["action", "expectedSegmentId", "expectedGoalId", "messageId", "objective", "tokenBudget", "attachmentIds"]) {
+      if (Object.hasOwn(payload, key)) body[key] = payload[key];
     }
+    return requestConversation(conversationId, "/goal", { method: "POST", signal, body });
+  }
+
+  function configureConversation(conversationId, configuration, { signal } = {}) {
+    return requestConversation(conversationId, "/configuration", {
+      method: "PATCH", signal, body: { configuration }
+    });
+  }
+
+  function selectConversation(conversationId, selection, { signal } = {}) {
+    return requestConversation(conversationId, "/selection", {
+      method: "POST", signal, body: { selection }
+    });
+  }
+
+  function replaceConversation(conversationId, replacement, { signal } = {}) {
+    return requestConversation(conversationId, "/replacement", {
+      method: "POST", signal, body: { replacement }
+    });
+  }
+
+  async function streamChat(payload, { signal, onEvent = ignoreStreamEvent, onMalformedLine, rejectOnErrorEvent = true } = {}) {
+    if (!streams) throw new TypeError("streamChat requires requestStream().");
+    const basePath = resolveRequiredBasePath(resolveBasePath);
+    let streamEventError = null;
+    const requestHeaders = resolveAssistantRequestHeaders(resolveSurfaceId, sendsSurface);
+
+    const streamHandlers = {
+      onEvent(event) {
+        const eventType = normalizeAssistantStreamEventType(event?.type, "");
+        if (rejectOnErrorEvent && eventType === ASSISTANT_STREAM_EVENT_TYPES.ERROR && !streamEventError) {
+          streamEventError = buildStreamEventError(event);
+        }
+
+        onEvent(event);
+      }
+    };
+
+    if (typeof onMalformedLine === "function") {
+      streamHandlers.onMalformedLine = (line, parseError) => {
+        onMalformedLine(line, parseError);
+      };
+    }
+
+    await requestStream(
+      `${basePath}/chat/stream`,
+      {
+        method: "POST",
+        ...(requestHeaders ? { headers: requestHeaders } : {}),
+        body: payload,
+        signal
+      },
+      streamHandlers
+    );
+
+    if (streamEventError) {
+      throw streamEventError;
+    }
+  }
+
+  function listConversations(query = {}) {
+    const basePath = resolveRequiredBasePath(resolveBasePath);
+    const params = createAssistantQueryParams(query, ASSISTANT_CONVERSATIONS_TRANSPORT);
+    const requestHeaders = resolveAssistantRequestHeaders(resolveSurfaceId, sendsSurface);
+
+    return request(
+      appendQueryString(`${basePath}/conversations`, params.toString()),
+      {
+        ...(requestHeaders ? { headers: requestHeaders } : {}),
+        transport: ASSISTANT_CONVERSATIONS_TRANSPORT
+      }
+    );
+  }
+
+  function getConversationMessages(conversationId, query = {}) {
+    const basePath = resolveRequiredBasePath(resolveBasePath);
+    const encodedConversationId = encodeURIComponent(String(conversationId || "").trim());
+    const params = createAssistantQueryParams(query, ASSISTANT_CONVERSATION_MESSAGES_TRANSPORT);
+    const requestHeaders = resolveAssistantRequestHeaders(resolveSurfaceId, sendsSurface);
+
+    return request(
+      appendQueryString(`${basePath}/conversations/${encodedConversationId}/messages`, params.toString()),
+      {
+        ...(requestHeaders ? { headers: requestHeaders } : {}),
+        transport: ASSISTANT_CONVERSATION_MESSAGES_TRANSPORT
+      }
+    );
+  }
+
+  function getSettings() {
+    const basePath = resolveRequiredBasePath(resolveBasePath);
+    const requestHeaders = resolveAssistantRequestHeaders(resolveSurfaceId, sendsSurface);
+
+    return request(
+      `${basePath}/settings`,
+      {
+        ...(requestHeaders ? { headers: requestHeaders } : {}),
+        transport: ASSISTANT_SETTINGS_TRANSPORT
+      }
+    );
+  }
+
+  function updateSettings(payload = {}) {
+    const basePath = resolveRequiredBasePath(resolveBasePath);
+    const requestHeaders = resolveAssistantRequestHeaders(resolveSurfaceId, sendsSurface);
+
+    return request(
+      `${basePath}/settings`,
+      {
+        method: "PATCH",
+        ...(requestHeaders ? { headers: requestHeaders } : {}),
+        body: payload,
+        transport: ASSISTANT_SETTINGS_UPDATE_TRANSPORT
+      }
+    );
+  }
+
+  return Object.freeze({
+    readConversation,
+    sendConversationMessage,
+    cancelConversation,
+    inspectConversationDelivery,
+    cancelConversationDelivery,
+    readConversationGoal,
+    updateConversationGoal,
+    configureConversation,
+    selectConversation,
+    replaceConversation,
+    streamChat,
+    listConversations,
+    getConversationMessages,
+    getSettings,
+    updateSettings
   });
 }
 

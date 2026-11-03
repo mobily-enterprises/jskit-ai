@@ -3,11 +3,11 @@ import { useJskitText } from "../i18n.js";
 
 const { t } = useJskitText();
 
-function attachmentUploadError(attachment = {}) {
+function attachmentUploadError(attachment) {
   return attachment?.error || attachment?.errors?.[0]?.message || "";
 }
 
-function attachmentIdentity(attachment = {}) {
+function attachmentIdentity(attachment) {
   return String(
     attachment?.clientId ||
     attachment?.attachmentId ||
@@ -25,7 +25,7 @@ function nextAttachmentClientId() {
   return `attachment-${Date.now().toString(36)}-${attachmentClientSequence.toString(36)}`;
 }
 
-function attachmentFileName(file = {}) {
+function attachmentFileName(file) {
   return String(file?.name || "attachment");
 }
 
@@ -100,7 +100,7 @@ function attachmentProgress(progress = {}, possibleTotal, fallbackTotal = 0) {
   };
 }
 
-function attachmentReceipt(row, uploaded = {}) {
+function attachmentReceipt(row, uploaded) {
   return {
     ...uploaded,
     attachmentId: String(uploaded?.attachmentId || ""),
@@ -204,7 +204,7 @@ function createReceiptCleanup({ deleteAttachment, deletesUnsentUploads, reportAt
     return cleanup;
   }
 
-  async function deleteUploadedAttachment(currentSessionId, attachment = {}) {
+  async function deleteUploadedAttachment(currentSessionId, attachment) {
     const attachmentId = String(attachment?.attachmentId || "").trim();
     if (!attachmentId || !deletesUnsentUploads) {
       return false;
@@ -216,7 +216,7 @@ function createReceiptCleanup({ deleteAttachment, deletesUnsentUploads, reportAt
     return true;
   }
 
-  function cleanupReceipt(currentSessionId, receipt = {}) {
+  function cleanupReceipt(currentSessionId, receipt) {
     const attachmentId = String(receipt?.attachmentId || "").trim();
     const cleanupId = `${currentSessionId}:${attachmentId}`;
     if (!attachmentId) {

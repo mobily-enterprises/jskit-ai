@@ -5,11 +5,11 @@ import { useJskitText } from "../i18n.js";
 
 const { t } = useJskitText();
 
-function assistantAttachmentFiles(fileList = []) {
+function assistantAttachmentFiles(fileList) {
   return Array.from(fileList || []).filter((file) => file && file.size >= 0);
 }
 
-function assistantAttachmentFilesFromTransferItems(items = []) {
+function assistantAttachmentFilesFromTransferItems(items) {
   return assistantAttachmentFiles(Array.from(items || [])
     .map((item) => {
       // readable-check: allow method-probe - platform object: a transfer item, or a caller's stand-in for one, may hold no file

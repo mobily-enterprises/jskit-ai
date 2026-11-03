@@ -242,7 +242,7 @@ function actionKey(item = {}, action = "") {
 }
 
 function actionElement(element = null) {
-  return element?.$el || element || null;
+  return element?.$el || null;
 }
 
 function setActionElement(item = {}, action = "", element = null) {
