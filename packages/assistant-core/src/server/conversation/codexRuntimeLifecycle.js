@@ -1,4 +1,4 @@
-import { normalizeCodexRunText as normalizeText } from "./codexTurnState.js";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 /** @typedef {ReturnType<typeof import("./codexHelperThreads.js").createCodexHelperThreadLifecycle>} CodexHelperThreadLifecycle */
 /** @typedef {ReturnType<typeof import("./codexNotificationObserver.js").createCodexNotificationObserver>} CodexNotificationObserver */

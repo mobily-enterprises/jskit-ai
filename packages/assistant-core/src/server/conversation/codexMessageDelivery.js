@@ -1,9 +1,10 @@
-import { normalizeCodexRunText, codexAppServerPendingUserMessageOwnership } from "./codexTurnState.js";
+import { codexAppServerPendingUserMessageOwnership } from "./codexTurnState.js";
 import {
   codexAppServerNotificationItem,
   codexAppServerUserMessageText,
   codexAppServerNotificationTurnId
 } from "./codexEvents.js";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 function ignoreMessageReceipt() {}
 
@@ -49,7 +50,7 @@ export function createCodexAppServerMessageDelivery({
   }
 
   async function withCodexAppServerMessageDelivery(sessionId, messageId, pendingMessage, operation) {
-    const normalizedMessageId = normalizeCodexRunText(messageId);
+    const normalizedMessageId = normalizeText(messageId);
     const deliveryKey = normalizedMessageId ? messageDeliveryKey(sessionId, normalizedMessageId) : "";
     const existing = deliveryKey ? codexAppServerMessageDeliveries.get(deliveryKey) : null;
     if (existing) {
@@ -88,25 +89,25 @@ export function createCodexAppServerMessageDelivery({
     nativeIdentity = null,
     data
   ) {
-    const normalizedSessionId = normalizeCodexRunText(sessionId);
-    const message = normalizeCodexRunText(text);
+    const normalizedSessionId = normalizeText(sessionId);
+    const message = normalizeText(text);
     if (
       !normalizedSessionId ||
       (!message && !(Array.isArray(attachments) && attachments.length))
     ) {
       return null;
     }
-    const pendingMessage = pendingUserMessage(normalizedSessionId, normalizeCodexRunText(messageId));
+    const pendingMessage = pendingUserMessage(normalizedSessionId, normalizeText(messageId));
     if (pendingMessage?.recording) {
       return pendingMessage.recording;
     }
     const authored = pendingMessage?.authoredInput;
-    const applicationData = authored?.messageId === normalizeCodexRunText(messageId) ? authored.data : data;
+    const applicationData = authored?.messageId === normalizeText(messageId) ? authored.data : data;
     const recording = (async () => {
       const written = await runtime.store.writeConversationUserMessage(normalizedSessionId, {
         attachments,
         nativeIdentity,
-        messageId: normalizeCodexRunText(messageId),
+        messageId: normalizeText(messageId),
         text: message,
         ...(applicationData !== undefined ? { data: structuredClone(applicationData) } : {}),
         turnMetadata: await messageMetadata.delivered(runtime.store, normalizedSessionId, turnMetadata)
@@ -133,12 +134,12 @@ export function createCodexAppServerMessageDelivery({
   }
 
   async function mirrorCodexAppServerTerminalUserMessage(sessionId = "", threadId = "", notification = {}) {
-    const normalizedSessionId = normalizeCodexRunText(sessionId);
-    const normalizedThreadId = normalizeCodexRunText(threadId);
+    const normalizedSessionId = normalizeText(sessionId);
+    const normalizedThreadId = normalizeText(threadId);
     const item = codexAppServerNotificationItem(notification);
     const text = codexAppServerUserMessageText(item);
-    const clientId = normalizeCodexRunText(item?.clientId);
-    if (!normalizedSessionId || (!text && (!clientId || normalizeCodexRunText(item?.type) !== "userMessage"))) {
+    const clientId = normalizeText(item?.clientId);
+    if (!normalizedSessionId || (!text && (!clientId || normalizeText(item?.type) !== "userMessage"))) {
       return;
     }
     const store = await createStore(normalizedSessionId);
@@ -186,9 +187,9 @@ export function createCodexAppServerMessageDelivery({
       }
       const turn = turnStateFromAgentRun(run || {});
       const providerTurnId = codexAppServerNotificationTurnId(notification);
-      const providerTurnAlreadyTracked = normalizeCodexRunText(turn.state) === "active" &&
-        (!normalizedThreadId || normalizeCodexRunText(turn.threadId) === normalizedThreadId) &&
-        (!providerTurnId || normalizeCodexRunText(turn.turnId) === providerTurnId);
+      const providerTurnAlreadyTracked = normalizeText(turn.state) === "active" &&
+        (!normalizedThreadId || normalizeText(turn.threadId) === normalizedThreadId) &&
+        (!providerTurnId || normalizeText(turn.turnId) === providerTurnId);
       if (!providerTurnAlreadyTracked) {
         await markCodexAppServerProviderTurnActive(normalizedSessionId, {
           inputSource: ownership.inputSource,

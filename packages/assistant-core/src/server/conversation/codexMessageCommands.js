@@ -1,17 +1,10 @@
-import {
-  normalizeCodexRunText,
-  codexAppServerErrorMessage,
-  codexAppServerMessageRequiresNewTurn,
-  codexAppServerMessageText,
-  codexAppServerMessageDisplayText,
-  codexPromptInputFromRequest
-} from "./codexTurnState.js";
+import { codexAppServerErrorMessage, codexAppServerMessageRequiresNewTurn, codexAppServerMessageText, codexAppServerMessageDisplayText, codexPromptInputFromRequest } from "./codexTurnState.js";
 import {
   codexAppServerThreadIsMissing,
   ensureCodexAppServerThread
 } from "./codexProviderThreads.js";
 import crypto from "node:crypto";
-import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { isRecord, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 /**
  * Main message admission, preparation and dispatch. Prompt delivery and receipt state remain the same run-owner
@@ -21,7 +14,7 @@ import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
  * @param {import("./codexRunJournal.js").CodexRunJournal} dependencies.journal
  * @param {import("./codexTurnRecovery.js").CodexTurnRecovery} dependencies.recovery
  * @param {import("./codexThreadStatus.js").CodexThreadStatus} dependencies.threadStatus
- * @param {import("./codexTurn.js").CodexProviderSelection} dependencies.selection
+ * @param {import("./codexProviderSelection.js").CodexProviderSelection} dependencies.selection
  * @param {import("./codexNotificationObserver.js").CodexNotificationObserver} dependencies.observer
  * @param {import("./codexMessageDelivery.js").CodexAppServerMessageDelivery} dependencies.delivery
  * @param {import("./codexPromptDispatch.js").CodexPromptDispatch} dependencies.promptDispatch
@@ -120,7 +113,7 @@ export function createCodexMessageCommands({
       if (recovered.reason === "error") throw new Error(recovered.error);
       return { value: codexAppServerMessageRequiresNewTurn({ reason: "observation_lost", threadId: turn.threadId, turnId: turn.turnId }), session: currentSession };
     }
-    const threadId = normalizeCodexRunText(turn.threadId) || context.threadId(currentSession);
+    const threadId = normalizeText(turn.threadId) || context.threadId(currentSession);
     if (!threadId) {
       debugLog("appServerMessage.newTurn", {
         messageId,
@@ -140,7 +133,7 @@ export function createCodexMessageCommands({
         messageId,
         sessionId,
         threadId,
-        turnId: normalizeCodexRunText(turn.turnId)
+        turnId: normalizeText(turn.turnId)
       });
     }
     const providerReadyAt = Date.now();
@@ -163,12 +156,12 @@ export function createCodexMessageCommands({
         reason: "provider_thread_missing",
         sessionId,
         threadId,
-        turnId: normalizeCodexRunText(turn.turnId)
+        turnId: normalizeText(turn.turnId)
       });
       return { value: codexAppServerMessageRequiresNewTurn({
         reason: "provider_thread_missing",
         threadId,
-        turnId: normalizeCodexRunText(turn.turnId)
+        turnId: normalizeText(turn.turnId)
       }), session: currentSession };
     }
     debugLog("appServerMessage.reconciled", {
@@ -178,7 +171,7 @@ export function createCodexMessageCommands({
     });
     currentSession = await runtime.getSession(sessionId);
     turn = turnState(currentSession);
-    const turnId = normalizeCodexRunText(turn.turnId);
+    const turnId = normalizeText(turn.turnId);
     const goalAwaitingTurn = !turn.active && turn.goalStatus === "active" && turn.goalThreadId === threadId;
     if (!turn.active && !goalAwaitingTurn) {
       debugLog("appServerMessage.newTurn", {
@@ -277,7 +270,7 @@ export function createCodexMessageCommands({
       ? options.agentSettings
       : isRecord(input.agentSettings) ? input.agentSettings : {};
     const actorContext = options.actorContext || null;
-    const messageId = normalizeCodexRunText(input.messageId) ||
+    const messageId = normalizeText(input.messageId) ||
       `${messageIdPrefix}${crypto.randomUUID()}`;
     const userRequest = codexPromptInputFromRequest(input);
     if (!userRequest && options.preparedInput === undefined) {
@@ -315,7 +308,7 @@ export function createCodexMessageCommands({
       } };
     }
 
-    const normalizedSessionId = normalizeCodexRunText(sessionId);
+    const normalizedSessionId = normalizeText(sessionId);
     const promptDeliveryKey = namespace(normalizedSessionId);
     codexAppServerPromptDeliveries.add(promptDeliveryKey);
     const prepared = {
@@ -377,7 +370,7 @@ export function createCodexMessageCommands({
     const turnOwnership = options.turnOwnership || null;
     const message = codexAppServerMessageText(input);
     const displayMessage = codexAppServerMessageDisplayText(input, message);
-    const messageId = normalizeCodexRunText(input?.messageId);
+    const messageId = normalizeText(input?.messageId);
     if (!message && options.preparedInput === undefined) {
       return { value: {
         code: steerFailedCode,
@@ -432,7 +425,7 @@ export function createCodexMessageCommands({
       return result;
     }
     const message = codexAppServerMessageText(input);
-    const messageId = normalizeCodexRunText(input.messageId) ||
+    const messageId = normalizeText(input.messageId) ||
       `${messageIdPrefix}${crypto.randomUUID()}`;
     const started = await startCodexAppServerMessage(sessionId, isRecord(input) ? {
       ...input,

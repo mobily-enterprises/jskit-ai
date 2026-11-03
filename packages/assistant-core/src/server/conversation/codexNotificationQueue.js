@@ -1,4 +1,4 @@
-import { normalizeCodexRunText } from "./codexTurnState.js";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 function ignoreNotificationTaskError() {}
 
@@ -12,7 +12,7 @@ function ignoreNotificationTaskError() {}
  * @param {(error: unknown, context: object) => void} [options.reportError]
  */
 export function createCodexAppServerNotificationQueue({
-  namespace = normalizeCodexRunText,
+  namespace = normalizeText,
   isClosing = () => false,
   runInContext = (_context, operation) => operation(),
   reportError = ignoreNotificationTaskError
@@ -25,8 +25,8 @@ export function createCodexAppServerNotificationQueue({
     if (isClosing()) {
       return;
     }
-    const taskSessionId = normalizeCodexRunText(context.sessionId);
-    const taskSessionKey = normalizeCodexRunText(context.sessionKey) ||
+    const taskSessionId = normalizeText(context.sessionId);
+    const taskSessionKey = normalizeText(context.sessionKey) ||
       namespace(taskSessionId);
     // Other notifications end the pending stream batch so completion, reasoning
     // and turn changes retain their position in the provider's event order.

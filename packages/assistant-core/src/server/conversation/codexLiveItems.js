@@ -1,10 +1,6 @@
 import crypto from "node:crypto";
-import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
-import {
-  normalizeCodexRunText,
-  codexAppServerConversationMessageId,
-  codexAppServerTurnCanReceiveProviderActivity
-} from "./codexTurnState.js";
+import { isRecord, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { codexAppServerConversationMessageId, codexAppServerTurnCanReceiveProviderActivity } from "./codexTurnState.js";
 import {
   codexAppServerAgentMessageText,
   codexAppServerAssistantItemText,
@@ -18,13 +14,13 @@ import {
 } from "./codexEvents.js";
 
 export function codexAppServerLiveProgressCandidate(notification = {}) {
-  const method = normalizeCodexRunText(notification.method);
+  const method = normalizeText(notification.method);
   const event = codexAppServerNotificationEvent(notification);
   if (isRecord(event)) {
     const eventType = codexAppServerNotificationEventType(notification, event);
     const payload = codexAppServerNotificationEventPayload(notification, event);
-    const payloadType = normalizeCodexRunText(payload.type);
-    const phase = normalizeCodexRunText(payload.phase || event.phase);
+    const payloadType = normalizeText(payload.type);
+    const phase = normalizeText(payload.phase || event.phase);
     if (eventType === "event_msg" && payloadType === "agent_message" && phase && phase !== "final_answer") {
       return {
         explicit: Boolean(phase),
@@ -43,7 +39,7 @@ export function codexAppServerLiveProgressCandidate(notification = {}) {
   if (!text) {
     return null;
   }
-  const phase = normalizeCodexRunText(item?.phase || item?.purpose || item?.category);
+  const phase = normalizeText(item?.phase || item?.purpose || item?.category);
   if (phase === "final_answer") {
     return null;
   }
@@ -61,8 +57,8 @@ function codexAppServerLiveProgressKey(sessionId = "", threadId = "", notificati
     return "";
   }
   return [
-    normalizeCodexRunText(sessionId),
-    normalizeCodexRunText(threadId),
+    normalizeText(sessionId),
+    normalizeText(threadId),
     codexAppServerNotificationTurnId(notification) || "*",
     "live-progress",
     itemId
@@ -75,14 +71,14 @@ function codexAppServerLiveProgressFingerprintKey(
   turnId = "",
   text = ""
 ) {
-  const normalizedText = normalizeCodexRunText(text);
+  const normalizedText = normalizeText(text);
   if (!normalizedText) {
     return "";
   }
   return [
-    normalizeCodexRunText(sessionId),
-    normalizeCodexRunText(threadId),
-    normalizeCodexRunText(turnId) || "*",
+    normalizeText(sessionId),
+    normalizeText(threadId),
+    normalizeText(turnId) || "*",
     "live-progress-text",
     crypto.createHash("sha256").update(normalizedText).digest("hex")
   ].join(":");
@@ -94,10 +90,10 @@ function codexAppServerTerminalItemMirrorKey(sessionId = "", threadId = "", noti
     return "";
   }
   return [
-    normalizeCodexRunText(sessionId),
-    normalizeCodexRunText(threadId),
+    normalizeText(sessionId),
+    normalizeText(threadId),
     codexAppServerNotificationTurnId(notification) || "*",
-    normalizeCodexRunText(role),
+    normalizeText(role),
     itemId
   ].join(":");
 }
@@ -131,7 +127,7 @@ export function createCodexAppServerLiveItems({
 
   function codexAppServerLiveProgressText(notification = {}) {
     const candidate = codexAppServerLiveProgressCandidate(notification);
-    const text = normalizeCodexRunText(candidate?.text);
+    const text = normalizeText(candidate?.text);
     if (!text) {
       return "";
     }
@@ -154,9 +150,9 @@ export function createCodexAppServerLiveItems({
     text = "",
     threadId = ""
   } = {}) {
-    const normalizedRole = normalizeCodexRunText(role);
-    const normalizedSessionId = normalizeCodexRunText(sessionId);
-    const normalizedText = normalizeCodexRunText(text);
+    const normalizedRole = normalizeText(role);
+    const normalizedSessionId = normalizeText(sessionId);
+    const normalizedText = normalizeText(text);
     if (!normalizedSessionId || !normalizedText || !["assistant", "user"].includes(normalizedRole)) {
       return null;
     }
@@ -215,9 +211,9 @@ export function createCodexAppServerLiveItems({
         reason
       });
       debugLog(`appServerTerminal${normalizedRole === "user" ? "User" : "Assistant"}Message.mirrored`, {
-        itemId: normalizeCodexRunText(codexAppServerNotificationItem(notification)?.id),
+        itemId: normalizeText(codexAppServerNotificationItem(notification)?.id),
         sessionId: normalizedSessionId,
-        threadId: normalizeCodexRunText(threadId),
+        threadId: normalizeText(threadId),
         turnId: codexAppServerNotificationTurnId(notification)
       });
       return written;
@@ -230,8 +226,8 @@ export function createCodexAppServerLiveItems({
   }
 
   async function mirrorCodexAppServerTerminalAssistantMessage(sessionId = "", threadId = "", notification = {}) {
-    const normalizedSessionId = normalizeCodexRunText(sessionId);
-    const normalizedThreadId = normalizeCodexRunText(threadId);
+    const normalizedSessionId = normalizeText(sessionId);
+    const normalizedThreadId = normalizeText(threadId);
     if (codexAppServerLiveProgressCandidate(notification)?.explicit === true) {
       return;
     }
@@ -240,7 +236,7 @@ export function createCodexAppServerLiveItems({
     if (classification.kind === "final_assistant_result") {
       return;
     }
-    const text = normalizeCodexRunText(
+    const text = normalizeText(
       codexAppServerAssistantItemText(codexAppServerNotificationItem(notification))
     );
     if (!normalizedSessionId || !text) {
@@ -248,7 +244,7 @@ export function createCodexAppServerLiveItems({
     }
     const store = await createStore(normalizedSessionId);
     const run = await readCodexAppServerAgentRunForSession(store, normalizedSessionId);
-    if (normalizeCodexRunText(run?.inputSource) !== "terminal") {
+    if (normalizeText(run?.inputSource) !== "terminal") {
       return;
     }
     await writeMirroredCodexAppServerTerminalMessage({
@@ -263,8 +259,8 @@ export function createCodexAppServerLiveItems({
   async function writeCodexAppServerLiveProgress(sessionId = "", threadId = "", notification = {}) {
     // Phase-less providers also send short updates as agent messages.
     // Reasoning items are recorded separately from these user-facing updates.
-    const normalizedSessionId = normalizeCodexRunText(sessionId);
-    const normalizedThreadId = normalizeCodexRunText(threadId);
+    const normalizedSessionId = normalizeText(sessionId);
+    const normalizedThreadId = normalizeText(threadId);
     const candidate = codexAppServerLiveProgressCandidate(notification);
     const text = codexAppServerLiveProgressText(notification);
     if (!normalizedSessionId || !normalizedThreadId || !text) {
@@ -353,8 +349,8 @@ export function createCodexAppServerLiveItems({
   }
 
   function forgetCodexAppServerLiveTurnItems(threadId = "", turnId = "") {
-    const normalizedThreadId = normalizeCodexRunText(threadId);
-    const normalizedTurnId = normalizeCodexRunText(turnId);
+    const normalizedThreadId = normalizeText(threadId);
+    const normalizedTurnId = normalizeText(turnId);
     if (!normalizedThreadId) {
       return;
     }

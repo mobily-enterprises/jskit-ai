@@ -4,7 +4,7 @@ import {
   directoryExists,
   withRuntimeLifecycle
 } from "./codexRuntimeInventory.js";
-import { normalizeCodexRunText as normalizeText } from "./codexTurnState.js";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 /**
  * Stops cached providers and releases what sessions and projects leave behind.

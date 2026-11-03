@@ -6,6 +6,11 @@ import { isAbsolute, join } from "node:path";
 import { tmpdir } from "node:os";
 import { setTimeout as delay } from "node:timers/promises";
 
+/**
+ * The execution host that starts and stops native processes; the local one is the default.
+ * @typedef {ReturnType<typeof createLocalConversationExecution>} ConversationExecution
+ */
+
 /** Owned POSIX process groups for a trusted, single-user application.
  * Managed hosts replace this facility to enforce resource and identity policy.
  */

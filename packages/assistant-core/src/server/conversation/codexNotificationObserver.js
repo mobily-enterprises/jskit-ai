@@ -1,12 +1,4 @@
-import {
-  codexAppServerTurnStatusIsActive,
-  codexAppServerTurnStatusIsSuccessfulComplete,
-  codexAppServerTurnStatusIsProviderFailure,
-  normalizeCodexRunText,
-  CODEX_APP_SERVER_AGENT_RUN_ID,
-  CODEX_AGENT_PROVIDER,
-  CODEX_APP_SERVER_RUN_STATE
-} from "./codexTurnState.js";
+import { codexAppServerTurnStatusIsActive, codexAppServerTurnStatusIsSuccessfulComplete, codexAppServerTurnStatusIsProviderFailure, CODEX_APP_SERVER_AGENT_RUN_ID, CODEX_AGENT_PROVIDER, CODEX_APP_SERVER_RUN_STATE } from "./codexTurnState.js";
 import { codexAppServerProviderConnectionGeneration } from "./codexModelCatalog.js";
 import {
   codexAppServerAssistantItemText,
@@ -23,6 +15,7 @@ import {
   codexAppServerContextRefreshReason,
   codexAppServerNotificationUsageLimitExceeded
 } from "./codexEvents.js";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 /**
  * Native notification routing, goal updates and provider-generation subscriptions. Ordering belongs to the
@@ -85,7 +78,7 @@ export function createCodexNotificationObserver({
   const codexAppServerAutomaticHookThreads = new Set();
 
   function codexAppServerEventSubscriptionKey(providerKey = "", threadId = "") {
-    return `${normalizeCodexRunText(providerKey)}:${normalizeCodexRunText(threadId)}`;
+    return `${normalizeText(providerKey)}:${normalizeText(threadId)}`;
   }
 
   function codexAppServerEventSubscriptionIsCurrent(key = "", provider = null) {
@@ -117,10 +110,10 @@ export function createCodexNotificationObserver({
     threadId = "",
     notification = {}
   ) {
-    const normalizedSessionId = normalizeCodexRunText(sessionId);
-    const normalizedThreadId = normalizeCodexRunText(threadId);
+    const normalizedSessionId = normalizeText(sessionId);
+    const normalizedThreadId = normalizeText(threadId);
     const notificationTurnId = codexAppServerNotificationTurnId(notification);
-    const goalStatus = normalizeCodexRunText(notification.params?.goal?.status);
+    const goalStatus = normalizeText(notification.params?.goal?.status);
     const goalCleared = notification.method === "thread/goal/cleared";
     const runtime = await createRuntime();
     let run = await readCodexAppServerAgentRunForSession(
@@ -128,15 +121,15 @@ export function createCodexNotificationObserver({
       normalizedSessionId
     );
     if (run?.providerStatus === "observation_lost") return { ok: true, processed: false, reason: "observation_lost" };
-    const currentThreadId = normalizeCodexRunText(run?.providerThreadId);
+    const currentThreadId = normalizeText(run?.providerThreadId);
     if (currentThreadId && currentThreadId !== normalizedThreadId) {
       return { ok: true, processed: false, reason: "goal_thread_changed" };
     }
     if (
       (goalCleared || CODEX_APP_SERVER_GOAL_STATUSES.has(goalStatus)) &&
       (
-        normalizeCodexRunText(run?.providerGoalStatus) !== goalStatus ||
-        normalizeCodexRunText(run?.providerGoalThreadId) !== normalizedThreadId
+        normalizeText(run?.providerGoalStatus) !== goalStatus ||
+        normalizeText(run?.providerGoalThreadId) !== normalizedThreadId
       )
     ) {
       const updatedAt = new Date().toISOString();
@@ -207,14 +200,14 @@ export function createCodexNotificationObserver({
   }
 
   function subscribeCodexAppServerEvents(sessionId = "", provider = null, threadId = "", options = {}) {
-    const normalizedSessionId = normalizeCodexRunText(sessionId);
-    const normalizedThreadId = normalizeCodexRunText(threadId);
+    const normalizedSessionId = normalizeText(sessionId);
+    const normalizedThreadId = normalizeText(threadId);
     if (!normalizedSessionId || !normalizedThreadId || !provider) {
       throw new Error("Codex thread observation requires a session, thread and provider subscription.");
     }
     const projectContext = captureContext();
     const sessionKey = namespace(normalizedSessionId);
-    const providerKey = normalizeCodexRunText(options.providerKey);
+    const providerKey = normalizeText(options.providerKey);
     const key = codexAppServerEventSubscriptionKey(providerKey, normalizedThreadId);
     const existing = codexAppServerEventSubscriptions.get(key);
     if (existing && codexAppServerEventSubscriptionIsCurrent(key, provider)) {
@@ -246,7 +239,7 @@ export function createCodexNotificationObserver({
           usageLimitExceeded: codexAppServerNotificationUsageLimitExceeded(notification),
           deferFailureDetails: true
         }));
-      const method = normalizeCodexRunText(notification.method);
+      const method = normalizeText(notification.method);
       if (method === "account/rateLimits/updated" || method === "account/updated") {
         runCodexAppServerNotificationTask({ method, projectContext, provider, sessionId: normalizedSessionId, sessionKey }, () =>
           publish(normalizedSessionId, { reason: "codex-plan-usage" }));
@@ -302,7 +295,7 @@ export function createCodexNotificationObserver({
             : "";
           const store = await createStore(normalizedSessionId);
           const run = await readCodexAppServerAgentRunForSession(store, normalizedSessionId);
-          if (normalizeCodexRunText(run?.providerPhase) === phase) return;
+          if (normalizeText(run?.providerPhase) === phase) return;
           return markCodexAppServerTurnActive(normalizedSessionId, {
             phase, requireTrackedTurn: true,
             threadId: normalizedThreadId,
@@ -362,11 +355,11 @@ export function createCodexNotificationObserver({
           });
         });
         debugLog("appServerFinalAssistantResult.received", {
-          eventId: normalizeCodexRunText(event?.id),
+          eventId: normalizeText(event?.id),
           eventType: codexAppServerNotificationEventType(notification, event),
-          itemId: normalizeCodexRunText(codexAppServerNotificationItem(notification)?.id),
+          itemId: normalizeText(codexAppServerNotificationItem(notification)?.id),
           method,
-          payloadId: normalizeCodexRunText(payload?.id),
+          payloadId: normalizeText(payload?.id),
           stableItemId: classification.itemId,
           source: classification.source,
           sessionId: normalizedSessionId,
@@ -384,7 +377,7 @@ export function createCodexNotificationObserver({
       }
       if (method === "item/completed") {
         const item = codexAppServerNotificationItem(notification);
-        if (normalizeCodexRunText(item?.type) === "userMessage") {
+        if (normalizeText(item?.type) === "userMessage") {
           runCodexAppServerNotificationTask(notificationContext, () => {
             return mirrorCodexAppServerTerminalUserMessage(normalizedSessionId, normalizedThreadId, notification);
           });

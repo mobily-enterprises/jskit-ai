@@ -1,14 +1,14 @@
 import { deleteCodexAppServerThread } from "./codexProviderThreads.js";
 import { codexAppServerRuntimeStopWasVerified, directoryExists } from "./codexRuntimeInventory.js";
 import { CODEX_HELPER_THREAD_LIFECYCLES } from "./codexHelperThreadRecord.js";
-import { normalizeCodexRunText as normalizeText } from "./codexTurnState.js";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 /**
  * Recovery operations of the same helper lifecycle. All maps and record mutations belong to the supplied lifecycle;
  * this module creates no owner or registry.
  * @param {import("./codexHelperThreads.js").CodexHelperThreadLifecycle} lifecycle
  * @param {object} dependencies
- * @param {import("./codexTurn.js").CodexProviderOwner} dependencies.providerOwner
+ * @param {import("./codexProviderOwner.js").CodexAppServerProviderOwner} dependencies.providerOwner
  * @param {string} dependencies.applicationName
  * @param {string} dependencies.errorPrefix
  */

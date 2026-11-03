@@ -1,5 +1,6 @@
-import { normalizeCodexRunText, codexAppServerTurnCanReceiveProviderActivity, codexAppServerTurnKey } from "./codexTurnState.js";
+import { codexAppServerTurnCanReceiveProviderActivity, codexAppServerTurnKey } from "./codexTurnState.js";
 import { codexAppServerContentText, codexAppServerNotificationItem, codexAppServerOutputOwnerTurnId, codexAppServerNotificationParams, codexAppServerNotificationTurnId } from "./codexEvents.js";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 /**
  * Per-turn reasoning channels, their persistence queue and cleanup. The output owner that builds it shares these Maps
@@ -49,7 +50,7 @@ export function createCodexAppServerReasoning({
   function codexAppServerReasoningSummaryKey(notification = {}) {
     const params = codexAppServerNotificationParams(notification);
     const item = codexAppServerNotificationItem(notification);
-    const itemId = normalizeCodexRunText(params.itemId || item?.id || "summary");
+    const itemId = normalizeText(params.itemId || item?.id || "summary");
     const summaryIndex = String(params.summaryIndex ?? params.contentIndex ?? params.index ?? 0).trim() || "0";
     return `${itemId}:${summaryIndex}`;
   }
@@ -71,7 +72,7 @@ export function createCodexAppServerReasoning({
   }
 
   function codexAppServerReasoningSummaryDisplayText(value = "") {
-    let text = normalizeCodexRunText(value).replace(/\r\n/gu, "\n");
+    let text = normalizeText(value).replace(/\r\n/gu, "\n");
     if (!text) {
       return "";
     }
@@ -87,7 +88,7 @@ export function createCodexAppServerReasoning({
   }
 
   function codexAppServerReasoningDisplayText(value = "") {
-    return normalizeCodexRunText(value)
+    return normalizeText(value)
       .replace(/\r\n/gu, "\n")
       .split(/\n{2,}/u)
       .map(codexAppServerReasoningSummaryDisplayText)
@@ -99,28 +100,28 @@ export function createCodexAppServerReasoning({
   function recordCodexAppServerReasoningNotification(threadId = "", notification = {}, {
     turnId = ""
   } = {}) {
-    const method = normalizeCodexRunText(notification.method);
+    const method = normalizeText(notification.method);
     const item = codexAppServerNotificationItem(notification);
     const completed = method === "item/completed" && item?.type === "reasoning";
     if (!completed && !["item/reasoning/summaryPartAdded", "item/reasoning/summaryTextDelta", "item/reasoning/textDelta"].includes(method)) {
       return false;
     }
-    const normalizedThreadId = normalizeCodexRunText(threadId);
-    const normalizedTurnId = normalizeCodexRunText(turnId) || codexAppServerNotificationTurnId(notification);
+    const normalizedThreadId = normalizeText(threadId);
+    const normalizedTurnId = normalizeText(turnId) || codexAppServerNotificationTurnId(notification);
     if (!normalizedThreadId) {
       return false;
     }
     const state = codexAppServerReasoningTurnState(normalizedThreadId, normalizedTurnId);
     const params = codexAppServerNotificationParams(notification);
-    const itemId = normalizeCodexRunText(params.itemId || item?.id || "summary");
+    const itemId = normalizeText(params.itemId || item?.id || "summary");
     if (completed) {
       // Completed-only providers expose the same readable parts in the item.
       // Streamed items have already been recorded; do not replay their text.
       if (state.channels.has(itemId)) return false;
       const summary = codexAppServerContentText(item.summary);
-      const text = normalizeCodexRunText(summary) ? summary : codexAppServerContentText(item.content);
+      const text = normalizeText(summary) ? summary : codexAppServerContentText(item.content);
       return recordCodexAppServerReasoningNotification(normalizedThreadId, {
-        method: normalizeCodexRunText(summary) ? "item/reasoning/summaryTextDelta" : "item/reasoning/textDelta",
+        method: normalizeText(summary) ? "item/reasoning/summaryTextDelta" : "item/reasoning/textDelta",
         params: { itemId, delta: text }
       }, { turnId: normalizedTurnId });
     }
@@ -155,8 +156,8 @@ export function createCodexAppServerReasoning({
   }
 
   async function recordCodexAppServerReasoningForSession(sessionId = "", threadId = "", notifications = []) {
-    const normalizedSessionId = normalizeCodexRunText(sessionId);
-    const normalizedThreadId = normalizeCodexRunText(threadId);
+    const normalizedSessionId = normalizeText(sessionId);
+    const normalizedThreadId = normalizeText(threadId);
     const store = await createStore(normalizedSessionId);
     const run = await readCodexAppServerAgentRunForSession(store, normalizedSessionId);
     const currentTurn = turnStateFromAgentRun(run || {});
@@ -197,14 +198,14 @@ export function createCodexAppServerReasoning({
 
   function codexAppServerReasoningPersistKey(sessionId = "", threadId = "", turnId = "") {
     return [
-      normalizeCodexRunText(sessionId),
-      normalizeCodexRunText(threadId),
-      normalizeCodexRunText(turnId) || "*"
+      normalizeText(sessionId),
+      normalizeText(threadId),
+      normalizeText(turnId) || "*"
     ].filter(Boolean).join(":");
   }
 
   async function persistCodexAppServerReasoningSummary(sessionId = "", threadId = "", turnId = "") {
-    const normalizedSessionId = normalizeCodexRunText(sessionId);
+    const normalizedSessionId = normalizeText(sessionId);
     const state = codexAppServerReasoningExistingTurnState(threadId, turnId);
     const segments = Array.isArray(state?.segments) ? state.segments : [];
     const pendingSegments = segments
@@ -218,7 +219,7 @@ export function createCodexAppServerReasoning({
     }
     const store = await createStore(normalizedSessionId);
     const run = await readCodexAppServerAgentRunForSession(store, normalizedSessionId);
-    if (normalizeCodexRunText(run?.inputSource) === "terminal") {
+    if (normalizeText(run?.inputSource) === "terminal") {
       return;
     }
     const turn = turnStateFromAgentRun(run || {});
@@ -229,8 +230,8 @@ export function createCodexAppServerReasoning({
         currentThreadId: turn.threadId,
         currentTurnId: turn.turnId,
         sessionId: normalizedSessionId,
-        threadId: normalizeCodexRunText(threadId),
-        turnId: normalizeCodexRunText(turnId)
+        threadId: normalizeText(threadId),
+        turnId: normalizeText(turnId)
       });
       return;
     }

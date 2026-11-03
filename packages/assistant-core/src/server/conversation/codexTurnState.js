@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { isRecord, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeNullableText } from "./normalize.js";
 import { codexAppServerStatusFromValue } from "./codexEvents.js";
 import { codexAppServerThreadRawValue } from "./codexThreadSnapshot.js";
@@ -103,16 +103,12 @@ const CODEX_APP_SERVER_ACTIVE_RUN_STATES = new Set([
   CODEX_APP_SERVER_RUN_STATE.STARTING
 ]);
 
-function normalizeCodexRunText(value) {
-  return String(value || "").trim();
-}
-
 function codexAppServerRunInputSource(run) {
-  return normalizeCodexRunText(run?.inputSource);
+  return normalizeText(run?.inputSource);
 }
 
 export function normalizeCodexAppServerRunState(state) {
-  const normalizedState = normalizeCodexRunText(state) || CODEX_APP_SERVER_RUN_STATE.STARTING;
+  const normalizedState = normalizeText(state) || CODEX_APP_SERVER_RUN_STATE.STARTING;
   if (!CODEX_APP_SERVER_RUN_STATES.has(normalizedState)) {
     throw Object.assign(new Error(`Invalid Codex app-server run state: ${normalizedState}`), {
       code: "codex_app_server_invalid_run_state"
@@ -131,19 +127,19 @@ export function codexAppServerRunStateIsTerminal(state) {
 
 export function codexAppServerAgentRun(session = {}) {
   const runs = Array.isArray(session.agentRuns) ? session.agentRuns : [];
-  return runs.find((run) => normalizeCodexRunText(run?.id) === CODEX_APP_SERVER_AGENT_RUN_ID) || null;
+  return runs.find((run) => normalizeText(run?.id) === CODEX_APP_SERVER_AGENT_RUN_ID) || null;
 }
 
 export function codexAppServerPendingUserMessageClientIds(run) {
   const ids = run?.pendingUserMessageClientIds;
   return (Array.isArray(ids) ? ids : [])
-    .map((id) => normalizeCodexRunText(id))
+    .map((id) => normalizeText(id))
     .filter(Boolean);
 }
 
 export function codexAppServerPendingUserMessageOwnership(run, clientId = "") {
   const pendingClientIds = codexAppServerPendingUserMessageClientIds(run);
-  const normalizedClientId = normalizeCodexRunText(clientId);
+  const normalizedClientId = normalizeText(clientId);
   const ownedClientId = normalizedClientId
     ? pendingClientIds.find((id) => id === normalizedClientId)
     : pendingClientIds[0];
@@ -152,18 +148,18 @@ export function codexAppServerPendingUserMessageOwnership(run, clientId = "") {
   }
   return {
     clientId: ownedClientId,
-    inputSource: normalizeCodexRunText(run?.inputSource)
+    inputSource: normalizeText(run?.inputSource)
   };
 }
 
 export function codexAppServerProcessedResultEvent(session = {}, threadId = "", turnId = "") {
-  const normalizedThreadId = normalizeCodexRunText(threadId);
-  const normalizedTurnId = normalizeCodexRunText(turnId);
+  const normalizedThreadId = normalizeText(threadId);
+  const normalizedTurnId = normalizeText(turnId);
   const events = codexAppServerAgentRun(session)?.events;
   return (Array.isArray(events) ? events : []).findLast((event) => (
-    normalizeCodexRunText(event?.kind) === CODEX_APP_SERVER_RESULT_PROCESSED_EVENT &&
-    normalizeCodexRunText(event?.providerThreadId) === normalizedThreadId &&
-    normalizeCodexRunText(event?.providerTurnId) === normalizedTurnId
+    normalizeText(event?.kind) === CODEX_APP_SERVER_RESULT_PROCESSED_EVENT &&
+    normalizeText(event?.providerThreadId) === normalizedThreadId &&
+    normalizeText(event?.providerTurnId) === normalizedTurnId
   )) || null;
 }
 
@@ -179,21 +175,21 @@ export function codexAppServerTurnStateFromAgentRun(run = {}, normalizeRunState 
         : "idle";
   return {
     active,
-    completedAt: normalizeCodexRunText(run.finishedAt),
-    error: normalizeCodexRunText(run.error),
-    goalStatus: normalizeCodexRunText(run.providerGoalStatus),
-    goalThreadId: normalizeCodexRunText(run.providerGoalThreadId),
-    inputSource: normalizeCodexRunText(run.inputSource),
-    outerTurnId: normalizeCodexRunText(run.outerTurnId),
-    phase: active && run.providerStatus !== "observation_lost" ? normalizeCodexRunText(run.providerPhase) : "",
-    runId: normalizeCodexRunText(run.id),
+    completedAt: normalizeText(run.finishedAt),
+    error: normalizeText(run.error),
+    goalStatus: normalizeText(run.providerGoalStatus),
+    goalThreadId: normalizeText(run.providerGoalThreadId),
+    inputSource: normalizeText(run.inputSource),
+    outerTurnId: normalizeText(run.outerTurnId),
+    phase: active && run.providerStatus !== "observation_lost" ? normalizeText(run.providerPhase) : "",
+    runId: normalizeText(run.id),
     runState,
-    startedAt: normalizeCodexRunText(run.startedAt),
+    startedAt: normalizeText(run.startedAt),
     state,
-    status: normalizeCodexRunText(run.providerStatus || run.status || runState),
-    threadId: normalizeCodexRunText(run.providerThreadId),
-    turnId: normalizeCodexRunText(run.providerTurnId),
-    updatedAt: normalizeCodexRunText(run.updatedAt)
+    status: normalizeText(run.providerStatus || run.status || runState),
+    threadId: normalizeText(run.providerThreadId),
+    turnId: normalizeText(run.providerTurnId),
+    updatedAt: normalizeText(run.updatedAt)
   };
 }
 
@@ -223,23 +219,23 @@ export function codexAppServerTurnState(session = {}, normalizeRunState = normal
 }
 
 export function codexAppServerTurnOwnsActiveGoal(turn = {}, threadId = "") {
-  const normalizedThreadId = normalizeCodexRunText(threadId);
-  const goalThreadId = normalizeCodexRunText(turn.goalThreadId);
-  const inputSource = normalizeCodexRunText(turn.inputSource);
-  return normalizeCodexRunText(turn.goalStatus) === "active" &&
+  const normalizedThreadId = normalizeText(threadId);
+  const goalThreadId = normalizeText(turn.goalThreadId);
+  const inputSource = normalizeText(turn.inputSource);
+  return normalizeText(turn.goalStatus) === "active" &&
     Boolean(normalizedThreadId) &&
     goalThreadId === normalizedThreadId &&
-    Boolean(normalizeCodexRunText(turn.outerTurnId)) &&
+    Boolean(normalizeText(turn.outerTurnId)) &&
     Boolean(inputSource) &&
     inputSource !== "terminal";
 }
 
 export function codexAppServerTurnMatches(turn = {}, threadId = "", turnId = "") {
-  const normalizedThreadId = normalizeCodexRunText(threadId);
-  const normalizedTurnId = normalizeCodexRunText(turnId);
-  const currentThreadId = normalizeCodexRunText(turn.threadId);
-  const currentTurnId = normalizeCodexRunText(turn.turnId);
-  if (normalizedThreadId && normalizeCodexRunText(turn.threadId) !== normalizedThreadId) {
+  const normalizedThreadId = normalizeText(threadId);
+  const normalizedTurnId = normalizeText(turnId);
+  const currentThreadId = normalizeText(turn.threadId);
+  const currentTurnId = normalizeText(turn.turnId);
+  if (normalizedThreadId && normalizeText(turn.threadId) !== normalizedThreadId) {
     return false;
   }
   if (normalizedTurnId && currentTurnId && currentTurnId !== normalizedTurnId) {
@@ -256,26 +252,26 @@ export function codexAppServerTurnMatches(turn = {}, threadId = "", turnId = "")
 
 export function codexAppServerTurnCanReceiveProviderCompletion(turn = {}, threadId = "", turnId = "") {
   return codexAppServerTurnMatches(turn, threadId, turnId) &&
-    ["active", "finalizing"].includes(normalizeCodexRunText(turn.state));
+    ["active", "finalizing"].includes(normalizeText(turn.state));
 }
 
 export function codexAppServerTurnAwaitsProviderIdentity(turn = {}, threadId = "", turnId = "") {
-  const normalizedThreadId = normalizeCodexRunText(threadId);
-  const normalizedTurnId = normalizeCodexRunText(turnId);
-  const currentThreadId = normalizeCodexRunText(turn.threadId);
-  return normalizeCodexRunText(turn.state) === "starting" &&
+  const normalizedThreadId = normalizeText(threadId);
+  const normalizedTurnId = normalizeText(turnId);
+  const currentThreadId = normalizeText(turn.threadId);
+  return normalizeText(turn.state) === "starting" &&
     Boolean(normalizedTurnId) &&
-    !normalizeCodexRunText(turn.turnId) &&
+    !normalizeText(turn.turnId) &&
     (!normalizedThreadId || !currentThreadId || normalizedThreadId === currentThreadId);
 }
 
 export function codexAppServerTurnCanReceiveProviderActivity(turn = {}, threadId = "", turnId = "") {
   if (turn.status === "observation_lost") return false;
-  const normalizedThreadId = normalizeCodexRunText(threadId);
-  const normalizedTurnId = normalizeCodexRunText(turnId);
-  const currentThreadId = normalizeCodexRunText(turn.threadId);
-  const currentTurnId = normalizeCodexRunText(turn.turnId);
-  if (!["starting", "active"].includes(normalizeCodexRunText(turn.state))) {
+  const normalizedThreadId = normalizeText(threadId);
+  const normalizedTurnId = normalizeText(turnId);
+  const currentThreadId = normalizeText(turn.threadId);
+  const currentTurnId = normalizeText(turn.turnId);
+  if (!["starting", "active"].includes(normalizeText(turn.state))) {
     return false;
   }
   if (normalizedThreadId && currentThreadId && currentThreadId !== normalizedThreadId) {
@@ -292,12 +288,12 @@ export function codexAppServerTurnCanReceiveProviderActivity(turn = {}, threadId
 
 export function codexAppServerTurnCanAdoptSuccessor(turn = {}, threadId = "", turnId = "") {
   if (turn.status === "observation_lost") return false;
-  const normalizedThreadId = normalizeCodexRunText(threadId);
-  const normalizedTurnId = normalizeCodexRunText(turnId);
-  const currentThreadId = normalizeCodexRunText(turn.threadId);
-  const currentTurnId = normalizeCodexRunText(turn.turnId);
+  const normalizedThreadId = normalizeText(threadId);
+  const normalizedTurnId = normalizeText(turnId);
+  const currentThreadId = normalizeText(turn.threadId);
+  const currentTurnId = normalizeText(turn.turnId);
   return turn.active === true &&
-    ["active", "finalizing"].includes(normalizeCodexRunText(turn.state)) &&
+    ["active", "finalizing"].includes(normalizeText(turn.state)) &&
     Boolean(normalizedThreadId) &&
     normalizedThreadId === currentThreadId &&
     Boolean(normalizedTurnId) &&
@@ -306,7 +302,7 @@ export function codexAppServerTurnCanAdoptSuccessor(turn = {}, threadId = "", tu
 }
 
 export function codexAppServerTurnKey(threadId = "", turnId = "") {
-  return `${normalizeCodexRunText(threadId)}:${normalizeCodexRunText(turnId)}`;
+  return `${normalizeText(threadId)}:${normalizeText(turnId)}`;
 }
 
 // Identity of a native conversation message, derived from its thread, turn, role and text.
@@ -316,16 +312,16 @@ export function codexAppServerConversationMessageId(
   role = "",
   text = ""
 ) {
-  const normalizedText = normalizeCodexRunText(text);
-  const normalizedThreadId = normalizeCodexRunText(threadId);
+  const normalizedText = normalizeText(text);
+  const normalizedThreadId = normalizeText(threadId);
   if (!normalizedText || !normalizedThreadId) {
     return "";
   }
   const digest = crypto.createHash("sha256")
     .update([
       normalizedThreadId,
-      normalizeCodexRunText(turnId) || "*",
-      normalizeCodexRunText(role),
+      normalizeText(turnId) || "*",
+      normalizeText(role),
       normalizedText
     ].join("\u0000"))
     .digest("hex");
@@ -353,31 +349,31 @@ export function codexAppServerAgentRunPatch({
   const normalizedRunState = normalizeRunState(runState);
   const currentRun = codexAppServerAgentRun(session);
   const sameActiveTurn = normalizedRunState === CODEX_APP_SERVER_RUN_STATE.ACTIVE &&
-    currentRun?.providerThreadId === normalizeCodexRunText(threadId) &&
-    currentRun?.providerTurnId === normalizeCodexRunText(turnId);
+    currentRun?.providerThreadId === normalizeText(threadId) &&
+    currentRun?.providerTurnId === normalizeText(turnId);
   const patch = {
-    error: normalizeCodexRunText(error),
+    error: normalizeText(error),
     provider: CODEX_AGENT_PROVIDER,
     providerInterface: "codex_app_server",
     providerPhase: normalizedRunState === CODEX_APP_SERVER_RUN_STATE.ACTIVE && status !== "observation_lost"
-      ? normalizeCodexRunText(phase === undefined && sameActiveTurn ? currentRun?.providerPhase : phase)
+      ? normalizeText(phase === undefined && sameActiveTurn ? currentRun?.providerPhase : phase)
       : "",
-    providerStatus: normalizeCodexRunText(status),
-    providerThreadId: normalizeCodexRunText(threadId),
-    providerTurnId: normalizeCodexRunText(turnId),
+    providerStatus: normalizeText(status),
+    providerThreadId: normalizeText(threadId),
+    providerTurnId: normalizeText(turnId),
     state: normalizedRunState,
-    updatedAt: normalizeCodexRunText(updatedAt)
+    updatedAt: normalizeText(updatedAt)
   };
-  const normalizedInputSource = normalizeCodexRunText(inputSource);
+  const normalizedInputSource = normalizeText(inputSource);
   if (normalizedInputSource) {
     patch.inputSource = normalizedInputSource;
   }
   // A native terminal turn starts its own chat owner. Reusing the previous
   // owner's id would checkpoint two different turns with one identity.
-  const normalizedOuterTurnId = normalizeCodexRunText(outerTurnId) ||
+  const normalizedOuterTurnId = normalizeText(outerTurnId) ||
     (normalizedInputSource === "terminal" && normalizedRunState === CODEX_APP_SERVER_RUN_STATE.ACTIVE && !sameActiveTurn
-      ? codexAppServerNativeOuterTurnId(normalizeCodexRunText(threadId), normalizeCodexRunText(turnId))
-      : normalizeCodexRunText(currentRun?.outerTurnId));
+      ? codexAppServerNativeOuterTurnId(normalizeText(threadId), normalizeText(turnId))
+      : normalizeText(currentRun?.outerTurnId));
   if (normalizedOuterTurnId) {
     patch.outerTurnId = normalizedOuterTurnId;
   }
@@ -389,10 +385,10 @@ export function codexAppServerAgentRunPatch({
     patch.pendingUserMessageClientIds = [];
   }
   if ([CODEX_APP_SERVER_RUN_STATE.ACTIVE, CODEX_APP_SERVER_RUN_STATE.STARTING].includes(normalizedRunState)) {
-    patch.startedAt = normalizeCodexRunText(updatedAt);
+    patch.startedAt = normalizeText(updatedAt);
   }
   if (!codexAppServerRunStateIsActive(normalizedRunState)) {
-    patch.finishedAt = normalizeCodexRunText(updatedAt);
+    patch.finishedAt = normalizeText(updatedAt);
   }
   return patch;
 }
@@ -401,8 +397,8 @@ export function codexAppServerRunIdentityForPatch(session = {}, {
   threadId = "",
   turnId = ""
 } = {}, normalizeRunState = normalizeCodexAppServerRunState) {
-  const normalizedThreadId = normalizeCodexRunText(threadId);
-  const normalizedTurnId = normalizeCodexRunText(turnId);
+  const normalizedThreadId = normalizeText(threadId);
+  const normalizedTurnId = normalizeText(turnId);
   if (normalizedTurnId) {
     return {
       threadId: normalizedThreadId,
@@ -410,10 +406,10 @@ export function codexAppServerRunIdentityForPatch(session = {}, {
     };
   }
   const currentTurn = codexAppServerTurnState(session, normalizeRunState);
-  const currentThreadId = normalizeCodexRunText(currentTurn.threadId);
+  const currentThreadId = normalizeText(currentTurn.threadId);
   if (
-    normalizeCodexRunText(currentTurn.turnId) &&
-    ["active", "finalizing"].includes(normalizeCodexRunText(currentTurn.state)) &&
+    normalizeText(currentTurn.turnId) &&
+    ["active", "finalizing"].includes(normalizeText(currentTurn.state)) &&
     (!normalizedThreadId || !currentThreadId || normalizedThreadId === currentThreadId)
   ) {
     return {
@@ -430,8 +426,8 @@ export function codexAppServerRunIdentityForPatch(session = {}, {
 // A settling writer names the turn it settles. While another turn owns the
 // active run, that write belongs to a predecessor and must not end the run.
 export function codexAppServerRunPatchSettlesOtherActiveTurn(currentTurn = {}, patch = {}) {
-  const currentTurnId = normalizeCodexRunText(currentTurn.turnId);
-  const patchTurnId = normalizeCodexRunText(patch.providerTurnId);
+  const currentTurnId = normalizeText(currentTurn.turnId);
+  const patchTurnId = normalizeText(patch.providerTurnId);
   return currentTurn.active === true &&
     !codexAppServerRunStateIsActive(patch.state) &&
     Boolean(currentTurnId) &&
@@ -448,10 +444,10 @@ export function codexAppServerRunPatchIsStaleAfterTerminalState(currentTurn = {}
   if (patchRunState === CODEX_APP_SERVER_RUN_STATE.STARTING) {
     return false;
   }
-  const currentThreadId = normalizeCodexRunText(currentTurn.threadId);
-  const patchThreadId = normalizeCodexRunText(patch.providerThreadId);
-  const currentTurnId = normalizeCodexRunText(currentTurn.turnId);
-  const patchTurnId = normalizeCodexRunText(patch.providerTurnId);
+  const currentThreadId = normalizeText(currentTurn.threadId);
+  const patchThreadId = normalizeText(patch.providerThreadId);
+  const currentTurnId = normalizeText(currentTurn.turnId);
+  const patchTurnId = normalizeText(patch.providerTurnId);
   const threadMatches = !patchThreadId || !currentThreadId || patchThreadId === currentThreadId;
   const turnMatches = !patchTurnId || (
     Boolean(currentTurnId) &&
@@ -461,7 +457,7 @@ export function codexAppServerRunPatchIsStaleAfterTerminalState(currentTurn = {}
 }
 
 function codexAppServerErrorMessage(value, fallback = "Codex could not be prepared.") {
-  return normalizeCodexRunText(value?.error || value?.message || value) || fallback;
+  return normalizeText(value?.error || value?.message || value) || fallback;
 }
 
 export function codexAppServerSteerFailure(result = {}, steerFailedCode = "codex_turn_steer_failed") {
@@ -472,10 +468,10 @@ export function codexAppServerSteerFailure(result = {}, steerFailedCode = "codex
     return null;
   }
   return {
-    code: normalizeCodexRunText(result.code) || steerFailedCode,
+    code: normalizeText(result.code) || steerFailedCode,
     error: codexAppServerErrorMessage(result, "Codex app-server turn could not be steered."),
     ok: false,
-    operationOutcome: normalizeCodexRunText(result.operationOutcome) || "steer_failed",
+    operationOutcome: normalizeText(result.operationOutcome) || "steer_failed",
     refreshRecommended: true,
     retryable: result.retryable === true
   };
@@ -492,9 +488,9 @@ export function codexAppServerMessageRequiresNewTurn({
     newTurnRequired: true,
     ok: true,
     operationOutcome: "new_turn_required",
-    reason: normalizeCodexRunText(reason),
-    threadId: normalizeCodexRunText(threadId),
-    turnId: normalizeCodexRunText(turnId)
+    reason: normalizeText(reason),
+    threadId: normalizeText(threadId),
+    turnId: normalizeText(turnId)
   };
 }
 
@@ -525,10 +521,10 @@ export function codexAppServerInterruptFailure(result = {}, interruptFailedCode 
     return null;
   }
   return {
-    code: normalizeCodexRunText(result.code) || interruptFailedCode,
+    code: normalizeText(result.code) || interruptFailedCode,
     error: codexAppServerErrorMessage(result, "Codex app-server turn could not be interrupted."),
     ok: false,
-    operationOutcome: normalizeCodexRunText(result.operationOutcome) || "interrupt_failed",
+    operationOutcome: normalizeText(result.operationOutcome) || "interrupt_failed",
     refreshRecommended: true,
     retryable: result.retryable === true
   };
@@ -549,8 +545,8 @@ export function codexAppServerInterruptUnavailableResponse({
     operationOutcome: "interrupt_unavailable",
     refreshRecommended: true,
     retryable: active === true,
-    threadId: normalizeCodexRunText(threadId),
-    turnId: normalizeCodexRunText(turnId)
+    threadId: normalizeText(threadId),
+    turnId: normalizeText(turnId)
   };
 }
 
@@ -563,41 +559,41 @@ export function codexAppServerFrozenTurnInterruptResponse({
     ok: true,
     operationOutcome: "already_idle",
     status: "interrupted",
-    threadId: normalizeCodexRunText(threadId),
-    turnId: normalizeCodexRunText(turnId)
+    threadId: normalizeText(threadId),
+    turnId: normalizeText(turnId)
   };
 }
 
 export function codexAppServerConversationTurnIsActive(status = "") {
-  return ["starting", "inProgress"].includes(normalizeCodexRunText(status));
+  return ["starting", "inProgress"].includes(normalizeText(status));
 }
 
 export function codexAppServerMessageText(input = {}) {
   if (typeof input === "string") {
-    return normalizeCodexRunText(input);
+    return normalizeText(input);
   }
   if (!isRecord(input)) {
     return "";
   }
-  return normalizeCodexRunText(input.message);
+  return normalizeText(input.message);
 }
 
 export function codexAppServerMessageDisplayText(input = {}, fallback = "") {
   if (!isRecord(input)) {
-    return normalizeCodexRunText(fallback || input);
+    return normalizeText(fallback || input);
   }
-  return normalizeCodexRunText(input.displayMessage || input.message || fallback);
+  return normalizeText(input.displayMessage || input.message || fallback);
 }
 
 function codexPromptInputFromRequest(input = {}) {
   if (typeof input === "string") {
-    return normalizeCodexRunText(input);
+    return normalizeText(input);
   }
-  const terminalInput = normalizeCodexRunText(input.terminalInput);
+  const terminalInput = normalizeText(input.terminalInput);
   if (terminalInput) {
     return terminalInput;
   }
   return codexAppServerMessageText(input);
 }
 
-export { codexAppServerRunInputSource, codexAppServerThreadStatus, codexAppServerReadThreadStatus, codexAppServerTurnStatusIsActive, codexAppServerTurnStatusIsComplete, codexAppServerTurnStatusIsSuccessfulComplete, codexAppServerTurnStatusIsProviderFailure, normalizeCodexRunText, codexAppServerErrorMessage, codexAppServerMessageDeferred, codexPromptInputFromRequest, CODEX_APP_SERVER_AGENT_RUN_ID, CODEX_APP_SERVER_RESULT_PROCESSED_EVENT, CODEX_AGENT_PROVIDER, CODEX_APP_SERVER_ACTIVE_RUN_STATES };
+export { codexAppServerRunInputSource, codexAppServerThreadStatus, codexAppServerReadThreadStatus, codexAppServerTurnStatusIsActive, codexAppServerTurnStatusIsComplete, codexAppServerTurnStatusIsSuccessfulComplete, codexAppServerTurnStatusIsProviderFailure, codexAppServerErrorMessage, codexAppServerMessageDeferred, codexPromptInputFromRequest, CODEX_APP_SERVER_AGENT_RUN_ID, CODEX_APP_SERVER_RESULT_PROCESSED_EVENT, CODEX_AGENT_PROVIDER, CODEX_APP_SERVER_ACTIVE_RUN_STATES };

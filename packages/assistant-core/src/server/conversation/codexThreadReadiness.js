@@ -1,18 +1,14 @@
-import {
-  codexAppServerTurnStatusIsActive,
-  codexAppServerThreadStatus,
-  codexAppServerReadThreadStatus,
-  normalizeCodexRunText
-} from "./codexTurnState.js";
+import { codexAppServerTurnStatusIsActive, codexAppServerThreadStatus, codexAppServerReadThreadStatus } from "./codexTurnState.js";
 import { codexAppServerThreadIsMissing, ensureCodexAppServerThread } from "./codexProviderThreads.js";
 import { codexAppServerThreadRawValue, codexAppServerThreadTurnId } from "./codexThreadSnapshot.js";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 /**
  * Native thread readiness, loaded-thread restoration and reconciliation drain. Its one Map lives as long as the run
  * owner and is shared with shutdown.
  * @param {object} dependencies
  * @param {import("./codexTurn.js").CodexProviderSessions} [dependencies.providerSessions]
- * @param {import("./codexTurn.js").CodexProviderSelection} dependencies.selection
+ * @param {import("./codexProviderSelection.js").CodexProviderSelection} dependencies.selection
  * @param {import("./codexNotificationObserver.js").CodexNotificationObserver} dependencies.observer
  * @param {import("./codexThreadStatus.js").CodexThreadStatus} dependencies.threadStatus
  * @param {import("./codexTurnRecovery.js").CodexTurnRecovery} dependencies.recovery
@@ -164,12 +160,12 @@ export function createCodexThreadReadiness({
     }
     debugLog("appServerThread.reconcile.pruneWait.start", {
       pendingCount: pending.length,
-      projectContextRoot: normalizeCodexRunText(projectContextRoot)
+      projectContextRoot: normalizeText(projectContextRoot)
     });
     await Promise.allSettled(pending.map(([, reconciliation]) => reconciliation));
     debugLog("appServerThread.reconcile.pruneWait.done", {
       pendingCount: pending.length,
-      projectContextRoot: normalizeCodexRunText(projectContextRoot)
+      projectContextRoot: normalizeText(projectContextRoot)
     });
   }
 
@@ -177,11 +173,11 @@ export function createCodexThreadReadiness({
     reconnect = true
   } = {}) {
     providerSessions.assertOpen();
-    const normalizedProviderKey = normalizeCodexRunText(providerKey);
+    const normalizedProviderKey = normalizeText(providerKey);
     const managed = providerSessions.managed.get(normalizedProviderKey);
     const provider = providerSessions.owner.providers.get(normalizedProviderKey);
-    const sessionId = normalizeCodexRunText(managed?.sessionId);
-    const threadId = normalizeCodexRunText(managed?.threadId);
+    const sessionId = normalizeText(managed?.sessionId);
+    const threadId = normalizeText(managed?.threadId);
     if (!managed || !provider || !sessionId) {
       throw new Error("Codex app-server managed connection is incomplete.");
     }
@@ -260,7 +256,7 @@ export function createCodexThreadReadiness({
         subscriptionOptions
       );
       await provider.resumeThread(threadId, {
-        cwd: normalizeCodexRunText(connection.workdir)
+        cwd: normalizeText(connection.workdir)
       });
       return reconcileCodexAppServerLoadedThreadStatus(
         sessionId,
@@ -317,12 +313,12 @@ export function createCodexThreadReadiness({
         limit: 100
       });
       for (const threadId of Array.isArray(response?.data) ? response.data : []) {
-        const normalizedThreadId = normalizeCodexRunText(threadId);
+        const normalizedThreadId = normalizeText(threadId);
         if (normalizedThreadId) {
           threadIds.add(normalizedThreadId);
         }
       }
-      cursor = normalizeCodexRunText(response?.nextCursor);
+      cursor = normalizeText(response?.nextCursor);
     } while (cursor);
     return threadIds;
   }
@@ -337,7 +333,7 @@ export function createCodexThreadReadiness({
       threadId,
       context.subscriptionOptions
     );
-    const subscriptionStatus = normalizeCodexRunText(subscription?.status) || "subscribed";
+    const subscriptionStatus = normalizeText(subscription?.status) || "subscribed";
     if (subscriptionStatus !== "alreadySubscribed") {
       await provider.resumeThread(threadId, context.resumeOptions);
     }

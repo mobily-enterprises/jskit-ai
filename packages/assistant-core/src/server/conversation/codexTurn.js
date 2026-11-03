@@ -17,14 +17,10 @@ import { createCodexProviderSelection } from "./codexProviderSelection.js";
 import { createCodexAppServerMessageDelivery } from "./codexMessageDelivery.js";
 import { createCodexConversationCommands } from "./codexConversations.js";
 import { createCodexAppServerOutput } from "./codexOutput.js";
-import {
-  normalizeCodexRunText,
-  normalizeCodexAppServerRunState,
-  codexAppServerTurnStateFromAgentRun,
-  codexAppServerTurnState
-} from "./codexTurnState.js";
+import { normalizeCodexAppServerRunState, codexAppServerTurnStateFromAgentRun, codexAppServerTurnState } from "./codexTurnState.js";
 
 import { createCodexAppServerNotificationQueue } from "./codexNotificationQueue.js";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 export {
   CODEX_APP_SERVER_RUN_STATE,
   normalizeCodexAppServerRunState,
@@ -82,8 +78,6 @@ export { codexAppServerThreadIsMissing } from "./codexProviderThreads.js";
 /** @typedef {() => unknown} CodexCaptureContext */
 /** @typedef {(context: unknown, operation: () => any) => any} CodexRunInContext */
 /** @typedef {typeof CODEX_TURN_OUTCOMES} CodexTurnOutcomes */
-/** @typedef {ReturnType<typeof createCodexProviderSelection>} CodexProviderSelection */
-/** @typedef {ReturnType<typeof import("./codexProviderOwner.js").createCodexAppServerProviderOwner>} CodexProviderOwner */
 /** @typedef {(runtime: any, session: object, options: object) => Promise<any>} CodexAdmissionRecovery */
 /** @typedef {(sessionId: string, input: object) => Promise<unknown>} CodexCheckpoint */
 
@@ -98,7 +92,7 @@ export { codexAppServerThreadIsMissing } from "./codexProviderThreads.js";
 /**
  * The managed provider sessions of an application that owns its provider processes.
  * @typedef {object} CodexProviderSessions
- * @property {CodexProviderOwner} owner
+ * @property {import("./codexProviderOwner.js").CodexAppServerProviderOwner} owner
  * @property {Map<string, any>} [managed]
  * @property {Function} [context]
  * @property {Function} [keyFields]
@@ -135,7 +129,7 @@ function keepDeliveredMessageMetadata(_store, _sessionId, metadata) {
 }
 
 function codexResultDeliveryFailureMessage({ error = "" } = {}) {
-  const detail = normalizeCodexRunText(error);
+  const detail = normalizeText(error);
   if (!detail) return "Codex app-server finished this turn, but the assistant result text was not received.";
   const punctuation = [".", "!", "?"].some(character => detail.endsWith(character)) ? "" : ".";
   return "Codex completed, but its response could not be processed: " + detail + punctuation;
@@ -194,10 +188,10 @@ function runInNoContext(_context, operation) {
  * @param {string} [options.errorPrefix]
  */
 export function createCodexAppServerRunOwner({
-  namespace = normalizeCodexRunText,
+  namespace = normalizeText,
   normalizeRunState = normalizeCodexAppServerRunState,
   debugLog = ignoreDebugLog,
-  debugError = error => normalizeCodexRunText(error?.message || error),
+  debugError = error => normalizeText(error?.message || error),
   createRuntime,
   createStore,
   publish = answerNothing,
@@ -268,9 +262,9 @@ export function createCodexAppServerRunOwner({
     namespace, runInContext,
     isClosing: () => runOwner.runtimeLifecycle?.closing === true,
     reportError: (error, context) => debugLog("appServerNotification.error", {
-      error: debugError(error), method: normalizeCodexRunText(context.method),
-      sessionId: normalizeCodexRunText(context.sessionId),
-      threadId: normalizeCodexRunText(context.threadId), turnId: normalizeCodexRunText(context.turnId)
+      error: debugError(error), method: normalizeText(context.method),
+      sessionId: normalizeText(context.sessionId),
+      threadId: normalizeText(context.threadId), turnId: normalizeText(context.turnId)
     })
   });
   const codexAppServerPromptDeliveries = new Set();

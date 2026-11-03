@@ -1,16 +1,6 @@
-import {
-  codexAppServerTurnStatusIsActive,
-  codexAppServerThreadStatus,
-  codexAppServerReadThreadStatus,
-  normalizeCodexRunText,
-  codexAppServerAgentRun,
-  codexAppServerTurnOwnsActiveGoal,
-  codexAppServerTurnCanReceiveProviderCompletion,
-  codexAppServerTurnAwaitsProviderIdentity,
-  codexAppServerTurnCanReceiveProviderActivity,
-  codexAppServerTurnKey
-} from "./codexTurnState.js";
+import { codexAppServerTurnStatusIsActive, codexAppServerThreadStatus, codexAppServerReadThreadStatus, codexAppServerAgentRun, codexAppServerTurnOwnsActiveGoal, codexAppServerTurnCanReceiveProviderCompletion, codexAppServerTurnAwaitsProviderIdentity, codexAppServerTurnCanReceiveProviderActivity, codexAppServerTurnKey } from "./codexTurnState.js";
 import { codexAppServerThreadTurnId } from "./codexThreadSnapshot.js";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 /**
  * How a tracked turn ends: it completes, or it stops after a provider failure or a reply that could not be
@@ -69,9 +59,9 @@ export function createCodexTurnEndings({
   async function codexAppServerProviderBlocksTurnRelease(sessionId = "", provider = null, threadId = "", turnId = "", {
     source = ""
   } = {}) {
-    const normalizedSessionId = normalizeCodexRunText(sessionId);
-    const normalizedThreadId = normalizeCodexRunText(threadId);
-    const normalizedTurnId = normalizeCodexRunText(turnId);
+    const normalizedSessionId = normalizeText(sessionId);
+    const normalizedThreadId = normalizeText(threadId);
+    const normalizedTurnId = normalizeText(turnId);
     if (!normalizedSessionId || !normalizedThreadId) {
       return false;
     }
@@ -92,12 +82,12 @@ export function createCodexTurnEndings({
       const providerTurnId = codexAppServerThreadTurnId(providerThread);
       if (
         providerTurnId &&
-        providerTurnId !== normalizeCodexRunText(turn.turnId)
+        providerTurnId !== normalizeText(turn.turnId)
       ) {
         debugLog("appServerTurn.releaseAllowedSuccessor", {
           providerTurnId,
           sessionId: normalizedSessionId,
-          source: normalizeCodexRunText(source),
+          source: normalizeText(source),
           threadId: normalizedThreadId,
           turnId: turn.turnId
         });
@@ -108,7 +98,7 @@ export function createCodexTurnEndings({
       }
       debugLog("appServerTurn.releaseBlockedActive", {
         sessionId: normalizedSessionId,
-        source: normalizeCodexRunText(source),
+        source: normalizeText(source),
         status,
         threadId: normalizedThreadId,
         turnId: normalizedTurnId || turn.turnId
@@ -119,7 +109,7 @@ export function createCodexTurnEndings({
       debugLog("appServerTurn.releaseCheck.error", {
         error: debugError(error),
         sessionId: normalizedSessionId,
-        source: normalizeCodexRunText(source),
+        source: normalizeText(source),
         threadId: normalizedThreadId,
         turnId: normalizedTurnId || turn.turnId
       });
@@ -132,10 +122,10 @@ export function createCodexTurnEndings({
     status = "completed",
     verifyInactive = true
   } = {}) {
-    const normalizedSessionId = normalizeCodexRunText(sessionId);
-    const normalizedThreadId = normalizeCodexRunText(threadId);
-    const normalizedTurnId = normalizeCodexRunText(turnId);
-    const normalizedStatus = normalizeCodexRunText(status) || "completed";
+    const normalizedSessionId = normalizeText(sessionId);
+    const normalizedThreadId = normalizeText(threadId);
+    const normalizedTurnId = normalizeText(turnId);
+    const normalizedStatus = normalizeText(status) || "completed";
     const runtime = await createRuntime();
     const session = await runtime.getSession(normalizedSessionId);
     const existingTurn = turnState(session);
@@ -273,14 +263,14 @@ export function createCodexTurnEndings({
   }
 
   function codexAppServerStoppedTurnMessage(status = "", error = "", outcome = "") {
-    const normalizedStatus = normalizeCodexRunText(status);
+    const normalizedStatus = normalizeText(status);
     let base = "Codex app-server failed before completing this turn.";
     if (normalizedStatus === "interrupted") {
       base = outcome === turnOutcomes.CONTROL_RECONFIGURATION
         ? "Codex app-server was interrupted while its controls were restored."
         : "Codex app-server was interrupted before completing this turn.";
     }
-    const normalizedError = normalizeCodexRunText(error);
+    const normalizedError = normalizeText(error);
     return normalizedError ? `${base} ${normalizedError}` : base;
   }
 
@@ -296,11 +286,11 @@ export function createCodexTurnEndings({
     failureDetailReady = false
   } = {}) {
     const observedAt = Date.now();
-    const normalizedSessionId = normalizeCodexRunText(sessionId);
-    const normalizedThreadId = normalizeCodexRunText(threadId);
-    const normalizedTurnId = normalizeCodexRunText(turnId);
-    const normalizedStatus = normalizeCodexRunText(status) || "failed";
-    let resolvedOutcome = normalizeCodexRunText(outcome);
+    const normalizedSessionId = normalizeText(sessionId);
+    const normalizedThreadId = normalizeText(threadId);
+    const normalizedTurnId = normalizeText(turnId);
+    const normalizedStatus = normalizeText(status) || "failed";
+    let resolvedOutcome = normalizeText(outcome);
     if (!resolvedOutcome) {
       if (normalizedStatus === "interrupted") {
         const recorded = provider ? provider.interruptionOutcome(normalizedThreadId, normalizedTurnId) : "";
@@ -416,9 +406,9 @@ export function createCodexTurnEndings({
     reason = "",
     status = "completed"
   } = {}) {
-    const normalizedSessionId = normalizeCodexRunText(sessionId);
-    const normalizedThreadId = normalizeCodexRunText(threadId);
-    const normalizedStatus = normalizeCodexRunText(status) || "completed";
+    const normalizedSessionId = normalizeText(sessionId);
+    const normalizedThreadId = normalizeText(threadId);
+    const normalizedStatus = normalizeText(status) || "completed";
     const normalizedTurnId = await resolveCodexAppServerTurnId(normalizedSessionId, normalizedThreadId, turnId);
     const recovered = await recoverCodexAppServerFinalResponseBeforeOutcome(
       normalizedSessionId,
@@ -445,7 +435,7 @@ export function createCodexTurnEndings({
         currentStatus: currentTurn.status,
         currentThreadId: currentTurn.threadId,
         currentTurnId: currentTurn.turnId,
-        reason: normalizeCodexRunText(reason),
+        reason: normalizeText(reason),
         sessionId: normalizedSessionId,
         status: normalizedStatus,
         threadId: normalizedThreadId,
@@ -477,8 +467,8 @@ export function createCodexTurnEndings({
     });
     cleanupCodexAppServerUntrackedTurn(normalizedThreadId, normalizedTurnId);
     debugLog("appServerAgentResult.missing", {
-      error: normalizeCodexRunText(error),
-      reason: normalizeCodexRunText(reason),
+      error: normalizeText(error),
+      reason: normalizeText(reason),
       sessionId: normalizedSessionId,
       threadId: normalizedThreadId,
       turnId: normalizedTurnId

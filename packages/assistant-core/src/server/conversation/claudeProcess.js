@@ -505,7 +505,7 @@ export function createClaudeAccountQueries({
  * Native startup and handshake; an execution host owns processes and their identity.
  * @param {object} options
  * @param {string} [options.command]
- * @param {import("./openCodeProcess.js").ConversationExecution} [options.execution]
+ * @param {import("./localExecution.js").ConversationExecution} [options.execution]
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} options.env
  * @param {string} [options.workdir]
  * @param {(frame: Record<string, any>) => Promise<unknown>} [options.onEvent]

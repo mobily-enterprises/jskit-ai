@@ -1,14 +1,7 @@
-import {
-  codexAppServerTurnStatusIsSuccessfulComplete,
-  codexAppServerTurnStatusIsProviderFailure,
-  normalizeCodexRunText,
-  codexAppServerErrorMessage,
-  codexAppServerSteerFailure,
-  codexAppServerMessageRequiresNewTurn,
-  codexAppServerMessageDeferred
-} from "./codexTurnState.js";
+import { codexAppServerTurnStatusIsSuccessfulComplete, codexAppServerTurnStatusIsProviderFailure, codexAppServerErrorMessage, codexAppServerSteerFailure, codexAppServerMessageRequiresNewTurn, codexAppServerMessageDeferred } from "./codexTurnState.js";
 import { codexAppServerRequestIsInvalid } from "./codexProviderThreads.js";
 import { codexLocalImageInput, codexAppServerDeliveredTurn, sendCodexAppServerPrompt } from "./codexProviderTurns.js";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 function notifyNoPromptSending() {}
 
@@ -60,7 +53,7 @@ export function createCodexPromptDispatch({
     const { onPromptSending = notifyNoPromptSending, onPromptRejected = notifyNoPromptRejected } = input;
     let providerFailure = "";
     let delivery = null;
-    const promptSessionId = normalizeCodexRunText(sessionId);
+    const promptSessionId = normalizeText(sessionId);
     const clientUserMessageId = messageId;
     await writeCodexAppServerUserMessageOwnership(runtime.store, sessionId, clientUserMessageId, {
       eventKind: "codex-app-server-user-message-owned",
@@ -118,7 +111,7 @@ export function createCodexPromptDispatch({
         status: deliveredTurnStatus
       });
       if (completion?.ok === false) {
-        providerFailure = normalizeCodexRunText(completion.error) || "Codex completed, but its response could not be processed.";
+        providerFailure = normalizeText(completion.error) || "Codex completed, but its response could not be processed.";
       }
     }
     return { delivery, deliveredTurnId, providerFailure };
@@ -149,8 +142,8 @@ export function createCodexPromptDispatch({
       currentSession = await runtime.getSession(sessionId);
       const currentTurn = turnState(currentSession);
       const sameTurnIsActive = currentTurn.active === true &&
-        normalizeCodexRunText(currentTurn.threadId) === threadId &&
-        normalizeCodexRunText(currentTurn.turnId) === turnId &&
+        normalizeText(currentTurn.threadId) === threadId &&
+        normalizeText(currentTurn.turnId) === turnId &&
         currentTurn.state !== "finalizing";
       if (sameTurnIsActive) {
         return codexAppServerRequestIsInvalid(error, "turn/steer")
@@ -237,7 +230,7 @@ export function createCodexPromptDispatch({
     splitCodexAppServerReasoningTurn(threadId, turnId);
     currentSession = await runtime.getSession(sessionId);
     debugLog("appServerMessage.activeTurn.done", {
-      conversationTurnId: normalizeCodexRunText(conversationTurn?.turnId || conversationTurn?.id),
+      conversationTurnId: normalizeText(conversationTurn?.turnId || conversationTurn?.id),
       messageId,
       sessionId,
       threadId,

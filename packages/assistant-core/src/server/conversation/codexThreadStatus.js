@@ -1,17 +1,5 @@
-import {
-  codexAppServerTurnStatusIsActive,
-  codexAppServerTurnStatusIsComplete,
-  codexAppServerTurnStatusIsSuccessfulComplete,
-  codexAppServerTurnStatusIsProviderFailure,
-  codexAppServerThreadStatus,
-  codexAppServerReadThreadStatus,
-  normalizeCodexRunText,
-  codexAppServerAgentRun,
-  codexAppServerTurnCanReceiveProviderCompletion,
-  codexAppServerTurnCanAdoptSuccessor,
-  codexAppServerErrorMessage
-} from "./codexTurnState.js";
-import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { codexAppServerTurnStatusIsActive, codexAppServerTurnStatusIsComplete, codexAppServerTurnStatusIsSuccessfulComplete, codexAppServerTurnStatusIsProviderFailure, codexAppServerThreadStatus, codexAppServerReadThreadStatus, codexAppServerAgentRun, codexAppServerTurnCanReceiveProviderCompletion, codexAppServerTurnCanAdoptSuccessor, codexAppServerErrorMessage } from "./codexTurnState.js";
+import { isRecord, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { codexAppServerStatusFromValue } from "./codexEvents.js";
 import { codexAppServerThreadRawValue, codexAppServerThreadTurnId, codexAppServerThreadError } from "./codexThreadSnapshot.js";
 
@@ -42,11 +30,11 @@ export function createCodexThreadStatus({ journal, settlement, recovery, output,
   const { reconcileObservedTurnItems: reconcileCodexAppServerObservedTurnItems } = output;
 
   function codexAppServerReadyTurnFailureMessage(reason = "", error = "") {
-    const detail = normalizeCodexRunText(error);
+    const detail = normalizeText(error);
     if (detail) {
       return detail;
     }
-    switch (normalizeCodexRunText(reason)) {
+    switch (normalizeText(reason)) {
       case "thread_replaced":
         return "Codex app-server resumed a different thread before this turn completed.";
       case "provider_unreadable":
@@ -69,9 +57,9 @@ export function createCodexThreadStatus({ journal, settlement, recovery, output,
     threadId = "",
     turnId = ""
   } = {}) {
-    const normalizedSessionId = normalizeCodexRunText(sessionId);
-    const normalizedThreadId = normalizeCodexRunText(threadId) || normalizeCodexRunText(turn.threadId);
-    const normalizedTurnId = normalizeCodexRunText(turnId) || normalizeCodexRunText(turn.turnId);
+    const normalizedSessionId = normalizeText(sessionId);
+    const normalizedThreadId = normalizeText(threadId) || normalizeText(turn.threadId);
+    const normalizedTurnId = normalizeText(turnId) || normalizeText(turn.turnId);
     if (!normalizedSessionId || !normalizedThreadId) {
       return {
         ok: false,
@@ -97,8 +85,8 @@ export function createCodexThreadStatus({ journal, settlement, recovery, output,
     requireTrackedTurn = false,
     source = ""
   } = {}) {
-    const normalizedSessionId = normalizeCodexRunText(sessionId);
-    const normalizedThreadId = normalizeCodexRunText(threadId);
+    const normalizedSessionId = normalizeText(sessionId);
+    const normalizedThreadId = normalizeText(threadId);
     const runtime = normalizedSessionId
       ? await createRuntime()
       : null;
@@ -115,7 +103,7 @@ export function createCodexThreadStatus({ journal, settlement, recovery, output,
       trackedTurn.threadId
       ? trackedTurn
       : null;
-    const statusThreadId = normalizeCodexRunText(trackedProviderTurn?.threadId) || normalizedThreadId;
+    const statusThreadId = normalizeText(trackedProviderTurn?.threadId) || normalizedThreadId;
     const shouldFailUnconfirmed = failUnconfirmedTrackedTurn && trackedProviderTurn;
     if (!normalizedSessionId || !normalizedThreadId) {
       return {
@@ -156,7 +144,7 @@ export function createCodexThreadStatus({ journal, settlement, recovery, output,
       debugLog("appServerThread.reconcile.trackedThreadReplaced", {
         currentThreadId: normalizedThreadId,
         sessionId: normalizedSessionId,
-        source: normalizeCodexRunText(source),
+        source: normalizeText(source),
         trackedThreadId: statusThreadId,
         trackedTurnId: trackedProviderTurn.turnId
       });
@@ -187,7 +175,7 @@ export function createCodexThreadStatus({ journal, settlement, recovery, output,
         debugLog("appServerThread.reconcile.readFailed", {
           error: debugError(error),
           sessionId: normalizedSessionId,
-          source: normalizeCodexRunText(source),
+          source: normalizeText(source),
           threadId: statusThreadId,
           turnId: trackedProviderTurn.turnId
         });
@@ -230,7 +218,7 @@ export function createCodexThreadStatus({ journal, settlement, recovery, output,
     ) {
       const adoption = await adoptCodexAppServerSuccessorTurn(normalizedSessionId, {
         previousTurnId: trackedProviderTurn.turnId,
-        source: normalizeCodexRunText(source) || "thread_status",
+        source: normalizeText(source) || "thread_status",
         status: "inProgress",
         threadId: statusThreadId,
         turnId
@@ -254,7 +242,7 @@ export function createCodexThreadStatus({ journal, settlement, recovery, output,
         debugLog("appServerThread.reconcile.activeWithoutTurn", {
           sessionId: normalizedSessionId,
           status,
-          source: normalizeCodexRunText(source),
+          source: normalizeText(source),
           threadId: statusThreadId,
           trackedTurnId: trackedProviderTurn?.turnId || ""
         });
@@ -267,7 +255,7 @@ export function createCodexThreadStatus({ journal, settlement, recovery, output,
         observedRun: codexAppServerTurnStatusIsActive(codexAppServerStatusFromValue(
           codexAppServerThreadRawValue(thread).status || thread.status
         )) ? codexAppServerAgentRun(session) : null,
-        source: normalizeCodexRunText(source) || "thread_status",
+        source: normalizeText(source) || "thread_status",
         status,
         threadId: statusThreadId,
         turnId
@@ -291,10 +279,10 @@ export function createCodexThreadStatus({ journal, settlement, recovery, output,
     ) {
       const currentSession = await runtime.getSession(normalizedSessionId);
       const currentTurn = turnState(currentSession);
-      if (!currentTurn.active && normalizeCodexRunText(currentTurn.turnId) !== turnId) {
+      if (!currentTurn.active && normalizeText(currentTurn.turnId) !== turnId) {
         await markCodexAppServerProviderTurnActive(normalizedSessionId, {
           inputSource: "terminal",
-          source: normalizeCodexRunText(source) || "thread_snapshot",
+          source: normalizeText(source) || "thread_snapshot",
           status: "inProgress",
           threadId: statusThreadId,
           turnId
@@ -314,7 +302,7 @@ export function createCodexThreadStatus({ journal, settlement, recovery, output,
         );
       }
     }
-    const completedTurnId = turnId || normalizeCodexRunText(trackedProviderTurn?.turnId);
+    const completedTurnId = turnId || normalizeText(trackedProviderTurn?.turnId);
     if (!completedTurnId) {
       return {
         ok: true,

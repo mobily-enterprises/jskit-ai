@@ -205,6 +205,10 @@
           {
             "subpath": "./client/conversation-submit",
             "summary": "Optional UI: Original text submission helper forwards companion text through the application draft and canonical send action; also exported by ./client/conversation."
+          },
+          {
+            "subpath": "./client/types",
+            "summary": "Framework integration: Types of the conversation adapter, actions, attachments, suggestions, questions, message delivery and API client that client code receives."
           }
         ],
         "capabilities": []

@@ -5,7 +5,7 @@ import {
   readCodexAppServerMetadata,
   removeCodexAppServerRuntimeDir
 } from "./codexProcess.js";
-import { normalizeCodexRunText as normalizeText } from "./codexTurnState.js";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 // Every provider owner in this process shares one inventory: one native
 // runtime may serve several owners, so recovery and sharing always inspect the

@@ -1,15 +1,5 @@
-import {
-  normalizeCodexRunText,
-  CODEX_APP_SERVER_AGENT_RUN_ID,
-  CODEX_APP_SERVER_RESULT_PROCESSED_EVENT,
-  codexAppServerTurnCanReceiveProviderCompletion,
-  codexAppServerProcessedResultEvent,
-  codexAppServerTurnAwaitsProviderIdentity,
-  codexAppServerTurnCanAdoptSuccessor,
-  codexAppServerAgentRun,
-  CODEX_APP_SERVER_RUN_STATE,
-  codexAppServerTurnKey
-} from "./codexTurnState.js";
+import { CODEX_APP_SERVER_AGENT_RUN_ID, CODEX_APP_SERVER_RESULT_PROCESSED_EVENT, codexAppServerTurnCanReceiveProviderCompletion, codexAppServerProcessedResultEvent, codexAppServerTurnAwaitsProviderIdentity, codexAppServerTurnCanAdoptSuccessor, codexAppServerAgentRun, CODEX_APP_SERVER_RUN_STATE, codexAppServerTurnKey } from "./codexTurnState.js";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 /**
  * Result settlement and successor adoption for one retained run owner. Journal and output collections remain with
@@ -51,9 +41,9 @@ export function createCodexResultSettlement({ journal, output, createRuntime, pu
     await runtime.store.writeAgentRunEvent(sessionId, CODEX_APP_SERVER_AGENT_RUN_ID, {
       event: {
         kind: CODEX_APP_SERVER_RESULT_PROCESSED_EVENT,
-        providerThreadId: normalizeCodexRunText(threadId),
-        providerTurnId: normalizeCodexRunText(turnId),
-        resultReason: normalizeCodexRunText(result.reason)
+        providerThreadId: normalizeText(threadId),
+        providerTurnId: normalizeText(turnId),
+        resultReason: normalizeText(result.reason)
       },
       patch: {}
     });
@@ -67,9 +57,9 @@ export function createCodexResultSettlement({ journal, output, createRuntime, pu
     },
     status = "completed"
   } = {}) {
-    const normalizedSessionId = normalizeCodexRunText(sessionId);
-    const normalizedThreadId = normalizeCodexRunText(threadId);
-    const normalizedTurnId = normalizeCodexRunText(turnId);
+    const normalizedSessionId = normalizeText(sessionId);
+    const normalizedThreadId = normalizeText(threadId);
+    const normalizedTurnId = normalizeText(turnId);
     const key = codexAppServerResultFinalizationKey(normalizedSessionId, normalizedThreadId, normalizedTurnId);
     const runtime = await createRuntime();
     const session = await runtime.getSession(normalizedSessionId);
@@ -107,9 +97,9 @@ export function createCodexResultSettlement({ journal, output, createRuntime, pu
     recoverFromProvider = false,
     status = "completed"
   } = {}) {
-    const normalizedSessionId = normalizeCodexRunText(sessionId);
-    const normalizedThreadId = normalizeCodexRunText(threadId);
-    const normalizedTurnId = normalizeCodexRunText(turnId);
+    const normalizedSessionId = normalizeText(sessionId);
+    const normalizedThreadId = normalizeText(threadId);
+    const normalizedTurnId = normalizeText(turnId);
     const key = codexAppServerResultFinalizationKey(normalizedSessionId, normalizedThreadId, normalizedTurnId);
     if (!normalizedSessionId || !normalizedThreadId || !normalizedTurnId) {
       return {
@@ -158,7 +148,7 @@ export function createCodexResultSettlement({ journal, output, createRuntime, pu
             result: {
               ok: true,
               processed: true,
-              reason: normalizeCodexRunText(processedEvent.resultReason) || "already_processed"
+              reason: normalizeText(processedEvent.resultReason) || "already_processed"
             },
             status
           }
@@ -257,10 +247,10 @@ export function createCodexResultSettlement({ journal, output, createRuntime, pu
   }
 
   async function adoptCodexAppServerSuccessorTurn(sessionId = "", input = {}) {
-    const normalizedSessionId = normalizeCodexRunText(sessionId);
-    const normalizedThreadId = normalizeCodexRunText(input.threadId);
-    const normalizedTurnId = normalizeCodexRunText(input.turnId);
-    const expectedPreviousTurnId = normalizeCodexRunText(input.previousTurnId);
+    const normalizedSessionId = normalizeText(sessionId);
+    const normalizedThreadId = normalizeText(input.threadId);
+    const normalizedTurnId = normalizeText(input.turnId);
+    const expectedPreviousTurnId = normalizeText(input.previousTurnId);
     if (!normalizedSessionId || !normalizedThreadId || !normalizedTurnId || !expectedPreviousTurnId) {
       return {
         ok: true,
@@ -280,8 +270,8 @@ export function createCodexResultSettlement({ journal, output, createRuntime, pu
       const currentSession = await runtime.getSession(normalizedSessionId);
       const currentTurn = turnState(currentSession);
       if (
-        normalizeCodexRunText(currentTurn.threadId) === normalizedThreadId &&
-        normalizeCodexRunText(currentTurn.turnId) === normalizedTurnId
+        normalizeText(currentTurn.threadId) === normalizedThreadId &&
+        normalizeText(currentTurn.turnId) === normalizedTurnId
       ) {
         outcome = {
           ok: true,
@@ -299,7 +289,7 @@ export function createCodexResultSettlement({ journal, output, createRuntime, pu
         return currentSession;
       }
       if (
-        normalizeCodexRunText(currentTurn.turnId) !== expectedPreviousTurnId ||
+        normalizeText(currentTurn.turnId) !== expectedPreviousTurnId ||
         !codexAppServerTurnCanAdoptSuccessor(currentTurn, normalizedThreadId, normalizedTurnId)
       ) {
         outcome = {
@@ -309,12 +299,12 @@ export function createCodexResultSettlement({ journal, output, createRuntime, pu
         };
         return currentSession;
       }
-      previousTurnId = normalizeCodexRunText(currentTurn.turnId);
+      previousTurnId = normalizeText(currentTurn.turnId);
       const updatedAt = new Date().toISOString();
       runPatch = agentRunPatch({
         runState: CODEX_APP_SERVER_RUN_STATE.ACTIVE,
         session: currentSession,
-        status: normalizeCodexRunText(input.status) || "inProgress",
+        status: normalizeText(input.status) || "inProgress",
         threadId: normalizedThreadId,
         turnId: normalizedTurnId,
         updatedAt
@@ -331,7 +321,7 @@ export function createCodexResultSettlement({ journal, output, createRuntime, pu
           previousProviderTurnId: previousTurnId,
           providerThreadId: normalizedThreadId,
           providerTurnId: normalizedTurnId,
-          source: normalizeCodexRunText(input.source),
+          source: normalizeText(input.source),
           state: runPatch.state
         },
         patch: runPatch
@@ -402,7 +392,7 @@ export function createCodexResultSettlement({ journal, output, createRuntime, pu
     debugLog("appServerTurn.continued", {
       previousTurnId,
       sessionId: normalizedSessionId,
-      source: normalizeCodexRunText(input.source),
+      source: normalizeText(input.source),
       threadId: normalizedThreadId,
       turnId: normalizedTurnId
     });

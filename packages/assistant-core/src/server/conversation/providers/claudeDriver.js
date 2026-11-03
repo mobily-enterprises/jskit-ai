@@ -36,7 +36,7 @@ const goalCapabilities = Object.freeze({ goals: true, goalBudgets: false,
  *   host?: {
  *     env?: import("@jskit-ai/kernel/server/types").RuntimeEnv,
  *     workdir?: string,
- *     execution?: import("../openCodeProcess.js").ConversationExecution,
+ *     execution?: import("../localExecution.js").ConversationExecution,
  *     nativeTools?: boolean,
  *     allowAccountChange?: boolean,
  *     commands?: { claude?: string },

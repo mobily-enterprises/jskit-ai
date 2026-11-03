@@ -2,7 +2,8 @@ import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { codexAppServerDeliveredTurn } from "./codexProviderTurns.js";
 import { deleteCodexAppServerThread } from "./codexProviderThreads.js";
 import { CODEX_HELPER_THREAD_LIFECYCLES } from "./codexHelperThreadRecord.js";
-import { codexAppServerErrorMessage as errorMessage, normalizeCodexRunText as normalizeText } from "./codexTurnState.js";
+import { codexAppServerErrorMessage as errorMessage } from "./codexTurnState.js";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 export function createCodexHelperOwnershipError({ applicationName = "Application", errorPrefix = "" } = {}) {
   return function codexAppServerHelperOwnershipError(message = "", details = {}) {

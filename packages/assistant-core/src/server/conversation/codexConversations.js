@@ -1,4 +1,4 @@
-import { codexAppServerThreadStatus, normalizeCodexRunText, codexAppServerConversationTurnIsActive, codexAppServerNativeOuterTurnId } from "./codexTurnState.js";
+import { codexAppServerThreadStatus, codexAppServerConversationTurnIsActive, codexAppServerNativeOuterTurnId } from "./codexTurnState.js";
 import { ignoreCodexDetachedTurnEvent } from "./codexDetachedTurn.js";
 import { readCodexToolFreeConfiguration } from "./codexIsolation.js";
 import { codexAppServerAssistantItemText, codexAppServerContentText, classifyCodexAppServerEvent, codexAppServerNotificationThreadId, codexAppServerNotificationTurnId, codexAppServerNotificationTurnStatus } from "./codexEvents.js";
@@ -26,6 +26,7 @@ import {
   runDetachedCodexAppServerTurn
 } from "./codexDetachedConversation.js";
 import { createCodexConversationStops } from "./codexConversationStops.js";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 /** @typedef {Map<string, Map<string, object>>} CodexConversationRegistry Each session's native conversations, by id. */
 /** @typedef {(sessionId?: string, conversationId?: string) => object | null} CodexConversationLookup */
@@ -45,15 +46,15 @@ import { createCodexConversationStops } from "./codexConversationStops.js";
  * @param {typeof import("./codexTurnState.js").codexAppServerConversationMessageId} dependencies.codexAppServerConversationMessageId
  * @param {import("./codexOutput.js").CodexAppServerOutput["streamMessage"]} dependencies.codexAppServerStreamMessage
  * @param {object} dependencies.conversationPreparation The application's conversation preparation.
- * @param {import("./codexTurn.js").CodexProviderSelection["ensureCodexAppServerProviderForActiveTurn"]} dependencies.ensureCodexAppServerProviderForActiveTurn
+ * @param {import("./codexProviderSelection.js").CodexProviderSelection["ensureCodexAppServerProviderForActiveTurn"]} dependencies.ensureCodexAppServerProviderForActiveTurn
  * @param {string} dependencies.errorPrefix
  * @param {import("./codexHelperThreads.js").CodexHelperThreadLifecycle} dependencies.helperLifecycle
  * @param {string} dependencies.helperOwnershipError
  * @param {string} dependencies.interruptFailedCode
  * @param {import("./codexTurn.js").CodexSessionNamespace} dependencies.namespace
  * @param {import("./codexTurn.js").CodexProviderSessions} dependencies.providerSessions
- * @param {import("./codexTurn.js").CodexProviderSelection["ensureSessionProvider"]} dependencies.ensureSessionProvider
- * @param {import("./codexTurn.js").CodexProviderSelection["borrowSessionProvider"]} dependencies.borrowSessionProvider
+ * @param {import("./codexProviderSelection.js").CodexProviderSelection["ensureSessionProvider"]} dependencies.ensureSessionProvider
+ * @param {import("./codexProviderSelection.js").CodexProviderSelection["borrowSessionProvider"]} dependencies.borrowSessionProvider
  * @param {string} dependencies.steerFailedCode
  * @param {import("./codexTurn.js").CodexTurnOutcomes} dependencies.turnOutcomes
  */
@@ -173,9 +174,9 @@ export function createCodexConversationCommands({
   }
 
   async function withCodexAppServerConversationTurnStart(sessionId, input, operation) {
-    const messageId = normalizeCodexRunText(input.messageId);
+    const messageId = normalizeText(input.messageId);
     const deliveryKey = messageId
-      ? `${namespace(sessionId)}\0${normalizeCodexRunText(input.conversationId)}\0${messageId}`
+      ? `${namespace(sessionId)}\0${normalizeText(input.conversationId)}\0${messageId}`
       : "";
     const existing = deliveryKey ? codexAppServerConversationTurnStarts.get(deliveryKey) : null;
     if (existing) {
@@ -243,7 +244,7 @@ export function createCodexConversationCommands({
   }
 
   async function readPersistentCodexConversation(sessionId, input, context) {
-    const conversationId = normalizeCodexRunText(input.conversationId);
+    const conversationId = normalizeText(input.conversationId);
     const previous = codexAppServerConversation(sessionId, conversationId);
     const state = observeCodexConversation(sessionId, conversationId, context.provider);
     const thread = await context.provider.readThreadStatus(conversationId);
@@ -298,7 +299,7 @@ export function createCodexConversationCommands({
         }
         else continue;
         const text = role === "thinking"
-          ? normalizeCodexRunText(codexAppServerContentText(item.summary)) || codexAppServerContentText(item.content)
+          ? normalizeText(codexAppServerContentText(item.summary)) || codexAppServerContentText(item.content)
           : codexAppServerAssistantItemText(item);
         if (text) messages.push({
           id: codexAppServerConversationMessageId(conversationId, turnId, role, item.id || text),
@@ -351,7 +352,7 @@ export function createCodexConversationCommands({
         await helperLifecycle.restoreThreads(restoration.projectRuntimeRoot, restoration.context)
       );
     } else {
-      const threadId = normalizeCodexRunText(input.threadId || input.codexSessionId || input.conversationId);
+      const threadId = normalizeText(input.threadId || input.codexSessionId || input.conversationId);
       if (threadId) {
         await helperLifecycle.assertOrdinaryThreadAvailable(prepared.projectRuntimeRoot, threadId);
       }
@@ -410,10 +411,10 @@ export function createCodexConversationCommands({
   }
 
   async function startCodexAppServerConversationTurn(sessionId, input = {}, options = {}) {
-    const messageId = normalizeCodexRunText(input.messageId);
+    const messageId = normalizeText(input.messageId);
     return withCodexAppServerConversationTurnStart(sessionId, input, () => codexAppServerConversationResult(async () => {
-      const conversationId = normalizeCodexRunText(input.conversationId);
-      const prompt = normalizeCodexRunText(input.message || input.prompt);
+      const conversationId = normalizeText(input.conversationId);
+      const prompt = normalizeText(input.message || input.prompt);
       if (!conversationId || !prompt) {
         return {
           code: `${errorPrefix}agent_conversation_turn_input_required`,
@@ -461,7 +462,7 @@ export function createCodexConversationCommands({
 
   async function readCodexAppServerConversation(sessionId, input = {}, options = {}) {
     return codexAppServerConversationResult(async () => {
-      const conversationId = normalizeCodexRunText(input.conversationId);
+      const conversationId = normalizeText(input.conversationId);
       if (!conversationId) {
         return {
           code: `${errorPrefix}agent_conversation_id_required`,
@@ -496,7 +497,7 @@ export function createCodexConversationCommands({
         }
         if (input.persistent) return readPreparedPersistentCodexConversation(sessionId, input, context);
         const thread = await context.provider.readThread(conversationId);
-        const runId = normalizeCodexRunText(input.runId) || codexAppServerThreadTurnId(thread);
+        const runId = normalizeText(input.runId) || codexAppServerThreadTurnId(thread);
         const status = codexAppServerThreadStatus(thread);
         const text = runId
           ? codexAppServerProviderThreadAssistantSegments(thread, runId)
@@ -520,8 +521,8 @@ export function createCodexConversationCommands({
     onEvent = ignoreCodexDetachedTurnEvent
   } = {}) {
     return codexAppServerConversationResult(async () => {
-      const conversationId = normalizeCodexRunText(input.conversationId);
-      const runId = normalizeCodexRunText(input.runId);
+      const conversationId = normalizeText(input.conversationId);
+      const runId = normalizeText(input.runId);
       if (!conversationId || !runId) {
         return {
           code: `${errorPrefix}agent_conversation_run_required`,

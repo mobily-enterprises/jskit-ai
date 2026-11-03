@@ -1,16 +1,7 @@
-import {
-  codexAppServerTurnStatusIsComplete,
-  codexAppServerTurnStatusIsProviderFailure,
-  codexAppServerThreadStatus,
-  codexAppServerReadThreadStatus,
-  normalizeCodexRunText,
-  codexAppServerTurnCanAdoptSuccessor,
-  codexAppServerInterruptFailure,
-  codexAppServerInterruptUnavailableResponse,
-  codexAppServerFrozenTurnInterruptResponse
-} from "./codexTurnState.js";
+import { codexAppServerTurnStatusIsComplete, codexAppServerTurnStatusIsProviderFailure, codexAppServerThreadStatus, codexAppServerReadThreadStatus, codexAppServerTurnCanAdoptSuccessor, codexAppServerInterruptFailure, codexAppServerInterruptUnavailableResponse, codexAppServerFrozenTurnInterruptResponse } from "./codexTurnState.js";
 import { codexAppServerRequestIsInvalid } from "./codexProviderThreads.js";
 import { codexAppServerThreadTurnId } from "./codexThreadSnapshot.js";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 /**
  * The person's Stop of a running turn, including its preflight and bounded successor races. The journal, recovery and
@@ -52,10 +43,10 @@ export function createCodexTurnControl({
 
   async function interruptCodexAppServerTurn(sessionId, input, context = {}) {
     const { runtime } = context;
-    const controlRequestId = normalizeCodexRunText(input?.controlRequestId);
+    const controlRequestId = normalizeText(input?.controlRequestId);
     let currentSession = await runtime.getSession(sessionId);
     let currentTurn = turnState(currentSession);
-    let threadId = normalizeCodexRunText(currentTurn.threadId) ||
+    let threadId = normalizeText(currentTurn.threadId) ||
       context.threadId(currentSession);
     let provider = null;
     let providerPreflight = null;
@@ -85,7 +76,7 @@ export function createCodexTurnControl({
         providerPreflight = {
           status: providerStatus,
           threadId,
-          turnId: providerTurnId || normalizeCodexRunText(currentTurn.turnId)
+          turnId: providerTurnId || normalizeText(currentTurn.turnId)
         };
         if (
           providerTurnId &&
@@ -113,9 +104,9 @@ export function createCodexTurnControl({
     for (let attempt = 0; attempt < 3; attempt += 1) {
       currentSession = await runtime.getSession(sessionId);
       currentTurn = turnState(currentSession);
-      threadId = normalizeCodexRunText(currentTurn.threadId) ||
+      threadId = normalizeText(currentTurn.threadId) ||
         context.threadId(currentSession);
-      const turnId = normalizeCodexRunText(currentTurn.turnId);
+      const turnId = normalizeText(currentTurn.turnId);
       if (context.admissionError()) {
         return { value: codexAppServerFrozenTurnInterruptResponse({ threadId, turnId }) };
       }
@@ -136,8 +127,8 @@ export function createCodexTurnControl({
             turnId
           }, session: currentSession };
         }
-        const stoppedThreadId = normalizeCodexRunText(currentTurn.threadId) || threadId;
-        const stoppedTurnId = normalizeCodexRunText(currentTurn.turnId) || turnId;
+        const stoppedThreadId = normalizeText(currentTurn.threadId) || threadId;
+        const stoppedTurnId = normalizeText(currentTurn.turnId) || turnId;
         const stopped = await stopCodexAppServerTurnWithProviderFailure(
           sessionId,
           stoppedThreadId,
@@ -241,16 +232,16 @@ export function createCodexTurnControl({
         const reconciledSession = await runtime.getSession(sessionId);
         const reconciledTurn = turnState(reconciledSession);
         const successorIsActive = reconciledTurn.active === true &&
-          normalizeCodexRunText(reconciledTurn.threadId) === threadId &&
-          Boolean(normalizeCodexRunText(reconciledTurn.turnId)) &&
-          normalizeCodexRunText(reconciledTurn.turnId) !== turnId;
+          normalizeText(reconciledTurn.threadId) === threadId &&
+          Boolean(normalizeText(reconciledTurn.turnId)) &&
+          normalizeText(reconciledTurn.turnId) !== turnId;
         if (successorIsActive && attempt < 2) {
           continue;
         }
         const sameTurnIsActive = reconciledTurn.state === "active" &&
           reconciledTurn.active === true &&
-          normalizeCodexRunText(reconciledTurn.threadId) === threadId &&
-          normalizeCodexRunText(reconciledTurn.turnId) === turnId;
+          normalizeText(reconciledTurn.threadId) === threadId &&
+          normalizeText(reconciledTurn.turnId) === turnId;
         if (!sameTurnIsActive) {
           debugLog("appServerInterrupt.alreadyIdle", {
             controlRequestId,

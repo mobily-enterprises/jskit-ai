@@ -1,8 +1,9 @@
-import { codexAppServerTurnStatusIsSuccessfulComplete, codexAppServerTurnStatusIsProviderFailure, normalizeCodexRunText } from "./codexTurnState.js";
+import { codexAppServerTurnStatusIsSuccessfulComplete, codexAppServerTurnStatusIsProviderFailure } from "./codexTurnState.js";
 import { CODEX_APP_SERVER_DETACHED_TURN_TIMEOUT_MS, createCodexAppServerDetachedTurnWatcher } from "./codexDetachedTurn.js";
 import { assertCodexAppServerHelperAccountIdentity } from "./codexHelperExecution.js";
 import { prepareCodexAppServerConversationThread } from "./codexConversationTurns.js";
 import { codexAppServerDeliveredTurn, sendCodexAppServerPrompt } from "./codexProviderTurns.js";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 function ignoreDetachedConversationEvent() {}
 
@@ -21,7 +22,7 @@ export async function acquireCodexAppServerDetachedThread(provider, requestedThr
 }
 
 export function codexAppServerDetachedThreadId(thread, requestedThreadId) {
-  const threadId = normalizeCodexRunText(thread.id || thread.response?.thread?.id || requestedThreadId);
+  const threadId = normalizeText(thread.id || thread.response?.thread?.id || requestedThreadId);
   if (!threadId) {
     throw new Error("Codex app-server did not return a detached chat thread id.");
   }
@@ -134,14 +135,14 @@ export function createCodexDetachedConversation({
         const threadSettings = helperTurn ? null : await prepareCodexAppServerConversationThread(
           provider, execution.threadPreparation, conversationPreparation.isolation
         );
-        const requestedThreadId = normalizeCodexRunText(input.threadId || input.codexSessionId);
+        const requestedThreadId = normalizeText(input.threadId || input.codexSessionId);
         let helper = null;
         let thread;
         if (helperTurn) {
-          const scope = { executionProfile, onRetired, projectRuntimeRoot: normalizeCodexRunText(runtime?.stateRoot),
-            projectContextRoot: normalizeCodexRunText(runtime?.projectContextRoot), provider, sessionId, requestedThreadId, workdir,
+          const scope = { executionProfile, onRetired, projectRuntimeRoot: normalizeText(runtime?.stateRoot),
+            projectContextRoot: normalizeText(runtime?.projectContextRoot), provider, sessionId, requestedThreadId, workdir,
             ...(requestedThreadId ? { record: helperLifecycle.threadForOperation({ executionProfile,
-              projectRuntimeRoot: normalizeCodexRunText(runtime?.stateRoot), provider, sessionId,
+              projectRuntimeRoot: normalizeText(runtime?.stateRoot), provider, sessionId,
               threadId: requestedThreadId, workdir }) } : {}) };
           helper = await helperLifecycle.prepareDetached(scope, execution.helperPreparation);
           thread = helper.thread;

@@ -1,19 +1,8 @@
-import {
-  codexAppServerTurnStatusIsActive,
-  codexAppServerTurnStatusIsComplete,
-  codexAppServerTurnStatusIsSuccessfulComplete,
-  codexAppServerTurnStatusIsProviderFailure,
-  codexAppServerThreadStatus,
-  codexAppServerReadThreadStatus,
-  normalizeCodexRunText,
-  codexAppServerAgentRun,
-  codexAppServerPendingUserMessageOwnership,
-  codexAppServerTurnOwnsActiveGoal,
-  codexAppServerTurnCanAdoptSuccessor
-} from "./codexTurnState.js";
+import { codexAppServerTurnStatusIsActive, codexAppServerTurnStatusIsComplete, codexAppServerTurnStatusIsSuccessfulComplete, codexAppServerTurnStatusIsProviderFailure, codexAppServerThreadStatus, codexAppServerReadThreadStatus, codexAppServerAgentRun, codexAppServerPendingUserMessageOwnership, codexAppServerTurnOwnsActiveGoal, codexAppServerTurnCanAdoptSuccessor } from "./codexTurnState.js";
 import { codexAppServerProviderTurnForOperation, codexAppServerThreadTurnId, codexAppServerThreadError } from "./codexThreadSnapshot.js";
 import { createCodexTurnActivity } from "./codexTurnActivity.js";
 import { createCodexTurnEndings } from "./codexTurnEndings.js";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 /**
  * Active and finalizing turn recovery: the timers that reread the provider, and the reconciliation of the tracked
@@ -123,7 +112,7 @@ export function createCodexTurnRecovery({
   });
 
   function scheduleCodexAppServerActiveRecovery(sessionId = "", delayMs = activeReconcileMs) {
-    const normalizedSessionId = normalizeCodexRunText(sessionId);
+    const normalizedSessionId = normalizeText(sessionId);
     const sessionKey = namespace(normalizedSessionId);
     const projectContext = captureContext();
     if (!normalizedSessionId || codexAppServerActiveTimers.has(sessionKey)) {
@@ -146,9 +135,9 @@ export function createCodexTurnRecovery({
     updatedAt = "",
     failureDetail = null
   } = {}) {
-    const normalizedSessionId = normalizeCodexRunText(sessionId);
-    const normalizedThreadId = normalizeCodexRunText(threadId);
-    const normalizedTurnId = normalizeCodexRunText(turnId);
+    const normalizedSessionId = normalizeText(sessionId);
+    const normalizedThreadId = normalizeText(threadId);
+    const normalizedTurnId = normalizeText(turnId);
     if (!normalizedSessionId || !normalizedThreadId || !normalizedTurnId) {
       return;
     }
@@ -224,7 +213,7 @@ export function createCodexTurnRecovery({
     runtime = null,
     providerError = null
   } = {}) {
-    const sessionId = normalizeCodexRunText(session.sessionId);
+    const sessionId = normalizeText(session.sessionId);
     const trackedTurn = turnState(session);
     if (!sessionId || !trackedTurn.active || !trackedTurn.threadId || !hasRuntime(session)) {
       return session;
@@ -411,9 +400,9 @@ export function createCodexTurnRecovery({
   async function recoverCodexAppServerFinalizingTurn(sessionId = "", threadId = "", turnId = "", {
     status = "completed", timerRecovery = false
   } = {}) {
-    const normalizedSessionId = normalizeCodexRunText(sessionId);
-    const normalizedThreadId = normalizeCodexRunText(threadId);
-    const normalizedTurnId = normalizeCodexRunText(turnId);
+    const normalizedSessionId = normalizeText(sessionId);
+    const normalizedThreadId = normalizeText(threadId);
+    const normalizedTurnId = normalizeText(turnId);
     const key = codexAppServerResultFinalizationKey(normalizedSessionId, normalizedThreadId, normalizedTurnId);
     const priorTimer = retainFinalizingTimer ? codexAppServerFinalizingTimers.get(key) : null;
     if (!timerRecovery && priorTimer?.recovery) return priorTimer.recovery;
@@ -494,7 +483,7 @@ export function createCodexTurnRecovery({
     runtime: suppliedRuntime = null,
     providerError = null
   } = {}) {
-    const normalizedSessionId = normalizeCodexRunText(sessionId);
+    const normalizedSessionId = normalizeText(sessionId);
     if (!normalizedSessionId) {
       return null;
     }

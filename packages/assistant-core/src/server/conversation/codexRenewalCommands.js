@@ -14,7 +14,7 @@ import { codexAppServerProviderTurnId, inspectCodexAppServerRenewalThread } from
  * @param {import("./codexTurnRecovery.js").CodexTurnRecovery["markTurnActive"]} dependencies.markCodexAppServerTurnActive
  * @param {import("./codexRunJournal.js").CodexRunJournal["markTurnIdle"]} dependencies.markCodexAppServerTurnIdle
  * @param {import("./codexNotificationObserver.js").CodexNotificationObserver} dependencies.observer
- * @param {import("./codexTurn.js").CodexProviderSelection} dependencies.selection
+ * @param {import("./codexProviderSelection.js").CodexProviderSelection} dependencies.selection
  * @param {string} dependencies.turnAlreadyRunningError
  * @param {import("./codexRunJournal.js").CodexRunJournal["writeUserMessageOwnership"]} dependencies.writeCodexAppServerUserMessageOwnership
  */

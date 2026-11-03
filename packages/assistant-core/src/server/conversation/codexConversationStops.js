@@ -1,5 +1,6 @@
-import { normalizeCodexRunText, codexAppServerErrorMessage, codexAppServerInterruptFailure, codexAppServerConversationTurnIsActive } from "./codexTurnState.js";
+import { codexAppServerErrorMessage, codexAppServerInterruptFailure, codexAppServerConversationTurnIsActive } from "./codexTurnState.js";
 import { codexAppServerRequestIsInvalid, codexAppServerThreadHasReadableHistory, codexAppServerThreadIsMissing } from "./codexProviderThreads.js";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 /**
  * Stopping, interrupting, deleting and closing native conversations. The conversation registry, its observation
@@ -47,7 +48,7 @@ export function createCodexConversationStops({
   async function stopCodexAppServerConversation(sessionId, input = {}, options = {}, {
     turnOutcome = turnOutcomes.USER_CANCELLED
   } = {}) {
-    const conversationId = normalizeCodexRunText(input.conversationId);
+    const conversationId = normalizeText(input.conversationId);
     const conversationState = codexAppServerConversation(sessionId, conversationId);
     if (conversationState?.provider.observationFailure) {
       await stopThroughObservationFailure(conversationState);
@@ -58,7 +59,7 @@ export function createCodexConversationStops({
         conversationExpired: true,
         conversationId,
         ok: true,
-        runId: normalizeCodexRunText(input.runId),
+        runId: normalizeText(input.runId),
         status: "interrupted"
       };
     }
@@ -82,7 +83,7 @@ export function createCodexConversationStops({
     return {
       ...result,
       conversationId,
-      runId: normalizeCodexRunText(input.runId)
+      runId: normalizeText(input.runId)
     };
   }
 
@@ -150,7 +151,7 @@ export function createCodexConversationStops({
   }
 
   async function deleteScopedCodexAppServerConversation(sessionId, input = {}, options = {}) {
-    const conversationId = normalizeCodexRunText(input.conversationId);
+    const conversationId = normalizeText(input.conversationId);
     const sessionKey = namespace(sessionId);
     const conversations = codexAppServerConversations.get(sessionKey);
     // An ephemeral native thread lives only in the process that created it, so
@@ -297,7 +298,7 @@ export function createCodexConversationStops({
         results.push(await owner.withLifecycle(() => owner.stopOwnedRuntime(record),
           record.providerKey, record.providerOptions));
       } catch (error) {
-        failed.push({ code: normalizeCodexRunText(error?.code), error: codexAppServerErrorMessage(error),
+        failed.push({ code: normalizeText(error?.code), error: codexAppServerErrorMessage(error),
           providerKey: record.providerKey, retryable: error?.retryable === true });
       }
     }
@@ -358,7 +359,7 @@ export function createCodexConversationStops({
         failed.map(({ conversationId, error: reason }) => `${conversationId} (${reason})`).join("; ")}. Retry closing the session.`);
       error.code = `${errorPrefix}codex_conversation_close_failed`;
       error.retryable = true;
-      error.details = { failed, sessionId: normalizeCodexRunText(sessionId) };
+      error.details = { failed, sessionId: normalizeText(sessionId) };
       throw error;
     }
   }

@@ -1,7 +1,9 @@
-import { normalizeCodexRunText } from "./codexTurnState.js";
 import { codexAppServerProjectHookTrustConfig } from "./codexConfiguration.js";
 import { createCodexAppServerModelCatalogCache } from "./codexModelCatalog.js";
 import { readCodexAppServerAccountIdentity } from "./codexHelperExecution.js";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+
+/** @typedef {ReturnType<typeof createCodexProviderSelection>} CodexProviderSelection */
 
 /**
  * Provider acquisition and per-operation provider contexts for a run owner's
@@ -27,7 +29,7 @@ export function createCodexProviderSelection({
     errorPrefix
   });
   function sessionConnection(sessionId, providerOptions) {
-    return providerSessions.context(normalizeCodexRunText(sessionId), providerOptions);
+    return providerSessions.context(normalizeText(sessionId), providerOptions);
   }
 
   function ensureSessionProvider(sessionId, providerOptions, threadId) {
@@ -43,7 +45,7 @@ export function createCodexProviderSelection({
     const connection = sessionConnection(sessionId, providerOptions);
     connection.runOwner.runtimeLifecycle.rememberManagedSession(connection.providerKey, {
       providerOptions,
-      sessionId: normalizeCodexRunText(sessionId),
+      sessionId: normalizeText(sessionId),
       executionRoot,
       threadId,
       workdir
@@ -71,21 +73,21 @@ export function createCodexProviderSelection({
   }
 
   async function ensureCodexAppServerProviderForManagedThread(session = {}, options = {}) {
-    const normalizedSessionId = normalizeCodexRunText(session.sessionId || session.id);
+    const normalizedSessionId = normalizeText(session.sessionId || session.id);
     const turn = turnState(session);
     if (!normalizedSessionId || !turn.threadId) {
       return null;
     }
-    const normalizedExecutionRoot = normalizeCodexRunText(options.executionRoot);
-    const normalizedWorkdir = normalizeCodexRunText(options.workdir);
+    const normalizedExecutionRoot = normalizeText(options.executionRoot);
+    const normalizedWorkdir = normalizeText(options.workdir);
     for (const [providerKey, managed] of providerSessions.managed.entries()) {
       const fields = providerSessions.keyFields(providerKey);
       if (
         fields.sessionId !== normalizedSessionId ||
         (normalizedExecutionRoot && fields.executionRoot !== normalizedExecutionRoot) ||
         (normalizedWorkdir && fields.workdir !== normalizedWorkdir) ||
-        normalizeCodexRunText(managed?.sessionId) !== normalizedSessionId ||
-        normalizeCodexRunText(managed?.threadId) !== turn.threadId
+        normalizeText(managed?.sessionId) !== normalizedSessionId ||
+        normalizeText(managed?.threadId) !== turn.threadId
       ) {
         continue;
       }
@@ -116,7 +118,7 @@ export function createCodexProviderSelection({
   }
 
   async function codexAppServerRuntimeForVisibleTerminal(rawSessionId, session, options, managedIdentity, prepareProviderOptions) {
-    const sessionId = normalizeCodexRunText(rawSessionId);
+    const sessionId = normalizeText(rawSessionId);
     const activeProvider = await ensureCodexAppServerProviderForActiveTurn(session, managedIdentity);
     const providerOptions = activeProvider?.providerOptions || await prepareProviderOptions();
     const provider = activeProvider?.provider || await ensureSessionProvider(sessionId, providerOptions);

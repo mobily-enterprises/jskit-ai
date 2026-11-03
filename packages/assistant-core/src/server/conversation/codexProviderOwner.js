@@ -15,7 +15,7 @@ import {
   runtimePeers,
   withRuntimeLifecycle
 } from "./codexRuntimeInventory.js";
-import { normalizeCodexRunText as normalizeText } from "./codexTurnState.js";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 /** @typedef {ReturnType<typeof createCodexAppServerProviderOwner>} CodexAppServerProviderOwner */
 

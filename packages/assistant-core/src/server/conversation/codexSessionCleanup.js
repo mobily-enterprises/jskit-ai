@@ -1,4 +1,4 @@
-import { normalizeCodexRunText } from "./codexTurnState.js";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 /**
  * Cleanup of the existing run/provider/Helper owners. The application keeps
@@ -43,7 +43,7 @@ export function createCodexSessionCleanup({ namespace, runOwner, providerSession
   }
 
   async function closeSession(sessionId, cleanup) {
-    const normalizedSessionId = normalizeCodexRunText(sessionId);
+    const normalizedSessionId = normalizeText(sessionId);
     const sessionKey = cleanup.sessionKey;
     let pending = sessionClosures.get(sessionKey);
     while (pending) {
@@ -125,8 +125,8 @@ export function createCodexSessionCleanup({ namespace, runOwner, providerSession
         await conversations.closeCodexAppServerConversations(sessionId);
       } catch (error) {
         conversationFailures.push({
-          code: normalizeCodexRunText(error?.code),
-          error: normalizeCodexRunText(error?.message || error),
+          code: normalizeText(error?.code),
+          error: normalizeText(error?.message || error),
           retryable: error?.retryable !== false,
           sessionId
         });
@@ -134,7 +134,7 @@ export function createCodexSessionCleanup({ namespace, runOwner, providerSession
     }
     const helperRestore = await restoreSavedHelpers(() => preparation.helpers,
       "appServerRuntime.closeProject.helperRestore.failed",
-      { projectContextRoot: normalizeCodexRunText(input.projectContextRoot) });
+      { projectContextRoot: normalizeText(input.projectContextRoot) });
     // Every provider of the project's sessions stops, including one a
     // Temporary chat or a read borrowed and no Main thread names.
     const stopped = await providerOwner.stopProvidersForProject(input, {

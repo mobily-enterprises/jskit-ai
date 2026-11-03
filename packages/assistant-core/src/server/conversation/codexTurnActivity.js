@@ -1,15 +1,6 @@
-import {
-  codexAppServerTurnStatusIsActive,
-  normalizeCodexRunText,
-  codexAppServerAgentRun,
-  codexAppServerPendingUserMessageClientIds,
-  codexAppServerTurnOwnsActiveGoal,
-  codexAppServerTurnCanReceiveProviderActivity,
-  codexAppServerTurnCanAdoptSuccessor,
-  codexAppServerTurnKey,
-  CODEX_APP_SERVER_RUN_STATE
-} from "./codexTurnState.js";
+import { codexAppServerTurnStatusIsActive, codexAppServerAgentRun, codexAppServerPendingUserMessageClientIds, codexAppServerTurnOwnsActiveGoal, codexAppServerTurnCanReceiveProviderActivity, codexAppServerTurnCanAdoptSuccessor, codexAppServerTurnKey, CODEX_APP_SERVER_RUN_STATE } from "./codexTurnState.js";
 import { } from "./codexThreadSnapshot.js";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 /**
  * Records the native activity the provider reports for the tracked turn: a turn that is starting or working, and
@@ -65,9 +56,9 @@ export function createCodexTurnActivity({
           currentStatus: turn.status,
           currentThreadId: turn.threadId,
           currentTurnId: turn.turnId,
-          sessionId: normalizeCodexRunText(sessionId),
-          threadId: normalizeCodexRunText(input.threadId),
-          turnId: normalizeCodexRunText(input.turnId)
+          sessionId: normalizeText(sessionId),
+          threadId: normalizeText(input.threadId),
+          turnId: normalizeText(input.turnId)
         });
         return {
           ok: true,
@@ -76,16 +67,16 @@ export function createCodexTurnActivity({
         };
       }
     }
-    const status = normalizeCodexRunText(input.status) || "inProgress";
+    const status = normalizeText(input.status) || "inProgress";
     const result = await publishCodexAppServerAgentRun(sessionId, {
-      inputSource: normalizeCodexRunText(input.inputSource),
+      inputSource: normalizeText(input.inputSource),
       phase: input.phase,
       publishReason: "codex-app-server-turn-active",
       observedRun: input.observedRun,
       runState: status === "starting" ? CODEX_APP_SERVER_RUN_STATE.STARTING : CODEX_APP_SERVER_RUN_STATE.ACTIVE,
       status,
-      threadId: normalizeCodexRunText(input.threadId),
-      turnId: normalizeCodexRunText(input.turnId)
+      threadId: normalizeText(input.threadId),
+      turnId: normalizeText(input.turnId)
     });
     if (status === "starting") {
       scheduleCodexAppServerActiveRecovery(sessionId);
@@ -96,17 +87,17 @@ export function createCodexTurnActivity({
   }
 
   async function markCodexAppServerProviderTurnActive(sessionId = "", input = {}) {
-    const normalizedSessionId = normalizeCodexRunText(sessionId);
-    const normalizedThreadId = normalizeCodexRunText(input.threadId);
-    const normalizedTurnId = normalizeCodexRunText(input.turnId);
-    const requestedStatus = normalizeCodexRunText(input.status) || "inProgress";
+    const normalizedSessionId = normalizeText(sessionId);
+    const normalizedThreadId = normalizeText(input.threadId);
+    const normalizedTurnId = normalizeText(input.turnId);
+    const requestedStatus = normalizeText(input.status) || "inProgress";
     const store = await createStore(normalizedSessionId);
     const persistedRun = await readCodexAppServerAgentRunForSession(
       store,
       normalizedSessionId
     );
     const persistedTurn = turnStateFromAgentRun(persistedRun || {});
-    const requestedInputSource = normalizeCodexRunText(input.inputSource);
+    const requestedInputSource = normalizeText(input.inputSource);
     if (
       persistedTurn.active &&
       persistedTurn.state === "active" &&
@@ -185,7 +176,7 @@ export function createCodexTurnActivity({
     const goalInputSource = codexAppServerTurnOwnsActiveGoal(turn, normalizedThreadId)
       ? codexAppServerRunInputSource(currentRun)
       : "";
-    const inputSource = normalizeCodexRunText(input.inputSource) || pendingInputSource || goalInputSource;
+    const inputSource = normalizeText(input.inputSource) || pendingInputSource || goalInputSource;
     if (codexAppServerTurnCanReceiveProviderActivity(turn, normalizedThreadId, normalizedTurnId)) {
       return markCodexAppServerTurnActive(normalizedSessionId, {
         inputSource,
@@ -197,7 +188,7 @@ export function createCodexTurnActivity({
     if (codexAppServerTurnCanAdoptSuccessor(turn, normalizedThreadId, normalizedTurnId)) {
       return adoptCodexAppServerSuccessorTurn(normalizedSessionId, {
         previousTurnId: turn.turnId,
-        source: normalizeCodexRunText(input.source) || "provider_activity",
+        source: normalizeText(input.source) || "provider_activity",
         status: requestedStatus,
         threadId: normalizedThreadId,
         turnId: normalizedTurnId

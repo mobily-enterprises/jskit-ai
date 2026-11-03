@@ -24,7 +24,7 @@ function ignoreReceiptPersisted() {}
  *     env?: import("@jskit-ai/kernel/server/types").RuntimeEnv,
  *     workdir?: string,
  *     stateDirectory?: string,
- *     execution?: import("../openCodeProcess.js").ConversationExecution,
+ *     execution?: import("../localExecution.js").ConversationExecution,
  *     nativeTools?: boolean,
  *     conversation?: Function,
  *     opencode?: Function,

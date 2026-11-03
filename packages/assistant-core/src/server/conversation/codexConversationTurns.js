@@ -1,18 +1,10 @@
-import {
-  codexAppServerTurnStatusIsSuccessfulComplete,
-  codexAppServerTurnStatusIsProviderFailure,
-  codexAppServerThreadStatus,
-  normalizeCodexRunText,
-  codexAppServerErrorMessage,
-  codexAppServerSteerFailure,
-  codexAppServerInterruptFailure,
-  codexAppServerConversationTurnIsActive
-} from "./codexTurnState.js";
+import { codexAppServerTurnStatusIsSuccessfulComplete, codexAppServerTurnStatusIsProviderFailure, codexAppServerThreadStatus, codexAppServerErrorMessage, codexAppServerSteerFailure, codexAppServerInterruptFailure, codexAppServerConversationTurnIsActive } from "./codexTurnState.js";
 import { CODEX_APP_SERVER_DETACHED_TURN_TIMEOUT_MS, createCodexAppServerDetachedTurnWatcher } from "./codexDetachedTurn.js";
 import { assertCodexAppServerHelperAccountIdentity, readCodexAppServerAccountIdentity, sendPreparedCodexAppServerHelperTurn } from "./codexHelperExecution.js";
 import { codexAppServerProjectHookTrustConfig } from "./codexConfiguration.js";
 import { codexAppServerThreadError } from "./codexThreadSnapshot.js";
 import { codexAppServerDeliveredTurn, codexLocalImageInput, sendCodexAppServerPrompt } from "./codexProviderTurns.js";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 /** A conversation turn's listener when the application supplies none. */
 export function ignoreCodexConversationEvent() {}
@@ -22,21 +14,21 @@ function notifyNoConversationPromptSending() {}
 // What a read reports for a conversation this server tracks without a persistent native history.
 export function codexAppServerEphemeralConversationSnapshot(state = {}) {
   return {
-    conversationId: normalizeCodexRunText(state.conversationId),
-    error: normalizeCodexRunText(state.error),
-    message: normalizeCodexRunText(state.message),
+    conversationId: normalizeText(state.conversationId),
+    error: normalizeText(state.error),
+    message: normalizeText(state.message),
     ok: true,
     outcome: state.outcome || null,
     progressUpdates: Array.isArray(state.progressUpdates)
       ? state.progressUpdates.map((update = {}) => ({
-          id: normalizeCodexRunText(update.id),
-          text: normalizeCodexRunText(update.text)
+          id: normalizeText(update.id),
+          text: normalizeText(update.text)
         })).filter((update) => update.id && update.text)
       : [],
-    rawText: normalizeCodexRunText(state.rawText),
-    messageId: normalizeCodexRunText(state.messageId),
-    runId: normalizeCodexRunText(state.runId),
-    status: normalizeCodexRunText(state.status) || "ready",
+    rawText: normalizeText(state.rawText),
+    messageId: normalizeText(state.messageId),
+    runId: normalizeText(state.runId),
+    status: normalizeText(state.status) || "ready",
     turnMetadata: state.turnMetadata || null
   };
 }
@@ -92,7 +84,7 @@ export function createCodexConversationTurns({
           ...await prepareThread(),
           ...(input.ephemeral === true ? { ephemeral: true } : {})
         });
-    const conversationId = normalizeCodexRunText(thread.id || thread.response?.thread?.id);
+    const conversationId = normalizeText(thread.id || thread.response?.thread?.id);
     if (!conversationId) {
       throw new Error("Codex app-server did not return a conversation id.");
     }
@@ -337,8 +329,8 @@ export function createCodexConversationTurns({
     provider,
     onEvent
   }) {
-    const conversationId = normalizeCodexRunText(input.conversationId);
-    const runId = normalizeCodexRunText(input.runId);
+    const conversationId = normalizeText(input.conversationId);
+    const runId = normalizeText(input.runId);
     const watcher = createCodexAppServerDetachedTurnWatcher(provider, conversationId, {
       onEvent,
       timeoutMs: Number(input.timeoutMs || 0) > 0

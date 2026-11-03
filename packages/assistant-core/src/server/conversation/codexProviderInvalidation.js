@@ -8,7 +8,7 @@ import {
   runningNativeThreads,
   withRuntimeLifecycle
 } from "./codexRuntimeInventory.js";
-import { normalizeCodexRunText as normalizeText } from "./codexTurnState.js";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 /**
  * Retires the native runtimes an account change or a lost observation leaves untrusted.

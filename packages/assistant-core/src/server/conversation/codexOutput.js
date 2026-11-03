@@ -1,17 +1,7 @@
 import { createCodexAppServerReasoning } from "./codexReasoning.js";
 import { createCodexAppServerLiveItems, codexAppServerLiveProgressCandidate } from "./codexLiveItems.js";
-import {
-  normalizeCodexRunText,
-  codexAppServerProcessedResultEvent,
-  codexAppServerTurnCanReceiveProviderCompletion,
-  codexAppServerTurnAwaitsProviderIdentity,
-  codexAppServerTurnCanReceiveProviderActivity,
-  codexAppServerTurnKey,
-  CODEX_APP_SERVER_AGENT_RUN_ID,
-  codexAppServerRunInputSource,
-  codexAppServerConversationMessageId
-} from "./codexTurnState.js";
-import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { codexAppServerProcessedResultEvent, codexAppServerTurnCanReceiveProviderCompletion, codexAppServerTurnAwaitsProviderIdentity, codexAppServerTurnCanReceiveProviderActivity, codexAppServerTurnKey, CODEX_APP_SERVER_AGENT_RUN_ID, codexAppServerRunInputSource, codexAppServerConversationMessageId } from "./codexTurnState.js";
+import { isRecord, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   codexAppServerAssistantItemText,
   codexAppServerNotificationItemId,
@@ -98,7 +88,7 @@ export function createCodexAppServerOutput({
   }
 
   async function readCodexAppServerAgentRunForSession(store, sessionId = "") {
-    const normalizedSessionId = normalizeCodexRunText(sessionId);
+    const normalizedSessionId = normalizeText(sessionId);
     if (!normalizedSessionId) {
       return null;
     }
@@ -113,9 +103,9 @@ export function createCodexAppServerOutput({
   }
 
   function readCodexAppServerFinalAssistantResult(sessionId = "", threadId = "", turnId = "") {
-    const normalizedSessionId = normalizeCodexRunText(sessionId);
-    const normalizedThreadId = normalizeCodexRunText(threadId);
-    const normalizedTurnId = normalizeCodexRunText(turnId);
+    const normalizedSessionId = normalizeText(sessionId);
+    const normalizedThreadId = normalizeText(threadId);
+    const normalizedTurnId = normalizeText(turnId);
     if (!normalizedSessionId || !normalizedThreadId || !normalizedTurnId) {
       return null;
     }
@@ -128,7 +118,7 @@ export function createCodexAppServerOutput({
     if (record.conversationTurn && !streamItemId) {
       return record.conversationTurn;
     }
-    const conversationText = normalizeCodexRunText(record.text);
+    const conversationText = normalizeText(record.text);
     if (!conversationText) {
       return null;
     }
@@ -175,11 +165,11 @@ export function createCodexAppServerOutput({
     });
     record.conversationTurn = written;
     debugLog("appServerAssistantResponseBundle.persisted", {
-      conversationTurnId: normalizeCodexRunText(written.turnId),
-      sessionId: normalizeCodexRunText(sessionId),
+      conversationTurnId: normalizeText(written.turnId),
+      sessionId: normalizeText(sessionId),
       textLength: conversationText.length,
-      threadId: normalizeCodexRunText(record.threadId),
-      turnId: normalizeCodexRunText(record.turnId)
+      threadId: normalizeText(record.threadId),
+      turnId: normalizeText(record.turnId)
     });
     return written;
   }
@@ -195,10 +185,10 @@ export function createCodexAppServerOutput({
     threadId = "",
     turnId = ""
   } = {}) {
-    const normalizedSessionId = normalizeCodexRunText(sessionId);
-    const normalizedThreadId = normalizeCodexRunText(threadId);
-    const assistantText = normalizeCodexRunText(text);
-    const normalizedItemId = normalizeCodexRunText(itemId) || codexAppServerNotificationItemId(notification);
+    const normalizedSessionId = normalizeText(sessionId);
+    const normalizedThreadId = normalizeText(threadId);
+    const assistantText = normalizeText(text);
+    const normalizedItemId = normalizeText(itemId) || codexAppServerNotificationItemId(notification);
     if (!normalizedSessionId || !normalizedThreadId || !assistantText || !normalizedItemId) {
       return {
         recorded: false,
@@ -209,8 +199,8 @@ export function createCodexAppServerOutput({
     const runtime = await createRuntime();
     const session = await runtime.getSession(normalizedSessionId);
     const currentTurn = turnState(session);
-    const currentTurnId = normalizeCodexRunText(currentTurn.turnId);
-    const normalizedTurnId = normalizeCodexRunText(turnId) || codexAppServerNotificationTurnId(notification);
+    const currentTurnId = normalizeText(currentTurn.turnId);
+    const normalizedTurnId = normalizeText(turnId) || codexAppServerNotificationTurnId(notification);
     if (!normalizedTurnId) {
       return { recorded: false, reason: "missing_turn_id" };
     }
@@ -244,7 +234,7 @@ export function createCodexAppServerOutput({
           currentThreadId: currentTurn.threadId,
           currentTurnId: currentTurn.turnId,
           sessionId: normalizedSessionId,
-          source: normalizeCodexRunText(source),
+          source: normalizeText(source),
           threadId: normalizedThreadId,
           turnId: normalizedTurnId
         });
@@ -287,7 +277,7 @@ export function createCodexAppServerOutput({
     }
     const record = {
       itemId: normalizedItemId,
-      source: normalizeCodexRunText(source),
+      source: normalizeText(source),
       text: assistantText,
       threadId: normalizedThreadId,
       turnId: normalizedTurnId
@@ -355,9 +345,9 @@ export function createCodexAppServerOutput({
   }
 
   async function recoverCodexAppServerAssistantSegmentsFromProvider(sessionId = "", threadId = "", turnId = "") {
-    const normalizedSessionId = normalizeCodexRunText(sessionId);
-    const normalizedThreadId = normalizeCodexRunText(threadId);
-    const normalizedTurnId = normalizeCodexRunText(turnId);
+    const normalizedSessionId = normalizeText(sessionId);
+    const normalizedThreadId = normalizeText(threadId);
+    const normalizedTurnId = normalizeText(turnId);
     if (!normalizedSessionId || !normalizedThreadId || !normalizedTurnId) {
       return [];
     }
@@ -396,9 +386,9 @@ export function createCodexAppServerOutput({
   async function submitCodexAppServerAssistantResult(sessionId = "", threadId = "", turnId = "", {
     recoverFromProvider = false
   } = {}) {
-    const normalizedSessionId = normalizeCodexRunText(sessionId);
+    const normalizedSessionId = normalizeText(sessionId);
     let finalResult = readCodexAppServerFinalAssistantResult(normalizedSessionId, threadId, turnId);
-    let assistantText = normalizeCodexRunText(finalResult?.text);
+    let assistantText = normalizeText(finalResult?.text);
     const reasoningText = readCodexAppServerReasoningText(threadId, turnId);
     try {
       if (normalizedSessionId && recoverFromProvider) {
@@ -419,7 +409,7 @@ export function createCodexAppServerOutput({
         }
         if (recoveredSegments.length) {
           finalResult = readCodexAppServerFinalAssistantResult(normalizedSessionId, threadId, turnId);
-          assistantText = normalizeCodexRunText(finalResult?.text);
+          assistantText = normalizeText(finalResult?.text);
         }
       }
       if (!normalizedSessionId || !assistantText && !reasoningText) {
@@ -450,11 +440,11 @@ export function createCodexAppServerOutput({
       debugLog("appServerAgentResult.error", {
         error: debugError(error),
         sessionId: normalizedSessionId,
-        threadId: normalizeCodexRunText(threadId),
-        turnId: normalizeCodexRunText(turnId)
+        threadId: normalizeText(threadId),
+        turnId: normalizeText(turnId)
       });
       return {
-        error: normalizeCodexRunText(error?.error || error?.message || error) || "Codex app-server response could not be processed.",
+        error: normalizeText(error?.error || error?.message || error) || "Codex app-server response could not be processed.",
         ok: false,
         processed: false,
         reason: "error"
@@ -473,8 +463,8 @@ export function createCodexAppServerOutput({
       };
     }
     return {
-      itemId: normalizeCodexRunText(cursor.itemId),
-      turnId: normalizeCodexRunText(cursor.turnId)
+      itemId: normalizeText(cursor.itemId),
+      turnId: normalizeText(cursor.turnId)
     };
   }
 
@@ -482,9 +472,9 @@ export function createCodexAppServerOutput({
     itemId = "",
     turnId = ""
   } = {}) {
-    const normalizedItemId = normalizeCodexRunText(itemId);
-    const normalizedSessionId = normalizeCodexRunText(sessionId);
-    const normalizedTurnId = normalizeCodexRunText(turnId);
+    const normalizedItemId = normalizeText(itemId);
+    const normalizedSessionId = normalizeText(sessionId);
+    const normalizedTurnId = normalizeText(turnId);
     if (!normalizedItemId || !normalizedSessionId || !normalizedTurnId) {
       return;
     }
@@ -515,11 +505,11 @@ export function createCodexAppServerOutput({
     observedTurn = null,
     provider = null
   ) {
-    const normalizedSessionId = normalizeCodexRunText(sessionId);
-    const normalizedThreadId = normalizeCodexRunText(threadId);
-    const normalizedTurnId = normalizeCodexRunText(observedTurn?.id);
+    const normalizedSessionId = normalizeText(sessionId);
+    const normalizedThreadId = normalizeText(threadId);
+    const normalizedTurnId = normalizeText(observedTurn?.id);
     const items = (Array.isArray(observedTurn?.items) ? observedTurn.items : [])
-      .filter((item) => isRecord(item) && normalizeCodexRunText(item.id));
+      .filter((item) => isRecord(item) && normalizeText(item.id));
     if (!normalizedSessionId || !normalizedThreadId || !normalizedTurnId || !items.length) {
       return;
     }
@@ -540,7 +530,7 @@ export function createCodexAppServerOutput({
       }
       const cursor = codexAppServerSnapshotCursor(run);
       const cursorIndex = cursor.turnId === normalizedTurnId
-        ? items.findIndex((item) => normalizeCodexRunText(item.id) === cursor.itemId)
+        ? items.findIndex((item) => normalizeText(item.id) === cursor.itemId)
         : -1;
       const unseenItems = cursorIndex >= 0
         ? items.slice(cursorIndex + 1)
@@ -569,7 +559,7 @@ export function createCodexAppServerOutput({
         );
       }
       await recordCodexAppServerSnapshotCursor(store, normalizedSessionId, {
-        itemId: normalizeCodexRunText(items.at(-1)?.id),
+        itemId: normalizeText(items.at(-1)?.id),
         turnId: normalizedTurnId
       });
     } catch (error) {

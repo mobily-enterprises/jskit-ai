@@ -188,10 +188,7 @@ function agentPermission(ask, nativeTools, tools) {
     ...(tools ? actionPermission("allow") : ask ? actionPermission("deny") : {}), ...(ask ? { doom_loop: "deny" } : {}) };
 }
 
-/**
- * The execution host that starts and stops native processes; the local one is the default.
- * @typedef {ReturnType<typeof createLocalConversationExecution>} ConversationExecution
- */
+/** @typedef {import("./localExecution.js").ConversationExecution} ConversationExecution */
 
 /**
  * Shared conversation configuration around the extracted server lifecycle.

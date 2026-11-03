@@ -78,7 +78,7 @@ export async function executeOpenCodeApplicationTool({ active, turn, target, ses
  *   limits: Record<string, number>,
  *   workdir: string,
  *   stateDirectory: string,
- *   execution: import("../openCodeProcess.js").ConversationExecution,
+ *   execution: import("../localExecution.js").ConversationExecution,
  *   nativeTools: boolean,
  *   maximumOutput: number
  * }} settings
