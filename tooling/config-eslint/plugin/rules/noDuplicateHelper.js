@@ -33,10 +33,19 @@ function topLevelFunctions(program) {
 // A small helper is a top-level function, declared or a `const` arrow, spanning
 // fewer than twelve lines. Two are the same when their parameters and bodies
 // are, whatever their names; an arrow's expression body reads as its return.
-// A named no-op (an empty body) is not one: its name is all it says.
+// A named no-op (an empty body) or a named constant answer (`return null`,
+// `return true`) is not one: its name is all it says.
+function isNamedNoOp(fn) {
+  const statements = fn.body.type === "BlockStatement" ? fn.body.body : [{ type: "ReturnStatement", argument: fn.body }];
+  if (statements.length === 0) return true;
+  const [statement] = statements;
+  return statements.length === 1 && statement.type === "ReturnStatement" &&
+    (!statement.argument || statement.argument.type === "Literal" || (statement.argument.type === "Identifier" && statement.argument.name === "undefined"));
+}
+
 function topLevelHelpers(program, text) {
   return topLevelFunctions(program)
-    .filter(({ node, fn }) => node.loc.end.line - node.loc.start.line < 12 && !(fn.body.type === "BlockStatement" && fn.body.body.length === 0))
+    .filter(({ node, fn }) => node.loc.end.line - node.loc.start.line < 12 && !isNamedNoOp(fn))
     .map(({ node, name, fn }) => {
       const parameters = fn.params.length ? text.slice(fn.params[0].range[0], fn.params.at(-1).range[1]) : "";
       const body = text.slice(...fn.body.range);

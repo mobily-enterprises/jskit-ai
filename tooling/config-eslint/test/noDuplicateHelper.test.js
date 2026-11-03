@@ -24,6 +24,7 @@ function writeSource(relativePath, text) {
 writeSource("booking/package.json", "{}\n");
 writeSource("booking/src/server/format.js", HELPER);
 writeSource("booking/src/server/noop.js", "function ignoreDenial() {}\nexport { ignoreDenial };\n");
+writeSource("booking/src/server/answers.js", "async function answerNothing() {\n  return null;\n}\nfunction alwaysCurrent() {\n  return true;\n}\nexport { answerNothing, alwaysCurrent };\n");
 writeSource("booking/src/server/test/fixture.js", HELPER.replace("toText", "fixtureText"));
 writeSource("booking/src/server/vendor/package.json", "{}\n");
 writeSource("booking/src/server/vendor/aaa.js", HELPER);
@@ -61,6 +62,8 @@ new RuleTester().run("jskit/no-duplicate-helper", noDuplicateHelper, {
     { code: `// readable-check: allow duplicate-helper - a published copy\n${HELPER}`, filename: path.join(server, "zeta.js") },
     { code: HELPER.replace("function", "async function"), filename: path.join(server, "zeta.js") },
     { code: "function keepCache() {}\nexport { keepCache };\n", filename: path.join(server, "zeta.js") },
+    // A named constant answer, like a named no-op, says everything in its name.
+    { code: "async function keepUploadsReady() {\n  return null;\n}\nconst stillCurrent = () => true;\nexport { keepUploadsReady, stillCurrent };\n", filename: path.join(server, "zeta.js") },
     { code: "let toLabel = (value) => String(value).trim();\nexport { toLabel };\n", filename: path.join(server, "zeta.js") },
     { code: HELPER, filename: path.join(root, "shell", "patterns", "page", "example", "src", "topology.js") },
     { code: SLOT_HELPER, filename: path.join(root, "shell", "zeta.js") },
