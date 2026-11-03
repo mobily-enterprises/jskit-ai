@@ -1,15 +1,19 @@
 import { normalizeNullableText } from "./normalize.js";
 import { conversationLogPage } from "../../shared/conversation/pagination.js";
 
+/** The time a transcript records when its owner supplies no clock. */
+function currentDate() {
+  return new Date();
+}
+
 /**
  * Conversation policy, independent of database, filesystem, identity and HTTP.
- * @param {object} [options]
+ * @param {object} options
  * @param {import("../types.js").ConversationStorage} options.storage
  * @param {() => Date} [options.clock]
  * @param {boolean} [options.applicationTurns]
  */
-// readable-check: allow dependency-default - input validation: a call without options reaches the storage check and its TypeError
-export function createConversationTranscript({ storage, clock = () => new Date(), applicationTurns = false } = {}) {
+export function createConversationTranscript({ storage, clock = currentDate, applicationTurns = false }) {
   // readable-check: allow method-probe - input validation: the application's storage adapter must offer read and write
   if (typeof storage?.read !== "function" || typeof storage?.write !== "function") {
     throw new TypeError("Conversation storage requires read(scope, callback) and write(scope, callback).");

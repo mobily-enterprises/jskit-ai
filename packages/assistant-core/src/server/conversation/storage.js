@@ -94,8 +94,8 @@ function conversationMessageStorageKey({ role, at, messageId } = {}) {
   const timestamp = date.toISOString().replace(/[-:]/gu, "").replace(".", "");
   const normalizedMessageId = String(messageId || "").trim();
   const idSuffix = normalizedMessageId ? `.${normalizedMessageId}` : "";
-  // The original transcript overwrote this same role/timestamp/id file. Its
-  // filesystem suffix restrictions do not apply to record-native message IDs.
+  // One role, timestamp and message ID name one message, so saving it again
+  // replaces it. Record-native message IDs need no filesystem-safe suffix.
   return `${normalizedRole}.${timestamp}${idSuffix}.md`;
 }
 
@@ -124,6 +124,8 @@ function conversationMessageIndex(record) {
  * @param {(id: string) => Promise<unknown>} [adapter.recordVersion]
  */
 export function createConversationStorage({ readRecord, writeRecord, deleteRecord, recordVersion }) {
+  // readable-check: allow method-probe - optional operation: an adapter without recordVersion reads its record every time and keeps no cache
+  const versioned = typeof recordVersion === "function";
   const pending = new Map();
   const cache = new Map();
 
@@ -133,8 +135,7 @@ export function createConversationStorage({ readRecord, writeRecord, deleteRecor
   }
 
   async function readSaved(id) {
-    // readable-check: allow method-probe - optional operation: an adapter without recordVersion reads its record every time
-    if (typeof recordVersion !== "function") return readRecord(id);
+    if (!versioned) return readRecord(id);
     const version = await recordVersion(id);
     const cached = cache.get(id);
     if (version != null && cached?.version === version) return cached.record;
@@ -266,8 +267,7 @@ export function createConversationStorage({ readRecord, writeRecord, deleteRecor
       else {
         const record = draft.record();
         await writeRecord(id, record, draft.view);
-        // readable-check: allow method-probe - optional operation: an adapter without recordVersion keeps no cached record
-        const version = typeof recordVersion === "function" ? await recordVersion(id) : null;
+        const version = versioned ? await recordVersion(id) : null;
         if (version != null) cache.set(id, { version, record });
       }
       return result;

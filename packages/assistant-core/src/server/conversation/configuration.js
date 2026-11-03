@@ -24,9 +24,7 @@ export function validateConversationConfiguration(configuration, { engine, conne
   }
   if ((connectionRequired || configuration.integrationId !== undefined) &&
       // readable-check: allow method-probe - input validation: an API conversation needs a connection resolver or a client factory
-      (!configuration.integrationId || typeof connections?.resolve !== "function") &&
-      // readable-check: allow method-probe - input validation: an API conversation needs a connection resolver or a client factory
-      typeof apiClientFactory?.resolveClient !== "function") {
+      (!configuration.integrationId || typeof connections?.resolve !== "function") && typeof apiClientFactory?.resolveClient !== "function") {
     throw new TypeError(`${engine} requires an authorized integrationId and connection resolver.`);
   }
   if (configuration.effort !== undefined && !efforts.includes(configuration.effort)) {

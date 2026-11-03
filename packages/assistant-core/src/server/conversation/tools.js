@@ -2,6 +2,17 @@ import { isDeepStrictEqual } from "node:util";
 
 const unknownOutcome = "The application operation did not return a verified result. Inspect its target before requesting another execution.";
 
+/** A transient tool set's admission check: it has no admission to recheck. */
+function authorizeTransientCall() {}
+
+/** A transient tool set's save: its calls live only in memory. */
+function saveTransientCalls() {}
+
+/** A transient tool set's announcement: it publishes no events. */
+function announceTransientCall() {}
+
+const TRANSIENT_HOOKS = new Set([authorizeTransientCall, saveTransientCalls, announceTransientCall]);
+
 /**
  * One turn's application calls. Native/API adapters only transport these calls.
  * @param {object} options
@@ -11,17 +22,18 @@ const unknownOutcome = "The application operation did not return a verified resu
  * @param {() => Promise<object>} [options.prepareContext] Maps the context again before each call.
  * @param {AbortSignal} options.signal
  * @param {object[]} [options.previousCalls] The calls this turn already recorded.
- * @param {() => Promise<void>} [options.authorize] Rechecks admission; absent only for a transient tool set.
- * @param {(calls: object[]) => Promise<void>} [options.save] Saves the turn's calls; absent only for a transient tool set.
- * @param {(event: object) => Promise<void>} [options.emit] Announces a call; absent only for a transient tool set.
+ * @param {() => Promise<void> | void} [options.authorize] Rechecks admission; required unless the tool set is transient.
+ * @param {(calls: object[]) => Promise<void> | void} [options.save] Saves the turn's calls; required unless the tool set is transient.
+ * @param {(event: object) => Promise<void> | void} [options.emit] Announces a call; required unless the tool set is transient.
  * @param {number} [options.maximumCalls]
  * @param {boolean} [options.discoveryOnly]
  * @param {boolean} [options.transient]
  * @param {boolean} [options.propagateErrors]
  */
-export function createConversationTools({ catalog, toolSet: retainedToolSet, context, prepareContext, signal: turnSignal, previousCalls = [], authorize, save, emit,
-  maximumCalls = 32, discoveryOnly = false, transient = false, propagateErrors = false }) {
-  if (transient !== true && [authorize, save, emit].some(hook => typeof hook !== "function")) {
+export function createConversationTools({ catalog, toolSet: retainedToolSet, context, prepareContext, signal: turnSignal, previousCalls = [],
+  authorize = authorizeTransientCall, save = saveTransientCalls, emit = announceTransientCall, maximumCalls = 32, discoveryOnly = false,
+  transient = false, propagateErrors = false }) {
+  if (transient !== true && [authorize, save, emit].some(hook => typeof hook !== "function" || TRANSIENT_HOOKS.has(hook))) {
     throw new TypeError("Conversation tools require authorization, durable save and event facilities.");
   }
   if (transient === true && previousCalls.length) {
@@ -44,8 +56,7 @@ export function createConversationTools({ catalog, toolSet: retainedToolSet, con
   }
 
   async function run({ id, name, arguments: argumentsText }, signal) {
-    // readable-check: allow optional-call - optional operation: a transient tool set has no admission, save or events
-    await authorize?.();
+    await authorize();
     let executionContext = prepareContext ? await prepareContext() : context;
     signal.throwIfAborted();
     if (typeof id !== "string" || !id || id.length > 256 || typeof name !== "string" || !name || name.length > 256 ||
@@ -67,21 +78,17 @@ export function createConversationTools({ catalog, toolSet: retainedToolSet, con
     calls.set(id, call);
     // Canonical calls reserve durably before the effect. Explicit transient
     // calls retain the same once-only state only for their non-resumable lifetime.
-    // readable-check: allow optional-call - optional operation: a transient tool set has no admission, save or events
-    try { await save?.([...calls.values()]); }
+    try { await save([...calls.values()]); }
     catch (error) { calls.delete(id); throw error; }
-    // readable-check: allow optional-call - optional operation: a transient tool set has no admission, save or events
-    await emit?.({ type: "tool", call: structuredClone(call) });
+    await emit({ type: "tool", call: structuredClone(call) });
     try {
-      // readable-check: allow optional-call - optional operation: a transient tool set has no admission, save or events
-      await authorize?.();
+      await authorize();
       if (prepareContext) executionContext = await prepareContext();
       signal.throwIfAborted();
     } catch (error) {
       call.status = "not-executed";
       call.result = { ok: false, error: { code: "conversation_tool_not_executed", message: "Execution stopped before the action began." } };
-      // readable-check: allow optional-call - optional operation: a transient tool set has no admission, save or events
-      await save?.([...calls.values()]);
+      await save([...calls.values()]);
       throw error;
     }
     let failed = false;
@@ -91,10 +98,8 @@ export function createConversationTools({ catalog, toolSet: retainedToolSet, con
     call.status = !call.result.ok && call.result.error?.status >= 500 ? "unknown" : "complete";
     // Keep the result in memory as well: retrySave can persist it after a failed
     // write without executing the action again or repeating model inference.
-    // readable-check: allow optional-call - optional operation: a transient tool set has no admission, save or events
-    await save?.([...calls.values()]);
-    // readable-check: allow optional-call - optional operation: a transient tool set has no admission, save or events
-    await emit?.({ type: "tool", call: structuredClone(call) });
+    await save([...calls.values()]);
+    await emit({ type: "tool", call: structuredClone(call) });
     if (failed) throw failure;
     if (!call.result.ok && call.result.error?.status >= 500) {
       throw Object.assign(new Error(unknownOutcome), { code: "conversation_tool_outcome_unknown" });
