@@ -172,11 +172,7 @@ function useAssistantAttachments({
 
   // readable-check: allow method-probe - optional operation: a queue whose uploaded files are kept passes no deleteAttachment, so an upload no message sends stays stored
   const deletesUnsentUploads = typeof deleteAttachment === "function";
-  const { cleanupReceipt, waitForAttachmentCleanup } = createReceiptCleanup({
-    deleteAttachment,
-    deletesUnsentUploads,
-    reportAttachmentError
-  });
+  const { cleanupReceipt, waitForAttachmentCleanup } = createReceiptCleanup({ deleteAttachment, deletesUnsentUploads, reportAttachmentError });
   const {
     dragActive,
     handleDragEnter,
