@@ -77,7 +77,8 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, useId, watch } from "vue";
+import { computed, ref, useId } from "vue";
+import { useTextareaAutoGrow } from "./useTextareaAutoGrow.js";
 const emit = defineEmits(["blur", "escape", "focus", "input-activity", "submit", "tab-to-submit", "update:modelValue", "paste"]);
 const props = defineProps({
   submitOnModifierEnter: { type: Boolean, default: false },
@@ -155,9 +156,6 @@ const props = defineProps({
 
 const textareaRef = ref(null);
 const textareaId = `assistant-prompt-${useId()}`;
-let resizeFrame = 0;
-let resizeObserver = null;
-let preserveHeightForNextModelValueChange = false;
 const combinedErrorMessages = computed(() => {
   return Array.isArray(props.errorMessages)
     ? props.errorMessages
@@ -177,55 +175,10 @@ const textareaAriaLabel = computed(() => (
     : undefined
 ));
 
-function resizeTextarea() {
-  if (!props.autoGrow) {
-    return;
-  }
-  const textarea = textareaRef.value;
-  if (!textarea) {
-    return;
-  }
-  if (!props.placeholderAffectsHeight && !textarea.value) {
-    return;
-  }
-  const style = window.getComputedStyle(textarea);
-  const minHeight = Number.parseFloat(style.minHeight) || 0;
-  const maxHeight = Number.parseFloat(style.maxHeight) || Number.POSITIVE_INFINITY;
-  textarea.style.height = "auto";
-  const contentHeight = Math.max(textarea.scrollHeight, minHeight);
-  const targetHeight = Math.min(contentHeight, maxHeight);
-  textarea.style.height = `${targetHeight}px`;
-  textarea.style.overflowY = contentHeight > targetHeight + 1 ? "auto" : "hidden";
-}
-
-function queueResizeTextarea() {
-  if (!props.autoGrow || typeof window === "undefined") {
-    return;
-  }
-  if (resizeFrame) return;
-  resizeFrame = window.requestAnimationFrame(() => {
-    resizeFrame = 0;
-    resizeTextarea();
-  });
-}
-
-function preserveHeightForNextModelValue() {
-  const textarea = textareaRef.value;
-  if (!props.autoGrow || !textarea) {
-    return false;
-  }
-  if (resizeFrame) {
-    window.cancelAnimationFrame(resizeFrame);
-    resizeFrame = 0;
-  }
-  preserveHeightForNextModelValueChange = true;
-  textarea.style.height = `${textarea.getBoundingClientRect().height}px`;
-  textarea.style.overflowY = "auto";
-  return true;
-}
+const { preserveHeightForNextModelValue, queueResizeTextarea, releasePreservedHeight } = useTextareaAutoGrow(props, textareaRef);
 
 function handleTextareaInput(event = {}) {
-  preserveHeightForNextModelValueChange = false;
+  releasePreservedHeight();
   emit("input-activity");
   emit("update:modelValue", String(event?.target?.value || ""));
   queueResizeTextarea();
@@ -291,44 +244,6 @@ function handleTextareaKeydown(event = {}) {
 function focusTextarea(options = { preventScroll: true }) {
   textareaRef.value?.focus(options);
 }
-
-onMounted(() => {
-  queueResizeTextarea();
-  let lastWidth = 0;
-  resizeObserver = new ResizeObserver(([entry]) => {
-    // Height changes are our own output. Only width changes need another layout.
-    const width = entry.contentRect.width;
-    if (width !== lastWidth) {
-      lastWidth = width;
-      queueResizeTextarea();
-    }
-  });
-  resizeObserver.observe(textareaRef.value);
-});
-
-onBeforeUnmount(() => {
-  resizeObserver?.disconnect();
-  if (resizeFrame && typeof window !== "undefined") {
-    window.cancelAnimationFrame(resizeFrame);
-    resizeFrame = 0;
-  }
-});
-
-watch(() => [
-  props.autoGrow,
-  props.modelValue,
-  props.placeholder,
-  props.placeholderAffectsHeight,
-  props.rows,
-  props.density
-], (values, previousValues = []) => {
-  const modelValueChanged = values[1] !== previousValues[1];
-  if (preserveHeightForNextModelValueChange && modelValueChanged) {
-    preserveHeightForNextModelValueChange = false;
-    return;
-  }
-  queueResizeTextarea();
-}, { flush: "post" });
 
 defineExpose({ inputElement: textareaRef, focus: focusTextarea, preserveHeightForNextModelValue, queueResizeTextarea });
 </script>

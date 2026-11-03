@@ -167,6 +167,7 @@ import AssistantGoalControl from "./AssistantGoalControl.vue";
 import AssistantAttachmentQueue from "./AssistantAttachmentQueue.vue";
 import AssistantQuestionInputs from "./AssistantQuestionInputs.vue";
 import AssistantModelControl from "./AssistantModelControl.vue";
+import { displayedConversation } from "./conversationDisplay.js";
 import { useJskitText } from "../i18n.js";
 
 const { t } = useJskitText();
@@ -251,52 +252,9 @@ const fileInput = ref(null);
 const modelsOpen = ref(false);
 const delivery = ref(null);
 const statusId = `assistant-status-${useId()}`;
-const conversation = computed(() => {
-  const saved = props.adapter.conversation;
-  if (!props.adapter.delivery && !saved.previewMessage && !saved.previewMessages?.length && !saved.interimReply) return saved;
-  const { previewMessage, previewMessages, interimReply, ...display } = saved;
-  let turns = props.adapter.delivery ? props.adapter.delivery.turns(saved.turns || []) : saved.turns || [];
-  if (interimReply?.text && interimReply.turnId) {
-    const assistant = { ...interimReply, messageId: interimReply.id, role: "assistant" };
-    turns = turns.map(turn => turn.turnId !== interimReply.turnId ? turn : {
-      ...turn, assistant,
-      commentary: (turn.commentary || []).filter(message =>
-        (message.outputId || message.messageId) !== (interimReply.outputId || interimReply.id)),
-      ...(Array.isArray(turn.messages) ? { messages: turn.messages.filter(message =>
-        message.role !== "assistant" &&
-        (message.outputId || message.messageId) !== (interimReply.outputId || interimReply.id)).concat(assistant) } : {})
-    });
-  }
-  // This list projects existing capture/pending owners; it never queues delivery.
-  const previews = Array.isArray(previewMessages) ? previewMessages : previewMessage ? [previewMessage] : [];
-  for (const preview of previews) {
-    const messageId = String(preview?.messageId || preview?.id || "").trim();
-    const localDelivery = messageId && props.adapter.delivery?.find(messageId);
-    if ((!localDelivery || localDelivery.status === "failed") && preview?.actions?.send) {
-      // Keep one unadmitted bubble and its real status until explicit Edit/discard.
-      // A receipt:false user row is not acknowledgement of the pending words.
-      turns = turns.map(turn => {
-        const failed = turn.optimistic?.id === messageId && turn.optimistic.status === "failed";
-        const unadmitted = turn.user?.receipt === false && String(turn.user.messageId || turn.user.id || "") === messageId;
-        if (!failed && !unadmitted) return turn;
-        return { ...turn, preview: true, previewMessage: preview, user: { ...turn.user, text: String(preview.text || "") } };
-      });
-    }
-    const alreadyShown = messageId && (localDelivery || turns.some(turn => [
-      turn.system, turn.user, turn.assistant, ...(turn.thinking || []), ...(turn.commentary || []), ...(turn.messages || [])
-    ].some(message => String(message?.messageId || message?.id || "") === messageId &&
-      (message.receipt !== false || turn.preview))));
-    if (messageId && (preview?.text || preview?.actions?.editing) && !alreadyShown) {
-      const user = { messageId, role: "user", text: String(preview.text || "") };
-      turns = [...turns, { turnId: messageId, user, messages: [user], preview: true, previewMessage: preview,
-        optimistic: { id: messageId, status: "pending" } }];
-    }
-  }
-  // Transcription and interim replies are display only. The receipt watcher
-  // receives canonical turns, never these presentation or delivery overlays.
-  return { ...display, turns, welcomeMessage: turns.length ? "" : saved.welcomeMessage };
-});
+const conversation = computed(() => displayedConversation(props.adapter));
 watch([() => props.adapter.delivery, () => props.adapter.conversation.turns], ([controller, turns]) => {
+  // readable-check: allow optional-collaborator - optional operation: an adapter without a delivery sends through its own actions
   controller?.reconcile(turns || []);
 }, { immediate: true });
 const pending = computed(() => Boolean(props.adapter.delivery?.state.sending || props.adapter.composer?.pending));
@@ -322,9 +280,11 @@ const canSend = computed(() => (
 async function resend(id) {
   if (props.adapter.actions?.resend) return props.adapter.actions.resend(id);
   const controller = props.adapter.delivery;
+  // readable-check: allow optional-collaborator - optional operation: an adapter without a delivery sends through its own actions
   const payload = controller?.find(id)?.payload;
   const attachments = props.adapter.attachments;
   try {
+    // readable-check: allow optional-collaborator - optional operation: an adapter without a delivery sends through its own actions
     const response = await controller?.resend(id, { queue: queueWhileSending.value });
     clearAcceptedAttachments(response, payload, attachments);
     return response;
