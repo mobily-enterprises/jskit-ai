@@ -109,6 +109,7 @@ async function runBoundedAssistantToolLoop({ prompt, signal, policy, complete, o
         if (decision !== "end") throw new TypeError("Invalid completed-response settlement decision.");
         return response.text;
       }
+      // readable-check: allow method-probe - input validation: an application's completed response carries its durable tools
       if (typeof result?.tools?.execute !== "function") {
         throw new TypeError("Completed application operations require the current durable tools.");
       }

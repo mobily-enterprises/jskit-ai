@@ -1,7 +1,13 @@
 import { randomBytes } from "node:crypto";
 import { createServer } from "node:http";
 
-/** Private transport from the native plugin to the application's shared executor. */
+/**
+ * Private transport from the native plugin to the application's shared executor.
+ * @param {object} dependencies
+ * @param {(input: Record<string, any>, signal: AbortSignal) => Promise<unknown>} dependencies.execute
+ * @param {number} dependencies.maxArgumentBytes
+ * @param {object[]} dependencies.schemas
+ */
 export async function createOpenCodeToolBridge({ execute, maxArgumentBytes, schemas }) {
   const token = randomBytes(32).toString("hex");
   const pending = new Map();
@@ -43,18 +49,26 @@ export async function createOpenCodeToolBridge({ execute, maxArgumentBytes, sche
     server.once("error", reject);
     server.listen(0, "127.0.0.1", resolve);
   });
-  return {
-    configuration: { url: `http://127.0.0.1:${server.address().port}/call`, token, schemas },
-    whenIdle: () => Promise.allSettled([...pending.values()]),
-    async close() {
-      if (!closed) {
-        closed = true;
-        for (const controller of pending.keys()) controller.abort(new Error("OpenCode application tools closed."));
-        stopped = new Promise(resolve => server.close(resolve));
-        server.closeAllConnections();
-      }
-      await stopped;
-      await Promise.allSettled([...pending.values()]);
+  /** Settles every call in flight. */
+  function whenIdle() {
+    return Promise.allSettled([...pending.values()]);
+  }
+
+  /** Refuses new calls, aborts those in flight and closes the listener. */
+  async function close() {
+    if (!closed) {
+      closed = true;
+      for (const controller of pending.keys()) controller.abort(new Error("OpenCode application tools closed."));
+      stopped = new Promise(resolve => server.close(resolve));
+      server.closeAllConnections();
     }
-  };
+    await stopped;
+    await Promise.allSettled([...pending.values()]);
+  }
+
+  return Object.freeze({
+    configuration: { url: `http://127.0.0.1:${server.address().port}/call`, token, schemas },
+    whenIdle,
+    close
+  });
 }

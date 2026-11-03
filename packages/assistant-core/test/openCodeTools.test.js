@@ -118,7 +118,7 @@ test("one native plugin routes current instructions, command policy and tools by
     parameters: { type: "object", properties: { query: { type: "string" } } } } }];
   process.env.JSKIT_OPENCODE_ENV_REGISTRY = registry;
   process.env.JSKIT_OPENCODE_TOOL_SCHEMAS = JSON.stringify(schemas);
-  const owner = createOpenCodeSharedRuntime();
+  const owner = createOpenCodeSharedRuntime({});
   const calls = [];
   const bindings = [];
   for (const id of ["first", "second"]) {

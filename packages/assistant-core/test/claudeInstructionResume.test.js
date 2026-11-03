@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
-import { createClaudeConversationTurn } from "../src/server/conversation/claudeTurn.js";
+import { createClaudeConversationTurn } from "../src/server/conversation/claudeNativeTurn.js";
 
 const execute = promisify(execFile);
 

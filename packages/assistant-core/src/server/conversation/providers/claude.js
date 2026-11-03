@@ -1,10 +1,23 @@
 import { createConversationSystemPrompt } from "../systemPrompt.js";
 
-/** One instance per native Claude conversation; process ownership stays with the host. */
-export function createClaudeConversationAdapter({ getProcess, isActive, startProcess, stopProcess } = {}) {
-  for (const callback of [getProcess, isActive, startProcess, stopProcess]) {
-    if (typeof callback !== "function") throw new TypeError("Claude requires process and activity callbacks.");
-  }
+/**
+ * @typedef {import("../claudeProcess.js").ClaudeCodeProcess} ClaudeCodeProcess
+ */
+
+/**
+ * The conversation owner's control of its one native process.
+ * @typedef {object} ClaudeProcessControl
+ * @property {() => ClaudeCodeProcess | null} getProcess
+ * @property {() => boolean} isActive
+ * @property {(input: object) => Promise<ClaudeCodeProcess>} startProcess
+ * @property {(reason: string) => Promise<unknown>} stopProcess
+ */
+
+/**
+ * One instance per native Claude conversation; process ownership stays with the host.
+ * @param {ClaudeProcessControl} control
+ */
+export function createClaudeConversationAdapter({ getProcess, isActive, startProcess, stopProcess }) {
   const instructions = createConversationSystemPrompt();
   let pending = Promise.resolve();
   let updateIdentity;
@@ -63,5 +76,15 @@ export function createClaudeConversationAdapter({ getProcess, isActive, startPro
     return operation;
   }
 
-  return Object.freeze({ prepare, instructionArguments, invalidate: instructions.invalidate, whenIdle: () => pending });
+  /** The latest queued preparation. */
+  function whenIdle() {
+    return pending;
+  }
+
+  return Object.freeze({
+    prepare,
+    instructionArguments,
+    invalidate: instructions.invalidate,
+    whenIdle
+  });
 }

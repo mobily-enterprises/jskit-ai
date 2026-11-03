@@ -2,7 +2,9 @@ export {
   OPENCODE_RESPONSE_LIMIT_BYTES,
   createOpenCodeServerClient,
   openCodeAssistantMessageText,
-  readBoundedResponse,
+  readBoundedResponse
+} from "../conversation/openCodeClient.js";
+export {
   readOpenCodeConversationDatabase,
   retireOpenCodeConversationHistory
-} from "../conversation/openCodeClient.js";
+} from "../conversation/openCodeNativeHistory.js";

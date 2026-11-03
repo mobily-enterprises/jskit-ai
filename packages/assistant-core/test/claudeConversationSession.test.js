@@ -2448,7 +2448,7 @@ test("completed Claude wake exclusions retain all product fingerprints only afte
     const state = await f.conversation.wait();
     assert.equal(state.status, "ready");
     assert.deepEqual(state.conversationLog.map(turn => turn.user.messageId), ["batch-a", "batch-b"]);
-    const { claudeNativeMessageId } = await import("../src/server/conversation/claudeTurn.js");
+    const { claudeNativeMessageId } = await import("../src/server/conversation/claudeHistory.js");
     const nativeMessageId = claudeNativeMessageId(receipt.messageId);
     const frames = (await f.trace()).filter(row => row.frame?.type === "user" && row.frame.uuid === nativeMessageId);
     assert.equal(frames.length, 1, "The original Claude ID mapper identifies exactly one actual admitted native input");

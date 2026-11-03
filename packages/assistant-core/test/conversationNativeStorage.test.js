@@ -6,7 +6,8 @@ import { randomUUID } from "node:crypto";
 import { nativeConversationStoragePolicy } from "../src/server/conversation/nativeStorage.js";
 import { createCodexAppServerProviderOwner } from "../src/server/conversation/codexProviderOwner.js";
 import { createCodexConversationDriver } from "../src/server/conversation/providers/codexDriver.js";
-import { createOpenCodeSharedRuntime, openCodeServerForDirectory } from "../src/server/conversation/openCodeRuntime.js";
+import { createOpenCodeSharedRuntime } from "../src/server/conversation/openCodeRuntime.js";
+import { openCodeServerForDirectory } from "../src/server/conversation/openCodeNativeSession.js";
 import { createOpenCodeConversationDriver } from "../src/server/conversation/providers/opencodeDriver.js";
 import { eventually } from "./fixtures/eventually.js";
 

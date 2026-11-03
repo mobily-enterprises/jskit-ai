@@ -2,9 +2,21 @@ import { isDeepStrictEqual } from "node:util";
 
 export const CLAUDE_APPLICATION_TOOL_SERVER = "application";
 
+/** A call from tools the conversation owns needs no supplied owner's check. */
+function acceptNativeCall() {}
+
+/** A call from tools the conversation owns fails only its own exchange. */
+function ignoreExecutionFailure() {}
+
 // The CLI carries this SDK MCP exchange over its existing control pipe. There
 // is no listening socket or separate tool process. The shared executor owns effects.
-export async function claudeApplicationToolResponse(request, { schemas, turn, signal, assertCurrent, onExecutionFailure }) {
+export async function claudeApplicationToolResponse(request, {
+  schemas,
+  turn,
+  signal,
+  assertCurrent = acceptNativeCall,
+  onExecutionFailure = ignoreExecutionFailure
+}) {
   if (request?.subtype !== "mcp_message" || request.server_name !== CLAUDE_APPLICATION_TOOL_SERVER ||
       request.message?.jsonrpc !== "2.0") throw new Error("This Claude control request is not an application tool exchange.");
   const message = request.message;
@@ -33,12 +45,12 @@ export async function claudeApplicationToolResponse(request, { schemas, turn, si
       }
       // Optional supplied-owner checks run after the unchanged native-use
       // validation. Protocol/stale refusals are not owned executor failures.
-      assertCurrent?.(native);
+      assertCurrent(native);
       let value;
       try {
         value = await turn.tools.execute({ id, name: params.name, arguments: JSON.stringify(params.arguments || {}) }, { signal, messageId: native.messageId });
       } catch (error) {
-        onExecutionFailure?.(error, native);
+        onExecutionFailure(error, native);
         throw error;
       }
       result = { content: [{ type: "text", text: JSON.stringify(value) }], isError: value.ok === false };

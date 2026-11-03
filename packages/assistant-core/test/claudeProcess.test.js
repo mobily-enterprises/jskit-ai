@@ -46,7 +46,7 @@ async function fixture(t, body) {
   t.after(() => rm(directory, { recursive: true, force: true }));
   const command = join(directory, "claude-fixture.mjs");
   await writeFile(command, `#!${process.execPath}\n${body}`, { mode: 0o700 });
-  return { command, workdir: directory };
+  return { command, workdir: directory, env: process.env };
 }
 
 test("standalone Claude startup uses the supplied execution host and carries its native protocol", { skip: process.platform === "win32" }, async (t) => {
@@ -122,7 +122,7 @@ test("Claude model configuration maps background calls and resets external setti
 });
 
 test("Claude status reads native JSON and returns only public account details", async () => {
-  const status = await readClaudeCodeAuthStatus({ credentialHome: { home: "/home/fixture-json" }, commandRunner: async (input) => {
+  const status = await readClaudeCodeAuthStatus({ env: process.env, credentialHome: { home: "/home/fixture-json" }, commandRunner: async (input) => {
     assert.deepEqual(input.args, ["auth", "status", "--json"]);
     assert.equal(input.timeout, 30_000);
     assert.equal(input.credentialHome.home, "/home/fixture-json");
@@ -137,7 +137,7 @@ test("Claude signed-out JSON is normal while failed and malformed status respons
   // Reads of one account share an entry, so each response gets its own account.
   let account = 0;
   const readStatus = (result) => readClaudeCodeAuthStatus({
-    credentialHome: { home: `/home/fixture-signed-out-${account += 1}` }, commandRunner: async () => result
+    env: process.env, credentialHome: { home: `/home/fixture-signed-out-${account += 1}` }, commandRunner: async () => result
   });
   const signedOut = { ok: false, exitCode: 1, stdout: JSON.stringify({ loggedIn: false, authMethod: "none" }) };
   assert.deepEqual(await readStatus(signedOut), {
@@ -322,7 +322,7 @@ test("Claude preserves the execution host's failed-start identity and cleanup pr
       async start() { throw failure; },
       async stop() { stops += 1; return { scopeEmpty: true }; }
     };
-    await assert.rejects(createClaudeCodeProcess({ execution }), error => {
+    await assert.rejects(createClaudeCodeProcess({ execution, env: process.env }), error => {
       assert.equal(error, failure);
       assert.equal(error.executionId, "admitted-execution");
       assert.equal(error.stopProof, stopProof);
@@ -380,7 +380,7 @@ test("Claude observes parent exit after initialization even while a child retain
     done();
   } });
   let failures = 0;
-  const native = await createClaudeCodeProcess({ execution: {
+  const native = await createClaudeCodeProcess({ env: process.env, execution: {
     async start() { return { id: "parent-exit", stdin, stdout, exited: exited.promise }; },
     async stop() { return { scopeEmpty: true }; }
   }, onFailure(error) { failures++; failed.resolve(error); } });
@@ -405,7 +405,7 @@ test("Claude reports a task-limit exit that arrives after its stream ended", { t
     stdout.write(JSON.stringify({ type: "control_response", response: { subtype: "success", request_id: frame.request_id, response: {} } }) + "\n");
     done();
   } });
-  const native = await createClaudeCodeProcess({ execution: {
+  const native = await createClaudeCodeProcess({ env: process.env, execution: {
     async start() { return { id: "task-limit", stdin, stdout, exited: exited.promise }; },
     async stop() { return { scopeEmpty: true }; }
   }, onFailure(error) { failed.resolve(error); } });
@@ -429,7 +429,7 @@ test("Claude host startup budget allows slow initialization and still bounds fai
       requested.resolve(JSON.parse(chunk.toString())); done();
     } });
     const stops = [];
-    const pending = createClaudeCodeProcess({ initializationTimeoutMs: 90_000, execution: {
+    const pending = createClaudeCodeProcess({ env: process.env, initializationTimeoutMs: 90_000, execution: {
       async start() { return { id: "cold-start", stdin, stdout }; },
       async stop(id) { stops.push(id); return { scopeEmpty: true }; }
     } });
@@ -475,7 +475,7 @@ test("Claude initialization rejects confirmed execution exit before half-open pr
         return { scopeEmpty: cleanup === "verified" };
       }
     };
-    const pending = createClaudeCodeProcess({ execution });
+    const pending = createClaudeCodeProcess({ execution, env: process.env });
     let failure;
     void pending.catch(error => { failure = error; });
     try {
@@ -509,7 +509,7 @@ test("Claude initialization preserves rejected execution observation and exact c
   const stdin = new Writable({ write(_chunk, _encoding, done) { requested.resolve(); done(); } });
   const failure = new Error("Execution observation failed");
   const stops = [];
-  const pending = createClaudeCodeProcess({ execution: {
+  const pending = createClaudeCodeProcess({ env: process.env, execution: {
     async start() { return { id: "observed-startup", stdin, stdout, exited: exited.promise }; },
     async stop(id) { stops.push(id); return { scopeEmpty: true }; }
   } });

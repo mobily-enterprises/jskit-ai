@@ -8,9 +8,9 @@ import { createOpenCodeServerClient, readBoundedResponse } from "./openCodeClien
 import { createLocalConversationExecution } from "./localExecution.js";
 import { normalizeNullableText } from "./normalize.js";
 import { DISCOVERY_TOOL_DESCRIPTORS } from "../lib/serviceToolCatalog.js";
-export { createOpenCodeSharedRuntime, openCodeServerForDirectory, readOpenCodeEnvironments, openCodeEnvironmentForDirectory,
-  openCodeEnvironmentForSession, assertOpenCodeModelProvider, limitOpenCodeModelOutput,
-  ensureOpenCodeSession, openCodeModel, sameOpenCodeSelection } from "./openCodeRuntime.js";
+export { createOpenCodeSharedRuntime, readOpenCodeEnvironments, openCodeEnvironmentForDirectory,
+  openCodeEnvironmentForSession, assertOpenCodeModelProvider, limitOpenCodeModelOutput } from "./openCodeRuntime.js";
+export { openCodeServerForDirectory, ensureOpenCodeSession, openCodeModel, sameOpenCodeSelection } from "./openCodeNativeSession.js";
 export { default as createOpenCodeConversationPlugin } from "./openCodePlugin.js";
 
 export const OPENCODE_EXPECTED_VERSION = "1.18.31";
@@ -28,6 +28,12 @@ const OPENCODE_ZEN_PROVIDER_ID = "opencode";
 const OPENCODE_ZEN_PUBLIC_API_KEY = "public";
 
 const text = normalizeNullableText;
+
+/** A server start whose caller records no execution identity. */
+function ignoreServerStart() {}
+
+/** A server whose caller keeps no state after an unexpected exit. */
+function ignoreServerFailure() {}
 
 export function openCodeProcessEnvironment(baseEnv = {}, {
   cacheRoot = "", dbPath = "", inlineConfig = "", outputTokenMax = 0, packageInstalls = true, password = ""
@@ -182,12 +188,33 @@ function agentPermission(ask, nativeTools, tools) {
     ...(tools ? actionPermission("allow") : ask ? actionPermission("deny") : {}), ...(ask ? { doom_loop: "deny" } : {}) };
 }
 
-/** Shared conversation configuration around the extracted server lifecycle. */
+/**
+ * The execution host that starts and stops native processes; the local one is the default.
+ * @typedef {ReturnType<typeof createLocalConversationExecution>} ConversationExecution
+ */
+
+/**
+ * Shared conversation configuration around the extracted server lifecycle.
+ * @param {object} options
+ * @param {string} [options.command]
+ * @param {ConversationExecution} [options.execution]
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} options.env
+ * @param {string} options.workdir
+ * @param {string} options.stateDirectory
+ * @param {string} options.databasePath
+ * @param {string} options.sessionEnvironmentRegistry
+ * @param {Record<string, any>} options.connection
+ * @param {number} [options.maxOutputTokens]
+ * @param {(executionId: string, processDirectory: string) => unknown} [options.onStarted]
+ * @param {(error: Error) => unknown} [options.onFailure]
+ * @param {object} [options.executionLimits]
+ * @param {AbortSignal} [options.signal]
+ */
 export async function createOpenCodeConversationServer({
-  command = "opencode", execution = createLocalConversationExecution(), env = process.env,
+  command = "opencode", execution = createLocalConversationExecution(), env,
   workdir, stateDirectory, databasePath, sessionEnvironmentRegistry, connection, maxOutputTokens,
-  onStarted, onFailure, executionLimits, signal
-} = {}) {
+  onStarted = ignoreServerStart, onFailure = ignoreServerFailure, executionLimits, signal
+}) {
   await mkdir(stateDirectory, { recursive: true, mode: 0o700 });
   const directory = await mkdtemp(path.join(stateDirectory, "process-"));
   const model = `${connection.providerId}/${connection.model}`;
@@ -222,17 +249,39 @@ export async function createOpenCodeConversationServer({
     JSKIT_OPENCODE_TOOL_SCHEMAS: JSON.stringify(openCodeApplicationToolSchemas)
   });
   return createOpenCodeServerProcess({ command, execution, env: environment, workdir, privateRoot: directory,
-    directory: workdir, connections: [connection], onStarted: id => onStarted?.(id, directory),
+    directory: workdir, connections: [connection], onStarted: id => onStarted(id, directory),
     onFailure, executionLimits, signal });
 }
 
-/** Shared server lifecycle for standalone and managed hosts. */
+/**
+ * Shared server lifecycle for standalone and managed hosts.
+ * @param {object} options
+ * @param {string} [options.command]
+ * @param {ConversationExecution} [options.execution]
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} options.env
+ * @param {string} options.workdir
+ * @param {string} options.privateRoot
+ * @param {string} [options.directory]
+ * @param {Record<string, any>[]} [options.connections]
+ * @param {number} [options.port]
+ * @param {typeof fetch} [options.fetchImpl]
+ * @param {boolean} [options.allowAttachmentDirectories]
+ * @param {string} [options.expectedVersion]
+ * @param {number} [options.readinessTimeoutMs]
+ * @param {(executionId: string) => unknown} [options.onStarted]
+ * @param {(error: Error) => unknown} [options.onFailure]
+ * @param {object} [options.executionLimits]
+ * @param {AbortSignal} [options.signal]
+ */
 export async function createOpenCodeServerProcess({
-  command = "opencode", execution = createLocalConversationExecution(), env = process.env,
+  command = "opencode", execution = createLocalConversationExecution(), env,
   workdir, privateRoot, directory = "", connections = [], port = 0, fetchImpl = globalThis.fetch,
   allowAttachmentDirectories = false, expectedVersion = OPENCODE_EXPECTED_VERSION, readinessTimeoutMs = OPENCODE_READY_TIMEOUT_MS,
-  onStarted, onFailure, executionLimits, signal
-} = {}) {
+  onStarted = ignoreServerStart, onFailure = ignoreServerFailure, executionLimits, signal
+}) {
+  if (!env) {
+    throw new TypeError("createOpenCodeServerProcess requires the application's environment, such as process.env.");
+  }
   if (!path.isAbsolute(workdir || "") || !path.isAbsolute(privateRoot || "")) {
     throw new TypeError("OpenCode server processes require absolute working and private roots.");
   }
@@ -251,6 +300,7 @@ export async function createOpenCodeServerProcess({
   const logPath = path.join(privateRoot, "opencode-server.log");
   const processHandle = {
     get exited() { return stopped || native?.running === false; },
+    // readable-check: allow optional-call - optional operation: an execution host's started process may not keep its logs
     readLogs: () => native?.readLogs?.() || { stderr: "", stdout: "" },
     async stop() {
       const proof = await execution.stop(executionId, {
@@ -294,11 +344,11 @@ export async function createOpenCodeServerProcess({
     native = await execution.start({ command, cwd: workdir, env: environment, limits: executionLimits,
       logPath, args: ["serve", "--hostname", OPENCODE_HOST, "--port", String(selectedPort), "--mdns=false"] });
     executionId = native.id;
-    await onStarted?.(native.id);
+    await onStarted(native.id);
     const fail = error => {
       if (closing) return;
       unexpectedExit.resolve(error);
-      Promise.resolve().then(() => onFailure?.(error)).catch(() => {});
+      Promise.resolve().then(() => onFailure(error)).catch(() => {});
     };
     native.exited.then(() => fail(new Error("The owned OpenCode process exited."))).catch(fail);
     const health = await waitForOpenCodeReady({ client, expectedVersion, processHandle, timeoutMs: readinessTimeoutMs, signal });
@@ -312,22 +362,32 @@ export async function createOpenCodeServerProcess({
       await client.authenticateApiKey(providerId, key, { signal });
       authenticated.add(providerId);
     }
-    return Object.freeze({ client, executionId: native.id, privateRoot, pid: native.pid, port: selectedPort,
-      environment, health: Object.freeze({ ...health }), modelProviderIds: Object.freeze([...authenticated]),
-      readLogs: processHandle.readLogs, stop,
+    /** The native terminal's arguments for one conversation in an absolute directory. */
+    function attachArguments({ conversationId, directory }) {
+      if (!conversationId || !path.isAbsolute(directory || "")) throw new TypeError("An OpenCode terminal requires a conversation and absolute directory.");
+      return ["attach", baseUrl, "--dir", directory, "--session", conversationId, "--pure"];
+    }
+    return Object.freeze({
+      client,
+      executionId: native.id,
+      privateRoot,
+      pid: native.pid,
+      port: selectedPort,
+      environment,
+      health: Object.freeze({ ...health }),
+      modelProviderIds: Object.freeze([...authenticated]),
+      readLogs: processHandle.readLogs,
+      stop,
       // Resolves when the process exits without being stopped.
       unexpectedExit: unexpectedExit.promise,
-      attachArguments({ conversationId, directory }) {
-        if (!conversationId || !path.isAbsolute(directory || "")) throw new TypeError("An OpenCode terminal requires a conversation and absolute directory.");
-        return ["attach", baseUrl, "--dir", directory, "--session", conversationId, "--pure"];
-      }
+      attachArguments
     });
   } catch (error) {
     error.code ||= "assistant_opencode_start_failed";
     executionId ||= error.executionId;
     error.executionId = executionId;
     if (!native && executionId) {
-      try { await onStarted?.(executionId); }
+      try { await onStarted(executionId); }
       catch (bindingError) { error.bindingError = bindingError; }
     }
     try { error.details = processHandle.readLogs(); }
