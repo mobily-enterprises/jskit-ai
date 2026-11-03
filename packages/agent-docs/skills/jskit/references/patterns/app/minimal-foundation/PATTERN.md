@@ -75,11 +75,16 @@ questionnaire or infer tenancy, authentication, or database requirements.
   pino's error serializer under `error` as well as `err`, so
   `logger.error({ error }, "...")` keeps the error's message and stack. `eslint.config.mjs` holds
   server and shared code to every typed-features rule (`typedFeaturesConfig`),
-  all hand-written code, client code included, to the size limits
-  (`sizeLimitsConfig`), and server, config and script code to the formatter
-  (`formatterConfig`), all as errors, so `npm run lint` reports code that
-  breaks the
-  [typed features guide](https://mobily-enterprises.github.io/jskit-ai/guide/framework/typed-features).
+  client code (`src/**` and `packages/*/src/client/**`, Vue components
+  included) to the client rules (`clientFeaturesConfig`), all hand-written
+  code to the size limits (`sizeLimitsConfig`), and server, config and script
+  code to the formatter (`formatterConfig`), all as errors, so `npm run lint`
+  reports code that breaks the
+  [typed features guide](https://mobily-enterprises.github.io/jskit-ai/guide/framework/typed-features)
+  or the
+  [client features guide](https://mobily-enterprises.github.io/jskit-ai/guide/framework/client-features).
+  Client code the application adds keeps simple, direct code first, and types
+  each provider hook with `@jskit-ai/kernel/client/types`.
 
 ## Framework APIs
 

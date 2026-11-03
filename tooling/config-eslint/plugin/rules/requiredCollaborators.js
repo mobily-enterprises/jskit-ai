@@ -1,9 +1,15 @@
-import { compactText, createReporter, factoryDependencies, isFactory, receivingFunction, ruleMeta, walk } from "../support.js";
+import {
+  ABSENT_DEFAULT,
+  compactText,
+  createReporter,
+  factoryDependencies,
+  isClientLint,
+  isFactory,
+  receivingFunction,
+  ruleMeta,
+  walk
+} from "../support.js";
 
-// A default that makes a collaborator absent: null, undefined, {}, [] or a no-op.
-// A default that is the production implementation (a clock, the global fetch)
-// is fine.
-const ABSENT_DEFAULT = /^(null|undefined|\{\}|\[\]|(async\s*)?\(\)\s*=>\s*(null|undefined|\{\s*\}|\(\{\s*\}\)|\[\]))$/u;
 const FUNCTION_TYPES = new Set(["ArrowFunctionExpression", "FunctionExpression"]);
 // A received name that says it is a collaborator, so `x?.method()` on it probes a collaborator, not data.
 const COLLABORATOR_NAME = /(service|store|repository|runtime|router|publisher|catalogue|registry|provider|manager|client|broker|gateway|resolver|engine|logger)$/iu;
@@ -33,6 +39,8 @@ function positionalCollaboratorDefaults(fn, visitorKeys) {
 // `received?.()`, no `receivedService?.method()`, and no `typeof x === "function"`
 // on a collaborator a factory receives.
 // The capability runtime already refuses to start without a required token.
+// In client code use* composables count as factories, and a component's
+// template is held to the same probes and optional calls as its script.
 const requiredCollaborators = Object.freeze({
   meta: ruleMeta("Require collaborators instead of defaulting, probing or optionally calling them.", {
     dependenciesDefault: "{{name}}'s dependencies default to {{fallback}}, which hides a missing collaborator. Require them.",
@@ -44,9 +52,10 @@ const requiredCollaborators = Object.freeze({
   create(context) {
     const sourceCode = context.sourceCode;
     const report = createReporter(context, "required-collaborators");
+    const client = isClientLint(context);
     function checkDefaults(fn) {
-      const dependencies = factoryDependencies(fn, sourceCode);
-      if (isFactory(fn)) {
+      const dependencies = factoryDependencies(fn, sourceCode, client);
+      if (isFactory(fn, client)) {
         for (const parameter of positionalCollaboratorDefaults(fn, sourceCode.visitorKeys)) {
           const fallback = compactText(sourceCode, parameter.right);
           if (parameter !== dependencies?.first && ABSENT_DEFAULT.test(fallback)) {
@@ -78,24 +87,38 @@ const requiredCollaborators = Object.freeze({
         }
       }
     }
-    return {
+    // The `typeof x === "function"` comparison's probed expression, or null.
+    function probedArgument(node) {
+      if (!["===", "!==", "==", "!="].includes(node.operator)) {
+        return null;
+      }
+      const [probe, literal] = node.left.type === "UnaryExpression" ? [node.left, node.right] : [node.right, node.left];
+      if (probe?.type !== "UnaryExpression" || probe.operator !== "typeof" || literal?.type !== "Literal" || literal.value !== "function") {
+        return null;
+      }
+      return probe.argument;
+    }
+    function checkProbe(node) {
+      const probed = probedArgument(node);
+      const argument = probed?.type === "ChainExpression" ? probed.expression : probed;
+      const receiver = argument?.type === "Identifier" ? receivingFunction(context, node, argument.name) : null;
+      if (argument?.type === "MemberExpression" || (receiver && isFactory(receiver, client))) {
+        report(node, "method-probe", "methodProbe", { probe: sourceCode.getText(probed) });
+      }
+    }
+    // A template has no parameters of its own, so only member probes are read there.
+    function checkTemplateProbe(node) {
+      const probed = probedArgument(node);
+      const argument = probed?.type === "ChainExpression" ? probed.expression : probed;
+      if (argument?.type === "MemberExpression") {
+        report(node, "method-probe", "methodProbe", { probe: sourceCode.getText(probed) });
+      }
+    }
+    const scriptVisitor = {
       FunctionDeclaration: checkDefaults,
       FunctionExpression: checkDefaults,
       ArrowFunctionExpression: checkDefaults,
-      BinaryExpression(node) {
-        if (!["===", "!==", "==", "!="].includes(node.operator)) {
-          return;
-        }
-        const [probe, literal] = node.left.type === "UnaryExpression" ? [node.left, node.right] : [node.right, node.left];
-        if (probe?.type !== "UnaryExpression" || probe.operator !== "typeof" || literal?.type !== "Literal" || literal.value !== "function") {
-          return;
-        }
-        const argument = probe.argument.type === "ChainExpression" ? probe.argument.expression : probe.argument;
-        const receiver = argument.type === "Identifier" ? receivingFunction(context, node, argument.name) : null;
-        if (argument.type === "MemberExpression" || (receiver && isFactory(receiver))) {
-          report(node, "method-probe", "methodProbe", { probe: sourceCode.getText(probe.argument) });
-        }
-      },
+      BinaryExpression: checkProbe,
       CallExpression(node) {
         const callee = node.callee;
         const optionalReceived = (identifier) => identifier.type === "Identifier" && Boolean(receivingFunction(context, node, identifier.name));
@@ -108,6 +131,19 @@ const requiredCollaborators = Object.freeze({
         }
       }
     };
+    const parserServices = sourceCode.parserServices;
+    // readable-check: allow method-probe - platform object: only vue-eslint-parser gives a component's template a visitor
+    if (!client || typeof parserServices?.defineTemplateBodyVisitor !== "function") {
+      return scriptVisitor;
+    }
+    return parserServices.defineTemplateBodyVisitor({
+      BinaryExpression: checkTemplateProbe,
+      CallExpression(node) {
+        if (node.optional && node.callee.type === "MemberExpression") {
+          report(node, "optional-call", "optionalCall", { callee: sourceCode.getText(node.callee) });
+        }
+      }
+    }, scriptVisitor);
   }
 });
 

@@ -1,9 +1,11 @@
 import { CREATE_NAME, FUNCTION_TYPES, definedName, definitionOf, enclosingFunction, holdsBehaviour, localFunction, returnsOnlyData } from "../factoryResults.js";
-import { createReporter, isFreezeCall, ruleMeta } from "../support.js";
+import { createReporter, isClientLint, isFreezeCall, ruleMeta } from "../support.js";
 
 // A decorator over the JSKIT CRUD service or repository spreads it: its
 // members are the contract's.
 const CRUD_DECORATOR = /^decorate\w*(?:Service|Repository)$/u;
+// In client code a composable's result is an API too.
+const CLIENT_FACTORY_NAME = /^(create|use)[A-Z]/u;
 
 function unwrap(node) {
   return node?.type === "AwaitExpression" ? node.argument : node;
@@ -23,11 +25,11 @@ function factoryCall(sourceCode, argument) {
 
 // The factory a spread argument comes from, or null when it is data: a
 // create* call whose function, when this module defines it, returns behaviour.
-function spreadFactory(sourceCode, argument) {
+function spreadFactory(sourceCode, argument, factoryName) {
   const found = factoryCall(sourceCode, argument);
   const callee = found?.call.callee;
   const name = callee?.type === "Identifier" ? callee.name : callee?.type === "MemberExpression" ? callee.property.name || "" : "";
-  if (!CREATE_NAME.test(name)) {
+  if (!factoryName.test(name)) {
     return null;
   }
   const fn = callee.type === "Identifier" ? localFunction(sourceCode, callee) : null;
@@ -70,11 +72,12 @@ const noFactorySpread = Object.freeze({
   create(context) {
     const sourceCode = context.sourceCode;
     const report = createReporter(context, "no-factory-spread");
+    const factoryName = isClientLint(context) ? CLIENT_FACTORY_NAME : CREATE_NAME;
     return {
       SpreadElement(node) {
         const object = node.parent;
         const api = object.type === "ObjectExpression" ? returnedApi(sourceCode, object) : null;
-        if (!api || !(CREATE_NAME.test(api.owner) || api.owner === "setup")) {
+        if (!api || !(factoryName.test(api.owner) || api.owner === "setup")) {
           return;
         }
         if ([api.fn, ...sourceCode.getAncestors(api.fn)].some((ancestor) => FUNCTION_TYPES.has(ancestor.type) && CRUD_DECORATOR.test(definedName(ancestor)))) {
@@ -84,7 +87,7 @@ const noFactorySpread = Object.freeze({
         if (api.owner !== "setup" && !isFreezeCall(object.parent) && !holdsBehaviour(sourceCode, object)) {
           return;
         }
-        const factory = spreadFactory(sourceCode, node.argument);
+        const factory = spreadFactory(sourceCode, node.argument, factoryName);
         if (factory) {
           report(node, "factory-spread", "factorySpread", { owner: api.owner, factory });
         }

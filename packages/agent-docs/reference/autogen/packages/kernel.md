@@ -549,6 +549,18 @@ Local functions
 - `normalizeGuardOutcome(outcome)`
 - `evaluateShellGuard({ guard, to, guardEvaluatorKey })`
 
+### `client/types.js`
+Exports
+- `type ClientVueApp`
+- `type ClientRouter`
+- `type ClientPinia`
+- `type ClientQueryClient`
+- `type ClientEnv`
+- `type ClientSurfaceRuntime`
+- `type ClientSurfaceMode`
+- `type ClientLogger`
+- `type ClientComponents`
+
 ### `client/vite/clientBootstrapPlugin.js`
 Exports
 - `installedClientModules`

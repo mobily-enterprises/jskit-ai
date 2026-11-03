@@ -4,9 +4,19 @@ Shared flat ESLint presets for JSKIT projects.
 
 ```js
 // eslint.config.mjs
-import { baseConfig, formatterConfig, nodeConfig, sizeLimitsConfig, typedFeaturesConfig, vueConfig, webConfig } from "@jskit-ai/config-eslint/server";
+import {
+  baseConfig,
+  clientFeaturesConfig,
+  formatterConfig,
+  nodeConfig,
+  sizeLimitsConfig,
+  typedFeaturesConfig,
+  vueConfig,
+  webConfig
+} from "@jskit-ai/config-eslint/server";
 
 const SERVER_SOURCES = ["packages/*/src/server/**", "packages/*/src/shared/**", "server/**", "server.js"];
+const CLIENT_SOURCES = ["packages/*/src/client/**", "src/**"];
 const HAND_WRITTEN_SOURCES = ["packages/*/src/**", "src/**", "config/**", "server/**", "server.js", "bin/**"];
 
 export default [
@@ -14,6 +24,7 @@ export default [
   ...typedFeaturesConfig(SERVER_SOURCES),
   ...sizeLimitsConfig(HAND_WRITTEN_SOURCES),
   ...vueConfig,
+  ...clientFeaturesConfig(CLIENT_SOURCES),
   ...webConfig,
   ...nodeConfig,
   ...formatterConfig([...SERVER_SOURCES, "config/**", "bin/**"])
@@ -24,6 +35,8 @@ export default [
   warnings on `**/src/server/**`, the typed-features rules.
 - `typedFeaturesConfig(globs)`: the typed-features rules and the size limits,
   as errors, for the server and shared code the globs select.
+- `clientFeaturesConfig(globs)`: the client rules, as errors, for the client
+  code the globs select, Vue components included; list it after `vueConfig`.
 - `sizeLimitsConfig(globs)`: files under 750 lines and functions under 600, as
   errors, for every hand-written file the globs select, client code and Vue
   components included.
@@ -87,6 +100,23 @@ list; an existing application adds each package as it converts it. The rules
 cover every module a capability value is built from, so list a package's
 shared modules too (`packages/billing/src/shared/**`). Test files and `test`,
 `tests`, `client`, `components` and `pages` directories are not checked.
+
+## Client features
+
+`clientFeaturesConfig(globs, severity = "error")` holds composables, Vue
+components, client factories and client providers to the
+[client features guide](https://mobily-enterprises.github.io/jskit-ai/guide/framework/client-features):
+the typed-features rules that read client code, with `use*` composables
+counted as factories and component templates read for probes and optional
+calls, plus `typed-inject`, `collaborator-props`, `fixed-result-shape`,
+`no-frozen-vue-state`, `released-listeners`, `no-module-state` and
+`eslint-plugin-vue`'s prop and emit rules. The server's action and error rules
+do not apply, a composable is never held to `Object.freeze`, and
+`no-duplicate-helper` compares a client helper with the whole package. Nothing
+changes for client code until a glob selects it, so an existing application
+lists each client tree as it converts it. In a template, one
+`<!-- readable-check: allow <rule> - <reason> -->` above an element excuses
+that element's bindings.
 
 `sizeLimitsConfig(globs, { ignores })` holds the rest of the hand-written code
 to the size limits; tests are not checked, and `ignores` leaves generated

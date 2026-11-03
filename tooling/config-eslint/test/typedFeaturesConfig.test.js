@@ -57,7 +57,11 @@ test("typedFeaturesConfig sets the file and function size limits", () => {
   assert.throws(() => typedFeaturesConfig([]), TypeError);
 });
 
-test("typedFeaturesConfig turns on every jskit rule", () => {
+// The rules that read only client code, which clientFeaturesConfig turns on.
+const CLIENT_ONLY_RULES = Object.freeze(["typed-inject", "collaborator-props", "fixed-result-shape", "released-listeners", "no-module-state", "no-frozen-vue-state"]);
+
+test("typedFeaturesConfig turns on every jskit rule but the client-only ones", () => {
   const [entry] = typedFeaturesConfig(["src/server/**"]);
-  assert.deepEqual(Object.keys(jskitPlugin.rules).filter((rule) => entry.rules[`jskit/${rule}`] !== "error"), []);
+  assert.deepEqual(Object.keys(jskitPlugin.rules).filter((rule) => !CLIENT_ONLY_RULES.includes(rule) && entry.rules[`jskit/${rule}`] !== "error"), []);
+  assert.deepEqual(CLIENT_ONLY_RULES.filter((rule) => entry.rules[`jskit/${rule}`]), []);
 });

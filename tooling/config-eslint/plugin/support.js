@@ -1,15 +1,25 @@
 // Shared by the typed-features rules. Each rule reports what readable-check
 // reports under its finding name, and each finding can be excused by a comment
-// on the line before it: "// readable-check: allow <finding or rule> - <reason>".
+// on the line before it: "// readable-check: allow <finding or rule> - <reason>"
+// (in a template, an HTML comment above the element).
 // The reason starts with one of these prefixes and says what is true of the
 // code, never the state of a project: "input validation:", "data:",
 // "platform object:", "optional operation:", "safety invariant:",
 // "not a slot:", "cycle: <supplier> requires <owner>",
 // "deferred until boot: <reason>",
-// "filled by <repository>; convert with its supplier" or
-// "cross-repository slot <token>".
+// "filled by <repository>; convert with its supplier",
+// "cross-repository slot <token>" or "shared resource:" (client state every
+// instance on the page shares on purpose).
 
 const FACTORY_NAME = /^(create|build)[A-Z]/u;
+// In client code a composable (use<Name>) receives its collaborators the way a factory does.
+const CLIENT_FACTORY_NAME = /^(create|build|use)[A-Z]/u;
+
+// Whether the lint run is client code: clientFeaturesConfig sets `settings.jskit.client` for the files it selects,
+// and the rules that also read composables, components and their module state read it.
+function isClientLint(context) {
+  return context.settings?.jskit?.client === true;
+}
 
 // A factory treats a received name as a collaborator when it calls it, calls a
 // method on it, hands it to another create*/build* factory, or passes on one
@@ -20,12 +30,48 @@ const COLLABORATOR_NAME = /(service|store|repository|runtime|router|publisher|ca
 // transaction.js does not.
 const ACTIONS_FILE = /(?:^|[^A-Za-z])[Aa]ctions?\.m?js$|Actions?\.m?js$/u;
 
+// The probes one comment above a function can excuse for its whole body, and only under `input validation:`: a
+// function whose one job is normalizing a documented external value of several shapes.
+const PROBE_FINDINGS = new Set(["method-probe", "optional-call"]);
+const FUNCTION_TYPES = new Set(["FunctionDeclaration", "FunctionExpression", "ArrowFunctionExpression"]);
+const DECLARATION_TYPES = new Set(["VariableDeclarator", "VariableDeclaration", "ExportNamedDeclaration", "ExportDefaultDeclaration", "Property", "MethodDefinition"]);
+
+// The line the nearest function around a node starts on, as a reader sees it: its export, the const that holds it,
+// or the function itself; 0 outside a function.
+function enclosingFunctionLine(node) {
+  let fn = node.parent;
+  while (fn && !FUNCTION_TYPES.has(fn.type)) {
+    fn = fn.parent;
+  }
+  let site = fn;
+  while (site && DECLARATION_TYPES.has(site.parent?.type)) {
+    site = site.parent;
+  }
+  return site ? site.loc.start.line : 0;
+}
+
+// The line a template element starts on, for a node in a component's template; 0 in a script. One HTML comment above
+// the element's opening tag excuses its bindings: `<!-- readable-check: allow optional-call - … -->`.
+function templateElementLine(node) {
+  let element = node.parent;
+  while (element && element.type !== "VElement") {
+    element = element.parent;
+  }
+  return element ? element.loc.start.line : 0;
+}
+
 function createReporter(context, ruleName) {
   const lines = context.sourceCode.lines;
   const names = [ruleName, `jskit/${ruleName}`];
+  // Whether the line before `line` excuses the finding; `reason` narrows the excuse to one reason prefix.
+  function allowedAbove(line, finding, reason = "") {
+    const previous = line > 1 ? lines[line - 2] : "";
+    const mark = reason ? ` - ${reason}` : "";
+    return [finding, ...names].some((name) => previous.includes(`readable-check: allow ${name}${mark}`));
+  }
   return function report(node, finding, messageId, data, fix = null) {
-    const previous = lines[node.loc.start.line - 2] || "";
-    if ([finding, ...names].some((name) => previous.includes(`readable-check: allow ${name}`))) {
+    if (allowedAbove(node.loc.start.line, finding) || allowedAbove(templateElementLine(node), finding) ||
+      (PROBE_FINDINGS.has(finding) && allowedAbove(enclosingFunctionLine(node), finding, "input validation: "))) {
       return;
     }
     context.report({ node, messageId, data, ...(fix ? { fix } : {}) });
@@ -231,12 +277,12 @@ function dependenciesPattern(fn, first) {
   return { type: "ObjectPattern", properties: patterns.flatMap((pattern) => pattern.properties) };
 }
 
-// A create*/build* factory or class constructor that destructures collaborators
-// from its first parameter, in its signature or in its body's own statements,
-// or null.
-function factoryDependencies(fn, sourceCode) {
+// A create*/build* factory (in client code also a use* composable) or class
+// constructor that destructures collaborators from its first parameter, in its
+// signature or in its body's own statements, or null.
+function factoryDependencies(fn, sourceCode, client = false) {
   const name = functionName(fn);
-  if (!FACTORY_NAME.test(name) && !isConstructor(fn)) {
+  if (!(client ? CLIENT_FACTORY_NAME : FACTORY_NAME).test(name) && !isConstructor(fn)) {
     return null;
   }
   const first = fn.params[0];
@@ -260,6 +306,13 @@ function compactText(sourceCode, node) {
 
 // The typed-features guide. Each rule's section explains it with a good and a bad example.
 const GUIDE_URL = "https://mobily-enterprises.github.io/jskit-ai/guide/framework/typed-features";
+// The client half of the guide: components, composables and client providers.
+const CLIENT_GUIDE_URL = "https://mobily-enterprises.github.io/jskit-ai/guide/framework/client-features";
+
+// A default that makes a collaborator absent: null, undefined, {}, [] or a no-op.
+// A default that is the production implementation (a clock, the global fetch)
+// is fine.
+const ABSENT_DEFAULT = /^(null|undefined|\{\}|\[\]|(async\s*)?\(\)\s*=>\s*(null|undefined|\{\s*\}|\(\{\s*\}\)|\[\]))$/u;
 
 /**
  * A rule's meta: its description, its messages, each ending with a link to the guide section that explains the rule,
@@ -267,9 +320,10 @@ const GUIDE_URL = "https://mobily-enterprises.github.io/jskit-ai/guide/framework
  * @param {string} description
  * @param {Record<string, string>} messages
  * @param {string} section The guide heading's anchor, such as "required-collaborators".
+ * @param {string} [guide] The guide page: typed features, or the client page for rules only client code has.
  */
-function ruleMeta(description, messages, section) {
-  const url = `${GUIDE_URL}#${section}`;
+function ruleMeta(description, messages, section, guide = GUIDE_URL) {
+  const url = `${guide}#${section}`;
   return {
     type: "suggestion",
     docs: { description, url },
@@ -290,12 +344,15 @@ function receivingFunction(context, node, name) {
   return null;
 }
 
-// Whether a create*/build* factory or a class constructor: the functions that receive collaborators.
-function isFactory(fn) {
-  return FACTORY_NAME.test(functionName(fn)) || isConstructor(fn);
+// Whether a create*/build* factory (in client code also a use* composable) or a class constructor: the functions that
+// receive collaborators.
+function isFactory(fn, client = false) {
+  return (client ? CLIENT_FACTORY_NAME : FACTORY_NAME).test(functionName(fn)) || isConstructor(fn);
 }
 
 export {
+  ABSENT_DEFAULT,
+  CLIENT_GUIDE_URL,
   GUIDE_URL,
   compactText,
   createReporter,
@@ -310,6 +367,7 @@ export {
   isFreezeCall,
   isFrozenValue,
   isFactory,
+  isClientLint,
   isInAction,
   isWrittenActionDefinition,
   keyName,
