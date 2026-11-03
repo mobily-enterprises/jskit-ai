@@ -2,8 +2,16 @@ import { effectScope, shallowReactive, watch } from "vue";
 import { useVoiceConversation } from "./voiceConversation.js";
 import { useJskitText, voiceError, voiceErrorText } from "./i18n.js";
 
-/** One controller per application shell. Bindings retain their own conversation. */
+/**
+ * One controller per application shell. Bindings retain their own conversation.
+ * @param {{
+ *   connectSpeech: (binding: import("./types.js").VoiceConversationBinding) => string | Promise<string>,
+ *   createSession?: typeof useVoiceConversation
+ * }} options
+ */
+// readable-check: allow dependency-default - input validation: an application that passes nothing is told below that it must supply connectSpeech
 export function createVoiceConversationController({ connectSpeech, createSession = useVoiceConversation } = {}) {
+  // readable-check: allow method-probe - input validation: an application supplies the speech connection
   if (typeof connectSpeech !== "function") throw new TypeError("Voice requires an application speech connection.");
   const { t } = useJskitText();
   const state = shallowReactive({ binding: null, session: null, visible: false, nextTarget: null, busy: false, error: "" });
@@ -14,6 +22,7 @@ export function createVoiceConversationController({ connectSpeech, createSession
 
   function serialize(operation) {
     const result = operations.then(operation);
+    // The queued caller receives the failure; the queue keeps only the order.
     operations = result.catch(() => {});
     return result;
   }
@@ -24,6 +33,7 @@ export function createVoiceConversationController({ connectSpeech, createSession
     if (session) await session.close();
     scope?.stop();
     scope = null;
+    // readable-check: allow optional-call - optional operation: a binding whose application keeps its conversation alive itself has no release(), and voice lets go of nothing
     await state.binding?.release?.();
     state.binding = null;
     state.session = null;
@@ -37,6 +47,7 @@ export function createVoiceConversationController({ connectSpeech, createSession
     if (disposed || requestRevision !== revision) return false;
     const nextScope = effectScope(true);
     try {
+      // readable-check: allow optional-call - optional operation: a binding whose application keeps its conversation alive itself has no retain(), and voice keeps nothing
       binding.retain?.();
       const session = nextScope.run(() => createSession(binding, { socketUrl }));
       scope = nextScope;
@@ -52,12 +63,18 @@ export function createVoiceConversationController({ connectSpeech, createSession
       return true;
     } catch (error) {
       nextScope.stop();
+      // readable-check: allow optional-call - optional operation: a binding whose application keeps its conversation alive itself has no release(), and voice lets go of nothing
       binding.release?.();
       throw error;
     }
   }
 
+  /**
+   * Shows voice for a conversation, starting its session unless unsent words still belong to another one.
+   * @param {{ conversation: import("./types.js").VoiceConversationBinding }} request
+   */
   function open({ conversation } = {}) {
+    // readable-check: allow method-probe - input validation: an application supplies the conversation binding
     if (!conversation?.id || !conversation.state || typeof conversation.submitText !== "function") {
       return Promise.reject(new TypeError("Voice requires a conversation identity, state and text submission."));
     }
@@ -116,11 +133,19 @@ export function createVoiceConversationController({ connectSpeech, createSession
     });
   }
 
+  function minimize() { state.visible = false; }
+  function reveal() { if (state.session) state.visible = true; }
+  function cancelSwitch() { state.nextTarget = null; }
+  async function dispose() { disposed = true; await end({ discard: true }); }
+
   return {
-    state, open, switchTarget, end,
-    minimize() { state.visible = false; },
-    reveal() { if (state.session) state.visible = true; },
-    cancelSwitch() { state.nextTarget = null; },
-    async dispose() { disposed = true; await end({ discard: true }); }
+    state,
+    open,
+    switchTarget,
+    end,
+    minimize,
+    reveal,
+    cancelSwitch,
+    dispose
   };
 }

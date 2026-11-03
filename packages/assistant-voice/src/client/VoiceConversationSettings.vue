@@ -5,7 +5,8 @@ import VoiceSpeakingVoiceSelect from "./VoiceSpeakingVoiceSelect.vue";
 import { useJskitText } from "./i18n.js";
 
 const props = defineProps({
-  voice: { type: Object, default: null },
+  // readable-check: allow collaborator-prop - optional operation: a conversation without voice passes no voice session, and the menu has no speaking voice to choose
+  voice: { type: /** @type {import("vue").PropType<import("./types.js").VoiceTransport | null>} */ (Object), default: null },
   compact: Boolean
 });
 const emit = defineEmits(["error"]);

@@ -99,7 +99,10 @@ function createConversationNarrationTracker() {
     return entries;
   }
 
-  return { observe, reset };
+  return Object.freeze({
+    observe,
+    reset
+  });
 }
 
 export {

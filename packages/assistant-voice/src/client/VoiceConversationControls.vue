@@ -5,14 +5,14 @@ import { useVoiceLauncher } from "./voiceLauncher.js";
 import { useJskitText, voiceErrorText } from "./i18n.js";
 
 const props = defineProps({
-  session: { type: Object, required: true },
+  session: { type: /** @type {import("vue").PropType<import("./types.js").VoiceSession>} */ (Object), required: true },
   disabled: { type: Boolean, default: false },
   speakerDisabled: { type: Boolean, default: false },
   compact: { type: Boolean, default: false },
   iconOnly: { type: Boolean, default: false },
   reviewInTranscript: { type: Boolean, default: false },
-  toolsTarget: { type: Object, default: null },
-  feedbackTarget: { type: Object, default: null }
+  toolsTarget: { type: /** @type {import("vue").PropType<HTMLElement | null>} */ (Object), default: null },
+  feedbackTarget: { type: /** @type {import("vue").PropType<HTMLElement | null>} */ (Object), default: null }
 });
 const {
   targetLabel, voice, error, microphoneMuted, live, starting, callMode,
@@ -60,8 +60,8 @@ const gesture = useVoiceLauncher({
         >
           {{ t("jskit.assistant.voice.controls.notSent", { words: heldTranscript }) }}
         </p>
-        <p v-if="readAloud && voice.playbackBlocked?.value" class="assistant-voice-controls__status" role="status">{{ t("jskit.assistant.voice.controls.soundBlocked") }}</p>
-        <v-btn v-if="readAloud && voice.playbackBlocked?.value" min-height="48" @click="enableSound">{{ t("jskit.assistant.voice.controls.enableSound") }}</v-btn>
+        <p v-if="readAloud && voice.playbackBlocked.value" class="assistant-voice-controls__status" role="status">{{ t("jskit.assistant.voice.controls.soundBlocked") }}</p>
+        <v-btn v-if="readAloud && voice.playbackBlocked.value" min-height="48" @click="enableSound">{{ t("jskit.assistant.voice.controls.enableSound") }}</v-btn>
         <section
           v-if="!reviewInTranscript && pendingTranscript && (pendingTranscript.reviewBeforeSend || !sending)" class="assistant-voice__review"
           :aria-label="t('jskit.assistant.voice.controls.review')"
@@ -112,7 +112,7 @@ const gesture = useVoiceLauncher({
               ? t('jskit.assistant.voice.controls.readAloudOff', { target: targetLabel })
               : t('jskit.assistant.voice.controls.readAloudOn', { target: targetLabel })"
             :title="readAloud ? t('jskit.assistant.voice.controls.spokenRepliesOn') : t('jskit.assistant.voice.controls.spokenRepliesOff')"
-            :disabled="speakerDisabled || session.readAloudChangePending?.value === true" @click="toggleReadAloud"
+            :disabled="speakerDisabled || session.readAloudChangePending.value" @click="toggleReadAloud"
           >
             <template v-if="iconOnly" #default>
               <span class="assistant-voice-controls__icon-disc"><v-icon size="20" :icon="readAloud ? mdiVolumeHigh : mdiVolumeOff" /></span>

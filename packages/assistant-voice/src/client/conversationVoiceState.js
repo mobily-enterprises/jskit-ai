@@ -1,4 +1,8 @@
-/** Canonical history is authoritative; only user and assistant output is spoken. */
+/**
+ * Canonical history is authoritative; only user and assistant output is spoken.
+ * @param {{ turns?: object[], status?: string, interimReply?: object | null }} [conversation]
+ * @returns {import("./types.js").VoiceConversationState}
+ */
 export function projectConversationVoiceState({ turns = [], status = "ready", interimReply = null } = {}) {
   const messages = [];
   let streamingReply = null;
@@ -7,7 +11,7 @@ export function projectConversationVoiceState({ turns = [], status = "ready", in
     if (turn.assistant?.text) {
       const reply = { ...turn.assistant, role: "assistant", id: turn.assistant.outputId || `${turn.turnId}:assistant` };
       if (turn.pending || ["starting", "inProgress"].includes(reply.status)) {
-        // Production notifications kept live output separate until their saved reply.
+        // An application's live notification keeps its own id until its saved reply arrives.
         if (reply.origin === "application") Object.assign(reply, { id: `${reply.id}:stream`, autonomous: true });
         streamingReply = reply;
       }

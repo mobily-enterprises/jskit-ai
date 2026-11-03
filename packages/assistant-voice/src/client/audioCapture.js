@@ -1,3 +1,5 @@
+import { audioContextConstructor } from "./browser.js";
+
 const CAPTURE_WORKLET_NAME = "jskit-voice-capture";
 const CAPTURE_FLUSH_TIMEOUT_MS = 500;
 const CAPTURE_FRAME_SAMPLES = 1_024;
@@ -61,8 +63,25 @@ function float32ToPcm16ArrayBuffer(samples) {
   return output;
 }
 
-async function createMicrophoneCapture({ onLevel, onPcm, targetSampleRate = 16_000 } = {}) {
-  const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+/** Ignores the input level when a caller does not draw it. */
+function ignoreLevel() {}
+
+/** Ignores the audio when a caller only needs the level. */
+function ignorePcm() {}
+
+/** Nothing to finish while no flush is waiting for the worklet. */
+function noFlushPending() {}
+
+/**
+ * Opens the microphone and streams it as 16-bit PCM at the target sample rate until closed.
+ * @param {{
+ *   onLevel?: (level: number) => void,
+ *   onPcm?: (pcm: ArrayBuffer) => void,
+ *   targetSampleRate?: number
+ * }} [options]
+ */
+async function createMicrophoneCapture({ onLevel = ignoreLevel, onPcm = ignorePcm, targetSampleRate = 16_000 } = {}) {
+  const AudioContextCtor = audioContextConstructor();
   if (!AudioContextCtor) {
     throw new Error("This browser does not support microphone audio processing.");
   }
@@ -108,12 +127,12 @@ async function createMicrophoneCapture({ onLevel, onPcm, targetSampleRate = 16_0
     });
     const silence = context.createGain();
     silence.gain.value = 0;
-    let finishFlush = null;
+    let finishFlush = noFlushPending;
     let muted = false;
     let preserveBuffered = false;
     capture.port.onmessage = (event) => {
       if (event.data?.type === "flushed") {
-        finishFlush?.();
+        finishFlush();
         return;
       }
       if (muted && !preserveBuffered) return;
@@ -124,10 +143,10 @@ async function createMicrophoneCapture({ onLevel, onPcm, targetSampleRate = 16_0
       for (const sample of samples) {
         squaredTotal += sample * sample;
       }
-      onLevel?.(samples.length
+      onLevel(samples.length
         ? Math.min(1, Math.sqrt(squaredTotal / samples.length) * 7)
         : 0);
-      onPcm?.(float32ToPcm16ArrayBuffer(samples));
+      onPcm(float32ToPcm16ArrayBuffer(samples));
     };
     source.connect(capture);
     capture.connect(silence);
@@ -139,7 +158,7 @@ async function createMicrophoneCapture({ onLevel, onPcm, targetSampleRate = 16_0
       const timeout = globalThis.setTimeout(() => {
         if (!finished) {
           finished = true;
-          finishFlush = null;
+          finishFlush = noFlushPending;
           resolve();
         }
       }, CAPTURE_FLUSH_TIMEOUT_MS);
@@ -147,7 +166,7 @@ async function createMicrophoneCapture({ onLevel, onPcm, targetSampleRate = 16_0
         if (finished) return;
         finished = true;
         globalThis.clearTimeout(timeout);
-        finishFlush = null;
+        finishFlush = noFlushPending;
         resolve();
       };
       try {
@@ -156,38 +175,40 @@ async function createMicrophoneCapture({ onLevel, onPcm, targetSampleRate = 16_0
         finishFlush();
       }
     });
-    return Object.freeze({
-      setMuted(value, { preserveBuffered: retainTail = false } = {}) {
-        const nextPreserveBuffered = Boolean(value) && retainTail;
-        if (muted === Boolean(value) && preserveBuffered === nextPreserveBuffered) return;
-        const keepBuffered = nextPreserveBuffered || (!value && preserveBuffered);
-        muted = Boolean(value);
-        preserveBuffered = nextPreserveBuffered;
-        for (const track of stream.getTracks()) track.enabled = !muted;
-        capture.port.postMessage({ type: "mute", muted, ...(keepBuffered ? { preserveBuffered: true } : {}) });
-        if (muted) onLevel?.(0);
-      },
-      close() {
-        if (!closePromise) {
-          closePromise = (async () => {
+    function setMuted(value, { preserveBuffered: retainTail = false } = {}) {
+      const nextPreserveBuffered = Boolean(value) && retainTail;
+      if (muted === Boolean(value) && preserveBuffered === nextPreserveBuffered) return;
+      const keepBuffered = nextPreserveBuffered || (!value && preserveBuffered);
+      muted = Boolean(value);
+      preserveBuffered = nextPreserveBuffered;
+      for (const track of stream.getTracks()) track.enabled = !muted;
+      capture.port.postMessage({ type: "mute", muted, ...(keepBuffered ? { preserveBuffered: true } : {}) });
+      if (muted) onLevel(0);
+    }
+    function close() {
+      if (!closePromise) {
+        closePromise = (async () => {
+          try {
+            await flush();
+          } finally {
+            onLevel(0);
+            capture.port.onmessage = null;
             try {
-              await flush();
+              source.disconnect();
+              capture.disconnect();
+              silence.disconnect();
             } finally {
-              onLevel?.(0);
-              capture.port.onmessage = null;
-              try {
-                source.disconnect();
-                capture.disconnect();
-                silence.disconnect();
-              } finally {
-                stopTracks();
-                await context.close();
-              }
+              stopTracks();
+              await context.close();
             }
-          })();
-        }
-        return closePromise;
+          }
+        })();
       }
+      return closePromise;
+    }
+    return Object.freeze({
+      setMuted,
+      close
     });
   } catch (error) {
     stopTracks();
