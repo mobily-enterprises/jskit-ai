@@ -1,883 +1,161 @@
 import { computed, effectScope, getCurrentInstance, getCurrentScope, inject, onScopeDispose, proxyRefs, ref, shallowRef, toValue, watch } from "vue";
 import { getClientAppConfig } from "@jskit-ai/kernel/client";
-import { createAssistantMessageDelivery, retainAssistantConversation, unmatchedOptimisticMessages } from "@jskit-ai/assistant-core/client/conversation-delivery";
+import { retainAssistantConversation } from "@jskit-ai/assistant-core/client/conversation-delivery";
 import { createAssistantTextSubmission } from "@jskit-ai/assistant-core/client/conversation";
-import { useAssistantQuestions } from "@jskit-ai/assistant-core/client/conversation-questions";
 import { assistantHttpClient, createAssistantApi } from "@jskit-ai/assistant-core/client";
-import {
-  conversationTurnMessages, conversationTurnsFromMessages, latestAssistantMessageAwaitingUserReply, mergeConversationLogPages, mergeConversationStream,
-  normalizeConversationLogPage, normalizeConversationLogPagination
-} from "@jskit-ai/assistant-core/shared/conversation";
+import { conversationTurnsFromMessages } from "@jskit-ai/assistant-core/shared/conversation";
 import { useRealtimeSocket } from "@jskit-ai/realtime/client/composables/useRealtimeEvent";
 import { SHELL_WEB_PLACEMENT_RUNTIME_KEY } from "@jskit-ai/shell-web/client/placement";
 import { useSurfaceRouteContext } from "@jskit-ai/shell-web/client/navigation/useSurfaceRouteContext";
 import { resolveAssistantRuntimeRoute, resolveAssistantSurfaceConfig } from "../../shared/assistantSurfaces.js";
 import { useWorkspaceWebScopeSupport } from "../support/workspaceScopeSupport.js";
-import { isAccessDenied } from "../support/accessDenied.js";
-import { subscribeAssistantConversation, refreshedHistoryPages, patchLoadedHistoryPages } from "../support/subscribeAssistantConversation.js";
+import { failureMessage } from "../support/conversationFailures.js";
 import { useJskitText } from "../i18n.js";
+import { authoredRequest, createConversationRuntime, isQuestionConfiguration, resolveWorkingPolicy, text } from "./conversationRuntime.js";
 
-const text = value => String(toValue(value) ?? "").trim();
-const { serverMessage, t } = useJskitText();
-// A failure in the active language when its code or messageCode is JSKIT's English;
-// otherwise its message as sent. A result's error text is read the same way.
-const failureMessage = (failure, fallback = "") => failure?.message ? serverMessage(failure) : fallback;
-const resultError = result => failureMessage({ ...result, message: result?.error });
-// A conversation snapshot's error names its runtime sentence with errorMessageCode.
+/** @typedef {import("@jskit-ai/assistant-core/client/types").AssistantApi} AssistantApi */
+/** @typedef {import("vue").MaybeRefOrGetter<string>} TextOption */
+
+/**
+ * The application defaults `configureAssistantConversations` provides to every binding.
+ * @typedef {object} ConversationDefaults
+ * @property {import("vue").MaybeRefOrGetter<string | undefined>} actorKey
+ * @property {AssistantApi | null | undefined} api
+ * @property {(path: string, options: object) => Promise<any>} request
+ * @property {"dispatch" | "accepted"} clearDraftOn
+ */
+
+/**
+ * An application command whose assistant returns one final result: the bounded task mode of a binding.
+ * @typedef {object} BoundedTask
+ * @property {{ run: (request: { path: string, payload: object }) => Promise<any>, isRunning: import("vue").MaybeRefOrGetter<boolean> }} command
+ * @property {TextOption} endpoint
+ * @property {import("vue").MaybeRefOrGetter<unknown>} scope The application scope a result belongs to.
+ * @property {(messages: object[]) => object} input
+ * @property {(response: any) => object} result
+ * @property {(response: any, submitted: { message: object, scope: unknown }) => void} [onResult]
+ */
+
+/**
+ * What `useAssistantConversation` and `useAssistantConversationFactory` accept; the assistant conversation guide
+ * describes each option.
+ * @typedef {object} ConversationBindingOptions
+ * @property {TextOption} [conversationId]
+ * @property {TextOption} [endpoint]
+ * @property {TextOption} [surfaceId]
+ * @property {TextOption} [hostSurfaceId]
+ * @property {import("vue").MaybeRefOrGetter<string | undefined>} [workspaceSlug]
+ * @property {import("vue").MaybeRefOrGetter<string | undefined>} [actorKey]
+ * @property {AssistantApi | null} [api]
+ * @property {import("../types.js").RealtimeSocket} [socket]
+ * @property {import("vue").MaybeRefOrGetter<boolean>} [active]
+ * @property {(event: object) => unknown} [onEvent]
+ * @property {"dispatch" | "accepted"} [clearDraftOn]
+ * @property {boolean} [queueWhileSending]
+ * @property {boolean | ((snapshot: any) => boolean)} [deferWhileWorking]
+ * @property {boolean | ((snapshot: any) => boolean)} [admitWhileWorking]
+ * @property {boolean} [draftWhileLoading]
+ * @property {import("vue").MaybeRefOrGetter<{ storage: Storage, key: string } | null | undefined>} [draftStorage]
+ * @property {((runtime: import("../types.js").ConversationRuntime) => unknown) | null} [application]
+ * @property {BoundedTask | null} [boundedTask]
+ * @property {import("vue").MaybeRefOrGetter<unknown>} [data]
+ * @property {import("vue").MaybeRefOrGetter<import("@jskit-ai/assistant-core/client/types").AssistantAttachments | null | undefined>} [attachments]
+ * @property {import("vue").MaybeRefOrGetter<import("@jskit-ai/assistant-core/client/types").AssistantSuggestions | null | undefined>} [suggestions]
+ * @property {import("vue").MaybeRefOrGetter<import("@jskit-ai/assistant-core/client/types").AssistantModelChoices | null | undefined>} [models]
+ * @property {import("vue").MaybeRefOrGetter<boolean | object | null | undefined>} [questions]
+ * @property {import("vue").MaybeRefOrGetter<boolean | object | null | undefined>} [goal]
+ * @property {import("vue").MaybeRefOrGetter<Record<string, any> | undefined>} [presentation]
+ */
+
+/**
+ * What a binding takes from the application's setup. A bounded task takes only the application.
+ * @typedef {object} ConversationBindingSetup
+ * @property {import("vue").App} app
+ * @property {ConversationDefaults} defaults
+ * @property {import("../types.js").SurfaceRouteContext} [routeContext]
+ * @property {import("../types.js").PlacementRuntime} [placement]
+ * @property {import("../types.js").WorkspaceScopeSupport} [workspaceScope]
+ * @property {import("../types.js").RealtimeSocket} [socket]
+ * @property {Record<string, any>} [config]
+ */
+
+const { t } = useJskitText();
+/**
+ * A conversation snapshot's error, which names its runtime sentence with errorMessageCode.
+ * @param {any} state
+ */
 const stateError = state => failureMessage({ message: state?.error,
   messageCode: state?.errorMessageCode, messageParams: state?.errorMessageParams });
 // Keep the injection key stable across optimized package and raw Vue imports.
 const conversationDefaultsKey = Symbol.for("jskit.assistant-runtime.conversation.defaults");
-const compareTurnIds = (left, right) => String(left).localeCompare(String(right), undefined, { numeric: true });
 
-/** Configure this Vue application's existing conversation binding before mounting. */
-function configureAssistantConversations(app, { actorKey, api = null, request, clearDraftOn = "dispatch" } = {}) {
+/**
+ * An application that configures nothing: the placement user, the standard API, and Send clears the draft.
+ * @type {ConversationDefaults}
+ */
+const NO_CONVERSATION_DEFAULTS = Object.freeze({
+  actorKey: undefined,
+  api: undefined,
+  request: assistantHttpClient.request,
+  clearDraftOn: "dispatch"
+});
+
+/** A submission with no further lifetime guard of its own. */
+function alwaysCurrent() {
+  return true;
+}
+/** A submission that shows no pending state of its own. */
+function ignoreSubmit() {}
+/** A submission whose acceptance needs no further cleanup. */
+function ignoreAcceptance() {}
+/** A bounded task result the application does not present itself. */
+function ignoreResult() {}
+
+/**
+ * Configure this Vue application's existing conversation binding before mounting.
+ * @param {import("vue").App} app
+ * @param {{ actorKey?: import("vue").MaybeRefOrGetter<string | undefined>, api?: AssistantApi,
+ *   request?: (path: string, options: object) => Promise<any>, clearDraftOn?: "dispatch" | "accepted" }} [defaults]
+ */
+function configureAssistantConversations(app, { actorKey, api, request = assistantHttpClient.request, clearDraftOn = "dispatch" } = {}) {
+  // readable-check: allow method-probe - input validation: an application hands configureAssistantConversations its Vue application
   if (typeof app?.provide !== "function") throw new TypeError("Conversation defaults require a Vue application.");
-  if (request !== undefined && typeof request !== "function") throw new TypeError("Conversation request must be a function.");
+  // readable-check: allow method-probe - input validation: an application may hand configureAssistantConversations its own request
+  if (typeof request !== "function") throw new TypeError("Conversation request must be a function.");
   if (!["dispatch", "accepted"].includes(clearDraftOn)) throw new TypeError("clearDraftOn must be dispatch or accepted.");
   app.provide(conversationDefaultsKey, Object.freeze({ actorKey, api, request, clearDraftOn }));
-}
-// These errors are raised before send admission by the action pipeline or
-// admitSend. Provider, storage, attachment-resolution and transport errors can
-// occur after dispatch and must retain an uncertain receipt.
-const SEND_REJECTIONS = new Set([
-  "ACTION_VALIDATION_FAILED", "ACTION_PERMISSION_DENIED", "ACTION_SURFACE_FORBIDDEN",
-  "conversation_invalid_message", "conversation_busy", "conversation_not_steerable", "conversation_invalid_goal", "conversation_goal_changed",
-  "conversation_message_cancelled"
-]);
-
-function isQuestionConfiguration(value) {
-  return value === true || Boolean(value && typeof value === "object" &&
-    !["questions", "choices", "capture"].some(key => key in value));
 }
 
 function questionsAnswered(prompts) {
   return prompts.questions.every(question => String(prompts.answers[question.name] || "").trim());
 }
 
-/** The authored conversation request for a composer payload without one. */
-function authoredRequest(payload, { attachmentIds, steer }) {
-  return {
-    text: String(payload.message || ""),
-    ...(payload.data !== undefined ? { data: payload.data } : {}),
-    ...(attachmentIds?.length ? { attachmentIds } : {}),
-    ...(steer ? { steer: true } : {})
-  };
+/**
+ * Whether a question owner formats the draft as its answers.
+ * @param {any} prompts The conversation's own question form, an application's question owner, or none.
+ */
+function formatsAnswers(prompts) {
+  // readable-check: allow method-probe - optional operation: an application's own question owner may have no capture, and then the draft is sent as typed
+  return typeof prompts?.capture === "function";
 }
 
-function draftAfterAcceptedSubmission(currentDraft = "", submittedDraft = "") {
-  const current = String(currentDraft || "");
-  const submitted = String(submittedDraft || "");
-  if (current === submitted) return "";
-  return submitted && current.startsWith(submitted) ? current.slice(submitted.length) : current;
-}
-
-function resolveWorkingPolicy(snapshot, { deferWhileWorking, admitWhileWorking }) {
-  const resolve = (name, option) => {
-    const value = typeof option === "function" ? option(snapshot) : option;
-    if (typeof value !== "boolean") throw new TypeError(`${name} must return a boolean.`);
-    return value;
-  };
-  const deferred = resolve("deferWhileWorking", deferWhileWorking);
-  const admitted = resolve("admitWhileWorking", admitWhileWorking);
-  if (deferred && admitted) throw new TypeError("Choose either admitWhileWorking or deferWhileWorking.");
-  return { deferWhileWorking: deferred, admitWhileWorking: admitted };
-}
-
-function createConversation(identity, { api, socket, actorKey, placement, readers, queueWhileSending, deferWhileWorking, admitWhileWorking, draftStorage, application, goalReadEnabled }) {
-  const disposed = ref(false);
-  const placementRevision = ref(0);
-  const stopPlacement = placement.subscribe(() => { placementRevision.value += 1; });
-  const current = computed(() => {
-    placementRevision.value;
-    const actor = toValue(actorKey);
-    return !disposed.value && (actor === undefined ? String(placement.getContext()?.user?.id || "") : text(actor)) === identity.actorKey;
-  });
-  const active = computed(() => current.value && [...readers.values()].some(reader => toValue(reader.active) !== false));
-  const snapshot = shallowRef(null);
-  const draft = ref("");
-  const draftMessageId = ref("");
-  const draftAttachments = ref([]);
-  const draftRetry = ref(null);
-  const draftRetryMatches = computed(() => {
-    const retry = draftRetry.value;
-    const current = String(draft.value || "");
-    const submitted = String(retry?.draftSnapshot || "");
-    return Boolean(retry && submitted && (current === submitted || current.startsWith(submitted)));
-  });
-  let draftSubmissionSequence = 0;
-  const error = ref("");
-  const loading = ref(true);
-  const stopping = ref(false);
-  const goalAction = ref("");
-  // An accepted Set or Resume waiting for its goal keeps Pause and Cancel usable.
-  const goalSettling = ref(false);
-  const goalTargetCurrent = ref(false);
-  const goalError = ref("");
-  const goalView = shallowRef(null);
-  const goalLoadError = ref("");
-  const accessDenied = ref(false);
-  const delivery = createAssistantMessageDelivery();
-  const pendingMessages = new Map();
-  const deliveryChecks = new Map();
-  const olderPages = ref([]);
-  let historyRevision = 0;
-  let deniedHistoryRevision = 0;
-  const loadingMore = ref(false);
-  const loadMoreError = ref("");
-  const turns = computed(() => {
-    const saved = mergeConversationLogPages([
-      ...olderPages.value, { conversationLog: snapshot.value?.conversationLog || [] }
-    ]).conversationLog;
-    // Use the original overlay against the full loaded saved span. A synthetic
-    // live older turn must not replace its authored request or saved progress.
-    const messages = (snapshot.value?.turns || []).flatMap(conversationTurnMessages);
-    return mergeConversationStream(saved, { messages });
-  });
-  const oldestLoadedPage = computed(() => olderPages.value[0] || snapshot.value);
-  const hasMoreBefore = computed(() => normalizeConversationLogPagination(oldestLoadedPage.value?.pagination).hasMoreBefore);
-  const editable = computed(() => active.value && !accessDenied.value);
-  const available = computed(() => active.value && !loading.value && !accessDenied.value && Boolean(snapshot.value));
-  // A deferred message keeps the subscription while its view is hidden, so it
-  // is admitted against live state. A failed read leaves that state stale.
-  const deferredWaits = ref(0);
-  const listening = computed(() => active.value || current.value && deferredWaits.value > 0);
-  const admissible = computed(() => listening.value && !loading.value && !accessDenied.value && !error.value && Boolean(snapshot.value));
-  const steerable = computed(() => snapshot.value?.status === "working" && snapshot.value?.capabilities?.steering === true);
-  const workingPolicy = computed(() => resolveWorkingPolicy(snapshot.value, { deferWhileWorking, admitWhileWorking }));
-  const queueing = computed(() => queueWhileSending !== false && (steerable.value || workingPolicy.value.deferWhileWorking || workingPolicy.value.admitWhileWorking));
-  const canSubmit = computed(() => available.value && !stopping.value && (snapshot.value.status === "ready" || steerable.value || (workingPolicy.value.deferWhileWorking || workingPolicy.value.admitWhileWorking) && snapshot.value.status === "working") &&
-    (queueWhileSending !== false || !delivery.state.sending) &&
-    !delivery.state.messages.some(message => message.status === "uncertain" &&
-      (snapshot.value.status !== "ready" || !message.payload || text(message.payload.draft ?? message.payload.message) === text(draft))));
-  const savedDraft = toValue(draftStorage);
-  if (savedDraft && (typeof savedDraft.key !== "string" || !savedDraft.key ||
-      !["getItem", "setItem", "removeItem"].every(name => typeof savedDraft.storage?.[name] === "function"))) {
-    throw new TypeError("draftStorage requires an explicit key and storage with getItem, setItem and removeItem.");
-  }
-  // Original composer state is restored verbatim. A read never reconstructs or
-  // sends an old request; the explicit retry keeps its original payload and ID.
-  try {
-    const saved = savedDraft ? JSON.parse(savedDraft.storage.getItem(savedDraft.key) || "null") : null;
-    draft.value = typeof saved?.draft === "string" ? saved.draft : "";
-    draftAttachments.value = Array.isArray(saved?.attachments)
-      ? saved.attachments.filter(attachment => typeof attachment?.attachmentId === "string") : [];
-    const messages = Array.isArray(saved?.messages) ? saved.messages.filter(message =>
-      typeof message?.id === "string" && typeof message.text === "string" &&
-      typeof message.payload?.message === "string") : [];
-    const restoredMessages = messages.filter(message => !delivery.find(message.id)).map(message => {
-      const status = ["failed", "accepted"].includes(message.status) ? message.status : "uncertain";
-      return { ...message, status, checking: false, cancelling: false, error: message.error || (status === "accepted" ? "" :
-        t("jskit.assistant.runtime.delivery.unconfirmedBeforeClose")) };
-    });
-    delivery.state.messages = unmatchedOptimisticMessages(turns.value, [...delivery.state.messages, ...restoredMessages], { receiptsOnly: true });
-    // A cancel the server had not agreed to before this page closed is retried.
-    for (const message of messages) {
-      if (message.cancelling || message.cancelError) delivery.cancelFailed(message.id, message.cancelError);
-    }
-  } catch {
-    draft.value = "";
-    draftAttachments.value = [];
-  }
-  function persistDraft() {
-    if (!savedDraft || !current.value || accessDenied.value) return;
-    try {
-      const saved = { draft: draft.value,
-        attachments: draftAttachments.value.filter(attachment => attachment?.attachmentId),
-        messages: delivery.state.messages };
-      if (saved.draft || saved.attachments.length || saved.messages.length) {
-        savedDraft.storage.setItem(savedDraft.key, JSON.stringify(saved));
-      } else savedDraft.storage.removeItem(savedDraft.key);
-    } catch {
-      // The in-memory delivery UI remains usable if storage is full or blocked.
-    }
-  }
-  persistDraft();
-  watch([draft, draftAttachments, () => delivery.state.messages], persistDraft, { deep: true, flush: "sync" });
-  function settleDraftRetry(retry = draftRetry.value) {
-    if (!retry || retry.messageId !== draftRetry.value?.messageId) return false;
-    draft.value = draftAfterAcceptedSubmission(draft.value, retry.draftSnapshot);
-    draftRetry.value = null;
-    return true;
-  }
-  watch(turns, value => {
-    const retry = draftRetry.value;
-    if (retry && !unmatchedOptimisticMessages(value, [retry.optimistic], { receiptsOnly: true }).length) settleDraftRetry(retry);
-  });
-  const questionConfiguration = computed(() => {
-    for (const reader of readers.values()) {
-      const option = toValue(reader.questions);
-      if (toValue(reader.active) !== false && isQuestionConfiguration(option)) return option;
-    }
-    return null;
-  });
-  // The form belongs to the conversation, including while only voice retains it.
-  // Reader options control presentation; they do not retire its answer state.
-  const questions = useAssistantQuestions({
-    message: () => available.value ? latestAssistantMessageAwaitingUserReply(turns.value) : "",
-    extraChoice: () => questionConfiguration.value?.extraChoice || null
-  });
-  let subscription;
-  let goalRead = null;
-  let goalSegment = null;
-  let goalReadController = null;
-  let goalReadQueued = false;
-  let goalCommandSequence = 0;
-  const readsGoals = computed(() => goalReadEnabled || snapshot.value?.capabilities?.goals === true ||
-    [...readers.values()].some(reader => toValue(reader.goal) === true));
-  watch(readsGoals, enabled => { if (enabled) void refreshGoal(); });
-
-  function receiveState(state, { initial = false, canonical = false } = {}) {
-    if (!current.value) return;
-    const previous = snapshot.value;
-    const goalChanged = JSON.stringify([previous?.goal, previous?.capabilities?.goals,
-      previous?.capabilities?.goalCommands, previous?.capabilities?.goalBudgets]) !==
-      JSON.stringify([state.goal, state.capabilities?.goals, state.capabilities?.goalCommands, state.capabilities?.goalBudgets]);
-    if (canonical) {
-      historyRevision += 1;
-      olderPages.value = initial ? [] : state[refreshedHistoryPages] || [];
-      loadMoreError.value = "";
-    } else if (olderPages.value.length) {
-      // Transcript patches may evict the head of the bounded live page before
-      // its canonical read completes. Retain saved rows, never display overlays.
-      const first = state.conversationLog?.[0]?.turnId;
-      const evicted = first ? (previous?.conversationLog || []).filter(turn => compareTurnIds(turn.turnId, first) < 0) : [];
-      if (evicted.length) {
-        historyRevision += 1;
-        olderPages.value = [...olderPages.value, normalizeConversationLogPage({ conversationLog: evicted })];
-      }
-    }
-    snapshot.value = state;
-    loading.value = false;
-    error.value = "";
-    accessDenied.value = false;
-    delivery.reconcile(state.turns);
-    if (state.status === "unconfirmed" && state.pendingRequest) delivery.restoreUncertain(state.pendingRequest, state.turns);
-    retryCancels();
-    if (state.segmentId !== goalSegment) {
-      // Keep the open goal menu while its first native identity arrives. The
-      // pending read disables commands until it supplies the new exact target.
-      goalTargetCurrent.value = false;
-      goalLoadError.value = "";
-      goalReadController?.abort();
-    }
-    if (readsGoals.value && (initial || goalChanged || state.segmentId !== goalSegment)) void refreshGoal();
-    goalSegment = state.segmentId;
-  }
-  function receiveError(failure) {
-    if (!current.value) return;
-    loading.value = false;
-    error.value = failureMessage(failure);
-    accessDenied.value = isAccessDenied(failure);
-    if (accessDenied.value) {
-      deniedHistoryRevision += 1;
-      clearConversationView();
-      goalTargetCurrent.value = false;
-    }
-  }
-  // Shared by access denial and actor change. Access denial keeps the open goal
-  // command, queued goal read and question form; an actor change clears them.
-  function clearConversationView() {
-    delivery.reset();
-    snapshot.value = null;
-    historyRevision += 1;
-    olderPages.value = [];
-    draft.value = "";
-    draftMessageId.value = "";
-    draftAttachments.value = [];
-    draftRetry.value = null;
-    goalError.value = "";
-    goalView.value = null;
-    goalLoadError.value = "";
-    goalReadController?.abort();
-  }
-  function receiveEvent(event) {
-    if (event.type === "transcript" && olderPages.value.some(page =>
-      page.conversationLog.some(turn => turn.turnId === event.patch?.turn?.turnId))) {
-      historyRevision += 1;
-      olderPages.value = patchLoadedHistoryPages(olderPages.value, event.patch);
-    }
-    if (event.type === "goal") void refreshGoal();
-    for (const [token, reader] of [...readers]) {
-      if (!current.value) return;
-      if (!readers.has(token) || toValue(reader.active) === false || typeof reader.onEvent !== "function") continue;
-      // Presentation hooks own their errors; one reader must not interrupt
-      // another reader or the subscription's canonical state and delivery.
-      try { void Promise.resolve(reader.onEvent(event)).catch(() => {}); }
-      catch {}
-    }
-  }
-  async function readLoadedHistory({ current: subscriptionCurrent }) {
-    const denial = deniedHistoryRevision;
-    const valid = () => {
-      if (denial !== deniedHistoryRevision) {
-        throw Object.assign(new Error("Access denied."), { status: 403, messageCode: "assistant.runtime.accessDenied" });
-      }
-      return current.value && listening.value && subscriptionCurrent();
-    };
-    // A concurrent Load older operation extends the desired span. Retry one
-    // refresh in this same read, rather than dropping that newly loaded page.
-    while (valid()) {
-      const revision = historyRevision;
-      const oldestTurn = olderPages.value[0]?.conversationLog?.[0];
-      const oldest = oldestTurn?.turnId;
-      const oldestCursor = olderPages.value[0]?.pagination?.nextBeforeTurnId || oldest;
-      const latest = await api.readConversation(identity.conversationId);
-      if (!valid()) return latest;
-      const pages = [];
-      let page = normalizeConversationLogPage(latest);
-      const cursors = new Set();
-      while (oldest && page.pagination.hasMoreBefore) {
-        const cursor = page.pagination.nextBeforeTurnId || page.pagination.oldestTurnId;
-        const reachedFullOldestTurn = page.pagination.oldestTurnId === oldest && !page.conversationLog[0]?.paginationPartial;
-        const passedOldestTurn = compareTurnIds(page.pagination.oldestTurnId, oldest) < 0;
-        if (cursor && (cursor === oldestCursor || passedOldestTurn || reachedFullOldestTurn)) break;
-        if (!cursor || cursors.has(cursor)) {
-          throw Object.assign(new Error("Older conversation history could not be refreshed. Reload chat to try again."), {
-            messageCode: "assistant.runtime.history.refreshFailed"
-          });
-        }
-        cursors.add(cursor);
-        page = normalizeConversationLogPage(await api.readConversation(identity.conversationId, {
-          beforeTurnId: cursor, limit: latest.pagination.limit
-        }));
-        if (!valid()) return latest;
-        // A removed oldest row can make this page reach farther back than the
-        // reader loaded. Keep the original visible boundary and page metadata.
-        const saved = page.conversationLog.filter(turn => compareTurnIds(turn.turnId, oldest) >= 0).map(turn => {
-          if (turn.turnId !== oldest || !oldestTurn.paginationPartial) return turn;
-          const roles = ["system", "user", "assistant"];
-          const excluded = roles.slice(0, roles.findIndex(role => oldestTurn[role]));
-          return { ...turn, paginationPartial: true,
-            ...Object.fromEntries(excluded.map(role => [role, null])),
-            messages: turn.messages?.filter(message => !excluded.includes(message.role)) };
-        });
-        pages.unshift(normalizeConversationLogPage({ ...page, conversationLog: saved, pagination: {
-          ...page.pagination, count: saved.length, oldestTurnId: saved[0]?.turnId || "",
-          hasMoreBefore: page.pagination.hasMoreBefore || saved.length < page.conversationLog.length
-        } }));
-      }
-      if (revision !== historyRevision) continue;
-      return { ...latest, [refreshedHistoryPages]: pages.filter(page => page.conversationLog.length) };
-    }
-    return null;
-  }
-  watch(listening, enabled => {
-    subscription?.();
-    subscription = null;
-    historyRevision += 1;
-    if (!enabled) return;
-    loading.value = true;
-    subscription = subscribeAssistantConversation({ socket, conversationId: identity.conversationId,
-      targetSurfaceId: identity.targetSurfaceId, hostSurfaceId: identity.hostSurfaceId,
-      ...(identity.workspaceSlug ? { workspaceSlug: identity.workspaceSlug } : {}),
-      read: readLoadedHistory, onState: receiveState,
-      onError: receiveError, onEvent: receiveEvent
-    });
-  }, { immediate: true, flush: "sync" });
-  watch(current, value => {
-    if (value) return;
-    for (const pending of pendingMessages.values()) if (!pending.dispatched) pending.controller.abort();
-    clearConversationView();
-    goalAction.value = "";
-    goalSettling.value = false;
-    goalReadQueued = false;
-    questions.reset();
-  }, { flush: "sync" });
-  onScopeDispose(() => {
-    disposed.value = true;
-    subscription?.();
-    stopPlacement();
-    for (const pending of pendingMessages.values()) pending.controller.abort();
-    pendingMessages.clear();
-    for (const check of deliveryChecks.values()) check.abort();
-    goalReadController?.abort();
-    delivery.reset();
-  });
-
-  async function send(payload, { messageId = crypto.randomUUID(), onAccepted } = {}) {
-    const retry = delivery.find(messageId);
-    if (retry?.status === "failed" && retry.payload.goalRequest) return changeGoal(retry.payload.goalRequest.action, {}, { messageId });
-    if (!canSubmit.value) return false;
-    if (retry && retry.status !== "failed") return false;
-    if (delivery.state.messages.some(message => message.status === "uncertain" &&
-        text(message.payload?.message) === text((retry?.payload || payload).message))) return false;
-    const request = retry?.payload?.request || payload.request;
-    const requestedSteering = request?.steer === true;
-    if (requestedSteering && snapshot.value.capabilities?.steering !== true) return false;
-    const steering = requestedSteering || steerable.value;
-    const policy = workingPolicy.value;
-    const deferred = policy.deferWhileWorking && !retry && !steering;
-    // An application queue can admit ordinary messages without native steering
-    // or waiting for ready. It still owns admission, permissions and receipts.
-    const appAdmission = policy.admitWhileWorking && !steering;
-    if ((snapshot.value.status === "working" || delivery.state.sending) && !steering && !deferred && !appAdmission) return false;
-    if ((retry?.payload || payload).displayAttachments?.length && snapshot.value.capabilities?.attachments !== true) return false;
-    const captured = retry?.payload?.request ? retry.payload : { ...(retry?.payload || payload), request: payload.request ||
-      authoredRequest(payload, {
-        attachmentIds: payload.displayAttachments?.map(file => file.attachmentId),
-        steer: steerable.value
-      }) };
-    return submitRequest(captured, { messageId, onAccepted, queue: queueWhileSending !== false && (steering || deferred || appAdmission), deferred, appAdmission });
-  }
-  function submitPrepared(payload, { messageId = crypto.randomUUID(), onAccepted, prepare } = {}) {
-    if (typeof prepare !== "function") throw new TypeError("Prepared submission requires application preparation.");
-    const retry = delivery.find(messageId);
-    const captured = retry?.payload || payload;
-    if (!captured?.request || typeof captured.request !== "object" || Array.isArray(captured.request) || captured.goalRequest) {
-      throw new TypeError("Prepared submission requires an authored conversation request.");
-    }
-    if (!current.value || accessDenied.value || retry && retry.status !== "failed") return Promise.resolve(false);
-    return submitRequest(captured, { messageId, onAccepted, prepare, queue: queueWhileSending === true });
-  }
-  async function submitDraft(payload, { messageId = crypto.randomUUID(), submissionKind = steerable.value ? "steer" : "send",
-    questionText = "", onAccepted } = {}) {
-    if (!canSubmit.value) return false;
-    const retry = draftRetryMatches.value ? draftRetry.value : null;
-    if (!retry) draftRetry.value = null;
-    const draftSnapshot = retry?.draftSnapshot || draft.value;
-    const captured = retry?.payload?.request ? retry.payload : payload;
-    const kind = retry?.submissionKind || submissionKind;
-    const questionTextSnapshot = retry?.questionTextSnapshot || questionText;
-    const id = retry?.messageId || messageId;
-    const sequence = ++draftSubmissionSequence;
-    draftRetry.value = null;
-    draft.value = retry ? draftAfterAcceptedSubmission(draft.value, draftSnapshot) : "";
-    const result = await send(captured, { messageId: id, onAccepted });
-    if (!current.value) return false;
-    const accepted = result !== false && result?.ok !== false;
-    if (!accepted && kind === "steer" && sequence === draftSubmissionSequence && !draft.value) {
-      draft.value = draftSnapshot;
-      const optimistic = delivery.find(id) || {
-        createdAtMs: Date.now(), id, text: String(captured.displayMessage || captured.message || "").trim()
-      };
-      draftRetry.value = { draftSnapshot, messageId: id, optimistic, payload: optimistic.payload || captured,
-        questionTextSnapshot, submissionKind: kind };
-      if (!unmatchedOptimisticMessages(turns.value, [optimistic], { receiptsOnly: true }).length) settleDraftRetry(draftRetry.value);
-    }
-    return result;
-  }
-  // A deferred message waits only while the working turn cannot take it. It
-  // steers as soon as that turn accepts steering, or sends once it is ready.
-  // Its view may be hidden. While loading or after a failed read there is no
-  // current state to admit it against, so the unsent message keeps waiting;
-  // only Stop, Cancel, retirement or lost access end it.
-  function waitForAdmission({ controller }) {
-    return new Promise(resolve => {
-      let stop;
-      const finish = admission => {
-        stop?.();
-        controller.signal.removeEventListener("abort", check);
-        resolve(admission);
-      };
-      const check = () => {
-        if (controller.signal.aborted || accessDenied.value) finish(false);
-        else if (!admissible.value) return;
-        else if (snapshot.value.status === "ready") finish("send");
-        else if (steerable.value) finish("steer");
-        else if (snapshot.value.status !== "working") finish(false);
-      };
-      stop = watch([admissible, snapshot, steerable], check, { flush: "sync" });
-      controller.signal.addEventListener("abort", check, { once: true });
-      check();
-    });
-  }
-
-  async function submitRequest(payload, { messageId, onAccepted, queue = false, prepare, deferred = false, appAdmission = false }) {
-    if (pendingMessages.has(messageId)) return false;
-    // Register before the original serial tail so Stop/retirement also reaches
-    // a local follower whose deliver callback has not started yet.
-    const pending = { controller: new AbortController(), started: false, dispatched: false };
-    const { controller } = pending;
-    pendingMessages.set(messageId, pending);
-    if (deferred) deferredWaits.value += 1;
-    try {
-      const result = await delivery.send(payload, {
-        // A goal command settles on the server's goal answer, not on its
-        // transcript turn, which can arrive while its goal is still changing.
-        messageId, queue, isCurrent: () => current.value, onAccepted,
-        receiptTurns: payload.goalRequest ? null : turns, uncertainOnError: true,
-        async deliver(submission) {
-          pending.started = true;
-          let admission = null;
-          try {
-            if (controller.signal.aborted || appAdmission && (!available.value || stopping.value || !workingPolicy.value.admitWhileWorking)) return false;
-            if (deferred) {
-              // Refresh through the same subscription after a queued predecessor;
-              // its receipt may have arrived before the working snapshot.
-              await subscription?.reload();
-              if (snapshot.value?.status === "working" && !steerable.value) {
-                delivery.wait(messageId, t("jskit.assistant.runtime.delivery.waitingForStep"));
-              }
-              admission = await waitForAdmission(pending);
-              delivery.wait(messageId, "");
-              if (!admission || controller.signal.aborted || !admissible.value ||
-                  snapshot.value.status !== (admission === "steer" ? "working" : "ready")) return false;
-              if (submission.displayAttachments?.length && snapshot.value.capabilities?.attachments !== true) {
-                return { ok: false, error: t("jskit.assistant.runtime.attachments.noLongerAccepted") };
-              }
-            }
-            let request = prepare ? await prepare(submission, { signal: controller.signal }) : submission.request;
-            if (admission === "steer") {
-              request = { ...request, steer: true };
-              const retained = delivery.find(messageId);
-              if (retained) retained.payload.request = request;
-            }
-            if (prepare) {
-              if (!current.value || accessDenied.value || controller.signal.aborted || request === false) return false;
-              if (!request || typeof request !== "object" || Array.isArray(request)) {
-                throw new TypeError("Application preparation must return its conversation request or false.");
-              }
-            }
-            pending.dispatched = true;
-            for (let attempt = 0; ; attempt += 1) {
-              try {
-                return await (submission.goalRequest
-                  ? api.updateConversationGoal(identity.conversationId, { ...submission.goalRequest, messageId }, { signal: controller.signal })
-                  : api.sendConversationMessage(identity.conversationId, { ...request, messageId }, { signal: controller.signal }));
-              } catch (failure) {
-                // The server identifies this exact pre-admission race. Keep the
-                // same queued words/attachments/identity and try ordinary Send
-                // once. A timeout, generic rejection or uncertain send never
-                // grants another dispatch.
-                if (attempt !== 0 || submission.goalRequest || request.steer !== true ||
-                    failure.code !== "conversation_steer_turn_finished" || failure.status !== 409 ||
-                    failure.details?.delivery && (failure.details.delivery.status !== "not-sent" ||
-                      failure.details.delivery.messageId !== messageId)) throw failure;
-                const retained = delivery.find(messageId);
-                if (retained?.status === "accepted" || turns.value.some(turn => turn.user?.messageId === messageId && turn.user.receipt !== false)) return { ok: true };
-                if (!current.value || accessDenied.value || controller.signal.aborted || !retained || retained.status !== "pending") return false;
-                const { steer: _finishedTurn, ...nextRequest } = request;
-                request = nextRequest;
-                // Retain the new dispatch intent if Send itself fails; Retry
-                // must not loop back through the obsolete steering request.
-                retained.payload.request = nextRequest;
-                retained.payload.submissionKind = "send";
-              }
-            }
-          }
-          catch (failure) {
-            if (controller.signal.aborted) return false;
-            if (prepare && !pending.dispatched) return { ok: false, error: failureMessage(failure),
-              ...(failure.code ? { code: failure.code } : {}) };
-            const rejection = failure.details?.delivery;
-            const notSent = Number.isInteger(failure.status) && failure.status >= 400 && failure.status < 500 &&
-              rejection && !Array.isArray(rejection) && rejection.status === "not-sent" && rejection.messageId === messageId;
-            // A definite rejection keeps its code so the application can offer
-            // the matching recovery, such as freeing assistant context.
-            if (notSent || SEND_REJECTIONS.has(failure.code) || failure.code === "conversation_steer_turn_finished" && failure.status === 409 && !failure.details?.delivery) return { ok: false, error: failureMessage(failure),
-              ...(failure.code ? { code: failure.code } : {}) };
-            throw failure;
-          } finally {
-            if (pendingMessages.get(messageId) === pending) pendingMessages.delete(messageId);
-          }
-        }
-      });
-      return result;
-    } catch (failure) {
-      // Delivery keeps its exact authored payload until an explicit receipt check.
-      if (prepare) return { ok: false, status: "uncertain", error: failureMessage(failure),
-        ...(failure.code ? { code: failure.code } : {}) };
-      return false;
-    } finally {
-      if (!pending.started && pendingMessages.get(messageId) === pending) pendingMessages.delete(messageId);
-      if (deferred) deferredWaits.value -= 1;
-      if (current.value) subscription?.reload();
-    }
-  }
-  // Cancel means cancel, and the server decides. Cancel ends the message's
-  // unsent request and running delivery check, then asks the server, which
-  // always records the cancel. The message stays, shown as cancelling, until
-  // the server agrees; when the server cannot be reached it stays with Cancel
-  // again, and the next snapshot after reconnecting retries it.
-  async function cancelMessage(messageId) {
-    pendingMessages.get(messageId)?.controller.abort();
-    deliveryChecks.get(messageId)?.abort();
-    if (!available.value || !delivery.cancel(messageId)) return false;
-    try {
-      const result = await api.cancelConversationDelivery(identity.conversationId, messageId);
-      if (result?.ok === false) throw Object.assign(new Error(resultError(result)), { status: 409 });
-      if (!current.value) return false;
-      delivery.remove(messageId);
-      subscription?.reload();
-      return true;
-    } catch (failure) {
-      // The server's own refusal names itself; anything else did not reach it.
-      if (current.value) delivery.cancelFailed(messageId, Number.isInteger(failure?.status) && failure.status > 0 ? failureMessage(failure) : "");
-      return false;
-    }
-  }
-  function retryCancels() {
-    for (const message of delivery.state.messages) {
-      if (message.cancelError && !message.cancelling) void cancelMessage(message.id);
-    }
-  }
-
-  // The original history control keeps older pages separate from the live page.
-  async function loadMore({ complete } = {}) {
-    const finish = (result) => {
-      if (typeof complete === "function") complete(result);
-    };
-    const pagination = normalizeConversationLogPagination(oldestLoadedPage.value?.pagination);
-    const beforeTurnId = pagination.nextBeforeTurnId || pagination.oldestTurnId ||
-      String(turns.value[0]?.turnId || "").trim();
-    if (!available.value || !hasMoreBefore.value || loadingMore.value || !beforeTurnId) {
-      finish({ changed: false, loaded: false });
-      return false;
-    }
-    const revision = historyRevision;
-    loadingMore.value = true;
-    loadMoreError.value = "";
-    try {
-      const page = await api.readConversation(identity.conversationId, {
-        beforeTurnId, limit: snapshot.value.pagination.limit
-      });
-      if (!available.value || revision !== historyRevision) {
-        finish({ changed: false, loaded: false });
-        return false;
-      }
-      const previousOldestTurnId = String(turns.value[0]?.turnId || "").trim();
-      const previousMessageCount = turns.value.reduce((count, turn) => count + (turn.messages?.length || 0), 0);
-      historyRevision += 1;
-      olderPages.value = [normalizeConversationLogPage(page), ...olderPages.value];
-      const nextOldestTurnId = String(turns.value[0]?.turnId || "").trim();
-      const nextMessageCount = turns.value.reduce((count, turn) => count + (turn.messages?.length || 0), 0);
-      const changed = Boolean(nextOldestTurnId && (nextOldestTurnId !== previousOldestTurnId ||
-        nextMessageCount !== previousMessageCount));
-      finish({ changed, loaded: true });
-      return true;
-    } catch (failure) {
-      if (current.value) {
-        loadMoreError.value = String(failureMessage(failure) || failure || t("jskit.assistant.runtime.history.loadFailed"));
-        if (isAccessDenied(failure)) receiveError(failure);
-      }
-      finish({ changed: false, loaded: false });
-      return false;
-    } finally { loadingMore.value = false; }
-  }
-
-  function refreshGoal() {
-    if (!active.value || !snapshot.value || !readsGoals.value || accessDenied.value) return Promise.resolve(false);
-    if (goalRead) { goalReadQueued = true; return goalRead; }
-    const segment = snapshot.value.segmentId;
-    const capabilities = snapshot.value.capabilities;
-    const controller = new AbortController();
-    goalReadController = controller;
-    const job = Promise.resolve().then(() => api.readConversationGoal(identity.conversationId, {
-      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(30_000)])
-    })).then(result => {
-      if (!current.value || controller.signal.aborted || snapshot.value?.segmentId !== segment) return false;
-      // Hosts may supply a same-read target and product view. Standalone reads
-      // retain their existing goal/null contract and captured conversation target.
-      goalView.value = result && Object.hasOwn(result, "target") ? result : {
-        status: "available", goal: result, target: { segmentId: segment, capabilities }
-      };
-      // A background read does not invalidate this observation. Its supplied
-      // goal target may intentionally differ from the visible chat segment.
-      goalTargetCurrent.value = true;
-      goalLoadError.value = "";
-      return true;
-    }).catch(failure => {
-      if (current.value && !controller.signal.aborted && snapshot.value?.segmentId === segment) {
-        goalLoadError.value = failureMessage(failure, t("jskit.assistant.runtime.goal.unavailable"));
-      }
-      return false;
-    }).finally(() => {
-      if (goalRead !== job) return;
-      goalRead = null;
-      goalReadController = null;
-      if (goalReadQueued) {
-        goalReadQueued = false;
-        void refreshGoal();
-      }
-    });
-    goalRead = job;
-    return job;
-  }
-  async function changeGoal(action, input = {}, { messageId = crypto.randomUUID() } = {}) {
-    const view = goalView.value;
-    const target = view?.target;
-    const command = target?.capabilities?.goalCommands?.[action];
-    // Pause and Cancel never depend on chat delivery: each is pinned to the goal
-    // it stops and goes straight to the goal operation, even while a message is
-    // sending or its receipt is unknown. Set and Resume wait for those.
-    const stopping = action === "pause" || action === "cancel";
-    if (!available.value || view?.status !== "available" || goalLoadError.value ||
-        goalAction.value && !(stopping && goalSettling.value) || !goalTargetCurrent.value ||
-        !["message", "control"].includes(command?.delivery) ||
-        !stopping && delivery.state.messages.some(message => message.status === "uncertain")) return false;
-    if (input.tokenBudget != null && !target.capabilities.goalBudgets) {
-      goalError.value = t("jskit.assistant.runtime.goal.budgetsUnsupported");
-      return false;
-    }
-    const retry = stopping ? null : delivery.find(messageId);
-    if (retry && retry.status !== "failed") return false;
-    const request = retry?.payload.goalRequest || { action, expectedSegmentId: target.segmentId,
-      expectedGoalId: view.goal?.id || null,
-      ...(action === "set" ? { objective: String(input.objective || "").trim(),
-        ...(input.tokenBudget == null ? {} : { tokenBudget: input.tokenBudget }) } : {}) };
-    const before = view.goal ? { id: view.goal.id, status: view.goal.status } : null;
-    const sequence = ++goalCommandSequence;
-    let accepted = false;
-    goalAction.value = action;
-    goalSettling.value = false;
-    goalError.value = "";
-    try {
-      let result;
-      if (retry || !stopping && command.delivery === "message") {
-        result = await submitRequest(retry?.payload || {
-          message: action === "set" ? request.objective
-            : t(action === "resume" ? "jskit.assistant.runtime.goal.resumeMessage" : "jskit.assistant.runtime.goal.cancelMessage"),
-          goalRequest: request
-        }, { messageId });
-        if (result === false || result?.ok === false) {
-          if (current.value) {
-            goalError.value = result?.error || delivery.find(messageId)?.error || t("jskit.assistant.runtime.goal.changeFailed");
-          }
-          return false;
-        }
-      } else {
-        result = await api.updateConversationGoal(identity.conversationId,
-          command.delivery === "message" ? { ...request, messageId } : request);
-        if (result?.ok === false) throw new Error(resultError(result) || t("jskit.assistant.runtime.goal.changeFailed"));
-      }
-      accepted = true;
-      return result;
-    } catch (failure) {
-      if (current.value) {
-        goalError.value = failureMessage(failure);
-        if (isAccessDenied(failure)) receiveError(failure);
-      }
-      return false;
-    } finally {
-      // The command stays Starting, Resuming, Pausing or Cancelling until a goal
-      // read made after the server's answer arrives; until then the control
-      // shows no stale goal or enabled form. An accepted Set or Resume also
-      // waits while its goal waits behind the running turn.
-      if (current.value && goalCommandSequence === sequence) {
-        await goalRead;
-        await refreshGoal();
-        if (accepted && !stopping) await awaitGoalChange(before, sequence);
-        subscription?.reload();
-      }
-      if (goalCommandSequence === sequence) {
-        goalAction.value = "";
-        goalSettling.value = false;
-      }
-    }
-  }
-  // An accepted Set or Resume changes the server's goal, now or once the turn
-  // it waits behind has ended. When the conversation stops working without
-  // that change, a fresh read decides and the reason is shown. A later Pause
-  // or Cancel ends the wait.
-  const goalChangedFrom = before => {
-    const goal = goalView.value?.goal;
-    return Boolean(goal) && (goal.id !== before?.id || goal.status !== before?.status);
-  };
-  async function awaitGoalChange(before, sequence) {
-    const settled = () => !current.value || goalCommandSequence !== sequence || goalChangedFrom(before);
-    await subscription?.reload();
-    if (!settled()) goalSettling.value = true;
-    while (!settled() && snapshot.value?.status === "working") {
-      await new Promise(resolve => {
-        const stop = watch([goalView, () => snapshot.value?.status, current, goalAction], () => { stop(); resolve(); });
-      });
-    }
-    if (settled()) return;
-    await goalRead;
-    await refreshGoal();
-    if (!settled()) goalError.value = t("jskit.assistant.runtime.goal.notStarted");
-  }
-  const goalState = computed(() => {
-    const view = goalView.value;
-    if (!readsGoals.value) return null;
-    const capabilities = view?.target?.capabilities || {};
-    const commands = capabilities.goalCommands || {};
-    const loading = !goalTargetCurrent.value && !goalLoadError.value;
-    const goalAvailable = goalTargetCurrent.value && view?.status === "available" && !goalLoadError.value;
-    const stopPending = Boolean(goalAction.value) && !goalSettling.value || !goalAvailable || !available.value;
-    return {
-      enabled: active.value && Boolean(loading || (view?.status === "available" && !goalLoadError.value) || goalError.value || goalLoadError.value),
-      loading,
-      available: Boolean(goalAvailable),
-      action: goalAction.value,
-      working: snapshot.value?.status === "working",
-      tokenBudgetSupported: capabilities.goalBudgets === true,
-      goal: goalAvailable && view?.goal ? { ...view.goal, elapsedSeconds: view.goal.timeUsedSeconds,
-        sampledAt: Date.parse(view.goal.updatedAt) } : null,
-      pending: Boolean(goalAction.value) || stopPending || delivery.state.sending ||
-        delivery.state.messages.some(message => message.status === "uncertain"),
-      stopPending,
-      error: goalError.value || goalLoadError.value || view?.error || "",
-      pauseInterruptsTurn: commands.pause?.interruptsTurn === true,
-      cancelInterruptsTurn: commands.cancel?.interruptsTurn === true,
-      ...Object.fromEntries(["set", "resume", "pause", "cancel"].filter(action =>
-        ["message", "control"].includes(commands[action]?.delivery)).map(action => [action, input => changeGoal(action, input)]))
-    };
-  });
-  async function cancel() {
-    if (!editable.value || stopping.value) return false;
-    stopping.value = true;
-    for (const pending of pendingMessages.values()) {
-      if (!pending.dispatched) pending.controller.abort();
-    }
-    try { return await api.cancelConversation(identity.conversationId); }
-    catch (failure) { receiveError(failure); return false; }
-    finally { stopping.value = false; if (current.value) subscription?.reload(); }
-  }
-  async function inspectDelivery(messageId) {
-    if (!available.value) return false;
-    const message = delivery.find(messageId);
-    if (message?.checking) return false;
-    const check = new AbortController();
-    deliveryChecks.set(messageId, check);
-    if (message) message.checking = true;
-    try {
-      const receipt = await api.inspectConversationDelivery(identity.conversationId, messageId, { signal: check.signal });
-      if (!current.value || check.signal.aborted) return false;
-      if (receipt.status === "accepted") {
-        delivery.accept(messageId);
-        if (receipt.messageId === messageId && message?.payload.goalRequest) goalError.value = "";
-      }
-      // The server recorded this message as cancelled, perhaps from another tab.
-      else if (receipt.status === "cancelled" && receipt.messageId === messageId) delivery.remove(messageId);
-      else if (receipt.status === "not-sent" && receipt.messageId === messageId) delivery.rejectUnsent(messageId, resultError(receipt));
-      else if (receipt.status === "unknown" && message?.status === "uncertain") {
-        message.error = t("jskit.assistant.runtime.delivery.stillUnknown");
-      }
-      subscription?.reload();
-      return receipt;
-    } catch (failure) {
-      if (check.signal.aborted) return false;
-      if (current.value && message?.status === "uncertain") message.error = failureMessage(failure, t("jskit.assistant.runtime.delivery.checkFailed"));
-      receiveError(failure);
-      return false;
-    }
-    finally {
-      if (deliveryChecks.get(messageId) === check) deliveryChecks.delete(messageId);
-      if (message) message.checking = false;
-    }
-  }
-
-  const runtime = { identity, current, active, editable, available, canSubmit, steerable, queueWhileSending: queueing,
-    snapshot, draft, draftMessageId, draftAttachments, draftRetry, draftRetryMatches, settleDraftRetry,
-    error, accessDenied, loading, stopping, delivery, turns,
-    hasMoreBefore, loadingMore, loadMoreError, loadMore,
-    send, submitPrepared, submitDraft, cancel, cancelMessage, inspectDelivery, changeGoal, refreshGoal, goalState, goalView, goalLoadError, questions,
-    reload(options) { const job = subscription?.reload(options); void refreshGoal(); return job; } };
-  runtime.application = application ? application(runtime) : null;
-  return runtime;
-}
-
-// Original bounded-command history belongs to this mounted view. It has no
-// canonical delivery receipt, retained server conversation or live subscription.
-function useBoundedTask({ command, endpoint, scope, input, result, onResult }, { active, data, presentation }) {
+/**
+ * Original bounded-command history belongs to this mounted view. It has no canonical delivery receipt, retained server
+ * conversation or live subscription.
+ * @param {BoundedTask} boundedTask
+ * @param {{ active: import("vue").MaybeRefOrGetter<boolean>, data: import("vue").MaybeRefOrGetter<unknown>,
+ *   presentation: import("vue").MaybeRefOrGetter<Record<string, any> | undefined> }} view
+ */
+function useBoundedTask({ command, endpoint, scope, input, result, onResult = ignoreResult }, { active, data, presentation }) {
+  // readable-check: allow method-probe - input validation: an application hands the binding its bounded task
   if (typeof command?.run !== "function" || !("isRunning" in command) ||
+      // readable-check: allow method-probe - input validation: an application hands the binding its bounded task
       typeof input !== "function" || typeof result !== "function") {
     throw new TypeError("boundedTask requires its command and input/result mappings.");
   }
   if (endpoint === undefined || scope === undefined) throw new TypeError("boundedTask requires its endpoint and application scope.");
-  if (onResult !== undefined && typeof onResult !== "function") throw new TypeError("boundedTask.onResult must be a function.");
+  // readable-check: allow method-probe - input validation: an application hands the binding its bounded task
+  if (typeof onResult !== "function") throw new TypeError("boundedTask.onResult must be a function.");
   const draft = ref("");
   const messages = ref([]);
   const busy = computed(() => toValue(command.isRunning) === true);
@@ -894,12 +172,15 @@ function useBoundedTask({ command, endpoint, scope, input, result, onResult }, {
     const response = await command.run({ path: toValue(endpoint), payload: input(messages.value) });
     if (!response || disposed || toValue(scope) !== capturedScope) return;
     messages.value.push(result(response));
-    onResult?.(response, { message, scope: capturedScope });
+    onResult(response, { message, scope: capturedScope });
   }
 
-  const runtime = shallowRef(Object.freeze({ draft, messages, submit,
+  const runtime = shallowRef({
+    draft,
+    messages,
+    submit,
     clearHistory() { messages.value = []; }
-  }));
+  });
   const adapter = computed(() => {
     const display = toValue(presentation) || {};
     return {
@@ -920,27 +201,45 @@ function useBoundedTask({ command, endpoint, scope, input, result, onResult }, {
   return { runtime, adapter, error: computed(() => "") };
 }
 
-function conversationBindingSetup({ socket, boundedTask = null } = {}) {
+/**
+ * What a binding takes from the application's setup: the shell's route, placement and socket, and the application's
+ * conversation defaults.
+ * @param {{ socket?: import("../types.js").RealtimeSocket, boundedTask?: BoundedTask | null }} options
+ * @returns {ConversationBindingSetup}
+ */
+function conversationBindingSetup({ socket, boundedTask }) {
   const app = getCurrentInstance()?.appContext.app;
   if (!app) throw new Error("Conversation binding must be acquired from the application setup.");
-  if (boundedTask !== null) return { app };
+  if (boundedTask != null) return { app, defaults: NO_CONVERSATION_DEFAULTS };
   const routeContext = useSurfaceRouteContext();
-  const placement = inject(SHELL_WEB_PLACEMENT_RUNTIME_KEY, null);
-  if (typeof placement?.getContext !== "function" || typeof placement?.subscribe !== "function") {
-    throw new Error("Conversation binding requires the application's placement runtime.");
-  }
-  return { app, routeContext, placement, defaults: inject(conversationDefaultsKey, {}), workspaceScope: useWorkspaceWebScopeSupport(),
-    socket: socket || useRealtimeSocket({ required: true }), config: getClientAppConfig() };
+  /** @type {import("../types.js").PlacementRuntime} */
+  const placement = inject(SHELL_WEB_PLACEMENT_RUNTIME_KEY);
+  // readable-check: allow required-collaborators - safety invariant: a binding outside the shell would otherwise fail only once a conversation is targeted
+  if (!placement) throw new Error("Conversation binding requires the application's placement runtime.");
+  return {
+    app,
+    defaults: inject(conversationDefaultsKey, NO_CONVERSATION_DEFAULTS),
+    routeContext,
+    placement,
+    workspaceScope: useWorkspaceWebScopeSupport(),
+    socket: socket || useRealtimeSocket({ required: true }),
+    config: getClientAppConfig()
+  };
 }
 
+/**
+ * One view's binding to a retained conversation, or to a bounded task.
+ * @param {ConversationBindingOptions} options
+ * @param {ConversationBindingSetup} [setup] The factory's setup, captured once in the application's setup.
+ */
 function createConversationBinding({ conversationId, endpoint = "", surfaceId = "", hostSurfaceId = "", workspaceSlug,
-  actorKey: suppliedActorKey, api: suppliedApi = null, socket: suppliedSocket = null, active = true, onEvent,
+  actorKey: suppliedActorKey, api: suppliedApi, socket: suppliedSocket, active = true, onEvent,
   clearDraftOn: suppliedClearDraftOn, queueWhileSending, deferWhileWorking = false, admitWhileWorking = false, draftWhileLoading = false,
-  draftStorage = null, application = null, boundedTask = null,
-  data, attachments = null, suggestions = null, models = null, questions = null, goal = null, presentation = {} } = {}, setup) {
-  const { app, routeContext, placement, workspaceScope, socket: setupSocket, config, defaults = {} } = setup ||
+  draftStorage, application, boundedTask,
+  data, attachments, suggestions, models, questions, goal, presentation }, setup) {
+  const { app, routeContext, placement, workspaceScope, socket: setupSocket, config, defaults } = setup ||
     conversationBindingSetup({ socket: suppliedSocket, boundedTask });
-  const clearDraftOn = suppliedClearDraftOn ?? defaults.clearDraftOn ?? "dispatch";
+  const clearDraftOn = suppliedClearDraftOn ?? defaults.clearDraftOn;
   const actorKey = computed(() => {
     const actor = toValue(suppliedActorKey);
     return actor === undefined ? toValue(defaults.actorKey) : actor;
@@ -951,8 +250,9 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
   if (!["boolean", "function"].includes(typeof admitWhileWorking)) throw new TypeError("admitWhileWorking must be a boolean.");
   resolveWorkingPolicy(null, { deferWhileWorking, admitWhileWorking });
   if (typeof draftWhileLoading !== "boolean") throw new TypeError("draftWhileLoading must be a boolean.");
-  if (application !== null && typeof application !== "function") throw new TypeError("application must be a factory.");
-  if (boundedTask !== null) return useBoundedTask(boundedTask, { active, data, presentation });
+  // readable-check: allow method-probe - input validation: an application may hand the binding a factory for its own runtime extension
+  if (application != null && typeof application !== "function") throw new TypeError("application must be a factory.");
+  if (boundedTask != null) return useBoundedTask(boundedTask, { active, data, presentation });
   const socket = suppliedSocket || setupSocket;
   const runtime = shallowRef(null);
   const initialDraft = ref("");
@@ -980,10 +280,15 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
     const route = resolveAssistantRuntimeRoute(surface, toValue(workspaceSlug) === undefined
       ? workspaceScope.readRouteScope(routeContext).workspaceSlug : text(workspaceSlug));
     const actor = toValue(actorKey);
-    return Object.freeze({ conversationId: text(conversationId), targetSurfaceId: target, hostSurfaceId: host || target,
-      workspaceSlug: route.workspaceSlug, configured: route.configured,
+    return Object.freeze({
+      conversationId: text(conversationId),
+      targetSurfaceId: target,
+      hostSurfaceId: host || target,
+      workspaceSlug: route.workspaceSlug,
+      configured: route.configured,
       actorKey: actor === undefined ? String(routeContext.placementContext.value?.user?.id || "") : text(actor),
-      endpoint: text(endpoint) || route.endpoint });
+      endpoint: text(endpoint) || route.endpoint
+    });
   });
   // The original composer owns input before a conversation ID is available.
   // It is scoped to the real actor/surface/workspace, never a placeholder ID.
@@ -1004,9 +309,10 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
     if (!target.configured || !target.conversationId || !target.actorKey || !target.targetSurfaceId) return;
     const key = JSON.stringify(["assistant", target.actorKey, target.endpoint, target.targetSurfaceId,
       target.hostSurfaceId, target.workspaceSlug, target.conversationId]);
-    retained = retainAssistantConversation(app, key, readers => createConversation(target, {
-      readers, socket, actorKey, placement, queueWhileSending, deferWhileWorking, admitWhileWorking, draftStorage, application, goalReadEnabled: toValue(goal) === true,
-      api: suppliedApi || defaults.api || createAssistantApi({ request: defaults.request || assistantHttpClient.request,
+    retained = retainAssistantConversation(app, key, (readers, retain) => createConversationRuntime({
+      identity: target, readers, retain, socket, actorKey, placement, queueWhileSending, deferWhileWorking, admitWhileWorking,
+      draftStorage, application, goalReadEnabled: toValue(goal) === true,
+      api: suppliedApi ?? defaults.api ?? createAssistantApi({ request: defaults.request,
         resolveBasePath: () => target.endpoint, resolveSurfaceId: () => target.hostSurfaceId })
     }), { active, questions, goal, onEvent });
     runtime.value = retained.runtime;
@@ -1039,7 +345,7 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
     if (retry && retry.status !== "failed") return false;
     if (!retry && owner?.canSubmit === false) return false;
     const prompts = questionOwner.value;
-    const formatsQuestions = typeof prompts?.capture === "function";
+    const formatsQuestions = formatsAnswers(prompts);
     if (!retry && formatsQuestions && prompts.questions?.length &&
         !questionsAnswered(prompts)) return false;
     const answer = !retry && formatsQuestions ? prompts.capture(current.draft.value) : null;
@@ -1057,8 +363,9 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
   // standard element. Creation, routing and access policy remain preparation.
   function submitPrepared(payload, { messageId = crypto.randomUUID(), retryMessageId = "", retry,
     working = false, clearDraft = true, attachments = attachmentOwner.value,
-    isCurrent = () => true, onSubmit, onAccepted, prepare } = {}) {
+    isCurrent = alwaysCurrent, onSubmit, onAccepted, prepare } = {}) {
     const current = runtime.value;
+    // readable-check: allow method-probe - input validation: an application hands a prepared submission its own preparation
     if (typeof prepare !== "function") throw new TypeError("Prepared submission requires application preparation.");
     if (!current?.current.value || !isCurrent()) return false;
     const id = retryMessageId || messageId;
@@ -1077,7 +384,7 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
   }
 
   function submitCaptured(current, captured, { messageId, retry, clearDraft = true, attachments,
-    isCurrent = () => true, onSubmit, onAccepted, prepare } = {}) {
+    isCurrent = alwaysCurrent, onSubmit = ignoreSubmit, onAccepted = ignoreAcceptance, prepare }) {
     const waitForAcceptance = clearDraftOn === "accepted";
     const attachmentIds = [...(captured.request?.attachmentIds || captured.attachmentIds ||
       (captured.displayAttachments || []).map(file => file.attachmentId))];
@@ -1097,7 +404,7 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
           catch (failure) { current.error.value = failureMessage(failure, t("jskit.assistant.runtime.attachments.clearFailed")); }
         }
       }
-      onAccepted?.();
+      onAccepted();
     }
     if (!retry && clearDraft) {
       if (waitForAcceptance) {
@@ -1105,7 +412,7 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
         captured = { ...captured, draft: current.draft.value };
       } else current.draft.value = "";
     }
-    onSubmit?.();
+    onSubmit();
     const dispatch = () => prepare ? current.submitPrepared(captured, { messageId, onAccepted: acknowledge, prepare })
       : current.send(captured, { messageId, onAccepted: acknowledge });
     // A restored uncertain receipt may have no retained acceptance callback.
@@ -1132,7 +439,7 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
     const state = current?.snapshot.value;
     const files = state?.capabilities?.attachments ? attachmentOwner.value : null;
     const prompts = current?.available.value ? questionOwner.value : null;
-    const formatsQuestions = typeof prompts?.capture === "function";
+    const formatsQuestions = formatsAnswers(prompts);
     const draft = current?.draft.value ?? initialDraft.value;
     const editable = canDraftWhileLoading.value ? !current || current.editable.value : current?.available.value;
     const message = formatsQuestions ? prompts.capture(draft).message : draft;
@@ -1181,12 +488,18 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
   return { runtime, adapter, submitPrepared, error: computed(() => runtime.value?.error.value || stateError(runtime.value?.snapshot.value)) };
 }
 
-/** The standard element and custom text/voice presentation share the supplied binding. */
+/**
+ * The standard element and custom text/voice presentation share the supplied binding.
+ * @param {ConversationBindingOptions} options
+ */
 function useAssistantConversation(options) {
   return createConversationBinding(options);
 }
 
-/** Dynamic application tasks acquire the same binding without mounting a hidden view. */
+/**
+ * Dynamic application tasks acquire the same binding without mounting a hidden view.
+ * @param {ConversationBindingOptions} [options] Shared by every binding the factory acquires.
+ */
 function useAssistantConversationFactory(options = {}) {
   const setup = conversationBindingSetup(options);
   const owner = getCurrentScope();
@@ -1196,7 +509,13 @@ function useAssistantConversationFactory(options = {}) {
     const scope = owner.run(() => effectScope());
     try {
       const binding = scope.run(() => createConversationBinding({ ...options, ...input }, setup));
-      return { ...binding, release: () => scope.stop() };
+      return {
+        runtime: binding.runtime,
+        adapter: binding.adapter,
+        submitPrepared: binding.submitPrepared,
+        error: binding.error,
+        release: () => scope.stop()
+      };
     } catch (failure) {
       scope.stop();
       throw failure;

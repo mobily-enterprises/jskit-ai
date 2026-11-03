@@ -4,6 +4,11 @@ import { AssistantConversationElement } from "@jskit-ai/assistant-core/client/co
 import { useAssistantConversation } from "../composables/useAssistantConversation.js";
 import { useJskitText } from "../i18n.js";
 
+/** @typedef {import("@jskit-ai/assistant-core/client/types").AssistantApi} AssistantApi */
+/** @typedef {import("@jskit-ai/assistant-core/client/types").AssistantAttachments} AssistantAttachments */
+/** @typedef {import("@jskit-ai/assistant-core/client/types").AssistantSuggestions} AssistantSuggestions */
+/** @typedef {import("@jskit-ai/assistant-core/client/types").AssistantModelChoices} AssistantModelChoices */
+
 const props = defineProps({
   conversationId: { type: String, required: true },
   endpoint: { type: String, default: "" },
@@ -11,7 +16,8 @@ const props = defineProps({
   hostSurfaceId: { type: String, default: "" },
   workspaceSlug: { type: String, default: undefined },
   actorKey: { type: String, default: undefined },
-  api: { type: Object, default: null },
+  // An application's own assistant API; without one the binding uses the surface's standard API.
+  api: { type: /** @type {import("vue").PropType<AssistantApi>} */ (Object), default: null },
   active: { type: Boolean, default: true },
   clearDraftOn: { type: String, default: undefined, validator: value => ["dispatch", "accepted"].includes(value) },
   // Unset texts follow the active language; an application's own text is shown as given.
@@ -20,9 +26,9 @@ const props = defineProps({
   placeholder: { type: String, default: undefined },
   layout: { type: String, default: "compact", validator: value => ["page", "compact"].includes(value) },
   data: { type: Object, default: undefined },
-  attachments: { type: Object, default: null },
-  suggestions: { type: Object, default: null },
-  models: { type: Object, default: null },
+  attachments: { type: /** @type {import("vue").PropType<AssistantAttachments>} */ (Object), default: null },
+  suggestions: { type: /** @type {import("vue").PropType<AssistantSuggestions>} */ (Object), default: null },
+  models: { type: /** @type {import("vue").PropType<AssistantModelChoices>} */ (Object), default: null },
   questions: { type: [Boolean, Object], default: null },
   goal: { type: [Boolean, Object], default: null },
   avatarSize: { type: String, default: "compact", validator: (value) => ["hidden", "compact", "standard", "large"].includes(value) }

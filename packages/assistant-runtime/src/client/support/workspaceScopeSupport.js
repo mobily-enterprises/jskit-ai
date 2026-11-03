@@ -1,38 +1,29 @@
 import { inject } from "vue";
 
+/** workspaces-web provides its route scope under this key in an application with workspaces. */
 const WORKSPACES_WEB_SCOPE_SUPPORT_INJECTION_KEY = "jskit.workspaces.web.scope-support";
 
 const EMPTY_ROUTE_SCOPE = Object.freeze({
   workspaceSlug: ""
 });
 
-const EMPTY_WORKSPACE_WEB_SCOPE_SUPPORT = Object.freeze({
+/**
+ * An application without workspaces: no route names a workspace.
+ * @type {import("../types.js").WorkspaceScopeSupport}
+ */
+const NO_WORKSPACE_WEB_SCOPE_SUPPORT = Object.freeze({
   available: false,
   readRouteScope() {
     return EMPTY_ROUTE_SCOPE;
   }
 });
 
-function isWorkspaceWebScopeSupport(value) {
-  return Boolean(value && typeof value.readRouteScope === "function");
+/**
+ * The application's workspace route scope, or none when it has no workspaces.
+ * @returns {import("../types.js").WorkspaceScopeSupport}
+ */
+function useWorkspaceWebScopeSupport() {
+  return inject(WORKSPACES_WEB_SCOPE_SUPPORT_INJECTION_KEY, NO_WORKSPACE_WEB_SCOPE_SUPPORT);
 }
 
-function useWorkspaceWebScopeSupport({ required = false } = {}) {
-  const support = inject(WORKSPACES_WEB_SCOPE_SUPPORT_INJECTION_KEY, null);
-  if (isWorkspaceWebScopeSupport(support)) {
-    return support;
-  }
-
-  if (required) {
-    throw new Error("Workspace web scope support is not available in Vue injection context.");
-  }
-
-  return EMPTY_WORKSPACE_WEB_SCOPE_SUPPORT;
-}
-
-export {
-  EMPTY_WORKSPACE_WEB_SCOPE_SUPPORT,
-  WORKSPACES_WEB_SCOPE_SUPPORT_INJECTION_KEY,
-  isWorkspaceWebScopeSupport,
-  useWorkspaceWebScopeSupport
-};
+export { useWorkspaceWebScopeSupport };

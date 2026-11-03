@@ -35,7 +35,12 @@ function mapAssistantConversationTurns(messages, toolEvents = [], { showToolActi
   })));
 }
 
-function buildId(prefix = "id") {
+/**
+ * A new local id with a prefix that says what it names.
+ * @param {string} prefix
+ */
+function buildId(prefix) {
+  // readable-check: allow method-probe - platform object: crypto.randomUUID exists only in a secure browser context
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return `${prefix}_${crypto.randomUUID()}`;
   }

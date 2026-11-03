@@ -18,6 +18,10 @@ function normalizeTotalPages(value) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
 }
 
+/**
+ * The page size and entry bound a conversation restore uses, from the application's configuration.
+ * @param {{ pageSize?: unknown, maxEntries?: unknown }} [configured]
+ */
 function resolveConversationRestorePolicy({ pageSize, maxEntries } = {}) {
   return Object.freeze({
     pageSize: normalizeBoundedPositiveInteger(
@@ -33,15 +37,19 @@ function resolveConversationRestorePolicy({ pageSize, maxEntries } = {}) {
   });
 }
 
+/**
+ * Loads the newest transcript pages of a conversation, up to the restore policy's bound.
+ * @param {{
+ *   fetchPage: (page: number, pageSize: number) => Promise<{ totalPages?: number, entries?: object[] }>,
+ *   pageSize?: number,
+ *   maxEntries?: number
+ * }} options
+ */
 async function loadConversationTranscript({
   fetchPage,
   pageSize = DEFAULT_RESTORE_MESSAGES_PAGE_SIZE,
   maxEntries = DEFAULT_RESTORE_MESSAGES_MAX_ENTRIES
-} = {}) {
-  if (typeof fetchPage !== "function") {
-    throw new TypeError("loadConversationTranscript requires fetchPage().");
-  }
-
+}) {
   const restorePolicy = resolveConversationRestorePolicy({ pageSize, maxEntries });
   const normalizedPageSize = restorePolicy.pageSize;
   const normalizedMaxEntries = restorePolicy.maxEntries;
