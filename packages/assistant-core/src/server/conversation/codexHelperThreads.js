@@ -9,18 +9,76 @@ import { codexAppServerErrorMessage as errorMessage, normalizeCodexRunText as no
 import {
   CODEX_HELPER_THREAD_LEDGER_SCHEMA_VERSION,
   CODEX_HELPER_THREAD_LIFECYCLES
-} from "./codexHelperThreadLedger.js";
+} from "./codexHelperThreadRecord.js";
 
 const CODEX_APP_SERVER_PROVIDER_ID = "codex_app_server";
 
-// Internal facet of the original run owner. Public supplies policy and authorized
-// scope inputs; native ownership, pending work and retirement have one owner.
+function codexAppServerHelperThreadKey({
+  projectRuntimeRoot = "",
+  sessionId = "",
+  threadId = ""
+} = {}) {
+  return [
+    normalizeText(projectRuntimeRoot),
+    normalizeText(sessionId),
+    normalizeText(threadId)
+  ].join("\u001f");
+}
+
+function codexAppServerProviderKeyFingerprint(providerKey = "") {
+  return `sha256:${crypto.createHash("sha256")
+    .update(normalizeText(providerKey))
+    .digest("hex")}`;
+}
+
+function codexAppServerRuntimeIdentityMatches(expected = {}, actual = {}, {
+  requireAccount = true,
+  requireEndpoint = true
+} = {}) {
+  return (!requireAccount || expected.accountIdentitySignature === normalizeText(actual.accountIdentitySignature)) &&
+    (!requireEndpoint || expected.endpoint === normalizeText(actual.endpoint)) &&
+    expected.executionMode === normalizeText(actual.executionMode) &&
+    expected.executionContextHash === normalizeText(actual.executionContextHash) &&
+    expected.provider === normalizeText(actual.provider) &&
+    expected.runtimeDir === normalizeText(actual.runtimeDir) &&
+    expected.runtimesHash === normalizeText(actual.runtimesHash) &&
+    expected.terminalEnvHash === normalizeText(actual.terminalEnvHash) &&
+    expected.toolHomeSource === normalizeText(actual.toolHomeSource) &&
+    expected.transport === normalizeText(actual.transport);
+}
+
+function codexAppServerHelperThreadOwnershipMatches(record = {}, {
+  providerKey = "",
+  runtime = {},
+  server = null
+} = {}, options = {}) {
+  return record.identity?.providerId === normalizeText(record.executionProfile?.providerId) &&
+    record.identity?.providerKeyFingerprint === codexAppServerProviderKeyFingerprint(providerKey) &&
+    record.identity?.transportId === CODEX_APP_SERVER_PROVIDER_ID &&
+    codexAppServerRuntimeIdentityMatches(record.identity?.runtime, runtime, options) &&
+    (
+      options.requireServer !== true ||
+      record.identity?.server?.userAgent === normalizeText(server?.userAgent)
+    );
+}
+
+function ignoreHelperThreadRetired() {}
+
+/**
+ * Internal facet of the run owner. The application supplies policy and authorized scope inputs; native ownership,
+ * pending work and retirement have one owner.
+ * @param {object} dependencies
+ * @param {import("./codexTurn.js").CodexProviderOwner} dependencies.providerOwner
+ * @param {ReturnType<typeof import("./codexHelperThreadLedger.js").createCodexHelperThreadLedgerOwner>} dependencies.ledgerOwner
+ * @param {string} [dependencies.applicationName]
+ * @param {string} [dependencies.errorPrefix]
+ */
 export function createCodexHelperThreadLifecycle({
   providerOwner,
   ledgerOwner,
   applicationName = "Application",
   errorPrefix = ""
-} = {}) {
+}) {
   const codexAppServerProviders = providerOwner.providers;
   const {
     createCodexHelperThreadLedger: codexHelperThreadLedgerFactory,
@@ -33,18 +91,6 @@ export function createCodexHelperThreadLifecycle({
   const codexAppServerHelperThreadMutations = new Map();
   const codexAppServerHelperTurnStarts = new Map();
   const codexAppServerHelperThreadRestores = new Map();
-
-  function codexAppServerHelperThreadKey({
-    projectRuntimeRoot = "",
-    sessionId = "",
-    threadId = ""
-  } = {}) {
-    return [
-      normalizeText(projectRuntimeRoot),
-      normalizeText(sessionId),
-      normalizeText(threadId)
-    ].join("\u001f");
-  }
 
   async function withCodexAppServerHelperProjectOperation(
     projectRuntimeRoot = "",
@@ -163,20 +209,11 @@ export function createCodexHelperThreadLifecycle({
     return "";
   }
 
-  function codexAppServerProviderKeyFingerprint(providerKey = "") {
-    return `sha256:${crypto.createHash("sha256")
-      .update(normalizeText(providerKey))
-      .digest("hex")}`;
-  }
-
   async function codexAppServerHelperThreadIdentity({
     executionProfile = null,
     provider = null
   } = {}) {
-    if (
-      typeof provider?.currentRuntimeInfo !== "function" ||
-      typeof provider?.currentServerInfo !== "function"
-    ) {
+    if (!provider) {
       throw new Error("Codex provider cannot prove durable helper thread ownership.");
     }
     const runtime = await provider.currentRuntimeInfo();
@@ -207,7 +244,7 @@ export function createCodexHelperThreadLifecycle({
       ...durable,
       durable,
       ledger,
-      onRetired,
+      onRetired: onRetired || ignoreHelperThreadRetired,
       provider
     });
     codexAppServerHelperThreads.set(key, record);
@@ -311,7 +348,7 @@ export function createCodexHelperThreadLifecycle({
     }
     codexAppServerHelperThreadCleanups.delete(key);
     codexAppServerHelperThreads.delete(key);
-    record.onRetired?.({ threadId: record.threadId });
+    record.onRetired({ threadId: record.threadId });
     return true;
   }
 
@@ -482,37 +519,6 @@ export function createCodexHelperThreadLifecycle({
 
   const codexAppServerHelperOwnershipError = createCodexHelperOwnershipError({ applicationName, errorPrefix });
 
-  function codexAppServerRuntimeIdentityMatches(expected = {}, actual = {}, {
-    requireAccount = true,
-    requireEndpoint = true
-  } = {}) {
-    return (!requireAccount || expected.accountIdentitySignature === normalizeText(actual.accountIdentitySignature)) &&
-      (!requireEndpoint || expected.endpoint === normalizeText(actual.endpoint)) &&
-      expected.executionMode === normalizeText(actual.executionMode) &&
-      expected.executionContextHash === normalizeText(actual.executionContextHash) &&
-      expected.provider === normalizeText(actual.provider) &&
-      expected.runtimeDir === normalizeText(actual.runtimeDir) &&
-      expected.runtimesHash === normalizeText(actual.runtimesHash) &&
-      expected.terminalEnvHash === normalizeText(actual.terminalEnvHash) &&
-      expected.toolHomeSource === normalizeText(actual.toolHomeSource) &&
-      expected.transport === normalizeText(actual.transport);
-  }
-
-  function codexAppServerHelperThreadOwnershipMatches(record = {}, {
-    providerKey = "",
-    runtime = {},
-    server = null
-  } = {}, options = {}) {
-    return record.identity?.providerId === normalizeText(record.executionProfile?.providerId) &&
-      record.identity?.providerKeyFingerprint === codexAppServerProviderKeyFingerprint(providerKey) &&
-      record.identity?.transportId === CODEX_APP_SERVER_PROVIDER_ID &&
-      codexAppServerRuntimeIdentityMatches(record.identity?.runtime, runtime, options) &&
-      (
-        options.requireServer !== true ||
-        record.identity?.server?.userAgent === normalizeText(server?.userAgent)
-      );
-  }
-
   function codexAppServerHelperFailure(record = null, error = null) {
     return {
       code: normalizeText(error?.code) || `${errorPrefix}codex_helper_ownership_blocked`,
@@ -640,3 +646,5 @@ export function createCodexHelperThreadLifecycle({
   });
   return Object.freeze(lifecycle);
 }
+
+/** @typedef {ReturnType<typeof createCodexHelperThreadLifecycle>} CodexHelperThreadLifecycle */
