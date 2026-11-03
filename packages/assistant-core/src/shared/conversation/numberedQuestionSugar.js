@@ -225,7 +225,7 @@ function numberedQuestionSugarForInput(interaction = {}, fields = []) {
   return numberedQuestionSugarForMessageInput({
     fields,
     fieldName: "response",
-    // readable-check: allow no-optional-after-default - input validation: a caller may pass null before its interaction is known
+    // readable-check: allow no-optional-after-default - data: the interaction is null until a caller knows it
     message: interaction?.prompt
   });
 }
@@ -257,9 +257,9 @@ function numberedQuestionSugarForMessageInput({
 const ANSWER_REQUIRED = Object.freeze({ messageCode: "assistant.questions.answerRequired" });
 
 function numberedQuestionInputFields(questions = [], options = {}) {
-  // readable-check: allow no-optional-after-default - input validation: a caller may pass null for no field options
+  // readable-check: allow no-optional-after-default - data: null field options mean none
   const autocomplete = String(options?.autocomplete || "").trim();
-  // readable-check: allow no-optional-after-default - input validation: a caller may pass null for no field options
+  // readable-check: allow no-optional-after-default - data: null field options mean none
   const density = String(options?.density || "").trim();
   return questions.map((question) => ({
     ...(autocomplete ? { autocomplete } : {}),

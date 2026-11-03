@@ -66,8 +66,12 @@ export function createLocalConversationExecution() {
     return entry.stopping;
   }
 
-  // readable-check: allow no-env-default - platform object: like spawn, a command given no environment runs in Node's process.env
-  async function start({ command, args = [], cwd, env = process.env, stream = false, limits, logPath } = {}) {
+  /**
+   * Starts one owned native process in its own process group.
+   * @param {{ command: string, args?: string[], cwd: string, env: import("@jskit-ai/kernel/server/types").RuntimeEnv,
+   *   stream?: boolean, limits?: object, logPath?: string }} request
+   */
+  async function start({ command, args = [], cwd, env, stream = false, limits, logPath }) {
     if (closing) throw new Error("The conversation execution host is closed.");
     if (typeof command !== "string" || !command || !Array.isArray(args) || args.some((arg) => typeof arg !== "string")) {
       throw new TypeError("An executable and string arguments are required.");
@@ -113,9 +117,13 @@ export function createLocalConversationExecution() {
     });
   }
 
-  // readable-check: allow no-env-default - platform object: like spawn, a command given no environment runs in Node's process.env
-  async function run({ command, args, cwd, baseEnv = process.env, credentialHome = {}, mode,
-    logPath, timeout = 30_000, limits } = {}) {
+  /**
+   * Runs one native command to completion (capture) or leaves it running (detached).
+   * @param {{ command: string, args: string[], cwd: string, baseEnv: import("@jskit-ai/kernel/server/types").RuntimeEnv,
+   *   credentialHome?: { home?: string, username?: string }, mode: "capture" | "detached", logPath?: string, timeout?: number,
+   *   limits?: object }} request
+   */
+  async function run({ command, args, cwd, baseEnv, credentialHome = {}, mode, logPath, timeout = 30_000, limits }) {
     if (!["capture", "detached"].includes(mode)) throw new TypeError("Native execution requires capture or detached mode.");
     if (!Number.isSafeInteger(timeout) || timeout <= 0) throw new TypeError("Native execution requires a positive timeout.");
     const env = { ...baseEnv };

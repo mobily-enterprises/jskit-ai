@@ -4,7 +4,6 @@ import { openCodeAssistantMessageText as assistantMessageText } from "./openCode
 import { normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeNullableText } from "./normalize.js";
 
-const text = normalizeNullableText;
 export const OPENCODE_INTERRUPT_TIMEOUT_MS = 5_000;
 const OPENCODE_EVENT_READY_TIMEOUT_MS = 120_000;
 
@@ -15,7 +14,7 @@ export function recoverWithoutProjection() {}
 function ignoreObservationClose() {}
 
 export function openCodeDetachedPrompt(input = {}) {
-  const prompt = text(input.prompt || input.message);
+  const prompt = normalizeNullableText(input.prompt || input.message);
   if (!input.outputSchema) {
     return prompt;
   }
@@ -42,30 +41,30 @@ function openCodeEventSummary(event = {}) {
   const part = normalizeObject(data.part);
   const model = normalizeObject(info.model || data.model);
   return {
-    agent: text(info.agent || data.agent),
+    agent: normalizeNullableText(info.agent || data.agent),
     at: Number(data.timestamp || part.time?.start || part.time?.created) || Date.now(),
-    eventId: text(event.id || payload.id || part.id),
-    messageId: text(part.messageID || data.messageID || info.id),
-    modelId: text(model.id || model.modelID || info.modelID),
-    modelProviderId: text(model.providerID || info.providerID),
-    partId: text(part.id || data.partID),
+    eventId: normalizeNullableText(event.id || payload.id || part.id),
+    messageId: normalizeNullableText(part.messageID || data.messageID || info.id),
+    modelId: normalizeNullableText(model.id || model.modelID || info.modelID),
+    modelProviderId: normalizeNullableText(model.providerID || info.providerID),
+    partId: normalizeNullableText(part.id || data.partID),
     ...(part.type === "text" && typeof part.text === "string" ? { textSnapshot: part.text } : {}),
     ...(payload.type === "message.part.delta" && data.field === "text" && typeof data.delta === "string"
       ? { textDelta: data.delta } : {}),
-    partType: text(part.type) || (
-      text(payload.type) === "session.next.reasoning.ended"
+    partType: normalizeNullableText(part.type) || (
+      normalizeNullableText(payload.type) === "session.next.reasoning.ended"
         ? "reasoning"
-        : text(payload.type) === "session.next.text.ended"
+        : normalizeNullableText(payload.type) === "session.next.text.ended"
           ? "text"
           : ""
     ),
-    text: ["reasoning", "text"].includes(text(part.type))
-      ? text(part.text || data.delta).slice(0, 32_000)
-      : ["session.next.text.ended", "session.next.reasoning.ended"].includes(text(payload.type))
-        ? text(data.text).slice(0, 32_000)
+    text: ["reasoning", "text"].includes(normalizeNullableText(part.type))
+      ? normalizeNullableText(part.text || data.delta).slice(0, 32_000)
+      : ["session.next.text.ended", "session.next.reasoning.ended"].includes(normalizeNullableText(payload.type))
+        ? normalizeNullableText(data.text).slice(0, 32_000)
         : "",
-    tool: text(part.tool || data.tool),
-    type: text(payload.type || event.event)
+    tool: normalizeNullableText(part.tool || data.tool),
+    type: normalizeNullableText(payload.type || event.event)
   };
 }
 
@@ -79,12 +78,12 @@ async function consumeOpenCodeEvents(client, conversationId, {
     const current = eventStartedAt === null || Number(summary.at) >= Number(eventStartedAt);
     if (
       current && summary.type === "session.error" &&
-      text(event.data?.properties?.sessionID) === conversationId &&
+      normalizeNullableText(event.data?.properties?.sessionID) === conversationId &&
       typeof onError === "function"
     ) {
       const failure = normalizeObject(event.data?.properties?.error);
       onError(Object.assign(new Error(readError({ error: failure }) || "OpenCode turn failed."), {
-        name: text(failure.name) || "Error"
+        name: normalizeNullableText(failure.name) || "Error"
       }));
     }
     if (summary.type && current && typeof onEvent === "function") {
@@ -134,7 +133,7 @@ export function observeOpenCodeEvents(client, conversationId, {
 }
 
 export function openCodeMessageError(message) {
-  return text(message?.error?.message || message?.error?.data?.message || message?.error?.name || message?.error);
+  return normalizeNullableText(message?.error?.message || message?.error?.data?.message || message?.error?.name || message?.error);
 }
 
 export async function inspectOpenCodeMessageAdmission(client, conversationId, inputMessageId, {
@@ -150,7 +149,7 @@ export async function inspectOpenCodeMessageAdmission(client, conversationId, in
       const messages = await readOpenCodeMessagesUntil(client, conversationId, hasMessage(inputMessageId), { signal: readSignal });
       if (wait) signal.throwIfAborted();
       const accepted = openCodeMessageRows(messages).some((message) =>
-        message.type === "user" && text(message.id) === inputMessageId);
+        message.type === "user" && normalizeNullableText(message.id) === inputMessageId);
       if (accepted || !wait) return { accepted, messages };
     } catch {
       if (!wait) return null;
@@ -227,7 +226,7 @@ export async function readOpenCodeMessagesUntil(client, conversationId, found, {
   }
 }
 
-const hasMessage = id => rows => rows.some(message => text(message?.id) === text(id));
+const hasMessage = id => rows => rows.some(message => normalizeNullableText(message?.id) === normalizeNullableText(id));
 
 export function openCodeMessageRows(value = null) {
   const rows = Array.isArray(value) ? value : Array.isArray(value?.data) ? value.data : [];
@@ -243,7 +242,7 @@ export function openCodeMessageRows(value = null) {
 export function openCodePersistentConversationMessages(rows, conversationMessageId) {
   return rows.filter((row) => row.type === "assistant").flatMap((row) => {
     const complete = Boolean(row.time?.completed || row.finish || row.error);
-    const reasoning = (row.content || []).filter((part) => part.type === "reasoning" && text(part.text))
+    const reasoning = (row.content || []).filter((part) => part.type === "reasoning" && normalizeNullableText(part.text))
       .map((part, index) => ({ id: conversationMessageId(row.id, part.id || index, "reasoning"), role: "thinking", text: part.text, complete }));
     const answer = assistantMessageText(row);
     return [...reasoning, ...(answer ? [{ id: conversationMessageId(row.id, "assistant"), role: "assistant", text: answer, complete }] : [])];
@@ -282,13 +281,13 @@ export async function projectOpenCodeConversationMessages(messages, expectedId, 
     }
   }
   const result = openCodeLastAssistantResult(rows);
-  return { failure: result.error, providerApiFailure: text(result.message?.error?.name) === "APIError" };
+  return { failure: result.error, providerApiFailure: normalizeNullableText(result.message?.error?.name) === "APIError" };
 }
 
 // Native automatic compaction and its continuation belong to the admitted turn.
 export function openCodeRowsForInput(value = null, inputMessageId = "") {
   const rows = openCodeMessageRows(value);
-  const index = rows.findIndex((message) => text(message?.id) === text(inputMessageId));
+  const index = rows.findIndex((message) => normalizeNullableText(message?.id) === normalizeNullableText(inputMessageId));
   if (index < 0) {
     return [];
   }
@@ -313,7 +312,7 @@ export function openCodeRowsForInput(value = null, inputMessageId = "") {
 function openCodeMessageResultForInput(value = null, inputMessageId = "", { readError = openCodeMessageError } = {}) {
   const rows = openCodeRowsForInput(value, inputMessageId);
   if (!rows.length && !openCodeMessageRows(value).some((message) => (
-    text(message?.id) === text(inputMessageId)
+    normalizeNullableText(message?.id) === normalizeNullableText(inputMessageId)
   ))) {
     return null;
   }
@@ -327,7 +326,7 @@ function openCodeMessageResultForInput(value = null, inputMessageId = "", { read
       (result.message?.time?.completed || result.message?.finish))),
     error: result.error,
     text: result.text,
-    turnId: text(result.message?.id)
+    turnId: normalizeNullableText(result.message?.id)
   };
 }
 
@@ -353,7 +352,7 @@ function latestOpenCodeMessageResult(value, readError) {
       (result.message.time?.completed || result.message.finish))),
     error: result.error,
     text: result.text,
-    turnId: text(result.message.id)
+    turnId: normalizeNullableText(result.message.id)
   };
 }
 
@@ -365,18 +364,18 @@ export async function waitForOpenCodeMessages(client, conversationId = "", input
 } = {}) {
   const resolveInputMessageId = typeof inputMessageId === "function"
     ? inputMessageId
-    : () => text(inputMessageId);
+    : () => normalizeNullableText(inputMessageId);
   let completedInputMessageId = null;
   while (true) {
     signal?.throwIfAborted();
-    const expectedInputMessageId = text(resolveInputMessageId());
+    const expectedInputMessageId = normalizeNullableText(resolveInputMessageId());
     const messages = await readOpenCodeMessagesUntil(client, conversationId,
       expectedInputMessageId ? hasMessage(expectedInputMessageId) : () => true, { signal });
-    if (expectedInputMessageId !== text(resolveInputMessageId())) continue;
+    if (expectedInputMessageId !== normalizeNullableText(resolveInputMessageId())) continue;
     if (typeof onMessages === "function") {
       await onMessages(messages, expectedInputMessageId);
     }
-    if (expectedInputMessageId !== text(resolveInputMessageId())) continue;
+    if (expectedInputMessageId !== normalizeNullableText(resolveInputMessageId())) continue;
     const result = expectedInputMessageId
       ? openCodeMessageResultForInput(messages, expectedInputMessageId, { readError })
       : latestOpenCodeMessageResult(messages, readError);
@@ -387,7 +386,7 @@ export async function waitForOpenCodeMessages(client, conversationId = "", input
     // An assistant message can finish with tool calls while the native turn
     // continues. Only an idle session acknowledges the final answer.
     if (result?.complete && (await client.sessionStatus(conversationId, { signal })).type === "idle" &&
-        expectedInputMessageId === text(resolveInputMessageId())) {
+        expectedInputMessageId === normalizeNullableText(resolveInputMessageId())) {
       if (completedInputMessageId === expectedInputMessageId) {
         return { messages, result, inputMessageId: expectedInputMessageId };
       }
@@ -412,7 +411,7 @@ export async function waitForOpenCodeFinalResponse(client, conversationId, turn,
       const admission = turn.admission;
       await admission?.promise;
       options.signal?.throwIfAborted();
-      if (admission !== turn.admission || completion.inputMessageId !== text(turn.inputMessageId)) {
+      if (admission !== turn.admission || completion.inputMessageId !== normalizeNullableText(turn.inputMessageId)) {
         continue;
       }
       return completion;
@@ -422,12 +421,12 @@ export async function waitForOpenCodeFinalResponse(client, conversationId, turn,
     const completion = await waitForCompletion();
     // Work around https://github.com/anomalyco/opencode/issues/37073. Some
     // reasoning models complete successfully without a user-facing text part.
-    if (turn.interruptRequested || completion.result?.error || text(completion.result?.text)) return completion;
+    if (turn.interruptRequested || completion.result?.error || normalizeNullableText(completion.result?.text)) return completion;
     await beforeRecovery(completion);
     const admission = turn.admission;
     await admission?.promise;
     options.signal?.throwIfAborted();
-    if (admission !== turn.admission || completion.inputMessageId !== text(turn.inputMessageId)) {
+    if (admission !== turn.admission || completion.inputMessageId !== normalizeNullableText(turn.inputMessageId)) {
       continue;
     }
     // The async native prompt ACK does not acknowledge user-row creation.
@@ -441,7 +440,7 @@ export async function waitForOpenCodeFinalResponse(client, conversationId, turn,
       signal: receiptSignal, wait: true, readFailure: options.readFailure
     }).then(observation => {
       const message = openCodeMessageRows(observation.messages).find(message =>
-        message.type === "user" && text(message.id) === recoveryMessageId);
+        message.type === "user" && normalizeNullableText(message.id) === recoveryMessageId);
       recoveryAdmission.resolve(message);
       return message;
     }, error => {
@@ -462,8 +461,8 @@ export async function waitForOpenCodeFinalResponse(client, conversationId, turn,
       }, { signal: options.signal });
       await receipt;
       options.signal?.throwIfAborted();
-      if (admission === turn.admission && completion.inputMessageId === text(turn.inputMessageId)) {
-        turn.inputMessageId = text(admitted?.id) || recoveryMessageId;
+      if (admission === turn.admission && completion.inputMessageId === normalizeNullableText(turn.inputMessageId)) {
+        turn.inputMessageId = normalizeNullableText(admitted?.id) || recoveryMessageId;
         turn.updatedAt = new Date().toISOString();
       }
     } catch (error) {
@@ -545,10 +544,10 @@ export async function runOpenCodeConversationTurn(client, conversationId, input 
   let existingMessages;
   if (requireFreshHistory) {
     existingMessages = openCodeMessageRows(await readOpenCodeMessagesUntil(client, conversationId, rows => rows.some(
-      message => message?.type === "user" && text(message.id) !== inputMessageId
+      message => message?.type === "user" && normalizeNullableText(message.id) !== inputMessageId
     )));
     const unrelatedUserMessage = existingMessages.find((message) => (
-      message?.type === "user" && text(message.id) !== inputMessageId
+      message?.type === "user" && normalizeNullableText(message.id) !== inputMessageId
     ));
     if (unrelatedUserMessage) {
       throw createError(
@@ -601,7 +600,7 @@ export async function runOpenCodeConversationTurn(client, conversationId, input 
       }
       throw createError(
         "failed",
-        text(error?.message),
+        normalizeNullableText(error?.message),
         {
           inputAccepted,
           threadId: conversationId
@@ -635,7 +634,7 @@ export async function runOpenCodeConversationTurn(client, conversationId, input 
     reconciled: !admitted,
     text: result.text,
     threadId: conversationId,
-    turnId: result.turnId || text(admitted?.id)
+    turnId: result.turnId || normalizeNullableText(admitted?.id)
   };
   if (completeResult) await completeResult(completion);
   const proof = close ? await close() : undefined;

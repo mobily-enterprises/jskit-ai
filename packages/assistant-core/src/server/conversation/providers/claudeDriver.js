@@ -29,6 +29,9 @@ const goalCapabilities = Object.freeze({ goals: true, goalBudgets: false,
     cancel: Object.freeze({ delivery: "message", interruptsTurn: true })
   }) });
 
+/** A runtime given no host runs Claude in the process's working directory, with local execution and the `claude` command. */
+const LOCAL_HOST = Object.freeze({});
+
 /**
  * The ordinary native host uses the CLI's own login; no application launch callbacks.
  * @param {{
@@ -48,8 +51,7 @@ const goalCapabilities = Object.freeze({ goals: true, goalBudgets: false,
  */
 export function createClaudeConversationDriver({
   connections,
-  // readable-check: allow dependency-default - data: a runtime without host settings runs Claude in its working directory with local execution
-  host = {},
+  host = LOCAL_HOST,
   limits = {}
 }) {
   // A host that opens its own conversations may pass no environment; the
@@ -379,10 +381,10 @@ export function createClaudeConversationDriver({
     let owner = supplied?.owner;
     let entry;
     if (!supplied) {
-      if (!host.env) throw new TypeError("createClaudeConversationDriver requires the application's environment, such as process.env.");
+      if (!host.env) throw new TypeError("A Claude conversation's host requires the application's environment, such as process.env.");
       requireClaudeSessionId(binding?.conversationId);
       const scopeWorkdir = await realpath(workdir);
-      // Original scoped conversations keep native history in the credential
+      // A binding with a scope workdir keeps native history in the credential
       // home. Both paths must still come from the current authorized host.
       const nativeWorkdir = Object.hasOwn(binding, "scopeWorkdir")
         ? await realpath(env.HOME || homedir()) : scopeWorkdir;

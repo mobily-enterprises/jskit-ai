@@ -21,8 +21,8 @@ const CONTEXT_TOKENS = 128_000;
 const OUTPUT_LIMIT = "The assistant exceeded the configured response limit.";
 const PROGRESS_LIMIT = "Application tool progress text exceeds the configured API limit.";
 
-// Preserve the original assistant service's model-facing action result. The
-// durable receipt keeps its full ok/result/error envelope in common storage.
+// The model sees an action's result, or its error. The durable receipt keeps
+// its full ok/result/error envelope in common storage.
 const toolOutput = result => result.ok ? result.result ?? null : { error: result.error };
 
 /** A turn whose caller follows no phase events. */

@@ -10,22 +10,17 @@ import { inspectOpenCodeMessageAdmission, observeOpenCodeEvents, openCodeRowsFor
   openCodeDetachedPrompt, openCodeStructuredOutput, readOpenCodeMessagesUntil } from "../openCodeTurn.js";
 import { createOpenCodeToolBridge } from "../openCodeTools.js";
 import { validateConnectionModel } from "../configuration.js";
+import { ignoreReceipt } from "../nativeCommandCallbacks.js";
 
 /** A standalone conversation's tool call has no further owner to confirm. */
 function acceptCurrentTurn() {
   return true;
 }
 
-/** A command whose caller records no delivery timing for the native receipt. */
-function ignoreNativeReceipt() {}
-
-/** A command whose caller records no delivery timing for the persisted receipt. */
-function ignoreReceiptPersisted() {}
-
 const nativeMessageId = id => `msg_jskit_${hash(id).slice(0, 40)}`;
 
 /**
- * Original standalone native-use validation and authored admission, shared by
+ * Standalone native-use validation and authored admission, shared by
  * explicitly supplied bound tools without transferring native process ownership.
  */
 export async function executeOpenCodeApplicationTool({ active, turn, target, sessionId, assertCurrent = acceptCurrentTurn }, input, signal) {
@@ -171,7 +166,7 @@ export async function openStandaloneOpenCodeConversation({
     if (requireBound && (binding.accountIdentity !== receiptBinding.accountIdentity || identity !== receiptBinding.accountIdentity)) {
       throw new Error("The completed OpenCode response belongs to a different account binding.");
     }
-    // The existing managed host reauthorizes its own connection on every preparation.
+    // A managed host reauthorizes its own connection on every preparation.
     // A key change can rotate an authored run only inside the same native storage/runtime scope.
     const preparedFacilities = host.opencode ? await host.opencode({ connection, context }) : facilities;
     signal.throwIfAborted();
@@ -352,7 +347,7 @@ export async function openStandaloneOpenCodeConversation({
   }
 
   async function send(command) {
-    const { onNativeReceipt = ignoreNativeReceipt, onReceiptPersisted = ignoreReceiptPersisted } = command;
+    const { onNativeReceipt = ignoreReceipt, onReceiptPersisted = ignoreReceipt } = command;
     const active = current;
     const id = nativeMessageId(command.input.messageId);
     const previousOwner = active.messageIds.get(id);

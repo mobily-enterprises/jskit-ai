@@ -91,8 +91,8 @@ function claudeResultMessage(frame, turnId, result) {
 }
 
 // Verified process cleanup can precede Claude's terminal generation frame.
-// Retain already displayed text for the existing transcript reader, with
-// its original input/output identity and no completed-answer receipt.
+// Retain already displayed text for the transcript reader, with each block's
+// input/output identity and no completed-answer receipt.
 function retainStoppedClaudeMessages(messages, pendingAssistantMessages) {
   for (const pending of pendingAssistantMessages.values()) for (const block of pending) {
     if (block.outputId && block.outputId !== block.id) messages.delete(block.outputId);
@@ -114,7 +114,7 @@ function retainStoppedClaudeMessages(messages, pendingAssistantMessages) {
  */
 
 /**
- * Native turn handling moved from the production session provider; hosts persist its events.
+ * One native Claude turn: its admission, events and results; hosts persist its events.
  * A turn with an owner's retained entry also reads results and stops its process.
  * @param {{
  *   conversationId: string,

@@ -11,8 +11,6 @@ import { createClaudePromptDelivery } from "./claudePromptDelivery.js";
 import { createClaudeSessionCleanup } from "./claudeSessionCleanup.js";
 import { normalizeNullableText } from "./normalize.js";
 
-const text = normalizeNullableText;
-
 // Claude records an admitted prompt in its history, and only a send in
 // progress writes prompts to a live process. With neither left, a prompt
 // missing from history can never arrive. A turn left marked active by a
@@ -29,7 +27,7 @@ function runsNativeWork(entry) {
   return Boolean(entry.sending || entry.process || entry.command || entry.stopPending || hasPendingClaudeStartup(entry));
 }
 
-/** Wait on the conversation's existing completion and cleanup owner. */
+/** Waits for the conversation's turn through its completion and cleanup owner. */
 export async function waitForClaudeConversationTurn(conversation, input = {}, {
   signal, defaultTimeoutMs = 180_000, maximumTimeoutMs = Infinity, createError = claudeTurnFailure,
   interruptedMessage = "Claude was interrupted when the application disconnected."
@@ -63,7 +61,7 @@ export async function waitForClaudeConversationTurn(conversation, input = {}, {
   }
 }
 
-/** Native renewal receipt, completion and cleanup moved from the session provider. */
+/** Runs one renewal turn: its native receipt, completion and cleanup. */
 export async function runClaudeRenewalTurn(conversation, {
   clientMessageId, prompt, outputSchema, expectedThreadId, forbiddenThreadId,
   requireFreshHistory = false, timeoutMs = 180_000
@@ -230,7 +228,7 @@ export function createClaudeConversationGoals({ conversationId, readHistory, rea
 /** @typedef {(message: string, options: { code: string }) => Error} ClaudeConversationErrorFactory */
 
 /**
- * The original retained entry and command owner; hosts supply authorized storage and message effects.
+ * The owner of a conversation's retained entries and their commands; hosts supply authorized storage and message effects.
  * Every refusal is built by `createError(message, { code })`, each with its own `conversation_claude_*` code.
  * @param {{
  *   configRoot: string,
@@ -278,7 +276,7 @@ export function createClaudeConversationOwner({
   function snapshot(entry) {
     return entry?.turn ? { ...entry.turn, threadId: entry.id,
       ...(entry.turn.active && entry.observationError ? { status: "observation_lost", error: entry.observationError } : {}),
-      phase: entry.turn.active && !entry.observationError ? text(entry.turn.phase) : "" } : null;
+      phase: entry.turn.active && !entry.observationError ? normalizeNullableText(entry.turn.phase) : "" } : null;
   }
 
   function currentApplicationCommand(entry, command, owner = command?.nativeOwner) {
@@ -302,9 +300,10 @@ export function createClaudeConversationOwner({
     } : null);
   }
 
-  // This lookup uses only the existing current entry and native receipt owner.
+  // This lookup uses only the current entry and its native receipt owner.
   function readFinalAssistantResult(contextKey, conversationId = "", turnId = "") {
-    if (!text(contextKey) || !text(conversationId) || !text(turnId) || cleanup.isClosing(contextKey)) return null;
+    if (!normalizeNullableText(contextKey) || !normalizeNullableText(conversationId) || !normalizeNullableText(turnId) ||
+      cleanup.isClosing(contextKey)) return null;
     const entry = entries.get(`${contextKey}\0${conversationId}`);
     if (!entry || entry.disposed || entry.stopping || entry.observationError ||
         entry.id !== conversationId || entry.context.key !== contextKey || entry.turn?.id !== turnId) return null;
@@ -327,7 +326,7 @@ export function createClaudeConversationOwner({
   async function open(context, { conversationId = "", mainId, create = false,
     cleanupExecutionId, recoveringCleanup = false, nativeWorkdir = context.workdir } = {}) {
     const main = !conversationId || conversationId === mainId;
-    const id = conversationId || text(mainId) ||
+    const id = conversationId || normalizeNullableText(mainId) ||
       [...entries.values()].find(entry => entry.main && entry.context.key === context.key)?.id || randomUUID();
     requireClaudeSessionId(id);
     if (!conversationId) {

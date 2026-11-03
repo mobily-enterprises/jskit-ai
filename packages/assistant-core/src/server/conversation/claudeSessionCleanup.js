@@ -3,7 +3,6 @@ import { deleteClaudeConversationHistory } from "./claudeHistory.js";
 import { hasPendingClaudeStartup } from "./claudeProcessStart.js";
 import { normalizeNullableText } from "./normalize.js";
 
-const text = normalizeNullableText;
 const ACTIVE_TURN_STATES = ["starting", "active", "finalizing"];
 
 /**
@@ -104,7 +103,7 @@ export function createClaudeSessionCleanup({
   // Project close releases what this server runs for the project's sessions,
   // from their retained entries alone, and forgets them: nothing uses them.
   function closeProject(input = {}, application) {
-    const root = text(input.projectContextRoot);
+    const root = normalizeNullableText(input.projectContextRoot);
     return eachSession(entry => !root || path.resolve(store.projectContextRoot(entry)) === path.resolve(root),
       ctx => closeRetained(ctx, application, { recover: false, forget: true }));
   }

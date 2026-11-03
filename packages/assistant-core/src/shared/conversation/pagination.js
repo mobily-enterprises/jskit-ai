@@ -1,7 +1,7 @@
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { conversationTurnMessages } from "./turns.js";
 
-// Original paged transcript representation, shared by all browser bindings.
+// The paged transcript representation, shared by all browser bindings.
 const CONVERSATION_LOG_PAGE_LIMIT = 10;
 
 const messageRoles = ["system", "user", "assistant"];

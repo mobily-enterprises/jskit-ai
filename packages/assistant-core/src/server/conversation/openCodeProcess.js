@@ -27,8 +27,6 @@ const OPENCODE_ZEN_MODELS_URL = "https://opencode.ai/zen/v1/models";
 const OPENCODE_ZEN_PROVIDER_ID = "opencode";
 const OPENCODE_ZEN_PUBLIC_API_KEY = "public";
 
-const text = normalizeNullableText;
-
 /** A server start whose caller records no execution identity. */
 function ignoreServerStart() {}
 
@@ -51,7 +49,7 @@ export function openCodeProcessEnvironment(baseEnv = {}, {
       npm_config_cache: path.join(cacheRoot, "npm-offline"),
       npm_config_offline: "true"
     }),
-    NO_PROXY: [text(baseEnv.NO_PROXY), OPENCODE_HOST, "localhost", "::1"]
+    NO_PROXY: [normalizeNullableText(baseEnv.NO_PROXY), OPENCODE_HOST, "localhost", "::1"]
       .filter(Boolean)
       .join(","),
     OPENCODE_DB: dbPath,
@@ -131,9 +129,9 @@ async function waitForOpenCodeReady({
       });
       signal?.throwIfAborted();
       if (health?.healthy === true) {
-        if (expectedVersion && text(health.version) !== expectedVersion) {
+        if (expectedVersion && normalizeNullableText(health.version) !== expectedVersion) {
           const error = new Error(
-            `OpenCode ${text(health.version) || "(unknown)"} is installed; this host requires ${expectedVersion}.`
+            `OpenCode ${normalizeNullableText(health.version) || "(unknown)"} is installed; this host requires ${expectedVersion}.`
           );
           error.code = "assistant_opencode_version_mismatch";
           throw error;
@@ -168,11 +166,11 @@ export function openCodeConversationAgent({ nativeTools = false, tools = false }
 }
 
 export function openCodeConversationAgents({ sessionEnvironmentRegistry = "" } = {}) {
-  const guarded = Boolean(text(sessionEnvironmentRegistry));
+  const guarded = Boolean(normalizeNullableText(sessionEnvironmentRegistry));
   return Object.fromEntries([false, true].flatMap(nativeTools => [false, true].map(tools => [
     openCodeConversationAgent({ nativeTools, tools }), {
       hidden: true, mode: "primary",
-      // Keep native definitions behind approval, as in the original host agents.
+      // Keep native definitions behind approval.
       // The registered plugin rejects every ungranted native call before execution.
       permission: nativeTools || tools || guarded ? agentPermission(!nativeTools && guarded, nativeTools, tools) : "deny"
     }
@@ -191,7 +189,8 @@ function agentPermission(ask, nativeTools, tools) {
 /** @typedef {import("./localExecution.js").ConversationExecution} ConversationExecution */
 
 /**
- * Shared conversation configuration around the extracted server lifecycle.
+ * Starts the OpenCode server of one conversation runtime: its private credential home, its configuration for the selected
+ * connection, and the environment it passes on from the application's.
  * @param {object} options
  * @param {string} [options.command]
  * @param {ConversationExecution} [options.execution]
@@ -212,6 +211,7 @@ export async function createOpenCodeConversationServer({
   workdir, stateDirectory, databasePath, sessionEnvironmentRegistry, connection, maxOutputTokens,
   onStarted = ignoreServerStart, onFailure = ignoreServerFailure, executionLimits, signal
 }) {
+  if (!env) throw new TypeError("An OpenCode conversation's host requires the application's environment, such as process.env, to start OpenCode.");
   await mkdir(stateDirectory, { recursive: true, mode: 0o700 });
   const directory = await mkdtemp(path.join(stateDirectory, "process-"));
   const model = `${connection.providerId}/${connection.model}`;
@@ -351,7 +351,7 @@ export async function createOpenCodeServerProcess({
     const health = await waitForOpenCodeReady({ client, expectedVersion, processHandle, timeoutMs: readinessTimeoutMs, signal });
     const authenticated = new Set();
     for (const connection of connections) {
-      const providerId = text(connection?.providerId);
+      const providerId = normalizeNullableText(connection?.providerId);
       const key = String(connection?.apiKey || "");
       if (!providerId || !key || authenticated.has(providerId)) {
         continue;
@@ -430,7 +430,7 @@ export async function readOpenCodeZenModelIds({
     if (!Array.isArray(payload?.data) || payload.data.length === 0) {
       throw new Error("OpenCode Zen returned an empty model list.");
     }
-    const ids = payload.data.map((model) => text(model?.id));
+    const ids = payload.data.map((model) => normalizeNullableText(model?.id));
     const uniqueIds = new Set(ids);
     if (ids.some((id) => !id) || uniqueIds.size !== ids.length) {
       throw new Error("OpenCode Zen returned an invalid model list.");
@@ -454,9 +454,9 @@ export async function readOpenCodeCatalog({
   privateRoot = "",
   workdir = ""
 } = {}) {
-  const normalizedPrivateRoot = path.resolve(text(privateRoot));
-  const normalizedWorkdir = path.resolve(text(workdir));
-  if (!text(privateRoot) || !text(workdir)) {
+  const normalizedPrivateRoot = path.resolve(normalizeNullableText(privateRoot));
+  const normalizedWorkdir = path.resolve(normalizeNullableText(workdir));
+  if (!normalizeNullableText(privateRoot) || !normalizeNullableText(workdir)) {
     throw new TypeError("OpenCode catalogue reads require private and working roots.");
   }
   const authRoot = path.join(normalizedPrivateRoot, "data", "opencode");
@@ -510,11 +510,11 @@ export async function verifyOpenCodeApiKey({
   workdir = ""
 } = {}) {
   const key = String(apiKey || "");
-  const providerId = text(modelProviderId);
-  const selectedModelId = text(modelId);
-  const normalizedPrivateRoot = path.resolve(text(privateRoot));
-  const normalizedWorkdir = path.resolve(text(workdir));
-  if (!key || !providerId || !selectedModelId || !text(privateRoot) || !text(workdir)) {
+  const providerId = normalizeNullableText(modelProviderId);
+  const selectedModelId = normalizeNullableText(modelId);
+  const normalizedPrivateRoot = path.resolve(normalizeNullableText(privateRoot));
+  const normalizedWorkdir = path.resolve(normalizeNullableText(workdir));
+  if (!key || !providerId || !selectedModelId || !normalizeNullableText(privateRoot) || !normalizeNullableText(workdir)) {
     throw new TypeError("OpenCode API-key verification requires a key, provider, model, and isolated roots.");
   }
   try {
@@ -566,7 +566,7 @@ export async function verifyOpenCodeApiKey({
       const exitCode = Number(result?.exitCode);
       const unavailable = result?.timedOut === true ||
         result?.retryable === true ||
-        Boolean(text(result?.code)) ||
+        Boolean(normalizeNullableText(result?.code)) ||
         (Number.isSafeInteger(exitCode) && exitCode !== 1);
       const error = unavailable
         ? new AppError(503, "OpenCode API-key verification could not run.", {

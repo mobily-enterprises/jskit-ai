@@ -139,7 +139,7 @@ function createAssistantRuntime({
 }
 
 /**
- * Internal SQL composition: the existing facade supplies the authenticated action
+ * Internal SQL composition: the facade supplies the authenticated action
  * context; the model's history is the conversation's saved history, never the browser's.
  * @param {object} dependencies
  * @param {ConversationsRepository} dependencies.conversationsRepository

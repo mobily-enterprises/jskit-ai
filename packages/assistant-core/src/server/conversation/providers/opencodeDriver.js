@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, realpath } from "node:fs/promises";
 import path from "node:path";
 import { createLocalConversationExecution } from "../localExecution.js";
+import { ignoreReceipt } from "../nativeCommandCallbacks.js";
 import { openCodeServerForDirectory } from "../openCodeNativeSession.js";
 import { retireOpenCodeConversationHistory } from "../openCodeNativeHistory.js";
 import { recoverWithoutProjection } from "../openCodeTurn.js";
@@ -10,11 +11,8 @@ import { validateConversationConfiguration } from "../configuration.js";
 import { createScopedConversationHandle } from "./scoped.js";
 import { executeOpenCodeApplicationTool, openStandaloneOpenCodeConversation } from "./opencodeStandalone.js";
 
-/** A command whose caller records no delivery timing for the native receipt. */
-function ignoreNativeReceipt() {}
-
-/** A command whose caller records no delivery timing for the persisted receipt. */
-function ignoreReceiptPersisted() {}
+/** A runtime given no host runs OpenCode in the process's working directory, with local execution and the `opencode` command. */
+const LOCAL_HOST = Object.freeze({});
 
 /**
  * Uses the application's authorized API connection; native state stays server-side.
@@ -37,8 +35,7 @@ function ignoreReceiptPersisted() {}
  */
 export function createOpenCodeConversationDriver({
   connections,
-  // readable-check: allow dependency-default - data: a runtime without host settings runs OpenCode in its working directory with local execution
-  host = {},
+  host = LOCAL_HOST,
   limits = {}
 }) {
   // readable-check: allow method-probe - input validation: a host that does not open its own conversations requires the application's AI connection resolver
@@ -48,7 +45,7 @@ export function createOpenCodeConversationDriver({
   const execution = host.execution || createLocalConversationExecution();
   const nativeTools = host.nativeTools === true;
   if (nativeTools && !host.env) {
-    throw new TypeError("createOpenCodeConversationDriver requires the application's environment, such as process.env, for native tools.");
+    throw new TypeError("An OpenCode conversation's host requires the application's environment, such as process.env, for native tools.");
   }
   const maximumOutput = limits.maxOutputCharacters ?? 64_000;
   if (!Number.isSafeInteger(maximumOutput) || maximumOutput < 1) throw new TypeError("Invalid OpenCode output limit.");
@@ -197,8 +194,8 @@ export function createOpenCodeConversationDriver({
           signal,
           beforeDispatch,
           accept,
-          onNativeReceipt = ignoreNativeReceipt,
-          onReceiptPersisted = ignoreReceiptPersisted
+          onNativeReceipt = ignoreReceipt,
+          onReceiptPersisted = ignoreReceipt
         } = command;
         signal.throwIfAborted();
         const acquired = await supplied.acquire(context);

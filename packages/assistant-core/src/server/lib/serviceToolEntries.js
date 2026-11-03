@@ -19,8 +19,7 @@ function normalizeAssistantExtension(value) {
     exclude: normalizeText(source.exclude),
     alwaysAvailable: source.alwaysAvailable === true,
     output: Object.hasOwn(source, "output") ? source.output : null,
-    // readable-check: allow method-probe - input validation: an action's assistant extension may bring its own result transform
-    transformResult: typeof source.transformResult === "function" ? source.transformResult : null
+    transformResult: source.transformResult ?? null
   });
 }
 
@@ -150,11 +149,11 @@ function normalizeSurfaceList(value) {
   return Object.freeze(resolved);
 }
 
+/**
+ * The automation actions that can become tools, by action id.
+ * @param {{ listDefinitions(): object[] }} actions The action runtime the tool catalogue has validated.
+ */
 function resolveActionBackedToolEntries(actions) {
-  // readable-check: allow method-probe - input validation: the application passes its action runtime
-  if (!actions || typeof actions.listDefinitions !== "function") {
-    throw new TypeError("Assistant tool catalog requires runtime.actions.");
-  }
   const entriesByActionId = new Map();
   for (const action of actions.listDefinitions()) {
     if (!action || typeof action !== "object") {

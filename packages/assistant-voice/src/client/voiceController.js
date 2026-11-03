@@ -9,8 +9,7 @@ import { useJskitText, voiceError, voiceErrorText } from "./i18n.js";
  *   createSession?: typeof useVoiceConversation
  * }} options
  */
-// readable-check: allow dependency-default - input validation: an application that passes nothing is told below that it must supply connectSpeech
-export function createVoiceConversationController({ connectSpeech, createSession = useVoiceConversation } = {}) {
+export function createVoiceConversationController({ connectSpeech, createSession = useVoiceConversation }) {
   // readable-check: allow method-probe - input validation: an application supplies the speech connection
   if (typeof connectSpeech !== "function") throw new TypeError("Voice requires an application speech connection.");
   const { t } = useJskitText();

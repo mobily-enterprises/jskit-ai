@@ -3,7 +3,7 @@ import { conversationTurnMessages } from "./turns.js";
 /** Overlay live provider output without changing the saved transcript. */
 export function mergeConversationStream(turns = [], snapshot = {}) {
   const savedIds = new Set(turns.flatMap(conversationTurnMessages).map((message) => message.messageId));
-  // readable-check: allow no-optional-after-default - input validation: a caller may pass null before its live snapshot is known
+  // readable-check: allow no-optional-after-default - data: the live snapshot is null until a caller knows it
   const messages = (snapshot?.messages || []).filter((message) => message.text && !savedIds.has(message.messageId));
   if (!messages.length) return turns;
   const result = [...turns];

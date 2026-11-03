@@ -11,7 +11,6 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-const text = normalizeNullableText;
 // One runtime per scope directory: the native server it owns is shared by the
 // whole process.
 const sharedRuntimes = new Map();
@@ -47,17 +46,17 @@ function pathContains(root = "", candidate = "") {
 }
 
 export function openCodeEnvironmentForDirectory(environments, cwd = "") {
-  const normalizedCwd = path.resolve(text(cwd) || process.cwd());
+  const normalizedCwd = path.resolve(normalizeNullableText(cwd) || process.cwd());
   return environments
-    .filter(entry => text(entry?.workdir) && pathContains(path.resolve(entry.workdir), normalizedCwd))
+    .filter(entry => normalizeNullableText(entry?.workdir) && pathContains(path.resolve(entry.workdir), normalizedCwd))
     .sort((left, right) => path.resolve(right.workdir).length - path.resolve(left.workdir).length)[0] || null;
 }
 
 export async function openCodeEnvironmentForSession(environments, sessionId = "", client = null) {
   const visited = new Set();
-  let id = text(sessionId);
+  let id = normalizeNullableText(sessionId);
   while (id && !visited.has(id) && visited.size < 32) {
-    const selected = environments.find(entry => text(entry?.upstreamSessionId) === id);
+    const selected = environments.find(entry => normalizeNullableText(entry?.upstreamSessionId) === id);
     if (selected) return selected;
     if (!client) return null;
     visited.add(id);
@@ -65,7 +64,7 @@ export async function openCodeEnvironmentForSession(environments, sessionId = ""
     if (result.error) throw Object.assign(new Error("The subagent's parent session could not be verified."), {
       code: "assistant_opencode_parent_unverified"
     });
-    id = text(result.data?.parentID);
+    id = normalizeNullableText(result.data?.parentID);
   }
   return null;
 }
@@ -167,14 +166,14 @@ export function createOpenCodeSharedRuntime({ onStop = ignoreRuntimeStop, scope,
       upstreamSessionId: target.upstreamSessionId,
       workdir: context.workdir
     });
-    if (terminal?.ok === true && text(terminal.id)) {
-      target.terminalSessionId = text(terminal.id);
+    if (terminal?.ok === true && normalizeNullableText(terminal.id)) {
+      target.terminalSessionId = normalizeNullableText(terminal.id);
     }
     return terminal;
   }
 
   async function closeTerminal(sessionId, terminalSessionId, terminalHost) {
-    const id = text(terminalSessionId);
+    const id = normalizeNullableText(terminalSessionId);
     const result = await terminalHost.close(id, {
       namespace: terminalHost.namespace(sessionId)
     });

@@ -112,7 +112,7 @@ function ignoreAcceptance() {}
 function ignoreResult() {}
 
 /**
- * Configure this Vue application's existing conversation binding before mounting.
+ * Sets this Vue application's conversation binding defaults before mounting.
  * @param {import("vue").App} app
  * @param {{ actorKey?: import("vue").MaybeRefOrGetter<string | undefined>, api?: AssistantApi,
  *   request?: (path: string, options: object) => Promise<any>, clearDraftOn?: "dispatch" | "accepted" }} [defaults]
@@ -140,22 +140,27 @@ function formatsAnswers(prompts) {
 }
 
 /**
- * Original bounded-command history belongs to this mounted view. It has no canonical delivery receipt, retained server
+ * Checks the bounded task an application hands a binding.
+ * @param {BoundedTask} boundedTask
+ */
+// readable-check: allow method-probe - input validation: an application hands the binding its bounded task
+function assertBoundedTask({ command, endpoint, scope, input, result, onResult }) {
+  if (typeof command?.run !== "function" || !("isRunning" in command) || typeof input !== "function" || typeof result !== "function") {
+    throw new TypeError("boundedTask requires its command and input/result mappings.");
+  }
+  if (endpoint === undefined || scope === undefined) throw new TypeError("boundedTask requires its endpoint and application scope.");
+  if (typeof onResult !== "function") throw new TypeError("boundedTask.onResult must be a function.");
+}
+
+/**
+ * A bounded-command history belongs to this mounted view. It has no canonical delivery receipt, retained server
  * conversation or live subscription.
  * @param {BoundedTask} boundedTask
  * @param {{ active: import("vue").MaybeRefOrGetter<boolean>, data: import("vue").MaybeRefOrGetter<unknown>,
  *   presentation: import("vue").MaybeRefOrGetter<Record<string, any> | undefined> }} view
  */
 function useBoundedTask({ command, endpoint, scope, input, result, onResult = ignoreResult }, { active, data, presentation }) {
-  // readable-check: allow method-probe - input validation: an application hands the binding its bounded task
-  if (typeof command?.run !== "function" || !("isRunning" in command) ||
-      // readable-check: allow method-probe - input validation: an application hands the binding its bounded task
-      typeof input !== "function" || typeof result !== "function") {
-    throw new TypeError("boundedTask requires its command and input/result mappings.");
-  }
-  if (endpoint === undefined || scope === undefined) throw new TypeError("boundedTask requires its endpoint and application scope.");
-  // readable-check: allow method-probe - input validation: an application hands the binding its bounded task
-  if (typeof onResult !== "function") throw new TypeError("boundedTask.onResult must be a function.");
+  assertBoundedTask({ command, endpoint, scope, input, result, onResult });
   const draft = ref("");
   const messages = ref([]);
   const busy = computed(() => toValue(command.isRunning) === true);
@@ -290,7 +295,7 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
       endpoint: text(endpoint) || route.endpoint
     });
   });
-  // The original composer owns input before a conversation ID is available.
+  // The binding's own composer owns input before a conversation ID is available.
   // It is scoped to the real actor/surface/workspace, never a placeholder ID.
   const draftScope = computed(() => {
     const scope = identity.value;

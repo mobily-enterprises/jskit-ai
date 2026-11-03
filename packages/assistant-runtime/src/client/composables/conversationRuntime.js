@@ -153,7 +153,7 @@ function createConversationRuntime({ identity, api, socket, actorKey, placement,
       !["getItem", "setItem", "removeItem"].every(name => typeof savedDraft.storage?.[name] === "function"))) {
     throw new TypeError("draftStorage requires an explicit key and storage with getItem, setItem and removeItem.");
   }
-  // Original composer state is restored verbatim. A read never reconstructs or
+  // Saved composer state is restored verbatim. A read never reconstructs or
   // sends an old request; the explicit retry keeps its original payload and ID.
   try {
     const saved = savedDraft ? JSON.parse(savedDraft.storage.getItem(savedDraft.key) || "null") : null;

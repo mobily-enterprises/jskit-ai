@@ -5,11 +5,7 @@ import {
 import { ensureOpenCodeSession, sameOpenCodeSelection } from "./openCodeNativeSession.js";
 import { openCodeTurnSnapshot } from "./openCodeTurnMonitor.js";
 import { normalizeNullableText } from "./normalize.js";
-
-const text = normalizeNullableText;
-
-/** A rejected prompt whose caller keeps no state about the rejection. */
-function ignorePromptRejection() {}
+import { ignorePromptRejection } from "./nativeCommandCallbacks.js";
 
 /**
  * A session's main native conversation: its readiness, the messages sent to
@@ -89,8 +85,8 @@ export function createOpenCodeSessionTurns({ processes, monitors, turns, process
     const ownershipMatchesTurn = Boolean(
       currentMonitor &&
       options.turnOwnership &&
-      text(options.turnOwnership.threadId) === currentThreadId &&
-      text(options.turnOwnership.turnId) === text(currentTurn?.id)
+      normalizeNullableText(options.turnOwnership.threadId) === currentThreadId &&
+      normalizeNullableText(options.turnOwnership.turnId) === normalizeNullableText(currentTurn?.id)
     );
     if (ownershipMatchesTurn && options.turnOwnership.reusable !== true) {
       return { ownerConflict: true, threadId: currentThreadId,
@@ -234,7 +230,7 @@ export function createOpenCodeSessionTurns({ processes, monitors, turns, process
       if (admission && !retainPreviousInput) await dispatchMonitor;
       if (startingTurn && !admission && !monitors.has(key)) {
         startingTurn.active = false;
-        startingTurn.error = text(error?.message) || "OpenCode prompt delivery failed.";
+        startingTurn.error = normalizeNullableText(error?.message) || "OpenCode prompt delivery failed.";
         startingTurn.state = "failed";
         startingTurn.updatedAt = new Date().toISOString();
         await application.writeRun(
@@ -247,7 +243,7 @@ export function createOpenCodeSessionTurns({ processes, monitors, turns, process
         turn: openCodeTurnSnapshot(turns.get(key) || startingTurn, currentThreadId) } };
     }
     if (dispatchTurn.admission === admission && dispatchTurn.inputMessageId === providerMessageId) {
-      dispatchTurn.inputMessageId = text(admitted.id);
+      dispatchTurn.inputMessageId = normalizeNullableText(admitted.id);
       dispatchTurn.updatedAt = new Date().toISOString();
     }
     let conversationTurn;
@@ -269,11 +265,11 @@ export function createOpenCodeSessionTurns({ processes, monitors, turns, process
       )), error => receiptAbort.abort(error));
       try {
         const observation = await inspectOpenCodeMessageAdmission(target.server.client, currentThreadId,
-          text(admitted.id), { wait: true, signal: AbortSignal.any([
+          normalizeNullableText(admitted.id), { wait: true, signal: AbortSignal.any([
             target.abortController.signal, dispatchTurn.abortController.signal, receiptAbort.signal
           ]) });
         const message = openCodeMessageRows(observation.messages).find(message =>
-          message.type === "user" && text(message.id) === text(admitted.id));
+          message.type === "user" && normalizeNullableText(message.id) === normalizeNullableText(admitted.id));
         const created = message?.time?.created;
         const recoveryCreated = recoveryReceipt.time?.created;
         // Match the native latest-user order, including its ID tie-breaker.
@@ -313,13 +309,13 @@ export function createOpenCodeSessionTurns({ processes, monitors, turns, process
   async function reconcileSessions(sessions = [], options = {}, preparation) {
     const results = [];
     for (const session of sessions) {
-      const sessionId = text(session?.sessionId || session?.id);
+      const sessionId = normalizeNullableText(session?.sessionId || session?.id);
       try {
         const prepared = await preparation.session(sessionId, session, options);
         const resumed = await reconcilePreparedSession(prepared, prepared.activeRun, options);
         results.push({ ok: true, resumed, sessionId });
       } catch (error) {
-        results.push({ error: text(error?.message), ok: false, sessionId });
+        results.push({ error: normalizeNullableText(error?.message), ok: false, sessionId });
       }
     }
     return {
@@ -343,9 +339,9 @@ export function createOpenCodeSessionTurns({ processes, monitors, turns, process
     } else if (activeRun) {
       turnMonitor.beginMessageMonitor(key, target, {
         restored: true,
-        eventStartedAt: Date.parse(text(activeRun.startedAt)) || Date.now(),
-        id: text(activeRun.turnId) || application.fallbackTurnId,
-        startedAt: text(activeRun.startedAt)
+        eventStartedAt: Date.parse(normalizeNullableText(activeRun.startedAt)) || Date.now(),
+        id: normalizeNullableText(activeRun.turnId) || application.fallbackTurnId,
+        startedAt: normalizeNullableText(activeRun.startedAt)
       }, options, application.monitor);
     }
     return Boolean(activeRun && !activeRun.observationError);
@@ -378,7 +374,7 @@ export function createOpenCodeSessionTurns({ processes, monitors, turns, process
     if (needsObservationRecovery(prepared.key, savedRun)) {
       await prepared.observation.write(async (run, commit) => {
         if (!needsObservationRecovery(prepared.key, run)) return;
-        const threadId = text(run.threadId) || target.upstreamSessionId;
+        const threadId = normalizeNullableText(run.threadId) || target.upstreamSessionId;
         await recoverObservation(target, threadId, () => commit(writeRun => (
           recordStoppedObservation(prepared.key, run, threadId, writeRun)
         )));
@@ -400,7 +396,7 @@ export function createOpenCodeSessionTurns({ processes, monitors, turns, process
       target?.upstream &&
       sameOpenCodeSelection(target.upstreamSelection, selection) &&
       target.workdir === workdir &&
-      text(target.selection?.catalogRevision) === text(selection.catalogRevision) &&
+      normalizeNullableText(target.selection?.catalogRevision) === normalizeNullableText(selection.catalogRevision) &&
       target.connectionFingerprint === connection.fingerprint &&
       target.canonicalUrl === connection.canonicalUrl &&
       target.endpointCode === connection.endpointCode
@@ -428,7 +424,7 @@ export function createOpenCodeSessionTurns({ processes, monitors, turns, process
         target.server !== observedServer ||
         target.workdir !== current.workdir ||
         !sameOpenCodeSelection(target.upstreamSelection, current.selection) ||
-        text(target.selection?.catalogRevision) !== text(current.selection.catalogRevision)
+        normalizeNullableText(target.selection?.catalogRevision) !== normalizeNullableText(current.selection.catalogRevision)
       ) {
         throw changed();
       }
@@ -455,7 +451,7 @@ export function createOpenCodeSessionTurns({ processes, monitors, turns, process
     const stopped = {
       ...turns.get(key),
       ...run,
-      id: text(run.turnId),
+      id: normalizeNullableText(run.turnId),
       threadId,
       active: false,
       state: "interrupted",
@@ -478,7 +474,7 @@ export function createOpenCodeSessionTurns({ processes, monitors, turns, process
     const turn = turns.get(key);
     // Helpers can acquire the shared process before a main conversation exists.
     // Their cleanup is owned by closeSession, not a native main-turn interrupt.
-    if (!target || (!text(target.upstreamSessionId) && !turn?.active)) {
+    if (!target || (!normalizeNullableText(target.upstreamSessionId) && !turn?.active)) {
       return {
         interrupted: false,
         ok: true,

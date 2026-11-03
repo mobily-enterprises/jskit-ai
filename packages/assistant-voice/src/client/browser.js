@@ -71,15 +71,12 @@ function pageVisible() {
 }
 
 /**
- * A unique id for one listening or speaking turn.
- * @param {string} [prefix]
+ * A unique id for one listening or speaking turn. Voice runs only in a secure context, which always has crypto.randomUUID.
+ * @param {"listen" | "speak"} prefix
  * @returns {string}
  */
-function createVoiceTurnId(prefix = "turn") {
-  // readable-check: allow optional-call - platform object: a page outside a secure context has no crypto.randomUUID, so the id falls back to the clock and randomness
-  const id = globalThis.crypto?.randomUUID?.() ||
-    `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-  return `${prefix}-${id}`;
+function createVoiceTurnId(prefix) {
+  return `${prefix}-${crypto.randomUUID()}`;
 }
 
 export {

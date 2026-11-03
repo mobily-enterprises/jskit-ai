@@ -92,7 +92,7 @@ function requireUnambiguous(projection) {
 // than this is read from the database on each access.
 const CACHED_ROWS = 50_000;
 
-/** Existing SQL rows remain authoritative. Core supplies the transaction methods;
+/** The SQL rows are authoritative. Core supplies the transaction methods;
  * the database owns locking, sequence allocation and commit/rollback together.
  * Each conversation's rows stay cached while its transcript revision and last message
  * sequence are unchanged. Every save that changes rows or the summary writes a new

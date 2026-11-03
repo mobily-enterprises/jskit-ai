@@ -3,7 +3,7 @@ function messageText(value = "") {
 }
 
 function conversationTurns(conversationLog = {}) {
-  // readable-check: allow no-optional-after-default - input validation: a caller may pass null before its conversation is known
+  // readable-check: allow no-optional-after-default - data: the conversation is null until a caller knows it
   if (Array.isArray(conversationLog?.turns)) {
     return conversationLog.turns;
   }

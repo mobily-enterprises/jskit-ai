@@ -9,8 +9,6 @@ import { openCodeAssistantMessageText as assistantMessageText } from "./openCode
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeNullableText } from "./normalize.js";
 
-const text = normalizeNullableText;
-
 /** A projection that keeps no native output identities. */
 function noOutputId() {}
 
@@ -18,24 +16,24 @@ function noOutputId() {}
 export function openCodeTurnSnapshot(turn = null, threadId = "") {
   const source = isRecord(turn) ? turn : {};
   const active = source.active === true;
-  return active || text(source.id)
+  return active || normalizeNullableText(source.id)
     ? {
         active,
-        error: text(source.error),
-        id: text(source.id),
-        phase: active && !source.observationError ? text(source.phase) : "",
-        startedAt: text(source.startedAt),
-        state: text(source.state) || (active ? "active" : "completed"),
-        status: source.observationError ? "observation_lost" : text(source.state) || (active ? "active" : "completed"),
-        threadId: text(source.threadId || threadId),
-        updatedAt: text(source.updatedAt)
+        error: normalizeNullableText(source.error),
+        id: normalizeNullableText(source.id),
+        phase: active && !source.observationError ? normalizeNullableText(source.phase) : "",
+        startedAt: normalizeNullableText(source.startedAt),
+        state: normalizeNullableText(source.state) || (active ? "active" : "completed"),
+        status: source.observationError ? "observation_lost" : normalizeNullableText(source.state) || (active ? "active" : "completed"),
+        threadId: normalizeNullableText(source.threadId || threadId),
+        updatedAt: normalizeNullableText(source.updatedAt)
       }
     : null;
 }
 
 /** Whether a failure reads as a rejected or missing credential. */
 function openCodeCredentialFailure(value = "") {
-  const failure = text(value);
+  const failure = normalizeNullableText(value);
   return (
     /\b(?:401|403)\b/u.test(failure) ||
     (
@@ -47,7 +45,7 @@ function openCodeCredentialFailure(value = "") {
 
 /** Whether a native error is the provider API's own failure. */
 export function openCodeProviderApiFailure(error) {
-  return text(error?.name) === "APIError";
+  return normalizeNullableText(error?.name) === "APIError";
 }
 
 /** Observes a target's native events for a projection that reports their failure and close. */
@@ -96,7 +94,7 @@ export async function writeConversationProjection(sessionId, messages = null, {
     const messageId = assistantText ? projection.messageId(message.id, "assistant") : "";
     const outputId = assistantText ? nativeOutputId(message.id, "assistant") : "";
     const inFlight = streaming && index === rows.length - 1;
-    const reasoning = (message.content || []).filter((part) => part.type === "reasoning" && text(part.text))
+    const reasoning = (message.content || []).filter((part) => part.type === "reasoning" && normalizeNullableText(part.text))
       .map((part) => ({
         messageId: message.id,
         partId: part.id,
@@ -142,7 +140,7 @@ export async function writeConversationProjection(sessionId, messages = null, {
       await projection.publishTurn(turn);
       if (message === finalNativeMessage && !projection.readError(message) &&
           (message.time?.completed || message.finish) && turn) {
-        finalAssistantResult = { inputMessageId: text(inputMessageId), itemId: text(message.id),
+        finalAssistantResult = { inputMessageId: normalizeNullableText(inputMessageId), itemId: normalizeNullableText(message.id),
           text: assistantText, conversationTurn: turn };
       }
     }
@@ -170,11 +168,11 @@ export function createOpenCodeTurnMonitor({ processes, monitors, turns, processO
     if (!target || processes.get(key) !== target || target.abortController.signal.aborted ||
         !turn.finalAssistantResultProcess || processOwner.current !== turn.finalAssistantResultProcess ||
         target.upstreamSessionId !== turn.threadId) return null;
-    if (!text(threadId) || !text(turnId) || !result || turn.active || turn.state !== "completed" ||
+    if (!normalizeNullableText(threadId) || !normalizeNullableText(turnId) || !result || turn.active || turn.state !== "completed" ||
         turn.error || turn.observationError || turn.interruptRequested || turn.interruptAcknowledged ||
-        turn.threadId !== text(threadId) || turn.id !== text(turnId) ||
-        result.threadId !== text(threadId) || result.turnId !== text(turnId) ||
-        result.inputMessageId !== text(turn.inputMessageId) || !result.conversationTurn) return null;
+        turn.threadId !== normalizeNullableText(threadId) || turn.id !== normalizeNullableText(turnId) ||
+        result.threadId !== normalizeNullableText(threadId) || result.turnId !== normalizeNullableText(turnId) ||
+        result.inputMessageId !== normalizeNullableText(turn.inputMessageId) || !result.conversationTurn) return null;
     return structuredClone(result);
   }
 
@@ -187,15 +185,15 @@ export function createOpenCodeTurnMonitor({ processes, monitors, turns, processO
       }
       const metadata = projection.prepare(admitted, options);
       const eventStartedAt = Number(admitted.eventStartedAt) || Date.now();
-      const startedAt = text(admitted.startedAt) || new Date(eventStartedAt).toISOString();
+      const startedAt = normalizeNullableText(admitted.startedAt) || new Date(eventStartedAt).toISOString();
       const turn = {
         abortController: new AbortController(),
         admission: options.admission,
         active: true,
         error: "",
         eventStartedAt,
-        id: text(admitted.id),
-        inputMessageId: text(admitted.id),
+        id: normalizeNullableText(admitted.id),
+        inputMessageId: normalizeNullableText(admitted.id),
         startedAt,
         state: options.admission ? "starting" : "active",
         ...metadata.fields,
@@ -281,7 +279,7 @@ export function createOpenCodeTurnMonitor({ processes, monitors, turns, processO
                 const latest = openCodeLastAssistantResult(messages, { readError: finalResponse.readError }).message;
                 const phase = latest?.summary === true && Number(latest.time?.created) >= turn.eventStartedAt &&
                   !latest.time?.completed && !latest.finish && !latest.error ? "compacting" : "";
-                if (turn.active && !signal.aborted && text(turn.phase) !== phase) {
+                if (turn.active && !signal.aborted && normalizeNullableText(turn.phase) !== phase) {
                   turn.phase = phase;
                   turn.updatedAt = new Date().toISOString();
                   await writeRun(turn, turn.state);
@@ -295,7 +293,7 @@ export function createOpenCodeTurnMonitor({ processes, monitors, turns, processO
           const admission = turn.admission;
           await admission?.promise;
           signal.throwIfAborted();
-          if (admission !== turn.admission || completion.inputMessageId !== text(turn.inputMessageId)) {
+          if (admission !== turn.admission || completion.inputMessageId !== normalizeNullableText(turn.inputMessageId)) {
             continue;
           }
           const projection = await projectMessages(completion.messages, {
@@ -304,12 +302,12 @@ export function createOpenCodeTurnMonitor({ processes, monitors, turns, processO
           });
           await turn.admission?.promise;
           signal.throwIfAborted();
-          if (admission !== turn.admission || completion.inputMessageId !== text(turn.inputMessageId)) {
+          if (admission !== turn.admission || completion.inputMessageId !== normalizeNullableText(turn.inputMessageId)) {
             continue;
           }
-          failure = projection.failure || text(events.readFailure()?.message);
+          failure = projection.failure || normalizeNullableText(events.readFailure()?.message);
           providerApiFailure = projection.providerApiFailure || openCodeProviderApiFailure(events.readFailure());
-          if (!failure && !turn.interruptRequested && !text(completion.result?.text)) {
+          if (!failure && !turn.interruptRequested && !normalizeNullableText(completion.result?.text)) {
             failure = "OpenCode finished without a user-facing final response. Please send your message again.";
             finalState = "failed";
           } else if (failure) {
@@ -322,7 +320,7 @@ export function createOpenCodeTurnMonitor({ processes, monitors, turns, processO
           if (finalState === "completed" && !failure && published &&
               published.inputMessageId === completion.inputMessageId &&
               published.itemId === completion.result?.turnId &&
-              text(published.text) === text(completion.result?.text)) {
+              normalizeNullableText(published.text) === normalizeNullableText(completion.result?.text)) {
             finalAssistantResult = { ...published, threadId: turn.threadId, turnId: turn.id };
           }
           break;
@@ -332,7 +330,7 @@ export function createOpenCodeTurnMonitor({ processes, monitors, turns, processO
           finalState = "interrupted";
         } else {
           const cause = signal.aborted ? signal.reason : error;
-          ({ failure, credentialFailure } = turnFailure(text(cause?.message) || "OpenCode turn failed."));
+          ({ failure, credentialFailure } = turnFailure(normalizeNullableText(cause?.message) || "OpenCode turn failed."));
           providerApiFailure = openCodeProviderApiFailure(cause);
           finalState = target.abortController.signal.aborted
             ? "cancelled"
