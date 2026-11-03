@@ -27,10 +27,10 @@ const COMPOSABLE = "export function useAttachments({ uploadAttachment, onUploade
 client.run("jskit/typed-dependencies (client)", typedDependencies, {
   valid: [
     `/** @param {{ uploadAttachment: AttachmentUpload, onUploaded: (attachment: Attachment) => void }} options */\n${COMPOSABLE}`,
-    "export function useLabel({ label }) { return { text: label.trim() }; }"
+    "export function useLabel({ label }) { return { text: `${label}!` }; }"
   ],
   invalid: [
-    { code: COMPOSABLE, errors: [{ messageId: "untypedDependencies", data: { name: "useAttachments", collaborators: "uploadAttachment, onUploaded" } }] }
+    { code: COMPOSABLE, errors: [{ messageId: "untypedDependencies", data: { name: "useAttachments", collaborators: "uploadAttachment" } }] }
   ]
 });
 server.run("jskit/typed-dependencies (server code keeps create* and build*)", typedDependencies, {

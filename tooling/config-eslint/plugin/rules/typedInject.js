@@ -5,6 +5,8 @@ const INJECT = new Set(["inject"]);
 const FUNCTION_TYPES = new Set(["FunctionDeclaration", "FunctionExpression", "ArrowFunctionExpression"]);
 const TYPE_TAG = /@type\s*\{/u;
 const RETURNS_TAG = /@returns?\s*\{/u;
+// A key owner's named disabled default: `NO_WORKSPACE_SCOPE`.
+const NAMED_DISABLED_DEFAULT = /^NO_[A-Z0-9_]+$/u;
 
 /**
  * Whether the value an inject() call resolves names its type: a JSDoc cast around the call, a JSDoc @type on the
@@ -34,7 +36,8 @@ function isTypedInjection(sourceCode, call) {
 // An injected value is a capability lookup: it takes the owner's exported key,
 // names its type, and resolves once, either required (`inject(KEY)`) or to the
 // owner's named default (`inject(KEY, NO_X)`), never to null or {} that is then
-// probed.
+// probed. A consumer that cannot depend on the key's owner writes the key in
+// place, typed and with a named NO_* default, as a server token is written.
 const typedInject = Object.freeze({
   meta: ruleMeta("Require inject() to take an exported key, name the injected type and never default to nothing.", {
     literalKey: "inject({{key}}) names its key in place. Import the owner's exported key constant.",
@@ -55,7 +58,9 @@ const typedInject = Object.freeze({
         }
         const [key, fallback] = node.arguments;
         const keyText = compactText(sourceCode, key).slice(0, 60);
-        if ((key.type === "Literal" && typeof key.value === "string") || key.type === "TemplateLiteral") {
+        const literal = (key.type === "Literal" && typeof key.value === "string") || key.type === "TemplateLiteral";
+        const typedLookup = fallback?.type === "Identifier" && NAMED_DISABLED_DEFAULT.test(fallback.name) && isTypedInjection(sourceCode, node);
+        if (literal && !typedLookup) {
           report(node, "untyped-inject", "literalKey", { key: keyText });
         }
         if (fallback && ABSENT_DEFAULT.test(compactText(sourceCode, fallback))) {
