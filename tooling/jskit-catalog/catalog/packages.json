@@ -240,6 +240,10 @@
                 "summary": "Framework integration: Exports reusable assistant AI/provider and NDJSON streaming helpers."
               },
               {
+                "subpath": "./server/types",
+                "summary": "Framework integration: Types of the conversation runtime, tool catalogue and AI clients, and the contracts of what an application passes the runtime."
+              },
+              {
                 "subpath": "./shared",
                 "summary": "Framework integration: Exports reusable assistant validators, path helpers, query keys, and stream/settings events."
               },
@@ -314,6 +318,10 @@
               {
                 "subpath": "./client/conversation-submit",
                 "summary": "Optional UI: Original text submission helper forwards companion text through the application draft and canonical send action; also exported by ./client/conversation."
+              },
+              {
+                "subpath": "./client/types",
+                "summary": "Framework integration: Types of the conversation adapter, actions, attachments, suggestions, questions, message delivery and API client that client code receives."
               }
             ],
             "capabilities": []
@@ -364,8 +372,10 @@
             "runtime.actions",
             "runtime.config",
             "runtime.env",
+            "runtime.events",
             "runtime.http",
-            "runtime.http-web"
+            "runtime.http-web",
+            "runtime.logger"
           ]
         },
         "runtime": {
@@ -422,6 +432,10 @@
               {
                 "subpath": "./server",
                 "summary": "Provides conversation routes, authorized shared realtime subscriptions, explicit Fastify hosting shorthand, optional database integration and the per-surface assistant tool catalogue."
+              },
+              {
+                "subpath": "./server/types",
+                "summary": "Type of the assistant.runtime capability, and the contracts of the optional capabilities it reads."
               }
             ],
             "capabilities": [

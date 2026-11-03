@@ -203,6 +203,7 @@ Exports
 - `noDuplicateHelper`
 Local functions
 - `topLevelFunctions(program)`
+- `isNamedNoOp(fn)`
 - `topLevelHelpers(program, text)`
 - `comparisonRoot(file, packageDirectory)`
 - `compareCopies(left, right)`
