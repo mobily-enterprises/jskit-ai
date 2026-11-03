@@ -101,4 +101,4 @@ function sizeLimitsConfig(files, { ignores = [] } = {}) {
   ]);
 }
 
-export { sizeLimitsConfig, typedFeaturesConfig };
+export { sizeLimitRules, sizeLimitsConfig, typedFeaturesConfig };

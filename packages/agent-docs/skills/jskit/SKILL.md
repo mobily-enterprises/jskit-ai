@@ -38,12 +38,12 @@ manifests, migrations, tests, and runtime behaviour are the evidence.
 1. Read the request and nearest `AGENTS.md`.
 2. Inspect `package.json`, `package-lock.json`, installed package metadata, the
    existing tree, and the current diff when reviewing changes.
-3. Read the project's product documentation and current source. JSKIT does not
-   own a second project brain or prescribe a particular agent orchestrator.
+3. Read the project's product documentation and current source; JSKIT owns no
+   second project brain or agent orchestrator.
 4. Load only relevant references:
    - [port guide](references/existing-application-migration.md) for existing apps.
    - [heuristics index](references/heuristics/INDEX.md) for recurring traps.
-   - Before writing server code, read [typed features](references/typed-features.md) and its heuristic; `npm run lint` checks it.
+   - Before writing server code, read [typed features](references/typed-features.md) and its heuristic; client code, [client features](references/client-features.md). `npm run lint` checks both.
    - [multi-homing](references/multi-homing.md) for workspaces or invitations.
    - [translation](references/translation.md) for languages, translated texts
      or error codes.

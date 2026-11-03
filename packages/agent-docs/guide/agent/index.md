@@ -28,6 +28,8 @@ apply or adapt. It does not prescribe an agent host or project orchestrator.
 - [Record form actions](/guide/framework/crud-form-actions)
 - [Typed features](/guide/framework/typed-features): read before writing any
   server feature, provider, action, service or repository
+- [Client features](/guide/framework/client-features): read before writing any
+  composable, component, client factory or client provider
 - [UI operations](/guide/framework/ui-operations)
 - [Material 3](/guide/framework/material-3)
 - [Translating a JSKIT app](/guide/framework/translation)

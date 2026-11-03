@@ -24,6 +24,7 @@
     },
     "./client/i18n": "./client/i18n.js",
     "./client/moduleBootstrap": "./client/moduleBootstrap.js",
+    "./client/types": "./client/types.js",
     "./client/vite": "./client/vite/index.js",
     "./server/actions": "./server/actions/index.js",
     "./server/actions/actionContributorHelpers": "./server/actions/actionContributorHelpers.js",

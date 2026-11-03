@@ -12,6 +12,7 @@
     "web.js",
     "vue.js",
     "typedFeatures.js",
+    "clientFeatures.js",
     "formatter.js",
     "README.md"
   ],
@@ -25,6 +26,7 @@
     "./web": "./web.js",
     "./vue": "./vue.js",
     "./typed-features": "./typedFeatures.js",
+    "./client-features": "./clientFeatures.js",
     "./formatter": "./formatter.js",
     "./server": "./src/server/index.js",
     "./client": "./src/client/index.js"

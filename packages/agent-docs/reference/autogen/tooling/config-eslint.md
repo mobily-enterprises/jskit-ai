@@ -32,6 +32,13 @@ Exports
 Exports
 - `baseConfig`
 
+### `clientFeatures.js`
+Exports
+- `clientFeaturesConfig(files, severity = "error")`
+Local functions
+- `clientFeaturesRules(severity)`
+- `componentRules(severity)`
+
 ### `formatter.js`
 Exports
 - `formatterConfig(files, { ignores = [] } = {})`
@@ -44,6 +51,7 @@ Exports
 - `vueConfig`
 - `sizeLimitsConfig`
 - `typedFeaturesConfig`
+- `clientFeaturesConfig`
 - `formatterConfig`
 - `jskitPlugin`
 
@@ -53,10 +61,10 @@ Exports
 
 ### `typedFeatures.js`
 Exports
+- `sizeLimitRules(severity)`
 - `sizeLimitsConfig(files, { ignores = [] } = {})`
 - `typedFeaturesConfig(files, severity = "error")`
 Local functions
-- `sizeLimitRules(severity)`
 - `typedFeaturesRules(severity)`
 - `requireGlobs(name, files)`
 
@@ -74,12 +82,15 @@ Exports
 Exports
 - `CREATE_NAME`
 - `FUNCTION_TYPES`
+- `VUE_STATE_CALLS`
 - `definedName(fn)`
 - `definitionOf(sourceCode, identifier)`
 - `enclosingFunction(sourceCode, node)`
 - `holdsBehaviour(sourceCode, object)`
 - `isInlineFunction(property)`
+- `isVueStateCall(node)`
 - `localFunction(sourceCode, identifier)`
+- `makesVueState(sourceCode, fn)`
 - `returnedFrom(sourceCode, node)`
 - `returnsOnlyData(sourceCode, fn)`
 Local functions
@@ -92,8 +103,10 @@ Exports
 
 ### `plugin/packageSources.js`
 Exports
+- `clientSourceFiles(directory, files = [])`
 - `createSourceMemo(read, unreadable)`
 - `isGeneratedMirror(file)`
+- `isServerOrSharedFile(file, packageDirectory)`
 - `packageRootOf(file)`
 - `packageSourceFiles(directory, files = [])`
 - `toPosixPath(file)`
@@ -120,7 +133,7 @@ Exports
 Local functions
 - `holdsFunction(node)`
 - `excusedNode(sourceCode, comment)`
-- `allowLines(comment)`
+- `allowLines(comment, opening = 2)`
 
 ### `plugin/rules/appErrorCode.js`
 Exports
@@ -136,6 +149,25 @@ Local functions
 - `localErrorClasses(program, sourceCode)`
 - `passesCode(node, { code, options })`
 - `literalText(node)`
+
+### `plugin/rules/collaboratorProps.js`
+Exports
+- `collaboratorProps`
+Local functions
+- `declaredProps(node)`
+- `unchain(node)`
+- `calledProp(callee, propsBinding, inTemplate)`
+- `optionText(sourceCode, prop, name)`
+
+### `plugin/rules/fixedResultShape.js`
+Exports
+- `fixedResultShape`
+Local functions
+- `calleeName(call)`
+- `addsBehaviour(sourceCode, value)`
+- `unwrapAwait(node)`
+- `callbackFactoryCall(call)`
+- `resultOwner(sourceCode, identifier)`
 
 ### `plugin/rules/frozenFactoryResult.js`
 Exports
@@ -187,8 +219,14 @@ Exports
 Local functions
 - `unwrap(node)`
 - `factoryCall(sourceCode, argument)`
-- `spreadFactory(sourceCode, argument)`
+- `spreadFactory(sourceCode, argument, factoryName)`
 - `returnedApi(sourceCode, object)`
+
+### `plugin/rules/noFrozenVueState.js`
+Exports
+- `noFrozenVueState`
+Local functions
+- `holdsVueState(sourceCode, value)`
 
 ### `plugin/rules/noIdempotency.js`
 Exports
@@ -199,6 +237,12 @@ Exports
 - `noModuleRegistry`
 Local functions
 - `moduleBindings(program)`
+
+### `plugin/rules/noModuleState.js`
+Exports
+- `noModuleState`
+Local functions
+- `moduleDeclarations(program)`
 
 ### `plugin/rules/noOptionalAfterDefault.js`
 Exports
@@ -240,6 +284,16 @@ Local functions
 - `checkedPlace(object)`
 - `splitObjectLines(sourceCode, object)`
 
+### `plugin/rules/releasedListeners.js`
+Exports
+- `releasedListeners`
+Local functions
+- `calleeName(node)`
+- `eventType(sourceCode, node)`
+- `releasesItself(options)`
+- `keptAs(sourceCode, node)`
+- `listenedObject(sourceCode, node)`
+
 ### `plugin/rules/requiredCollaborators.js`
 Exports
 - `requiredCollaborators`
@@ -252,13 +306,21 @@ Exports
 Local functions
 - `hasParamJsdoc(sourceCode, node)`
 
+### `plugin/rules/typedInject.js`
+Exports
+- `typedInject`
+Local functions
+- `isTypedInjection(sourceCode, call)`
+
 ### `plugin/support.js`
 Exports
+- `ABSENT_DEFAULT`
+- `CLIENT_GUIDE_URL`
 - `GUIDE_URL`
 - `compactText(sourceCode, node)`
 - `createReporter(context, ruleName)`
 - `deepFreezeNames(program)`
-- `factoryDependencies(fn, sourceCode)`
+- `factoryDependencies(fn, sourceCode, client = false)`
 - `followsOptionalLink(node)`
 - `functionName(fn)`
 - `functionSite(fn)`
@@ -267,15 +329,25 @@ Exports
 - `isActionsFile(filename)`
 - `isFreezeCall(node)`
 - `isFrozenValue(node, deepFreezing)`
-- `isFactory(fn)`
+- `isFactory(fn, client = false)`
+- `isClientLint(context)`
 - `isInAction(context, node)`
 - `isWrittenActionDefinition(object)`
 - `keyName(property)`
 - `receivingFunction(context, node, name)`
-- `ruleMeta(description, messages, section)`
+- `ruleMeta(description, messages, section, guide = GUIDE_URL)`
 - `walk(node, visitorKeys, visit)`
 Local functions
+- `enclosingFunctionLine(node)`
+- `templateElementLine(node)`
 - `isConstructor(fn)`
 - `collaboratorNames(fn, names, visitorKeys)`
 - `bodyDestructuring(fn, parameterName)`
 - `dependenciesPattern(fn, first)`
+
+### `plugin/vueSources.js`
+Exports
+- `hasJsdocBefore(sourceCode, node, tag)`
+- `hasTypeCast(sourceCode, node)`
+- `scriptSetupRanges(sourceCode)`
+- `vueImportNames(program, exported)`
