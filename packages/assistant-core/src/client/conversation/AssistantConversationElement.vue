@@ -37,13 +37,13 @@
         </div>
       </div>
     </section>
+    <!-- readable-check: allow optional-call - optional operation: an adapter without loadMore, reload, checkDelivery or openLink offers no older history, reload, delivery check or link handling -->
     <AssistantTranscript
       v-bind="conversation" :preview-message="adapter.conversation.previewMessage || null" :working="working" class="assistant-conversation__transcript"
-      @load-more="adapter.actions?.loadMore && adapter.actions.loadMore($event)"
-      @reload="adapter.actions?.reload && adapter.actions.reload()"
+      @load-more="adapter.actions?.loadMore?.($event)" @reload="adapter.actions?.reload?.()"
       @resend-turn="resend($event)" @cancel-turn="cancel($event)"
-      @check-delivery="adapter.actions?.checkDelivery && adapter.actions.checkDelivery($event)"
-      @edit-turn="edit($event)" @link-click="adapter.actions?.openLink && adapter.actions.openLink($event)"
+      @check-delivery="adapter.actions?.checkDelivery?.($event)"
+      @edit-turn="edit($event)" @link-click="adapter.actions?.openLink?.($event)"
     >
       <template v-for="name in transcriptSlots" #[name]="scope"><slot :name="name" v-bind="scope" /></template>
       <template #user-message-actions="scope">
@@ -122,12 +122,11 @@
         </template>
         <template #footer>
           <AssistantComposerActions ref="delivery" :state="{ ...adapter.composer, pending, canSend }" @submit="submit" @stop="stop">
+            <!-- readable-check: allow optional-call - optional operation: model choices without a provider, model or variant selector, or without reload, ignore that change -->
             <AssistantModelControl
               v-if="adapter.models && adapter.models.enabled !== false" v-model="modelsOpen" v-bind="adapter.models"
-              @select-provider="adapter.models.selectProvider && adapter.models.selectProvider($event)"
-              @select-model="adapter.models.selectModel && adapter.models.selectModel($event)"
-              @select-variant="adapter.models.selectVariant && adapter.models.selectVariant($event)"
-              @apply="applyModel" @reload="adapter.models.reload && adapter.models.reload()"
+              @select-provider="adapter.models.selectProvider?.($event)" @select-model="adapter.models.selectModel?.($event)"
+              @select-variant="adapter.models.selectVariant?.($event)" @apply="applyModel" @reload="adapter.models.reload?.()"
             />
             <v-btn
               v-if="attachmentsEnabled" :aria-label="t('jskit.assistant.chat.attachFiles')" :title="t('jskit.assistant.chat.attachFiles')" size="small" variant="text" :icon="mdiPaperclip"
@@ -398,8 +397,9 @@ function stop() {
   return props.adapter.actions.stop();
 }
 function updateConfiguration(value) {
-  if (props.configurationMode !== "editable" || pending.value || !props.adapter.actions?.updateConfiguration) return;
-  return props.adapter.actions.updateConfiguration(value);
+  if (props.configurationMode !== "editable" || pending.value) return;
+  // readable-check: allow optional-call - optional operation: an adapter without updateConfiguration keeps its configuration fixed
+  return props.adapter.actions?.updateConfiguration?.(value);
 }
 defineExpose({ focus: () => input.value?.focus(), submit, stop });
 </script>

@@ -30,23 +30,22 @@ function attachmentFileName(file = {}) {
 }
 
 /** The upload's promise and its cancel, whichever of the documented shapes the application's upload returned. */
+// readable-check: allow method-probe - input validation: an application's upload returns a promise, or { promise } with abort() or cancel()
 function attachmentUploadResult(upload = null) {
-  // readable-check: allow method-probe - input validation: an application's upload returns a promise, or { promise } with abort() or cancel()
   if (upload && typeof upload.then === "function") {
     return {
-      // readable-check: allow method-probe - input validation: an application's upload returns a promise, or { promise } with abort() or cancel()
       cancel: typeof upload.cancel === "function" ? () => upload.cancel() : null,
       promise: upload
     };
   }
-  // readable-check: allow method-probe - input validation: an application's upload returns a promise, or { promise } with abort() or cancel()
   if (upload?.promise && typeof upload.promise.then === "function") {
-    // readable-check: allow method-probe - input validation: an application's upload returns a promise, or { promise } with abort() or cancel()
-    const abort = typeof upload.abort === "function" ? () => upload.abort() : null;
-    // readable-check: allow method-probe - input validation: an application's upload returns a promise, or { promise } with abort() or cancel()
-    const cancel = typeof upload.cancel === "function" ? () => upload.cancel() : null;
+    const cancel = typeof upload.abort === "function"
+      ? () => upload.abort()
+      : typeof upload.cancel === "function"
+        ? () => upload.cancel()
+        : null;
     return {
-      cancel: abort || cancel,
+      cancel,
       promise: upload.promise
     };
   }

@@ -460,6 +460,12 @@ function toggleUserMessage(turn = {}) {
   toggleExpandedKey(expandedUserMessages, key);
 }
 
+// Created before the scroll-following watchers, so a new conversation's expansion and cache reset run first.
+watch(() => props.scrollKey, () => {
+  expandedUserMessages.value = new Set();
+  clearDisplayCache();
+});
+
 const {
   initialScrollPending,
   loadingIndicatorVisible,
@@ -478,10 +484,6 @@ const {
   loadMore: (request) => emit("load-more", request)
 });
 
-watch(() => props.scrollKey, () => {
-  expandedUserMessages.value = new Set();
-  clearDisplayCache();
-});
 </script>
 
 <style scoped src="./AssistantTranscript.css"></style>
