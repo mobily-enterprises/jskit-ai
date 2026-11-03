@@ -15,7 +15,7 @@ A concrete Fastify, Vue, and JSKIT application foundation for products that do n
 
 - Id: `app/minimal-foundation`
 - Keywords: `app`, `fastify`, `foundation`, `minimal`, `server`, `vite`, `vue`
-- Owner: `@jskit-ai/agent-docs@0.1.259`
+- Owner: `@jskit-ai/agent-docs@0.1.260`
 - Read: [PATTERN.md](patterns/app/minimal-foundation/PATTERN.md)
 - Examples: [example/](patterns/app/minimal-foundation/example/)
 - Requires: `@jskit-ai/http-runtime`, `@jskit-ai/kernel`
@@ -26,7 +26,7 @@ A concrete JSKIT web application foundation with responsive shell navigation, se
 
 - Id: `app/shell-foundation`
 - Keywords: `app`, `foundation`, `material`, `navigation`, `placements`, `shell`, `vite`, `vue`
-- Owner: `@jskit-ai/agent-docs@0.1.259`
+- Owner: `@jskit-ai/agent-docs@0.1.260`
 - Read: [PATTERN.md](patterns/app/shell-foundation/PATTERN.md)
 - Examples: [example/](patterns/app/shell-foundation/example/)
 - Requires: `@jskit-ai/http-runtime`, `@jskit-ai/kernel`, `@jskit-ai/shell-web`
@@ -59,7 +59,7 @@ Compose JSKIT authentication routes, views, profile controls, and public surface
 
 - Id: `auth/auth-surface`
 - Keywords: `account`, `auth`, `login`, `logout`, `password`, `placement`, `profile`, `reset`, `surface`
-- Owner: `@jskit-ai/auth-web@0.2.5`
+- Owner: `@jskit-ai/auth-web@0.2.6`
 - Read: [PATTERN.md](patterns/auth/auth-surface/PATTERN.md)
 - Examples: [example/](patterns/auth/auth-surface/example/)
 - Requires: `@jskit-ai/auth-core`, `@jskit-ai/auth-web`, `@jskit-ai/shell-web`
@@ -70,7 +70,7 @@ Let people sign in with the accounts they already have in an accounts hub or ano
 
 - Id: `auth/oidc-sign-in`
 - Keywords: `accounts hub`, `auth`, `authentication`, `back-channel logout`, `dynamic client registration`, `issuer`, `master login`, `oidc`, `openid connect`, `single sign-on`, `sso`
-- Owner: `@jskit-ai/auth-provider-oidc-core@0.2.7`
+- Owner: `@jskit-ai/auth-provider-oidc-core@0.2.8`
 - Read: [PATTERN.md](patterns/auth/oidc-sign-in/PATTERN.md)
 - Examples: [example/](patterns/auth/oidc-sign-in/example/)
 - Requires: `@jskit-ai/auth-provider-oidc-core`, `@jskit-ai/auth-web`
@@ -246,7 +246,7 @@ Add a protected administration surface, settings shell, and semantic navigation 
 
 - Id: `console/console-surface`
 - Keywords: `admin`, `console`, `navigation`, `owner`, `placement`, `settings`, `surface`
-- Owner: `@jskit-ai/console-web@0.1.226`
+- Owner: `@jskit-ai/console-web@0.1.227`
 - Read: [PATTERN.md](patterns/console/console-surface/PATTERN.md)
 - Examples: [example/](patterns/console/console-surface/example/)
 - Requires: `@jskit-ai/console-core`, `@jskit-ai/console-web`, `@jskit-ai/shell-web`
@@ -345,7 +345,7 @@ Define a server feature through explicit capabilities and first-class actions, a
 
 - Id: `server/feature-package`
 - Keywords: `actions`, `feature`, `json-rest`, `knex`, `orchestration`, `package`, `provider`, `repository`, `routes`, `server`
-- Owner: `@jskit-ai/agent-docs@0.1.259`
+- Owner: `@jskit-ai/agent-docs@0.1.260`
 - Read: [PATTERN.md](patterns/server/feature-package/PATTERN.md)
 - Examples: [example/](patterns/server/feature-package/example/)
 - Requires: `@jskit-ai/kernel`
@@ -378,7 +378,7 @@ Compose an account settings route and profile, preference, notification, and sig
 
 - Id: `users/account-settings`
 - Keywords: `account`, `link provider`, `notifications`, `oauth`, `preferences`, `profile`, `settings`, `sign-in methods`, `user`, `vue`
-- Owner: `@jskit-ai/users-web@0.2.8`
+- Owner: `@jskit-ai/users-web@0.2.9`
 - Read: [PATTERN.md](patterns/users/account-settings/PATTERN.md)
 - Examples: [example/](patterns/users/account-settings/example/)
 - Requires: `@jskit-ai/shell-web`, `@jskit-ai/users-core`, `@jskit-ai/users-web`
@@ -411,7 +411,7 @@ Compose workspace selection, invitation, member administration, settings, and re
 
 - Id: `workspaces/workspace-surfaces`
 - Keywords: `admin`, `invite`, `member`, `navigation`, `settings`, `surface`, `switcher`, `workspace`
-- Owner: `@jskit-ai/workspaces-web@0.2.8`
+- Owner: `@jskit-ai/workspaces-web@0.2.9`
 - Read: [PATTERN.md](patterns/workspaces/workspace-surfaces/PATTERN.md)
 - Examples: [example/](patterns/workspaces/workspace-surfaces/example/)
 - Requires: `@jskit-ai/shell-web`, `@jskit-ai/workspaces-core`, `@jskit-ai/workspaces-web`

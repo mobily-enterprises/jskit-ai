@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/console-web",
-  "version": "0.1.226",
+  "version": "0.1.227",
   "type": "module",
   "scripts": {
     "test": "node --test --test-concurrency=1"
@@ -108,7 +108,7 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/auth-web": "0.2.5",
+    "@jskit-ai/auth-web": "0.2.6",
     "@jskit-ai/shell-web": "0.2.4"
   }
 }

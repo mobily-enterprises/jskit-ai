@@ -6,7 +6,7 @@
   "release": {
     "packages": {
       "@jskit-ai/agent": "0.1.0",
-      "@jskit-ai/agent-docs": "0.1.259",
+      "@jskit-ai/agent-docs": "0.1.260",
       "@jskit-ai/agent-runtime": "0.1.0",
       "@jskit-ai/architecture-inspector": "0.1.2",
       "@jskit-ai/assistant-core": "0.2.8",
@@ -16,23 +16,23 @@
       "@jskit-ai/auth-core": "0.2.4",
       "@jskit-ai/auth-provider-local-core": "0.2.6",
       "@jskit-ai/auth-provider-local-db-core": "0.1.147",
-      "@jskit-ai/auth-provider-oidc-core": "0.2.7",
+      "@jskit-ai/auth-provider-oidc-core": "0.2.8",
       "@jskit-ai/auth-provider-supabase-core": "0.2.6",
-      "@jskit-ai/auth-web": "0.2.5",
+      "@jskit-ai/auth-web": "0.2.6",
       "@jskit-ai/config-eslint": "0.1.242",
       "@jskit-ai/connector-google-calendar": "0.2.4",
       "@jskit-ai/connectors-catalog": "0.2.4",
       "@jskit-ai/connectors-core": "0.2.4",
       "@jskit-ai/connectors-web": "0.2.4",
       "@jskit-ai/console-core": "0.2.5",
-      "@jskit-ai/console-web": "0.1.226",
+      "@jskit-ai/console-web": "0.1.227",
       "@jskit-ai/crud-core": "0.2.4",
       "@jskit-ai/database-runtime": "0.1.253",
       "@jskit-ai/database-runtime-mysql": "0.1.251",
       "@jskit-ai/database-runtime-postgres": "0.1.250",
       "@jskit-ai/http-runtime": "0.2.4",
       "@jskit-ai/http-web": "0.2.8",
-      "@jskit-ai/jskit-catalog": "0.2.11",
+      "@jskit-ai/jskit-catalog": "0.2.12",
       "@jskit-ai/json-rest-api-core": "0.2.4",
       "@jskit-ai/kernel": "0.2.4",
       "@jskit-ai/mobile-capacitor": "0.2.4",
@@ -50,9 +50,9 @@
       "@jskit-ai/uploads-image-web": "0.2.4",
       "@jskit-ai/uploads-runtime": "0.2.4",
       "@jskit-ai/users-core": "0.2.5",
-      "@jskit-ai/users-web": "0.2.8",
+      "@jskit-ai/users-web": "0.2.9",
       "@jskit-ai/workspaces-core": "0.2.5",
-      "@jskit-ai/workspaces-web": "0.2.8"
+      "@jskit-ai/workspaces-web": "0.2.9"
     },
     "singletonPackages": [
       "@jskit-ai/assistant-runtime",
@@ -805,7 +805,7 @@
     },
     {
       "packageId": "@jskit-ai/auth-provider-oidc-core",
-      "version": "0.2.7",
+      "version": "0.2.8",
       "description": "Sign in through any OpenID Connect issuer: self-registration or a static client, app-owned sessions, and back-channel logout.",
       "jskit": {
         "kind": "runtime",
@@ -944,7 +944,7 @@
     },
     {
       "packageId": "@jskit-ai/auth-web",
-      "version": "0.2.5",
+      "version": "0.2.6",
       "description": "Auth web module: Fastify auth routes plus web login/sign-out scaffolds.",
       "jskit": {
         "kind": "runtime",
@@ -1469,7 +1469,7 @@
     },
     {
       "packageId": "@jskit-ai/console-web",
-      "version": "0.1.226",
+      "version": "0.1.227",
       "description": "Authenticated console surface scaffold and surface policy wiring.",
       "jskit": {
         "kind": "runtime",
@@ -1574,7 +1574,7 @@
           "@jskit-ai/console-core": "0.2.5"
         },
         "peerDependencies": {
-          "@jskit-ai/auth-web": "0.2.5",
+          "@jskit-ai/auth-web": "0.2.6",
           "@jskit-ai/shell-web": "0.2.4"
         }
       }
@@ -3344,7 +3344,7 @@
     },
     {
       "packageId": "@jskit-ai/users-web",
-      "version": "0.2.8",
+      "version": "0.2.9",
       "description": "Users web module with account, profile, and user-specific shell UI.",
       "jskit": {
         "kind": "runtime",
@@ -3553,7 +3553,7 @@
           "@jskit-ai/users-core": "0.2.5"
         },
         "peerDependencies": {
-          "@jskit-ai/auth-web": "0.2.5",
+          "@jskit-ai/auth-web": "0.2.6",
           "@jskit-ai/http-runtime": "0.2.4",
           "@jskit-ai/http-web": "0.2.8",
           "@jskit-ai/kernel": "0.2.4",
@@ -3754,7 +3754,7 @@
     },
     {
       "packageId": "@jskit-ai/workspaces-web",
-      "version": "0.2.8",
+      "version": "0.2.9",
       "description": "Workspace web module: workspace selector, tools widget, workspace surfaces, members UI, and settings hosts.",
       "jskit": {
         "kind": "runtime",
@@ -4007,11 +4007,11 @@
           "@mdi/js": "^7.4.47"
         },
         "peerDependencies": {
-          "@jskit-ai/auth-web": "0.2.5",
+          "@jskit-ai/auth-web": "0.2.6",
           "@jskit-ai/http-web": "0.2.8",
           "@jskit-ai/kernel": "0.2.4",
           "@jskit-ai/shell-web": "0.2.4",
-          "@jskit-ai/users-web": "0.2.8",
+          "@jskit-ai/users-web": "0.2.9",
           "@tanstack/vue-query": "^5.90.5",
           "vue": "^3.5.13",
           "vue-router": "^5.0.4",
@@ -4105,7 +4105,7 @@
         "@jskit-ai/shell-web"
       ],
       "packageId": "@jskit-ai/auth-web",
-      "packageVersion": "0.2.5",
+      "packageVersion": "0.2.6",
       "documentPath": "patterns/auth-surface/PATTERN.md",
       "examplePath": "patterns/auth-surface/example",
       "files": [
@@ -4143,7 +4143,7 @@
         "@jskit-ai/auth-web"
       ],
       "packageId": "@jskit-ai/auth-provider-oidc-core",
-      "packageVersion": "0.2.7",
+      "packageVersion": "0.2.8",
       "documentPath": "patterns/oidc-sign-in/PATTERN.md",
       "examplePath": "patterns/oidc-sign-in/example",
       "files": [
@@ -4614,7 +4614,7 @@
         "@jskit-ai/shell-web"
       ],
       "packageId": "@jskit-ai/console-web",
-      "packageVersion": "0.1.226",
+      "packageVersion": "0.1.227",
       "documentPath": "patterns/console-surface/PATTERN.md",
       "examplePath": "patterns/console-surface/example",
       "files": [
@@ -4945,7 +4945,7 @@
         "@jskit-ai/users-web"
       ],
       "packageId": "@jskit-ai/users-web",
-      "packageVersion": "0.2.8",
+      "packageVersion": "0.2.9",
       "documentPath": "patterns/account-settings/PATTERN.md",
       "examplePath": "patterns/account-settings/example",
       "files": [
@@ -5041,7 +5041,7 @@
         "@jskit-ai/workspaces-web"
       ],
       "packageId": "@jskit-ai/workspaces-web",
-      "packageVersion": "0.2.8",
+      "packageVersion": "0.2.9",
       "documentPath": "patterns/workspace-surfaces/PATTERN.md",
       "examplePath": "patterns/workspace-surfaces/example",
       "files": [
