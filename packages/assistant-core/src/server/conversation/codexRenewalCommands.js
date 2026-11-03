@@ -2,9 +2,22 @@ import { codexAppServerTurnStatusIsSuccessfulComplete, codexAppServerTurnStatusI
 import { createCodexAppServerDetachedTurnWatcher, waitForCodexAppServerTurn } from "./codexDetachedTurn.js";
 import { codexAppServerDeliveredTurn, sendCodexAppServerPrompt } from "./codexProvider.js";
 import { resumeExactCodexAppServerThread, startFreshCodexAppServerThread } from "./codexRenewalThreads.js";
-import { codexAppServerProviderTurnId, inspectCodexAppServerRenewalThread } from "./codexEvents.js";
+import { codexAppServerProviderTurnId, inspectCodexAppServerRenewalThread } from "./codexThreadSnapshot.js";
 
-// Private composition of unchanged operations from the original run owner.
+/**
+ * The run owner's renewal commands: the handover of a running conversation to a renewed runtime, and its seed turn.
+ * @param {object} dependencies
+ * @param {import("./codexRunJournal.js").CodexRunJournal["claimTurnStart"]} dependencies.claimCodexAppServerTurnStart
+ * @param {import("./codexNotificationQueue.js").CodexAppServerNotificationQueue} dependencies.codexAppServerNotificationQueue
+ * @param {import("./codexTurnRecovery.js").CodexTurnRecovery["completeTurn"]} dependencies.completeCodexAppServerTurn
+ * @param {string} dependencies.errorPrefix
+ * @param {import("./codexTurnRecovery.js").CodexTurnRecovery["markTurnActive"]} dependencies.markCodexAppServerTurnActive
+ * @param {import("./codexRunJournal.js").CodexRunJournal["markTurnIdle"]} dependencies.markCodexAppServerTurnIdle
+ * @param {import("./codexNotificationObserver.js").CodexNotificationObserver} dependencies.observer
+ * @param {import("./codexTurn.js").CodexProviderSelection} dependencies.selection
+ * @param {string} dependencies.turnAlreadyRunningError
+ * @param {import("./codexRunJournal.js").CodexRunJournal["writeUserMessageOwnership"]} dependencies.writeCodexAppServerUserMessageOwnership
+ */
 export function createCodexRenewalCommands({
   claimCodexAppServerTurnStart,
   codexAppServerNotificationQueue,
@@ -285,9 +298,8 @@ export function createCodexRenewalCommands({
     return { result, reconciled, turnId, threadId, freshThread: started.fresh };
   }
 
-
-  return {
+  return Object.freeze({
     runCodexAppServerRenewalHandover,
     runCodexAppServerRenewalSeed
-  };
+  });
 }

@@ -10,10 +10,23 @@ import {
   codexAppServerFrozenTurnInterruptResponse
 } from "./codexTurnState.js";
 import { codexAppServerRequestIsInvalid } from "./codexProvider.js";
-import { codexAppServerThreadTurnId } from "./codexEvents.js";
+import { codexAppServerThreadTurnId } from "./codexThreadSnapshot.js";
 
-// Original user Stop control, including preflight and bounded successor races.
-// Existing journal, recovery and status owners retain their state.
+/**
+ * The person's Stop of a running turn, including its preflight and bounded successor races. The journal, recovery and
+ * status owners keep their state.
+ * @param {object} dependencies
+ * @param {import("./codexRunJournal.js").CodexRunJournal} dependencies.journal
+ * @param {import("./codexResultSettlement.js").CodexResultSettlement} dependencies.settlement
+ * @param {import("./codexTurnRecovery.js").CodexTurnRecovery} dependencies.recovery
+ * @param {import("./codexThreadStatus.js").CodexThreadStatus} dependencies.threadStatus
+ * @param {import("./codexTurn.js").CodexDebugError} dependencies.debugError
+ * @param {import("./codexTurn.js").CodexDebugLog} dependencies.debugLog
+ * @param {string} dependencies.errorPrefix
+ * @param {string} dependencies.interruptFailedCode
+ * @param {import("./codexTurn.js").CodexTurnOutcomes} dependencies.turnOutcomes
+ * @param {import("./codexTurn.js").CodexTurnStateReader} dependencies.turnState
+ */
 export function createCodexTurnControl({
   journal,
   settlement,
@@ -37,7 +50,7 @@ export function createCodexTurnControl({
   } = recovery;
   const { reconcileThreadStatus: reconcileCodexAppServerThreadStatus } = threadStatus;
 
-  async function interruptCodexAppServerTurn(sessionId, input = {}, context = {}) {
+  async function interruptCodexAppServerTurn(sessionId, input, context = {}) {
     const { runtime } = context;
     const controlRequestId = normalizeCodexRunText(input?.controlRequestId);
     let currentSession = await runtime.getSession(sessionId);
@@ -314,5 +327,7 @@ export function createCodexTurnControl({
     }, interruptFailedCode) };
   }
 
-  return { interruptTurn: interruptCodexAppServerTurn };
+  return Object.freeze({ interruptTurn: interruptCodexAppServerTurn });
 }
+
+/** @typedef {ReturnType<typeof createCodexTurnControl>} CodexTurnControl */

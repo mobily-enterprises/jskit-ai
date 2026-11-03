@@ -20,6 +20,6 @@ export {
 
 export {
   CODEX_HELPER_THREAD_LEDGER_SCHEMA_VERSION,
-  CODEX_HELPER_THREAD_LIFECYCLES,
-  createCodexHelperThreadLedgerOwner
-} from "../conversation/codexHelperThreadLedger.js";
+  CODEX_HELPER_THREAD_LIFECYCLES
+} from "../conversation/codexHelperThreadRecord.js";
+export { createCodexHelperThreadLedgerOwner } from "../conversation/codexHelperThreadLedger.js";

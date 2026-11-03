@@ -1,6 +1,6 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { codexAppServerDeliveredTurn, deleteCodexAppServerThread } from "./codexProvider.js";
-import { CODEX_HELPER_THREAD_LIFECYCLES } from "./codexHelperThreadLedger.js";
+import { CODEX_HELPER_THREAD_LIFECYCLES } from "./codexHelperThreadRecord.js";
 import { codexAppServerErrorMessage as errorMessage, normalizeCodexRunText as normalizeText } from "./codexTurnState.js";
 
 export function createCodexHelperOwnershipError({ applicationName = "Application", errorPrefix = "" } = {}) {
@@ -19,12 +19,11 @@ export function createCodexHelperOwnershipError({ applicationName = "Application
   };
 }
 
+/**
+ * @param {import("./codexProvider.js").CodexAppServerAgentProvider} provider
+ * @param {ReturnType<typeof createCodexHelperOwnershipError>} codexAppServerHelperOwnershipError
+ */
 export async function readCodexAppServerAccountIdentity(provider, codexAppServerHelperOwnershipError) {
-  if (typeof provider.currentRuntimeInfo !== "function") {
-    throw codexAppServerHelperOwnershipError(
-      "The Codex provider cannot identify the selected account."
-    );
-  }
   const runtimeInfo = await provider.currentRuntimeInfo();
   const accountIdentitySignature = normalizeText(runtimeInfo?.accountIdentitySignature);
   if (!/^sha256:[a-f0-9]{64}$/u.test(accountIdentitySignature)) {
@@ -35,12 +34,17 @@ export async function readCodexAppServerAccountIdentity(provider, codexAppServer
   return accountIdentitySignature;
 }
 
+/**
+ * @param {import("./codexProvider.js").CodexAppServerAgentProvider | null} provider
+ * @param {string} expectedSignature
+ * @param {ReturnType<typeof createCodexHelperOwnershipError>} codexAppServerHelperOwnershipError
+ */
 export async function assertCodexAppServerHelperAccountIdentity(provider, expectedSignature = "", codexAppServerHelperOwnershipError) {
   const expected = normalizeText(expectedSignature);
   if (!expected) {
     return;
   }
-  if (!/^sha256:[a-f0-9]{64}$/u.test(expected) || typeof provider?.currentRuntimeInfo !== "function") {
+  if (!/^sha256:[a-f0-9]{64}$/u.test(expected) || !provider) {
     throw codexAppServerHelperOwnershipError(
       "The requested low-cost assistant account identity is invalid. Refresh the task and retry."
     );
@@ -61,7 +65,11 @@ export async function sendPreparedCodexAppServerHelperTurn(provider, prepared, h
     prepared.input,
     prepared.turnSettings((await helperIsolation.executionContext(provider)).cwd)
   );
-  return Object.freeze({ executionProfile: prepared.executionProfile, input: prepared.input, turn });
+  return Object.freeze({
+    executionProfile: prepared.executionProfile,
+    input: prepared.input,
+    turn
+  });
 }
 
 // One invocation retains its original mutable record while the shared ownership
@@ -292,5 +300,10 @@ export async function prepareDetachedCodexHelperThread(owner, scope, preparation
     }
   }
 
-  return Object.freeze({ thread, dispatch, discard: discardHelperThread, complete });
+  return Object.freeze({
+    thread,
+    dispatch,
+    discard: discardHelperThread,
+    complete
+  });
 }

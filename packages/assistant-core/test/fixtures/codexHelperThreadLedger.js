@@ -1,8 +1,8 @@
 import {
   CODEX_HELPER_THREAD_LEDGER_SCHEMA_VERSION,
-  CODEX_HELPER_THREAD_LIFECYCLES,
-  createCodexHelperThreadLedgerOwner
-} from "../../src/server/conversation/codexHelperThreadLedger.js";
+  CODEX_HELPER_THREAD_LIFECYCLES
+} from "../../src/server/conversation/codexHelperThreadRecord.js";
+import { createCodexHelperThreadLedgerOwner } from "../../src/server/conversation/codexHelperThreadLedger.js";
 
 // This is the original test's resolved profile data, not application policy.
 // Public keeps and tests its original strict codec against its own catalogue.

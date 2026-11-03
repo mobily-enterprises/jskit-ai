@@ -41,7 +41,7 @@ export function defineCodexRenewalThreadIds(value = [], {
 }
 
 async function listCodexRenewalThreadIds(provider, workdir, errorCode) {
-  if (typeof provider?.listAppServerThreadsForCwd !== "function") {
+  if (!provider) {
     throw codexRenewalThreadError(
       errorCode,
       "The assistant provider cannot inventory the successor's exact session threads."
@@ -118,10 +118,7 @@ async function readCodexRenewalSuccessorThreadSnapshot({
       { threadId, workdir, errorCode }
     );
   } catch (error) {
-    if (
-      !codexRenewalThreadNeedsStatusRead(error, threadId) ||
-      typeof provider?.readThreadStatus !== "function"
-    ) {
+    if (!codexRenewalThreadNeedsStatusRead(error, threadId)) {
       throw error;
     }
     return assertCodexRenewalThreadSnapshot(
@@ -163,11 +160,7 @@ export async function resumeExactCodexAppServerThread({
 } = {}) {
   const normalizedWorkdir = normalizeAgentText(workdir);
   const normalizedExpectedThreadId = normalizeAgentText(expectedThreadId);
-  if (
-    typeof provider?.ensureRuntime !== "function" ||
-    typeof provider?.resumeThread !== "function" ||
-    typeof provider?.readThread !== "function"
-  ) {
+  if (!provider) {
     throw codexRenewalThreadError(
       errorCode,
       "The old assistant provider cannot read its exact main thread.",
@@ -247,12 +240,7 @@ export async function startFreshCodexAppServerThread({
       { forbiddenThreadId: normalizedForbiddenThreadId }
     );
   }
-  if (
-    typeof provider?.ensureRuntime !== "function" ||
-    typeof provider?.resumeThread !== "function" ||
-    typeof provider?.readThread !== "function" ||
-    typeof provider?.startThread !== "function"
-  ) {
+  if (!provider) {
     throw codexRenewalThreadError(
       errorCode,
       "The assistant provider cannot prove a genuinely fresh renewal thread."

@@ -1,12 +1,62 @@
-import { codexAppServerTurnStatusIsSuccessfulComplete, codexAppServerTurnStatusIsProviderFailure, codexAppServerThreadStatus, normalizeCodexRunText, codexAppServerErrorMessage, codexAppServerSteerFailure, codexAppServerInterruptFailure, codexAppServerConversationTurnIsActive, codexAppServerNativeOuterTurnId } from "./codexTurnState.js";
-import { CODEX_APP_SERVER_DETACHED_TURN_TIMEOUT_MS, createCodexAppServerDetachedTurnWatcher } from "./codexDetachedTurn.js";
-import { assertCodexAppServerHelperAccountIdentity, readCodexAppServerAccountIdentity, sendPreparedCodexAppServerHelperTurn } from "./codexHelperExecution.js";
-import { codexAppServerDeliveredTurn, codexAppServerRequestIsInvalid, codexAppServerThreadHasReadableHistory, codexAppServerThreadIsMissing, codexLocalImageInput, sendCodexAppServerPrompt } from "./codexProvider.js";
-import { codexAppServerProjectHookTrustConfig, readCodexToolFreeConfiguration } from "./codexConfiguration.js";
-import { codexAppServerAssistantItemText, codexAppServerContentText, classifyCodexAppServerEvent, codexAppServerNotificationThreadId, codexAppServerNotificationTurnId, codexAppServerNotificationTurnStatus, codexAppServerThreadRawValue, codexAppServerProviderThreadAssistantSegments, codexAppServerProviderTurnId, codexAppServerProviderTurnStatus, codexAppServerProviderTurnItems, codexAppServerProviderTurnClientIds, codexAppServerThreadTurnId, codexAppServerThreadError } from "./codexEvents.js";
+import { codexAppServerThreadStatus, normalizeCodexRunText, codexAppServerConversationTurnIsActive, codexAppServerNativeOuterTurnId } from "./codexTurnState.js";
+import { ignoreCodexDetachedTurnEvent } from "./codexDetachedTurn.js";
+import { readCodexToolFreeConfiguration } from "./codexConfiguration.js";
+import { codexAppServerAssistantItemText, codexAppServerContentText, classifyCodexAppServerEvent, codexAppServerNotificationThreadId, codexAppServerNotificationTurnId, codexAppServerNotificationTurnStatus } from "./codexEvents.js";
+import {
+  codexAppServerProviderThreadAssistantSegments,
+  codexAppServerThreadRawValue,
+  codexAppServerProviderTurnId,
+  codexAppServerProviderTurnStatus,
+  codexAppServerProviderTurnItems,
+  codexAppServerProviderTurnClientIds,
+  codexAppServerThreadTurnId,
+  codexAppServerThreadError
+} from "./codexThreadSnapshot.js";
+import {
+  codexAppServerEphemeralConversationSnapshot,
+  createCodexConversationTurns,
+  ignoreCodexConversationEvent,
+  prepareCodexAppServerConversationThread
+} from "./codexConversationTurns.js";
+import {
+  acquireCodexAppServerDetachedThread,
+  codexAppServerDetachedThreadId,
+  createCodexDetachedConversation,
+  dispatchCodexAppServerDetachedTurn,
+  runDetachedCodexAppServerTurn
+} from "./codexDetachedConversation.js";
+import { createCodexConversationStops } from "./codexConversationStops.js";
 
-// Internal command facet of the original run owner; the same native conversation
-// and turn-start collections retain their original lifetime and public references.
+/** @typedef {Map<string, Map<string, object>>} CodexConversationRegistry Each session's native conversations, by id. */
+/** @typedef {(sessionId?: string, conversationId?: string) => object | null} CodexConversationLookup */
+/** @typedef {(state: object) => void} CodexConversationStateUpdate */
+/** @typedef {(sessionId: string, conversationId: string, provider: import("./codexProvider.js").CodexAppServerAgentProvider) => object} CodexConversationObserver */
+/** @typedef {{ release(): void }} CodexProviderBorrowHandle */
+/** @typedef {(sessionId: string, input: object, options: object, borrow?: CodexProviderBorrowHandle | null) => Promise<any>} CodexConversationContextReader */
+/** @typedef {(operation: () => Promise<any>) => Promise<any>} CodexConversationResult */
+/** @typedef {(borrowing: boolean, operation: (borrow: CodexProviderBorrowHandle | null) => Promise<any>) => Promise<any>} CodexProviderBorrow */
+
+/**
+ * The scoped and Temporary conversation commands of a run owner: native conversations this server tracks, their
+ * observation, and creating, starting, reading, waiting for, stopping and deleting them. The conversation and
+ * turn-start collections keep the run owner's lifetime.
+ * @param {object} dependencies
+ * @param {import("./codexTurn.js").CodexCheckpoint} dependencies.checkpoint
+ * @param {typeof import("./codexTurnState.js").codexAppServerConversationMessageId} dependencies.codexAppServerConversationMessageId
+ * @param {import("./codexOutput.js").CodexAppServerOutput["streamMessage"]} dependencies.codexAppServerStreamMessage
+ * @param {object} dependencies.conversationPreparation The application's conversation preparation.
+ * @param {import("./codexTurn.js").CodexProviderSelection["ensureCodexAppServerProviderForActiveTurn"]} dependencies.ensureCodexAppServerProviderForActiveTurn
+ * @param {string} dependencies.errorPrefix
+ * @param {import("./codexHelperThreads.js").CodexHelperThreadLifecycle} dependencies.helperLifecycle
+ * @param {string} dependencies.helperOwnershipError
+ * @param {string} dependencies.interruptFailedCode
+ * @param {import("./codexTurn.js").CodexSessionNamespace} dependencies.namespace
+ * @param {import("./codexTurn.js").CodexProviderSessions} dependencies.providerSessions
+ * @param {import("./codexTurn.js").CodexProviderSelection["ensureSessionProvider"]} dependencies.ensureSessionProvider
+ * @param {import("./codexTurn.js").CodexProviderSelection["borrowSessionProvider"]} dependencies.borrowSessionProvider
+ * @param {string} dependencies.steerFailedCode
+ * @param {import("./codexTurn.js").CodexTurnOutcomes} dependencies.turnOutcomes
+ */
 export function createCodexConversationCommands({
   checkpoint,
   codexAppServerConversationMessageId,
@@ -26,6 +76,53 @@ export function createCodexConversationCommands({
 }) {
   const codexAppServerConversations = new Map();
   const codexAppServerConversationTurnStarts = new Map();
+  // Turns, detached runs and stops live in their own modules. Each receives the
+  // registry above and the registry and context functions declared below.
+  const {
+    createPreparedCodexAppServerConversation,
+    startPreparedCodexAppServerConversationTurn,
+    waitForPreparedCodexAppServerConversationTurn
+  } = createCodexConversationTurns({
+    codexAppServerConversations,
+    codexAppServerConversation,
+    observeCodexConversation,
+    holdWhileActive,
+    namespace,
+    errorPrefix,
+    helperOwnershipError,
+    steerFailedCode,
+    interruptFailedCode
+  });
+  const { runDetachedCodexAppServerConversation } = createCodexDetachedConversation({
+    conversationPreparation,
+    codexAppServerConversationResult,
+    codexAppServerConversationContext,
+    helperLifecycle,
+    helperOwnershipError
+  });
+  const {
+    stopCodexAppServerConversation,
+    stopPersistentCodexConversation,
+    interruptDetachedCodexAppServerConversationTurn,
+    deleteScopedCodexAppServerConversation,
+    deleteDetachedCodexAppServerConversationThread,
+    closeCodexAppServerConversations
+  } = createCodexConversationStops({
+    codexAppServerConversations,
+    codexAppServerConversation,
+    codexAppServerConversationContext,
+    codexAppServerConversationResult,
+    withProviderBorrow,
+    forgetObservation,
+    holdWhileActive,
+    conversationPreparation,
+    helperLifecycle,
+    providerSessions,
+    namespace,
+    errorPrefix,
+    interruptFailedCode,
+    turnOutcomes
+  });
 
   // Reads and Temporary chat commands borrow their provider instead of claiming
   // it: the operation returns its borrow when it finishes, and an unused
@@ -54,7 +151,7 @@ export function createCodexConversationCommands({
   }
 
   function forgetObservation(state) {
-    state.unsubscribe?.();
+    if (state.unsubscribe) state.unsubscribe();
     state.unsubscribe = null;
     holdWhileActive(state);
   }
@@ -103,7 +200,8 @@ export function createCodexConversationCommands({
     let state = conversations.get(conversationId);
     if (state?.provider === provider && state.unsubscribe) return state;
     if (state) forgetObservation(state);
-    state = { conversationId, provider, persistent: true, status: "ready", runId: "", error: "", turnOutcome: "" };
+    state = { conversationId, provider, persistent: true, status: "ready", runId: "", error: "", turnOutcome: "",
+      onEvent: ignoreCodexConversationEvent };
     state.unsubscribe = provider.subscribe((notification) => {
       if (codexAppServerNotificationThreadId(notification) !== conversationId) return;
       const turnId = codexAppServerNotificationTurnId(notification);
@@ -112,18 +210,18 @@ export function createCodexConversationCommands({
       if (status) state.status = status;
       const classification = classifyCodexAppServerEvent(notification);
       if (notification.method === "item/agentMessage/delta") {
-        state.onEvent?.({ type: "text", text: notification.params.delta,
+        state.onEvent({ type: "text", text: notification.params.delta,
           messageId: notification.params.itemId, threadId: conversationId, turnId,
           message: codexAppServerStreamMessage(classification) });
       } else if (["assistant_started", "live_progress", "final_assistant_result"].includes(classification.kind)) {
-        state.onEvent?.({ type: "message", threadId: conversationId, turnId,
+        state.onEvent({ type: "message", threadId: conversationId, turnId,
           message: { ...codexAppServerStreamMessage(classification),
             ...(classification.kind !== "assistant_started" ? { text: classification.text } : {}) } });
       }
       if (notification.method === "thread/goal/updated") state.goal = notification.params.goal;
       if (notification.method === "thread/goal/cleared") state.goal = null;
       if (notification.method === "turn/completed") {
-        state.onEvent = null;
+        state.onEvent = ignoreCodexConversationEvent;
         const completedTurnId = state.runId;
         const completedStatus = state.status;
         // A turn the person stopped reaches the checkpoint as cancelled, as Main turns do.
@@ -226,44 +324,12 @@ export function createCodexConversationCommands({
     };
   }
 
-  function codexAppServerEphemeralConversationSnapshot(state = {}) {
-    return {
-      conversationId: normalizeCodexRunText(state.conversationId),
-      error: normalizeCodexRunText(state.error),
-      message: normalizeCodexRunText(state.message),
-      ok: true,
-      outcome: state.outcome || null,
-      progressUpdates: Array.isArray(state.progressUpdates)
-        ? state.progressUpdates.map((update = {}) => ({
-            id: normalizeCodexRunText(update.id),
-            text: normalizeCodexRunText(update.text)
-          })).filter((update) => update.id && update.text)
-        : [],
-      rawText: normalizeCodexRunText(state.rawText),
-      messageId: normalizeCodexRunText(state.messageId),
-      runId: normalizeCodexRunText(state.runId),
-      status: normalizeCodexRunText(state.status) || "ready",
-      turnMetadata: state.turnMetadata || null
-    };
-  }
-
   async function codexAppServerConversationResult(operation) {
     try {
       return await operation();
     } catch (error) {
       return conversationPreparation.failure(error);
     }
-  }
-
-  async function prepareCodexAppServerConversationThread(provider, preparation, helperIsolation) {
-    if (preparation.inspection) {
-      const enforcement = await helperIsolation.inspect(provider, preparation.inspection);
-      return preparation.prepared(enforcement);
-    }
-    const config = preparation.projectHooks
-      ? await codexAppServerProjectHookTrustConfig(provider, preparation.workdir)
-      : null;
-    return preparation.settings(config);
   }
 
   async function acquireCodexAppServerConversationContext(sessionId, prepared, input = {}, borrow = null) {
@@ -343,94 +409,6 @@ export function createCodexConversationCommands({
     }));
   }
 
-  async function runDetachedCodexAppServerConversation(sessionId, input = {}, options = {}) {
-    const preparation = conversationPreparation.detached(sessionId, input);
-    const { admission } = preparation;
-    if (admission.ok === false) return admission;
-    try {
-      return await codexAppServerConversationResult(async () => {
-        const unavailable = preparation.result;
-        if (unavailable) return unavailable;
-        const prompt = preparation.prompt;
-        const context = await codexAppServerConversationContext(sessionId, input, options);
-        if (context.ok === false) return context;
-        const { provider, runtime, workdir } = context;
-        const executionProfile = input.executionProfile && typeof input.executionProfile === "object" &&
-          !Array.isArray(input.executionProfile) ? input.executionProfile : null;
-        const helperTurn = Boolean(executionProfile);
-        const emitDetachedEvent = event => {
-          if (typeof options.onEvent === "function") options.onEvent(event);
-        };
-        const onRetired = ({ threadId }) => emitDetachedEvent({ threadId, type: "thread-retired" });
-        if (helperTurn) {
-          await assertCodexAppServerHelperAccountIdentity(provider, input.expectedAccountIdentitySignature, helperOwnershipError);
-        }
-        const execution = preparation.execution(context);
-        const threadSettings = helperTurn ? null : await prepareCodexAppServerConversationThread(
-          provider, execution.threadPreparation, conversationPreparation.isolation
-        );
-        const requestedThreadId = normalizeCodexRunText(input.threadId || input.codexSessionId);
-        let helper = null;
-        let thread;
-        if (helperTurn) {
-          const scope = { executionProfile, onRetired, projectRuntimeRoot: normalizeCodexRunText(runtime?.stateRoot),
-            projectContextRoot: normalizeCodexRunText(runtime?.projectContextRoot), provider, sessionId, requestedThreadId, workdir,
-            ...(requestedThreadId ? { record: helperLifecycle.threadForOperation({ executionProfile,
-              projectRuntimeRoot: normalizeCodexRunText(runtime?.stateRoot), provider, sessionId,
-              threadId: requestedThreadId, workdir }) } : {}) };
-          helper = await helperLifecycle.prepareDetached(scope, execution.helperPreparation);
-          thread = helper.thread;
-        } else {
-          thread = await acquireCodexAppServerDetachedThread(provider, requestedThreadId, threadSettings, input);
-        }
-        const threadId = codexAppServerDetachedThreadId(thread, requestedThreadId);
-        emitDetachedEvent({ threadId, type: "thread" });
-        const requestedTimeoutMs = Number(input.timeoutMs || 0);
-        const profileTimeoutMs = Number(executionProfile?.limits?.timeoutMs || 0);
-        let turnId = "";
-        const result = await runDetachedCodexAppServerTurn({
-          provider, threadId, onEvent: emitDetachedEvent,
-          timeoutMs: helperTurn
-            ? Math.min(requestedTimeoutMs > 0 ? requestedTimeoutMs : profileTimeoutMs, profileTimeoutMs)
-            : requestedTimeoutMs > 0 ? requestedTimeoutMs : CODEX_APP_SERVER_DETACHED_TURN_TIMEOUT_MS,
-          async onFailure(error, status) {
-            await helper?.discard();
-            return execution.failure(error, status);
-          }
-        }, async failDispatch => {
-          let dispatched;
-          if (helperTurn) {
-            dispatched = await helper.dispatch(threadId, failDispatch);
-          } else {
-            try {
-              dispatched = await dispatchCodexAppServerDetachedTurn({ provider, prompt, threadId }, execution.authorized);
-            } catch (error) {
-              await failDispatch(error);
-            }
-          }
-          turnId = dispatched.turnId;
-          return dispatched;
-        });
-        if (helperTurn) {
-          try {
-            await assertCodexAppServerHelperAccountIdentity(provider, input.expectedAccountIdentitySignature, helperOwnershipError);
-            execution.validateOutput(result.text);
-          } catch (error) {
-            await helper.discard();
-            throw error;
-          }
-          await helper.complete();
-        }
-        emitDetachedEvent({ status: result.status || "completed", text: result.text,
-          threadId, turnId: result.turnId || turnId, type: "completed" });
-        return { ok: true, text: result.text, threadId, turnId: result.turnId || turnId,
-          ...(helperTurn ? { inputCharacters: prompt.length, outputCharacters: result.text.length, usage: result.usage || null } : {}) };
-      });
-    } finally {
-      admission.release();
-    }
-  }
-
   async function startCodexAppServerConversationTurn(sessionId, input = {}, options = {}) {
     const messageId = normalizeCodexRunText(input.messageId);
     return withCodexAppServerConversationTurnStart(sessionId, input, () => codexAppServerConversationResult(async () => {
@@ -468,7 +446,7 @@ export function createCodexConversationCommands({
           authorized: execution.authorized,
           readOnly: execution.readOnly,
           actorMetadata: execution.actorMetadata,
-          onEvent: execution.onEvent,
+          onEvent: execution.onEvent || ignoreCodexConversationEvent,
           projectResult: execution.projectResult,
           conversationId,
           messageId,
@@ -498,7 +476,7 @@ export function createCodexConversationCommands({
       if (input.ephemeral === true) {
         return conversationPreparation.expired(conversationId, input);
       }
-      if (input.persistent && conversationState?.persistent && conversationState.provider.isAvailable?.() &&
+      if (input.persistent && conversationState?.persistent && conversationState.provider.isAvailable() &&
           !conversationState.provider.observationFailure && !conversationPreparation.admissionError(sessionId)) {
         // Poll the already observed native thread. Execution environment setup
         // belongs to Send and reconnection, not every history read. The read
@@ -539,7 +517,7 @@ export function createCodexConversationCommands({
 
   async function waitForCodexAppServerConversationTurn(sessionId, input = {}, {
     assistantScope = null,
-    onEvent = null
+    onEvent = ignoreCodexDetachedTurnEvent
   } = {}) {
     return codexAppServerConversationResult(async () => {
       const conversationId = normalizeCodexRunText(input.conversationId);
@@ -573,724 +551,13 @@ export function createCodexConversationCommands({
     });
   }
 
-  // A conversation whose provider lost its observation stops through that failure.
-  async function stopThroughObservationFailure(state) {
-    await state.provider.failObservation(state.provider.observationFailure);
-    if (codexAppServerConversationTurnIsActive(state.status)) {
-      throw new Error("Codex's stop is not yet confirmed.");
-    }
-  }
-
-  async function stopCodexAppServerConversation(sessionId, input = {}, options = {}, {
-    turnOutcome = turnOutcomes.USER_CANCELLED
-  } = {}) {
-    const conversationId = normalizeCodexRunText(input.conversationId);
-    const conversationState = codexAppServerConversation(sessionId, conversationId);
-    if (conversationState?.provider.observationFailure) {
-      await stopThroughObservationFailure(conversationState);
-      return { conversationId, ok: true, runId: conversationState.runId, status: "interrupted" };
-    }
-    if (input.ephemeral === true && !conversationState) {
-      return {
-        conversationExpired: true,
-        conversationId,
-        ok: true,
-        runId: normalizeCodexRunText(input.runId),
-        status: "interrupted"
-      };
-    }
-    if (input.persistent) {
-      return withProviderBorrow(true, async (borrow) => {
-        const context = await codexAppServerConversationContext(sessionId, input, options, borrow);
-        if (context.ok === false) return context;
-        return stopPersistentCodexConversation({
-          conversationId,
-          conversationState,
-          provider: context.provider,
-          turnOutcome
-        });
-      });
-    }
-    const result = await interruptDetachedCodexAppServerConversationTurn(sessionId, {
-      agentSettings: input.agentSettings,
-      threadId: input.conversationId,
-      turnId: input.runId
-    }, options, conversationState);
-    return {
-      ...result,
-      conversationId,
-      runId: normalizeCodexRunText(input.runId)
-    };
-  }
-
-  // A scope's delete stops only what this server runs for it: its live providers,
-  // and a runtime whose earlier stop could not prove its exit. It never acquires
-  // a provider, which would start a Codex app-server only to stop it, so it needs
-  // no account, tool home or workdir. A runtime other providers share stays theirs.
-  async function stopCodexScopeRuntimes(sessionKey) {
-    const owner = providerSessions.owner;
-    const attempted = new Set([...owner.providers]
-      .filter(([providerKey]) => owner.providerOwners.get(providerKey)?.sessionKey === sessionKey)
-      .map(([, provider]) => provider));
-    const stopped = await owner.stopCachedProvidersForSession(sessionKey, { requireStopped: true });
-    const failed = [...stopped.failed];
-    const results = [...stopped.results];
-    for (const record of [...owner.ownedRuntimes.values()]) {
-      if (record.sessionKey !== sessionKey || attempted.has(record.provider) ||
-          owner.runtimeIsShared(record.providerKey, record.providerOptions)) continue;
-      try {
-        // Its provider is no longer cached, so the runtime's own options name its lock.
-        results.push(await owner.withLifecycle(() => owner.stopOwnedRuntime(record),
-          record.providerKey, record.providerOptions));
-      } catch (error) {
-        failed.push({ code: normalizeCodexRunText(error?.code), error: codexAppServerErrorMessage(error),
-          providerKey: record.providerKey, retryable: error?.retryable === true });
-      }
-    }
-    if (failed.length) {
-      const error = new Error(failed.map((failure) => failure.error).join(" "));
-      error.code = failed[0].code;
-      error.retryable = failed.every((failure) => failure.retryable);
-      error.details = { failed };
-      throw error;
-    }
-    return { ok: true, results, stopped: results.some((result) => result?.stopped === true) };
-  }
-
-  async function deleteScopedCodexAppServerConversation(sessionId, input = {}, options = {}) {
-    const conversationId = normalizeCodexRunText(input.conversationId);
-    const sessionKey = namespace(sessionId);
-    const conversations = codexAppServerConversations.get(sessionKey);
-    // An ephemeral native thread lives only in the process that created it, so
-    // one this server no longer tracks has nothing left to delete.
-    const conversationExpired = input.ephemeral === true && !conversations?.has(conversationId);
-    let result;
-    if (conversationExpired) {
-      result = {
-        conversationExpired: true
-      };
-    } else {
-      result = await deleteDetachedCodexAppServerConversationThread(sessionId, {
-        agentSettings: input.agentSettings,
-        threadId: input.conversationId
-      }, options, { conversationId, sessionKey, conversations });
-      if (result.ok === false) {
-        return { ...result, conversationId };
-      }
-    }
-    const providerExit = options.assistantScope ? await stopCodexScopeRuntimes(sessionKey) : null;
-    return {
-      ...result,
-      conversationId,
-      ok: conversationExpired ? providerExit?.ok !== false : result?.ok !== false,
-      ...(providerExit ? { providerExit } : {})
-    };
-  }
-
-  // Close stops each persistent conversation through the provider that observes
-  // it. A closing session refuses a rebuilt context, and a new connection could
-  // not see the running turn anyway. One conversation's failure does not skip
-  // the others; it stays registered so that a retried close stops it.
-  async function stopObservedCodexConversation(state) {
-    const { provider } = state;
-    if (provider.observationFailure) {
-      await stopThroughObservationFailure(state);
-      return;
-    }
-    // A provider its owner has since closed observes nothing left to stop here:
-    // the owner stopped or detached its process, and reconnecting it would
-    // start a process nothing owns.
-    if (![...providerSessions.owner.providers].some(([, owned]) => owned === provider)) return;
-    // Closing is not the person stopping the turn; its status alone decides the outcome.
-    await stopPersistentCodexConversation({
-      conversationId: state.conversationId, conversationState: state, provider, turnOutcome: ""
-    });
-  }
-
-  async function closeCodexAppServerConversations(sessionId) {
-    const key = namespace(sessionId);
-    const conversations = codexAppServerConversations.get(key);
-    const failed = [];
-    for (const state of [...(conversations?.values() || [])]) {
-      if (!state.persistent) {
-        await deleteScopedCodexAppServerConversation(sessionId, { conversationId: state.conversationId }).catch(() => null);
-        conversations.delete(state.conversationId);
-        continue;
-      }
-      try {
-        await stopObservedCodexConversation(state);
-      } catch (error) {
-        failed.push({ conversationId: state.conversationId, error: codexAppServerErrorMessage(error) });
-        continue;
-      }
-      forgetObservation(state);
-      conversations.delete(state.conversationId);
-    }
-    if (conversations && codexAppServerConversations.get(key) === conversations && !conversations.size) {
-      codexAppServerConversations.delete(key);
-    }
-    if (failed.length) {
-      const error = new Error(`Codex could not confirm that ${failed.length === 1 ? "a conversation" : `${failed.length} conversations`} stopped: ${
-        failed.map(({ conversationId, error: reason }) => `${conversationId} (${reason})`).join("; ")}. Retry closing the session.`);
-      error.code = `${errorPrefix}codex_conversation_close_failed`;
-      error.retryable = true;
-      error.details = { failed, sessionId: normalizeCodexRunText(sessionId) };
-      throw error;
-    }
-  }
-
-  async function codexAppServerConversationControl(sessionId, input, {
-    assistantScope = null,
-    runtime = null,
-    session = null
-  } = {}, operation, dispatch) {
-    return codexAppServerConversationResult(async () => {
-      const prepared = conversationPreparation.control(sessionId, input, operation);
-      if (prepared.result) return prepared.result;
-      const { admission, threadId, turnId } = prepared;
-      // Stopping or deleting a thread is cleanup, not a use that keeps Codex running.
-      const borrow = { release() {} };
-      try {
-        let context = null;
-        try {
-          context = await codexAppServerConversationContext(sessionId, input, { assistantScope, runtime, session }, borrow);
-        } catch (error) {
-          const unavailable = prepared.unavailable();
-          if (unavailable) return unavailable;
-          throw error;
-        }
-        if (context.ok === false) return context;
-        const unavailable = prepared.unavailable();
-        if (unavailable) return unavailable;
-        const policyResult = helperLifecycle?.inspectControl(operation, input, {
-          sessionId, threadId, turnId,
-          get retiredThreadIds() { return context.helperRestore?.retiredThreadIds; },
-          get projectRuntimeRoot() { return context.runtime?.stateRoot; },
-          get provider() { return context.provider; },
-          get workdir() { return context.workdir; }
-        });
-        // The original Helper-retirement return releases admission before its
-        // promise settles; only the native dispatch below is awaited here.
-        if (policyResult !== undefined) return policyResult;
-        if (operation === "interrupt") {
-          const unavailable = prepared.unavailable();
-          if (unavailable) return unavailable;
-        } else if (typeof context.provider.deleteThread !== "function") {
-          return {
-            code: `${errorPrefix}codex_detached_thread_delete_unavailable`,
-            error: "Codex app-server thread deletion is not available.",
-            messageCode: "assistant.codex.threadDeleteUnavailable",
-            messageParams: {},
-            ok: false,
-            statusCode: 409,
-            threadId
-          };
-        }
-        return await dispatch({ provider: context.provider, threadId, turnId });
-      } finally {
-        borrow.release();
-        admission.release();
-      }
-    });
-  }
-
-  async function interruptDetachedCodexAppServerConversationTurn(sessionId, input = {}, options = {}, conversationState = null) {
-    return interruptCodexAppServerConversation(conversationState, dispatch =>
-      codexAppServerConversationControl(sessionId, input, options, "interrupt", dispatch));
-  }
-
-  async function deleteDetachedCodexAppServerConversationThread(sessionId, input = {}, options = {}, conversation = null) {
-    return deleteCodexAppServerConversation(conversation, dispatch =>
-      codexAppServerConversationControl(sessionId, input, options, "delete", dispatch));
-  }
-
-  async function createPreparedCodexAppServerConversation(sessionId, input, {
-    provider,
-    executionProfile,
-    helperIsolation,
-    threadPreparation
-  } = {}) {
-    const prepareThread = () => prepareCodexAppServerConversationThread(provider, threadPreparation(), helperIsolation);
-    const thread = executionProfile
-      ? (await helperIsolation.start(provider, prepareThread)).thread
-      : await provider.startThread({
-          ...await prepareThread(),
-          ...(input.ephemeral === true ? { ephemeral: true } : {})
-        });
-    const conversationId = normalizeCodexRunText(thread.id || thread.response?.thread?.id);
-    if (!conversationId) {
-      throw new Error("Codex app-server did not return a conversation id.");
-    }
-    if (input.persistent === true) observeCodexConversation(sessionId, conversationId, provider);
-    if (input.ephemeral === true) {
-      const sessionKey = namespace(sessionId);
-      const conversations = codexAppServerConversations.get(sessionKey) || new Map();
-      conversations.set(conversationId, {
-        conversationId,
-        executionProfile,
-        provider,
-        error: "",
-        message: "",
-        messageId: "",
-        nextProgressSequence: 0,
-        outcome: null,
-        progressUpdates: [],
-        rawText: "",
-        runId: "",
-        status: "ready",
-        turnMetadata: null,
-        watcher: null
-      });
-      codexAppServerConversations.set(sessionKey, conversations);
-    }
-    return {
-      conversationId,
-      ok: true,
-      status: "ready"
-    };
-  }
-
-  async function steerCodexAppServerConversationTurn(input, {
-    conversationId,
-    conversationState,
-    messageId,
-    prompt,
-    provider
-  } = {}) {
-    const images = codexLocalImageInput(input.attachments || []);
-    const result = await provider.steerTurn(
-      conversationId,
-      conversationState.runId,
-      images.length ? [prompt, ...images] : prompt,
-      { clientUserMessageId: messageId }
-    );
-    const failure = codexAppServerSteerFailure(result, steerFailedCode);
-    if (failure) return { ...failure, ok: false };
-    conversationState.messageId = messageId;
-    return {
-      conversationId,
-      messageId,
-      ok: true,
-      runId: conversationState.runId,
-      status: "inProgress",
-      deliveryMode: "steer"
-    };
-  }
-
-  async function acquireCodexAppServerDetachedThread(provider, requestedThreadId, threadSettings, input = {}) {
-    let thread = null;
-    if (requestedThreadId) {
-      thread = await provider.resumeThread(requestedThreadId, threadSettings);
-    }
-    if (!thread) {
-      thread = await provider.startThread({
-        ...threadSettings,
-        ...(input.ephemeral === true ? { ephemeral: true } : {})
-      });
-    }
-    return thread;
-  }
-
-  function codexAppServerDetachedThreadId(thread, requestedThreadId) {
-    const threadId = normalizeCodexRunText(thread.id || thread.response?.thread?.id || requestedThreadId);
-    if (!threadId) {
-      throw new Error("Codex app-server did not return a detached chat thread id.");
-    }
-    return threadId;
-  }
-
-  async function dispatchCodexAppServerDetachedTurn({ provider, prompt, threadId }, authorized) {
-    const delivery = await sendCodexAppServerPrompt({ provider, prompt, threadId }, authorized);
-    return { delivery, ...codexAppServerDeliveredTurn(delivery) };
-  }
-
-  async function runDetachedCodexAppServerTurn({
-    provider,
-    threadId,
-    timeoutMs,
-    onEvent: emitDetachedEvent,
-    onFailure
-  } = {}, operation) {
-    const watcher = createCodexAppServerDetachedTurnWatcher(provider, threadId, {
-      onEvent: (classification) => {
-        emitDetachedEvent({
-          classification,
-          threadId,
-          turnId: classification.turnId,
-          type: "notification"
-        });
-      },
-      timeoutMs
-    });
-    const waitForResult = watcher.wait();
-    void waitForResult.catch(() => null);
-    const throwWatcherFailure = async (fallbackError, status = "", {
-      waitForDetail = false
-    } = {}) => {
-      if (waitForDetail) {
-        watcher.failAfterDetailGrace(fallbackError);
-      } else {
-        watcher.failNow(fallbackError);
-      }
-      const error = await waitForResult.then(
-        () => fallbackError,
-        (watcherError) => watcherError
-      );
-      throw await onFailure(error, status);
-    };
-    const { delivery, status, turnId } = await operation(throwWatcherFailure);
-    watcher.setTurnId(turnId);
-    emitDetachedEvent({
-      status,
-      threadId,
-      turnId,
-      type: "turn"
-    });
-    if (codexAppServerTurnStatusIsProviderFailure(status)) {
-      const error = new Error(codexAppServerDeliveredTurn(delivery).error || `Codex app-server turn ${status}.`);
-      await throwWatcherFailure(error, status, {
-        waitForDetail: true
-      });
-    }
-    if (codexAppServerTurnStatusIsSuccessfulComplete(status)) {
-      await watcher.completeNow(status);
-    }
-    let result = null;
-    try {
-      result = await waitForResult;
-    } catch (error) {
-      throw await onFailure(error, status);
-    }
-    return result;
-  }
-
-  async function startPreparedCodexAppServerConversationTurn(sessionId, input, {
-    conversationId,
-    messageId,
-    prompt,
-    provider,
-    conversationState,
-    executionProfile,
-    actorMetadata,
-    onEvent,
-    projectResult,
-    helperIsolation,
-    threadPreparation,
-    prepareTurn,
-    authorized,
-    readOnly
-  } = {}) {
-    if (conversationState && messageId && conversationState.messageId === messageId) {
-      return codexAppServerEphemeralConversationSnapshot(conversationState);
-    }
-    if (conversationState && codexAppServerConversationTurnIsActive(conversationState.status)) {
-      if (input.steer === true) {
-        return steerCodexAppServerConversationTurn(input, {
-          conversationId,
-          conversationState,
-          messageId,
-          prompt,
-          provider
-        });
-      }
-      return {
-        code: `${errorPrefix}temporary_conversation_turn_active`,
-        error: "Temporary AI is already working on this conversation.",
-        messageCode: "assistant.codex.temporaryConversationBusy",
-        messageParams: {},
-        ok: false
-      };
-    }
-    if (!conversationState || input.persistent === true) {
-      const prepareThread = () => prepareCodexAppServerConversationThread(provider, threadPreparation(), helperIsolation);
-      if (executionProfile) await helperIsolation.resume(provider, conversationId, prepareThread);
-      else await provider.resumeThread(conversationId, await prepareThread());
-    }
-    let admittedAccountIdentitySignature = "";
-    if (executionProfile) {
-      admittedAccountIdentitySignature = await readCodexAppServerAccountIdentity(provider, helperOwnershipError);
-    }
-    let watcher = null;
-    let waitForResult = null;
-    if (conversationState && !input.persistent) {
-      Object.assign(conversationState, {
-        error: "",
-        message: "",
-        messageId,
-        outcome: null,
-        progressUpdates: [],
-        rawText: "",
-        runId: "",
-        status: "starting",
-        turnMetadata: actorMetadata
-      });
-      watcher = createCodexAppServerDetachedTurnWatcher(provider, conversationId, {
-        includeThreadHistory: false,
-        timeoutMs: executionProfile?.limits.timeoutMs || 0,
-        onEvent(classification = {}) {
-          const current = codexAppServerConversation(sessionId, conversationId);
-          if (!current || (classification.turnId && current.runId && classification.turnId !== current.runId)) {
-            return;
-          }
-          onEvent?.(classification, current);
-        }
-      });
-      waitForResult = watcher.wait();
-      void waitForResult.catch(() => null);
-      conversationState.watcher = watcher;
-    }
-    let delivery = null;
-    if (input.persistent && conversationState) Object.assign(conversationState, { onEvent, turnOutcome: "" });
-    try {
-      await input.onPromptSending?.({ threadId: conversationId });
-      if (executionProfile) {
-        const prepared = prepareTurn();
-        delivery = await sendPreparedCodexAppServerHelperTurn(provider, prepared, helperIsolation);
-      } else {
-        delivery = await sendCodexAppServerPrompt({
-          clientUserMessageId: input.messageId,
-          outputSchema: input.outputSchema,
-          prompt,
-          attachments: input.attachments,
-          provider,
-          readOnly,
-          threadId: conversationId
-        }, authorized);
-      }
-    } catch (error) {
-      if (input.persistent && conversationState) conversationState.onEvent = null;
-      watcher?.failNow(error);
-      await waitForResult?.catch(() => null);
-      if (conversationState) {
-        Object.assign(conversationState, {
-          error: codexAppServerErrorMessage(error, "Temporary AI message could not be sent."),
-          status: "failed",
-          watcher: null
-        });
-        holdWhileActive(conversationState);
-      }
-      throw error;
-    }
-    const { turnId: runId, status } = codexAppServerDeliveredTurn(delivery);
-    if (!runId) {
-      watcher?.failNow(new Error("Codex app-server accepted a conversation turn without returning its id."));
-      await waitForResult?.catch(() => null);
-      throw new Error("Codex app-server accepted a conversation turn without returning its id.");
-    }
-    if (conversationState && !input.persistent) {
-      let nativeCompleted = false;
-      Object.assign(conversationState, {
-        runId,
-        status: !executionProfile && codexAppServerTurnStatusIsSuccessfulComplete(status) ? status : "inProgress"
-      });
-      watcher.setTurnId(runId);
-      if (codexAppServerTurnStatusIsProviderFailure(status)) {
-        watcher.failNow(new Error(`Codex app-server turn ${status}.`));
-      } else if (codexAppServerTurnStatusIsSuccessfulComplete(status)) {
-        await watcher.completeNow(status);
-      }
-      conversationState.completion = waitForResult.then(async (result = {}) => {
-        const current = codexAppServerConversation(sessionId, conversationId);
-        if (!current || current.runId !== runId) {
-          return;
-        }
-        nativeCompleted = true;
-        if (!executionProfile) current.status = result.status || "completed";
-        if (executionProfile) {
-          const completingRunId = current.runId;
-          await assertCodexAppServerHelperAccountIdentity(provider, admittedAccountIdentitySignature, helperOwnershipError);
-          if (codexAppServerConversation(sessionId, conversationId) !== current ||
-              current.runId !== completingRunId || !codexAppServerConversationTurnIsActive(current.status)) {
-            throw new Error("The scoped helper turn is unavailable.");
-          }
-        }
-        const response = projectResult(result);
-        Object.assign(current, {
-          error: "",
-          ...response,
-          status: result.status || "completed",
-          watcher: null
-        });
-        return codexAppServerEphemeralConversationSnapshot(current);
-      }).catch(async (error) => {
-        const current = codexAppServerConversation(sessionId, conversationId);
-        if (!current || current.runId !== runId || current.status === "interrupted") {
-          throw error;
-        }
-        if (executionProfile && !nativeCompleted && codexAppServerConversationTurnIsActive(current.status)) {
-          try {
-            const interrupted = await provider.interruptTurn(conversationId, runId);
-            const failure = codexAppServerInterruptFailure(interrupted, interruptFailedCode);
-            if (failure) throw new Error(failure.error);
-          } catch {
-            current.error = "The helper deadline ended, but Stop could not be confirmed. Retry Stop before reusing this helper.";
-            current.watcher = null;
-            throw new Error(current.error);
-          }
-        }
-        Object.assign(current, {
-          error: codexAppServerErrorMessage(error, "Temporary AI turn failed."),
-          status: "failed",
-          watcher: null
-        });
-        throw error;
-      });
-      void conversationState.completion.catch(() => null);
-    }
-    if (input.persistent && conversationState) {
-      Object.assign(conversationState, { runId, status, messageId });
-      holdWhileActive(conversationState);
-    }
-    return { conversationId, messageId, ok: true, runId, status };
-  }
-
-  async function interruptCodexAppServerConversation(conversationState, operation) {
-    const result = await operation(async ({ provider, threadId, turnId }) => {
-      const result = await provider.interruptTurn(threadId, turnId);
-      const interruptFailure = codexAppServerInterruptFailure(result, interruptFailedCode);
-      if (interruptFailure) {
-        return {
-          ...interruptFailure,
-          result,
-          threadId,
-          turnId
-        };
-      }
-      return {
-        ok: true,
-        result,
-        status: "interrupted",
-        threadId,
-        turnId
-      };
-    });
-    if (result.ok !== false && conversationState) {
-      conversationState.status = "interrupted";
-      conversationState.watcher?.failNow(new Error("Temporary AI turn was stopped."));
-      conversationState.watcher = null;
-      holdWhileActive(conversationState);
-    }
-    return result;
-  }
-
-  async function deleteCodexAppServerConversation(conversation, operation) {
-    const result = await operation(async ({ provider, threadId }) => {
-      try {
-        const result = await provider.deleteThread(threadId);
-        return {
-          ok: true,
-          result,
-          status: "deleted",
-          threadId
-        };
-      } catch (error) {
-        if (
-          codexAppServerRequestIsInvalid(error, "thread/delete") &&
-          !await codexAppServerThreadHasReadableHistory(provider, threadId)
-        ) {
-          return {
-            ok: true,
-            status: "notFound",
-            threadId
-          };
-        }
-        throw error;
-      }
-    });
-    if (result.ok !== false && conversation) {
-      const { conversationId, sessionKey, conversations } = conversation;
-      const state = conversations?.get(conversationId);
-      state?.watcher?.failNow(new Error("Temporary AI conversation was closed."));
-      if (state) forgetObservation(state);
-      conversations?.delete(conversationId);
-      if (conversations?.size === 0) {
-        codexAppServerConversations.delete(sessionKey);
-      }
-    }
-    return result;
-  }
-
-  async function stopPersistentCodexConversation({
-    conversationId,
-    conversationState,
-    provider,
-    turnOutcome = ""
-  } = {}) {
-    // Set before stopping: the provider can report turn/completed while it stops.
-    if (conversationState && codexAppServerConversationTurnIsActive(conversationState.status)) {
-      conversationState.turnOutcome = turnOutcome;
-    }
-    try {
-      await provider.readThreadStatus(conversationId);
-      await provider.stopThreadForObservationLoss(conversationId, "");
-    } catch (error) {
-      if (!codexAppServerThreadIsMissing(error, conversationId) || error.message.toLowerCase().startsWith("thread not loaded:")) {
-        if (conversationState) conversationState.turnOutcome = "";
-        throw error;
-      }
-    }
-    if (conversationState) {
-      conversationState.status = "interrupted";
-      if (conversationState.goal?.status === "active") conversationState.goal = { ...conversationState.goal, status: "paused" };
-      conversationState.watcher?.failNow(new Error("Temporary AI turn was stopped."));
-      conversationState.watcher = null;
-      holdWhileActive(conversationState);
-    }
-    return { ok: true, conversationId, status: "interrupted" };
-  }
-
-  async function waitForPreparedCodexAppServerConversationTurn(sessionId, input, {
-    provider,
-    onEvent = null
-  } = {}) {
-    const conversationId = normalizeCodexRunText(input.conversationId);
-    const runId = normalizeCodexRunText(input.runId);
-    const watcher = createCodexAppServerDetachedTurnWatcher(provider, conversationId, {
-      onEvent,
-      timeoutMs: Number(input.timeoutMs || 0) > 0
-        ? Number(input.timeoutMs)
-        : input.persistent === true ? 0 : CODEX_APP_SERVER_DETACHED_TURN_TIMEOUT_MS
-    });
-    const conversationState = codexAppServerConversation(sessionId, conversationId);
-    if (input.persistent && conversationState) conversationState.watcher = watcher;
-    const waitForResult = watcher.wait();
-    void waitForResult.catch(() => {});
-    watcher.setTurnId(runId);
-    try {
-      const current = await provider.readThread(conversationId);
-      const status = codexAppServerThreadStatus(current);
-      if (codexAppServerTurnStatusIsProviderFailure(status)) {
-        watcher.failNow(new Error(
-          codexAppServerThreadError(current) || `Codex app-server turn ${status}.`
-        ));
-      } else if (codexAppServerTurnStatusIsSuccessfulComplete(status)) {
-        await watcher.completeNow(status);
-      }
-      const result = await waitForResult;
-      return {
-        conversationId,
-        ok: true,
-        runId,
-        status: result.status || status || "completed",
-        rawText: result.text
-      };
-    } catch (error) {
-      watcher.failNow(error);
-      throw error;
-    } finally {
-      if (conversationState?.watcher === watcher) conversationState.watcher = null;
-    }
-  }
-
-  return {
+  return Object.freeze({
     codexAppServerConversations,
     codexAppServerConversationTurnStarts,
     codexAppServerConversation,
     hasActiveConversation,
-    withCodexAppServerConversationTurnStart,
     observeCodexConversation,
     readPersistentCodexConversation,
-    codexAppServerEphemeralConversationSnapshot,
     prepareCodexAppServerConversationThread,
     codexAppServerConversationContext,
     codexAppServerEphemeralScopeContext,
@@ -1304,12 +571,12 @@ export function createCodexConversationCommands({
     closeCodexAppServerConversations,
     interruptDetachedCodexAppServerConversationTurn,
     deleteDetachedCodexAppServerConversationThread,
-    steerCodexAppServerConversationTurn,
     acquireCodexAppServerDetachedThread,
     codexAppServerDetachedThreadId,
     dispatchCodexAppServerDetachedTurn,
     runDetachedCodexAppServerTurn,
-    interruptCodexAppServerConversation,
     stopPersistentCodexConversation
-  };
+  });
 }
+
+/** @typedef {ReturnType<typeof createCodexConversationCommands>} CodexConversationCommands */

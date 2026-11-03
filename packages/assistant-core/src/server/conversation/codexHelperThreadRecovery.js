@@ -1,10 +1,17 @@
 import { deleteCodexAppServerThread, codexAppServerRuntimeStopWasVerified } from "./codexProvider.js";
 import { directoryExists } from "./codexProviderOwner.js";
-import { CODEX_HELPER_THREAD_LIFECYCLES } from "./codexHelperThreadLedger.js";
+import { CODEX_HELPER_THREAD_LIFECYCLES } from "./codexHelperThreadRecord.js";
 import { normalizeCodexRunText as normalizeText } from "./codexTurnState.js";
 
-// Recovery operations of the same Helper lifecycle. All maps and record mutations
-// belong to the supplied lifecycle; this module creates no owner or registry.
+/**
+ * Recovery operations of the same helper lifecycle. All maps and record mutations belong to the supplied lifecycle;
+ * this module creates no owner or registry.
+ * @param {import("./codexHelperThreads.js").CodexHelperThreadLifecycle} lifecycle
+ * @param {object} dependencies
+ * @param {import("./codexTurn.js").CodexProviderOwner} dependencies.providerOwner
+ * @param {string} dependencies.applicationName
+ * @param {string} dependencies.errorPrefix
+ */
 export function createCodexHelperThreadRecovery(lifecycle, {
   providerOwner,
   applicationName,
@@ -97,7 +104,7 @@ export function createCodexHelperThreadRecovery(lifecycle, {
           return { record: null, retiredThreadId: record.threadId };
         }
       } finally {
-        staleProvider.close?.();
+        staleProvider.close();
       }
     }
     if (existing) {
@@ -112,15 +119,6 @@ export function createCodexHelperThreadRecovery(lifecycle, {
         ...policy,
         create: (onObservationLost) => providerOwner.createNativeProvider({ ...providerOptions, onObservationLost })
       });
-    }
-    if (typeof provider.currentRuntimeInfo !== "function") {
-      throw codexAppServerHelperOwnershipError(
-        "The Codex provider cannot prove persisted runtime ownership.",
-        {
-          sessionId: record.sessionId,
-          threadId: record.threadId
-        }
-      );
     }
     const expectedRuntime = await provider.currentRuntimeInfo();
     if (!codexAppServerHelperThreadOwnershipMatches(record, {
@@ -141,13 +139,13 @@ export function createCodexHelperThreadRecovery(lifecycle, {
       );
     }
     await providerOwner.acquireRuntime({
-      operation: () => provider.ensureAvailable?.(),
+      operation: () => provider.ensureAvailable(),
       provider,
       providerKey,
       providerOptions
     });
     const currentRuntime = await provider.currentRuntimeInfo();
-    const currentServer = provider.currentServerInfo?.();
+    const currentServer = provider.currentServerInfo();
     if (!codexAppServerHelperThreadOwnershipMatches(record, {
       providerKey,
       runtime: currentRuntime,
@@ -343,12 +341,6 @@ export function createCodexHelperThreadRecovery(lifecycle, {
       };
     }
     provider ||= await providerOwner.ensureSession(prepared.sessionContext);
-    if (typeof provider.listHelperThreads !== "function") {
-      throw codexAppServerHelperOwnershipError(
-        "The Codex helper provider cannot authoritatively inventory its threads.",
-        { sessionId }
-      );
-    }
     const inventory = await provider.listHelperThreads();
     if (!Array.isArray(inventory?.threadIds)) {
       throw codexAppServerHelperOwnershipError(
@@ -386,9 +378,9 @@ export function createCodexHelperThreadRecovery(lifecycle, {
     };
   }
 
-  return {
+  return Object.freeze({
     restoreThread: restoreCodexAppServerHelperThread,
     restoreThreads: restoreCodexAppServerHelperThreads,
     reconcileRuntimeUnlocked: reconcileCodexAppServerHelperRuntimeUnlocked
-  };
+  });
 }

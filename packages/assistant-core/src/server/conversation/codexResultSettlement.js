@@ -11,8 +11,18 @@ import {
   codexAppServerTurnKey
 } from "./codexTurnState.js";
 
-// Original result settlement and successor adoption for one retained run owner.
-// Journal/output collections remain with their owners and are shared by reference.
+/**
+ * Result settlement and successor adoption for one retained run owner. Journal and output collections remain with
+ * their owners and are shared by reference.
+ * @param {object} dependencies
+ * @param {import("./codexRunJournal.js").CodexRunJournal} dependencies.journal
+ * @param {import("./codexOutput.js").CodexAppServerOutput} dependencies.output
+ * @param {import("./codexTurn.js").CodexCreateRuntime} dependencies.createRuntime
+ * @param {import("./codexTurn.js").CodexPublish} dependencies.publish
+ * @param {import("./codexTurn.js").CodexDebugLog} dependencies.debugLog
+ * @param {import("./codexTurn.js").CodexDebugError} dependencies.debugError
+ * @param {import("./codexTurn.js").CodexTurnStateReader} dependencies.turnState
+ */
 export function createCodexResultSettlement({ journal, output, createRuntime, publish, debugLog, debugError, turnState }) {
   const {
     processedTurns: codexAppServerProcessedTurns,
@@ -400,10 +410,12 @@ export function createCodexResultSettlement({ journal, output, createRuntime, pu
     return outcome;
   }
 
-  return {
+  return Object.freeze({
     resultFinalizations: codexAppServerResultFinalizations,
     finalizeAssistantResult: finalizeCodexAppServerAssistantResult,
     recoverFinalResponseBeforeOutcome: recoverCodexAppServerFinalResponseBeforeOutcome,
     adoptSuccessorTurn: adoptCodexAppServerSuccessorTurn
-  };
+  });
 }
+
+/** @typedef {ReturnType<typeof createCodexResultSettlement>} CodexResultSettlement */

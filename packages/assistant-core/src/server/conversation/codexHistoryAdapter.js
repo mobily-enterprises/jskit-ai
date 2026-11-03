@@ -328,7 +328,11 @@ function forwardedHeaders(input) {
   return headers;
 }
 
-async function startCodexHistoryAdapter({ token, codexHome, readHistoryPath, fetchImpl = fetch, maxRequestBytes = MAX_REQUEST_BYTES } = {}) {
+function readNoHistoryPath() {
+  return undefined;
+}
+
+async function startCodexHistoryAdapter({ token, codexHome, readHistoryPath = readNoHistoryPath, fetchImpl = fetch, maxRequestBytes = MAX_REQUEST_BYTES } = {}) {
   if (!/^[0-9a-f-]{36}$/iu.test(token || "")) throw new Error("A Codex runtime token is required.");
   const requests = new Set();
   const server = createServer(async (request, response) => {
@@ -369,7 +373,7 @@ async function startCodexHistoryAdapter({ token, codexHome, readHistoryPath, fet
         if (!historyPath && nativeAiProvider(destination) && Array.isArray(body?.input) && body.input.some(item => item?.type === "compaction")) {
           // An exclusively owned conversation can resolve its current native
           // file, including compaction during its very first turn.
-          historyPath = await readHistoryPath?.(abort.signal);
+          historyPath = await readHistoryPath(abort.signal);
         }
         body = await restoreCompactedHistory(body, { destination, historyPath, codexHome, signal: abort.signal, maxRequestBytes });
         body = JSON.stringify(translateCodexHistory(body, destination));

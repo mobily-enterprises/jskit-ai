@@ -5,10 +5,21 @@ import {
   normalizeCodexRunText
 } from "./codexTurnState.js";
 import { codexAppServerThreadIsMissing, ensureCodexAppServerThread } from "./codexProvider.js";
-import { codexAppServerThreadRawValue, codexAppServerThreadTurnId } from "./codexEvents.js";
+import { codexAppServerThreadRawValue, codexAppServerThreadTurnId } from "./codexThreadSnapshot.js";
 
-// Native thread readiness, loaded-thread restoration and reconciliation drain.
-// Its one Map lives as long as the run owner and is shared with shutdown.
+/**
+ * Native thread readiness, loaded-thread restoration and reconciliation drain. Its one Map lives as long as the run
+ * owner and is shared with shutdown.
+ * @param {object} dependencies
+ * @param {import("./codexTurn.js").CodexProviderSessions} [dependencies.providerSessions]
+ * @param {import("./codexTurn.js").CodexProviderSelection} dependencies.selection
+ * @param {import("./codexNotificationObserver.js").CodexNotificationObserver} dependencies.observer
+ * @param {import("./codexThreadStatus.js").CodexThreadStatus} dependencies.threadStatus
+ * @param {import("./codexTurnRecovery.js").CodexTurnRecovery} dependencies.recovery
+ * @param {import("./codexTurn.js").CodexTurnStateReader} dependencies.turnState
+ * @param {import("./codexTurn.js").CodexDebugLog} dependencies.debugLog
+ * @param {import("./codexTurn.js").CodexDebugError} dependencies.debugError
+ */
 export function createCodexThreadReadiness({
   providerSessions,
   selection,
@@ -186,7 +197,7 @@ export function createCodexThreadReadiness({
 
     if (reconnect) {
       await providerSessions.owner.acquireRuntime({
-        operation: () => provider.ensureAvailable?.(),
+        operation: () => provider.ensureAvailable(),
         provider,
         providerKey: normalizedProviderKey,
         providerOptions: managed.providerOptions || {}
@@ -220,13 +231,13 @@ export function createCodexThreadReadiness({
     const session = await current.readSession();
     current.assertCurrent(session);
     try {
-      const controls = await provider.ensureThreadControls?.(threadId);
+      const controls = await provider.ensureThreadControls(threadId);
       if (controls?.recovered) providerThread = await codexAppServerReadThreadStatus(provider, threadId);
     } catch (error) {
       current.assertCurrent(session);
       // Retain the existing stop owner and its visible recovery state. Do not
       // spend automatic goal turns or repeatedly probe a known failed binding.
-      void Promise.resolve(provider.failObservation?.(error)).catch(() => null);
+      void Promise.resolve(provider.failObservation(error)).catch(() => null);
       throw error;
     }
     current.assertCurrent(session);
@@ -248,7 +259,7 @@ export function createCodexThreadReadiness({
         threadId,
         subscriptionOptions
       );
-      await provider.resumeThread?.(threadId, {
+      await provider.resumeThread(threadId, {
         cwd: normalizeCodexRunText(connection.workdir)
       });
       return reconcileCodexAppServerLoadedThreadStatus(
@@ -295,7 +306,7 @@ export function createCodexThreadReadiness({
   }
 
   async function codexAppServerLoadedThreadIds(provider = null) {
-    if (typeof provider?.listLoadedThreads !== "function") {
+    if (!provider) {
       return null;
     }
     const threadIds = new Set();
@@ -372,12 +383,14 @@ export function createCodexThreadReadiness({
     };
   }
 
-  return {
+  return Object.freeze({
     threadReconciliations: codexAppServerThreadReconciliations,
     ensureThreadReady: ensureCodexAppServerThreadReady,
     reconcileThread: reconcileCodexAppServerThreadForSession,
     waitForThreadReconciliations: waitForOtherCodexAppServerThreadReconciliations,
     checkManagedConnection,
     restoreLoadedThread: restoreCodexAppServerLoadedThread
-  };
+  });
 }
+
+/** @typedef {ReturnType<typeof createCodexThreadReadiness>} CodexThreadReadiness */

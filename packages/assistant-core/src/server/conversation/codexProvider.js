@@ -21,13 +21,13 @@ import { exportCodexNativeHistory } from "./codexNativeHistoryExport.js";
 import { retireNativeConversation, readStoppedNativeDatabase } from "./nativeHistoryExport.js";
 import { isRecord, normalizePositiveInteger } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeNullableText as normalizeAgentText } from "./normalize.js";
+import { codexAppServerErrorText } from "./codexEvents.js";
 import {
   codexAppServerProviderThreadTurns,
   codexAppServerProviderTurnItems,
   codexAppServerProviderTurnClientIds,
-  codexAppServerThreadRawValue,
-  codexAppServerErrorText
-} from "./codexEvents.js";
+  codexAppServerThreadRawValue
+} from "./codexThreadSnapshot.js";
 
 const CODEX_APP_SERVER_PROVIDER_ID = "codex_app_server";
 const CODEX_APP_SERVER_EXECUTION_MODES = Object.freeze({ HELPER: "helper", INTERACTIVE: "interactive" });

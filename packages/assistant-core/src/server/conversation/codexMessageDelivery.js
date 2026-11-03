@@ -5,8 +5,21 @@ import {
   codexAppServerNotificationTurnId
 } from "./codexEvents.js";
 
-// Original request deduplication and authored receipt persistence.
-// One instance and its two Maps belong to the containing retained run owner.
+function ignoreMessageReceipt() {}
+
+/**
+ * Request deduplication and authored receipt persistence. One instance and its two Maps belong to its run owner.
+ * @param {object} dependencies
+ * @param {import("./codexTurn.js").CodexSessionNamespace} dependencies.namespace
+ * @param {import("./codexTurn.js").CodexPublish} dependencies.publish
+ * @param {import("./codexTurn.js").CodexMessageMetadataHooks} dependencies.messageMetadata
+ * @param {import("./codexTurn.js").CodexCreateStore} dependencies.createStore
+ * @param {import("./codexTurn.js").CodexAgentRunTurnStateReader} dependencies.turnStateFromAgentRun
+ * @param {string} dependencies.deliveryStateMetadataKey
+ * @param {import("./codexOutput.js").CodexAppServerOutput} dependencies.output
+ * @param {import("./codexRunJournal.js").CodexRunJournal} dependencies.journal
+ * @param {import("./codexTurnRecovery.js").CodexTurnRecovery} dependencies.recovery
+ */
 export function createCodexAppServerMessageDelivery({
   namespace,
   publish,
@@ -43,8 +56,11 @@ export function createCodexAppServerMessageDelivery({
       return existing;
     }
     if (deliveryKey) {
+      const { onNativeReceipt = ignoreMessageReceipt, onReceiptPersisted = ignoreMessageReceipt } = pendingMessage;
       codexAppServerPendingUserMessages.set(deliveryKey, {
         ...pendingMessage,
+        onNativeReceipt,
+        onReceiptPersisted,
         receipt: Promise.withResolvers()
       });
     }
@@ -76,8 +92,7 @@ export function createCodexAppServerMessageDelivery({
     const message = normalizeCodexRunText(text);
     if (
       !normalizedSessionId ||
-      (!message && !(Array.isArray(attachments) && attachments.length)) ||
-      typeof runtime?.store?.writeConversationUserMessage !== "function"
+      (!message && !(Array.isArray(attachments) && attachments.length))
     ) {
       return null;
     }
@@ -94,14 +109,12 @@ export function createCodexAppServerMessageDelivery({
         messageId: normalizeCodexRunText(messageId),
         text: message,
         ...(applicationData !== undefined ? { data: structuredClone(applicationData) } : {}),
-        turnMetadata: messageMetadata.delivered
-          ? await messageMetadata.delivered(runtime.store, normalizedSessionId, turnMetadata)
-          : turnMetadata
+        turnMetadata: await messageMetadata.delivered(runtime.store, normalizedSessionId, turnMetadata)
       });
       if (!written) {
         return null;
       }
-      pendingMessage?.onReceiptPersisted?.();
+      pendingMessage?.onReceiptPersisted();
       await publish(normalizedSessionId, {
         payload: {
           conversationLogPatch: {
@@ -149,7 +162,7 @@ export function createCodexAppServerMessageDelivery({
       Array.isArray(recoveredMessage?.displayAttachments) && recoveredMessage.displayAttachments.length
     ))) return;
     if (ownership) {
-      pendingMessage?.onNativeReceipt?.();
+      pendingMessage?.onNativeReceipt();
       // The provider's user-message receipt precedes its answer notifications.
       // Persist the authored message here so answers cannot overtake it while
       // the original HTTP request is still finishing startup bookkeeping.
@@ -159,7 +172,7 @@ export function createCodexAppServerMessageDelivery({
           normalizedSessionId,
           pendingMessage.text,
           ownership.clientId,
-          { ...await messageMetadata.actor?.(pendingMessage.actorContext), ...pendingMessage.turnMetadata },
+          { ...await messageMetadata.actor(pendingMessage.actorContext), ...pendingMessage.turnMetadata },
           pendingMessage.attachments,
           { threadId: normalizedThreadId, turnId: codexAppServerNotificationTurnId(notification) }
         );
@@ -212,12 +225,14 @@ export function createCodexAppServerMessageDelivery({
     });
   }
 
-  return {
+  return Object.freeze({
     messageDeliveries: codexAppServerMessageDeliveries,
     pendingUserMessages: codexAppServerPendingUserMessages,
     pendingUserMessage,
     withMessageDelivery: withCodexAppServerMessageDelivery,
     writeDeliveredUserMessage: writeCodexAppServerDeliveredUserMessage,
     mirrorTerminalUserMessage: mirrorCodexAppServerTerminalUserMessage
-  };
+  });
 }
+
+/** @typedef {ReturnType<typeof createCodexAppServerMessageDelivery>} CodexAppServerMessageDelivery */

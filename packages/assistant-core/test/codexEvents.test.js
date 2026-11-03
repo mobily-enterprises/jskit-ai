@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { codexAppServerNotificationError, codexAppServerProviderThreadAssistantSegments, codexAppServerProviderTurnError } from "../src/server/conversation/codexEvents.js";
+import { codexAppServerNotificationError, codexAppServerProviderThreadAssistantSegments } from "../src/server/conversation/codexEvents.js";
+import { codexAppServerProviderTurnError } from "../src/server/conversation/codexThreadSnapshot.js";
 
 test("phase-less Codex progress before tools does not become a final answer", () => {
   const items = [
