@@ -64,34 +64,42 @@ export function createAiConnectionClient(connection, { fetch, timeoutMs = 120_00
       abortSignal: signal, timeout: timeoutMs, maxRetries: 0, temperature, maxOutputTokens, reasoning: effort
     };
   }
-  return Object.freeze({
-    enabled: true, supportsAttachments: true, provider: connection.providerId, defaultModel: connection.model,
-    // The AI SDK model itself, for the agent engine's loop.
-    model,
-    async createChatCompletion(input) {
-      const result = await generateText(options(input));
-      return { choices: [{ message: { role: "assistant", content: result.text,
-        tool_calls: result.toolCalls.map(call => ({ id: call.toolCallId, type: "function",
-          function: { name: call.toolName, arguments: JSON.stringify(call.input) } })) }, finish_reason: result.finishReason }] };
-    },
-    async *createChatCompletionStream(input) {
-      const result = streamText({ ...options(input), onError() {} });
-      let toolIndex = 0;
-      for await (const part of result.fullStream) {
-        if (part.type === "error") throw part.error;
-        if (part.type === "abort") throw input?.signal?.reason || new Error("Assistant request was aborted.");
-        if (part.type === "text-delta") yield { choices: [{ delta: { content: part.text } }] };
-        if (part.type === "finish") yield { choices: [{ delta: {}, finish_reason: part.finishReason }], usage: part.totalUsage };
-        if (part.type === "tool-call") {
-          // Only the application catalogue can reject an unavailable action
-          // and persist its no-effect receipt. Other invalid calls stay errors.
-          const unavailable = reportUnavailableToolCalls === true && NoSuchToolError.isInstance(part.error) &&
-            !part.providerExecuted && part.input !== null && typeof part.input === "object" && !Array.isArray(part.input);
-          if (part.invalid && !unavailable) throw part.error;
-          yield { choices: [{ delta: { tool_calls: [{ index: toolIndex++, id: part.toolCallId,
-            function: { name: part.toolName, arguments: JSON.stringify(part.input) } }] } }] };
-        }
+
+  async function createChatCompletion(input) {
+    const result = await generateText(options(input));
+    return { choices: [{ message: { role: "assistant", content: result.text,
+      tool_calls: result.toolCalls.map(call => ({ id: call.toolCallId, type: "function",
+        function: { name: call.toolName, arguments: JSON.stringify(call.input) } })) }, finish_reason: result.finishReason }] };
+  }
+
+  async function* createChatCompletionStream(input) {
+    const result = streamText({ ...options(input), onError() {} });
+    let toolIndex = 0;
+    for await (const part of result.fullStream) {
+      if (part.type === "error") throw part.error;
+      if (part.type === "abort") throw input?.signal?.reason || new Error("Assistant request was aborted.");
+      if (part.type === "text-delta") yield { choices: [{ delta: { content: part.text } }] };
+      if (part.type === "finish") yield { choices: [{ delta: {}, finish_reason: part.finishReason }], usage: part.totalUsage };
+      if (part.type === "tool-call") {
+        // Only the application catalogue can reject an unavailable action
+        // and persist its no-effect receipt. Other invalid calls stay errors.
+        const unavailable = reportUnavailableToolCalls === true && NoSuchToolError.isInstance(part.error) &&
+          !part.providerExecuted && part.input !== null && typeof part.input === "object" && !Array.isArray(part.input);
+        if (part.invalid && !unavailable) throw part.error;
+        yield { choices: [{ delta: { tool_calls: [{ index: toolIndex++, id: part.toolCallId,
+          function: { name: part.toolName, arguments: JSON.stringify(part.input) } }] } }] };
       }
     }
+  }
+
+  return Object.freeze({
+    enabled: true,
+    supportsAttachments: true,
+    provider: connection.providerId,
+    defaultModel: connection.model,
+    // The AI SDK model itself, for the agent engine's loop.
+    model,
+    createChatCompletion,
+    createChatCompletionStream
   });
 }

@@ -1,4 +1,5 @@
 import { answerChoiceFromLine } from "./answerChoiceSugar.js";
+import { answerChoiceHeadingLine, isSingleTextareaMessageField, optionalValueMatches } from "./messageInputSugar.js";
 
 const UI_QUESTION_FIELD_PREFIX = "__ui_question_";
 
@@ -8,16 +9,6 @@ function inactiveNumberedQuestionSugar() {
     outro: "",
     questions: []
   };
-}
-
-function isSingleTextareaMessageField(fields = [], fieldName = "response") {
-  return fields.length === 1 &&
-    fields[0]?.name === fieldName &&
-    fields[0]?.kind === "textarea";
-}
-
-function optionalValueMatches(actual = "", expected = "") {
-  return !expected || String(actual || "") === String(expected || "");
 }
 
 function canRenderNumberedQuestionSugar({
@@ -37,10 +28,6 @@ function canRenderNumberedQuestionSugar({
 
 function numberedQuestionMarkerMatch(line = "") {
   return String(line || "").match(/^\[(?:Q)?(\d+)\]\s+(.+)$/iu);
-}
-
-function trailingAnswerChoiceHeadingLine(line = "") {
-  return /^(possible answers|choices):$/iu.test(String(line || "").trim());
 }
 
 function trailingAnswerChoiceLine(line = "") {
@@ -72,7 +59,7 @@ function numberedQuestionChoice(line = "") {
 }
 
 function trailingAnswerChoiceBlock(lines = [], startIndex = 0) {
-  if (!trailingAnswerChoiceHeadingLine(lines[startIndex])) {
+  if (!answerChoiceHeadingLine(lines[startIndex])) {
     return null;
   }
   const choices = [];
@@ -152,7 +139,7 @@ function parseLineNumberedQuestionPrompt(value = "") {
       }
       const trailingLines = lines.slice(index);
       if (
-        trailingLines.some((trailingLine) => trailingAnswerChoiceHeadingLine(trailingLine)) ||
+        trailingLines.some((trailingLine) => answerChoiceHeadingLine(trailingLine)) ||
         trailingLines.some((trailingLine) => numberedQuestionMarkerMatch(trailingLine))
       ) {
         return inactiveNumberedQuestionSugar();
@@ -238,6 +225,7 @@ function numberedQuestionSugarForInput(interaction = {}, fields = []) {
   return numberedQuestionSugarForMessageInput({
     fields,
     fieldName: "response",
+    // readable-check: allow no-optional-after-default - input validation: a caller may pass null before its interaction is known
     message: interaction?.prompt
   });
 }
@@ -269,7 +257,9 @@ function numberedQuestionSugarForMessageInput({
 const ANSWER_REQUIRED = Object.freeze({ messageCode: "assistant.questions.answerRequired" });
 
 function numberedQuestionInputFields(questions = [], options = {}) {
+  // readable-check: allow no-optional-after-default - input validation: a caller may pass null for no field options
   const autocomplete = String(options?.autocomplete || "").trim();
+  // readable-check: allow no-optional-after-default - input validation: a caller may pass null for no field options
   const density = String(options?.density || "").trim();
   return questions.map((question) => ({
     ...(autocomplete ? { autocomplete } : {}),

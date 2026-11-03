@@ -1,3 +1,5 @@
+import { answerChoiceHeadingLine, isSingleTextareaMessageField, optionalValueMatches } from "./messageInputSugar.js";
+
 const UI_ANSWER_CHOICE_FIELD = "__ui_answer_choice";
 const ANSWER_CHOICE_MIN_COUNT = 2;
 const ANSWER_CHOICE_MAX_COUNT = 6;
@@ -14,16 +16,6 @@ function normalizedChoiceText(value = "") {
   return String(value || "").trim().replace(/\s+/gu, " ");
 }
 
-function isSingleTextareaMessageField(fields = [], fieldName = "response") {
-  return fields.length === 1 &&
-    fields[0]?.name === fieldName &&
-    fields[0]?.kind === "textarea";
-}
-
-function optionalValueMatches(actual = "", expected = "") {
-  return !expected || String(actual || "") === String(expected || "");
-}
-
 function canRenderAnswerChoiceSugar({
   fields = [],
   fieldName = "response",
@@ -37,10 +29,6 @@ function canRenderAnswerChoiceSugar({
     optionalValueMatches(intentId, requiredIntentId) &&
     optionalValueMatches(stepStatus, requiredStepStatus)
   );
-}
-
-function answerChoiceHeadingLine(line = "") {
-  return /^(possible answers|choices):$/iu.test(String(line || "").trim());
 }
 
 function answerChoiceLineText(line = "") {

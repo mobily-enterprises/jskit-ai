@@ -1,8 +1,16 @@
 import { normalizeNullableText } from "./normalize.js";
 import { conversationLogPage } from "../../shared/conversation/pagination.js";
 
-/** Conversation policy, independent of database, filesystem, identity and HTTP. */
+/**
+ * Conversation policy, independent of database, filesystem, identity and HTTP.
+ * @param {object} [options]
+ * @param {import("../types.js").ConversationStorage} options.storage
+ * @param {() => Date} [options.clock]
+ * @param {boolean} [options.applicationTurns]
+ */
+// readable-check: allow dependency-default - input validation: a call without options reaches the storage check and its TypeError
 export function createConversationTranscript({ storage, clock = () => new Date(), applicationTurns = false } = {}) {
+  // readable-check: allow method-probe - input validation: the application's storage adapter must offer read and write
   if (typeof storage?.read !== "function" || typeof storage?.write !== "function") {
     throw new TypeError("Conversation storage requires read(scope, callback) and write(scope, callback).");
   }
@@ -100,6 +108,7 @@ export function createConversationTranscript({ storage, clock = () => new Date()
     if (!id) return null;
     return storage.read(scope, async (transaction) => {
       const submitted = turn => hasMessages(turn) && (turn.user || turn.system)?.messageId === id ? turn : null;
+      // readable-check: allow method-probe - optional operation: a storage transaction may find a message's turn directly
       if (typeof transaction.findMessageTurnId === "function") {
         const turnId = await transaction.findMessageTurnId(id);
         if (!turnId) return null;
@@ -114,25 +123,39 @@ export function createConversationTranscript({ storage, clock = () => new Date()
     });
   }
 
+  const conversationMessageIdExists = (scope, messageId) => storage.read(scope, (transaction) => transaction.hasMessage(normalizeNullableText(messageId)));
+
+  const writeConversationUserMessage = (scope, input) => append(scope, "user", input);
+
+  const writeConversationAssistantMessage = (scope, input) => append(scope, "assistant", input);
+
+  const writeConversationCommentaryMessage = (scope, input) => append(scope, "commentary", input);
+
+  const writeConversationThinkingMessage = (scope, input) => append(scope, "thinking", input);
+
+  const writeConversationSystemMessage = (scope, input) => append(scope, "system", input);
+
+  async function upsertConversationAssistantMessage(scope, { turnId = "", text = "" } = {}) {
+    const messageText = normalizeNullableText(text);
+    if (!messageText) return null;
+    return storage.write(scope, async (transaction) => {
+      const id = normalizeNullableText(turnId);
+      await transaction.replaceAssistant(id, { role: "assistant", text: messageText, at: new Date(clock()).toISOString() });
+      return transaction.readTurn(id);
+    });
+  }
+
   return Object.freeze({
     readConversationLog,
     findSubmittedTurn,
     readConversationLogPage,
-    conversationMessageIdExists: (scope, messageId) => storage.read(scope, (transaction) => transaction.hasMessage(normalizeNullableText(messageId))),
-    writeConversationUserMessage: (scope, input) => append(scope, "user", input),
-    writeConversationAssistantMessage: (scope, input) => append(scope, "assistant", input),
-    writeConversationCommentaryMessage: (scope, input) => append(scope, "commentary", input),
-    writeConversationThinkingMessage: (scope, input) => append(scope, "thinking", input),
-    writeConversationSystemMessage: (scope, input) => append(scope, "system", input),
-    async upsertConversationAssistantMessage(scope, { turnId = "", text = "" } = {}) {
-      const messageText = normalizeNullableText(text);
-      if (!messageText) return null;
-      return storage.write(scope, async (transaction) => {
-        const id = normalizeNullableText(turnId);
-        await transaction.replaceAssistant(id, { role: "assistant", text: messageText, at: new Date(clock()).toISOString() });
-        return transaction.readTurn(id);
-      });
-    }
+    conversationMessageIdExists,
+    writeConversationUserMessage,
+    writeConversationAssistantMessage,
+    writeConversationCommentaryMessage,
+    writeConversationThinkingMessage,
+    writeConversationSystemMessage,
+    upsertConversationAssistantMessage
   });
 }
 

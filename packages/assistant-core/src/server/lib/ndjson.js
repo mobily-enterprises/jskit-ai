@@ -7,6 +7,7 @@ function setNdjsonHeaders(reply) {
   reply.header("Cache-Control", "no-cache");
   reply.header("X-Accel-Buffering", "no");
 
+  // readable-check: allow method-probe - platform object: a Fastify reply's raw Node response, when it has one
   if (reply?.raw && typeof reply.raw.setHeader === "function") {
     reply.raw.setHeader("Content-Type", NDJSON_CONTENT_TYPE);
     reply.raw.setHeader("Cache-Control", "no-cache");

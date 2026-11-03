@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { CodexAppServerJsonRpcClient, socketPathFromCodexAppServerEndpoint } from "./codexClient.js";
-import { createConversationProcessIdentity } from "./localExecution.js";
+import { createConversationProcessIdentity } from "./processIdentity.js";
 import { isRecord, normalizePositiveInteger } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeNullableText } from "./normalize.js";
 import { copyCodexProviderHome, prepareCodexModelCatalog } from "./codexConfiguration.js";

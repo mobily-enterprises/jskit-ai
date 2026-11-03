@@ -23,7 +23,9 @@ export function validateConversationConfiguration(configuration, { engine, conne
     throw new TypeError("Conversation configuration requires systemPrompt and optional integrationId, model and effort.");
   }
   if ((connectionRequired || configuration.integrationId !== undefined) &&
+      // readable-check: allow method-probe - input validation: an API conversation needs a connection resolver or a client factory
       (!configuration.integrationId || typeof connections?.resolve !== "function") &&
+      // readable-check: allow method-probe - input validation: an API conversation needs a connection resolver or a client factory
       typeof apiClientFactory?.resolveClient !== "function") {
     throw new TypeError(`${engine} requires an authorized integrationId and connection resolver.`);
   }

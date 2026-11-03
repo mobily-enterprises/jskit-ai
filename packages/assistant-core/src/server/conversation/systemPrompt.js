@@ -50,5 +50,17 @@ export function createConversationSystemPrompt() {
     return operation;
   }
 
-  return Object.freeze({ ensure, isCurrent, invalidate, whenIdle: () => pending });
+  const whenIdle = () => pending;
+
+  return Object.freeze({
+
+    ensure,
+
+    isCurrent,
+
+    invalidate,
+
+    whenIdle
+
+  });
 }

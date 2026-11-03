@@ -18,11 +18,22 @@ export function conversationAttachmentIds(value = []) {
   return [...value];
 }
 
-/** Resolve app-owned files for one dispatch. Only receipts enter the transcript. */
+/**
+ * Resolve app-owned files for one dispatch. Only receipts enter the transcript.
+ * @param {object} options
+ * @param {import("../types.js").ConversationAttachments | undefined} options.attachments The application's resolver, when it offers files.
+ * @param {object} options.context
+ * @param {string} options.conversationId
+ * @param {AbortSignal} options.signal
+ * @param {() => Promise<void>} options.authorize Rechecks admission before each resolver call.
+ * @param {readonly string[]} options.types The file types the engine accepts.
+ * @param {number} options.maximumBytes
+ */
 export function createConversationAttachmentReader({ attachments, context, conversationId, signal, authorize, types, maximumBytes }) {
   let bytes = 0;
   return async references => {
     if (!references?.length) return { attachments: [], content: [], localFiles: [], attachmentManifest: "" };
+    // readable-check: allow method-probe - input validation: an application that offers no attachments refuses files
     if (typeof attachments?.resolve !== "function") {
       throw new AppError(400, "File attachments are not configured for this conversation.", { code: "conversation_attachments_not_configured",
         messageCode: "assistant.conversation.attachmentsNotConfigured" });

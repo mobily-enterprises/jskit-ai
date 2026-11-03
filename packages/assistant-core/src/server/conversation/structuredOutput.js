@@ -1,16 +1,10 @@
+import { isPlainRecord } from "./normalize.js";
+
 const OUTPUT_SCHEMA_MAX_BYTES = 64 * 1024;
 const OUTPUT_SCHEMA_MAX_DEPTH = 8;
 const OUTPUT_SCHEMA_MAX_PROPERTIES = 64;
 const OUTPUT_SCHEMA_MAX_ENUM_VALUES = 64;
 const OUTPUT_SCHEMA_MAX_ALTERNATIVES = 64;
-
-function isPlainRecord(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return false;
-  }
-  const prototype = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
-}
 
 // Original bounded native-helper schema contract. The host supplies its existing
 // error policy; native and API process ownership is outside this validator.

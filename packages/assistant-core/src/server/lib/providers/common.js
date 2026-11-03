@@ -61,16 +61,20 @@ function createDisabledClient({ provider = DEFAULT_AI_PROVIDER, model = "" } = {
     throw new AppError(503, "Assistant provider is not configured.", { code: "assistant.provider.notConfigured" });
   };
 
+  async function createChatCompletion() {
+    disabledError();
+  }
+
+  async function createChatCompletionStream() {
+    disabledError();
+  }
+
   return Object.freeze({
     enabled: false,
     provider,
     defaultModel: model,
-    async createChatCompletion() {
-      disabledError();
-    },
-    async createChatCompletionStream() {
-      disabledError();
-    }
+    createChatCompletion,
+    createChatCompletionStream
   });
 }
 

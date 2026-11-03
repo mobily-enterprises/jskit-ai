@@ -2,7 +2,23 @@ import { isDeepStrictEqual } from "node:util";
 
 const unknownOutcome = "The application operation did not return a verified result. Inspect its target before requesting another execution.";
 
-/** One turn's application calls. Native/API adapters only transport these calls. */
+/**
+ * One turn's application calls. Native/API adapters only transport these calls.
+ * @param {object} options
+ * @param {import("../types.js").ServiceToolCatalog} options.catalog
+ * @param {{ tools: object[] }} [options.toolSet] A tool set resolved earlier for this turn.
+ * @param {object} options.context The caller context the calls run as.
+ * @param {() => Promise<object>} [options.prepareContext] Maps the context again before each call.
+ * @param {AbortSignal} options.signal
+ * @param {object[]} [options.previousCalls] The calls this turn already recorded.
+ * @param {() => Promise<void>} [options.authorize] Rechecks admission; absent only for a transient tool set.
+ * @param {(calls: object[]) => Promise<void>} [options.save] Saves the turn's calls; absent only for a transient tool set.
+ * @param {(event: object) => Promise<void>} [options.emit] Announces a call; absent only for a transient tool set.
+ * @param {number} [options.maximumCalls]
+ * @param {boolean} [options.discoveryOnly]
+ * @param {boolean} [options.transient]
+ * @param {boolean} [options.propagateErrors]
+ */
 export function createConversationTools({ catalog, toolSet: retainedToolSet, context, prepareContext, signal: turnSignal, previousCalls = [], authorize, save, emit,
   maximumCalls = 32, discoveryOnly = false, transient = false, propagateErrors = false }) {
   if (transient !== true && [authorize, save, emit].some(hook => typeof hook !== "function")) {
@@ -11,6 +27,7 @@ export function createConversationTools({ catalog, toolSet: retainedToolSet, con
   if (transient === true && previousCalls.length) {
     throw new TypeError("Transient application tools cannot restore a previous execution.");
   }
+  // readable-check: allow method-probe - input validation: an optional context mapper must be a function
   if (prepareContext !== undefined && typeof prepareContext !== "function") throw new TypeError("Application tool context requires a server-owned mapper.");
   const toolSet = retainedToolSet ?? catalog.resolveToolSet(context, { discoveryOnly });
   const calls = new Map(structuredClone(previousCalls).map(call => [call.id, call]));
@@ -27,6 +44,7 @@ export function createConversationTools({ catalog, toolSet: retainedToolSet, con
   }
 
   async function run({ id, name, arguments: argumentsText }, signal) {
+    // readable-check: allow optional-call - optional operation: a transient tool set has no admission, save or events
     await authorize?.();
     let executionContext = prepareContext ? await prepareContext() : context;
     signal.throwIfAborted();
@@ -49,16 +67,20 @@ export function createConversationTools({ catalog, toolSet: retainedToolSet, con
     calls.set(id, call);
     // Canonical calls reserve durably before the effect. Explicit transient
     // calls retain the same once-only state only for their non-resumable lifetime.
+    // readable-check: allow optional-call - optional operation: a transient tool set has no admission, save or events
     try { await save?.([...calls.values()]); }
     catch (error) { calls.delete(id); throw error; }
+    // readable-check: allow optional-call - optional operation: a transient tool set has no admission, save or events
     await emit?.({ type: "tool", call: structuredClone(call) });
     try {
+      // readable-check: allow optional-call - optional operation: a transient tool set has no admission, save or events
       await authorize?.();
       if (prepareContext) executionContext = await prepareContext();
       signal.throwIfAborted();
     } catch (error) {
       call.status = "not-executed";
       call.result = { ok: false, error: { code: "conversation_tool_not_executed", message: "Execution stopped before the action began." } };
+      // readable-check: allow optional-call - optional operation: a transient tool set has no admission, save or events
       await save?.([...calls.values()]);
       throw error;
     }
@@ -69,7 +91,9 @@ export function createConversationTools({ catalog, toolSet: retainedToolSet, con
     call.status = !call.result.ok && call.result.error?.status >= 500 ? "unknown" : "complete";
     // Keep the result in memory as well: retrySave can persist it after a failed
     // write without executing the action again or repeating model inference.
+    // readable-check: allow optional-call - optional operation: a transient tool set has no admission, save or events
     await save?.([...calls.values()]);
+    // readable-check: allow optional-call - optional operation: a transient tool set has no admission, save or events
     await emit?.({ type: "tool", call: structuredClone(call) });
     if (failed) throw failure;
     if (!call.result.ok && call.result.error?.status >= 500) {
@@ -78,10 +102,13 @@ export function createConversationTools({ catalog, toolSet: retainedToolSet, con
     return structuredClone(call.result);
   }
 
-  return {
+  const records = () => structuredClone([...calls.values()]);
+
+  return Object.freeze({
     descriptors: toolSet.tools,
-    schemas: toolSet.tools.map(catalog.toOpenAiToolSchema), execute,
+    schemas: toolSet.tools.map(catalog.toOpenAiToolSchema),
+    execute,
     maximumArgumentBytes: catalog.limits.maxToolArgumentBytes,
-    records: () => structuredClone([...calls.values()])
-  };
+    records
+  });
 }

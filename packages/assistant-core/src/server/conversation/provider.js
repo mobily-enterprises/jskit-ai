@@ -4,9 +4,18 @@ import { createCodexConversationDriver } from "./providers/codexDriver.js";
 import { createOpenCodeConversationDriver } from "./providers/opencodeDriver.js";
 import { validateCommandWrapper } from "./commandWrapper.js";
 
-// Internal construction/opening boundary shared by the runtime coordinators.
-// The caller supplies its existing conversation store and native host facets.
-export function createConversationProviderFactory({ connections, apiClientFactory, fetch, limits, actions, toolCatalog } = {}) {
+/**
+ * Internal construction/opening boundary shared by the runtime coordinators.
+ * The caller supplies its existing conversation store and native host facets.
+ * @param {object} options
+ * @param {import("../types.js").ConversationConnections | undefined} options.connections
+ * @param {import("../types.js").ConversationApiClientFactory | undefined} options.apiClientFactory
+ * @param {typeof fetch | undefined} options.fetch
+ * @param {import("../types.js").ConversationLimits} options.limits
+ * @param {object | undefined} options.actions The application actions offered as tools, when there are any.
+ * @param {import("../types.js").ServiceToolCatalog | undefined} options.toolCatalog
+ */
+export function createConversationProviderFactory({ connections, apiClientFactory, fetch, limits, actions, toolCatalog }) {
   function createDriver(engine, host) {
     if (host?.nativeTools !== undefined && typeof host.nativeTools !== "boolean") throw new TypeError("host.nativeTools must be an explicit server-side boolean grant.");
     if (host?.commandWrapper !== undefined) {
@@ -21,10 +30,16 @@ export function createConversationProviderFactory({ connections, apiClientFactor
     if ((actions || toolCatalog) && !driver.capabilities.tools) throw new TypeError(`Application tools are not yet supported by the ${engine} conversation adapter.`);
     return driver;
   }
+
+  function open(driver, { binding, conversation, onFailure, writeBinding }) {
+    return driver.open({ binding, conversation, onFailure, writeBinding });
+  }
+
   return Object.freeze({
     createDriver,
-    open(driver, { binding, conversation, onFailure, writeBinding }) {
-      return driver.open({ binding, conversation, onFailure, writeBinding });
-    }
+    open
   });
 }
+
+/** @typedef {ReturnType<typeof createConversationProviderFactory>} ConversationProviderFactory */
+/** @typedef {ReturnType<ConversationProviderFactory["createDriver"]>} ConversationDriver */
