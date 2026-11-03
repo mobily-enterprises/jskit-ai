@@ -7,8 +7,13 @@ import { mdiMicrophone, mdiVolumeHigh } from "@mdi/js";
 import { useJskitText } from "./i18n.js";
 
 const props = defineProps({
-  session: { type: Object, required: true }, disabled: { type: Boolean, default: false },
-  adapter: { type: Object, default: null },
+  session: { type: /** @type {import("vue").PropType<import("./types.js").VoiceSession>} */ (Object), required: true },
+  disabled: { type: Boolean, default: false },
+  // readable-check: allow collaborator-prop - optional operation: a conversation without a retained presentation passes no adapter, and the voice call is shown instead
+  adapter: {
+    type: /** @type {import("vue").PropType<import("@jskit-ai/assistant-core/client/types").AssistantConversationAdapter | null>} */ (Object),
+    default: null
+  },
   showAvatar: { type: Boolean, default: true },
   avatarSize: { type: String, default: "compact" }
 });
@@ -31,11 +36,12 @@ const youLabel = computed(() => {
   return t("jskit.assistant.voice.conversation.you");
 });
 function isAtBottom(element) { return element.scrollHeight - element.scrollTop - element.clientHeight < 24; }
-for (const [text, target, following] of [[voiceWords, voiceWordsTarget, followWords], [voiceAnswer, voiceAnswerTarget, followAnswer]]) {
-  watch(text, () => {
-    if (target.value && following.value) target.value.scrollTop = target.value.scrollHeight;
-  }, { flush: "post" });
+/** Keeps a caption on its newest words unless the reader has scrolled away from the bottom. */
+function followCaption(target, following) {
+  if (target.value && following.value) target.value.scrollTop = target.value.scrollHeight;
 }
+watch(voiceWords, () => followCaption(voiceWordsTarget, followWords), { flush: "post" });
+watch(voiceAnswer, () => followCaption(voiceAnswerTarget, followAnswer), { flush: "post" });
 </script>
 
 <template>

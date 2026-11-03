@@ -1,7 +1,20 @@
 import { onScopeDispose, ref, toValue } from "vue";
 
-/** Optional hold gesture for a launcher; the shared host still owns capture. */
-export function useVoiceLauncher({ open, enabled = true, onTap = null, onError = () => {} }) {
+/** Reports nothing when an application leaves out onError. */
+function ignoreLauncherError() {}
+
+/**
+ * Optional hold gesture for a launcher; the shared host still owns capture.
+ * @param {{
+ *   open: () => import("./types.js").VoiceHeldRecording | false | null | Promise<import("./types.js").VoiceHeldRecording | false | null>,
+ *   enabled?: import("vue").MaybeRefOrGetter<boolean>,
+ *   onTap?: (() => unknown) | null,
+ *   onError?: (error: unknown) => void
+ * }} options
+ */
+export function useVoiceLauncher({ open, enabled = true, onTap, onError = ignoreLauncherError }) {
+  // readable-check: allow method-probe - optional operation: a launcher without onTap has no tap action, so a key press starts its hold at once
+  const tappable = typeof onTap === "function";
   const holding = ref(false);
   let input = null;
   let timer;
@@ -30,7 +43,7 @@ export function useVoiceLauncher({ open, enabled = true, onTap = null, onError =
   }
   function keyDown(event) {
     if (!toValue(enabled) || event.repeat || input !== null || ![" ", "Enter"].includes(event.key)) return;
-    begin(event.key, onTap ? 350 : 0);
+    begin(event.key, tappable ? 350 : 0);
   }
   function finish(discard) {
     clearTimeout(timer);
@@ -38,7 +51,7 @@ export function useVoiceLauncher({ open, enabled = true, onTap = null, onError =
     input = null;
     ++revision;
     if (!holding.value) {
-      if (!discard && keyboard && onTap) report(onTap());
+      if (!discard && keyboard && tappable) report(onTap());
       return;
     }
     holding.value = false;
@@ -56,7 +69,7 @@ export function useVoiceLauncher({ open, enabled = true, onTap = null, onError =
     const suppressed = suppressClick && event.detail !== 0;
     suppressClick = false;
     if (suppressed) { event.preventDefault(); event.stopImmediatePropagation(); return; }
-    if (toValue(enabled) && onTap) report(onTap());
+    if (toValue(enabled) && tappable) report(onTap());
   }
   onScopeDispose(cancel);
   return { holding, pointerDown, pointerUp, keyDown, keyUp, cancel, click };

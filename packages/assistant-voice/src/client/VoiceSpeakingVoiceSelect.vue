@@ -5,7 +5,7 @@ import { useJskitText } from "./i18n.js";
 
 const { t } = useJskitText();
 const props = defineProps({
-  voice: { type: Object, required: true }
+  voice: { type: /** @type {import("vue").PropType<import("./types.js").VoiceTransport>} */ (Object), required: true }
 });
 function selectVoice(value) {
   const selectedVoice = props.voice.selectedVoice;

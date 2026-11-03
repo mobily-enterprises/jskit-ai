@@ -10,7 +10,8 @@ const { t } = useJskitText();
 
 const props = defineProps({
   modelValue: Boolean,
-  activator: { type: Object, default: null },
+  // readable-check: allow collaborator-prop - optional operation: a dialog opened without a launcher has no activator, so a press on the scrim always closes it
+  activator: { type: /** @type {import("vue").PropType<HTMLElement | null>} */ (Object), default: null },
   title: { type: String, default: "" },
   mode: { type: String, default: "talk" },
   showModes: Boolean,

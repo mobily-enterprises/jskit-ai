@@ -67,6 +67,10 @@ const ACTIVE_EXPRESSION_SEQUENCES = Object.freeze({
   thinking: THINKING_EXPRESSIONS
 });
 
+/**
+ * The avatar's blinking, idle gestures and expressions for a voice state, and the mouth pose to draw.
+ * @param {{ state?: string, mouthPose?: string, mouthLevel: number }} props
+ */
 export function useVoiceAvatar(props) {
   const blinking = ref(false);
   const activeExpression = ref("");
@@ -213,6 +217,7 @@ export function useVoiceAvatar(props) {
   onMounted(() => {
     reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
     reducedMotion.value = reducedMotionQuery.matches;
+    // readable-check: allow optional-call - platform object: an older MediaQueryList has no addEventListener, so reduced motion is read once
     reducedMotionQuery.addEventListener?.("change", updateReducedMotion);
     if (!reducedMotion.value) {
       scheduleBlink(1_800 + (Math.random() * 1_800));
@@ -227,6 +232,7 @@ export function useVoiceAvatar(props) {
     clearBlinkTimers();
     clearActiveExpression();
     clearIdleGesture();
+    // readable-check: allow optional-call - platform object: an older MediaQueryList has no addEventListener, so reduced motion is read once
     reducedMotionQuery?.removeEventListener?.("change", updateReducedMotion);
     reducedMotionQuery = null;
   });

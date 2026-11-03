@@ -6,7 +6,8 @@ import VoiceConversationSettings from "./VoiceConversationSettings.vue";
 import { useJskitText, voiceErrorText } from "./i18n.js";
 
 const props = defineProps({
-  controller: { type: Object, required: true }, activator: { type: Object, default: null },
+  controller: { type: /** @type {import("vue").PropType<import("./types.js").VoiceConversationController>} */ (Object), required: true },
+  activator: { type: /** @type {import("vue").PropType<HTMLElement | null>} */ (Object), default: null },
   avatarSize: { type: String, default: "hidden" },
   presentation: { type: String, default: "dialog", validator: value => ["dialog", "inline"].includes(value) }
 });
