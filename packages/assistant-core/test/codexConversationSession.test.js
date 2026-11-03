@@ -1740,6 +1740,28 @@ test("Codex cancellation drains owned work, and a deadline saves a failed turn",
   assert.equal(trace.filter(row => row.args).length, 1);
 });
 
+// An upgraded binding keeps its native thread but has no saved Codex run. With
+// its Codex account gone, reading, Stop and selection still start nothing.
+test("a Codex binding with no saved run reads ready, and Stop and selection start no Codex work", async t => {
+  const f = await fixture(t, apiOptions());
+  await f.first.close();
+  await f.storage.write("conversation", async transaction => {
+    const metadata = await transaction.readMetadata();
+    assert.equal(Object.hasOwn(metadata.runtime.binding, "codexAppServerRun"), false);
+    metadata.runtime.binding = { ...metadata.runtime.binding, threadId: "imported-thread", processInstanceId: "" };
+    await transaction.writeMetadata(metadata);
+  });
+  await rm(f.account);
+  const conversation = await f.runtime().open({ id: "conversation" });
+  const state = await conversation.read();
+  assert.equal(state.status, "ready");
+  assert.equal(state.phase, "");
+  assert.deepEqual(await conversation.cancel(), { stopped: false });
+  await select(conversation, "api", "imported-to-api");
+  assert.equal((await conversation.read()).engine, "api");
+  await assert.rejects(f.trace(), { code: "ENOENT" }, "No Codex process was started");
+});
+
 test("lost Codex acknowledgement stays uncertain until native history proves the exact message", async t => {
   const f = await fixture(t);
   const lost = { messageId: "lost-id", text: "lost" };

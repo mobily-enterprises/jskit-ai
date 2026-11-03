@@ -163,7 +163,14 @@ export function codexAppServerProcessedResultEvent(session = {}, threadId = "", 
   )) || null;
 }
 
-export function codexAppServerTurnStateFromAgentRun(run = {}, normalizeRunState = normalizeCodexAppServerRunState) {
+/**
+ * The turn a saved Codex run reports. No saved run (null or undefined) is no turn: it is idle. A saved run
+ * whose state is not written yet is starting, which counts as active.
+ * @param {object | null | undefined} run
+ * @param {(state: unknown) => string} [normalizeRunState]
+ */
+export function codexAppServerTurnStateFromAgentRun(run, normalizeRunState = normalizeCodexAppServerRunState) {
+  if (run == null) return codexAppServerIdleTurnState();
   const runState = normalizeRunState(run.state);
   const active = codexAppServerRunStateIsActive(runState);
   const state = runState === CODEX_APP_SERVER_RUN_STATE.FINALIZING
@@ -194,10 +201,11 @@ export function codexAppServerTurnStateFromAgentRun(run = {}, normalizeRunState 
 }
 
 export function codexAppServerTurnState(session = {}, normalizeRunState = normalizeCodexAppServerRunState) {
-  const run = codexAppServerAgentRun(session);
-  if (run) {
-    return codexAppServerTurnStateFromAgentRun(run, normalizeRunState);
-  }
+  return codexAppServerTurnStateFromAgentRun(codexAppServerAgentRun(session), normalizeRunState);
+}
+
+/** The turn of a session or binding that has no saved Codex run. */
+function codexAppServerIdleTurnState() {
   return {
     active: false,
     completedAt: "",

@@ -19,6 +19,7 @@ import {
   codexAppServerAgentRunPatch,
   codexAppServerPendingUserMessageOwnership,
   codexAppServerTurnState,
+  codexAppServerTurnStateFromAgentRun,
   CODEX_APP_SERVER_RUN_STATE
 } from "../src/server/conversation/codexTurn.js";
 
@@ -561,6 +562,18 @@ test("original pending ownership and terminal outer identity are preserved witho
   const hostError = new Error("Existing application run-state error");
   assert.throws(() => codexAppServerTurnState({ agentRuns: [{ id: "codex_app_server", state: "invalid" }] }, () => { throw hostError; }),
     error => error === hostError);
+});
+
+test("no saved Codex run is no turn, while a saved run without a state is starting", () => {
+  for (const run of [undefined, null]) {
+    const turn = codexAppServerTurnStateFromAgentRun(run);
+    assert.equal(turn.active, false);
+    assert.equal(turn.state, "idle");
+    assert.deepEqual(turn, codexAppServerTurnState({ agentRuns: [] }));
+  }
+  const starting = codexAppServerTurnStateFromAgentRun({});
+  assert.equal(starting.active, true);
+  assert.equal(starting.state, "starting");
 });
 
 test("native notification queues merge only waiting stream deltas and retain receipt order", async () => {
