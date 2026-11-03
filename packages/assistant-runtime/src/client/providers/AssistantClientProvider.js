@@ -6,6 +6,7 @@ const AssistantClientProvider = defineProvider({
   requires: {
     components: "client.components"
   },
+  /** @param {{ components: import("@jskit-ai/kernel/client/types").ClientComponents }} capabilities */
   setup({ components }) {
     components.register("assistant.web.settings.element", AssistantSettingsClientElement);
   }

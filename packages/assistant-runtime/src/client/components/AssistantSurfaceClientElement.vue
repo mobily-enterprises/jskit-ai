@@ -6,6 +6,10 @@ import { mapAssistantConversationTurns, toolStatusText } from "../support/assist
 import { DEFAULT_CONVERSATION_TITLE } from "../../shared/assistantRuntimeConfig.js";
 import { useJskitText } from "../i18n.js";
 
+/** @typedef {import("@jskit-ai/assistant-core/client/types").AssistantConversationAdapter} AssistantConversationAdapter */
+/** @typedef {import("@jskit-ai/assistant-core/client/types").AssistantAttachments} AssistantAttachments */
+/** @typedef {import("@jskit-ai/assistant-core/client/types").AssistantSuggestions} AssistantSuggestions */
+
 const props = defineProps({
   surfaceId: { type: String, required: true },
   layout: { type: String, default: "page", validator: (value) => ["page", "compact"].includes(value) },
@@ -15,10 +19,10 @@ const props = defineProps({
   placeholder: { type: String, default: undefined },
   showToolActivity: { type: Boolean, default: true },
   connections: { type: Array, default: () => [] },
-  attachments: { type: Object, default: null },
-  suggestions: { type: Object, default: null },
-  goal: { type: Object, default: null },
-  activity: { type: Object, default: undefined },
+  attachments: { type: /** @type {import("vue").PropType<AssistantAttachments>} */ (Object), default: null },
+  suggestions: { type: /** @type {import("vue").PropType<AssistantSuggestions>} */ (Object), default: null },
+  goal: { type: /** @type {import("vue").PropType<AssistantConversationAdapter["goal"]>} */ (Object), default: null },
+  activity: { type: /** @type {import("vue").PropType<AssistantConversationAdapter["activity"]>} */ (Object), default: undefined },
   configurationMode: { type: String, default: "editable", validator: value => ["hidden", "readonly", "editable"].includes(value) }
 });
 const integrationId = defineModel("integrationId", { type: String, default: "" });
