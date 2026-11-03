@@ -4,13 +4,18 @@ import {
   ASSISTANT_CONVERSATION_SUBSCRIBE,
   ASSISTANT_CONVERSATION_UNSUBSCRIBE
 } from "../../shared/conversationRealtime.js";
-import { isAccessDenied } from "./accessDenied.js";
+import { isAccessDenied } from "./conversationFailures.js";
 
-// Private to the original client history/subscription coordination. Symbols
+// Private to the conversation history and its subscription. Symbols
 // survive local snapshot spreads but never enter the conversation wire format.
 const refreshedHistoryPages = Symbol("assistant.refreshedHistoryPages");
 
-function patchLoadedHistoryPages(pages = [], patch) {
+/**
+ * Applies a transcript patch to the loaded older page that holds its turn.
+ * @param {any[]} pages
+ * @param {any} patch
+ */
+function patchLoadedHistoryPages(pages, patch) {
   return pages.map(page => page.conversationLog.some(turn => turn.turnId === patch?.turn?.turnId)
     ? applyConversationLogPatch(page, patch, { limit: page.pagination?.limit }) || page : page);
 }
@@ -23,15 +28,33 @@ const SNAPSHOT_EVENTS = new Set(["accepted", "settled", "configuration", "phase"
 const SUBSCRIPTION_NOTICE_MS = 10_000;
 const SUBSCRIPTION_LOST_MS = 120_000;
 
+/** A subscriber that leaves conversation events to its state listener. */
+function ignoreConversationEvent() {}
+/** A subscriber that shows no subscription failure. */
+function ignoreSubscriptionError() {}
+
+/**
+ * Subscribes to one conversation over the shared realtime socket: a canonical read, then live events applied in
+ * stream order. Returns the release, which also carries `reload`.
+ * @param {{
+ *   socket: import("../types.js").RealtimeSocket,
+ *   conversationId: string,
+ *   targetSurfaceId: string,
+ *   hostSurfaceId: string,
+ *   workspaceSlug?: string,
+ *   read: (read: { current: () => boolean }) => Promise<any>,
+ *   onState: (state: any, options: { initial: boolean, canonical: boolean }) => void,
+ *   onEvent?: (event: any) => void,
+ *   onError?: (failure: Error) => void
+ * }} subscription
+ */
 function subscribeAssistantConversation({
   socket, conversationId, targetSurfaceId, hostSurfaceId, workspaceSlug,
-  read, onState, onEvent = () => {}, onError = () => {}
-} = {}) {
+  read, onState, onEvent = ignoreConversationEvent, onError = ignoreSubscriptionError
+}) {
+  // readable-check: allow method-probe - input validation: an application may hand the conversation binding its own socket
   if (typeof socket?.on !== "function" || typeof socket?.off !== "function" || typeof socket?.timeout !== "function") {
     throw new TypeError("Conversation subscriptions require the application's shared realtime socket.");
-  }
-  if (typeof read !== "function" || typeof onState !== "function" || typeof onEvent !== "function") {
-    throw new TypeError("Conversation subscriptions require a canonical read operation and state listener.");
   }
   const subscriptionId = crypto.randomUUID();
   const input = { subscriptionId, conversationId, targetSurfaceId, hostSurfaceId,
@@ -95,7 +118,7 @@ function subscribeAssistantConversation({
       return read({ current });
     }).then(snapshot => {
       if (!current()) return;
-      // Ported from the original history reader: retain only delivered updates
+      // Retain only delivered updates
       // received while this request was in flight before replacing its cache.
       for (const patch of pendingRead.patches) {
         snapshot = applyConversationLogPatch(snapshot, patch, { limit: snapshot.pagination?.limit });
