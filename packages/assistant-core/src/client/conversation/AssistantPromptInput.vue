@@ -289,7 +289,7 @@ function handleTextareaKeydown(event = {}) {
 }
 
 function focusTextarea(options = { preventScroll: true }) {
-  textareaRef.value?.focus?.(options);
+  textareaRef.value?.focus(options);
 }
 
 onMounted(() => {

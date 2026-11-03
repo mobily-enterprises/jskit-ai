@@ -1,4 +1,5 @@
 import { nextTick, onBeforeUnmount, unref } from "vue";
+import { hasWindowFunction, waitForLayoutFrame } from "../browser.js";
 
 const DEFAULT_SETTLE_DELAYS_MS = [0, 80];
 
@@ -6,25 +7,12 @@ function readElement(value) {
   return unref(value) || null;
 }
 
-function hasWindowTimer(name) {
-  return typeof window !== "undefined" && typeof window[name] === "function";
-}
-
-function waitForLayoutFrame() {
-  if (typeof window === "undefined" || typeof window.requestAnimationFrame !== "function") {
-    return Promise.resolve();
-  }
-
-  return new Promise((resolve) => {
-    window.requestAnimationFrame(resolve);
-  });
-}
-
 function normalizedScrollBehavior(value = "") {
   return value === "smooth" ? "smooth" : "auto";
 }
 
 function scrollElementToBottom(targetElement, behavior = "auto") {
+  // readable-check: allow method-probe - platform object: an older browser's elements have no scrollTo()
   if (behavior === "smooth" && typeof targetElement.scrollTo === "function") {
     targetElement.scrollTo({
       behavior,
@@ -35,13 +23,23 @@ function scrollElementToBottom(targetElement, behavior = "auto") {
   targetElement.scrollTop = targetElement.scrollHeight;
 }
 
+/**
+ * Scrolls `target` to its end now, after the next layout, and again after each settle delay, while `enabled`.
+ * @param {{
+ *   anchor?: import("vue").MaybeRef<Element | null>,
+ *   enabled?: import("vue").MaybeRef<boolean>,
+ *   scrollAnchorIntoView?: boolean,
+ *   settleDelaysMs?: number[],
+ *   target: import("vue").MaybeRef<Element | null>
+ * }} options
+ */
 function useScrollToBottom({
   anchor = null,
   enabled = true,
   scrollAnchorIntoView = true,
   settleDelaysMs = DEFAULT_SETTLE_DELAYS_MS,
   target
-} = {}) {
+}) {
   const scheduledTimers = new Set();
   let disposed = false;
   let scheduleVersion = 0;
@@ -51,7 +49,7 @@ function useScrollToBottom({
   }
 
   function clearScheduledTimers() {
-    if (hasWindowTimer("clearTimeout")) {
+    if (hasWindowFunction("clearTimeout")) {
       scheduledTimers.forEach((timer) => {
         window.clearTimeout(timer);
       });
@@ -83,7 +81,7 @@ function useScrollToBottom({
       if (behavior === "smooth") {
         anchorOptions.behavior = behavior;
       }
-      readElement(anchor)?.scrollIntoView?.(anchorOptions);
+      readElement(anchor)?.scrollIntoView(anchorOptions);
     }
     scrollElementToBottom(targetElement, behavior);
   }
@@ -93,7 +91,7 @@ function useScrollToBottom({
       disposed ||
       version !== scheduleVersion ||
       !isEnabled() ||
-      !hasWindowTimer("setTimeout")
+      !hasWindowFunction("setTimeout")
     ) {
       return;
     }

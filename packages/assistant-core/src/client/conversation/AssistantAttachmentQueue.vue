@@ -131,6 +131,7 @@ import {
   mdiRefresh
 } from "@mdi/js";
 
+import { hasWindowFunction } from "../browser.js";
 import { useJskitText } from "../i18n.js";
 import { attachmentSizeText } from "./attachmentSize.js";
 
@@ -323,7 +324,7 @@ function focusItemAction(item = {}) {
   for (const action of ["cancel", "retry", "remove"]) {
     const target = actionElement(actionElements.get(actionKey(item, action)));
     if (target && !target.disabled) {
-      target.focus?.();
+      target.focus();
       return true;
     }
   }
@@ -368,27 +369,29 @@ function updateReducedMotionPreference() {
   reducedMotion.value = reducedMotionMediaQuery?.matches === true;
 }
 
-if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+if (hasWindowFunction("matchMedia")) {
   reducedMotionMediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
   updateReducedMotionPreference();
 }
+// readable-check: allow method-probe - platform object: an older browser's media query has addListener() in place of addEventListener()
+const mediaQueryDispatchesEvents = typeof reducedMotionMediaQuery?.addEventListener === "function";
 
 onMounted(() => {
   if (!reducedMotionMediaQuery) {
     return;
   }
-  if (typeof reducedMotionMediaQuery.addEventListener === "function") {
+  if (mediaQueryDispatchesEvents) {
     reducedMotionMediaQuery.addEventListener("change", updateReducedMotionPreference);
   } else {
-    reducedMotionMediaQuery.addListener?.(updateReducedMotionPreference);
+    reducedMotionMediaQuery.addListener(updateReducedMotionPreference);
   }
 });
 
 onBeforeUnmount(() => {
-  if (typeof reducedMotionMediaQuery?.removeEventListener === "function") {
+  if (mediaQueryDispatchesEvents) {
     reducedMotionMediaQuery.removeEventListener("change", updateReducedMotionPreference);
   } else {
-    reducedMotionMediaQuery?.removeListener?.(updateReducedMotionPreference);
+    reducedMotionMediaQuery?.removeListener(updateReducedMotionPreference);
   }
   reducedMotionMediaQuery = null;
 });
