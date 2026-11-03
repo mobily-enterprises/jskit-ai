@@ -1,5 +1,5 @@
-import { deleteCodexAppServerThread, codexAppServerRuntimeStopWasVerified } from "./codexProvider.js";
-import { directoryExists } from "./codexProviderOwner.js";
+import { deleteCodexAppServerThread } from "./codexProviderThreads.js";
+import { codexAppServerRuntimeStopWasVerified, directoryExists } from "./codexRuntimeInventory.js";
 import { CODEX_HELPER_THREAD_LIFECYCLES } from "./codexHelperThreadRecord.js";
 import { normalizeCodexRunText as normalizeText } from "./codexTurnState.js";
 

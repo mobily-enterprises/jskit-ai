@@ -10,9 +10,9 @@ import {
 } from "./codexTurnState.js";
 import { CODEX_APP_SERVER_DETACHED_TURN_TIMEOUT_MS, createCodexAppServerDetachedTurnWatcher } from "./codexDetachedTurn.js";
 import { assertCodexAppServerHelperAccountIdentity, readCodexAppServerAccountIdentity, sendPreparedCodexAppServerHelperTurn } from "./codexHelperExecution.js";
-import { codexAppServerDeliveredTurn, codexLocalImageInput, sendCodexAppServerPrompt } from "./codexProvider.js";
 import { codexAppServerProjectHookTrustConfig } from "./codexConfiguration.js";
 import { codexAppServerThreadError } from "./codexThreadSnapshot.js";
+import { codexAppServerDeliveredTurn, codexLocalImageInput, sendCodexAppServerPrompt } from "./codexProviderTurns.js";
 
 /** A conversation turn's listener when the application supplies none. */
 export function ignoreCodexConversationEvent() {}

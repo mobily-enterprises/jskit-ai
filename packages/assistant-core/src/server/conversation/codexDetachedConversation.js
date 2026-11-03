@@ -1,8 +1,8 @@
 import { codexAppServerTurnStatusIsSuccessfulComplete, codexAppServerTurnStatusIsProviderFailure, normalizeCodexRunText } from "./codexTurnState.js";
 import { CODEX_APP_SERVER_DETACHED_TURN_TIMEOUT_MS, createCodexAppServerDetachedTurnWatcher } from "./codexDetachedTurn.js";
 import { assertCodexAppServerHelperAccountIdentity } from "./codexHelperExecution.js";
-import { codexAppServerDeliveredTurn, sendCodexAppServerPrompt } from "./codexProvider.js";
 import { prepareCodexAppServerConversationThread } from "./codexConversationTurns.js";
+import { codexAppServerDeliveredTurn, sendCodexAppServerPrompt } from "./codexProviderTurns.js";
 
 function ignoreDetachedConversationEvent() {}
 

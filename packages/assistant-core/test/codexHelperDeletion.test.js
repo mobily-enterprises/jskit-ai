@@ -1,10 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  codexAppServerThreadHasReadableHistory,
-  deleteCodexAppServerThread,
-  deleteCodexAppServerHelperThread
-} from "../src/server/conversation/codexProvider.js";
+import { codexAppServerThreadHasReadableHistory, deleteCodexAppServerThread, deleteCodexAppServerHelperThread } from "../src/server/conversation/codexProviderThreads.js";
 
 function invalidRequest(method) {
   return Object.assign(new Error(`${method} rejected`), { code: -32600, method });

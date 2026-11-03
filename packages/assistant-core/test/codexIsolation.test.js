@@ -4,7 +4,7 @@ import {
   createCodexAppServerIsolation,
   codexToolFreeConfiguration,
   readCodexToolFreeConfiguration
-} from "../src/server/conversation/codexConfiguration.js";
+} from "../src/server/conversation/codexIsolation.js";
 
 // Carried from the original public helper bridge tests. Public profile, schema,
 // prompt and request-settings assertions remain in that unchanged test file.

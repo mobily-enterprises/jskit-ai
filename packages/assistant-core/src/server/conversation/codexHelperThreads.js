@@ -2,8 +2,8 @@ import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import crypto from "node:crypto";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { createCodexHelperOwnershipError, prepareDetachedCodexHelperThread } from "./codexHelperExecution.js";
-import { deleteCodexAppServerHelperThread } from "./codexProvider.js";
-import { directoryExists } from "./codexProviderOwner.js";
+import { deleteCodexAppServerHelperThread } from "./codexProviderThreads.js";
+import { directoryExists } from "./codexRuntimeInventory.js";
 import { createCodexHelperThreadRecovery } from "./codexHelperThreadRecovery.js";
 import { codexAppServerErrorMessage as errorMessage, normalizeCodexRunText as normalizeText } from "./codexTurnState.js";
 import {

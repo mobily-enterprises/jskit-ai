@@ -1,4 +1,5 @@
 import { normalizeNullableText as normalizeAgentText } from "./normalize.js";
+import { codexAppServerOwnedRuntimeKey, codexAppServerOwnedRuntimes, withRuntimeLifecycle } from "./codexRuntimeInventory.js";
 
 // Bounded live model catalog, cached per provider connection generation.
 export function codexAppServerModelCatalogError(message = "", errorPrefix = "") {
@@ -8,8 +9,10 @@ export function codexAppServerModelCatalogError(message = "", errorPrefix = "") 
 }
 
 export function codexAppServerProviderConnectionGeneration(provider = null) {
+  // readable-check: allow method-probe - input validation: a provider reports its connection generation as a method or a field, and this reads either
   const generation = typeof provider?.currentConnectionGeneration === "function"
     ? provider.currentConnectionGeneration()
+    // readable-check: allow method-probe - input validation: a provider reports its connection generation as a method or a field, and this reads either
     : typeof provider?.connectionGeneration === "function"
       ? provider.connectionGeneration()
       : provider?.connectionGeneration;
@@ -39,6 +42,7 @@ export function createCodexAppServerModelCatalogCache({
 } = {}) {
   const codexAppServerModelCatalogs = new WeakMap();
   return async function readCodexAppServerModelCatalog(provider, { signal = null } = {}) {
+    // readable-check: allow method-probe - safety invariant: a provider without live model discovery is refused with codex_model_catalog_unavailable
     if (typeof provider.listModels !== "function") {
       const error = new Error("Codex live model discovery is unavailable.");
       error.code = `${errorPrefix}codex_model_catalog_unavailable`;
@@ -94,4 +98,85 @@ export function createCodexAppServerModelCatalogCache({
       throw error;
     }
   };
+}
+
+/**
+ * The chat model catalogue an owner reads from its native runtime, cached per runtime identity. A runtime it
+ * starts only for the read stops again.
+ * @param {object} dependencies
+ * @param {<T>(operation: () => T) => Promise<Awaited<T>>} dependencies.withLifecycle
+ * @param {() => void} dependencies.assertOpen
+ * @param {(request: { operation: () => Promise<object>, provider: object, providerOptions: object }) => Promise<object>} dependencies.acquireRuntime
+ * @param {(record: object) => Promise<object>} dependencies.stopOwnedRuntime
+ * @param {(provider: object) => void} dependencies.forgetOwnedRuntime
+ */
+export function createCodexRuntimeModelCatalog({ withLifecycle, assertOpen, acquireRuntime, stopOwnedRuntime, forgetOwnedRuntime }) {
+  let codexAppServerChatModelCatalog = null;
+
+  function readModelCatalog({
+    prepareProviderOptions,
+    providerFactory,
+    resources = null,
+    signal = null,
+    cacheMs = 30_000
+  } = {}) {
+    return withLifecycle(async () => {
+      assertOpen();
+      signal?.throwIfAborted();
+      const providerOptions = await prepareProviderOptions();
+      return withRuntimeLifecycle(codexAppServerOwnedRuntimeKey("", providerOptions), async () => {
+        const existing = codexAppServerOwnedRuntimes.get(
+          codexAppServerOwnedRuntimeKey("", providerOptions)
+        );
+        const provider = existing?.provider || providerFactory(providerOptions);
+        let runtime = null;
+        let catalog = null;
+        let identity = "";
+        try {
+          assertOpen();
+          identity = JSON.stringify(await provider.currentRuntimeInfo());
+          signal?.throwIfAborted();
+          if (codexAppServerChatModelCatalog?.identity === identity &&
+              codexAppServerChatModelCatalog.expiresAt > Date.now()) {
+            return codexAppServerChatModelCatalog.value;
+          }
+          if (!existing?.provider) {
+            runtime = await acquireRuntime({
+              operation: () => provider.ensureRuntime(),
+              provider,
+              providerOptions
+            });
+          }
+          catalog = await provider.listModels({ includeHidden: false, limit: 100 }, { signal });
+        } finally {
+          if (!existing?.provider) {
+            try {
+              if ((runtime || provider.runtime)?.reused === false) {
+                await stopOwnedRuntime({ provider, resources });
+              } else {
+                forgetOwnedRuntime(provider);
+              }
+            } finally {
+              provider.close();
+            }
+          }
+        }
+        codexAppServerChatModelCatalog = {
+          expiresAt: Date.now() + cacheMs,
+          identity,
+          value: catalog
+        };
+        return catalog;
+      });
+    });
+  }
+
+  function forgetModelCatalog() {
+    codexAppServerChatModelCatalog = null;
+  }
+
+  return Object.freeze({
+    read: readModelCatalog,
+    forget: forgetModelCatalog
+  });
 }

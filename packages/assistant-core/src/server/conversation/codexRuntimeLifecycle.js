@@ -1,9 +1,29 @@
 import { normalizeCodexRunText as normalizeText } from "./codexTurnState.js";
 
-// Shutdown, wellbeing timers and managed-session records for shared Codex
-// runtimes. It works on the run/provider owners' collections; it owns no servers.
-// `pendingWork` names the run owner's in-flight task collections that shutdown
-// drains; `observer` owns the event subscriptions a released provider ends.
+/** @typedef {ReturnType<typeof import("./codexHelperThreads.js").createCodexHelperThreadLifecycle>} CodexHelperThreadLifecycle */
+/** @typedef {ReturnType<typeof import("./codexNotificationObserver.js").createCodexNotificationObserver>} CodexNotificationObserver */
+/** @typedef {ReturnType<typeof createCodexRuntimeLifecycle>} CodexRuntimeLifecycle */
+/** @typedef {ReturnType<typeof import("./codexTurn.js").createCodexAppServerRunOwner>} CodexRunOwner */
+/** @typedef {(event: string, details: object) => void} CodexDebugLog */
+
+/**
+ * Shutdown, wellbeing timers and managed-session records for shared Codex
+ * runtimes. It works on the run/provider owners' collections; it owns no servers.
+ * `pendingWork` names the run owner's in-flight task collections that shutdown
+ * drains; `observer` owns the event subscriptions a released provider ends.
+ * @param {object} dependencies
+ * @param {Record<string, Map<unknown, Promise<unknown>> | Set<Promise<unknown>>>} dependencies.pendingWork
+ * @param {CodexNotificationObserver} dependencies.observer
+ * @param {(providerKey: string, managed: object) => Promise<unknown>} dependencies.checkManagedConnection
+ * @param {import("./codexProviderOwner.js").CodexProviderSessions} dependencies.providerSessions
+ * @param {CodexHelperThreadLifecycle | null} dependencies.helperLifecycle
+ * @param {() => unknown} dependencies.captureContext
+ * @param {<T>(context: unknown, operation: () => T) => T} dependencies.runInContext
+ * @param {((sessionId: string, options: { threadId: string }) => Promise<unknown>) | null} [dependencies.continueGoalAfterAccountChange]
+ * @param {CodexDebugLog} dependencies.debugLog
+ * @param {(error: unknown) => unknown} dependencies.debugError
+ * @param {{ message: string, code: string, retryable: boolean } | null} [dependencies.closingError]
+ */
 export function createCodexRuntimeLifecycle({
   pendingWork,
   observer,
@@ -12,7 +32,7 @@ export function createCodexRuntimeLifecycle({
   helperLifecycle,
   captureContext,
   runInContext,
-  continueGoalAfterAccountChange = null,
+  continueGoalAfterAccountChange,
   debugLog,
   debugError,
   closingError = null
@@ -268,6 +288,7 @@ export function createCodexRuntimeLifecycle({
           }
         });
     }, providerSessions.wellbeingMs);
+    // readable-check: allow optional-call - platform object: a timer handle has unref only under Node
     timer.unref?.();
     codexAppServerWellbeingTimers.set(normalizedProviderKey, timer);
   }
@@ -296,7 +317,7 @@ export function createCodexRuntimeLifecycle({
   }
 
   function invalidateRuntimes(input = {}, preparation) {
-    const serverShutdown = normalizeText(input?.reason) === "server-shutdown";
+    const serverShutdown = normalizeText(input.reason) === "server-shutdown";
     if (serverShutdown) {
       beginCodexAppServerShutdown();
     }
@@ -328,18 +349,24 @@ export function createCodexRuntimeLifecycle({
     })();
   }
 
-  return {
+  function nextReconcileGeneration() { return ++codexAppServerThreadReconcileGeneration; }
+
+  const managedSession = providerKey => providerSessions.managed.get(providerKey);
+
+  const managedThreadId = providerKey => providerSessions.managed.get(providerKey)?.threadId;
+
+  return Object.freeze({
     get closing() { return codexAppServerServerClosing; },
     assertOpen,
     get reconcileGeneration() { return codexAppServerThreadReconcileGeneration; },
-    nextReconcileGeneration() { return ++codexAppServerThreadReconcileGeneration; },
+    nextReconcileGeneration,
     reconcileTasks: codexAppServerReconcileTasks,
     sessionClosures: codexAppServerSessionClosures,
     invalidateRuntimes,
     resources: codexAppServerProviderResources,
     retireProvider: retireAndCloseCodexAppServerProvider,
     rememberManagedSession: rememberCodexAppServerManagedSession,
-    managedSession: providerKey => providerSessions.managed.get(providerKey),
-    managedThreadId: providerKey => providerSessions.managed.get(providerKey)?.threadId
-  };
+    managedSession,
+    managedThreadId
+  });
 }

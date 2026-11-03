@@ -9,7 +9,7 @@ import {
 import {
   codexAppServerThreadIsMissing,
   ensureCodexAppServerThread
-} from "./codexProvider.js";
+} from "./codexProviderThreads.js";
 import crypto from "node:crypto";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 

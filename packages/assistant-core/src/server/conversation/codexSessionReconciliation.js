@@ -1,8 +1,22 @@
 import { normalizeCodexRunText as normalizeText, codexAppServerErrorMessage as errorMessage } from "./codexTurnState.js";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
-// Original batch restoration, prune and startup unsubscribe. The run owner's
-// existing lifecycle and per-thread readiness retain all state and coordination.
+/**
+ * Original batch restoration, prune and startup unsubscribe. The run owner's
+ * existing lifecycle and per-thread readiness retain all state and coordination.
+ * @param {object} dependencies
+ * @param {object} dependencies.readiness
+ * @param {(sessionId: string, context: object) => Promise<object>} dependencies.recoverSessionObservationLoss
+ * @param {import("./codexProviderOwner.js").CodexProviderSessions} dependencies.providerSessions
+ * @param {import("./codexRuntimeLifecycle.js").CodexHelperThreadLifecycle | null} dependencies.helperLifecycle
+ * @param {import("./codexRuntimeLifecycle.js").CodexRuntimeLifecycle} dependencies.lifecycle
+ * @param {() => Promise<object>} dependencies.createRuntime
+ * @param {(sessionId: string) => string} dependencies.namespace
+ * @param {(session: object) => object} dependencies.turnState
+ * @param {string} dependencies.sessionIdRequiredError
+ * @param {import("./codexRuntimeLifecycle.js").CodexDebugLog} dependencies.debugLog
+ * @param {(error: unknown) => unknown} dependencies.debugError
+ */
 export function createCodexSessionReconciliation({
   readiness, recoverSessionObservationLoss, providerSessions, helperLifecycle, lifecycle, createRuntime,
   namespace, turnState, sessionIdRequiredError, debugLog, debugError
@@ -55,7 +69,7 @@ export function createCodexSessionReconciliation({
     );
   }
 
-  function codexAppServerReconcileSessionId(value = {}) {
+  function codexAppServerReconcileSessionId(value) {
     if (typeof value === "string") {
       return normalizeText(value);
     }
@@ -290,9 +304,9 @@ export function createCodexSessionReconciliation({
     return unsubscribeCodexAppServerThreadsForSessions(sessions, preparation);
   }
 
-  return {
+  return Object.freeze({
     reconcileSessions,
     unsubscribeSessions,
     retireProviderForSession: retireAndCloseCodexAppServerProviderForSession
-  };
+  });
 }

@@ -6,7 +6,7 @@ export {
   codexAppServerHelperHomeDir,
   codexAppServerHelperWorkspaceDir,
   codexAppServerIsHelper,
-  createCodexAppServerRuntime,
   normalizeCodexAppServerTerminalEnv,
   runCodexAppServerProcess
 } from "../conversation/codexProcess.js";
+export { createCodexAppServerRuntime } from "../conversation/codexRuntime.js";

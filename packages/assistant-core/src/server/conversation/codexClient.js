@@ -27,18 +27,23 @@ function codexAppServerRequestAbortedError(method = "") {
 }
 
 function addSocketListener(socket, eventName, handler) {
+  // readable-check: allow method-probe - platform object: a WebSocket is an EventTarget in some implementations and an EventEmitter in others
   if (typeof socket.addEventListener === "function") {
     socket.addEventListener(eventName, handler);
+    // readable-check: allow optional-call - platform object: a WebSocket is an EventTarget in some implementations and an EventEmitter in others
     return () => socket.removeEventListener?.(eventName, handler);
   }
+  // readable-check: allow method-probe - platform object: a WebSocket is an EventTarget in some implementations and an EventEmitter in others
   if (typeof socket.on === "function") {
     socket.on(eventName, handler);
+    // readable-check: allow optional-call - platform object: a WebSocket is an EventTarget in some implementations and an EventEmitter in others
     return () => socket.off?.(eventName, handler) || socket.removeListener?.(eventName, handler);
   }
   throw new Error("Unsupported WebSocket implementation.");
 }
 
 function socketMessageText(event, maxBytes = Number.POSITIVE_INFINITY) {
+  // readable-check: allow no-dual-shape - platform object: an EventTarget socket delivers a message event, an EventEmitter socket the data itself
   const data = event?.data ?? event;
   if (typeof data === "string") {
     return Buffer.byteLength(data, "utf8") <= maxBytes ? data : null;
@@ -50,11 +55,14 @@ function socketMessageText(event, maxBytes = Number.POSITIVE_INFINITY) {
   return Buffer.byteLength(text, "utf8") <= maxBytes ? text : null;
 }
 
+/** A client without a disconnect listener reports nothing. */
+function ignoreDisconnect() {}
+
 class CodexAppServerJsonRpcClient {
   constructor({
     endpoint = "",
     maxMessageBytes = Number.POSITIVE_INFINITY,
-    onDisconnect = null,
+    onDisconnect = ignoreDisconnect,
     requestTimeoutMs = CODEX_APP_SERVER_REQUEST_TIMEOUT_MS,
     WebSocketImpl = WebSocket
   } = {}) {
@@ -79,6 +87,7 @@ class CodexAppServerJsonRpcClient {
     if (!this.endpoint) {
       throw new Error("Codex app-server endpoint is required.");
     }
+    // readable-check: allow method-probe - input validation: an application may supply its own WebSocket implementation
     if (typeof this.WebSocketImpl !== "function") {
       throw new Error("A WebSocket implementation is required for Codex app-server.");
     }
@@ -123,6 +132,7 @@ class CodexAppServerJsonRpcClient {
           this.connected = false;
           this.socket = null;
         }
+        // readable-check: allow no-dual-shape - platform object: an EventTarget socket reports an ErrorEvent wrapping the error, an EventEmitter socket the error itself
         settle(reject, error?.error || error);
       }));
     });
@@ -189,6 +199,7 @@ class CodexAppServerJsonRpcClient {
         return;
       }
       const removeAbortListener = () => {
+        // readable-check: allow optional-call - platform object: a caller's abort signal
         signal?.removeEventListener?.("abort", abort);
       };
       const abort = () => {
@@ -213,6 +224,7 @@ class CodexAppServerJsonRpcClient {
         resolve,
         timeout
       });
+      // readable-check: allow optional-call - platform object: a caller's abort signal
       signal?.addEventListener?.("abort", abort, { once: true });
       try {
         this.send({
@@ -230,6 +242,7 @@ class CodexAppServerJsonRpcClient {
   }
 
   send(payload) {
+    // readable-check: allow method-probe - platform object: a WebSocket implementation's socket
     if (!this.isOpen() || typeof this.socket.send !== "function") {
       throw new Error("Codex app-server connection is not open.");
     }
@@ -264,7 +277,7 @@ class CodexAppServerJsonRpcClient {
         return;
       }
       clearTimeout(pending.timeout);
-      pending.removeAbortListener?.();
+      pending.removeAbortListener();
       this.pendingRequests.delete(message.id);
       if (message.error) {
         const error = new Error(message.error.message || `Codex app-server request failed: ${pending.method}`);
@@ -316,7 +329,7 @@ class CodexAppServerJsonRpcClient {
   rejectPendingRequests(error) {
     for (const pending of this.pendingRequests.values()) {
       clearTimeout(pending.timeout);
-      pending.removeAbortListener?.();
+      pending.removeAbortListener();
       pending.reject(error);
     }
     this.pendingRequests.clear();
@@ -325,7 +338,7 @@ class CodexAppServerJsonRpcClient {
   disconnect(error) {
     this.rejectPendingRequests(error);
     this.close();
-    this.onDisconnect?.(error);
+    this.onDisconnect(error);
   }
 
   close() {
@@ -333,6 +346,7 @@ class CodexAppServerJsonRpcClient {
     const socket = this.socket;
     this.connected = false;
     this.socket = null;
+    // readable-check: allow optional-call - platform object: a WebSocket implementation's socket
     socket?.close?.();
   }
 }

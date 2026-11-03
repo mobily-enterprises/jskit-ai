@@ -4,7 +4,7 @@ import {
   codexAppServerReadThreadStatus,
   normalizeCodexRunText
 } from "./codexTurnState.js";
-import { codexAppServerThreadIsMissing, ensureCodexAppServerThread } from "./codexProvider.js";
+import { codexAppServerThreadIsMissing, ensureCodexAppServerThread } from "./codexProviderThreads.js";
 import { codexAppServerThreadRawValue, codexAppServerThreadTurnId } from "./codexThreadSnapshot.js";
 
 /**

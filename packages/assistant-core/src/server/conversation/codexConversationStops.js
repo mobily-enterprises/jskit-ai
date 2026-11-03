@@ -1,5 +1,5 @@
 import { normalizeCodexRunText, codexAppServerErrorMessage, codexAppServerInterruptFailure, codexAppServerConversationTurnIsActive } from "./codexTurnState.js";
-import { codexAppServerRequestIsInvalid, codexAppServerThreadHasReadableHistory, codexAppServerThreadIsMissing } from "./codexProvider.js";
+import { codexAppServerRequestIsInvalid, codexAppServerThreadHasReadableHistory, codexAppServerThreadIsMissing } from "./codexProviderThreads.js";
 
 /**
  * Stopping, interrupting, deleting and closing native conversations. The conversation registry, its observation

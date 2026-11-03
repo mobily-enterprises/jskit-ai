@@ -1,9 +1,21 @@
 import { normalizeCodexRunText } from "./codexTurnState.js";
 
-// Cleanup of the existing run/provider/Helper owners. The application keeps
-// its authority and storage projections; all native coordination stays here:
-// one closure per session key (shared with the runtime lifecycle, which drains
-// them on shutdown) and the private record of which closures are restricted.
+/**
+ * Cleanup of the existing run/provider/Helper owners. The application keeps
+ * its authority and storage projections; all native coordination stays here:
+ * one closure per session key (shared with the runtime lifecycle, which drains
+ * them on shutdown) and the private record of which closures are restricted.
+ * @param {object} dependencies
+ * @param {(sessionId: string) => string} dependencies.namespace
+ * @param {import("./codexRuntimeLifecycle.js").CodexRunOwner} dependencies.runOwner
+ * @param {import("./codexProviderOwner.js").CodexProviderSessions | null} dependencies.providerSessions
+ * @param {Map<string, Promise<unknown>> | undefined} dependencies.sessionClosures
+ * @param {import("./codexRuntimeLifecycle.js").CodexHelperThreadLifecycle | null} dependencies.helperLifecycle
+ * @param {ReturnType<typeof import("./codexRunJournal.js").createCodexRunJournal>} dependencies.journal
+ * @param {object} dependencies.conversations
+ * @param {import("./codexRuntimeLifecycle.js").CodexDebugLog} dependencies.debugLog
+ * @param {(error: unknown) => unknown} dependencies.debugError
+ */
 export function createCodexSessionCleanup({ namespace, runOwner, providerSessions, sessionClosures, helperLifecycle,
   journal, conversations, debugLog, debugError }) {
   const providerOwner = providerSessions?.owner;
@@ -140,5 +152,8 @@ export function createCodexSessionCleanup({ namespace, runOwner, providerSession
     };
   }
 
-  return { closeSession, closeProject };
+  return Object.freeze({
+    closeSession,
+    closeProject
+  });
 }

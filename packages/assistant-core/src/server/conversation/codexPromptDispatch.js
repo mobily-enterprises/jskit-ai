@@ -7,12 +7,8 @@ import {
   codexAppServerMessageRequiresNewTurn,
   codexAppServerMessageDeferred
 } from "./codexTurnState.js";
-import {
-  codexAppServerRequestIsInvalid,
-  codexLocalImageInput,
-  codexAppServerDeliveredTurn,
-  sendCodexAppServerPrompt
-} from "./codexProvider.js";
+import { codexAppServerRequestIsInvalid } from "./codexProviderThreads.js";
+import { codexLocalImageInput, codexAppServerDeliveredTurn, sendCodexAppServerPrompt } from "./codexProviderTurns.js";
 
 function notifyNoPromptSending() {}
 

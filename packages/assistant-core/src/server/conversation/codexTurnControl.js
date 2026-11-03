@@ -9,7 +9,7 @@ import {
   codexAppServerInterruptUnavailableResponse,
   codexAppServerFrozenTurnInterruptResponse
 } from "./codexTurnState.js";
-import { codexAppServerRequestIsInvalid } from "./codexProvider.js";
+import { codexAppServerRequestIsInvalid } from "./codexProviderThreads.js";
 import { codexAppServerThreadTurnId } from "./codexThreadSnapshot.js";
 
 /**

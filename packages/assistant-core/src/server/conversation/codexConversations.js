@@ -1,6 +1,6 @@
 import { codexAppServerThreadStatus, normalizeCodexRunText, codexAppServerConversationTurnIsActive, codexAppServerNativeOuterTurnId } from "./codexTurnState.js";
 import { ignoreCodexDetachedTurnEvent } from "./codexDetachedTurn.js";
-import { readCodexToolFreeConfiguration } from "./codexConfiguration.js";
+import { readCodexToolFreeConfiguration } from "./codexIsolation.js";
 import { codexAppServerAssistantItemText, codexAppServerContentText, classifyCodexAppServerEvent, codexAppServerNotificationThreadId, codexAppServerNotificationTurnId, codexAppServerNotificationTurnStatus } from "./codexEvents.js";
 import {
   codexAppServerProviderThreadAssistantSegments,

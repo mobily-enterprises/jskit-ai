@@ -3,8 +3,17 @@ import { codexAppServerProjectHookTrustConfig } from "./codexConfiguration.js";
 import { createCodexAppServerModelCatalogCache } from "./codexModelCatalog.js";
 import { readCodexAppServerAccountIdentity } from "./codexHelperExecution.js";
 
-// Provider acquisition and per-operation provider contexts for a run owner's
-// managed threads, with their model catalogue and account identity reads.
+/**
+ * Provider acquisition and per-operation provider contexts for a run owner's
+ * managed threads, with their model catalogue and account identity reads.
+ * @param {object} dependencies
+ * @param {import("./codexProviderOwner.js").CodexProviderSessions} dependencies.providerSessions
+ * @param {(session: object) => object} dependencies.turnState
+ * @param {import("./codexRuntimeLifecycle.js").CodexHelperThreadLifecycle | null} dependencies.helperLifecycle
+ * @param {ReturnType<typeof import("./codexHelperExecution.js").createCodexHelperOwnershipError>} dependencies.helperOwnershipError
+ * @param {number} [dependencies.modelCatalogCacheMs]
+ * @param {string} [dependencies.errorPrefix]
+ */
 export function createCodexProviderSelection({
   providerSessions,
   turnState,
@@ -51,7 +60,7 @@ export function createCodexProviderSelection({
         managed.sessionId !== sessionId ||
         managed.workdir !== workdir ||
         managed.threadId !== threadId ||
-        provider?.isAvailable?.() !== true ||
+        provider?.isAvailable() !== true ||
         provider.stale && !turnActive
       ) {
         continue;
@@ -210,7 +219,7 @@ export function createCodexProviderSelection({
     return readCodexAppServerAccountIdentity(provider, helperOwnershipError);
   }
 
-  return {
+  return Object.freeze({
     readExecutionProfileModelCatalog,
     readProviderAccountIdentity,
     managedProviderKeyForThread,
@@ -225,5 +234,5 @@ export function createCodexProviderSelection({
     ensureSessionProvider,
     borrowSessionProvider,
     rememberManagedSession
-  };
+  });
 }

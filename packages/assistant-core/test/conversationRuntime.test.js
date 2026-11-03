@@ -197,7 +197,11 @@ function codexHost({ readInstructions } = {}) {
     verifyEnvironment: async () => {},
     publishGoal: (threadId, goal) => requests.push({ method: "host.goal", input: { threadId, goal } }),
     recordInterruption: (threadId, turnId) => requests.push({ method: "host.recordInterruption", input: { threadId, turnId } }),
-    prepareResume: async (id, params) => { requests.push({ method: "host.prepareResume", input: { id } }); return params; }
+    prepareResume: async (id, params) => { requests.push({ method: "host.prepareResume", input: { id } }); return params; },
+    prepareParameters: () => undefined,
+    beforeResume: async () => {},
+    onRecoveryFailure: () => {},
+    log: () => {}
   });
   return { runtime, state, requests, client };
 }

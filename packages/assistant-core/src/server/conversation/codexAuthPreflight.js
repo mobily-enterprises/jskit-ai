@@ -1,5 +1,5 @@
 import path from "node:path";
-import { codexAuthOutputRequiresReconnect } from "./codexConfiguration.js";
+import { codexAuthOutputRequiresReconnect } from "./codexAccountReader.js";
 import {
   assertExistingDirectory, codexAppServerCommandBaseEnv, codexAppServerCredentialHome,
   codexAppServerProcessCwd, ensureWritablePrivateDirectory
@@ -30,6 +30,7 @@ function codexAuthPreflightArgs() {
 
 async function runCodexAuthPreflight({
   codexCommand = "codex",
+  // readable-check: allow no-env-default - input validation: a caller's preflight options may omit env, and the preflight then runs in the process environment
   env = process.env,
   executionRoot = "",
   runtimeDir = "",

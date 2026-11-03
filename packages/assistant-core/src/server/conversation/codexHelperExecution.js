@@ -1,5 +1,6 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import { codexAppServerDeliveredTurn, deleteCodexAppServerThread } from "./codexProvider.js";
+import { codexAppServerDeliveredTurn } from "./codexProviderTurns.js";
+import { deleteCodexAppServerThread } from "./codexProviderThreads.js";
 import { CODEX_HELPER_THREAD_LIFECYCLES } from "./codexHelperThreadRecord.js";
 import { codexAppServerErrorMessage as errorMessage, normalizeCodexRunText as normalizeText } from "./codexTurnState.js";
 
