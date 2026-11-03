@@ -30,7 +30,7 @@ const { t } = useJskitText();
 defineProps({ state: { type: Object, required: true } });
 const emit = defineEmits(["submit", "stop"]);
 const sendButton = ref(null);
-defineExpose({ focus() { (sendButton.value?.$el || sendButton.value)?.focus?.(); } });
+defineExpose({ focus() { sendButton.value?.$el.focus(); } });
 </script>
 <style scoped>
 .assistant-composer-actions, .assistant-composer-actions__tools, .assistant-composer-actions__delivery {

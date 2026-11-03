@@ -3,11 +3,24 @@ import { useJskitText } from "../i18n.js";
 
 const { serverMessage } = useJskitText();
 
-/** Suggestion requests use an application-supplied agent; credentials stay on its server. */
+/**
+ * Suggestion requests use an application-supplied agent; credentials stay on its server.
+ * @param {{
+ *   active?: import("vue").MaybeRefOrGetter<boolean>,
+ *   requestKey?: import("vue").MaybeRefOrGetter<unknown>,
+ *   draft?: import("vue").MaybeRefOrGetter<string>,
+ *   configuration?: import("vue").MaybeRefOrGetter<object>,
+ *   generate?: import("vue").MaybeRef<((input: { draft: string, configuration: object, signal: AbortSignal }) =>
+ *     Promise<{ label: string, prompt: string }[]>) | null>,
+ *   onSelect?: (prompt: string) => boolean | void,
+ *   debounceMs?: import("vue").MaybeRefOrGetter<number>,
+ *   minIntervalMs?: import("vue").MaybeRefOrGetter<number>
+ * }} options
+ */
 export function useAssistantSuggestions({
   active = true, requestKey = "", draft = "", configuration = {},
   generate, onSelect = () => false, debounceMs = 750, minIntervalMs = 0
-} = {}) {
+}) {
   const items = ref([]);
   const loading = ref(false);
   const preview = ref("");
@@ -17,6 +30,7 @@ export function useAssistantSuggestions({
   const currentDraft = computed(() => String(toValue(draft) ?? "").trim());
   const configurationKey = computed(() => JSON.stringify(toValue(configuration) ?? {}));
   const key = computed(() => JSON.stringify([toValue(requestKey), currentDraft.value, configurationKey.value]));
+  // readable-check: allow method-probe - optional operation: without a generator, or while its ref holds none, no suggestions are requested
   const eligible = computed(() => toValue(active) !== false && typeof unref(generate) === "function" && dismissedKey.value !== key.value);
   const visible = computed(() => eligible.value && (loading.value || items.value.length > 0));
   let timer;

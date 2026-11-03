@@ -1,18 +1,17 @@
 import { reactive, toRaw, toValue, watch } from "vue";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { useJskitText } from "../i18n.js";
 
 const { serverMessage, t } = useJskitText();
 
-const messageText = value => String(value || "").trim();
-
 function turnMatchesOptimisticMessage(turn = {}, optimistic = {}) {
   const authored = optimistic.origin === "application" ? turn.system : turn.user;
-  const canonicalMessageId = messageText(authored?.messageId);
-  const optimisticMessageId = messageText(optimistic.id);
+  const canonicalMessageId = normalizeText(authored?.messageId);
+  const optimisticMessageId = normalizeText(optimistic.id);
   if (canonicalMessageId && optimisticMessageId) {
     return canonicalMessageId === optimisticMessageId;
   }
-  if (messageText(authored?.text) !== optimistic.text) {
+  if (normalizeText(authored?.text) !== optimistic.text) {
     return false;
   }
   const userAtMs = Date.parse(String(authored?.at || ""));
@@ -36,8 +35,11 @@ function unmatchedOptimisticMessages(turns = [], optimisticMessages = [], { rece
   });
 }
 
-// One delivery state per conversation. The caller owns transport and receipts;
-// the shared assistant element renders pending, failed and uncertain turns.
+/**
+ * One delivery state per conversation. The caller owns transport and receipts; the shared assistant element renders
+ * pending, failed and uncertain turns. A delivery made without `deliver` takes one with each `send()`.
+ * @param {{ deliver?: (payload: object) => unknown }} [options]
+ */
 function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
   const state = reactive({ messages: [], sending: false });
   const acceptanceCallbacks = new WeakMap();
@@ -118,7 +120,7 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
     queue = false
   } = {}) {
     if ((state.sending && !queue) || pendingSends.has(messageId) || find(messageId)?.status === "uncertain" ||
-        find(messageId)?.cancelling || (!messageText(payload?.message) && !payload?.displayAttachments?.length)) return false;
+        find(messageId)?.cancelling || (!normalizeText(payload?.message) && !payload?.displayAttachments?.length)) return false;
     if (typeof deliver !== "function") throw new TypeError("Message delivery requires a deliver function.");
     const snapshot = JSON.parse(JSON.stringify(payload));
     const previous = find(messageId);
@@ -178,6 +180,7 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
       fail(messageId, error, uncertainOnError || error?.status === "uncertain" ? "uncertain" : "failed");
       throw error;
     } finally {
+      // readable-check: allow optional-call - optional operation: a send without receiptTurns starts no receipt watcher
       stopReceipt?.();
       ownerPendingSends.delete(messageId);
       if (pendingSends === ownerPendingSends) {
@@ -206,6 +209,7 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
       const entry = toRaw(message);
       const acknowledge = acceptanceCallbacks.get(entry);
       acceptanceCallbacks.delete(entry);
+      // readable-check: allow optional-call - optional operation: a message restored from history has no acceptance callback
       acknowledge?.();
     }
   }
@@ -223,7 +227,7 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
   }
 
   function restoreUncertain(request, savedTurns = []) {
-    const messageId = messageText(request?.messageId);
+    const messageId = normalizeText(request?.messageId);
     if (!messageId || savedTurns.some(turn => (turn.user || turn.system)?.messageId === messageId &&
         (turn.user || turn.system).receipt !== false) ||
         find(messageId)?.status === "accepted") return false;

@@ -2,7 +2,13 @@ import { computed, ref, toValue, watch } from "vue";
 import { numberedQuestionSubmissionText, parseNumberedQuestionPrompt } from "../../shared/conversation/numberedQuestionSugar.js";
 import { parseAnswerChoicePrompt } from "../../shared/conversation/answerChoiceSugar.js";
 
-/** Ordinary chat answer fields; the caller owns authorized message selection and delivery. */
+/**
+ * Ordinary chat answer fields; the caller owns authorized message selection and delivery.
+ * @param {{
+ *   message?: import("vue").MaybeRefOrGetter<string>,
+ *   extraChoice?: import("vue").MaybeRefOrGetter<{ value: string, title?: string } | null>
+ * }} [options]
+ */
 function useAssistantQuestions({ message = "", extraChoice = null } = {}) {
   const questionText = computed(() => String(toValue(message) || ""));
   const answers = ref({});
@@ -69,8 +75,15 @@ function useAssistantQuestions({ message = "", extraChoice = null } = {}) {
     choice.value = "";
   });
 
-  return { questions, selectItems, choices, answers, choice, active, capture, markSubmitted, dismiss, reset,
-    setAnswers(value) { answers.value = value; }, setChoice(value) { choice.value = value; } };
+  function setAnswers(value) {
+    answers.value = value;
+  }
+
+  function setChoice(value) {
+    choice.value = value;
+  }
+
+  return { questions, selectItems, choices, answers, choice, active, capture, markSubmitted, dismiss, reset, setAnswers, setChoice };
 }
 
 export { useAssistantQuestions };

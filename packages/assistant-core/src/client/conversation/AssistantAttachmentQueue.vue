@@ -123,16 +123,29 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import {
-  mdiAlertCircleOutline,
-  mdiCheckCircleOutline,
   mdiClose,
   mdiCloseCircleOutline,
-  mdiFileOutline,
   mdiRefresh
 } from "@mdi/js";
 
+import { hasWindowFunction } from "../browser.js";
 import { useJskitText } from "../i18n.js";
 import { attachmentSizeText } from "./attachmentSize.js";
+import {
+  activePhases,
+  itemBytesLabel,
+  itemCancelable,
+  itemColor,
+  itemIcon,
+  itemKey,
+  itemName,
+  itemPercent,
+  itemPhase,
+  itemProgressIndeterminate,
+  itemProgressValue,
+  itemProgressVisible,
+  itemStatusLabel
+} from "./attachmentQueueItems.js";
 
 const { t } = useJskitText();
 
@@ -154,7 +167,6 @@ const props = defineProps({
   }
 });
 
-const activePhases = new Set(["queued", "preparing", "uploading", "delivering"]);
 const queueRoot = ref(null);
 const reducedMotion = ref(false);
 const actionElements = new Map();
@@ -221,85 +233,8 @@ const announcement = computed(() => {
   return messages.join(" ");
 });
 
-function itemKey(item = {}) {
-  return String(item.clientId || item.id || item.attachmentId || item.fileName || "attachment");
-}
-
-function itemName(item = {}) {
-  return String(item.fileName || item.file?.name || t("jskit.assistant.attachments.unnamed"));
-}
-
-function itemPhase(item = {}) {
-  return String(item.phase || item.status || "queued");
-}
-
-function itemPercent(item = {}) {
-  if (itemPhase(item) === "ready") {
-    return 100;
-  }
-  if (itemPhase(item) === "delivering") {
-    return 100;
-  }
-  if (itemPhase(item) === "queued") {
-    return 0;
-  }
-  const progressValue = item.percent ?? item.progress;
-  const directPercent = progressValue === null || progressValue === undefined || progressValue === ""
-    ? null
-    : Number(progressValue);
-  if (directPercent !== null && Number.isFinite(directPercent)) {
-    return Math.min(100, Math.max(0, Math.round(directPercent)));
-  }
-  const size = Number(item.size) || 0;
-  return size > 0 && Number(item.bytesSent) > 0
-    ? Math.min(100, Math.max(0, Math.round(((Number(item.bytesSent) || 0) / size) * 100)))
-    : null;
-}
-
-function itemProgressVisible(item = {}) {
-  return activePhases.has(itemPhase(item));
-}
-
-function itemProgressIndeterminate(item = {}) {
-  return itemProgressVisible(item) && itemPercent(item) === null;
-}
-
-function itemProgressValue(item = {}) {
-  return itemPercent(item) ?? 0;
-}
-
 function itemProgressStationary(item = {}) {
   return reducedMotion.value && itemProgressVisible(item) && itemPercent(item) === null;
-}
-
-function itemBytesLabel(item = {}) {
-  const size = Math.max(0, Number(item.size) || 0);
-  const sent = Math.min(Math.max(0, Number(item.bytesSent) || 0), size);
-  const percent = itemPercent(item);
-  return percent === null
-    ? t("jskit.assistant.attachments.bytes", { sent: attachmentSizeText(sent), size: attachmentSizeText(size) })
-    : t("jskit.assistant.attachments.bytesPercent", { sent: attachmentSizeText(sent), size: attachmentSizeText(size), percent });
-}
-
-function itemStatusLabel(item = {}) {
-  const labels = {
-    cancelled: "jskit.assistant.attachments.status.cancelled",
-    delivering: "jskit.assistant.attachments.status.delivering",
-    failed: item.failureStage === "preparing"
-      ? "jskit.assistant.attachments.status.preparationFailed"
-      : item.failureStage === "handoff"
-        ? "jskit.assistant.attachments.status.sendingFailed"
-        : "jskit.assistant.attachments.status.uploadFailed",
-    preparing: "jskit.assistant.attachments.status.preparing",
-    queued: "jskit.assistant.attachments.status.queued",
-    ready: "jskit.assistant.attachments.status.ready",
-    uploading: "jskit.assistant.attachments.status.uploading"
-  };
-  return t(Object.hasOwn(labels, itemPhase(item)) ? labels[itemPhase(item)] : "jskit.assistant.attachments.status.queued");
-}
-
-function itemCancelable(item = {}) {
-  return ["preparing", "queued", "uploading"].includes(itemPhase(item));
 }
 
 function actionKey(item = {}, action = "") {
@@ -307,7 +242,7 @@ function actionKey(item = {}, action = "") {
 }
 
 function actionElement(element = null) {
-  return element?.$el || element || null;
+  return element?.$el || null;
 }
 
 function setActionElement(item = {}, action = "", element = null) {
@@ -323,7 +258,7 @@ function focusItemAction(item = {}) {
   for (const action of ["cancel", "retry", "remove"]) {
     const target = actionElement(actionElements.get(actionKey(item, action)));
     if (target && !target.disabled) {
-      target.focus?.();
+      target.focus();
       return true;
     }
   }
@@ -344,51 +279,33 @@ async function handleAction(action, item, index) {
   emit("focus-input");
 }
 
-function itemIcon(item = {}) {
-  if (itemPhase(item) === "ready") {
-    return mdiCheckCircleOutline;
-  }
-  if (itemPhase(item) === "failed") {
-    return mdiAlertCircleOutline;
-  }
-  return mdiFileOutline;
-}
-
-function itemColor(item = {}) {
-  if (itemPhase(item) === "ready") {
-    return "success";
-  }
-  if (itemPhase(item) === "failed") {
-    return "error";
-  }
-  return "primary";
-}
-
 function updateReducedMotionPreference() {
   reducedMotion.value = reducedMotionMediaQuery?.matches === true;
 }
 
-if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+if (hasWindowFunction("matchMedia")) {
   reducedMotionMediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
   updateReducedMotionPreference();
 }
+// readable-check: allow method-probe - platform object: an older browser's media query has addListener() in place of addEventListener()
+const mediaQueryDispatchesEvents = typeof reducedMotionMediaQuery?.addEventListener === "function";
 
 onMounted(() => {
   if (!reducedMotionMediaQuery) {
     return;
   }
-  if (typeof reducedMotionMediaQuery.addEventListener === "function") {
+  if (mediaQueryDispatchesEvents) {
     reducedMotionMediaQuery.addEventListener("change", updateReducedMotionPreference);
   } else {
-    reducedMotionMediaQuery.addListener?.(updateReducedMotionPreference);
+    reducedMotionMediaQuery.addListener(updateReducedMotionPreference);
   }
 });
 
 onBeforeUnmount(() => {
-  if (typeof reducedMotionMediaQuery?.removeEventListener === "function") {
+  if (mediaQueryDispatchesEvents) {
     reducedMotionMediaQuery.removeEventListener("change", updateReducedMotionPreference);
   } else {
-    reducedMotionMediaQuery?.removeListener?.(updateReducedMotionPreference);
+    reducedMotionMediaQuery?.removeListener(updateReducedMotionPreference);
   }
   reducedMotionMediaQuery = null;
 });
