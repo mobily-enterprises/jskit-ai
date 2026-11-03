@@ -5,7 +5,7 @@
 /** @typedef {ReturnType<typeof import("./createAssistantRuntime.js").createAssistantRuntime>} DatabaseAssistant The assistant over the package's own SQL tables. */
 /** @typedef {HostedAssistant | DatabaseAssistant} AssistantRuntime The `assistant.runtime` capability. */
 
-/** @typedef {ReturnType<typeof import("@jskit-ai/assistant-core/server/conversation").createConversationRuntime>} ConversationRuntime The `assistant.conversations` capability: the conversation runtime an application supplies. */
+/** @typedef {import("@jskit-ai/assistant-core/server/types").ConversationRuntime} ConversationRuntime The `assistant.conversations` capability: the conversation runtime an application supplies. */
 /** @typedef {ReturnType<typeof import("./services/assistantConfigService.js").createService>} AssistantConfigService The `assistant.settings` capability: an assistant surface's saved settings. */
 /** @typedef {ReturnType<typeof import("./services/chatService.js").createChatService>} ChatService */
 /** @typedef {ReturnType<typeof import("./services/transcriptService.js").createTranscriptService>} TranscriptService */
