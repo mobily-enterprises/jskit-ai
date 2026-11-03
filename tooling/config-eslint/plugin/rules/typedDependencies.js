@@ -1,4 +1,4 @@
-import { createReporter, factoryDependencies, functionSite, ruleMeta } from "../support.js";
+import { createReporter, factoryDependencies, functionSite, isClientLint, ruleMeta } from "../support.js";
 
 // A JSDoc block with a typed @param ends on one of the two lines before the node.
 function hasParamJsdoc(sourceCode, node) {
@@ -7,9 +7,9 @@ function hasParamJsdoc(sourceCode, node) {
     comment.loc.end.line < line && comment.loc.end.line >= line - 2 && /@param\s*\{/u.test(comment.value));
 }
 
-// A create*/build* factory or class constructor that receives collaborators
-// names their types in a JSDoc @param, so a reader and the code map follow each
-// call to its owner.
+// A create*/build* factory (in client code also a use* composable) or class
+// constructor that receives collaborators names their types in a JSDoc @param,
+// so a reader and the code map follow each call to its owner.
 const typedDependencies = Object.freeze({
   meta: ruleMeta("Require a JSDoc @param type on every factory or constructor that receives collaborators.", {
     untypedDependencies: "{{name}} receives untyped collaborators ({{collaborators}}). Name each owner's type in a JSDoc @param."
@@ -17,8 +17,9 @@ const typedDependencies = Object.freeze({
   create(context) {
     const sourceCode = context.sourceCode;
     const report = createReporter(context, "typed-dependencies");
+    const client = isClientLint(context);
     function check(fn) {
-      const dependencies = factoryDependencies(fn, sourceCode);
+      const dependencies = factoryDependencies(fn, sourceCode, client);
       if (!dependencies) {
         return;
       }

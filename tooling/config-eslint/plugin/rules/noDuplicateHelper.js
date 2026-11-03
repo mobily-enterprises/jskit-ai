@@ -1,7 +1,16 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
-import { createSourceMemo, isGeneratedMirror, packageRootOf, packageSourceFiles, toPosixPath } from "../packageSources.js";
-import { createReporter, ruleMeta } from "../support.js";
+import vueParser from "vue-eslint-parser";
+import {
+  clientSourceFiles,
+  createSourceMemo,
+  isGeneratedMirror,
+  isServerOrSharedFile,
+  packageRootOf,
+  packageSourceFiles,
+  toPosixPath
+} from "../packageSources.js";
+import { createReporter, isClientLint, ruleMeta } from "../support.js";
 
 const FUNCTION_VALUES = new Set(["ArrowFunctionExpression", "FunctionExpression"]);
 
@@ -45,9 +54,11 @@ function comparisonRoot(file, packageDirectory) {
   return serverIndex < 0 ? packageDirectory : path.join(packageDirectory, ...segments.slice(0, serverIndex + 1));
 }
 
-// The small helpers of another file of the package, parsed as this lint run parses.
+// The small helpers of another file of the package, parsed as this lint run parses; a Vue component's <script> blocks
+// are parsed by vue-eslint-parser.
 const helpersOf = createSourceMemo((text, file, context) => {
-  const { parser, ecmaVersion, sourceType, parserOptions } = context.languageOptions;
+  const { ecmaVersion, sourceType, parserOptions } = context.languageOptions;
+  const parser = file.endsWith(".vue") ? vueParser : context.languageOptions.parser;
   const options = { ...parserOptions, ecmaVersion, sourceType, range: true, loc: true, tokens: true, comment: true, filePath: file };
   // readable-check: allow method-probe - platform object: an ESLint parser provides parseForESLint, or only parse
   const program = typeof parser.parseForESLint === "function" ? parser.parseForESLint(text, options).ast : parser.parse(text, options);
@@ -67,14 +78,18 @@ function compareCopies(left, right) {
 }
 
 // One copy of each pure helper per package, imported directly. Every copy after
-// the first, in path order, is reported.
+// the first, in path order, is reported. In client code the comparison covers
+// the whole package, Vue components included, and a client copy of a server or
+// shared helper is always the one reported: logic both need lives in src/shared.
 const noDuplicateHelper = Object.freeze({
   meta: ruleMeta("Disallow a small top-level helper, function or arrow, that repeats one in another file of the same package.", {
-    duplicateHelper: "{{name}}() repeats {{first}}. Keep one copy in the package and import it."
+    duplicateHelper: "{{name}}() repeats {{first}}. Keep one copy in the package and import it.",
+    clientCopy: "{{name}}() repeats {{first}}. Import that copy; a helper client and server code share lives in the package's src/shared."
   }, "one-helper-per-package"),
   create(context) {
     const sourceCode = context.sourceCode;
     const report = createReporter(context, "no-duplicate-helper");
+    const client = isClientLint(context);
     return {
       Program(program) {
         const file = context.filename;
@@ -87,7 +102,8 @@ const noDuplicateHelper = Object.freeze({
         for (const helper of own) {
           copiesByKey.get(helper.key).push({ ...helper, file });
         }
-        for (const other of packageSourceFiles(comparisonRoot(file, packageDirectory))) {
+        const others = client ? clientSourceFiles(packageDirectory) : packageSourceFiles(comparisonRoot(file, packageDirectory));
+        for (const other of others) {
           if (other === file) {
             continue;
           }
@@ -100,11 +116,16 @@ const noDuplicateHelper = Object.freeze({
             continue;
           }
           copies.sort(compareCopies);
+          const serverCopy = client && !isServerOrSharedFile(file, packageDirectory)
+            ? copies.find((copy) => isServerOrSharedFile(copy.file, packageDirectory))
+            : null;
           const [first] = copies;
-          for (const copy of copies.slice(1).filter((candidate) => candidate.file === file)) {
-            report(copy.node, "duplicate-helper", "duplicateHelper", {
+          const reported = serverCopy ? copies.filter((candidate) => candidate.file === file) : copies.slice(1).filter((candidate) => candidate.file === file);
+          for (const copy of reported) {
+            const original = serverCopy || first;
+            report(copy.node, "duplicate-helper", serverCopy ? "clientCopy" : "duplicateHelper", {
               name: copy.name,
-              first: `${toPosixPath(path.relative(context.cwd, first.file))}:${first.line}`
+              first: `${toPosixPath(path.relative(context.cwd, original.file))}:${original.line}`
             });
           }
         }

@@ -1,5 +1,13 @@
 import vueI18n from "@intlify/eslint-plugin-vue-i18n";
-import { baseConfig, nodeConfig, sizeLimitsConfig, typedFeaturesConfig, vueConfig, webConfig } from "./tooling/config-eslint/index.js";
+import {
+  baseConfig,
+  clientFeaturesConfig,
+  nodeConfig,
+  sizeLimitsConfig,
+  typedFeaturesConfig,
+  vueConfig,
+  webConfig
+} from "./tooling/config-eslint/index.js";
 
 export default [
   {
@@ -78,6 +86,13 @@ export default [
   ...webConfig,
   ...nodeConfig,
   ...vueConfig,
+  // The client typed-features rules apply, as errors, to the client trees listed here; each package's client code is
+  // listed as it converts.
+  ...clientFeaturesConfig([
+    "packages/assistant-core/src/client/**",
+    "packages/assistant-runtime/src/client/**",
+    "packages/assistant-voice/src/client/**"
+  ]),
   {
     // JSKIT client texts come from message catalogs, never from template literals.
     files: ["packages/*/src/**/*.vue"],
