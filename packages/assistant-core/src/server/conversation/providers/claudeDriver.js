@@ -29,9 +29,32 @@ const goalCapabilities = Object.freeze({ goals: true, goalBudgets: false,
     cancel: Object.freeze({ delivery: "message", interruptsTurn: true })
   }) });
 
-/** The ordinary native host uses the CLI's own login; no application launch callbacks. */
-export function createClaudeConversationDriver({ connections, host = {}, limits = {} } = {}) {
-  const env = { ...(host.env || process.env) };
+/**
+ * The ordinary native host uses the CLI's own login; no application launch callbacks.
+ * @param {{
+ *   connections?: { resolve(request: { context: object, integrationId: string }): Promise<object> },
+ *   host?: {
+ *     env?: import("@jskit-ai/kernel/server/types").RuntimeEnv,
+ *     workdir?: string,
+ *     execution?: import("../openCodeProcess.js").ConversationExecution,
+ *     nativeTools?: boolean,
+ *     allowAccountChange?: boolean,
+ *     commands?: { claude?: string },
+ *     limits?: object,
+ *     commandWrapper?: object
+ *   },
+ *   limits?: Record<string, number>
+ * }} options
+ */
+export function createClaudeConversationDriver({
+  connections,
+  // readable-check: allow dependency-default - data: a runtime without host settings runs Claude in its working directory with local execution
+  host = {},
+  limits = {}
+}) {
+  // A host that opens its own conversations may pass no environment; the
+  // driver's own conversations require it when they open.
+  const env = { ...host.env };
   const workdir = path.resolve(host.workdir || process.cwd());
   const configRoot = path.resolve(workdir, env.CLAUDE_CONFIG_DIR || path.join(env.HOME || homedir(), ".claude"));
   if (env.CLAUDE_CONFIG_DIR) env.CLAUDE_CONFIG_DIR = configRoot;
@@ -53,6 +76,7 @@ export function createClaudeConversationDriver({ connections, host = {}, limits 
 
   async function captureAccountStatus({ command, args, cwd, baseEnv, signal, timeout, maxBuffer }) {
     signal.throwIfAborted();
+    // readable-check: allow method-probe - optional operation: an application's execution host that captures commands itself supplies run
     if (typeof host.execution?.run === "function") {
       return host.execution.run({ command, args, cwd, baseEnv, signal, timeout, maxBuffer,
         mode: "capture", limits: host.limits });
@@ -154,6 +178,7 @@ export function createClaudeConversationDriver({ connections, host = {}, limits 
         }
         const current = entry.command;
         if (!current) return;
+        // readable-check: allow method-probe - optional operation: a command with application tools observes native tool use
         if (event.type === "provider-event" && typeof current.onNativeToolUse === "function" && event.event.type === "assistant") {
           const prefix = `mcp__${CLAUDE_APPLICATION_TOOL_SERVER}__`;
           for (const block of event.event.message?.content || []) {
@@ -237,6 +262,280 @@ export function createClaudeConversationDriver({ connections, host = {}, limits 
     return native.owner.closeSession(prepared.context, prepared.application);
   }
 
+  function validateConfiguration(configuration) {
+    validateConversationConfiguration(configuration, { engine: "Claude", connections, efforts: ["low", "medium", "high", "xhigh", "max"],
+      structuredOutput: true, maxOutputCharacters: maximumOutput });
+  }
+
+  async function readState({ conversation, context, representation }) {
+    let nativeResult = null;
+    if (representation === "native" || context) {
+      const { owner } = conversation.native;
+      const entry = await owner.acquire(context);
+      nativeResult = { ok: true, thread: { id: entry.id }, turn: owner.snapshot(entry), workdir: entry.context.workdir };
+    }
+    return conversation.read(context, representation, nativeResult);
+  }
+
+  function inspectTemporaryActivity({ native, context }) {
+    return native.owner.hasActiveTemporaryConversation(context);
+  }
+
+  function releaseRenewalPredecessorProcessExitProof({ native, context }) {
+    return native.owner.releaseSession(context, native.application);
+  }
+
+  function releaseRenewalSuccessorProcessExitProof({ native, context }) {
+    return native.owner.releaseSession(context, native.application);
+  }
+
+  async function generateRenewalHandover({ native, input, context }) {
+    const prepared = native.preparation.handover(input, context);
+    const entry = await native.owner.acquire(context);
+    const result = await native.owner.renewal(entry, prepared.input, prepared.options, { context, acquire: native.owner.acquire });
+    return prepared.completeResult(result);
+  }
+
+  async function seedRenewalHandover({ native, input, context }) {
+    const prepared = native.preparation.seed(input, context);
+    const entry = await native.owner.acquire(context);
+    const result = await native.owner.renewal(entry, prepared.input, prepared.options, { context, acquire: native.owner.acquire });
+    return prepared.completeResult(result);
+  }
+
+  async function ensureConversation({ native, context }) {
+    const entry = await native.owner.acquire(context);
+    return native.owner.ensureReady(entry);
+  }
+
+  async function updateConversationSettings({ native, context, input }) {
+    const entry = await native.owner.acquire(context, input.threadId);
+    if (entry.process) await native.owner.ensureProcess(entry);
+    return { ok: true };
+  }
+
+  async function interruptDetachedConversation({ native, input, context }) {
+    const entry = await native.owner.acquire(context, input.conversationId || input.threadId,
+      { cleanupExecutionId: input.cleanupExecutionId });
+    return native.owner.stopConversation(entry);
+  }
+
+  async function deleteDetachedConversation({ native, input, context }) {
+    const entry = await native.owner.acquire(context, input.conversationId || input.threadId,
+      { operation: "delete", input, cleanupExecutionId: input.cleanupExecutionId });
+    return native.owner.deleteConversation(entry);
+  }
+
+  function listConversationStorage({ native, binding }) {
+    return listClaudeConversationStorage({ configRoot: native.configRoot, binding });
+  }
+
+  function retireConversationHistory({ native, binding, context }) {
+    return native.owner.retireConversationHistory(native.preparation.retirement(binding, context));
+  }
+
+  function closeProject({ native, input }) {
+    return native.owner.closeProject(input, native.application);
+  }
+
+  function invalidateRuntimes({ native, input }) {
+    return native.owner.invalidateRuntimes(input, native.application, native.account);
+  }
+
+  function reconcileSessions({ native, sessions, options }) {
+    return native.owner.reconcileSessions(sessions, options, native.application);
+  }
+
+  /**
+   * Creates a temporary native conversation through the application's owner.
+   * @param {{ native: { owner: object }, input: object, context: object }} request
+   */
+  async function createConversation({ native, input, context }) {
+    return native.owner.createConversation(input, { context, acquire: native.owner.acquire });
+  }
+
+  async function runDetachedConversation({ native, input, context }) {
+    const conversationId = input.conversationId || input.threadId || randomUUID();
+    const created = !input.conversationId && !input.threadId;
+    const { owner } = native;
+    const entry = await owner.acquire(context, conversationId, { create: created });
+    const executionProfile = native.executionProfile;
+    if (created && context.assistantScope) entry.profile = executionProfile;
+    // readable-check: allow optional-call - optional operation: a native context that observes execution profiles supplies onEvent
+    if (executionProfile) await context.onEvent?.({ type: "execution-profile", executionProfile });
+    const request = { ...input, conversationId };
+    await owner.startTurn(await owner.acquire(context, conversationId, { operation: "start", input: request }), request);
+    const result = await owner.wait(await owner.acquire(context, conversationId), request, { context, acquire: owner.acquire });
+    return executionProfile ? { ...result, executionProfile } : result;
+  }
+
+  async function createBinding() {
+    return { conversationId: randomUUID(), workdir: await realpath(workdir), configRoot, executionId: "", sent: false };
+  }
+
+  async function open({ binding, writeBinding, onFailure: reportFailure, conversation }) {
+    const supplied = conversation?.native;
+    const scoped = supplied?.scoped;
+    let owner = supplied?.owner;
+    let entry;
+    if (!supplied) {
+      if (!host.env) throw new TypeError("createClaudeConversationDriver requires the application's environment, such as process.env.");
+      requireClaudeSessionId(binding?.conversationId);
+      const scopeWorkdir = await realpath(workdir);
+      // Original scoped conversations keep native history in the credential
+      // home. Both paths must still come from the current authorized host.
+      const nativeWorkdir = Object.hasOwn(binding, "scopeWorkdir")
+        ? await realpath(env.HOME || homedir()) : scopeWorkdir;
+      if (binding.workdir !== nativeWorkdir || binding.configRoot !== configRoot ||
+        (Object.hasOwn(binding, "scopeWorkdir") && binding.scopeWorkdir !== scopeWorkdir)) {
+        throw new Error("This Claude conversation belongs to another working directory or credential home. Restore its original host configuration.");
+      }
+      owner = standaloneOwner();
+      const context = { key: scopeWorkdir, workdir: binding.workdir, binding, reportFailure,
+        async updateBinding(patch) {
+          const next = { ...context.binding, ...patch };
+          await writeBinding(next);
+          context.binding = next;
+        }
+      };
+      entry = await owner.open(context, { conversationId: binding.conversationId, mainId: binding.conversationId, create: true });
+      // An unknown execution is never reclaimed by PID or silently abandoned.
+      // Managed hosts can prove cleanup using their durable execution identity.
+      if (binding.executionId) await entry.nativeTurn.stopProcess("The application reconnected to this conversation.");
+    }
+    const acquire = supplied ? owner.acquire : (() => entry);
+    const control = { current: null, disposed: false, cleanupFailure: null };
+    const commandOptions = { acquire, reportFailure, entry,
+      maximumOutput, maximumToolCalls: limits.maxToolCalls ?? 32, timeoutMs: limits.admissionTimeoutMs };
+    const scopedInput = scopedConversationInput(scoped?.conversationId);
+    return Object.freeze({
+      ...(scoped ? { capabilities: SCOPED_CONVERSATION_CAPABILITIES,
+        async sendNative({ input, context }) {
+          input = scopedInput(input);
+          return owner.startTurn(await acquire(context, input.conversationId, { operation: "start", input }), input);
+        },
+        async readNative({ input, context }) {
+          input = scopedInput(input);
+          return owner.read(await acquire(context, input.conversationId), input);
+        },
+        async waitNative({ input, context }) {
+          input = scopedInput(input);
+          return owner.wait(await acquire(context, input.conversationId), input, { context, acquire });
+        }
+      } : {}),
+      ...(supplied && !scoped ? {
+        publishNative: event => conversation.publish({ ...event, goalChanged: event.reason === "claude-goal" })
+      } : {}),
+      async readGoal({ configuration, context }) {
+        if (scoped) return unsupportedScopedConversation();
+        if (supplied) {
+          await acquire(context);
+          // readable-check: allow optional-call - optional operation: an application's native conversation may record the goal results it completes
+          const completeResult = supplied.completeResult?.(context);
+          const nativeResult = await owner.readGoal(await acquire(context));
+          await completeResult?.(nativeResult, {
+            segmentId: nativeResult.threadId ? `claude:${nativeResult.threadId}` : null, capabilities: goalCapabilities
+          });
+          return { nativeResult, goal: claudeGoalValue(nativeResult.goal, nativeResult.threadId) };
+        }
+        await bindAccount(entry, configuration, context);
+        return claudeGoalValue(await entry.goals.read(), entry.id);
+      },
+      async updateGoal({ configuration, context, input, representation, interrupt, send }) {
+        if (scoped) return unsupportedScopedConversation();
+        if (supplied) {
+          await acquire(context);
+          // readable-check: allow optional-call - optional operation: an application's native conversation may record the goal results it completes
+          const completeResult = supplied.completeResult?.(context);
+          let command = input;
+          let facilities = { signal: context?.signal };
+          if (representation !== "native") {
+            const current = await owner.readGoal(await acquire(context));
+            if (input.action !== "set" && claudeGoalValue(current.goal, current.threadId)?.id !== input.expectedGoalId) {
+              throw new Error("The Claude goal changed. Refresh before trying again.");
+            }
+            command = { ...input, threadId: current.threadId,
+              ...(input.action !== "set" ? { createdAt: current.goal.createdAt, objective: current.goal.objective } : {}) };
+            facilities = { signal: context?.signal, interrupt, send: command => send(command, { threadId: current.threadId }) };
+          }
+          const nativeResult = await owner.updateGoal(await acquire(context), command, facilities);
+          await completeResult?.(nativeResult);
+          return { nativeResult, goal: claudeGoalValue(nativeResult.goal, nativeResult.threadId) };
+        }
+        await bindAccount(entry, configuration, context);
+        const goal = await entry.goals.read();
+        if (input.action !== "set" && claudeGoalValue(goal, entry.id)?.id !== input.expectedGoalId) {
+          throw new Error("The Claude goal changed. Refresh before trying again.");
+        }
+        await entry.goals.update({ ...input, threadId: entry.id,
+          ...(input.action !== "set" ? { createdAt: goal?.createdAt, objective: goal?.objective } : {}) }, { interrupt, send, signal: context?.signal });
+        return claudeGoalValue(await entry.goals.read(), entry.id);
+      },
+      async inspectAdmission({ context, representation, verifyAccount = false, ...input }) {
+        if (scoped) return unsupportedScopedConversation();
+        if (supplied) {
+          await acquire(context);
+          const result = await owner.inspectAdmission(await acquire(context), input);
+          return representation === "native" ? result
+            : { accepted: result.admission === "accepted", notAdmitted: result.admission === "not-admitted" };
+        }
+        if (verifyAccount === true) {
+          const binding = input.receiptBinding;
+          if (input.threadId !== entry.id || binding?.conversationId !== entry.id ||
+              binding.workdir !== entry.context.binding.workdir || binding.configRoot !== configRoot ||
+              Object.hasOwn(binding, "scopeWorkdir") !== Object.hasOwn(entry.context.binding, "scopeWorkdir") ||
+              binding.scopeWorkdir !== entry.context.binding.scopeWorkdir) {
+            throw new Error("The completed Claude response belongs to a different native conversation or host scope.");
+          }
+          await bindAccount(entry, input.configuration, context, AbortSignal.timeout(30_000), true, binding);
+        }
+        const history = await owner.readHistory(entry);
+        const nativeId = claudeNativeMessageId(input.messageId);
+        const accepted = history.userIds.includes(nativeId);
+        return { accepted, notAdmitted: !accepted && owner.nativeWorkSettled(entry),
+          messages: history.messages.filter(message => message.userId === nativeId) };
+      },
+      steer: command => owner.steer(control, command, commandOptions),
+      async run(command) {
+        if (entry && (entry.disposed || entry.command)) throw new Error("This Claude conversation is closed or already working.");
+        return owner.run(control, command, commandOptions);
+      },
+      async cancel({ input, context, representation } = {}) {
+        if (scoped) {
+          input = scopedInput(input);
+          return owner.stopConversation(await acquire(context, input.conversationId, { cleanupExecutionId: input.cleanupExecutionId }));
+        }
+        if (!supplied) for (const id of pendingAccountStops) await stopAccount(id);
+        const value = await owner.cancel(control, { context, acquire, reportFailure, entry });
+        return supplied && representation === "native" ? { value } : value;
+      },
+      async dispose(options) {
+        try {
+          let result;
+          if (scoped && options) {
+            const input = scopedInput(options.input);
+            result = await owner.deleteConversation(await acquire(options.context, input.conversationId, {
+              operation: "delete", input, cleanupExecutionId: input.cleanupExecutionId }));
+          } else if (supplied) {
+            result = await disposeNative({ native: supplied, options: scoped ? scoped.context : options });
+            if (result?.ok === false) throw Object.assign(new Error(result.error || (scoped ? "Scoped cleanup could not be confirmed." : "Claude cleanup could not be confirmed.")), result);
+          } else {
+            for (const id of pendingAccountStops) await stopAccount(id);
+            await owner.close(entry);
+          }
+          control.disposed = true;
+          return result;
+        } catch (error) {
+          if (supplied && !scoped) {
+            error.cleanupFailed = true;
+            control.current?.failure.reject(error);
+          }
+          throw error;
+        }
+      }
+    });
+  }
+
   return Object.freeze({
     admissionBeforeDispatch: false,
     toolDiscovery: true,
@@ -244,252 +543,26 @@ export function createClaudeConversationDriver({ connections, host = {}, limits 
     capabilities: Object.freeze({ streaming: true, cancellation: true, instructions: true,
       configuration: true, history: true, steering: true, ...goalCapabilities,
       attachments: true, tools: true, nativeTools, structuredOutput: true }),
-    validateConfiguration(configuration) {
-      validateConversationConfiguration(configuration, { engine: "Claude", connections, efforts: ["low", "medium", "high", "xhigh", "max"],
-        structuredOutput: true, maxOutputCharacters: maximumOutput });
-    },
-    async readState({ conversation, context, representation }) {
-      let nativeResult = null;
-      if (representation === "native" || context) {
-        const { owner } = conversation.native;
-        const entry = await owner.acquire(context);
-        nativeResult = { ok: true, thread: { id: entry.id }, turn: owner.snapshot(entry), workdir: entry.context.workdir };
-      }
-      return conversation.read(context, representation, nativeResult);
-    },
-    inspectTemporaryActivity({ native, context }) {
-      return native.owner.hasActiveTemporaryConversation(context);
-    },
-    releaseRenewalPredecessorProcessExitProof({ native, context }) {
-      return native.owner.releaseSession(context, native.application);
-    },
-    releaseRenewalSuccessorProcessExitProof({ native, context }) {
-      return native.owner.releaseSession(context, native.application);
-    },
-    async generateRenewalHandover({ native, input, context }) {
-      const prepared = native.preparation.handover(input, context);
-      const entry = await native.owner.acquire(context);
-      const result = await native.owner.renewal(entry, prepared.input, prepared.options, { context, acquire: native.owner.acquire });
-      return prepared.completeResult(result);
-    },
-    async seedRenewalHandover({ native, input, context }) {
-      const prepared = native.preparation.seed(input, context);
-      const entry = await native.owner.acquire(context);
-      const result = await native.owner.renewal(entry, prepared.input, prepared.options, { context, acquire: native.owner.acquire });
-      return prepared.completeResult(result);
-    },
-    async ensureConversation({ native, context }) {
-      const entry = await native.owner.acquire(context);
-      return native.owner.ensureReady(entry);
-    },
-    async updateConversationSettings({ native, context, input }) {
-      const entry = await native.owner.acquire(context, input.threadId);
-      if (entry.process) await native.owner.ensureProcess(entry);
-      return { ok: true };
-    },
+    validateConfiguration,
+    readState,
+    inspectTemporaryActivity,
+    releaseRenewalPredecessorProcessExitProof,
+    releaseRenewalSuccessorProcessExitProof,
+    generateRenewalHandover,
+    seedRenewalHandover,
+    ensureConversation,
+    updateConversationSettings,
     disposeNative,
-    async interruptDetachedConversation({ native, input, context }) {
-      const entry = await native.owner.acquire(context, input.conversationId || input.threadId,
-        { cleanupExecutionId: input.cleanupExecutionId });
-      return native.owner.stopConversation(entry);
-    },
-    async deleteDetachedConversation({ native, input, context }) {
-      const entry = await native.owner.acquire(context, input.conversationId || input.threadId,
-        { operation: "delete", input, cleanupExecutionId: input.cleanupExecutionId });
-      return native.owner.deleteConversation(entry);
-    },
-    listConversationStorage({ native, binding }) {
-      return listClaudeConversationStorage({ configRoot: native.configRoot, binding });
-    },
-    retireConversationHistory({ native, binding, context }) {
-      return native.owner.retireConversationHistory(native.preparation.retirement(binding, context));
-    },
-    closeProject({ native, input }) {
-      return native.owner.closeProject(input, native.application);
-    },
-    invalidateRuntimes({ native, input }) {
-      return native.owner.invalidateRuntimes(input, native.application, native.account);
-    },
-    reconcileSessions({ native, sessions, options }) {
-      return native.owner.reconcileSessions(sessions, options, native.application);
-    },
-    async createConversation({ native, input, context }) {
-      return native.owner.createConversation(input, { context, acquire: native.owner.acquire });
-    },
-    async runDetachedConversation({ native, input, context }) {
-      const conversationId = input.conversationId || input.threadId || randomUUID();
-      const created = !input.conversationId && !input.threadId;
-      const { owner } = native;
-      const entry = await owner.acquire(context, conversationId, { create: created });
-      const executionProfile = native.executionProfile;
-      if (created && context.assistantScope) entry.profile = executionProfile;
-      if (executionProfile) await context.onEvent?.({ type: "execution-profile", executionProfile });
-      const request = { ...input, conversationId };
-      await owner.startTurn(await owner.acquire(context, conversationId, { operation: "start", input: request }), request);
-      const result = await owner.wait(await owner.acquire(context, conversationId), request, { context, acquire: owner.acquire });
-      return executionProfile ? { ...result, executionProfile } : result;
-    },
-    async createBinding() {
-      return { conversationId: randomUUID(), workdir: await realpath(workdir), configRoot, executionId: "", sent: false };
-    },
-    async open({ binding, writeBinding, onFailure: reportFailure, conversation }) {
-      const supplied = conversation?.native;
-      const scoped = supplied?.scoped;
-      let owner = supplied?.owner;
-      let entry;
-      if (!supplied) {
-        requireClaudeSessionId(binding?.conversationId);
-        const scopeWorkdir = await realpath(workdir);
-        // Original scoped conversations keep native history in the credential
-        // home. Both paths must still come from the current authorized host.
-        const nativeWorkdir = Object.hasOwn(binding, "scopeWorkdir")
-          ? await realpath(env.HOME || homedir()) : scopeWorkdir;
-        if (binding.workdir !== nativeWorkdir || binding.configRoot !== configRoot ||
-          (Object.hasOwn(binding, "scopeWorkdir") && binding.scopeWorkdir !== scopeWorkdir)) {
-          throw new Error("This Claude conversation belongs to another working directory or credential home. Restore its original host configuration.");
-        }
-        owner = standaloneOwner();
-        const context = { key: scopeWorkdir, workdir: binding.workdir, binding, reportFailure,
-          async updateBinding(patch) {
-            const next = { ...context.binding, ...patch };
-            await writeBinding(next);
-            context.binding = next;
-          }
-        };
-        entry = await owner.open(context, { conversationId: binding.conversationId, mainId: binding.conversationId, create: true });
-        // An unknown execution is never reclaimed by PID or silently abandoned.
-        // Managed hosts can prove cleanup using their durable execution identity.
-        if (binding.executionId) await entry.nativeTurn.stopProcess("The application reconnected to this conversation.");
-      }
-      const acquire = supplied ? owner.acquire : (() => entry);
-      const control = { current: null, disposed: false, cleanupFailure: null };
-      const commandOptions = { acquire, reportFailure, entry,
-        maximumOutput, maximumToolCalls: limits.maxToolCalls ?? 32, timeoutMs: limits.admissionTimeoutMs };
-      const scopedInput = scopedConversationInput(scoped?.conversationId);
-      return Object.freeze({
-        ...(scoped ? { capabilities: SCOPED_CONVERSATION_CAPABILITIES,
-          async sendNative({ input, context }) {
-            input = scopedInput(input);
-            return owner.startTurn(await acquire(context, input.conversationId, { operation: "start", input }), input);
-          },
-          async readNative({ input, context }) {
-            input = scopedInput(input);
-            return owner.read(await acquire(context, input.conversationId), input);
-          },
-          async waitNative({ input, context }) {
-            input = scopedInput(input);
-            return owner.wait(await acquire(context, input.conversationId), input, { context, acquire });
-          }
-        } : {}),
-        ...(supplied && !scoped ? {
-          publishNative: event => conversation.publish({ ...event, goalChanged: event.reason === "claude-goal" })
-        } : {}),
-        async readGoal({ configuration, context }) {
-          if (scoped) return unsupportedScopedConversation();
-          if (supplied) {
-            await acquire(context);
-            const completeResult = supplied.completeResult?.(context);
-            const nativeResult = await owner.readGoal(await acquire(context));
-            await completeResult?.(nativeResult, {
-              segmentId: nativeResult.threadId ? `claude:${nativeResult.threadId}` : null, capabilities: goalCapabilities
-            });
-            return { nativeResult, goal: claudeGoalValue(nativeResult.goal, nativeResult.threadId) };
-          }
-          await bindAccount(entry, configuration, context);
-          return claudeGoalValue(await entry.goals.read(), entry.id);
-        },
-        async updateGoal({ configuration, context, input, representation, interrupt, send }) {
-          if (scoped) return unsupportedScopedConversation();
-          if (supplied) {
-            await acquire(context);
-            const completeResult = supplied.completeResult?.(context);
-            let command = input;
-            let facilities = { signal: context?.signal };
-            if (representation !== "native") {
-              const current = await owner.readGoal(await acquire(context));
-              if (input.action !== "set" && claudeGoalValue(current.goal, current.threadId)?.id !== input.expectedGoalId) {
-                throw new Error("The Claude goal changed. Refresh before trying again.");
-              }
-              command = { ...input, threadId: current.threadId,
-                ...(input.action !== "set" ? { createdAt: current.goal.createdAt, objective: current.goal.objective } : {}) };
-              facilities = { signal: context?.signal, interrupt, send: command => send(command, { threadId: current.threadId }) };
-            }
-            const nativeResult = await owner.updateGoal(await acquire(context), command, facilities);
-            await completeResult?.(nativeResult);
-            return { nativeResult, goal: claudeGoalValue(nativeResult.goal, nativeResult.threadId) };
-          }
-          await bindAccount(entry, configuration, context);
-          const goal = await entry.goals.read();
-          if (input.action !== "set" && claudeGoalValue(goal, entry.id)?.id !== input.expectedGoalId) {
-            throw new Error("The Claude goal changed. Refresh before trying again.");
-          }
-          await entry.goals.update({ ...input, threadId: entry.id,
-            ...(input.action !== "set" ? { createdAt: goal?.createdAt, objective: goal?.objective } : {}) }, { interrupt, send, signal: context?.signal });
-          return claudeGoalValue(await entry.goals.read(), entry.id);
-        },
-        async inspectAdmission({ context, representation, verifyAccount = false, ...input }) {
-          if (scoped) return unsupportedScopedConversation();
-          if (supplied) {
-            await acquire(context);
-            const result = await owner.inspectAdmission(await acquire(context), input);
-            return representation === "native" ? result
-              : { accepted: result.admission === "accepted", notAdmitted: result.admission === "not-admitted" };
-          }
-          if (verifyAccount === true) {
-            const binding = input.receiptBinding;
-            if (input.threadId !== entry.id || binding?.conversationId !== entry.id ||
-                binding.workdir !== entry.context.binding.workdir || binding.configRoot !== configRoot ||
-                Object.hasOwn(binding, "scopeWorkdir") !== Object.hasOwn(entry.context.binding, "scopeWorkdir") ||
-                binding.scopeWorkdir !== entry.context.binding.scopeWorkdir) {
-              throw new Error("The completed Claude response belongs to a different native conversation or host scope.");
-            }
-            await bindAccount(entry, input.configuration, context, AbortSignal.timeout(30_000), true, binding);
-          }
-          const history = await owner.readHistory(entry);
-          const nativeId = claudeNativeMessageId(input.messageId);
-          const accepted = history.userIds.includes(nativeId);
-          return { accepted, notAdmitted: !accepted && owner.nativeWorkSettled(entry),
-            messages: history.messages.filter(message => message.userId === nativeId) };
-        },
-        steer: command => owner.steer(control, command, commandOptions),
-        async run(command) {
-          if (entry && (entry.disposed || entry.command)) throw new Error("This Claude conversation is closed or already working.");
-          return owner.run(control, command, commandOptions);
-        },
-        async cancel({ input, context, representation } = {}) {
-          if (scoped) {
-            input = scopedInput(input);
-            return owner.stopConversation(await acquire(context, input.conversationId, { cleanupExecutionId: input.cleanupExecutionId }));
-          }
-          if (!supplied) for (const id of pendingAccountStops) await stopAccount(id);
-          const value = await owner.cancel(control, { context, acquire, reportFailure, entry });
-          return supplied && representation === "native" ? { value } : value;
-        },
-        async dispose(options) {
-          try {
-            let result;
-            if (scoped && options) {
-              const input = scopedInput(options.input);
-              result = await owner.deleteConversation(await acquire(options.context, input.conversationId, {
-                operation: "delete", input, cleanupExecutionId: input.cleanupExecutionId }));
-            } else if (supplied) {
-              result = await disposeNative({ native: supplied, options: scoped ? scoped.context : options });
-              if (result?.ok === false) throw Object.assign(new Error(result.error || (scoped ? "Scoped cleanup could not be confirmed." : "Claude cleanup could not be confirmed.")), result);
-            } else {
-              for (const id of pendingAccountStops) await stopAccount(id);
-              await owner.close(entry);
-            }
-            control.disposed = true;
-            return result;
-          } catch (error) {
-            if (supplied && !scoped) {
-              error.cleanupFailed = true;
-              control.current?.failure.reject(error);
-            }
-            throw error;
-          }
-        }
-      });
-    }
+    interruptDetachedConversation,
+    deleteDetachedConversation,
+    listConversationStorage,
+    retireConversationHistory,
+    closeProject,
+    invalidateRuntimes,
+    reconcileSessions,
+    createConversation,
+    runDetachedConversation,
+    createBinding,
+    open
   });
 }
