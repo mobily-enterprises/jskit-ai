@@ -91,8 +91,8 @@ schema work—never valuable data. For UI, respect surface/placements, compact
 layout, all operational states, permissions/ownership, and browser
 verification.
 Check every page for meaningful Back navigation: previous page by default,
-with justified omissions or explicitly named fixed destinations. Follow UI
-operations for the existing navigation seams, placement, and direct-entry fallback.
+with justified omissions or explicitly named fixed destinations. UI operations
+has navigation seams, placement and direct-entry fallback.
 
 ## Caller-owned verification
 
@@ -105,10 +105,10 @@ unless requested in the current task.
 
 For review-only work, report without editing. Check dead or duplicated code,
 accidental abstraction, incomplete states, missed high-level JSKIT seams,
-invalid ownership or migration choices, UI quality, and verification. Run the
-Material 3 audit for affected UI, including Back's presence, positioning, label,
-and actual destination. Do not treat a hardcoded parent link as previous-page
-navigation. Put findings first by severity and file.
+invalid ownership or migration choices, UI quality, and verification. Server
+code follows typed features, client code client features; `npm run lint` is
+clean. Run the Material 3 audit for affected UI, Back included; a hardcoded
+parent link is not previous-page navigation. Findings first by severity and file.
 
 ## Verify
 
