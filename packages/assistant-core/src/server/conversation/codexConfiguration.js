@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import { readFile, rename, rm, stat, writeFile } from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { normalizeNullableText } from "./normalize.js";
@@ -181,10 +180,8 @@ async function codexModelCatalogRevision({ command, codexHome, bundled, addition
 // Export from the installed CLI so native model definitions stay CLI-owned.
 // An app-server start reuses the runtime's exported catalogue until its
 // revision changes, so reconnects and idle restarts run no exporter.
-export async function prepareCodexModelCatalog({
-  command, runtimeDir, bundled = false, signal, additionalModels = [],
-  codexHome = process.env.CODEX_HOME || path.join(os.homedir(), ".codex")
-}) {
+export async function prepareCodexModelCatalog({ command, runtimeDir, bundled = false, signal, additionalModels = [], codexHome }) {
+  if (!codexHome) throw new TypeError("prepareCodexModelCatalog requires the Codex home whose configuration the catalogue reads.");
   const catalogPath = path.join(runtimeDir, "models.json");
   const revisionPath = path.join(runtimeDir, "models.revision");
   const revisionInput = { command, codexHome, bundled, additionalModels };

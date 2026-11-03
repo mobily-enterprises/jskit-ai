@@ -35,19 +35,19 @@ function tomlInlineValue(value) {
  * @param {object} dependencies
  * @param {import("./codexRuntime.js").CodexRuntimeExecution} dependencies.execution
  * @param {import("./codexRuntime.js").CodexRuntimeCredentials} dependencies.credentials
- * @param {import("./codexRuntime.js").CodexProcessIdentity} dependencies.processIdentity
- * @param {import("./codexRuntimeStop.js").CodexRuntimeStop} dependencies.stop
- * @param {(endpoint: string, options: object) => Promise<{ status: string }>} dependencies.endpointStatus
- * @param {(endpoint: string, options: object) => Promise<boolean>} dependencies.waitForServer
+ * @param {import("./codexRuntime.js").CodexProcessIdentity} dependencies.codexProcessIdentity
+ * @param {import("./codexRuntimeStop.js").CodexRuntimeStop} dependencies.runtimeStop
+ * @param {(endpoint: string, options: object) => Promise<{ status: string }>} dependencies.codexAppServerEndpointStatus
+ * @param {(endpoint: string, options: object) => Promise<boolean>} dependencies.waitForCodexAppServer
  * @param {import("./codexRuntime.js").CodexRuntimeSettings} dependencies.settings
  */
 export function createCodexAppServerProcessStart({
   execution,
   credentials,
-  processIdentity,
-  stop,
-  endpointStatus: codexAppServerEndpointStatus,
-  waitForServer: waitForCodexAppServer,
+  codexProcessIdentity,
+  runtimeStop,
+  codexAppServerEndpointStatus,
+  waitForCodexAppServer,
   settings
 }) {
   const {
@@ -61,13 +61,6 @@ export function createCodexAppServerProcessStart({
     socketPathHelp,
     umask
   } = settings;
-  const CODEX_APP_SERVER_PROCESS_PATH = processPath;
-  const CODEX_APP_SERVER_PROCESS_RUNTIME_TOKEN_ENV = runtimeTokenEnvironmentName;
-  const CODEX_APP_SERVER_PROCESS_COMMAND_HASH_ENV = commandHashEnvironmentName;
-  const captureCodexAppServerProcessIdentity = processIdentity.capture;
-  const currentCodexAuthStateSignature = credentials.generation;
-  const assertCodexAuthGenerationCurrent = credentials.assertCurrent;
-  const cleanupFailedCodexAppServerStart = stop.cleanupFailedStart;
 
   function codexAppServerSessionCommandHookConfig() {
     return `hooks.PreToolUse=${tomlInlineValue(codexCommandHookDefinition(commandHookCommand))}`;
@@ -93,7 +86,7 @@ export function createCodexAppServerProcessStart({
     "exec /usr/bin/env -i \\",
     '  HOME="$HOME" LOGNAME="$LOGNAME" USER="$USER" PATH="$PATH" \\',
     '  CODEX_HOME="$CODEX_HOME" LANG="$LANG" LC_ALL="$LC_ALL" LC_CTYPE="$LC_CTYPE" \\',
-    `  ${CODEX_APP_SERVER_PROCESS_RUNTIME_TOKEN_ENV}="$${CODEX_APP_SERVER_PROCESS_RUNTIME_TOKEN_ENV}" ${CODEX_APP_SERVER_PROCESS_COMMAND_HASH_ENV}="$${CODEX_APP_SERVER_PROCESS_COMMAND_HASH_ENV}" \\`,
+    `  ${runtimeTokenEnvironmentName}="$${runtimeTokenEnvironmentName}" ${commandHashEnvironmentName}="$${commandHashEnvironmentName}" \\`,
     '  SSL_CERT_DIR="$SSL_CERT_DIR" SSL_CERT_FILE="$SSL_CERT_FILE" TERM="$TERM" TMPDIR="$TMPDIR" TZ="$TZ" \\',
     '  "$@"'
   ].join("\n");
@@ -114,15 +107,14 @@ export function createCodexAppServerProcessStart({
     accountIdentitySignature = "",
     authStateSignature = "",
     codexCommand = "codex",
-    // readable-check: allow no-env-default - input validation: an application's runtime options may omit env, and the runtime then starts in the process environment
-    env = process.env,
+    env,
     executionRoot = "",
     executionMode = CODEX_APP_SERVER_EXECUTION_MODES.INTERACTIVE,
     killTimeoutMs = 0,
-    processIdentityInspector = null,
+    processIdentityInspector,
     readyTimeoutMs = CODEX_APP_SERVER_READY_TIMEOUT_MS,
-    signalProcessGroup: signalProcessGroupOverride = null,
-    stopExecution = null,
+    signalProcessGroup,
+    stopExecution,
     terminalEnv = {},
     termTimeoutMs = 0,
     toolHomeSource = "",
@@ -132,11 +124,12 @@ export function createCodexAppServerProcessStart({
     runtimeDir,
     ownerId = "",
     compatibility
-  } = {}) {
+  }) {
+    if (!env) throw new TypeError("The Codex app-server runtime start requires the application's environment, such as process.env.");
     const processLifecycleOptions = {
       killTimeoutMs,
       processIdentityInspector,
-      signalProcessGroup: signalProcessGroupOverride,
+      signalProcessGroup,
       stopExecution,
       termTimeoutMs
     };
@@ -147,8 +140,8 @@ export function createCodexAppServerProcessStart({
     if (normalizedToolHomeSource) {
       await assertExistingDirectory(normalizedToolHomeSource, "Codex credential home");
     }
-    const resolvedAuthStateSignature = await currentCodexAuthStateSignature({ authStateSignature });
-    await assertCodexAuthGenerationCurrent(resolvedAuthStateSignature);
+    const resolvedAuthStateSignature = await credentials.generation({ authStateSignature });
+    await credentials.assertCurrent(resolvedAuthStateSignature);
     const socketPath = codexAppServerSocketPath(runtimeDir);
     assertCodexAppServerSocketPathSupported(socketPath);
     const endpoint = codexAppServerUnixEndpoint(socketPath);
@@ -247,8 +240,8 @@ export function createCodexAppServerProcessStart({
       // A curated provider home contains a provider-only static catalogue. Use
       // the binary's native definitions as the base for its shared runtime.
       [modelCatalogEnvironmentName]: providerHome ? "bundled" : "native",
-      [CODEX_APP_SERVER_PROCESS_COMMAND_HASH_ENV]: commandHash,
-      [CODEX_APP_SERVER_PROCESS_RUNTIME_TOKEN_ENV]: runtimeToken
+      [commandHashEnvironmentName]: commandHash,
+      [runtimeTokenEnvironmentName]: runtimeToken
     };
     const profileBinary = path.isAbsolute(codexCommand) ? await stat(codexCommand).catch(() => null) : null;
     const startResult = await execution.run({
@@ -256,7 +249,7 @@ export function createCodexAppServerProcessStart({
         "-c",
         helper ? CODEX_APP_SERVER_HELPER_STARTUP_SCRIPT : CODEX_APP_SERVER_MANAGED_STARTUP_SCRIPT,
         processLabel,
-        ...(helper ? [] : [process.execPath, CODEX_APP_SERVER_PROCESS_PATH, runtimeDir]),
+        ...(helper ? [] : [process.execPath, processPath, runtimeDir]),
         codexCommand,
         ...codexArgs
       ],
@@ -287,13 +280,13 @@ export function createCodexAppServerProcessStart({
       timeout: readyTimeoutMs
     });
     if (!startResult.ok) {
-      const failedProcessIdentity = await captureCodexAppServerProcessIdentity({
+      const failedProcessIdentity = await codexProcessIdentity.capture({
         commandHash,
         pid: startResult.pid,
         reportedIdentity: startResult.processIdentity,
         runtimeToken
       }).catch(() => null);
-      const cleanup = await cleanupFailedCodexAppServerStart(runtimeDir, {
+      const cleanup = await runtimeStop.cleanupFailedStart(runtimeDir, {
         helper,
         executionId: startResult.execution?.id,
         neverStarted: !Number.isSafeInteger(Number(startResult.pid)),
@@ -319,14 +312,14 @@ export function createCodexAppServerProcessStart({
 
     let processIdentity;
     try {
-      processIdentity = await captureCodexAppServerProcessIdentity({
+      processIdentity = await codexProcessIdentity.capture({
         commandHash,
         pid: startResult.pid,
         reportedIdentity: startResult.processIdentity,
         runtimeToken
       });
     } catch (cause) {
-      const cleanup = await cleanupFailedCodexAppServerStart(runtimeDir, {
+      const cleanup = await runtimeStop.cleanupFailedStart(runtimeDir, {
         helper,
         executionId: startResult.execution?.id,
         pid: startResult.pid,
@@ -348,7 +341,7 @@ export function createCodexAppServerProcessStart({
     });
     if (!ready) {
       const logTail = await tailTextFile(logPath);
-      const cleanup = await cleanupFailedCodexAppServerStart(runtimeDir, {
+      const cleanup = await runtimeStop.cleanupFailedStart(runtimeDir, {
         helper,
         executionId: startResult.execution?.id,
         pid: startResult.pid,
@@ -384,9 +377,9 @@ export function createCodexAppServerProcessStart({
         }
         historyAdapterBaseUrl = descriptor.baseUrl;
       }
-      await assertCodexAuthGenerationCurrent(resolvedAuthStateSignature);
+      await credentials.assertCurrent(resolvedAuthStateSignature);
     } catch (cause) {
-      const cleanup = await cleanupFailedCodexAppServerStart(runtimeDir, {
+      const cleanup = await runtimeStop.cleanupFailedStart(runtimeDir, {
         helper,
         executionId: startResult.execution?.id,
         pid: startResult.pid,

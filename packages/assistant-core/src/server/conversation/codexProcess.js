@@ -17,16 +17,17 @@ const CODEX_APP_SERVER_LOCK_STALE_MS = 120000;
 export const CODEX_APP_SERVER_EXECUTION_MODES = Object.freeze({ HELPER: "helper", INTERACTIVE: "interactive" });
 const runtimeProcessIdentity = createConversationProcessIdentity();
 
-// Run in the host-owned execution's leader, independently of subscribers.
+// Run in the host-owned execution's leader, independently of subscribers. `env` is the leader's environment.
 export async function runCodexAppServerProcess({
-  runtimeDir, command, args = [], runtimeToken: token, bundled = false, additionalModels = []
+  runtimeDir, command, args = [], runtimeToken: token, bundled = false, additionalModels = [], env
 }) {
+  if (!env) throw new TypeError("runCodexAppServerProcess requires the application's environment, such as process.env.");
   const descriptor = path.join(runtimeDir, "history-adapter.json");
   const startup = new AbortController();
   const abortStartup = () => startup.abort();
   process.once("SIGTERM", abortStartup);
   process.once("SIGINT", abortStartup);
-  const codexHome = process.env.CODEX_HOME || path.join(os.homedir(), ".codex");
+  const codexHome = env.CODEX_HOME || path.join(os.homedir(), ".codex");
   const catalogPath = await prepareCodexModelCatalog({
     command,
     runtimeDir,
