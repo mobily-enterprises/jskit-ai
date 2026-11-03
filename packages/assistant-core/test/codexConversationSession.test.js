@@ -1498,11 +1498,11 @@ test("concurrent final common-runtime closes stop the shared Codex service once"
 
 for (const loseFirst of [true, false]) test(`shared Codex fallback records both common-runtime barriers before stop (first: ${loseFirst})`, async t => {
   const providers = new Map();
-  const startThread = CodexAppServerAgentProvider.prototype.startThread;
-  t.mock.method(CodexAppServerAgentProvider.prototype, "startThread", async function (...args) {
-    const thread = await startThread.apply(this, args);
-    providers.set(thread.id, this);
-    return thread;
+  const runRequest = CodexAppServerAgentProvider.prototype.runRequest;
+  t.mock.method(CodexAppServerAgentProvider.prototype, "runRequest", async function (operation, reason) {
+    const result = await runRequest.call(this, operation, reason);
+    if (reason === "codex-app-server-thread-start") providers.set(result.thread.id, this);
+    return result;
   });
   const execution = createLocalConversationExecution();
   const barriers = [];
@@ -1654,10 +1654,10 @@ for (const stage of ["preparation", "completion"]) test(`account invalidation re
 test("failed stopped-state persistence retains Codex recovery across reopening without starting work", async t => {
   let source;
   let rejectStopped = false;
-  const startThread = CodexAppServerAgentProvider.prototype.startThread;
-  t.mock.method(CodexAppServerAgentProvider.prototype, "startThread", async function (...args) {
-    source = this;
-    return startThread.apply(this, args);
+  const runRequest = CodexAppServerAgentProvider.prototype.runRequest;
+  t.mock.method(CodexAppServerAgentProvider.prototype, "runRequest", async function (operation, reason) {
+    if (reason === "codex-app-server-thread-start") source = this;
+    return runRequest.call(this, operation, reason);
   });
   const f = await fixture(t, { checkpoints: true, storage: disk => ({
     read: disk.read,
@@ -2668,19 +2668,19 @@ test("held lifecycle catalogue rejection preserves a newer same-runtime tail and
   }
 });
 
-// Bound-host contract additions retain the original native app-server fixture,
-// schemas, tool-call framing, transcript store and run owner. Public Main's
-// identity/authority/readiness composition is a separate adoption prerequisite.
+// The bound-host contract on the native app-server fixture: schemas, tool-call
+// framing, transcript store and run owner. Identity, authority and readiness
+// composition belongs to the bound application.
 import { createCodexAppServerRunOwner, codexAppServerTurnState } from "../src/server/conversation/codexTurn.js";
 import { codexApplicationToolConfiguration, ensureCodexAppServerThread } from "../src/server/conversation/codexProviderThreads.js";
 import { createServiceToolCatalog } from "../src/server/lib/serviceToolCatalog.js";
 
 async function boundCodexToolsFixture(t, options = {}) {
   let sharedProvider;
-  const startThread = CodexAppServerAgentProvider.prototype.startThread;
-  t.mock.method(CodexAppServerAgentProvider.prototype, "startThread", async function (...args) {
-    sharedProvider ||= this;
-    return startThread.apply(this, args);
+  const runRequest = CodexAppServerAgentProvider.prototype.runRequest;
+  t.mock.method(CodexAppServerAgentProvider.prototype, "runRequest", async function (operation, reason) {
+    if (reason === "codex-app-server-thread-start") sharedProvider ||= this;
+    return runRequest.call(this, operation, reason);
   });
   const cleanups = [];
   let boundRuntime, owner;
@@ -2887,7 +2887,7 @@ test("bound Codex refuses stale turns, foreign threads and retired handlers with
 });
 
 test("shared Codex thread registrations retain ownership tokens and Helper request precedence", async t => {
-  const provider = new CodexAppServerAgentProvider();
+  const provider = new CodexAppServerAgentProvider({}, {});
   const calls = [];
   let originalClientRequest;
   provider.client = { setRequestHandler(callback) { originalClientRequest = callback; }, close() {} };

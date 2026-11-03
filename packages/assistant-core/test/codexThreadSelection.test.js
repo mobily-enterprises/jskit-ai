@@ -67,6 +67,7 @@ test("selection failures preserve the original error and never fall back to a ne
     };
     await assert.rejects(ensureCodexAppServerThread({
       provider: {
+        async ensureAvailable() { return {}; },
         async ensureRuntime() { step("runtime"); return {}; },
         async readGoal() { step("goal"); return { goal: { status: "active" } }; },
         async setGoalStatus() { step("pause"); },
@@ -93,6 +94,7 @@ test("new selection starts once and rejects a missing native ID before publishin
     const settings = { model: "selected-model", sessionStartSource: "startup" };
     const selecting = ensureCodexAppServerThread({
       provider: {
+        async ensureAvailable() { return {}; },
         async ensureRuntime() { calls.push("runtime"); return {}; },
         async startThread(input) { calls.push("start"); assert.equal(input, settings); return { id }; },
         async resumeThread() { assert.fail("There is no saved thread to resume"); },
@@ -117,6 +119,7 @@ test("selection reads the saved pause marker again after resume and retains the 
   let written;
   const selected = await ensureCodexAppServerThread({
     provider: {
+      async ensureAvailable() { return {}; },
       async ensureRuntime() { return {}; },
       async readGoal() { return { goal: { status: "paused" } }; },
       async setGoalStatus() { assert.fail("An already paused goal stays paused"); },

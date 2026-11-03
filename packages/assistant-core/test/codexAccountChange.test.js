@@ -263,7 +263,7 @@ test("recording a session's runtime for a new sign-in removes the previous sign-
   const running = await runtimeDirectory(root, "running", "running");
   const bind = superseded => ensureCodexAppServerThread({
     observeThread: async () => {},
-    provider: { ensureRuntime: async () => ({ runtimeDir: path.join(root, "codex-app-server-current") }),
+    provider: { ensureAvailable: async () => ({}), ensureRuntime: async () => ({ runtimeDir: path.join(root, "codex-app-server-current") }),
       startThread: async () => ({ id: "thread-1" }) },
     settings: async () => ({ threadSettings: {}, threadStartSettings: {} }),
     identity: { read: () => "", write: async () => ({ supersededRuntimeDir: superseded }) },

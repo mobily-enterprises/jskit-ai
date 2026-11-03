@@ -1,8 +1,7 @@
 import { CODEX_APP_SERVER_PROVIDER_ID, normalizeCodexAppServerTerminalEnv } from "./codexProcess.js";
 import { CodexAppServerJsonRpcClient } from "./codexClient.js";
 import { codexAppServerProjectHookTrustConfig } from "./codexConfiguration.js";
-import { codexControlProbeCommand } from "./codexProviderTurns.js";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { exportCodexNativeHistory } from "./codexNativeHistoryExport.js";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { lstat, realpath } from "node:fs/promises";
@@ -96,7 +95,7 @@ export async function retireCodexConversationHistory(provider, binding, {
 }
 
 // Native Codex0.159.1 keeps goals in its separate goals_1.sqlite store.
-// Return its original SQL fields; the host owns stopped conversion eligibility,
+// Returns its SQL fields as stored; the host owns stopped conversion eligibility,
 // including rejecting active/blocked/limited goals and resolving SQLite home.
 export async function readCodexNativeGoal(databasePath, { threadId, signal } = {}) {
   if (!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/u.test(threadId || "") ||
@@ -130,10 +129,10 @@ export async function readCodexNativeGoal(databasePath, { threadId, signal } = {
   }, { signal });
 }
 
-export async function codexAppServerThreadHasReadableHistory(provider = null, threadId = "") {
+/** @param {{ readThread: (threadId: string) => Promise<unknown> }} provider */
+export async function codexAppServerThreadHasReadableHistory(provider, threadId = "") {
   const normalizedThreadId = normalizeAgentText(threadId);
-  // readable-check: allow method-probe - input validation: a caller without a provider that reads threads has no readable history
-  if (!normalizedThreadId || typeof provider?.readThread !== "function") {
+  if (!normalizedThreadId) {
     return false;
   }
   try {
@@ -175,13 +174,18 @@ export async function deleteCodexAppServerThread({ provider, threadId } = {}) {
   return result;
 }
 
+function codexHelperDeletionSupport(provider) {
+  // readable-check: allow method-probe - input validation: an application's provider may lack interruption or deletion, and helper deletion then reports which one instead of failing inside the native call
+  return { interrupts: typeof provider.interruptTurn === "function", deletes: typeof provider.deleteThread === "function" };
+}
+
 // The caller persists cleanup ownership before this operation and removes that
 // receipt only after success. Native failure details remain local to that owner.
 export async function deleteCodexAppServerHelperThread({ provider, threadId, turnId = "" } = {}) {
+  const support = codexHelperDeletionSupport(provider);
   let interruptError = null;
   if (turnId) {
-    // readable-check: allow method-probe - input validation: a helper thread is deleted even when its caller's provider cannot interrupt
-    if (typeof provider?.interruptTurn === "function") {
+    if (support.interrupts) {
       try {
         await provider.interruptTurn(threadId, turnId);
       } catch (error) {
@@ -191,8 +195,7 @@ export async function deleteCodexAppServerHelperThread({ provider, threadId, tur
       interruptError = new Error("Codex provider cannot interrupt an active helper turn.");
     }
   }
-  // readable-check: allow method-probe - input validation: a caller's provider that cannot delete threads gets a refusal, not a failure
-  if (typeof provider?.deleteThread !== "function") {
+  if (!support.deletes) {
     return { ok: false, error: new Error("Codex provider cannot delete a helper thread."), interruptError };
   }
   try {
@@ -244,6 +247,17 @@ export function assertCodexApplicationToolSchemaIdentity(threadId, savedIdentity
   }
 }
 
+// input validation: a caller's thread preparation observes main threads before they resume, and bound application
+// tools need the schema identity the thread was created with.
+function assertCodexThreadPreparation({ observeThread, identity, applicationTools }) {
+  if (typeof observeThread !== "function") {
+    throw new TypeError("Main Codex threads require an observer before they can resume.");
+  }
+  if (applicationTools && !identity.readToolSchemaIdentity) {
+    throw new TypeError("Bound Codex application tools require the original schema identity reader and writer.");
+  }
+}
+
 /** Retained thread selection keeps observation ahead of a resume that can start work. */
 export async function ensureCodexAppServerThread({
   observeThread,
@@ -256,22 +270,15 @@ export async function ensureCodexAppServerThread({
   workdir = "",
   onStage = () => {}
 } = {}) {
-  if (typeof observeThread !== "function") {
-    throw new TypeError("Main Codex threads require an observer before they can resume.");
-  }
+  assertCodexThreadPreparation({ observeThread, identity, applicationTools });
   const normalizedWorkdir = normalizeAgentText(workdir);
   let stageStartedAt = Date.now();
-  // readable-check: allow method-probe - input validation: a caller of this public step may pass a provider that only ensures its runtime
-  const availability = typeof provider.ensureAvailable === "function"
-    ? await provider.ensureAvailable()
-    : null;
-  const appServerRuntime = availability?.runtime || await provider.ensureRuntime();
+  const availability = await provider.ensureAvailable();
+  const appServerRuntime = availability.runtime || await provider.ensureRuntime();
   onStage({ durationMs: Date.now() - stageStartedAt, stage: "runtime" });
   const existingThreadId = identity.read(normalizedWorkdir);
   const toolConfiguration = applicationTools ? codexApplicationToolConfiguration(applicationTools) : null;
   if (toolConfiguration) {
-    // readable-check: allow method-probe - input validation: bound application tools need the caller's schema identity reader
-    if (typeof identity.readToolSchemaIdentity !== "function") throw new TypeError("Bound Codex application tools require the original schema identity reader and writer.");
     assertCodexApplicationToolSchemaIdentity(existingThreadId, await identity.readToolSchemaIdentity(normalizedWorkdir), toolConfiguration.toolSchemaIdentity);
   }
   let config = null;
@@ -341,6 +348,14 @@ export function codexAppServerThreadRequestParams(params = {}, threadEnv = {}) {
   };
 }
 
+// Without an application adjustment, thread parameters stay as they are.
+export function keepCodexThreadParams(params) {
+  return params;
+}
+
+// Without an application check, a thread resumes as it is.
+export async function resumeCodexThreadAsIs() {}
+
 function normalizeAgentThread(value = {}) {
   const thread = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   return {
@@ -350,357 +365,334 @@ function normalizeAgentThread(value = {}) {
     raw: thread.raw || thread
   };
 }
-
-/** @param {CodexAppServerAgentProvider} provider */
-export async function startThread(provider, { hostContext, ...params } = {}) {
-  params = await provider.conversationRuntime.prepareInstructions({ ...params, hostContext });
-  delete params.hostContext;
-  // readable-check: allow optional-call - optional operation: an application may adjust thread parameters through its provider options
-  params = await provider.options.prepareThreadParams?.(params) || params;
-  const client = await provider.activeClient();
-  params = await provider.withHistoryAdapter(params, client);
-  const environment = provider.options.prepareThreadEnvironment
-    ? await provider.options.prepareThreadEnvironment(provider.options.threadEnv || {})
-    : provider.options.threadEnv;
-  const requestParams = provider.conversationRuntime.threadParameters(params, environment);
-  if (params.ephemeral !== true) requestParams.historyMode = "paginated";
-  const response = await provider.runRequest(
-    () => client.request("thread/start", requestParams),
-    "codex-app-server-thread-start"
-  );
-  if (hostContext) {
-    await provider.options.bindThreadContext(response?.thread?.id, hostContext, params);
-  }
-  // Native ephemeral helpers have no stored history and report "legacy".
-  // Paginated history is required only for persistent conversations.
-  if (params.ephemeral !== true && response?.thread?.historyMode === "legacy") {
-    throw Object.assign(new Error("Codex did not create the required paginated conversation history. Update Codex before starting a conversation."), {
-      code: `${provider.errorPrefix}codex_history_unsupported`
-    });
-  }
-  if (response?.thread?.historyMode === "paginated" && response.thread.ephemeral !== true) {
-    const threadId = normalizeAgentText(response.thread.id);
-    // A new paginated thread needs its metadata and empty rollout persisted
-    // before it can be resumed. This initializes only the just-created,
-    // empty thread; it never hydrates an existing conversation.
-    await provider.runRequest(async () => {
-      await client.request("thread/name/set", { threadId, name: threadId });
-      await client.request("thread/read", { threadId, includeTurns: true });
-    }, "codex-app-server-thread-initialize-history");
-  }
-  if (provider.options.prepareThreadEnvironment && response?.thread?.id) {
-    provider.conversationRuntime.registerThread(response.thread.id, {
-      client, executionId: normalizeAgentText(provider.runtime?.executionId),
-      params: requestParams, managed: !Object.hasOwn(params.config || {}, "shell_environment_policy")
-    });
-  }
-  return {
-    ...normalizeAgentThread({
-      id: response?.thread?.id,
-      provider: CODEX_APP_SERVER_PROVIDER_ID,
-      raw: response?.thread
-    }),
-    response
-  };
-}
-
-/** @param {CodexAppServerAgentProvider} provider */
-export async function resumeThread(provider, threadId = "", { hostContext, ...params } = {}) {
-  if (hostContext) await provider.options.bindThreadContext(threadId, hostContext, params);
-  params = await provider.conversationRuntime.prepareInstructions({ ...params, hostContext }, threadId);
-  delete params.hostContext;
-  // readable-check: allow optional-call - optional operation: an application may adjust thread parameters through its provider options
-  params = await provider.options.prepareThreadParams?.(params) || params;
-  // readable-check: allow optional-call - optional operation: only owner and driver providers check a thread before resuming it
-  await provider.options.beforeResumeThread?.(threadId);
-  const client = await provider.activeClient();
-  let response;
-  if (provider.options.prepareThreadEnvironment) {
-    response = await provider.withThreadEnvironment(threadId, params, (requestParams, resumed) =>
-      resumed || client.request("thread/resume", { excludeTurns: true, ...requestParams, threadId }));
-  } else {
-    params = await provider.withHistoryAdapter(params, client, { threadId });
-    const requestParams = codexAppServerThreadRequestParams(params, provider.options.threadEnv);
-    response = await provider.runRequest(
-      () => client.request("thread/resume", {
-        excludeTurns: true,
-        ...requestParams,
-        threadId: normalizeAgentText(threadId || requestParams.threadId)
+/**
+ * The provider's thread operations: start, resume, settings, goals, reads and deletion.
+ * @param {object} dependencies
+ * @param {CodexAppServerAgentProvider} dependencies.provider
+ */
+export function createCodexProviderThreads({ provider }) {
+  const { prepareThreadParams = keepCodexThreadParams, beforeResumeThread = resumeCodexThreadAsIs } = provider.options;
+  async function startThread({ hostContext, ...params } = {}) {
+    params = await provider.conversationRuntime.prepareInstructions({ ...params, hostContext });
+    delete params.hostContext;
+    params = await prepareThreadParams(params) || params;
+    const client = await provider.activeClient();
+    params = await withHistoryAdapter(params, client);
+    const environment = provider.options.prepareThreadEnvironment
+      ? await provider.options.prepareThreadEnvironment(provider.options.threadEnv || {})
+      : provider.options.threadEnv;
+    const requestParams = provider.conversationRuntime.threadParameters(params, environment);
+    if (params.ephemeral !== true) requestParams.historyMode = "paginated";
+    const response = await provider.runRequest(
+      () => client.request("thread/start", requestParams),
+      "codex-app-server-thread-start"
+    );
+    if (hostContext) {
+      await provider.options.bindThreadContext(response?.thread?.id, hostContext, params);
+    }
+    // Native ephemeral helpers have no stored history and report "legacy".
+    // Paginated history is required only for persistent conversations.
+    if (params.ephemeral !== true && response?.thread?.historyMode === "legacy") {
+      throw Object.assign(new Error("Codex did not create the required paginated conversation history. Update Codex before starting a conversation."), {
+        code: `${provider.errorPrefix}codex_history_unsupported`
+      });
+    }
+    if (response?.thread?.historyMode === "paginated" && response.thread.ephemeral !== true) {
+      const threadId = normalizeAgentText(response.thread.id);
+      // A new paginated thread needs its metadata and empty rollout persisted
+      // before it can be resumed. This initializes only the just-created,
+      // empty thread; it never hydrates an existing conversation.
+      await provider.runRequest(async () => {
+        await client.request("thread/name/set", { threadId, name: threadId });
+        await client.request("thread/read", { threadId, includeTurns: true });
+      }, "codex-app-server-thread-initialize-history");
+    }
+    if (provider.options.prepareThreadEnvironment && response?.thread?.id) {
+      provider.conversationRuntime.registerThread(response.thread.id, {
+        client, executionId: normalizeAgentText(provider.runtime?.executionId),
+        params: requestParams, managed: !Object.hasOwn(params.config || {}, "shell_environment_policy")
+      });
+    }
+    return {
+      ...normalizeAgentThread({
+        id: response?.thread?.id,
+        provider: CODEX_APP_SERVER_PROVIDER_ID,
+        raw: response?.thread
       }),
-      "codex-app-server-thread-resume"
+      response
+    };
+  }
+
+  async function resumeThread(threadId = "", { hostContext, ...params } = {}) {
+    if (hostContext) await provider.options.bindThreadContext(threadId, hostContext, params);
+    params = await provider.conversationRuntime.prepareInstructions({ ...params, hostContext }, threadId);
+    delete params.hostContext;
+    params = await prepareThreadParams(params) || params;
+    await beforeResumeThread(threadId);
+    const client = await provider.activeClient();
+    let response;
+    if (provider.options.prepareThreadEnvironment) {
+      response = await withThreadEnvironment(threadId, params, (requestParams, resumed) =>
+        resumed || client.request("thread/resume", { excludeTurns: true, ...requestParams, threadId }));
+    } else {
+      params = await withHistoryAdapter(params, client, { threadId });
+      const requestParams = codexAppServerThreadRequestParams(params, provider.options.threadEnv);
+      response = await provider.runRequest(
+        () => client.request("thread/resume", {
+          excludeTurns: true,
+          ...requestParams,
+          threadId: normalizeAgentText(threadId || requestParams.threadId)
+        }),
+        "codex-app-server-thread-resume"
+      );
+    }
+    return {
+      ...normalizeAgentThread({
+        id: response?.thread?.id,
+        provider: CODEX_APP_SERVER_PROVIDER_ID,
+        raw: response?.thread
+      }),
+      response
+    };
+  }
+
+  async function withHistoryAdapter(params, client, options = {}) {
+    return prepareCodexHistory(params, client, { ...options,
+      baseUrl: provider.runtime?.historyAdapterBaseUrl, modelProviderId: provider.options.modelProviderId });
+  }
+
+  async function withThreadEnvironment(threadId, params, operation) {
+    try {
+      return await provider.conversationRuntime.withThreadContext(threadId, params, operation);
+    } catch (error) {
+      if (typeof error.code === "string" && error.code.startsWith("assistant_")) error.code = `${provider.errorPrefix}${error.code.slice(10)}`;
+      throw error;
+    }
+  }
+
+  async function ensureThreadControls(threadId) {
+    if (!provider.options.prepareThreadEnvironment) return;
+    return withThreadEnvironment(threadId, {}, async (_params, resumed) => ({ ok: true, recovered: Boolean(resumed) }));
+  }
+
+  async function readGoal(threadId = "", { signal } = {}) {
+    const client = await provider.activeClient();
+    const result = await provider.runRequest(
+      () => client.request("thread/goal/get", { threadId: normalizeAgentText(threadId) }, { signal }),
+      "codex-app-server-goal-read"
+    );
+    return { ...result, goal: provider.conversationRuntime.projectGoal(threadId, result.goal) };
+  }
+
+  async function updateThreadSettings(threadId, { model, effort } = {}, { signal } = {}) {
+    if (!normalizeAgentText(threadId) || !normalizeAgentText(model)) {
+      throw new TypeError("Codex settings require an existing thread and a model.");
+    }
+    const client = await provider.activeClient();
+    threadId = normalizeAgentText(threadId);
+    const requested = { model, effort, ...(effort ? { config: { model_reasoning_effort: effort } } : {}) };
+    const params = await prepareThreadParams(requested) || requested;
+    const update = async selected => {
+      const current = await provider.activeClient();
+      const applied = Promise.withResolvers();
+      // A successful RPC only queues the update. Observe its applied snapshot
+      // before resuming a goal or accepting a dependent settings operation.
+      const deadline = AbortSignal.any([AbortSignal.timeout(provider.options.requestTimeoutMs || 10_000), ...(signal ? [signal] : [])]);
+      const abort = () => applied.reject(deadline.reason);
+      const unsubscribe = current.subscribe(notification => {
+        const settings = notification.params?.threadSettings;
+        if (notification.method === "thread/settings/updated" && notification.params?.threadId === threadId &&
+            settings?.model === selected.model && (!selected.effort || settings.effort === selected.effort)) applied.resolve();
+      });
+      provider.settingsWaiters.add(applied.reject);
+      deadline.addEventListener("abort", abort, { once: true });
+      void applied.promise.catch(() => {});
+      try {
+        deadline.throwIfAborted();
+        const { thread } = await provider.runRequest(() => current.request("thread/read", {
+          threadId, includeTurns: false
+        }, { signal: deadline }), "codex-app-server-settings-read");
+        // Native no-op updates may emit no settings event. A current snapshot
+        // also confirms values already applied by the provider reload.
+        if (thread?.model === selected.model && (!selected.effort || thread.reasoningEffort === selected.effort) &&
+            (!selected.modelProvider || thread.modelProvider === selected.modelProvider)) return {};
+        const result = await provider.runRequest(() => current.request("thread/settings/update", {
+          threadId, model: selected.model, ...(selected.effort ? { effort: selected.effort } : {})
+        }, { signal: deadline }), "codex-app-server-settings-update");
+        await applied.promise;
+        return result;
+      } finally {
+        unsubscribe();
+        deadline.removeEventListener("abort", abort);
+        provider.settingsWaiters.delete(applied.reject);
+      }
+    };
+    if (params.modelProvider || provider.conversationRuntime.hasPendingSettings(threadId)) {
+      const { thread } = await client.request("thread/read", { threadId, includeTurns: false }, { signal });
+      if (params.modelProvider !== thread?.modelProvider || provider.conversationRuntime.hasPendingSettings(threadId)) {
+        return provider.conversationRuntime.scheduleSettings(threadId, params, update);
+      }
+    }
+    return update(params);
+  }
+
+  async function setGoal(threadId, { objective, tokenBudget } = {}, { signal } = {}) {
+    if (typeof objective !== "string" || !objective.trim() ||
+        (tokenBudget !== undefined && (!Number.isSafeInteger(tokenBudget) || tokenBudget <= 0))) {
+      throw new TypeError("A Codex goal requires an objective and an optional positive token budget.");
+    }
+    provider.conversationRuntime.goalChanged(threadId);
+    const operation = async () => {
+      const client = await provider.activeClient();
+      return client.request("thread/goal/set", {
+        threadId: normalizeAgentText(threadId), objective: objective.trim(), status: "active",
+        ...(tokenBudget === undefined ? {} : { tokenBudget })
+      }, { signal });
+    };
+    return provider.options.prepareThreadEnvironment
+      ? withThreadEnvironment(threadId, {}, operation)
+      : provider.runRequest(operation, "codex-app-server-goal-set");
+  }
+
+  async function setGoalStatus(threadId = "", status = "", { signal } = {}) {
+    if (!["active", "paused"].includes(status)) {
+      throw new TypeError("Invalid Codex goal status.");
+    }
+    provider.conversationRuntime.goalChanged(threadId);
+    const operation = async () => {
+      const client = await provider.activeClient();
+      return client.request("thread/goal/set", { threadId: normalizeAgentText(threadId), status }, { signal });
+    };
+    return status === "active" && provider.options.prepareThreadEnvironment
+      ? withThreadEnvironment(threadId, {}, operation)
+      : provider.runRequest(operation, "codex-app-server-goal-status");
+  }
+
+  async function clearGoal(threadId = "", { signal } = {}) {
+    provider.conversationRuntime.goalChanged(threadId);
+    const client = await provider.activeClient();
+    return provider.runRequest(
+      () => client.request("thread/goal/clear", { threadId: normalizeAgentText(threadId) }, { signal }),
+      "codex-app-server-goal-clear"
     );
   }
-  return {
-    ...normalizeAgentThread({
-      id: response?.thread?.id,
-      provider: CODEX_APP_SERVER_PROVIDER_ID,
-      raw: response?.thread
-    }),
-    response
-  };
-}
 
-/** @param {CodexAppServerAgentProvider} provider */
-export async function withHistoryAdapter(provider, params, client, options = {}) {
-  return prepareCodexHistory(params, client, { ...options,
-    baseUrl: provider.runtime?.historyAdapterBaseUrl, modelProviderId: provider.options.modelProviderId });
-}
-
-/** @param {CodexAppServerAgentProvider} provider */
-export async function withThreadEnvironment(provider, threadId, params, operation) {
-  try {
-    return await provider.conversationRuntime.withThreadContext(threadId, params, operation);
-  } catch (error) {
-    if (typeof error.code === "string" && error.code.startsWith("assistant_")) error.code = `${provider.errorPrefix}${error.code.slice(10)}`;
-    throw error;
+  async function readThread(threadId = "") {
+    const client = await provider.activeClient();
+    const response = await provider.runRequest(
+      () => client.request("thread/read", {
+        includeTurns: true,
+        threadId: normalizeAgentText(threadId)
+      }),
+      "codex-app-server-thread-read"
+    );
+    return {
+      ...normalizeAgentThread({
+        id: response?.thread?.id || threadId,
+        provider: CODEX_APP_SERVER_PROVIDER_ID,
+        // readable-check: allow no-dual-shape - data: Codex replies to thread/read with the thread wrapped or bare
+        raw: response?.thread || response
+      }),
+      response
+    };
   }
-}
 
-/** @param {CodexAppServerAgentProvider} provider */
-export async function verifyThreadEnvironment(provider, threadId, environment, request, signal, { requiredKeys = [] } = {}) {
-  const keys = Object.keys(environment).filter((key) => key.startsWith(provider.configuration.controlEnvironmentPrefix) || requiredKeys.includes(key)).sort();
-  if (!keys.length) return;
-
-  const marker = `${provider.configuration.controlProbePrefix}${randomUUID()}:`;
-  const probe = { marker, pending: [], verified: false, turnId: "" };
-  provider.threadControlProbes.set(threadId, probe);
-  const expected = createHash("sha256").update(JSON.stringify(keys.map((key) => [key, environment[key]]))).digest("hex");
-  // This bounded native shell check uses no model and prints only a digest,
-  // never credentials or environment values.
-  await request("thread/shellCommand", {
-    threadId, command: codexControlProbeCommand(keys, marker), timeoutMs: 2000
-  });
-  while (true) {
-    signal.throwIfAborted();
-    // The native completion event owns this result; saved history is not a
-    // second acknowledgement of this live control operation.
-    if (probe.completed && probe.result) {
-      if (probe.result.type !== "commandExecution" || probe.result.exitCode !== 0 ||
-          probe.result.aggregatedOutput?.trim() !== `${marker}${expected}`) {
-        throw Object.assign(new Error("Another native subscriber retained the previous assistant settings. Close the native assistant terminal and retry Resume."), {
-          code: "assistant_agent_control_binding_retained"
-        });
-      }
-      return;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 25));
+  async function readThreadStatus(threadId = "") {
+    const client = await provider.activeClient();
+    const response = await provider.runRequest(
+      () => client.request("thread/read", {
+        includeTurns: false,
+        threadId: normalizeAgentText(threadId)
+      }),
+      "codex-app-server-thread-status"
+    );
+    return {
+      ...normalizeAgentThread({
+        id: response?.thread?.id || threadId,
+        provider: CODEX_APP_SERVER_PROVIDER_ID,
+        // readable-check: allow no-dual-shape - data: Codex replies to thread/read with the thread wrapped or bare
+        raw: response?.thread || response
+      }),
+      response
+    };
   }
-}
 
-/** @param {CodexAppServerAgentProvider} provider */
-export async function ensureThreadControls(provider, threadId) {
-  if (!provider.options.prepareThreadEnvironment) return;
-  return provider.withThreadEnvironment(threadId, {}, async (_params, resumed) => ({ ok: true, recovered: Boolean(resumed) }));
-}
-
-/** @param {CodexAppServerAgentProvider} provider */
-export async function readGoal(provider, threadId = "", { signal } = {}) {
-  const client = await provider.activeClient();
-  const result = await provider.runRequest(
-    () => client.request("thread/goal/get", { threadId: normalizeAgentText(threadId) }, { signal }),
-    "codex-app-server-goal-read"
-  );
-  return { ...result, goal: provider.conversationRuntime.projectGoal(threadId, result.goal) };
-}
-
-/** @param {CodexAppServerAgentProvider} provider */
-export async function updateThreadSettings(provider, threadId, { model, effort } = {}, { signal } = {}) {
-  if (!normalizeAgentText(threadId) || !normalizeAgentText(model)) {
-    throw new TypeError("Codex settings require an existing thread and a model.");
+  async function listThreadTurns(threadId = "", params = {}) {
+    const client = await provider.activeClient();
+    return provider.runRequest(
+      () => client.request("thread/turns/list", {
+        ...params,
+        threadId: normalizeAgentText(threadId || params.threadId)
+      }),
+      "codex-app-server-thread-turns-list"
+    );
   }
-  const client = await provider.activeClient();
-  threadId = normalizeAgentText(threadId);
-  const requested = { model, effort, ...(effort ? { config: { model_reasoning_effort: effort } } : {}) };
-  // readable-check: allow optional-call - optional operation: an application may adjust thread parameters through its provider options
-  const params = await provider.options.prepareThreadParams?.(requested) || requested;
-  const update = async selected => {
-    const current = await provider.activeClient();
-    const applied = Promise.withResolvers();
-    // A successful RPC only queues the update. Observe its applied snapshot
-    // before resuming a goal or accepting a dependent settings operation.
-    const deadline = AbortSignal.any([AbortSignal.timeout(provider.options.requestTimeoutMs || 10_000), ...(signal ? [signal] : [])]);
-    const abort = () => applied.reject(deadline.reason);
-    const unsubscribe = current.subscribe(notification => {
-      const settings = notification.params?.threadSettings;
-      if (notification.method === "thread/settings/updated" && notification.params?.threadId === threadId &&
-          settings?.model === selected.model && (!selected.effort || settings.effort === selected.effort)) applied.resolve();
+
+  async function exportThreadHistory(threadId, onRecord, { signal } = {}) {
+    const active = await provider.activeClient();
+    // Oversized native items must fail preservation without disconnecting the
+    // shared conversation observer. Reuse JSKIT's transport on a separate socket.
+    const client = new CodexAppServerJsonRpcClient({
+      endpoint: active.endpoint,
+      maxMessageBytes: 64 * 1024 ** 2,
+      requestTimeoutMs: 30_000,
+      WebSocketImpl: provider.options.WebSocketImpl
     });
-    provider.settingsWaiters.add(applied.reject);
-    deadline.addEventListener("abort", abort, { once: true });
-    void applied.promise.catch(() => {});
+    const deadline = AbortSignal.timeout(300_000);
+    const boundedSignal = signal ? AbortSignal.any([signal, deadline]) : deadline;
+    boundedSignal.throwIfAborted();
+    const abort = () => client.close();
+    boundedSignal.addEventListener("abort", abort, { once: true });
     try {
-      deadline.throwIfAborted();
-      const { thread } = await provider.runRequest(() => current.request("thread/read", {
-        threadId, includeTurns: false
-      }, { signal: deadline }), "codex-app-server-settings-read");
-      // Native no-op updates may emit no settings event. A current snapshot
-      // also confirms values already applied by the provider reload.
-      if (thread?.model === selected.model && (!selected.effort || thread.reasoningEffort === selected.effort) &&
-          (!selected.modelProvider || thread.modelProvider === selected.modelProvider)) return {};
-      const result = await provider.runRequest(() => current.request("thread/settings/update", {
-        threadId, model: selected.model, ...(selected.effort ? { effort: selected.effort } : {})
-      }, { signal: deadline }), "codex-app-server-settings-update");
-      await applied.promise;
-      return result;
+      await client.connect();
+      boundedSignal.throwIfAborted();
+      await client.initialize({ clientInfo: provider.configuration.historyClientInfo });
+      boundedSignal.throwIfAborted();
+      return await exportCodexNativeHistory(client, normalizeAgentText(threadId), onRecord, { signal: boundedSignal, errorPrefix: provider.errorPrefix });
     } finally {
-      unsubscribe();
-      deadline.removeEventListener("abort", abort);
-      provider.settingsWaiters.delete(applied.reject);
-    }
-  };
-  if (params.modelProvider || provider.conversationRuntime.hasPendingSettings(threadId)) {
-    const { thread } = await client.request("thread/read", { threadId, includeTurns: false }, { signal });
-    if (params.modelProvider !== thread?.modelProvider || provider.conversationRuntime.hasPendingSettings(threadId)) {
-      return provider.conversationRuntime.scheduleSettings(threadId, params, update);
+      boundedSignal.removeEventListener("abort", abort);
+      client.close();
     }
   }
-  return update(params);
-}
 
-/** @param {CodexAppServerAgentProvider} provider */
-export async function setGoal(provider, threadId, { objective, tokenBudget } = {}, { signal } = {}) {
-  if (typeof objective !== "string" || !objective.trim() ||
-      (tokenBudget !== undefined && (!Number.isSafeInteger(tokenBudget) || tokenBudget <= 0))) {
-    throw new TypeError("A Codex goal requires an objective and an optional positive token budget.");
-  }
-  provider.conversationRuntime.goalChanged(threadId);
-  const operation = async () => {
+  async function unsubscribeThread(threadId = "") {
     const client = await provider.activeClient();
-    return client.request("thread/goal/set", {
-      threadId: normalizeAgentText(threadId), objective: objective.trim(), status: "active",
-      ...(tokenBudget === undefined ? {} : { tokenBudget })
-    }, { signal });
-  };
-  return provider.options.prepareThreadEnvironment
-    ? provider.withThreadEnvironment(threadId, {}, operation)
-    : provider.runRequest(operation, "codex-app-server-goal-set");
-}
-
-/** @param {CodexAppServerAgentProvider} provider */
-export async function setGoalStatus(provider, threadId = "", status = "", { signal } = {}) {
-  if (!["active", "paused"].includes(status)) {
-    throw new TypeError("Invalid Codex goal status.");
+    return provider.runRequest(
+      () => client.request("thread/unsubscribe", {
+        threadId: normalizeAgentText(threadId)
+      }),
+      "codex-app-server-thread-unsubscribe"
+    );
   }
-  provider.conversationRuntime.goalChanged(threadId);
-  const operation = async () => {
+
+  async function deleteThread(threadId = "") {
     const client = await provider.activeClient();
-    return client.request("thread/goal/set", { threadId: normalizeAgentText(threadId), status }, { signal });
-  };
-  return status === "active" && provider.options.prepareThreadEnvironment
-    ? provider.withThreadEnvironment(threadId, {}, operation)
-    : provider.runRequest(operation, "codex-app-server-goal-status");
-}
+    return provider.runRequest(
+      () => client.request("thread/delete", {
+        threadId: normalizeAgentText(threadId)
+      }),
+      "codex-app-server-thread-delete"
+    );
+  }
 
-/** @param {CodexAppServerAgentProvider} provider */
-export async function clearGoal(provider, threadId = "", { signal } = {}) {
-  provider.conversationRuntime.goalChanged(threadId);
-  const client = await provider.activeClient();
-  return provider.runRequest(
-    () => client.request("thread/goal/clear", { threadId: normalizeAgentText(threadId) }, { signal }),
-    "codex-app-server-goal-clear"
-  );
-}
-
-/** @param {CodexAppServerAgentProvider} provider */
-export async function readThread(provider, threadId = "") {
-  const client = await provider.activeClient();
-  const response = await provider.runRequest(
-    () => client.request("thread/read", {
-      includeTurns: true,
-      threadId: normalizeAgentText(threadId)
-    }),
-    "codex-app-server-thread-read"
-  );
-  return {
-    ...normalizeAgentThread({
-      id: response?.thread?.id || threadId,
-      provider: CODEX_APP_SERVER_PROVIDER_ID,
-      // readable-check: allow no-dual-shape - data: Codex replies to thread/read with the thread wrapped or bare
-      raw: response?.thread || response
-    }),
-    response
-  };
-}
-
-/** @param {CodexAppServerAgentProvider} provider */
-export async function readThreadStatus(provider, threadId = "") {
-  const client = await provider.activeClient();
-  const response = await provider.runRequest(
-    () => client.request("thread/read", {
-      includeTurns: false,
-      threadId: normalizeAgentText(threadId)
-    }),
-    "codex-app-server-thread-status"
-  );
-  return {
-    ...normalizeAgentThread({
-      id: response?.thread?.id || threadId,
-      provider: CODEX_APP_SERVER_PROVIDER_ID,
-      // readable-check: allow no-dual-shape - data: Codex replies to thread/read with the thread wrapped or bare
-      raw: response?.thread || response
-    }),
-    response
-  };
-}
-
-/** @param {CodexAppServerAgentProvider} provider */
-export async function listThreadTurns(provider, threadId = "", params = {}) {
-  const client = await provider.activeClient();
-  return provider.runRequest(
-    () => client.request("thread/turns/list", {
-      ...params,
-      threadId: normalizeAgentText(threadId || params.threadId)
-    }),
-    "codex-app-server-thread-turns-list"
-  );
-}
-
-/** @param {CodexAppServerAgentProvider} provider */
-export async function exportThreadHistory(provider, threadId, onRecord, { signal } = {}) {
-  const active = await provider.activeClient();
-  // Oversized native items must fail preservation without disconnecting the
-  // shared conversation observer. Reuse JSKIT's transport on a separate socket.
-  const client = new CodexAppServerJsonRpcClient({
-    endpoint: active.endpoint,
-    maxMessageBytes: 64 * 1024 ** 2,
-    requestTimeoutMs: 30_000,
-    WebSocketImpl: provider.options.WebSocketImpl
+  return Object.freeze({
+    startThread,
+    resumeThread,
+    withHistoryAdapter,
+    withThreadEnvironment,
+    ensureThreadControls,
+    readGoal,
+    updateThreadSettings,
+    // readable-check: allow setter-seam - not a slot: setGoal sets a thread's native goal
+    setGoal,
+    // readable-check: allow setter-seam - not a slot: setGoalStatus pauses or resumes a thread's native goal
+    setGoalStatus,
+    clearGoal,
+    readThread,
+    readThreadStatus,
+    listThreadTurns,
+    exportThreadHistory,
+    unsubscribeThread,
+    deleteThread
   });
-  const deadline = AbortSignal.timeout(300_000);
-  const boundedSignal = signal ? AbortSignal.any([signal, deadline]) : deadline;
-  boundedSignal.throwIfAborted();
-  const abort = () => client.close();
-  boundedSignal.addEventListener("abort", abort, { once: true });
-  try {
-    await client.connect();
-    boundedSignal.throwIfAborted();
-    await client.initialize({ clientInfo: provider.configuration.historyClientInfo });
-    boundedSignal.throwIfAborted();
-    return await exportCodexNativeHistory(client, normalizeAgentText(threadId), onRecord, { signal: boundedSignal, errorPrefix: provider.errorPrefix });
-  } finally {
-    boundedSignal.removeEventListener("abort", abort);
-    client.close();
-  }
-}
-
-/** @param {CodexAppServerAgentProvider} provider */
-export async function unsubscribeThread(provider, threadId = "") {
-  const client = await provider.activeClient();
-  return provider.runRequest(
-    () => client.request("thread/unsubscribe", {
-      threadId: normalizeAgentText(threadId)
-    }),
-    "codex-app-server-thread-unsubscribe"
-  );
-}
-
-/** @param {CodexAppServerAgentProvider} provider */
-export async function deleteThread(provider, threadId = "") {
-  const client = await provider.activeClient();
-  return provider.runRequest(
-    () => client.request("thread/delete", {
-      threadId: normalizeAgentText(threadId)
-    }),
-    "codex-app-server-thread-delete"
-  );
 }

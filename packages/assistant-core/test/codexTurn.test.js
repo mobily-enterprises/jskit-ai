@@ -22,7 +22,7 @@ import {
   CODEX_APP_SERVER_RUN_STATE
 } from "../src/server/conversation/codexTurn.js";
 
-// Original stable-outer-turn source assertions follow their native owners.
+// A new chat turn claims its client message id through the run journal, which keeps the outer turn id.
 test("a new chat turn claims its client message id and preserves the stable outer identity", async () => {
   const messageSource = await readFile(new URL(
     "../src/server/conversation/codexMessageCommands.js", import.meta.url
@@ -35,9 +35,9 @@ test("a new chat turn claims its client message id and preserves the stable oute
   assert.match(journalSource, /outerTurnId: normalizedOuterTurnId/u);
 });
 
-// The original public renewal tests retain the application retry, accepted
-// handover, saved identity and structured acknowledgement assertions. These
-// cases exercise the native wait sequence carried from that implementation.
+// These cases exercise the native renewal wait sequence. Application retry,
+// accepted handover, saved identity and structured acknowledgement belong to
+// the application's renewal tests.
 function turn(id = "turn-1", status = "inProgress", text = "") {
   return {
     id,
@@ -1489,11 +1489,12 @@ test("original goal command preserves a failed cancellation for retry without re
   assert.equal(f.publications.length, 0);
 });
 
-// Original start/steer assertions retain the public admission and Git fixtures.
-// These bounded cases cover only the moved dispatch/receipt boundary and the
-// ownership adaptations: supplied settings, Error identity and result projection.
+// These bounded cases cover the dispatch and receipt boundary: supplied
+// settings, Error identity and result projection. Admission and Git fixtures
+// belong to the application's start and steer tests.
 function commandThreadFixture(f, providerAlreadyAvailable) {
   Object.assign(f.provider, {
+    async ensureAvailable() { return {}; },
     async ensureRuntime() { return {}; },
     async resumeThread(threadId) { return { id: threadId }; }
   });
