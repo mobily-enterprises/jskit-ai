@@ -8,8 +8,6 @@ import { openCodeServerForDirectory } from "./openCodeNativeSession.js";
 import { observePreparedEvents } from "./openCodeTurnMonitor.js";
 import { normalizeNullableText } from "./normalize.js";
 
-const text = normalizeNullableText;
-
 /** The target, with its server bound to a prepared conversation's own directory when it has one. */
 function scopedTarget(target, prepared) {
   const workdir = prepared.workdir;
@@ -154,7 +152,7 @@ export function createOpenCodeTemporaryConversations({ processes, temporaryConve
     const result = openCodeLastAssistantResult(messages, { readError });
     return {
       conversationId,
-      error: text(tracked?.error?.message) || result.error,
+      error: normalizeNullableText(tracked?.error?.message) || result.error,
       ok: !tracked?.error && !result.error,
       runId: tracked?.inputMessageId || "",
       status: tracked?.active ? "inProgress"
@@ -184,7 +182,7 @@ export function createOpenCodeTemporaryConversations({ processes, temporaryConve
       messages,
       text: result.text,
       admitted: Boolean(projection.inputMessageId && rows.some((row) => row.id === projection.inputMessageId)),
-      error: text(tracked?.error?.message) || result.error,
+      error: normalizeNullableText(tracked?.error?.message) || result.error,
       runId: tracked?.inputMessageId || [...rows].reverse().find((row) => row.type === "user")?.id || "",
       status: conversationStatus
     };
@@ -268,7 +266,7 @@ export function createOpenCodeTemporaryConversations({ processes, temporaryConve
       }
       throw error;
     }
-    tracked.inputMessageId = text(admitted.id);
+    tracked.inputMessageId = normalizeNullableText(admitted.id);
     tracked.completion = (async () => {
       const completion = options.completion;
       const onMessages = completion.onMessages;

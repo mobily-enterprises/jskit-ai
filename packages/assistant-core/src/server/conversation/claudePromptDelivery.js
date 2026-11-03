@@ -3,8 +3,6 @@ import { claudeNativeMessageId } from "./claudeHistory.js";
 import { normalizeNullableText } from "./normalize.js";
 import { ignoreReceipt } from "./nativeCommandCallbacks.js";
 
-const text = normalizeNullableText;
-
 /** A prompt whose sender has nothing to do before it is written. */
 function ignorePromptSending() {}
 
@@ -39,10 +37,10 @@ export function createClaudePromptDelivery({
   }
 
   async function dispatchPrompt(entry, input = {}, { renewal = false, command, applicationCommand } = {}) {
-    const message = command ? input.text : text(input.message || input.prompt);
+    const message = command ? input.text : normalizeNullableText(input.message || input.prompt);
     if (!command && !message) throw createError("Enter a message for Claude.", { code: "conversation_claude_message_required" });
     const context = entry.context;
-    const messageId = command ? input.messageId : text(input.messageId) || randomUUID();
+    const messageId = command ? input.messageId : normalizeNullableText(input.messageId) || randomUUID();
     const uuid = claudeNativeMessageId(messageId);
     const deliveryTiming = (command || input).deliveryTiming;
     const { onNativeReceipt = ignoreReceipt, onReceiptPersisted = ignoreReceipt } = command || input;

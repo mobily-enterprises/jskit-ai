@@ -4,8 +4,6 @@ import { OPENCODE_INTERRUPT_TIMEOUT_MS } from "./openCodeTurn.js";
 import { openCodeServerForDirectory, sameOpenCodeSelection } from "./openCodeNativeSession.js";
 import { normalizeNullableText } from "./normalize.js";
 
-const text = normalizeNullableText;
-
 /** A released target whose caller keeps no state about it. */
 function ignoreTargetRemoval() {}
 
@@ -75,7 +73,7 @@ export function createOpenCodeProcessOwner({ processes, processStarts, monitors,
   }
 
   function directoryCurrent(workdir) {
-    const state = sharedProcess && text(workdir) ? sharedProcess.directories.get(path.resolve(workdir)) : null;
+    const state = sharedProcess && normalizeNullableText(workdir) ? sharedProcess.directories.get(path.resolve(workdir)) : null;
     return !state || (!state.reload && state.generation === sharedProcess.generation);
   }
 
@@ -116,7 +114,7 @@ export function createOpenCodeProcessOwner({ processes, processStarts, monitors,
   // Holds a directory's credentials for a turn in flight there.
   function holdDirectory(workdir) {
     const shared = sharedProcess;
-    if (!shared || !text(workdir)) return () => {};
+    if (!shared || !normalizeNullableText(workdir)) return () => {};
     const state = directoryState(shared, workdir);
     state.turns += 1;
     let held = true;
@@ -157,7 +155,7 @@ export function createOpenCodeProcessOwner({ processes, processStarts, monitors,
   function inPlaceConnection(recorded, connection) {
     return Boolean(connection?.apiKey) && (recorded
       ? recorded.canonicalUrl === connection.canonicalUrl && recorded.endpointCode === connection.endpointCode
-      : !text(connection.canonicalUrl));
+      : !normalizeNullableText(connection.canonicalUrl));
   }
 
   // The running server takes the host's saved connections without stopping its
@@ -286,7 +284,7 @@ export function createOpenCodeProcessOwner({ processes, processStarts, monitors,
       current.modelProviderId === prepared.connection.modelProviderId &&
       current.projectContextRoot === prepared.projectContextRoot &&
       current.workdir === prepared.workdir &&
-      text(current.selection?.catalogRevision) === text(prepared.selection.catalogRevision) &&
+      normalizeNullableText(current.selection?.catalogRevision) === normalizeNullableText(prepared.selection.catalogRevision) &&
       sameOpenCodeSelection(current.selection, prepared.selection)
     ) {
       current.helperModelId = prepared.helperModelId;
@@ -418,13 +416,13 @@ export function createOpenCodeProcessOwner({ processes, processStarts, monitors,
     await Promise.all([...processStarts.entries()]
       .filter(([key]) => key.includes("\0"))
       .map(([, start]) => start.catch(() => null)));
-    const projectContextRoot = text(input.projectContextRoot);
+    const projectContextRoot = normalizeNullableText(input.projectContextRoot);
     const targets = [...processes.values()].filter((target) => (
       application.ownsTarget(target) && (!projectContextRoot || target.projectContextRoot === path.resolve(projectContextRoot))
     ));
     const results = await Promise.all(targets.map((target) => releaseProcessTarget(target, {}, application)));
     if (processes.size === 0 && storageReads === 0 && (sharedProcess || failedStartup)) {
-      results.push(await stop(text(input.reason) || "opencode-project-close").catch(application.failure));
+      results.push(await stop(normalizeNullableText(input.reason) || "opencode-project-close").catch(application.failure));
     }
     return {
       closed: results.length,
@@ -433,7 +431,7 @@ export function createOpenCodeProcessOwner({ processes, processStarts, monitors,
   }
 
   async function invalidateRuntimes(input = {}, preparation) {
-    if (text(input.reason) === "server-shutdown") {
+    if (normalizeNullableText(input.reason) === "server-shutdown") {
       closed = true;
       clearTimeout(storageIdle);
       storageIdle = null;
@@ -462,7 +460,7 @@ export function createOpenCodeProcessOwner({ processes, processStarts, monitors,
     const targets = [...processes.values()].filter(target => application.ownsTarget(target));
     const results = await Promise.all(targets.map((target) => releaseProcessTarget(target, {}, application)));
     if (processes.size === 0 && processStarts.size === 0 && (sharedProcess || failedStartup)) {
-      results.push(await stop(text(input.reason) || "opencode-runtime-invalidation").catch(application.failure));
+      results.push(await stop(normalizeNullableText(input.reason) || "opencode-runtime-invalidation").catch(application.failure));
     }
     return {
       closed: results.length,

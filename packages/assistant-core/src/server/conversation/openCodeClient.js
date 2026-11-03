@@ -8,8 +8,6 @@ const OPENCODE_RESPONSE_LIMIT_BYTES = 2 * 1024 * 1024;
 const OPENCODE_CATALOG_LIMIT_BYTES = 32 * 1024 * 1024;
 const OPENCODE_EVENT_LIMIT_BYTES = 2 * 1024 * 1024;
 
-const text = normalizeNullableText;
-
 /** An event reader whose caller does not wait for the stream to open. */
 function reportNoReadiness() {}
 
@@ -70,7 +68,7 @@ function parsedJson(value = "") {
 }
 
 function responseErrorMessage(payload = null, fallback = "OpenCode rejected the request.") {
-  return text(
+  return normalizeNullableText(
     payload?.message ||
     payload?.error?.message ||
     payload?.error ||
@@ -90,7 +88,7 @@ function queryString(values = {}) {
 }
 
 function sessionPath(sessionId = "", suffix = "") {
-  const id = encodeURIComponent(text(sessionId));
+  const id = encodeURIComponent(normalizeNullableText(sessionId));
   if (!id) {
     throw new TypeError("OpenCode session requests require a session id.");
   }
@@ -98,7 +96,7 @@ function sessionPath(sessionId = "", suffix = "") {
 }
 
 function stableSessionPath(sessionId = "", suffix = "") {
-  const id = encodeURIComponent(text(sessionId));
+  const id = encodeURIComponent(normalizeNullableText(sessionId));
   if (!id) {
     throw new TypeError("OpenCode session requests require a session id.");
   }
@@ -115,7 +113,7 @@ function normalizedMessageRows(value = null) {
     return {
       ...info,
       content: Array.isArray(message.parts) ? message.parts : [],
-      type: text(info.role)
+      type: normalizeNullableText(info.role)
     };
   });
 }
@@ -133,7 +131,7 @@ function providerCapabilityMedia(value = null) {
 
 function sanitizedOpenCodeModel(model = {}, fallbackId = "") {
   const source = normalizeObject(model);
-  const id = text(fallbackId);
+  const id = normalizeNullableText(fallbackId);
   const context = Number(source.limit?.context);
   const output = Number(source.limit?.output);
   return {
@@ -144,15 +142,15 @@ function sanitizedOpenCodeModel(model = {}, fallbackId = "") {
       reasoning: source.capabilities?.reasoning === true,
       toolcall: source.capabilities?.toolcall === true
     },
-    family: text(source.family),
+    family: normalizeNullableText(source.family),
     id,
     limit: {
       ...(Number.isSafeInteger(context) && context > 0 ? { context } : {}),
       ...(Number.isSafeInteger(output) && output > 0 ? { output } : {})
     },
-    name: text(source.name) || id,
-    release_date: text(source.release_date),
-    status: text(source.status),
+    name: normalizeNullableText(source.name) || id,
+    release_date: normalizeNullableText(source.release_date),
+    status: normalizeNullableText(source.status),
     variants: Object.fromEntries(Object.keys(normalizeObject(source.variants))
       .filter(Boolean)
       .map((variantId) => [variantId, {}]))
@@ -175,9 +173,9 @@ function sanitizedOpenCodeProviderCatalog(value = null) {
   }
   const all = source.all.map((provider) => {
     const candidate = normalizeObject(provider);
-    const id = text(candidate.id);
+    const id = normalizeNullableText(candidate.id);
     const environmentNames = Array.isArray(candidate.env)
-      ? candidate.env.map(text).filter(Boolean)
+      ? candidate.env.map(normalizeNullableText).filter(Boolean)
       : [];
     const models = normalizeObject(candidate.models);
     return {
@@ -187,9 +185,9 @@ function sanitizedOpenCodeProviderCatalog(value = null) {
       ].includes(id),
       id,
       models: Object.fromEntries(Object.entries(models)
-        .map(([modelId, model]) => [text(modelId), sanitizedOpenCodeModel(model, modelId)])
+        .map(([modelId, model]) => [normalizeNullableText(modelId), sanitizedOpenCodeModel(model, modelId)])
         .filter(([modelId, model]) => modelId && model.id)),
-      name: text(candidate.name) || id
+      name: normalizeNullableText(candidate.name) || id
     };
   }).filter((provider) => provider.id);
   if (all.length === 0) {
@@ -199,15 +197,15 @@ function sanitizedOpenCodeProviderCatalog(value = null) {
   return {
     all,
     default: Object.fromEntries(Object.entries(defaults)
-      .map(([providerId, modelId]) => [text(providerId), text(modelId)])
+      .map(([providerId, modelId]) => [normalizeNullableText(providerId), normalizeNullableText(modelId)])
       .filter(([providerId, modelId]) => providerId && modelId))
   };
 }
 
 function stablePromptBody(input = {}) {
   const model = input.model && typeof input.model === "object" ? input.model : {};
-  const modelID = text(model.modelID || model.id);
-  const providerID = text(model.providerID);
+  const modelID = normalizeNullableText(model.modelID || model.id);
+  const providerID = normalizeNullableText(model.providerID);
   const prompt = typeof input.prompt?.text === "string" ? input.prompt.text : "";
   const content = (input.prompt?.content || []).map(part => {
     if (part.type === "text" && typeof part.text === "string") return { type: "text", text: part.text };
@@ -220,8 +218,8 @@ function stablePromptBody(input = {}) {
     throw new TypeError("OpenCode prompt requests require text or attachment content.");
   }
   return {
-    ...(text(input.agent) ? { agent: text(input.agent) } : {}),
-    ...(text(input.id) ? { messageID: text(input.id) } : {}),
+    ...(normalizeNullableText(input.agent) ? { agent: normalizeNullableText(input.agent) } : {}),
+    ...(normalizeNullableText(input.id) ? { messageID: normalizeNullableText(input.id) } : {}),
     ...(modelID && providerID ? { model: { modelID, providerID } } : {}),
     parts: [...(prompt ? [{ text: prompt, type: "text" }] : []), ...content, ...(input.attachments || [])
       .filter((attachment) => attachment.contentType?.startsWith("image/"))
@@ -229,7 +227,7 @@ function stablePromptBody(input = {}) {
         type: "file", mime: attachment.contentType, filename: attachment.fileName,
         url: pathToFileURL(attachment.path).href
       }))],
-    ...(text(model.variant) ? { variant: text(model.variant) } : {})
+    ...(normalizeNullableText(model.variant) ? { variant: normalizeNullableText(model.variant) } : {})
   };
 }
 
@@ -238,7 +236,7 @@ function eventSessionId(value = null) {
   const properties = payload.properties && typeof payload.properties === "object"
     ? payload.properties
     : {};
-  return text(
+  return normalizeNullableText(
     payload.sessionID ||
     properties.sessionID ||
     properties.info?.sessionID ||
@@ -287,11 +285,11 @@ function createOpenCodeServerClient({
   if (typeof fetchImpl !== "function") {
     throw new TypeError("OpenCode bridge clients require fetch().");
   }
-  const authorization = `Basic ${Buffer.from(`${text(username) || "opencode"}:${String(password)}`).toString("base64")}`;
-  const scopedDirectory = text(directory);
+  const authorization = `Basic ${Buffer.from(`${normalizeNullableText(username) || "opencode"}:${String(password)}`).toString("base64")}`;
+  const scopedDirectory = normalizeNullableText(directory);
 
   function instanceDirectory(requestDirectory = scopedDirectory) {
-    const value = text(requestDirectory) || text(defaultDirectory);
+    const value = normalizeNullableText(requestDirectory) || normalizeNullableText(defaultDirectory);
     return value ? path.resolve(value) : "";
   }
 
@@ -410,7 +408,7 @@ function createOpenCodeServerClient({
         if (next.done) {
           const finalEvent = dispatch();
           const finalSessionId = eventSessionId(finalEvent?.data);
-          if (finalEvent && (!finalSessionId || finalSessionId === text(sessionId))) {
+          if (finalEvent && (!finalSessionId || finalSessionId === normalizeNullableText(sessionId))) {
             yield finalEvent;
           }
           return;
@@ -423,7 +421,7 @@ function createOpenCodeServerClient({
           if (!line) {
             const value = dispatch();
             const valueSessionId = eventSessionId(value?.data);
-            if (value && (!valueSessionId || valueSessionId === text(sessionId))) {
+            if (value && (!valueSessionId || valueSessionId === normalizeNullableText(sessionId))) {
               yield value;
             }
           } else if (!line.startsWith(":")) {
@@ -523,7 +521,7 @@ function createOpenCodeServerClient({
   }
 
   async function authenticateApiKey(modelProviderId = "", apiKey = "", { signal } = {}) {
-    const providerId = encodeURIComponent(text(modelProviderId));
+    const providerId = encodeURIComponent(normalizeNullableText(modelProviderId));
     if (!providerId || !String(apiKey)) {
       throw new TypeError("OpenCode API-key authentication requires a provider id and key.");
     }
@@ -538,12 +536,12 @@ function createOpenCodeServerClient({
   }
 
   async function deleteSession(sessionId = "", { signal } = {}) {
-    return request("DELETE", `/session/${encodeURIComponent(text(sessionId))}`, { signal });
+    return request("DELETE", `/session/${encodeURIComponent(normalizeNullableText(sessionId))}`, { signal });
   }
 
   async function deleteMessage(sessionId, messageId, { signal } = {}) {
-    if (!text(messageId)) throw new TypeError("OpenCode message deletion requires a message id.");
-    return request("DELETE", stableSessionPath(sessionId, `/message/${encodeURIComponent(text(messageId))}`), { signal });
+    if (!normalizeNullableText(messageId)) throw new TypeError("OpenCode message deletion requires a message id.");
+    return request("DELETE", stableSessionPath(sessionId, `/message/${encodeURIComponent(normalizeNullableText(messageId))}`), { signal });
   }
 
   /**
@@ -559,7 +557,7 @@ function createOpenCodeServerClient({
   }
 
   function forDirectory(nextDirectory = "") {
-    const normalizedDirectory = text(nextDirectory);
+    const normalizedDirectory = normalizeNullableText(nextDirectory);
     if (!normalizedDirectory) {
       throw new TypeError("OpenCode project clients require a working directory.");
     }
@@ -593,7 +591,7 @@ function createOpenCodeServerClient({
     boundedSignal.throwIfAborted();
     const result = await request("GET", "/path", { signal: boundedSignal });
     boundedSignal.throwIfAborted();
-    if (!text(result?.directory)) {
+    if (!normalizeNullableText(result?.directory)) {
       throw openCodeServerError("OpenCode did not confirm its conversation directory is ready.", {
         code: "assistant_opencode_directory_unavailable", method: "GET", path: "/path"
       });
@@ -606,7 +604,7 @@ function createOpenCodeServerClient({
 
   async function sessionStatus(sessionId = "", { signal } = {}) {
     const statuses = await request("GET", "/session/status", { signal });
-    return statuses?.[text(sessionId)] || { type: "idle" };
+    return statuses?.[normalizeNullableText(sessionId)] || { type: "idle" };
   }
 
   async function messages(sessionId = "", input = {}, { signal } = {}) {
@@ -644,9 +642,9 @@ function createOpenCodeServerClient({
       signal
     });
     return {
-      delivery: text(input.delivery),
-      id: text(input.id),
-      sessionID: text(sessionId)
+      delivery: normalizeNullableText(input.delivery),
+      id: normalizeNullableText(input.id),
+      sessionID: normalizeNullableText(sessionId)
     };
   }
 
@@ -662,12 +660,12 @@ function createOpenCodeServerClient({
   }
 
   async function removeAuthentication(modelProviderId = "", { signal } = {}) {
-    return request("DELETE", `/auth/${encodeURIComponent(text(modelProviderId))}`, { signal });
+    return request("DELETE", `/auth/${encodeURIComponent(normalizeNullableText(modelProviderId))}`, { signal });
   }
 
   async function switchAgent(sessionId = "", agent = "", { signal } = {}) {
     return request("POST", sessionPath(sessionId, "/agent"), {
-      body: { agent: text(agent) },
+      body: { agent: normalizeNullableText(agent) },
       signal
     });
   }

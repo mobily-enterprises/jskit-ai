@@ -2,8 +2,6 @@
 // bound to its directory, and the start that creates or resumes it.
 import { normalizeNullableText } from "./normalize.js";
 
-const text = normalizeNullableText;
-
 /** The shared server with its client bound to one native directory. */
 export function openCodeServerForDirectory(server, workdir) {
   return Object.freeze({
@@ -14,13 +12,13 @@ export function openCodeServerForDirectory(server, workdir) {
 
 /** The native model a selection names, or the one an execution profile overrides it with. */
 export function openCodeModel(selection = {}, executionProfile = null) {
-  const modelId = text(executionProfile?.model) || text(selection.modelId);
+  const modelId = normalizeNullableText(executionProfile?.model) || normalizeNullableText(selection.modelId);
   const variantId = executionProfile
-    ? text(executionProfile.thinking)
-    : text(selection.variantId);
+    ? normalizeNullableText(executionProfile.thinking)
+    : normalizeNullableText(selection.variantId);
   return {
     id: modelId,
-    providerID: text(selection.modelProviderId),
+    providerID: normalizeNullableText(selection.modelProviderId),
     ...(variantId ? { variant: variantId } : {})
   };
 }
@@ -28,7 +26,7 @@ export function openCodeModel(selection = {}, executionProfile = null) {
 /** Whether two selections name the same agent, model, provider and variant. */
 export function sameOpenCodeSelection(left, right) {
   return ["agentId", "modelId", "modelProviderId", "variantId"]
-    .every((name) => text(left?.[name]) === text(right?.[name]));
+    .every((name) => normalizeNullableText(left?.[name]) === normalizeNullableText(right?.[name]));
 }
 
 /**
@@ -59,7 +57,7 @@ export async function ensureOpenCodeSession(target, { selection, model, workdir 
         model
       }, { signal });
     }
-    const nativeId = text(upstream?.id);
+    const nativeId = normalizeNullableText(upstream?.id);
     if (!nativeId) {
       throw invalidIdentity();
     }
