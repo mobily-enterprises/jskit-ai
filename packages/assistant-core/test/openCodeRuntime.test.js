@@ -4,11 +4,12 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
-import { createOpenCodeSharedRuntime, ensureOpenCodeSession, openCodeServerForDirectory, readOpenCodeEnvironments } from "../src/server/conversation/openCodeRuntime.js";
+import { createOpenCodeSharedRuntime, readOpenCodeEnvironments } from "../src/server/conversation/openCodeRuntime.js";
+import { ensureOpenCodeSession, openCodeServerForDirectory } from "../src/server/conversation/openCodeNativeSession.js";
 import { createOpenCodeServerClient } from "../src/server/conversation/openCodeClient.js";
 
 function fixture(options = {}) {
-  const runtime = createOpenCodeSharedRuntime();
+  const runtime = createOpenCodeSharedRuntime({});
   const starts = [], stops = [];
   const connection = { modelProviderId: "provider", canonicalUrl: "https://provider.invalid", fingerprint: "account", endpointCode: "api" };
   const start = async selected => {
@@ -37,7 +38,7 @@ function fixture(options = {}) {
 }
 
 test("history projection supplies ordered reasoning facts without native part envelopes", async () => {
-  const runtime = createOpenCodeSharedRuntime();
+  const runtime = createOpenCodeSharedRuntime({});
   const message = { id: "reply", type: "assistant", time: { created: 1_000 }, content: [
     { type: "tool", id: "tool", text: "Not reasoning" },
     { type: "reasoning", id: "first", text: "  First thought\n", time: { end: 0 }, nativeOnly: true },
@@ -250,7 +251,7 @@ test("deleting a scoped OpenCode conversation returns its scope's exit proof and
 });
 
 test("an active OpenCode turn with missing native identity still fails instead of claiming Stop", async () => {
-  const runtime = createOpenCodeSharedRuntime();
+  const runtime = createOpenCodeSharedRuntime({});
   const client = createOpenCodeServerClient({ baseUrl: "http://127.0.0.1:1",
     fetchImpl: async () => assert.fail("Invalid identity must fail before transport.") });
   const turn = { active: true, state: "inProgress" };
@@ -447,7 +448,7 @@ test("OpenCode bindings share atomic publication without overwriting another con
   const root = await mkdtemp(path.join(os.tmpdir(), "jskit-opencode-bindings-"));
   t.after(() => rm(root, { force: true, recursive: true }));
   const registry = path.join(root, "private", "session-environments.json");
-  const runtime = createOpenCodeSharedRuntime();
+  const runtime = createOpenCodeSharedRuntime({});
   const main = { upstreamSessionId: "main", workdir: "/work/main", env: { OWNER: "main" } };
   const colleague = { upstreamSessionId: "colleague", workdir: "/work/colleague", systemPrompt: "Current instructions" };
   await Promise.all([
@@ -467,7 +468,7 @@ test("OpenCode bindings share atomic publication without overwriting another con
 
 
 test("native output identity is opt-in for every existing OpenCode projection writer", async () => {
-  const runtime = createOpenCodeSharedRuntime();
+  const runtime = createOpenCodeSharedRuntime({});
   for (const configured of [false, true]) {
     const writes = [];
     const streams = [];
@@ -545,7 +546,7 @@ async function finalReaderMonitorFixture(t, { publication, checkpoint, recovery 
 }
 
 test("native final projection opt-in returns only its original published receipt without changing default fields", async () => {
-  const runtime = createOpenCodeSharedRuntime();
+  const runtime = createOpenCodeSharedRuntime({});
   const originalTurn = { turnId: "authored", assistant: { messageId: "real-final:assistant",
     outputId: "real-final:assistant", role: "assistant", text: "Actual final." } };
   const rows = [{ id: "accepted", type: "user", time: { created: 1 } },

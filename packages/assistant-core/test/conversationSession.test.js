@@ -707,7 +707,7 @@ test("native invalidation preserves synchronous fences and failures without open
 });
 
 test("renewal proof cleanup preserves OpenCode failure, consumption and retry through the configured owner", async t => {
-  const owner = createOpenCodeSharedRuntime();
+  const owner = createOpenCodeSharedRuntime({});
   const calls = [];
   const id = "renewal-session";
   const requestContext = { sessionId: id };

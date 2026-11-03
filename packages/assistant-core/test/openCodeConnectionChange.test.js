@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
-import { createOpenCodeSharedRuntime, openCodeServerForDirectory } from "../src/server/conversation/openCodeRuntime.js";
+import { createOpenCodeSharedRuntime } from "../src/server/conversation/openCodeRuntime.js";
+import { openCodeServerForDirectory } from "../src/server/conversation/openCodeNativeSession.js";
 
 // One shared server whose native directories record what OpenCode is asked to do.
 function sharedServer() {
@@ -31,7 +32,7 @@ function sharedServer() {
 const deepseek = (fingerprint, apiKey) => ({ modelProviderId: "deepseek", canonicalUrl: "", endpointCode: "native", fingerprint, apiKey });
 
 async function startedRuntime(saved) {
-  const runtime = createOpenCodeSharedRuntime();
+  const runtime = createOpenCodeSharedRuntime({});
   const native = sharedServer();
   const shared = await runtime.ensure(saved[0], async () => ({ server: native.server, connections: [...saved] }), async () => saved);
   return { runtime, native, shared };

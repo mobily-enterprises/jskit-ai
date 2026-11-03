@@ -8,9 +8,9 @@ import { createOpenCodeServerClient, readBoundedResponse } from "./openCodeClien
 import { createLocalConversationExecution } from "./localExecution.js";
 import { normalizeNullableText } from "./normalize.js";
 import { DISCOVERY_TOOL_DESCRIPTORS } from "../lib/serviceToolCatalog.js";
-export { createOpenCodeSharedRuntime, openCodeServerForDirectory, readOpenCodeEnvironments, openCodeEnvironmentForDirectory,
-  openCodeEnvironmentForSession, assertOpenCodeModelProvider, limitOpenCodeModelOutput,
-  ensureOpenCodeSession, openCodeModel, sameOpenCodeSelection } from "./openCodeRuntime.js";
+export { createOpenCodeSharedRuntime, readOpenCodeEnvironments, openCodeEnvironmentForDirectory,
+  openCodeEnvironmentForSession, assertOpenCodeModelProvider, limitOpenCodeModelOutput } from "./openCodeRuntime.js";
+export { openCodeServerForDirectory, ensureOpenCodeSession, openCodeModel, sameOpenCodeSelection } from "./openCodeNativeSession.js";
 export { default as createOpenCodeConversationPlugin } from "./openCodePlugin.js";
 
 export const OPENCODE_EXPECTED_VERSION = "1.18.31";

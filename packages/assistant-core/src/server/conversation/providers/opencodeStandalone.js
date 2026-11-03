@@ -1,0 +1,480 @@
+import { jsonHash as hash } from "../normalize.js";
+import { realpath, rm } from "node:fs/promises";
+import path from "node:path";
+import { isDeepStrictEqual } from "node:util";
+import { createOpenCodeConversationServer, openCodeConversationAgent } from "../openCodeProcess.js";
+import { createOpenCodeSharedRuntime } from "../openCodeRuntime.js";
+import { ensureOpenCodeSession, openCodeServerForDirectory } from "../openCodeNativeSession.js";
+import { openCodeAssistantMessageText } from "../openCodeClient.js";
+import { inspectOpenCodeMessageAdmission, observeOpenCodeEvents, openCodeRowsForInput,
+  openCodeDetachedPrompt, openCodeStructuredOutput, readOpenCodeMessagesUntil } from "../openCodeTurn.js";
+import { createOpenCodeToolBridge } from "../openCodeTools.js";
+import { validateConnectionModel } from "../configuration.js";
+
+/** A standalone conversation's tool call has no further owner to confirm. */
+function acceptCurrentTurn() {
+  return true;
+}
+
+/** A command whose caller records no delivery timing for the native receipt. */
+function ignoreNativeReceipt() {}
+
+/** A command whose caller records no delivery timing for the persisted receipt. */
+function ignoreReceiptPersisted() {}
+
+const nativeMessageId = id => `msg_jskit_${hash(id).slice(0, 40)}`;
+
+/**
+ * Original standalone native-use validation and authored admission, shared by
+ * explicitly supplied bound tools without transferring native process ownership.
+ */
+export async function executeOpenCodeApplicationTool({ active, turn, target, sessionId, assertCurrent = acceptCurrentTurn }, input, signal) {
+  if (!active?.tools || input.sessionId !== sessionId ||
+      [input.id, input.name, input.messageId].some(value => typeof value !== "string" || !value || value.length > 256)) {
+    throw new Error("This OpenCode tool call does not belong to the active conversation.");
+  }
+  if (!turn?.abortController) {
+    throw new Error("This OpenCode tool call does not belong to an admitted conversation.");
+  }
+  assertCurrent();
+  const observed = AbortSignal.any([signal, turn.abortController.signal]);
+  await turn.admission?.promise;
+  observed.throwIfAborted();
+  // Read back to an admitted input that precedes the native tool use.
+  const messages = await readOpenCodeMessagesUntil(target.server.client, sessionId, rows => {
+    const index = rows.findIndex(row => row.id === input.messageId);
+    return index >= 0 && rows.slice(0, index).some(row => active.messageIds.has(row.id));
+  }, { signal: observed });
+  let message;
+  let owner;
+  for (const [nativeId, authored] of active.messageIds) {
+    message = openCodeRowsForInput(messages, nativeId).find(message => message.id === input.messageId && message.type === "assistant");
+    if (message) { owner = authored; break; }
+  }
+  const tool = message?.content.find(part => part.type === "tool" && part.callID === input.id);
+  if (!tool || tool.tool !== input.name || !isDeepStrictEqual(tool.state?.input, input.input)) {
+    throw new Error("OpenCode's application call does not match an admitted native tool use.");
+  }
+  if (!owner.committed) throw new Error("This OpenCode tool call has no durable authored admission.");
+  await owner.committed;
+  observed.throwIfAborted();
+  assertCurrent(true, owner);
+  try {
+    return await active.tools.execute({ id: input.id, name: input.name, arguments: JSON.stringify(input.input) }, { signal: observed, messageId: owner.messageId });
+  } catch (error) {
+    if (assertCurrent(false, owner)) turn.abortController.abort(error);
+    throw error;
+  }
+}
+
+/**
+ * Opens a conversation on the driver's own native OpenCode process and saved
+ * binding: its preparation, its shared runtime, its messages, its tools and its
+ * stop.
+ * @param {{
+ *   connections: { resolve(request: { context: object, integrationId: string }): Promise<object> },
+ *   host: { env?: import("@jskit-ai/kernel/server/types").RuntimeEnv, opencode?: Function, commands?: { opencode?: string },
+ *     limits?: object, commandWrapper?: object },
+ *   limits: Record<string, number>,
+ *   workdir: string,
+ *   stateDirectory: string,
+ *   execution: import("../openCodeProcess.js").ConversationExecution,
+ *   nativeTools: boolean,
+ *   maximumOutput: number
+ * }} settings
+ * @param {{ binding: object, writeBinding(binding: object): Promise<void>, reportFailure(error: Error, options?: object): Promise<void> }} opening
+ */
+export async function openStandaloneOpenCodeConversation({
+  connections,
+  host,
+  limits,
+  workdir,
+  stateDirectory,
+  execution,
+  nativeTools,
+  maximumOutput
+}, { binding, writeBinding, reportFailure }) {
+  function prompt(input, configuration) {
+    const text = `${input.text || ""}${input.attachmentManifest || ""}`;
+    if (!configuration.outputSchema) return { text, content: input.content };
+    const prepared = openCodeDetachedPrompt({ prompt: text, outputSchema: configuration.outputSchema });
+    if (prepared.length > (limits.maxInputCharacters ?? 32_000)) throw new Error("OpenCode structured input exceeded the configured limit.");
+    return { text: prepared, content: input.content };
+  }
+
+  if (!binding || typeof binding.sessionId !== "string" || binding.workdir !== await realpath(workdir) ||
+      path.dirname(binding.directory || "") !== stateDirectory) {
+    throw new Error("This OpenCode conversation belongs to another working directory or native state directory. Restore its original host configuration.");
+  }
+  let native;
+  let toolBridge;
+  let facilities;
+  let processVariants = {};
+  let current;
+  let stopping;
+  let disposed = false;
+  async function updateBinding(patch) {
+    const next = { ...binding, ...patch };
+    await writeBinding(next);
+    binding = next;
+  }
+  async function stopRecordedExecution() {
+    const proof = await execution.stop(binding.executionId);
+    if (!proof?.scopeEmpty) throw new Error("OpenCode process cleanup could not be confirmed. Restore its execution host before continuing.");
+    if (binding.processDirectory) {
+      if (path.dirname(binding.processDirectory) !== (binding.runtimeDirectory || stateDirectory) || !path.basename(binding.processDirectory).startsWith("process-")) {
+        throw new Error("OpenCode's private process directory does not belong to this host.");
+      }
+      await rm(binding.processDirectory, { recursive: true, force: true });
+    }
+    await updateBinding({ executionId: "", processDirectory: "" });
+  }
+  async function stop() {
+    if (stopping) return stopping;
+    stopping = (async () => {
+      await toolBridge?.close();
+      toolBridge = null;
+      if (facilities?.runtime.cleanupPending) {
+        await facilities.runtime.stop("opencode-startup-cleanup");
+        await updateBinding({ executionId: "", processDirectory: "" });
+      }
+      if (native) {
+        await facilities.runtime.releaseTarget(native, {
+          onRemoved: () => facilities.runtime.writeBindings(facilities.registryPath, binding.directory, [])
+        });
+        facilities.runtime.turns.delete(binding.directory);
+        await updateBinding({ executionId: "", processDirectory: "" });
+        native = null;
+      } else if (binding.executionId && facilities && !host.opencode &&
+          !facilities.runtime.current && !facilities.runtime.processStarts.size) {
+        // Only our unfinished standalone startup belongs to this handle.
+        // A saved shared-server reference is not authority to stop a peer's
+        // service before this conversation has acquired its owner.
+        await stopRecordedExecution();
+      }
+      if (current?.finished) current = null;
+    })().catch(error => {
+      error.cleanupFailed = true;
+      if (error.code === "assistant_opencode_stop_unverified") {
+        error.message = "OpenCode process cleanup could not be confirmed. Restore its execution host before continuing.";
+      }
+      throw error;
+    }).finally(() => { stopping = null; });
+    return stopping;
+  }
+  async function resolvePreparation(configuration, context, signal, requireBound = false, receiptBinding, authoredPreparation = false) {
+    const connection = await connections.resolve({ context, integrationId: configuration.integrationId });
+    signal.throwIfAborted();
+    validateConnectionModel(configuration, connection);
+    const identity = hash([connection.providerId, connection.baseURL || "", connection.apiKey]);
+    if (requireBound && !receiptBinding?.accountIdentity) throw new Error("The completed OpenCode response has no saved account fingerprint.");
+    if (requireBound && (binding.accountIdentity !== receiptBinding.accountIdentity || identity !== receiptBinding.accountIdentity)) {
+      throw new Error("The completed OpenCode response belongs to a different account binding.");
+    }
+    // The existing managed host reauthorizes its own connection on every preparation.
+    // A key change can rotate an authored run only inside the same native storage/runtime scope.
+    const preparedFacilities = host.opencode ? await host.opencode({ connection, context }) : facilities;
+    signal.throwIfAborted();
+    if (host.opencode && (
+      binding.databasePath && binding.databasePath !== preparedFacilities.databasePath ||
+      binding.runtimeDirectory && binding.runtimeDirectory !== preparedFacilities.runtimeDirectory ||
+      facilities && facilities.runtime !== preparedFacilities.runtime
+    )) {
+      throw new Error("This OpenCode conversation belongs to another native history store or runtime. Restore its original host configuration.");
+    }
+    const allowCredentialRefresh = authoredPreparation && host.opencode && preparedFacilities.allowCredentialRefresh === true;
+    if (binding.accountIdentity && identity !== binding.accountIdentity && !allowCredentialRefresh) {
+      throw new Error("This conversation belongs to another OpenCode account. Restore that connection or start a new conversation.");
+    }
+    if (binding.accountIdentity !== identity) await updateBinding({ accountIdentity: identity });
+    const model = { providerID: connection.providerId, id: connection.model };
+    const agent = openCodeConversationAgent({ nativeTools, tools: Boolean(current?.tools) });
+    if (current) current.agent = agent;
+    if (binding.sessionId && !binding.databasePath) {
+      throw new Error("This OpenCode conversation uses the earlier private native history layout. Run the offline native-history upgrade before continuing; no history was changed.");
+    }
+    if (!facilities || host.opencode) {
+      if (host.opencode) facilities = preparedFacilities;
+      else {
+        const runtimeDirectory = path.join(stateDirectory, "shared", hash([identity, host.commands?.opencode || "opencode"]));
+        const selected = { modelProviderId: connection.providerId, canonicalUrl: connection.baseURL || "",
+          endpointCode: connection.sdkPackage || "", fingerprint: identity };
+        facilities = { runtime: createOpenCodeSharedRuntime({ scope: runtimeDirectory }), runtimeDirectory,
+          registryPath: path.join(runtimeDirectory, "session-environments.json"),
+          databasePath: path.join(runtimeDirectory, "opencode.db"), selected,
+          async start({ signal, connection }) {
+            if (binding.executionId && !facilities.runtime.processes.has(binding.directory)) await stopRecordedExecution();
+            const starting = new AbortController();
+            const abortUnusedStartup = () => {
+              if (facilities.runtime.processStarts.size === 1 && facilities.runtime.processes.size === 0) starting.abort(signal.reason);
+            };
+            signal.addEventListener("abort", abortUnusedStartup, { once: true });
+            if (signal.aborted) abortUnusedStartup();
+            try {
+              const server = await createOpenCodeConversationServer({ command: host.commands?.opencode || "opencode",
+                execution, env: host.env, workdir: binding.workdir, stateDirectory: runtimeDirectory,
+                databasePath: facilities.databasePath, sessionEnvironmentRegistry: facilities.registryPath, connection,
+                maxOutputTokens: limits.maxOutputTokens, executionLimits: host.limits, signal: starting.signal,
+                onStarted: (executionId, processDirectory) => updateBinding({ executionId, processDirectory }),
+                async onFailure(error) {
+                  for (const target of facilities.runtime.processes.values()) target.abortController.abort(error);
+                  try { await facilities.runtime.stop("opencode-process-exited"); }
+                  catch (cleanupError) { await reportFailure(cleanupError); }
+                }
+              });
+              return { server, connections: [selected] };
+            } finally { signal.removeEventListener("abort", abortUnusedStartup); }
+          }
+        };
+      }
+      if (binding.databasePath && binding.databasePath !== facilities.databasePath) {
+        throw new Error("This OpenCode conversation belongs to another native history store. Restore its original host configuration.");
+      }
+      await updateBinding({ databasePath: facilities.databasePath, runtimeDirectory: facilities.runtimeDirectory });
+    }
+    if (!toolBridge && current?.tools) {
+      toolBridge = await createOpenCodeToolBridge({
+        schemas: current.tools.schemas, maxArgumentBytes: current.tools.maximumArgumentBytes,
+        async execute(input, signal) {
+          return executeOpenCodeApplicationTool({ active: current,
+            turn: facilities.runtime.turns.get(binding.directory), target: native, sessionId: binding.sessionId }, input, signal);
+        }
+      });
+    }
+    return { configuration, signal, model, agent, connection };
+  }
+
+  async function prepare({ configuration, signal, model, agent, connection }) {
+    try {
+      const start = host.opencode
+        ? async () => facilities.runtime.startPreparedProcess(await facilities.prepareServer())
+        : () => facilities.start({ signal, connection });
+      // A managed host's saved connections reach its running server in place.
+      const savedConnections = host.opencode ? async () => (await facilities.prepareServer()).connections : null;
+      if (!native) {
+        native = await facilities.runtime.acquire(binding.directory, async () => {
+          const shared = await facilities.runtime.ensure(facilities.selected, start, savedConnections);
+          return { key: binding.directory, workdir: binding.workdir, upstreamSessionId: binding.sessionId,
+            abortController: new AbortController(), server: openCodeServerForDirectory(shared.server, binding.workdir) };
+        });
+      } else await facilities.runtime.ensure(facilities.selected, start, savedConnections);
+      signal.throwIfAborted();
+      await updateBinding({ executionId: native.server.executionId, processDirectory: native.server.privateRoot || "" });
+      const catalogue = await native.server.client.providers({ signal });
+      const selected = catalogue.all.find(provider => provider.id === connection.providerId)?.models?.[connection.model];
+      if (selected?.id !== connection.model) throw new Error("OpenCode could not load the configured model definition. Check the selected integration before sending.");
+      processVariants = selected.variants || {};
+    } catch (error) {
+      if (error.stopProof?.scopeEmpty) await updateBinding({ executionId: "", processDirectory: "" });
+      throw error;
+    }
+    if (configuration.effort) {
+      if (!Object.hasOwn(processVariants, configuration.effort)) throw new Error("The selected OpenCode model does not support this reasoning effort.");
+      model.variant = configuration.effort;
+    }
+    const retainedId = binding.sessionId;
+    if (retainedId && (await native.server.client.sessionStatus(retainedId, { signal })).type !== "idle") {
+      throw new Error("The native OpenCode conversation is still working. Stop or inspect it before sending another message.");
+    }
+    const session = {
+      selection: { agentId: agent, modelId: model.id, modelProviderId: model.providerID, variantId: model.variant || "" },
+      model, workdir: binding.workdir, signal,
+      invalidIdentity: () => new Error("OpenCode did not acknowledge a native conversation."),
+      identity: {
+        async write(nativeId) {
+          if (retainedId && nativeId !== retainedId) throw new Error("The saved OpenCode conversation is unavailable. Restore its native history before continuing.");
+          if (binding.sessionId !== nativeId) await updateBinding({ sessionId: nativeId });
+        },
+        publish(nativeId) {
+          return facilities.runtime.writeBindings(facilities.registryPath, binding.directory, [{
+            upstreamSessionId: nativeId, workdir: binding.workdir, modelProviderId: connection.providerId,
+            ...(nativeTools ? { env: host.env } : {}),
+            conversation: { systemPrompt: configuration.systemPrompt, nativeTools,
+              commandWrapper: host.commandWrapper, tools: current?.tools ? toolBridge?.configuration : undefined }
+          }]);
+        }
+      }
+    };
+    return { target: native, session, model };
+  }
+
+  function messageMonitor(active, command) {
+    return {
+      prepare() { return { fields: {} }; },
+      create(target, turn, _metadata, options) {
+        const abort = () => turn.abortController.abort(command.signal.reason);
+        command.signal.addEventListener("abort", abort, { once: true });
+        if (command.signal.aborted) abort();
+        const recoveryMessageId = nativeMessageId(`${command.input.messageId}:final-response`);
+        return {
+          observe(_turn, signal) {
+            return observeOpenCodeEvents(target.server.client, target.upstreamSessionId, {
+              abortController: turn.abortController, signal, eventStartedAt: turn.eventStartedAt,
+              async onEvent(summary, event) {
+                if (summary.type === "session.status") {
+                  const status = event.data.properties?.status?.type;
+                  if (status === "retry" || status === "busy") {
+                    await turn.admission?.promise;
+                    await active.deliveryCommitted;
+                    signal.throwIfAborted();
+                    await active.onEvent({ type: "phase", phase: status === "retry" ? "retrying" : "working" });
+                  }
+                }
+              }
+            });
+          },
+          eventReady: options.eventReady,
+          readiness: { timeoutMs: limits.admissionTimeoutMs || 120_000,
+            timeoutError: new Error("OpenCode's event connection was not ready before the admission deadline.") },
+          finalResponse: {
+            agent: active.agent, model: active.prepared.model, recoveryMessageId,
+            beforeRecovery() {
+              active.messageIds.set(recoveryMessageId, active.messageIds.get(turn.inputMessageId));
+            }
+          },
+          async writeRun(observed, state) {
+            if (state === "active") await active.onEvent({ type: "phase", phase: observed.phase || "working" });
+          },
+          async projectMessages(messages, { inputMessageId }) {
+            await active.deliveryCommitted;
+            if (inputMessageId !== turn.inputMessageId) return { failure: "", providerApiFailure: false };
+            return facilities.runtime.projectConversationMessages(messages, inputMessageId, {
+              maximumOutput, outputSchema: active.configuration.outputSchema,
+              previous: active.previous, onMessage: active.onMessage
+            });
+          },
+          completeResult(_turn, { failure }) { return failure; },
+          onRetired() { command.signal.removeEventListener("abort", abort); }
+        };
+      },
+      onError(error) { active.failure ||= error; }
+    };
+  }
+
+  async function send(command) {
+    const { onNativeReceipt = ignoreNativeReceipt, onReceiptPersisted = ignoreReceiptPersisted } = command;
+    const active = current;
+    const id = nativeMessageId(command.input.messageId);
+    const previousOwner = active.messageIds.get(id);
+    let accepted = false;
+    let value;
+    try {
+      value = await facilities.runtime.sendMessage(binding.directory, {
+        id, threadId: binding.sessionId, workdir: binding.workdir
+      }, { promptTimeoutMs: limits.admissionTimeoutMs || 30_000 }, {
+        async writeRun() {},
+        async prepare({ overwrite }) {
+          const signal = active.prepared
+            ? AbortSignal.any([command.signal, AbortSignal.timeout(120_000)])
+            : active.resolved.signal;
+          if (overwrite || !active.prepared) active.prepared = await prepare({ ...active.resolved, signal });
+          return { ...active.prepared, session: { ...active.prepared.session, signal } };
+        },
+        prompt() {
+          native.abortController.signal.throwIfAborted();
+          return {
+            agent: active.agent, model: active.prepared.model,
+            prompt: prompt(command.input, active.configuration), attachments: command.input.localFiles,
+            authorizeAttachments: true,
+            async beforeDispatch(threadId) {
+              await command.beforeDispatch({ threadId });
+              command.signal.throwIfAborted();
+              active.messageIds.set(id, {
+                messageId: command.input.messageId, committed: command.deliveryCommitted
+              });
+            }
+          };
+        },
+        async commit() {
+          onNativeReceipt();
+          await command.accept();
+          onReceiptPersisted();
+          active.deliveryCommitted = command.deliveryCommitted;
+          accepted = true;
+        },
+        monitor: messageMonitor(active, command)
+      });
+      if (value.failure) throw value.failure.error;
+      if (!value.delivered) throw new Error("OpenCode did not acknowledge the message.");
+    } catch (error) {
+      const turn = facilities.runtime.turns.get(binding.directory);
+      const attempted = value?.failure ? value.failure.attempted : turn?.promptAttempted === true;
+      if (attempted && !accepted && !(error.statusCode >= 400 && error.statusCode < 500 && error.statusCode !== 408)) {
+        error.delivery = "uncertain";
+        turn?.abortController?.abort(error);
+        // Join the same owner's recovery before releasing its process target.
+        await facilities.runtime.monitors.get(binding.directory);
+      } else if (previousOwner) active.messageIds.set(id, previousOwner);
+      else active.messageIds.delete(id);
+      if (turn?.active && turn.observationError) error.cleanupFailed = true;
+      throw error;
+    }
+    active.delivery = { turn: facilities.runtime.turns.get(binding.directory),
+      completion: facilities.runtime.monitors.get(binding.directory) };
+    return value;
+  }
+
+  return Object.freeze({
+    async inspectAdmission({ messageId, threadId, configuration, context, verifyAccount = false, receiptBinding }) {
+      if (verifyAccount === true && (!receiptBinding || threadId !== binding.sessionId || receiptBinding.sessionId !== binding.sessionId ||
+          receiptBinding.workdir !== binding.workdir || receiptBinding.directory !== binding.directory ||
+          receiptBinding.databasePath !== binding.databasePath || receiptBinding.runtimeDirectory !== binding.runtimeDirectory)) {
+        throw new Error("The completed OpenCode response belongs to a different native conversation or host scope.");
+      }
+      if (!binding.sessionId) return { accepted: false, messages: [] };
+      const prepared = await prepare(await resolvePreparation(configuration, context, AbortSignal.timeout(120_000), verifyAccount === true, receiptBinding));
+      await ensureOpenCodeSession(prepared.target, prepared.session);
+      const id = nativeMessageId(messageId);
+      const { accepted = false, messages = [] } = await inspectOpenCodeMessageAdmission(native.server.client, binding.sessionId, id) || {};
+      return { accepted,
+        messages: openCodeRowsForInput(messages, id).filter(message => message.type === "assistant" && !message.summary)
+          .map(message => ({ id: message.id, outputId: `${message.id}:assistant`, role: "assistant",
+            text: configuration.outputSchema ? openCodeStructuredOutput(openCodeAssistantMessageText(message)) : openCodeAssistantMessageText(message) })) };
+    },
+    steer(command) {
+      if (!current || current.finished) throw new Error("OpenCode has no active turn to steer.");
+      return send(command);
+    },
+    async run(command) {
+      if (disposed || current) throw new Error("This OpenCode conversation is closed or already working.");
+      const active = current = { tools: command.tools, configuration: command.configuration,
+        onMessage: command.onMessage, onEvent: command.onEvent, messageIds: new Map(), previous: new Map() };
+      let problem;
+      try {
+        active.resolved = await resolvePreparation(command.configuration, command.context,
+          AbortSignal.any([command.signal, AbortSignal.timeout(120_000)]), false, undefined, true);
+        let dispatchFailure;
+        try { await send(command); }
+        catch (error) { dispatchFailure = error; }
+        for (;;) {
+          const settling = active.delivery;
+          let result;
+          let failure = dispatchFailure || active.failure;
+          if (!failure && settling?.completion) {
+            try { result = await settling.completion; }
+            catch (error) { failure = error; }
+          } else if (!failure && settling) result = facilities.runtime.turnSnapshot(settling.turn, binding.sessionId);
+          if (command.finishIfCurrent && !await command.finishIfCurrent(() => active.delivery === settling)) continue;
+          failure = dispatchFailure || active.failure || failure;
+          if (!failure && result?.error) {
+            // readable-check: allow patched-error - data: status is the native turn's state, not an HTTP status
+          failure = Object.assign(new Error(result.error), { status: result.status });
+            if (result.active && result.status === "observation_lost") failure.cleanupFailed = true;
+          }
+          if (failure) throw failure;
+          break;
+        }
+      } catch (error) {
+        problem = error.cleanupFailed ? error : command.signal.aborted ? command.signal.reason : error;
+        if (problem.cleanupFailed) problem.message = "OpenCode process cleanup could not be confirmed. Restore its execution host before continuing.";
+      }
+      active.finished = true;
+      try { if (!problem?.cleanupFailed && (problem || command.signal.aborted)) await stop(); }
+      catch (error) { problem = error; }
+      finally { await toolBridge?.whenIdle(); if (!problem?.cleanupFailed) current = null; }
+      if (problem) throw problem;
+    },
+    cancel: stop,
+    async dispose() { await stop(); disposed = true; }
+  });
+}

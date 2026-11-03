@@ -9,7 +9,7 @@ export const OPENCODE_INTERRUPT_TIMEOUT_MS = 5_000;
 const OPENCODE_EVENT_READY_TIMEOUT_MS = 120_000;
 
 /** A final-answer recovery whose caller keeps no projection of the reasoning-only completion. */
-function recoverWithoutProjection() {}
+export function recoverWithoutProjection() {}
 
 /** A detached turn whose caller keeps no state after observation closes. */
 function ignoreObservationClose() {}
@@ -476,9 +476,12 @@ export async function waitForOpenCodeFinalResponse(client, conversationId, turn,
   }
 }
 
-// Production detached-turn lifetime. Applications project the completed native
-// result before observation is closed, then publish/checkpoint their own state.
-export async function observeOpenCodeTurnCompletion(runtime, target, conversationId, turn, {
+/**
+ * Production detached-turn lifetime. Applications project the completed native
+ * result before observation is closed, then publish/checkpoint their own state.
+ * @param {import("./openCodeProcessOwner.js").OpenCodeProcessOwner} processOwner
+ */
+export async function observeOpenCodeTurnCompletion(processOwner, target, conversationId, turn, {
   events, signal, timeoutMs, finalResponse, projectResult = value => value, afterClose = ignoreObservationClose, ...waitOptions
 } = {}) {
   const turnAbort = turn.abortController;
@@ -498,7 +501,7 @@ export async function observeOpenCodeTurnCompletion(runtime, target, conversatio
     if (turn.interrupted) return { interrupted: true };
     if (!target.abortController.signal.aborted) {
       try {
-        await runtime.stopUnobservedSession(target, conversationId);
+        await processOwner.stopUnobservedSession(target, conversationId);
       } catch (stopError) {
         stopped = false;
         throw Object.assign(new Error(`${failure.message} ${stopError.message}`, { cause: failure }), { cleanupFailed: true });

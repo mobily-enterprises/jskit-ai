@@ -1098,7 +1098,8 @@ for (const savedStatus of ["cancelled", "failed", "unknown-tool", "interrupted"]
 // The original standalone fixture above remains byte-for-byte unchanged.
 async function boundToolFixture(t, { runInContext, monitorRunInContext, monitorContext } = {}) {
   const { createOpenCodeConversationServer, openCodeApplicationToolSchemas } = await import("../src/server/conversation/openCodeProcess.js");
-  const { createOpenCodeSharedRuntime, ensureOpenCodeSession } = await import("../src/server/conversation/openCodeRuntime.js");
+  const { createOpenCodeSharedRuntime } = await import("../src/server/conversation/openCodeRuntime.js");
+  const { ensureOpenCodeSession } = await import("../src/server/conversation/openCodeNativeSession.js");
   const { observeOpenCodeEvents } = await import("../src/server/conversation/openCodeTurn.js");
   let owner;
   const handles = [];
