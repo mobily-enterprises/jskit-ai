@@ -8,15 +8,9 @@ export function codexAppServerModelCatalogError(message = "", errorPrefix = "") 
   return error;
 }
 
-export function codexAppServerProviderConnectionGeneration(provider = null) {
-  // readable-check: allow method-probe - input validation: a provider reports its connection generation as a method or a field, and this reads either
-  const generation = typeof provider?.currentConnectionGeneration === "function"
-    ? provider.currentConnectionGeneration()
-    // readable-check: allow method-probe - input validation: a provider reports its connection generation as a method or a field, and this reads either
-    : typeof provider?.connectionGeneration === "function"
-      ? provider.connectionGeneration()
-      : provider?.connectionGeneration;
-  return normalizeAgentText(generation || "");
+/** @param {import("./codexProvider.js").CodexAppServerAgentProvider} provider */
+export function codexAppServerProviderConnectionGeneration(provider) {
+  return normalizeAgentText(provider.currentConnectionGeneration() || "");
 }
 
 function codexAppServerModelCatalogSnapshot(value = null, errorPrefix = "") {

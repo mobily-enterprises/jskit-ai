@@ -288,8 +288,7 @@ export function createCodexRuntimeLifecycle({
           }
         });
     }, providerSessions.wellbeingMs);
-    // readable-check: allow optional-call - platform object: a timer handle has unref only under Node
-    timer.unref?.();
+    timer.unref();
     codexAppServerWellbeingTimers.set(normalizedProviderKey, timer);
   }
 

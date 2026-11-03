@@ -172,18 +172,11 @@ export function createCodexAppServerLiveItems({
     let written = null;
     try {
       const store = await createStore(sessionId);
-      const writer = normalizedRole === "user"
-        ? store?.writeConversationUserMessage
-        : store?.writeConversationAssistantMessage;
-      if (typeof writer !== "function") {
-        codexAppServerMirroredTerminalItems.delete(key);
-        return null;
-      }
       let turnMetadata = null;
       if (normalizedRole === "user") {
         turnMetadata = await messageMetadata.terminal(store, normalizedSessionId) ?? null;
       }
-      written = await writer.call(store, normalizedSessionId, {
+      const message = {
         messageId: codexAppServerConversationMessageId(
           threadId,
           codexAppServerNotificationTurnId(notification),
@@ -193,7 +186,10 @@ export function createCodexAppServerLiveItems({
         text: normalizedText,
         nativeIdentity: { threadId, turnId: codexAppServerNotificationTurnId(notification) },
         ...(turnMetadata ? { turnMetadata } : {})
-      });
+      };
+      written = normalizedRole === "user"
+        ? await store.writeConversationUserMessage(normalizedSessionId, message)
+        : await store.writeConversationAssistantMessage(normalizedSessionId, message);
       if (!written) {
         codexAppServerMirroredTerminalItems.delete(key);
         return null;

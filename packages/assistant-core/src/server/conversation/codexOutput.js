@@ -24,7 +24,6 @@ import { codexAppServerProviderThreadAssistantSegments } from "./codexThreadSnap
  * @param {import("./codexTurn.js").CodexDebugError} dependencies.debugError
  * @param {number} dependencies.liveProgressMaxLength
  * @param {boolean} [dependencies.persistCommentary]
- * @param {string} dependencies.storeReadError
  * @param {import("./codexTurn.js").CodexMessageMetadataHooks} dependencies.messageMetadata
  * @param {number} dependencies.snapshotRecoveryItemLimit
  */
@@ -40,7 +39,6 @@ export function createCodexAppServerOutput({
   debugError,
   liveProgressMaxLength,
   persistCommentary = true,
-  storeReadError,
   messageMetadata,
   snapshotRecoveryItemLimit
 }) {
@@ -91,10 +89,6 @@ export function createCodexAppServerOutput({
     const normalizedSessionId = normalizeText(sessionId);
     if (!normalizedSessionId) {
       return null;
-    }
-    // readable-check: allow method-probe - input validation: the application's session store must read agent runs before output reads one
-    if (typeof store?.readAgentRun !== "function") {
-      throw new Error(storeReadError);
     }
     return store.readAgentRun(
       normalizedSessionId,

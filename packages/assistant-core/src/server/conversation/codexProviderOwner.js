@@ -349,8 +349,7 @@ export function createCodexAppServerProviderOwner({
           error: debugError(error), providerKey
         }));
       }, transientIdleMs);
-      // readable-check: allow optional-call - platform object: a timer handle has unref only under Node
-      release.timer.unref?.();
+      release.timer.unref();
     };
   }
 

@@ -217,10 +217,10 @@ test("invalid and unavailable native catalogs retain the host's error prefix wit
 
 test("native connection generation keeps the production method priority and falsy normalization", () => {
   assert.equal(codexAppServerProviderConnectionGeneration({ currentConnectionGeneration: () => " first ", connectionGeneration: "second" }), "first");
-  assert.equal(codexAppServerProviderConnectionGeneration({ connectionGeneration: () => 2 }), "2");
-  assert.equal(codexAppServerProviderConnectionGeneration({ connectionGeneration: " direct " }), "direct");
+  assert.equal(codexAppServerProviderConnectionGeneration({ currentConnectionGeneration: () => 2, connectionGeneration: () => 2 }), "2");
+  assert.equal(codexAppServerProviderConnectionGeneration({ currentConnectionGeneration: () => " direct ", connectionGeneration: " direct " }), "direct");
   for (const value of [0, false, null, undefined]) {
-    assert.equal(codexAppServerProviderConnectionGeneration({ connectionGeneration: value }), "");
+    assert.equal(codexAppServerProviderConnectionGeneration({ currentConnectionGeneration: () => value, connectionGeneration: value }), "");
   }
 });
 

@@ -18,10 +18,10 @@ export {
   codexAppServerContextRefreshReason,
   codexAppServerNotificationEvent,
   codexAppServerNotificationItemId,
-  codexAppServerNotificationTurnId,
-  codexAppServerProviderThreadAssistantSegments
+  codexAppServerNotificationTurnId
 } from "../conversation/codexEvents.js";
 export {
+  codexAppServerProviderThreadAssistantSegments,
   codexAppServerProviderThreadTurns,
   codexAppServerProviderTurnForOperation,
   codexAppServerProviderTurnId,

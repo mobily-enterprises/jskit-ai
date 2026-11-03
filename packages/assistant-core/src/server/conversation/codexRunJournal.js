@@ -34,7 +34,6 @@ function codexAppServerDateValueMs(value = "") {
  * @param {import("./codexOutput.js").CodexAppServerOutput} dependencies.output
  * @param {string} dependencies.messageIdPrefix
  * @param {string} dependencies.sessionIdRequiredError
- * @param {string} dependencies.turnClaimsUnsupportedError
  * @param {string} dependencies.turnAlreadyRunningError
  * @param {string} dependencies.errorPrefix
  * @param {object} [dependencies.idlePublishPayload]
@@ -53,7 +52,6 @@ export function createCodexRunJournal({
   output,
   messageIdPrefix,
   sessionIdRequiredError,
-  turnClaimsUnsupportedError,
   turnAlreadyRunningError,
   errorPrefix,
   idlePublishPayload,
@@ -145,10 +143,6 @@ export function createCodexRunJournal({
           error: sessionIdRequiredError
         } }
       };
-    }
-    // readable-check: allow method-probe - input validation: the application's session runtime must support turn claims before a message claims one
-    if (typeof runtime?.store?.mutateSession !== "function" || typeof runtime?.getSession !== "function") {
-      throw new Error(turnClaimsUnsupportedError);
     }
     const result = await claimCodexAppServerTurnStart(runtime, normalizedSessionId, normalizedOuterTurnId, { inputSource });
     if (result?.claimed === false && result.session) {

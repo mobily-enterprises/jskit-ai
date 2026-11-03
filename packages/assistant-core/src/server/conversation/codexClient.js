@@ -199,8 +199,7 @@ class CodexAppServerJsonRpcClient {
         return;
       }
       const removeAbortListener = () => {
-        // readable-check: allow optional-call - platform object: a caller's abort signal
-        signal?.removeEventListener?.("abort", abort);
+        signal?.removeEventListener("abort", abort);
       };
       const abort = () => {
         const pending = this.pendingRequests.get(id);
@@ -224,8 +223,7 @@ class CodexAppServerJsonRpcClient {
         resolve,
         timeout
       });
-      // readable-check: allow optional-call - platform object: a caller's abort signal
-      signal?.addEventListener?.("abort", abort, { once: true });
+      signal?.addEventListener("abort", abort, { once: true });
       try {
         this.send({
           id,
