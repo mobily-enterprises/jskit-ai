@@ -46,3 +46,5 @@ How to use it:
   - [row-policies.md](./row-policies.md)
 - typed features, server feature, provider, service, repository, collaborator, `typeof`, `= null`, `setProvider`, `register`, `input || {}`, `payload = {}`, `async execute`, `Object.freeze`, `requires`, `optional`, `types.js`, `RuntimeKnex`, `silentLogger`, `create<Name>Actions`, `ActionSpecifications`, request context, `jskit/*` lint findings, `readable-check: allow`, `optional operation:`, `process.env`, `AppError` code, `Object.assign(new Error`, `idempotency`, `…ForTests` export, file or function size
   - [typed-features.md](./typed-features.md)
+- client features, composable, `use<Name>`, Vue component, client provider, props, emits, `inject`, `provide`, `ref`, `reactive`, `watch`, `addEventListener`, `setInterval`, module state, `Object.freeze` on a composable, `?.()` in a template, `jskit/typed-inject`, `jskit/collaborator-props`, `jskit/fixed-result-shape`, `jskit/released-listeners`, `jskit/no-module-state`, `jskit/no-frozen-vue-state`, `clientFeaturesConfig`, `shared resource:`
+  - [client-features.md](./client-features.md)

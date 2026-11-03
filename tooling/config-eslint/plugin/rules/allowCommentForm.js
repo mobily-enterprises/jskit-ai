@@ -18,7 +18,8 @@ const REASON_PREFIXES = Object.freeze([
   /^cycle: \S.* requires \S/u,
   /^deferred until boot: \S/u,
   /^filled by \S.*; convert with its supplier/u,
-  /^cross-repository slot \S/u
+  /^cross-repository slot \S/u,
+  /^shared resource: \S/u
 ]);
 // A guard once kept because a test asserted its error now says what goes wrong
 // without it, under safety invariant:.
@@ -79,15 +80,16 @@ function excusedNode(sourceCode, comment) {
   return node;
 }
 
-// Each line of a comment that carries an allow mark, with its position.
-function allowLines(comment) {
+// Each line of a comment that carries an allow mark, with its position; `opening` is the length of the comment's
+// opening mark (`//` or `/*`, or a template's `<!--`).
+function allowLines(comment, opening = 2) {
   return comment.value.split(/\r?\n/u).flatMap((text, index) => {
     const column = text.indexOf(ALLOW_MARK);
     if (column < 0 || PLACEHOLDER.test(text)) {
       return [];
     }
     const line = comment.loc.start.line + index;
-    const startColumn = index === 0 ? comment.loc.start.column + 2 + column : column;
+    const startColumn = index === 0 ? comment.loc.start.column + opening + column : column;
     const body = text.slice(column).trimEnd();
     return [{ body, loc: { start: { line, column: startColumn }, end: { line, column: startColumn + body.length } } }];
   });
@@ -95,11 +97,11 @@ function allowLines(comment) {
 
 // Every "readable-check: allow <rule> - <reason>" comment names a rule or
 // finding, then a reason that starts with one of the fixed prefixes and says
-// what is true of the code.
+// what is true of the code; a component template's HTML comments are read too.
 const allowCommentForm = Object.freeze({
   meta: ruleMeta("Require readable-check allow comments to give a reason with a fixed prefix that describes the code.", {
     allowForm: "Write the exception as \"readable-check: allow <rule> - <reason>\".",
-    allowPrefix: "\"{{reason}}\" starts with no reason prefix. Start it with input validation:, data:, platform object:, optional operation:, safety invariant:, not a slot:, cycle: <supplier> requires <owner>, deferred until boot:, filled by <repository>; convert with its supplier, or cross-repository slot <token>.",
+    allowPrefix: "\"{{reason}}\" starts with no reason prefix. Start it with input validation:, data:, platform object:, optional operation:, safety invariant:, not a slot:, cycle: <supplier> requires <owner>, deferred until boot:, filled by <repository>; convert with its supplier, cross-repository slot <token>, or shared resource:.",
     retiredPrefix: "\"{{reason}}\" uses the retired test asserts error:. Say what goes wrong without the guard under safety invariant: <what goes wrong>, or remove the guard.",
     citesTests: "\"{{reason}}\" cites tests. Describe the code; a guard that protects an internal invariant says what goes wrong without it under safety invariant:.",
     citesStatus: "\"{{reason}}\" cites the state of a project. Describe what is true of the code.",
@@ -108,8 +110,12 @@ const allowCommentForm = Object.freeze({
   create(context) {
     return {
       Program() {
-        for (const comment of context.sourceCode.getAllComments()) {
-          for (const { body, loc } of allowLines(comment)) {
+        const templateComments = (context.sourceCode.ast.templateBody?.comments || [])
+          .filter((comment) => comment.type === "HTMLComment")
+          .map((comment) => ({ comment, opening: 4 }));
+        const scriptComments = context.sourceCode.getAllComments().map((comment) => ({ comment, opening: 2 }));
+        for (const { comment, opening } of [...scriptComments, ...templateComments]) {
+          for (const { body, loc } of allowLines(comment, opening)) {
             const match = ALLOW_FORM.exec(body);
             const reason = match?.[2] || "";
             const data = { reason: reason.length > 60 ? `${reason.slice(0, 57)}...` : reason };
@@ -123,7 +129,7 @@ const allowCommentForm = Object.freeze({
               context.report({ loc, messageId: "citesTests", data });
             } else if (CITES_STATUS.test(reason) || MARKER.test(reason)) {
               context.report({ loc, messageId: "citesStatus", data });
-            } else if (DATA_PREFIX.test(reason) && !PARAMETER_RULES.has(match[1])) {
+            } else if (DATA_PREFIX.test(reason) && !PARAMETER_RULES.has(match[1]) && opening === 2) {
               const node = excusedNode(context.sourceCode, comment);
               if (node && holdsFunction(node)) {
                 context.report({ loc, messageId: "dataOnFunction", data });

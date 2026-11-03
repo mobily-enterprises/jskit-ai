@@ -1,4 +1,4 @@
-import { createReporter, followsOptionalLink, isFreezeCall, ruleMeta } from "../support.js";
+import { createReporter, followsOptionalLink, isClientLint, isFreezeCall, ruleMeta } from "../support.js";
 
 const SETTER_NAME = /^set[A-Z]\w*$/u;
 
@@ -7,7 +7,8 @@ const SLOT_SETTER_CALL = /(Provider|Resolver|Observer|Owner|Preparation|Complete
 
 // An extension slot is an optional capability whose default the declaring
 // package names, resolved once in setup(), not a set<Name>() that fills it
-// after construction.
+// after construction. In client code a returned set<Name>() is usually a state
+// setter (setDraft), so only one named like a slot (setProvider) is reported.
 const noSlotSetter = Object.freeze({
   meta: ruleMeta("Disallow set<Name>() functions that fill an extension slot after construction.", {
     setterSeam: "{{setter}}() fills a slot after construction. Declare the slot as an optional capability with a named default."
@@ -15,10 +16,11 @@ const noSlotSetter = Object.freeze({
   create(context) {
     const sourceCode = context.sourceCode;
     const report = createReporter(context, "no-slot-setter");
+    const client = isClientLint(context);
     return {
       Property(node) {
         const name = node.key?.name || "";
-        if (!SETTER_NAME.test(name)) {
+        if (!SETTER_NAME.test(name) || (client && !SLOT_SETTER_CALL.test(name))) {
           return;
         }
         if (sourceCode.getAncestors(node).some((ancestor) => ancestor.type === "ReturnStatement" || isFreezeCall(ancestor))) {
