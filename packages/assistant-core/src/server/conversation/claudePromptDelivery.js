@@ -1,14 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { claudeNativeMessageId } from "./claudeHistory.js";
 import { normalizeNullableText } from "./normalize.js";
+import { ignoreReceipt } from "./nativeCommandCallbacks.js";
 
 const text = normalizeNullableText;
-
-/** A prompt whose sender does not observe Claude's receipt. */
-function ignoreNativeReceipt() {}
-
-/** A prompt whose sender does not observe its persisted receipt. */
-function ignoreReceiptPersisted() {}
 
 /** A prompt whose sender has nothing to do before it is written. */
 function ignorePromptSending() {}
@@ -50,7 +45,7 @@ export function createClaudePromptDelivery({
     const messageId = command ? input.messageId : text(input.messageId) || randomUUID();
     const uuid = claudeNativeMessageId(messageId);
     const deliveryTiming = (command || input).deliveryTiming;
-    const { onNativeReceipt = ignoreNativeReceipt, onReceiptPersisted = ignoreReceiptPersisted } = command || input;
+    const { onNativeReceipt = ignoreReceipt, onReceiptPersisted = ignoreReceipt } = command || input;
     const { onPromptSending = ignorePromptSending } = input;
     if (!command) {
       if (entry.main && await store.hasMessage(context, messageId)) {

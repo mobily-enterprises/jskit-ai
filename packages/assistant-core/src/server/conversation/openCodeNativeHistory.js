@@ -36,7 +36,7 @@ async function readOpenCodeConversationDatabase({ databasePath, conversationId, 
           if (!value || typeof value !== "object" || Array.isArray(value)) throw unavailable();
           content.push({ ...value, id: part.id, sessionID: part.session_id, messageID: part.message_id });
         }
-        // Same original MessageV2 storage projection: native columns own IDs.
+        // OpenCode's MessageV2 storage projection: native columns own IDs.
         await output.emit({ type: "message", message: { info: { ...data, id: row.id, sessionID: row.session_id }, parts: content }, text: [] });
       }
       return { session, ...output.complete() };

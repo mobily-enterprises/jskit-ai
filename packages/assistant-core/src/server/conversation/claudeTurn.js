@@ -29,7 +29,7 @@ function runsNativeWork(entry) {
   return Boolean(entry.sending || entry.process || entry.command || entry.stopPending || hasPendingClaudeStartup(entry));
 }
 
-/** Wait on the conversation's existing completion and cleanup owner. */
+/** Waits for the conversation's turn through its completion and cleanup owner. */
 export async function waitForClaudeConversationTurn(conversation, input = {}, {
   signal, defaultTimeoutMs = 180_000, maximumTimeoutMs = Infinity, createError = claudeTurnFailure,
   interruptedMessage = "Claude was interrupted when the application disconnected."
@@ -63,7 +63,7 @@ export async function waitForClaudeConversationTurn(conversation, input = {}, {
   }
 }
 
-/** Native renewal receipt, completion and cleanup moved from the session provider. */
+/** Runs one renewal turn: its native receipt, completion and cleanup. */
 export async function runClaudeRenewalTurn(conversation, {
   clientMessageId, prompt, outputSchema, expectedThreadId, forbiddenThreadId,
   requireFreshHistory = false, timeoutMs = 180_000
@@ -230,7 +230,7 @@ export function createClaudeConversationGoals({ conversationId, readHistory, rea
 /** @typedef {(message: string, options: { code: string }) => Error} ClaudeConversationErrorFactory */
 
 /**
- * The original retained entry and command owner; hosts supply authorized storage and message effects.
+ * The owner of a conversation's retained entries and their commands; hosts supply authorized storage and message effects.
  * Every refusal is built by `createError(message, { code })`, each with its own `conversation_claude_*` code.
  * @param {{
  *   configRoot: string,
@@ -302,7 +302,7 @@ export function createClaudeConversationOwner({
     } : null);
   }
 
-  // This lookup uses only the existing current entry and native receipt owner.
+  // This lookup uses only the current entry and its native receipt owner.
   function readFinalAssistantResult(contextKey, conversationId = "", turnId = "") {
     if (!text(contextKey) || !text(conversationId) || !text(turnId) || cleanup.isClosing(contextKey)) return null;
     const entry = entries.get(`${contextKey}\0${conversationId}`);

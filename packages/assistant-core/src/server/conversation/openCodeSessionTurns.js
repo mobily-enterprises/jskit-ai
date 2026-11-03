@@ -5,11 +5,9 @@ import {
 import { ensureOpenCodeSession, sameOpenCodeSelection } from "./openCodeNativeSession.js";
 import { openCodeTurnSnapshot } from "./openCodeTurnMonitor.js";
 import { normalizeNullableText } from "./normalize.js";
+import { ignorePromptRejection } from "./nativeCommandCallbacks.js";
 
 const text = normalizeNullableText;
-
-/** A rejected prompt whose caller keeps no state about the rejection. */
-function ignorePromptRejection() {}
 
 /**
  * A session's main native conversation: its readiness, the messages sent to

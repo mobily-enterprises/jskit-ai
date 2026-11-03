@@ -172,7 +172,7 @@ export function openCodeConversationAgents({ sessionEnvironmentRegistry = "" } =
   return Object.fromEntries([false, true].flatMap(nativeTools => [false, true].map(tools => [
     openCodeConversationAgent({ nativeTools, tools }), {
       hidden: true, mode: "primary",
-      // Keep native definitions behind approval, as in the original host agents.
+      // Keep native definitions behind approval.
       // The registered plugin rejects every ungranted native call before execution.
       permission: nativeTools || tools || guarded ? agentPermission(!nativeTools && guarded, nativeTools, tools) : "deny"
     }
@@ -191,7 +191,8 @@ function agentPermission(ask, nativeTools, tools) {
 /** @typedef {import("./localExecution.js").ConversationExecution} ConversationExecution */
 
 /**
- * Shared conversation configuration around the extracted server lifecycle.
+ * Starts the OpenCode server of one conversation runtime: its private credential home, its configuration for the selected
+ * connection, and the environment it passes on from the application's.
  * @param {object} options
  * @param {string} [options.command]
  * @param {ConversationExecution} [options.execution]
@@ -212,6 +213,7 @@ export async function createOpenCodeConversationServer({
   workdir, stateDirectory, databasePath, sessionEnvironmentRegistry, connection, maxOutputTokens,
   onStarted = ignoreServerStart, onFailure = ignoreServerFailure, executionLimits, signal
 }) {
+  if (!env) throw new TypeError("An OpenCode conversation's host requires the application's environment, such as process.env, to start OpenCode.");
   await mkdir(stateDirectory, { recursive: true, mode: 0o700 });
   const directory = await mkdtemp(path.join(stateDirectory, "process-"));
   const model = `${connection.providerId}/${connection.model}`;

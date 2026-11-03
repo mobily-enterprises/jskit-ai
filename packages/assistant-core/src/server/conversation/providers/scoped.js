@@ -1,13 +1,11 @@
 import { normalizeNullableText } from "../normalize.js";
 import { createConversationChangeover } from "../continuity.js";
+import { ignorePromptRejection } from "../nativeCommandCallbacks.js";
 
 /** A scoped turn whose caller follows no thread or turn events. */
 function ignoreScopedEvent() {}
 
-/** A persistent turn whose caller keeps no record of a rejected prompt. */
-function ignorePromptRejection() {}
-
-// The host retains profile authority and durable parent receipts. This original
+// The host retains profile authority and durable parent receipts. This
 // coordinator uses its admitted operations before and after native creation.
 export async function runScopedConversationTurn({ operations, scope = {}, input = {}, context: options = {},
   executionProfile: profileSnapshot } = {}) {
@@ -88,7 +86,7 @@ export function unsupportedScopedConversation() {
  */
 
 /**
- * Driver handle for an original scoped conversation. Each engine supplies its
+ * Driver handle for a scoped conversation. Each engine supplies its
  * native owner calls; every call receives input bound to `conversationId`.
  * `disposeOpening` releases the opening without deleting the native conversation.
  * @param {object} owner
@@ -233,8 +231,8 @@ export async function projectStoredPersistentConversation(options) {
   }, turns);
 }
 
-// These original persistent-conversation operations run inside the host's
-// existing write lease. Their record, transcript and native operations are the
+// These persistent-conversation operations run inside the host's
+// write lease. Their record, transcript and native operations are the
 // same facilities used by its retained conversation; no state is copied here.
 export async function readPersistentConversation(options) {
   const { sessionId, operations, store, records, projection, publish } = options;

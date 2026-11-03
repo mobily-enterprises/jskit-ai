@@ -58,19 +58,18 @@ async function fileRevision(file) {
  * The CLI's own account status, cached until its credentials change.
  * @param {object} options
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} options.env
- * @param {{ home: string, ok?: boolean, error?: string }} [options.credentialHome]
+ * @param {{ home: string, ok?: boolean, error?: string }} [options.credentialHome] The account's home; the environment's HOME when not given.
  * @param {string} [options.command]
  * @param {(request: Record<string, any>) => Promise<Record<string, any>>} options.commandRunner
  * @param {AbortSignal} [options.signal]
  */
-export async function readClaudeCodeAuthStatus({
-  env, credentialHome = { home: env.HOME || homedir() }, command = "claude", commandRunner, signal
-}) {
+export async function readClaudeCodeAuthStatus({ env, credentialHome, command = "claude", commandRunner, signal }) {
   if (!env) throw new TypeError("readClaudeCodeAuthStatus requires the application's environment, such as process.env.");
-  if (credentialHome.ok === false) return { loggedIn: false, error: credentialHome.error };
+  const accountHome = credentialHome ?? { home: env.HOME || homedir() };
+  if (accountHome.ok === false) return { loggedIn: false, error: accountHome.error };
   // readable-check: allow method-probe - input validation: the capture runner a host hands the account status read
   if (typeof commandRunner !== "function") throw new TypeError("Claude account status requires its host capture runner.");
-  const configRoot = env.CLAUDE_CONFIG_DIR || path.join(credentialHome.home, ".claude");
+  const configRoot = env.CLAUDE_CONFIG_DIR || path.join(accountHome.home, ".claude");
   // Inspect file metadata only. Claude still owns reading and validating credentials.
   // Sign-in writes .credentials.json and sign-out removes it. Claude Code also
   // rewrites .claude.json during turns and after every status read, so that
@@ -78,13 +77,13 @@ export async function readClaudeCodeAuthStatus({
   const revision = await fileRevision(path.join(configRoot, ".credentials.json"));
   // One entry per account, whichever command path or host runner reads it: only
   // the account's location and its identity variables count.
-  const key = jsonHash([configRoot, credentialHome.home, Object.entries(env).filter(([name, value]) =>
+  const key = jsonHash([configRoot, accountHome.home, Object.entries(env).filter(([name, value]) =>
     value && (name === "CLAUDE_CODE_OAUTH_TOKEN" || name.startsWith("ANTHROPIC_"))).sort()]);
   const previous = statusReads.get(key);
   if (previous?.revision === revision && (previous.pending || previous.expiresAt > Date.now())) return previous.value;
   const entry = { revision, pending: true, expiresAt: 0 };
   statusReads.set(key, entry);
-  entry.value = readNativeClaudeCodeAuthStatus({ env, credentialHome, command, commandRunner, signal }).then(({ status, unfinished }) => {
+  entry.value = readNativeClaudeCodeAuthStatus({ env, credentialHome: accountHome, command, commandRunner, signal }).then(({ status, unfinished }) => {
     // Keychain changes cannot be observed with file metadata on macOS.
     if (process.platform !== "darwin") {
       // Claude's answer holds until its credentials change. A read the host timed
@@ -126,7 +125,7 @@ function claudeCodeAuthStatus(result) {
   }
 }
 
-/** Exact existing native connection pin, shared with stopped metadata conversion. */
+/** A native connection's exact pin, shared with stopped metadata conversion. */
 export function claudeConnectionIdentity(configRoot, providerId, baseUrl, apiKey) {
   return jsonHash([configRoot, providerId, baseUrl, apiKey]);
 }

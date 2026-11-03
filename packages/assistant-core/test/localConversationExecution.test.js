@@ -12,7 +12,7 @@ function host(t) {
   t.after(() => execution.close());
   return execution;
 }
-const spec = (code) => ({ command: process.execPath, args: ["-e", code], cwd: process.cwd(), stream: true });
+const spec = (code) => ({ command: process.execPath, args: ["-e", code], cwd: process.cwd(), env: process.env, stream: true });
 
 test("the supplied execution host carries native protocol bytes and proves owned cleanup", options, async (t) => {
   const execution = host(t);
@@ -59,14 +59,14 @@ test("native command requests use the same execution owner and retain bounded ca
   t.after(() => rm(directory, { recursive: true, force: true }));
   const captured = await execution.run({ command: process.execPath,
     args: ["-e", 'process.stdout.write("x".repeat(70000)); process.stderr.write("finished");'],
-    cwd: directory, mode: "capture" });
+    cwd: directory, baseEnv: process.env, mode: "capture" });
   assert.equal(captured.ok, true);
   assert.equal(Buffer.byteLength(captured.output), 64 * 1024);
   assert.ok(captured.output.endsWith("finished"));
   const logPath = join(directory, "detached.log");
   const child = await execution.run({ command: process.execPath,
     args: ["-e", 'process.stderr.write("ready"); setInterval(() => {}, 1000);'],
-    cwd: directory, mode: "detached", logPath });
+    cwd: directory, baseEnv: process.env, mode: "detached", logPath });
   assert.equal(child.ok, true);
   assert.ok(Number.isSafeInteger(child.pid) && child.pid > 0);
   const deadline = Date.now() + 3000;
@@ -83,7 +83,7 @@ test("native capture timeout drains its execution before returning", options, as
   const execution = host(t);
   const result = await execution.run({ command: process.execPath,
     args: ["-e", 'process.stdout.write(String(process.pid)); setInterval(() => {}, 1000);'],
-    cwd: process.cwd(), mode: "capture", timeout: 500 });
+    cwd: process.cwd(), baseEnv: process.env, mode: "capture", timeout: 500 });
   assert.equal(result.ok, false);
   assert.equal(result.timedOut, true);
   assert.throws(() => process.kill(Number(result.output), 0), { code: "ESRCH" });
