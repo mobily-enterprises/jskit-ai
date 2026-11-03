@@ -156,9 +156,7 @@ function runInNoContext(_context, operation) {
  * @param {object} [options.helperThreads] The helper thread ledger options, when the application runs helpers.
  * @param {number} [options.modelCatalogCacheMs]
  * @param {object} [options.conversationPreparation] Absent when the application starts no scoped conversations.
- * @param {string} [options.storeReadError]
  * @param {string} [options.sessionIdRequiredError]
- * @param {string} [options.turnClaimsUnsupportedError]
  * @param {string} [options.turnAlreadyRunningError]
  * @param {string} [options.messageIdPrefix]
  * @param {object} [options.idlePublishPayload]
@@ -201,9 +199,7 @@ export function createCodexAppServerRunOwner({
   helperThreads = null,
   modelCatalogCacheMs = 30_000,
   conversationPreparation,
-  storeReadError = "The session store does not support agent-run reads.",
   sessionIdRequiredError = "A session ID is required.",
-  turnClaimsUnsupportedError = "The session runtime does not support Codex turn claims.",
   turnAlreadyRunningError = "Codex is already working on this session.",
   messageIdPrefix = "codex:",
   idlePublishPayload,
@@ -301,7 +297,6 @@ export function createCodexAppServerRunOwner({
     debugError,
     liveProgressMaxLength,
     persistCommentary,
-    storeReadError,
     messageMetadata: messageMetadataHooks,
     snapshotRecoveryItemLimit
   });
@@ -317,7 +312,6 @@ export function createCodexAppServerRunOwner({
     output: codexAppServerOutput,
     messageIdPrefix,
     sessionIdRequiredError,
-    turnClaimsUnsupportedError,
     turnAlreadyRunningError,
     errorPrefix,
     idlePublishPayload,

@@ -34,7 +34,6 @@ function codexAppServerDateValueMs(value = "") {
  * @param {import("./codexOutput.js").CodexAppServerOutput} dependencies.output
  * @param {string} dependencies.messageIdPrefix
  * @param {string} dependencies.sessionIdRequiredError
- * @param {string} dependencies.turnClaimsUnsupportedError
  * @param {string} dependencies.turnAlreadyRunningError
  * @param {string} dependencies.errorPrefix
  * @param {object} [dependencies.idlePublishPayload]
@@ -53,7 +52,6 @@ export function createCodexRunJournal({
   output,
   messageIdPrefix,
   sessionIdRequiredError,
-  turnClaimsUnsupportedError,
   turnAlreadyRunningError,
   errorPrefix,
   idlePublishPayload,
@@ -68,10 +66,6 @@ export function createCodexRunJournal({
   const agentRunPatch = input => codexAppServerAgentRunPatch(input, normalizeRunState);
   const runIdentityForPatch = (session, input) => codexAppServerRunIdentityForPatch(session, input, normalizeRunState);
   const runPatchIsStaleAfterTerminalState = (turn, patch) => codexAppServerRunPatchIsStaleAfterTerminalState(turn, patch, normalizeRunState);
-  const {
-    resultFinalizationKey: codexAppServerResultFinalizationKey,
-    readAgentRunForSession: readCodexAppServerAgentRunForSession
-  } = output;
 
   function codexAppServerTurnResultWasProcessed(session = {}, threadId = "", turnId = "") {
     const normalizedThreadId = normalizeText(threadId);
@@ -79,7 +73,7 @@ export function createCodexRunJournal({
     if (!normalizedThreadId || !normalizedTurnId) {
       return false;
     }
-    return codexAppServerProcessedTurns.has(codexAppServerResultFinalizationKey(
+    return codexAppServerProcessedTurns.has(output.resultFinalizationKey(
       session.sessionId,
       normalizedThreadId,
       normalizedTurnId
@@ -145,10 +139,6 @@ export function createCodexRunJournal({
           error: sessionIdRequiredError
         } }
       };
-    }
-    // readable-check: allow method-probe - input validation: the application's session runtime must support turn claims before a message claims one
-    if (typeof runtime?.store?.mutateSession !== "function" || typeof runtime?.getSession !== "function") {
-      throw new Error(turnClaimsUnsupportedError);
     }
     const result = await claimCodexAppServerTurnStart(runtime, normalizedSessionId, normalizedOuterTurnId, { inputSource });
     if (result?.claimed === false && result.session) {
@@ -284,7 +274,7 @@ export function createCodexRunJournal({
   }
 
   function clearCodexAppServerFinalizingTimer(sessionId = "", threadId = "", turnId = "") {
-    const key = codexAppServerResultFinalizationKey(sessionId, threadId, turnId);
+    const key = output.resultFinalizationKey(sessionId, threadId, turnId);
     const entry = codexAppServerFinalizingTimers.get(key);
     if (entry) {
       clearTimeout(entry.timer);
@@ -532,7 +522,7 @@ export function createCodexRunJournal({
     }
     let wasOwned = false;
     await store.mutateSession(normalizedSessionId, async () => {
-      const run = await readCodexAppServerAgentRunForSession(store, normalizedSessionId);
+      const run = await output.readAgentRunForSession(store, normalizedSessionId);
       const currentIds = codexAppServerPendingUserMessageClientIds(run);
       wasOwned = currentIds.indexOf(normalizedClientId) >= 0;
       if (wasOwned === owned) {
@@ -621,7 +611,7 @@ export function createCodexRunJournal({
     agentRunPatch,
     turnResultWasProcessed: codexAppServerTurnResultWasProcessed,
     claimTurnStart: claimCodexAppServerTurnStart,
-    claimMessageStart: claimCodexAppServerMessageStart,
+    claimCodexAppServerMessageStart,
     writeAgentRun: writeCodexAppServerAgentRun,
     clearActiveTimer: clearCodexAppServerActiveTimer,
     clearFinalizingTimer: clearCodexAppServerFinalizingTimer,

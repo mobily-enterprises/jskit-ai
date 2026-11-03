@@ -45,17 +45,24 @@ const goalCapabilities = Object.freeze({ goals: true, goalBudgets: true,
  * @property {(request: { context: object, integrationId: string }) => Promise<object>} resolve
  */
 
+// input validation: the driver's own conversations run Codex in the application's environment.
+function assertCodexApplicationEnvironment(host) {
+  if (!host.env) throw new TypeError("createCodexConversationDriver requires the application's environment, such as process.env.");
+}
+
 /**
  * Conversations own threads and observers on the account's shared native runtime.
- * @param {object} [dependencies]
+ * @param {object} dependencies
  * @param {CodexConversationConnections} [dependencies.connections]
- * @param {object} [dependencies.host]
+ * @param {Record<string, any>} [dependencies.host] The application's host description. Its env, the application's
+ *   environment such as process.env, is required by the driver's own conversations.
  * @param {object} [dependencies.limits]
  */
-// readable-check: allow dependency-default - input validation: an application may describe no host and no limits, and the driver then runs locally with its own limits
-export function createCodexConversationDriver({ connections, host = {}, limits = {} } = {}) {
-  // readable-check: allow no-env-default - input validation: a host description may omit env, and conversations then run in the process environment
-  const env = { ...(host.env || process.env) };
+// readable-check: allow dependency-default - data: a runtime without host settings runs Codex in its working directory with local execution
+export function createCodexConversationDriver({ connections, host = {}, limits = {} }) {
+  // A host that opens its own conversations may pass no environment; the
+  // driver's own conversations require it.
+  const env = { ...host.env };
   const workdir = path.resolve(host.workdir || process.cwd());
   const configRoot = path.resolve(workdir, env.CODEX_HOME || path.join(env.HOME || homedir(), ".codex"));
   env.CODEX_HOME = configRoot;
@@ -107,7 +114,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
   }
 
   async function nativeHost(selected) {
-    // Managed applications supply their existing execution/account scope. This
+    // Managed applications supply their own execution and account scope. This
     // facility contains host policy; the provider and process algorithms stay here.
     if (host.codex) return host.codex({ providerId: selected.providerId });
     // readable-check: allow method-probe - input validation: the application's execution host must run native processes
@@ -264,6 +271,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
   }
 
   async function createBinding() {
+    assertCodexApplicationEnvironment(host);
     return createInertCodexConversationBinding({ workdir: await realpath(workdir), configRoot });
   }
 
@@ -273,7 +281,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
       const { conversationId, context: openingContext } = supplied.scoped;
       const { runOwner: owner } = supplied;
       const sessionId = conversation.sessionId;
-      // These are the original scoped commands, including their native
+      // These are the run owner's scoped commands, including their native
       // start dedup, watcher/deadline and Stop/delete proof. No main journal
       // or additional command queue is introduced for this representation.
       return createScopedConversationHandle({ conversationId,
@@ -287,6 +295,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
         disposeOpening: () => disposeNative({ sessionId, namespace: conversation.namespace, native: supplied, options: openingContext })
       });
     }
+    if (!supplied) assertCodexApplicationEnvironment(host);
     if (!supplied && (!binding || typeof binding.threadId !== "string" || binding.workdir !== await realpath(workdir) || binding.configRoot !== configRoot)) {
       throw new Error("This Codex conversation belongs to another working directory or credential home. Restore its original host configuration.");
     }
@@ -374,8 +383,8 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
             threadId !== session.binding.threadId || !turnId || active.turnId && active.turnId !== turnId) return;
         const tracked = codexAppServerTurnState(await runtime.getSession(sessionId));
         if (tracked.threadId !== threadId || tracked.turnId !== turnId) return;
-        // The original detached waiter recovered only this admitted turn.
-        // Keep native activity truthful; run's existing cleanup owns Stop.
+        // Recovery covers only this admitted turn and keeps native activity
+        // truthful; the run's own cleanup owns Stop.
         await owner.recoverActiveTurn(sessionId, { provider, retryOnError: false, providerError: { threadId, turnId, error } });
         if (session.current !== active || active.finished || active.turnId !== turnId ||
             provider !== session.native || threadId !== session.binding.threadId) return;
@@ -398,7 +407,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
       const turn = event.payload?.agentSession?.turn;
       if (!turn || !session.current?.dispatched) return;
       if (turn.active && session.current.finished && session.current.finishIfCurrent) {
-        // The original command owner may start the next turn during Send.
+        // The run owner may start the next turn during Send.
         // Its publication replaces only this adapter's settled waiter.
         session.current.completion = Promise.withResolvers();
         session.current.completion.promise.catch(() => {});
@@ -498,7 +507,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
             if (result.ok !== false) session.binding.goal = result.goal || null;
           } finally { admission.release(); }
           if (result.ok !== false && input.action === "pause") {
-            // Pause keeps the goal and uses the original verified Stop owner
+            // Pause keeps the goal and uses the verified Stop owner
             // to stop its current conversation turn as well as scheduling.
             const stopped = await interrupt({ configuration, context });
             if (stopped?.ok === false) throw Object.assign(new Error(stopped.error), stopped, { cleanupFailed: true });

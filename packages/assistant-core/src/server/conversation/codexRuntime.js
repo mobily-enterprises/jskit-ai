@@ -57,6 +57,14 @@ import { createConversationProcessIdentity } from "./processIdentity.js";
 // process: a second start would race the first for the same socket and lock.
 const codexAppServerRuntimePreparations = new Map();
 
+// The process identity a runtime caller's own liveness check reports for the process group.
+function codexAppServerLivenessIdentity(pid, alive) {
+  return {
+    processGroupIds: alive ? [pid] : [],
+    status: alive ? CODEX_APP_SERVER_PROCESS_IDENTITY_STATUS.EXACT : CODEX_APP_SERVER_PROCESS_IDENTITY_STATUS.ABSENT
+  };
+}
+
 /**
  * The production shared runtime: one process owner per stable runtime directory.
  * Execution and credential facilities retain host policy; threads do not own this process.
@@ -83,19 +91,14 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
     label: "Codex app-server",
     unavailableCode: `${errorPrefix}codex_app_server_process_identity_unavailable`
   });
-  const currentCodexAccountIdentitySignature = credentials.identity;
-  const currentCodexAuthStateSignature = credentials.generation;
-  const assertCodexAuthGenerationCurrent = credentials.assertCurrent;
-  const runtimeStop = createCodexAppServerRuntimeStop({ execution, processIdentity: codexProcessIdentity, errorPrefix });
-  const codexAppServerProcessMetadataIsIdentifiable = runtimeStop.processMetadataIsIdentifiable;
-  const inspectCodexAppServerProcessIdentity = runtimeStop.inspectProcessIdentity;
+  const runtimeStop = createCodexAppServerRuntimeStop({ execution, codexProcessIdentity, errorPrefix });
   const processStart = createCodexAppServerProcessStart({
     execution,
     credentials,
-    processIdentity: codexProcessIdentity,
-    stop: runtimeStop,
-    endpointStatus: codexAppServerEndpointStatus,
-    waitForServer: waitForCodexAppServer,
+    codexProcessIdentity,
+    runtimeStop,
+    codexAppServerEndpointStatus,
+    waitForCodexAppServer,
     settings: {
       commandHookCommand,
       errorPrefix,
@@ -108,11 +111,6 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
       umask
     }
   });
-  const acquireRuntimeLock = runtimeStop.acquireRuntimeLock;
-  const stopCodexAppServerProcess = runtimeStop.stopProcess;
-  const cleanupFailedCodexAppServerStart = runtimeStop.cleanupFailedStart;
-  const stopCodexAppServerRuntime = runtimeStop.stopRuntime;
-  const startCodexAppServerProcess = processStart.start;
 
   function codexAppServerMetadataIsWellFormed(metadata = {}, options = {}) {
     const expectedAttachmentHostRoot = options.compatibility.attachmentHostRoot;
@@ -134,7 +132,7 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
       metadata.executionContextHash === expectedExecutionContextHash &&
       metadata.executionMode === expectedExecutionMode &&
       metadata.processCwd &&
-      codexAppServerProcessMetadataIsIdentifiable(metadata) &&
+      runtimeStop.processMetadataIsIdentifiable(metadata) &&
       metadata.processState === CODEX_APP_SERVER_PROCESS_STATE.RUNNING &&
       (expectedExecutionMode === CODEX_APP_SERVER_EXECUTION_MODES.HELPER ||
         codexHistoryAdapterUrlIsValid(metadata.historyAdapterBaseUrl, metadata.processIdentity.runtimeToken)) &&
@@ -185,8 +183,7 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
         probe,
         new Promise((resolve) => {
           timeout = setTimeout(() => resolve(CODEX_APP_SERVER_ENDPOINT_STATUS.TIMEOUT), timeoutMs);
-          // readable-check: allow optional-call - platform object: a timer handle has unref only under Node
-          timeout.unref?.();
+          timeout.unref();
         })
       ]);
     } catch {
@@ -204,7 +201,7 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
   async function codexAppServerRuntimeStatus(metadata = {}, options = {}) {
     const normalized = normalizeCodexAppServerMetadata(metadata);
     if (
-      codexAppServerProcessMetadataIsIdentifiable(normalized) &&
+      runtimeStop.processMetadataIsIdentifiable(normalized) &&
       normalized.processState === CODEX_APP_SERVER_PROCESS_STATE.STOPPED &&
       normalized.processExitVerifiedAt
     ) {
@@ -223,7 +220,7 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
         status: CODEX_APP_SERVER_RUNTIME_STATUS.INCOMPATIBLE
       };
     }
-    const authStateSignature = await currentCodexAuthStateSignature(options);
+    const authStateSignature = await credentials.generation(options);
     if (normalized.authStateSignature !== authStateSignature) {
       return {
         metadata: normalized,
@@ -232,19 +229,10 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
         status: CODEX_APP_SERVER_RUNTIME_STATUS.INCOMPATIBLE
       };
     }
-    let processIdentity = null;
-    // readable-check: allow method-probe - optional operation: a runtime caller may supply its own process liveness check
-    if (typeof options.processGroupIsAlive === "function") {
-      const alive = options.processGroupIsAlive(normalized.pid);
-      processIdentity = {
-        processGroupIds: alive ? [normalized.pid] : [],
-        status: alive
-          ? CODEX_APP_SERVER_PROCESS_IDENTITY_STATUS.EXACT
-          : CODEX_APP_SERVER_PROCESS_IDENTITY_STATUS.ABSENT
-      };
-    } else {
-      processIdentity = await inspectCodexAppServerProcessIdentity(normalized, options);
-    }
+    // A runtime caller may check its process group's liveness itself; otherwise the process identity is inspected.
+    const processIdentity = options.processGroupIsAlive
+      ? codexAppServerLivenessIdentity(normalized.pid, options.processGroupIsAlive(normalized.pid))
+      : await runtimeStop.inspectProcessIdentity(normalized, options);
     if (
       processIdentity.status === CODEX_APP_SERVER_PROCESS_IDENTITY_STATUS.ABSENT ||
       processIdentity.status === CODEX_APP_SERVER_PROCESS_IDENTITY_STATUS.MISMATCH
@@ -337,18 +325,15 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
   async function prepareCodexAppServerRuntime(options) {
     const { runtimeDir } = options;
     const [accountIdentitySignature, authStateSignature] = await Promise.all([
-      currentCodexAccountIdentitySignature(options),
-      currentCodexAuthStateSignature(options)
+      credentials.identity(options),
+      credentials.generation(options)
     ]);
     const runtimeOptions = {
       ...options,
       accountIdentitySignature,
       authStateSignature
     };
-    // readable-check: allow method-probe - optional operation: a runtime caller may supply its own metadata writer
-    const runtimeMetadataWriter = typeof options.runtimeMetadataWriter === "function"
-      ? options.runtimeMetadataWriter
-      : writeCodexAppServerMetadata;
+    const { runtimeMetadataWriter = writeCodexAppServerMetadata } = options;
     await ensureWritablePrivateDirectory(runtimeDir);
 
     const existing = await readCodexAppServerMetadata(runtimeDir);
@@ -361,7 +346,7 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
       };
     }
 
-    const releaseLock = await acquireRuntimeLock(runtimeDir, runtimeOptions);
+    const releaseLock = await runtimeStop.acquireRuntimeLock(runtimeDir, runtimeOptions);
     try {
       let socketOwnerDrained = false;
       const afterLock = await readCodexAppServerMetadata(runtimeDir);
@@ -375,7 +360,7 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
       }
 
       if (afterLock && (!afterLockStatus || afterLockStatus.replace !== false)) {
-        const stopped = await stopCodexAppServerProcess(runtimeDir, runtimeOptions);
+        const stopped = await runtimeStop.stopProcess(runtimeDir, runtimeOptions);
         if (stopped.processExitVerified !== true) {
           const error = new Error(
             `${clientInfo.title} found an earlier Codex app-server but could not prove that its owned execution was stopped. It refused to start a replacement because two assistant processes could damage the session or worsen resource pressure.`
@@ -388,18 +373,18 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
         socketOwnerDrained = true;
       }
 
-      const started = await startCodexAppServerProcess({
+      const started = await processStart.start({
         ...runtimeOptions,
         runtimeDir,
         socketOwnerDrained
       });
       try {
-        await assertCodexAuthGenerationCurrent(started.authStateSignature, runtimeOptions);
+        await credentials.assertCurrent(started.authStateSignature, runtimeOptions);
         await runtimeMetadataWriter(runtimeDir, started);
-        await assertCodexAuthGenerationCurrent(started.authStateSignature, runtimeOptions);
+        await credentials.assertCurrent(started.authStateSignature, runtimeOptions);
       } catch (error) {
         const helper = codexAppServerIsHelper(runtimeOptions);
-        const cleanup = await cleanupFailedCodexAppServerStart(runtimeDir, {
+        const cleanup = await runtimeStop.cleanupFailedStart(runtimeDir, {
           helper,
           executionId: started.executionId,
           pid: started.pid,
@@ -433,9 +418,9 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
 
   return Object.freeze({
     ensure: ensureCodexAppServerRuntime,
-    start: startCodexAppServerProcess,
-    stop: stopCodexAppServerRuntime,
+    start: processStart.start,
+    stop: runtimeStop.stopRuntime,
     isLive: codexAppServerMetadataIsLive,
-    cleanupFailedStart: cleanupFailedCodexAppServerStart
+    cleanupFailedStart: runtimeStop.cleanupFailedStart
   });
 }

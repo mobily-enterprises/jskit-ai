@@ -6,8 +6,8 @@ import {
   readCodexToolFreeConfiguration
 } from "../src/server/conversation/codexIsolation.js";
 
-// Carried from the original public helper bridge tests. Public profile, schema,
-// prompt and request-settings assertions remain in that unchanged test file.
+// Helper isolation at the native boundary. Profile, schema, prompt and
+// request-settings assertions belong to the application's helper tests.
 const MINIMUM_CODEX_VERSION = "0.151.0";
 const POLICY_UNENFORCEABLE = "codex_policy_unenforceable";
 const HELPER_DISABLED_FEATURES = Object.freeze([
@@ -104,8 +104,8 @@ function helperInventoryProvider({
   };
 }
 
-// The original application's prepare callback now supplies already authorized
-// policy values. These fixtures exercise only the native ownership boundary.
+// The application's prepare callback supplies already authorized policy
+// values. These fixtures exercise only the native ownership boundary.
 async function prepareHelper({ provider }) {
   const enforcement = await isolation.inspect(provider, { effort: "low", summary: "none" });
   return { enforcement, settings: { config: enforcement.config, cwd: enforcement.executionCwd } };
@@ -557,7 +557,7 @@ test("Codex helper safely reapplies isolation when resuming a controller-owned t
   assert.equal(calls.some(([method]) => method === "deleteThread"), false);
 });
 
-// Supplementary ownership-boundary checks, alongside the original assertions.
+// Ownership-boundary checks.
 test("helper inventory rejects a reconnect at either sequential read boundary", async () => {
   for (const changedAt of ["readConfig", "listHooks"]) {
     const provider = helperInventoryProvider();

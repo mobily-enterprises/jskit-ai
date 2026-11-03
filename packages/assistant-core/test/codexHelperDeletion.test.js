@@ -6,8 +6,8 @@ function invalidRequest(method) {
   return Object.assign(new Error(`${method} rejected`), { code: -32600, method });
 }
 
-// The original Public lifecycle tests retain durable receipts, authority and
-// retry assertions. These cases cover the native protocol branch moved here.
+// These cases cover the native protocol branch of helper deletion; durable
+// receipts, authority and retries belong to the application's lifecycle tests.
 test("Helper deletion awaits the exact active-turn interruption before confirming deletion", async () => {
   const calls = [];
   const started = Promise.withResolvers();

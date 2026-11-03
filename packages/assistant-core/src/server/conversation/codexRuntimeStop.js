@@ -14,11 +14,10 @@ import {
  * Stops a native runtime's owned process and removes what it left behind.
  * @param {object} dependencies
  * @param {import("./codexRuntime.js").CodexRuntimeExecution} dependencies.execution
- * @param {import("./codexRuntime.js").CodexProcessIdentity} dependencies.processIdentity
+ * @param {import("./codexRuntime.js").CodexProcessIdentity} dependencies.codexProcessIdentity
  * @param {string} dependencies.errorPrefix
  */
-export function createCodexAppServerRuntimeStop({ execution, processIdentity: codexProcessIdentity, errorPrefix }) {
-  const codexAppServerProcessIdentityIsWellFormed = codexProcessIdentity.isValid;
+export function createCodexAppServerRuntimeStop({ execution, codexProcessIdentity, errorPrefix }) {
 
   async function acquireRuntimeLock(runtimeDir = "", options = {}) {
     // readable-check: allow optional-call - optional operation: managed execution hosts add prepare; the local one has none
@@ -33,7 +32,7 @@ export function createCodexAppServerRuntimeStop({ execution, processIdentity: co
       metadata.provider === CODEX_APP_SERVER_PROVIDER_ID &&
       Number.isSafeInteger(Number(metadata.pid)) && Number(metadata.pid) > 0 &&
       (!normalizedRuntimeDir || metadata.runtimeDir === normalizedRuntimeDir) &&
-      codexAppServerProcessIdentityIsWellFormed(metadata.processIdentity) &&
+      codexProcessIdentity.isValid(metadata.processIdentity) &&
       [
         CODEX_APP_SERVER_PROCESS_STATE.RUNNING,
         CODEX_APP_SERVER_PROCESS_STATE.STOPPED
@@ -41,15 +40,17 @@ export function createCodexAppServerRuntimeStop({ execution, processIdentity: co
     );
   }
 
-  async function inspectCodexAppServerProcessIdentity(metadata = {}, options = {}) {
-    // readable-check: allow method-probe - optional operation: a runtime caller may supply its own process identity inspector
-    if (typeof options.processIdentityInspector === "function") {
-      return codexProcessIdentity.normalizeInspection(await options.processIdentityInspector(metadata));
-    }
+  async function inspectIdentifiableCodexAppServerProcess(metadata = {}) {
     if (!codexAppServerProcessMetadataIsIdentifiable(metadata)) {
       return { processGroupIds: [], status: CODEX_APP_SERVER_PROCESS_IDENTITY_STATUS.INVALID };
     }
     return codexProcessIdentity.inspect(metadata);
+  }
+
+  // A runtime caller may inspect the process identity its own way; every answer is normalized.
+  async function inspectCodexAppServerProcessIdentity(metadata = {}, options = {}) {
+    const { processIdentityInspector = inspectIdentifiableCodexAppServerProcess } = options;
+    return codexProcessIdentity.normalizeInspection(await processIdentityInspector(metadata));
   }
 
   async function stopCodexAppServerProcessGroup(metadata = {}, options = {}) {
@@ -75,10 +76,7 @@ export function createCodexAppServerRuntimeStop({ execution, processIdentity: co
     }
     const executionId = normalizeNullableText(metadata.executionId);
     if (executionId) {
-      // readable-check: allow method-probe - optional operation: a runtime caller may supply its own execution stop
-      const stopExecution = typeof options.stopExecution === "function"
-        ? options.stopExecution
-        : execution.stop;
+      const { stopExecution = execution.stop } = options;
       let executionStop;
       try {
         executionStop = await stopExecution(executionId, {
@@ -104,8 +102,8 @@ export function createCodexAppServerRuntimeStop({ execution, processIdentity: co
           stopped: executionStop.stopped === true
         };
       }
-      // readable-check: allow method-probe - optional operation: a caller-supplied execution stop is authoritative for its scope
-      if (typeof options.stopExecution === "function" || execution.authoritative) {
+      // A runtime caller's own execution stop is authoritative for its scope, as an authoritative facility is.
+      if (stopExecution !== execution.stop || execution.authoritative) {
         return {
           ...(executionStop && typeof executionStop === "object" ? executionStop : {}),
           executionId,

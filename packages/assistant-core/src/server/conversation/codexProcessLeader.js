@@ -7,6 +7,7 @@ await runCodexAppServerProcess({
   runtimeDir,
   command,
   args,
+  env: process.env,
   runtimeToken: process.env[CODEX_APP_SERVER_DEFAULT_ENVIRONMENT.runtimeToken],
   bundled: process.env[CODEX_APP_SERVER_DEFAULT_ENVIRONMENT.modelCatalogSource] === "bundled",
   additionalModels: codexProviderModelCatalog({ models: NATIVE_AI_PROVIDERS.flatMap(provider =>

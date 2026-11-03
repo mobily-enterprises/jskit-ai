@@ -73,9 +73,9 @@ async function codexAppServerReadThreadStatus(provider = null, threadId = "", {
   return null;
 }
 
-// Original native run projection and guarded mutation sequence. The caller's
-// existing runtime/store owns persistence and its mutation lock; no second
-// request journal or transcript-derived ownership is introduced here.
+// The native run projection and its guarded mutation sequence. The caller's
+// runtime store owns persistence and its mutation lock; there is no second
+// request journal and no ownership derived from the transcript.
 const CODEX_APP_SERVER_AGENT_RUN_ID = "codex_app_server";
 const CODEX_APP_SERVER_RESULT_PROCESSED_EVENT = "codex-app-server-result-processed";
 const CODEX_AGENT_PROVIDER = "codex";

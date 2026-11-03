@@ -18,34 +18,20 @@ export function createCodexHelperThreadRecovery(lifecycle, {
   errorPrefix
 }) {
   const codexAppServerProviders = providerOwner.providers;
-  const {
-    threads: codexAppServerHelperThreads,
-    mutations: codexAppServerHelperThreadMutations,
-    restores: codexAppServerHelperThreadRestores,
-    key: codexAppServerHelperThreadKey,
-    ledger: codexAppServerHelperThreadLedger,
-    providerFingerprint: codexAppServerProviderKeyFingerprint,
-    attach: attachCodexAppServerHelperThread,
-    remove: removeCodexAppServerHelperThread,
-    retire: retireCodexAppServerHelperThread,
-    ownershipError: codexAppServerHelperOwnershipError,
-    ownershipMatches: codexAppServerHelperThreadOwnershipMatches,
-    failure: codexAppServerHelperFailure
-  } = lifecycle;
 
   async function restoreCodexAppServerHelperThread(record = {}, context = {}) {
     const { ledger = null } = context;
-    const key = codexAppServerHelperThreadKey(record);
-    const pendingMutation = codexAppServerHelperThreadMutations.get(key);
+    const key = lifecycle.key(record);
+    const pendingMutation = lifecycle.mutations.get(key);
     if (pendingMutation) {
       await pendingMutation.catch(() => null);
     }
-    const existing = codexAppServerHelperThreads.get(key);
+    const existing = lifecycle.threads.get(key);
     if (existing && (
       existing.ownershipId !== record.ownershipId ||
       existing.revision < record.revision
     )) {
-      throw codexAppServerHelperOwnershipError(
+      throw lifecycle.ownershipError(
         "Persisted Codex helper ownership changed while the controller was running.",
         { sessionId: record.sessionId, threadId: record.threadId }
       );
@@ -55,12 +41,12 @@ export function createCodexHelperThreadRecovery(lifecycle, {
       if (!context.retiring) {
         return { record: existing, retiredThreadId: "" };
       }
-      await retireCodexAppServerHelperThread(existing);
+      await lifecycle.retire(existing);
       return { record: null, retiredThreadId: existing.threadId };
     }
     if (!await directoryExists(record.identity.runtime.runtimeDir)) {
       if (existing) {
-        await retireCodexAppServerHelperThread(existing);
+        await lifecycle.retire(existing);
       } else {
         await ledger.remove(record);
       }
@@ -69,7 +55,7 @@ export function createCodexHelperThreadRecovery(lifecycle, {
     const prepared = await context.prepareProvider();
     const { providerOptions, providerKey } = prepared;
     const contextChanged = !existing &&
-      codexAppServerProviderKeyFingerprint(providerKey) !== record.identity.providerKeyFingerprint;
+      lifecycle.providerFingerprint(providerKey) !== record.identity.providerKeyFingerprint;
     if (contextChanged) {
       const staleProvider = providerOwner.createNativeProvider({
         ...providerOptions,
@@ -80,7 +66,7 @@ export function createCodexHelperThreadRecovery(lifecycle, {
         const accountChanged = record.identity.runtime.accountIdentitySignature !==
           normalizeText(currentRuntime.accountIdentitySignature);
         if (accountChanged && !cleanupRequired) {
-          throw codexAppServerHelperOwnershipError(
+          throw lifecycle.ownershipError(
             "Reconnect the original Codex account to resume or delete this helper thread.",
             { retryable: false, sessionId: record.sessionId, threadId: record.threadId }
           );
@@ -94,13 +80,13 @@ export function createCodexHelperThreadRecovery(lifecycle, {
             ? stopped?.ownershipSuperseded === true || stopped?.processExitVerified === true
             : codexAppServerRuntimeStopWasVerified(stopped);
           if (!retired) {
-            throw codexAppServerHelperOwnershipError(
+            throw lifecycle.ownershipError(
               "The earlier Codex runtime could not be verified as retired; its cleanup record has been preserved.",
               { sessionId: record.sessionId, threadId: record.threadId }
             );
           }
           await ledger.remove(record);
-          codexAppServerHelperThreads.delete(key);
+          lifecycle.threads.delete(key);
           return { record: null, retiredThreadId: record.threadId };
         }
       } finally {
@@ -108,7 +94,7 @@ export function createCodexHelperThreadRecovery(lifecycle, {
       }
     }
     if (existing) {
-      await retireCodexAppServerHelperThread(existing);
+      await lifecycle.retire(existing);
       return { record: null, retiredThreadId: existing.threadId };
     }
     let provider = codexAppServerProviders.get(providerKey);
@@ -121,7 +107,7 @@ export function createCodexHelperThreadRecovery(lifecycle, {
       });
     }
     const expectedRuntime = await provider.currentRuntimeInfo();
-    if (!codexAppServerHelperThreadOwnershipMatches(record, {
+    if (!lifecycle.ownershipMatches(record, {
       providerKey,
       runtime: expectedRuntime
     }, {
@@ -129,7 +115,7 @@ export function createCodexHelperThreadRecovery(lifecycle, {
       requireAccount: !cleanupRequired,
       requireEndpoint: false
     })) {
-      throw codexAppServerHelperOwnershipError(
+      throw lifecycle.ownershipError(
         "The current Codex runtime/auth identity does not match persisted helper ownership.",
         {
           retryable: record.identity.runtime.accountIdentitySignature === normalizeText(expectedRuntime.accountIdentitySignature),
@@ -146,7 +132,7 @@ export function createCodexHelperThreadRecovery(lifecycle, {
     });
     const currentRuntime = await provider.currentRuntimeInfo();
     const currentServer = provider.currentServerInfo();
-    if (!codexAppServerHelperThreadOwnershipMatches(record, {
+    if (!lifecycle.ownershipMatches(record, {
       providerKey,
       runtime: currentRuntime,
       server: currentServer
@@ -155,7 +141,7 @@ export function createCodexHelperThreadRecovery(lifecycle, {
       requireEndpoint: true,
       requireServer: !cleanupRequired
     })) {
-      throw codexAppServerHelperOwnershipError(
+      throw lifecycle.ownershipError(
         "The connected Codex server identity does not match persisted helper ownership.",
         {
           sessionId: record.sessionId,
@@ -165,7 +151,7 @@ export function createCodexHelperThreadRecovery(lifecycle, {
     }
     const currentLedger = await ledger.readAll();
     if (currentLedger.failures.length > 0) {
-      throw codexAppServerHelperOwnershipError(
+      throw lifecycle.ownershipError(
         "Persisted Codex helper ownership could not be revalidated before restore.",
         {
           failed: currentLedger.failures,
@@ -175,7 +161,7 @@ export function createCodexHelperThreadRecovery(lifecycle, {
       );
     }
     const currentDurable = currentLedger.records.find((candidate) => (
-      codexAppServerHelperThreadKey(candidate) === key
+      lifecycle.key(candidate) === key
     ));
     if (!currentDurable) {
       return { record: null, retiredThreadId: record.threadId };
@@ -184,7 +170,7 @@ export function createCodexHelperThreadRecovery(lifecycle, {
       currentDurable.ownershipId !== record.ownershipId ||
       currentDurable.revision !== record.revision
     ) {
-      throw codexAppServerHelperOwnershipError(
+      throw lifecycle.ownershipError(
         "Persisted Codex helper ownership changed before it could be restored.",
         {
           sessionId: record.sessionId,
@@ -192,7 +178,7 @@ export function createCodexHelperThreadRecovery(lifecycle, {
         }
       );
     }
-    const attached = attachCodexAppServerHelperThread({
+    const attached = lifecycle.attach({
       durable: currentDurable,
       ledger,
       provider
@@ -201,25 +187,25 @@ export function createCodexHelperThreadRecovery(lifecycle, {
       attached.lifecycle !== CODEX_HELPER_THREAD_LIFECYCLES.READY ||
       context.retiring
     ) {
-      await retireCodexAppServerHelperThread(attached);
+      await lifecycle.retire(attached);
       return { record: null, retiredThreadId: attached.threadId };
     }
     return { record: attached, retiredThreadId: "" };
   }
 
   async function restoreCodexAppServerHelperThreads(projectRuntimeRoot = "", context = {}) {
-    const previous = codexAppServerHelperThreadRestores.get(projectRuntimeRoot) || Promise.resolve();
+    const previous = lifecycle.restores.get(projectRuntimeRoot) || Promise.resolve();
     // Every failure, including an unreadable ledger or a refused host notice,
     // is reported in the result. Callers that require restoration assert it;
     // cleanup and reconciliation continue with the records that did restore.
     const restore = previous.catch(() => null).then(async () => {
-      const ledger = codexAppServerHelperThreadLedger(projectRuntimeRoot);
+      const ledger = lifecycle.ledger(projectRuntimeRoot);
       const failed = [];
       let listed = { failures: [], records: [] };
       try {
         listed = await ledger.readAll();
       } catch (error) {
-        failed.push(codexAppServerHelperFailure({ projectRuntimeRoot }, error));
+        failed.push(lifecycle.failure({ projectRuntimeRoot }, error));
       }
       failed.push(...listed.failures.map((failure) => ({
         ...failure,
@@ -242,13 +228,13 @@ export function createCodexHelperThreadRecovery(lifecycle, {
             retiredBySession.set(record.sessionId, retired);
           }
         } catch (error) {
-          failed.push(codexAppServerHelperFailure(record, error));
+          failed.push(lifecycle.failure(record, error));
         }
       }
       try {
         await context.publish({ records, failed, retiredBySession, normalizedSessionId });
       } catch (error) {
-        failed.push(codexAppServerHelperFailure({ projectRuntimeRoot }, error));
+        failed.push(lifecycle.failure({ projectRuntimeRoot }, error));
       }
       return {
         failed,
@@ -258,12 +244,12 @@ export function createCodexHelperThreadRecovery(lifecycle, {
         retiredThreadIds: [...new Set(retiredThreadIds)]
       };
     });
-    codexAppServerHelperThreadRestores.set(projectRuntimeRoot, restore);
+    lifecycle.restores.set(projectRuntimeRoot, restore);
     try {
       return await restore;
     } finally {
-      if (codexAppServerHelperThreadRestores.get(projectRuntimeRoot) === restore) {
-        codexAppServerHelperThreadRestores.delete(projectRuntimeRoot);
+      if (lifecycle.restores.get(projectRuntimeRoot) === restore) {
+        lifecycle.restores.delete(projectRuntimeRoot);
       }
     }
   }
@@ -273,10 +259,10 @@ export function createCodexHelperThreadRecovery(lifecycle, {
     projectRuntimeRoot = "",
     prepareProvider
   } = {}) {
-    const ledger = codexAppServerHelperThreadLedger(projectRuntimeRoot);
+    const ledger = lifecycle.ledger(projectRuntimeRoot);
     const listed = await ledger.readAll();
     if (listed.failures.length > 0) {
-      throw codexAppServerHelperOwnershipError(
+      throw lifecycle.ownershipError(
         `${applicationName} cannot inventory helper threads while durable ownership is malformed.`,
         { failed: listed.failures, sessionId }
       );
@@ -294,11 +280,11 @@ export function createCodexHelperThreadRecovery(lifecycle, {
         ) {
           continue;
         }
-        const record = codexAppServerHelperThreads.get(
-          codexAppServerHelperThreadKey(durable)
+        const record = lifecycle.threads.get(
+          lifecycle.key(durable)
         );
         if (!record || record.ownershipId !== durable.ownershipId) {
-          throw codexAppServerHelperOwnershipError(
+          throw lifecycle.ownershipError(
             `${applicationName} cannot retire missing helper ownership without its verified controller record.`,
             { sessionId, threadId: durable.threadId }
           );
@@ -310,7 +296,7 @@ export function createCodexHelperThreadRecovery(lifecycle, {
           continue;
         }
         try {
-          await removeCodexAppServerHelperThread(record);
+          await lifecycle.remove(record);
         } catch (error) {
           if (error?.code === `${errorPrefix}codex_helper_thread_unavailable`) {
             continue;
@@ -343,7 +329,7 @@ export function createCodexHelperThreadRecovery(lifecycle, {
     provider ||= await providerOwner.ensureSession(prepared.sessionContext);
     const inventory = await provider.listHelperThreads();
     if (!Array.isArray(inventory?.threadIds)) {
-      throw codexAppServerHelperOwnershipError(
+      throw lifecycle.ownershipError(
         "The Codex helper provider returned an invalid thread inventory.",
         { sessionId }
       );
@@ -358,7 +344,7 @@ export function createCodexHelperThreadRecovery(lifecycle, {
         await deleteCodexAppServerThread({ provider, threadId });
       } catch (error) {
         if (error?.code !== "codex_helper_thread_delete_unconfirmed") throw error;
-        throw codexAppServerHelperOwnershipError(
+        throw lifecycle.ownershipError(
           "Codex did not confirm deletion of an unowned helper thread.",
           { sessionId, threadId }
         );

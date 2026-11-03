@@ -223,7 +223,7 @@ export function createCodexDriverConnection({
       signal.throwIfAborted();
       const provider = await acquireProvider(facilities, selected.providerId);
       // Account startup has other waiters. Cancellation releases this
-      // observer; the existing runtime owner still settles shared startup.
+      // observer; the runtime owner settles the shared startup.
       const connected = providerOwner.acquireRuntime({ providerKey, provider,
         providerOptions: provider.options, operation: () => provider.connect() });
       const cancelled = Promise.withResolvers();
@@ -298,7 +298,7 @@ export function createCodexDriverConnection({
       approvalPolicy: "never", sandbox: nativeTools ? "danger-full-access" : "read-only", allowProviderModelFallback: false,
       config: { ...selected.config, ...toolConfiguration }
     };
-    // Cold control recovery uses the provider's original settings facilities;
+    // Cold control recovery uses these authorized settings;
     // it must not resume with ambient defaults or an old instruction prompt.
     session.preparedThreadSettings = params;
     return { selected, params, toolSchemaIdentity };

@@ -30,8 +30,7 @@ function codexAuthPreflightArgs() {
 
 async function runCodexAuthPreflight({
   codexCommand = "codex",
-  // readable-check: allow no-env-default - input validation: a caller's preflight options may omit env, and the preflight then runs in the process environment
-  env = process.env,
+  env,
   executionRoot = "",
   runtimeDir = "",
   terminalEnv = {},
@@ -87,9 +86,10 @@ async function runCodexAuthPreflight({
   }
 }
 
-export async function assertCodexAuthPreflightReady(options = {}, {
+export async function assertCodexAuthPreflightReady(options, {
   reason = "codex-auth-preflight", execution, credentials
-} = {}) {
+}) {
+  if (!options?.env) throw new TypeError("assertCodexAuthPreflightReady requires the application's environment, such as process.env.");
   const result = await runCodexAuthPreflight(options, execution);
   if (result.ok && !codexAuthOutputRequiresReconnect(result.output)) {
     return result;

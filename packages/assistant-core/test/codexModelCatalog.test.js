@@ -111,8 +111,8 @@ function liveCatalogFixture() {
   return { calls, captures, provider, readCatalog };
 }
 
-// These two cases carry the original public lifecycle assertions. Their public
-// counterparts retain host acquisition, restoration and application integration.
+// Helper model discovery per connection generation. Host acquisition,
+// restoration and application integration belong to the application's tests.
 test("helper model discovery uses one live provider catalog per connection generation", async () => {
   const { calls, provider, readCatalog } = liveCatalogFixture();
   const first = await readCatalog(provider);
@@ -217,10 +217,10 @@ test("invalid and unavailable native catalogs retain the host's error prefix wit
 
 test("native connection generation keeps the production method priority and falsy normalization", () => {
   assert.equal(codexAppServerProviderConnectionGeneration({ currentConnectionGeneration: () => " first ", connectionGeneration: "second" }), "first");
-  assert.equal(codexAppServerProviderConnectionGeneration({ connectionGeneration: () => 2 }), "2");
-  assert.equal(codexAppServerProviderConnectionGeneration({ connectionGeneration: " direct " }), "direct");
+  assert.equal(codexAppServerProviderConnectionGeneration({ currentConnectionGeneration: () => 2, connectionGeneration: () => 2 }), "2");
+  assert.equal(codexAppServerProviderConnectionGeneration({ currentConnectionGeneration: () => " direct ", connectionGeneration: " direct " }), "direct");
   for (const value of [0, false, null, undefined]) {
-    assert.equal(codexAppServerProviderConnectionGeneration({ connectionGeneration: value }), "");
+    assert.equal(codexAppServerProviderConnectionGeneration({ currentConnectionGeneration: () => value, connectionGeneration: value }), "");
   }
 });
 
@@ -281,8 +281,7 @@ function chatCatalogFixture(t, { resources = null } = {}) {
   return { owner, captures, readCatalog, retainProvider };
 }
 
-// Carried from the original public chat catalog tests. Only the application
-// controller fixture becomes the existing native provider owner.
+// Chat model discovery through a native provider owner.
 test("chat model discovery reuses a resident provider without closing it", async t => {
   const { captures, readCatalog, retainProvider } = chatCatalogFixture(t);
   await retainProvider();

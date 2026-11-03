@@ -252,7 +252,7 @@ export function createCodexConversationStops({
           get provider() { return context.provider; },
           get workdir() { return context.workdir; }
         });
-        // The original Helper-retirement return releases admission before its
+        // A Helper-retirement policy result releases admission before its
         // promise settles; only the native dispatch below is awaited here.
         if (policyResult !== undefined) return policyResult;
         if (operation === "interrupt") {

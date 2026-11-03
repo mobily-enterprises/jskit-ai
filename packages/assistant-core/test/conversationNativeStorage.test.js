@@ -275,30 +275,30 @@ test("Codex native existence checks a home whose thread previews exceed any byte
     [nativeThread("wanted", { previewBytes: 70 * 1024 })]
   ];
   const { inventory } = codexThreadListing(pages);
-  const { CodexAppServerAgentProvider } = await import("../src/server/conversation/codexProvider.js");
-  assert.equal(await CodexAppServerAgentProvider.prototype.nativeThreadExists.call(inventory, "wanted"), true);
-  assert.equal(await CodexAppServerAgentProvider.prototype.nativeThreadExists.call(inventory, "missing"), false);
+  const { createCodexProviderInventories } = await import("../src/server/conversation/codexProviderInventories.js");
+  assert.equal(await createCodexProviderInventories({ provider: inventory }).nativeThreadExists("wanted"), true);
+  assert.equal(await createCodexProviderInventories({ provider: inventory }).nativeThreadExists("missing"), false);
 });
 
 test("Codex native existence searches more threads than an inventory retains", async () => {
   const pages = Array.from({ length: 12 }, (_, page) =>
     Array.from({ length: 100 }, (_, index) => nativeThread(`thread-${page}-${index}`)));
   const { inventory, requests } = codexThreadListing(pages);
-  const { CodexAppServerAgentProvider } = await import("../src/server/conversation/codexProvider.js");
-  assert.equal(await CodexAppServerAgentProvider.prototype.nativeThreadExists.call(inventory, "thread-3-7"), true);
+  const { createCodexProviderInventories } = await import("../src/server/conversation/codexProviderInventories.js");
+  assert.equal(await createCodexProviderInventories({ provider: inventory }).nativeThreadExists("thread-3-7"), true);
   assert.equal(requests.length, 4, "the search stops at the page that lists the thread");
-  assert.equal(await CodexAppServerAgentProvider.prototype.nativeThreadExists.call(inventory, "thread-12-0"), false);
+  assert.equal(await createCodexProviderInventories({ provider: inventory }).nativeThreadExists("thread-12-0"), false);
 });
 
 test("a refused Codex inventory entry names the check and the thread", async () => {
-  const { CodexAppServerAgentProvider } = await import("../src/server/conversation/codexProvider.js");
+  const { createCodexProviderInventories } = await import("../src/server/conversation/codexProviderInventories.js");
   const outside = codexThreadListing([[nativeThread("thread-a"), nativeThread("thread-b", { cwd: "/elsewhere" })]]);
-  await assert.rejects(CodexAppServerAgentProvider.prototype.listNativeThreadsForCwd.call(outside.inventory, "/source"), (error) => {
+  await assert.rejects(createCodexProviderInventories({ provider: outside.inventory }).listNativeThreadsForCwd("/source"), (error) => {
     assert.equal(error.code, "vibe64_codex_retirement_inventory_invalid");
     assert.match(error.message, /thread thread-b .*outside the requested directory/u);
     return true;
   });
   const unnamed = codexThreadListing([[{ cwd: "/source" }]]);
-  await assert.rejects(CodexAppServerAgentProvider.prototype.listNativeThreadsForCwd.call(unnamed.inventory, "/source"),
+  await assert.rejects(createCodexProviderInventories({ provider: unnamed.inventory }).listNativeThreadsForCwd("/source"),
     /listed a thread without an id/u);
 });

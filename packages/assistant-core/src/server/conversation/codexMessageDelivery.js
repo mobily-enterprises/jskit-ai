@@ -32,12 +32,6 @@ export function createCodexAppServerMessageDelivery({
   journal,
   recovery
 }) {
-  const {
-    readAgentRunForSession: readCodexAppServerAgentRunForSession,
-    writeMirroredTerminalMessage: writeMirroredCodexAppServerTerminalMessage
-  } = output;
-  const { writeUserMessageOwnership: writeCodexAppServerUserMessageOwnership } = journal;
-  const { markProviderTurnActive: markCodexAppServerProviderTurnActive } = recovery;
   const codexAppServerMessageDeliveries = new Map();
   const codexAppServerPendingUserMessages = new Map();
 
@@ -143,7 +137,7 @@ export function createCodexAppServerMessageDelivery({
       return;
     }
     const store = await createStore(normalizedSessionId);
-    const run = await readCodexAppServerAgentRunForSession(store, normalizedSessionId);
+    const run = await output.readAgentRunForSession(store, normalizedSessionId);
     let ownership = codexAppServerPendingUserMessageOwnership(run, clientId);
     if (!ownership && clientId && await store.conversationMessageIdExists(normalizedSessionId, clientId)) return;
     const receiptId = ownership?.clientId || clientId;
@@ -191,14 +185,14 @@ export function createCodexAppServerMessageDelivery({
         (!normalizedThreadId || normalizeText(turn.threadId) === normalizedThreadId) &&
         (!providerTurnId || normalizeText(turn.turnId) === providerTurnId);
       if (!providerTurnAlreadyTracked) {
-        await markCodexAppServerProviderTurnActive(normalizedSessionId, {
+        await recovery.markProviderTurnActive(normalizedSessionId, {
           inputSource: ownership.inputSource,
           status: "inProgress",
           threadId: normalizedThreadId,
           turnId: providerTurnId
         });
       }
-      await writeCodexAppServerUserMessageOwnership(
+      await journal.writeUserMessageOwnership(
         store,
         normalizedSessionId,
         ownership.clientId,
@@ -212,12 +206,12 @@ export function createCodexAppServerMessageDelivery({
       }
       return;
     }
-    await markCodexAppServerProviderTurnActive(normalizedSessionId, {
+    await recovery.markProviderTurnActive(normalizedSessionId, {
       status: "inProgress",
       threadId: normalizedThreadId,
       turnId: codexAppServerNotificationTurnId(notification)
     });
-    await writeMirroredCodexAppServerTerminalMessage({
+    await output.writeMirroredTerminalMessage({
       notification,
       role: "user",
       sessionId: normalizedSessionId,

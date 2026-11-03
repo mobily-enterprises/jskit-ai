@@ -21,7 +21,7 @@ async function launchRequest(t, configuration, executionMode = "interactive") {
       }
     }
   });
-  await assert.rejects(runtime.start({ codexCommand: process.execPath, executionMode, runtimeDir }), /recorded launch/);
+  await assert.rejects(runtime.start({ codexCommand: process.execPath, env: process.env, executionMode, runtimeDir }), /recorded launch/);
   return request;
 }
 
@@ -65,7 +65,7 @@ test("a non-octal umask is refused before it reaches the startup script", () => 
 test("the Codex sign-in check names itself to the execution host", async () => {
   let request;
   const execution = { async run(value) { request = value; return { ok: true, exitCode: 0, output: "{}" }; } };
-  await assertCodexAuthPreflightReady({ codexCommand: process.execPath }, { execution });
+  await assertCodexAuthPreflightReady({ codexCommand: process.execPath, env: process.env }, { execution });
   assert.equal(request.mode, "capture");
   assert.deepEqual(request.args.slice(-2), ["debug", "models"]);
   assert.deepEqual(request.execution, { label: "Checking the Codex sign-in", operationId: "codex-auth-preflight" });

@@ -18,6 +18,9 @@ const nativeInput = input => [
   ...codexLocalImageInput(input.localFiles)
 ];
 
+// A supplied native message without its own rejection step leaves rejection to this conversation.
+async function rejectNoNativePrompt() {}
+
 /**
  * The turns of one driver conversation: message delivery, goal context, interruption and the run of a turn. It
  * reads and updates the conversation's session record and uses its native connection.
@@ -50,10 +53,12 @@ export function createCodexDriverTurns({
   const { stop, selection, connect, prepareConfiguration, prepare } = connection;
 
   function deliveryInput(input, beforeDispatch, rejected) {
-    if (supplied) return { ...input.nativeMessage,
-      onPromptSending: beforeDispatch,
-      // readable-check: allow optional-call - optional operation: a supplied native message may carry its own rejection step
-      onPromptRejected: async () => { await input.nativeMessage.onPromptRejected?.(); await rejected(); } };
+    if (supplied) {
+      const { onPromptRejected = rejectNoNativePrompt } = input.nativeMessage;
+      return { ...input.nativeMessage,
+        onPromptSending: beforeDispatch,
+        onPromptRejected: async () => { await onPromptRejected(); await rejected(); } };
+    }
     return { messageId: input.messageId, message: input.text,
       displayMessage: input.authoredInput?.text ?? input.text,
       displayAttachments: input.attachments, attachments: input.localFiles,
@@ -183,7 +188,7 @@ export function createCodexDriverTurns({
           if (value.ok === false) throw new Error(value.error);
           return delivered;
         }
-        // The original main sender retains its pending evidence when the
+        // The host's main sender keeps its pending evidence when the
         // command returns delivered:false, even if a native ID is known.
         if (supplied) return delivered;
         throw Object.assign(new Error(value?.error || "Codex is not ready to receive this instruction."), value);
@@ -261,6 +266,10 @@ export function createCodexDriverTurns({
   async function run({ configuration, context, input, tools, signal, beforeDispatch, accept, onNativeReceipt, onReceiptPersisted,
     onEvent, onNativeTurn, finishIfCurrent }) {
     if (session.disposed || session.current) throw new Error("This Codex conversation is closed or already working.");
+    // input validation: a host's bound application tools need the conversation's schema identity reader.
+    if (supplied && tools && !conversation.identity?.readToolSchemaIdentity) {
+      throw new TypeError("Bound Codex application tools require the original schema identity reader and writer.");
+    }
     const completion = Promise.withResolvers();
     const admission = Promise.withResolvers();
     completion.promise.catch(() => {});
@@ -334,10 +343,6 @@ export function createCodexDriverTurns({
     active.providerReady = async ({ provider, threadId }) => {
       signal.throwIfAborted();
       if (!threadId) return;
-      // readable-check: allow method-probe - input validation: bound application tools need the conversation's schema identity reader
-      if (typeof conversation.identity?.readToolSchemaIdentity !== "function") {
-        throw new TypeError("Bound Codex application tools require the original schema identity reader and writer.");
-      }
       if (await conversation.identity.read() !== threadId) throw new Error("The native application tool thread changed before dispatch.");
       assertCodexApplicationToolSchemaIdentity(threadId, await conversation.identity.readToolSchemaIdentity(),
         codexApplicationToolConfiguration(tools).toolSchemaIdentity);
@@ -372,7 +377,7 @@ export function createCodexDriverTurns({
     try {
       signal.throwIfAborted();
       // Preparation retains the provider's authenticated account and the
-      // stable application-tool entry points. The original owner alone
+      // stable application-tool entry points. The run owner alone
       // subscribes to notifications and handles native turn state/output.
       if (!supplied) {
         const selected = await selection(configuration, context, signal);
@@ -397,7 +402,7 @@ export function createCodexDriverTurns({
             catch (error) { problem = error; }
           }
           if (await finishIfCurrent(() => active.completion === settling)) break;
-          // The same original dispatch established another native turn.
+          // The same dispatch established another native turn.
           // Keep its completion and Stop owner until that turn settles.
           problem = undefined;
           waitForTurn = true;
@@ -419,7 +424,7 @@ export function createCodexDriverTurns({
       problem = error;
       // A direct Stop checkpoint can throw before its native completion
       // reaches the queue. Keep the same admitted tool failure with the
-      // original observation-stop owner until its pending recovery joins.
+      // provider's observation-stop owner until its pending recovery joins.
       if (!supplied && error === active.toolFailure && ownsTurn(executingProvider, failureThreadId, failureTurnId) &&
           error.code !== "codex_runtime_invalidated") {
         toolFailureRecovery = executingProvider.failObservation(error);
@@ -427,8 +432,8 @@ export function createCodexDriverTurns({
     }
     try {
       await drainNotifications();
-      // The original queue starts observation recovery without awaiting
-      // it. Join only this provider's existing attempt before settling.
+      // The notification queue starts observation recovery without awaiting
+      // it. Join only this provider's pending attempt before settling.
       if (!supplied) await providerOwner.pendingRecovery(providerKey, executingProvider);
       if (toolFailureRecovery) {
         await toolFailureRecovery;

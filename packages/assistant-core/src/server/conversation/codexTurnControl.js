@@ -30,16 +30,6 @@ export function createCodexTurnControl({
   turnOutcomes,
   turnState
 }) {
-  const { turnResultWasProcessed: codexAppServerTurnResultWasProcessed } = journal;
-  const {
-    adoptSuccessorTurn: adoptCodexAppServerSuccessorTurn,
-    finalizeAssistantResult: finalizeCodexAppServerAssistantResult
-  } = settlement;
-  const {
-    stopTurnWithProviderFailure: stopCodexAppServerTurnWithProviderFailure,
-    completeTurn: completeCodexAppServerTurn
-  } = recovery;
-  const { reconcileThreadStatus: reconcileCodexAppServerThreadStatus } = threadStatus;
 
   async function interruptCodexAppServerTurn(sessionId, input, context = {}) {
     const { runtime } = context;
@@ -82,7 +72,7 @@ export function createCodexTurnControl({
           providerTurnId &&
           codexAppServerTurnCanAdoptSuccessor(currentTurn, threadId, providerTurnId)
         ) {
-          await adoptCodexAppServerSuccessorTurn(sessionId, {
+          await settlement.adoptSuccessorTurn(sessionId, {
             previousTurnId: currentTurn.turnId,
             source: "interrupt_preflight",
             status: "inProgress",
@@ -111,8 +101,8 @@ export function createCodexTurnControl({
         return { value: codexAppServerFrozenTurnInterruptResponse({ threadId, turnId }) };
       }
       if (currentTurn.state === "finalizing" && threadId) {
-        if (codexAppServerTurnResultWasProcessed(currentSession, threadId, turnId)) {
-          await finalizeCodexAppServerAssistantResult(sessionId, threadId, turnId, {
+        if (journal.turnResultWasProcessed(currentSession, threadId, turnId)) {
+          await settlement.finalizeAssistantResult(sessionId, threadId, turnId, {
             status: currentTurn.status || "completed"
           });
           currentSession = await runtime.getSession(sessionId);
@@ -129,7 +119,7 @@ export function createCodexTurnControl({
         }
         const stoppedThreadId = normalizeText(currentTurn.threadId) || threadId;
         const stoppedTurnId = normalizeText(currentTurn.turnId) || turnId;
-        const stopped = await stopCodexAppServerTurnWithProviderFailure(
+        const stopped = await recovery.stopTurnWithProviderFailure(
           sessionId,
           stoppedThreadId,
           stoppedTurnId,
@@ -206,12 +196,12 @@ export function createCodexTurnControl({
           codexAppServerTurnStatusIsComplete(providerPreflight.status)
         ) {
           if (codexAppServerTurnStatusIsProviderFailure(providerPreflight.status)) {
-            await stopCodexAppServerTurnWithProviderFailure(sessionId, threadId, turnId, {
+            await recovery.stopTurnWithProviderFailure(sessionId, threadId, turnId, {
               status: providerPreflight.status,
               verifyInactive: false
             });
           } else {
-            await completeCodexAppServerTurn(sessionId, threadId, turnId, {
+            await recovery.completeTurn(sessionId, threadId, turnId, {
               status: providerPreflight.status,
               verifyInactive: false
             });
@@ -226,7 +216,7 @@ export function createCodexTurnControl({
           }, session: settledSession };
         }
         providerPreflight = null;
-        await reconcileCodexAppServerThreadStatus(sessionId, provider, threadId, {
+        await threadStatus.reconcileThreadStatus(sessionId, provider, threadId, {
           source: "interrupt_race"
         }).catch(() => null);
         const reconciledSession = await runtime.getSession(sessionId);
@@ -282,7 +272,7 @@ export function createCodexTurnControl({
           turnId
         } };
       }
-      const stopped = await stopCodexAppServerTurnWithProviderFailure(sessionId, threadId, turnId, {
+      const stopped = await recovery.stopTurnWithProviderFailure(sessionId, threadId, turnId, {
         error: "Stopped by user.",
         ok: true,
         outcome: turnOutcomes.USER_CANCELLED,
@@ -290,7 +280,7 @@ export function createCodexTurnControl({
         verifyInactive: false
       });
       if (stopped?.reason === "stale_turn_state" && attempt < 2) {
-        await reconcileCodexAppServerThreadStatus(sessionId, provider, threadId, {
+        await threadStatus.reconcileThreadStatus(sessionId, provider, threadId, {
           source: "interrupt_settlement_race"
         }).catch(() => null);
         continue;
