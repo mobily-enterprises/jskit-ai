@@ -257,13 +257,12 @@ export function createConversationProcessIdentity({
     return records;
   }
 
-  function normalizeProcessIdentityInspection(value = {}) {
-    // readable-check: allow no-optional-after-default - input validation: a caller's inspector may answer null
+  /** An inspector's answer, which may be null, as an exact or ambiguous set of process groups. */
+  function normalizeProcessIdentityInspection(value) {
     const status = Object.values(PROCESS_IDENTITY_STATUS).includes(value?.status)
       ? value.status
       : PROCESS_IDENTITY_STATUS.AMBIGUOUS;
     return {
-      // readable-check: allow no-optional-after-default - input validation: a caller's inspector may answer null
       processGroupIds: [...new Set((Array.isArray(value?.processGroupIds)
         ? value.processGroupIds
         : [])
@@ -358,10 +357,7 @@ export function createConversationProcessIdentity({
   }
 
   async function inspectProcessIdentity(metadata = {}, options = {}) {
-    // readable-check: allow method-probe - optional operation: a caller may inspect process identity its own way; the host's inspection is the default
-    const inspector = typeof options.processIdentityInspector === "function"
-      ? options.processIdentityInspector
-      : inspectHostProcessIdentity;
+    const inspector = options.processIdentityInspector ?? inspectHostProcessIdentity;
     return normalizeProcessIdentityInspection(await inspector(metadata));
   }
 
@@ -400,10 +396,7 @@ export function createConversationProcessIdentity({
   }
 
   async function signalVerifiedProcessGroups(metadata = {}, signal = "SIGTERM", options = {}) {
-    // readable-check: allow method-probe - optional operation: a caller may signal process groups its own way; the host's signal is the default
-    const signalProcessGroupImpl = typeof options.signalProcessGroup === "function"
-      ? options.signalProcessGroup
-      : signalProcessGroup;
+    const signalProcessGroupImpl = options.signalProcessGroup ?? signalProcessGroup;
     const initial = await waitForProcessIdentityToSettle(metadata, options);
     if (initial.status !== PROCESS_IDENTITY_STATUS.EXACT) {
       return {

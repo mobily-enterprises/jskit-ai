@@ -6,7 +6,9 @@ import { hasUnfinishedConversationRewind, createConversationRuntimeReplacement,
   conversationNativeIdentity } from "./runtimeStateUpgrade.js";
 import { createConversationChangeover, conversationContinuity, conversationHistoryVersions } from "./continuity.js";
 import { failure } from "./conversationRefusals.js";
-import { pendingSuccessor, retainedSegments } from "./conversationRecords.js";
+import { pendingSuccessor, retainedSegments } from "./conversationReads.js";
+
+/** @typedef {import("./conversationEntries.js").ConversationEntry} ConversationEntry */
 
 /**
  * Replacing an open conversation's native conversation: a renewal, an engine or model change,
@@ -15,15 +17,23 @@ import { pendingSuccessor, retainedSegments } from "./conversationRecords.js";
  * @param {import("../types.js").ReentrantConversationStorage | null} dependencies.storage
  * @param {import("./provider.js").ConversationProviderFactory} dependencies.providers
  * @param {import("./conversationEvents.js").ConversationEvents} dependencies.events
+ * @param {import("./conversationEntries.js").ConversationEntries} dependencies.entries
  * @param {import("./conversationReads.js").ConversationReads} dependencies.reads
- * @param {import("./conversationOpening.js").ConversationOpening} dependencies.opening
  * @param {import("./conversationDelivery.js").ConversationDelivery} dependencies.delivery
  * @param {boolean} dependencies.completedEnvelope
  * @param {string | undefined} dependencies.defaultIntegrationId
  * @param {number} dependencies.maximumContinuity
  */
-function createConversationReplacement({ storage, providers, events, reads, opening, delivery, completedEnvelope, defaultIntegrationId, maximumContinuity }) {
-  async function replace(entry, context, input, selection = false, representation) {
+function createConversationReplacement({ storage, providers, events, entries, reads, delivery, completedEnvelope, defaultIntegrationId,
+  maximumContinuity }) {
+  /**
+   * @param {ConversationEntry} entry
+   * @param {object} context
+   * @param {object} input
+   * @param {boolean} selection Whether this selects an engine or model instead of replacing the native conversation.
+   * @param {string} representation
+   */
+  async function replace(entry, context, input, selection, representation) {
     const operation = selection ? "select" : "replace";
     if (completedEnvelope && input?.engine === "api") throw failure("Completed envelopes require a native engine.", "conversation_completed_envelopes_need_native_engine", 400, { messageCode: "assistant.conversation.completedEnvelopesNeedNativeEngine" });
     await events.access(context, entry.id, operation, entry);
@@ -44,7 +54,7 @@ function createConversationReplacement({ storage, providers, events, reads, open
     if (entry.active) throw failure("Stop the current turn before replacing its native conversation.", "conversation_busy", 409, { messageCode: "assistant.conversation.stopBeforeReplace" });
     if (entry.storageFailure) throw entry.storageFailure;
     if (entry.conversation) {
-      const state = await reads.readState(entry);
+      const state = await entries.readState(entry);
       const saved = await entry.conversation.state.read();
       const retry = saved?.replacement?.operationId === input.operationId;
       let nativeResult;
@@ -64,13 +74,7 @@ function createConversationReplacement({ storage, providers, events, reads, open
           return representation === "native" ? nativeResult : { operationId: input.operationId, segmentId: entry.segmentId, duplicate: true };
         }
       }
-      const next = await entry.host.conversation({ id: entry.id, context });
-      entry.conversation = next;
-      entry.applicationTools = opening.boundApplicationTools(next);
-      entry.engine = next.engine;
-      entry.driver = providers.createDriver(entry.engine, entry.host);
-      const current = await reads.readState(entry);
-      entry.provider = await opening.openProvider(entry, entry.driver, current.binding, current.segmentId);
+      await entries.rebindHostConversation(entry, context);
       entry.goal = null;
       const receipt = { operationId: input.operationId, segmentId: entry.segmentId, ...(retry ? { duplicate: true } : {}) };
       await events.emit(entry, { type: "replaced", reason: input.reason || "model-change", engine: entry.engine, ...receipt });
@@ -83,7 +87,7 @@ function createConversationReplacement({ storage, providers, events, reads, open
     if (request.briefing === undefined) delete request.briefing;
     if (request.configuration === undefined) delete request.configuration;
     else if (request.configuration) request.configuration = normalizeConversationConfiguration(request.configuration);
-    let state = (await reads.readState(entry));
+    let state = await entries.readState(entry);
     if (hasUnfinishedConversationRewind(state)) {
       throw failure("This conversation has an unfinished Undo operation from an earlier runtime. Inspect its saved native and local history offline before replacing it; no history was changed.", "conversation_rewind_inspection_before_replace", 409, { messageCode: "assistant.conversation.rewindInspectionBeforeReplace" });
     }
@@ -169,13 +173,13 @@ function createConversationReplacement({ storage, providers, events, reads, open
       // Native process/thread creation stays in ordinary Send, after this commit.
       await events.access(context, entry.id, operation, entry);
       if (pending.segmentId === state.segmentId) {
-        pending.binding = (await reads.readState(entry)).binding || null;
+        pending.binding = (await entries.readState(entry)).binding || null;
       }
       if (!Object.hasOwn(pending, "binding")) {
         pending.binding = driver.createBinding ? await driver.createBinding() : null;
         await saveReplacement();
       }
-      provider = await opening.openProvider(entry, driver, pending.binding, pending.segmentId, bindingOwner);
+      provider = await entries.openProvider(entry, driver, pending.binding, pending.segmentId, bindingOwner);
       try {
         await events.access(context, entry.id, operation, entry);
         await storage.write(entry.id, async transaction => {
@@ -233,8 +237,8 @@ function createConversationReplacement({ storage, providers, events, reads, open
         await transaction.write();
       });
     }
-    Object.assign(entry, { engine, driver, provider, bindingOwner, segmentId: pending.segmentId,
-      goal: null, executionFailure: null, error: pending.submission?.error || "" });
+    entries.adoptBinding(entry, { engine, driver, provider, bindingOwner, segmentId: pending.segmentId });
+    Object.assign(entry, { goal: null, executionFailure: null, error: pending.submission?.error || "" });
     const receipt = { operationId: input.operationId, segmentId: pending.segmentId };
     await events.emit(entry, { type: "replaced", reason: pending.reason, engine, ...receipt });
     return receipt;

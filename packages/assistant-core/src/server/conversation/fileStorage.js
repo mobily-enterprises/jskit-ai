@@ -6,10 +6,9 @@ import { createConversationStorage } from "./storage.js";
 /**
  * Persistent single-process storage. The application supplies a private directory
  * and shares one instance; multiple writers need a transactional application store.
- * @param {{ directory: string }} [options]
+ * @param {{ directory: string }} options
  */
-// readable-check: allow dependency-default - input validation: a call without options reaches the directory check and its TypeError
-export function createFileConversationStorage({ directory } = {}) {
+export function createFileConversationStorage({ directory }) {
   if (typeof directory !== "string" || !directory.trim()) {
     throw new TypeError("File conversation storage requires a directory.");
   }

@@ -6,12 +6,14 @@ const OUTPUT_SCHEMA_MAX_PROPERTIES = 64;
 const OUTPUT_SCHEMA_MAX_ENUM_VALUES = 64;
 const OUTPUT_SCHEMA_MAX_ALTERNATIVES = 64;
 
-// Original bounded native-helper schema contract. The host supplies its existing
+/** The refusal of an output schema whose host supplies no error policy of its own. */
+function outputSchemaTypeError(message, details) {
+  return Object.assign(new TypeError(message), { details });
+}
+
+// The bounded schema contract of structured output. The host supplies its own
 // error policy; native and API process ownership is outside this validator.
-export function validateConversationOutputSchema(outputSchema, {
-  maxOutputCharacters,
-  createError = (message, details) => Object.assign(new TypeError(message), { details })
-} = {}) {
+export function validateConversationOutputSchema(outputSchema, { maxOutputCharacters, createError = outputSchemaTypeError }) {
   if (!Number.isSafeInteger(maxOutputCharacters) || maxOutputCharacters < 1) {
     throw new TypeError("Structured output requires a finite positive output limit.");
   }

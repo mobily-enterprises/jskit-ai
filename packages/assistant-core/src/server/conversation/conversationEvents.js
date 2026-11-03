@@ -1,10 +1,12 @@
 import { isCompletedEnvelopeTurn } from "./transcript.js";
 import { failure } from "./conversationRefusals.js";
-import { submittedMessage } from "./conversationRecords.js";
+import { submittedMessage } from "./conversationReads.js";
+
+/** @typedef {import("./conversationEntries.js").ConversationEntry} ConversationEntry */
 
 /**
  * Runs one conversation entry's operations in order: each waits for the one before it.
- * @param {{ pending: Promise<unknown> }} entry
+ * @param {ConversationEntry} entry
  * @param {() => unknown} callback
  */
 function serial(entry, callback) {
@@ -24,8 +26,15 @@ function serial(entry, callback) {
  * @param {boolean} dependencies.completedEnvelope
  */
 function createConversationEvents({ authorize, isClosed, storage, streams, completedEnvelope }) {
-  // Send and its immediate admission share one authorization. Dispatch,
-  // receipt admission and every other operation authorize again.
+  /**
+   * Send and its immediate admission share one authorization. Dispatch, receipt admission and
+   * every other operation authorize again.
+   * @param {object} context
+   * @param {string} id
+   * @param {string} operation
+   * @param {ConversationEntry} [entry]
+   * @param {Set<string>} [grant] The operations this call already authorized.
+   */
   async function access(context, id, operation, entry, grant) {
     if (isClosed() || entry?.disposed) throw failure("This conversation handle is closed.", "conversation_handle_closed", 409, { messageCode: "assistant.conversation.handleClosed" });
     if (!grant?.has(operation)) {
@@ -37,6 +46,11 @@ function createConversationEvents({ authorize, isClosed, storage, streams, compl
     if (isClosed() || entry?.disposed) throw failure("This conversation handle is closed.", "conversation_handle_closed", 409, { messageCode: "assistant.conversation.handleClosed" });
   }
 
+  /**
+   * @param {ConversationEntry} entry
+   * @param {object} event
+   * @param {() => boolean} [isCurrent] Whether the event still belongs to the current turn.
+   */
   async function emit(entry, event, isCurrent) {
     const { completedEnvelope: _untrustedMarker, ...payload } = event;
     if (payload.type === "message" && ["assistant", "commentary", "thinking"].includes(payload.role) && payload.text?.trim()) {
@@ -76,6 +90,11 @@ function createConversationEvents({ authorize, isClosed, storage, streams, compl
     }));
   }
 
+  /**
+   * @param {ConversationEntry} entry
+   * @param {string} phase
+   * @param {string} [turnId]
+   */
   async function setPhase(entry, phase, turnId) {
     if (!["", "preparing", "working", "compacting", "retrying", "background"].includes(phase)) throw new Error("Invalid conversation phase from the engine adapter.");
     if ((entry.phase || "") === phase) return;
@@ -83,6 +102,11 @@ function createConversationEvents({ authorize, isClosed, storage, streams, compl
     await emit(entry, { type: "phase", phase, turnId });
   }
 
+  /**
+   * A publication of the entry's provider or host.
+   * @param {ConversationEntry} entry
+   * @param {object} event
+   */
   async function publish(entry, event) {
     if (entry.disposed) return;
     const publicationOwner = entry.bindingOwner;

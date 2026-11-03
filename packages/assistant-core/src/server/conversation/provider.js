@@ -5,8 +5,8 @@ import { createOpenCodeConversationDriver } from "./providers/opencodeDriver.js"
 import { validateCommandWrapper } from "./commandWrapper.js";
 
 /**
- * Internal construction/opening boundary shared by the runtime coordinators.
- * The caller supplies its existing conversation store and native host facets.
+ * Creates the engine driver a conversation runs on and opens its provider. The connections,
+ * limits and application tools are shared by every driver; each call names its host.
  * @param {object} options
  * @param {import("../types.js").ConversationConnections | undefined} options.connections
  * @param {import("../types.js").ConversationApiClientFactory | undefined} options.apiClientFactory

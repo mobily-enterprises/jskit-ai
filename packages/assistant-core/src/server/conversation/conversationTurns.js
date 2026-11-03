@@ -3,11 +3,57 @@ import { createConversationTools } from "./tools.js";
 import { conversationAttachmentIds } from "./attachments.js";
 import { conversationHistoryVersions, conversationRequestText } from "./continuity.js";
 import { failure, stateErrorFields } from "./conversationRefusals.js";
-import { saveTools, submittedMessage } from "./conversationRecords.js";
-import { createConversationTurnDelivery } from "./conversationTurnDelivery.js";
+import { submittedMessage } from "./conversationReads.js";
+
+/** @typedef {import("./conversationEntries.js").ConversationEntry} ConversationEntry */
+/** @typedef {import("./conversationSending.js").ConversationRequest} ConversationRequest */
 
 // API history turns within this many newest messages send their files again.
 const HISTORY_FILE_MESSAGES = 20;
+
+/**
+ * The turn an open conversation is running: the requests it admitted, the binding it started
+ * under, and its controls. conversationTurns' start creates it.
+ * @typedef {object} ActiveTurn
+ * @property {ConversationRequest} request The request the turn answers now; steering admits its successors.
+ * @property {Map<string, ConversationRequest>} requests Every request of the turn, by message id.
+ * @property {AbortController} controller
+ * @property {import("./provider.js").ConversationDriver} driver The entry's driver when the turn started.
+ * @property {string} engine
+ * @property {string | null} segmentId
+ * @property {object} bindingOwner The entry's binding owner when the turn started.
+ * @property {ConversationRequest | null} goalOwner The request that owns the turn's native goal.
+ * @property {Map<string, () => Promise<void>>} rejectionSaves A definite rejection's failed saves, by message id.
+ * @property {(request: ConversationRequest) => Promise<void>} submit Delivers a steering request into the turn.
+ * @property {(input: object) => unknown} nativeCheckpoint Saves the admitted work of a native turn its owner completed.
+ * @property {Promise<void>} done Settles once the turn saved its progress and ended.
+ * @property {ReturnType<typeof setTimeout>} [timer]
+ * @property {boolean} [timedOut]
+ * @property {Promise<void> | null} [steering] Settles once a steering request is reserved.
+ * @property {boolean} [finishing]
+ * @property {string} [nativeTurnId]
+ * @property {string} [steerError]
+ */
+
+/** The checkpoint of a turn whose native owner keeps none: a bound or non-canonical one. */
+function recordNoNativeCheckpoint() {}
+
+/**
+ * Saves the application tool receipts of an admitted request on its turn.
+ * @param {ConversationEntry} entry
+ * @param {object} transaction
+ * @param {{ turnId: string, input: { messageId: string } }} request
+ * @param {object[]} calls
+ */
+async function saveTools(entry, transaction, request, calls) {
+  if (entry.conversation) {
+    const saved = await transaction.readTurn(request.turnId);
+    if (submittedMessage(saved || {})?.messageId !== request.input.messageId) {
+      throw new Error("The application tool receipt does not belong to this authored request.");
+    }
+  }
+  await transaction.updateTurnMetadata(request.turnId, { applicationTools: calls });
+}
 
 /**
  * Running one admitted turn: its provider run or native delivery, steering, application
@@ -16,39 +62,58 @@ const HISTORY_FILE_MESSAGES = 20;
  * @param {import("../types.js").ReentrantConversationStorage | null} dependencies.storage
  * @param {import("../types.js").ConversationStreams} dependencies.streams
  * @param {import("./conversationEvents.js").ConversationEvents} dependencies.events
+ * @param {import("./conversationEntries.js").ConversationEntries} dependencies.entries
  * @param {import("./conversationReads.js").ConversationReads} dependencies.reads
  * @param {import("./conversationDelivery.js").ConversationDelivery} dependencies.delivery
+ * @param {import("./conversationTurnDelivery.js").ConversationTurnDelivery} dependencies.turnDelivery
  * @param {import("../types.js").ServiceToolCatalog | null} dependencies.catalog
- * @param {import("../types.js").ConversationAttachments | undefined} dependencies.attachments
  * @param {import("../types.js").ConversationApiHistory | undefined} dependencies.apiHistory
  * @param {() => boolean} dependencies.isClosed Whether the runtime has closed.
- * @param {boolean} dependencies.persistCommentary
  * @param {boolean} dependencies.completedEnvelope
  * @param {number} dependencies.maximumToolCalls
  * @param {number} dependencies.maximumFinalReply
  * @param {number} dependencies.maximumCompletedOutput
- * @param {number} dependencies.maximumContinuity
- * @param {number} dependencies.maximumAttachmentBytes
+ * @param {number | undefined} dependencies.timeoutMs The time limit of one request, when the application sets one.
  */
-function createConversationTurns({ storage, streams, events, reads, delivery, catalog, attachments, apiHistory, isClosed, persistCommentary,
-  completedEnvelope, maximumToolCalls, maximumFinalReply, maximumCompletedOutput, maximumContinuity, maximumAttachmentBytes }) {
+function createConversationTurns({ storage, streams, events, entries, reads, delivery, turnDelivery, catalog, apiHistory, isClosed,
+  completedEnvelope, maximumToolCalls, maximumFinalReply, maximumCompletedOutput, timeoutMs }) {
+  /**
+   * Starts the turn of a request no turn was running for.
+   * @param {ConversationEntry} entry
+   * @param {ConversationRequest} request
+   * @param {object} configuration
+   */
+  function start(entry, request, configuration) {
+    /** @type {ActiveTurn} */
+    const active = { request, requests: new Map([[request.input.messageId, request]]), controller: new AbortController(),
+      driver: entry.driver, engine: entry.engine, segmentId: entry.segmentId, bindingOwner: entry.bindingOwner,
+      goalOwner: request.input.goal ? request : null, rejectionSaves: new Map(), nativeCheckpoint: recordNoNativeCheckpoint };
+    entry.active = active;
+    entry.error = "";
+    if (timeoutMs !== undefined) active.timer = setTimeout(() => {
+      active.timedOut = true;
+      active.controller.abort(new Error("The conversation request exceeded its time limit."));
+    }, timeoutMs);
+    active.done = perform(entry, active, configuration);
+  }
+
+  /**
+   * @param {ConversationEntry} entry
+   * @param {ActiveTurn} active
+   * @param {object} configuration
+   */
   async function perform(entry, active, configuration) {
-    const { driver, engine, segmentId } = entry;
-    const bindingOwner = entry.bindingOwner;
+    const { driver, engine, segmentId, bindingOwner } = active;
     const initial = active.request;
-    let current = initial;
-    let goalOwner = initial.input.goal ? initial : null;
     let problem;
     const messageOwners = new Map();
     const toolOwners = new Map();
-    const rejectionSaves = new Map();
     let toolWork = Promise.resolve();
     let toolFailure;
     const applicationTools = entry.applicationTools;
     const toolStorage = applicationTools?.storage || storage;
-    const turnDelivery = createConversationTurnDelivery({ entry, active, driver, engine, segmentId, bindingOwner, rejectionSaves, admit,
-      storage, streams, events, reads, delivery, attachments, persistCommentary, maximumContinuity, maximumAttachmentBytes });
 
+    /** @param {ConversationRequest} request */
     function prepareTools(request) {
       if (request.completedEnvelope || !catalog || entry.conversation && !applicationTools) return;
       request.tools = createConversationTools({ catalog, context: request.context, signal: active.controller.signal,
@@ -59,7 +124,7 @@ function createConversationTurns({ storage, streams, events, reads, delivery, ca
             nativeThreadId: request.nativeThreadId, origin: request.input.origin,
             assertCurrent() {
               active.controller.signal.throwIfAborted();
-              if (entry.active !== active || current !== request || !request.accepted || request.finished) {
+              if (entry.active !== active || active.request !== request || !request.accepted || request.finished) {
                 throw failure("This application tool's admitted message is no longer current.", "conversation_application_tool_message_stale", 409, { messageCode: "assistant.conversation.applicationToolMessageStale" });
               }
             },
@@ -67,7 +132,7 @@ function createConversationTurns({ storage, streams, events, reads, delivery, ca
               active.controller.signal.throwIfAborted();
               if (isClosed() || entry.disposed || entry.bindingOwner !== bindingOwner || entry.segmentId !== segmentId ||
                   !active.finishing || active.timedOut || problem || toolFailure || entry.executionFailure || entry.storageFailure ||
-                  current !== request || !request.accepted || entry.lastAcceptedRequest !== request ||
+                  active.request !== request || !request.accepted || entry.lastAcceptedRequest !== request ||
                   entry.active && entry.active !== active) {
                 throw failure("This native completion's admitted message is no longer current.", "conversation_native_completion_message_stale", 409, { messageCode: "assistant.conversation.nativeCompletionMessageStale" });
               }
@@ -83,91 +148,25 @@ function createConversationTurns({ storage, streams, events, reads, delivery, ca
       });
     }
 
-
-    async function admit(request, seen, { nativeDelivery = false, conversationTurn } = {}) {
-      await events.access(request.context, entry.id, request.operation, entry);
-      request.deliveryTiming("admission-authorized");
-      if (!conversationTurn) active.controller.signal.throwIfAborted();
-      if (request.input.goal) request.goalMessageId = request.input.messageId;
-      else if (goalOwner) request.goalMessageId = goalOwner.input.messageId;
-      const nativeTurnId = active.nativeTurnId;
-      const previous = current;
-      if (entry.conversation) {
-        const saved = conversationTurn?.turnId ? await reads.readBoundTurn(entry, conversationTurn.turnId) : null;
-        request.deliveryTiming("turn-located");
-        if (submittedMessage(saved || {})?.messageId !== request.input.messageId) {
-          throw new Error("The native receipt does not belong to this authored request.");
-        }
-        request.turnId = saved.turnId;
-      } else request.turnId = await storage.write(entry.id, async transaction => {
-        const metadata = await transaction.readMetadata();
-        if (metadata.runtime.request?.messageId !== request.input.messageId) throw new Error("The pending conversation message changed before admission.");
-        if (previous !== request && !previous.finished) {
-          const versions = await turnDelivery.writeProgress(transaction, previous, "running", "", { continuedBy: request.input.messageId });
-          if (engine === "api") Object.assign(metadata.runtime.seen, versions);
-        }
-        let id;
-        if (conversationTurn) {
-          const saved = await transaction.readTurn(conversationTurn.turnId);
-          if (submittedMessage(saved || {})?.messageId !== request.input.messageId || saved.metadata?.runtime?.segmentId !== segmentId) {
-            throw new Error("The native receipt does not belong to this authored request.");
-          }
-          if (request.completedEnvelope && saved.metadata.runtime.completedEnvelope !== true) {
-            throw new Error("The native receipt lost its completed-response marker.");
-          }
-          id = saved.turnId;
-          await transaction.updateTurnMetadata(id, { runtime: { ...saved.metadata.runtime,
-            ...(request.goalMessageId ? { goalMessageId: request.goalMessageId } : {}),
-            ...(nativeTurnId ? { nativeTurnId } : {}) } });
-        } else {
-          id = await transaction.nextTurnId();
-          await transaction.appendMessage(id, { role: request.input.origin === "application" ? "system" : "user", ...request.input, at: new Date().toISOString(),
-            turnMetadata: { runtime: { status: "running", ...turnDelivery.turnAttribution(request, {
-              ...(request.goalMessageId ? { goalMessageId: request.goalMessageId } : {}),
-              ...(nativeTurnId ? { nativeTurnId } : {}) }) } } });
-        }
-        if (engine === "api") {
-          metadata.runtime.seen = { ...(seen || metadata.runtime.seen), ...conversationHistoryVersions([await transaction.readTurn(id)]) };
-          metadata.runtime.lastEngine = engine;
-          delete metadata.runtime.request;
-        }
-        await transaction.writeMetadata(metadata);
-        if (engine !== "api" && !nativeDelivery) await delivery.rememberNative(entry, transaction, [await transaction.readTurn(id)]);
-        return id;
-      });
-      if (previous !== request) {
-        previous.sealed = true;
-        previous.continuedBy = request.input.messageId;
-        if (!driver.canonicalTranscript) streams.clear(entry.id);
-      }
-      request.accepted = true;
-      if (!entry.conversation) request.deliveryTiming("receipt-persisted");
-      request.nativeTurnId = nativeTurnId;
-      if (request.input.goal) goalOwner = request;
-      current = active.request = request;
-      if (entry.conversation) entry.lastAcceptedRequest = request;
-      if (!nativeDelivery) await turnDelivery.publishAdmission(request);
-    }
-
     async function onNativeTurn({ turnId, nativeOwner = false }) {
       if (active.nativeTurnId === turnId) return;
       if (!nativeOwner || !driver.canonicalTranscript) throw new Error("The native continuation has no original conversation owner.");
-      await events.access(current.context, entry.id, current.operation, entry);
+      await events.access(active.request.context, entry.id, active.request.operation, entry);
       active.controller.signal.throwIfAborted();
-      // Original Codex successors retain the admitted request, actor and budget.
+      // A native successor turn keeps the admitted request, actor and budget.
       active.nativeTurnId = turnId;
-      if (!current.nativeTurnId && !entry.conversation) {
-        current.nativeTurnId = turnId;
+      if (!active.request.nativeTurnId && !entry.conversation) {
+        active.request.nativeTurnId = turnId;
         await storage.write(entry.id, async transaction => {
-          const turn = await transaction.readTurn(current.turnId);
-          await transaction.updateTurnMetadata(current.turnId, { runtime: { ...turn.metadata.runtime, nativeTurnId: turnId } });
+          const turn = await transaction.readTurn(active.request.turnId);
+          await transaction.updateTurnMetadata(active.request.turnId, { runtime: { ...turn.metadata.runtime, nativeTurnId: turnId } });
         });
       }
     }
 
     async function completeNativeTurn({ turnId, status = "completed", nativeOwner = false }) {
       if (!nativeOwner && active.nativeTurnId !== turnId) throw new Error("The completed native goal turn has a different identity.");
-      // The original owner checkpoints from its notification queue. Steering's
+      // The native owner checkpoints from its notification queue. Steering's
       // exact receipt can still be behind that task, so only the outside run
       // continuation joins active.steering; this checkpoint saves admitted work.
       if (!nativeOwner) await active.steering;
@@ -183,7 +182,7 @@ function createConversationTurns({ storage, streams, events, reads, delivery, ca
         for (const request of active.requests.values()) {
           if (request.turnId && request.accepted && !request.finished &&
               (nativeOwner && driver.canonicalTranscript || request.nativeTurnId === turnId)) {
-            const versions = await turnDelivery.writeProgress(transaction, request, completedStatus, completedError);
+            const versions = await turnDelivery.writeProgress(active, transaction, request, completedStatus, completedError);
             if (engine === "api") Object.assign(metadata.runtime.seen, versions);
             else written.push(await transaction.readTurn(request.turnId));
           }
@@ -209,7 +208,7 @@ function createConversationTurns({ storage, streams, events, reads, delivery, ca
     if (driver.canonicalTranscript && !entry.conversation) active.nativeCheckpoint = input => completeNativeTurn({ ...input, nativeOwner: true });
 
     async function onMessage(message) {
-      const request = messageOwners.get(message.id) || current;
+      const request = messageOwners.get(message.id) || active.request;
       if (!request.accepted) throw new Error("The engine produced output before admitting the message.");
       messageOwners.set(message.id, request);
       // An already visible native item keeps its original request identity. Late
@@ -232,7 +231,7 @@ function createConversationTurns({ storage, streams, events, reads, delivery, ca
       const authorship = request.completedEnvelope ? { authorship: { messageId: request.input.messageId,
         turnId: request.turnId, origin: request.input.origin, completedEnvelope: true } } : {};
       // Some native streams have temporary block identities. Only their final
-      // history snapshots belong in the transcript, as in the original owner.
+      // history snapshots belong in the transcript.
       if (message.transient) {
         streams.update(entry.id, { turnId: request.turnId, origin: request.input.origin, ...value, ...authorship });
       } else if (message.role === "assistant") {
@@ -254,11 +253,10 @@ function createConversationTurns({ storage, streams, events, reads, delivery, ca
         text: message.text, status: message.complete ? "complete" : "inProgress", streaming: streams.read(entry.id) });
     }
 
-
     active.submit = async request => {
       try {
         prepareTools(request);
-        await turnDelivery.deliverNative(request, entry.provider.steer);
+        await turnDelivery.deliverNative(entry, active, request, entry.provider.steer);
       } catch (error) {
         let reported = error;
         if (!request.admissionSettled) {
@@ -280,7 +278,7 @@ function createConversationTurns({ storage, streams, events, reads, delivery, ca
 
     try {
       await events.setPhase(entry, "preparing");
-      const metadata = { runtime: await reads.readState(entry) };
+      const metadata = { runtime: await entries.readState(entry) };
       const continuity = metadata.runtime.continuity;
       // Existing application transcripts precede the first runtime segment.
       // After replacement, their context is already carried by the briefing.
@@ -295,7 +293,7 @@ function createConversationTurns({ storage, streams, events, reads, delivery, ca
       prepareTools(initial);
       const tools = initial.tools && { descriptors: initial.tools.descriptors, schemas: initial.tools.schemas, maximumArgumentBytes: initial.tools.maximumArgumentBytes,
         execute(input, options) {
-          const request = toolOwners.get(input.id) || (options?.messageId ? active.requests.get(options.messageId) : current);
+          const request = toolOwners.get(input.id) || (options?.messageId ? active.requests.get(options.messageId) : active.request);
           if (!request?.accepted) throw new Error("The application tool does not belong to an admitted message.");
           toolOwners.set(input.id, request);
           // Calls already in flight retain their actor and turn. Keep application
@@ -303,9 +301,9 @@ function createConversationTurns({ storage, streams, events, reads, delivery, ca
           const work = toolWork.then(() => request.tools.execute(input, options));
           toolWork = work.catch(error => {
             // Claude accepts a separate successor query; its predecessor's
-            // effect cannot fail that query. Other engines retain the original
-            // active-turn failure guard across steering.
-            if (engine !== "claude" || current === request) toolFailure ||= error;
+            // effect cannot fail that query. Other engines keep one active-turn
+            // failure guard across steering.
+            if (engine !== "claude" || active.request === request) toolFailure ||= error;
           });
           return work;
         }
@@ -317,7 +315,7 @@ function createConversationTurns({ storage, streams, events, reads, delivery, ca
           async onNativeToolUse({ messageId, threadId, name }) {
             await initial.deliveryCommitted;
             active.controller.signal.throwIfAborted();
-            if (entry.disposed || entry.active !== active || current !== initial || !initial.accepted || initial.finished || initial.sealed ||
+            if (entry.disposed || entry.active !== active || active.request !== initial || !initial.accepted || initial.finished || initial.sealed ||
                 entry.bindingOwner !== bindingOwner || entry.segmentId !== segmentId ||
                 messageId !== initial.input.messageId || threadId !== initial.nativeThreadId) {
               throw failure("The native tool observation belongs to a retired response.", "conversation_tool_observation_retired", 409, { messageCode: "assistant.conversation.toolObservationRetired" });
@@ -331,7 +329,7 @@ function createConversationTurns({ storage, streams, events, reads, delivery, ca
                   conversationNativeIdentity(metadata.runtime) !== threadId || submittedMessage(turn || {})?.messageId !== messageId ||
                   saved?.engine !== engine || saved.segmentId !== segmentId || saved.completedEnvelope !== true ||
                   typeof saved.nativeToolAttempt !== "boolean" || saved.status !== "running" || saved.supersededBy ||
-                  entry.active !== active || current !== initial || initial.finished || initial.sealed || active.controller.signal.aborted) {
+                  entry.active !== active || active.request !== initial || initial.finished || initial.sealed || active.controller.signal.aborted) {
                 throw failure("The native tool observation lost its exact admitted receipt.", "conversation_tool_observation_receipt_lost", 409, { messageCode: "assistant.conversation.toolObservationReceiptLost" });
               }
               await transaction.updateTurnMetadata(initial.turnId, { runtime: { ...saved, nativeToolAttempt: true } });
@@ -363,22 +361,22 @@ function createConversationTurns({ storage, streams, events, reads, delivery, ca
             return events.emit(entry, { ...event, turnId: request.turnId, messageId, streaming: streams.read(entry.id) });
           }
           if (event.type === "goal") {
-            if (!driver.canonicalTranscript && event.goal?.status === "active" && !goalOwner) {
-              await events.access(current.context, entry.id, "goal", entry);
+            if (!driver.canonicalTranscript && event.goal?.status === "active" && !active.goalOwner) {
+              await events.access(active.request.context, entry.id, "goal", entry);
               await storage.write(entry.id, async transaction => {
-                const turn = await transaction.readTurn(current.turnId);
-                await transaction.updateTurnMetadata(current.turnId, { runtime: { ...turn.metadata.runtime, goalMessageId: current.input.messageId } });
+                const turn = await transaction.readTurn(active.request.turnId);
+                await transaction.updateTurnMetadata(active.request.turnId, { runtime: { ...turn.metadata.runtime, goalMessageId: active.request.input.messageId } });
               });
-              goalOwner = current;
-              current.goalMessageId = current.input.messageId;
+              active.goalOwner = active.request;
+              active.request.goalMessageId = active.request.input.messageId;
             }
             entry.goal = event.goal;
           }
-          return event.type === "phase" ? events.setPhase(entry, event.phase, current.turnId) : events.emit(entry, { ...event, turnId: current.turnId });
+          return event.type === "phase" ? events.setPhase(entry, event.phase, active.request.turnId) : events.emit(entry, { ...event, turnId: active.request.turnId });
         }
       };
       if (engine === "api") {
-        const readAttachments = turnDelivery.attachmentReader(initial);
+        const readAttachments = turnDelivery.attachmentReader(entry, active, initial);
         const files = await readAttachments(initial.input.attachments);
         initial.input.attachments = files.attachments;
         const selectedHistory = apiHistory ? structuredClone(await apiHistory({ context: initial.context })) : undefined;
@@ -421,14 +419,14 @@ function createConversationTurns({ storage, streams, events, reads, delivery, ca
           await transaction.writeMetadata(metadata);
         });
         const completion = await entry.provider.run({ ...providerInput, input, signal: active.controller.signal, continuity, history, requestHistory,
-          beforeDispatch: () => turnDelivery.beforeDispatch(initial), accept: () => admit(initial, seen),
+          beforeDispatch: () => turnDelivery.beforeDispatch(entry, active, initial), accept: () => turnDelivery.admit(entry, active, initial, seen),
           ...(entry.conversation ? {} : { summary: summary?.text || "",
             saveSummary: saved => storage.write(entry.id, transaction => transaction.writeSummary(saved)) }) });
         if (completion?.metadata && Object.keys(completion.metadata).length) {
           await storage.write(entry.id, transaction => transaction.updateTurnMetadata(initial.turnId, { completion: completion.metadata }));
         }
       } else {
-        await turnDelivery.deliverNative(initial, input => entry.provider.run({ ...providerInput, ...input }));
+        await turnDelivery.deliverNative(entry, active, initial, input => entry.provider.run({ ...providerInput, ...input }));
       }
       active.controller.signal.throwIfAborted();
     } catch (error) { problem = error; }
@@ -439,7 +437,7 @@ function createConversationTurns({ storage, streams, events, reads, delivery, ca
     clearTimeout(active.timer);
     if (problem?.cleanupFailed) {
       entry.executionFailure = problem;
-      entry.cleanupTurnId = current.turnId;
+      entry.cleanupTurnId = active.request.turnId;
     }
     const status = entry.executionFailure ? "interrupted" : active.timedOut ? "failed" : active.controller.signal.aborted ? "cancelled"
       : problem?.status === "interrupted" ? "interrupted" : problem ? "failed" : initial.recovered?.status || "complete";
@@ -453,25 +451,25 @@ function createConversationTurns({ storage, streams, events, reads, delivery, ca
           }
         });
         // Only opted-in application receipts are saved above. Native output,
-        // checkpoints and status remain with the original run owner and sender.
+        // checkpoints and status remain with the native run owner and sender.
         entry.error = error;
         entry.storageFailure = null;
         entry.saveProgress = null;
-        return { type: "settled", turnId: current.turnId, status, error, ...stateErrorFields(error) };
+        return { type: "settled", turnId: active.request.turnId, status, error, ...stateErrorFields(error) };
       }
-      // Preserve the common storage-retry facility by retrying the original
-      // failed rejection save, never by deleting or rebuilding its frozen draft.
-      for (const [messageId, save] of rejectionSaves) {
+      // A storage retry repeats each failed rejection save as it was; it never
+      // deletes or rebuilds that save's frozen draft.
+      for (const [messageId, save] of active.rejectionSaves) {
         const { runtime } = await storage.read(entry.id, transaction => transaction.readMetadata());
         if (runtime.request?.messageId === messageId) await save();
-        rejectionSaves.delete(messageId);
+        active.rejectionSaves.delete(messageId);
       }
       await storage.write(entry.id, async transaction => {
         const metadata = await transaction.readMetadata();
         const written = [];
         for (const request of active.requests.values()) {
           if (request.accepted && !request.finished) {
-            const versions = await turnDelivery.writeProgress(transaction, request, status, error);
+            const versions = await turnDelivery.writeProgress(active, transaction, request, status, error);
             if (engine === "api") Object.assign(metadata.runtime.seen, versions);
             else written.push(await transaction.readTurn(request.turnId));
           }
@@ -487,7 +485,7 @@ function createConversationTurns({ storage, streams, events, reads, delivery, ca
       entry.error = error;
       entry.storageFailure = null;
       entry.saveProgress = null;
-      return { type: "settled", turnId: current.turnId, status, error: entry.error, ...stateErrorFields(entry.error) };
+      return { type: "settled", turnId: active.request.turnId, status, error: entry.error, ...stateErrorFields(entry.error) };
     };
     try { await entry.saveProgress(); }
     catch (saveError) {
@@ -498,16 +496,16 @@ function createConversationTurns({ storage, streams, events, reads, delivery, ca
     }
     if (!initial.admissionSettled) initial.admission.reject(problem || new Error("The engine did not acknowledge the message."));
     entry.active = null;
-    await events.setPhase(entry, "", current.turnId);
-    await events.emit(entry, { type: "settled", turnId: current.turnId, status: entry.storageFailure || entry.executionFailure ? "failed" : status,
+    await events.setPhase(entry, "", active.request.turnId);
+    await events.emit(entry, { type: "settled", turnId: active.request.turnId, status: entry.storageFailure || entry.executionFailure ? "failed" : status,
       error: entry.error, ...stateErrorFields(entry.error) });
   }
 
   return Object.freeze({
-    perform
+    start
   });
 }
 
 /** @typedef {ReturnType<typeof createConversationTurns>} ConversationTurns */
 
-export { createConversationTurns };
+export { createConversationTurns, saveTools };

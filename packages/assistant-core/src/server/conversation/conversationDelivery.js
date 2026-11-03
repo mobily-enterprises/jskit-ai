@@ -4,7 +4,10 @@ import { isCompletedEnvelopeTurn } from "./transcript.js";
 import { conversationNativeIdentity } from "./runtimeStateUpgrade.js";
 import { createConversationChangeover, conversationNativeMessages } from "./continuity.js";
 import { deliveryFailure, failure, stateErrorFields } from "./conversationRefusals.js";
-import { pendingSuccessor, retainedSegments, submittedMessage } from "./conversationRecords.js";
+import { pendingSuccessor, retainedSegments, submittedMessage } from "./conversationReads.js";
+
+/** @typedef {import("./conversationEntries.js").ConversationEntry} ConversationEntry */
+/** @typedef {import("./conversationSending.js").ConversationRequest} ConversationRequest */
 
 /**
  * Native delivery receipts: the changeover state a native owner sees, the changeover that
@@ -14,6 +17,7 @@ import { pendingSuccessor, retainedSegments, submittedMessage } from "./conversa
  * @param {import("../types.js").ReentrantConversationStorage | null} dependencies.storage
  * @param {import("../types.js").ConversationTranscript | null} dependencies.transcript
  * @param {import("./conversationEvents.js").ConversationEvents} dependencies.events
+ * @param {import("./conversationEntries.js").ConversationEntries} dependencies.entries
  * @param {import("./conversationReads.js").ConversationReads} dependencies.reads
  * @param {import("../types.js").ConversationLimits} dependencies.limits
  * @param {boolean} dependencies.persistCommentary
@@ -21,11 +25,16 @@ import { pendingSuccessor, retainedSegments, submittedMessage } from "./conversa
  * @param {number} dependencies.maximumFinalReply
  * @param {number} dependencies.maximumCompletedOutput
  */
-function createConversationDelivery({ storage, transcript, events, reads, limits, persistCommentary, completedEnvelope, maximumFinalReply,
+function createConversationDelivery({ storage, transcript, events, entries, reads, limits, persistCommentary, completedEnvelope, maximumFinalReply,
   maximumCompletedOutput }) {
-  // The production changeover owner sees its existing state contract. Only this
-  // storage adapter knows about the common runtime's segment registry and one
-  // authored request record; provider binding writes remain independently fenced.
+  /**
+   * The changeover owner sees its usual state contract. Only this storage adapter knows about the
+   * runtime's segment registry and its one authored request record; provider binding writes stay
+   * fenced on their own.
+   * @param {ConversationEntry} entry
+   * @param {ConversationRequest | null} [request]
+   * @param {object} [transaction] The storage transaction already open, if any.
+   */
   function changeoverState(entry, request, transaction) {
     const readMetadata = () => transaction ? transaction.readMetadata()
       : storage.read(entry.id, current => current.readMetadata());
@@ -86,6 +95,14 @@ function createConversationDelivery({ storage, transcript, events, reads, limits
     };
   }
 
+  /**
+   * The changeover that sends a message with the history its native engine has not seen.
+   * @param {ConversationEntry} entry
+   * @param {object} context
+   * @param {ConversationRequest | null} request
+   * @param {(input: object) => Promise<unknown>} sendMessage
+   * @param {AbortSignal} [signal]
+   */
   function nativeChangeover(entry, context, request, sendMessage, signal) {
     let observation;
     const initialWindow = limits.maxInitialNativeHistoryMessages;
@@ -141,11 +158,24 @@ function createConversationDelivery({ storage, transcript, events, reads, limits
     });
   }
 
+  /**
+   * Records saved turns as seen by the entry's native engine.
+   * @param {ConversationEntry} entry
+   * @param {object} transaction
+   * @param {object[]} turns
+   */
   async function rememberNative(entry, transaction, turns) {
     const changeover = createConversationChangeover({ state: changeoverState(entry, null, transaction) });
     await changeover.remember({ engineId: entry.engine, messages: conversationNativeMessages(turns) });
   }
 
+  /**
+   * Recovers a message whose delivery is unconfirmed, from its engine's own admission record.
+   * @param {ConversationEntry} entry
+   * @param {object} context
+   * @param {string} messageId
+   * @param {{ observation?: object, allowActive?: boolean }} [options]
+   */
   async function recoverDelivery(entry, context, messageId, { observation: suppliedObservation, allowActive = false } = {}) {
     await events.access(context, entry.id, "inspectDelivery", entry);
     if (entry.active && !allowActive) throw failure("Wait for the current submission before checking delivery.", "conversation_busy", 409, { messageCode: "assistant.conversation.waitForSubmission" });
@@ -167,7 +197,7 @@ function createConversationDelivery({ storage, transcript, events, reads, limits
       const result = await inspectDelivery(entry, context, goalMessageId);
       return { ...receipt, recovered: result.recovered === true };
     }
-    const metadata = { runtime: await reads.readState(entry) };
+    const metadata = { runtime: await entries.readState(entry) };
     if (metadata.runtime.replacement) throw failure("Finish the native replacement before recovering output.", "conversation_replacement_pending_before_recovery", 409, { messageCode: "assistant.conversation.replacementPendingBeforeRecovery" });
     const savedRequests = [...metadata.runtime.predecessors, metadata.runtime].filter(segment => segment.request?.messageId === messageId);
     if (!existing && savedRequests.length && savedRequests.every(segment =>
@@ -293,6 +323,11 @@ function createConversationDelivery({ storage, transcript, events, reads, limits
     return result;
   }
 
+  /**
+   * @param {ConversationEntry} entry
+   * @param {object} context
+   * @param {string} messageId
+   */
   async function inspectDelivery(entry, context, messageId) {
     if (entry.conversation?.commands) {
       await events.access(context, entry.id, "inspectDelivery", entry);
@@ -302,7 +337,7 @@ function createConversationDelivery({ storage, transcript, events, reads, limits
     }
     if (entry.conversation) {
       await events.access(context, entry.id, "inspectDelivery", entry);
-      const state = await reads.readState(entry);
+      const state = await entries.readState(entry);
       // A running owner completes its own receipt. Only an idle owner recovers
       // the saved changeover, preserving write-receipt-before-clear ordering.
       if (!entry.active && state.request?.messageId === messageId && state.request.attempted) {
@@ -336,7 +371,7 @@ function createConversationDelivery({ storage, transcript, events, reads, limits
     const sender = nativeChangeover(entry, context, null, () => {
       throw new Error("Receipt inspection cannot submit another native prompt.");
     });
-    const pending = (await reads.readState(entry)).request;
+    const pending = (await entries.readState(entry)).request;
     if (pending?.messageId === messageId) {
       const delivered = await sender.send({ engineId: entry.engine, messages, input: { messageId } });
       if (!delivered?.delivered) throw deliveryFailure(delivered);

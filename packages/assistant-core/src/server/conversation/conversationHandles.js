@@ -3,16 +3,64 @@ import { normalizeConversationConfiguration } from "./configuration.js";
 import { failure } from "./conversationRefusals.js";
 import { serial } from "./conversationEvents.js";
 
+/** @typedef {import("./conversationEntries.js").ConversationEntry} ConversationEntry */
+/** @typedef {import("./conversationEntries.js").HostConversation} HostConversation */
+
+/**
+ * Checks the conversation a host supplies before the runtime binds it: a logical conversation
+ * brings its command, read and stream owners; a scoped one its native representation, identity
+ * and operations; a bound native one its identity, store, preparation and native owners.
+ * @param {HostConversation | null} conversation
+ * @param {{ id: string, configuration: object | undefined, representation: string }} request
+ */
+function assertHostConversation(conversation, { id, configuration, representation }) {
+  // readable-check: allow method-probe - input validation: the conversation a host supplies is checked before the runtime binds it
+  const offers = (owner, names) => names.every(name => typeof owner?.[name] === "function");
+  const scoped = conversation?.native?.scoped;
+  const commands = conversation?.commands;
+  const owner = conversation?.native?.owner;
+  const preparation = conversation?.native?.preparation;
+  const invalidClaudeOwner = conversation?.engine === "claude" && (!owner || typeof owner !== "object" || !offers(owner, ["acquire"]) ||
+    !offers(preparation, ["cleanup"]));
+  const invalidOpenCodeOwner = conversation?.engine === "opencode" && (!owner || typeof owner !== "object" ||
+    !offers(preparation, ["cleanup", ...(scoped ? ["turn", "existing"] : ["message", "inspection", "interruption"])]) ||
+    !scoped && !offers(conversation.native, ["acquire"]));
+  if (commands && (representation !== "canonical" || configuration !== undefined ||
+      !offers(commands, ["send", "cancel", "select", "inspectDelivery"]) || !offers(conversation, ["read", "readStream"]))) {
+    throw new TypeError("A logical conversation requires its complete original command, read and stream owners.");
+  }
+  if (scoped && (representation !== "native" || configuration !== undefined || !["codex", "claude", "opencode"].includes(conversation.engine) ||
+      typeof scoped.conversationId !== "string" || !scoped.conversationId ||
+      (conversation.engine === "claude" ? invalidClaudeOwner : conversation.engine === "opencode" ? invalidOpenCodeOwner
+        : !offers(preparation, ["cleanup"]) ||
+          !offers(conversation.native.runOwner, ["startConversationTurn", "readConversation", "waitForConversationTurn", "stopConversation", "deleteConversation"])))) {
+    throw new TypeError("An original scoped conversation requires its native representation, identity and existing operations.");
+  }
+  if (conversation && (conversation.sessionId !== id || typeof conversation.namespace !== "string" || !conversation.namespace ||
+      !["codex", "claude", "opencode"].includes(conversation.engine) || !scoped && !commands && (
+      (conversation.engine === "codex" ? !conversation.native?.runOwner || !conversation.native?.providerOwner
+        : conversation.engine === "claude" ? invalidClaudeOwner
+          : invalidOpenCodeOwner) ||
+      !offers(conversation, ["prepareInput", "read"])))) {
+    throw new TypeError("A bound native conversation requires its original identity, store, preparation and native owners.");
+  }
+  if (conversation?.maximumHistoryBytes !== undefined && !offers(conversation, ["maximumHistoryBytes"])) {
+    throw new TypeError("A bound native history budget requires a server-owned resolver.");
+  }
+  if (!["canonical", "native"].includes(representation) || representation === "native" && !conversation) {
+    throw new TypeError("Native result representation requires an original bound conversation.");
+  }
+}
+
 /**
  * Opening a conversation handle: the host's conversation is checked, its entry is created or
  * reused, and the handle's operations are bound to that entry and caller context.
  * @param {object} dependencies
- * @param {Map<string, any>} dependencies.entries The open conversations, by namespace or id.
+ * @param {import("./conversationEntries.js").ConversationEntries} dependencies.entries
  * @param {import("../types.js").ReentrantConversationStorage | null} dependencies.storage
  * @param {import("../types.js").ConversationHost | undefined} dependencies.defaultHost
  * @param {import("./conversationEvents.js").ConversationEvents} dependencies.events
  * @param {import("./conversationReads.js").ConversationReads} dependencies.reads
- * @param {import("./conversationOpening.js").ConversationOpening} dependencies.opening
  * @param {import("./conversationSending.js").ConversationSending} dependencies.sending
  * @param {import("./conversationGoals.js").ConversationGoals} dependencies.goals
  * @param {import("./conversationDelivery.js").ConversationDelivery} dependencies.delivery
@@ -23,9 +71,28 @@ import { serial } from "./conversationEvents.js";
  * @param {boolean} dependencies.persistCommentary
  * @param {string | undefined} dependencies.defaultIntegrationId
  */
-function createConversationHandles({ entries, storage, defaultHost, events, reads, opening, sending, goals, delivery, stopping, replacement,
+function createConversationHandles({ entries, storage, defaultHost, events, reads, sending, goals, delivery, stopping, replacement,
   completedResponses, completedEnvelope, persistCommentary, defaultIntegrationId }) {
-  async function open({ id, context, configuration, engine, host, representation = "canonical" } = {}) {
+  /**
+   * What a handle reads: a scoped conversation's own result, a bound conversation's native result,
+   * a logical conversation's snapshot from its own read, or the snapshot of its saved state.
+   * @param {ConversationEntry} entry
+   * @param {string} representation
+   * @param {object} context
+   * @param {object} [query]
+   */
+  async function readSnapshot(entry, representation, context, query) {
+    if (entry.conversation?.native?.scoped) return entry.provider.readNative({ input: query, context });
+    if (representation === "native") return reads.readNativeResult(entry, context);
+    if (entry.conversation?.commands) {
+      const logical = await entry.conversation.read(context, query);
+      entries.followEngine(entry, logical.engine);
+      return reads.logicalSnapshot(entry, logical);
+    }
+    return reads.snapshot(entry, await entries.readState(entry, context), query);
+  }
+
+  async function open({ id, context, configuration, engine, host, representation = "canonical" }) {
     if (typeof id !== "string" || !id.trim()) throw new TypeError("A conversation id is required.");
     await events.access(context, id, "open");
     const selectedHost = host || defaultHost;
@@ -36,74 +103,17 @@ function createConversationHandles({ entries, storage, defaultHost, events, read
     if (conversation && !persistCommentary) {
       throw new TypeError("Transient commentary requires a runtime-owned transcript; supplied conversations retain their host's policy.");
     }
-    const scoped = conversation?.native?.scoped;
-    const commands = conversation?.commands;
-    const invalidClaudeOwner = conversation?.engine === "claude" && (!conversation.native?.owner ||
-      // readable-check: allow method-probe - input validation: the conversation a host supplies is checked before the runtime binds it
-      typeof conversation.native.owner !== "object" || typeof conversation.native.owner.acquire !== "function" ||
-      // readable-check: allow method-probe - input validation: the conversation a host supplies is checked before the runtime binds it
-      typeof conversation.native.preparation?.cleanup !== "function");
-    const invalidOpenCodeOwner = conversation?.engine === "opencode" && (!conversation.native?.owner ||
-      // readable-check: allow method-probe - input validation: the conversation a host supplies is checked before the runtime binds it
-      typeof conversation.native.owner !== "object" || typeof conversation.native.preparation?.cleanup !== "function" ||
-      (scoped ? ["turn", "existing"] : ["message", "inspection", "interruption"])
-        // readable-check: allow method-probe - input validation: the conversation a host supplies is checked before the runtime binds it
-        .some(name => typeof conversation.native.preparation?.[name] !== "function") ||
-      // readable-check: allow method-probe - input validation: the conversation a host supplies is checked before the runtime binds it
-      !scoped && typeof conversation.native.acquire !== "function");
-    if (commands && (representation !== "canonical" || configuration !== undefined ||
-        // readable-check: allow method-probe - input validation: the conversation a host supplies is checked before the runtime binds it
-        ["send", "cancel", "select", "inspectDelivery"].some(name => typeof commands[name] !== "function") ||
-        // readable-check: allow method-probe - input validation: the conversation a host supplies is checked before the runtime binds it
-        typeof conversation.read !== "function" || typeof conversation.readStream !== "function")) {
-      throw new TypeError("A logical conversation requires its complete original command, read and stream owners.");
-    }
-    if (scoped && (representation !== "native" || configuration !== undefined || !["codex", "claude", "opencode"].includes(conversation.engine) ||
-        typeof scoped.conversationId !== "string" || !scoped.conversationId ||
-        (conversation.engine === "claude" ? invalidClaudeOwner : conversation.engine === "opencode" ? invalidOpenCodeOwner
-          // readable-check: allow method-probe - input validation: the conversation a host supplies is checked before the runtime binds it
-          : typeof conversation.native.preparation?.cleanup !== "function" ||
-            ["startConversationTurn", "readConversation", "waitForConversationTurn", "stopConversation", "deleteConversation"]
-              // readable-check: allow method-probe - input validation: the conversation a host supplies is checked before the runtime binds it
-              .some(name => typeof conversation.native.runOwner?.[name] !== "function")))) {
-      throw new TypeError("An original scoped conversation requires its native representation, identity and existing operations.");
-    }
-    if (conversation && (conversation.sessionId !== id || typeof conversation.namespace !== "string" || !conversation.namespace ||
-        !["codex", "claude", "opencode"].includes(conversation.engine) || !scoped && !commands && (
-        (conversation.engine === "codex" ? !conversation.native?.runOwner || !conversation.native?.providerOwner
-          : conversation.engine === "claude" ? invalidClaudeOwner
-            : invalidOpenCodeOwner) ||
-        // readable-check: allow method-probe - input validation: the conversation a host supplies is checked before the runtime binds it
-        typeof conversation.prepareInput !== "function" || typeof conversation.read !== "function"))) {
-      throw new TypeError("A bound native conversation requires its original identity, store, preparation and native owners.");
-    }
-    // readable-check: allow method-probe - input validation: a host's optional history budget must be a resolver
-    if (conversation?.maximumHistoryBytes !== undefined && typeof conversation.maximumHistoryBytes !== "function") {
-      throw new TypeError("A bound native history budget requires a server-owned resolver.");
-    }
-    if (!["canonical", "native"].includes(representation) || representation === "native" && !conversation) {
-      throw new TypeError("Native result representation requires an original bound conversation.");
-    }
-    const key = conversation?.namespace || id;
-    let entry = entries.get(key);
-    if (!entry) {
-      entry = { id, key, conversation, host: selectedHost, pending: Promise.resolve(), active: null, listeners: new Set(), error: "",
-        cancelledMessages: new Set() };
-      entries.set(key, entry);
-      entry.initializing = opening.initialize(entry, configuration, engine).catch(error => {
-        if (entries.get(key) === entry) entries.delete(key);
-        throw error;
-      });
-    }
+    assertHostConversation(conversation, { id, configuration, representation });
+    const entry = entries.acquire({ id, conversation, host: selectedHost, configuration, engine });
     await entry.initializing;
     if (entry.disposed) throw failure("This conversation handle is disposed.", "conversation_handle_disposed", 409, { messageCode: "assistant.conversation.handleDisposed" });
     if (host && !isDeepStrictEqual(host, entry.host)) throw failure("This open conversation already belongs to another host scope. Dispose its handle before reopening it on the original host.", "conversation_host_scope_mismatch", 409, { messageCode: "assistant.conversation.hostScopeMismatch" });
     if (engine && engine !== entry.engine) throw failure("Use replace() to change this conversation's engine.", "conversation_use_replace_for_engine", 409, { messageCode: "assistant.conversation.useReplaceForEngine" });
     if (configuration) {
-      const metadata = { runtime: await reads.readState(entry) };
+      const state = await entries.readState(entry);
       const supplied = entry.conversation ? configuration
         : normalizeConversationConfiguration(configuration, { engine: entry.engine, defaultIntegrationId });
-      if (!isDeepStrictEqual(supplied, metadata.runtime.configuration)) {
+      if (!isDeepStrictEqual(supplied, state.configuration)) {
         throw failure("Use configure() to change a saved conversation's settings.", "conversation_configuration_mismatch");
       }
     }
@@ -114,7 +124,7 @@ function createConversationHandles({ entries, storage, defaultHost, events, read
       select: input => serial(entry, () => replacement.replace(entry, context, input, true, representation)),
       async read(query) {
         await events.access(context, id, "read", entry);
-        const result = await reads.read(entry, representation, context, query);
+        const result = await readSnapshot(entry, representation, context, query);
         if (entry.conversation?.commands) await events.access(context, id, "read", entry);
         return result;
       },
@@ -124,7 +134,7 @@ function createConversationHandles({ entries, storage, defaultHost, events, read
         serial(entry, () => completedResponses.prepareCompletedResponse(entry, context, input, options)) } : {}),
       readGoal: () => serial(entry, () => goals.readGoal(entry, context, representation)),
       updateGoal: input => goals.updateGoal(entry, context, input, representation),
-      inspectDelivery({ messageId, threadId } = {}) {
+      inspectDelivery({ messageId, threadId }) {
         if (typeof messageId !== "string" || !messageId) throw new TypeError("A message id is required.");
         return serial(entry, async () => {
           if (representation !== "native") return delivery.inspectDelivery(entry, context, messageId);
@@ -139,11 +149,11 @@ function createConversationHandles({ entries, storage, defaultHost, events, read
         await entry.pending;
         await entry.active?.done;
         await events.access(context, id, "read", entry);
-        return reads.read(entry);
+        return reads.snapshot(entry, await entries.readState(entry));
       },
       // Cancel of one unsent or unconfirmed message always records it; an
       // application conversation supplies its own operation for that.
-      async cancelDelivery({ messageId } = {}) {
+      async cancelDelivery({ messageId }) {
         if (typeof messageId !== "string" || !messageId) throw new TypeError("A message id is required.");
         await events.access(context, id, "cancel", entry);
         if (entry.conversation?.commands) {

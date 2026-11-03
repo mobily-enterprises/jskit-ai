@@ -1,23 +1,31 @@
 import { isDeepStrictEqual } from "node:util";
 import { conversationAttachmentIds } from "./attachments.js";
 import { failure } from "./conversationRefusals.js";
-import { pendingSuccessor, submittedMessage } from "./conversationRecords.js";
+import { pendingSuccessor, submittedMessage } from "./conversationReads.js";
 import { serial } from "./conversationEvents.js";
+
+/** @typedef {import("./conversationEntries.js").ConversationEntry} ConversationEntry */
 
 /**
  * Reading and changing an open conversation's native goal.
  * @param {object} dependencies
  * @param {import("./conversationEvents.js").ConversationEvents} dependencies.events
+ * @param {import("./conversationEntries.js").ConversationEntries} dependencies.entries
  * @param {import("./conversationReads.js").ConversationReads} dependencies.reads
  * @param {import("./conversationSending.js").ConversationSending} dependencies.sending
  * @param {import("./conversationStopping.js").ConversationStopping} dependencies.stopping
  * @param {import("../types.js").ServiceToolCatalog | null} dependencies.catalog
  */
-function createConversationGoals({ events, reads, sending, stopping, catalog }) {
+function createConversationGoals({ events, entries, reads, sending, stopping, catalog }) {
+  /**
+   * @param {ConversationEntry} entry
+   * @param {object} context
+   * @param {string} representation
+   */
   async function readGoal(entry, context, representation) {
     await events.access(context, entry.id, "readGoal", entry);
     if (!reads.capabilities(entry).goals) return null;
-    const configuration = representation === "native" ? undefined : (await reads.readState(entry)).configuration;
+    const configuration = representation === "native" ? undefined : (await entries.readState(entry)).configuration;
     const result = await entry.provider.readGoal({ context, configuration });
     if (entry.conversation && representation !== "native" && result.nativeResult.status === "unavailable") {
       throw failure("The native goal is unavailable. Try reading its status again.", "conversation_goal_unavailable", 503);
@@ -26,6 +34,13 @@ function createConversationGoals({ events, reads, sending, stopping, catalog }) 
     return representation === "native" ? result.nativeResult : structuredClone(entry.goal);
   }
 
+  /**
+   * @param {ConversationEntry} entry
+   * @param {object} context
+   * @param {object} input
+   * @param {string} representation
+   * @param {boolean} [retryFinishedTurn] Whether a goal that Claude's completion refused may be admitted once more.
+   */
   async function updateGoal(entry, context, input, representation, retryFinishedTurn = true) {
     await events.access(context, entry.id, "goal", entry);
     context?.signal?.throwIfAborted();
@@ -74,7 +89,7 @@ function createConversationGoals({ events, reads, sending, stopping, catalog }) 
     }
     const result = await serial(entry, async () => {
       await events.access(context, entry.id, "goal", entry);
-      if (entry.conversation) await reads.readState(entry);
+      if (entry.conversation) await entries.readState(entry);
       if (entry.segmentId !== input.expectedSegmentId) throw failure("The conversation changed before this goal command was sent.", "conversation_goal_changed", 409, { messageCode: "assistant.conversation.goalConversationChanged" });
       if (entry.conversation && input.expectedSegmentId === null && input.action !== "set") {
         throw failure("This command requires an existing native conversation.", "conversation_goal_changed", 409, { messageCode: "assistant.conversation.goalNeedsNativeConversation" });
@@ -90,7 +105,7 @@ function createConversationGoals({ events, reads, sending, stopping, catalog }) 
         }
       }
       if (entry.active && !entry.active.request.accepted) throw failure("Wait for the goal command to be admitted.", "conversation_busy", 409, { messageCode: "assistant.conversation.waitForGoalCommand" });
-      const metadata = { runtime: await reads.readState(entry) };
+      const metadata = { runtime: await entries.readState(entry) };
       if (metadata.runtime.request && (entry.engine === "api" || metadata.runtime.request.attempted || metadata.runtime.request.inspectionOnly)) {
         throw failure("Check the uncertain command's delivery before changing the goal.", "conversation_delivery_uncertain", 409, { messageCode: "assistant.conversation.goalCommandDeliveryUncertain" });
       }
@@ -112,7 +127,7 @@ function createConversationGoals({ events, reads, sending, stopping, catalog }) 
           input: { ...input, ...goal }, representation, tools, interrupt: () => stopping.stop(entry, context),
           async send({ message }, { threadId }) {
             const admission = await serial(entry, async () => {
-              const state = await reads.readState(entry);
+              const state = await entries.readState(entry);
               const selectedSegment = `${entry.engine}:${threadId}`;
               if (!threadId || state.segmentId !== selectedSegment ||
                   input.expectedSegmentId !== null && input.expectedSegmentId !== selectedSegment) {

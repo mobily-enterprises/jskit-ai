@@ -9,6 +9,14 @@ const stages = new Set([
 ]);
 const hostStagePattern = /^[a-z][a-z-]{0,63}$/u;
 
+/** The stages of a host that declares none of its own. */
+const NO_HOST_STAGES = Object.freeze([]);
+
+/** The monotonic time a delivery's stages are measured against. */
+function monotonicNow() {
+  return performance.now();
+}
+
 export function normalizeConversationDeliveryHostStages(hostStages = []) {
   if (!Array.isArray(hostStages) || hostStages.some(stage => typeof stage !== "string" || !hostStagePattern.test(stage))) {
     throw new TypeError("Host delivery stages must be lowercase hyphenated names.");
@@ -29,9 +37,7 @@ export function normalizeConversationDeliveryHostStages(hostStages = []) {
  * @returns {(stage: string) => void}
  */
 export function createConversationDeliveryTiming({ engine, conversationId, messageId, report,
-  // readable-check: allow dependency-default - data: the host's stage names, and a host without its own stages has none
-  hostStages = [],
-  clock = () => performance.now() }) {
+  hostStages = NO_HOST_STAGES, clock = monotonicNow }) {
   const startedAt = clock();
   let previousAt = startedAt;
   let previousStage = "";

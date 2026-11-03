@@ -7,6 +7,14 @@ function invalid(message, { messageCode, messageParams = {} }) {
   return new AppError(400, message, { code: "conversation_invalid_attachments", messageCode, messageParams });
 }
 
+/** The attachments of an application that offers none: every file it is asked to resolve is refused. */
+export const NO_ATTACHMENTS = Object.freeze({
+  resolve() {
+    throw new AppError(400, "File attachments are not configured for this conversation.", { code: "conversation_attachments_not_configured",
+      messageCode: "assistant.conversation.attachmentsNotConfigured" });
+  }
+});
+
 export function conversationAttachmentIds(value = []) {
   if (!Array.isArray(value) || value.length > ASSISTANT_ATTACHMENT_MAX_ITEMS ||
       value.some(id => typeof id !== "string" || !id.trim() || id.length > ASSISTANT_ATTACHMENT_ID_MAX_LENGTH) ||
@@ -21,7 +29,7 @@ export function conversationAttachmentIds(value = []) {
 /**
  * Resolve app-owned files for one dispatch. Only receipts enter the transcript.
  * @param {object} options
- * @param {import("../types.js").ConversationAttachments | undefined} options.attachments The application's resolver, when it offers files.
+ * @param {import("../types.js").ConversationAttachments} options.attachments The application's resolver, or NO_ATTACHMENTS.
  * @param {object} options.context
  * @param {string} options.conversationId
  * @param {AbortSignal} options.signal
@@ -33,11 +41,6 @@ export function createConversationAttachmentReader({ attachments, context, conve
   let bytes = 0;
   return async references => {
     if (!references?.length) return { attachments: [], content: [], localFiles: [], attachmentManifest: "" };
-    // readable-check: allow method-probe - input validation: an application that offers no attachments refuses files
-    if (typeof attachments?.resolve !== "function") {
-      throw new AppError(400, "File attachments are not configured for this conversation.", { code: "conversation_attachments_not_configured",
-        messageCode: "assistant.conversation.attachmentsNotConfigured" });
-    }
     const receipts = [];
     const content = [];
     const localFiles = [];
