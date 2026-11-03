@@ -26,7 +26,7 @@ Local functions
 ### `src/client/browser.js`
 Exports
 - `audioContextConstructor()`
-- `createVoiceTurnId(prefix = "turn")`
+- `createVoiceTurnId(prefix)`
 - `followMediaQuery(query, listener)`
 - `listenToDocument(type, listener)`
 - `listenToPage(type, listener)`
@@ -98,7 +98,7 @@ Exports
 
 ### `src/client/voiceController.js`
 Exports
-- `createVoiceConversationController({ connectSpeech, createSession = useVoiceConversation } = {})`
+- `createVoiceConversationController({ connectSpeech, createSession = useVoiceConversation })`
 
 ### `src/client/voiceConversation.js`
 Exports

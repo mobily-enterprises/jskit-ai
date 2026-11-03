@@ -1,7 +1,7 @@
 import { conversationAttachmentManifest } from "../../shared/conversation/attachments.js";
 import { createConversationAttachmentReader } from "./attachments.js";
-import { conversationHistoryVersions, conversationNativeMessages, conversationRequestText, notifyNoPromptRejected,
-  notifyNoPromptSending } from "./continuity.js";
+import { conversationHistoryVersions, conversationNativeMessages, conversationRequestText } from "./continuity.js";
+import { ignorePromptRejection, ignorePromptSending } from "./nativeCommandCallbacks.js";
 import { deliveryFailure, failure } from "./conversationRefusals.js";
 import { submittedMessage } from "./conversationReads.js";
 
@@ -313,8 +313,8 @@ function createConversationTurnDelivery({ storage, streams, events, reads, deliv
       return admitted.promise;
     };
     // A native caller's own input may carry its prompt callbacks.
-    const { onPromptSending: originalPromptSending = notifyNoPromptSending,
-      onPromptRejected: originalPromptRejected = notifyNoPromptRejected } = request.originalInput || {};
+    const { onPromptSending: originalPromptSending = ignorePromptSending,
+      onPromptRejected: originalPromptRejected = ignorePromptRejection } = request.originalInput || {};
     try {
       const input = {
         ...request.originalInput,

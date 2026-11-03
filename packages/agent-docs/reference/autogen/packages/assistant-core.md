@@ -342,6 +342,7 @@ Local functions
 Exports
 - `conversationAttachmentIds(value = [])`
 - `createConversationAttachmentReader({ attachments, context, conversationId, signal, authorize, types, maximumBytes })`
+- `NO_ATTACHMENTS`
 Local functions
 - `invalid(message, { messageCode, messageParams = {} })`
 
@@ -408,7 +409,7 @@ Local functions
 ### `src/server/conversation/claudeProcess.js`
 Exports
 - `claudeUnexpectedExitMessage(processExit = {})`
-- `readClaudeCodeAuthStatus({ env, credentialHome = { home: env.HOME || homedir() }, command = "claude", commandRunner, signal })`
+- `readClaudeCodeAuthStatus({ env, credentialHome, command = "claude", commandRunner, signal })`
 - `claudeConnectionIdentity(configRoot, providerId, baseUrl, apiKey)`
 - `claudeModelConfiguration({ providerId, model: modelId }, connection)`
 - `verifyClaudeProviderKey(provider, apiKey, fetchImpl)`
@@ -440,10 +441,6 @@ Exports
 ### `src/server/conversation/claudePromptDelivery.js`
 Exports
 - `createClaudePromptDelivery({ store, preparation, createError, onEvent, readHistory, bindAccount, ensureProcess, snapshot })`
-Local functions
-- `ignoreNativeReceipt()`
-- `ignoreReceiptPersisted()`
-- `ignorePromptSending()`
 
 ### `src/server/conversation/claudeSessionCleanup.js`
 Exports
@@ -481,11 +478,11 @@ Exports
 
 ### `src/server/conversation/codexAuthPreflight.js`
 Exports
-- `assertCodexAuthPreflightReady(options = {}, { reason = "codex-auth-preflight", execution, credentials } = {})`
+- `assertCodexAuthPreflightReady(options, { reason = "codex-auth-preflight", execution, credentials })`
 Local functions
 - `tailAppend(text = "", chunk = "", maxBytes = CODEX_AUTH_PREFLIGHT_OUTPUT_TAIL_BYTES)`
 - `codexAuthPreflightArgs()`
-- `runCodexAuthPreflight({ codexCommand = "codex", // readable-check: allow no-env-default - input validation: a caller's preflight options may omit env, and the preflight then runs in the process environment env = process.env, executionRoot = "", runtimeDir = "", terminalEnv = {}, timeoutMs = CODEX_AUTH_PREFLIGHT_TIMEOUT_MS, toolHomeSource = "", workdir = "" } = {}, execution)`
+- `runCodexAuthPreflight({ codexCommand = "codex", env, executionRoot = "", runtimeDir = "", terminalEnv = {}, timeoutMs = CODEX_AUTH_PREFLIGHT_TIMEOUT_MS, toolHomeSource = "", workdir = "" } = {}, execution)`
 
 ### `src/server/conversation/codexClient.js`
 Exports
@@ -506,7 +503,7 @@ Exports
 - `codexAppServerTurnSettings({ effectiveSettings, cwd = "", effort = "", model = "", approvalPolicy, reasoningSummary, sandboxPolicy, externalSandbox = false } = {})`
 - `codexInteractiveArguments({ command, threadId = "", remoteEndpoint = "", model, effort, disableStartupUpdates = false, bypassApprovalsAndSandbox = false, bypassHookTrust = false } = {})`
 - `codexAppServerProjectHookTrustConfig(provider, cwd = "", { persist = false } = {})`
-- `prepareCodexModelCatalog({ command, runtimeDir, bundled = false, signal, additionalModels = [], codexHome = process.env.CODEX_HOME || path.join(os.homedir(), ".codex") })`
+- `prepareCodexModelCatalog({ command, runtimeDir, bundled = false, signal, additionalModels = [], codexHome })`
 - `readCodexModelContextWindow({ runtimeDir, model } = {})`
 - `codexAppServerTextHasControlCharacters(value = "")`
 - `codexCatalogRows(value = null, createError = message => new Error(message))`
@@ -696,19 +693,17 @@ Local functions
 
 ### `src/server/conversation/codexMessageCommands.js`
 Exports
-- `createCodexMessageCommands({ output, journal, recovery, threadStatus, selection, observer, delivery, promptDispatch, promptDeliveries: codexAppServerPromptDeliveries, createRuntime, debugError, debugLog, errorPrefix, messageIdPrefix, messageMetadata, namespace, providerSessions, recoverAdmission, steerFailedCode, turnAlreadyRunningError, turnState })`
+- `createCodexMessageCommands({ output, journal, recovery, threadStatus, selection, observer, delivery, promptDispatch, promptDeliveries, createRuntime, debugError, debugLog, errorPrefix, messageIdPrefix, messageMetadata, namespace, providerSessions, recoverAdmission, steerFailedCode, turnAlreadyRunningError, turnState })`
 
 ### `src/server/conversation/codexMessageDelivery.js`
 Exports
 - `createCodexAppServerMessageDelivery({ namespace, publish, messageMetadata, createStore, turnStateFromAgentRun, deliveryStateMetadataKey, output, journal, recovery })`
 - `type CodexAppServerMessageDelivery`
-Local functions
-- `ignoreMessageReceipt()`
 
 ### `src/server/conversation/codexModelCatalog.js`
 Exports
 - `codexAppServerModelCatalogError(message = "", errorPrefix = "")`
-- `codexAppServerProviderConnectionGeneration(provider = null)`
+- `codexAppServerProviderConnectionGeneration(provider)`
 - `createCodexAppServerModelCatalogCache({ cacheMs = 30_000, errorPrefix = "" } = {})`
 - `createCodexRuntimeModelCatalog({ withLifecycle, assertOpen, acquireRuntime, stopOwnedRuntime, forgetOwnedRuntime })`
 Local functions
@@ -739,12 +734,12 @@ Exports
 
 ### `src/server/conversation/codexOutput.js`
 Exports
-- `createCodexAppServerOutput({ namespace, createRuntime, createStore, publish, acquireProvider, turnState, turnStateFromAgentRun, debugLog, debugError, liveProgressMaxLength, persistCommentary = true, storeReadError, messageMetadata, snapshotRecoveryItemLimit })`
+- `createCodexAppServerOutput({ namespace, createRuntime, createStore, publish, acquireProvider, turnState, turnStateFromAgentRun, debugLog, debugError, liveProgressMaxLength, persistCommentary = true, messageMetadata, snapshotRecoveryItemLimit })`
 - `type CodexAppServerOutput`
 
 ### `src/server/conversation/codexProcess.js`
 Exports
-- `runCodexAppServerProcess({ runtimeDir, command, args = [], runtimeToken: token, bundled = false, additionalModels = [] })`
+- `runCodexAppServerProcess({ runtimeDir, command, args = [], runtimeToken: token, bundled = false, additionalModels = [], env })`
 - `ensureWritablePrivateDirectory(dirPath = "")`
 - `codexAppServerMetadataPath(runtimeDir = "")`
 - `normalizeCodexAppServerMetadata(metadata = {})`
@@ -808,57 +803,31 @@ Exports
 Exports
 - `createCodexPromptDispatch({ output, journal, recovery, threadStatus, delivery, debugError, debugLog, steerFailedCode, turnState })`
 - `type CodexPromptDispatch`
-Local functions
-- `notifyNoPromptSending()`
-- `notifyNoPromptRejected()`
 
 ### `src/server/conversation/codexProvider.js`
 Exports
 - `CodexAppServerAgentProvider`
+Local functions
+- `normalizeCodexAppServerInfo(initializeResult = null)`
+- `readNoInstructions()`
+- `keepThreadEnvironment(environment)`
+- `prepareNoThreadResume()`
+- `logNothing()`
+- `reportNoObservationLoss()`
+- `closeNothing()`
+- `runDirectly(operation)`
 
 ### `src/server/conversation/codexProviderAuth.js`
 Exports
 - `codexAppServerHelperRequestError(error = null, reason = "", errorPrefix = "")`
-- `selectedHelperAuth(provider)`
-- `assertHelperAccountIdentityCurrent(provider)`
-- `authenticateHelperClient(provider, client, runtime = {})`
-- `refreshHelperChatgptAuth(provider, params = {})`
-- `handleServerRequest(provider, request = {}, sourceClient = provider.client)`
-- `preflightAuth(provider, reason = "codex-auth-preflight", modelProviderId = "")`
-- `assertRuntimeAuthReady(provider, reason = "codex-app-server")`
-- `markReconnectRequired(provider, { reason = "codex-app-server", observed = "", toolHomeSource } = {})`
+- `createCodexProviderAuth({ provider })`
 - `codexAppServerHelperAuthError`
 - `type CodexAppServerAgentProvider`
 Local functions
 - `codexAppServerHelperLoginParams(auth = {}, errorPrefix = "")`
 - `codexAppServerHelperLoginResponseType(auth = {})`
 - `codexAppServerHelperAccountType(auth = {})`
-
-### `src/server/conversation/codexProviderConnection.js`
-Exports
-- `ensureRuntime(provider)`
-- `markStale(provider)`
-- `staleRuntimeError(provider)`
-- `prepareRuntime(provider)`
-- `runRequest(provider, operation, reason = "codex-app-server-request")`
-- `stopRuntimeAndRequireDrain(provider, reason = "codex-app-server-stop")`
-- `connect(provider)`
-- `openConnection(provider)`
-- `publishNotification(provider, notification)`
-- `currentRuntimeInfo(provider)`
-- `currentHelperExecutionContext(provider)`
-- `activeClient(provider)`
-- `ensureAvailable(provider, { modelProviderId = "" } = {})`
-- `readPlanUsage(provider)`
-- `failObservation(provider, cause)`
-- `stopThreadForObservationLoss(provider, threadId, turnId)`
-- `setServerRequestHandler(provider, callback)`
-- `registerThreadRequestHandler(provider, threadId, handler)`
-- `close(provider)`
-- `stopRuntime(provider, { expectedAccountIdentitySignature = "", preserveProcessExitProof = false } = {})`
-- `type CodexAppServerAgentProvider`
-Local functions
-- `normalizeCodexAppServerInfo(initializeResult = null)`
+- `prepareNativeAuth()`
 - `codexPlanUsage(limits)`
 
 ### `src/server/conversation/codexProviderInvalidation.js`
@@ -867,17 +836,7 @@ Exports
 
 ### `src/server/conversation/codexProviderInventories.js`
 Exports
-- `listLoadedThreads(provider, params = {})`
-- `listAppServerThreadsForCwd(provider, { cwd = "", signal = null } = {})`
-- `listThreadDescendants(provider, threadId)`
-- `listNativeThreadsForCwd(provider, cwd)`
-- `nativeThreadExists(provider, threadId, { signal } = {})`
-- `listHelperThreads(provider, { signal = null } = {})`
-- `listModels(provider, params = {}, { signal = null } = {})`
-- `readConfig(provider, params = {})`
-- `trustProject(provider, cwd = "")`
-- `listHooks(provider, cwds = [])`
-- `writeHookTrustState(provider, state = {})`
+- `createCodexProviderInventories({ provider })`
 - `CODEX_APP_SERVER_THREAD_INVENTORY_MAX_COUNT`
 - `CODEX_APP_SERVER_THREAD_INVENTORY_ID_MAX_LENGTH`
 - `type CodexAppServerAgentProvider`
@@ -912,7 +871,7 @@ Exports
 - `codexAppServerThreadIsMissing(error = null, threadId = "")`
 - `retireCodexConversationHistory(provider, binding, { toolHomeSource, beforeDelete, signal, errorPrefix = "" } = {})`
 - `readCodexNativeGoal(databasePath, { threadId, signal } = {})`
-- `codexAppServerThreadHasReadableHistory(provider = null, threadId = "")`
+- `codexAppServerThreadHasReadableHistory(provider, threadId = "")`
 - `inspectCodexAppServerMessageAdmission({ provider, threadId, messageId } = {})`
 - `deleteCodexAppServerThread({ provider, threadId } = {})`
 - `deleteCodexAppServerHelperThread({ provider, threadId, turnId = "" } = {})`
@@ -920,26 +879,14 @@ Exports
 - `assertCodexApplicationToolSchemaIdentity(threadId, savedIdentity, toolSchemaIdentity)`
 - `ensureCodexAppServerThread({ observeThread, provider, settings, projectHooks = false, identity, applicationTools, providerReady, workdir = "", onStage = () => {} } = {})`
 - `codexAppServerThreadRequestParams(params = {}, threadEnv = {})`
-- `startThread(provider, { hostContext, ...params } = {})`
-- `resumeThread(provider, threadId = "", { hostContext, ...params } = {})`
-- `withHistoryAdapter(provider, params, client, options = {})`
-- `withThreadEnvironment(provider, threadId, params, operation)`
-- `verifyThreadEnvironment(provider, threadId, environment, request, signal, { requiredKeys = [] } = {})`
-- `ensureThreadControls(provider, threadId)`
-- `readGoal(provider, threadId = "", { signal } = {})`
-- `updateThreadSettings(provider, threadId, { model, effort } = {}, { signal } = {})`
-- `setGoal(provider, threadId, { objective, tokenBudget } = {}, { signal } = {})`
-- `setGoalStatus(provider, threadId = "", status = "", { signal } = {})`
-- `clearGoal(provider, threadId = "", { signal } = {})`
-- `readThread(provider, threadId = "")`
-- `readThreadStatus(provider, threadId = "")`
-- `listThreadTurns(provider, threadId = "", params = {})`
-- `exportThreadHistory(provider, threadId, onRecord, { signal } = {})`
-- `unsubscribeThread(provider, threadId = "")`
-- `deleteThread(provider, threadId = "")`
+- `keepCodexThreadParams(params)`
+- `resumeCodexThreadAsIs()`
+- `createCodexProviderThreads({ provider })`
 - `CODEX_APP_SERVER_INVALID_REQUEST_CODE`
 - `type CodexAppServerAgentProvider`
 Local functions
+- `codexHelperDeletionSupport(provider)`
+- `assertCodexThreadPreparation({ observeThread, identity, applicationTools })`
 - `normalizeAgentThread(value = {})`
 
 ### `src/server/conversation/codexProviderTurns.js`
@@ -953,13 +900,7 @@ Exports
 - `codexControlProbeCommand(keys, marker)`
 - `codexCliResumeCommand({ codexCommand = "", endpoint = "", threadId = "" } = {})`
 - `codexAppServerDeliveredTurn(delivery)`
-- `sendTurn(provider, threadId = "", input = [], params = {}, { signal } = {})`
-- `steerTurn(provider, threadId = "", turnId = "", input = [], params = {}, { signal } = {})`
-- `interruptionOutcome(provider, threadId = "", turnId = "")`
-- `interruptTurn(provider, threadId = "", turnId = "", { outcome = "" } = {})`
-- `interruptNativeTurn(provider, client, threadId, turnId, signal, outcome = "")`
-- `stopCommandExecution(provider, command)`
-- `nativeCliResumeCommand(provider, threadId = "")`
+- `createCodexProviderTurns({ provider })`
 - `type CodexAppServerAgentProvider`
 Local functions
 - `normalizeAgentTurn(value = {})`
@@ -992,7 +933,7 @@ Exports
 
 ### `src/server/conversation/codexRunJournal.js`
 Exports
-- `createCodexRunJournal({ namespace, normalizeRunState, turnState, createRuntime, publish, checkpoint, debugLog, output, messageIdPrefix, sessionIdRequiredError, turnClaimsUnsupportedError, turnAlreadyRunningError, errorPrefix, idlePublishPayload, finalizingGraceMs, admissionTaskFinished, orphanedPromptMessage })`
+- `createCodexRunJournal({ namespace, normalizeRunState, turnState, createRuntime, publish, checkpoint, debugLog, output, messageIdPrefix, sessionIdRequiredError, turnAlreadyRunningError, errorPrefix, idlePublishPayload, finalizingGraceMs, admissionTaskFinished, orphanedPromptMessage })`
 - `type CodexRunJournal`
 Local functions
 - `terminalCodexAppServerAgentRunState(status = "")`
@@ -1005,6 +946,8 @@ Exports
 - `type CodexProcessIdentity`
 - `type CodexRuntimeCredentials`
 - `type CodexRuntimeSettings`
+Local functions
+- `codexAppServerLivenessIdentity(pid, alive)`
 
 ### `src/server/conversation/codexRuntimeInventory.js`
 Exports
@@ -1031,13 +974,13 @@ Exports
 
 ### `src/server/conversation/codexRuntimeStart.js`
 Exports
-- `createCodexAppServerProcessStart({ execution, credentials, processIdentity, stop, endpointStatus: codexAppServerEndpointStatus, waitForServer: waitForCodexAppServer, settings })`
+- `createCodexAppServerProcessStart({ execution, credentials, codexProcessIdentity, runtimeStop, codexAppServerEndpointStatus, waitForCodexAppServer, settings })`
 Local functions
 - `tomlInlineValue(value)`
 
 ### `src/server/conversation/codexRuntimeStop.js`
 Exports
-- `createCodexAppServerRuntimeStop({ execution, processIdentity: codexProcessIdentity, errorPrefix })`
+- `createCodexAppServerRuntimeStop({ execution, codexProcessIdentity, errorPrefix })`
 - `type CodexRuntimeStop`
 
 ### `src/server/conversation/codexSessionCleanup.js`
@@ -1080,7 +1023,7 @@ Exports
 
 ### `src/server/conversation/codexTurn.js`
 Exports
-- `createCodexAppServerRunOwner({ namespace = normalizeText, normalizeRunState = normalizeCodexAppServerRunState, debugLog = ignoreDebugLog, debugError = error => normalizeText(error?.message || error), createRuntime, createStore, publish = answerNothing, acquireProvider = answerNothing, providerSessions, serverClosingError, helperThreads = null, modelCatalogCacheMs = 30_000, conversationPreparation, storeReadError = "The session store does not support agent-run reads.", sessionIdRequiredError = "A session ID is required.", turnClaimsUnsupportedError = "The session runtime does not support Codex turn claims.", turnAlreadyRunningError = "Codex is already working on this session.", messageIdPrefix = "codex:", idlePublishPayload, checkpoint = answerNothing, messageMetadata = {}, persistCommentary = true, deliveryStateMetadataKey = "assistant_delivery", hasRuntime = () => true, recoverAdmission, admissionTaskFinished = () => false, outcomeNotice = answerNothing, resultDeliveryFailureMessage = codexResultDeliveryFailureMessage, orphanedPromptMessage = "The application restarted before Codex confirmed the message. Your message is safe; retry it.", onNotificationSignal = answerNothing, captureContext = captureNoContext, runInContext = runInNoContext, continueGoalAfterAccountChange, notificationQueue = null, activeReconcileMs = 2000, finalizingGraceMs = 10000, finalizingGraceAfterHistoryRead = false, failureDetailGraceMs = 0, steerFailedCode = "codex_turn_steer_failed", interruptFailedCode = "codex_turn_interrupt_failed", errorPrefix = "" })`
+- `createCodexAppServerRunOwner({ namespace = normalizeText, normalizeRunState = normalizeCodexAppServerRunState, debugLog = ignoreDebugLog, debugError = error => normalizeText(error?.message || error), createRuntime, createStore, publish = answerNothing, acquireProvider = answerNothing, providerSessions, serverClosingError, helperThreads = null, modelCatalogCacheMs = 30_000, conversationPreparation, sessionIdRequiredError = "A session ID is required.", turnAlreadyRunningError = "Codex is already working on this session.", messageIdPrefix = "codex:", idlePublishPayload, checkpoint = answerNothing, messageMetadata = {}, persistCommentary = true, deliveryStateMetadataKey = "assistant_delivery", hasRuntime = () => true, recoverAdmission, admissionTaskFinished = () => false, outcomeNotice = answerNothing, resultDeliveryFailureMessage = codexResultDeliveryFailureMessage, orphanedPromptMessage = "The application restarted before Codex confirmed the message. Your message is safe; retry it.", onNotificationSignal = answerNothing, captureContext = captureNoContext, runInContext = runInNoContext, continueGoalAfterAccountChange, notificationQueue = null, activeReconcileMs = 2000, finalizingGraceMs = 10000, finalizingGraceAfterHistoryRead = false, failureDetailGraceMs = 0, steerFailedCode = "codex_turn_steer_failed", interruptFailedCode = "codex_turn_interrupt_failed", errorPrefix = "" })`
 - `CODEX_APP_SERVER_RUN_STATE`
 - `normalizeCodexAppServerRunState`
 - `codexAppServerRunStateIsActive`
@@ -1146,7 +1089,7 @@ Local functions
 
 ### `src/server/conversation/codexTurnActivity.js`
 Exports
-- `createCodexTurnActivity({ journal, output, settlement, createRuntime, createStore, debugLog, turnState, turnStateFromAgentRun, scheduleActiveRecovery: scheduleCodexAppServerActiveRecovery })`
+- `createCodexTurnActivity({ journal, output, settlement, createRuntime, createStore, debugLog, turnState, turnStateFromAgentRun, scheduleActiveRecovery })`
 - `type CodexTurnActivity`
 
 ### `src/server/conversation/codexTurnControl.js`
@@ -1156,7 +1099,7 @@ Exports
 
 ### `src/server/conversation/codexTurnEndings.js`
 Exports
-- `createCodexTurnEndings({ journal, output, settlement, createRuntime, debugLog, debugError, turnState, failureDetailGraceMs, turnOutcomes, outcomeNotice, resultDeliveryFailureMessage, scheduleActiveRecovery: scheduleCodexAppServerActiveRecovery, scheduleFinalizingRecovery: scheduleCodexAppServerFinalizingRecovery, recoverFinalizingTurn: recoverCodexAppServerFinalizingTurn })`
+- `createCodexTurnEndings({ journal, output, settlement, createRuntime, debugLog, debugError, turnState, failureDetailGraceMs, turnOutcomes, outcomeNotice, resultDeliveryFailureMessage, captureContext, runInContext, notificationQueue, finalizingGraceAfterHistoryRead, scheduleActiveRecovery })`
 - `type CodexTurnEndings`
 
 ### `src/server/conversation/codexTurnRecovery.js`
@@ -1228,6 +1171,7 @@ Local functions
 ### `src/server/conversation/completedResponses.js`
 Exports
 - `createCompletedResponses({ storage, transcript, events, catalog, isClosed, completedEnvelope, maximumToolCalls })`
+- `type ConversationEntry`
 - `type CompletedResponses`
 
 ### `src/server/conversation/configuration.js`
@@ -1251,42 +1195,56 @@ Local functions
 
 ### `src/server/conversation/conversationDelivery.js`
 Exports
-- `createConversationDelivery({ storage, transcript, events, reads, limits, persistCommentary, completedEnvelope, maximumFinalReply, maximumCompletedOutput })`
+- `createConversationDelivery({ storage, transcript, events, entries, reads, limits, persistCommentary, completedEnvelope, maximumFinalReply, maximumCompletedOutput })`
+- `type ConversationEntry`
+- `type ConversationRequest`
 - `type ConversationDelivery`
+
+### `src/server/conversation/conversationEntries.js`
+Exports
+- `createConversationEntries({ storage, transcript, streams, providers, events, catalog, defaultEngine, defaultIntegrationId, persistCommentary, completedEnvelope })`
+- `type ConversationDriver`
+- `type ActiveTurn`
+- `type ConversationRequest`
+- `type HostConversation`
+- `type BoundApplicationTools`
+- `type ConversationEntry`
+- `type ConversationState`
+- `type ConversationEntries`
 
 ### `src/server/conversation/conversationEvents.js`
 Exports
 - `createConversationEvents({ authorize, isClosed, storage, streams, completedEnvelope })`
 - `serial(entry, callback)`
+- `type ConversationEntry`
 - `type ConversationEvents`
 
 ### `src/server/conversation/conversationGoals.js`
 Exports
-- `createConversationGoals({ events, reads, sending, stopping, catalog })`
+- `createConversationGoals({ events, entries, reads, sending, stopping, catalog })`
+- `type ConversationEntry`
 - `type ConversationGoals`
 
 ### `src/server/conversation/conversationHandles.js`
 Exports
-- `createConversationHandles({ entries, storage, defaultHost, events, reads, opening, sending, goals, delivery, stopping, replacement, completedResponses, completedEnvelope, persistCommentary, defaultIntegrationId })`
+- `createConversationHandles({ entries, storage, defaultHost, events, reads, sending, goals, delivery, stopping, replacement, completedResponses, completedEnvelope, persistCommentary, defaultIntegrationId })`
+- `type ConversationEntry`
+- `type HostConversation`
 - `type ConversationHandles`
-
-### `src/server/conversation/conversationOpening.js`
-Exports
-- `createConversationOpening({ storage, transcript, streams, providers, events, reads, catalog, defaultEngine, defaultIntegrationId, persistCommentary, completedEnvelope })`
-- `type ConversationOpening`
+Local functions
+- `assertHostConversation(conversation, { id, configuration, representation })`
 
 ### `src/server/conversation/conversationReads.js`
 Exports
-- `createConversationReads({ storage, transcript, streams, providers, attachments, completedEnvelope })`
-- `type ConversationReads`
-
-### `src/server/conversation/conversationRecords.js`
-Exports
+- `createConversationReads({ storage, transcript, streams, attachmentsOffered, completedEnvelope })`
 - `pendingSuccessor(state)`
 - `retainedSegments(state)`
-- `sameRequest(left, right)`
-- `saveTools(entry, transaction, request, calls)`
 - `submittedMessage(turn)`
+- `type ConversationEntry`
+- `type ConversationState`
+- `type ConversationReads`
+Local functions
+- `offersPages(entry)`
 
 ### `src/server/conversation/conversationRefusals.js`
 Exports
@@ -1296,42 +1254,61 @@ Exports
 
 ### `src/server/conversation/conversationReplacement.js`
 Exports
-- `createConversationReplacement({ storage, providers, events, reads, opening, delivery, completedEnvelope, defaultIntegrationId, maximumContinuity })`
+- `createConversationReplacement({ storage, providers, events, entries, reads, delivery, completedEnvelope, defaultIntegrationId, maximumContinuity })`
+- `type ConversationEntry`
 - `type ConversationReplacement`
 
 ### `src/server/conversation/conversationSending.js`
 Exports
-- `createConversationSending({ storage, events, reads, turns, onDeliveryTiming, deliveryHostStages, limits, completedEnvelope, maximumInput })`
+- `createConversationSending({ storage, events, entries, reads, turns, onDeliveryTiming, deliveryHostStages, completedEnvelope, maximumInput })`
+- `type ConversationEntry`
+- `type ConversationRequest`
 - `type ConversationSending`
+Local functions
+- `sameRequest(left, right)`
 
 ### `src/server/conversation/conversationStopping.js`
 Exports
-- `createConversationStopping({ storage, streams, entries, events, reads, delivery })`
+- `createConversationStopping({ storage, entries, events, delivery })`
+- `type ConversationEntry`
 - `type ConversationStopping`
 
 ### `src/server/conversation/conversationTurnDelivery.js`
 Exports
-- `createConversationTurnDelivery({ entry, active, driver, engine, segmentId, bindingOwner, rejectionSaves, admit, storage, streams, events, reads, delivery, attachments, persistCommentary, maximumContinuity, maximumAttachmentBytes })`
+- `createConversationTurnDelivery({ storage, streams, events, reads, delivery, attachments, persistCommentary, maximumContinuity, maximumAttachmentBytes })`
+- `type ConversationEntry`
+- `type ActiveTurn`
+- `type ConversationRequest`
 - `type ConversationTurnDelivery`
 
 ### `src/server/conversation/conversationTurns.js`
 Exports
-- `createConversationTurns({ storage, streams, events, reads, delivery, catalog, attachments, apiHistory, isClosed, persistCommentary, completedEnvelope, maximumToolCalls, maximumFinalReply, maximumCompletedOutput, maximumContinuity, maximumAttachmentBytes })`
+- `createConversationTurns({ storage, streams, events, entries, reads, delivery, turnDelivery, catalog, apiHistory, isClosed, completedEnvelope, maximumToolCalls, maximumFinalReply, maximumCompletedOutput, timeoutMs })`
+- `saveTools(entry, transaction, request, calls)`
+- `type ConversationEntry`
+- `type ConversationRequest`
+- `type ActiveTurn`
 - `type ConversationTurns`
+Local functions
+- `recordNoNativeCheckpoint()`
 
 ### `src/server/conversation/deliveryTiming.js`
 Exports
 - `normalizeConversationDeliveryHostStages(hostStages = [])`
-- `createConversationDeliveryTiming({ engine, conversationId, messageId, report, // readable-check: allow dependency-default - data: the host's stage names, and a host without its own stages has none hostStages = [], clock = () => performance.now() })`
+- `createConversationDeliveryTiming({ engine, conversationId, messageId, report, hostStages = NO_HOST_STAGES, clock = monotonicNow })`
 - `recordNoDeliveryTiming()`
+Local functions
+- `monotonicNow()`
 
 ### `src/server/conversation/fileStorage.js`
 Exports
-- `createFileConversationStorage({ directory } = {})`
+- `createFileConversationStorage({ directory })`
 
 ### `src/server/conversation/hookBridge.js`
 Exports
-- `createConversationHookBridge({ resolveConversation, readInstructions } = {})`
+- `createConversationHookBridge({ resolveConversation, readInstructions = refuseHookInstructions })`
+Local functions
+- `refuseHookInstructions()`
 
 ### `src/server/conversation/index.js`
 Exports
@@ -1372,9 +1349,15 @@ Exports
 Exports
 - `createMemoryConversationStorage()`
 
+### `src/server/conversation/nativeCommandCallbacks.js`
+Exports
+- `ignoreReceipt()`
+- `ignorePromptSending()`
+- `ignorePromptRejection()`
+
 ### `src/server/conversation/nativeConversationLifecycle.js`
 Exports
-- `createNativeConversationLifecycle({ authorize, defaultHost, providers, entries, events, stopping, isClosed })`
+- `createNativeConversationLifecycle({ authorize, defaultHost, hostPrepares, providers, entries, events, stopping, assertRuntimeOpen })`
 - `type NativeConversationLifecycle`
 Local functions
 - `isThenable(value)`
@@ -1498,8 +1481,6 @@ Local functions
 ### `src/server/conversation/openCodeSessionTurns.js`
 Exports
 - `createOpenCodeSessionTurns({ processes, monitors, turns, processOwner, turnMonitor })`
-Local functions
-- `ignorePromptRejection()`
 
 ### `src/server/conversation/openCodeTemporaryConversations.js`
 Exports
@@ -1584,7 +1565,7 @@ Exports
 
 ### `src/server/conversation/providers/claudeDriver.js`
 Exports
-- `createClaudeConversationDriver({ connections, // readable-check: allow dependency-default - data: a runtime without host settings runs Claude in its working directory with local execution host = {}, limits = {} })`
+- `createClaudeConversationDriver({ connections, host = LOCAL_HOST, limits = {} })`
 Local functions
 - `nativeInput(input)`
 - `claudeGoalValue(goal, conversationId)`
@@ -1596,9 +1577,11 @@ Exports
 
 ### `src/server/conversation/providers/codexDriver.js`
 Exports
-- `createCodexConversationDriver({ connections, host = {}, limits = {} } = {})`
+- `createCodexConversationDriver({ connections, host = {}, limits = {} })`
 - `type CodexDriverSession`
 - `type CodexConversationConnections`
+Local functions
+- `assertCodexApplicationEnvironment(host)`
 
 ### `src/server/conversation/providers/codexDriverConnection.js`
 Exports
@@ -1610,6 +1593,7 @@ Exports
 - `goalValue(goal)`
 Local functions
 - `nativeInput(input)`
+- `rejectNoNativePrompt()`
 
 ### `src/server/conversation/providers/opencode.js`
 Exports
@@ -1618,10 +1602,7 @@ Exports
 
 ### `src/server/conversation/providers/opencodeDriver.js`
 Exports
-- `createOpenCodeConversationDriver({ connections, // readable-check: allow dependency-default - data: a runtime without host settings runs OpenCode in its working directory with local execution host = {}, limits = {} })`
-Local functions
-- `ignoreNativeReceipt()`
-- `ignoreReceiptPersisted()`
+- `createOpenCodeConversationDriver({ connections, host = LOCAL_HOST, limits = {} })`
 
 ### `src/server/conversation/providers/opencodeStandalone.js`
 Exports
@@ -1629,8 +1610,6 @@ Exports
 - `openStandaloneOpenCodeConversation({ connections, host, limits, workdir, stateDirectory, execution, nativeTools, maximumOutput }, { binding, writeBinding, reportFailure })`
 Local functions
 - `acceptCurrentTurn()`
-- `ignoreNativeReceipt()`
-- `ignoreReceiptPersisted()`
 - `nativeMessageId(id)`
 
 ### `src/server/conversation/providers/scoped.js`
@@ -1652,7 +1631,6 @@ Exports
 - `type ScopedNativeCall`
 Local functions
 - `ignoreScopedEvent()`
-- `ignorePromptRejection()`
 - `requireSuccess(result)`
 - `qualifyTranscript(turns, record, response, receipts)`
 - `publishTranscript({ sessionId, store, receipts, publish }, context, record, turns, response = {})`
@@ -1661,7 +1639,7 @@ Local functions
 
 ### `src/server/conversation/runtime.js`
 Exports
-- `createConversationRuntime({ engine: defaultEngine = "api", defaultIntegrationId, storage, authorize, connections, apiClientFactory, apiHistory, actions, toolPolicy, toolCatalog, attachments, fetch, host: defaultHost, onDeliveryTiming, hostDeliveryStages, persistCommentary = true, completedEnvelope = false, // readable-check: allow dependency-default - data: limits are numbers, and each absent one takes its default below limits = {} } = {})`
+- `createConversationRuntime({ engine: defaultEngine = "api", defaultIntegrationId, storage: suppliedStorage, authorize, connections, apiClientFactory, apiHistory, actions, toolPolicy, toolCatalog, attachments: suppliedAttachments, fetch, host: defaultHost, onDeliveryTiming, hostDeliveryStages, persistCommentary = true, completedEnvelope = false, limits = DEFAULT_LIMITS })`
 
 ### `src/server/conversation/runtimeStateUpgrade.js`
 Exports
@@ -1700,9 +1678,11 @@ Exports
 
 ### `src/server/conversation/structuredOutput.js`
 Exports
-- `validateConversationOutputSchema(outputSchema, { maxOutputCharacters, createError = (message, details) => Object.assign(new TypeError(message), { details }) } = {})`
+- `validateConversationOutputSchema(outputSchema, { maxOutputCharacters, createError = outputSchemaTypeError })`
 - `conversationOutputSchema(schema)`
 - `parseConversationOutput(text, schema)`
+Local functions
+- `outputSchemaTypeError(message, details)`
 
 ### `src/server/conversation/systemPrompt.js`
 Exports
@@ -1710,13 +1690,18 @@ Exports
 
 ### `src/server/conversation/tools.js`
 Exports
-- `createConversationTools({ catalog, toolSet: retainedToolSet, context, prepareContext, signal: turnSignal, previousCalls = [], authorize, save, emit, maximumCalls = 32, discoveryOnly = false, transient = false, propagateErrors = false })`
+- `createConversationTools({ catalog, toolSet: retainedToolSet, context, prepareContext, signal: turnSignal, previousCalls = [], authorize = authorizeTransientCall, save = saveTransientCalls, emit = announceTransientCall, maximumCalls = 32, discoveryOnly = false, transient = false, propagateErrors = false })`
+Local functions
+- `authorizeTransientCall()`
+- `saveTransientCalls()`
+- `announceTransientCall()`
 
 ### `src/server/conversation/transcript.js`
 Exports
-- `createConversationTranscript({ storage, clock = () => new Date(), applicationTurns = false } = {})`
+- `createConversationTranscript({ storage, clock = currentDate, applicationTurns = false })`
 - `isCompletedEnvelopeTurn(turn)`
 Local functions
+- `currentDate()`
 - `hasMessages(turn)`
 
 ### `src/server/hosts/claudeHistory.js`

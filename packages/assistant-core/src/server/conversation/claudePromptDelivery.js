@@ -1,10 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { claudeNativeMessageId } from "./claudeHistory.js";
 import { normalizeNullableText } from "./normalize.js";
-import { ignoreReceipt } from "./nativeCommandCallbacks.js";
-
-/** A prompt whose sender has nothing to do before it is written. */
-function ignorePromptSending() {}
+import { ignorePromptSending, ignoreReceipt } from "./nativeCommandCallbacks.js";
 
 /**
  * Delivers an authored input to an entry's Claude process: duplicate checks,

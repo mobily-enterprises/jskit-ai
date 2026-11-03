@@ -1,6 +1,7 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { createHash } from "node:crypto";
 import { isCompletedEnvelopeTurn } from "./transcript.js";
+import { ignorePromptRejection, ignorePromptSending } from "./nativeCommandCallbacks.js";
 
 // A final answer keeps its identity when an application edits its visible text.
 export function conversationMessageIdentity(turnId, message) {
@@ -17,12 +18,6 @@ export function conversationMessageVersion(message, { includeData = false } = {}
 
 // A changeover whose owner keeps no delivery log.
 function logNothing() {}
-
-/** The prompt-sending callback of a caller that observes no native dispatch. */
-export function notifyNoPromptSending() {}
-
-/** The prompt-rejected callback of a caller that observes no native rejection. */
-export function notifyNoPromptRejected() {}
 
 /**
  * Keep native delivery and its history cursor in the same durable record.
@@ -314,7 +309,7 @@ export function createConversationChangeover({ state, transcript, agent, identit
         returning, messageCount: catchup.length, correctionCount: catchup.filter((m) => binding.seen[m.id]).length,
         removedCount: deleted.length, promptCharacters: preamble.length });
     }
-    const { onPromptSending = notifyNoPromptSending, onPromptRejected = notifyNoPromptRejected } = input;
+    const { onPromptSending = ignorePromptSending, onPromptRejected = ignorePromptRejection } = input;
     const delivered = await agent.sendMessage(pending ? {
       ...input, message: pending.message, displayMessage: pending.displayMessage,
       displayAttachments: pending.displayAttachments, attachmentIds: pending.attachmentIds,

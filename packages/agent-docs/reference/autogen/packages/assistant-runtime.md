@@ -81,6 +81,7 @@ Local functions
 - `ignoreResult()`
 - `questionsAnswered(prompts)`
 - `formatsAnswers(prompts)`
+- `assertBoundedTask({ command, endpoint, scope, input, result, onResult })`
 - `useBoundedTask({ command, endpoint, scope, input, result, onResult = ignoreResult }, { active, data, presentation })`
 - `conversationBindingSetup({ socket, boundedTask })`
 - `createConversationBinding({ conversationId, endpoint = "", surfaceId = "", hostSurfaceId = "", workspaceSlug, actorKey: suppliedActorKey, api: suppliedApi, socket: suppliedSocket, active = true, onEvent, clearDraftOn: suppliedClearDraftOn, queueWhileSending, deferWhileWorking = false, admitWhileWorking = false, draftWhileLoading = false, draftStorage, application, boundedTask, data, attachments, suggestions, models, questions, goal, presentation }, setup)`
@@ -97,7 +98,6 @@ Local functions
 - `writeStoredActiveConversationId(scope, conversationId)`
 - `normalizeConversationStatus(value)`
 - `formatConversationStartedAt(value)`
-- `failureText(failure)`
 - `resolveRuntimePolicy()`
 - `ignoreAcceptance()`
 
@@ -346,7 +346,6 @@ Exports
 - `type WorkspaceScopeSupport`
 Local functions
 - `normalizeStreamInput(payload = {})`
-- `hasStreamWriter(streamWriter)`
 - `savedMessageFields(error)`
 - `streamErrorMessageFields(error, aborted)`
 - `isAbortError(error)`
@@ -406,6 +405,7 @@ Local functions
 ### `src/server/support/assistantStreamWriter.js`
 Exports
 - `ASSISTANT_STREAM_WRITER_METHODS`
+- `type AssistantStreamWriter`
 
 ### `src/server/support/assistantSurface.js`
 Exports

@@ -5,8 +5,7 @@ import {
   codexAppServerNotificationTurnId
 } from "./codexEvents.js";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-
-function ignoreMessageReceipt() {}
+import { ignoreReceipt } from "./nativeCommandCallbacks.js";
 
 /**
  * Request deduplication and authored receipt persistence. One instance and its two Maps belong to its run owner.
@@ -51,7 +50,7 @@ export function createCodexAppServerMessageDelivery({
       return existing;
     }
     if (deliveryKey) {
-      const { onNativeReceipt = ignoreMessageReceipt, onReceiptPersisted = ignoreMessageReceipt } = pendingMessage;
+      const { onNativeReceipt = ignoreReceipt, onReceiptPersisted = ignoreReceipt } = pendingMessage;
       codexAppServerPendingUserMessages.set(deliveryKey, {
         ...pendingMessage,
         onNativeReceipt,

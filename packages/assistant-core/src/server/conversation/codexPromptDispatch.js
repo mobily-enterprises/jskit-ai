@@ -2,10 +2,7 @@ import { codexAppServerTurnStatusIsSuccessfulComplete, codexAppServerTurnStatusI
 import { codexAppServerRequestIsInvalid } from "./codexProviderThreads.js";
 import { codexLocalImageInput, codexAppServerDeliveredTurn, sendCodexAppServerPrompt } from "./codexProviderTurns.js";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-
-function notifyNoPromptSending() {}
-
-function notifyNoPromptRejected() {}
+import { ignorePromptRejection, ignorePromptSending } from "./nativeCommandCallbacks.js";
 
 /**
  * Delivers one prompt to the native thread: it starts a new turn, or steers the active one. Each delivery owns its
@@ -35,7 +32,7 @@ export function createCodexPromptDispatch({
 
   async function startCodexAppServerTurn(sessionId, input = {}, context = {}) {
     const { runtime, provider, threadId, messageId, renderedPrompt, turnMetadata } = context;
-    const { onPromptSending = notifyNoPromptSending, onPromptRejected = notifyNoPromptRejected } = input;
+    const { onPromptSending = ignorePromptSending, onPromptRejected = ignorePromptRejection } = input;
     let providerFailure = "";
     let nativeDelivery = null;
     const promptSessionId = normalizeText(sessionId);
@@ -104,7 +101,7 @@ export function createCodexPromptDispatch({
 
   async function steerCodexAppServerTurn(sessionId, input = {}, context = {}) {
     const { runtime, provider, threadId, turnId, message, displayMessage, messageId, clientUserMessageId, turnMetadata } = context;
-    const { onPromptSending = notifyNoPromptSending, onPromptRejected = notifyNoPromptRejected } = input;
+    const { onPromptSending = ignorePromptSending, onPromptRejected = ignorePromptRejection } = input;
     let currentSession;
     await journal.writeUserMessageOwnership(runtime.store, sessionId, clientUserMessageId, {
       eventKind: "codex-app-server-user-message-owned",
