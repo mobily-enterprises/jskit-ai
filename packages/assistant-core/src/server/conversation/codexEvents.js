@@ -625,6 +625,9 @@ function codexAppServerOutputOwnerTurnId({
     : normalizeNullableText(notificationTurnId);
 }
 
+// The `./server/codex-events` contract forwards this snapshot reader from here.
+export { codexAppServerProviderThreadAssistantSegments } from "./codexThreadSnapshot.js";
+
 export {
   codexContextUsageFromNotification,
   classifyCodexAppServerEvent,
