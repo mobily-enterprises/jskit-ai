@@ -16,6 +16,12 @@ explains it; `npm run verify` adds the package graph, tests and build. Fix a
 finding in the code; excuse one only with the guide's `readable-check: allow`
 comment and reason prefix.
 
+Before writing or reviewing client code (a composable, component, client
+factory or client provider), read the client features guide at
+`https://mobily-enterprises.github.io/jskit-ai/guide/framework/client-features`.
+Simple, direct code comes first: never add a layer, wrapper, registry or tiny
+module only to satisfy a rule. `npm run lint` checks its rules too.
+
 Before implementation, read the narrow relevant source pattern completely. If
 its owner package is installed, prefer that version-matched package-owned copy.
 Do not install an unrelated runtime package only to read documentation.

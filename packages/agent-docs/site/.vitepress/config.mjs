@@ -58,6 +58,7 @@ export default defineConfig({
             { text: "CRUD Operations", link: "/guide/framework/crud-operations" },
             { text: "Record Form Actions", link: "/guide/framework/crud-form-actions" },
             { text: "Typed Features", link: "/guide/framework/typed-features" },
+            { text: "Client Features", link: "/guide/framework/client-features" },
             { text: "UI Operations", link: "/guide/framework/ui-operations" },
             { text: "Material 3", link: "/guide/framework/material-3" },
             { text: "Translating an App", link: "/guide/framework/translation" },

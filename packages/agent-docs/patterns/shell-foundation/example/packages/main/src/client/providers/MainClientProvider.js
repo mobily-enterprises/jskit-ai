@@ -8,6 +8,7 @@ const MainClientProvider = defineProvider({
   requires: {
     components: "client.components"
   },
+  /** @param {{ components: import("@jskit-ai/kernel/client/types").ClientComponents }} capabilities */
   setup({ components }) {
     components.register("local.main.ui.menu-link-item", MenuLinkItem);
     components.register("local.main.ui.surface-aware-menu-link-item", SurfaceAwareMenuLinkItem);

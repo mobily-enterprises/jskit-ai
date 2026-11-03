@@ -10,7 +10,9 @@ checked by reading. The `server/feature-package` pattern in the
 [bundled source pattern index](pattern-index.md) is the smallest complete feature to copy.
 
 The [typed features heuristic](heuristics/typed-features.md)
-maps keywords and lint findings to the section that fixes them.
+maps keywords and lint findings to the section that fixes them. Client code
+(composables, components, client factories and providers) follows the same
+rule in [client features](client-features.md).
 
 ## The rule
 
@@ -969,9 +971,19 @@ build. The foundations' `eslint.config.mjs` already holds a new
 application's code to every check:
 
 ```js
-import { baseConfig, formatterConfig, nodeConfig, sizeLimitsConfig, typedFeaturesConfig, vueConfig, webConfig } from "@jskit-ai/config-eslint/server";
+import {
+  baseConfig,
+  clientFeaturesConfig,
+  formatterConfig,
+  nodeConfig,
+  sizeLimitsConfig,
+  typedFeaturesConfig,
+  vueConfig,
+  webConfig
+} from "@jskit-ai/config-eslint/server";
 
 const SERVER_SOURCES = ["packages/*/src/server/**", "packages/*/src/shared/**", "server/**", "server.js"];
+const CLIENT_SOURCES = ["packages/*/src/client/**", "src/**"];
 const HAND_WRITTEN_SOURCES = ["packages/*/src/**", "src/**", "config/**", "server/**", "server.js", "bin/**"];
 
 export default [
@@ -979,6 +991,7 @@ export default [
   ...typedFeaturesConfig(SERVER_SOURCES),
   ...sizeLimitsConfig(HAND_WRITTEN_SOURCES),
   ...vueConfig,
+  ...clientFeaturesConfig(CLIENT_SOURCES),
   ...webConfig,
   ...nodeConfig,
   ...formatterConfig([...SERVER_SOURCES, "config/**", "bin/**"])
@@ -994,6 +1007,8 @@ export default [
 - `baseConfig` reports the `jskit/*` rules as warnings on any
   `**/src/server/**`, so an existing application sees them before it lists a
   package; it lists each package as it converts it.
+- `clientFeaturesConfig(globs)` holds client code to the same rules; see
+  [client features](client-features.md#running-the-checks).
 
 Every finding ends with a link to the section of this page that explains it.
 
@@ -1053,6 +1068,7 @@ if (typeof buildSerializer !== "function") {
 | `deferred until boot: <reason>` | keeps a capability handed out at setup and filled in `boot()`, such as the deferred `auth.service`: a two-phase value that is neither a cycle nor a setter |
 | `filled by <repository>; convert with its supplier` | keeps a setter that another repository's code calls |
 | `cross-repository slot <token>` | keeps a probe for a token another repository supplies |
+| `shared resource:` | keeps client module state that every instance on the page shares on purpose ([client features](client-features.md#module-state)) |
 
 One kind of probe gets one prefix and one wording everywhere, and a bare
 `typeof x` guard of that kind carries the same comment even where no rule

@@ -280,8 +280,9 @@ test("shell foundation reuses the shell-web application shell and the minimal fo
   }
 });
 
-test("foundation lint configurations hold server code to typed features and all code to the size limits as errors", async () => {
+test("foundation lint configurations hold server code to typed features, client code to client features and all code to the size limits as errors", async () => {
   const probe = "export function createReader({ store } = {}) {\n  return () => store.read?.();\n}\n";
+  const clientProbe = "let lastDraft = \"\";\nexport function useDraft({ store } = {}) {\n  return () => store.save?.(lastDraft);\n}\n";
   for (const patternName of FOUNDATION_NAMES) {
     const exampleRoot = path.join(PATTERNS_ROOT, patternName, "example");
     const { default: config } = await import(pathToFileURL(path.join(exampleRoot, "eslint.config.mjs")).href);
@@ -292,6 +293,13 @@ test("foundation lint configurations hold server code to typed features and all 
       const findings = result.messages.filter((message) => message.ruleId?.startsWith("jskit/"));
       assert.ok(findings.length > 0, `${patternName} does not check ${relativePath}.`);
       assert.ok(findings.every((message) => message.severity === 2), `${patternName} only warns on ${relativePath}.`);
+    }
+
+    for (const relativePath of ["src/composables/useDraft.js", "packages/main/src/client/useDraft.js"]) {
+      const [result] = await eslint.lintText(clientProbe, { filePath: path.join(exampleRoot, relativePath) });
+      const rules = new Set(result.messages.filter((message) => message.ruleId?.startsWith("jskit/")).map((message) => message.ruleId));
+      assert.ok(rules.has("jskit/no-module-state") && rules.has("jskit/required-collaborators"), `${patternName} does not check ${relativePath}.`);
+      assert.ok(result.messages.every((message) => message.severity === 2), `${patternName} only warns on ${relativePath}.`);
     }
 
     const longModule = Array.from({ length: 751 }, (_, index) => `export const value${index} = ${index};`).join("\n");
