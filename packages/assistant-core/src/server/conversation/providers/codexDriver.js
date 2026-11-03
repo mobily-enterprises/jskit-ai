@@ -45,6 +45,11 @@ const goalCapabilities = Object.freeze({ goals: true, goalBudgets: true,
  * @property {(request: { context: object, integrationId: string }) => Promise<object>} resolve
  */
 
+// input validation: the driver's own conversations run Codex in the application's environment.
+function assertCodexApplicationEnvironment(host) {
+  if (!host.env) throw new TypeError("createCodexConversationDriver requires the application's environment, such as process.env.");
+}
+
 /**
  * Conversations own threads and observers on the account's shared native runtime.
  * @param {object} dependencies
@@ -265,13 +270,8 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
     return native.runOwner.runDetachedConversation(sessionId, input, options);
   }
 
-  // input validation: the driver's own conversations run Codex in the application's environment.
-  function assertApplicationEnvironment() {
-    if (!host.env) throw new TypeError("createCodexConversationDriver requires the application's environment, such as process.env.");
-  }
-
   async function createBinding() {
-    assertApplicationEnvironment();
+    assertCodexApplicationEnvironment(host);
     return createInertCodexConversationBinding({ workdir: await realpath(workdir), configRoot });
   }
 
@@ -295,7 +295,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
         disposeOpening: () => disposeNative({ sessionId, namespace: conversation.namespace, native: supplied, options: openingContext })
       });
     }
-    if (!supplied) assertApplicationEnvironment();
+    if (!supplied) assertCodexApplicationEnvironment(host);
     if (!supplied && (!binding || typeof binding.threadId !== "string" || binding.workdir !== await realpath(workdir) || binding.configRoot !== configRoot)) {
       throw new Error("This Codex conversation belongs to another working directory or credential home. Restore its original host configuration.");
     }
