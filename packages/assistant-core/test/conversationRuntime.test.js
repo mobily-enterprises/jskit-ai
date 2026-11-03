@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { createConversationHookBridge, createConversationRuntime } from "../src/server/conversation/index.js";
-import { createClaudeConversationTurn } from "../src/server/conversation/claudeTurn.js";
+import { createClaudeConversationTurn } from "../src/server/conversation/claudeNativeTurn.js";
 import { createCodexConversationAdapter } from "../src/server/conversation/providers/codex.js";
 import { createOpenCodeConversationAdapter } from "../src/server/conversation/providers/opencode.js";
 import { readPersistentConversation } from "../src/server/conversation/providers/scoped.js";

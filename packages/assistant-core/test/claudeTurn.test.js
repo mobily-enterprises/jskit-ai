@@ -3,9 +3,9 @@ import test from "node:test";
 import { Duplex } from "node:stream";
 import { createClaudeJsonClient } from "../src/server/conversation/claudeClient.js";
 import { setTimeout as delay } from "node:timers/promises";
-import { createClaudeConversationTurn, claudeNativeMessageId, runClaudeRenewalTurn,
-  waitForClaudeConversationTurn } from "../src/server/conversation/claudeTurn.js";
-import { readClaudeHistory } from "../src/server/conversation/claudeHistory.js";
+import { runClaudeRenewalTurn, waitForClaudeConversationTurn } from "../src/server/conversation/claudeTurn.js";
+import { createClaudeConversationTurn } from "../src/server/conversation/claudeNativeTurn.js";
+import { claudeNativeMessageId, readClaudeHistory } from "../src/server/conversation/claudeHistory.js";
 
 function fixture() {
   const events = [];

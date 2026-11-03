@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { lstat, open, readdir, realpath, rm, stat } from "node:fs/promises";
 import path from "node:path";
@@ -10,6 +11,12 @@ const TRANSCRIPT_PATH_PATTERN = /\.jsonl(?:\.(?:superseded|orphaned)-.*)?$/u;
 function requireClaudeSessionId(id) {
   if (!UUID_PATTERN.test(id)) throw new TypeError("Invalid Claude conversation id.");
   return id;
+}
+
+// The UUID Claude's history records for an application message id.
+export function claudeNativeMessageId(id) {
+  const value = createHash("sha256").update(String(id)).digest("hex");
+  return `${value.slice(0, 8)}-${value.slice(8, 12)}-4${value.slice(13, 16)}-8${value.slice(17, 20)}-${value.slice(20, 32)}`;
 }
 
 // Claude's project directory name for a canonical working directory.

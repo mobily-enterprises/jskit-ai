@@ -1,33 +1,17 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { AsyncLocalStorage } from "node:async_hooks";
-import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { claudeMessageBlocks, deleteClaudeConversationHistory, readClaudeHistory, requireClaudeSessionId, retireClaudeConversationHistory } from "./claudeHistory.js";
-import { bindClaudeConversationAccount, claudeCodeArguments, createClaudeAccountQueries, createClaudeCodeProcess, stopClaudeCodeProcess } from "./claudeProcess.js";
-import { claudeApplicationToolResponse } from "./claudeTools.js";
+import { claudeNativeMessageId, readClaudeHistory, requireClaudeSessionId, retireClaudeConversationHistory } from "./claudeHistory.js";
+import { claudeTurnFailure, createClaudeConversationTurn } from "./claudeNativeTurn.js";
+import { bindClaudeConversationAccount, claudeCodeArguments, createClaudeAccountQueries } from "./claudeProcess.js";
+import { createClaudeCommandRun } from "./claudeCommandRun.js";
+import { createClaudeProcessStart, hasPendingClaudeStartup } from "./claudeProcessStart.js";
+import { createClaudePromptDelivery } from "./claudePromptDelivery.js";
+import { createClaudeSessionCleanup } from "./claudeSessionCleanup.js";
 import { normalizeNullableText } from "./normalize.js";
-import { createClaudeConversationAdapter } from "./providers/claude.js";
-
-function failure(message, { code = "assistant_claude_turn_failed" } = {}) {
-  return Object.assign(new Error(message), { code });
-}
-
-// Input for a turn that already finished is the caller's refusal; input that
-// meets a stopping turn stays an internal turn failure.
-function steeringRefusal(message, { messageCode, finished }) {
-  return finished
-    ? new AppError(409, message, { code: "conversation_steer_turn_finished", messageCode })
-    : Object.assign(failure(message), { messageCode, messageParams: {} });
-}
 
 const text = normalizeNullableText;
-const now = () => new Date().toISOString();
-const CLAUDE_SIGNED_OUT_MESSAGE = "Claude isn't connected. Sign in to Claude, then send your message again.";
-
-function hasPendingClaudeStartup(entry) {
-  return entry.startupCleanup?.pending === true && entry.startupCleanup.executionId === entry.executionId;
-}
 
 // Claude records an admitted prompt in its history, and only a send in
 // progress writes prompts to a live process. With neither left, a prompt
@@ -45,16 +29,9 @@ function runsNativeWork(entry) {
   return Boolean(entry.sending || entry.process || entry.command || entry.stopPending || hasPendingClaudeStartup(entry));
 }
 
-const ACTIVE_TURN_STATES = ["starting", "active", "finalizing"];
-
-export function claudeNativeMessageId(id) {
-  const value = createHash("sha256").update(String(id)).digest("hex");
-  return `${value.slice(0, 8)}-${value.slice(8, 12)}-4${value.slice(13, 16)}-8${value.slice(17, 20)}-${value.slice(20, 32)}`;
-}
-
 /** Wait on the conversation's existing completion and cleanup owner. */
 export async function waitForClaudeConversationTurn(conversation, input = {}, {
-  signal, defaultTimeoutMs = 180_000, maximumTimeoutMs = Infinity, createError = failure,
+  signal, defaultTimeoutMs = 180_000, maximumTimeoutMs = Infinity, createError = claudeTurnFailure,
   interruptedMessage = "Claude was interrupted when the application disconnected."
 } = {}) {
   const entry = conversation.state;
@@ -91,7 +68,7 @@ export async function runClaudeRenewalTurn(conversation, {
   clientMessageId, prompt, outputSchema, expectedThreadId, forbiddenThreadId,
   requireFreshHistory = false, timeoutMs = 180_000
 }, {
-  createError = failure, unreadableCode = "assistant_claude_turn_unreadable",
+  createError = claudeTurnFailure, unreadableCode = "assistant_claude_turn_unreadable",
   failedCode = "assistant_claude_turn_failed", acceptedField = "inputAccepted"
 } = {}) {
   const uuid = claudeNativeMessageId(clientMessageId);
@@ -137,6 +114,19 @@ export async function runClaudeRenewalTurn(conversation, {
   }
 }
 
+/**
+ * One conversation's goal: Claude's own goal attachment, or the Pause or
+ * blocker this owner retains while Claude's checker is suspended.
+ * @param {{
+ *   conversationId: string,
+ *   readHistory: () => Promise<Record<string, any>>,
+ *   readState: () => { running: boolean, active: boolean },
+ *   interrupt: () => Promise<unknown>,
+ *   send: (input: Record<string, any>) => Promise<unknown>,
+ *   readRetainedGoal: () => Record<string, any> | null,
+ *   saveRetainedGoal: (goal: Record<string, any>) => Promise<void>
+ * }} options
+ */
 export function createClaudeConversationGoals({ conversationId, readHistory, readState, interrupt, send, readRetainedGoal, saveRetainedGoal }) {
   // These checks run before interrupt/send. Native execution and receipt
   // failures keep their own codes and must not be treated as safe rejections.
@@ -145,7 +135,7 @@ export function createClaudeConversationGoals({ conversationId, readHistory, rea
 
   async function read(history = null) {
     const { goal = null } = history || await readHistory();
-    const retained = readRetainedGoal?.();
+    const retained = readRetainedGoal();
     if (retained) return { ...retained };
     const state = readState();
     return goal ? { ...goal, status: ["complete", "blocked"].includes(goal.status) ? goal.status :
@@ -185,22 +175,79 @@ export function createClaudeConversationGoals({ conversationId, readHistory, rea
     } else throw goalError("Unknown Claude goal action.", { messageCode: "assistant.claude.goalActionUnknown" });
   }
 
-  return Object.freeze({ read, update });
+  return Object.freeze({
+    read,
+    update
+  });
 }
+
+/**
+ * A retained Claude conversation: its saved custody, native process, turn
+ * view and the command that owns it.
+ * @typedef {Record<string, any>} ClaudeConversationEntry
+ */
+
+/**
+ * Where an owner keeps its conversations' records. A runtime binding's store
+ * supplies releaseExecution; a store that retains entries supplies the rest.
+ * @typedef {object} ClaudeConversationStore
+ * @property {(context: Record<string, any>, conversationId: string) => string | null | Promise<string | null>} read
+ * @property {(entry: ClaudeConversationEntry, options?: { execution?: boolean }) => Promise<unknown>} save
+ * @property {(entry: ClaudeConversationEntry) => Promise<unknown>} [releaseExecution]
+ * @property {(context: Record<string, any>, conversationId: string) => unknown} [select]
+ * @property {(context: Record<string, any>, messageId: string) => Promise<boolean>} [hasMessage]
+ * @property {(entry: ClaudeConversationEntry) => Promise<unknown>} [remove]
+ * @property {(context: Record<string, any>) => Record<string, any> | Promise<Record<string, any>>} [readSessionConversations]
+ * @property {(entry: ClaudeConversationEntry) => string} [projectContextRoot]
+ * @property {(entry: ClaudeConversationEntry) => string} [modelProviderId]
+ */
+
+/**
+ * How a host prepares an entry's work. A store that retains entries also
+ * resolves contexts and entries, checks sends and binds accounts.
+ * @typedef {object} ClaudeConversationPreparation
+ * @property {(entry: ClaudeConversationEntry, input: Record<string, any>) => Promise<Record<string, any>>} configuration
+ * @property {(entry: ClaudeConversationEntry, input: Record<string, any>, options?: Record<string, any>) => unknown} message
+ * @property {(context: Record<string, any>) => Promise<Record<string, any>>} [context]
+ * @property {(ctx: Record<string, any>, context: Record<string, any>, conversationId: string, options: Record<string, any>) => { options: Record<string, any>, check: (entry: ClaudeConversationEntry) => void }} [entry]
+ * @property {(entry: ClaudeConversationEntry, context: Record<string, any>) => void} [check]
+ * @property {(entry: ClaudeConversationEntry) => Record<string, any>} [account]
+ * @property {(entry: ClaudeConversationEntry, input: Record<string, any>) => { sessionClosing?: boolean } | undefined} [checkConfiguration]
+ */
+
+/**
+ * How a host runs an entry's Claude process.
+ * @typedef {object} ClaudeConversationProcessHost
+ * @property {(executionId: string, options?: Record<string, any>) => Promise<Record<string, any>>} stopExecution
+ * @property {(entry: ClaudeConversationEntry, configuration: Record<string, any>, options: Record<string, any>) => Record<string, any> | Promise<Record<string, any>>} configure
+ * @property {(options: Record<string, any>) => Promise<import("./claudeProcess.js").ClaudeCodeProcess>} [create]
+ * @property {(entry: ClaudeConversationEntry, configuration: Record<string, any>, context: Record<string, any>) => Record<string, any> | Promise<Record<string, any>>} [prepare]
+ * @property {(entry: ClaudeConversationEntry, context: Record<string, any>) => Promise<Record<string, any>>} [configureTerminal]
+ */
+
+/** @typedef {(entry: ClaudeConversationEntry, event: Record<string, any>) => unknown} ClaudeConversationEventHandler */
+
+/** @typedef {(message: string, options: { code: string }) => Error} ClaudeConversationErrorFactory */
 
 /**
  * The original retained entry and command owner; hosts supply authorized storage and message effects.
  * Every refusal is built by `createError(message, { code })`, each with its own `conversation_claude_*` code.
+ * @param {{
+ *   configRoot: string,
+ *   store: ClaudeConversationStore,
+ *   preparation: ClaudeConversationPreparation,
+ *   process: ClaudeConversationProcessHost,
+ *   onEvent: ClaudeConversationEventHandler,
+ *   createError?: ClaudeConversationErrorFactory,
+ *   disconnectedMessage?: string
+ * }} options
  */
 export function createClaudeConversationOwner({
-  configRoot, store, preparation, process, onEvent, createError = failure,
+  configRoot, store, preparation, process, onEvent, createError = claudeTurnFailure,
   disconnectedMessage = "Claude was interrupted when the application disconnected."
 }) {
   const entries = new Map();
   const applicationCall = new AsyncLocalStorage();
-  const closingSessions = new Set();
-  let closing = false;
-  const createProcess = process.create || createClaudeCodeProcess;
   const saveAccount = store.save;
   // Two hosts share this owner. A bound store (one with releaseExecution) is a
   // runtime binding: the native turn owns activity and execution release.
@@ -211,10 +258,21 @@ export function createClaudeConversationOwner({
   // active turn) that only a verified stop retires. An idle entry has nothing
   // to stop, and stopping it would only rewrite its saved record.
   const holdsNativeWork = entry => runsNativeWork(entry) || Boolean(entry.executionId) || isTurnActive(entry);
+  const cleanup = createClaudeSessionCleanup({ entries, store, configRoot, acquire, savedState, holdsNativeWork, disconnectedMessage });
+  const processStart = createClaudeProcessStart({ store, process, createError, onEvent, bound, readHistory,
+    isClosing: cleanup.isClosing, applicationCall, currentApplicationCommand });
+  const delivery = createClaudePromptDelivery({ store, preparation, createError, onEvent, readHistory, bindAccount, ensureProcess, snapshot });
+  const commands = createClaudeCommandRun({ bound, preparation, send: delivery.send, interrupt });
 
+  /**
+   * @param {{
+   *   accountIdentity: (context: Record<string, any>) => Promise<string>,
+   *   createProcess: (request: { signal: AbortSignal, purpose: string }) => Promise<import("./claudeProcess.js").ClaudeCodeProcess>
+   * }} options
+   */
   function createAccountQueries({ accountIdentity, createProcess }) {
     return createClaudeAccountQueries({ accountIdentity, configRoot,
-      processes: () => entries.values(), isClosing: () => closing, createProcess });
+      processes: () => entries.values(), isClosing: () => cleanup.closing, createProcess });
   }
 
   function snapshot(entry) {
@@ -225,7 +283,7 @@ export function createClaudeConversationOwner({
 
   function currentApplicationCommand(entry, command, owner = command?.nativeOwner) {
     const native = entry?.nativeTurn.read();
-    return Boolean(owner && entry && !closing && !closingSessions.has(entry.context.key) &&
+    return Boolean(owner && entry && !cleanup.isClosing(entry.context.key) &&
       entries.get(entry.key) === entry && entry.command === command && command.entry === entry &&
       command.admitted && !command.signal.aborted && !command.toolFailure &&
       !entry.disposed && !entry.stopping && !entry.stopPending && !entry.goalToolStop && !entry.observationError &&
@@ -246,7 +304,7 @@ export function createClaudeConversationOwner({
 
   // This lookup uses only the existing current entry and native receipt owner.
   function readFinalAssistantResult(contextKey, conversationId = "", turnId = "") {
-    if (!text(contextKey) || !text(conversationId) || !text(turnId) || closing || closingSessions.has(contextKey)) return null;
+    if (!text(contextKey) || !text(conversationId) || !text(turnId) || cleanup.isClosing(contextKey)) return null;
     const entry = entries.get(`${contextKey}\0${conversationId}`);
     if (!entry || entry.disposed || entry.stopping || entry.observationError ||
         entry.id !== conversationId || entry.context.key !== contextKey || entry.turn?.id !== turnId) return null;
@@ -283,6 +341,7 @@ export function createClaudeConversationOwner({
       return entry;
     }
     let saved = store.read(context, id);
+    // readable-check: allow method-probe - data: a store reads a saved record synchronously or with a promise; a synchronous read opens the entry without yielding
     if (saved && typeof saved.then === "function") saved = await saved;
     if (!main && !saved && !create && !recoveringCleanup) throw createError("This Claude conversation is unavailable.", { code: "conversation_claude_unavailable" });
     const state = savedState(saved, id);
@@ -292,7 +351,7 @@ export function createClaudeConversationOwner({
       accountIdentity: state.accountIdentity || "", sent: state.sent === true, nativeWorkdir: state.nativeWorkdir || nativeWorkdir,
       lastMessageId: state.lastMessageId || "", pausedGoal: state.pausedGoal || null, blockedGoal: state.blockedGoal || null, turn: state.turnId ? {
         id: state.turnId, active: ["starting", "active", "finalizing"].includes(state.state),
-        state: state.state, startedAt: now(), updatedAt: now()
+        state: state.state, startedAt: new Date().toISOString(), updatedAt: new Date().toISOString()
       } : null };
     for (const [field, status] of [["pausedGoal", "paused"], ["blockedGoal", "blocked"]]) {
       const retained = entry[field];
@@ -312,7 +371,7 @@ export function createClaudeConversationOwner({
         ...(bound ? { releaseExecution: () => store.releaseExecution(entry) } : {}),
         getProcess: () => entry.stopping ? null : entry.process,
         isActive: () => isTurnActive(entry),
-        startProcess: input => startProcess(entry, input),
+        startProcess: input => processStart.startProcess(entry, input),
         stopProcess: reason => entry.process || entry.executionId
           ? entry.nativeTurn.stopProcess(reason, { preparing: true }) : Promise.resolve()
       }
@@ -328,7 +387,7 @@ export function createClaudeConversationOwner({
         catch (error) { Object.assign(entry, previous); throw error; }
       },
       readState: () => ({ running: Boolean(entry.process), active: isTurnActive(entry) }),
-      interrupt: () => interrupt(entry), send: input => send(entry, input) });
+      interrupt: () => interrupt(entry), send: input => delivery.send(entry, input) });
     entries.set(key, entry);
     await store.save(entry);
     return entry;
@@ -380,13 +439,14 @@ export function createClaudeConversationOwner({
 
   async function ensureProcess(entry, input = {}) {
     const revision = entry.preparationRevision;
+    // readable-check: allow optional-call - optional operation: a host that tracks its own sessions' closing supplies checkConfiguration
     const application = preparation.checkConfiguration?.(entry, input);
-    if (entry.disposed || closing || closingSessions.has(entry.context.key) || application?.sessionClosing) {
+    if (entry.disposed || cleanup.isClosing(entry.context.key) || application?.sessionClosing) {
       throw createError("This session is closing.", { code: "conversation_claude_session_closing" });
     }
     if (preparation.account) await bindAccount(entry);
     const configuration = await preparation.configuration(entry, input);
-    if (revision !== entry.preparationRevision || entry.disposed || closing || closingSessions.has(entry.context.key)) {
+    if (revision !== entry.preparationRevision || entry.disposed || cleanup.isClosing(entry.context.key)) {
       throw createError("Claude preparation was stopped while this session was closing or changing.", { code: "conversation_claude_preparation_stopped" });
     }
     return entry.nativeTurn.prepare(configuration);
@@ -412,7 +472,7 @@ export function createClaudeConversationOwner({
 
   async function stopForTerminal(entry, application) {
     if (entry.turn?.active) throw createError("Stop the current turn before opening the Claude Code terminal.", { code: "conversation_claude_terminal_turn_active" });
-    if (closing || closingSessions.has(entry.context.key) || application?.sessionClosing) {
+    if (cleanup.isClosing(entry.context.key) || application?.sessionClosing) {
       throw createError("This session is closing.", { code: "conversation_claude_session_closing" });
     }
     await bindAccount(entry);
@@ -430,175 +490,6 @@ export function createClaudeConversationOwner({
       env: { ...configuration.env, DISABLE_AUTOUPDATER: "1" } };
   }
 
-  async function startProcess(entry, configuration) {
-    const context = entry.context;
-    const revision = entry.preparationRevision;
-    const assertPreparing = () => {
-      if (revision !== entry.preparationRevision || entry.disposed || closing || closingSessions.has(context.key)) {
-        throw createError("Claude preparation was stopped while this session was closing or changing.", { code: "conversation_claude_preparation_stopped" });
-      }
-    };
-    assertPreparing();
-    let prepared = process.prepare ? process.prepare(entry, configuration, context) : { workdir: entry.nativeWorkdir };
-    if (prepared && typeof prepared.then === "function") prepared = await prepared;
-    entry.nativeWorkdir = prepared.workdir;
-    if (!entry.sent) entry.sent = (await readHistory(entry)).exists;
-    entry.stopping = false;
-    entry.profile = configuration.profile;
-    let options = process.configure(entry, configuration, { context, prepared });
-    if (options && typeof options.then === "function") options = await options;
-    assertPreparing();
-    let startupCleanup;
-    let startedExecutionId;
-    const processToken = {};
-    try { entry.process = await createProcess({ ...options,
-      workdir: entry.nativeWorkdir, sessionId: entry.id, resume: entry.sent,
-      onStarted: async (executionId, stop) => {
-        startedExecutionId = executionId;
-        if (typeof stop === "function") {
-          startupCleanup = { executionId, stop, pending: true };
-          entry.startupCleanup = startupCleanup;
-        }
-        if (entry.executionId !== executionId) {
-          entry.executionId = executionId;
-          await store.save(entry, { execution: true });
-          await onEvent(entry, { type: "execution", context, executionId });
-        }
-        assertPreparing();
-      },
-      async onEvent(frame) {
-        const pending = entry.goalToolStop;
-        if (pending && pending.executionId === startedExecutionId && entry.process === pending.process &&
-            frame.type === "user" && !frame.parent_tool_use_id && Array.isArray(frame.message?.content) &&
-            frame.message.content.some(block => block.type === "tool_result" && block.tool_use_id === pending.toolUseId)) {
-          // The CLI has consumed the tool response. Do not join process cleanup
-          // on its event reader: interrupt/exit also needs that reader to drain.
-          pending.stop();
-        }
-        // Local commands (retained goal clear, compaction) are not AI turns.
-        // Their frames stay out of the turn view until their own result.
-        const local = entry.localCommand;
-        if (local?.processToken === processToken) {
-          if (frame.type === "result" && frame.user_message_uuid === local.id) {
-            if (frame.local_command === local.name && frame.is_error !== true && frame.subtype === "success") local.resolve();
-            else local.reject(createError(local.failureMessage, { code: local.failureCode }));
-          }
-          return;
-        }
-        const current = entry.command;
-        if (current && frame.type === "assistant" && !frame.parent_tool_use_id) {
-          for (const tool of frame.message?.content || []) if (tool.type === "tool_use" && tool.id && tool.name?.startsWith("mcp__application__")) {
-            if (current.nativeToolCount >= current.maximumToolCalls && !current.nativeTools.has(tool.id)) {
-              throw new Error("Claude exceeded the application tool-call limit.");
-            }
-            if (!current.nativeTools.has(tool.id)) {
-              current.nativeToolCount++;
-              current.nativeTools.set(tool.id, { name: tool.name, input: tool.input, messageId: current.messageId });
-            }
-          }
-        }
-        await entry.nativeTurn.receive(frame);
-      },
-      ...(bound || options.applicationTools || entry.command?.tools ? {
-        async onControlRequest(request, { signal }) {
-          const active = entry.command;
-          const suppliedTools = !bound && active?.tools;
-          const owner = active?.nativeOwner;
-          const work = applicationCall.run({ entry, command: active, owner,
-            toolUseId: request.message?.params?._meta?.["claudecode/toolUseId"] },
-          () => claudeApplicationToolResponse(request, { schemas: entry.toolSchemas || [], turn: active, signal,
-            ...(suppliedTools ? {
-              assertCurrent(native) {
-                if (!currentApplicationCommand(entry, active, owner) || active.nativeOwner !== owner ||
-                    native.messageId !== active.messageId) throw new Error("Claude's application call belongs to a retired input.");
-              },
-              onExecutionFailure(error, native) {
-                // Already-invoked old work retains its original result. Only
-                // this still-current authored input can fail this native run.
-                if (currentApplicationCommand(entry, active, owner) && active.nativeOwner === owner &&
-                    native.messageId === active.messageId) {
-                  active.toolFailure = error;
-                  active.failure.reject(error);
-                }
-              }
-            } : {}) }));
-          active?.toolWork.add(work);
-          try { return await work; }
-          finally { active?.toolWork.delete(work); }
-        }
-      } : {}),
-      onFailure: async error => {
-        if (entry.localCommand?.processToken === processToken) entry.localCommand.reject(error);
-        if (bound) {
-          entry.nativeTurn.invalidateInstructions();
-          try { await entry.nativeTurn.stopProcess(error.message); }
-          catch (cleanupError) { error = cleanupError; await context.reportFailure(cleanupError); }
-          entry.command?.completion.reject(error);
-          return;
-        }
-        entry.observationError = error.message;
-        await entry.nativeTurn.stopProcess(error.message);
-      }
-    }); } catch (error) {
-      if (error.executionId && error.stopProof?.scopeEmpty !== true && !entry.executionId) {
-        // Streaming startup can fail after host admission, before onStarted.
-        // Retain that custody through the same binding owner for Stop recovery.
-        error.cleanupFailed = true;
-        entry.executionId = error.executionId;
-        try {
-          await store.save(entry, { execution: true });
-          await onEvent(entry, { type: "execution", context, executionId: entry.executionId });
-        } catch (bindingError) { error.bindingError = bindingError; }
-      }
-      if (bound && error.stopProof?.scopeEmpty) {
-        await store.releaseExecution(entry);
-        if (entry.startupCleanup?.executionId === error.executionId) entry.startupCleanup = null;
-      }
-      throw error;
-    } finally {
-      if (startupCleanup) startupCleanup.pending = false;
-    }
-    try { assertPreparing(); }
-    catch (error) {
-      await entry.nativeTurn.stopProcess(error.message);
-      throw error;
-    }
-    if (entry.startupCleanup?.executionId === entry.executionId) entry.startupCleanup = null;
-    entry.processToken = processToken;
-    if (entry.pausedGoal || entry.blockedGoal) {
-      try {
-        const id = await runLocalCommand(entry, "/goal clear", { name: "goal", timeoutMs: 30_000,
-          failureMessage: "Claude could not suspend its retained goal checker.", failureCode: "conversation_claude_goal_suspend_failed",
-          timeoutMessage: "Claude timed out suspending its retained goal checker.", timeoutCode: "conversation_claude_goal_suspend_timeout" });
-        const cleared = await readHistory(entry);
-        if (cleared.goal || cleared.goalCommandId !== id) {
-          throw createError("Claude has not saved the retained goal's native clear receipt.", { code: "conversation_claude_goal_clear_unconfirmed" });
-        }
-        assertPreparing();
-      } catch (error) {
-        await entry.nativeTurn.stopProcess(error.message);
-        throw Object.assign(error, { delivery: "not-sent" });
-      }
-    }
-    return entry.process;
-  }
-
-  async function runLocalCommand(entry, command, { name, timeoutMs, failureMessage, failureCode, timeoutMessage, timeoutCode }) {
-    const completion = Promise.withResolvers();
-    completion.promise.catch(() => {});
-    const local = { ...completion, id: randomUUID(), name, failureMessage, failureCode, processToken: entry.processToken };
-    entry.localCommand = local;
-    const timer = setTimeout(() => completion.reject(createError(timeoutMessage, { code: timeoutCode })), timeoutMs);
-    try {
-      await entry.process.client.send(command, { messageId: local.id, sessionId: entry.id });
-      await completion.promise;
-      return local.id;
-    } finally {
-      clearTimeout(timer);
-      if (entry.localCommand === local) entry.localCommand = null;
-    }
-  }
-
   // Native /compact summarises Claude's own history in place, exactly like its
   // automatic compaction. It is not an AI turn and adds no chat message.
   async function compactContext(entry, input = {}) {
@@ -609,157 +500,9 @@ export function createClaudeConversationOwner({
     }
     await ensureProcess(entry, input);
     input.signal?.throwIfAborted();
-    await runLocalCommand(entry, "/compact", { name: "compact", timeoutMs: 15 * 60_000,
+    await processStart.runLocalCommand(entry, "/compact", { name: "compact", timeoutMs: 15 * 60_000,
       failureMessage: "Claude could not summarise its context.", failureCode: "conversation_claude_compact_failed",
       timeoutMessage: "Claude timed out summarising its context.", timeoutCode: "conversation_claude_compact_timeout" });
-  }
-
-  async function send(entry, ...args) {
-    entry.sending = (entry.sending || 0) + 1;
-    try { return await dispatchPrompt(entry, ...args); }
-    finally { entry.sending -= 1; }
-  }
-
-  async function dispatchPrompt(entry, input = {}, { renewal = false, command, applicationCommand } = {}) {
-    const message = command ? input.text : text(input.message || input.prompt);
-    if (!command && !message) throw createError("Enter a message for Claude.", { code: "conversation_claude_message_required" });
-    const context = entry.context;
-    const messageId = command ? input.messageId : text(input.messageId) || randomUUID();
-    const uuid = claudeNativeMessageId(messageId);
-    const deliveryTiming = (command || input).deliveryTiming;
-    if (!command) {
-      if (entry.main && await store.hasMessage(context, messageId)) {
-        return { ok: true, delivered: true, duplicate: true, thread: { id: entry.id }, turn: snapshot(entry) };
-      }
-      deliveryTiming?.("duplicate-checked");
-      preparation.check(entry, context);
-      const history = await readHistory(entry);
-      deliveryTiming?.("native-history-read");
-      if (history.userIds.includes(uuid)) {
-        return { ok: true, delivered: true, duplicate: true, thread: { id: entry.id }, turn: snapshot(entry) };
-      }
-    }
-    let native;
-    try {
-      if (!command && entry.main && entry.turn?.active && entry.process) {
-        // Main steering keeps the active instruction installation, just like
-        // command steering. Refresh guidance on the next idle admission.
-        // Account replacement must still confirm cleanup before any new send.
-        if (preparation.account) await bindAccount(entry);
-        native = entry.process || await ensureProcess(entry, input);
-      } else {
-        native = command ? command.steering ? entry.process : await entry.nativeTurn.prepare(command.prepared) : await ensureProcess(entry, input);
-      }
-    } catch (error) {
-      // Preparation may start or resume the process, but has not written this
-      // authored input. Keep its failure distinct from a lost native receipt.
-      throw Object.assign(error, { delivery: "not-sent" });
-    }
-    deliveryTiming?.("process-ready");
-    if (command && !command.steering) command.signal.throwIfAborted();
-    const steering = command ? command.steering === true : Boolean(entry.turn?.active);
-    if (input.signal?.aborted) {
-      throw Object.assign(createError("The goal command was stopped before delivery.", { code: "conversation_claude_command_stopped" }), { delivery: "not-sent" });
-    }
-    if (steering) {
-      if (command) {
-        await command.beforeDispatch({ threadId: entry.id });
-        command.signal.throwIfAborted();
-      }
-      // A mid-turn message is never an interrupt: Claude Code queues it and
-      // reads it after the running tool call. Only explicit Stop interrupts.
-      try { await entry.nativeTurn.prepareSteering(); }
-      catch (error) {
-        if (!command) await entry.nativeTurn.stopProcess(error.message);
-        // This precedes the input's pipe write: a refused steer is definitely not sent.
-        throw Object.assign(error, { delivery: "not-sent" });
-      }
-    }
-    const prompt = command ? undefined : await preparation.message(entry, input, { context, message, steering, renewal, deliveryTiming });
-    if (!command) deliveryTiming?.("prompt-rendered");
-    if (command) {
-      await command.beforeDispatch({ threadId: entry.id });
-      command.signal.throwIfAborted();
-    }
-    if (!steering) {
-      entry.renewal = renewal;
-      entry.nativeTurn.begin({ id: uuid, maxOutputCharacters: command ? command.maximumOutput : entry.profile?.limits.maxOutputCharacters });
-      entry.observationError = "";
-      entry.turn = { id: uuid, active: true, state: "starting", startedAt: now(), updatedAt: now(), error: "" };
-      if (!command) entry.completion = Promise.withResolvers();
-      if (!command) await entry.nativeTurn.updateState("starting");
-    }
-    entry.onEvent = context.onEvent;
-    entry.lastMessageId = uuid;
-    const actorMetadata = command ? undefined : await onEvent(entry, { type: "message-metadata", input, context });
-    if (!command) deliveryTiming?.("metadata-ready");
-    const nativeOwner = applicationCommand ? { process: native, executionId: entry.executionId,
-      accountIdentity: entry.accountIdentity, threadId: entry.id, turnId: entry.turn.id } : null;
-    let conversationTurn;
-    function deliveryResult() {
-      return { ok: true, delivered: true, deliveryMode: steering ? "steer" : "new_turn",
-        thread: { id: entry.id }, turn: snapshot(entry), workdir: context.workdir, conversationTurn };
-    }
-    async function accept() {
-      (command || input).onNativeReceipt?.();
-      // The new native ACK retires old effect custody while its canonical
-      // admission/commit is awaited; it cannot retag a delayed old failure.
-      if (applicationCommand) applicationCommand.active.nativeOwner = null;
-      if (command) {
-        if (!steering) await onEvent(entry, { type: "binding-admitted" });
-        await command.accept();
-        if (steering) {
-          command.active.messageId = input.messageId;
-          command.active.nativeToolCount = 0;
-        } else command.active.admitted = true;
-        command.admitted = true;
-      } else {
-        const admission = onEvent(entry, { type: "admit-message", input, context, renewal, message, messageId, uuid, actorMetadata });
-        if (admission) conversationTurn = await admission;
-        deliveryTiming?.("receipt-written");
-      }
-      if (!command) {
-        await entry.nativeTurn.updateState("active");
-        deliveryTiming?.("state-active");
-      }
-      (command || input).onReceiptPersisted?.();
-      if (applicationCommand && conversationTurn) {
-        const value = deliveryResult();
-        const active = applicationCommand.active;
-        const previousCompletion = active.completion;
-        if (active.finishIfCurrent) {
-          active.completion = Promise.withResolvers();
-          active.completion.promise.catch(() => {});
-        }
-        active.delivery = { value, completion: active.finishIfCurrent ? active.completion.promise : entry.completion?.promise };
-        if (active.finishIfCurrent) previousCompletion.resolve();
-        // The original canonical admission and publication precede Core's same
-        // accepted-request gate; native tools cannot race an unaccepted user.
-        await applicationCommand.accept({ nativeResult: { value }, conversationTurn, nativeTurnId: entry.turn?.id });
-        if (entry.process !== nativeOwner.process || entry.executionId !== nativeOwner.executionId ||
-            entry.accountIdentity !== nativeOwner.accountIdentity || entry.id !== nativeOwner.threadId ||
-            entry.turn?.id !== nativeOwner.turnId || entry.disposed || entry.stopping || entry.stopPending) {
-          throw new Error("Claude's admitted tools no longer belong to this native process.");
-        }
-        applicationCommand.active.nativeOwner = nativeOwner;
-        applicationCommand.active.messageId = messageId;
-        if (steering) applicationCommand.active.nativeToolCount = 0;
-        applicationCommand.active.admitted = true;
-      }
-    }
-    try {
-      if (command) command.attempted = true;
-      else await input.onPromptSending?.({ threadId: entry.id, displayAttachments: input.displayAttachments, turnMetadata: actorMetadata });
-      if (input.signal?.aborted) {
-        throw Object.assign(createError("The goal command was stopped before delivery.", { code: "conversation_claude_command_stopped" }), { delivery: "not-sent" });
-      }
-      await entry.nativeTurn.send(command ? entry.process.client : native.client, command ? preparation.message(entry, input) : prompt,
-        { messageId: uuid, accept, steer: steering, ...(command ? { timeoutMs: command.timeoutMs } : {}) });
-    } catch (error) {
-      if (!command) await entry.nativeTurn.stopProcess(error.message);
-      throw error;
-    }
-    return deliveryResult();
   }
 
   async function startTurn(entry, input = {}) {
@@ -767,7 +510,7 @@ export function createClaudeConversationOwner({
     if (entry.turn?.active && entry.process && input.steer !== true) {
       throw createError("This conversation is still working.", { code: "conversation_claude_still_working" });
     }
-    await send(entry, input);
+    await delivery.send(entry, input);
     return { ...entry.nativeTurn.readResult(), ok: true, started: true };
   }
 
@@ -838,195 +581,6 @@ export function createClaudeConversationOwner({
     });
   }
 
-  async function reconcileSessions(sessions, options = {}, application) {
-    const results = [];
-    for (const session of sessions) {
-      const ctx = await application.readContext({ ...options, session, sessionId: session.sessionId });
-      await recover(await restoreSessionEntries(ctx, { acquire }));
-      results.push({ ok: true, sessionId: session.sessionId, resumed: false });
-    }
-    return { ok: true, results, failed: [], sessionCount: results.length };
-  }
-
-  async function restoreSessionEntries(context, { acquire }) {
-    let saved = store.readSessionConversations(context);
-    if (saved && typeof saved.then === "function") saved = await saved;
-    for (const conversationId of saved.ids) await acquire(saved.context, conversationId);
-    return [...entries.values()].filter((entry) => entry.context.key === context.key);
-  }
-
-  // A session's close stops what this server runs for it, then reopens only
-  // saved custody an earlier server left. Once the owner is closing for an
-  // account change or shutdown it reopens nothing.
-  async function closeSession(context, application) {
-    return closeRetained(await application.readContext(context), application,
-      { recover: !closing, forget: context.forgetConversationBinding === true });
-  }
-
-  // Renewal proof release ends a session this server no longer uses. Its own
-  // close already recovered saved custody while its record could be written.
-  async function releaseSession(context, application) {
-    return closeRetained(await application.readContext(context), application, { recover: false, forget: true });
-  }
-
-  async function closeRetained(ctx, application, { recover: recoverCustody, forget: forgetEntries }) {
-    closingSessions.add(ctx.key);
-    try {
-      if (recoverCustody) await recoverSavedCustody(ctx);
-      const proofs = await drain(ctx.key);
-      const terminal = await application.terminals.close(ctx.sessionId);
-      // A forgotten entry is drained: everything it held is in its saved record.
-      if (terminal?.ok !== false && forgetEntries) forget(ctx.key);
-      return { ok: terminal?.ok !== false, closed: proofs.length + Number(terminal?.closed || 0),
-        processExitProof: proofs.at(-1) || { exited: true, scopeEmpty: true }, processExitProofs: proofs };
-    } finally {
-      closingSessions.delete(ctx.key);
-    }
-  }
-
-  // Saved custody an earlier server left: an execution whose exit is still
-  // unproven, or a turn saved as active. Only those conversations are reopened,
-  // so a verified stop can retire them; idle saved conversations stay closed.
-  async function recoverSavedCustody(ctx) {
-    let saved = store.readSessionConversations(ctx);
-    if (saved && typeof saved.then === "function") saved = await saved;
-    for (const conversationId of saved.ids) {
-      if (entries.has(`${ctx.key}\0${conversationId}`)) continue;
-      let record = store.read(saved.context, conversationId);
-      if (record && typeof record.then === "function") record = await record;
-      const state = savedState(record, conversationId);
-      if (state.executionId || ACTIVE_TURN_STATES.includes(state.state)) await acquire(saved.context, conversationId);
-    }
-  }
-
-  // Project close releases what this server runs for the project's sessions,
-  // from their retained entries alone, and forgets them: nothing uses them.
-  function closeProject(input = {}, application) {
-    const root = text(input.projectContextRoot);
-    return eachSession(entry => !root || path.resolve(store.projectContextRoot(entry)) === path.resolve(root),
-      ctx => closeRetained(ctx, application, { recover: false, forget: true }));
-  }
-
-  async function invalidateRuntimes(input = {}, application, account) {
-    if (input.provider && input.provider !== "claude") return { ok: true, closed: 0 };
-    if (input.modelProviderId) {
-      return stopSelected(entry => store.modelProviderId(entry) === input.modelProviderId,
-        "The provider connection changed.");
-    }
-    if (input.reason !== "server-shutdown") {
-      // An account change stops and waits on nothing. Claude Code reads its
-      // credentials for every request, so running work continues on the newly
-      // connected account or ends at once as signed out; each conversation
-      // rebinds its account at its next idle admission. Only the account's
-      // cached reads are dropped. A cancelled query's process stop that fails
-      // stays owned and is retried before the next query.
-      account.queries.invalidate().catch(() => {});
-      return { ok: true, closed: 0 };
-    }
-    closing = true;
-    // Neither waits for the other: a failed account query cleanup must not
-    // leave the sessions' processes running.
-    const [queries, retained] = await Promise.allSettled([account.queries.invalidate(), stopRetained(application)]);
-    if (queries.status === "rejected") await account.failure(queries.reason);
-    if (retained.status === "rejected") throw retained.reason;
-    return retained.value;
-  }
-
-  // Shutdown stops only what this server runs: a Claude process cannot outlive
-  // the server that started it, so retained entries hold every one. Saved
-  // conversations are not reopened just to be stopped.
-  function stopRetained(application) {
-    return eachSession(() => true, ctx => closeRetained(ctx, application, { recover: false, forget: false }));
-  }
-
-  // Sessions close independently and together: one that fails is reported by
-  // its ID while every other session still stops.
-  async function eachSession(select, close) {
-    const contexts = new Map([...entries.values()].filter(select).map(entry => [entry.context.key, entry.context]));
-    const settled = await Promise.allSettled([...contexts.values()].map(ctx => close(ctx)));
-    let closed = 0;
-    const failed = [];
-    [...contexts.values()].forEach((ctx, index) => {
-      const result = settled[index];
-      if (result.status === "fulfilled") closed += result.value.closed;
-      const error = result.status === "rejected" ? result.reason?.message || String(result.reason)
-        : result.value.ok === false ? "Its Claude Code terminal could not be closed." : "";
-      if (error) failed.push({ sessionId: ctx.sessionId, error });
-    });
-    return { ok: failed.length === 0, closed, failed,
-      ...(failed.length ? { error: failed.map(({ sessionId, error }) => `Claude session ${sessionId}: ${error}`).join(" ") } : {}) };
-  }
-
-  async function drain(key) {
-    const selected = [...entries.values()].filter(entry => entry.context.key === key);
-    // Fence configuration still in progress: it must not start a process later.
-    for (const entry of selected) entry.preparationRevision++;
-    const proofs = [];
-    let failure;
-    async function stop() {
-      for (const entry of selected) if (holdsNativeWork(entry)) {
-        try { proofs.push(await entry.nativeTurn.stopProcess()); }
-        catch (error) { failure ||= error; }
-      }
-    }
-    // Startup already lends cleanup before initialization completes. Stop it
-    // first; waiting for the preparation queue first can exhaust host shutdown.
-    await stop();
-    await Promise.allSettled(selected.map(entry => entry.nativeTurn.whenIdle()));
-    await stop();
-    // Every other entry still stopped; the first failure keeps the close retryable.
-    if (failure) throw failure;
-    return proofs;
-  }
-
-  function forget(contextKey) {
-    for (const [key, entry] of entries) if (entry.context.key === contextKey) {
-      // Nothing would ever stop a process a forgotten entry started.
-      entry.disposed = true;
-      entries.delete(key);
-    }
-  }
-
-  async function close(entry) {
-    await entry.nativeTurn.stopProcess("Conversation closed.");
-    entry.disposed = true;
-    await entry.nativeTurn.whenIdle().catch(() => {});
-    await entry.nativeTurn.stopProcess("Conversation closed.");
-    if (entries.get(entry.key) === entry) entries.delete(entry.key);
-  }
-
-  async function deleteConversation(entry) {
-    await entry.nativeTurn.stopProcess();
-    await deleteClaudeConversationHistory({ configRoot, workdir: entry.nativeWorkdir, conversationId: entry.id });
-    await store.remove(entry);
-    entries.delete(entry.key);
-    return { ok: true, deleted: true, conversationId: entry.id };
-  }
-
-  async function recover(restoredEntries) {
-    for (const entry of restoredEntries) {
-      if (!entry.process && !hasPendingClaudeStartup(entry) && (entry.executionId || entry.turn?.active)) await entry.nativeTurn.stopProcess(disconnectedMessage);
-    }
-  }
-
-  // A provider connection change stops the matching work this server runs.
-  // Each entry stops on its own, so one failure is reported by ID.
-  async function stopSelected(select, reason) {
-    let closed = 0;
-    const failed = [];
-    for (const entry of [...entries.values()].filter(select)) {
-      entry.preparationRevision++;
-      if (!holdsNativeWork(entry)) continue;
-      try {
-        await entry.nativeTurn.stopProcess(reason);
-        closed++;
-      } catch (error) {
-        failed.push({ sessionId: entry.context.sessionId, conversationId: entry.id, error: error.message });
-      }
-    }
-    return { ok: failed.length === 0, closed, failed };
-  }
-
   async function wait(entry, input, { context, acquire }) {
     return waitForClaudeConversationTurn({ state: entry,
       stop: reason => entry.nativeTurn.stopProcess(reason),
@@ -1064,7 +618,7 @@ export function createClaudeConversationOwner({
     const messageId = input.messageId || randomUUID();
     await entry.goals.update(input, { ...operations,
       ...(selfStop ? { interrupt: async () => {} } : {}),
-      send: command => operations?.send ? operations.send(command) : send(entry, { ...command, messageId }) });
+      send: command => operations?.send ? operations.send(command) : delivery.send(entry, { ...command, messageId }) });
     if (selfStop && currentApplicationCommand(entry, call.command, call.owner)) {
       // This scope identifies the already-authorized native invocation; it does
       // not grant tool authority. Retain its exact process until its tool_result
@@ -1108,815 +662,60 @@ export function createClaudeConversationOwner({
 
   function renewal(entry, input, options, { context, acquire }) {
     return runClaudeRenewalTurn({ state: entry, readHistory: () => readHistory(entry),
-      send: (message, sendOptions) => send(entry, message, sendOptions),
+      send: (message, sendOptions) => delivery.send(entry, message, sendOptions),
       wait: async current => wait(await acquire(context, current.conversationId || current.threadId), current, { context, acquire }),
       stop: reason => entry.nativeTurn.stopProcess(reason)
     }, input, options);
   }
 
-  async function cancel(control, { context, acquire, reportFailure, entry }) {
-    if (bound) {
-      await entry.nativeTurn.stopProcess("Work stopped.");
-      return;
-    }
-    try {
-      const value = await interrupt(await acquire(context || control.current?.context));
-      if (control.cleanupFailure) {
-        await reportFailure(control.cleanupFailure, { recovered: true });
-        control.cleanupFailure = null;
-      }
-      return value;
-    } catch (error) {
-      error.cleanupFailed = true;
-      control.cleanupFailure = error;
-      control.current?.failure.reject(error);
-      await reportFailure(error);
-      throw error;
-    }
-  }
-
-  async function dispatch(control, command, { acquire, entry: selectedEntry, dispatch: nativeDispatch }) {
-    if (bound) {
-      await send(selectedEntry, command.input, { command: nativeDispatch });
-      return;
-    }
-    command.signal.throwIfAborted();
-    const entry = await acquire(command.context);
-    const active = control.current;
-    const applicationCommand = active && (active.tools || active.finishIfCurrent) ? { active, accept: command.accept } : null;
-    if (applicationCommand) {
-      if (entry.disposed || entry.command && entry.command !== active) throw new Error("This Claude conversation is closed or already working.");
-      if (active.entry && active.entry !== entry) throw new Error("Claude's application tools belong to another native conversation.");
-      active.entry = entry;
-      entry.command = active;
-      entry.toolSchemas = active.tools?.schemas || [];
-    }
-    const value = await send(entry, { ...command.input.nativeMessage, signal: command.input.signal, onPromptSending: command.beforeDispatch,
-      onNativeReceipt: command.onNativeReceipt, onReceiptPersisted: command.onReceiptPersisted, deliveryTiming: command.deliveryTiming },
-    { applicationCommand });
-    const completion = value.conversationTurn ? entry.completion?.promise : null;
-    const delivered = { value, completion };
-    if (!applicationCommand && value.delivered === true && value.conversationTurn) {
-      if (control.current) control.current.delivery = delivered;
-      await command.accept({ nativeResult: { value }, conversationTurn: value.conversationTurn, nativeTurnId: value.turn?.id });
-    }
-    return delivered;
-  }
-
-  function steer(control, command, options) {
-    if (!bound) return dispatch(control, command, options).then(delivered => ({ value: delivered.value }));
-    if (!control.current?.steer || !control.current.entry.nativeTurn.read().active) throw new Error("Claude has no active turn to steer.");
-    return control.current.steer(command);
-  }
-
-  async function run(control, command, { acquire, reportFailure, entry: selectedEntry, maximumOutput, maximumToolCalls = 32, timeoutMs } = {}) {
-    if (control.disposed || control.current) throw new Error("This Claude conversation is closed or already working.");
-    const { configuration, context, input, tools, signal, beforeDispatch, accept, onMessage, onEvent, onNativeToolUse } = command;
-    const completion = Promise.withResolvers();
-    completion.promise.catch(() => {});
-    const active = { completion, onMessage, onEvent, onNativeToolUse, signal, tools, admitted: false, nativeTools: new Map(),
-      messageId: input.messageId, goal: input.goal, nativeToolCount: 0, toolWork: new Set(), maximumToolCalls,
-      context, finishIfCurrent: command.finishIfCurrent, failure: Promise.withResolvers() };
-    let failure;
-    active.failure.promise.catch(error => { failure = error; });
-    control.current = active;
-    const ready = Promise.withResolvers();
-    ready.promise.catch(() => {});
-    active.steer = async ({ input, beforeDispatch, accept, onNativeReceipt, onReceiptPersisted, deliveryTiming }) => {
-      await ready.promise;
-      const nativeDispatch = { active, signal, beforeDispatch, accept, onNativeReceipt, onReceiptPersisted, deliveryTiming,
-        timeoutMs, steering: true, attempted: false, admitted: false };
-      try { await dispatch(control, { input, context, signal }, { acquire, entry, dispatch: nativeDispatch }); }
-      catch (error) {
-        if (nativeDispatch.attempted && !nativeDispatch.admitted && error.delivery !== "not-sent") error.delivery = "uncertain";
-        if (nativeDispatch.attempted) completion.reject(error);
-        throw error;
-      }
-    };
-    const nativeDispatch = { active, signal, beforeDispatch, accept, onNativeReceipt: command.onNativeReceipt,
-      onReceiptPersisted: command.onReceiptPersisted, deliveryTiming: command.deliveryTiming, timeoutMs, maximumOutput, attempted: false, admitted: false };
-    let entry;
-    let cancellation;
-    let problem;
-    let delivered;
-    function abort() {
-      if (cancellation) return;
-      if (bound) {
-        cancellation = entry.nativeTurn.cancel(entry.process?.client, () => entry.nativeTurn.stopProcess("Work stopped."));
-        cancellation.then(() => completion.reject(signal.reason), error => completion.reject(error));
-      } else {
-        cancellation = cancel(control, { context, acquire, reportFailure }).then(() => { throw signal.reason; });
-        cancellation.catch(active.failure.reject);
-      }
-    }
-    try {
-      if (bound) {
-        entry = selectedEntry;
-        if (entry.disposed || entry.command) throw new Error("This Claude conversation is closed or already working.");
-        active.entry = entry;
-        entry.command = active;
-        entry.completion = completion;
-        entry.toolSchemas = tools?.schemas || [];
-        active.delivery = { completion: completion.promise };
-        nativeDispatch.prepared = await preparation.configuration(entry, { configuration, context, signal, tools });
-      }
-      signal.addEventListener("abort", abort, { once: true });
-      let dispatchFailure;
-      try {
-        delivered = await dispatch(control, command, { acquire, entry, dispatch: nativeDispatch });
-        if (bound) ready.resolve();
-      } catch (error) { dispatchFailure = error; }
-      for (;;) {
-        const settling = active.delivery;
-        let result;
-        problem = dispatchFailure || failure;
-        if (!problem && settling?.completion) {
-          try { result = await Promise.race([settling.completion, active.failure.promise]); }
-          catch (error) { problem = error; }
-        }
-        if (command.finishIfCurrent && !await command.finishIfCurrent(() => active.delivery === settling)) continue;
-        if (!problem && typeof result === "function") {
-          try { result = await result(); }
-          catch (error) { problem = error; }
-        }
-        problem = dispatchFailure || failure || problem;
-        if (!problem && settling?.completion && (bound ? result.status !== "completed" : !result.ok)) {
-          problem = Object.assign(new Error(result.error || (bound ? "Claude interrupted this answer." : `Claude turn ${result.status}.`)), { status: result.status });
-        }
-        break;
-      }
-    } catch (error) { problem = error; }
-    ready.reject(problem || new Error("Claude work ended."));
-    signal.removeEventListener("abort", abort);
-    if (bound) {
-      try {
-        if (problem || signal.aborted) await (cancellation || entry.nativeTurn.stopProcess(problem?.message || "Work stopped."));
-      } catch (error) {
-        if (problem && error !== problem) error.cause ||= problem;
-        problem = error;
-      }
-      finally {
-        await Promise.allSettled([...active.toolWork]);
-        if (entry?.command === active) entry.command = null;
-      }
-    } else {
-      await cancellation?.catch(() => {});
-      if (active.entry) {
-        try {
-          // A failed Stop already retained custody for the caller's retry.
-          // Do not race that retry with another implicit cleanup attempt.
-          if ((problem || signal.aborted) && !problem?.cleanupFailed) {
-            await active.entry.nativeTurn.stopProcess(problem?.message || "Work stopped.");
-          }
-        } catch (error) {
-          if (problem && error !== problem) error.cause ||= problem;
-          problem = error;
-        }
-        finally {
-          await Promise.allSettled([...active.toolWork]);
-          if (active.entry.command === active) active.entry.command = null;
-        }
-      }
-    }
-    if (control.current === active) control.current = null;
-    if (problem) {
-      if (bound && nativeDispatch.attempted && !nativeDispatch.admitted && problem.delivery !== "not-sent") problem.delivery = "uncertain";
-      throw problem;
-    }
-    if (!bound) return { value: delivered.value };
-  }
-
-  return Object.freeze({ applicationToolsSupported: true, entries, closingSessions, get closing() { return closing; }, createAccountQueries, open, acquire, createConversation, snapshot, readRetainedTurn, readFinalAssistantResult, readHistory, nativeWorkSettled, ensureReady, ensureProcess, readContextUsage, compactContext, releaseRetainedGoal, stopForTerminal, prepareTerminal, send, startTurn,
-    interrupt, read, inspectAdmission, hasActiveTemporaryConversation, hasActiveConversation, retireConversationHistory, reconcileSessions, restoreSessionEntries, closeSession, releaseSession, closeProject, invalidateRuntimes, drain, forget, close, deleteConversation, recover, stopSelected, wait, stopConversation,
-    readGoal, updateGoal, renewal, run, steer, cancel });
-}
-
-/** Native turn handling moved from the production session provider; hosts persist its events. */
-export function createClaudeConversationTurn({ conversationId, onEvent = async () => {}, process, entry, bound = false } = {}) {
-  if (!conversationId) throw new TypeError("A Claude conversation id is required.");
-  const instructions = process ? createClaudeConversationAdapter(process) : null;
-  const publish = entry ? publishEntryEvent : onEvent;
-  const messages = new Map();
-  const pendingAssistantMessages = new Map();
-  const assistantRoles = new Map();
-  const admissions = new Map();
-  const inFlight = new Set();
-  // Inputs Claude has begun reading. A queued steer joins the running loop, so
-  // one result can finish several of them; queued-only input stays in flight.
-  const startedInputs = new Set();
-  // Steers written into a running loop that Claude has not begun reading. Claude
-  // Code reads queued input only when the running tool call returns.
-  const waitingSteers = new Set();
-  let steeringClient = null;
-  const tasks = new Set();
-  let turnId = "";
-  let messageId = "";
-  let currentCommandId = "";
-  let result = "";
-  let phase = "";
-  let outcome;
-  let active = false;
-  let generation = 0;
-  let stopped = false;
-  let cancelling = false;
-  let maximumOutput = 4 * 1024 * 1024;
-  let inputOwner = null;
-  let acceptedInput = null;
-  let publishedAssistant = null;
-  let finalAssistantResult = null;
-  let resolvedCompletion;
-  let latestSettlement;
-  // A common command fences its first checkpoint; later native continuations
-  // keep the same input but cannot enqueue onto that already resolved command.
-  let checkpointedCommand;
-
-  function clearFinalAssistantResult() {
-    publishedAssistant = null;
-    finalAssistantResult = null;
-  }
-
-  function invalidateFinalAssistantResult() {
-    inputOwner = null;
-    acceptedInput = null;
-    clearFinalAssistantResult();
-  }
-
-  // A waiting steer would otherwise sit behind a long foreground command (or a
-  // wait loop) until it returns. Claude's Ctrl+B control moves foreground Bash
-  // and subagents to the background: they keep running and report completion,
-  // and the blocked tool call returns so Claude reads the steer now.
-  function backgroundForegroundWork() {
-    const client = steeringClient;
-    if (!waitingSteers.size || !client?.request || stopped || cancelling) return;
-    void client.request({ subtype: "background_tasks" }).then(
-      () => publish({ type: "diagnostic", stage: "steering_backgrounded", pendingCommands: inFlight.size, backgroundTasks: tasks.size }),
-      // An older CLI still reads the steer when its tool call returns.
-      error => publish({ type: "diagnostic", stage: "steering_background_failed", error: error.message })
-    ).catch(() => {});
-  }
-
-  function currentReceiptOwner(owner) {
-    return Boolean(entry && owner && inputOwner === owner && acceptedInput === owner &&
-      owner.commandId === currentCommandId && entry.process && entry.process === owner.process &&
-      entry.executionId === owner.executionId && entry.accountIdentity === owner.accountIdentity &&
-      entry.turn?.id === turnId && !entry.stopping && !entry.stopPending && !entry.disposed &&
-      !entry.observationError && !entry.command?.toolWork.size && !entry.command?.toolFailure);
-  }
-
-  function readFinalAssistantResult(threadId, expectedTurnId) {
-    if (threadId !== conversationId || expectedTurnId !== turnId || !finalAssistantResult ||
-        active || stopped || cancelling || outcome?.status !== "completed" || outcome.error ||
-        inFlight.size || tasks.size || admissions.size || !currentReceiptOwner(acceptedInput)) return null;
-    return structuredClone(finalAssistantResult);
-  }
-
-  function read() {
-    return { turnId, active, text: result, phase, status: active ? "inProgress" : outcome?.status || "ready",
-      error: outcome?.error || "", messages: structuredClone([...messages.values()]),
-      pendingCommands: inFlight.size, backgroundTasks: tasks.size };
-  }
-
-  function readResult() {
-    const current = read();
-    const failed = entry.turn?.state === "failed";
-    let status = "completed";
-    if (entry.turn?.active) status = "inProgress";
-    else if (failed) status = "failed";
-    else if (entry.turn?.state === "interrupted") status = "interrupted";
-    return { ok: !failed, conversationId: entry.id, threadId: entry.id,
-      runId: entry.turn?.id || "", turnId: entry.turn?.id || "", text: current.text,
-      messages: current.messages, error: entry.turn?.error || "", status };
-  }
-
-  function resolveCompletion(result) {
-    entry.completion?.resolve(result);
-    resolvedCompletion = entry.completion;
-    if (entry.command?.finishIfCurrent) entry.command.completion.resolve(result);
-  }
-
-  async function updateState(state, message = "", expectedGeneration = generation) {
-    if (!entry.turn || expectedGeneration !== generation) return false;
-    const active = ["starting", "active", "finalizing"].includes(state);
-    const checkpoint = onEvent({ type: "before-state", state, active, message });
-    if (checkpoint) await checkpoint;
-    if (expectedGeneration !== generation) return false;
-    setState(state, message);
-    await onEvent({ type: "save" });
-    if (expectedGeneration !== generation) return false;
-    await onEvent({ type: "state", state, active, message });
-    return expectedGeneration === generation;
-  }
-
-  function setState(state, message = "") {
-    if (!entry.turn) return;
-    const active = ["starting", "active", "finalizing"].includes(state);
-    Object.assign(entry.turn, { active, state, error: message, updatedAt: new Date().toISOString(),
-      phase: active && !entry.observationError ? String(entry.turn.phase ?? "").trim() : "" });
-  }
-
-  async function stopProcess(reason = "", { preparing = false } = {}) {
-    clearTimeout(entry.goalToolStop?.timer);
-    entry.goalToolStop = null;
-    if (!preparing) entry.preparationRevision++;
-    invalidateFinalAssistantResult();
-    // Runtime bindings commit execution release before dropping the handle.
-    // Retained host entries keep their original post-proof checkpoint order.
-    if (entry.stopPending) return entry.stopPending;
-    const active = read().active;
-    if (!bound) entry.stopping = true;
-    const operation = async () => {
-      const startup = entry.startupCleanup?.executionId === entry.executionId ? entry.startupCleanup : null;
-      let proof;
-      try {
-        if (!bound || entry.process || entry.executionId) {
-          proof = await stopClaudeCodeProcess({ process: entry.process || startup, executionId: entry.executionId,
-            stopExecution: process.stopExecution });
-        }
-      } catch (error) {
-        if (bound || error.code !== "claude_stop_unconfirmed") throw error;
-        entry.observationError = reason || "Claude process exit has not been confirmed. Try Stop again.";
-        await onEvent({ type: "save" });
-        await onEvent({ type: "stop-unconfirmed" });
-        throw error;
-      }
-      if (bound && (entry.process || entry.executionId)) await process.releaseExecution();
-      entry.process = null;
-      entry.executionId = "";
-      entry.exitProof = proof;
-      stop(bound ? reason : reason || "Claude stopped before acknowledging the prompt.");
-      if (bound) {
-        if (entry.startupCleanup === startup) entry.startupCleanup = null;
-        if (active) entry.completion?.resolve({ status: "interrupted", error: reason || "Work stopped." });
-        return;
-      }
-      if (entry.turn?.active) {
-        try { await updateState("interrupted", reason); }
-        catch (error) {
-          // Native cleanup is verified even when the host refuses its checkpoint.
-          // Retain that refusal without publishing a completed answer or active work.
-          setState("interrupted", error.message);
-          await onEvent({ type: "save" });
-          await onEvent({ type: "state", state: "interrupted", active: false, message: error.message });
-          resolveCompletion(readResult());
-          if (entry.startupCleanup === startup) entry.startupCleanup = null;
-          throw error;
-        }
-      } else await onEvent({ type: "save" });
-      resolveCompletion(readResult());
-      if (entry.startupCleanup === startup) entry.startupCleanup = null;
-      return entry.exitProof;
-    };
-    entry.stopPending = operation().catch(error => { if (bound) error.cleanupFailed = true; throw error; })
-      .finally(() => { entry.stopPending = null; });
-    return entry.stopPending;
-  }
-
-  async function publishEntryEvent(event, deferred = false) {
-    if (entry.stopping) return;
-    if (event.type === "settled" && event.generation !== generation) return;
-    const command = entry.command;
-    if (event.type === "settled" && !bound && !deferred && command?.finishIfCurrent && command !== checkpointedCommand) {
-      const delivery = command.delivery;
-      const completion = entry.completion;
-      const owner = acceptedInput;
-      // Release the native queue before the common run joins reserved steering.
-      // That same accepted delivery then performs the original retained checkpoint.
-      command.completion.resolve(async () => {
-        try {
-          for (;;) {
-            if (entry.command !== command || command.delivery !== delivery || entry.completion !== completion ||
-                command.signal.aborted || !currentReceiptOwner(owner)) {
-              throw failure("Claude's completion belongs to a retired native input.");
-            }
-            // Follow-ups share this input, but can finish while its checkpoint
-            // awaits storage. Apply the latest settlement after the same fence.
-            if (active) return readResult();
-            const settlement = latestSettlement;
-            await publishEntryEvent(settlement, true);
-            if (settlement === latestSettlement) return readResult();
-          }
-        } catch (error) {
-          clearFinalAssistantResult();
-          throw error;
-        } finally {
-          checkpointedCommand = command;
-        }
-      });
-      return;
-    }
-    if (event.type === "continued") {
-      if (entry.completion === resolvedCompletion) entry.completion = Promise.withResolvers();
-      if (bound) setState("active");
-      else await updateState("active");
-    } else if (event.type === "admitted") {
-      if (event.userEcho) entry.sent = true;
-      if (!bound) await onEvent({ type: "save" });
-    } else if (event.type === "phase") {
-      entry.turn.phase = event.phase;
-      if (!bound) await updateState(entry.turn.state);
-    } else if (event.type === "settled") {
-      const state = event.status === "interrupted" ? "interrupted" : event.status === "failed" ? "failed" : "completed";
-      if (bound) setState(state, event.error);
-      else if (!await updateState(state, event.error, event.generation)) return;
-    }
-    const published = await onEvent(event);
-    if (event.type === "provider-event") {
-      const frame = event.event;
-      const change = frame.type === "active_goal" ? "goal" : frame.type === "rate_limit_event" ? "usage" : "";
-      if (change) await onEvent({ type: "provider-update", change });
-    }
-    if (event.type === "settled") {
-      if (event.generation !== generation) return;
-      if (event.source === "result") await onEvent({ type: "provider-update", change: "goal" });
-      resolveCompletion(bound ? event : readResult());
-    }
-    return published;
-  }
-
-  function checkOutput(value, role = "assistant") {
-    if (value.length > (role === "thinking" ? 4 * 1024 * 1024 : maximumOutput)) {
-      throw failure("Claude output exceeded its size limit.");
-    }
-  }
-
-  async function publishMessage(message) {
-    if (!message.userId && currentCommandId) message = { ...message, userId: currentCommandId };
-    messages.set(message.id, message);
-    const owner = acceptedInput;
-    const completeAssistant = message.complete && message.role === "assistant";
-    if (completeAssistant) clearFinalAssistantResult();
-    const conversationTurn = await publish({ type: "message", message });
-    if (completeAssistant && message.text && currentReceiptOwner(owner) && !stopped && !cancelling &&
-        conversationTurn && typeof conversationTurn === "object" && !Array.isArray(conversationTurn)) {
-      publishedAssistant = { owner, itemId: message.id, outputId: message.outputId || message.id,
-        text: message.text, conversationTurn: structuredClone(conversationTurn) };
-    }
-    return conversationTurn;
-  }
-
-  async function flushAssistantMessages(apiMessageId, role) {
-    assistantRoles.set(apiMessageId, role);
-    const pending = pendingAssistantMessages.get(apiMessageId) || [];
-    pendingAssistantMessages.delete(apiMessageId);
-    for (const block of pending) {
-      await publishMessage({ ...block, role });
-      if (block.outputId) {
-        if (block.outputId !== block.id) messages.delete(block.outputId);
-        await publish({ type: "message-complete", messageId: block.outputId });
-      }
-    }
-  }
-
-  async function receive(frame) {
-    if (stopped) return;
-    if (frame.session_id && frame.session_id !== conversationId) throw failure("Claude returned a different conversation id.");
-    if (frame.parent_tool_use_id) return; // Nested agents do not replace the main reply.
-    await publish({ type: "provider-event", event: frame });
-    const continuation = (frame.type === "user" && frame.origin?.kind === "task-notification") ||
-      (frame.type === "command_lifecycle" && frame.state === "started") ||
-      (frame.type === "stream_event" && frame.event?.type === "message_start") || frame.type === "assistant";
-    if (continuation && turnId && !cancelling) {
-      const wasActive = active;
-      if (outcome || !active) {
-        generation++;
-        outcome = null;
-        result = "";
-        clearFinalAssistantResult();
-      }
-      active = true;
-      if (!wasActive) await publish({ type: "continued", source: frame.type });
-      if (phase === "background") {
-        phase = "";
-        await publish({ type: "phase", phase });
-      }
-    }
-    if (frame.type === "command_lifecycle" || frame.type === "user") {
-      const uuid = frame.type === "user" ? frame.uuid : frame.command_uuid;
-      if (frame.type === "user" && !inFlight.has(uuid) && !admissions.has(uuid)) return;
-      // Native notifications have their own lifecycle UUIDs, including work
-      // folded into this input. They must not steal its receipt/result owner.
-      if ((frame.state === "started" || frame.type === "user") && inFlight.has(uuid)) {
-        currentCommandId = uuid;
-        startedInputs.add(uuid);
-      }
-      if (frame.state !== "queued") waitingSteers.delete(uuid);
-      if (frame.state === "completed") {
-        inFlight.delete(uuid);
-        startedInputs.delete(uuid);
-      }
-      if (frame.state === "queued" || frame.type === "user") {
-        const pending = admissions.get(uuid);
-        if (pending) {
-          // Once acknowledged, storage owns the admission decision. Its write
-          // must not race a native-ack timeout and a second submission.
-          clearTimeout(pending.timer);
-          try {
-            await pending.accept();
-            if (inputOwner === pending.receiptOwner && !stopped && !cancelling) acceptedInput = pending.receiptOwner;
-            admissions.delete(uuid);
-            pending.resolve();
-          } catch (error) {
-            acceptedInput = null;
-            clearFinalAssistantResult();
-            pending.reject(error);
-            throw error;
-          }
-        }
-        await publish({ type: "admitted", messageId: uuid, userEcho: frame.type === "user" });
-      }
-    } else if (frame.type === "system") {
-      if (active && ["status", "compact_boundary"].includes(frame.subtype)) {
-        const nextPhase = frame.subtype === "status" && frame.status === "compacting" ? "compacting" : "";
-        // An idle status does not end a wait that only background tasks own.
-        if (nextPhase !== phase && (nextPhase || phase !== "background")) {
-          phase = nextPhase;
-          await publish({ type: "phase", phase });
-        }
-      }
-      if (frame.subtype === "local_command_output" && frame.content) {
-        await publishMessage({ id: `claude_${frame.uuid}`, role: "commentary", text: frame.content, complete: true,
-          data: { native: { engineId: "claude", type: "system", subtype: "local_command_output" } } });
-      }
-      const previousTaskCount = tasks.size;
-      if (frame.subtype === "background_tasks_changed") {
-        tasks.clear();
-        for (const task of frame.tasks || []) if (task.task_id && !task.ambient) tasks.add(task.task_id);
-      }
-      if (frame.subtype === "task_started" && frame.task_id && !frame.ambient) tasks.add(frame.task_id);
-      // A command Claude started before reading a waiting steer would hold it too.
-      if (frame.subtype === "task_started") backgroundForegroundWork();
-      if (["task_notification", "task_updated"].includes(frame.subtype) &&
-          ["completed", "failed", "stopped", "killed"].includes(frame.status || frame.patch?.status)) {
-        tasks.delete(frame.task_id);
-      }
-      // Inventory removal can precede the task notification and the main model's
-      // response to it. A foreground result written while that worker was live
-      // cannot complete this follow-up or retire its admitted application tools.
-      if (tasks.size < previousTaskCount) outcome = null;
-      if (phase === "background" && !outcome) {
-        phase = "";
-        await publish({ type: "phase", phase });
-      }
-      if (["background_tasks_changed", "task_started", "task_notification", "task_updated"].includes(frame.subtype)) {
-        if (tasks.size && turnId && !active && !cancelling) {
-          generation++;
-          active = true;
-          clearFinalAssistantResult();
-          await publish({ type: "continued", source: frame.subtype });
-        }
-        await publish({ type: "diagnostic", stage: "background_tasks", nativeEvent: frame.subtype,
-          active, pendingCommands: inFlight.size, backgroundTasks: tasks.size });
-      }
-    } else if (frame.type === "stream_event") {
-      const event = frame.event || {};
-      if (event.type === "message_start") messageId = event.message?.id || frame.uuid;
-      const id = `claude_${messageId}_${event.index}`;
-      if (event.type === "content_block_start" && ["text", "thinking"].includes(event.content_block?.type)) {
-        messages.set(id, { id, outputId: id, userId: currentCommandId, complete: false, role: event.content_block.type === "thinking" ? "thinking" : "assistant",
-          text: event.content_block.text || event.content_block.thinking || "" });
-      } else if (event.type === "content_block_delta") {
-        const block = messages.get(id);
-        const delta = event.delta?.text ?? event.delta?.thinking;
-        if (block && typeof delta === "string") {
-          block.text += delta;
-          checkOutput(block.text, block.role);
-          await publishMessage(block);
-          await publish({ type: block.role === "thinking" ? "thinking" : "text", text: delta, messageId: id });
-        }
-      } else if (event.type === "content_block_stop") {
-        if (![...pendingAssistantMessages.values()].some(blocks => blocks.some(block => block.outputId === id))) {
-          messages.delete(id);
-          await publish({ type: "message-complete", messageId: id });
-        }
-      } else if (event.type === "message_delta" && event.delta?.stop_reason) {
-        await flushAssistantMessages(messageId, event.delta.stop_reason === "tool_use" ? "commentary" : "assistant");
-      }
-    } else if (frame.type === "assistant") {
-      const apiMessageId = frame.message?.id;
-      if (apiMessageId && frame.message.content?.some(block => block.type === "tool_use")) {
-        await flushAssistantMessages(apiMessageId, "commentary");
-      }
-      for (const block of claudeMessageBlocks(frame)) {
-        block.userId = currentCommandId;
-        checkOutput(block.text, block.role);
-        // Native split frames arrive before their block's stop event. Keep that
-        // existing live identity without replacing the saved frame UUID.
-        if (typeof messageId === "string" && messageId && frame.message.id === messageId && frame.message.content.length === 1) {
-          const prefix = `claude_${messageId}_`;
-          const live = [...messages.values()].filter(message => !message.complete && message.role === block.role &&
-            message.id.startsWith(prefix) && /^\d+$/u.test(message.id.slice(prefix.length)));
-          if (live.length === 1 && (!Object.hasOwn(frame, "apiBlockIndex") ||
-              Number.isSafeInteger(frame.apiBlockIndex) && frame.apiBlockIndex >= 0 &&
-              live[0].id === `${prefix}${frame.apiBlockIndex}`)) {
-            block.outputId = live[0].id;
-            block.userId = live[0].userId || block.userId;
-          }
-        }
-        if (apiMessageId && block.role === "assistant") {
-          const role = assistantRoles.get(apiMessageId);
-          if (role) await publishMessage({ ...block, role });
-          else {
-            const pending = pendingAssistantMessages.get(apiMessageId) || [];
-            pending.push(block);
-            pendingAssistantMessages.set(apiMessageId, pending);
-          }
-        } else await publishMessage(block);
-      }
-      if (apiMessageId && frame.message.stop_reason) {
-        await flushAssistantMessages(apiMessageId, frame.message.stop_reason === "tool_use" ? "commentary" : "assistant");
-      }
-    } else if (frame.type === "result") {
-      const failed = frame.is_error || frame.subtype !== "success";
-      const interrupted = ["aborted_streaming", "aborted_tools"].includes(frame.terminal_reason);
-      const role = failed || interrupted ? "commentary" : "assistant";
-      for (const id of pendingAssistantMessages.keys()) await flushAssistantMessages(id, role);
-      const output = typeof frame.structured_output === "object" ? JSON.stringify(frame.structured_output) : String(frame.result || "");
-      checkOutput(output);
-      // A conversation whose account signed out under it ends its next request
-      // at once with Claude Code's own "Not logged in" answer.
-      const message = !failed ? "" : /^Not logged in\b/u.test(output) ? CLAUDE_SIGNED_OUT_MESSAGE
-        : (frame.errors || []).join("; ") || output || frame.subtype;
-      result = failed ? "" : output;
-      if (result && ![...messages.values()].some((block) => block.complete && block.role === "assistant" && block.text === result)) {
-        await publishMessage({ id: `claude_${frame.uuid || turnId}_result`, role: "assistant", text: result, complete: true,
-          ...(typeof frame.local_command === "string" && frame.local_command ? {
-            data: { native: { engineId: "claude", type: "result", command: frame.local_command, output: "stdout" } }
-          } : {}) });
-      }
-      inFlight.delete(currentCommandId);
-      for (const uuid of startedInputs) inFlight.delete(uuid);
-      startedInputs.clear();
-      if (cancelling) return;
-      outcome = { status: interrupted ? "interrupted" : failed ? "failed" : "completed", error: message };
-      // The reply is final, but native background tasks still own the turn
-      // (and may continue it). Keep it active and say what it is waiting for.
-      if (active && tasks.size && !inFlight.size && phase !== "background") {
-        phase = "background";
-        await publish({ type: "phase", phase });
-      }
-      await publish({ type: "diagnostic", stage: "native_result", status: outcome.status,
-        terminalReason: frame.terminal_reason, active, pendingCommands: inFlight.size, backgroundTasks: tasks.size });
-    }
-    if ((frame.type === "system" || frame.type === "result" || frame.type === "command_lifecycle" && frame.state === "completed") &&
-        active && !cancelling && outcome && inFlight.size === 0 && tasks.size === 0) {
-      active = false;
-      phase = "";
-      const candidate = publishedAssistant;
-      finalAssistantResult = outcome.status === "completed" && !outcome.error && !stopped && !cancelling &&
-        admissions.size === 0 && candidate && currentReceiptOwner(candidate.owner) && candidate.text === result
-        ? { threadId: conversationId, turnId, inputMessageId: candidate.owner.commandId,
-          itemId: candidate.itemId, outputId: candidate.outputId, text: candidate.text,
-          conversationTurn: candidate.conversationTurn } : null;
-      latestSettlement = { type: "settled", ...read(), generation, source: frame.type };
-      try { await publish(latestSettlement); }
-      catch (error) { clearFinalAssistantResult(); throw error; }
-    }
-  }
-
-  function stop(reason = "Claude stopped before acknowledging the prompt.") {
-    generation++;
-    stopped = true;
-    inputOwner = null;
-    acceptedInput = null;
-    clearFinalAssistantResult();
-    for (const pending of admissions.values()) {
-      pending.reject(failure(reason));
-    }
-    admissions.clear();
-    inFlight.clear();
-    startedInputs.clear();
-    waitingSteers.clear();
-    steeringClient = null;
-    tasks.clear();
-    // Verified process cleanup can precede Claude's terminal generation frame.
-    // Retain already displayed text for the existing transcript reader, with
-    // its original input/output identity and no completed-answer receipt.
-    for (const pending of pendingAssistantMessages.values()) for (const block of pending) {
-      if (block.outputId && block.outputId !== block.id) messages.delete(block.outputId);
-      messages.set(block.id, { ...block, role: "commentary" });
-    }
-    for (const [id, block] of messages) {
-      if (block.complete === false && block.role === "assistant" && block.text) {
-        messages.set(id, { ...block, complete: true, role: "commentary" });
-      }
-    }
-    pendingAssistantMessages.clear();
-    assistantRoles.clear();
-    if (active) outcome = { status: "interrupted", error: reason };
-    active = false;
-    phase = "";
-  }
-
-  async function interrupt(client) {
-    cancelling = true;
-    clearFinalAssistantResult();
-    if (client) await client.interrupt();
-    // The process host still must drain its owned scope and call stop().
-  }
-
   return Object.freeze({
-    receive, read, stop, interrupt, readFinalAssistantResult, invalidateFinalAssistantResult,
-    ...(entry ? { readResult, updateState, stopProcess } : {}),
-    ...(instructions ? {
-      prepare: instructions.prepare,
-      whenIdle: instructions.whenIdle,
-      instructionArguments: instructions.instructionArguments,
-      invalidateInstructions: instructions.invalidate
-    } : {}),
-    begin({ id, maxOutputCharacters = 4 * 1024 * 1024 } = {}) {
-      if (active) throw failure("This Claude turn is still working.");
-      if (!id || !Number.isSafeInteger(maxOutputCharacters) || maxOutputCharacters < 1) throw new TypeError("Invalid Claude turn configuration.");
-      generation++;
-      inputOwner = null;
-      acceptedInput = null;
-      clearFinalAssistantResult();
-      turnId = id;
-      maximumOutput = maxOutputCharacters;
-      messages.clear();
-      pendingAssistantMessages.clear();
-      assistantRoles.clear();
-      result = "";
-      phase = "";
-      messageId = "";
-      currentCommandId = "";
-      outcome = null;
-      cancelling = false;
-      stopped = false;
-      active = true;
-    },
-    reset() {
-      if (active || inFlight.size || tasks.size) throw failure("Stop Claude before resetting its turn view.");
-      messages.clear();
-      pendingAssistantMessages.clear();
-      assistantRoles.clear();
-      result = "";
-      outcome = null;
-      inputOwner = null;
-      acceptedInput = null;
-      clearFinalAssistantResult();
-    },
-    async send(client, message, { messageId: uuid, accept, timeoutMs = 30_000, steer = false } = {}) {
-      if (!active || stopped || cancelling) {
-        throw Object.assign(steeringRefusal("Claude has no active turn for this message.", {
-          messageCode: "assistant.claude.noActiveTurn", finished: !active && !stopped && !cancelling }), { delivery: "not-sent" });
-      }
-      if (!uuid || typeof accept !== "function" || admissions.has(uuid)) throw new TypeError("A distinct message id and admission writer are required.");
-      clearFinalAssistantResult();
-      acceptedInput = null;
-      inputOwner = entry ? { commandId: uuid, process: entry.process, executionId: entry.executionId,
-        accountIdentity: entry.accountIdentity } : null;
-      const receiptOwner = inputOwner;
-      const admitted = Promise.withResolvers();
-      void admitted.promise.catch(() => {});
-      inFlight.add(uuid);
-      if (steer) {
-        waitingSteers.add(uuid);
-        steeringClient = client;
-      }
-      const timer = setTimeout(() => admitted.reject(Object.assign(
-        failure("Claude has not acknowledged this prompt. Its delivery is uncertain.", { code: "assistant_claude_admission_unknown" }),
-        { delivery: "uncertain" }
-      )), timeoutMs);
-      admissions.set(uuid, { ...admitted, accept, timer, receiptOwner });
-      try {
-        await Promise.all([client.send(message, { messageId: uuid, sessionId: conversationId })
-          .then(() => { if (steer) backgroundForegroundWork(); }), admitted.promise]);
-      } catch (error) {
-        waitingSteers.delete(uuid);
-        if (inputOwner === receiptOwner) invalidateFinalAssistantResult();
-        throw error;
-      } finally {
-        clearTimeout(timer);
-      }
-    },
-    async prepareSteering() {
-      if (!active || cancelling) {
-        const completed = !active && !stopped && !cancelling && outcome?.status === "completed";
-        throw Object.assign(steeringRefusal("This Claude turn cannot accept steering now.", {
-          messageCode: "assistant.claude.steeringUnavailable", finished: completed }),
-          { delivery: "not-sent" });
-      }
-      // Claude Code acknowledges streamed input as queued and folds it into the
-      // running turn after the current tool call, or starts it once the main
-      // loop is idle. Interrupting instead would kill a running foreground tool;
-      // send() moves such a tool to the background so the steer is read now.
-      // The next input owns completion now: a result or task finishing before
-      // it starts must not settle this turn with the previous answer.
-      outcome = null;
-      acceptedInput = null;
-      clearFinalAssistantResult();
-      await publish({ type: "diagnostic", stage: "steering_queued", pendingCommands: inFlight.size, backgroundTasks: tasks.size });
-    },
-    async cancel(client, stopProcess) {
-      try {
-        await interrupt(client);
-      } catch {
-        // A verified managed-scope stop also handles an unresponsive control pipe.
-      } finally {
-        // A control acknowledgement is not a process-exit proof. Draining also
-        // cancels queued steering prompts and native background tools.
-        await stopProcess();
-      }
-    }
+    applicationToolsSupported: true,
+    entries,
+    closingSessions: cleanup.closingSessions,
+    get closing() { return cleanup.closing; },
+    createAccountQueries,
+    open,
+    acquire,
+    createConversation,
+    snapshot,
+    readRetainedTurn,
+    readFinalAssistantResult,
+    readHistory,
+    nativeWorkSettled,
+    ensureReady,
+    ensureProcess,
+    readContextUsage,
+    compactContext,
+    releaseRetainedGoal,
+    stopForTerminal,
+    prepareTerminal,
+    send: delivery.send,
+    startTurn,
+    interrupt,
+    read,
+    inspectAdmission,
+    hasActiveTemporaryConversation,
+    hasActiveConversation,
+    retireConversationHistory,
+    reconcileSessions: cleanup.reconcileSessions,
+    restoreSessionEntries: cleanup.restoreSessionEntries,
+    closeSession: cleanup.closeSession,
+    releaseSession: cleanup.releaseSession,
+    closeProject: cleanup.closeProject,
+    invalidateRuntimes: cleanup.invalidateRuntimes,
+    drain: cleanup.drain,
+    forget: cleanup.forget,
+    close: cleanup.close,
+    deleteConversation: cleanup.deleteConversation,
+    recover: cleanup.recover,
+    stopSelected: cleanup.stopSelected,
+    wait,
+    stopConversation,
+    readGoal,
+    updateGoal,
+    renewal,
+    run: commands.run,
+    steer: commands.steer,
+    cancel: commands.cancel
   });
 }
