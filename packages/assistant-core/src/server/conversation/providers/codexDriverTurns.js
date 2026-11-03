@@ -86,9 +86,9 @@ export function createCodexDriverTurns({
       providerReady: session.current.providerReady } : supplied.messagePreparation;
     return {
       async readContext() {
-        const session = await runtime.getSession(sessionId);
-        return { runtime, session, selection: {
-          runtime, session, threadId: () => session.binding.threadId,
+        const runtimeSession = await runtime.getSession(sessionId);
+        return { runtime, session: runtimeSession, selection: {
+          runtime, session: runtimeSession, threadId: () => session.binding.threadId,
           async acquireProvider() {
             const reused = Boolean(session.native?.isAvailable());
             await connect(signal, await selection(configuration, context, signal));
