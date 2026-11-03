@@ -38,7 +38,9 @@ const DEFAULT_STREAM_TIMEOUT_MS = 120_000;
 const DEFAULT_HISTORY_PAGE_SIZE = 20;
 const DEFAULT_HISTORY_STALE_TIME_MS = 60_000;
 
-function toNonNegativeInteger(value, fallback = 0) {
+/** @typedef {{ targetSurfaceId: string, userId: string | null, workspaceSlug: string }} RuntimeScope */
+
+function toNonNegativeInteger(value, fallback) {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 0) {
     return fallback;
@@ -47,27 +49,48 @@ function toNonNegativeInteger(value, fallback = 0) {
   return parsed;
 }
 
-function buildScopeStorageKey(scope = {}) {
-  const runtimeSurfaceId = normalizeText(scope?.targetSurfaceId).toLowerCase() || "assistant";
-  const workspaceSlug = normalizeText(scope?.workspaceSlug).toLowerCase() || "global";
-  const userId = normalizeRecordId(scope?.userId, { fallback: "anonymous" });
+/**
+ * The session storage key of a runtime scope's active conversation.
+ * @param {RuntimeScope} scope
+ */
+function buildScopeStorageKey(scope) {
+  const runtimeSurfaceId = normalizeText(scope.targetSurfaceId).toLowerCase() || "assistant";
+  const workspaceSlug = normalizeText(scope.workspaceSlug).toLowerCase() || "global";
+  const userId = normalizeRecordId(scope.userId, { fallback: "anonymous" });
   return `assistant.activeConversationId:${runtimeSurfaceId}:${workspaceSlug}:${userId}`;
 }
 
-function readStoredActiveConversationId(scope = {}) {
-  if (typeof window === "undefined" || !window.sessionStorage) {
+/** The browser's session storage, or none outside a browser or where the browser has none. */
+function browserSessionStorage() {
+  // readable-check: allow platform-probe - platform object: window exists only in a browser
+  return typeof window === "undefined" ? null : window.sessionStorage || null;
+}
+
+/**
+ * The conversation this scope had open in this browser tab, or "".
+ * @param {RuntimeScope} scope
+ */
+function readStoredActiveConversationId(scope) {
+  const storage = browserSessionStorage();
+  if (!storage) {
     return "";
   }
 
   try {
-    return normalizeRecordId(window.sessionStorage.getItem(buildScopeStorageKey(scope)), { fallback: "" });
+    return normalizeRecordId(storage.getItem(buildScopeStorageKey(scope)), { fallback: "" });
   } catch {
     return "";
   }
 }
 
-function writeStoredActiveConversationId(scope = {}, conversationId) {
-  if (typeof window === "undefined" || !window.sessionStorage) {
+/**
+ * Remembers this scope's open conversation in this browser tab; an empty id forgets it.
+ * @param {RuntimeScope} scope
+ * @param {unknown} conversationId
+ */
+function writeStoredActiveConversationId(scope, conversationId) {
+  const storage = browserSessionStorage();
+  if (!storage) {
     return;
   }
 
@@ -75,11 +98,11 @@ function writeStoredActiveConversationId(scope = {}, conversationId) {
   const storageKey = buildScopeStorageKey(scope);
   try {
     if (normalizedConversationId) {
-      window.sessionStorage.setItem(storageKey, normalizedConversationId);
+      storage.setItem(storageKey, normalizedConversationId);
       return;
     }
 
-    window.sessionStorage.removeItem(storageKey);
+    storage.removeItem(storageKey);
   } catch {
     return;
   }
@@ -97,8 +120,10 @@ function formatConversationStartedAt(value) {
   return (source && formatDateTime(source)) || t("jskit.assistant.runtime.conversation.startedAtUnknown");
 }
 
-// A failure or stream error event in the active language when its code is JSKIT's;
-// otherwise its message as sent.
+/**
+ * A failure or stream error event in the active language when its code is JSKIT's; otherwise its message as sent.
+ * @param {any} failure
+ */
 function failureText(failure) {
   return failure?.message ? normalizeText(useJskitText().serverMessage(failure)) : "";
 }
@@ -120,20 +145,19 @@ function resolveRuntimePolicy() {
   });
 }
 
-function createRuntimeApi({ overrideApi = null, resolveBasePath, resolveSurfaceId = null } = {}) {
-  if (overrideApi && typeof overrideApi.streamChat === "function") {
-    return overrideApi;
-  }
+/** A send whose acceptance needs no further cleanup. */
+function ignoreAcceptance() {}
 
-  return createAssistantApi({
-    request: assistantHttpClient.request,
-    requestStream: assistantHttpClient.requestStream,
-    resolveBasePath,
-    resolveSurfaceId
-  });
-}
-
-function useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } = {}) {
+/**
+ * The runtime of the ready-made assistant surface: one streamed conversation at a time, its saved history and the
+ * stored active conversation.
+ * @param {{
+ *   api?: import("@jskit-ai/assistant-core/client/types").AssistantApi,
+ *   surfaceId?: import("vue").MaybeRefOrGetter<string>,
+ *   integrationId?: import("vue").MaybeRefOrGetter<string>
+ * }} options `api` replaces the surface's standard assistant API.
+ */
+function useAssistantRuntime({ api, surfaceId = "", integrationId = "" }) {
   const runtimePolicy = resolveRuntimePolicy();
   const queryClient = useQueryClient();
   const errorRuntime = useShellWebErrorRuntime();
@@ -169,8 +193,9 @@ function useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } 
   }));
   const hasRuntimeScope = computed(() => runtimeRoute.value.configured && Boolean(runtimeScope.value.userId));
 
-  const runtimeApi = createRuntimeApi({
-    overrideApi: api,
+  const runtimeApi = api ?? createAssistantApi({
+    request: assistantHttpClient.request,
+    requestStream: assistantHttpClient.requestStream,
     resolveBasePath: () => runtimeRoute.value.endpoint,
     resolveSurfaceId: () => normalizeText(currentSurfaceId.value).toLowerCase()
   });
@@ -415,7 +440,7 @@ function useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } 
     abortController.value.abort();
   }
 
-  async function sendMessage({ attachments = [], onAccepted, retryMessageId = "" } = {}) {
+  async function sendMessage({ attachments = [], onAccepted = ignoreAcceptance, retryMessageId = "" } = {}) {
     if (isStreaming.value || isRestoringConversation.value || !hasRuntimeScope.value) return false;
     const retry = retryMessageId ? delivery.find(retryMessageId) : null;
     if (retryMessageId && retry?.status !== "failed") return false;
@@ -483,7 +508,7 @@ function useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } 
                 appendMessage({ id: messageId, role: "user", kind: "chat", text: normalizedInput, attachments, status: "done" });
                 appendMessage({ id: assistantMessageId, role: "assistant", kind: "chat", text: "", status: "streaming" });
                 delivery.reconcile([{ user: { messageId } }]);
-                onAccepted?.();
+                onAccepted();
                 admission.resolve(true);
               }
               conversationId.value = normalizeRecordId(event?.conversationId, { fallback: null });
@@ -634,7 +659,7 @@ function useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } 
     };
   });
 
-  return Object.freeze({
+  return {
     meta: {
       normalizeConversationStatus,
       formatConversationStartedAt
@@ -671,7 +696,7 @@ function useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } 
       loadMoreConversationHistory
     },
     viewer
-  });
+  };
 }
 
 export { useAssistantRuntime };
