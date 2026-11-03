@@ -175,38 +175,40 @@ async function createMicrophoneCapture({ onLevel = ignoreLevel, onPcm = ignorePc
         finishFlush();
       }
     });
-    return Object.freeze({
-      setMuted(value, { preserveBuffered: retainTail = false } = {}) {
-        const nextPreserveBuffered = Boolean(value) && retainTail;
-        if (muted === Boolean(value) && preserveBuffered === nextPreserveBuffered) return;
-        const keepBuffered = nextPreserveBuffered || (!value && preserveBuffered);
-        muted = Boolean(value);
-        preserveBuffered = nextPreserveBuffered;
-        for (const track of stream.getTracks()) track.enabled = !muted;
-        capture.port.postMessage({ type: "mute", muted, ...(keepBuffered ? { preserveBuffered: true } : {}) });
-        if (muted) onLevel(0);
-      },
-      close() {
-        if (!closePromise) {
-          closePromise = (async () => {
+    function setMuted(value, { preserveBuffered: retainTail = false } = {}) {
+      const nextPreserveBuffered = Boolean(value) && retainTail;
+      if (muted === Boolean(value) && preserveBuffered === nextPreserveBuffered) return;
+      const keepBuffered = nextPreserveBuffered || (!value && preserveBuffered);
+      muted = Boolean(value);
+      preserveBuffered = nextPreserveBuffered;
+      for (const track of stream.getTracks()) track.enabled = !muted;
+      capture.port.postMessage({ type: "mute", muted, ...(keepBuffered ? { preserveBuffered: true } : {}) });
+      if (muted) onLevel(0);
+    }
+    function close() {
+      if (!closePromise) {
+        closePromise = (async () => {
+          try {
+            await flush();
+          } finally {
+            onLevel(0);
+            capture.port.onmessage = null;
             try {
-              await flush();
+              source.disconnect();
+              capture.disconnect();
+              silence.disconnect();
             } finally {
-              onLevel(0);
-              capture.port.onmessage = null;
-              try {
-                source.disconnect();
-                capture.disconnect();
-                silence.disconnect();
-              } finally {
-                stopTracks();
-                await context.close();
-              }
+              stopTracks();
+              await context.close();
             }
-          })();
-        }
-        return closePromise;
+          }
+        })();
       }
+      return closePromise;
+    }
+    return Object.freeze({
+      setMuted,
+      close
     });
   } catch (error) {
     stopTracks();

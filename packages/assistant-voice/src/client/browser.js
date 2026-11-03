@@ -18,12 +18,12 @@ function audioContextConstructor() {
  * @returns {() => void} Stops listening.
  */
 function listenToPage(type, listener) {
-  const page = globalThis.window || globalThis;
-  // readable-check: allow optional-call - platform object: outside a browser the global object takes no event listeners
-  page.addEventListener?.(type, listener);
+  const page = globalThis.window;
+  // readable-check: allow optional-call - platform object: outside a browser there is no window to listen to
+  page?.addEventListener?.(type, listener);
   return () => {
-    // readable-check: allow optional-call - platform object: outside a browser the global object takes no event listeners
-    page.removeEventListener?.(type, listener);
+    // readable-check: allow optional-call - platform object: outside a browser there is no window to listen to
+    page?.removeEventListener?.(type, listener);
   };
 }
 
@@ -39,6 +39,26 @@ function listenToDocument(type, listener) {
   return () => {
     // readable-check: allow optional-call - platform object: outside a browser there is no document to listen to
     globalThis.document?.removeEventListener?.(type, listener);
+  };
+}
+
+/**
+ * Reads a media query and follows its changes until `stop()` is called.
+ * @param {string} query
+ * @param {(event: MediaQueryListEvent) => void} listener
+ * @returns {{ matches: boolean, stop: () => void }}
+ */
+function followMediaQuery(query, listener) {
+  const list = window.matchMedia(query);
+  const matches = list.matches;
+  // readable-check: allow optional-call - platform object: an older MediaQueryList has no addEventListener, so its first reading stays
+  list.addEventListener?.("change", listener);
+  return {
+    matches,
+    stop() {
+      // readable-check: allow optional-call - platform object: an older MediaQueryList has no addEventListener, so its first reading stays
+      list.removeEventListener?.("change", listener);
+    }
   };
 }
 
@@ -65,6 +85,7 @@ function createVoiceTurnId(prefix = "turn") {
 export {
   audioContextConstructor,
   createVoiceTurnId,
+  followMediaQuery,
   listenToDocument,
   listenToPage,
   pageVisible

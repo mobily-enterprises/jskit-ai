@@ -1,4 +1,5 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { followMediaQuery } from "./browser.js";
 
 const IDLE_GESTURES = Object.freeze([
   "glance-left",
@@ -67,6 +68,9 @@ const ACTIVE_EXPRESSION_SEQUENCES = Object.freeze({
   thinking: THINKING_EXPRESSIONS
 });
 
+/** Nothing to stop before the avatar is mounted or after it is unmounted. */
+function notFollowing() {}
+
 /**
  * The avatar's blinking, idle gestures and expressions for a voice state, and the mouth pose to draw.
  * @param {{ state?: string, mouthPose?: string, mouthLevel: number }} props
@@ -86,7 +90,7 @@ export function useVoiceAvatar(props) {
   let idleGestureIndex = Math.floor(Math.random() * IDLE_GESTURES.length);
   let idleGestureTimer = 0;
   let reopenTimer = 0;
-  let reducedMotionQuery = null;
+  let stopFollowingReducedMotion = notFollowing;
 
   const expression = computed(() => String(props.state || "idle"));
   const visibleMouthPose = computed(() => {
@@ -215,10 +219,9 @@ export function useVoiceAvatar(props) {
   });
 
   onMounted(() => {
-    reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const reducedMotionQuery = followMediaQuery("(prefers-reduced-motion: reduce)", updateReducedMotion);
     reducedMotion.value = reducedMotionQuery.matches;
-    // readable-check: allow optional-call - platform object: an older MediaQueryList has no addEventListener, so reduced motion is read once
-    reducedMotionQuery.addEventListener?.("change", updateReducedMotion);
+    stopFollowingReducedMotion = reducedMotionQuery.stop;
     if (!reducedMotion.value) {
       scheduleBlink(1_800 + (Math.random() * 1_800));
       scheduleIdleGesture(900 + (Math.random() * 1_500));
@@ -232,9 +235,8 @@ export function useVoiceAvatar(props) {
     clearBlinkTimers();
     clearActiveExpression();
     clearIdleGesture();
-    // readable-check: allow optional-call - platform object: an older MediaQueryList has no addEventListener, so reduced motion is read once
-    reducedMotionQuery?.removeEventListener?.("change", updateReducedMotion);
-    reducedMotionQuery = null;
+    stopFollowingReducedMotion();
+    stopFollowingReducedMotion = notFollowing;
   });
   return { blinking, activeExpression, idleGesture, expression, visibleMouthPose, reducedMotion };
 }

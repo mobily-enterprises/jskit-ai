@@ -286,7 +286,6 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
           // The regular message handler will surface malformed responses.
         }
       };
-      // readable-check: allow leaked-listener - platform object: these listeners live on this connection's own WebSocket, which disconnect() closes and drops
       nextSocket.addEventListener("message", onReady);
       nextSocket.addEventListener("error", () => {
         clearTimeout(timeout);

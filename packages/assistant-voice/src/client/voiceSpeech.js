@@ -251,6 +251,7 @@ function useVoiceSpeech({ connect, sendControl, isConnected, enabled, selectedVo
     bufferedSeconds.value = Math.max(0, nextPlaybackTime - playbackContext.currentTime);
     playbackSources.add(source);
     speechState.value = "speaking";
+    // readable-check: allow fixed-result-shape - platform object: an AudioBufferSourceNode reports its end through onended
     source.onended = () => {
       source.disconnect();
       if (epoch !== playbackEpoch) return;
