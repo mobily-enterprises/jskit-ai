@@ -5,8 +5,11 @@ import { createConversationTools } from "./tools.js";
 import { readAssistantResponseEnvelope } from "./boundedToolLoop.js";
 import { conversationMessageIdentity, conversationMessageVersion } from "./continuity.js";
 import { failure } from "./conversationRefusals.js";
-import { saveTools, submittedMessage } from "./conversationRecords.js";
+import { submittedMessage } from "./conversationReads.js";
+import { saveTools } from "./conversationTurns.js";
 import { serial } from "./conversationEvents.js";
+
+/** @typedef {import("./conversationEntries.js").ConversationEntry} ConversationEntry */
 
 /**
  * A completed native response handed to the application worker: its verified text, and
@@ -21,7 +24,13 @@ import { serial } from "./conversationEvents.js";
  * @param {number} dependencies.maximumToolCalls
  */
 function createCompletedResponses({ storage, transcript, events, catalog, isClosed, completedEnvelope, maximumToolCalls }) {
-  async function prepareCompletedResponse(entry, context, { messageId, turnId } = {}, { signal, toolSet } = {}) {
+  /**
+   * @param {ConversationEntry} entry
+   * @param {object} context
+   * @param {{ messageId: string, turnId: string }} receipt
+   * @param {{ signal: AbortSignal, toolSet?: object }} options
+   */
+  async function prepareCompletedResponse(entry, context, { messageId, turnId }, { signal, toolSet }) {
     if (!completedEnvelope || entry.conversation || !["codex", "claude", "opencode"].includes(entry.engine)) {
       throw failure("This conversation does not own completed envelopes.", "conversation_completed_envelopes_not_owned", 400, { messageCode: "assistant.conversation.completedEnvelopesNotOwned" });
     }

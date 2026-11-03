@@ -18,6 +18,12 @@ export function conversationMessageVersion(message, { includeData = false } = {}
 // A changeover whose owner keeps no delivery log.
 function logNothing() {}
 
+/** The prompt-sending callback of a caller that observes no native dispatch. */
+export function notifyNoPromptSending() {}
+
+/** The prompt-rejected callback of a caller that observes no native rejection. */
+export function notifyNoPromptRejected() {}
+
 /**
  * Keep native delivery and its history cursor in the same durable record.
  * @param {object} options
@@ -40,7 +46,7 @@ function logNothing() {}
 export function createConversationChangeover({ state, transcript, agent, identity, presentation = {}, log = logNothing,
   captureContext = false, applicationMessages = false, maximumInitialMessages = 30,
   maximumInitialMessageCharacters = Infinity, maximumHistoryBytes = Infinity }) {
-  // readable-check: allow method-probe - input validation: the history budget is a byte count or a resolver of one
+  // readable-check: allow method-probe - data: the history budget is a byte count or a resolver of one
   if (typeof maximumHistoryBytes !== "function" && maximumHistoryBytes !== Infinity &&
       (!Number.isSafeInteger(maximumHistoryBytes) || maximumHistoryBytes < 1) ||
       maximumInitialMessages === Infinity && maximumHistoryBytes === Infinity) {
@@ -308,6 +314,7 @@ export function createConversationChangeover({ state, transcript, agent, identit
         returning, messageCount: catchup.length, correctionCount: catchup.filter((m) => binding.seen[m.id]).length,
         removedCount: deleted.length, promptCharacters: preamble.length });
     }
+    const { onPromptSending = notifyNoPromptSending, onPromptRejected = notifyNoPromptRejected } = input;
     const delivered = await agent.sendMessage(pending ? {
       ...input, message: pending.message, displayMessage: pending.displayMessage,
       displayAttachments: pending.displayAttachments, attachmentIds: pending.attachmentIds,
@@ -319,8 +326,7 @@ export function createConversationChangeover({ state, transcript, agent, identit
             (!threadId || threadId === replacement.previous.conversationId)) {
           throw new Error("Native replacement must use a fresh successor before sending its briefing.");
         }
-        // readable-check: allow optional-call - optional operation: a native caller's input may carry its own prompt-sending callback
-        await input.onPromptSending?.({ threadId, displayAttachments, turnMetadata });
+        await onPromptSending({ threadId, displayAttachments, turnMetadata });
         pending.threadId = threadId;
         pending.displayAttachments = displayAttachments || pending.displayAttachments;
         pending.turnMetadata = turnMetadata || pending.turnMetadata;
@@ -328,8 +334,7 @@ export function createConversationChangeover({ state, transcript, agent, identit
         await persist();
       },
       onPromptRejected: async () => {
-        // readable-check: allow optional-call - optional operation: a native caller's input may carry its own prompt-rejected callback
-        await input.onPromptRejected?.();
+        await onPromptRejected();
         pending.attempted = false;
         await persist();
       }

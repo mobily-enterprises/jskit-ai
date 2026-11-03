@@ -3,8 +3,47 @@ import { createConversationDeliveryTiming, recordNoDeliveryTiming } from "./deli
 import { codexAppServerTurnStateFromAgentRun } from "./codexTurn.js";
 import { conversationAttachmentIds } from "./attachments.js";
 import { failure } from "./conversationRefusals.js";
-import { retainedSegments, sameRequest, submittedMessage } from "./conversationRecords.js";
+import { retainedSegments, submittedMessage } from "./conversationReads.js";
 import { serial } from "./conversationEvents.js";
+
+/** @typedef {import("./conversationEntries.js").ConversationEntry} ConversationEntry */
+
+/**
+ * One message an open conversation sends: its validated input, who sent it and how, and its
+ * admission as the turn delivers it. admitSend creates it.
+ * @typedef {object} ConversationRequest
+ * @property {{ messageId: string, text: string, origin: string, attachments: object[], data?: object, goal?: object }} input
+ * @property {any} [originalInput] A native caller's own input, kept for the native representation.
+ * @property {string} operation The operation it is authorized as: send, steer, wake or goal.
+ * @property {object} context
+ * @property {string} at
+ * @property {(stage: string) => void} deliveryTiming
+ * @property {boolean} [completedEnvelope]
+ * @property {string[]} [excludedMessageIds]
+ * @property {boolean} [nativeToolAttempt]
+ * @property {boolean} steering Whether it steers a running native turn.
+ * @property {PromiseWithResolvers<any>} admission Resolves with its receipt once the turn admits it.
+ * @property {Map<string, object>} progress Its completed commentary and thinking, by message id.
+ * @property {ReturnType<typeof import("./tools.js").createConversationTools>} [tools]
+ * @property {string} [turnId]
+ * @property {string} [nativeTurnId]
+ * @property {string} [nativeThreadId]
+ * @property {string} [goalMessageId]
+ * @property {string} [continuedBy] The message whose admission sealed it.
+ * @property {object | null} [answer]
+ * @property {boolean} [accepted]
+ * @property {boolean} [admissionSettled]
+ * @property {boolean} [admissionPublished]
+ * @property {boolean} [sealed] Its output is final; late native snapshots no longer change it.
+ * @property {boolean} [finished]
+ * @property {Promise<void>} [deliveryCommitted]
+ * @property {object} [recovered] The saved state of a turn a duplicate delivery recovered.
+ */
+
+/** Whether a saved request and a new message carry the same content. */
+const sameRequest = (left, right) => left.text === right.text && (left.origin || "user") === right.origin &&
+  isDeepStrictEqual(left.goal, right.goal) && isDeepStrictEqual(left.data, right.data) &&
+  isDeepStrictEqual((left.attachments || []).map(file => file.attachmentId), right.attachments.map(file => file.attachmentId));
 
 /**
  * Sending a message: its validation, its admission into the conversation queue, and the
@@ -12,15 +51,24 @@ import { serial } from "./conversationEvents.js";
  * @param {object} dependencies
  * @param {import("../types.js").ReentrantConversationStorage | null} dependencies.storage
  * @param {import("./conversationEvents.js").ConversationEvents} dependencies.events
+ * @param {import("./conversationEntries.js").ConversationEntries} dependencies.entries
  * @param {import("./conversationReads.js").ConversationReads} dependencies.reads
  * @param {import("./conversationTurns.js").ConversationTurns} dependencies.turns
  * @param {import("../types.js").ConversationDeliveryTimingObserver | undefined} dependencies.onDeliveryTiming
  * @param {readonly string[]} dependencies.deliveryHostStages
- * @param {import("../types.js").ConversationLimits} dependencies.limits
  * @param {boolean} dependencies.completedEnvelope
  * @param {number} dependencies.maximumInput
  */
-function createConversationSending({ storage, events, reads, turns, onDeliveryTiming, deliveryHostStages, limits, completedEnvelope, maximumInput }) {
+function createConversationSending({ storage, events, entries, reads, turns, onDeliveryTiming, deliveryHostStages, completedEnvelope, maximumInput }) {
+  /**
+   * @param {ConversationEntry} entry
+   * @param {object} context
+   * @param {object} input
+   * @param {string} [origin]
+   * @param {object} [goal]
+   * @param {string} [representation]
+   * @param {object} [wakeOptions]
+   */
   async function send(entry, context, input, origin = "user", goal, representation, wakeOptions) {
     const deliveryTiming = createConversationDeliveryTiming({ engine: entry.engine,
       conversationId: entry.id, messageId: input?.messageId, report: onDeliveryTiming, hostStages: deliveryHostStages });
@@ -47,8 +95,19 @@ function createConversationSending({ storage, events, reads, turns, onDeliveryTi
     }
   }
 
-  // Called while holding the conversation queue, including Claude's existing
-  // stop-then-Send goal commands. All commands retain the ordinary receipt path.
+  /**
+   * Called while holding the conversation queue, including Claude's stop-then-Send goal commands.
+   * Every command keeps the ordinary receipt path.
+   * @param {ConversationEntry} entry
+   * @param {object} context
+   * @param {object} input
+   * @param {string} [origin]
+   * @param {object} [goal]
+   * @param {object} [originalInput]
+   * @param {object} [wakeOptions]
+   * @param {(stage: string) => void} [deliveryTiming]
+   * @param {Set<string>} [grant]
+   */
   async function admitSend(entry, context, input, origin = "user", goal, originalInput, wakeOptions, deliveryTiming = recordNoDeliveryTiming, grant) {
     deliveryTiming("preparation-started");
     const operation = goal ? "goal" : input?.steer === true ? "steer" : origin === "application" ? "wake" : "send";
@@ -107,7 +166,7 @@ function createConversationSending({ storage, events, reads, turns, onDeliveryTi
     }
     const existing = await reads.findSubmittedTurn(entry, message.messageId);
     deliveryTiming("history-read");
-    const nativeState = entry.engine !== "api" && (await reads.readState(entry));
+    const nativeState = entry.engine !== "api" && (await entries.readState(entry));
     deliveryTiming("state-read");
     const nativePending = nativeState?.request;
     if (existing) {
@@ -158,7 +217,7 @@ function createConversationSending({ storage, events, reads, turns, onDeliveryTi
     let excludedMessageIds;
     let requestAt = new Date().toISOString();
     // The bound state was read above unless this is an API conversation.
-    try { configuration = entry.conversation ? (nativeState || await reads.readState(entry)).configuration : await storage.write(entry.id, async transaction => {
+    try { configuration = entry.conversation ? (nativeState || await entries.readState(entry)).configuration : await storage.write(entry.id, async transaction => {
       const metadata = await transaction.readMetadata();
       if (metadata.runtime.replacement) throw failure("Finish the pending native replacement before sending another message.", "conversation_replacement_pending_before_send", 409, { messageCode: "assistant.conversation.replacementPendingBeforeSend" });
       if (retainedSegments(metadata.runtime).some(segment => segment.segmentId !== entry.segmentId && segment.request?.messageId === message.messageId)) {
@@ -188,6 +247,7 @@ function createConversationSending({ storage, events, reads, turns, onDeliveryTi
       return metadata.runtime.configuration;
     }); } catch (error) { release(); throw error; }
     deliveryTiming("request-saved");
+    /** @type {ConversationRequest} */
     const request = { input: message, originalInput, operation, context, at: requestAt, deliveryTiming,
       ...(markedResponse ? { completedEnvelope: true, excludedMessageIds } : {}),
       ...(typeof nativeToolAttempt === "boolean" ? { nativeToolAttempt } : {}), steering: Boolean(working || input.steer && nativeSteering),
@@ -198,14 +258,7 @@ function createConversationSending({ storage, events, reads, turns, onDeliveryTi
       working.submit(request).catch(error => request.admission.reject(error)).finally(release);
       return { promise: request.admission.promise };
     }
-    const active = { request, requests: new Map([[message.messageId, request]]), controller: new AbortController() };
-    entry.active = active;
-    entry.error = "";
-    if (limits.timeoutMs !== undefined) active.timer = setTimeout(() => {
-      active.timedOut = true;
-      active.controller.abort(new Error("The conversation request exceeded its time limit."));
-    }, limits.timeoutMs);
-    active.done = turns.perform(entry, active, configuration);
+    turns.start(entry, request, configuration);
     return { promise: request.admission.promise };
   }
 
