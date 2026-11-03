@@ -17,15 +17,61 @@ import {
 } from "./codexRuntimeInventory.js";
 import { normalizeCodexRunText as normalizeText } from "./codexTurnState.js";
 
-/** Internal consumer view of the one native provider owner, not a server per view. */
+/** @typedef {ReturnType<typeof createCodexAppServerProviderOwner>} CodexAppServerProviderOwner */
+
+/**
+ * The provider sessions a run owner works through, supplied by its application: the provider owner, the managed
+ * sessions it keeps running, and the per-session contexts it prepares.
+ * @typedef {object} CodexProviderSessions
+ * @property {CodexAppServerProviderOwner} owner
+ * @property {Map<string, object>} managed
+ * @property {(sessionId: string, providerOptions: object) => object} context
+ * @property {(providerKey: string) => object} keyFields
+ * @property {() => void} assertOpen
+ * @property {object} [connectionPolicy]
+ * @property {(request: { sessionId: string, runtime: object, session: object }) => Promise<object | null>} [outputContext]
+ * @property {number} [wellbeingMs]
+ */
+
+/** An owner outside an application lifecycle is always open. */
+function ownerStaysOpen() {}
+
+/** An owner without a recovery listener reports nothing. */
+function ignoreRecoveryEvent() {}
+
+/** An owner without a debug log records nothing. */
+function ignoreDebugEvent() {}
+
+/** A provider built without a native host description gets an empty one. */
+function emptyNativeHost() {
+  return {};
+}
+
+/**
+ * Internal consumer view of the one native provider owner, not a server per view.
+ * @param {object} [dependencies]
+ * @param {string} [dependencies.runtimeRoot]
+ * @param {() => void} [dependencies.assertOpen]
+ * @param {(owner: object, event: string, error: unknown) => void} [dependencies.onRecoveryEvent]
+ * @param {(event: string, details: object) => void} [dependencies.debugLog]
+ * @param {(error: unknown) => unknown} [dependencies.debugError]
+ * @param {((parameters: object) => CodexAppServerAgentProvider) | null} [dependencies.providerFactory]
+ * @param {(parameters: object) => object} [dependencies.prepareNativeHost]
+ * @param {string} [dependencies.runtimeBusyCode]
+ * @param {string} [dependencies.exitUnverifiedCode]
+ * @param {string} [dependencies.requiredStopCode]
+ * @param {string} [dependencies.runtimeCloseError]
+ * @param {number} [dependencies.transientIdleMs]
+ */
 export function createCodexAppServerProviderOwner({
   runtimeRoot = "",
-  assertOpen: assertApplicationOpen = () => {},
-  onRecoveryEvent = () => {},
-  debugLog = () => {},
+  assertOpen: assertApplicationOpen = ownerStaysOpen,
+  onRecoveryEvent = ignoreRecoveryEvent,
+  debugLog = ignoreDebugEvent,
   debugError = error => error,
+  // readable-check: allow dependency-default - input validation: an application passes null to choose the built-in provider
   providerFactory = null,
-  prepareNativeHost = () => ({}),
+  prepareNativeHost = emptyNativeHost,
   runtimeBusyCode = "codex_app_server_runtime_busy",
   exitUnverifiedCode = "codex_runtime_exit_unverified",
   requiredStopCode = "codex_runtime_exit_unverified",
@@ -119,7 +165,7 @@ export function createCodexAppServerProviderOwner({
       providerKey: normalizeText(providerKey),
       providerOptions,
       sessionKey: consumer?.owner.sessionKey || "",
-      runtimeDir: normalizeText(providerOptions?.runtimeDir),
+      runtimeDir: normalizeText(providerOptions.runtimeDir),
       runtimeKey,
       scope: api,
       resources: consumer?.resources,
@@ -149,7 +195,17 @@ export function createCodexAppServerProviderOwner({
     }
   }
 
-  function createProvider({ providerKey, providerOptions = {}, owner = {}, create, observation, resources, preserveProcessExitProof = false } = {}) {
+  /**
+   * @param {object} request
+   * @param {string} request.providerKey
+   * @param {object} [request.providerOptions]
+   * @param {object} [request.owner]
+   * @param {(onObservationLost: (error: unknown) => Promise<void>) => CodexAppServerAgentProvider} request.create
+   * @param {object} [request.observation]
+   * @param {object} [request.resources]
+   * @param {boolean} [request.preserveProcessExitProof]
+   */
+  function createProvider({ providerKey, providerOptions = {}, owner = {}, create, observation, resources, preserveProcessExitProof = false }) {
     assertOpen();
     if (!path.isAbsolute(providerOptions.runtimeDir || "")) throw new TypeError("Codex ownership requires an absolute native runtime directory.");
     const existing = records.get(providerKey);
@@ -167,6 +223,7 @@ export function createCodexAppServerProviderOwner({
   async function retireAndCloseProvider(providerKey = "", options = {}) {
     const record = records.get(normalizeText(providerKey));
     if (!record) return;
+    // readable-check: allow optional-call - optional operation: a driver's resources have no retire step, and a borrowed provider has no resources
     await record.resources?.retire?.(record.provider);
     closeProvider(normalizeText(providerKey), options);
   }
@@ -292,6 +349,7 @@ export function createCodexAppServerProviderOwner({
           error: debugError(error), providerKey
         }));
       }, transientIdleMs);
+      // readable-check: allow optional-call - platform object: a timer handle has unref only under Node
       release.timer.unref?.();
     };
   }
@@ -303,7 +361,7 @@ export function createCodexAppServerProviderOwner({
   async function borrowSession(context) {
     const providerKey = context.providerKey;
     let release = transientReleases.get(providerKey);
-    if (!release && (records.has(providerKey) || context.runOwner?.runtimeLifecycle?.managedThreadId?.(providerKey))) {
+    if (!release && (records.has(providerKey) || context.runOwner.runtimeLifecycle.managedThreadId(providerKey))) {
       return { provider: await acquireSession(context), release() {} };
     }
     if (!release) transientReleases.set(providerKey, release = { users: 0, timer: null });
@@ -358,15 +416,7 @@ export function createCodexAppServerProviderOwner({
     try {
       context.assertAdmission();
       await acquireRuntime({
-        operation: () => {
-          if (typeof provider.ensureAvailable === "function") {
-            return provider.ensureAvailable({ modelProviderId: providerOptions.routingModelProviderId });
-          }
-          if (typeof provider.listLoadedThreads === "function") {
-            return provider.listLoadedThreads({ limit: 1 });
-          }
-          return provider.ensureRuntime?.();
-        },
+        operation: () => provider.ensureAvailable({ modelProviderId: providerOptions.routingModelProviderId }),
         provider,
         providerKey,
         providerOptions
@@ -391,8 +441,9 @@ export function createCodexAppServerProviderOwner({
   function closeProvider(providerKey = "", { closeProvider = true } = {}) {
     const record = records.get(providerKey);
     if (!record) return;
+    // readable-check: allow optional-call - optional operation: a provider borrowed for a catalogue read has no resources
     record.resources?.release?.(record.provider);
-    if (closeProvider) record.provider.close?.();
+    if (closeProvider) record.provider.close();
     records.delete(providerKey);
     if (!records.size) codexAppServerProviders.delete(api);
     if (record.provider.stale) {
@@ -413,8 +464,10 @@ export function createCodexAppServerProviderOwner({
     const provider = record.provider;
     const providerKey = normalizeText(record.providerKey);
     const resources = record.resources || records.get(providerKey)?.resources;
+    // readable-check: allow optional-call - optional operation: a driver's resources have no retire step, and a borrowed provider has no resources
     const retirement = Promise.resolve().then(() => resources?.retire?.(provider));
     const runtimeStop = Promise.resolve().then(async () => {
+      // readable-check: allow method-probe - safety invariant: a record without a provider that stops would leave its process running unverified
       if (typeof provider?.stopRuntime !== "function") {
         throw new Error("Codex app-server provider must implement stopRuntime().");
       }
@@ -436,7 +489,7 @@ export function createCodexAppServerProviderOwner({
     if (stopped.status === "fulfilled" && codexAppServerRuntimeStopWasVerified(stopped.value)) {
       forgetOwnedRuntime(provider);
     } else {
-      provider?.close?.();
+      provider?.close();
     }
     if (retired.status === "fulfilled" && cached) {
       (record.scope || api).closeProvider(providerKey, { closeProvider: stopped.status !== "fulfilled" });
@@ -464,7 +517,7 @@ export function createCodexAppServerProviderOwner({
       const peers = runtimePeers(runtimeKey);
       const running = await runningNativeThreads(peers).catch(() => []);
       // A Temporary turn or goal holding a borrowed provider also keeps it.
-      if (running.length || peers.some(peer => peer.scope.isHeld?.(peer.providerKey))) {
+      if (running.length || peers.some(peer => peer.scope.isHeld(peer.providerKey))) {
         return { ...stale, busy: true, stopped: false };
       }
       const owned = codexAppServerOwnedRuntimes.get(runtimeKey);

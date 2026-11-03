@@ -5,37 +5,37 @@ import path from "node:path";
 
 /** @typedef {import("./codexProvider.js").CodexAppServerAgentProvider} CodexAppServerAgentProvider */
 
-export const CODEX_APP_SERVER_MODEL_CATALOG_PAGE_LIMIT = 100;
+const CODEX_APP_SERVER_MODEL_CATALOG_PAGE_LIMIT = 100;
 
-export const CODEX_APP_SERVER_MODEL_CATALOG_MAX_PAGES = 100;
+const CODEX_APP_SERVER_MODEL_CATALOG_MAX_PAGES = 100;
 
-export const CODEX_APP_SERVER_MODEL_CATALOG_MAX_ENTRIES = 1000;
+const CODEX_APP_SERVER_MODEL_CATALOG_MAX_ENTRIES = 1000;
 
-export const CODEX_APP_SERVER_MODEL_CATALOG_MAX_ENTRY_BYTES = 32 * 1024;
+const CODEX_APP_SERVER_MODEL_CATALOG_MAX_ENTRY_BYTES = 32 * 1024;
 
-export const CODEX_APP_SERVER_MODEL_CATALOG_MAX_TOTAL_BYTES = 2 * 1024 * 1024;
+const CODEX_APP_SERVER_MODEL_CATALOG_MAX_TOTAL_BYTES = 2 * 1024 * 1024;
 
-export const CODEX_APP_SERVER_MODEL_CATALOG_MAX_CURSOR_LENGTH = 512;
+const CODEX_APP_SERVER_MODEL_CATALOG_MAX_CURSOR_LENGTH = 512;
 
-export const CODEX_APP_SERVER_THREAD_INVENTORY_PAGE_LIMIT = 100;
+const CODEX_APP_SERVER_THREAD_INVENTORY_PAGE_LIMIT = 100;
 
-export const CODEX_APP_SERVER_THREAD_INVENTORY_MAX_PAGES = 100;
+const CODEX_APP_SERVER_THREAD_INVENTORY_MAX_PAGES = 100;
 
 export const CODEX_APP_SERVER_THREAD_INVENTORY_MAX_COUNT = 1000;
 
 export const CODEX_APP_SERVER_THREAD_INVENTORY_ID_MAX_LENGTH = 512;
 
-export const CODEX_NATIVE_STORAGE_SOURCE_KINDS = ["cli", "vscode", "exec", "appServer", "subAgent", "subAgentReview",
+const CODEX_NATIVE_STORAGE_SOURCE_KINDS = ["cli", "vscode", "exec", "appServer", "subAgent", "subAgentReview",
   "subAgentCompact", "subAgentThreadSpawn", "subAgentOther", "unknown"];
 
-export function codexAppServerThreadInventoryError(errorCode, label, detail) {
+function codexAppServerThreadInventoryError(errorCode, label, detail) {
   const error = new Error(`Codex ${label} thread inventory ${detail}.`);
   error.code = errorCode;
   return error;
 }
 
 // Why a listed inventory entry is refused, or "" for a valid thread.
-export function codexAppServerThreadInventoryRefusal(entry, threadId, { cwd, verifyCwd }) {
+function codexAppServerThreadInventoryRefusal(entry, threadId, { cwd, verifyCwd }) {
   if (!isRecord(entry)) return "listed an entry that is not a thread";
   if (!threadId) return "listed a thread without an id";
   if (threadId.length > CODEX_APP_SERVER_THREAD_INVENTORY_ID_MAX_LENGTH) {
@@ -46,7 +46,7 @@ export function codexAppServerThreadInventoryRefusal(entry, threadId, { cwd, ver
   return "";
 }
 
-export async function listBoundedCodexAppServerThreadIds({
+async function listBoundedCodexAppServerThreadIds({
   ancestorThreadId = "",
   archived = false,
   client,
@@ -181,9 +181,11 @@ export async function listAppServerThreadsForCwd(provider, {
   });
 }
 
-// Native thread/delete cascades through all spawned descendants, including
-// archived and non-app-server threads. Never infer its scope from cwd alone.
-/** @param {CodexAppServerAgentProvider} provider */
+/**
+ * Native thread/delete cascades through all spawned descendants, including
+ * archived and non-app-server threads. Never infer its scope from cwd alone.
+ * @param {CodexAppServerAgentProvider} provider
+ */
 export async function listThreadDescendants(provider, threadId) {
   const ancestorThreadId = normalizeAgentText(threadId);
   if (!ancestorThreadId || ancestorThreadId.length > CODEX_APP_SERVER_THREAD_INVENTORY_ID_MAX_LENGTH ||

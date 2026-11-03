@@ -20,14 +20,14 @@ import { nativeAiProvider, nativeAiModel } from "../../../shared/nativeProviders
  * @param {object | undefined} dependencies.supplied
  * @param {string} dependencies.sessionId
  * @param {string} dependencies.providerKey
- * @param {ReturnType<typeof import("../codexProviderOwner.js").createCodexAppServerProviderOwner>} dependencies.providerOwner
- * @param {ReturnType<typeof import("../codexTurn.js").createCodexAppServerRunOwner>} dependencies.owner
+ * @param {import("../codexProviderOwner.js").CodexAppServerProviderOwner} dependencies.providerOwner
+ * @param {import("../codexRuntimeLifecycle.js").CodexRunOwner} dependencies.owner
  * @param {object} dependencies.runtime
  * @param {((error: Error) => void) | undefined} dependencies.reportFailure
  * @param {(update: (binding: object) => object) => Promise<void>} dependencies.updateBinding
  * @param {(goal: object | null) => Promise<object | null>} dependencies.recordGoal
  * @param {(client: object, signal: AbortSignal) => Promise<string>} dependencies.accountIdentity
- * @param {object} dependencies.connections
+ * @param {import("./codexDriver.js").CodexConversationConnections} dependencies.connections
  * @param {Record<string, string>} dependencies.env
  * @param {object} dependencies.host
  * @param {object} dependencies.limits

@@ -141,7 +141,7 @@ export function createCodexProviderInvalidation({ inScope, withLifecycle, forget
       return null;
     }
     // Nor can one whose control connection closed while it was read.
-    const client = peers.find(record => record.provider.client?.isOpen?.())?.provider.client;
+    const client = peers.find(record => record.provider.client?.isOpen())?.provider.client;
     if (!running.length || !client) return null;
     const pausedGoals = [];
     for (const threadId of running) {
@@ -155,7 +155,7 @@ export function createCodexProviderInvalidation({ inScope, withLifecycle, forget
         debugLog("appServerRuntime.staleGoalPause.error", { error: debugError(error), runtimeKey, threadId });
       }
     }
-    for (const peer of peers) peer.provider.markStale?.();
+    for (const peer of peers) peer.provider.markStale();
     const stale = {
       runtimeKey, threadIds: running, pausedGoals, retiring: null,
       providerKeys: peers.map(peer => peer.providerKey)

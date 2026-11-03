@@ -185,7 +185,7 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
         probe,
         new Promise((resolve) => {
           timeout = setTimeout(() => resolve(CODEX_APP_SERVER_ENDPOINT_STATUS.TIMEOUT), timeoutMs);
-          // readable-check: allow optional-call - platform object: a timer handle, which has unref only under Node
+          // readable-check: allow optional-call - platform object: a timer handle has unref only under Node
           timeout.unref?.();
         })
       ]);

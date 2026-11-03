@@ -114,6 +114,7 @@ export function createCodexAppServerProcessStart({
     accountIdentitySignature = "",
     authStateSignature = "",
     codexCommand = "codex",
+    // readable-check: allow no-env-default - input validation: an application's runtime options may omit env, and the runtime then starts in the process environment
     env = process.env,
     executionRoot = "",
     executionMode = CODEX_APP_SERVER_EXECUTION_MODES.INTERACTIVE,

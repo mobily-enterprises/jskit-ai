@@ -3,7 +3,33 @@ import { setTimeout as delay } from "node:timers/promises";
 
 const INSTRUCTION_REVISION_ENV = "JSKIT_CONVERSATION_INSTRUCTIONS";
 
-/** Codex native context restoration; host callbacks own resources and access. */
+/**
+ * The host a Codex provider gives its conversation adapter: its client, runtime and request runner, and the steps
+ * that prepare, verify and record its threads.
+ * @typedef {object} CodexConversationAdapterHost
+ * @property {() => Promise<object>} client
+ * @property {() => object | null} runtime
+ * @property {<T>(run: () => Promise<T>, reason: string) => Promise<T>} runRequest
+ * @property {number} [timeoutMs]
+ * @property {Record<string, string>} [environment]
+ * @property {(params: object, threadId?: string) => Promise<string | null | undefined> | string | null | undefined} readInstructions
+ * @property {(environment: Record<string, string>) => Promise<Record<string, string>> | Record<string, string>} prepareEnvironment
+ * @property {(params: object) => Promise<object | undefined> | object | undefined} prepareParameters
+ * @property {(threadId: string, params: object, context: object) => Promise<object | undefined> | object | undefined} prepareResume
+ * @property {(threadId: string) => Promise<void> | void} beforeResume
+ * @property {(params: object, client: object, context: object) => Promise<object>} prepareHistory
+ * @property {(params: object, environment: Record<string, string>) => object} threadParameters
+ * @property {(...args: unknown[]) => Promise<void>} verifyEnvironment
+ * @property {(threadId: string, turnId: string) => void} recordInterruption
+ * @property {(threadId: string) => void} onRecoveryFailure
+ * @property {(threadId: string, goal: object) => void} publishGoal
+ * @property {(event: string, fields: object, context: object) => void} log
+ */
+
+/**
+ * Codex native context restoration; host callbacks own resources and access.
+ * @param {CodexConversationAdapterHost} host
+ */
 export function createCodexConversationAdapter(host) {
   const bindings = new Map();
   // Losing a control binding does not erase an acknowledged prompt. Keeping
@@ -31,7 +57,7 @@ export function createCodexConversationAdapter(host) {
 
   async function prepareInstructions({ systemPrompt, ...params }, threadId) {
     if (systemPrompt === undefined && params.developerInstructions != null) return params;
-    const supplied = systemPrompt ?? await host.readInstructions?.(params, threadId);
+    const supplied = systemPrompt ?? await host.readInstructions(params, threadId);
     if (supplied === undefined || supplied === null) return params;
     if (typeof supplied !== "string" || !supplied.trim()) throw new TypeError("Codex instructions must contain text.");
     return { ...params, developerInstructions: supplied };
@@ -75,7 +101,7 @@ export function createCodexConversationAdapter(host) {
               if (status !== "active") throw new Error("Codex's current turn could not be observed before changing settings.");
               if (!settings.deferred) {
                 settings.deferred = true;
-                try { host.log?.("settings_deferred", {}, { threadId }); } catch { /* Diagnostics do not own scheduling. */ }
+                try { host.log("settings_deferred", {}, { threadId }); } catch { /* Diagnostics do not own scheduling. */ }
                 settings.accepted.resolve({ ok: true, pending: true });
               }
               await delay(250, undefined, { signal: settings.controller.signal });
@@ -83,7 +109,7 @@ export function createCodexConversationAdapter(host) {
             settings.prepared = true;
           }
           requestedSettings = settings.params;
-          params = await host.prepareParameters?.(requestedSettings) || requestedSettings;
+          params = await host.prepareParameters(requestedSettings) || requestedSettings;
         }
         const requestedParams = params;
         const retainInstalledInstructions = bound?.params.developerInstructions != null && !params.ephemeral && !bound.params.ephemeral;
@@ -152,7 +178,7 @@ export function createCodexConversationAdapter(host) {
           // A restored observer has no saved request parameters. Recover the
           // native thread's provider configuration before resuming its controls.
           requestParams = { ...requestParams, modelProvider: nativeModelProvider };
-          requestParams = await host.prepareParameters?.(requestParams) || requestParams;
+          requestParams = await host.prepareParameters(requestParams) || requestParams;
         }
         requestParams = await host.prepareHistory(requestParams, client, { signal, historyPath: nativeHistoryPath });
         const providerChanged = Boolean(requestParams.modelProvider && nativeModelProvider &&
@@ -169,7 +195,7 @@ export function createCodexConversationAdapter(host) {
         // process. A new socket or a changed command environment is not evidence
         // that the provider process died.
         if (nativeStatus === "notLoaded" && executionId && bound?.executionId !== executionId) {
-          requestParams = await host.prepareResume?.(threadId, requestParams, {
+          requestParams = await host.prepareResume(threadId, requestParams, {
             runtime: host.runtime(),
             processChanged: Boolean(bound?.executionId)
           }) || requestParams;
@@ -207,7 +233,7 @@ export function createCodexConversationAdapter(host) {
         let instructionsChanged = requestParams.developerInstructions != null &&
           instructionPrompts.get(threadId) !== requestParams.developerInstructions;
         let resumed = null;
-        const log = (event, fields = {}) => host.log?.(event, fields, { threadId, environment });
+        const log = (event, fields = {}) => host.log(event, fields, { threadId, environment });
         try {
           assertRecoveryOpen();
           if (instructionOnly) {
@@ -246,7 +272,7 @@ export function createCodexConversationAdapter(host) {
                   const turnId = page.data?.[0]?.id;
                   if (!turnId) throw new Error("Codex's running turn could not be identified for control recovery.");
                   assertRecoveryOpen();
-                  host.recordInterruption?.(threadId, turnId);
+                  host.recordInterruption(threadId, turnId);
                   await request("turn/interrupt", { threadId, turnId });
                   while (await readStatus() !== "idle") {
                     signal.throwIfAborted();
@@ -267,7 +293,7 @@ export function createCodexConversationAdapter(host) {
             }
             if (!bindingMatches || nativeStatus === "notLoaded") {
               bindings.delete(threadId);
-              await host.beforeResume?.(threadId);
+              await host.beforeResume(threadId);
               resumed = await request("thread/resume", { excludeTurns: true, ...requestParams, threadId });
               if (requestParams.modelProvider && resumed.modelProvider !== requestParams.modelProvider) {
                 throw Object.assign(new Error("Another native subscriber retained the previous model provider. Close the native assistant terminal and retry."), {
@@ -302,7 +328,7 @@ export function createCodexConversationAdapter(host) {
             }
           }
         } catch (cause) {
-          host.onRecoveryFailure?.(threadId);
+          host.onRecoveryFailure(threadId);
           bindings.delete(threadId);
           log("recovery_failed", { code: cause?.code || "", reason: cause.message });
           throw Object.assign(new Error(["assistant_agent_control_binding_retained", "assistant_codex_provider_binding_retained"].includes(cause?.code)
@@ -355,20 +381,20 @@ export function createCodexConversationAdapter(host) {
     settingsUpdates.set(threadId, settings);
     const task = withThreadContext(threadId, params, operation, settings);
     void task.then(result => {
-      try { host.log?.("settings_applied", { model: settings.params.model, modelProvider: settings.params.modelProvider }, { threadId }); } catch { /* Diagnostics do not own scheduling. */ }
+      try { host.log("settings_applied", { model: settings.params.model, modelProvider: settings.params.modelProvider }, { threadId }); } catch { /* Diagnostics do not own scheduling. */ }
       accepted.resolve(result);
     }, async error => {
       accepted.reject(error);
-      try { host.log?.("settings_failed", { code: error.code || "native_settings_failed" }, { threadId }); } catch { /* Logging cannot own native cleanup. */ }
+      try { host.log("settings_failed", { code: error.code || "native_settings_failed" }, { threadId }); } catch { /* Logging cannot own native cleanup. */ }
       // If a deferred reload fails, expose the actual paused goal for explicit
       // recovery. Never resume it speculatively or hide a user's later control.
       if (settingsUpdates.get(threadId) === settings) settingsUpdates.delete(threadId);
-      if (!settings.controller.signal.aborted && settings.client?.isOpen?.()) {
+      if (!settings.controller.signal.aborted && settings.client?.isOpen()) {
         try {
           const { goal } = await settings.client.request("thread/goal/get", { threadId }, {
             signal: AbortSignal.timeout(host.timeoutMs || 10_000)
           });
-          host.publishGoal?.(threadId, goal);
+          host.publishGoal(threadId, goal);
         } catch { /* Native observation owns disconnect failures. */ }
       }
     }).finally(() => {
@@ -385,33 +411,43 @@ export function createCodexConversationAdapter(host) {
     return goal;
   }
 
+  const hasPendingSettings = id => settingsUpdates.has(id);
+
+  function registerThread(id, binding) {
+    bindings.set(id, binding);
+    if (binding.params.developerInstructions != null) instructionPrompts.set(id, binding.params.developerInstructions);
+  }
+
+  function invalidateThread(id) {
+    settingsUpdates.get(id)?.controller.abort();
+    settingsUpdates.delete(id);
+    threadGenerations.set(id, (threadGenerations.get(id) || 0) + 1);
+    bindings.delete(id);
+  }
+
+  const goalChanged = (id) => goalChanges.set(id, (goalChanges.get(id) || 0) + 1);
+
+  function close() {
+    contextGeneration += 1;
+    for (const pending of settingsUpdates.values()) pending.controller.abort();
+    settingsUpdates.clear();
+    bindings.clear();
+    instructionPrompts.clear();
+  }
+
   return Object.freeze({
     scheduleSettings,
-    hasPendingSettings: id => settingsUpdates.has(id),
+    hasPendingSettings,
     projectGoal,
     prepareInstructions,
     threadParameters,
     withThreadContext,
-    registerThread(id, binding) {
-      bindings.set(id, binding);
-      if (binding.params.developerInstructions != null) instructionPrompts.set(id, binding.params.developerInstructions);
-    },
-    invalidateThread(id) {
-      settingsUpdates.get(id)?.controller.abort();
-      settingsUpdates.delete(id);
-      threadGenerations.set(id, (threadGenerations.get(id) || 0) + 1);
-      bindings.delete(id);
-    },
-    goalChanged: (id) => goalChanges.set(id, (goalChanges.get(id) || 0) + 1),
+    registerThread,
+    invalidateThread,
+    goalChanged,
     get bindingCount() { return bindings.size; },
     get threadEnvironments() { return bindings; },
     get threadEnvironmentTasks() { return tasks; },
-    close() {
-      contextGeneration += 1;
-      for (const pending of settingsUpdates.values()) pending.controller.abort();
-      settingsUpdates.clear();
-      bindings.clear();
-      instructionPrompts.clear();
-    }
+    close
   });
 }

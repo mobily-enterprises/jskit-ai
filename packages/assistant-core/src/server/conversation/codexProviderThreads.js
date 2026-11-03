@@ -132,6 +132,7 @@ export async function readCodexNativeGoal(databasePath, { threadId, signal } = {
 
 export async function codexAppServerThreadHasReadableHistory(provider = null, threadId = "") {
   const normalizedThreadId = normalizeAgentText(threadId);
+  // readable-check: allow method-probe - input validation: a caller without a provider that reads threads has no readable history
   if (!normalizedThreadId || typeof provider?.readThread !== "function") {
     return false;
   }
@@ -179,6 +180,7 @@ export async function deleteCodexAppServerThread({ provider, threadId } = {}) {
 export async function deleteCodexAppServerHelperThread({ provider, threadId, turnId = "" } = {}) {
   let interruptError = null;
   if (turnId) {
+    // readable-check: allow method-probe - input validation: a helper thread is deleted even when its caller's provider cannot interrupt
     if (typeof provider?.interruptTurn === "function") {
       try {
         await provider.interruptTurn(threadId, turnId);
@@ -189,6 +191,7 @@ export async function deleteCodexAppServerHelperThread({ provider, threadId, tur
       interruptError = new Error("Codex provider cannot interrupt an active helper turn.");
     }
   }
+  // readable-check: allow method-probe - input validation: a caller's provider that cannot delete threads gets a refusal, not a failure
   if (typeof provider?.deleteThread !== "function") {
     return { ok: false, error: new Error("Codex provider cannot delete a helper thread."), interruptError };
   }
@@ -258,6 +261,7 @@ export async function ensureCodexAppServerThread({
   }
   const normalizedWorkdir = normalizeAgentText(workdir);
   let stageStartedAt = Date.now();
+  // readable-check: allow method-probe - input validation: a caller of this public step may pass a provider that only ensures its runtime
   const availability = typeof provider.ensureAvailable === "function"
     ? await provider.ensureAvailable()
     : null;
@@ -266,6 +270,7 @@ export async function ensureCodexAppServerThread({
   const existingThreadId = identity.read(normalizedWorkdir);
   const toolConfiguration = applicationTools ? codexApplicationToolConfiguration(applicationTools) : null;
   if (toolConfiguration) {
+    // readable-check: allow method-probe - input validation: bound application tools need the caller's schema identity reader
     if (typeof identity.readToolSchemaIdentity !== "function") throw new TypeError("Bound Codex application tools require the original schema identity reader and writer.");
     assertCodexApplicationToolSchemaIdentity(existingThreadId, await identity.readToolSchemaIdentity(normalizedWorkdir), toolConfiguration.toolSchemaIdentity);
   }
@@ -336,11 +341,12 @@ export function codexAppServerThreadRequestParams(params = {}, threadEnv = {}) {
   };
 }
 
-export function normalizeAgentThread(value = {}) {
+function normalizeAgentThread(value = {}) {
   const thread = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   return {
     id: normalizeAgentText(thread.id || thread.threadId),
     provider: normalizeAgentText(thread.provider),
+    // readable-check: allow no-dual-shape - data: a thread record arrives with Codex's raw thread or is that raw thread
     raw: thread.raw || thread
   };
 }
@@ -349,6 +355,7 @@ export function normalizeAgentThread(value = {}) {
 export async function startThread(provider, { hostContext, ...params } = {}) {
   params = await provider.conversationRuntime.prepareInstructions({ ...params, hostContext });
   delete params.hostContext;
+  // readable-check: allow optional-call - optional operation: an application may adjust thread parameters through its provider options
   params = await provider.options.prepareThreadParams?.(params) || params;
   const client = await provider.activeClient();
   params = await provider.withHistoryAdapter(params, client);
@@ -402,7 +409,9 @@ export async function resumeThread(provider, threadId = "", { hostContext, ...pa
   if (hostContext) await provider.options.bindThreadContext(threadId, hostContext, params);
   params = await provider.conversationRuntime.prepareInstructions({ ...params, hostContext }, threadId);
   delete params.hostContext;
+  // readable-check: allow optional-call - optional operation: an application may adjust thread parameters through its provider options
   params = await provider.options.prepareThreadParams?.(params) || params;
+  // readable-check: allow optional-call - optional operation: only owner and driver providers check a thread before resuming it
   await provider.options.beforeResumeThread?.(threadId);
   const client = await provider.activeClient();
   let response;
@@ -502,6 +511,7 @@ export async function updateThreadSettings(provider, threadId, { model, effort }
   const client = await provider.activeClient();
   threadId = normalizeAgentText(threadId);
   const requested = { model, effort, ...(effort ? { config: { model_reasoning_effort: effort } } : {}) };
+  // readable-check: allow optional-call - optional operation: an application may adjust thread parameters through its provider options
   const params = await provider.options.prepareThreadParams?.(requested) || requested;
   const update = async selected => {
     const current = await provider.activeClient();
@@ -605,6 +615,7 @@ export async function readThread(provider, threadId = "") {
     ...normalizeAgentThread({
       id: response?.thread?.id || threadId,
       provider: CODEX_APP_SERVER_PROVIDER_ID,
+      // readable-check: allow no-dual-shape - data: Codex replies to thread/read with the thread wrapped or bare
       raw: response?.thread || response
     }),
     response
@@ -625,6 +636,7 @@ export async function readThreadStatus(provider, threadId = "") {
     ...normalizeAgentThread({
       id: response?.thread?.id || threadId,
       provider: CODEX_APP_SERVER_PROVIDER_ID,
+      // readable-check: allow no-dual-shape - data: Codex replies to thread/read with the thread wrapped or bare
       raw: response?.thread || response
     }),
     response

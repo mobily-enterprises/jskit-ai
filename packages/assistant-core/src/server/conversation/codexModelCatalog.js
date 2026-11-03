@@ -9,8 +9,10 @@ export function codexAppServerModelCatalogError(message = "", errorPrefix = "") 
 }
 
 export function codexAppServerProviderConnectionGeneration(provider = null) {
+  // readable-check: allow method-probe - input validation: a provider reports its connection generation as a method or a field, and this reads either
   const generation = typeof provider?.currentConnectionGeneration === "function"
     ? provider.currentConnectionGeneration()
+    // readable-check: allow method-probe - input validation: a provider reports its connection generation as a method or a field, and this reads either
     : typeof provider?.connectionGeneration === "function"
       ? provider.connectionGeneration()
       : provider?.connectionGeneration;
@@ -40,6 +42,7 @@ export function createCodexAppServerModelCatalogCache({
 } = {}) {
   const codexAppServerModelCatalogs = new WeakMap();
   return async function readCodexAppServerModelCatalog(provider, { signal = null } = {}) {
+    // readable-check: allow method-probe - safety invariant: a provider without live model discovery is refused with codex_model_catalog_unavailable
     if (typeof provider.listModels !== "function") {
       const error = new Error("Codex live model discovery is unavailable.");
       error.code = `${errorPrefix}codex_model_catalog_unavailable`;

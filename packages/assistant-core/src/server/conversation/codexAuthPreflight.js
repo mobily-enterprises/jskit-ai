@@ -30,6 +30,7 @@ function codexAuthPreflightArgs() {
 
 async function runCodexAuthPreflight({
   codexCommand = "codex",
+  // readable-check: allow no-env-default - input validation: a caller's preflight options may omit env, and the preflight then runs in the process environment
   env = process.env,
   executionRoot = "",
   runtimeDir = "",

@@ -13,11 +13,11 @@ import { normalizeCodexRunText as normalizeText } from "./codexTurnState.js";
 // grouped by owner without duplicating it.
 export const codexAppServerProviders = new Map();
 export const codexAppServerOwnedRuntimes = new Map();
-export const codexAppServerRuntimeLifecycles = new Map();
+const codexAppServerRuntimeLifecycles = new Map();
 // Runtimes an account change left running a turn, by native runtime identity.
 export const codexAppServerStaleRuntimes = new Map();
 
-export function codexAppServerOwnedRuntimeKey(providerKey = "", providerOptions = {}) {
+export function codexAppServerOwnedRuntimeKey(providerKey = "", providerOptions) {
   const runtimeDir = normalizeText(providerOptions?.runtimeDir);
   return runtimeDir
     ? `runtime:${path.resolve(runtimeDir)}`
@@ -60,7 +60,7 @@ export function releaseSupersededCodexRuntime(runtimeDir = "") {
   });
 }
 
-export function codexAppServerRuntimeStopWasVerified(result = {}) {
+export function codexAppServerRuntimeStopWasVerified(result) {
   return result?.stopped === true ||
     result?.processExitVerified === true ||
     result?.runtimeDirRemoved === true;
@@ -94,7 +94,7 @@ export function nativeRequest(client, method, params) {
 // The loaded threads of one native runtime that have a running turn, read from
 // the runtime itself so Temporary, Main and native terminal turns all count.
 export async function runningNativeThreads(peers) {
-  const client = peers.find(record => record.provider.client?.isOpen?.())?.provider.client;
+  const client = peers.find(record => record.provider.client?.isOpen())?.provider.client;
   if (!client) return [];
   const running = [];
   const seen = new Set();

@@ -10,11 +10,11 @@ import { interruptNativeTurn, stopCommandExecution } from "./codexProviderTurns.
 
 /** @typedef {import("./codexProvider.js").CodexAppServerAgentProvider} CodexAppServerAgentProvider */
 
-export const CODEX_APP_SERVER_HELPER_MAX_MESSAGE_BYTES = 4 * 1024 * 1024;
+const CODEX_APP_SERVER_HELPER_MAX_MESSAGE_BYTES = 4 * 1024 * 1024;
 
-export const CODEX_APP_SERVER_SERVER_INFO_USER_AGENT_MAX_LENGTH = 512;
+const CODEX_APP_SERVER_SERVER_INFO_USER_AGENT_MAX_LENGTH = 512;
 
-export function normalizeCodexAppServerInfo(initializeResult = null) {
+function normalizeCodexAppServerInfo(initializeResult = null) {
   if (!isRecord(initializeResult)) {
     return null;
   }
@@ -32,7 +32,7 @@ export function normalizeCodexAppServerInfo(initializeResult = null) {
   });
 }
 
-export function codexPlanUsage(limits = {}) {
+function codexPlanUsage(limits) {
   if (limits?.limitId && limits.limitId !== "codex") return { status: "unavailable", windows: [], checkedAt: Date.now() };
   const windows = ["primary", "secondary"].flatMap((id) => {
     const value = limits?.[id];
@@ -63,11 +63,13 @@ export async function ensureRuntime(provider) {
   }
 }
 
-// An account change leaves a runtime that is still working on the
-// credentials it started with. Codex reads them once, so this provider
-// finishes its running turn on them and then stops; it never re-checks,
-// replaces or restarts its runtime, and never marks the new account invalid.
-/** @param {CodexAppServerAgentProvider} provider */
+/**
+ * An account change leaves a runtime that is still working on the
+ * credentials it started with. Codex reads them once, so this provider
+ * finishes its running turn on them and then stops; it never re-checks,
+ * replaces or restarts its runtime, and never marks the new account invalid.
+ * @param {CodexAppServerAgentProvider} provider
+ */
 export function markStale(provider) {
   provider.stale = true;
 }
@@ -157,7 +159,7 @@ export async function stopRuntimeAndRequireDrain(provider, reason = "codex-app-s
 /** @param {CodexAppServerAgentProvider} provider */
 export async function connect(provider) {
   if (provider.observationFailure) throw provider.observationFailure;
-  if (provider.client?.isOpen?.() && provider.runtime) {
+  if (provider.client?.isOpen() && provider.runtime) {
     return {
       initializeResult: null,
       reusedClient: true,
@@ -180,7 +182,7 @@ export async function connect(provider) {
 
 /** @param {CodexAppServerAgentProvider} provider */
 export async function openConnection(provider) {
-  if (provider.client?.isOpen?.() && provider.runtime) {
+  if (provider.client?.isOpen() && provider.runtime) {
     return {
       initializeResult: null,
       reusedClient: true,
@@ -188,14 +190,14 @@ export async function openConnection(provider) {
     };
   }
   const runtime = await provider.ensureRuntime();
-  if (provider.client?.isOpen?.()) {
+  if (provider.client?.isOpen()) {
     return {
       initializeResult: null,
       reusedClient: true,
       runtime
     };
   }
-  provider.client?.close?.();
+  provider.client?.close();
   provider.client = null;
   provider.initializeResult = null;
   const client = new CodexAppServerJsonRpcClient({
@@ -406,7 +408,7 @@ export async function currentHelperExecutionContext(provider) {
 /** @param {CodexAppServerAgentProvider} provider */
 export async function activeClient(provider) {
   if (provider.observationFailure) throw provider.observationFailure;
-  if (provider.client?.isOpen?.()) {
+  if (provider.client?.isOpen()) {
     return provider.client;
   }
   await provider.connect();
@@ -452,7 +454,7 @@ export async function ensureAvailable(provider, { modelProviderId = "" } = {}) {
 /** @param {CodexAppServerAgentProvider} provider */
 export async function readPlanUsage(provider) {
   const client = provider.client;
-  if (!client?.isOpen?.()) return { status: "unavailable", windows: [] };
+  if (!client?.isOpen()) return { status: "unavailable", windows: [] };
   if (provider.planUsage && Date.now() - provider.planUsage.checkedAt < 60_000) return provider.planUsage;
   if (provider.planUsagePending) return provider.planUsagePending;
   const previous = provider.planUsage;
@@ -489,6 +491,7 @@ export function failObservation(provider, cause) {
     new Error(message, { cause }),
     { code: `${provider.errorPrefix}codex_observation_lost` }
   );
+  // readable-check: allow optional-call - optional operation: only a provider an owner creates is told when its observation is lost
   return provider.options.onObservationLost?.(provider.observationFailure);
 }
 
@@ -530,12 +533,12 @@ export function setServerRequestHandler(provider, callback) {
   const handler = typeof callback === "function" ? callback : null;
   provider.serverRequestHandler = handler;
   const client = provider.client;
-  client?.setRequestHandler?.((request) => provider.handleServerRequest(request, client));
+  client?.setRequestHandler((request) => provider.handleServerRequest(request, client));
   return () => {
     if (provider.serverRequestHandler === handler) {
       provider.serverRequestHandler = null;
       const client = provider.client;
-      client?.setRequestHandler?.((request) => provider.handleServerRequest(request, client));
+      client?.setRequestHandler((request) => provider.handleServerRequest(request, client));
     }
   };
 }
@@ -551,7 +554,7 @@ export function registerThreadRequestHandler(provider, threadId, handler) {
     ? request => runInContext(() => handler(request)) : handler };
   provider.threadRequestHandlers.set(threadId, registration);
   const client = provider.client;
-  client?.setRequestHandler?.(request => provider.handleServerRequest(request, client));
+  client?.setRequestHandler(request => provider.handleServerRequest(request, client));
   return Object.freeze({
     isCurrent: () => provider.threadRequestHandlers.get(threadId) === registration,
     release: () => {
@@ -562,6 +565,7 @@ export function registerThreadRequestHandler(provider, threadId, handler) {
 
 /** @param {CodexAppServerAgentProvider} provider */
 export function close(provider) {
+  // readable-check: allow optional-call - optional operation: only a provider an owner creates with thread controls is told when it closes
   provider.options.onClose?.();
   for (const reject of provider.settingsWaiters) reject(new Error("The assistant connection closed before confirming its settings."));
   provider.settingsWaiters.clear();

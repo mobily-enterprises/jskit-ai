@@ -2464,6 +2464,7 @@ test("held lifecycle catalogue work does not block another owner's runtime stop 
   }) });
   const acquiredProvider = other.createProvider({ providerKey: "b-acquire", providerOptions: acquireOptions, create: () => ({
     async ensureRuntime() { events.push("b-acquire"); return {}; },
+    ensureAvailable() { return this.ensureRuntime(); },
     async stopRuntime() { return { stopped: true }; }, close() {}
   }) });
   const catalogue = first.readModelCatalog({ prepareProviderOptions: async () => firstOptions,

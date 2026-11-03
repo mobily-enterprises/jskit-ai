@@ -7,9 +7,9 @@ import { tailTextFile } from "./codexProcess.js";
 
 export const codexAppServerHelperAuthError = createCodexAccountReader().error;
 
-export const CODEX_APP_SERVER_CHATGPT_REFRESH_METHOD = "account/chatgptAuthTokens/refresh";
+const CODEX_APP_SERVER_CHATGPT_REFRESH_METHOD = "account/chatgptAuthTokens/refresh";
 
-export function codexAppServerHelperLoginParams(auth = {}, errorPrefix = "") {
+function codexAppServerHelperLoginParams(auth = {}, errorPrefix = "") {
   if (auth.authMode === "chatgpt") {
     return {
       accessToken: auth.accessToken,
@@ -30,11 +30,11 @@ export function codexAppServerHelperLoginParams(auth = {}, errorPrefix = "") {
   );
 }
 
-export function codexAppServerHelperLoginResponseType(auth = {}) {
+function codexAppServerHelperLoginResponseType(auth = {}) {
   return auth.authMode === "chatgpt" ? "chatgptAuthTokens" : "apiKey";
 }
 
-export function codexAppServerHelperAccountType(auth = {}) {
+function codexAppServerHelperAccountType(auth = {}) {
   return auth.authMode === "chatgpt" ? "chatgpt" : "apiKey";
 }
 
@@ -205,7 +205,7 @@ export async function handleServerRequest(provider, request = {}, sourceClient =
     }
     return threadHandler.handler(request);
   }
-  if (typeof provider.serverRequestHandler === "function") {
+  if (provider.serverRequestHandler) {
     return provider.serverRequestHandler(request);
   }
   const error = new Error("Codex app-server request is not supported by this client.");
@@ -215,6 +215,7 @@ export async function handleServerRequest(provider, request = {}, sourceClient =
 
 /** @param {CodexAppServerAgentProvider} provider */
 export async function preflightAuth(provider, reason = "codex-auth-preflight", modelProviderId = "") {
+  // readable-check: allow optional-call - optional operation: an application may prepare external authentication through its provider options
   if (await provider.options.prepareAuth?.(modelProviderId) === "external") {
     await provider.assertRuntimeAuthReady(reason);
     return;

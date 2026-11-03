@@ -10,9 +10,9 @@ import { normalizeCodexRunText as normalizeText } from "./codexTurnState.js";
  * Stops cached providers and releases what sessions and projects leave behind.
  * @param {object} dependencies
  * @param {Map<string, object>} dependencies.records
- * @param {ReturnType<typeof import("./codexProviderOwner.js").createCodexAppServerProviderOwner>["providers"]} dependencies.providers
- * @param {ReturnType<typeof import("./codexProviderOwner.js").createCodexAppServerProviderOwner>["providerOwners"]} dependencies.providerOwners
- * @param {ReturnType<typeof import("./codexProviderOwner.js").createCodexAppServerProviderOwner>["ownedRuntimes"]} dependencies.ownedRuntimes
+ * @param {import("./codexProviderOwner.js").CodexAppServerProviderOwner["providers"]} dependencies.providers
+ * @param {import("./codexProviderOwner.js").CodexAppServerProviderOwner["providerOwners"]} dependencies.providerOwners
+ * @param {import("./codexProviderOwner.js").CodexAppServerProviderOwner["ownedRuntimes"]} dependencies.ownedRuntimes
  * @param {<T>(operation: () => T, providerKey?: string, providerOptions?: object | null) => Promise<Awaited<T>>} dependencies.withLifecycle
  * @param {(providerKey: string, providerOptions: object) => boolean} dependencies.runtimeIsShared
  * @param {(provider: object) => void} dependencies.forgetOwnedRuntime
@@ -51,6 +51,7 @@ export function createCodexProviderRelease({
         stopped: false
       };
     }
+    // readable-check: allow optional-call - optional operation: a driver's resources have no retire step, and a borrowed provider has no resources
     await records.get(normalizedProviderKey)?.resources?.retire?.(provider);
     const sharedProcessRetained = runtimeIsShared(
       normalizedProviderKey, providerOwners.get(normalizedProviderKey)?.providerOptions
@@ -64,6 +65,7 @@ export function createCodexProviderRelease({
         stopped: false
       };
     }
+    // readable-check: allow method-probe - safety invariant: a provider that cannot stop would leave its process running unverified
     if (typeof provider.stopRuntime !== "function") {
       closeProvider(normalizedProviderKey);
       throw new Error("Codex app-server provider must implement stopRuntime().");
@@ -317,7 +319,7 @@ export function createCodexProviderRelease({
     // Never prepare new controls while releasing a retained connection.
     const provider = [...records.values()].find(record =>
       record.owner.sessionKey === sessionKey && record.owner.workdir === normalizeText(workdir))?.provider;
-    if (!provider || typeof provider.unsubscribeThread !== "function") {
+    if (!provider) {
       return { ok: true, providerOptions, sessionId, status: "notSubscribed" };
     }
     const result = await provider.unsubscribeThread(threadId);

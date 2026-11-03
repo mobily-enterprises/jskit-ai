@@ -128,11 +128,12 @@ export function codexCliResumeCommand({
   };
 }
 
-export function normalizeAgentTurn(value = {}) {
+function normalizeAgentTurn(value = {}) {
   const turn = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   return {
     id: normalizeAgentText(turn.id || turn.turnId),
     provider: normalizeAgentText(turn.provider),
+    // readable-check: allow no-dual-shape - data: a turn record arrives with Codex's raw turn or is that raw turn
     raw: turn.raw || turn,
     status: normalizeAgentText(turn.status || turn.raw?.status)
   };
@@ -140,7 +141,7 @@ export function normalizeAgentTurn(value = {}) {
 
 // The one reading of a sendTurn delivery. Its turn is already normalized; the
 // provider's own error stays on the raw native turn.
-export function codexAppServerDeliveredTurn(delivery = {}) {
+export function codexAppServerDeliveredTurn(delivery) {
   const turn = delivery?.turn || {};
   return {
     turnId: normalizeAgentText(turn.id),
@@ -166,6 +167,7 @@ export async function sendTurn(provider, threadId = "", input = [], params = {},
     ...normalizeAgentTurn({
       id: response?.turn?.id || response?.turnId,
       provider: CODEX_APP_SERVER_PROVIDER_ID,
+      // readable-check: allow no-dual-shape - data: Codex replies to a turn request with the turn wrapped or bare
       raw: response?.turn || response
     }),
     response
@@ -188,6 +190,7 @@ export async function steerTurn(provider, threadId = "", turnId = "", input = []
     ...normalizeAgentTurn({
       id: response?.turn?.id || response?.turnId || turnId,
       provider: CODEX_APP_SERVER_PROVIDER_ID,
+      // readable-check: allow no-dual-shape - data: Codex replies to a turn request with the turn wrapped or bare
       raw: response?.turn || response
     }),
     response

@@ -10,6 +10,7 @@ import * as providerInventories from "./codexProviderInventories.js";
 import * as providerTurns from "./codexProviderTurns.js";
 
 export class CodexAppServerAgentProvider {
+  // readable-check: allow dependency-default - input validation: a provider built without a native host description has an empty one
   constructor(options = {}, host = {}) {
     this.host = host;
     this.credentials = host.credentials;
@@ -44,15 +45,20 @@ export class CodexAppServerAgentProvider {
     this.serverRequestHandler = null;
     this.threadRequestHandlers = new Map();
     this.conversationRuntime = createCodexConversationAdapter({
+      // readable-check: allow optional-call - optional operation: only a driver conversation's provider supplies developer instructions
       readInstructions: (params, threadId) => this.options.readInstructions?.(params, threadId),
       client: () => this.activeClient(),
       runtime: () => this.runtime,
       runRequest: (run, reason) => this.runRequest(run, reason),
       timeoutMs: options.threadControlTimeoutMs,
       environment: options.threadEnv,
+      // readable-check: allow optional-call - optional operation: only a driver conversation's provider prepares its thread environment
       prepareEnvironment: (environment) => this.options.prepareThreadEnvironment?.(environment) || environment,
+      // readable-check: allow optional-call - optional operation: an application may adjust new thread parameters through its provider options
       prepareParameters: (params) => this.options.prepareThreadParams?.(params),
+      // readable-check: allow optional-call - optional operation: only owner and driver providers prepare a thread resume
       prepareResume: (id, params, context) => this.options.prepareThreadResumeParams?.(id, params, context),
+      // readable-check: allow optional-call - optional operation: only owner and driver providers check a thread before resuming it
       beforeResume: (id) => this.options.beforeResumeThread?.(id),
       prepareHistory: (params, client, context) => this.withHistoryAdapter(params, client, context),
       threadParameters: codexAppServerThreadRequestParams,
@@ -69,6 +75,7 @@ export class CodexAppServerAgentProvider {
         }
       },
       publishGoal: (threadId, goal) => this.publishNotification({ method: "thread/goal/updated", params: { threadId, goal } }),
+      // readable-check: allow optional-call - optional operation: a native host may supply a log, and the driver's host has none
       log: (event, fields, context) => host.log?.(event, fields, {
         ...context, connectionGeneration: this.connectionGeneration
       })
@@ -177,7 +184,7 @@ export class CodexAppServerAgentProvider {
   }
 
   isAvailable() {
-    return Boolean(this.client?.isOpen?.() && this.runtime);
+    return Boolean(this.client?.isOpen() && this.runtime);
   }
 
   activeClient() {

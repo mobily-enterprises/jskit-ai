@@ -27,8 +27,8 @@ const nativeInput = input => [
  * @param {object} dependencies.conversation
  * @param {string} dependencies.sessionId
  * @param {string} dependencies.providerKey
- * @param {ReturnType<typeof import("../codexProviderOwner.js").createCodexAppServerProviderOwner>} dependencies.providerOwner
- * @param {ReturnType<typeof import("../codexTurn.js").createCodexAppServerRunOwner>} dependencies.owner
+ * @param {import("../codexProviderOwner.js").CodexAppServerProviderOwner} dependencies.providerOwner
+ * @param {import("../codexRuntimeLifecycle.js").CodexRunOwner} dependencies.owner
  * @param {object} dependencies.runtime
  * @param {(update: (binding: object) => object) => Promise<void>} dependencies.updateBinding
  * @param {() => Promise<void>} dependencies.drainNotifications
@@ -52,7 +52,8 @@ export function createCodexDriverTurns({
   function deliveryInput(input, beforeDispatch, rejected) {
     if (supplied) return { ...input.nativeMessage,
       onPromptSending: beforeDispatch,
-      onPromptRejected: async () => { await input.nativeMessage.onPromptRejected?.(); await rejected?.(); } };
+      // readable-check: allow optional-call - optional operation: a supplied native message may carry its own rejection step
+      onPromptRejected: async () => { await input.nativeMessage.onPromptRejected?.(); await rejected(); } };
     return { messageId: input.messageId, message: input.text,
       displayMessage: input.authoredInput?.text ?? input.text,
       displayAttachments: input.attachments, attachments: input.localFiles,
@@ -301,6 +302,7 @@ export function createCodexDriverTurns({
             }
             owned = true;
             const failure = provider.observationFailure;
+            // readable-check: allow no-dual-shape - data: a lost observation's failure wraps its cause or is the cause itself
             if (failure) ownership.reject(failure.cause || failure);
             else ownership.resolve(params.turnId === active.turnId);
           });
@@ -332,6 +334,7 @@ export function createCodexDriverTurns({
     active.providerReady = async ({ provider, threadId }) => {
       signal.throwIfAborted();
       if (!threadId) return;
+      // readable-check: allow method-probe - input validation: bound application tools need the conversation's schema identity reader
       if (typeof conversation.identity?.readToolSchemaIdentity !== "function") {
         throw new TypeError("Bound Codex application tools require the original schema identity reader and writer.");
       }
