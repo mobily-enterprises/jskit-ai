@@ -2,6 +2,7 @@ import { filterRoutesBySurface } from "../shared/surface/runtime.js";
 import { isExternalLinkTarget } from "../shared/support/linkPath.js";
 import { AUTH_POLICY_AUTHENTICATED, AUTH_POLICY_PUBLIC } from "../shared/support/policies.js";
 import { isRecord } from "../shared/support/normalize.js";
+import { pageWindow } from "./browser.js";
 
 const DEFAULT_GUARD_EVALUATOR_KEY = "__JSKIT_WEB_SHELL_GUARD_EVALUATOR__";
 const WEB_ROOT_ALLOW_YES = "yes";
@@ -24,21 +25,21 @@ function createFallbackNotFoundRoute(component) {
   });
 }
 
+/**
+ * The routes of the surface mode, the fallback route last.
+ * @param {object} options
+ * @param {readonly import("./types.js").ClientRouteRecord[]} options.routes
+ * @param {import("./types.js").ClientSurfaceRuntime} options.surfaceRuntime
+ * @param {import("./types.js").ClientSurfaceMode} options.surfaceMode
+ * @param {import("./types.js").ClientRouteRecord} options.fallbackRoute
+ */
 function buildSurfaceAwareRoutes({
-  routes = [],
+  routes,
   surfaceRuntime,
   surfaceMode,
-  fallbackRoute,
-  notFoundComponent
-} = {}) {
-  const effectiveFallback =
-    fallbackRoute ||
-    (notFoundComponent ? createFallbackNotFoundRoute(notFoundComponent) : null);
-
-  if (!effectiveFallback) {
-    throw new TypeError("buildSurfaceAwareRoutes requires fallbackRoute or notFoundComponent.");
-  }
-  return filterRoutesBySurface([...routes, effectiveFallback], {
+  fallbackRoute
+}) {
+  return filterRoutesBySurface([...routes, fallbackRoute], {
     surfaceRuntime,
     surfaceMode
   });
@@ -132,18 +133,6 @@ function resolveEffectiveRouteGuard({ to, surfaceRuntime, authenticatedPolicy, p
   };
 }
 
-function resolveGuardEvaluator(guardEvaluatorKey) {
-  if (typeof globalThis !== "object" || !globalThis) {
-    return null;
-  }
-
-  const evaluator = globalThis[guardEvaluatorKey];
-  if (typeof evaluator !== "function") {
-    return null;
-  }
-  return evaluator;
-}
-
 function normalizeGuardOutcome(outcome) {
   if (outcome === false) {
     return {
@@ -169,7 +158,7 @@ function normalizeGuardOutcome(outcome) {
 }
 
 function evaluateShellGuard({ guard, to, guardEvaluatorKey }) {
-  const evaluator = resolveGuardEvaluator(guardEvaluatorKey);
+  const evaluator = globalThis[guardEvaluatorKey];
   if (!evaluator) {
     return {
       allow: true,
@@ -204,23 +193,18 @@ function evaluateShellGuard({ guard, to, guardEvaluatorKey }) {
   }
 }
 
+/**
+ * The shell's router guard: it redirects the web root an application disallows, and asks the application's guard
+ * evaluator about routes that need authentication.
+ * @param {{ surfaceRuntime: import("./types.js").ClientSurfaceRuntime } & import("./types.js").ShellGuardOptions} options
+ */
 function createShellBeforeEachGuard({
   surfaceRuntime,
   webRootAllowed = WEB_ROOT_ALLOW_YES,
   guardEvaluatorKey = DEFAULT_GUARD_EVALUATOR_KEY,
   authenticatedPolicy = AUTH_POLICY_AUTHENTICATED,
   publicPolicy = AUTH_POLICY_PUBLIC
-} = {}) {
-  if (
-    !surfaceRuntime ||
-    typeof surfaceRuntime.resolveSurfaceFromPathname !== "function" ||
-    typeof surfaceRuntime.getSurfaceDefinition !== "function"
-  ) {
-    throw new TypeError(
-      "createShellBeforeEachGuard requires surfaceRuntime.resolveSurfaceFromPathname() and getSurfaceDefinition()."
-    );
-  }
-
+}) {
   const defaultSurfaceRootPath =
     surfaceRuntime.getSurfaceDefinition(surfaceRuntime.DEFAULT_SURFACE_ID)?.routeBase || "/";
   const redirectWebRoot = normalizeWebRootAllowed(webRootAllowed) === WEB_ROOT_ALLOW_NO && defaultSurfaceRootPath !== "/";
@@ -253,9 +237,7 @@ function createShellBeforeEachGuard({
 
     if (outcome.redirectTo) {
       if (isExternalLinkTarget(outcome.redirectTo)) {
-        if (typeof window === "object" && window?.location && typeof window.location.assign === "function") {
-          window.location.assign(outcome.redirectTo);
-        }
+        pageWindow()?.location.assign(outcome.redirectTo);
         return false;
       }
       return outcome.redirectTo;

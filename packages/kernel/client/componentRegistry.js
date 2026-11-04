@@ -37,7 +37,12 @@ function createClientComponentRegistry() {
     return Object.freeze([...components.keys()].sort());
   }
 
-  const api = Object.freeze({ register, has, get, ids });
+  const api = Object.freeze({
+    register,
+    has,
+    get,
+    ids
+  });
   return api;
 }
 

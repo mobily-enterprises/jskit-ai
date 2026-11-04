@@ -1,4 +1,5 @@
 import { isRecord } from "../shared/support/normalize.js";
+import { pageWindow } from "./browser.js";
 
 const DYNAMIC_IMPORT_ERROR_PATTERNS = Object.freeze([
   /ChunkLoadError/iu,
@@ -70,7 +71,7 @@ function createAsyncModuleRecoveryState({
     message: String(message || "").trim(),
     messageCode: "",
     messageParams: {},
-    retry: typeof retry === "function" ? retry : null,
+    retry,
     stale: false,
     visible: false
   };
@@ -105,7 +106,7 @@ function notifyAsyncModuleLoadError(state, error = null, {
     });
   state.messageCode = coded.messageCode;
   state.messageParams = coded.messageParams;
-  state.retry = typeof retry === "function" ? retry : null;
+  state.retry = retry;
   state.stale = Boolean(stale);
   state.visible = true;
   return state;
@@ -120,9 +121,20 @@ function dismissAsyncModuleRecovery(state) {
   return true;
 }
 
+/**
+ * Reloads the page once the server answers for it; until then the page stays, and state shows why.
+ * @param {object} [options]
+ * @param {Window | null} [options.browserWindow] The page's window; without one there is nothing to reload.
+ * @param {typeof fetch} [options.fetchFn]
+ * @param {import("./types.js").AsyncModuleRecoveryState | null} [options.state]
+ * @param {string} [options.label]
+ * @param {string} [options.message]
+ * @param {string} [options.messageCode]
+ * @param {Record<string, unknown>} [options.messageParams]
+ */
 async function guardedReloadApp({
-  browserWindow = typeof window !== "undefined" ? window : null,
-  fetchFn = typeof fetch === "function" ? fetch : null,
+  browserWindow = pageWindow(),
+  fetchFn = globalThis.fetch,
   state = null,
   label = "App",
   message = RELOAD_UNAVAILABLE.message,
@@ -131,10 +143,6 @@ async function guardedReloadApp({
 } = {}) {
   if (!browserWindow?.location) {
     return false;
-  }
-  if (typeof fetchFn !== "function") {
-    browserWindow.location.reload();
-    return true;
   }
 
   try {
@@ -166,42 +174,43 @@ async function guardedReloadApp({
   }
 }
 
+/**
+ * Notifies state of a dynamic import that failed in a navigation or as an unhandled rejection, until disposed.
+ * @param {object} options
+ * @param {import("./types.js").ClientRouter} options.router
+ * @param {import("./types.js").AsyncModuleRecoveryState} options.state
+ * @param {string} [options.label]
+ * @param {(state: import("./types.js").AsyncModuleRecoveryState) => void} options.onNotify
+ * @param {Window | null} [options.windowObject] The page's window; outside a browser only the router is watched.
+ */
 function installAsyncModuleRecoveryHandlers({
-  router = null,
+  router,
   state,
   label = "App module",
-  onNotify = null,
-  windowObject = typeof window !== "undefined" ? window : null
-} = {}) {
+  onNotify,
+  windowObject = pageWindow()
+}) {
   if (!isRecord(state)) {
     throw new TypeError("installAsyncModuleRecoveryHandlers requires a mutable recovery state object.");
   }
 
   const disposers = [];
-  const notify = typeof onNotify === "function" ? onNotify : () => null;
 
-  if (router && typeof router.onError === "function") {
-    const removeRouterHandler = router.onError((error, to = {}) => {
-      if (!isDynamicImportError(error)) {
-        return;
-      }
-
-      const fullPath = String(to?.fullPath || "");
-      notifyAsyncModuleLoadError(state, error, {
-        label: "Page",
-        retry: fullPath && typeof router.replace === "function"
-          ? () => router.replace(fullPath)
-          : null,
-        stale: true
-      });
-      notify(state);
-    });
-    if (typeof removeRouterHandler === "function") {
-      disposers.push(removeRouterHandler);
+  disposers.push(router.onError((error, to) => {
+    if (!isDynamicImportError(error)) {
+      return;
     }
-  }
 
-  if (windowObject && typeof windowObject.addEventListener === "function") {
+    const fullPath = String(to.fullPath || "");
+    notifyAsyncModuleLoadError(state, error, {
+      label: "Page",
+      retry: fullPath ? () => router.replace(fullPath) : null,
+      stale: true
+    });
+    onNotify(state);
+  }));
+
+  if (windowObject) {
     const handler = (event) => {
       const error = event?.reason;
       if (!isDynamicImportError(error)) {
@@ -211,11 +220,11 @@ function installAsyncModuleRecoveryHandlers({
         label,
         stale: true
       });
-      notify(state);
+      onNotify(state);
     };
     windowObject.addEventListener("unhandledrejection", handler);
     disposers.push(() => {
-      windowObject.removeEventListener?.("unhandledrejection", handler);
+      windowObject.removeEventListener("unhandledrejection", handler);
     });
   }
 

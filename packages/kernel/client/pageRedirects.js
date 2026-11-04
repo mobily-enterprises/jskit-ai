@@ -30,14 +30,14 @@ function queryStringToObject(queryString = "") {
 function redirectToChild(childTarget = "") {
   const normalizedChildTarget = String(childTarget || "").trim();
 
-  return function redirectToChildRoute(to = {}) {
-    const resolvedTarget = resolveLinkPath(String(to?.path || "/"), normalizedChildTarget);
+  return function redirectToChildRoute(to) {
+    const resolvedTarget = resolveLinkPath(String(to.path || "/"), normalizedChildTarget);
     const { pathname, queryString, hash } = splitPathQueryAndHash(resolvedTarget);
 
     return {
       path: pathname || "/",
-      query: queryStringToObject(queryString) ?? to?.query,
-      hash: hash || String(to?.hash || "")
+      query: queryStringToObject(queryString) ?? to.query,
+      hash: hash || String(to.hash || "")
     };
   };
 }

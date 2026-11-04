@@ -1192,6 +1192,7 @@ Exports
 - `conversationContinuity({ history, briefing = "", maximumCharacters = 128_000 })`
 - `conversationNativeMessages(history)`
 Local functions
+- `distinctMessages(messages)`
 - `logNothing()`
 - `writtenMessages(history, native = false)`
 

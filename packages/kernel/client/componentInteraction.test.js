@@ -2,13 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createComponentInteractionEmitter } from "./componentInteraction.js";
 
-test("createComponentInteractionEmitter requires emit function", () => {
-  assert.throws(
-    () => createComponentInteractionEmitter(null),
-    /expects emit to be a function/
-  );
-});
-
 test("createComponentInteractionEmitter emits interaction payload", () => {
   const events = [];
   const helpers = createComponentInteractionEmitter((name, payload) => {

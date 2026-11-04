@@ -89,6 +89,26 @@ test("createSurfaceShellRouter lets an app replace or disable the scroll behavio
   assert.equal(Object.hasOwn(seen[1], "scrollBehavior"), false);
 });
 
+test("createSurfaceShellRouter installs an application's own guard function as it is given", () => {
+  const ownGuard = () => true;
+  const guards = [];
+  createSurfaceShellRouter({
+    createRouter() {
+      return {
+        beforeEach(guard) {
+          guards.push(guard);
+        }
+      };
+    },
+    routes: [],
+    surfaceRuntime: createSurfaceRuntimeFixture(),
+    surfaceMode: "app",
+    notFoundComponent: {},
+    guard: ownGuard
+  });
+  assert.deepEqual(guards, [ownGuard]);
+});
+
 test("shellScrollBehavior opens new screens at the top and keeps in-page changes still", () => {
   const surface = { path: "/home", meta: { jskit: { surface: "home" } } };
   const settings = { path: "/home/settings", meta: {} };

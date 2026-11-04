@@ -21,12 +21,13 @@ export function resolveClientBootstrapDebugEnabled(options?: {
 
 export function shellScrollBehavior(to: any, from: any, savedPosition: any): any;
 
-export function createShellRouter(options?: {
+export function createShellRouter(options: {
   createRouter: (options: { history?: any; routes: any[]; scrollBehavior?: (to: any, from: any, savedPosition: any) => any }) => any;
-  history?: any;
-  routes?: any[];
+  history: any;
+  routes: any[];
   surfaceRuntime: any;
-  surfaceMode?: string;
+  surfaceMode: string;
+  /** Replaces the not-found route built from notFoundComponent; one of the two is needed. */
   fallbackRoute?: any;
   notFoundComponent?: any;
   guard?:
@@ -46,17 +47,18 @@ export function createShellRouter(options?: {
   fallbackRoute: any;
 }>;
 
-export function bootstrapClientShellApp(options?: {
+export function bootstrapClientShellApp(options: {
   createApp: (rootComponent: any) => any;
   rootComponent: any;
   appConfig?: Record<string, any>;
   appPlugins?: any[];
-  pinia?: any;
-  queryClient?: any;
+  i18n?: any;
+  pinia: any;
+  queryClient: any;
   router: any;
   bootClientModules: (context: any) => Promise<any>;
   surfaceRuntime: any;
-  surfaceMode?: string;
+  surfaceMode: string;
   env?: Record<string, any>;
   fallbackRoute?: any;
   logger?: ClientLogger;

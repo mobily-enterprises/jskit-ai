@@ -130,6 +130,7 @@ Each `typeof` probe is one of these, decided by reading its callers:
 | `if (typeof onEvent !== "function") throw` | an "x is required" guard | a required option; the guard goes |
 | `typeof matches === "function" && matches(context)` | an option real callers omit | a [named default](#absent-options), called plainly |
 | `typeof deleteAttachment === "function"` | a contract member some real caller lacks | an [optional operation](#absent-options) |
+| `typeof guard === "function"` on an option documented as `false`, a function or options | telling the shapes of one option apart | a check of the data, `isRecord(guard)`; the probe goes |
 | a shape check on an injected value, to learn whether it is there | an availability test | [one comparison](#injected-accessors) with the named default |
 | `typeof window !== "undefined"` | a host object | a [platform probe](#platform-probes) |
 | `typeof config.debug === "boolean"` | a check of data, not a collaborator | stays |

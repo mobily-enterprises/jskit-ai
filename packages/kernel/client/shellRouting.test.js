@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createSurfaceRuntime } from "../shared/surface/runtime.js";
-import { DEFAULT_GUARD_EVALUATOR_KEY, buildSurfaceAwareRoutes, createShellBeforeEachGuard } from "./shellRouting.js";
+import {
+  DEFAULT_GUARD_EVALUATOR_KEY,
+  buildSurfaceAwareRoutes,
+  createFallbackNotFoundRoute,
+  createShellBeforeEachGuard
+} from "./shellRouting.js";
 
 test("buildSurfaceAwareRoutes keeps declared route paths and filters by surface mode", () => {
   const surfaceRuntime = createSurfaceRuntime({
@@ -59,7 +64,7 @@ test("buildSurfaceAwareRoutes keeps declared route paths and filters by surface 
     ],
     surfaceRuntime,
     surfaceMode: "all",
-    notFoundComponent: {}
+    fallbackRoute: createFallbackNotFoundRoute({})
   });
 
   const routePaths = routes.map((route) => route.path);
@@ -105,7 +110,7 @@ test("buildSurfaceAwareRoutes preserves parent path when nested descendants are 
     ],
     surfaceRuntime,
     surfaceMode: "all",
-    notFoundComponent: {}
+    fallbackRoute: createFallbackNotFoundRoute({})
   });
 
   const routePaths = routes.map((route) => route.path);
@@ -138,5 +143,43 @@ test("createShellBeforeEachGuard reads surfaces and the default root from the su
     assert.equal(openGuard({ path: "/", fullPath: "/", matched: [] }), true);
   } finally {
     globalThis[DEFAULT_GUARD_EVALUATOR_KEY] = previousEvaluator;
+  }
+});
+
+test("createShellBeforeEachGuard sends an external redirect to the page's location, and stays put outside a browser", () => {
+  const surfaceRuntime = createSurfaceRuntime({
+    defaultSurfaceId: "app",
+    surfaces: {
+      app: { pagesRoot: "app", requiresAuth: true }
+    }
+  });
+  const previousEvaluator = globalThis[DEFAULT_GUARD_EVALUATOR_KEY];
+  const previousWindow = globalThis.window;
+  globalThis[DEFAULT_GUARD_EVALUATOR_KEY] = () => ({ allow: false, redirectTo: "https://login.example/start" });
+
+  try {
+    const guard = createShellBeforeEachGuard({ surfaceRuntime });
+    const to = { path: "/app/projects", fullPath: "/app/projects", matched: [] };
+
+    delete globalThis.window;
+    assert.equal(guard(to), false);
+
+    const assigned = [];
+    globalThis.window = {
+      location: {
+        assign(target) {
+          assigned.push(target);
+        }
+      }
+    };
+    assert.equal(guard(to), false);
+    assert.deepEqual(assigned, ["https://login.example/start"]);
+  } finally {
+    globalThis[DEFAULT_GUARD_EVALUATOR_KEY] = previousEvaluator;
+    if (previousWindow === undefined) {
+      delete globalThis.window;
+    } else {
+      globalThis.window = previousWindow;
+    }
   }
 });

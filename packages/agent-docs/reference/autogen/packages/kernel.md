@@ -413,17 +413,24 @@ Exports
 - `createAsyncModuleRecoveryState({ label = "App module", message = "", retry = null } = {})`
 - `dismissAsyncModuleRecovery(state)`
 - `dynamicImportErrorMessage(error = null, { label = "App module", stale = isDynamicImportError(error) } = {})`
-- `guardedReloadApp({ browserWindow = typeof window !== "undefined" ? window : null, fetchFn = typeof fetch === "function" ? fetch : null, state = null, label = "App", message = RELOAD_UNAVAILABLE.message, messageCode = message === RELOAD_UNAVAILABLE.message ? RELOAD_UNAVAILABLE.messageCode : "", messageParams = {} } = {})`
-- `installAsyncModuleRecoveryHandlers({ router = null, state, label = "App module", onNotify = null, windowObject = typeof window !== "undefined" ? window : null } = {})`
+- `guardedReloadApp({ browserWindow = pageWindow(), fetchFn = globalThis.fetch, state = null, label = "App", message = RELOAD_UNAVAILABLE.message, messageCode = message === RELOAD_UNAVAILABLE.message ? RELOAD_UNAVAILABLE.messageCode : "", messageParams = {} } = {})`
+- `installAsyncModuleRecoveryHandlers({ router, state, label = "App module", onNotify, windowObject = pageWindow() })`
 - `isDynamicImportError(error = null)`
 - `notifyAsyncModuleLoadError(state, error = null, { label = "App module", message = "", messageCode = "", messageParams = {}, retry = null, stale = isDynamicImportError(error) } = {})`
 Local functions
 - `errorText(error = null)`
 - `dynamicImportErrorMessageCode(label, stale)`
 
+### `client/browser.js`
+Exports
+- `pagePathname()`
+- `pageWindow()`
+
 ### `client/componentInteraction.js`
 Exports
 - `createComponentInteractionEmitter(emit)`
+Local functions
+- `ignoreAction()`
 
 ### `client/componentRegistry.js`
 Exports
@@ -435,7 +442,7 @@ Local functions
 Exports
 - `createTextError(keyOrMessage = "", params = {})`
 - `registerJskitMessages(catalog = {})`
-- `setJskitI18n(i18n = null)`
+- `setJskitI18n(i18n)`
 - `useJskitText()`
 Local functions
 - `registry()`
@@ -485,7 +492,7 @@ Exports
 
 ### `client/moduleBootstrap.js`
 Exports
-- `bootClientModules({ clientModules = [], app, pinia = null, queryClient = null, router, surfaceRuntime, surfaceMode, env, logger } = {})`
+- `bootClientModules({ clientModules, app, pinia, queryClient, router, surfaceRuntime, surfaceMode, env, logger })`
 Local functions
 - `normalizePackageId(value)`
 - `toRouteSnapshot(route)`
@@ -493,14 +500,14 @@ Local functions
 - `normalizeRoute(route, { packageId, index })`
 - `normalizeRouteList(routes, { packageId })`
 - `toVueRouteRecord(route)`
-- `registerClientModuleRoutes({ packageId, routes = [], router, surfaceRuntime, surfaceMode, seenRoutePaths, seenRouteNames, logger, source = "module", packageMetadataRouteDeclarations = null } = {})`
+- `registerClientModuleRoutes({ packageId, routes, router, surfaceRuntime, surfaceMode, seenRoutePaths, seenRouteNames, logger, source, packageMetadataRouteDeclarations })`
 - `resolvePackageMetadataProviders(moduleNamespace, packageId, packageMetadataClientProviders = [])`
 - `resolveModuleProviders(moduleNamespace, packageId, packageMetadataClientProviders = [])`
 - `buildPackageMetadataRouteDeclarationIndex({ packageId, packageMetadataUiRoutes = [] } = {})`
 - `assertRoutesDeclaredInPackageMetadata({ packageId, source, normalizedRoutes = [], packageMetadataRouteDeclarations = null } = {})`
 - `resolvePackageMetadataClientRoutes({ packageId, packageMetadataUiRoutes = [], routeComponents = {}, logger } = {})`
 - `normalizeClientModuleEntries(clientModules)`
-- `createClientRuntime({ profile = "client", providers = [], app, pinia = null, queryClient = null, router, env, logger, surfaceRuntime, surfaceMode } = {})`
+- `createClientRuntime({ profile, providers, app, pinia, queryClient, router, env, logger, surfaceRuntime, surfaceMode })`
 
 ### `client/packageMetadataSections.js`
 Exports
@@ -520,10 +527,11 @@ Exports
 - `shellScrollBehavior(to, from, savedPosition)`
 - `resolveClientBootstrapDebugEnabled({ env = {}, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG" } = {})`
 - `createClientBootstrapLogger({ env = {}, logger, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG" })`
-- `createSurfaceShellRouter({ createRouter, history, routes = [], surfaceRuntime, surfaceMode, fallbackRoute = null, notFoundComponent = null, guard = false, scrollBehavior = shellScrollBehavior } = {})`
-- `bootstrapClientShellApp({ createApp, rootComponent, appConfig = {}, appPlugins = [], i18n = null, pinia = null, queryClient = null, router, bootClientModules, surfaceRuntime, surfaceMode, env = {}, fallbackRoute = null, // The browser console is the application's logger unless it passes its own. logger = console, createBootstrapLogger = createClientBootstrapLogger, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG", debugMessage = "Client modules bootstrapped before router install.", onAfterModulesBootstrapped = null, onAfterRouterReady = null, mountSelector = "#app" } = {})`
+- `createSurfaceShellRouter({ createRouter, history, routes, surfaceRuntime, surfaceMode, fallbackRoute, notFoundComponent, guard = false, scrollBehavior = shellScrollBehavior })`
+- `bootstrapClientShellApp({ createApp, rootComponent, appConfig = {}, appPlugins = [], i18n = null, pinia, queryClient, router, bootClientModules, surfaceRuntime, surfaceMode, env = {}, fallbackRoute = null, // The browser console is the application's logger unless it passes its own. logger = console, createBootstrapLogger = createClientBootstrapLogger, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG", debugMessage = "Client modules bootstrapped before router install.", onAfterModulesBootstrapped = ignoreBootstrapStep, onAfterRouterReady = ignoreBootstrapStep, mountSelector = "#app" })`
 Local functions
 - `ignoreDebug()`
+- `ignoreBootstrapStep()`
 - `installAppPlugins(app, appPlugins = [])`
 - `isSurfaceRootRecord(record)`
 - `staysOnSamePage(to, from)`
@@ -536,8 +544,8 @@ Exports
 - `WEB_ROOT_ALLOW_NO`
 - `DEFAULT_GUARD_EVALUATOR_KEY`
 - `createFallbackNotFoundRoute(component)`
-- `buildSurfaceAwareRoutes({ routes = [], surfaceRuntime, surfaceMode, fallbackRoute, notFoundComponent } = {})`
-- `createShellBeforeEachGuard({ surfaceRuntime, webRootAllowed = WEB_ROOT_ALLOW_YES, guardEvaluatorKey = DEFAULT_GUARD_EVALUATOR_KEY, authenticatedPolicy = AUTH_POLICY_AUTHENTICATED, publicPolicy = AUTH_POLICY_PUBLIC } = {})`
+- `buildSurfaceAwareRoutes({ routes, surfaceRuntime, surfaceMode, fallbackRoute })`
+- `createShellBeforeEachGuard({ surfaceRuntime, webRootAllowed = WEB_ROOT_ALLOW_YES, guardEvaluatorKey = DEFAULT_GUARD_EVALUATOR_KEY, authenticatedPolicy = AUTH_POLICY_AUTHENTICATED, publicPolicy = AUTH_POLICY_PUBLIC })`
 Local functions
 - `normalizeGuardPolicy(value)`
 - `resolveRouteGuardFromMeta(meta)`
@@ -545,7 +553,6 @@ Local functions
 - `resolveSearchFromFullPath(fullPath)`
 - `normalizeWebRootAllowed(value)`
 - `resolveEffectiveRouteGuard({ to, surfaceRuntime, authenticatedPolicy, publicPolicy })`
-- `resolveGuardEvaluator(guardEvaluatorKey)`
 - `normalizeGuardOutcome(outcome)`
 - `evaluateShellGuard({ guard, to, guardEvaluatorKey })`
 
@@ -560,6 +567,12 @@ Exports
 - `type ClientSurfaceMode`
 - `type ClientLogger`
 - `type ClientComponents`
+- `type ClientRouteRecord`
+- `type AsyncModuleRecoveryState`
+- `type ClientBootstrap`
+- `type ClientModuleEntry`
+- `type ShellGuardOptions`
+- `type ClientBootstrapHookContext`
 
 ### `client/vite/clientBootstrapPlugin.js`
 Exports
@@ -567,7 +580,7 @@ Exports
 - `bootInstalledClientModules(context = {})`
 - `CLIENT_BOOTSTRAP_VIRTUAL_ID`
 - `CLIENT_BOOTSTRAP_RESOLVED_ID`
-- `createVirtualModuleSource(clientModules = [], localePackageIds = [])`
+- `createVirtualModuleSource(clientModules, localePackageIds)`
 - `resolveLocalePackageIds(installedPackages = [])`
 - `resolveClientOptimizeIncludeSpecifiers(clientModules = [], excludeSpecifiers = [])`
 - `resolveClientOptimizeExcludeSpecifiers(clientModules = [])`

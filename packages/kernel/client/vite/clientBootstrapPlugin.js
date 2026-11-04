@@ -287,7 +287,7 @@ function normalizeClientModulePackageMetadataEntries(value) {
   );
 }
 
-function createVirtualModuleSource(clientModules = [], localePackageIds = []) {
+function createVirtualModuleSource(clientModules, localePackageIds) {
   const modulePackageMetadataEntries = normalizeClientModulePackageMetadataEntries(clientModules);
   const importLines = modulePackageMetadataEntries.map(
     (entry, index) => `import * as clientModule${index} from ${JSON.stringify(`${entry.packageId}/client`)};`
@@ -359,138 +359,146 @@ function createJskitClientBootstrapPlugin({ proxyTarget = "" } = {}) {
   let resolvePackageSpecifier = null;
   let clientScanSpecifiers = [];
 
-  return {
+  async function config(userConfig = {}) {
+    appRoot = process.cwd();
+    const installedPackages = await discoverInstalledPackages({ appRoot });
+    const clientModules = resolveClientModulesFromInstalledPackages(installedPackages);
+    const installedProxyEntries = resolveInstalledViteProxyEntries(installedPackages, {
+      proxyTarget
+    });
+    const localScopePackageIds = await resolveLocalScopePackageIds({
+      appRoot
+    });
+    const userResolve = normalizeObject(userConfig.resolve);
+    localPackages = await resolveLocalPackageSources({
+      appRoot
+    });
+    hasMutableLocalPackages = (
+      localPackages.length > 0 ||
+      localScopePackageIds.length > 0 ||
+      installedPackages.some((entry) => LOCAL_PACKAGE_SOURCE_TYPES.has(entry.sourceType))
+    );
+    const clientExcludeSpecifiers = resolveClientOptimizeExcludeSpecifiers(clientModules);
+    const userOptimizeDeps = normalizeObject(userConfig.optimizeDeps);
+    const userExclude = sortStrings(userOptimizeDeps.exclude);
+    const userInclude = sortStrings(userOptimizeDeps.include);
+    const exclude = sortStrings([
+      ...userExclude,
+      ...clientExcludeSpecifiers
+    ]);
+    const clientIncludeSpecifiers = resolveClientOptimizeIncludeSpecifiers(clientModules, exclude);
+    const include = sortStrings([
+      ...userInclude,
+      ...clientIncludeSpecifiers,
+      CLIENT_BOOTSTRAP_MODULE_SPECIFIER
+    ].filter((specifier) => !exclude.includes(specifier)));
+    // Vite cannot crawl the virtual bootstrap. Local and explicitly excluded clients
+    // still need scanning so their npm imports are ready before the first page loads.
+    clientScanSpecifiers = clientModules
+      .map((entry) => `${entry.packageId}/client`)
+      .filter((specifier) => !include.includes(specifier));
+    const dedupe = resolveClientRuntimeDedupeSpecifiers(userResolve);
+    const userServer = normalizeObject(userConfig.server);
+    const userProxyEntries = normalizeObject(userServer.proxy);
+
+    return {
+      optimizeDeps: {
+        ...userOptimizeDeps,
+        include,
+        exclude
+      },
+      resolve: {
+        ...userResolve,
+        ...(hasMutableLocalPackages ? { preserveSymlinks: false } : {}),
+        dedupe
+      },
+      server: {
+        proxy: {
+          ...installedProxyEntries,
+          ...userProxyEntries
+        }
+      }
+    };
+  }
+
+  async function configResolved(resolvedConfig) {
+    if (hasMutableLocalPackages && resolvedConfig.resolve?.preserveSymlinks === true) {
+      throw new Error(
+        "JSKIT mutable local packages require Vite real-path resolution. Remove resolve.preserveSymlinks: true."
+      );
+    }
+    // Do not use `this.resolve()` for this lookup. That re-enters Vite's live plugin chain, where
+    // the dependency optimizer can turn an unlisted local subpath into node_modules/.vite (or add
+    // its dependency ?v hash) before JSKIT sees the selected file. The config resolver applies the
+    // app's aliases, exports conditions, and wildcard rules without registering an optimized dep.
+    resolvePackageSpecifier = resolvedConfig.createResolver({ scan: true });
+    if (clientScanSpecifiers.length === 0) {
+      return;
+    }
+    const clientEntries = await Promise.all(clientScanSpecifiers.map(async (specifier) => {
+      const entry = await resolvePackageSpecifier(specifier, path.join(appRoot, "package.json"));
+      if (!entry) {
+        throw new Error(`Cannot resolve JSKIT client dependency scan entry ${specifier}.`);
+      }
+      const localPackage = resolveLocalPackageForSpecifier(specifier, localPackages);
+      return localPackage ? resolveCanonicalLocalPackageId(entry, localPackage) || entry : entry;
+    }));
+    const optimizeDeps = resolvedConfig.environments.client.optimizeDeps;
+    const input = resolvedConfig.environments.client.input ?? resolvedConfig.build.rolldownOptions.input;
+    const entries = optimizeDeps.entries ?? (input
+      ? (typeof input === "string" || Array.isArray(input) ? input : Object.values(input))
+      : ["**/*.html", "!**/__tests__/**", "!**/coverage/**"]);
+    const scanEntries = sortStrings([
+      ...(Array.isArray(entries) ? entries : [entries]),
+      ...clientEntries
+    ]);
+    optimizeDeps.entries = scanEntries;
+    resolvedConfig.optimizeDeps.entries = scanEntries;
+  }
+
+  async function resolveId(source, importer) {
+    if (source === CLIENT_BOOTSTRAP_VIRTUAL_ID) {
+      return CLIENT_BOOTSTRAP_RESOLVED_ID;
+    }
+    const localPackage = resolveLocalPackageForSpecifier(source, localPackages);
+    if (!localPackage) {
+      return null;
+    }
+
+    const resolvedId = await resolvePackageSpecifier(source, importer);
+    if (!resolvedId) {
+      return null;
+    }
+
+    const canonicalId = resolveCanonicalLocalPackageId(resolvedId, localPackage);
+    if (!canonicalId) {
+      return resolvedId;
+    }
+
+    // The canonical absolute path receives editable-source watching and no-cache headers.
+    return canonicalId;
+  }
+
+  async function load(id) {
+    if (id !== CLIENT_BOOTSTRAP_RESOLVED_ID) {
+      return null;
+    }
+
+    const installedPackages = await discoverInstalledPackages({ appRoot });
+    return createVirtualModuleSource(
+      resolveClientModulesFromInstalledPackages(installedPackages),
+      resolveLocalePackageIds(installedPackages)
+    );
+  }
+
+  return Object.freeze({
     name: "jskit-client-bootstrap",
     // This must run before Vite's normal package resolver turns a local bare import into node_modules.
     enforce: "pre",
-    async config(userConfig = {}) {
-      appRoot = process.cwd();
-      const installedPackages = await discoverInstalledPackages({ appRoot });
-      const clientModules = resolveClientModulesFromInstalledPackages(installedPackages);
-      const installedProxyEntries = resolveInstalledViteProxyEntries(installedPackages, {
-        proxyTarget
-      });
-      const localScopePackageIds = await resolveLocalScopePackageIds({
-        appRoot
-      });
-      const userResolve = normalizeObject(userConfig.resolve);
-      localPackages = await resolveLocalPackageSources({
-        appRoot
-      });
-      hasMutableLocalPackages = (
-        localPackages.length > 0 ||
-        localScopePackageIds.length > 0 ||
-        installedPackages.some((entry) => LOCAL_PACKAGE_SOURCE_TYPES.has(entry.sourceType))
-      );
-      const clientExcludeSpecifiers = resolveClientOptimizeExcludeSpecifiers(clientModules);
-      const userOptimizeDeps = normalizeObject(userConfig.optimizeDeps);
-      const userExclude = sortStrings(userOptimizeDeps.exclude);
-      const userInclude = sortStrings(userOptimizeDeps.include);
-      const exclude = sortStrings([
-        ...userExclude,
-        ...clientExcludeSpecifiers
-      ]);
-      const clientIncludeSpecifiers = resolveClientOptimizeIncludeSpecifiers(clientModules, exclude);
-      const include = sortStrings([
-        ...userInclude,
-        ...clientIncludeSpecifiers,
-        CLIENT_BOOTSTRAP_MODULE_SPECIFIER
-      ].filter((specifier) => !exclude.includes(specifier)));
-      // Vite cannot crawl the virtual bootstrap. Local and explicitly excluded clients
-      // still need scanning so their npm imports are ready before the first page loads.
-      clientScanSpecifiers = clientModules
-        .map((entry) => `${entry.packageId}/client`)
-        .filter((specifier) => !include.includes(specifier));
-      const dedupe = resolveClientRuntimeDedupeSpecifiers(userResolve);
-      const userServer = normalizeObject(userConfig.server);
-      const userProxyEntries = normalizeObject(userServer.proxy);
-
-      return {
-        optimizeDeps: {
-          ...userOptimizeDeps,
-          include,
-          exclude
-        },
-        resolve: {
-          ...userResolve,
-          ...(hasMutableLocalPackages ? { preserveSymlinks: false } : {}),
-          dedupe
-        },
-        server: {
-          proxy: {
-            ...installedProxyEntries,
-            ...userProxyEntries
-          }
-        }
-      };
-    },
-    async configResolved(resolvedConfig) {
-      if (hasMutableLocalPackages && resolvedConfig.resolve?.preserveSymlinks === true) {
-        throw new Error(
-          "JSKIT mutable local packages require Vite real-path resolution. Remove resolve.preserveSymlinks: true."
-        );
-      }
-      // Do not use `this.resolve()` for this lookup. That re-enters Vite's live plugin chain, where
-      // the dependency optimizer can turn an unlisted local subpath into node_modules/.vite (or add
-      // its dependency ?v hash) before JSKIT sees the selected file. The config resolver applies the
-      // app's aliases, exports conditions, and wildcard rules without registering an optimized dep.
-      resolvePackageSpecifier = resolvedConfig.createResolver({ scan: true });
-      if (clientScanSpecifiers.length === 0) {
-        return;
-      }
-      const clientEntries = await Promise.all(clientScanSpecifiers.map(async (specifier) => {
-        const entry = await resolvePackageSpecifier(specifier, path.join(appRoot, "package.json"));
-        if (!entry) {
-          throw new Error(`Cannot resolve JSKIT client dependency scan entry ${specifier}.`);
-        }
-        const localPackage = resolveLocalPackageForSpecifier(specifier, localPackages);
-        return localPackage ? resolveCanonicalLocalPackageId(entry, localPackage) || entry : entry;
-      }));
-      const optimizeDeps = resolvedConfig.environments.client.optimizeDeps;
-      const input = resolvedConfig.environments.client.input ?? resolvedConfig.build.rolldownOptions.input;
-      const entries = optimizeDeps.entries ?? (input
-        ? (typeof input === "string" || Array.isArray(input) ? input : Object.values(input))
-        : ["**/*.html", "!**/__tests__/**", "!**/coverage/**"]);
-      const scanEntries = sortStrings([
-        ...(Array.isArray(entries) ? entries : [entries]),
-        ...clientEntries
-      ]);
-      optimizeDeps.entries = scanEntries;
-      resolvedConfig.optimizeDeps.entries = scanEntries;
-    },
-    async resolveId(source, importer) {
-      if (source === CLIENT_BOOTSTRAP_VIRTUAL_ID) {
-        return CLIENT_BOOTSTRAP_RESOLVED_ID;
-      }
-      const localPackage = resolveLocalPackageForSpecifier(source, localPackages);
-      if (!localPackage) {
-        return null;
-      }
-
-      const resolvedId = await resolvePackageSpecifier?.(source, importer);
-      if (!resolvedId) {
-        return null;
-      }
-
-      const canonicalId = resolveCanonicalLocalPackageId(resolvedId, localPackage);
-      if (!canonicalId) {
-        return resolvedId;
-      }
-
-      // The canonical absolute path receives editable-source watching and no-cache headers.
-      return canonicalId;
-    },
-    async load(id) {
-      if (id !== CLIENT_BOOTSTRAP_RESOLVED_ID) {
-        return null;
-      }
-
-      const installedPackages = await discoverInstalledPackages({ appRoot });
-      return createVirtualModuleSource(
-        resolveClientModulesFromInstalledPackages(installedPackages),
-        resolveLocalePackageIds(installedPackages)
-      );
-    },
+    config,
+    configResolved,
+    resolveId,
+    load,
     transformIndexHtml: {
       // After Vite adds the page's script and style tags. Their content-hashed
       // names change whenever any built code or style does, so the page's
@@ -504,7 +512,7 @@ function createJskitClientBootstrapPlugin({ proxyTarget = "" } = {}) {
         return [{ tag: "meta", attrs: { name: CLIENT_BUILD_META_NAME, content: buildId }, injectTo: "head-prepend" }];
       }
     }
-  };
+  });
 }
 
 export {

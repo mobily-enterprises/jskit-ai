@@ -1,6 +1,7 @@
 import { createCapabilityRuntime, defineProvider } from "../shared/capabilities/index.js";
 import { filterRoutesBySurface } from "../shared/surface/runtime.js";
 import { isRecord } from "../shared/support/normalize.js";
+import { pagePathname } from "./browser.js";
 import { createClientComponentRegistry } from "./componentRegistry.js";
 import { normalizePackageMetadataClientProviders, normalizePackageMetadataUiRoutes } from "./packageMetadataSections.js";
 import { createStructuredLogger, summarizeRouterRoutes } from "./logging.js";
@@ -101,27 +102,35 @@ function toVueRouteRecord(route) {
   return Object.freeze(routeRecord);
 }
 
+/**
+ * Adds one package's routes of the surface mode to the router, refusing a path or a name another route took.
+ * @param {object} options
+ * @param {string} options.packageId
+ * @param {object[]} options.routes
+ * @param {import("./types.js").ClientRouter} options.router
+ * @param {import("./types.js").ClientSurfaceRuntime} options.surfaceRuntime
+ * @param {import("./types.js").ClientSurfaceMode} options.surfaceMode
+ * @param {Set<string>} options.seenRoutePaths
+ * @param {Set<string>} options.seenRouteNames
+ * @param {import("./types.js").ClientLogger} options.logger
+ * @param {string} options.source
+ * @param {object} options.packageMetadataRouteDeclarations
+ */
 function registerClientModuleRoutes({
   packageId,
-  routes = [],
+  routes,
   router,
   surfaceRuntime,
   surfaceMode,
   seenRoutePaths,
   seenRouteNames,
   logger,
-  source = "module",
-  packageMetadataRouteDeclarations = null
-} = {}) {
+  source,
+  packageMetadataRouteDeclarations
+}) {
   const normalizedPackageId = normalizePackageId(packageId);
   if (!normalizedPackageId) {
     throw new TypeError("registerClientModuleRoutes requires packageId.");
-  }
-  if (!router || typeof router.addRoute !== "function") {
-    throw new TypeError("registerClientModuleRoutes requires router.addRoute().");
-  }
-  if (!surfaceRuntime || typeof surfaceRuntime !== "object") {
-    throw new TypeError("registerClientModuleRoutes requires surfaceRuntime.");
   }
 
   const normalizedRoutes = normalizeRouteList(routes, { packageId: normalizedPackageId });
@@ -439,55 +448,78 @@ function normalizeClientModuleEntries(clientModules) {
     .sort((left, right) => left.packageId.localeCompare(right.packageId));
 }
 
+/**
+ * The capability runtime of the client modules and the component registry its providers fill.
+ * @param {object} options
+ * @param {string} options.profile
+ * @param {object[]} options.providers
+ * @param {import("./types.js").ClientVueApp} options.app
+ * @param {import("./types.js").ClientPinia} options.pinia
+ * @param {import("./types.js").ClientQueryClient} options.queryClient
+ * @param {import("./types.js").ClientRouter} options.router
+ * @param {import("./types.js").ClientEnv} options.env
+ * @param {import("./types.js").ClientLogger} options.logger
+ * @param {import("./types.js").ClientSurfaceRuntime} options.surfaceRuntime
+ * @param {import("./types.js").ClientSurfaceMode} options.surfaceMode
+ */
 function createClientRuntime({
-  profile = "client",
-  providers = [],
+  profile,
+  providers,
   app,
-  pinia = null,
-  queryClient = null,
+  pinia,
+  queryClient,
   router,
   env,
   logger,
   surfaceRuntime,
   surfaceMode
-} = {}) {
+}) {
   const components = createClientComponentRegistry();
   const runtime = createCapabilityRuntime({
     profile,
     providers,
     inputs: {
-      "client.vue": app || null,
-      "client.router": router || null,
+      "client.vue": app,
+      "client.router": router,
       "client.pinia": pinia,
       "client.query": queryClient,
       "client.env": Object.freeze({ ...(isRecord(env) ? env : {}) }),
-      "client.surface": surfaceRuntime || null,
+      "client.surface": surfaceRuntime,
       "client.surface-mode": String(surfaceMode || "").trim(),
       "client.logger": logger,
       "client.components": components
     }
   });
-  return Object.freeze({ runtime, components });
+  return Object.freeze({
+    runtime,
+    components
+  });
 }
 
+/**
+ * Starts the installed client modules' providers, then registers their routes.
+ * @param {object} options
+ * @param {import("./types.js").ClientModuleEntry[]} options.clientModules
+ * @param {import("./types.js").ClientVueApp} options.app
+ * @param {import("./types.js").ClientPinia} options.pinia
+ * @param {import("./types.js").ClientQueryClient} options.queryClient
+ * @param {import("./types.js").ClientRouter} options.router
+ * @param {import("./types.js").ClientSurfaceRuntime} options.surfaceRuntime
+ * @param {import("./types.js").ClientSurfaceMode} options.surfaceMode
+ * @param {import("./types.js").ClientEnv} options.env
+ * @param {import("../server/types.js").RuntimeLogger & { isDebugEnabled?: boolean }} options.logger
+ */
 async function bootClientModules({
-  clientModules = [],
+  clientModules,
   app,
-  pinia = null,
-  queryClient = null,
+  pinia,
+  queryClient,
   router,
   surfaceRuntime,
   surfaceMode,
   env,
   logger
-} = {}) {
-  if (!router || typeof router.addRoute !== "function") {
-    throw new TypeError("bootClientModules requires router.addRoute().");
-  }
-  if (!surfaceRuntime || typeof surfaceRuntime.normalizeSurfaceMode !== "function") {
-    throw new TypeError("bootClientModules requires surfaceRuntime.normalizeSurfaceMode().");
-  }
-
+}) {
   const log = createStructuredLogger(logger);
   const moduleEntries = normalizeClientModuleEntries(clientModules);
   const providers = [];
@@ -538,7 +570,7 @@ async function bootClientModules({
   const seenRoutePaths = new Set();
   const seenRouteNames = new Set();
   const routeResults = [];
-  const registerRoutesForEntry = (routeList, packageId, source = "module", packageMetadataRouteDeclarations = null) => {
+  const registerRoutesForEntry = (routeList, packageId, source, packageMetadataRouteDeclarations) => {
     if (!routeList || routeList.length === 0) {
       return null;
     }
@@ -609,7 +641,7 @@ async function bootClientModules({
       log.debug(
         {
           routerRoutes: summarizeRouterRoutes(router),
-          currentPath: typeof window !== "undefined" ? String(window.location?.pathname || "") : ""
+          currentPath: pagePathname()
         },
         "JSKIT client bootstrap final route table."
       );

@@ -11,6 +11,9 @@ function createRouterStub() {
     routes,
     addRoute(route) {
       routes.push(route);
+    },
+    getRoutes() {
+      return [...routes];
     }
   };
 }

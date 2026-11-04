@@ -27,8 +27,12 @@ function registerJskitMessages(catalog = {}) {
   mergeEnglishIntoI18n();
 }
 
-function setJskitI18n(i18n = null) {
-  if (i18n && (i18n.mode !== "composition" || typeof i18n.global?.t !== "function")) {
+/**
+ * Sets the app's vue-i18n instance, through which JSKIT translates; null removes it.
+ * @param {import("vue-i18n").I18n | null} i18n
+ */
+function setJskitI18n(i18n) {
+  if (i18n && i18n.mode !== "composition") {
     throw new TypeError("JSKIT needs a vue-i18n instance created with createI18n({ legacy: false }).");
   }
   registry().i18n = i18n || null;

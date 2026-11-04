@@ -15,18 +15,12 @@ function normalizeClientAppConfig(source = {}) {
 function setClientAppConfig(source = {}) {
   const appConfig = normalizeClientAppConfig(source);
 
-  if (typeof globalThis === "object" && globalThis) {
-    globalThis[CLIENT_APP_CONFIG_GLOBAL_KEY] = appConfig;
-  }
+  globalThis[CLIENT_APP_CONFIG_GLOBAL_KEY] = appConfig;
 
   return appConfig;
 }
 
 function getClientAppConfig() {
-  if (typeof globalThis !== "object" || !globalThis) {
-    return EMPTY_CLIENT_APP_CONFIG;
-  }
-
   const appConfig = globalThis[CLIENT_APP_CONFIG_GLOBAL_KEY];
   return isRecord(appConfig) ? appConfig : EMPTY_CLIENT_APP_CONFIG;
 }

@@ -14,11 +14,11 @@ function createStructuredLogger(logger) {
   });
 }
 
+/**
+ * The router's route table, for debug output.
+ * @param {import("./types.js").ClientRouter} router
+ */
 function summarizeRouterRoutes(router) {
-  if (!router || typeof router.getRoutes !== "function") {
-    return Object.freeze([]);
-  }
-
   return Object.freeze(
     router.getRoutes().map((route) =>
       Object.freeze({

@@ -151,7 +151,7 @@ test("createVirtualModuleSource renders deterministic client module imports", ()
       packageMetadataUiRoutes: [{ id: "a.route", path: "/a", scope: "global", componentKey: "a-view" }],
       packageMetadataClientProviders: [{ export: "AProvider", entrypoint: "src/client/providers/AProvider.js" }]
     }
-  ]);
+  ], []);
 
   assert.match(source, /import \* as clientModule0 from "@a\/pkg\/client";/);
   assert.match(source, /import \* as clientModule1 from "@z\/pkg\/client";/);

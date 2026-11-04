@@ -40,7 +40,7 @@ export function dismissAsyncModuleRecovery(state: AsyncModuleRecoveryState): boo
 
 export function guardedReloadApp(options?: {
   browserWindow?: any;
-  fetchFn?: ((input: string, init?: Record<string, any>) => Promise<any>) | null;
+  fetchFn?: (input: string, init?: Record<string, any>) => Promise<any>;
   state?: AsyncModuleRecoveryState | null;
   label?: string;
   message?: string;
@@ -48,11 +48,11 @@ export function guardedReloadApp(options?: {
   messageParams?: Record<string, any>;
 }): Promise<boolean>;
 
-export function installAsyncModuleRecoveryHandlers(options?: {
-  router?: any;
+export function installAsyncModuleRecoveryHandlers(options: {
+  router: any;
   state: AsyncModuleRecoveryState;
   label?: string;
-  onNotify?: (state: AsyncModuleRecoveryState) => void;
+  onNotify: (state: AsyncModuleRecoveryState) => void;
   windowObject?: any;
 }): Readonly<{
   dispose: () => void;

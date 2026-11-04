@@ -1,6 +1,7 @@
 import { buildSurfaceAwareRoutes, createFallbackNotFoundRoute, createShellBeforeEachGuard } from "./shellRouting.js";
 import { isRecord } from "../shared/support/normalize.js";
 import { setClientAppConfig } from "./appConfig.js";
+import { pagePathname } from "./browser.js";
 import { setJskitI18n } from "./i18n.js";
 import { createStructuredLogger, summarizeRouterRoutes } from "./logging.js";
 
@@ -19,6 +20,8 @@ function resolveClientBootstrapDebugEnabled({
 }
 
 function ignoreDebug() {}
+
+function ignoreBootstrapStep() {}
 
 /**
  * The bootstrap logger: the application's logger, with debug output on when
@@ -100,22 +103,32 @@ function shellScrollBehavior(to, from, savedPosition) {
   return { top: 0 };
 }
 
+/**
+ * The application's router: its routes filtered by surface, a fallback route last and, unless guard is false, a
+ * beforeEach guard, either an application's own function or the shell guard built from guard's options.
+ * @param {object} options
+ * @param {(options: import("vue-router").RouterOptions) => import("./types.js").ClientRouter} options.createRouter
+ * @param {import("vue-router").RouterHistory} options.history
+ * @param {readonly import("./types.js").ClientRouteRecord[]} options.routes
+ * @param {import("./types.js").ClientSurfaceRuntime} options.surfaceRuntime
+ * @param {import("./types.js").ClientSurfaceMode} options.surfaceMode
+ * @param {import("./types.js").ClientRouteRecord} [options.fallbackRoute] Replaces the not-found route of notFoundComponent.
+ * @param {import("vue-router").RouteComponent} [options.notFoundComponent]
+ * @param {false | import("vue-router").NavigationGuard | import("./types.js").ShellGuardOptions} [options.guard]
+ * @param {false | import("vue-router").RouterScrollBehavior} [options.scrollBehavior] false leaves scrolling to the browser.
+ */
 function createSurfaceShellRouter({
   createRouter,
   history,
-  routes = [],
+  routes,
   surfaceRuntime,
   surfaceMode,
-  fallbackRoute = null,
-  notFoundComponent = null,
+  fallbackRoute,
+  notFoundComponent,
   guard = false,
   scrollBehavior = shellScrollBehavior
-} = {}) {
-  if (typeof createRouter !== "function") {
-    throw new TypeError("createSurfaceShellRouter requires createRouter().");
-  }
-
-  const effectiveFallbackRoute = fallbackRoute || (notFoundComponent ? createFallbackNotFoundRoute(notFoundComponent) : null);
+}) {
+  const effectiveFallbackRoute = fallbackRoute || createFallbackNotFoundRoute(notFoundComponent);
   const activeRoutes = buildSurfaceAwareRoutes({
     routes,
     surfaceRuntime,
@@ -125,21 +138,11 @@ function createSurfaceShellRouter({
   const router = createRouter({
     history,
     routes: activeRoutes,
-    ...(typeof scrollBehavior === "function" ? { scrollBehavior } : {})
+    ...(scrollBehavior === false ? {} : { scrollBehavior })
   });
 
   if (guard !== false) {
-    if (!router || typeof router.beforeEach !== "function") {
-      throw new TypeError("createSurfaceShellRouter requires router.beforeEach() when guard is enabled.");
-    }
-    const beforeEachGuard =
-      typeof guard === "function"
-        ? guard
-        : createShellBeforeEachGuard({
-            surfaceRuntime,
-            ...(isRecord(guard) ? guard : {})
-          });
-    router.beforeEach(beforeEachGuard);
+    router.beforeEach(isRecord(guard) ? createShellBeforeEachGuard({ surfaceRuntime, ...guard }) : guard);
   }
 
   return Object.freeze({
@@ -149,14 +152,39 @@ function createSurfaceShellRouter({
   });
 }
 
+/**
+ * Starts the application: its plugins, its client modules, its router and finally the mounted app.
+ * @param {object} options
+ * @param {(rootComponent: unknown) => import("./types.js").ClientVueApp} options.createApp
+ * @param {unknown} options.rootComponent
+ * @param {Record<string, unknown>} [options.appConfig]
+ * @param {unknown[]} [options.appPlugins]
+ * @param {import("vue-i18n").I18n | null} [options.i18n]
+ * @param {import("./types.js").ClientPinia} options.pinia
+ * @param {import("./types.js").ClientQueryClient} options.queryClient
+ * @param {import("./types.js").ClientRouter} options.router
+ * @param {(context: object) => Promise<import("./types.js").ClientBootstrap>} options.bootClientModules
+ * @param {import("./types.js").ClientSurfaceRuntime} options.surfaceRuntime
+ * @param {import("./types.js").ClientSurfaceMode} options.surfaceMode
+ * @param {Record<string, unknown>} [options.env]
+ * @param {import("./types.js").ClientRouteRecord | null} [options.fallbackRoute] Added again last, after the modules' routes.
+ * @param {import("../server/types.js").RuntimeLogger} [options.logger]
+ * @param {typeof createClientBootstrapLogger} [options.createBootstrapLogger]
+ * @param {boolean} [options.debugEnabled]
+ * @param {string} [options.debugEnvKey]
+ * @param {string} [options.debugMessage]
+ * @param {(context: import("./types.js").ClientBootstrapHookContext) => void | Promise<void>} [options.onAfterModulesBootstrapped]
+ * @param {(context: import("./types.js").ClientBootstrapHookContext) => void | Promise<void>} [options.onAfterRouterReady]
+ * @param {string} [options.mountSelector]
+ */
 async function bootstrapClientShellApp({
   createApp,
   rootComponent,
   appConfig = {},
   appPlugins = [],
   i18n = null,
-  pinia = null,
-  queryClient = null,
+  pinia,
+  queryClient,
   router,
   bootClientModules,
   surfaceRuntime,
@@ -169,24 +197,11 @@ async function bootstrapClientShellApp({
   debugEnabled = undefined,
   debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG",
   debugMessage = "Client modules bootstrapped before router install.",
-  onAfterModulesBootstrapped = null,
-  onAfterRouterReady = null,
+  onAfterModulesBootstrapped = ignoreBootstrapStep,
+  onAfterRouterReady = ignoreBootstrapStep,
   mountSelector = "#app"
-} = {}) {
-  if (typeof createApp !== "function") {
-    throw new TypeError("bootstrapClientShellApp requires createApp().");
-  }
-  if (!router || typeof router.addRoute !== "function") {
-    throw new TypeError("bootstrapClientShellApp requires router.addRoute().");
-  }
-  if (typeof bootClientModules !== "function") {
-    throw new TypeError("bootstrapClientShellApp requires bootClientModules().");
-  }
-
+}) {
   const app = createApp(rootComponent);
-  if (!app || typeof app.use !== "function" || typeof app.mount !== "function") {
-    throw new TypeError("bootstrapClientShellApp requires createApp() to return a Vue app with use() and mount().");
-  }
 
   installAppPlugins(app, appPlugins);
   // The app's vue-i18n instance: JSKIT merges its English into it and translates
@@ -222,57 +237,51 @@ async function bootstrapClientShellApp({
     bootstrapLogger.info(
       {
         bootstrap: {
-          modules: clientBootstrap?.modules || [],
-          providerCount: Number(clientBootstrap?.providerCount || 0),
-          routeCount: Number(clientBootstrap?.routeCount || 0)
+          modules: clientBootstrap.modules || [],
+          providerCount: Number(clientBootstrap.providerCount || 0),
+          routeCount: Number(clientBootstrap.routeCount || 0)
         },
         routerRoutesBeforeInstall: summarizeRouterRoutes(router),
-        currentPath: typeof window !== "undefined" ? String(window.location?.pathname || "") : ""
+        currentPath: pagePathname()
       },
       String(debugMessage || "").trim() || "Client modules bootstrapped before router install."
     );
   }
 
-  if (fallbackRoute?.name && typeof router.addRoute === "function") {
-    if (typeof router.hasRoute === "function" && router.hasRoute(fallbackRoute.name) && typeof router.removeRoute === "function") {
+  if (fallbackRoute?.name) {
+    if (router.hasRoute(fallbackRoute.name)) {
       router.removeRoute(fallbackRoute.name);
     }
     router.addRoute(fallbackRoute);
   }
 
-  if (typeof onAfterModulesBootstrapped === "function") {
-    await onAfterModulesBootstrapped(
-      Object.freeze({
-        app,
-        router,
-        clientBootstrap,
-        surfaceRuntime,
-        surfaceMode,
-        env: isRecord(env) ? { ...env } : {},
-        logger: bootstrapLogger,
-        debugEnabled: isDebugEnabled
-      })
-    );
-  }
+  await onAfterModulesBootstrapped(
+    Object.freeze({
+      app,
+      router,
+      clientBootstrap,
+      surfaceRuntime,
+      surfaceMode,
+      env: isRecord(env) ? { ...env } : {},
+      logger: bootstrapLogger,
+      debugEnabled: isDebugEnabled
+    })
+  );
 
   app.use(router);
-  if (typeof router.isReady === "function") {
-    await router.isReady();
-  }
-  if (typeof onAfterRouterReady === "function") {
-    await onAfterRouterReady(
-      Object.freeze({
-        app,
-        router,
-        clientBootstrap,
-        surfaceRuntime,
-        surfaceMode,
-        env: isRecord(env) ? { ...env } : {},
-        logger: bootstrapLogger,
-        debugEnabled: isDebugEnabled
-      })
-    );
-  }
+  await router.isReady();
+  await onAfterRouterReady(
+    Object.freeze({
+      app,
+      router,
+      clientBootstrap,
+      surfaceRuntime,
+      surfaceMode,
+      env: isRecord(env) ? { ...env } : {},
+      logger: bootstrapLogger,
+      debugEnabled: isDebugEnabled
+    })
+  );
   app.mount(mountSelector);
 
   return Object.freeze({

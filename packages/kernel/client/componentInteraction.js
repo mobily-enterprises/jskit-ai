@@ -3,11 +3,13 @@ import {
   normalizeText
 } from "../shared/support/normalize.js";
 
-function createComponentInteractionEmitter(emit) {
-  if (typeof emit !== "function") {
-    throw new TypeError("createComponentInteractionEmitter expects emit to be a function.");
-  }
+function ignoreAction() {}
 
+/**
+ * A component's interaction and action events, sent through its emit.
+ * @param {(eventName: string, payload: Record<string, unknown>) => void} emit
+ */
+function createComponentInteractionEmitter(emit) {
   function emitInteraction(type, payload = {}) {
     emit("interaction", {
       type: normalizeText(type),
@@ -15,16 +17,14 @@ function createComponentInteractionEmitter(emit) {
     });
   }
 
-  async function invokeAction(actionName, payload, callback) {
+  async function invokeAction(actionName, payload, callback = ignoreAction) {
     emit("action:started", {
       action: normalizeText(actionName),
       payload
     });
 
     try {
-      if (typeof callback === "function") {
-        await callback();
-      }
+      await callback();
 
       emit("action:succeeded", {
         action: normalizeText(actionName),
