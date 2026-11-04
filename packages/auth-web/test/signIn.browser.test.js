@@ -1,0 +1,365 @@
+import assert from "node:assert/strict";
+import process from "node:process";
+import { after, before, test } from "node:test";
+import { fileURLToPath } from "node:url";
+import { chromium, expect } from "@playwright/test";
+import { createChromiumLaunchOptions, startViteFixture, stopProcess } from "../../../tooling/testUtils/browserFixture.mjs";
+
+const RUN = process.env.JSKIT_AUTH_WEB_BROWSER_INTEGRATION === "1";
+const options = { skip: !RUN, timeout: 120_000 };
+const GUARD_EVALUATOR_KEY = "__JSKIT_WEB_SHELL_GUARD_EVALUATOR__";
+const CAPABILITIES = {
+  provider: { id: "local", label: "Local" },
+  features: {
+    password: { login: true, register: true },
+    passwordRecovery: { request: true, complete: true },
+    otp: { login: true },
+    oauthLogin: { enabled: true, defaultProvider: "google", providers: [{ id: "google", label: "Google" }] },
+    emailConfirmation: true
+  }
+};
+const SIGNED_OUT = { authenticated: false, csrfToken: "fixture-csrf", authCapabilities: CAPABILITIES };
+const SIGNED_IN = {
+  ...SIGNED_OUT,
+  authenticated: true,
+  username: "Ada Lovelace",
+  email: "ada@example.com",
+  permissions: ["read"]
+};
+
+let runtime = null;
+let browser = null;
+
+before(async () => {
+  if (!RUN) return;
+  runtime = await startViteFixture({ fixtureRoot: fileURLToPath(new URL("../fixtures/sign-in/", import.meta.url)) });
+  browser = await chromium.launch(createChromiumLaunchOptions());
+});
+
+after(async () => {
+  await browser?.close();
+  await stopProcess(runtime);
+});
+
+function deny(status, message) {
+  return { status, json: { error: message } };
+}
+
+/**
+ * One page with the auth API behind it. `routes` answers "METHOD /path" with a fulfil value or a function of the
+ * request's body; anything else under /api is a test failure.
+ */
+async function openApp({ session = SIGNED_OUT, routes = {}, viewport = { width: 1280, height: 900 } } = {}) {
+  const page = await browser.newPage({ baseURL: runtime.baseURL, viewport });
+  page.setDefaultTimeout(15_000);
+  page.setDefaultNavigationTimeout(60_000);
+  const api = { session, requests: [], unexpected: [], errors: [], page };
+  page.on("pageerror", (error) => api.errors.push(error.message));
+  await page.route("**/api/**", async (route) => {
+    const request = route.request();
+    const { pathname, search } = new URL(request.url());
+    const key = `${request.method()} ${pathname}`;
+    if (key === "GET /api/session") {
+      await route.fulfill({ json: api.session });
+      return;
+    }
+    api.requests.push({ key, search, body: request.postDataJSON(), csrf: request.headers()["csrf-token"] });
+    if (!routes[key]) {
+      api.unexpected.push(key);
+      await route.fulfill({ status: 500, json: { error: `unexpected ${key}` } });
+      return;
+    }
+    const answer = typeof routes[key] === "function" ? routes[key](request.postDataJSON()) : routes[key];
+    await route.fulfill(answer);
+  });
+  return api;
+}
+
+async function finish(api) {
+  assert.deepEqual(api.unexpected, []);
+  assert.deepEqual(api.errors, []);
+  await api.page.close();
+}
+
+function reports(page) {
+  return page.evaluate(() => window.authFixture.reports);
+}
+
+async function signIn(page, email, password) {
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password", { exact: true }).fill(password);
+  await page.getByTestId("auth-submit").click();
+}
+
+test("password sign-in opens the requested page, remembers the account, and sign-out brings it back", options, async () => {
+  const api = await openApp({
+    routes: {
+      "POST /api/login": () => {
+        api.session = SIGNED_IN;
+        return { json: { ok: true, username: "Ada Lovelace" } };
+      },
+      "POST /api/logout": () => {
+        api.session = SIGNED_OUT;
+        return { json: { ok: true } };
+      }
+    }
+  });
+  const { page } = api;
+  await page.goto("/auth/login?returnTo=/home");
+  await expect(page.getByTestId("auth-mode-register")).toBeVisible();
+  await expect(page.locator(".login-screen--mobile")).toHaveCount(0);
+
+  await page.getByLabel("Email").fill("not-an-email");
+  await page.getByLabel("Email").blur();
+  await expect(page.locator(".v-messages__message").first()).toBeVisible();
+  await expect(page.getByTestId("auth-submit")).toBeDisabled();
+
+  await signIn(page, "Ada@Example.com", "correct horse");
+  await expect(page.getByTestId("home")).toHaveText("Signed in: true");
+  assert.equal(new URL(page.url()).pathname, "/home");
+  const login = api.requests.find((request) => request.key === "POST /api/login");
+  assert.deepEqual(login.body, { email: "ada@example.com", password: "correct horse" });
+  assert.equal(login.csrf, "fixture-csrf");
+  assert.deepEqual(
+    await page.evaluate(() => JSON.parse(localStorage.getItem("auth.rememberedAccount"))),
+    {
+      email: "ada@example.com",
+      displayName: "Ada Lovelace",
+      maskedEmail: "a***@example.com",
+      lastUsedAt: await page.evaluate(() => JSON.parse(localStorage.getItem("auth.rememberedAccount")).lastUsedAt)
+    }
+  );
+  await expect(page.getByRole("button", { name: /Ada Lovelace/u })).toBeVisible();
+  assert.deepEqual(await page.evaluate(() => window.authFixture.context.auth.permissions), ["read"]);
+
+  await page.goto("/auth/signout?returnTo=/home");
+  await expect(page.getByText("Welcome back, Ada Lovelace")).toBeVisible();
+  assert.equal(new URL(page.url()).search, "?returnTo=%2Fhome");
+  assert.equal(api.requests.filter((request) => request.key === "POST /api/logout").length, 1);
+  await expect(page.getByText("a***@example.com")).toBeVisible();
+  await expect(page.getByTestId("auth-mode-register")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Use another account" }).click();
+  await expect(page.getByLabel("Email")).toHaveValue("");
+  await expect(page.getByTestId("auth-mode-register")).toBeVisible();
+  assert.equal(await page.evaluate(() => localStorage.getItem("auth.rememberedAccount")), null);
+  await finish(api);
+});
+
+test("a refused sign-in reports the server's error and leaves the form usable", options, async () => {
+  const api = await openApp({ routes: { "POST /api/login": deny(401, "Invalid email or password.") } });
+  const { page } = api;
+  await page.goto("/auth/login");
+  await signIn(page, "ada@example.com", "wrong password");
+  await expect.poll(async () => (await reports(page)).length).toBe(1);
+  const [report] = await reports(page);
+  assert.deepEqual(
+    { source: report.source, message: report.message, severity: report.severity, channel: report.channel },
+    { source: "auth-web.default-login-view", message: "Invalid email or password.", severity: "error", channel: "banner" }
+  );
+  await expect(page.getByLabel("Password", { exact: true })).toHaveValue("wrong password");
+  await expect(page.getByTestId("auth-submit")).toBeEnabled();
+  assert.equal(new URL(page.url()).pathname, "/auth/login");
+  await finish(api);
+});
+
+test("a signed-in visitor leaves the sign-in page, on opening it and when a session starts elsewhere", options, async () => {
+  const signedIn = await openApp({ session: SIGNED_IN });
+  await signedIn.page.goto("/auth/login?returnTo=/home");
+  await expect(signedIn.page.getByTestId("home")).toHaveText("Signed in: true");
+  await finish(signedIn);
+
+  const api = await openApp();
+  const { page } = api;
+  await page.goto("/auth/login?returnTo=/home");
+  await expect(page.getByTestId("auth-submit")).toBeVisible();
+  api.session = SIGNED_IN;
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await page.waitForURL("**/home");
+  await finish(api);
+});
+
+test("the shell guard sends a signed-out visitor to sign-in, and follows the session", options, async () => {
+  const api = await openApp();
+  const { page } = api;
+  await page.goto("/home");
+  await expect(page.getByTestId("home")).toHaveText("Signed in: false");
+  const evaluate = () => page.evaluate((key) => window[key]({
+    guard: { policy: "authenticated" },
+    context: { location: { pathname: "/home", search: "?tab=2" } }
+  }), GUARD_EVALUATOR_KEY);
+  assert.deepEqual(await evaluate(), {
+    allow: false,
+    redirectTo: "/auth/login?returnTo=%2Fhome%3Ftab%3D2",
+    reason: "auth-required"
+  });
+  assert.deepEqual(
+    await page.evaluate((key) => window[key]({ guard: { policy: "public" }, context: {} }), GUARD_EVALUATOR_KEY),
+    { allow: true, redirectTo: "", reason: "" }
+  );
+  await finish(api);
+
+  const signedIn = await openApp({ session: SIGNED_IN });
+  await signedIn.page.goto("/home");
+  await expect(signedIn.page.getByTestId("home")).toHaveText("Signed in: true");
+  assert.deepEqual(
+    await signedIn.page.evaluate((key) => window[key]({ guard: { policy: "authenticated" }, context: {} }), GUARD_EVALUATOR_KEY),
+    { allow: true, redirectTo: "", reason: "" }
+  );
+  await finish(signedIn);
+});
+
+test("register waits for email confirmation, and the other modes reach their requests", options, async () => {
+  const api = await openApp({
+    routes: {
+      "POST /api/register": { json: { requiresEmailConfirmation: true, username: "Ada" } },
+      "POST /api/register/confirmation/resend": { json: { ok: true } },
+      "POST /api/password/forgot": { json: { ok: true } },
+      "POST /api/login/otp/request": { json: { ok: true } },
+      "POST /api/login/otp/verify": () => {
+        api.session = SIGNED_IN;
+        return { json: { ok: true, username: "Ada" } };
+      }
+    }
+  });
+  const { page } = api;
+  await page.goto("/auth/login?returnTo=/home&mode=register&invitationToken=invite-1");
+  await expect(page.getByText("Create your account")).toBeVisible();
+  await page.getByLabel("Email").fill("ada@example.com");
+  await page.getByLabel("Password", { exact: true }).fill("Correct-horse-1");
+  await page.getByLabel("Confirm password", { exact: true }).fill("Different-horse-1");
+  await page.getByLabel("Confirm password", { exact: true }).blur();
+  await expect(page.getByText("Passwords do not match.")).toBeVisible();
+  await expect(page.getByTestId("auth-submit")).toBeDisabled();
+  await page.getByLabel("Confirm password", { exact: true }).fill("Correct-horse-1");
+  await page.getByTestId("auth-submit").click();
+  await expect(page.getByText("Confirm your email")).toBeVisible();
+  await expect(page.getByText("a***@example.com")).toBeVisible();
+  assert.deepEqual(api.requests.at(-1).body, {
+    email: "ada@example.com",
+    password: "Correct-horse-1",
+    invitation: { token: "invite-1", source: "workspace-invite" }
+  });
+  await page.getByRole("button", { name: "Resend confirmation email" }).click();
+  await expect.poll(() => api.requests.at(-1).key).toBe("POST /api/register/confirmation/resend");
+  assert.deepEqual(api.requests.at(-1).body, { email: "ada@example.com" });
+
+  await page.getByRole("button", { name: "Back to sign in" }).click();
+  await page.getByRole("button", { name: "Forgot password?" }).click();
+  await expect(page.getByText("Reset your password")).toBeVisible();
+  await page.getByLabel("Email").fill("ada@example.com");
+  await page.getByTestId("auth-submit").click();
+  await expect.poll(async () => (await reports(page)).at(-1)?.message).toBe("Password reset instructions sent.");
+
+  await page.getByRole("button", { name: "Back to sign in" }).click();
+  await page.getByRole("button", { name: "Use one-time code" }).click();
+  await page.getByLabel("Email").fill("ada@example.com");
+  await page.getByRole("button", { name: "Send one-time code" }).click();
+  await expect.poll(() => api.requests.at(-1).key).toBe("POST /api/login/otp/request");
+  assert.deepEqual(api.requests.at(-1).body, { email: "ada@example.com", returnTo: "/home" });
+  await page.getByLabel("One-time code").fill("123456");
+  await page.getByTestId("auth-submit").click();
+  await page.waitForURL("**/home");
+  await finish(api);
+});
+
+test("OAuth starts at the provider and a callback finishes on the requested page or reports why it failed", options, async () => {
+  const start = await openApp({
+    routes: { "GET /api/oauth/google/start": { contentType: "text/html", body: "<p>Provider</p>" } }
+  });
+  await start.page.goto("/auth/login?returnTo=/home");
+  await start.page.getByRole("button", { name: "Continue with Google" }).click();
+  await start.page.getByText("Provider").waitFor();
+  assert.equal(start.requests.at(-1).search, "?returnTo=%2Fhome");
+  await finish(start);
+
+  const api = await openApp({
+    routes: {
+      "POST /api/oauth/complete": (body) => {
+        api.session = SIGNED_IN;
+        return { json: { ok: true, email: "ada@example.com", username: "Ada" } };
+      }
+    }
+  });
+  await api.page.goto("/auth/login?code=code-1&state=state-1&oauthProvider=google&oauthReturnTo=/home");
+  await expect(api.page.getByTestId("home")).toHaveText("Signed in: true");
+  assert.deepEqual(api.requests.at(-1).body, { provider: "google", code: "code-1", state: "state-1" });
+  await finish(api);
+
+  const landed = await openApp({
+    routes: {
+      "POST /api/oauth/complete": () => {
+        landed.session = SIGNED_IN;
+        return { json: { ok: true, email: "ada@example.com" } };
+      }
+    }
+  });
+  await landed.page.goto("/home?code=code-2&oauthProvider=google");
+  await expect(landed.page.getByTestId("home")).toHaveText("Signed in: true");
+  assert.equal(new URL(landed.page.url()).searchParams.has("code"), false);
+  await finish(landed);
+
+  const failed = await openApp();
+  await failed.page.goto("/auth/login?error=access_denied&error_description=Denied%20by%20user&oauthProvider=google");
+  await expect.poll(async () => (await reports(failed.page)).at(-1)?.message).toBe("Denied by user");
+  assert.equal(new URL(failed.page.url()).search, "");
+  await expect(failed.page.getByTestId("auth-submit")).toBeVisible();
+  await finish(failed);
+});
+
+test("password recovery exchanges the link, clears it from the address, and updates the password", options, async () => {
+  const api = await openApp({
+    routes: {
+      "POST /api/password/recovery": { json: { ok: true } },
+      "POST /api/password/reset": { json: { ok: true } }
+    }
+  });
+  const { page } = api;
+  await page.goto("/auth/reset-password#access_token=token-a&refresh_token=token-r&type=recovery");
+  await expect(page.getByLabel("New password", { exact: true })).toBeVisible();
+  assert.equal(new URL(page.url()).hash, "");
+  assert.deepEqual(api.requests[0].body, { accessToken: "token-a", refreshToken: "token-r", type: "recovery" });
+
+  await page.getByLabel("New password", { exact: true }).fill("Correct-horse-1");
+  await page.getByLabel("Confirm password", { exact: true }).fill("Different-horse-1");
+  await expect(page.getByText("Passwords must match.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Update password" })).toBeDisabled();
+  await page.getByLabel("Confirm password", { exact: true }).fill("Correct-horse-1");
+  await page.getByRole("button", { name: "Update password" }).click();
+  await expect(page.getByText("Password updated. Sign in with your new password.")).toBeVisible();
+  assert.deepEqual(api.requests.at(-1).body, { password: "Correct-horse-1" });
+  await expect(page.getByRole("link", { name: "Back to sign in" })).toHaveAttribute("href", "/auth/login");
+  await finish(api);
+
+  const invalid = await openApp({ routes: { "POST /api/password/recovery": deny(400, "Recovery link expired.") } });
+  await invalid.page.goto("/auth/reset-password?token=stale");
+  await expect(invalid.page.getByText("Recovery link expired.")).toBeVisible();
+  await expect(invalid.page.getByLabel("New password", { exact: true })).toHaveCount(0);
+  await expect(invalid.page.getByRole("link", { name: "Back to sign in" })).toBeVisible();
+  await finish(invalid);
+});
+
+test("a failed sign-out shows the error and retries, on a phone-sized screen", options, async () => {
+  let failures = 1;
+  const api = await openApp({
+    session: SIGNED_IN,
+    viewport: { width: 390, height: 844 },
+    routes: {
+      "POST /api/logout": () => {
+        if (failures > 0) {
+          failures -= 1;
+          return deny(503, "Sign-out service down.");
+        }
+        api.session = SIGNED_OUT;
+        return { json: { ok: true } };
+      }
+    }
+  });
+  const { page } = api;
+  await page.goto("/auth/signout?returnTo=/home");
+  await expect(page.getByText("Sign-out service down.")).toBeVisible();
+  await page.getByRole("button", { name: "Retry sign out" }).click();
+  await page.waitForURL("**/auth/login?returnTo=%2Fhome");
+  await expect(page.locator(".login-screen--mobile")).toHaveCount(1);
+  await finish(api);
+});
