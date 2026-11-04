@@ -26,16 +26,20 @@ Exports
 Exports
 - None
 Local functions
-- `environmentPrefix(id)`
-- `accountModeForGrant(grant, settings, accountMode)`
 - `settingValue(field)`
 - `settingHint(field)`
 - `settingItems(field)`
 - `settingErrors(field)`
-- `editAssistantPolicy(changes)`
-- `editIntegration(changes)`
-- `editSetting(field, value)`
-- `editAuthentication(method, current = integration.value)`
-- `editSecretReference(value)`
-- `editRegistration(field, value)`
-- `editGrantType(value)`
+
+### `src/client/types.js`
+Exports
+- `type IntegrationConfiguration`
+- `type IntegrationConfigurationProps`
+- `type IntegrationConfigurationEditor`
+
+### `src/client/useIntegrationConfiguration.js`
+Exports
+- `environmentPrefix(id)`
+- `useIntegrationConfiguration({ props, emit })`
+Local functions
+- `hasSettingsFunction(provider)`
