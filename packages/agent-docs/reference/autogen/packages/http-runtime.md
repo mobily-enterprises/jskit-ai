@@ -32,11 +32,16 @@ Exports
 
 ### `src/client/transientRetryHttpClient.js`
 Exports
-- `createTransientRetryHttpClient(options = {})`
+- `createTransientRetryHttpClient(options)`
 Local functions
 - `sleep(delayMs)`
 - `shouldRetryTransientHttpFailure(error, method, attemptIndex)`
 - `requestWithTransientRetry(executor, method, signal)`
+
+### `src/client/types.js`
+Exports
+- `type HttpClientOptions`
+- `type TransientRetryHttpClient`
 
 ### `src/client/validationErrors.js`
 Exports

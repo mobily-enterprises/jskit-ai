@@ -44,27 +44,36 @@ async function requestWithTransientRetry(executor, method, signal) {
   }
 }
 
-function createTransientRetryHttpClient(options = {}) {
+/**
+ * An HTTP client whose every request retries transient failures of safe methods.
+ * @param {import("./types.js").HttpClientOptions} [options]
+ */
+function createTransientRetryHttpClient(options) {
   const baseHttpClient = createHttpClient(options);
 
+  function request(url, requestOptions = {}, state = null) {
+    const method = String(requestOptions.method || "GET").toUpperCase();
+    return requestWithTransientRetry(
+      () => baseHttpClient.request(url, requestOptions, state),
+      method,
+      requestOptions.signal
+    );
+  }
+
+  function requestStream(url, requestOptions = {}, handlers = {}, state = null) {
+    const method = String(requestOptions.method || "GET").toUpperCase();
+    return requestWithTransientRetry(
+      () => baseHttpClient.requestStream(url, requestOptions, handlers, state),
+      method,
+      requestOptions.signal
+    );
+  }
+
   return Object.freeze({
-    ...baseHttpClient,
-    request(url, requestOptions = {}, state = null) {
-      const method = String(requestOptions?.method || "GET").toUpperCase();
-      return requestWithTransientRetry(
-        () => baseHttpClient.request(url, requestOptions, state),
-        method,
-        requestOptions?.signal
-      );
-    },
-    requestStream(url, requestOptions = {}, handlers = {}, state = null) {
-      const method = String(requestOptions?.method || "GET").toUpperCase();
-      return requestWithTransientRetry(
-        () => baseHttpClient.requestStream(url, requestOptions, handlers, state),
-        method,
-        requestOptions?.signal
-      );
-    }
+    request,
+    requestStream,
+    ensureCsrfToken: baseHttpClient.ensureCsrfToken,
+    clearCsrfTokenCache: baseHttpClient.clearCsrfTokenCache
   });
 }
 
