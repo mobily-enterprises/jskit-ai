@@ -7,6 +7,13 @@ function mobile(config) {
   return resolveMobileConfig({ mobile: config });
 }
 
+// What the mobile runtime always passes, for tests that exercise only one of these.
+const LAUNCH_ROUTING_DOUBLES = Object.freeze({
+  getInitialLaunchUrl: async () => "",
+  subscribeToLaunchUrls: () => () => {},
+  resolveTargetPath: ({ normalizedTargetPath }) => normalizedTargetPath
+});
+
 test("normalizeIncomingAppUrl normalizes custom-scheme auth callback routes into router paths", () => {
   const normalized = normalizeIncomingAppUrl("convict://auth/login?code=abc&oauthProvider=google", mobile({
     enabled: true,
@@ -79,6 +86,7 @@ test("normalizeIncomingAppUrl rejects unowned schemes and domains", () => {
 test("registerMobileLaunchRouting initializes and applies the initial launch URL", async () => {
   const replaceCalls = [];
   const runtime = registerMobileLaunchRouting({
+    ...LAUNCH_ROUTING_DOUBLES,
     router: {
       currentRoute: {
         value: {
@@ -108,6 +116,7 @@ test("registerMobileLaunchRouting subscribes to later launch URLs and routes the
   const replaceCalls = [];
   let listener = null;
   const runtime = registerMobileLaunchRouting({
+    ...LAUNCH_ROUTING_DOUBLES,
     router: {
       currentRoute: {
         value: {
@@ -145,6 +154,7 @@ test("registerMobileLaunchRouting subscribes to later launch URLs and routes the
 test("registerMobileLaunchRouting lets a resolver override the final route target", async () => {
   const replaceCalls = [];
   const runtime = registerMobileLaunchRouting({
+    ...LAUNCH_ROUTING_DOUBLES,
     router: {
       currentRoute: {
         value: {
@@ -179,6 +189,7 @@ test("registerMobileLaunchRouting lets a resolver override the final route targe
 test("registerMobileLaunchRouting forwards unknown deep-link paths to the normal router", async () => {
   const replaceCalls = [];
   const runtime = registerMobileLaunchRouting({
+    ...LAUNCH_ROUTING_DOUBLES,
     router: {
       currentRoute: {
         value: {
@@ -207,6 +218,7 @@ test("registerMobileLaunchRouting forwards unknown deep-link paths to the normal
 test("registerMobileLaunchRouting no-ops when mobile config is disabled", async () => {
   const replaceCalls = [];
   const runtime = registerMobileLaunchRouting({
+    ...LAUNCH_ROUTING_DOUBLES,
     router: {
       currentRoute: {
         value: {

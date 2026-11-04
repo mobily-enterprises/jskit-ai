@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   createGlobalCapacitorAppAdapter,
-  createNoopCapacitorAppAdapter
+  createNoopCapacitorAppAdapter,
+  resolveCapacitorAppPlugin
 } from "../src/client/runtime/globalCapacitorAppAdapter.js";
 import { createMobileCapacitorRuntime } from "../src/client/runtime/mobileCapacitorRuntime.js";
 import {
@@ -82,6 +83,77 @@ test("createGlobalCapacitorAppAdapter reads launch URLs from a Capacitor App plu
   await Promise.resolve();
   assert.equal(listeners.has("appUrlOpen"), false);
   assert.equal(listeners.has("backButton"), false);
+});
+
+test("createGlobalCapacitorAppAdapter is the disabled adapter when the page has no App plugin", async () => {
+  const adapter = createGlobalCapacitorAppAdapter({ globalObject: {} });
+
+  assert.equal(adapter.available, false);
+  assert.equal(await adapter.exitApp(), false);
+});
+
+test("createGlobalCapacitorAppAdapter finds the plugin under Capacitor.Plugins or Capacitor", () => {
+  const appPlugin = { addListener() {} };
+
+  assert.equal(resolveCapacitorAppPlugin({ Capacitor: { Plugins: { App: appPlugin } } }), appPlugin);
+  assert.equal(resolveCapacitorAppPlugin({ Capacitor: { App: appPlugin } }), appPlugin);
+  assert.equal(resolveCapacitorAppPlugin({}), null);
+});
+
+test("createGlobalCapacitorAppAdapter works with a plugin that has only some of its functions", async () => {
+  const listening = createGlobalCapacitorAppAdapter({
+    appPlugin: {
+      addListener() {
+        return { remove() {} };
+      }
+    }
+  });
+  assert.equal(listening.available, true);
+  assert.equal(await listening.getInitialLaunchUrl(), "");
+  assert.equal(await listening.exitApp(), false);
+
+  const launching = createGlobalCapacitorAppAdapter({
+    appPlugin: {
+      async getLaunchUrl() {
+        return { url: " convict://w/acme " };
+      }
+    }
+  });
+  assert.equal(launching.available, true);
+  assert.equal(await launching.getInitialLaunchUrl(), "convict://w/acme");
+  assert.equal(typeof launching.subscribeToLaunchUrls(() => {}), "function");
+  assert.equal(typeof launching.subscribeToBackButton(() => {}), "function");
+
+  const empty = createGlobalCapacitorAppAdapter({ appPlugin: {} });
+  assert.equal(empty.available, false);
+});
+
+test("createGlobalCapacitorAppAdapter removes a listener that arrives after its subscription was disposed", async () => {
+  const removed = [];
+  let fire = null;
+  const adapter = createGlobalCapacitorAppAdapter({
+    appPlugin: {
+      async addListener(eventName, handler) {
+        fire = handler;
+        return {
+          remove() {
+            removed.push(eventName);
+          }
+        };
+      }
+    }
+  });
+
+  const urls = [];
+  const unsubscribe = adapter.subscribeToLaunchUrls((url) => {
+    urls.push(url);
+  });
+  unsubscribe();
+  fire({ url: "convict://w/acme" });
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.deepEqual(urls, []);
+  assert.deepEqual(removed, ["appUrlOpen"]);
 });
 
 test("createCapacitorAwareOAuthLaunchClient uses Capacitor Browser inside the shell", async () => {
@@ -198,6 +270,46 @@ test("createCapacitorAwareOAuthLaunchClient falls back to browser navigation out
   ]);
 });
 
+test("createCapacitorAwareOAuthLaunchClient refuses to navigate outside a browser", async () => {
+  const launchClient = createCapacitorAwareOAuthLaunchClient({
+    adapter: createNoopCapacitorAppAdapter()
+  });
+
+  await assert.rejects(
+    launchClient.open({ url: "/api/oauth/google/start" }),
+    (error) => error.messageCode === "mobile.oauth.browserUnavailable"
+  );
+});
+
+test("mobile capacitor runtime routes an auth callback as it came when the application has no auth", async () => {
+  const replaceCalls = [];
+  const runtime = createMobileCapacitorRuntime({
+    router: {
+      currentRoute: {
+        value: {
+          fullPath: "/home"
+        }
+      },
+      async replace(target) {
+        replaceCalls.push(target);
+      }
+    },
+    mobileConfig: {
+      enabled: true,
+      auth: {
+        customScheme: "convict",
+        callbackPath: "/auth/login"
+      }
+    },
+    adapter: createNoopCapacitorAppAdapter()
+  });
+
+  const targetPath = await runtime.applyIncomingUrl("convict://auth/login?code=abc", "launch-event");
+
+  assert.equal(targetPath, "/auth/login?code=abc");
+  assert.deepEqual(replaceCalls, ["/auth/login?code=abc"]);
+});
+
 test("mobile capacitor runtime routes an initial launch URL through kernel mobile routing", async () => {
   const replaceCalls = [];
   const runtime = createMobileCapacitorRuntime({
@@ -223,6 +335,9 @@ test("mobile capacitor runtime routes an initial launch URL through kernel mobil
         return "convict://w/acme";
       },
       subscribeToLaunchUrls() {
+        return () => {};
+      },
+      subscribeToBackButton() {
         return () => {};
       }
     }
@@ -268,6 +383,9 @@ test("mobile capacitor runtime waits for auth guard initialization before applyi
         return "convict://w/acme";
       },
       subscribeToLaunchUrls() {
+        return () => {};
+      },
+      subscribeToBackButton() {
         return () => {};
       }
     },
@@ -346,6 +464,11 @@ test("mobile capacitor runtime resolves successful auth callbacks to the returne
       }
     },
     authGuardRuntime: {
+      async initialize() {
+        return {
+          authenticated: true
+        };
+      },
       getState() {
         return {
           oauthDefaultProvider: "google"

@@ -7,14 +7,21 @@ import { createCapacitorAwareOAuthLaunchClient } from "../runtime/oauthLaunchCli
 
 const GLOBAL_FETCH_RESTORE_KEY = Symbol.for("jskit.mobile.capacitor.restoreFetch");
 
-function installCapacitorAwareGlobalFetch({ adapter = null, apiBaseUrl = "", globalObject = globalThis } = {}) {
-  if (!globalObject || typeof globalObject !== "object" || adapter?.available !== true) {
-    return null;
+function keepPageFetch() {}
+
+/**
+ * Inside a Capacitor shell, sends the page's relative API requests to the application's server.
+ * @param {object} options
+ * @param {import("../types.js").CapacitorAppAdapter} options.adapter
+ * @param {string} [options.apiBaseUrl]
+ * @param {typeof globalThis} [options.globalObject]
+ * @returns {() => void} Puts the page's own fetch back.
+ */
+function installCapacitorAwareGlobalFetch({ adapter, apiBaseUrl = "", globalObject = globalThis }) {
+  if (adapter.available !== true) {
+    return keepPageFetch;
   }
-  if (typeof globalObject.fetch !== "function") {
-    return null;
-  }
-  if (typeof globalObject[GLOBAL_FETCH_RESTORE_KEY] === "function") {
+  if (globalObject[GLOBAL_FETCH_RESTORE_KEY]) {
     return globalObject[GLOBAL_FETCH_RESTORE_KEY];
   }
 
@@ -62,8 +69,12 @@ const MobileCapacitorClientProvider = defineProvider({
       })
     };
   },
+  /**
+   * @param {unknown} _dependencies
+   * @param {{ outputs: { mobile: import("../types.js").MobileCapability } }} lifecycle
+   */
   shutdown(_dependencies, { outputs }) {
-    outputs.mobile.restoreFetch?.();
+    outputs.mobile.restoreFetch();
   }
 });
 
@@ -80,23 +91,38 @@ const MobileCapacitorRuntimeProvider = defineProvider({
   provides: {
     mobileRuntime: "client.mobile-runtime"
   },
+  /**
+   * @param {object} capabilities
+   * @param {import("../types.js").MobileCapability} capabilities.mobile
+   * @param {import("../types.js").ClientRouter} capabilities.router
+   * @param {{ mobileCallback: import("../types.js").MobileAuthCallbackCompleter, guard: import("../types.js").MobileAuthGuardRuntime }} [capabilities.auth]
+   * @param {{ placement: import("../types.js").MobilePlacementRuntime }} [capabilities.shell]
+   */
   setup({ auth, mobile, router, shell }) {
     return {
       mobileRuntime: createMobileCapacitorRuntime({
         router,
         mobileConfig: getClientAppConfig().mobile || {},
         adapter: mobile.adapter,
-        placementRuntime: shell?.placement || null,
-        authCallbackCompleter: auth?.mobileCallback || null,
-        authGuardRuntime: auth?.guard || null
+        placementRuntime: shell?.placement,
+        authCallbackCompleter: auth?.mobileCallback,
+        authGuardRuntime: auth?.guard
       })
     };
   },
+  /**
+   * @param {unknown} _dependencies
+   * @param {{ outputs: { mobileRuntime: import("../types.js").MobileCapacitorRuntime } }} lifecycle
+   */
   async boot(_dependencies, { outputs }) {
     await outputs.mobileRuntime.initialize();
   },
+  /**
+   * @param {unknown} _dependencies
+   * @param {{ outputs: { mobileRuntime: import("../types.js").MobileCapacitorRuntime } }} lifecycle
+   */
   shutdown(_dependencies, { outputs }) {
-    outputs.mobileRuntime.dispose?.();
+    outputs.mobileRuntime.dispose();
   }
 });
 

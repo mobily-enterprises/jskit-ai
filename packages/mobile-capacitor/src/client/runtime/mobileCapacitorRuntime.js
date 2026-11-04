@@ -1,6 +1,36 @@
 import { resolveMobileConfig } from "@jskit-ai/kernel/client";
 import { registerMobileLaunchRouting } from "./mobileLaunchRouting.js";
-import { createNoopCapacitorAppAdapter } from "./globalCapacitorAppAdapter.js";
+
+/** The placement runtime of an application without a shell: there is no placement context. */
+const NO_PLACEMENT_RUNTIME = Object.freeze({
+  getContext() {
+    return null;
+  }
+});
+
+/** The callback completer of an application without auth: nothing completes, so the link routes as it came. */
+const NO_AUTH_CALLBACK_COMPLETER = Object.freeze({
+  async completeFromUrl() {
+    return {
+      completed: false
+    };
+  }
+});
+
+/** The guard of an application without auth: nothing to wait for, refresh or read. */
+const NO_AUTH_GUARD_RUNTIME = Object.freeze({
+  async initialize() {
+    return null;
+  },
+  async refresh() {
+    return null;
+  },
+  getState() {
+    return {
+      oauthDefaultProvider: ""
+    };
+  }
+});
 
 function extractPathname(value = "") {
   const normalizedValue = String(value || "").trim();
@@ -16,35 +46,8 @@ function extractPathname(value = "") {
   }
 }
 
-function normalizeCallbackCompleter(value = null) {
-  if (value && typeof value.completeFromUrl === "function") {
-    return value;
-  }
-
-  if (typeof value === "function") {
-    return Object.freeze({
-      completeFromUrl: value
-    });
-  }
-
-  return null;
-}
-
-function normalizeAuthGuardRuntime(value = null) {
-  if (
-    value &&
-    typeof value === "object" &&
-    typeof value.getState === "function" &&
-    (typeof value.initialize === "function" || typeof value.refresh === "function")
-  ) {
-    return value;
-  }
-
-  return null;
-}
-
-function isAuthCallbackTargetPath(targetPath = "", mobileConfig = {}) {
-  const callbackPath = String(mobileConfig?.auth?.callbackPath || "").trim();
+function isAuthCallbackTargetPath(targetPath, mobileConfig) {
+  const callbackPath = String(mobileConfig.auth.callbackPath || "").trim();
   if (!callbackPath) {
     return false;
   }
@@ -52,25 +55,29 @@ function isAuthCallbackTargetPath(targetPath = "", mobileConfig = {}) {
   return extractPathname(targetPath) === callbackPath;
 }
 
+/**
+ * @param {object} options
+ * @param {import("../types.js").ClientRouter} options.router
+ * @param {object} options.mobileConfig The application's `config.mobile`.
+ * @param {import("../types.js").CapacitorAppAdapter} options.adapter
+ * @param {import("../types.js").MobilePlacementRuntime} [options.placementRuntime] Absent without a shell.
+ * @param {import("../types.js").MobileAuthCallbackCompleter} [options.authCallbackCompleter] Absent without auth.
+ * @param {import("../types.js").MobileAuthGuardRuntime} [options.authGuardRuntime] Absent without auth.
+ * @param {import("../types.js").MobileLaunchLogger} [options.logger]
+ */
 function createMobileCapacitorRuntime({
   router,
-  mobileConfig = {},
-  adapter = createNoopCapacitorAppAdapter(),
-  placementRuntime = null,
-  authCallbackCompleter = null,
-  authGuardRuntime = null,
-  logger = null
-} = {}) {
-  if (!router || typeof router.replace !== "function") {
-    throw new TypeError("createMobileCapacitorRuntime requires router.replace().");
-  }
-
+  mobileConfig,
+  adapter,
+  placementRuntime = NO_PLACEMENT_RUNTIME,
+  authCallbackCompleter = NO_AUTH_CALLBACK_COMPLETER,
+  authGuardRuntime = NO_AUTH_GUARD_RUNTIME,
+  logger
+}) {
   const resolvedMobileConfig = resolveMobileConfig({
     mobile: mobileConfig
   });
-  const resolvedAdapter = adapter && typeof adapter === "object" ? adapter : createNoopCapacitorAppAdapter();
-  const resolvedAuthCallbackCompleter = normalizeCallbackCompleter(authCallbackCompleter);
-  const resolvedAuthGuardRuntime = normalizeAuthGuardRuntime(authGuardRuntime);
+  /** @type {import("../types.js").MobileLaunchRouting | null} */
   let launchRouting = null;
   let initialized = false;
   let lastAppliedPath = "";
@@ -78,20 +85,11 @@ function createMobileCapacitorRuntime({
   let removeBackButtonListener = null;
 
   async function ensureAuthGuardReady() {
-    if (!resolvedAuthGuardRuntime) {
-      return null;
-    }
-
     if (authGuardReadyPromise) {
       return authGuardReadyPromise;
     }
 
-    authGuardReadyPromise = (async () => {
-      if (typeof resolvedAuthGuardRuntime.initialize === "function") {
-        return resolvedAuthGuardRuntime.initialize();
-      }
-      return resolvedAuthGuardRuntime.refresh();
-    })();
+    authGuardReadyPromise = authGuardRuntime.initialize();
 
     try {
       return await authGuardReadyPromise;
@@ -102,28 +100,20 @@ function createMobileCapacitorRuntime({
   }
 
   async function resolveTargetPath({ originalUrl = "", normalizedTargetPath = "" } = {}) {
-    if (!resolvedAuthCallbackCompleter || !isAuthCallbackTargetPath(normalizedTargetPath, resolvedMobileConfig)) {
+    if (!isAuthCallbackTargetPath(normalizedTargetPath, resolvedMobileConfig)) {
       return normalizedTargetPath;
     }
 
-    const fallbackReturnTo = String(router.currentRoute?.value?.fullPath || "/").trim() || "/";
-    const authResult = await resolvedAuthCallbackCompleter.completeFromUrl({
+    const fallbackReturnTo = String(router.currentRoute.value.fullPath || "/").trim() || "/";
+    const authResult = await authCallbackCompleter.completeFromUrl({
       url: originalUrl,
       fallbackReturnTo,
-      placementContext: placementRuntime && typeof placementRuntime.getContext === "function"
-        ? placementRuntime.getContext()
-        : null,
-      defaultProvider:
-        resolvedAuthGuardRuntime && typeof resolvedAuthGuardRuntime.getState === "function"
-          ? String(resolvedAuthGuardRuntime.getState()?.oauthDefaultProvider || "")
-          : "",
-      refreshSession:
-        resolvedAuthGuardRuntime && typeof resolvedAuthGuardRuntime.refresh === "function"
-          ? () => resolvedAuthGuardRuntime.refresh()
-          : async () => null
+      placementContext: placementRuntime.getContext(),
+      defaultProvider: String(authGuardRuntime.getState().oauthDefaultProvider || ""),
+      refreshSession: () => authGuardRuntime.refresh()
     });
 
-    if (authResult?.completed === true) {
+    if (authResult.completed === true) {
       return authResult.returnTo || fallbackReturnTo;
     }
 
@@ -134,30 +124,21 @@ function createMobileCapacitorRuntime({
     return registerMobileLaunchRouting({
       router,
       mobileConfig: resolvedMobileConfig,
-      getInitialLaunchUrl: () => resolvedAdapter.getInitialLaunchUrl(),
-      subscribeToLaunchUrls: (handler) => resolvedAdapter.subscribeToLaunchUrls(handler),
+      getInitialLaunchUrl: () => adapter.getInitialLaunchUrl(),
+      subscribeToLaunchUrls: (handler) => adapter.subscribeToLaunchUrls(handler),
       resolveTargetPath,
       logger
     });
   }
 
   function wireBackButtonHandling() {
-    if (typeof resolvedAdapter.subscribeToBackButton !== "function") {
-      return;
-    }
-    if (!router || typeof router.back !== "function") {
-      return;
-    }
-
-    removeBackButtonListener = resolvedAdapter.subscribeToBackButton(async (event = {}) => {
-      if (event?.canGoBack === true) {
+    removeBackButtonListener = adapter.subscribeToBackButton(async (event) => {
+      if (event.canGoBack === true) {
         router.back();
         return;
       }
 
-      if (typeof resolvedAdapter.exitApp === "function") {
-        await resolvedAdapter.exitApp();
-      }
+      await adapter.exitApp();
     });
   }
 
@@ -185,10 +166,10 @@ function createMobileCapacitorRuntime({
   }
 
   function dispose() {
-    if (launchRouting && typeof launchRouting.dispose === "function") {
+    if (launchRouting) {
       launchRouting.dispose();
     }
-    if (typeof removeBackButtonListener === "function") {
+    if (removeBackButtonListener) {
       removeBackButtonListener();
     }
     launchRouting = null;
@@ -199,7 +180,7 @@ function createMobileCapacitorRuntime({
   function getState() {
     return Object.freeze({
       initialized,
-      available: resolvedAdapter.available === true,
+      available: adapter.available === true,
       enabled: resolvedMobileConfig.enabled === true,
       lastAppliedPath
     });

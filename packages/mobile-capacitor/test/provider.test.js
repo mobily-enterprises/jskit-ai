@@ -100,6 +100,40 @@ test("mobile providers publish, boot, and dispose their declared capabilities", 
   }
 });
 
+test("mobile providers start and stop on a page with no Capacitor, leaving fetch alone", async () => {
+  const originalCapacitor = globalThis.Capacitor;
+  const originalConfig = globalThis.__JSKIT_CLIENT_APP_CONFIG__;
+  const originalFetch = globalThis.fetch;
+  let capabilities = null;
+
+  globalThis.__JSKIT_CLIENT_APP_CONFIG__ = { mobile: { enabled: false } };
+  delete globalThis.Capacitor;
+
+  const runtime = createCapabilityRuntime({
+    inputs: {
+      "client.router": createRouter()
+    },
+    providers: [
+      MobileCapacitorClientProvider,
+      MobileCapacitorRuntimeProvider,
+      createMobileProbe((value) => {
+        capabilities = value;
+      })
+    ]
+  });
+
+  try {
+    await runtime.start();
+    assert.equal(capabilities.mobile.adapter.available, false);
+    assert.equal(globalThis.fetch, originalFetch);
+    await runtime.shutdown();
+    assert.equal(globalThis.fetch, originalFetch);
+  } finally {
+    globalThis.Capacitor = originalCapacitor;
+    globalThis.__JSKIT_CLIENT_APP_CONFIG__ = originalConfig;
+  }
+});
+
 test("mobile provider installs and restores the Capacitor-aware fetch wrapper", async () => {
   const originalCapacitor = globalThis.Capacitor;
   const originalConfig = globalThis.__JSKIT_CLIENT_APP_CONFIG__;

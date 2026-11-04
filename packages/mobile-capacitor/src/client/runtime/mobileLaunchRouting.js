@@ -2,6 +2,13 @@ import { resolveMobileConfig } from "@jskit-ai/kernel/client";
 import { normalizePathname } from "@jskit-ai/kernel/shared/surface/paths";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeHttpOrigin } from "@jskit-ai/kernel/shared/support/returnToPath";
+import { pageLocation } from "../browser.js";
+
+/** The logger launch routing reports to when the application gives it none. */
+const SILENT_LAUNCH_LOGGER = Object.freeze({
+  info() {},
+  warn() {}
+});
 
 function buildNormalizedRoutePath(pathname = "/", search = "", hash = "") {
   const normalizedPathname = normalizePathname(pathname);
@@ -110,31 +117,30 @@ function normalizeIncomingAppUrl(url = "", mobileConfig, { currentOrigin = "", a
   return "";
 }
 
+/**
+ * @param {object} options
+ * @param {import("../types.js").ClientRouter} options.router
+ * @param {object} options.mobileConfig
+ * @param {() => Promise<string>} options.getInitialLaunchUrl
+ * @param {import("../types.js").CapacitorAppAdapter["subscribeToLaunchUrls"]} options.subscribeToLaunchUrls
+ * @param {(target: { originalUrl: string, normalizedTargetPath: string, reason: string, mobileConfig: object, router: import("../types.js").ClientRouter }) => Promise<string> | string} options.resolveTargetPath
+ * @param {string} [options.currentOrigin]
+ * @param {string | string[]} [options.allowedHttpOrigins]
+ * @param {import("../types.js").MobileLaunchLogger} [options.logger]
+ */
 function registerMobileLaunchRouting({
   router,
-  mobileConfig = {},
-  getInitialLaunchUrl = async () => "",
-  subscribeToLaunchUrls = () => () => {},
-  resolveTargetPath = null,
-  currentOrigin = typeof window === "object" && window?.location ? String(window.location.origin || "") : "",
+  mobileConfig,
+  getInitialLaunchUrl,
+  subscribeToLaunchUrls,
+  resolveTargetPath,
+  currentOrigin = pageLocation().origin,
   allowedHttpOrigins = [],
-  logger = null
-} = {}) {
-  if (!router || typeof router.replace !== "function") {
-    throw new TypeError("registerMobileLaunchRouting requires router.replace().");
-  }
-
+  logger = SILENT_LAUNCH_LOGGER
+}) {
   const resolvedMobileConfig = resolveMobileConfig({
     mobile: mobileConfig
   });
-  const runtimeLogger =
-    logger && typeof logger === "object"
-      ? logger
-      : {
-          info() {},
-          warn() {},
-          error() {}
-        };
 
   async function applyIncomingUrl(url = "", reason = "manual") {
     const normalizedTargetPath = normalizeIncomingAppUrl(url, resolvedMobileConfig, {
@@ -145,35 +151,30 @@ function registerMobileLaunchRouting({
       return "";
     }
 
-    let resolvedTargetPath = normalizedTargetPath;
-    if (typeof resolveTargetPath === "function") {
-      const nextTargetPath = await resolveTargetPath(
-        Object.freeze({
-          originalUrl: String(url || ""),
-          normalizedTargetPath,
-          reason,
-          mobileConfig: resolvedMobileConfig,
-          router
-        })
-      );
-      resolvedTargetPath = normalizeResolvedRoutePath(nextTargetPath, normalizedTargetPath);
-    }
+    const nextTargetPath = await resolveTargetPath(
+      Object.freeze({
+        originalUrl: String(url || ""),
+        normalizedTargetPath,
+        reason,
+        mobileConfig: resolvedMobileConfig,
+        router
+      })
+    );
+    const resolvedTargetPath = normalizeResolvedRoutePath(nextTargetPath, normalizedTargetPath);
 
-    const currentFullPath = String(router.currentRoute?.value?.fullPath || "").trim();
+    const currentFullPath = String(router.currentRoute.value.fullPath || "").trim();
     if (currentFullPath === resolvedTargetPath) {
       return resolvedTargetPath;
     }
 
     await router.replace(resolvedTargetPath);
-    if (typeof runtimeLogger.info === "function") {
-      runtimeLogger.info(
-        {
-          reason,
-          targetPath: resolvedTargetPath
-        },
-        "Mobile launch routing applied incoming app URL."
-      );
-    }
+    logger.info(
+      {
+        reason,
+        targetPath: resolvedTargetPath
+      },
+      "Mobile launch routing applied incoming app URL."
+    );
     return resolvedTargetPath;
   }
 
@@ -190,25 +191,23 @@ function registerMobileLaunchRouting({
     resolvedMobileConfig.enabled === true
       ? subscribeToLaunchUrls((nextUrl) => {
           Promise.resolve(applyIncomingUrl(nextUrl, "launch-event")).catch((error) => {
-            if (typeof runtimeLogger.warn === "function") {
-              runtimeLogger.warn(
-                {
-                  error: String(error?.message || error || "unknown error")
-                },
-                "Mobile launch routing failed to apply incoming app URL."
-              );
-            }
+            logger.warn(
+              {
+                error: String(error?.message || error || "unknown error")
+              },
+              "Mobile launch routing failed to apply incoming app URL."
+            );
           });
         })
       : () => {};
 
+  function dispose() {
+    unsubscribe();
+  }
+
   return Object.freeze({
     initialize,
-    dispose() {
-      if (typeof unsubscribe === "function") {
-        unsubscribe();
-      }
-    },
+    dispose,
     applyIncomingUrl
   });
 }

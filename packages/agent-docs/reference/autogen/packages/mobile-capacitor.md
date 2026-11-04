@@ -14,6 +14,10 @@ Use this on demand; do not load the full index at startup.
 
 ### src
 
+### `src/client/browser.js`
+Exports
+- `pageLocation()`
+
 ### `src/client/i18n.js`
 Exports
 - `createTextError`
@@ -32,11 +36,13 @@ Exports
 Exports
 - `MobileCapacitorClientProvider`
 - `MobileCapacitorRuntimeProvider`
-- `installCapacitorAwareGlobalFetch({ adapter = null, apiBaseUrl = "", globalObject = globalThis } = {})`
+- `installCapacitorAwareGlobalFetch({ adapter, apiBaseUrl = "", globalObject = globalThis })`
+Local functions
+- `keepPageFetch()`
 
 ### `src/client/runtime/apiRequestClient.js`
 Exports
-- `createCapacitorAwareFetch({ fetchImpl = globalThis.fetch, adapter = null, apiBaseUrl = "" } = {})`
+- `createCapacitorAwareFetch({ fetchImpl = globalThis.fetch, adapter, apiBaseUrl = "" })`
 - `isCapacitorApiRequestTarget(url = "")`
 - `resolveCapacitorAbsoluteHttpUrl(url = "", apiBaseUrl = "", messages = {})`
 Local functions
@@ -45,23 +51,27 @@ Local functions
 
 ### `src/client/runtime/globalCapacitorAppAdapter.js`
 Exports
-- `createGlobalCapacitorAppAdapter({ globalObject = globalThis, appPlugin = null } = {})`
+- `createGlobalCapacitorAppAdapter({ globalObject = globalThis, appPlugin = resolveCapacitorAppPlugin(globalObject) } = {})`
 - `createNoopCapacitorAppAdapter()`
 - `resolveCapacitorAppPlugin(globalObject = globalThis)`
+Local functions
+- `pluginHasFunction(plugin, name)`
+- `readNoLaunchUrl()`
+- `removeNoListener()`
+- `subscribeToNothing()`
+- `exitNothing()`
 
 ### `src/client/runtime/mobileCapacitorRuntime.js`
 Exports
-- `createMobileCapacitorRuntime({ router, mobileConfig = {}, adapter = createNoopCapacitorAppAdapter(), placementRuntime = null, authCallbackCompleter = null, authGuardRuntime = null, logger = null } = {})`
+- `createMobileCapacitorRuntime({ router, mobileConfig, adapter, placementRuntime = NO_PLACEMENT_RUNTIME, authCallbackCompleter = NO_AUTH_CALLBACK_COMPLETER, authGuardRuntime = NO_AUTH_GUARD_RUNTIME, logger })`
 Local functions
 - `extractPathname(value = "")`
-- `normalizeCallbackCompleter(value = null)`
-- `normalizeAuthGuardRuntime(value = null)`
-- `isAuthCallbackTargetPath(targetPath = "", mobileConfig = {})`
+- `isAuthCallbackTargetPath(targetPath, mobileConfig)`
 
 ### `src/client/runtime/mobileLaunchRouting.js`
 Exports
 - `normalizeIncomingAppUrl(url = "", mobileConfig, { currentOrigin = "", allowedHttpOrigins = [] } = {})`
-- `registerMobileLaunchRouting({ router, mobileConfig = {}, getInitialLaunchUrl = async () => "", subscribeToLaunchUrls = () => () => {}, resolveTargetPath = null, currentOrigin = typeof window === "object" && window?.location ? String(window.location.origin || "") : "", allowedHttpOrigins = [], logger = null } = {})`
+- `registerMobileLaunchRouting({ router, mobileConfig, getInitialLaunchUrl, subscribeToLaunchUrls, resolveTargetPath, currentOrigin = pageLocation().origin, allowedHttpOrigins = [], logger = SILENT_LAUNCH_LOGGER })`
 Local functions
 - `buildNormalizedRoutePath(pathname = "/", search = "", hash = "")`
 - `normalizeResolvedRoutePath(value = "", fallback = "")`
@@ -70,5 +80,22 @@ Local functions
 
 ### `src/client/runtime/oauthLaunchClient.js`
 Exports
-- `createCapacitorAwareOAuthLaunchClient({ adapter = null, browserPlugin = Browser, location = null, apiBaseUrl = "" } = {})`
+- `createCapacitorAwareOAuthLaunchClient({ adapter, browserPlugin = Browser, location = pageLocation(), apiBaseUrl = "" })`
 - `resolveCapacitorLaunchUrl(url = "", apiBaseUrl = "")`
+
+### `src/client/types.js`
+Exports
+- `type ClientRouter`
+- `type MobileConfig`
+- `type MobileCapacitorRuntime`
+- `type MobileLaunchRouting`
+- `type CapacitorOAuthLaunchClient`
+- `type CapacitorAppAdapter`
+- `type CapacitorListenerHandle`
+- `type CapacitorAppPlugin`
+- `type PageLocation`
+- `type MobilePlacementRuntime`
+- `type MobileAuthCallbackCompleter`
+- `type MobileAuthGuardRuntime`
+- `type MobileLaunchLogger`
+- `type MobileCapability`

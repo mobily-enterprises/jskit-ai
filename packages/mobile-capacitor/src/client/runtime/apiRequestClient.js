@@ -77,7 +77,7 @@ function normalizeFetchInput(input = "") {
     });
   }
 
-  if (typeof URL === "function" && input instanceof URL) {
+  if (input instanceof URL) {
     return Object.freeze({
       rawUrl: input.toString(),
       rebuild(nextUrl) {
@@ -86,7 +86,7 @@ function normalizeFetchInput(input = "") {
     });
   }
 
-  if (typeof Request === "function" && input instanceof Request) {
+  if (input instanceof Request) {
     return Object.freeze({
       rawUrl: String(input.url || ""),
       rebuild(nextUrl) {
@@ -103,17 +103,19 @@ function normalizeFetchInput(input = "") {
   });
 }
 
+/**
+ * @param {object} options
+ * @param {typeof fetch} [options.fetchImpl]
+ * @param {import("../types.js").CapacitorAppAdapter} options.adapter
+ * @param {string} [options.apiBaseUrl]
+ */
 function createCapacitorAwareFetch({
   fetchImpl = globalThis.fetch,
-  adapter = null,
+  adapter,
   apiBaseUrl = ""
-} = {}) {
-  if (typeof fetchImpl !== "function") {
-    throw new Error("createCapacitorAwareFetch requires fetchImpl.");
-  }
-
+}) {
   return async function capacitorAwareFetch(input, init) {
-    if (adapter?.available !== true) {
+    if (adapter.available !== true) {
       return fetchImpl(input, init);
     }
 

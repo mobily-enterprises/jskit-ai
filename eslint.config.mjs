@@ -99,6 +99,7 @@ export default [
     "packages/http-runtime/src/client/**",
     "packages/http-web/src/client/**",
     "packages/kernel/client/**",
+    "packages/mobile-capacitor/src/client/**",
     "packages/payments-web/src/client/**",
     "packages/realtime/src/client/**",
     "packages/shell-web/src/client/**",

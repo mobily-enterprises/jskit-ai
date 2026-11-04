@@ -1,5 +1,6 @@
 import { Browser } from "@capacitor/browser";
 import { resolveCapacitorAbsoluteHttpUrl } from "./apiRequestClient.js";
+import { pageLocation } from "../browser.js";
 import { createTextError } from "../i18n.js";
 
 function resolveCapacitorLaunchUrl(url = "", apiBaseUrl = "") {
@@ -10,36 +11,38 @@ function resolveCapacitorLaunchUrl(url = "", apiBaseUrl = "") {
   });
 }
 
+/**
+ * @param {object} options
+ * @param {import("../types.js").CapacitorAppAdapter} options.adapter
+ * @param {{ open: (options: { url: string }) => Promise<void> }} [options.browserPlugin]
+ * @param {Pick<import("../types.js").PageLocation, "assign">} [options.location]
+ * @param {string} [options.apiBaseUrl]
+ */
 function createCapacitorAwareOAuthLaunchClient({
-  adapter = null,
+  adapter,
   browserPlugin = Browser,
-  location = null,
+  location = pageLocation(),
   apiBaseUrl = ""
-} = {}) {
-  const resolvedLocation =
-    location || (typeof window === "object" && window?.location ? window.location : null);
+}) {
+  async function open({ url = "" } = {}) {
+    const normalizedUrl = String(url || "").trim();
+    if (!normalizedUrl) {
+      throw createTextError("jskit.mobile.oauth.urlRequired");
+    }
 
-  return Object.freeze({
-    async open({ url = "" } = {}) {
-      const normalizedUrl = String(url || "").trim();
-      if (!normalizedUrl) {
-        throw createTextError("jskit.mobile.oauth.urlRequired");
-      }
-
-      if (adapter?.available === true && browserPlugin && typeof browserPlugin.open === "function") {
-        await browserPlugin.open({
-          url: resolveCapacitorLaunchUrl(normalizedUrl, apiBaseUrl)
-        });
-        return true;
-      }
-
-      if (!resolvedLocation || typeof resolvedLocation.assign !== "function") {
-        throw createTextError("jskit.mobile.oauth.browserUnavailable");
-      }
-
-      resolvedLocation.assign(normalizedUrl);
+    if (adapter.available === true) {
+      await browserPlugin.open({
+        url: resolveCapacitorLaunchUrl(normalizedUrl, apiBaseUrl)
+      });
       return true;
     }
+
+    location.assign(normalizedUrl);
+    return true;
+  }
+
+  return Object.freeze({
+    open
   });
 }
 
