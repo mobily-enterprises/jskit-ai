@@ -1,16 +1,18 @@
 import { normalizeEmailAddress, maskEmail } from "./identityHelpers.js";
+import { pageWindow } from "../../browser.js";
 import { useJskitText } from "../../i18n.js";
 
 function resolveLocalStorage() {
-  if (typeof window === "undefined" || !window.localStorage) {
+  const storage = pageWindow()?.localStorage;
+  if (!storage) {
     return null;
   }
 
   try {
     const probeKey = "__auth_hint_probe__";
-    window.localStorage.setItem(probeKey, "1");
-    window.localStorage.removeItem(probeKey);
-    return window.localStorage;
+    storage.setItem(probeKey, "1");
+    storage.removeItem(probeKey);
+    return storage;
   } catch {
     return null;
   }

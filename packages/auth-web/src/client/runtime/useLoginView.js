@@ -12,9 +12,6 @@ function useLoginView() {
   const { context: placementContext } = useWebPlacementContext();
   const queryClient = useQueryClient();
   const errorRuntime = useShellWebErrorRuntime();
-  const oauthLaunchClient = useAuthOAuthLaunchClient({
-    required: true
-  });
 
   const state = useLoginViewState({ placementContext });
   const validation = useLoginViewValidation({ state });
@@ -23,7 +20,7 @@ function useLoginView() {
     validation,
     queryClient,
     errorRuntime,
-    oauthLaunchClient
+    oauthLaunchClient: useAuthOAuthLaunchClient()
   });
 
   onMounted(actions.initializeOnMounted);
@@ -37,6 +34,12 @@ function useLoginView() {
     isLogin: state.isLogin,
     isRegister: state.isRegister,
     isEmailConfirmationPending: state.isEmailConfirmationPending,
+    canUsePasswordLogin: state.canUsePasswordLogin,
+    canRegister: state.canRegister,
+    canRequestPasswordRecovery: state.canRequestPasswordRecovery,
+    canUseOtp: state.canUseOtp,
+    canUseOAuth: state.canUseOAuth,
+    canResendEmailConfirmation: state.canResendEmailConfirmation,
     emailConfirmationMessage: state.emailConfirmationMessage,
     showRememberedAccount: state.showRememberedAccount,
     switchMode: state.switchMode,

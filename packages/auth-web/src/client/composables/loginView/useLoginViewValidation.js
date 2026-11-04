@@ -10,7 +10,8 @@ import {
 } from "./validationHelpers.js";
 import { useJskitText } from "../../i18n.js";
 
-export function useLoginViewValidation({ state } = {}) {
+/** @param {{ state: import("../../types.js").LoginViewState }} options */
+export function useLoginViewValidation({ state }) {
   const { t } = useJskitText();
 
   function resolveFieldErrorMessages({

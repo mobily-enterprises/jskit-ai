@@ -3,13 +3,15 @@ import {
   OAUTH_QUERY_PARAM_RETURN_TO
 } from "@jskit-ai/auth-core/shared/oauthCallbackParams";
 import { readOAuthCallbackParamsFromUrl } from "../../runtime/oauthCallbackRuntime.js";
+import { pageLocation } from "../../browser.js";
 
 function stripOAuthParamsFromLocation() {
-  if (typeof window !== "object" || !window.location) {
+  const location = pageLocation();
+  if (!location) {
     return;
   }
 
-  const nextUrl = new URL(window.location.href);
+  const nextUrl = new URL(location.href);
   const oauthParamKeys = [
     "code",
     "access_token",
@@ -46,11 +48,12 @@ function stripOAuthParamsFromLocation() {
 }
 
 function readOAuthCallbackParamsFromLocation() {
-  if (typeof window !== "object" || !window.location) {
+  const location = pageLocation();
+  if (!location) {
     return null;
   }
 
-  return readOAuthCallbackParamsFromUrl(window.location.href);
+  return readOAuthCallbackParamsFromUrl(location.href);
 }
 
 export {

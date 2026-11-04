@@ -1,20 +1,21 @@
 import { computed, markRaw, shallowRef } from "vue";
 import { defineStore } from "pinia";
-import { isAuthGuardRuntime } from "../runtime/authGuardRuntime.js";
-import { EMPTY_AUTH_GUARD_RUNTIME, EMPTY_AUTH_GUARD_STATE } from "../runtime/inject.js";
+import { NO_AUTH_GUARD_RUNTIME, NO_AUTH_GUARD_STATE } from "../runtime/inject.js";
 
 function normalizeAuthStateValue(nextState) {
   if (!nextState || typeof nextState !== "object") {
-    return EMPTY_AUTH_GUARD_STATE;
+    return NO_AUTH_GUARD_STATE;
   }
 
   return nextState;
 }
 
+function stopListening() {}
+
 export const useAuthStore = defineStore("jskit.auth-web.auth", () => {
-  const runtime = shallowRef(markRaw(EMPTY_AUTH_GUARD_RUNTIME));
-  const authState = shallowRef(EMPTY_AUTH_GUARD_STATE);
-  let unsubscribe = null;
+  const runtime = shallowRef(markRaw(NO_AUTH_GUARD_RUNTIME));
+  const authState = shallowRef(NO_AUTH_GUARD_STATE);
+  let unsubscribe = stopListening;
 
   function setAuthState(nextState) {
     authState.value = normalizeAuthStateValue(nextState);
@@ -22,17 +23,12 @@ export const useAuthStore = defineStore("jskit.auth-web.auth", () => {
   }
 
   function detachRuntimeSubscription() {
-    if (typeof unsubscribe === "function") {
-      unsubscribe();
-      unsubscribe = null;
-    }
+    unsubscribe();
+    unsubscribe = stopListening;
   }
 
-  function attachRuntime(nextRuntime = EMPTY_AUTH_GUARD_RUNTIME) {
-    if (!isAuthGuardRuntime(nextRuntime) || typeof nextRuntime.subscribe !== "function") {
-      throw new TypeError("useAuthStore.attachRuntime requires an auth guard runtime with subscribe().");
-    }
-
+  /** @param {import("../types.js").AuthGuardRuntime} nextRuntime */
+  function attachRuntime(nextRuntime) {
     if (runtime.value === nextRuntime) {
       setAuthState(nextRuntime.getState());
       return runtime.value;
@@ -66,9 +62,9 @@ export const useAuthStore = defineStore("jskit.auth-web.auth", () => {
 
   const authenticated = computed(() => authState.value.authenticated === true);
   const username = computed(() => String(authState.value.username || ""));
-  const oauthProviders = computed(() => authState.value.oauthProviders || EMPTY_AUTH_GUARD_STATE.oauthProviders);
+  const oauthProviders = computed(() => authState.value.oauthProviders || NO_AUTH_GUARD_STATE.oauthProviders);
   const oauthDefaultProvider = computed(() => String(authState.value.oauthDefaultProvider || ""));
-  const authCapabilities = computed(() => authState.value.authCapabilities || EMPTY_AUTH_GUARD_STATE.authCapabilities);
+  const authCapabilities = computed(() => authState.value.authCapabilities || NO_AUTH_GUARD_STATE.authCapabilities);
 
   return {
     runtime,

@@ -237,39 +237,13 @@
 </template>
 
 <script setup>
-import { onMounted } from "vue";
-import { useQueryClient } from "@tanstack/vue-query";
 import { mdiEye, mdiEyeOff } from "@mdi/js";
 import { useDisplay } from "vuetify";
-import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
-import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
-import { useAuthOAuthLaunchClient } from "../runtime/inject.js";
-import { useLoginViewState } from "../composables/loginView/useLoginViewState.js";
-import { useLoginViewValidation } from "../composables/loginView/useLoginViewValidation.js";
-import { useLoginViewActions } from "../composables/loginView/useLoginViewActions.js";
-import { useSessionRecheckOnShow } from "../composables/loginView/useSessionRecheckOnShow.js";
+import { useLoginView } from "../runtime/useLoginView.js";
 import { useJskitText } from "../i18n.js";
 
-const {
-  context: placementContext
-} = useWebPlacementContext();
-const queryClient = useQueryClient();
-const errorRuntime = useShellWebErrorRuntime();
 const { mobile: isMobileViewport } = useDisplay({ mobileBreakpoint: 960 });
 const { t } = useJskitText();
-
-const state = useLoginViewState({ placementContext });
-const validation = useLoginViewValidation({ state });
-const actions = useLoginViewActions({
-  state,
-  validation,
-  queryClient,
-  errorRuntime,
-  oauthLaunchClient: useAuthOAuthLaunchClient()
-});
-
-onMounted(actions.initializeOnMounted);
-useSessionRecheckOnShow(actions.redirectIfSignedIn);
 
 const {
   authTitle,
@@ -308,25 +282,19 @@ const {
   registerConfirmationResendPending,
   oauthProviders,
   loading,
-  submitLabel
-} = state;
-
-const {
+  submitLabel,
   emailErrorMessages,
   passwordErrorMessages,
   confirmPasswordErrorMessages,
   otpCodeErrorMessages,
-  canSubmit
-} = validation;
-
-const {
+  canSubmit,
   submitAuth,
   requestOtpCode,
   resendRegisterConfirmationEmail,
   oauthProviderIcon,
   startOAuthSignIn,
   oauthProviderButtonLabel
-} = actions;
+} = useLoginView();
 
 function togglePasswordVisibility() {
   showPassword.value = !showPassword.value;

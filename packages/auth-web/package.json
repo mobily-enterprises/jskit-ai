@@ -13,6 +13,7 @@
     "./server/managedPreviewIdentity": "./src/server/managedPreviewIdentity.js",
     "./server/types": "./src/server/types.js",
     "./client": "./src/client/index.js",
+    "./client/types": "./src/client/types.js",
     "./client/views/DefaultLoginView": "./src/client/views/DefaultLoginView.vue",
     "./client/views/DefaultResetPasswordView": "./src/client/views/DefaultResetPasswordView.vue",
     "./client/views/DefaultSignOutView": "./src/client/views/DefaultSignOutView.vue",
@@ -76,6 +77,10 @@
           {
             "subpath": "./client",
             "summary": "Exports auth web client provider, default auth views, and route/provider registration surface."
+          },
+          {
+            "subpath": "./client/types",
+            "summary": "Types of the guard runtime, the OAuth launch client and the client.auth capability."
           },
           {
             "subpath": "./server",

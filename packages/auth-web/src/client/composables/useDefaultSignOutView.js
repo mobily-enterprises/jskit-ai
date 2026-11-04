@@ -6,14 +6,11 @@ import {
   resolveSurfaceNavigationTargetFromPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
 import { performSignOutRequest } from "../runtime/useSignOut.js";
-import { useAuthGuardRuntime } from "../runtime/inject.js";
+import { useRequiredAuthGuardRuntime } from "../runtime/inject.js";
 import { normalizeAuthReturnToPath } from "../lib/returnToPath.js";
 import { useJskitText } from "../i18n.js";
 
 function readReturnToPathFromLocation({ allowedOrigins = [] } = {}) {
-  if (typeof window !== "object" || !window.location) {
-    return "/";
-  }
   const params = new URLSearchParams(window.location.search || "");
   return normalizeAuthReturnToPath(params.get("returnTo"), "/", {
     allowedOrigins
@@ -21,9 +18,6 @@ function readReturnToPathFromLocation({ allowedOrigins = [] } = {}) {
 }
 
 function navigateToPath(path, { replace = true } = {}) {
-  if (typeof window !== "object" || !window.location) {
-    return;
-  }
   if (replace) {
     window.location.replace(path);
     return;
@@ -33,9 +27,7 @@ function navigateToPath(path, { replace = true } = {}) {
 
 export function useDefaultSignOutView() {
   const { serverMessage, t } = useJskitText();
-  const authGuardRuntime = useAuthGuardRuntime({
-    required: true
-  });
+  const authGuardRuntime = useRequiredAuthGuardRuntime();
   const { context: placementContext } = useWebPlacementContext();
   const errorRuntime = useShellWebErrorRuntime();
   const status = ref("pending");

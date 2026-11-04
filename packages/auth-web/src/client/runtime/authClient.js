@@ -12,29 +12,66 @@ import {
 } from "./inject.js";
 import { useAuthStore } from "../stores/useAuthStore.js";
 
+function releaseNothing() {}
+
+/**
+ * The realtime side of an application without `client.realtime`: no events, and no reconnect to prepare.
+ * @type {import("../types.js").AuthRealtime}
+ */
+const NO_AUTH_REALTIME = Object.freeze({
+  socket: Object.freeze({
+    on() {},
+    off() {}
+  }),
+  setBeforeReconnect() {
+    return releaseNothing;
+  }
+});
+
 function createMobileCallbackCompleter() {
+  /**
+   * @param {{
+   *   url?: string,
+   *   fallbackReturnTo?: string,
+   *   placementContext?: Record<string, any> | null,
+   *   defaultProvider?: string,
+   *   request?: import("../types.js").AuthRequest,
+   *   refreshSession?: () => Promise<any>
+   * }} options
+   */
+  async function completeFromUrl({
+    url = "",
+    fallbackReturnTo = "/",
+    placementContext = null,
+    defaultProvider = "",
+    request,
+    refreshSession
+  }) {
+    return completeOAuthCallbackFromUrl({
+      url,
+      fallbackReturnTo,
+      allowedReturnToOrigins: resolveAllowedOriginsFromPlacementContext(placementContext),
+      defaultProvider,
+      request,
+      refreshSession
+    });
+  }
+
   return Object.freeze({
-    async completeFromUrl({
-      url = "",
-      fallbackReturnTo = "/",
-      placementContext = null,
-      defaultProvider = "",
-      request = undefined,
-      refreshSession = async () => null
-    } = {}) {
-      return completeOAuthCallbackFromUrl({
-        url,
-        fallbackReturnTo,
-        allowedReturnToOrigins: resolveAllowedOriginsFromPlacementContext(placementContext),
-        defaultProvider,
-        ...(typeof request === "function" ? { request } : {}),
-        refreshSession
-      });
-    }
+    completeFromUrl
   });
 }
 
-function createAuthClient({ mobile = null, pinia, realtime = null, shell, vueApp } = {}) {
+/**
+ * @param {{
+ *   mobile?: import("../types.js").AuthMobile | null,
+ *   pinia: import("@jskit-ai/kernel/client/types").ClientPinia,
+ *   realtime: import("../types.js").AuthRealtime,
+ *   shell: import("../types.js").AuthShell,
+ *   vueApp: import("@jskit-ai/kernel/client/types").ClientVueApp
+ * }} options
+ */
+function createAuthClient({ mobile, pinia, realtime, shell, vueApp }) {
   const placementRuntime = shell.placement;
   const loginRouteTarget = resolveSurfaceNavigationTargetFromPlacementContext(placementRuntime.getContext(), {
     path: "/auth/login",
@@ -43,17 +80,14 @@ function createAuthClient({ mobile = null, pinia, realtime = null, shell, vueApp
   const guard = createAuthGuardRuntime({
     loginRoute: loginRouteTarget.href,
     placementRuntime,
-    realtimeSocket: realtime?.socket || null
+    realtimeSocket: realtime.socket
   });
   const mobileCallback = createMobileCallbackCompleter();
   const oauthLaunch = mobile?.oauthLaunch || createPopupOAuthLaunchClient();
-  let stopAuthRefresh = null;
-  let releaseBeforeReconnect = null;
+  let stopAuthRefresh = releaseNothing;
+  let releaseBeforeReconnect = releaseNothing;
 
   async function initialize() {
-    if (!pinia) {
-      throw new Error("AuthWebClientProvider requires Pinia installed in the client app.");
-    }
     const authStore = useAuthStore(pinia);
     authStore.attachRuntime(guard);
     await authStore.initialize();
@@ -62,17 +96,17 @@ function createAuthClient({ mobile = null, pinia, realtime = null, shell, vueApp
     });
     // A socket refused for an expired session reconnects with the cookies this
     // session read stores.
-    releaseBeforeReconnect = realtime?.setBeforeReconnect(() => guard.refresh()) || null;
-    vueApp?.provide?.(AUTH_GUARD_RUNTIME_INJECTION_KEY, guard);
-    vueApp?.provide?.(AUTH_OAUTH_LAUNCH_CLIENT_INJECTION_KEY, oauthLaunch);
+    releaseBeforeReconnect = realtime.setBeforeReconnect(() => guard.refresh());
+    vueApp.provide(AUTH_GUARD_RUNTIME_INJECTION_KEY, guard);
+    vueApp.provide(AUTH_OAUTH_LAUNCH_CLIENT_INJECTION_KEY, oauthLaunch);
   }
 
   function dispose() {
-    stopAuthRefresh?.();
-    stopAuthRefresh = null;
-    releaseBeforeReconnect?.();
-    releaseBeforeReconnect = null;
-    guard.dispose?.();
+    stopAuthRefresh();
+    stopAuthRefresh = releaseNothing;
+    releaseBeforeReconnect();
+    releaseBeforeReconnect = releaseNothing;
+    guard.dispose();
   }
 
   return Object.freeze({
@@ -84,4 +118,4 @@ function createAuthClient({ mobile = null, pinia, realtime = null, shell, vueApp
   });
 }
 
-export { createAuthClient, createMobileCallbackCompleter };
+export { createAuthClient, createMobileCallbackCompleter, NO_AUTH_REALTIME };

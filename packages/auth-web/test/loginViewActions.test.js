@@ -45,6 +45,7 @@ function createMinimalLoginViewState(requestedReturnTo = "/") {
     isOtp: { value: false },
     showRememberedAccount: { value: false },
     rememberedAccountDisplayName: { value: "" },
+    applyCapabilities() {},
     clearTransientMessages() {},
     applyRememberedAccountPreference() {},
     applyRememberedAccountHint() {},

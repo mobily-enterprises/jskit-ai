@@ -3,6 +3,7 @@ import {
   readAuthCallbackUrlParams,
   stripAuthCallbackParamsFromUrl
 } from "./authCallbackUrlParams.js";
+import { pageWindow } from "../browser.js";
 
 const PASSWORD_RECOVERY_CALLBACK_PARAM_KEYS = Object.freeze([
   "token",
@@ -63,14 +64,15 @@ function stripPasswordRecoveryCallbackParamsFromUrl(url = "") {
 }
 
 function stripPasswordRecoveryCallbackParamsFromLocation() {
-  if (typeof window !== "object" || !window.location || !window.history) {
+  const page = pageWindow();
+  if (!page) {
     return;
   }
 
-  window.history.replaceState(
+  page.history.replaceState(
     {},
     "",
-    stripPasswordRecoveryCallbackParamsFromUrl(window.location.href)
+    stripPasswordRecoveryCallbackParamsFromUrl(page.location.href)
   );
 }
 

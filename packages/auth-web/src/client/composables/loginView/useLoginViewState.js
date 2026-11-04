@@ -17,6 +17,7 @@ import {
   SUBMIT_LABEL_BY_MODE
 } from "./constants.js";
 import { normalizeEmailAddress, maskEmail } from "./identityHelpers.js";
+import { pageLocation } from "../../browser.js";
 import { useJskitText } from "../../i18n.js";
 import {
   createRememberedAccountHint,
@@ -25,10 +26,7 @@ import {
 } from "./rememberedAccountStorage.js";
 
 function readWindowSearchParam(name = "") {
-  if (typeof window !== "object" || !window.location) {
-    return "";
-  }
-  return String(new URLSearchParams(window.location.search || "").get(name) || "").trim();
+  return String(new URLSearchParams(pageLocation()?.search || "").get(name) || "").trim();
 }
 
 function resolveInitialMode() {
@@ -39,7 +37,8 @@ function resolveInitialMode() {
   return LOGIN_MODE;
 }
 
-export function useLoginViewState({ placementContext } = {}) {
+/** @param {{ placementContext: import("vue").Ref<Record<string, any> | null> }} options */
+export function useLoginViewState({ placementContext }) {
   const { t } = useJskitText();
   const mode = ref(resolveInitialMode());
   const email = ref(normalizeEmailAddress(readWindowSearchParam("email")));
@@ -107,23 +106,19 @@ export function useLoginViewState({ placementContext } = {}) {
   });
   const submitLabel = computed(() => modeText(SUBMIT_LABEL_BY_MODE));
   const allowedReturnToOrigins = computed(() =>
-    resolveAllowedOriginsFromPlacementContext(placementContext?.value)
+    resolveAllowedOriginsFromPlacementContext(placementContext.value)
   );
   const requestedReturnTo = ref(
-    normalizeAuthReturnToPath(
-      typeof window === "object" ? new URLSearchParams(window.location.search || "").get("returnTo") : "/",
-      "/",
-      {
-        allowedOrigins: allowedReturnToOrigins.value
-      }
-    )
+    normalizeAuthReturnToPath(readWindowSearchParam("returnTo"), "/", {
+      allowedOrigins: allowedReturnToOrigins.value
+    })
   );
   const mainScreenPath = computed(() => {
     const normalizedReturnTo = normalizeAuthReturnToPath(requestedReturnTo.value, "/", {
       allowedOrigins: allowedReturnToOrigins.value
     });
-    const surfaceId = resolveSurfaceIdFromPlacementPathname(placementContext?.value, normalizedReturnTo);
-    const rootPath = resolveSurfaceRootPathFromPlacementContext(placementContext?.value, surfaceId || "");
+    const surfaceId = resolveSurfaceIdFromPlacementPathname(placementContext.value, normalizedReturnTo);
+    const rootPath = resolveSurfaceRootPathFromPlacementContext(placementContext.value, surfaceId || "");
     return normalizeAuthReturnToPath(rootPath, "/", {
       allowedOrigins: allowedReturnToOrigins.value
     });
@@ -264,9 +259,6 @@ export function useLoginViewState({ placementContext } = {}) {
   }
 
   function goToMainScreen() {
-    if (typeof window !== "object" || !window.location || typeof window.location.assign !== "function") {
-      return;
-    }
     window.location.assign(mainScreenPath.value);
   }
 

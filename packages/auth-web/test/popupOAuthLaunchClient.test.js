@@ -16,7 +16,7 @@ function memoryStorage() {
   };
 }
 
-function fakeWindow({ framed = false, popup = {}, storage = memoryStorage() } = {}) {
+function fakeWindow({ framed = false, popup = { focus() {} }, storage = memoryStorage() } = {}) {
   const listeners = new Set();
   const win = {
     location: { origin: "https://app.example.test", reloaded: 0, reload() { this.reloaded += 1; } },
@@ -93,7 +93,7 @@ test("a callback in an ordinary tab is left alone", () => {
 
 test("a window whose opener link was cut still finishes through the shared channel", () => {
   const storage = memoryStorage();
-  const framed = fakeWindow({ framed: true, storage, popup: {} });
+  const framed = fakeWindow({ framed: true, storage, popup: { focus() {} } });
   createPopupOAuthLaunchClient({ window: framed }).open({ url: "/start" });
   const callback = fakeWindow({ storage });
   callback.opener = null;

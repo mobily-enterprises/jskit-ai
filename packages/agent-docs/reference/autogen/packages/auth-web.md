@@ -14,6 +14,13 @@ Use this on demand; do not load the full index at startup.
 
 ### src
 
+### `src/client/browser.js`
+Exports
+- `pageDocument()`
+- `pageLocation()`
+- `pageWindow()`
+- `replacePage(path)`
+
 ### `src/client/composables/loginView/constants.js`
 Exports
 - `LOGIN_MODE`
@@ -50,18 +57,18 @@ Local functions
 
 ### `src/client/composables/loginView/useLoginViewActions.js`
 Exports
-- `useLoginViewActions({ state, validation, queryClient, errorRuntime, oauthLaunchClient = null } = {})`
+- `useLoginViewActions({ state, validation, queryClient, errorRuntime, oauthLaunchClient })`
 
 ### `src/client/composables/loginView/useLoginViewState.js`
 Exports
-- `useLoginViewState({ placementContext } = {})`
+- `useLoginViewState({ placementContext })`
 Local functions
 - `readWindowSearchParam(name = "")`
 - `resolveInitialMode()`
 
 ### `src/client/composables/loginView/useLoginViewValidation.js`
 Exports
-- `useLoginViewValidation({ state } = {})`
+- `useLoginViewValidation({ state })`
 
 ### `src/client/composables/loginView/useSessionRecheckOnShow.js`
 Exports
@@ -75,6 +82,10 @@ Exports
 - `ensureCommandSectionValid(commandResource, section, payload, fallbackMessage)`
 Local functions
 - `validationFieldMessages(validationResult)`
+
+### `src/client/composables/useDefaultResetPasswordView.js`
+Exports
+- `useDefaultResetPasswordView()`
 
 ### `src/client/composables/useDefaultSignOutView.js`
 Exports
@@ -132,23 +143,25 @@ Exports
 
 ### `src/client/runtime/authClient.js`
 Exports
-- `createAuthClient({ mobile = null, pinia, realtime = null, shell, vueApp } = {})`
+- `createAuthClient({ mobile, pinia, realtime, shell, vueApp })`
 - `createMobileCallbackCompleter()`
+- `NO_AUTH_REALTIME`
+Local functions
+- `releaseNothing()`
 
 ### `src/client/runtime/authGuardRuntime.js`
 Exports
-- `createAuthGuardRuntime({ placementRuntime = null, sessionPath = DEFAULT_SESSION_PATH, loginRoute = DEFAULT_LOGIN_ROUTE, fetchImplementation = globalThis.fetch, refreshOnForeground = DEFAULT_REFRESH_ON_FOREGROUND, refreshOnReconnect = DEFAULT_REFRESH_ON_RECONNECT, realtimeSocket = null, realtimeRefreshEvents = DEFAULT_REALTIME_REFRESH_EVENTS } = {})`
+- `createAuthGuardRuntime({ placementRuntime, sessionPath = DEFAULT_SESSION_PATH, loginRoute = DEFAULT_LOGIN_ROUTE, fetchImplementation = globalThis.fetch, refreshOnForeground = DEFAULT_REFRESH_ON_FOREGROUND, refreshOnReconnect = DEFAULT_REFRESH_ON_RECONNECT, realtimeSocket = NO_REALTIME_REFRESH_SOCKET, realtimeRefreshEvents = DEFAULT_REALTIME_REFRESH_EVENTS })`
 - `isAuthGuardRuntime(value)`
 - `initializeAuthGuardRuntime(input = {})`
 - `refreshAuthGuardState(input = {})`
 - `getAuthGuardState(input = {})`
 Local functions
-- `asGlobalObject()`
+- `ignoreRealtimeEvent()`
 - `normalizePathname(pathname, fallback = "/")`
 - `normalizeLoginRoute(loginRoute, fallback = DEFAULT_LOGIN_ROUTE)`
 - `normalizeOAuthProviders(rawProviders)`
 - `normalizeAuthState(payload = {})`
-- `isPlacementRuntime(value)`
 - `applyAuthContext(nextState, placementRuntime)`
 - `readSessionState({ sessionPath = DEFAULT_SESSION_PATH, fetchImplementation = globalThis.fetch } = {})`
 - `resolveReturnToPath(context, { absolute = false } = {})`
@@ -159,11 +172,7 @@ Local functions
 - `hasOAuthCallbackParams({ search = "", hash = "" } = {})`
 - `stripOAuthCallbackParamsFromSearch(search = "")`
 - `redirectOAuthCallbackToLoginRoute(loginRoute)`
-- `asEventTarget(value)`
-- `getWindowEventTarget()`
-- `getDocumentEventTarget()`
 - `isDocumentVisible()`
-- `asRealtimeSocket(value)`
 - `normalizeRealtimeRefreshEvents(value)`
 - `resolveRuntimeInput(input = {})`
 
@@ -180,24 +189,27 @@ Exports
 Exports
 - `AUTH_GUARD_RUNTIME_INJECTION_KEY`
 - `AUTH_OAUTH_LAUNCH_CLIENT_INJECTION_KEY`
-- `EMPTY_AUTH_GUARD_STATE`
-- `EMPTY_AUTH_GUARD_RUNTIME`
-- `useAuthGuardRuntime({ required = false } = {})`
-- `useAuthOAuthLaunchClient({ required = false } = {})`
+- `NO_AUTH_GUARD_STATE`
+- `NO_AUTH_GUARD_RUNTIME`
+- `useAuthGuardRuntime()`
+- `useAuthOAuthLaunchClient()`
+- `useRequiredAuthGuardRuntime()`
+Local functions
+- `stopListening()`
 
 ### `src/client/runtime/oauthCallbackRuntime.js`
 Exports
 - `completeOAuthCallbackFromCurrentLocation(options = {})`
-- `completeOAuthCallbackFromUrl({ url = "", fallbackReturnTo = "/", allowedReturnToOrigins = [], defaultProvider = "", request = authHttpRequest, refreshSession = async () => null } = {})`
+- `completeOAuthCallbackFromUrl({ url = "", fallbackReturnTo = "/", allowedReturnToOrigins = [], defaultProvider = "", request = authHttpRequest, refreshSession = noRefreshedSession } = {})`
 - `readOAuthCallbackParamsFromUrl(url = "")`
 Local functions
+- `noRefreshedSession()`
 - `readErrorParams(value = "")`
 - `buildOAuthCompletePayload({ callbackParams = null, provider = "", hasSessionPair = false } = {})`
 
 ### `src/client/runtime/oauthLaunchClient.js`
 Exports
-- `createBrowserOAuthLaunchClient({ location = null } = {})`
-- `isAuthOAuthLaunchClient(value = null)`
+- `createBrowserOAuthLaunchClient({ location = pageLocation() } = {})`
 
 ### `src/client/runtime/passwordRecoveryCallbackRuntime.js`
 Exports
@@ -210,11 +222,10 @@ Exports
 Exports
 - `OAUTH_POPUP_BLOCKED_MESSAGE`
 - `OAUTH_POPUP_MESSAGE_TYPE`
-- `completeOAuthPopupSignIn(win = browserWindow())`
-- `createPopupOAuthLaunchClient({ window: win = browserWindow(), fallback = createBrowserOAuthLaunchClient(), onComplete = null } = {})`
+- `completeOAuthPopupSignIn(win = pageWindow())`
+- `createPopupOAuthLaunchClient({ window: win = pageWindow(), fallback = createBrowserOAuthLaunchClient(), onComplete = () => win.location.reload() } = {})`
 - `isFramedWindow(win)`
 Local functions
-- `browserWindow()`
 - `storageOf(win)`
 - `popupFeatures(win, width = 520, height = 680)`
 - `openChannel(win)`
@@ -226,19 +237,37 @@ Exports
 
 ### `src/client/runtime/useSignOut.js`
 Exports
-- `useSignOut(options = {})`
-- `createSignOutAction({ currentSurface, goToEntry, authGuardRuntime, returnTo = "", resolveReturnToPath = null } = {})`
-- `performSignOutRequest({ authGuardRuntime } = {})`
+- `useSignOut({ currentSurface, goToEntry, authGuardRuntime = useRequiredAuthGuardRuntime(), returnTo, resolveReturnToPath })`
+- `createSignOutAction({ currentSurface, goToEntry, authGuardRuntime, returnTo = "", resolveReturnToPath = noReturnToPath })`
+- `performSignOutRequest({ authGuardRuntime })`
 Local functions
 - `readSessionState()`
 - `waitForSignedOutState({ attempts = 4, delayMs = 120 } = {})`
 - `createHttpLogoutApi()`
+- `noReturnToPath()`
 
 ### `src/client/stores/useAuthStore.js`
 Exports
 - `useAuthStore`
 Local functions
 - `normalizeAuthStateValue(nextState)`
+- `stopListening()`
+
+### `src/client/types.js`
+Exports
+- `type AuthGuardState`
+- `type AuthGuardRuntime`
+- `type AuthPlacementRuntime`
+- `type AuthRealtimeSocket`
+- `type AuthRealtime`
+- `type AuthShell`
+- `type AuthOAuthLaunchClient`
+- `type AuthMobile`
+- `type AuthErrorRuntime`
+- `type AuthRequest`
+- `type LoginViewState`
+- `type LoginViewValidation`
+- `type AuthClient`
 
 ### `src/client/views/AuthProfileMenuLinkItem.vue`
 Exports
@@ -260,10 +289,6 @@ Local functions
 ### `src/client/views/DefaultResetPasswordView.vue`
 Exports
 - None
-Local functions
-- `readRecoveryPayload()`
-- `exchangeRecoveryToken()`
-- `submitReset()`
 
 ### `src/client/views/DefaultSignOutView.vue`
 Exports
@@ -320,6 +345,16 @@ Exports
 ### `src/server/types.js`
 Exports
 - `type AuthWeb`
+
+### fixtures
+
+### `fixtures/sign-in/main.js`
+Exports
+- None
+
+### `fixtures/sign-in/vite.config.mjs`
+Exports
+- None
 
 ### patterns
 

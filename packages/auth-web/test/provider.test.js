@@ -4,7 +4,8 @@ import { createPinia } from "pinia";
 
 import {
   createAuthClient,
-  createMobileCallbackCompleter
+  createMobileCallbackCompleter,
+  NO_AUTH_REALTIME
 } from "../src/client/runtime/authClient.js";
 
 function createShell() {
@@ -32,6 +33,7 @@ test("auth client groups guard, OAuth, and mobile callback behavior without a co
   const provided = new Map();
   const auth = createAuthClient({
     pinia: createPinia(),
+    realtime: NO_AUTH_REALTIME,
     shell: createShell(),
     vueApp: {
       provide(key, value) {
@@ -49,7 +51,7 @@ test("auth client refreshes the session over HTTP before realtime reconnects", a
   let beforeReconnect = null;
   let released = false;
   const realtime = {
-    socket: null,
+    socket: { on() {}, off() {} },
     setBeforeReconnect(prepare) {
       beforeReconnect = prepare;
       return () => { released = true; };

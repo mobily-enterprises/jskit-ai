@@ -1,8 +1,7 @@
 import { runAuthSignOutFlow } from "@jskit-ai/auth-core/client/signOutFlow";
 import { AUTH_PATHS } from "@jskit-ai/auth-core/shared/authPaths";
-import { isAuthGuardRuntime } from "./authGuardRuntime.js";
 import { authHttpRequest, clearAuthCsrfTokenCache } from "./authHttpClient.js";
-import { useAuthGuardRuntime } from "./inject.js";
+import { useRequiredAuthGuardRuntime } from "./inject.js";
 import { normalizeAuthReturnToPath } from "../lib/returnToPath.js";
 import { useJskitText } from "../i18n.js";
 
@@ -34,31 +33,30 @@ async function waitForSignedOutState({ attempts = 4, delayMs = 120 } = {}) {
 }
 
 function createHttpLogoutApi() {
-  return {
-    async logout() {
-      const initialSession = await readSessionState();
-      const wasAuthenticated = Boolean(initialSession?.authenticated);
-      await authHttpRequest(SIGN_OUT_ENDPOINT, { method: "POST" });
+  async function logout() {
+    const initialSession = await readSessionState();
+    const wasAuthenticated = Boolean(initialSession?.authenticated);
+    await authHttpRequest(SIGN_OUT_ENDPOINT, { method: "POST" });
 
-      const signedOut = await waitForSignedOutState();
-      if (signedOut) {
-        return;
-      }
-
-      if (!wasAuthenticated) {
-        return;
-      }
-
-      throw new Error(useJskitText().t("jskit.auth.signOut.serverSessionActive"));
+    const signedOut = await waitForSignedOutState();
+    if (signedOut) {
+      return;
     }
-  };
-}
 
-async function performSignOutRequest({ authGuardRuntime } = {}) {
-  if (!isAuthGuardRuntime(authGuardRuntime)) {
-    throw new TypeError("performSignOutRequest requires authGuardRuntime from useAuthGuardRuntime().");
+    if (!wasAuthenticated) {
+      return;
+    }
+
+    throw new Error(useJskitText().t("jskit.auth.signOut.serverSessionActive"));
   }
 
+  return Object.freeze({
+    logout
+  });
+}
+
+/** @param {{ authGuardRuntime: import("../types.js").AuthGuardRuntime }} options */
+async function performSignOutRequest({ authGuardRuntime }) {
   await runAuthSignOutFlow({
     authApi: createHttpLogoutApi(),
     clearCsrfTokenCache: clearAuthCsrfTokenCache
@@ -72,17 +70,22 @@ async function performSignOutRequest({ authGuardRuntime } = {}) {
   return guardState;
 }
 
-function createSignOutAction({ currentSurface, goToEntry, authGuardRuntime, returnTo = "", resolveReturnToPath = null } = {}) {
-  if (typeof goToEntry !== "function") {
-    throw new TypeError("createSignOutAction requires goToEntry().");
-  }
-  if (!isAuthGuardRuntime(authGuardRuntime)) {
-    throw new TypeError("createSignOutAction requires authGuardRuntime from useAuthGuardRuntime().");
-  }
+function noReturnToPath() {
+  return "";
+}
 
+/**
+ * @param {{
+ *   currentSurface?: import("vue").Ref<string>,
+ *   goToEntry: (target: { resolvedRoute: string }) => unknown,
+ *   authGuardRuntime: import("../types.js").AuthGuardRuntime,
+ *   returnTo?: string,
+ *   resolveReturnToPath?: () => string
+ * }} options
+ */
+function createSignOutAction({ currentSurface, goToEntry, authGuardRuntime, returnTo = "", resolveReturnToPath = noReturnToPath }) {
   return async function signOut() {
-    const resolvedByCallback =
-      typeof resolveReturnToPath === "function" ? normalizeAuthReturnToPath(resolveReturnToPath(), "") : "";
+    const resolvedByCallback = normalizeAuthReturnToPath(resolveReturnToPath(), "");
     const resolvedByOption = normalizeAuthReturnToPath(returnTo, "");
     const resolvedByCurrentSurface = normalizeAuthReturnToPath(currentSurface?.value, "");
     const resolvedReturnToPath = resolvedByCallback || resolvedByOption || resolvedByCurrentSurface || "/";
@@ -104,19 +107,25 @@ function createSignOutAction({ currentSurface, goToEntry, authGuardRuntime, retu
   };
 }
 
-function useSignOut(options = {}) {
-  const authGuardRuntime = isAuthGuardRuntime(options?.authGuardRuntime)
-    ? options.authGuardRuntime
-    : useAuthGuardRuntime({
-        required: true
-      });
-
-  return Object.freeze({
+/**
+ * @param {{
+ *   currentSurface?: import("vue").Ref<string>,
+ *   goToEntry: (target: { resolvedRoute: string }) => unknown,
+ *   authGuardRuntime?: import("../types.js").AuthGuardRuntime,
+ *   returnTo?: string,
+ *   resolveReturnToPath?: () => string
+ * }} options
+ */
+function useSignOut({ currentSurface, goToEntry, authGuardRuntime = useRequiredAuthGuardRuntime(), returnTo, resolveReturnToPath }) {
+  return {
     signOut: createSignOutAction({
-      ...options,
-      authGuardRuntime
+      currentSurface,
+      goToEntry,
+      authGuardRuntime,
+      returnTo,
+      resolveReturnToPath
     })
-  });
+  };
 }
 
 export { useSignOut, createSignOutAction, performSignOutRequest };

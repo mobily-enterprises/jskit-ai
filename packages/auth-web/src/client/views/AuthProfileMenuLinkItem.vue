@@ -4,6 +4,7 @@ import { useRoute } from "vue-router";
 import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
 import ShellMenuLinkItem from "@jskit-ai/shell-web/client/components/ShellMenuLinkItem";
 import { appendAccountReturnToIfNeeded } from "../lib/profileMenuLinkTarget.js";
+import { pageLocation } from "../browser.js";
 import { useJskitText } from "../i18n.js";
 
 const props = defineProps({
@@ -30,10 +31,7 @@ const { text } = useJskitText();
 const { context: placementContext } = useWebPlacementContext();
 
 function resolveWindowHref() {
-  if (typeof window !== "object" || !window || !window.location) {
-    return "/";
-  }
-  return String(window.location.href || "").trim() || "/";
+  return String(pageLocation()?.href || "").trim() || "/";
 }
 
 const resolvedTo = computed(() =>

@@ -1,7 +1,10 @@
 import { onBeforeUnmount, onMounted } from "vue";
 
-// Runs recheck whenever the page is shown again: focused, made visible, or
-// restored from the back-forward cache, where nothing mounts again.
+/**
+ * Runs recheck whenever the page is shown again: focused, made visible, or restored from the back-forward cache, where
+ * nothing mounts again.
+ * @param {() => unknown} recheck
+ */
 export function useSessionRecheckOnShow(recheck) {
   function recheckWhenShown() {
     if (document.visibilityState === "visible") {

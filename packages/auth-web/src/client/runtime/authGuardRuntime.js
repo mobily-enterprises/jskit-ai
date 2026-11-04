@@ -6,6 +6,7 @@ import { normalizePathname as normalizeSurfacePathname } from "@jskit-ai/kernel/
 import { createListenerSubscription } from "@jskit-ai/kernel/shared/support/listenerSet";
 import { normalizePermissionList } from "@jskit-ai/kernel/shared/support/permissions";
 import { normalizeAuthCapabilities } from "@jskit-ai/auth-core/shared/authCapabilities";
+import { pageDocument, pageLocation, pageWindow } from "../browser.js";
 
 const AUTH_POLICY_AUTHENTICATED = "authenticated";
 const DEFAULT_SESSION_PATH = AUTH_PATHS.SESSION;
@@ -44,12 +45,13 @@ const DEFAULT_AUTH_STATE = Object.freeze({
   authCapabilities: normalizeAuthCapabilities()
 });
 
-function asGlobalObject() {
-  if (typeof globalThis !== "object" || !globalThis) {
-    return null;
-  }
-  return globalThis;
-}
+function ignoreRealtimeEvent() {}
+
+/** The socket of an application without realtime: no event ever arrives. */
+const NO_REALTIME_REFRESH_SOCKET = Object.freeze({
+  on: ignoreRealtimeEvent,
+  off: ignoreRealtimeEvent
+});
 
 function normalizePathname(pathname, fallback = "/") {
   const raw = String(pathname || "").trim();
@@ -65,9 +67,7 @@ function normalizeLoginRoute(loginRoute, fallback = DEFAULT_LOGIN_ROUTE) {
   if (isExternalLinkTarget(raw)) {
     if (raw.startsWith("//")) {
       try {
-        const baseOrigin =
-          typeof window === "object" && window?.location?.origin ? window.location.origin : "http://localhost";
-        return new URL(raw, baseOrigin).toString();
+        return new URL(raw, pageLocation()?.origin || "http://localhost").toString();
       } catch {
         return fallback;
       }
@@ -94,7 +94,10 @@ function normalizeOAuthProviders(rawProviders) {
       if (!id) {
         return null;
       }
-      return Object.freeze({ id, label: label || id });
+      return Object.freeze({
+        id,
+        label: label || id
+      });
     })
     .filter(Boolean);
 
@@ -123,10 +126,7 @@ function normalizeAuthState(payload = {}) {
   });
 }
 
-function isPlacementRuntime(value) {
-  return Boolean(value && typeof value.getContext === "function" && typeof value.setContext === "function");
-}
-
+// readable-check: allow method-probe - input validation: the guard API takes the runtime itself or options holding it
 function isAuthGuardRuntime(value) {
   return Boolean(
     value &&
@@ -154,10 +154,6 @@ function applyAuthContext(nextState, placementRuntime) {
 }
 
 async function readSessionState({ sessionPath = DEFAULT_SESSION_PATH, fetchImplementation = globalThis.fetch } = {}) {
-  if (typeof fetchImplementation !== "function") {
-    return DEFAULT_AUTH_STATE;
-  }
-
   try {
     const response = await fetchImplementation(sessionPath, {
       method: "GET",
@@ -183,19 +179,14 @@ async function readSessionState({ sessionPath = DEFAULT_SESSION_PATH, fetchImple
 
 function resolveReturnToPath(context, { absolute = false } = {}) {
   if (absolute) {
-    const href = String(context?.location?.href || (typeof window === "object" ? window.location?.href : "") || "").trim();
+    const href = String(context?.location?.href || pageLocation()?.href || "").trim();
     if (href && isExternalLinkTarget(href)) {
       return href;
     }
   }
 
-  const pathname = normalizePathname(
-    context?.location?.pathname || (typeof window === "object" ? window.location?.pathname : "") || "",
-    "/"
-  );
-  const search = String(
-    context?.location?.search || (typeof window === "object" ? window.location?.search : "") || ""
-  ).trim();
+  const pathname = normalizePathname(context?.location?.pathname || pageLocation()?.pathname || "", "/");
+  const search = String(context?.location?.search || pageLocation()?.search || "").trim();
   if (!search) {
     return pathname;
   }
@@ -208,10 +199,7 @@ function toLoginRedirect(loginRoute, context) {
   const returnTo = resolveReturnToPath(context, { absolute: externalLoginRoute });
   if (externalLoginRoute) {
     try {
-      const parsed = new URL(
-        normalizedLoginRoute,
-        typeof window === "object" && window?.location?.origin ? window.location.origin : "http://localhost"
-      );
+      const parsed = new URL(normalizedLoginRoute, pageLocation()?.origin || "http://localhost");
       if (returnTo) {
         parsed.searchParams.set("returnTo", returnTo);
       }
@@ -260,11 +248,6 @@ function evaluateAuthGuard({ guard, context, loginRoute, authState = DEFAULT_AUT
 }
 
 function installGuardEvaluator({ loginRoute = DEFAULT_LOGIN_ROUTE, getAuthState }) {
-  const root = asGlobalObject();
-  if (!root || typeof getAuthState !== "function") {
-    return () => {};
-  }
-
   const evaluator = ({ guard, context } = {}) => {
     return evaluateAuthGuard({
       guard,
@@ -273,10 +256,10 @@ function installGuardEvaluator({ loginRoute = DEFAULT_LOGIN_ROUTE, getAuthState 
       authState: getAuthState()
     });
   };
-  root[DEFAULT_GUARD_EVALUATOR_KEY] = evaluator;
+  globalThis[DEFAULT_GUARD_EVALUATOR_KEY] = evaluator;
   return () => {
-    if (root[DEFAULT_GUARD_EVALUATOR_KEY] === evaluator) {
-      delete root[DEFAULT_GUARD_EVALUATOR_KEY];
+    if (globalThis[DEFAULT_GUARD_EVALUATOR_KEY] === evaluator) {
+      delete globalThis[DEFAULT_GUARD_EVALUATOR_KEY];
     }
   };
 }
@@ -302,12 +285,8 @@ function stripOAuthCallbackParamsFromSearch(search = "") {
 }
 
 function redirectOAuthCallbackToLoginRoute(loginRoute) {
-  if (
-    typeof window !== "object" ||
-    !window ||
-    !window.location ||
-    typeof window.location.replace !== "function"
-  ) {
+  const location = pageLocation();
+  if (!location) {
     return false;
   }
 
@@ -316,15 +295,15 @@ function redirectOAuthCallbackToLoginRoute(loginRoute) {
     return false;
   }
 
-  const currentPathname = normalizePathname(window.location.pathname || "", "/");
+  const currentPathname = normalizePathname(location.pathname || "", "/");
   const loginPathname = normalizePathname(normalizedLoginRoute, DEFAULT_LOGIN_ROUTE);
   const resetPasswordPathname = normalizePathname(DEFAULT_RESET_PASSWORD_ROUTE, DEFAULT_RESET_PASSWORD_ROUTE);
   if (currentPathname === loginPathname || currentPathname === resetPasswordPathname) {
     return false;
   }
 
-  const currentSearch = String(window.location.search || "");
-  const currentHash = String(window.location.hash || "");
+  const currentSearch = String(location.search || "");
+  const currentHash = String(location.hash || "");
   if (!hasOAuthCallbackParams({ search: currentSearch, hash: currentHash })) {
     return false;
   }
@@ -337,53 +316,20 @@ function redirectOAuthCallbackToLoginRoute(loginRoute) {
   nextParams.set(OAUTH_QUERY_PARAM_RETURN_TO, returnTo);
   const nextQuery = nextParams.toString();
   const nextPath = `${loginPathname}${nextQuery ? `?${nextQuery}` : ""}${currentHash}`;
-  window.location.replace(nextPath);
+  location.replace(nextPath);
   return true;
 }
 
-function asEventTarget(value) {
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-  if (typeof value.addEventListener !== "function" || typeof value.removeEventListener !== "function") {
-    return null;
-  }
-  return value;
-}
-
-function getWindowEventTarget() {
-  if (typeof window !== "object" || !window) {
-    return null;
-  }
-  return asEventTarget(window);
-}
-
-function getDocumentEventTarget() {
-  if (typeof document !== "object" || !document) {
-    return null;
-  }
-  return asEventTarget(document);
-}
-
 function isDocumentVisible() {
-  if (typeof document !== "object" || !document) {
+  const documentTarget = pageDocument();
+  if (!documentTarget) {
     return false;
   }
-  const visibilityState = String(document.visibilityState || "").trim().toLowerCase();
+  const visibilityState = String(documentTarget.visibilityState || "").trim().toLowerCase();
   if (!visibilityState) {
     return true;
   }
   return visibilityState === "visible";
-}
-
-function asRealtimeSocket(value) {
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-  if (typeof value.on !== "function" || typeof value.off !== "function") {
-    return null;
-  }
-  return value;
 }
 
 function normalizeRealtimeRefreshEvents(value) {
@@ -405,25 +351,33 @@ function normalizeRealtimeRefreshEvents(value) {
   return Object.freeze(deduped);
 }
 
+/**
+ * @param {{
+ *   placementRuntime: import("../types.js").AuthPlacementRuntime,
+ *   sessionPath?: string,
+ *   loginRoute?: string,
+ *   fetchImplementation?: typeof globalThis.fetch,
+ *   refreshOnForeground?: boolean,
+ *   refreshOnReconnect?: boolean,
+ *   realtimeSocket?: import("../types.js").AuthRealtimeSocket,
+ *   realtimeRefreshEvents?: string | readonly string[]
+ * }} options
+ * @returns {import("../types.js").AuthGuardRuntime}
+ */
 function createAuthGuardRuntime({
-  placementRuntime = null,
+  placementRuntime,
   sessionPath = DEFAULT_SESSION_PATH,
   loginRoute = DEFAULT_LOGIN_ROUTE,
   fetchImplementation = globalThis.fetch,
   refreshOnForeground = DEFAULT_REFRESH_ON_FOREGROUND,
   refreshOnReconnect = DEFAULT_REFRESH_ON_RECONNECT,
-  realtimeSocket = null,
+  realtimeSocket = NO_REALTIME_REFRESH_SOCKET,
   realtimeRefreshEvents = DEFAULT_REALTIME_REFRESH_EVENTS
-} = {}) {
-  if (!isPlacementRuntime(placementRuntime)) {
-    throw new Error("createAuthGuardRuntime requires a web placement runtime with getContext()/setContext().");
-  }
-
+}) {
   let currentSessionPath = normalizeRuntimePath(sessionPath, DEFAULT_SESSION_PATH);
   let currentLoginRoute = normalizeLoginRoute(loginRoute, DEFAULT_LOGIN_ROUTE);
   const foregroundRefreshEnabled = refreshOnForeground === true;
   const reconnectRefreshEnabled = refreshOnReconnect === true;
-  const socket = asRealtimeSocket(realtimeSocket);
   const realtimeEvents = normalizeRealtimeRefreshEvents(realtimeRefreshEvents);
   let authState = DEFAULT_AUTH_STATE;
   let activeRefreshPromise = null;
@@ -505,7 +459,7 @@ function createAuthGuardRuntime({
         void refresh();
       };
 
-      const windowTarget = getWindowEventTarget();
+      const windowTarget = pageWindow();
       if (windowTarget) {
         if (reconnectRefreshEnabled) {
           windowTarget.addEventListener("online", onReconnect);
@@ -517,17 +471,15 @@ function createAuthGuardRuntime({
         }
       }
 
-      const documentTarget = getDocumentEventTarget();
+      const documentTarget = pageDocument();
       if (foregroundRefreshEnabled && documentTarget) {
         documentTarget.addEventListener("visibilitychange", onVisibilityChange);
         cleanup.push(() => documentTarget.removeEventListener("visibilitychange", onVisibilityChange));
       }
 
-      if (socket) {
-        for (const eventName of realtimeEvents) {
-          socket.on(eventName, onRealtimeRefresh);
-          cleanup.push(() => socket.off(eventName, onRealtimeRefresh));
-        }
+      for (const eventName of realtimeEvents) {
+        realtimeSocket.on(eventName, onRealtimeRefresh);
+        cleanup.push(() => realtimeSocket.off(eventName, onRealtimeRefresh));
       }
     }
 

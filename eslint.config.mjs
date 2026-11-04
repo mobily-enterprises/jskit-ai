@@ -98,6 +98,7 @@ export default [
     "packages/assistant-voice/src/client/**",
     "packages/auth-core/src/client/**",
     "packages/auth-provider-supabase-core/src/client/**",
+    "packages/auth-web/src/client/**",
     "packages/connectors-catalog/src/client/**",
     "packages/connectors-web/src/client/**",
     "packages/database-runtime-mysql/src/client/**",

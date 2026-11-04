@@ -78,7 +78,6 @@
           "oauthProviderInvalid": "OAuth provider id is invalid.",
           "oauthReturnToInvalid": "OAuth return path is invalid.",
           "oauthStartFailed": "Unable to start OAuth sign-in.",
-          "oauthLaunchUnavailable": "OAuth launch client is unavailable.",
           "initializeFailed": "Unable to initialize sign in."
         }
       },

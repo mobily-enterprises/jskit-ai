@@ -12,7 +12,13 @@ import {
 } from "./authCallbackUrlParams.js";
 import { ensureCommandSectionValid } from "../composables/loginView/validationHelpers.js";
 import { inactiveSessionMessage } from "./inactiveSessionMessage.js";
+import { pageLocation } from "../browser.js";
 import { useJskitText } from "../i18n.js";
+
+/** The session of a callback completed without reading it back. */
+async function noRefreshedSession() {
+  return null;
+}
 
 // The params of a sign-in error the server explained by redirect (error_params).
 function readErrorParams(value = "") {
@@ -97,7 +103,7 @@ async function completeOAuthCallbackFromUrl({
   allowedReturnToOrigins = [],
   defaultProvider = "",
   request = authHttpRequest,
-  refreshSession = async () => null
+  refreshSession = noRefreshedSession
 } = {}) {
   const callbackParams = readOAuthCallbackParamsFromUrl(url);
   if (!callbackParams) {
@@ -189,19 +195,9 @@ async function completeOAuthCallbackFromUrl({
 }
 
 async function completeOAuthCallbackFromCurrentLocation(options = {}) {
-  if (typeof window !== "object" || !window?.location) {
-    return Object.freeze({
-      handled: false,
-      completed: false,
-      returnTo: normalizeAuthReturnToPath("", options.fallbackReturnTo || "/", {
-        allowedOrigins: options.allowedReturnToOrigins
-      })
-    });
-  }
-
   return completeOAuthCallbackFromUrl({
     ...options,
-    url: window.location.href
+    url: pageLocation()?.href
   });
 }
 

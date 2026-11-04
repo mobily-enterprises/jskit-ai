@@ -17,17 +17,21 @@ import { completeOAuthPopupSignIn } from "../../runtime/popupOAuthLaunchClient.j
 import { ensureCommandSectionValid } from "./validationHelpers.js";
 import { resolveRegisterCompletionState } from "./registerCompletion.js";
 import { inactiveSessionMessage } from "../../runtime/inactiveSessionMessage.js";
+import { replacePage } from "../../browser.js";
 import { useJskitText } from "../../i18n.js";
 
 const SESSION_QUERY_KEY = Object.freeze(["auth-web", "session"]);
 
-export function useLoginViewActions({
-  state,
-  validation,
-  queryClient,
-  errorRuntime,
-  oauthLaunchClient = null
-} = {}) {
+/**
+ * @param {{
+ *   state: import("../../types.js").LoginViewState,
+ *   validation: import("../../types.js").LoginViewValidation,
+ *   queryClient: import("@jskit-ai/kernel/client/types").ClientQueryClient,
+ *   errorRuntime: import("../../types.js").AuthErrorRuntime,
+ *   oauthLaunchClient: import("../../types.js").AuthOAuthLaunchClient
+ * }} options
+ */
+export function useLoginViewActions({ state, validation, queryClient, errorRuntime, oauthLaunchClient }) {
   const { serverMessage, t } = useJskitText();
 
   function reportAuthFeedback({
@@ -93,9 +97,7 @@ export function useLoginViewActions({
   }
 
   function applySessionPayload(payload) {
-    if (typeof state.applyCapabilities === "function") {
-      state.applyCapabilities(payload || {});
-    }
+    state.applyCapabilities(payload || {});
     if (payload?.authCapabilities || payload?.capabilities) {
       return;
     }
@@ -150,9 +152,7 @@ export function useLoginViewActions({
     if (!session?.authenticated) {
       throw new Error(inactiveSessionMessage(session));
     }
-    if (typeof window === "object" && window.location) {
-      window.location.replace(state.requestedReturnTo.value);
-    }
+    replacePage(state.requestedReturnTo.value);
   }
 
   async function submitRegister({ normalizedEmail, shouldRememberAccount }) {
@@ -160,7 +160,7 @@ export function useLoginViewActions({
       email: normalizedEmail,
       password: String(state.password.value || "")
     };
-    const invitationToken = String(state.invitationToken?.value || "").trim();
+    const invitationToken = String(state.invitationToken.value || "").trim();
     if (invitationToken) {
       registerPayload.invitation = {
         token: invitationToken,
@@ -291,9 +291,7 @@ export function useLoginViewActions({
       // browser keeps it open, it continues like an ordinary sign-in.
       completeOAuthPopupSignIn();
       stripOAuthParamsFromLocation();
-      if (typeof window === "object" && window.location) {
-        window.location.replace(state.requestedReturnTo.value);
-      }
+      replacePage(state.requestedReturnTo.value);
     } catch (error) {
       setErrorMessage(serverMessage(error, t("jskit.auth.login.error.oauthCompleteFailed")));
       stripOAuthParamsFromLocation();
@@ -453,9 +451,6 @@ export function useLoginViewActions({
     const params = new URLSearchParams(queryPayload);
     const oauthStartPath = buildAuthOauthStartPath(provider);
     try {
-      if (!oauthLaunchClient || typeof oauthLaunchClient.open !== "function") {
-        throw new Error(t("jskit.auth.login.error.oauthLaunchUnavailable"));
-      }
       await oauthLaunchClient.open({
         url: `${oauthStartPath}?${params.toString()}`
       });
@@ -470,8 +465,8 @@ export function useLoginViewActions({
     try {
       const session = await refreshSession();
       const callbackHandled = await handleOAuthCallbackIfPresent();
-      if (!callbackHandled && session?.authenticated && typeof window === "object" && window.location) {
-        window.location.replace(state.requestedReturnTo.value);
+      if (!callbackHandled && session?.authenticated) {
+        replacePage(state.requestedReturnTo.value);
       }
     } catch (error) {
       setErrorMessage(serverMessage(error, t("jskit.auth.login.error.initializeFailed")));
@@ -488,8 +483,8 @@ export function useLoginViewActions({
     }
     try {
       const session = await refreshSession();
-      if (session?.authenticated && typeof window === "object" && window.location) {
-        window.location.replace(state.requestedReturnTo.value);
+      if (session?.authenticated) {
+        replacePage(state.requestedReturnTo.value);
       }
     } catch {
       // Still signed out, or offline: the form stays as it is.

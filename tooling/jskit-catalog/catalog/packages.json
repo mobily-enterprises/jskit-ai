@@ -986,6 +986,10 @@
                 "summary": "Exports auth web client provider, default auth views, and route/provider registration surface."
               },
               {
+                "subpath": "./client/types",
+                "summary": "Types of the guard runtime, the OAuth launch client and the client.auth capability."
+              },
+              {
                 "subpath": "./server",
                 "summary": "Exports auth web server providers, controller/service classes, route builders, and HTTP schema modules."
               },

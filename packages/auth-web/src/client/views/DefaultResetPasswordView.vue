@@ -73,108 +73,26 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
 import { mdiEye, mdiEyeOff } from "@mdi/js";
 import { useDisplay } from "vuetify";
-import { AUTH_PATHS } from "@jskit-ai/auth-core/shared/authPaths";
-import { authPasswordResetCommand } from "@jskit-ai/auth-core/shared/commands/authPasswordResetCommand";
-import { authHttpRequest } from "../runtime/authHttpClient.js";
-import {
-  readPasswordRecoveryCallbackPayloadFromUrl,
-  stripPasswordRecoveryCallbackParamsFromLocation
-} from "../runtime/passwordRecoveryCallbackRuntime.js";
-import {
-  validateCommandSection,
-  resolveFieldValidationMessage
-} from "../composables/loginView/validationHelpers.js";
+import { useDefaultResetPasswordView } from "../composables/useDefaultResetPasswordView.js";
 import { useJskitText } from "../i18n.js";
 
 const { mobile: isMobileViewport } = useDisplay({ mobileBreakpoint: 960 });
-const { serverMessage, t } = useJskitText();
-const status = ref("checking");
-const loading = ref(false);
-const errorMessage = ref("");
-const password = ref("");
-const confirmPassword = ref("");
-const showPassword = ref(false);
-const showConfirmPassword = ref(false);
-
-const resetPasswordPayload = computed(() => ({
-  password: password.value
-}));
-const resetPasswordValidation = computed(() =>
-  validateCommandSection(authPasswordResetCommand, "body", resetPasswordPayload.value)
-);
-const passwordError = computed(() => {
-  if (!password.value) {
-    return [];
-  }
-  const message = resolveFieldValidationMessage(resetPasswordValidation.value, "password");
-  return message ? [message] : [];
-});
-const confirmPasswordError = computed(() => {
-  if (!confirmPassword.value) {
-    return [];
-  }
-  return password.value === confirmPassword.value ? [] : [t("jskit.auth.resetPassword.passwordsMustMatch")];
-});
-const canSubmit = computed(() =>
-  Boolean(password.value) &&
-  resetPasswordValidation.value.ok === true &&
-  password.value === confirmPassword.value &&
-  loading.value !== true
-);
-
-function readRecoveryPayload() {
-  if (typeof window !== "object" || !window.location) {
-    return null;
-  }
-  return readPasswordRecoveryCallbackPayloadFromUrl(window.location.href);
-}
-
-async function exchangeRecoveryToken() {
-  const recoveryPayload = readRecoveryPayload();
-  if (!recoveryPayload) {
-    status.value = "ready";
-    return;
-  }
-  try {
-    await authHttpRequest(AUTH_PATHS.PASSWORD_RECOVERY, {
-      method: "POST",
-      body: recoveryPayload
-    });
-    stripPasswordRecoveryCallbackParamsFromLocation();
-    status.value = "ready";
-  } catch (error) {
-    status.value = "error";
-    errorMessage.value = serverMessage(error, t("jskit.auth.resetPassword.recoveryInvalid"));
-  }
-}
-
-async function submitReset() {
-  if (!canSubmit.value) {
-    return;
-  }
-  loading.value = true;
-  errorMessage.value = "";
-  try {
-    await authHttpRequest(AUTH_PATHS.PASSWORD_RESET, {
-      method: "POST",
-      body: {
-        password: password.value
-      }
-    });
-    status.value = "done";
-    password.value = "";
-    confirmPassword.value = "";
-  } catch (error) {
-    errorMessage.value = serverMessage(error, t("jskit.auth.resetPassword.updateFailed"));
-  } finally {
-    loading.value = false;
-  }
-}
-
-onMounted(exchangeRecoveryToken);
+const { t } = useJskitText();
+const {
+  status,
+  loading,
+  errorMessage,
+  password,
+  confirmPassword,
+  showPassword,
+  showConfirmPassword,
+  passwordError,
+  confirmPasswordError,
+  canSubmit,
+  submitReset
+} = useDefaultResetPasswordView();
 </script>
 
 <style scoped>

@@ -1,4 +1,5 @@
 import { createBrowserOAuthLaunchClient } from "./oauthLaunchClient.js";
+import { pageWindow } from "../browser.js";
 import { useJskitText } from "../i18n.js";
 
 // A sign-in page refuses to be framed, so a framed app (an editor Preview, an
@@ -11,10 +12,6 @@ const OAUTH_POPUP_LIFETIME_MS = 10 * 60 * 1000;
 // The English of jskit.auth.oauth.popupBlocked; the error itself is in the user's language.
 const OAUTH_POPUP_BLOCKED_MESSAGE =
   "Your browser blocked the sign-in window. Allow pop-ups for this page, then try again.";
-
-function browserWindow() {
-  return typeof window === "object" && window ? window : null;
-}
 
 function isFramedWindow(win) {
   try {
@@ -39,66 +36,80 @@ function popupFeatures(win, width = 520, height = 680) {
   return `popup=yes,width=${width},height=${height},left=${left},top=${top}`;
 }
 
+/**
+ * The channel a sign-in window answers on; a browser without BroadcastChannel gets one that carries nothing.
+ * @param {any} win
+ */
 function openChannel(win) {
-  return typeof win.BroadcastChannel === "function" ? new win.BroadcastChannel(OAUTH_POPUP_MESSAGE_TYPE) : null;
+  // readable-check: allow method-probe - platform object: an older browser has no BroadcastChannel, so only the opener link answers
+  if (typeof win.BroadcastChannel === "function") {
+    return new win.BroadcastChannel(OAUTH_POPUP_MESSAGE_TYPE);
+  }
+  return {
+    onmessage: null,
+    close() {},
+    postMessage() {}
+  };
 }
 
+/**
+ * @param {{
+ *   window?: any,
+ *   fallback?: import("../types.js").AuthOAuthLaunchClient,
+ *   onComplete?: () => void
+ * }} [options]
+ */
 function createPopupOAuthLaunchClient({
-  window: win = browserWindow(),
+  window: win = pageWindow(),
   fallback = createBrowserOAuthLaunchClient(),
-  onComplete = null
+  onComplete = () => win.location.reload()
 } = {}) {
-  return Object.freeze({
-    async open({ url = "" } = {}) {
-      if (!win || !isFramedWindow(win)) {
-        return fallback.open({ url });
-      }
-      const normalizedUrl = String(url || "").trim();
-      if (!normalizedUrl) {
-        throw new Error("OAuth launch URL is required.");
-      }
-      const popup = win.open(normalizedUrl, OAUTH_POPUP_WINDOW_NAME, popupFeatures(win));
-      if (!popup) {
-        throw new Error(useJskitText().t("jskit.auth.oauth.popupBlocked"));
-      }
-      storageOf(win)?.setItem(OAUTH_POPUP_MARKER_KEY, String(Date.now()));
-      popup.focus?.();
-
-      // Some sign-in pages cut the opener link, so the window also answers on
-      // a same-origin channel. Closing it without finishing leaves this page as it was.
-      return new Promise((resolve) => {
-        const channel = openChannel(win);
-        let timer = null;
-        const finish = (completed) => {
-          win.removeEventListener("message", onMessage);
-          channel?.close();
-          win.clearTimeout(timer);
-          resolve(completed);
-          if (!completed) {
-            return;
-          }
-          if (typeof onComplete === "function") {
-            onComplete();
-          } else {
-            win.location.reload();
-          }
-        };
-        const onMessage = (event) => {
-          if (event?.origin === win.location.origin && event?.data?.type === OAUTH_POPUP_MESSAGE_TYPE) {
-            finish(true);
-          }
-        };
-        win.addEventListener("message", onMessage);
-        if (channel) {
-          channel.onmessage = (event) => {
-            if (event?.data?.type === OAUTH_POPUP_MESSAGE_TYPE) {
-              finish(true);
-            }
-          };
-        }
-        timer = win.setTimeout(() => finish(false), OAUTH_POPUP_LIFETIME_MS);
-      });
+  async function open({ url = "" } = {}) {
+    if (!win || !isFramedWindow(win)) {
+      return fallback.open({ url });
     }
+    const normalizedUrl = String(url || "").trim();
+    if (!normalizedUrl) {
+      throw new Error("OAuth launch URL is required.");
+    }
+    const popup = win.open(normalizedUrl, OAUTH_POPUP_WINDOW_NAME, popupFeatures(win));
+    if (!popup) {
+      throw new Error(useJskitText().t("jskit.auth.oauth.popupBlocked"));
+    }
+    storageOf(win)?.setItem(OAUTH_POPUP_MARKER_KEY, String(Date.now()));
+    popup.focus();
+
+    // Some sign-in pages cut the opener link, so the window also answers on
+    // a same-origin channel. Closing it without finishing leaves this page as it was.
+    return new Promise((resolve) => {
+      const channel = openChannel(win);
+      let timer = null;
+      const finish = (completed) => {
+        win.removeEventListener("message", onMessage);
+        channel.close();
+        win.clearTimeout(timer);
+        resolve(completed);
+        if (completed) {
+          onComplete();
+        }
+      };
+      const onMessage = (event) => {
+        if (event?.origin === win.location.origin && event?.data?.type === OAUTH_POPUP_MESSAGE_TYPE) {
+          finish(true);
+        }
+      };
+      win.addEventListener("message", onMessage);
+      channel.onmessage = (event) => {
+        if (event?.data?.type === OAUTH_POPUP_MESSAGE_TYPE) {
+          finish(true);
+        }
+      };
+      timer = win.setTimeout(() => finish(false), OAUTH_POPUP_LIFETIME_MS);
+    });
+  }
+
+  return Object.freeze({
+    open
   });
 }
 
@@ -116,7 +127,7 @@ function sameOriginOpener(win) {
  * sign-in window opened by a framed app, it tells that app and closes, and the
  * function returns true. Otherwise it does nothing and returns false.
  */
-function completeOAuthPopupSignIn(win = browserWindow()) {
+function completeOAuthPopupSignIn(win = pageWindow()) {
   if (!win) {
     return false;
   }
@@ -131,8 +142,8 @@ function completeOAuthPopupSignIn(win = browserWindow()) {
   const message = { type: OAUTH_POPUP_MESSAGE_TYPE };
   opener?.postMessage(message, win.location.origin);
   const channel = openChannel(win);
-  channel?.postMessage(message);
-  channel?.close();
+  channel.postMessage(message);
+  channel.close();
   win.close();
   return true;
 }

@@ -166,7 +166,7 @@ test("auth-web package exports only minimal client runtime/view subpaths", () =>
 });
 
 test("default reset password view preserves recovery session-pair callback tokens", () => {
-  const viewPath = fileURLToPath(new URL("../src/client/views/DefaultResetPasswordView.vue", import.meta.url));
+  const viewPath = fileURLToPath(new URL("../src/client/composables/useDefaultResetPasswordView.js", import.meta.url));
   const viewSource = readFileSync(viewPath, "utf8");
 
   assert.match(viewSource, /readPasswordRecoveryCallbackPayloadFromUrl\(window\.location\.href\)/);
@@ -179,7 +179,7 @@ test("default reset password view preserves recovery session-pair callback token
 });
 
 test("default login view hands its OAuth buttons the launch client", () => {
-  const viewPath = fileURLToPath(new URL("../src/client/views/DefaultLoginView.vue", import.meta.url));
+  const viewPath = fileURLToPath(new URL("../src/client/runtime/useLoginView.js", import.meta.url));
   const viewSource = readFileSync(viewPath, "utf8");
 
   assert.match(viewSource, /oauthLaunchClient: useAuthOAuthLaunchClient\(\)/);
