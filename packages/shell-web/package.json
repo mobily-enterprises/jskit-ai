@@ -25,6 +25,7 @@
     "./client/components/ShellTabLinkItem": "./src/client/components/ShellTabLinkItem.vue",
     "./client/composables/useShellLayoutState": "./src/client/composables/useShellLayoutState.js",
     "./client/providers/ShellWebClientProvider": "./src/client/providers/ShellWebClientProvider.js",
+    "./client/types": "./src/client/types.js",
     "./test/adaptiveShellSmoke": "./src/test/adaptiveShellSmoke.js",
     "./architecture": "./src/architecture/inspectVueArchitecture.js",
     "./locales/en.json": "./locales/en.json"
@@ -77,7 +78,8 @@
             "@jskit-ai/shell-web/client/navigation/linkResolver",
             "@jskit-ai/shell-web/client/navigation/usePaths",
             "@jskit-ai/shell-web/client/navigation/useSurfaceRouteContext",
-            "@jskit-ai/shell-web/client/composables/useShellLayoutState"
+            "@jskit-ai/shell-web/client/composables/useShellLayoutState",
+            "@jskit-ai/shell-web/client/types"
           ],
           "exclude": [
             "@jskit-ai/shell-web/client"
@@ -114,6 +116,10 @@
           {
             "subpath": "./client/bootstrap",
             "summary": "Exports the shared client bootstrap handler registry used to extend /api/bootstrap handling."
+          },
+          {
+            "subpath": "./client/types",
+            "summary": "Declares the shell runtimes' types for the packages that receive them."
           },
           {
             "subpath": "./test/adaptiveShellSmoke",

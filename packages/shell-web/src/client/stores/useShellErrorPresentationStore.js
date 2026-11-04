@@ -1,6 +1,6 @@
 import { computed, markRaw, shallowRef } from "vue";
 import { defineStore } from "pinia";
-import { EMPTY_PRESENTATION_STATE, EMPTY_PRESENTATION_STORE } from "../error/presentationDefaults.js";
+import { EMPTY_PRESENTATION_STATE, NO_PRESENTATION_STORE } from "../error/presentationDefaults.js";
 
 function normalizePresentationState(nextState) {
   if (!nextState || typeof nextState !== "object") {
@@ -10,19 +10,8 @@ function normalizePresentationState(nextState) {
   return nextState;
 }
 
-function isPresentationRuntimeStore(value) {
-  return Boolean(
-    value &&
-      typeof value.getState === "function" &&
-      typeof value.subscribe === "function" &&
-      typeof value.present === "function" &&
-      typeof value.dismiss === "function" &&
-      typeof value.clear === "function"
-  );
-}
-
 export const useShellErrorPresentationStore = defineStore("jskit.shell-web.error-presentation", () => {
-  const runtimeStore = shallowRef(markRaw(EMPTY_PRESENTATION_STORE));
+  const runtimeStore = shallowRef(markRaw(NO_PRESENTATION_STORE));
   const presentationState = shallowRef(EMPTY_PRESENTATION_STATE);
   let unsubscribe = null;
 
@@ -32,17 +21,14 @@ export const useShellErrorPresentationStore = defineStore("jskit.shell-web.error
   }
 
   function detachRuntimeStore() {
-    if (typeof unsubscribe === "function") {
+    if (unsubscribe) {
       unsubscribe();
       unsubscribe = null;
     }
   }
 
-  function attachRuntimeStore(nextRuntimeStore = EMPTY_PRESENTATION_STORE) {
-    if (!isPresentationRuntimeStore(nextRuntimeStore)) {
-      throw new TypeError("useShellErrorPresentationStore.attachRuntimeStore requires an error presentation store.");
-    }
-
+  /** @param {import("../types.js").ShellErrorPresentationStore} nextRuntimeStore */
+  function attachRuntimeStore(nextRuntimeStore) {
     if (runtimeStore.value === nextRuntimeStore) {
       setPresentationState(nextRuntimeStore.getState());
       return runtimeStore.value;

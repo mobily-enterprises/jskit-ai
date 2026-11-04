@@ -2,12 +2,23 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createApp } from "vue";
 import {
+  NO_SHELL_ASYNC_MODULE_RECOVERY_RUNTIME,
   SHELL_ASYNC_MODULE_RECOVERY_RUNTIME_KEY,
   useShellAsyncModuleRecoveryRuntime
 } from "../src/client/asyncModuleRecovery/index.js";
 
-test("shell async module recovery runtime composable returns null outside Vue injection context", () => {
-  assert.equal(useShellAsyncModuleRecoveryRuntime(), null);
+test("shell async module recovery runtime composable resolves NO_SHELL_ASYNC_MODULE_RECOVERY_RUNTIME without the provider", async () => {
+  const app = createApp({
+    render() {
+      return null;
+    }
+  });
+
+  const runtime = app.runWithContext(() => useShellAsyncModuleRecoveryRuntime());
+
+  assert.equal(runtime, NO_SHELL_ASYNC_MODULE_RECOVERY_RUNTIME);
+  assert.equal(runtime.notify(new Error("failed")), null);
+  assert.equal(await runtime.reload(), false);
 });
 
 test("shell async module recovery runtime composable resolves the provided public runtime", async () => {
@@ -29,21 +40,5 @@ test("shell async module recovery runtime composable resolves the provided publi
   assert.equal(
     app.runWithContext(() => useShellAsyncModuleRecoveryRuntime()),
     runtime
-  );
-});
-
-test("shell async module recovery runtime composable rejects incomplete runtimes", () => {
-  const app = createApp({
-    render() {
-      return null;
-    }
-  });
-  app.provide(SHELL_ASYNC_MODULE_RECOVERY_RUNTIME_KEY, {
-    notify() {}
-  });
-
-  assert.equal(
-    app.runWithContext(() => useShellAsyncModuleRecoveryRuntime()),
-    null
   );
 });

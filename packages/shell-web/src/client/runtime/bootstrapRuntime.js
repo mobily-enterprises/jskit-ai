@@ -1,11 +1,8 @@
+import { normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
 import { BOOTSTRAP_PATH } from "@jskit-ai/kernel/shared/surface/paths";
 import { useJskitText } from "../i18n.js";
 
 const { t } = useJskitText();
-
-function normalizeObject(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-}
 
 function buildBootstrapUrl({ path = BOOTSTRAP_PATH, query = {} } = {}) {
   const normalizedPath = String(path || BOOTSTRAP_PATH).trim() || BOOTSTRAP_PATH;
@@ -33,30 +30,23 @@ function normalizeBootstrapResponseError(response, url) {
 
 /**
  * @param {object} options
- * @param {any} options.handlers
- * @param {any} options.placementRuntime
- * @param {any} [options.requestRecoveryRuntime]
- * @param {any} [options.router]
- * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} options.logger
+ * @param {import("../types.js").BootstrapPayloadHandlerRegistry} options.handlers
+ * @param {import("../types.js").WebPlacementRuntime} options.placementRuntime
+ * @param {import("../types.js").ShellRequestRecoveryRuntime} options.requestRecoveryRuntime
+ * @param {import("@jskit-ai/kernel/client/types").ClientRouter} options.router
+ * @param {import("@jskit-ai/kernel/client/types").ClientLogger} options.logger
  * @param {typeof fetch} [options.fetchImplementation]
  * @param {string} [options.bootstrapPath]
  */
 function createShellBootstrapRuntime({
   handlers,
   placementRuntime,
-  requestRecoveryRuntime = null,
-  router = null,
+  requestRecoveryRuntime,
+  router,
   logger,
   fetchImplementation = globalThis.fetch,
   bootstrapPath = BOOTSTRAP_PATH
-} = {}) {
-  if (!handlers || typeof handlers.list !== "function") {
-    throw new Error("createShellBootstrapRuntime requires a bootstrap handler registry.");
-  }
-  if (!placementRuntime || typeof placementRuntime.setContext !== "function") {
-    throw new Error("createShellBootstrapRuntime requires a placement runtime.");
-  }
-
+}) {
   let initialized = false;
   let refreshQueue = Promise.resolve();
 
@@ -69,10 +59,6 @@ function createShellBootstrapRuntime({
     };
 
     for (const handler of payloadHandlers) {
-      if (typeof handler.resolveBootstrapRequest !== "function") {
-        continue;
-      }
-
       const contribution = normalizeObject(
         await handler.resolveBootstrapRequest({
           router,
@@ -129,10 +115,6 @@ function createShellBootstrapRuntime({
     const source = `shell-web.bootstrap.${String(reason || "manual").trim() || "manual"}`;
 
     for (const handler of payloadHandlers) {
-      if (typeof handler.handleBootstrapError !== "function") {
-        continue;
-      }
-
       await handler.handleBootstrapError({
         router,
         placementRuntime,
@@ -145,10 +127,6 @@ function createShellBootstrapRuntime({
   }
 
   async function performRefresh(reason = "manual") {
-    if (typeof fetchImplementation !== "function") {
-      throw new Error("Bootstrap payload fetch requires a fetch implementation.");
-    }
-
     let request = Object.freeze({ path: bootstrapPath, query: Object.freeze({}), meta: Object.freeze({}) });
 
     try {
@@ -170,7 +148,7 @@ function createShellBootstrapRuntime({
       return await applyBootstrapPayload(payload, reason, request);
     } catch (error) {
       await applyBootstrapError(error, reason, request);
-      requestRecoveryRuntime?.report?.(error, {
+      requestRecoveryRuntime.report(error, {
         label: t("jskit.shell.recovery.appDataLabel"),
         retry: () => refresh(reason),
         source: "shell-web.bootstrap",

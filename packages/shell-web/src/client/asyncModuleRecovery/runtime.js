@@ -12,41 +12,31 @@ const { t } = useJskitText();
 
 /**
  * @param {object} options
- * @param {any} [options.router]
- * @param {any} [options.errorRuntime]
- * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} options.logger
+ * @param {import("@jskit-ai/kernel/client/types").ClientRouter} options.router
+ * @param {import("../types.js").ShellErrorRuntime} options.errorRuntime
+ * @param {import("@jskit-ai/kernel/client/types").ClientLogger} options.logger
  */
 function createShellAsyncModuleRecoveryRuntime({
-  router = null,
-  errorRuntime = null,
+  router,
+  errorRuntime,
   logger
 }) {
   const state = createAsyncModuleRecoveryState();
   let installedRecovery = null;
 
   function report(nextState = state) {
-    if (!errorRuntime || typeof errorRuntime.report !== "function") {
-      logger.warn(
-        {
-          label: String(nextState?.label || "")
-        },
-        "Async module recovery could not report because the shell error runtime is unavailable."
-      );
-      return null;
-    }
-
     try {
       return errorRuntime.report({
         source: "shell-web.async-module-recovery",
-        message: String(nextState?.message || t("jskit.shell.recovery.moduleFailed")),
+        message: String(nextState.message || t("jskit.shell.recovery.moduleFailed")),
         // The kernel's sentence for this failure, so the whole message is translated.
-        ...(nextState?.message && nextState?.messageCode
+        ...(nextState.message && nextState.messageCode
           ? { messageCode: nextState.messageCode, messageParams: nextState.messageParams }
           : {}),
-        cause: nextState?.error || null,
+        cause: nextState.error || null,
         intent: "app-recoverable",
         severity: "warning",
-        dedupeKey: `shell-web.async-module-recovery.${Number(nextState?.attempt || 0)}`,
+        dedupeKey: `shell-web.async-module-recovery.${Number(nextState.attempt || 0)}`,
         action: {
           label: t("jskit.shell.actions.reload"),
           dismissOnRun: true,
@@ -58,7 +48,7 @@ function createShellAsyncModuleRecoveryRuntime({
     } catch (error) {
       logger.error(
         {
-          label: String(nextState?.label || ""),
+          label: String(nextState.label || ""),
           error: String(error?.message || error || "unknown error")
         },
         "Async module recovery could not report through the shell error runtime."
@@ -108,8 +98,10 @@ function createShellAsyncModuleRecoveryRuntime({
   }
 
   function dispose() {
-    installedRecovery?.dispose?.();
-    installedRecovery = null;
+    if (installedRecovery) {
+      installedRecovery.dispose();
+      installedRecovery = null;
+    }
   }
 
   return Object.freeze({

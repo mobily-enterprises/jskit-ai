@@ -92,7 +92,18 @@ async function startClient(t, { inputs = {}, providers = [], probe = { shell: "c
       "client.env": {},
       "client.logger": logger,
       "client.pinia": createPinia(),
-      "client.query": null,
+      "client.query": {
+        getQueryCache() {
+          return {
+            getAll() {
+              return [];
+            },
+            subscribe() {
+              return () => {};
+            }
+          };
+        }
+      },
       "client.router": { currentRoute: { value: { path: "/" } }, onError: () => () => {} },
       "client.surface": createSurfaceRuntime({
         allMode: "all",

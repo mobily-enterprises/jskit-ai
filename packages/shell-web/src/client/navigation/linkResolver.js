@@ -72,6 +72,10 @@ function resolveShellLinkPath({
   return resolveLinkPath(nextSurfaceBasePath, nextRelativePath);
 }
 
+/**
+ * @param {object} [options]
+ * @param {import("vue").MaybeRef<string>} [options.surface] The surface a link resolves on, unless it names its own.
+ */
 function useShellLinkResolver({ surface = "" } = {}) {
   const { context: placementContext } = useWebPlacementContext();
 
@@ -87,9 +91,9 @@ function useShellLinkResolver({ surface = "" } = {}) {
     });
   }
 
-  return Object.freeze({
+  return {
     resolve
-  });
+  };
 }
 
 export { resolveShellLinkPath, useShellLinkResolver };

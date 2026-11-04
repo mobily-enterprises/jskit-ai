@@ -27,10 +27,6 @@ const PLACEMENT_DEBUG_PREFIX = "[placement-debug]";
 const PLACEMENT_DEBUG_FLAG = "__JSKIT_PLACEMENT_DEBUG__";
 
 function isPlacementDebugEnabled() {
-  if (typeof globalThis !== "object" || !globalThis) {
-    return false;
-  }
-
   return globalThis[PLACEMENT_DEBUG_FLAG] === true;
 }
 
@@ -281,10 +277,6 @@ function resolvePlacementComponent(
 }
 
 function shouldIncludePlacement(placement, placementContext, logger) {
-  if (typeof placement.when !== "function") {
-    return true;
-  }
-
   try {
     return placement.when(Object.freeze({ ...placementContext })) === true;
   } catch (error) {
@@ -301,15 +293,11 @@ function shouldIncludePlacement(placement, placementContext, logger) {
 
 /**
  * @param {object} options
- * @param {Map<string, any> | { has: Function, get: Function }} options.components
+ * @param {Pick<import("@jskit-ai/kernel/client/types").ClientComponents, "has" | "get">} options.components
  * @param {Function[]} [options.contextContributors]
- * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} options.logger
+ * @param {import("@jskit-ai/kernel/client/types").ClientLogger} options.logger
  */
 function createWebPlacementRuntime({ components, contextContributors = [], logger }) {
-  if (!components || typeof components.has !== "function" || typeof components.get !== "function") {
-    throw new Error("createWebPlacementRuntime requires a client component registry.");
-  }
-
   const missingTokens = new Set();
   const invalidComponentTokens = new Set();
   const failedTokens = new Set();
@@ -418,10 +406,10 @@ function createWebPlacementRuntime({ components, contextContributors = [], logge
     const normalizedSurface = normalizeSurface(surface);
     const normalizedLayoutClass =
       normalizePlacementLayoutClass(layoutClass) ||
-      normalizePlacementLayoutClass(sharedContext?.layoutClass) ||
+      normalizePlacementLayoutClass(sharedContext.layoutClass) ||
       "compact";
     const baseContext = isRecord(context) ? { ...context } : {};
-    const contextFromRuntime = isRecord(sharedContext) ? sharedContext : {};
+    const contextFromRuntime = sharedContext;
     const contextFromContributors = resolveContextContributors(
       contextContributors,
       {

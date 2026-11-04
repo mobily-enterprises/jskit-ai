@@ -1,14 +1,19 @@
+// A handler that shapes the request or answers failures supplies these; every other handler has them too.
+function contributeNoBootstrapRequest() {
+  return {};
+}
+
+function ignoreBootstrapError() {}
+
 function normalizeBootstrapPayloadHandler(entry) {
   if (typeof entry === "function") {
     return Object.freeze({
       handlerId: String(entry.name || "anonymous"),
       order: 0,
-      applyBootstrapPayload: entry
+      applyBootstrapPayload: entry,
+      resolveBootstrapRequest: contributeNoBootstrapRequest,
+      handleBootstrapError: ignoreBootstrapError
     });
-  }
-
-  if (!entry || typeof entry !== "object" || typeof entry.applyBootstrapPayload !== "function") {
-    throw new TypeError("Bootstrap payload handlers require applyBootstrapPayload().");
   }
 
   const handlerId = String(entry.handlerId || "").trim();
@@ -19,7 +24,9 @@ function normalizeBootstrapPayloadHandler(entry) {
   return Object.freeze({
     ...entry,
     handlerId,
-    order: Number.isFinite(entry.order) ? Number(entry.order) : 0
+    order: Number.isFinite(entry.order) ? Number(entry.order) : 0,
+    resolveBootstrapRequest: entry.resolveBootstrapRequest || contributeNoBootstrapRequest,
+    handleBootstrapError: entry.handleBootstrapError || ignoreBootstrapError
   });
 }
 

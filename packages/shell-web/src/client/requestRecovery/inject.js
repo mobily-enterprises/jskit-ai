@@ -1,30 +1,42 @@
-import {
-  hasInjectionContext,
-  inject
-} from "vue";
+import { inject } from "vue";
+import { isRecoverableRequestError } from "./runtime.js";
 
 const SHELL_REQUEST_RECOVERY_RUNTIME_KEY =
   "jskit.shell-web.runtime.web-request-recovery.client";
 
-function isShellRequestRecoveryRuntime(value) {
-  return Boolean(
-    value &&
-      typeof value.report === "function" &&
-      typeof value.reload === "function"
-  );
-}
-
-function useShellRequestRecoveryRuntime() {
-  if (!hasInjectionContext()) {
+/**
+ * The recovery of an application without shell-web's provider: nothing is reported and nothing reloads.
+ * @type {import("../types.js").ShellRequestRecoveryRuntime}
+ */
+const NO_SHELL_REQUEST_RECOVERY_RUNTIME = Object.freeze({
+  dismiss() {
+    return 0;
+  },
+  dispose() {},
+  install() {
+    return Object.freeze({
+      dispose() {}
+    });
+  },
+  isRecoverableRequestError,
+  async reload() {
+    return false;
+  },
+  report() {
     return null;
   }
+});
 
-  const runtime = inject(SHELL_REQUEST_RECOVERY_RUNTIME_KEY, null);
-  return isShellRequestRecoveryRuntime(runtime) ? runtime : null;
+/**
+ * The shell's request recovery, or `NO_SHELL_REQUEST_RECOVERY_RUNTIME` in an application without shell-web's provider.
+ * @returns {import("../types.js").ShellRequestRecoveryRuntime}
+ */
+function useShellRequestRecoveryRuntime() {
+  return inject(SHELL_REQUEST_RECOVERY_RUNTIME_KEY, NO_SHELL_REQUEST_RECOVERY_RUNTIME);
 }
 
 export {
+  NO_SHELL_REQUEST_RECOVERY_RUNTIME,
   SHELL_REQUEST_RECOVERY_RUNTIME_KEY,
-  isShellRequestRecoveryRuntime,
   useShellRequestRecoveryRuntime
 };

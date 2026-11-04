@@ -7,7 +7,7 @@ const EMPTY_PRESENTATION_STATE = Object.freeze({
   })
 });
 
-const EMPTY_PRESENTATION_STORE = Object.freeze({
+const NO_PRESENTATION_STORE = Object.freeze({
   getState() {
     return EMPTY_PRESENTATION_STATE;
   },
@@ -27,5 +27,5 @@ const EMPTY_PRESENTATION_STORE = Object.freeze({
 
 export {
   EMPTY_PRESENTATION_STATE,
-  EMPTY_PRESENTATION_STORE
+  NO_PRESENTATION_STORE
 };

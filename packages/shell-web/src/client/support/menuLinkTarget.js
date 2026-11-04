@@ -44,7 +44,7 @@ function interpolateBracketParams(pathTemplate = "", params = {}) {
       return "";
     }
 
-    const value = params?.[key];
+    const value = params[key];
     return value == null ? `[${key}]` : encodeURIComponent(String(value));
   });
 }

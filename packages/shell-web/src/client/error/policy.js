@@ -4,6 +4,15 @@ import {
   normalizeSeverity
 } from "./normalize.js";
 
+/**
+ * @param {object} [options]
+ * @param {string} [options.defaultChannel]
+ * @param {string} [options.resourceLoadChannel]
+ * @param {string} [options.actionFeedbackChannel]
+ * @param {string} [options.appRecoverableChannel]
+ * @param {string} [options.blockingChannel]
+ * @param {string} [options.defaultSeverity]
+ */
 function createDefaultErrorPolicy({
   defaultChannel = "snackbar",
   resourceLoadChannel = "silent",

@@ -44,7 +44,10 @@ const shellNavigationLinkProps = Object.freeze({
   }
 });
 
-// Surface-aware link resolution shared by the shell menu and tab link items.
+/**
+ * Surface-aware link resolution shared by the shell menu and tab link items.
+ * @param {import("../types.js").ShellNavigationLinkProps} props
+ */
 function useShellNavigationLink(props) {
   const route = useRoute();
   const { context: placementContext } = useWebPlacementContext();
@@ -52,10 +55,7 @@ function useShellNavigationLink(props) {
   const resolvedLabel = computed(() => text(props.label));
 
   const resolvedTo = computed(() => {
-    const currentSurfaceId = resolveSurfaceIdFromPlacementPathname(
-      placementContext.value,
-      String(route?.path || route?.fullPath || "").trim()
-    );
+    const currentSurfaceId = resolveSurfaceIdFromPlacementPathname(placementContext.value, route.path);
     return resolveMenuLinkTarget({
       to: props.to,
       surface: props.surface,
@@ -63,7 +63,7 @@ function useShellNavigationLink(props) {
       placementContext: placementContext.value,
       scopedSuffix: props.scopedSuffix,
       unscopedSuffix: props.unscopedSuffix,
-      routeParams: route.params || {}
+      routeParams: route.params
     });
   });
 

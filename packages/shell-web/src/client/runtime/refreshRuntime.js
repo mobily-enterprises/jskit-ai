@@ -5,8 +5,22 @@ const { t } = useJskitText();
 
 const SHELL_WEB_REFRESH_RUNTIME_KEY = "jskit.shell-web.runtime.web-refresh.client";
 
-function isPullRefreshQuery(query = null) {
-  const meta = isRecord(query?.meta) ? query.meta : {};
+/**
+ * The refresh of an application without shell-web's provider: nothing refreshes, so pull-to-refresh never starts.
+ * @type {any}
+ */
+const NO_SHELL_WEB_REFRESH_RUNTIME = Object.freeze({
+  async refresh(reason = "manual") {
+    return Object.freeze({
+      reason,
+      bootstrapRefreshed: false,
+      queriesRefetched: false
+    });
+  }
+});
+
+function isPullRefreshQuery(query) {
+  const meta = isRecord(query.meta) ? query.meta : {};
   if (meta.jskitRefresh === "pull") {
     return true;
   }
@@ -20,33 +34,25 @@ function isPullRefreshQuery(query = null) {
 
 /**
  * @param {object} options
- * @param {any} [options.bootstrapRuntime]
- * @param {any} [options.queryClient]
- * @param {any} [options.errorRuntime]
- * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} options.logger
+ * @param {import("../types.js").ShellBootstrapRuntime} options.bootstrapRuntime
+ * @param {import("@jskit-ai/kernel/client/types").ClientQueryClient} options.queryClient
+ * @param {import("../types.js").ShellErrorRuntime} options.errorRuntime
+ * @param {import("@jskit-ai/kernel/client/types").ClientLogger} options.logger
  */
 function createShellRefreshRuntime({
-  bootstrapRuntime = null,
-  queryClient = null,
-  errorRuntime = null,
+  bootstrapRuntime,
+  queryClient,
+  errorRuntime,
   logger
 }) {
   let refreshQueue = Promise.resolve(null);
 
   async function refreshBootstrap(reason) {
-    if (!bootstrapRuntime || typeof bootstrapRuntime.refresh !== "function") {
-      return false;
-    }
-
     await bootstrapRuntime.refresh(reason);
     return true;
   }
 
   async function refetchPullQueries() {
-    if (!queryClient || typeof queryClient.refetchQueries !== "function") {
-      return false;
-    }
-
     await queryClient.refetchQueries(
       {
         type: "active",
@@ -66,10 +72,6 @@ function createShellRefreshRuntime({
       },
       "Shell refresh failed."
     );
-
-    if (!errorRuntime || typeof errorRuntime.report !== "function") {
-      return;
-    }
 
     errorRuntime.report({
       source: "shell-web.refresh",
@@ -125,6 +127,7 @@ function createShellRefreshRuntime({
 }
 
 export {
+  NO_SHELL_WEB_REFRESH_RUNTIME,
   SHELL_WEB_REFRESH_RUNTIME_KEY,
   createShellRefreshRuntime
 };

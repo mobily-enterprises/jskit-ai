@@ -61,6 +61,22 @@ function createRouter() {
   };
 }
 
+function createQueryClient() {
+  return {
+    getQueryCache() {
+      return {
+        getAll() {
+          return [];
+        },
+        subscribe() {
+          return () => {};
+        }
+      };
+    },
+    async refetchQueries() {}
+  };
+}
+
 function createSurfaceRuntimeFixture() {
   return createSurfaceRuntime({
     allMode: "all",
@@ -74,7 +90,7 @@ function createSurfaceRuntimeFixture() {
 async function startShell({
   bootstrapPayload = {},
   bootstrapResponse = null,
-  queryClient = null
+  queryClient = createQueryClient()
 } = {}) {
   let shell = null;
   const Probe = defineProvider({
@@ -154,9 +170,7 @@ test("shell refresh updates bootstrap state and active pull queries", async () =
   let refetchCount = 0;
   const fixture = await startShell({
     queryClient: {
-      getQueryCache() {
-        return null;
-      },
+      ...createQueryClient(),
       async refetchQueries() {
         refetchCount += 1;
       }

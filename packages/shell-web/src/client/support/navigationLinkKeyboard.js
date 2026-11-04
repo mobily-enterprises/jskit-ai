@@ -1,5 +1,5 @@
 function activateShellNavigationLinkOnSpace(event) {
-  if (event?.key !== " " || typeof event.currentTarget?.click !== "function") {
+  if (event.key !== " ") {
     return;
   }
   event.preventDefault();

@@ -99,36 +99,42 @@ function normalizePolicyDecision(policyDecision = {}, event = {}) {
   });
 }
 
-function normalizePresenter(candidate = {}) {
-  const source = isRecord(candidate) ? candidate : {};
+// A presenter that is limited to some channels, or can take back what it showed, supplies these.
+function supportsEveryChannel() {
+  return true;
+}
+
+function dismissNothing() {
+  return 0;
+}
+
+function normalizePresenter(source) {
   const id = normalizeText(source.id);
   if (!id) {
     throw new Error("Error presenter requires id.");
   }
 
-  if (typeof source.present !== "function") {
-    throw new Error(`Error presenter "${id}" requires present(payload).`);
-  }
-
+  const supports = source.supports || supportsEveryChannel;
+  const dismiss = source.dismiss || dismissNothing;
   return Object.freeze({
     id,
-    supports: typeof source.supports === "function" ? source.supports.bind(source) : () => true,
+    supports: supports.bind(source),
     present: source.present.bind(source),
-    dismiss: typeof source.dismiss === "function" ? source.dismiss.bind(source) : null
+    dismiss: dismiss.bind(source)
   });
 }
 
 /**
  * @param {object} options
  * @param {object[]} [options.presenters]
- * @param {Function | null} [options.policy]
+ * @param {Function} [options.policy]
  * @param {string} [options.defaultPresenterId]
  * @param {string} [options.moduleDefaultPresenterId]
- * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} options.logger
+ * @param {import("@jskit-ai/kernel/client/types").ClientLogger} options.logger
  */
 function createErrorRuntime({
   presenters = [],
-  policy = null,
+  policy = createDefaultErrorPolicy(),
   defaultPresenterId = "",
   moduleDefaultPresenterId = "",
   logger
@@ -137,7 +143,7 @@ function createErrorRuntime({
   const listeners = new Set();
   const subscribe = createListenerSubscription(listeners);
   const dedupeWindowByKey = new Map();
-  let activePolicy = typeof policy === "function" ? policy : createDefaultErrorPolicy();
+  let activePolicy = policy;
   let activeAppDefaultPresenterId = normalizeText(defaultPresenterId);
   const activeModuleDefaultPresenterId = normalizeText(moduleDefaultPresenterId);
 
@@ -240,7 +246,7 @@ function createErrorRuntime({
 
     const defaultPresenterId = resolveDefaultPresenterId();
     const defaultPresenter = byPresenterId.get(defaultPresenterId);
-    if (defaultPresenter?.supports(decision.channel)) {
+    if (defaultPresenter.supports(decision.channel)) {
       return defaultPresenter;
     }
 
@@ -366,7 +372,7 @@ function createErrorRuntime({
 
     if (presenterId) {
       const presenter = byPresenterId.get(presenterId);
-      if (!presenter || typeof presenter.dismiss !== "function") {
+      if (!presenter) {
         return 0;
       }
       return Number(presenter.dismiss(normalizedPresentationId) || 0);
@@ -374,9 +380,6 @@ function createErrorRuntime({
 
     let total = 0;
     for (const presenter of byPresenterId.values()) {
-      if (typeof presenter.dismiss !== "function") {
-        continue;
-      }
       total += Number(presenter.dismiss(normalizedPresentationId) || 0);
     }
     return total;

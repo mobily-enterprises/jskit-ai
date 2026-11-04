@@ -2,17 +2,24 @@ import {
   inject,
   onBeforeUnmount,
   onMounted,
+  ref,
   shallowRef
 } from "vue";
 
 const SHELL_WEB_PLACEMENT_RUNTIME_KEY = "jskit.shell-web.runtime.web-placement.client";
 
-const EMPTY_WEB_PLACEMENT_RUNTIME = Object.freeze({
-  getContext() {
-    return Object.freeze({});
-  },
+/**
+ * The placement runtime of an application without shell-web's provider: nothing is placed.
+ * @type {any}
+ */
+const NO_WEB_PLACEMENT_RUNTIME = Object.freeze({
+  replacePlacements() {},
+  replacePlacementTopology() {},
   getPlacements() {
     return Object.freeze([]);
+  },
+  getContext() {
+    return Object.freeze({});
   },
   setContext() {
     return Object.freeze({});
@@ -25,54 +32,36 @@ const EMPTY_WEB_PLACEMENT_RUNTIME = Object.freeze({
   }
 });
 
-const EMPTY_WEB_PLACEMENT_CONTEXT_REF = shallowRef(Object.freeze({}));
-
-const EMPTY_WEB_PLACEMENT_CONTEXT = Object.freeze({
-  context: EMPTY_WEB_PLACEMENT_CONTEXT_REF,
-  mergeContext() {
-    return EMPTY_WEB_PLACEMENT_CONTEXT_REF.value;
-  },
-  replaceContext() {
-    return EMPTY_WEB_PLACEMENT_CONTEXT_REF.value;
-  }
-});
-
-function useWebPlacementRuntime({ required = false } = {}) {
-  const runtime = inject(SHELL_WEB_PLACEMENT_RUNTIME_KEY, null);
-  if (runtime && typeof runtime.getPlacements === "function") {
-    return runtime;
-  }
-
-  if (required) {
-    throw new Error("Web placement runtime is not available in Vue injection context.");
-  }
-
-  return EMPTY_WEB_PLACEMENT_RUNTIME;
+/**
+ * The shell's placement runtime, or `NO_WEB_PLACEMENT_RUNTIME` in an application without shell-web's provider.
+ * @returns {import("../types.js").WebPlacementRuntime}
+ */
+function useWebPlacementRuntime() {
+  return inject(SHELL_WEB_PLACEMENT_RUNTIME_KEY, NO_WEB_PLACEMENT_RUNTIME);
 }
 
-function useWebPlacementContext({ required = false } = {}) {
-  const runtime = useWebPlacementRuntime({ required });
-  if (runtime === EMPTY_WEB_PLACEMENT_RUNTIME) {
-    return EMPTY_WEB_PLACEMENT_CONTEXT;
-  }
-
-  const context = shallowRef(runtime.getContext());
+// Runs the listener on every placement change while the component is mounted.
+function followWebPlacementRuntime(runtime, listener) {
   let unsubscribe = null;
 
   onMounted(() => {
-    if (typeof runtime.subscribe !== "function") {
-      return;
-    }
-    unsubscribe = runtime.subscribe(() => {
-      context.value = runtime.getContext();
-    });
+    unsubscribe = runtime.subscribe(listener);
   });
 
   onBeforeUnmount(() => {
-    if (typeof unsubscribe === "function") {
+    if (unsubscribe) {
       unsubscribe();
       unsubscribe = null;
     }
+  });
+}
+
+function useWebPlacementContext() {
+  const runtime = useWebPlacementRuntime();
+  const context = shallowRef(runtime.getContext());
+
+  followWebPlacementRuntime(runtime, () => {
+    context.value = runtime.getContext();
   });
 
   function mergeContext(value = {}, source = "component") {
@@ -90,17 +79,31 @@ function useWebPlacementContext({ required = false } = {}) {
     return context.value;
   }
 
-  return Object.freeze({
+  return {
     context,
     mergeContext,
     replaceContext
+  };
+}
+
+/**
+ * The runtime's revision, for a computed that must read its placements again when they change.
+ * @param {import("../types.js").WebPlacementRuntime} runtime
+ */
+function useWebPlacementRevision(runtime) {
+  const revision = ref(runtime.getRevision());
+
+  followWebPlacementRuntime(runtime, (event) => {
+    revision.value = event.revision;
   });
+
+  return revision;
 }
 
 export {
+  NO_WEB_PLACEMENT_RUNTIME,
   SHELL_WEB_PLACEMENT_RUNTIME_KEY,
-  EMPTY_WEB_PLACEMENT_RUNTIME,
-  EMPTY_WEB_PLACEMENT_CONTEXT,
-  useWebPlacementRuntime,
-  useWebPlacementContext
+  useWebPlacementContext,
+  useWebPlacementRevision,
+  useWebPlacementRuntime
 };

@@ -1,26 +1,32 @@
 import { pageClientBuildId } from "@jskit-ai/kernel/shared/support/clientBuild";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { pageTitle } from "../browser.js";
 import { useJskitText } from "../i18n.js";
 
 const { t } = useJskitText();
 
-// The title the page loaded with (index.html's <title>) names the app; screens
-// may change the tab title later.
-function loadedAppName(documentObject = globalThis.document) {
-  return normalizeText(documentObject?.title);
-}
+function stopNothing() {}
 
-// Offers a reload when the server serves a different client build from the one
-// this page runs, as it does after an update. It never reloads by itself: the
-// person may be in the middle of something. Reload returns to the same address.
+/**
+ * Offers a reload when the server serves a different client build from the one
+ * this page runs, as it does after an update. It never reloads by itself: the
+ * person may be in the middle of something. Reload returns to the same address.
+ * The title the page loaded with (index.html's <title>) names the app; screens
+ * may change the tab title later.
+ * @param {object} options
+ * @param {import("../types.js").ShellErrorRuntime} options.errorRuntime
+ * @param {() => unknown} options.reload
+ * @param {string} [options.pageBuildId]
+ * @param {string} [options.appName]
+ */
 function createShellClientUpdateRuntime({
   errorRuntime,
   reload,
   pageBuildId = pageClientBuildId(),
-  appName = loadedAppName()
-} = {}) {
+  appName = normalizeText(pageTitle())
+}) {
   let offer = null;
-  let stopWatching = null;
+  let stopWatching = stopNothing;
 
   function withdraw() {
     if (offer?.presentationId) {
@@ -48,7 +54,7 @@ function createShellClientUpdateRuntime({
         }
       }
     });
-    offer = { buildId: servedBuildId, presentationId: normalizeText(result?.presentationId) };
+    offer = { buildId: servedBuildId, presentationId: normalizeText(result.presentationId) };
   }
 
   // One offer per served build: a reconnection to the same build does not
@@ -64,16 +70,20 @@ function createShellClientUpdateRuntime({
     }
   }
 
-  // realtime is the optional client.realtime capability, which names the
-  // server's build on every connection.
-  function watch(realtime = null) {
+  /**
+   * @param {import("../types.js").ShellRealtime} [realtime] The optional client.realtime capability, which names the
+   * server's build on every connection.
+   */
+  function watch(realtime) {
     dispose();
-    stopWatching = realtime ? realtime.onServedClientBuild(check) : null;
+    if (realtime) {
+      stopWatching = realtime.onServedClientBuild(check);
+    }
   }
 
   function dispose() {
-    stopWatching?.();
-    stopWatching = null;
+    stopWatching();
+    stopWatching = stopNothing;
   }
 
   return Object.freeze({

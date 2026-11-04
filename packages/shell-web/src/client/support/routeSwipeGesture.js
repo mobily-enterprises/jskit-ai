@@ -15,8 +15,12 @@ function isVerticalDrift(absX, absY) {
   return absY > SWIPE_MAX_VERTICAL_DRIFT || (absY > 28 && absY > absX * 1.3);
 }
 
-// Tracks one horizontal swipe between primary navigation destinations. A swipe
-// that drifts vertically is dropped for good: the gesture became a scroll.
+/**
+ * Tracks one horizontal swipe between primary navigation destinations. A swipe
+ * that drifts vertically is dropped for good: the gesture became a scroll.
+ * @param {object} [options]
+ * @param {() => number} [options.now]
+ */
 function createRouteSwipeGesture({ now = () => performance.now() } = {}) {
   let active = null;
 
@@ -82,7 +86,13 @@ function createRouteSwipeGesture({ now = () => performance.now() } = {}) {
     }
   }
 
-  return Object.freeze({ start, reset, move, end, cancel });
+  return Object.freeze({
+    start,
+    reset,
+    move,
+    end,
+    cancel
+  });
 }
 
 export { createRouteSwipeGesture };

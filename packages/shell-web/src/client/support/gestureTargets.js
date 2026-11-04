@@ -1,3 +1,5 @@
+import { closestElement } from "../browser.js";
+
 const SHELL_GESTURE_IGNORED_SELECTORS = Object.freeze([
   "a",
   "button",
@@ -14,13 +16,13 @@ const SHELL_GESTURE_IGNORED_SELECTORS = Object.freeze([
 
 // Shell gestures follow touch and pen contact, never a mouse drag.
 function isPrimaryTouchPointer(event) {
-  return event?.isPrimary !== false && event?.button === 0 && event?.pointerType !== "mouse";
+  return event.isPrimary !== false && event.button === 0 && event.pointerType !== "mouse";
 }
 
 // Interactive controls keep their own gestures; the shell does not start one on them.
 function isShellGestureIgnoredTarget(target, { extraSelectors = [] } = {}) {
   const selectors = [...SHELL_GESTURE_IGNORED_SELECTORS, ...extraSelectors].join(",");
-  return Boolean(target?.closest?.(selectors));
+  return Boolean(closestElement(target, selectors));
 }
 
 export { isPrimaryTouchPointer, isShellGestureIgnoredTarget };

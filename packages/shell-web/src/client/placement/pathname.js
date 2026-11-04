@@ -1,14 +1,8 @@
+import { pagePathname } from "../browser.js";
+
 function resolveRuntimePathname(candidate = "") {
   const explicitPathname = String(candidate || "").trim();
-  if (explicitPathname) {
-    return explicitPathname;
-  }
-
-  if (typeof window === "object" && window?.location?.pathname) {
-    return String(window.location.pathname || "").trim() || "/";
-  }
-
-  return "/";
+  return explicitPathname || pagePathname() || "/";
 }
 
 export { resolveRuntimePathname };

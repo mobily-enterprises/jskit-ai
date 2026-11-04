@@ -1,9 +1,13 @@
+import { pageStorage } from "../browser.js";
+
 const SHELL_LAYOUT_DRAWER_DEFAULT_OPEN_STORAGE_KEY = "jskit.shell-web.drawer-default-open";
 
-function readDrawerDefaultOpenPreference({
-  storage = typeof window === "object" ? window?.localStorage : null
-} = {}) {
-  if (!storage || typeof storage.getItem !== "function") {
+/**
+ * @param {object} [options]
+ * @param {Pick<Storage, "getItem"> | null} [options.storage] Null outside a browser.
+ */
+function readDrawerDefaultOpenPreference({ storage = pageStorage() } = {}) {
+  if (!storage) {
     return true;
   }
 
@@ -22,10 +26,13 @@ function readDrawerDefaultOpenPreference({
   return true;
 }
 
-function writeDrawerDefaultOpenPreference(open, {
-  storage = typeof window === "object" ? window?.localStorage : null
-} = {}) {
-  if (!storage || typeof storage.setItem !== "function") {
+/**
+ * @param {boolean} open
+ * @param {object} [options]
+ * @param {Pick<Storage, "setItem"> | null} [options.storage] Null outside a browser.
+ */
+function writeDrawerDefaultOpenPreference(open, { storage = pageStorage() } = {}) {
+  if (!storage) {
     return;
   }
 

@@ -3,6 +3,7 @@ import { storeToRefs } from "pinia";
 import { useRoute } from "vue-router";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface";
 import { useWebPlacementContext } from "../placement/inject.js";
+import { resolveRuntimePathname } from "../placement/pathname.js";
 import { useShellLayoutStore } from "../stores/useShellLayoutStore.js";
 import {
   readPlacementSurfaceConfig,
@@ -26,6 +27,7 @@ function toSurfaceLabel(surfaceId = "") {
     .join(" ");
 }
 
+/** @param {import("../types.js").ShellLayoutStateProps} [props] */
 function useShellLayoutState(props = {}) {
   const shellLayoutStore = useShellLayoutStore();
   const {
@@ -34,13 +36,7 @@ function useShellLayoutState(props = {}) {
     supportingContentOpen,
     supportingContentTitle
   } = storeToRefs(shellLayoutStore);
-  let route = null;
-  try {
-    route = useRoute();
-  } catch {
-    route = null;
-  }
-
+  const route = useRoute();
   const { context: placementContext } = useWebPlacementContext();
 
   function toggleDrawer() {
@@ -48,16 +44,13 @@ function useShellLayoutState(props = {}) {
   }
 
   const resolvedSurface = computed(() => {
-    const explicitSurface = normalizeSurfaceId(props?.surface);
+    const explicitSurface = normalizeSurfaceId(props.surface);
     if (explicitSurface) {
       return explicitSurface;
     }
 
-    const pathname =
-      String(route?.path || "").trim() ||
-      (typeof window === "object" && window?.location?.pathname ? String(window.location.pathname).trim() : "/");
-    const contextValue = placementContext?.value || null;
-    const resolvedSurfaceFromPath = resolveSurfaceIdFromPlacementPathname(contextValue, pathname);
+    const contextValue = placementContext.value;
+    const resolvedSurfaceFromPath = resolveSurfaceIdFromPlacementPathname(contextValue, resolveRuntimePathname(route.path));
     if (resolvedSurfaceFromPath) {
       return resolvedSurfaceFromPath;
     }
@@ -72,15 +65,12 @@ function useShellLayoutState(props = {}) {
 
   const resolvedSurfaceLabel = computed(() => {
     // A surface label may be a message key; plain text shows as written.
-    const explicitLabel = String(text(props?.surfaceLabel) || "").trim();
+    const explicitLabel = String(text(props.surfaceLabel) || "").trim();
     if (explicitLabel) {
       return explicitLabel;
     }
 
-    const surfaceDefinition = resolveSurfaceDefinitionFromPlacementContext(
-      placementContext?.value || null,
-      resolvedSurface.value
-    );
+    const surfaceDefinition = resolveSurfaceDefinitionFromPlacementContext(placementContext.value, resolvedSurface.value);
     const configuredLabel = String(text(surfaceDefinition?.label) || "").trim();
     if (configuredLabel) {
       return configuredLabel;
@@ -89,7 +79,7 @@ function useShellLayoutState(props = {}) {
     return toSurfaceLabel(resolvedSurface.value);
   });
 
-  return Object.freeze({
+  return {
     drawerDefaultOpen,
     drawerOpen,
     supportingContentOpen,
@@ -102,7 +92,7 @@ function useShellLayoutState(props = {}) {
     toggleDrawer,
     resolvedSurface,
     resolvedSurfaceLabel
-  });
+  };
 }
 
 export { useShellLayoutState };

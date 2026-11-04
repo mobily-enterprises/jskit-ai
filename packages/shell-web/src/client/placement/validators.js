@@ -8,6 +8,11 @@ import {
   resolvePlacementTargetReference
 } from "@jskit-ai/kernel/shared/support/shellLayoutTargets";
 
+// A placement that appears only sometimes supplies its own when().
+function placeAlways() {
+  return true;
+}
+
 function isRenderableComponent(value) {
   if (typeof value === "function") {
     return true;
@@ -105,7 +110,7 @@ function normalizePlacementDefinition(value, { strict = false, source = "placeme
   }
 
   const props = isRecord(value.props) ? { ...value.props } : {};
-  const when = typeof value.when === "function" ? value.when : null;
+  const when = value.when || placeAlways;
   const surfaces = normalizePlacementSurfaces(value.surfaces, {
     strict,
     source: `${source} "${id}"`

@@ -17,8 +17,9 @@ import {
   createShellRequestRecoveryRuntime
 } from "../requestRecovery/runtime.js";
 import {
-  isRecord
-} from "@jskit-ai/kernel/shared/support";
+  isRecord,
+  normalizeObject
+} from "@jskit-ai/kernel/shared/support/normalize";
 import {
   createDefaultErrorPolicy
 } from "../error/policy.js";
@@ -66,11 +67,11 @@ async function loadAppModule({
   loadFailureMessage,
   fallback,
   logger,
-  asyncModuleRecoveryRuntime = null
+  asyncModuleRecoveryRuntime
 }) {
   try {
     const moduleNamespace = await importModule();
-    const exported = moduleNamespace?.default;
+    const exported = moduleNamespace.default;
     const resolved = await resolve(exported);
     if (resolved !== undefined) {
       return resolved;
@@ -101,7 +102,7 @@ async function loadAppModule({
   return fallback;
 }
 
-function loadAppPlacementDefinitions(logger, asyncModuleRecoveryRuntime = null) {
+function loadAppPlacementDefinitions(logger, asyncModuleRecoveryRuntime) {
   return loadAppModule({
     importModule: () => import("/src/placement.js"),
     specifier: APP_PLACEMENT_MODULE_SPECIFIER,
@@ -118,7 +119,7 @@ function loadAppPlacementDefinitions(logger, asyncModuleRecoveryRuntime = null) 
   });
 }
 
-function loadAppPlacementTopology(logger, asyncModuleRecoveryRuntime = null) {
+function loadAppPlacementTopology(logger, asyncModuleRecoveryRuntime) {
   return loadAppModule({
     importModule: () => import("/src/placementTopology.js"),
     specifier: APP_PLACEMENT_TOPOLOGY_MODULE_SPECIFIER,
@@ -163,7 +164,7 @@ function createErrorConfigToolkit(errorRuntime) {
   });
 }
 
-function loadAppErrorConfig(logger, errorRuntime, asyncModuleRecoveryRuntime = null) {
+function loadAppErrorConfig(logger, errorRuntime, asyncModuleRecoveryRuntime) {
   return loadAppModule({
     importModule: () => import("/src/error.js"),
     specifier: APP_ERROR_MODULE_SPECIFIER,
@@ -182,11 +183,7 @@ function loadAppErrorConfig(logger, errorRuntime, asyncModuleRecoveryRuntime = n
 }
 
 function installVueErrorBridge(vueApp, errorRuntime, logger) {
-  if (!vueApp || !isRecord(vueApp.config)) {
-    return;
-  }
-
-  const previousHandler = typeof vueApp.config.errorHandler === "function" ? vueApp.config.errorHandler : null;
+  const previousHandler = vueApp.config.errorHandler;
 
   vueApp.config.errorHandler = (error, instance, info) => {
     try {
@@ -217,10 +214,6 @@ function installVueErrorBridge(vueApp, errorRuntime, logger) {
 }
 
 function installRouterErrorBridge(router, errorRuntime, logger) {
-  if (!router || typeof router.onError !== "function") {
-    return;
-  }
-
   router.onError((error) => {
     if (isDynamicImportError(error)) {
       return;
@@ -271,16 +264,15 @@ const ShellWebClientProvider = defineProvider({
       Object.freeze({
         handlerId: "shell.web.bootstrap.surface-access",
         order: 0,
-        applyBootstrapPayload({ payload = {}, placementRuntime, source } = {}) {
+        applyBootstrapPayload({ payload, placementRuntime, source }) {
           placementRuntime.setContext(
             {
-              surfaceAccess:
-                payload?.surfaceAccess && typeof payload.surfaceAccess === "object" ? payload.surfaceAccess : {}
+              surfaceAccess: normalizeObject(normalizeObject(payload).surfaceAccess)
             },
             { source }
           );
         },
-        handleBootstrapError({ error, placementRuntime, source } = {}) {
+        handleBootstrapError({ error, placementRuntime, source }) {
           if (resolveBootstrapErrorStatusCode(error) !== 401) {
             return;
           }
@@ -358,16 +350,12 @@ const ShellWebClientProvider = defineProvider({
     placementRuntime.replacePlacements(placements, { source: APP_PLACEMENT_MODULE_SPECIFIER });
     const appConfig = getClientAppConfig();
     const surfaceConfig = buildSurfaceConfigContext(surfaceRuntime, {
-      tenancyMode: appConfig?.tenancyMode
+      tenancyMode: appConfig.tenancyMode
     });
-    const surfaceAccessPolicies =
-      appConfig?.surfaceAccessPolicies && typeof appConfig.surfaceAccessPolicies === "object"
-        ? appConfig.surfaceAccessPolicies
-        : {};
     placementRuntime.setContext(
       {
         surfaceConfig,
-        surfaceAccessPolicies
+        surfaceAccessPolicies: normalizeObject(appConfig.surfaceAccessPolicies)
       },
       {
         source: "shell-web.surface-config"
@@ -382,12 +370,6 @@ const ShellWebClientProvider = defineProvider({
 
     await bootstrapRuntime.initialize();
 
-    if (!vueApp || typeof vueApp.provide !== "function" || typeof vueApp.use !== "function") {
-      return;
-    }
-    if (!pinia) {
-      throw new Error("ShellWebClientProvider requires Pinia installed in the client app.");
-    }
     useShellErrorPresentationStore(pinia).attachRuntimeStore(errorPresentationStore);
 
     vueApp.provide(SHELL_WEB_PLACEMENT_RUNTIME_KEY, placementRuntime);

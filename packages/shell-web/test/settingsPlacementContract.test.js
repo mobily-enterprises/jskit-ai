@@ -83,7 +83,7 @@ test("shell-web shell layout registers navigation at the app layout level", asyn
   assert.match(source, /target="shell-layout:supporting-side-panel"/);
   assert.match(source, /data-testid="jskit-shell-supporting-bottom-sheet"/);
   assert.match(source, /data-testid="jskit-shell-supporting-side-panel"/);
-  assert.match(source, /inject\(SHELL_WEB_REFRESH_RUNTIME_KEY, null\)/);
+  assert.match(source, /inject\(SHELL_WEB_REFRESH_RUNTIME_KEY, NO_SHELL_WEB_REFRESH_RUNTIME\)/);
   const refreshRuntimeSource = await readFile(path.join(PACKAGE_DIR, "src", "client", "runtime", "refreshRuntime.js"), "utf8");
   assert.match(refreshRuntimeSource, /SHELL_WEB_REFRESH_RUNTIME_KEY = "jskit\.shell-web\.runtime\.web-refresh\.client"/);
   assert.match(source, /useShellPullToRefresh\(\{ enabled: isCompactLayout, refreshRuntime \}\)/);
@@ -273,7 +273,7 @@ test("shell-web route transition keeps mobile route motion placement-driven", as
   assert.match(source, /\.shell-route-transition__pane\s*\{[\s\S]*min-height:\s*0/);
   assert.match(source, /transitionDirection\.value = nextIndex > previousIndex \? "forward" : "reverse"/);
   assert.match(source, /const routeTransitionKey = ref\(""\)/);
-  assert.match(source, /\[\(\) => normalizeComparablePathname\(route\?\.path \|\| route\?\.fullPath \|\| "\/"\), currentSurfaceId\]/);
+  assert.match(source, /\[\(\) => normalizeComparablePathname\(route\.path\), currentSurfaceId\]/);
   assert.match(source, /routeTransitionKey\.value = resolveShellRouteTransitionKey/);
   assert.match(source, /prefers-reduced-motion:\s*reduce/);
 });

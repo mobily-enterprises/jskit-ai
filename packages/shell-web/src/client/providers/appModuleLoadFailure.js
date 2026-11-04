@@ -17,7 +17,7 @@ function isMissingDynamicModule(error, moduleSpecifier) {
 function notifyDynamicImportFailure(asyncModuleRecoveryRuntime, error, {
   label = t("jskit.shell.recovery.appModuleLabel")
 } = {}) {
-  if (!isDynamicImportError(error) || typeof asyncModuleRecoveryRuntime?.notify !== "function") {
+  if (!isDynamicImportError(error)) {
     return;
   }
 

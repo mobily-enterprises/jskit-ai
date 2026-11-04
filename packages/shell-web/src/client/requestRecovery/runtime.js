@@ -114,18 +114,8 @@ function requestRecoveryMessage(error = null, {
   return t("jskit.shell.recovery.unreachable", { label: requestLabel });
 }
 
-function resolveQueryMeta(query = null) {
-  if (isRecord(query?.meta)) {
-    return query.meta;
-  }
-  if (isRecord(query?.options?.meta)) {
-    return query.options.meta;
-  }
-  return {};
-}
-
-function readQueryRecoveryMeta(query = null) {
-  const meta = resolveQueryMeta(query);
+function readQueryRecoveryMeta(query) {
+  const meta = isRecord(query.meta) ? query.meta : {};
   const jskitMeta = isRecord(meta.jskit) ? meta.jskit : {};
   const dedupeWindowMs = jskitMeta.requestRecoveryDedupeWindowMs;
 
@@ -139,18 +129,8 @@ function readQueryRecoveryMeta(query = null) {
   });
 }
 
-function isActiveQuery(query = null) {
-  if (typeof query?.isActive === "function") {
-    return Boolean(query.isActive());
-  }
-  if (typeof query?.getObserversCount === "function") {
-    return Number(query.getObserversCount()) > 0;
-  }
-  return true;
-}
-
-function recoverableQueryError(query = null) {
-  const state = isRecord(query?.state) ? query.state : {};
+function recoverableQueryError(query) {
+  const { state } = query;
   if (state.status !== "error" || state.fetchStatus !== "idle") {
     return null;
   }
@@ -159,12 +139,8 @@ function recoverableQueryError(query = null) {
   return isRecoverableRequestError(error) ? error : null;
 }
 
-function createQueryRetry(queryClient, query = null) {
-  if (!queryClient || typeof queryClient.refetchQueries !== "function") {
-    return null;
-  }
-
-  const queryKey = query?.queryKey;
+function createQueryRetry(queryClient, query) {
+  const { queryKey } = query;
   if (!Array.isArray(queryKey)) {
     return null;
   }
@@ -182,16 +158,16 @@ function createQueryRetry(queryClient, query = null) {
     );
 }
 
-function resolveQueryHash(query = null) {
-  const explicitHash = normalizeText(query?.queryHash);
+function resolveQueryHash(query) {
+  const explicitHash = normalizeText(query.queryHash);
   if (explicitHash) {
     return explicitHash;
   }
 
   try {
-    return normalizeText(JSON.stringify(query?.queryKey || []));
+    return normalizeText(JSON.stringify(query.queryKey || []));
   } catch {
-    return normalizeText(String(query?.queryKey || ""));
+    return normalizeText(String(query.queryKey || ""));
   }
 }
 
@@ -199,17 +175,8 @@ function installRecoverableQueryObserver({
   queryClient,
   runtime,
   logger
-} = {}) {
-  const queryCache =
-    queryClient && typeof queryClient.getQueryCache === "function"
-      ? queryClient.getQueryCache()
-      : null;
-  if (!queryCache || typeof queryCache.subscribe !== "function") {
-    return Object.freeze({
-      dispose() {}
-    });
-  }
-
+}) {
+  const queryCache = queryClient.getQueryCache();
   const reportedErrorUpdateByQueryHash = new Map();
 
   function dismissReportedQueryRecovery(queryHash = "") {
@@ -219,7 +186,7 @@ function installRecoverableQueryObserver({
     }
 
     reportedErrorUpdateByQueryHash.delete(queryHash);
-    if (reported.presentationId && typeof runtime.dismiss === "function") {
+    if (reported.presentationId) {
       runtime.dismiss(reported.presentationId, {
         presenterId: reported.presenterId
       });
@@ -232,14 +199,13 @@ function installRecoverableQueryObserver({
     }
   }
 
-  function inspectQuery(query = null) {
+  function inspectQuery(query) {
     const queryHash = resolveQueryHash(query);
     const recoveryMeta = readQueryRecoveryMeta(query);
     if (
-      !query ||
       recoveryMeta.disabled ||
       !SAFE_REQUEST_RECOVERY_METHODS.has(recoveryMeta.method) ||
-      !isActiveQuery(query)
+      !query.isActive()
     ) {
       if (queryHash) {
         dismissReportedQueryRecovery(queryHash);
@@ -255,7 +221,7 @@ function installRecoverableQueryObserver({
       return;
     }
 
-    const errorUpdateCount = Number(query?.state?.errorUpdateCount || 0);
+    const errorUpdateCount = Number(query.state.errorUpdateCount || 0);
     const reportKey = `${errorUpdateCount}:${errorMessage(error)}`;
     const reported = reportedErrorUpdateByQueryHash.get(queryHash);
     if (reported?.reportKey === reportKey) {
@@ -267,7 +233,7 @@ function installRecoverableQueryObserver({
       label: recoveryMeta.label,
       retry: createQueryRetry(queryClient, query),
       source: recoveryMeta.source,
-      stale: query?.state?.data !== undefined,
+      stale: query.state.data !== undefined,
       dedupeKey: recoveryMeta.dedupeKey || `shell-web.request-recovery.query.${queryHash}.${errorUpdateCount}`,
       ...(dedupeWindowMs !== null ? { dedupeWindowMs } : {})
     });
@@ -285,10 +251,8 @@ function installRecoverableQueryObserver({
   }
 
   try {
-    if (typeof queryCache.getAll === "function") {
-      for (const query of queryCache.getAll()) {
-        inspectQuery(query);
-      }
+    for (const query of queryCache.getAll()) {
+      inspectQuery(query);
     }
   } catch (error) {
     logger.warn(
@@ -299,9 +263,9 @@ function installRecoverableQueryObserver({
     );
   }
 
-  const unsubscribe = queryCache.subscribe((event = {}) => {
+  const unsubscribe = queryCache.subscribe((event) => {
     try {
-      inspectQuery(event?.query);
+      inspectQuery(event.query);
     } catch (error) {
       logger.warn(
         {
@@ -315,22 +279,20 @@ function installRecoverableQueryObserver({
   return Object.freeze({
     dispose() {
       dismissReportedQueryRecoveries();
-      if (typeof unsubscribe === "function") {
-        unsubscribe();
-      }
+      unsubscribe();
     }
   });
 }
 
 /**
  * @param {object} options
- * @param {any} [options.queryClient]
- * @param {any} [options.errorRuntime]
- * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} options.logger
+ * @param {import("@jskit-ai/kernel/client/types").ClientQueryClient} options.queryClient
+ * @param {import("../types.js").ShellErrorRuntime} options.errorRuntime
+ * @param {import("@jskit-ai/kernel/client/types").ClientLogger} options.logger
  */
 function createShellRequestRecoveryRuntime({
-  queryClient = null,
-  errorRuntime = null,
+  queryClient,
+  errorRuntime,
   logger
 }) {
   let installedQueryObserver = null;
@@ -389,9 +351,6 @@ function createShellRequestRecoveryRuntime({
   }
 
   function dismiss(presentationId = "", options = {}) {
-    if (!errorRuntime || typeof errorRuntime.dismiss !== "function") {
-      return 0;
-    }
     return errorRuntime.dismiss(presentationId, options);
   }
 
@@ -401,20 +360,8 @@ function createShellRequestRecoveryRuntime({
     }
 
     const source = normalizeText(options.source, { fallback: "shell-web.request-recovery" });
-    if (!errorRuntime || typeof errorRuntime.report !== "function") {
-      logger.warn(
-        {
-          source,
-          error: errorMessage(error) || "unknown error"
-        },
-        "Shell request recovery could not report because the shell error runtime is unavailable."
-      );
-      return null;
-    }
-
-    const retry = typeof options.retry === "function" ? options.retry : null;
-    const action = retry
-      ? retryAction(options, retry)
+    const action = options.retry
+      ? retryAction(options, options.retry)
       : options.reload === true
         ? reloadAction(options)
         : null;
@@ -458,8 +405,10 @@ function createShellRequestRecoveryRuntime({
   }
 
   function dispose() {
-    installedQueryObserver?.dispose?.();
-    installedQueryObserver = null;
+    if (installedQueryObserver) {
+      installedQueryObserver.dispose();
+      installedQueryObserver = null;
+    }
   }
 
   const api = Object.freeze({

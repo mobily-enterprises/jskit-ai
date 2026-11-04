@@ -1,11 +1,11 @@
 const DEFAULT_DEBUG_DEPTH = 4;
 
 function describeFunction(fn) {
-  return `[Function ${fn?.name || "anonymous"}]`;
+  return `[Function ${fn.name || "anonymous"}]`;
 }
 
 function describeSymbol(value) {
-  return value?.toString ? value.toString() : "[Symbol]";
+  return value.toString();
 }
 
 function explodePayload(value, depth = DEFAULT_DEBUG_DEPTH) {

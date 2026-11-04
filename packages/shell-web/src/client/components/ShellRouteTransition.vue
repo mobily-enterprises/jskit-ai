@@ -11,6 +11,7 @@ import { useDisplay } from "vuetify";
 import { normalizePathname } from "@jskit-ai/kernel/shared";
 import {
   useWebPlacementContext,
+  useWebPlacementRevision,
   useWebPlacementRuntime
 } from "../placement/inject.js";
 import { resolveRuntimePathname } from "../placement/pathname.js";
@@ -26,7 +27,7 @@ import {
 import { resolveShellRouteTransitionKey } from "../support/routeTransitionKey.js";
 import { createRouteSwipeGesture } from "../support/routeSwipeGesture.js";
 import { isPrimaryTouchPointer, isShellGestureIgnoredTarget } from "../support/gestureTargets.js";
-import { readViewportWidth, resolveShellLayoutClass } from "../support/shellLayoutClass.js";
+import { resolveShellLayoutClass } from "../support/shellLayoutClass.js";
 
 const props = defineProps({
   enabled: {
@@ -52,37 +53,20 @@ const router = useRouter();
 const display = useDisplay();
 const placementRuntime = useWebPlacementRuntime();
 const { context: placementContext } = useWebPlacementContext();
-const revision = ref(
-  typeof placementRuntime.getRevision === "function" ? placementRuntime.getRevision() : 0
-);
+const revision = useWebPlacementRevision(placementRuntime);
 const transitionDirection = ref("none");
-let unsubscribe = null;
 const swipeGesture = createRouteSwipeGesture();
 let stopSwipeClassWatch = null;
 
 onMounted(() => {
-  if (typeof placementRuntime.subscribe !== "function") {
-    unsubscribe = null;
-  } else {
-    unsubscribe = placementRuntime.subscribe((event) => {
-      const next = Number(event?.revision);
-      revision.value = Number.isInteger(next) ? next : revision.value + 1;
-    });
-  }
-
-  if (typeof window === "object") {
-    window.addEventListener("pointerdown", handlePointerDown, { capture: true, passive: true });
-    window.addEventListener("pointermove", handlePointerMove, { capture: true, passive: false });
-    window.addEventListener("pointerup", handlePointerEnd, { capture: true, passive: true });
-    window.addEventListener("pointercancel", handlePointerCancel, { capture: true, passive: true });
-  }
+  window.addEventListener("pointerdown", handlePointerDown, { capture: true, passive: true });
+  window.addEventListener("pointermove", handlePointerMove, { capture: true, passive: false });
+  window.addEventListener("pointerup", handlePointerEnd, { capture: true, passive: true });
+  window.addEventListener("pointercancel", handlePointerCancel, { capture: true, passive: true });
 
   stopSwipeClassWatch = watch(
     swipeNavigationEnabled,
     (enabled) => {
-      if (typeof document !== "object") {
-        return;
-      }
       document.documentElement.classList.toggle("shell-route-swipe-enabled", enabled);
     },
     { immediate: true }
@@ -90,33 +74,23 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-  if (typeof unsubscribe === "function") {
-    unsubscribe();
-    unsubscribe = null;
-  }
-  if (typeof stopSwipeClassWatch === "function") {
+  if (stopSwipeClassWatch) {
     stopSwipeClassWatch();
     stopSwipeClassWatch = null;
   }
-  if (typeof document === "object") {
-    document.documentElement.classList.remove("shell-route-swipe-enabled");
-  }
-  if (typeof window === "object") {
-    window.removeEventListener("pointerdown", handlePointerDown, { capture: true });
-    window.removeEventListener("pointermove", handlePointerMove, { capture: true });
-    window.removeEventListener("pointerup", handlePointerEnd, { capture: true });
-    window.removeEventListener("pointercancel", handlePointerCancel, { capture: true });
-  }
+  document.documentElement.classList.remove("shell-route-swipe-enabled");
+  window.removeEventListener("pointerdown", handlePointerDown, { capture: true });
+  window.removeEventListener("pointermove", handlePointerMove, { capture: true });
+  window.removeEventListener("pointerup", handlePointerEnd, { capture: true });
+  window.removeEventListener("pointercancel", handlePointerCancel, { capture: true });
 });
 
-const resolvedLayoutClass = computed(() => resolveShellLayoutClass(display?.name?.value, readViewportWidth()));
+const resolvedLayoutClass = computed(() => resolveShellLayoutClass(display.name.value));
 
-const currentPathname = computed(() =>
-  normalizeComparablePathname(resolveRuntimePathname(route?.path || route?.fullPath || "/"))
-);
+const currentPathname = computed(() => normalizeComparablePathname(resolveRuntimePathname(route.path)));
 
 const currentSurfaceId = computed(() => {
-  const contextValue = placementContext?.value || null;
+  const contextValue = placementContext.value;
   const surfaceFromPathname = resolveSurfaceIdFromPlacementPathname(contextValue, currentPathname.value);
   if (surfaceFromPathname) {
     return surfaceFromPathname;
@@ -128,8 +102,7 @@ const currentSurfaceId = computed(() => {
 
 const primaryNavEntries = computed(() => {
   void revision.value;
-  const contextValue = placementContext?.value || null;
-  const routeParams = route?.params || {};
+  const contextValue = placementContext.value;
 
   return placementRuntime
     .getPlacements({
@@ -139,7 +112,7 @@ const primaryNavEntries = computed(() => {
     })
     .filter((entry) => String(entry.semanticTarget || entry.target || "").trim() === props.semanticTarget)
     .map((entry, index) => {
-      const entryProps = entry?.props && typeof entry.props === "object" ? entry.props : {};
+      const entryProps = entry.props;
       const target = resolveMenuLinkTarget({
         to: entryProps.to,
         surface: entryProps.surface,
@@ -147,7 +120,7 @@ const primaryNavEntries = computed(() => {
         placementContext: contextValue,
         scopedSuffix: entryProps.scopedSuffix,
         unscopedSuffix: entryProps.unscopedSuffix,
-        routeParams
+        routeParams: route.params
       });
       const navigationTarget = resolveSurfaceNavigationTargetFromPlacementContext(contextValue, {
         path: target,
@@ -217,7 +190,7 @@ const routeTransitionName = computed(() => {
 // navigation. Resizing must not recreate the routed form or lose focus.
 const routeTransitionKey = ref("");
 watch(
-  [() => normalizeComparablePathname(route?.path || route?.fullPath || "/"), currentSurfaceId],
+  [() => normalizeComparablePathname(route.path), currentSurfaceId],
   ([routePathKey, surfaceId]) => {
     routeTransitionKey.value = resolveShellRouteTransitionKey({
       routePathKey,
@@ -246,7 +219,7 @@ function handlePointerDown(event) {
 
   swipeGesture.start(event);
   try {
-    event.target?.setPointerCapture?.(event.pointerId);
+    event.target.setPointerCapture(event.pointerId);
   } catch {
     // Synthetic test events and some embedded webviews may not expose an active pointer.
   }

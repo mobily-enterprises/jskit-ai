@@ -8,6 +8,7 @@ export {
 } from "./validators.js";
 
 export {
+  NO_WEB_PLACEMENT_RUNTIME,
   SHELL_WEB_PLACEMENT_RUNTIME_KEY,
   useWebPlacementContext
 } from "./inject.js";

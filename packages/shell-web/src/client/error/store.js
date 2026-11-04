@@ -43,6 +43,10 @@ function cloneEntry(entry = {}) {
   });
 }
 
+/**
+ * @param {object} [options]
+ * @param {() => number} [options.now]
+ */
 function createErrorPresentationStore({
   now = () => Date.now()
 } = {}) {

@@ -8,6 +8,7 @@ import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizePathname } from "@jskit-ai/kernel/shared/surface/paths";
 import { isExternalLinkTarget, splitPathQueryHash } from "@jskit-ai/kernel/shared/support/linkPath";
 import { resolveAllowedOriginsFromSurfaceDefinitions } from "@jskit-ai/kernel/shared/support/returnToPath";
+import { pageOrigin } from "../browser.js";
 
 const EMPTY_SURFACE_CONFIG = Object.freeze({
   tenancyMode: "",
@@ -83,22 +84,14 @@ function normalizeSurfaceConfig(surfaceConfig = {}) {
   });
 }
 
-function buildSurfaceConfigContext(surfaceRuntime = null, { tenancyMode = "" } = {}) {
-  const normalizedTenancyMode = String(tenancyMode || "").trim().toLowerCase();
-  if (!isRecord(surfaceRuntime)) {
-    return normalizeSurfaceConfig({
-      tenancyMode: normalizedTenancyMode
-    });
-  }
-
-  const surfaceDefinitions =
-    typeof surfaceRuntime.listSurfaceDefinitions === "function" ? surfaceRuntime.listSurfaceDefinitions() : [];
+/**
+ * @param {import("@jskit-ai/kernel/client/types").ClientSurfaceRuntime} surfaceRuntime
+ * @param {object} [options]
+ * @param {string} [options.tenancyMode]
+ */
+function buildSurfaceConfigContext(surfaceRuntime, { tenancyMode = "" } = {}) {
   const surfacesById = {};
-  for (const definition of Array.isArray(surfaceDefinitions) ? surfaceDefinitions : []) {
-    if (!isRecord(definition)) {
-      continue;
-    }
-
+  for (const definition of surfaceRuntime.listSurfaceDefinitions()) {
     const surfaceId = normalizeSurfaceId(definition.id);
     if (!surfaceId) {
       continue;
@@ -107,10 +100,9 @@ function buildSurfaceConfigContext(surfaceRuntime = null, { tenancyMode = "" } =
   }
 
   return normalizeSurfaceConfig({
-    tenancyMode: normalizedTenancyMode,
+    tenancyMode: String(tenancyMode || "").trim().toLowerCase(),
     defaultSurfaceId: surfaceRuntime.DEFAULT_SURFACE_ID,
-    enabledSurfaceIds:
-      typeof surfaceRuntime.listEnabledSurfaceIds === "function" ? surfaceRuntime.listEnabledSurfaceIds() : [],
+    enabledSurfaceIds: surfaceRuntime.listEnabledSurfaceIds(),
     surfacesById
   });
 }
@@ -122,9 +114,9 @@ function readPlacementSurfaceConfig(contextValue = null) {
 
 // Origins a return-to URL may point at: this page plus every surface origin.
 function resolveAllowedOriginsFromPlacementContext(contextValue = null) {
-  const seedOrigins = typeof window === "object" && window?.location?.origin ? [window.location.origin] : [];
+  const origin = pageOrigin();
   return resolveAllowedOriginsFromSurfaceDefinitions(readPlacementSurfaceConfig(contextValue).surfacesById, {
-    seedOrigins
+    seedOrigins: origin ? [origin] : []
   });
 }
 
@@ -182,16 +174,7 @@ function normalizeSurfaceOrigin(originValue = "") {
 }
 
 function resolveRuntimeOrigin(currentOrigin = "") {
-  const normalizedCurrentOrigin = normalizeSurfaceOrigin(currentOrigin);
-  if (normalizedCurrentOrigin) {
-    return normalizedCurrentOrigin;
-  }
-
-  if (typeof window === "object" && window?.location?.origin) {
-    return normalizeSurfaceOrigin(window.location.origin);
-  }
-
-  return "";
+  return normalizeSurfaceOrigin(currentOrigin) || normalizeSurfaceOrigin(pageOrigin());
 }
 
 function resolveSurfaceNavigationTargetFromPlacementContext(
@@ -268,9 +251,7 @@ function createPlacementSurfacePathHelpers(surfaceConfig = EMPTY_SURFACE_CONFIG)
 
 function resolveSurfaceIdFromPlacementPathname(contextValue = null, pathname = "") {
   const surfaceConfig = readPlacementSurfaceConfig(contextValue);
-  const normalizedPathname =
-    normalizePathname(pathname) ||
-    (typeof window === "object" && window?.location?.pathname ? normalizePathname(window.location.pathname) : "/");
+  const normalizedPathname = normalizePathname(pathname);
   const pathHelpers = createPlacementSurfacePathHelpers(surfaceConfig);
   if (!pathHelpers) {
     return "";

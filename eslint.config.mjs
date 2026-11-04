@@ -101,6 +101,7 @@ export default [
     "packages/kernel/client/**",
     "packages/payments-web/src/client/**",
     "packages/realtime/src/client/**",
+    "packages/shell-web/src/client/**",
     "packages/storage-runtime/src/client/**",
     "packages/uploads-runtime/src/client/**"
   ]),

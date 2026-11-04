@@ -67,14 +67,13 @@ function normalizeAction(value) {
   }
 
   const label = normalizeText(source.label);
-  const handler = typeof source.handler === "function" ? source.handler : null;
-  if (!label || !handler) {
+  if (!label || !source.handler) {
     return null;
   }
 
   return Object.freeze({
     label,
-    handler,
+    handler: source.handler,
     dismissOnRun: source.dismissOnRun !== false
   });
 }

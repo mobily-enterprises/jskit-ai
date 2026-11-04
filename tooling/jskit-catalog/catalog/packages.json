@@ -2635,7 +2635,8 @@
                 "@jskit-ai/shell-web/client/navigation/linkResolver",
                 "@jskit-ai/shell-web/client/navigation/usePaths",
                 "@jskit-ai/shell-web/client/navigation/useSurfaceRouteContext",
-                "@jskit-ai/shell-web/client/composables/useShellLayoutState"
+                "@jskit-ai/shell-web/client/composables/useShellLayoutState",
+                "@jskit-ai/shell-web/client/types"
               ],
               "exclude": [
                 "@jskit-ai/shell-web/client"
@@ -2672,6 +2673,10 @@
               {
                 "subpath": "./client/bootstrap",
                 "summary": "Exports the shared client bootstrap handler registry used to extend /api/bootstrap handling."
+              },
+              {
+                "subpath": "./client/types",
+                "summary": "Declares the shell runtimes' types for the packages that receive them."
               },
               {
                 "subpath": "./test/adaptiveShellSmoke",

@@ -24,18 +24,19 @@ Exports
 
 ### `src/client/asyncModuleRecovery/index.js`
 Exports
+- `NO_SHELL_ASYNC_MODULE_RECOVERY_RUNTIME`
 - `SHELL_ASYNC_MODULE_RECOVERY_RUNTIME_KEY`
 - `useShellAsyncModuleRecoveryRuntime`
 
 ### `src/client/asyncModuleRecovery/inject.js`
 Exports
+- `NO_SHELL_ASYNC_MODULE_RECOVERY_RUNTIME`
 - `SHELL_ASYNC_MODULE_RECOVERY_RUNTIME_KEY`
-- `isShellAsyncModuleRecoveryRuntime(value)`
 - `useShellAsyncModuleRecoveryRuntime()`
 
 ### `src/client/asyncModuleRecovery/runtime.js`
 Exports
-- `createShellAsyncModuleRecoveryRuntime({ router = null, errorRuntime = null, logger })`
+- `createShellAsyncModuleRecoveryRuntime({ router, errorRuntime, logger })`
 
 ### `src/client/bootstrap/bootstrapErrorStatus.js`
 Exports
@@ -45,6 +46,9 @@ Exports
 Exports
 - `createBootstrapPayloadHandlerRegistry()`
 - `normalizeBootstrapPayloadHandler(entry)`
+Local functions
+- `contributeNoBootstrapRequest()`
+- `ignoreBootstrapError()`
 
 ### `src/client/bootstrap/index.js`
 Exports
@@ -52,17 +56,27 @@ Exports
 - `normalizeBootstrapPayloadHandler`
 - `resolveBootstrapErrorStatusCode`
 
+### `src/client/browser.js`
+Exports
+- `closestElement(target, selectors)`
+- `pageDocument()`
+- `pageOrigin()`
+- `pagePathname()`
+- `pageStorage()`
+- `pageTitle()`
+- `pageViewportWidth()`
+- `pageWindow()`
+
 ### `src/client/clientUpdate/runtime.js`
 Exports
-- `createShellClientUpdateRuntime({ errorRuntime, reload, pageBuildId = pageClientBuildId(), appName = loadedAppName() } = {})`
+- `createShellClientUpdateRuntime({ errorRuntime, reload, pageBuildId = pageClientBuildId(), appName = normalizeText(pageTitle()) })`
 Local functions
-- `loadedAppName(documentObject = globalThis.document)`
+- `stopNothing()`
 
 ### `src/client/components/ShellErrorHost.vue`
 Exports
 - None
 Local functions
-- `readLayoutRect()`
 - `publishInlineBannerHeight(height = 0)`
 - `stopObservingBanners()`
 - `isSameSnackbarEntry(left = null, right = null)`
@@ -89,7 +103,7 @@ Local functions
 - `handleShellKeydown(event)`
 - `focusNavigationToggle()`
 - `initializeDrawerMeasurement()`
-- `resolveNavigationDrawerElement()`
+- `navigationDrawerElement()`
 - `scheduleDrawerWidthMeasurement()`
 - `measureDrawerContentWidth()`
 - `measureRenderedText(element)`
@@ -137,8 +151,8 @@ Exports
 ### `src/client/composables/shellLayoutDrawerPreference.js`
 Exports
 - `SHELL_LAYOUT_DRAWER_DEFAULT_OPEN_STORAGE_KEY`
-- `readDrawerDefaultOpenPreference({ storage = typeof window === "object" ? window?.localStorage : null } = {})`
-- `writeDrawerDefaultOpenPreference(open, { storage = typeof window === "object" ? window?.localStorage : null } = {})`
+- `readDrawerDefaultOpenPreference({ storage = pageStorage() } = {})`
+- `writeDrawerDefaultOpenPreference(open, { storage = pageStorage() } = {})`
 
 ### `src/client/composables/useShellLayoutState.js`
 Exports
@@ -153,22 +167,26 @@ Exports
 
 ### `src/client/composables/useShellPullToRefresh.js`
 Exports
-- `useShellPullToRefresh({ enabled, refreshRuntime = null } = {})`
+- `useShellPullToRefresh({ enabled, refreshRuntime })`
 Local functions
 - `isAtPageTop()`
 
 ### `src/client/error/index.js`
 Exports
 - `createDefaultErrorPolicy`
+- `NO_SHELL_WEB_ERROR_RUNTIME`
 - `SHELL_WEB_ERROR_RUNTIME_KEY`
 - `useShellWebErrorRuntime`
 - `useShellErrorPresentationStore`
 
 ### `src/client/error/inject.js`
 Exports
+- `NO_SHELL_WEB_ERROR_RUNTIME`
 - `SHELL_WEB_ERROR_RUNTIME_KEY`
-- `EMPTY_ERROR_RUNTIME`
-- `useShellWebErrorRuntime({ required = false } = {})`
+- `useShellWebErrorRuntime()`
+Local functions
+- `throwUnavailable()`
+- `emptySnapshot()`
 
 ### `src/client/error/normalize.js`
 Exports
@@ -191,25 +209,27 @@ Exports
 ### `src/client/error/presentationDefaults.js`
 Exports
 - `EMPTY_PRESENTATION_STATE`
-- `EMPTY_PRESENTATION_STORE`
+- `NO_PRESENTATION_STORE`
 
 ### `src/client/error/presenters.js`
 Exports
-- `createStoreBackedPresenter({ id, channel, store } = {})`
-- `createMaterialSnackbarPresenter({ store } = {})`
-- `createMaterialBannerPresenter({ store } = {})`
-- `createMaterialDialogPresenter({ store } = {})`
-- `createDefaultMaterialErrorPresenters({ store } = {})`
+- `createStoreBackedPresenter({ id, channel, store })`
+- `createMaterialSnackbarPresenter({ store })`
+- `createMaterialBannerPresenter({ store })`
+- `createMaterialDialogPresenter({ store })`
+- `createDefaultMaterialErrorPresenters({ store })`
 
 ### `src/client/error/runtime.js`
 Exports
-- `createErrorRuntime({ presenters = [], policy = null, defaultPresenterId = "", moduleDefaultPresenterId = "", logger })`
+- `createErrorRuntime({ presenters = [], policy = createDefaultErrorPolicy(), defaultPresenterId = "", moduleDefaultPresenterId = "", logger })`
 - `normalizeErrorEvent(rawEvent = {})`
 Local functions
 - `freezeParams(params)`
 - `messageCodeFields(source = {}, fallback = {})`
 - `normalizePolicyDecision(policyDecision = {}, event = {})`
-- `normalizePresenter(candidate = {})`
+- `supportsEveryChannel()`
+- `dismissNothing()`
+- `normalizePresenter(source)`
 
 ### `src/client/error/store.js`
 Exports
@@ -266,7 +286,7 @@ Local functions
 
 ### `src/client/navigation/usePaths.js`
 Exports
-- `usePaths({ routeContext: sourceRouteContext = null } = {})`
+- `usePaths({ routeContext = useSurfaceRouteContext() } = {})`
 Local functions
 - `normalizePathSuffix(value = "")`
 - `resolveSurfaceId(value, fallback = "")`
@@ -290,6 +310,7 @@ Exports
 - `createPlacementRegistry`
 - `definePlacement`
 - `definePlacementTopology`
+- `NO_WEB_PLACEMENT_RUNTIME`
 - `SHELL_WEB_PLACEMENT_RUNTIME_KEY`
 - `useWebPlacementContext`
 - `resolveRuntimePathname`
@@ -305,11 +326,13 @@ Exports
 
 ### `src/client/placement/inject.js`
 Exports
+- `NO_WEB_PLACEMENT_RUNTIME`
 - `SHELL_WEB_PLACEMENT_RUNTIME_KEY`
-- `EMPTY_WEB_PLACEMENT_RUNTIME`
-- `EMPTY_WEB_PLACEMENT_CONTEXT`
-- `useWebPlacementRuntime({ required = false } = {})`
-- `useWebPlacementContext({ required = false } = {})`
+- `useWebPlacementContext()`
+- `useWebPlacementRevision(runtime)`
+- `useWebPlacementRuntime()`
+Local functions
+- `followWebPlacementRuntime(runtime, listener)`
 
 ### `src/client/placement/pathname.js`
 Exports
@@ -338,7 +361,7 @@ Local functions
 ### `src/client/placement/surfaceContext.js`
 Exports
 - `EMPTY_SURFACE_CONFIG`
-- `buildSurfaceConfigContext(surfaceRuntime = null, { tenancyMode = "" } = {})`
+- `buildSurfaceConfigContext(surfaceRuntime, { tenancyMode = "" } = {})`
 - `readPlacementSurfaceConfig(contextValue = null)`
 - `resolveAllowedOriginsFromPlacementContext(contextValue = null)`
 - `resolveSurfaceDefinitionFromPlacementContext(contextValue = null, surfaceId = "")`
@@ -365,6 +388,7 @@ Exports
 - `definePlacement(value = {})`
 - `definePlacementTopology(value = {})`
 Local functions
+- `placeAlways()`
 - `toInteger(value, fallback = 1000)`
 
 ### `src/client/providers/appModuleLoadFailure.js`
@@ -377,16 +401,17 @@ Exports
 - `ShellWebClientProvider`
 - `resolveAppPlacementTopologyExport(exported, logger)`
 Local functions
-- `loadAppModule({ importModule, specifier, label, resolve, invalidExportMessage = "", loadFailureMessage, fallback, logger, asyncModuleRecoveryRuntime = null })`
-- `loadAppPlacementDefinitions(logger, asyncModuleRecoveryRuntime = null)`
-- `loadAppPlacementTopology(logger, asyncModuleRecoveryRuntime = null)`
+- `loadAppModule({ importModule, specifier, label, resolve, invalidExportMessage = "", loadFailureMessage, fallback, logger, asyncModuleRecoveryRuntime })`
+- `loadAppPlacementDefinitions(logger, asyncModuleRecoveryRuntime)`
+- `loadAppPlacementTopology(logger, asyncModuleRecoveryRuntime)`
 - `createErrorConfigToolkit(errorRuntime)`
-- `loadAppErrorConfig(logger, errorRuntime, asyncModuleRecoveryRuntime = null)`
+- `loadAppErrorConfig(logger, errorRuntime, asyncModuleRecoveryRuntime)`
 - `installVueErrorBridge(vueApp, errorRuntime, logger)`
 - `installRouterErrorBridge(router, errorRuntime, logger)`
 
 ### `src/client/requestRecovery/index.js`
 Exports
+- `NO_SHELL_REQUEST_RECOVERY_RUNTIME`
 - `SHELL_REQUEST_RECOVERY_RUNTIME_KEY`
 - `useShellRequestRecoveryRuntime`
 - `isRecoverableRequestError`
@@ -394,14 +419,14 @@ Exports
 
 ### `src/client/requestRecovery/inject.js`
 Exports
+- `NO_SHELL_REQUEST_RECOVERY_RUNTIME`
 - `SHELL_REQUEST_RECOVERY_RUNTIME_KEY`
-- `isShellRequestRecoveryRuntime(value)`
 - `useShellRequestRecoveryRuntime()`
 
 ### `src/client/requestRecovery/runtime.js`
 Exports
 - `appReloadFailureMessage()`
-- `createShellRequestRecoveryRuntime({ queryClient = null, errorRuntime = null, logger })`
+- `createShellRequestRecoveryRuntime({ queryClient, errorRuntime, logger })`
 - `isRecoverableRequestError(error = null)`
 - `requestRecoveryMessage(error = null, { label = "", message = "" } = {})`
 Local functions
@@ -410,35 +435,32 @@ Local functions
 - `errorName(error = null)`
 - `normalizeRequestErrorStatus(error = null)`
 - `isCanceledRequestError(error = null)`
-- `resolveQueryMeta(query = null)`
-- `readQueryRecoveryMeta(query = null)`
-- `isActiveQuery(query = null)`
-- `recoverableQueryError(query = null)`
-- `createQueryRetry(queryClient, query = null)`
-- `resolveQueryHash(query = null)`
-- `installRecoverableQueryObserver({ queryClient, runtime, logger } = {})`
+- `readQueryRecoveryMeta(query)`
+- `recoverableQueryError(query)`
+- `createQueryRetry(queryClient, query)`
+- `resolveQueryHash(query)`
+- `installRecoverableQueryObserver({ queryClient, runtime, logger })`
 
 ### `src/client/runtime/bootstrapRuntime.js`
 Exports
-- `createShellBootstrapRuntime({ handlers, placementRuntime, requestRecoveryRuntime = null, router = null, logger, fetchImplementation = globalThis.fetch, bootstrapPath = BOOTSTRAP_PATH } = {})`
+- `createShellBootstrapRuntime({ handlers, placementRuntime, requestRecoveryRuntime, router, logger, fetchImplementation = globalThis.fetch, bootstrapPath = BOOTSTRAP_PATH })`
 Local functions
-- `normalizeObject(value)`
 - `buildBootstrapUrl({ path = BOOTSTRAP_PATH, query = {} } = {})`
 - `normalizeBootstrapResponseError(response, url)`
 
 ### `src/client/runtime/refreshRuntime.js`
 Exports
+- `NO_SHELL_WEB_REFRESH_RUNTIME`
 - `SHELL_WEB_REFRESH_RUNTIME_KEY`
-- `createShellRefreshRuntime({ bootstrapRuntime = null, queryClient = null, errorRuntime = null, logger })`
+- `createShellRefreshRuntime({ bootstrapRuntime, queryClient, errorRuntime, logger })`
 Local functions
-- `isPullRefreshQuery(query = null)`
+- `isPullRefreshQuery(query)`
 
 ### `src/client/stores/useShellErrorPresentationStore.js`
 Exports
 - `useShellErrorPresentationStore`
 Local functions
 - `normalizePresentationState(nextState)`
-- `isPresentationRuntimeStore(value)`
 
 ### `src/client/stores/useShellLayoutStore.js`
 Exports
@@ -502,8 +524,22 @@ Exports
 
 ### `src/client/support/shellLayoutClass.js`
 Exports
-- `readViewportWidth()`
-- `resolveShellLayoutClass(displayName = "", viewportWidth = 0)`
+- `resolveShellLayoutClass(displayName = "", viewportWidth = pageViewportWidth())`
+
+### `src/client/types.js`
+Exports
+- `type ShellErrorRuntime`
+- `type ShellErrorPresentationStore`
+- `type WebPlacementRuntime`
+- `type ShellAsyncModuleRecoveryRuntime`
+- `type ShellRequestRecoveryRuntime`
+- `type ShellBootstrapRuntime`
+- `type ShellRefreshRuntime`
+- `type BootstrapPayloadHandlerRegistry`
+- `type SurfaceRouteContext`
+- `type ShellRealtime`
+- `type ShellLayoutStateProps`
+- `type ShellNavigationLinkProps`
 
 ### fixtures
 

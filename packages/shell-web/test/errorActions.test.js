@@ -3,7 +3,7 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import { compileScript, parse } from "@vue/compiler-sfc";
-import { createRenderer, defineComponent, h, nextTick } from "vue";
+import { createRenderer, defineComponent, h, nextTick, shallowRef } from "vue";
 import { createPinia } from "pinia";
 import { createErrorRuntime } from "../src/client/error/runtime.js";
 import { SHELL_WEB_ERROR_RUNTIME_KEY } from "../src/client/error/inject.js";
@@ -52,13 +52,18 @@ function fixture(t) {
   app.use(pinia);
   useShellErrorPresentationStore(pinia).attachRuntimeStore(store);
   app.provide(SHELL_WEB_ERROR_RUNTIME_KEY, runtime);
+  app.provide(Symbol.for("vuetify:layout"), { mainRect: shallowRef({ top: 0, left: 0, right: 0, bottom: 0 }) });
+  globalThis.document = { documentElement: { style: { removeProperty() {} } } };
   for (const name of ["VSnackbar", "VDialog", "VCard", "VCardTitle", "VCardText", "VCardActions", "VSpacer", "VAlert", "VBtn"]) {
     app.component(name, defineComponent({ setup: (_props, { slots }) => () =>
       h(name, {}, [slots.default?.(), slots.actions?.()]) }));
   }
   const root = node("root");
   app.mount(root);
-  t.after(() => app.unmount());
+  t.after(() => {
+    app.unmount();
+    delete globalThis.document;
+  });
   const all = (item = root) => [item, ...item.children.flatMap((child) => all(child))];
   const button = (label) => all().find((item) => item.type === "VBtn" &&
     all(item).some((child) => child.text.trim() === label));

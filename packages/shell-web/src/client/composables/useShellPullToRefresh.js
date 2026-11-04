@@ -1,4 +1,5 @@
 import { computed, onBeforeUnmount, onMounted, ref, unref } from "vue";
+import { NO_SHELL_WEB_REFRESH_RUNTIME } from "../runtime/refreshRuntime.js";
 import { isPrimaryTouchPointer, isShellGestureIgnoredTarget } from "../support/gestureTargets.js";
 import { useJskitText } from "../i18n.js";
 
@@ -7,19 +8,20 @@ const PULL_REFRESH_MAX_DISTANCE = 112;
 const PULL_REFRESH_IGNORED_SELECTORS = Object.freeze(["[data-shell-pull-refresh-ignore]"]);
 
 function isAtPageTop() {
-  if (typeof window !== "object" || typeof document !== "object") {
-    return false;
-  }
-
-  const documentScrollTop = Number(document.documentElement?.scrollTop || 0);
-  const bodyScrollTop = Number(document.body?.scrollTop || 0);
+  const documentScrollTop = Number(document.documentElement.scrollTop || 0);
+  const bodyScrollTop = Number(document.body.scrollTop || 0);
   return Math.max(Number(window.scrollY || 0), documentScrollTop, bodyScrollTop) <= 0;
 }
 
-// Compact-layout pull-to-refresh. Pointer events start the gesture where the
-// browser supports them; touch events carry it on after the browser cancels the
-// pointer to scroll, and start it where pointer events are missing.
-function useShellPullToRefresh({ enabled, refreshRuntime = null } = {}) {
+/**
+ * Compact-layout pull-to-refresh. Pointer events start the gesture where the
+ * browser supports them; touch events carry it on after the browser cancels the
+ * pointer to scroll, and start it where pointer events are missing.
+ * @param {object} options
+ * @param {import("vue").MaybeRef<boolean>} options.enabled
+ * @param {import("../types.js").ShellRefreshRuntime} options.refreshRuntime
+ */
+function useShellPullToRefresh({ enabled, refreshRuntime }) {
   const { t } = useJskitText();
   const pullDistance = ref(0);
   const pullRefreshing = ref(false);
@@ -42,9 +44,6 @@ function useShellPullToRefresh({ enabled, refreshRuntime = null } = {}) {
   }));
 
   onMounted(() => {
-    if (typeof window !== "object") {
-      return;
-    }
     window.addEventListener("pointerdown", handlePullPointerDown, { capture: true, passive: true });
     window.addEventListener("pointermove", handlePullPointerMove, { capture: true, passive: false });
     window.addEventListener("pointerup", handlePullPointerEnd, { capture: true, passive: true });
@@ -56,9 +55,6 @@ function useShellPullToRefresh({ enabled, refreshRuntime = null } = {}) {
   });
 
   onBeforeUnmount(() => {
-    if (typeof window !== "object") {
-      return;
-    }
     window.removeEventListener("pointerdown", handlePullPointerDown, { capture: true });
     window.removeEventListener("pointermove", handlePullPointerMove, { capture: true });
     window.removeEventListener("pointerup", handlePullPointerEnd, { capture: true });
@@ -70,7 +66,7 @@ function useShellPullToRefresh({ enabled, refreshRuntime = null } = {}) {
   });
 
   function canRefresh() {
-    return Boolean(refreshRuntime && typeof refreshRuntime.refresh === "function");
+    return refreshRuntime !== NO_SHELL_WEB_REFRESH_RUNTIME;
   }
 
   function canStartFromTarget(target) {
@@ -124,7 +120,7 @@ function useShellPullToRefresh({ enabled, refreshRuntime = null } = {}) {
   }
 
   function handlePullTouchStart(event) {
-    if (activePull || event?.touches?.length !== 1 || !canStartFromTarget(event.target)) {
+    if (activePull || event.touches.length !== 1 || !canStartFromTarget(event.target)) {
       return;
     }
 
@@ -178,7 +174,7 @@ function useShellPullToRefresh({ enabled, refreshRuntime = null } = {}) {
       return;
     }
 
-    if (event?.cancelable) {
+    if (event.cancelable) {
       event.preventDefault();
     }
     pullDistance.value = Math.min(PULL_REFRESH_MAX_DISTANCE, Math.round(deltaY * 0.55));

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createApp } from "vue";
 import {
+  NO_SHELL_REQUEST_RECOVERY_RUNTIME,
   SHELL_REQUEST_RECOVERY_RUNTIME_KEY,
   isRecoverableRequestError,
   requestRecoveryMessage,
@@ -29,8 +30,18 @@ test("shell request recovery message uses app-facing labels", () => {
   );
 });
 
-test("shell request recovery runtime composable returns null outside Vue injection context", () => {
-  assert.equal(useShellRequestRecoveryRuntime(), null);
+test("shell request recovery runtime composable resolves NO_SHELL_REQUEST_RECOVERY_RUNTIME without the provider", async () => {
+  const app = createApp({
+    render() {
+      return null;
+    }
+  });
+
+  const runtime = app.runWithContext(() => useShellRequestRecoveryRuntime());
+
+  assert.equal(runtime, NO_SHELL_REQUEST_RECOVERY_RUNTIME);
+  assert.equal(runtime.report(new TypeError("Failed to fetch")), null);
+  assert.equal(await runtime.reload(), false);
 });
 
 test("shell request recovery runtime composable resolves the provided public runtime", () => {
@@ -52,21 +63,5 @@ test("shell request recovery runtime composable resolves the provided public run
   assert.equal(
     app.runWithContext(() => useShellRequestRecoveryRuntime()),
     runtime
-  );
-});
-
-test("shell request recovery runtime composable rejects incomplete runtimes", () => {
-  const app = createApp({
-    render() {
-      return null;
-    }
-  });
-  app.provide(SHELL_REQUEST_RECOVERY_RUNTIME_KEY, {
-    report() {}
-  });
-
-  assert.equal(
-    app.runWithContext(() => useShellRequestRecoveryRuntime()),
-    null
   );
 });

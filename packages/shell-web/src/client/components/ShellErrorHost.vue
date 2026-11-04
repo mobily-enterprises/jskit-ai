@@ -18,15 +18,7 @@ const snackbarEntries = computed(() => store.channels.snackbar || []);
 const bannerEntries = computed(() => store.channels.banner || []);
 const dialogEntry = computed(() => store.channels.dialog[0] || null);
 const displayedSnackbarEntry = ref(null);
-const layoutRect = readLayoutRect();
-
-function readLayoutRect() {
-  try {
-    return useLayout().mainRect;
-  } catch {
-    return null;
-  }
-}
+const layoutRect = useLayout().mainRect;
 
 // Banners float just below a top app bar. A surface without one (sign-in pages)
 // has nothing to float under, so the banners join the page flow above the
@@ -35,7 +27,7 @@ function readLayoutRect() {
 const BANNER_INLINE_HEIGHT_PROPERTY = "--shell-error-banners-inline-height";
 const bannersElement = ref(null);
 const bannerPlacement = computed(() => {
-  const rect = layoutRect?.value || {};
+  const rect = layoutRect.value;
   const top = Number(rect.top) || 0;
   if (top <= 0) {
     return { inline: true, style: undefined };
@@ -53,10 +45,7 @@ const bannerPlacement = computed(() => {
 let bannerResizeObserver = null;
 
 function publishInlineBannerHeight(height = 0) {
-  const rootStyle = globalThis.document?.documentElement?.style;
-  if (!rootStyle) {
-    return;
-  }
+  const rootStyle = document.documentElement.style;
   if (height > 0) {
     rootStyle.setProperty(BANNER_INLINE_HEIGHT_PROPERTY, `${Math.ceil(height)}px`);
   } else {
@@ -74,10 +63,10 @@ watch(
   [bannersElement, () => bannerPlacement.value.inline],
   ([element, inline]) => {
     stopObservingBanners();
-    if (!element || !inline || typeof globalThis.ResizeObserver !== "function") {
+    if (!element || !inline) {
       return;
     }
-    bannerResizeObserver = new globalThis.ResizeObserver(() => {
+    bannerResizeObserver = new ResizeObserver(() => {
       publishInlineBannerHeight(element.getBoundingClientRect().height);
     });
     bannerResizeObserver.observe(element);
@@ -183,10 +172,6 @@ function actionsFor(entry) {
 }
 
 async function runAction(entry, action) {
-  if (!entry || typeof action?.handler !== "function") {
-    return;
-  }
-
   try {
     await action.handler(entry);
   } catch (error) {

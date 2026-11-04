@@ -1,5 +1,5 @@
 import { computed, unref } from "vue";
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveScopedApiBasePath } from "@jskit-ai/kernel/shared/surface";
 import { resolveSurfaceDefinitionFromPlacementContext } from "../placement/index.js";
 import { useShellLinkResolver } from "./linkResolver.js";
@@ -40,13 +40,16 @@ function resolveRouteParams(baseParams = {}, overrideParams = null) {
   };
 }
 
-function usePaths({ routeContext: sourceRouteContext = null } = {}) {
-  const routeContext = sourceRouteContext || useSurfaceRouteContext();
+/**
+ * @param {object} [options]
+ * @param {import("../types.js").SurfaceRouteContext} [options.routeContext]
+ */
+function usePaths({ routeContext = useSurfaceRouteContext() } = {}) {
   const shellLinkResolver = useShellLinkResolver();
-  const routeParams = computed(() => normalizeRouteParams(routeContext.route?.params));
+  const routeParams = computed(() => normalizeRouteParams(routeContext.route.params));
 
   function page(relativePath = "/", options = {}) {
-    const source = options && typeof options === "object" && !Array.isArray(options) ? options : {};
+    const source = normalizeObject(options);
     const surface =
       resolveSurfaceId(source.surface, routeContext.currentSurfaceId.value) ||
       resolveDefaultSurfaceIdFromPlacementContext(routeContext.placementContext.value);
@@ -63,7 +66,7 @@ function usePaths({ routeContext: sourceRouteContext = null } = {}) {
   }
 
   function api(relativePath = "", options = {}) {
-    const source = options && typeof options === "object" && !Array.isArray(options) ? options : {};
+    const source = normalizeObject(options);
     const surface =
       resolveSurfaceId(source.surface, routeContext.currentSurfaceId.value) ||
       resolveDefaultSurfaceIdFromPlacementContext(routeContext.placementContext.value);
@@ -86,14 +89,14 @@ function usePaths({ routeContext: sourceRouteContext = null } = {}) {
     });
   }
 
-  return Object.freeze({
+  return {
     route: routeContext.route,
     placementContext: routeContext.placementContext,
     currentSurfaceId: routeContext.currentSurfaceId,
     routeParams,
     page,
     api
-  });
+  };
 }
 
 export { usePaths };
