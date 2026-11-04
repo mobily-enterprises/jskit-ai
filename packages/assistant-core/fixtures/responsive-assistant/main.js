@@ -9,6 +9,7 @@ import ConversationFixture from "./ConversationFixture.vue";
 import ProgressFixture from "./ProgressFixture.vue";
 import DeliveryFixture from "./DeliveryFixture.vue";
 
+const query = new URLSearchParams(location.search);
 const vuetify = createVuetify({
   components,
   directives,
@@ -18,11 +19,10 @@ const vuetify = createVuetify({
     sets: { mdi }
   },
   theme: {
-    defaultTheme: "light"
+    defaultTheme: query.has("dark") ? "dark" : "light"
   }
 });
 
-const query = new URLSearchParams(location.search);
 createApp(query.has("delivery") ? DeliveryFixture : query.has("progress") ? ProgressFixture : query.has("conversation") ? ConversationFixture : App)
   .use(vuetify)
   .mount("#app");

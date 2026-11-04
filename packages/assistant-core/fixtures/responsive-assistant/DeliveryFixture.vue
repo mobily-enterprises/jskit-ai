@@ -5,6 +5,7 @@ import { createAssistantMessageDelivery } from "../../src/client/conversation/me
 
 const recoveryFixture = new URLSearchParams(location.search).has("recovery");
 const acceptedFixture = new URLSearchParams(location.search).has("accepted-history");
+const taskFixture = new URLSearchParams(location.search).has("task");
 const draft = ref("");
 const turns = ref([]);
 const requests = ref([]);
@@ -63,7 +64,10 @@ if (acceptedFixture) {
 }
 const adapter = reactive({
   delivery, attachments,
-  conversation: { cancellableDelivery: recoveryFixture, turns, visible: true, scrollKey: "delivery", welcomeMessage: "Start a conversation." },
+  conversation: {
+    cancellableDelivery: recoveryFixture, turns, visible: true, scrollKey: "delivery", welcomeMessage: "Start a conversation.",
+    variant: taskFixture ? "task" : "main"
+  },
   composer: { draft, canSend: true, submitOnEnter: true, queueWhileSending },
   actions: {
     setDraft(value) { draft.value = value; },

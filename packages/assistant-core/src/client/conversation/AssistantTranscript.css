@@ -248,8 +248,8 @@
 }
 
 .assistant-transcript--task .assistant-transcript__message--user {
-  background: #eee8f8;
-  color: #2d2440;
+  background: rgba(126, 87, 194, 0.16);
+  color: rgb(var(--v-theme-on-surface));
 }
 
 .assistant-transcript__thinking {
@@ -325,13 +325,13 @@
 }
 
 .assistant-transcript__message-header time {
-  color: #6d7888;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   font-weight: 650;
 }
 
 .assistant-transcript__message-footer {
   align-items: center;
-  color: #9aa6b6;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   display: flex;
   font-size: 0.88rem;
   font-weight: 500;
