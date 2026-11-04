@@ -402,6 +402,8 @@ function createJskitClientBootstrapPlugin({ proxyTarget = "" } = {}) {
     const userProxyEntries = normalizeObject(userServer.proxy);
 
     return {
+      // A development log stays readable: a restart would otherwise wipe what came before it.
+      clearScreen: userConfig.clearScreen ?? false,
       optimizeDeps: {
         ...userOptimizeDeps,
         include,

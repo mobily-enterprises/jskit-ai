@@ -530,6 +530,22 @@ test("createJskitClientBootstrapPlugin resolves and loads virtual module", async
   }
 });
 
+test("createJskitClientBootstrapPlugin keeps a restart from clearing the log unless the app chooses otherwise", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-clear-screen-"));
+  const previousCwd = process.cwd();
+
+  try {
+    await declareInstalledPackages(tempRoot);
+    process.chdir(tempRoot);
+    const plugin = createJskitClientBootstrapPlugin();
+
+    assert.equal((await plugin.config({})).clearScreen, false);
+    assert.equal((await plugin.config({ clearScreen: true })).clearScreen, true);
+  } finally {
+    process.chdir(previousCwd);
+  }
+});
+
 test("createJskitClientBootstrapPlugin contributes installed package proxies without generated state", async () => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-proxy-"));
   const previousCwd = process.cwd();
