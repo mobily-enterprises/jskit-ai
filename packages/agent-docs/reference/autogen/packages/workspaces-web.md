@@ -355,6 +355,16 @@ Exports
 Exports
 - None
 
+### `fixtures/workspaces-components/main.js`
+Exports
+- None
+Local functions
+- `pageFor(label)`
+
+### `fixtures/workspaces-components/vite.config.mjs`
+Exports
+- None
+
 ### `fixtures/workspaces-landing/main.js`
 Exports
 - None
