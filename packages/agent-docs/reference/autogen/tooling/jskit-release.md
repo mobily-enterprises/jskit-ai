@@ -54,7 +54,7 @@ Local functions
 
 ### `src/release.mjs`
 Exports
-- `assertMainReleaseCheckout(repoRoot)`
+- `assertMainReleaseCheckout(repoRoot, { allowAhead = false } = {})`
 - `bumpPatch`
 - `collectPublishDependencies`
 - `collectPatternPackageJsonPaths`

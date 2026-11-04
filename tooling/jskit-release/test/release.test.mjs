@@ -761,6 +761,56 @@ test("pin --no-commit installs the released versions and leaves the edits uncomm
     ["", "node_modules/left-pad"], "pinned packages are resolved afresh; other locked packages stay");
 });
 
+test("pin --no-commit accepts a clone ahead of origin's main and pushes nothing", async t => {
+  const f = await publicationFixture(t, "jskit");
+  const { consumer, git } = await consumerRepository(f);
+  const main = git("rev-parse", "HEAD").toString();
+  git("commit", "--allow-empty", "-m", "Local work");
+  const head = git("rev-parse", "HEAD").toString();
+  const result = f.run(["pin", "--from", f.repo, "--no-commit"], {}, consumer);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /pins installed; not committed/u);
+  assert.equal(JSON.parse(await readFile(path.join(consumer, "package.json"), "utf8")).dependencies["@jskit-ai/a"], "^1.0.0");
+  assert.equal(git("rev-parse", "HEAD").toString(), head);
+  assert.equal(git("ls-remote", "origin", "refs/heads/main").toString().split("\t")[0] + "\n", main);
+});
+
+test("pin --no-commit refuses a clone behind or diverged from origin's main", async t => {
+  const f = await publicationFixture(t, "jskit");
+  const { consumer, git } = await consumerRepository(f);
+  const assertRefused = async () => {
+    const result = f.run(["pin", "--from", f.repo, "--no-commit"], {}, consumer);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /requires HEAD to contain origin's main branch/u);
+    assert.equal((await f.calls()).filter(call => call.args[0] === "install").length, 0);
+    assert.equal(JSON.parse(await readFile(path.join(consumer, "package.json"), "utf8")).dependencies["@jskit-ai/a"], "^0.9.0");
+    assert.equal(git("status", "--porcelain").toString(), "");
+  };
+  const other = path.join(f.directory, "other");
+  const otherGit = (...args) => execFileSync("git", args, { cwd: other, stdio: "pipe" });
+  execFileSync("git", ["clone", path.join(f.directory, "consumer.git"), other], { stdio: "pipe" });
+  otherGit("-c", "user.email=release-test@example.invalid", "-c", "user.name=Release test", "commit", "--allow-empty", "-m", "Moved on");
+  otherGit("push", "origin", "main");
+
+  await assertRefused(); // behind, and this clone has never seen the new commit
+  git("fetch", "origin");
+  await assertRefused(); // behind, with the new commit fetched
+  git("commit", "--allow-empty", "-m", "Local work");
+  await assertRefused(); // diverged
+});
+
+test("a pin that pushes still refuses a clone ahead of origin's main", async t => {
+  const f = await publicationFixture(t, "jskit");
+  const { consumer, git } = await consumerRepository(f);
+  const main = git("rev-parse", "HEAD").toString();
+  git("commit", "--allow-empty", "-m", "Local work");
+  const result = f.run(["pin", "--from", f.repo], {}, consumer);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /requires HEAD to match origin's main branch/u);
+  assert.equal((await f.calls()).filter(call => call.args[0] === "install").length, 0);
+  assert.equal(git("ls-remote", "origin", "refs/heads/main").toString().split("\t")[0] + "\n", main);
+});
+
 test("pin follows released versions, keeps range prefixes, retries npm propagation, commits and pushes", async t => {
   const f = await publicationFixture(t, "jskit");
   const { consumer, git } = await consumerRepository(f);

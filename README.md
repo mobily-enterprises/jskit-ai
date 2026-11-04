@@ -143,7 +143,9 @@ package published from those repositories follows its current version, keeping
 version), commits `Consume released packages` and pushes with the same retry.
 A real pin requires the same clean, current `main` checkout. `--no-commit`
 stops after the install and leaves the edits uncommitted, for a caller that
-builds from them and discards them, such as a deploy rehearsal.
+builds from them and discards them, such as a deploy rehearsal. It pushes
+nothing, so its clean `main` checkout may also be ahead of origin's `main`, but
+never behind or diverged from it.
 
 Supply `NPM_TOKEN` in the command's environment, with publishing access to the
 JSKIT packages. The same scripts run locally, in CI and in a hosted editor. In a

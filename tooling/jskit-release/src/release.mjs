@@ -324,7 +324,9 @@ function git(repoRoot, args) {
   }).trim();
 }
 
-function assertMainReleaseCheckout(repoRoot) {
+// allowAhead is for a caller that pushes nothing: its local commits stay local,
+// so only a checkout missing part of origin's main is unsafe.
+function assertMainReleaseCheckout(repoRoot, { allowAhead = false } = {}) {
   if (git(repoRoot, ["branch", "--show-current"]) !== "main") {
     throw new Error("Publish requires the main branch.");
   }
@@ -333,8 +335,14 @@ function assertMainReleaseCheckout(repoRoot) {
   }
   const head = git(repoRoot, ["rev-parse", "HEAD"]);
   const remoteMain = git(repoRoot, ["ls-remote", "--exit-code", "origin", "refs/heads/main"]).split(/\s+/u)[0];
-  if (head !== remoteMain) {
+  if (head === remoteMain) return;
+  if (!allowAhead) {
     throw new Error("Publish requires HEAD to match origin's main branch; reconcile and push main first.");
+  }
+  // A main commit this clone never fetched makes git fail, which is also a refusal.
+  const contained = spawnSync("git", ["merge-base", "--is-ancestor", remoteMain, "HEAD"], { cwd: repoRoot, stdio: "ignore" });
+  if (contained.status !== 0) {
+    throw new Error("pin --no-commit requires HEAD to contain origin's main branch; this checkout is behind or diverged, so reconcile it first.");
   }
 }
 
@@ -453,13 +461,15 @@ async function installReleasedPins(repoRoot, { attempts = 20, delayMs = Number(p
 // repositories follow that package's current version, keeping ^/~, then
 // install, commit and push.
 // --no-commit stops after the install, leaving the edits for the caller to
-// build from and discard (a deploy rehearsal).
+// build from and discard (a deploy rehearsal, or a release clone proving
+// unpushed commits on the new versions). It pushes nothing, so it also accepts
+// a checkout ahead of origin's main; a real pin would push those commits.
 async function pinCommand({ cwd: repoRoot, from, dryRun, noCommit }) {
   const versions = new Map();
   for (const dir of from) {
     for (const record of await discoverReleasePackages(dir)) versions.set(record.name, record.packageJson.version);
   }
-  if (!dryRun) assertMainReleaseCheckout(repoRoot);
+  if (!dryRun) assertMainReleaseCheckout(repoRoot, { allowAhead: noCommit });
   const changes = [];
   for (const manifest of await discoverManifests(repoRoot)) {
     const manifestChanges = [];
