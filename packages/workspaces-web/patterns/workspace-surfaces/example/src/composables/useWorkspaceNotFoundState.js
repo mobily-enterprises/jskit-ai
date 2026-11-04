@@ -30,12 +30,12 @@ function useWorkspaceNotFoundState() {
     () => STATUS_MESSAGES[workspaceBootstrapStatus.value] || DEFAULT_WORKSPACE_UNAVAILABLE_MESSAGE
   );
 
-  return Object.freeze({
+  return {
     routeWorkspaceSlug,
     workspaceBootstrapStatus,
     workspaceUnavailable,
     workspaceUnavailableMessage
-  });
+  };
 }
 
 export { useWorkspaceNotFoundState };

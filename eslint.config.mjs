@@ -89,6 +89,10 @@ export default [
   // The client typed-features rules apply, as errors, to the client trees listed here; each package's client code is
   // listed as it converts.
   ...clientFeaturesConfig([
+    "packages/*/patterns/*/example/books/**",
+    "packages/*/patterns/*/example/expected-existing/src/**",
+    "packages/*/patterns/*/example/packages/*/src/client/**",
+    "packages/*/patterns/*/example/src/**",
     "packages/assistant-core/src/client/**",
     "packages/assistant-runtime/src/client/**",
     "packages/assistant-voice/src/client/**",
