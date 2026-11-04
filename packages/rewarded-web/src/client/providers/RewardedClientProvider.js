@@ -6,7 +6,6 @@ import {
   createRewardedRuntime
 } from "../runtime/rewardedRuntime.js";
 
-
 const mountedHosts = new WeakMap();
 
 const RewardedClientProvider = defineProvider({
@@ -18,11 +17,16 @@ const RewardedClientProvider = defineProvider({
   provides: {
     rewarded: "client.rewarded"
   },
+  /** @param {{ delivery: import("../types.js").RewardedDelivery }} capabilities */
   setup({ delivery }) {
     return {
       rewarded: createRewardedRuntime({ launchReward: delivery.launchReward })
     };
   },
+  /**
+   * @param {{ vueApp: import("@jskit-ai/kernel/client/types").ClientVueApp }} capabilities
+   * @param {{ outputs: { rewarded: import("../types.js").RewardedRuntime } }} context
+   */
   async boot({ vueApp }, { outputs }) {
     if (typeof document === "undefined") {
       return;
@@ -30,9 +34,7 @@ const RewardedClientProvider = defineProvider({
 
     const runtime = outputs.rewarded;
 
-    if (vueApp && typeof vueApp.provide === "function") {
-      vueApp.provide(REWARDED_RUNTIME_INJECTION_KEY, runtime);
-    }
+    vueApp.provide(REWARDED_RUNTIME_INJECTION_KEY, runtime);
 
     const hostContainer = document.createElement("div");
     hostContainer.dataset.jskitRewardedHost = "true";
@@ -41,11 +43,15 @@ const RewardedClientProvider = defineProvider({
     const vnode = h(RewardedGateHost, {
       runtime
     });
-    vnode.appContext = vueApp?._context || null;
+    vnode.appContext = vueApp._context;
     render(vnode, hostContainer);
     mountedHosts.set(runtime, hostContainer);
   },
-  shutdown(_dependencies, { outputs }) {
+  /**
+   * @param {object} _capabilities
+   * @param {{ outputs: { rewarded: import("../types.js").RewardedRuntime } }} context
+   */
+  shutdown(_capabilities, { outputs }) {
     const hostContainer = mountedHosts.get(outputs.rewarded);
     if (!hostContainer) {
       return;

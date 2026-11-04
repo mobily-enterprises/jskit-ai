@@ -8,6 +8,7 @@
   "exports": {
     ".": "./src/index.js",
     "./client": "./src/client/index.js",
+    "./client/types": "./src/client/types.js",
     "./server": "./src/server/index.js",
     "./shared": "./src/shared/index.js",
     "./locales/en.json": "./locales/en.json"
@@ -46,6 +47,10 @@
           {
             "subpath": "./client",
             "summary": "Exports the Rewarded client provider, runtime composable, and fullscreen gate host."
+          },
+          {
+            "subpath": "./client/types",
+            "summary": "The delivery contract an application supplies and the runtime it receives, as JSDoc types."
           }
         ]
       },

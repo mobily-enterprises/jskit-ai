@@ -2578,6 +2578,10 @@
               {
                 "subpath": "./client",
                 "summary": "Exports the Rewarded client provider, runtime composable, and fullscreen gate host."
+              },
+              {
+                "subpath": "./client/types",
+                "summary": "The delivery contract an application supplies and the runtime it receives, as JSDoc types."
               }
             ]
           },

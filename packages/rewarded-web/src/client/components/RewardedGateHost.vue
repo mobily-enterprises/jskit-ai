@@ -1,39 +1,33 @@
 <script setup>
 import { computed } from "vue";
-import { useRewardedRuntime } from "../composables/useRewardedRuntime.js";
 import { useJskitText } from "../i18n.js";
 
 const props = defineProps({
   runtime: {
-    type: Object,
-    required: false,
-    default: null
+    type: /** @type {import("vue").PropType<import("../types.js").RewardedRuntime>} */ (Object),
+    required: true
   }
 });
 
 const { t } = useJskitText();
-const runtime = computed(() => props.runtime || useRewardedRuntime());
-const state = computed(() => runtime.value?.state || null);
-const isVisible = computed(() => {
-  const currentState = state.value;
-  return currentState?.open === true && currentState?.phase !== "showing-ad";
-});
-const titleText = computed(() => state.value?.gateState?.rule?.title || t("jskit.rewarded.gate.defaultTitle"));
+const state = computed(() => props.runtime.state);
+const isVisible = computed(() => state.value.open === true && state.value.phase !== "showing-ad");
+const titleText = computed(() => state.value.gateState?.rule?.title || t("jskit.rewarded.gate.defaultTitle"));
 const descriptionText = computed(() =>
-  state.value?.gateState?.rule?.description ||
+  state.value.gateState?.rule?.description ||
   t("jskit.rewarded.gate.defaultDescription")
 );
 
 function handleWatchClick() {
-  runtime.value?.beginWatch?.();
+  props.runtime.beginWatch();
 }
 
 function handleCancelClick() {
-  runtime.value?.cancelPrompt?.();
+  props.runtime.cancelPrompt();
 }
 
 function handleDismissError() {
-  runtime.value?.dismissError?.();
+  props.runtime.dismissError();
 }
 </script>
 
@@ -47,22 +41,22 @@ function handleDismissError() {
         <p class="rewarded-gate__description">{{ descriptionText }}</p>
 
         <p
-          v-if="state?.phase === 'loading'"
+          v-if="state.phase === 'loading'"
           class="rewarded-gate__status"
         >
           {{ t("jskit.rewarded.gate.loading") }}
         </p>
 
         <p
-          v-else-if="state?.phase === 'error'"
+          v-else-if="state.phase === 'error'"
           class="rewarded-gate__status rewarded-gate__status--error"
         >
-          {{ state?.errorMessage || t("jskit.rewarded.gate.startFailed") }}
+          {{ state.errorMessage || t("jskit.rewarded.gate.startFailed") }}
         </p>
 
         <div class="rewarded-gate__actions">
           <button
-            v-if="state?.phase === 'prompt'"
+            v-if="state.phase === 'prompt'"
             type="button"
             class="rewarded-gate__button rewarded-gate__button--primary"
             @click="handleWatchClick"
@@ -71,7 +65,7 @@ function handleDismissError() {
           </button>
 
           <button
-            v-if="state?.phase === 'prompt'"
+            v-if="state.phase === 'prompt'"
             type="button"
             class="rewarded-gate__button"
             @click="handleCancelClick"
@@ -80,7 +74,7 @@ function handleDismissError() {
           </button>
 
           <button
-            v-if="state?.phase === 'error'"
+            v-if="state.phase === 'error'"
             type="button"
             class="rewarded-gate__button rewarded-gate__button--primary"
             @click="handleDismissError"

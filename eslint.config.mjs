@@ -102,6 +102,8 @@ export default [
     "packages/mobile-capacitor/src/client/**",
     "packages/payments-web/src/client/**",
     "packages/realtime/src/client/**",
+    "packages/rewarded-web/patterns/google-rewarded/example/**",
+    "packages/rewarded-web/src/client/**",
     "packages/shell-web/src/client/**",
     "packages/storage-runtime/src/client/**",
     "packages/uploads-image-web/src/client/**",

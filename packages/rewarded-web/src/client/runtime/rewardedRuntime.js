@@ -67,19 +67,18 @@ function isWellFormedGateState(gateState = null) {
   return Boolean(gateState.unlock) || REWARDED_NON_BLOCKING_REASONS.has(reason);
 }
 
-function buildApiPath(workspaceSlug = "", action = "", query = null) {
+function buildApiPath(workspaceSlug = "", action = "", query = new URLSearchParams()) {
   const normalizedWorkspaceSlug = normalizeWorkspaceSlug(workspaceSlug);
   const pathname = `/api/w/${encodeURIComponent(normalizedWorkspaceSlug)}/rewarded/${action}`;
-  if (!(query instanceof URLSearchParams) || [...query.keys()].length < 1) {
-    return pathname;
-  }
-  return `${pathname}?${query.toString()}`;
+  const search = query.toString();
+  return search ? `${pathname}?${search}` : pathname;
 }
 
-function createRewardedRuntime({ launchReward } = {}) {
-  if (typeof launchReward !== "function") {
-    throw new TypeError("Rewarded runtime requires an explicit launchReward delivery function.");
-  }
+/**
+ * @param {object} options
+ * @param {import("../types.js").RewardedDelivery["launchReward"]} options.launchReward
+ */
+function createRewardedRuntime({ launchReward }) {
   const { t, errorMessage } = useJskitText();
   const state = reactive(createInitialState());
   let pendingResolve = null;
@@ -94,24 +93,24 @@ function createRewardedRuntime({ launchReward } = {}) {
   function settle(result) {
     const resolver = pendingResolve;
     resetState();
-    if (typeof resolver === "function") {
+    if (resolver !== null) {
       resolver(result);
     }
   }
 
-async function requestCurrent(input = {}) {
-  const params = new URLSearchParams({
-    gateKey: String(input.gateKey || "")
-  });
-  return rewardedHttpClient.request(
-    buildApiPath(input.workspaceSlug, "current", params),
-    {
+  async function requestCurrent(input) {
+    const params = new URLSearchParams({
+      gateKey: String(input.gateKey || "")
+    });
+    return rewardedHttpClient.request(
+      buildApiPath(input.workspaceSlug, "current", params),
+      {
         method: "GET"
       }
     );
   }
 
-  async function requestStart(input = {}) {
+  async function requestStart(input) {
     return rewardedHttpClient.request(
       buildApiPath(input.workspaceSlug, "start"),
       {
@@ -123,7 +122,7 @@ async function requestCurrent(input = {}) {
     );
   }
 
-  async function requestGrant(input = {}) {
+  async function requestGrant(input) {
     return rewardedHttpClient.request(
       buildApiPath(input.workspaceSlug, "grant"),
       {
@@ -135,7 +134,7 @@ async function requestCurrent(input = {}) {
     );
   }
 
-  async function requestClose(input = {}) {
+  async function requestClose(input) {
     return rewardedHttpClient.request(
       buildApiPath(input.workspaceSlug, "close"),
       {
@@ -148,8 +147,8 @@ async function requestCurrent(input = {}) {
   }
 
   async function requireUnlock(request = {}) {
-    const gateKey = String(request?.gateKey || "").trim();
-    const workspaceSlug = normalizeWorkspaceSlug(request?.workspaceSlug);
+    const gateKey = String(request.gateKey || "").trim();
+    const workspaceSlug = normalizeWorkspaceSlug(request.workspaceSlug);
 
     if (!gateKey) {
       throw new Error("requireUnlock requires gateKey.");
@@ -165,8 +164,8 @@ async function requestCurrent(input = {}) {
     if (!isWellFormedGateState(gateState)) {
       throw rewardedClientError("Rewarded gate returned an invalid state.", { messageCode: "rewarded.gate.invalidState" });
     }
-    const alreadyUnlocked = gateState?.blocked === false && gateState?.unlock;
-    if (!gateState?.enabled || !gateState?.blocked) {
+    const alreadyUnlocked = gateState.blocked === false && gateState.unlock;
+    if (!gateState.enabled || !gateState.blocked) {
       return {
         granted: Boolean(alreadyUnlocked),
         state: gateState
@@ -317,13 +316,13 @@ async function requestCurrent(input = {}) {
     await cancelPrompt();
   }
 
-  return Object.freeze({
+  return {
     state,
     requireUnlock,
     beginWatch,
     cancelPrompt,
     dismissError
-  });
+  };
 }
 
 export {

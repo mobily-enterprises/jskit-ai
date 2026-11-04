@@ -14,7 +14,9 @@ const result = await rewarded.requireUnlock({ gateKey: "bonus", workspaceSlug })
 The workflow opens a prompt before delivery. It handles existing unlocks, grants,
 closed sessions and unavailable delivery through the app's `/rewarded/*` routes.
 The delivery capability supplies `launchReward({ providerConfig, onReady,
-onGranted, onClosed, onUnavailable })`, returning a promise for its lifecycle.
+onGranted, onClosed, onUnavailable })`, returning a promise for its lifecycle;
+the workflow always passes all four callbacks, and
+`@jskit-ai/rewarded-web/client/types` names the contract as `RewardedDelivery`.
 Provider configuration is opaque to the workflow. The application authorizes
 server grants; browser callbacks alone do not prove provider viewing.
 

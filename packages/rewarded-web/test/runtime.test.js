@@ -564,8 +564,7 @@ test("google rewarded runtime exposes an error state when no rewarded slot is av
 });
 
 
-test("reward orchestration requires explicit delivery and accepts non-Google configuration", async () => {
-  assert.throws(() => createRewardedRuntime(), /explicit launchReward/);
+test("reward orchestration accepts non-Google configuration", async () => {
   const originalFetch = globalThis.fetch;
   const providerConfig = { id: "custom", placement: "bonus" };
   const { calls, fetchStub } = createFetchStub({

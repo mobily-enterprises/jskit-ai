@@ -1,4 +1,6 @@
+// readable-check: allow module-state - shared resource: a page loads Google Publisher Tag and enables its services once
 let gptLoadPromise = null;
+// readable-check: allow module-state - shared resource: a page loads Google Publisher Tag and enables its services once
 let gptServicesEnabled = false;
 
 async function ensureGooglePublisherTagLoaded() {
@@ -37,13 +39,14 @@ async function ensureGooglePublisherTagLoaded() {
   return gptLoadPromise;
 }
 
+/** @param {import("@jskit-ai/rewarded-web/client/types").RewardedLaunch} launch */
 function launchGoogleRewardedAd({
   providerConfig,
-  onReady = null,
-  onGranted = null,
-  onClosed = null,
-  onUnavailable = null
-} = {}) {
+  onReady,
+  onGranted,
+  onClosed,
+  onUnavailable
+}) {
   if (providerConfig?.provider !== "google-publisher-tag") {
     throw new TypeError("Google delivery requires provider google-publisher-tag.");
   }
@@ -61,7 +64,7 @@ function launchGoogleRewardedAd({
 
         const slot = googletag.defineOutOfPageSlot(placement, rewardedFormat);
         if (!slot) {
-          Promise.resolve(onUnavailable?.()).finally(() => {
+          Promise.resolve(onUnavailable()).finally(() => {
             reject(new Error("Rewarded ads are not available on this page."));
           });
           return;
@@ -82,7 +85,7 @@ function launchGoogleRewardedAd({
             return;
           }
           readySeen = true;
-          await Promise.resolve(onReady?.());
+          await Promise.resolve(onReady());
           event.makeRewardedVisible();
         };
 
@@ -90,7 +93,7 @@ function launchGoogleRewardedAd({
           if (event?.slot !== slot || settled) {
             return;
           }
-          await Promise.resolve(onGranted?.());
+          await Promise.resolve(onGranted());
         };
 
         const handleClosed = async (event) => {
@@ -100,7 +103,7 @@ function launchGoogleRewardedAd({
           settled = true;
           cleanup();
           try {
-            await Promise.resolve(onClosed?.());
+            await Promise.resolve(onClosed());
             resolve();
           } catch (error) {
             reject(error);
@@ -124,7 +127,7 @@ function launchGoogleRewardedAd({
           }
           settled = true;
           cleanup();
-          Promise.resolve(onUnavailable?.()).finally(() => {
+          Promise.resolve(onUnavailable()).finally(() => {
             reject(new Error("No rewarded ad was available."));
           });
         }, 10000);

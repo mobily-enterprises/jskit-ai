@@ -45,15 +45,20 @@ Exports
 ### `src/client/runtime/rewardedRuntime.js`
 Exports
 - `REWARDED_RUNTIME_INJECTION_KEY`
-- `createRewardedRuntime({ launchReward } = {})`
+- `createRewardedRuntime({ launchReward })`
 Local functions
 - `createInitialState()`
 - `rewardedClientError(message, { messageCode })`
 - `applyState(target, source)`
 - `normalizeWorkspaceSlug(value = "")`
 - `isWellFormedGateState(gateState = null)`
-- `buildApiPath(workspaceSlug = "", action = "", query = null)`
-- `requestCurrent(input = {})`
+- `buildApiPath(workspaceSlug = "", action = "", query = new URLSearchParams())`
+
+### `src/client/types.js`
+Exports
+- `type RewardedLaunch`
+- `type RewardedDelivery`
+- `type RewardedRuntime`
 
 ### `src/index.js`
 Exports
@@ -71,7 +76,7 @@ Exports
 
 ### `patterns/google-rewarded/example/googlePublisherTag.js`
 Exports
-- `launchGoogleRewardedAd({ providerConfig, onReady = null, onGranted = null, onClosed = null, onUnavailable = null } = {})`
+- `launchGoogleRewardedAd({ providerConfig, onReady, onGranted, onClosed, onUnavailable })`
 Local functions
 - `ensureGooglePublisherTagLoaded()`
 
