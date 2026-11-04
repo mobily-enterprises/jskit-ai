@@ -86,3 +86,16 @@ Exports
 - `DEFAULT_IMAGE_EDITOR_OPTIONS`
 - `DEFAULT_IMAGE_UPLOAD_ALLOWED_MIME_TYPES`
 - `DEFAULT_IMAGE_UPLOAD_MAX_BYTES`
+
+### fixtures
+
+### `fixtures/image-upload/main.js`
+Exports
+- None
+Local functions
+- `readCsrfToken()`
+- `renderList(className, entries)`
+
+### `fixtures/image-upload/vite.config.mjs`
+Exports
+- None
