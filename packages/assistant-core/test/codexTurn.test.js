@@ -3685,6 +3685,160 @@ test("native history budget resolves only for new catch-up and preserves the ret
   assert.equal(sent[2].message, "Just these words");
 });
 
+// One saved turn that native continuations can add replies to, delivered through a changeover.
+async function continuedConversation() {
+  const { createConversationChangeover, conversationNativeMessages, conversationHistoryVersions } = await import("../src/server/conversation/continuity.js");
+  const storage = createMemoryConversationStorage();
+  const transcript = createConversationTranscript({ storage });
+  const { turnId } = await transcript.writeConversationUserMessage("chat", { messageId: "request", text: "Write a report",
+    at: "2026-10-01T01:00:00.000Z", turnMetadata: { runtime: { engine: "claude" } } });
+  let saved = { lastEngine: "claude", engines: { claude: { seen: {} } } };
+  let sends = 0;
+  let prompt = "";
+  const changeover = createConversationChangeover({
+    state: { async read() { return structuredClone(saved); }, async write(next) { saved = structuredClone(next); } },
+    transcript: { async hasMessage() { return false; } },
+    agent: { async sendMessage(input) { prompt = input.message; return { ok: true, delivered: true }; } }
+  });
+  const turns = () => transcript.readConversationLog("chat");
+  let written = 0;
+  return {
+    transcript, turnId, turns,
+    reply: (messageId, text) => transcript.writeConversationAssistantMessage("chat", { messageId, text, turnId,
+      at: `2026-10-01T01:00:0${++written}.000Z` }),
+    edit: (messageId, text) => storage.write("chat", async tx => {
+      const message = (await tx.readTurn(turnId)).messages.find(row => row.messageId === messageId);
+      await tx.appendMessage(turnId, { ...message, text });
+    }),
+    history: async () => conversationNativeMessages(await turns()),
+    versions: async () => conversationHistoryVersions(await turns()),
+    save(value) { saved = value; },
+    seen: (engineId = "claude") => saved.engines[engineId].seen,
+    async send(engineId = "claude", messages) {
+      await changeover.send({ engineId, messages: messages || conversationNativeMessages(await turns()),
+        input: { messageId: `follow-up-${++sends}`, message: "Next" } });
+      return prompt;
+    }
+  };
+}
+
+// What a changeover preamble carried: each message's id, text and correction mark, and the removals.
+function carriedHistory(prompt) {
+  const { messages, removedMessageIds } = JSON.parse(prompt.split("\n").find(line => line.startsWith('{"messages"')));
+  return { messages: messages.map(message => [message.messageId, message.text, message.corrected]), removedMessageIds };
+}
+
+test("replies that share a turn are each remembered, so later messages carry no changeover preamble", async () => {
+  const f = await continuedConversation();
+  await f.reply("interim", "The query is still running.");
+  await f.reply("report", "The report.");
+  assert.equal(await f.send(), "Next");
+  assert.equal(await f.send(), "Next");
+  // A native continuation after that delivery is already in the engine's own conversation.
+  await f.reply("late", "The stale helper stopped.");
+  assert.equal(await f.send(), "Next");
+  assert.deepEqual(f.seen(), await f.versions());
+  assert.deepEqual(Object.keys(f.seen()), ["000001/user/", "000001/assistant/", "000001/assistant/report", "000001/assistant/late"]);
+});
+
+test("replies without message ids keep separate identities in one turn", async () => {
+  const f = await continuedConversation();
+  await f.transcript.writeConversationAssistantMessage("chat", { text: "First", turnId: f.turnId, at: "2026-10-01T01:00:01.000Z" });
+  await f.transcript.writeConversationAssistantMessage("chat", { text: "Second", turnId: f.turnId, at: "2026-10-01T01:00:02.000Z" });
+  assert.equal(await f.send(), "Next");
+  assert.equal(await f.send(), "Next");
+  assert.deepEqual(Object.keys(f.seen()), ["000001/user/", "000001/assistant/", "000001/assistant/2"]);
+});
+
+test("a corrected reply in a shared turn is delivered alone, and merged replies are reported removed", async () => {
+  const f = await continuedConversation();
+  await f.reply("interim", "The query is still running.");
+  await f.reply("report", "The report.");
+  assert.equal(await f.send(), "Next");
+  await f.edit("report", "The corrected report.");
+  assert.deepEqual(carriedHistory(await f.send()),
+    { messages: [["report", "The corrected report.", true]], removedMessageIds: [] });
+  assert.equal(await f.send(), "Next");
+  await f.edit("interim", "The corrected status.");
+  assert.deepEqual(carriedHistory(await f.send()),
+    { messages: [["interim", "The corrected status.", true]], removedMessageIds: [] });
+  assert.equal(await f.send(), "Next");
+  // An application's edit replaces every reply in the turn and keeps the first one's identity.
+  await f.transcript.upsertConversationAssistantMessage("chat", { turnId: f.turnId, text: "One merged answer." });
+  assert.deepEqual(carriedHistory(await f.send()),
+    { messages: [["interim", "One merged answer.", true]], removedMessageIds: ["000001/assistant/report"] });
+  assert.equal(await f.send(), "Next");
+});
+
+test("a cursor saved while replies shared one identity delivers one correction, then none", async () => {
+  const f = await continuedConversation();
+  await f.reply("interim", "The query is still running.");
+  await f.reply("report", "The report.");
+  const [user, first, last] = await f.history();
+  f.save({ lastEngine: "claude", engines: { claude: { seen: { [user.id]: user.version, [first.id]: last.version } } } });
+  assert.deepEqual(carriedHistory(await f.send()),
+    { messages: [["interim", "The query is still running.", true]], removedMessageIds: [] });
+  assert.deepEqual(f.seen(), await f.versions());
+  assert.equal(await f.send(), "Next");
+});
+
+test("a cursor saved with a turn's first reply is already current", async () => {
+  const f = await continuedConversation();
+  await f.reply("interim", "The query is still running.");
+  await f.reply("report", "The report.");
+  const [user, first] = await f.history();
+  f.save({ lastEngine: "claude", engines: { claude: { seen: { [user.id]: user.version, [first.id]: first.version } } } });
+  assert.equal(await f.send(), "Next");
+  assert.deepEqual(f.seen(), await f.versions());
+  assert.equal(await f.send(), "Next");
+});
+
+test("a cursor saved while replies shared one identity delivers a returning engine's turn once", async () => {
+  const f = await continuedConversation();
+  await f.reply("interim", "The query is still running.");
+  await f.reply("report", "The report.");
+  const [user, first, last] = await f.history();
+  await f.reply("late", "The stale helper stopped.");
+  f.save({ lastEngine: "claude", engines: { codex: { seen: { [user.id]: user.version, [first.id]: last.version } } } });
+  assert.deepEqual(carriedHistory(await f.send("codex")), { messages: [
+    ["interim", "The query is still running.", true], ["report", "The report.", undefined],
+    ["late", "The stale helper stopped.", undefined]], removedMessageIds: [] });
+  assert.deepEqual(f.seen("codex"), await f.versions());
+  assert.equal(await f.send("codex"), "Next");
+});
+
+test("a cursor saved while replies shared one identity keeps real corrections", async () => {
+  const shared = await continuedConversation();
+  await shared.reply("interim", "The query is still running.");
+  await shared.reply("report", "The report.");
+  const [user, first] = await shared.history();
+  shared.save({ lastEngine: "claude", engines: { claude: { seen: { [user.id]: user.version, [first.id]: "before-the-edit" } } } });
+  assert.deepEqual(carriedHistory(await shared.send()),
+    { messages: [["interim", "The query is still running.", true]], removedMessageIds: [] });
+  assert.equal(await shared.send(), "Next");
+
+  const merged = await continuedConversation();
+  await merged.reply("interim", "The query is still running.");
+  await merged.reply("report", "The report.");
+  const [mergedUser, , reportBeforeEdit] = await merged.history();
+  merged.save({ lastEngine: "claude", engines: { claude: { seen: { [mergedUser.id]: mergedUser.version,
+    [reportBeforeEdit.id]: reportBeforeEdit.version } } } });
+  await merged.transcript.upsertConversationAssistantMessage("chat", { turnId: merged.turnId, text: "One merged answer." });
+  assert.deepEqual(carriedHistory(await merged.send()),
+    { messages: [["interim", "One merged answer.", true]], removedMessageIds: [] });
+  assert.equal(await merged.send(), "Next");
+});
+
+test("a host's history may repeat a turn's identity and its last written original version", async () => {
+  const f = await continuedConversation();
+  const reply = { id: "000001/assistant/", role: "assistant", engineId: "claude", originalVersion: "report-version" };
+  const messages = [{ ...reply, messageId: "interim", text: "Running.", version: "interim-version" },
+    { ...reply, messageId: "report", text: "The report.", version: "report-version" }];
+  assert.equal(await f.send("claude", messages), "Next");
+  assert.deepEqual(f.seen(), { "000001/assistant/": "interim-version", "000001/assistant/report": "report-version" });
+  assert.equal(await f.send("claude", messages), "Next");
+});
+
 test("native history budget rejects unavailable dynamic limits before pending delivery", async () => {
   const { createConversationChangeover } = await import("../src/server/conversation/continuity.js");
   for (const budget of [0, -1, NaN, Infinity, "4096", undefined]) {

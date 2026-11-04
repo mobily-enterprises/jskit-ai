@@ -4,6 +4,7 @@ import { isCompletedEnvelopeTurn } from "./transcript.js";
 import { ignorePromptRejection, ignorePromptSending } from "./nativeCommandCallbacks.js";
 
 // A final answer keeps its identity when an application edits its visible text.
+// A turn's later replies repeat it here; distinctMessages tells them apart.
 export function conversationMessageIdentity(turnId, message) {
   return `${turnId}/${message.role}/${["user", "assistant", "system"].includes(message.role)
     ? "" : message.messageId || message.at}`;
@@ -14,6 +15,24 @@ export function conversationMessageVersion(message, { includeData = false } = {}
     role: message.role, text: message.text, attachments: message.attachments || [],
     ...(includeData ? { data: message.data } : {})
   })).digest("hex");
+}
+
+/**
+ * Native continuations add later replies to a turn, and those repeat its identity. The first keeps
+ * it, because saved cursors and an edited final answer use it, and each later one adds its own id.
+ * The original version saved for a repeated identity names only the last reply written, so it is dropped.
+ * @param {object[]} messages
+ * @returns {object[]}
+ */
+function distinctMessages(messages) {
+  const repeats = Map.groupBy(messages, message => message.id);
+  return messages.map(message => {
+    const repeated = repeats.get(message.id);
+    if (repeated.length === 1) return message;
+    const { originalVersion: _lastWritten, ...distinct } = message;
+    const position = repeated.indexOf(message);
+    return position ? { ...distinct, id: `${message.id}${message.messageId || position + 1}` } : distinct;
+  });
 }
 
 // A changeover whose owner keeps no delivery log.
@@ -70,7 +89,7 @@ export function createConversationChangeover({ state, transcript, agent, identit
       lastEngine: engineId,
       engines: {
         [engineId]: {
-          seen: Object.fromEntries(messages.map((message) => [message.id, message.originalVersion || message.version]))
+          seen: Object.fromEntries(distinctMessages(messages).map((message) => [message.id, message.originalVersion || message.version]))
         }
       }
     };
@@ -81,7 +100,7 @@ export function createConversationChangeover({ state, transcript, agent, identit
     const seen = value.engines[engineId].seen;
     // New replies from the last engine are already in that native conversation.
     // Preserve old fingerprints: an edited bubble still needs to be delivered.
-    for (const message of messages) {
+    for (const message of distinctMessages(messages)) {
       if (message.engineId === engineId && !Object.hasOwn(seen, message.id)) {
         seen[message.id] = message.originalVersion || message.version;
       }
@@ -146,16 +165,17 @@ export function createConversationChangeover({ state, transcript, agent, identit
       code: unconfirmedCode, messageId, threadId, error: unconfirmedMessage };
   }
 
-  async function send({ engineId, messages, input, turnMetadata, completedEnvelope = false, excludedMessageIds = [], inspectOnly = false }) {
+  async function send({ engineId, messages: written, input, turnMetadata, completedEnvelope = false, excludedMessageIds = [], inspectOnly = false }) {
     if (typeof completedEnvelope !== "boolean" || !Array.isArray(excludedMessageIds) ||
         excludedMessageIds.some(id => typeof id !== "string" || !id.trim() || id.length > 128) ||
         new Set(excludedMessageIds).size !== excludedMessageIds.length || excludedMessageIds.length && !completedEnvelope) {
       throw new TypeError("Native history exclusions require a tracked completed envelope and exact message IDs.");
     }
     const excluded = new Set(excludedMessageIds);
-    const value = await readState({ engineId, messages });
+    const value = await readState({ engineId, messages: written });
     const binding = value.engines[engineId] ||= { seen: {} };
-    rememberReplies(value, engineId, messages);
+    rememberReplies(value, engineId, written);
+    const messages = distinctMessages(written);
     const persist = () => state.write(value);
     async function markDelivered(seen) {
       const replacement = value.replacement;
@@ -383,7 +403,7 @@ function writtenMessages(history, native = false) {
 export const conversationNativeMessages = history => writtenMessages(history, true);
 
 export function conversationHistoryVersions(history) {
-  return Object.fromEntries(writtenMessages(history).map(message => [message.id, message.version]));
+  return Object.fromEntries(distinctMessages(writtenMessages(history)).map(message => [message.id, message.version]));
 }
 
 export function conversationRequestText({ text, origin, data }) {
