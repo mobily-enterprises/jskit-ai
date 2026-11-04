@@ -91,7 +91,14 @@ export default [
   ...clientFeaturesConfig([
     "packages/assistant-core/src/client/**",
     "packages/assistant-runtime/src/client/**",
-    "packages/assistant-voice/src/client/**"
+    "packages/assistant-voice/src/client/**",
+    "packages/auth-core/src/client/**",
+    "packages/auth-provider-supabase-core/src/client/**",
+    "packages/database-runtime-mysql/src/client/**",
+    "packages/database-runtime-postgres/src/client/**",
+    "packages/payments-web/src/client/**",
+    "packages/storage-runtime/src/client/**",
+    "packages/uploads-runtime/src/client/**"
   ]),
   {
     // JSKIT client texts come from message catalogs, never from template literals.
