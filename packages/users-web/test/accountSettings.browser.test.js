@@ -76,7 +76,7 @@ async function openApp({ routes = {} } = {}) {
       await route.fulfill({ status: 500, json: { error: `unexpected ${key}` } });
       return;
     }
-    await route.fulfill(typeof answer === "function" ? answer(request.postDataJSON()) : answer);
+    await route.fulfill(typeof answer === "function" ? await answer(request.postDataJSON()) : answer);
   });
   return api;
 }
@@ -222,6 +222,66 @@ test("notifications save, and sign-in methods link through the provider and unli
   await page.getByRole("button", { name: "Link" }).click();
   await page.getByText("Provider").waitFor();
   assert.equal(api.requests.at(-1).search, "?returnTo=%2Faccount%3Fsection%3Dsign-in-methods");
+  await finish(api);
+});
+
+test("each section stays busy until its save or removal answers", options, async () => {
+  const answers = {
+    profile: Promise.withResolvers(),
+    avatar: Promise.withResolvers(),
+    preferences: Promise.withResolvers(),
+    notifications: Promise.withResolvers()
+  };
+  const api = await openApp({
+    routes: {
+      "PATCH /api/settings/profile": () => answers.profile.promise,
+      "DELETE /api/settings/profile/avatar": () => answers.avatar.promise,
+      "PATCH /api/settings/preferences": () => answers.preferences.promise,
+      "PATCH /api/settings/notifications": () => answers.notifications.promise
+    }
+  });
+  const { page } = api;
+  const loading = /v-btn--loading/u;
+
+  await page.goto("/account");
+  const name = page.getByLabel("Display name");
+  const saveProfile = page.getByRole("button", { name: "Save profile" });
+  const removeAvatar = page.getByRole("button", { name: "Remove avatar" });
+  await expect(name).toHaveValue("Ada");
+  await saveProfile.click();
+  await expect(saveProfile).toHaveClass(loading);
+  await expect(name).not.toBeEditable();
+  await expect(removeAvatar).toBeDisabled();
+  answers.profile.resolve(document(settings()));
+  await expect(saveProfile).not.toHaveClass(loading);
+  await expect(name).toBeEditable();
+
+  await removeAvatar.click();
+  await expect(removeAvatar).toHaveClass(loading);
+  await expect(saveProfile).toBeDisabled();
+  answers.avatar.resolve(document(settings()));
+  await expect(removeAvatar).not.toHaveClass(loading);
+  await expect(saveProfile).toBeEnabled();
+
+  await page.getByRole("listitem").filter({ hasText: "Preferences" }).click();
+  const savePreferences = page.getByRole("button", { name: /Save preferences/u });
+  const disabledFields = page.locator(".v-input--disabled");
+  await savePreferences.click();
+  await expect(savePreferences).toHaveClass(loading);
+  await expect(disabledFields).not.toHaveCount(0);
+  answers.preferences.resolve(document(settings()));
+  await expect(savePreferences).not.toHaveClass(loading);
+  await expect(disabledFields).toHaveCount(0);
+
+  await page.getByRole("listitem").filter({ hasText: "Notifications" }).click();
+  const saveNotifications = page.getByRole("button", { name: /Save notification settings/u });
+  const productUpdates = page.getByLabel("Product updates");
+  await saveNotifications.click();
+  await expect(saveNotifications).toHaveClass(loading);
+  await expect(productUpdates).toBeDisabled();
+  answers.notifications.resolve(document(settings()));
+  await expect(saveNotifications).not.toHaveClass(loading);
+  await expect(productUpdates).toBeEnabled();
   await finish(api);
 });
 

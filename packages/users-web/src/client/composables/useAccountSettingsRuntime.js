@@ -359,6 +359,10 @@ function useAccountSettingsRuntime() {
 
   const loadingSettings = computed(() => Boolean(settingsView.isLoading));
   const refreshingSettings = computed(() => Boolean(settingsView.isRefetching));
+  const savingProfile = computed(() => Boolean(profileAddEdit.isSaving));
+  const deletingAvatar = computed(() => Boolean(avatarDeleteCommand.isRunning));
+  const savingPreferences = computed(() => Boolean(preferencesAddEdit.isSaving));
+  const savingNotifications = computed(() => Boolean(notificationsAddEdit.isSaving));
   const settingsLoadError = computed(() => String(settingsView.loadError || "").trim());
 
   async function refreshSettings() {
@@ -428,8 +432,8 @@ function useAccountSettingsRuntime() {
     initials: profileInitials,
     selectedAvatarFileName,
     fieldErrors: profileAddEdit.fieldErrors,
-    isSaving: profileAddEdit.isSaving,
-    isDeletingAvatar: avatarDeleteCommand.isRunning,
+    isSaving: savingProfile,
+    isDeletingAvatar: deletingAvatar,
     isRefreshing: refreshingSettings,
     submit: submitProfile,
     openAvatarEditor,
@@ -439,7 +443,7 @@ function useAccountSettingsRuntime() {
   const preferences = {
     form: preferencesForm,
     fieldErrors: preferencesAddEdit.fieldErrors,
-    isSaving: preferencesAddEdit.isSaving,
+    isSaving: savingPreferences,
     isRefreshing: refreshingSettings,
     // Plain arrays for v-select items; the getters follow the active language.
     options: Object.freeze({
@@ -464,7 +468,7 @@ function useAccountSettingsRuntime() {
 
   const notifications = {
     form: notificationsForm,
-    isSaving: notificationsAddEdit.isSaving,
+    isSaving: savingNotifications,
     isRefreshing: refreshingSettings,
     submit: submitNotifications
   };
