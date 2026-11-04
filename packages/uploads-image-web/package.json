@@ -10,6 +10,7 @@
     "./client/composables/createImageUploadRuntime": "./src/client/composables/createImageUploadRuntime.js",
     "./client/composables/createManagedImageAssetRuntime": "./src/client/composables/createManagedImageAssetRuntime.js",
     "./client/styles": "./src/client/styles/index.js",
+    "./client/types": "./src/client/types.js",
     "./shared": "./src/shared/index.js",
     "./locales/en.json": "./locales/en.json"
   },
@@ -71,6 +72,10 @@
           {
             "subpath": "./client/styles",
             "summary": "Exports Uppy CSS side effects for image upload UIs."
+          },
+          {
+            "subpath": "./client/types",
+            "summary": "Types of the image upload runtimes' options and results."
           },
           {
             "subpath": "./shared",

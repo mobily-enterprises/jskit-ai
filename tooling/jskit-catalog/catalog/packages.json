@@ -3069,6 +3069,10 @@
                 "summary": "Exports Uppy CSS side effects for image upload UIs."
               },
               {
+                "subpath": "./client/types",
+                "summary": "Types of the image upload runtimes' options and results."
+              },
+              {
                 "subpath": "./shared",
                 "summary": "Exports shared image upload defaults."
               }

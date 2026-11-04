@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ref } from "vue";
+import { reactive, ref } from "vue";
 import { createManagedImageAssetRuntime } from "../src/client/composables/createManagedImageAssetRuntime.js";
 
 function createFakeUploadRuntimeFactory(createdRuntimes) {
@@ -152,6 +152,7 @@ test("createManagedImageAssetRuntime reports configured upload and delete errors
   const runtime = createManagedImageAssetRuntime({
     uploadEndpoint: "/api/pets/1/photo",
     fieldName: "photo",
+    resolveRequestHeaders: async () => ({}),
     reportFeedback: (payload) => {
       feedbackEvents.push(payload);
     },
@@ -193,4 +194,71 @@ test("createManagedImageAssetRuntime reports configured upload and delete errors
     feedbackEvents.map((entry) => entry.message),
     ["Selected photo is invalid.", "Cannot delete this photo."]
   );
+});
+
+test("createManagedImageAssetRuntime needs only what every application supplies", async () => {
+  const createdRuntimes = [];
+  const feedbackEvents = [];
+  const fetchCalls = [];
+
+  const runtime = createManagedImageAssetRuntime({
+    uploadEndpoint: "/api/pets/1/photo",
+    hasAsset: true,
+    resolveRequestHeaders: async () => ({}),
+    onUploadSuccess() {},
+    reportFeedback: (payload) => {
+      feedbackEvents.push(payload);
+    },
+    dependencies: {
+      createImageUploadRuntimeFactory: createFakeUploadRuntimeFactory(createdRuntimes),
+      fetchImpl: async (url, options) => {
+        fetchCalls.push([url, options.method]);
+        return createJsonResponse({ ok: true });
+      }
+    }
+  });
+
+  assert.equal(runtime.assetUrl.value, "/api/pets/1/photo");
+
+  runtime.setup();
+  createdRuntimes[0].options.onSelectedFileNameChanged("pet.png");
+  assert.equal(runtime.selectedFileName.value, "pet.png");
+
+  await runtime.deleteAsset();
+
+  assert.deepEqual(fetchCalls, [["/api/pets/1/photo", "DELETE"]]);
+  assert.equal(runtime.selectedFileName.value, "");
+  assert.deepEqual(feedbackEvents.map((entry) => entry.severity), ["success"]);
+});
+
+test("createManagedImageAssetRuntime does nothing on setup without an upload endpoint", () => {
+  const createdRuntimes = [];
+
+  const runtime = createManagedImageAssetRuntime({
+    resolveRequestHeaders: async () => ({}),
+    onUploadSuccess() {},
+    reportFeedback() {},
+    dependencies: {
+      createImageUploadRuntimeFactory: createFakeUploadRuntimeFactory(createdRuntimes)
+    }
+  });
+
+  runtime.setup();
+  assert.deepEqual(createdRuntimes, []);
+});
+
+test("createManagedImageAssetRuntime holds refs a caller can read through reactive state", () => {
+  const runtime = reactive(createManagedImageAssetRuntime({
+    uploadEndpoint: "/api/pets/1/photo",
+    hasAsset: true,
+    resolveRequestHeaders: async () => ({}),
+    onUploadSuccess() {},
+    reportFeedback() {},
+    dependencies: {
+      createImageUploadRuntimeFactory: createFakeUploadRuntimeFactory([])
+    }
+  }));
+
+  assert.equal(runtime.assetUrl, "/api/pets/1/photo");
+  assert.equal(runtime.isDeleting, false);
 });

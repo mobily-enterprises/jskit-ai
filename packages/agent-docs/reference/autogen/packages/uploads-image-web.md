@@ -16,25 +16,25 @@ Use this on demand; do not load the full index at startup.
 
 ### `src/client/composables/createImageUploadRuntime.js`
 Exports
-- `createImageUploadRuntime({ endpoint = "", method = "POST", fieldName = "file", withCredentials = true, maxNumberOfFiles = 1, allowedMimeTypes = DEFAULT_IMAGE_UPLOAD_ALLOWED_MIME_TYPES, maxUploadBytes = DEFAULT_IMAGE_UPLOAD_MAX_BYTES, note = "", dashboardOptions = {}, imageEditorOptions = {}, compressorOptions = {}, parseResponse = parseUploadResponse, resolveRequestHeaders = null, onSelectedFileNameChanged = null, onUploadSuccess = null, onInvalidResponse = null, onUploadError = null, onRestrictionFailed = null, onUnavailable = null, dependencies = {} } = {})`
+- `createImageUploadRuntime({ endpoint = "", method = "POST", fieldName = "file", withCredentials = true, maxNumberOfFiles = 1, allowedMimeTypes = DEFAULT_IMAGE_UPLOAD_ALLOWED_MIME_TYPES, maxUploadBytes = DEFAULT_IMAGE_UPLOAD_MAX_BYTES, note = "", dashboardOptions = {}, imageEditorOptions = {}, compressorOptions = {}, parseResponse = parseUploadResponse, resolveRequestHeaders, onSelectedFileNameChanged = ignoreUploadEvent, onUploadSuccess, onInvalidResponse = ignoreUploadEvent, onUploadError, onRestrictionFailed, onUnavailable = ignoreUploadEvent, dependencies: { UppyClass = Uppy, DashboardPlugin = Dashboard, ImageEditorPlugin = ImageEditor, CompressorPlugin = Compressor, XHRUploadPlugin = XHRUpload } = {} })`
 Local functions
-- `normalizeObject(value)`
+- `ignoreUploadEvent()`
 
 ### `src/client/composables/createManagedImageAssetRuntime.js`
 Exports
-- `createManagedImageAssetRuntime({ uploadEndpoint = "", deleteEndpoint = "", fieldName = "file", hasAsset = false, assetVersion = "", selectedFileName = null, resolveAssetUrl = null, resolveRequestHeaders = null, onUploadSuccess = null, onDeleteSuccess = null, resolveUploadErrorMessage = null, resolveDeleteErrorMessage = null, deleteRequest = null, reportFeedback = null, messages = {}, uploadOptions = {}, deleteMethod = "DELETE", source = "uploads-image-web.managed-image-asset", dependencies = {} } = {})`
+- `createManagedImageAssetRuntime({ uploadEndpoint = "", deleteEndpoint = "", fieldName = "file", hasAsset = false, assetVersion = "", selectedFileName = ref(""), resolveAssetUrl = assetUrlFromUploadEndpoint, resolveRequestHeaders, onUploadSuccess, onDeleteSuccess = ignoreDeleteSuccess, resolveUploadErrorMessage = keepDefaultMessage, resolveDeleteErrorMessage = keepDefaultMessage, deleteRequest = requestDeleteWithFetch, reportFeedback, messages = {}, uploadOptions = {}, deleteMethod = "DELETE", source = "uploads-image-web.managed-image-asset", dependencies: { createImageUploadRuntimeFactory = createImageUploadRuntime, fetchImpl = globalThis.fetch.bind(globalThis) } = {} })`
 - `DEFAULT_MANAGED_IMAGE_ASSET_MESSAGES`
 Local functions
-- `normalizeText(value)`
-- `normalizeObject(value)`
-- `normalizeWritableRef(value, fallbackValue = "")`
-- `closeDashboard(uppy)`
 - `readJsonResponse(response)`
 - `resolveMessage(value, fallback)`
 - `resolveBodyErrorMessage(body)`
 - `resolveUploadErrorFallback({ error, response, fallbackMessage })`
 - `resolveDeleteErrorFallback({ error, body, fallbackMessage })`
 - `normalizeDeleteResult(result)`
+- `requestDeleteWithFetch({ endpoint, method, headers, fetch })`
+- `assetUrlFromUploadEndpoint({ uploadEndpoint })`
+- `keepDefaultMessage({ defaultMessage })`
+- `ignoreDeleteSuccess()`
 
 ### `src/client/i18n.js`
 Exports
@@ -53,9 +53,23 @@ Exports
 Exports
 - `parseUploadResponse(xhr)`
 
-### `src/client/support/stopImageEditor.js`
+### `src/client/support/uppyPlugins.js`
 Exports
+- `closeDashboard(uppy)`
 - `stopImageEditor(uppy)`
+
+### `src/client/types.js`
+Exports
+- `type ImageUploadRuntime`
+- `type ManagedImageAssetRuntime`
+- `type ImageUppy`
+- `type ImageUploadDependencies`
+- `type ImageUploadSuccess`
+- `type ImageUploadRuntimeOptions`
+- `type ImageAssetFeedback`
+- `type ImageAssetDeleteRequest`
+- `type ManagedImageAssetDependencies`
+- `type ManagedImageAssetRuntimeOptions`
 
 ### `src/shared/imageUploadDefaults.js`
 Exports

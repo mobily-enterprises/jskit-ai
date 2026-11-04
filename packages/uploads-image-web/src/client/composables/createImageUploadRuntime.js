@@ -3,6 +3,7 @@ import Dashboard from "@uppy/dashboard";
 import ImageEditor from "@uppy/image-editor";
 import Compressor from "@uppy/compressor";
 import XHRUpload from "@uppy/xhr-upload";
+import { normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   DEFAULT_IMAGE_COMPRESSOR_OPTIONS,
   DEFAULT_IMAGE_DASHBOARD_OPTIONS,
@@ -11,13 +12,12 @@ import {
   DEFAULT_IMAGE_UPLOAD_MAX_BYTES
 } from "../../shared/imageUploadDefaults.js";
 import { parseUploadResponse } from "../support/parseUploadResponse.js";
-import { stopImageEditor } from "../support/stopImageEditor.js";
+import { closeDashboard, stopImageEditor } from "../support/uppyPlugins.js";
 import { useJskitText } from "../i18n.js";
 
-function normalizeObject(value) {
-  return value && typeof value === "object" ? value : {};
-}
+function ignoreUploadEvent() {}
 
+/** @param {import("../types.js").ImageUploadRuntimeOptions} options */
 function createImageUploadRuntime({
   endpoint = "",
   method = "POST",
@@ -31,20 +31,21 @@ function createImageUploadRuntime({
   imageEditorOptions = {},
   compressorOptions = {},
   parseResponse = parseUploadResponse,
-  resolveRequestHeaders = null,
-  onSelectedFileNameChanged = null,
-  onUploadSuccess = null,
-  onInvalidResponse = null,
-  onUploadError = null,
-  onRestrictionFailed = null,
-  onUnavailable = null,
-  dependencies = {}
-} = {}) {
-  const UppyClass = dependencies.UppyClass || Uppy;
-  const DashboardPlugin = dependencies.DashboardPlugin || Dashboard;
-  const ImageEditorPlugin = dependencies.ImageEditorPlugin || ImageEditor;
-  const CompressorPlugin = dependencies.CompressorPlugin || Compressor;
-  const XHRUploadPlugin = dependencies.XHRUploadPlugin || XHRUpload;
+  resolveRequestHeaders,
+  onSelectedFileNameChanged = ignoreUploadEvent,
+  onUploadSuccess,
+  onInvalidResponse = ignoreUploadEvent,
+  onUploadError,
+  onRestrictionFailed,
+  onUnavailable = ignoreUploadEvent,
+  dependencies: {
+    UppyClass = Uppy,
+    DashboardPlugin = Dashboard,
+    ImageEditorPlugin = ImageEditor,
+    CompressorPlugin = Compressor,
+    XHRUploadPlugin = XHRUpload
+  } = {}
+}) {
   let uploadUppy = null;
 
   const normalizedAllowedMimeTypes =
@@ -64,9 +65,7 @@ function createImageUploadRuntime({
     });
 
   function emitSelectedFileName(fileName) {
-    if (typeof onSelectedFileNameChanged === "function") {
-      onSelectedFileNameChanged(String(fileName || ""));
-    }
+    onSelectedFileNameChanged(String(fileName || ""));
   }
 
   function setup() {
@@ -92,10 +91,7 @@ function createImageUploadRuntime({
       ...normalizeObject(dashboardOptions),
       note: dashboardNote,
       doneButtonHandler: () => {
-        const dashboard = uppy.getPlugin("Dashboard");
-        if (dashboard && typeof dashboard.closeModal === "function") {
-          dashboard.closeModal();
-        }
+        closeDashboard(uppy);
       }
     });
 
@@ -116,10 +112,7 @@ function createImageUploadRuntime({
       fieldName: normalizedFieldName,
       withCredentials: withCredentials !== false,
       onBeforeRequest: async (xhr) => {
-        const headers =
-          typeof resolveRequestHeaders === "function"
-            ? normalizeObject(await resolveRequestHeaders({ xhr, uppy }))
-            : {};
+        const headers = normalizeObject(await resolveRequestHeaders({ xhr, uppy }));
         for (const [headerName, headerValue] of Object.entries(headers)) {
           if (headerValue == null) {
             continue;
@@ -154,47 +147,39 @@ function createImageUploadRuntime({
     uppy.on("upload-success", (file, response) => {
       const data = response?.body;
       if (!data || typeof data !== "object") {
-        if (typeof onInvalidResponse === "function") {
-          onInvalidResponse({
-            file,
-            response,
-            uppy
-          });
-        }
-        return;
-      }
-
-      if (typeof onUploadSuccess === "function") {
-        onUploadSuccess({
-          data,
+        onInvalidResponse({
           file,
           response,
           uppy
         });
+        return;
       }
+
+      onUploadSuccess({
+        data,
+        file,
+        response,
+        uppy
+      });
 
       emitSelectedFileName("");
     });
 
     uppy.on("upload-error", (file, error, response) => {
-      if (typeof onUploadError === "function") {
-        onUploadError({
-          file,
-          error,
-          response,
-          uppy
-        });
-      }
+      onUploadError({
+        file,
+        error,
+        response,
+        uppy
+      });
     });
 
     uppy.on("restriction-failed", (file, error) => {
-      if (typeof onRestrictionFailed === "function") {
-        onRestrictionFailed({
-          file,
-          error,
-          uppy
-        });
-      }
+      onRestrictionFailed({
+        file,
+        error,
+        uppy
+      });
     });
 
     uppy.on("complete", (result) => {
@@ -216,16 +201,13 @@ function createImageUploadRuntime({
   function openEditor() {
     setup();
 
-    const uppy = uploadUppy;
-    if (!uppy) {
-      if (typeof onUnavailable === "function") {
-        onUnavailable();
-      }
+    if (!uploadUppy) {
+      onUnavailable();
       return;
     }
 
-    const dashboard = uppy.getPlugin("Dashboard");
-    if (dashboard && typeof dashboard.openModal === "function") {
+    const dashboard = uploadUppy.getPlugin("Dashboard");
+    if (dashboard) {
       dashboard.openModal();
     }
   }

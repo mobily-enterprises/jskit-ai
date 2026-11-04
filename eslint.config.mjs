@@ -104,6 +104,7 @@ export default [
     "packages/realtime/src/client/**",
     "packages/shell-web/src/client/**",
     "packages/storage-runtime/src/client/**",
+    "packages/uploads-image-web/src/client/**",
     "packages/uploads-runtime/src/client/**",
     "packages/workspaces-web/src/client/**"
   ]),

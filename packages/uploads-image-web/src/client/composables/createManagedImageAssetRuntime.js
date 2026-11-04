@@ -1,5 +1,7 @@
 import { computed, ref, unref } from "vue";
+import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { createImageUploadRuntime } from "./createImageUploadRuntime.js";
+import { closeDashboard } from "../support/uppyPlugins.js";
 import { useJskitText } from "../i18n.js";
 
 // Message keys; a caller's messages may be keys or plain text, rendered with
@@ -17,33 +19,8 @@ const DEFAULT_MANAGED_IMAGE_ASSET_MESSAGES = Object.freeze({
   changeError: "jskit.uploads.imageAsset.changeError"
 });
 
-function normalizeText(value) {
-  return String(value || "").trim();
-}
-
-function normalizeObject(value) {
-  return value && typeof value === "object" ? value : {};
-}
-
-function normalizeWritableRef(value, fallbackValue = "") {
-  if (value && typeof value === "object" && "value" in value) {
-    return value;
-  }
-
-  return ref(normalizeText(fallbackValue));
-}
-
-function closeDashboard(uppy) {
-  const dashboard = uppy?.getPlugin?.("Dashboard");
-  if (!dashboard || typeof dashboard.closeModal !== "function") {
-    return;
-  }
-
-  dashboard.closeModal();
-}
-
 async function readJsonResponse(response) {
-  const contentType = normalizeText(response?.headers?.get?.("content-type")).toLowerCase();
+  const contentType = normalizeText(response.headers.get("content-type")).toLowerCase();
   if (!contentType.includes("application/json")) {
     return null;
   }
@@ -88,36 +65,61 @@ function normalizeDeleteResult(result) {
   };
 }
 
+/** The delete an application gets unless it supplies its own. */
+async function requestDeleteWithFetch({ endpoint, method, headers, fetch }) {
+  const response = await fetch(endpoint, {
+    method,
+    credentials: "include",
+    headers
+  });
+
+  return {
+    body: await readJsonResponse(response),
+    response
+  };
+}
+
+function assetUrlFromUploadEndpoint({ uploadEndpoint }) {
+  return uploadEndpoint;
+}
+
+function keepDefaultMessage({ defaultMessage }) {
+  return defaultMessage;
+}
+
+function ignoreDeleteSuccess() {}
+
+/** @param {import("../types.js").ManagedImageAssetRuntimeOptions} options */
 function createManagedImageAssetRuntime({
   uploadEndpoint = "",
   deleteEndpoint = "",
   fieldName = "file",
   hasAsset = false,
   assetVersion = "",
-  selectedFileName = null,
-  resolveAssetUrl = null,
-  resolveRequestHeaders = null,
-  onUploadSuccess = null,
-  onDeleteSuccess = null,
-  resolveUploadErrorMessage = null,
-  resolveDeleteErrorMessage = null,
-  deleteRequest = null,
-  reportFeedback = null,
+  selectedFileName = ref(""),
+  resolveAssetUrl = assetUrlFromUploadEndpoint,
+  resolveRequestHeaders,
+  onUploadSuccess,
+  onDeleteSuccess = ignoreDeleteSuccess,
+  resolveUploadErrorMessage = keepDefaultMessage,
+  resolveDeleteErrorMessage = keepDefaultMessage,
+  deleteRequest = requestDeleteWithFetch,
+  reportFeedback,
   messages = {},
   uploadOptions = {},
   deleteMethod = "DELETE",
   source = "uploads-image-web.managed-image-asset",
-  dependencies = {}
-} = {}) {
+  dependencies: {
+    createImageUploadRuntimeFactory = createImageUploadRuntime,
+    fetchImpl = globalThis.fetch.bind(globalThis)
+  } = {}
+}) {
   const { t, text } = useJskitText();
-  const createImageUploadRuntimeFactory = dependencies.createImageUploadRuntimeFactory || createImageUploadRuntime;
-  const fetchImpl = dependencies.fetchImpl || globalThis.fetch?.bind(globalThis);
   const normalizedMessages = {
     ...DEFAULT_MANAGED_IMAGE_ASSET_MESSAGES,
     ...normalizeObject(messages)
   };
   const messageText = (name) => text(normalizedMessages[name]);
-  const selectedFileNameRef = normalizeWritableRef(selectedFileName);
   const isDeleting = ref(false);
   const normalizedFieldName = normalizeText(fieldName || "file") || "file";
   const normalizedDeleteMethod = normalizeText(deleteMethod || "DELETE").toUpperCase() || "DELETE";
@@ -133,10 +135,6 @@ function createManagedImageAssetRuntime({
   const assetUrl = computed(() => {
     if (!normalizedHasAsset.value) {
       return "";
-    }
-
-    if (typeof resolveAssetUrl !== "function") {
-      return normalizedUploadEndpoint.value;
     }
 
     return normalizeText(
@@ -160,7 +158,7 @@ function createManagedImageAssetRuntime({
     dedupeKey = ""
   } = {}) {
     const normalizedMessage = normalizeText(message);
-    if (!normalizedMessage || typeof reportFeedback !== "function") {
+    if (!normalizedMessage) {
       return;
     }
 
@@ -173,10 +171,6 @@ function createManagedImageAssetRuntime({
   }
 
   async function resolveHeaders(action, endpoint) {
-    if (typeof resolveRequestHeaders !== "function") {
-      return {};
-    }
-
     return normalizeObject(
       await resolveRequestHeaders({
         action,
@@ -189,14 +183,10 @@ function createManagedImageAssetRuntime({
   }
 
   function updateSelectedFileName(fileName = "") {
-    selectedFileNameRef.value = normalizeText(fileName);
+    selectedFileName.value = normalizeText(fileName);
   }
 
   async function runChangeHandler(handler, payload) {
-    if (typeof handler !== "function") {
-      return;
-    }
-
     try {
       await Promise.resolve(handler(payload));
     } catch (error) {
@@ -215,9 +205,6 @@ function createManagedImageAssetRuntime({
       response,
       fallbackMessage: messageText("uploadError")
     });
-    if (typeof resolveUploadErrorMessage !== "function") {
-      return fallbackMessage;
-    }
 
     return resolveMessage(
       resolveUploadErrorMessage({
@@ -236,9 +223,6 @@ function createManagedImageAssetRuntime({
       body,
       fallbackMessage: messageText("deleteError")
     });
-    if (typeof resolveDeleteErrorMessage !== "function") {
-      return fallbackMessage;
-    }
 
     return resolveMessage(
       resolveDeleteErrorMessage({
@@ -282,7 +266,7 @@ function createManagedImageAssetRuntime({
       resolveRequestHeaders: async () => resolveHeaders("upload", endpoint),
       onSelectedFileNameChanged: updateSelectedFileName,
       onUploadSuccess: async (payload) => {
-        closeDashboard(payload?.uppy);
+        closeDashboard(payload.uppy);
         updateSelectedFileName("");
         report({
           message: messageText("uploadSuccess"),
@@ -332,7 +316,9 @@ function createManagedImageAssetRuntime({
 
   function setup() {
     const runtime = ensureUploadRuntime();
-    runtime?.setup?.();
+    if (runtime) {
+      runtime.setup();
+    }
   }
 
   function openEditor() {
@@ -366,16 +352,6 @@ function createManagedImageAssetRuntime({
       return;
     }
 
-    if (typeof deleteRequest !== "function" && typeof fetchImpl !== "function") {
-      report({
-        message: messageText("deleteUnavailable"),
-        severity: "error",
-        channel: "banner",
-        dedupeKey: `${source}:delete-unavailable`
-      });
-      return;
-    }
-
     let response = null;
     let body = null;
 
@@ -383,37 +359,24 @@ function createManagedImageAssetRuntime({
     try {
       const headers = await resolveHeaders("delete", endpoint);
 
-      if (typeof deleteRequest === "function") {
-        const deleteResult = normalizeDeleteResult(
-          await deleteRequest({
-            endpoint,
-            method: normalizedDeleteMethod,
-            headers,
-            fetch: fetchImpl,
-            uploadEndpoint: normalizedUploadEndpoint.value,
-            deleteEndpoint: endpoint,
-            fieldName: normalizedFieldName
-          })
-        );
-        response = deleteResult.response;
-        body = deleteResult.body;
-        if (response && response.ok === false) {
-          const requestError = new Error(t("jskit.uploads.imageAsset.deleteRequestFailed"));
-          requestError.response = response;
-          requestError.body = body;
-          throw requestError;
-        }
-      } else {
-        response = await fetchImpl(endpoint, {
+      const deleteResult = normalizeDeleteResult(
+        await deleteRequest({
+          endpoint,
           method: normalizedDeleteMethod,
-          credentials: "include",
-          headers
-        });
-        body = await readJsonResponse(response);
-
-        if (!response.ok) {
-          throw new Error(t("jskit.uploads.imageAsset.deleteRequestFailed"));
-        }
+          headers,
+          fetch: fetchImpl,
+          uploadEndpoint: normalizedUploadEndpoint.value,
+          deleteEndpoint: endpoint,
+          fieldName: normalizedFieldName
+        })
+      );
+      response = deleteResult.response;
+      body = deleteResult.body;
+      if (response && response.ok === false) {
+        const requestError = new Error(t("jskit.uploads.imageAsset.deleteRequestFailed"));
+        requestError.response = response;
+        requestError.body = body;
+        throw requestError;
       }
 
       updateSelectedFileName("");
@@ -442,16 +405,16 @@ function createManagedImageAssetRuntime({
     }
   }
 
-  return Object.freeze({
+  return {
     assetUrl,
     deleteAsset,
     destroy,
     hasAsset: normalizedHasAsset,
     isDeleting,
     openEditor,
-    selectedFileName: selectedFileNameRef,
+    selectedFileName,
     setup
-  });
+  };
 }
 
 export {

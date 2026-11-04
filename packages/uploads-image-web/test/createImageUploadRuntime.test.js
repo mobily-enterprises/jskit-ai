@@ -169,3 +169,90 @@ test("createImageUploadRuntime reports unavailable editor outside browser enviro
   runtime.openEditor();
   assert.deepEqual(unavailableCalls, [true]);
 });
+
+test("createImageUploadRuntime stops and closes only the plugins the instance still holds", () => {
+  const restoreWindow = setWindowStub();
+  let fakeUppy = null;
+
+  try {
+    const runtime = createImageUploadRuntime({
+      dependencies: {
+        UppyClass: class extends FakeUppy {
+          constructor(options) {
+            super(options);
+            fakeUppy = this;
+          }
+        },
+        DashboardPlugin: { name: "Dashboard" },
+        ImageEditorPlugin: { name: "ImageEditor" },
+        CompressorPlugin: { name: "Compressor" },
+        XHRUploadPlugin: { name: "XHRUpload" }
+      }
+    });
+
+    runtime.setup();
+    const imageEditor = fakeUppy.plugins.get("ImageEditor");
+    fakeUppy.eventHandlers.get("dashboard:modal-closed")();
+    assert.equal(imageEditor.stopCount, 1);
+
+    fakeUppy.plugins.clear();
+    fakeUppy.eventHandlers.get("dashboard:modal-closed")();
+    fakeUppy.pluginOptions.get("Dashboard").doneButtonHandler();
+    runtime.openEditor();
+    assert.equal(imageEditor.stopCount, 1);
+  } finally {
+    restoreWindow();
+  }
+});
+
+test("createImageUploadRuntime runs without the callbacks an application leaves out", async () => {
+  const restoreWindow = setWindowStub();
+  let fakeUppy = null;
+
+  try {
+    const successes = [];
+    const runtime = createImageUploadRuntime({
+      endpoint: "/api/evidence-files/upload",
+      resolveRequestHeaders: async () => ({}),
+      onUploadSuccess: ({ data }) => {
+        successes.push(data);
+      },
+      onUploadError() {},
+      onRestrictionFailed() {},
+      dependencies: {
+        UppyClass: class extends FakeUppy {
+          constructor(options) {
+            super(options);
+            fakeUppy = this;
+          }
+        },
+        DashboardPlugin: { name: "Dashboard" },
+        ImageEditorPlugin: { name: "ImageEditor" },
+        CompressorPlugin: { name: "Compressor" },
+        XHRUploadPlugin: { name: "XHRUpload" }
+      }
+    });
+
+    runtime.setup();
+    fakeUppy.eventHandlers.get("file-added")({ name: "site.png" });
+    fakeUppy.eventHandlers.get("file-editor:complete")({ name: "site-edited.png" });
+    fakeUppy.eventHandlers.get("file-removed")();
+    fakeUppy.eventHandlers.get("upload-success")({}, { body: "" });
+    fakeUppy.eventHandlers.get("upload-success")({}, { body: { id: "1" } });
+
+    assert.deepEqual(successes, [{ id: "1" }]);
+  } finally {
+    restoreWindow();
+  }
+});
+
+test("createImageUploadRuntime opens nothing outside a browser when no onUnavailable is given", () => {
+  const runtime = createImageUploadRuntime({
+    resolveRequestHeaders: async () => ({}),
+    onUploadSuccess() {},
+    onUploadError() {},
+    onRestrictionFailed() {}
+  });
+
+  runtime.openEditor();
+});

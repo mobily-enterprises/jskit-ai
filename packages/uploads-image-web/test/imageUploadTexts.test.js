@@ -41,6 +41,8 @@ function captureDashboardNote(options = {}) {
 
 function createManagedRuntime(feedbackEvents, options = {}) {
   return createManagedImageAssetRuntime({
+    resolveRequestHeaders: async () => ({}),
+    onUploadSuccess() {},
     reportFeedback: (payload) => feedbackEvents.push(payload.message),
     dependencies: {
       createImageUploadRuntimeFactory: (runtimeOptions) => ({
@@ -114,7 +116,7 @@ test("managed image upload errors show a coded server error in the app's languag
       error: { message: "Request failed." },
       response: { body: { error: "Photo is blurry.", code: "validation_failed", params: {} } }
     });
-    created[0].options.onUploadSuccess({ data: {} });
+    created[0].options.onUploadSuccess({ data: {}, uppy: { getPlugin() {} } });
 
     assert.deepEqual(feedbackEvents, ["Convalida non riuscita.", "Photo is blurry.", "Immagine caricata."]);
   } finally {

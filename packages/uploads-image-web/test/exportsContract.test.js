@@ -17,6 +17,8 @@ test("uploads-image-web exports are explicit and aligned with usage", () => {
       "./client",
       "./client/composables/createImageUploadRuntime",
       "./client/composables/createManagedImageAssetRuntime",
+      // The options contracts applications and users-web implement.
+      "./client/types",
       "./shared",
       // The generated client bootstrap registers the package's English catalog.
       "./locales/en.json"
