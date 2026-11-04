@@ -71,6 +71,16 @@ jobs:
           JSKIT_SHELL_WEB_BROWSER_INTEGRATION: "1"
         run: node --test packages/shell-web/test/adaptiveShell.browser.test.js
 
+      - name: Verify sign-in behavior
+        env:
+          JSKIT_AUTH_WEB_BROWSER_INTEGRATION: "1"
+        run: node --test --test-concurrency=1 packages/auth-web/test/signIn.browser.test.js
+
+      - name: Verify account settings behavior
+        env:
+          JSKIT_USERS_WEB_BROWSER_INTEGRATION: "1"
+        run: node --test --test-concurrency=1 packages/users-web/test/accountSettings.browser.test.js
+
   publish:
     needs: browser-contracts
     runs-on: ubuntu-latest
