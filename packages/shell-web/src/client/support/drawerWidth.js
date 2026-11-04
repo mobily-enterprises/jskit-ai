@@ -78,12 +78,51 @@ function resolveContentAwareDrawerWidth(
   return clampNumber(Math.ceil(requiredWidth * 4) / 4, minimum, maximum);
 }
 
+function measureRenderedText(element) {
+  const range = document.createRange();
+  range.selectNodeContents(element);
+  return range.getBoundingClientRect();
+}
+
+// The width the drawer's rendered labels need, from where each one starts on the drawer's inline axis.
+function measureDrawerContentWidth(drawerElement, navigationItemSpacing) {
+  const drawerRect = drawerElement.getBoundingClientRect();
+  const drawerStyle = window.getComputedStyle(drawerElement);
+  const rightToLeft = drawerStyle.direction === "rtl";
+  const endBorderWidth = Number.parseFloat(
+    rightToLeft ? drawerStyle.borderLeftWidth : drawerStyle.borderRightWidth
+  ) || 0;
+  const measurements = [];
+
+  for (const label of drawerElement.querySelectorAll(".v-list-item-title")) {
+    const labelStyle = window.getComputedStyle(label);
+    if (labelStyle.display === "none" || labelStyle.visibility === "hidden") {
+      continue;
+    }
+    const textRect = measureRenderedText(label);
+    if (!textRect || textRect.width <= 0) {
+      continue;
+    }
+    measurements.push({
+      logicalStart: rightToLeft
+        ? drawerRect.right - textRect.right
+        : textRect.left - drawerRect.left,
+      textWidth: textRect.width
+    });
+  }
+
+  return resolveContentAwareDrawerWidth(measurements, {
+    endGap: navigationItemSpacing + endBorderWidth
+  });
+}
+
 export {
   DEFAULT_SHELL_DRAWER_WIDTH,
   DEFAULT_SHELL_NAVIGATION_ITEM_SPACING,
   DEFAULT_SHELL_RAIL_WIDTH,
   MAXIMUM_SHELL_DRAWER_WIDTH,
   MINIMUM_SHELL_DRAWER_WIDTH,
+  measureDrawerContentWidth,
   normalizeShellDrawerWidth,
   normalizeShellNavigationItemSpacing,
   normalizeShellRailWidth,

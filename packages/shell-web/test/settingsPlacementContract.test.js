@@ -13,6 +13,13 @@ import { resolveShellRouteTransitionKey } from "../src/client/support/routeTrans
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_DIR = path.resolve(TEST_DIRECTORY, "..");
 
+async function readClientSources(...relativePaths) {
+  const sources = await Promise.all(
+    relativePaths.map((relativePath) => readFile(path.join(PACKAGE_DIR, "src", "client", relativePath), "utf8"))
+  );
+  return sources.join("\n");
+}
+
 function readOutlets(target = "") {
   const outlets = packageMetadata?.metadata?.ui?.placements?.outlets;
   const normalizedTarget = String(target || "").trim();
@@ -63,7 +70,7 @@ test("shell-web application pattern exposes surface-derived settings outlets", a
 });
 
 test("shell-web shell layout registers navigation at the app layout level", async () => {
-  const source = await readFile(path.join(PACKAGE_DIR, "src", "client", "components", "ShellLayout.vue"), "utf8");
+  const source = await readClientSources("composables/useShellDrawer.js", "components/ShellLayout.vue");
 
   assert.doesNotMatch(source, /<v-layout\b/);
   assert.doesNotMatch(source, /overflow-hidden/);
@@ -146,7 +153,7 @@ test("shell navigation tooltips ignore incidental pointer traversal", async () =
 });
 
 test("shell-web error host uses one explicit close affordance for banner errors", async () => {
-  const source = await readFile(path.join(PACKAGE_DIR, "src", "client", "components", "ShellErrorHost.vue"), "utf8");
+  const source = await readClientSources("components/ShellErrorHost.vue", "error/presentation.js");
 
   assert.match(source, /function resolveSeverityIcon/);
   assert.match(source, /mdiAlertOutline/);
@@ -250,10 +257,7 @@ test("shell-web exports request recovery runtime access as a public client API",
 });
 
 test("shell-web route transition keeps mobile route motion placement-driven", async () => {
-  const source = await readFile(
-    path.join(PACKAGE_DIR, "src", "client", "components", "ShellRouteTransition.vue"),
-    "utf8"
-  );
+  const source = await readClientSources("components/ShellRouteTransition.vue", "composables/useShellRouteTransition.js");
 
   assert.match(source, /target:\s*\{[\s\S]*default:\s*"shell-layout:primary-bottom-nav"/);
   assert.match(source, /semanticTarget:\s*\{[\s\S]*default:\s*"shell\.primary-nav"/);

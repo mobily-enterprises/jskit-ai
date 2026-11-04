@@ -4,6 +4,7 @@ import {
   DEFAULT_SHELL_DRAWER_WIDTH,
   DEFAULT_SHELL_NAVIGATION_ITEM_SPACING,
   DEFAULT_SHELL_RAIL_WIDTH,
+  measureDrawerContentWidth,
   normalizeShellDrawerWidth,
   normalizeShellNavigationItemSpacing,
   normalizeShellRailWidth,
@@ -56,4 +57,67 @@ test("content-aware width ignores invalid measurements and uses a bounded fallba
     resolveContentAwareDrawerWidth([{ logicalStart: 72, textWidth: 900 }]),
     360
   );
+});
+
+function installMeasuredPage(t, { drawerStyle, textRects }) {
+  globalThis.window = {
+    getComputedStyle: (element) => element.style || drawerStyle
+  };
+  globalThis.document = {
+    createRange() {
+      let rect = null;
+      return {
+        selectNodeContents(element) {
+          rect = textRects.get(element);
+        },
+        getBoundingClientRect: () => rect
+      };
+    }
+  };
+  t.after(() => {
+    delete globalThis.window;
+    delete globalThis.document;
+  });
+}
+
+function createLabel(style = {}) {
+  return { style: { display: "block", visibility: "visible", ...style } };
+}
+
+test("the drawer measures the labels people can see, from its inline start", (t) => {
+  const wide = createLabel();
+  const hidden = createLabel({ visibility: "hidden" });
+  const collapsed = createLabel({ display: "none" });
+  const empty = createLabel();
+  installMeasuredPage(t, {
+    drawerStyle: { direction: "ltr", borderRightWidth: "1px", borderLeftWidth: "9px" },
+    textRects: new Map([
+      [wide, { left: 56, right: 156, width: 100 }],
+      [hidden, { left: 56, right: 356, width: 300 }],
+      [collapsed, { left: 56, right: 356, width: 300 }],
+      [empty, { left: 56, right: 56, width: 0 }]
+    ])
+  });
+
+  const width = measureDrawerContentWidth({
+    getBoundingClientRect: () => ({ left: 40, right: 288 }),
+    querySelectorAll: () => [wide, hidden, collapsed, empty]
+  }, 12);
+
+  assert.equal(width, 16 + 100 + 12 + 1);
+});
+
+test("a right-to-left drawer measures from its right edge and ends at its left border", (t) => {
+  const label = createLabel();
+  installMeasuredPage(t, {
+    drawerStyle: { direction: "rtl", borderRightWidth: "9px", borderLeftWidth: "1px" },
+    textRects: new Map([[label, { left: 148, right: 248, width: 100 }]])
+  });
+
+  const width = measureDrawerContentWidth({
+    getBoundingClientRect: () => ({ left: 0, right: 264 }),
+    querySelectorAll: () => [label]
+  }, 12);
+
+  assert.equal(width, 16 + 100 + 12 + 1);
 });

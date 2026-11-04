@@ -76,38 +76,10 @@ Local functions
 ### `src/client/components/ShellErrorHost.vue`
 Exports
 - None
-Local functions
-- `publishInlineBannerHeight(height = 0)`
-- `stopObservingBanners()`
-- `isSameSnackbarEntry(left = null, right = null)`
-- `hasSnackbarEntry(entry = null)`
-- `openNextSnackbarEntry()`
-- `resolveSeverityColor(severity = "error")`
-- `resolveSeverityIcon(severity = "error")`
-- `resolveTimeout(entry)`
-- `dismiss(entry)`
-- `actionsFor(entry)`
-- `runAction(entry, action)`
-- `onSnackbarModelValue(nextValue)`
-- `onDialogModelValue(nextValue)`
-- `onSnackbarAfterLeave()`
 
 ### `src/client/components/ShellLayout.vue`
 Exports
 - None
-Local functions
-- `attachShellListeners()`
-- `detachShellListeners()`
-- `handleDrawerOpenChange(open)`
-- `handleLayoutClassChange(compact)`
-- `handleShellKeydown(event)`
-- `focusNavigationToggle()`
-- `initializeDrawerMeasurement()`
-- `navigationDrawerElement()`
-- `scheduleDrawerWidthMeasurement()`
-- `measureDrawerContentWidth()`
-- `measureRenderedText(element)`
-- `handleDrawerVisibilityChange(open)`
 
 ### `src/client/components/ShellMenuLinkItem.vue`
 Exports
@@ -131,14 +103,6 @@ Exports
 ### `src/client/components/ShellRouteTransition.vue`
 Exports
 - None
-Local functions
-- `handlePointerDown(event)`
-- `handlePointerMove(event)`
-- `handlePointerEnd(event)`
-- `handlePointerCancel(event)`
-- `navigateBySwipe(offset = 0)`
-- `normalizeComparablePathname(value = "")`
-- `pathMatchesNavigationEntry(pathname = "", entry = {})`
 
 ### `src/client/components/ShellSurfaceAwareMenuLinkItem.vue`
 Exports
@@ -153,6 +117,19 @@ Exports
 - `SHELL_LAYOUT_DRAWER_DEFAULT_OPEN_STORAGE_KEY`
 - `readDrawerDefaultOpenPreference({ storage = pageStorage() } = {})`
 - `writeDrawerDefaultOpenPreference(open, { storage = pageStorage() } = {})`
+
+### `src/client/composables/useShellDrawer.js`
+Exports
+- `useShellDrawer({ props, isCompactLayout, navigationToggle, layoutState })`
+Local functions
+- `navigationDrawerElement()`
+
+### `src/client/composables/useShellErrorHost.js`
+Exports
+- `useShellErrorHost()`
+Local functions
+- `isSameSnackbarEntry(left = null, right = null)`
+- `publishInlineBannerHeight(height = 0)`
 
 ### `src/client/composables/useShellLayoutState.js`
 Exports
@@ -170,6 +147,10 @@ Exports
 - `useShellPullToRefresh({ enabled, refreshRuntime })`
 Local functions
 - `isAtPageTop()`
+
+### `src/client/composables/useShellRouteTransition.js`
+Exports
+- `useShellRouteTransition(props)`
 
 ### `src/client/error/index.js`
 Exports
@@ -205,6 +186,14 @@ Exports
 ### `src/client/error/policy.js`
 Exports
 - `createDefaultErrorPolicy({ defaultChannel = "snackbar", resourceLoadChannel = "silent", actionFeedbackChannel = "snackbar", appRecoverableChannel = "banner", blockingChannel = "dialog", defaultSeverity = "error" } = {})`
+
+### `src/client/error/presentation.js`
+Exports
+- `actionsFor(entry)`
+- `resolveBannerPlacement(rect)`
+- `resolveSeverityColor(severity = "error")`
+- `resolveSeverityIcon(severity = "error")`
+- `resolveTimeout(entry)`
 
 ### `src/client/error/presentationDefaults.js`
 Exports
@@ -480,12 +469,14 @@ Exports
 - `DEFAULT_SHELL_RAIL_WIDTH`
 - `MAXIMUM_SHELL_DRAWER_WIDTH`
 - `MINIMUM_SHELL_DRAWER_WIDTH`
+- `measureDrawerContentWidth(drawerElement, navigationItemSpacing)`
 - `normalizeShellDrawerWidth(value, fallback = DEFAULT_SHELL_DRAWER_WIDTH)`
 - `normalizeShellNavigationItemSpacing(value, fallback = DEFAULT_SHELL_NAVIGATION_ITEM_SPACING)`
 - `normalizeShellRailWidth(value, fallback = DEFAULT_SHELL_RAIL_WIDTH)`
 - `resolveContentAwareDrawerWidth(measurements = [], { endGap = DEFAULT_SHELL_NAVIGATION_ITEM_SPACING, minimum = MINIMUM_SHELL_DRAWER_WIDTH, maximum = MAXIMUM_SHELL_DRAWER_WIDTH, fallback = DEFAULT_SHELL_DRAWER_WIDTH } = {})`
 Local functions
 - `clampNumber(value, minimum, maximum)`
+- `measureRenderedText(element)`
 
 ### `src/client/support/gestureTargets.js`
 Exports
@@ -506,6 +497,14 @@ Local functions
 ### `src/client/support/navigationLinkKeyboard.js`
 Exports
 - `activateShellNavigationLinkOnSpace(event)`
+
+### `src/client/support/primaryNavigation.js`
+Exports
+- `normalizeComparablePathname(value = "")`
+- `resolveActivePrimaryNavigationIndex(pathname, entries)`
+- `resolvePrimaryNavigationEntries(placements, { semanticTarget, currentSurfaceId, placementContext, routeParams })`
+Local functions
+- `pathMatchesNavigationEntry(pathname = "", entry = {})`
 
 ### `src/client/support/routeParams.js`
 Exports

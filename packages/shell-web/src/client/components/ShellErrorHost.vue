@@ -1,214 +1,29 @@
 <script setup>
-import { computed, onBeforeUnmount, ref, watch } from "vue";
-import { useLayout } from "vuetify";
-import { mdiAlertOutline, mdiCheckCircleOutline, mdiInformationOutline } from "@mdi/js";
+import { useShellErrorHost } from "../composables/useShellErrorHost.js";
 import {
-  useShellWebErrorRuntime
-} from "../error/inject.js";
-import { useShellErrorPresentationStore } from "../stores/useShellErrorPresentationStore.js";
+  actionsFor,
+  resolveSeverityColor,
+  resolveSeverityIcon,
+  resolveTimeout
+} from "../error/presentation.js";
 import { useJskitText } from "../i18n.js";
 
-const runtime = useShellWebErrorRuntime();
 // Entries keep the server's code and params, so an API error shows in the
 // user's language; anything else shows as reported.
 const { t, text, serverMessage } = useJskitText();
-const store = useShellErrorPresentationStore();
-
-const snackbarEntries = computed(() => store.channels.snackbar || []);
-const bannerEntries = computed(() => store.channels.banner || []);
-const dialogEntry = computed(() => store.channels.dialog[0] || null);
-const displayedSnackbarEntry = ref(null);
-const layoutRect = useLayout().mainRect;
-
-// Banners float just below a top app bar. A surface without one (sign-in pages)
-// has nothing to float under, so the banners join the page flow above the
-// content instead of covering it, and publish their height so full-viewport
-// surfaces can start below them.
-const BANNER_INLINE_HEIGHT_PROPERTY = "--shell-error-banners-inline-height";
-const bannersElement = ref(null);
-const bannerPlacement = computed(() => {
-  const rect = layoutRect.value;
-  const top = Number(rect.top) || 0;
-  if (top <= 0) {
-    return { inline: true, style: undefined };
-  }
-
-  return {
-    inline: false,
-    style: {
-      top: `calc(env(safe-area-inset-top, 0px) + ${top}px)`,
-      left: `${Number(rect.left) || 0}px`,
-      right: `${Number(rect.right) || 0}px`
-    }
-  };
-});
-let bannerResizeObserver = null;
-
-function publishInlineBannerHeight(height = 0) {
-  const rootStyle = document.documentElement.style;
-  if (height > 0) {
-    rootStyle.setProperty(BANNER_INLINE_HEIGHT_PROPERTY, `${Math.ceil(height)}px`);
-  } else {
-    rootStyle.removeProperty(BANNER_INLINE_HEIGHT_PROPERTY);
-  }
-}
-
-function stopObservingBanners() {
-  bannerResizeObserver?.disconnect();
-  bannerResizeObserver = null;
-  publishInlineBannerHeight(0);
-}
-
-watch(
-  [bannersElement, () => bannerPlacement.value.inline],
-  ([element, inline]) => {
-    stopObservingBanners();
-    if (!element || !inline) {
-      return;
-    }
-    bannerResizeObserver = new ResizeObserver(() => {
-      publishInlineBannerHeight(element.getBoundingClientRect().height);
-    });
-    bannerResizeObserver.observe(element);
-    publishInlineBannerHeight(element.getBoundingClientRect().height);
-  },
-  { flush: "post" }
-);
-
-onBeforeUnmount(stopObservingBanners);
-const snackbarOpen = ref(false);
-
-function isSameSnackbarEntry(left = null, right = null) {
-  return Boolean(left?.id && right?.id && left.id === right.id);
-}
-
-function hasSnackbarEntry(entry = null) {
-  if (!entry?.id) {
-    return false;
-  }
-
-  return snackbarEntries.value.some((candidate) => isSameSnackbarEntry(candidate, entry));
-}
-
-function openNextSnackbarEntry() {
-  const nextEntry = snackbarEntries.value[0] || null;
-  if (!nextEntry) {
-    displayedSnackbarEntry.value = null;
-    snackbarOpen.value = false;
-    return;
-  }
-
-  displayedSnackbarEntry.value = nextEntry;
-  snackbarOpen.value = true;
-}
-
-watch(
-  snackbarEntries,
-  (entries) => {
-    const currentEntry = displayedSnackbarEntry.value;
-    if (!currentEntry) {
-      openNextSnackbarEntry();
-      return;
-    }
-
-    const matchingEntry = entries.find((entry) => isSameSnackbarEntry(entry, currentEntry)) || null;
-    if (matchingEntry) {
-      displayedSnackbarEntry.value = matchingEntry;
-      return;
-    }
-
-    snackbarOpen.value = false;
-  },
-  {
-    immediate: true
-  }
-);
-
-function resolveSeverityColor(severity = "error") {
-  const normalized = String(severity || "error").trim().toLowerCase();
-  if (normalized === "info") {
-    return "info";
-  }
-  if (normalized === "success") {
-    return "success";
-  }
-  if (normalized === "warning") {
-    return "warning";
-  }
-  return "error";
-}
-
-function resolveSeverityIcon(severity = "error") {
-  const normalized = String(severity || "error").trim().toLowerCase();
-  if (normalized === "info") {
-    return mdiInformationOutline;
-  }
-  if (normalized === "success") {
-    return mdiCheckCircleOutline;
-  }
-  return mdiAlertOutline;
-}
-
-function resolveTimeout(entry) {
-  if (!entry) {
-    return -1;
-  }
-  if (entry.persist) {
-    return -1;
-  }
-  return 5000;
-}
-
-function dismiss(entry) {
-  if (!entry || !entry.channel || !entry.id) {
-    return;
-  }
-
-  store.dismiss(entry.channel, entry.id);
-}
-
-function actionsFor(entry) {
-  return entry ? [entry.action, ...entry.additionalActions].filter(Boolean) : [];
-}
-
-async function runAction(entry, action) {
-  try {
-    await action.handler(entry);
-  } catch (error) {
-    runtime.report({
-      source: "shell-web.error-host.action",
-      message: t("jskit.shell.error.actionFailed"),
-      cause: error,
-      intent: "blocking",
-      severity: "error"
-    });
-  }
-
-  if (action.dismissOnRun !== false) {
-    dismiss(entry);
-  }
-}
-
-function onSnackbarModelValue(nextValue) {
-  if (nextValue === false && displayedSnackbarEntry.value) {
-    snackbarOpen.value = false;
-    dismiss(displayedSnackbarEntry.value);
-  }
-}
-
-function onDialogModelValue(nextValue) {
-  if (nextValue === false && dialogEntry.value && dialogEntry.value.persist !== true) {
-    dismiss(dialogEntry.value);
-  }
-}
-
-function onSnackbarAfterLeave() {
-  if (hasSnackbarEntry(displayedSnackbarEntry.value)) {
-    return;
-  }
-
-  openNextSnackbarEntry();
-}
+const {
+  bannerEntries,
+  bannerPlacement,
+  bannersElement,
+  dialogEntry,
+  dismiss,
+  displayedSnackbarEntry,
+  onDialogModelValue,
+  onSnackbarAfterLeave,
+  onSnackbarModelValue,
+  runAction,
+  snackbarOpen
+} = useShellErrorHost();
 </script>
 
 <template>

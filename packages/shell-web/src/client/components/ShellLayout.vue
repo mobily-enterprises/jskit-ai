@@ -1,28 +1,12 @@
 <script setup>
-import {
-  computed,
-  inject,
-  nextTick,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  watch
-} from "vue";
+import { computed, inject, ref } from "vue";
 import { useDisplay } from "vuetify";
+import { useShellDrawer } from "../composables/useShellDrawer.js";
 import { useShellLayoutState } from "../composables/useShellLayoutState.js";
 import { useShellPullToRefresh } from "../composables/useShellPullToRefresh.js";
 import {
-  resolveShellDrawerPresentation,
-  resolveShellDrawerToggleLabel
-} from "../support/drawerPresentation.js";
-import {
-  DEFAULT_SHELL_DRAWER_WIDTH,
   DEFAULT_SHELL_NAVIGATION_ITEM_SPACING,
-  DEFAULT_SHELL_RAIL_WIDTH,
-  normalizeShellDrawerWidth,
-  normalizeShellNavigationItemSpacing,
-  normalizeShellRailWidth,
-  resolveContentAwareDrawerWidth
+  DEFAULT_SHELL_RAIL_WIDTH
 } from "../support/drawerWidth.js";
 import { resolveShellLayoutClass } from "../support/shellLayoutClass.js";
 import { NO_SHELL_WEB_REFRESH_RUNTIME, SHELL_WEB_REFRESH_RUNTIME_KEY } from "../runtime/refreshRuntime.js";
@@ -67,10 +51,9 @@ const props = defineProps({
   }
 });
 
+const layoutState = useShellLayoutState(props);
 const {
-  drawerDefaultOpen,
   drawerOpen,
-  setDrawerOpen,
   supportingContentOpen,
   supportingContentTitle,
   setSupportingContentOpen,
@@ -78,16 +61,11 @@ const {
   toggleDrawer,
   resolvedSurface,
   resolvedSurfaceLabel
-} = useShellLayoutState(props);
+} = layoutState;
 const display = useDisplay();
 /** @type {import("../types.js").ShellRefreshRuntime} */
 const refreshRuntime = inject(SHELL_WEB_REFRESH_RUNTIME_KEY, NO_SHELL_WEB_REFRESH_RUNTIME);
-const wideDrawerOpen = ref(Boolean(drawerDefaultOpen.value));
 const navigationToggle = ref(null);
-const measuredDrawerWidth = ref(DEFAULT_SHELL_DRAWER_WIDTH);
-let drawerContentObserver = null;
-let drawerMeasurementFrame = null;
-let shellMounted = false;
 
 const layoutClass = computed(() => resolveShellLayoutClass(display.name.value));
 const isCompactLayout = computed(() => layoutClass.value === "compact");
@@ -98,179 +76,15 @@ const {
   pullRefreshLabel,
   pullRefreshStyle
 } = useShellPullToRefresh({ enabled: isCompactLayout, refreshRuntime });
-const drawerPresentation = computed(() => resolveShellDrawerPresentation({
-  compact: isCompactLayout.value,
-  open: drawerOpen.value,
-  desktopClosedMode: props.desktopDrawerClosedMode
-}));
-const drawerToggleLabel = computed(() => resolveShellDrawerToggleLabel({
-  compact: isCompactLayout.value,
-  open: drawerOpen.value
-}));
-const fixedDrawerWidth = computed(() => props.drawerWidth !== null && props.drawerWidth !== undefined);
-const resolvedDrawerWidth = computed(() =>
-  normalizeShellDrawerWidth(fixedDrawerWidth.value ? props.drawerWidth : measuredDrawerWidth.value)
-);
-const resolvedRailWidth = computed(() => normalizeShellRailWidth(props.railWidth));
-const resolvedNavigationItemSpacing = computed(() =>
-  normalizeShellNavigationItemSpacing(props.navigationItemSpacing)
-);
-watch(
-  drawerOpen,
-  handleDrawerOpenChange
-);
-
-watch(
-  isCompactLayout,
-  handleLayoutClassChange,
-  { immediate: true }
-);
-
-watch(drawerPresentation, scheduleDrawerWidthMeasurement, { flush: "post" });
-watch(resolvedSurface, scheduleDrawerWidthMeasurement, { flush: "post" });
-watch(resolvedNavigationItemSpacing, scheduleDrawerWidthMeasurement, { flush: "post" });
-
-onMounted(attachShellListeners);
-onBeforeUnmount(detachShellListeners);
-
-function attachShellListeners() {
-  shellMounted = true;
-  window.addEventListener("keydown", handleShellKeydown);
-  window.addEventListener("resize", scheduleDrawerWidthMeasurement, { passive: true });
-
-  void document.fonts.ready.then(scheduleDrawerWidthMeasurement);
-  document.fonts.addEventListener("loadingdone", scheduleDrawerWidthMeasurement);
-  void nextTick().then(initializeDrawerMeasurement);
-}
-
-function detachShellListeners() {
-  shellMounted = false;
-  window.removeEventListener("keydown", handleShellKeydown);
-  window.removeEventListener("resize", scheduleDrawerWidthMeasurement);
-  document.fonts.removeEventListener("loadingdone", scheduleDrawerWidthMeasurement);
-  drawerContentObserver?.disconnect();
-  drawerContentObserver = null;
-  if (drawerMeasurementFrame !== null) {
-    window.cancelAnimationFrame(drawerMeasurementFrame);
-    drawerMeasurementFrame = null;
-  }
-}
-
-function handleDrawerOpenChange(open) {
-  if (!isCompactLayout.value) {
-    wideDrawerOpen.value = Boolean(open);
-  }
-}
-
-function handleLayoutClassChange(compact) {
-  setDrawerOpen(compact ? false : wideDrawerOpen.value);
-}
-
-function handleShellKeydown(event) {
-  if (
-    event.defaultPrevented ||
-    event.key !== "Escape" ||
-    !isCompactLayout.value ||
-    !drawerOpen.value
-  ) {
-    return;
-  }
-
-  event.preventDefault();
-  setDrawerOpen(false);
-  void nextTick().then(focusNavigationToggle);
-}
-
-function focusNavigationToggle() {
-  navigationToggle.value.$el.focus({ preventScroll: true });
-}
-
-function initializeDrawerMeasurement() {
-  const drawerElement = navigationDrawerElement();
-  if (drawerElement) {
-    drawerContentObserver?.disconnect();
-    drawerContentObserver = new MutationObserver(scheduleDrawerWidthMeasurement);
-    drawerContentObserver.observe(drawerElement.querySelector(".v-navigation-drawer__content") || drawerElement, {
-      childList: true,
-      characterData: true,
-      subtree: true
-    });
-  }
-  scheduleDrawerWidthMeasurement();
-}
-
-// VNavigationDrawer has no root element of its own to reach through a template ref.
-function navigationDrawerElement() {
-  return document.getElementById("jskit-shell-drawer");
-}
-
-function scheduleDrawerWidthMeasurement() {
-  if (
-    !shellMounted ||
-    fixedDrawerWidth.value ||
-    !drawerPresentation.value.visible ||
-    drawerPresentation.value.rail
-  ) {
-    return;
-  }
-
-  if (drawerMeasurementFrame !== null) {
-    window.cancelAnimationFrame(drawerMeasurementFrame);
-  }
-  drawerMeasurementFrame = window.requestAnimationFrame(measureDrawerContentWidth);
-}
-
-function measureDrawerContentWidth() {
-  drawerMeasurementFrame = null;
-  const drawerElement = navigationDrawerElement();
-  if (!drawerElement) {
-    return;
-  }
-
-  const drawerRect = drawerElement.getBoundingClientRect();
-  const drawerStyle = window.getComputedStyle(drawerElement);
-  const rightToLeft = drawerStyle.direction === "rtl";
-  const endBorderWidth = Number.parseFloat(
-    rightToLeft ? drawerStyle.borderLeftWidth : drawerStyle.borderRightWidth
-  ) || 0;
-  const measurements = [];
-
-  for (const label of drawerElement.querySelectorAll(".v-list-item-title")) {
-    const labelStyle = window.getComputedStyle(label);
-    if (labelStyle.display === "none" || labelStyle.visibility === "hidden") {
-      continue;
-    }
-    const textRect = measureRenderedText(label);
-    if (!textRect || textRect.width <= 0) {
-      continue;
-    }
-    measurements.push({
-      logicalStart: rightToLeft
-        ? drawerRect.right - textRect.right
-        : textRect.left - drawerRect.left,
-      textWidth: textRect.width
-    });
-  }
-
-  const nextWidth = resolveContentAwareDrawerWidth(measurements, {
-    endGap: resolvedNavigationItemSpacing.value + endBorderWidth
-  });
-  if (Math.abs(nextWidth - measuredDrawerWidth.value) >= 0.25) {
-    measuredDrawerWidth.value = nextWidth;
-  }
-}
-
-function measureRenderedText(element) {
-  const range = document.createRange();
-  range.selectNodeContents(element);
-  return range.getBoundingClientRect();
-}
-
-function handleDrawerVisibilityChange(open) {
-  if (isCompactLayout.value || drawerPresentation.value.closedMode === "hidden" || open === false) {
-    setDrawerOpen(open);
-  }
-}
+const {
+  drawerPresentation,
+  drawerToggleLabel,
+  fixedDrawerWidth,
+  handleDrawerVisibilityChange,
+  resolvedDrawerWidth,
+  resolvedNavigationItemSpacing,
+  resolvedRailWidth
+} = useShellDrawer({ props, isCompactLayout, navigationToggle, layoutState });
 </script>
 
 <template>
