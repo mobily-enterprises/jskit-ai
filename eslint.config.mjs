@@ -86,38 +86,18 @@ export default [
   ...webConfig,
   ...nodeConfig,
   ...vueConfig,
-  // The client typed-features rules apply, as errors, to the client trees listed here; each package's client code is
-  // listed as it converts.
+  // The client typed-features rules apply, as errors, to all client code: every package's src/client, the kernel's
+  // client, the tooling's client entries, and the client code of the pattern examples applications copy (at the
+  // rewarded example's root, and under the other examples' books, src, expected-existing/src and packages/*/src/client).
   ...clientFeaturesConfig([
+    "packages/*/src/client/**",
+    "packages/kernel/client/**",
+    "tooling/*/src/client/**",
     "packages/*/patterns/*/example/books/**",
     "packages/*/patterns/*/example/expected-existing/src/**",
     "packages/*/patterns/*/example/packages/*/src/client/**",
     "packages/*/patterns/*/example/src/**",
-    "packages/assistant-core/src/client/**",
-    "packages/assistant-runtime/src/client/**",
-    "packages/assistant-voice/src/client/**",
-    "packages/auth-core/src/client/**",
-    "packages/auth-provider-supabase-core/src/client/**",
-    "packages/auth-web/src/client/**",
-    "packages/connectors-catalog/src/client/**",
-    "packages/connectors-web/src/client/**",
-    "packages/database-runtime-mysql/src/client/**",
-    "packages/database-runtime-postgres/src/client/**",
-    "packages/http-runtime/src/client/**",
-    "packages/http-web/src/client/**",
-    "packages/kernel/client/**",
-    "packages/mobile-capacitor/src/client/**",
-    "packages/payments-web/src/client/**",
-    "packages/realtime/src/client/**",
-    "packages/rewarded-web/patterns/google-rewarded/example/**",
-    "packages/rewarded-web/src/client/**",
-    "packages/shell-web/src/client/**",
-    "packages/storage-runtime/src/client/**",
-    "packages/uploads-image-web/src/client/**",
-    "packages/uploads-runtime/src/client/**",
-    "packages/users-web/src/client/**",
-    "packages/workspaces-web/src/client/**",
-    "tooling/config-eslint/src/client/**"
+    "packages/rewarded-web/patterns/google-rewarded/example/**"
   ]),
   {
     // JSKIT client texts come from message catalogs, never from template literals.
