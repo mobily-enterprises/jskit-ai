@@ -1,10 +1,6 @@
-import { createReporter, ruleMeta } from "../support.js";
+import { createReporter, ruleMeta, unwrapChain } from "../support.js";
 
 const REFERENCE_TYPES = new Set(["Identifier", "MemberExpression", "ThisExpression"]);
-
-function unwrapChain(node) {
-  return node?.type === "ChainExpression" ? node.expression : node;
-}
 
 // A reference's text with optional links read as plain ones, so `a?.b` and
 // `a.b` name the same value.

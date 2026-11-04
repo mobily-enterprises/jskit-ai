@@ -1,4 +1,4 @@
-import { ABSENT_DEFAULT, CLIENT_GUIDE_URL, compactText, createReporter, keyName, ruleMeta } from "../support.js";
+import { ABSENT_DEFAULT, CLIENT_GUIDE_URL, compactText, createReporter, keyName, ruleMeta, unwrapChain } from "../support.js";
 
 // Prop types whose values are data: a call on one (`items.map()`) is not a call on a collaborator.
 const DATA_TYPES = new Set(["Array", "String", "Number", "Boolean", "Date", "RegExp", "Symbol", "BigInt"]);
@@ -21,26 +21,22 @@ function declaredProps(node) {
   return null;
 }
 
-function unchain(node) {
-  return node?.type === "ChainExpression" ? node.expression : node;
-}
-
 // The prop a call reaches through, or "": `props.x()`, `props.x.y()` or `props.x?.y()` in the script, `x()` or
 // `x.y()` in the template.
 function calledProp(callee, propsBinding, inTemplate) {
-  const target = unchain(callee);
+  const target = unwrapChain(callee);
   if (inTemplate) {
-    const root = target.type === "MemberExpression" ? unchain(target.object) : target;
+    const root = target.type === "MemberExpression" ? unwrapChain(target.object) : target;
     return root.type === "Identifier" ? root.name : "";
   }
   if (target.type !== "MemberExpression") {
     return "";
   }
-  const owner = unchain(target.object);
+  const owner = unwrapChain(target.object);
   if (owner.type === "Identifier" && owner.name === propsBinding) {
     return target.computed ? "" : target.property.name;
   }
-  const root = owner.type === "MemberExpression" && !owner.computed ? unchain(owner.object) : null;
+  const root = owner.type === "MemberExpression" && !owner.computed ? unwrapChain(owner.object) : null;
   return root?.type === "Identifier" && root.name === propsBinding ? owner.property.name : "";
 }
 

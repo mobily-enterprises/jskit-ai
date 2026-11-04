@@ -1,5 +1,5 @@
 import { CREATE_NAME, FUNCTION_TYPES, definedName, definitionOf, enclosingFunction, holdsBehaviour, localFunction, returnsOnlyData } from "../factoryResults.js";
-import { createReporter, isClientLint, isFreezeCall, ruleMeta } from "../support.js";
+import { createReporter, isClientLint, isFreezeCall, ruleMeta, unwrapAwait } from "../support.js";
 
 // A decorator over the JSKIT CRUD service or repository spreads it: its
 // members are the contract's.
@@ -7,17 +7,13 @@ const CRUD_DECORATOR = /^decorate\w*(?:Service|Repository)$/u;
 // In client code a composable's result is an API too.
 const CLIENT_FACTORY_NAME = /^(create|use)[A-Z]/u;
 
-function unwrap(node) {
-  return node?.type === "AwaitExpression" ? node.argument : node;
-}
-
 // The create* call a spread argument comes from: the call itself, or the call
 // that initialised the variable it reads.
 function factoryCall(sourceCode, argument) {
-  const value = unwrap(argument);
+  const value = unwrapAwait(argument);
   if (value.type === "Identifier") {
     const definition = definitionOf(sourceCode, value);
-    const init = unwrap(definition?.type === "Variable" ? definition.node.init : null);
+    const init = unwrapAwait(definition?.type === "Variable" ? definition.node.init : null);
     return init?.type === "CallExpression" ? { call: init, via: value.name } : null;
   }
   return value.type === "CallExpression" ? { call: value, via: "" } : null;

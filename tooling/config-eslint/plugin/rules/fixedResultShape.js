@@ -1,5 +1,5 @@
 import { FUNCTION_TYPES, definedName, definitionOf, enclosingFunction } from "../factoryResults.js";
-import { CLIENT_GUIDE_URL, createReporter, keyName, ruleMeta } from "../support.js";
+import { CLIENT_GUIDE_URL, createReporter, keyName, ruleMeta, unwrapAwait } from "../support.js";
 
 const RESULT_FACTORY = /^(create|use)[A-Z]/u;
 
@@ -23,10 +23,6 @@ function addsBehaviour(sourceCode, value) {
   }
   const definition = definitionOf(sourceCode, value);
   return definition?.type === "FunctionName" || (definition?.type === "Variable" && FUNCTION_TYPES.has(definition.node.init?.type));
-}
-
-function unwrapAwait(node) {
-  return node?.type === "AwaitExpression" ? node.argument : node;
 }
 
 // The create*/use* call a wrapper's callback builds its result with, or null:

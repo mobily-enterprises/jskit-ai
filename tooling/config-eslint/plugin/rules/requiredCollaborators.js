@@ -7,6 +7,7 @@ import {
   isFactory,
   receivingFunction,
   ruleMeta,
+  unwrapChain,
   walk
 } from "../support.js";
 
@@ -100,7 +101,7 @@ const requiredCollaborators = Object.freeze({
     }
     function checkProbe(node) {
       const probed = probedArgument(node);
-      const argument = probed?.type === "ChainExpression" ? probed.expression : probed;
+      const argument = unwrapChain(probed);
       const receiver = argument?.type === "Identifier" ? receivingFunction(context, node, argument.name) : null;
       if (argument?.type === "MemberExpression" || (receiver && isFactory(receiver, client))) {
         report(node, "method-probe", "methodProbe", { probe: sourceCode.getText(probed) });
@@ -109,7 +110,7 @@ const requiredCollaborators = Object.freeze({
     // A template has no parameters of its own, so only member probes are read there.
     function checkTemplateProbe(node) {
       const probed = probedArgument(node);
-      const argument = probed?.type === "ChainExpression" ? probed.expression : probed;
+      const argument = unwrapChain(probed);
       if (argument?.type === "MemberExpression") {
         report(node, "method-probe", "methodProbe", { probe: sourceCode.getText(probed) });
       }

@@ -1,4 +1,4 @@
-import { createReporter, isActionExecute, keyName, ruleMeta } from "../support.js";
+import { createReporter, isActionExecute, keyName, ruleMeta, unwrapAwait, unwrapChain } from "../support.js";
 
 // A callee a reader follows in one step: a name or a member chain, with no
 // call inside it.
@@ -7,11 +7,6 @@ function isPlainCallee(node) {
     return true;
   }
   return node.type === "MemberExpression" && isPlainCallee(node.object);
-}
-
-function unwrapCall(node) {
-  const value = node.type === "AwaitExpression" ? node.argument : node;
-  return value.type === "ChainExpression" ? value.expression : value;
 }
 
 // The shape problem of an action's execute, or null for
@@ -34,7 +29,7 @@ function shapeProblem(value) {
   if (value.type !== "ArrowFunctionExpression") {
     return "notArrow";
   }
-  const body = unwrapCall(value.body);
+  const body = unwrapChain(unwrapAwait(value.body));
   if (body.type !== "CallExpression" || !isPlainCallee(body.callee)) {
     return "notOneCall";
   }

@@ -94,6 +94,16 @@ function keyName(property) {
   return property?.key?.name || property?.key?.value;
 }
 
+// The expression an optional chain wraps, so `a?.b` reads as `a.b`; any other node as it is.
+function unwrapChain(node) {
+  return node?.type === "ChainExpression" ? node.expression : node;
+}
+
+// The value an `await` waits for, so `await x` reads as `x`; any other node as it is.
+function unwrapAwait(node) {
+  return node?.type === "AwaitExpression" ? node.argument : node;
+}
+
 // The node a reader sees as the function: a method's property or class member,
 // otherwise the function itself.
 function functionSite(fn) {
@@ -373,5 +383,7 @@ export {
   keyName,
   receivingFunction,
   ruleMeta,
+  unwrapAwait,
+  unwrapChain,
   walk
 };

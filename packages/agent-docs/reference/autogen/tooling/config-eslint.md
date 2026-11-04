@@ -124,7 +124,6 @@ Exports
 - `actionExecuteShape`
 Local functions
 - `isPlainCallee(node)`
-- `unwrapCall(node)`
 - `shapeProblem(value)`
 
 ### `plugin/rules/allowCommentForm.js`
@@ -155,7 +154,6 @@ Exports
 - `collaboratorProps`
 Local functions
 - `declaredProps(node)`
-- `unchain(node)`
 - `calledProp(callee, propsBinding, inTemplate)`
 - `optionText(sourceCode, prop, name)`
 
@@ -165,7 +163,6 @@ Exports
 Local functions
 - `calleeName(call)`
 - `addsBehaviour(sourceCode, value)`
-- `unwrapAwait(node)`
 - `callbackFactoryCall(call)`
 - `resultOwner(sourceCode, identifier)`
 
@@ -194,7 +191,6 @@ Local functions
 Exports
 - `noDualShape`
 Local functions
-- `unwrapChain(node)`
 - `referenceText(sourceCode, node)`
 - `dualShape(sourceCode, member, fallback)`
 
@@ -218,7 +214,6 @@ Local functions
 Exports
 - `noFactorySpread`
 Local functions
-- `unwrap(node)`
 - `factoryCall(sourceCode, argument)`
 - `spreadFactory(sourceCode, argument, factoryName)`
 - `returnedApi(sourceCode, object)`
@@ -338,6 +333,8 @@ Exports
 - `keyName(property)`
 - `receivingFunction(context, node, name)`
 - `ruleMeta(description, messages, section, guide = GUIDE_URL)`
+- `unwrapAwait(node)`
+- `unwrapChain(node)`
 - `walk(node, visitorKeys, visit)`
 Local functions
 - `enclosingFunctionLine(node)`
