@@ -114,7 +114,8 @@ export default [
     "packages/storage-runtime/src/client/**",
     "packages/uploads-image-web/src/client/**",
     "packages/uploads-runtime/src/client/**",
-    "packages/workspaces-web/src/client/**"
+    "packages/workspaces-web/src/client/**",
+    "tooling/config-eslint/src/client/**"
   ]),
   {
     // JSKIT client texts come from message catalogs, never from template literals.
