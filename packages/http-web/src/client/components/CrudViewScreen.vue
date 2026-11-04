@@ -5,7 +5,7 @@ import { useJskitText } from "../i18n.js";
 // Unset titles come from the catalog; passed titles may be message keys.
 const props = defineProps({
   screen: {
-    type: Object,
+    type: /** @type {import("vue").PropType<import("../types.js").CrudViewScreen>} */ (Object),
     required: true
   },
   resourceSingularTitle: {
@@ -26,9 +26,9 @@ const pluralTitle = computed(() =>
   props.resourcePluralTitle === undefined ? t("jskit.http.crud.records") : text(props.resourcePluralTitle)
 );
 
-const view = computed(() => props.screen?.view || {});
-const listLocation = computed(() => unref(props.screen?.listLocation) || null);
-const editLocation = computed(() => unref(props.screen?.editLocation) || null);
+const view = computed(() => props.screen.view);
+const listLocation = computed(() => unref(props.screen.listLocation) || null);
+const editLocation = computed(() => unref(props.screen.editLocation) || null);
 </script>
 
 <template>

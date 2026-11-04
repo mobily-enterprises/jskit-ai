@@ -9,7 +9,7 @@ import { useJskitText } from "../i18n.js";
 // Unset copy comes from the catalog; passed copy may be a message key.
 const props = defineProps({
   screen: {
-    type: Object,
+    type: /** @type {import("vue").PropType<import("../types.js").CrudListScreen>} */ (Object),
     required: true
   },
   createLabel: {
@@ -38,61 +38,46 @@ const resolvedEmptyBody = computed(() =>
 );
 
 const route = useRoute();
-const records = computed(() => props.screen?.records || {});
-const bulkActions = computed(() => props.screen?.bulkActions || {});
-const rowActions = computed(() => props.screen?.rowActions || {});
-const listFilters = computed(() => props.screen?.listFilters || {});
-const filterRuntime = computed(() => props.screen?.filterRuntime || null);
-const displayRows = computed(() => unref(props.screen?.displayRows) || []);
-const selectableRows = computed(() => unref(props.screen?.selectableRows) || []);
-const listPrimaryAction = computed(() => unref(props.screen?.listPrimaryAction) || "");
-const hasBulkActions = computed(() => Boolean(unref(bulkActions.value?.hasActions)));
-const hasRowActions = computed(() => Boolean(unref(rowActions.value?.hasActions)));
-const hasViewUrl = computed(() => Boolean(props.screen?.hasViewUrl));
-const hasEditUrl = computed(() => Boolean(props.screen?.hasEditUrl));
+const records = computed(() => props.screen.records);
+const bulkActions = computed(() => props.screen.bulkActions);
+const rowActions = computed(() => props.screen.rowActions);
+const listFilters = computed(() => props.screen.listFilters);
+const filterRuntime = computed(() => props.screen.filterRuntime);
+const displayRows = computed(() => unref(props.screen.displayRows));
+const selectableRows = computed(() => unref(props.screen.selectableRows));
+const listPrimaryAction = computed(() => unref(props.screen.listPrimaryAction) || "");
+const hasBulkActions = computed(() => Boolean(unref(bulkActions.value.hasActions)));
+const hasRowActions = computed(() => Boolean(unref(rowActions.value.hasActions)));
+const hasViewUrl = computed(() => Boolean(props.screen.hasViewUrl));
+const hasEditUrl = computed(() => Boolean(props.screen.hasEditUrl));
 
 function resolveListRecordTitle(record) {
-  if (typeof props.screen?.resolveRecordTitle === "function") {
-    return props.screen.resolveRecordTitle(record);
-  }
-  return t("jskit.http.crud.record");
+  return props.screen.resolveRecordTitle(record);
 }
 
 function formatListCardValue(value) {
-  if (typeof props.screen?.formatListCardValue === "function") {
-    return props.screen.formatListCardValue(value);
-  }
-  return value;
+  return props.screen.formatListCardValue(value);
 }
 
 function resolveViewLocation(record) {
-  const path = typeof records.value?.resolveViewUrl === "function"
-    ? records.value.resolveViewUrl(record)
-    : "";
+  const path = records.value.resolveViewUrl(record);
   return path ? { path, query: route.query } : null;
 }
 
 function resolveEditLocation(record) {
-  const path = typeof records.value?.resolveEditUrl === "function"
-    ? records.value.resolveEditUrl(record)
-    : "";
+  const path = records.value.resolveEditUrl(record);
   return path ? { path, query: route.query } : null;
 }
 
 function hasRowActionsFor(record, index) {
-  return typeof rowActions.value?.hasVisibleActionsFor === "function" &&
-    rowActions.value.hasVisibleActionsFor(record, index);
+  return rowActions.value.hasVisibleActionsFor(record, index);
 }
 
-function isBulkRowSelected(row = {}) {
-  return typeof bulkActions.value?.isRecordSelected === "function" &&
-    bulkActions.value.isRecordSelected(row.record, row.index);
+function isBulkRowSelected(row) {
+  return bulkActions.value.isRecordSelected(row.record, row.index);
 }
 
-function setBulkRowSelected(row = {}, selected = true) {
-  if (typeof bulkActions.value?.setRecordSelected !== "function") {
-    return;
-  }
+function setBulkRowSelected(row, selected = true) {
   bulkActions.value.setRecordSelected(row.record, row.index, selected);
 }
 
@@ -105,9 +90,6 @@ function someSelectableRowsSelected() {
 }
 
 function setSelectableRowsSelected(selected = true) {
-  if (typeof bulkActions.value?.setRecordSelected !== "function") {
-    return;
-  }
   for (const row of selectableRows.value) {
     bulkActions.value.setRecordSelected(row.record, row.index, selected);
   }

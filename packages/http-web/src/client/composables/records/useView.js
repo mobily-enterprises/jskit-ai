@@ -1,6 +1,10 @@
 import { computed, proxyRefs } from "vue";
 import { useRoute } from "vue-router";
 import { ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/kernel/shared/support/visibility";
+import {
+  resolveLookupFieldDisplayValue,
+  resolveRecordTitle
+} from "../crud/crudLookupFieldLabelSupport.js";
 import { useViewCore } from "../runtime/useViewCore.js";
 import { useEndpointResource } from "../runtime/useEndpointResource.js";
 import { useOperationScope } from "../internal/useOperationScope.js";
@@ -13,19 +17,20 @@ import { useJskitText } from "../../i18n.js";
 
 const { t } = useJskitText();
 
+/** @param {import("../../types.js").ViewOptions} options */
 function useView({
-  resource = null,
+  resource,
   ownershipFilter = ROUTE_VISIBILITY_WORKSPACE,
   surfaceId = "",
   access = "auto",
   apiSuffix = "",
-  queryKeyFactory = null,
+  queryKeyFactory,
   viewPermissions = [],
   readMethod = "GET",
   readEnabled = true,
-  client = null,
-  transport = null,
-  requestRecovery = null,
+  client,
+  transport,
+  requestRecovery,
   requestRecoveryLabel = t("jskit.http.resource.label"),
   placementSource = "http-web.view",
   fallbackLoadError = t("jskit.http.resource.loadFailed"),
@@ -33,17 +38,17 @@ function useView({
   notFoundMessage = t("jskit.http.crud.recordNotFound"),
   model,
   mapLoadedToModel,
-  requestQueryParams = null,
-  requestFieldsets = null,
+  requestQueryParams,
+  requestFieldsets,
   recordIdParam = "recordId",
   routeParams = null,
-  routeRecordId = null,
+  routeRecordId,
   apiUrlTemplate = "",
   listUrlTemplate = "",
   editUrlTemplate = "",
   includeRecordIdInQueryKey = false,
-  realtime = undefined
-} = {}) {
+  realtime
+}) {
   const route = useRoute();
   const viewUiRuntime = createViewUiRuntime({
     recordIdParam,
@@ -155,7 +160,9 @@ function useView({
     notFoundError: view.notFoundError,
     loadError,
     refresh: view.refresh,
-    resource: endpointResource
+    resource: endpointResource,
+    resolveFieldDisplay: resolveLookupFieldDisplayValue,
+    resolveRecordTitle
   });
 }
 

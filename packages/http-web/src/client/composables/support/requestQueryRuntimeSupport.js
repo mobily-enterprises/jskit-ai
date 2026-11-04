@@ -123,7 +123,7 @@ function createRequestQueryRuntime({
     return query;
   });
 
-  return Object.freeze({
+  return {
     requestQueryParamDescriptors,
     activeRequestQueryParamEntries,
     activeRequestQueryParamsToken,
@@ -132,7 +132,7 @@ function createRequestQueryRuntime({
     queryKeyParts,
     queryKey,
     requestQuery
-  });
+  };
 }
 
 export {

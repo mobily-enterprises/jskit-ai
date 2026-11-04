@@ -5,8 +5,8 @@ import { useJskitText } from "../i18n.js";
 
 const props = defineProps({
   runtime: {
-    type: Object,
-    default: null
+    type: /** @type {import("vue").PropType<import("../types.js").CrudListBulkActions>} */ (Object),
+    required: true
   },
   title: {
     type: String,
@@ -21,28 +21,28 @@ const resolvedTitle = computed(() =>
 
 const { smAndDown: isCompactLayout } = useDisplay();
 
-const actions = computed(() => Array.isArray(props.runtime?.actions) ? props.runtime.actions : []);
-const selectedCount = computed(() => Number(props.runtime?.selectedCount?.value || 0));
+const actions = computed(() => props.runtime.actions);
+const selectedCount = computed(() => props.runtime.selectedCount.value);
 const shouldRender = computed(() =>
-  Boolean(props.runtime?.hasActions?.value) &&
-  Boolean(props.runtime?.hasSelection?.value) &&
+  props.runtime.hasActions.value &&
+  props.runtime.hasSelection.value &&
   selectedCount.value > 0
 );
 
 function clearSelection() {
-  props.runtime?.clearSelection?.();
+  props.runtime.clearSelection();
 }
 
-function execute(action = {}) {
-  props.runtime?.execute?.(action);
+function execute(action) {
+  props.runtime.execute(action);
 }
 
-function isActionDisabled(action = {}) {
-  return Boolean(props.runtime?.isActionDisabled?.(action));
+function isActionDisabled(action) {
+  return props.runtime.isActionDisabled(action);
 }
 
-function isActionExecuting(action = {}) {
-  return Boolean(props.runtime?.isActionExecuting?.(action));
+function isActionExecuting(action) {
+  return props.runtime.isActionExecuting(action);
 }
 
 // Action labels may be message keys.

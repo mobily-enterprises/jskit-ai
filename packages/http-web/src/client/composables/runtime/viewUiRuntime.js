@@ -4,16 +4,17 @@ import {
   normalizeRouteParamName
 } from "../support/routeTemplateHelpers.js";
 
+/** @param {import("../../types.js").ViewUiRuntimeOptions} options */
 function createViewUiRuntime({
   recordIdParam = "recordId",
-  routeParams = null,
-  routeParamNames = null,
+  routeParams,
+  routeParamNames,
   routePath = "",
-  routeRecordId = null,
+  routeRecordId,
   apiUrlTemplate = "",
   listUrlTemplate = "",
   editUrlTemplate = ""
-} = {}) {
+}) {
   const normalizedRecordIdParam = normalizeRouteParamName(recordIdParam, {
     context: "useView recordIdParam"
   });
@@ -36,13 +37,13 @@ function createViewUiRuntime({
   const listUrl = computed(() => resolveTemplatePath(normalizedListUrlTemplate));
   const editUrl = computed(() => resolveTemplatePath(normalizedEditUrlTemplate));
 
-  return Object.freeze({
+  return {
     recordId,
     apiSuffix,
     listUrl,
     editUrl,
     resolveParams: resolveTemplatePath
-  });
+  };
 }
 
 export { createViewUiRuntime };

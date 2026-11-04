@@ -20,6 +20,10 @@ import { useJskitText } from "../i18n.js";
 
 const { t, text } = useJskitText();
 
+/**
+ * @param {Record<string, object>} [definitions]
+ * @param {import("../types.js").CrudListFilterLookupsOptions} [options]
+ */
 function useCrudListFilterLookups(
   definitions = {},
   {
@@ -80,7 +84,7 @@ function useCrudListFilterLookups(
     });
 
     const cachedOptions = ref(new Map());
-    const selectedValues = computed(() => resolveLookupSelectedValues(filter, values?.[filter.key]));
+    const selectedValues = computed(() => resolveLookupSelectedValues(filter, values[filter.key]));
     const currentOptions = computed(() => createLookupOptionsFromItems(
       Array.isArray(runtime.items) ? runtime.items : [],
       filter,
@@ -122,8 +126,8 @@ function useCrudListFilterLookups(
     return lookups[normalizeText(filterKey)] || null;
   }
 
-  return Object.freeze({
-    lookups: Object.freeze(lookups),
+  return {
+    lookups,
     resolveLookup,
     resolveLookupItems(filterKey = "") {
       return resolveLookup(filterKey)?.options || [];
@@ -141,7 +145,7 @@ function useCrudListFilterLookups(
       return resolveLookup(filterKey)?.resolveLabel(value, fallback)
         || resolveLookupOptionLabel([], new Map(), value, fallback);
     }
-  });
+  };
 }
 
 export { useCrudListFilterLookups };

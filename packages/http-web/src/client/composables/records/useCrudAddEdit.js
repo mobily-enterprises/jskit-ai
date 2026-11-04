@@ -100,18 +100,23 @@ function normalizeSaveSuccessOptions(options = {}) {
   });
 }
 
+function buildFormPayload(model, { fields }) {
+  return buildCrudFormPayload(fields, model);
+}
+
+/** @param {import("../../types.js").CrudAddEditOptions} options */
 function useCrudAddEdit({
-  resource = null,
+  resource,
   operationName = "",
   formFields = [],
   addEditOptions = {},
   saveSuccess = {},
   fieldBinding = null,
-  createModel = null,
-  buildPayload = null,
-  mapPayloadToModel = null,
-  input = null
-} = {}) {
+  createModel = createCrudFormModel,
+  buildPayload = buildFormPayload,
+  mapPayloadToModel,
+  input
+}) {
   const router = useRouter();
   const route = useRoute();
   const normalizedFields = normalizeCrudFormFields(formFields);
@@ -137,10 +142,7 @@ function useCrudAddEdit({
   const fieldErrorKeys = providedFieldErrorKeys.length > 0 ? providedFieldErrorKeys : defaultFieldErrorKeys;
   const providedModel = normalizedAddEditOptions.model;
   const hasProvidedModel = Boolean(providedModel && typeof providedModel === "object" && !Array.isArray(providedModel));
-  const defaultModel = typeof createModel === "function"
-    ? asPlainObject(createModel(normalizedFields))
-    : createCrudFormModel(normalizedFields);
-  const form = hasProvidedModel ? providedModel : reactive(defaultModel);
+  const form = hasProvidedModel ? providedModel : reactive(asPlainObject(createModel(normalizedFields)));
   const boundFieldValues = computed(() => {
     return resolveCrudBoundValues({
       binding: fieldBinding,
@@ -167,29 +169,23 @@ function useCrudAddEdit({
       deep: true
     }
   );
-  const buildPayloadOverride = typeof buildPayload === "function" ? buildPayload : null;
-  const mapPayloadToModelOverride = typeof mapPayloadToModel === "function" ? mapPayloadToModel : null;
-  const onSaveSuccessOverride = typeof normalizedAddEditOptions.onSaveSuccess === "function"
-    ? normalizedAddEditOptions.onSaveSuccess
-    : null;
   const shouldApplyDefaultMapPayload = normalizedAddEditOptions.readEnabled !== false;
   const resolvedInput = input || resource?.operations?.[operationName]?.body || null;
 
   function resolveBuildRawPayload(model = {}, context = {}) {
-    const payload = buildPayloadOverride
-      ? buildPayloadOverride(model, {
-          ...context,
-          fields: normalizedFields
-        })
-      : buildCrudFormPayload(normalizedFields, model);
+    const payload = buildPayload(model, {
+      ...context,
+      fields: normalizedFields
+    });
     applyBoundFieldValues(payload);
 
     return payload;
   }
 
-  const effectiveMapLoadedToModel = mapPayloadToModelOverride
+  // readable-check: allow method-probe - optional operation: without mapPayloadToModel a form maps the payload by its fields, or not at all when it reads nothing
+  const effectiveMapLoadedToModel = typeof mapPayloadToModel === "function"
     ? (model = {}, payload = {}, context = {}) => {
-        mapPayloadToModelOverride(model, payload, {
+        mapPayloadToModel(model, payload, {
           ...context,
           fields: normalizedFields
         });
@@ -202,24 +198,16 @@ function useCrudAddEdit({
           }
         : undefined);
 
-  let addEditRuntime = null;
-
-  async function handleSaveSuccess(payload, context = {}) {
-    if (onSaveSuccessOverride) {
-      await onSaveSuccessOverride(payload, context);
-      return;
-    }
-
-    const queryClient = context?.queryClient;
-    if (queryClient && saveSuccessOptions.invalidateQueryKey?.length > 0) {
+  async function handleSaveSuccess(payload, { queryClient }) {
+    if (saveSuccessOptions.invalidateQueryKey?.length > 0) {
       await queryClient.invalidateQueries({
         queryKey: saveSuccessOptions.invalidateQueryKey
       });
     }
 
     if (saveSuccessOptions.navigateToView) {
-      const viewUrl = addEditRuntime?.resolveSavedViewUrl(payload) ||
-        addEditRuntime?.resolveViewUrl(addEditRuntime?.recordId);
+      const viewUrl = addEdit.resolveSavedViewUrl(payload) ||
+        addEdit.resolveViewUrl(addEdit.recordId);
       if (viewUrl) {
         await router.push(viewUrl);
         return;
@@ -230,7 +218,7 @@ function useCrudAddEdit({
       return;
     }
 
-    const listUrl = addEditRuntime?.resolveParams(saveSuccessOptions.listUrlTemplate);
+    const listUrl = addEdit.resolveParams(saveSuccessOptions.listUrlTemplate);
     if (listUrl) {
       await router.push(listUrl);
     }
@@ -249,9 +237,8 @@ function useCrudAddEdit({
     buildRawPayload: resolveBuildRawPayload,
     mapLoadedToModel: effectiveMapLoadedToModel,
     realtime: resolvedRealtime,
-    onSaveSuccess: handleSaveSuccess
+    onSaveSuccess: normalizedAddEditOptions.onSaveSuccess ?? handleSaveSuccess
   });
-  addEditRuntime = addEdit;
 
   function resolveFieldErrors(fieldKey = "") {
     return resolveCrudFieldErrors(addEdit.fieldErrors, fieldKey);
@@ -259,8 +246,8 @@ function useCrudAddEdit({
 
   const showFormSkeleton = computed(() => {
     const hasResolvedData = hasResolvedQueryData({
-      query: addEdit?.resource?.query,
-      data: addEdit?.resource?.data
+      query: addEdit.resource.query,
+      data: addEdit.resource.data
     });
 
     return Boolean(addEdit.isInitialLoading) && !hasResolvedData;

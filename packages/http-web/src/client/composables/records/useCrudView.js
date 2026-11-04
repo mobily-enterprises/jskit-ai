@@ -4,20 +4,17 @@ import {
   resolveCrudJsonApiTransport
 } from "../crud/crudJsonApiTransportSupport.js";
 import { resolveCrudHttpClient } from "../crud/crudHttpClientSupport.js";
-import {
-  resolveLookupFieldDisplayValue,
-  resolveRecordTitle
-} from "../crud/crudLookupFieldLabelSupport.js";
 import { resolveCrudBoundValues } from "../crud/crudBindingSupport.js";
 import { asPlainObject } from "../support/scopeHelpers.js";
 import { useView } from "./useView.js";
 
+/** @param {import("../../types.js").CrudViewOptions} options */
 function useCrudView({
-  resource = null,
+  resource,
   paramBinding = null,
   route = null,
   ...viewOptions
-} = {}) {
+}) {
   const sourceRoute = route && typeof route === "object" ? route : useRoute();
   const boundRouteParams = computed(() => {
     return resolveCrudBoundValues({
@@ -28,7 +25,7 @@ function useCrudView({
       })
     });
   });
-  const view = useView({
+  return useView({
     ...viewOptions,
     resource,
     client: resolveCrudHttpClient(resource, {
@@ -39,9 +36,6 @@ function useCrudView({
     }),
     routeParams: boundRouteParams
   });
-  view.resolveFieldDisplay = resolveLookupFieldDisplayValue;
-  view.resolveRecordTitle = resolveRecordTitle;
-  return view;
 }
 
 export { useCrudView };

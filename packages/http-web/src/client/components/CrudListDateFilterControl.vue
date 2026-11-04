@@ -54,13 +54,13 @@ const resolvedControlId = computed(() => props.controlId || `crud-list-date-${ge
 const pickerId = computed(() => `${resolvedControlId.value}-picker`);
 const pickerValue = computed(() => parseDateOnlyValue(props.modelValue));
 const displayValue = computed(() => formatDateOnlyDisplay(props.modelValue, {
-  locale: currentLocale?.value
+  locale: currentLocale.value
 }));
 const pickerTitle = computed(() => t("jskit.http.crud.filters.calendar", { label: props.label }));
 
 function restoreFocus() {
   void nextTick(() => {
-    textFieldRef.value?.focus?.();
+    textFieldRef.value?.focus();
   });
 }
 

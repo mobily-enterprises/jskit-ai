@@ -1,10 +1,12 @@
 import { useQueryClient } from "@tanstack/vue-query";
 import { validateOperationInput } from "./operationValidationHelpers.js";
 import { toUiFieldErrors } from "../support/errorMessageHelpers.js";
+import { emptyRecord } from "../support/scopeHelpers.js";
 import { useJskitText } from "../../i18n.js";
 
 const { t, text } = useJskitText();
 
+/** @param {import("../../types.js").CommandCoreOptions} options */
 function useCommandCore({
   model,
   resource,
@@ -13,37 +15,35 @@ function useCommandCore({
   fieldBag,
   feedback,
   input,
-  buildRawPayload,
+  buildRawPayload = emptyRecord,
   buildCommandPayload,
-  buildCommandOptions,
+  buildCommandOptions = emptyRecord,
   onRunSuccess,
   onRunError,
   suppressSuccessMessage = false,
   messages = {}
-} = {}) {
+}) {
   const queryClient = useQueryClient();
   const normalizedWriteMethod = String(writeMethod || "POST").trim().toUpperCase();
 
-  const running = resource?.isSaving;
-  const fieldErrors = fieldBag?.errors;
-  const message = feedback?.message;
-  const messageType = feedback?.messageType;
+  const running = resource.isSaving;
+  const fieldErrors = fieldBag.errors;
+  const message = feedback.message;
+  const messageType = feedback.messageType;
 
   async function run(context = {}) {
-    if (!canRun?.value || running?.value) {
+    if (!canRun.value || running.value) {
       return null;
     }
 
-    feedback?.clear?.();
-    fieldBag?.clear?.();
+    feedback.clear();
+    fieldBag.clear();
 
-    const rawPayload = typeof buildRawPayload === "function"
-      ? buildRawPayload(model, {
-          queryClient,
-          resource,
-          context
-        })
-      : {};
+    const rawPayload = buildRawPayload(model, {
+      queryClient,
+      resource,
+      context
+    });
 
     const validationResult = validateOperationInput({
       input,
@@ -57,6 +57,7 @@ function useCommandCore({
     }
 
     const { parsedInput } = validationResult;
+    // readable-check: allow method-probe - optional operation: without buildCommandPayload a command sends its parsed input, and nothing for DELETE
     const payload = typeof buildCommandPayload === "function"
       ? buildCommandPayload(parsedInput, {
           rawPayload,
@@ -66,19 +67,18 @@ function useCommandCore({
         })
       : (normalizedWriteMethod === "DELETE" ? undefined : parsedInput);
 
-    const options = typeof buildCommandOptions === "function"
-      ? buildCommandOptions(parsedInput, {
-          rawPayload,
-          queryClient,
-          resource,
-          context
-        })
-      : {};
+    const options = buildCommandOptions(parsedInput, {
+      rawPayload,
+      queryClient,
+      resource,
+      context
+    });
 
     try {
       const response = await resource.save(payload, options);
 
-      if (typeof onRunSuccess === "function") {
+      // readable-check: allow method-probe - optional operation: a command with no onRunSuccess reports its success in the same tick
+      if (onRunSuccess) {
         await onRunSuccess(response, {
           parsed: parsedInput,
           rawPayload,
@@ -91,13 +91,14 @@ function useCommandCore({
       }
 
       if (!suppressSuccessMessage) {
-        feedback?.success?.(text(messages.success) || t("jskit.http.feedback.completed"));
+        feedback.success(text(messages.success) || t("jskit.http.feedback.completed"));
       }
       return response;
     } catch (error) {
-      fieldBag?.apply?.(toUiFieldErrors(error));
+      fieldBag.apply(toUiFieldErrors(error));
 
-      if (typeof onRunError === "function") {
+      // readable-check: allow method-probe - optional operation: a command with no onRunError reports its failure in the same tick
+      if (onRunError) {
         await onRunError(error, {
           parsed: parsedInput,
           rawPayload,
@@ -109,18 +110,18 @@ function useCommandCore({
         });
       }
 
-      feedback?.error?.(error, text(messages.error) || t("jskit.http.feedback.actionFailed"));
+      feedback.error(error, text(messages.error) || t("jskit.http.feedback.actionFailed"));
       throw error;
     }
   }
 
-  return Object.freeze({
+  return {
     running,
     fieldErrors,
     message,
     messageType,
     run
-  });
+  };
 }
 
 export { useCommandCore };

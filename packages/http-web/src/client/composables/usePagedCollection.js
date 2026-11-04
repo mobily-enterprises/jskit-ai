@@ -16,6 +16,9 @@ function defaultGetNextPageParam(lastPage) {
   return lastPage?.nextCursor ?? null;
 }
 
+// The first page has no cursor.
+const FIRST_PAGE_PARAM = null;
+
 function normalizeQueryKeyValue(queryKey = null) {
   const resolved = unref(queryKey);
   if (Array.isArray(resolved)) {
@@ -52,30 +55,18 @@ function trimInfinitePagesToFirst(data = null) {
   };
 }
 
+/** @param {import("../types.js").PagedCollectionOptions} options */
 function usePagedCollection({
   queryKey,
   enabled = true,
-  initialPageParam = null,
+  initialPageParam = FIRST_PAGE_PARAM,
   queryFn,
   getNextPageParam = defaultGetNextPageParam,
   selectItems = defaultSelectItems,
-  dedupeBy = null,
+  dedupeBy,
   queryOptions = null,
   fallbackLoadError = t("jskit.http.list.loadFailed")
-} = {}) {
-  if (typeof queryFn !== "function") {
-    throw new TypeError("usePagedCollection requires queryFn().");
-  }
-  if (typeof getNextPageParam !== "function") {
-    throw new TypeError("usePagedCollection requires getNextPageParam().");
-  }
-  if (typeof selectItems !== "function") {
-    throw new TypeError("usePagedCollection requires selectItems().");
-  }
-  if (dedupeBy != null && typeof dedupeBy !== "function") {
-    throw new TypeError("usePagedCollection dedupeBy must be a function when provided.");
-  }
-
+}) {
   const queryClient = useQueryClient();
   const queryEnabled = computed(() => resolveEnabledRef(enabled));
   const normalizedQueryKey = computed(() => normalizeQueryKeyValue(queryKey));
@@ -161,7 +152,7 @@ function usePagedCollection({
     queryClient.setQueryData(key, (data) => trimInfinitePagesToFirst(data));
   }
 
-  return Object.freeze({
+  return {
     query,
     pages,
     items,
@@ -175,7 +166,7 @@ function usePagedCollection({
     reload,
     loadMore,
     trimToFirstPage
-  });
+  };
 }
 
 export {

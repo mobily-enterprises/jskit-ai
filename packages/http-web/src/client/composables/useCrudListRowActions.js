@@ -1,9 +1,12 @@
 import { computed, ref } from "vue";
 import { defineCrudListRowActions } from "../rowActions.js";
+import { emptyRecord } from "./support/scopeHelpers.js";
 import {
   normalizeListActionKey,
   resolveListActionBaseContext,
-  resolveListRecordId
+  resolveListActionFlag,
+  resolveListRecordId,
+  selectListRecordId
 } from "../support/crudListActionSupport.js";
 
 function createExecutionKey(actionKey = "", recordId = "", index = 0) {
@@ -13,9 +16,13 @@ function createExecutionKey(actionKey = "", recordId = "", index = 0) {
   ].join(":");
 }
 
+/**
+ * @param {import("../types.js").CrudListRowActionDefinition[]} [actions]
+ * @param {import("../types.js").CrudListActionOptions} [options]
+ */
 function useCrudListRowActions(actions = [], {
-  resolveRecordId = null,
-  resolveContext = null
+  resolveRecordId = selectListRecordId,
+  resolveContext = emptyRecord
 } = {}) {
   const normalizedActions = defineCrudListRowActions(actions);
   const executingKeys = ref([]);
@@ -41,14 +48,11 @@ function useCrudListRowActions(actions = [], {
   }
 
   function resolveActionFlag(action = {}, flagKey = "", record = {}, index = 0, fallback = false) {
-    const flag = action?.[flagKey];
-    if (typeof flag === "function") {
-      return Boolean(flag(createActionContext(action, record, index)));
-    }
+    const flag = action[flagKey];
     if (flag === undefined || flag === null) {
       return fallback;
     }
-    return Boolean(flag);
+    return Boolean(resolveListActionFlag(flag, () => createActionContext(action, record, index)));
   }
 
   function isActionVisible(actionOrKey = "", record = {}, index = 0) {
@@ -96,7 +100,7 @@ function useCrudListRowActions(actions = [], {
 
   async function execute(actionOrKey = "", record = {}, index = 0) {
     const action = findAction(actionOrKey);
-    if (!action || typeof action.run !== "function" || isActionDisabled(action, record, index)) {
+    if (!action || !action.run || isActionDisabled(action, record, index)) {
       return null;
     }
 
@@ -109,7 +113,7 @@ function useCrudListRowActions(actions = [], {
     }
   }
 
-  return Object.freeze({
+  return {
     actions: normalizedActions,
     hasActions,
     executingKeys,
@@ -122,7 +126,7 @@ function useCrudListRowActions(actions = [], {
     visibleActionsFor,
     hasVisibleActionsFor,
     execute
-  });
+  };
 }
 
 export { useCrudListRowActions };

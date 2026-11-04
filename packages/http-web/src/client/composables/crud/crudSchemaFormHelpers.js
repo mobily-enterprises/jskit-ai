@@ -48,11 +48,11 @@ function resolveFormFieldFormat(field = {}) {
 }
 
 function isNullableFormField(field = {}) {
-  return field?.nullable === true;
+  return field.nullable === true;
 }
 
 function isLookupFormField(field = {}) {
-  return field?.component === "lookup" || field?.relation?.kind === "lookup";
+  return field.component === "lookup" || field.relation?.kind === "lookup";
 }
 
 function padDateTimePart(value) {
@@ -232,7 +232,7 @@ function resolveFormFieldInitialValue(field = {}) {
 }
 
 function shouldSerializeClearedFieldAsNull(field = {}) {
-  if (field?.nullable !== true) {
+  if (field.nullable !== true) {
     return false;
   }
 

@@ -20,26 +20,27 @@ import { useJskitText } from "../../i18n.js";
 
 const { t } = useJskitText();
 
+/** @param {import("../../types.js").AddEditOptions} options */
 function useAddEdit({
   ownershipFilter = ROUTE_VISIBILITY_WORKSPACE,
   surfaceId = "",
   access = "auto",
   resource = null,
   apiSuffix = "",
-  queryKeyFactory = null,
+  queryKeyFactory,
   viewPermissions = [],
   savePermissions = [],
   readMethod = "GET",
   readEnabled = true,
   writeMethod = "PATCH",
-  client = null,
-  transport = null,
-  requestRecovery = null,
+  client,
+  transport,
+  requestRecovery,
   requestRecoveryLabel = t("jskit.http.resource.label"),
   placementSource = "http-web.add-edit",
   fallbackLoadError = t("jskit.http.resource.loadFailed"),
   fallbackSaveError = "",
-  fieldErrorKeys = [],
+  fieldErrorKeys,
   clearOnRouteChange = true,
   model,
   input,
@@ -48,17 +49,17 @@ function useAddEdit({
   buildSavePayload,
   onSaveSuccess,
   validationFeedback = true,
-  requestQueryParams = null,
+  requestQueryParams,
   recordIdParam = "recordId",
   routeParams = null,
-  routeRecordId = null,
+  routeRecordId,
   apiUrlTemplate = "",
   viewUrlTemplate = "",
   listUrlTemplate = "",
-  saveRecordIdSelector = null,
+  saveRecordIdSelector,
   messages = {},
-  realtime = null
-} = {}) {
+  realtime
+}) {
   const route = useRoute();
   const addEditUiRuntime = createAddEditUiRuntime({
     recordIdParam,
@@ -178,7 +179,7 @@ function useAddEdit({
   );
   const loadError = operationScope.loadError(endpointResource.loadError);
   const isLoading = operationScope.isLoading(endpointResource.isLoading);
-  const canRetryLoad = computed(() => Boolean(readEnabled !== false && endpointResource?.reload));
+  const canRetryLoad = computed(() => readEnabled !== false);
 
   async function refresh() {
     if (!canRetryLoad.value) {

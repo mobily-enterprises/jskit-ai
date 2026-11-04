@@ -3,29 +3,22 @@ import { asPlainObject } from "../support/scopeHelpers.js";
 import {
   createRouteTemplateResolver,
   normalizeRouteParamName,
+  selectRecordId,
   toRouteParamValue
 } from "../support/routeTemplateHelpers.js";
 
-function resolveSavedRecordId(payload, saveRecordIdSelector) {
-  const sourcePayload = asPlainObject(payload);
-  if (typeof saveRecordIdSelector === "function") {
-    return toRouteParamValue(saveRecordIdSelector(sourcePayload));
-  }
-
-  return toRouteParamValue(sourcePayload.id);
-}
-
+/** @param {import("../../types.js").AddEditUiRuntimeOptions} options */
 function createAddEditUiRuntime({
   recordIdParam = "recordId",
-  routeParams = null,
-  routeParamNames = null,
+  routeParams,
+  routeParamNames,
   routePath = "",
-  routeRecordId = null,
+  routeRecordId,
   apiUrlTemplate = "",
   viewUrlTemplate = "",
   listUrlTemplate = "",
-  saveRecordIdSelector = null
-} = {}) {
+  saveRecordIdSelector = selectRecordId
+}) {
   const normalizedRecordIdParam = normalizeRouteParamName(recordIdParam, {
     context: "useAddEdit recordIdParam"
   });
@@ -60,7 +53,7 @@ function createAddEditUiRuntime({
   }
 
   function resolveSavedViewUrl(payload = {}) {
-    const targetRecordId = resolveSavedRecordId(payload, saveRecordIdSelector);
+    const targetRecordId = toRouteParamValue(saveRecordIdSelector(asPlainObject(payload)));
     if (!targetRecordId) {
       return "";
     }
@@ -68,7 +61,7 @@ function createAddEditUiRuntime({
     return resolveViewUrl(targetRecordId);
   }
 
-  return Object.freeze({
+  return {
     recordId,
     apiSuffix,
     listUrl,
@@ -76,7 +69,7 @@ function createAddEditUiRuntime({
     resolveParams: resolveTemplatePath,
     resolveViewUrl,
     resolveSavedViewUrl
-  });
+  };
 }
 
 export { createAddEditUiRuntime };

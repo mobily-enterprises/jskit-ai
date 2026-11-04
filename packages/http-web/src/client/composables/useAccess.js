@@ -22,9 +22,12 @@ function asPermissionList(value) {
   return [value];
 }
 
-// Permissions come only from the web placement context, which the shell fills
-// from its bootstrap. Until that context carries a `permissions` key, access is
-// awaiting placement permissions and reports them as unavailable.
+/**
+ * Permissions come only from the web placement context, which the shell fills
+ * from its bootstrap. Until that context carries a `permissions` key, access is
+ * awaiting placement permissions and reports them as unavailable.
+ * @param {import("../types.js").AccessOptions} [options]
+ */
 function useAccess({
   enabled = true,
   access = "always",
@@ -92,7 +95,7 @@ function useAccess({
     return true;
   }
 
-  return Object.freeze({
+  return {
     accessMode: normalizedAccessMode,
     accessRequired,
     permissions,
@@ -101,7 +104,7 @@ function useAccess({
     can,
     canAny,
     canAll
-  });
+  };
 }
 
 export { useAccess };

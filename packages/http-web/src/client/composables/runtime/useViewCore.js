@@ -12,6 +12,7 @@ function normalizeStatusList(value) {
   return [404];
 }
 
+/** @param {import("../../types.js").ViewCoreOptions} options */
 function useViewCore({
   resource,
   model,
@@ -19,7 +20,7 @@ function useViewCore({
   mapLoadedToModel,
   notFoundStatuses = [404],
   notFoundMessage = ""
-} = {}) {
+}) {
   const statusList = normalizeStatusList(notFoundStatuses);
   watchResourceModelState({
     resource,
@@ -32,21 +33,10 @@ function useViewCore({
     }
   });
 
-  const data = resource?.data;
-  const record = computed(() => (model !== undefined ? model : data?.value));
-  const isLoading = computed(() => {
-    if (resource?.isInitialLoading?.value !== undefined) {
-      return Boolean(resource.isInitialLoading.value);
-    }
-    return Boolean(resource?.query?.isPending?.value);
-  });
-  const isFetching = computed(() => {
-    if (resource?.isFetching?.value !== undefined) {
-      return Boolean(resource.isFetching.value);
-    }
-    return Boolean(resource?.query?.isFetching?.value);
-  });
-  const error = computed(() => resource?.query?.error?.value || null);
+  const record = computed(() => (model !== undefined ? model : resource.data.value));
+  const isLoading = computed(() => Boolean(resource.isInitialLoading.value));
+  const isFetching = computed(() => Boolean(resource.isFetching.value));
+  const error = computed(() => resource.query.error.value || null);
 
   const isNotFound = computed(() => {
     const status = Number(error.value?.status || 0);
@@ -66,7 +56,7 @@ function useViewCore({
       return "";
     }
 
-    return String(resource?.loadError?.value || "").trim();
+    return String(resource.loadError.value || "").trim();
   });
 
   const resolvedCanView = computed(() => {
@@ -78,10 +68,10 @@ function useViewCore({
   });
 
   async function refresh() {
-    return resource?.reload?.();
+    return resource.reload();
   }
 
-  return Object.freeze({
+  return {
     record,
     isLoading,
     isFetching,
@@ -90,7 +80,7 @@ function useViewCore({
     loadError,
     canView: resolvedCanView,
     refresh
-  });
+  };
 }
 
 export { useViewCore };

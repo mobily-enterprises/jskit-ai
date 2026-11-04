@@ -197,9 +197,7 @@ function resolveQueryParamDescriptors(
         rawKey,
         rawValue,
         key,
-        resolveRouteValue: typeof resolvers[key] === "function"
-          ? resolvers[key]
-          : null
+        resolveRouteValue: resolvers[key] ?? null
       });
     }
 
@@ -334,24 +332,22 @@ function parseRouteQueryItemValue(value, itemType = QUERY_PARAM_BINDING_TYPE_TEX
 }
 
 function parseRouteBindingValue(binding, routeQueryValue, context = {}) {
-  if (typeof binding?.resolveRouteValue === "function") {
+  if (binding.resolveRouteValue) {
     return binding.resolveRouteValue(routeQueryValue, context);
   }
 
-  const valueType = normalizeText(binding?.valueType).toLowerCase();
+  const valueType = normalizeText(binding.valueType).toLowerCase();
   if (valueType === QUERY_PARAM_BINDING_TYPE_BOOLEAN) {
     return parseRouteBooleanValue(routeQueryValue, false);
   }
   if (valueType === QUERY_PARAM_BINDING_TYPE_NUMBER) {
-    const fallback = typeof binding?.get === "function" ? binding.get() : null;
-    return parseRouteNumberValue(routeQueryValue, fallback);
+    return parseRouteNumberValue(routeQueryValue, binding.get());
   }
   if (valueType === QUERY_PARAM_BINDING_TYPE_DATE) {
-    const fallback = typeof binding?.get === "function" ? binding.get() : null;
-    return parseRouteDateValue(routeQueryValue, fallback);
+    return parseRouteDateValue(routeQueryValue, binding.get());
   }
   if (valueType === QUERY_PARAM_BINDING_TYPE_ARRAY) {
-    const itemType = normalizeText(binding?.arrayItemType).toLowerCase() || QUERY_PARAM_BINDING_TYPE_TEXT;
+    const itemType = normalizeText(binding.arrayItemType).toLowerCase() || QUERY_PARAM_BINDING_TYPE_TEXT;
     return normalizeRouteQueryValues(routeQueryValue)
       .map((value) => parseRouteQueryItemValue(value, itemType, null))
       .filter((value) => value != null && !(typeof value === "string" && !value));

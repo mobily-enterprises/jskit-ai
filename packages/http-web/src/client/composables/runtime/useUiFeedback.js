@@ -2,6 +2,7 @@ import { ref } from "vue";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { toUiErrorMessage } from "../support/errorMessageHelpers.js";
 
+/** @param {import("../../types.js").UiFeedbackOptions} [options] */
 function useUiFeedback({
   initialType = "success",
   source = "http-web.ui-feedback",
@@ -86,13 +87,13 @@ function useUiFeedback({
     }
   }
 
-  return Object.freeze({
+  return {
     message,
     messageType,
     clear,
     success,
     error
-  });
+  };
 }
 
 export { useUiFeedback };

@@ -1,14 +1,21 @@
 import { computed, ref } from "vue";
 import { defineCrudListBulkActions } from "../bulkActions.js";
+import { emptyRecord } from "./support/scopeHelpers.js";
 import {
   normalizeListActionKey,
   resolveListActionBaseContext,
-  resolveListRecordId
+  resolveListActionFlag,
+  resolveListRecordId,
+  selectListRecordId
 } from "../support/crudListActionSupport.js";
 
+/**
+ * @param {import("../types.js").CrudListBulkActionDefinition[]} [actions]
+ * @param {import("../types.js").CrudListActionOptions} [options]
+ */
 function useCrudListBulkActions(actions = [], {
-  resolveRecordId = null,
-  resolveContext = null
+  resolveRecordId = selectListRecordId,
+  resolveContext = emptyRecord
 } = {}) {
   const normalizedActions = defineCrudListBulkActions(actions);
   const selectedIds = ref([]);
@@ -81,19 +88,16 @@ function useCrudListBulkActions(actions = [], {
     if (!action || !hasSelection.value || executingActionKey.value) {
       return true;
     }
-    if (typeof action.disabled === "function") {
-      return Boolean(action.disabled({
-        selectedIds: selectedIds.value.slice(),
-        selectedRecords: Array.from(selectedRecordMap.values()),
-        action
-      }));
-    }
-    return Boolean(action.disabled);
+    return Boolean(resolveListActionFlag(action.disabled, () => ({
+      selectedIds: selectedIds.value.slice(),
+      selectedRecords: Array.from(selectedRecordMap.values()),
+      action
+    })));
   }
 
   async function execute(actionOrKey = "") {
     const action = findAction(actionOrKey);
-    if (!action || typeof action.run !== "function" || isActionDisabled(action)) {
+    if (!action || !action.run || isActionDisabled(action)) {
       return null;
     }
 
@@ -112,7 +116,7 @@ function useCrudListBulkActions(actions = [], {
     }
   }
 
-  return Object.freeze({
+  return {
     actions: normalizedActions,
     selectedIds,
     selectedCount,
@@ -129,7 +133,7 @@ function useCrudListBulkActions(actions = [], {
     isActionDisabled,
     isActionExecuting,
     execute
-  });
+  };
 }
 
 export { useCrudListBulkActions };

@@ -15,6 +15,8 @@ test("useAddEditCore writes saved payloads to the submit-time query key", async 
   };
   const resource = {
     isSaving: ref(false),
+    query: { isPending: ref(false) },
+    data: ref(null),
     async save() {
       return payload;
     }
@@ -72,6 +74,8 @@ test("useAddEditCore snapshots the cache key after payload normalization", async
   };
   const resource = {
     isSaving: ref(false),
+    query: { isPending: ref(false) },
+    data: ref(null),
     async save() {
       return payload;
     }

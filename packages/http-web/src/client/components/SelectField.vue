@@ -9,6 +9,7 @@ defineOptions({ inheritAttrs: false });
 
 const props = defineProps({
   searchable: { type: Boolean, default: false },
+  // readable-check: allow prop-untyped - data: a select's value is whatever its items hold, or a list of them
   modelValue: { type: null, default: null },
   items: { type: Array, default: () => [] },
   itemTitle: { type: [String, Array, Function], default: "title" },

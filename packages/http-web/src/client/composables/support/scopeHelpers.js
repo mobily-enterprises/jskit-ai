@@ -20,6 +20,10 @@ function asPlainObject(value) {
   return value;
 }
 
+function emptyRecord() {
+  return {};
+}
+
 function normalizePermissions(value) {
   if (Array.isArray(value)) {
     return value.map((entry) => String(entry || "").trim()).filter(Boolean);
@@ -108,10 +112,6 @@ function resolveQueryKey(
   queryKeyFactory,
   { surfaceId = "", scopeParamValue = "", ownershipFilter = ROUTE_VISIBILITY_WORKSPACE } = {}
 ) {
-  if (typeof queryKeyFactory !== "function") {
-    throw new TypeError("queryKeyFactory is required.");
-  }
-
   if (isScopedOwnershipFilter(ownershipFilter)) {
     return queryKeyFactory(surfaceId, scopeParamValue, ownershipFilter);
   }
@@ -131,6 +131,7 @@ function resolveResourceMessages(resource, defaults = {}) {
 
 export {
   asPlainObject,
+  emptyRecord,
   normalizePermissions,
   resolvePermissionAccess,
   normalizeAccessMode,

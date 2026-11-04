@@ -64,17 +64,18 @@ function buildEndpointWriteRequestOptions({
   return requestOptions;
 }
 
+/** @param {import("../../types.js").EndpointResourceOptions} options */
 function useEndpointResource({
   queryKey,
   path = "",
   enabled = true,
-  client = null,
+  client = getHttpWebClient(),
   readMethod = "GET",
   writeMethod = "PATCH",
-  readQuery = null,
-  transport = null,
+  readQuery,
+  transport,
   refreshOnPull = false,
-  realtime = null,
+  realtime,
   queryOptions = null,
   mutationOptions = null,
   requestRecovery = null,
@@ -82,12 +83,7 @@ function useEndpointResource({
   requestRecoveryLabel = "",
   fallbackLoadError = "jskit.http.resource.loadFailed",
   fallbackSaveError = "jskit.http.resource.saveFailed"
-} = {}) {
-  const activeClient = client || getHttpWebClient();
-  if (!activeClient || typeof activeClient.request !== "function") {
-    throw new TypeError("useEndpointResource requires a client with request().");
-  }
-
+}) {
   const normalizedPath = computed(() => resolveTextRef(path));
   const queryEnabled = computed(() => resolveEnabledRef(enabled) && Boolean(normalizedPath.value));
 
@@ -99,7 +95,7 @@ function useEndpointResource({
         throw new Error("Resource path is required.");
       }
 
-      return activeClient.request(requestPath, {
+      return client.request(requestPath, {
         ...buildEndpointReadRequestOptions({
           method: readMethod,
           query: readQuery,
@@ -141,7 +137,7 @@ function useEndpointResource({
       const method = String(options.method || writeMethod || "PATCH").toUpperCase();
       const hasBody = Object.hasOwn(options, "body");
       const body = hasBody ? options.body : options.payload;
-      return activeClient.request(
+      return client.request(
         requestPath,
         buildEndpointWriteRequestOptions({
           method,
@@ -178,7 +174,7 @@ function useEndpointResource({
     });
   }
 
-  return Object.freeze({
+  return {
     query,
     mutation,
     data,
@@ -192,7 +188,7 @@ function useEndpointResource({
     realtime: realtimeBinding,
     reload,
     save
-  });
+  };
 }
 
 export {

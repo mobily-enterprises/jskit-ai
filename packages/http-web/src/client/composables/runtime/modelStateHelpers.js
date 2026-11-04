@@ -45,16 +45,26 @@ function restoreModelSnapshot(model, snapshot) {
   }
 }
 
+function ignoreLoadedPayload() {}
+
+/**
+ * @param {{
+ *   resource: Pick<import("../../types.js").EndpointResource, "query" | "data">,
+ *   model?: object,
+ *   mapLoadedToModel?: import("../../types.js").MapLoadedToModel,
+ *   resolveMapContext: () => object
+ * }} options
+ */
 function watchResourceModelState({
   resource,
   model,
-  mapLoadedToModel,
-  resolveMapContext = null
-} = {}) {
+  mapLoadedToModel = ignoreLoadedPayload,
+  resolveMapContext
+}) {
   const modelSnapshot = captureModelSnapshot(model);
 
   watch(
-    () => resource?.query?.isPending?.value,
+    () => resource.query.isPending.value,
     (isPending) => {
       if (!isPending || !modelSnapshot) {
         return;
@@ -68,14 +78,13 @@ function watchResourceModelState({
   );
 
   watch(
-    () => resource?.data?.value,
+    () => resource.data.value,
     (payload) => {
-      if (!payload || typeof mapLoadedToModel !== "function") {
+      if (!payload) {
         return;
       }
 
-      const context = typeof resolveMapContext === "function" ? resolveMapContext() : {};
-      mapLoadedToModel(model, payload, context);
+      mapLoadedToModel(model, payload, resolveMapContext());
     },
     {
       immediate: true
@@ -84,6 +93,7 @@ function watchResourceModelState({
 }
 
 export {
+  ignoreLoadedPayload,
   captureModelSnapshot,
   restoreModelSnapshot,
   watchResourceModelState

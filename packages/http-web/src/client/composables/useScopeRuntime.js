@@ -24,6 +24,7 @@ function resolveScopedRouteParamNames(placementContext = null, surfaceId = "") {
   return extractRouteParamNames(resolveScopedRouteBase(routeBase));
 }
 
+/** @param {import("../types.js").ScopeRuntimeOptions} [options] */
 function useScopeRuntime({
   ownershipFilter = ROUTE_VISIBILITY_WORKSPACE,
   surfaceId = "",
@@ -117,7 +118,7 @@ function useScopeRuntime({
     }
   }
 
-  return Object.freeze({
+  return {
     normalizedOwnershipFilter,
     requiresScopedRouteParams: requiresScopedRouteParams.value,
     resolvedSurfaceId,
@@ -132,7 +133,7 @@ function useScopeRuntime({
     access: accessRuntime,
     resolveApiPath,
     requireRouteScope
-  });
+  };
 }
 
 export { useScopeRuntime };

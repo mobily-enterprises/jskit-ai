@@ -62,7 +62,7 @@ function normalizeLookupRequestQueryParamsMap(value = {}) {
 }
 
 function resolveLookupSelectedValues(filter = {}, rawValue = undefined) {
-  if (filter?.type === CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY) {
+  if (filter.type === CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY) {
     return normalizeUniqueTextList(rawValue, {
       acceptSingle: true
     });
@@ -72,18 +72,20 @@ function resolveLookupSelectedValues(filter = {}, rawValue = undefined) {
   return normalizedValue ? Object.freeze([normalizedValue]) : Object.freeze([]);
 }
 
-function createLookupOptionFromItem(item = {}, filter = {}, labelResolver = null) {
+function noCustomLookupLabel() {
+  return "";
+}
+
+function createLookupOptionFromItem(item, filter, labelResolver) {
   const sourceRecord = asPlainObject(item);
-  const valueKey = normalizeText(filter?.lookup?.valueKey) || "id";
-  const labelKey = normalizeText(filter?.lookup?.labelKey);
+  const valueKey = normalizeText(filter.lookup?.valueKey) || "id";
+  const labelKey = normalizeText(filter.lookup?.labelKey);
   const value = normalizeText(sourceRecord[valueKey]);
   if (!value) {
     return null;
   }
 
-  const customLabel = typeof labelResolver === "function"
-    ? normalizeText(labelResolver(sourceRecord, filter))
-    : "";
+  const customLabel = normalizeText(labelResolver(sourceRecord, filter));
   const fallbackLabel = resolveLookupItemLabel(sourceRecord, labelKey) || value;
 
   return Object.freeze({
@@ -93,7 +95,7 @@ function createLookupOptionFromItem(item = {}, filter = {}, labelResolver = null
   });
 }
 
-function createLookupOptionsFromItems(items = [], filter = {}, labelResolver = null) {
+function createLookupOptionsFromItems(items = [], filter = {}, labelResolver = noCustomLookupLabel) {
   const optionMap = new Map();
   for (const item of Array.isArray(items) ? items : []) {
     const option = createLookupOptionFromItem(item, filter, labelResolver);

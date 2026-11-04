@@ -97,6 +97,7 @@ export default [
     "packages/database-runtime-mysql/src/client/**",
     "packages/database-runtime-postgres/src/client/**",
     "packages/http-runtime/src/client/**",
+    "packages/http-web/src/client/**",
     "packages/kernel/client/**",
     "packages/payments-web/src/client/**",
     "packages/realtime/src/client/**",

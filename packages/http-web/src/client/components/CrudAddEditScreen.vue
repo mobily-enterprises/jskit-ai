@@ -4,21 +4,25 @@ import { useJskitText } from "../i18n.js";
 
 const props = defineProps({
   screen: {
-    type: Object,
+    type: /** @type {import("vue").PropType<import("../types.js").CrudAddEditScreen>} */ (Object),
     required: true
   },
+  // readable-check: allow collaborator-prop - optional operation: a form without lookup fields passes no lookup functions, and its fields slot receives null
   resolveLookupItems: {
     type: Function,
     default: null
   },
+  // readable-check: allow collaborator-prop - optional operation: a form without lookup fields passes no lookup functions, and its fields slot receives null
   resolveLookupLoading: {
     type: Function,
     default: null
   },
+  // readable-check: allow collaborator-prop - optional operation: a form without lookup fields passes no lookup functions, and its fields slot receives null
   resolveLookupSearch: {
     type: Function,
     default: null
   },
+  // readable-check: allow collaborator-prop - optional operation: a form without lookup fields passes no lookup functions, and its fields slot receives null
   setLookupSearch: {
     type: Function,
     default: null
@@ -26,30 +30,21 @@ const props = defineProps({
 });
 
 const { t, text } = useJskitText();
-const formRuntime = computed(() => props.screen?.formRuntime || {});
-const addEdit = computed(() => props.screen?.addEdit || formRuntime.value?.addEdit || {});
-const formState = computed(() => props.screen?.formState || formRuntime.value?.form || {});
-const mode = computed(() => String(unref(props.screen?.mode) || "new").trim() || "new");
+const formRuntime = computed(() => props.screen.formRuntime);
+const addEdit = computed(() => props.screen.addEdit);
+const formState = computed(() => props.screen.formState);
+const mode = computed(() => String(unref(props.screen.mode) || "new").trim() || "new");
 const saveLabel = computed(() =>
-  String(text(unref(props.screen?.saveLabel)) || "").trim() || t("jskit.http.actions.save")
+  String(text(unref(props.screen.saveLabel)) || "").trim() || t("jskit.http.actions.save")
 );
-const cancelTo = computed(() => unref(props.screen?.cancelTo) || "");
+const cancelTo = computed(() => unref(props.screen.cancelTo) || "");
 
 function resolveFieldErrors(fieldKey) {
-  if (typeof props.screen?.resolveFieldErrors === "function") {
-    return props.screen.resolveFieldErrors(fieldKey);
-  }
-  if (typeof formRuntime.value?.resolveFieldErrors === "function") {
-    return formRuntime.value.resolveFieldErrors(fieldKey);
-  }
-  return [];
+  return props.screen.resolveFieldErrors(fieldKey);
 }
 
 function resolveCancelTo(target = cancelTo.value) {
-  if (typeof props.screen?.resolveCancelTo === "function") {
-    return props.screen.resolveCancelTo(target);
-  }
-  return target || "";
+  return props.screen.resolveCancelTo(target);
 }
 </script>
 

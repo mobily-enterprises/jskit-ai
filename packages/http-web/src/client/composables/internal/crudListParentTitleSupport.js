@@ -102,7 +102,7 @@ function resolveCrudListParentDescriptor({ resource = {}, route = null, recordId
     const relation = fieldContractEntry.relation || {};
     const relationNamespace = normalizeText(relation.namespace);
     const containerKey = normalizeCrudLookupContainerKey(relation.containerKey, {
-      defaultValue: resource?.contract?.lookup?.containerKey || "lookups"
+      defaultValue: resource.contract?.lookup?.containerKey || "lookups"
     });
 
     return Object.freeze({
@@ -159,7 +159,7 @@ function resolveCrudListParentRecordTitle(record = {}, descriptor = null) {
   }
 
   const entityLabel = normalizeText(descriptor?.entityLabel) || t("jskit.http.crud.record");
-  const recordId = toRouteParamValue(record?.id);
+  const recordId = toRouteParamValue(record.id);
   if (recordId) {
     return t("jskit.http.crud.parent.recordWithId", { label: entityLabel, id: recordId });
   }

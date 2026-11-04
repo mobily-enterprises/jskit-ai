@@ -37,9 +37,9 @@ Exports
 - None
 Local functions
 - `clearSelection()`
-- `execute(action = {})`
-- `isActionDisabled(action = {})`
-- `isActionExecuting(action = {})`
+- `execute(action)`
+- `isActionDisabled(action)`
+- `isActionExecuting(action)`
 - `actionLabel(action = {})`
 
 ### `src/client/components/CrudListDateFilterControl.vue`
@@ -65,17 +65,17 @@ Local functions
 Exports
 - None
 Local functions
-- `clearChip(chip = {})`
+- `clearChip(chip)`
 - `clearFilters()`
 
 ### `src/client/components/CrudListRecordActionMenu.vue`
 Exports
 - None
 Local functions
-- `isRowActionLoading(action = {})`
-- `rowActionLabel(action = {})`
-- `isRowActionDisabled(action = {})`
-- `runRowAction(action = {})`
+- `isRowActionLoading(action)`
+- `rowActionLabel(action)`
+- `isRowActionDisabled(action)`
+- `runRowAction(action)`
 
 ### `src/client/components/CrudListScreen.vue`
 Exports
@@ -86,8 +86,8 @@ Local functions
 - `resolveViewLocation(record)`
 - `resolveEditLocation(record)`
 - `hasRowActionsFor(record, index)`
-- `isBulkRowSelected(row = {})`
-- `setBulkRowSelected(row = {}, selected = true)`
+- `isBulkRowSelected(row)`
+- `setBulkRowSelected(row, selected = true)`
 - `allSelectableRowsSelected()`
 - `someSelectableRowsSelected()`
 - `setSelectableRowsSelected(selected = true)`
@@ -120,7 +120,7 @@ Exports
 - `CRUD_API_ACCESS_AUTHENTICATED`
 - `CRUD_API_ACCESS_PUBLIC`
 - `normalizeCrudApiAccess(value = "")`
-- `resolveCrudHttpClient(resource = null, { client = null } = {})`
+- `resolveCrudHttpClient(resource = null, { client = getHttpWebClient() } = {})`
 
 ### `src/client/composables/crud/crudJsonApiTransportSupport.js`
 Exports
@@ -182,11 +182,12 @@ Exports
 - `normalizeLookupLabelResolverMap(value = {})`
 - `normalizeLookupRequestQueryParamsMap(value = {})`
 - `resolveLookupSelectedValues(filter = {}, rawValue = undefined)`
-- `createLookupOptionsFromItems(items = [], filter = {}, labelResolver = null)`
+- `createLookupOptionsFromItems(items = [], filter = {}, labelResolver = noCustomLookupLabel)`
 - `mergeSelectedLookupOptions(options = [], selectedValues = [], cachedOptions = new Map())`
 - `resolveLookupOptionLabel(options = [], cachedOptions = new Map(), value = "", fallback = "")`
 Local functions
-- `createLookupOptionFromItem(item = {}, filter = {}, labelResolver = null)`
+- `noCustomLookupLabel()`
+- `createLookupOptionFromItem(item, filter, labelResolver)`
 
 ### `src/client/composables/internal/crudListParentTitleSupport.js`
 Exports
@@ -201,86 +202,87 @@ Local functions
 
 ### `src/client/composables/internal/useOperationScope.js`
 Exports
-- `useOperationScope({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", model, readEnabled = true, queryKeyFactory = null, permissionSets = {}, realtime = null } = {})`
+- `useOperationScope({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", model, readEnabled = true, queryKeyFactory, permissionSets = {}, realtime })`
 Local functions
 - `normalizePermissionSets(permissionSets = {})`
 - `hasAnyPermissions(permissionSets = {})`
 
 ### `src/client/composables/records/useAddEdit.js`
 Exports
-- `useAddEdit({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", resource = null, apiSuffix = "", queryKeyFactory = null, viewPermissions = [], savePermissions = [], readMethod = "GET", readEnabled = true, writeMethod = "PATCH", client = null, transport = null, requestRecovery = null, requestRecoveryLabel = t("jskit.http.resource.label"), placementSource = "http-web.add-edit", fallbackLoadError = t("jskit.http.resource.loadFailed"), fallbackSaveError = "", fieldErrorKeys = [], clearOnRouteChange = true, model, input, mapLoadedToModel, buildRawPayload, buildSavePayload, onSaveSuccess, validationFeedback = true, requestQueryParams = null, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", viewUrlTemplate = "", listUrlTemplate = "", saveRecordIdSelector = null, messages = {}, realtime = null } = {})`
+- `useAddEdit({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", resource = null, apiSuffix = "", queryKeyFactory, viewPermissions = [], savePermissions = [], readMethod = "GET", readEnabled = true, writeMethod = "PATCH", client, transport, requestRecovery, requestRecoveryLabel = t("jskit.http.resource.label"), placementSource = "http-web.add-edit", fallbackLoadError = t("jskit.http.resource.loadFailed"), fallbackSaveError = "", fieldErrorKeys, clearOnRouteChange = true, model, input, mapLoadedToModel, buildRawPayload, buildSavePayload, onSaveSuccess, validationFeedback = true, requestQueryParams, recordIdParam = "recordId", routeParams = null, routeRecordId, apiUrlTemplate = "", viewUrlTemplate = "", listUrlTemplate = "", saveRecordIdSelector, messages = {}, realtime })`
 
 ### `src/client/composables/records/useCrudAddEdit.js`
 Exports
-- `useCrudAddEdit({ resource = null, operationName = "", formFields = [], addEditOptions = {}, saveSuccess = {}, fieldBinding = null, createModel = null, buildPayload = null, mapPayloadToModel = null, input = null } = {})`
+- `useCrudAddEdit({ resource, operationName = "", formFields = [], addEditOptions = {}, saveSuccess = {}, fieldBinding = null, createModel = createCrudFormModel, buildPayload = buildFormPayload, mapPayloadToModel, input })`
 Local functions
 - `resolvePassedAddEditOptions(addEditOptions = {})`
 - `normalizeSaveSuccessOptions(options = {})`
+- `buildFormPayload(model, { fields })`
 
 ### `src/client/composables/records/useCrudList.js`
 Exports
-- `useCrudList({ resource = null, requestQueryParams = null, parentBinding = null, recordIdParam = "recordId", route = null, realtime = undefined, ...listOptions } = {})`
+- `useCrudList({ resource = null, requestQueryParams = null, parentBinding = null, recordIdParam = "recordId", route = null, realtime, ...listOptions })`
 Local functions
 - `resolveRequestQueryParamsInput(requestQueryParams, context = {})`
 - `resolveCrudParentRequestQueryParams({ resource = {}, route = null, recordIdParam = "recordId" } = {})`
 
 ### `src/client/composables/records/useCrudView.js`
 Exports
-- `useCrudView({ resource = null, paramBinding = null, route = null, ...viewOptions } = {})`
+- `useCrudView({ resource, paramBinding = null, route = null, ...viewOptions })`
 
 ### `src/client/composables/records/useList.js`
 Exports
-- `useList({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", queryKeyFactory = null, viewPermissions = [], readEnabled = true, placementSource = "http-web.list", fallbackLoadError = t("jskit.http.list.loadFailed"), initialPageParam = null, getNextPageParam, selectItems, client = null, transport = null, requestOptions, queryOptions, requestRecovery, requestRecoveryLabel = t("jskit.http.list.label"), realtime = null, recordIdParam = "recordId", recordIdSelector = null, viewUrlTemplate = "", editUrlTemplate = "", search = null, queryParams = null, routeQueryValueResolvers = null, requestQueryParams = null, requestFieldsets = null, syncToRoute = false } = {})`
+- `useList({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", queryKeyFactory, viewPermissions = [], readEnabled = true, placementSource = "http-web.list", fallbackLoadError = t("jskit.http.list.loadFailed"), initialPageParam, getNextPageParam, selectItems, client, transport, requestOptions, queryOptions, requestRecovery, requestRecoveryLabel = t("jskit.http.list.label"), realtime, recordIdParam = "recordId", recordIdSelector, viewUrlTemplate = "", editUrlTemplate = "", search = null, queryParams = null, routeQueryValueResolvers = null, requestQueryParams, requestFieldsets, syncToRoute = false })`
 
 ### `src/client/composables/records/useView.js`
 Exports
-- `useView({ resource = null, ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", queryKeyFactory = null, viewPermissions = [], readMethod = "GET", readEnabled = true, client = null, transport = null, requestRecovery = null, requestRecoveryLabel = t("jskit.http.resource.label"), placementSource = "http-web.view", fallbackLoadError = t("jskit.http.resource.loadFailed"), notFoundStatuses = [404], notFoundMessage = t("jskit.http.crud.recordNotFound"), model, mapLoadedToModel, requestQueryParams = null, requestFieldsets = null, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", listUrlTemplate = "", editUrlTemplate = "", includeRecordIdInQueryKey = false, realtime = undefined } = {})`
+- `useView({ resource, ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", queryKeyFactory, viewPermissions = [], readMethod = "GET", readEnabled = true, client, transport, requestRecovery, requestRecoveryLabel = t("jskit.http.resource.label"), placementSource = "http-web.view", fallbackLoadError = t("jskit.http.resource.loadFailed"), notFoundStatuses = [404], notFoundMessage = t("jskit.http.crud.recordNotFound"), model, mapLoadedToModel, requestQueryParams, requestFieldsets, recordIdParam = "recordId", routeParams = null, routeRecordId, apiUrlTemplate = "", listUrlTemplate = "", editUrlTemplate = "", includeRecordIdInQueryKey = false, realtime })`
 
 ### `src/client/composables/runtime/addEditUiRuntime.js`
 Exports
-- `createAddEditUiRuntime({ recordIdParam = "recordId", routeParams = null, routeParamNames = null, routePath = "", routeRecordId = null, apiUrlTemplate = "", viewUrlTemplate = "", listUrlTemplate = "", saveRecordIdSelector = null } = {})`
-Local functions
-- `resolveSavedRecordId(payload, saveRecordIdSelector)`
+- `createAddEditUiRuntime({ recordIdParam = "recordId", routeParams, routeParamNames, routePath = "", routeRecordId, apiUrlTemplate = "", viewUrlTemplate = "", listUrlTemplate = "", saveRecordIdSelector = selectRecordId })`
 
 ### `src/client/composables/runtime/listUiRuntime.js`
 Exports
-- `createListUiRuntime({ items, isInitialLoading, recordIdParam = "recordId", recordIdSelector = null, routeParams = null, routeParamNames = null, routePath = "", viewUrlTemplate = "", editUrlTemplate = "" } = {})`
-Local functions
-- `resolveRecordId(record, recordIdSelector)`
+- `createListUiRuntime({ items, isInitialLoading, recordIdParam = "recordId", recordIdSelector = selectRecordId, routeParams, routeParamNames, routePath = "", viewUrlTemplate = "", editUrlTemplate = "" })`
 
 ### `src/client/composables/runtime/modelStateHelpers.js`
 Exports
+- `ignoreLoadedPayload()`
 - `captureModelSnapshot(model)`
 - `restoreModelSnapshot(model, snapshot)`
-- `watchResourceModelState({ resource, model, mapLoadedToModel, resolveMapContext = null } = {})`
+- `watchResourceModelState({ resource, model, mapLoadedToModel = ignoreLoadedPayload, resolveMapContext })`
 Local functions
 - `isObjectLike(value)`
 - `deepClone(value)`
 
 ### `src/client/composables/runtime/operationUiHelpers.js`
 Exports
-- `setupRouteChangeCleanup({ enabled = true, route = null, feedback = null, fieldBag = null, onClear = null } = {})`
-- `setupOperationErrorReporting({ enabled = true, source = "http-web.operation", loadError = null, notFoundError = null, loadActionFactory = null, notFoundActionFactory = null, loadChannel = "", notFoundChannel = "", loadSeverity = "error", notFoundSeverity = "warning", dedupeWindowMs = 2000 } = {})`
+- `setupRouteChangeCleanup({ enabled = true, route, feedback, onClear })`
+- `setupOperationErrorReporting({ enabled = true, source = "http-web.operation", loadError = null, notFoundError = null, loadActionFactory = noRetryAction, notFoundActionFactory = noRetryAction, loadChannel = "", notFoundChannel = "", loadSeverity = "error", notFoundSeverity = "warning", dedupeWindowMs = 2000 } = {})`
 Local functions
 - `normalizeMessage(value)`
+- `noRetryAction()`
 
 ### `src/client/composables/runtime/operationValidationHelpers.js`
 Exports
-- `validateOperationInput({ input, rawPayload = {}, fieldBag = null, feedback = null, validationMessage = "" } = {})`
+- `validateOperationInput({ input, rawPayload = {}, fieldBag = SILENT_FIELD_BAG, feedback = SILENT_FEEDBACK, validationMessage = "" })`
 
 ### `src/client/composables/runtime/useAddEditCore.js`
 Exports
-- `useAddEditCore({ model, resource, queryKey, canSave, fieldBag, feedback, input, mapLoadedToModel, buildRawPayload, buildSavePayload, onSaveSuccess, validationFeedback = true, messages = {} } = {})`
+- `useAddEditCore({ model, resource, queryKey, canSave, fieldBag, feedback, input, mapLoadedToModel = ignoreLoadedPayload, buildRawPayload = emptyRecord, buildSavePayload = saveParsedInput, onSaveSuccess, validationFeedback = true, messages = {} })`
+Local functions
+- `saveParsedInput(parsedInput)`
 
 ### `src/client/composables/runtime/useCommandCore.js`
 Exports
-- `useCommandCore({ model, resource, writeMethod = "POST", canRun, fieldBag, feedback, input, buildRawPayload, buildCommandPayload, buildCommandOptions, onRunSuccess, onRunError, suppressSuccessMessage = false, messages = {} } = {})`
+- `useCommandCore({ model, resource, writeMethod = "POST", canRun, fieldBag, feedback, input, buildRawPayload = emptyRecord, buildCommandPayload, buildCommandOptions = emptyRecord, onRunSuccess, onRunError, suppressSuccessMessage = false, messages = {} })`
 
 ### `src/client/composables/runtime/useEndpointResource.js`
 Exports
 - `buildEndpointReadRequestOptions({ method = "GET", query = null, transport = null } = {})`
 - `buildEndpointWriteRequestOptions({ method = "PATCH", body = undefined, options = null, transport = null } = {})`
-- `useEndpointResource({ queryKey, path = "", enabled = true, client = null, readMethod = "GET", writeMethod = "PATCH", readQuery = null, transport = null, refreshOnPull = false, realtime = null, queryOptions = null, mutationOptions = null, requestRecovery = null, // No label: shell-web's request recovery names the app. requestRecoveryLabel = "", fallbackLoadError = "jskit.http.resource.loadFailed", fallbackSaveError = "jskit.http.resource.saveFailed" } = {})`
+- `useEndpointResource({ queryKey, path = "", enabled = true, client = getHttpWebClient(), readMethod = "GET", writeMethod = "PATCH", readQuery, transport, refreshOnPull = false, realtime, queryOptions = null, mutationOptions = null, requestRecovery = null, // No label: shell-web's request recovery names the app. requestRecoveryLabel = "", fallbackLoadError = "jskit.http.resource.loadFailed", fallbackSaveError = "jskit.http.resource.saveFailed" })`
 Local functions
 - `resolveRequestQuery(value = null)`
 
@@ -292,7 +294,7 @@ Exports
 ### `src/client/composables/runtime/useListCore.js`
 Exports
 - `buildListRequestOptions({ requestOptions = null, transport = null, pageParam = null } = {})`
-- `useListCore({ queryKey, path = "", enabled = true, client = null, transport = null, initialPageParam = null, getNextPageParam, selectItems, requestOptions = null, queryOptions = null, requestRecovery = null, requestRecoveryLabel = t("jskit.http.list.label"), fallbackLoadError = t("jskit.http.list.loadFailed") } = {})`
+- `useListCore({ queryKey, path = "", enabled = true, client = getHttpWebClient(), transport, initialPageParam, getNextPageParam, selectItems, requestOptions, queryOptions = null, requestRecovery = null, requestRecoveryLabel = t("jskit.http.list.label"), fallbackLoadError = t("jskit.http.list.loadFailed") })`
 Local functions
 - `resolveRequestOptionsObject(value = null)`
 - `resolveListRequestMethod(requestOptions = null)`
@@ -303,13 +305,13 @@ Exports
 
 ### `src/client/composables/runtime/useViewCore.js`
 Exports
-- `useViewCore({ resource, model, canView, mapLoadedToModel, notFoundStatuses = [404], notFoundMessage = "" } = {})`
+- `useViewCore({ resource, model, canView, mapLoadedToModel, notFoundStatuses = [404], notFoundMessage = "" })`
 Local functions
 - `normalizeStatusList(value)`
 
 ### `src/client/composables/runtime/viewUiRuntime.js`
 Exports
-- `createViewUiRuntime({ recordIdParam = "recordId", routeParams = null, routeParamNames = null, routePath = "", routeRecordId = null, apiUrlTemplate = "", listUrlTemplate = "", editUrlTemplate = "" } = {})`
+- `createViewUiRuntime({ recordIdParam = "recordId", routeParams, routeParamNames, routePath = "", routeRecordId, apiUrlTemplate = "", listUrlTemplate = "", editUrlTemplate = "" })`
 
 ### `src/client/composables/support/errorMessageHelpers.js`
 Exports
@@ -380,6 +382,7 @@ Local functions
 Exports
 - `normalizeRouteParamName(value = "", { context = "http-web route param" } = {})`
 - `toRouteParamValue(value)`
+- `selectRecordId(record)`
 - `resolveRouteParamsSource(source = null)`
 - `resolveRouteParamNamesSource(source = [])`
 - `resolveRoutePathnameSource(source = "")`
@@ -390,7 +393,6 @@ Exports
 - `extractRouteParamNames(pathTemplate = "")`
 - `resolveRouteParamNamesInOrder(route = null)`
 Local functions
-- `resolveRouteSourceValue(source = null)`
 - `normalizeRouteParamNameList(value = [])`
 - `normalizeRoutePathname(value = "")`
 - `segmentMatchesParamValue(segment = "", paramValue = "")`
@@ -401,6 +403,7 @@ Local functions
 ### `src/client/composables/support/scopeHelpers.js`
 Exports
 - `asPlainObject(value)`
+- `emptyRecord()`
 - `normalizePermissions(value)`
 - `resolvePermissionAccess(access, normalizedPermissions = [])`
 - `normalizeAccessMode(value = "auto")`
@@ -421,11 +424,11 @@ Local functions
 
 ### `src/client/composables/useCommand.js`
 Exports
-- `useCommand({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", runPermissions = [], writeMethod = "POST", client = null, resource: commandResource = null, transport = null, placementSource = "http-web.command", fallbackRunError = "jskit.http.feedback.actionFailed", fieldErrorKeys = [], clearOnRouteChange = true, model, input, buildRawPayload, buildCommandPayload, buildCommandOptions, onRunSuccess, onRunError, suppressSuccessMessage = false, messages = {}, realtime = null } = {})`
+- `useCommand({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", runPermissions = [], writeMethod = "POST", client, resource: commandResource = null, transport, placementSource = "http-web.command", fallbackRunError = "jskit.http.feedback.actionFailed", fieldErrorKeys, clearOnRouteChange = true, model, input, buildRawPayload, buildCommandPayload, buildCommandOptions, onRunSuccess, onRunError, suppressSuccessMessage = false, messages = {}, realtime })`
 
 ### `src/client/composables/useCrudAddEditScreen.js`
 Exports
-- `useCrudAddEditScreen({ screen = null, mode = "new", title = "", subtitle = "", saveLabel = "", cancelTo = "", resource = null, operationName = "", formFields = [], addEditOptions = {}, saveSuccess = {}, fieldBinding = null, createModel = null, buildPayload = null, mapPayloadToModel = null, input = null, preserveCancelQuery = false } = {})`
+- `useCrudAddEditScreen({ screen = null, mode = "new", title = "", subtitle = "", saveLabel = "", cancelTo = "", resource, operationName = "", formFields, addEditOptions, saveSuccess, fieldBinding, createModel, buildPayload, mapPayloadToModel, input, preserveCancelQuery = false })`
 Local functions
 - `normalizeProvidedScreen(screen = null)`
 
@@ -433,14 +436,13 @@ Local functions
 Exports
 - `requireCrudDeleteOperation(resource = null)`
 - `resolveDeleteApiSuffix(screen, apiUrlTemplate = "")`
-- `useCrudDeleteAction({ screen = null, resource = null, resourceNamespace = "", apiUrlTemplate = "", access = "auto", client = null, router: routerOverride = null, fallbackDeleteError = t("jskit.http.crud.delete.failed") } = {})`
+- `useCrudDeleteAction({ screen, resource = null, resourceNamespace = "", apiUrlTemplate = "", access = "auto", client, router = useRouter(), fallbackDeleteError = t("jskit.http.crud.delete.failed") })`
 Local functions
-- `requireCrudViewScreen(screen = null)`
 - `resolveListLocation(screen)`
 
 ### `src/client/composables/useCrudListBulkActions.js`
 Exports
-- `useCrudListBulkActions(actions = [], { resolveRecordId = null, resolveContext = null } = {})`
+- `useCrudListBulkActions(actions = [], { resolveRecordId = selectListRecordId, resolveContext = emptyRecord } = {})`
 
 ### `src/client/composables/useCrudListFilterLookups.js`
 Exports
@@ -457,28 +459,28 @@ Local functions
 - `assignFilterValue(values, filter = {}, rawValue)`
 - `resetFilterValue(values, filter = {})`
 - `applyPresetFilterValue(values, filter = {}, rawValue)`
-- `createQueryParams(values, filterEntries = [])`
+- `createQueryParams(values, filterEntries)`
 - `resolveFilterRouteValue(filter, routeValue, { initial = false } = {})`
-- `createRouteQueryValueResolvers(filterEntries = [])`
+- `createRouteQueryValueResolvers(filterEntries)`
 - `resolveAtomicValueLabel(filter = {}, value = "", labelResolvers = {})`
 - `formatDefaultChipLabel(filter = {}, chipValue, labelResolvers = {})`
 
 ### `src/client/composables/useCrudListParentTitle.js`
 Exports
-- `useCrudListParentTitle({ listRuntime = null, resource = {}, recordIdParam = "recordId", queryKeyPrefix = ["http-web", "crud-list-parent-title"], placementSource = "http-web.crud-list-parent-title", fallbackLoadError = t("jskit.http.crud.parent.loadFailed"), notFoundMessage = t("jskit.http.crud.parent.notFound"), route = null, viewRuntimeFactory = useView } = {})`
+- `useCrudListParentTitle({ listRuntime, resource = {}, recordIdParam = "recordId", queryKeyPrefix = ["http-web", "crud-list-parent-title"], placementSource = "http-web.crud-list-parent-title", fallbackLoadError = t("jskit.http.crud.parent.loadFailed"), notFoundMessage = t("jskit.http.crud.parent.notFound"), route = null, viewRuntimeFactory = useView })`
 Local functions
 - `normalizeQueryKeyPrefix(value = [])`
 
 ### `src/client/composables/useCrudListRowActions.js`
 Exports
-- `useCrudListRowActions(actions = [], { resolveRecordId = null, resolveContext = null } = {})`
+- `useCrudListRowActions(actions = [], { resolveRecordId = selectListRecordId, resolveContext = emptyRecord } = {})`
 Local functions
 - `createExecutionKey(actionKey = "", recordId = "", index = 0)`
 
 ### `src/client/composables/useCrudListScreen.js`
 Exports
 - `__testables`
-- `useCrudListScreen({ client = null, resource = null, resourceNamespace = "resource", apiSuffix = "", recordIdParam = "recordId", recordIdSelector = null, titleFallbackFieldKey = "", viewUrlTemplate = "", editUrlTemplate = "", newUrlTemplate = "", recordChangedEvents = [], listFilters = {}, listBulkActions = [], listRowActions = [], syntheticRows = null, routeQueryBlacklist = Object.freeze(["include", "cursor", "limit"]), requestQueryParams = null, requestFieldsets = null, readEnabled = true, requestRecoveryLabel = t("jskit.http.crud.records"), fallbackLoadError = t("jskit.http.crud.list.loadFailed") } = {})`
+- `useCrudListScreen({ client, resource, resourceNamespace = "resource", apiSuffix = "", recordIdParam = "recordId", recordIdSelector, titleFallbackFieldKey = "", viewUrlTemplate = "", editUrlTemplate = "", newUrlTemplate = "", recordChangedEvents = [], listFilters = NO_LIST_FILTERS, listBulkActions, listRowActions = NO_LIST_ACTIONS, syntheticRows = null, routeQueryBlacklist = Object.freeze(["include", "cursor", "limit"]), requestQueryParams, requestFieldsets, readEnabled = true, requestRecoveryLabel = t("jskit.http.crud.records"), fallbackLoadError = t("jskit.http.crud.list.loadFailed") })`
 Local functions
 - `buildCrudListActionContext(records, client)`
 - `formatCrudListCardValue(value)`
@@ -487,15 +489,15 @@ Local functions
 - `normalizeSyntheticDisplayRow(source = null, index = 0, placement = "prepend")`
 - `normalizeSyntheticDisplayRows(value = [], placement = "prepend")`
 - `normalizeSyntheticDisplayRowGroups(syntheticRows = null)`
-- `createCrudListDisplayRow(record = {}, index = 0, records = {})`
+- `createCrudListDisplayRow(record, index, records)`
 
 ### `src/client/composables/useCrudViewScreen.js`
 Exports
-- `useCrudViewScreen({ resource = null, resourceNamespace = "resource", apiUrlTemplate = "", recordIdParam = "recordId", titleFallbackFieldKey = "", listUrlTemplate = "", editUrlTemplate = "", recordChangedEvent = "", requestQueryParams = null, requestFieldsets = null, readEnabled = true, queryKeyFactory = null, requestRecoveryLabel = t("jskit.http.crud.record"), fallbackLoadError = t("jskit.http.crud.view.loadFailed"), notFoundMessage = t("jskit.http.crud.recordNotFound") } = {})`
+- `useCrudViewScreen({ resource, resourceNamespace = "resource", apiUrlTemplate = "", recordIdParam = "recordId", titleFallbackFieldKey = "", listUrlTemplate = "", editUrlTemplate = "", recordChangedEvent = "", requestQueryParams, requestFieldsets, readEnabled = true, queryKeyFactory = null, requestRecoveryLabel = t("jskit.http.crud.record"), fallbackLoadError = t("jskit.http.crud.view.loadFailed"), notFoundMessage = t("jskit.http.crud.recordNotFound") })`
 
 ### `src/client/composables/usePagedCollection.js`
 Exports
-- `usePagedCollection({ queryKey, enabled = true, initialPageParam = null, queryFn, getNextPageParam = defaultGetNextPageParam, selectItems = defaultSelectItems, dedupeBy = null, queryOptions = null, fallbackLoadError = t("jskit.http.list.loadFailed") } = {})`
+- `usePagedCollection({ queryKey, enabled = true, initialPageParam = FIRST_PAGE_PARAM, queryFn, getNextPageParam = defaultGetNextPageParam, selectItems = defaultSelectItems, dedupeBy, queryOptions = null, fallbackLoadError = t("jskit.http.list.loadFailed") })`
 - `trimInfinitePagesToFirst(data = null)`
 Local functions
 - `defaultSelectItems(page)`
@@ -505,7 +507,7 @@ Local functions
 ### `src/client/composables/useRealtimeQueryInvalidation.js`
 Exports
 - `resolveOperationRealtimeOptions({ realtime = undefined, fallbackRealtime = null } = {})`
-- `useRealtimeQueryInvalidation({ event = "", enabled = true, matches, queryKey = null, onEvent = null } = {})`
+- `useRealtimeQueryInvalidation({ event = "", enabled = true, matches, queryKey = null, onEvent })`
 - `useOperationRealtime({ realtime = null, queryKey = null, enabled = true } = {})`
 Local functions
 - `normalizeRealtimeOptions(value = {})`
@@ -571,10 +573,10 @@ Exports
 - `configureHttpWebClient(optionsOrClient = {})`
 - `createHttpWebClient(options = {})`
 - `getHttpWebClient()`
-- `resetHttpWebClientForTests()`
 - `httpWebClient`
 Local functions
 - `normalizeOptions(value = null)`
+- `isHttpClient(source)`
 
 ### `src/client/lib/permissions.js`
 Exports
@@ -598,8 +600,10 @@ Exports
 Exports
 - `defineCrudListActions(actions, { name, createAction })`
 - `normalizeListActionKey(actionOrKey = "")`
-- `resolveListRecordId(record = {}, index = 0, resolveRecordId = null)`
-- `resolveListActionBaseContext(resolveContext = null)`
+- `resolveListActionFlag(flag, resolveFlagContext)`
+- `resolveListRecordId(record, index, resolveRecordId)`
+- `resolveListActionBaseContext(resolveContext)`
+- `selectListRecordId(record, index)`
 
 ### `src/client/support/crudListDateFilterSupport.js`
 Exports
@@ -616,6 +620,75 @@ Exports
 Local functions
 - `readOption(item, key, fallback)`
 - `selectedValues(modelValue, multiple)`
+
+### `src/client/types.js`
+Exports
+- `type HttpClient`
+- `type CrudResource`
+- `type TextSource`
+- `type EnabledSource`
+- `type ApiSuffix`
+- `type ReadEnabled`
+- `type QueryKeyFactory`
+- `type RequestRecovery`
+- `type RequestQueryParams`
+- `type MapLoadedToModel`
+- `type OperationRealtime`
+- `type RealtimeQueryInvalidationOptions`
+- `type OperationRealtimeOptions`
+- `type EndpointResourceOptions`
+- `type EndpointResource`
+- `type PagedCollectionOptions`
+- `type PagedCollection`
+- `type ListCoreOptions`
+- `type UiFeedbackOptions`
+- `type UiFeedback`
+- `type FieldErrorBag`
+- `type OperationErrorReporting`
+- `type OperationInputCheck`
+- `type ScopeRuntimeOptions`
+- `type ScopeRuntime`
+- `type AccessOptions`
+- `type AccessRuntime`
+- `type OperationScopeOptions`
+- `type OperationScope`
+- `type AddEditCoreOptions`
+- `type CommandCoreOptions`
+- `type ViewCoreOptions`
+- `type RouteTemplateOptions`
+- `type AddEditUiRuntimeOptions`
+- `type ViewUiRuntimeOptions`
+- `type ListUiRuntimeOptions`
+- `type AddEditOptions`
+- `type AddEditRuntime`
+- `type CommandOptions`
+- `type CommandRuntime`
+- `type ViewOptions`
+- `type ViewRuntime`
+- `type CrudViewOptions`
+- `type ListOptions`
+- `type ListRuntime`
+- `type CrudListOptions`
+- `type CrudListActionDefinition`
+- `type CrudListBulkActionDefinition`
+- `type CrudListRowActionDefinition`
+- `type CrudListActionOptions`
+- `type CrudListBulkActions`
+- `type CrudListRowActions`
+- `type CrudListFiltersOptions`
+- `type CrudListFilterRuntime`
+- `type CrudListFilterLookupsOptions`
+- `type CrudListParentTitleOptions`
+- `type CrudDeleteActionOptions`
+- `type CrudDeleteAction`
+- `type CrudAddEditOptions`
+- `type CrudAddEditRuntime`
+- `type CrudAddEditScreenOptions`
+- `type CrudAddEditScreen`
+- `type CrudViewScreenOptions`
+- `type CrudViewScreen`
+- `type CrudListScreenOptions`
+- `type CrudListScreen`
 
 ### fixtures
 

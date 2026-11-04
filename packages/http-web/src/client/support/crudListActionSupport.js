@@ -34,21 +34,29 @@ function normalizeListActionKey(actionOrKey = "") {
   );
 }
 
-function resolveListRecordId(record = {}, index = 0, resolveRecordId = null) {
-  const resolvedId = typeof resolveRecordId === "function"
-    ? resolveRecordId(record, index)
-    : record?.id ?? record?.attributes?.id ?? index;
-  return normalizeText(resolvedId);
+function selectListRecordId(record, index) {
+  return record.id ?? record.attributes?.id ?? index;
 }
 
-function resolveListActionBaseContext(resolveContext = null) {
-  const baseContext = typeof resolveContext === "function" ? resolveContext() : {};
+function resolveListRecordId(record, index, resolveRecordId) {
+  return normalizeText(resolveRecordId(record, index));
+}
+
+function resolveListActionBaseContext(resolveContext) {
+  const baseContext = resolveContext();
   return baseContext && typeof baseContext === "object" && !Array.isArray(baseContext) ? baseContext : {};
+}
+
+// readable-check: allow method-probe - input validation: an action's disabled, visible and loading are each a value or a function of the action's context
+function resolveListActionFlag(flag, resolveFlagContext) {
+  return typeof flag === "function" ? flag(resolveFlagContext()) : flag;
 }
 
 export {
   defineCrudListActions,
   normalizeListActionKey,
+  resolveListActionFlag,
   resolveListRecordId,
-  resolveListActionBaseContext
+  resolveListActionBaseContext,
+  selectListRecordId
 };

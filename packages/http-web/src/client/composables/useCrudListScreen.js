@@ -9,6 +9,9 @@ import { useJskitText } from "../i18n.js";
 
 const { t } = useJskitText();
 
+const NO_LIST_FILTERS = Object.freeze({});
+const NO_LIST_ACTIONS = Object.freeze([]);
+
 function buildCrudListActionContext(records, client) {
   return Object.freeze({
     records,
@@ -97,11 +100,8 @@ function normalizeSyntheticDisplayRowGroups(syntheticRows = null) {
   });
 }
 
-function createCrudListDisplayRow(record = {}, index = 0, records = {}) {
-  const resolveRowKey = typeof records.resolveRowKey === "function"
-    ? records.resolveRowKey
-    : (_record, fallbackIndex) => fallbackIndex;
-  const recordKey = String(resolveRowKey(record, index) || index);
+function createCrudListDisplayRow(record, index, records) {
+  const recordKey = String(records.resolveRowKey(record, index) || index);
   return Object.freeze({
     key: `record:${recordKey}`,
     recordKey,
@@ -113,29 +113,30 @@ function createCrudListDisplayRow(record = {}, index = 0, records = {}) {
   });
 }
 
+/** @param {import("../types.js").CrudListScreenOptions} options */
 function useCrudListScreen({
-  client = null,
-  resource = null,
+  client,
+  resource,
   resourceNamespace = "resource",
   apiSuffix = "",
   recordIdParam = "recordId",
-  recordIdSelector = null,
+  recordIdSelector,
   titleFallbackFieldKey = "",
   viewUrlTemplate = "",
   editUrlTemplate = "",
   newUrlTemplate = "",
   recordChangedEvents = [],
-  listFilters = {},
-  listBulkActions = [],
-  listRowActions = [],
+  listFilters = NO_LIST_FILTERS,
+  listBulkActions,
+  listRowActions = NO_LIST_ACTIONS,
   syntheticRows = null,
   routeQueryBlacklist = Object.freeze(["include", "cursor", "limit"]),
-  requestQueryParams = null,
-  requestFieldsets = null,
+  requestQueryParams,
+  requestFieldsets,
   readEnabled = true,
   requestRecoveryLabel = t("jskit.http.crud.records"),
   fallbackLoadError = t("jskit.http.crud.list.loadFailed")
-} = {}) {
+}) {
   const crudHttpClient = resolveCrudHttpClient(resource, { client });
   const filterRuntime = useCrudListFilters(listFilters);
   const normalizedRecordChangedEvents = Array.isArray(recordChangedEvents)
@@ -215,7 +216,7 @@ function useCrudListScreen({
     });
   }
 
-  return Object.freeze({
+  return {
     records,
     listFilters,
     filterRuntime,
@@ -229,7 +230,7 @@ function useCrudListScreen({
     hasEditUrl: records.hasEditUrl,
     resolveRecordTitle,
     formatListCardValue: formatCrudListCardValue
-  });
+  };
 }
 
 const __testables = Object.freeze({

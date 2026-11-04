@@ -55,26 +55,22 @@ function resolveListRequestMethod(requestOptions = null) {
   return String(resolveRequestOptionsObject(requestOptions).method || "GET").toUpperCase();
 }
 
+/** @param {import("../../types.js").ListCoreOptions} options */
 function useListCore({
   queryKey,
   path = "",
   enabled = true,
-  client = null,
-  transport = null,
-  initialPageParam = null,
+  client = getHttpWebClient(),
+  transport,
+  initialPageParam,
   getNextPageParam,
   selectItems,
-  requestOptions = null,
+  requestOptions,
   queryOptions = null,
   requestRecovery = null,
   requestRecoveryLabel = t("jskit.http.list.label"),
   fallbackLoadError = t("jskit.http.list.loadFailed")
-} = {}) {
-  const activeClient = client || getHttpWebClient();
-  if (!activeClient || typeof activeClient.request !== "function") {
-    throw new TypeError("useListCore requires a client with request().");
-  }
-
+}) {
   const normalizedPath = computed(() => resolveTextRef(path));
   const queryEnabled = computed(() => resolveEnabledRef(enabled) && Boolean(normalizedPath.value));
 
@@ -90,7 +86,7 @@ function useListCore({
 
       const options = buildListRequestOptions({ requestOptions, transport, pageParam });
       options.signal = options.signal ? AbortSignal.any([signal, options.signal]) : signal;
-      return activeClient.request(requestPath, options);
+      return client.request(requestPath, options);
     },
     getNextPageParam,
     selectItems,

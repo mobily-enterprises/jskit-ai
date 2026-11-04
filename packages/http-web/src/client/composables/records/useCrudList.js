@@ -2,10 +2,6 @@ import { computed, unref } from "vue";
 import { useRoute } from "vue-router";
 import { resolveCrudJsonApiTransport } from "../crud/crudJsonApiTransportSupport.js";
 import { resolveCrudHttpClient } from "../crud/crudHttpClientSupport.js";
-import {
-  resolveLookupFieldDisplayValue,
-  resolveRecordTitle
-} from "../crud/crudLookupFieldLabelSupport.js";
 import { resolveCrudBoundValues } from "../crud/crudBindingSupport.js";
 import { resolveCrudListParentDescriptor } from "../internal/crudListParentTitleSupport.js";
 import {
@@ -45,15 +41,16 @@ function resolveCrudParentRequestQueryParams({ resource = {}, route = null, reco
   };
 }
 
+/** @param {import("../../types.js").CrudListOptions} options */
 function useCrudList({
   resource = null,
   requestQueryParams = null,
   parentBinding = null,
   recordIdParam = "recordId",
   route = null,
-  realtime = undefined,
+  realtime,
   ...listOptions
-} = {}) {
+}) {
   const sourceRoute = route && typeof route === "object" ? route : useRoute();
   const boundParentRequestQueryParams = computed(() => {
     return resolveCrudBoundValues({
@@ -70,7 +67,7 @@ function useCrudList({
       })
     });
   });
-  const records = useList({
+  return useList({
     ...listOptions,
     client: resolveCrudHttpClient(resource, {
       client: listOptions.client
@@ -92,10 +89,6 @@ function useCrudList({
       };
     }
   });
-
-  records.resolveFieldDisplay = resolveLookupFieldDisplayValue;
-  records.resolveRecordTitle = resolveRecordTitle;
-  return records;
 }
 
 export { useCrudList };

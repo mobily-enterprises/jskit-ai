@@ -6,8 +6,9 @@ import { useJskitText } from "../i18n.js";
 
 const { t } = useJskitText();
 
+/** @param {import("../types.js").CrudViewScreenOptions} options */
 function useCrudViewScreen({
-  resource = null,
+  resource,
   resourceNamespace = "resource",
   apiUrlTemplate = "",
   recordIdParam = "recordId",
@@ -15,14 +16,14 @@ function useCrudViewScreen({
   listUrlTemplate = "",
   editUrlTemplate = "",
   recordChangedEvent = "",
-  requestQueryParams = null,
-  requestFieldsets = null,
+  requestQueryParams,
+  requestFieldsets,
   readEnabled = true,
   queryKeyFactory = null,
   requestRecoveryLabel = t("jskit.http.crud.record"),
   fallbackLoadError = t("jskit.http.crud.view.loadFailed"),
   notFoundMessage = t("jskit.http.crud.recordNotFound")
-} = {}) {
+}) {
   const route = useRoute();
   const normalizedResourceNamespace = String(resourceNamespace || "resource").trim() || "resource";
   const defaultQueryKeyFactory = (surfaceId = "", workspaceSlug = "") => [
@@ -37,7 +38,7 @@ function useCrudViewScreen({
     apiUrlTemplate,
     recordIdParam,
     includeRecordIdInQueryKey: true,
-    queryKeyFactory: typeof queryKeyFactory === "function" ? queryKeyFactory : defaultQueryKeyFactory,
+    queryKeyFactory: queryKeyFactory ?? defaultQueryKeyFactory,
     requestQueryParams,
     requestFieldsets,
     readEnabled,
@@ -68,12 +69,12 @@ function useCrudViewScreen({
   const listLocation = computed(() => resolveRouteLocation(listUrlTemplate));
   const editLocation = computed(() => resolveRouteLocation(editUrlTemplate));
 
-  return Object.freeze({
+  return {
     view,
     recordTitle,
     listLocation,
     editLocation
-  });
+  };
 }
 
 export { useCrudViewScreen };

@@ -9,8 +9,8 @@ const props = defineProps({
     default: () => []
   },
   runtime: {
-    type: Object,
-    default: null
+    type: /** @type {import("vue").PropType<import("../types.js").CrudListFilterRuntime>} */ (Object),
+    required: true
   },
   stacked: {
     type: Boolean,
@@ -19,7 +19,7 @@ const props = defineProps({
 });
 
 const { t, text } = useJskitText();
-const runtimeValues = computed(() => props.runtime?.values || {});
+const runtimeValues = computed(() => props.runtime.values);
 
 function optionItems(filter = {}) {
   return Array.isArray(filter.options) ? filter.options : [];
@@ -32,7 +32,7 @@ function filterLabel(filter = {}, key = "", params = {}) {
 }
 
 function placeholder(filter = {}, fallbackKey = "") {
-  return String(text(filter?.ui?.placeholder) || (fallbackKey ? t(fallbackKey) : "")).trim();
+  return String(text(filter.ui?.placeholder) || (fallbackKey ? t(fallbackKey) : "")).trim();
 }
 </script>
 

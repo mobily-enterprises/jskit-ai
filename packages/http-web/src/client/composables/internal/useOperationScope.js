@@ -32,6 +32,7 @@ function hasAnyPermissions(permissionSets = {}) {
   return false;
 }
 
+/** @param {import("../../types.js").OperationScopeOptions} options */
 function useOperationScope({
   ownershipFilter = ROUTE_VISIBILITY_WORKSPACE,
   surfaceId = "",
@@ -39,10 +40,10 @@ function useOperationScope({
   apiSuffix = "",
   model,
   readEnabled = true,
-  queryKeyFactory = null,
+  queryKeyFactory,
   permissionSets = {},
-  realtime = null
-} = {}) {
+  realtime
+}) {
   const normalizedPermissionSets = normalizePermissionSets(permissionSets);
   const scopeRuntime = useScopeRuntime({
     ownershipFilter,
@@ -80,6 +81,7 @@ function useOperationScope({
   );
   const realtimeBinding = useOperationRealtime({
     realtime,
+    // readable-check: allow method-probe - optional operation: a command reads nothing, so it has no queryKeyFactory and no key to refresh
     queryKey: typeof queryKeyFactory === "function" ? queryKey : null,
     enabled: computed(() => hasRequiredRouteScope.value && Boolean(apiPath.value))
   });
@@ -121,7 +123,7 @@ function useOperationScope({
     return computed(() => Boolean(unref(baseLoading)) || accessRuntime.awaitingPlacementPermissions.value);
   }
 
-  return Object.freeze({
+  return {
     scopeRuntime,
     routeContext,
     normalizedOwnershipFilter,
@@ -136,7 +138,7 @@ function useOperationScope({
     permissionGate,
     loadError,
     isLoading
-  });
+  };
 }
 
 export { useOperationScope };

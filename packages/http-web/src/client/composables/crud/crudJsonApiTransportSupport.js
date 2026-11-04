@@ -8,6 +8,7 @@ const CRUD_RESPONSE_KIND_BY_MODE = Object.freeze({
   "add-edit": "record"
 });
 
+// readable-check: allow method-probe - input validation: an operation's output may declare no schema, or one without field definitions
 function resolveSchemaFieldDefinitions(definition = null) {
   const schema = definition?.schema;
   if (!schema || typeof schema.getFieldDefinitions !== "function") {

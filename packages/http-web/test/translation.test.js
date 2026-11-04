@@ -133,7 +133,10 @@ test("CRUD list chrome is English by default and follows the active language", a
   const screen = {
     records: { hasMore: true, loadError: "" },
     listPrimaryAction: "/books/new",
+    bulkActions: { hasActions: false },
+    rowActions: { hasActions: false, hasVisibleActionsFor: () => false },
     displayRows: [{ key: "1", recordKey: "1", record: { title: "Kindred" } }],
+    selectableRows: [],
     resolveRecordTitle: (record) => record.title
   };
 

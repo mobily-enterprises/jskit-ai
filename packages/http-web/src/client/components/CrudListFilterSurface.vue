@@ -10,8 +10,8 @@ const props = defineProps({
     default: () => ({})
   },
   runtime: {
-    type: Object,
-    default: null
+    type: /** @type {import("vue").PropType<import("../types.js").CrudListFilterRuntime>} */ (Object),
+    required: true
   },
   title: {
     type: String,
@@ -34,16 +34,16 @@ const filterEntries = computed(() =>
     : {})
     .filter((filter) => filter?.key && filter?.type)
 );
-const activeChips = computed(() => Array.isArray(props.runtime?.activeChips?.value) ? props.runtime.activeChips.value : []);
-const hasActiveFilters = computed(() => Boolean(props.runtime?.hasActiveFilters?.value));
-const shouldRender = computed(() => filterEntries.value.length > 0 && Boolean(props.runtime?.values));
+const activeChips = computed(() => props.runtime.activeChips.value);
+const hasActiveFilters = computed(() => props.runtime.hasActiveFilters.value);
+const shouldRender = computed(() => filterEntries.value.length > 0);
 
-function clearChip(chip = {}) {
-  props.runtime?.clearChip?.(chip);
+function clearChip(chip) {
+  props.runtime.clearChip(chip);
 }
 
 function clearFilters() {
-  props.runtime?.clearFilters?.();
+  props.runtime.clearFilters();
 }
 </script>
 

@@ -148,7 +148,7 @@ function createCrudLookupFieldRuntime({
 
     const items = (Array.isArray(entry.runtime.items) ? entry.runtime.items : []).map((item = {}) => {
       const sourceRecord = asPlainObject(item);
-      const value = normalizeLookupValue(item?.[entry.valueKey]);
+      const value = normalizeLookupValue(sourceRecord[entry.valueKey]);
       const resolvedLabel = resolveLookupItemLabel(item, entry.labelKey);
       const label = resolvedLabel || value;
       return {
@@ -159,8 +159,8 @@ function createCrudLookupFieldRuntime({
     });
 
     const selectedItem = createSelectedLookupItem(
-      options?.selectedValue,
-      options?.selectedRecord,
+      options.selectedValue,
+      options.selectedRecord,
       entry
     );
     if (!selectedItem) {

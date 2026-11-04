@@ -21,17 +21,17 @@ function normalizeCrudApiAccess(value = "") {
   );
 }
 
-function resolveCrudHttpClient(resource = null, { client = null } = {}) {
-  const activeClient = client || getHttpWebClient();
-  if (!activeClient || typeof activeClient.request !== "function") {
-    throw new TypeError("resolveCrudHttpClient requires a client with request().");
-  }
-
+/**
+ * @param {import("../../types.js").CrudResource | null} [resource]
+ * @param {{ client?: import("../../types.js").HttpClient }} [options]
+ * @returns {import("../../types.js").HttpClient}
+ */
+function resolveCrudHttpClient(resource = null, { client = getHttpWebClient() } = {}) {
   if (normalizeCrudApiAccess(resource?.apiAccess) !== CRUD_API_ACCESS_PUBLIC) {
-    return activeClient;
+    return client;
   }
-  if (publicCrudClients.has(activeClient)) {
-    return activeClient;
+  if (publicCrudClients.has(client)) {
+    return client;
   }
 
   const publicClient = Object.freeze({
@@ -39,7 +39,7 @@ function resolveCrudHttpClient(resource = null, { client = null } = {}) {
       const requestOptions = options && typeof options === "object" && !Array.isArray(options)
         ? options
         : {};
-      return activeClient.request(url, {
+      return client.request(url, {
         ...requestOptions,
         csrf: false
       });

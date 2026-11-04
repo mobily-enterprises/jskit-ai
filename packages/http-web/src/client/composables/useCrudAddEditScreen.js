@@ -11,6 +11,7 @@ function normalizeProvidedScreen(screen = null) {
     : null;
 }
 
+/** @param {import("../types.js").CrudAddEditScreenOptions} options */
 function useCrudAddEditScreen({
   screen = null,
   mode = "new",
@@ -18,18 +19,18 @@ function useCrudAddEditScreen({
   subtitle = "",
   saveLabel = "",
   cancelTo = "",
-  resource = null,
+  resource,
   operationName = "",
-  formFields = [],
-  addEditOptions = {},
-  saveSuccess = {},
-  fieldBinding = null,
-  createModel = null,
-  buildPayload = null,
-  mapPayloadToModel = null,
-  input = null,
+  formFields,
+  addEditOptions,
+  saveSuccess,
+  fieldBinding,
+  createModel,
+  buildPayload,
+  mapPayloadToModel,
+  input,
   preserveCancelQuery = false
-} = {}) {
+}) {
   const providedScreen = normalizeProvidedScreen(screen);
   if (providedScreen) {
     return providedScreen;
@@ -74,7 +75,7 @@ function useCrudAddEditScreen({
     return resolvedTarget;
   }
 
-  return Object.freeze({
+  return {
     mode: resolvedMode,
     title: resolvedTitle,
     subtitle: resolvedSubtitle,
@@ -85,7 +86,7 @@ function useCrudAddEditScreen({
     formState: formRuntime.form,
     resolveFieldErrors: formRuntime.resolveFieldErrors,
     resolveCancelTo
-  });
+  };
 }
 
 export { useCrudAddEditScreen };

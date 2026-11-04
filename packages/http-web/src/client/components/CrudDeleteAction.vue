@@ -5,7 +5,7 @@ import { useJskitText } from "../i18n.js";
 
 const props = defineProps({
   action: {
-    type: Object,
+    type: /** @type {import("vue").PropType<import("../types.js").CrudDeleteAction>} */ (Object),
     required: true
   },
   resourceSingularTitle: {

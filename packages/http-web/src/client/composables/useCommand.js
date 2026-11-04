@@ -11,6 +11,7 @@ import {
 } from "./runtime/operationUiHelpers.js";
 import { resolveCrudHttpClient } from "./crud/crudHttpClientSupport.js";
 
+/** @param {import("../types.js").CommandOptions} options */
 function useCommand({
   ownershipFilter = ROUTE_VISIBILITY_WORKSPACE,
   surfaceId = "",
@@ -18,12 +19,12 @@ function useCommand({
   apiSuffix = "",
   runPermissions = [],
   writeMethod = "POST",
-  client = null,
+  client,
   resource: commandResource = null,
-  transport = null,
+  transport,
   placementSource = "http-web.command",
   fallbackRunError = "jskit.http.feedback.actionFailed",
-  fieldErrorKeys = [],
+  fieldErrorKeys,
   clearOnRouteChange = true,
   model,
   input,
@@ -34,8 +35,8 @@ function useCommand({
   onRunError,
   suppressSuccessMessage = false,
   messages = {},
-  realtime = null
-} = {}) {
+  realtime
+}) {
   const operationScope = useOperationScope({
     ownershipFilter,
     surfaceId,
@@ -92,7 +93,7 @@ function useCommand({
     enabled: clearOnRouteChange,
     route: routeContext.route,
     feedback,
-    fieldBag
+    onClear: fieldBag.clear
   });
 
   const loadError = operationScope.loadError();

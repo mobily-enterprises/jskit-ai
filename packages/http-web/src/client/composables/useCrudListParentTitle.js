@@ -27,8 +27,9 @@ function normalizeQueryKeyPrefix(value = []) {
   return normalizedValue ? [normalizedValue] : [];
 }
 
+/** @param {import("../types.js").CrudListParentTitleOptions} options */
 function useCrudListParentTitle({
-  listRuntime = null,
+  listRuntime,
   resource = {},
   recordIdParam = "recordId",
   queryKeyPrefix = ["http-web", "crud-list-parent-title"],
@@ -37,7 +38,7 @@ function useCrudListParentTitle({
   notFoundMessage = t("jskit.http.crud.parent.notFound"),
   route = null,
   viewRuntimeFactory = useView
-} = {}) {
+}) {
   const sourceRoute = route && typeof route === "object" ? route : useRoute();
   const parentDescriptor = computed(() => {
     const descriptor = resolveCrudListParentDescriptor({
@@ -81,11 +82,11 @@ function useCrudListParentTitle({
     if (!descriptor?.apiUrlTemplate) {
       return false;
     }
-    if (Boolean(listRuntime?.isInitialLoading) || normalizeText(listRuntime?.loadError)) {
+    if (Boolean(listRuntime.isInitialLoading) || normalizeText(listRuntime.loadError)) {
       return false;
     }
 
-    const items = Array.isArray(listRuntime?.items) ? listRuntime.items : [];
+    const items = Array.isArray(listRuntime.items) ? listRuntime.items : [];
     if (items.length < 1) {
       return true;
     }
@@ -118,12 +119,12 @@ function useCrudListParentTitle({
       return "";
     }
 
-    const parentRecordTitle = resolveCrudListParentRecordTitle(parentView?.record || {}, descriptor);
+    const parentRecordTitle = resolveCrudListParentRecordTitle(parentView.record || {}, descriptor);
     if (parentRecordTitle && shouldLoadParentRecord.value) {
       return parentRecordTitle;
     }
 
-    const listTitle = resolveCrudListParentTitleFromItems(listRuntime?.items, descriptor);
+    const listTitle = resolveCrudListParentTitleFromItems(listRuntime.items, descriptor);
     if (listTitle) {
       return listTitle;
     }
@@ -143,9 +144,9 @@ function useCrudListParentTitle({
     title,
     descriptor: parentDescriptor,
     shouldLoadParentRecord,
-    record: computed(() => parentView?.record || null),
-    isLoading: computed(() => Boolean(parentView?.isLoading)),
-    loadError: computed(() => normalizeText(parentView?.loadError))
+    record: computed(() => parentView.record || null),
+    isLoading: computed(() => Boolean(parentView.isLoading)),
+    loadError: computed(() => normalizeText(parentView.loadError))
   });
 }
 

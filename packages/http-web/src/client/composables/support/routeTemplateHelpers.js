@@ -1,4 +1,4 @@
-import { unref } from "vue";
+import { toValue } from "vue";
 import { asPlainObject } from "./scopeHelpers.js";
 
 const ROUTE_PARAM_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_]*$/;
@@ -28,16 +28,12 @@ function toRouteParamValue(value) {
   return String(value).trim();
 }
 
-function resolveRouteSourceValue(source = null) {
-  if (typeof source === "function") {
-    return source();
-  }
-
-  return unref(source);
+function selectRecordId(record) {
+  return record.id;
 }
 
 function resolveRouteParamsSource(source = null) {
-  return asPlainObject(resolveRouteSourceValue(source));
+  return asPlainObject(toValue(source));
 }
 
 function normalizeRouteParamNameList(value = []) {
@@ -48,7 +44,7 @@ function normalizeRouteParamNameList(value = []) {
 }
 
 function resolveRouteParamNamesSource(source = []) {
-  return normalizeRouteParamNameList(resolveRouteSourceValue(source));
+  return normalizeRouteParamNameList(toValue(source));
 }
 
 function normalizeRoutePathname(value = "") {
@@ -62,7 +58,7 @@ function normalizeRoutePathname(value = "") {
 }
 
 function resolveRoutePathnameSource(source = "") {
-  return normalizeRoutePathname(resolveRouteSourceValue(source));
+  return normalizeRoutePathname(toValue(source));
 }
 
 function segmentMatchesParamValue(segment = "", paramValue = "") {
@@ -231,7 +227,7 @@ function createRouteTemplateResolver({
   fillRecordId = true
 } = {}) {
   function resolveCurrentRecordId(currentRouteParams = resolveRouteParamsSource(routeParams)) {
-    const explicitRecordId = toRouteParamValue(resolveRouteSourceValue(routeRecordId));
+    const explicitRecordId = toRouteParamValue(toValue(routeRecordId));
     if (explicitRecordId) {
       return explicitRecordId;
     }
@@ -270,8 +266,12 @@ function createRouteTemplateResolver({
     });
   }
 
+  function resolveRecordId() {
+    return resolveCurrentRecordId();
+  }
+
   return Object.freeze({
-    resolveRecordId: () => resolveCurrentRecordId(),
+    resolveRecordId,
     resolveTemplatePath
   });
 }
@@ -330,6 +330,7 @@ function resolveRouteParamNamesInOrder(route = null) {
 export {
   normalizeRouteParamName,
   toRouteParamValue,
+  selectRecordId,
   resolveRouteParamsSource,
   resolveRouteParamNamesSource,
   resolveRoutePathnameSource,

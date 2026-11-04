@@ -10,10 +10,7 @@ import {
   useEndpointResource
 } from "../src/client/composables/runtime/useEndpointResource.js";
 import { useCommand } from "../src/client/composables/useCommand.js";
-import {
-  configureHttpWebClient,
-  resetHttpWebClientForTests
-} from "../src/client/lib/httpClient.js";
+import { configureHttpWebClient } from "../src/client/lib/httpClient.js";
 import { buildListRequestOptions, useListCore } from "../src/client/composables/runtime/useListCore.js";
 import {
   resolveOperationRealtimeOptions,
@@ -490,7 +487,7 @@ test("endpoint resources use the configured http-web HTTP client by default", as
 
     assert.equal(calls.at(-1)?.[0], "/api/app/acme/chat/sessions");
   } finally {
-    resetHttpWebClientForTests();
+    configureHttpWebClient();
   }
 });
 
@@ -546,7 +543,7 @@ test("commands use the configured http-web HTTP client by default", async () => 
     assert.equal(calls.at(-1)?.[0], "/api/app/acme/chat/sessions");
     assert.equal(calls.at(-1)?.[1]?.method, "POST");
   } finally {
-    resetHttpWebClientForTests();
+    configureHttpWebClient();
   }
 });
 
@@ -598,6 +595,6 @@ test("commands use public CRUD resource access without a CSRF session preflight"
     assert.equal(calls[0][1].method, "DELETE");
     assert.equal(Object.hasOwn(calls[0][1], "csrf"), false);
   } finally {
-    resetHttpWebClientForTests();
+    configureHttpWebClient();
   }
 });

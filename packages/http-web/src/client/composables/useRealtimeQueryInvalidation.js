@@ -1,4 +1,4 @@
-import { computed, nextTick, unref } from "vue";
+import { computed, nextTick, toValue, unref } from "vue";
 import { useQueryClient } from "@tanstack/vue-query";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { useRealtimeEvent } from "@jskit-ai/realtime/client/composables/useRealtimeEvent";
@@ -41,7 +41,7 @@ function resolveOperationRealtimeOptions({
 }
 
 function toQueryKeyList(value) {
-  const resolved = typeof value === "function" ? value() : unref(value);
+  const resolved = toValue(value);
   if (!Array.isArray(resolved) || resolved.length < 1) {
     return [];
   }
@@ -90,13 +90,14 @@ async function refreshQueriesWithoutCancelling(queryClient, queryKey) {
     .map((query) => refetchAfterCurrentRead(queryClient, query)));
 }
 
+/** @param {import("../types.js").RealtimeQueryInvalidationOptions} options */
 function useRealtimeQueryInvalidation({
   event = "",
   enabled = true,
   matches,
   queryKey = null,
-  onEvent = null
-} = {}) {
+  onEvent
+}) {
   const queryClient = useQueryClient();
   const normalizedEvent = computed(() => normalizeText(unref(event)));
   const active = computed(() => resolveEnabledRef(enabled) && Boolean(normalizedEvent.value));
@@ -106,7 +107,8 @@ function useRealtimeQueryInvalidation({
     enabled: active,
     matches,
     onEvent: async (context) => {
-      if (typeof onEvent === "function") {
+      // readable-check: allow method-probe - optional operation: with no onEvent the refresh starts in the same tick as the event
+      if (onEvent) {
         await onEvent(context);
       }
 
@@ -117,11 +119,12 @@ function useRealtimeQueryInvalidation({
     }
   });
 
-  return Object.freeze({
+  return {
     active: listener.active
-  });
+  };
 }
 
+/** @param {import("../types.js").OperationRealtimeOptions} [options] */
 function useOperationRealtime({
   realtime = null,
   queryKey = null,
@@ -152,8 +155,7 @@ function useOperationRealtime({
     return null;
   }
 
-  const matches = typeof source.matches === "function" ? source.matches : undefined;
-  const onEvent = typeof source.onEvent === "function" ? source.onEvent : null;
+  const { matches, onEvent } = source;
   const resolvedQueryKey = Object.hasOwn(source, "queryKey") ? source.queryKey : queryKey;
   const active = computed(() => {
     const sourceEnabled = Object.hasOwn(source, "enabled") ? source.enabled : true;
@@ -170,9 +172,9 @@ function useOperationRealtime({
     })
   );
 
-  return Object.freeze({
-    active: computed(() => bindings.some((binding) => Boolean(binding?.active?.value)))
-  });
+  return {
+    active: computed(() => bindings.some((binding) => Boolean(binding.active.value)))
+  };
 }
 
 export {

@@ -5,13 +5,18 @@ function normalizeMessage(value) {
   return String(value || "").trim();
 }
 
+function noRetryAction() {
+  return null;
+}
+
+/** @param {import("../../types.js").OperationErrorReporting} [options] */
 function setupOperationErrorReporting({
   enabled = true,
   source = "http-web.operation",
   loadError = null,
   notFoundError = null,
-  loadActionFactory = null,
-  notFoundActionFactory = null,
+  loadActionFactory = noRetryAction,
+  notFoundActionFactory = noRetryAction,
   loadChannel = "",
   notFoundChannel = "",
   loadSeverity = "error",
@@ -30,13 +35,13 @@ function setupOperationErrorReporting({
     channel = "",
     intent = "resource-load",
     severity = "error",
-    actionFactory = null
+    actionFactory = noRetryAction
   } = {}) {
     let lastMessage = "";
     let lastPresentationId = "";
 
     watch(
-      () => normalizeMessage(value?.value),
+      () => normalizeMessage(value.value),
       (nextMessage) => {
         if (!nextMessage) {
           lastMessage = "";
@@ -52,12 +57,10 @@ function setupOperationErrorReporting({
         }
 
         lastMessage = nextMessage;
-        const action = typeof actionFactory === "function"
-          ? actionFactory({
-              message: nextMessage,
-              kind
-            })
-          : null;
+        const action = actionFactory({
+          message: nextMessage,
+          kind
+        });
         const reportResult = runtime.report({
           source: normalizedSource,
           message: nextMessage,
@@ -102,13 +105,11 @@ function setupOperationErrorReporting({
   }
 }
 
-function setupRouteChangeCleanup({
-  enabled = true,
-  route = null,
-  feedback = null,
-  fieldBag = null,
-  onClear = null
-} = {}) {
+/**
+ * Clears what an operation shows when the route changes.
+ * @param {{ enabled?: boolean, route: { fullPath?: string } | null, feedback: Pick<import("../../types.js").UiFeedback, "clear">, onClear: () => void }} options
+ */
+function setupRouteChangeCleanup({ enabled = true, route, feedback, onClear }) {
   if (!enabled) {
     return;
   }
@@ -116,9 +117,8 @@ function setupRouteChangeCleanup({
   watch(
     () => route?.fullPath,
     () => {
-      feedback?.clear?.();
-      fieldBag?.clear?.();
-      onClear?.();
+      feedback.clear();
+      onClear();
     }
   );
 }

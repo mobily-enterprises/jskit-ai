@@ -3,29 +3,22 @@ import { asPlainObject } from "../support/scopeHelpers.js";
 import {
   createRouteTemplateResolver,
   normalizeRouteParamName,
+  selectRecordId,
   toRouteParamValue
 } from "../support/routeTemplateHelpers.js";
 
-function resolveRecordId(record, recordIdSelector) {
-  const item = asPlainObject(record);
-  if (typeof recordIdSelector === "function") {
-    return toRouteParamValue(recordIdSelector(item));
-  }
-
-  return toRouteParamValue(item.id);
-}
-
+/** @param {import("../../types.js").ListUiRuntimeOptions} options */
 function createListUiRuntime({
   items,
   isInitialLoading,
   recordIdParam = "recordId",
-  recordIdSelector = null,
-  routeParams = null,
-  routeParamNames = null,
+  recordIdSelector = selectRecordId,
+  routeParams,
+  routeParamNames,
   routePath = "",
   viewUrlTemplate = "",
   editUrlTemplate = ""
-} = {}) {
+}) {
   const normalizedRecordIdParam = normalizeRouteParamName(recordIdParam, {
     context: "useList recordIdParam"
   });
@@ -33,8 +26,8 @@ function createListUiRuntime({
   const normalizedEditUrlTemplate = String(editUrlTemplate || "").trim();
   const hasViewUrl = Boolean(normalizedViewUrlTemplate);
   const hasEditUrl = Boolean(normalizedEditUrlTemplate);
-  const normalizedItems = computed(() => (Array.isArray(items?.value) ? items.value : []));
-  const showListSkeleton = computed(() => Boolean(isInitialLoading?.value && normalizedItems.value.length < 1));
+  const normalizedItems = computed(() => (Array.isArray(items.value) ? items.value : []));
+  const showListSkeleton = computed(() => Boolean(isInitialLoading.value && normalizedItems.value.length < 1));
 
   const { resolveTemplatePath } = createRouteTemplateResolver({
     recordIdParam: normalizedRecordIdParam,
@@ -45,8 +38,12 @@ function createListUiRuntime({
     fillRecordId: false
   });
 
+  function resolveRecordId(record) {
+    return toRouteParamValue(recordIdSelector(asPlainObject(record)));
+  }
+
   function resolveRowKey(record, index) {
-    const recordId = resolveRecordId(record, recordIdSelector);
+    const recordId = resolveRecordId(record);
     if (recordId) {
       return recordId;
     }
@@ -59,7 +56,7 @@ function createListUiRuntime({
       return "";
     }
 
-    const recordId = resolveRecordId(record, recordIdSelector);
+    const recordId = resolveRecordId(record);
     if (!recordId) {
       return "";
     }
@@ -74,7 +71,7 @@ function createListUiRuntime({
       return "";
     }
 
-    const recordId = resolveRecordId(record, recordIdSelector);
+    const recordId = resolveRecordId(record);
     if (!recordId) {
       return "";
     }
@@ -84,7 +81,7 @@ function createListUiRuntime({
     });
   }
 
-  return Object.freeze({
+  return {
     hasViewUrl,
     hasEditUrl,
     showListSkeleton,
@@ -92,7 +89,7 @@ function createListUiRuntime({
     resolveRowKey,
     resolveViewUrl,
     resolveEditUrl
-  });
+  };
 }
 
 export { createListUiRuntime };

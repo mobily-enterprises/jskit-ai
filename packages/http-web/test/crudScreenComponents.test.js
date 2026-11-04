@@ -47,7 +47,10 @@ test("every CRUD list create action retains its configured label and destination
     for (const createLabel of [undefined, "Add book"]) {
       const screen = {
         records: {}, listPrimaryAction: "/books/new",
+        bulkActions: { hasActions: false },
+        rowActions: { hasActions: false, hasVisibleActionsFor: () => false },
         displayRows: populated ? [{ key: "1", recordKey: "1", record: { title: "Kindred" } }] : [],
+        selectableRows: [],
         resolveRecordTitle: (record) => record.title
       };
       const app = createSSRApp({ render: () => h(CrudListScreen, {
@@ -144,14 +147,13 @@ test("CRUD screen composables expose page extension inputs", async () => {
   const listSource = await readClientFile("composables", "useCrudListScreen.js");
   const viewSource = await readClientFile("composables", "useCrudViewScreen.js");
 
-  assert.match(listSource, /listRowActions = \[\]/);
+  assert.match(listSource, /listRowActions = NO_LIST_ACTIONS/);
   assert.match(listSource, /syntheticRows = null/);
   assert.match(listSource, /readEnabled = true/);
   assert.match(listSource, /useCrudListRowActions/);
   assert.match(listSource, /selectableRows/);
   assert.match(listSource, /readEnabled,\n\s+requestRecoveryLabel/);
 
-  assert.match(viewSource, /requestQueryParams = null/);
   assert.match(viewSource, /readEnabled = true/);
   assert.match(viewSource, /queryKeyFactory = null/);
   assert.match(viewSource, /requestQueryParams/);

@@ -12,8 +12,8 @@ const props = defineProps({
     default: 0
   },
   rowActions: {
-    type: Object,
-    default: null
+    type: /** @type {import("vue").PropType<import("../types.js").CrudListRowActions>} */ (Object),
+    required: true
   },
   viewLocation: {
     type: Object,
@@ -50,38 +50,28 @@ const resolvedButtonLabel = computed(() =>
   props.buttonLabel === undefined ? t("jskit.http.actions.actions") : text(props.buttonLabel)
 );
 
-const visibleRowActions = computed(() => {
-  if (typeof props.rowActions?.visibleActionsFor !== "function") {
-    return [];
-  }
-  return props.rowActions.visibleActionsFor(props.record, props.index);
-});
+const visibleRowActions = computed(() => props.rowActions.visibleActionsFor(props.record, props.index));
 const hasViewAction = computed(() => Boolean(props.showView && props.viewLocation));
 const hasEditAction = computed(() => Boolean(props.showEdit && props.editLocation));
 const hasActions = computed(() =>
   hasViewAction.value || hasEditAction.value || visibleRowActions.value.length > 0
 );
 
-function isRowActionLoading(action = {}) {
-  return typeof props.rowActions?.isActionLoading === "function" &&
-    props.rowActions.isActionLoading(action, props.record, props.index);
+function isRowActionLoading(action) {
+  return props.rowActions.isActionLoading(action, props.record, props.index);
 }
 
 // Action labels may be message keys.
-function rowActionLabel(action = {}) {
+function rowActionLabel(action) {
   const label = text(action.label);
   return isRowActionLoading(action) ? t("jskit.http.actions.running", { label }) : label;
 }
 
-function isRowActionDisabled(action = {}) {
-  return typeof props.rowActions?.isActionDisabled !== "function" ||
-    props.rowActions.isActionDisabled(action, props.record, props.index);
+function isRowActionDisabled(action) {
+  return props.rowActions.isActionDisabled(action, props.record, props.index);
 }
 
-function runRowAction(action = {}) {
-  if (typeof props.rowActions?.execute !== "function") {
-    return;
-  }
+function runRowAction(action) {
   void props.rowActions.execute(action, props.record, props.index);
 }
 </script>

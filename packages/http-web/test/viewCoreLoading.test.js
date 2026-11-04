@@ -23,22 +23,3 @@ test("useViewCore prefers resource isInitialLoading/isFetching signals when prov
   assert.equal(view.isLoading.value, false);
   assert.equal(view.isFetching.value, true);
 });
-
-test("useViewCore falls back to query pending/fetching when resource-level loading refs are absent", () => {
-  const resource = {
-    data: ref(null),
-    query: {
-      isPending: ref(true),
-      isFetching: ref(false),
-      error: ref(null)
-    },
-    loadError: ref("")
-  };
-
-  const view = useViewCore({
-    resource
-  });
-
-  assert.equal(view.isLoading.value, true);
-  assert.equal(view.isFetching.value, false);
-});

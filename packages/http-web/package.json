@@ -43,6 +43,7 @@
     "./client/lib/httpClient": "./src/client/lib/httpClient.js",
     "./client/lib/permissions": "./src/client/lib/permissions.js",
     "./client/support/contractGuards": "./src/client/support/contractGuards.js",
+    "./client/types": "./src/client/types.js",
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {

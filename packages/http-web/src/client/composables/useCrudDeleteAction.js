@@ -20,33 +20,26 @@ function requireCrudDeleteOperation(resource = null) {
   return operation;
 }
 
-function requireCrudViewScreen(screen = null) {
-  if (!screen || typeof screen !== "object" || typeof screen?.view?.resolveParams !== "function") {
-    throw new TypeError("useCrudDeleteAction requires a useCrudViewScreen() result.");
-  }
-  return screen;
-}
-
 function resolveDeleteApiSuffix(screen, apiUrlTemplate = "") {
   const template = normalizeText(unref(apiUrlTemplate));
   return template ? normalizeText(screen.view.resolveParams(template)) : "";
 }
 
 function resolveListLocation(screen) {
-  return unref(screen?.listLocation) || null;
+  return unref(screen.listLocation) || null;
 }
 
+/** @param {import("../types.js").CrudDeleteActionOptions} options */
 function useCrudDeleteAction({
-  screen = null,
+  screen,
   resource = null,
   resourceNamespace = "",
   apiUrlTemplate = "",
   access = "auto",
-  client = null,
-  router: routerOverride = null,
+  client,
+  router = useRouter(),
   fallbackDeleteError = t("jskit.http.crud.delete.failed")
-} = {}) {
-  const resolvedScreen = requireCrudViewScreen(screen);
+}) {
   const deleteOperation = requireCrudDeleteOperation(resource);
   const namespace = normalizeText(resourceNamespace, {
     fallback: resource?.namespace
@@ -55,17 +48,12 @@ function useCrudDeleteAction({
     throw new TypeError("useCrudDeleteAction requires resourceNamespace or resource.namespace.");
   }
 
-  const activeRouter = routerOverride || useRouter();
-  if (!activeRouter || typeof activeRouter.push !== "function") {
-    throw new TypeError("useCrudDeleteAction requires an installed Vue Router.");
-  }
-
   const isOpen = ref(false);
   const error = ref("");
-  const deleteApiSuffix = computed(() => resolveDeleteApiSuffix(resolvedScreen, apiUrlTemplate));
+  const deleteApiSuffix = computed(() => resolveDeleteApiSuffix(screen, apiUrlTemplate));
 
-  async function handleDeleteSuccess(_response, context = {}) {
-    const listLocation = resolveListLocation(resolvedScreen);
+  async function handleDeleteSuccess(_response, context) {
+    const listLocation = resolveListLocation(screen);
     if (!listLocation) {
       throw createTextError("jskit.http.crud.delete.listRouteUnavailable");
     }
@@ -73,9 +61,9 @@ function useCrudDeleteAction({
     isOpen.value = false;
     // Leave the deleted record's view before invalidating: while its view query is
     // still observed, invalidation would refetch it and report "Record not found.".
-    await activeRouter.push(listLocation);
+    await router.push(listLocation);
     await nextTick();
-    await context?.queryClient?.invalidateQueries?.({
+    await context.queryClient.invalidateQueries({
       queryKey: ["crud", namespace]
     });
   }
@@ -105,11 +93,11 @@ function useCrudDeleteAction({
 
   const isDeleting = computed(() => Boolean(command.isRunning));
   const canDelete = computed(() => {
-    const view = resolvedScreen.view;
+    const view = screen.view;
     return Boolean(
       command.canRun &&
       deleteApiSuffix.value &&
-      resolveListLocation(resolvedScreen) &&
+      resolveListLocation(screen) &&
       unref(view.recordId) &&
       unref(view.record) &&
       !unref(view.isLoading) &&

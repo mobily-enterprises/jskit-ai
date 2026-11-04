@@ -2,6 +2,10 @@ import { computed, onScopeDispose, proxyRefs, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/kernel/shared/support/visibility";
+import {
+  resolveLookupFieldDisplayValue,
+  resolveRecordTitle
+} from "../crud/crudLookupFieldLabelSupport.js";
 import { useListCore } from "../runtime/useListCore.js";
 import { useOperationScope } from "../internal/useOperationScope.js";
 import { setupOperationErrorReporting } from "../runtime/operationUiHelpers.js";
@@ -36,37 +40,38 @@ const { t } = useJskitText();
 
 const EMPTY_ROUTE_SYNC_QUERY_PARAM_BLACKLIST = Object.freeze([]);
 
+/** @param {import("../../types.js").ListOptions} options */
 function useList({
   ownershipFilter = ROUTE_VISIBILITY_WORKSPACE,
   surfaceId = "",
   access = "auto",
   apiSuffix = "",
-  queryKeyFactory = null,
+  queryKeyFactory,
   viewPermissions = [],
   readEnabled = true,
   placementSource = "http-web.list",
   fallbackLoadError = t("jskit.http.list.loadFailed"),
-  initialPageParam = null,
+  initialPageParam,
   getNextPageParam,
   selectItems,
-  client = null,
-  transport = null,
+  client,
+  transport,
   requestOptions,
   queryOptions,
   requestRecovery,
   requestRecoveryLabel = t("jskit.http.list.label"),
-  realtime = null,
+  realtime,
   recordIdParam = "recordId",
-  recordIdSelector = null,
+  recordIdSelector,
   viewUrlTemplate = "",
   editUrlTemplate = "",
   search = null,
   queryParams = null,
   routeQueryValueResolvers = null,
-  requestQueryParams = null,
-  requestFieldsets = null,
+  requestQueryParams,
+  requestFieldsets,
   syncToRoute = false
-} = {}) {
+}) {
   const searchConfig = normalizeListSearchConfig(search);
   const routeSyncConfig = normalizeListSyncToRouteConfig(syncToRoute, {
     defaultSearchParam: searchConfig.queryParam
@@ -339,7 +344,7 @@ function useList({
             const nextValue = parseRouteBindingValue(binding, routeQuerySource[binding.key], {
               initial: initialHydration
             });
-            const currentValue = typeof binding.get === "function" ? binding.get() : undefined;
+            const currentValue = binding.get();
             if (areQueryParamBindingValuesEqual(currentValue, nextValue)) {
               continue;
             }
@@ -490,7 +495,9 @@ function useList({
     searchLabel: searchConfig.label,
     searchPlaceholder: searchConfig.placeholder,
     isSearchDebouncing,
-    activeQueryParamsToken
+    activeQueryParamsToken,
+    resolveFieldDisplay: resolveLookupFieldDisplayValue,
+    resolveRecordTitle
   });
 }
 

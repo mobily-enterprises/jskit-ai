@@ -1,15 +1,11 @@
-import { unref } from "vue";
+import { toValue, unref } from "vue";
 
 function resolveEnabledRef(value) {
   if (value === undefined) {
     return true;
   }
 
-  if (typeof value === "function") {
-    return Boolean(value());
-  }
-
-  return Boolean(unref(value));
+  return Boolean(toValue(value));
 }
 
 function resolveTextRef(value) {

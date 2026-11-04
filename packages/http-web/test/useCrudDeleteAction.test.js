@@ -4,7 +4,7 @@ import { QueryClient, QueryObserver, VueQueryPlugin } from "@tanstack/vue-query"
 import { createSSRApp, effectScope, h, nextTick, ref, watch } from "vue";
 import { renderToString } from "vue/server-renderer";
 import { createMemoryHistory, createRouter } from "vue-router";
-import { configureHttpWebClient, resetHttpWebClientForTests } from "../src/client/lib/httpClient.js";
+import { configureHttpWebClient } from "../src/client/lib/httpClient.js";
 import {
   requireCrudDeleteOperation,
   useCrudDeleteAction
@@ -184,7 +184,7 @@ test("useCrudDeleteAction keeps the record dialog open with useful error feedbac
 });
 
 test("public deletion resolves the configured client without session CSRF", async (t) => {
-  t.after(resetHttpWebClientForTests);
+  t.after(() => configureHttpWebClient());
   const requests = [];
   configureHttpWebClient({
     async request(path, options) {
@@ -207,7 +207,7 @@ test("public deletion resolves the configured client without session CSRF", asyn
 });
 
 test("authenticated deletion retains configured-client CSRF behavior", async (t) => {
-  t.after(resetHttpWebClientForTests);
+  t.after(() => configureHttpWebClient());
   const requests = [];
   configureHttpWebClient({
     async request(path, options) {
@@ -226,7 +226,7 @@ test("authenticated deletion retains configured-client CSRF behavior", async (t)
 });
 
 test("public deletion honors an explicit client override", async (t) => {
-  t.after(resetHttpWebClientForTests);
+  t.after(() => configureHttpWebClient());
   configureHttpWebClient({
     request() {
       assert.fail("The configured client must not replace the explicit override.");

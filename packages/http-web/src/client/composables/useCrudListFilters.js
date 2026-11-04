@@ -39,6 +39,7 @@ function normalizeFunctionMap(value = {}) {
   return Object.freeze(normalized);
 }
 
+// readable-check: allow method-probe - input validation: a preset carries fixed values, a resolveValues function, or both
 function normalizePresetEntries(presets = []) {
   const source = Array.isArray(presets) ? presets : [];
   const normalized = [];
@@ -75,7 +76,7 @@ function normalizePresetEntries(presets = []) {
 }
 
 function resolvePresetValues(preset = {}, { values = {}, filters = {} } = {}) {
-  const rawValues = typeof preset.resolveValues === "function"
+  const rawValues = preset.resolveValues
     ? preset.resolveValues({
         values,
         filters,
@@ -120,7 +121,7 @@ function applyPresetFilterValue(values, filter = {}, rawValue) {
   assignFilterValue(values, filter, rawValue);
 }
 
-function createQueryParams(values, filterEntries = []) {
+function createQueryParams(values, filterEntries) {
   const queryParams = {};
 
   for (const filter of filterEntries) {
@@ -153,7 +154,7 @@ function resolveFilterRouteValue(filter, routeValue, { initial = false } = {}) {
     : parsedValue;
 }
 
-function createRouteQueryValueResolvers(filterEntries = []) {
+function createRouteQueryValueResolvers(filterEntries) {
   return Object.freeze(Object.fromEntries(
     filterEntries.map((filter) => [
       filter.queryKey,
@@ -164,7 +165,7 @@ function createRouteQueryValueResolvers(filterEntries = []) {
 
 function resolveAtomicValueLabel(filter = {}, value = "", labelResolvers = {}) {
   const customResolver = labelResolvers[filter.key];
-  if (typeof customResolver === "function") {
+  if (customResolver) {
     const customLabel = normalizeText(customResolver(value, filter));
     if (customLabel) {
       return customLabel;
@@ -186,6 +187,10 @@ function formatDefaultChipLabel(filter = {}, chipValue, labelResolvers = {}) {
     });
 }
 
+/**
+ * @param {Record<string, object>} [definitions]
+ * @param {import("../types.js").CrudListFiltersOptions} [options]
+ */
 function useCrudListFilters(definitions = {}, { labelResolvers = {}, chipLabels = {}, presets = [] } = {}) {
   const filters = defineCrudListFilters(definitions);
   const filterEntries = Object.values(filters);
@@ -217,7 +222,9 @@ function useCrudListFilters(definitions = {}, { labelResolvers = {}, chipLabels 
           id: isCrudListFilterMultiValue(filter) ? `${filter.key}:${chipValue}` : filter.key,
           filterKey: filter.key,
           ...(isCrudListFilterMultiValue(filter) ? { value: chipValue } : {}),
+          // readable-check: allow optional-call - optional operation: only a filter named in chipLabels has this chip label
           label: normalizeText(customChipLabel?.(chipValue, filter, values))
+            // readable-check: allow optional-call - optional operation: a filter definition may leave chipLabel out
             || normalizeText(filter.chipLabel?.(chipValue, filter, values))
             || formatDefaultChipLabel(filter, chipValue, normalizedLabelResolvers)
         });
@@ -322,7 +329,7 @@ function useCrudListFilters(definitions = {}, { labelResolvers = {}, chipLabels 
     return matchedFilter;
   }
 
-  return Object.freeze({
+  return {
     filters,
     values,
     queryParams,
@@ -337,7 +344,7 @@ function useCrudListFilters(definitions = {}, { labelResolvers = {}, chipLabels 
     toggle,
     applyPreset,
     matchesPreset
-  });
+  };
 }
 
 export { useCrudListFilters };

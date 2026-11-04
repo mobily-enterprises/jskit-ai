@@ -6,6 +6,7 @@ function normalizeFieldErrorKeys(keys) {
     : [];
 }
 
+/** @param {string[]} [keys] The only fields the bag holds; any field when empty. */
 function useFieldErrorBag(keys = []) {
   const normalizedKeys = normalizeFieldErrorKeys(keys);
   const hasFixedKeys = normalizedKeys.length > 0;
@@ -50,12 +51,12 @@ function useFieldErrorBag(keys = []) {
     errors[key] = String(message || "");
   }
 
-  return Object.freeze({
+  return {
     errors,
     clear,
     apply,
     set
-  });
+  };
 }
 
 export { normalizeFieldErrorKeys, useFieldErrorBag };
