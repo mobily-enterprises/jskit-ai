@@ -1,7 +1,12 @@
 // Optional browser implementation. The application owns consent and route hooks.
 const installations = new WeakMap();
 
-function createGoogleAnalytics({ measurementId, window: browser = globalThis.window } = {}) {
+/**
+ * @param {object} options
+ * @param {string} options.measurementId
+ * @param {Window & typeof globalThis} [options.window] The page to install on, the current one by default.
+ */
+function createGoogleAnalytics({ measurementId, window: browser = globalThis.window }) {
   if (typeof measurementId !== "string" || !/^G-[A-Z0-9]+$/.test(measurementId) || measurementId.length > 64) throw new TypeError("Supply a valid GA4 Measurement ID.");
   if (!browser?.document) throw new TypeError("Initialize Google Analytics in the browser after hydration.");
   const existing = installations.get(browser);

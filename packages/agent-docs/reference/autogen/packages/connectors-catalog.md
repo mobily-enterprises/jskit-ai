@@ -20,11 +20,11 @@ Exports
 
 ### `src/client/google-analytics.js`
 Exports
-- `createGoogleAnalytics({ measurementId, window: browser = globalThis.window } = {})`
+- `createGoogleAnalytics({ measurementId, window: browser = globalThis.window })`
 
 ### `src/client/google-maps-platform.js`
 Exports
-- `mountGoogleMap({ element, maps = globalThis.google?.maps, center, zoom = 12, mapId, markers = [], path = [], signal } = {})`
+- `mountGoogleMap({ element, maps = globalThis.google?.maps, center, zoom = 12, mapId, markers = [], path = [], signal = new AbortController().signal })`
 
 ### `src/client/logo-dev.js`
 Exports
