@@ -59,7 +59,7 @@ const profile = props.runtime.profile;
               density="comfortable"
               autocomplete="nickname"
               :readonly="profile.isSaving.value || profile.isRefreshing.value"
-              :error-messages="profile.fieldErrors.displayName ? [profile.fieldErrors.displayName] : []"
+              :error-messages="profile.fieldErrors.displayName"
             />
           </v-col>
 

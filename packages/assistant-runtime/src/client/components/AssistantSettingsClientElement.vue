@@ -16,7 +16,7 @@
       rows="8"
       auto-grow
       :readonly="!addEdit.canSave || addEdit.isSaving || addEdit.isRefetching"
-      :error-messages="fieldErrors.systemPrompt ? [fieldErrors.systemPrompt] : []"
+      :error-messages="fieldErrors.systemPrompt"
     />
   </AssistantSettingsFormCard>
 </template>

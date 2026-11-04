@@ -87,6 +87,19 @@ async function finish(api) {
   await api.page.close();
 }
 
+/** Seconds the page's main thread works during one idle second: an update loop keeps it near 1. */
+async function busySeconds(page) {
+  const session = await page.context().newCDPSession(page);
+  await session.send("Performance.enable");
+  async function taskSeconds() {
+    const { metrics } = await session.send("Performance.getMetrics");
+    return metrics.find((metric) => metric.name === "TaskDuration").value;
+  }
+  const before = await taskSeconds();
+  await page.waitForTimeout(1000);
+  return (await taskSeconds()) - before;
+}
+
 function lastReport(page) {
   return page.evaluate(() => window.accountFixture.reports.at(-1)?.message);
 }
@@ -127,9 +140,8 @@ test("the profile section loads, saves, shows a refused field and removes the av
   await name.fill("Taken");
   await page.getByRole("button", { name: "Save profile" }).click();
   await expect(page.getByText("Name is taken.")).toBeVisible();
-  // A known bug, pinned so its fix is seen: a new error array on every render keeps Vuetify's form updating past Vue's limit.
-  await expect.poll(() => api.errors.length).toBe(1);
-  assert.match(api.errors.shift(), /^Maximum recursive updates exceeded in component <VForm>/u);
+  // A new error array on every render keeps Vuetify's form updating past Vue's limit, which shows here as a page error.
+  assert.deepEqual(api.errors, []);
 
   await page.getByRole("button", { name: "Remove avatar" }).click();
   await expect(page.getByRole("button", { name: "Remove avatar" })).toHaveCount(0);
@@ -164,6 +176,25 @@ test("saved preferences follow into the theme, the stored preference and the acc
   await expect(page.locator(".v-application.v-theme--light")).toHaveCount(1);
   await expect(page.getByTestId("account-locale")).toHaveText("en-GB");
   assert.equal(await page.evaluate(() => localStorage.getItem("jskit.themePreference")), "light");
+  await finish(api);
+});
+
+test("a refused preference shows its message", options, async () => {
+  const api = await openApp({
+    routes: {
+      "PATCH /api/settings/preferences": {
+        status: 422,
+        json: { error: "Validation failed.", details: { fieldErrors: { theme: "Theme is not allowed." } } }
+      }
+    }
+  });
+  const { page } = api;
+  await page.goto("/account?section=preferences");
+  await page.getByRole("button", { name: /Save preferences/u }).click();
+  await expect(page.getByText("Theme is not allowed.")).toBeVisible();
+  // The old error array looped here for seconds before Vue gave up, so the page must also stay idle.
+  const busy = await busySeconds(page);
+  assert.ok(busy < 0.5, `the page worked for ${busy} s of an idle second`);
   await finish(api);
 });
 
@@ -288,5 +319,17 @@ test("ProfileClientElement presents its options, calls its actions and reports e
   await expect(page.getByTestId("custom-submit")).toHaveText(/Keep it/iu);
   await expect(page.getByRole("heading", { name: "Profile" })).toHaveCount(0);
   await expect(page.getByTestId("profile-avatar-remove-button")).toHaveCount(0);
+  await finish(api);
+});
+
+test("ProfileClientElement shows a refused field", options, async () => {
+  const api = await openApp();
+  const { page } = api;
+  await page.goto("/profile-element");
+  await expect(page.getByLabel("Display name")).toHaveValue("Ada");
+  await page.evaluate(() => {
+    window.accountFixture.profileState.profileFieldErrors.displayName = "Name is taken.";
+  });
+  await expect(page.getByText("Name is taken.")).toBeVisible();
   await finish(api);
 });

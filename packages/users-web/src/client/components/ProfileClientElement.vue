@@ -57,7 +57,7 @@
                 variant="outlined"
                 :density="resolvedVariant.density"
                 autocomplete="nickname"
-                :error-messages="state.profileFieldErrors.displayName ? [state.profileFieldErrors.displayName] : []"
+                :error-messages="state.profileFieldErrors.displayName"
               />
             </v-col>
             <v-col cols="12" md="6">
