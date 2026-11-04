@@ -1,6 +1,5 @@
 const placements = [];
 
-// readable-check: allow duplicate-helper - safety invariant: an application copies each pattern example on its own, so importing this from another example would break the copy
 function addPlacementTopology(value = {}) {
   placements.push(value);
 }
