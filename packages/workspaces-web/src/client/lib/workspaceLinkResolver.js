@@ -154,6 +154,13 @@ function resolveWorkspaceShellLinkPath({
   return resolveLinkPath(nextSurfaceBasePath, nextSurfaceRelativePath);
 }
 
+/**
+ * Resolves shell links against the placement context.
+ * @param {object} [options]
+ * @param {import("vue").MaybeRef<string>} [options.surface]
+ * @param {import("vue").MaybeRef<string>} [options.workspaceSlug]
+ * @param {import("vue").MaybeRef<string>} [options.pathname]
+ */
 function useWorkspaceLinkResolver({ surface = "", workspaceSlug = "", pathname = "" } = {}) {
   const { context: placementContext } = useWebPlacementContext();
 
@@ -192,12 +199,12 @@ function useWorkspaceLinkResolver({ surface = "", workspaceSlug = "", pathname =
     });
   }
 
-  return Object.freeze({
+  return {
     resolve,
     toSurface,
     toWorkspace,
     toAuto
-  });
+  };
 }
 
 export {

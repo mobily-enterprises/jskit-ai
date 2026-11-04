@@ -68,11 +68,15 @@ test("workspace resource load states expose local retry actions", async () => {
 test("workspace command loading follows the http-web proxyRefs contract", async () => {
   const expectations = new Map([
     [
-      "src/client/components/WorkspaceMembersClientElement.vue",
-      [/isCreatingInvite: Boolean\(inviteCreateCommand\.isRunning\)/, /inviteCreateCommand\.isRunning \|\| !canInviteMembers\.value/]
+      "src/client/composables/useWorkspaceMembersPage.js",
+      [/isCreatingInvite: Boolean\(inviteCreateCommand\.isRunning\)/]
     ],
     [
-      "src/client/components/WorkspacesClientElement.vue",
+      "src/client/composables/useWorkspaceMembersActions.js",
+      [/inviteCreateCommand\.isRunning \|\| !canInviteMembers\.value/]
+    ],
+    [
+      "src/client/composables/useWorkspacesLanding.js",
       [/const isCreatingWorkspace = computed\(\(\) => Boolean\(createWorkspaceCommand\.isRunning\)\)/]
     ],
     [

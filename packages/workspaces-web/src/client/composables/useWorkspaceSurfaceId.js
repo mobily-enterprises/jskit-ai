@@ -1,30 +1,28 @@
-import { computed, unref } from "vue";
+import { computed } from "vue";
 import { resolveSurfaceIdFromPlacementPathname } from "@jskit-ai/shell-web/client/placement";
+import { pagePathname } from "../browser.js";
 import {
   resolveSurfaceSwitchTargetsFromPlacementContext,
   surfaceRequiresWorkspaceFromPlacementContext
 } from "../lib/workspaceSurfaceContext.js";
 
-function resolveCurrentPathname(route = null) {
-  const routePath = String(route?.path || "").trim();
-  if (routePath) {
-    return routePath;
-  }
-
-  if (typeof window === "object" && window?.location?.pathname) {
-    return String(window.location.pathname);
-  }
-
-  return "/";
+function resolveCurrentPathname(route) {
+  return String(route.path || "").trim() || pagePathname() || "/";
 }
 
-function useWorkspaceSurfaceId({ route = null, placementContext = null } = {}) {
+/**
+ * The surface on the route, and the surface a workspace opens on from there.
+ * @param {object} options
+ * @param {import("vue-router").RouteLocationNormalizedLoaded} options.route
+ * @param {import("vue").Ref<import("../types.js").WorkspacePlacementContext>} options.placementContext
+ */
+function useWorkspaceSurfaceId({ route, placementContext }) {
   const currentSurfaceId = computed(() =>
-    resolveSurfaceIdFromPlacementPathname(unref(placementContext), resolveCurrentPathname(route))
+    resolveSurfaceIdFromPlacementPathname(placementContext.value, resolveCurrentPathname(route))
   );
 
   const workspaceSurfaceId = computed(() => {
-    const contextValue = unref(placementContext);
+    const contextValue = placementContext.value;
     const surfaceId = String(currentSurfaceId.value || "").trim().toLowerCase();
     if (surfaceId && surfaceRequiresWorkspaceFromPlacementContext(contextValue, surfaceId)) {
       return surfaceId;
@@ -34,10 +32,10 @@ function useWorkspaceSurfaceId({ route = null, placementContext = null } = {}) {
     return String(targets.workspaceSurfaceId || "").trim().toLowerCase();
   });
 
-  return Object.freeze({
+  return {
     currentSurfaceId,
     workspaceSurfaceId
-  });
+  };
 }
 
 export { useWorkspaceSurfaceId };

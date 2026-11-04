@@ -2,6 +2,7 @@ import {
   resolveRuntimePathname,
   resolveSurfaceIdFromPlacementPathname
 } from "@jskit-ai/shell-web/client/placement";
+import { normalizeLowerText } from "@jskit-ai/kernel/shared/support/normalize";
 import { parseWorkspacePathname } from "@jskit-ai/workspaces-core/shared/support/workspacePathModel";
 import { extractWorkspaceSlugFromSurfacePathname } from "../lib/workspaceSurfacePaths.js";
 import { httpWebClient } from "@jskit-ai/http-web/client/lib/httpClient";
@@ -13,7 +14,7 @@ import { WORKSPACE_BOOTSTRAP_STATUSES } from "./bootstrapPlacementRuntimeConstan
 
 function resolveRouteState(placementRuntime, router) {
   const context = placementRuntime.getContext();
-  const path = resolveRuntimePathname(router?.currentRoute?.value?.path);
+  const path = resolveRuntimePathname(router.currentRoute.value.path);
   const surfaceId = String(resolveSurfaceIdFromPlacementPathname(context, path) || "")
     .trim()
     .toLowerCase();
@@ -58,18 +59,12 @@ function isGuardDenied(outcome) {
   return outcome.allow === false;
 }
 
-function normalizeWorkspaceSlugKey(workspaceSlug = "") {
-  return String(workspaceSlug || "")
-    .trim()
-    .toLowerCase();
-}
-
 function normalizeWorkspaceBootstrapStatus(status = "") {
   return normalizeWorkspaceBootstrapStatusValue(status, WORKSPACE_BOOTSTRAP_STATUSES);
 }
 
-function resolveRequestedWorkspaceBootstrapStatus(payload = {}, workspaceSlug = "") {
-  const normalizedWorkspaceSlug = normalizeWorkspaceSlugKey(workspaceSlug);
+function resolveRequestedWorkspaceBootstrapStatus(payload, workspaceSlug = "") {
+  const normalizedWorkspaceSlug = normalizeLowerText(workspaceSlug);
   if (!normalizedWorkspaceSlug) {
     return "";
   }
@@ -80,7 +75,7 @@ function resolveRequestedWorkspaceBootstrapStatus(payload = {}, workspaceSlug = 
     return "";
   }
 
-  const requestedWorkspaceSlug = normalizeWorkspaceSlugKey(requestedWorkspace.slug);
+  const requestedWorkspaceSlug = normalizeLowerText(requestedWorkspace.slug);
   if (!requestedWorkspaceSlug || requestedWorkspaceSlug !== normalizedWorkspaceSlug) {
     return "";
   }
@@ -88,7 +83,7 @@ function resolveRequestedWorkspaceBootstrapStatus(payload = {}, workspaceSlug = 
   return normalizeWorkspaceBootstrapStatus(requestedWorkspace.status);
 }
 
-function resolveAuthSignature(context = {}) {
+function resolveAuthSignature(context) {
   const auth = context?.auth && typeof context.auth === "object" ? context.auth : {};
   const authenticated = auth.authenticated === true ? "1" : "0";
   const oauthDefaultProvider = String(auth.oauthDefaultProvider || "")
@@ -131,7 +126,6 @@ export {
   isGuardDenied,
   normalizeSearch,
   normalizeWorkspaceBootstrapStatus,
-  normalizeWorkspaceSlugKey,
   resolveAuthSignature,
   resolveRequestedWorkspaceBootstrapStatus,
   resolveRouteState,

@@ -190,7 +190,7 @@ function createTestRuntime({
   router,
   bootstrapRuntime = createBootstrapRuntimeStub(),
   socket = null,
-  vueApp = null
+  vueApp = createVueAppWithThemeController(undefined)
 } = {}) {
   return createBootstrapPlacementRuntime({
     placementRuntime,
@@ -761,6 +761,30 @@ test("bootstrap placement runtime guard wrapper preserves delegated deny outcome
   });
 
   assert.deepEqual(outcome, delegatedOutcome);
+});
+
+test("bootstrap placement runtime guard wrapper treats anything but a function in the shell slot as no guard", async () => {
+  globalThis[SHELL_GUARD_EVALUATOR_KEY] = "not a function";
+
+  const runtime = createTestRuntime({
+    placementRuntime: createPlacementRuntimeStub(),
+    router: createRouterStub("/home")
+  });
+
+  await runtime.initialize();
+
+  const evaluator = globalThis[SHELL_GUARD_EVALUATOR_KEY];
+  assert.equal(typeof evaluator, "function");
+  assert.equal(
+    evaluator({
+      guard: {},
+      context: {
+        to: { path: "/home", fullPath: "/home" },
+        location: { pathname: "/home", search: "" }
+      }
+    }),
+    true
+  );
 });
 
 test("bootstrap placement runtime guard wrapper blocks forbidden workspace routes and redirects nested workspace paths", async () => {

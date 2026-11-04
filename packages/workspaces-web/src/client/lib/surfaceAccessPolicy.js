@@ -1,9 +1,7 @@
 import { resolveSurfaceDefinitionFromPlacementContext } from "@jskit-ai/shell-web/client/placement";
+import { normalizeLowerText, normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
-import {
-  normalizeRecord,
-  normalizeWorkspaceBootstrapStatusValue
-} from "../support/runtimeNormalization.js";
+import { normalizeWorkspaceBootstrapStatusValue } from "../support/runtimeNormalization.js";
 import {
   hasPermission,
   normalizePermissionList
@@ -15,18 +13,6 @@ const WORKSPACE_ACCESS_BLOCKING_STATUSES = new Set([
   WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND,
   WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN
 ]);
-
-function normalizeSurfaceAccessPolicyId(value = "") {
-  return String(value || "")
-    .trim()
-    .toLowerCase();
-}
-
-function normalizeWorkspaceSlug(value = "") {
-  return String(value || "")
-    .trim()
-    .toLowerCase();
-}
 
 function normalizeAccessFlagName(value = "") {
   return String(value || "")
@@ -49,7 +35,7 @@ function normalizeStringList(value) {
 }
 
 function normalizeSurfaceAccessFlags(value = null) {
-  const source = normalizeRecord(value);
+  const source = normalizeObject(value);
   const flags = {};
 
   for (const [candidateKey, candidateValue] of Object.entries(source)) {
@@ -83,19 +69,19 @@ function hasKnownSurfaceAccessContext(contextValue = null) {
 }
 
 function hasWorkspaceMembership(contextValue = null, workspaceSlug = "") {
-  const normalizedWorkspaceSlug = normalizeWorkspaceSlug(workspaceSlug);
+  const normalizedWorkspaceSlug = normalizeLowerText(workspaceSlug);
   if (!normalizedWorkspaceSlug) {
     return false;
   }
 
-  const context = normalizeRecord(contextValue);
-  if (normalizeWorkspaceSlug(context?.workspace?.slug) === normalizedWorkspaceSlug) {
+  const context = normalizeObject(contextValue);
+  if (normalizeLowerText(context?.workspace?.slug) === normalizedWorkspaceSlug) {
     return true;
   }
 
   const workspaces = Array.isArray(context.workspaces) ? context.workspaces : [];
   for (const workspace of workspaces) {
-    if (normalizeWorkspaceSlug(workspace?.slug) === normalizedWorkspaceSlug) {
+    if (normalizeLowerText(workspace?.slug) === normalizedWorkspaceSlug) {
       return true;
     }
   }
@@ -104,26 +90,26 @@ function hasWorkspaceMembership(contextValue = null, workspaceSlug = "") {
 }
 
 function resolveSurfaceAccessPolicies(contextValue = null) {
-  const context = normalizeRecord(contextValue);
-  const configuredPolicies = normalizeRecord(context.surfaceAccessPolicies);
+  const context = normalizeObject(contextValue);
+  const configuredPolicies = normalizeObject(context.surfaceAccessPolicies);
   const policies = {};
 
   for (const [candidatePolicyId, candidatePolicy] of Object.entries(configuredPolicies)) {
-    const policyId = normalizeSurfaceAccessPolicyId(candidatePolicyId);
+    const policyId = normalizeLowerText(candidatePolicyId);
     if (!policyId) {
       continue;
     }
-    policies[policyId] = normalizeRecord(candidatePolicy);
+    policies[policyId] = normalizeObject(candidatePolicy);
   }
 
   return policies;
 }
 
 function resolveSurfaceAccessPolicy(contextValue = null, surfaceDefinition = null) {
-  const definition = normalizeRecord(surfaceDefinition);
-  const policyId = normalizeSurfaceAccessPolicyId(definition.accessPolicyId);
+  const definition = normalizeObject(surfaceDefinition);
+  const policyId = normalizeLowerText(definition.accessPolicyId);
   const configuredPolicies = resolveSurfaceAccessPolicies(contextValue);
-  const configuredPolicy = policyId ? normalizeRecord(configuredPolicies[policyId]) : {};
+  const configuredPolicy = policyId ? normalizeObject(configuredPolicies[policyId]) : {};
 
   const requireAuth = Object.hasOwn(configuredPolicy, "requireAuth")
     ? configuredPolicy.requireAuth === true
@@ -218,7 +204,7 @@ function evaluateSurfaceAccess({
   workspaceSlug = "",
   allowOnUnknown = false
 } = {}) {
-  const source = normalizeRecord(context);
+  const source = normalizeObject(context);
   const normalizedSurfaceId = normalizeSurfaceId(surfaceId);
   if (!normalizedSurfaceId) {
     return toAccessDecision({
@@ -243,7 +229,7 @@ function evaluateSurfaceAccess({
     });
   }
 
-  const normalizedWorkspaceSlug = normalizeWorkspaceSlug(workspaceSlug);
+  const normalizedWorkspaceSlug = normalizeLowerText(workspaceSlug);
   if (policy.requireWorkspaceMembership) {
     if (!normalizedWorkspaceSlug) {
       return toAccessDecision({
@@ -252,7 +238,7 @@ function evaluateSurfaceAccess({
       });
     }
 
-    const workspaceBootstrapStatuses = normalizeRecord(source.workspaceBootstrapStatuses);
+    const workspaceBootstrapStatuses = normalizeObject(source.workspaceBootstrapStatuses);
     const workspaceStatus = normalizeWorkspaceBootstrapStatusValue(
       workspaceBootstrapStatuses[normalizedWorkspaceSlug],
       WORKSPACE_ACCESS_BLOCKING_STATUSES
@@ -334,7 +320,7 @@ function evaluateSurfaceAccess({
       });
     }
 
-    const accessFlags = normalizeRecord(source.surfaceAccess);
+    const accessFlags = normalizeObject(source.surfaceAccess);
     const flagDecision = evaluateFlagRequirements(policy, accessFlags);
     if (!flagDecision.allowed) {
       return flagDecision;

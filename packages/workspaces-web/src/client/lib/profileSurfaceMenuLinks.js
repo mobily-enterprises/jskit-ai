@@ -1,6 +1,7 @@
 import {
   resolveSurfaceIdFromPlacementPathname
 } from "@jskit-ai/shell-web/client/placement";
+import { pagePathname } from "../browser.js";
 import { useJskitText } from "../i18n.js";
 import { resolveWorkspaceShellLinkPath } from "./workspaceLinkResolver.js";
 import { resolveSurfaceSwitchTargetsFromPlacementContext } from "./workspaceSurfaceContext.js";
@@ -39,11 +40,11 @@ function resolveCurrentWorkspaceSlug(contextValue, surfaceId) {
     return workspaceSlugFromContext;
   }
 
-  if (typeof window !== "object" || !window?.location?.pathname) {
+  const pathname = pagePathname();
+  if (!pathname) {
     return "";
   }
 
-  const pathname = String(window.location.pathname || "").trim();
   const currentSurfaceId =
     resolveWorkspaceSurfaceIdFromPlacementPathname(context, pathname) ||
     resolveSurfaceIdFromPlacementPathname(context, pathname) ||
@@ -81,7 +82,7 @@ function resolveSurfaceSwitchLinkLabel(surfaceDefinition = null, surfaceId = "")
   return t("jskit.workspaces.menu.goToSurface", { surface: label.toLowerCase() });
 }
 
-function resolveSurfaceSwitchLinks({ context, surface } = {}) {
+function resolveSurfaceSwitchLinks({ context, surface }) {
   const source = context && typeof context === "object" ? context : {};
   const targets = resolveSurfaceSwitchTargetsFromPlacementContext(source, surface);
   const currentSurfaceId = String(targets.currentSurfaceId || "").trim().toLowerCase();
@@ -137,7 +138,7 @@ function resolveSurfaceSwitchLinks({ context, surface } = {}) {
   return links;
 }
 
-function resolvePrimarySurfaceSwitchLink({ context, surface } = {}) {
+function resolvePrimarySurfaceSwitchLink({ context, surface }) {
   const links = resolveSurfaceSwitchLinks({
     context,
     surface
@@ -145,7 +146,7 @@ function resolvePrimarySurfaceSwitchLink({ context, surface } = {}) {
   return links[0] || null;
 }
 
-function resolveProfileSurfaceMenuLinks({ context, surface } = {}) {
+function resolveProfileSurfaceMenuLinks({ context, surface }) {
   const source = context && typeof context === "object" ? context : {};
   const authenticated = Boolean(source?.auth?.authenticated);
   if (!authenticated) {

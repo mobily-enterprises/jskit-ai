@@ -14,6 +14,7 @@ import {
   resolveSurfacePathFromPlacementContext,
   resolveSurfaceRootPathFromPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
+import { pagePathname } from "../browser.js";
 import {
   listWorkspaceSurfaceIdsFromSurfaceConfig,
   surfaceRequiresWorkspaceFromPlacementContext
@@ -76,11 +77,7 @@ function resolveWorkspaceSurfaceIdFromSurfaceConfig(surfaceConfig, pathname = ""
 
 function resolveWorkspaceSurfaceIdFromPlacementPathname(contextValue = null, pathname = "") {
   const surfaceConfig = readPlacementSurfaceConfig(contextValue);
-  const normalizedPathname =
-    normalizePathname(pathname) ||
-    (typeof window === "object" && window?.location?.pathname ? normalizePathname(window.location.pathname) : "/");
-
-  return resolveWorkspaceSurfaceIdFromSurfaceConfig(surfaceConfig, normalizedPathname);
+  return resolveWorkspaceSurfaceIdFromSurfaceConfig(surfaceConfig, normalizePathname(pathname));
 }
 
 function resolveAccountSettingsPathFromPlacementContext(contextValue = null) {
@@ -131,9 +128,7 @@ function resolveSurfaceWorkspacePathFromPlacementContext(contextValue = null, su
 }
 
 function extractWorkspaceSlugFromSurfacePathname(contextValue = null, surfaceId = "", pathname = "") {
-  const normalizedPathname = normalizePathname(
-    pathname || (typeof window === "object" && window?.location?.pathname ? window.location.pathname : "/")
-  );
+  const normalizedPathname = normalizePathname(pathname || pagePathname() || "/");
   const normalizedSurfaceId = normalizeSurfaceId(surfaceId);
   if (!normalizedSurfaceId) {
     return "";

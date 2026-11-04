@@ -103,7 +103,8 @@ export default [
     "packages/realtime/src/client/**",
     "packages/shell-web/src/client/**",
     "packages/storage-runtime/src/client/**",
-    "packages/uploads-runtime/src/client/**"
+    "packages/uploads-runtime/src/client/**",
+    "packages/workspaces-web/src/client/**"
   ]),
   {
     // JSKIT client texts come from message catalogs, never from template literals.

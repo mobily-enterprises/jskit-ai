@@ -16,13 +16,21 @@ Use this on demand; do not load the full index at startup.
 
 ### `src/client/account-settings/accountSettingsInvitesRuntime.js`
 Exports
-- `createAccountSettingsInvitesRuntime({ invitesAvailable, isResolvingInvite, inviteAction, redeemInviteModel, redeemInviteCommand, pendingInvites, pendingInvitesModel, pendingInvitesView, openWorkspace, reportAccountFeedback } = {})`
+- `createAccountSettingsInvitesRuntime({ invitesAvailable, isResolvingInvite, inviteAction, redeemInviteModel, redeemInviteCommand, pendingInvites, pendingInvitesModel, pendingInvitesView, openWorkspace, reportAccountFeedback })`
 
 ### `src/client/account-settings/useAccountSettingsInvitesSectionRuntime.js`
 Exports
 - `useAccountSettingsInvitesSectionRuntime()`
+
+### `src/client/browser.js`
+Exports
+- `assignPageLocation(href)`
+- `pageClipboard()`
+- `pageLocalStorage()`
+- `pagePathname()`
+- `pagePrefersDark()`
 Local functions
-- `normalizePendingInvite(entry)`
+- `pageWindow()`
 
 ### `src/client/components/AccountSettingsInvitesSection.vue`
 Exports
@@ -56,25 +64,6 @@ Local functions
 ### `src/client/components/WorkspaceMembersClientElement.vue`
 Exports
 - None
-Local functions
-- `workspaceMembersPath(memberId)`
-- `workspaceInvitePath(inviteId)`
-- `resetMessages()`
-- `clearRoleOptions()`
-- `resetViewState()`
-- `toRoleTitle(roleSid)`
-- `normalizeRoleCatalog(payload = {})`
-- `applyRoleCatalog(payload = {})`
-- `normalizeMembers(entries)`
-- `normalizeInvites(entries)`
-- `latestPage(pages)`
-- `applyWorkspaceSettingsPolicy(payload = {})`
-- `refreshLoad()`
-- `submitInvite()`
-- `copyCreatedInviteLink()`
-- `submitRevokeInvite(inviteId)`
-- `submitMemberRoleUpdate(member, roleSid)`
-- `submitRemoveMember(member)`
 
 ### `src/client/components/WorkspaceMembersMenuItem.vue`
 Exports
@@ -94,25 +83,14 @@ Exports
 Exports
 - None
 Local functions
-- `normalizePendingInvite(entry)`
-- `reportFeedback({ message, severity = "error", channel = "", dedupeKey = "" } = {})`
 - `workspaceInitials(workspace)`
-- `workspaceHomePath(workspaceSlug)`
-- `resolveLandingSlug()`
 - `workspaceOpenLabel(workspace)`
 - `isRespondingToInvite(invite, decision)`
-- `openWorkspace(workspaceSlug)`
-- `respondToInvite(invite, decision)`
-- `acceptInvite(invite)`
-- `refuseInvite(invite)`
-- `createWorkspace()`
-- `refreshBootstrap()`
 
 ### `src/client/components/WorkspaceSelector.vue`
 Exports
 - None
 Local functions
-- `resolveBrowserPath()`
 - `navigateToWorkspace(slug)`
 
 ### `src/client/components/WorkspaceSettingsMenuItem.vue`
@@ -123,15 +101,27 @@ Exports
 Exports
 - None
 
+### `src/client/composables/useWorkspaceMembersActions.js`
+Exports
+- `useWorkspaceMembersActions({ forms, workspaceMembersApiPath, workspaceInvitesApiPath, canInviteMembers, canManageMembers, canRevokeInvites, workspaceRolesView, workspaceMembersList, workspaceInvitesList })`
+
+### `src/client/composables/useWorkspaceMembersPage.js`
+Exports
+- `useWorkspaceMembersPage()`
+
 ### `src/client/composables/useWorkspaceRouteContext.js`
 Exports
 - `useWorkspaceRouteContext()`
 
+### `src/client/composables/useWorkspacesLanding.js`
+Exports
+- `useWorkspacesLanding()`
+
 ### `src/client/composables/useWorkspaceSurfaceId.js`
 Exports
-- `useWorkspaceSurfaceId({ route = null, placementContext = null } = {})`
+- `useWorkspaceSurfaceId({ route, placementContext })`
 Local functions
-- `resolveCurrentPathname(route = null)`
+- `resolveCurrentPathname(route)`
 
 ### `src/client/i18n.js`
 Exports
@@ -150,23 +140,26 @@ Exports
 - `findWorkspaceBySlug(entries = [], workspaceSlug = "")`
 - `normalizeWorkspaceEntry(entry = null)`
 - `normalizeWorkspaceList(entries = [])`
-Local functions
-- `normalizeWorkspaceSlug(value = "")`
 
 ### `src/client/lib/lastWorkspace.js`
 Exports
-- `readLastWorkspaceSlug(userId, { storage } = {})`
+- `readLastWorkspaceSlug(userId, { storage = pageLocalStorage() } = {})`
 - `resolveWorkspaceLandingSlug({ workspaces = [], pendingInvites = [], lastWorkspaceSlug = "" } = {})`
-- `writeLastWorkspaceSlug(userId, workspaceSlug, { storage } = {})`
+- `writeLastWorkspaceSlug(userId, workspaceSlug, { storage = pageLocalStorage() } = {})`
 Local functions
-- `resolveStorage(storage)`
 - `lastWorkspaceStorageKey(userId)`
+
+### `src/client/lib/pendingInvites.js`
+Exports
+- `readPendingInvites(payload, invitesEnabled)`
+Local functions
+- `normalizePendingInvite(entry)`
 
 ### `src/client/lib/profileSurfaceMenuLinks.js`
 Exports
-- `resolveProfileSurfaceMenuLinks({ context, surface } = {})`
-- `resolvePrimarySurfaceSwitchLink({ context, surface } = {})`
-- `resolveSurfaceSwitchLinks({ context, surface } = {})`
+- `resolveProfileSurfaceMenuLinks({ context, surface })`
+- `resolvePrimarySurfaceSwitchLink({ context, surface })`
+- `resolveSurfaceSwitchLinks({ context, surface })`
 - `hasWorkspaceMembership`
 Local functions
 - `resolveSurfaceSwitchIcon(surfaceId = "", explicitIcon = "")`
@@ -180,8 +173,6 @@ Exports
 - `resolveSurfaceAccessPolicy(contextValue = null, surfaceDefinition = null)`
 - `evaluateSurfaceAccess({ context = null, surfaceId = "", workspaceSlug = "", allowOnUnknown = false } = {})`
 Local functions
-- `normalizeSurfaceAccessPolicyId(value = "")`
-- `normalizeWorkspaceSlug(value = "")`
 - `normalizeAccessFlagName(value = "")`
 - `normalizeStringList(value)`
 - `normalizeSurfaceAccessFlags(value = null)`
@@ -199,8 +190,8 @@ Exports
 - `hexColorToRgb(value = "")`
 - `normalizeThemePreference(value)`
 - `persistBootstrapThemePreference(payload = {}, options = {})`
-- `persistThemePreference(themePreference, options = {})`
-- `readPersistedThemePreference(options = {})`
+- `persistThemePreference(themePreference, { storage = pageLocalStorage() } = {})`
+- `readPersistedThemePreference({ storage = pageLocalStorage() } = {})`
 - `resolveBootstrapThemePreference(payload = {}, options = {})`
 - `resolveThemeNameForPreference(themePreference, options = {})`
 - `resolveBootstrapThemeName(payload = {}, options = {})`
@@ -209,7 +200,6 @@ Exports
 - `setVuetifyThemeName(themeController, themeName)`
 Local functions
 - `resolveSystemThemeName({ prefersDark } = {})`
-- `resolveThemePreferenceStorage(options = {})`
 - `normalizeHexColor(value = "")`
 - `resolveVuetifyThemeDefinitions(themeController)`
 - `normalizeThemeColors(colors)`
@@ -226,6 +216,15 @@ Exports
 Local functions
 - `resolveSurfaceBasePath(context = null, surface = "")`
 - `resolveWorkspaceBasePath(context = null, surface = "", workspaceSlug = "")`
+
+### `src/client/lib/workspaceMembersPayloads.js`
+Exports
+- `latestPage(pages)`
+- `normalizeInvites(entries)`
+- `normalizeMembers(entries)`
+- `normalizeRoleCatalog(payload)`
+Local functions
+- `toRoleTitle(roleSid)`
 
 ### `src/client/lib/workspaceSurfaceContext.js`
 Exports
@@ -253,7 +252,10 @@ Exports
 
 ### `src/client/runtime/bootstrapPlacementRouteGuards.js`
 Exports
-- `createBootstrapPlacementRouteGuards({ placementRuntime, router = null, root = null, getWorkspaceBootstrapStatus = () => "" } = {})`
+- `createBootstrapPlacementRouteGuards({ placementRuntime, router, root, getWorkspaceBootstrapStatus })`
+Local functions
+- `allowEveryRoute()`
+- `normalizeGuardEvaluator(candidate)`
 
 ### `src/client/runtime/bootstrapPlacementRuntime.js`
 Exports
@@ -262,7 +264,7 @@ Exports
 - `WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN`
 - `WORKSPACE_BOOTSTRAP_STATUS_UNAUTHENTICATED`
 - `WORKSPACE_BOOTSTRAP_STATUS_ERROR`
-- `createBootstrapPlacementRuntime({ bootstrapRuntime, placementRuntime, realtime = null, router = null, vueApp = null, logger })`
+- `createBootstrapPlacementRuntime({ bootstrapRuntime, placementRuntime, realtime, router, vueApp, logger })`
 
 ### `src/client/runtime/bootstrapPlacementRuntimeConstants.js`
 Exports
@@ -283,20 +285,18 @@ Exports
 - `isGuardDenied(outcome)`
 - `normalizeSearch(search = "")`
 - `normalizeWorkspaceBootstrapStatus(status = "")`
-- `normalizeWorkspaceSlugKey(workspaceSlug = "")`
-- `resolveAuthSignature(context = {})`
-- `resolveRequestedWorkspaceBootstrapStatus(payload = {}, workspaceSlug = "")`
+- `resolveAuthSignature(context)`
+- `resolveRequestedWorkspaceBootstrapStatus(payload, workspaceSlug = "")`
 - `resolveRouteState(placementRuntime, router)`
 - `resolveSearchFromFullPath(fullPath = "")`
 
 ### `src/client/support/realtimeWorkspace.js`
 Exports
-- `matchesCurrentWorkspaceEvent(payload = {}, workspaceSlug = "")`
+- `matchesCurrentWorkspaceEvent(payload, workspaceSlug = "")`
 - `createWorkspaceRealtimeMatcher(workspaceSlugRef)`
 
 ### `src/client/support/runtimeNormalization.js`
 Exports
-- `normalizeRecord(value)`
 - `normalizeWorkspaceBootstrapStatusValue(status = "", allowedStatuses = null)`
 - `resolveErrorStatusCode(error)`
 
@@ -308,7 +308,38 @@ Exports
 Exports
 - `WORKSPACES_WEB_SCOPE_SUPPORT_INJECTION_KEY`
 - `createWorkspaceScopeSupport()`
-- `readWorkspaceRouteScope(routeContext = {})`
+- `readWorkspaceRouteScope(routeContext)`
+
+### `src/client/types.js`
+Exports
+- `type WorkspacePlacementContext`
+- `type WorkspacePlacementRuntime`
+- `type ShellBootstrapRuntime`
+- `type WorkspaceShell`
+- `type WorkspaceRealtime`
+- `type ShellGuardEvaluator`
+- `type WorkspaceRouteScopeContext`
+- `type WorkspaceBootstrapRuntime`
+- `type WorkspaceScopeSupport`
+- `type WorkspacesClient`
+- `type WorkspaceRouteContext`
+- `type WorkspaceSurfaceIds`
+- `type WorkspaceMembersPage`
+- `type WorkspaceMembersActions`
+- `type WorkspacesLanding`
+- `type AccountSettingsInvites`
+- `type WorkspaceLinkResolver`
+- `type PendingInvite`
+- `type InviteAction`
+- `type WorkspaceFeedback`
+- `type MembersAdminForms`
+- `type MembersAdminOptions`
+- `type WorkspaceMember`
+- `type WorkspaceMemberInvite`
+- `type MembersAdminCollections`
+- `type MembersAdminPermissions`
+- `type MembersAdminStatus`
+- `type MembersAdminActions`
 
 ### `src/shared/toolsOutletContracts.js`
 Exports

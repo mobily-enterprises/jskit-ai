@@ -1,10 +1,5 @@
-import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeLowerText, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { BOOTSTRAP_PATH } from "@jskit-ai/kernel/shared/surface/paths";
-
-function normalizeWorkspaceSlug(value = "") {
-  return normalizeLowerText(value);
-}
 
 function normalizeWorkspaceEntry(entry = null) {
   if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
@@ -12,7 +7,7 @@ function normalizeWorkspaceEntry(entry = null) {
   }
 
   const id = normalizeRecordId(entry.id, { fallback: "" });
-  const slug = normalizeWorkspaceSlug(entry.slug);
+  const slug = normalizeLowerText(entry.slug);
   const name = normalizeText(entry.name);
   if (!id || !slug || !name) {
     return null;
@@ -38,7 +33,7 @@ function normalizeWorkspaceList(entries = []) {
 }
 
 function findWorkspaceBySlug(entries = [], workspaceSlug = "") {
-  const normalizedWorkspaceSlug = normalizeWorkspaceSlug(workspaceSlug);
+  const normalizedWorkspaceSlug = normalizeLowerText(workspaceSlug);
   if (!normalizedWorkspaceSlug) {
     return null;
   }
@@ -47,7 +42,7 @@ function findWorkspaceBySlug(entries = [], workspaceSlug = "") {
 }
 
 function buildBootstrapApiPath(workspaceSlug = "") {
-  const normalizedWorkspaceSlug = normalizeWorkspaceSlug(workspaceSlug);
+  const normalizedWorkspaceSlug = normalizeLowerText(workspaceSlug);
   if (!normalizedWorkspaceSlug) {
     return BOOTSTRAP_PATH;
   }

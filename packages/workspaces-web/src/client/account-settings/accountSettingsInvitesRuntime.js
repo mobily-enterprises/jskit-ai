@@ -1,6 +1,20 @@
 import { useJskitText } from "../i18n.js";
 import { resolveErrorStatusCode } from "../support/runtimeNormalization.js";
 
+/**
+ * Answers invitations from the account page.
+ * @param {object} options
+ * @param {import("vue").Ref<boolean>} options.invitesAvailable
+ * @param {import("vue").Ref<boolean>} options.isResolvingInvite
+ * @param {import("vue").Ref<import("../types.js").InviteAction>} options.inviteAction
+ * @param {import("../types.js").InviteAction} options.redeemInviteModel
+ * @param {{ run: () => Promise<unknown> }} options.redeemInviteCommand
+ * @param {import("vue").Ref<import("../types.js").PendingInvite[]>} options.pendingInvites
+ * @param {{ pendingInvites: import("../types.js").PendingInvite[] }} options.pendingInvitesModel
+ * @param {{ refresh: () => Promise<unknown> }} options.pendingInvitesView
+ * @param {(workspaceSlug: string) => Promise<void>} options.openWorkspace
+ * @param {(feedback: import("../types.js").WorkspaceFeedback) => void} options.reportAccountFeedback
+ */
 function createAccountSettingsInvitesRuntime({
   invitesAvailable,
   isResolvingInvite,
@@ -12,7 +26,7 @@ function createAccountSettingsInvitesRuntime({
   pendingInvitesView,
   openWorkspace,
   reportAccountFeedback
-} = {}) {
+}) {
   const { t, errorMessage } = useJskitText();
 
   async function respondToInvite(invite, decision) {
@@ -74,13 +88,17 @@ function createAccountSettingsInvitesRuntime({
     }
   }
 
+  function accept(invite) {
+    return respondToInvite(invite, "accept");
+  }
+
+  function refuse(invite) {
+    return respondToInvite(invite, "refuse");
+  }
+
   return Object.freeze({
-    accept(invite) {
-      return respondToInvite(invite, "accept");
-    },
-    refuse(invite) {
-      return respondToInvite(invite, "refuse");
-    }
+    accept,
+    refuse
   });
 }
 

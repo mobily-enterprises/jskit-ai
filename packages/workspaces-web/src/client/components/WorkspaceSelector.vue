@@ -12,6 +12,7 @@ import { findWorkspaceBySlug, normalizeWorkspaceEntry, normalizeWorkspaceList } 
 import { usePaths } from "@jskit-ai/shell-web/client/navigation/usePaths";
 import { resolveSurfaceSwitchTargetsFromPlacementContext, surfaceRequiresWorkspaceFromPlacementContext } from "../lib/workspaceSurfaceContext.js";
 import { resolveWorkspaceSurfaceIdFromPlacementPathname, extractWorkspaceSlugFromSurfacePathname } from "../lib/workspaceSurfacePaths.js";
+import { assignPageLocation, pagePathname } from "../browser.js";
 import { useJskitText } from "../i18n.js";
 
 const props = defineProps({
@@ -37,21 +38,7 @@ const router = useRouter();
 const { context: placementContext } = useWebPlacementContext();
 const paths = usePaths();
 
-function resolveBrowserPath() {
-  if (typeof window !== "object" || !window || !window.location) {
-    return "/";
-  }
-  const pathname = String(window.location.pathname || "").trim();
-  return pathname || "/";
-}
-
-const currentPath = computed(() => {
-  const routePath = String(route?.path || "").trim();
-  if (routePath) {
-    return routePath;
-  }
-  return resolveBrowserPath();
-});
+const currentPath = computed(() => String(route.path || "").trim() || pagePathname() || "/");
 
 const currentSurfaceId = computed(() => {
   return (
@@ -137,10 +124,9 @@ async function navigateToWorkspace(slug) {
 
   try {
     if (currentPath.value !== targetPath || !navigationTarget.sameOrigin) {
-      if (navigationTarget.sameOrigin && router && typeof router.push === "function") {
+      if (navigationTarget.sameOrigin) {
         await router.push(navigationTarget.href);
-      } else if (typeof window === "object" && window && window.location) {
-        window.location.assign(navigationTarget.href);
+      } else if (assignPageLocation(navigationTarget.href)) {
         return;
       } else {
         throw new Error(t("jskit.workspaces.selector.routerUnavailable"));

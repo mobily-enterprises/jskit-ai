@@ -1,48 +1,36 @@
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
+import { pageLocalStorage } from "../browser.js";
 import { findWorkspaceBySlug } from "./bootstrap.js";
 
 const LAST_WORKSPACE_STORAGE_KEY_PREFIX = "jskit.workspaces-web.last-workspace.";
-
-function resolveStorage(storage) {
-  if (storage !== undefined) {
-    return storage;
-  }
-  try {
-    return typeof window === "object" ? window?.localStorage || null : null;
-  } catch {
-    return null;
-  }
-}
 
 function lastWorkspaceStorageKey(userId) {
   const normalizedUserId = normalizeRecordId(userId, { fallback: "" });
   return normalizedUserId ? `${LAST_WORKSPACE_STORAGE_KEY_PREFIX}${normalizedUserId}` : "";
 }
 
-function readLastWorkspaceSlug(userId, { storage } = {}) {
+function readLastWorkspaceSlug(userId, { storage = pageLocalStorage() } = {}) {
   const key = lastWorkspaceStorageKey(userId);
-  const resolvedStorage = resolveStorage(storage);
-  if (!key || !resolvedStorage || typeof resolvedStorage.getItem !== "function") {
+  if (!key || !storage) {
     return "";
   }
 
   try {
-    return String(resolvedStorage.getItem(key) || "").trim();
+    return String(storage.getItem(key) || "").trim();
   } catch {
     return "";
   }
 }
 
-function writeLastWorkspaceSlug(userId, workspaceSlug, { storage } = {}) {
+function writeLastWorkspaceSlug(userId, workspaceSlug, { storage = pageLocalStorage() } = {}) {
   const key = lastWorkspaceStorageKey(userId);
   const normalizedWorkspaceSlug = String(workspaceSlug || "").trim();
-  const resolvedStorage = resolveStorage(storage);
-  if (!key || !normalizedWorkspaceSlug || !resolvedStorage || typeof resolvedStorage.setItem !== "function") {
+  if (!key || !normalizedWorkspaceSlug || !storage) {
     return;
   }
 
   try {
-    resolvedStorage.setItem(key, normalizedWorkspaceSlug);
+    storage.setItem(key, normalizedWorkspaceSlug);
   } catch {
     // Ignore localStorage write failures in unsupported or locked-down environments.
   }

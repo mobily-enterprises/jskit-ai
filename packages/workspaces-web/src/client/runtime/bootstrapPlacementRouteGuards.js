@@ -1,3 +1,4 @@
+import { normalizeLowerText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   resolveSurfaceDefinitionFromPlacementContext,
   resolveSurfaceIdFromPlacementPathname,
@@ -20,18 +21,37 @@ import {
   isGuardDenied,
   normalizeSearch,
   normalizeWorkspaceBootstrapStatus,
-  normalizeWorkspaceSlugKey,
   resolveSearchFromFullPath
 } from "./bootstrapPlacementRuntimeHelpers.js";
 
+function allowEveryRoute() {
+  return true;
+}
+
+/**
+ * The evaluator in the shell's guard slot, a page global any package can write: anything but a function counts as none.
+ * @param {unknown} candidate
+ * @returns {import("../types.js").ShellGuardEvaluator}
+ */
+function normalizeGuardEvaluator(candidate) {
+  return typeof candidate === "function" ? candidate : allowEveryRoute;
+}
+
+/**
+ * @param {object} options
+ * @param {import("../types.js").WorkspacePlacementRuntime} options.placementRuntime
+ * @param {import("@jskit-ai/kernel/client/types").ClientRouter} options.router
+ * @param {typeof globalThis} options.root The object holding the shell's guard slot.
+ * @param {(workspaceSlug: string) => string} options.getWorkspaceBootstrapStatus
+ */
 function createBootstrapPlacementRouteGuards({
   placementRuntime,
-  router = null,
-  root = null,
-  getWorkspaceBootstrapStatus = () => ""
-} = {}) {
+  router,
+  root,
+  getWorkspaceBootstrapStatus
+}) {
   const cleanup = [];
-  let delegatedGuardEvaluator = null;
+  let delegatedGuardEvaluator = allowEveryRoute;
   let workspaceGuardEvaluatorInstalled = false;
 
   function resolveNormalizedSurfaceState(pathname = "/", search = "") {
@@ -65,7 +85,7 @@ function createBootstrapPlacementRouteGuards({
       return null;
     }
 
-    const workspaceSlug = normalizeWorkspaceSlugKey(
+    const workspaceSlug = normalizeLowerText(
       extractWorkspaceSlugFromSurfacePathname(surfaceState.context, surfaceState.surfaceId, surfaceState.normalizedPathname)
     );
     if (!workspaceSlug) {
@@ -92,7 +112,7 @@ function createBootstrapPlacementRouteGuards({
 
     const workspaceSlug =
       surfaceState.surfaceDefinition.requiresWorkspace === true
-        ? normalizeWorkspaceSlugKey(
+        ? normalizeLowerText(
             extractWorkspaceSlugFromSurfacePathname(
               surfaceState.context,
               surfaceState.surfaceId,
@@ -122,7 +142,7 @@ function createBootstrapPlacementRouteGuards({
     const fallbackSurfaceDefinition = resolveSurfaceDefinitionFromPlacementContext(context, fallbackSurfaceId);
     if (fallbackSurfaceDefinition?.requiresWorkspace === true) {
       const fallbackWorkspaceSlug =
-        normalizeWorkspaceSlugKey(surfaceState?.workspaceSlug) || normalizeWorkspaceSlugKey(context?.workspace?.slug);
+        normalizeLowerText(surfaceState?.workspaceSlug) || normalizeLowerText(context?.workspace?.slug);
       if (!fallbackWorkspaceSlug) {
         return "/";
       }
@@ -205,16 +225,12 @@ function createBootstrapPlacementRouteGuards({
   }
 
   async function replaceRouteIfNeeded(targetPath = "") {
-    if (!router || typeof router.replace !== "function") {
-      return;
-    }
-
     const normalizedTargetPath = String(targetPath || "").trim();
     if (!normalizedTargetPath) {
       return;
     }
 
-    const currentRoute = router.currentRoute?.value || {};
+    const currentRoute = router.currentRoute.value;
     const currentFullPath = String(currentRoute.fullPath || "").trim();
     const currentPath = resolveRuntimePathname(currentRoute.path || "/");
     const currentComparablePath = currentFullPath || currentPath;
@@ -228,13 +244,13 @@ function createBootstrapPlacementRouteGuards({
   }
 
   function enforceWorkspaceRouteForStatusUpdate({ workspaceSlug = "", status = "" } = {}) {
-    const normalizedWorkspaceSlug = normalizeWorkspaceSlugKey(workspaceSlug);
+    const normalizedWorkspaceSlug = normalizeLowerText(workspaceSlug);
     const normalizedStatus = normalizeWorkspaceBootstrapStatus(status);
-    if (!normalizedWorkspaceSlug || !normalizedStatus || !router) {
+    if (!normalizedWorkspaceSlug || !normalizedStatus) {
       return;
     }
 
-    const currentRoute = router.currentRoute?.value || {};
+    const currentRoute = router.currentRoute.value;
     const currentPath = resolveRuntimePathname(currentRoute.path || "/");
     const currentSearch = resolveSearchFromFullPath(currentRoute.fullPath || "");
     const workspaceState = resolveWorkspaceRouteState(currentPath, currentSearch);
@@ -257,11 +273,7 @@ function createBootstrapPlacementRouteGuards({
   }
 
   function enforceSurfaceAccessForCurrentRoute() {
-    if (!router) {
-      return;
-    }
-
-    const currentRoute = router.currentRoute?.value || {};
+    const currentRoute = router.currentRoute.value;
     const currentPath = resolveRuntimePathname(currentRoute.path || "/");
     const currentSearch = resolveSearchFromFullPath(currentRoute.fullPath || "");
     const surfaceDecision = resolveSurfaceAccessGuardDecision(currentPath, currentSearch);
@@ -273,28 +285,22 @@ function createBootstrapPlacementRouteGuards({
   }
 
   function installWorkspaceGuardEvaluator() {
-    if (!root || workspaceGuardEvaluatorInstalled) {
+    if (workspaceGuardEvaluatorInstalled) {
       return;
     }
 
-    if (typeof delegatedGuardEvaluator !== "function") {
-      const currentEvaluator = root[SHELL_GUARD_EVALUATOR_KEY];
-      delegatedGuardEvaluator = typeof currentEvaluator === "function" ? currentEvaluator : null;
-    }
+    delegatedGuardEvaluator = normalizeGuardEvaluator(root[SHELL_GUARD_EVALUATOR_KEY]);
 
     const previousDescriptor = Object.getOwnPropertyDescriptor(root, SHELL_GUARD_EVALUATOR_KEY);
     const previousOwnProperty = previousDescriptor || null;
     let released = false;
 
     const workspaceGuardEvaluator = ({ guard, phase, context } = {}) => {
-      const baseOutcome =
-        typeof delegatedGuardEvaluator === "function"
-          ? delegatedGuardEvaluator({
-              guard,
-              phase,
-              context
-            })
-          : true;
+      const baseOutcome = delegatedGuardEvaluator({
+        guard,
+        phase,
+        context
+      });
       if (isGuardDenied(baseOutcome)) {
         return baseOutcome;
       }
@@ -324,13 +330,13 @@ function createBootstrapPlacementRouteGuards({
         if (nextEvaluator === workspaceGuardEvaluator) {
           return;
         }
-        delegatedGuardEvaluator = typeof nextEvaluator === "function" ? nextEvaluator : null;
+        delegatedGuardEvaluator = normalizeGuardEvaluator(nextEvaluator);
       }
     });
     workspaceGuardEvaluatorInstalled = true;
 
     cleanup.push(() => {
-      if (released || !root) {
+      if (released) {
         return;
       }
       released = true;
@@ -342,16 +348,13 @@ function createBootstrapPlacementRouteGuards({
           delete root[SHELL_GUARD_EVALUATOR_KEY];
         }
       } catch {}
-      delegatedGuardEvaluator = null;
+      delegatedGuardEvaluator = allowEveryRoute;
       workspaceGuardEvaluatorInstalled = false;
     });
   }
 
   function shutdown() {
     for (const release of cleanup.splice(0, cleanup.length)) {
-      if (typeof release !== "function") {
-        continue;
-      }
       try {
         release();
       } catch {}

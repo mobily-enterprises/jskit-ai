@@ -25,6 +25,15 @@ const WorkspacesWebClientProvider = defineProvider({
   provides: {
     workspaces: "client.workspaces"
   },
+  /**
+   * @param {object} capabilities
+   * @param {import("@jskit-ai/kernel/client/types").ClientComponents} capabilities.components
+   * @param {import("@jskit-ai/kernel/client/types").ClientLogger} capabilities.logger
+   * @param {import("../types.js").WorkspaceRealtime | null} capabilities.realtime
+   * @param {import("@jskit-ai/kernel/client/types").ClientRouter} capabilities.router
+   * @param {import("../types.js").WorkspaceShell} capabilities.shell
+   * @param {import("@jskit-ai/kernel/client/types").ClientVueApp} capabilities.vueApp
+   */
   setup({ components, logger, realtime, router, shell, vueApp }) {
     components.register("workspaces.web.profile.menu.surface-switch-item", WorkspaceProfileSurfaceSwitchMenuItem);
     components.register("workspaces.web.workspace.selector", WorkspaceSelector);
@@ -45,15 +54,9 @@ const WorkspacesWebClientProvider = defineProvider({
       Object.freeze({
         handlerId: "workspaces.web.bootstrap",
         order: 100,
-        resolveBootstrapRequest(input = {}) {
-          return runtime.resolveBootstrapRequest(input);
-        },
-        applyBootstrapPayload(input = {}) {
-          return runtime.applyBootstrapPayload(input);
-        },
-        handleBootstrapError(input = {}) {
-          return runtime.handleBootstrapError(input);
-        }
+        resolveBootstrapRequest: runtime.resolveBootstrapRequest,
+        applyBootstrapPayload: runtime.applyBootstrapPayload,
+        handleBootstrapError: runtime.handleBootstrapError
       })
     );
     return {
@@ -63,26 +66,24 @@ const WorkspacesWebClientProvider = defineProvider({
       })
     };
   },
+  /**
+   * @param {{ vueApp: import("@jskit-ai/kernel/client/types").ClientVueApp }} capabilities
+   * @param {{ outputs: { workspaces: import("../types.js").WorkspacesClient } }} lifecycle
+   */
   async boot({ vueApp }, { outputs }) {
-    const runtime = outputs.workspaces.bootstrap;
-    if (runtime && typeof runtime.initialize === "function") {
-      await runtime.initialize();
-    }
-
-    if (!vueApp || typeof vueApp.provide !== "function") {
-      return;
-    }
+    await outputs.workspaces.bootstrap.initialize();
 
     vueApp.provide(
       WORKSPACES_WEB_SCOPE_SUPPORT_INJECTION_KEY,
       outputs.workspaces.scopeSupport
     );
   },
-  shutdown(_dependencies, { outputs }) {
-    const runtime = outputs.workspaces.bootstrap;
-    if (runtime && typeof runtime.shutdown === "function") {
-      runtime.shutdown();
-    }
+  /**
+   * @param {object} _capabilities
+   * @param {{ outputs: { workspaces: import("../types.js").WorkspacesClient } }} lifecycle
+   */
+  shutdown(_capabilities, { outputs }) {
+    outputs.workspaces.bootstrap.shutdown();
   }
 });
 

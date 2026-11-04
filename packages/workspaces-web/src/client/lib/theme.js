@@ -1,5 +1,6 @@
 import { ThemeSymbol } from "vuetify/lib/composables/theme.js";
 import { resolveWorkspaceThemePalette } from "@jskit-ai/workspaces-core/shared/settings";
+import { pageLocalStorage, pagePrefersDark } from "../browser.js";
 
 const THEME_PREFERENCE_LIGHT = "light";
 const THEME_PREFERENCE_DARK = "dark";
@@ -17,16 +18,8 @@ function normalizeThemePreference(value) {
 }
 
 function resolveSystemThemeName({ prefersDark } = {}) {
-  if (typeof prefersDark === "boolean") {
-    return prefersDark ? THEME_PREFERENCE_DARK : THEME_PREFERENCE_LIGHT;
-  }
-
-  if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
-    const prefersDarkFromMedia = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    return prefersDarkFromMedia ? THEME_PREFERENCE_DARK : THEME_PREFERENCE_LIGHT;
-  }
-
-  return THEME_PREFERENCE_LIGHT;
+  const dark = typeof prefersDark === "boolean" ? prefersDark : pagePrefersDark();
+  return dark ? THEME_PREFERENCE_DARK : THEME_PREFERENCE_LIGHT;
 }
 
 function resolveThemeNameForPreference(themePreference, options = {}) {
@@ -41,31 +34,8 @@ function resolveThemeNameForPreference(themePreference, options = {}) {
   return resolveSystemThemeName(options);
 }
 
-function resolveThemePreferenceStorage(options = {}) {
-  const customStorage = options && typeof options === "object" ? options.storage : null;
-  if (customStorage && typeof customStorage === "object") {
-    return customStorage;
-  }
-
-  if (typeof window !== "object" || !window) {
-    return null;
-  }
-
-  let storage = null;
-  try {
-    storage = window.localStorage;
-  } catch {
-    return null;
-  }
-  if (!storage || typeof storage !== "object") {
-    return null;
-  }
-  return storage;
-}
-
-function readPersistedThemePreference(options = {}) {
-  const storage = resolveThemePreferenceStorage(options);
-  if (!storage || typeof storage.getItem !== "function") {
+function readPersistedThemePreference({ storage = pageLocalStorage() } = {}) {
+  if (!storage) {
     return THEME_PREFERENCE_SYSTEM;
   }
 
@@ -77,9 +47,8 @@ function readPersistedThemePreference(options = {}) {
   }
 }
 
-function persistThemePreference(themePreference, options = {}) {
-  const storage = resolveThemePreferenceStorage(options);
-  if (!storage || typeof storage.setItem !== "function") {
+function persistThemePreference(themePreference, { storage = pageLocalStorage() } = {}) {
+  if (!storage) {
     return false;
   }
 
@@ -118,16 +87,7 @@ function persistBootstrapThemePreference(payload = {}, options = {}) {
 }
 
 function resolveVuetifyThemeController(vueApp) {
-  if (!vueApp || typeof vueApp !== "object") {
-    return null;
-  }
-
-  const provides = vueApp._context?.provides;
-  if (!provides || typeof provides !== "object") {
-    return null;
-  }
-
-  const themeController = provides[ThemeSymbol];
+  const themeController = vueApp._context.provides[ThemeSymbol];
   if (
     !themeController ||
     typeof themeController !== "object" ||
@@ -141,15 +101,6 @@ function resolveVuetifyThemeController(vueApp) {
 }
 
 function setVuetifyThemeName(themeController, themeName) {
-  if (
-    !themeController ||
-    typeof themeController !== "object" ||
-    !themeController.global ||
-    !themeController.global.name
-  ) {
-    return false;
-  }
-
   const normalizedThemeName = themeName === THEME_PREFERENCE_DARK ? THEME_PREFERENCE_DARK : THEME_PREFERENCE_LIGHT;
   if (themeController.global.name.value === normalizedThemeName) {
     return false;
@@ -179,9 +130,6 @@ function hexColorToRgb(value = "") {
 }
 
 function resolveVuetifyThemeDefinitions(themeController) {
-  if (!themeController || typeof themeController !== "object") {
-    return null;
-  }
   const themes = themeController.themes?.value;
   if (!themes || typeof themes !== "object") {
     return null;
@@ -259,15 +207,6 @@ function upsertThemeDefinition(themeDefinitions, themeName, nextDefinition) {
 }
 
 function setVuetifyPrimaryColorOverride(themeController, themeInput = null) {
-  if (
-    !themeController ||
-    typeof themeController !== "object" ||
-    !themeController.global ||
-    !themeController.global.name
-  ) {
-    return false;
-  }
-
   const themeDefinitions = resolveVuetifyThemeDefinitions(themeController);
   if (!themeDefinitions) {
     return false;

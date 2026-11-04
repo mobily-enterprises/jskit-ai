@@ -9,47 +9,14 @@ import { ROUTE_VISIBILITY_PUBLIC } from "@jskit-ai/kernel/shared/support/visibil
 import { useCommand } from "@jskit-ai/http-web/client/composables/useCommand";
 import { usePaths } from "@jskit-ai/shell-web/client/navigation/usePaths";
 import { useView } from "@jskit-ai/http-web/client/composables/useView";
-import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { WORKSPACE_INVITE_REDEEM_TRANSPORT } from "@jskit-ai/workspaces-core/shared/jsonApiTransports";
+import { assignPageLocation } from "../browser.js";
 import { useWorkspaceSurfaceId } from "../composables/useWorkspaceSurfaceId.js";
 import { useJskitText } from "../i18n.js";
+import { readPendingInvites } from "../lib/pendingInvites.js";
 import { createAccountSettingsInvitesRuntime } from "./accountSettingsInvitesRuntime.js";
 
-function normalizePendingInvite(entry) {
-  if (!entry || typeof entry !== "object") {
-    return null;
-  }
-
-  const id = normalizeRecordId(entry.id, { fallback: null });
-  const workspaceId = normalizeRecordId(entry.workspaceId, { fallback: null });
-  if (!id || !workspaceId) {
-    return null;
-  }
-
-  const workspaceSlug = String(entry.workspaceSlug || "").trim();
-  if (!workspaceSlug) {
-    return null;
-  }
-
-  const token = String(entry.token || "").trim();
-  if (!token) {
-    return null;
-  }
-
-  return {
-    id,
-    token,
-    workspaceId,
-    workspaceSlug,
-    workspaceName: String(entry.workspaceName || workspaceSlug).trim() || workspaceSlug,
-    workspaceAvatarUrl: String(entry.workspaceAvatarUrl || "").trim(),
-    roleSid: String(entry.roleSid || "member").trim().toLowerCase() || "member",
-    roleLabel: typeof entry.roleLabel === "string" ? entry.roleLabel.trim() : "",
-    status: String(entry.status || "pending").trim().toLowerCase() || "pending",
-    expiresAt: String(entry.expiresAt || "").trim()
-  };
-}
-
+/** The account page's invitations: what is pending, and answering it. */
 function useAccountSettingsInvitesSectionRuntime() {
   const { t, errorMessage } = useJskitText();
   const route = useRoute();
@@ -77,7 +44,7 @@ function useAccountSettingsInvitesSectionRuntime() {
     severity = "error",
     channel = "banner",
     dedupeKey = ""
-  } = {}) {
+  }) {
     const normalizedMessage = String(message || "").trim();
     if (!normalizedMessage) {
       return;
@@ -102,13 +69,9 @@ function useAccountSettingsInvitesSectionRuntime() {
     },
     fallbackLoadError: t("jskit.workspaces.accountInvites.loadFailed"),
     model: pendingInvitesModel,
-    mapLoadedToModel: (model, payload = {}) => {
+    mapLoadedToModel: (model, payload) => {
       model.workspaceInvitesEnabled = payload?.app?.features?.workspaceInvites === true;
-      model.pendingInvites = model.workspaceInvitesEnabled
-        ? (Array.isArray(payload?.pendingInvites) ? payload.pendingInvites : [])
-          .map(normalizePendingInvite)
-          .filter(Boolean)
-        : [];
+      model.pendingInvites = readPendingInvites(payload, model.workspaceInvitesEnabled);
     }
   });
 
@@ -175,9 +138,7 @@ function useAccountSettingsInvitesSectionRuntime() {
       });
       if (navigationTarget.sameOrigin) {
         await router.push(navigationTarget.href);
-      } else if (typeof window === "object" && window?.location && typeof window.location.assign === "function") {
-        window.location.assign(navigationTarget.href);
-      } else {
+      } else if (!assignPageLocation(navigationTarget.href)) {
         throw new Error(t("jskit.workspaces.accountInvites.crossOriginUnavailable"));
       }
     } catch (error) {
@@ -203,20 +164,16 @@ function useAccountSettingsInvitesSectionRuntime() {
     reportAccountFeedback
   });
 
-  return Object.freeze({
+  return {
     isAvailable: invitesAvailable,
     items: pendingInvites,
     isLoading: loadingInvites,
     isRefetching: refreshingInvites,
     isResolving: isResolvingInvite,
     action: inviteAction,
-    accept(invite) {
-      return invitesRuntime.accept(invite);
-    },
-    refuse(invite) {
-      return invitesRuntime.refuse(invite);
-    }
-  });
+    accept: invitesRuntime.accept,
+    refuse: invitesRuntime.refuse
+  };
 }
 
 export { useAccountSettingsInvitesSectionRuntime };

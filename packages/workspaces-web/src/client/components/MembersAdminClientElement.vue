@@ -193,29 +193,28 @@
 </template>
 
 <script setup>
-import { computed, toRefs, unref } from "vue";
+import { computed, toRefs } from "vue";
 import { mdiContentCopy } from "@mdi/js";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
-import { requireBoolean, requireFunction, requireRecord } from "@jskit-ai/http-web/client/support/contractGuards";
 import { useJskitText } from "../i18n.js";
 
-const { t, formatDateTime: formatLocaleDateTime } = useJskitText();
+const { t } = useJskitText();
 
 const props = defineProps({
   forms: {
-    type: Object,
+    type: /** @type {import("vue").PropType<import("../types.js").MembersAdminForms>} */ (Object),
     required: true
   },
   options: {
-    type: Object,
+    type: /** @type {import("vue").PropType<import("../types.js").MembersAdminOptions>} */ (Object),
     required: true
   },
   collections: {
-    type: Object,
+    type: /** @type {import("vue").PropType<import("../types.js").MembersAdminCollections>} */ (Object),
     required: true
   },
   permissions: {
-    type: Object,
+    type: /** @type {import("vue").PropType<import("../types.js").MembersAdminPermissions>} */ (Object),
     required: true
   },
   revokeInviteId: {
@@ -227,21 +226,14 @@ const props = defineProps({
     required: true
   },
   status: {
-    type: Object,
+    type: /** @type {import("vue").PropType<import("../types.js").MembersAdminStatus>} */ (Object),
     required: true
   },
   actions: {
-    type: Object,
+    type: /** @type {import("vue").PropType<import("../types.js").MembersAdminActions>} */ (Object),
     required: true
   }
 });
-
-requireRecord(props.forms, "forms", "MembersAdminClientElement");
-requireRecord(props.options, "options", "MembersAdminClientElement");
-requireRecord(props.collections, "collections", "MembersAdminClientElement");
-requireRecord(props.permissions, "permissions", "MembersAdminClientElement");
-requireRecord(props.status, "status", "MembersAdminClientElement");
-requireRecord(props.actions, "actions", "MembersAdminClientElement");
 
 const {
   forms,
@@ -254,89 +246,30 @@ const {
   actions
 } = toRefs(props);
 
-const actionHandlers = Object.freeze({
-  submitInvite: requireFunction(actions.value.submitInvite, "actions.submitInvite", "MembersAdminClientElement"),
-  copyCreatedInviteLink: requireFunction(
-    actions.value.copyCreatedInviteLink,
-    "actions.copyCreatedInviteLink",
-    "MembersAdminClientElement"
-  ),
-  submitRevokeInvite: requireFunction(
-    actions.value.submitRevokeInvite,
-    "actions.submitRevokeInvite",
-    "MembersAdminClientElement"
-  ),
-  submitMemberRoleUpdate: requireFunction(
-    actions.value.submitMemberRoleUpdate,
-    "actions.submitMemberRoleUpdate",
-    "MembersAdminClientElement"
-  ),
-  submitRemoveMember: requireFunction(
-    actions.value.submitRemoveMember,
-    "actions.submitRemoveMember",
-    "MembersAdminClientElement"
-  )
-});
+const inviteForm = computed(() => forms.value.invite);
+const workspaceForm = computed(() => forms.value.workspace);
 
-const inviteForm = computed(() => requireRecord(forms.value.invite, "forms.invite", "MembersAdminClientElement"));
-const workspaceForm = computed(() =>
-  requireRecord(forms.value.workspace, "forms.workspace", "MembersAdminClientElement")
-);
+const memberRows = computed(() => collections.value.members);
+const inviteRows = computed(() => collections.value.invites);
+const inviteRoleOptions = computed(() => options.value.inviteRoleOptions);
+const memberRoleOptions = computed(() => options.value.memberRoleOptions);
 
-const memberRows = computed(() => {
-  const source = collections.value.members;
-  return Array.isArray(unref(source)) ? unref(source) : [];
-});
-
-const inviteRows = computed(() => {
-  const source = collections.value.invites;
-  return Array.isArray(unref(source)) ? unref(source) : [];
-});
-
-const inviteRoleOptions = computed(() => {
-  const source = options.value.inviteRoleOptions;
-  return Array.isArray(unref(source)) ? unref(source) : [];
-});
-
-const memberRoleOptions = computed(() => {
-  const source = options.value.memberRoleOptions;
-  return Array.isArray(unref(source)) ? unref(source) : [];
-});
-
-const canViewMembers = computed(() => Boolean(unref(permissions.value.canViewMembers)));
-const canInviteMembers = computed(() => Boolean(unref(permissions.value.canInviteMembers)));
-const canManageMembers = computed(() => Boolean(unref(permissions.value.canManageMembers)));
-const canRevokeInvites = computed(() => Boolean(unref(permissions.value.canRevokeInvites)));
-const isCreatingInvite = computed(() => Boolean(unref(status.value.isCreatingInvite)));
-const isRevokingInvite = computed(() => Boolean(unref(status.value.isRevokingInvite)));
-const isRemovingMember = computed(() => Boolean(unref(status.value.isRemovingMember)));
-const isCopyingInviteLink = computed(() => Boolean(unref(status.value.isCopyingInviteLink)));
-const createdInviteUrl = computed(() => String(unref(status.value.createdInviteUrl) || "").trim());
-const createdInviteDeliveryStatus = computed(() =>
-  String(unref(status.value.createdInviteDeliveryStatus) || "").trim().toLowerCase()
-);
-const workspaceInvitePolicyLoaded = computed(() =>
-  requireBoolean(status.value.hasLoadedWorkspaceSettings, "status.hasLoadedWorkspaceSettings", "MembersAdminClientElement")
-);
-const workspaceInvitePolicyRefreshing = computed(() =>
-  requireBoolean(
-    status.value.isRefreshingWorkspaceSettings,
-    "status.isRefreshingWorkspaceSettings",
-    "MembersAdminClientElement"
-  )
-);
-const membersListLoaded = computed(() =>
-  requireBoolean(status.value.hasLoadedMembersList, "status.hasLoadedMembersList", "MembersAdminClientElement")
-);
-const membersListRefreshing = computed(() =>
-  requireBoolean(status.value.isRefreshingMembersList, "status.isRefreshingMembersList", "MembersAdminClientElement")
-);
-const inviteListLoaded = computed(() =>
-  requireBoolean(status.value.hasLoadedInviteList, "status.hasLoadedInviteList", "MembersAdminClientElement")
-);
-const inviteListRefreshing = computed(() =>
-  requireBoolean(status.value.isRefreshingInviteList, "status.isRefreshingInviteList", "MembersAdminClientElement")
-);
+const canViewMembers = computed(() => permissions.value.canViewMembers);
+const canInviteMembers = computed(() => permissions.value.canInviteMembers);
+const canManageMembers = computed(() => permissions.value.canManageMembers);
+const canRevokeInvites = computed(() => permissions.value.canRevokeInvites);
+const isCreatingInvite = computed(() => status.value.isCreatingInvite);
+const isRevokingInvite = computed(() => status.value.isRevokingInvite);
+const isRemovingMember = computed(() => status.value.isRemovingMember);
+const isCopyingInviteLink = computed(() => status.value.isCopyingInviteLink);
+const createdInviteUrl = computed(() => status.value.createdInviteUrl);
+const createdInviteDeliveryStatus = computed(() => status.value.createdInviteDeliveryStatus);
+const workspaceInvitePolicyLoaded = computed(() => status.value.hasLoadedWorkspaceSettings);
+const workspaceInvitePolicyRefreshing = computed(() => status.value.isRefreshingWorkspaceSettings);
+const membersListLoaded = computed(() => status.value.hasLoadedMembersList);
+const membersListRefreshing = computed(() => status.value.isRefreshingMembersList);
+const inviteListLoaded = computed(() => status.value.hasLoadedInviteList);
+const inviteListRefreshing = computed(() => status.value.isRefreshingInviteList);
 
 const showWorkspaceInviteLoadingSkeleton = computed(
   () => canInviteMembers.value && !workspaceInvitePolicyLoaded.value
@@ -358,8 +291,8 @@ const showMembersRefreshingIndicator = computed(
     (membersListRefreshing.value || inviteListRefreshing.value)
 );
 
-const workspaceInvitesAvailable = computed(() => Boolean(unref(workspaceForm.value.invitesAvailable)));
-const workspaceInvitesEnabled = computed(() => Boolean(unref(workspaceForm.value.invitesEnabled)));
+const workspaceInvitesAvailable = computed(() => workspaceForm.value.invitesAvailable);
+const workspaceInvitesEnabled = computed(() => workspaceForm.value.invitesEnabled);
 
 const canShowInviteForm = computed(
   () => canInviteMembers.value && workspaceInvitesAvailable.value && workspaceInvitesEnabled.value
@@ -378,14 +311,11 @@ const inviteLinkStatusText = computed(() => {
 });
 
 function formatRole(roleSid, fallback = roleSid) {
-  return typeof options.value.formatRole === "function" ? options.value.formatRole(roleSid, fallback) : fallback;
+  return options.value.formatRole(roleSid, fallback);
 }
 
 function formatDateTime(value) {
-  if (typeof options.value.formatDateTime === "function") {
-    return options.value.formatDateTime(value);
-  }
-  return formatLocaleDateTime(value) || t("jskit.workspaces.common.unknownDate");
+  return options.value.formatDateTime(value);
 }
 
 function showOwnerChip(member) {
@@ -421,7 +351,7 @@ async function onSubmitInvite() {
     return;
   }
 
-  await actionHandlers.submitInvite();
+  await actions.value.submitInvite();
 }
 
 async function onCopyInviteLink() {
@@ -429,7 +359,7 @@ async function onCopyInviteLink() {
     return;
   }
 
-  await actionHandlers.copyCreatedInviteLink();
+  await actions.value.copyCreatedInviteLink();
 }
 
 async function onRevokeInvite(inviteId) {
@@ -437,7 +367,7 @@ async function onRevokeInvite(inviteId) {
     return;
   }
 
-  await actionHandlers.submitRevokeInvite(inviteId);
+  await actions.value.submitRevokeInvite(inviteId);
 }
 
 async function onMemberRoleUpdate(member, roleSid) {
@@ -445,7 +375,7 @@ async function onMemberRoleUpdate(member, roleSid) {
     return;
   }
 
-  await actionHandlers.submitMemberRoleUpdate(member, roleSid);
+  await actions.value.submitMemberRoleUpdate(member, roleSid);
 }
 
 async function onRemoveMember(member) {
@@ -453,7 +383,7 @@ async function onRemoveMember(member) {
     return;
   }
 
-  await actionHandlers.submitRemoveMember(member);
+  await actions.value.submitRemoveMember(member);
 }
 </script>
 

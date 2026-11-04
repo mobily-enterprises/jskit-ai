@@ -7,10 +7,15 @@ import {
 
 const WORKSPACES_WEB_SCOPE_SUPPORT_INJECTION_KEY = "jskit.workspaces.web.scope-support";
 
-function readWorkspaceRouteScope(routeContext = {}) {
-  const placementContext = unref(routeContext?.placementContext);
-  const currentSurfaceId = normalizeText(unref(routeContext?.currentSurfaceId)).toLowerCase();
-  const routePath = normalizeText(unref(routeContext?.routePath));
+/**
+ * The workspace a route names.
+ * @param {import("../types.js").WorkspaceRouteScopeContext} routeContext
+ * @returns {{ workspaceSlug: string }}
+ */
+function readWorkspaceRouteScope(routeContext) {
+  const placementContext = unref(routeContext.placementContext);
+  const currentSurfaceId = normalizeText(unref(routeContext.currentSurfaceId)).toLowerCase();
+  const routePath = normalizeText(unref(routeContext.routePath));
   const workspaceSlug = extractWorkspaceSlugFromSurfacePathname(
     placementContext,
     currentSurfaceId,
@@ -28,9 +33,7 @@ function createWorkspaceScopeSupport() {
 
   return Object.freeze({
     available: tenancyMode === "personal" || tenancyMode === "workspaces",
-    readRouteScope(routeContext = {}) {
-      return readWorkspaceRouteScope(routeContext);
-    }
+    readRouteScope: readWorkspaceRouteScope
   });
 }
 
