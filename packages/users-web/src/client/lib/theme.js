@@ -12,18 +12,20 @@ function normalizeThemePreference(value) {
   return THEME_PREFERENCE_SYSTEM;
 }
 
-function resolveSystemThemeName({ prefersDark } = {}) {
-  if (typeof prefersDark === "boolean") {
-    return prefersDark ? THEME_PREFERENCE_DARK : THEME_PREFERENCE_LIGHT;
-  }
+/** The page's window; null outside a browser. */
+function pageWindow() {
+  return typeof window === "undefined" ? null : window;
+}
 
-  if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
-    return window.matchMedia("(prefers-color-scheme: dark)").matches
-      ? THEME_PREFERENCE_DARK
-      : THEME_PREFERENCE_LIGHT;
-  }
+/** Whether the system asks for a dark theme; false where it cannot say. */
+function systemPrefersDark() {
+  const page = pageWindow();
+  // readable-check: allow method-probe - platform object: matchMedia exists only in a browser
+  return typeof page?.matchMedia === "function" && page.matchMedia("(prefers-color-scheme: dark)").matches;
+}
 
-  return THEME_PREFERENCE_LIGHT;
+function resolveSystemThemeName({ prefersDark = systemPrefersDark() } = {}) {
+  return prefersDark ? THEME_PREFERENCE_DARK : THEME_PREFERENCE_LIGHT;
 }
 
 function resolveThemeNameForPreference(themePreference, options = {}) {
@@ -44,12 +46,8 @@ function resolveThemePreferenceStorage(options = {}) {
     return customStorage;
   }
 
-  if (typeof window !== "object" || !window) {
-    return null;
-  }
-
   try {
-    return window.localStorage;
+    return pageWindow()?.localStorage || null;
   } catch {
     return null;
   }
@@ -57,7 +55,7 @@ function resolveThemePreferenceStorage(options = {}) {
 
 function readPersistedThemePreference(options = {}) {
   const storage = resolveThemePreferenceStorage(options);
-  if (!storage || typeof storage.getItem !== "function") {
+  if (!storage) {
     return THEME_PREFERENCE_SYSTEM;
   }
 
@@ -70,7 +68,7 @@ function readPersistedThemePreference(options = {}) {
 
 function persistThemePreference(themePreference, options = {}) {
   const storage = resolveThemePreferenceStorage(options);
-  if (!storage || typeof storage.setItem !== "function") {
+  if (!storage) {
     return false;
   }
 
@@ -108,38 +106,14 @@ function persistBootstrapThemePreference(payload = {}, options = {}) {
 }
 
 function resolveVuetifyThemeController(vueApp) {
-  if (!vueApp || typeof vueApp !== "object") {
-    return null;
-  }
-
-  const provides = vueApp._context?.provides;
-  if (!provides || typeof provides !== "object") {
-    return null;
-  }
-
-  const themeController = provides[ThemeSymbol];
-  if (
-    !themeController ||
-    typeof themeController !== "object" ||
-    typeof themeController.change !== "function" ||
-    !themeController.name
-  ) {
-    return null;
-  }
-
-  return themeController;
+  return vueApp._context.provides[ThemeSymbol] || null;
 }
 
+/**
+ * @param {import("vuetify").ThemeInstance} themeController
+ * @param {string} themeName
+ */
 function setVuetifyThemeName(themeController, themeName) {
-  if (
-    !themeController ||
-    typeof themeController !== "object" ||
-    typeof themeController.change !== "function" ||
-    !themeController.name
-  ) {
-    return false;
-  }
-
   const normalizedThemeName = themeName === THEME_PREFERENCE_DARK ? THEME_PREFERENCE_DARK : THEME_PREFERENCE_LIGHT;
   if (themeController.name.value === normalizedThemeName) {
     return false;

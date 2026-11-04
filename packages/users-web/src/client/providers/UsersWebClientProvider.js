@@ -9,6 +9,12 @@ const UsersWebClientProvider = defineProvider({
     components: "client.components",
     shell: "client.shell"
   },
+  /**
+   * @param {{
+   *   components: import("@jskit-ai/kernel/client/types").ClientComponents,
+   *   shell: import("../types.js").UsersShell
+   * }} capabilities
+   */
   setup({ components, shell }) {
     components.register("users.web.home.tools.widget", UsersHomeToolsWidget);
     components.register("users.web.profile.element", ProfileClientElement);

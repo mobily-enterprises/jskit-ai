@@ -24,6 +24,7 @@ Exports
 - `useAccountSettingsSections()`
 Local functions
 - `normalizeSectionTitle(value)`
+- `stopListening()`
 
 ### `src/client/bootstrap/user-bootstrap-handler.js`
 Exports
@@ -50,7 +51,7 @@ Exports
 
 ### `src/client/composables/account-settings/accountSettingsAvatarUploadRuntime.js`
 Exports
-- `createAccountSettingsAvatarUploadRuntime({ queryClient, sessionQueryKey, accountSettingsQueryKey, selectedAvatarFileName, applySettingsData, reportAccountFeedback } = {})`
+- `createAccountSettingsAvatarUploadRuntime({ queryClient, sessionQueryKey, accountSettingsQueryKey, selectedAvatarFileName, applySettingsData, reportAccountFeedback })`
 
 ### `src/client/composables/account-settings/accountSettingsPreferenceOptions.js`
 Exports
@@ -103,6 +104,15 @@ Exports
 Exports
 - `resolvePlacementUserFromBootstrapPayload(payload = {}, currentUser = null)`
 
+### `src/client/lib/profileElementPresentation.js`
+Exports
+- `resolveProfileCopy(copy, t)`
+- `resolveProfileFeatures(value)`
+- `resolveProfileRootClasses(variant, uiClasses)`
+- `resolveProfileUiClasses(ui)`
+- `resolveProfileUiTestIds(ui)`
+- `resolveProfileVariant(value)`
+
 ### `src/client/lib/theme.js`
 Exports
 - `THEME_PREFERENCE_DARK`
@@ -118,16 +128,42 @@ Exports
 - `resolveVuetifyThemeController(vueApp)`
 - `setVuetifyThemeName(themeController, themeName)`
 Local functions
-- `resolveSystemThemeName({ prefersDark } = {})`
+- `pageWindow()`
+- `systemPrefersDark()`
+- `resolveSystemThemeName({ prefersDark = systemPrefersDark() } = {})`
 - `resolveThemePreferenceStorage(options = {})`
 
 ### `src/client/providers/UsersWebClientProvider.js`
 Exports
 - `UsersWebClientProvider`
 
+### `src/client/types.js`
+Exports
+- `type UsersPlacementRuntime`
+- `type AccountSectionsPlacementRuntime`
+- `type UsersBootstrapContext`
+- `type UsersShell`
+- `type AccountFeedback`
+- `type ProfileElementState`
+- `type ProfileElementActions`
+- `type AccountSettingsRuntime`
+
 ### `src/shared/toolsOutletContracts.js`
 Exports
 - `HOME_COG_OUTLET`
+
+### fixtures
+
+### `fixtures/account-settings/main.js`
+Exports
+- None
+Local functions
+- `section(value, title, component, order)`
+- `record(name)`
+
+### `fixtures/account-settings/vite.config.mjs`
+Exports
+- None
 
 ### patterns
 

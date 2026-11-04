@@ -115,6 +115,7 @@ export default [
     "packages/storage-runtime/src/client/**",
     "packages/uploads-image-web/src/client/**",
     "packages/uploads-runtime/src/client/**",
+    "packages/users-web/src/client/**",
     "packages/workspaces-web/src/client/**",
     "tooling/config-eslint/src/client/**"
   ]),

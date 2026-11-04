@@ -85,20 +85,16 @@ function resolveAccountSettingsSections(entries = []) {
   return Object.freeze(deduplicated);
 }
 
+function stopListening() {}
+
 function useAccountSettingsSections() {
-  const placementRuntime = inject(SHELL_WEB_PLACEMENT_RUNTIME_KEY, null);
+  /** @type {import("../types.js").AccountSectionsPlacementRuntime} */
+  const placementRuntime = inject(SHELL_WEB_PLACEMENT_RUNTIME_KEY);
   const { context: placementContext } = useWebPlacementContext();
-  const revision = ref(
-    placementRuntime && typeof placementRuntime.getRevision === "function"
-      ? placementRuntime.getRevision()
-      : 0
-  );
-  let unsubscribe = null;
+  const revision = ref(placementRuntime.getRevision());
+  let unsubscribe = stopListening;
 
   onMounted(() => {
-    if (!placementRuntime || typeof placementRuntime.subscribe !== "function") {
-      return;
-    }
     unsubscribe = placementRuntime.subscribe((event = {}) => {
       const nextRevision = Number(event.revision);
       revision.value = Number.isInteger(nextRevision) ? nextRevision : revision.value + 1;
@@ -106,18 +102,12 @@ function useAccountSettingsSections() {
   });
 
   onBeforeUnmount(() => {
-    if (typeof unsubscribe === "function") {
-      unsubscribe();
-      unsubscribe = null;
-    }
+    unsubscribe();
+    unsubscribe = stopListening;
   });
 
   return computed(() => {
     void revision.value;
-    if (!placementRuntime || typeof placementRuntime.getPlacements !== "function") {
-      return EMPTY_ACCOUNT_SETTINGS_SECTIONS;
-    }
-
     const placements = placementRuntime.getPlacements({
       surface: "account",
       target: ACCOUNT_SETTINGS_SECTION_TARGET,

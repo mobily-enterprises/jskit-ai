@@ -89,34 +89,24 @@
 import { computed } from "vue";
 import { createComponentInteractionEmitter } from "@jskit-ai/kernel/client";
 import {
-  normalizeObject,
-  normalizeOneOf
-} from "@jskit-ai/kernel/shared/support/normalize";
+  resolveProfileCopy,
+  resolveProfileFeatures,
+  resolveProfileRootClasses,
+  resolveProfileUiClasses,
+  resolveProfileUiTestIds,
+  resolveProfileVariant
+} from "../lib/profileElementPresentation.js";
 import { useJskitText } from "../i18n.js";
 
 const { t } = useJskitText();
 
-// Default copy, by copy prop key; the copy prop overrides it.
-const DEFAULT_COPY_KEYS = Object.freeze({
-  title: "jskit.users.accountSettings.profile.title",
-  previewSizePrefix: "jskit.users.accountSettings.profile.previewSizePrefix",
-  previewSizeSuffix: "jskit.users.accountSettings.profile.previewSizeSuffix",
-  replaceAvatar: "jskit.users.accountSettings.profile.replaceAvatar",
-  removeAvatar: "jskit.users.accountSettings.profile.removeAvatar",
-  selectedFilePrefix: "jskit.users.accountSettings.profile.selectedFilePrefix",
-  displayName: "jskit.users.accountSettings.profile.displayName",
-  email: "jskit.users.accountSettings.profile.email",
-  emailHint: "jskit.users.accountSettings.profile.emailHint",
-  saveProfile: "jskit.users.accountSettings.profile.save"
-});
-
 const props = defineProps({
   state: {
-    type: Object,
+    type: /** @type {import("vue").PropType<import("../types.js").ProfileElementState>} */ (Object),
     required: true
   },
   actions: {
-    type: Object,
+    type: /** @type {import("vue").PropType<import("../types.js").ProfileElementActions>} */ (Object),
     required: true
   },
   copy: {
@@ -146,65 +136,16 @@ const {
   invokeAction
 } = createComponentInteractionEmitter(emit);
 
-const copyText = computed(() => ({
-  ...Object.fromEntries(Object.entries(DEFAULT_COPY_KEYS).map(([name, key]) => [name, t(key)])),
-  ...normalizeObject(props.copy)
-}));
-
-const resolvedVariant = computed(() => {
-  const variant = normalizeObject(props.variant);
-  return {
-    layout: normalizeOneOf(variant.layout, ["compact", "comfortable"], "comfortable"),
-    surface: normalizeOneOf(variant.surface, ["plain", "carded"], "carded"),
-    density: normalizeOneOf(variant.density, ["compact", "comfortable"], "comfortable"),
-    tone: normalizeOneOf(variant.tone, ["neutral", "emphasized"], "neutral")
-  };
-});
-
-const resolvedFeatures = computed(() => {
-  const features = normalizeObject(props.features);
-  return {
-    header: features.header !== false,
-    removeAvatar: features.removeAvatar !== false
-  };
-});
-
-const uiClasses = computed(() => {
-  const classes = normalizeObject(normalizeObject(props.ui).classes);
-  return {
-    root: String(classes.root || "").trim(),
-    card: String(classes.card || "").trim()
-  };
-});
-
-const uiTestIds = computed(() => {
-  const testIds = normalizeObject(normalizeObject(props.ui).testIds);
-  return {
-    root: String(testIds.root || "profile-client-element"),
-    card: String(testIds.card || "profile-client-card"),
-    submitButton: String(testIds.submitButton || "profile-submit-button"),
-    avatarReplaceButton: String(testIds.avatarReplaceButton || "profile-avatar-replace-button"),
-    avatarRemoveButton: String(testIds.avatarRemoveButton || "profile-avatar-remove-button")
-  };
-});
-
-const rootClasses = computed(() => {
-  const classes = [
-    "profile-client-element",
-    `profile-client-element--layout-${resolvedVariant.value.layout}`,
-    `profile-client-element--surface-${resolvedVariant.value.surface}`,
-    `profile-client-element--density-${resolvedVariant.value.density}`,
-    `profile-client-element--tone-${resolvedVariant.value.tone}`
-  ];
-  if (uiClasses.value.root) {
-    classes.push(uiClasses.value.root);
-  }
-  return classes;
-});
+const copyText = computed(() => resolveProfileCopy(props.copy, t));
+const resolvedVariant = computed(() => resolveProfileVariant(props.variant));
+const resolvedFeatures = computed(() => resolveProfileFeatures(props.features));
+const uiClasses = computed(() => resolveProfileUiClasses(props.ui));
+const uiTestIds = computed(() => resolveProfileUiTestIds(props.ui));
+const rootClasses = computed(() => resolveProfileRootClasses(resolvedVariant.value, uiClasses.value));
 
 async function onSubmitProfile() {
   const payload = {
-    displayName: String(state.profileForm?.displayName || "").trim()
+    displayName: String(state.profileForm.displayName || "").trim()
   };
   emit("profile:submit", payload);
   emitInteraction("profile:submit", payload);

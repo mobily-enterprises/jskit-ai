@@ -4,6 +4,16 @@ import { resolveFieldErrors } from "@jskit-ai/http-runtime/client";
 import { httpWebClient } from "@jskit-ai/http-web/client/lib/httpClient";
 import { useJskitText } from "../../i18n.js";
 
+/**
+ * @param {{
+ *   queryClient: import("@jskit-ai/kernel/client/types").ClientQueryClient,
+ *   sessionQueryKey: readonly string[],
+ *   accountSettingsQueryKey: readonly string[],
+ *   selectedAvatarFileName: import("vue").Ref<string>,
+ *   applySettingsData: (data: unknown) => void,
+ *   reportAccountFeedback: (feedback: import("../../types.js").AccountFeedback) => void
+ * }} options
+ */
 function createAccountSettingsAvatarUploadRuntime({
   queryClient,
   sessionQueryKey,
@@ -11,7 +21,7 @@ function createAccountSettingsAvatarUploadRuntime({
   selectedAvatarFileName,
   applySettingsData,
   reportAccountFeedback
-} = {}) {
+}) {
   const { t, fieldErrorMessages, serverMessage } = useJskitText();
 
   async function resolveCsrfToken() {

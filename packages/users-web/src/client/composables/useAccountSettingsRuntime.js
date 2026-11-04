@@ -422,7 +422,7 @@ function useAccountSettingsRuntime() {
     avatarUploadRuntime.destroy();
   });
 
-  const profile = Object.freeze({
+  const profile = {
     form: profileForm,
     avatar: profileAvatar,
     initials: profileInitials,
@@ -434,9 +434,9 @@ function useAccountSettingsRuntime() {
     submit: submitProfile,
     openAvatarEditor,
     removeAvatar: submitAvatarDelete
-  });
+  };
 
-  const preferences = Object.freeze({
+  const preferences = {
     form: preferencesForm,
     fieldErrors: preferencesAddEdit.fieldErrors,
     isSaving: preferencesAddEdit.isSaving,
@@ -460,24 +460,24 @@ function useAccountSettingsRuntime() {
       avatarSize: AVATAR_SIZE_OPTIONS
     }),
     submit: submitPreferences
-  });
+  };
 
-  const notifications = Object.freeze({
+  const notifications = {
     form: notificationsForm,
     isSaving: notificationsAddEdit.isSaving,
     isRefreshing: refreshingSettings,
     submit: submitNotifications
-  });
+  };
 
-  const signInMethods = Object.freeze({
+  const signInMethods = {
     methods: signInMethodList,
     unlinkingProvider: computed(() => signInMethodsState.unlinkingProvider),
     isRefreshing: refreshingSettings,
     link: linkSignInMethod,
     unlink: unlinkSignInMethod
-  });
+  };
 
-  return Object.freeze({
+  return {
     backTarget,
     backNavigationTarget,
     loadingSettings,
@@ -488,7 +488,7 @@ function useAccountSettingsRuntime() {
     preferences,
     notifications,
     signInMethods
-  });
+  };
 }
 
 export { useAccountSettingsRuntime };

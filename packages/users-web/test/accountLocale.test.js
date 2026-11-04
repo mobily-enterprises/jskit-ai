@@ -78,19 +78,26 @@ test("preference option labels follow the app's vue-i18n locale", () => {
 test("useAccountLocale follows the bootstrap payload's saved locale", async () => {
   const handler = createUsersBootstrapUserHandler();
   const accountLocale = useAccountLocale();
+  const placementRuntime = {
+    getContext() {
+      return {};
+    },
+    setContext() {}
+  };
 
   await handler.applyBootstrapPayload({
-    payload: { session: { authenticated: true, userId: "7" }, userSettings: { locale: "it-it" } }
+    payload: { session: { authenticated: true, userId: "7" }, userSettings: { locale: "it-it" } },
+    placementRuntime
   });
   assert.equal(accountLocale.value, "it-IT");
 
-  await handler.handleBootstrapError({ error: { statusCode: 500 } });
+  await handler.handleBootstrapError({ error: { statusCode: 500 }, placementRuntime });
   assert.equal(accountLocale.value, "it-IT");
 
-  await handler.handleBootstrapError({ error: { statusCode: 401 } });
+  await handler.handleBootstrapError({ error: { statusCode: 401 }, placementRuntime });
   assert.equal(accountLocale.value, "");
 
-  await handler.applyBootstrapPayload({ payload: { session: { authenticated: true }, userSettings: { locale: "en" } } });
-  await handler.applyBootstrapPayload({ payload: { session: { authenticated: false }, userSettings: null } });
+  await handler.applyBootstrapPayload({ payload: { session: { authenticated: true }, userSettings: { locale: "en" } }, placementRuntime });
+  await handler.applyBootstrapPayload({ payload: { session: { authenticated: false }, userSettings: null }, placementRuntime });
   assert.equal(accountLocale.value, "");
 });
