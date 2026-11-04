@@ -4,7 +4,7 @@ import { retainAssistantConversation } from "@jskit-ai/assistant-core/client/con
 import { createAssistantTextSubmission } from "@jskit-ai/assistant-core/client/conversation";
 import { assistantHttpClient, createAssistantApi } from "@jskit-ai/assistant-core/client";
 import { conversationTurnsFromMessages } from "@jskit-ai/assistant-core/shared/conversation";
-import { useRealtimeSocket } from "@jskit-ai/realtime/client/composables/useRealtimeEvent";
+import { NO_REALTIME_SOCKET, useRealtimeSocket } from "@jskit-ai/realtime/client/composables/useRealtimeEvent";
 import { SHELL_WEB_PLACEMENT_RUNTIME_KEY } from "@jskit-ai/shell-web/client/placement";
 import { useSurfaceRouteContext } from "@jskit-ai/shell-web/client/navigation/useSurfaceRouteContext";
 import { resolveAssistantRuntimeRoute, resolveAssistantSurfaceConfig } from "../../shared/assistantSurfaces.js";
@@ -206,6 +206,13 @@ function useBoundedTask({ command, endpoint, scope, input, result, onResult = ig
   return { runtime, adapter, error: computed(() => "") };
 }
 
+/** The application's socket, for a binding given none: on the disabled socket a conversation would never hear its updates. */
+function useRequiredRealtimeSocket() {
+  const socket = useRealtimeSocket();
+  if (socket === NO_REALTIME_SOCKET) throw new Error("Realtime client socket is not available in Vue injection context.");
+  return socket;
+}
+
 /**
  * What a binding takes from the application's setup: the shell's route, placement and socket, and the application's
  * conversation defaults.
@@ -227,7 +234,7 @@ function conversationBindingSetup({ socket, boundedTask }) {
     routeContext,
     placement,
     workspaceScope: useWorkspaceWebScopeSupport(),
-    socket: socket || useRealtimeSocket({ required: true }),
+    socket: socket || useRequiredRealtimeSocket(),
     config: getClientAppConfig()
   };
 }

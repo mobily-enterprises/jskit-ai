@@ -3,10 +3,18 @@ import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/
 import { createProviderLogger } from "@jskit-ai/kernel/shared/support/providerLogger";
 import { getClientAppConfig, resolveClientBootstrapDebugEnabled, resolveMobileConfig } from "@jskit-ai/kernel/client";
 import RealtimeConnectionIndicator from "./components/RealtimeConnectionIndicator.js";
+import { REALTIME_SOCKET_KEY } from "./composables/useRealtimeEvent.js";
 import { createSocketIoClient, disconnectSocketIoClient } from "./runtime.js";
 import { attachSocketConnectionRecovery } from "./connectionRecovery.js";
 import { SERVED_CLIENT_BUILD_EVENT } from "../shared/servedClientBuild.js";
 
+function skipReconnectPreparation() {}
+
+/**
+ * @param {object} [capabilities]
+ * @param {import("@jskit-ai/kernel/client/types").ClientEnv} [capabilities.env]
+ * @param {import("./types.js").RealtimeMobile | null} [capabilities.mobile]
+ */
 function resolveRealtimeClientConfig({ env = {}, mobile = null } = {}) {
   const appConfig = normalizeObject(getClientAppConfig());
   const realtime = normalizeObject(appConfig.realtime);
@@ -35,13 +43,18 @@ function resolveRealtimeClientConfig({ env = {}, mobile = null } = {}) {
         debugEnvKey: "VITE_REALTIME_DEBUG"
       });
 
-  return Object.freeze({ url, options, debugEnabled });
+  return Object.freeze({
+    url,
+    options,
+    debugEnabled
+  });
 }
 
 /**
  * @param {object} options
- * @param {any} options.config
- * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} options.logger
+ * @param {import("./types.js").RealtimeClientConfig} options.config
+ * @param {import("@jskit-ai/kernel/client/types").ClientLogger} options.logger
+ * @returns {import("./types.js").RealtimeClient}
  */
 function createRealtimeClient({ config, logger: appLogger }) {
   const logger = createProviderLogger(appLogger, {
@@ -54,53 +67,52 @@ function createRealtimeClient({ config, logger: appLogger }) {
   const servedClientBuild = trackServedClientBuild(socket, logger);
   const detach = [];
   let initialized = false;
-  let beforeReconnect = null;
+  let beforeReconnect = skipReconnectPreparation;
 
-  function initialize(vueApp = null) {
+  /** @param {import("@jskit-ai/kernel/client/types").ClientVueApp} vueApp */
+  function initialize(vueApp) {
     if (initialized) {
       return;
     }
     initialized = true;
 
-    if (typeof socket.on === "function") {
-      detach.push(attachSocketConnectionRecovery(socket, { prepareReconnect: () => beforeReconnect?.() }));
-      const onConnect = () => logger.debug({ socketConnected: true }, "Realtime client socket connected.");
-      const onDisconnect = (reason) =>
+    detach.push(attachSocketConnectionRecovery(socket, { prepareReconnect: () => beforeReconnect() }));
+    const onConnect = () => logger.debug({ socketConnected: true }, "Realtime client socket connected.");
+    const onDisconnect = (reason) =>
+      logger.debug(
+        { socketConnected: false, reason: String(reason || "") },
+        "Realtime client socket disconnected."
+      );
+    const onConnectError = (error) =>
+      logger.warn(
+        { error: String(error?.message || error || "unknown error") },
+        "Realtime client socket connect error."
+      );
+
+    socket.on("connect", onConnect);
+    socket.on("disconnect", onDisconnect);
+    socket.on("connect_error", onConnectError);
+    detach.push(() => {
+      socket.off("connect", onConnect);
+      socket.off("disconnect", onDisconnect);
+      socket.off("connect_error", onConnectError);
+    });
+
+    if (config.debugEnabled === true) {
+      const onAny = (eventName, payload) =>
         logger.debug(
-          { socketConnected: false, reason: String(reason || "") },
-          "Realtime client socket disconnected."
+          {
+            event: String(eventName || ""),
+            payloadScope: payload?.scope || null,
+            payloadEntityId: payload?.entityId || null
+          },
+          "Realtime client received socket event."
         );
-      const onConnectError = (error) =>
-        logger.warn(
-          { error: String(error?.message || error || "unknown error") },
-          "Realtime client socket connect error."
-        );
-
-      socket.on("connect", onConnect);
-      socket.on("disconnect", onDisconnect);
-      socket.on("connect_error", onConnectError);
-      detach.push(() => {
-        socket.off?.("connect", onConnect);
-        socket.off?.("disconnect", onDisconnect);
-        socket.off?.("connect_error", onConnectError);
-      });
-
-      if (config.debugEnabled === true && typeof socket.onAny === "function") {
-        const onAny = (eventName, payload) =>
-          logger.debug(
-            {
-              event: String(eventName || ""),
-              payloadScope: payload?.scope || null,
-              payloadEntityId: payload?.entityId || null
-            },
-            "Realtime client received socket event."
-          );
-        socket.onAny(onAny);
-        detach.push(() => socket.offAny?.(onAny));
-      }
+      socket.onAny(onAny);
+      detach.push(() => socket.offAny(onAny));
     }
 
-    vueApp?.provide?.("jskit.realtime.runtime.client.socket", socket);
+    vueApp.provide(REALTIME_SOCKET_KEY, socket);
   }
 
   function dispose() {
@@ -114,15 +126,15 @@ function createRealtimeClient({ config, logger: appLogger }) {
     initialized = false;
   }
 
-  // The step to run before recovery reconnects after the server refused or
-  // dropped the socket, such as auth refreshing the session.
+  /**
+   * The step to run before recovery reconnects after the server refused or dropped the socket, such as auth refreshing
+   * the session.
+   * @param {() => unknown} prepare
+   */
   function setBeforeReconnect(prepare) {
-    if (typeof prepare !== "function") {
-      throw new TypeError("setBeforeReconnect requires a function.");
-    }
     beforeReconnect = prepare;
     return () => {
-      if (beforeReconnect === prepare) beforeReconnect = null;
+      if (beforeReconnect === prepare) beforeReconnect = skipReconnectPreparation;
     };
   }
 
@@ -136,9 +148,12 @@ function createRealtimeClient({ config, logger: appLogger }) {
   });
 }
 
-// The server names the client build it serves on every connection. Listening
-// from the socket's creation keeps the first announcement even when it arrives
-// before anything subscribes; a subscriber receives the latest one at once.
+/**
+ * The server names the client build it serves on every connection. Listening from the socket's creation keeps the first
+ * announcement even when it arrives before anything subscribes; a subscriber receives the latest one at once.
+ * @param {import("./types.js").RealtimeSocket} socket
+ * @param {ReturnType<typeof createProviderLogger>} logger
+ */
 function trackServedClientBuild(socket, logger) {
   const listeners = new Set();
   let buildId = "";
@@ -158,18 +173,16 @@ function trackServedClientBuild(socket, logger) {
     }
   }
 
-  socket.on?.(SERVED_CLIENT_BUILD_EVENT, onServedClientBuild);
+  socket.on(SERVED_CLIENT_BUILD_EVENT, onServedClientBuild);
   return Object.freeze({
+    /** @param {(buildId: string) => void} listener */
     subscribe(listener) {
-      if (typeof listener !== "function") {
-        throw new TypeError("onServedClientBuild requires a listener function.");
-      }
       listeners.add(listener);
       if (buildId) notify(listener);
       return () => listeners.delete(listener);
     },
     dispose() {
-      socket.off?.(SERVED_CLIENT_BUILD_EVENT, onServedClientBuild);
+      socket.off(SERVED_CLIENT_BUILD_EVENT, onServedClientBuild);
       listeners.clear();
     }
   });
@@ -189,6 +202,13 @@ const RealtimeClientProvider = defineProvider({
   provides: {
     realtime: "client.realtime"
   },
+  /**
+   * @param {object} capabilities
+   * @param {import("@jskit-ai/kernel/client/types").ClientComponents} capabilities.components
+   * @param {import("@jskit-ai/kernel/client/types").ClientEnv} capabilities.env
+   * @param {import("@jskit-ai/kernel/client/types").ClientLogger} capabilities.logger
+   * @param {import("./types.js").RealtimeMobile | null} capabilities.mobile
+   */
   setup({ components, env, logger, mobile }) {
     components.register("realtime.web.connection.indicator", RealtimeConnectionIndicator);
     return {
@@ -198,9 +218,17 @@ const RealtimeClientProvider = defineProvider({
       })
     };
   },
+  /**
+   * @param {{ vueApp: import("@jskit-ai/kernel/client/types").ClientVueApp }} capabilities
+   * @param {{ outputs: { realtime: import("./types.js").RealtimeClient } }} lifecycle
+   */
   boot({ vueApp }, { outputs }) {
     outputs.realtime.initialize(vueApp);
   },
+  /**
+   * @param {unknown} _dependencies
+   * @param {{ outputs: { realtime: import("./types.js").RealtimeClient } }} lifecycle
+   */
   shutdown(_dependencies, { outputs }) {
     outputs.realtime.dispose();
   }

@@ -2542,6 +2542,11 @@ test("saved prepared conversations can Stop before the first read while inactive
   }
 });
 
+test("a conversation in an application without the realtime socket refuses at once", options, async t => {
+  const f = await fixture(t, 1280, { applicationDefaults: true });
+  assert.match(await f.page.evaluate(() => window.conversationDefaultsFixture.mountWithoutSocket()), /Realtime client socket is not available/u);
+});
+
 test("application defaults configure standard cards once while preserving overrides and actor isolation", options, async t => {
   const f = await fixture(t, 1280, { applicationDefaults: true });
   assert.equal(await f.page.evaluate(() => window.conversationFixture.current().identity.actorKey), "application-user");

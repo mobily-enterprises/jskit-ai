@@ -50,7 +50,20 @@ if (new URLSearchParams(window.location.search).has("applicationDefaults")) {
       otherApp.mount(otherRoot);
     },
     other() { return otherBinding.runtime.value; },
-    unmountOtherApp() { otherApp.unmount(); otherRoot.remove(); }
+    unmountOtherApp() { otherApp.unmount(); otherRoot.remove(); },
+    // An application without realtime: returns what mounting a conversation there fails with.
+    mountWithoutSocket() {
+      let refusal = "";
+      const application = createApp({ setup() {
+        useAssistantConversation({ conversationId: "chat:1" });
+        return () => null;
+      } });
+      application.config.errorHandler = failure => { refusal = failure.message; };
+      application.provide("jskit.shell-web.runtime.web-placement.client", placement);
+      application.use(router);
+      application.mount(document.createElement("div"));
+      return refusal;
+    }
   };
 }
 app.provide("jskit.shell-web.runtime.web-placement.client", placement);

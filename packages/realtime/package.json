@@ -13,6 +13,7 @@
     "./client/RealtimeClientProvider": "./src/client/RealtimeClientProvider.js",
     "./client/composables/useRealtimeEvent": "./src/client/composables/useRealtimeEvent.js",
     "./client/runtime": "./src/client/runtime.js",
+    "./client/types": "./src/client/types.js",
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
@@ -88,11 +89,15 @@
           },
           {
             "subpath": "./client/composables/useRealtimeEvent",
-            "summary": "Exports useRealtimeEvent and useRealtimeSocket; listeners are owned by their Vue effect scope."
+            "summary": "Exports useRealtimeEvent, useRealtimeSocket, REALTIME_SOCKET_KEY and NO_REALTIME_SOCKET; listeners are owned by their Vue effect scope."
           },
           {
             "subpath": "./client/runtime",
             "summary": "Exports createSocketIoClient, disconnectSocketIoClient and reconnectSocketIoClient."
+          },
+          {
+            "subpath": "./client/types",
+            "summary": "Types of the application's socket, useRealtimeEvent's options and the client.realtime capability."
           },
           {
             "subpath": "./locales/en.json",

@@ -34,6 +34,11 @@ with `defineCrudJsonApiFeature({ realtimeAudience: "all_users" })`.
 Client features register listeners through `@jskit-ai/realtime`. Keep query
 invalidation close to the resource that owns the query keys.
 
+`useRealtimeSocket()` returns the application's socket. In an application without
+the realtime provider it returns `NO_REALTIME_SOCKET`, which is never connected
+and whose every call does nothing, so code calls the socket plainly. Compare with
+`NO_REALTIME_SOCKET` only where absence changes what the code does.
+
 Realtime invalidation from `useRealtimeQueryInvalidation()`, or a read
 composable's `realtime` option, marks matching queries stale and reads again
 only the active ones. It never cancels a read in flight, because the server

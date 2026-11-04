@@ -1,20 +1,30 @@
 import { inject, onScopeDispose, ref, unref, watch } from "vue";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
-const EMPTY_REALTIME_SOCKET = Object.freeze({
+const REALTIME_SOCKET_KEY = "jskit.realtime.runtime.client.socket";
+
+/**
+ * The socket of an application without the realtime provider: it is never connected, and nothing it is asked to do
+ * happens.
+ * @type {import("../types.js").RealtimeSocket}
+ */
+const NO_REALTIME_SOCKET = Object.freeze({
+  active: false,
+  connected: false,
+  connect() {},
+  disconnect() {},
+  emit() {},
+  timeout() {
+    return NO_REALTIME_SOCKET;
+  },
   on() {},
   off() {},
   onAny() {},
   offAny() {}
 });
 
-function isRealtimeSocket(socket) {
-  return Boolean(
-    socket &&
-      typeof socket === "object" &&
-      typeof socket.on === "function" &&
-      typeof socket.off === "function"
-  );
+function matchesEveryEvent() {
+  return true;
 }
 
 function resolveEnabled(value) {
@@ -29,35 +39,27 @@ function resolveEventName(value) {
   return normalized || "*";
 }
 
-function useRealtimeSocket({ required = false } = {}) {
-  const socket = inject("jskit.realtime.runtime.client.socket", null);
-  if (isRealtimeSocket(socket)) {
-    return socket;
-  }
-
-  if (required) {
-    throw new Error("Realtime client socket is not available in Vue injection context.");
-  }
-
-  return EMPTY_REALTIME_SOCKET;
+/**
+ * The application's socket, or `NO_REALTIME_SOCKET` in an application without the realtime provider.
+ * @returns {import("../types.js").RealtimeSocket}
+ */
+function useRealtimeSocket() {
+  return inject(REALTIME_SOCKET_KEY, NO_REALTIME_SOCKET);
 }
 
+/** @param {import("../types.js").RealtimeEventOptions} options */
 function useRealtimeEvent({
   event = "*",
   enabled = true,
-  matches = null,
+  matches = matchesEveryEvent,
   onEvent
-} = {}) {
-  if (typeof onEvent !== "function") {
-    throw new TypeError("useRealtimeEvent requires onEvent().");
-  }
-
-  const socket = useRealtimeSocket({ required: false });
+}) {
+  const socket = useRealtimeSocket();
   const active = ref(false);
   let release = null;
 
   function detach() {
-    if (typeof release === "function") {
+    if (release) {
       try {
         release();
       } catch {}
@@ -73,7 +75,7 @@ function useRealtimeEvent({
       socket
     });
 
-    if (typeof matches === "function" && matches(context) !== true) {
+    if (matches(context) !== true) {
       return;
     }
 
@@ -91,7 +93,7 @@ function useRealtimeEvent({
   function attach() {
     detach();
 
-    if (socket === EMPTY_REALTIME_SOCKET) {
+    if (socket === NO_REALTIME_SOCKET) {
       return;
     }
     if (!resolveEnabled(enabled)) {
@@ -100,15 +102,10 @@ function useRealtimeEvent({
 
     const eventName = resolveEventName(event);
     if (eventName === "*") {
-      if (typeof socket.onAny !== "function") {
-        return;
-      }
       const onAny = (nextEventName, payload) => runHandler(nextEventName, payload);
       socket.onAny(onAny);
       release = () => {
-        if (typeof socket.offAny === "function") {
-          socket.offAny(onAny);
-        }
+        socket.offAny(onAny);
       };
       active.value = true;
       return;
@@ -132,13 +129,14 @@ function useRealtimeEvent({
 
   onScopeDispose(detach);
 
-  return Object.freeze({
+  return {
     active
-  });
+  };
 }
 
 export {
-  EMPTY_REALTIME_SOCKET,
+  NO_REALTIME_SOCKET,
+  REALTIME_SOCKET_KEY,
   useRealtimeSocket,
   useRealtimeEvent
 };

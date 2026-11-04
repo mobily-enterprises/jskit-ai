@@ -1,5 +1,5 @@
 import { computed, defineComponent, h, onBeforeUnmount, onMounted, ref } from "vue";
-import { EMPTY_REALTIME_SOCKET, useRealtimeSocket } from "../composables/useRealtimeEvent.js";
+import { NO_REALTIME_SOCKET, useRealtimeSocket } from "../composables/useRealtimeEvent.js";
 import { reconnectSocketIoClient } from "../runtime.js";
 import { useJskitText } from "../i18n.js";
 
@@ -51,10 +51,9 @@ function resolveTooltipText({ realtimeAvailable, connected }) {
 const RealtimeConnectionIndicator = defineComponent({
   name: "RealtimeConnectionIndicator",
   setup() {
-    const socket = useRealtimeSocket({ required: false });
-    const connected = ref(Boolean(socket?.connected));
-    const realtimeAvailable = socket !== EMPTY_REALTIME_SOCKET;
-    let detach = null;
+    const socket = useRealtimeSocket();
+    const connected = ref(Boolean(socket.connected));
+    const realtimeAvailable = socket !== NO_REALTIME_SOCKET;
 
     const tooltipText = computed(() => {
       return resolveTooltipText({
@@ -76,40 +75,21 @@ const RealtimeConnectionIndicator = defineComponent({
       connected.value = Boolean(nextState);
     }
 
-    function bindSocketStatusListeners() {
-      if (!realtimeAvailable || typeof socket.on !== "function") {
-        syncConnected(false);
-        return;
-      }
+    const onConnect = () => syncConnected(true);
+    const onDisconnect = () => syncConnected(false);
+    const onConnectError = () => syncConnected(false);
 
+    onMounted(() => {
       syncConnected(socket.connected);
-
-      const onConnect = () => syncConnected(true);
-      const onDisconnect = () => syncConnected(false);
-      const onConnectError = () => syncConnected(false);
-
       socket.on("connect", onConnect);
       socket.on("disconnect", onDisconnect);
       socket.on("connect_error", onConnectError);
-
-      detach = () => {
-        if (typeof socket.off === "function") {
-          socket.off("connect", onConnect);
-          socket.off("disconnect", onDisconnect);
-          socket.off("connect_error", onConnectError);
-        }
-      };
-    }
-
-    onMounted(() => {
-      bindSocketStatusListeners();
     });
 
     onBeforeUnmount(() => {
-      if (typeof detach === "function") {
-        detach();
-      }
-      detach = null;
+      socket.off("connect", onConnect);
+      socket.off("disconnect", onDisconnect);
+      socket.off("connect_error", onConnectError);
     });
 
     return () =>

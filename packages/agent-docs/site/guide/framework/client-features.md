@@ -125,6 +125,22 @@ function useAttachments({ uploadAttachment = null } = {}) {
   if (typeof uploadAttachment !== "function") return;
 ```
 
+Each `typeof` probe is one of these, decided by reading its callers:
+
+| The probe | What it is | What it becomes |
+| --- | --- | --- |
+| `typeof socket.on === "function"` on a value with a contract | a member every implementer has | the contract, typed once; the probe goes |
+| `if (typeof onEvent !== "function") throw` | an "x is required" guard | a required option; the guard goes |
+| `typeof matches === "function" && matches(context)` | an option real callers omit | a [named default](#absent-options), called plainly |
+| `typeof deleteAttachment === "function"` | a contract member some real caller lacks | an [optional operation](#absent-options) |
+| a shape check on an injected value, to learn whether it is there | an availability test | [one comparison](#injected-accessors) with the named default |
+| `typeof window !== "undefined"` | a host object | a [platform probe](#platform-probes) |
+| `typeof config.debug === "boolean"` | a check of data, not a collaborator | stays |
+
+A test that only pins a probe (`disconnect(null)` does nothing, `connect: null`
+is refused) goes with the probe; a test that reaches production code through a
+double keeps its assertions, and the double gains what the code now calls.
+
 ### Absent options
 
 **What a real caller leaves out takes one of the server's two forms.** A
@@ -247,6 +263,51 @@ const support = inject(WORKSPACE_SCOPE_KEY, NO_WORKSPACE_SCOPE);
 // bad
 const support = inject("workspaceScope", null);
 if (!support || typeof support.readRouteScope !== "function") return FALLBACK;
+```
+
+### Injected accessors
+
+**A `use<Name>()` accessor takes no `required` option: the key's owner decides
+once, and it resolves one way.** When no real application runs without the
+provider, it is `inject(KEY)`. When one does, it is `inject(KEY, NO_X)`, and
+`NO_X` has every member of the contract, each doing nothing, so callers call it
+plainly.
+
+- A caller that behaves differently when the value is absent compares once with
+  the named default, `socket !== NO_REALTIME_SOCKET`, and branches on that.
+- A caller that cannot work without the value compares and refuses once, where
+  it receives it; a `required` option on the owner's accessor is not the way.
+- The accessor keeps no shape check of what was provided: a provider supplies
+  the contract, and a test double completes it.
+
+Why: a mode and a shape check give one key several outcomes, and each caller
+has to know which it got. A default that lacks members moves the probes to the
+callers (`socket.connect?.()`).
+
+```js
+// good: src/client/composables/useRealtimeEvent.js
+const NO_REALTIME_SOCKET = Object.freeze({
+  connected: false,
+  connect() {},
+  on() {},
+  off() {}
+});
+/** @returns {import("../types.js").RealtimeSocket} */
+function useRealtimeSocket() {
+  return inject(REALTIME_SOCKET_KEY, NO_REALTIME_SOCKET);
+}
+
+// good: a caller that needs one
+const socket = useRealtimeSocket();
+if (socket === NO_REALTIME_SOCKET) throw new Error("Conversations need the realtime socket.");
+
+// bad
+function useRealtimeSocket({ required = false } = {}) {
+  const socket = inject(REALTIME_SOCKET_KEY, null);
+  if (socket && typeof socket.on === "function") return socket;
+  if (required) throw new Error("No socket.");
+  return EMPTY_SOCKET;
+}
 ```
 
 ## Components
@@ -459,7 +520,7 @@ client-only rules below. The server's action and error rules do not apply.
 
 | Rule | Reports | Section |
 | --- | --- | --- |
-| `jskit/typed-inject` | `inject()` with a literal key, an untyped binding, or a `null` / `{}` default | [Injected values](#injected-values) |
+| `jskit/typed-inject` | `inject()` with a literal key, an untyped binding, a `null` / `{}` default, or in a function with a `required` option | [Injected values](#injected-values), [Injected accessors](#injected-accessors) |
 | `jskit/collaborator-props` | a prop the component calls that is optional with no named default, or typed only `Object` | [Collaborator props](#collaborator-props) |
 | `jskit/fixed-result-shape` | behaviour assigned to a `use*` / `create*` result after it is built, also one a wrapper's callback built | [Fixed result shape](#fixed-result-shape) |
 | `jskit/no-frozen-vue-state` | `Object.freeze` over refs, computeds or reactive state | [Fixed result shape](#fixed-result-shape) |

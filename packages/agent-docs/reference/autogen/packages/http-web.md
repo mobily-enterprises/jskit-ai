@@ -505,7 +505,7 @@ Local functions
 ### `src/client/composables/useRealtimeQueryInvalidation.js`
 Exports
 - `resolveOperationRealtimeOptions({ realtime = undefined, fallbackRealtime = null } = {})`
-- `useRealtimeQueryInvalidation({ event = "", enabled = true, matches = null, queryKey = null, onEvent = null } = {})`
+- `useRealtimeQueryInvalidation({ event = "", enabled = true, matches, queryKey = null, onEvent = null } = {})`
 - `useOperationRealtime({ realtime = null, queryKey = null, enabled = true } = {})`
 Local functions
 - `normalizeRealtimeOptions(value = {})`

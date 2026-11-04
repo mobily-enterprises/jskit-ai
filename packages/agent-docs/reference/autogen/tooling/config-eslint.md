@@ -312,6 +312,7 @@ Exports
 - `typedInject`
 Local functions
 - `isTypedInjection(sourceCode, call)`
+- `requiredOption(sourceCode, call)`
 
 ### `plugin/support.js`
 Exports

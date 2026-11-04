@@ -1,7 +1,7 @@
 // The types the assistant runtime's client hands out and receives across its files. Types assistant-core owns are
 // imported from `@jskit-ai/assistant-core/client/types` where they are used.
 
-/** @typedef {ReturnType<typeof import("@jskit-ai/realtime/client/composables/useRealtimeEvent").useRealtimeSocket>} RealtimeSocket The application's shared realtime socket. */
+/** @typedef {import("@jskit-ai/realtime/client/types").RealtimeSocket} RealtimeSocket The application's shared realtime socket. */
 /** @typedef {ReturnType<typeof import("@jskit-ai/shell-web/client/navigation/useSurfaceRouteContext").useSurfaceRouteContext>} SurfaceRouteContext The current route's surface and placement context. */
 
 /**

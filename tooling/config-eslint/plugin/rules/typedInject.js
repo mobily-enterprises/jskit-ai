@@ -33,16 +33,31 @@ function isTypedInjection(sourceCode, call) {
   return hasJsdocBefore(sourceCode, owner, RETURNS_TAG);
 }
 
+/**
+ * The `required` option of the function holding an inject() call, as in `useRuntime({ required = false } = {})`.
+ * @param {any} sourceCode
+ * @param {any} call
+ */
+function requiredOption(sourceCode, call) {
+  const first = sourceCode.getAncestors(call).findLast((ancestor) => FUNCTION_TYPES.has(ancestor.type))?.params[0];
+  const pattern = first?.type === "AssignmentPattern" ? first.left : first;
+  return pattern?.type === "ObjectPattern"
+    ? pattern.properties.find((property) => property.type === "Property" && property.key.name === "required")
+    : undefined;
+}
+
 // An injected value is a capability lookup: it takes the owner's exported key,
 // names its type, and resolves once, either required (`inject(KEY)`) or to the
 // owner's named default (`inject(KEY, NO_X)`), never to null or {} that is then
-// probed. A consumer that cannot depend on the key's owner writes the key in
-// place, typed and with a named NO_* default, as a server token is written.
+// probed, and never by a `required` mode that gives one key two outcomes. A
+// consumer that cannot depend on the key's owner writes the key in place, typed
+// and with a named NO_* default, as a server token is written.
 const typedInject = Object.freeze({
   meta: ruleMeta("Require inject() to take an exported key, name the injected type and never default to nothing.", {
     literalKey: "inject({{key}}) names its key in place. Import the owner's exported key constant.",
     absentDefault: "inject(…, {{fallback}}) resolves to nothing, so every use probes it. Inject it required, or default to the owner's named default.",
-    untypedInject: "inject({{key}}) has no type. Name it with a JSDoc @type on the binding, a cast, or the accessor's @returns."
+    untypedInject: "inject({{key}}) has no type. Name it with a JSDoc @type on the binding, a cast, or the accessor's @returns.",
+    requiredMode: "A required option gives inject({{key}}) two outcomes. Resolve it one way; a caller that cannot work without the value refuses where it receives it."
   }, "injected-values", CLIENT_GUIDE_URL),
   create(context) {
     const sourceCode = context.sourceCode;
@@ -68,6 +83,10 @@ const typedInject = Object.freeze({
         }
         if (!isTypedInjection(sourceCode, node)) {
           report(node, "untyped-inject", "untypedInject", { key: keyText });
+        }
+        const required = requiredOption(sourceCode, node);
+        if (required) {
+          report(required, "inject-required-mode", "requiredMode", { key: keyText });
         }
       }
     };

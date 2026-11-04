@@ -22,17 +22,18 @@ Local functions
 
 ### `src/client/composables/useRealtimeEvent.js`
 Exports
-- `EMPTY_REALTIME_SOCKET`
-- `useRealtimeSocket({ required = false } = {})`
-- `useRealtimeEvent({ event = "*", enabled = true, matches = null, onEvent } = {})`
+- `NO_REALTIME_SOCKET`
+- `REALTIME_SOCKET_KEY`
+- `useRealtimeSocket()`
+- `useRealtimeEvent({ event = "*", enabled = true, matches = matchesEveryEvent, onEvent })`
 Local functions
-- `isRealtimeSocket(socket)`
+- `matchesEveryEvent()`
 - `resolveEnabled(value)`
 - `resolveEventName(value)`
 
 ### `src/client/connectionRecovery.js`
 Exports
-- `attachSocketConnectionRecovery(socket, { prepareReconnect = null } = {})`
+- `attachSocketConnectionRecovery(socket, { prepareReconnect })`
 
 ### `src/client/i18n.js`
 Exports
@@ -43,14 +44,24 @@ Exports
 - `RealtimeClientProvider`
 - `resolveRealtimeClientConfig({ env = {}, mobile = null } = {})`
 Local functions
+- `skipReconnectPreparation()`
 - `createRealtimeClient({ config, logger: appLogger })`
 - `trackServedClientBuild(socket, logger)`
 
 ### `src/client/runtime.js`
 Exports
-- `createSocketIoClient({ url = "", options = {}, connect = connectSocketIoClient } = {})`
+- `createSocketIoClient({ url = "", options = {}, connect = connectSocketIoClient })`
 - `disconnectSocketIoClient(socket)`
 - `reconnectSocketIoClient(socket)`
+
+### `src/client/types.js`
+Exports
+- `type RealtimeSocket`
+- `type RealtimeEventContext`
+- `type RealtimeEventOptions`
+- `type RealtimeMobile`
+- `type RealtimeClientConfig`
+- `type RealtimeClient`
 
 ### `src/server/realtimeAudience.js`
 Exports

@@ -83,6 +83,7 @@ Local functions
 - `formatsAnswers(prompts)`
 - `assertBoundedTask({ command, endpoint, scope, input, result, onResult })`
 - `useBoundedTask({ command, endpoint, scope, input, result, onResult = ignoreResult }, { active, data, presentation })`
+- `useRequiredRealtimeSocket()`
 - `conversationBindingSetup({ socket, boundedTask })`
 - `createConversationBinding({ conversationId, endpoint = "", surfaceId = "", hostSurfaceId = "", workspaceSlug, actorKey: suppliedActorKey, api: suppliedApi, socket: suppliedSocket, active = true, onEvent, clearDraftOn: suppliedClearDraftOn, queueWhileSending, deferWhileWorking = false, admitWhileWorking = false, draftWhileLoading = false, draftStorage, application, boundedTask, data, attachments, suggestions, models, questions, goal, presentation }, setup)`
 

@@ -1,8 +1,12 @@
 import { reconnectSocketIoClient } from "./runtime.js";
 
-// `prepareReconnect` runs before each recovery reconnect; auth uses it to
-// refresh an expired session over HTTP so the handshake carries fresh cookies.
-function attachSocketConnectionRecovery(socket, { prepareReconnect = null } = {}) {
+/**
+ * Reconnects a socket Socket.IO will not retry by itself; returns the function that stops.
+ * @param {import("socket.io-client").Socket} socket
+ * @param {object} recovery
+ * @param {() => unknown} recovery.prepareReconnect Runs before each recovery reconnect; auth uses it to refresh an expired session over HTTP so the handshake carries fresh cookies.
+ */
+function attachSocketConnectionRecovery(socket, { prepareReconnect }) {
   let timer = null;
   let delay = 1_000;
   let recovering = false;
@@ -21,12 +25,10 @@ function attachSocketConnectionRecovery(socket, { prepareReconnect = null } = {}
   }
 
   async function retry() {
-    if (prepareReconnect) {
-      try {
-        await prepareReconnect();
-      } catch {
-        // The handshake then decides; a refusal schedules the next retry.
-      }
+    try {
+      await prepareReconnect();
+    } catch {
+      // The handshake then decides; a refusal schedules the next retry.
     }
     if (canRetry()) socket.connect();
   }

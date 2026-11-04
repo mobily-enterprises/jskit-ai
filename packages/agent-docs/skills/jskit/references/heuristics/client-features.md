@@ -35,6 +35,10 @@ rule's intent, and report the case.
   - [Client providers](../client-features.md#client-providers)
 - `inject("key")`, `inject(KEY, null)`, `inject(KEY, {})` (`jskit/typed-inject`)
   - [Injected values](../client-features.md#injected-values)
+- `useX({ required })`, an `EMPTY_*` fallback, a shape check of an injected value, `socket.connect?.()` on a default (`jskit/typed-inject`)
+  - [Injected accessors](../client-features.md#injected-accessors)
+- which kind of `typeof` probe this is, a test that only pins a probe
+  - [Required options](../client-features.md#required-options)
 - `type: Object, default: null` on a prop the component calls, `adapter: Object` (`jskit/collaborator-props`, `vue/require-default-prop`)
   - [Collaborator props](../client-features.md#collaborator-props)
 - an event emitted but not declared (`vue/require-explicit-emits`)

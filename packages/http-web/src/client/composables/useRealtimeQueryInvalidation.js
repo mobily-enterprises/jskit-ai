@@ -93,7 +93,7 @@ async function refreshQueriesWithoutCancelling(queryClient, queryKey) {
 function useRealtimeQueryInvalidation({
   event = "",
   enabled = true,
-  matches = null,
+  matches,
   queryKey = null,
   onEvent = null
 } = {}) {
@@ -152,7 +152,7 @@ function useOperationRealtime({
     return null;
   }
 
-  const matches = typeof source.matches === "function" ? source.matches : null;
+  const matches = typeof source.matches === "function" ? source.matches : undefined;
   const onEvent = typeof source.onEvent === "function" ? source.onEvent : null;
   const resolvedQueryKey = Object.hasOwn(source, "queryKey") ? source.queryKey : queryKey;
   const active = computed(() => {

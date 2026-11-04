@@ -14,6 +14,8 @@ new RuleTester().run("jskit/typed-inject", typedInject, {
     `${IMPORT}/** @type {import("./types.js").ScopeSupport} */\nconst support = inject(SCOPE_SUPPORT_KEY, NO_SCOPE_SUPPORT);`,
     `${IMPORT}const placement = /** @type {import("./types.js").Placement} */ (inject(PLACEMENT_KEY));`,
     `${IMPORT}/**\n * The page's realtime socket.\n * @returns {Socket}\n */\nexport function useSocket() {\n  return inject(SOCKET_KEY);\n}`,
+    // An accessor with one outcome: the option it takes is not a mode.
+    `${IMPORT}/**\n * @param {{ scope: string }} options\n * @returns {Socket}\n */\nfunction useSocket({ scope }) {\n  return inject(SOCKET_KEY, NO_SOCKET);\n}`,
     // Not Vue's inject.
     "import { inject } from \"./container.js\";\nconst value = inject(\"token\", null);",
     `${IMPORT}// readable-check: allow untyped-inject - data: the host passes a plain label\nconst label = inject("label");`,
@@ -40,6 +42,14 @@ new RuleTester().run("jskit/typed-inject", typedInject, {
     {
       code: `${IMPORT}function usePlacement() {\n  const placement = inject(PLACEMENT_KEY);\n  return placement;\n}`,
       errors: [{ messageId: "untypedInject", data: { key: "PLACEMENT_KEY" } }]
+    },
+    {
+      code: `${IMPORT}/** @returns {Socket} */\nfunction useSocket({ required = false } = {}) {\n  const socket = inject(SOCKET_KEY, NO_SOCKET);\n  if (socket === NO_SOCKET && required) throw new Error("No socket.");\n  return socket;\n}`,
+      errors: [{ messageId: "requiredMode", data: { key: "SOCKET_KEY" } }]
+    },
+    {
+      code: `${IMPORT}/** @returns {Socket} */\nconst useSocket = ({ required }) => inject(SOCKET_KEY, NO_SOCKET);`,
+      errors: [{ messageId: "requiredMode", data: { key: "SOCKET_KEY" } }]
     },
     {
       code: "import { inject as injectValue } from \"vue\";\n/** @type {Host} */\nconst host = injectValue(`toolbar`);",

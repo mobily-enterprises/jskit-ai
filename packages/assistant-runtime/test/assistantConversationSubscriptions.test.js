@@ -174,7 +174,7 @@ async function fixture(t, { diagnostics = false, onSetup } = {}) {
     } });
     clients.push(socket);
     clientSessions.set(socket, session);
-    if (recovery) cleanups.push(attachSocketConnectionRecovery(socket));
+    if (recovery) cleanups.push(attachSocketConnectionRecovery(socket, { prepareReconnect() {} }));
     await new Promise((resolve, reject) => {
       const timer = setTimeout(() => finish(new Error("Socket connection timed out.")), 5_000);
       const connected = () => finish();
