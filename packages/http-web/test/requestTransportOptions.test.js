@@ -3,6 +3,7 @@ import test from "node:test";
 import { QueryClient, QueryObserver, VueQueryPlugin } from "@tanstack/vue-query";
 import { createSSRApp, h } from "vue";
 import { renderToString } from "vue/server-renderer";
+import { routeLocationKey } from "vue-router";
 
 import {
   buildEndpointReadRequestOptions,
@@ -533,6 +534,7 @@ test("commands use the configured http-web HTTP client by default", async () => 
         return () => h("div");
       }
     });
+    app.provide(routeLocationKey, { path: "/" });
     app.use(VueQueryPlugin, {
       queryClient
     });
@@ -583,6 +585,7 @@ test("commands use public CRUD resource access without a CSRF session preflight"
         return () => h("div");
       }
     });
+    app.provide(routeLocationKey, { path: "/" });
     app.use(VueQueryPlugin, {
       queryClient
     });
