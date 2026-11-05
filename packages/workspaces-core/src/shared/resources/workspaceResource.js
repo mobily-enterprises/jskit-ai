@@ -1,8 +1,18 @@
 import { createSchema } from "json-rest-schema";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
 import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
 import { createSchemaDefinition } from "@jskit-ai/resource-core/shared/resource";
+import { OPERATION_MESSAGES } from "../operationMessages.js";
+
+// Each field message: its English and the code a client renders it from in the user's language.
+const WORKSPACE_FIELD_MESSAGES = deepFreeze({
+  avatarUrlInvalid: {
+    code: "workspaces.workspace.avatarUrlInvalid",
+    message: "Workspace avatar URL must be a valid absolute URL (http:// or https://)."
+  }
+});
 
 function normalizeWorkspaceAvatarUrl(value) {
   const avatarUrl = normalizeText(value);
@@ -50,8 +60,8 @@ const workspacePatchBodySchema = createSchema({
     required: false,
     pattern: "^(https?://.+)?$",
     messages: {
-      pattern: "Workspace avatar URL must be a valid absolute URL (http:// or https://).",
-      default: "Workspace avatar URL must be a valid absolute URL (http:// or https://)."
+      pattern: WORKSPACE_FIELD_MESSAGES.avatarUrlInvalid,
+      default: WORKSPACE_FIELD_MESSAGES.avatarUrlInvalid
     }
   }
 });
@@ -133,10 +143,10 @@ const resource = defineCrudResource({
     }
   },
   messages: {
-    validation: "Fix invalid workspace values and try again.",
-    saveSuccess: "Workspace updated.",
-    saveError: "Unable to update workspace.",
-    apiValidation: "Validation failed."
+    validation: "jskit.workspaces.feedback.workspaceInvalid",
+    saveSuccess: "jskit.workspaces.feedback.workspaceUpdated",
+    saveError: "jskit.workspaces.feedback.workspaceUpdateFailed",
+    apiValidation: OPERATION_MESSAGES.apiValidation
   },
   crudOperations: ["view", "list", "create", "replace", "patch"],
   crud: {

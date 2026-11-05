@@ -21,6 +21,13 @@
         "grantNotAuthorized": "Reward grant is not authorized.",
         "closed": "Watch session is already closed.",
         "ruleMissing": "No rewarded rule is configured for this session."
+      },
+      "feedback": {
+        "fixInvalidValues": "Fix invalid values and try again.",
+        "recordSaved": "Record saved.",
+        "recordSaveFailed": "Unable to save record.",
+        "recordDeleted": "Record deleted.",
+        "recordDeleteFailed": "Unable to delete record."
       }
     }
   }

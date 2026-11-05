@@ -5,6 +5,9 @@
         "invalidUser": "Invalid console user.",
         "authenticationRequired": "Authentication required.",
         "forbidden": "Forbidden."
+      },
+      "feedback": {
+        "validationFailed": "Validation failed."
       }
     }
   }

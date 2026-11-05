@@ -12,6 +12,31 @@ import {
   userProfileOutputSchema
 } from "./accountSettingsSchemas.js";
 
+const USER_PASSWORD_MIN_LENGTH = 8;
+
+// Each field message: its English and the code a client renders it from in the user's language.
+const USER_SETTINGS_FIELD_MESSAGES = deepFreeze({
+  productUpdatesInvalid: { code: "users.settings.productUpdatesInvalid", message: "productUpdates must be a boolean." },
+  accountActivityInvalid: {
+    code: "users.settings.accountActivityInvalid",
+    message: "accountActivity must be a boolean."
+  },
+  securityAlertsInvalid: { code: "users.settings.securityAlertsInvalid", message: "securityAlerts must be a boolean." },
+  currentPasswordInvalid: { code: "users.security.currentPasswordInvalid", message: "Current password is invalid." },
+  newPasswordRequired: { code: "users.security.newPasswordRequired", message: "New password is required." },
+  newPasswordMinLength: {
+    code: "users.security.newPasswordMinLength",
+    message: `New password must be at least ${USER_PASSWORD_MIN_LENGTH} characters.`,
+    params: { min: USER_PASSWORD_MIN_LENGTH }
+  },
+  confirmPasswordRequired: { code: "users.security.confirmPasswordRequired", message: "Confirm password is required." },
+  enabledRequired: { code: "users.security.enabledRequired", message: "enabled is required." },
+  enabledInvalid: { code: "users.security.enabledInvalid", message: "enabled must be a boolean." },
+  oauthProviderRequired: { code: "users.security.oauthProviderRequired", message: "OAuth provider is required." },
+  oauthProviderInvalid: { code: "users.security.oauthProviderInvalid", message: "OAuth provider is invalid." },
+  returnToInvalid: { code: "users.security.returnToInvalid", message: "Return path is invalid." }
+});
+
 const USER_SETTINGS_PREFERENCE_KEYS = deepFreeze([
   "theme",
   "locale",
@@ -59,7 +84,7 @@ const userSettingsBodySchema = createSchema({
     required: true,
     strictBoolean: true,
     messages: {
-      default: "productUpdates must be a boolean."
+      default: USER_SETTINGS_FIELD_MESSAGES.productUpdatesInvalid
     }
   },
   accountActivity: {
@@ -67,7 +92,7 @@ const userSettingsBodySchema = createSchema({
     required: true,
     strictBoolean: true,
     messages: {
-      default: "accountActivity must be a boolean."
+      default: USER_SETTINGS_FIELD_MESSAGES.accountActivityInvalid
     }
   },
   securityAlerts: {
@@ -75,7 +100,7 @@ const userSettingsBodySchema = createSchema({
     required: true,
     strictBoolean: true,
     messages: {
-      default: "securityAlerts must be a boolean."
+      default: USER_SETTINGS_FIELD_MESSAGES.securityAlertsInvalid
     }
   }
 });
@@ -103,7 +128,7 @@ const userSettingsNotificationsSchema = createSchema({
     required: true,
     strictBoolean: true,
     messages: {
-      default: "productUpdates must be a boolean."
+      default: USER_SETTINGS_FIELD_MESSAGES.productUpdatesInvalid
     }
   },
   accountActivity: {
@@ -111,7 +136,7 @@ const userSettingsNotificationsSchema = createSchema({
     required: true,
     strictBoolean: true,
     messages: {
-      default: "accountActivity must be a boolean."
+      default: USER_SETTINGS_FIELD_MESSAGES.accountActivityInvalid
     }
   },
   securityAlerts: {
@@ -119,7 +144,7 @@ const userSettingsNotificationsSchema = createSchema({
     required: true,
     strictBoolean: true,
     messages: {
-      default: "securityAlerts must be a boolean."
+      default: USER_SETTINGS_FIELD_MESSAGES.securityAlertsInvalid
     }
   }
 });
@@ -176,17 +201,17 @@ const passwordChangeBodySchema = createSchema({
     required: false,
     minLength: 1,
     messages: {
-      default: "Current password is invalid."
+      default: USER_SETTINGS_FIELD_MESSAGES.currentPasswordInvalid
     }
   },
   newPassword: {
     type: "string",
     required: true,
-    minLength: 8,
+    minLength: USER_PASSWORD_MIN_LENGTH,
     messages: {
-      required: "New password is required.",
-      minLength: "New password must be at least 8 characters.",
-      default: "New password must be at least 8 characters."
+      required: USER_SETTINGS_FIELD_MESSAGES.newPasswordRequired,
+      minLength: USER_SETTINGS_FIELD_MESSAGES.newPasswordMinLength,
+      default: USER_SETTINGS_FIELD_MESSAGES.newPasswordMinLength
     }
   },
   confirmPassword: {
@@ -194,9 +219,9 @@ const passwordChangeBodySchema = createSchema({
     required: true,
     minLength: 1,
     messages: {
-      required: "Confirm password is required.",
-      minLength: "Confirm password is required.",
-      default: "Confirm password is required."
+      required: USER_SETTINGS_FIELD_MESSAGES.confirmPasswordRequired,
+      minLength: USER_SETTINGS_FIELD_MESSAGES.confirmPasswordRequired,
+      default: USER_SETTINGS_FIELD_MESSAGES.confirmPasswordRequired
     }
   }
 });
@@ -212,8 +237,8 @@ const passwordMethodToggleBodySchema = createSchema({
     required: true,
     strictBoolean: true,
     messages: {
-      required: "enabled is required.",
-      default: "enabled must be a boolean."
+      required: USER_SETTINGS_FIELD_MESSAGES.enabledRequired,
+      default: USER_SETTINGS_FIELD_MESSAGES.enabledInvalid
     }
   }
 });
@@ -225,8 +250,8 @@ const oauthProviderParamsSchema = createSchema({
     minLength: 2,
     maxLength: 64,
     messages: {
-      required: "OAuth provider is required.",
-      default: "OAuth provider is invalid."
+      required: USER_SETTINGS_FIELD_MESSAGES.oauthProviderRequired,
+      default: USER_SETTINGS_FIELD_MESSAGES.oauthProviderInvalid
     }
   }
 });
@@ -237,7 +262,7 @@ const oauthProviderQuerySchema = createSchema({
     required: false,
     minLength: 1,
     messages: {
-      default: "Return path is invalid."
+      default: USER_SETTINGS_FIELD_MESSAGES.returnToInvalid
     }
   }
 });

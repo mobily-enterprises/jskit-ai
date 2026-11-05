@@ -1,10 +1,22 @@
 import { createSchema } from "json-rest-schema";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
 import { OPERATION_MESSAGES } from "../operationMessages.js";
 import { userProfileOutputSchema } from "./accountSettingsSchemas.js";
 import { userSettingsOutputSchema } from "./userSettingsResource.js";
 import { USERNAME_MAX_LENGTH, normalizeNullableString, normalizeNullableVersion, normalizeUsername } from "./userProfileValues.js";
+
+// Each field message: its English and the code a client renders it from in the user's language.
+const USER_PROFILE_FIELD_MESSAGES = deepFreeze({
+  avatarStreamMissing: { code: "users.avatar.streamMissing", message: "Avatar stream is missing." },
+  avatarMimeTypeInvalid: { code: "users.avatar.mimeTypeInvalid", message: "Avatar mimeType is invalid." },
+  avatarFileNameInvalid: { code: "users.avatar.fileNameInvalid", message: "Avatar fileName is invalid." },
+  avatarUploadDimensionInvalid: {
+    code: "users.avatar.uploadDimensionInvalid",
+    message: "Avatar uploadDimension is invalid."
+  }
+});
 
 const userProfileBodySchema = createSchema({
   displayName: {
@@ -20,7 +32,7 @@ const avatarUploadBodySchema = createSchema({
     type: "none",
     required: true,
     messages: {
-      default: "Avatar stream is missing."
+      default: USER_PROFILE_FIELD_MESSAGES.avatarStreamMissing
     }
   },
   mimeType: {
@@ -28,7 +40,7 @@ const avatarUploadBodySchema = createSchema({
     required: false,
     minLength: 1,
     messages: {
-      default: "Avatar mimeType is invalid."
+      default: USER_PROFILE_FIELD_MESSAGES.avatarMimeTypeInvalid
     }
   },
   fileName: {
@@ -36,7 +48,7 @@ const avatarUploadBodySchema = createSchema({
     required: false,
     minLength: 1,
     messages: {
-      default: "Avatar fileName is invalid."
+      default: USER_PROFILE_FIELD_MESSAGES.avatarFileNameInvalid
     }
   },
   uploadDimension: {
@@ -44,7 +56,7 @@ const avatarUploadBodySchema = createSchema({
     required: false,
     minLength: 1,
     messages: {
-      default: "Avatar uploadDimension is invalid."
+      default: USER_PROFILE_FIELD_MESSAGES.avatarUploadDimensionInvalid
     }
   }
 });

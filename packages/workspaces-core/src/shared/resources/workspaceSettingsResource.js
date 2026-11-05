@@ -9,6 +9,83 @@ import {
   DEFAULT_WORKSPACE_LIGHT_PALETTE,
   WORKSPACE_SETTINGS_COLOR_FIELDS
 } from "../settings.js";
+import { OPERATION_MESSAGES } from "../operationMessages.js";
+
+// Each field message: its English and the code a client renders it from in the user's language.
+const WORKSPACE_SETTINGS_FIELD_MESSAGES = deepFreeze({
+  lightPrimaryColorRequired: {
+    code: "workspaces.settings.lightPrimaryColor.required",
+    message: "Light primary color is required."
+  },
+  lightPrimaryColorInvalid: {
+    code: "workspaces.settings.lightPrimaryColor.invalid",
+    message: "Light primary color must be a hex color like #1867C0."
+  },
+  lightSecondaryColorRequired: {
+    code: "workspaces.settings.lightSecondaryColor.required",
+    message: "Light secondary color is required."
+  },
+  lightSecondaryColorInvalid: {
+    code: "workspaces.settings.lightSecondaryColor.invalid",
+    message: "Light secondary color must be a hex color like #48A9A6."
+  },
+  lightSurfaceColorRequired: {
+    code: "workspaces.settings.lightSurfaceColor.required",
+    message: "Light surface color is required."
+  },
+  lightSurfaceColorInvalid: {
+    code: "workspaces.settings.lightSurfaceColor.invalid",
+    message: "Light surface color must be a hex color like #FFFFFF."
+  },
+  lightSurfaceVariantColorRequired: {
+    code: "workspaces.settings.lightSurfaceVariantColor.required",
+    message: "Light surface variant color is required."
+  },
+  lightSurfaceVariantColorInvalid: {
+    code: "workspaces.settings.lightSurfaceVariantColor.invalid",
+    message: "Light surface variant color must be a hex color like #424242."
+  },
+  darkPrimaryColorRequired: {
+    code: "workspaces.settings.darkPrimaryColor.required",
+    message: "Dark primary color is required."
+  },
+  darkPrimaryColorInvalid: {
+    code: "workspaces.settings.darkPrimaryColor.invalid",
+    message: "Dark primary color must be a hex color like #2196F3."
+  },
+  darkSecondaryColorRequired: {
+    code: "workspaces.settings.darkSecondaryColor.required",
+    message: "Dark secondary color is required."
+  },
+  darkSecondaryColorInvalid: {
+    code: "workspaces.settings.darkSecondaryColor.invalid",
+    message: "Dark secondary color must be a hex color like #54B6B2."
+  },
+  darkSurfaceColorRequired: {
+    code: "workspaces.settings.darkSurfaceColor.required",
+    message: "Dark surface color is required."
+  },
+  darkSurfaceColorInvalid: {
+    code: "workspaces.settings.darkSurfaceColor.invalid",
+    message: "Dark surface color must be a hex color like #212121."
+  },
+  darkSurfaceVariantColorRequired: {
+    code: "workspaces.settings.darkSurfaceVariantColor.required",
+    message: "Dark surface variant color is required."
+  },
+  darkSurfaceVariantColorInvalid: {
+    code: "workspaces.settings.darkSurfaceVariantColor.invalid",
+    message: "Dark surface variant color must be a hex color like #C8C8C8."
+  },
+  invitesEnabledRequired: {
+    code: "workspaces.settings.invitesEnabled.required",
+    message: "invitesEnabled is required."
+  },
+  invitesEnabledInvalid: {
+    code: "workspaces.settings.invitesEnabled.invalid",
+    message: "invitesEnabled must be a boolean."
+  }
+});
 
 const WORKSPACE_SETTINGS_FIELD_KEYS = deepFreeze([...WORKSPACE_SETTINGS_COLOR_FIELDS, "invitesEnabled"]);
 
@@ -20,9 +97,9 @@ const workspaceSettingsBodySchema = createSchema({
     maxLength: 7,
     pattern: "^#[0-9A-Fa-f]{6}$",
     messages: {
-      required: "Light primary color is required.",
-      pattern: "Light primary color must be a hex color like #1867C0.",
-      default: "Light primary color must be a hex color like #1867C0."
+      required: WORKSPACE_SETTINGS_FIELD_MESSAGES.lightPrimaryColorRequired,
+      pattern: WORKSPACE_SETTINGS_FIELD_MESSAGES.lightPrimaryColorInvalid,
+      default: WORKSPACE_SETTINGS_FIELD_MESSAGES.lightPrimaryColorInvalid
     }
   },
   lightSecondaryColor: {
@@ -32,9 +109,9 @@ const workspaceSettingsBodySchema = createSchema({
     maxLength: 7,
     pattern: "^#[0-9A-Fa-f]{6}$",
     messages: {
-      required: "Light secondary color is required.",
-      pattern: "Light secondary color must be a hex color like #48A9A6.",
-      default: "Light secondary color must be a hex color like #48A9A6."
+      required: WORKSPACE_SETTINGS_FIELD_MESSAGES.lightSecondaryColorRequired,
+      pattern: WORKSPACE_SETTINGS_FIELD_MESSAGES.lightSecondaryColorInvalid,
+      default: WORKSPACE_SETTINGS_FIELD_MESSAGES.lightSecondaryColorInvalid
     }
   },
   lightSurfaceColor: {
@@ -44,9 +121,9 @@ const workspaceSettingsBodySchema = createSchema({
     maxLength: 7,
     pattern: "^#[0-9A-Fa-f]{6}$",
     messages: {
-      required: "Light surface color is required.",
-      pattern: "Light surface color must be a hex color like #FFFFFF.",
-      default: "Light surface color must be a hex color like #FFFFFF."
+      required: WORKSPACE_SETTINGS_FIELD_MESSAGES.lightSurfaceColorRequired,
+      pattern: WORKSPACE_SETTINGS_FIELD_MESSAGES.lightSurfaceColorInvalid,
+      default: WORKSPACE_SETTINGS_FIELD_MESSAGES.lightSurfaceColorInvalid
     }
   },
   lightSurfaceVariantColor: {
@@ -56,9 +133,9 @@ const workspaceSettingsBodySchema = createSchema({
     maxLength: 7,
     pattern: "^#[0-9A-Fa-f]{6}$",
     messages: {
-      required: "Light surface variant color is required.",
-      pattern: "Light surface variant color must be a hex color like #424242.",
-      default: "Light surface variant color must be a hex color like #424242."
+      required: WORKSPACE_SETTINGS_FIELD_MESSAGES.lightSurfaceVariantColorRequired,
+      pattern: WORKSPACE_SETTINGS_FIELD_MESSAGES.lightSurfaceVariantColorInvalid,
+      default: WORKSPACE_SETTINGS_FIELD_MESSAGES.lightSurfaceVariantColorInvalid
     }
   },
   darkPrimaryColor: {
@@ -68,9 +145,9 @@ const workspaceSettingsBodySchema = createSchema({
     maxLength: 7,
     pattern: "^#[0-9A-Fa-f]{6}$",
     messages: {
-      required: "Dark primary color is required.",
-      pattern: "Dark primary color must be a hex color like #2196F3.",
-      default: "Dark primary color must be a hex color like #2196F3."
+      required: WORKSPACE_SETTINGS_FIELD_MESSAGES.darkPrimaryColorRequired,
+      pattern: WORKSPACE_SETTINGS_FIELD_MESSAGES.darkPrimaryColorInvalid,
+      default: WORKSPACE_SETTINGS_FIELD_MESSAGES.darkPrimaryColorInvalid
     }
   },
   darkSecondaryColor: {
@@ -80,9 +157,9 @@ const workspaceSettingsBodySchema = createSchema({
     maxLength: 7,
     pattern: "^#[0-9A-Fa-f]{6}$",
     messages: {
-      required: "Dark secondary color is required.",
-      pattern: "Dark secondary color must be a hex color like #54B6B2.",
-      default: "Dark secondary color must be a hex color like #54B6B2."
+      required: WORKSPACE_SETTINGS_FIELD_MESSAGES.darkSecondaryColorRequired,
+      pattern: WORKSPACE_SETTINGS_FIELD_MESSAGES.darkSecondaryColorInvalid,
+      default: WORKSPACE_SETTINGS_FIELD_MESSAGES.darkSecondaryColorInvalid
     }
   },
   darkSurfaceColor: {
@@ -92,9 +169,9 @@ const workspaceSettingsBodySchema = createSchema({
     maxLength: 7,
     pattern: "^#[0-9A-Fa-f]{6}$",
     messages: {
-      required: "Dark surface color is required.",
-      pattern: "Dark surface color must be a hex color like #212121.",
-      default: "Dark surface color must be a hex color like #212121."
+      required: WORKSPACE_SETTINGS_FIELD_MESSAGES.darkSurfaceColorRequired,
+      pattern: WORKSPACE_SETTINGS_FIELD_MESSAGES.darkSurfaceColorInvalid,
+      default: WORKSPACE_SETTINGS_FIELD_MESSAGES.darkSurfaceColorInvalid
     }
   },
   darkSurfaceVariantColor: {
@@ -104,9 +181,9 @@ const workspaceSettingsBodySchema = createSchema({
     maxLength: 7,
     pattern: "^#[0-9A-Fa-f]{6}$",
     messages: {
-      required: "Dark surface variant color is required.",
-      pattern: "Dark surface variant color must be a hex color like #C8C8C8.",
-      default: "Dark surface variant color must be a hex color like #C8C8C8."
+      required: WORKSPACE_SETTINGS_FIELD_MESSAGES.darkSurfaceVariantColorRequired,
+      pattern: WORKSPACE_SETTINGS_FIELD_MESSAGES.darkSurfaceVariantColorInvalid,
+      default: WORKSPACE_SETTINGS_FIELD_MESSAGES.darkSurfaceVariantColorInvalid
     }
   },
   invitesEnabled: {
@@ -114,8 +191,8 @@ const workspaceSettingsBodySchema = createSchema({
     required: true,
     strictBoolean: true,
     messages: {
-      required: "invitesEnabled is required.",
-      default: "invitesEnabled must be a boolean."
+      required: WORKSPACE_SETTINGS_FIELD_MESSAGES.invitesEnabledRequired,
+      default: WORKSPACE_SETTINGS_FIELD_MESSAGES.invitesEnabledInvalid
     }
   }
 });
@@ -273,10 +350,10 @@ const workspaceSettingsResource = defineCrudResource({
     }
   },
   messages: {
-    validation: "Fix invalid workspace settings values and try again.",
-    saveSuccess: "Workspace settings updated.",
-    saveError: "Unable to update workspace settings.",
-    apiValidation: "Validation failed."
+    validation: "jskit.workspaces.feedback.settingsInvalid",
+    saveSuccess: "jskit.workspaces.feedback.settingsUpdated",
+    saveError: "jskit.workspaces.feedback.settingsUpdateFailed",
+    apiValidation: OPERATION_MESSAGES.apiValidation
   },
   crudOperations: ["view", "list", "create", "replace", "patch"],
   crud: {

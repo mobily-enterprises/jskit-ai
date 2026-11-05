@@ -12,7 +12,8 @@
         "contextDisabled": "Workspace context is disabled.",
         "slugRequired": "workspaceSlug is required.",
         "notFound": "Workspace not found.",
-        "accessDenied": "You do not have access to this workspace."
+        "accessDenied": "You do not have access to this workspace.",
+        "avatarUrlInvalid": "Workspace avatar URL must be a valid absolute URL (http:// or https://)."
       },
       "member": {
         "roleNotAssignable": "Role is not assignable.",
@@ -36,7 +37,9 @@
         "emailMismatchAccount": "Invitation email does not match account email.",
         "notAvailable": "Invitation is not available.",
         "mailerUnconfigured": "No workspace invite mailer is configured.",
-        "sendFailed": "Unable to send workspace invite email."
+        "sendFailed": "Unable to send workspace invite email.",
+        "decisionRequired": "Decision is required.",
+        "decisionInvalid": "Decision must be accept or refuse."
       },
       "inviteEmail": {
         "subject": "You're invited to {workspace}",
@@ -46,6 +49,58 @@
         "openLink": "Open this link to accept the invitation:",
         "accept": "Accept invitation",
         "workspaceFallback": "the workspace"
+      },
+      "feedback": {
+        "validationFailed": "Validation failed.",
+        "fixInvalidValues": "Fix invalid values and try again.",
+        "recordSaved": "Record saved.",
+        "recordSaveFailed": "Unable to save record.",
+        "recordDeleted": "Record deleted.",
+        "recordDeleteFailed": "Unable to delete record.",
+        "workspaceInvalid": "Fix invalid workspace values and try again.",
+        "workspaceUpdated": "Workspace updated.",
+        "workspaceUpdateFailed": "Unable to update workspace.",
+        "settingsInvalid": "Fix invalid workspace settings values and try again.",
+        "settingsUpdated": "Workspace settings updated.",
+        "settingsUpdateFailed": "Unable to update workspace settings."
+      },
+      "settings": {
+        "lightPrimaryColor": {
+          "required": "Light primary color is required.",
+          "invalid": "Light primary color must be a hex color like #1867C0."
+        },
+        "lightSecondaryColor": {
+          "required": "Light secondary color is required.",
+          "invalid": "Light secondary color must be a hex color like #48A9A6."
+        },
+        "lightSurfaceColor": {
+          "required": "Light surface color is required.",
+          "invalid": "Light surface color must be a hex color like #FFFFFF."
+        },
+        "lightSurfaceVariantColor": {
+          "required": "Light surface variant color is required.",
+          "invalid": "Light surface variant color must be a hex color like #424242."
+        },
+        "darkPrimaryColor": {
+          "required": "Dark primary color is required.",
+          "invalid": "Dark primary color must be a hex color like #2196F3."
+        },
+        "darkSecondaryColor": {
+          "required": "Dark secondary color is required.",
+          "invalid": "Dark secondary color must be a hex color like #54B6B2."
+        },
+        "darkSurfaceColor": {
+          "required": "Dark surface color is required.",
+          "invalid": "Dark surface color must be a hex color like #212121."
+        },
+        "darkSurfaceVariantColor": {
+          "required": "Dark surface variant color is required.",
+          "invalid": "Dark surface variant color must be a hex color like #C8C8C8."
+        },
+        "invitesEnabled": {
+          "required": "invitesEnabled is required.",
+          "invalid": "invitesEnabled must be a boolean."
+        }
       }
     }
   }

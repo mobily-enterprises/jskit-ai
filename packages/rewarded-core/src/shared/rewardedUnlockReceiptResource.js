@@ -95,11 +95,11 @@ const resource = defineCrudResource({
   defaultSort: ["-createdAt"],
   autofilter: "workspace_user",
   messages: {
-    validation: "Fix invalid values and try again.",
-    saveSuccess: "Record saved.",
-    saveError: "Unable to save record.",
-    deleteSuccess: "Record deleted.",
-    deleteError: "Unable to delete record."
+    validation: "jskit.rewarded.feedback.fixInvalidValues",
+    saveSuccess: "jskit.rewarded.feedback.recordSaved",
+    saveError: "jskit.rewarded.feedback.recordSaveFailed",
+    deleteSuccess: "jskit.rewarded.feedback.recordDeleted",
+    deleteError: "jskit.rewarded.feedback.recordDeleteFailed"
   },
   contract: {
     lookup: {

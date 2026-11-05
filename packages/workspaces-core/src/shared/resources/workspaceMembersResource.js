@@ -1,8 +1,17 @@
 import { RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
 import { createSchema } from "json-rest-schema";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { defineResource } from "@jskit-ai/resource-core/shared/resource";
 import { OPERATION_MESSAGES } from "../operationMessages.js";
 import { workspaceRoleCatalogSchema } from "./workspaceRoleCatalogSchema.js";
+
+// Each field message: its English and the code a client renders it from in the user's language.
+const WORKSPACE_MEMBERS_FIELD_MESSAGES = deepFreeze({
+  inviteTokenRequired: { code: "workspaces.invite.tokenRequired", message: "Invite token is required." },
+  inviteTokenInvalid: { code: "workspaces.invite.tokenInvalid", message: "Invite token is invalid." },
+  decisionRequired: { code: "workspaces.invite.decisionRequired", message: "Decision is required." },
+  decisionInvalid: { code: "workspaces.invite.decisionInvalid", message: "Decision must be accept or refuse." }
+});
 
 const workspaceSummaryOutputSchema = createSchema({
   id: { type: "string", required: true, minLength: 1, pattern: RECORD_ID_PATTERN },
@@ -180,9 +189,9 @@ const redeemInviteBodySchema = createSchema({
     required: true,
     minLength: 1,
     messages: {
-      required: "Invite token is required.",
-      minLength: "Invite token is required.",
-      default: "Invite token is invalid."
+      required: WORKSPACE_MEMBERS_FIELD_MESSAGES.inviteTokenRequired,
+      minLength: WORKSPACE_MEMBERS_FIELD_MESSAGES.inviteTokenRequired,
+      default: WORKSPACE_MEMBERS_FIELD_MESSAGES.inviteTokenInvalid
     }
   },
   decision: {
@@ -190,8 +199,8 @@ const redeemInviteBodySchema = createSchema({
     required: true,
     enum: ["accept", "refuse"],
     messages: {
-      required: "Decision is required.",
-      default: "Decision must be accept or refuse."
+      required: WORKSPACE_MEMBERS_FIELD_MESSAGES.decisionRequired,
+      default: WORKSPACE_MEMBERS_FIELD_MESSAGES.decisionInvalid
     }
   }
 });

@@ -1,7 +1,14 @@
 import { RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
 import { createSchema } from "json-rest-schema";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { defineResource } from "@jskit-ai/resource-core/shared/resource";
 import { OPERATION_MESSAGES } from "../operationMessages.js";
+
+// Each field message: its English and the code a client renders it from in the user's language.
+const WORKSPACE_PENDING_INVITATIONS_FIELD_MESSAGES = deepFreeze({
+  inviteTokenRequired: { code: "workspaces.invite.tokenRequired", message: "Invite token is required." },
+  inviteTokenInvalid: { code: "workspaces.invite.tokenInvalid", message: "Invite token is invalid." }
+});
 
 const invitationTokenQuerySchema = createSchema({
   token: {
@@ -9,9 +16,9 @@ const invitationTokenQuerySchema = createSchema({
     required: true,
     minLength: 1,
     messages: {
-      required: "Invite token is required.",
-      minLength: "Invite token is required.",
-      default: "Invite token is invalid."
+      required: WORKSPACE_PENDING_INVITATIONS_FIELD_MESSAGES.inviteTokenRequired,
+      minLength: WORKSPACE_PENDING_INVITATIONS_FIELD_MESSAGES.inviteTokenRequired,
+      default: WORKSPACE_PENDING_INVITATIONS_FIELD_MESSAGES.inviteTokenInvalid
     }
   }
 });

@@ -5,14 +5,35 @@
         "notFound": "User profile was not found."
       },
       "avatar": {
-        "notFound": "Avatar not found."
+        "notFound": "Avatar not found.",
+        "streamMissing": "Avatar stream is missing.",
+        "mimeTypeInvalid": "Avatar mimeType is invalid.",
+        "fileNameInvalid": "Avatar fileName is invalid.",
+        "uploadDimensionInvalid": "Avatar uploadDimension is invalid."
       },
       "security": {
         "passwordConfirmationMismatch": "Password confirmation does not match.",
-        "passwordUpdated": "Password updated."
+        "passwordUpdated": "Password updated.",
+        "currentPasswordInvalid": "Current password is invalid.",
+        "newPasswordRequired": "New password is required.",
+        "newPasswordMinLength": "New password must be at least {min} characters.",
+        "confirmPasswordRequired": "Confirm password is required.",
+        "enabledRequired": "enabled is required.",
+        "enabledInvalid": "enabled must be a boolean.",
+        "oauthProviderRequired": "OAuth provider is required.",
+        "oauthProviderInvalid": "OAuth provider is invalid.",
+        "returnToInvalid": "Return path is invalid."
       },
       "bootstrap": {
         "authUnavailable": "Authentication service temporarily unavailable. Please retry."
+      },
+      "feedback": {
+        "validationFailed": "Validation failed."
+      },
+      "settings": {
+        "productUpdatesInvalid": "productUpdates must be a boolean.",
+        "accountActivityInvalid": "accountActivity must be a boolean.",
+        "securityAlertsInvalid": "securityAlerts must be a boolean."
       }
     }
   }
