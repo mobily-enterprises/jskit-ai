@@ -15,7 +15,7 @@ A concrete Fastify, Vue, and JSKIT application foundation for products that do n
 
 - Id: `app/minimal-foundation`
 - Keywords: `app`, `fastify`, `foundation`, `minimal`, `server`, `vite`, `vue`
-- Owner: `@jskit-ai/agent-docs@0.1.269`
+- Owner: `@jskit-ai/agent-docs@0.1.270`
 - Requires: `@jskit-ai/http-runtime`, `@jskit-ai/kernel`
 
 ## [Adaptive-shell JSKIT application foundation](/patterns/app/shell-foundation)
@@ -24,7 +24,7 @@ A concrete JSKIT web application foundation with responsive shell navigation, se
 
 - Id: `app/shell-foundation`
 - Keywords: `app`, `foundation`, `material`, `navigation`, `placements`, `shell`, `vite`, `vue`
-- Owner: `@jskit-ai/agent-docs@0.1.269`
+- Owner: `@jskit-ai/agent-docs@0.1.270`
 - Requires: `@jskit-ai/http-runtime`, `@jskit-ai/kernel`, `@jskit-ai/shell-web`
 
 ## [Assistant surface and settings](/patterns/assistant/assistant-surface)
@@ -204,7 +204,7 @@ Add a protected administration surface, settings shell, and semantic navigation 
 
 - Id: `console/console-surface`
 - Keywords: `admin`, `console`, `navigation`, `owner`, `placement`, `settings`, `surface`
-- Owner: `@jskit-ai/console-web@0.1.231`
+- Owner: `@jskit-ai/console-web@0.1.232`
 - Requires: `@jskit-ai/console-core`, `@jskit-ai/console-web`, `@jskit-ai/shell-web`
 
 ## [CRUD list, view, create, and edit screens](/patterns/crud/crud-screen-set)
@@ -222,7 +222,7 @@ Build a complete application-owned CRUD server package from a migration, resourc
 
 - Id: `crud/json-api-resource-package`
 - Keywords: `actions`, `crud`, `database`, `json-api`, `migration`, `permissions`, `provider`, `repository`, `routes`, `service`
-- Owner: `@jskit-ai/crud-core@0.2.7`
+- Owner: `@jskit-ai/crud-core@0.2.8`
 - Requires: `@jskit-ai/crud-core`, `@jskit-ai/resource-crud-core`
 
 ## [Owner-scoped CRUD resource contract](/patterns/crud/resource-contract)
@@ -276,7 +276,7 @@ Compose application-owned Google Publisher Tag delivery with the generic rewarde
 
 - Id: `rewards/google-rewarded`
 - Keywords: `ads`, `google`, `publisher tag`, `rewarded`, `unlock`
-- Owner: `@jskit-ai/rewarded-web@0.2.9`
+- Owner: `@jskit-ai/rewarded-web@0.2.10`
 - Requires: `@jskit-ai/rewarded-web`
 
 ## [App-local server feature package](/patterns/server/feature-package)
@@ -285,7 +285,7 @@ Define a server feature through explicit capabilities and first-class actions, a
 
 - Id: `server/feature-package`
 - Keywords: `actions`, `feature`, `json-rest`, `knex`, `orchestration`, `package`, `provider`, `repository`, `routes`, `server`
-- Owner: `@jskit-ai/agent-docs@0.1.269`
+- Owner: `@jskit-ai/agent-docs@0.1.270`
 - Requires: `@jskit-ai/kernel`
 
 ## [Responsive application shell](/patterns/shell/application-shell)
@@ -312,7 +312,7 @@ Compose an account settings route and profile, preference, notification, and sig
 
 - Id: `users/account-settings`
 - Keywords: `account`, `link provider`, `notifications`, `oauth`, `preferences`, `profile`, `settings`, `sign-in methods`, `user`, `vue`
-- Owner: `@jskit-ai/users-web@0.2.14`
+- Owner: `@jskit-ai/users-web@0.2.15`
 - Requires: `@jskit-ai/shell-web`, `@jskit-ai/users-core`, `@jskit-ai/users-web`
 
 ## [User administration server package](/patterns/users/user-administration-server)
@@ -321,7 +321,7 @@ Expose user administration and workspace-scoped member operations through app-ow
 
 - Id: `users/user-administration-server`
 - Keywords: `account`, `admin`, `member`, `repository`, `resource`, `routes`, `service`, `user`, `workspace`
-- Owner: `@jskit-ai/users-core@0.2.8`
+- Owner: `@jskit-ai/users-core@0.2.9`
 - Requires: `@jskit-ai/crud-core`, `@jskit-ai/users-core`
 
 ## [Workspace tenancy server composition](/patterns/workspaces/workspace-server)
@@ -330,7 +330,7 @@ Configure roles, workspace access policy, invitations, and app-owned invitation 
 
 - Id: `workspaces/workspace-server`
 - Keywords: `access`, `invite`, `membership`, `multitenancy`, `policy`, `role`, `tenancy`, `workspace`
-- Owner: `@jskit-ai/workspaces-core@0.2.8`
+- Owner: `@jskit-ai/workspaces-core@0.2.9`
 - Requires: `@jskit-ai/users-core`, `@jskit-ai/workspaces-core`
 
 ## [Workspace application and administration surfaces](/patterns/workspaces/workspace-surfaces)
@@ -339,5 +339,5 @@ Compose workspace selection, invitation, member administration, settings, and re
 
 - Id: `workspaces/workspace-surfaces`
 - Keywords: `admin`, `invite`, `member`, `navigation`, `settings`, `surface`, `switcher`, `workspace`
-- Owner: `@jskit-ai/workspaces-web@0.2.14`
+- Owner: `@jskit-ai/workspaces-web@0.2.15`
 - Requires: `@jskit-ai/shell-web`, `@jskit-ai/workspaces-core`, `@jskit-ai/workspaces-web`
