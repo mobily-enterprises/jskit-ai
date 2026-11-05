@@ -134,7 +134,9 @@ export function claudeConnectionIdentity(configRoot, providerId, baseUrl, apiKey
 export function claudeModelConfiguration({ providerId, model: modelId }, connection) {
   const provider = nativeAiProvider(providerId);
   const definition = provider?.models.find(({ id }) => id === modelId);
-  if (provider && (!definition || !connection?.apiKey)) throw new Error("Choose a connected Claude Code model.");
+  if (provider && (!definition || !connection?.apiKey)) throw Object.assign(new Error("Choose a connected Claude Code model."), {
+    messageCode: "assistant.claude.chooseConnectedModel", messageParams: {}
+  });
   const model = definition?.contextWindow >= 1000000 ? `${definition.id}[1m]` : modelId;
   const externalModel = provider ? model : "";
   // Reset every provider override when returning to the native subscription.
@@ -328,7 +330,9 @@ export function createClaudeAccountQueries({
   processes = noOwnedProcesses,
   isClosing = neverClosing
 }) {
-  const error = message => Object.assign(new Error(message), { code: "claude_account_query_failed" });
+  const error = (message, { messageCode }) => Object.assign(new Error(message), {
+    code: "claude_account_query_failed", messageCode, messageParams: {}
+  });
   const accountProcessStops = new Set();
   const accountReads = new Set();
   let catalog;
@@ -339,13 +343,17 @@ export function createClaudeAccountQueries({
   let revision = 0;
 
   function assertCurrent(expectedRevision) {
-    if (expectedRevision !== revision) throw error("Claude account query was cancelled for reconnection.");
-    if (isClosing()) throw error("Claude is reconnecting.");
+    if (expectedRevision !== revision) {
+      throw error("Claude account query was cancelled for reconnection.", { messageCode: "assistant.claude.accountQueryCancelled" });
+    }
+    if (isClosing()) throw error("Claude is reconnecting.", { messageCode: "assistant.claude.reconnecting" });
   }
 
   async function stopAccountProcess(native) {
     accountProcessStops.add(native);
-    if (!(await native.stop()).scopeEmpty) throw error("Claude account query process cleanup could not be confirmed.");
+    if (!(await native.stop()).scopeEmpty) throw error("Claude account query process cleanup could not be confirmed.", {
+      messageCode: "assistant.claude.accountQueryCleanupUnconfirmed"
+    });
     accountProcessStops.delete(native);
   }
 
@@ -406,7 +414,9 @@ export function createClaudeAccountQueries({
       const { value, command } = await readAccountProcess(identity, expectedRevision, "catalogue",
         async (native) => ({ value: await native.initialization, command: native.command }));
       const answered = await catalogueRevision(command);
-      if (identity !== await accountIdentity(context)) throw error("The signed-in Claude account changed. Refresh the model list.");
+      if (identity !== await accountIdentity(context)) throw error("The signed-in Claude account changed. Refresh the model list.", {
+        messageCode: "assistant.claude.accountChangedRefreshModels"
+      });
       assertCurrent(expectedRevision);
       catalog = { identity, command, revision: answered, value };
       return value;
@@ -480,7 +490,9 @@ export function createClaudeAccountQueries({
     revision++;
     // Dropped at once: a read started before this cannot store its answer.
     catalog = null;
-    for (const controller of accountReads) controller.abort(error("Claude account query was cancelled for reconnection."));
+    for (const controller of accountReads) {
+      controller.abort(error("Claude account query was cancelled for reconnection.", { messageCode: "assistant.claude.accountQueryCancelled" }));
+    }
     await Promise.allSettled([...catalogStarts.values(), ...usageReads]);
     // The account changed: the next request for an account this owner used reads again.
     for (const identity of usageAccounts) planUsageReads.delete(identity);
@@ -588,7 +600,7 @@ export async function createClaudeCodeProcess({
     // execution receipt after startup instead of waiting forever for pipe EOF.
     if (native.exited) void native.exited.then(processExit => {
       if (!stopped && !stopping) stream.destroy(Object.assign(new Error("Claude exited unexpectedly."), {
-        code: "assistant_claude_observation_lost", processExit
+        code: "assistant_claude_observation_lost", messageCode: "assistant.claude.exitedUnexpectedly", messageParams: {}, processExit
       }));
     }, error => {
       if (!stopped && !stopping) stream.destroy(error);

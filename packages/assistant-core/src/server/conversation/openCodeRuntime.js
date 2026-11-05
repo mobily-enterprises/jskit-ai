@@ -188,7 +188,9 @@ export function createOpenCodeSharedRuntime({ onStop = ignoreRuntimeStop, scope,
   function allowTerminalAttachments(sessionId, terminalSessionId, input) {
     const target = [...processes.values()].find((candidate) =>
       candidate.sessionId === sessionId && candidate.terminalSessionId === terminalSessionId);
-    if (!target) throw new Error("Reopen the OpenCode terminal before attaching files.");
+    if (!target) throw Object.assign(new Error("Reopen the OpenCode terminal before attaching files."), {
+      messageCode: "assistant.opencode.reopenTerminalToAttach", messageParams: {}
+    });
     return target.server.client.allowConversationAttachments(target.upstreamSessionId, input.attachments);
   }
 

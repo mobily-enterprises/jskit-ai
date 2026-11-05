@@ -41,7 +41,9 @@ export function createClaudeCommandRun({ bound, preparation, send, interrupt }) 
     const active = control.current;
     const applicationCommand = active && (active.tools || active.finishIfCurrent) ? { active, accept: command.accept } : null;
     if (applicationCommand) {
-      if (entry.disposed || entry.command && entry.command !== active) throw new Error("This Claude conversation is closed or already working.");
+      if (entry.disposed || entry.command && entry.command !== active) throw Object.assign(new Error("This Claude conversation is closed or already working."), {
+        messageCode: "assistant.claude.closedOrWorking", messageParams: {}
+      });
       if (active.entry && active.entry !== entry) throw new Error("Claude's application tools belong to another native conversation.");
       active.entry = entry;
       entry.command = active;
@@ -61,12 +63,16 @@ export function createClaudeCommandRun({ bound, preparation, send, interrupt }) 
 
   function steer(control, command, options) {
     if (!bound) return dispatch(control, command, options).then(delivered => ({ value: delivered.value }));
-    if (!control.current?.steer || !control.current.entry.nativeTurn.read().active) throw new Error("Claude has no active turn to steer.");
+    if (!control.current?.steer || !control.current.entry.nativeTurn.read().active) throw Object.assign(new Error("Claude has no active turn to steer."), {
+      messageCode: "assistant.claude.noTurnToSteer", messageParams: {}
+    });
     return control.current.steer(command);
   }
 
   async function run(control, command, { acquire, reportFailure, entry: selectedEntry, maximumOutput, maximumToolCalls = 32, timeoutMs } = {}) {
-    if (control.disposed || control.current) throw new Error("This Claude conversation is closed or already working.");
+    if (control.disposed || control.current) throw Object.assign(new Error("This Claude conversation is closed or already working."), {
+      messageCode: "assistant.claude.closedOrWorking", messageParams: {}
+    });
     const { configuration, context, input, tools, signal, beforeDispatch, accept, onMessage, onEvent, onNativeToolUse } = command;
     const completion = Promise.withResolvers();
     completion.promise.catch(() => {});
@@ -108,7 +114,9 @@ export function createClaudeCommandRun({ bound, preparation, send, interrupt }) 
     try {
       if (bound) {
         entry = selectedEntry;
-        if (entry.disposed || entry.command) throw new Error("This Claude conversation is closed or already working.");
+        if (entry.disposed || entry.command) throw Object.assign(new Error("This Claude conversation is closed or already working."), {
+          messageCode: "assistant.claude.closedOrWorking", messageParams: {}
+        });
         active.entry = entry;
         entry.command = active;
         entry.completion = completion;
@@ -138,12 +146,14 @@ export function createClaudeCommandRun({ bound, preparation, send, interrupt }) 
         problem = dispatchFailure || failure || problem;
         if (!problem && settling?.completion && (bound ? result.status !== "completed" : !result.ok)) {
           // readable-check: allow patched-error - data: status is the native turn's state, not an HTTP status
-          problem = Object.assign(new Error(result.error || (bound ? "Claude interrupted this answer." : `Claude turn ${result.status}.`)), { status: result.status });
+          problem = Object.assign(new Error(result.error || (bound ? "Claude interrupted this answer." : `Claude turn ${result.status}.`)), {
+            status: result.status, ...(bound ? { messageCode: "assistant.claude.answerInterrupted", messageParams: {} } : {})
+          });
         }
         break;
       }
     } catch (error) { problem = error; }
-    ready.reject(problem || new Error("Claude work ended."));
+    ready.reject(problem || Object.assign(new Error("Claude work ended."), { messageCode: "assistant.claude.workEnded", messageParams: {} }));
     signal.removeEventListener("abort", abort);
     if (bound) {
       try {

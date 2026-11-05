@@ -59,8 +59,10 @@ function boundedResponseSchema(outputSchema, descriptors) {
 
 /** Original bounded response/operation order, with one shared reply/tool protocol. */
 async function runBoundedAssistantToolLoop({ prompt, signal, policy, complete, outputSchema, limitError,
-  invalidResponseError = new Error("The assistant returned an invalid response."),
-  failureError = new Error("The assistant could not complete this request."), toolCatalog, toolContext,
+  invalidResponseError = Object.assign(new Error("The assistant returned an invalid response."), { messageCode: "assistant.turn.invalidResponse", messageParams: {} }),
+  failureError = Object.assign(new Error("The assistant could not complete this request."), {
+    messageCode: "assistant.turn.requestIncomplete", messageParams: {}
+  }), toolCatalog, toolContext,
   completedEnvelope = false, settle }) {
   if (typeof completedEnvelope !== "boolean") throw new TypeError("Completed envelope mode must be a boolean.");
   if (completedEnvelope && (policy.maximumResponses !== COMPLETED_ENVELOPE_RESPONSES || typeof settle !== "function")) {

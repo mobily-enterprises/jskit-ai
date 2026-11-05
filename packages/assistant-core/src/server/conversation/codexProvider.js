@@ -262,7 +262,7 @@ export class CodexAppServerAgentProvider {
 
   staleRuntimeError() {
     return Object.assign(new Error("Codex (OpenAI) changed account. Send your message again."), {
-      code: `${this.errorPrefix}codex_account_changed`, retryable: true
+      code: `${this.errorPrefix}codex_account_changed`, retryable: true, messageCode: "assistant.codex.accountChangedSendAgain", messageParams: {}
     });
   }
 
@@ -610,7 +610,9 @@ export class CodexAppServerAgentProvider {
   close() {
     const { onClose = closeNothing } = this.options;
     onClose();
-    for (const reject of this.settingsWaiters) reject(new Error("The assistant connection closed before confirming its settings."));
+    for (const reject of this.settingsWaiters) reject(Object.assign(new Error("The assistant connection closed before confirming its settings."), {
+      messageCode: "assistant.codex.connectionClosedBeforeSettings", messageParams: {}
+    }));
     this.settingsWaiters.clear();
     this.conversationRuntime.close();
     this.turns.clear();

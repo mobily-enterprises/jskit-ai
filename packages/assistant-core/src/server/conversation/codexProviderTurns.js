@@ -410,7 +410,7 @@ export function createCodexProviderTurns({ provider }) {
     if (goal?.status === "active") {
       const result = await request("thread/goal/set", { threadId, status: "paused" });
       if (result.goal?.status !== "paused" || result.goal?.createdAt !== goal.createdAt || result.goal?.objective !== goal.objective) {
-        throw new Error("Codex did not confirm that the same goal was paused.");
+        throw Object.assign(new Error("Codex did not confirm that the same goal was paused."), { messageCode: "assistant.codex.goalPauseUnconfirmed", messageParams: {} });
       }
       goal = result.goal;
     }
@@ -425,7 +425,9 @@ export function createCodexProviderTurns({ provider }) {
       }
       if (!turnId) throw new Error("Codex's running turn could not be identified.");
       await interruptNativeTurn(client, threadId, turnId, signal);
-      if (await readStatus() !== "idle") throw new Error("Codex did not confirm that its turn stopped.");
+      if (await readStatus() !== "idle") throw Object.assign(new Error("Codex did not confirm that its turn stopped."), {
+        messageCode: "assistant.codex.turnStopUnconfirmed", messageParams: {}
+      });
     }
     return { goal };
   }

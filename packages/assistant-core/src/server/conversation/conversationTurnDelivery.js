@@ -297,7 +297,9 @@ function createConversationTurnDelivery({ storage, streams, events, reads, deliv
           admitted.resolve(result.value);
           return;
         }
-        if (!request.accepted) throw new Error("The engine did not acknowledge the message.");
+        if (!request.accepted) throw Object.assign(new Error("The engine did not acknowledge the message."), {
+          messageCode: "assistant.conversation.messageNotAcknowledged", messageParams: {}
+        });
       }).catch(async error => {
         if (!request.accepted && (error.delivery === "not-sent" || !entry.conversation && error.delivery !== "uncertain")) {
           try { await input.onPromptRejected(); }

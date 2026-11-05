@@ -194,14 +194,14 @@ export async function resumeExactCodexAppServerThread({
       if (error?.code === errorCode) {
         throw error;
       }
-      throw codexRenewalThreadError(
+      throw Object.assign(codexRenewalThreadError(
         errorCode,
         "The old assistant thread cannot be read. Write or edit the handover manually instead.",
         {
           expectedThreadId: normalizedExpectedThreadId,
           providerError: normalizeAgentText(error?.message)
         }
-      );
+      ), { messageCode: "assistant.codex.oldThreadUnreadable", messageParams: {} });
     }
     throw error;
   }

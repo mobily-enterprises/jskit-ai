@@ -39,7 +39,9 @@ export function createOpenCodeConversationAdapter({ resolveInstructions }) {
       });
     }
     const text = await current.text;
-    if (contexts.get(id) !== current) throw new Error("Conversation context changed while reading instructions. Retry before sending.");
+    if (contexts.get(id) !== current) throw Object.assign(new Error("Conversation context changed while reading instructions. Retry before sending."), {
+      messageCode: "assistant.conversation.contextChangedReadingInstructions", messageParams: {}
+    });
     const previous = contributions.get(output.system);
     if (previous !== undefined) {
       const index = output.system.indexOf(previous);

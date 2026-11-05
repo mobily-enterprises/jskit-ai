@@ -66,10 +66,10 @@ export function createCodexHelperThreadRecovery(lifecycle, {
         const accountChanged = record.identity.runtime.accountIdentitySignature !==
           normalizeText(currentRuntime.accountIdentitySignature);
         if (accountChanged && !cleanupRequired) {
-          throw lifecycle.ownershipError(
+          throw Object.assign(lifecycle.ownershipError(
             "Reconnect the original Codex account to resume or delete this helper thread.",
             { retryable: false, sessionId: record.sessionId, threadId: record.threadId }
-          );
+          ), { messageCode: "assistant.codex.helperThreadReconnectAccount", messageParams: {} });
         }
         if (accountChanged || contextChanged) {
           // Context drift cannot reuse the previous provider configuration.

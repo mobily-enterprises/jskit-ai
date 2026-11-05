@@ -274,7 +274,9 @@ export function createCodexDriverTurns({
     const admission = Promise.withResolvers();
     completion.promise.catch(() => {});
     admission.promise.catch(() => {});
-    if (input.goal) throw new Error("Codex goals are controls. Inspect any unresolved goal-message record before continuing.");
+    if (input.goal) throw Object.assign(new Error("Codex goals are controls. Inspect any unresolved goal-message record before continuing."), {
+      messageCode: "assistant.codex.goalsAreControls", messageParams: {}
+    });
     const active = session.current = { configuration, context, inputId: input.messageId,
       onEvent, onNativeTurn, signal, completion, admission, inputReady: admission.promise, finishIfCurrent,
       admitted: false, dispatched: false, turnId: "" };

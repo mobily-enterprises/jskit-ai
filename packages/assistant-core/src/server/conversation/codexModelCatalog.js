@@ -38,7 +38,7 @@ export function createCodexAppServerModelCatalogCache({
   return async function readCodexAppServerModelCatalog(provider, { signal = null } = {}) {
     // readable-check: allow method-probe - safety invariant: a provider without live model discovery is refused with codex_model_catalog_unavailable
     if (typeof provider.listModels !== "function") {
-      const error = new Error("Codex live model discovery is unavailable.");
+      const error = Object.assign(new Error("Codex live model discovery is unavailable."), { messageCode: "assistant.codex.modelDiscoveryUnavailable", messageParams: {} });
       error.code = `${errorPrefix}codex_model_catalog_unavailable`;
       throw error;
     }

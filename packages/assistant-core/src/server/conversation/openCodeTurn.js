@@ -83,7 +83,7 @@ async function consumeOpenCodeEvents(client, conversationId, {
     ) {
       const failure = normalizeObject(event.data?.properties?.error);
       onError(Object.assign(new Error(readError({ error: failure }) || "OpenCode turn failed."), {
-        name: normalizeNullableText(failure.name) || "Error"
+        name: normalizeNullableText(failure.name) || "Error", messageCode: "assistant.opencode.turnFailed", messageParams: {}
       }));
     }
     if (summary.type && current && typeof onEvent === "function") {
@@ -527,7 +527,8 @@ export async function runOpenCodeConversationTurn(client, conversationId, input 
     createError = (reason, message, details) => new AppError(
       ["thread_mismatch", "fresh_thread_required", "unrelated_history"].includes(reason) ? 409 : 502,
       message || (reason === "unreadable" ? "The exact OpenCode turn did not produce a readable result." : "OpenCode did not finish the turn."),
-      { code: `assistant_opencode_turn_${reason}`, details })
+      { code: `assistant_opencode_turn_${reason}`, details,
+        ...(message ? {} : { messageCode: reason === "unreadable" ? "assistant.opencode.turnUnreadable" : "assistant.opencode.turnNotFinished" }) })
   } = input;
   if (
     (expectedThreadId && expectedThreadId !== conversationId) ||

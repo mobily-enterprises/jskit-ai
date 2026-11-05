@@ -124,7 +124,9 @@ export function createClaudeConversationDriver({
       credentialHome: { home: env.HOME || homedir() }, commandRunner: captureAccountStatus, signal });
     signal.throwIfAborted();
     if (!account.loggedIn || !account.email) {
-      throw new Error(account.error || "Sign in with claude auth login before using this conversation.");
+      throw Object.assign(new Error(account.error || "Sign in with claude auth login before using this conversation."), {
+        messageCode: "assistant.claude.signInRequired", messageParams: {}
+      });
     }
     return hash([configRoot, account.authMethod, account.email.toLowerCase()]);
   }
@@ -221,9 +223,13 @@ export function createClaudeConversationDriver({
       }
       const provider = nativeAiProvider(providerId);
       const model = nativeAiModel(connection.model, providerId);
-      if (providerId !== "anthropic" && (!provider || !model)) throw new Error("This exact provider/model is not supported by the Claude integration. Choose a supported model without renaming it.");
+      if (providerId !== "anthropic" && (!provider || !model)) throw Object.assign(new Error("This exact provider/model is not supported by the Claude integration. Choose a supported model without renaming it."), {
+        messageCode: "assistant.claude.modelUnsupported", messageParams: {}
+      });
       validateConnectionModel(configuration, connection);
-      if (model && configuration.effort && !model.variants.includes(configuration.effort)) throw new Error("The selected Claude model does not support this reasoning effort.");
+      if (model && configuration.effort && !model.variants.includes(configuration.effort)) throw Object.assign(new Error("The selected Claude model does not support this reasoning effort."), {
+        messageCode: "assistant.claude.reasoningEffortUnsupported", messageParams: {}
+      });
       selected = claudeModelConfiguration({ providerId, model: connection.model }, {
         apiKey: connection.apiKey, baseUrl: provider?.claudeBaseUrl || connection.baseURL || "https://api.anthropic.com"
       });
@@ -390,7 +396,9 @@ export function createClaudeConversationDriver({
         ? await realpath(env.HOME || homedir()) : scopeWorkdir;
       if (binding.workdir !== nativeWorkdir || binding.configRoot !== configRoot ||
         (Object.hasOwn(binding, "scopeWorkdir") && binding.scopeWorkdir !== scopeWorkdir)) {
-        throw new Error("This Claude conversation belongs to another working directory or credential home. Restore its original host configuration.");
+        throw Object.assign(new Error("This Claude conversation belongs to another working directory or credential home. Restore its original host configuration."), {
+          messageCode: "assistant.claude.otherHostConfiguration", messageParams: {}
+        });
       }
       owner = standaloneOwner();
       const context = { key: scopeWorkdir, workdir: binding.workdir, binding, reportFailure,

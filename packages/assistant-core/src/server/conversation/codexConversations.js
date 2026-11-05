@@ -250,7 +250,7 @@ export function createCodexConversationCommands({
     const thread = await context.provider.readThreadStatus(conversationId);
     if (codexAppServerThreadRawValue(thread).historyMode !== "paginated") {
       throw Object.assign(new Error("This conversation uses an unsupported Codex history format. Start a fresh conversation."), {
-        code: `${errorPrefix}codex_history_unsupported`
+        code: `${errorPrefix}codex_history_unsupported`, messageCode: "assistant.codex.historyFormatStartFresh", messageParams: {}
       });
     }
     const turns = [];

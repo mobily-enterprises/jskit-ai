@@ -83,7 +83,7 @@ export function createCodexMessageCommands({
     if (turn.status === "observation_lost") {
       if (turn.active) {
         throw Object.assign(new Error("Codex observation was lost and a stop is not yet verified. Retry after the service has stopped."), {
-          code: `${errorPrefix}codex_observation_lost`
+          code: `${errorPrefix}codex_observation_lost`, messageCode: "assistant.codex.observationLostStopUnverified", messageParams: {}
         });
       }
       const recovered = await output.submitAssistantResult(sessionId, turn.threadId, turn.turnId, { recoverFromProvider: true });
@@ -207,7 +207,9 @@ export function createCodexMessageCommands({
         workdir: source.workdir ?? workdir
       });
       if (source.requirePaginatedHistory && thread.thread.raw?.historyMode !== "paginated") {
-        throw new Error("Codex did not create the required paginated history. Update Codex before starting this conversation.");
+        throw Object.assign(new Error("Codex did not create the required paginated history. Update Codex before starting this conversation."), {
+          messageCode: "assistant.codex.paginatedHistoryMissing", messageParams: {}
+        });
       }
       debugLog("appServerPrompt.stage", {
         durationMs: Date.now() - stageStartedAt, messageId, sessionId, stage: "thread"

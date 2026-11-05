@@ -226,7 +226,9 @@ export async function acquireCodexRuntimeLock(runtimeDir = "", {
       await delay(100);
     }
   }
-  const error = new Error("Codex is still reconnecting: its shared runtime is busy starting or stopping. Please try again shortly.");
+  const error = Object.assign(new Error("Codex is still reconnecting: its shared runtime is busy starting or stopping. Please try again shortly."), {
+    messageCode: "assistant.codex.stillReconnecting", messageParams: {}
+  });
   error.code = busyCode;
   error.retryable = true;
   throw error;

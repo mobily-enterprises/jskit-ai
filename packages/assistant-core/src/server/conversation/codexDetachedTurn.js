@@ -217,7 +217,7 @@ function createCodexAppServerDetachedTurnWatcher(provider, threadId = "", {
       rejectWaiter = reject;
       if (timeoutMs > 0) {
         timeout = setTimeout(() => {
-          fail(new Error("Timed out waiting for Codex app-server response."));
+          fail(Object.assign(new Error("Timed out waiting for Codex app-server response."), { messageCode: "assistant.codex.responseTimeout", messageParams: {} }));
         }, timeoutMs);
       } else {
         // Interactive repair turns may take longer than bounded helper jobs.
@@ -226,7 +226,9 @@ function createCodexAppServerDetachedTurnWatcher(provider, threadId = "", {
         connectionCheck = setInterval(() => {
           if (provider.isAvailable() === false ||
             provider.currentConnectionGeneration() !== generation) {
-            fail(new Error("Connection to Codex was lost while the temporary AI was working."));
+            fail(Object.assign(new Error("Connection to Codex was lost while the temporary AI was working."), {
+              messageCode: "assistant.codex.temporaryConnectionLost", messageParams: {}
+            }));
           }
         }, 1000);
         connectionCheck.unref();

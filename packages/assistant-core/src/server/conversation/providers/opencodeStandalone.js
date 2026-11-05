@@ -99,7 +99,9 @@ export async function openStandaloneOpenCodeConversation({
 
   if (!binding || typeof binding.sessionId !== "string" || binding.workdir !== await realpath(workdir) ||
       path.dirname(binding.directory || "") !== stateDirectory) {
-    throw new Error("This OpenCode conversation belongs to another working directory or native state directory. Restore its original host configuration.");
+    throw Object.assign(new Error("This OpenCode conversation belongs to another working directory or native state directory. Restore its original host configuration."), {
+      messageCode: "assistant.opencode.otherWorkingDirectory", messageParams: {}
+    });
   }
   let native;
   let toolBridge;
@@ -151,7 +153,8 @@ export async function openStandaloneOpenCodeConversation({
     })().catch(error => {
       error.cleanupFailed = true;
       if (error.code === "assistant_opencode_stop_unverified") {
-        error.message = "OpenCode process cleanup could not be confirmed. Restore its execution host before continuing.";
+        Object.assign(error, { message: "OpenCode process cleanup could not be confirmed. Restore its execution host before continuing.",
+          messageCode: "assistant.opencode.cleanupUnconfirmed", messageParams: {} });
       }
       throw error;
     }).finally(() => { stopping = null; });
@@ -175,11 +178,15 @@ export async function openStandaloneOpenCodeConversation({
       binding.runtimeDirectory && binding.runtimeDirectory !== preparedFacilities.runtimeDirectory ||
       facilities && facilities.runtime !== preparedFacilities.runtime
     )) {
-      throw new Error("This OpenCode conversation belongs to another native history store or runtime. Restore its original host configuration.");
+      throw Object.assign(new Error("This OpenCode conversation belongs to another native history store or runtime. Restore its original host configuration."), {
+        messageCode: "assistant.opencode.otherHistoryStoreOrRuntime", messageParams: {}
+      });
     }
     const allowCredentialRefresh = authoredPreparation && host.opencode && preparedFacilities.allowCredentialRefresh === true;
     if (binding.accountIdentity && identity !== binding.accountIdentity && !allowCredentialRefresh) {
-      throw new Error("This conversation belongs to another OpenCode account. Restore that connection or start a new conversation.");
+      throw Object.assign(new Error("This conversation belongs to another OpenCode account. Restore that connection or start a new conversation."), {
+        messageCode: "assistant.opencode.otherAccount", messageParams: {}
+      });
     }
     if (binding.accountIdentity !== identity) await updateBinding({ accountIdentity: identity });
     const model = { providerID: connection.providerId, id: connection.model };
@@ -223,7 +230,9 @@ export async function openStandaloneOpenCodeConversation({
         };
       }
       if (binding.databasePath && binding.databasePath !== facilities.databasePath) {
-        throw new Error("This OpenCode conversation belongs to another native history store. Restore its original host configuration.");
+        throw Object.assign(new Error("This OpenCode conversation belongs to another native history store. Restore its original host configuration."), {
+          messageCode: "assistant.opencode.otherHistoryStore", messageParams: {}
+        });
       }
       await updateBinding({ databasePath: facilities.databasePath, runtimeDirectory: facilities.runtimeDirectory });
     }
@@ -257,19 +266,25 @@ export async function openStandaloneOpenCodeConversation({
       await updateBinding({ executionId: native.server.executionId, processDirectory: native.server.privateRoot || "" });
       const catalogue = await native.server.client.providers({ signal });
       const selected = catalogue.all.find(provider => provider.id === connection.providerId)?.models?.[connection.model];
-      if (selected?.id !== connection.model) throw new Error("OpenCode could not load the configured model definition. Check the selected integration before sending.");
+      if (selected?.id !== connection.model) throw Object.assign(new Error("OpenCode could not load the configured model definition. Check the selected integration before sending."), {
+        messageCode: "assistant.opencode.modelDefinitionUnavailable", messageParams: {}
+      });
       processVariants = selected.variants || {};
     } catch (error) {
       if (error.stopProof?.scopeEmpty) await updateBinding({ executionId: "", processDirectory: "" });
       throw error;
     }
     if (configuration.effort) {
-      if (!Object.hasOwn(processVariants, configuration.effort)) throw new Error("The selected OpenCode model does not support this reasoning effort.");
+      if (!Object.hasOwn(processVariants, configuration.effort)) throw Object.assign(new Error("The selected OpenCode model does not support this reasoning effort."), {
+        messageCode: "assistant.opencode.reasoningEffortUnsupported", messageParams: {}
+      });
       model.variant = configuration.effort;
     }
     const retainedId = binding.sessionId;
     if (retainedId && (await native.server.client.sessionStatus(retainedId, { signal })).type !== "idle") {
-      throw new Error("The native OpenCode conversation is still working. Stop or inspect it before sending another message.");
+      throw Object.assign(new Error("The native OpenCode conversation is still working. Stop or inspect it before sending another message."), {
+        messageCode: "assistant.opencode.nativeStillWorking", messageParams: {}
+      });
     }
     const session = {
       selection: { agentId: agent, modelId: model.id, modelProviderId: model.providerID, variantId: model.variant || "" },
@@ -277,7 +292,9 @@ export async function openStandaloneOpenCodeConversation({
       invalidIdentity: () => new Error("OpenCode did not acknowledge a native conversation."),
       identity: {
         async write(nativeId) {
-          if (retainedId && nativeId !== retainedId) throw new Error("The saved OpenCode conversation is unavailable. Restore its native history before continuing.");
+          if (retainedId && nativeId !== retainedId) throw Object.assign(new Error("The saved OpenCode conversation is unavailable. Restore its native history before continuing."), {
+            messageCode: "assistant.opencode.savedConversationUnavailable", messageParams: {}
+          });
           if (binding.sessionId !== nativeId) await updateBinding({ sessionId: nativeId });
         },
         publish(nativeId) {
@@ -390,7 +407,9 @@ export async function openStandaloneOpenCodeConversation({
         monitor: messageMonitor(active, command)
       });
       if (value.failure) throw value.failure.error;
-      if (!value.delivered) throw new Error("OpenCode did not acknowledge the message.");
+      if (!value.delivered) throw Object.assign(new Error("OpenCode did not acknowledge the message."), {
+        messageCode: "assistant.opencode.messageNotAcknowledged", messageParams: {}
+      });
     } catch (error) {
       const turn = facilities.runtime.turns.get(binding.directory);
       const attempted = value?.failure ? value.failure.attempted : turn?.promptAttempted === true;
@@ -427,11 +446,15 @@ export async function openStandaloneOpenCodeConversation({
             text: configuration.outputSchema ? openCodeStructuredOutput(openCodeAssistantMessageText(message)) : openCodeAssistantMessageText(message) })) };
     },
     steer(command) {
-      if (!current || current.finished) throw new Error("OpenCode has no active turn to steer.");
+      if (!current || current.finished) throw Object.assign(new Error("OpenCode has no active turn to steer."), {
+        messageCode: "assistant.opencode.noTurnToSteer", messageParams: {}
+      });
       return send(command);
     },
     async run(command) {
-      if (disposed || current) throw new Error("This OpenCode conversation is closed or already working.");
+      if (disposed || current) throw Object.assign(new Error("This OpenCode conversation is closed or already working."), {
+        messageCode: "assistant.opencode.closedOrWorking", messageParams: {}
+      });
       const active = current = { tools: command.tools, configuration: command.configuration,
         onMessage: command.onMessage, onEvent: command.onEvent, messageIds: new Map(), previous: new Map() };
       let problem;
@@ -461,7 +484,8 @@ export async function openStandaloneOpenCodeConversation({
         }
       } catch (error) {
         problem = error.cleanupFailed ? error : command.signal.aborted ? command.signal.reason : error;
-        if (problem.cleanupFailed) problem.message = "OpenCode process cleanup could not be confirmed. Restore its execution host before continuing.";
+        if (problem.cleanupFailed) Object.assign(problem, { message: "OpenCode process cleanup could not be confirmed. Restore its execution host before continuing.",
+          messageCode: "assistant.opencode.cleanupUnconfirmed", messageParams: {} });
       }
       active.finished = true;
       try { if (!problem?.cleanupFailed && (problem || command.signal.aborted)) await stop(); }

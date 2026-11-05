@@ -272,7 +272,9 @@ export function createOpenCodeConversationDriver({
           return representation === "native" ? result : { accepted: result.admission === "accepted" };
         },
         async run(command) {
-          if (disposed || current) throw new Error("This OpenCode conversation is closed or already working.");
+          if (disposed || current) throw Object.assign(new Error("This OpenCode conversation is closed or already working."), {
+            messageCode: "assistant.opencode.closedOrWorking", messageParams: {}
+          });
           const active = { context: command.context, failure: Promise.withResolvers(),
             ...(command.tools ? { tools: command.tools, messageIds: new Map() } : {}) };
           let failure;

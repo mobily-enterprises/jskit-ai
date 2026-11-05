@@ -41,7 +41,9 @@ export function createConversationSystemPrompt() {
       }
       // Do not let a caller start inference against an obsolete installation.
       if (generation !== startedGeneration) {
-        throw new Error("Conversation context changed while installing its system prompt. Retry before sending.");
+        throw Object.assign(new Error("Conversation context changed while installing its system prompt. Retry before sending."), {
+          messageCode: "assistant.conversation.contextChangedInstallingPrompt", messageParams: {}
+        });
       }
       installed = { systemPrompt, contextIdentity, value };
       return value;

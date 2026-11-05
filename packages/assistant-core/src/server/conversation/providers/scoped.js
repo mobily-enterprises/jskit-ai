@@ -376,7 +376,9 @@ export async function preparePersistentConversationChangeover(options) {
   const current = await records.read(context, record.conversationId);
   const native = current.providerConversationId ? requireSuccess(await operations.readConversation(sessionId,
     records.input(current), context)) : { status: "ready" };
-  if (["starting", "inProgress"].includes(native.status)) throw new Error("Stop this temporary conversation before changing its AI.");
+  if (["starting", "inProgress"].includes(native.status)) throw Object.assign(new Error("Stop this temporary conversation before changing its AI."), {
+    messageCode: "assistant.conversation.stopTemporaryBeforeChange", messageParams: {}
+  });
   record = await records.read(context, record.conversationId);
   if (record.providerConversationId) {
     requireSuccess(await operations.stopConversation(sessionId, records.input(record, { runId: record.runId }), context));

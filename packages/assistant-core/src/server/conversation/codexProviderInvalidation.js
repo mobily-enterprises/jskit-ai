@@ -60,7 +60,9 @@ export function createCodexProviderInvalidation({ inScope, withLifecycle, forget
           let cursor;
           do {
             const page = await request(inspector, "thread/loaded/list", { limit: 100, ...(cursor ? { cursor } : {}) });
-            if (!Array.isArray(page?.data)) throw new Error("Codex returned an invalid loaded-thread inventory. Restore its connection before retrying.");
+            if (!Array.isArray(page?.data)) throw Object.assign(new Error("Codex returned an invalid loaded-thread inventory. Restore its connection before retrying."), {
+              messageCode: "assistant.codex.loadedThreadsInvalid", messageParams: {}
+            });
             for (const id of page.data) {
               if (typeof id !== "string" || !id) throw new Error("Codex returned an invalid loaded-thread identity.");
               candidates.add(id);
@@ -77,7 +79,9 @@ export function createCodexProviderInvalidation({ inScope, withLifecycle, forget
             const { thread } = await request(inspector, "thread/read", { threadId: id, includeTurns: false });
             if (!thread || thread.id !== id || typeof thread.modelProvider !== "string" || !thread.modelProvider ||
                 !(typeof thread.status === "string" ? thread.status : thread.status?.type)) {
-              throw new Error("Codex returned an untrustworthy thread/provider inventory. Restore its connection before changing credentials.");
+              throw Object.assign(new Error("Codex returned an untrustworthy thread/provider inventory. Restore its connection before changing credentials."), {
+                messageCode: "assistant.codex.threadInventoryUntrusted", messageParams: {}
+              });
             }
             if (dedicated && thread.modelProvider !== modelProviderId) {
               throw new Error("Codex's provider credential home retains another provider thread. Close its native terminal/helper and retry; unrelated threads remain running.");

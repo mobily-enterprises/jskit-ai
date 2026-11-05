@@ -467,7 +467,7 @@ async function prepareCodexHistory(params, client, { baseUrl, modelProviderId, .
   if (modelProvider !== "openai") return params;
   const { account } = await client.request("account/read", { refreshToken: false }, options);
   if (!["chatgpt", "apiKey"].includes(account?.type)) {
-    throw new Error("Reconnect the OpenAI account before using this model.");
+    throw Object.assign(new Error("Reconnect the OpenAI account before using this model."), { messageCode: "assistant.codex.reconnectOpenAi", messageParams: {} });
   }
   return { ...params, config: { ...params.config,
     openai_base_url: `${baseUrl}/${account.type}`

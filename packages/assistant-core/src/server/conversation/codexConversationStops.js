@@ -109,7 +109,7 @@ export function createCodexConversationStops({
     if (conversationState) {
       conversationState.status = "interrupted";
       if (conversationState.goal?.status === "active") conversationState.goal = { ...conversationState.goal, status: "paused" };
-      conversationState.watcher?.failNow(new Error("Temporary AI turn was stopped."));
+      conversationState.watcher?.failNow(Object.assign(new Error("Temporary AI turn was stopped."), { messageCode: "assistant.codex.temporaryTurnStopped", messageParams: {} }));
       conversationState.watcher = null;
       holdWhileActive(conversationState);
     }
@@ -143,7 +143,7 @@ export function createCodexConversationStops({
     });
     if (result.ok !== false && conversationState) {
       conversationState.status = "interrupted";
-      conversationState.watcher?.failNow(new Error("Temporary AI turn was stopped."));
+      conversationState.watcher?.failNow(Object.assign(new Error("Temporary AI turn was stopped."), { messageCode: "assistant.codex.temporaryTurnStopped", messageParams: {} }));
       conversationState.watcher = null;
       holdWhileActive(conversationState);
     }
@@ -212,7 +212,7 @@ export function createCodexConversationStops({
     if (result.ok !== false && conversation) {
       const { conversationId, sessionKey, conversations } = conversation;
       const state = conversations?.get(conversationId);
-      state?.watcher?.failNow(new Error("Temporary AI conversation was closed."));
+      state?.watcher?.failNow(Object.assign(new Error("Temporary AI conversation was closed."), { messageCode: "assistant.codex.temporaryConversationClosed", messageParams: {} }));
       if (state) forgetObservation(state);
       conversations?.delete(conversationId);
       if (conversations?.size === 0) {

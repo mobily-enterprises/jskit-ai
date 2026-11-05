@@ -318,8 +318,8 @@ export function createClaudeConversationOwner({
     if (!saved) return {};
     try { return JSON.parse(saved); }
     catch {
-      throw createError(`The saved Claude conversation ${conversationId} is unreadable. Restore its saved conversation state.`,
-        { code: "conversation_claude_saved_state_unreadable" });
+      throw Object.assign(createError(`The saved Claude conversation ${conversationId} is unreadable. Restore its saved conversation state.`,
+        { code: "conversation_claude_saved_state_unreadable" }), { params: { conversationId } });
     }
   }
 

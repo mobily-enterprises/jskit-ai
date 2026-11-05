@@ -130,10 +130,10 @@ async function waitForOpenCodeReady({
       signal?.throwIfAborted();
       if (health?.healthy === true) {
         if (expectedVersion && normalizeNullableText(health.version) !== expectedVersion) {
-          const error = new Error(
-            `OpenCode ${normalizeNullableText(health.version) || "(unknown)"} is installed; this host requires ${expectedVersion}.`
-          );
+          const installed = normalizeNullableText(health.version) || "(unknown)";
+          const error = new Error(`OpenCode ${installed} is installed; this host requires ${expectedVersion}.`);
           error.code = "assistant_opencode_version_mismatch";
+          error.params = { installed, required: expectedVersion };
           throw error;
         }
         return health;
@@ -569,12 +569,8 @@ export async function verifyOpenCodeApiKey({
         Boolean(normalizeNullableText(result?.code)) ||
         (Number.isSafeInteger(exitCode) && exitCode !== 1);
       const error = unavailable
-        ? new AppError(503, "OpenCode API-key verification could not run.", {
-          code: "assistant_opencode_key_verification_unavailable"
-        })
-        : new AppError(422, "OpenCode rejected the API-key verification request.", {
-          code: "assistant_opencode_key_verification_failed"
-        });
+        ? new AppError(503, "OpenCode API-key verification could not run.", { code: "assistant_opencode_key_verification_unavailable" })
+        : new AppError(422, "OpenCode rejected the API-key verification request.", { code: "assistant_opencode_key_verification_failed" });
       error.retryable = unavailable;
       throw error;
     }

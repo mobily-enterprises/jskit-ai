@@ -47,15 +47,15 @@ export async function assertCodexAppServerHelperAccountIdentity(provider, expect
     return;
   }
   if (!/^sha256:[a-f0-9]{64}$/u.test(expected) || !provider) {
-    throw codexAppServerHelperOwnershipError(
+    throw Object.assign(codexAppServerHelperOwnershipError(
       "The requested low-cost assistant account identity is invalid. Refresh the task and retry."
-    );
+    ), { messageCode: "assistant.codex.helperAccountIdentityInvalid", messageParams: {} });
   }
   const actual = normalizeText((await provider.currentRuntimeInfo())?.accountIdentitySignature);
   if (actual !== expected) {
-    throw codexAppServerHelperOwnershipError(
+    throw Object.assign(codexAppServerHelperOwnershipError(
       "The selected Codex account changed before low-cost assistant work could run. Retry the task with the current account."
-    );
+    ), { messageCode: "assistant.codex.helperAccountChangedBeforeRun", messageParams: {} });
   }
 }
 

@@ -133,7 +133,9 @@ export function createCodexConversationAdapter(host) {
           (bound?.managed === false ? bound.params.config.shell_environment_policy : null);
         if (!settings && fixedPolicy && (params.developerInstructions == null || params.ephemeral || bound?.params.ephemeral)) {
           if (bound && params.developerInstructions != null && instructionPrompts.get(threadId) !== params.developerInstructions) {
-            throw new Error("Start a new ephemeral conversation to change its instructions.");
+            throw Object.assign(new Error("Start a new ephemeral conversation to change its instructions."), {
+              messageCode: "assistant.codex.ephemeralInstructionsFixed", messageParams: {}
+            });
           }
           assertRecoveryOpen();
           return operation(threadParameters({ ...bound?.params, ...params }, {}));
@@ -162,7 +164,7 @@ export function createCodexConversationAdapter(host) {
           const { thread } = await request("thread/read", { threadId, includeTurns: false });
           if (thread?.historyMode !== "paginated") {
             throw Object.assign(new Error("This conversation uses an unsupported Codex history format. Renew the session to keep your files and saved chat and start a fresh conversation. You can write the handover yourself."), {
-              code: "assistant_codex_history_unsupported"
+              code: "assistant_codex_history_unsupported", messageCode: "assistant.codex.historyFormatUnsupported", messageParams: {}
             });
           }
           nativeModelProvider = thread?.modelProvider || "";
@@ -331,10 +333,12 @@ export function createCodexConversationAdapter(host) {
           host.onRecoveryFailure(threadId);
           bindings.delete(threadId);
           log("recovery_failed", { code: cause?.code || "", reason: cause.message });
-          throw Object.assign(new Error(["assistant_agent_control_binding_retained", "assistant_codex_provider_binding_retained"].includes(cause?.code)
+          const retained = ["assistant_agent_control_binding_retained", "assistant_codex_provider_binding_retained"].includes(cause?.code);
+          throw Object.assign(new Error(retained
             ? `${cause.message} Your conversation and work are preserved.`
             : "The assistant connection could not be verified. Your conversation and files are preserved. Retry the connection, or renew the session to continue in a fresh conversation.", { cause }), {
-            code: "assistant_agent_control_recovery_failed", retryable: true
+            code: "assistant_agent_control_recovery_failed", retryable: true,
+            ...(retained ? {} : { messageCode: "assistant.codex.connectionUnverified", messageParams: {} })
           });
         }
         // A newer settings save supersedes the older choice before scheduling

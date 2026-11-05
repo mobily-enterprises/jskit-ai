@@ -24,7 +24,8 @@ function codexAppServerHelperLoginParams(auth = {}, errorPrefix = "") {
   }
   throw codexAppServerHelperAuthError(
     `${errorPrefix}codex_helper_auth_invalid`,
-    "The selected Codex authentication mode is unsupported. Reconnect Codex and retry."
+    "The selected Codex authentication mode is unsupported. Reconnect Codex and retry.",
+    "assistant.codex.authModeUnsupported"
   );
 }
 
@@ -65,7 +66,7 @@ export function codexAppServerHelperRequestError(error = null, reason = "", erro
   ) {
     return error;
   }
-  const failure = new Error("Codex isolated helper execution failed. Retry the task.");
+  const failure = Object.assign(new Error("Codex isolated helper execution failed. Retry the task."), { messageCode: "assistant.codex.helperExecutionFailed", messageParams: {} });
   failure.code = `${errorPrefix}codex_helper_provider_request_failed`;
   const providerCode = Number(error?.code);
   if (Number.isSafeInteger(providerCode)) {
@@ -109,7 +110,8 @@ export function createCodexProviderAuth({ provider }) {
     if (helperAuthBlocked) {
       throw provider.accountReader.error(
         `${provider.errorPrefix}codex_helper_auth_changed`,
-        "The selected Codex account changed during helper work. Retry the task with the current account."
+        "The selected Codex account changed during helper work. Retry the task with the current account.",
+        "assistant.codex.helperAccountChanged"
       );
     }
     const current = await selectedHelperAuth();
@@ -117,7 +119,8 @@ export function createCodexProviderAuth({ provider }) {
       helperAuthBlocked = true;
       throw provider.accountReader.error(
         `${provider.errorPrefix}codex_helper_auth_changed`,
-        "The selected Codex account changed during helper work. Retry the task with the current account."
+        "The selected Codex account changed during helper work. Retry the task with the current account.",
+        "assistant.codex.helperAccountChanged"
       );
     }
   }
@@ -133,7 +136,8 @@ export function createCodexProviderAuth({ provider }) {
     ) {
       throw provider.accountReader.error(
         `${provider.errorPrefix}codex_helper_auth_changed`,
-        "The selected Codex account changed while helper execution was starting. Retry the task."
+        "The selected Codex account changed while helper execution was starting. Retry the task.",
+        "assistant.codex.helperAccountChangedStarting"
       );
     }
     helperAuth = auth;
@@ -162,7 +166,8 @@ export function createCodexProviderAuth({ provider }) {
       helperAuthBlocked = true;
       throw provider.accountReader.error(
         `${provider.errorPrefix}codex_helper_auth_unavailable`,
-        "Codex could not activate the selected account for isolated helper work. Reconnect Codex and retry."
+        "Codex could not activate the selected account for isolated helper work. Reconnect Codex and retry.",
+        "assistant.codex.helperAccountActivationFailed"
       );
     }
   }
@@ -182,7 +187,8 @@ export function createCodexProviderAuth({ provider }) {
       helperAuthBlocked = true;
       throw provider.accountReader.error(
         `${provider.errorPrefix}codex_helper_auth_refresh_rejected`,
-        "Codex helper authentication refresh was rejected. Reconnect Codex and retry."
+        "Codex helper authentication refresh was rejected. Reconnect Codex and retry.",
+        "assistant.codex.helperAuthRefreshRejected"
       );
     }
     const refreshed = await selectedHelperAuth();
@@ -193,14 +199,16 @@ export function createCodexProviderAuth({ provider }) {
       helperAuthBlocked = true;
       throw provider.accountReader.error(
         `${provider.errorPrefix}codex_helper_auth_changed`,
-        "The selected Codex account changed during helper work. Retry the task with the current account."
+        "The selected Codex account changed during helper work. Retry the task with the current account.",
+        "assistant.codex.helperAccountChanged"
       );
     }
     if (refreshed.secretSignature === currentAuth.secretSignature) {
       helperAuthBlocked = true;
       throw provider.accountReader.error(
         `${provider.errorPrefix}codex_helper_auth_refresh_pending`,
-        "The selected Codex account has not produced a newer access token yet. Reconnect Codex and retry."
+        "The selected Codex account has not produced a newer access token yet. Reconnect Codex and retry.",
+        "assistant.codex.helperAccessTokenStale"
       );
     }
     helperAuth = refreshed;

@@ -97,7 +97,7 @@ export function createClaudeProcessStart({
         if (current && frame.type === "assistant" && !frame.parent_tool_use_id) {
           for (const tool of frame.message?.content || []) if (tool.type === "tool_use" && tool.id && tool.name?.startsWith("mcp__application__")) {
             if (current.nativeToolCount >= current.maximumToolCalls && !current.nativeTools.has(tool.id)) {
-              throw new Error("Claude exceeded the application tool-call limit.");
+              throw Object.assign(new Error("Claude exceeded the application tool-call limit."), { messageCode: "assistant.claude.toolCallLimit", messageParams: {} });
             }
             if (!current.nativeTools.has(tool.id)) {
               current.nativeToolCount++;

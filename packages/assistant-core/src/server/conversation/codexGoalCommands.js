@@ -113,7 +113,9 @@ export function createCodexGoalCommands({
       if (recovered.reason === "error") throw new Error(recovered.error);
       await context.runtime.store.mutateSession(sessionId, async () => {
         const run = await readCodexAppServerAgentRunForSession(context.runtime.store, sessionId);
-        if (run.active || run.providerThreadId !== threadId) throw new Error("The assistant changed. Refresh before resuming.");
+        if (run.active || run.providerThreadId !== threadId) throw Object.assign(new Error("The assistant changed. Refresh before resuming."), {
+          messageCode: "assistant.codex.assistantChangedRefresh", messageParams: {}
+        });
         await context.runtime.store.writeAgentRunEvent(sessionId, CODEX_APP_SERVER_AGENT_RUN_ID, {
           event: { kind: "codex-observation-explicit-resume" },
           patch: { providerStatus: "interrupted", error: "" }

@@ -3,8 +3,9 @@ import { TextDecoder } from "node:util";
 
 const CLAUDE_JSON_MAX_FRAME_BYTES = 16 * 1024 * 1024;
 
-function claudeProtocolError(message, code = "assistant_claude_protocol_error") {
-  return Object.assign(new Error(message), { code });
+// messageCode names the sentence, since one protocol code covers several.
+function claudeProtocolError(message, { code = "assistant_claude_protocol_error", params, messageCode } = {}) {
+  return Object.assign(new Error(message), { code, ...(params ? { params } : {}), ...(messageCode ? { messageCode, messageParams: {} } : {}) });
 }
 
 // Geometric growth keeps fragmented frames linear with bounded memory. Decode complete
@@ -116,7 +117,7 @@ function createClaudeJsonClient({
     }
     const next = writes.then(() => new Promise((resolve, reject) => {
       if (failure || closed || stream.destroyed) {
-        reject(failure || claudeProtocolError("Claude connection is closed."));
+        reject(failure || claudeProtocolError("Claude connection is closed.", { messageCode: "assistant.claude.connectionClosed" }));
         return;
       }
       // A write callback, unlike write()'s boolean return, respects backpressure
@@ -128,7 +129,7 @@ function createClaudeJsonClient({
   }
 
   async function request(request, options = {}) {
-    if (failure || closed) throw failure || claudeProtocolError("Claude connection is closed.");
+    if (failure || closed) throw failure || claudeProtocolError("Claude connection is closed.", { messageCode: "assistant.claude.connectionClosed" });
     const requestId = randomUUID();
     const { onProgress = reportNoProgress } = options;
     function progress(stage) {
@@ -139,7 +140,9 @@ function createClaudeJsonClient({
     const response = new Promise((resolve, reject) => {
       timer = setTimeout(() => {
         requests.delete(requestId);
-        reject(claudeProtocolError(`Claude ${request.subtype} timed out.`, "assistant_claude_control_timeout"));
+        reject(claudeProtocolError(`Claude ${request.subtype} timed out.`, {
+          code: "assistant_claude_control_timeout", params: { request: request.subtype }
+        }));
       }, options.timeoutMs ?? timeoutMs);
       requests.set(requestId, { resolve, reject, received: () => progress("response_received") });
     });
@@ -175,7 +178,7 @@ function createClaudeJsonClient({
         // Waiting here does not block the reader from answering interrupt controls.
         await precedingEvents;
         controller.signal.throwIfAborted();
-        if (!onControlRequest) throw claudeProtocolError("This control request requires the native Claude Code terminal.");
+        if (!onControlRequest) throw claudeProtocolError("This control request requires the native Claude Code terminal.", { messageCode: "assistant.claude.controlNeedsTerminal" });
         const value = await onControlRequest(frame.request, { signal: controller.signal });
         response = { subtype: "success", request_id: id, response: value || {} };
       } catch (error) {
@@ -223,14 +226,16 @@ function createClaudeJsonClient({
         }
       }
       await events;
-      if (!closed) throw claudeProtocolError("Claude event connection ended unexpectedly.", "assistant_claude_observation_lost");
+      if (!closed) throw claudeProtocolError("Claude event connection ended unexpectedly.", {
+        code: "assistant_claude_observation_lost", messageCode: "assistant.claude.eventConnectionEnded"
+      });
     } catch (error) {
       if (!closed) {
         fail(error);
         await onFailure(failure);
       }
     } finally {
-      fail(failure || claudeProtocolError("Claude connection is closed."));
+      fail(failure || claudeProtocolError("Claude connection is closed.", { messageCode: "assistant.claude.connectionClosed" }));
     }
   })();
   // Callers can await completion; the background observer must never leak an
@@ -262,7 +267,7 @@ function createClaudeJsonClient({
     // Older CLIs treat this control as a plain Stop, cancelling background
     // workers. Require the native capability before writing either frame.
     if (sendNow && !supportsSendNow) throw Object.assign(
-      claudeProtocolError("This Claude version does not support targeted Send now."), { delivery: "not-sent" }
+      claudeProtocolError("This Claude version does not support targeted Send now.", { messageCode: "assistant.claude.sendNowUnsupported" }), { delivery: "not-sent" }
     );
     await write({ type: "user", uuid: messageId, session_id: sessionId,
       parent_tool_use_id: null, message: { role: "user", content: message } });
@@ -272,7 +277,7 @@ function createClaudeJsonClient({
   /** Closes the connection; pending requests fail. */
   function close() {
     closed = true;
-    fail(claudeProtocolError("Claude connection was closed."));
+    fail(claudeProtocolError("Claude connection was closed.", { messageCode: "assistant.claude.connectionWasClosed" }));
   }
 
   return Object.freeze({

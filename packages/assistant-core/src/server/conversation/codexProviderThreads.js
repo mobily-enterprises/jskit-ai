@@ -243,7 +243,9 @@ export function codexApplicationToolConfiguration(tools) {
 
 export function assertCodexApplicationToolSchemaIdentity(threadId, savedIdentity, toolSchemaIdentity) {
   if (threadId && (savedIdentity || codexApplicationToolConfiguration().toolSchemaIdentity) !== toolSchemaIdentity) {
-    throw new Error("This Codex conversation was created with different application tool entry points. Start a new conversation to enable or remove application tools.");
+    throw Object.assign(new Error("This Codex conversation was created with different application tool entry points. Start a new conversation to enable or remove application tools."), {
+      messageCode: "assistant.codex.toolEntryPointsChanged", messageParams: {}
+    });
   }
 }
 
@@ -394,7 +396,7 @@ export function createCodexProviderThreads({ provider }) {
     // Paginated history is required only for persistent conversations.
     if (params.ephemeral !== true && response?.thread?.historyMode === "legacy") {
       throw Object.assign(new Error("Codex did not create the required paginated conversation history. Update Codex before starting a conversation."), {
-        code: `${provider.errorPrefix}codex_history_unsupported`
+        code: `${provider.errorPrefix}codex_history_unsupported`, messageCode: "assistant.codex.paginatedConversationHistoryMissing", messageParams: {}
       });
     }
     if (response?.thread?.historyMode === "paginated" && response.thread.ephemeral !== true) {

@@ -494,7 +494,9 @@ function createConversationTurns({ storage, streams, events, entries, reads, del
       entry.storageFailure.cause = saveError;
       problem ||= saveError;
     }
-    if (!initial.admissionSettled) initial.admission.reject(problem || new Error("The engine did not acknowledge the message."));
+    if (!initial.admissionSettled) initial.admission.reject(problem || Object.assign(new Error("The engine did not acknowledge the message."), {
+      messageCode: "assistant.conversation.messageNotAcknowledged", messageParams: {}
+    }));
     entry.active = null;
     await events.setPhase(entry, "", active.request.turnId);
     await events.emit(entry, { type: "settled", turnId: active.request.turnId, status: entry.storageFailure || entry.executionFailure ? "failed" : status,

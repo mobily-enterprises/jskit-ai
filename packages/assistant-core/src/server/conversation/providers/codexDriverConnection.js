@@ -93,7 +93,9 @@ export function createCodexDriverConnection({
       prepareThreadEnvironment: environment => session.preparedThreadSettings?.config.shell_environment_policy.set || environment,
       prepareThreadResumeParams(threadId, params) {
         if (threadId !== session.binding.threadId || !session.preparedThreadSettings) {
-          throw new Error("Codex requires current authorized settings before resuming this conversation.");
+          throw Object.assign(new Error("Codex requires current authorized settings before resuming this conversation."), {
+            messageCode: "assistant.codex.authorizedSettingsRequired", messageParams: {}
+          });
         }
         return { ...session.preparedThreadSettings, ...params,
           config: { ...session.preparedThreadSettings.config, ...params.config } };
@@ -197,9 +199,13 @@ export function createCodexDriverConnection({
     signal.throwIfAborted();
     const provider = nativeAiProvider(connection.providerId);
     const model = nativeAiModel(connection.model, connection.providerId);
-    if (!provider || !model) throw new Error("This exact provider/model is not supported by the Codex integration. Choose a supported model without renaming it.");
+    if (!provider || !model) throw Object.assign(new Error("This exact provider/model is not supported by the Codex integration. Choose a supported model without renaming it."), {
+      messageCode: "assistant.codex.modelUnsupported", messageParams: {}
+    });
     validateConnectionModel(configuration, connection);
-    if (configuration.effort && !model.variants.includes(configuration.effort)) throw new Error("The selected Codex model does not support this reasoning effort.");
+    if (configuration.effort && !model.variants.includes(configuration.effort)) throw Object.assign(new Error("The selected Codex model does not support this reasoning effort."), {
+      messageCode: "assistant.codex.reasoningEffortUnsupported", messageParams: {}
+    });
     const identity = hash([provider.id, provider.baseUrl, connection.apiKey]);
     const previous = session.binding.connectionIdentities?.[provider.id];
     const expected = receiptBinding?.connectionIdentities?.[provider.id];
@@ -207,7 +213,9 @@ export function createCodexDriverConnection({
     if (requireBound && (previous !== expected || identity !== expected)) {
       throw new Error("The completed Codex response belongs to a different provider account binding.");
     }
-    if (previous && previous !== identity) throw new Error("This conversation belongs to another Codex provider account. Restore that connection or start a new conversation.");
+    if (previous && previous !== identity) throw Object.assign(new Error("This conversation belongs to another Codex provider account. Restore that connection or start a new conversation."), {
+      messageCode: "assistant.codex.otherProviderAccount", messageParams: {}
+    });
     if (!previous) await updateBinding({ connectionIdentities: { ...session.binding.connectionIdentities, [provider.id]: identity } });
     return { model: model.id, providerId: provider.id, accountIdentity: identity, config: codexProviderConfiguration(provider, connection.apiKey) };
   }
@@ -250,7 +258,9 @@ export function createCodexDriverConnection({
     const identity = await accountIdentity(session.native.client, signal);
     if (session.binding.accountIdentity && session.binding.accountIdentity !== identity) {
       providerOwner.closeProvider(providerKey);
-      throw new Error("This conversation belongs to another Codex account. Restore that account or start a new conversation.");
+      throw Object.assign(new Error("This conversation belongs to another Codex account. Restore that account or start a new conversation."), {
+        messageCode: "assistant.codex.otherAccount", messageParams: {}
+      });
     }
     if (!session.binding.accountIdentity) await updateBinding({ accountIdentity: identity });
   }
@@ -315,7 +325,9 @@ export function createCodexDriverConnection({
         async write({ threadId }) { await updateBinding({ threadId, toolSchemaIdentity }); } }
     });
     if (!retainedThreadId && prepared.thread.raw?.historyMode !== "paginated") {
-      throw new Error("Codex did not create the required paginated history. Update Codex before starting this conversation.");
+      throw Object.assign(new Error("Codex did not create the required paginated history. Update Codex before starting this conversation."), {
+        messageCode: "assistant.codex.paginatedHistoryMissing", messageParams: {}
+      });
     }
     owner.subscribeEvents(sessionId, session.native, prepared.threadId, { providerKey });
     return { ...selected, resumeOptions: params };

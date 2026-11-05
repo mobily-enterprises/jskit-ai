@@ -61,9 +61,13 @@ export function createConversationTools({ catalog, toolSet: retainedToolSet, con
     signal.throwIfAborted();
     if (typeof id !== "string" || !id || id.length > 256 || typeof name !== "string" || !name || name.length > 256 ||
         typeof argumentsText !== "string") throw new TypeError("An application tool requires its call id, name and JSON arguments.");
-    if (Buffer.byteLength(argumentsText) > catalog.limits.maxToolArgumentBytes) throw new Error("The application tool arguments exceed their size limit.");
+    if (Buffer.byteLength(argumentsText) > catalog.limits.maxToolArgumentBytes) throw Object.assign(new Error("The application tool arguments exceed their size limit."), {
+      messageCode: "assistant.conversation.toolArgumentsTooLarge", messageParams: {}
+    });
     const input = { id, name, arguments: argumentsText };
-    if (++requested > maximumCalls) throw new Error("The assistant reached the application tool-call limit for this turn.");
+    if (++requested > maximumCalls) throw Object.assign(new Error("The assistant reached the application tool-call limit for this turn."), {
+      messageCode: "assistant.conversation.toolCallLimit", messageParams: {}
+    });
     const recorded = calls.get(id);
     if (recorded) {
       if (!isDeepStrictEqual(input, { id: recorded.id, name: recorded.name, arguments: recorded.arguments })) {

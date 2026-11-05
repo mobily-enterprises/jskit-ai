@@ -38,7 +38,7 @@ export function createCodexObservationControl({
   function assertCodexAppServerThreadCanResume(run, threadId) {
     if (run?.providerThreadId === threadId && run.providerStatus === "observation_lost") {
       throw Object.assign(new Error(run.error || "Codex is stopped. Use Resume or Send to continue."), {
-        code: `${errorPrefix}codex_observation_lost`
+        code: `${errorPrefix}codex_observation_lost`, messageCode: "assistant.codex.stoppedUseResume", messageParams: {}
       });
     }
   }

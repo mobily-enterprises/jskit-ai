@@ -3,8 +3,9 @@ import { claudeMessageBlocks } from "./claudeHistory.js";
 import { stopClaudeCodeProcess } from "./claudeProcess.js";
 import { createClaudeConversationAdapter } from "./providers/claude.js";
 
-export function claudeTurnFailure(message, { code = "assistant_claude_turn_failed" } = {}) {
-  return Object.assign(new Error(message), { code });
+// messageCode names the sentence, since one turn-failure code covers several.
+export function claudeTurnFailure(message, { code = "assistant_claude_turn_failed", messageCode } = {}) {
+  return Object.assign(new Error(message), { code, ...(messageCode ? { messageCode, messageParams: {} } : {}) });
 }
 
 // Input for a turn that already finished is the caller's refusal; input that
@@ -358,7 +359,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
 
   function checkOutput(value, role = "assistant") {
     if (value.length > (role === "thinking" ? 4 * 1024 * 1024 : maximumOutput)) {
-      throw claudeTurnFailure("Claude output exceeded its size limit.");
+      throw claudeTurnFailure("Claude output exceeded its size limit.", { messageCode: "assistant.claude.outputTooLarge" });
     }
   }
 
@@ -600,7 +601,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
   }
 
   function begin({ id, maxOutputCharacters = 4 * 1024 * 1024 } = {}) {
-    if (active) throw claudeTurnFailure("This Claude turn is still working.");
+    if (active) throw claudeTurnFailure("This Claude turn is still working.", { messageCode: "assistant.claude.turnStillWorking" });
     if (!id || !Number.isSafeInteger(maxOutputCharacters) || maxOutputCharacters < 1) throw new TypeError("Invalid Claude turn configuration.");
     generation++;
     clearTurnView();
@@ -615,7 +616,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
   }
 
   function reset() {
-    if (active || inFlight.size || tasks.size) throw claudeTurnFailure("Stop Claude before resetting its turn view.");
+    if (active || inFlight.size || tasks.size) throw claudeTurnFailure("Stop Claude before resetting its turn view.", { messageCode: "assistant.claude.stopBeforeReset" });
     clearTurnView();
   }
 
