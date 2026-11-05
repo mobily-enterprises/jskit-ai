@@ -349,9 +349,20 @@ export function createOpenCodeProcessOwner({ processes, processStarts, monitors,
 
   async function releaseTarget(target, { retainSharedProcess = false, onRemoved } = {}) {
     const activeThreads = new Set();
-    if (turns.get(target.key)?.active) activeThreads.add(target.upstreamSessionId);
+    // A turn the server's shutdown stops carries that mark: its observer
+    // leaves the turn's end to the next server, which records it interrupted,
+    // since the native abort this stop causes is not the turn's failure.
+    const stopping = turn => {
+      if (closed) turn.stoppedByShutdown = true;
+    };
+    const mainTurn = turns.get(target.key);
+    if (mainTurn?.active) {
+      stopping(mainTurn);
+      activeThreads.add(target.upstreamSessionId);
+    }
     for (const entry of temporaryConversations.values()) {
       if (entry.active && entry.target?.abortController === target.abortController) {
+        stopping(entry);
         activeThreads.add(entry.conversationId);
       }
     }

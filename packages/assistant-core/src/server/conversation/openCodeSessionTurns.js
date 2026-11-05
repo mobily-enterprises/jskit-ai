@@ -333,7 +333,7 @@ export function createOpenCodeSessionTurns({ processes, monitors, turns, process
   }
 
   async function reconcileSessionTurn(key, target, activeRun, options, application) {
-    if (activeRun?.observationError) {
+    if (endedOnPreviousServer(activeRun)) {
       await processOwner.stopUnobservedSession(target, activeRun.threadId);
       await application.writeRun({ ...activeRun, id: activeRun.turnId }, "interrupted", activeRun.observationError);
     } else if (activeRun) {
@@ -344,7 +344,7 @@ export function createOpenCodeSessionTurns({ processes, monitors, turns, process
         startedAt: normalizeNullableText(activeRun.startedAt)
       }, options, application.monitor);
     }
-    return Boolean(activeRun && !activeRun.observationError);
+    return Boolean(activeRun && !endedOnPreviousServer(activeRun));
   }
 
   async function ensurePreparedSessionReadiness(prepared) {
@@ -443,8 +443,15 @@ export function createOpenCodeSessionTurns({ processes, monitors, turns, process
     return prepare();
   }
 
+  // A saved active run whose observation already ended: lost, or stopped by the
+  // previous server's shutdown. Recovery records it interrupted once native
+  // work is idle; neither is the turn's own failure.
+  function endedOnPreviousServer(run) {
+    return Boolean(run?.observationError || run?.stoppedByShutdown === true);
+  }
+
   function needsObservationRecovery(key, run) {
-    return Boolean(run?.active && run.observationError && !monitors.has(key));
+    return Boolean(run?.active && endedOnPreviousServer(run) && !monitors.has(key));
   }
 
   async function recordStoppedObservation(key, run, threadId, writeRun) {

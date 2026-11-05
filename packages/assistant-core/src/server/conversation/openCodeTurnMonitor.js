@@ -351,14 +351,13 @@ export function createOpenCodeTurnMonitor({ processes, monitors, turns, processO
           }
         }
       } finally {
-        // At shutdown the end of a turn the server stopped belongs to the next
-        // server, as after a crash: its saved run stays active, so that server's
-        // recovery observes the native conversation, ends the turn and runs the
-        // host's checkpoint. Run here, that checkpoint (a Git snapshot, say) would
-        // hold the host's bounded shutdown for as long as it takes. A user's Stop
-        // ends its turn as interrupted here.
-        const nextServerEnds = processOwner.closed && target.abortController.signal.aborted &&
-          (finalState === "cancelled" || finalState === "failed");
+        // The end of a turn the server's shutdown stopped belongs to the next
+        // server: its saved run stays active and carries the shutdown's mark,
+        // so that server's recovery records the turn interrupted and runs the
+        // host's checkpoint. Run here, that checkpoint (a Git snapshot, say)
+        // would hold the host's bounded shutdown for as long as it takes. A
+        // user's Stop ends its turn as interrupted here.
+        const nextServerEnds = turn.stoppedByShutdown === true && finalState !== "active";
         // Claim retirement before awaited cleanup/checkpointing. A new Send
         // joins this monitor's cleanup instead of steering an unobserved turn.
         turn.active = finalState === "active";
@@ -372,7 +371,7 @@ export function createOpenCodeTurnMonitor({ processes, monitors, turns, processO
         turn.finalAssistantResultTarget = turn.finalAssistantResult ? finalAssistantResultTarget : null;
         turn.finalAssistantResultProcess = turn.finalAssistantResult ? finalAssistantResultProcess : null;
         turn.updatedAt = new Date().toISOString();
-        if (!nextServerEnds) await writeRun(turn, finalState, failure).catch(() => null);
+        await (nextServerEnds ? writeRun(turn, "active", "") : writeRun(turn, finalState, failure)).catch(() => null);
       }
       return openCodeTurnSnapshot(turn, target.upstreamSessionId);
     }).finally(() => {

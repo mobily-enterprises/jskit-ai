@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createOpenCodeSharedRuntime } from "../src/server/conversation/openCodeRuntime.js";
-import { openCodeMessageError } from "../src/server/conversation/openCodeTurn.js";
+import { observeOpenCodeTurnCompletion, openCodeMessageError } from "../src/server/conversation/openCodeTurn.js";
 
 const SESSION_ID = "session-a";
 const KEY = `project\0${SESSION_ID}`;
@@ -10,9 +10,11 @@ const INPUT_ID = "msg_input";
 const CONNECTION = { modelProviderId: "provider", canonicalUrl: "https://provider.invalid", fingerprint: "account", endpointCode: "api" };
 const SELECTION = { agentId: "build", modelId: "model", modelProviderId: "provider", variantId: "" };
 const ABORTED = "The operation was aborted.";
+const PROVIDER_FAILURE = "The provider refused this request.";
 
 // OpenCode's native history outlives each server that runs it. The turn's reply
-// is still being written until an interrupt ends it as aborted.
+// is still being written until an interrupt ends it as aborted, or its provider
+// fails it.
 function nativeOpenCode() {
   const rows = [
     { id: INPUT_ID, type: "user", time: { created: 1 } },
@@ -40,11 +42,16 @@ function nativeOpenCode() {
     };
     return { client, async stop() { calls.stops += 1; return { exited: true }; } };
   }
-  return { calls, create };
+  function fail() {
+    rows[1] = { ...rows[1], error: { name: "APIError", data: { message: PROVIDER_FAILURE } }, time: { created: 2, completed: 3 } };
+    busy = false;
+  }
+  return { calls, create, fail };
 }
 
-// One server with Vibe64's run rules: the session record keeps the OpenCode run,
-// and a turn's end first runs the host's checkpoint, a Git snapshot there.
+// One server with Vibe64's run rules: the session record keeps the OpenCode run
+// with the shutdown's mark, and a turn's end first runs the host's checkpoint, a
+// Git snapshot there.
 function server(native, saved, { turnEndCheckpoint = async () => {} } = {}) {
   const runtime = createOpenCodeSharedRuntime({});
   const calls = { checkpoints: [], writes: [] };
@@ -57,7 +64,7 @@ function server(native, saved, { turnEndCheckpoint = async () => {} } = {}) {
     }
     calls.writes.push(state);
     saved.run = { active: running, state, error, observationError: turn.observationError || "",
-      threadId: turn.threadId, turnId: turn.id, startedAt: turn.startedAt };
+      stoppedByShutdown: turn.stoppedByShutdown === true, threadId: turn.threadId, turnId: turn.id, startedAt: turn.startedAt };
     if (state === "active") active.resolve();
   }
   const projection = {
@@ -108,6 +115,38 @@ function server(native, saved, { turnEndCheckpoint = async () => {} } = {}) {
       return target;
     },
     stop: () => runtime.interruptPreparedTurn({ key: KEY, threadId: THREAD_ID, writeRun, failure }),
+    // A temporary conversation's turn, observed as the application's detached chats are.
+    async temporary(conversationId) {
+      const target = await runtime.acquirePrepared(processPreparation);
+      const closes = [];
+      const entry = { active: true, target, conversationId, inputMessageId: INPUT_ID, abortController: new AbortController() };
+      runtime.temporaryConversations.set(`${KEY}\0${conversationId}`, entry);
+      entry.completion = observeOpenCodeTurnCompletion(runtime, { ...target, upstreamSessionId: conversationId }, conversationId, entry, {
+        events: { async close() {} },
+        signal: AbortSignal.any([target.abortController.signal, entry.abortController.signal]),
+        afterClose: closed => { closes.push(closed); }
+      });
+      return { entry, closes };
+    },
+    // A later read of that conversation, as the application reads a saved chat.
+    async readTemporary(conversationId, stoppedByShutdown) {
+      const target = await runtime.acquirePrepared(processPreparation);
+      return runtime.readPersistentConversation(target, conversationId, null, {
+        readError: openCodeMessageError, messageId: (id, part) => `${id}:${part}`, inputMessageId: "", stoppedByShutdown
+      });
+    },
+    // Opening the chat: its readiness recovers a run the previous server left.
+    ready: () => runtime.ensurePreparedSessionReadiness({
+      key: KEY, selection: SELECTION, workdir: "/work/a", changed: () => new Error("The session changed."),
+      connection: async () => CONNECTION, refresh: async () => ({ key: KEY, workdir: "/work/a", selection: SELECTION }),
+      prepare: async operation => ({
+        value: await operation({ key: KEY, configuration: () => ({ process: async () => processPreparation, session }) })
+      }),
+      observation: {
+        get run() { return saved.run; },
+        async write(operation) { await operation(saved.run, apply => apply(writeRun)); }
+      }
+    }),
     async recover() {
       const result = await runtime.reconcileSessions([{ sessionId: SESSION_ID }], {}, {
         session: async () => ({
@@ -122,14 +161,16 @@ function server(native, saved, { turnEndCheckpoint = async () => {} } = {}) {
   };
 }
 
-test("OpenCode shutdown leaves a running turn's end and its checkpoint to the next server", { timeout: 5_000 }, async t => {
-  // The host's checkpoint can take longer than the server has to stop.
+function runOf(saved) {
+  const { active, state, error, stoppedByShutdown, turnId } = saved.run;
+  return { active, state, error, stoppedByShutdown, turnId };
+}
+
+// Shutdown with a host checkpoint that can take longer than the server has to stop.
+async function shutdownRunning(native, saved) {
   const checkpoint = Promise.withResolvers();
-  const native = nativeOpenCode();
-  const saved = { run: null };
   const first = server(native, saved, { turnEndCheckpoint: () => checkpoint.promise });
   await first.running();
-  const running = saved.run;
   let timer;
   const result = await Promise.race([
     first.shutdown(),
@@ -142,18 +183,57 @@ test("OpenCode shutdown leaves a running turn's end and its checkpoint to the ne
   assert.deepEqual(native.calls.interrupts, [THREAD_ID], "shutdown stopped the native turn");
   assert.equal(native.calls.stops, 1, "shutdown proved the OpenCode process exit");
   assert.deepEqual(first.calls.checkpoints, [], "shutdown ran no checkpoint");
-  assert.deepEqual(first.calls.writes, ["active"], "shutdown wrote nothing");
-  assert.equal(saved.run, running, "the saved run was not rewritten");
-  assert.deepEqual({ active: running.active, state: running.state, turnId: running.turnId }, { active: true, state: "active", turnId: INPUT_ID });
-  // The next server's recovery observes the native conversation, then ends the turn through its checkpoint.
+  assert.deepEqual(first.calls.writes, ["active", "active"], "shutdown only marked the saved run");
+  assert.deepEqual(runOf(saved), { active: true, state: "active", error: "", stoppedByShutdown: true, turnId: INPUT_ID });
+}
+
+test("a goal's recovery on the next server records an OpenCode turn stopped by shutdown as interrupted, with one checkpoint", { timeout: 5_000 }, async t => {
+  const native = nativeOpenCode();
+  const saved = { run: null };
+  await shutdownRunning(native, saved);
   const next = server(native, saved);
   t.after(() => next.shutdown());
   const recovered = await next.recover();
-  assert.deepEqual(recovered.results, [{ ok: true, resumed: true, sessionId: SESSION_ID }]);
-  assert.equal(native.calls.starts, 2);
+  assert.deepEqual(recovered.results, [{ ok: true, resumed: false, sessionId: SESSION_ID }]);
+  assert.deepEqual(next.calls.checkpoints, [`${INPUT_ID}:interrupted`]);
+  assert.deepEqual(runOf(saved), { active: false, state: "interrupted", error: "", stoppedByShutdown: true, turnId: INPUT_ID });
+});
+
+test("opening the chat on the next server records an OpenCode turn stopped by shutdown as interrupted, with one checkpoint", { timeout: 5_000 }, async t => {
+  const native = nativeOpenCode();
+  const saved = { run: null };
+  await shutdownRunning(native, saved);
+  const next = server(native, saved);
+  t.after(() => next.shutdown());
+  assert.equal((await next.ready()).ok, true);
+  assert.deepEqual(next.calls.checkpoints, [`${INPUT_ID}:interrupted`]);
+  assert.deepEqual(runOf(saved), { active: false, state: "interrupted", error: "", stoppedByShutdown: true, turnId: INPUT_ID });
+  assert.equal((await next.ready()).ok, true);
+  assert.deepEqual(next.calls.checkpoints, [`${INPUT_ID}:interrupted`], "a second opening changes nothing");
+});
+
+test("a genuine OpenCode failure still records failed, and a native abort without the shutdown's mark is no interruption", { timeout: 5_000 }, async t => {
+  const failing = nativeOpenCode();
+  const failed = { run: null };
+  const running = server(failing, failed);
+  t.after(() => running.shutdown());
+  await running.running();
+  failing.fail();
+  await running.runtime.monitors.get(KEY);
+  assert.deepEqual(running.calls.checkpoints, [`${INPUT_ID}:failed`]);
+  assert.equal(failed.run.state, "failed");
+  assert.match(failed.run.error, /provider refused/u);
+
+  // A run left active without the mark (a crash, say) whose native turn was aborted.
+  const native = nativeOpenCode();
+  const saved = { run: { active: true, state: "active", error: "", observationError: "", stoppedByShutdown: false,
+    threadId: THREAD_ID, turnId: INPUT_ID, startedAt: "2026-11-05T00:00:00.000Z" } };
+  await native.create().client.interrupt(THREAD_ID);
+  const next = server(native, saved);
+  t.after(() => next.shutdown());
+  assert.deepEqual((await next.recover()).results, [{ ok: true, resumed: true, sessionId: SESSION_ID }]);
   assert.deepEqual(next.calls.checkpoints, [`${INPUT_ID}:failed`]);
-  assert.deepEqual({ active: saved.run.active, state: saved.run.state, error: saved.run.error },
-    { active: false, state: "failed", error: ABORTED });
+  assert.deepEqual(runOf(saved), { active: false, state: "failed", error: ABORTED, stoppedByShutdown: false, turnId: INPUT_ID });
 });
 
 test("OpenCode Stop and session close still end a running turn through the host's checkpoint", async t => {
@@ -172,4 +252,35 @@ test("OpenCode Stop and session close still end a running turn through the host'
   assert.equal((await closing.runtime.closeSession(SESSION_ID, {}, closing.release)).ok, true);
   assert.deepEqual(closing.calls.checkpoints, [`${INPUT_ID}:cancelled`]);
   assert.deepEqual({ active: closed.run.active, state: closed.run.state }, { active: false, state: "cancelled" });
+});
+
+test("OpenCode shutdown ends a temporary conversation's turn as interrupted, and only the shutdown's mark reads it so on the next server", { timeout: 5_000 }, async t => {
+  const native = nativeOpenCode();
+  const first = server(native, { run: null });
+  const { entry, closes } = await first.temporary("ses_temp");
+  assert.equal((await first.shutdown()).ok, true);
+  assert.deepEqual(await entry.completion, { interrupted: true });
+  assert.deepEqual(native.calls.interrupts, ["ses_temp"], "shutdown stopped the native turn");
+  assert.deepEqual(closes, [{ stopped: true, outcome: "interrupted", stoppedByShutdown: true }],
+    "the application is told to leave the turn's checkpoint to the next server");
+
+  const next = server(native, { run: null });
+  t.after(() => next.shutdown());
+  const ended = [];
+  const read = mark => next.readTemporary("ses_temp", mark).then(({ status, error, runId }) => ({ status, error, runId }));
+  assert.deepEqual(await read({ runId: INPUT_ID, async ended() { ended.push(INPUT_ID); } }),
+    { status: "interrupted", error: "", runId: INPUT_ID });
+  assert.deepEqual(ended, [INPUT_ID], "recording the stopped run lets the application make its checkpoint");
+  assert.deepEqual(await read(undefined), { status: "failed", error: ABORTED, runId: INPUT_ID });
+  assert.deepEqual(await read({ runId: "msg_other", async ended() { ended.push("msg_other"); } }),
+    { status: "failed", error: ABORTED, runId: INPUT_ID });
+  assert.deepEqual(ended, [INPUT_ID]);
+
+  // Outside shutdown a session close still ends the turn now, through the application's checkpoint.
+  const closing = server(nativeOpenCode(), { run: null });
+  t.after(() => closing.shutdown());
+  const closed = await closing.temporary("ses_closed");
+  assert.equal((await closing.runtime.closeSession(SESSION_ID, {}, closing.release)).ok, true);
+  await closed.entry.completion.catch(() => null);
+  assert.deepEqual(closed.closes, [{ stopped: true, outcome: "failed", stoppedByShutdown: false }]);
 });

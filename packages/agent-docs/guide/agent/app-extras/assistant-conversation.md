@@ -3436,11 +3436,19 @@ stops is not ended at shutdown: its saved record keeps the execution and the
 active turn, as after a crash, so the next server's recovery proves that exit,
 interrupts the turn and runs the host's interrupted checkpoint. OpenCode
 likewise interrupts a running turn's native work and proves its shared process
-exits, but leaves that turn's saved run active, so the next server's recovery
-observes the native conversation, ends the turn as it ended there and runs the
-host's checkpoint. Either way a slow host checkpoint, such as a Git snapshot,
-never holds up shutdown, and a Stop or session close outside shutdown still
-ends its turn through that checkpoint. Claude stops its sessions even when its
+exits, and marks that turn as stopped by shutdown. A main conversation's saved
+run stays active with the mark (`stoppedByShutdown`), and the next server
+records the turn interrupted, with the host's checkpoint, when the chat is next
+prepared or a goal's recovery reconciles it. A temporary conversation's turn
+ends interrupted, and `afterClose` receives `stoppedByShutdown: true` so the
+host leaves its checkpoint to the next server: when the host's later read
+passes the stopped run as `stoppedByShutdown: { runId, ended }`, that read
+reports the run interrupted, not failed, and calls `ended` so the host makes
+the checkpoint. A native abort without the mark (a timeout, or a crash's
+leftover) still reads as that turn's failure. Either way a slow host
+checkpoint, such as a Git snapshot, never holds up shutdown, and a Stop or
+session close outside shutdown still ends its turn through that checkpoint.
+Claude stops its sessions even when its
 account-query cleanup fails; that failure is still the call's result. Once
 shutdown has invalidated the owner, a later session close only releases retained
 work. Failed cleanup can be retried after runtime closure. This is not a browser

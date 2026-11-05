@@ -172,18 +172,25 @@ export function createOpenCodeTemporaryConversations({ processes, temporaryConve
     const rows = openCodeMessageRows(await target.server.client.messages(conversationId));
     const result = openCodeLastAssistantResult(rows, { readError });
     const messages = openCodePersistentConversationMessages(rows, projection.messageId);
+    const runId = tracked?.inputMessageId || [...rows].reverse().find((row) => row.type === "user")?.id || "";
+    // The application marks the run a previous server's shutdown stopped: that
+    // run's native abort is the shutdown's interruption, not its failure, and
+    // recording it lets the application make the checkpoint it still owes.
+    const shutdownStop = projection.stoppedByShutdown;
+    const stoppedByShutdown = !tracked && Boolean(runId) && shutdownStop?.runId === runId;
     let conversationStatus = "completed";
     if (status.type !== "idle" || tracked?.active) conversationStatus = "inProgress";
-    else if (tracked?.interrupted) conversationStatus = "interrupted";
+    else if (tracked?.interrupted || stoppedByShutdown) conversationStatus = "interrupted";
     else if (tracked?.error || result.error) conversationStatus = "failed";
+    if (stoppedByShutdown) await shutdownStop.ended();
     return {
       conversationId,
       ok: true,
       messages,
       text: result.text,
       admitted: Boolean(projection.inputMessageId && rows.some((row) => row.id === projection.inputMessageId)),
-      error: normalizeNullableText(tracked?.error?.message) || result.error,
-      runId: tracked?.inputMessageId || [...rows].reverse().find((row) => row.type === "user")?.id || "",
+      error: stoppedByShutdown ? "" : normalizeNullableText(tracked?.error?.message) || result.error,
+      runId,
       status: conversationStatus
     };
   }

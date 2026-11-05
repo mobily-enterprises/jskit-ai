@@ -478,6 +478,9 @@ export async function waitForOpenCodeFinalResponse(client, conversationId, turn,
 /**
  * Production detached-turn lifetime. Applications project the completed native
  * result before observation is closed, then publish/checkpoint their own state.
+ * A turn the server's shutdown stopped (`turn.stoppedByShutdown`) ends
+ * interrupted however its wait ended, and `afterClose` is told so: the
+ * application leaves its checkpoint to the next server.
  * @param {import("./openCodeProcessOwner.js").OpenCodeProcessOwner} processOwner
  */
 export async function observeOpenCodeTurnCompletion(processOwner, target, conversationId, turn, {
@@ -493,11 +496,15 @@ export async function observeOpenCodeTurnCompletion(processOwner, target, conver
     const completion = finalResponse
       ? await waitForOpenCodeFinalResponse(target.server.client, conversationId, turn, { ...finalResponse, ...options })
       : await waitForOpenCodeMessages(target.server.client, conversationId, () => turn.inputMessageId, options);
+    if (turn.stoppedByShutdown) {
+      outcome = "interrupted";
+      return { interrupted: true };
+    }
     return await projectResult(completion);
   } catch (error) {
     const failure = signal.aborted ? signal.reason : error;
-    outcome = turn.interrupted ? "interrupted" : "failed";
-    if (turn.interrupted) return { interrupted: true };
+    outcome = turn.interrupted || turn.stoppedByShutdown ? "interrupted" : "failed";
+    if (outcome === "interrupted") return { interrupted: true };
     if (!target.abortController.signal.aborted) {
       try {
         await processOwner.stopUnobservedSession(target, conversationId);
@@ -513,7 +520,7 @@ export async function observeOpenCodeTurnCompletion(processOwner, target, conver
       turn.active = !stopped;
       turn.mayBeRunning = !stopped;
     }
-    await afterClose({ stopped, outcome });
+    await afterClose({ stopped, outcome, stoppedByShutdown: turn.stoppedByShutdown === true });
   }
 }
 
