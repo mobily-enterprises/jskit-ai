@@ -1,0 +1,13 @@
+{
+  "app": {
+    "menu": {
+      "settings": "Settings",
+      "signOut": "Sign out"
+    },
+    "settings": {
+      "preferences": "Preferences",
+      "theme": "Theme",
+      "save": "Save preferences"
+    }
+  }
+}

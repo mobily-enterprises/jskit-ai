@@ -105,6 +105,11 @@ jobs:
           JSKIT_USERS_WEB_BROWSER_INTEGRATION: "1"
         run: node --test --test-concurrency=1 packages/users-web/test/accountSettings.browser.test.js
 
+      - name: Verify a translated app shows no English
+        env:
+          JSKIT_USERS_WEB_BROWSER_INTEGRATION: "1"
+        run: node --test --test-concurrency=1 packages/users-web/test/translatedApp.browser.test.js
+
   browser-database:
     runs-on: ubuntu-latest
     timeout-minutes: 10
