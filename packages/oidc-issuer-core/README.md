@@ -34,5 +34,28 @@ Commands, run from the hub project: `npx jskit-oidc-issuer keys rotate` and
 `npx jskit-oidc-issuer import-accounts --in accounts.jsonl [--apply]` (a dry run
 unless `--apply`).
 
+## Languages
+
+The hub's texts are message keys under `jskit.accounts.*`, with their English
+in `locales/en.json` (exported as `./locales/en.json`). With no translations
+everything stays in that English.
+
+- **Choosing the language.** A page or email uses the first language the hub
+  has a translation for, in this order: the app's `ui_locales` on the
+  authorization request (for the sign-out, signed-out and sign-in problem
+  pages), then the browser's `Accept-Language`, then English. `it-CH` uses an
+  `it` translation. Emails follow the request that sent them, since hub
+  accounts keep no saved language. `GET /hub/interaction/:uid/details` answers
+  `locale` so the hub project's own sign-in pages can show the same language.
+- **Translating.** Put the translations in the hub project's
+  `src/locales/<code>/jskit.json` (the file `jskit i18n export <code>` writes).
+  The hub reads them once per process. Pages carry `<html lang>`.
+- **Rewording English.** `src/locales/en/jskit.json` overrides the bundled
+  English. A hub built directly with `createOidcIssuer` can also pass
+  `catalogs`, extra English catalogs merged over the bundled one.
+- **API refusals.** The hub's API answers in English with its `error` code,
+  plus `messageCode` and `messageParams`, so a JSKIT page translates the
+  sentence with `serverMessage`.
+
 Guides: "Run an accounts hub" and "Sign in through an OIDC issuer" in the JSKIT
 guide (`packages/agent-docs/site/guide/app-setup/`).
