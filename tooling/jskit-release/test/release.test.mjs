@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { publicationFixture } from "./npm-publication-fixture.mjs";
 import { createPublicationInspection, planPublication, snapshotFiles } from "../src/npm-publication.mjs";
 import {
-  assertMainReleaseCheckout,
+  assertReleaseCheckout,
   bumpPatch,
   collectPublishDependencies,
   collectPatternPackageJsonPaths,
@@ -29,6 +29,8 @@ test("release commands have one explicit intent", () => {
     cwd: process.cwd(),
     dryRun: false,
     noCommit: false,
+    noPush: false,
+    branch: "main",
     registry: "https://registry.npmjs.org",
     from: []
   });
@@ -37,12 +39,22 @@ test("release commands have one explicit intent", () => {
     cwd: "/tmp/target",
     dryRun: true,
     noCommit: false,
+    noPush: false,
+    branch: "main",
     registry: "https://registry.example.test",
     from: []
   });
   assert.deepEqual(parseArgs(["pin", "--from", "/tmp/a", "--from=/tmp/b", "--cwd=/tmp/target"]).from, ["/tmp/a", "/tmp/b"]);
   assert.equal(parseArgs(["pin", "--from", "/tmp/a", "--no-commit"]).noCommit, true);
   assert.throws(() => parseArgs(["publish", "--no-commit"]), /Unknown argument: --no-commit/u);
+  assert.deepEqual(parseArgs(["pin", "--from", "/tmp/a", "--branch", "public", "--no-push"]),
+    { ...parseArgs(["pin", "--from", "/tmp/a"]), branch: "public", noPush: true });
+  assert.equal(parseArgs(["pin", "--from", "/tmp/a", "--branch=accounts-hub"]).branch, "accounts-hub");
+  assert.throws(() => parseArgs(["pin", "--from", "/tmp/a", "--branch"]), /--branch requires a branch name/u);
+  assert.throws(() => parseArgs(["pin", "--from", "/tmp/a", "--branch", "--no-push"]), /--branch requires a branch name/u);
+  assert.throws(() => parseArgs(["pin", "--from", "/tmp/a", "--no-commit", "--no-push"]), /cannot be combined/u);
+  assert.throws(() => parseArgs(["publish", "--branch", "public"]), /Unknown argument: --branch/u);
+  assert.throws(() => parseArgs(["publish", "--no-push"]), /Unknown argument: --no-push/u);
   assert.throws(() => parseArgs([]), /prepare\|publish\|pin/u);
   assert.throws(() => parseArgs(["prepare", "--only", "kernel"]), /Unknown argument/u);
   assert.throws(() => parseArgs(["publish", "--from", "/tmp/a"]), /Unknown argument/u);
@@ -205,26 +217,40 @@ test("publication requires clean main matching the remote main commit", async (t
   git("commit", "-m", "Initial release");
   git("remote", "add", "origin", remote);
   git("push", "origin", "main");
-  assert.doesNotThrow(() => assertMainReleaseCheckout(checkout));
+  assert.doesNotThrow(() => assertReleaseCheckout(checkout));
 
   git("switch", "-c", "feature");
-  assert.throws(() => assertMainReleaseCheckout(checkout), /requires the main branch/u);
+  assert.throws(() => assertReleaseCheckout(checkout), /requires the main branch/u);
   git("switch", "main");
   await writeFile(path.join(checkout, "release.txt"), "uncommitted\n");
-  assert.throws(() => assertMainReleaseCheckout(checkout), /requires a clean checkout/u);
+  assert.throws(() => assertReleaseCheckout(checkout), /requires a clean checkout/u);
   git("restore", "release.txt");
   await writeFile(path.join(checkout, "untracked.txt"), "uncommitted\n");
-  assert.throws(() => assertMainReleaseCheckout(checkout), /requires a clean checkout/u);
+  assert.throws(() => assertReleaseCheckout(checkout), /requires a clean checkout/u);
   await rm(path.join(checkout, "untracked.txt"));
 
   git("commit", "--allow-empty", "-m", "Unpublished release");
-  assert.throws(() => assertMainReleaseCheckout(checkout), /requires HEAD to match/u);
+  assert.throws(() => assertReleaseCheckout(checkout), /requires HEAD to match/u);
   git("push", "origin", "main");
-  assert.doesNotThrow(() => assertMainReleaseCheckout(checkout));
+  assert.doesNotThrow(() => assertReleaseCheckout(checkout));
   git("reset", "--hard", "HEAD~1");
-  assert.throws(() => assertMainReleaseCheckout(checkout), /requires HEAD to match/u);
+  assert.throws(() => assertReleaseCheckout(checkout), /requires HEAD to match/u);
   git("switch", "--detach");
-  assert.throws(() => assertMainReleaseCheckout(checkout), /requires the main branch/u);
+  assert.throws(() => assertReleaseCheckout(checkout), /requires the main branch/u);
+
+  // A named branch is held to the same rules against origin's commit for that branch.
+  git("switch", "-c", "public", "main");
+  assert.throws(() => assertReleaseCheckout(checkout, { branch: "public" }), /^Error: pin --branch public requires origin to have a public branch\.$/u);
+  git("push", "origin", "public");
+  assert.doesNotThrow(() => assertReleaseCheckout(checkout, { branch: "public" }));
+  assert.throws(() => assertReleaseCheckout(checkout), /^Error: Publish requires the main branch\.$/u);
+  git("switch", "main");
+  assert.throws(() => assertReleaseCheckout(checkout, { branch: "public" }), /^Error: pin --branch public requires the public branch\.$/u);
+  git("switch", "public");
+  git("commit", "--allow-empty", "-m", "Unpushed starter work");
+  assert.throws(() => assertReleaseCheckout(checkout, { branch: "public" }),
+    /pin --branch public requires HEAD to match origin's public branch; reconcile and push public first/u);
+  assert.doesNotThrow(() => assertReleaseCheckout(checkout, { branch: "public", allowAhead: true }));
 });
 
 test("publication skips a matching dependency and publishes only the absent consumer tarball", async t => {
@@ -809,6 +835,79 @@ test("a pin that pushes still refuses a clone ahead of origin's main", async t =
   assert.match(result.stderr, /requires HEAD to match origin's main branch/u);
   assert.equal((await f.calls()).filter(call => call.args[0] === "install").length, 0);
   assert.equal(git("ls-remote", "origin", "refs/heads/main").toString().split("\t")[0] + "\n", main);
+});
+
+// A consumer kept on a second branch beside main, as a project starter is.
+async function starterBranch(f) {
+  const repository = await consumerRepository(f);
+  const { git } = repository;
+  git("switch", "-c", "public");
+  git("commit", "--allow-empty", "-m", "Starter");
+  git("push", "origin", "public");
+  const remoteHead = branch => git("ls-remote", "origin", `refs/heads/${branch}`).toString().split("\t")[0];
+  return { ...repository, remoteHead, main: remoteHead("main"), starter: remoteHead("public") };
+}
+
+test("pin --branch pins a named branch, commits and pushes it, and leaves main alone", async t => {
+  const f = await publicationFixture(t, "jskit");
+  const { consumer, git, remoteHead, main, starter } = await starterBranch(f);
+  const result = f.run(["pin", "--from", f.repo, "--branch", "public"], {}, consumer);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /consumer: pushed [0-9a-f]+ Consume released packages/u);
+  assert.equal(JSON.parse(await readFile(path.join(consumer, "package.json"), "utf8")).dependencies["@jskit-ai/a"], "^1.0.0");
+  assert.equal(git("rev-parse", "HEAD^").toString().trim(), starter, "the pin commit sits on the starter branch");
+  assert.equal(remoteHead("public"), git("rev-parse", "HEAD").toString().trim());
+  assert.equal(remoteHead("main"), main);
+
+  const repeat = f.run(["pin", "--from", f.repo, "--branch", "public"], {}, consumer);
+  assert.equal(repeat.status, 0, repeat.stderr);
+  assert.match(repeat.stdout, /pins already match the released versions/u);
+});
+
+test("pin --branch refuses a checkout of another branch, and a pin without it still refuses that branch", async t => {
+  const f = await publicationFixture(t, "jskit");
+  const { consumer, git, remoteHead, main, starter } = await starterBranch(f);
+  const refused = async (args, pattern) => {
+    const result = f.run(["pin", "--from", f.repo, ...args], {}, consumer);
+    assert.notEqual(result.status, 0, result.stdout);
+    assert.match(result.stderr, pattern);
+    assert.equal((await f.calls()).filter(call => call.args[0] === "install").length, 0);
+    assert.equal(git("status", "--porcelain").toString(), "");
+  };
+  await refused([], /Publish requires the main branch/u);
+  git("switch", "main");
+  await refused(["--branch", "public"], /pin --branch public requires the public branch/u);
+  await refused(["--branch", "accounts"], /pin --branch accounts requires the accounts branch/u);
+  assert.deepEqual([remoteHead("main"), remoteHead("public")], [main, starter]);
+});
+
+test("pin --branch --no-push commits the pin on the branch and pushes nothing", async t => {
+  const f = await publicationFixture(t, "jskit");
+  const { consumer, git, remoteHead, main, starter } = await starterBranch(f);
+  const result = f.run(["pin", "--from", f.repo, "--branch", "public", "--no-push"], {}, consumer);
+  assert.equal(result.status, 0, result.stderr);
+  const head = git("rev-parse", "HEAD").toString().trim();
+  assert.match(result.stdout, new RegExp(`consumer: committed ${head.slice(0, 7)}[0-9a-f]* Consume released packages on public; not pushed`, "u"));
+  assert.equal(git("log", "-1", "--format=%s").toString().trim(), "Consume released packages");
+  assert.equal(git("rev-parse", "HEAD^").toString().trim(), starter);
+  assert.equal(git("status", "--porcelain").toString(), "");
+  assert.deepEqual([remoteHead("main"), remoteHead("public")], [main, starter], "nothing pushed");
+
+  // Its commit must sit directly on origin's branch, so a checkout ahead of it is refused.
+  const again = f.run(["pin", "--from", f.repo, "--branch", "public", "--no-push"], {}, consumer);
+  assert.notEqual(again.status, 0);
+  assert.match(again.stderr, /pin --branch public requires HEAD to match origin's public branch/u);
+});
+
+test("pin --branch --no-commit installs on the named branch and leaves the edits uncommitted", async t => {
+  const f = await publicationFixture(t, "jskit");
+  const { consumer, git, remoteHead, starter } = await starterBranch(f);
+  const result = f.run(["pin", "--from", f.repo, "--branch", "public", "--no-commit"], {}, consumer);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /pins installed; not committed/u);
+  assert.equal(git("rev-parse", "HEAD").toString().trim(), starter);
+  assert.match(git("status", "--porcelain").toString(), /package\.json/u);
+  assert.equal(remoteHead("public"), starter);
 });
 
 test("pin follows released versions, keeps range prefixes, retries npm propagation, commits and pushes", async t => {

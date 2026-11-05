@@ -56,4 +56,8 @@ order. A retry checks npm again and needs no release-resume state. Dry runs
 report the same plan without writing, pushing or uploading. Registry
 verification is a separate network-dependent operation. `release` verifies and
 then runs `npm-publish`. `jskit-release pin --from <repoDir>...` lets consuming
-repositories follow released versions, install, commit and push.
+repositories follow released versions, install, commit and push. `--branch
+<name>` pins a checkout of that named branch (current with origin's) and pushes
+to it; `--no-commit` leaves the installed edits uncommitted and `--no-push`
+commits without pushing, for a caller that proves the commit before moving the
+branch to it.

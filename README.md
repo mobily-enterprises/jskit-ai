@@ -137,15 +137,24 @@ still needs preparation fails there at its push. Successful publication can be
 repeated without creating versions or uploading already matching releases.
 
 Other repositories pin released packages with
-`jskit-release pin --from <repoDir>... [--dry-run|--no-commit]`: every dependency range on a
-package published from those repositories follows its current version, keeping
-`^`/`~`. It then runs `npm install` (retrying while npm does not yet serve a new
-version), commits `Consume released packages` and pushes with the same retry.
-A real pin requires the same clean, current `main` checkout. `--no-commit`
-stops after the install and leaves the edits uncommitted, for a caller that
-builds from them and discards them, such as a deploy rehearsal. It pushes
-nothing, so its clean `main` checkout may also be ahead of origin's `main`, but
-never behind or diverged from it.
+`jskit-release pin --from <repoDir>... [--branch <name>] [--dry-run|--no-commit|--no-push]`:
+every dependency range on a package published from those repositories follows
+its current version, keeping `^`/`~`. It then runs `npm install` (retrying while
+npm does not yet serve a new version), commits `Consume released packages` and
+pushes with the same retry. A real pin requires the same clean, current `main`
+checkout. `--branch <name>` pins that branch instead, for a repository kept on
+several branches such as the project starters: the checkout must already be on
+`<name>` (the tool never switches or resets branches), clean and at origin's
+`<name>` commit, and the commit is pushed to `origin <name>`, rebasing and
+retrying when that branch moved. `--no-commit` stops after the install and
+leaves the edits uncommitted, for a caller that builds from them and discards
+them, such as a deploy rehearsal. It pushes nothing, so its clean checkout may
+also be ahead of origin's branch, but never behind or diverged from it.
+`--no-push` commits the pin but pushes nothing, for a caller that proves the
+commit elsewhere before the branch moves to it (a deploy pushes it to a
+candidate branch and fast-forwards the starter branch only after its CI
+passes); since that commit must sit directly on origin's branch, the checkout
+must match origin's branch exactly. The two cannot be combined.
 
 Supply `NPM_TOKEN` in the command's environment, with publishing access to the
 JSKIT packages. The same scripts run locally, in CI and in a hosted editor. In a

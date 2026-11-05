@@ -54,12 +54,12 @@ Local functions
 
 ### `src/release.mjs`
 Exports
-- `assertMainReleaseCheckout(repoRoot, { allowAhead = false } = {})`
+- `assertReleaseCheckout(repoRoot, { allowAhead = false, branch = "main" } = {})`
 - `bumpPatch`
 - `collectPublishDependencies`
 - `collectPatternPackageJsonPaths`
 - `collectVersionMismatches`
-- `commitAndPush(repoRoot, message)`
+- `commitAndPush(repoRoot, message, branch = "main")`
 - `discoverManifests`
 - `discoverReleasePackages`
 - `main(argv = process.argv.slice(2))`
@@ -79,12 +79,13 @@ Local functions
 - `prepareRelease({ cwd: repoRoot, dryRun, registry, report = false })`
 - `createNpmUserConfig(registry, directory, records = [])`
 - `git(repoRoot, args)`
+- `commitAll(repoRoot, message)`
 - `releaseCommitMessage(entries)`
 - `publishRelease(records, { cwd: repoRoot, registry })`
 - `publishCommand(options)`
 - `forgetPinnedLockEntries(repoRoot, names)`
 - `installReleasedPins(repoRoot, { attempts = 20, delayMs = Number(process.env.JSKIT_RELEASE_RETRY_DELAY_MS || 30_000) } = {})`
-- `pinCommand({ cwd: repoRoot, from, dryRun, noCommit })`
+- `pinCommand({ cwd: repoRoot, from, dryRun, noCommit, noPush, branch })`
 
 ### bin
 

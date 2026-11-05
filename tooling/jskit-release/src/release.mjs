@@ -35,7 +35,7 @@ import { createPublicationInspection, planPublication, snapshotFiles } from "./n
 // and per package in its own `jskitRelease` field:
 //   pack             command printing a custom tarball path (see npm-publication.mjs)
 //   versionFiles     JSON files whose `version` must equal the package version
-const USAGE = "Usage: jskit-release <prepare|publish|pin> [--cwd <dir>] [--dry-run] [--registry <url>] [--from <repoDir>...] [--no-commit]";
+const USAGE = "Usage: jskit-release <prepare|publish|pin> [--cwd <dir>] [--dry-run] [--registry <url>] [--from <repoDir>...] [--branch <name>] [--no-commit|--no-push]";
 const DEFAULT_REGISTRY = "https://registry.npmjs.org";
 
 function parseArgs(argv = []) {
@@ -50,6 +50,8 @@ function parseArgs(argv = []) {
     cwd: process.cwd(),
     dryRun: false,
     noCommit: false,
+    noPush: false,
+    branch: "main",
     registry: DEFAULT_REGISTRY,
     from: []
   };
@@ -64,6 +66,10 @@ function parseArgs(argv = []) {
       options.noCommit = true;
       continue;
     }
+    if (argument === "--no-push" && intent === "pin") {
+      options.noPush = true;
+      continue;
+    }
     const [name, inline] = argument.startsWith("--") && argument.includes("=")
       ? [argument.slice(0, argument.indexOf("=")), argument.slice(argument.indexOf("=") + 1)] : [argument, undefined];
     if (name === "--cwd" || (name === "--from" && intent === "pin")) {
@@ -71,6 +77,12 @@ function parseArgs(argv = []) {
       if (!value) throw new Error(`${name} requires a directory.`);
       if (name === "--cwd") options.cwd = path.resolve(value);
       else options.from.push(path.resolve(value));
+      continue;
+    }
+    if (name === "--branch" && intent === "pin") {
+      const value = String(inline ?? args.shift() ?? "").trim();
+      if (!value || value.startsWith("-")) throw new Error("--branch requires a branch name.");
+      options.branch = value;
       continue;
     }
     if (name === "--registry") {
@@ -81,6 +93,9 @@ function parseArgs(argv = []) {
   }
   if (intent === "pin" && options.from.length === 0) {
     throw new Error("pin requires at least one --from <repoDir>.");
+  }
+  if (options.noCommit && options.noPush) {
+    throw new Error("--no-commit and --no-push cannot be combined: --no-commit leaves the edits uncommitted, --no-push commits them without pushing.");
   }
 
   return options;
@@ -324,40 +339,56 @@ function git(repoRoot, args) {
   }).trim();
 }
 
+// The checkout a release writes from: on `branch` (main for every publish; a
+// pin may name another with --branch), clean, and at origin's commit for that
+// branch. The tool never switches or resets branches; the caller checks out.
 // allowAhead is for a caller that pushes nothing: its local commits stay local,
-// so only a checkout missing part of origin's main is unsafe.
-function assertMainReleaseCheckout(repoRoot, { allowAhead = false } = {}) {
-  if (git(repoRoot, ["branch", "--show-current"]) !== "main") {
-    throw new Error("Publish requires the main branch.");
+// so only a checkout missing part of origin's branch is unsafe.
+function assertReleaseCheckout(repoRoot, { allowAhead = false, branch = "main" } = {}) {
+  const action = branch === "main" ? "Publish" : `pin --branch ${branch}`;
+  if (git(repoRoot, ["branch", "--show-current"]) !== branch) {
+    throw new Error(`${action} requires the ${branch} branch.`);
   }
   if (git(repoRoot, ["status", "--porcelain", "--untracked-files=all"])) {
-    throw new Error("Publish requires a clean checkout; commit all release changes first.");
+    throw new Error(`${action} requires a clean checkout; commit all release changes first.`);
   }
   const head = git(repoRoot, ["rev-parse", "HEAD"]);
-  const remoteMain = git(repoRoot, ["ls-remote", "--exit-code", "origin", "refs/heads/main"]).split(/\s+/u)[0];
-  if (head === remoteMain) return;
-  if (!allowAhead) {
-    throw new Error("Publish requires HEAD to match origin's main branch; reconcile and push main first.");
+  let remoteHead;
+  try {
+    remoteHead = git(repoRoot, ["ls-remote", "--exit-code", "origin", `refs/heads/${branch}`]).split(/\s+/u)[0];
+  } catch (error) {
+    // --exit-code makes a missing branch exit 2; anything else is git's own failure.
+    throw new Error(error.status === 2 ? `${action} requires origin to have a ${branch} branch.`
+      : `${action} could not read origin's ${branch} branch: ${String(error.stderr || error.message).trim()}`);
   }
-  // A main commit this clone never fetched makes git fail, which is also a refusal.
-  const contained = spawnSync("git", ["merge-base", "--is-ancestor", remoteMain, "HEAD"], { cwd: repoRoot, stdio: "ignore" });
+  if (head === remoteHead) return;
+  if (!allowAhead) {
+    throw new Error(`${action} requires HEAD to match origin's ${branch} branch; reconcile and push ${branch} first.`);
+  }
+  // A commit this clone never fetched makes git fail, which is also a refusal.
+  const contained = spawnSync("git", ["merge-base", "--is-ancestor", remoteHead, "HEAD"], { cwd: repoRoot, stdio: "ignore" });
   if (contained.status !== 0) {
-    throw new Error("pin --no-commit requires HEAD to contain origin's main branch; this checkout is behind or diverged, so reconcile it first.");
+    throw new Error(`pin --no-commit requires HEAD to contain origin's ${branch} branch; this checkout is behind or diverged, so reconcile it first.`);
   }
 }
 
-// main can move while a release runs, so the commit is replayed on it and
-// the push retried.
-function commitAndPush(repoRoot, message) {
+function commitAll(repoRoot, message) {
   if (!git(repoRoot, ["status", "--porcelain"])) return false;
   git(repoRoot, ["add", "-A"]);
   git(repoRoot, ["commit", "--quiet", "-m", message]);
+  return true;
+}
+
+// The branch can move while a release runs, so the commit is replayed on it
+// and the push retried.
+function commitAndPush(repoRoot, message, branch = "main") {
+  if (!commitAll(repoRoot, message)) return false;
   for (let attempt = 1; ; attempt++) {
-    const push = spawnSync("git", ["push", "--quiet", "origin", "HEAD:main"], { cwd: repoRoot, encoding: "utf8" });
+    const push = spawnSync("git", ["push", "--quiet", "origin", `HEAD:${branch}`], { cwd: repoRoot, encoding: "utf8" });
     if (push.status === 0) break;
     if (attempt >= 3) throw new Error(`git push failed in ${repoRoot}: ${push.stderr || push.stdout}`);
-    process.stdout.write(`${path.basename(repoRoot)}: main moved; rebasing the release commit and retrying\n`);
-    git(repoRoot, ["pull", "--quiet", "--rebase", "origin", "main"]);
+    process.stdout.write(`${path.basename(repoRoot)}: ${branch} moved; rebasing the release commit and retrying\n`);
+    git(repoRoot, ["pull", "--quiet", "--rebase", "origin", branch]);
   }
   process.stdout.write(`${path.basename(repoRoot)}: pushed ${git(repoRoot, ["rev-parse", "--short", "HEAD"])} ${message.split("\n")[0]}\n`);
   return true;
@@ -371,7 +402,7 @@ function releaseCommitMessage(entries) {
 }
 
 async function publishRelease(records, { cwd: repoRoot, registry }) {
-  assertMainReleaseCheckout(repoRoot);
+  assertReleaseCheckout(repoRoot);
   await validateReleaseState(records, repoRoot);
   const order = topologicalPublishOrder(records);
   const recordsByName = new Map(records.map((record) => [record.name, record]));
@@ -412,7 +443,7 @@ async function publishCommand(options) {
     process.stdout.write("Publish dry-run complete.\n");
     return;
   }
-  assertMainReleaseCheckout(options.cwd);
+  assertReleaseCheckout(options.cwd);
   const { plan } = await prepareRelease(options);
   commitAndPush(options.cwd, releaseCommitMessage(plan));
   await publishRelease(await discoverReleasePackages(options.cwd), options);
@@ -457,19 +488,28 @@ async function installReleasedPins(repoRoot, { attempts = 20, delayMs = Number(p
   }
 }
 
+const PIN_COMMIT_MESSAGE = "Consume released packages";
+
 // pin: make every dependency on a package published from the given
 // repositories follow that package's current version, keeping ^/~, then
 // install, commit and push.
+// --branch <name> pins that branch instead of main (a project starter kept on
+// its own branch, say): the checkout must be on it and current with origin's,
+// and the commit is pushed to it.
 // --no-commit stops after the install, leaving the edits for the caller to
 // build from and discard (a deploy rehearsal, or a release clone proving
 // unpushed commits on the new versions). It pushes nothing, so it also accepts
-// a checkout ahead of origin's main; a real pin would push those commits.
-async function pinCommand({ cwd: repoRoot, from, dryRun, noCommit }) {
+// a checkout ahead of origin's branch; a real pin would push those commits.
+// --no-push commits the pin but pushes nothing, for a caller that pushes the
+// commit elsewhere first (a deploy proves it on a candidate branch, then moves
+// the branch to it). Its commit sits directly on origin's branch, so the
+// checkout must match origin's branch exactly.
+async function pinCommand({ cwd: repoRoot, from, dryRun, noCommit, noPush, branch }) {
   const versions = new Map();
   for (const dir of from) {
     for (const record of await discoverReleasePackages(dir)) versions.set(record.name, record.packageJson.version);
   }
-  if (!dryRun) assertMainReleaseCheckout(repoRoot, { allowAhead: noCommit });
+  if (!dryRun) assertReleaseCheckout(repoRoot, { allowAhead: noCommit, branch });
   const changes = [];
   for (const manifest of await discoverManifests(repoRoot)) {
     const manifestChanges = [];
@@ -493,7 +533,12 @@ async function pinCommand({ cwd: repoRoot, from, dryRun, noCommit }) {
     process.stdout.write(`${path.basename(repoRoot)}: pins installed; not committed\n`);
     return;
   }
-  commitAndPush(repoRoot, "Consume released packages");
+  if (noPush) {
+    commitAll(repoRoot, PIN_COMMIT_MESSAGE);
+    process.stdout.write(`${path.basename(repoRoot)}: committed ${git(repoRoot, ["rev-parse", "--short", "HEAD"])} ${PIN_COMMIT_MESSAGE} on ${branch}; not pushed\n`);
+    return;
+  }
+  commitAndPush(repoRoot, PIN_COMMIT_MESSAGE, branch);
 }
 
 async function main(argv = process.argv.slice(2)) {
@@ -504,7 +549,7 @@ async function main(argv = process.argv.slice(2)) {
 }
 
 export {
-  assertMainReleaseCheckout,
+  assertReleaseCheckout,
   bumpPatch,
   collectPublishDependencies,
   collectPatternPackageJsonPaths,
