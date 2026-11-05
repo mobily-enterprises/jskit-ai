@@ -1025,6 +1025,10 @@ test("optional goals show running and paused lights, count only active time, and
     await expect(page.getByRole("button", { name: "Goal paused", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Resume goal", exact: true }).click();
     await expect(page.getByRole("button", { name: "Pause goal", exact: true })).toBeVisible();
+    // A finished goal keeps its running time in its details, not as a number beside it.
+    await page.getByRole("button", { name: "Complete goal", exact: true }).evaluate(element => element.click());
+    await expect(page.getByRole("button", { name: "Goal complete", exact: true })).toBeVisible();
+    await expect(elapsed).toHaveCount(0);
     await page.getByRole("button", { name: "Toggle goals" }).evaluate(element => element.click());
     await expect(page.locator(".assistant-goal")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Pause goal", exact: true })).toBeHidden();

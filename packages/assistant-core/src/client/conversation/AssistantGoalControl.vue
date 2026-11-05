@@ -71,7 +71,7 @@ async function setGoal() {
       <v-btn v-bind="menuProps" class="assistant-goal" size="small" variant="text" :aria-label="label" :title="[label, elapsedText, goal?.objective].filter(Boolean).join('\n')">
         <span v-if="goal" class="assistant-goal__light" :class="{ 'assistant-goal__light--running': running, 'assistant-goal__light--working': working, 'assistant-goal__light--paused': goal.status === 'paused' }" aria-hidden="true" />
         <span class="assistant-goal__label">{{ state.loading ? t('jskit.assistant.goal.loading') : state.available === false ? t('jskit.assistant.goal.unavailable') : starting ? t('jskit.assistant.goal.starting') : goal ? t('jskit.assistant.goal.goal') : t('jskit.assistant.goal.set') }}</span>
-        <span v-if="elapsed" class="assistant-goal__elapsed" aria-hidden="true">{{ elapsed }}</span>
+        <span v-if="elapsed && goal.status !== 'complete'" class="assistant-goal__elapsed" aria-hidden="true">{{ elapsed }}</span>
       </v-btn>
     </template>
     <v-card class="assistant-goal__details pa-3" max-width="360">
