@@ -11,6 +11,7 @@ import {
 } from "./unconfiguredWorkspaceInviteMailer.js";
 
 const DEFAULT_LOCALE = "en";
+const DEFAULT_TIME_ZONE = "UTC";
 
 function roleNotAssignableError() {
   return createValidationError({
@@ -128,15 +129,19 @@ function createService({
     };
   }
 
-  // The saved locale of an existing account with the invited email, else English.
-  // A failed lookup must not stop the invitation, so it also falls back to English.
-  async function resolveRecipientLocale(email, options = {}) {
+  // The saved locale and time zone of an existing account with the invited email,
+  // else English and UTC. A failed lookup must not stop the invitation, so it also
+  // falls back to them.
+  async function resolveRecipientSettings(email, options = {}) {
     try {
       const profile = await userProfilesRepository.findByEmail(email, options);
       const settings = profile?.id ? await userSettingsRepository.findByUserId(profile.id, options) : null;
-      return normalizeText(settings?.locale) || DEFAULT_LOCALE;
+      return {
+        locale: normalizeText(settings?.locale) || DEFAULT_LOCALE,
+        timeZone: normalizeText(settings?.timeZone) || DEFAULT_TIME_ZONE
+      };
     } catch {
-      return DEFAULT_LOCALE;
+      return { locale: DEFAULT_LOCALE, timeZone: DEFAULT_TIME_ZONE };
     }
   }
 
@@ -148,7 +153,7 @@ function createService({
     }
     try {
       const roleLabel = roleCatalog.roles.find((role) => role.id === invite.roleSid)?.label;
-      const locale = await resolveRecipientLocale(invite.email, options);
+      const { locale, timeZone } = await resolveRecipientSettings(invite.email, options);
       const message = await workspaceInviteEmailTemplate({
         email: invite.email,
         inviteUrl,
@@ -158,6 +163,7 @@ function createService({
         ...(roleLabel ? { roleLabel } : {}),
         expiresAt: invite.expiresAt,
         locale,
+        timeZone,
         t: (key, params) => i18n.t(locale, key, params)
       });
       const result = await workspaceInviteMailer.sendWorkspaceInvite({
