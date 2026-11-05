@@ -3,6 +3,7 @@ import { recordIdSchema } from "@jskit-ai/kernel/shared/validators";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import {
   authEmailValidator,
+  AUTH_FIELD_MESSAGES,
   createCommandMessages,
   devLoginAsOutputValidator
 } from "./authCommandValidators.js";
@@ -10,15 +11,15 @@ import {
 const AUTH_DEV_LOGIN_AS_MESSAGES = createCommandMessages({
   fields: {
     userId: {
-      pattern: "Provide a valid user id.",
-      default: "Provide a valid user id."
+      pattern: AUTH_FIELD_MESSAGES.devUserIdInvalid,
+      default: AUTH_FIELD_MESSAGES.devUserIdInvalid
     },
     email: {
-      pattern: "Enter a valid email address.",
-      default: "Enter a valid email address."
+      pattern: AUTH_FIELD_MESSAGES.emailAddressInvalid,
+      default: AUTH_FIELD_MESSAGES.emailAddressInvalid
     }
   },
-  defaultMessage: "Provide a valid user id or email."
+  defaultMessage: AUTH_FIELD_MESSAGES.devUserInvalid
 });
 
 const authDevLoginAsBodyValidator = deepFreeze({
@@ -37,7 +38,7 @@ const authDevLoginAsBodyValidator = deepFreeze({
     ...AUTH_DEV_LOGIN_AS_MESSAGES,
     keywords: {
       ...AUTH_DEV_LOGIN_AS_MESSAGES.keywords,
-      anyOf: "Provide a user id or email."
+      anyOf: AUTH_FIELD_MESSAGES.devUserRequired
     }
   }
 });

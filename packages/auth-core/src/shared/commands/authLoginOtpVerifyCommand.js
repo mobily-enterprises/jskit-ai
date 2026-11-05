@@ -3,6 +3,7 @@ import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import {
   authEmailValidator,
   authRecoveryTokenValidator,
+  AUTH_FIELD_MESSAGES,
   createCommandMessages,
   otpVerifyOutputValidator
 } from "./authCommandValidators.js";
@@ -10,19 +11,19 @@ import {
 const AUTH_LOGIN_OTP_VERIFY_MESSAGES = createCommandMessages({
   fields: {
     email: {
-      pattern: "Enter a valid email address.",
-      default: "Enter a valid email address."
+      pattern: AUTH_FIELD_MESSAGES.emailAddressInvalid,
+      default: AUTH_FIELD_MESSAGES.emailAddressInvalid
     },
     token: {
-      minLength: "One-time code is required.",
-      default: "One-time code is required."
+      minLength: AUTH_FIELD_MESSAGES.otpCodeRequired,
+      default: AUTH_FIELD_MESSAGES.otpCodeRequired
     },
     tokenHash: {
-      default: "One-time token hash is invalid."
+      default: AUTH_FIELD_MESSAGES.otpTokenHashInvalid
     },
     type: {
-      const: "Only email OTP verification is supported.",
-      default: "Only email OTP verification is supported."
+      const: AUTH_FIELD_MESSAGES.otpTypeUnsupported,
+      default: AUTH_FIELD_MESSAGES.otpTypeUnsupported
     }
   }
 });

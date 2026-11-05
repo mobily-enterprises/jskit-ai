@@ -4,6 +4,7 @@ import {
   authAccessTokenValidator,
   authRecoveryTokenValidator,
   authRefreshTokenValidator,
+  AUTH_FIELD_MESSAGES,
   createCommandMessages,
   okOutputValidator
 } from "./authCommandValidators.js";
@@ -11,20 +12,20 @@ import {
 const AUTH_PASSWORD_RECOVERY_COMPLETE_MESSAGES = createCommandMessages({
   fields: {
     code: {
-      default: "Recovery code is invalid."
+      default: AUTH_FIELD_MESSAGES.recoveryCodeInvalid
     },
     tokenHash: {
-      default: "Recovery token hash is invalid."
+      default: AUTH_FIELD_MESSAGES.recoveryTokenHashInvalid
     },
     accessToken: {
-      default: "Access token is invalid."
+      default: AUTH_FIELD_MESSAGES.accessTokenInvalid
     },
     refreshToken: {
-      default: "Refresh token is invalid."
+      default: AUTH_FIELD_MESSAGES.refreshTokenInvalid
     },
     type: {
-      const: "Only recovery links are supported.",
-      default: "Only recovery links are supported."
+      const: AUTH_FIELD_MESSAGES.recoveryTypeUnsupported,
+      default: AUTH_FIELD_MESSAGES.recoveryTypeUnsupported
     }
   }
 });

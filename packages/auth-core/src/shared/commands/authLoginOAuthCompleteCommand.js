@@ -4,6 +4,7 @@ import {
   authAccessTokenFieldDefinition,
   authRecoveryTokenFieldDefinition,
   authRefreshTokenFieldDefinition,
+  AUTH_FIELD_MESSAGES,
   createCommandMessages,
   oauthCompleteOutputValidator,
   oauthProviderFieldDefinition
@@ -12,23 +13,23 @@ import {
 const AUTH_LOGIN_OAUTH_COMPLETE_MESSAGES = createCommandMessages({
   fields: {
     provider: {
-      pattern: "OAuth provider id is invalid.",
-      default: "OAuth provider id is invalid."
+      pattern: AUTH_FIELD_MESSAGES.oauthProviderInvalid,
+      default: AUTH_FIELD_MESSAGES.oauthProviderInvalid
     },
     code: {
-      default: "OAuth code is invalid."
+      default: AUTH_FIELD_MESSAGES.oauthCodeInvalid
     },
     accessToken: {
-      default: "Access token is invalid."
+      default: AUTH_FIELD_MESSAGES.accessTokenInvalid
     },
     refreshToken: {
-      default: "Refresh token is invalid."
+      default: AUTH_FIELD_MESSAGES.refreshTokenInvalid
     },
     state: {
-      default: "OAuth state is invalid."
+      default: AUTH_FIELD_MESSAGES.oauthStateInvalid
     },
     iss: {
-      default: "OAuth issuer is invalid."
+      default: AUTH_FIELD_MESSAGES.oauthIssuerInvalid
     }
   }
 });

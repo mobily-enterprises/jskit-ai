@@ -3,6 +3,7 @@ import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import {
   authEmailFieldDefinition,
   authLoginPasswordFieldDefinition,
+  AUTH_FIELD_MESSAGES,
   createCommandMessages,
   loginOutputValidator
 } from "./authCommandValidators.js";
@@ -10,15 +11,15 @@ import {
 const AUTH_LOGIN_PASSWORD_MESSAGES = createCommandMessages({
   fields: {
     email: {
-      required: "Email is required.",
-      minLength: "Email is required.",
-      pattern: "Enter a valid email address.",
-      default: "Enter a valid email address."
+      required: AUTH_FIELD_MESSAGES.emailRequired,
+      minLength: AUTH_FIELD_MESSAGES.emailRequired,
+      pattern: AUTH_FIELD_MESSAGES.emailAddressInvalid,
+      default: AUTH_FIELD_MESSAGES.emailAddressInvalid
     },
     password: {
-      required: "Password is required.",
-      minLength: "Password is required.",
-      default: "Password is required."
+      required: AUTH_FIELD_MESSAGES.passwordRequired,
+      minLength: AUTH_FIELD_MESSAGES.passwordRequired,
+      default: AUTH_FIELD_MESSAGES.passwordRequired
     }
   }
 });

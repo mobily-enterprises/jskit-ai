@@ -13,6 +13,10 @@ import { authPasswordRecoveryCompleteCommand } from "../src/shared/commands/auth
 import { authPasswordResetCommand } from "../src/shared/commands/authPasswordResetCommand.js";
 import { authLogoutCommand } from "../src/shared/commands/authLogoutCommand.js";
 import { authSessionReadCommand } from "../src/shared/commands/authSessionReadCommand.js";
+import { authDevLoginAsCommand } from "../src/shared/commands/authDevLoginAsCommand.js";
+import { catalogMessage, formatMessage, mergeCatalogs, messageKeyForCode } from "@jskit-ai/kernel/shared/i18n";
+import kernelEnglish from "@jskit-ai/kernel/locales/en.json" with { type: "json" };
+import authEnglish from "../locales/en.json" with { type: "json" };
 
 test("auth commands expose canonical operation validator messages", () => {
   const commands = {
@@ -33,6 +37,51 @@ test("auth commands expose canonical operation validator messages", () => {
   for (const [label, command] of Object.entries(commands)) {
     assert.equal(typeof command.operation?.messages, "object", `${label}.operation.messages must be an object.`);
   }
+});
+
+function* messageEntries(value, path) {
+  if (value && typeof value === "object" && typeof value.code === "string") {
+    yield [path, value];
+    return;
+  }
+  for (const [name, child] of Object.entries(value || {})) {
+    yield* messageEntries(child, `${path}.${name}`);
+  }
+}
+
+test("every auth command message is coded and its English renders from the catalog", () => {
+  const english = mergeCatalogs(kernelEnglish, authEnglish);
+  const commands = [
+    authRegisterCommand,
+    authRegisterConfirmationResendCommand,
+    authLoginPasswordCommand,
+    authLoginOtpRequestCommand,
+    authLoginOtpVerifyCommand,
+    authLoginOAuthStartCommand,
+    authLoginOAuthCompleteCommand,
+    authPasswordResetRequestCommand,
+    authPasswordRecoveryCompleteCommand,
+    authPasswordResetCommand,
+    authLogoutCommand,
+    authSessionReadCommand,
+    authDevLoginAsCommand
+  ];
+  const sources = commands.flatMap((command) => [
+    [`${command.command}.messages`, command.operation.messages],
+    ...(command.operation.body ? [[`${command.command}.body.messages`, command.operation.body.messages]] : [])
+  ]);
+  let checked = 0;
+  for (const [label, messages] of sources) {
+    const strings = JSON.stringify(messages).match(/"[^"]*":"[^"]*"/g) || [];
+    assert.deepEqual(strings.filter((entry) => !/^"(code|message)":/.test(entry)), [], `${label} has an uncoded message`);
+    for (const [path, entry] of messageEntries(messages, label)) {
+      const template = catalogMessage(english, messageKeyForCode(entry.code));
+      assert.equal(typeof template, "string", `${path}: ${entry.code} has no catalog entry`);
+      assert.equal(formatMessage(template, entry.params), entry.message, path);
+      checked += 1;
+    }
+  }
+  assert.ok(checked > 60);
 });
 
 test("oauth complete command allows provider-less session-pair callbacks", () => {

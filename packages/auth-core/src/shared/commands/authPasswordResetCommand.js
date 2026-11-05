@@ -2,6 +2,7 @@ import { createSchema } from "json-rest-schema";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import {
   authPasswordFieldDefinition,
+  AUTH_FIELD_MESSAGES,
   createCommandMessages,
   okMessageOutputValidator
 } from "./authCommandValidators.js";
@@ -9,9 +10,9 @@ import {
 const AUTH_PASSWORD_RESET_MESSAGES = createCommandMessages({
   fields: {
     password: {
-      required: "Password is required.",
-      minLength: "Password must be at least 8 characters.",
-      default: "Password must be at least 8 characters."
+      required: AUTH_FIELD_MESSAGES.passwordRequired,
+      minLength: AUTH_FIELD_MESSAGES.passwordMinLength,
+      default: AUTH_FIELD_MESSAGES.passwordMinLength
     }
   }
 });

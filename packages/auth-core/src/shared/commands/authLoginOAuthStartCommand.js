@@ -1,6 +1,7 @@
 import { createSchema } from "json-rest-schema";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import {
+  AUTH_FIELD_MESSAGES,
   createCommandMessages,
   oauthProviderFieldDefinition,
   oauthReturnToFieldDefinition
@@ -9,13 +10,13 @@ import {
 const AUTH_LOGIN_OAUTH_START_MESSAGES = createCommandMessages({
   fields: {
     provider: {
-      required: "OAuth provider is required.",
-      pattern: "OAuth provider id is invalid.",
-      default: "OAuth provider id is invalid."
+      required: AUTH_FIELD_MESSAGES.oauthProviderRequired,
+      pattern: AUTH_FIELD_MESSAGES.oauthProviderInvalid,
+      default: AUTH_FIELD_MESSAGES.oauthProviderInvalid
     },
     returnTo: {
-      pattern: "Return target must be an absolute path or URL.",
-      default: "Return target must be an absolute path or URL."
+      pattern: AUTH_FIELD_MESSAGES.returnToInvalid,
+      default: AUTH_FIELD_MESSAGES.returnToInvalid
     }
   }
 });

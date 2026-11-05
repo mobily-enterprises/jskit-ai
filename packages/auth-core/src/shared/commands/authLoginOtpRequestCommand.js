@@ -2,6 +2,7 @@ import { createSchema } from "json-rest-schema";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import {
   authEmailFieldDefinition,
+  AUTH_FIELD_MESSAGES,
   createCommandMessages,
   oauthReturnToFieldDefinition,
   okMessageOutputValidator
@@ -10,14 +11,14 @@ import {
 const AUTH_LOGIN_OTP_REQUEST_MESSAGES = createCommandMessages({
   fields: {
     email: {
-      required: "Email is required.",
-      minLength: "Email is required.",
-      pattern: "Enter a valid email address.",
-      default: "Enter a valid email address."
+      required: AUTH_FIELD_MESSAGES.emailRequired,
+      minLength: AUTH_FIELD_MESSAGES.emailRequired,
+      pattern: AUTH_FIELD_MESSAGES.emailAddressInvalid,
+      default: AUTH_FIELD_MESSAGES.emailAddressInvalid
     },
     returnTo: {
-      pattern: "Return target must be an absolute path or URL.",
-      default: "Return target must be an absolute path or URL."
+      pattern: AUTH_FIELD_MESSAGES.returnToInvalid,
+      default: AUTH_FIELD_MESSAGES.returnToInvalid
     }
   }
 });

@@ -412,19 +412,55 @@ const sessionUnavailableOutputValidator = deepFreeze({
   mode: "replace"
 });
 
+// Each command message: its English and the code a client renders it from in the
+// user's language, the { code, message, params } form of resource field messages.
+const AUTH_FIELD_MESSAGES = deepFreeze({
+  validationFailed: { code: "validation_failed", message: "Validation failed." },
+  invalidValue: { code: "kernel.validation.invalid", message: "Invalid value." },
+  unexpectedField: { code: "auth.validation.unexpectedField", message: "Unexpected field." },
+  emailRequired: { code: "auth.validation.emailRequired", message: "Email is required." },
+  emailAddressInvalid: { code: "auth.validation.emailAddressInvalid", message: "Enter a valid email address." },
+  passwordRequired: { code: "auth.validation.passwordRequired", message: "Password is required." },
+  passwordMinLength: {
+    code: "auth.validation.passwordMinLength",
+    message: `Password must be at least ${AUTH_PASSWORD_MIN_LENGTH} characters.`,
+    params: { min: AUTH_PASSWORD_MIN_LENGTH }
+  },
+  devUserIdInvalid: { code: "auth.dev.userIdInvalid", message: "Provide a valid user id." },
+  devUserInvalid: { code: "auth.dev.userInvalid", message: "Provide a valid user id or email." },
+  devUserRequired: { code: "auth.dev.userRequired", message: "Provide a user id or email." },
+  oauthProviderRequired: { code: "auth.validation.oauthProviderRequired", message: "OAuth provider is required." },
+  oauthProviderInvalid: { code: "auth.validation.oauthProviderInvalid", message: "OAuth provider id is invalid." },
+  oauthCodeInvalid: { code: "auth.validation.oauthCodeInvalid", message: "OAuth code is invalid." },
+  oauthStateInvalid: { code: "auth.validation.oauthStateInvalid", message: "OAuth state is invalid." },
+  oauthIssuerInvalid: { code: "auth.validation.oauthIssuerInvalid", message: "OAuth issuer is invalid." },
+  accessTokenInvalid: { code: "auth.validation.accessTokenInvalid", message: "Access token is invalid." },
+  refreshTokenInvalid: { code: "auth.validation.refreshTokenInvalid", message: "Refresh token is invalid." },
+  returnToInvalid: { code: "auth.validation.returnToInvalid", message: "Return target must be an absolute path or URL." },
+  otpCodeRequired: { code: "auth.validation.otpCodeRequired", message: "One-time code is required." },
+  otpTokenHashInvalid: { code: "auth.validation.otpTokenHashInvalid", message: "One-time token hash is invalid." },
+  otpTypeUnsupported: { code: "auth.validation.otpTypeUnsupported", message: "Only email OTP verification is supported." },
+  recoveryCodeInvalid: { code: "auth.validation.recoveryCodeInvalid", message: "Recovery code is invalid." },
+  recoveryTokenHashInvalid: {
+    code: "auth.validation.recoveryTokenHashInvalid",
+    message: "Recovery token hash is invalid."
+  },
+  recoveryTypeUnsupported: { code: "auth.validation.recoveryTypeUnsupported", message: "Only recovery links are supported." }
+});
+
 function createCommandMessages({
   fields = {},
-  defaultMessage = "Invalid value."
+  defaultMessage = AUTH_FIELD_MESSAGES.invalidValue
 } = {}) {
   return deepFreeze({
-    apiValidation: "Validation failed.",
+    apiValidation: AUTH_FIELD_MESSAGES.validationFailed,
     fields: {
       ...(fields && typeof fields === "object" ? fields : {})
     },
     keywords: {
-      additionalProperties: "Unexpected field."
+      additionalProperties: AUTH_FIELD_MESSAGES.unexpectedField
     },
-    default: String(defaultMessage || "Invalid value.")
+    default: defaultMessage || AUTH_FIELD_MESSAGES.invalidValue
   });
 }
 
@@ -462,5 +498,6 @@ export {
   authCapabilitiesOutputSchema,
   sessionOutputValidator,
   sessionUnavailableOutputValidator,
+  AUTH_FIELD_MESSAGES,
   createCommandMessages
 };

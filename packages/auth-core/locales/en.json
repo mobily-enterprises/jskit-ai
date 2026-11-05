@@ -19,7 +19,9 @@
         "localhostOnly": "Dev auth bootstrap is only available from localhost.",
         "exchangeUnauthorized": "Dev auth exchange is not authorized.",
         "userRequired": "Provide a user id or email.",
-        "userNotFound": "User not found."
+        "userNotFound": "User not found.",
+        "userIdInvalid": "Provide a valid user id.",
+        "userInvalid": "Provide a valid user id or email."
       },
       "operation": {
         "unsupported": "Auth operation \"{operation}\" is not supported by the active provider."
@@ -31,7 +33,24 @@
         "passwordLength": "Password must be between {min} and {max} characters.",
         "passwordTooLong": "Password must be at most {max} characters.",
         "confirmPasswordRequired": "Confirm your password.",
-        "passwordsMismatch": "Passwords do not match."
+        "passwordsMismatch": "Passwords do not match.",
+        "unexpectedField": "Unexpected field.",
+        "emailAddressInvalid": "Enter a valid email address.",
+        "passwordMinLength": "Password must be at least {min} characters.",
+        "oauthProviderRequired": "OAuth provider is required.",
+        "oauthProviderInvalid": "OAuth provider id is invalid.",
+        "oauthCodeInvalid": "OAuth code is invalid.",
+        "oauthStateInvalid": "OAuth state is invalid.",
+        "oauthIssuerInvalid": "OAuth issuer is invalid.",
+        "accessTokenInvalid": "Access token is invalid.",
+        "refreshTokenInvalid": "Refresh token is invalid.",
+        "returnToInvalid": "Return target must be an absolute path or URL.",
+        "otpCodeRequired": "One-time code is required.",
+        "otpTokenHashInvalid": "One-time token hash is invalid.",
+        "otpTypeUnsupported": "Only email OTP verification is supported.",
+        "recoveryCodeInvalid": "Recovery code is invalid.",
+        "recoveryTokenHashInvalid": "Recovery token hash is invalid.",
+        "recoveryTypeUnsupported": "Only recovery links are supported."
       },
       "profile": {
         "displayNameRequired": "Display name is required."
