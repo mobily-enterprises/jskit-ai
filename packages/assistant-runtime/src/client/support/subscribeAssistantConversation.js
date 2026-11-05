@@ -251,9 +251,13 @@ function subscribeAssistantConversation({
           retryTimer = setTimeout(() => subscribe({ preserveHistory }), retryDelay);
           retryDelay = Math.min(retryDelay * 2, 30_000);
         }
-        onError(error ? Object.assign(new Error("Chat updates could not reconnect. Retrying automatically; Reload chat to try now.", { cause: error }), {
-          code: "assistant_subscription_transport_failed"
-        }) : Object.assign(new Error(response?.error || "Conversation subscription failed."), {
+        if (error) {
+          onError(Object.assign(new Error("Chat updates could not reconnect. Retrying automatically; Reload chat to try now.", { cause: error }), {
+            code: "assistant_subscription_transport_failed"
+          }));
+          return;
+        }
+        onError(Object.assign(new Error(response?.error || "Conversation subscription failed."), {
           code: response?.code, statusCode: response?.status, params: response?.params,
           ...(response?.error ? { messageCode: response.messageCode, messageParams: response.messageParams }
             : { messageCode: "assistant.runtime.subscription.failed" })
