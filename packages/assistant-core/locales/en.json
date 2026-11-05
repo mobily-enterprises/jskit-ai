@@ -464,7 +464,9 @@
         "reasoningEffortUnsupported": "The selected OpenCode model does not support this reasoning effort.",
         "reopenTerminalToAttach": "Reopen the OpenCode terminal before attaching files.",
         "savedConversationUnavailable": "The saved OpenCode conversation is unavailable. Restore its native history before continuing.",
-        "turnFailed": "OpenCode turn failed."
+        "turnFailed": "OpenCode turn failed.",
+        "turnUnreadable": "The exact OpenCode turn did not produce a readable result.",
+        "turnNotFinished": "OpenCode did not finish the turn."
       }
     },
     "errors": {

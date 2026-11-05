@@ -2,11 +2,11 @@
 
 ## Unreleased
 
-- Assistant failures that reach a person translate: 63 more undotted codes render from `jskit.errors.<code>`, and 96 sentences that share a code with others, or are sent without one, carry a `messageCode` (`assistant.claude.*`, `assistant.codex.*`, `assistant.opencode.*`, `assistant.conversation.*`, `assistant.turn.*`). The English messages are unchanged.
+- Assistant failures that reach a person translate: 63 more undotted codes render from `jskit.errors.<code>`, and 98 sentences that share a code with others, or are sent without one, carry a `messageCode` (`assistant.claude.*`, `assistant.codex.*`, `assistant.opencode.*`, `assistant.conversation.*`, `assistant.turn.*`). The English messages are unchanged.
 - The OpenCode version mismatch, Claude control-request timeout and unreadable saved Claude conversation errors carry `params` for their catalog English.
 - The assistant settings resource sends its system prompt field messages in the coded `{ code, message, params }` form.
 
-### New message keys (161)
+### New message keys (163)
 
 <details><summary>Key list</summary>
 
@@ -108,6 +108,8 @@
 - `jskit.assistant.opencode.reopenTerminalToAttach`
 - `jskit.assistant.opencode.savedConversationUnavailable`
 - `jskit.assistant.opencode.turnFailed`
+- `jskit.assistant.opencode.turnUnreadable`
+- `jskit.assistant.opencode.turnNotFinished`
 - `jskit.errors.conversation_claude_turn_timeout`
 - `jskit.errors.conversation_claude_renewal_history_mismatch`
 - `jskit.errors.conversation_claude_renewal_unrelated_history`
@@ -174,7 +176,7 @@
 
 </details>
 
-### Codes (161)
+### Codes (163)
 
 Error, field-error and message codes this package now sends, with their English. Undotted codes kept their existing values and render from `jskit.errors.<code>`.
 
@@ -278,6 +280,8 @@ Error, field-error and message codes this package now sends, with their English.
 | `assistant.opencode.reopenTerminalToAttach` | Reopen the OpenCode terminal before attaching files. |
 | `assistant.opencode.savedConversationUnavailable` | The saved OpenCode conversation is unavailable. Restore its native history before continuing. |
 | `assistant.opencode.turnFailed` | OpenCode turn failed. |
+| `assistant.opencode.turnUnreadable` | The exact OpenCode turn did not produce a readable result. |
+| `assistant.opencode.turnNotFinished` | OpenCode did not finish the turn. |
 | `conversation_claude_turn_timeout` | Claude did not finish within the time limit. |
 | `conversation_claude_renewal_history_mismatch` | The Claude renewal conversation does not match the expected native history. |
 | `conversation_claude_renewal_unrelated_history` | The successor Claude conversation already contains unrelated messages. |

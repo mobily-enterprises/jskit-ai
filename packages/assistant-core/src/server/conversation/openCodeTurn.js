@@ -528,7 +528,7 @@ export async function runOpenCodeConversationTurn(client, conversationId, input 
       ["thread_mismatch", "fresh_thread_required", "unrelated_history"].includes(reason) ? 409 : 502,
       message || (reason === "unreadable" ? "The exact OpenCode turn did not produce a readable result." : "OpenCode did not finish the turn."),
       { code: `assistant_opencode_turn_${reason}`, details,
-        ...(message ? {} : { messageCode: reason === "unreadable" ? "assistant.opencode.turnUnreadable" : "assistant.opencode.turnNotFinished" }) })
+        ...(message ? {} : reason === "unreadable" ? { messageCode: "assistant.opencode.turnUnreadable" } : { messageCode: "assistant.opencode.turnNotFinished" }) })
   } = input;
   if (
     (expectedThreadId && expectedThreadId !== conversationId) ||

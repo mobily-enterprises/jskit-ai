@@ -50,6 +50,19 @@ function assertCodexApplicationEnvironment(host) {
   if (!host.env) throw new TypeError("createCodexConversationDriver requires the application's environment, such as process.env.");
 }
 
+// Refusals Codex conversations send from several places; each names its sentence.
+function codexOutputTooLarge() {
+  return Object.assign(new Error("Codex output exceeded the configured limit."), {
+    messageCode: "assistant.codex.outputTooLarge", messageParams: {}
+  });
+}
+
+function nativeGoalChanged() {
+  return Object.assign(new Error("The native goal changed. Read it again before changing it."), {
+    messageCode: "assistant.codex.nativeGoalChanged", messageParams: {}
+  });
+}
+
 /**
  * Conversations own threads and observers on the account's shared native runtime.
  * @param {object} dependencies
@@ -95,9 +108,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
     } catch (error) {
       // Native keychain logins can have no auth file. Never expose malformed
       // credential contents in a parser's error message.
-      if (error.code !== "ENOENT") throw Object.assign(new Error("Codex credential data could not be read. Restore its account configuration."), {
-        messageCode: "assistant.codex.credentialsUnreadable", messageParams: {}
-      });
+      if (error.code !== "ENOENT") throw Object.assign(new Error("Codex credential data could not be read. Restore its account configuration."), { messageCode: "assistant.codex.credentialsUnreadable", messageParams: {} });
     } finally { await file?.close(); }
     return auth;
   }
@@ -139,9 +150,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
       identity: generation,
       generation,
       async assertCurrent(captured) {
-        if (captured && captured !== await generation()) throw Object.assign(new Error("Codex authentication changed. Reopen the conversation with its original account."), {
-          messageCode: "assistant.codex.authChangedReopen", messageParams: {}
-        });
+        if (captured && captured !== await generation()) throw Object.assign(new Error("Codex authentication changed. Reopen the conversation with its original account."), { messageCode: "assistant.codex.authChangedReopen", messageParams: {} });
       },
       markInvalid() {},
       reconnectRequiredCode: "codex_reconnect_required",
@@ -301,9 +310,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
     }
     if (!supplied) assertCodexApplicationEnvironment(host);
     if (!supplied && (!binding || typeof binding.threadId !== "string" || binding.workdir !== await realpath(workdir) || binding.configRoot !== configRoot)) {
-      throw Object.assign(new Error("This Codex conversation belongs to another working directory or credential home. Restore its original host configuration."), {
-        messageCode: "assistant.codex.otherHostConfiguration", messageParams: {}
-      });
+      throw Object.assign(new Error("This Codex conversation belongs to another working directory or credential home. Restore its original host configuration."), { messageCode: "assistant.codex.otherHostConfiguration", messageParams: {} });
     }
     const session = {
       binding,
@@ -331,9 +338,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
         : name.includes("AssistantMessage") ? Math.min(maximumOutput, maximumFinalReply) : maximumOutput;
       const length = input.text?.length || 0;
       if (length <= limit) return nativeStore[name](id, input);
-      if (!name.includes("AssistantMessage") || length > maximumOutput) throw Object.assign(new Error("Codex output exceeded the configured limit."), {
-        messageCode: "assistant.codex.outputTooLarge", messageParams: {}
-      });
+      if (!name.includes("AssistantMessage") || length > maximumOutput) throw codexOutputTooLarge();
       return nativeStore.mutateSession(id, async transaction => {
         const { runtime: state } = await transaction.readMetadata();
         const identity = input.nativeIdentity;
@@ -352,7 +357,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
             break;
           }
         }
-        throw Object.assign(new Error("Codex output exceeded the configured limit."), { messageCode: "assistant.codex.outputTooLarge", messageParams: {} });
+        throw codexOutputTooLarge();
       });
     };
     const runtime = supplied ? conversation.runtime : { ...conversation.runtime, store: { ...nativeStore,
@@ -361,13 +366,9 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
       writeConversationCommentaryMessage: boundedWriter("writeConversationCommentaryMessage"),
       writeConversationThinkingMessage: boundedWriter("writeConversationThinkingMessage"),
       async updateConversationStream(id, input) {
-        if ((input.delta?.length || input.text?.length || 0) > maximumOutput) throw Object.assign(new Error("Codex output exceeded the configured limit."), {
-          messageCode: "assistant.codex.outputTooLarge", messageParams: {}
-        });
+        if ((input.delta?.length || input.text?.length || 0) > maximumOutput) throw codexOutputTooLarge();
         const stream = await nativeStore.updateConversationStream(id, input);
-        if (stream?.messages.some(message => message.text.length > maximumOutput)) throw Object.assign(new Error("Codex output exceeded the configured limit."), {
-          messageCode: "assistant.codex.outputTooLarge", messageParams: {}
-        });
+        if (stream?.messages.some(message => message.text.length > maximumOutput)) throw codexOutputTooLarge();
         return stream;
       },
       writeConversationUserMessage(id, input) {
@@ -509,9 +510,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
             if (representation !== "native") {
               session.binding.threadId = nativeContext.threadId;
               const goal = session.binding.goal || null;
-              if ((goalValue(goal)?.id || null) !== (input.expectedGoalId || null)) throw Object.assign(new Error("The native goal changed. Read it again before changing it."), {
-                messageCode: "assistant.codex.nativeGoalChanged", messageParams: {}
-              });
+              if ((goalValue(goal)?.id || null) !== (input.expectedGoalId || null)) throw nativeGoalChanged();
               command = { ...input, threadId: session.binding.threadId,
                 createdAt: goal?.createdAt, objective: input.action === "set" ? input.objective : goal?.objective };
             }
@@ -537,9 +536,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
           prepareThread: Boolean(session.binding.threadId && ["set", "resume"].includes(input.action)), tools
         });
         const goal = session.binding.threadId ? (await session.native.readGoal(session.binding.threadId, { signal })).goal : null;
-        if ((goalValue(goal)?.id || null) !== (input.expectedGoalId || null)) throw Object.assign(new Error("The native goal changed. Read it again before changing it."), {
-          messageCode: "assistant.codex.nativeGoalChanged", messageParams: {}
-        });
+        if ((goalValue(goal)?.id || null) !== (input.expectedGoalId || null)) throw nativeGoalChanged();
         const result = await owner.updateGoal(sessionId, { ...input, threadId: session.binding.threadId,
           createdAt: goal?.createdAt, objective: input.action === "set" ? input.objective : goal?.objective }, {
           context: nativeContext, signal: context?.signal,

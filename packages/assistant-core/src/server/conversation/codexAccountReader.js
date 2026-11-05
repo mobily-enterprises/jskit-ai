@@ -17,13 +17,14 @@ export function createCodexAccountReader({
   secretNamespace = "codex-auth-secret-v1"
 } = {}) {
   // messageCode names the sentence, since one code covers several.
-  function codexAppServerHelperAuthError(code = "", message = "", messageCode = "") {
+  function codexAppServerHelperAuthError(code = "", message = "", { messageCode } = {}) {
     const error = new Error(
       normalizeNullableText(message) || "Codex helper authentication is unavailable. Reconnect Codex and retry."
     );
     error.code = normalizeNullableText(code) || `${errorPrefix}codex_helper_auth_unavailable`;
-    const sentenceCode = messageCode || (normalizeNullableText(message) ? "" : "assistant.codex.helperAuthUnavailable");
-    if (sentenceCode) Object.assign(error, { messageCode: sentenceCode, messageParams: {} });
+    if (!normalizeNullableText(message)) error.messageCode = "assistant.codex.helperAuthUnavailable";
+    else if (messageCode) error.messageCode = messageCode;
+    if (error.messageCode) error.messageParams = {};
     return error;
   }
 
@@ -65,7 +66,7 @@ export function createCodexAccountReader({
         throw codexAppServerHelperAuthError(
           `${errorPrefix}codex_helper_auth_invalid`,
           "The selected Codex authentication record is invalid. Reconnect Codex and retry.",
-          "assistant.codex.authRecordInvalid"
+          { messageCode: "assistant.codex.authRecordInvalid" }
         );
       }
       const buffer = Buffer.alloc(CODEX_APP_SERVER_SELECTED_AUTH_MAX_BYTES + 1);
@@ -81,7 +82,7 @@ export function createCodexAccountReader({
         throw codexAppServerHelperAuthError(
           `${errorPrefix}codex_helper_auth_invalid`,
           "The selected Codex authentication record is too large. Reconnect Codex and retry.",
-          "assistant.codex.authRecordTooLarge"
+          { messageCode: "assistant.codex.authRecordTooLarge" }
         );
       }
       const parsed = JSON.parse(buffer.subarray(0, offset).toString("utf8"));
@@ -97,7 +98,7 @@ export function createCodexAccountReader({
       throw codexAppServerHelperAuthError(
         `${errorPrefix}codex_helper_auth_unavailable`,
         "The selected Codex authentication record could not be read. Reconnect Codex and retry.",
-        "assistant.codex.authRecordUnreadable"
+        { messageCode: "assistant.codex.authRecordUnreadable" }
       );
     } finally {
       await handle?.close().catch(() => null);
@@ -110,7 +111,7 @@ export function createCodexAccountReader({
       throw codexAppServerHelperAuthError(
         `${errorPrefix}codex_helper_auth_unavailable`,
         "The selected Codex account is unavailable. Reconnect Codex and retry.",
-        "assistant.codex.accountUnavailable"
+        { messageCode: "assistant.codex.accountUnavailable" }
       );
     }
     const auth = await readBoundedCodexAuthJson(path.join(toolHomeSource, ".codex", "auth.json"));
@@ -156,7 +157,7 @@ export function createCodexAccountReader({
     throw codexAppServerHelperAuthError(
       `${errorPrefix}codex_helper_auth_invalid`,
       "The selected Codex authentication mode is unsupported. Reconnect Codex and retry.",
-      "assistant.codex.authModeUnsupported"
+      { messageCode: "assistant.codex.authModeUnsupported" }
     );
   }
 
