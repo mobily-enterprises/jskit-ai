@@ -153,6 +153,30 @@ test("workspaceInvitesRepository.insert preserves expiresAt and relationship fie
   assert.equal(typeof state.postPayload.data.expiresAt, "string");
 });
 
+test("workspaceInvitesRepository.insert recovers a lost duplicate race with the newest pending invite by id, 10 after 9", async () => {
+  const pendingInvite = (id) => ({
+    id,
+    workspace: { id: "7" },
+    email: "ada@example.com",
+    roleSid: "member",
+    status: "pending",
+    tokenHash: `token-${id}`
+  });
+  // In id order, as the resource returns them.
+  const { api } = createWorkspaceInvitesApiStub({ rows: [pendingInvite("9"), pendingInvite("10")] });
+  api.resources.workspaceInvites.post = async () => {
+    throw Object.assign(new Error("Duplicate invite"), {
+      transactionOutcome: "rolledBack",
+      cause: { code: "ER_DUP_ENTRY" }
+    });
+  };
+  const repository = createRepository({ api });
+
+  const invite = await repository.insert({ workspaceId: "7", email: "ada@example.com", tokenHash: "token-new" });
+
+  assert.equal(invite.id, "10");
+});
+
 test("workspaceInvitesRepository.findPendingByTokenHash reads from the canonical invite resource without workspace data", async () => {
   const { api } = createWorkspaceInvitesApiStub({
     rows: [

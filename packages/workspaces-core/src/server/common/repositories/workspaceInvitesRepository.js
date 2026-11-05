@@ -282,8 +282,8 @@ function createRepository({ api }) {
       options
     );
 
-    rows.sort((left, right) => String(right.id || "").localeCompare(String(left.id || "")));
-    return normalizeInviteRecord(rows[0] || null);
+    // queryInvites returns the rows in id order, compared by the database, so the newest is the last.
+    return normalizeInviteRecord(rows.at(-1) || null);
   }
 
   async function expirePendingByWorkspaceIdAndEmail(workspaceId, email, options = {}) {
