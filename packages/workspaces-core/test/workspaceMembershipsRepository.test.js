@@ -43,6 +43,7 @@ function createWorkspaceMembershipsApiStub({
   const api = {
     resources: {
       workspaceMemberships: {
+        vars: { queryMaxLimit: 100 },
         async query({ queryParams, format }) {
           assert.equal(format, "plain");
           state.queryCalls.push(queryParams || {});
@@ -280,7 +281,9 @@ test("workspaceMembershipsRepository.listActiveWorkspaceIdsByUserId returns norm
         user: "9",
         status: "active"
       },
-      include: ["workspace"]
+      include: ["workspace"],
+      sort: ["id"],
+      page: { size: 100 }
     }
   ]);
 });

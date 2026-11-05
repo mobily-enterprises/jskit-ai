@@ -10,7 +10,7 @@ import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { normalizeLowerText, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   createJsonRestContext,
-  extractJsonRestCollectionRows
+  queryAllJsonRestCollectionRows
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 
 function normalizeInviteRecord(payload) {
@@ -121,18 +121,17 @@ function createRepository({ api }) {
         updatedAt: dateColumn("updated_at")
       }).forUpdate();
     }
-    return extractJsonRestCollectionRows(
-      await api.resources.workspaceInvites.query(
-        {
-          queryParams: {
-            filters,
-            ...(includeWorkspace ? { include: ["workspace"] } : {})
-          },
-          transaction: resolveTransaction(options),
-          format: "plain"
+    return queryAllJsonRestCollectionRows(
+      api.resources.workspaceInvites,
+      {
+        queryParams: {
+          filters,
+          ...(includeWorkspace ? { include: ["workspace"] } : {})
         },
-        createJsonRestContext(options.context)
-      )
+        transaction: resolveTransaction(options),
+        format: "plain"
+      },
+      options.context
     );
   }
 

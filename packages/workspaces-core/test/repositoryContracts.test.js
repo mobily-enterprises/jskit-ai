@@ -55,6 +55,7 @@ for (const [name, createRepository, resourceName, write] of duplicateRecoveryCas
       });
       const api = createApiStub();
       api.resources[resourceName] = {
+        vars: { queryMaxLimit: 100 },
         async query() {
           assert.equal(writeStarted, false, "A failed transaction cannot support duplicate recovery");
           reads += 1;

@@ -2,7 +2,8 @@ import { isLostDuplicateInsertRace, resolveTransaction, retryDeadlocks, toIsoStr
 import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   createJsonRestContext,
-  extractJsonRestCollectionRows
+  extractJsonRestCollectionRows,
+  queryAllJsonRestCollectionRows
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 
 function normalizeWorkspaceRecord(payload = null) {
@@ -180,21 +181,20 @@ function createRepository({ api }) {
       return [];
     }
 
-    const rows = extractJsonRestCollectionRows(
-      await api.resources.workspaceMemberships.query(
-        {
-          queryParams: {
-            filters: {
-              user: normalizedUserId,
-              status: "active"
-            },
-            include: ["workspace"]
+    const rows = await queryAllJsonRestCollectionRows(
+      api.resources.workspaceMemberships,
+      {
+        queryParams: {
+          filters: {
+            user: normalizedUserId,
+            status: "active"
           },
-          transaction: resolveTransaction(options),
-          format: "plain"
+          include: ["workspace"]
         },
-        createJsonRestContext(options.context)
-      )
+        transaction: resolveTransaction(options),
+        format: "plain"
+      },
+      options.context
     );
 
     const workspaces = rows

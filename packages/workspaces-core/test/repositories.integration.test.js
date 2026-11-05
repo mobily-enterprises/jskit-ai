@@ -17,6 +17,12 @@ import { createRepository as createWorkspacesRepository } from "../src/server/co
 import { createRepository as createMembershipsRepository } from "../src/server/common/repositories/workspaceMembershipsRepository.js";
 import { createRepository as createInvitesRepository } from "../src/server/common/repositories/workspaceInvitesRepository.js";
 import { createRepository as createSettingsRepository } from "../src/server/workspaceSettings/workspaceSettingsRepository.js";
+import { renderDefaultWorkspaceInviteEmail } from "../src/server/workspaceMembers/defaultWorkspaceInviteEmail.js";
+import { unconfiguredWorkspaceInviteMailer } from "../src/server/workspaceMembers/unconfiguredWorkspaceInviteMailer.js";
+import { createWorkspaceInviteUrlBuilder } from "../src/server/workspaceMembers/workspaceInviteUrls.js";
+import { createService as createMembersService } from "../src/server/workspaceMembers/workspaceMembersService.js";
+import { createWorkspacesServerI18n } from "../src/server/i18n.js";
+import { createWorkspaceRoleCatalog } from "../src/shared/roles.js";
 import { verifyInvitationTransactions } from "./support/invitationTransactions.js";
 
 const TABLES = [
@@ -230,6 +236,125 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     assert.equal((await knex("workspaces").where({ id: workspace.id }).first()).name, "Renamed");
     await memberships.upsertMembership(workspace.id, member.id, { status: "inactive" });
     assert.deepEqual(await workspaces.listForUserId(member.id), []);
+  });
+
+  // Lists of more rows than json-rest-api's default page (20) and maximum page (100), written in bulk.
+  async function insertRows(table, rows) {
+    for (let start = 0; start < rows.length; start += 100) {
+      await knex(table).insert(rows.slice(start, start + 100));
+    }
+  }
+
+  async function insertUsers(usernames, displayName = (username) => username) {
+    await insertRows("users", usernames.map((username) => ({
+      auth_provider: "local",
+      auth_provider_user_sid: `identity-${username}`,
+      email: `${username}@example.com`,
+      username,
+      display_name: displayName(username)
+    })));
+    const rows = await knex("users").select("id", "username");
+    return new Map(rows.map((row) => [row.username, String(row.id)]));
+  }
+
+  async function insertWorkspaces(count, ownerUserId) {
+    await insertRows("workspaces", Array.from({ length: count }, (_, index) => ({
+      slug: `team-${index}`,
+      name: `Team ${index}`,
+      owner_user_id: ownerUserId,
+      is_personal: false
+    })));
+    return (await knex("workspaces").orderBy("id").select("id")).map((row) => String(row.id));
+  }
+
+  test("a workspace's 1,050 active members are all listed, sorted by name, inside a transaction too", async () => {
+    // Inserted in an order unrelated to their names, so the pages' id order is not the name order.
+    const numbers = Array.from({ length: 1050 }, (_, index) => String((index * 7919) % 1050).padStart(4, "0"));
+    const users = await insertUsers(
+      [...numbers.map((number) => `member-${number}`), "member-left"],
+      (username) => username.replace("member-", "Member ")
+    );
+    const ownerId = users.get(`member-${numbers[0]}`);
+    const workspace = await workspaces.insert({ slug: "big-team", name: "Big Team", ownerUserId: ownerId });
+    await insertRows("workspace_memberships", [...users].map(([username, userId]) => ({
+      workspace_id: workspace.id,
+      user_id: userId,
+      role_sid: userId === ownerId ? "owner" : "member",
+      status: username === "member-left" ? "inactive" : "active"
+    })));
+    const expectedNames = numbers.map((number) => `Member ${number}`).sort();
+
+    const listed = await memberships.listActiveByWorkspaceId(workspace.id);
+    assert.equal(listed.length, 1050);
+    assert.deepEqual(listed.map(({ displayName }) => displayName), expectedNames);
+    assert.equal(new Set(listed.map(({ userId }) => userId)).size, 1050);
+
+    const membersService = createMembersService({
+      workspaceMembershipsRepository: memberships,
+      workspaceInvitesRepository: invites,
+      inviteExpiresInMs: 86400000,
+      roleCatalog: createWorkspaceRoleCatalog(),
+      workspaceInvitationsEnabled: false,
+      inviteUrlBuilder: createWorkspaceInviteUrlBuilder({ appConfig: {}, env: {} }),
+      workspaceInviteMailer: unconfiguredWorkspaceInviteMailer,
+      workspaceInviteEmailTemplate: renderDefaultWorkspaceInviteEmail,
+      i18n: createWorkspacesServerI18n(),
+      userProfilesRepository: profiles,
+      userSettingsRepository: userSettings
+    });
+    const { members } = await membersService.listMembers(workspace);
+    assert.deepEqual(members.map(({ userId }) => userId), listed.map(({ userId }) => userId));
+    assert.deepEqual(members.filter(({ isOwner }) => isOwner).map(({ userId }) => userId), [ownerId]);
+
+    await profiles.withTransaction(async (trx) => {
+      const joiner = await createProfile("Zara", { trx });
+      await memberships.upsertMembership(workspace.id, joiner.id, { roleSid: "member", status: "active" }, { trx });
+      const withJoiner = await memberships.listActiveByWorkspaceId(workspace.id, { trx });
+      assert.equal(withJoiner.length, 1051);
+      assert.equal(withJoiner.at(-1).displayName, "Zara");
+    });
+  });
+
+  test("a member of 130 workspaces has all of them listed", async () => {
+    const users = await insertUsers(["host", "roaming"]);
+    const workspaceIds = await insertWorkspaces(135, users.get("host"));
+    await insertRows("workspace_memberships", workspaceIds.map((workspaceId, index) => ({
+      workspace_id: workspaceId,
+      user_id: users.get("roaming"),
+      role_sid: "member",
+      status: index < 130 ? "active" : "inactive"
+    })));
+    const activeIds = workspaceIds.slice(0, 130);
+
+    const ids = await memberships.listActiveWorkspaceIdsByUserId(users.get("roaming"));
+    assert.deepEqual([...ids].sort(), [...activeIds].sort());
+    assert.deepEqual((await workspaces.listForUserId(users.get("roaming"))).map(({ id }) => id), activeIds);
+  });
+
+  test("a workspace's 120 pending invitations and an email's 110 are all listed", async () => {
+    const users = await insertUsers(["host"]);
+    const [crowdedId, ...otherIds] = await insertWorkspaces(111, users.get("host"));
+    await insertRows("workspace_invites", [
+      ...Array.from({ length: 123 }, (_, index) => ({
+        workspace_id: crowdedId,
+        email: `guest-${index}@example.com`,
+        status: index < 120 ? "pending" : "accepted",
+        token_hash: `crowded-${index}`
+      })),
+      ...otherIds.map((workspaceId) => ({
+        workspace_id: workspaceId,
+        email: "roaming@example.com",
+        status: "pending",
+        token_hash: `roaming-${workspaceId}`
+      }))
+    ]);
+
+    const crowded = await invites.listPendingByWorkspaceIdWithWorkspace(crowdedId);
+    assert.equal(crowded.length, 120);
+    assert.equal(new Set(crowded.map(({ email }) => email)).size, 120);
+    const roaming = await invites.listPendingByEmail("roaming@example.com");
+    assert.deepEqual(roaming.map(({ workspaceId }) => workspaceId).sort(), [...otherIds].sort());
+    assert.ok(roaming.every(({ workspaceSlug }) => workspaceSlug.startsWith("team-")));
   });
 
   test("workspace settings and invitation lifecycle preserve logical IDs and included workspaces", async () => {

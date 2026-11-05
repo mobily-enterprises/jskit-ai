@@ -8,7 +8,7 @@ import {
 import { normalizeLowerText, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   createJsonRestContext,
-  extractJsonRestCollectionRows
+  queryAllJsonRestCollectionRows
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { OWNER_ROLE_ID } from "../../../shared/roles.js";
 
@@ -54,18 +54,17 @@ function createRepository({ api }) {
           .filter(Boolean)
       )
     );
-    return extractJsonRestCollectionRows(
-      await api.resources.workspaceMemberships.query(
-        {
-          queryParams: {
-            filters,
-            ...(normalizedInclude.length > 0 ? { include: normalizedInclude } : {})
-          },
-          transaction: resolveTransaction(options),
-          format: "plain"
+    return queryAllJsonRestCollectionRows(
+      api.resources.workspaceMemberships,
+      {
+        queryParams: {
+          filters,
+          ...(normalizedInclude.length > 0 ? { include: normalizedInclude } : {})
         },
-        createJsonRestContext(options.context)
-      )
+        transaction: resolveTransaction(options),
+        format: "plain"
+      },
+      options.context
     );
   }
 

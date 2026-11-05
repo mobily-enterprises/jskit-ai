@@ -125,6 +125,7 @@ function createWorkspacesApiStub({
         }
       },
       workspaceMemberships: {
+        vars: { queryMaxLimit: 100 },
         async query({ queryParams, format }) {
           assert.equal(format, "plain");
           const filters = queryParams?.filters || {};
