@@ -63,7 +63,10 @@
       },
       "denied": {
         "notAllowlisted": "Sign-in succeeded, but this account is not allowed to access this application.",
-        "blocked": "Sign-in succeeded, but this account has been blocked from accessing this application."
+        "blocked": "Sign-in succeeded, but this account has been blocked from accessing this application.",
+        "notAllowlistedDefault": "This account is not allowed to access this application.",
+        "blockedDefault": "This account has been blocked from accessing this application.",
+        "unspecified": "This account cannot access this application."
       }
     }
   }

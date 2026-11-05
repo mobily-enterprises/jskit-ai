@@ -7,10 +7,26 @@ const AUTH_DENIED_CODES = Object.freeze({
   BLOCKED: "blocked"
 });
 
-const AUTH_DENIED_DEFAULT_MESSAGES = Object.freeze({
-  [AUTH_DENIED_CODES.NOT_ALLOWLISTED]: "This account is not allowed to access this application.",
-  [AUTH_DENIED_CODES.BLOCKED]: "This account has been blocked from accessing this application."
+// The denial a built-in reason gets when the app sends no message, and the one
+// any other reason gets: the English and the code a client renders it from.
+const AUTH_DENIED_DEFAULT_TEXTS = Object.freeze({
+  [AUTH_DENIED_CODES.NOT_ALLOWLISTED]: Object.freeze({
+    message: "This account is not allowed to access this application.",
+    messageCode: "auth.denied.notAllowlistedDefault"
+  }),
+  [AUTH_DENIED_CODES.BLOCKED]: Object.freeze({
+    message: "This account has been blocked from accessing this application.",
+    messageCode: "auth.denied.blockedDefault"
+  })
 });
+const AUTH_DENIED_FALLBACK_TEXT = Object.freeze({
+  message: "This account cannot access this application.",
+  messageCode: "auth.denied.unspecified"
+});
+
+const AUTH_DENIED_DEFAULT_MESSAGES = Object.freeze(Object.fromEntries(
+  Object.entries(AUTH_DENIED_DEFAULT_TEXTS).map(([code, text]) => [code, text.message])
+));
 
 // The sign-in error for each built-in reason: its English and the code a client
 // renders it from in the user's language.
@@ -50,7 +66,7 @@ function normalizeAuthDenied(input = null) {
   }
 
   const explicitMessage = String(input.message || "").trim();
-  const message = explicitMessage || AUTH_DENIED_DEFAULT_MESSAGES[code] || "This account cannot access this application.";
+  const message = explicitMessage || AUTH_DENIED_DEFAULT_MESSAGES[code] || AUTH_DENIED_FALLBACK_TEXT.message;
 
   return Object.freeze({
     code,
@@ -59,14 +75,18 @@ function normalizeAuthDenied(input = null) {
 }
 
 // { message, messageCode? } for a denied session, or null. A reason the app
-// defined itself keeps the message it sent, without a code.
+// defined itself keeps the message it sent, without a code, or the coded fallback
+// when it sent none.
 function resolveAuthDeniedLoginText(input = null) {
   const authDenied = normalizeAuthDenied(input);
   if (!authDenied) {
     return null;
   }
 
-  return AUTH_DENIED_LOGIN_TEXTS[authDenied.code] || Object.freeze({ message: authDenied.message });
+  return AUTH_DENIED_LOGIN_TEXTS[authDenied.code] ||
+    (authDenied.message === AUTH_DENIED_FALLBACK_TEXT.message
+      ? AUTH_DENIED_FALLBACK_TEXT
+      : Object.freeze({ message: authDenied.message }));
 }
 
 function resolveAuthDeniedLoginMessage(input = null) {
@@ -78,6 +98,8 @@ export {
   AUTH_DENIED_CODE_PATTERN,
   AUTH_DENIED_CODES,
   AUTH_DENIED_DEFAULT_MESSAGES,
+  AUTH_DENIED_DEFAULT_TEXTS,
+  AUTH_DENIED_FALLBACK_TEXT,
   AUTH_DENIED_LOGIN_MESSAGES,
   AUTH_DENIED_LOGIN_TEXTS,
   AUTH_DENIED_MESSAGE_MAX_LENGTH,
