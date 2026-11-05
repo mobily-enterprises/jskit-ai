@@ -486,7 +486,13 @@ fact cannot repair an older saved uncertain request or grant actor access.
 When `draftStorage` restores a page, known failed deliveries remain failed and
 accepted receipts remain accepted. Saved uncertain, pending or unrecognised
 delivery states stay uncertain with the exact original ID, payload and draft;
-closing a page during HTTP is not proof of rejection. Only the transient
+closing a page during HTTP is not proof of rejection. A draft message that was
+never dispatched (one deferred behind a working turn, for example) can no longer
+be sent once its conversation is released: its words return to the saved draft,
+ahead of anything typed after it, and no delivery is saved for it. A draft
+submission that settles undelivered without leaving a delivery record (refused
+before one was recorded) gives its words back to the composer, as a steer
+already did. Only the transient
 inspection flag is reset so **Retry** is reachable again. A matching
 canonical row marked `receipt: false` cannot settle delivery. Unknown inspection
 never retries; an actual accepted receipt is required to acknowledge the request.

@@ -1,6 +1,6 @@
 import { computed, onScopeDispose, ref, shallowRef, toValue, watch } from "vue";
 import { toText } from "@jskit-ai/kernel/shared/support/normalize";
-import { createAssistantMessageDelivery, unmatchedOptimisticMessages } from "@jskit-ai/assistant-core/client/conversation-delivery";
+import { createAssistantMessageDelivery, draftWithRestoredMessage, unmatchedOptimisticMessages } from "@jskit-ai/assistant-core/client/conversation-delivery";
 import { useAssistantQuestions } from "@jskit-ai/assistant-core/client/conversation-questions";
 import { latestAssistantMessageAwaitingUserReply } from "@jskit-ai/assistant-core/shared/conversation";
 import { failureMessage, isAccessDenied, resultError } from "../support/conversationFailures.js";
@@ -124,6 +124,8 @@ function createConversationRuntime({ identity, api, socket, actorKey, placement,
     return Boolean(retry && submitted && (current === submitted || current.startsWith(submitted)));
   });
   let draftSubmissionSequence = 0;
+  // The draft each submitted draft message came from, until its send settles.
+  const submittedDrafts = new Map();
   const error = ref("");
   const loading = ref(true);
   const stopping = ref(false);
@@ -290,6 +292,18 @@ function createConversationRuntime({ identity, api, socket, actorKey, placement,
     questions.reset();
   }, { flush: "sync" });
   onScopeDispose(() => {
+    // A draft message not yet dispatched can no longer be sent: its draft
+    // returns to the saved draft, ahead of any text typed after it. A
+    // dispatched one stays saved and is restored as unconfirmed.
+    const unsent = [...pendingMessages].filter(([messageId, pending]) => !pending.dispatched && submittedDrafts.has(messageId));
+    if (unsent.length && current.value && !accessDenied.value) {
+      for (const [messageId] of unsent.reverse()) {
+        draft.value = draftWithRestoredMessage(submittedDrafts.get(messageId), draft.value);
+        delivery.remove(messageId);
+      }
+      // The scope's watchers have stopped, so the draft is saved here.
+      persistDraft();
+    }
     disposed.value = true;
     subscription();
     stopPlacement();
@@ -349,10 +363,17 @@ function createConversationRuntime({ identity, api, socket, actorKey, placement,
     const sequence = ++draftSubmissionSequence;
     draftRetry.value = null;
     draft.value = retry ? draftAfterAcceptedSubmission(draft.value, draftSnapshot) : "";
-    const result = await send(captured, { messageId: id, onAccepted });
+    submittedDrafts.set(id, draftSnapshot);
+    let result;
+    try { result = await send(captured, { messageId: id, onAccepted }); }
+    finally { submittedDrafts.delete(id); }
     if (!current.value) return false;
     const accepted = result !== false && result?.ok !== false;
-    if (!accepted && kind === "steer" && sequence === draftSubmissionSequence && !draft.value) {
+    const undelivered = !accepted && sequence === draftSubmissionSequence && !draft.value;
+    // No undelivered draft is lost: a failed or unconfirmed message keeps its
+    // words in the chat with Retry, and one never recorded returns to the draft.
+    if (undelivered && kind !== "steer" && !delivery.find(id) && !accessDenied.value) draft.value = draftSnapshot;
+    if (undelivered && kind === "steer") {
       draft.value = draftSnapshot;
       const optimistic = delivery.find(id) || {
         createdAtMs: Date.now(), id, text: String(captured.displayMessage || captured.message || "").trim()
