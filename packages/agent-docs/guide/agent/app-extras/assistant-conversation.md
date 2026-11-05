@@ -3431,8 +3431,13 @@ at shutdown each native owner stops the processes this server runs, since none
 outlives the server that started it, and saved conversations are not reopened to
 be stopped. Claude stops its sessions together, leaves an idle chat untouched
 (nothing to stop, nothing written) and reports a session that cannot stop by ID
-in `failed` while the others still stop. It stops them even when its
-account-query cleanup fails; that failure is still the call's result. Once
+in `failed` while the others still stop. A turn still running when its process
+stops is not ended at shutdown: its saved record keeps the execution and the
+active turn, as after a crash, so the next server's recovery proves that exit,
+interrupts the turn and runs the host's interrupted checkpoint. A slow host
+checkpoint, such as a Git snapshot, never holds up shutdown. Claude stops its
+sessions even when its account-query cleanup fails; that failure is still the
+call's result. Once
 shutdown has invalidated the owner, a later session close only releases retained
 work. Failed cleanup can be retried after runtime closure. This is not a browser
 operation or a way to submit a caller-selected native owner.

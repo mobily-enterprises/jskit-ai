@@ -18,10 +18,11 @@ const IDLE_ID = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 // A host with Vibe64's storage rules: every save writes the session record, an
 // archived session refuses writes, saved conversations are re-read from storage
 // and a session whose workspace is gone cannot prepare a conversation context.
-async function lifecycleFixture(t) {
+// A running turn's end first runs the host's checkpoint, a Git snapshot there.
+async function lifecycleFixture(t, { turnEndCheckpoint = async () => {} } = {}) {
   const root = await mkdtemp(path.join(os.tmpdir(), "claude-lifecycle-"));
   const sessions = new Map();
-  const calls = { saves: [], reads: 0, stops: [] };
+  const calls = { saves: [], reads: 0, stops: [], checkpoints: [] };
   const processes = [];
   const session = sessionId => {
     if (!sessions.has(sessionId)) {
@@ -83,7 +84,13 @@ async function lifecycleFixture(t) {
       }
     },
     // As in Vibe64, the native turn's own checkpoints write the session record.
-    async onEvent(entry, event) { if (event.type === "save") await store.save(entry); }
+    async onEvent(entry, event) {
+      if (event.type === "before-state" && !event.active && entry.turn?.active) {
+        calls.checkpoints.push(`${entry.context.sessionId}:${event.state}`);
+        await turnEndCheckpoint();
+      }
+      if (event.type === "save") await store.save(entry);
+    }
   });
   owner = create();
   const terminals = [];
@@ -199,9 +206,40 @@ test("Claude shutdown stops sessions together and never rewrites an idle chat", 
   assert.equal(result.ok, true);
   assert.deepEqual(running.map(entry => entry.process), [null, null, null]);
   const before = f.calls.saves.length;
-  // Shutdown invalidates more than once; the chats are idle now.
+  // Shutdown invalidates more than once; nothing is left to stop or write.
   assert.equal((await f.owner.invalidateRuntimes({ reason: "server-shutdown" }, f.application, f.account)).ok, true);
-  assert.equal(f.calls.saves.length, before, "idle chats were not written again");
+  assert.equal(f.calls.saves.length, before, "the chats were not written again");
+});
+
+test("Claude shutdown leaves a running turn's end and its checkpoint to the next server", { timeout: 5_000 }, async t => {
+  // The host's checkpoint can take longer than the server has to stop.
+  const checkpoint = Promise.withResolvers();
+  let checkpointWaits = true;
+  const f = await lifecycleFixture(t, { turnEndCheckpoint: () => checkpointWaits ? checkpoint.promise : undefined });
+  const a = await f.running("a");
+  const saved = f.session("a").records.get(MAIN_IDS.a);
+  let timer;
+  const result = await Promise.race([
+    f.owner.invalidateRuntimes({ reason: "server-shutdown" }, f.application, f.account),
+    new Promise((_, reject) => { timer = setTimeout(() => reject(new Error("Shutdown waited for the turn's checkpoint")), 1_000); })
+  ]).finally(() => {
+    clearTimeout(timer);
+    checkpoint.resolve();
+  });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(a.process, null, "the process stopped");
+  assert.deepEqual(f.calls.checkpoints, [], "shutdown ran no checkpoint");
+  assert.equal(f.session("a").records.get(MAIN_IDS.a), saved, "the saved record was not rewritten");
+  const custody = ({ executionId, state }) => ({ executionId, state });
+  assert.deepEqual(custody(JSON.parse(saved)), { executionId: "execution-0", state: "active" });
+  // The next server's close proves that exit, then interrupts the turn through its checkpoint.
+  checkpointWaits = false;
+  f.restart();
+  const stops = f.calls.stops.length;
+  assert.equal((await f.owner.closeSession({ sessionId: "a" }, f.application)).ok, true);
+  assert.deepEqual(f.calls.stops.slice(stops), ["execution-0"]);
+  assert.deepEqual(f.calls.checkpoints, ["a:interrupted"]);
+  assert.deepEqual(custody(JSON.parse(f.session("a").records.get(MAIN_IDS.a))), { executionId: "", state: "interrupted" });
 });
 
 test("Claude project close releases its sessions from memory without reopening saved conversations", async t => {

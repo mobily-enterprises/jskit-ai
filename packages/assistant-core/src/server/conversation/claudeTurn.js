@@ -368,6 +368,7 @@ export function createClaudeConversationOwner({
       process: {
         stopExecution: process.stopExecution,
         ...(bound ? { releaseExecution: () => store.releaseExecution(entry) } : {}),
+        ownerClosing: () => cleanup.closing,
         getProcess: () => entry.stopping ? null : entry.process,
         isActive: () => isTurnActive(entry),
         startProcess: input => processStart.startProcess(entry, input),

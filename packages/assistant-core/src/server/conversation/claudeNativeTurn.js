@@ -110,7 +110,8 @@ function retainStoppedClaudeMessages(messages, pendingAssistantMessages) {
  * The owner's control of one native process, as a native turn uses it.
  * @typedef {import("./providers/claude.js").ClaudeProcessControl & {
  *   stopExecution?: (executionId: string, options?: object) => Promise<object>,
- *   releaseExecution?: () => Promise<unknown>
+ *   releaseExecution?: () => Promise<unknown>,
+ *   ownerClosing?: () => boolean
  * }} ClaudeTurnProcess
  */
 
@@ -275,6 +276,16 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
         if (entry.startupCleanup === startup) entry.startupCleanup = null;
         if (active) entry.completion?.resolve({ status: "interrupted", error: reason || "Work stopped." });
         return;
+      }
+      if (entry.turn?.active && process.ownerClosing()) {
+        // At shutdown the turn's end belongs to the next server, as after a
+        // crash: its saved record keeps the execution and the active turn, so
+        // that server's recovery proves this exit, interrupts the turn and runs
+        // the host's checkpoint. Run here, that checkpoint (a Git snapshot, say)
+        // would hold the host's bounded shutdown for as long as it takes.
+        resolveCompletion({ ...readResult(), status: "interrupted", error: reason });
+        if (entry.startupCleanup === startup) entry.startupCleanup = null;
+        return entry.exitProof;
       }
       if (entry.turn?.active) {
         try { await updateState("interrupted", reason); }
