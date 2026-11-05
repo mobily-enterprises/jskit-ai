@@ -48,8 +48,8 @@
     "@vue/devtools-api": "^8.2.1"
   },
   "devDependencies": {
-    "@jskit-ai/config-eslint": "0.1.244",
-    "@jskit-ai/jskit-catalog": "0.2.18",
+    "@jskit-ai/config-eslint": "0.1.245",
+    "@jskit-ai/jskit-catalog": "0.2.19",
     "@playwright/test": "1.61.1",
     "@vitejs/plugin-vue": "^6.0.7",
     "eslint": "^10.8.0",
