@@ -91,6 +91,8 @@ const resource = defineCrudResource({
   searchSchema: {
     id: { type: "id", actualField: "id" },
     q: { type: "string", oneOf: ["gateKey"], filterOperator: "like", splitBy: " ", matchAll: true },
+    // Server-only: the rewarded service counts the receipts granted since a day began.
+    grantedSince: { type: "dateTime", actualField: "grantedAt", filterOperator: ">=" },
   },
   defaultSort: ["-createdAt"],
   autofilter: "workspace_user",

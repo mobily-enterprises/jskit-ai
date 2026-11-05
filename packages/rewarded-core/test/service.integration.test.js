@@ -240,4 +240,29 @@ test(`rewarded grants use real resources and atomic transactions (${databaseUrl 
     assert.equal(retry.session.status, "rewarded");
     assert.equal((await knex("rewarded_unlock_receipts").where({ watch_session_id: session.data.id }).select()).length, 1);
   });
+
+  await t.test("a daily limit above one page of receipts is counted exactly and reached", async () => {
+    await repositories.rewardedRules.createDocument({
+      gateKey: "daily", surface: "app", enabled: true,
+      unlockMinutes: 30, cooldownMinutes: 0, dailyLimit: 120,
+      title: "Daily", description: "Daily limit test"
+    }, { context });
+    const dayStart = new Date(new Date().setUTCHours(0, 0, 0, 0));
+    // Expired receipts: today's count against the limit, yesterday's and another user's do not.
+    const grantReceipt = (grantedAt, receiptContext = context) => repositories.rewardedUnlockReceipts.createDocument({
+      gateKey: "daily", grantedAt: grantedAt.toISOString(), unlockedUntil: dayStart.toISOString()
+    }, { context: receiptContext });
+    for (let index = 0; index < 119; index += 1) await grantReceipt(dayStart);
+    for (let index = 0; index < 5; index += 1) await grantReceipt(new Date(dayStart.getTime() - 3600000));
+    for (let index = 0; index < 5; index += 1) await grantReceipt(dayStart, actorContext("1", "8"));
+    const dailyGate = { workspaceSlug: "alpha", gateKey: "daily" };
+
+    const open = await service.getCurrentState(dailyGate, { context });
+    assert.equal(open.reason, "reward-required");
+    assert.equal(open.dailyLimitRemaining, 1);
+    await grantReceipt(dayStart);
+    const reached = await service.getCurrentState(dailyGate, { context });
+    assert.equal(reached.reason, "daily-limit-reached");
+    assert.equal(reached.dailyLimitRemaining, 0);
+  });
 });

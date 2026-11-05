@@ -1,9 +1,11 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { simplifyJsonApiDocument } from "@jskit-ai/http-runtime/shared";
+import { jsonApiNextCursor, simplifyJsonApiDocument } from "@jskit-ai/http-runtime/shared";
 import { resolveActionUser } from "@jskit-ai/users-core/server/resolveActionUser";
 
 const REWARDED_SURFACE = "app";
+// json-rest-api's largest page.
+const RECEIPT_PAGE_SIZE = 100;
 
 function normalizeRecordList(document) {
   const simplified = simplifyJsonApiDocument(document);
@@ -206,6 +208,28 @@ function createService({
     }, repositoryOptions);
   }
 
+  /**
+   * How many of the gate's receipts were granted since `since`, read a page at
+   * a time until no page follows or the count reaches the daily limit, so the
+   * count is exact for any daily limit.
+   * @param {RewardedRepositoryOptions} repositoryOptions
+   */
+  async function countReceiptsGrantedSince(gateKey, since, dailyLimit, repositoryOptions) {
+    let count = 0;
+    let cursor = null;
+    do {
+      const document = await rewardedUnlockReceiptsRepository.queryDocuments({
+        gateKey,
+        grantedSince: since.toISOString(),
+        limit: RECEIPT_PAGE_SIZE,
+        ...(cursor ? { cursor } : {})
+      }, repositoryOptions);
+      count += normalizeRecordList(document).length;
+      cursor = jsonApiNextCursor(document);
+    } while (cursor && count < dailyLimit);
+    return count;
+  }
+
   async function evaluateGate(input, context) {
     requireActor(context, input);
     const workspaceSlug = requireWorkspaceSlug(input);
@@ -296,11 +320,7 @@ function createService({
     }
 
     if (rule.dailyLimit != null) {
-      const dayStart = startOfUtcDay(now);
-      const todaysCount = receipts.filter((entry) => {
-        const grantedAt = parseDate(entry?.grantedAt);
-        return grantedAt && grantedAt.getTime() >= dayStart.getTime();
-      }).length;
+      const todaysCount = await countReceiptsGrantedSince(gateKey, startOfUtcDay(now), rule.dailyLimit, { context });
       const remaining = Math.max(0, Number(rule.dailyLimit) - todaysCount);
       if (remaining < 1) {
         return {
