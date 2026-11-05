@@ -26,7 +26,7 @@ template or relative string raw to Vue Router `to`.
 ## Back navigation
 
 Check every page for a visible Back button that returns to the previous page.
-Omit it only when returning makes no product sense, such as the app's root
+Omit it only when returning makes no product sense, such as the root
 landing page or a completed flow that must not reopen an expired step. State
 the reason in the implementation or review result; a drawer link is not Back.
 
@@ -70,7 +70,6 @@ hash, pattern receipt, or tool-owned source declaration.
 - Keep screens phone/task-first with drawer-independent primary actions.
 - Use direct surfaces instead of needless nested cards.
 - Render all meaningful loading, empty, error, permission, and retry states.
-- Follow the Material 3 contract for targets, loading and failure feedback.
 - Extend shared CRUD screens through public slots and composables.
 - Keep row actions and filters near the screen unless the framework owns them.
 - Import neutral request and CRUD UI APIs from `@jskit-ai/http-web`. Install
@@ -87,25 +86,25 @@ when another navigation affordance remains.
 The drawer omits the app bar's surface label. Open and rail icons share a
 centreline. It uses a 12px outer item inset; `navigationItemSpacing` controls
 icon/label and label/end gaps. The normal 80px rail centres 48px targets;
-`railWidth` and `drawerWidth` are public density/width controls. Do not override
-the shell's private implementation CSS.
-
-Restyle shell chrome only through the `--shell-*` tokens in the
-`shell/application-shell` pattern.
+`railWidth` and `drawerWidth` are public density/width controls. Restyle shell
+chrome only through the `--shell-*` tokens in the `shell/application-shell`
+pattern, never its private CSS.
 
 ## Browser verification
 
 Exercise user-facing changes with Playwright at compact, medium, and expanded
 widths. Check overflow, clipped text, duplicate navigation, route placement,
 actions, skeleton replacement, error feedback, and target sizes. Use relative
-URLs. When `PLAYWRIGHT_BASE_URL` is provided, start no duplicate server.
-For Back, enter the same page from two different origins and verify each
-returns to its own origin with context intact. Also check direct entry, reload,
-browser back/forward, fixed-destination exceptions, and any unsaved-change guard.
+URLs. With `PLAYWRIGHT_BASE_URL` set, start no duplicate server. For Back,
+enter the same page from two origins and verify each returns to its own origin
+with context intact. Also check direct entry, reload, browser back/forward,
+fixed-destination exceptions, and any unsaved-change guard.
 
 A managed host owns its browser and may provide
 `PLAYWRIGHT_STORAGE_STATE`; never print or commit that value, bypass it,
-or install another browser. For explicitly enabled direct-local auth, use
+or install another browser. If tests run signed out despite that state, report
+the host defect with evidence and stop; never rewrite its cookies or add a login.
+For explicitly enabled direct-local auth, use
 `loginAsExistingUser()` from `@jskit-ai/auth-web/test/playwright`; never expose
 the exchange secret to browser code, URLs, or client environment.
 
