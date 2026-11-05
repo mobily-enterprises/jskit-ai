@@ -6,7 +6,8 @@ import { catalogMessage, formatMessage, mergeCatalogs } from "../shared/i18n/ind
 // English comes from the packages' bundled catalogs. An app's translations live in
 // <appRoot>/src/locales/<code>/jskit.json, the file `jskit i18n export <code>` writes.
 // A message is looked up in the exact locale, then its language (it-IT -> it), then
-// English. App translation files are read once per process.
+// English. App translation files are read once per process. resolveLocale picks,
+// from a person's preferred locales, the first the app can show.
 
 const ENGLISH = "en";
 const APP_TRANSLATIONS_FILE = "jskit.json";
@@ -66,7 +67,35 @@ function createServerI18n({ appRoot = "", catalogs = [] } = {}) {
     return message === undefined ? key : formatMessage(message, params);
   }
 
-  return Object.freeze({ t });
+  /**
+   * The first of a person's preferred locales (most preferred first, such as
+   * ui_locales or Accept-Language) that the app has translations for, exactly or
+   * by language, or English, which is always available.
+   * @param {ReadonlyArray<string>} [preferences]
+   * @returns {string}
+   */
+  function resolveLocale(preferences = []) {
+    const translations = appRoot ? appTranslations(appRoot) : new Map();
+    for (const preference of preferences) {
+      const code = String(preference || "").trim().replaceAll("_", "-");
+      const language = code.split("-")[0].toLowerCase();
+      if (!language || language === "*") {
+        continue;
+      }
+      if (translations.has(code.toLowerCase())) {
+        return code;
+      }
+      if (language === ENGLISH || translations.has(language)) {
+        return language;
+      }
+    }
+    return ENGLISH;
+  }
+
+  return Object.freeze({
+    t,
+    resolveLocale
+  });
 }
 
 export { createServerI18n };

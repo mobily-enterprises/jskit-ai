@@ -70,3 +70,19 @@ test("createServerI18n reports a translation file that is not JSON", () => {
   assert.throws(() => createServerI18n({ appRoot, catalogs: [english] }).t("it", "jskit.mail.footer"),
     /Invalid JSKIT translations in .*jskit\.json/u);
 });
+
+test("createServerI18n resolves a person's preferred locales to the first the app can show", () => {
+  const appRoot = createAppRoot({
+    "pt-BR": { jskit: { mail: { footer: "Obrigado." } } },
+    it: { jskit: { mail: { footer: "Grazie." } } }
+  });
+  const i18n = createServerI18n({ appRoot, catalogs: [english] });
+
+  assert.equal(i18n.resolveLocale(["fr", "it-IT", "en"]), "it", "a language the app has, by its base language");
+  assert.equal(i18n.resolveLocale(["pt_BR"]), "pt-BR", "an exact locale keeps its region");
+  assert.equal(i18n.resolveLocale(["pt-PT", "it"]), "it", "a region the app lacks is not its language");
+  assert.equal(i18n.resolveLocale(["en-GB", "it"]), "en", "English is always available");
+  assert.equal(i18n.resolveLocale(["*", "", "de"]), "en");
+  assert.equal(i18n.resolveLocale(), "en");
+  assert.equal(createServerI18n({ catalogs: [english] }).resolveLocale(["it"]), "en", "without an app root only English");
+});
