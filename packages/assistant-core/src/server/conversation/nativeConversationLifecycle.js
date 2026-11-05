@@ -218,6 +218,27 @@ function createNativeConversationLifecycle({ authorize, defaultHost, hostPrepare
     return driver.invalidateRuntimes(prepared);
   }
 
+  // The server's shutdown begins before anything stops, on the same trusted
+  // boundary: the configured owner sets its closing fence and leaves each
+  // running turn's end, and its checkpoint, to the next server, synchronously.
+  // A later invalidation with reason "server-shutdown" stops its processes.
+  function beginNativeShutdown({ context, input = {} }) {
+    if (!hostPrepares) {
+      throw new TypeError("Native shutdown requires a configured conversation host.");
+    }
+    const prepared = defaultHost.conversation({ context, input, operation: "beginShutdown" });
+    if (!prepared || isThenable(prepared) ||
+        !["codex", "claude", "opencode"].includes(prepared.engine) || !prepared.native ||
+        !Object.hasOwn(prepared, "input") || !Object.hasOwn(prepared, "context")) {
+      throw new TypeError("Native shutdown requires synchronous configured host preparation.");
+    }
+    const driver = providers.createDriver(prepared.engine, defaultHost);
+    if (!implementsOperation(driver, "beginShutdown")) {
+      throw new TypeError("The selected conversation driver does not implement native shutdown.");
+    }
+    return driver.beginShutdown(prepared);
+  }
+
   // Startup reconciliation and subscription reset use the existing trusted
   // lifecycle caller. Native owners retain their own shutdown fences and tasks.
   function reconcileNativeSessions({ context, sessions, options = {} }) {
@@ -363,6 +384,7 @@ function createNativeConversationLifecycle({ authorize, defaultHost, hostPrepare
     createNativeConversation,
     runNativeDetachedConversation,
     closeNativeProject,
+    beginNativeShutdown,
     invalidateNativeRuntimes,
     reconcileNativeSessions,
     unsubscribeNativeSessions,

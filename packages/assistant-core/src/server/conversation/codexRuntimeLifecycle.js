@@ -223,6 +223,9 @@ export function createCodexRuntimeLifecycle({
     }
   }
 
+  // The server's shutdown begins: the closing fence is set and each running
+  // turn's end, and its checkpoint, is left to the next server, but nothing
+  // stops. The later server-shutdown invalidation stops the runtimes.
   function beginCodexAppServerShutdown() {
     if (codexAppServerServerClosing) {
       return;
@@ -371,6 +374,7 @@ export function createCodexRuntimeLifecycle({
 
   return Object.freeze({
     get closing() { return codexAppServerServerClosing; },
+    beginShutdown: beginCodexAppServerShutdown,
     assertOpen,
     get reconcileGeneration() { return codexAppServerThreadReconcileGeneration; },
     nextReconcileGeneration,

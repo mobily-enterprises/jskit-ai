@@ -121,13 +121,20 @@ export function createClaudeSessionCleanup({
       account.queries.invalidate().catch(() => {});
       return { ok: true, closed: 0 };
     }
-    closing = true;
+    beginShutdown();
     // Neither waits for the other: a failed account query cleanup must not
     // leave the sessions' processes running.
     const [queries, retained] = await Promise.allSettled([account.queries.invalidate(), stopRetained(application)]);
     if (queries.status === "rejected") await account.failure(queries.reason);
     if (retained.status === "rejected") throw retained.reason;
     return retained.value;
+  }
+
+  // The server's shutdown begins: the owner closes, so each running turn's
+  // end, and its checkpoint, is left to the next server, but nothing stops.
+  // The later server-shutdown invalidation stops the processes.
+  function beginShutdown() {
+    closing = true;
   }
 
   // Shutdown stops only what this server runs: a Claude process cannot outlive
@@ -233,6 +240,7 @@ export function createClaudeSessionCleanup({
     closeSession,
     releaseSession,
     closeProject,
+    beginShutdown,
     invalidateRuntimes,
     drain,
     forget,

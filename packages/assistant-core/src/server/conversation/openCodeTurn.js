@@ -478,9 +478,10 @@ export async function waitForOpenCodeFinalResponse(client, conversationId, turn,
 /**
  * Production detached-turn lifetime. Applications project the completed native
  * result before observation is closed, then publish/checkpoint their own state.
- * A turn the server's shutdown stopped (`turn.stoppedByShutdown`) ends
- * interrupted however its wait ended, and `afterClose` is told so: the
- * application leaves its checkpoint to the next server.
+ * A turn the server's shutdown stopped (`turn.stoppedByShutdown`), or that
+ * ends on its own once shutdown has begun, ends interrupted however its wait
+ * ended, and `afterClose` is told so: the application leaves its checkpoint to
+ * the next server.
  * @param {import("./openCodeProcessOwner.js").OpenCodeProcessOwner} processOwner
  */
 export async function observeOpenCodeTurnCompletion(processOwner, target, conversationId, turn, {
@@ -489,6 +490,10 @@ export async function observeOpenCodeTurnCompletion(processOwner, target, conver
   const turnAbort = turn.abortController;
   let stopped = true;
   let outcome = "completed";
+  const leftToNextServer = () => {
+    if (processOwner.closed) turn.stoppedByShutdown = true;
+    return turn.stoppedByShutdown === true;
+  };
   try {
     const options = { ...waitOptions, signal: AbortSignal.any([
       signal, ...(timeoutMs ? [AbortSignal.timeout(timeoutMs)] : [])
@@ -496,14 +501,14 @@ export async function observeOpenCodeTurnCompletion(processOwner, target, conver
     const completion = finalResponse
       ? await waitForOpenCodeFinalResponse(target.server.client, conversationId, turn, { ...finalResponse, ...options })
       : await waitForOpenCodeMessages(target.server.client, conversationId, () => turn.inputMessageId, options);
-    if (turn.stoppedByShutdown) {
+    if (leftToNextServer()) {
       outcome = "interrupted";
       return { interrupted: true };
     }
     return await projectResult(completion);
   } catch (error) {
     const failure = signal.aborted ? signal.reason : error;
-    outcome = turn.interrupted || turn.stoppedByShutdown ? "interrupted" : "failed";
+    outcome = leftToNextServer() || turn.interrupted ? "interrupted" : "failed";
     if (outcome === "interrupted") return { interrupted: true };
     if (!target.abortController.signal.aborted) {
       try {

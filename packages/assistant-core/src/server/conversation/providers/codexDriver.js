@@ -63,6 +63,10 @@ function nativeGoalChanged() {
   });
 }
 
+function beginShutdown({ native }) {
+  return native.runOwner.beginShutdown();
+}
+
 /**
  * Conversations own threads and observers on the account's shared native runtime.
  * @param {object} dependencies
@@ -653,6 +657,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
     deleteDetachedConversation,
     listConversationStorage,
     retireConversationHistory,
+    beginShutdown,
     invalidateRuntimes,
     reconcileSessions,
     unsubscribeSessions,

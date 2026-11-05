@@ -126,6 +126,10 @@ export function createOpenCodeConversationDriver({
     return native.owner.closeProject(input, native.preparation.projectCleanup());
   }
 
+  function beginShutdown({ native }) {
+    return native.owner.beginShutdown();
+  }
+
   function invalidateRuntimes({ native, input }) {
     return native.owner.invalidateRuntimes(input, native.preparation);
   }
@@ -375,6 +379,7 @@ export function createOpenCodeConversationDriver({
     listConversationStorage,
     retireConversationHistory,
     closeProject,
+    beginShutdown,
     invalidateRuntimes,
     reconcileSessions,
     createConversation,

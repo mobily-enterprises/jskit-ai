@@ -346,6 +346,10 @@ export function createClaudeConversationDriver({
     return native.owner.closeProject(input, native.application);
   }
 
+  function beginShutdown({ native }) {
+    return native.owner.beginShutdown();
+  }
+
   function invalidateRuntimes({ native, input }) {
     return native.owner.invalidateRuntimes(input, native.application, native.account);
   }
@@ -568,6 +572,7 @@ export function createClaudeConversationDriver({
     listConversationStorage,
     retireConversationHistory,
     closeProject,
+    beginShutdown,
     invalidateRuntimes,
     reconcileSessions,
     createConversation,

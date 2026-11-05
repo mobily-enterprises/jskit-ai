@@ -696,6 +696,7 @@ export function createCodexAppServerRunOwner({
       providerSessions.owner.attachRuntimeLifecycle(runOwner.runtimeLifecycle);
       providerSessions.assertOpen = runOwner.runtimeLifecycle.assertOpen;
     }
+    runOwner.beginShutdown = runOwner.runtimeLifecycle.beginShutdown;
     runOwner.invalidateRuntimes = runOwner.runtimeLifecycle.invalidateRuntimes;
     Object.assign(runOwner, createCodexSessionReconciliation({
       readiness: codexThreadReadiness, recoverSessionObservationLoss,

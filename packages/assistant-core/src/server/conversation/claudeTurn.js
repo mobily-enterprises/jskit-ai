@@ -701,6 +701,7 @@ export function createClaudeConversationOwner({
     closeSession: cleanup.closeSession,
     releaseSession: cleanup.releaseSession,
     closeProject: cleanup.closeProject,
+    beginShutdown: cleanup.beginShutdown,
     invalidateRuntimes: cleanup.invalidateRuntimes,
     drain: cleanup.drain,
     forget: cleanup.forget,

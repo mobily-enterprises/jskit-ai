@@ -101,10 +101,9 @@ test("outside shutdown a Temporary turn's end still makes its checkpoint at once
   assert.deepEqual(f.deferred, [], "a finished turn owes nothing at shutdown");
 });
 
-test("a Codex shutdown leaves the running turns to the next server before any runtime stops, and waits for their records", async () => {
-  const calls = [];
-  const recorded = Promise.withResolvers();
-  const lifecycle = createCodexRuntimeLifecycle({
+// The run owner's runtime lifecycle, with the owner calls it makes recorded.
+function runtimeLifecycle(calls, leaveTurnsToNextServer) {
+  return createCodexRuntimeLifecycle({
     pendingWork: { conversationTurnStarts: new Map(), messageDeliveries: new Map(), reasoningPersistQueues: new Map(),
       resultFinalizations: new Map(), threadReconciliations: new Map(), notificationTasks: new Map(), deferredCheckpoints: new Set() },
     observer: { eventSubscriptions: new Map() },
@@ -119,11 +118,17 @@ test("a Codex shutdown leaves the running turns to the next server before any ru
     runInContext: (_context, operation) => operation(),
     debugLog() {},
     debugError: error => error?.message,
-    async leaveTurnsToNextServer() {
-      calls.push("leave-turns");
-      await recorded.promise;
-      calls.push("turns-recorded");
-    }
+    leaveTurnsToNextServer
+  });
+}
+
+test("a Codex shutdown leaves the running turns to the next server before any runtime stops, and waits for their records", async () => {
+  const calls = [];
+  const recorded = Promise.withResolvers();
+  const lifecycle = runtimeLifecycle(calls, async () => {
+    calls.push("leave-turns");
+    await recorded.promise;
+    calls.push("turns-recorded");
   });
   const shutdown = lifecycle.invalidateRuntimes({ reason: "server-shutdown" }, { enabled: true });
   assert.equal(lifecycle.closing, true);
@@ -132,4 +137,32 @@ test("a Codex shutdown leaves the running turns to the next server before any ru
   await shutdown;
   assert.equal(calls[0], "leave-turns");
   assert.ok(calls.indexOf("turns-recorded") < calls.lastIndexOf("stop-runtimes"), "shutdown waited for the records");
+});
+
+test("a begun Codex shutdown stops nothing, and a Temporary turn that then ends on its own leaves its checkpoint to the next server", async () => {
+  const f = server();
+  f.startTurn();
+  const calls = [];
+  const lifecycle = runtimeLifecycle(calls, () => f.commands.leaveRunningTurnsToNextServer());
+  Object.defineProperty(f.lifecycle, "closing", { get: () => lifecycle.closing });
+  lifecycle.beginShutdown();
+  assert.equal(lifecycle.closing, true, "the closing fence is set before the call returns");
+  assert.deepEqual(calls, ["owner-shutdown"], "beginning the shutdown stopped nothing");
+  f.complete("completed");
+  await Promise.all(f.commands.deferredCheckpoints);
+  assert.deepEqual(f.checkpoints, [], "the turn's end made no checkpoint");
+  assert.deepEqual(f.deferred.at(-1), { ...OWED, status: "completed", turnOutcome: "" }, "its own outcome is owed");
+
+  // The full stop that follows still stops the runtimes, and leaves the turns only once.
+  const deferred = f.deferred.length;
+  await lifecycle.invalidateRuntimes({ reason: "server-shutdown" }, { enabled: true });
+  assert.ok(calls.includes("stop-runtimes"));
+  assert.equal(f.deferred.length, deferred);
+  assert.deepEqual(f.checkpoints, []);
+
+  // The next server's read makes the owed checkpoint once.
+  const next = server({ latest: { id: "turn-1", status: "completed", items: [] } });
+  const ended = [];
+  assert.equal((await next.read({ runId: "turn-1", async ended() { ended.push("turn-1"); } })).status, "completed");
+  assert.deepEqual(ended, ["turn-1"]);
 });

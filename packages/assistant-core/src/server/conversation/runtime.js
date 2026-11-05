@@ -227,6 +227,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     runNativeDetachedConversation: lifecycle.runNativeDetachedConversation,
     open: handles.open,
     closeNativeProject: lifecycle.closeNativeProject,
+    beginNativeShutdown: lifecycle.beginNativeShutdown,
     invalidateNativeRuntimes: lifecycle.invalidateNativeRuntimes,
     reconcileNativeSessions: lifecycle.reconcileNativeSessions,
     unsubscribeNativeSessions: lifecycle.unsubscribeNativeSessions,

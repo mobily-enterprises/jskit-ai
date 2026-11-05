@@ -13,8 +13,8 @@ const ABORTED = "The operation was aborted.";
 const PROVIDER_FAILURE = "The provider refused this request.";
 
 // OpenCode's native history outlives each server that runs it. The turn's reply
-// is still being written until an interrupt ends it as aborted, or its provider
-// fails it.
+// is still being written until an interrupt ends it as aborted, its provider
+// fails it, or it completes on its own.
 function nativeOpenCode() {
   const rows = [
     { id: INPUT_ID, type: "user", time: { created: 1 } },
@@ -46,7 +46,11 @@ function nativeOpenCode() {
     rows[1] = { ...rows[1], error: { name: "APIError", data: { message: PROVIDER_FAILURE } }, time: { created: 2, completed: 3 } };
     busy = false;
   }
-  return { calls, create, fail };
+  function complete() {
+    rows[1] = { ...rows[1], text: "Done.", finish: "stop", time: { created: 2, completed: 3 } };
+    busy = false;
+  }
+  return { calls, create, fail, complete };
 }
 
 // One server with Vibe64's run rules: the session record keeps the OpenCode run
@@ -108,6 +112,8 @@ function server(native, saved, { turnEndCheckpoint = async () => {} } = {}) {
   return {
     runtime, calls, release,
     shutdown: () => runtime.invalidateRuntimes({ reason: "server-shutdown" }, { release }),
+    // The server's shutdown begins: nothing stops yet.
+    begin: () => runtime.beginShutdown(),
     async running() {
       const target = await runtime.acquirePrepared(processPreparation);
       void runtime.beginMessageMonitor(KEY, target, { id: INPUT_ID, eventStartedAt: 1, startedAt: "2026-11-05T00:00:00.000Z" }, {}, monitor);
@@ -283,4 +289,50 @@ test("OpenCode shutdown ends a temporary conversation's turn as interrupted, and
   assert.equal((await closing.runtime.closeSession(SESSION_ID, {}, closing.release)).ok, true);
   await closed.entry.completion.catch(() => null);
   assert.deepEqual(closed.closes, [{ stopped: true, outcome: "failed", stoppedByShutdown: false }]);
+});
+
+test("once OpenCode's shutdown has begun, a main turn that ends on its own is left to the next server, which records it with one checkpoint", { timeout: 5_000 }, async t => {
+  const native = nativeOpenCode();
+  const saved = { run: null };
+  const first = server(native, saved);
+  t.after(() => first.shutdown());
+  await first.running();
+  first.begin();
+  assert.deepEqual({ interrupts: native.calls.interrupts, stops: native.calls.stops }, { interrupts: [], stops: 0 },
+    "beginning the shutdown stopped nothing");
+  native.complete();
+  await first.runtime.monitors.get(KEY);
+  assert.deepEqual(first.calls.checkpoints, [], "the turn's end made no checkpoint");
+  assert.deepEqual(runOf(saved), { active: true, state: "active", error: "", stoppedByShutdown: true, turnId: INPUT_ID });
+  assert.equal((await first.shutdown()).ok, true);
+  assert.equal(native.calls.stops, 1, "the full stop still proved the OpenCode process exit");
+  assert.deepEqual(first.calls.checkpoints, []);
+
+  const next = server(native, saved);
+  t.after(() => next.shutdown());
+  assert.equal((await next.ready()).ok, true);
+  assert.equal((await next.ready()).ok, true);
+  assert.deepEqual(next.calls.checkpoints, [`${INPUT_ID}:interrupted`], "the next server made the checkpoint once");
+  assert.deepEqual(runOf(saved), { active: false, state: "interrupted", error: "", stoppedByShutdown: true, turnId: INPUT_ID });
+});
+
+test("once OpenCode's shutdown has begun, a temporary conversation's turn that ends on its own leaves its checkpoint to the next server", { timeout: 5_000 }, async t => {
+  const native = nativeOpenCode();
+  const first = server(native, { run: null });
+  t.after(() => first.shutdown());
+  const { entry, closes } = await first.temporary("ses_temp");
+  first.begin();
+  native.complete();
+  assert.deepEqual(await entry.completion, { interrupted: true });
+  assert.deepEqual(native.calls.interrupts, [], "nothing interrupted the native turn");
+  assert.deepEqual(closes, [{ stopped: true, outcome: "interrupted", stoppedByShutdown: true }],
+    "the application is told to leave the turn's checkpoint to the next server");
+  assert.equal((await first.shutdown()).ok, true);
+
+  const next = server(native, { run: null });
+  t.after(() => next.shutdown());
+  const ended = [];
+  const read = await next.readTemporary("ses_temp", { runId: INPUT_ID, async ended() { ended.push(INPUT_ID); } });
+  assert.deepEqual({ status: read.status, error: read.error }, { status: "interrupted", error: "" });
+  assert.deepEqual(ended, [INPUT_ID], "recording the run lets the application make its checkpoint");
 });

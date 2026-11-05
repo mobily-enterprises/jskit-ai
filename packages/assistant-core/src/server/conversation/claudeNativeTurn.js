@@ -355,7 +355,15 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
     } else if (event.type === "settled") {
       const state = event.status === "interrupted" ? "interrupted" : event.status === "failed" ? "failed" : "completed";
       if (bound) setClaudeTurnState(entry, state, event.error);
-      else if (!await updateState(state, event.error, event.generation)) return;
+      else if (entry.turn?.active && process.ownerClosing()) {
+        // A turn that ends on its own once shutdown has begun is left to the
+        // next server like one the shutdown stops: its saved record keeps the
+        // execution and the active turn, so that server's recovery interrupts
+        // the turn and runs the host's checkpoint. Run here, that checkpoint
+        // (a Git snapshot, say) could be refused or hold up shutdown.
+        resolveCompletion({ ...readResult(), status: "interrupted", error: "" });
+        return;
+      } else if (!await updateState(state, event.error, event.generation)) return;
     }
     const published = await onEvent(event);
     const change = event.type === "provider-event" ? claudeProviderChange(event.event) : "";

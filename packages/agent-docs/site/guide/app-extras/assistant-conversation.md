@@ -3464,6 +3464,21 @@ account-query cleanup fails; that failure is still the call's result. Once
 shutdown has invalidated the owner, a later session close only releases retained
 work. Failed cleanup can be retried after runtime closure. This is not a browser
 operation or a way to submit a caller-selected native owner.
+`runtime.beginNativeShutdown({ context, input })` begins the server's shutdown
+before anything stops, on the same trusted boundary: its configured host
+receives operation `"beginShutdown"` and supplies the native owner
+synchronously, and the owner sets its closing fence before the call returns
+(Codex also marks its running turns, as above). It stops no process. A host
+that refuses new work as its shutdown begins calls it first, so a turn that
+ends meanwhile starts no checkpoint the host would refuse; the later
+invalidation with reason `"server-shutdown"` stops the processes as before and
+also enters the fence when nothing began it. Once the fence is set, a Claude
+or OpenCode turn that ends on its own is left to the next server like one the
+shutdown stops: Claude's saved record keeps the execution and the active turn,
+and OpenCode marks the turn `stoppedByShutdown` (a temporary conversation's
+turn ends interrupted and `afterClose` receives `stoppedByShutdown: true`), so
+the next server records the turn interrupted and runs the host's checkpoint
+once.
 A running Codex app-server keeps the credentials it started with. A Codex turn
 whose OpenAI credentials were rejected after a sign-out or account switch
 (ChatGPT's token-refresh failure, or a 401 from OpenAI) ends with "Codex (OpenAI)

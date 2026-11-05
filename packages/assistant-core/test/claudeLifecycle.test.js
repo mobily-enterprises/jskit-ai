@@ -242,6 +242,34 @@ test("Claude shutdown leaves a running turn's end and its checkpoint to the next
   assert.deepEqual(custody(JSON.parse(f.session("a").records.get(MAIN_IDS.a))), { executionId: "", state: "interrupted" });
 });
 
+test("once Claude's shutdown has begun, a turn that ends on its own is left to the next server, which runs its one checkpoint", { timeout: 5_000 }, async t => {
+  const f = await lifecycleFixture(t);
+  const a = await f.running("a");
+  const saved = f.session("a").records.get(MAIN_IDS.a);
+  f.owner.beginShutdown();
+  assert.deepEqual(f.calls.stops, [], "beginning the shutdown stopped nothing");
+  // The turn ends on its own.
+  await f.processes[0].options.onEvent({ type: "result", subtype: "success", result: "Done." });
+  assert.deepEqual(f.calls.checkpoints, [], "the turn's end ran no checkpoint");
+  assert.equal(f.session("a").records.get(MAIN_IDS.a), saved, "the saved record keeps the active turn");
+  assert.equal((await f.owner.invalidateRuntimes({ reason: "server-shutdown" }, f.application, f.account)).ok, true);
+  assert.equal(a.process, null, "the full stop still stopped the process");
+  assert.deepEqual(f.calls.checkpoints, []);
+  // The next server's close proves that exit, then interrupts the turn through its checkpoint, once.
+  f.restart();
+  assert.equal((await f.owner.closeSession({ sessionId: "a" }, f.application)).ok, true);
+  assert.equal((await f.owner.closeSession({ sessionId: "a" }, f.application)).ok, true);
+  assert.deepEqual(f.calls.checkpoints, ["a:interrupted"]);
+});
+
+test("outside shutdown a Claude turn that ends on its own still runs its checkpoint at once", { timeout: 5_000 }, async t => {
+  const f = await lifecycleFixture(t);
+  await f.running("a");
+  await f.processes[0].options.onEvent({ type: "result", subtype: "success", result: "Done." });
+  assert.deepEqual(f.calls.checkpoints, ["a:completed"]);
+  assert.equal(JSON.parse(f.session("a").records.get(MAIN_IDS.a)).state, "completed");
+});
+
 test("Claude project close releases its sessions from memory without reopening saved conversations", async t => {
   const f = await lifecycleFixture(t);
   await f.idle("a");

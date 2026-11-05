@@ -706,6 +706,35 @@ test("native invalidation preserves synchronous fences and failures without open
   await result;
 });
 
+test("beginning native shutdown reaches the configured owner synchronously and opens no conversation", async t => {
+  const input = { reason: "server-shutdown" };
+  const calls = [];
+  let asynchronousHost = true;
+  const native = { runOwner: {
+    beginShutdown() { calls.push("begin"); return "begun"; },
+    invalidateRuntimes() { assert.fail("Beginning shutdown stops nothing."); }
+  } };
+  const runtime = createConversationRuntime({
+    authorize() { assert.fail("Trusted shutdown must not acquire session authority."); },
+    storage: {
+      read() { assert.fail("Shutdown must not read a conversation."); },
+      write() { assert.fail("Shutdown must not allocate a conversation."); }
+    },
+    host: { conversation(request) {
+      calls.push("host");
+      assert.deepEqual(request, { context, input, operation: "beginShutdown" });
+      const prepared = { engine: "codex", native, context, input };
+      return asynchronousHost ? Promise.resolve(prepared) : prepared;
+    } }
+  });
+  t.after(() => runtime.close());
+  assert.throws(() => runtime.beginNativeShutdown({ context, input }), /synchronous configured host/);
+  assert.deepEqual(calls, ["host"]);
+  asynchronousHost = false;
+  assert.equal(runtime.beginNativeShutdown({ context, input }), "begun");
+  assert.deepEqual(calls, ["host", "host", "begin"], "the owner's fence is set before the call returns");
+});
+
 test("renewal proof cleanup preserves OpenCode failure, consumption and retry through the configured owner", async t => {
   const owner = createOpenCodeSharedRuntime({});
   const calls = [];

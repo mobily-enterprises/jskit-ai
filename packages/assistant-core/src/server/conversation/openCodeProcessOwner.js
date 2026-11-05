@@ -441,12 +441,17 @@ export function createOpenCodeProcessOwner({ processes, processStarts, monitors,
     };
   }
 
+  // The server's shutdown begins: the owner closes, so each running turn's
+  // end, and its checkpoint, is left to the next server, but nothing stops.
+  // The later server-shutdown invalidation stops the processes.
+  function beginShutdown() {
+    closed = true;
+    clearTimeout(storageIdle);
+    storageIdle = null;
+  }
+
   async function invalidateRuntimes(input = {}, preparation) {
-    if (normalizeNullableText(input.reason) === "server-shutdown") {
-      closed = true;
-      clearTimeout(storageIdle);
-      storageIdle = null;
-    }
+    if (normalizeNullableText(input.reason) === "server-shutdown") beginShutdown();
     const application = preparation.release;
     // readable-check: allow method-probe - input validation: a connection change carries the publication of the application's saved connections
     if (typeof input.publish === "function") {
@@ -567,6 +572,7 @@ export function createOpenCodeProcessOwner({ processes, processStarts, monitors,
     releaseProcessTarget,
     closeSession,
     closeProject,
+    beginShutdown,
     invalidateRuntimes,
     releaseRenewalPredecessorProcessExitProof,
     releaseProcessExitProof

@@ -1591,6 +1591,7 @@ Local functions
 - `assertCodexApplicationEnvironment(host)`
 - `codexOutputTooLarge()`
 - `nativeGoalChanged()`
+- `beginShutdown({ native })`
 
 ### `src/server/conversation/providers/codexDriverConnection.js`
 Exports

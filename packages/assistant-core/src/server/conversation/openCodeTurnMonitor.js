@@ -355,8 +355,10 @@ export function createOpenCodeTurnMonitor({ processes, monitors, turns, processO
         // server: its saved run stays active and carries the shutdown's mark,
         // so that server's recovery records the turn interrupted and runs the
         // host's checkpoint. Run here, that checkpoint (a Git snapshot, say)
-        // would hold the host's bounded shutdown for as long as it takes. A
-        // user's Stop ends its turn as interrupted here.
+        // could be refused or hold the host's bounded shutdown for as long as
+        // it takes. A turn that ends on its own once shutdown has begun is left
+        // the same way. A user's Stop outside shutdown ends its turn here.
+        if (processOwner.closed && finalState !== "active") turn.stoppedByShutdown = true;
         const nextServerEnds = turn.stoppedByShutdown === true && finalState !== "active";
         // Claim retirement before awaited cleanup/checkpointing. A new Send
         // joins this monitor's cleanup instead of steering an unobserved turn.
