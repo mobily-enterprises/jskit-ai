@@ -3451,7 +3451,10 @@ owners. The host synchronously supplies `{ engine, native, context, sessions,
 options }` for operation `"reconcileSessions"`. The application retains its
 session inventory, authorization and storage codecs. Codex retains its original
 concurrent recovery and prune coordination; OpenCode retains per-session failure
-results and continues; Claude retains sequential, fail-fast restoration.
+results and continues; Claude retains sequential, fail-fast restoration. Like a
+session close, Claude reconciliation reopens only the saved custody an earlier
+server left, so a verified stop can retire it; idle saved conversations stay
+closed and unwritten.
 
 `runtime.unsubscribeNativeSessions({ context, sessions })` supplies startup
 subscription reset for Codex through operation `"unsubscribeSessions"` and a

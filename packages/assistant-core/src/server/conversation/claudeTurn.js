@@ -697,7 +697,6 @@ export function createClaudeConversationOwner({
     hasActiveConversation,
     retireConversationHistory,
     reconcileSessions: cleanup.reconcileSessions,
-    restoreSessionEntries: cleanup.restoreSessionEntries,
     closeSession: cleanup.closeSession,
     releaseSession: cleanup.releaseSession,
     closeProject: cleanup.closeProject,

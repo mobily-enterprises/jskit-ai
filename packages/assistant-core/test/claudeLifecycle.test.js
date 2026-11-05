@@ -280,6 +280,23 @@ test("closing a Claude session reopens only the saved custody an earlier server 
     new RegExp(`saved Claude conversation ${IDLE_ID} is unreadable`));
 });
 
+test("reconciling a Claude session reopens only the saved custody an earlier server left", async t => {
+  const f = await lifecycleFixture(t);
+  const records = f.session("a").records;
+  const idle = JSON.stringify({ state: "completed", main: false });
+  records.set(MAIN_IDS.a, JSON.stringify({ state: "completed", turnId: "done", main: true }));
+  records.set(IDLE_ID, idle);
+  records.set(TEMPORARY_ID, JSON.stringify({ executionId: "execution-before-restart", state: "active", turnId: "turn", main: false }));
+  const result = await f.owner.reconcileSessions([{ sessionId: "a" }], {}, f.application);
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.results.map(({ ok, sessionId }) => [sessionId, ok]), [["a", true]]);
+  assert.deepEqual(f.calls.stops, ["execution-before-restart"], "the saved execution's exit was proven");
+  assert.equal(JSON.parse(records.get(TEMPORARY_ID)).executionId, "");
+  assert.equal(JSON.parse(records.get(TEMPORARY_ID)).state, "interrupted");
+  assert.deepEqual([...f.owner.entries.values()].map(entry => entry.id), [TEMPORARY_ID], "idle saved chats stayed closed");
+  assert.equal(records.get(IDLE_ID), idle, "an idle saved chat was not rewritten");
+});
+
 test("after shutdown invalidation a Claude session close reopens nothing", async t => {
   const f = await lifecycleFixture(t);
   await f.idle("a");

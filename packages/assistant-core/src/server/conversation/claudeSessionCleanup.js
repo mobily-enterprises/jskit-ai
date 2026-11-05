@@ -36,22 +36,19 @@ export function createClaudeSessionCleanup({
     return closing || closingSessions.has(contextKey);
   }
 
+  // Reconciliation retires the work an earlier server left, as a session's
+  // close does: it reopens only saved custody, then stops each of the
+  // session's entries whose execution is unproven. Idle saved conversations
+  // stay closed and unwritten.
   async function reconcileSessions(sessions, options = {}, application) {
     const results = [];
     for (const session of sessions) {
       const ctx = await application.readContext({ ...options, session, sessionId: session.sessionId });
-      await recover(await restoreSessionEntries(ctx, { acquire }));
+      await recoverSavedCustody(ctx);
+      await recover([...entries.values()].filter((entry) => entry.context.key === ctx.key));
       results.push({ ok: true, sessionId: session.sessionId, resumed: false });
     }
     return { ok: true, results, failed: [], sessionCount: results.length };
-  }
-
-  async function restoreSessionEntries(context, { acquire }) {
-    let saved = store.readSessionConversations(context);
-    // readable-check: allow method-probe - data: a store lists a session's conversations synchronously or with a promise
-    if (saved && typeof saved.then === "function") saved = await saved;
-    for (const conversationId of saved.ids) await acquire(saved.context, conversationId);
-    return [...entries.values()].filter((entry) => entry.context.key === context.key);
   }
 
   // A session's close stops what this server runs for it, then reopens only
@@ -233,7 +230,6 @@ export function createClaudeSessionCleanup({
     closingSessions,
     isClosing,
     reconcileSessions,
-    restoreSessionEntries,
     closeSession,
     releaseSession,
     closeProject,
