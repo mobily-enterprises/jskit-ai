@@ -11,7 +11,10 @@ import { createWorkspacesServerI18n } from "../src/server/i18n.js";
 import { noInviteAcceptanceParticipant } from "../src/server/workspacePendingInvitations/noInviteAcceptanceParticipant.js";
 import { createService as createSettingsService } from "../src/server/workspaceSettings/workspaceSettingsService.js";
 import { createService as createPendingService } from "../src/server/workspacePendingInvitations/workspacePendingInvitationsService.js";
-import { renderDefaultWorkspaceInviteEmail } from "../src/server/workspaceMembers/defaultWorkspaceInviteEmail.js";
+import {
+  formatInviteExpiry,
+  renderDefaultWorkspaceInviteEmail
+} from "../src/server/workspaceMembers/defaultWorkspaceInviteEmail.js";
 import { createWorkspaceInviteUrlBuilder } from "../src/server/workspaceMembers/workspaceInviteUrls.js";
 import { unconfiguredWorkspaceInviteMailer } from "../src/server/workspaceMembers/unconfiguredWorkspaceInviteMailer.js";
 
@@ -154,4 +157,34 @@ test("default invitation email uses the configured label with HTML escaping and 
   assert.match(labelled.text, /as Member <team>/u);
   assert.match(labelled.html, /as Member &lt;team&gt;/u);
   assert.match(renderDefaultWorkspaceInviteEmail(input).text, /as worker/u);
+});
+
+test("default invitation email writes the expiry as a date in the recipient's locale and time zone", () => {
+  const i18n = createWorkspacesServerI18n();
+  const message = renderDefaultWorkspaceInviteEmail({
+    email: "reader@example.test",
+    inviteUrl: "/invite/abc",
+    workspace: { name: "Acme", slug: "acme" },
+    inviter: null,
+    roleSid: "worker",
+    expiresAt: "2026-11-02T00:00:00.000Z",
+    locale: "en",
+    timeZone: "UTC",
+    t: (key, params) => i18n.t("en", key, params)
+  });
+  assert.match(message.text, /November 2, 2026/u);
+  assert.doesNotMatch(message.text, /2026-11-02T00:00:00\.000Z/u);
+
+  assert.match(formatInviteExpiry("2026-11-02T00:00:00.000Z", "it", "Europe/Rome"), /2 novembre 2026/u);
+  assert.match(formatInviteExpiry("2026-11-02T00:00:00.000Z", "en", "America/New_York"), /November 1, 2026/u);
+  // An unknown time zone or locale falls back to UTC or English; a value that is not a date is shown as sent.
+  assert.equal(
+    formatInviteExpiry("2026-11-02T00:00:00.000Z", "en", "Not/AZone"),
+    formatInviteExpiry("2026-11-02T00:00:00.000Z", "en", "UTC")
+  );
+  assert.equal(
+    formatInviteExpiry("2026-11-02T00:00:00.000Z", "not a locale!", "UTC"),
+    formatInviteExpiry("2026-11-02T00:00:00.000Z", "en", "UTC")
+  );
+  assert.equal(formatInviteExpiry("soon", "en", "UTC"), "soon");
 });
