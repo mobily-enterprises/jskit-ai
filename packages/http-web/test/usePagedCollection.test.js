@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { QueryClient } from "@tanstack/vue-query";
 import { trimInfinitePagesToFirst } from "../src/client/composables/usePagedCollection.js";
 
 test("trimInfinitePagesToFirst leaves non-object payloads untouched", () => {
@@ -50,4 +51,16 @@ test("trimInfinitePagesToFirst injects null pageParam when missing", () => {
       pageParams: [null]
     }
   );
+});
+
+test("trimming a query with no data yet leaves it pending", () => {
+  const queryClient = new QueryClient();
+  const queryKey = ["records", "filter-not-fetched-yet"];
+  queryClient.getQueryCache().build(queryClient, { queryKey });
+
+  queryClient.setQueryData(queryKey, (data) => trimInfinitePagesToFirst(data));
+
+  const { data, status } = queryClient.getQueryState(queryKey);
+  assert.equal(status, "pending");
+  assert.equal(data, undefined);
 });
