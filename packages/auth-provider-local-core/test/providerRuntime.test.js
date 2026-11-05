@@ -22,6 +22,15 @@ import {
 } from "../src/server/lib/index.js";
 
 const DEV_AUTH_SECRET = "local-preview-exchange-secret";
+const temporaryStoreDirs = [];
+
+async function temporaryStoreDir(prefix) {
+  const storeDir = await fs.mkdtemp(path.join(os.tmpdir(), prefix));
+  temporaryStoreDirs.push(storeDir);
+  return storeDir;
+}
+
+test.after(() => Promise.all(temporaryStoreDirs.map((storeDir) => fs.rm(storeDir, { recursive: true, force: true }))));
 
 function createReplyFixture() {
   const cookies = {};
@@ -85,7 +94,7 @@ async function createStartedApp({
   logger = null,
   configureExtensions = null
 } = {}) {
-  const storeDir = await fs.mkdtemp(path.join(os.tmpdir(), "jskit-auth-local-"));
+  const storeDir = await temporaryStoreDir("jskit-auth-local-");
   const backend = createLocalFileBackend({ storeDir });
   const extensions = createAuthExtensions();
   const runtimeLogger = logger || {
@@ -609,7 +618,7 @@ test("local auth login verifies password and creates session in one backend tran
   let transactions = 0;
   let sessionCreated = false;
   const backend = createLocalFileBackend({
-    storeDir: await fs.mkdtemp(path.join(os.tmpdir(), "jskit-auth-login-tx-"))
+    storeDir: await temporaryStoreDir("jskit-auth-login-tx-")
   });
   await backend.withTransaction((tx) =>
     tx.users.create({
@@ -1125,7 +1134,7 @@ test("local auth provider requires an explicit public URL for email recovery", a
 });
 
 test("local file backend recovers stale transaction locks", async () => {
-  const storeDir = await fs.mkdtemp(path.join(os.tmpdir(), "jskit-auth-local-"));
+  const storeDir = await temporaryStoreDir("jskit-auth-local-");
   await fs.mkdir(storeDir, { recursive: true });
   const lockPath = path.join(storeDir, "store.lock");
   await fs.writeFile(lockPath, "0:stale\n", "utf8");
@@ -1152,7 +1161,7 @@ test("local file backend recovers stale transaction locks", async () => {
 });
 
 test("local file backend replays a pending multi-file transaction journal before reads", async () => {
-  const sourceDir = await fs.mkdtemp(path.join(os.tmpdir(), "jskit-auth-local-source-"));
+  const sourceDir = await temporaryStoreDir("jskit-auth-local-source-");
   const sourceBackend = createLocalFileBackend({ storeDir: sourceDir });
   await sourceBackend.withTransaction(async (tx) => {
     await tx.users.create({
@@ -1180,7 +1189,7 @@ test("local file backend replays a pending multi-file transaction journal before
     });
   });
 
-  const storeDir = await fs.mkdtemp(path.join(os.tmpdir(), "jskit-auth-local-journal-"));
+  const storeDir = await temporaryStoreDir("jskit-auth-local-journal-");
   const files = await Promise.all(
     ["users.passwd", "sessions.passwd", "recovery.passwd"].map(async (name) => ({
       name,

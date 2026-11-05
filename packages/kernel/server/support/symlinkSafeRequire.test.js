@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import test from "node:test";
@@ -9,8 +9,9 @@ test("symlinkSafeRequire requires a non-empty module id", () => {
   assert.throws(() => symlinkSafeRequire(""), /requires a non-empty module id/);
 });
 
-test("symlinkSafeRequire resolves modules from app cwd node_modules", async () => {
+test("symlinkSafeRequire resolves modules from app cwd node_modules", async (t) => {
   const appRoot = await mkdtemp(path.join(tmpdir(), "jskit-symlink-safe-require-"));
+  t.after(() => rm(appRoot, { recursive: true, force: true }));
   const knexPackageDir = path.join(appRoot, "node_modules", "knex");
   await mkdir(knexPackageDir, { recursive: true });
   await writeFile(path.join(knexPackageDir, "package.json"), JSON.stringify({ name: "knex", main: "index.js" }), "utf8");

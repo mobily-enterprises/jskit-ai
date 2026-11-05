@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { access, mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -78,8 +78,9 @@ async function declareInstalledPackages(appRoot, packages = {}) {
   await writeJson(packageJsonPath, packageJson);
 }
 
-test("resolveLocalPackageSources includes every file dependency regardless of scope or exports", async () => {
+test("resolveLocalPackageSources includes every file dependency regardless of scope or exports", async (t) => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-local-resolution-"));
+  t.after(() => rm(tempRoot, { recursive: true, force: true }));
   await declareInstalledPackages(tempRoot, {
     "@local/main": { packagePath: "packages/main" },
     "@local/feature": { packagePath: "packages/feature" },
@@ -260,8 +261,9 @@ test("resolveClientOptimizeIncludeSpecifiers omits excluded package clients", ()
   assert.deepEqual(include, ["@c/pkg/client"]);
 });
 
-test("resolveInstalledClientModules returns only installed packages with a client export", async () => {
+test("resolveInstalledClientModules returns only installed packages with a client export", async (t) => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-"));
+  t.after(() => rm(tempRoot, { recursive: true, force: true }));
   const appRoot = tempRoot;
 
   await declareInstalledPackages(appRoot, {
@@ -294,8 +296,9 @@ test("resolveInstalledClientModules returns only installed packages with a clien
   assert.deepEqual(packageIds, ["@example/has-client"]);
 });
 
-test("resolveInstalledClientModules returns installed modules with client exports", async () => {
+test("resolveInstalledClientModules returns installed modules with client exports", async (t) => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-modules-"));
+  t.after(() => rm(tempRoot, { recursive: true, force: true }));
 
   await declareInstalledPackages(tempRoot, { "@example/has-client": {} });
 
@@ -355,8 +358,9 @@ test("resolveInstalledClientModules returns installed modules with client export
   assert.deepEqual(modules[0].packageMetadataClientOptimizeIncludeSpecifiers, ["mime-match"]);
 });
 
-test("resolveInstalledClientModules resolves a packageMetadata from a file dependency", async () => {
+test("resolveInstalledClientModules resolves a packageMetadata from a file dependency", async (t) => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-package-path-"));
+  t.after(() => rm(tempRoot, { recursive: true, force: true }));
 
   await declareInstalledPackages(tempRoot, {
     "@example/has-client": { packagePath: "packages/has-client" }
@@ -481,8 +485,9 @@ test("resolveInstalledViteProxyEntries rejects malformed package proxy metadata"
   );
 });
 
-test("resolveLocalScopePackageIds excludes development-only local packages from runtime composition", async () => {
+test("resolveLocalScopePackageIds excludes development-only local packages from runtime composition", async (t) => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-local-scope-"));
+  t.after(() => rm(tempRoot, { recursive: true, force: true }));
   await writeJson(path.join(tempRoot, "package.json"), {
     name: "fixture-app",
     dependencies: {
@@ -499,8 +504,9 @@ test("resolveLocalScopePackageIds excludes development-only local packages from 
   assert.deepEqual(packageIds, ["@local/feature"]);
 });
 
-test("createJskitClientBootstrapPlugin resolves and loads virtual module", async () => {
+test("createJskitClientBootstrapPlugin resolves and loads virtual module", async (t) => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-plugin-"));
+  t.after(() => rm(tempRoot, { recursive: true, force: true }));
   const previousCwd = process.cwd();
 
   try {
@@ -530,8 +536,9 @@ test("createJskitClientBootstrapPlugin resolves and loads virtual module", async
   }
 });
 
-test("createJskitClientBootstrapPlugin keeps a restart from clearing the log unless the app chooses otherwise", async () => {
+test("createJskitClientBootstrapPlugin keeps a restart from clearing the log unless the app chooses otherwise", async (t) => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-clear-screen-"));
+  t.after(() => rm(tempRoot, { recursive: true, force: true }));
   const previousCwd = process.cwd();
 
   try {
@@ -546,8 +553,9 @@ test("createJskitClientBootstrapPlugin keeps a restart from clearing the log unl
   }
 });
 
-test("createJskitClientBootstrapPlugin contributes installed package proxies without generated state", async () => {
+test("createJskitClientBootstrapPlugin contributes installed package proxies without generated state", async (t) => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-proxy-"));
+  t.after(() => rm(tempRoot, { recursive: true, force: true }));
   const previousCwd = process.cwd();
 
   try {
@@ -597,8 +605,9 @@ test("createJskitClientBootstrapPlugin contributes installed package proxies wit
   }
 });
 
-test("createJskitClientBootstrapPlugin resolves multiple local packages before Vite dependency resolution", async () => {
+test("createJskitClientBootstrapPlugin resolves multiple local packages before Vite dependency resolution", async (t) => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-plugin-local-resolution-"));
+  t.after(() => rm(tempRoot, { recursive: true, force: true }));
   const previousCwd = process.cwd();
 
   try {
@@ -719,8 +728,9 @@ test("createJskitClientBootstrapPlugin resolves multiple local packages before V
   }
 });
 
-test("createJskitClientBootstrapPlugin config excludes installed client package specifiers from optimizeDeps", async () => {
+test("createJskitClientBootstrapPlugin config excludes installed client package specifiers from optimizeDeps", async (t) => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-config-"));
+  t.after(() => rm(tempRoot, { recursive: true, force: true }));
   const previousCwd = process.cwd();
 
   try {
@@ -759,8 +769,9 @@ test("createJskitClientBootstrapPlugin config excludes installed client package 
   }
 });
 
-test("createJskitClientBootstrapPlugin config lets packageMetadata excludes override automatic client includes", async () => {
+test("createJskitClientBootstrapPlugin config lets packageMetadata excludes override automatic client includes", async (t) => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-config-packageMetadata-exclude-"));
+  t.after(() => rm(tempRoot, { recursive: true, force: true }));
   const previousCwd = process.cwd();
 
   try {
@@ -808,8 +819,9 @@ test("createJskitClientBootstrapPlugin config lets packageMetadata excludes over
   }
 });
 
-test("createJskitClientBootstrapPlugin config keeps local packages as scannable source", async () => {
+test("createJskitClientBootstrapPlugin config keeps local packages as scannable source", async (t) => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-config-local-"));
+  t.after(() => rm(tempRoot, { recursive: true, force: true }));
   const previousCwd = process.cwd();
 
   try {
@@ -871,8 +883,9 @@ test("createJskitClientBootstrapPlugin config keeps local packages as scannable 
   }
 });
 
-test("createJskitClientBootstrapPlugin config preserves user resolve fields and merges dedupe", async () => {
+test("createJskitClientBootstrapPlugin config preserves user resolve fields and merges dedupe", async (t) => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-config-resolve-"));
+  t.after(() => rm(tempRoot, { recursive: true, force: true }));
   const previousCwd = process.cwd();
 
   try {
@@ -902,8 +915,9 @@ test("createJskitClientBootstrapPlugin config preserves user resolve fields and 
   }
 });
 
-test("createJskitClientBootstrapPlugin config uses real paths for @local scoped packages", async () => {
+test("createJskitClientBootstrapPlugin config uses real paths for @local scoped packages", async (t) => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-local-scope-config-"));
+  t.after(() => rm(tempRoot, { recursive: true, force: true }));
   const previousCwd = process.cwd();
 
   try {
@@ -947,8 +961,9 @@ test("createJskitClientBootstrapPlugin config uses real paths for @local scoped 
   }
 });
 
-test("createJskitClientBootstrapPlugin rejects a later preserveSymlinks override for local packages", async () => {
+test("createJskitClientBootstrapPlugin rejects a later preserveSymlinks override for local packages", async (t) => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-local-symlink-config-"));
+  t.after(() => rm(tempRoot, { recursive: true, force: true }));
   const previousCwd = process.cwd();
 
   try {

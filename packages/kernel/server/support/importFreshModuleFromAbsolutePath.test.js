@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import test from "node:test";
@@ -12,8 +12,9 @@ test("importFreshModuleFromAbsolutePath requires an absolute path", async () => 
   );
 });
 
-test("importFreshModuleFromAbsolutePath re-evaluates a module on each call", async () => {
+test("importFreshModuleFromAbsolutePath re-evaluates a module on each call", async (t) => {
   const tempRoot = await mkdtemp(path.join(tmpdir(), "jskit-import-fresh-module-"));
+  t.after(() => rm(tempRoot, { recursive: true, force: true }));
   const modulePath = path.join(tempRoot, "counter.mjs");
   const counterKey = "__jskitKernelImportFreshCounter";
   delete globalThis[counterKey];

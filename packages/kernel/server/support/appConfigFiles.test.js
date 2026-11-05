@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import test from "node:test";
 import { loadAppConfigFromAppRoot } from "./appConfigFiles.js";
 
-test("loadAppConfigFromAppRoot merges public and server config", async () => {
+test("loadAppConfigFromAppRoot merges public and server config", async (t) => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "kernel-app-config-"));
+  t.after(() => rm(tempRoot, { recursive: true, force: true }));
   const appRoot = path.join(tempRoot, "app");
   await mkdir(path.join(appRoot, "config"), { recursive: true });
   await writeFile(path.join(appRoot, "config", "public.js"), "export const config = { a: 1, shared: 'public' };", "utf8");
@@ -22,8 +23,9 @@ test("loadAppConfigFromAppRoot merges public and server config", async () => {
   assert.equal(Object.isFrozen(loaded), true);
 });
 
-test("loadAppConfigFromAppRoot re-reads config changes within the same process", async () => {
+test("loadAppConfigFromAppRoot re-reads config changes within the same process", async (t) => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "kernel-app-config-"));
+  t.after(() => rm(tempRoot, { recursive: true, force: true }));
   const appRoot = path.join(tempRoot, "app");
   const publicConfigPath = path.join(appRoot, "config", "public.js");
   await mkdir(path.dirname(publicConfigPath), { recursive: true });
@@ -44,8 +46,9 @@ test("loadAppConfigFromAppRoot requires an explicit appRoot", async () => {
   );
 });
 
-test("loadAppConfigFromAppRoot tolerates missing server config", async () => {
+test("loadAppConfigFromAppRoot tolerates missing server config", async (t) => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "kernel-app-config-"));
+  t.after(() => rm(tempRoot, { recursive: true, force: true }));
   const appRoot = path.join(tempRoot, "app");
   await mkdir(path.join(appRoot, "config"), { recursive: true });
   await writeFile(path.join(appRoot, "config", "public.js"), "export const config = { a: 1 };", "utf8");

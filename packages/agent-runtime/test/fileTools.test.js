@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileTools } from "../src/server/index.js";
 
-async function workspace() {
+async function workspace(t) {
   const root = await mkdtemp(path.join(os.tmpdir(), "agent-files-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
   await mkdir(path.join(root, "src", "lib"), { recursive: true });
   await mkdir(path.join(root, "node_modules", "dep"), { recursive: true });
   await writeFile(path.join(root, "src", "main.js"), "import { add } from \"./lib/math.js\";\nconsole.log(add(2, 3));\n");
@@ -15,8 +16,8 @@ async function workspace() {
   return { root, tools: fileTools({ root }) };
 }
 
-test("the file tools list, find, search, read, write and edit inside the workspace", async () => {
-  const { root, tools } = await workspace();
+test("the file tools list, find, search, read, write and edit inside the workspace", async (t) => {
+  const { root, tools } = await workspace(t);
   const listed = await tools.listFiles.execute({ depth: 3 });
   assert.deepEqual(listed.entries, ["node_modules/", "src/", "src/lib/", "src/lib/math.js", "src/main.js"], "node_modules is listed, never gone through");
   assert.deepEqual((await tools.findFiles.execute({ pattern: "**/*.js" })).files.sort(), ["src/lib/math.js", "src/main.js"]);
@@ -31,17 +32,18 @@ test("the file tools list, find, search, read, write and edit inside the workspa
   assert.match(await readFile(path.join(root, "src", "lib", "math.js"), "utf8"), /a \+ b \+ 0/u);
 });
 
-test("an edit must match exactly once, unless every match is meant", async () => {
-  const { tools } = await workspace();
+test("an edit must match exactly once, unless every match is meant", async (t) => {
+  const { tools } = await workspace(t);
   await tools.writeFile.execute({ path: "twice.txt", content: "x = 1\nx = 1\n" });
   assert.match((await tools.editFile.execute({ path: "twice.txt", old_text: "y = 2", new_text: "z" })).error, /isn't in the file/u);
   assert.match((await tools.editFile.execute({ path: "twice.txt", old_text: "x = 1", new_text: "x = 2" })).error, /appears 2 times/u);
   assert.equal((await tools.editFile.execute({ path: "twice.txt", old_text: "x = 1", new_text: "x = 2", replace_all: true })).replaced, 2);
 });
 
-test("nothing outside the workspace can be read or written, links included", async () => {
-  const { root, tools } = await workspace();
+test("nothing outside the workspace can be read or written, links included", async (t) => {
+  const { root, tools } = await workspace(t);
   const outside = await mkdtemp(path.join(os.tmpdir(), "agent-outside-"));
+  t.after(() => rm(outside, { recursive: true, force: true }));
   await writeFile(path.join(outside, "secret.txt"), "secret");
   await symlink(outside, path.join(root, "escape"));
   for (const wanted of ["../secret.txt", path.join(outside, "secret.txt"), "escape/secret.txt"]) {
@@ -51,8 +53,8 @@ test("nothing outside the workspace can be read or written, links included", asy
   assert.match((await tools.listFiles.execute({ path: ".." })).error, /outside the workspace/u);
 });
 
-test("binary files aren't read as text", async () => {
-  const { root, tools } = await workspace();
+test("binary files aren't read as text", async (t) => {
+  const { root, tools } = await workspace(t);
   await writeFile(path.join(root, "image.bin"), Buffer.from([0x89, 0x50, 0x00, 0x01]));
   assert.equal((await tools.readFile.execute({ path: "image.bin" })).error, "This file isn't text.");
 });

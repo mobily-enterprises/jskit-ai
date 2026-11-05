@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -14,6 +14,7 @@ for (const [name, executor, unavailable] of executors) {
     const knex = await testDatabase(context);
     const root = await mkdtemp(path.join(os.tmpdir(), "agent-commands-"));
     const outputDir = await mkdtemp(path.join(os.tmpdir(), "agent-outputs-"));
+    context.after(() => Promise.all([root, outputDir].map((dir) => rm(dir, { recursive: true, force: true }))));
     const ended = [];
     const commands = createCommands({ knex, executor, outputDir, onEnd: (row) => ended.push(row.id), limits: { ...createCommands({ knex, executor }).limits, foregroundSeconds: 3, outputHead: 100, outputTail: 100 } });
     const tools = commandTools({ commands, conversationId: 1, root });

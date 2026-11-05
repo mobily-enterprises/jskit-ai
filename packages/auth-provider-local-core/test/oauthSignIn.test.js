@@ -25,8 +25,9 @@ const MICROSOFT_CONSUMER_TENANT_ID = "9188040d-6c67-4c5b-b112-36a304b66dad";
 const UNVERIFIED = { statusCode: 401, code: "auth.local.oauth.unverified" };
 const EXPIRED = { statusCode: 400, code: "auth.local.oauth.expired" };
 
-async function fileBackend() {
+async function fileBackend(t) {
   const storeDir = await fs.mkdtemp(path.join(os.tmpdir(), "jskit-auth-local-oauth-"));
+  t.after(() => fs.rm(storeDir, { recursive: true, force: true }));
   return createLocalFileBackend({ storeDir });
 }
 
@@ -72,7 +73,7 @@ function createUsersProfileSync() {
 async function googleSetup(t, { account, profileProjector = noAppProfiles } = {}) {
   const issuer = await startOidcProvider({ account });
   t.after(() => issuer.close());
-  const backend = await fileBackend();
+  const backend = await fileBackend(t);
   const service = createService({ backend, profileProjector, oauthProviders: [oidcProviderEntry(issuer)] });
   return { issuer, backend, service };
 }
@@ -236,7 +237,7 @@ test("Microsoft accepts personal accounts and work accounts on a verified domain
       const issuer = await startOidcProvider();
       st.after(() => issuer.close());
       const service = createService({
-        backend: await fileBackend(),
+        backend: await fileBackend(st),
         oauthProviders: [oidcProviderEntry(issuer, { id: "microsoft", label: "Microsoft" })],
         profileProjector: noAppProfiles
       });
@@ -255,7 +256,7 @@ test("Microsoft accepts personal accounts and work accounts on a verified domain
 test("GitHub signs in with the primary verified address and refuses an unverified one", async (t) => {
   const github = await startFakeGitHub();
   t.after(() => github.close());
-  const backend = await fileBackend();
+  const backend = await fileBackend(t);
   const service = createService({ backend, oauthProviders: [github.provider], profileProjector: noAppProfiles });
 
   const { started, input, request } = await approveAtProvider(service, { provider: "github" });
@@ -286,7 +287,7 @@ test("account settings link and unlink providers, never removing the last sign-i
     await github.close();
   });
   const service = createService({
-    backend: await fileBackend(),
+    backend: await fileBackend(t),
     oauthProviders: [oidcProviderEntry(issuer), github.provider],
     profileProjector: noAppProfiles
   });

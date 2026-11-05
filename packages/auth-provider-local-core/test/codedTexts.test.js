@@ -27,16 +27,17 @@ function assertCoded(error, code) {
   return true;
 }
 
-async function createService(env = {}) {
+async function createService(t, env = {}) {
   const storeDir = await fs.mkdtemp(path.join(os.tmpdir(), "jskit-auth-local-coded-"));
+  t.after(() => fs.rm(storeDir, { recursive: true, force: true }));
   return createLocalAuthService({
     ...localServiceOptions({ env }),
     backend: createLocalFileBackend({ storeDir })
   });
 }
 
-test("local auth errors carry codes whose English is the thrown message", async () => {
-  const service = await createService();
+test("local auth errors carry codes whose English is the thrown message", async (t) => {
+  const service = await createService(t);
   await assert.rejects(() => service.register({ email: "nope", password: "long enough" }),
     (error) => assertCoded(error, "auth.local.email.invalid"));
   await assert.rejects(() => service.register({ email: "ada@example.com", password: "short" }),
@@ -53,13 +54,13 @@ test("local auth errors carry codes whose English is the thrown message", async 
   await assert.rejects(() => service.updateDisplayName({ cookies: {} }, { displayName: "Ada" }),
     (error) => assertCoded(error, "auth.session.required"));
 
-  const disabled = await createService({ NODE_ENV: "production", AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "log" });
+  const disabled = await createService(t, { NODE_ENV: "production", AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "log" });
   await assert.rejects(() => disabled.requestPasswordReset({ email: "ada@example.com" }),
     (error) => assertCoded(error, "auth.local.recovery.notConfigured"));
 });
 
-test("local auth success texts carry a message code next to the English", async () => {
-  const service = await createService();
+test("local auth success texts carry a message code next to the English", async (t) => {
+  const service = await createService(t);
   await service.register({ email: "ada@example.com", password: "correct horse" });
   const requested = await service.requestPasswordReset({ email: "ada@example.com" });
   assert.equal(requested.messageCode, "auth.local.recovery.requested");
