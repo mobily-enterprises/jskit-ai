@@ -31,7 +31,7 @@ function normalizeQueryKeyValue(queryKey = null) {
   return [resolved];
 }
 
-function trimInfinitePagesToFirst(data = null) {
+function trimInfinitePagesToFirst(data) {
   if (!data || typeof data !== "object" || Array.isArray(data)) {
     return data;
   }
