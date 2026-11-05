@@ -24,11 +24,14 @@ Exports
 - `normalizeEmail(value)`
 - `passwordProblem(password)`
 Local functions
+- `accountText(entry)`
 - `isCommonPassword(password)`
+- `passwordProblemEntry(password)`
 - `displayNameFor(value, email)`
 - `passwordRecord(row)`
 - `passwordColumns(record)`
 - `toAccount(row)`
+- `accountError(entry)`
 
 ### `src/server/adapter.js`
 Exports
@@ -99,19 +102,26 @@ Exports
 - `appendCookie(reply, cookie)`
 - `clientIp(request)`
 - `escapeHtml(value)`
-- `hubPage({ title, heading, body, content = "" })`
+- `hubPage({ title, heading, body, content = "", lang = "en" })`
 - `parseCookies(header)`
 - `serializeCookie(name, value, { maxAge, secure, path = "/", httpOnly = true, sameSite = "Lax" })`
 
 ### `src/server/hub.js`
 Exports
-- `createHub({ knex, config, devAuth, logger, mailer, now, googleEndpoints, fetchImpl })`
+- `createHub({ knex, config, devAuth, logger, mailer, now, googleEndpoints, fetchImpl, texts })`
+
+### `src/server/hubErrors.js`
+Exports
+- `HUB_ERRORS`
+- `errorBody(error)`
+- `hubError(entry, messageParams = {})`
 
 ### `src/server/hubRoutes.js`
 Exports
 - `registerHubRoutes(app, hub)`
 - `type HubRouteSupport`
 Local functions
+- `requestLocale(texts, request)`
 - `accountView(account)`
 - `appView(row)`
 - `isLoopbackRequest(request)`
@@ -128,6 +138,13 @@ Exports
 - `createHubSessionStore({ knex, now })`
 - `createSettingStore({ knex })`
 - `hubSessionCookieName(config)`
+
+### `src/server/hubTexts.js`
+Exports
+- `acceptLanguages(header)`
+- `createHubTexts({ appRoot = "", catalogs = [] } = {})`
+- `hubEnglish(messageCode, params = {})`
+- `uiLocales(value)`
 
 ### `src/server/importAccounts.js`
 Exports
@@ -152,7 +169,7 @@ Exports
 ### `src/server/issuer.js`
 Exports
 - `HUB_GLOBAL_PATHS`
-- `createOidcIssuer({ knex, env, logger, mailer, now = systemClock, appRoot = "", googleEndpoints = GOOGLE_ENDPOINTS, fetchImpl = globalThis.fetch })`
+- `createOidcIssuer({ knex, env, logger, mailer, now = systemClock, appRoot = "", catalogs, googleEndpoints = GOOGLE_ENDPOINTS, fetchImpl = globalThis.fetch })`
 Local functions
 - `isHubPath(url)`
 - `bearerToken(request)`
@@ -169,9 +186,10 @@ Exports
 Exports
 - `ACTIVE_STATUSES`
 - `HUB_SCOPES`
-- `createOidcProvider({ config, jwks, Adapter, accounts, clients, hasHubSession })`
+- `createOidcProvider({ config, jwks, Adapter, accounts, clients, hasHubSession, texts })`
 Local functions
 - `interactionPath(uid)`
+- `pageText(texts, ctx)`
 - `interactionsPolicy(hasHubSession)`
 
 ### `src/server/previewIdentity.js`
@@ -203,6 +221,7 @@ Exports
 - `type HubAdapterClass`
 - `type Hub`
 - `type HubMailer`
+- `type HubTexts`
 - `type HubClock`
 - `type GoogleEndpoints`
 

@@ -102,7 +102,7 @@ Exports
 - `areCrudListFilterUiValuesEqual(filter = {}, currentValue, expectedValue)`
 - `hasCrudListFilterUiValue(filter = {}, rawValue)`
 - `listCrudListFilterChipValues(filter = {}, rawValue)`
-- `formatCrudListFilterDefaultChipLabel(filter = {}, rawValue, { resolveAtomicValue: resolveAtomicLabel = atomicValueText } = {})`
+- `formatCrudListFilterDefaultChipLabel(filter = {}, rawValue, { resolveAtomicValue: resolveAtomicLabel = atomicValueText, t = englishChipText } = {})`
 - `formatCrudListFilterQueryValue(filter = {}, value)`
 - `parseCrudListFilterQueryValue(filter = {}, value, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
 - `normalizeCrudListFilterType(value = "")`
@@ -124,6 +124,7 @@ Local functions
 - `normalizeCrudListNumberRangeQueryValue(value)`
 - `parseCrudListFilterMultiQueryValue(value, normalizeEntry, { invalidValues })`
 - `atomicValueText(value)`
+- `englishChipText(key, params)`
 
 ### `src/shared/crudLookup.js`
 Exports

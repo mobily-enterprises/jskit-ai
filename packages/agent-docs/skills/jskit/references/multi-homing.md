@@ -198,9 +198,11 @@ const InviteMailerProvider = defineProvider({
 
 The optional `workspaces.invite-email-template` capability is a function that
 renders that inner message; it receives `{ email, inviteUrl, workspace, inviter,
-roleSid, roleLabel, expiresAt, locale, t }` (`roleLabel` only when configured).
-Provide it from an application feature, as for the mailer; without it the
-built-in template renders the message. Invitation links use `/invite/:token` unless
+roleSid, roleLabel, expiresAt, locale, timeZone, t }` (`roleLabel` only when
+configured; `locale` and `timeZone` are the recipient's saved settings, else
+`en` and `UTC`). Provide it from an application feature, as for the mailer;
+without it the built-in template renders the message, with the expiry written
+as a date in that locale and time zone. Invitation links use `/invite/:token` unless
 `workspaceInvitations.invitePath` names another path. The
 `workspaces/workspace-server` pattern includes an example renderer.
 

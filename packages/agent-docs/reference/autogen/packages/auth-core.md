@@ -295,6 +295,8 @@ Exports
 - `AUTH_DENIED_CODE_PATTERN`
 - `AUTH_DENIED_CODES`
 - `AUTH_DENIED_DEFAULT_MESSAGES`
+- `AUTH_DENIED_DEFAULT_TEXTS`
+- `AUTH_DENIED_FALLBACK_TEXT`
 - `AUTH_DENIED_LOGIN_MESSAGES`
 - `AUTH_DENIED_LOGIN_TEXTS`
 - `AUTH_DENIED_MESSAGE_MAX_LENGTH`
@@ -375,7 +377,8 @@ Exports
 - `authCapabilitiesOutputSchema`
 - `sessionOutputValidator`
 - `sessionUnavailableOutputValidator`
-- `createCommandMessages({ fields = {}, defaultMessage = "Invalid value." } = {})`
+- `AUTH_FIELD_MESSAGES`
+- `createCommandMessages({ fields = {}, defaultMessage = AUTH_FIELD_MESSAGES.invalidValue } = {})`
 
 ### `src/shared/commands/authDevLoginAsCommand.js`
 Exports

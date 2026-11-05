@@ -165,7 +165,8 @@ Exports
 
 ### `src/server/workspaceMembers/defaultWorkspaceInviteEmail.js`
 Exports
-- `renderDefaultWorkspaceInviteEmail({ inviteUrl, workspace, inviter, roleSid, roleLabel, expiresAt, t })`
+- `formatInviteExpiry(expiresAt, locale, timeZone)`
+- `renderDefaultWorkspaceInviteEmail({ inviteUrl, workspace, inviter, roleSid, roleLabel, expiresAt, locale = "en", timeZone = "UTC", t })`
 Local functions
 - `escapeHtml(value)`
 

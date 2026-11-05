@@ -135,6 +135,9 @@ the English `message`:
   values and render from `jskit.errors.<code>`.
 - Validation errors keep `details.fieldErrors` (English) and add
   `details.fieldErrorCodes: { field: { code, params } }`.
+- A schema's field `messages` may give a message as a string or as
+  `{ code, message, params }` (see below); the coded form travels as that
+  field's code.
 - Where one code covers several different sentences (for example
   `connector_input_invalid`), the response also has `messageCode` and
   `messageParams` for the exact sentence.
@@ -164,6 +167,33 @@ throw new AppError(409, "That slug is taken.", { code: "app.project.slugTaken" }
 // en: { jskit: { app: { project: { slugTaken: "That slug is taken." } } } }
 ```
 
+### Field messages in schemas
+
+A field's `messages` in a resource or command schema map a validation keyword
+(or `default`) to the message shown when that check fails. A plain string is
+sent as written and is never translated. To make it translatable, give the
+coded form instead: the code, the English (exactly the catalog's English with
+the params filled in) and any params.
+
+```js
+const NAME_MESSAGES = Object.freeze({
+  required: { code: "app.project.nameRequired", message: "Name is required." },
+  maxLength: { code: "app.project.nameTooLong", message: "Use at most 80 characters.", params: { max: 80 } }
+});
+
+const schema = {
+  name: { type: "string", required: true, maxLength: 80, messages: NAME_MESSAGES }
+};
+// en: { jskit: { app: { project: {
+//   nameRequired: "Name is required.", nameTooLong: "Use at most {max} characters." } } } }
+```
+
+The server still sends the English in `details.fieldErrors` and adds the code
+and params to `details.fieldErrorCodes`, so an untranslated app shows exactly
+the English it showed before. The failed check's own params (for example
+`limit`) are sent too, and the coded entry's `params` win over them. JSKIT's
+own schemas use this form, which is why their field messages translate.
+
 ## Placement labels
 
 A placement `label` or `title` may be a message key, `{ key, fallback, params }`
@@ -186,12 +216,21 @@ App code can use the same helpers from `useJskitText()`: `formatDate`,
 
 ## Emails
 
-The workspace invitation email is rendered in the recipient's saved
-`user_settings.locale` when the recipient already has an account, and in English
-otherwise. The server reads the same `src/locales/<code>/jskit.json` files the
-client uses, so translating `jskit.workspaces.inviteEmail.*` there translates
-the email too. It looks for the exact locale (`it-IT`), then the language
-(`it`), then English. The app's invite mailer also receives the chosen `locale`.
+The server reads the same `src/locales/<code>/jskit.json` files the client
+uses, so translating a JSKIT email's keys there translates the email too. It
+looks for the exact locale (`it-IT`), then the language (`it`), then English.
+
+- The workspace invitation email (`jskit.workspaces.inviteEmail.*`) is rendered
+  in the recipient's saved `user_settings.locale` when the recipient already
+  has an account, and in English otherwise. Its expiry date is written with
+  `Intl` in that locale and the recipient's saved time zone (UTC otherwise).
+  The app's invite mailer also receives the chosen `locale`.
+- JSKIT's accounts hub (`@jskit-ai/oidc-issuer-core`) sends the account
+  confirmation, password recovery, Google link and test emails itself, from
+  `jskit.accounts.*`. Hub accounts keep no saved language, so each email
+  follows the request that sent it: the app's `ui_locales`, then the browser's
+  `Accept-Language`, then English. The hub reads the hub project's
+  `src/locales/<code>/jskit.json`; its README has the details.
 
 Server code that renders JSKIT-style messages itself uses the same lookup:
 
@@ -202,9 +241,10 @@ const i18n = createServerI18n({ appRoot, catalogs: [english] });
 i18n.t("it-IT", "jskit.workspaces.inviteEmail.subject", { workspace: "Acme" });
 ```
 
-Password-reset emails are sent by the app's own recovery sender (local
-accounts) or by the identity provider (Supabase, OIDC), so their language is
-the app's or the provider's choice.
+An app that signs in through JSKIT's accounts hub gets its password-reset
+email from the hub, translated as above. With another identity provider
+(Supabase, a third-party OIDC issuer) the provider sends it, so its language is
+the provider's choice.
 
 ## What the app translates itself
 
@@ -223,6 +263,12 @@ JSKIT's catalogs cover JSKIT's own code. These texts belong to the app:
 
 Each JSKIT package with a catalog has a test that compiles every message with
 vue-i18n, requires every key and dotted code its source uses to exist, rejects
-unused keys and refuses a key another package already defines. ESLint's
+unused keys and refuses a key another package already defines. It also requires
+an undotted code sent with fixed English to have its `jskit.errors.<code>`
+entry (or a `messageCode`), and a literal `{ code, message }` to send its
+catalog's English. A browser test exports a pseudo-locale with
+`jskit i18n export`, switches a fixture app to it, and fails on any English left
+on the sign-in, registration, password reset, sign-out, profile menu, account
+settings and error screens. ESLint's
 `@intlify/vue-i18n/no-raw-text` rule rejects untranslated template text in JSKIT
 client code.

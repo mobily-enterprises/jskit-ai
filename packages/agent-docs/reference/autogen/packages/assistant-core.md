@@ -348,7 +348,7 @@ Local functions
 
 ### `src/server/conversation/boundedToolLoop.js`
 Exports
-- `runBoundedAssistantToolLoop({ prompt, signal, policy, complete, outputSchema, limitError, invalidResponseError = new Error("The assistant returned an invalid response."), failureError = new Error("The assistant could not complete this request."), toolCatalog, toolContext, completedEnvelope = false, settle })`
+- `runBoundedAssistantToolLoop({ prompt, signal, policy, complete, outputSchema, limitError, invalidResponseError = Object.assign(new Error("The assistant returned an invalid response."), { messageCode: "assistant.turn.invalidResponse", messageParams: {} }), failureError = Object.assign(new Error("The assistant could not complete this request."), { messageCode: "assistant.turn.requestIncomplete", messageParams: {} }), toolCatalog, toolContext, completedEnvelope = false, settle })`
 - `readAssistantResponseEnvelope(text)`
 - `readPartialAssistantReply(text)`
 Local functions
@@ -360,7 +360,7 @@ Exports
 - `createClaudeJsonClient({ stream, onEvent = ignoreClaudeFrame, onControlRequest, onFailure = ignoreClaudeFailure, timeoutMs = 30_000 })`
 - `readClaudeJsonFrames`
 Local functions
-- `claudeProtocolError(message, code = "assistant_claude_protocol_error")`
+- `claudeProtocolError(message, { code = "assistant_claude_protocol_error", params, messageCode } = {})`
 - `ignoreClaudeFrame()`
 - `ignoreClaudeFailure()`
 - `reportNoProgress()`
@@ -391,7 +391,7 @@ Local functions
 
 ### `src/server/conversation/claudeNativeTurn.js`
 Exports
-- `claudeTurnFailure(message, { code = "assistant_claude_turn_failed" } = {})`
+- `claudeTurnFailure(message, { code = "assistant_claude_turn_failed", messageCode } = {})`
 - `createClaudeConversationTurn({ conversationId, onEvent, process, entry, bound = false })`
 - `type ClaudeTurnProcess`
 Local functions
@@ -1585,6 +1585,8 @@ Exports
 - `type CodexConversationConnections`
 Local functions
 - `assertCodexApplicationEnvironment(host)`
+- `codexOutputTooLarge()`
+- `nativeGoalChanged()`
 
 ### `src/server/conversation/providers/codexDriverConnection.js`
 Exports

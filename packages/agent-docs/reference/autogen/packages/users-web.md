@@ -165,6 +165,32 @@ Local functions
 Exports
 - None
 
+### `fixtures/translated-app/main.js`
+Exports
+- None
+Local functions
+- `section(value, title, component, order)`
+
+### `fixtures/translated-app/PreferencesSection.vue`
+Exports
+- None
+
+### `fixtures/translated-app/src/error.js`
+Exports
+- `default`
+
+### `fixtures/translated-app/src/placement.js`
+Exports
+- None
+
+### `fixtures/translated-app/src/placementTopology.js`
+Exports
+- None
+
+### `fixtures/translated-app/vite.config.mjs`
+Exports
+- None
+
 ### patterns
 
 ### `patterns/account-settings/example/src/components/account/settings/AccountSettingsNotificationsSection.vue`
