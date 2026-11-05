@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- CRUD list filters show the presence choices and the default filter chips through the app's translator, from resource-crud-core's new catalog (registered with http-web's own). The English is unchanged.
+
 ## 0.2.0 - 2026-10-29
 
 - Translation ready: every user-visible text is a message key with its English in `locales/en.json`, so an app translates it by supplying translation files only. With no translations, texts and behaviour are unchanged. See the guide "Translating a JSKIT app".

@@ -1,5 +1,68 @@
 # Changelog
 
+## Unreleased
+
+- Every auth command's field messages (sign-in, registration, one-time codes, OAuth, password reset and recovery, dev sign-in) are sent in the coded form `{ code, message, params }`, so their field errors translate. The English is unchanged.
+- The default access-denied texts carry the messageCodes `auth.denied.notAllowlistedDefault`, `auth.denied.blockedDefault` and `auth.denied.unspecified`; `./shared/authDenied` adds `AUTH_DENIED_DEFAULT_TEXTS` and `AUTH_DENIED_FALLBACK_TEXT` (`{ message, messageCode }`). `AUTH_DENIED_DEFAULT_MESSAGES` and the English are unchanged.
+
+### New codes (22)
+
+<details><summary>Code list</summary>
+
+- `auth.dev.userIdInvalid`
+- `auth.dev.userInvalid`
+- `auth.validation.unexpectedField`
+- `auth.validation.emailAddressInvalid`
+- `auth.validation.passwordMinLength`
+- `auth.validation.oauthProviderRequired`
+- `auth.validation.oauthProviderInvalid`
+- `auth.validation.oauthCodeInvalid`
+- `auth.validation.oauthStateInvalid`
+- `auth.validation.oauthIssuerInvalid`
+- `auth.validation.accessTokenInvalid`
+- `auth.validation.refreshTokenInvalid`
+- `auth.validation.returnToInvalid`
+- `auth.validation.otpCodeRequired`
+- `auth.validation.otpTokenHashInvalid`
+- `auth.validation.otpTypeUnsupported`
+- `auth.validation.recoveryCodeInvalid`
+- `auth.validation.recoveryTokenHashInvalid`
+- `auth.validation.recoveryTypeUnsupported`
+- `auth.denied.notAllowlistedDefault`
+- `auth.denied.blockedDefault`
+- `auth.denied.unspecified`
+
+</details>
+
+### New message keys (22)
+
+<details><summary>Key list</summary>
+
+- `jskit.auth.dev.userIdInvalid`
+- `jskit.auth.dev.userInvalid`
+- `jskit.auth.validation.unexpectedField`
+- `jskit.auth.validation.emailAddressInvalid`
+- `jskit.auth.validation.passwordMinLength`
+- `jskit.auth.validation.oauthProviderRequired`
+- `jskit.auth.validation.oauthProviderInvalid`
+- `jskit.auth.validation.oauthCodeInvalid`
+- `jskit.auth.validation.oauthStateInvalid`
+- `jskit.auth.validation.oauthIssuerInvalid`
+- `jskit.auth.validation.accessTokenInvalid`
+- `jskit.auth.validation.refreshTokenInvalid`
+- `jskit.auth.validation.returnToInvalid`
+- `jskit.auth.validation.otpCodeRequired`
+- `jskit.auth.validation.otpTokenHashInvalid`
+- `jskit.auth.validation.otpTypeUnsupported`
+- `jskit.auth.validation.recoveryCodeInvalid`
+- `jskit.auth.validation.recoveryTokenHashInvalid`
+- `jskit.auth.validation.recoveryTypeUnsupported`
+- `jskit.auth.denied.notAllowlistedDefault`
+- `jskit.auth.denied.blockedDefault`
+- `jskit.auth.denied.unspecified`
+
+</details>
+
 ## 0.2.0 - 2026-10-29
 
 - Translation ready: every user-visible text is a message key with its English in `locales/en.json`, so an app translates it by supplying translation files only. With no translations, texts and behaviour are unchanged. See the guide "Translating a JSKIT app".

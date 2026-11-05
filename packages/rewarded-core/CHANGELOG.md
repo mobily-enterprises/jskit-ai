@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+- The rewarded resources' save, delete and validation feedback names catalog keys under `jskit.rewarded.feedback.*` instead of plain English; JSKIT's forms render them with `text()`, so the English shown is unchanged.
+
+### New message keys (5)
+
+<details><summary>Key list</summary>
+
+- `jskit.rewarded.feedback.fixInvalidValues`
+- `jskit.rewarded.feedback.recordSaved`
+- `jskit.rewarded.feedback.recordSaveFailed`
+- `jskit.rewarded.feedback.recordDeleted`
+- `jskit.rewarded.feedback.recordDeleteFailed`
+
+</details>
+
 ## 0.2.0 - 2026-10-29
 
 - Translation ready: every user-visible text is a message key with its English in `locales/en.json`, so an app translates it by supplying translation files only. With no translations, texts and behaviour are unchanged. See the guide "Translating a JSKIT app".

@@ -1,5 +1,60 @@
 # Changelog
 
+## Unreleased
+
+- The settings, security and avatar field messages are sent in the coded form `{ code, message, params }`, so their field errors translate. The English is unchanged.
+- The resources' validation feedback names the catalog key `jskit.users.feedback.validationFailed` instead of plain English; JSKIT's forms render it with `text()`, so the English shown is unchanged.
+- `USER_PROFILE_EMAIL_CONFLICT` has its English in the catalog, so it translates.
+
+### New codes (17)
+
+<details><summary>Code list</summary>
+
+- `USER_PROFILE_EMAIL_CONFLICT`
+- `users.avatar.streamMissing`
+- `users.avatar.mimeTypeInvalid`
+- `users.avatar.fileNameInvalid`
+- `users.avatar.uploadDimensionInvalid`
+- `users.security.currentPasswordInvalid`
+- `users.security.newPasswordRequired`
+- `users.security.newPasswordMinLength`
+- `users.security.confirmPasswordRequired`
+- `users.security.enabledRequired`
+- `users.security.enabledInvalid`
+- `users.security.oauthProviderRequired`
+- `users.security.oauthProviderInvalid`
+- `users.security.returnToInvalid`
+- `users.settings.productUpdatesInvalid`
+- `users.settings.accountActivityInvalid`
+- `users.settings.securityAlertsInvalid`
+
+</details>
+
+### New message keys (18)
+
+<details><summary>Key list</summary>
+
+- `jskit.errors.USER_PROFILE_EMAIL_CONFLICT`
+- `jskit.users.avatar.streamMissing`
+- `jskit.users.avatar.mimeTypeInvalid`
+- `jskit.users.avatar.fileNameInvalid`
+- `jskit.users.avatar.uploadDimensionInvalid`
+- `jskit.users.security.currentPasswordInvalid`
+- `jskit.users.security.newPasswordRequired`
+- `jskit.users.security.newPasswordMinLength`
+- `jskit.users.security.confirmPasswordRequired`
+- `jskit.users.security.enabledRequired`
+- `jskit.users.security.enabledInvalid`
+- `jskit.users.security.oauthProviderRequired`
+- `jskit.users.security.oauthProviderInvalid`
+- `jskit.users.security.returnToInvalid`
+- `jskit.users.feedback.validationFailed`
+- `jskit.users.settings.productUpdatesInvalid`
+- `jskit.users.settings.accountActivityInvalid`
+- `jskit.users.settings.securityAlertsInvalid`
+
+</details>
+
 ## 0.2.0 - 2026-10-29
 
 - Translation ready: every user-visible text is a message key with its English in `locales/en.json`, so an app translates it by supplying translation files only. With no translations, texts and behaviour are unchanged. See the guide "Translating a JSKIT app".

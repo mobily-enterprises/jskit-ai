@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- `createServerI18n()` also returns `resolveLocale(preferences)`: from a person's preferred locales (most preferred first, such as `ui_locales` or `Accept-Language`) the first the app has translations for, exactly or by language, else `en`.
+
 ## 0.2.0 - 2026-10-29
 
 - Translation ready: every user-visible text is a message key with its English in `locales/en.json`, so an app translates it by supplying translation files only. With no translations, texts and behaviour are unchanged. See the guide "Translating a JSKIT app".

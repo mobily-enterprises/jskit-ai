@@ -1,5 +1,79 @@
 # Changelog
 
+## Unreleased
+
+- The workspace, settings, member and invitation field messages are sent in the coded form `{ code, message, params }`, so their field errors translate. The English is unchanged.
+- The resources' save, delete and validation feedback names catalog keys under `jskit.workspaces.feedback.*` instead of plain English; JSKIT's forms render them with `text()`, so the English shown is unchanged.
+- The invitation email writes its expiry date with `Intl` in the recipient's locale and saved time zone (UTC without one), for example "November 2, 2026 at 12:00 AM UTC", instead of the raw ISO timestamp. An app's own `workspaces.invite-email-template` also receives the recipient's `timeZone` next to `locale`.
+
+### New codes (21)
+
+<details><summary>Code list</summary>
+
+- `workspaces.workspace.avatarUrlInvalid`
+- `workspaces.invite.decisionRequired`
+- `workspaces.invite.decisionInvalid`
+- `workspaces.settings.lightPrimaryColor.required`
+- `workspaces.settings.lightPrimaryColor.invalid`
+- `workspaces.settings.lightSecondaryColor.required`
+- `workspaces.settings.lightSecondaryColor.invalid`
+- `workspaces.settings.lightSurfaceColor.required`
+- `workspaces.settings.lightSurfaceColor.invalid`
+- `workspaces.settings.lightSurfaceVariantColor.required`
+- `workspaces.settings.lightSurfaceVariantColor.invalid`
+- `workspaces.settings.darkPrimaryColor.required`
+- `workspaces.settings.darkPrimaryColor.invalid`
+- `workspaces.settings.darkSecondaryColor.required`
+- `workspaces.settings.darkSecondaryColor.invalid`
+- `workspaces.settings.darkSurfaceColor.required`
+- `workspaces.settings.darkSurfaceColor.invalid`
+- `workspaces.settings.darkSurfaceVariantColor.required`
+- `workspaces.settings.darkSurfaceVariantColor.invalid`
+- `workspaces.settings.invitesEnabled.required`
+- `workspaces.settings.invitesEnabled.invalid`
+
+</details>
+
+### New message keys (33)
+
+<details><summary>Key list</summary>
+
+- `jskit.workspaces.workspace.avatarUrlInvalid`
+- `jskit.workspaces.invite.decisionRequired`
+- `jskit.workspaces.invite.decisionInvalid`
+- `jskit.workspaces.feedback.validationFailed`
+- `jskit.workspaces.feedback.fixInvalidValues`
+- `jskit.workspaces.feedback.recordSaved`
+- `jskit.workspaces.feedback.recordSaveFailed`
+- `jskit.workspaces.feedback.recordDeleted`
+- `jskit.workspaces.feedback.recordDeleteFailed`
+- `jskit.workspaces.feedback.workspaceInvalid`
+- `jskit.workspaces.feedback.workspaceUpdated`
+- `jskit.workspaces.feedback.workspaceUpdateFailed`
+- `jskit.workspaces.feedback.settingsInvalid`
+- `jskit.workspaces.feedback.settingsUpdated`
+- `jskit.workspaces.feedback.settingsUpdateFailed`
+- `jskit.workspaces.settings.lightPrimaryColor.required`
+- `jskit.workspaces.settings.lightPrimaryColor.invalid`
+- `jskit.workspaces.settings.lightSecondaryColor.required`
+- `jskit.workspaces.settings.lightSecondaryColor.invalid`
+- `jskit.workspaces.settings.lightSurfaceColor.required`
+- `jskit.workspaces.settings.lightSurfaceColor.invalid`
+- `jskit.workspaces.settings.lightSurfaceVariantColor.required`
+- `jskit.workspaces.settings.lightSurfaceVariantColor.invalid`
+- `jskit.workspaces.settings.darkPrimaryColor.required`
+- `jskit.workspaces.settings.darkPrimaryColor.invalid`
+- `jskit.workspaces.settings.darkSecondaryColor.required`
+- `jskit.workspaces.settings.darkSecondaryColor.invalid`
+- `jskit.workspaces.settings.darkSurfaceColor.required`
+- `jskit.workspaces.settings.darkSurfaceColor.invalid`
+- `jskit.workspaces.settings.darkSurfaceVariantColor.required`
+- `jskit.workspaces.settings.darkSurfaceVariantColor.invalid`
+- `jskit.workspaces.settings.invitesEnabled.required`
+- `jskit.workspaces.settings.invitesEnabled.invalid`
+
+</details>
+
 ## 0.2.0 - 2026-10-29
 
 - Translation ready: every user-visible text is a message key with its English in `locales/en.json`, so an app translates it by supplying translation files only. With no translations, texts and behaviour are unchanged. See the guide "Translating a JSKIT app".
