@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/oidc-issuer-core",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "type": "module",
   "scripts": {
     "test": "node --test --test-concurrency=1"
@@ -113,16 +113,16 @@
     }
   },
   "dependencies": {
-    "@jskit-ai/database-runtime": "0.1.254",
+    "@jskit-ai/database-runtime": "0.1.255",
     "jose": "6.2.12",
     "knex": "^3.1.0",
     "nodemailer": "10.2.1",
     "oidc-provider": "9.12.2"
   },
   "devDependencies": {
-    "@jskit-ai/auth-provider-local-core": "0.2.7"
+    "@jskit-ai/auth-provider-local-core": "0.2.8"
   },
   "peerDependencies": {
-    "@jskit-ai/kernel": "0.2.5"
+    "@jskit-ai/kernel": "0.2.6"
   }
 }
