@@ -683,6 +683,47 @@ const trx = resolveTransaction(options);
 const trx = options?.trx || options?.transaction || null;
 ```
 
+### Every row
+
+**A server-side resource query that needs every row it matches reads them
+with `queryAllJsonRestCollectionRows(resource, params, context)`
+(`@jskit-ai/json-rest-api-core/server/jsonRestApiHost`). A query without a
+page means "the first 20 rows".**
+
+- json-rest-api answers a query that names no page with the resource's
+  default page, 20 rows, and says nothing about the rest. The CRUD
+  repository's `queryDocuments(query)` without a `limit` is the same first
+  page.
+- The helper reads cursor pages of the resource's maximum size
+  (`queryMaxLimit`, 100 unless the resource sets it) in id order until none
+  follows, keeping the call's transaction and context, so no row is skipped
+  or repeated. It sets the page and sort itself; sort the rows it returns.
+- A lookup by a unique key (an id, a slug, a token hash, a unique pair such
+  as workspace and user) matches at most one row and may read `rows[0]` of a
+  plain query. A read of the newest or first few rows names its own `sort`
+  and `page`.
+- HTTP list routes keep the caller's page: their default and maximum page
+  sizes are public behaviour, not a server-side limit to raise.
+
+Why: a list read without a page looks complete until the 21st row, then
+silently drops the rest from every person picker, scope and delivery built on it.
+
+```js
+// good
+const rows = await queryAllJsonRestCollectionRows(api.resources.workspaceMemberships, {
+  queryParams: { filters: { workspace: workspaceId, status: "active" }, include: ["user"] },
+  transaction: resolveTransaction(options),
+  format: "plain"
+}, options.context);
+
+// bad: the first 20 members only
+const rows = extractJsonRestCollectionRows(await api.resources.workspaceMemberships.query({
+  queryParams: { filters: { workspace: workspaceId, status: "active" }, include: ["user"] },
+  transaction: resolveTransaction(options),
+  format: "plain"
+}, createJsonRestContext(options.context)));
+```
+
 ### Routes
 
 **A route does HTTP work only (status, cookies, redirects) and runs an action

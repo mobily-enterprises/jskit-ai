@@ -61,6 +61,8 @@ ends with the same link.
   - [One helper per package](../site/guide/framework/typed-features.md#one-helper-per-package)
 - `options?.trx || options?.transaction`, a hand-read actor, cursor or created id
   - [One reader per fact](../site/guide/framework/typed-features.md#one-reader-per-fact)
+- `api.resources.x.query(…)` with no `page` for a list, `queryDocuments(query)` with no `limit` in a service, a list that stops at 20 rows
+  - [Every row](../site/guide/framework/typed-features.md#every-row)
 - a route that queries storage, `boot*.js` holding routes
   - [Routes](../site/guide/framework/typed-features.md#routes)
 - `new AppError(status, message)` with no code, `new NotFoundError("…")`, one code for two sentences (`jskit/app-error-code`)

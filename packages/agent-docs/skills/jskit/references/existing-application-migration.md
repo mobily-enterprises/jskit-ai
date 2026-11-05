@@ -178,6 +178,9 @@ The JSKIT host defaults to plain output and full write responses; standard
 document repositories explicitly request JSON:API output and full create/patch
 responses. A plain collection is still `{ data: [...], meta?, links? }`; use
 `extractJsonRestCollectionRows()` when a custom repository needs its rows.
+A query without a page returns only the resource's first 20 rows; a
+server-side read that needs every row uses `queryAllJsonRestCollectionRows()`
+([every row](typed-features.md#every-row)).
 
 ```js
 await jsonRestApi.resources.books.patch({
