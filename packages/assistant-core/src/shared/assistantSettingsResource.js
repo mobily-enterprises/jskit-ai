@@ -1,8 +1,20 @@
 import { createSchema } from "json-rest-schema";
 import { RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
 
 const MAX_SYSTEM_PROMPT_CHARS = 12_000;
+
+// Each field message: its English and the code a client renders it from in the
+// user's language, the { code, message, params } form of resource field messages.
+const ASSISTANT_SETTINGS_FIELD_MESSAGES = deepFreeze({
+  systemPromptTooLong: {
+    code: "assistant.settings.systemPromptTooLong",
+    message: `Assistant system prompt must be at most ${MAX_SYSTEM_PROMPT_CHARS} characters.`,
+    params: { max: MAX_SYSTEM_PROMPT_CHARS }
+  },
+  systemPromptInvalid: { code: "assistant.settings.systemPromptInvalid", message: "Assistant system prompt must be valid text." }
+});
 
 const assistantConfigRecordSchema = createSchema({
   targetSurfaceId: {
@@ -43,8 +55,8 @@ const assistantConfigPatchSchema = createSchema({
     required: false,
     maxLength: MAX_SYSTEM_PROMPT_CHARS,
     messages: {
-      maxLength: `Assistant system prompt must be at most ${MAX_SYSTEM_PROMPT_CHARS} characters.`,
-      default: "Assistant system prompt must be valid text."
+      maxLength: ASSISTANT_SETTINGS_FIELD_MESSAGES.systemPromptTooLong,
+      default: ASSISTANT_SETTINGS_FIELD_MESSAGES.systemPromptInvalid
     }
   }
 });

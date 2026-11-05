@@ -163,7 +163,9 @@
         "suggestedAnswers": "Suggested answers"
       },
       "settings": {
-        "readOnly": "Read-only"
+        "readOnly": "Read-only",
+        "systemPromptTooLong": "Assistant system prompt must be at most {max} characters.",
+        "systemPromptInvalid": "Assistant system prompt must be valid text."
       },
       "transcript": {
         "assistant": "Assistant",
