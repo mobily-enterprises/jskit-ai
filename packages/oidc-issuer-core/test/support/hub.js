@@ -50,7 +50,7 @@ function createCapturingMailer() {
  * Starts a real hub on a loopback port with an in-memory database. `restart`
  * builds a fresh hub process on the same database and address.
  */
-async function startHub({ env = {}, knex = null, port = null, now, googleEndpoints, fetchImpl } = {}) {
+async function startHub({ env = {}, knex = null, port = null, now, googleEndpoints, fetchImpl, appRoot, catalogs } = {}) {
   const database = knex || (await createDatabase());
   const listenPort = port || (await freePort());
   const mailer = createCapturingMailer();
@@ -68,6 +68,8 @@ async function startHub({ env = {}, knex = null, port = null, now, googleEndpoin
     logger: silentLogger,
     mailer,
     now,
+    appRoot,
+    catalogs,
     googleEndpoints,
     fetchImpl
   });
@@ -89,7 +91,7 @@ async function startHub({ env = {}, knex = null, port = null, now, googleEndpoin
     },
     async restart() {
       await this.stop({ keepDatabase: true });
-      return startHub({ env, knex: database, port: listenPort, now, googleEndpoints, fetchImpl });
+      return startHub({ env, knex: database, port: listenPort, now, googleEndpoints, fetchImpl, appRoot, catalogs });
     }
   };
 }

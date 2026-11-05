@@ -43,7 +43,12 @@ test("14. after 100 consecutive failures the right password is refused until rec
   assert.equal((await signIn(browser, "wrong password here")).status, 401, "the 100th failure");
   const locked = await signIn(browser);
   assert.equal(locked.status, 401, "the 101st attempt, with the right password");
-  assert.deepEqual(await locked.json(), { error: "sign_in_failed", message: "That email and password don't match." });
+  assert.deepEqual(await locked.json(), {
+    error: "sign_in_failed",
+    message: "That email and password don't match.",
+    messageCode: "accounts.signIn.noMatch",
+    messageParams: {}
+  });
 
   await browser.api(`${hub.url}/hub/api/recovery/start`, { body: { email: EMAIL } });
   const token = new URL(hub.mailer.lastLink()).searchParams.get("token");

@@ -8,6 +8,7 @@
   "files": [
     "bin",
     "data",
+    "locales",
     "migrations",
     "patterns",
     "src"
@@ -16,6 +17,7 @@
     "jskit-oidc-issuer": "./bin/jskit-oidc-issuer.js"
   },
   "exports": {
+    "./locales/en.json": "./locales/en.json",
     "./server": "./src/server/index.js",
     "./server/providers/OidcIssuerProvider": "./src/server/providers/OidcIssuerProvider.js",
     "./server/types": "./src/server/types.js"

@@ -3,6 +3,7 @@ import { DEV_AUTH_SECRET_HEADER } from "./config.js";
 import { constantEquals, randomToken } from "./crypto.js";
 import { HubError, appendCookie, clientIp, parseCookies, serializeCookie } from "./http.js";
 import { hubSessionCookieName } from "./hubSessions.js";
+import { HUB_ERRORS, errorBody, hubError } from "./hubErrors.js";
 import { composeMessage } from "./mailer.js";
 import { ACTIVE_STATUSES, HUB_SCOPES } from "./oidcProvider.js";
 
@@ -10,10 +11,10 @@ const GOOGLE_STATE_COOKIE = "hub_google_state";
 const GOOGLE_LINK_COOKIE = "hub_google_link";
 const GOOGLE_LINK_KIND = "GoogleLink";
 const GOOGLE_LINK_TTL_SECONDS = 600;
-const PENDING_SENTENCE = "This app is waiting for approval by the hub's owner.";
-const UNCONFIRMED_SENTENCE = "Confirm your email to continue: open the link we sent you, then press Continue.";
-const NO_MATCH_SENTENCE = "That email and password don't match.";
-const TOO_MANY_SENTENCE = "Too many attempts. Wait a little and try again.";
+/** The locale an API request's emails go out in: the browser's Accept-Language, then English. */
+function requestLocale(texts, request) {
+  return texts.localeFor({ acceptLanguage: request.headers["accept-language"] });
+}
 
 function accountView(account) {
   return {
@@ -51,7 +52,7 @@ function isLoopbackRequest(request) {
  * @param {import("./types.js").Hub} hub
  */
 function createHubRouteSupport(hub) {
-  const { config, accounts, sessions, rateLimiter, mailer } = hub;
+  const { config, accounts, sessions, rateLimiter, mailer, texts } = hub;
   const sessionCookie = hubSessionCookieName(config);
   const hubHost = new URL(config.issuer).host;
 
@@ -73,7 +74,7 @@ function createHubRouteSupport(hub) {
 
   async function requireAccount(request) {
     const signedIn = await current(request);
-    if (!signedIn) throw new HubError(401, "sign_in_required", "Sign in to continue.");
+    if (!signedIn) throw hubError(HUB_ERRORS.signInRequired);
     return signedIn;
   }
 
@@ -84,7 +85,7 @@ function createHubRouteSupport(hub) {
   async function requireOwner(request) {
     const signedIn = await requireAccount(request);
     if (!isOwner(signedIn.account)) {
-      throw new HubError(403, "owner_required", "Only the hub's owner can open this page.");
+      throw hubError(HUB_ERRORS.ownerRequired);
     }
     return signedIn;
   }
@@ -95,28 +96,34 @@ function createHubRouteSupport(hub) {
     writeCookie(reply, sessionCookie, token, sessions.ttlSeconds);
   }
 
-  async function sendEmail(account, purpose, token) {
+  /**
+   * Sends one of the hub's emails in the language of the request that asked for
+   * it (hub accounts keep no saved language).
+   */
+  async function sendEmail(request, account, purpose, token) {
+    const locale = requestLocale(texts, request);
+    const t = (key, params) => texts.t(locale, key, params);
     const link = (path) => `${config.issuer}${path}?token=${encodeURIComponent(token)}`;
     const messages = {
       confirm: {
-        subject: "Confirm your email",
-        heading: "Confirm your email",
-        body: `Confirm ${account.email} so your apps know it is really yours.`,
-        actionLabel: "Confirm email",
+        subject: t("jskit.accounts.mail.confirm.subject"),
+        heading: t("jskit.accounts.mail.confirm.heading"),
+        body: t("jskit.accounts.mail.confirm.body", { email: account.email }),
+        actionLabel: t("jskit.accounts.mail.confirm.action"),
         actionUrl: link("/auth/confirm-email")
       },
       recovery: {
-        subject: "Reset your password",
-        heading: "Reset your password",
-        body: "Someone asked to reset the password of your account. The link works once, for one hour.",
-        actionLabel: "Choose a new password",
+        subject: t("jskit.accounts.mail.recovery.subject"),
+        heading: t("jskit.accounts.mail.recovery.heading"),
+        body: t("jskit.accounts.mail.recovery.body"),
+        actionLabel: t("jskit.accounts.mail.recovery.action"),
         actionUrl: link("/auth/reset-password")
       },
       "google-link": {
-        subject: "Connect Google to your account",
-        heading: "Connect Google to your account",
-        body: "Open the link to connect your Google sign-in and choose a new password. The link works once, for one hour.",
-        actionLabel: "Connect Google",
+        subject: t("jskit.accounts.mail.googleLink.subject"),
+        heading: t("jskit.accounts.mail.googleLink.heading"),
+        body: t("jskit.accounts.mail.googleLink.body"),
+        actionLabel: t("jskit.accounts.mail.googleLink.action"),
         actionUrl: link("/auth/connect-google")
       }
     };
@@ -124,7 +131,7 @@ function createHubRouteSupport(hub) {
     await mailer.send({
       to: account.email,
       subject,
-      ...composeMessage({ ...content, footer: `Sent by your accounts hub at ${hubHost}. If you did not ask for this, ignore this email.` })
+      ...composeMessage({ ...content, footer: t("jskit.accounts.mail.footer", { host: hubHost }) })
     });
   }
 
@@ -135,11 +142,11 @@ function createHubRouteSupport(hub) {
   }
 
   async function guardSignInRate(request) {
-    if (!(await rateLimiter.signIn(clientIp(request)))) throw new HubError(429, "rate_limited", TOO_MANY_SENTENCE);
+    if (!(await rateLimiter.signIn(clientIp(request)))) throw hubError(HUB_ERRORS.tooManyAttempts);
   }
 
   async function guardEmailRate(request, email) {
-    if (!(await rateLimiter.email(email, clientIp(request)))) throw new HubError(429, "rate_limited", TOO_MANY_SENTENCE);
+    if (!(await rateLimiter.email(email, clientIp(request)))) throw hubError(HUB_ERRORS.tooManyAttempts);
   }
 
   return Object.freeze({
@@ -177,7 +184,7 @@ function registerInteractionRoutes(app, hub, support) {
       details = null;
     }
     if (!details || details.uid !== request.params.uid) {
-      throw new HubError(404, "interaction_expired", "This sign-in has expired. Go back to the app and try again.");
+      throw hubError(HUB_ERRORS.interactionExpired);
     }
     const appRow = await clients.get(details.params.client_id);
     return { details, appRow };
@@ -185,10 +192,10 @@ function registerInteractionRoutes(app, hub, support) {
 
   async function finishInteraction(request, reply, account) {
     const { details, appRow } = await loadInteraction(request, reply);
-    if (!appRow || !ACTIVE_STATUSES.has(appRow.status)) throw new HubError(409, "app_pending", PENDING_SENTENCE);
+    if (!appRow || !ACTIVE_STATUSES.has(appRow.status)) throw hubError(HUB_ERRORS.appPending);
     // Apps trust the email they receive (invitations, for example), so an
     // address nobody has confirmed never reaches them.
-    if (!account.emailVerified) throw new HubError(409, "email_unconfirmed", UNCONFIRMED_SENTENCE);
+    if (!account.emailVerified) throw hubError(HUB_ERRORS.emailUnconfirmed);
     let result = { login: { accountId: account.id } };
     if (details.prompt.name === "consent" && details.session?.accountId === account.id) {
       const grant = new hub.oidcProvider().Grant({ accountId: account.id, clientId: appRow.client_id });
@@ -208,12 +215,15 @@ function registerInteractionRoutes(app, hub, support) {
   });
 
   app.get("/hub/interaction/:uid/details", async (request, reply) => {
-    const { appRow } = await loadInteraction(request, reply);
+    const { details, appRow } = await loadInteraction(request, reply);
     const signedIn = await current(request);
     return {
       app: appRow ? { name: appRow.client_name, origin: appRow.origin, status: appRow.status } : null,
       account: signedIn ? accountView(signedIn.account) : null,
-      google: Boolean(hub.google)
+      google: Boolean(hub.google),
+      // The app's ui_locales, then the browser's Accept-Language: the language
+      // the hub's pages show this sign-in in.
+      locale: hub.texts.localeFor({ uiLocales: details.params.ui_locales, acceptLanguage: request.headers["accept-language"] })
     };
   });
 
@@ -266,7 +276,7 @@ function registerSignInRoutes(app, hub, support) {
   app.post("/hub/api/sign-in", async (request, reply) => {
     await guardSignInRate(request);
     const account = await accounts.authenticate(request.body?.email, request.body?.password);
-    if (!account) throw new HubError(401, "sign_in_failed", NO_MATCH_SENTENCE);
+    if (!account) throw hubError(HUB_ERRORS.signInFailed);
     await signIn(request, reply, account, "password");
     return { account: accountView(account), isOwner: isOwner(account) };
   });
@@ -285,14 +295,14 @@ function registerSignInRoutes(app, hub, support) {
       password: String(request.body?.password ?? ""),
       displayName: request.body?.displayName
     });
-    await sendEmail(account, "confirm", await emailTokens.create(account.id, "confirm"));
+    await sendEmail(request, account, "confirm", await emailTokens.create(account.id, "confirm"));
     await signIn(request, reply, account, "password");
     return { account: accountView(account), isOwner: isOwner(account) };
   });
 
   app.post("/hub/api/email/confirm", async (request) => {
     const used = await emailTokens.consume(request.body?.token, "confirm");
-    if (!used) throw new HubError(410, "confirm_link_expired", "This link has expired or was already used. Send a new one from your account.");
+    if (!used) throw hubError(HUB_ERRORS.confirmLinkExpired);
     const account = await accounts.markEmailVerified(used.accountId);
     return { account: accountView(account) };
   });
@@ -301,17 +311,17 @@ function registerSignInRoutes(app, hub, support) {
     const { account } = await requireAccount(request);
     if (account.emailVerified) return { ok: true };
     await guardEmailRate(request, account.email);
-    await sendEmail(account, "confirm", await emailTokens.create(account.id, "confirm"));
+    await sendEmail(request, account, "confirm", await emailTokens.create(account.id, "confirm"));
     return { ok: true };
   });
 
   app.post("/hub/api/recovery/start", async (request) => {
     const email = normalizeEmail(request.body?.email);
-    if (!isEmail(email)) throw new HubError(400, "email_invalid", "Enter a valid email address.");
+    if (!isEmail(email)) throw hubError(HUB_ERRORS.emailInvalid);
     await guardEmailRate(request, email);
     const account = await accounts.findByEmail(email);
     if (account && !account.disabled) {
-      await sendEmail(account, "recovery", await emailTokens.create(account.id, "recovery"));
+      await sendEmail(request, account, "recovery", await emailTokens.create(account.id, "recovery"));
     }
     return { ok: true };
   });
@@ -319,7 +329,7 @@ function registerSignInRoutes(app, hub, support) {
   app.post("/hub/api/recovery/finish", async (request, reply) => {
     const password = String(request.body?.password ?? "");
     const used = await emailTokens.consume(request.body?.token, "recovery");
-    if (!used) throw new HubError(410, "recovery_link_expired", "This link has expired or was already used. Ask for a new one.");
+    if (!used) throw hubError(HUB_ERRORS.recoveryLinkExpired);
     await accounts.setPassword(used.accountId, password);
     const account = await accounts.markEmailVerified(used.accountId);
     await endEverySession(account.id);
@@ -361,7 +371,7 @@ function registerAccountRoutes(app, hub, support) {
     if (account.hasPassword) {
       await guardSignInRate(request);
       if (!(await accounts.checkPassword(account.id, request.body?.currentPassword))) {
-        throw new HubError(400, "current_password_wrong", "Your current password is not right.");
+        throw hubError(HUB_ERRORS.currentPasswordWrong);
       }
     }
     return { account: accountView(await accounts.setPassword(account.id, String(request.body?.newPassword ?? ""))) };
@@ -399,7 +409,7 @@ function registerGoogleRoutes(app, hub, support) {
   const googleLinks = new hub.Adapter(GOOGLE_LINK_KIND);
 
   function requireGoogle() {
-    if (!hub.google) throw new HubError(404, "google_disabled", "Continue with Google is not set up on this hub.");
+    if (!hub.google) throw hubError(HUB_ERRORS.googleDisabled);
   }
 
   function googleDone(uid) {
@@ -483,7 +493,7 @@ function registerGoogleRoutes(app, hub, support) {
   async function pendingGoogleLink(request) {
     const id = cookies(request)[GOOGLE_LINK_COOKIE];
     const link = id ? await googleLinks.find(id) : null;
-    if (!link) throw new HubError(410, "google_connection_expired", "This Google connection has expired. Continue with Google again.");
+    if (!link) throw hubError(HUB_ERRORS.googleConnectionExpired);
     return { id, link, account: await accounts.findById(link.accountId) };
   }
 
@@ -496,7 +506,7 @@ function registerGoogleRoutes(app, hub, support) {
     const { id, link, account } = await pendingGoogleLink(request);
     await guardSignInRate(request);
     const verified = await accounts.authenticate(account.email, request.body?.password);
-    if (!verified) throw new HubError(401, "sign_in_failed", NO_MATCH_SENTENCE);
+    if (!verified) throw hubError(HUB_ERRORS.signInFailed);
     await accounts.linkGoogle(account.id, link.googleSub);
     // Google confirmed this same address, so it counts as confirmed here.
     await accounts.markEmailVerified(account.id);
@@ -509,15 +519,15 @@ function registerGoogleRoutes(app, hub, support) {
   app.post("/hub/api/google/link/email", async (request) => {
     const { link, account } = await pendingGoogleLink(request);
     await guardEmailRate(request, account.email);
-    await sendEmail(account, "google-link", await emailTokens.create(account.id, "google-link", { googleSub: link.googleSub }));
+    await sendEmail(request, account, "google-link", await emailTokens.create(account.id, "google-link", { googleSub: link.googleSub }));
     return { ok: true };
   });
 
   app.post("/hub/api/google/link/finish", async (request, reply) => {
     const used = await emailTokens.consume(request.body?.token, "google-link");
-    if (!used) throw new HubError(410, "google_link_expired", "This link has expired or was already used. Continue with Google again.");
+    if (!used) throw hubError(HUB_ERRORS.googleLinkExpired);
     if (await accounts.findByGoogleSub(used.payload.googleSub)) {
-      throw new HubError(409, "google_taken", "This Google account is already connected to another account.");
+      throw hubError(HUB_ERRORS.googleTaken);
     }
     await accounts.clearPassword(used.accountId);
     await accounts.setPassword(used.accountId, String(request.body?.password ?? ""));
@@ -536,7 +546,7 @@ function registerGoogleRoutes(app, hub, support) {
  * @param {HubRouteSupport} support
  */
 function registerAdminRoutes(app, hub, support) {
-  const { config, accounts, clients, settings, mailer } = hub;
+  const { config, accounts, clients, settings, mailer, texts } = hub;
   const { hubHost, isOwner, requireOwner, endEverySession } = support;
 
   app.get("/hub/api/admin/apps", async (request) => {
@@ -559,8 +569,8 @@ function registerAdminRoutes(app, hub, support) {
       block: () => clients.blockOrigin(clientId),
       remove: () => clients.remove(clientId)
     }[action];
-    if (!done) throw new HubError(404, "unknown_action", "That action does not exist.");
-    if (!(await done())) throw new HubError(404, "app_not_found", "This app is no longer registered. Refresh the page.");
+    if (!done) throw hubError(HUB_ERRORS.unknownAction);
+    if (!(await done())) throw hubError(HUB_ERRORS.appNotFound);
     return { ok: true };
   });
 
@@ -585,10 +595,10 @@ function registerAdminRoutes(app, hub, support) {
   app.post("/hub/api/admin/people/:id/:action", async (request) => {
     const { account: owner } = await requireOwner(request);
     const { id, action } = request.params;
-    if (!["disable", "enable"].includes(action)) throw new HubError(404, "unknown_action", "That action does not exist.");
-    if (id === owner.id) throw new HubError(400, "owner_self", "You cannot turn off your own account.");
+    if (!["disable", "enable"].includes(action)) throw hubError(HUB_ERRORS.unknownAction);
+    if (id === owner.id) throw hubError(HUB_ERRORS.ownerSelf);
     const target = await accounts.findById(id);
-    if (!target) throw new HubError(404, "person_not_found", "This person no longer has an account. Refresh the page.");
+    if (!target) throw hubError(HUB_ERRORS.personNotFound);
     await accounts.setDisabled(id, action === "disable");
     if (action === "disable") await endEverySession(id);
     return { ok: true };
@@ -624,21 +634,22 @@ function registerAdminRoutes(app, hub, support) {
 
   app.post("/hub/api/admin/setup/test-email", async (request) => {
     const { account } = await requireOwner(request);
+    const locale = requestLocale(texts, request);
     try {
       await mailer.send({
         to: account.email,
-        subject: "Your accounts hub can send email",
+        subject: texts.t(locale, "jskit.accounts.mail.test.subject"),
         ...composeMessage({
-          heading: "Email works",
-          body: "Your hub sent this message with your own sender, so confirmation and recovery emails will arrive.",
-          actionLabel: "Open your hub",
+          heading: texts.t(locale, "jskit.accounts.mail.test.heading"),
+          body: texts.t(locale, "jskit.accounts.mail.test.body"),
+          actionLabel: texts.t(locale, "jskit.accounts.mail.test.action"),
           actionUrl: `${config.issuer}/admin/setup`,
-          footer: `Sent by your accounts hub at ${hubHost}.`
+          footer: texts.t(locale, "jskit.accounts.mail.test.footer", { host: hubHost })
         })
       });
     } catch (error) {
       await settings.set("email-test", { ok: false, at: hub.now().toISOString() });
-      throw new HubError(502, "email_failed", `The test email was not sent: ${error.message}`);
+      throw hubError(HUB_ERRORS.testEmailFailed, { reason: error.message });
     }
     await settings.set("email-test", { ok: true, at: hub.now().toISOString() });
     return { ok: true };
@@ -691,16 +702,16 @@ function registerDevelopmentRoutes(app, hub, support) {
 function registerHubRoutes(app, hub) {
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof HubError || error instanceof AccountError) {
-      return reply.code(error.status).send({ error: error.code, message: error.message });
+      return reply.code(error.status).send(errorBody(error));
     }
     hub.logger.error({ err: error }, "Accounts hub request failed.");
-    return reply.code(500).send({ error: "hub_failed", message: "Something went wrong. Try again in a moment." });
+    return reply.code(HUB_ERRORS.failed.status).send(errorBody(hubError(HUB_ERRORS.failed)));
   });
 
   app.addHook("onRequest", async (request) => {
     if (["GET", "HEAD", "OPTIONS"].includes(request.method)) return;
     if (request.headers["x-hub-request"] !== "1") {
-      throw new HubError(403, "hub_request_required", "This request must come from the hub's own pages.");
+      throw hubError(HUB_ERRORS.hubRequestRequired);
     }
   });
 

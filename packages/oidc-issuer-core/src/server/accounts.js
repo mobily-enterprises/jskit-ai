@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { createAccountId, hashPassword, verifyPassword } from "./crypto.js";
+import { hubEnglish } from "./hubTexts.js";
 
 const ACCOUNTS_TABLE = "oidc_issuer_accounts";
 const PASSWORD_MIN_LENGTH = 8;
@@ -9,22 +10,56 @@ const COMMON_PASSWORDS_URL = new URL("../../data/common-passwords.txt", import.m
 
 let commonPasswords = null;
 
+// Each refusal a person can see: its code, status and the messageCode (with
+// params) its English renders from.
+const ACCOUNT_ERRORS = Object.freeze({
+  emailInvalid: { code: "email_invalid", status: 400, messageCode: "accounts.account.emailInvalid" },
+  emailTaken: { code: "email_taken", status: 409, messageCode: "accounts.account.emailTaken" },
+  displayNameRequired: { code: "display_name_required", status: 400, messageCode: "accounts.account.displayNameRequired" },
+  passwordRequired: { code: "password_required", status: 400, messageCode: "accounts.google.passwordRequired" },
+  passwordTooShort: {
+    code: "password_too_short",
+    status: 400,
+    messageCode: "accounts.password.tooShort",
+    params: { min: PASSWORD_MIN_LENGTH }
+  },
+  passwordTooLong: {
+    code: "password_too_long",
+    status: 400,
+    messageCode: "accounts.password.tooLong",
+    params: { max: PASSWORD_MAX_LENGTH }
+  },
+  passwordTooCommon: { code: "password_too_common", status: 400, messageCode: "accounts.password.tooCommon" }
+});
+
+/** One refusal as its code, English, messageCode and params. */
+function accountText(entry) {
+  const messageParams = entry.params || {};
+  return { code: entry.code, message: hubEnglish(entry.messageCode, messageParams), messageCode: entry.messageCode, messageParams };
+}
+
 function isCommonPassword(password) {
   commonPasswords ??= new Set(readFileSync(COMMON_PASSWORDS_URL, "utf8").split("\n").filter(Boolean));
   return commonPasswords.has(String(password).toLowerCase());
 }
 
+function passwordProblemEntry(password) {
+  const value = String(password ?? "");
+  if (value.length < PASSWORD_MIN_LENGTH) return ACCOUNT_ERRORS.passwordTooShort;
+  if (value.length > PASSWORD_MAX_LENGTH) return ACCOUNT_ERRORS.passwordTooLong;
+  if (isCommonPassword(value)) return ACCOUNT_ERRORS.passwordTooCommon;
+  return null;
+}
+
 /**
- * Why a password is refused, as its own code and English, or null when it is acceptable.
+ * Why a password is refused, as its own code, English, messageCode and params,
+ * or null when it is acceptable.
  * @param {unknown} password
- * @returns {{ code: string, message: string } | null}
+ * @returns {{ code: string, message: string, messageCode: string, messageParams: Record<string, unknown> } | null}
  */
 function passwordProblem(password) {
-  const value = String(password ?? "");
-  if (value.length < PASSWORD_MIN_LENGTH) return { code: "password_too_short", message: "Use at least 8 characters." };
-  if (value.length > PASSWORD_MAX_LENGTH) return { code: "password_too_long", message: "Use at most 128 characters." };
-  if (isCommonPassword(value)) return { code: "password_too_common", message: "That password is too common. Choose one that is harder to guess." };
-  return null;
+  const entry = passwordProblemEntry(password);
+  return entry ? accountText(entry) : null;
 }
 
 function normalizeEmail(value) {
@@ -75,11 +110,20 @@ function toAccount(row) {
 }
 
 class AccountError extends Error {
-  constructor(code, message, status = 400) {
+  constructor(code, message, status = 400, { messageCode = "", messageParams = {} } = {}) {
     super(message);
     this.code = code;
     this.status = status;
+    if (messageCode) {
+      this.messageCode = messageCode;
+      this.messageParams = messageParams;
+    }
   }
+}
+
+function accountError(entry) {
+  const { code, message, messageCode, messageParams } = accountText(entry);
+  return new AccountError(code, message, entry.status, { messageCode, messageParams });
 }
 
 /**
@@ -119,14 +163,14 @@ function createAccountStore({ knex, now }) {
   async function create({ email, password = null, displayName = "", emailVerified = false, googleSub = null }) {
     const normalizedEmail = normalizeEmail(email);
     if (!isEmail(normalizedEmail)) {
-      throw new AccountError("email_invalid", "Enter a valid email address.");
+      throw accountError(ACCOUNT_ERRORS.emailInvalid);
     }
     if (password !== null) {
-      const problem = passwordProblem(password);
-      if (problem) throw new AccountError(problem.code, problem.message);
+      const problem = passwordProblemEntry(password);
+      if (problem) throw accountError(problem);
     }
     if (await rowByEmail(normalizedEmail)) {
-      throw new AccountError("email_taken", "This email already has an account. Sign in, or reset its password.", 409);
+      throw accountError(ACCOUNT_ERRORS.emailTaken);
     }
     const id = createAccountId();
     const timestamp = now();
@@ -176,8 +220,8 @@ function createAccountStore({ knex, now }) {
   }
 
   async function setPassword(id, password) {
-    const problem = passwordProblem(password);
-    if (problem) throw new AccountError(problem.code, problem.message);
+    const problem = passwordProblemEntry(password);
+    if (problem) throw accountError(problem);
     return update(id, { ...passwordColumns(await hashPassword(password)), failed_logins: 0 });
   }
 
@@ -192,7 +236,7 @@ function createAccountStore({ knex, now }) {
 
   async function updateProfile(id, { displayName }) {
     const name = String(displayName ?? "").trim();
-    if (!name) throw new AccountError("display_name_required", "Enter the name your apps should show.");
+    if (!name) throw accountError(ACCOUNT_ERRORS.displayNameRequired);
     return update(id, { display_name: name.slice(0, 160) });
   }
 
@@ -207,7 +251,7 @@ function createAccountStore({ knex, now }) {
   async function unlinkGoogle(id) {
     const row = await table().where({ id }).first();
     if (!row?.password_hash) {
-      throw new AccountError("password_required", "Set a password first, so you can still sign in without Google.");
+      throw accountError(ACCOUNT_ERRORS.passwordRequired);
     }
     return update(id, { google_sub: null });
   }

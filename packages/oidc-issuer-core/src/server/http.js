@@ -1,10 +1,19 @@
 /** Small HTTP helpers shared by the hub's Fastify routes. */
 
+/**
+ * A refusal the hub's API answers with: its status, its code, its English and,
+ * for a sentence a person sees, the messageCode and params that render it in
+ * their language.
+ */
 class HubError extends Error {
-  constructor(status, code, message) {
+  constructor(status, code, message, { messageCode = "", messageParams = {} } = {}) {
     super(message);
     this.status = status;
     this.code = code;
+    if (messageCode) {
+      this.messageCode = messageCode;
+      this.messageParams = messageParams;
+    }
   }
 }
 
@@ -45,12 +54,12 @@ function escapeHtml(value) {
 
 /**
  * A calm standalone page for the few screens oidc-provider renders itself
- * (errors and the sign-out confirmation). It follows the light or dark
- * preference of the device.
+ * (errors and the sign-out confirmation), in the language `lang`. It follows
+ * the light or dark preference of the device.
  */
-function hubPage({ title, heading, body, content = "" }) {
+function hubPage({ title, heading, body, content = "", lang = "en" }) {
   return `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="${escapeHtml(lang)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${escapeHtml(title)}</title>
 <style>
 :root{color-scheme:light dark;--bg:#f4f5fb;--card:#fff;--text:#1b1c22;--muted:#5d5f6a;--primary:#315da8;--on-primary:#fff;--line:#e2e3ec}

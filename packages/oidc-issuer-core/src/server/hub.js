@@ -22,8 +22,9 @@ import { createSigningKeyStore } from "./signingKeys.js";
  * @param {import("./types.js").HubClock} dependencies.now
  * @param {import("./types.js").GoogleEndpoints} dependencies.googleEndpoints
  * @param {typeof fetch} dependencies.fetchImpl
+ * @param {import("./types.js").HubTexts} dependencies.texts The hub's pages and emails in a person's language.
  */
-async function createHub({ knex, config, devAuth, logger, mailer, now, googleEndpoints, fetchImpl }) {
+async function createHub({ knex, config, devAuth, logger, mailer, now, googleEndpoints, fetchImpl, texts }) {
   const Adapter = createKnexAdapterClass({ knex, now });
   const accounts = createAccountStore({ knex, now });
   const clients = createClientStore({ knex, now });
@@ -46,6 +47,7 @@ async function createHub({ knex, config, devAuth, logger, mailer, now, googleEnd
       Adapter,
       accounts,
       clients,
+      texts,
       async hasHubSession(ctx, accountId) {
         const session = await sessions.find(ctx.cookies.get(hubSessionCookieName(config), { signed: false }));
         return session?.accountId === accountId;
@@ -121,6 +123,7 @@ async function createHub({ knex, config, devAuth, logger, mailer, now, googleEnd
     emailTokens,
     rateLimiter,
     mailer,
+    texts,
     google,
     oidcProvider,
     handleProtocolRequest,

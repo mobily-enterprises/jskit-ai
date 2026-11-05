@@ -1,7 +1,7 @@
 import Provider, { interactionPolicy } from "oidc-provider";
 import { isLoopbackHostname } from "./config.js";
 import { deriveKey } from "./crypto.js";
-import { hubPage } from "./http.js";
+import { escapeHtml, hubPage } from "./http.js";
 
 const ACTIVE_STATUSES = new Set(["active", "active-dev"]);
 const HUB_SCOPES = "openid email profile";
@@ -24,6 +24,20 @@ const ROUTES = Object.freeze({
 
 function interactionPath(uid) {
   return `/hub/interaction/${uid}`;
+}
+
+/**
+ * The language of a page oidc-provider renders: the request's ui_locales, then
+ * the browser's Accept-Language, then English.
+ * @param {import("./types.js").HubTexts} texts
+ * @param {any} ctx oidc-provider's request context.
+ */
+function pageText(texts, ctx) {
+  const lang = texts.localeFor({
+    uiLocales: ctx.oidc?.params?.ui_locales ?? ctx.query?.ui_locales,
+    acceptLanguage: ctx.headers?.["accept-language"]
+  });
+  return { lang, t: (key) => texts.t(lang, key) };
 }
 
 /**
@@ -62,8 +76,9 @@ function interactionsPolicy(hasHubSession) {
  * @param {ReturnType<typeof import("./clients.js").createClientStore>} dependencies.clients
  * @param {(ctx: any, accountId: string) => Promise<boolean>} dependencies.hasHubSession
  *   Answers whether the browser still has the hub session of the account.
+ * @param {import("./types.js").HubTexts} dependencies.texts The hub's pages in a person's language.
  */
-function createOidcProvider({ config, jwks, Adapter, accounts, clients, hasHubSession }) {
+function createOidcProvider({ config, jwks, Adapter, accounts, clients, hasHubSession, texts }) {
   const provider = new Provider(config.issuer, {
     adapter: Adapter,
     jwks,
@@ -105,20 +120,26 @@ function createOidcProvider({ config, jwks, Adapter, accounts, clients, hasHubSe
       rpInitiatedLogout: {
         enabled: true,
         async logoutSource(ctx, form) {
+          const { lang, t } = pageText(texts, ctx);
+          const confirm = escapeHtml(t("jskit.accounts.page.signOut.confirm"));
+          const stay = escapeHtml(t("jskit.accounts.page.signOut.stay"));
           ctx.type = "html";
           ctx.body = hubPage({
-            title: "Sign out",
-            heading: "Sign out of your apps?",
-            body: "You will need to sign in again the next time you open one of them.",
-            content: `${form}<div class="actions"><button class="primary" autofocus type="submit" form="op.logoutForm" value="yes" name="logout">Sign out</button><button class="secondary" type="submit" form="op.logoutForm">Stay signed in</button></div>`
+            lang,
+            title: t("jskit.accounts.page.signOut.title"),
+            heading: t("jskit.accounts.page.signOut.heading"),
+            body: t("jskit.accounts.page.signOut.body"),
+            content: `${form}<div class="actions"><button class="primary" autofocus type="submit" form="op.logoutForm" value="yes" name="logout">${confirm}</button><button class="secondary" type="submit" form="op.logoutForm">${stay}</button></div>`
           });
         },
         async postLogoutSuccessSource(ctx) {
+          const { lang, t } = pageText(texts, ctx);
           ctx.type = "html";
           ctx.body = hubPage({
-            title: "Signed out",
-            heading: "You are signed out.",
-            body: "You can close this window."
+            lang,
+            title: t("jskit.accounts.page.signedOut.title"),
+            heading: t("jskit.accounts.page.signedOut.heading"),
+            body: t("jskit.accounts.page.signedOut.body")
           });
         }
       },
@@ -171,11 +192,14 @@ function createOidcProvider({ config, jwks, Adapter, accounts, clients, hasHubSe
       return grant;
     },
     async renderError(ctx, out) {
+      const { lang, t } = pageText(texts, ctx);
       ctx.type = "html";
       ctx.body = hubPage({
-        title: "Sign-in problem",
-        heading: "This sign-in could not continue.",
-        body: out.error_description || "Go back to the app and try again."
+        lang,
+        title: t("jskit.accounts.page.error.title"),
+        heading: t("jskit.accounts.page.error.heading"),
+        // oidc-provider's own description of the protocol error stays as it wrote it.
+        body: out.error_description || t("jskit.accounts.page.error.body")
       });
     }
   });

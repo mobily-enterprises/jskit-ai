@@ -140,8 +140,8 @@ async function verifyIdToken(hubUrl, client, idToken) {
   return jwtVerify(idToken, jwks, { issuer: hubUrl, audience: client.client_id });
 }
 
-async function createAccount(browser, hubUrl, { email, password = "correct horse battery staple", displayName = "" }) {
-  const response = await browser.api(`${hubUrl}/hub/api/accounts`, { body: { email, password, displayName } });
+async function createAccount(browser, hubUrl, { email, password = "correct horse battery staple", displayName = "", headers = {} }) {
+  const response = await browser.api(`${hubUrl}/hub/api/accounts`, { body: { email, password, displayName }, headers });
   return { response, body: await response.json() };
 }
 

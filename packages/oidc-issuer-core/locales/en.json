@@ -1,0 +1,95 @@
+{
+  "jskit": {
+    "accounts": {
+      "request": {
+        "failed": "Something went wrong. Try again in a moment.",
+        "hubPagesOnly": "This request must come from the hub's own pages.",
+        "tooManyAttempts": "Too many attempts. Wait a little and try again."
+      },
+      "signIn": {
+        "required": "Sign in to continue.",
+        "expired": "This sign-in has expired. Go back to the app and try again.",
+        "noMatch": "That email and password don't match.",
+        "emailUnconfirmed": "Confirm your email to continue: open the link we sent you, then press Continue."
+      },
+      "app": {
+        "pending": "This app is waiting for approval by the hub's owner."
+      },
+      "account": {
+        "emailInvalid": "Enter a valid email address.",
+        "emailTaken": "This email already has an account. Sign in, or reset its password.",
+        "displayNameRequired": "Enter the name your apps should show.",
+        "confirmLinkExpired": "This link has expired or was already used. Send a new one from your account."
+      },
+      "password": {
+        "tooShort": "Use at least {min} characters.",
+        "tooLong": "Use at most {max} characters.",
+        "tooCommon": "That password is too common. Choose one that is harder to guess.",
+        "currentWrong": "Your current password is not right.",
+        "recoveryLinkExpired": "This link has expired or was already used. Ask for a new one."
+      },
+      "google": {
+        "disabled": "Continue with Google is not set up on this hub.",
+        "connectionExpired": "This Google connection has expired. Continue with Google again.",
+        "linkExpired": "This link has expired or was already used. Continue with Google again.",
+        "taken": "This Google account is already connected to another account.",
+        "passwordRequired": "Set a password first, so you can still sign in without Google."
+      },
+      "admin": {
+        "ownerRequired": "Only the hub's owner can open this page.",
+        "unknownAction": "That action does not exist.",
+        "appNotFound": "This app is no longer registered. Refresh the page.",
+        "ownerSelf": "You cannot turn off your own account.",
+        "personNotFound": "This person no longer has an account. Refresh the page.",
+        "testEmailFailed": "The test email was not sent: {reason}"
+      },
+      "mail": {
+        "footer": "Sent by your accounts hub at {host}. If you did not ask for this, ignore this email.",
+        "confirm": {
+          "subject": "Confirm your email",
+          "heading": "Confirm your email",
+          "body": "Confirm {email} so your apps know it is really yours.",
+          "action": "Confirm email"
+        },
+        "recovery": {
+          "subject": "Reset your password",
+          "heading": "Reset your password",
+          "body": "Someone asked to reset the password of your account. The link works once, for one hour.",
+          "action": "Choose a new password"
+        },
+        "googleLink": {
+          "subject": "Connect Google to your account",
+          "heading": "Connect Google to your account",
+          "body": "Open the link to connect your Google sign-in and choose a new password. The link works once, for one hour.",
+          "action": "Connect Google"
+        },
+        "test": {
+          "subject": "Your accounts hub can send email",
+          "heading": "Email works",
+          "body": "Your hub sent this message with your own sender, so confirmation and recovery emails will arrive.",
+          "action": "Open your hub",
+          "footer": "Sent by your accounts hub at {host}."
+        }
+      },
+      "page": {
+        "signOut": {
+          "title": "Sign out",
+          "heading": "Sign out of your apps?",
+          "body": "You will need to sign in again the next time you open one of them.",
+          "confirm": "Sign out",
+          "stay": "Stay signed in"
+        },
+        "signedOut": {
+          "title": "Signed out",
+          "heading": "You are signed out.",
+          "body": "You can close this window."
+        },
+        "error": {
+          "title": "Sign-in problem",
+          "heading": "This sign-in could not continue.",
+          "body": "Go back to the app and try again."
+        }
+      }
+    }
+  }
+}

@@ -4,6 +4,7 @@ import { resolveHubConfig, resolveHubDevAuth } from "./config.js";
 import { constantEquals, randomToken } from "./crypto.js";
 import { GOOGLE_ENDPOINTS } from "./google.js";
 import { createHub } from "./hub.js";
+import { createHubTexts } from "./hubTexts.js";
 import { registerHubRoutes } from "./hubRoutes.js";
 import { createMailer } from "./mailer.js";
 
@@ -54,7 +55,8 @@ function parseJsonBody(buffer) {
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
  * @param {import("./types.js").HubMailer} [dependencies.mailer] Sends the hub's emails instead of the configured sender.
  * @param {import("./types.js").HubClock} [dependencies.now]
- * @param {string} [dependencies.appRoot]
+ * @param {string} [dependencies.appRoot] The app's root; its src/locales/<code>/jskit.json files translate the hub's pages and emails.
+ * @param {ReadonlyArray<object>} [dependencies.catalogs] Extra English catalogs that reword the hub's pages and emails.
  * @param {import("./types.js").GoogleEndpoints} [dependencies.googleEndpoints]
  * @param {typeof fetch} [dependencies.fetchImpl]
  */
@@ -65,6 +67,7 @@ async function createOidcIssuer({
   mailer,
   now = systemClock,
   appRoot = "",
+  catalogs,
   googleEndpoints = GOOGLE_ENDPOINTS,
   fetchImpl = globalThis.fetch
 }) {
@@ -77,7 +80,8 @@ async function createOidcIssuer({
     mailer: mailer || createMailer({ mail: config.mail, logger, isProduction: config.isProduction, fetchImpl }),
     now,
     googleEndpoints,
-    fetchImpl
+    fetchImpl,
+    texts: createHubTexts({ appRoot, catalogs })
   });
   const { clients } = hub;
   let timer = null;
