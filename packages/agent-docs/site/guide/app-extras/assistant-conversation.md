@@ -3432,10 +3432,14 @@ be stopped. Claude stops its sessions together, leaves an idle chat untouched
 in `failed` while the others still stop. A turn still running when its process
 stops is not ended at shutdown: its saved record keeps the execution and the
 active turn, as after a crash, so the next server's recovery proves that exit,
-interrupts the turn and runs the host's interrupted checkpoint. A slow host
-checkpoint, such as a Git snapshot, never holds up shutdown. Claude stops its
-sessions even when its account-query cleanup fails; that failure is still the
-call's result. Once
+interrupts the turn and runs the host's interrupted checkpoint. OpenCode
+likewise interrupts a running turn's native work and proves its shared process
+exits, but leaves that turn's saved run active, so the next server's recovery
+observes the native conversation, ends the turn as it ended there and runs the
+host's checkpoint. Either way a slow host checkpoint, such as a Git snapshot,
+never holds up shutdown, and a Stop or session close outside shutdown still
+ends its turn through that checkpoint. Claude stops its sessions even when its
+account-query cleanup fails; that failure is still the call's result. Once
 shutdown has invalidated the owner, a later session close only releases retained
 work. Failed cleanup can be retried after runtime closure. This is not a browser
 operation or a way to submit a caller-selected native owner.
