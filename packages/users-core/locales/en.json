@@ -1,5 +1,8 @@
 {
   "jskit": {
+    "errors": {
+      "USER_PROFILE_EMAIL_CONFLICT": "Email is already linked to a different profile."
+    },
     "users": {
       "profile": {
         "notFound": "User profile was not found."

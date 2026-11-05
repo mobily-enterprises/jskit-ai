@@ -1,5 +1,8 @@
 {
   "jskit": {
+    "errors": {
+      "SESSION_REFRESH_REQUIRED": "Session refresh required."
+    },
     "realtime": {
       "indicator": {
         "connected": "Realtime connected",
