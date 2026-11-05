@@ -498,7 +498,7 @@ Exports
 ### `src/client/composables/usePagedCollection.js`
 Exports
 - `usePagedCollection({ queryKey, enabled = true, initialPageParam = FIRST_PAGE_PARAM, queryFn, getNextPageParam = defaultGetNextPageParam, selectItems = defaultSelectItems, dedupeBy, queryOptions = null, fallbackLoadError = t("jskit.http.list.loadFailed") })`
-- `trimInfinitePagesToFirst(data = null)`
+- `trimInfinitePagesToFirst(data)`
 Local functions
 - `defaultSelectItems(page)`
 - `defaultGetNextPageParam(lastPage)`
