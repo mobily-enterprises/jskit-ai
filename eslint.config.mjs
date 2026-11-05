@@ -100,10 +100,33 @@ export default [
     "packages/rewarded-web/patterns/google-rewarded/example/**"
   ]),
   {
-    // JSKIT client texts come from message catalogs, never from template literals.
+    // JSKIT client texts come from message catalogs, never from template literals or
+    // literal text attributes such as label, title, placeholder or aria-label.
     files: ["packages/*/src/**/*.vue"],
     plugins: { "@intlify/vue-i18n": vueI18n },
-    rules: { "@intlify/vue-i18n/no-raw-text": "error" }
+    rules: {
+      "@intlify/vue-i18n/no-raw-text": ["error", {
+        attributes: {
+          "/.+/": [
+            "alt",
+            "aria-description",
+            "aria-label",
+            "aria-placeholder",
+            "aria-roledescription",
+            "aria-valuetext",
+            "hint",
+            "label",
+            "loading-text",
+            "messages",
+            "no-data-text",
+            "placeholder",
+            "subtitle",
+            "text",
+            "title"
+          ]
+        }
+      }]
+    }
   },
   {
     files: ["**/*.{js,mjs,cjs,vue}"],
