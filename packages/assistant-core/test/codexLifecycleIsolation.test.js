@@ -231,6 +231,8 @@ function conversationCommands({ context = async () => ({ result: { ok: false, co
   providerSessions = {} } = {}) {
   return createCodexConversationCommands({
     checkpoint: async () => {},
+    // Outside shutdown, with no request contexts.
+    isClosing: () => false, captureContext: () => null, runInContext: (_context, operation) => operation(),
     conversationPreparation: {
       context,
       scope,

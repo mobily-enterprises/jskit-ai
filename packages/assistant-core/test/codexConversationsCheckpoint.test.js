@@ -20,6 +20,8 @@ function persistentConversationFixture() {
   };
   const commands = createCodexConversationCommands({
     async checkpoint(_sessionId, input) { checkpoints.push(input); },
+    // Outside shutdown, with no request contexts.
+    isClosing: () => false, captureContext: () => null, runInContext: (_context, operation) => operation(),
     conversationPreparation: { async context() { return { result: { provider } }; } },
     namespace: (sessionId) => sessionId,
     // The provider owner still holds the provider observing the conversation;

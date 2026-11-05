@@ -3856,3 +3856,60 @@ test("native history budget rejects unavailable dynamic limits before pending de
     assert.equal(sends, 0);
   }
 });
+
+test("a Main turn the previous server's shutdown stopped reads as interrupted by a restart, with one interrupted checkpoint", async () => {
+  const notices = [];
+  const checkpoints = [];
+  const f = await receiptFixture({
+    outcomeNotice(_runtime, _sessionId, _threadId, _turnId, outcome) { notices.push(outcome); },
+    checkpoint(_sessionId, input) { checkpoints.push(input); }
+  });
+  f.provider.interruptionOutcome = () => "";
+  // The shutdown marks the running turn and leaves the rest of its saved run as it was.
+  assert.deepEqual(await f.owner.markTurnStoppedByShutdown(f.sessionId, f.threadId), { marked: true });
+  assert.deepEqual({ state: f.run.state, stoppedByShutdownTurnId: f.run.stoppedByShutdownTurnId },
+    { state: "active", stoppedByShutdownTurnId: f.turnId });
+  assert.deepEqual(await f.owner.markTurnStoppedByShutdown(f.sessionId, "another-thread"), { marked: false });
+  // The next server reads the native turn as interrupted.
+  const result = await f.owner.stopTurnWithProviderFailure(f.sessionId, f.threadId, f.turnId, {
+    status: "interrupted", provider: f.provider, verifyInactive: false
+  });
+  assert.equal(result.status, "interrupted");
+  assert.match(result.error, /interrupted by a restart/u);
+  assert.deepEqual(notices, ["service_restart"]);
+  assert.deepEqual(checkpoints.map(({ status, turnOutcome }) => ({ status, turnOutcome })),
+    [{ status: "interrupted", turnOutcome: "service_restart" }]);
+  assert.equal(f.run.state, "interrupted");
+});
+
+test("an interrupted Main turn without the shutdown's mark keeps the plain interrupted outcome", async () => {
+  const notices = [];
+  const checkpoints = [];
+  const f = await receiptFixture({
+    outcomeNotice(_runtime, _sessionId, _threadId, _turnId, outcome) { notices.push(outcome); },
+    checkpoint(_sessionId, input) { checkpoints.push(input); }
+  });
+  f.provider.interruptionOutcome = () => "";
+  // A mark left by an earlier turn does not apply to this one.
+  f.run = { ...f.run, stoppedByShutdownTurnId: "an-earlier-turn" };
+  await f.owner.stopTurnWithProviderFailure(f.sessionId, f.threadId, f.turnId, {
+    status: "interrupted", provider: f.provider, verifyInactive: false
+  });
+  assert.deepEqual(notices, ["interrupted"]);
+  assert.deepEqual(checkpoints.map(({ turnOutcome }) => turnOutcome), ["interrupted"]);
+});
+
+test("a Main turn that ends once shutdown has begun is left to the next server, with no checkpoint now", async () => {
+  const f = await settlementFixture();
+  f.owner.runtimeLifecycle = { closing: true };
+  const before = structuredClone(f.run);
+  assert.deepEqual(await f.owner.markTurnIdle(f.sessionId, { status: "completed", threadId: f.threadId, turnId: f.turnId }),
+    { ok: true, processed: false, reason: "left_to_next_server" });
+  assert.deepEqual(f.run, before, "the saved run is unchanged");
+  assert.deepEqual(f.checkpoints, []);
+  // Outside shutdown the same end is recorded and checkpointed at once.
+  f.owner.runtimeLifecycle = { closing: false };
+  await f.owner.markTurnIdle(f.sessionId, { status: "completed", threadId: f.threadId, turnId: f.turnId });
+  assert.equal(f.run.state, "completed");
+  assert.deepEqual(f.checkpoints.map(({ status }) => status), ["completed"]);
+});

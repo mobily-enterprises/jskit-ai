@@ -3443,7 +3443,20 @@ host leaves its checkpoint to the next server: when the host's later read
 passes the stopped run as `stoppedByShutdown: { runId, ended }`, that read
 reports the run interrupted, not failed, and calls `ended` so the host makes
 the checkpoint. A native abort without the mark (a timeout, or a crash's
-leftover) still reads as that turn's failure. Either way a slow host
+leftover) still reads as that turn's failure. Codex marks a running main turn
+the same way before any of its processes stops: the saved run stays active
+with the turn's mark (`stoppedByShutdownTurnId`), and the next server's
+recovery ends that turn as interrupted by a restart, with the host's
+interrupted checkpoint. A running temporary Codex turn goes, before any
+process stops, to the run owner's `deferCheckpoint(sessionId, { outerTurnId,
+threadId, turnId, status, turnOutcome })`; the host records that checkpoint as
+owed and passes the run back on its next read as
+`stoppedByShutdown: { runId, ended }`, read as above. A Codex turn that ends
+on its own once shutdown has begun is left to the next server too: a main
+turn's end to its recovery, as after a crash, and a temporary turn's
+checkpoint, with the turn's own status, to `deferCheckpoint`. Without
+`deferCheckpoint`, a temporary Codex turn that ends during shutdown makes its
+checkpoint then, and one the shutdown stops makes none. Either way a slow host
 checkpoint, such as a Git snapshot, never holds up shutdown, and a Stop or
 session close outside shutdown still ends its turn through that checkpoint.
 Claude stops its sessions even when its
@@ -4139,7 +4152,7 @@ run-owner facilities themselves.
 | `conversationPreparation.context` and `.scope` | Authorized session or scope, workdir, account/profile policy and settings | Native acquisition and isolation verification |
 | `conversationPreparation.execution` and `.control` | Validated input/output limits, application admission, settings and result projection | Turn dispatch, stable-account checks, current-turn guards, stop and completion state |
 | `conversationPreparation.response`, `.expired`, `.failure` | Existing product result/error contracts | Native outcome and cleanup evidence |
-| `messageMetadata`, `checkpoint`, `publish`, notices | Authenticated authorship, application metadata, checkpoints and publication | When each original effect runs relative to native delivery and completion |
+| `messageMetadata`, `checkpoint`, `deferCheckpoint`, `publish`, notices | Authenticated authorship, application metadata, checkpoints and publication | When each original effect runs relative to native delivery and completion |
 | `serverClosingError` | Existing application error message, code and retryable value | The managed lifecycle shutdown assertion and its invocation points; error construction occurs only after the native closing fence |
 | `captureContext`, `runInContext`, `debugLog`, `debugError` | Request-context isolation and application logging | Notification queue, shutdown fence and recovery coordination |
 

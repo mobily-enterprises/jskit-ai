@@ -53,6 +53,8 @@ function codexFixture(t, { idleMs = 20 } = {}) {
   });
   const commands = createCodexConversationCommands({
     async checkpoint() {},
+    // Outside shutdown, with no request contexts.
+    isClosing: () => false, captureContext: () => null, runInContext: (_context, operation) => operation(),
     codexAppServerConversationMessageId: (...parts) => parts.join(":"),
     codexAppServerStreamMessage: () => ({}),
     conversationPreparation: {

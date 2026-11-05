@@ -57,6 +57,11 @@ import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
  * @param {import("./codexProviderSelection.js").CodexProviderSelection["borrowSessionProvider"]} dependencies.borrowSessionProvider
  * @param {string} dependencies.steerFailedCode
  * @param {import("./codexTurn.js").CodexTurnOutcomes} dependencies.turnOutcomes
+ * @param {import("./codexTurn.js").CodexDeferCheckpoint} dependencies.deferCheckpoint Absent when the host predates
+ *   it, which then makes every checkpoint at once.
+ * @param {() => boolean} dependencies.isClosing Whether the server's shutdown has begun.
+ * @param {import("./codexTurn.js").CodexCaptureContext} dependencies.captureContext
+ * @param {import("./codexTurn.js").CodexRunInContext} dependencies.runInContext
  */
 export function createCodexConversationCommands({
   checkpoint,
@@ -73,10 +78,17 @@ export function createCodexConversationCommands({
   ensureSessionProvider,
   borrowSessionProvider,
   steerFailedCode,
-  turnOutcomes
+  turnOutcomes,
+  deferCheckpoint,
+  isClosing,
+  captureContext,
+  runInContext
 }) {
   const codexAppServerConversations = new Map();
   const codexAppServerConversationTurnStarts = new Map();
+  // The application's records of checkpoints left to the next server, which
+  // shutdown awaits before the process exits.
+  const codexAppServerDeferredCheckpoints = new Set();
   // Turns, detached runs and stops live in their own modules. Each receives the
   // registry above and the registry and context functions declared below.
   const {
@@ -157,6 +169,42 @@ export function createCodexConversationCommands({
     holdWhileActive(state);
   }
 
+  // Once the server's shutdown has begun a turn's checkpoint belongs to the
+  // next server: the application records it as owed, and that server's next
+  // read of the conversation makes it. Made now, a checkpoint (a Git snapshot,
+  // say) could be refused or hold up the host's bounded shutdown.
+  function leaveCheckpointToNextServer(state, ending) {
+    const deferred = Promise.resolve()
+      .then(() => runInContext(state.context, () => deferCheckpoint(state.sessionId, ending)))
+      .catch(() => null);
+    codexAppServerDeferredCheckpoints.add(deferred);
+    void deferred.finally(() => codexAppServerDeferredCheckpoints.delete(deferred));
+    return deferred;
+  }
+
+  /**
+   * At shutdown, each observed conversation's running turn: the stopped process
+   * ends it without a completion this server observes, so its interrupted
+   * checkpoint is left to the next server.
+   */
+  function leaveRunningTurnsToNextServer() {
+    if (!deferCheckpoint) return Promise.resolve([]);
+    const deferred = [];
+    for (const conversations of codexAppServerConversations.values()) {
+      for (const state of conversations.values()) {
+        if (!state.persistent || !state.unsubscribe || !state.runId || !codexAppServerConversationTurnIsActive(state.status)) continue;
+        deferred.push(leaveCheckpointToNextServer(state, {
+          outerTurnId: codexAppServerNativeOuterTurnId(state.conversationId, state.runId),
+          threadId: state.conversationId,
+          turnId: state.runId,
+          status: "interrupted",
+          turnOutcome: turnOutcomes.SERVICE_RESTART
+        }));
+      }
+    }
+    return Promise.all(deferred);
+  }
+
   function codexAppServerConversation(sessionId = "", conversationId = "") {
     return codexAppServerConversations.get(
       namespace(sessionId)
@@ -201,8 +249,8 @@ export function createCodexConversationCommands({
     let state = conversations.get(conversationId);
     if (state?.provider === provider && state.unsubscribe) return state;
     if (state) forgetObservation(state);
-    state = { conversationId, provider, persistent: true, status: "ready", runId: "", error: "", turnOutcome: "",
-      onEvent: ignoreCodexConversationEvent };
+    state = { sessionId, conversationId, provider, persistent: true, status: "ready", runId: "", error: "", turnOutcome: "",
+      context: captureContext(), onEvent: ignoreCodexConversationEvent };
     state.unsubscribe = provider.subscribe((notification) => {
       if (codexAppServerNotificationThreadId(notification) !== conversationId) return;
       const turnId = codexAppServerNotificationTurnId(notification);
@@ -228,13 +276,15 @@ export function createCodexConversationCommands({
         // A turn the person stopped reaches the checkpoint as cancelled, as Main turns do.
         const completedOutcome = state.turnOutcome;
         state.turnOutcome = "";
-        void checkpoint(sessionId, {
+        const ending = {
           outerTurnId: codexAppServerNativeOuterTurnId(conversationId, completedTurnId),
           threadId: conversationId,
           turnId: completedTurnId,
           status: completedStatus,
           turnOutcome: completedOutcome
-        }).catch(() => {});
+        };
+        if (isClosing() && deferCheckpoint) leaveCheckpointToNextServer(state, ending);
+        else void checkpoint(sessionId, ending).catch(() => {});
       }
       holdWhileActive(state);
     });
@@ -284,6 +334,13 @@ export function createCodexConversationCommands({
     if (goal?.status === "active") status = "inProgress";
     Object.assign(state, { runId, status, goal });
     holdWhileActive(state);
+    // The application marks the run whose checkpoint a previous server's
+    // shutdown left owed (`stoppedByShutdown: { runId, ended }`). Recording
+    // that it ended lets the application make that checkpoint; a run the
+    // shutdown stopped reads interrupted with no error.
+    const shutdownStop = input.stoppedByShutdown;
+    const endedAtShutdown = Boolean(runId) && shutdownStop?.runId === runId && !codexAppServerConversationTurnIsActive(status);
+    if (endedAtShutdown) await shutdownStop.ended();
     const messages = [];
     for (const turn of turns) {
       const turnId = codexAppServerProviderTurnId(turn);
@@ -321,7 +378,7 @@ export function createCodexConversationCommands({
       goal,
       admitted: Boolean(input.messageId && turns.some((turn) => codexAppServerProviderTurnClientIds(turn).includes(input.messageId))),
       rawText: latestText.trim(),
-      error: state.error || codexAppServerThreadError(thread)
+      error: endedAtShutdown && status === "interrupted" ? "" : state.error || codexAppServerThreadError(thread)
     };
   }
 
@@ -555,6 +612,8 @@ export function createCodexConversationCommands({
   return Object.freeze({
     codexAppServerConversations,
     codexAppServerConversationTurnStarts,
+    deferredCheckpoints: codexAppServerDeferredCheckpoints,
+    leaveRunningTurnsToNextServer,
     codexAppServerConversation,
     hasActiveConversation,
     observeCodexConversation,

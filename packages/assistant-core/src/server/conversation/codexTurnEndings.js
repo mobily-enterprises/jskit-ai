@@ -253,9 +253,9 @@ export function createCodexTurnEndings({
     const normalizedStatus = normalizeText(status);
     let base = "Codex app-server failed before completing this turn.";
     if (normalizedStatus === "interrupted") {
-      base = outcome === turnOutcomes.CONTROL_RECONFIGURATION
-        ? "Codex app-server was interrupted while its controls were restored."
-        : "Codex app-server was interrupted before completing this turn.";
+      if (outcome === turnOutcomes.CONTROL_RECONFIGURATION) base = "Codex app-server was interrupted while its controls were restored.";
+      else if (outcome === turnOutcomes.SERVICE_RESTART) base = "Codex app-server was interrupted by a restart before completing this turn.";
+      else base = "Codex app-server was interrupted before completing this turn.";
     }
     const normalizedError = normalizeText(error);
     return normalizedError ? `${base} ${normalizedError}` : base;
@@ -277,17 +277,20 @@ export function createCodexTurnEndings({
     const normalizedThreadId = normalizeText(threadId);
     const normalizedTurnId = normalizeText(turnId);
     const normalizedStatus = normalizeText(status) || "failed";
+    const runtime = await createRuntime();
     let resolvedOutcome = normalizeText(outcome);
     if (!resolvedOutcome) {
       if (normalizedStatus === "interrupted") {
         const recorded = provider ? provider.interruptionOutcome(normalizedThreadId, normalizedTurnId) : "";
-        resolvedOutcome = [turnOutcomes.USER_CANCELLED, turnOutcomes.CONTROL_RECONFIGURATION].includes(recorded)
-          ? recorded : turnOutcomes.INTERRUPTED;
+        if ([turnOutcomes.USER_CANCELLED, turnOutcomes.CONTROL_RECONFIGURATION].includes(recorded)) resolvedOutcome = recorded;
+        // The previous server's shutdown stopped this turn: a restart, not a failure.
+        else if (codexAppServerAgentRun(await runtime.getSession(normalizedSessionId))?.stoppedByShutdownTurnId === normalizedTurnId) {
+          resolvedOutcome = turnOutcomes.SERVICE_RESTART;
+        } else resolvedOutcome = turnOutcomes.INTERRUPTED;
       } else {
         resolvedOutcome = turnOutcomes.PROVIDER_FAILURE;
       }
     }
-    const runtime = await createRuntime();
     const staleFailure = async () => {
       const turn = turnState(await runtime.getSession(normalizedSessionId));
       if (codexAppServerTurnCanReceiveProviderCompletion(turn, normalizedThreadId, normalizedTurnId)) {

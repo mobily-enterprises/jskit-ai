@@ -3,6 +3,32 @@ import crypto from "node:crypto";
 import { isRecord, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 const CODEX_APP_SERVER_PROMPT_CLAIM_GRACE_MS = 15000;
+const CODEX_APP_SERVER_STOPPED_BY_SHUTDOWN_EVENT = "codex-app-server-stopped-by-shutdown";
+
+/**
+ * Marks the session's running turn as stopped by the server's shutdown, so the
+ * next server records its interruption as a restart. Nothing else of the saved
+ * run changes.
+ * @param {{ createRuntime: import("./codexTurn.js").CodexCreateRuntime, turnState: import("./codexTurn.js").CodexTurnStateReader }} dependencies
+ * @param {string} sessionId
+ * @param {string} [threadId] the session's Main thread, when known
+ */
+export async function markCodexAppServerTurnStoppedByShutdown({ createRuntime, turnState }, sessionId = "", threadId = "") {
+  const normalizedSessionId = normalizeText(sessionId);
+  if (!normalizedSessionId) return { marked: false };
+  const runtime = await createRuntime();
+  let marked = false;
+  await runtime.store.mutateSession(normalizedSessionId, async () => {
+    const turn = turnState(await runtime.getSession(normalizedSessionId).catch(() => null) || {});
+    if (!turn.active || !turn.turnId || (normalizeText(threadId) && turn.threadId !== normalizeText(threadId))) return;
+    await runtime.store.writeAgentRunEvent(normalizedSessionId, CODEX_APP_SERVER_AGENT_RUN_ID, {
+      event: { kind: CODEX_APP_SERVER_STOPPED_BY_SHUTDOWN_EVENT },
+      patch: { stoppedByShutdownTurnId: turn.turnId }
+    });
+    marked = true;
+  });
+  return { marked };
+}
 
 function terminalCodexAppServerAgentRunState(status = "") {
   const normalizedStatus = normalizeText(status);
@@ -40,6 +66,7 @@ function codexAppServerDateValueMs(value = "") {
  * @param {number} dependencies.finalizingGraceMs
  * @param {(session: object, run: object) => boolean} dependencies.admissionTaskFinished
  * @param {string} dependencies.orphanedPromptMessage
+ * @param {() => boolean} dependencies.isClosing Whether the server's shutdown has begun.
  */
 export function createCodexRunJournal({
   namespace,
@@ -57,7 +84,8 @@ export function createCodexRunJournal({
   idlePublishPayload,
   finalizingGraceMs,
   admissionTaskFinished,
-  orphanedPromptMessage
+  orphanedPromptMessage,
+  isClosing
 }) {
   const codexAppServerCompletedTurns = new Set();
   const codexAppServerProcessedTurns = new Set();
@@ -394,6 +422,10 @@ export function createCodexRunJournal({
   }
 
   async function markCodexAppServerTurnIdle(sessionId = "", input = {}) {
+    // Once shutdown has begun the turn's end, and its checkpoint, are left to the next server's recovery, as after a crash.
+    if (isClosing()) {
+      return { ok: true, processed: false, reason: "left_to_next_server" };
+    }
     const status = normalizeText(input.status) || "completed";
     const result = await publishCodexAppServerAgentRun(sessionId, {
       error: normalizeText(input.error),

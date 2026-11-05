@@ -10,7 +10,7 @@ import { createCodexNotificationObserver } from "./codexNotificationObserver.js"
 import { createCodexThreadStatus } from "./codexThreadStatus.js";
 import { createCodexTurnRecovery } from "./codexTurnRecovery.js";
 import { createCodexResultSettlement } from "./codexResultSettlement.js";
-import { createCodexRunJournal } from "./codexRunJournal.js";
+import { createCodexRunJournal, markCodexAppServerTurnStoppedByShutdown } from "./codexRunJournal.js";
 import { createCodexRenewalCommands } from "./codexRenewalCommands.js";
 import { createCodexGoalCommands } from "./codexGoalCommands.js";
 import { createCodexProviderSelection } from "./codexProviderSelection.js";
@@ -80,6 +80,13 @@ export { codexAppServerThreadIsMissing } from "./codexProviderThreads.js";
 /** @typedef {typeof CODEX_TURN_OUTCOMES} CodexTurnOutcomes */
 /** @typedef {(runtime: any, session: object, options: object) => Promise<any>} CodexAdmissionRecovery */
 /** @typedef {(sessionId: string, input: object) => Promise<unknown>} CodexCheckpoint */
+/**
+ * Records a scoped conversation turn's checkpoint as owed to the next server,
+ * once the server's shutdown has begun. The application passes the run back
+ * on that server's next read as `stoppedByShutdown: { runId, ended }`, and
+ * makes the checkpoint when `ended` is called.
+ * @typedef {(sessionId: string, input: { outerTurnId: string, threadId: string, turnId: string, status: string, turnOutcome: string }) => Promise<unknown>} CodexDeferCheckpoint
+ */
 
 /**
  * The application hooks that add metadata to the turns a run writes.
@@ -161,6 +168,8 @@ function runInNoContext(_context, operation) {
  * @param {string} [options.messageIdPrefix]
  * @param {object} [options.idlePublishPayload]
  * @param {CodexCheckpoint} [options.checkpoint]
+ * @param {CodexDeferCheckpoint} options.deferCheckpoint A host that predates it leaves it out: a scoped
+ *   conversation turn that ends during shutdown then makes its checkpoint at once, and one the shutdown stops makes none.
  * @param {Partial<CodexMessageMetadataHooks>} [options.messageMetadata]
  * @param {boolean} [options.persistCommentary]
  * @param {string} [options.deliveryStateMetadataKey]
@@ -204,6 +213,7 @@ export function createCodexAppServerRunOwner({
   messageIdPrefix = "codex:",
   idlePublishPayload,
   checkpoint = answerNothing,
+  deferCheckpoint,
   messageMetadata = {},
   persistCommentary = true,
   deliveryStateMetadataKey = "assistant_delivery",
@@ -317,7 +327,8 @@ export function createCodexAppServerRunOwner({
     idlePublishPayload,
     finalizingGraceMs,
     admissionTaskFinished,
-    orphanedPromptMessage
+    orphanedPromptMessage,
+    isClosing: () => runOwner.runtimeLifecycle?.closing === true
   });
   const admissionRecovery = recoverAdmission || codexRunJournal.recoverAbandonedPromptClaim;
 
@@ -424,7 +435,11 @@ export function createCodexAppServerRunOwner({
     ensureSessionProvider: codexProviderSelection.ensureSessionProvider,
     borrowSessionProvider: codexProviderSelection.borrowSessionProvider,
     steerFailedCode,
-    turnOutcomes
+    turnOutcomes,
+    deferCheckpoint,
+    isClosing: () => runOwner.runtimeLifecycle?.closing === true,
+    captureContext,
+    runInContext
   });
 
   const codexObservationControl = createCodexObservationControl({
@@ -636,6 +651,7 @@ export function createCodexAppServerRunOwner({
     clearSessionRecoveryTimers: codexRunJournal.clearSessionRecoveryTimers,
     publishAgentRun: codexRunJournal.publishAgentRun,
     markTurnIdle: codexRunJournal.markTurnIdle,
+    markTurnStoppedByShutdown,
     finalizeAssistantResult: codexResultSettlement.finalizeAssistantResult,
     finalizedTurns: codexAppServerOutput.finalizedTurns,
     liveProgressItems: codexAppServerOutput.liveProgressItems,
@@ -661,8 +677,10 @@ export function createCodexAppServerRunOwner({
         reasoningPersistQueues: codexAppServerOutput.reasoningPersistQueues,
         resultFinalizations: codexResultSettlement.resultFinalizations,
         threadReconciliations: codexThreadReadiness.threadReconciliations,
-        notificationTasks: codexAppServerNotificationQueue.tasks
+        notificationTasks: codexAppServerNotificationQueue.tasks,
+        deferredCheckpoints: codexConversations.deferredCheckpoints
       },
+      leaveTurnsToNextServer: leaveRunningTurnsToNextServer,
       observer: codexNotificationObserver,
       checkManagedConnection: codexThreadReadiness.checkManagedConnection,
       providerSessions,
@@ -685,6 +703,24 @@ export function createCodexAppServerRunOwner({
       createRuntime, namespace, turnState, sessionIdRequiredError, debugLog, debugError
     }));
   }
+  function markTurnStoppedByShutdown(sessionId = "", threadId = "") {
+    return markCodexAppServerTurnStoppedByShutdown({ createRuntime, turnState }, sessionId, threadId);
+  }
+
+  // At shutdown each running turn's end, and its checkpoint, belong to the
+  // next server: Main turns are marked so it records their interruption as a
+  // restart, and scoped conversations leave their checkpoints owed.
+  async function leaveRunningTurnsToNextServer() {
+    const results = await Promise.allSettled([
+      codexConversations.leaveRunningTurnsToNextServer(),
+      ...[...providerSessions.managed.values()].map(managed => Promise.resolve().then(() => runInContext(
+        managed.projectContext, () => markTurnStoppedByShutdown(managed.sessionId, managed.threadId))))
+    ]);
+    for (const result of results) {
+      if (result.status === "rejected") debugLog("appServerShutdown.leaveTurn.error", { error: debugError(result.reason) });
+    }
+  }
+
   const cleanup = createCodexSessionCleanup({
     namespace,
     runOwner,

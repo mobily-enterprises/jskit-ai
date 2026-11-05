@@ -6,6 +6,9 @@ import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 /** @typedef {ReturnType<typeof import("./codexTurn.js").createCodexAppServerRunOwner>} CodexRunOwner */
 /** @typedef {(event: string, details: object) => void} CodexDebugLog */
 
+/** A lifecycle without running turns to hand over leaves none. */
+async function leaveNoTurns() {}
+
 /**
  * Shutdown, wellbeing timers and managed-session records for shared Codex
  * runtimes. It works on the run/provider owners' collections; it owns no servers.
@@ -23,6 +26,8 @@ import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
  * @param {CodexDebugLog} dependencies.debugLog
  * @param {(error: unknown) => unknown} dependencies.debugError
  * @param {{ message: string, code: string, retryable: boolean } | null} [dependencies.closingError]
+ * @param {() => Promise<unknown>} [dependencies.leaveTurnsToNextServer] When shutdown begins, leaves each running
+ *   turn's end, and its checkpoint, to the next server.
  */
 export function createCodexRuntimeLifecycle({
   pendingWork,
@@ -35,7 +40,8 @@ export function createCodexRuntimeLifecycle({
   continueGoalAfterAccountChange,
   debugLog,
   debugError,
-  closingError = null
+  closingError = null,
+  leaveTurnsToNextServer = leaveNoTurns
 }) {
   const codexAppServerSessionClosures = new Map();
   const codexAppServerWellbeingTimers = new Map();
@@ -44,6 +50,7 @@ export function createCodexRuntimeLifecycle({
   let codexAppServerThreadReconcileGeneration = 0;
   let codexAppServerServerClosing = false;
   let codexAppServerShutdownPromise = null;
+  let codexAppServerTurnsLeft = null;
 
   function assertOpen() {
     if (!closingError) return providerSessions.assertOpen();
@@ -221,6 +228,12 @@ export function createCodexRuntimeLifecycle({
       return;
     }
     codexAppServerServerClosing = true;
+    // Taken now, before any runtime stops, while each running turn is known.
+    codexAppServerTurnsLeft = (async () => leaveTurnsToNextServer())().catch(error => {
+      debugLog("appServerShutdown.leaveTurns.error", { error: debugError(error) });
+    }).finally(() => {
+      codexAppServerTurnsLeft = null;
+    });
     providerSessions.owner.beginShutdown();
     codexAppServerThreadReconcileGeneration += 1;
     for (const providerKey of [...codexAppServerWellbeingTimers.keys()]) {
@@ -231,6 +244,8 @@ export function createCodexRuntimeLifecycle({
   async function drainCodexAppServerControllerTasks() {
     while (true) {
       const pending = new Set([
+        ...(codexAppServerTurnsLeft ? [codexAppServerTurnsLeft] : []),
+        ...pendingWork.deferredCheckpoints.values(),
         ...pendingWork.conversationTurnStarts.values(),
         ...helperLifecycle.projectOperations.values(),
         ...helperLifecycle.cleanups.values(),
