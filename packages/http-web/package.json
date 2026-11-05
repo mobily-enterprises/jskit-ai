@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/http-web",
-  "version": "0.2.10",
+  "version": "0.2.11",
   "type": "module",
   "scripts": {
     "test": "node --test --test-concurrency=1"
