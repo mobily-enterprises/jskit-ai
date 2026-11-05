@@ -446,6 +446,48 @@ function extractJsonRestCollectionRows(payload) {
   return payload.data;
 }
 
+/**
+ * Every row a resource query matches, for server code that needs them all: a
+ * query without a page returns only the resource's first page, 20 rows by
+ * default. It reads cursor pages of the resource's largest size
+ * (`queryMaxLimit`) in id order until json-rest-api reports no more, so no row
+ * is skipped or repeated between pages; callers sort the rows themselves. Each
+ * page runs with the caller's params, its transaction among them, and its own
+ * copy of the context, since json-rest-api keeps an operation's working state
+ * in the context it is given.
+ * @param {import("./types.js").JsonRestResource} resource One of `api.resources`.
+ * @param {{ queryParams: object, transaction?: object | null, format?: "plain" | "jsonapi" }} params
+ *   resource.query()'s params, with no `queryParams.page` or `queryParams.sort`.
+ * @param {object | null | undefined} context The execution context, as createJsonRestContext() takes it.
+ * @returns {Promise<object[]>}
+ */
+async function queryAllJsonRestCollectionRows(resource, { queryParams, ...params }, context) {
+  if (Object.hasOwn(queryParams, "page") || Object.hasOwn(queryParams, "sort")) {
+    throw new TypeError("queryAllJsonRestCollectionRows pages in id order itself, so queryParams cannot name a page or sort.");
+  }
+
+  const size = resource.vars.queryMaxLimit;
+  const rows = [];
+  let after = null;
+  do {
+    const payload = await resource.query(
+      {
+        ...params,
+        queryParams: {
+          ...queryParams,
+          sort: ["id"],
+          page: after ? { size, after } : { size }
+        }
+      },
+      createJsonRestContext(context)
+    );
+    rows.push(...extractJsonRestCollectionRows(payload));
+    const pagination = payload.meta?.pagination;
+    after = pagination?.hasMore === true ? pagination.cursor.next : null;
+  } while (after);
+  return rows;
+}
+
 function createJsonRestResourceScopeOptions(
   resource = {},
   {
@@ -674,6 +716,7 @@ export {
   createJsonRestResourceScopeOptions,
   createJsonRestContext,
   extractJsonRestCollectionRows,
+  queryAllJsonRestCollectionRows,
   returnNullWhenJsonRestResourceMissing,
   returnBadRequestWhenJsonRestFieldsetInvalid,
   resolveWorkspaceScopeValue,

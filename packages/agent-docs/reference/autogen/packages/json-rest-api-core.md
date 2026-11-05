@@ -21,6 +21,7 @@ Exports
 - `createJsonRestResourceScopeOptions(resource = {}, { writeSerializers = {}, normalizeId, rowPolicy, searchSchema, queryFields } = {})`
 - `createJsonRestContext(context = null)`
 - `extractJsonRestCollectionRows(payload)`
+- `queryAllJsonRestCollectionRows(resource, { queryParams, ...params }, context)`
 - `returnNullWhenJsonRestResourceMissing(run)`
 - `returnBadRequestWhenJsonRestFieldsetInvalid(run)`
 - `resolveWorkspaceScopeValue(context = null)`
