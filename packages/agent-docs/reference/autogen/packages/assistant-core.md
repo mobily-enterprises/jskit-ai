@@ -522,7 +522,7 @@ Local functions
 
 ### `src/server/conversation/codexConversations.js`
 Exports
-- `createCodexConversationCommands({ checkpoint, codexAppServerConversationMessageId, codexAppServerStreamMessage, conversationPreparation, ensureCodexAppServerProviderForActiveTurn, errorPrefix, helperLifecycle, helperOwnershipError, interruptFailedCode, namespace, providerSessions, ensureSessionProvider, borrowSessionProvider, steerFailedCode, turnOutcomes })`
+- `createCodexConversationCommands({ checkpoint, codexAppServerConversationMessageId, codexAppServerStreamMessage, conversationPreparation, ensureCodexAppServerProviderForActiveTurn, errorPrefix, helperLifecycle, helperOwnershipError, interruptFailedCode, namespace, providerSessions, ensureSessionProvider, borrowSessionProvider, steerFailedCode, turnOutcomes, deferCheckpoint, isClosing, captureContext, runInContext })`
 - `type CodexConversationRegistry`
 - `type CodexConversationLookup`
 - `type CodexConversationStateUpdate`
@@ -933,7 +933,8 @@ Exports
 
 ### `src/server/conversation/codexRunJournal.js`
 Exports
-- `createCodexRunJournal({ namespace, normalizeRunState, turnState, createRuntime, publish, checkpoint, debugLog, output, messageIdPrefix, sessionIdRequiredError, turnAlreadyRunningError, errorPrefix, idlePublishPayload, finalizingGraceMs, admissionTaskFinished, orphanedPromptMessage })`
+- `markCodexAppServerTurnStoppedByShutdown({ createRuntime, turnState }, sessionId = "", threadId = "")`
+- `createCodexRunJournal({ namespace, normalizeRunState, turnState, createRuntime, publish, checkpoint, debugLog, output, messageIdPrefix, sessionIdRequiredError, turnAlreadyRunningError, errorPrefix, idlePublishPayload, finalizingGraceMs, admissionTaskFinished, orphanedPromptMessage, isClosing })`
 - `type CodexRunJournal`
 Local functions
 - `terminalCodexAppServerAgentRunState(status = "")`
@@ -965,12 +966,14 @@ Exports
 
 ### `src/server/conversation/codexRuntimeLifecycle.js`
 Exports
-- `createCodexRuntimeLifecycle({ pendingWork, observer, checkManagedConnection, providerSessions, helperLifecycle, captureContext, runInContext, continueGoalAfterAccountChange, debugLog, debugError, closingError = null })`
+- `createCodexRuntimeLifecycle({ pendingWork, observer, checkManagedConnection, providerSessions, helperLifecycle, captureContext, runInContext, continueGoalAfterAccountChange, debugLog, debugError, closingError = null, leaveTurnsToNextServer = leaveNoTurns })`
 - `type CodexHelperThreadLifecycle`
 - `type CodexNotificationObserver`
 - `type CodexRuntimeLifecycle`
 - `type CodexRunOwner`
 - `type CodexDebugLog`
+Local functions
+- `leaveNoTurns()`
 
 ### `src/server/conversation/codexRuntimeStart.js`
 Exports
@@ -1023,7 +1026,7 @@ Exports
 
 ### `src/server/conversation/codexTurn.js`
 Exports
-- `createCodexAppServerRunOwner({ namespace = normalizeText, normalizeRunState = normalizeCodexAppServerRunState, debugLog = ignoreDebugLog, debugError = error => normalizeText(error?.message || error), createRuntime, createStore, publish = answerNothing, acquireProvider = answerNothing, providerSessions, serverClosingError, helperThreads = null, modelCatalogCacheMs = 30_000, conversationPreparation, sessionIdRequiredError = "A session ID is required.", turnAlreadyRunningError = "Codex is already working on this session.", messageIdPrefix = "codex:", idlePublishPayload, checkpoint = answerNothing, messageMetadata = {}, persistCommentary = true, deliveryStateMetadataKey = "assistant_delivery", hasRuntime = () => true, recoverAdmission, admissionTaskFinished = () => false, outcomeNotice = answerNothing, resultDeliveryFailureMessage = codexResultDeliveryFailureMessage, orphanedPromptMessage = "The application restarted before Codex confirmed the message. Your message is safe; retry it.", onNotificationSignal = answerNothing, captureContext = captureNoContext, runInContext = runInNoContext, continueGoalAfterAccountChange, notificationQueue = null, activeReconcileMs = 2000, finalizingGraceMs = 10000, finalizingGraceAfterHistoryRead = false, failureDetailGraceMs = 0, steerFailedCode = "codex_turn_steer_failed", interruptFailedCode = "codex_turn_interrupt_failed", errorPrefix = "" })`
+- `createCodexAppServerRunOwner({ namespace = normalizeText, normalizeRunState = normalizeCodexAppServerRunState, debugLog = ignoreDebugLog, debugError = error => normalizeText(error?.message || error), createRuntime, createStore, publish = answerNothing, acquireProvider = answerNothing, providerSessions, serverClosingError, helperThreads = null, modelCatalogCacheMs = 30_000, conversationPreparation, sessionIdRequiredError = "A session ID is required.", turnAlreadyRunningError = "Codex is already working on this session.", messageIdPrefix = "codex:", idlePublishPayload, checkpoint = answerNothing, deferCheckpoint, messageMetadata = {}, persistCommentary = true, deliveryStateMetadataKey = "assistant_delivery", hasRuntime = () => true, recoverAdmission, admissionTaskFinished = () => false, outcomeNotice = answerNothing, resultDeliveryFailureMessage = codexResultDeliveryFailureMessage, orphanedPromptMessage = "The application restarted before Codex confirmed the message. Your message is safe; retry it.", onNotificationSignal = answerNothing, captureContext = captureNoContext, runInContext = runInNoContext, continueGoalAfterAccountChange, notificationQueue = null, activeReconcileMs = 2000, finalizingGraceMs = 10000, finalizingGraceAfterHistoryRead = false, failureDetailGraceMs = 0, steerFailedCode = "codex_turn_steer_failed", interruptFailedCode = "codex_turn_interrupt_failed", errorPrefix = "" })`
 - `CODEX_APP_SERVER_RUN_STATE`
 - `normalizeCodexAppServerRunState`
 - `codexAppServerRunStateIsActive`
@@ -1076,6 +1079,7 @@ Exports
 - `type CodexTurnOutcomes`
 - `type CodexAdmissionRecovery`
 - `type CodexCheckpoint`
+- `type CodexDeferCheckpoint`
 - `type CodexMessageMetadataHooks`
 - `type CodexProviderSessions`
 Local functions
