@@ -21,13 +21,14 @@ import { noSlotSetter } from "./rules/noSlotSetter.js";
 import { noTestOnlyExport } from "./rules/noTestOnlyExport.js";
 import { oneLineAction } from "./rules/oneLineAction.js";
 import { onePropertyPerLine } from "./rules/onePropertyPerLine.js";
+import { playwrightLoginUnchanged } from "./rules/playwrightLoginUnchanged.js";
 import { releasedListeners } from "./rules/releasedListeners.js";
 import { requiredCollaborators } from "./rules/requiredCollaborators.js";
 import { typedDependencies } from "./rules/typedDependencies.js";
 import { typedInject } from "./rules/typedInject.js";
 
-// The `jskit` ESLint plugin: the typed-features rules, by name, server and client. Each rule's messages link to the
-// guide section that explains it.
+// The `jskit` ESLint plugin: the typed-features rules, by name, server and client, and the rule that keeps a Playwright
+// config's managed login unchanged. Each rule's messages link to the guide section that explains it.
 const jskitPlugin = Object.freeze({
   meta: Object.freeze({ name: "@jskit-ai/config-eslint/jskit" }),
   rules: Object.freeze({
@@ -57,7 +58,8 @@ const jskitPlugin = Object.freeze({
     "fixed-result-shape": fixedResultShape,
     "released-listeners": releasedListeners,
     "no-module-state": noModuleState,
-    "no-frozen-vue-state": noFrozenVueState
+    "no-frozen-vue-state": noFrozenVueState,
+    "playwright-login-unchanged": playwrightLoginUnchanged
   })
 });
 

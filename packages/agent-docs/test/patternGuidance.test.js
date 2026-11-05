@@ -217,29 +217,35 @@ test("the typed-features guide gives each rule what, why and good and bad code",
   assert.match(checks, /platform object: a Knex transaction/u);
 });
 
-test("every typed-features lint rule links a guide section and is listed in its checks", async () => {
+test("every jskit lint rule links a guide section and is listed in its checks", async () => {
   const { jskitPlugin } = await import("@jskit-ai/config-eslint/server");
-  // Server rules link the typed-features guide; the client-only rules link the client-features guide.
+  // Server rules link the typed-features guide; the client-only rules link the client-features guide. The rule that
+  // keeps a Playwright config's managed login unchanged links the authentication guide, whose section names it.
   const pages = {};
-  for (const page of ["typed-features", "client-features"]) {
-    const guide = await readFile(path.join(packageRoot, `site/guide/framework/${page}.md`), "utf8");
+  for (const page of ["framework/typed-features", "framework/client-features", "app-setup/authentication"]) {
+    const guide = await readFile(path.join(packageRoot, `site/guide/${page}.md`), "utf8");
     pages[page] = {
       anchors: new Set([...guide.matchAll(/^#{2,3} (.+)$/gmu)].map((match) => headingAnchor(match[1]))),
-      lintTable: guide.slice(guide.indexOf("### Lint rules"), guide.indexOf("### Exceptions"))
+      lintTable: guide.includes("### Lint rules") ? guide.slice(guide.indexOf("### Lint rules"), guide.indexOf("### Exceptions")) : "",
+      sections: new Map(guideSections(guide).map((section) => [headingAnchor(section.title), section.body]))
     };
   }
   for (const [name, rule] of Object.entries(jskitPlugin.rules)) {
     const url = rule.meta.docs.url;
-    const [, page] = url.match(/^https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/guide\/framework\/(typed-features|client-features)#/u) || [];
-    assert.ok(page, `jskit/${name} links ${url}, which is neither guide.`);
-    const { anchors, lintTable } = pages[page];
+    const [, page] = url.match(/^https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/guide\/(framework\/(?:typed-features|client-features)|app-setup\/authentication)#/u) || [];
+    assert.ok(page, `jskit/${name} links ${url}, which is none of the guides.`);
+    const { anchors, lintTable, sections } = pages[page];
     const anchor = url.split("#")[1];
     assert.ok(anchors.has(anchor), `jskit/${name} links #${anchor}, which no heading has.`);
-    assert.ok(lintTable.includes(`| \`jskit/${name}\` |`), `The lint rules table lacks jskit/${name}.`);
-    assert.ok(lintTable.includes(`(#${anchor})`), `The lint rules table does not send jskit/${name} to #${anchor}.`);
     for (const message of Object.values(rule.meta.messages)) {
       assert.ok(message.endsWith(` See ${url}`), `A jskit/${name} message does not end with its guide link.`);
     }
+    if (!lintTable) {
+      assert.ok(sections.get(anchor)?.includes(`\`jskit/${name}\``), `The #${anchor} section does not name jskit/${name}.`);
+      continue;
+    }
+    assert.ok(lintTable.includes(`| \`jskit/${name}\` |`), `The lint rules table lacks jskit/${name}.`);
+    assert.ok(lintTable.includes(`(#${anchor})`), `The lint rules table does not send jskit/${name} to #${anchor}.`);
   }
 });
 

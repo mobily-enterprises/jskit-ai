@@ -1,4 +1,5 @@
 import js from "@eslint/js";
+import { jskitPlugin } from "./plugin/index.js";
 import { typedFeaturesConfig } from "./typedFeatures.js";
 
 const SOURCE_FILES = "**/*.{js,mjs,cjs,vue}";
@@ -43,6 +44,14 @@ const baseConfig = Object.freeze([
           ]
         }
       ]
+    }
+  },
+  // A Playwright config passes the managed host's login state on unchanged, in every application.
+  {
+    files: ["**/playwright.config.{js,mjs,cjs}", "**/playwright.*.config.{js,mjs,cjs}"],
+    plugins: { jskit: jskitPlugin },
+    rules: {
+      "jskit/playwright-login-unchanged": "error"
     }
   },
   // Server code is reported against the typed-features rules; an application

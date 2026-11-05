@@ -101,6 +101,20 @@ cover every module a capability value is built from, so list a package's
 shared modules too (`packages/billing/src/shared/**`). Test files and `test`,
 `tests`, `client`, `components` and `pages` directories are not checked.
 
+## Playwright login
+
+A managed host signs browser tests in and supplies the login state as a file
+path in `PLAYWRIGHT_STORAGE_STATE`, already fitted to the tested site. The state
+belongs to the host, so `baseConfig` makes `jskit/playwright-login-unchanged`
+an error in every `playwright.config.*` and `playwright.*.config.*` file: the
+value may reach `use.storageState` only unchanged. `String()`, `.trim()`, a
+fallback (`|| ""`, `?? undefined`) and a conditional keep it unchanged, and
+testing it is fine. Passing it anywhere else (`readFileSync`, `JSON.parse`, a
+helper function) or working on `cookies` or `origins` in a config that reads it
+is reported, and no `readable-check: allow` comment excuses it. If tests run
+signed out with the unchanged state, that is a host defect: report it with the
+evidence; do not work around it.
+
 ## Client features
 
 `clientFeaturesConfig(globs, severity = "error")` holds composables, Vue

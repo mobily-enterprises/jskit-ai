@@ -234,5 +234,13 @@ A managed host instead supplies authenticated state through
 file as a temporary secret, use relative URLs, and do not call the localhost
 login helper or start a duplicate server.
 
+The login state belongs to the host, which already fits it to the tested site.
+Pass `process.env.PLAYWRIGHT_STORAGE_STATE` unchanged to `use.storageState`:
+the config never reads, parses or edits that file or its `cookies` or
+`origins`. `jskit/playwright-login-unchanged` reports a config that does, and
+the host refuses to run its tests. If tests run signed out with the unchanged
+state, that is a host defect: report it with the evidence; do not work around
+it.
+
 Never commit provider secrets, copy auth repositories into the app, or add an
 installation questionnaire, mutation record, or setup receipt.

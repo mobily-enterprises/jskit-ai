@@ -280,6 +280,14 @@ Local functions
 - `checkedPlace(object)`
 - `splitObjectLines(sourceCode, object)`
 
+### `plugin/rules/playwrightLoginUnchanged.js`
+Exports
+- `playwrightLoginUnchanged`
+Local functions
+- `memberName(node)`
+- `isCallOf(node, name)`
+- `shortText(sourceCode, node)`
+
 ### `plugin/rules/releasedListeners.js`
 Exports
 - `releasedListeners`
