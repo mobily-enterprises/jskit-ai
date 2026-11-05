@@ -19,8 +19,11 @@ import {
   formatCrudListFilterQueryValue,
   parseCrudListFilterQueryValue,
   resolveCrudListFilterQueryKeys,
-  resolveCrudListFilterOptionLabel
+  resolveCrudListFilterOptionLabel,
+  CRUD_LIST_FILTER_PRESENCE_OPTIONS
 } from "../src/shared/crudListFilters.js";
+import { catalogMessage, formatMessage } from "@jskit-ai/kernel/shared/i18n";
+import en from "../locales/en.json" with { type: "json" };
 
 test("defineCrudListFilters normalizes common filter shapes", () => {
   const filters = defineCrudListFilters({
@@ -349,4 +352,37 @@ test("crud list filter helpers share canonical UI and query normalization", () =
     }),
     "Status: Active"
   );
+});
+
+test("default chip labels keep their English and render through a caller's translator", () => {
+  const filters = defineCrudListFilters({
+    price: { type: "numberRange", label: "Price" },
+    arrival: { type: "dateRange", label: "Arrival" },
+    storage: { type: "presence", label: "Storage" }
+  });
+
+  assert.equal(formatCrudListFilterDefaultChipLabel(filters.price, { min: "1", max: "5" }), "Price: 1 to 5");
+  assert.equal(formatCrudListFilterDefaultChipLabel(filters.price, { min: "1", max: "" }), "Price: min 1");
+  assert.equal(formatCrudListFilterDefaultChipLabel(filters.price, { min: "", max: "5" }), "Price: max 5");
+  assert.equal(
+    formatCrudListFilterDefaultChipLabel(filters.arrival, { from: "2026-04-01", to: "2026-04-30" }),
+    "Arrival: 2026-04-01 to 2026-04-30"
+  );
+  assert.equal(formatCrudListFilterDefaultChipLabel(filters.arrival, { from: "2026-04-01", to: "" }), "Arrival: from 2026-04-01");
+  assert.equal(formatCrudListFilterDefaultChipLabel(filters.arrival, { from: "", to: "2026-04-30" }), "Arrival: to 2026-04-30");
+
+  // The presence options' labels are message keys whose English is unchanged.
+  assert.deepEqual(
+    CRUD_LIST_FILTER_PRESENCE_OPTIONS.map((option) => formatMessage(catalogMessage(en, option.label))),
+    ["Present", "Missing"]
+  );
+  assert.equal(
+    formatCrudListFilterDefaultChipLabel(filters.storage, "missing", {
+      resolveAtomicValue: (value) => formatMessage(catalogMessage(en, resolveCrudListFilterOptionLabel(filters.storage, value)))
+    }),
+    "Storage: Missing"
+  );
+
+  const t = (key, params) => `${key.split(".").at(-1)}(${Object.values(params).join(",")})`;
+  assert.equal(formatCrudListFilterDefaultChipLabel(filters.price, { min: "1", max: "5" }, { t }), "range(Price,1,5)");
 });

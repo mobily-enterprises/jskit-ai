@@ -10,7 +10,8 @@
     "./shared/crudListFilters": "./src/shared/crudListFilters.js",
     "./shared/crudLookup": "./src/shared/crudLookup.js",
     "./shared/crudNamespaceSupport": "./src/shared/crudNamespaceSupport.js",
-    "./shared/crudResource": "./src/shared/crudResource.js"
+    "./shared/crudResource": "./src/shared/crudResource.js",
+    "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
     "@jskit-ai/resource-core": "0.1.196"

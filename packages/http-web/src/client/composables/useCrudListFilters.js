@@ -19,7 +19,7 @@ import {
 import { formatCrudListDateFilterChipLabel } from "../support/crudListDateFilterSupport.js";
 import { useJskitText } from "../i18n.js";
 
-const { text } = useJskitText();
+const { t, text } = useJskitText();
 
 function normalizeFunctionMap(value = {}) {
   const source = value && typeof value === "object" && !Array.isArray(value)
@@ -172,9 +172,9 @@ function resolveAtomicValueLabel(filter = {}, value = "", labelResolvers = {}) {
     }
   }
 
-  return resolveCrudListFilterOptionLabel(filter, value, {
+  return text(resolveCrudListFilterOptionLabel(filter, value, {
     fallback: String(value || "")
-  });
+  }));
 }
 
 // A filter label may be a message key; dates use the active language.
@@ -183,7 +183,8 @@ function formatDefaultChipLabel(filter = {}, chipValue, labelResolvers = {}) {
     || formatCrudListFilterDefaultChipLabel({ ...filter, label: text(filter.label) }, chipValue, {
       resolveAtomicValue(value) {
         return resolveAtomicValueLabel(filter, value, labelResolvers);
-      }
+      },
+      t
     });
 }
 

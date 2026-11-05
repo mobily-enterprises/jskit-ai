@@ -1,0 +1,18 @@
+{
+  "jskit": {
+    "crud": {
+      "listFilter": {
+        "present": "Present",
+        "missing": "Missing",
+        "chip": {
+          "value": "{label}: {value}",
+          "range": "{label}: {from} to {to}",
+          "from": "{label}: from {from}",
+          "to": "{label}: to {to}",
+          "min": "{label}: min {min}",
+          "max": "{label}: max {max}"
+        }
+      }
+    }
+  }
+}

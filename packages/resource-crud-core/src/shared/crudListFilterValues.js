@@ -1,11 +1,13 @@
 // The values a CRUD list filter holds: its types and their empty, UI, query and chip forms.
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
+import { catalogMessage, formatMessage } from "@jskit-ai/kernel/shared/i18n";
 import {
   normalizeBoolean,
   normalizeCanonicalRecordIdText,
   normalizeUniqueTextList,
   normalizeText
 } from "@jskit-ai/kernel/shared/support/normalize";
+import en from "../../locales/en.json" with { type: "json" };
 
 const CRUD_LIST_FILTER_TYPE_FLAG = "flag";
 const CRUD_LIST_FILTER_TYPE_ENUM = "enum";
@@ -35,14 +37,16 @@ const CRUD_LIST_FILTER_PRESENCE_VALUES = new Set([
   CRUD_LIST_FILTER_PRESENCE_PRESENT,
   CRUD_LIST_FILTER_PRESENCE_MISSING
 ]);
+// Option labels are message keys; JSKIT's filter controls and chips render them
+// with text(), which shows any other label as written.
 const CRUD_LIST_FILTER_PRESENCE_OPTIONS = Object.freeze([
   Object.freeze({
     value: CRUD_LIST_FILTER_PRESENCE_PRESENT,
-    label: "Present"
+    label: "jskit.crud.listFilter.present"
   }),
   Object.freeze({
     value: CRUD_LIST_FILTER_PRESENCE_MISSING,
-    label: "Missing"
+    label: "jskit.crud.listFilter.missing"
   })
 ]);
 const CRUD_LIST_FILTER_INVALID_VALUES_REJECT = "reject";
@@ -556,12 +560,26 @@ function atomicValueText(value) {
   return String(value || "");
 }
 
-function formatCrudListFilterDefaultChipLabel(filter = {}, rawValue, { resolveAtomicValue: resolveAtomicLabel = atomicValueText } = {}) {
+/**
+ * A chip message in English, from this package's catalog; a client passes its own
+ * translator instead.
+ * @param {string} key
+ * @param {Record<string, unknown>} params
+ */
+function englishChipText(key, params) {
+  return formatMessage(catalogMessage(en, key), params);
+}
+
+function formatCrudListFilterDefaultChipLabel(filter = {}, rawValue, {
+  resolveAtomicValue: resolveAtomicLabel = atomicValueText,
+  t = englishChipText
+} = {}) {
   const normalizedValue = normalizeCrudListFilterUiValue(filter, rawValue);
   const type = normalizeCrudListFilterType(filter.type);
+  const label = filter.label;
 
   if (type === CRUD_LIST_FILTER_TYPE_FLAG) {
-    return filter.label;
+    return label;
   }
 
   if (
@@ -569,41 +587,41 @@ function formatCrudListFilterDefaultChipLabel(filter = {}, rawValue, { resolveAt
     type === CRUD_LIST_FILTER_TYPE_PRESENCE ||
     type === CRUD_LIST_FILTER_TYPE_RECORD_ID
   ) {
-    return `${filter.label}: ${resolveAtomicLabel(normalizedValue, filter)}`;
+    return t("jskit.crud.listFilter.chip.value", { label, value: resolveAtomicLabel(normalizedValue, filter) });
   }
 
   if (type === CRUD_LIST_FILTER_TYPE_ENUM_MANY || type === CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY) {
     const atomicValue = Array.isArray(normalizedValue)
       ? normalizedValue[0] || ""
       : normalizeText(normalizedValue);
-    return `${filter.label}: ${resolveAtomicLabel(atomicValue, filter)}`;
+    return t("jskit.crud.listFilter.chip.value", { label, value: resolveAtomicLabel(atomicValue, filter) });
   }
 
   if (type === CRUD_LIST_FILTER_TYPE_DATE) {
-    return `${filter.label}: ${normalizedValue}`;
+    return t("jskit.crud.listFilter.chip.value", { label, value: normalizedValue });
   }
 
   if (type === CRUD_LIST_FILTER_TYPE_DATE_RANGE) {
     if (normalizedValue?.from && normalizedValue?.to) {
-      return `${filter.label}: ${normalizedValue.from} to ${normalizedValue.to}`;
+      return t("jskit.crud.listFilter.chip.range", { label, from: normalizedValue.from, to: normalizedValue.to });
     }
     if (normalizedValue?.from) {
-      return `${filter.label}: from ${normalizedValue.from}`;
+      return t("jskit.crud.listFilter.chip.from", { label, from: normalizedValue.from });
     }
-    return `${filter.label}: to ${normalizedValue?.to || ""}`;
+    return t("jskit.crud.listFilter.chip.to", { label, to: normalizedValue?.to || "" });
   }
 
   if (type === CRUD_LIST_FILTER_TYPE_NUMBER_RANGE) {
     if (normalizedValue?.min && normalizedValue?.max) {
-      return `${filter.label}: ${normalizedValue.min} to ${normalizedValue.max}`;
+      return t("jskit.crud.listFilter.chip.range", { label, from: normalizedValue.min, to: normalizedValue.max });
     }
     if (normalizedValue?.min) {
-      return `${filter.label}: min ${normalizedValue.min}`;
+      return t("jskit.crud.listFilter.chip.min", { label, min: normalizedValue.min });
     }
-    return `${filter.label}: max ${normalizedValue?.max || ""}`;
+    return t("jskit.crud.listFilter.chip.max", { label, max: normalizedValue?.max || "" });
   }
 
-  return filter.label;
+  return label;
 }
 
 function normalizeCrudListFilterType(value = "") {

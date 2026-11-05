@@ -21,8 +21,11 @@ const props = defineProps({
 const { t, text } = useJskitText();
 const runtimeValues = computed(() => props.runtime.values);
 
+// Option labels may be message keys, such as the presence filter's.
 function optionItems(filter = {}) {
-  return Array.isArray(filter.options) ? filter.options : [];
+  return Array.isArray(filter.options)
+    ? filter.options.map((option) => ({ ...option, label: text(option.label) }))
+    : [];
 }
 
 // Filter labels and placeholders may be message keys.
