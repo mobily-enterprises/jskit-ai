@@ -1,4 +1,5 @@
 import { audioContextConstructor } from "./browser.js";
+import { voiceError } from "./i18n.js";
 
 const CAPTURE_WORKLET_NAME = "jskit-voice-capture";
 const CAPTURE_FLUSH_TIMEOUT_MS = 500;
@@ -83,7 +84,7 @@ function noFlushPending() {}
 async function createMicrophoneCapture({ onLevel = ignoreLevel, onPcm = ignorePcm, targetSampleRate = 16_000 } = {}) {
   const AudioContextCtor = audioContextConstructor();
   if (!AudioContextCtor) {
-    throw new Error("This browser does not support microphone audio processing.");
+    throw voiceError("jskit.assistant.voice.errors.microphoneUnsupported");
   }
   const stream = await navigator.mediaDevices.getUserMedia({
     audio: {

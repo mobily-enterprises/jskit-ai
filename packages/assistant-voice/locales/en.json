@@ -133,7 +133,8 @@
           "noLongerAvailable": "This conversation is no longer available for voice.",
           "hostDisposed": "The voice host has been disposed.",
           "notAvailable": "This conversation is not available for voice.",
-          "finishBeforeEnding": "Finish or discard your recording before ending voice."
+          "finishBeforeEnding": "Finish or discard your recording before ending voice.",
+          "microphoneUnsupported": "This browser does not support microphone audio processing."
         },
         "protocol": {
           "chooseVoice": "Choose an available voice before starting speech."
