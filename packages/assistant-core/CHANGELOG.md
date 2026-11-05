@@ -1,5 +1,347 @@
 # Changelog
 
+## Unreleased
+
+- Assistant failures that reach a person translate: 63 more undotted codes render from `jskit.errors.<code>`, and 96 sentences that share a code with others, or are sent without one, carry a `messageCode` (`assistant.claude.*`, `assistant.codex.*`, `assistant.opencode.*`, `assistant.conversation.*`, `assistant.turn.*`). The English messages are unchanged.
+- The OpenCode version mismatch, Claude control-request timeout and unreadable saved Claude conversation errors carry `params` for their catalog English.
+- The assistant settings resource sends its system prompt field messages in the coded `{ code, message, params }` form.
+
+### New message keys (161)
+
+<details><summary>Key list</summary>
+
+- `jskit.assistant.settings.systemPromptTooLong`
+- `jskit.assistant.settings.systemPromptInvalid`
+- `jskit.assistant.turn.invalidResponse`
+- `jskit.assistant.turn.requestIncomplete`
+- `jskit.assistant.conversation.contextChangedInstallingPrompt`
+- `jskit.assistant.conversation.contextChangedReadingInstructions`
+- `jskit.assistant.conversation.messageNotAcknowledged`
+- `jskit.assistant.conversation.stopTemporaryBeforeChange`
+- `jskit.assistant.conversation.toolArgumentsTooLarge`
+- `jskit.assistant.conversation.toolCallLimit`
+- `jskit.assistant.claude.accountChangedRefreshModels`
+- `jskit.assistant.claude.accountQueryCancelled`
+- `jskit.assistant.claude.accountQueryCleanupUnconfirmed`
+- `jskit.assistant.claude.answerInterrupted`
+- `jskit.assistant.claude.chooseConnectedModel`
+- `jskit.assistant.claude.closedOrWorking`
+- `jskit.assistant.claude.connectionClosed`
+- `jskit.assistant.claude.connectionWasClosed`
+- `jskit.assistant.claude.controlNeedsTerminal`
+- `jskit.assistant.claude.eventConnectionEnded`
+- `jskit.assistant.claude.exitedUnexpectedly`
+- `jskit.assistant.claude.modelUnsupported`
+- `jskit.assistant.claude.noTurnToSteer`
+- `jskit.assistant.claude.otherHostConfiguration`
+- `jskit.assistant.claude.reasoningEffortUnsupported`
+- `jskit.assistant.claude.reconnecting`
+- `jskit.assistant.claude.sendNowUnsupported`
+- `jskit.assistant.claude.signInRequired`
+- `jskit.assistant.claude.stopBeforeReset`
+- `jskit.assistant.claude.toolCallLimit`
+- `jskit.assistant.claude.turnStillWorking`
+- `jskit.assistant.claude.workEnded`
+- `jskit.assistant.claude.outputTooLarge`
+- `jskit.assistant.codex.accountChangedSendAgain`
+- `jskit.assistant.codex.accountUnavailable`
+- `jskit.assistant.codex.assistantChangedRefresh`
+- `jskit.assistant.codex.authChangedReopen`
+- `jskit.assistant.codex.authModeUnsupported`
+- `jskit.assistant.codex.authRecordInvalid`
+- `jskit.assistant.codex.authRecordTooLarge`
+- `jskit.assistant.codex.authRecordUnreadable`
+- `jskit.assistant.codex.authorizedSettingsRequired`
+- `jskit.assistant.codex.connectionClosedBeforeSettings`
+- `jskit.assistant.codex.connectionUnverified`
+- `jskit.assistant.codex.credentialsUnreadable`
+- `jskit.assistant.codex.ephemeralInstructionsFixed`
+- `jskit.assistant.codex.goalPauseUnconfirmed`
+- `jskit.assistant.codex.goalsAreControls`
+- `jskit.assistant.codex.helperAccessTokenStale`
+- `jskit.assistant.codex.helperAccountActivationFailed`
+- `jskit.assistant.codex.helperAccountChanged`
+- `jskit.assistant.codex.helperAccountChangedBeforeRun`
+- `jskit.assistant.codex.helperAccountChangedStarting`
+- `jskit.assistant.codex.helperAccountIdentityInvalid`
+- `jskit.assistant.codex.helperAuthRefreshRejected`
+- `jskit.assistant.codex.helperAuthUnavailable`
+- `jskit.assistant.codex.helperExecutionFailed`
+- `jskit.assistant.codex.helperThreadReconnectAccount`
+- `jskit.assistant.codex.historyFormatStartFresh`
+- `jskit.assistant.codex.historyFormatUnsupported`
+- `jskit.assistant.codex.loadedThreadsInvalid`
+- `jskit.assistant.codex.modelDiscoveryUnavailable`
+- `jskit.assistant.codex.modelUnsupported`
+- `jskit.assistant.codex.nativeGoalChanged`
+- `jskit.assistant.codex.observationLostStopUnverified`
+- `jskit.assistant.codex.oldThreadUnreadable`
+- `jskit.assistant.codex.otherAccount`
+- `jskit.assistant.codex.otherHostConfiguration`
+- `jskit.assistant.codex.otherProviderAccount`
+- `jskit.assistant.codex.outputTooLarge`
+- `jskit.assistant.codex.paginatedConversationHistoryMissing`
+- `jskit.assistant.codex.paginatedHistoryMissing`
+- `jskit.assistant.codex.reasoningEffortUnsupported`
+- `jskit.assistant.codex.reconnectOpenAi`
+- `jskit.assistant.codex.responseTimeout`
+- `jskit.assistant.codex.signInRequired`
+- `jskit.assistant.codex.stillReconnecting`
+- `jskit.assistant.codex.stoppedUseResume`
+- `jskit.assistant.codex.temporaryConnectionLost`
+- `jskit.assistant.codex.temporaryConversationClosed`
+- `jskit.assistant.codex.temporaryTurnStopped`
+- `jskit.assistant.codex.threadInventoryUntrusted`
+- `jskit.assistant.codex.toolEntryPointsChanged`
+- `jskit.assistant.codex.turnStopUnconfirmed`
+- `jskit.assistant.opencode.cleanupUnconfirmed`
+- `jskit.assistant.opencode.closedOrWorking`
+- `jskit.assistant.opencode.messageNotAcknowledged`
+- `jskit.assistant.opencode.modelDefinitionUnavailable`
+- `jskit.assistant.opencode.nativeStillWorking`
+- `jskit.assistant.opencode.noTurnToSteer`
+- `jskit.assistant.opencode.otherAccount`
+- `jskit.assistant.opencode.otherHistoryStore`
+- `jskit.assistant.opencode.otherHistoryStoreOrRuntime`
+- `jskit.assistant.opencode.otherWorkingDirectory`
+- `jskit.assistant.opencode.reasoningEffortUnsupported`
+- `jskit.assistant.opencode.reopenTerminalToAttach`
+- `jskit.assistant.opencode.savedConversationUnavailable`
+- `jskit.assistant.opencode.turnFailed`
+- `jskit.errors.conversation_claude_turn_timeout`
+- `jskit.errors.conversation_claude_renewal_history_mismatch`
+- `jskit.errors.conversation_claude_renewal_unrelated_history`
+- `jskit.errors.conversation_claude_renewal_turn_active`
+- `jskit.errors.conversation_claude_unavailable`
+- `jskit.errors.conversation_claude_retained_goal_invalid`
+- `jskit.errors.conversation_claude_retained_goal_conflict`
+- `jskit.errors.conversation_claude_session_closing`
+- `jskit.errors.conversation_claude_preparation_stopped`
+- `jskit.errors.conversation_claude_terminal_turn_active`
+- `jskit.errors.conversation_claude_still_working`
+- `jskit.errors.conversation_claude_history_retire_busy`
+- `jskit.errors.conversation_claude_message_required`
+- `jskit.errors.conversation_claude_command_stopped`
+- `jskit.errors.conversation_claude_context_usage_unavailable`
+- `jskit.errors.conversation_claude_goal_clear_unconfirmed`
+- `jskit.errors.conversation_claude_saved_state_unreadable`
+- `jskit.errors.conversation_tool_not_executed`
+- `jskit.errors.conversation_tool_outcome_unknown`
+- `jskit.errors.conversation_unsupported`
+- `jskit.errors.assistant_claude_goal_attachment_pending`
+- `jskit.errors.assistant_claude_admission_unknown`
+- `jskit.errors.assistant_claude_startup_exited`
+- `jskit.errors.claude_stop_unconfirmed`
+- `jskit.errors.claude_account_changed`
+- `jskit.errors.assistant_opencode_recovery_order_unconfirmed`
+- `jskit.errors.assistant_opencode_interrupt_unconfirmed`
+- `jskit.errors.assistant_opencode_interrupt_timeout`
+- `jskit.errors.assistant_opencode_key_verification_unavailable`
+- `jskit.errors.assistant_opencode_stop_unverified`
+- `jskit.errors.assistant_opencode_connection_reload_failed`
+- `jskit.errors.assistant_opencode_response_too_large`
+- `jskit.errors.assistant_opencode_event_too_large`
+- `jskit.errors.assistant_opencode_directory_unavailable`
+- `jskit.errors.assistant_opencode_catalog_invalid`
+- `jskit.errors.assistant_opencode_catalog_stop_failed`
+- `jskit.errors.assistant_opencode_events_timeout`
+- `jskit.errors.assistant_opencode_observation_lost`
+- `jskit.errors.assistant_opencode_parent_unverified`
+- `jskit.errors.assistant_opencode_start_timeout`
+- `jskit.errors.assistant_opencode_version_mismatch`
+- `jskit.errors.assistant_opencode_zen_catalog_unavailable`
+- `jskit.errors.assistant_agent_control_binding_retained`
+- `jskit.errors.assistant_codex_provider_binding_retained`
+- `jskit.errors.assistant_codex_provider_switch_busy`
+- `jskit.errors.assistant_codex_history_request_too_large`
+- `jskit.errors.assistant_codex_history_request_unreadable`
+- `jskit.errors.assistant_codex_app_server_message_too_large`
+- `jskit.errors.codex_reconnect_required`
+- `jskit.errors.codex_provider_connection_changed`
+- `jskit.errors.codex_runtime_invalidated`
+- `jskit.errors.assistant_provider_fetch_missing`
+- `jskit.errors.assistant_tool_arguments_invalid`
+- `jskit.errors.assistant_tool_result_unserializable`
+- `jskit.errors.assistant_tool_result_too_large`
+- `jskit.errors.assistant_tool_contract_too_large`
+- `jskit.errors.assistant_tool_arguments_too_large`
+- `jskit.errors.assistant_action_cursor_invalid`
+- `jskit.errors.assistant_action_unknown`
+- `jskit.errors.assistant_action_contract_required`
+- `jskit.errors.assistant_tool_output_invalid`
+- `jskit.errors.assistant_tool_unknown`
+- `jskit.errors.assistant_claude_control_timeout`
+
+</details>
+
+### Codes (161)
+
+Error, field-error and message codes this package now sends, with their English. Undotted codes kept their existing values and render from `jskit.errors.<code>`.
+
+| Code | English |
+| --- | --- |
+| `assistant.settings.systemPromptTooLong` | Assistant system prompt must be at most {max} characters. |
+| `assistant.settings.systemPromptInvalid` | Assistant system prompt must be valid text. |
+| `assistant.turn.invalidResponse` | The assistant returned an invalid response. |
+| `assistant.turn.requestIncomplete` | The assistant could not complete this request. |
+| `assistant.conversation.contextChangedInstallingPrompt` | Conversation context changed while installing its system prompt. Retry before sending. |
+| `assistant.conversation.contextChangedReadingInstructions` | Conversation context changed while reading instructions. Retry before sending. |
+| `assistant.conversation.messageNotAcknowledged` | The engine did not acknowledge the message. |
+| `assistant.conversation.stopTemporaryBeforeChange` | Stop this temporary conversation before changing its AI. |
+| `assistant.conversation.toolArgumentsTooLarge` | The application tool arguments exceed their size limit. |
+| `assistant.conversation.toolCallLimit` | The assistant reached the application tool-call limit for this turn. |
+| `assistant.claude.accountChangedRefreshModels` | The signed-in Claude account changed. Refresh the model list. |
+| `assistant.claude.accountQueryCancelled` | Claude account query was cancelled for reconnection. |
+| `assistant.claude.accountQueryCleanupUnconfirmed` | Claude account query process cleanup could not be confirmed. |
+| `assistant.claude.answerInterrupted` | Claude interrupted this answer. |
+| `assistant.claude.chooseConnectedModel` | Choose a connected Claude Code model. |
+| `assistant.claude.closedOrWorking` | This Claude conversation is closed or already working. |
+| `assistant.claude.connectionClosed` | Claude connection is closed. |
+| `assistant.claude.connectionWasClosed` | Claude connection was closed. |
+| `assistant.claude.controlNeedsTerminal` | This control request requires the native Claude Code terminal. |
+| `assistant.claude.eventConnectionEnded` | Claude event connection ended unexpectedly. |
+| `assistant.claude.exitedUnexpectedly` | Claude exited unexpectedly. |
+| `assistant.claude.modelUnsupported` | This exact provider/model is not supported by the Claude integration. Choose a supported model without renaming it. |
+| `assistant.claude.noTurnToSteer` | Claude has no active turn to steer. |
+| `assistant.claude.otherHostConfiguration` | This Claude conversation belongs to another working directory or credential home. Restore its original host configuration. |
+| `assistant.claude.reasoningEffortUnsupported` | The selected Claude model does not support this reasoning effort. |
+| `assistant.claude.reconnecting` | Claude is reconnecting. |
+| `assistant.claude.sendNowUnsupported` | This Claude version does not support targeted Send now. |
+| `assistant.claude.signInRequired` | Sign in with claude auth login before using this conversation. |
+| `assistant.claude.stopBeforeReset` | Stop Claude before resetting its turn view. |
+| `assistant.claude.toolCallLimit` | Claude exceeded the application tool-call limit. |
+| `assistant.claude.turnStillWorking` | This Claude turn is still working. |
+| `assistant.claude.workEnded` | Claude work ended. |
+| `assistant.claude.outputTooLarge` | Claude output exceeded its size limit. |
+| `assistant.codex.accountChangedSendAgain` | Codex (OpenAI) changed account. Send your message again. |
+| `assistant.codex.accountUnavailable` | The selected Codex account is unavailable. Reconnect Codex and retry. |
+| `assistant.codex.assistantChangedRefresh` | The assistant changed. Refresh before resuming. |
+| `assistant.codex.authChangedReopen` | Codex authentication changed. Reopen the conversation with its original account. |
+| `assistant.codex.authModeUnsupported` | The selected Codex authentication mode is unsupported. Reconnect Codex and retry. |
+| `assistant.codex.authRecordInvalid` | The selected Codex authentication record is invalid. Reconnect Codex and retry. |
+| `assistant.codex.authRecordTooLarge` | The selected Codex authentication record is too large. Reconnect Codex and retry. |
+| `assistant.codex.authRecordUnreadable` | The selected Codex authentication record could not be read. Reconnect Codex and retry. |
+| `assistant.codex.authorizedSettingsRequired` | Codex requires current authorized settings before resuming this conversation. |
+| `assistant.codex.connectionClosedBeforeSettings` | The assistant connection closed before confirming its settings. |
+| `assistant.codex.connectionUnverified` | The assistant connection could not be verified. Your conversation and files are preserved. Retry the connection, or renew the session to continue in a fresh conversation. |
+| `assistant.codex.credentialsUnreadable` | Codex credential data could not be read. Restore its account configuration. |
+| `assistant.codex.ephemeralInstructionsFixed` | Start a new ephemeral conversation to change its instructions. |
+| `assistant.codex.goalPauseUnconfirmed` | Codex did not confirm that the same goal was paused. |
+| `assistant.codex.goalsAreControls` | Codex goals are controls. Inspect any unresolved goal-message record before continuing. |
+| `assistant.codex.helperAccessTokenStale` | The selected Codex account has not produced a newer access token yet. Reconnect Codex and retry. |
+| `assistant.codex.helperAccountActivationFailed` | Codex could not activate the selected account for isolated helper work. Reconnect Codex and retry. |
+| `assistant.codex.helperAccountChanged` | The selected Codex account changed during helper work. Retry the task with the current account. |
+| `assistant.codex.helperAccountChangedBeforeRun` | The selected Codex account changed before low-cost assistant work could run. Retry the task with the current account. |
+| `assistant.codex.helperAccountChangedStarting` | The selected Codex account changed while helper execution was starting. Retry the task. |
+| `assistant.codex.helperAccountIdentityInvalid` | The requested low-cost assistant account identity is invalid. Refresh the task and retry. |
+| `assistant.codex.helperAuthRefreshRejected` | Codex helper authentication refresh was rejected. Reconnect Codex and retry. |
+| `assistant.codex.helperAuthUnavailable` | Codex helper authentication is unavailable. Reconnect Codex and retry. |
+| `assistant.codex.helperExecutionFailed` | Codex isolated helper execution failed. Retry the task. |
+| `assistant.codex.helperThreadReconnectAccount` | Reconnect the original Codex account to resume or delete this helper thread. |
+| `assistant.codex.historyFormatStartFresh` | This conversation uses an unsupported Codex history format. Start a fresh conversation. |
+| `assistant.codex.historyFormatUnsupported` | This conversation uses an unsupported Codex history format. Renew the session to keep your files and saved chat and start a fresh conversation. You can write the handover yourself. |
+| `assistant.codex.loadedThreadsInvalid` | Codex returned an invalid loaded-thread inventory. Restore its connection before retrying. |
+| `assistant.codex.modelDiscoveryUnavailable` | Codex live model discovery is unavailable. |
+| `assistant.codex.modelUnsupported` | This exact provider/model is not supported by the Codex integration. Choose a supported model without renaming it. |
+| `assistant.codex.nativeGoalChanged` | The native goal changed. Read it again before changing it. |
+| `assistant.codex.observationLostStopUnverified` | Codex observation was lost and a stop is not yet verified. Retry after the service has stopped. |
+| `assistant.codex.oldThreadUnreadable` | The old assistant thread cannot be read. Write or edit the handover manually instead. |
+| `assistant.codex.otherAccount` | This conversation belongs to another Codex account. Restore that account or start a new conversation. |
+| `assistant.codex.otherHostConfiguration` | This Codex conversation belongs to another working directory or credential home. Restore its original host configuration. |
+| `assistant.codex.otherProviderAccount` | This conversation belongs to another Codex provider account. Restore that connection or start a new conversation. |
+| `assistant.codex.outputTooLarge` | Codex output exceeded the configured limit. |
+| `assistant.codex.paginatedConversationHistoryMissing` | Codex did not create the required paginated conversation history. Update Codex before starting a conversation. |
+| `assistant.codex.paginatedHistoryMissing` | Codex did not create the required paginated history. Update Codex before starting this conversation. |
+| `assistant.codex.reasoningEffortUnsupported` | The selected Codex model does not support this reasoning effort. |
+| `assistant.codex.reconnectOpenAi` | Reconnect the OpenAI account before using this model. |
+| `assistant.codex.responseTimeout` | Timed out waiting for Codex app-server response. |
+| `assistant.codex.signInRequired` | Sign in with codex login before using this conversation. |
+| `assistant.codex.stillReconnecting` | Codex is still reconnecting: its shared runtime is busy starting or stopping. Please try again shortly. |
+| `assistant.codex.stoppedUseResume` | Codex is stopped. Use Resume or Send to continue. |
+| `assistant.codex.temporaryConnectionLost` | Connection to Codex was lost while the temporary AI was working. |
+| `assistant.codex.temporaryConversationClosed` | Temporary AI conversation was closed. |
+| `assistant.codex.temporaryTurnStopped` | Temporary AI turn was stopped. |
+| `assistant.codex.threadInventoryUntrusted` | Codex returned an untrustworthy thread/provider inventory. Restore its connection before changing credentials. |
+| `assistant.codex.toolEntryPointsChanged` | This Codex conversation was created with different application tool entry points. Start a new conversation to enable or remove application tools. |
+| `assistant.codex.turnStopUnconfirmed` | Codex did not confirm that its turn stopped. |
+| `assistant.opencode.cleanupUnconfirmed` | OpenCode process cleanup could not be confirmed. Restore its execution host before continuing. |
+| `assistant.opencode.closedOrWorking` | This OpenCode conversation is closed or already working. |
+| `assistant.opencode.messageNotAcknowledged` | OpenCode did not acknowledge the message. |
+| `assistant.opencode.modelDefinitionUnavailable` | OpenCode could not load the configured model definition. Check the selected integration before sending. |
+| `assistant.opencode.nativeStillWorking` | The native OpenCode conversation is still working. Stop or inspect it before sending another message. |
+| `assistant.opencode.noTurnToSteer` | OpenCode has no active turn to steer. |
+| `assistant.opencode.otherAccount` | This conversation belongs to another OpenCode account. Restore that connection or start a new conversation. |
+| `assistant.opencode.otherHistoryStore` | This OpenCode conversation belongs to another native history store. Restore its original host configuration. |
+| `assistant.opencode.otherHistoryStoreOrRuntime` | This OpenCode conversation belongs to another native history store or runtime. Restore its original host configuration. |
+| `assistant.opencode.otherWorkingDirectory` | This OpenCode conversation belongs to another working directory or native state directory. Restore its original host configuration. |
+| `assistant.opencode.reasoningEffortUnsupported` | The selected OpenCode model does not support this reasoning effort. |
+| `assistant.opencode.reopenTerminalToAttach` | Reopen the OpenCode terminal before attaching files. |
+| `assistant.opencode.savedConversationUnavailable` | The saved OpenCode conversation is unavailable. Restore its native history before continuing. |
+| `assistant.opencode.turnFailed` | OpenCode turn failed. |
+| `conversation_claude_turn_timeout` | Claude did not finish within the time limit. |
+| `conversation_claude_renewal_history_mismatch` | The Claude renewal conversation does not match the expected native history. |
+| `conversation_claude_renewal_unrelated_history` | The successor Claude conversation already contains unrelated messages. |
+| `conversation_claude_renewal_turn_active` | Stop the current turn before renewing this conversation. |
+| `conversation_claude_unavailable` | This Claude conversation is unavailable. |
+| `conversation_claude_retained_goal_invalid` | The retained Claude goal is invalid. Restore its saved conversation state. |
+| `conversation_claude_retained_goal_conflict` | The saved Claude goal cannot be both paused and blocked. |
+| `conversation_claude_session_closing` | This session is closing. |
+| `conversation_claude_preparation_stopped` | Claude preparation was stopped while this session was closing or changing. |
+| `conversation_claude_terminal_turn_active` | Stop the current turn before opening the Claude Code terminal. |
+| `conversation_claude_still_working` | This conversation is still working. |
+| `conversation_claude_history_retire_busy` | Stop the saved Claude process and its terminal before retiring native history. |
+| `conversation_claude_message_required` | Enter a message for Claude. |
+| `conversation_claude_command_stopped` | The goal command was stopped before delivery. |
+| `conversation_claude_context_usage_unavailable` | Claude's current context usage is unavailable. |
+| `conversation_claude_goal_clear_unconfirmed` | Claude has not saved the retained goal's native clear receipt. |
+| `conversation_claude_saved_state_unreadable` | The saved Claude conversation {conversationId} is unreadable. Restore its saved conversation state. |
+| `conversation_tool_not_executed` | Execution stopped before the action began. |
+| `conversation_tool_outcome_unknown` | The application operation did not return a verified result. Inspect its target before requesting another execution. |
+| `conversation_unsupported` | This original scoped conversation has no canonical message or goal receipt. |
+| `assistant_claude_goal_attachment_pending` | Claude accepted the goal command, but its goal attachment is not available yet. Check its original receipt before trying again. |
+| `assistant_claude_admission_unknown` | Claude has not acknowledged this prompt. Its delivery is uncertain. |
+| `assistant_claude_startup_exited` | Claude exited before initialization completed. |
+| `claude_stop_unconfirmed` | Claude process cleanup could not be confirmed. Restore its execution host before continuing. |
+| `claude_account_changed` | This conversation belongs to another Claude account. Reconnect that account or start a new session. |
+| `assistant_opencode_recovery_order_unconfirmed` | OpenCode could not confirm that the new input follows its final-answer recovery. The admitted message was not resent. |
+| `assistant_opencode_interrupt_unconfirmed` | OpenCode did not confirm Stop. Try Stop again. |
+| `assistant_opencode_interrupt_timeout` | OpenCode did not confirm Stop within 5 seconds. Try Stop again. |
+| `assistant_opencode_key_verification_unavailable` | OpenCode API-key verification could not run. |
+| `assistant_opencode_stop_unverified` | OpenCode process exit could not be verified. |
+| `assistant_opencode_connection_reload_failed` | OpenCode could not load the changed AI connection for this work. Send your message again. |
+| `assistant_opencode_response_too_large` | OpenCode returned more data than the bridge accepts. |
+| `assistant_opencode_event_too_large` | An OpenCode event exceeded the bridge limit. |
+| `assistant_opencode_directory_unavailable` | OpenCode did not confirm its conversation directory is ready. |
+| `assistant_opencode_catalog_invalid` | OpenCode returned an invalid provider catalogue. |
+| `assistant_opencode_catalog_stop_failed` | The temporary OpenCode catalogue process did not stop cleanly. |
+| `assistant_opencode_events_timeout` | OpenCode's event connection did not become ready. |
+| `assistant_opencode_observation_lost` | OpenCode's event connection ended before observation was closed. |
+| `assistant_opencode_parent_unverified` | The subagent's parent session could not be verified. |
+| `assistant_opencode_start_timeout` | OpenCode did not become ready before the startup deadline. |
+| `assistant_opencode_version_mismatch` | OpenCode {installed} is installed; this host requires {required}. |
+| `assistant_opencode_zen_catalog_unavailable` | OpenCode Zen's current model list could not be read. Try again. |
+| `assistant_agent_control_binding_retained` | Another native subscriber retained the previous assistant settings. Close the native assistant terminal and retry Resume. |
+| `assistant_codex_provider_binding_retained` | Another native subscriber retained the previous model provider. Close the native assistant terminal and retry. |
+| `assistant_codex_provider_switch_busy` | Stop the current turn before immediately changing model providers. |
+| `assistant_codex_history_request_too_large` | Codex history exceeds the adapter request limit. |
+| `assistant_codex_history_request_unreadable` | Codex sent an unreadable or oversized history request. |
+| `assistant_codex_app_server_message_too_large` | Codex app-server message exceeded the configured transport limit. |
+| `codex_reconnect_required` | Sign in with codex login before continuing. |
+| `codex_provider_connection_changed` | This Codex provider connection changed. Work is stopped; use Send or Resume after reconnecting. |
+| `codex_runtime_invalidated` | Codex's native runtime was invalidated. |
+| `assistant_provider_fetch_missing` | Global fetch is not available for anthropic provider. |
+| `assistant_tool_arguments_invalid` | Tool arguments must be a JSON object. |
+| `assistant_tool_result_unserializable` | Tool result could not be serialized. |
+| `assistant_tool_result_too_large` | Tool result exceeds the assistant size limit. Narrow the request and try again. |
+| `assistant_tool_contract_too_large` | Action contract exceeds the assistant size limit. Narrow the request and try again. |
+| `assistant_tool_arguments_too_large` | Tool arguments exceed the assistant size limit. Narrow the request and try again. |
+| `assistant_action_cursor_invalid` | Action search cursor is invalid for this query. |
+| `assistant_action_unknown` | Action is not available. |
+| `assistant_action_contract_required` | Load this action's exact contract before executing it. |
+| `assistant_tool_output_invalid` | Assistant tool output validation failed. |
+| `assistant_tool_unknown` | Unknown tool. |
+| `assistant_claude_control_timeout` | Claude {request} timed out. |
+
 ## 0.2.0 - 2026-10-29
 
 - Translation ready: every user-visible text is a message key with its English in `locales/en.json`, so an app translates it by supplying translation files only. With no translations, texts and behaviour are unchanged. See the guide "Translating a JSKIT app".

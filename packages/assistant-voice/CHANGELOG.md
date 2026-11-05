@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+- The browser's missing microphone audio support names its sentence (`assistant.voice.errors.microphoneUnsupported`), so a translated app shows it in its language. The English message is unchanged.
+
+### New message keys (1)
+
+<details><summary>Key list</summary>
+
+- `jskit.assistant.voice.errors.microphoneUnsupported`
+
+</details>
+
+### Codes (1)
+
+Error, field-error and message codes this package now sends, with their English. Undotted codes kept their existing values and render from `jskit.errors.<code>`.
+
+| Code | English |
+| --- | --- |
+| `assistant.voice.errors.microphoneUnsupported` | This browser does not support microphone audio processing. |
+
 ## 0.2.0 - 2026-10-29
 
 - Translation ready: every user-visible text is a message key with its English in `locales/en.json`, so an app translates it by supplying translation files only. With no translations, texts and behaviour are unchanged. See the guide "Translating a JSKIT app".
