@@ -97,7 +97,7 @@
     "paddingInlineStart": "16px"
   },
   "fab": {
-    "height": 40,
+    "height": 56,
     "backgroundColor": "rgb(77, 61, 117)",
     "color": "rgb(233, 221, 255)",
     "borderTopLeftRadius": "16px",
