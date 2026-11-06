@@ -9,6 +9,7 @@ import "@jskit-ai/material-web/client/material.css";
 import { materialThemes, createMaterialVuetifyOptions } from "@jskit-ai/material-web/client";
 import { shellScrollBehavior } from "@jskit-ai/kernel/client";
 import App from "./App.vue";
+import ButtonsPage from "./ButtonsPage.vue";
 import { adminTheme, theme } from "./theme/index.js";
 import RecordListPage from "./RecordListPage.vue";
 import RecordPage from "./RecordPage.vue";
@@ -39,48 +40,94 @@ const COMPONENTS = new Map([
   ["fixture.tab-link", ShellTabLinkItem]
 ]);
 
-function createSurfacePlacement(surface, order, label, suffix) {
-  return {
-    id: `fixture.${surface}.${label.toLowerCase()}`,
+// Main navigation as literal data, one placement per destination, as jskit check reads it.
+const placements = [
+  {
+    id: "fixture.home.home",
     target: "shell.primary-nav",
     kind: "link",
-    surfaces: [surface],
-    order,
-    props: {
-      label,
-      surface,
-      scopedSuffix: suffix,
-      unscopedSuffix: suffix,
-      exact: suffix === "/"
-    }
-  };
-}
-
-function createSurfacePlacements(surface) {
-  return [
-    createSurfacePlacement(surface, 10, "Home", "/"),
-    surface === "home"
-      ? createSurfacePlacement(surface, 20, "Settings", "/settings")
-      : createSurfacePlacement(surface, 20, "Assistant", "/assistant"),
-    createSurfacePlacement(surface, 30, "Contacts", "/contacts"),
-    surface === "home"
-      ? createSurfacePlacement(surface, 40, "Suppliers", "/suppliers")
-      : createSurfacePlacement(surface, 40, "Bookings", "/bookings"),
-    surface === "home"
-      ? createSurfacePlacement(surface, 50, "Bookings", "/bookings")
-      : createSurfacePlacement(surface, 50, "Rostering", "/rostering")
-  ];
-}
-
-const placements = [
-  ...createSurfacePlacements("home"),
-  ...createSurfacePlacements("admin"),
+    surfaces: ["home"],
+    order: 10,
+    props: { label: "Home", surface: "home", scopedSuffix: "/", unscopedSuffix: "/", exact: true }
+  },
+  {
+    id: "fixture.home.settings",
+    target: "shell.primary-nav",
+    kind: "link",
+    surfaces: ["home"],
+    order: 20,
+    props: { label: "Settings", surface: "home", scopedSuffix: "/settings", unscopedSuffix: "/settings" }
+  },
+  {
+    id: "fixture.home.contacts",
+    target: "shell.primary-nav",
+    kind: "link",
+    surfaces: ["home"],
+    order: 30,
+    props: { label: "Contacts", surface: "home", scopedSuffix: "/contacts", unscopedSuffix: "/contacts" }
+  },
+  {
+    id: "fixture.home.suppliers",
+    target: "shell.primary-nav",
+    kind: "link",
+    surfaces: ["home"],
+    order: 40,
+    props: { label: "Suppliers", surface: "home", scopedSuffix: "/suppliers", unscopedSuffix: "/suppliers" }
+  },
+  {
+    id: "fixture.home.bookings",
+    target: "shell.primary-nav",
+    kind: "link",
+    surfaces: ["home"],
+    order: 50,
+    props: { label: "Bookings", surface: "home", scopedSuffix: "/bookings", unscopedSuffix: "/bookings" }
+  },
+  {
+    id: "fixture.admin.home",
+    target: "shell.primary-nav",
+    kind: "link",
+    surfaces: ["admin"],
+    order: 10,
+    props: { label: "Home", surface: "admin", scopedSuffix: "/", unscopedSuffix: "/", exact: true }
+  },
+  {
+    id: "fixture.admin.assistant",
+    target: "shell.primary-nav",
+    kind: "link",
+    surfaces: ["admin"],
+    order: 20,
+    props: { label: "Assistant", surface: "admin", scopedSuffix: "/assistant", unscopedSuffix: "/assistant" }
+  },
+  {
+    id: "fixture.admin.contacts",
+    target: "shell.primary-nav",
+    kind: "link",
+    surfaces: ["admin"],
+    order: 30,
+    props: { label: "Contacts", surface: "admin", scopedSuffix: "/contacts", unscopedSuffix: "/contacts" }
+  },
+  {
+    id: "fixture.admin.bookings",
+    target: "shell.primary-nav",
+    kind: "link",
+    surfaces: ["admin"],
+    order: 40,
+    props: { label: "Bookings", surface: "admin", scopedSuffix: "/bookings", unscopedSuffix: "/bookings" }
+  },
+  {
+    id: "fixture.admin.rostering",
+    target: "shell.primary-nav",
+    kind: "link",
+    surfaces: ["admin"],
+    order: 50,
+    props: { label: "Rostering", surface: "admin", scopedSuffix: "/rostering", unscopedSuffix: "/rostering" }
+  },
   {
     id: "fixture.help",
     target: "shell.secondary-nav",
     kind: "link",
     componentToken: "fixture.menu-link",
-    surfaces: ["*"],
+    surfaces: ["home", "admin"],
     order: 100,
     props: {
       label: "Help and support",
@@ -120,10 +167,12 @@ placementRuntime.setContext({
   surfaceConfig: {
     tenancyMode: "path",
     defaultSurfaceId: "home",
-    enabledSurfaceIds: ["home", "admin"],
+    enabledSurfaceIds: ["home", "admin", "account"],
     surfacesById: {
       home: { id: "home", routeBase: "/home", enabled: true },
-      admin: { id: "admin", routeBase: "/w/:workspaceSlug/admin", enabled: true }
+      admin: { id: "admin", routeBase: "/w/:workspaceSlug/admin", enabled: true },
+      // A surface whose shell has no navigation, as an account page's.
+      account: { id: "account", routeBase: "/account", enabled: true }
     }
   }
 });
@@ -155,6 +204,11 @@ const routes = [
     beforeEnter: refuseBlockedRecord,
     meta: { kind: "contacts", jskit: { parent: "/contacts" } }
   },
+  {
+    path: "/home/contacts/:id/edit",
+    component: ScreenPage,
+    meta: { title: "Edit contact", jskit: { title: "Edit contact", parent: "/contacts/:id" } }
+  },
   { path: "/home/suppliers", component: RecordListPage, meta: { kind: "suppliers", jskit: { title: "Suppliers" } } },
   {
     path: "/home/suppliers/:id",
@@ -162,12 +216,18 @@ const routes = [
     beforeEnter: refuseBlockedRecord,
     meta: { kind: "suppliers", jskit: { parent: "/suppliers" } }
   },
+  { path: "/home/buttons", component: ButtonsPage, meta: { jskit: { title: "Buttons" } } },
   // A layout that draws its own top app bar from the shell's pieces.
   { path: "/home/studio", component: StudioPage, meta: { ownBar: true, jskit: { title: "Studio" } } },
   { path: "/home/studio/:id", component: StudioPage, meta: { ownBar: true, jskit: { parent: "/studio" } } },
   { path: "/home/:section?", component: ScreenPage, meta: { title: "Home surface" } },
   { path: "/w/:workspaceSlug/admin/:section?", component: ScreenPage, meta: { title: "Admin surface" } },
   { path: "/help", component: ScreenPage, meta: { title: "Help and support" } },
+  {
+    path: "/account",
+    component: ScreenPage,
+    meta: { title: "Account", jskit: { title: "Account", parent: { surface: "home", path: "/" } } }
+  },
   { path: "/sign-in", component: ScreenPage, meta: { title: "Sign in", bare: true } }
 ];
 const router = createRouter({ history: createWebHistory(), routes, scrollBehavior: shellScrollBehavior });

@@ -473,6 +473,14 @@ test("shell-web's bar pieces give a layout that draws its own top app bar the sh
       await expect(ownBar.getByRole("heading", { level: 1, name: "Studio" }), at).toBeVisible();
       await expect(page.getByRole("heading", { level: 1 }), at).toHaveCount(1);
       await expect(shellBackButton(page), at).toHaveCount(0);
+      // A title that is also a switcher: the menu activator is inside the h1, which keeps its id and focus target.
+      const title = ownBar.getByRole("heading", { level: 1 });
+      await expect(title, at).toHaveAttribute("id", "jskit-shell-page-title");
+      await expect(title, at).toHaveAttribute("tabindex", "-1");
+      await title.getByRole("button", { name: "Studio" }).click();
+      await expect(page.getByText("Other studio", { exact: true }), at).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(page.getByText("Other studio", { exact: true }), at).toBeHidden();
 
       // An inner page: Up, its title and its actions, in the app's own bar; Up returns along the trail.
       await page.getByRole("link", { name: "Ada Lovelace", exact: true }).click();
@@ -490,6 +498,127 @@ test("shell-web's bar pieces give a layout that draws its own top app bar the sh
       await expect(page).toHaveURL(/\/home\/studio$/u);
       await page.close();
     }
+  } finally {
+    await browser?.close();
+    await stopProcess(vite);
+  }
+});
+
+test("a surface with no navigation draws no navigation bar, rail, drawer or menu control", {
+  skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
+  timeout: 120_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  let browser;
+  try {
+    browser = await chromium.launch(createChromiumLaunchOptions());
+    const navigation = { compact: "jskit-shell-bottom-nav", medium: "jskit-shell-rail", expanded: "jskit-shell-drawer" };
+    for (const viewport of DEFAULT_VIEWPORTS) {
+      const page = await browser.newPage({
+        baseURL: vite.baseURL,
+        viewport: { width: viewport.width, height: viewport.height }
+      });
+      const at = `${viewport.width}px`;
+      await page.goto("/account");
+      await expect(shellPageTitle(page), at).toHaveText("Account");
+      for (const id of ["jskit-shell-bottom-nav", "jskit-shell-rail", "jskit-shell-drawer", "jskit-shell-nav-toggle"]) {
+        await expect(page.getByTestId(id), `${at} ${id}`).toHaveCount(0);
+      }
+      assert.equal(Math.round((await page.locator("main").boundingBox()).x), 0, `${at}: the page starts at the window's edge`);
+      // Its title and Up stay in the app bar; Up returns to the declared parent on another surface, which has navigation.
+      await pressShellBack(page);
+      await expect(page).toHaveURL(/\/home$/u);
+      await expect(page.getByTestId(navigation[viewport.name]), at).toBeVisible();
+      await page.close();
+    }
+  } finally {
+    await browser?.close();
+    await stopProcess(vite);
+  }
+});
+
+test("every button keeps its size, gets a 48dp touch target and ends a long label in an ellipsis; FABs and cards keep theirs", {
+  skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
+  timeout: 90_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  let browser;
+  try {
+    browser = await chromium.launch(createChromiumLaunchOptions());
+    const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: 1280, height: 900 } });
+    await page.goto("/home/buttons");
+    // Vuetify's heights for x-small, small and large, JSKIT's 40dp default; an icon button is 12dp more, JSKIT's 40dp.
+    const heights = {
+      "x-small": [20, 32],
+      small: [28, 40],
+      default: [40, 40],
+      large: [44, 56]
+    };
+    for (const [size, [textHeight, iconHeight]] of Object.entries(heights)) {
+      for (const [id, height] of [[`fixture-button-${size}`, textHeight], [`fixture-icon-button-${size}`, iconHeight]]) {
+        const button = page.getByTestId(id);
+        const box = await button.boundingBox();
+        assert.equal(Math.round(box.height), height, `${id} keeps its visual height`);
+        const target = await button.evaluate((element) => {
+          const style = window.getComputedStyle(element, "::before");
+          return { width: Number.parseFloat(style.width), height: Number.parseFloat(style.height) };
+        });
+        assert.equal(Math.round(target.height), Math.max(48, height), `${id} touch target height`);
+        assert.ok(target.width >= 48, `${id} touch target width ${target.width}`);
+        if (height < 48) {
+          // A tap just above the visual, inside the touch target, reaches the button.
+          const point = [box.x + box.width / 2, box.y - (48 - height) / 2 + 1];
+          const hit = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest(".v-btn")?.dataset.testid, point);
+          assert.equal(hit, id, `${id} answers inside its touch target`);
+        }
+      }
+    }
+    const long = page.getByTestId("fixture-long-label");
+    const label = await long.evaluate((element) => {
+      const content = element.querySelector(".v-btn__content");
+      const style = window.getComputedStyle(content);
+      return {
+        buttonWidth: element.getBoundingClientRect().width,
+        buttonRight: element.getBoundingClientRect().right,
+        contentRight: content.getBoundingClientRect().right,
+        clipped: content.scrollWidth > content.clientWidth,
+        textOverflow: style.textOverflow,
+        height: element.getBoundingClientRect().height
+      };
+    });
+    assert.ok(label.buttonWidth <= 160.5, `the long button stays in its 160px (${label.buttonWidth})`);
+    assert.ok(label.contentRight <= label.buttonRight + 0.5, "the label stays inside its button");
+    assert.equal(label.clipped, true);
+    assert.equal(label.textOverflow, "ellipsis");
+    assert.equal(Math.round(label.height), 40, "the label stays on one line");
+    // A touch target reaching past a scroll container's corner adds no scrollbar.
+    const corner = await page.getByTestId("fixture-button-corner").evaluate((element) => ({
+      extraWidth: element.scrollWidth - element.clientWidth,
+      extraHeight: element.scrollHeight - element.clientHeight
+    }));
+    assert.deepEqual(corner, { extraWidth: 0, extraHeight: 0 });
+    // FABs keep Material 3's sizes, not the common button's 40dp.
+    for (const [id, width, height] of [
+      ["fixture-fab", 56, 56],
+      ["fixture-fab-small", 40, 40],
+      ["fixture-fab-large", 96, 96],
+      ["fixture-fab-extended", null, 56]
+    ]) {
+      const box = await page.getByTestId(id).locator(".v-btn").boundingBox();
+      assert.equal(Math.round(box.height), height, `${id} height`);
+      if (width) assert.equal(Math.round(box.width), width, `${id} width`);
+    }
+    // An elevated card has its level-1 shadow; flat and tonal cards have none.
+    const shadows = {};
+    for (const variant of ["elevated", "flat", "tonal"]) {
+      shadows[variant] = await page.getByTestId(`fixture-card-${variant}`).evaluate((element) => window.getComputedStyle(element).boxShadow);
+    }
+    // A shadow of zero offsets, blur and spread (Vuetify's level 0) draws nothing.
+    const drawsShadow = (shadow) => shadow !== "none" &&
+      shadow.replace(/rgba?\([^)]*\)/gu, "").split(/[\s,]+/u).some((length) => Number.parseFloat(length) > 0);
+    assert.equal(drawsShadow(shadows.elevated), true, shadows.elevated);
+    assert.deepEqual([drawsShadow(shadows.flat), drawsShadow(shadows.tonal)], [false, false], JSON.stringify(shadows));
+    await page.close();
   } finally {
     await browser?.close();
     await stopProcess(vite);
@@ -593,6 +722,11 @@ test("shell-web Up follows the tab's trail, falls back to the parent and returns
       await pressShellBack(pasted);
       await expect(pasted).toHaveURL(/\/home\/suppliers$/u);
       await expect(shellPageTitle(pasted)).toHaveText("Suppliers");
+      // A pasted edit link goes Up to its record: the parent "/contacts/:id" takes the id from the route.
+      await pasted.goto("/home/contacts/ada/edit");
+      await expect(shellPageTitle(pasted)).toHaveText("Edit contact");
+      await pressShellBack(pasted);
+      await expect(pasted).toHaveURL(/\/home\/contacts\/ada$/u);
       await pasted.close();
 
       // List-detail: beside the visible list, General has no arrow; alone, it has one back to the list.

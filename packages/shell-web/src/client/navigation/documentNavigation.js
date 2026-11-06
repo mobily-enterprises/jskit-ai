@@ -17,10 +17,12 @@ function reloadAppPage(target) {
 
 /**
  * Leaves the app for another site in the same tab, such as a payment provider's checkout. External pages never enter
- * the trail.
+ * the trail. The site is opened with a push, so Back returns to the page that left; a hand-off page that only forwards
+ * (to an OAuth provider's consent screen) passes `{ replace: true }`, so Back from the site doesn't rerun the hand-off.
  * @param {string} url An absolute http(s) URL on another origin.
+ * @param {{ replace?: boolean }} [options] replace: the site takes the current history entry's place.
  */
-function leaveApp(url) {
+function leaveApp(url, { replace = false } = {}) {
   const windowRef = pageWindow();
   const target = String(url || "").trim();
   let parsed = null;
@@ -32,7 +34,8 @@ function leaveApp(url) {
   if (!parsed || !/^https?:$/u.test(parsed.protocol) || (windowRef && parsed.origin === windowRef.location.origin)) {
     throw new TypeError(`leaveApp() takes another site's http(s) URL, not "${target}"; navigate in-app pages with the router.`);
   }
-  windowRef?.location.assign(parsed.href);
+  if (replace) windowRef?.location.replace(parsed.href);
+  else windowRef?.location.assign(parsed.href);
 }
 
 export { leaveApp, reloadAppPage };

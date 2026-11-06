@@ -13,7 +13,19 @@ useShellAppBar();
   <v-app-bar color="surface" flat :height="64" data-testid="fixture-own-bar">
     <ShellUpButton />
     <div class="flex-grow-1 px-3 text-truncate">
-      <ShellPageTitle title="Studio" />
+      <ShellPageTitle title="Studio">
+        <template #default="{ title }">
+          <!-- A title that is also a switcher: the menu activator sits inside the one h1. -->
+          <v-menu>
+            <template #activator="{ props: menu }">
+              <v-btn variant="text" append-icon="$dropdown" class="text-title-large" v-bind="menu">{{ title }}</v-btn>
+            </template>
+            <v-list>
+              <v-list-item title="Other studio" />
+            </v-list>
+          </v-menu>
+        </template>
+      </ShellPageTitle>
     </div>
     <ShellPageActionsTarget />
     <v-btn variant="text" data-testid="fixture-workspace-control">Workspace</v-btn>

@@ -1,18 +1,5 @@
 <script setup>
-import { computed } from "vue";
-import { useRoute } from "vue-router";
-import { useDisplay } from "vuetify";
-import {
-  useWebPlacementContext,
-  useWebPlacementRevision,
-  useWebPlacementRuntime
-} from "../placement/inject.js";
-import { resolveRuntimePathname } from "../placement/pathname.js";
-import {
-  readPlacementSurfaceConfig,
-  resolveSurfaceIdFromPlacementPathname
-} from "../placement/surfaceContext.js";
-import { resolveShellLayoutClass } from "../support/shellLayoutClass.js";
+import { useShellOutletPlacements } from "../composables/useShellOutletPlacements.js";
 import { useJskitText } from "../i18n.js";
 
 const props = defineProps({
@@ -30,8 +17,6 @@ const props = defineProps({
   }
 });
 
-const route = useRoute();
-const display = useDisplay();
 const { text } = useJskitText();
 const TRANSLATED_PLACEMENT_PROPS = Object.freeze(["label", "title"]);
 
@@ -51,40 +36,7 @@ function placementProps(entry) {
   return translated;
 }
 
-const placementRuntime = useWebPlacementRuntime();
-const { context: placementContext } = useWebPlacementContext();
-const revision = useWebPlacementRevision(placementRuntime);
-
-const resolvedSurface = computed(() => {
-  const contextValue = placementContext.value;
-  const pathname = resolveRuntimePathname(route.path);
-  const surfaceFromPathname = resolveSurfaceIdFromPlacementPathname(contextValue, pathname);
-  if (surfaceFromPathname) {
-    return surfaceFromPathname;
-  }
-
-  const surfaceConfig = readPlacementSurfaceConfig(contextValue);
-  if (surfaceConfig.defaultSurfaceId) {
-    return surfaceConfig.defaultSurfaceId;
-  }
-  return "*";
-});
-
-const resolvedTargetId = computed(() => {
-  return String(props.target || "").trim();
-});
-
-const resolvedLayoutClass = computed(() => resolveShellLayoutClass(display.width.value));
-
-const placements = computed(() => {
-  void revision.value;
-  return placementRuntime.getPlacements({
-    surface: resolvedSurface.value,
-    target: resolvedTargetId.value,
-    layoutClass: resolvedLayoutClass.value,
-    context: props.context
-  });
-});
+const placements = useShellOutletPlacements(() => props.target, () => props.context);
 </script>
 
 <template>

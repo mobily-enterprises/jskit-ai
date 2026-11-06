@@ -10,15 +10,18 @@ const route = useRoute();
 const theme = useTheme();
 const bare = computed(() => route.meta.bare === true);
 const ownBar = computed(() => route.meta.ownBar === true);
-const surface = computed(() => route.path.startsWith("/w/") ? "admin" : "home");
-const surfaceLabel = computed(() => surface.value === "admin" ? "Admin" : "Home");
+const surface = computed(() => {
+  if (route.path.startsWith("/w/")) return "admin";
+  return route.path.startsWith("/account") ? "account" : "home";
+});
+const surfaceLabel = computed(() => ({ admin: "Admin", account: "Account" })[surface.value] || "Home");
 const themeMode = computed(() => route.query.theme === "dark" ? "dark" : "light");
 const railWidth = computed(() => Number(route.query.railWidth) || undefined);
 const navigationItemSpacing = computed(() => Number(route.query.navigationItemSpacing) || undefined);
 const drawerWidth = computed(() => (route.query.drawerWidth === "content" ? "content" : undefined));
 
 watchEffect(function applyFixtureTheme() {
-  const themeName = `${surface.value}-${themeMode.value}`;
+  const themeName = `${surface.value === "admin" ? "admin" : "home"}-${themeMode.value}`;
   theme.change(themeName);
   document.body.dataset.surface = surface.value;
   document.body.dataset.theme = themeMode.value;

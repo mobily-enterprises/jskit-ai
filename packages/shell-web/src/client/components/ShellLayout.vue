@@ -1,15 +1,16 @@
 <script setup>
-import { computed, inject, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, inject, onBeforeUnmount, onMounted, ref, useSlots } from "vue";
 import { useDisplay } from "vuetify";
 import { useShellAppBar } from "../composables/useShellAppBar.js";
 import { useShellDrawer } from "../composables/useShellDrawer.js";
+import { useShellOutletPlacements } from "../composables/useShellOutletPlacements.js";
 import { useShellLayoutState } from "../composables/useShellLayoutState.js";
 import { useShellPullToRefresh } from "../composables/useShellPullToRefresh.js";
 import {
   DEFAULT_SHELL_NAVIGATION_ITEM_SPACING,
   DEFAULT_SHELL_RAIL_WIDTH
 } from "../support/drawerWidth.js";
-import { normalizeDesktopDrawerClosedMode } from "../support/drawerPresentation.js";
+import { normalizeDesktopDrawerClosedMode, shellLayoutHasDrawer } from "../support/drawerPresentation.js";
 import { resolveShellLayoutClass } from "../support/shellLayoutClass.js";
 import { resolveWindowSizeClass } from "../support/windowSizeClass.js";
 import { NO_SHELL_WEB_REFRESH_RUNTIME, SHELL_WEB_REFRESH_RUNTIME_KEY } from "../runtime/refreshRuntime.js";
@@ -85,8 +86,27 @@ const layoutClass = computed(() => resolveShellLayoutClass(display.width.value))
 const isCompactLayout = computed(() => layoutClass.value === "compact");
 // Compact and medium windows open the drawer over the page; a medium window keeps a navigation rail beside it.
 const modalLayout = computed(() => layoutClass.value !== "expanded");
+// A surface draws only the navigation it has: no navigation bar without bar destinations, and no rail or drawer (nor
+// its menu control) without menu destinations, as on an account surface whose shell has no navigation. The surface
+// identity (a workspace switcher) keeps the drawer beside other navigation, as on a phone.
+const slots = useSlots();
+const primaryMenu = useShellOutletPlacements("shell-layout:primary-menu");
+const secondaryMenu = useShellOutletPlacements("shell-layout:secondary-menu");
+const identity = useShellOutletPlacements("shell-layout:top-left");
+const bottomNavigation = useShellOutletPlacements("shell-layout:primary-bottom-nav");
+const hasDrawer = computed(() =>
+  shellLayoutHasDrawer({
+    menuSlot: Boolean(slots.menu),
+    menuCount: primaryMenu.value.length + secondaryMenu.value.length,
+    identityCount: slots["top-left"] ? 1 : identity.value.length,
+    bottomNavigationCount: bottomNavigation.value.length
+  })
+);
+const showsBottomNavigation = computed(() => isCompactLayout.value && bottomNavigation.value.length > 0);
 const showsMediumRail = computed(() =>
-  layoutClass.value === "medium" && normalizeDesktopDrawerClosedMode(props.desktopDrawerClosedMode) === "rail"
+  hasDrawer.value &&
+  layoutClass.value === "medium" &&
+  normalizeDesktopDrawerClosedMode(props.desktopDrawerClosedMode) === "rail"
 );
 const {
   pullRefreshing,
@@ -105,10 +125,10 @@ const {
   resolvedRailWidth
 } = useShellDrawer({ props, modalLayout, viewportWidth, navigationToggle, layoutState });
 
-const standardDrawerVisible = computed(() => !modalLayout.value && drawerPresentation.value.visible);
+const standardDrawerVisible = computed(() => hasDrawer.value && !modalLayout.value && drawerPresentation.value.visible);
 // The menu control sits in the rail or drawer header when one shows, otherwise first in the app bar of a top-level
 // page; an inner page's leading slot is its Up arrow.
-const toggleInAppBar = computed(() => !showsMediumRail.value && !standardDrawerVisible.value);
+const toggleInAppBar = computed(() => hasDrawer.value && !showsMediumRail.value && !standardDrawerVisible.value);
 const fallbackTitle = computed(() => text(props.title) || resolvedSurfaceLabel.value);
 const navigationStyle = computed(() => ({
   "--shell-navigation-item-spacing": `${resolvedNavigationItemSpacing.value}px`,
@@ -224,6 +244,7 @@ onBeforeUnmount(() => {
 
   <!-- A modal drawer is the outermost layout item, so it opens from the window's edge over the rail and app bar. -->
   <v-navigation-drawer
+    v-if="hasDrawer"
     id="jskit-shell-drawer"
     :model-value="drawerPresentation.visible"
     class="shell-layout__drawer"
@@ -291,7 +312,7 @@ onBeforeUnmount(() => {
   </v-main>
 
   <v-bottom-navigation
-    v-if="isCompactLayout"
+    v-if="showsBottomNavigation"
     class="shell-layout__bottom-nav"
     data-testid="jskit-shell-bottom-nav"
     bg-color="surface-container"

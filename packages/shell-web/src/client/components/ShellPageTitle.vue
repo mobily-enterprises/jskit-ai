@@ -7,7 +7,8 @@ import { useShellNavigationRuntime } from "../navigation/useShellNavigation.js";
 
 // The page's one h1, in the top app bar: the title the page sets (useShellPageTitle), else its route's
 // meta.jskit.title, else `title`. The shell moves focus here after navigation. ShellLayout's bar shows it; a layout
-// that draws its own top app bar renders it once in that bar.
+// that draws its own top app bar renders it once in that bar. Its default slot, given `{ title }`, replaces the text
+// inside the h1, such as a menu activator for a title that is also a switcher; the h1, its id and its focus stay.
 const props = defineProps({
   // The title of pages that declare none and set none. A message key or plain text.
   title: {
@@ -28,7 +29,7 @@ const pageTitle = computed(() => {
 
 <template>
   <h1 :id="PAGE_TITLE_ID" class="shell-page-title" tabindex="-1" data-testid="jskit-shell-page-title">
-    {{ pageTitle }}
+    <slot :title="pageTitle">{{ pageTitle }}</slot>
   </h1>
 </template>
 
@@ -42,7 +43,9 @@ const pageTitle = computed(() => {
   line-height: 1.75rem;
   margin: 0;
   outline: none;
-  overflow: hidden;
+  /* Clipped sideways only, so a menu activator in the slot keeps its 48dp touch target above and below. */
+  overflow-x: clip;
+  overflow-y: visible;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

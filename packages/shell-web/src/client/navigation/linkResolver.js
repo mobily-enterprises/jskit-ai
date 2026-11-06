@@ -1,5 +1,6 @@
 import { unref } from "vue";
 import { resolveLinkPath, normalizePathname } from "@jskit-ai/kernel/shared";
+import { isExternalLinkTarget } from "@jskit-ai/kernel/shared/support/linkPath";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { useWebPlacementContext } from "../placement/inject.js";
 import {
@@ -8,36 +9,40 @@ import {
 } from "../placement/surfaceContext.js";
 import { normalizeRouteParams } from "../support/routeParams.js";
 
-function materializeSurfaceRouteBase(routeBaseTemplate = "/", { params = {}, strictParams = true, surface = "" } = {}) {
+// Fills each `:name` segment of a path from params. A param the params lack throws when strict and otherwise stays as
+// written. Only a path segment that starts with ":" is a param; a query and a hash are left alone.
+function fillPathParams(pathTemplate = "/", { params = {}, strictParams = true, label = "route params" } = {}) {
+  const template = String(pathTemplate || "/");
+  const suffixStart = template.search(/[?#]/u);
+  const pathPart = suffixStart < 0 ? template : template.slice(0, suffixStart);
+  const suffix = suffixStart < 0 ? "" : template.slice(suffixStart);
   const normalizedParams = normalizeRouteParams(params);
   const missingParams = new Set();
-  const outputPath = String(routeBaseTemplate || "/").replace(/:([A-Za-z0-9_]+)/g, (_full, rawName) => {
-    const paramName = String(rawName || "").trim();
+  const outputPath = pathPart.replace(/(^|\/):([A-Za-z0-9_]+)/g, (full, start, paramName) => {
     const paramValue = normalizedParams[paramName];
     if (!paramValue) {
       missingParams.add(paramName);
-      return `:${paramName}`;
+      return full;
     }
-    return encodeURIComponent(paramValue);
+    return `${start}${encodeURIComponent(paramValue)}`;
   });
 
   if (strictParams && missingParams.size > 0) {
-    const surfaceLabel = String(surface || "").trim() || "(default)";
     const missing = [...missingParams].sort().join(", ");
-    throw new Error(`Missing required surface route params for "${surfaceLabel}": ${missing}.`);
+    throw new Error(`Missing required ${label}: ${missing}.`);
   }
 
-  return outputPath;
+  return `${outputPath}${suffix}`;
 }
 
 function resolveSurfaceBasePath(context = null, surface = "", { params = {}, strictParams = true } = {}) {
   const normalizedSurface = normalizeSurfaceId(surface);
   if (normalizedSurface && resolveSurfaceDefinitionFromPlacementContext(context, normalizedSurface)) {
     const routeBaseTemplate = resolveSurfaceRootPathFromPlacementContext(context, normalizedSurface);
-    return materializeSurfaceRouteBase(routeBaseTemplate, {
+    return fillPathParams(routeBaseTemplate, {
       params,
       strictParams,
-      surface: normalizedSurface
+      label: `surface route params for "${normalizedSurface}"`
     });
   }
 
@@ -69,7 +74,13 @@ function resolveShellLinkPath({
     strictParams
   });
 
-  return resolveLinkPath(nextSurfaceBasePath, nextRelativePath);
+  // A relative path may name params too, like a declared parent "/books/:bookId"; they fill from the same params.
+  // An external URL is another site's, so it stays as written.
+  const filledRelativePath = isExternalLinkTarget(nextRelativePath)
+    ? nextRelativePath
+    : fillPathParams(nextRelativePath, { params, strictParams, label: `route params for "${nextRelativePath}"` });
+
+  return resolveLinkPath(nextSurfaceBasePath, filledRelativePath);
 }
 
 /**

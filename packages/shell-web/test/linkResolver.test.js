@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createApp } from "vue";
+import { createApp, ref } from "vue";
 import { resolveShellLinkPath, useShellLinkResolver } from "../src/client/navigation/linkResolver.js";
+import { usePaths } from "../src/client/navigation/usePaths.js";
+import { SHELL_WEB_PLACEMENT_RUNTIME_KEY } from "../src/client/placement/inject.js";
 
 function createPlacementContext() {
   return {
@@ -131,4 +133,51 @@ test("useShellLinkResolver exposes only surface-relative resolve", () => {
 
   assert.deepEqual(Object.keys(resolver), ["resolve"]);
   assert.equal(resolver.resolve("/reports"), "/console/reports");
+});
+
+test("resolveShellLinkPath fills the relative path's :name segments from params", () => {
+  const to = resolveShellLinkPath({
+    context: createPlacementContext(),
+    surface: "app",
+    params: { workspaceSlug: "acme", proposalId: "7 b" },
+    relativePath: "/program/proposal/:proposalId/edit"
+  });
+
+  assert.equal(to, "/w/acme/program/proposal/7%20b/edit");
+});
+
+test("resolveShellLinkPath throws for a relative path's missing param unless params are not strict", () => {
+  const link = { context: createPlacementContext(), surface: "console", relativePath: "/books/:bookId" };
+  assert.throws(() => resolveShellLinkPath(link), /Missing required route params for "\/books\/:bookId": bookId\./u);
+  assert.equal(resolveShellLinkPath({ ...link, strictParams: false }), "/console/books/:bookId");
+});
+
+test("resolveShellLinkPath leaves an external URL, a query and a hash alone", () => {
+  const context = createPlacementContext();
+  assert.equal(
+    resolveShellLinkPath({ context, surface: "console", relativePath: "https://example.com:8080/:x" }),
+    "https://example.com:8080/:x"
+  );
+  assert.equal(
+    resolveShellLinkPath({ context, surface: "console", relativePath: "/search?at=:time#:part", params: { time: "now" } }),
+    "/console/search?at=:time#:part"
+  );
+});
+
+test("usePaths().page() fills a declared parent's params from the current route", () => {
+  const context = createPlacementContext();
+  const app = createApp({ render: () => null });
+  app.provide(SHELL_WEB_PLACEMENT_RUNTIME_KEY, { getContext: () => context, subscribe: () => () => {} });
+  const paths = app.runWithContext(() => usePaths({
+    routeContext: {
+      route: { params: { bookId: "7" } },
+      placementContext: ref(context),
+      currentSurfaceId: ref("console")
+    }
+  }));
+
+  // What the Up arrow of a direct visit to /console/books/7/edit resolves its parent "/books/:bookId" to.
+  assert.equal(paths.page("/books/:bookId"), "/console/books/7");
+  assert.equal(paths.page("/books/:bookId", { params: { bookId: "8" } }), "/console/books/8");
+  assert.throws(() => paths.page("/authors/:authorId"), /Missing required route params/u);
 });

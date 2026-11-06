@@ -3,7 +3,8 @@ import test from "node:test";
 import {
   normalizeDesktopDrawerClosedMode,
   resolveShellDrawerPresentation,
-  resolveShellDrawerToggleLabel
+  resolveShellDrawerToggleLabel,
+  shellLayoutHasDrawer
 } from "../src/client/support/drawerPresentation.js";
 
 test("wide closed navigation defaults to a visible Material navigation rail", () => {
@@ -65,4 +66,15 @@ test("open navigation renders as a full drawer and labels its toggle responsivel
     resolveShellDrawerToggleLabel({ modal: true, open: false }),
     "Open navigation menu"
   );
+});
+
+test("a surface has a drawer with menu destinations or its own menu, and for its identity only beside navigation", () => {
+  assert.equal(shellLayoutHasDrawer({ menuCount: 3 }), true);
+  assert.equal(shellLayoutHasDrawer({ menuSlot: true }), true);
+  // A phone whose destinations are all in the navigation bar keeps the drawer for its workspace switcher.
+  assert.equal(shellLayoutHasDrawer({ identityCount: 1, bottomNavigationCount: 3 }), true);
+  // An empty drawer is not drawn, nor is one holding only the identity on a surface without navigation.
+  assert.equal(shellLayoutHasDrawer({ bottomNavigationCount: 3 }), false);
+  assert.equal(shellLayoutHasDrawer({ identityCount: 1 }), false);
+  assert.equal(shellLayoutHasDrawer(), false);
 });

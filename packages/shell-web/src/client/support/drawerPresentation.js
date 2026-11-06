@@ -58,9 +58,21 @@ function resolveShellDrawerToggleLabel({ modal = false, open = false } = {}) {
   return open ? t("jskit.shell.layout.collapseNavigationDrawer") : t("jskit.shell.layout.expandNavigationDrawer");
 }
 
+/**
+ * Whether a surface has a drawer (and so a rail and a menu control): it has one when it has menu destinations or its
+ * own menu. The surface identity (a workspace switcher) keeps it only beside navigation, as on a phone whose
+ * destinations are all in the navigation bar; a surface with no navigation at all, such as an account surface, has
+ * none.
+ * @param {{ menuSlot?: boolean, menuCount?: number, identityCount?: number, bottomNavigationCount?: number }} outlets
+ */
+function shellLayoutHasDrawer({ menuSlot = false, menuCount = 0, identityCount = 0, bottomNavigationCount = 0 } = {}) {
+  return menuSlot || menuCount > 0 || (identityCount > 0 && bottomNavigationCount > 0);
+}
+
 export {
   DESKTOP_DRAWER_CLOSED_MODES,
   normalizeDesktopDrawerClosedMode,
   resolveShellDrawerPresentation,
-  resolveShellDrawerToggleLabel
+  resolveShellDrawerToggleLabel,
+  shellLayoutHasDrawer
 };
