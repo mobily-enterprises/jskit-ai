@@ -65,6 +65,10 @@ ends with the same link.
   - [One reader per fact](../typed-features.md#one-reader-per-fact)
 - `api.resources.x.query(…)` with no `page` for a list, `queryDocuments(query)` with no `limit` in a service, a list that stops at 20 rows
   - [Every row](../typed-features.md#every-row)
+- `await getDocumentById(…)`, `queryDocuments(…)` or a service `get` inside a loop or a `Promise.all` over a list, a single-record helper reused for a list, N+1 queries, a slow list endpoint
+  - [One read per table](../typed-features.md#one-read-per-table)
+- a `rowPolicy` that loads a person's whole history or calls an access check per item, `createDocument` per row of a batch, a write that gets slower as history grows
+  - [Bounded access checks](../typed-features.md#bounded-access-checks)
 - a route that queries storage, `boot*.js` holding routes
   - [Routes](../typed-features.md#routes)
 - `new AppError(status, message)` with no code, `new NotFoundError("…")`, one code for two sentences (`jskit/app-error-code`)
@@ -81,6 +85,12 @@ ends with the same link.
   - [Tests are not callers](../typed-features.md#tests-are-not-callers)
 - `…ForTests`, `__reset…`, `testOnly…` exports (`jskit/no-test-only-export`)
   - [No test-only exports](../typed-features.md#no-test-only-exports)
+- a list, batch or write test with one to three rows, no query count, a slow endpoint first seen with real data
+  - [Budgets at realistic counts](../typed-features.md#budgets-at-realistic-counts)
+- a raised `{ timeout }`, `test.setTimeout()`, `--test-timeout` or Playwright `timeout`, retries or a request loop that absorbs slowness, a slow suite
+  - [Time limits are not fixes](../typed-features.md#time-limits-are-not-fixes)
+- `knex.migrate.latest()` in each test file, a template database rebuilt by migrating, test preparation slower than its tests
+  - [Test databases are prepared once](../typed-features.md#test-databases-are-prepared-once)
 - a file over 750 lines, a function over 600 (`max-lines`, `max-lines-per-function`), a data module
   - [Size limits](../typed-features.md#size-limits), [Data modules](../typed-features.md#data-modules)
 - two properties on one line in `Object.freeze({ … })` or a token map (`jskit/one-property-per-line`)
@@ -100,3 +110,5 @@ Avoid:
 - module-level registries
 - refusals without their own code
 - excusing a finding without a reason in its `readable-check: allow` comment
+- a read per row of a list, or an access check sized by stored history
+- raising a time limit instead of finding why a check is slow

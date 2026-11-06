@@ -65,11 +65,15 @@ in the regression: one test's teardown must not erase another test's migrations.
 
 Do not drop/recreate the database, replay completed migrations, build every
 module fixture, or run a production frontend build for each focused check.
-Choose small fixture sets for the selected suite. Fresh-schema migration tests
-and production-artifact tests are separate operations. Measure migration,
-fixture, and server startup time before retrying a slow launch or raising its
-deadline. When a host supplies a managed target, use its scoped suite command so
-one startup serves the whole batch and cleanup restores normal Preview.
+Choose small fixture sets for the selected suite; realistic row counts belong
+in the database tests that hold each endpoint's query budget. Fresh-schema
+migration tests and production-artifact tests are separate operations. Measure
+migration, fixture, and server startup time and fix the slow phase; never retry
+a slow launch, or raise its deadline or a spec's timeout, to absorb it. A page
+that needs a longer timeout to load is a slow endpoint to fix (typed features'
+Time limits are not fixes). When a host supplies a managed target, use its
+scoped suite command so one startup serves the whole batch and cleanup
+restores normal Preview.
 
 ## Keep browser evidence focused
 

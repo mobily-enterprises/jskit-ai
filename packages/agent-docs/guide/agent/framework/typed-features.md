@@ -724,6 +724,107 @@ const rows = extractJsonRestCollectionRows(await api.resources.workspaceMembersh
 }, createJsonRestContext(options.context)));
 ```
 
+### One read per table
+
+**A read that builds a list reads each table once for the whole list: one
+query per table with an id-list filter, the rows grouped in memory. It never
+reads one row, or runs one lookup, per item of the list.**
+
+- Collect the ids from the first read, then read each related table once with
+  an id-list filter: a `searchSchema` entry
+  `{ type: "array", actualField: "<column>", filterOperator: "in" }`, read
+  through `queryAllJsonRestCollectionRows()`, or the resource's `include`.
+  Group the rows by id with `Map.groupBy()`.
+- `getDocumentById()`, `queryDocuments()`, a service `get` or another owner's
+  single-record read inside a loop over the list is a read per row, however
+  the loop is spelled (`for`, `map` with `Promise.all`, a helper called per
+  item). So is a single-record helper reused for a list.
+- Work derived from a row (hashing, preparing a form, assembling a snapshot)
+  runs once per distinct input in the call, not once per row it appears in.
+- The list's query count follows its tables and pages (100 rows a page unless
+  the resource sets `queryMaxLimit`), never its rows: three hundred invoices
+  and their lines take a handful of queries, not three hundred more (see
+  [Budgets at realistic counts](#budgets-at-realistic-counts)).
+
+Why: a read per row costs nothing with three test rows and seconds with a few
+hundred real ones, and every lookup and visibility check inside it repeats too.
+
+```js
+// good: one read per table, however many invoices there are
+const invoiceRows = await queryAllJsonRestCollectionRows(api.resources.invoices, {
+  queryParams: { filters: { workspace: workspaceId } },
+  transaction: resolveTransaction(options),
+  format: "plain"
+}, options.context);
+const lineRows = await queryAllJsonRestCollectionRows(api.resources.invoiceLines, {
+  queryParams: { filters: { invoiceIds: invoiceRows.map((invoice) => invoice.id) } },
+  transaction: resolveTransaction(options),
+  format: "plain"
+}, options.context);
+const linesByInvoice = Map.groupBy(lineRows, (line) => line.invoiceId);
+return invoiceRows.map((invoice) => ({ ...invoice, lines: linesByInvoice.get(invoice.id) || [] }));
+
+// bad: one more query, and its lookups and row policy, for every invoice
+for (const invoice of invoiceRows) {
+  invoice.lines = await invoiceLines.queryDocuments({ invoiceId: invoice.id }, options);
+}
+```
+
+### Bounded access checks
+
+**A row policy costs what the rows its query reads cost, never what the
+subject's stored history costs, and a write decides access once instead of
+paying a read policy for every row it writes.**
+
+- A `rowPolicy` adds one predicate to the query it is given: a join, `EXISTS`
+  or subquery correlated with the row being read, on indexed columns. It never
+  loads everything the subject was ever linked to (every source, notice or
+  grant in their history) to build an `IN` list, and never calls another
+  owner's access check once per item of that history. The
+  [row policies heuristic](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/heuristics/row-policies.md)
+  has the policy contract and its package composition.
+- The policy runs on every single-record read, and a CRUD write includes one:
+  `createDocument()` and `patchDocumentById()` write with `returning: "full"`
+  and read the record back through the policy, and `patch` and `delete` first
+  look the record up through it. A write therefore pays the read policy for
+  each row it writes.
+- A write path decides access once, inside its transaction. A batch write (a
+  delivery, an import, a fan-out) whose per-row read-back would pay an
+  expensive policy writes through a repository method added with
+  `decorateRepository`, on `resolveRepoClient(database.knex, options)`,
+  setting the same columns the resource would, its ownership columns
+  included, and reading back only what it returns.
+- Its test runs one read and one write for a subject with a short history and
+  with a realistic long one, and asserts the same query count.
+
+Why: a check sized by history grows with every record the subject receives,
+so the same write that takes milliseconds in a test takes seconds a year later.
+
+```js
+// good: one predicate on the row being read
+function noticeVisibilityPolicy({ query, context, column, value, db }) {
+  const userId = resolveActorId(context);
+  if (!userId) return false;
+  query.where(column("recipientId"), value("recipientId", userId)).whereExists(
+    db("sources").select(1)
+      .whereColumn("sources.id", column("sourceId"))
+      .where("sources.status", "published")
+  );
+  return true;
+}
+
+// bad: every source the recipient was ever notified about, checked one by one
+async function noticeVisibilityPolicy({ query, context, column, value }) {
+  const sourceIds = await noticeHistory.listSourceIds(resolveActorId(context));
+  const readable = [];
+  for (const sourceId of sourceIds) {
+    if (await sources.canRead(sourceId, context)) readable.push(sourceId);
+  }
+  query.whereIn(column("sourceId"), readable.map((id) => value("sourceId", id)));
+  return true;
+}
+```
+
 ### Routes
 
 **A route does HTTP work only (status, cookies, redirects) and runs an action
@@ -908,6 +1009,112 @@ export { createInvoices, __testables };
 export function resetInvoiceCacheForTests() {
   cache.clear();
 }
+```
+
+### Budgets at realistic counts
+
+**A list, batch or write path has a database test at the row counts and
+history a real workspace holds, and that test fails above a fixed query
+budget, one that a read per row or a history-sized check cannot meet.**
+
+- Seed hundreds of records and long per-person histories, not one to three
+  rows: a read per row and a history-sized policy cost nothing at three.
+- Count the queries with the test Knex instance's `query` event and assert a
+  ceiling: the count the correct implementation needs at that size, which a
+  read per row overshoots by hundreds. A path that pages nothing (one read,
+  one write) asserts the same count at a short and a long history. A query
+  count is stable in CI; also report the time the call took.
+- Meet the budget by fixing the reads ([One read per
+  table](#one-read-per-table), [Bounded access checks](#bounded-access-checks)),
+  never by shrinking the data or raising the budget.
+
+Why: without a budget at real counts, a path that does one read per row ships,
+and its first sign is a request that takes seconds in production.
+
+```js
+// good
+test("the invoice list reads each table once", async () => {
+  await seedInvoices(knex, { workspace, count: 300, linesEach: 5 });
+  let queries = 0;
+  const count = () => { queries += 1; };
+  knex.on("query", count);
+  try {
+    await invoices.listWithLines(workspace, { context });
+  } finally {
+    knex.off("query", count);
+  }
+  // A page of each table at a time; one read per invoice would add 300.
+  assert.ok(queries <= 40, `${queries} queries`);
+});
+
+// bad: three invoices and no budget, so a read per invoice passes
+test("the invoice list has its lines", async () => {
+  await seedInvoices(knex, { workspace, count: 3, linesEach: 1 });
+  assert.equal((await invoices.listWithLines(workspace, { context })).length, 3);
+});
+```
+
+### Time limits are not fixes
+
+**A slow test, suite, preparation or request is a defect to find, never a time
+limit to raise. Measure where the time goes, fix that cause, and keep the
+default limits.**
+
+- Raising `--test-timeout`, a test's `{ timeout }`, Playwright's `timeout`,
+  `test.setTimeout()` or an `expect` timeout, adding retries, or calling a
+  request in a loop until it answers hides the cause and lets it grow.
+- Read the preparation phases' durations and the query counts first; the
+  cause is usually a read per row, a history-sized policy, or a database
+  prepared by replaying migrations ([Test databases are prepared
+  once](#test-databases-are-prepared-once)).
+- A longer limit is right only for work that is long by nature, such as a
+  fixture of deliberate size, and the test names that work.
+- A time limit still bounds every run, so a hang ends; it is not a speed
+  setting.
+
+Why: a raised limit absorbs today's slowness and every later one, until a run
+takes hours and nobody knows which change made it slow.
+
+```js
+// good: the slow step was found and fixed, so the default limit holds
+test("delivers a batch of notices", async () => {
+  await deliveries.processBatch(workspace, { context });
+});
+
+// bad
+test("delivers a batch of notices", { timeout: 600_000 }, async () => {
+  await deliveries.processBatch(workspace, { context });
+});
+```
+
+### Test databases are prepared once
+
+**A test run prepares each database once, from a stored snapshot of its
+schema, migration ledger and seed rows checked by a digest of their sources,
+and never replays the whole migration history inside the run.**
+
+- The snapshot is rebuilt only when the digest of the migration and seed
+  sources changes, once and outside the timed tests; every disposable
+  database, and every database a test migrated up or down, is restored from
+  it.
+- The full migration history runs once, in its own fresh-schema check
+  ([database verification](https://mobily-enterprises.github.io/jskit-ai/guide/app-setup/database-layer#verification)).
+- The harness reports each preparation phase and its duration, and the suite
+  has a time budget, so slow preparation shows instead of hiding inside the
+  next test that waits for it.
+- The database layer guide's [integration test
+  databases](https://mobily-enterprises.github.io/jskit-ai/guide/app-setup/database-layer#integration-test-databases)
+  gives the snapshot's contents per engine.
+
+Why: the migration history only grows, so a run that replays it whenever a
+schema changed gets slower with every migration the application adds.
+
+```js
+// good: the application's test support restores the snapshot its digest names
+before(async () => restoreTestDatabase(knex, await testDatabaseSnapshot()));
+
+// bad: every file replays every migration
+before(() => knex.migrate.latest());
 ```
 
 ## Files and layout

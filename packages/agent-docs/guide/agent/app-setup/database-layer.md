@@ -365,6 +365,36 @@ Do not add migration receipts, sync ledgers, generator provenance, or dialect
 questionnaires. The installed graph, migration source, environment, and
 database migration table are sufficient.
 
+## Integration test databases
+
+Disposable integration and migration tests use `TEST_DB_NAME`. A test run
+prepares that schema once and restores it from a stored snapshot; it never
+rebuilds a database by replaying the whole migration history:
+
+- The snapshot holds the schema as the engine reports it (each table's
+  `SHOW CREATE TABLE` on MySQL and MariaDB, `pg_dump --schema-only` on
+  PostgreSQL), the migration ledger rows and the seed rows. Its key is a digest
+  of the migration files that the application's `migrations/` and its installed
+  packages supply, and of the seed source.
+- When that digest changes, the harness migrates one database once, outside
+  the timed tests, and stores a new snapshot. Otherwise it restores the stored
+  one. On PostgreSQL, `CREATE DATABASE <name> TEMPLATE <prepared>` copies a
+  prepared database that has no open connections.
+- A test that runs migrations up or down, or otherwise changes the schema,
+  leaves its database dirty. The harness restores the snapshot before another
+  test uses that database, instead of running `migrate.latest()` over the
+  whole history.
+- Only the fresh-schema check in [Verification](#verification) replays the
+  whole history, as its own step.
+- The harness reports each phase (digest, restore or rebuild, seed) with its
+  duration, and the suite has a time budget, so slow preparation is visible
+  instead of hiding inside the next test that waits for it. A slow phase is
+  fixed, never absorbed by a longer time limit.
+
+Endpoints and batch operations get their own database tests at realistic row
+counts with a fixed query budget; see the typed features guide's
+[budgets at realistic counts](/guide/framework/typed-features#budgets-at-realistic-counts).
+
 ## Browser test preparation
 
 Keep the test schema and migration history between routine browser runs. The

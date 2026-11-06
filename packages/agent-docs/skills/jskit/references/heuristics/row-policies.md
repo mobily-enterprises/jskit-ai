@@ -8,6 +8,7 @@ Use when:
 - filtering after pagination produces empty or incomplete pages
 - another package grants access to a resource but a reverse dependency would create a cycle
 - the user mentions `RowPolicyPlugin`, recursive CTEs, descendants, or permission-filtered counts
+- reads or writes of a resource with a policy get slower as records or a person's history grow
 
 Read first:
 
@@ -36,6 +37,13 @@ Package composition:
 - the owner seals the contributions and builds the policy during `boot()`
 - do not use module-global mutable registries
 
+Cost:
+
+- a policy's cost follows the rows its query reads: add a join, `EXISTS` or subquery correlated with the row through `column()` and `value()`, on indexed columns
+- never load the subject's whole history (every source, notice or grant they were ever linked to) to build an `IN` list, and never call another owner's access check per item of it; another package's grant is a predicate contribution
+- the policy runs on every single-record read, including the read-back after `createDocument()` and `patchDocumentById()` (`returning: "full"`) and the lookup before `patch` and `delete`, so a write pays it once per row it writes
+- a write decides access once, inside its transaction; a batch write that would pay an expensive read-back per row follows the typed features guide's [Bounded access checks](../typed-features.md#bounded-access-checks)
+
 Child-resource rules:
 
 - a self-referencing relationship targets the same resource and receives the same row policy
@@ -50,6 +58,7 @@ Testing:
 - assert hidden direct records behave as not found
 - assert children and includes do not leak records
 - assert package and provider dependencies stay one-way
+- run one read and one write for a subject with a short history and with a realistic long one (hundreds of linked rows), and assert the same query count
 
 AnyAPI boundary:
 
@@ -65,3 +74,4 @@ Avoid:
 - adding a default policy file to every CRUD
 - returning a Knex builder or promise from a synchronous grouped contribution
 - swallowing a policy error and retrying without mandatory visibility
+- a policy that reads the subject's history or calls an access check per history item
