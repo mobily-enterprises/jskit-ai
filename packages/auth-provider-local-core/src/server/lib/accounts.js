@@ -1,12 +1,10 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import {
-  AUTH_PASSWORD_MAX_LENGTH,
-  AUTH_PASSWORD_MIN_LENGTH
-} from "@jskit-ai/auth-core/shared/authConstraints";
+import { AUTH_PASSWORD_MAX_LENGTH } from "@jskit-ai/auth-core/shared/authConstraints";
 import { ensureDevAuthExchangeAvailable, isDevAuthBootstrapEnabled } from "@jskit-ai/auth-core/server/devAuth";
 import { normalizeEmail } from "@jskit-ai/auth-core/server/utils";
 import { AUTH_TEXTS, authFieldErrorDetails, createAuthError } from "@jskit-ai/auth-core/server/authTexts";
 import { DEV_AUTH_SESSION_PURPOSE, buildAuthPayload, buildAuthResult, findExistingAppProfile } from "./authPayloads.js";
+import { forgottenFailuresBefore, recordSignInFailure, signInLockedError, signInWaitMs } from "./signInThrottle.js";
 import { createId } from "./tokens.js";
 
 /** An account created through a provider has no password until recovery sets one. */
@@ -29,19 +27,23 @@ function hasPassword(user) {
   return record && typeof record === "object" ? Boolean(record.hash) : Boolean(record);
 }
 
-function validatePasswordInput(password) {
+/**
+ * Refuses a password shorter than `minLength` (the configured
+ * AUTH_LOCAL_PASSWORD_MIN_LENGTH) or longer than local auth stores.
+ * @param {unknown} password
+ * @param {number} minLength
+ */
+function validatePasswordInput(password, minLength) {
   const normalizedPassword = String(password || "");
-  if (
-    normalizedPassword.length < AUTH_PASSWORD_MIN_LENGTH ||
-    normalizedPassword.length > AUTH_PASSWORD_MAX_LENGTH
-  ) {
-    const params = { min: AUTH_PASSWORD_MIN_LENGTH };
-    throw new AppError(400, "Password must be at least 8 characters.", {
+  if (normalizedPassword.length < minLength || normalizedPassword.length > AUTH_PASSWORD_MAX_LENGTH) {
+    const params = { min: minLength };
+    const message = `Password must be at least ${minLength} characters.`;
+    throw new AppError(400, message, {
       code: "auth.local.password.tooShort",
       params,
       details: {
         fieldErrors: {
-          password: "Password must be at least 8 characters."
+          password: message
         },
         fieldErrorCodes: {
           password: { code: "auth.local.password.tooShort", params }
@@ -100,7 +102,8 @@ function normalizeInvitationInput(value) {
 
 /**
  * The accounts of local auth: registering one, signing in with its password
- * or as a dev user, and renaming it.
+ * (failures slow the account down, as config.signInThrottle says) or as a dev
+ * user, and renaming it.
  * @param {object} dependencies
  * @param {boolean} dependencies.appProfileProjection True when the application keeps profiles.
  * @param {import("../types.js").AuthLocalBackend} dependencies.backend
@@ -129,7 +132,7 @@ function createLocalAccounts({ appProfileProjection, backend, config, invitation
 
   async function register(input) {
     const email = validateEmailInput(input.email);
-    validatePasswordInput(input.password);
+    validatePasswordInput(input.password, config.passwordMinLength);
     const displayName = normalizeDisplayName(input.displayName, email);
     const profileOptions = await resolveProfileOptionsForRegistration(input, email);
     const password = await passwords.hashPassword(input.password);
@@ -160,17 +163,42 @@ function createLocalAccounts({ appProfileProjection, backend, config, invitation
     };
   }
 
+  /**
+   * Signs in with a password. Each account's failures are counted, whether or
+   * not the account exists, so the wait they cause says nothing about which
+   * accounts exist; while an account waits its password is not checked. A
+   * successful sign-in, or a password reset, forgets the failures.
+   */
   async function login(input) {
     const email = validateEmailInput(input.email);
     const password = String(input.password || "");
-    return backend.withTransaction(async (tx) => {
+    const outcome = await backend.withTransaction(async (tx) => {
+      const now = Date.now();
+      const failures = await tx.signInFailures.find(email);
+      const waitMs = signInWaitMs(failures, now);
+      if (waitMs > 0) {
+        return { waitMs };
+      }
       const user = await tx.users.findByEmail(email);
       if (!user || user.disabled || !hasPassword(user) || !(await passwords.verifyPassword(password, user.password))) {
-        throw createAuthError(AUTH_TEXTS.invalidCredentials);
+        await tx.signInFailures.deleteBefore(forgottenFailuresBefore(now));
+        await tx.signInFailures.save(recordSignInFailure(config.signInThrottle, failures, email, now));
+        return { failed: true };
+      }
+      if (failures) {
+        await tx.signInFailures.clear(email);
       }
       const session = await sessions.createSessionForUser(tx, user);
-      return buildAuthPayload({ user, session, profileProjector });
+      return { payload: await buildAuthPayload({ user, session, profileProjector }) };
     });
+    // Refused after the transaction, so the failure it records is kept.
+    if (outcome.waitMs) {
+      throw signInLockedError(outcome.waitMs);
+    }
+    if (outcome.failed) {
+      throw createAuthError(AUTH_TEXTS.invalidCredentials);
+    }
+    return outcome.payload;
   }
 
   function devAuthBootstrapEnabled() {

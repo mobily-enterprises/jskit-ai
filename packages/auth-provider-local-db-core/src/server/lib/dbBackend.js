@@ -5,7 +5,8 @@ const TABLES = Object.freeze({
   sessions: "auth_local_sessions",
   recovery: "auth_local_recovery",
   identities: "auth_local_identities",
-  oauthAttempts: "auth_local_oauth_attempts"
+  oauthAttempts: "auth_local_oauth_attempts",
+  signInFailures: "auth_local_sign_in_failures"
 });
 
 function nowIso() {
@@ -125,6 +126,18 @@ function mapOAuthAttempt(row) {
     returnTo: String(row.return_to || ""),
     createdAt: readDateTime(row.created_at),
     expiresAt: readDateTime(row.expires_at)
+  };
+}
+
+function mapSignInFailures(row) {
+  if (!row) {
+    return null;
+  }
+  return {
+    email: String(row.email || ""),
+    failures: Number(row.failures || 0),
+    lastFailedAt: readDateTime(row.last_failed_at),
+    lockedUntil: readDateTime(row.locked_until)
   };
 }
 
@@ -357,6 +370,31 @@ function createLocalDbBackend({ knex, transactionManager }) {
         async deleteExpired(now) {
           const count = await table(client, TABLES.oauthAttempts)
             .where("expires_at", "<=", requiredDateTime(now))
+            .delete();
+          return Number(count || 0);
+        }
+      }),
+      signInFailures: Object.freeze({
+        async find(email) {
+          return mapSignInFailures(await table(client, TABLES.signInFailures).where({ email: String(email || "") }).first());
+        },
+        async save(record) {
+          const row = {
+            email: String(record.email || ""),
+            failures: Number(record.failures || 0),
+            last_failed_at: requiredDateTime(record.lastFailedAt),
+            locked_until: optionalDateTime(record.lockedUntil)
+          };
+          await table(client, TABLES.signInFailures).insert(row).onConflict("email").merge();
+          return mapSignInFailures(row);
+        },
+        async clear(email) {
+          const count = await table(client, TABLES.signInFailures).where({ email: String(email || "") }).delete();
+          return Number(count || 0);
+        },
+        async deleteBefore(lastFailedAt) {
+          const count = await table(client, TABLES.signInFailures)
+            .where("last_failed_at", "<", requiredDateTime(lastFailedAt))
             .delete();
           return Number(count || 0);
         }

@@ -64,6 +64,69 @@ Protected server operations declare an auth policy; they do not trust a hidden
 button or a page-local session check. Other packages extend auth through the
 public extension capability rather than replacing the auth service.
 
+## Sign-in protection
+
+Two limits slow down password guessing, and both are on by default.
+
+**Per client address.** Every auth route that can be abused by repetition
+declares a `rateLimit`, which the kernel enforces for each client address. A
+request over it is refused with status 429, the code `kernel.http.rateLimited`
+(`params.count` is the seconds to wait) and a `Retry-After` header. The
+defaults, per minute: `login`, `register`, `loginOtpRequest` and
+`loginOtpVerify` 10; `registerConfirmationResend` and `passwordForgot` 5;
+`oauthStart`, `oauthComplete`, `passwordRecovery` and `passwordReset` 20;
+`devLoginAs` 30. Change one in the application's server configuration;
+`false` removes it:
+
+```js
+// config/server.js
+config.auth = {
+  ...config.auth,
+  rateLimits: {
+    login: { max: 5, timeWindow: "1 minute" },
+    oauthStart: false
+  }
+};
+```
+
+A route name auth does not have, or a value that is neither
+`{ max, timeWindow }` nor `false`, stops startup. `timeWindow` is milliseconds
+or text such as `"30 seconds"` or `"1 hour"`.
+
+The address is Fastify's `request.ip`. Behind a reverse proxy every request
+comes from the proxy, so all clients would share one count: create Fastify with
+`trustProxy` set to the proxy's address (for example
+`Fastify({ trustProxy: "127.0.0.1" })`), and never to `true` when clients can
+also reach the server directly.
+
+**Per account (local auth).** After 5 failed sign-ins in a row for one email,
+that email must wait 30 seconds before its next attempt; each further failure
+doubles the wait, up to an hour (NIST SP 800-63B's example). While it waits,
+sign-in is refused, even with the right password, with status 429, the code
+`auth.local.login.locked` (`params.count` minutes, `params.retryAfterSeconds`)
+and `Retry-After`. Emails without an account are counted the same way, so the
+wait says nothing about which accounts exist. A successful sign-in forgets the
+failures, and so does a day without one. Waits are temporary and password
+recovery is never blocked: completing a password reset ends the wait, so an
+attacker who keeps an account waiting cannot keep its owner out. The failures
+are kept in the file store (`sign-in-failures.passwd`) or, with
+`@jskit-ai/auth-provider-local-db-core`, in the `auth_local_sign_in_failures`
+table (run `npm run db:migrate`).
+
+| Env | Default | Meaning |
+| --- | --- | --- |
+| `AUTH_LOCAL_SIGN_IN_FAILURES_BEFORE_WAIT` | `5` | Failed sign-ins in a row before the account waits, 1 to 100. |
+| `AUTH_LOCAL_SIGN_IN_FIRST_WAIT_SECONDS` | `30` | The first wait. |
+| `AUTH_LOCAL_SIGN_IN_MAX_WAIT_SECONDS` | `3600` | The longest wait, at least the first. |
+| `AUTH_LOCAL_PASSWORD_MIN_LENGTH` | `8` | The shortest password local auth accepts, 8 to 64. |
+
+NIST SP 800-63B-4 asks for at least 15 characters when a password is the only
+sign-in factor, and at least 8 when it is used with another factor; set
+`AUTH_LOCAL_PASSWORD_MIN_LENGTH=15` for password-only sign-in. Passwords up to
+128 characters are accepted.
+
+The login page shows either refusal, translated, with the wait.
+
 ## Application-owned recovery email
 
 Local auth owns recovery tokens, expiry and recovery-scoped sessions. The

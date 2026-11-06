@@ -57,7 +57,7 @@ function createMemoryKnex() {
       this.filters = [];
     }
 
-    where(criteria, value) {
+    where(criteria, ...rest) {
       if (criteria && typeof criteria === "object") {
         for (const [key, expected] of Object.entries(criteria)) {
           this.filters.push((row) => row[key] === expected);
@@ -65,7 +65,14 @@ function createMemoryKnex() {
         return this;
       }
       const key = String(criteria || "");
-      this.filters.push((row) => row[key] === value);
+      if (rest.length === 2) {
+        const [operator, limit] = rest;
+        const compare = { "<": (left, right) => left < right, "<=": (left, right) => left <= right }[operator];
+        assert.ok(compare, `unsupported operator ${operator}`);
+        this.filters.push((row) => compare(new Date(row[key]).getTime(), new Date(limit).getTime()));
+        return this;
+      }
+      this.filters.push((row) => row[key] === rest[0]);
       return this;
     }
 
@@ -87,10 +94,36 @@ function createMemoryKnex() {
       return clone(rowsFor(this.tableName).find((row) => this.matches(row)) || null);
     }
 
-    async insert(row) {
-      assertUnique(this.tableName, row);
-      rowsFor(this.tableName).push(clone(row));
-      return [row.id];
+    // insert(row) inserts when awaited; insert(row).onConflict(column).merge() replaces the row with that column's value.
+    insert(row) {
+      const rows = rowsFor(this.tableName);
+      const append = async () => {
+        assertUnique(this.tableName, row);
+        rows.push(clone(row));
+        return [row.id];
+      };
+      return {
+        onConflict: (column) => ({
+          merge: async () => {
+            const index = rows.findIndex((existing) => existing[column] === row[column]);
+            if (index < 0) {
+              rows.push(clone(row));
+            } else {
+              rows[index] = clone(row);
+            }
+            return [row[column]];
+          }
+        }),
+        then: (resolve, reject) => append().then(resolve, reject)
+      };
+    }
+
+    async delete() {
+      const rows = rowsFor(this.tableName);
+      const kept = rows.filter((row) => !this.matches(row));
+      const count = rows.length - kept.length;
+      rows.splice(0, rows.length, ...kept);
+      return count;
     }
 
     async update(patch) {
@@ -470,7 +503,8 @@ test("package metadata declares portable local auth DB migrations without instal
       LOCAL_AUTH_DB_TABLES.sessions,
       LOCAL_AUTH_DB_TABLES.recovery,
       LOCAL_AUTH_DB_TABLES.identities,
-      LOCAL_AUTH_DB_TABLES.oauthAttempts
+      LOCAL_AUTH_DB_TABLES.oauthAttempts,
+      LOCAL_AUTH_DB_TABLES.signInFailures
     ]
   );
 });

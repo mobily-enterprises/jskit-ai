@@ -36,11 +36,25 @@
  *   take(browserKeyHash: string): Promise<object | null>,
  *   deleteExpired(now: string): Promise<number>
  * }} oauthAttempts
+ * @property {{
+ *   find(email: string): Promise<AuthLocalSignInFailures | null>,
+ *   save(record: AuthLocalSignInFailures): Promise<AuthLocalSignInFailures>,
+ *   clear(email: string): Promise<number>,
+ *   deleteBefore(lastFailedAt: string): Promise<number>
+ * }} signInFailures One record per account email, existing or not; `save`
+ *   replaces the email's record and `deleteBefore` removes those whose last failure is older.
+ */
+
+/**
+ * An account's recent failed sign-ins: how many, the last one, and when it may
+ * try again ("" when it need not wait). Times are ISO strings.
+ * @typedef {{ email: string, failures: number, lastFailedAt: string, lockedUntil: string }} AuthLocalSignInFailures
  */
 
 /**
  * The `auth.local.backend` capability: where local auth keeps its users,
- * sessions, recovery tokens, linked identities and OAuth attempts. Without
+ * sessions, recovery tokens, linked identities, OAuth attempts and failed
+ * sign-ins. Without
  * one, local auth keeps them in files under AUTH_LOCAL_STORE_DIR;
  * `@jskit-ai/auth-provider-local-db-core` provides one that keeps them in the
  * database. Each backend implements this contract.

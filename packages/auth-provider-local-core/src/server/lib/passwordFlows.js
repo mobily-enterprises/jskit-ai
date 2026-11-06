@@ -95,7 +95,7 @@ function createLocalPasswordFlows({ backend, config, passwords, profileProjector
   }
 
   async function resetPassword(input, request) {
-    validatePasswordInput(input.password);
+    validatePasswordInput(input.password, config.passwordMinLength);
     const payload = verifySignedToken(sessions.readRecoveryAccessToken(request), config.sessionSecret);
     if (!payload?.sub || !payload?.sid) {
       throw createAuthError(AUTH_TEXTS.sessionRequired);
@@ -109,9 +109,13 @@ function createLocalPasswordFlows({ backend, config, passwords, profileProjector
       if (session.purpose !== "recovery") {
         throw new AppError(401, "Recovery session required.", { code: "auth.local.recovery.sessionRequired" });
       }
-      await tx.users.updatePassword(String(payload.sub), password);
+      const user = await tx.users.updatePassword(String(payload.sub), password);
       await tx.sessions.revokeForUser(String(payload.sub));
       await tx.recovery.consumeForUser(String(payload.sub));
+      // Recovery is the way back in for an account that failed sign-ins keep waiting.
+      if (user) {
+        await tx.signInFailures.clear(user.email);
+      }
     });
     return {
       ok: true,
@@ -120,7 +124,7 @@ function createLocalPasswordFlows({ backend, config, passwords, profileProjector
   }
 
   async function changePassword(request, input) {
-    validatePasswordInput(input.newPassword);
+    validatePasswordInput(input.newPassword, config.passwordMinLength);
     const authResult = await sessions.authenticateRequest(request);
     if (authResult.authenticated !== true || authResult.sessionPurpose !== "normal") {
       throw createAuthError(AUTH_TEXTS.sessionRequired);

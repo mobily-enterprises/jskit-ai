@@ -13,6 +13,9 @@
         "register": {
           "emailTaken": "An account already exists for this email."
         },
+        "login": {
+          "locked": "Too many failed sign-ins for this account. Try again in {count} minute. | Too many failed sign-ins for this account. Try again in {count} minutes."
+        },
         "recovery": {
           "notConfigured": "Password recovery is not configured.",
           "requested": "If an account exists for that email, password reset instructions have been sent.",

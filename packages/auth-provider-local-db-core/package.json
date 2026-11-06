@@ -58,6 +58,9 @@
             },
             {
               "tableName": "auth_local_oauth_attempts"
+            },
+            {
+              "tableName": "auth_local_sign_in_failures"
             }
           ]
         }

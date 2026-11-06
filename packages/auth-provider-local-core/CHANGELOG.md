@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Failed sign-ins slow down the account they name, existing or not: after `AUTH_LOCAL_SIGN_IN_FAILURES_BEFORE_WAIT` (5) failures in a row the email waits `AUTH_LOCAL_SIGN_IN_FIRST_WAIT_SECONDS` (30) before its next attempt, and each further failure doubles the wait up to `AUTH_LOCAL_SIGN_IN_MAX_WAIT_SECONDS` (3600). While it waits, sign-in is refused, even with the right password, with status 429, the code `auth.local.login.locked` (`params.count` minutes, `params.retryAfterSeconds`) and `Retry-After`. A successful sign-in or a completed password reset forgets the failures, and so does a day without one, so a wait is never permanent and recovery always lets the owner back in.
+- `AUTH_LOCAL_PASSWORD_MIN_LENGTH` (default 8, from 8 to 64) sets the shortest password accepted on registration, reset and change.
+- Upgrading: a custom `auth.local.backend` implements the new `signInFailures` collection (`find`, `save`, `clear`, `deleteBefore`); the file backend keeps it in `sign-in-failures.passwd`, and `@jskit-ai/auth-provider-local-db-core` in the table `auth_local_sign_in_failures`, which its migration `auth_local_db_protection` creates (run `npm run db:migrate`). `validatePasswordInput(password, minLength)` takes the minimum length.
+- New message key: `jskit.auth.local.login.locked`.
+
 ## 0.2.0 - 2026-10-29
 
 - Translation ready: every user-visible text is a message key with its English in `locales/en.json`, so an app translates it by supplying translation files only. With no translations, texts and behaviour are unchanged. See the guide "Translating a JSKIT app".

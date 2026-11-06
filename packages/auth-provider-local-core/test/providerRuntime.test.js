@@ -745,6 +745,20 @@ test("local auth service accepts a custom stored-password format", async () => {
             async consumeForUser() {
               return 0;
             }
+          },
+          signInFailures: {
+            async find() {
+              return null;
+            },
+            async save(record) {
+              return record;
+            },
+            async clear() {
+              return 0;
+            },
+            async deleteBefore() {
+              return 0;
+            }
           }
         });
       }

@@ -3,7 +3,10 @@ import { assertDevAuthPolicy, resolveDevAuthPolicyFromEnv } from "@jskit-ai/auth
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { AUTH_PASSWORD_MIN_LENGTH } from "@jskit-ai/auth-core/shared/authConstraints";
+import { parsePositiveInteger } from "@jskit-ai/kernel/server/runtime";
 import { resolveOAuthProviders } from "./oauth.js";
+import { resolveSignInThrottle } from "./signInThrottle.js";
 
 const DEFAULT_STORE_DIR = ".jskit/auth";
 
@@ -82,6 +85,21 @@ function resolveRecoveryDelivery(env, { emailRecovery, isProduction }) {
 }
 
 /**
+ * The shortest password local auth accepts: AUTH_LOCAL_PASSWORD_MIN_LENGTH, or 8.
+ * It can be raised, up to 64, but not lowered below 8.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} env
+ */
+function resolvePasswordMinLength(env) {
+  const raw = String(env.AUTH_LOCAL_PASSWORD_MIN_LENGTH ?? "").trim();
+  if (!raw) return AUTH_PASSWORD_MIN_LENGTH;
+  const value = parsePositiveInteger(raw);
+  if (value === null || value < AUTH_PASSWORD_MIN_LENGTH || value > 64) {
+    throw new Error(`AUTH_LOCAL_PASSWORD_MIN_LENGTH must be a whole number from ${AUTH_PASSWORD_MIN_LENGTH} to 64.`);
+  }
+  return value;
+}
+
+/**
  * The local auth configuration, resolved and checked once from the environment.
  * Production is worked out once, by auth-core's dev auth policy, so local auth
  * and its dev sign-in agree on it.
@@ -112,6 +130,8 @@ function resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery }) {
     sessionSecret: resolveSessionSecret(env, { storeDir, isProduction }),
     recoveryDelivery,
     recoveryEnabled: recoveryDelivery !== "disabled",
+    passwordMinLength: resolvePasswordMinLength(env),
+    signInThrottle: resolveSignInThrottle(env),
     devAuth
   });
 }
