@@ -60,13 +60,14 @@ Local functions
 ### `src/server/jsonApiModule/actions.js`
 Exports
 - `assertCrudOperationName(operation = "")`
-- `createCrudJsonApiActions({ namespace, resource, repository, service, surface, permissionForOperation, operations, scopeInputValidator, scopeInputKeys, listFilterQueryValidator, operationLifecycle, operationInputs, actions, dependencies, realtimeAudience })`
+- `createCrudJsonApiActions({ namespace, resource, repository, service, surface, permissionForOperation, operations, scopeInputValidator, scopeInputKeys, listFilterQueryValidator, operationLifecycle, operationInputs, actions, dependencies, realtimeAudience, servedOverHttp })`
 - `normalizeCrudOperationLifecycle(value)`
 Local functions
+- `resolveCrudActionChannels(permission, servedOverHttp)`
 - `buildActionInput(resource, operation, scopeInputValidator, listFilterQueryValidator, operationInputs)`
 - `omitInputKeys(input, keys)`
 - `buildLifecycleContext(value)`
-- `normalizeAdditionalActions(definitions, { namespace, surface, permissionForAction, scopeInputValidator })`
+- `normalizeAdditionalActions(definitions, { namespace, surface, permissionForAction, scopeInputValidator, servedOverHttp })`
 
 ### `src/server/jsonApiModule/assistantExtension.js`
 Exports

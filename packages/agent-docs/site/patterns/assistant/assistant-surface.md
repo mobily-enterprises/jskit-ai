@@ -33,6 +33,11 @@ in source or a questionnaire transcript.
   `assistantServer`.
 - The server config selects an AI integration ID, never a credential value.
 - The application publishes an authorized `integrations.ai` resolver capability.
+- Changing the assistant's instructions needs `workspace.settings.update` on a
+  workspace settings surface, the console owner on a console-owner surface and
+  `assistant.settings.update` on any other, unless
+  `assistantServer.<surface>.settingsUpdatePermission` names the permission the
+  application's administrators hold. Reading them needs only a signed-in user.
 - Runtime and settings pages use the public assistant elements.
 - Environment values are supplied through the application's normal secret
   environment boundary.

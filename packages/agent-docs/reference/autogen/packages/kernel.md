@@ -779,6 +779,7 @@ Exports
 - `attachDirectRequestActionExecutor`
 - `createCachedResponseSerializerFactory`
 - `createActionRouteScope`
+- `registerSecurityHeaders`
 
 ### `server/http/lib/actionRouteScope.js`
 Exports
@@ -852,6 +853,21 @@ Local functions
 - `isJsonValue(value, ancestors = new Set())`
 - `schemaCacheKey(schema)`
 
+### `server/http/securityHeaders.js`
+Exports
+- `registerSecurityHeaders(fastify, { config, env })`
+- `type RuntimeConfig`
+- `type RuntimeEnv`
+- `type RuntimeFastify`
+Local functions
+- `resolveHeaderText(value, fallback, key)`
+- `resolveSources(value, key)`
+- `resolveFrameAncestors(value)`
+- `resolveDirectives(value)`
+- `toPolicyText(directives)`
+- `resolveContentSecurityPolicyHeaders(settings)`
+- `resolveSecurityHeaders({ config, env })`
+
 ### `server/i18n.js`
 Exports
 - `createServerI18n({ appRoot = "", catalogs = [] } = {})`
@@ -872,9 +888,10 @@ Exports
 - `type RuntimeConfig`
 - `type RuntimeEnv`
 - `type RuntimeFastify`
+- `type RuntimeHealth`
 - `type RuntimeLogger`
 Local functions
-- `seedInputCapabilities({ inputs, config, env, logger, httpServer, appRoot })`
+- `seedInputCapabilities({ inputs, config, env, logger, health, httpServer, appRoot })`
 - `builtinCapabilityProviders(inputCapabilities)`
 
 ### `server/platform/providerRuntime/capabilityProviderLoader.js`
@@ -946,6 +963,11 @@ Exports
 Local functions
 - `normalizeListener(value)`
 - `normalizeEvent(value)`
+
+### `server/runtime/healthRuntime.js`
+Exports
+- `createHealthRuntime({ logger, timeoutMs = DEFAULT_HEALTH_CHECK_TIMEOUT_MS })`
+- `type RuntimeLogger`
 
 ### `server/runtime/index.js`
 Exports
@@ -1058,6 +1080,7 @@ Exports
 - `type RuntimeBootstrap`
 - `type RuntimeEvents`
 - `type RuntimeHttp`
+- `type RuntimeHealth`
 - `type RuntimeRouter`
 - `type RuntimeAppRoot`
 - `type RuntimeConfig`

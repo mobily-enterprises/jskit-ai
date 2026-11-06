@@ -401,6 +401,7 @@ Exports
 - `resolveAssistantServerConfig(appConfig = {}, targetSurfaceId = "")`
 - `resolveAssistantAiConfig({ appConfig = {}, env = {} } = {}, targetSurfaceId = "")`
 Local functions
+- `normalizeSettingsUpdatePermission(value, targetSurfaceId)`
 - `readPrefixedEnvValue(env = {}, prefix = "", key = "")`
 
 ### `src/server/support/assistantStreamWriter.js`

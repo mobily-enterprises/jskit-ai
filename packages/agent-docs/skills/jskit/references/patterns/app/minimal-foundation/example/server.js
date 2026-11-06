@@ -102,12 +102,6 @@ async function createServer({ runtimeEnv }) {
     }
   });
 
-  app.get("/api/health", async () => {
-    return {
-      ok: true,
-      app: "reading-room"
-    };
-  });
   const appRoot = path.resolve(process.cwd());
   const distRoot = path.resolve(appRoot, "dist");
   const hasWebBuild = existsSync(path.resolve(distRoot, SPA_INDEX_FILE));
@@ -122,6 +116,15 @@ async function createServer({ runtimeEnv }) {
     env: runtimeEnv,
     logger: app.log,
     fastify: app
+  });
+
+  // Healthy when every check the installed packages register passes, such as the database's.
+  app.get("/api/health", async (request, reply) => {
+    const health = await runtime.health.check();
+    return reply.code(health.ok ? 200 : 503).send({
+      ...health,
+      app: "reading-room"
+    });
   });
 
   registerSurfaceRequestConstraint({
