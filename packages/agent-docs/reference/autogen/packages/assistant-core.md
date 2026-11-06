@@ -514,6 +514,7 @@ Exports
 - `codexProviderConfiguration(provider, apiKey)`
 - `codexProviderCatalogPath(codexHome)`
 - `codexProviderFileConfiguration(provider, key, codexHome)`
+- `readCodexCustomModels(codexHome)`
 - `copyCodexProviderHome(sourceHome, targetHome)`
 - `verifyCodexProviderKey(provider, apiKey, fetchImpl = fetch)`
 Local functions
@@ -657,6 +658,9 @@ Exports
 - `prepareCodexHistory(params, client, { baseUrl, modelProviderId, ...options } = {})`
 - `readCodexHistoryRows`
 Local functions
+- `historyRouted(destination)`
+- `customRouteSegment(baseUrl)`
+- `customUpstream(encoded = "")`
 - `unsupportedHistory(message)`
 - `historicalToolOutput(item)`
 - `historicalResultMessage(label, parts, closingTag)`
@@ -1299,6 +1303,18 @@ Exports
 Local functions
 - `recordNoNativeCheckpoint()`
 
+### `src/server/conversation/customEndpoint.js`
+Exports
+- `verifyCustomEndpoint({ engineId, baseUrl, model, apiKey = "", fetchImpl = fetch, timeoutMs = CUSTOM_ENDPOINT_CHECK_TIMEOUT_MS })`
+- `readOllamaLoadedContext({ baseUrl, model, apiKey = "", fetchImpl = fetch })`
+- `probeCustomEndpoint({ engineId, baseUrl, fetchImpl = fetch })`
+- `checkCustomEndpoint({ contextWindow, ...input })`
+- `CUSTOM_ENDPOINT_CHECK_TIMEOUT_MS`
+Local functions
+- `checkError(code, message)`
+- `readLimitedJson(response)`
+- `namesMissingModel(result, model)`
+
 ### `src/server/conversation/deliveryTiming.js`
 Exports
 - `normalizeConversationDeliveryHostStages(hostStages = [])`
@@ -1756,6 +1772,7 @@ Exports
 - `codexProviderConfiguration`
 - `codexProviderFileConfiguration`
 - `codexProviderCatalogPath`
+- `readCodexCustomModels`
 - `verifyCodexProviderKey`
 - `codexAuthOutputRequiresReconnect`
 - `createCodexAccountReader`
@@ -1854,6 +1871,14 @@ Exports
 - `CODEX_HELPER_THREAD_LEDGER_SCHEMA_VERSION`
 - `CODEX_HELPER_THREAD_LIFECYCLES`
 - `createCodexHelperThreadLedgerOwner`
+
+### `src/server/hosts/customEndpoint.js`
+Exports
+- `CUSTOM_ENDPOINT_CHECK_TIMEOUT_MS`
+- `checkCustomEndpoint`
+- `probeCustomEndpoint`
+- `readOllamaLoadedContext`
+- `verifyCustomEndpoint`
 
 ### `src/server/hosts/nativeHistory.js`
 Exports
@@ -2249,7 +2274,12 @@ Exports
 
 ### `src/shared/nativeProviders.js`
 Exports
+- `CUSTOM_AI_MINIMUM_CONTEXT`
+- `CUSTOM_AI_PLACEHOLDER_TOKEN`
+- `CUSTOM_AI_PROVIDER_ID`
 - `NATIVE_AI_PROVIDERS`
+- `connectionAiProvider(providerId, connection)`
+- `customAiProvider({ engineId = "codex", baseUrl, model: modelId, contextWindow, label = "Custom endpoint" })`
 - `nativeAiProvider(id)`
 - `nativeAiModel(id, providerId = "")`
 Local functions
