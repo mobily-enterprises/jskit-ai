@@ -1664,6 +1664,10 @@ test("canonical model controls use the supplied reactive owner and disappear wit
   assert.deepEqual(await f.page.evaluate(() => window.conversationFixture.modelState()), {
     selected: "large", applied: "large", saving: false, selections: ["large"]
   });
+  // A finished Apply closes the menu. Reopen it once it has finished closing: Vuetify 4.3 ignores a click on the
+  // activator while the menu's close transition still runs.
+  await expect(choose).toHaveAttribute("aria-expanded", "false");
+  await expect(f.page.locator(".assistant-model-control")).toBeHidden();
   await choose.click();
   await f.page.evaluate(() => window.conversationFixture.modelError("Reconnect the application catalogue."));
   await expect(f.page.getByText("Reconnect the application catalogue.", { exact: true })).toBeVisible();
