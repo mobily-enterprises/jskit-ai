@@ -15,6 +15,7 @@ function crudJsonApiActionOptions(options) {
     actions: {},
     dependencies: {},
     realtimeAudience: "event_scope",
+    servedOverHttp: true,
     ...options
   };
 }

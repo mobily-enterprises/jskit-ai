@@ -160,8 +160,9 @@ function projectEnabledServiceOperations(service, operations) {
  * @param {string} [feature.capability] Defaults to the feature id.
  * @param {string} [feature.ownershipFilter] Defaults to the resource's autofilter, then "public".
  * @param {string} [feature.relativePath] Defaults to the namespace, with dashes.
- * @param {boolean} [feature.internal]
- * @param {boolean} [feature.routes] False registers no HTTP routes.
+ * @param {boolean} [feature.internal] True keeps the routes off the HTTP server.
+ * @param {boolean} [feature.routes] False registers no HTTP routes. Either way, an action no permission
+ *   guards is then left off the automation channel, so the assistant cannot run it.
  * @param {object | null} [feature.listFilterQueryValidator]
  * @param {object | null} [feature.searchSchema]
  * @param {object | null} [feature.permissions]
@@ -335,7 +336,8 @@ function defineCrudJsonApiFeature({
         }),
         scopeInputValidator: normalizedScope.actionInputValidator,
         scopeInputKeys: normalizedScope.inputKeys,
-        realtimeAudience
+        realtimeAudience,
+        servedOverHttp: routes && !internal
       });
     }
   });

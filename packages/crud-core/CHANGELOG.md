@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- The actions of an `internal: true` or `routes: false` CRUD feature are left off the `automation` channel, so the assistant cannot call them, unless their permission names a permission (`require: "all"` or `"any"`), as workspace-scoped CRUD's defaults do. An additional action's own `channels` still decide for it.
+
+### Upgrading
+
+- Give an internal resource explicit `permissions` when the assistant should keep reading it for the users who hold them.
+
 ## 0.2.0 - 2026-10-29
 
 - Translation ready: every user-visible text is a message key with its English in `locales/en.json`, so an app translates it by supplying translation files only. With no translations, texts and behaviour are unchanged. See the guide "Translating a JSKIT app".

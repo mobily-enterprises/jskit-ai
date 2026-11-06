@@ -18,6 +18,19 @@ import { buildCrudCustomActionId } from "./customActionId.js";
 const CRUD_OPERATION_NAMES = Object.freeze(["list", "view", "create", "update", "delete"]);
 const CRUD_MUTATION_NAMES = new Set(["create", "update", "delete"]);
 const CRUD_LIFECYCLE_PHASES = Object.freeze(["before", "execute", "after", "afterCommit"]);
+const SERVED_ACTION_CHANNELS = Object.freeze(["api", "automation", "internal"]);
+const UNSERVED_ACTION_CHANNELS = Object.freeze(["api", "internal"]);
+
+/**
+ * A CRUD action's channels. An action that no HTTP route serves and no permission guards stays
+ * off the automation channel, so an assistant cannot reach records its user cannot reach over HTTP.
+ * @param {{ require: string, permissions?: readonly string[] }} permission
+ * @param {boolean} servedOverHttp
+ */
+function resolveCrudActionChannels(permission, servedOverHttp) {
+  const guarded = ["all", "any"].includes(permission.require) && Array.isArray(permission.permissions) && permission.permissions.length > 0;
+  return servedOverHttp || guarded ? SERVED_ACTION_CHANNELS : UNSERVED_ACTION_CHANNELS;
+}
 
 function buildActionInput(resource, operation, scopeInputValidator, listFilterQueryValidator, operationInputs) {
   const definitions = scopeInputValidator ? [scopeInputValidator] : [];
@@ -98,7 +111,7 @@ function buildLifecycleContext(value) {
   });
 }
 
-function normalizeAdditionalActions(definitions, { namespace, surface, permissionForAction, scopeInputValidator }) {
+function normalizeAdditionalActions(definitions, { namespace, surface, permissionForAction, scopeInputValidator, servedOverHttp }) {
   return Object.freeze(Object.entries(definitions).map(([name, definition]) => {
     const actionName = String(name || "").trim();
     if (!ARCHITECTURE_ID_PATTERN.test(actionName)) {
@@ -122,15 +135,16 @@ function normalizeAdditionalActions(definitions, { namespace, surface, permissio
     }
 
     const kind = definition.kind || "command";
+    const permission = definition.permission || permissionForAction(actionName);
     return Object.freeze({
       ...definition,
       name: actionName,
       id: buildCrudCustomActionId(namespace, actionName, definition),
       version: definition.version || 1,
       kind,
-      channels: definition.channels || ["api", "automation", "internal"],
+      channels: definition.channels || resolveCrudActionChannels(permission, servedOverHttp),
       surfaces: definition.surfaces || [surface],
-      permission: definition.permission || permissionForAction(actionName),
+      permission,
       input: scopeInputValidator
         ? composeSchemaDefinitions([scopeInputValidator, definition.input], {
           mode: definition.input.mode || ACTION_INPUT_DEFAULT_MODE
@@ -160,6 +174,7 @@ function normalizeAdditionalActions(definitions, { namespace, surface, permissio
  * @param {Record<string, object>} dependencies.actions The feature's custom actions, by name.
  * @param {Record<string, unknown>} dependencies.dependencies The capabilities in the feature's `requires`, by local name.
  * @param {string} dependencies.realtimeAudience
+ * @param {boolean} dependencies.servedOverHttp False when the feature is internal or registers no routes.
  */
 function createCrudJsonApiActions({
   namespace,
@@ -176,7 +191,8 @@ function createCrudJsonApiActions({
   operationInputs,
   actions,
   dependencies,
-  realtimeAudience
+  realtimeAudience,
+  servedOverHttp
 }) {
   const mutationEvent = (operation, entityId) => buildCrudRecordChangedEvent({
     namespace,
@@ -188,7 +204,8 @@ function createCrudJsonApiActions({
     namespace,
     surface,
     permissionForAction: permissionForOperation,
-    scopeInputValidator
+    scopeInputValidator,
+    servedOverHttp
   });
 
   function listDocuments(input, context) {
@@ -315,21 +332,24 @@ function createCrudJsonApiActions({
   ];
 
   const enabledOperations = new Set(operations);
-  const standardActions = standardDefinitions.filter((definition) => enabledOperations.has(definition.operation)).map((definition) => Object.freeze({
-    id: `crud.${namespace}.${definition.operation}`,
-    version: 1,
-    kind: definition.kind,
-    channels: ["api", "automation", "internal"],
-    surfaces: [surface],
-    permission: permissionForOperation(definition.operation),
-    input: buildActionInput(resource, definition.operation, scopeInputValidator, listFilterQueryValidator, operationInputs),
-    output: null,
-    extensions: Object.freeze({
-      assistant: createCrudAssistantExtension(resource, namespace, definition.operation)
-    }),
-    events: definition.events,
-    execute: definition.execute
-  }));
+  const standardActions = standardDefinitions.filter((definition) => enabledOperations.has(definition.operation)).map((definition) => {
+    const permission = permissionForOperation(definition.operation);
+    return Object.freeze({
+      id: `crud.${namespace}.${definition.operation}`,
+      version: 1,
+      kind: definition.kind,
+      channels: resolveCrudActionChannels(permission, servedOverHttp),
+      surfaces: [surface],
+      permission,
+      input: buildActionInput(resource, definition.operation, scopeInputValidator, listFilterQueryValidator, operationInputs),
+      output: null,
+      extensions: Object.freeze({
+        assistant: createCrudAssistantExtension(resource, namespace, definition.operation)
+      }),
+      events: definition.events,
+      execute: definition.execute
+    });
+  });
   const productActions = additionalActions.map((definition) => Object.freeze({
     id: definition.id,
     version: definition.version,
