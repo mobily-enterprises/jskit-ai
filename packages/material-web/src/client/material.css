@@ -1,0 +1,284 @@
+/*
+ * JSKIT's Material 3 rules for Vuetify: the sizes and shapes component props cannot set, Roboto Flex, emphasized
+ * motion and reduced motion. Import it after "vuetify/styles". Component rules live in Vuetify's own
+ * vuetify-overrides cascade layer, so they beat Vuetify's component styles while an app's utility classes
+ * (rounded-0, bg-*, pa-*) and props still win without any rule forcing priority.
+ */
+@layer vuetify-core, vuetify-components, vuetify-overrides, vuetify-utilities, vuetify-final;
+@import "@fontsource-variable/roboto-flex/index.css";
+
+:root {
+  --v-font-body: "Roboto Flex Variable", "Roboto Flex", Roboto, system-ui, sans-serif;
+  --md-sys-motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  --md-sys-motion-easing-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --md-sys-motion-easing-emphasized-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --md-sys-motion-easing-emphasized-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
+  --md-sys-motion-duration-short4: 200ms;
+  --md-sys-motion-duration-medium2: 300ms;
+  --md-sys-motion-duration-medium4: 400ms;
+  --md-sys-motion-duration-long2: 500ms;
+}
+
+@layer vuetify-overrides {
+  /* Common buttons: 40dp tall, full shape, 24dp side padding (16dp beside an icon), a 48dp touch target. */
+  .v-btn--size-default:not(.v-btn--stacked, .v-btn--icon) {
+    --v-btn-height: 40px;
+    padding-inline: 24px;
+  }
+
+  .v-btn--size-default:not(.v-btn--stacked, .v-btn--icon):has(> .v-btn__prepend) {
+    padding-inline-start: 16px;
+  }
+
+  .v-btn--size-default:not(.v-btn--stacked, .v-btn--icon):has(> .v-btn__append) {
+    padding-inline-end: 16px;
+  }
+
+  .v-btn--size-default.v-btn--variant-text:not(.v-btn--stacked, .v-btn--icon) {
+    padding-inline: 12px;
+  }
+
+  /* Icon buttons: a 40dp state layer around a 24dp icon. */
+  .v-btn--icon.v-btn--size-default {
+    --v-btn-height: 28px;
+  }
+
+  .v-btn--icon.v-btn--size-default .v-icon {
+    font-size: 24px;
+  }
+
+  .v-btn--size-default:not(.v-btn--stacked) {
+    overflow: visible;
+  }
+
+  .v-btn--size-default:not(.v-btn--stacked)::before {
+    content: "";
+    height: max(100%, 48px);
+    left: 50%;
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: max(100%, 48px);
+  }
+
+  /* Outlined buttons draw the outline role, chips outline-variant. */
+  .v-btn--variant-outlined:not([class*=" text-"]) {
+    border-color: rgb(var(--v-theme-outline));
+    color: rgb(var(--v-theme-primary));
+  }
+
+  .v-chip--variant-outlined:not([class*=" text-"]) {
+    border-color: rgb(var(--v-theme-outline-variant));
+    color: rgb(var(--v-theme-on-surface-variant));
+  }
+
+  .v-chip .v-chip__prepend .v-icon,
+  .v-chip .v-chip__append .v-icon,
+  .v-chip .v-chip__close .v-icon {
+    font-size: 18px;
+  }
+
+  /* Chips you press are 32dp tall with a 48dp touch target, drawn under the chip's content so it never covers it. */
+  .v-chip--link.v-chip--size-default {
+    isolation: isolate;
+    overflow: visible;
+  }
+
+  .v-chip--link.v-chip--size-default::after {
+    content: "";
+    height: max(100%, 48px);
+    left: 0;
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: -1;
+  }
+
+  /* Dialogs: 28dp corners and a headline-small title; full-screen dialogs are square. */
+  .v-dialog > .v-overlay__content > .v-card,
+  .v-dialog > .v-overlay__content > .v-sheet,
+  .v-dialog > .v-overlay__content > form > .v-card,
+  .v-dialog > .v-overlay__content > form > .v-sheet {
+    border-radius: 28px;
+  }
+
+  .v-dialog > .v-overlay__content > .v-card > .v-card-item .v-card-title,
+  .v-dialog > .v-overlay__content > .v-card > .v-card-title,
+  .v-dialog > .v-overlay__content > form > .v-card > .v-card-item .v-card-title,
+  .v-dialog > .v-overlay__content > form > .v-card > .v-card-title {
+    font-size: 1.5rem;
+    font-weight: 400;
+    letter-spacing: 0;
+    line-height: 2rem;
+    white-space: normal;
+  }
+
+  .v-dialog > .v-overlay__content > .v-card > .v-card-text,
+  .v-dialog > .v-overlay__content > form > .v-card > .v-card-text {
+    color: rgb(var(--v-theme-on-surface-variant));
+  }
+
+  .v-dialog--fullscreen > .v-overlay__content > .v-card,
+  .v-dialog--fullscreen > .v-overlay__content > .v-sheet,
+  .v-dialog--fullscreen > .v-overlay__content > form > .v-card,
+  .v-dialog--fullscreen > .v-overlay__content > form > .v-sheet {
+    border-radius: 0;
+  }
+
+  /* Bottom sheets: 28dp top corners. */
+  .jskit-material-bottom-sheet {
+    border-radius: 28px 28px 0 0;
+    overflow: hidden;
+  }
+
+  /* Plain tooltips: inverse surface, 4dp corners, body-small. */
+  .v-tooltip > .v-overlay__content {
+    background: rgb(var(--v-theme-inverse-surface));
+    border-radius: 4px;
+    color: rgb(var(--v-theme-inverse-on-surface));
+    font-size: 0.75rem;
+    letter-spacing: 0.0333333333em;
+    line-height: 1rem;
+    min-height: 24px;
+    padding: 4px 8px;
+  }
+
+  /* Dividers and table rules use outline-variant at full strength (the theme's border colour). Vuetify draws a
+     divider in the text colour, so one without a color prop takes outline-variant. */
+  .v-divider {
+    opacity: 1;
+  }
+
+  .v-divider:not([class*=" text-"]) {
+    color: rgb(var(--v-theme-outline-variant));
+  }
+
+  /* Motion: emphasized easing; entering elements decelerate, leaving ones accelerate. */
+  .v-navigation-drawer,
+  .v-bottom-navigation,
+  .v-app-bar {
+    transition-timing-function: var(--md-sys-motion-easing-emphasized);
+  }
+
+  .dialog-transition-enter-active,
+  .dialog-bottom-transition-enter-active,
+  .bottom-sheet-transition-enter-active,
+  .fade-transition-enter-active,
+  .scale-transition-enter-active,
+  .slide-y-transition-enter-active,
+  .slide-x-transition-enter-active,
+  .expand-transition-enter-active {
+    transition-duration: var(--md-sys-motion-duration-medium4);
+    transition-timing-function: var(--md-sys-motion-easing-emphasized-decelerate);
+  }
+
+  .dialog-transition-leave-active,
+  .dialog-bottom-transition-leave-active,
+  .bottom-sheet-transition-leave-active,
+  .fade-transition-leave-active,
+  .scale-transition-leave-active,
+  .slide-y-transition-leave-active,
+  .slide-x-transition-leave-active,
+  .expand-transition-leave-active {
+    transition-duration: var(--md-sys-motion-duration-short4);
+    transition-timing-function: var(--md-sys-motion-easing-emphasized-accelerate);
+  }
+}
+
+/*
+ * Vuetify names the utility class of an on-* colour role ".on-surface-variant", so color="on-surface-variant" on an
+ * icon or a text button would find no class. These text-on-* forms make it work.
+ */
+@layer vuetify-utilities {
+  .text-on-background {
+    color: rgb(var(--v-theme-on-background));
+  }
+
+  .text-on-surface {
+    color: rgb(var(--v-theme-on-surface));
+  }
+
+  .text-on-surface-variant {
+    color: rgb(var(--v-theme-on-surface-variant));
+  }
+
+  .text-on-primary {
+    color: rgb(var(--v-theme-on-primary));
+  }
+
+  .text-on-primary-container {
+    color: rgb(var(--v-theme-on-primary-container));
+  }
+
+  .text-on-secondary {
+    color: rgb(var(--v-theme-on-secondary));
+  }
+
+  .text-on-secondary-container {
+    color: rgb(var(--v-theme-on-secondary-container));
+  }
+
+  .text-on-tertiary {
+    color: rgb(var(--v-theme-on-tertiary));
+  }
+
+  .text-on-tertiary-container {
+    color: rgb(var(--v-theme-on-tertiary-container));
+  }
+
+  .text-on-error {
+    color: rgb(var(--v-theme-on-error));
+  }
+
+  .text-on-error-container {
+    color: rgb(var(--v-theme-on-error-container));
+  }
+
+  .text-on-success {
+    color: rgb(var(--v-theme-on-success));
+  }
+
+  .text-on-success-container {
+    color: rgb(var(--v-theme-on-success-container));
+  }
+
+  .text-on-warning {
+    color: rgb(var(--v-theme-on-warning));
+  }
+
+  .text-on-warning-container {
+    color: rgb(var(--v-theme-on-warning-container));
+  }
+
+  .text-on-info {
+    color: rgb(var(--v-theme-on-info));
+  }
+
+  .text-on-info-container {
+    color: rgb(var(--v-theme-on-info-container));
+  }
+}
+
+/*
+ * A full-screen dialog's container is the surface, not the dialog's surface-container-high. Unlayered, so it
+ * outranks the bg-* class the dialog's card default sets.
+ */
+.v-dialog--fullscreen > .v-overlay__content > .v-card,
+.v-dialog--fullscreen > .v-overlay__content > form > .v-card {
+  background-color: rgb(var(--v-theme-surface));
+  color: rgb(var(--v-theme-on-surface));
+}
+
+/* Reduced motion: transitions and animations finish at once. Unlayered, so it outranks every layered rule. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms;
+    animation-iteration-count: 1;
+    scroll-behavior: auto;
+    transition-delay: 0ms;
+    transition-duration: 1ms;
+  }
+}

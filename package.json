@@ -76,7 +76,7 @@
     "@supabase/supabase-js": "^2.57.4",
     "dotenv": "^17.3.1",
     "jose": "^6.1.0",
-    "vuetify": "^4.0.0"
+    "vuetify": "^4.3.0"
   },
   "overrides": {
     "vitepress": {
