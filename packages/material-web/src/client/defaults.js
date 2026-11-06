@@ -13,9 +13,9 @@ const materialDefaults = Object.freeze({
     rounded: "pill",
     variant: "flat"
   },
+  // No elevation: Vuetify's elevated variant (the default) draws level 1, and flat, tonal and outlined cards draw none.
   VCard: {
     color: "surface-container-low",
-    elevation: 1,
     rounded: 12
   },
   VChip: {
@@ -34,7 +34,6 @@ const materialDefaults = Object.freeze({
     contentClass: "jskit-material-bottom-sheet",
     VCard: {
       color: "surface-container-low",
-      elevation: 1,
       rounded: 0
     }
   },

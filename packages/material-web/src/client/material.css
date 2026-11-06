@@ -20,26 +20,26 @@
 }
 
 @layer vuetify-overrides {
-  /* Common buttons: 40dp tall, full shape, 24dp side padding (16dp beside an icon), a 48dp touch target. */
-  .v-btn--size-default:not(.v-btn--stacked, .v-btn--icon) {
+  /* Common buttons: 40dp tall, full shape, 24dp side padding (16dp beside an icon). */
+  .v-btn--size-default:not(.v-btn--stacked, .v-btn--icon, .v-fab .v-btn) {
     --v-btn-height: 40px;
     padding-inline: 24px;
   }
 
-  .v-btn--size-default:not(.v-btn--stacked, .v-btn--icon):has(> .v-btn__prepend) {
+  .v-btn--size-default:not(.v-btn--stacked, .v-btn--icon, .v-fab .v-btn):has(> .v-btn__prepend) {
     padding-inline-start: 16px;
   }
 
-  .v-btn--size-default:not(.v-btn--stacked, .v-btn--icon):has(> .v-btn__append) {
+  .v-btn--size-default:not(.v-btn--stacked, .v-btn--icon, .v-fab .v-btn):has(> .v-btn__append) {
     padding-inline-end: 16px;
   }
 
-  .v-btn--size-default.v-btn--variant-text:not(.v-btn--stacked, .v-btn--icon) {
+  .v-btn--size-default.v-btn--variant-text:not(.v-btn--stacked, .v-btn--icon, .v-fab .v-btn) {
     padding-inline: 12px;
   }
 
   /* Icon buttons: a 40dp state layer around a 24dp icon. */
-  .v-btn--icon.v-btn--size-default {
+  .v-btn--icon.v-btn--size-default:not(.v-fab .v-btn) {
     --v-btn-height: 28px;
   }
 
@@ -47,11 +47,45 @@
     font-size: 24px;
   }
 
-  .v-btn--size-default:not(.v-btn--stacked) {
+  /* FABs are not common buttons: 56dp (small 40dp, large 96dp with a 36dp icon), and the extended FAB is 56dp tall. */
+  .v-fab .v-btn {
+    --jskit-fab-size: 56px;
+  }
+
+  .v-fab .v-btn--size-small {
+    --jskit-fab-size: 40px;
+  }
+
+  .v-fab .v-btn--size-large {
+    --jskit-fab-size: 96px;
+  }
+
+  .v-fab .v-btn--icon {
+    height: var(--jskit-fab-size);
+    width: var(--jskit-fab-size);
+  }
+
+  .v-fab--extended .v-btn {
+    --v-btn-height: var(--jskit-fab-size);
+  }
+
+  .v-fab .v-btn .v-icon {
+    font-size: 24px;
+  }
+
+  .v-fab .v-btn--size-large .v-icon {
+    font-size: 36px;
+  }
+
+  /* Every button, small, x-small and icon buttons included, keeps its visual size and gets a 48dp touch target: a
+     transparent hit area centred on it. Layout containment makes what reaches outside the button ink overflow, so a
+     hit area at the edge of a window or scroll container never adds a scrollbar. */
+  .v-btn:not(.v-btn--stacked) {
+    contain: layout;
     overflow: visible;
   }
 
-  .v-btn--size-default:not(.v-btn--stacked)::before {
+  .v-btn:not(.v-btn--stacked)::before {
     content: "";
     height: max(100%, 48px);
     left: 50%;
@@ -59,6 +93,14 @@
     top: 50%;
     transform: translate(-50%, -50%);
     width: max(100%, 48px);
+  }
+
+  /* A label stays on one line, as Material 3 draws it; one longer than its button ends in an ellipsis. */
+  .v-btn:not(.v-btn--stacked, .v-btn--icon) > .v-btn__content:not(:has(> *)) {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   /* Outlined buttons draw the outline role, chips outline-variant. */

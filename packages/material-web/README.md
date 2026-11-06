@@ -62,8 +62,10 @@ export const theme = {
   fields, 8dp chips that close with `$close`, 4dp menus on `surface-container`,
   the inverse-surface snackbar, the Material switch and the 16dp
   `primary-container` FAB.
-- **`material.css`.** What props cannot set: 40dp buttons with a 48dp touch
-  target and 40dp icon buttons, 28dp dialogs and bottom sheets, square
+- **`material.css`.** What props cannot set: 40dp buttons and 40dp icon
+  buttons, a 48dp touch target on every button size (small and x-small keep
+  their look), one-line labels that end in an ellipsis, 28dp dialogs and
+  bottom sheets, square
   full-screen dialogs on `surface`, a 48dp touch target on clickable chips,
   inverse-surface tooltips, emphasized easing
   and reduced motion. Its component rules sit in Vuetify's `vuetify-overrides`

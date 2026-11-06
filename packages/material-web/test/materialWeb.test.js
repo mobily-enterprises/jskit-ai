@@ -139,6 +139,9 @@ test("the Vuetify options follow the system scheme on the md3 blueprint with Mat
   assert.equal(options.icons.aliases.arrowBack, materialSymbols.arrowBack);
   assert.equal(options.icons.aliases.myLeaf, "svg:M1 1h22v22H1z");
   assert.equal(options.defaults.VCard.rounded, 12);
+  // Vuetify's elevated variant draws the card's level 1; a default elevation would also lift flat and tonal cards.
+  assert.equal("elevation" in options.defaults.VCard, false);
+  assert.equal("elevation" in options.defaults.VBottomSheet.VCard, false);
   assert.equal(options.defaults.VChip.rounded, 8);
   assert.equal(options.defaults.VFab.rounded, 16);
   assert.equal(options.defaults.VChip.closeIcon, "$close");
@@ -173,6 +176,15 @@ test("material.css holds the exact-size rules without Sass or !important", async
   assert.doesNotMatch(css, /\$[a-z-]+\s*:/u);
   assert.match(css, /--v-btn-height: 40px/u);
   assert.match(css, /height: max\(100%, 48px\)/u);
+  // Every button size gets the touch target, not only the default one, and a long label ends in an ellipsis.
+  assert.match(css, /\.v-btn:not\(\.v-btn--stacked\)::before \{[^}]*width: max\(100%, 48px\);/u);
+  assert.match(css, /\.v-btn:not\(\.v-btn--stacked\) \{[^}]*contain: layout;/u);
+  // FABs keep their own sizes: the common and icon button sizes leave them out.
+  assert.match(css, /\.v-btn--size-default:not\(\.v-btn--stacked, \.v-btn--icon, \.v-fab \.v-btn\) \{[^}]*--v-btn-height: 40px;/u);
+  assert.match(css, /\.v-btn--icon\.v-btn--size-default:not\(\.v-fab \.v-btn\) \{[^}]*--v-btn-height: 28px;/u);
+  assert.match(css, /\.v-fab--extended \.v-btn \{[^}]*--v-btn-height: var\(--jskit-fab-size\);/u);
+  assert.doesNotMatch(css, /\.v-btn--size-default:not\(\.v-btn--stacked\)::before/u);
+  assert.match(css, /> \.v-btn__content:not\(:has\(> \*\)\) \{[^}]*text-overflow: ellipsis;/u);
   assert.match(css, /border-radius: 28px;/u);
   assert.match(css, /v-dialog--fullscreen[^{]+\{\s*border-radius: 0;/u);
   assert.match(css, /border-radius: 28px 28px 0 0/u);
