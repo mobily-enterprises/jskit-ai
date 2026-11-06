@@ -65,6 +65,11 @@ jobs:
           JSKIT_FOUNDATION_STARTUP_INTEGRATION: "1"
         run: node --test --test-concurrency=1 packages/agent-docs/test/foundationStartup.browser.test.js
 
+      - name: Verify a preview can frame the application
+        env:
+          JSKIT_KERNEL_FRAMING_BROWSER_INTEGRATION: "1"
+        run: node --test --test-concurrency=1 packages/kernel/test/securityHeadersFraming.browser.test.js
+
       - name: Verify linked application package caching
         env:
           JSKIT_VITE_LINKED_PACKAGE_CACHE_INTEGRATION: "1"

@@ -98,6 +98,64 @@ loading. Do not replace them with generic spinners. Keep failures local when a
 resource cannot render; use shared toast/snackbar feedback for transient user
 commands so errors do not push the working page down.
 
+## Security headers
+
+`createInstalledRuntime` adds security headers to every response its Fastify
+server sends, including error and not-found responses. A route that sets one of
+these headers itself keeps its own value.
+
+| Header | When | Default |
+| --- | --- | --- |
+| `X-Content-Type-Options: nosniff` | always | on |
+| `Referrer-Policy` | always | `strict-origin-when-cross-origin` |
+| `Strict-Transport-Security` | production | `max-age=31536000` |
+| `Content-Security-Policy: frame-ancestors` | production | `'self'` |
+| `Content-Security-Policy-Report-Only` | production | the content policy below |
+
+Production means `NODE_ENV=production`. A host that starts the server with a
+plain `npm start` runs it in development; its Serve command must set the
+variable, for example `env NODE_ENV=production npm start`. Development sends only
+nosniff and the Referrer-Policy, so an editor's preview, such as Vibe64's, can
+frame the application and inject its bridge script.
+
+The content policy allows JSKIT's client: the application's own scripts and
+WebAssembly, inline styles (Vuetify and the loading shell use them), images
+from the application, `data:`, `blob:` and any HTTPS source, fonts and media
+from the application and `data:`, same-origin requests and sockets, and no
+plugins, foreign base URLs or foreign form posts. It is reported, not enforced,
+by default: browsers log violations in the console without blocking anything,
+because an application's own additions, such as a sign-in provider, an
+analytics script or a map, are not known to JSKIT. Enforce it once the
+application's pages run without violations. Framing is always enforced, since
+browsers ignore `frame-ancestors` in a report-only policy.
+
+Change the defaults in `config/server.js`:
+
+```js
+export const config = {
+  securityHeaders: {
+    // Another site that frames production, such as the editor that previews it.
+    frameAncestors: ["'self'", "https://editor.example.com"],
+    contentSecurityPolicy: {
+      mode: "enforce", // "report-only" (default), "enforce" or "off"
+      directives: {
+        "connect-src": ["'self'", "https://auth.example.com"],
+        "form-action": false // false leaves a directive out
+      }
+    }
+  }
+};
+```
+
+`noSniff: false`, `referrerPolicy: false`, `strictTransportSecurity: false` and
+`frameAncestors: false` leave that header out; `referrerPolicy` and
+`strictTransportSecurity` also take their own header value. A directive's
+sources replace JSKIT's for that directive; framing is set only through
+`frameAncestors`. An invalid value stops the server from starting. A server
+composed without `createInstalledRuntime` calls
+`registerSecurityHeaders(fastify, { config, env })` from
+`@jskit-ai/kernel/server/http` before it registers any plugin.
+
 ## Verification
 
 Pattern contract tests keep both examples concrete, parseable, npm-published,

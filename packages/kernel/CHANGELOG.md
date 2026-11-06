@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- `createInstalledRuntime` adds security headers to every response its Fastify server sends: `X-Content-Type-Options: nosniff` and `Referrer-Policy: strict-origin-when-cross-origin` always, and in production (`NODE_ENV=production`) `Strict-Transport-Security: max-age=31536000`, `Content-Security-Policy: frame-ancestors 'self'` and a report-only content policy that JSKIT's client runs under. `config.securityHeaders` changes or switches each one off; a route's own header wins. `registerSecurityHeaders` (`@jskit-ai/kernel/server/http`) does the same for a server composed without `createInstalledRuntime`.
+
+### Upgrading
+
+- A production server that another site frames, such as an editor's preview of a production build, lists that site in `config.securityHeaders.frameAncestors`.
+
 - `createServerI18n()` also returns `resolveLocale(preferences)`: from a person's preferred locales (most preferred first, such as `ui_locales` or `Accept-Language`) the first the app has translations for, exactly or by language, else `en`.
 
 ## 0.2.0 - 2026-10-29

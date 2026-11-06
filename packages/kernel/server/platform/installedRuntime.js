@@ -1,6 +1,7 @@
 import { ActionProvider } from "../actions/actionProvider.js";
 import { createCapabilityRuntime } from "../../shared/capabilities/runtime.js";
 import { HttpProvider } from "../http/HttpProvider.js";
+import { registerSecurityHeaders } from "../http/securityHeaders.js";
 import { BootstrapProvider } from "../runtime/BootstrapProvider.js";
 import { EventProvider } from "../runtime/EventProvider.js";
 import {
@@ -59,7 +60,8 @@ function builtinCapabilityProviders(inputCapabilities) {
 
 /**
  * The application's capability runtime: the kernel's providers, then each
- * installed package's, then the application's own. A Fastify instance adds HTTP.
+ * installed package's, then the application's own. A Fastify instance adds HTTP, and the
+ * security headers `config.securityHeaders` describes on every response it sends.
  * @param {object} options
  * @param {string} options.appRoot
  * @param {string} [options.profile]
@@ -94,6 +96,10 @@ async function createInstalledRuntime({
   }
 
   const httpServer = fastify || null;
+  if (httpServer) {
+    // Before any provider registers a plugin, so every route and plugin inherits the hook.
+    registerSecurityHeaders(httpServer, { config, env });
+  }
   const inputCapabilities = seedInputCapabilities({ inputs, config, env, logger, httpServer, appRoot });
   const installedPackages = await resolveInstalledJskitPackages({ appRoot });
   validatePackageCapabilities(installedPackages, {
