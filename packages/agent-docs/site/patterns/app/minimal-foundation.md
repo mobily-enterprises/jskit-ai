@@ -162,6 +162,6 @@ it returns `503` while a registered check, such as the database's, fails.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/agent-docs@0.1.278`
+- Owner: `@jskit-ai/agent-docs@0.1.279`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/patterns/minimal-foundation/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/agent-docs/patterns/minimal-foundation/example)
