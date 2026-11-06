@@ -21,7 +21,7 @@ Local functions
 - `kebabCase(name)`
 - `channels(argb)`
 - `customColorRoleNames(name)`
-- `addCustomColorRoles(roles, seedArgb, dark, name, argb)`
+- `addCustomColorRoles(roles, seedArgb, dark, name, argb, blend = true)`
 - `schemeColors(scheme, seedArgb, dark, appColors)`
 - `vuetifyTheme(seedArgb, dark, appColors)`
 - `normalizeAppColors(colors, schemeRoles)`

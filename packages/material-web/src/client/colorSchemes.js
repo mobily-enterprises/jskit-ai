@@ -129,15 +129,17 @@ function customColorRoleNames(name) {
 }
 
 /**
- * Adds a colour's four roles, from customColor harmonized toward the seed (blend).
+ * Adds a colour's four roles, from customColor: harmonized toward the seed unless `blend` is false, as Material Theme
+ * Builder's per-colour Blend toggle does.
  * @param {Record<string, number>} roles
  * @param {number} seedArgb
  * @param {boolean} dark
  * @param {string} name
  * @param {number} argb
+ * @param {boolean} [blend]
  */
-function addCustomColorRoles(roles, seedArgb, dark, name, argb) {
-  const custom = customColor(seedArgb, { name, value: argb, blend: true });
+function addCustomColorRoles(roles, seedArgb, dark, name, argb, blend = true) {
+  const custom = customColor(seedArgb, { name, value: argb, blend });
   const tones = dark ? custom.dark : custom.light;
   const [role, onRole, containerRole, onContainerRole] = customColorRoleNames(name);
   roles[role] = tones.color;
@@ -152,7 +154,7 @@ function addCustomColorRoles(roles, seedArgb, dark, name, argb) {
  * @param {SchemeTonalSpot} scheme
  * @param {number} seedArgb
  * @param {boolean} dark
- * @param {Array<[string, number]>} appColors
+ * @param {Array<[string, number, boolean]>} appColors
  */
 function schemeColors(scheme, seedArgb, dark, appColors) {
   const roles = {};
@@ -171,8 +173,8 @@ function schemeColors(scheme, seedArgb, dark, appColors) {
   }
   roles["primary-darken-1"] = roles["on-primary-container"];
   roles["secondary-darken-1"] = roles["on-secondary-container"];
-  for (const [name, argb] of appColors) {
-    addCustomColorRoles(roles, seedArgb, dark, name, argb);
+  for (const [name, argb, blend] of appColors) {
+    addCustomColorRoles(roles, seedArgb, dark, name, argb, blend);
   }
   return roles;
 }
@@ -181,7 +183,7 @@ function schemeColors(scheme, seedArgb, dark, appColors) {
  * One Vuetify theme from one Material 3 scheme.
  * @param {number} seedArgb
  * @param {boolean} dark
- * @param {Array<[string, number]>} appColors
+ * @param {Array<[string, number, boolean]>} appColors
  */
 function vuetifyTheme(seedArgb, dark, appColors) {
   const scheme = new SchemeTonalSpot(Hct.fromInt(seedArgb), dark, 0);
@@ -208,10 +210,11 @@ function vuetifyTheme(seedArgb, dark, appColors) {
 
 /**
  * The app's own colours, such as a brand or partner colour, checked: camelCase names whose roles are not already
- * scheme roles, six-digit hex values.
- * @param {Record<string, string>} colors
+ * scheme roles, and each a six-digit hex value (harmonized toward the seed) or `{ value, blend }`, where
+ * `blend: false` keeps the colour's own hue.
+ * @param {Record<string, string | { value: string, blend?: boolean }>} colors
  * @param {Set<string>} schemeRoles
- * @returns {Array<[string, number]>}
+ * @returns {Array<[string, number, boolean]>}
  */
 function normalizeAppColors(colors, schemeRoles) {
   return Object.entries(colors).map(([name, value]) => {
@@ -222,11 +225,16 @@ function normalizeAppColors(colors, schemeRoles) {
     if (clash) {
       throw new TypeError(`Theme colour "${name}" would replace the scheme's "${clash}" role; choose another name.`);
     }
-    const hex = String(value || "").trim();
+    const entry = value !== null && typeof value === "object" ? value : { value };
+    const hex = String(entry.value || "").trim();
     if (!/^#[0-9a-f]{6}$/iu.test(hex)) {
       throw new TypeError(`Theme colour "${name}" must be a six-digit hex colour, not "${hex}".`);
     }
-    return [name, argbFromHex(hex)];
+    const blend = entry.blend ?? true;
+    if (typeof blend !== "boolean") {
+      throw new TypeError(`Theme colour "${name}" takes blend: true or false, not ${JSON.stringify(blend)}.`);
+    }
+    return [name, argbFromHex(hex), blend];
   });
 }
 
@@ -234,9 +242,11 @@ function normalizeAppColors(colors, schemeRoles) {
  * The light and dark Material 3 schemes generated from one seed colour with Material Color Utilities
  * (SchemeTonalSpot, the Material 3 default), as Vuetify themes named light and dark. Each of the app's own colours
  * adds four roles in both schemes, harmonized toward the seed as Material Theme Builder's custom colours are:
- * `partner: "#0A7D3E"` gives partner, on-partner, partner-container and on-partner-container.
+ * `partner: "#0A7D3E"` gives partner, on-partner, partner-container and on-partner-container. A brand or partner
+ * colour that must keep its hue is `{ value: "#F5C518", blend: false }`, Theme Builder's Blend switched off.
  * @param {string} seed A hex colour such as "#6750A4".
- * @param {Record<string, string>} [colors] The app's own colours by camelCase name, as hex colours.
+ * @param {Record<string, string | { value: string, blend?: boolean }>} [colors] The app's own colours by camelCase
+ * name: hex colours, or `{ value, blend }`.
  */
 function materialThemes(seed, colors = {}) {
   const normalizedSeed = String(seed || "").trim();

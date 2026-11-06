@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
 import test from "node:test";
+import { Hct, argbFromHex } from "@material/material-color-utilities";
 import { materialThemes, createMaterialVuetifyOptions } from "../src/client/index.js";
 import { materialSymbols, vuetifyAliasNames } from "../src/client/symbols.js";
 import { buildSymbolsSource } from "../scripts/generate-symbols.mjs";
@@ -88,6 +89,24 @@ test("an app's own colours become harmonized custom colour roles, light and dark
       .filter((role) => role.includes("partner")),
     ["partner", "on-partner", "partner-container", "on-partner-container"]
   );
+});
+
+test("an app colour with blend: false keeps its own hue; a hex string or { value } stays harmonized", () => {
+  const hue = (hex) => Hct.fromInt(argbFromHex(hex)).hue;
+  const learning = "#F5C518";
+  const kept = materialThemes("#6750A4", { learning: { value: learning, blend: false } });
+  const blended = materialThemes("#6750A4", { learning });
+  for (const scheme of ["light", "dark"]) {
+    for (const role of ["learning", "learning-container"]) {
+      assert.ok(Math.abs(hue(kept[scheme].colors[role]) - hue(learning)) < 3, `${scheme} ${role} keeps the colour's hue`);
+      assert.ok(Math.abs(hue(blended[scheme].colors[role]) - hue(learning)) > 5, `${scheme} ${role} moves toward the seed`);
+    }
+    assert.match(kept[scheme].colors["on-learning-container"], HEX);
+  }
+  assert.deepEqual(materialThemes("#6750A4", { learning: { value: learning } }), blended);
+  assert.deepEqual(materialThemes("#6750A4", { learning: { value: learning, blend: true } }), blended);
+  assert.throws(() => materialThemes("#6750A4", { learning: { value: learning, blend: "no" } }), /blend: true or false/u);
+  assert.throws(() => materialThemes("#6750A4", { learning: { blend: false } }), /six-digit hex/u);
 });
 
 test("theme variables carry Material 3 state layers and channel strings for border and shadow", () => {

@@ -36,8 +36,10 @@ export const theme = {
   `on-…-container` roles. An app's own colours go in `theme.colors` by
   camelCase name and become custom colours the same way: `partner: "#0A7D3E"`
   gives `partner`, `on-partner`, `partner-container` and
-  `on-partner-container`, harmonized to the seed, in both schemes; a name that
-  would replace a scheme role is refused. `defaultTheme` is `"system"`, so the app follows the
+  `on-partner-container`, harmonized to the seed, in both schemes;
+  `{ value: "#F5C518", blend: false }` keeps the colour's own hue (Material
+  Theme Builder's Blend switched off); a name that would replace a scheme role
+  is refused. `defaultTheme` is `"system"`, so the app follows the
   device's light or dark setting. Theme variables carry the Material 3 state
   layers (hover 8%, focus 10%, pressed 10%, dragged 16%) and `border-color` and
   `shadow-color` as channel strings (`outline-variant` and `shadow`). There is no

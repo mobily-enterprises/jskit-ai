@@ -27,7 +27,7 @@ function appIconAliases(icons) {
  * the app's own colours as harmonized custom colours), following the system's light or dark setting, Material Symbols
  * Rounded behind every icon alias (plus the app's own), and JSKIT's Material 3 component defaults. Pass the result to
  * createVuetify(); import "@jskit-ai/material-web/client/material.css" after "vuetify/styles".
- * @param {{ seed?: string, colors?: Record<string, string>, icons?: Record<string, string> }} [theme]
+ * @param {{ seed?: string, colors?: Record<string, string | { value: string, blend?: boolean }>, icons?: Record<string, string> }} [theme]
  */
 function createMaterialVuetifyOptions({ seed = DEFAULT_SEED, colors = {}, icons = {} } = {}) {
   return {
