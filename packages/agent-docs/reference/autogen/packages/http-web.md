@@ -24,6 +24,7 @@ Exports
 Local functions
 - `resolveFieldErrors(fieldKey)`
 - `resolveCancelTo(target = cancelTo.value)`
+- `cancel()`
 
 ### `src/client/components/CrudDeleteAction.vue`
 Exports
@@ -41,6 +42,10 @@ Local functions
 - `isActionDisabled(action)`
 - `isActionExecuting(action)`
 - `actionLabel(action = {})`
+
+### `src/client/components/CrudListCreateAction.vue`
+Exports
+- None
 
 ### `src/client/components/CrudListDateFilterControl.vue`
 Exports
@@ -61,12 +66,18 @@ Local functions
 - `filterLabel(filter = {}, key = "", params = {})`
 - `placeholder(filter = {}, fallbackKey = "")`
 
+### `src/client/components/CrudListFilterSheet.vue`
+Exports
+- None
+Local functions
+- `close()`
+
 ### `src/client/components/CrudListFilterSurface.vue`
 Exports
 - None
 Local functions
+- `toggleFlag(filter)`
 - `clearChip(chip)`
-- `clearFilters()`
 
 ### `src/client/components/CrudListRecordActionMenu.vue`
 Exports
@@ -85,6 +96,8 @@ Local functions
 - `formatListCardValue(value)`
 - `resolveViewLocation(record)`
 - `resolveEditLocation(record)`
+- `resolveOpenLocation(row)`
+- `openRow(row, event)`
 - `hasRowActionsFor(record, index)`
 - `isBulkRowSelected(row)`
 - `setBulkRowSelected(row, selected = true)`
@@ -436,7 +449,7 @@ Local functions
 Exports
 - `requireCrudDeleteOperation(resource = null)`
 - `resolveDeleteApiSuffix(screen, apiUrlTemplate = "")`
-- `useCrudDeleteAction({ screen, resource = null, resourceNamespace = "", apiUrlTemplate = "", access = "auto", client, router = useRouter(), fallbackDeleteError = t("jskit.http.crud.delete.failed") })`
+- `useCrudDeleteAction({ screen, resource = null, resourceNamespace = "", apiUrlTemplate = "", access = "auto", client, fallbackDeleteError = t("jskit.http.crud.delete.failed") })`
 Local functions
 - `resolveListLocation(screen)`
 
@@ -701,6 +714,20 @@ Exports
 - None
 
 ### `fixtures/crud-list-date-filters/vite.config.mjs`
+Exports
+- None
+
+### `fixtures/crud-screens/App.vue`
+Exports
+- None
+
+### `fixtures/crud-screens/main.js`
+Exports
+- None
+Local functions
+- `destination(order, label, suffix, icon)`
+
+### `fixtures/crud-screens/vite.config.mjs`
 Exports
 - None
 

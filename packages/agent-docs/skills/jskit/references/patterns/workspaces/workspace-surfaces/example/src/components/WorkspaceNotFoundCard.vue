@@ -1,5 +1,4 @@
 <script setup>
-import { mdiAlertCircleOutline } from "@mdi/js";
 import { computed } from "vue";
 
 const props = defineProps({
@@ -18,13 +17,13 @@ const normalizedMessage = computed(() => String(props.message || "").trim() || "
 </script>
 
 <template>
-  <v-sheet rounded="lg" border class="workspace-unavailable-panel">
+  <div class="workspace-unavailable-panel">
     <div class="workspace-unavailable-panel__status">
-      <v-icon :icon="mdiAlertCircleOutline" color="error" />
-      <p class="text-body-2 text-medium-emphasis mb-0">{{ normalizedSurfaceLabel }} surface unavailable.</p>
+      <v-icon icon="$error" color="error" />
+      <p class="text-body-medium on-surface-variant mb-0">{{ normalizedSurfaceLabel }} surface unavailable.</p>
     </div>
-    <p class="text-body-2 text-medium-emphasis mb-0">{{ normalizedMessage }}</p>
-  </v-sheet>
+    <p class="text-body-medium on-surface-variant mb-0">{{ normalizedMessage }}</p>
+  </div>
 </template>
 
 <style scoped>

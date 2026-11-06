@@ -481,6 +481,7 @@ Exports
 - `resolveClientBootstrapDebugEnabled`
 - `createShellRouter`
 - `shellScrollBehavior`
+- `staysOnSamePage`
 - `bootstrapClientShellApp`
 - `DEFAULT_GUARD_EVALUATOR_KEY`
 - `createComponentInteractionEmitter`
@@ -525,6 +526,7 @@ Local functions
 ### `client/shellBootstrap.js`
 Exports
 - `shellScrollBehavior(to, from, savedPosition)`
+- `staysOnSamePage(to, from)`
 - `resolveClientBootstrapDebugEnabled({ env = {}, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG" } = {})`
 - `createClientBootstrapLogger({ env = {}, logger, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG" })`
 - `createSurfaceShellRouter({ createRouter, history, routes, surfaceRuntime, surfaceMode, fallbackRoute, notFoundComponent, guard = false, scrollBehavior = shellScrollBehavior })`
@@ -534,7 +536,6 @@ Local functions
 - `ignoreBootstrapStep()`
 - `installAppPlugins(app, appPlugins = [])`
 - `isSurfaceRootRecord(record)`
-- `staysOnSamePage(to, from)`
 
 ### `client/shellRouting.js`
 Exports

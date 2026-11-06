@@ -1,7 +1,9 @@
 <script setup>
 import { computed } from "vue";
 import { useQuery } from "@tanstack/vue-query";
+import { usePaths } from "@jskit-ai/shell-web/client/navigation/usePaths";
 
+const paths = usePaths();
 const healthQuery = useQuery({
   queryKey: ["shell-web", "health"],
   queryFn: async () => {
@@ -28,63 +30,25 @@ const healthPending = computed(
 </script>
 
 <template>
-  <section class="home-surface-screen d-flex flex-column ga-4">
-    <div class="home-surface-screen__actions">
-      <v-btn color="primary" variant="flat" to="/home/settings/general">Settings</v-btn>
+  <section class="d-flex flex-column ga-4">
+    <v-card>
+      <v-list>
+        <v-list-item subtitle="Service health">
+          <template #title>
+            <v-skeleton-loader
+              v-if="healthPending"
+              aria-label="Loading service health"
+              type="text"
+              max-width="80"
+            />
+            <span v-else>{{ health }}</span>
+          </template>
+        </v-list-item>
+        <v-list-item title="/home" subtitle="Route" />
+      </v-list>
+    </v-card>
+    <div class="d-flex justify-end">
+      <v-btn color="secondary-container" prepend-icon="$settings" :to="paths.page('/settings')">Settings</v-btn>
     </div>
-
-    <v-sheet rounded="lg" border class="home-surface-screen__panel">
-      <div class="home-surface-screen__status">
-        <span class="text-caption text-medium-emphasis">Service health</span>
-        <v-skeleton-loader
-          v-if="healthPending"
-          aria-label="Loading service health"
-          class="home-surface-screen__health-skeleton"
-          type="text"
-        />
-        <strong v-else>{{ health }}</strong>
-      </div>
-      <v-divider vertical class="d-none d-sm-block" />
-      <div class="home-surface-screen__status">
-        <span class="text-caption text-medium-emphasis">Route</span>
-        <strong>/home</strong>
-      </div>
-    </v-sheet>
   </section>
 </template>
-
-<style scoped>
-.home-surface-screen {
-  --home-surface-panel-padding: 1rem;
-}
-
-.home-surface-screen__actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.home-surface-screen__panel {
-  align-items: stretch;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  padding: var(--home-surface-panel-padding);
-}
-
-.home-surface-screen__status {
-  display: grid;
-  gap: 0.15rem;
-  min-width: 9rem;
-}
-
-.home-surface-screen__health-skeleton {
-  max-width: 5rem;
-}
-
-@media (max-width: 640px) {
-  .home-surface-screen__actions :deep(.v-btn) {
-    min-height: 48px;
-    width: 100%;
-  }
-}
-</style>

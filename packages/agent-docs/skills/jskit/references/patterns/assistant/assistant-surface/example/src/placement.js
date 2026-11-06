@@ -11,7 +11,7 @@ addPlacement({
   order: 140,
   props: {
     label: "Assistant",
-    icon: "mdi-creation-outline",
+    icon: "$smartToy",
     surface: "admin",
     scopedSuffix: "/assistant",
     unscopedSuffix: "/assistant"

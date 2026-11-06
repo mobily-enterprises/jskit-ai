@@ -182,6 +182,11 @@ bridges, JSON:API result transformers, `patch-package` patches, and deep
 `.assistant-*` layout overrides that duplicated those framework owners. Keep
 the public assistant surface id and normal page composition unchanged.
 
+The release that makes the JSKIT web packages exact Material 3 also changes
+app source: the theme, icons, type classes, page titles and parents, and page
+actions. [Move an app to the Material 3 defaults](./material-3-migration.md)
+lists each change, most of which delete app CSS and overrides.
+
 Commit `package.json`, every changed workspace manifest, and
 `package-lock.json` together. Do not hand-edit one JSKIT version after the
 updater succeeds; select a different published cohort only through a catalog

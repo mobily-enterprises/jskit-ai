@@ -80,12 +80,25 @@ Exports
 ### `src/client/components/ShellLayout.vue`
 Exports
 - None
+Local functions
+- `updateScrolled()`
+- `goUp()`
+
+### `src/client/components/ShellListDetail.vue`
+Exports
+- None
+Local functions
+- `releasePane()`
 
 ### `src/client/components/ShellMenuLinkItem.vue`
 Exports
 - None
 
-### `src/client/components/ShellNavigationTooltip.vue`
+### `src/client/components/ShellNavigationItem.vue`
+Exports
+- None
+
+### `src/client/components/ShellNavigationScope.vue`
 Exports
 - None
 
@@ -97,6 +110,16 @@ Local functions
 - `placementProps(entry)`
 
 ### `src/client/components/ShellOutletMenuWidget.vue`
+Exports
+- None
+
+### `src/client/components/ShellPageAction.vue`
+Exports
+- None
+Local functions
+- `handleClick(event)`
+
+### `src/client/components/ShellPageActions.vue`
 Exports
 - None
 
@@ -120,7 +143,7 @@ Exports
 
 ### `src/client/composables/useShellDrawer.js`
 Exports
-- `useShellDrawer({ props, isCompactLayout, navigationToggle, layoutState })`
+- `useShellDrawer({ props, modalLayout, viewportWidth, navigationToggle, layoutState })`
 Local functions
 - `navigationDrawerElement()`
 
@@ -142,6 +165,10 @@ Exports
 - `shellNavigationLinkProps`
 - `useShellNavigationLink(props)`
 
+### `src/client/composables/useShellPageTitle.js`
+Exports
+- `useShellPageTitle(title)`
+
 ### `src/client/composables/useShellPullToRefresh.js`
 Exports
 - `useShellPullToRefresh({ enabled, refreshRuntime })`
@@ -151,6 +178,10 @@ Local functions
 ### `src/client/composables/useShellRouteTransition.js`
 Exports
 - `useShellRouteTransition(props)`
+
+### `src/client/composables/useShellWindowSizeClass.js`
+Exports
+- `useShellWindowSizeClass()`
 
 ### `src/client/error/index.js`
 Exports
@@ -244,7 +275,15 @@ Exports
 - `ShellMenuLinkItem`
 - `ShellSurfaceAwareMenuLinkItem`
 - `ShellTabLinkItem`
+- `ShellPageActions`
+- `ShellPageAction`
+- `ShellListDetail`
 - `useShellLayoutState`
+- `useShellPageTitle`
+- `useShellWindowSizeClass`
+- `useShellNavigation`
+- `leaveApp`
+- `reloadAppPage`
 - `useShellLayoutStore`
 - `useShellErrorPresentationStore`
 - `SHELL_ASYNC_MODULE_RECOVERY_RUNTIME_KEY`
@@ -265,6 +304,11 @@ Local functions
 - `normalizePathname(value = "")`
 - `resolveSurfaceSwitchIdFromLabel(label = "")`
 
+### `src/client/navigation/documentNavigation.js`
+Exports
+- `leaveApp(url)`
+- `reloadAppPage(target)`
+
 ### `src/client/navigation/linkResolver.js`
 Exports
 - `resolveShellLinkPath({ context = null, surface = "", explicitTo = "", relativePath = "/", surfaceRelativePath = "", params = {}, strictParams = true } = {})`
@@ -272,6 +316,18 @@ Exports
 Local functions
 - `materializeSurfaceRouteBase(routeBaseTemplate = "/", { params = {}, strictParams = true, surface = "" } = {})`
 - `resolveSurfaceBasePath(context = null, surface = "", { params = {}, strictParams = true } = {})`
+
+### `src/client/navigation/shellNavigationRuntime.js`
+Exports
+- `PAGE_TITLE_ID`
+- `SHELL_NAVIGATION_RUNTIME_KEY`
+- `TRAIL_STATE_KEY`
+- `createShellNavigationRuntime({ router })`
+- `resolvePageParent(matched)`
+- `resolvePageTitle(matched)`
+Local functions
+- `normalizeTrail(value)`
+- `cssAttributeValue(value)`
 
 ### `src/client/navigation/usePaths.js`
 Exports
@@ -281,6 +337,15 @@ Local functions
 - `resolveSurfaceId(value, fallback = "")`
 - `resolveDefaultSurfaceIdFromPlacementContext(placementContext = null)`
 - `resolveRouteParams(baseParams = {}, overrideParams = null)`
+
+### `src/client/navigation/useShellNavigation.js`
+Exports
+- `NO_SHELL_NAVIGATION_RUNTIME`
+- `useShellNavigation()`
+- `useShellNavigationRuntime()`
+Local functions
+- `resolvedNothing()`
+- `releaseNothing()`
 
 ### `src/client/navigation/useSurfaceRouteContext.js`
 Exports
@@ -459,14 +524,15 @@ Exports
 Exports
 - `DESKTOP_DRAWER_CLOSED_MODES`
 - `normalizeDesktopDrawerClosedMode(value = "rail")`
-- `resolveShellDrawerPresentation({ compact = false, open = false, desktopClosedMode = "rail" } = {})`
-- `resolveShellDrawerToggleLabel({ compact = false, open = false } = {})`
+- `resolveShellDrawerPresentation({ modal = false, open = false, desktopClosedMode = "rail" } = {})`
+- `resolveShellDrawerToggleLabel({ modal = false, open = false } = {})`
 
 ### `src/client/support/drawerWidth.js`
 Exports
 - `DEFAULT_SHELL_DRAWER_WIDTH`
 - `DEFAULT_SHELL_NAVIGATION_ITEM_SPACING`
 - `DEFAULT_SHELL_RAIL_WIDTH`
+- `MATERIAL_DRAWER_WIDTH`
 - `MAXIMUM_SHELL_DRAWER_WIDTH`
 - `MINIMUM_SHELL_DRAWER_WIDTH`
 - `measureDrawerContentWidth(drawerElement, navigationItemSpacing)`
@@ -474,6 +540,7 @@ Exports
 - `normalizeShellNavigationItemSpacing(value, fallback = DEFAULT_SHELL_NAVIGATION_ITEM_SPACING)`
 - `normalizeShellRailWidth(value, fallback = DEFAULT_SHELL_RAIL_WIDTH)`
 - `resolveContentAwareDrawerWidth(measurements = [], { endGap = DEFAULT_SHELL_NAVIGATION_ITEM_SPACING, minimum = MINIMUM_SHELL_DRAWER_WIDTH, maximum = MAXIMUM_SHELL_DRAWER_WIDTH, fallback = DEFAULT_SHELL_DRAWER_WIDTH } = {})`
+- `resolveMaterialDrawerWidth({ modal = false, viewportWidth = Number.POSITIVE_INFINITY } = {})`
 Local functions
 - `clampNumber(value, minimum, maximum)`
 - `measureRenderedText(element)`
@@ -497,6 +564,17 @@ Local functions
 ### `src/client/support/navigationLinkKeyboard.js`
 Exports
 - `activateShellNavigationLinkOnSpace(event)`
+
+### `src/client/support/navigationPresentation.js`
+Exports
+- `NO_SHELL_NAVIGATION_PRESENTATION`
+- `NO_SHELL_PAGE_ACTIONS_TARGET`
+- `NO_VUETIFY_ICONS`
+- `SHELL_NAVIGATION_PRESENTATION_KEY`
+- `SHELL_PAGE_ACTIONS_ID`
+- `SHELL_PAGE_ACTIONS_TARGET_KEY`
+- `VUETIFY_ICONS_KEY`
+- `filledIconAlias(icon, aliases)`
 
 ### `src/client/support/primaryNavigation.js`
 Exports
@@ -523,7 +601,15 @@ Exports
 
 ### `src/client/support/shellLayoutClass.js`
 Exports
-- `resolveShellLayoutClass(displayName = "", viewportWidth = pageViewportWidth())`
+- `resolveShellLayoutClass(viewportWidth = pageViewportWidth())`
+
+### `src/client/support/windowSizeClass.js`
+Exports
+- `EXPANDED_MIN_WIDTH`
+- `LARGE_MIN_WIDTH`
+- `MEDIUM_MIN_WIDTH`
+- `WINDOW_SIZE_CLASSES`
+- `resolveWindowSizeClass(width)`
 
 ### `src/client/types.js`
 Exports
@@ -552,8 +638,25 @@ Exports
 Local functions
 - `createSurfacePlacement(surface, order, label, suffix)`
 - `createSurfacePlacements(surface)`
+- `refuseBlockedRecord(to)`
+
+### `fixtures/adaptive-shell/src/RecordListPage.vue`
+Exports
+- None
+
+### `fixtures/adaptive-shell/src/RecordPage.vue`
+Exports
+- None
+
+### `fixtures/adaptive-shell/src/records.js`
+Exports
+- `records`
 
 ### `fixtures/adaptive-shell/src/ScreenPage.vue`
+Exports
+- None
+
+### `fixtures/adaptive-shell/src/SettingsPage.vue`
 Exports
 - None
 
@@ -612,10 +715,6 @@ Exports
 - None
 
 ### `patterns/application-shell/example/src/pages/home/settings/general/index.vue`
-Exports
-- None
-
-### `patterns/application-shell/example/src/pages/home/settings/index.vue`
 Exports
 - None
 

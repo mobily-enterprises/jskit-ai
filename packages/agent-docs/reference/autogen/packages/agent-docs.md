@@ -291,10 +291,6 @@ Exports
 Exports
 - None
 
-### `patterns/shell-foundation/example/src/pages/home/settings/index.vue`
-Exports
-- None
-
 ### `patterns/shell-foundation/example/src/placement.js`
 Exports
 - `addPlacement`

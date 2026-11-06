@@ -34,7 +34,20 @@ questionnaire.
 
 - Route pages stay thin and use `useCrudListScreen()`, `useCrudViewScreen()`,
   or `useCrudAddEditScreen()`.
+- Each route page declares its app bar title and its parent with
+  `definePage({ meta: { jskit: { title, parent } } })`. The list is a main
+  menu destination with a title only; the view and new pages name the list as
+  their parent, and the edit page names the view. The shell's Up arrow follows
+  the parent, so screens and pages add no Back links.
 - Route pages do not add a page header or standalone heading by default.
+- The shared screens put their actions in the top app bar: Refresh on the list,
+  Edit and the `actions` slot (such as `CrudDeleteAction`) on the view, and
+  Cancel and Save on a form. The list's create action is an extended FAB on
+  compact and medium windows and the app bar's primary button on wider ones.
+- Save, Cancel and a completed delete replace the form's or the deleted record's
+  history entry, so neither Up nor Back reopens it.
+- View fields are two-line list items with the value first:
+  `<v-list-item :title="record.author" subtitle="Author" />`.
 - Transport and validators come from the shared resource contract.
 - Initial visible loading uses structure-matching skeletons; pending buttons use
   stable disabled labels, never spinners.

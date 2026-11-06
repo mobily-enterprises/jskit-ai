@@ -10,7 +10,7 @@ const preferences = props.runtime.preferences;
 </script>
 
 <template>
-  <v-sheet rounded="lg" border class="account-settings-section">
+  <div class="account-settings-section">
     <div class="account-settings-section__body">
       <v-form @submit.prevent="preferences.submit" novalidate>
         <v-row>
@@ -117,7 +117,7 @@ const preferences = props.runtime.preferences;
         </v-btn>
       </v-form>
     </div>
-  </v-sheet>
+  </div>
 </template>
 
 <style scoped>

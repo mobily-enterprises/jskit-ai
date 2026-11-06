@@ -30,6 +30,7 @@ export default defineConfig({
             { text: "Quickstart", link: "/guide/app-setup/quickstart" },
             { text: "Application Foundations", link: "/guide/app-setup/initial-scaffolding" },
             { text: "Upgrade JSKIT", link: "/guide/app-setup/upgrading-jskit" },
+            { text: "Move to the Material 3 Defaults", link: "/guide/app-setup/material-3-migration" },
             { text: "Migrate an Existing Application", link: "/guide/app-setup/existing-application-migration" },
             { text: "A More Interesting Shell", link: "/guide/app-setup/a-more-interesting-shell" },
             { text: "Authentication", link: "/guide/app-setup/authentication" },

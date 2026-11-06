@@ -25,11 +25,11 @@ function adminChildPath(suffix = "") {
       <v-btn color="primary" variant="tonal" :to="adminChildPath('workspace/settings')">Settings</v-btn>
     </div>
 
-    <v-sheet rounded="lg" border class="workspace-admin-screen__panel">
-      <p class="text-body-2 text-medium-emphasis mb-0">
+    <div class="workspace-admin-screen__panel">
+      <p class="text-body-medium on-surface-variant mb-0">
         Review workspace access, members, and operational settings from this surface.
       </p>
-    </v-sheet>
+    </div>
   </section>
 </template>
 

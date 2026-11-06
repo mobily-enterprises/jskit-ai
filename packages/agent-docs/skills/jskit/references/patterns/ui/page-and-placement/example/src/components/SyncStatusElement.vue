@@ -1,7 +1,7 @@
 <template>
   <div class="sync-status" role="status" aria-label="Catalogue synchronized">
-    <v-icon icon="mdi-cloud-check-outline" size="small" aria-hidden="true" />
-    <span class="text-body-2">Synced</span>
+    <v-icon icon="$cloudDone" size="small" aria-hidden="true" />
+    <span class="text-body-medium">Synced</span>
   </div>
 </template>
 

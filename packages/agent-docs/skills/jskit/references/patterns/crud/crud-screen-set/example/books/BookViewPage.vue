@@ -5,6 +5,9 @@ import { useCrudDeleteAction } from "@jskit-ai/http-web/client/composables/useCr
 import { useCrudViewScreen } from "@jskit-ai/http-web/client/composables/useCrudViewScreen";
 import { bookResource } from "@local/books/shared";
 
+// Up returns to the page the book was opened from, or else to the list.
+definePage({ meta: { jskit: { title: "Book", parent: "/books" } } });
+
 const screen = useCrudViewScreen({
   resource: bookResource,
   resourceNamespace: "books",
@@ -29,21 +32,14 @@ const deleteAction = useCrudDeleteAction({
   <CrudViewScreen
     :screen="screen"
     resource-singular-title="Book"
-    resource-plural-title="Books"
   >
     <template #actions>
       <CrudDeleteAction :action="deleteAction" resource-singular-title="Book" />
     </template>
 
     <template #fields="{ view }">
-      <v-col cols="12" md="6">
-        <div class="text-caption text-medium-emphasis">Author</div>
-        <div class="text-body-1">{{ view.record?.author }}</div>
-      </v-col>
-      <v-col cols="12">
-        <div class="text-caption text-medium-emphasis">Notes</div>
-        <div class="text-body-1 text-pre-wrap">{{ view.record?.notes || "No notes" }}</div>
-      </v-col>
+      <v-list-item :title="view.record?.author" subtitle="Author" />
+      <v-list-item :title="view.record?.notes || 'No notes'" subtitle="Notes" />
     </template>
   </CrudViewScreen>
 </template>

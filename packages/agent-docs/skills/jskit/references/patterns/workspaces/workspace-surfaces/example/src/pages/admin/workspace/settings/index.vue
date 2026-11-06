@@ -1,15 +1,8 @@
 <template>
-  <section class="workspace-settings-landing">
-    <v-sheet rounded="lg" border class="workspace-settings-landing__panel">
-      <p class="text-body-2 text-medium-emphasis mb-0">
-        This app has no workspace-level settings configured.
-      </p>
-    </v-sheet>
+  <section class="on-surface-variant text-center py-12">
+    <v-icon icon="$settings" size="48" />
+    <p class="text-body-large mt-4 mb-0">
+      This app has no workspace-level settings configured.
+    </p>
   </section>
 </template>
-
-<style scoped>
-.workspace-settings-landing__panel {
-  padding: 1rem;
-}
-</style>

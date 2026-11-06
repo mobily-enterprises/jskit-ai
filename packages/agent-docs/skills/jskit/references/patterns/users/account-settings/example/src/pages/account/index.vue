@@ -3,6 +3,13 @@
   "meta": {
     "guard": {
       "policy": "authenticated"
+    },
+    "jskit": {
+      "title": "Account settings",
+      "parent": {
+        "surface": "home",
+        "path": "/"
+      }
     }
   }
 }

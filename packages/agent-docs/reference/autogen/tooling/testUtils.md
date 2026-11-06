@@ -27,3 +27,10 @@ Exports
 - `createFakeFastifyPolicyRuntime({ csrfHandler = passCsrfProtection } = {})`
 Local functions
 - `passCsrfProtection(_request, _reply, done)`
+
+### `visualBaseline.mjs`
+Exports
+- `expectMaterialBaseline(page, { directory, name, probes })`
+- `readMaterialStyles(page, probes)`
+Local functions
+- `comparePixels(page, actual, expected)`
