@@ -144,6 +144,8 @@ const APP_THEME = "export const theme = { seed: \"#6750A4\", icons: {} };\n";
 const DRIFTING_APP = {
   "package.json": SHELL_MANIFEST,
   "src/main.js": "import { createVuetify } from \"vuetify\";\nexport const vuetify = createVuetify({ theme: { defaultTheme: \"light\" } });\n",
+  // A layout that shows the shell's page title (in a bar without Up), so the page's own h1 is a second one.
+  "src/pages/home.vue": "<template>\n  <header><ShellPageTitle /></header>\n  <RouterView />\n</template>\n",
   "src/pages/home/books.vue": DRIFTING_PAGE,
   "src/theme/palette.js": "export const seed = \"#e0a526\";\n",
   "tests/e2e/books.spec.js": "await page.evaluate(() => history.back());\n",
@@ -155,7 +157,7 @@ test("jskit check m3 reports each drifting pattern once, with its line and rule"
     const result = await checkMaterial3({ projectRoot: root });
     assert.equal(result.ok, false);
     assert.equal(result.wholeApp, true);
-    assert.deepEqual(result.files, ["src/main.js", "src/pages/home/books.vue", "src/theme/palette.js"]);
+    assert.deepEqual(result.files, ["src/main.js", "src/pages/home.vue", "src/pages/home/books.vue", "src/theme/palette.js"]);
     assert.deepEqual(findingLines(result), [
       "src/main.js:2 m3/dark-scheme",
       "src/main.js:2 m3/dark-scheme",
@@ -195,7 +197,7 @@ test("jskit check m3 reports each drifting pattern once, with its line and rule"
 
     const navigation = await checkMaterial3({ projectRoot: root, navigationOnly: true });
     assert.deepEqual(findingLines(navigation), DRIFTING_NAVIGATION);
-    assert.match(formatNavigationReport(navigation), /14 error\(s\) in 3 file\(s\) and 0 shell page\(s\)\. Fix each one; no comment excuses a navigation rule\.$/u);
+    assert.match(formatNavigationReport(navigation), /14 error\(s\) in 4 file\(s\) and 0 shell page\(s\)\. Fix each one; no comment excuses a navigation rule\.$/u);
   });
 });
 
@@ -312,7 +314,7 @@ test("jskit check m3 narrows to given paths and checks the scheme only with the 
   await withApp(DRIFTING_APP, async (root) => {
     const section = await checkMaterial3({ projectRoot: root, paths: ["src/pages", "src/pages/home/gone.vue"] });
     assert.equal(section.wholeApp, false);
-    assert.deepEqual(section.files, ["src/pages/home/books.vue"]);
+    assert.deepEqual(section.files, ["src/pages/home.vue", "src/pages/home/books.vue"]);
     assert.deepEqual(section.missing, ["src/pages/home/gone.vue"]);
     assert.equal(section.findings.some(({ rule }) => rule === "m3/dark-scheme"), false);
     assert.match(formatMaterial3Report(section), /Skipped src\/pages\/home\/gone\.vue: not found\./u);
@@ -331,6 +333,67 @@ test("an in-page h1 is a finding only in an app that uses the JSKIT shell", asyn
     "src/pages/index.vue": "<template>\n  <h1>Welcome</h1>\n  <h1>Again</h1>\n</template>\n"
   }, async (root) => {
     assert.deepEqual(findingLines(await checkMaterial3({ projectRoot: root })), ["src/pages/index.vue:3 m3/duplicate-h1"]);
+  });
+});
+
+// Only a page under the shell's page title has its title there: a hero front page, an invite page and the components
+// only they render own their h1; a page a shell layout renders, a layout's own bar and the components they render
+// do not, and nor does a component whose page can't be read (one routed from JavaScript).
+test("an in-page h1 is a finding only under the shell's page title", async () => {
+  const h1 = (title) => `<template>\n  <h1>${title}</h1>\n</template>\n`;
+  await withApp({
+    "package.json": SHELL_MANIFEST,
+    "src/App.vue": "<template>\n  <RouterView />\n</template>\n",
+    "src/pages/index.vue": h1("Welcome"),
+    "src/pages/invite/[token].vue": "<script setup>\nimport InviteHero from \"@/components/InviteHero.vue\";\n</script>\n<template>\n  <InviteHero />\n</template>\n",
+    "src/components/InviteHero.vue": h1("You're invited"),
+    "src/pages/home.vue": "<script setup>\nimport ShellLayout from \"@/components/ShellLayout.vue\";\n</script>\n<template>\n  <ShellLayout>\n    <RouterView />\n  </ShellLayout>\n</template>\n",
+    "src/pages/home/books.vue": "<script setup>\nimport BookHeader from \"./_components/BookHeader.vue\";\n</script>\n<template>\n  <BookHeader />\n  <h1>Books</h1>\n</template>\n",
+    "src/pages/home/_components/BookHeader.vue": h1("Books"),
+    "src/pages/studio.vue": "<template>\n  <v-app-bar><ShellPageTitle /></v-app-bar>\n  <RouterView />\n</template>\n",
+    "src/pages/studio/index.vue": h1("Studio"),
+    "src/views/RoutedFromJs.vue": h1("Routed")
+  }, async (root) => {
+    const result = await checkMaterial3({ projectRoot: root });
+    assert.deepEqual(findingLines(result).filter((line) => line.endsWith("m3/duplicate-h1")), [
+      "src/pages/home/_components/BookHeader.vue:2 m3/duplicate-h1",
+      "src/pages/home/books.vue:6 m3/duplicate-h1",
+      "src/pages/studio/index.vue:2 m3/duplicate-h1",
+      "src/views/RoutedFromJs.vue:2 m3/duplicate-h1"
+    ]);
+    assert.match(result.findings.find(({ rule }) => rule === "m3/duplicate-h1").message, /under the top app bar/u);
+  });
+});
+
+// Content colours (an identity palette, artwork, a brand mark) are named hex exports of src/theme/palettes.js, read
+// by bindings and used as they are in both schemes; a hex written in a component is still a finding that names them.
+test("content colours live in src/theme/palettes.js and components read them through bindings", async () => {
+  await withApp({
+    "package.json": SHELL_MANIFEST,
+    "src/main.js": CONFORMING_BOOTSTRAP,
+    "src/theme/index.js": APP_THEME,
+    "src/theme/palettes.js": "export const botColours = [\"#6750A4\", \"#B3261E\", \"#386A20\"];\nexport const fileTypeTints = { js: \"#F7DF1E\", py: \"#3776AB\" };\n",
+    "src/components/BotBadge.vue": [
+      "<script setup>",
+      "import { botColours, fileTypeTints } from \"../theme/palettes.js\";",
+      "const props = defineProps({ bot: { type: Object, required: true } });",
+      "const ring = botColours[props.bot.colour];",
+      "</script>",
+      "<template>",
+      "  <v-avatar :style=\"{ backgroundColor: botColours[bot.colour] }\">",
+      "    <svg viewBox=\"0 0 24 24\"><path :fill=\"fileTypeTints[bot.language]\" d=\"M0 0h24v24H0z\" /></svg>",
+      "    <svg viewBox=\"0 0 24 24\"><path fill=\"#F7DF1E\" d=\"M0 0h24v24H0z\" /></svg>",
+      "  </v-avatar>",
+      "</template>",
+      "<style scoped>",
+      ".v-avatar { outline: 2px solid v-bind(ring); }",
+      "</style>",
+      ""
+    ].join("\n")
+  }, async (root) => {
+    const result = await checkMaterial3({ projectRoot: root });
+    assert.deepEqual(findingLines(result), ["src/components/BotBadge.vue:9 m3/raw-hex"]);
+    assert.match(result.findings[0].message, /named export of src\/theme\/palettes\.js/u);
   });
 });
 
@@ -442,6 +505,88 @@ test("every inner shell page declares a parent and no main-navigation page decla
 
     const section = await checkMaterial3({ projectRoot: root, paths: ["src/pages/home/suppliers"] });
     assert.deepEqual(findingLines(section), ["src/pages/home/suppliers/[supplierId]/edit.vue:2 nav/missing-parent"]);
+  });
+});
+
+// A Home link shown on the account surface too: it names its surface, so it leads to home's "/" from both.
+const accountApp = (homeLinkProps) => ({
+  "package.json": SHELL_MANIFEST,
+  "config/public.js": "const config = {};\nconfig.surfaceDefinitions = {};\nconfig.surfaceDefinitions.home = { id: \"home\", pagesRoot: \"home\" };\nconfig.surfaceDefinitions.account = { id: \"account\", pagesRoot: \"account\" };\nexport { config };\n",
+  "src/placement.js": `addPlacement({ id: "app.home", target: "shell.primary-nav", kind: "link", surfaces: ["home", "account"], props: ${homeLinkProps} });\n`,
+  "src/pages/home.vue": SHELL_LAYOUT,
+  "src/pages/home/index.vue": "<template>\n  <section />\n</template>\n",
+  "src/pages/account.vue": SHELL_LAYOUT.replace("\"surface\": \"home\"", "\"surface\": \"account\""),
+  "src/pages/account/index.vue": pageWith("definePage({ meta: { jskit: { parent: { surface: \"home\", path: \"/\" } } } });")
+});
+
+test("a main-navigation link that names its surface is a destination of that surface only", async () => {
+  await withApp(accountApp("{ label: \"Home\", surface: \"home\", scopedSuffix: \"/\" }"), async (root) => {
+    assert.deepEqual(findingLines(await checkMaterial3({ projectRoot: root, navigationOnly: true })), []);
+  });
+  // A link that names no surface leads to "/" on each surface it shows on, so account's "/" is a destination.
+  await withApp(accountApp("{ label: \"Start\", scopedSuffix: \"/\" }"), async (root) => {
+    assert.deepEqual(findingLines(await checkMaterial3({ projectRoot: root, navigationOnly: true })), [
+      "src/pages/account/index.vue:2 nav/top-level-parent"
+    ]);
+  });
+});
+
+test("a page that declares a parent under no shell layout is a finding: its title, Up and actions never show", async () => {
+  const app = accountApp("{ label: \"Home\", surface: \"home\", scopedSuffix: \"/\" }");
+  delete app["src/pages/account.vue"];
+  await withApp(app, async (root) => {
+    const result = await checkMaterial3({ projectRoot: root, navigationOnly: true });
+    assert.deepEqual(findingLines(result), ["src/pages/account/index.vue:2 nav/missing-shell-layout"]);
+    assert.match(result.findings[0].message, /Give the surface its layout, src\/pages\/account\.vue: ShellLayout around <RouterView \/>, with meta\.jskit\.surface "account"/u);
+  });
+  // An App.vue that draws the bar around every page leaves none outside it.
+  await withApp({ ...app, "src/App.vue": "<script setup>\nimport ShellLayout from \"@/components/ShellLayout.vue\";\n</script>\n<template>\n  <ShellLayout><RouterView /></ShellLayout>\n</template>\n" }, async (root) => {
+    assert.deepEqual(findingLines(await checkMaterial3({ projectRoot: root, navigationOnly: true })), []);
+  });
+});
+
+// Main navigation is literal data: a placement whose destination is computed can't be read, so it is a finding, and
+// no page is judged for a missing parent while one is unreadable.
+const placementApp = (placement) => ({
+  "package.json": SHELL_MANIFEST,
+  "config/public.js": "const config = {};\nconfig.surfaceDefinitions = {};\nconfig.surfaceDefinitions.home = { id: \"home\", pagesRoot: \"home\" };\nexport { config };\n",
+  "src/placement.js": placement,
+  "src/pages/home.vue": SHELL_LAYOUT,
+  "src/pages/home/index.vue": "<template>\n  <section />\n</template>\n",
+  "src/pages/home/books/index.vue": "<template>\n  <section />\n</template>\n",
+  "src/pages/home/shelves/index.vue": "<template>\n  <section />\n</template>\n"
+});
+
+test("a main-navigation placement that isn't literal data is a finding instead of a missing parent", async () => {
+  await withApp(placementApp([
+    "function navLink(id, order, label, icon, suffix) {",
+    "  return { id, target: \"shell.primary-nav\", kind: \"link\", surfaces: [\"home\"], order, props: { label, icon, scopedSuffix: suffix, unscopedSuffix: suffix } };",
+    "}",
+    "addPlacement(navLink(\"app.books\", 10, \"Books\", \"$book\", \"/books\"));",
+    "addPlacement({ ...BASE, id: \"app.shelves\", target: \"shell.primary-nav\", props: { scopedSuffix: \"/shelves\" } });",
+    "addPlacement({ id: \"app.shelf\", target: \"shell.secondary-nav\", kind: \"link\", props: { scopedSuffix: `/shelves/${shelfId}` } });",
+    ""
+  ].join("\n")), async (root) => {
+    const result = await checkMaterial3({ projectRoot: root, navigationOnly: true });
+    assert.deepEqual(findingLines(result), [
+      "src/placement.js:2 nav/placement-data",
+      "src/placement.js:5 nav/placement-data",
+      "src/placement.js:6 nav/placement-data"
+    ]);
+    assert.deepEqual(result.findings.map(({ message }) => /literal data: (.+?)\. Declare/u.exec(message)?.[1]), [
+      "its scopedSuffix is computed",
+      "it spreads another object",
+      "its scopedSuffix is computed"
+    ]);
+    assert.match(result.findings[0].message, /Declare each placement literally/u);
+  });
+  // Declared literally, both destinations are read and are top-level; a label's words are not link keys.
+  await withApp(placementApp([
+    "addPlacement({ id: \"app.books\", target: \"shell.primary-nav\", kind: \"link\", surfaces: [\"home\"], order: 10, props: { label: \"Go to books...\", icon: \"$book\", surface: \"home\", scopedSuffix: \"/books\", unscopedSuffix: \"/books\" } });",
+    "addPlacement({ id: \"app.shelves\", target: \"shell.primary-nav\", kind: \"link\", surfaces: [\"home\"], props: { label: t(\"nav.shelves\"), scopedSuffix: \"/shelves\" } });",
+    ""
+  ].join("\n")), async (root) => {
+    assert.deepEqual(findingLines(await checkMaterial3({ projectRoot: root, navigationOnly: true })), []);
   });
 });
 
@@ -584,6 +729,6 @@ test("jskit check m3 parses as its own command and fails the CLI with the report
     assert.match(failure.stderr, /src\/pages\/home\/books\.vue:23:\d+ {2}nav\/history {2}router\.back\(/u);
     assert.match(failure.stderr, /guide\/framework\/material-3#forbidden-in-app-code/u);
     assert.match(failure.stderr, /^Exceptions \(1\):\nsrc\/pages\/home\/books\.vue:30 {2}m3\/raw-hex {2}the partner's logo colour is contractual$/mu);
-    assert.match(failure.stderr, /Material 3 check: 27 finding\(s\) in 1 of 1 file\(s\) of the given paths\. 14 of them nav\/\* rules, which plain jskit check fails on\. Exceptions: 1\.$/mu);
+    assert.match(failure.stderr, /Material 3 check: 27 finding\(s\) in 1 of 2 file\(s\) of the given paths\. 14 of them nav\/\* rules, which plain jskit check fails on\. Exceptions: 1\.$/mu);
   });
 });

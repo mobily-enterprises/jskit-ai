@@ -13,7 +13,9 @@ const RULES = Object.freeze({
   "nav/raw-link": "forbidden-in-app-code",
   "nav/back-control": "forbidden-in-app-code",
   "nav/missing-parent": "what-an-app-declares",
-  "nav/top-level-parent": "what-an-app-declares"
+  "nav/top-level-parent": "what-an-app-declares",
+  "nav/placement-data": "what-an-app-declares",
+  "nav/missing-shell-layout": "what-an-app-declares"
 });
 
 const HISTORY_CALL = /(?<![\w$.])(?:(?:window|globalThis)\s*\.\s*)?history\s*\.\s*(?:back|go|forward|pushState|replaceState)\s*\(/gu;
@@ -60,6 +62,7 @@ const MAIN_NAV_TARGET = /\btarget\s*:\s*["']shell\.(?:primary|secondary)-nav["']
 // draws its own bar renders shell-web's Up control in it.
 const SHELL_LAYOUT_IMPORT = /\bfrom\s*["'](?:@\/components\/ShellLayout|@jskit-ai\/shell-web\/client\/components\/ShellLayout)(?:\.vue)?["']/u;
 const SHELL_UP_TAG = /<\s*(?:ShellUpButton|shell-up-button)\b/u;
+const SHELL_TITLE_TAG = /<\s*(?:ShellPageTitle|shell-page-title)\b/u;
 const LOCAL_IMPORT = /\bfrom\s*["']((?:@\/|\.{1,2}\/)[^"']+)["']/gu;
 const ROUTER_VIEW_TAG = /<\s*(?:RouterView|router-view)\b/u;
 
@@ -247,21 +250,47 @@ function enclosingObject(text, offset) {
 
 const stringValue = (text, key) => new RegExp(`\\b${key}\\s*:\\s*(["'\\u0060])([^"'\\u0060]*)\\1`, "u").exec(text)?.[2];
 
-// Main-navigation destinations, by surface: every main-navigation placement's suffixes.
+// Main-navigation destinations, by surface: every main-navigation placement's suffixes. A link that names its
+// surface (props.surface) leads to that surface's page wherever it shows, so it is a destination of that surface only;
+// one that names none leads to the page on each surface it shows on. A placement is literal data; one whose suffixes or
+// surface are computed (built by a helper, spread or interpolated) can't be read, and is returned as unreadable.
 function readMainNavigation(sources) {
   const destinations = [];
-  for (const source of sources) {
+  const unreadable = [];
+  for (const { file, source } of sources) {
     for (const match of source.matchAll(MAIN_NAV_TARGET)) {
       const placement = enclosingObject(source, match.index)?.text || "";
-      const surfaces = [stringValue(placement, "surface"), ...(/\bsurfaces\s*:\s*\[([^\]]*)\]/u.exec(placement)?.[1] || "")
-        .split(",").map((entry) => entry.trim().replace(/^["'`]|["'`]$/gu, ""))].filter(Boolean);
+      const computed = computedPlacementPart(placement);
+      if (computed) {
+        unreadable.push({ file, source, offset: match.index, computed });
+        continue;
+      }
+      const surface = stringValue(placement, "surface");
+      const surfaces = surface ? [surface] : (/\bsurfaces\s*:\s*\[([^\]]*)\]/u.exec(placement)?.[1] || "")
+        .split(",").map((entry) => entry.trim().replace(/^["'`]|["'`]$/gu, "")).filter(Boolean);
       for (const key of ["scopedSuffix", "unscopedSuffix"]) {
         const suffix = stringValue(placement, key);
         if (suffix !== undefined) destinations.push({ suffix: normalisePath(suffix.split(/[?#]/u)[0]), surfaces });
       }
     }
   }
-  return destinations;
+  return { destinations, unreadable };
+}
+
+// What makes a placement computed rather than literal data, or "": a spread, props that aren't an object literal, or
+// a link key that isn't a plain string (or a list of strings, for surfaces), such as a variable, a call or an
+// interpolated template.
+function computedPlacementPart(placement) {
+  if (/[{,]\s*\.\.\./u.test(placement)) return "it spreads another object";
+  if (/(?<=[{,]\s*)props\s*:(?!\s*\{)/u.test(placement)) return "its props are computed";
+  for (const key of ["scopedSuffix", "unscopedSuffix", "surface", "to"]) {
+    // The key as a property, `key: value` or shorthand `key`, whose value is not a quoted string without ${}.
+    const property = new RegExp(`(?<=[{,]\\s*)${key}\\s*(?::(?!\\s*(["'\\u0060])[^"'\\u0060$]*\\1)|(?=[,}]))`, "u");
+    if (property.test(placement)) return `its ${key} is computed`;
+  }
+  const surfaces = /(?<=[{,]\s*)surfaces\s*:\s*(\[[^\]]*\])?/u.exec(placement);
+  if (surfaces && !/^\[\s*(?:(["'`])[^"'`$]*\1\s*,?\s*)*\]$/u.test(surfaces[1] || "")) return "its surfaces are computed";
+  return "";
 }
 
 function normalisePath(value) {
@@ -333,15 +362,16 @@ function readPage(file, source) {
 }
 
 // Whether a component draws the shell's top app bar, and with it Up: it, or a component it imports from the app,
-// renders ShellLayout (directly or through the app's wrapper) or shell-web's ShellUpButton in a bar of its own.
-function createShellBarReader(appFiles, read) {
+// renders ShellLayout (directly or through the app's wrapper) or shell-web's ShellUpButton in a bar of its own (or,
+// given SHELL_TITLE_TAG, the bar's page title).
+function createShellBarReader(appFiles, read, tag = SHELL_UP_TAG) {
   const known = new Set(appFiles);
   const verdicts = new Map();
   async function drawsShellBar(file) {
     if (verdicts.has(file)) return verdicts.get(file);
     verdicts.set(file, false);
     const source = await read(file);
-    let verdict = SHELL_LAYOUT_IMPORT.test(source) || SHELL_UP_TAG.test(splitVue(source).template?.text || "");
+    let verdict = SHELL_LAYOUT_IMPORT.test(source) || tag.test(splitVue(source).template?.text || "");
     for (const match of source.matchAll(LOCAL_IMPORT)) {
       if (verdict) break;
       const imported = localComponent(file, match[1], known);
@@ -351,6 +381,59 @@ function createShellBarReader(appFiles, read) {
     return verdict;
   }
   return drawsShellBar;
+}
+
+/**
+ * The app's .vue files that render under the shell's page title, where an in-page h1 would be a second one: a file
+ * that shows the title (ShellLayout's bar, or ShellPageTitle in a bar of its own), a page a layout showing it renders,
+ * and a component such a file imports. A component no .vue file imports (routed or placed from JavaScript) counts
+ * too, as where it renders can't be read; App.vue counts only when it shows the title itself.
+ * @param {{ root: string, appFiles: string[] }} options
+ */
+async function readTitledFiles({ root, appFiles }) {
+  const sources = new Map();
+  const read = async (file) => {
+    if (!sources.has(file)) sources.set(file, await readFile(path.join(root, file), "utf8"));
+    return sources.get(file);
+  };
+  const known = new Set(appFiles);
+  const vueFiles = appFiles.filter((file) => file.endsWith(".vue"));
+  const showsTitle = createShellBarReader(appFiles, read, SHELL_TITLE_TAG);
+  const importers = new Map();
+  for (const file of vueFiles) {
+    for (const match of (await read(file)).matchAll(LOCAL_IMPORT)) {
+      const imported = localComponent(file, match[1], known);
+      if (imported) importers.set(imported, [...(importers.get(imported) || []), file]);
+    }
+  }
+  const verdicts = new Map();
+  async function titled(file) {
+    if (verdicts.has(file)) return verdicts.get(file);
+    verdicts.set(file, false);
+    let verdict = await showsTitle(file);
+    if (!verdict && isPageFile(file)) {
+      // The layouts that render the page: src/pages/home/settings.vue renders home/settings/*.
+      const segments = pageKey(file).split("/");
+      for (let length = segments.length - 1; length > 0 && !verdict; length -= 1) {
+        const layout = `src/pages/${segments.slice(0, length).join("/")}.vue`;
+        if (known.has(layout) && ROUTER_VIEW_TAG.test(splitVue(await read(layout)).template?.text || "")) {
+          verdict = await showsTitle(layout);
+        }
+      }
+    } else if (!verdict && path.posix.basename(file) !== "App.vue") {
+      const users = importers.get(file) || [];
+      verdict = users.length === 0;
+      for (const user of users) {
+        if (verdict) break;
+        verdict = await titled(user);
+      }
+    }
+    verdicts.set(file, verdict);
+    return verdict;
+  }
+  const result = new Set();
+  for (const file of vueFiles) if (await titled(file)) result.add(file);
+  return result;
 }
 
 // The app's .vue file an import names: "@/components/Bar.vue" is src/components/Bar.vue; "./Bar" is beside the file.
@@ -383,10 +466,16 @@ async function checkPageParents({ root, appFiles, pageFiles, report }) {
   }
   const surfaces = readSurfaces(configSource, [...pages.values()].map(({ file }) => routeOf(file)));
   const scripts = appFiles.filter((file) => /\.(?:[cm]?[jt]s|vue)$/u.test(file));
-  const navigation = readMainNavigation(await Promise.all(scripts.map(async (file) => blankJsComments(await read(file)))));
+  const navigation = readMainNavigation(await Promise.all(scripts.map(async (file) => ({ file, source: blankJsComments(await read(file)) }))));
+  for (const { file, source, offset, computed } of navigation.unreadable) {
+    if (!pageFiles.includes(file)) continue;
+    report({ rule: "nav/placement-data", file, ...lineIndex(source)(offset), message: `A main-navigation placement that isn't literal data: ${computed}. Declare each placement literally, with plain string suffixes and surface, so its destination can be read; until then no page is judged for nav/missing-parent.` });
+  }
   const surfacePath = (file, surface) => normalisePath(routePattern(routeOf(file).slice(surface.pagesRoot.length)));
-  const isDestination = (relative, surface) => navigation.some(({ suffix, surfaces: owners }) =>
+  const isDestination = (relative, surface) => navigation.destinations.some(({ suffix, surfaces: owners }) =>
     suffix === relative && (owners.length === 0 || owners.includes(surface.id) || owners.includes("*")));
+  // An App.vue that wraps every page in the shell's bar leaves no page outside it.
+  const appShell = appFiles.includes("src/App.vue") && await drawsShellBar("src/App.vue");
   const judged = [];
   for (const file of pageFiles.filter(isPageFile)) {
     const page = pages.get(pageKey(file));
@@ -396,11 +485,19 @@ async function checkPageParents({ root, appFiles, pageFiles, report }) {
     const segments = pageKey(file).split("/");
     const layouts = segments.slice(1).map((_, index) => pages.get(segments.slice(0, segments.length - 1 - index).join("/")))
       .filter((entry) => entry?.layout);
-    // Up lives in the shell's top app bar, so only pages a shell layout renders have one.
-    if (!layouts.some((entry) => entry.shell)) continue;
     const relative = surfacePath(file, surface);
-    const destination = isDestination(relative, surface);
     const position = lineIndex(page.source);
+    // Up lives in the shell's top app bar, so only pages a shell layout renders have one. A page that declares a
+    // parent expects that bar, with its title, Up and page actions; under no shell layout it shows none of them.
+    if (!layouts.some((entry) => entry.shell)) {
+      if (page.parent && !appShell && !await drawsShellBar(file)) {
+        const at = position(page.parent.offset + PARENT_KEY.exec(page.parent.text).index);
+        const layout = surface.pagesRoot ? `, src/pages/${surface.pagesRoot}.vue` : "";
+        report({ rule: "nav/missing-shell-layout", file, ...at, message: `${relative} of ${surface.id} declares a parent, but no layout that draws the shell's top app bar renders it, so its title, Up and page actions never show. Give the surface its layout${layout}: ShellLayout around <RouterView />, with meta.jskit.surface "${surface.id}".` });
+      }
+      continue;
+    }
+    const destination = isDestination(relative, surface);
     if (destination && page.parent) {
       const at = position(page.parent.offset + PARENT_KEY.exec(page.parent.text).index);
       report({ rule: "nav/top-level-parent", file, ...at, message: `${relative} is a main-navigation destination of ${surface.id}, so it declares no parent: choosing it starts a fresh trail.` });
@@ -415,7 +512,7 @@ async function checkPageParents({ root, appFiles, pageFiles, report }) {
     const inherited = chain.find((entry) => entry.parent);
     const topLevel = destination || relative === "/" || chain.some((entry) => isDestination(surfacePath(entry.file, surface), surface));
     judged.push({ file, route: relative, surface: surface.id, topLevel, parent: page.parent ? "own" : inherited ? "inherited" : null });
-    if (!topLevel && !page.parent && !inherited) {
+    if (!topLevel && !page.parent && !inherited && navigation.unreadable.length === 0) {
       const at = position(page.declarations[0]?.offset ?? 0);
       report({ rule: "nav/missing-parent", file, ...at, message: `Inner page ${relative} of ${surface.id} has no parent. Declare it once in the page's route meta (or its layout's, for tabs), so Up works after a direct entry.` });
     }
@@ -441,5 +538,6 @@ export {
   checkPageParents,
   checkScriptBackNames,
   isInAppPath,
-  isPageFile
+  isPageFile,
+  readTitledFiles
 };

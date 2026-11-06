@@ -7,7 +7,8 @@ import {
   checkLinkAttribute,
   checkNavigationCode,
   checkPageParents,
-  checkScriptBackNames
+  checkScriptBackNames,
+  readTitledFiles
 } from "./navigation.mjs";
 import {
   HEX_COLOUR,
@@ -52,6 +53,10 @@ const SKIPPED_DIRECTORIES = new Set([
 const SKIPPED_FILE = /\.(?:test|spec)\.[cm]?[jt]s$|\.d\.ts$/u;
 // The generated colour scheme is the one home of hex values.
 const THEME_DIRECTORY = "theme";
+// Colours that are content, not UI, keep one value in both schemes, so they are not theme colours (which are toned per
+// scheme): they are named hex exports of src/theme/palettes.js, which this check, like all of src/theme/, reads as
+// the place for hex values.
+const CONTENT_COLOUR = "A content colour (an identity palette, artwork, a brand mark, a chart series) is a named export of src/theme/palettes.js, used as it is.";
 const WHOLE_APP_ROOTS = Object.freeze(["src", "packages"]);
 
 const hexPattern = () => new RegExp(HEX_COLOUR, "gu");
@@ -67,6 +72,7 @@ const GENERATED_SCHEMES = /\bcreateMaterialVuetifyOptions\s*\(/u;
 const PINNED_LIGHT = /\bdefaultTheme\s*:\s*["']light["']/u;
 const SHELL_PACKAGE = "@jskit-ai/shell-web";
 const isNavigationRule = (rule) => rule.startsWith("nav/");
+const SMALLER_BUTTON = "A smaller button is size=\"small\" or \"x-small\", which keeps the touch target.";
 
 function isSkippedDirectory(name) {
   return SKIPPED_DIRECTORIES.has(name);
@@ -156,7 +162,7 @@ function createReporter(file, source, { navigationOnly = false } = {}) {
 function checkCode(code, offset, { report, themed }) {
   if (!themed) {
     for (const match of code.matchAll(quotedHex())) {
-      report("m3/raw-hex", offset + match.index, `Raw colour ${match[2]}. Use a theme colour role; hex values live only in the generated scheme under src/theme/.`);
+      report("m3/raw-hex", offset + match.index, `Raw colour ${match[2]}. Use a theme colour role. ${CONTENT_COLOUR}`);
     }
   }
   checkNavigationCode(code, offset, report);
@@ -190,12 +196,12 @@ function checkDeclaration(declaration, context) {
   const { report, themed } = context;
   if (!themed) {
     for (const match of declaration.value.matchAll(hexPattern())) {
-      report("m3/raw-hex", declaration.valueOffset + match.index, `Raw colour ${match[0]}. Use rgb(var(--v-theme-<role>)); hex values live only in the generated scheme under src/theme/.`);
+      report("m3/raw-hex", declaration.valueOffset + match.index, `Raw colour ${match[0]}. Use rgb(var(--v-theme-<role>)). ${CONTENT_COLOUR}`);
     }
   }
   const buttonRule = declaration.selectors.some((selector) => /\.v-btn\b/u.test(selector));
   if (buttonRule && ["height", "min-height", "--v-btn-height"].includes(declaration.property)) {
-    report("m3/fixed-button-height", declaration.offset, `A fixed ${declaration.property} on buttons. JSKIT ships the 40dp button with its 48dp touch target; remove it.`);
+    report("m3/fixed-button-height", declaration.offset, `A fixed ${declaration.property} on buttons. JSKIT ships the 40dp button with its 48dp touch target; remove it. ${SMALLER_BUTTON}`);
   }
 }
 
@@ -220,7 +226,7 @@ function checkTemplate(template, context) {
     if (tag.name === "h1") {
       headings += 1;
       if (headings > 1) report("m3/duplicate-h1", tag.offset, "A second h1 in one template. A page has one title, carried by the top app bar.");
-      else if (context.shell) report("m3/duplicate-h1", tag.offset, "An in-page h1. The top app bar carries the page title; use a title role (text-title-large) for a section title.");
+      else if (context.titled) report("m3/duplicate-h1", tag.offset, "An in-page h1 under the top app bar, which carries the page title; use a title role (text-title-large) for a section title.");
     }
   }
 }
@@ -234,7 +240,7 @@ function checkAttribute(tag, entry, context) {
       checkDeclaration({ ...declaration, selectors: tag.name === "v-btn" ? [".v-btn"] : [] }, context);
     }
   } else if (!themed && exactHex.test(entry.value.trim())) {
-    report("m3/raw-hex", entry.valueOffset, `Raw colour ${entry.value.trim()}. Use a theme colour role such as color="primary".`);
+    report("m3/raw-hex", entry.valueOffset, `Raw colour ${entry.value.trim()}. Use a theme colour role such as color="primary". ${CONTENT_COLOUR}`);
   }
   checkLinkAttribute(tag, entry, context.report);
 }
@@ -253,7 +259,7 @@ function checkSurface(tag, report) {
 function checkButtonSize(tag, report) {
   for (const name of ["height", "min-height"]) {
     const entry = attribute(tag, name);
-    if (entry) report("m3/fixed-button-height", entry.offset, `A fixed ${name} on v-btn. JSKIT ships the 40dp button with its 48dp touch target; remove it.`);
+    if (entry) report("m3/fixed-button-height", entry.offset, `A fixed ${name} on v-btn. JSKIT ships the 40dp button with its 48dp touch target; remove it. ${SMALLER_BUTTON}`);
   }
 }
 
@@ -320,11 +326,15 @@ async function checkMaterial3({ projectRoot = process.cwd(), paths = [], navigat
   const root = path.resolve(projectRoot);
   const { files, missing } = await collectFiles(root, paths);
   const appFiles = paths.length === 0 ? files : (await collectFiles(root, [])).files;
-  const context = { shell: usesShell(await readProjectManifest(root)), navigationOnly };
+  const context = { navigationOnly };
+  // Only a page under the shell's top app bar has its title there; one without a bar has its own h1.
+  const titledFiles = usesShell(await readProjectManifest(root))
+    ? await readTitledFiles({ root, appFiles: [...new Set([...appFiles, ...files])] })
+    : new Set();
   const findings = [];
   const exceptions = [];
   for (const file of files) {
-    const checked = checkFile(file, await readFile(path.join(root, file), "utf8"), context);
+    const checked = checkFile(file, await readFile(path.join(root, file), "utf8"), { ...context, titled: titledFiles.has(file) });
     findings.push(...checked.findings);
     exceptions.push(...checked.exceptions);
   }

@@ -33,17 +33,6 @@ import BookViewPage from "../../patterns/crud-screen-set/example/books/BookViewP
 // file-based router's definePage() macro is a no-op here; each route carries the meta the page declares.
 globalThis.definePage = () => {};
 
-function destination(order, label, suffix, icon) {
-  return {
-    id: `fixture.${label.toLowerCase()}`,
-    target: "shell.primary-nav",
-    kind: "link",
-    surfaces: ["app"],
-    order,
-    props: { label, icon, surface: "app", scopedSuffix: suffix, unscopedSuffix: suffix, exact: suffix === "/" }
-  };
-}
-
 const menuRenderers = Object.freeze({ link: "fixture.surface-menu-link" });
 const placementRuntime = createWebPlacementRuntime({
   components: new Map([
@@ -53,9 +42,30 @@ const placementRuntime = createWebPlacementRuntime({
   logger: silentLogger
 });
 placementRuntime.replacePlacements([
-  destination(10, "Home", "/", "$home"),
-  destination(20, "Books", "/books", "$description"),
-  destination(30, "Settings", "/settings", "$settings")
+  {
+    id: "fixture.home",
+    target: "shell.primary-nav",
+    kind: "link",
+    surfaces: ["app"],
+    order: 10,
+    props: { label: "Home", icon: "$home", surface: "app", scopedSuffix: "/", unscopedSuffix: "/", exact: true }
+  },
+  {
+    id: "fixture.books",
+    target: "shell.primary-nav",
+    kind: "link",
+    surfaces: ["app"],
+    order: 20,
+    props: { label: "Books", icon: "$description", surface: "app", scopedSuffix: "/books", unscopedSuffix: "/books" }
+  },
+  {
+    id: "fixture.settings",
+    target: "shell.primary-nav",
+    kind: "link",
+    surfaces: ["app"],
+    order: 30,
+    props: { label: "Settings", icon: "$settings", surface: "app", scopedSuffix: "/settings", unscopedSuffix: "/settings" }
+  }
 ]);
 placementRuntime.replacePlacementTopology([
   {
