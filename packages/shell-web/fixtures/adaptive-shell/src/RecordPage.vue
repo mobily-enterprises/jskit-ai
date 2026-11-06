@@ -2,9 +2,11 @@
 import { computed } from "vue";
 import { RouterLink, useRoute } from "vue-router";
 import { useShellPageTitle } from "../../../src/client/composables/useShellPageTitle.js";
+import { usePaths } from "../../../src/client/navigation/usePaths.js";
 import { records } from "./records.js";
 
 const route = useRoute();
+const paths = usePaths();
 const kind = computed(() => String(route.meta.kind));
 const record = computed(() => (records[kind.value] || []).find((item) => item.id === route.params.id) || null);
 const related = computed(() => {
@@ -12,8 +14,8 @@ const related = computed(() => {
     return null;
   }
   return kind.value === "contacts"
-    ? { label: "Supplier", to: `/home/suppliers/${record.value.supplier}` }
-    : { label: "Contact", to: `/home/contacts/${record.value.contact}` };
+    ? { label: "Supplier", to: paths.page(`/suppliers/${record.value.supplier}`) }
+    : { label: "Contact", to: paths.page(`/contacts/${record.value.contact}`) };
 });
 
 useShellPageTitle(() => record.value?.name || "Not found");

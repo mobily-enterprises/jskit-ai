@@ -660,6 +660,11 @@ Exports
 Exports
 - None
 
+### `fixtures/adaptive-shell/src/theme/index.js`
+Exports
+- `theme`
+- `adminTheme`
+
 ### `fixtures/adaptive-shell/vite.config.mjs`
 Exports
 - None
@@ -675,6 +680,10 @@ Exports
 - None
 
 ### `patterns/application-shell/example/expected-existing/src/pages/home/index.vue`
+Exports
+- None
+
+### `patterns/application-shell/example/expected-existing/src/views/NotFound.vue`
 Exports
 - None
 
@@ -727,6 +736,10 @@ Exports
 Exports
 - `addPlacementTopology(value = {})`
 - `default`
+
+### `patterns/application-shell/example/src/views/NotFound.vue`
+Exports
+- None
 
 ### `patterns/page-and-placement/example/packages/main/src/client/providers/MainClientProvider.js`
 Exports

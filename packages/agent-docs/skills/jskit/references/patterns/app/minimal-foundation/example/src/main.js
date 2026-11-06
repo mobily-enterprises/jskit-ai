@@ -8,6 +8,7 @@ import "@jskit-ai/material-web/client/material.css";
 import { createVuetify } from "vuetify";
 import { createMaterialVuetifyOptions } from "@jskit-ai/material-web/client";
 import App from "./App.vue";
+import { theme } from "./theme/index.js";
 import NotFoundView from "./views/NotFound.vue";
 import { bootInstalledClientModules } from "virtual:jskit-client-bootstrap";
 import { createSurfaceRuntime } from "@jskit-ai/kernel/shared/surface/runtime";
@@ -40,10 +41,8 @@ const { router, fallbackRoute } = createShellRouter({
   }
 });
 
-// Material 3: light and dark colour schemes generated from this one seed colour, following the device's setting,
-// with Material Symbols behind every icon alias. Change the seed to rebrand; add the app's own icons with
-// `icons: { name: "<24x24 SVG path>" }` and use them as `$name`.
-const vuetify = createVuetify(createMaterialVuetifyOptions({ seed: "#6750A4" }));
+// Material 3 from the app's theme (src/theme/index.js), with Material Symbols behind every icon alias.
+const vuetify = createVuetify(createMaterialVuetifyOptions(theme));
 const pinia = createPinia();
 const queryClient = new QueryClient({
   defaultOptions: {

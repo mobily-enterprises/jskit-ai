@@ -58,10 +58,4 @@ const signInMethods = props.runtime.signInMethods;
 .account-settings-section__hint {
   padding: 0 1rem 1rem;
 }
-
-@media (max-width: 640px) {
-  .account-settings-section :deep(.v-btn) {
-    min-height: 48px;
-  }
-}
 </style>

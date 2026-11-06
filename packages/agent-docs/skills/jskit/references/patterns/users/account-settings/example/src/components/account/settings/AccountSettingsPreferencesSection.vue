@@ -128,10 +128,4 @@ const preferences = props.runtime.preferences;
 .account-settings-section__body {
   padding: 1rem;
 }
-
-@media (max-width: 640px) {
-  .account-settings-section__body :deep(.v-btn) {
-    min-height: 48px;
-  }
-}
 </style>

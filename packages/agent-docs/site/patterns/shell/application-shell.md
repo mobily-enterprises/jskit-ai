@@ -65,7 +65,9 @@ placement registry, topology, and adaptive smoke helper exported by
 ## Example files
 
 `example/src/` contains the complete shell composition, standard link
-components, settings routes, placement registry, and topology. The browser
+components, settings routes, placement registry, and topology, and a not-found
+view the shell renders, so the top app bar carries its title and the
+navigation leads back into the app. The browser
 example under `example/tests/` exercises the public adaptive-shell contract.
 The `expected-existing/` files show the minimal foundation shapes replaced by
 the complete shell; they are reference inputs, not merge instructions.

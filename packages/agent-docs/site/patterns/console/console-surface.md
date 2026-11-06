@@ -38,8 +38,10 @@ placement, and topology APIs for application composition.
 
 ## Example files
 
-`example/` contains concrete console root, landing, and settings routes. Adapt
-them together with the surface policy and placement examples described here.
+`example/` contains concrete console root, landing, and settings routes, and
+`src/placement.js` declares Settings as the console's main-navigation
+destination, so it starts a fresh trail and its sections' Up returns to it.
+Adapt them together with the surface policy described here.
 
 ## Variation points
 

@@ -9,6 +9,7 @@ import "@jskit-ai/material-web/client/material.css";
 import { materialThemes, createMaterialVuetifyOptions } from "@jskit-ai/material-web/client";
 import { shellScrollBehavior } from "@jskit-ai/kernel/client";
 import App from "./App.vue";
+import { adminTheme, theme } from "./theme/index.js";
 import RecordListPage from "./RecordListPage.vue";
 import RecordPage from "./RecordPage.vue";
 import ScreenPage from "./ScreenPage.vue";
@@ -169,8 +170,8 @@ const router = createRouter({ history: createWebHistory(), routes, scrollBehavio
 const navigationRuntime = createShellNavigationRuntime({ router });
 navigationRuntime.install();
 const pinia = createPinia();
-const material = createMaterialVuetifyOptions({ seed: "#006C51" });
-const adminThemes = materialThemes("#3F5F90");
+const material = createMaterialVuetifyOptions(theme);
+const adminThemes = materialThemes(adminTheme.seed);
 const vuetify = createVuetify({
   ...material,
   components: vuetifyComponents,

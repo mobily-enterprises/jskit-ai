@@ -51,7 +51,6 @@ function adminChildPath(suffix = "") {
   }
 
   .workspace-admin-screen__actions :deep(.v-btn) {
-    min-height: 48px;
     flex: 1 1 10rem;
   }
 }

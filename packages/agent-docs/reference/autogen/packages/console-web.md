@@ -29,3 +29,8 @@ Exports
 ### `patterns/console-surface/example/src/pages/console/settings/index.vue`
 Exports
 - None
+
+### `patterns/console-surface/example/src/placement.js`
+Exports
+- `addPlacement`
+- `getPlacements()`

@@ -100,7 +100,7 @@
               ],
               "order": 100,
               "when": "auth.authenticated === true",
-              "source": "patterns/console-surface/example/src/pages/console/settings.vue"
+              "source": "patterns/console-surface/example/src/placement.js"
             }
           ]
         }

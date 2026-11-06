@@ -158,6 +158,10 @@ Exports
 Exports
 - None
 
+### `patterns/minimal-foundation/example/src/theme/index.js`
+Exports
+- `theme`
+
 ### `patterns/minimal-foundation/example/src/views/NotFound.vue`
 Exports
 - None
@@ -300,6 +304,10 @@ Exports
 Exports
 - `addPlacementTopology(value = {})`
 - `default`
+
+### `patterns/shell-foundation/example/src/theme/index.js`
+Exports
+- `theme`
 
 ### `patterns/shell-foundation/example/src/views/NotFound.vue`
 Exports

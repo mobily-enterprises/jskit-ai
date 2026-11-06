@@ -1,14 +1,15 @@
 <script setup>
-const title = "Not Found";
+import ShellLayout from "@/components/ShellLayout.vue";
+
 const message = "The page you requested does not exist.";
 </script>
 
 <template>
-  <v-container class="fill-height d-flex align-center justify-center">
-    <section class="on-surface-variant text-center">
+  <!-- The shell's top app bar carries the title, and its navigation leads back into the app. -->
+  <ShellLayout title="Not Found" subtitle="">
+    <section class="d-flex flex-column align-center text-center on-surface-variant py-16">
       <v-icon icon="$searchOff" size="48" />
-      <h1 class="text-headline-small on-surface mt-4 mb-2">{{ title }}</h1>
-      <p class="text-body-large mb-0">{{ message }}</p>
+      <p class="text-body-large mt-4 mb-0">{{ message }}</p>
     </section>
-  </v-container>
+  </ShellLayout>
 </template>
